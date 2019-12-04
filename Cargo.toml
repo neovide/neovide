@@ -1,0 +1,16 @@
+[package]
+name = "rust_druid_test"
+version = "0.1.0"
+authors = ["keith <keith@the-simmons.net>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+itertools = "0.8.2"
+druid-shell = { git = "https://github.com/xi-editor/druid.git", version = "0.4" }
+derive-new = "0.5"
+derivative = "1.0.3"
+env_logger = "0.7.1"
+neovim-lib = { git = "https://github.com/daa84/neovim-lib", version = "0.6" }
+rmpv = "0.4.2"
