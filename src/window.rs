@@ -1,7 +1,5 @@
 use std::sync::{Arc, Mutex};
-use std::rc::Rc;
 use std::any::Any;
-use itertools::Itertools;
 use druid_shell::{Application, WinHandler, WindowHandle, WinCtx, KeyEvent, WindowBuilder, RunLoop, HotKey, KeyCode};
 use druid_shell::piet::{
     Piet, PietFont, Color, FontBuilder, RenderContext, Text, TextLayoutBuilder
@@ -9,7 +7,7 @@ use druid_shell::piet::{
 use druid_shell::kurbo::Rect;
 use neovim_lib::NeovimApi;
 
-use crate::editor::{DrawCommand, Editor};
+use crate::editor::{DrawCommand, Editor, Colors};
 
 #[derive(new)]
 struct WindowState {
@@ -25,36 +23,24 @@ struct WindowState {
 
 const FONT_NAME: &str = "Delugia Nerd Font";
 const FONT_SIZE: f64 = 14.0;
-const FONT_WIDTH: f64 = 10.0;
-const FONT_HEIGHT: f64 = 20.0;
+const FONT_WIDTH: f64 = 8.2;
+const FONT_HEIGHT: f64 = 16.4;
 
-fn process_draw_commands(draw_commands: &Vec<Vec<Arc<Option<DrawCommand>>>>, piet: &mut Piet, font: &PietFont) {
-    for row in draw_commands {
-        for possible_command in row.iter().dedup() {
-            if let Some(ref command) = **possible_command {
-                let x = command.col_start as f64 * FONT_WIDTH;
-                let y = command.row as f64 * FONT_HEIGHT + FONT_HEIGHT;
-                let top = y - FONT_HEIGHT * 0.8;
-                let top_left = (x, top);
-                let width = command.text.chars().count() as f64 * FONT_WIDTH;
-                let height = FONT_HEIGHT;
-                let bottom_right = (x + width, top + height);
-                let region = Rect::from_points(top_left, bottom_right);
-                piet.fill(region, &Color::rgb8(0x11, 0x11, 0x11));
-                    
-                let layout_ref = command.layout.lock().unwrap();
-
-                let owned;
-                let text_layout = if layout_ref.is_some() {
-                    layout_ref.as_ref().unwrap()
-                } else {
-                    let piet_text = piet.text();
-                    owned = piet_text.new_text_layout(&font, &command.text).build().unwrap();
-                    &owned
-                };
-                piet.draw_text(&text_layout, (x, y), &Color::rgb8(0xff, 0xff, 0xff));
-            }
-        }
+fn process_draw_commands(draw_commands: &Vec<DrawCommand>, default_colors: &Colors, piet: &mut Piet, font: &PietFont) {
+    for command in draw_commands {
+        let x = command.col_start as f64 * FONT_WIDTH;
+        let y = command.row as f64 * FONT_HEIGHT + FONT_HEIGHT;
+        let top = y - FONT_HEIGHT * 0.8;
+        let top_left = (x, top);
+        let width = command.text.chars().count() as f64 * FONT_WIDTH;
+        let height = FONT_HEIGHT;
+        let bottom_right = (x + width, top + height);
+        let region = Rect::from_points(top_left, bottom_right);
+        piet.fill(region, &command.style.colors.background.clone().or(default_colors.background.clone()).unwrap());
+            
+        let piet_text = piet.text();
+        let text_layout = piet_text.new_text_layout(&font, &command.text).build().unwrap();
+        piet.draw_text(&text_layout, (x, y), &command.style.colors.foreground.clone().or(default_colors.foreground.clone()).unwrap());
     }
 }
 
@@ -68,12 +54,21 @@ impl WinHandler for WindowState {
         if self.font.is_none() {
             self.font = Some(text.new_font_by_name(FONT_NAME, FONT_SIZE).build().unwrap());
         }
-
         let font = self.font.as_ref().unwrap();
 
-        piet.clear(Color::rgb8(0x00, 0x00, 0x00));
         let editor = self.editor.lock().unwrap();
-        process_draw_commands(&editor.draw_commands, piet, font);
+        let draw_commands = editor.build_draw_commands();
+
+        piet.clear(editor.default_colors.background.clone().unwrap());
+        process_draw_commands(&draw_commands, &editor.default_colors, piet, font);
+
+        let (cursor_grid_x, cursor_grid_y) = editor.cursor_pos;
+        let cursor_x = cursor_grid_x as f64 * FONT_WIDTH;
+        let cursor_width = FONT_WIDTH / 8.0;
+        let cursor_y = cursor_grid_y as f64 * FONT_HEIGHT + FONT_HEIGHT * 0.2;
+        let cursor_height = FONT_HEIGHT;
+        let cursor = Rect::from_points((cursor_x, cursor_y), (cursor_x + cursor_width, cursor_y + cursor_height));
+        piet.fill(cursor, &Color::rgb8(0xff, 0xff, 0xff));
         true
     }
 
@@ -103,7 +98,7 @@ impl WinHandler for WindowState {
         self.size = (width_f, height_f);
 
         let mut editor = self.editor.lock().unwrap();
-        editor.nvim.ui_try_resize((width_f / FONT_WIDTH) as i64, (height_f / FONT_HEIGHT) as i64).expect("Resize failed");
+        editor.resize((width_f / FONT_WIDTH) as u16, (height_f / FONT_HEIGHT) as u16);
     }
 
     fn as_any(&mut self) -> &mut dyn Any {
