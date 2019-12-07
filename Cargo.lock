@@ -499,6 +499,17 @@ version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "neovide"
+version = "0.1.0"
+dependencies = [
+ "derive-new 0.5.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "druid-shell 0.4.0 (git+https://github.com/xi-editor/druid.git)",
+ "env_logger 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "neovim-lib 0.6.0 (git+https://github.com/daa84/neovim-lib)",
+ "rmpv 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "neovim-lib"
 version = "0.6.0"
 source = "git+https://github.com/daa84/neovim-lib#5291bf754bcfa55dcf6332808f72d09ebd78ce90"
@@ -782,17 +793,6 @@ dependencies = [
  "rmp 0.8.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde 1.0.103 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_bytes 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
-name = "rust_druid_test"
-version = "0.1.0"
-dependencies = [
- "derive-new 0.5.8 (registry+https://github.com/rust-lang/crates.io-index)",
- "druid-shell 0.4.0 (git+https://github.com/xi-editor/druid.git)",
- "env_logger 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "neovim-lib 0.6.0 (git+https://github.com/daa84/neovim-lib)",
- "rmpv 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
