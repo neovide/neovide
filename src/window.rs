@@ -56,13 +56,15 @@ impl WinHandler for WindowState {
         }
         let font = self.font.as_ref().unwrap();
 
-        let editor = self.editor.lock().unwrap();
-        let draw_commands = editor.build_draw_commands();
+        let (draw_commands, default_colors, cursor_pos) = {
+            let editor = self.editor.lock().unwrap();
+            (editor.build_draw_commands().clone(), editor.default_colors.clone(), editor.cursor_pos.clone())
+        };
 
-        piet.clear(editor.default_colors.background.clone().unwrap());
-        process_draw_commands(&draw_commands, &editor.default_colors, piet, font);
+        piet.clear(default_colors.background.clone().unwrap());
+        process_draw_commands(&draw_commands, &default_colors, piet, font);
 
-        let (cursor_grid_x, cursor_grid_y) = editor.cursor_pos;
+        let (cursor_grid_x, cursor_grid_y) = cursor_pos;
         let cursor_x = cursor_grid_x as f64 * FONT_WIDTH;
         let cursor_width = FONT_WIDTH / 8.0;
         let cursor_y = cursor_grid_y as f64 * FONT_HEIGHT + FONT_HEIGHT * 0.2;
