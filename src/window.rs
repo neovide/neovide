@@ -13,6 +13,7 @@ use skulpin::winit::window::WindowBuilder;
 use neovim_lib::NeovimApi;
 
 use crate::editor::{DrawCommand, Editor, Colors};
+use crate::keybindings::construct_keybinding_string;
 
 const FONT_NAME: &str = "Delugia Nerd Font";
 const FONT_SIZE: f32 = 14.0;
@@ -24,13 +25,10 @@ const FONT_HEIGHT: f32 = 16.4;
 
 fn draw(
     editor: &Arc<Mutex<Editor>>,
-    canvas: &mut Canvas,
-    _coordinate_system_helper: &CoordinateSystemHelper
+    canvas: &mut Canvas
 ) {
-
     let typeface = Typeface::new(FONT_NAME, FontStyle::default()).expect("Could not load font file.");
     let font = Font::from_typeface(typeface, FONT_SIZE);
-    let paint = Paint::new(Color4f::new(0.0, 1.0, 1.0, 1.0), None);
 
     // let shaper = Shaper::new(None);
     // if let Some((blob, _)) = shaper.shape_text_blob("This is a test ~==", font, false, 10000.0, Point::default()) {
@@ -43,8 +41,6 @@ fn draw(
     };
 
     canvas.clear(default_colors.background.clone().unwrap().to_color());
-
-    canvas.draw_str("This is a test!", (50, 50), &font, &paint);
 
     for command in draw_commands {
         let x = command.col_start as f32 * FONT_WIDTH;
@@ -114,71 +110,13 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>) {
 
             Event:: WindowEvent {
                 event: WindowEvent::KeyboardInput {
-                    input: KeyboardInput {
-                        state: ElementState::Pressed,
-                        virtual_keycode: Some(keycode),
-                        ..
-                    },
+                    input,
                     ..
                 },
                 ..
             } => {
-                let possible_string = match keycode {
-                    VirtualKeyCode::A => Some("a"),
-                    VirtualKeyCode::B => Some("b"),
-                    VirtualKeyCode::C => Some("c"),
-                    VirtualKeyCode::D => Some("d"),
-                    VirtualKeyCode::E => Some("e"),
-                    VirtualKeyCode::F => Some("f"),
-                    VirtualKeyCode::G => Some("g"),
-                    VirtualKeyCode::H => Some("h"),
-                    VirtualKeyCode::I => Some("i"),
-                    VirtualKeyCode::J => Some("j"),
-                    VirtualKeyCode::K => Some("k"),
-                    VirtualKeyCode::L => Some("l"),
-                    VirtualKeyCode::M => Some("m"),
-                    VirtualKeyCode::N => Some("n"),
-                    VirtualKeyCode::O => Some("o"),
-                    VirtualKeyCode::P => Some("p"),
-                    VirtualKeyCode::Q => Some("q"),
-                    VirtualKeyCode::R => Some("r"),
-                    VirtualKeyCode::S => Some("s"),
-                    VirtualKeyCode::T => Some("t"),
-                    VirtualKeyCode::U => Some("u"),
-                    VirtualKeyCode::V => Some("v"),
-                    VirtualKeyCode::W => Some("w"),
-                    VirtualKeyCode::X => Some("x"),
-                    VirtualKeyCode::Y => Some("y"),
-                    VirtualKeyCode::Z => Some("z"),
-                    VirtualKeyCode::Escape => Some("<ESC>"),
-                    VirtualKeyCode::Back => Some("<BS>"),
-                    VirtualKeyCode::Space => Some("<Space>"),
-                    VirtualKeyCode::Return => Some("<Enter>"),
-                    VirtualKeyCode::Up => Some("<Up>"),
-                    VirtualKeyCode::Down => Some("<Down>"),
-                    VirtualKeyCode::Left => Some("<Left>"),
-                    VirtualKeyCode::Right => Some("<Right>"),
-                    VirtualKeyCode::LShift => Some("<S>"),
-                    VirtualKeyCode::RShift => Some("<S>"),
-                    VirtualKeyCode::Key1 => Some("1"),
-                    VirtualKeyCode::Key2 => Some("2"),
-                    VirtualKeyCode::Key3 => Some("3"),
-                    VirtualKeyCode::Key4 => Some("4"),
-                    VirtualKeyCode::Key5 => Some("5"),
-                    VirtualKeyCode::Key6 => Some("6"),
-                    VirtualKeyCode::Key7 => Some("7"),
-                    VirtualKeyCode::Key8 => Some("8"),
-                    VirtualKeyCode::Key9 => Some("9"),
-                    VirtualKeyCode::Key0 => Some("0"),
-                    VirtualKeyCode::Insert => Some("<Insert>"),
-                    VirtualKeyCode::Home => Some("<Home>"),
-                    VirtualKeyCode::Delete => Some("<Delete>"),
-                    VirtualKeyCode::End => Some("<End>"),
-                    _ => None
-                };
-
-                if let Some(string) = possible_string {
-                    editor.lock().unwrap().nvim.input(string).expect("Input call failed...");
+                if let Some(string) = construct_keybinding_string(input) {
+                    editor.lock().unwrap().nvim.input(&string).expect("Input call failed...");
                 }
             },
 
@@ -191,8 +129,8 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>) {
                 event: WindowEvent::RedrawRequested,
                 ..
             } => {
-                if let Err(e) = renderer.draw(&window, |canvas, coordinate_system_helper| {
-                    draw(&editor, canvas, coordinate_system_helper);
+                if let Err(e) = renderer.draw(&window, |canvas, _coordinate_system_helper| {
+                    draw(&editor, canvas);
                 }) {
                     println!("Error during draw: {:?}", e);
                     *control_flow = ControlFlow::Exit

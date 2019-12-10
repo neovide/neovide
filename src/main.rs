@@ -2,6 +2,7 @@
 
 mod editor;
 mod window;
+mod keybindings;
 
 #[macro_use]
 extern crate derive_new;
