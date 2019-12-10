@@ -1,6 +1,5 @@
 use std::collections::HashMap;
-use skia_safe::Color4f;
-use skia_safe::colors::*;
+use skulpin::skia_safe::{colors, Color4f};
 
 use neovim_lib::{Neovim, NeovimApi};
 

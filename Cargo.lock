@@ -599,6 +599,7 @@ dependencies = [
  "env_logger 0.7.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "neovim-lib 0.6.0 (git+https://github.com/daa84/neovim-lib)",
  "rmpv 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "skia-safe 0.17.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "skulpin 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 

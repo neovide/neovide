@@ -1,4 +1,4 @@
-#![windows_subsystem = "windows"]
+// #![windows_subsystem = "windows"]
 
 mod editor;
 mod window;
@@ -17,7 +17,7 @@ use rmpv::Value;
 use window::ui_loop;
 use editor::{Colors, Editor, GridLineCell, Style};
 
-use skia_safe::Color4f;
+use skulpin::skia_safe::Color4f;
 
 const INITIAL_WIDTH: u16 = 100;
 const INITIAL_HEIGHT: u16 = 50;
@@ -71,9 +71,17 @@ fn handle_cursor_goto(cursor_goto_arguments: &Vec<Value>, editor: &Arc<Mutex<Edi
     }
 }
 
-fn unpack_color(packed_color: u64) -> Color {
-
-    Color::from_rgba32_u32(((packed_color as u32) << 8) + 255)
+fn unpack_color(packed_color: u64) -> Color4f {
+    let packed_color = packed_color as u32;
+    let r = ((packed_color & 0xff0000) >> 16) as f32;
+    let g = ((packed_color & 0xff00) >> 8) as f32;
+    let b = (packed_color & 0xff) as f32;
+    Color4f {
+        r: r / 255.0,
+        g: g / 255.0,
+        b: b / 255.0,
+        a: 1.0
+    }
 }
 
 fn handle_default_colors(default_colors_arguments: &Vec<Value>, editor: &Arc<Mutex<Editor>>) {
