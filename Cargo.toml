@@ -5,7 +5,7 @@ authors = ["keith <keith@the-simmons.net>"]
 edition = "2018"
 
 [dependencies]
-druid-shell = { git = "https://github.com/xi-editor/druid.git", version = "0.4" }
+skulpin = "0.3"
 derive-new = "0.5"
 env_logger = "0.7.1"
 neovim-lib = { git = "https://github.com/daa84/neovim-lib", version = "0.6" }

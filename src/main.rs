@@ -17,7 +17,7 @@ use rmpv::Value;
 use window::ui_loop;
 use editor::{Colors, Editor, GridLineCell, Style};
 
-use druid_shell::piet::Color;
+use skia_safe::Color4f;
 
 const INITIAL_WIDTH: u16 = 100;
 const INITIAL_HEIGHT: u16 = 50;
@@ -72,6 +72,7 @@ fn handle_cursor_goto(cursor_goto_arguments: &Vec<Value>, editor: &Arc<Mutex<Edi
 }
 
 fn unpack_color(packed_color: u64) -> Color {
+
     Color::from_rgba32_u32(((packed_color as u32) << 8) + 255)
 }
 
