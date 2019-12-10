@@ -1,4 +1,4 @@
-// #![windows_subsystem = "windows"]
+//#![windows_subsystem = "windows"]
 
 mod editor;
 mod window;
@@ -7,6 +7,7 @@ mod keybindings;
 #[macro_use]
 extern crate derive_new;
 
+use std::process::{Command, Stdio};
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -168,10 +169,23 @@ fn nvim_event_loop(receiver: Receiver<(String, Vec<Value>)>, editor: &Arc<Mutex<
     }
 }
 
+#[cfg(target_os = "windows")]
+fn set_windows_creation_flags(cmd: &mut Command) {
+    use std::os::windows::process::CommandExt;
+    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+}
+
 fn main() {
     env_logger::from_env(LoggerEnv::default().default_filter_or("warn")).init();
 
-    let mut session = Session::new_child().unwrap();
+    let mut cmd = Command::new("nvim");
+    cmd.arg("--embed")
+        .stderr(Stdio::inherit());
+
+    #[cfg(target_os = "windows")]
+    set_windows_creation_flags(&mut cmd);
+
+    let mut session = Session::new_child_cmd(&mut cmd).unwrap();
     let receiver = session.start_event_loop_channel();
     let mut nvim = Neovim::new(session);
     let mut options = UiAttachOptions::new();
