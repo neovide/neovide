@@ -65,8 +65,8 @@ fn draw(
     let target_cursor_y = cursor_grid_y as f32 * font_height;
     let (previous_cursor_x, previous_cursor_y) = cursor_pos;
 
-    let cursor_x = (target_cursor_x - *previous_cursor_x) * 0.05 + *previous_cursor_x;
-    let cursor_y = (target_cursor_y - *previous_cursor_y) * 0.05 + *previous_cursor_y;
+    let cursor_x = (target_cursor_x - *previous_cursor_x) * 0.5 + *previous_cursor_x;
+    let cursor_y = (target_cursor_y - *previous_cursor_y) * 0.5 + *previous_cursor_y;
 
     *cursor_pos = (cursor_x, cursor_y);
 

@@ -1,4 +1,4 @@
-#![windows_subsystem = "windows"]
+// #![windows_subsystem = "windows"]
 
 mod editor;
 mod window;
@@ -70,19 +70,6 @@ fn handle_cursor_goto(cursor_goto_arguments: &Vec<Value>, editor: &Arc<Mutex<Edi
         editor.jump_cursor_to(column.as_u64().unwrap() as usize, row.as_u64().unwrap() as usize);
     } else {
         println!("Invalid cursor_goto format: {:?}", cursor_goto_arguments);
-    }
-}
-
-fn unpack_color(packed_color: u64) -> Color4f {
-    let packed_color = packed_color as u32;
-    let r = ((packed_color & 0xff0000) >> 16) as f32;
-    let g = ((packed_color & 0xff00) >> 8) as f32;
-    let b = (packed_color & 0xff) as f32;
-    Color4f {
-        r: r / 255.0,
-        g: g / 255.0,
-        b: b / 255.0,
-        a: 1.0
     }
 }
 
