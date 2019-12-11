@@ -1,4 +1,4 @@
-//#![windows_subsystem = "windows"]
+#![windows_subsystem = "windows"]
 
 mod editor;
 mod window;
@@ -21,16 +21,16 @@ use editor::{Colors, Editor, GridLineCell, Style};
 
 use skulpin::skia_safe::Color4f;
 
-const INITIAL_WIDTH: u16 = 100;
-const INITIAL_HEIGHT: u16 = 50;
+const INITIAL_WIDTH: usize = 100;
+const INITIAL_HEIGHT: usize = 50;
 
 fn handle_grid_line(grid_line_arguments: &Vec<Value>, editor: &Arc<Mutex<Editor>>) {
     if let [Value::Integer(grid_id), Value::Integer(row), Value::Integer(col_start), Value::Array(cells)] = grid_line_arguments.as_slice() {
-        let mut col_pos = col_start.as_u64().unwrap() as u16;
+        let mut col_pos = col_start.as_u64().unwrap() as usize;
         for cell in cells.into_iter() {
             if let Value::Array(cell_data) = cell {
-                let grid_id = grid_id.as_u64().unwrap() as u16;
-                let row = row.as_u64().unwrap() as u16;
+                let grid_id = grid_id.as_u64().unwrap() as usize;
+                let row = row.as_u64().unwrap() as usize;
 
                 let mut text = match cell_data.get(0).expect("Cell must have non zero size") {
                     Value::String(cell_text) => cell_text.as_str().expect("Could not process string").to_string(),
@@ -47,7 +47,7 @@ fn handle_grid_line(grid_line_arguments: &Vec<Value>, editor: &Arc<Mutex<Editor>
                 }
 
                 let mut editor = editor.lock().unwrap();
-                let length = text.chars().count() as u16;
+                let length = text.chars().count();
                 editor.draw(GridLineCell::new(grid_id, text, row, col_pos, style_id));
                 col_pos = col_pos + length;
             } else {
@@ -67,7 +67,7 @@ fn handle_clear(_clear_arguments: &Vec<Value>, editor: &Arc<Mutex<Editor>>) {
 fn handle_cursor_goto(cursor_goto_arguments: &Vec<Value>, editor: &Arc<Mutex<Editor>>) {
     if let [Value::Integer(_grid_id), Value::Integer(row), Value::Integer(column)] = cursor_goto_arguments.as_slice() {
         let mut editor = editor.lock().unwrap();
-        editor.jump_cursor_to(column.as_u64().unwrap() as u16, row.as_u64().unwrap() as u16);
+        editor.jump_cursor_to(column.as_u64().unwrap() as usize, row.as_u64().unwrap() as usize);
     } else {
         println!("Invalid cursor_goto format: {:?}", cursor_goto_arguments);
     }
@@ -107,7 +107,6 @@ fn handle_hl_attr_define(hl_attr_define_arguments: &Vec<Value>, editor: &Arc<Mut
         Value::Integer(id), Value::Map(attributes), Value::Map(_terminal_attributes), Value::Array(_info)
     ] = hl_attr_define_arguments.as_slice() {
         let id = id.as_u64().unwrap();
-        let mut editor = editor.lock().unwrap();
         let mut style = Style::new(Colors::new(None, None, None));
         for attribute in attributes {
             if let (Value::String(name), value) = attribute {
@@ -121,7 +120,25 @@ fn handle_hl_attr_define(hl_attr_define_arguments: &Vec<Value>, editor: &Arc<Mut
                 println!("Invalid attribute format");
             }
         }
+
+        let mut editor = editor.lock().unwrap();
         editor.define_style(id, style);
+    }
+}
+
+fn handle_grid_scroll(grid_scroll_arguments: &Vec<Value>, editor: &Arc<Mutex<Editor>>) {
+    if let [
+        Value::Integer(_grid_id), Value::Integer(top), Value::Integer(bot), Value::Integer(left), 
+        Value::Integer(right), Value::Integer(rows), Value::Integer(cols)
+    ] = grid_scroll_arguments.as_slice() {
+        let top = top.as_u64().unwrap() as isize;
+        let bot = bot.as_u64().unwrap() as isize;
+        let left = left.as_u64().unwrap() as isize;
+        let right = right.as_u64().unwrap() as isize;
+        let rows = rows.as_i64().unwrap() as isize;
+        let cols = cols.as_i64().unwrap() as isize;
+        let mut editor = editor.lock().unwrap();
+        editor.scroll_region(top, bot, left, right, rows, cols);
     }
 }
 
@@ -137,10 +154,11 @@ fn handle_redraw_event(event_value: Value, editor: &Arc<Mutex<Editor>>) {
                             "grid_resize" => println!("grid_resize event ignored"),
                             "default_colors_set" => handle_default_colors(arguments, editor),
                             "hl_attr_define" => handle_hl_attr_define(arguments, editor),
+                            "hl_group_set" => println!("hl_group_set event ignored"),
                             "grid_line" => handle_grid_line(arguments, &editor),
                             "grid_clear" => handle_clear(arguments, &editor),
                             "grid_cursor_goto" => handle_cursor_goto(arguments, &editor),
-                            "hl_group_set" => println!("hl_group_set event ignored"),
+                            "grid_scroll" => handle_grid_scroll(arguments, &editor),
                             other => println!("Unhandled redraw command {}", other)
                         }
                     },

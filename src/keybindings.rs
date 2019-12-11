@@ -80,13 +80,15 @@ fn parse_keycode(keycode: VirtualKeyCode) -> Option<(String, bool)> {
         VirtualKeyCode::Space => Some(("Space".to_string(), true)),
         VirtualKeyCode::Apostrophe => Some(("'".to_string(), false)),
         VirtualKeyCode::Backslash => Some(("Bslash".to_string(), true)),
-        VirtualKeyCode::Colon => Some((":".to_string(), false)),
         VirtualKeyCode::Comma => Some((",".to_string(), false)),
-        VirtualKeyCode::Decimal => Some((".".to_string(), false)),
-        VirtualKeyCode::Divide => Some(("/".to_string(), false)),
         VirtualKeyCode::Equals => Some(("=".to_string(), false)),
+        VirtualKeyCode::LBracket => Some(("[".to_string(), false)),
         VirtualKeyCode::Minus => Some(("-".to_string(), false)),
+        VirtualKeyCode::Period => Some((".".to_string(), false)),
+        VirtualKeyCode::RBracket => Some(("]".to_string(), false)),
         VirtualKeyCode::Semicolon => Some((";".to_string(), false)),
+        VirtualKeyCode::Slash => Some(("/".to_string(), false)),
+        VirtualKeyCode::Tab => Some(("<Tab>".to_string(), false)),
         _ => None
     }
 }
@@ -97,11 +99,6 @@ fn append_modifiers(modifiers: ModifiersState, keycode_text: String, special: bo
 
     if modifiers.shift {
         result = match result.as_ref() {
-            "," => "<".to_string(),
-            "." => ">".to_string(),
-            ";" => ":".to_string(),
-            "=" => "+".to_string(),
-            "-" => "_".to_string(),
             "1" => "!".to_string(),
             "2" => "@".to_string(),
             "3" => "#".to_string(),
@@ -112,6 +109,16 @@ fn append_modifiers(modifiers: ModifiersState, keycode_text: String, special: bo
             "8" => "*".to_string(),
             "9" => "(".to_string(),
             "0" => ")".to_string(),
+            "'" => "\"".to_string(),
+            "Bslash" => "|".to_string(),
+            "," => "<".to_string(),
+            "=" => "+".to_string(),
+            "[" => "{".to_string(),
+            "-" => "_".to_string(),
+            "." => ">".to_string(),
+            "]" => "}".to_string(),
+            ";" => ":".to_string(),
+            "/" => "?".to_string(),
             other => {
                 special = true;
                 format!("S-{}", result)
