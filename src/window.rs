@@ -85,7 +85,7 @@ fn draw(
     if let CursorType::Block = cursor_type {
         let text_paint = Paint::new(default_colors.background.unwrap(), None);
         let editor = editor.lock().unwrap();
-        let character = editor.grid[cursor_grid_y][cursor_grid_x].clone()
+        let character = editor.grid[cursor_grid_y as usize][cursor_grid_x as usize].clone()
             .map(|(character, _)| character)
             .unwrap_or(' ');
         let text_y = cursor_y + font_height - font_height * 0.2;
@@ -140,8 +140,8 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>) {
             } => {
                 if new_size.width > 0.0 && new_size.height > 0.0 {
                     editor.lock().unwrap().resize(
-                        (new_size.width as f32 / font_width) as usize, 
-                        (new_size.height as f32 / font_height) as usize
+                        (new_size.width as f32 / font_width) as u64, 
+                        (new_size.height as f32 / font_height) as u64
                     )
                 }
             },

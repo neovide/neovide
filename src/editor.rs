@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
+use neovim_lib::{Neovim, NeovimApi};
 use skulpin::skia_safe::{colors, Color4f};
 
-use neovim_lib::{Neovim, NeovimApi};
+use crate::events::{GridLineCell, RedrawEvent};
 
 #[derive(new, PartialEq, Debug, Clone)]
 pub struct Colors {
@@ -30,22 +31,13 @@ pub struct Style {
     pub blend: u8
 }
 
-#[derive(new)]
-pub struct GridLineCell {
-    pub grid: usize,
-    pub text: String,
-    pub row: usize,
-    pub col_start: usize,
-    pub style_id: Option<u64>
-}
-
 pub type GridCell = Option<(char, Style)>;
 
 #[derive(new, Debug, Clone)]
 pub struct DrawCommand {
     pub text: String,
-    pub row: usize,
-    pub col_start: usize,
+    pub row: u64,
+    pub col_start: u64,
     pub style: Style
 }
 
@@ -59,16 +51,16 @@ pub enum CursorType {
 pub struct Editor {
     pub nvim: Neovim,
     pub grid: Vec<Vec<GridCell>>,
-    pub cursor_pos: (usize, usize),
+    pub cursor_pos: (u64, u64),
     pub cursor_type: CursorType,
-    pub size: (usize, usize),
+    pub size: (u64, u64),
     pub default_colors: Colors,
     pub defined_styles: HashMap<u64, Style>,
     pub previous_style: Option<Style>
 }
 
 impl Editor {
-    pub fn new(nvim: Neovim, width: usize, height: usize) -> Editor {
+    pub fn new(nvim: Neovim, width: u64, height: u64) -> Editor {
         let mut editor = Editor {
             nvim,
             grid: Vec::new(),
@@ -101,7 +93,7 @@ impl Editor {
                 }
             }
 
-            fn add_character(command: &mut Option<DrawCommand>, character: &char, row_index: usize, col_index: usize, style: Style) {
+            fn add_character(command: &mut Option<DrawCommand>, character: &char, row_index: u64, col_index: u64, style: Style) {
                 match command {
                     Some(command) => command.text.push(character.clone()),
                     None => {
@@ -116,7 +108,7 @@ impl Editor {
                         add_command(&mut draw_commands, command);
                         command = None;
                     }
-                    add_character(&mut command, &character, row_index as usize, col_index as usize, new_style.clone());
+                    add_character(&mut command, &character, row_index as u64, col_index as u64, new_style.clone());
                 } else {
                     add_command(&mut draw_commands, command);
                     command = None;
@@ -128,47 +120,91 @@ impl Editor {
         }).flatten().collect()
     }
 
-    pub fn draw(&mut self, command: GridLineCell) {
-        let row_index = command.row as usize;
-        let col_start = command.col_start as usize;
+    pub fn handle_redraw_event(&mut self, event: RedrawEvent) {
+        match event {
+            RedrawEvent::Resize { width, height, .. } => self.resize(width, height),
+            RedrawEvent::DefaultColorsSet { foreground, background, special } => self.set_default_colors(foreground, background, special),
+            RedrawEvent::HighlightAttributesDefine { id, style } => self.define_style(id, style),
+            RedrawEvent::GridLine { row, column_start, cells, .. } => self.draw_grid_line(row, column_start, cells),
+            RedrawEvent::Clear { .. } => self.clear(),
+            RedrawEvent::CursorGoto { row, column, .. } => self.jump_cursor_to(row, column),
+            RedrawEvent::Scroll { top, bottom, left, right, rows, columns, .. } => self.scroll_region(top, bottom, left, right, rows, columns)
+        }
+    }
 
-        let style = match (command.style_id, self.previous_style.clone()) {
+    pub fn resize(&mut self, new_width: u64, new_height: u64) {
+        self.nvim.ui_try_resize(new_width as i64, new_height as i64).expect("Resize failed");
+        self.size = (new_width, new_height);
+    }
+
+    fn set_default_colors(&mut self, foreground: Color4f, background: Color4f, special: Color4f) {
+        self.default_colors = Colors::new(Some(foreground), Some(background), Some(special));
+    }
+
+    fn define_style(&mut self, id: u64, style: Style) {
+        self.defined_styles.insert(id, style);
+    }
+
+    fn draw_grid_line_cell(&mut self, row_index: u64, column_pos: &mut u64, cell: GridLineCell) {
+        let style = match (cell.highlight_id, self.previous_style.clone()) {
             (Some(0), _) => Style::new(self.default_colors.clone()),
             (Some(style_id), _) => self.defined_styles.get(&style_id).expect("GridLineCell must use defined color").clone(),
             (None, Some(previous_style)) => previous_style,
             (None, None) => Style::new(self.default_colors.clone())
         };
 
-        if row_index < self.grid.len() {
-            let row = self.grid.get_mut(row_index).expect("Grid must have size greater than row_index");
-            for (i, character) in command.text.chars().enumerate() {
-                let pointer_index = i + col_start;
-                if pointer_index < row.len() {
-                    row[pointer_index] = Some((character, style.clone()));
-                }
+        let mut text = cell.text;
+        if let Some(times) = cell.repeat {
+            text = text.repeat(times as usize);
+        }
+
+        let row = self.grid.get_mut(row_index as usize).expect("Grid must have size greater than row_index");
+        for (i, character) in text.chars().enumerate() {
+            let pointer_index = i + *column_pos as usize;
+            if pointer_index < row.len() {
+                row[pointer_index] = Some((character, style.clone()));
+            }
+        }
+
+        *column_pos = *column_pos + text.chars().count() as u64;
+        self.previous_style = Some(style);
+    }
+
+    fn draw_grid_line(&mut self, row: u64, column_start: u64, cells: Vec<GridLineCell>) {
+        if row < self.grid.len() as u64 {
+            let mut column_pos = column_start;
+            for cell in cells {
+                self.draw_grid_line_cell(row, &mut column_pos, cell);
             }
         } else {
             println!("Draw command out of bounds");
         }
-
-        self.previous_style = Some(style);
     }
 
-    pub fn scroll_region(&mut self, top: isize, bot: isize, left: isize, right: isize, rows: isize, cols: isize) {
+    fn clear(&mut self) {
+        let (width, height) = self.size;
+        self.grid = vec![vec![None; width as usize]; height as usize];
+    }
+
+    fn jump_cursor_to(&mut self, row: u64, col: u64) {
+        self.cursor_pos = (row, col);
+    }
+
+    fn scroll_region(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64, cols: i64) {
         let (top, bot) =  if rows > 0 {
-            (top + rows, bot)
+            (top as i64 + rows, bot as i64)
         } else if rows < 0 {
-            (top, bot + rows)
+            (top as i64, bot as i64 + rows)
         } else {
-            (top, bot)
+            (top as i64, bot as i64)
         };
 
         let (left, right) = if cols > 0 {
-            (left + cols, right)
+            (left as i64 + cols, right as i64)
         } else if rows < 0 {
-            (left, right + cols)
+            (left as i64, right as i64 + cols)
         } else {
-            (left, right)
+            (left as i64, right as i64)
         };
 
         let width = right - left;
@@ -184,45 +220,22 @@ impl Editor {
             region.push(copied_section);
         }
 
-        let new_top = top as isize - rows;
-        let new_left = left as isize - cols;
+        let new_top = top as i64 - rows;
+        let new_left = left as i64 - cols;
 
         dbg!(top, bot, left, right, rows, cols, new_top, new_left);
 
         for (y, row_section) in region.into_iter().enumerate() {
             for (x, cell) in row_section.into_iter().enumerate() {
-                let y = new_top + y as isize;
-                if y >= 0 && y < self.grid.len() as isize {
+                let y = new_top + y as i64;
+                if y >= 0 && y < self.grid.len() as i64 {
                     let mut row = &mut self.grid[y as usize];
-                    let x = new_left + x as isize;
-                    if x >= 0 && x < row.len() as isize {
+                    let x = new_left + x as i64;
+                    if x >= 0 && x < row.len() as i64 {
                         row[x as usize] = cell;
                     }
                 }
             }
         }
-    }
-
-
-    pub fn clear(&mut self) {
-        let (width, height) = self.size;
-        self.grid = vec![vec![None; width as usize]; height as usize];
-    }
-
-    pub fn resize(&mut self, new_width: usize, new_height: usize) {
-        self.nvim.ui_try_resize(new_width as i64, new_height as i64).expect("Resize failed");
-        self.size = (new_width, new_height);
-    }
-
-    pub fn define_style(&mut self, id: u64, style: Style) {
-        self.defined_styles.insert(id, style);
-    }
-
-    pub fn set_default_colors(&mut self, foreground: Color4f, background: Color4f, special: Color4f) {
-        self.default_colors = Colors::new(Some(foreground), Some(background), Some(special));
-    }
-
-    pub fn jump_cursor_to(&mut self, row: usize, col: usize) {
-        self.cursor_pos = (row, col);
     }
 }
