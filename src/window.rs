@@ -18,9 +18,6 @@ use crate::keybindings::construct_keybinding_string;
 const FONT_NAME: &str = "Delugia Nerd Font";
 const FONT_SIZE: f32 = 14.0;
 
-// fn process_draw_commands(draw_commands: &Vec<DrawCommand>, default_colors: &Colors, piet: &mut Piet, font: &PietFont) {
-// }
-
 fn draw(
     editor: &Arc<Mutex<Editor>>,
     canvas: &mut Canvas,
@@ -69,7 +66,6 @@ fn draw(
     let cursor_y = (target_cursor_y - *previous_cursor_y) * 0.5 + *previous_cursor_y;
 
     *cursor_pos = (cursor_x, cursor_y);
-
     let cursor_width = match cursor_type {
         CursorType::Vertical => font_width / 8.0,
         CursorType::Horizontal | CursorType::Block => font_width

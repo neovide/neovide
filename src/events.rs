@@ -4,11 +4,12 @@ use std::fmt;
 use rmpv::Value;
 use skulpin::skia_safe::Color4f;
 
-use crate::editor::{Colors, Style};
+use crate::editor::{Colors, Style, ModeInfo, CursorType};
 
 #[derive(Debug, Clone)]
 pub enum EventParseError {
     InvalidArray(Value),
+    InvalidMap(Value),
     InvalidString(Value),
     InvalidU64(Value),
     InvalidI64(Value),
@@ -20,6 +21,7 @@ impl fmt::Display for EventParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             EventParseError::InvalidArray(value) => write!(f, "invalid array format {}", value),
+            EventParseError::InvalidMap(value) => write!(f, "invalid map format {}", value),
             EventParseError::InvalidString(value) => write!(f, "invalid string format {}", value),
             EventParseError::InvalidU64(value) => write!(f, "invalid u64 format {}", value),
             EventParseError::InvalidI64(value) => write!(f, "invalid i64 format {}", value),
@@ -43,6 +45,8 @@ pub struct GridLineCell {
 
 #[derive(Debug)]
 pub enum RedrawEvent {
+    ModeInfoSet { mode_list: Vec<ModeInfo> },
+    ModeChange { mode_index: u64 },
     Resize { grid: u64, width: u64, height: u64 },
     DefaultColorsSet { foreground: Color4f, background: Color4f, special: Color4f },
     HighlightAttributesDefine { id: u64, style: Style },
@@ -73,6 +77,14 @@ fn parse_array(array_value: &Value) -> Result<Vec<Value>> {
     }
 }
 
+fn parse_map(map_value: &Value) -> Result<Vec<(Value, Value)>> {
+    if let Value::Map(content) = map_value.clone() {
+        Ok(content)
+    } else {
+        Err(EventParseError::InvalidMap(map_value.clone()))
+    }
+}
+
 fn parse_string(string_value: &Value) -> Result<String> {
     if let Value::String(content) = string_value.clone() {
         Ok(content.into_str().ok_or(EventParseError::InvalidString(string_value.clone()))?)
@@ -94,6 +106,45 @@ fn parse_i64(i64_value: &Value) -> Result<i64> {
         Ok(content.as_i64().ok_or(EventParseError::InvalidI64(i64_value.clone()))?)
     } else {
         Err(EventParseError::InvalidI64(i64_value.clone()))
+    }
+}
+
+fn parse_mode_info_set(mode_info_set_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [_cursor_style_enabled, mode_info] = mode_info_set_arguments.as_slice() {
+        let mode_info_values = parse_array(&mode_info)?;
+        let mut mode_list = Vec::new();
+        for mode_info_value in mode_info_values {
+            let info_map = parse_map(&mode_info_value)?;
+            let mut mode_info = ModeInfo::new();
+            for (name, value) in info_map {
+                let name = parse_string(&name)?;
+                match name.as_ref() {
+                    "cursor_shape" => {
+                        mode_info.cursor_type = CursorType::from_type_name(&parse_string(&value)?);
+                    },
+                    "attr_id" => {
+                        mode_info.cursor_style_id = Some(parse_u64(&value)?);
+                    },
+                    _ => {}
+                }
+            }
+            mode_list.push(mode_info);
+        }
+        Ok(RedrawEvent::ModeInfoSet {
+            mode_list
+        })
+    } else {
+        Err(EventParseError::InvalidEventFormat)
+    }
+}
+
+fn parse_mode_change(mode_change_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [_mode, mode_index] = mode_change_arguments.as_slice() {
+        Ok(RedrawEvent::ModeChange {
+            mode_index: parse_u64(&mode_index)?
+        })
+    } else {
+        Err(EventParseError::InvalidEventFormat)
     }
 }
 
@@ -200,6 +251,13 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
     for event in &events[1..] {
         let event_parameters = parse_array(&event)?;
         let possible_parsed_event = match event_name.clone().as_ref() {
+            "set_title" => None, // Ignore set title for now
+            "set_icon" => None, // Ignore set icon for now
+            "mode_info_set" => Some(parse_mode_info_set(event_parameters)?),
+            "option_set" => None, // Ignore option set for now
+            "mode_change" => Some(parse_mode_change(event_parameters)?),
+            "busy_start" => None, // Ignore busy start for now
+            "busy_stop" => None, // Ignore busy stop for now
             "default_colors_set" => Some(parse_default_colors(event_parameters)?),
             "hl_attr_define" => Some(parse_hl_attr_define(event_parameters)?),
             "grid_line" => Some(parse_grid_line(event_parameters)?),

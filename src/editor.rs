@@ -31,6 +31,14 @@ pub struct Style {
     pub blend: u8
 }
 
+#[derive(new, Debug, Clone, PartialEq)]
+pub struct ModeInfo {
+    #[new(default)]
+    pub cursor_type: Option<CursorType>,
+    #[new(default)]
+    pub cursor_style_id: Option<u64>
+}
+
 pub type GridCell = Option<(char, Style)>;
 
 #[derive(new, Debug, Clone)]
@@ -41,11 +49,22 @@ pub struct DrawCommand {
     pub style: Style
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum CursorType {
     Block,
     Horizontal,
     Vertical
+}
+
+impl CursorType {
+    pub fn from_type_name(name: &str) -> Option<CursorType> {
+        match name {
+            "block" => Some(CursorType::Block),
+            "horizontal" => Some(CursorType::Horizontal),
+            "vertical" => Some(CursorType::Vertical),
+            _ => None
+        }
+    }
 }
 
 pub struct Editor {
@@ -53,9 +72,11 @@ pub struct Editor {
     pub grid: Vec<Vec<GridCell>>,
     pub cursor_pos: (u64, u64),
     pub cursor_type: CursorType,
+    pub cursor_style: Option<Style>,
     pub size: (u64, u64),
     pub default_colors: Colors,
     pub defined_styles: HashMap<u64, Style>,
+    pub mode_list: Vec<ModeInfo>,
     pub previous_style: Option<Style>
 }
 
@@ -66,9 +87,11 @@ impl Editor {
             grid: Vec::new(),
             cursor_pos: (0, 0),
             cursor_type: CursorType::Block,
+            cursor_style: None,
             size: (width, height),
             default_colors: Colors::new(Some(colors::WHITE), Some(colors::BLACK), Some(colors::GREY)),
             defined_styles: HashMap::new(),
+            mode_list: Vec::new(),
             previous_style: None
         };
         editor.clear();
@@ -122,6 +145,8 @@ impl Editor {
 
     pub fn handle_redraw_event(&mut self, event: RedrawEvent) {
         match event {
+            RedrawEvent::ModeInfoSet { mode_list } => self.set_mode_list(mode_list),
+            RedrawEvent::ModeChange { mode_index } => self.change_mode(mode_index),
             RedrawEvent::Resize { width, height, .. } => self.resize(width, height),
             RedrawEvent::DefaultColorsSet { foreground, background, special } => self.set_default_colors(foreground, background, special),
             RedrawEvent::HighlightAttributesDefine { id, style } => self.define_style(id, style),
@@ -129,6 +154,24 @@ impl Editor {
             RedrawEvent::Clear { .. } => self.clear(),
             RedrawEvent::CursorGoto { row, column, .. } => self.jump_cursor_to(row, column),
             RedrawEvent::Scroll { top, bottom, left, right, rows, columns, .. } => self.scroll_region(top, bottom, left, right, rows, columns)
+        }
+    }
+
+    pub fn set_mode_list(&mut self, mode_list: Vec<ModeInfo>) {
+        self.mode_list = mode_list;
+    }
+
+    pub fn change_mode(&mut self, mode_index: u64) {
+        if let Some(ModeInfo { cursor_type, cursor_style_id })  = self.mode_list.get(mode_index as usize) {
+            if let Some(cursor_type) = cursor_type {
+                self.cursor_type = cursor_type.clone();
+            }
+
+            if let Some(cursor_style_id) = cursor_style_id {
+                self.cursor_style = self.defined_styles
+                    .get(cursor_style_id)
+                    .map(|style_reference| style_reference.clone());
+            }
         }
     }
 
@@ -222,8 +265,6 @@ impl Editor {
 
         let new_top = top as i64 - rows;
         let new_left = left as i64 - cols;
-
-        dbg!(top, bot, left, right, rows, cols, new_top, new_left);
 
         for (y, row_section) in region.into_iter().enumerate() {
             for (x, cell) in row_section.into_iter().enumerate() {

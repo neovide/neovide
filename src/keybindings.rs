@@ -126,14 +126,18 @@ fn append_modifiers(modifiers: ModifiersState, keycode_text: String, special: bo
         };
     }
     if modifiers.ctrl {
+        special = true;
         result = format!("C-{}", result);
     }
     if modifiers.alt {
+        special = true;
         result = format!("M-{}", result);
     }
     if modifiers.logo {
+        special = true;
         result = format!("D-{}", result);
     }
+
     if special {
         result = format!("<{}>", result);
     }
