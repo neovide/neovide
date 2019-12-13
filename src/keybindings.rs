@@ -82,13 +82,14 @@ fn parse_keycode(keycode: VirtualKeyCode) -> Option<(String, bool)> {
         VirtualKeyCode::Backslash => Some(("Bslash".to_string(), true)),
         VirtualKeyCode::Comma => Some((",".to_string(), false)),
         VirtualKeyCode::Equals => Some(("=".to_string(), false)),
+        VirtualKeyCode::Grave => Some(("`".to_string(), false)),
         VirtualKeyCode::LBracket => Some(("[".to_string(), false)),
         VirtualKeyCode::Minus => Some(("-".to_string(), false)),
         VirtualKeyCode::Period => Some((".".to_string(), false)),
         VirtualKeyCode::RBracket => Some(("]".to_string(), false)),
         VirtualKeyCode::Semicolon => Some((";".to_string(), false)),
         VirtualKeyCode::Slash => Some(("/".to_string(), false)),
-        VirtualKeyCode::Tab => Some(("<Tab>".to_string(), false)),
+        VirtualKeyCode::Tab => Some(("Tab".to_string(), true)),
         _ => None
     }
 }
@@ -111,8 +112,12 @@ fn append_modifiers(modifiers: ModifiersState, keycode_text: String, special: bo
             "0" => ")".to_string(),
             "'" => "\"".to_string(),
             "Bslash" => "|".to_string(),
-            "," => "<".to_string(),
+            "," => {
+                special = true;
+                "lt".to_string()
+            },
             "=" => "+".to_string(),
+            "`" => "~".to_string(),
             "[" => "{".to_string(),
             "-" => "_".to_string(),
             "." => ">".to_string(),

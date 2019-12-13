@@ -2,9 +2,10 @@ use std::sync::{Arc, Mutex};
 use std::any::Any;
 
 use skulpin::{CoordinateSystem, CoordinateSystemHelper, RendererBuilder};
-use skulpin::skia_safe::{Canvas, Color4f, Font, FontStyle, Point, Paint, Rect, Typeface};
+use skulpin::skia_safe::{Canvas, colors, Color4f, Font, FontStyle, Point, Paint, Rect, Shaper, Typeface};
 use skulpin::skia_safe::paint::Style;
 use skulpin::skia_safe::matrix::ScaleToFit;
+use skulpin::skia_safe::icu;
 use skulpin::winit::dpi::{LogicalSize, LogicalPosition};
 use skulpin::winit::event::{ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent};
 use skulpin::winit::event_loop::{ControlFlow, EventLoop};
@@ -22,15 +23,11 @@ fn draw(
     editor: &Arc<Mutex<Editor>>,
     canvas: &mut Canvas,
     cursor_pos: &mut (f32, f32),
+    shaper: &Shaper,
     font: &Font,
     font_width: f32,
     font_height: f32
 ) {
-    // let shaper = Shaper::new(None);
-    // if let Some((blob, _)) = shaper.shape_text_blob("This is a test ~==", font, false, 10000.0, Point::default()) {
-    //     canvas.draw_text_blob(&blob, (50, 50), &paint);
-    // }
-
     let (draw_commands, default_colors, cursor_grid_pos, cursor_type) = {
         let editor = editor.lock().unwrap();
         (
@@ -52,9 +49,14 @@ fn draw(
         let region = Rect::new(x, top, x + width, top + height);
         let background_paint = Paint::new(command.style.colors.background.unwrap_or(default_colors.background.clone().unwrap()), None);
         canvas.draw_rect(region, &background_paint);
-            
-        let foreground_paint = Paint::new(command.style.colors.foreground.unwrap_or(default_colors.foreground.clone().unwrap()), None);
-        canvas.draw_str(&command.text, (x, y), &font, &foreground_paint);
+
+        let mut foreground_paint = Paint::new(command.style.colors.foreground.unwrap_or(default_colors.foreground.clone().unwrap()), None);
+        let text = command.text.trim_end();
+        if text.len() > 0 {
+            if let Some((blob, _)) = shaper.shape_text_blob(&text, font, false, 10000.0, Point::default()) {
+                canvas.draw_text_blob(&blob, (x, top), &foreground_paint);
+            }
+        }
     }
 
     let (cursor_grid_x, cursor_grid_y) = cursor_grid_pos;
@@ -87,14 +89,17 @@ fn draw(
         let text_y = cursor_y + font_height - font_height * 0.2;
         canvas.draw_str(character.to_string(), (cursor_x, text_y), &font, &text_paint);
     }
+
 }
 
 pub fn ui_loop(editor: Arc<Mutex<Editor>>) {
+    let shaper = Shaper::new(None);
     let typeface = Typeface::new(FONT_NAME, FontStyle::default()).expect("Could not load font file.");
     let font = Font::from_typeface(typeface, FONT_SIZE);
+    let paint = Paint::new(colors::WHITE, None);
 
-    let (width, bounds) = font.measure_str("0", None);
-    let font_width = width;
+    let (width, bounds) = font.measure_str("0".repeat(1000), Some(&paint));
+    let font_width = bounds.width() / 1000.0;
     let font_height = bounds.height() * 1.68;
 
     let event_loop = EventLoop::<()>::with_user_event();
@@ -121,7 +126,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>) {
 
     let mut cursor_pos = (0.0, 0.0);
 
-    // icu::init();
+    icu::init();
 
     event_loop.run(move |event, _window_target, control_flow| {
         match event {
@@ -164,7 +169,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>) {
                 ..
             } => {
                 if let Err(e) = renderer.draw(&window, |canvas, _coordinate_system_helper| {
-                    draw(&editor, canvas, &mut cursor_pos, &font, font_width, font_height);
+                    draw(&editor, canvas, &mut cursor_pos, &shaper, &font, font_width, font_height);
                 }) {
                     println!("Error during draw: {:?}", e);
                     *control_flow = ControlFlow::Exit
