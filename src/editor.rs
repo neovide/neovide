@@ -31,6 +31,28 @@ pub struct Style {
     pub blend: u8
 }
 
+impl Style {
+    pub fn foreground(&self, default_colors: &Colors) -> Color4f {
+        if self.reverse {
+            self.colors.background.clone().unwrap_or(default_colors.background.clone().unwrap())
+        } else {
+            self.colors.foreground.clone().unwrap_or(default_colors.foreground.clone().unwrap())
+        }
+    }
+
+    pub fn background(&self, default_colors: &Colors) -> Color4f {
+        if self.reverse {
+            self.colors.foreground.clone().unwrap_or(default_colors.foreground.clone().unwrap())
+        } else {
+            self.colors.background.clone().unwrap_or(default_colors.background.clone().unwrap())
+        }
+    }
+
+    pub fn special(&self, default_colors: &Colors) -> Color4f {
+        self.colors.special.clone().unwrap_or(default_colors.special.clone().unwrap())
+    }
+}
+
 #[derive(new, Debug, Clone, PartialEq)]
 pub struct ModeInfo {
     #[new(default)]
@@ -73,6 +95,7 @@ pub struct Editor {
     pub cursor_pos: (u64, u64),
     pub cursor_type: CursorType,
     pub cursor_style: Option<Style>,
+    pub cursor_enabled: bool,
     pub size: (u64, u64),
     pub default_colors: Colors,
     pub defined_styles: HashMap<u64, Style>,
@@ -88,6 +111,7 @@ impl Editor {
             cursor_pos: (0, 0),
             cursor_type: CursorType::Block,
             cursor_style: None,
+            cursor_enabled: true,
             size: (width, height),
             default_colors: Colors::new(Some(colors::WHITE), Some(colors::BLACK), Some(colors::GREY)),
             defined_styles: HashMap::new(),
@@ -96,6 +120,22 @@ impl Editor {
         };
         editor.clear();
         editor
+    }
+
+    pub fn cursor_foreground(&self) -> Color4f {
+        if let Some(cursor_style) = &self.cursor_style {
+            cursor_style.colors.foreground.clone().unwrap_or(self.default_colors.background.clone().unwrap())
+        } else {
+            self.default_colors.background.clone().unwrap()
+        }
+    }
+
+    pub fn cursor_background(&self) -> Color4f {
+        if let Some(cursor_style) = &self.cursor_style {
+            cursor_style.colors.background.clone().unwrap_or(self.default_colors.foreground.clone().unwrap())
+        } else {
+            self.default_colors.foreground.clone().unwrap()
+        }
     }
 
     pub fn build_draw_commands(&self) -> Vec<DrawCommand> {
@@ -147,6 +187,8 @@ impl Editor {
         match event {
             RedrawEvent::ModeInfoSet { mode_list } => self.set_mode_list(mode_list),
             RedrawEvent::ModeChange { mode_index } => self.change_mode(mode_index),
+            RedrawEvent::BusyStart => self.set_cursor_enabled(false),
+            RedrawEvent::BusyStop => self.set_cursor_enabled(true),
             RedrawEvent::Resize { width, height, .. } => self.resize(width, height),
             RedrawEvent::DefaultColorsSet { foreground, background, special } => self.set_default_colors(foreground, background, special),
             RedrawEvent::HighlightAttributesDefine { id, style } => self.define_style(id, style),
@@ -173,6 +215,10 @@ impl Editor {
                     .map(|style_reference| style_reference.clone());
             }
         }
+    }
+
+    pub fn set_cursor_enabled(&mut self, cursor_enabled: bool) {
+        self.cursor_enabled = cursor_enabled;
     }
 
     pub fn resize(&mut self, new_width: u64, new_height: u64) {

@@ -1,4 +1,4 @@
-// #![windows_subsystem = "windows"]
+#![windows_subsystem = "windows"]
 
 mod editor;
 mod events;
@@ -8,7 +8,8 @@ mod keybindings;
 #[macro_use]
 extern crate derive_new;
 
-use std::process::{Command, Stdio};
+use std::panic;
+use std::process::{Command, Stdio, exit};
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -46,8 +47,13 @@ fn set_windows_creation_flags(cmd: &mut Command) {
 fn main() {
     env_logger::from_env(LoggerEnv::default().default_filter_or("warn")).init();
 
+    panic::set_hook(Box::new(|_| {
+        exit(1);
+    }));
+
     let mut cmd = Command::new("nvim");
     cmd.arg("--embed")
+        .args(std::env::args().skip(1))
         .stderr(Stdio::inherit());
 
     #[cfg(target_os = "windows")]

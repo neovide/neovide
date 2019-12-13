@@ -47,6 +47,8 @@ pub struct GridLineCell {
 pub enum RedrawEvent {
     ModeInfoSet { mode_list: Vec<ModeInfo> },
     ModeChange { mode_index: u64 },
+    BusyStart,
+    BusyStop,
     Resize { grid: u64, width: u64, height: u64 },
     DefaultColorsSet { foreground: Color4f, background: Color4f, special: Color4f },
     HighlightAttributesDefine { id: u64, style: Style },
@@ -173,6 +175,9 @@ fn parse_hl_attr_define(hl_attr_define_arguments: Vec<Value>) -> Result<RedrawEv
                     ("foreground", Value::Integer(packed_color)) => style.colors.foreground = Some(unpack_color(packed_color.as_u64().unwrap())),
                     ("background", Value::Integer(packed_color)) => style.colors.background = Some(unpack_color(packed_color.as_u64().unwrap())),
                     ("special", Value::Integer(packed_color)) => style.colors.special = Some(unpack_color(packed_color.as_u64().unwrap())),
+                    ("reverse", Value::Boolean(reverse)) => style.reverse = *reverse,
+                    ("underline", Value::Boolean(underline)) => style.underline = *underline,
+                    ("undercurl", Value::Boolean(undercurl)) => style.undercurl = *undercurl,
                     _ => println!("Ignored style attribute: {}", name)
                 }
             } else {
@@ -256,8 +261,8 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
             "mode_info_set" => Some(parse_mode_info_set(event_parameters)?),
             "option_set" => None, // Ignore option set for now
             "mode_change" => Some(parse_mode_change(event_parameters)?),
-            "busy_start" => None, // Ignore busy start for now
-            "busy_stop" => None, // Ignore busy stop for now
+            "busy_start" => Some(RedrawEvent::BusyStart),
+            "busy_stop" => Some(RedrawEvent::BusyStop),
             "default_colors_set" => Some(parse_default_colors(event_parameters)?),
             "hl_attr_define" => Some(parse_hl_attr_define(event_parameters)?),
             "grid_line" => Some(parse_grid_line(event_parameters)?),
