@@ -98,19 +98,12 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>) {
     let font = Font::from_typeface(typeface, FONT_SIZE);
     let paint = Paint::new(colors::WHITE, None);
 
-    let (width, bounds) = font.measure_str("0".repeat(1000), Some(&paint));
-    let font_width = bounds.width() / 1000.0;
+    let (_, bounds) = font.measure_str("0", Some(&paint));
+    let font_width = bounds.width();
     let font_height = bounds.height() * 1.68;
 
     let event_loop = EventLoop::<()>::with_user_event();
     let logical_size = LogicalSize::new((100.0 * font_width) as f64, (50.0 * font_height) as f64);
-    let visible_range = Rect {
-        left: 0.0,
-        right: logical_size.width as f32,
-        top: 0.0,
-        bottom: logical_size.height as f32
-    };
-    let scale_to_fit = ScaleToFit::Center;
 
     let window = WindowBuilder::new()
         .with_title("Neovide")
