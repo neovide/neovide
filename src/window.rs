@@ -208,7 +208,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>) {
 
             Event::WindowEvent {
                 event: WindowEvent::MouseWheel {
-                    delta: MouseScrollDelta::LineDelta(delta, _),
+                    delta: MouseScrollDelta::LineDelta(_, delta),
                     ..
                 },
                 ..
