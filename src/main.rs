@@ -5,8 +5,7 @@ mod events;
 mod window;
 mod keybindings;
 
-#[macro_use]
-extern crate derive_new;
+#[macro_use] extern crate derive_new;
 
 use std::panic;
 use std::process::{Command, Stdio, exit};
@@ -69,12 +68,12 @@ fn main() {
     options.set_rgb(true);
     nvim.ui_attach(INITIAL_WIDTH as i64, INITIAL_HEIGHT as i64, &options).unwrap();
 
-    let editor = Arc::new(Mutex::new(Editor::new(nvim, INITIAL_WIDTH, INITIAL_HEIGHT)));
+    let editor = Arc::new(Mutex::new(Editor::new(INITIAL_WIDTH, INITIAL_HEIGHT)));
 
     let nvim_editor = editor.clone();
     thread::spawn(move || {
         nvim_event_loop(receiver, &nvim_editor);
     });
 
-    ui_loop(editor);
+    ui_loop(editor, nvim, (INITIAL_WIDTH, INITIAL_HEIGHT));
 }

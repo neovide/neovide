@@ -5,6 +5,7 @@ authors = ["keith <keith@the-simmons.net>"]
 edition = "2018"
 
 [dependencies]
+lru = "0.4.3"
 skulpin = { path = "c:/dev/Projects/skulpin" }
 derive-new = "0.5"
 env_logger = "0.7.1"

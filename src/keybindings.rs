@@ -1,5 +1,3 @@
-use std::fmt;
-
 use skulpin::winit::event::{KeyboardInput, ElementState, ModifiersState, VirtualKeyCode};
 
 fn parse_keycode(keycode: VirtualKeyCode) -> Option<(String, bool)> {
@@ -126,7 +124,7 @@ fn append_modifiers(modifiers: ModifiersState, keycode_text: String, special: bo
             "/" => "?".to_string(),
             other => {
                 special = true;
-                format!("S-{}", result)
+                format!("S-{}", other)
             }
         };
     }

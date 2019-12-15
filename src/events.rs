@@ -150,6 +150,16 @@ fn parse_mode_change(mode_change_arguments: Vec<Value>) -> Result<RedrawEvent> {
     }
 }
 
+fn parse_grid_resize(grid_resize_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [grid_id, width, height] = grid_resize_arguments.as_slice() {
+        Ok(RedrawEvent::Resize { 
+            grid: parse_u64(&grid_id)?, width: parse_u64(&width)?, height: parse_u64(&height)?
+        })
+    } else {
+        Err(EventParseError::InvalidEventFormat)
+    }
+}
+
 fn parse_default_colors(default_colors_arguments: Vec<Value>) -> Result<RedrawEvent> {
     if let [
         foreground, background, special, _term_foreground, _term_background
@@ -247,7 +257,7 @@ fn parse_grid_scroll(grid_scroll_arguments: Vec<Value>) -> Result<RedrawEvent> {
 }
 
 pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
-    let mut event_contents = parse_array(&event_value)?.to_vec();
+    let event_contents = parse_array(&event_value)?.to_vec();
     let name_value = event_contents.get(0).ok_or(EventParseError::InvalidEventFormat)?;
     let event_name = parse_string(&name_value)?;
     let events = event_contents;
@@ -263,6 +273,7 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
             "mode_change" => Some(parse_mode_change(event_parameters)?),
             "busy_start" => Some(RedrawEvent::BusyStart),
             "busy_stop" => Some(RedrawEvent::BusyStop),
+            "grid_resize" => Some(parse_grid_resize(event_parameters)?),
             "default_colors_set" => Some(parse_default_colors(event_parameters)?),
             "hl_attr_define" => Some(parse_hl_attr_define(event_parameters)?),
             "grid_line" => Some(parse_grid_line(event_parameters)?),

@@ -66,8 +66,7 @@ pub type GridCell = Option<(char, Style)>;
 #[derive(new, Debug, Clone)]
 pub struct DrawCommand {
     pub text: String,
-    pub row: u64,
-    pub col_start: u64,
+    pub grid_position: (u64, u64),
     pub style: Style
 }
 
@@ -90,7 +89,6 @@ impl CursorType {
 }
 
 pub struct Editor {
-    pub nvim: Neovim,
     pub grid: Vec<Vec<GridCell>>,
     pub cursor_pos: (u64, u64),
     pub cursor_type: CursorType,
@@ -104,9 +102,8 @@ pub struct Editor {
 }
 
 impl Editor {
-    pub fn new(nvim: Neovim, width: u64, height: u64) -> Editor {
+    pub fn new(width: u64, height: u64) -> Editor {
         let mut editor = Editor {
-            nvim,
             grid: Vec::new(),
             cursor_pos: (0, 0),
             cursor_type: CursorType::Block,
@@ -160,7 +157,7 @@ impl Editor {
                 match command {
                     Some(command) => command.text.push(character.clone()),
                     None => {
-                        command.replace(DrawCommand::new(character.to_string(), row_index, col_index, style));
+                        command.replace(DrawCommand::new(character.to_string(), (col_index, row_index), style));
                     }
                 }
             }
@@ -222,7 +219,6 @@ impl Editor {
     }
 
     pub fn resize(&mut self, new_width: u64, new_height: u64) {
-        self.nvim.ui_try_resize(new_width as i64, new_height as i64).expect("Resize failed");
         self.size = (new_width, new_height);
     }
 
