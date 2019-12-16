@@ -614,7 +614,7 @@ dependencies = [
  "lru 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "neovim-lib 0.6.0 (git+https://github.com/daa84/neovim-lib)",
  "rmpv 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "skulpin 0.3.0",
+ "skulpin 0.3.0 (git+https://github.com/Kethku/skulpin)",
 ]
 
 [[package]]
@@ -1003,6 +1003,7 @@ dependencies = [
 [[package]]
 name = "skulpin"
 version = "0.3.0"
+source = "git+https://github.com/Kethku/skulpin#84c8e763d9f61fe0d1efbc3b5fba9a1146ae2325"
 dependencies = [
  "ash 0.29.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "cocoa 0.19.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1473,6 +1474,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum shlex 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "7fdf1b9db47230893d76faad238fd6097fd6d6a9245cd7a4d90dbd639536bbd2"
 "checksum skia-bindings 0.21.0 (registry+https://github.com/rust-lang/crates.io-index)" = "c2eee489fbdc6fe3004f95e4457d7f3bd184b7902982cca0a2d8d01b7438328b"
 "checksum skia-safe 0.21.0 (registry+https://github.com/rust-lang/crates.io-index)" = "e86d7ad9a51df1fcc8a4942907c65c81573bcfe6bcaea8baedcb008167dc6650"
+"checksum skulpin 0.3.0 (git+https://github.com/Kethku/skulpin)" = "<none>"
 "checksum slab 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"
 "checksum smallvec 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)" = "4ecf3b85f68e8abaa7555aa5abdb1153079387e60b718283d732f03897fcfc86"
 "checksum smithay-client-toolkit 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)" = "93960e8975909fcb14cc755de93af2149d8b8f4eb368315537d40cfd0f324054"

@@ -6,7 +6,7 @@ edition = "2018"
 
 [dependencies]
 lru = "0.4.3"
-skulpin = { path = "c:/dev/Projects/skulpin" }
+skulpin = { git = "https://github.com/Kethku/skulpin" }
 derive-new = "0.5"
 env_logger = "0.7.1"
 neovim-lib = { git = "https://github.com/daa84/neovim-lib", version = "0.6" }
