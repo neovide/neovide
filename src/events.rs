@@ -45,6 +45,7 @@ pub struct GridLineCell {
 
 #[derive(Debug)]
 pub enum RedrawEvent {
+    SetTitle { title: String },
     ModeInfoSet { mode_list: Vec<ModeInfo> },
     ModeChange { mode_index: u64 },
     BusyStart,
@@ -108,6 +109,16 @@ fn parse_i64(i64_value: &Value) -> Result<i64> {
         Ok(content.as_i64().ok_or(EventParseError::InvalidI64(i64_value.clone()))?)
     } else {
         Err(EventParseError::InvalidI64(i64_value.clone()))
+    }
+}
+
+fn parse_set_title(set_title_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [title] = set_title_arguments.as_slice() {
+        Ok(RedrawEvent::SetTitle {
+            title: parse_string(&title)?
+        })
+    } else {
+        Err(EventParseError::InvalidEventFormat)
     }
 }
 
@@ -186,8 +197,12 @@ fn parse_hl_attr_define(hl_attr_define_arguments: Vec<Value>) -> Result<RedrawEv
                     ("background", Value::Integer(packed_color)) => style.colors.background = Some(unpack_color(packed_color.as_u64().unwrap())),
                     ("special", Value::Integer(packed_color)) => style.colors.special = Some(unpack_color(packed_color.as_u64().unwrap())),
                     ("reverse", Value::Boolean(reverse)) => style.reverse = *reverse,
+                    ("italic", Value::Boolean(italic)) => style.italic = *italic,
+                    ("bold", Value::Boolean(bold)) => style.bold = *bold,
+                    ("strikethrough", Value::Boolean(strikethrough)) => style.strikethrough = *strikethrough,
                     ("underline", Value::Boolean(underline)) => style.underline = *underline,
                     ("undercurl", Value::Boolean(undercurl)) => style.undercurl = *undercurl,
+                    ("blend", Value::Integer(blend)) => style.blend = blend.as_u64().unwrap() as u8,
                     _ => println!("Ignored style attribute: {}", name)
                 }
             } else {
@@ -266,7 +281,7 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
     for event in &events[1..] {
         let event_parameters = parse_array(&event)?;
         let possible_parsed_event = match event_name.clone().as_ref() {
-            "set_title" => None, // Ignore set title for now
+            "set_title" => Some(parse_set_title(event_parameters)?),
             "set_icon" => None, // Ignore set icon for now
             "mode_info_set" => Some(parse_mode_info_set(event_parameters)?),
             "option_set" => None, // Ignore option set for now

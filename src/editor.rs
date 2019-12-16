@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use neovim_lib::{Neovim, NeovimApi};
 use skulpin::skia_safe::{colors, Color4f};
 
 use crate::events::{GridLineCell, RedrawEvent};
@@ -90,6 +89,7 @@ impl CursorType {
 
 pub struct Editor {
     pub grid: Vec<Vec<GridCell>>,
+    pub title: String,
     pub cursor_pos: (u64, u64),
     pub cursor_type: CursorType,
     pub cursor_style: Option<Style>,
@@ -105,6 +105,7 @@ impl Editor {
     pub fn new(width: u64, height: u64) -> Editor {
         let mut editor = Editor {
             grid: Vec::new(),
+            title: "".to_string(),
             cursor_pos: (0, 0),
             cursor_type: CursorType::Block,
             cursor_style: None,
@@ -182,6 +183,7 @@ impl Editor {
 
     pub fn handle_redraw_event(&mut self, event: RedrawEvent) {
         match event {
+            RedrawEvent::SetTitle { title } => self.set_title(title),
             RedrawEvent::ModeInfoSet { mode_list } => self.set_mode_list(mode_list),
             RedrawEvent::ModeChange { mode_index } => self.change_mode(mode_index),
             RedrawEvent::BusyStart => self.set_cursor_enabled(false),
@@ -194,6 +196,10 @@ impl Editor {
             RedrawEvent::CursorGoto { row, column, .. } => self.jump_cursor_to(row, column),
             RedrawEvent::Scroll { top, bottom, left, right, rows, columns, .. } => self.scroll_region(top, bottom, left, right, rows, columns)
         }
+    }
+
+    pub fn set_title(&mut self, title: String) {
+        self.title = title;
     }
 
     pub fn set_mode_list(&mut self, mode_list: Vec<ModeInfo>) {
@@ -292,9 +298,6 @@ impl Editor {
             (left as i64, right as i64)
         };
 
-        let width = right - left;
-        let height = bot - top;
-
         let mut region = Vec::new();
         for y in top..bot {
             let row = &self.grid[y as usize];
@@ -312,7 +315,7 @@ impl Editor {
             for (x, cell) in row_section.into_iter().enumerate() {
                 let y = new_top + y as i64;
                 if y >= 0 && y < self.grid.len() as i64 {
-                    let mut row = &mut self.grid[y as usize];
+                    let row = &mut self.grid[y as usize];
                     let x = new_left + x as i64;
                     if x >= 0 && x < row.len() as i64 {
                         row[x as usize] = cell;
