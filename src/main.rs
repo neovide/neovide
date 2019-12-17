@@ -1,21 +1,18 @@
-#![windows_subsystem = "windows"]
+// #![windows_subsystem = "windows"]
 
 mod editor;
 mod events;
 mod window;
 mod keybindings;
+mod renderer;
 
 #[macro_use] extern crate derive_new;
 
-use std::panic;
-use std::process::{Command, Stdio, exit};
-use std::sync::mpsc::Receiver;
+use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use env_logger::Env as LoggerEnv;
 use neovim_lib::{Neovim, UiAttachOptions, Session};
-use rmpv::Value;
 
 use window::ui_loop;
 use editor::Editor;
@@ -71,7 +68,7 @@ fn start_nvim(editor: Arc<Mutex<Editor>>) -> Neovim {
 
     // Quit process when nvim exits
     thread::spawn(move || {
-        join_handle.join();
+        join_handle.join().expect("Could not join neovim process...");
         std::process::exit(0);
     });
 

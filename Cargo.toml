@@ -5,6 +5,8 @@ authors = ["keith <keith@the-simmons.net>"]
 edition = "2018"
 
 [dependencies]
+euclid = "0.20.7"
+font-kit = "0.5.0"
 lru = "0.4.3"
 skulpin = { git = "https://github.com/Kethku/skulpin" }
 derive-new = "0.5"
