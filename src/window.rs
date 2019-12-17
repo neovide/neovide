@@ -109,7 +109,7 @@ impl Renderer {
         Renderer { editor, title, paint, font, shaper, font_width, font_height, cursor_pos, fps_tracker }
     }
 
-    fn draw_text(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), style: &Style, default_colors: &Colors, update_cache: bool) {
+    fn draw_background(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), style: &Style, default_colors: &Colors) {
         let (grid_x, grid_y) = grid_pos;
         let x = grid_x as f32 * self.font_width;
         let y = grid_y as f32 * self.font_height;
@@ -118,6 +118,13 @@ impl Renderer {
         let region = Rect::new(x, y, x + width, y + height);
         self.paint.set_color(style.background(default_colors).to_color());
         canvas.draw_rect(region, &self.paint);
+    }
+
+    fn draw_foreground(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), style: &Style, default_colors: &Colors, update_cache: bool) {
+        let (grid_x, grid_y) = grid_pos;
+        let x = grid_x as f32 * self.font_width;
+        let y = grid_y as f32 * self.font_height;
+        let width = text.chars().count() as f32 * self.font_width;
 
         if style.underline || style.undercurl {
             let (_, metrics) = self.font.metrics();
@@ -141,6 +148,11 @@ impl Renderer {
         }
     }
 
+    fn draw_text(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), style: &Style, default_colors: &Colors, update_cache: bool) {
+        self.draw_background(canvas, text, grid_pos, style, default_colors);
+        self.draw_foreground(canvas, text, grid_pos, style, default_colors, update_cache);
+    }
+
     pub fn draw(&mut self, window: &Window, canvas: &mut Canvas) {
         let (draw_commands, title, default_colors, (width, height), cursor_grid_pos, cursor_type, cursor_foreground, cursor_background, cursor_enabled) = {
             let editor = self.editor.lock().unwrap();
@@ -159,8 +171,11 @@ impl Renderer {
 
         canvas.clear(default_colors.background.clone().unwrap().to_color());
 
+        for command in draw_commands.iter() {
+            self.draw_background(canvas, &command.text, command.grid_position.clone(), &command.style, &default_colors);
+        }
         for command in draw_commands {
-            self.draw_text(canvas, &command.text, command.grid_position, &command.style, &default_colors, true);
+            self.draw_foreground(canvas, &command.text, command.grid_position.clone(), &command.style, &default_colors, true);
         }
 
         self.fps_tracker.record_frame();
@@ -309,12 +324,17 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
                 ..
             } => {
                 let input_type = if delta > 0.0 {
-                    "up"
+                    Some("up")
+                } else if delta < 0.0 {
+                    Some("down")
                 } else {
-                    "down"
+                    None
                 };
-                let (grid_x, grid_y) = mouse_pos;
-                nvim.input_mouse("wheel", input_type, "", 0, grid_y, grid_x).expect("Could not send mouse input");
+
+                if let Some(input_type) = input_type {
+                    let (grid_x, grid_y) = mouse_pos;
+                    nvim.input_mouse("wheel", input_type, "", 0, grid_y, grid_x).expect("Could not send mouse input");
+                }
             }
 
             Event::EventsCleared => {
