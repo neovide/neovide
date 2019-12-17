@@ -4,7 +4,7 @@ use std::fmt;
 use rmpv::Value;
 use skulpin::skia_safe::Color4f;
 
-use crate::editor::{Colors, Style, ModeInfo, CursorType};
+use crate::editor::{Colors, Style, CursorMode, CursorShape};
 
 #[derive(Debug, Clone)]
 pub enum EventParseError {
@@ -46,12 +46,12 @@ pub struct GridLineCell {
 #[derive(Debug)]
 pub enum RedrawEvent {
     SetTitle { title: String },
-    ModeInfoSet { mode_list: Vec<ModeInfo> },
+    ModeInfoSet { cursor_modes: Vec<CursorMode> },
     ModeChange { mode_index: u64 },
     BusyStart,
     BusyStop,
     Resize { grid: u64, width: u64, height: u64 },
-    DefaultColorsSet { foreground: Color4f, background: Color4f, special: Color4f },
+    DefaultColorsSet { colors: Colors },
     HighlightAttributesDefine { id: u64, style: Style },
     GridLine { grid: u64, row: u64, column_start: u64, cells: Vec<GridLineCell> },
     Clear { grid: u64 },
@@ -125,26 +125,26 @@ fn parse_set_title(set_title_arguments: Vec<Value>) -> Result<RedrawEvent> {
 fn parse_mode_info_set(mode_info_set_arguments: Vec<Value>) -> Result<RedrawEvent> {
     if let [_cursor_style_enabled, mode_info] = mode_info_set_arguments.as_slice() {
         let mode_info_values = parse_array(&mode_info)?;
-        let mut mode_list = Vec::new();
+        let mut cursor_modes = Vec::new();
         for mode_info_value in mode_info_values {
             let info_map = parse_map(&mode_info_value)?;
-            let mut mode_info = ModeInfo::new();
+            let mut mode_info = CursorMode::new();
             for (name, value) in info_map {
                 let name = parse_string(&name)?;
                 match name.as_ref() {
                     "cursor_shape" => {
-                        mode_info.cursor_type = CursorType::from_type_name(&parse_string(&value)?);
+                        mode_info.shape = CursorShape::from_type_name(&parse_string(&value)?);
                     },
                     "attr_id" => {
-                        mode_info.cursor_style_id = Some(parse_u64(&value)?);
+                        mode_info.style_id = Some(parse_u64(&value)?);
                     },
                     _ => {}
                 }
             }
-            mode_list.push(mode_info);
+            cursor_modes.push(mode_info);
         }
         Ok(RedrawEvent::ModeInfoSet {
-            mode_list
+            cursor_modes
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
@@ -176,9 +176,11 @@ fn parse_default_colors(default_colors_arguments: Vec<Value>) -> Result<RedrawEv
         foreground, background, special, _term_foreground, _term_background
     ] = default_colors_arguments.as_slice() {
         Ok(RedrawEvent::DefaultColorsSet {
-            foreground: unpack_color(parse_u64(&foreground)?),
-            background: unpack_color(parse_u64(&background)?),
-            special: unpack_color(parse_u64(special)?),
+            colors: Colors {
+                foreground: Some(unpack_color(parse_u64(&foreground)?)),
+                background: Some(unpack_color(parse_u64(&background)?)),
+                special: Some(unpack_color(parse_u64(special)?)),
+            }
         })
     } else {
         Err(EventParseError::InvalidEventFormat)

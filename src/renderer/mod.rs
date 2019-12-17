@@ -3,12 +3,11 @@ use skulpin::skia_safe::{Canvas, Paint, Rect, Typeface, Font, FontStyle, colors}
 
 mod caching_shaper;
 mod fps_tracker;
-mod font_measurer;
 
 use caching_shaper::CachingShaper;
 use fps_tracker::FpsTracker;
 
-use crate::editor::{Editor, CursorType, Style, Colors};
+use crate::editor::{Editor, CursorShape, Style, Colors};
 
 const FONT_NAME: &str = "Delugia Nerd Font";
 const FONT_SIZE: f32 = 14.0;
@@ -90,17 +89,13 @@ impl Renderer {
     }
 
     pub fn draw(&mut self, canvas: &mut Canvas) {
-        let (draw_commands, default_colors, (width, height), cursor_grid_pos, cursor_type, cursor_foreground, cursor_background, cursor_enabled) = {
+        let (draw_commands, default_colors, (width, height), cursor) = {
             let editor = self.editor.lock().unwrap();
             (
                 editor.build_draw_commands().clone(), 
                 editor.default_colors.clone(), 
                 editor.size.clone(),
-                editor.cursor_pos.clone(), 
-                editor.cursor_type.clone(),
-                editor.cursor_foreground(),
-                editor.cursor_background(),
-                editor.cursor_enabled
+                editor.cursor.clone()
             )
         };
 
@@ -116,7 +111,7 @@ impl Renderer {
         self.fps_tracker.record_frame();
         self.draw_text(canvas, &self.fps_tracker.fps.to_string(), (width - 2, height - 1), &Style::new(default_colors.clone()), &default_colors, false);
 
-        let (cursor_grid_x, cursor_grid_y) = cursor_grid_pos;
+        let (cursor_grid_x, cursor_grid_y) = cursor.position;
         let target_cursor_x = cursor_grid_x as f32 * self.font_width;
         let target_cursor_y = cursor_grid_y as f32 * self.font_height;
         let (previous_cursor_x, previous_cursor_y) = self.cursor_pos;
@@ -125,21 +120,21 @@ impl Renderer {
         let cursor_y = (target_cursor_y - previous_cursor_y) * 0.5 + previous_cursor_y;
 
         self.cursor_pos = (cursor_x, cursor_y);
-        if cursor_enabled {
-            let cursor_width = match cursor_type {
-                CursorType::Vertical => self.font_width / 8.0,
-                CursorType::Horizontal | CursorType::Block => self.font_width
+        if cursor.enabled {
+            let cursor_width = match cursor.shape {
+                CursorShape::Vertical => self.font_width / 8.0,
+                CursorShape::Horizontal | CursorShape::Block => self.font_width
             };
-            let cursor_height = match cursor_type {
-                CursorType::Horizontal => self.font_width / 8.0,
-                CursorType::Vertical | CursorType::Block => self.font_height
+            let cursor_height = match cursor.shape {
+                CursorShape::Horizontal => self.font_width / 8.0,
+                CursorShape::Vertical | CursorShape::Block => self.font_height
             };
-            let cursor = Rect::new(cursor_x, cursor_y, cursor_x + cursor_width, cursor_y + cursor_height);
-            self.paint.set_color(cursor_background.to_color());
-            canvas.draw_rect(cursor, &self.paint);
+            let cursor_region = Rect::new(cursor_x, cursor_y, cursor_x + cursor_width, cursor_y + cursor_height);
+            self.paint.set_color(cursor.background(&default_colors).to_color());
+            canvas.draw_rect(cursor_region, &self.paint);
 
-            if let CursorType::Block = cursor_type {
-                self.paint.set_color(cursor_foreground.to_color());
+            if let CursorShape::Block = cursor.shape {
+                self.paint.set_color(cursor.foreground(&default_colors).to_color());
                 let editor = self.editor.lock().unwrap();
                 let character = editor.grid[cursor_grid_y as usize][cursor_grid_x as usize].clone()
                     .map(|(character, _)| character)
