@@ -109,7 +109,10 @@ fn append_modifiers(modifiers: ModifiersState, keycode_text: String, special: bo
             "9" => "(".to_string(),
             "0" => ")".to_string(),
             "'" => "\"".to_string(),
-            "Bslash" => "|".to_string(),
+            "Bslash" => {
+                special = false;
+                "|".to_string()
+            },
             "," => {
                 special = true;
                 "lt".to_string()
