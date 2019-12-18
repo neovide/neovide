@@ -52,7 +52,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
                     let new_width = ((new_size.width + 1.0) as f32 / renderer.font_width) as u64;
                     let new_height = ((new_size.height + 1.0) as f32 / renderer.font_height) as u64;
                     // Add 1 here to make sure resizing doesn't change the grid size on startup
-                    nvim.ui_try_resize(new_width as i64, new_height as i64).expect("Resize failed");
+                    nvim.ui_try_resize((new_width as i64).max(10), (new_height as i64).max(3)).expect("Resize failed");
                 }
             },
 

@@ -31,7 +31,7 @@ impl Editor {
     pub fn new(width: u64, height: u64) -> Editor {
         let mut editor = Editor {
             grid: Vec::new(),
-            title: "".to_string(),
+            title: "Neovide".to_string(),
             cursor: Cursor::new(),
             size: (width, height),
             default_colors: Colors::new(Some(colors::WHITE), Some(colors::BLACK), Some(colors::GREY)),
