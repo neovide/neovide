@@ -94,9 +94,9 @@ impl Renderer {
 
     pub fn draw(&mut self, gpu_canvas: &mut Canvas, coordinate_system_helper: &CoordinateSystemHelper) {
         let (draw_commands, default_colors, (width, height), cursor) = {
-            let editor = self.editor.lock().unwrap();
+            let mut editor = self.editor.lock().unwrap();
             (
-                editor.build_draw_commands().clone(), 
+                editor.build_draw_commands(), 
                 editor.default_colors.clone(), 
                 editor.size.clone(),
                 editor.cursor.clone()
@@ -132,11 +132,9 @@ impl Renderer {
         let target_cursor_y = cursor_grid_y as f32 * self.font_height;
         let (previous_cursor_x, previous_cursor_y) = self.cursor_pos;
 
-
         self.image = Some(surface.image_snapshot());
         coordinate_system_helper.use_physical_coordinates(gpu_canvas);
         gpu_canvas.draw_image(self.image.as_ref().unwrap(), (0, 0), Some(&self.paint));
-        coordinate_system_helper.use_logical_coordinates(gpu_canvas);
 
         let cursor_x = (target_cursor_x - previous_cursor_x) * 0.5 + previous_cursor_x;
         let cursor_y = (target_cursor_y - previous_cursor_y) * 0.5 + previous_cursor_y;

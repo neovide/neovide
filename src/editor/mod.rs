@@ -19,6 +19,7 @@ pub struct DrawCommand {
 
 pub struct Editor {
     pub grid: Vec<Vec<GridCell>>,
+    pub dirty: Vec<Vec<bool>>,
     pub title: String,
     pub size: (u64, u64),
     pub cursor: Cursor,
@@ -31,6 +32,7 @@ impl Editor {
     pub fn new(width: u64, height: u64) -> Editor {
         let mut editor = Editor {
             grid: Vec::new(),
+            dirty: Vec::new(),
             title: "Neovide".to_string(),
             cursor: Cursor::new(),
             size: (width, height),
@@ -60,8 +62,8 @@ impl Editor {
         }
     }
 
-    pub fn build_draw_commands(&self) -> Vec<DrawCommand> {
-        self.grid.iter().enumerate().map(|(row_index, row)| {
+    pub fn build_draw_commands(&mut self) -> Vec<DrawCommand> {
+        let commands = self.grid.iter().enumerate().map(|(row_index, row)| {
             let mut draw_commands = Vec::new();
             let mut command = None;
 
@@ -78,11 +80,13 @@ impl Editor {
                 }
             }
 
-            fn add_character(command: &mut Option<DrawCommand>, character: &char, row_index: u64, col_index: u64, style: Style) {
+            fn add_character(command: &mut Option<DrawCommand>, character: &char, dirty: bool, row_index: u64, col_index: u64, style: Style) {
                 match command {
                     Some(command) => command.text.push(character.clone()),
                     None => {
-                        command.replace(DrawCommand::new(character.to_string(), (col_index, row_index), style));
+                        if dirty {
+                            command.replace(DrawCommand::new(character.to_string(), (col_index, row_index), style));
+                        }
                     }
                 }
             }
@@ -93,7 +97,7 @@ impl Editor {
                         add_command(&mut draw_commands, command);
                         command = None;
                     }
-                    add_character(&mut command, &character, row_index as u64, col_index as u64, new_style.clone());
+                    add_character(&mut command, &character, self.dirty[row_index][col_index], row_index as u64, col_index as u64, new_style.clone());
                 } else {
                     add_command(&mut draw_commands, command);
                     command = None;
@@ -102,7 +106,10 @@ impl Editor {
             add_command(&mut draw_commands, command);
 
             draw_commands
-        }).flatten().collect()
+        }).flatten().collect();
+        let (width, height) = self.size;
+        self.dirty = vec![vec![false; width as usize]; height as usize];
+        commands
     }
 
     fn draw_grid_line_cell(&mut self, row_index: u64, column_pos: &mut u64, cell: GridLineCell) {
@@ -119,10 +126,12 @@ impl Editor {
         }
 
         let row = self.grid.get_mut(row_index as usize).expect("Grid must have size greater than row_index");
+        let dirty_row = &mut self.dirty[row_index as usize];
         for (i, character) in text.chars().enumerate() {
             let pointer_index = i + *column_pos as usize;
             if pointer_index < row.len() {
                 row[pointer_index] = Some((character, style.clone()));
+                dirty_row[pointer_index] = true;
             }
         }
 
@@ -149,6 +158,7 @@ impl Editor {
     fn clear(&mut self) {
         let (width, height) = self.size;
         self.grid = vec![vec![None; width as usize]; height as usize];
+        self.dirty = vec![vec![true; width as usize]; height as usize];
     }
 
     fn scroll_region(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64, cols: i64) {
@@ -186,9 +196,11 @@ impl Editor {
                 let y = new_top + y as i64;
                 if y >= 0 && y < self.grid.len() as i64 {
                     let row = &mut self.grid[y as usize];
+                    let dirty_row = &mut self.dirty[y as usize];
                     let x = new_left + x as i64;
                     if x >= 0 && x < row.len() as i64 {
                         row[x as usize] = cell;
+                        dirty_row[x as usize] = true;
                     }
                 }
             }
