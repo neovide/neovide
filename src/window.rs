@@ -138,8 +138,8 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
                     window.set_title(&editor.title);
                 };
 
-                if let Err(e) = skulpin_renderer.draw(&window, |canvas, _coordinate_system_helper| {
-                    renderer.draw(canvas);
+                if let Err(e) = skulpin_renderer.draw(&window, |canvas, coordinate_system_helper| {
+                    renderer.draw(canvas, coordinate_system_helper);
                 }) {
                     println!("Error during draw: {:?}", e);
                     *control_flow = ControlFlow::Exit
