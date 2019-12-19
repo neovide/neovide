@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex};
-use skulpin::{CoordinateSystem, RendererBuilder};
+use skulpin::{CoordinateSystem, RendererBuilder, PresentMode};
 use skulpin::skia_safe::icu;
 use skulpin::winit::dpi::LogicalSize;
 use skulpin::winit::event::{ElementState, Event, MouseScrollDelta, WindowEvent};
@@ -29,6 +29,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
 
     let mut skulpin_renderer = RendererBuilder::new()
         .coordinate_system(CoordinateSystem::Logical)
+        .present_mode_priority(vec![PresentMode::Immediate])
         .build(&window)
         .expect("Failed to create renderer");
 

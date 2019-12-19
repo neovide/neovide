@@ -32,7 +32,8 @@ pub struct Renderer {
 impl Renderer {
     pub fn new(editor: Arc<Mutex<Editor>>) -> Renderer {
         let surface = None;
-        let paint = Paint::new(colors::WHITE, None);
+        let mut paint = Paint::new(colors::WHITE, None);
+        paint.set_anti_alias(false);
         let typeface = Typeface::new(FONT_NAME, FontStyle::default()).expect("Could not load font file.");
         let font = Font::from_typeface(typeface, FONT_SIZE);
         let shaper = CachingShaper::new();
