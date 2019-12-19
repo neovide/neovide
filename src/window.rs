@@ -10,6 +10,8 @@ use crate::editor::Editor;
 use crate::keybindings::construct_keybinding_string;
 use crate::renderer::Renderer;
 
+const EXTRA_LIVE_FRAMES: usize = 10;
+
 pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64)) {
     let mut nvim = nvim;
     let mut renderer = Renderer::new(editor.clone());
@@ -21,15 +23,14 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
         (height as f32 * renderer.font_height + 1.0) as f64
     );
 
-    let window = WindowBuilder::new()
+    let window = Arc::new(WindowBuilder::new()
         .with_title("Neovide")
         .with_inner_size(logical_size)
         .build(&event_loop)
-        .expect("Failed to create window");
+        .expect("Failed to create window"));
 
     let mut skulpin_renderer = RendererBuilder::new()
         .coordinate_system(CoordinateSystem::Logical)
-        .present_mode_priority(vec![PresentMode::Immediate])
         .build(&window)
         .expect("Failed to create renderer");
 
@@ -38,6 +39,12 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
 
     icu::init();
 
+    {
+        let mut editor = editor.lock().unwrap();
+        editor.window = Some(window.clone());
+    }
+
+    let mut live_frames = 0;
     event_loop.run(move |event, _window_target, control_flow| {
         match event {
             Event::WindowEvent {
@@ -127,15 +134,23 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
             }
 
             Event::EventsCleared => {
-                window.request_redraw();
+                if live_frames > 0 {
+                    live_frames = live_frames - 1;
+                    window.request_redraw();
+                    *control_flow = ControlFlow::Poll;
+                } else {
+                    *control_flow = ControlFlow::Wait;
+                }
             },
 
             Event::WindowEvent {
                 event: WindowEvent::RedrawRequested,
                 ..
             } => {
-                if let Err(e) = skulpin_renderer.draw(&window, |canvas, coordinate_system_helper| {
-                    renderer.draw(canvas, coordinate_system_helper);
+                if let Err(e) = skulpin_renderer.draw(&window.clone(), |canvas, coordinate_system_helper| {
+                    if renderer.draw(canvas, coordinate_system_helper) {
+                        live_frames = EXTRA_LIVE_FRAMES;
+                    }
                 }) {
                     println!("Error during draw: {:?}", e);
                     *control_flow = ControlFlow::Exit

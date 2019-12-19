@@ -1,5 +1,7 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 use skulpin::skia_safe::colors;
+use skulpin::winit::window::Window;
 
 mod cursor;
 mod style;
@@ -21,6 +23,9 @@ pub struct Editor {
     pub grid: Vec<Vec<GridCell>>,
     pub dirty: Vec<Vec<bool>>,
     pub should_clear: bool,
+
+    pub window: Option<Arc<Window>>,
+
     pub title: String,
     pub size: (u64, u64),
     pub cursor: Cursor,
@@ -35,6 +40,9 @@ impl Editor {
             grid: Vec::new(),
             dirty: Vec::new(),
             should_clear: true,
+
+            window: None,
+
             title: "Neovide".to_string(),
             cursor: Cursor::new(),
             size: (width, height),
@@ -54,6 +62,7 @@ impl Editor {
             RedrawEvent::ModeChange { mode_index } => self.cursor.change_mode(mode_index, &self.defined_styles),
             RedrawEvent::BusyStart => self.cursor.enabled = false,
             RedrawEvent::BusyStop => self.cursor.enabled = true,
+            RedrawEvent::Flush => { self.window.as_ref().map(|window| window.request_redraw()); },
             RedrawEvent::Resize { width, height, .. } => self.resize((width, height)),
             RedrawEvent::DefaultColorsSet { colors } => self.default_colors = colors,
             RedrawEvent::HighlightAttributesDefine { id, style } => { self.defined_styles.insert(id, style); },
@@ -61,7 +70,7 @@ impl Editor {
             RedrawEvent::Clear { .. } => self.clear(),
             RedrawEvent::CursorGoto { row, column, .. } => self.cursor.position = (row, column),
             RedrawEvent::Scroll { top, bottom, left, right, rows, columns, .. } => self.scroll_region(top, bottom, left, right, rows, columns)
-        }
+        };
     }
 
     pub fn build_draw_commands(&mut self) -> (Vec<DrawCommand>, bool) {

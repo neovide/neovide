@@ -1,13 +1,11 @@
 use std::sync::{Arc, Mutex};
 use skulpin::CoordinateSystemHelper;
-use skulpin::skia_safe::{Canvas, Paint, Surface, Budgeted, Image, Rect, Typeface, Font, FontStyle, colors};
+use skulpin::skia_safe::{Canvas, Paint, Surface, Budgeted, Rect, Typeface, Font, FontStyle, colors};
 use skulpin::skia_safe::gpu::SurfaceOrigin;
 
 mod caching_shaper;
-mod fps_tracker;
 
 use caching_shaper::CachingShaper;
-use fps_tracker::FpsTracker;
 
 use crate::editor::{Editor, CursorShape, Style, Colors};
 
@@ -25,8 +23,6 @@ pub struct Renderer {
     pub font_width: f32,
     pub font_height: f32,
     cursor_pos: (f32, f32),
-
-    fps_tracker: FpsTracker
 }
 
 impl Renderer {
@@ -44,9 +40,7 @@ impl Renderer {
         let font_height = metrics.descent - metrics.ascent;
         let cursor_pos = (0.0, 0.0);
 
-        let fps_tracker = FpsTracker::new();
-
-        Renderer { editor, surface, paint, font, shaper, font_width, font_height, cursor_pos, fps_tracker }
+        Renderer { editor, surface, paint, font, shaper, font_width, font_height, cursor_pos }
     }
 
     fn draw_background(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), style: &Style, default_colors: &Colors) {
@@ -82,18 +76,12 @@ impl Renderer {
         }
     }
 
-    fn draw_text(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), style: &Style, default_colors: &Colors) {
-        self.draw_background(canvas, text, grid_pos, style, default_colors);
-        self.draw_foreground(canvas, text, grid_pos, style, default_colors);
-    }
-
-    pub fn draw(&mut self, gpu_canvas: &mut Canvas, coordinate_system_helper: &CoordinateSystemHelper) {
-        let ((draw_commands, should_clear), default_colors, (width, height), cursor) = {
+    pub fn draw(&mut self, gpu_canvas: &mut Canvas, coordinate_system_helper: &CoordinateSystemHelper) -> bool {
+        let ((draw_commands, should_clear), default_colors, cursor) = {
             let mut editor = self.editor.lock().unwrap();
             (
                 editor.build_draw_commands(), 
                 editor.default_colors.clone(), 
-                editor.size.clone(),
                 editor.cursor.clone()
             )
         };
@@ -120,25 +108,27 @@ impl Renderer {
         for command in draw_commands.iter() {
             self.draw_background(&mut canvas, &command.text, command.grid_position.clone(), &command.style, &default_colors);
         }
-        for command in draw_commands {
+        for command in draw_commands.iter() {
             self.draw_foreground(&mut canvas, &command.text, command.grid_position.clone(), &command.style, &default_colors);
         }
 
-        self.fps_tracker.record_frame();
-        self.draw_text(canvas, &self.fps_tracker.fps.to_string(), (width - 2, height - 1), &Style::new(default_colors.clone()), &default_colors);
+        let image = surface.image_snapshot();
+        let window_size = coordinate_system_helper.window_logical_size();
+        let image_destination = Rect::new(0.0, 0.0, window_size.width as f32, window_size.height as f32);
+        gpu_canvas.draw_image_rect(image, None, &image_destination, &self.paint);
+
+        self.surface = Some(surface);
 
         let (cursor_grid_x, cursor_grid_y) = cursor.position;
         let target_cursor_x = cursor_grid_x as f32 * self.font_width;
         let target_cursor_y = cursor_grid_y as f32 * self.font_height;
         let (previous_cursor_x, previous_cursor_y) = self.cursor_pos;
 
-        coordinate_system_helper.use_physical_coordinates(gpu_canvas);
-        gpu_canvas.draw_image(surface.image_snapshot(), (0, 0), Some(&self.paint));
+        let delta_cursor_x = target_cursor_x - previous_cursor_x;
+        let delta_cursor_y = target_cursor_y - previous_cursor_y;
 
-        self.surface = Some(surface);
-
-        let cursor_x = (target_cursor_x - previous_cursor_x) * 0.5 + previous_cursor_x;
-        let cursor_y = (target_cursor_y - previous_cursor_y) * 0.5 + previous_cursor_y;
+        let cursor_x = delta_cursor_x * 0.5 + previous_cursor_x;
+        let cursor_y = delta_cursor_y * 0.5 + previous_cursor_y;
         self.cursor_pos = (cursor_x, cursor_y);
         if cursor.enabled {
             let cursor_width = match cursor.shape {
@@ -164,5 +154,7 @@ impl Renderer {
                     (cursor_x, cursor_y), &self.paint);
             }
         }
+
+        delta_cursor_x.abs() > 0.001 || delta_cursor_y.abs() > 0.001
     }
 }
