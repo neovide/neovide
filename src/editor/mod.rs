@@ -91,13 +91,11 @@ impl Editor {
                 }
             }
 
-            fn add_character(command: &mut Option<DrawCommand>, character: &char, dirty: bool, row_index: u64, col_index: u64, style: Style) {
+            fn add_character(command: &mut Option<DrawCommand>, character: &char, row_index: u64, col_index: u64, style: Style) {
                 match command {
                     Some(command) => command.text.push(character.clone()),
                     None => {
-                        if dirty {
-                            command.replace(DrawCommand::new(character.to_string(), (col_index, row_index), style));
-                        }
+                        command.replace(DrawCommand::new(character.to_string(), (col_index, row_index), style));
                     }
                 }
             }
@@ -108,7 +106,7 @@ impl Editor {
                         add_command(&mut draw_commands, command);
                         command = None;
                     }
-                    add_character(&mut command, &character, self.dirty[row_index][col_index], row_index as u64, col_index as u64, new_style.clone());
+                    add_character(&mut command, &character, row_index as u64, col_index as u64, new_style.clone());
                 } else {
                     add_command(&mut draw_commands, command);
                     command = None;
@@ -117,6 +115,18 @@ impl Editor {
             add_command(&mut draw_commands, command);
         }
         let should_clear = self.should_clear;
+
+        let draw_commands = draw_commands.into_iter().filter(|command| {
+            let (x, y) = command.grid_position;
+            let dirty_row = &self.dirty[y as usize];
+
+            for char_index in 0..command.text.chars().count() {
+                if dirty_row[x as usize + char_index] {
+                    return true;
+                }
+            }
+            return false;
+        }).collect::<Vec<DrawCommand>>();
 
         let (width, height) = self.size;
         self.dirty = vec![vec![false; width as usize]; height as usize];

@@ -155,6 +155,6 @@ impl Renderer {
             }
         }
 
-        delta_cursor_x.abs() > 0.001 || delta_cursor_y.abs() > 0.001
+        draw_commands.len() > 0 || delta_cursor_x.abs() > 0.001 || delta_cursor_y.abs() > 0.001
     }
 }
