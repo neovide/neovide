@@ -20,6 +20,7 @@ pub struct DrawCommand {
 pub struct Editor {
     pub grid: Vec<Vec<GridCell>>,
     pub dirty: Vec<Vec<bool>>,
+    pub should_clear: bool,
     pub title: String,
     pub size: (u64, u64),
     pub cursor: Cursor,
@@ -33,6 +34,7 @@ impl Editor {
         let mut editor = Editor {
             grid: Vec::new(),
             dirty: Vec::new(),
+            should_clear: true,
             title: "Neovide".to_string(),
             cursor: Cursor::new(),
             size: (width, height),
@@ -62,9 +64,9 @@ impl Editor {
         }
     }
 
-    pub fn build_draw_commands(&mut self) -> Vec<DrawCommand> {
-        let commands = self.grid.iter().enumerate().map(|(row_index, row)| {
-            let mut draw_commands = Vec::new();
+    pub fn build_draw_commands(&mut self) -> (Vec<DrawCommand>, bool) {
+        let mut draw_commands = Vec::new();
+        for (row_index, row) in self.grid.iter().enumerate() {
             let mut command = None;
 
             fn add_command(commands_list: &mut Vec<DrawCommand>, command: Option<DrawCommand>) {
@@ -104,12 +106,13 @@ impl Editor {
                 }
             }
             add_command(&mut draw_commands, command);
+        }
+        let should_clear = self.should_clear;
 
-            draw_commands
-        }).flatten().collect();
         let (width, height) = self.size;
         self.dirty = vec![vec![false; width as usize]; height as usize];
-        commands
+        self.should_clear = false;
+        (draw_commands, should_clear)
     }
 
     fn draw_grid_line_cell(&mut self, row_index: u64, column_pos: &mut u64, cell: GridLineCell) {
@@ -159,6 +162,7 @@ impl Editor {
         let (width, height) = self.size;
         self.grid = vec![vec![None; width as usize]; height as usize];
         self.dirty = vec![vec![true; width as usize]; height as usize];
+        self.should_clear = true;
     }
 
     fn scroll_region(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64, cols: i64) {

@@ -17,7 +17,7 @@ const FONT_SIZE: f32 = 14.0;
 pub struct Renderer {
     editor: Arc<Mutex<Editor>>,
 
-    image: Option<Image>,
+    surface: Option<Surface>,
     paint: Paint,
     font: Font,
     shaper: CachingShaper,
@@ -31,7 +31,7 @@ pub struct Renderer {
 
 impl Renderer {
     pub fn new(editor: Arc<Mutex<Editor>>) -> Renderer {
-        let image = None;
+        let surface = None;
         let paint = Paint::new(colors::WHITE, None);
         let typeface = Typeface::new(FONT_NAME, FontStyle::default()).expect("Could not load font file.");
         let font = Font::from_typeface(typeface, FONT_SIZE);
@@ -45,7 +45,7 @@ impl Renderer {
 
         let fps_tracker = FpsTracker::new();
 
-        Renderer { editor, image, paint, font, shaper, font_width, font_height, cursor_pos, fps_tracker }
+        Renderer { editor, surface, paint, font, shaper, font_width, font_height, cursor_pos, fps_tracker }
     }
 
     fn draw_background(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), style: &Style, default_colors: &Colors) {
@@ -59,7 +59,7 @@ impl Renderer {
         canvas.draw_rect(region, &self.paint);
     }
 
-    fn draw_foreground(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), style: &Style, default_colors: &Colors, update_cache: bool) {
+    fn draw_foreground(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), style: &Style, default_colors: &Colors) {
         let (grid_x, grid_y) = grid_pos;
         let x = grid_x as f32 * self.font_width;
         let y = grid_y as f32 * self.font_height;
@@ -76,24 +76,18 @@ impl Renderer {
         self.paint.set_color(style.foreground(&default_colors).to_color());
         let text = text.trim_end();
         if text.len() > 0 {
-            let reference;
-            let blob = if update_cache {
-                self.shaper.shape_cached(text.to_string(), &self.font)
-            } else {
-                reference = self.shaper.shape(text, &self.font);
-                &reference
-            };
+            let blob = self.shaper.shape_cached(text.to_string(), &self.font);
             canvas.draw_text_blob(blob, (x, y), &self.paint);
         }
     }
 
-    fn draw_text(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), style: &Style, default_colors: &Colors, update_cache: bool) {
+    fn draw_text(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), style: &Style, default_colors: &Colors) {
         self.draw_background(canvas, text, grid_pos, style, default_colors);
-        self.draw_foreground(canvas, text, grid_pos, style, default_colors, update_cache);
+        self.draw_foreground(canvas, text, grid_pos, style, default_colors);
     }
 
     pub fn draw(&mut self, gpu_canvas: &mut Canvas, coordinate_system_helper: &CoordinateSystemHelper) {
-        let (draw_commands, default_colors, (width, height), cursor) = {
+        let ((draw_commands, should_clear), default_colors, (width, height), cursor) = {
             let mut editor = self.editor.lock().unwrap();
             (
                 editor.build_draw_commands(), 
@@ -103,38 +97,44 @@ impl Renderer {
             )
         };
 
-        let mut context = gpu_canvas.gpu_context().unwrap();
-        let budgeted = Budgeted::YES;
-        let image_info = gpu_canvas.image_info();
-        let surface_origin = SurfaceOrigin::TopLeft;
-        let mut surface = Surface::new_render_target(&mut context, budgeted, &image_info, None, surface_origin, None, None).expect("Could not create surface");
+        if should_clear {
+            self.surface = None;
+        }
+
+        let mut surface = self.surface.take().unwrap_or_else(|| {
+            dbg!("rebuild surface");
+            let mut context = gpu_canvas.gpu_context().unwrap();
+            let budgeted = Budgeted::YES;
+            let image_info = gpu_canvas.image_info();
+            let surface_origin = SurfaceOrigin::TopLeft;
+            let mut surface = Surface::new_render_target(&mut context, budgeted, &image_info, None, surface_origin, None, None).expect("Could not create surface");
+            let canvas = surface.canvas();
+            canvas.clear(default_colors.background.clone().unwrap().to_color());
+            surface
+        });
+
         let mut canvas = surface.canvas();
         coordinate_system_helper.use_logical_coordinates(&mut canvas);
 
-        if let Some(image) = self.image.as_ref() {
-            canvas.draw_image(image, (0, 0), Some(&self.paint));
-        } else {
-            canvas.clear(default_colors.background.clone().unwrap().to_color());
-        }
-
         for command in draw_commands.iter() {
-            self.draw_background(canvas, &command.text, command.grid_position.clone(), &command.style, &default_colors);
+            self.draw_background(&mut canvas, &command.text, command.grid_position.clone(), &command.style, &default_colors);
         }
         for command in draw_commands {
-            self.draw_foreground(canvas, &command.text, command.grid_position.clone(), &command.style, &default_colors, true);
+            self.draw_foreground(&mut canvas, &command.text, command.grid_position.clone(), &command.style, &default_colors);
         }
 
         self.fps_tracker.record_frame();
-        self.draw_text(canvas, &self.fps_tracker.fps.to_string(), (width - 2, height - 1), &Style::new(default_colors.clone()), &default_colors, false);
+        self.draw_text(canvas, &self.fps_tracker.fps.to_string(), (width - 2, height - 1), &Style::new(default_colors.clone()), &default_colors);
 
         let (cursor_grid_x, cursor_grid_y) = cursor.position;
         let target_cursor_x = cursor_grid_x as f32 * self.font_width;
         let target_cursor_y = cursor_grid_y as f32 * self.font_height;
         let (previous_cursor_x, previous_cursor_y) = self.cursor_pos;
 
-        self.image = Some(surface.image_snapshot());
         coordinate_system_helper.use_physical_coordinates(gpu_canvas);
-        gpu_canvas.draw_image(self.image.as_ref().unwrap(), (0, 0), Some(&self.paint));
+        gpu_canvas.draw_image(surface.image_snapshot(), (0, 0), Some(&self.paint));
+
+        self.surface = Some(surface);
 
         let cursor_x = (target_cursor_x - previous_cursor_x) * 0.5 + previous_cursor_x;
         let cursor_y = (target_cursor_y - previous_cursor_y) * 0.5 + previous_cursor_y;
