@@ -5,6 +5,7 @@ use skulpin::winit::window::Window;
 
 mod cursor;
 mod style;
+mod command_line;
 
 pub use cursor::{Cursor, CursorShape, CursorMode};
 pub use style::{Colors, Style};
@@ -173,18 +174,6 @@ impl Editor {
         }
     }
 
-    fn resize(&mut self, new_size: (u64, u64)) {
-        self.size = new_size;
-        self.clear();
-    }
-
-    fn clear(&mut self) {
-        let (width, height) = self.size;
-        self.grid = vec![vec![None; width as usize]; height as usize];
-        self.dirty = vec![vec![true; width as usize]; height as usize];
-        self.should_clear = true;
-    }
-
     fn scroll_region(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64, cols: i64) {
         let (top, bot) =  if rows > 0 {
             (top as i64 + rows, bot as i64)
@@ -229,5 +218,17 @@ impl Editor {
                 }
             }
         }
+    }
+
+    fn resize(&mut self, new_size: (u64, u64)) {
+        self.size = new_size;
+        self.clear();
+    }
+
+    fn clear(&mut self) {
+        let (width, height) = self.size;
+        self.grid = vec![vec![None; width as usize]; height as usize];
+        self.dirty = vec![vec![true; width as usize]; height as usize];
+        self.should_clear = true;
     }
 }

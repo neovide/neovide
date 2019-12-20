@@ -45,6 +45,9 @@ pub struct GridLineCell {
     pub repeat: Option<u64>
 }
 
+pub type StyledContent = Vec<(Style, String)>;
+
+#[derive(Debug)]
 pub enum MessageKind {
     Unknown,
     Confirm,
@@ -96,13 +99,19 @@ pub enum RedrawEvent {
     Clear { grid: u64 },
     CursorGoto { grid: u64, row: u64, column: u64 },
     Scroll { grid: u64, top: u64, bottom: u64, left: u64, right: u64, rows: i64, columns: i64 },
-    CommandLineShow { content: Vec<(Style, String)>, position: u64, first_character: String, prompt: String, indent: u64, level: u64 },
+    CommandLineShow { content: StyledContent, position: u64, first_character: String, prompt: String, indent: u64, level: u64 },
     CommandLinePosition { position: u64, level: u64 },
     CommandLineSpecialCharacter { character: String, shift: bool, level: u64 },
     CommandLineHide,
-    CommandLineBlockShow { lines: Vec<Vec<(Style, String)>> },
-    CommandLineBlockAppend { line: Vec<(Style, String)> },
-    CommandLineBlockHide
+    CommandLineBlockShow { lines: Vec<StyledContent> },
+    CommandLineBlockAppend { line: StyledContent },
+    CommandLineBlockHide,
+    MessageShow { kind: MessageKind, content: StyledContent, replace_last: bool },
+    MessageClear,
+    MessageShowMode { content: StyledContent },
+    MessageShowCommand { content: StyledContent },
+    MessageRuler { content: StyledContent },
+    MessageHistoryShow { entries: Vec<(MessageKind, StyledContent)>}
 }
 
 fn unpack_color(packed_color: u64) -> Color4f {
@@ -169,7 +178,7 @@ fn parse_bool(bool_value: &Value) -> Result<bool> {
 fn parse_set_title(set_title_arguments: Vec<Value>) -> Result<RedrawEvent> {
     if let [title] = set_title_arguments.as_slice() {
         Ok(RedrawEvent::SetTitle {
-            title: parse_string(&title)?
+            title: parse_string(title)?
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
@@ -178,7 +187,7 @@ fn parse_set_title(set_title_arguments: Vec<Value>) -> Result<RedrawEvent> {
 
 fn parse_mode_info_set(mode_info_set_arguments: Vec<Value>) -> Result<RedrawEvent> {
     if let [_cursor_style_enabled, mode_info] = mode_info_set_arguments.as_slice() {
-        let mode_info_values = parse_array(&mode_info)?;
+        let mode_info_values = parse_array(mode_info)?;
         let mut cursor_modes = Vec::new();
         for mode_info_value in mode_info_values {
             let info_map = parse_map(&mode_info_value)?;
@@ -336,20 +345,20 @@ fn parse_grid_scroll(grid_scroll_arguments: Vec<Value>) -> Result<RedrawEvent> {
     }
 }
 
-fn parse_commandline_chunks(line: &Value) -> Result<Vec<(Style, String)>> {
+fn parse_styled_content(line: &Value) -> Result<StyledContent> {
     parse_array(line)?.iter().map(|tuple| {
         if let [attributes, text] = parse_array(tuple)?.as_slice() {
             Ok((parse_style(attributes)?, parse_string(text)?))
         } else {
             Err(EventParseError::InvalidEventFormat)
         }
-    }).collect::<Result<Vec<(Style, String)>>>()
+    }).collect::<Result<StyledContent>>()
 }
 
 fn parse_cmdline_show(cmdline_show_arguments: Vec<Value>) -> Result<RedrawEvent> {
     if let [content, position, first_character, prompt, indent, level] = cmdline_show_arguments.as_slice() {
         Ok(RedrawEvent::CommandLineShow {
-            content: parse_commandline_chunks(&content)?,
+            content: parse_styled_content(&content)?,
             position: parse_u64(&position)?,
             first_character: parse_string(&first_character)?,
             prompt: parse_string(&prompt)?,
@@ -387,10 +396,10 @@ fn parse_cmdline_special_char(cmdline_special_char_arguments: Vec<Value>) -> Res
 fn parse_cmdline_block_show(cmdline_block_show_arguments: Vec<Value>) -> Result<RedrawEvent> {
     if let [lines] = cmdline_block_show_arguments.as_slice() {
         Ok(RedrawEvent::CommandLineBlockShow {
-            lines: parse_array(&lines)?
+            lines: parse_array(lines)?
                 .iter()
-                .map(parse_commandline_chunks)
-                .collect::<Result<Vec<Vec<(Style, String)>>>>()?
+                .map(parse_styled_content)
+                .collect::<Result<Vec<StyledContent>>>()?
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
@@ -400,7 +409,73 @@ fn parse_cmdline_block_show(cmdline_block_show_arguments: Vec<Value>) -> Result<
 fn parse_cmdline_block_append(cmdline_block_append_arguments: Vec<Value>) -> Result<RedrawEvent> {
     if let [line] = cmdline_block_append_arguments.as_slice() {
         Ok(RedrawEvent::CommandLineBlockAppend {
-            line: parse_commandline_chunks(&line)?
+            line: parse_styled_content(line)?
+        })
+    } else {
+        Err(EventParseError::InvalidEventFormat)
+    }
+}
+
+fn parse_msg_show(msg_show_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [kind, content, replace_last] = msg_show_arguments.as_slice() {
+        Ok(RedrawEvent::MessageShow {
+            kind: MessageKind::parse(&parse_string(&kind)?),
+            content: parse_styled_content(&content)?,
+            replace_last: parse_bool(&replace_last)?
+        })
+    } else {
+        Err(EventParseError::InvalidEventFormat)
+    }
+}
+
+fn parse_msg_showmode(msg_showmode_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [content] = msg_showmode_arguments.as_slice() {
+        Ok(RedrawEvent::MessageShowMode {
+            content: parse_styled_content(&content)?,
+        })
+    } else {
+        Err(EventParseError::InvalidEventFormat)
+    }
+}
+
+fn parse_msg_showcmd(msg_showcmd_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [content] = msg_showcmd_arguments.as_slice() {
+        Ok(RedrawEvent::MessageShowCommand {
+            content: parse_styled_content(&content)?,
+        })
+    } else {
+        Err(EventParseError::InvalidEventFormat)
+    }
+}
+
+fn parse_msg_ruler(msg_ruler_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [content] = msg_ruler_arguments.as_slice() {
+        Ok(RedrawEvent::MessageRuler {
+            content: parse_styled_content(&content)?,
+        })
+    } else {
+        Err(EventParseError::InvalidEventFormat)
+    }
+}
+
+fn parse_msg_history_entry(entry: &Value) -> Result<(MessageKind, StyledContent)> {
+    if let [kind, content] = parse_array(entry)?.as_slice() {
+        Ok((
+            MessageKind::parse(&parse_string(kind)?),
+            parse_styled_content(content)?
+        ))
+    } else {
+        Err(EventParseError::InvalidEventFormat)
+    }
+}
+
+fn parse_msg_history_show(msg_history_show_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [entries] = msg_history_show_arguments.as_slice() {
+        Ok(RedrawEvent::MessageHistoryShow {
+            entries: parse_array(entries)?
+                .iter()
+                .map(parse_msg_history_entry)
+                .collect::<Result<Vec<(MessageKind, StyledContent)>>>()?
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
@@ -439,12 +514,12 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
             "cmdline_block_show" => Some(parse_cmdline_block_show(event_parameters)?),
             "cmdline_block_append" => Some(parse_cmdline_block_append(event_parameters)?),
             "cmdline_block_hide" => Some(RedrawEvent::CommandLineBlockHide),
-            // "msg_show" => Some(parse_msg_show(event_parameters)?),
-            // "msg_clear" => Some(parse_msg_clear(event_parameters)?),
-            // "msg_showmode" => Some(parse_msg_showmode(event_parameters)?),
-            // "msg_showcmd" => Some(parse_msg_showcmd(event_parameters)?),
-            // "msg_ruler" => Some(parse_msg_ruler(event_parameters)?),
-            // "msg_history_show" => Some(parse_msg_history_show(event_parameters)?),
+            "msg_show" => Some(parse_msg_show(event_parameters)?),
+            "msg_clear" => Some(RedrawEvent::MessageClear),
+            "msg_showmode" => Some(parse_msg_showmode(event_parameters)?),
+            "msg_showcmd" => Some(parse_msg_showcmd(event_parameters)?),
+            "msg_ruler" => Some(parse_msg_ruler(event_parameters)?),
+            "msg_history_show" => Some(parse_msg_history_show(event_parameters)?),
             _ => None
         };
 
