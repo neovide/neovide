@@ -13,6 +13,7 @@ pub enum EventParseError {
     InvalidString(Value),
     InvalidU64(Value),
     InvalidI64(Value),
+    InvalidBool(Value),
     InvalidEventFormat
 }
 type Result<T> = std::result::Result<T, EventParseError>;
@@ -25,6 +26,7 @@ impl fmt::Display for EventParseError {
             EventParseError::InvalidString(value) => write!(f, "invalid string format {}", value),
             EventParseError::InvalidU64(value) => write!(f, "invalid u64 format {}", value),
             EventParseError::InvalidI64(value) => write!(f, "invalid i64 format {}", value),
+            EventParseError::InvalidBool(value) => write!(f, "invalid bool format {}", value),
             EventParseError::InvalidEventFormat => write!(f, "invalid event format")
         }
     }
@@ -43,6 +45,42 @@ pub struct GridLineCell {
     pub repeat: Option<u64>
 }
 
+pub enum MessageKind {
+    Unknown,
+    Confirm,
+    ConfirmSubstitute,
+    Error,
+    Echo,
+    EchoMessage,
+    EchoError,
+    LuaError,
+    RpcError,
+    ReturnPrompt,
+    QuickFix,
+    SearchCount,
+    Warning
+}
+
+impl MessageKind {
+    pub fn parse(kind: &str) -> MessageKind {
+        match kind {
+            "confirm" => MessageKind::Confirm,
+            "confirm_sub" => MessageKind::ConfirmSubstitute,
+            "emsg" => MessageKind::Error,
+            "echo" => MessageKind::Echo,
+            "echomsg" => MessageKind::EchoMessage,
+            "echoerr" => MessageKind::EchoError,
+            "lua_error" => MessageKind::LuaError,
+            "rpc_error" => MessageKind::RpcError,
+            "return_prompt" => MessageKind::ReturnPrompt,
+            "quickfix" => MessageKind::QuickFix,
+            "search_count" => MessageKind::SearchCount,
+            "wmsg" => MessageKind::Warning,
+            _ => MessageKind::Unknown
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum RedrawEvent {
     SetTitle { title: String },
@@ -57,7 +95,14 @@ pub enum RedrawEvent {
     GridLine { grid: u64, row: u64, column_start: u64, cells: Vec<GridLineCell> },
     Clear { grid: u64 },
     CursorGoto { grid: u64, row: u64, column: u64 },
-    Scroll { grid: u64, top: u64, bottom: u64, left: u64, right: u64, rows: i64, columns: i64 }
+    Scroll { grid: u64, top: u64, bottom: u64, left: u64, right: u64, rows: i64, columns: i64 },
+    CommandLineShow { content: Vec<(Style, String)>, position: u64, first_character: String, prompt: String, indent: u64, level: u64 },
+    CommandLinePosition { position: u64, level: u64 },
+    CommandLineSpecialCharacter { character: String, shift: bool, level: u64 },
+    CommandLineHide,
+    CommandLineBlockShow { lines: Vec<Vec<(Style, String)>> },
+    CommandLineBlockAppend { line: Vec<(Style, String)> },
+    CommandLineBlockHide
 }
 
 fn unpack_color(packed_color: u64) -> Color4f {
@@ -110,6 +155,14 @@ fn parse_i64(i64_value: &Value) -> Result<i64> {
         Ok(content.as_i64().ok_or(EventParseError::InvalidI64(i64_value.clone()))?)
     } else {
         Err(EventParseError::InvalidI64(i64_value.clone()))
+    }
+}
+
+fn parse_bool(bool_value: &Value) -> Result<bool> {
+    if let Value::Boolean(content) = bool_value.clone() {
+        Ok(content)
+    } else {
+        Err(EventParseError::InvalidBool(bool_value.clone()))
     }
 }
 
@@ -188,10 +241,8 @@ fn parse_default_colors(default_colors_arguments: Vec<Value>) -> Result<RedrawEv
     }
 }
 
-fn parse_hl_attr_define(hl_attr_define_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [
-        id, Value::Map(attributes), _terminal_attributes, _info
-    ] = hl_attr_define_arguments.as_slice() {
+fn parse_style(style_map: &Value) -> Result<Style> {
+    if let Value::Map(attributes) = style_map {
         let mut style = Style::new(Colors::new(None, None, None));
         for attribute in attributes {
             if let (Value::String(name), value) = attribute {
@@ -212,6 +263,17 @@ fn parse_hl_attr_define(hl_attr_define_arguments: Vec<Value>) -> Result<RedrawEv
                 println!("Invalid attribute format");
             }
         }
+        Ok(style)
+    } else {
+        Err(EventParseError::InvalidMap(style_map.clone()))
+    }
+}
+
+fn parse_hl_attr_define(hl_attr_define_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [
+        id, attributes, _terminal_attributes, _info
+    ] = hl_attr_define_arguments.as_slice() {
+        let style = parse_style(attributes)?;
         Ok(RedrawEvent::HighlightAttributesDefine { id: parse_u64(&id)?, style })
     } else {
         Err(EventParseError::InvalidEventFormat)
@@ -274,6 +336,77 @@ fn parse_grid_scroll(grid_scroll_arguments: Vec<Value>) -> Result<RedrawEvent> {
     }
 }
 
+fn parse_commandline_chunks(line: &Value) -> Result<Vec<(Style, String)>> {
+    parse_array(line)?.iter().map(|tuple| {
+        if let [attributes, text] = parse_array(tuple)?.as_slice() {
+            Ok((parse_style(attributes)?, parse_string(text)?))
+        } else {
+            Err(EventParseError::InvalidEventFormat)
+        }
+    }).collect::<Result<Vec<(Style, String)>>>()
+}
+
+fn parse_cmdline_show(cmdline_show_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [content, position, first_character, prompt, indent, level] = cmdline_show_arguments.as_slice() {
+        Ok(RedrawEvent::CommandLineShow {
+            content: parse_commandline_chunks(&content)?,
+            position: parse_u64(&position)?,
+            first_character: parse_string(&first_character)?,
+            prompt: parse_string(&prompt)?,
+            indent: parse_u64(&indent)?,
+            level: parse_u64(&level)?
+        })
+    } else {
+        Err(EventParseError::InvalidEventFormat)
+    }
+}
+
+fn parse_cmdline_pos(cmdline_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [position, level] = cmdline_pos_arguments.as_slice() {
+        Ok(RedrawEvent::CommandLinePosition {
+            position: parse_u64(&position)?,
+            level: parse_u64(&level)?
+        })
+    } else {
+        Err(EventParseError::InvalidEventFormat)
+    }
+}
+
+fn parse_cmdline_special_char(cmdline_special_char_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [character, shift, level] = cmdline_special_char_arguments.as_slice() {
+        Ok(RedrawEvent::CommandLineSpecialCharacter {
+            character: parse_string(&character)?,
+            shift: parse_bool(&shift)?,
+            level: parse_u64(&level)?
+        })
+    } else {
+        Err(EventParseError::InvalidEventFormat)
+    }
+}
+
+fn parse_cmdline_block_show(cmdline_block_show_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [lines] = cmdline_block_show_arguments.as_slice() {
+        Ok(RedrawEvent::CommandLineBlockShow {
+            lines: parse_array(&lines)?
+                .iter()
+                .map(parse_commandline_chunks)
+                .collect::<Result<Vec<Vec<(Style, String)>>>>()?
+        })
+    } else {
+        Err(EventParseError::InvalidEventFormat)
+    }
+}
+
+fn parse_cmdline_block_append(cmdline_block_append_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [line] = cmdline_block_append_arguments.as_slice() {
+        Ok(RedrawEvent::CommandLineBlockAppend {
+            line: parse_commandline_chunks(&line)?
+        })
+    } else {
+        Err(EventParseError::InvalidEventFormat)
+    }
+}
+
 pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
     let event_contents = parse_array(&event_value)?.to_vec();
     let name_value = event_contents.get(0).ok_or(EventParseError::InvalidEventFormat)?;
@@ -299,6 +432,19 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
             "grid_clear" => Some(parse_clear(event_parameters)?),
             "grid_cursor_goto" => Some(parse_cursor_goto(event_parameters)?),
             "grid_scroll" => Some(parse_grid_scroll(event_parameters)?),
+            "cmdline_show" => Some(parse_cmdline_show(event_parameters)?),
+            "cmdline_pos" => Some(parse_cmdline_pos(event_parameters)?),
+            "cmdline_special_char" => Some(parse_cmdline_special_char(event_parameters)?),
+            "cmdline_hide" => Some(RedrawEvent::CommandLineHide),
+            "cmdline_block_show" => Some(parse_cmdline_block_show(event_parameters)?),
+            "cmdline_block_append" => Some(parse_cmdline_block_append(event_parameters)?),
+            "cmdline_block_hide" => Some(RedrawEvent::CommandLineBlockHide),
+            // "msg_show" => Some(parse_msg_show(event_parameters)?),
+            // "msg_clear" => Some(parse_msg_clear(event_parameters)?),
+            // "msg_showmode" => Some(parse_msg_showmode(event_parameters)?),
+            // "msg_showcmd" => Some(parse_msg_showcmd(event_parameters)?),
+            // "msg_ruler" => Some(parse_msg_ruler(event_parameters)?),
+            // "msg_history_show" => Some(parse_msg_history_show(event_parameters)?),
             _ => None
         };
 

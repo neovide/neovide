@@ -69,7 +69,8 @@ impl Editor {
             RedrawEvent::GridLine { row, column_start, cells, .. } => self.draw_grid_line(row, column_start, cells),
             RedrawEvent::Clear { .. } => self.clear(),
             RedrawEvent::CursorGoto { row, column, .. } => self.cursor.position = (row, column),
-            RedrawEvent::Scroll { top, bottom, left, right, rows, columns, .. } => self.scroll_region(top, bottom, left, right, rows, columns)
+            RedrawEvent::Scroll { top, bottom, left, right, rows, columns, .. } => self.scroll_region(top, bottom, left, right, rows, columns),
+            _ => {}
         };
     }
 

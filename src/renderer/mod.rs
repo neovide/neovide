@@ -12,12 +12,51 @@ use crate::editor::{Editor, CursorShape, Style, Colors};
 const FONT_NAME: &str = "Delugia Nerd Font";
 const FONT_SIZE: f32 = 14.0;
 
+struct Fonts {
+    pub name: String,
+    pub size: f32,
+    pub normal: Font,
+    pub bold: Font,
+    pub italic: Font,
+    pub bold_italic: Font
+}
+
+impl Fonts {
+    fn new(name: &str, size: f32) -> Fonts {
+        Fonts {
+            name: name.to_string(),
+            size,
+            normal: Font::from_typeface(
+                Typeface::new(name, FontStyle::normal()).expect("Could not load normal font file"),
+                size),
+            bold: Font::from_typeface(
+                Typeface::new(name, FontStyle::bold()).expect("Could not load bold font file"),
+                size),
+            italic: Font::from_typeface(
+                Typeface::new(name, FontStyle::italic()).expect("Could not load italic font file"),
+                size),
+            bold_italic: Font::from_typeface(
+                Typeface::new(name, FontStyle::bold_italic()).expect("Could not load bold italic font file"),
+                size)
+        }
+    }
+
+    fn get(&self, style: &Style) -> &Font {
+        match (style.bold, style.italic) {
+            (false, false) => &self.normal,
+            (true, false) => &self.bold,
+            (false, true)  => &self.italic,
+            (true, true) => &self.bold_italic
+        }
+    }
+}
+
 pub struct Renderer {
     editor: Arc<Mutex<Editor>>,
 
     surface: Option<Surface>,
     paint: Paint,
-    font: Font,
+    fonts: Fonts,
     shaper: CachingShaper,
 
     pub font_width: f32,
@@ -30,17 +69,16 @@ impl Renderer {
         let surface = None;
         let mut paint = Paint::new(colors::WHITE, None);
         paint.set_anti_alias(false);
-        let typeface = Typeface::new(FONT_NAME, FontStyle::default()).expect("Could not load font file.");
-        let font = Font::from_typeface(typeface, FONT_SIZE);
+        let fonts = Fonts::new(FONT_NAME, FONT_SIZE);
         let shaper = CachingShaper::new();
 
-        let (_, bounds) = font.measure_str("_", Some(&paint));
+        let (_, bounds) = fonts.normal.measure_str("_", Some(&paint));
         let font_width = bounds.width();
-        let (_, metrics) = font.metrics();
+        let (_, metrics) = fonts.normal.metrics();
         let font_height = metrics.descent - metrics.ascent;
         let cursor_pos = (0.0, 0.0);
 
-        Renderer { editor, surface, paint, font, shaper, font_width, font_height, cursor_pos }
+        Renderer { editor, surface, paint, fonts, shaper, font_width, font_height, cursor_pos }
     }
 
     fn draw_background(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), style: &Style, default_colors: &Colors) {
@@ -61,7 +99,7 @@ impl Renderer {
         let width = text.chars().count() as f32 * self.font_width;
 
         if style.underline || style.undercurl {
-            let (_, metrics) = self.font.metrics();
+            let (_, metrics) = self.fonts.get(style).metrics();
             let line_position = metrics.underline_position().unwrap();
 
             self.paint.set_color(style.special(&default_colors).to_color());
@@ -71,7 +109,7 @@ impl Renderer {
         self.paint.set_color(style.foreground(&default_colors).to_color());
         let text = text.trim_end();
         if text.len() > 0 {
-            let blob = self.shaper.shape_cached(text.to_string(), &self.font);
+            let blob = self.shaper.shape_cached(text.to_string(), self.fonts.get(style));
             canvas.draw_text_blob(blob, (x, y), &self.paint);
         }
     }
@@ -91,7 +129,6 @@ impl Renderer {
         }
 
         let mut surface = self.surface.take().unwrap_or_else(|| {
-            dbg!("rebuild surface");
             let mut context = gpu_canvas.gpu_context().unwrap();
             let budgeted = Budgeted::YES;
             let image_info = gpu_canvas.image_info();
@@ -150,7 +187,7 @@ impl Renderer {
                     .map(|(character, _)| character)
                     .unwrap_or(' ');
                 gpu_canvas.draw_text_blob(
-                    self.shaper.shape_cached(character.to_string(), &self.font), 
+                    self.shaper.shape_cached(character.to_string(), &self.fonts.normal), 
                     (cursor_x, cursor_y), &self.paint);
             }
         }

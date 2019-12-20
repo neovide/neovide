@@ -43,7 +43,7 @@ impl Cursor {
         Cursor {
             position: (0, 0),
             shape: CursorShape::Block,
-            style: Option::<Style>::default(),
+            style: None,
             enabled: true,
             mode_list: Vec::new()
         }
