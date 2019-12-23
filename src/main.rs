@@ -1,4 +1,4 @@
-#![windows_subsystem = "windows"]
+// #![windows_subsystem = "windows"]
 
 mod editor;
 mod events;
@@ -47,7 +47,7 @@ fn start_nvim(editor: Arc<Mutex<Editor>>) -> Neovim {
     let join_handle = session.take_dispatch_guard();
     let mut nvim = Neovim::new(session);
     let mut options = UiAttachOptions::new();
-    options.set_cmdline_external(false);
+    options.set_cmdline_external(true);
     options.set_messages_external(false);
     options.set_linegrid_external(true);
     options.set_rgb(true);

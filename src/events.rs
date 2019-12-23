@@ -45,7 +45,7 @@ pub struct GridLineCell {
     pub repeat: Option<u64>
 }
 
-pub type StyledContent = Vec<(Style, String)>;
+pub type StyledContent = Vec<(u64, String)>;
 
 #[derive(Debug)]
 pub enum MessageKind {
@@ -347,8 +347,8 @@ fn parse_grid_scroll(grid_scroll_arguments: Vec<Value>) -> Result<RedrawEvent> {
 
 fn parse_styled_content(line: &Value) -> Result<StyledContent> {
     parse_array(line)?.iter().map(|tuple| {
-        if let [attributes, text] = parse_array(tuple)?.as_slice() {
-            Ok((parse_style(attributes)?, parse_string(text)?))
+        if let [style_id, text] = parse_array(tuple)?.as_slice() {
+            Ok((parse_u64(style_id)?, parse_string(text)?))
         } else {
             Err(EventParseError::InvalidEventFormat)
         }
@@ -525,8 +525,6 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
 
         if let Some(parsed_event) = possible_parsed_event {
             parsed_events.push(parsed_event);
-        } else {
-            println!("Did not parse {}", event_name);
         }
     }
 

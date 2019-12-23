@@ -30,6 +30,8 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
         .expect("Failed to create window"));
 
     let mut skulpin_renderer = RendererBuilder::new()
+        .prefer_integrated_gpu()
+        .use_vulkan_debug_layer(true)
         .coordinate_system(CoordinateSystem::Logical)
         .build(&window)
         .expect("Failed to create renderer");

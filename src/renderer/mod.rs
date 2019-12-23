@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use skulpin::CoordinateSystemHelper;
 use skulpin::skia_safe::{Canvas, Paint, Surface, Budgeted, Rect, Typeface, Font, FontStyle, colors};
@@ -51,12 +52,47 @@ impl Fonts {
     }
 }
 
+struct FontLookup {
+    pub name: String,
+    pub base_size: f32,
+    pub loaded_fonts: HashMap<u16, Fonts>
+}
+
+impl FontLookup {
+    pub fn new(name: &str, base_size: f32) -> FontLookup {
+        let lookup = FontLookup {
+            name: name.to_string(),
+            base_size,
+            loaded_fonts: HashMap::new()
+        };
+
+        lookup.size(1);
+        lookup.size(2);
+        lookup.size(3);
+
+        lookup
+    }
+
+    fn size(&mut self, size_multiplier: u16) -> &Fonts {
+        match self.loaded_fonts.get(&size_multiplier) {
+            Some(fonts) => fonts,
+            None => {
+                let fonts = Fonts::new(
+                    &self.name, 
+                    self.base_size * size_multiplier as f32);
+                self.loaded_fonts.insert(size_multiplier, fonts); 
+                self.loaded_fonts.get(&size_multiplier).unwrap()
+            }
+        }
+    }
+}
+
 pub struct Renderer {
     editor: Arc<Mutex<Editor>>,
 
     surface: Option<Surface>,
     paint: Paint,
-    fonts: Fonts,
+    fonts_lookup: FontLookup,
     shaper: CachingShaper,
 
     pub font_width: f32,
@@ -69,37 +105,43 @@ impl Renderer {
         let surface = None;
         let mut paint = Paint::new(colors::WHITE, None);
         paint.set_anti_alias(false);
-        let fonts = Fonts::new(FONT_NAME, FONT_SIZE);
+        let fonts_lookup = FontLookup::new(FONT_NAME, FONT_SIZE);
         let shaper = CachingShaper::new();
 
-        let (_, bounds) = fonts.normal.measure_str("_", Some(&paint));
+        let base_fonts = fonts_lookup.size(1);
+        let (_, bounds) = base_fonts.normal.measure_str("_", Some(&paint));
         let font_width = bounds.width();
-        let (_, metrics) = fonts.normal.metrics();
+        let (_, metrics) = base_fonts.normal.metrics();
         let font_height = metrics.descent - metrics.ascent;
         let cursor_pos = (0.0, 0.0);
 
-        Renderer { editor, surface, paint, fonts, shaper, font_width, font_height, cursor_pos }
+        Renderer { editor, surface, paint, fonts_lookup, shaper, font_width, font_height, cursor_pos }
     }
 
-    fn draw_background(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), style: &Style, default_colors: &Colors) {
+    fn draw_background(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), size: u16, style: &Option<Style>, default_colors: &Colors) {
         let (grid_x, grid_y) = grid_pos;
         let x = grid_x as f32 * self.font_width;
         let y = grid_y as f32 * self.font_height;
         let width = text.chars().count() as f32 * self.font_width;
         let height = self.font_height;
         let region = Rect::new(x, y, x + width, y + height);
+
+        let style = style.clone().unwrap_or(Style::new(default_colors.clone()));
+
         self.paint.set_color(style.background(default_colors).to_color());
         canvas.draw_rect(region, &self.paint);
     }
 
-    fn draw_foreground(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), style: &Style, default_colors: &Colors) {
+    fn draw_foreground(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), size: u16, style: &Option<Style>, default_colors: &Colors) {
         let (grid_x, grid_y) = grid_pos;
         let x = grid_x as f32 * self.font_width;
         let y = grid_y as f32 * self.font_height;
         let width = text.chars().count() as f32 * self.font_width;
 
+        let style = style.clone().unwrap_or(Style::new(default_colors.clone()));
+
         if style.underline || style.undercurl {
-            let (_, metrics) = self.fonts.get(style).metrics();
+            let (_, metrics) = self.fonts_lookup.size(scale).get(&style).metrics();
             let line_position = metrics.underline_position().unwrap();
 
             self.paint.set_color(style.special(&default_colors).to_color());
@@ -109,7 +151,7 @@ impl Renderer {
         self.paint.set_color(style.foreground(&default_colors).to_color());
         let text = text.trim_end();
         if text.len() > 0 {
-            let blob = self.shaper.shape_cached(text.to_string(), self.fonts.get(style));
+            let blob = self.shaper.shape_cached(text.to_string(), self.fonts.get(&style));
             canvas.draw_text_blob(blob, (x, y), &self.paint);
         }
     }

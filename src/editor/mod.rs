@@ -9,15 +9,18 @@ mod command_line;
 
 pub use cursor::{Cursor, CursorShape, CursorMode};
 pub use style::{Colors, Style};
+use command_line::CommandLine;
 use crate::events::{GridLineCell, RedrawEvent};
 
-pub type GridCell = Option<(char, Style)>;
+pub type GridCell = Option<(char, Option<Style>)>;
 
 #[derive(new, Debug, Clone)]
 pub struct DrawCommand {
     pub text: String,
     pub grid_position: (u64, u64),
-    pub style: Style
+    pub style: Option<Style>,
+    #[new(value = "1")]
+    pub scale: u16
 }
 
 pub struct Editor {
@@ -27,6 +30,7 @@ pub struct Editor {
 
     pub window: Option<Arc<Window>>,
 
+    pub command_line: CommandLine,
     pub title: String,
     pub size: (u64, u64),
     pub cursor: Cursor,
@@ -44,6 +48,7 @@ impl Editor {
 
             window: None,
 
+            command_line: CommandLine::new(),
             title: "Neovide".to_string(),
             cursor: Cursor::new(),
             size: (width, height),
@@ -71,7 +76,7 @@ impl Editor {
             RedrawEvent::Clear { .. } => self.clear(),
             RedrawEvent::CursorGoto { row, column, .. } => self.cursor.position = (row, column),
             RedrawEvent::Scroll { top, bottom, left, right, rows, columns, .. } => self.scroll_region(top, bottom, left, right, rows, columns),
-            _ => {}
+            event => self.command_line.handle_command_events(event)
         };
     }
 
@@ -86,14 +91,14 @@ impl Editor {
                 }
             }
 
-            fn command_matches(command: &Option<DrawCommand>, style: &Style) -> bool {
+            fn command_matches(command: &Option<DrawCommand>, style: &Option<Style>) -> bool {
                 match command {
                     Some(command) => &command.style == style,
                     None => true
                 }
             }
 
-            fn add_character(command: &mut Option<DrawCommand>, character: &char, row_index: u64, col_index: u64, style: Style) {
+            fn add_character(command: &mut Option<DrawCommand>, character: &char, row_index: u64, col_index: u64, style: Option<Style>) {
                 match command {
                     Some(command) => command.text.push(character.clone()),
                     None => {
@@ -118,7 +123,7 @@ impl Editor {
         }
         let should_clear = self.should_clear;
 
-        let draw_commands = draw_commands.into_iter().filter(|command| {
+        let mut draw_commands = draw_commands.into_iter().filter(|command| {
             let (x, y) = command.grid_position;
             let dirty_row = &self.dirty[y as usize];
 
@@ -130,6 +135,9 @@ impl Editor {
             return false;
         }).collect::<Vec<DrawCommand>>();
 
+        let mut command_line_draw_commands = self.command_line.draw(self.size, &self.defined_styles);
+        draw_commands.append(&mut command_line_draw_commands);
+
         let (width, height) = self.size;
         self.dirty = vec![vec![false; width as usize]; height as usize];
         self.should_clear = false;
@@ -137,11 +145,10 @@ impl Editor {
     }
 
     fn draw_grid_line_cell(&mut self, row_index: u64, column_pos: &mut u64, cell: GridLineCell) {
-        let style = match (cell.highlight_id, self.previous_style.clone()) {
-            (Some(0), _) => Style::new(self.default_colors.clone()),
-            (Some(style_id), _) => self.defined_styles.get(&style_id).expect("GridLineCell must use defined color").clone(),
-            (None, Some(previous_style)) => previous_style,
-            (None, None) => Style::new(self.default_colors.clone())
+        let style = match cell.highlight_id {
+            Some(0) => None,
+            Some(style_id) => self.defined_styles.get(&style_id).map(|style| style.clone()),
+            None => self.previous_style.clone()
         };
 
         let mut text = cell.text;
@@ -160,7 +167,7 @@ impl Editor {
         }
 
         *column_pos = *column_pos + text.chars().count() as u64;
-        self.previous_style = Some(style);
+        self.previous_style = style;
     }
 
     fn draw_grid_line(&mut self, row: u64, column_start: u64, cells: Vec<GridLineCell>) {
