@@ -157,8 +157,6 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
                         }
                     }
 
-                    dbg!(live_frames);
-
                     if live_frames > 0 {
                         *control_flow = ControlFlow::WaitUntil(frame_start + Duration::from_secs_f32(1.0 / 60.0));
                     } else {
