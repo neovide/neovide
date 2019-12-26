@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use crate::events::{RedrawEvent, StyledContent};
 use crate::editor::{DrawCommand, Style};
 
+const COMMAND_SCALE: u16 = 2;
+
 pub struct CommandLine {
     visible: bool,
     prefix: String,
@@ -30,14 +32,18 @@ impl CommandLine {
             let (width, height) = window_size;
             let text_length: usize = self.content.iter().map(|(_, text)| text.len()).sum();
 
-            let x = (width / 2) - (text_length as u64 / 2);
-            let y = height / 2;
+            let text_width = text_length * COMMAND_SCALE as usize;
+            let text_height = COMMAND_SCALE;
+
+            let x = (width / 2) - (text_width as u64 / 2);
+            let y = (height / 2) - (text_height as u64 / 2);
 
             let mut start_x = x;
             let mut commands = self.content.iter().map(|(style_id, text)| {
-                let command_width = text.len();
+                let command_width = text.len() * 2;
                 let style = defined_styles.get(style_id).map(|style| style.clone());
-                let command = DrawCommand::new(text.clone(), (start_x, y), style);
+                let mut command = DrawCommand::new(text.clone(), (start_x, y), style);
+                command.scale = COMMAND_SCALE;
                 start_x = start_x + command_width as u64;
                 command
             }).collect::<Vec<DrawCommand>>();
@@ -74,7 +80,7 @@ impl CommandLine {
         self.block = Vec::new();
     }
 
-    fn set_position(&mut self, position: u64, level: u64) {
+    fn set_position(&mut self, position: u64, _level: u64) {
         self.cursor_position = position;
     }
 

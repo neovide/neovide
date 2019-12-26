@@ -60,7 +60,7 @@ struct FontLookup {
 
 impl FontLookup {
     pub fn new(name: &str, base_size: f32) -> FontLookup {
-        let lookup = FontLookup {
+        let mut lookup = FontLookup {
             name: name.to_string(),
             base_size,
             loaded_fonts: HashMap::new()
@@ -74,16 +74,11 @@ impl FontLookup {
     }
 
     fn size(&mut self, size_multiplier: u16) -> &Fonts {
-        match self.loaded_fonts.get(&size_multiplier) {
-            Some(fonts) => fonts,
-            None => {
-                let fonts = Fonts::new(
-                    &self.name, 
-                    self.base_size * size_multiplier as f32);
-                self.loaded_fonts.insert(size_multiplier, fonts); 
-                self.loaded_fonts.get(&size_multiplier).unwrap()
-            }
-        }
+        let name = self.name.clone();
+        let base_size = self.base_size;
+        self.loaded_fonts.entry(size_multiplier).or_insert_with(|| {
+            Fonts::new(&name, base_size * size_multiplier as f32)
+        })
     }
 }
 
@@ -105,7 +100,7 @@ impl Renderer {
         let surface = None;
         let mut paint = Paint::new(colors::WHITE, None);
         paint.set_anti_alias(false);
-        let fonts_lookup = FontLookup::new(FONT_NAME, FONT_SIZE);
+        let mut fonts_lookup = FontLookup::new(FONT_NAME, FONT_SIZE);
         let shaper = CachingShaper::new();
 
         let base_fonts = fonts_lookup.size(1);
@@ -122,8 +117,8 @@ impl Renderer {
         let (grid_x, grid_y) = grid_pos;
         let x = grid_x as f32 * self.font_width;
         let y = grid_y as f32 * self.font_height;
-        let width = text.chars().count() as f32 * self.font_width;
-        let height = self.font_height;
+        let width = text.chars().count() as f32 * self.font_width * size as f32;
+        let height = self.font_height * size as f32;
         let region = Rect::new(x, y, x + width, y + height);
 
         let style = style.clone().unwrap_or(Style::new(default_colors.clone()));
@@ -141,7 +136,7 @@ impl Renderer {
         let style = style.clone().unwrap_or(Style::new(default_colors.clone()));
 
         if style.underline || style.undercurl {
-            let (_, metrics) = self.fonts_lookup.size(scale).get(&style).metrics();
+            let (_, metrics) = self.fonts_lookup.size(size).get(&style).metrics();
             let line_position = metrics.underline_position().unwrap();
 
             self.paint.set_color(style.special(&default_colors).to_color());
@@ -151,7 +146,7 @@ impl Renderer {
         self.paint.set_color(style.foreground(&default_colors).to_color());
         let text = text.trim_end();
         if text.len() > 0 {
-            let blob = self.shaper.shape_cached(text.to_string(), self.fonts.get(&style));
+            let blob = self.shaper.shape_cached(text.to_string(), self.fonts_lookup.size(size).get(&style));
             canvas.draw_text_blob(blob, (x, y), &self.paint);
         }
     }
@@ -185,10 +180,10 @@ impl Renderer {
         coordinate_system_helper.use_logical_coordinates(&mut canvas);
 
         for command in draw_commands.iter() {
-            self.draw_background(&mut canvas, &command.text, command.grid_position.clone(), &command.style, &default_colors);
+            self.draw_background(&mut canvas, &command.text, command.grid_position.clone(), command.scale, &command.style, &default_colors);
         }
         for command in draw_commands.iter() {
-            self.draw_foreground(&mut canvas, &command.text, command.grid_position.clone(), &command.style, &default_colors);
+            self.draw_foreground(&mut canvas, &command.text, command.grid_position.clone(), command.scale, &command.style, &default_colors);
         }
 
         let image = surface.image_snapshot();
@@ -229,7 +224,7 @@ impl Renderer {
                     .map(|(character, _)| character)
                     .unwrap_or(' ');
                 gpu_canvas.draw_text_blob(
-                    self.shaper.shape_cached(character.to_string(), &self.fonts.normal), 
+                    self.shaper.shape_cached(character.to_string(), &self.fonts_lookup.size(1).normal), 
                     (cursor_x, cursor_y), &self.paint);
             }
         }

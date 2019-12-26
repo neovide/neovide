@@ -52,7 +52,10 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
-            } => *control_flow = ControlFlow::Exit,
+            } => {
+                nvim.quit_no_save().ok();
+                *control_flow = ControlFlow::Exit
+            },
 
             Event::WindowEvent {
                 event: WindowEvent::Resized(new_size),
