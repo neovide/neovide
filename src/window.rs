@@ -1,8 +1,9 @@
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 use skulpin::{CoordinateSystem, RendererBuilder, PresentMode};
 use skulpin::skia_safe::icu;
 use skulpin::winit::dpi::LogicalSize;
-use skulpin::winit::event::{ElementState, Event, MouseScrollDelta, WindowEvent};
+use skulpin::winit::event::{ElementState, Event, MouseScrollDelta, StartCause, WindowEvent};
 use skulpin::winit::event_loop::{ControlFlow, EventLoop};
 use skulpin::winit::window::WindowBuilder;
 use neovim_lib::{Neovim, NeovimApi};
@@ -32,6 +33,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
     let mut skulpin_renderer = RendererBuilder::new()
         .prefer_integrated_gpu()
         .use_vulkan_debug_layer(true)
+        .present_mode_priority(vec![PresentMode::Mailbox, PresentMode::Immediate])
         .coordinate_system(CoordinateSystem::Logical)
         .build(&window)
         .expect("Failed to create renderer");
@@ -47,15 +49,18 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
     }
 
     let mut live_frames = 0;
+    let mut frame_start = Instant::now();
     event_loop.run(move |event, _window_target, control_flow| {
         match event {
+            Event::NewEvents(StartCause::Init) |
+            Event::NewEvents(StartCause::ResumeTimeReached { .. }) => {
+                window.request_redraw()
+            },
+
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
-            } => {
-                nvim.quit_no_save().ok();
-                *control_flow = ControlFlow::Exit
-            },
+            } => *control_flow = ControlFlow::Exit,
 
             Event::WindowEvent {
                 event: WindowEvent::Resized(new_size),
@@ -138,23 +143,26 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
                 }
             }
 
-            Event::EventsCleared => {
-                if live_frames > 0 {
-                    live_frames = live_frames - 1;
-                    window.request_redraw();
-                    *control_flow = ControlFlow::Poll;
-                } else {
-                    *control_flow = ControlFlow::Wait;
-                }
-            },
-
             Event::WindowEvent {
                 event: WindowEvent::RedrawRequested,
                 ..
             } => {
+                frame_start = Instant::now();
                 if let Err(e) = skulpin_renderer.draw(&window.clone(), |canvas, coordinate_system_helper| {
                     if renderer.draw(canvas, coordinate_system_helper) {
                         live_frames = EXTRA_LIVE_FRAMES;
+                    } else {
+                        if live_frames > 0 {
+                            live_frames = live_frames - 1;
+                        }
+                    }
+
+                    dbg!(live_frames);
+
+                    if live_frames > 0 {
+                        *control_flow = ControlFlow::WaitUntil(frame_start + Duration::from_secs_f32(1.0 / 60.0));
+                    } else {
+                        *control_flow = ControlFlow::Wait;
                     }
                 }) {
                     println!("Error during draw: {:?}", e);
