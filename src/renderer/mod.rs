@@ -5,15 +5,17 @@ use skulpin::skia_safe::{Canvas, Paint, Surface, Budgeted, Rect, Typeface, Font,
 use skulpin::skia_safe::gpu::SurfaceOrigin;
 
 mod caching_shaper;
+mod cursor_renderer;
 
-use caching_shaper::CachingShaper;
+pub use caching_shaper::CachingShaper;
 
-use crate::editor::{Editor, CursorShape, Style, Colors};
+use cursor_renderer::CursorRenderer;
+use crate::editor::{Editor, Style, Colors};
 
 const FONT_NAME: &str = "Delugia Nerd Font";
 const FONT_SIZE: f32 = 14.0;
 
-struct Fonts {
+pub struct Fonts {
     pub name: String,
     pub size: f32,
     pub normal: Font,
@@ -52,7 +54,7 @@ impl Fonts {
     }
 }
 
-struct FontLookup {
+pub struct FontLookup {
     pub name: String,
     pub base_size: f32,
     pub loaded_fonts: HashMap<u16, Fonts>
@@ -92,7 +94,7 @@ pub struct Renderer {
 
     pub font_width: f32,
     pub font_height: f32,
-    cursor_pos: (f32, f32),
+    cursor_renderer: CursorRenderer,
 }
 
 impl Renderer {
@@ -108,9 +110,9 @@ impl Renderer {
         let font_width = bounds.width();
         let (_, metrics) = base_fonts.normal.metrics();
         let font_height = metrics.descent - metrics.ascent;
-        let cursor_pos = (0.0, 0.0);
+        let cursor_renderer = CursorRenderer::new();
 
-        Renderer { editor, surface, paint, fonts_lookup, shaper, font_width, font_height, cursor_pos }
+        Renderer { editor, surface, paint, fonts_lookup, shaper, font_width, font_height, cursor_renderer }
     }
 
     fn draw_background(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), size: u16, style: &Option<Style>, default_colors: &Colors) {
@@ -193,42 +195,13 @@ impl Renderer {
 
         self.surface = Some(surface);
 
-        let (cursor_grid_x, cursor_grid_y) = cursor.position;
-        let target_cursor_x = cursor_grid_x as f32 * self.font_width;
-        let target_cursor_y = cursor_grid_y as f32 * self.font_height;
-        let (previous_cursor_x, previous_cursor_y) = self.cursor_pos;
+        let cursor_animating = self.cursor_renderer.draw(
+            cursor, &default_colors, 
+            self.font_width, self.font_height, 
+            &mut self.paint, self.editor.clone(),
+            &mut self.shaper, &mut self.fonts_lookup,
+            gpu_canvas);
 
-        let delta_cursor_x = target_cursor_x - previous_cursor_x;
-        let delta_cursor_y = target_cursor_y - previous_cursor_y;
-
-        let cursor_x = delta_cursor_x * 0.5 + previous_cursor_x;
-        let cursor_y = delta_cursor_y * 0.5 + previous_cursor_y;
-        self.cursor_pos = (cursor_x, cursor_y);
-        if cursor.enabled {
-            let cursor_width = match cursor.shape {
-                CursorShape::Vertical => self.font_width / 8.0,
-                CursorShape::Horizontal | CursorShape::Block => self.font_width
-            };
-            let cursor_height = match cursor.shape {
-                CursorShape::Horizontal => self.font_width / 8.0,
-                CursorShape::Vertical | CursorShape::Block => self.font_height
-            };
-            let cursor_region = Rect::new(cursor_x, cursor_y, cursor_x + cursor_width, cursor_y + cursor_height);
-            self.paint.set_color(cursor.background(&default_colors).to_color());
-            gpu_canvas.draw_rect(cursor_region, &self.paint);
-
-            if let CursorShape::Block = cursor.shape {
-                self.paint.set_color(cursor.foreground(&default_colors).to_color());
-                let editor = self.editor.lock().unwrap();
-                let character = editor.grid[cursor_grid_y as usize][cursor_grid_x as usize].clone()
-                    .map(|(character, _)| character)
-                    .unwrap_or(' ');
-                gpu_canvas.draw_text_blob(
-                    self.shaper.shape_cached(character.to_string(), &self.fonts_lookup.size(1).normal), 
-                    (cursor_x, cursor_y), &self.paint);
-            }
-        }
-
-        draw_commands.len() > 0 || delta_cursor_x.abs() > 0.001 || delta_cursor_y.abs() > 0.001
+        draw_commands.len() > 0 || cursor_animating
     }
 }
