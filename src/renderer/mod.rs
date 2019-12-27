@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use skulpin::CoordinateSystemHelper;
 use skulpin::skia_safe::{Canvas, Paint, Surface, Budgeted, Rect, Typeface, Font, FontStyle, colors};
-use skulpin::skia_safe::paint::Style as PaintStyle;
 use skulpin::skia_safe::gpu::SurfaceOrigin;
 
 mod caching_shaper;

@@ -34,9 +34,22 @@ impl Corner {
         let delta = corner_destination - self.current_position;
 
         if delta.length() > 0.0 {
+            // Project relative_scaled_position (actual possition of the corner relative to the
+            // center of the cursor) onto the remaining distance vector. This gives us the relative
+            // distance to the destination along the delta vector which we can then use to scale the
+            // motion_percentage.
             let motion_scale = delta.dot(relative_scaled_position) / delta.length() / font_dimensions.length();
+
+            // The motion_percentage is then equal to the motion_scale factor times the
+            // MOTION_PERCENTAGE_SPREAD and added to the AVERAGE_MOTION_PERCENTAGE. This way all of
+            // the percentages are positive and spread out by the spread constant.
             let motion_percentage = motion_scale * MOTION_PERCENTAGE_SPREAD + AVERAGE_MOTION_PERCENTAGE;
 
+            // Then the current_position is animated by taking the delta vector, multiplying it by
+            // the motion_percentage and adding the resulting value to the current position causing
+            // the cursor to "jump" toward the target destination. Since further away corners jump
+            // slower, the cursor appears to smear toward the destination in a satisfying and
+            // visually trackable way.
             let delta = corner_destination - self.current_position;
             self.current_position += delta * motion_percentage;
         }
@@ -104,13 +117,14 @@ impl CursorRenderer {
             // Draw Background
             paint.set_color(cursor.background(&default_colors).to_color());
 
+            // The cursor is made up of four points, so I create a path with each of the four
+            // corners.
             let mut path = Path::new();
             path.move_to(self.corners[0].current_position);
             path.line_to(self.corners[1].current_position);
             path.line_to(self.corners[2].current_position);
             path.line_to(self.corners[3].current_position);
             path.close();
-
             canvas.draw_path(&path, &paint);
 
             let mut position_sum: Point = (0.0, 0.0).into();
