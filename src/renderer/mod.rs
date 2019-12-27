@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use skulpin::CoordinateSystemHelper;
 use skulpin::skia_safe::{Canvas, Paint, Surface, Budgeted, Rect, Typeface, Font, FontStyle, colors};
+use skulpin::skia_safe::paint::Style as PaintStyle;
 use skulpin::skia_safe::gpu::SurfaceOrigin;
 
 mod caching_shaper;
@@ -102,6 +103,7 @@ impl Renderer {
         let surface = None;
         let mut paint = Paint::new(colors::WHITE, None);
         paint.set_anti_alias(false);
+        
         let mut fonts_lookup = FontLookup::new(FONT_NAME, FONT_SIZE);
         let shaper = CachingShaper::new();
 
