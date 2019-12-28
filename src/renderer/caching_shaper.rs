@@ -3,7 +3,7 @@ use skulpin::skia_safe::{Shaper, TextBlob, Font, Point};
 
 pub struct CachingShaper {
     shaper: Shaper,
-    cache: LruCache<String, TextBlob>
+    cache: LruCache<(String, u16), TextBlob>
 }
 
 impl CachingShaper {
@@ -19,11 +19,16 @@ impl CachingShaper {
         blob
     }
 
-    pub fn shape_cached(&mut self, text: String, font: &Font) -> &TextBlob {
-        if !self.cache.contains(&text) {
-            self.cache.put(text.clone(), self.shape(&text, &font));
+    pub fn shape_cached(&mut self, text: String, scale: u16, font: &Font) -> &TextBlob {
+        let key = (text.clone(), scale);
+        if !self.cache.contains(&key) {
+            self.cache.put(key.clone(), self.shape(&text, &font));
         }
 
-        self.cache.get(&text).unwrap()
+        self.cache.get(&key).unwrap()
+    }
+
+    pub fn clear(&mut self) {
+        self.cache.clear();
     }
 }

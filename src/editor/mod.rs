@@ -23,6 +23,20 @@ pub struct DrawCommand {
     pub scale: u16
 }
 
+impl DrawCommand {
+    pub fn set_coverage(&self, dirty: &mut Vec<Vec<bool>>) {
+        let (left, top) = self.grid_position;
+        let text_width = self.text.chars().count() * self.scale as usize;
+
+        for y in top..(top + self.scale as u64 - 1) {
+            let row = &mut dirty[y as usize];
+            for x in left..(left + text_width as u64 - 1) {
+                row[x as usize] = true;
+            }
+        }
+    }
+}
+
 pub struct Editor {
     pub grid: Vec<Vec<GridCell>>,
     pub dirty: Vec<Vec<bool>>,
@@ -136,6 +150,9 @@ impl Editor {
         }).collect::<Vec<DrawCommand>>();
 
         let mut command_line_draw_commands = self.command_line.draw(self.size, &self.defined_styles);
+        for command_line_draw_command in command_line_draw_commands.iter() {
+            command_line_draw_command.set_coverage(&mut self.dirty);
+        }
         draw_commands.append(&mut command_line_draw_commands);
 
         let (width, height) = self.size;

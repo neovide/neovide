@@ -5,7 +5,7 @@ use skulpin::skia_safe::{Canvas, Paint, Path, Point};
 use crate::renderer::{CachingShaper, FontLookup};
 use crate::editor::{Colors, Cursor, CursorShape, Editor};
 
-const AVERAGE_MOTION_PERCENTAGE: f32 = 0.8;
+const AVERAGE_MOTION_PERCENTAGE: f32 = 0.6;
 const MOTION_PERCENTAGE_SPREAD: f32 = 0.5;
 
 const BAR_WIDTH: f32 = 1.0 / 8.0;
@@ -142,7 +142,7 @@ impl CursorRenderer {
                     .map(|(character, _)| character)
                     .unwrap_or(' ');
                 canvas.draw_text_blob(
-                    shaper.shape_cached(character.to_string(), &fonts_lookup.size(1).normal), 
+                    shaper.shape_cached(character.to_string(), 1, &fonts_lookup.size(1).normal), 
                     (cursor_x, cursor_y), &paint);
             }
         }

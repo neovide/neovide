@@ -124,20 +124,33 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
 
             Event::WindowEvent {
                 event: WindowEvent::MouseWheel {
-                    delta: MouseScrollDelta::LineDelta(_, delta),
+                    delta: MouseScrollDelta::LineDelta(horizontal, vertical),
                     ..
                 },
                 ..
             } => {
-                let input_type = if delta > 0.0 {
+                let vertical_input_type = if vertical > 0.0 {
                     Some("up")
-                } else if delta < 0.0 {
+                } else if vertical < 0.0 {
                     Some("down")
                 } else {
                     None
                 };
 
-                if let Some(input_type) = input_type {
+                if let Some(input_type) = vertical_input_type {
+                    let (grid_x, grid_y) = mouse_pos;
+                    nvim.input_mouse("wheel", input_type, "", 0, grid_y, grid_x).expect("Could not send mouse input");
+                }
+
+                let horizontal_input_type = if horizontal > 0.0 {
+                    Some("right")
+                } else if horizontal < 0.0 {
+                    Some("left")
+                } else {
+                    None
+                };
+
+                if let Some(input_type) = horizontal_input_type {
                     let (grid_x, grid_y) = mouse_pos;
                     nvim.input_mouse("wheel", input_type, "", 0, grid_y, grid_x).expect("Could not send mouse input");
                 }

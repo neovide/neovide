@@ -28,26 +28,28 @@ impl CommandLine {
 
     pub fn draw(&self, window_size: (u64, u64), defined_styles: &HashMap<u64, Style>) -> Vec<DrawCommand> {
         let mut draw_commands = Vec::new();
-        if self.content.len() > 0 {
-            let (width, height) = window_size;
-            let text_length: usize = self.content.iter().map(|(_, text)| text.len()).sum();
+        if self.visible {
+            if self.content.len() > 0 {
+                let (width, height) = window_size;
+                let text_length: usize = self.content.iter().map(|(_, text)| text.len()).sum();
 
-            let text_width = text_length * COMMAND_SCALE as usize;
-            let text_height = COMMAND_SCALE;
+                let text_width = text_length * COMMAND_SCALE as usize;
+                let text_height = COMMAND_SCALE;
 
-            let x = (width / 2) - (text_width as u64 / 2);
-            let y = (height / 2) - (text_height as u64 / 2);
+                let x = (width / 2) - (text_width as u64 / 2);
+                let y = (height / 2) - (text_height as u64 / 2);
 
-            let mut start_x = x;
-            let mut commands = self.content.iter().map(|(style_id, text)| {
-                let command_width = text.len() * 2;
-                let style = defined_styles.get(style_id).map(|style| style.clone());
-                let mut command = DrawCommand::new(text.clone(), (start_x, y), style);
-                command.scale = COMMAND_SCALE;
-                start_x = start_x + command_width as u64;
-                command
-            }).collect::<Vec<DrawCommand>>();
-            draw_commands.append(&mut commands);
+                let mut start_x = x;
+                let mut commands = self.content.iter().map(|(style_id, text)| {
+                    let command_width = text.len() * 2;
+                    let style = defined_styles.get(style_id).map(|style| style.clone());
+                    let mut command = DrawCommand::new(text.clone(), (start_x, y), style);
+                    command.scale = COMMAND_SCALE;
+                    start_x = start_x + command_width as u64;
+                    command
+                }).collect::<Vec<DrawCommand>>();
+                draw_commands.append(&mut commands);
+            }
         }
         draw_commands
     }

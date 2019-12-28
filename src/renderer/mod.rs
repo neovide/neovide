@@ -149,7 +149,7 @@ impl Renderer {
         self.paint.set_color(style.foreground(&default_colors).to_color());
         let text = text.trim_end();
         if text.len() > 0 {
-            let blob = self.shaper.shape_cached(text.to_string(), self.fonts_lookup.size(size).get(&style));
+            let blob = self.shaper.shape_cached(text.to_string(), size, self.fonts_lookup.size(size).get(&style));
             canvas.draw_text_blob(blob, (x, y), &self.paint);
         }
     }
