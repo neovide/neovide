@@ -8,7 +8,7 @@ use crate::editor::{Colors, Cursor, CursorShape, Editor};
 const AVERAGE_MOTION_PERCENTAGE: f32 = 0.6;
 const MOTION_PERCENTAGE_SPREAD: f32 = 0.5;
 
-const BAR_WIDTH: f32 = 1.0 / 8.0;
+const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
 
 const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5)];
 
@@ -67,11 +67,11 @@ impl CursorRenderer {
         let mut renderer = CursorRenderer {
             corners: vec![Corner::new((0.0, 0.0).into()); 4]
         };
-        renderer.set_cursor_shape(&CursorShape::Block);
+        renderer.set_cursor_shape(&CursorShape::Block, DEFAULT_CELL_PERCENTAGE);
         renderer
     }
 
-    fn set_cursor_shape(&mut self, cursor_shape: &CursorShape) {
+    fn set_cursor_shape(&mut self, cursor_shape: &CursorShape, cell_percentage: f32) {
         self.corners = self.corners
             .clone()
             .into_iter().enumerate()
@@ -80,8 +80,13 @@ impl CursorRenderer {
                 Corner {
                     relative_position: match cursor_shape {
                         CursorShape::Block => (x, y).into(),
-                        CursorShape::Vertical => ((x + 0.5) * BAR_WIDTH - 0.5, y).into(),
-                        CursorShape::Horizontal => (x, (y + 0.5) * BAR_WIDTH - 0.5).into()
+                        // Transform the x position so that the right side is translated over to
+                        // the BAR_WIDTH position
+                        CursorShape::Vertical => ((x + 0.5) * cell_percentage - 0.5, y).into(),
+                        // Do the same as above, but flip the y coordinate and then flip the result
+                        // so that the horizontal bar is at the bottom of the character space
+                        // instead of the top.
+                        CursorShape::Horizontal => (x, -((-y + 0.5) * cell_percentage - 0.5)).into()
                     },
                     .. corner
                 }
@@ -102,7 +107,7 @@ impl CursorRenderer {
             grid_y as f32 * font_height + font_height / 2.0
         ).into();
 
-        self.set_cursor_shape(&cursor.shape);
+        self.set_cursor_shape(&cursor.shape, cursor.cell_percentage.unwrap_or(DEFAULT_CELL_PERCENTAGE));
 
         let mut animating = false;
         if !center_destination.is_zero() {

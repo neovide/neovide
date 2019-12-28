@@ -13,6 +13,8 @@ pub enum EventParseError {
     InvalidString(Value),
     InvalidU64(Value),
     InvalidI64(Value),
+    InvalidF32(Value),
+    InvalidF64(Value),
     InvalidBool(Value),
     InvalidEventFormat
 }
@@ -26,6 +28,8 @@ impl fmt::Display for EventParseError {
             EventParseError::InvalidString(value) => write!(f, "invalid string format {}", value),
             EventParseError::InvalidU64(value) => write!(f, "invalid u64 format {}", value),
             EventParseError::InvalidI64(value) => write!(f, "invalid i64 format {}", value),
+            EventParseError::InvalidF32(value) => write!(f, "invalid f32 format {}", value),
+            EventParseError::InvalidF64(value) => write!(f, "invalid f64 format {}", value),
             EventParseError::InvalidBool(value) => write!(f, "invalid bool format {}", value),
             EventParseError::InvalidEventFormat => write!(f, "invalid event format")
         }
@@ -167,6 +171,22 @@ fn parse_i64(i64_value: &Value) -> Result<i64> {
     }
 }
 
+fn parse_f32(f32_value: &Value) -> Result<f32> {
+    if let Value::F32(content) = f32_value.clone() {
+        Ok(content)
+    } else {
+        Err(EventParseError::InvalidF32(f32_value.clone()))
+    }
+}
+
+fn parse_f64(f64_value: &Value) -> Result<f64> {
+    if let Value::F64(content) = f64_value.clone() {
+        Ok(content)
+    } else {
+        Err(EventParseError::InvalidF64(f64_value.clone()))
+    }
+}
+
 fn parse_bool(bool_value: &Value) -> Result<bool> {
     if let Value::Boolean(content) = bool_value.clone() {
         Ok(content)
@@ -197,6 +217,9 @@ fn parse_mode_info_set(mode_info_set_arguments: Vec<Value>) -> Result<RedrawEven
                 match name.as_ref() {
                     "cursor_shape" => {
                         mode_info.shape = CursorShape::from_type_name(&parse_string(&value)?);
+                    },
+                    "cell_percentage" => {
+                        mode_info.cell_percentage = Some(parse_u64(&value)? as f32 / 100.0);
                     },
                     "attr_id" => {
                         mode_info.style_id = Some(parse_u64(&value)?);
