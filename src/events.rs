@@ -13,8 +13,6 @@ pub enum EventParseError {
     InvalidString(Value),
     InvalidU64(Value),
     InvalidI64(Value),
-    InvalidF32(Value),
-    InvalidF64(Value),
     InvalidBool(Value),
     InvalidEventFormat
 }
@@ -28,8 +26,6 @@ impl fmt::Display for EventParseError {
             EventParseError::InvalidString(value) => write!(f, "invalid string format {}", value),
             EventParseError::InvalidU64(value) => write!(f, "invalid u64 format {}", value),
             EventParseError::InvalidI64(value) => write!(f, "invalid i64 format {}", value),
-            EventParseError::InvalidF32(value) => write!(f, "invalid f32 format {}", value),
-            EventParseError::InvalidF64(value) => write!(f, "invalid f64 format {}", value),
             EventParseError::InvalidBool(value) => write!(f, "invalid bool format {}", value),
             EventParseError::InvalidEventFormat => write!(f, "invalid event format")
         }
@@ -89,9 +85,25 @@ impl MessageKind {
 }
 
 #[derive(Debug)]
+pub enum GuiOption {
+    AribicShape(bool),
+    AmbiWidth(String),
+    Emoji(bool),
+    GuiFont(String),
+    GuiFontSet(String),
+    GuiFontWide(String),
+    LineSpace(u64),
+    Pumblend(u64),
+    ShowTabLine(u64),
+    TermGuiColors(bool),
+    Unknown(String, Value)
+}
+
+#[derive(Debug)]
 pub enum RedrawEvent {
     SetTitle { title: String },
     ModeInfoSet { cursor_modes: Vec<CursorMode> },
+    OptionSet { gui_option: GuiOption },
     ModeChange { mode_index: u64 },
     BusyStart,
     BusyStop,
@@ -171,22 +183,6 @@ fn parse_i64(i64_value: &Value) -> Result<i64> {
     }
 }
 
-fn parse_f32(f32_value: &Value) -> Result<f32> {
-    if let Value::F32(content) = f32_value.clone() {
-        Ok(content)
-    } else {
-        Err(EventParseError::InvalidF32(f32_value.clone()))
-    }
-}
-
-fn parse_f64(f64_value: &Value) -> Result<f64> {
-    if let Value::F64(content) = f64_value.clone() {
-        Ok(content)
-    } else {
-        Err(EventParseError::InvalidF64(f64_value.clone()))
-    }
-}
-
 fn parse_bool(bool_value: &Value) -> Result<bool> {
     if let Value::Boolean(content) = bool_value.clone() {
         Ok(content)
@@ -231,6 +227,28 @@ fn parse_mode_info_set(mode_info_set_arguments: Vec<Value>) -> Result<RedrawEven
         }
         Ok(RedrawEvent::ModeInfoSet {
             cursor_modes
+        })
+    } else {
+        Err(EventParseError::InvalidEventFormat)
+    }
+}
+
+fn parse_option_set(option_set_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [name, value] = option_set_arguments.as_slice() {
+        Ok(RedrawEvent::OptionSet {
+            gui_option: match parse_string(&name)?.as_ref() {
+                "arabicshape" => GuiOption::AribicShape(parse_bool(&value)?),
+                "ambiwidth" => GuiOption::AmbiWidth(parse_string(&value)?),
+                "emoji" => GuiOption::Emoji(parse_bool(&value)?),
+                "guifont" => GuiOption::GuiFont(parse_string(&value)?),
+                "guifontset" => GuiOption::GuiFontSet(parse_string(&value)?),
+                "guifontwide" => GuiOption::GuiFontWide(parse_string(&value)?),
+                "linespace" => GuiOption::LineSpace(parse_u64(&value)?),
+                "pumblend" => GuiOption::Pumblend(parse_u64(&value)?),
+                "showtabline" => GuiOption::ShowTabLine(parse_u64(&value)?),
+                "termguicolors" => GuiOption::TermGuiColors(parse_bool(&value)?),
+                unknown_option => GuiOption::Unknown(unknown_option.to_string(), value.clone())
+            }
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
@@ -518,7 +536,7 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
             "set_title" => Some(parse_set_title(event_parameters)?),
             "set_icon" => None, // Ignore set icon for now
             "mode_info_set" => Some(parse_mode_info_set(event_parameters)?),
-            "option_set" => None, // Ignore option set for now
+            "option_set" => Some(parse_option_set(event_parameters)?),
             "mode_change" => Some(parse_mode_change(event_parameters)?),
             "busy_start" => Some(RedrawEvent::BusyStart),
             "busy_stop" => Some(RedrawEvent::BusyStop),
