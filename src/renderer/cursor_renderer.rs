@@ -102,10 +102,8 @@ impl CursorRenderer {
             canvas: &mut Canvas) -> bool {
         let (grid_x, grid_y) = cursor.position;
         let font_dimensions: Point = (font_width, font_height).into();
-        let center_destination: Point = (
-            grid_x as f32 * font_width + font_width / 2.0, 
-            grid_y as f32 * font_height + font_height / 2.0
-        ).into();
+        let destination: Point = (grid_x as f32 * font_width, grid_y as f32 * font_height).into();
+        let center_destination = destination + font_dimensions * 0.5;
 
         self.set_cursor_shape(&cursor.shape, cursor.cell_percentage.unwrap_or(DEFAULT_CELL_PERCENTAGE));
 
@@ -132,24 +130,19 @@ impl CursorRenderer {
             path.close();
             canvas.draw_path(&path, &paint);
 
-            let mut position_sum: Point = (0.0, 0.0).into();
-            for i in 0..4 {
-                position_sum += self.corners[i].current_position;
-            }
-            let Point { x: cursor_x, y: cursor_y } = position_sum * (1.0 / 4.0) - font_dimensions * 0.5;
-
             // Draw foreground
-            if let CursorShape::Block = cursor.shape {
-                let (cursor_grid_y, cursor_grid_x) = cursor.position;
-                paint.set_color(cursor.foreground(&default_colors).to_color());
-                let editor = editor.lock().unwrap();
-                let character = editor.grid[cursor_grid_x as usize][cursor_grid_y as usize].clone()
-                    .map(|(character, _)| character)
-                    .unwrap_or(' ');
-                canvas.draw_text_blob(
-                    shaper.shape_cached(character.to_string(), 1, &fonts_lookup.size(1).normal), 
-                    (cursor_x, cursor_y), &paint);
-            }
+            let (cursor_grid_y, cursor_grid_x) = cursor.position;
+            paint.set_color(cursor.foreground(&default_colors).to_color());
+            let editor = editor.lock().unwrap();
+            let character = editor.grid[cursor_grid_x as usize][cursor_grid_y as usize].clone()
+                .map(|(character, _)| character)
+                .unwrap_or(' ');
+            canvas.save();
+            canvas.clip_path(&path, None, Some(false));
+            canvas.draw_text_blob(
+                shaper.shape_cached(character.to_string(), 1, &fonts_lookup.size(1).normal), 
+                destination, &paint);
+            canvas.restore();
         }
 
         animating
