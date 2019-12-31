@@ -116,14 +116,17 @@ impl Renderer {
         Renderer { editor, surface, paint, fonts_lookup, shaper, font_width, font_height, cursor_renderer }
     }
 
-    fn draw_background(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), size: u16, style: &Option<Style>, default_colors: &Colors) {
+    fn compute_text_region(&self, text: &str, grid_pos: (u64, u64), size: u16) -> Rect {
         let (grid_x, grid_y) = grid_pos;
         let x = grid_x as f32 * self.font_width;
         let y = grid_y as f32 * self.font_height;
         let width = text.chars().count() as f32 * self.font_width * size as f32;
         let height = self.font_height * size as f32;
-        let region = Rect::new(x, y, x + width, y + height);
+        Rect::new(x, y, x + width, y + height)
+    }
 
+    fn draw_background(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), size: u16, style: &Option<Style>, default_colors: &Colors) {
+        let region = self.compute_text_region(text, grid_pos, size);
         let style = style.clone().unwrap_or(Style::new(default_colors.clone()));
 
         self.paint.set_color(style.background(default_colors).to_color());
@@ -137,6 +140,12 @@ impl Renderer {
         let width = text.chars().count() as f32 * self.font_width;
 
         let style = style.clone().unwrap_or(Style::new(default_colors.clone()));
+
+        canvas.save();
+
+        let region = self.compute_text_region(text, grid_pos, size);
+
+        canvas.clip_rect(region, None, Some(false));
 
         if style.underline || style.undercurl {
             let (_, metrics) = self.fonts_lookup.size(size).get(&style).metrics();
@@ -152,6 +161,8 @@ impl Renderer {
             let blob = self.shaper.shape_cached(text.to_string(), size, self.fonts_lookup.size(size).get(&style));
             canvas.draw_text_blob(blob, (x, y), &self.paint);
         }
+
+        canvas.restore();
     }
 
     pub fn draw(&mut self, gpu_canvas: &mut Canvas, coordinate_system_helper: &CoordinateSystemHelper) -> bool {
