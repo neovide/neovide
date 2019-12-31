@@ -10,7 +10,7 @@ impl CachingShaper {
     pub fn new() -> CachingShaper {
         CachingShaper {
             shaper: Shaper::new(None),
-            cache: LruCache::new(1000)
+            cache: LruCache::new(10000)
         }
     }
 
@@ -28,7 +28,8 @@ impl CachingShaper {
         self.cache.get(&key).unwrap()
     }
 
-    pub fn clear(&mut self) {
-        self.cache.clear();
-    }
+// Re-enable once fonts change
+//     pub fn clear(&mut self) {
+//         self.cache.clear();
+//     }
 }

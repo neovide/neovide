@@ -13,6 +13,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use neovim_lib::{Neovim, UiAttachOptions, Session};
+use msgbox::IconType;
 
 use window::ui_loop;
 use editor::Editor;
@@ -40,9 +41,20 @@ fn create_nvim_command() -> Command {
     cmd
 }
 
+fn explained_panic<T: ToString>(title: &str, explanation: &str, error: T) -> ! {
+    let explanation = format!("{}: {}", explanation, error.to_string());
+    msgbox::create(title, &explanation, IconType::Error);
+    panic!(explanation);
+}
+
 fn start_nvim(editor: Arc<Mutex<Editor>>) -> Neovim {
     let mut cmd = create_nvim_command();
-    let mut session = Session::new_child_cmd(&mut cmd).unwrap();
+
+    let mut session = match Session::new_child_cmd(&mut cmd) {
+        Err(error) => explained_panic("Could not create command", "Could not create neovim process command", error),
+        Ok(session) => session
+    };
+
     let receiver = session.start_event_loop_channel();
     let join_handle = session.take_dispatch_guard();
     let mut nvim = Neovim::new(session);
@@ -51,7 +63,11 @@ fn start_nvim(editor: Arc<Mutex<Editor>>) -> Neovim {
     options.set_messages_external(false);
     options.set_linegrid_external(true);
     options.set_rgb(true);
-    nvim.ui_attach(INITIAL_WIDTH as i64, INITIAL_HEIGHT as i64, &options).unwrap();
+
+    match nvim.ui_attach(INITIAL_WIDTH as i64, INITIAL_HEIGHT as i64, &options) {
+        Err(error) => explained_panic("Could not attach.", "Could not attach ui to neovim process", error),
+        _ => {}
+    };
 
     // Listen to neovim events
     thread::spawn(move || {

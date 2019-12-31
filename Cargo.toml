@@ -13,6 +13,7 @@ derive-new = "0.5"
 env_logger = "0.7.1"
 neovim-lib = { git = "https://github.com/daa84/neovim-lib", version = "0.6" }
 rmpv = "0.4.2"
+msgbox = "0.4.0"
 
 [profile.release]
 debug = true

@@ -1,88 +1,20 @@
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use skulpin::CoordinateSystemHelper;
-use skulpin::skia_safe::{Canvas, Paint, Surface, Budgeted, Rect, Typeface, Font, FontStyle, colors};
+use skulpin::skia_safe::{Canvas, Paint, Surface, Budgeted, Rect, colors};
 use skulpin::skia_safe::gpu::SurfaceOrigin;
 
 mod caching_shaper;
 mod cursor_renderer;
+mod fonts;
 
 pub use caching_shaper::CachingShaper;
 
 use cursor_renderer::CursorRenderer;
+use fonts::FontLookup;
 use crate::editor::{Editor, Style, Colors};
 
 const FONT_NAME: &str = "Delugia Nerd Font";
 const FONT_SIZE: f32 = 14.0;
-
-pub struct Fonts {
-    pub name: String,
-    pub size: f32,
-    pub normal: Font,
-    pub bold: Font,
-    pub italic: Font,
-    pub bold_italic: Font
-}
-
-impl Fonts {
-    fn new(name: &str, size: f32) -> Fonts {
-        Fonts {
-            name: name.to_string(),
-            size,
-            normal: Font::from_typeface(
-                Typeface::new(name, FontStyle::normal()).expect("Could not load normal font file"),
-                size),
-            bold: Font::from_typeface(
-                Typeface::new(name, FontStyle::bold()).expect("Could not load bold font file"),
-                size),
-            italic: Font::from_typeface(
-                Typeface::new(name, FontStyle::italic()).expect("Could not load italic font file"),
-                size),
-            bold_italic: Font::from_typeface(
-                Typeface::new(name, FontStyle::bold_italic()).expect("Could not load bold italic font file"),
-                size)
-        }
-    }
-
-    fn get(&self, style: &Style) -> &Font {
-        match (style.bold, style.italic) {
-            (false, false) => &self.normal,
-            (true, false) => &self.bold,
-            (false, true)  => &self.italic,
-            (true, true) => &self.bold_italic
-        }
-    }
-}
-
-pub struct FontLookup {
-    pub name: String,
-    pub base_size: f32,
-    pub loaded_fonts: HashMap<u16, Fonts>
-}
-
-impl FontLookup {
-    pub fn new(name: &str, base_size: f32) -> FontLookup {
-        let mut lookup = FontLookup {
-            name: name.to_string(),
-            base_size,
-            loaded_fonts: HashMap::new()
-        };
-
-        lookup.size(1);
-        lookup.size(2);
-        lookup.size(3);
-
-        lookup
-    }
-
-    fn size(&mut self, size_multiplier: u16) -> &Fonts {
-        let name = self.name.clone();
-        let base_size = self.base_size;
-        self.loaded_fonts.entry(size_multiplier).or_insert_with(|| {
-            Fonts::new(&name, base_size * size_multiplier as f32)
-        })
-    }
-}
 
 pub struct Renderer {
     editor: Arc<Mutex<Editor>>,
