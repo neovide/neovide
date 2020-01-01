@@ -77,7 +77,7 @@ fn start_nvim(editor: Arc<Mutex<Editor>>) -> Neovim {
 
     // Quit process when nvim exits
     thread::spawn(move || {
-        join_handle.join().unwrap_or_explained_panic("Could not gracefully quit neovim thread.");
+        join_handle.join().expect("Could not join neovim process...");
         std::process::exit(0);
     });
 
