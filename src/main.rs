@@ -5,6 +5,7 @@ mod events;
 mod window;
 mod keybindings;
 mod renderer;
+mod error_handling;
 
 #[macro_use] extern crate derive_new;
 
@@ -13,11 +14,11 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 use neovim_lib::{Neovim, UiAttachOptions, Session};
-use msgbox::IconType;
 
 use window::ui_loop;
 use editor::Editor;
 use events::parse_neovim_event;
+use error_handling::ResultPanicExplanation;
 
 const INITIAL_WIDTH: u64 = 100;
 const INITIAL_HEIGHT: u64 = 50;
@@ -41,19 +42,11 @@ fn create_nvim_command() -> Command {
     cmd
 }
 
-fn explained_panic<T: ToString>(title: &str, explanation: &str, error: T) -> ! {
-    let explanation = format!("{}: {}", explanation, error.to_string());
-    msgbox::create(title, &explanation, IconType::Error);
-    panic!(explanation);
-}
-
 fn start_nvim(editor: Arc<Mutex<Editor>>) -> Neovim {
     let mut cmd = create_nvim_command();
 
-    let mut session = match Session::new_child_cmd(&mut cmd) {
-        Err(error) => explained_panic("Could not create command", "Could not create neovim process command", error),
-        Ok(session) => session
-    };
+    let mut session = Session::new_child_cmd(&mut cmd)
+        .unwrap_or_explained_panic("Could not create command", "Could not create neovim process command");
 
     let receiver = session.start_event_loop_channel();
     let join_handle = session.take_dispatch_guard();
@@ -64,17 +57,17 @@ fn start_nvim(editor: Arc<Mutex<Editor>>) -> Neovim {
     options.set_linegrid_external(true);
     options.set_rgb(true);
 
-    match nvim.ui_attach(INITIAL_WIDTH as i64, INITIAL_HEIGHT as i64, &options) {
-        Err(error) => explained_panic("Could not attach.", "Could not attach ui to neovim process", error),
-        _ => {}
-    };
+    nvim.ui_attach(INITIAL_WIDTH as i64, INITIAL_HEIGHT as i64, &options)
+        .unwrap_or_explained_panic("Could not attach.", "Could not attach ui to neovim process");
 
     // Listen to neovim events
     thread::spawn(move || {
         println!("UI thread spawned");
         loop {
-            let (event_name, events) = receiver.recv().expect("Could not receive event.");
-            let parsed_events = parse_neovim_event(event_name, events).expect("Event parse failed...");
+            let (event_name, events) = receiver.recv()
+                .unwrap_or_explained_panic("Could not receive event", "Could not recieve event from neovim");
+            let parsed_events = parse_neovim_event(event_name, events)
+                .unwrap_or_explained_panic("Could not parse event", "Could not parse event from neovim");
             for event in parsed_events {
                 let mut editor = editor.lock().unwrap();
                 editor.handle_redraw_event(event);
@@ -84,7 +77,7 @@ fn start_nvim(editor: Arc<Mutex<Editor>>) -> Neovim {
 
     // Quit process when nvim exits
     thread::spawn(move || {
-        join_handle.join().expect("Could not join neovim process...");
+        join_handle.join().unwrap_or_explained_panic("Could not gracefully quit neovim thread.");
         std::process::exit(0);
     });
 
