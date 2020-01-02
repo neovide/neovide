@@ -1,9 +1,17 @@
 use lru::LruCache;
 use skulpin::skia_safe::{Shaper, TextBlob, Font, Point};
 
+#[derive(new, Clone, Hash, PartialEq, Eq)]
+struct ShapeKey {
+    pub text: String,
+    pub scale: u16,
+    pub bold: bool,
+    pub italic: bool
+}
+
 pub struct CachingShaper {
     shaper: Shaper,
-    cache: LruCache<(String, u16), TextBlob>
+    cache: LruCache<ShapeKey, TextBlob>
 }
 
 impl CachingShaper {
@@ -19,8 +27,8 @@ impl CachingShaper {
         blob
     }
 
-    pub fn shape_cached(&mut self, text: String, scale: u16, font: &Font) -> &TextBlob {
-        let key = (text.clone(), scale);
+    pub fn shape_cached(&mut self, text: String, scale: u16, bold: bool, italic: bool, font: &Font) -> &TextBlob {
+        let key = ShapeKey::new(text.clone(), scale, bold, italic);
         if !self.cache.contains(&key) {
             self.cache.put(key.clone(), self.shape(&text, &font));
         }

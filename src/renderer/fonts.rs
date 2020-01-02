@@ -1,6 +1,13 @@
 use std::collections::HashMap;
-use skulpin::skia_safe::{Typeface, Font, FontStyle, Paint};
+use skulpin::skia_safe::{GlyphId, Typeface, Font, FontStyle, Paint, Point};
+use font_kit::source::SystemSource;
+use skribo::{
+    layout, layout_run, make_layout, FontCollection, FontFamily, FontRef, Layout, LayoutSession,
+    TextStyle,
+};
 use crate::editor::Style;
+
+const standard_character_string: &'static str = "XXXX";
 
 pub struct Fonts {
     pub name: String,
@@ -13,21 +20,32 @@ pub struct Fonts {
 
 impl Fonts {
     fn new(name: &str, size: f32) -> Fonts {
+        let normal = Font::from_typeface(
+            Typeface::new(name, FontStyle::normal()).expect("Could not load normal font file"),
+            size);
+        let mut bold = Font::from_typeface(
+            Typeface::new(name, FontStyle::bold()).expect("Could not load bold font file"),
+            size);
+        if bold.is_embolden() {
+            dbg!("Disabled embolden for normal bold");
+            bold.set_embolden(false);
+        }
+
+        let italic = Font::from_typeface(
+            Typeface::new(name, FontStyle::italic()).expect("Could not load italic font file"),
+            size);
+        let mut bold_italic = Font::from_typeface(
+            Typeface::new(name, FontStyle::bold_italic()).expect("Could not load bold italic font file"),
+            size);
+
+        if bold_italic.is_embolden() {
+            dbg!("Disabled embolden for italic bold");
+            bold_italic.set_embolden(false);
+        }
+
         Fonts {
-            name: name.to_string(),
-            size,
-            normal: Font::from_typeface(
-                Typeface::new(name, FontStyle::normal()).expect("Could not load normal font file"),
-                size),
-            bold: Font::from_typeface(
-                Typeface::new(name, FontStyle::bold()).expect("Could not load bold font file"),
-                size),
-            italic: Font::from_typeface(
-                Typeface::new(name, FontStyle::italic()).expect("Could not load italic font file"),
-                size),
-            bold_italic: Font::from_typeface(
-                Typeface::new(name, FontStyle::bold_italic()).expect("Could not load bold italic font file"),
-                size)
+            name: name.to_string(), size, 
+            normal, bold, italic, bold_italic 
         }
     }
 
@@ -70,17 +88,29 @@ impl FontLookup {
         })
     }
 
-    pub fn font_base_dimensions(&mut self, paint: &Paint) -> (f32, f32) {
+    pub fn font_base_dimensions(&mut self) -> (f32, f32) {
         let base_fonts = self.size(1);
-
-        let (_, metrics) = base_fonts.normal.metrics();
-        let font_width = if metrics.avg_char_width > 0.0 {
-            metrics.avg_char_width
-        } else {
-            let (_, bounds) = base_fonts.normal.measure_str("x", Some(&paint));
-            bounds.width()
-        };
+        let normal_font = &base_fonts.normal;
+        let (_, metrics) = normal_font.metrics();
         let font_height = metrics.descent - metrics.ascent;
+
+        let source = SystemSource::new();
+        let font_name = self.name.clone();
+        let font_size = self.base_size;
+        let font = source
+            .select_family_by_name(&font_name)
+            .expect("Failed to load by postscript name")
+            .fonts()[0]
+            .load()
+            .unwrap();
+        let font_ref = FontRef::new(font);
+        let style = TextStyle { size: font_size };
+        let layout = layout_run(&style, &font_ref, standard_character_string);
+        let font_width = layout.advance.x / standard_character_string.len() as f32;
+        // let glyph_offsets: Vec<f32> = layout.glyphs.iter().map(|glyph| glyph.offset.x).collect();
+        // let glyph_advances: Vec<f32> = glyph_offsets.windows(2).map(|pair| pair[1] - pair[0]).collect();
+        // dbg!(&glyph_advances);
+        // let font_width = glyph_advances.iter().cloned().fold(0.0, f32::max);
 
         (font_width, font_height)
     }

@@ -140,7 +140,7 @@ impl CursorRenderer {
             canvas.save();
             canvas.clip_path(&path, None, Some(false));
             canvas.draw_text_blob(
-                shaper.shape_cached(character.to_string(), 1, &fonts_lookup.size(1).normal), 
+                shaper.shape_cached(character.to_string(), 1, false, false, &fonts_lookup.size(1).normal), 
                 destination, &paint);
             canvas.restore();
         }

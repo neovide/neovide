@@ -13,8 +13,8 @@ use cursor_renderer::CursorRenderer;
 use fonts::FontLookup;
 use crate::editor::{Editor, Style, Colors};
 
-const FONT_NAME: &str = "Delugia Nerd Font";
-const FONT_SIZE: f32 = 14.0;
+const DEFAULT_FONT_NAME: &str = "Delugia Nerd Font";
+const DEFAULT_FONT_SIZE: f32 = 14.0;
 
 #[derive(new)]
 pub struct DrawResult {
@@ -43,8 +43,8 @@ impl Renderer {
         
         let shaper = CachingShaper::new();
 
-        let mut fonts_lookup = FontLookup::new(FONT_NAME, FONT_SIZE);
-        let (font_width, font_height) = fonts_lookup.font_base_dimensions(&paint);
+        let mut fonts_lookup = FontLookup::new(DEFAULT_FONT_NAME, DEFAULT_FONT_SIZE);
+        let (font_width, font_height) = fonts_lookup.font_base_dimensions();
         let cursor_renderer = CursorRenderer::new();
 
         Renderer { editor, surface, paint, fonts_lookup, shaper, font_width, font_height, cursor_renderer }
@@ -52,7 +52,7 @@ impl Renderer {
 
     fn set_font(&mut self, name: &str, size: f32) {
         self.fonts_lookup = FontLookup::new(name, size);
-        let (font_width, font_height) = self.fonts_lookup.font_base_dimensions(&self.paint);
+        let (font_width, font_height) = self.fonts_lookup.font_base_dimensions();
         self.font_width = font_width;
         self.font_height = font_height;
         self.shaper.clear();
@@ -100,7 +100,8 @@ impl Renderer {
         self.paint.set_color(style.foreground(&default_colors).to_color());
         let text = text.trim_end();
         if text.len() > 0 {
-            let blob = self.shaper.shape_cached(text.to_string(), size, self.fonts_lookup.size(size).get(&style));
+            let font = self.fonts_lookup.size(size).get(&style);
+            let blob = self.shaper.shape_cached(text.to_string(), size, style.bold, style.italic, font);
             canvas.draw_text_blob(blob, (x, y), &self.paint);
         }
 
@@ -123,7 +124,7 @@ impl Renderer {
             font_name.clone().map(|new_name| new_name != self.fonts_lookup.name).unwrap_or(false) || 
             font_size.map(|new_size| new_size != self.fonts_lookup.base_size).unwrap_or(false);
         if font_changed {
-            self.set_font(&font_name.unwrap(), font_size.unwrap());
+            self.set_font(&font_name.unwrap_or(DEFAULT_FONT_NAME.to_string()), font_size.unwrap_or(DEFAULT_FONT_SIZE));
         }
 
         if should_clear {
