@@ -13,6 +13,15 @@ use crate::renderer::Renderer;
 
 const EXTRA_LIVE_FRAMES: usize = 10;
 
+fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer, nvim: &mut Neovim) {
+    if new_size.width > 0.0 && new_size.height > 0.0 {
+        let new_width = ((new_size.width + 1.0) as f32 / renderer.font_width) as u64;
+        let new_height = ((new_size.height + 1.0) as f32 / renderer.font_height) as u64;
+        // Add 1 here to make sure resizing doesn't change the grid size on startup
+        nvim.ui_try_resize((new_width as i64).max(10), (new_height as i64).max(3)).expect("Resize failed");
+    }
+}
+
 pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64)) {
     let mut nvim = nvim;
     let mut renderer = Renderer::new(editor.clone());
@@ -66,12 +75,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
                 event: WindowEvent::Resized(new_size),
                 ..
             } => {
-                if new_size.width > 0.0 && new_size.height > 0.0 {
-                    let new_width = ((new_size.width + 1.0) as f32 / renderer.font_width) as u64;
-                    let new_height = ((new_size.height + 1.0) as f32 / renderer.font_height) as u64;
-                    // Add 1 here to make sure resizing doesn't change the grid size on startup
-                    nvim.ui_try_resize((new_width as i64).max(10), (new_height as i64).max(3)).expect("Resize failed");
-                }
+                handle_new_grid_size(new_size, &renderer, &mut nvim)
             },
 
             Event::WindowEvent {
@@ -162,12 +166,17 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
             } => {
                 frame_start = Instant::now();
                 if let Err(e) = skulpin_renderer.draw(&window.clone(), |canvas, coordinate_system_helper| {
-                    if renderer.draw(canvas, coordinate_system_helper) {
+                    let draw_result = renderer.draw(canvas, coordinate_system_helper);
+                    if draw_result.is_animating {
                         live_frames = EXTRA_LIVE_FRAMES;
                     } else {
                         if live_frames > 0 {
                             live_frames = live_frames - 1;
                         }
+                    }
+
+                    if draw_result.font_changed {
+                        handle_new_grid_size(window.inner_size(), &renderer, &mut nvim)
                     }
 
                     if live_frames > 0 {

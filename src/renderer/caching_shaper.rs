@@ -28,8 +28,7 @@ impl CachingShaper {
         self.cache.get(&key).unwrap()
     }
 
-// Re-enable once fonts change
-//     pub fn clear(&mut self) {
-//         self.cache.clear();
-//     }
+    pub fn clear(&mut self) {
+        self.cache.clear();
+    }
 }

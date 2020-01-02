@@ -10,7 +10,7 @@ mod command_line;
 pub use cursor::{Cursor, CursorShape, CursorMode};
 pub use style::{Colors, Style};
 use command_line::CommandLine;
-use crate::events::{GridLineCell, RedrawEvent};
+use crate::events::{GridLineCell, GuiOption, RedrawEvent};
 
 pub type GridCell = Option<(char, Option<Style>)>;
 
@@ -47,6 +47,8 @@ pub struct Editor {
     pub command_line: CommandLine,
     pub title: String,
     pub size: (u64, u64),
+    pub font_name: Option<String>,
+    pub font_size: Option<f32>,
     pub cursor: Cursor,
     pub default_colors: Colors,
     pub defined_styles: HashMap<u64, Style>,
@@ -66,6 +68,8 @@ impl Editor {
             title: "Neovide".to_string(),
             cursor: Cursor::new(),
             size: (width, height),
+            font_name: None,
+            font_size: None,
             default_colors: Colors::new(Some(colors::WHITE), Some(colors::BLACK), Some(colors::GREY)),
             defined_styles: HashMap::new(),
             previous_style: None
@@ -79,6 +83,7 @@ impl Editor {
         match event {
             RedrawEvent::SetTitle { title } => self.title = title,
             RedrawEvent::ModeInfoSet { cursor_modes } => self.cursor.mode_list = cursor_modes,
+            RedrawEvent::OptionSet { gui_option } => self.set_option(gui_option),
             RedrawEvent::ModeChange { mode_index } => self.cursor.change_mode(mode_index, &self.defined_styles),
             RedrawEvent::BusyStart => self.cursor.enabled = false,
             RedrawEvent::BusyStop => self.cursor.enabled = true,
@@ -254,5 +259,20 @@ impl Editor {
         self.grid = vec![vec![None; width as usize]; height as usize];
         self.dirty = vec![vec![true; width as usize]; height as usize];
         self.should_clear = true;
+    }
+
+    fn set_option(&mut self, gui_option: GuiOption) {
+        match gui_option {
+            GuiOption::GuiFont(font_description) => {
+                let parts: Vec<&str> = font_description.split(":").collect();
+                self.font_name = Some(parts[0].to_string());
+                for part in parts.iter().skip(1) {
+                    if part.starts_with("h") && part.len() > 1 {
+                        self.font_size = part[1..].parse::<f32>().ok();
+                    }
+                }
+            },
+            _ => {}
+        }
     }
 }

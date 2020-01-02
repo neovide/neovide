@@ -16,6 +16,12 @@ use crate::editor::{Editor, Style, Colors};
 const FONT_NAME: &str = "Delugia Nerd Font";
 const FONT_SIZE: f32 = 14.0;
 
+#[derive(new)]
+pub struct DrawResult {
+    pub is_animating: bool,
+    pub font_changed: bool
+}
+
 pub struct Renderer {
     editor: Arc<Mutex<Editor>>,
 
@@ -35,17 +41,21 @@ impl Renderer {
         let mut paint = Paint::new(colors::WHITE, None);
         paint.set_anti_alias(false);
         
-        let mut fonts_lookup = FontLookup::new(FONT_NAME, FONT_SIZE);
         let shaper = CachingShaper::new();
 
-        let base_fonts = fonts_lookup.size(1);
-        let (_, bounds) = base_fonts.normal.measure_str("_", Some(&paint));
-        let font_width = bounds.width();
-        let (_, metrics) = base_fonts.normal.metrics();
-        let font_height = metrics.descent - metrics.ascent;
+        let mut fonts_lookup = FontLookup::new(FONT_NAME, FONT_SIZE);
+        let (font_width, font_height) = fonts_lookup.font_base_dimensions(&paint);
         let cursor_renderer = CursorRenderer::new();
 
         Renderer { editor, surface, paint, fonts_lookup, shaper, font_width, font_height, cursor_renderer }
+    }
+
+    fn set_font(&mut self, name: &str, size: f32) {
+        self.fonts_lookup = FontLookup::new(name, size);
+        let (font_width, font_height) = self.fonts_lookup.font_base_dimensions(&self.paint);
+        self.font_width = font_width;
+        self.font_height = font_height;
+        self.shaper.clear();
     }
 
     fn compute_text_region(&self, text: &str, grid_pos: (u64, u64), size: u16) -> Rect {
@@ -97,15 +107,24 @@ impl Renderer {
         canvas.restore();
     }
 
-    pub fn draw(&mut self, gpu_canvas: &mut Canvas, coordinate_system_helper: &CoordinateSystemHelper) -> bool {
-        let ((draw_commands, should_clear), default_colors, cursor) = {
+    pub fn draw(&mut self, gpu_canvas: &mut Canvas, coordinate_system_helper: &CoordinateSystemHelper) -> DrawResult {
+        let ((draw_commands, should_clear), default_colors, cursor, font_name, font_size) = {
             let mut editor = self.editor.lock().unwrap();
             (
                 editor.build_draw_commands(), 
                 editor.default_colors.clone(), 
-                editor.cursor.clone()
+                editor.cursor.clone(),
+                editor.font_name.clone(),
+                editor.font_size.clone()
             )
         };
+
+        let font_changed = 
+            font_name.clone().map(|new_name| new_name != self.fonts_lookup.name).unwrap_or(false) || 
+            font_size.map(|new_size| new_size != self.fonts_lookup.base_size).unwrap_or(false);
+        if font_changed {
+            self.set_font(&font_name.unwrap(), font_size.unwrap());
+        }
 
         if should_clear {
             self.surface = None;
@@ -146,6 +165,6 @@ impl Renderer {
             &mut self.shaper, &mut self.fonts_lookup,
             gpu_canvas);
 
-        draw_commands.len() > 0 || cursor_animating
+        DrawResult::new(draw_commands.len() > 0 || cursor_animating, font_changed)
     }
 }

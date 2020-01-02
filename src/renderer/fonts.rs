@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use skulpin::skia_safe::{Typeface, Font, FontStyle};
+use skulpin::skia_safe::{Typeface, Font, FontStyle, Paint};
 use crate::editor::Style;
 
 pub struct Fonts {
@@ -68,5 +68,20 @@ impl FontLookup {
         self.loaded_fonts.entry(size_multiplier).or_insert_with(|| {
             Fonts::new(&name, base_size * size_multiplier as f32)
         })
+    }
+
+    pub fn font_base_dimensions(&mut self, paint: &Paint) -> (f32, f32) {
+        let base_fonts = self.size(1);
+
+        let (_, metrics) = base_fonts.normal.metrics();
+        let font_width = if metrics.avg_char_width > 0.0 {
+            metrics.avg_char_width
+        } else {
+            let (_, bounds) = base_fonts.normal.measure_str("x", Some(&paint));
+            bounds.width()
+        };
+        let font_height = metrics.descent - metrics.ascent;
+
+        (font_width, font_height)
     }
 }
