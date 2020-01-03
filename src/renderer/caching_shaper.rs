@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use lru::LruCache;
-use skulpin::skia_safe::{Shaper, TextBlob, Font, Point, TextBlobBuilder};
+use skulpin::skia_safe::{TextBlob, Font, Point, TextBlobBuilder};
 use font_kit::source::SystemSource;
 use skribo::{
     layout, layout_run, make_layout, FontCollection, FontFamily, FontRef, Layout, LayoutSession,
