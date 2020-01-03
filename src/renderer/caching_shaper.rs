@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::rc::Rc;
+
 use lru::LruCache;
 use skulpin::skia_safe::{Shaper, TextBlob, Font, Point, TextBlobBuilder};
 use font_kit::source::SystemSource;
@@ -6,9 +9,14 @@ use skribo::{
     TextStyle
 };
 
+use super::fonts::FontLookup;
+
+const standard_character_string: &'static str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
+
 #[derive(new, Clone, Hash, PartialEq, Eq)]
 struct FontKey {
     pub name: String,
+    pub base_size: String, // hack because comparison of floats doesn't work
     pub scale: u16,
     pub bold: bool,
     pub italic: bool
@@ -33,7 +41,7 @@ impl CachingShaper {
         }
     }
 
-    fn get_font(&self, font_key: &FontKey) -> &FontRef {
+    fn get_font(&mut self, font_key: &FontKey) -> &FontRef {
         if !self.font_cache.contains(font_key) {
             let source = SystemSource::new();
             let font_name = font_key.name.clone();
@@ -43,51 +51,43 @@ impl CachingShaper {
                 .fonts()[0]
                 .load()
                 .unwrap();
-            self.font_cache.put(key.clone(), FontRef::new(font));
+            self.font_cache.put(font_key.clone(), FontRef::new(font));
         }
 
-        self.font_cache.get(&key).unwrap()
+        self.font_cache.get(font_key).unwrap()
     }
 
-    pub fn shape(&self, text: &str, font_name: &str, scale: u16, bold: bool, italic: bool, font: &Font) -> TextBlob {
-        let font_key = FontKey::new(font_name.to_string(), scale, bold, italic);
+    pub fn shape(&mut self, text: &str, font_name: &str, base_size: f32, scale: u16, bold: bool, italic: bool, font: &Font) -> TextBlob {
+        let font_key = FontKey::new(font_name.to_string(), base_size.to_string(), scale, bold, italic);
         let font_ref = self.get_font(&font_key);
 
-        let style = TextStyle { size: font_size };
-        let layout = layout_run(&style, &font_ref, standard_character_string);
+        let style = TextStyle { size: base_size * scale as f32 };
+        let layout = layout_run(&style, &font_ref, text);
 
-        let blob_builder = TextBlobBuilder::new();
+        let mut blob_builder = TextBlobBuilder::new();
 
-        unsafe {
-            let count = layout.glyphs.count();
-            let buffer = blob_builder
-                .native_mut()
-                .allocRunPosH(font.native(), count.try_into().unwrap(), 0, None);
-            let mut glyphs = slice::from_raw_parts_mut((*buffer).glyphs, count);
-            for (glyph_id, i) in layout.glyphs.iter().map(|glyph| glyph.glyph_id as u16).enumerate() {
-                glyphs[i] = glyph_id;
-            }
-            let mut positions = slice::from_raw_parts_mut((*buffer).pos, count);
-            for (offset, i) in layout.glyphs.iter().map(|glyph| glyph.offset.x as f32).enumerate() {
-                positions[i] = offset;
-            }
+        
+        let count = layout.glyphs.len();
+        let metrics = font_ref.font.metrics();
+        let ascent = metrics.ascent * base_size / metrics.units_per_em as f32;
+        let (glyphs, positions) = blob_builder.alloc_run_pos_h(font, count, ascent, None);
+
+        for (i, glyph_id) in layout.glyphs.iter().map(|glyph| glyph.glyph_id as u16).enumerate() {
+            glyphs[i] = glyph_id;
+        }
+        for (i, offset) in layout.glyphs.iter().map(|glyph| glyph.offset.x as f32).enumerate() {
+            positions[i] = offset;
         }
 
-        blob_builder.make()
-        // TextBlob::from_pos_text_h(text.as_bytes(), layout.glyphs.iter().
-        // let (mut glyphs, mut points) = blob_builder.alloc_run_pos(
-        // // let glyph_offsets: Vec<f32> = layout.glyphs.iter().map(|glyph| glyph.offset.x).collect();
-        // // let glyph_advances: Vec<f32> = glyph_offsets.windows(2).map(|pair| pair[1] - pair[0]).collect();
-
-        // let (blob, _) = self.shaper.shape_text_blob(text, font, true, 1000000.0, Point::default()).unwrap();
-        // blob
+        blob_builder.make().unwrap()
     }
 
-    pub fn shape_cached(&mut self, text: &str, font_name: &str, scale: u16, bold: bool, italic: bool, font: &Font) -> &TextBlob {
-        let font_key = FontKey::new(font_name.to_string(), scale, bold, italic);
+    pub fn shape_cached(&mut self, text: &str, font_name: &str, base_size: f32, scale: u16, bold: bool, italic: bool, font: &Font) -> &TextBlob {
+        let font_key = FontKey::new(font_name.to_string(), base_size.to_string(), scale, bold, italic);
         let key = ShapeKey::new(text.to_string(), font_key);
         if !self.blob_cache.contains(&key) {
-            self.blob_cache.put(key.clone(), self.shape(text, font_name, scale, bold, italic, &font));
+            let blob = self.shape(text, font_name, base_size, scale, bold, italic, &font);
+            self.blob_cache.put(key.clone(), blob);
         }
 
         self.blob_cache.get(&key).unwrap()
@@ -96,5 +96,30 @@ impl CachingShaper {
     pub fn clear(&mut self) {
         self.font_cache.clear();
         self.blob_cache.clear();
+    }
+
+    pub fn font_base_dimensions(&mut self, font_lookup: &mut FontLookup) -> (f32, f32) {
+        let base_fonts = font_lookup.size(1);
+        let normal_font = &base_fonts.normal;
+        let (_, metrics) = normal_font.metrics();
+        let font_height = metrics.descent - metrics.ascent;
+
+        let font_key = FontKey::new(font_lookup.name.to_string(), font_lookup.base_size.to_string(), 1, false, false);
+        let font_ref = self.get_font(&font_key);
+        let style = TextStyle { size: font_lookup.base_size };
+        let layout = layout_run(&style, font_ref, standard_character_string);
+        let glyph_offsets: Vec<f32> = layout.glyphs.iter().map(|glyph| glyph.offset.x).collect();
+        let glyph_advances: Vec<f32> = glyph_offsets.windows(2).map(|pair| pair[1] - pair[0]).collect();
+
+        let mut amounts = HashMap::new();
+        for advance in glyph_advances.iter() {
+            amounts.entry(advance.to_string())
+                .and_modify(|e| *e += 1)
+                .or_insert(1);
+        }
+        let (font_width, _) = amounts.into_iter().max_by_key(|(_, count)| count.clone()).unwrap();
+        let font_width = font_width.parse::<f32>().unwrap();
+
+        (font_width, font_height)
     }
 }

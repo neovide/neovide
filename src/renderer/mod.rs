@@ -41,10 +41,10 @@ impl Renderer {
         let mut paint = Paint::new(colors::WHITE, None);
         paint.set_anti_alias(false);
         
-        let shaper = CachingShaper::new();
+        let mut shaper = CachingShaper::new();
 
         let mut fonts_lookup = FontLookup::new(DEFAULT_FONT_NAME, DEFAULT_FONT_SIZE);
-        let (font_width, font_height) = fonts_lookup.font_base_dimensions();
+        let (font_width, font_height) = shaper.font_base_dimensions(&mut fonts_lookup);
         let cursor_renderer = CursorRenderer::new();
 
         Renderer { editor, surface, paint, fonts_lookup, shaper, font_width, font_height, cursor_renderer }
@@ -52,10 +52,10 @@ impl Renderer {
 
     fn set_font(&mut self, name: &str, size: f32) {
         self.fonts_lookup = FontLookup::new(name, size);
-        let (font_width, font_height) = self.fonts_lookup.font_base_dimensions();
+        self.shaper.clear();
+        let (font_width, font_height) = self.shaper.font_base_dimensions(&mut self.fonts_lookup);
         self.font_width = font_width;
         self.font_height = font_height;
-        self.shaper.clear();
     }
 
     fn compute_text_region(&self, text: &str, grid_pos: (u64, u64), size: u16) -> Rect {
@@ -100,8 +100,10 @@ impl Renderer {
         self.paint.set_color(style.foreground(&default_colors).to_color());
         let text = text.trim_end();
         if text.len() > 0 {
+            let font_name = self.fonts_lookup.name.clone();
+            let font_size = self.fonts_lookup.base_size;
             let font = self.fonts_lookup.size(size).get(&style);
-            let blob = self.shaper.shape_cached(text.to_string(), size, style.bold, style.italic, font);
+            let blob = self.shaper.shape_cached(text, &font_name, font_size, size, style.bold, style.italic, font);
             canvas.draw_text_blob(blob, (x, y), &self.paint);
         }
 
