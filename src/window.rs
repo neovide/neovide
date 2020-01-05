@@ -79,16 +79,11 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
             },
 
             Event::WindowEvent {
-                event: WindowEvent::KeyboardInput {
-                    input,
-                    ..
-                },
+                event: WindowEvent::ReceivedCharacter(c),
                 ..
             } => {
-                if let Some(string) = construct_keybinding_string(input) {
-                    nvim.input(&string).expect("Input call failed...");
-                }
-            },
+                nvim.input(&c.to_string()).expect("Input call failed...");
+            }
 
             Event::WindowEvent {
                 event: WindowEvent::CursorMoved {
