@@ -98,7 +98,7 @@ fn append_modifiers(modifiers: ModifiersState, keycode_text: String, special: bo
     let mut result = keycode_text;
     let mut special = special;
 
-    if modifiers.shift {
+    if modifiers.shift() {
         result = match result.as_ref() {
             "1" => "!".to_string(),
             "2" => "@".to_string(),
@@ -133,15 +133,15 @@ fn append_modifiers(modifiers: ModifiersState, keycode_text: String, special: bo
             }
         };
     }
-    if modifiers.ctrl {
+    if modifiers.ctrl() {
         special = true;
         result = format!("C-{}", result);
     }
-    if modifiers.alt {
+    if modifiers.alt() {
         special = true;
         result = format!("M-{}", result);
     }
-    if modifiers.logo {
+    if modifiers.logo() {
         special = true;
         result = format!("D-{}", result);
     }

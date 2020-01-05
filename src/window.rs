@@ -160,10 +160,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
                 }
             }
 
-            Event::WindowEvent {
-                event: WindowEvent::RedrawRequested,
-                ..
-            } => {
+            Event::RedrawRequested { .. }  => {
                 frame_start = Instant::now();
                 if let Err(e) = skulpin_renderer.draw(&window.clone(), |canvas, coordinate_system_helper| {
                     let draw_result = renderer.draw(canvas, coordinate_system_helper);

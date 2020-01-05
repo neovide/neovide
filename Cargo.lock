@@ -1741,7 +1741,9 @@ dependencies = [
 
 [[package]]
 name = "skulpin"
-version = "0.4.0"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b73dfb92c679296809e97938b7abed2ef9d908de9b5a98da671b265891617f83"
 dependencies = [
  "ash",
  "cocoa",
@@ -2088,9 +2090,9 @@ dependencies = [
 
 [[package]]
 name = "winit"
-version = "0.20.0-alpha5"
+version = "0.20.0-alpha6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14fbf7c84c8c1ff9d72982cb382c1a78fbe0f7556f49b1ca98de212d018c5b82"
+checksum = "bfa4308ca09f50e2f4688c631c36879521bffc39b949238b288ffd932864acbc"
 dependencies = [
  "android_glue",
  "bitflags",
