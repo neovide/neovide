@@ -3,6 +3,7 @@ name = "neovide"
 version = "0.1.0"
 authors = ["keith <keith@the-simmons.net>"]
 edition = "2018"
+build = "build.rs"
 
 [dependencies]
 euclid = "0.20.7"
@@ -15,6 +16,11 @@ env_logger = "0.7.1"
 neovim-lib = { git = "https://github.com/daa84/neovim-lib", version = "0.6" }
 rmpv = "0.4.2"
 msgbox = "0.4.0"
+rust-embed= { version = "5.2.0", features = ["debug-embed"] }
+image = "0.22.3"
+
+[build-dependencies]
+winres = "0.1.11"
 
 [profile.release]
 debug = true

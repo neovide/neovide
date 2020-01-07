@@ -1,15 +1,22 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+
+use image::{load_from_memory, GenericImageView, Pixel};
 use skulpin::{CoordinateSystem, RendererBuilder, PresentMode};
 use skulpin::skia_safe::icu;
 use skulpin::winit::dpi::LogicalSize;
 use skulpin::winit::event::{ElementState, Event, MouseScrollDelta, StartCause, WindowEvent};
 use skulpin::winit::event_loop::{ControlFlow, EventLoop};
-use skulpin::winit::window::WindowBuilder;
+use skulpin::winit::window::{Icon, WindowBuilder};
 use neovim_lib::{Neovim, NeovimApi};
+
 use crate::editor::Editor;
 use crate::keybindings::construct_keybinding_string;
 use crate::renderer::Renderer;
+
+#[derive(RustEmbed)]
+#[folder = "assets/"]
+struct Asset;
 
 const EXTRA_LIVE_FRAMES: usize = 10;
 
@@ -33,9 +40,22 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
         (height as f32 * renderer.font_height + 1.0) as f64
     );
 
+    let icon = {
+        dbg!(Asset::iter().map(|file| file.to_string()).collect::<Vec<String>>());
+        let icon_data = Asset::get("nvim.ico").expect("Failed to read icon data");
+        let icon = load_from_memory(&icon_data).expect("Failed to parse icon data");
+        let (width, height) = icon.dimensions();
+        let mut rgba = Vec::with_capacity((width * height) as usize * 4);
+        for (_, _, pixel) in icon.pixels() {
+            rgba.extend_from_slice(&pixel.to_rgba().0);
+        }
+        Icon::from_rgba(rgba, width, height).expect("Failed to create icon object")
+    };
+
     let window = Arc::new(WindowBuilder::new()
         .with_title("Neovide")
         .with_inner_size(logical_size)
+        .with_window_icon(Some(icon))
         .build(&event_loop)
         .expect("Failed to create window"));
 

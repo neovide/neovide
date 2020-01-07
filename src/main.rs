@@ -8,6 +8,7 @@ mod renderer;
 mod error_handling;
 
 #[macro_use] extern crate derive_new;
+#[macro_use] extern crate rust_embed;
 
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
