@@ -107,6 +107,12 @@ impl Renderer {
             canvas.draw_text_blob(blob, (x, y), &self.paint);
         }
 
+        if style.strikethrough {
+            let line_position = region.center_y();
+            self.paint.set_color(style.special(&default_colors).to_color());
+            canvas.draw_line((x, line_position), (x + width, line_position), &self.paint);
+        }
+
         canvas.restore();
     }
 
