@@ -134,8 +134,10 @@ impl Editor {
                     }
                     add_character(&mut command, &character, row_index as u64, col_index as u64, new_style.clone());
                 } else {
-                    add_command(&mut draw_commands, command);
-                    command = None;
+                    let style = command.as_ref().map(|command| command.style.clone()).flatten();
+                    add_character(&mut command, &' ', row_index as u64, col_index as u64, style);
+                    // add_command(&mut draw_commands, command);
+                    // command = None;
                 }
             }
             add_command(&mut draw_commands, command);
@@ -203,7 +205,7 @@ impl Editor {
         }
     }
 
-    pub fn scroll_region(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64, cols: i64) {
+    fn scroll_region(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64, cols: i64) {
         let (top, bot) =  if rows > 0 {
             (top as i64 + rows, bot as i64)
         } else if rows < 0 {
@@ -274,14 +276,6 @@ impl Editor {
             },
             _ => {}
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[test]
-    fn scrolling_test() {
-        let mut editor = Editor::new(10, 10);
     }
 }
 
