@@ -203,7 +203,7 @@ impl Editor {
         }
     }
 
-    fn scroll_region(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64, cols: i64) {
+    pub fn scroll_region(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64, cols: i64) {
         let (top, bot) =  if rows > 0 {
             (top as i64 + rows, bot as i64)
         } else if rows < 0 {
@@ -276,3 +276,12 @@ impl Editor {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn scrolling_test() {
+        let mut editor = Editor::new(10, 10);
+    }
+}
+

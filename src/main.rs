@@ -14,7 +14,8 @@ use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use neovim_lib::{Neovim, UiAttachOptions, Session};
+use rmpv::Value;
+use neovim_lib::{Neovim, NeovimApi, UiAttachOptions, Session};
 
 use window::ui_loop;
 use editor::Editor;
@@ -57,6 +58,8 @@ fn start_nvim(editor: Arc<Mutex<Editor>>) -> Neovim {
     options.set_messages_external(false);
     options.set_linegrid_external(true);
     options.set_rgb(true);
+
+    nvim.set_var("neovide", Value::Boolean(true));
 
     nvim.ui_attach(INITIAL_WIDTH as i64, INITIAL_HEIGHT as i64, &options)
         .unwrap_or_explained_panic("Could not attach.", "Could not attach ui to neovim process");
