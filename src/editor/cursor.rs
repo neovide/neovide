@@ -28,14 +28,23 @@ pub struct CursorMode {
     #[new(default)]
     pub style_id: Option<u64>,
     #[new(default)]
-    pub cell_percentage: Option<f32>
+    pub cell_percentage: Option<f32>,
+    #[new(default)]
+    pub blinkwait: Option<u64>,
+    #[new(default)]
+    pub blinkon: Option<u64>,
+    #[new(default)]
+    pub blinkoff: Option<u64>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct Cursor {
     pub position: (u64, u64),
     pub shape: CursorShape,
     pub cell_percentage: Option<f32>,
+    pub blinkwait: Option<u64>,
+    pub blinkon: Option<u64>,
+    pub blinkoff: Option<u64>,
     pub style: Option<Style>,
     pub enabled: bool,
     pub mode_list: Vec<CursorMode>
@@ -48,6 +57,9 @@ impl Cursor {
             shape: CursorShape::Block,
             style: None,
             cell_percentage: None,
+            blinkwait: None,
+            blinkon: None,
+            blinkoff: None,
             enabled: true,
             mode_list: Vec::new()
         }
@@ -70,7 +82,7 @@ impl Cursor {
     }
 
     pub fn change_mode(&mut self, mode_index: u64, styles: &HashMap<u64, Style>) {
-        if let Some(CursorMode { shape, style_id, cell_percentage }) = self.mode_list.get(mode_index as usize) {
+        if let Some(CursorMode { shape, style_id, cell_percentage, blinkwait, blinkon, blinkoff }) = self.mode_list.get(mode_index as usize) {
             if let Some(shape) = shape {
                 self.shape = shape.clone();
             }
@@ -82,6 +94,9 @@ impl Cursor {
             }
 
             self.cell_percentage = cell_percentage.clone();
+            self.blinkwait = blinkwait.clone();
+            self.blinkon = blinkon.clone();
+            self.blinkoff = blinkoff.clone();
         }
     }
 }

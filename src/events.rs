@@ -217,6 +217,15 @@ fn parse_mode_info_set(mode_info_set_arguments: Vec<Value>) -> Result<RedrawEven
                     "cell_percentage" => {
                         mode_info.cell_percentage = Some(parse_u64(&value)? as f32 / 100.0);
                     },
+                    "blinkwait" => {
+                        mode_info.blinkwait = Some(parse_u64(&value)?);
+                    },
+                    "blinkon" => {
+                        mode_info.blinkon = Some(parse_u64(&value)?);
+                    },
+                    "blinkoff" => {
+                        mode_info.blinkoff = Some(parse_u64(&value)?);
+                    }
                     "attr_id" => {
                         mode_info.style_id = Some(parse_u64(&value)?);
                     },

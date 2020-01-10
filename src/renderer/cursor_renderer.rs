@@ -1,4 +1,5 @@
 use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
 use skulpin::skia_safe::{Canvas, Paint, Path, Point};
 
@@ -11,6 +12,66 @@ const MOTION_PERCENTAGE_SPREAD: f32 = 0.5;
 const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
 
 const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5)];
+
+enum BlinkState {
+    Waiting,
+    On,
+    Off
+}
+
+struct BlinkStatus {
+    state: BlinkState,
+    last_transition: Instant,
+    previous_cursor: Option<Cursor>
+}
+
+impl BlinkStatus {
+    pub fn new() -> BlinkStatus {
+        BlinkStatus {
+            state: BlinkState::Waiting,
+            last_transition: Instant::now(),
+            previous_cursor: None
+        }
+    }
+
+    pub fn update_status(&mut self, new_cursor: &Cursor) -> bool {
+        if self.previous_cursor.is_none() || new_cursor != self.previous_cursor.as_ref().unwrap() {
+            self.previous_cursor = Some(new_cursor.clone());
+            self.last_transition = Instant::now();
+            if new_cursor.blinkwait.is_some() && new_cursor.blinkwait != Some(0) {
+                self.state = BlinkState::Waiting;
+            } else {
+                self.state = BlinkState::On;
+            }
+        } 
+
+        if new_cursor.blinkwait == Some(0) || 
+            new_cursor.blinkoff == Some(0) ||
+            new_cursor.blinkon == Some(0) {
+            return true;
+        }
+
+        let delay = match self.state {
+            BlinkState::Waiting => new_cursor.blinkwait,
+            BlinkState::Off => new_cursor.blinkoff,
+            BlinkState::On => new_cursor.blinkon
+        }.filter(|millis| millis > &0).map(Duration::from_millis);
+
+        if delay.map(|delay| Instant::now() - self.last_transition > delay).unwrap_or(false) {
+            self.state = match self.state {
+                BlinkState::Waiting => BlinkState::On,
+                BlinkState::On => BlinkState::Off,
+                BlinkState::Off => BlinkState::On
+            };
+            self.last_transition = Instant::now();
+        }
+
+        match self.state {
+            BlinkState::Waiting | BlinkState::Off => false,
+            BlinkState::On => true
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Corner {
@@ -59,13 +120,15 @@ impl Corner {
 }
 
 pub struct CursorRenderer {
-    pub corners: Vec<Corner>
+    pub corners: Vec<Corner>,
+    blink_status: BlinkStatus
 }
 
 impl CursorRenderer {
     pub fn new() -> CursorRenderer {
         let mut renderer = CursorRenderer {
-            corners: vec![Corner::new((0.0, 0.0).into()); 4]
+            corners: vec![Corner::new((0.0, 0.0).into()); 4],
+            blink_status: BlinkStatus::new()
         };
         renderer.set_cursor_shape(&CursorShape::Block, DEFAULT_CELL_PERCENTAGE);
         renderer
@@ -100,6 +163,8 @@ impl CursorRenderer {
             paint: &mut Paint, editor: Arc<Mutex<Editor>>,
             shaper: &mut CachingShaper, fonts_lookup: &mut FontLookup,
             canvas: &mut Canvas) -> bool {
+        let render = self.blink_status.update_status(&cursor);
+
         let (grid_x, grid_y) = cursor.position;
         let font_dimensions: Point = (font_width, font_height).into();
         let destination: Point = (grid_x as f32 * font_width, grid_y as f32 * font_height).into();
@@ -116,7 +181,7 @@ impl CursorRenderer {
         }
 
 
-        if cursor.enabled {
+        if cursor.enabled && render {
             // Draw Background
             paint.set_color(cursor.background(&default_colors).to_color());
 
