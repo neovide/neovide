@@ -8,7 +8,7 @@ use crate::editor::{Colors, Cursor, CursorShape, Editor};
 
 const AVERAGE_MOTION_PERCENTAGE: f32 = 0.7;
 const MOTION_PERCENTAGE_SPREAD: f32 = 0.5;
-
+const COMMAND_LINE_DELAY_FRAMES: u64 = 5;
 const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
 
 const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5)];
@@ -121,6 +121,8 @@ impl Corner {
 
 pub struct CursorRenderer {
     pub corners: Vec<Corner>,
+    pub previous_position: (u64, u64),
+    pub command_line_delay: u64,
     blink_status: BlinkStatus
 }
 
@@ -128,6 +130,8 @@ impl CursorRenderer {
     pub fn new() -> CursorRenderer {
         let mut renderer = CursorRenderer {
             corners: vec![Corner::new((0.0, 0.0).into()); 4],
+            previous_position: (0, 0),
+            command_line_delay: 0,
             blink_status: BlinkStatus::new()
         };
         renderer.set_cursor_shape(&CursorShape::Block, DEFAULT_CELL_PERCENTAGE);
@@ -165,7 +169,27 @@ impl CursorRenderer {
             canvas: &mut Canvas) -> bool {
         let render = self.blink_status.update_status(&cursor);
 
-        let (grid_x, grid_y) = cursor.position;
+        self.previous_position = {
+            let editor = editor.lock().unwrap();
+            let (grid_x, grid_y) = cursor.position;
+            let (_, previous_y) = self.previous_position;
+            let (_, height) = editor.size;
+            if grid_y == height - 1 && previous_y != grid_y {
+                self.command_line_delay = self.command_line_delay + 1;
+                if self.command_line_delay < COMMAND_LINE_DELAY_FRAMES {
+                    self.previous_position
+                } else {
+                    self.command_line_delay = 0;
+                    cursor.position
+                }
+            } else {
+                self.command_line_delay = 0;
+                cursor.position
+            }
+        };
+
+        let (grid_x, grid_y) = self.previous_position;
+
         let font_dimensions: Point = (font_width, font_height).into();
         let destination: Point = (grid_x as f32 * font_width, grid_y as f32 * font_height).into();
         let center_destination = destination + font_dimensions * 0.5;
@@ -179,7 +203,6 @@ impl CursorRenderer {
                 animating = animating || corner_animating;
             }
         }
-
 
         if cursor.enabled && render {
             // Draw Background
