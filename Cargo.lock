@@ -1369,7 +1369,6 @@ dependencies = [
  "image",
  "lru",
  "msgbox",
- "neovim-lib",
  "nvim-rs",
  "rmpv",
  "rust-embed",
@@ -1377,16 +1376,6 @@ dependencies = [
  "skulpin",
  "tokio",
  "winres",
-]
-
-[[package]]
-name = "neovim-lib"
-version = "0.6.0"
-source = "git+https://github.com/daa84/neovim-lib#5291bf754bcfa55dcf6332808f72d09ebd78ce90"
-dependencies = [
- "log",
- "rmpv",
- "unix_socket",
 ]
 
 [[package]]
@@ -1863,8 +1852,6 @@ checksum = "ff4792131b8bf59f4b49a546de03c004eb4b54468d4816044af12c3b7942df5b"
 dependencies = [
  "num-traits",
  "rmp",
- "serde",
- "serde_bytes",
 ]
 
 [[package]]
@@ -2012,15 +1999,6 @@ name = "serde"
 version = "1.0.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "414115f25f818d7dfccec8ee535d76949ae78584fc4f79a6f45a904bf8ab4449"
-
-[[package]]
-name = "serde_bytes"
-version = "0.11.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "325a073952621257820e7a3469f55ba4726d8b28657e7e36653d1c36dc2c84ae"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "serde_json"
