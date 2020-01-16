@@ -54,9 +54,9 @@ fn create_nvim_command() -> Command {
 struct NeovimHandler(Arc<Mutex<Editor>>);
 
 impl Clone for NeovimHandler {
-  fn clone(&self) -> Self {
-    NeovimHandler(Arc::clone(&self.0))
-  }
+    fn clone(&self) -> Self {
+        NeovimHandler(Arc::clone(&self.0))
+    }
 }
 
 #[async_trait]
@@ -95,17 +95,17 @@ async fn start_nvim(editor: Arc<Mutex<Editor>>, receiver: Arc<Mutex<Receiver<UiC
         .unwrap_or_explained_panic("Could not attach.", "Could not attach ui to neovim process");
 
     loop {
-      let receiver = receiver.clone();
-      let r = spawn_blocking(move || {
-        let receiver = receiver.lock().unwrap();
-        receiver.recv()
-      }).await.expect("Could not await blocking call");
+        let receiver = receiver.clone();
+        let r = spawn_blocking(move || {
+            let receiver = receiver.lock().unwrap();
+            receiver.recv()
+        }).await.expect("Could not await blocking call");
 
-      if let Ok(ui_command) = r {
-        ui_command.execute(&nvim).await;
-      } else {
-        return
-      }
+        if let Ok(ui_command) = r {
+            ui_command.execute(&nvim).await;
+        } else {
+            return
+        }
     }
 }
 
@@ -117,7 +117,7 @@ fn main() {
     let editor_clone = editor.clone();
     let receiver = Arc::new(Mutex::new(receiver));
     rt.spawn(async move {
-      start_nvim(editor_clone, receiver).await;
+        start_nvim(editor_clone, receiver).await;
     });
     ui_loop(editor, sender, (INITIAL_WIDTH, INITIAL_HEIGHT));
 }
