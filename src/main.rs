@@ -58,7 +58,7 @@ struct NeovimHandler(Arc<Mutex<Editor>>);
 impl Handler for NeovimHandler {
     type Writer = ChildStdin;
 
-    async fn handle_request(&self, event_name: String, arguments: Vec<Value>, neovim: Neovim<ChildStdin>) -> Result<Value, Value> {
+    async fn handle_notify(&self, event_name: String, arguments: Vec<Value>, neovim: Neovim<ChildStdin>) {
         dbg!(&event_name);
         let parsed_events = parse_neovim_event(event_name, arguments)
             .unwrap_or_explained_panic("Could not parse event", "Could not parse event from neovim");
@@ -66,7 +66,6 @@ impl Handler for NeovimHandler {
             let mut editor = self.0.lock().unwrap();
             editor.handle_redraw_event(event);
         }
-        Ok(Value::Nil)
     }
 }
 
