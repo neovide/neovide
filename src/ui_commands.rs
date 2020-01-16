@@ -1,5 +1,6 @@
 use nvim_rs::Neovim;
-use nvim_rs::runtime::ChildStdin;
+use nvim_rs::compat::tokio::Compat;
+use tokio::process::ChildStdin;
 
 #[derive(Debug)]
 pub enum UiCommand {
@@ -11,7 +12,7 @@ pub enum UiCommand {
 }
 
 impl UiCommand {
-    pub async fn execute(&self, nvim: &Neovim<ChildStdin>) {
+    pub async fn execute(&self, nvim: &Neovim<Compat<ChildStdin>>) {
         match self {
             UiCommand::Resize { width, height } => 
                 nvim.ui_try_resize(*width.max(&10), *height.max(&3)).await

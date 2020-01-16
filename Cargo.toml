@@ -13,13 +13,14 @@ lru = "0.4.3"
 skulpin = "0.5"
 derive-new = "0.5"
 env_logger = "0.7.1"
-neovim-lib = { git = "https://github.com/daa84/neovim-lib", version = "0.6" }
+#neovim-lib = { git = "https://github.com/daa84/neovim-lib", version = "0.6" }
 rmpv = "0.4.2"
 msgbox = "0.4.0"
 rust-embed = { version = "5.2.0", features = ["debug-embed"] }
 image = "0.22.3"
-nvim-rs = "0.1.0"
-tokio = { version = "0.2.9", features = [ "blocking" ] }
+#nvim-rs = "0.1.0"
+nvim-rs = { git = "https://github.com/KillTheMule/nvim-rs", branch = "futures", features = [ "use_tokio" ] }
+tokio = { version = "0.2.9", features = [ "blocking", "process" ] }
 async-trait = "0.1.18"
 
 [build-dependencies]
