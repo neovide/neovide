@@ -1581,9 +1581,9 @@ dependencies = [
 
 [[package]]
 name = "num_cpus"
-version = "1.11.1"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76dac5ed2a876980778b8b85f75a71b6cbf0db0b1232ee12f826bccb00d09d72"
+checksum = "46203554f085ff89c235cd12f7075f3233af9b11ed7c9e16dfe2560d03313ce6"
 dependencies = [
  "hermit-abi",
  "libc",
@@ -1592,7 +1592,7 @@ dependencies = [
 [[package]]
 name = "nvim-rs"
 version = "0.1.1-alpha.0"
-source = "git+https://github.com/KillTheMule/nvim-rs?branch=futures#d2012790f7d3876f3bad88185d07a030e4933d37"
+source = "git+https://github.com/KillTheMule/nvim-rs?branch=futures#9efc7480f976d80f9e57443d62c1da2f37805186"
 dependencies = [
  "async-trait",
  "futures 0.3.1",
@@ -2452,9 +2452,9 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.5.5"
+version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01d1404644c8b12b16bfcffa4322403a91a451584daaaa7c28d3152e6cbc98cf"
+checksum = "ffc92d160b1eef40665be3a05630d003936a3bc7da7421277846c2613e92c71a"
 dependencies = [
  "serde",
 ]

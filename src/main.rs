@@ -18,10 +18,9 @@ use std::sync::mpsc::{channel, Receiver};
 
 use async_trait::async_trait;
 use rmpv::Value;
-use tokio::process::ChildStdin;
-use nvim_rs::{create::tokio as create, Neovim, UiAttachOptions, Handler,
-compat::tokio::Compat};
-use tokio::process::Command;
+use nvim_rs::{create::tokio as create, Neovim, UiAttachOptions, Handler, compat::tokio::Compat};
+use tokio::process::{ChildStdin, Command};
+use tokio::task::spawn_blocking;
 use tokio::runtime::Runtime;
 
 use window::ui_loop;
@@ -65,7 +64,6 @@ impl Handler for NeovimHandler {
     type Writer = Compat<ChildStdin>;
 
     async fn handle_notify(&self, event_name: String, arguments: Vec<Value>, _neovim: Neovim<Compat<ChildStdin>>) {
-        dbg!(&event_name);
         let parsed_events = parse_neovim_event(event_name, arguments)
             .unwrap_or_explained_panic("Could not parse event", "Could not parse event from neovim");
         for event in parsed_events {
@@ -75,7 +73,7 @@ impl Handler for NeovimHandler {
     }
 }
 
-async fn start_nvim(editor: Arc<Mutex<Editor>>, receiver: Receiver<UiCommand>) {
+async fn start_nvim(editor: Arc<Mutex<Editor>>, receiver: Arc<Mutex<Receiver<UiCommand>>>) {
     let (mut nvim, io_handler, _) = create::new_child_cmd(&mut create_nvim_command(), NeovimHandler(editor.clone())).await
         .unwrap_or_explained_panic("Could not create nvim process", "Could not locate or start the neovim process");
 
@@ -97,10 +95,13 @@ async fn start_nvim(editor: Arc<Mutex<Editor>>, receiver: Receiver<UiCommand>) {
         .unwrap_or_explained_panic("Could not attach.", "Could not attach ui to neovim process");
 
     loop {
-      let r = receiver.recv();
+      let receiver = receiver.clone();
+      let r = spawn_blocking(move || {
+        let receiver = receiver.lock().unwrap();
+        receiver.recv()
+      }).await.expect("Could not await blocking call");
 
       if let Ok(ui_command) = r {
-        dbg!(&ui_command);
         ui_command.execute(&nvim).await;
       } else {
         return
@@ -114,7 +115,8 @@ fn main() {
     let editor = Arc::new(Mutex::new(Editor::new(INITIAL_WIDTH, INITIAL_HEIGHT)));
     let (sender, receiver) = channel::<UiCommand>();
     let editor_clone = editor.clone();
-    rt.spawn_blocking(async move {
+    let receiver = Arc::new(Mutex::new(receiver));
+    rt.spawn(async move {
       start_nvim(editor_clone, receiver).await;
     });
     ui_loop(editor, sender, (INITIAL_WIDTH, INITIAL_HEIGHT));
