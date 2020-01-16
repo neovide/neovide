@@ -114,7 +114,7 @@ fn main() {
     let editor = Arc::new(Mutex::new(Editor::new(INITIAL_WIDTH, INITIAL_HEIGHT)));
     let (sender, receiver) = channel::<UiCommand>();
     let editor_clone = editor.clone();
-    rt.spawn(async move {
+    rt.spawn_blocking(async move {
       start_nvim(editor_clone, receiver).await;
     });
     ui_loop(editor, sender, (INITIAL_WIDTH, INITIAL_HEIGHT));
