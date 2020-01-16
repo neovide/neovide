@@ -16,8 +16,11 @@ env_logger = "0.7.1"
 neovim-lib = { git = "https://github.com/daa84/neovim-lib", version = "0.6" }
 rmpv = "0.4.2"
 msgbox = "0.4.0"
-rust-embed= { version = "5.2.0", features = ["debug-embed"] }
+rust-embed = { version = "5.2.0", features = ["debug-embed"] }
 image = "0.22.3"
+nvim-rs = "0.1.0"
+tokio = { version = "0.2.9", features = [ "blocking" ] }
+async-trait = "0.1.18"
 
 [build-dependencies]
 winres = "0.1.11"

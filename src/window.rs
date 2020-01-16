@@ -8,11 +8,12 @@ use skulpin::winit::dpi::LogicalSize;
 use skulpin::winit::event::{ElementState, Event, MouseScrollDelta, StartCause, WindowEvent};
 use skulpin::winit::event_loop::{ControlFlow, EventLoop};
 use skulpin::winit::window::{Icon, WindowBuilder};
-use neovim_lib::{Neovim, NeovimApi};
+use std::sync::mpsc::Sender;
 
 use crate::editor::Editor;
 use crate::keybindings::construct_keybinding_string;
 use crate::renderer::Renderer;
+use crate::ui_commands::UiCommand;
 
 #[derive(RustEmbed)]
 #[folder = "assets/"]
@@ -20,17 +21,16 @@ struct Asset;
 
 const EXTRA_LIVE_FRAMES: usize = 10;
 
-fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer, nvim: &mut Neovim) {
+fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer, command_channel: &mut Sender<UiCommand>) {
     if new_size.width > 0.0 && new_size.height > 0.0 {
         let new_width = ((new_size.width + 1.0) as f32 / renderer.font_width) as u64;
         let new_height = ((new_size.height + 1.0) as f32 / renderer.font_height) as u64;
         // Add 1 here to make sure resizing doesn't change the grid size on startup
-        nvim.ui_try_resize((new_width as i64).max(10), (new_height as i64).max(3)).expect("Resize failed");
+        command_channel.send(UiCommand::Resize { width: new_width as i64, height: new_height as i64 });
     }
 }
 
-pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64)) {
-    let mut nvim = nvim;
+pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut command_channel: Sender<UiCommand>, initial_size: (u64, u64)) {
     let mut renderer = Renderer::new(editor.clone());
     let event_loop = EventLoop::<()>::with_user_event();
 
@@ -95,7 +95,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
                 event: WindowEvent::Resized(new_size),
                 ..
             } => {
-                handle_new_grid_size(new_size, &renderer, &mut nvim)
+                handle_new_grid_size(new_size, &renderer, &mut command_channel)
             },
 
             Event::WindowEvent {
@@ -105,9 +105,9 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
                 },
                 ..
             } => {
-                if let Some(string) = construct_keybinding_string(input) {
-                    nvim.input(&string).expect("Input call failed...");
-                }
+                construct_keybinding_string(input)
+                    .map(UiCommand::Keyboard)
+                    .map(|keybinding_string| command_channel.send(keybinding_string));
             },
 
             Event::WindowEvent {
@@ -121,7 +121,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
                 let grid_y = (position.y as f32 / renderer.font_height) as i64;
                 mouse_pos = (grid_x, grid_y);
                 if mouse_down {
-                    nvim.input_mouse("left", "drag", "", 0, grid_y, grid_x).expect("Could not send mouse input");
+                    command_channel.send(UiCommand::Drag(grid_y, grid_x));
                 }
             }
 
@@ -143,7 +143,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
                     }
                 };
                 let (grid_x, grid_y) = mouse_pos;
-                nvim.input_mouse("left", input_type, "", 0, grid_y, grid_x).expect("Could not send mouse input");
+                command_channel.send(UiCommand::MouseButton { action: input_type.to_string(), position: (grid_x, grid_y) });
             }
 
             Event::WindowEvent {
@@ -163,7 +163,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
 
                 if let Some(input_type) = vertical_input_type {
                     let (grid_x, grid_y) = mouse_pos;
-                    nvim.input_mouse("wheel", input_type, "", 0, grid_y, grid_x).expect("Could not send mouse input");
+                    command_channel.send(UiCommand::Scroll { direction: input_type.to_string(), position: (grid_x, grid_y) });
                 }
 
                 let horizontal_input_type = if horizontal > 0.0 {
@@ -176,7 +176,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
 
                 if let Some(input_type) = horizontal_input_type {
                     let (grid_x, grid_y) = mouse_pos;
-                    nvim.input_mouse("wheel", input_type, "", 0, grid_y, grid_x).expect("Could not send mouse input");
+                    command_channel.send(UiCommand::Scroll { direction: input_type.to_string(), position: (grid_x, grid_y) });
                 }
             }
 
@@ -193,7 +193,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, nvim: Neovim, initial_size: (u64, u64
                     }
 
                     if draw_result.font_changed {
-                        handle_new_grid_size(window.inner_size(), &renderer, &mut nvim)
+                        handle_new_grid_size(window.inner_size(), &renderer, &mut command_channel)
                     }
 
                     if live_frames > 0 {

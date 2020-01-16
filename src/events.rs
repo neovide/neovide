@@ -581,10 +581,10 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
     Ok(parsed_events)
 }
 
-pub fn parse_neovim_event(event_name: String, events: Vec<Value>) -> Result<Vec<RedrawEvent>> {
+pub fn parse_neovim_event(event_name: String, arguments: Vec<Value>) -> Result<Vec<RedrawEvent>> {
     let mut resulting_events = Vec::new();
     if event_name == "redraw" {
-        for event in events {
+        for event in arguments {
             resulting_events.append(&mut parse_redraw_event(event)?);
         }
     } else {
