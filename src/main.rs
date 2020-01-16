@@ -18,8 +18,9 @@ use std::sync::mpsc::{channel, Receiver};
 
 use async_trait::async_trait;
 use rmpv::Value;
-use nvim_rs::runtime::ChildStdin;
-use nvim_rs::{create, Neovim, UiAttachOptions, Handler};
+use tokio::process::ChildStdin;
+use nvim_rs::{create::tokio as create, Neovim, UiAttachOptions, Handler,
+compat::tokio::Compat};
 use tokio::process::Command;
 use tokio::runtime::Runtime;
 
@@ -53,11 +54,17 @@ fn create_nvim_command() -> Command {
 
 struct NeovimHandler(Arc<Mutex<Editor>>);
 
+impl Clone for NeovimHandler {
+  fn clone(&self) -> Self {
+    NeovimHandler(Arc::clone(&self.0))
+  }
+}
+
 #[async_trait]
 impl Handler for NeovimHandler {
-    type Writer = ChildStdin;
+    type Writer = Compat<ChildStdin>;
 
-    async fn handle_notify(&self, event_name: String, arguments: Vec<Value>, _neovim: Neovim<ChildStdin>) {
+    async fn handle_notify(&self, event_name: String, arguments: Vec<Value>, _neovim: Neovim<Compat<ChildStdin>>) {
         dbg!(&event_name);
         let parsed_events = parse_neovim_event(event_name, arguments)
             .unwrap_or_explained_panic("Could not parse event", "Could not parse event from neovim");
