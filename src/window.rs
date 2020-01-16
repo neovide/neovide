@@ -117,11 +117,11 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut command_channel: Sender<UiCommand
                 },
                 ..
             } => {
-                let grid_x = (position.x as f32 / renderer.font_width) as i64;
-                let grid_y = (position.y as f32 / renderer.font_height) as i64;
+                let grid_y = (position.x as f32 / renderer.font_width) as i64;
+                let grid_x = (position.y as f32 / renderer.font_height) as i64;
                 mouse_pos = (grid_x, grid_y);
                 if mouse_down {
-                    command_channel.send(UiCommand::Drag(grid_y, grid_x));
+                    command_channel.send(UiCommand::Drag(grid_x, grid_y));
                 }
             }
 
@@ -162,7 +162,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut command_channel: Sender<UiCommand
                 };
 
                 if let Some(input_type) = vertical_input_type {
-                    let (grid_x, grid_y) = mouse_pos;
+                    let (grid_y, grid_x) = mouse_pos;
                     command_channel.send(UiCommand::Scroll { direction: input_type.to_string(), position: (grid_x, grid_y) });
                 }
 
@@ -175,7 +175,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut command_channel: Sender<UiCommand
                 };
 
                 if let Some(input_type) = horizontal_input_type {
-                    let (grid_x, grid_y) = mouse_pos;
+                    let (grid_y, grid_x) = mouse_pos;
                     command_channel.send(UiCommand::Scroll { direction: input_type.to_string(), position: (grid_x, grid_y) });
                 }
             }
