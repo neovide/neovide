@@ -12,9 +12,7 @@ mod ui_commands;
 #[macro_use] extern crate rust_embed;
 
 use std::sync::{Arc, Mutex};
-//use std::thread;
 use std::process::Stdio;
-use std::sync::mpsc::{channel, Receiver};
 
 use async_trait::async_trait;
 use rmpv::Value;
@@ -22,6 +20,7 @@ use nvim_rs::{create::tokio as create, Neovim, UiAttachOptions, Handler, compat:
 use tokio::process::{ChildStdin, Command};
 use tokio::task::spawn_blocking;
 use tokio::runtime::Runtime;
+use tokio::sync::mpsc::{unbounded_channel, UnboundedSender, UnboundedReceiver};
 
 use window::ui_loop;
 use editor::Editor;
@@ -51,13 +50,8 @@ fn create_nvim_command() -> Command {
     cmd
 }
 
+#[derive(Clone)]
 struct NeovimHandler(Arc<Mutex<Editor>>);
-
-impl Clone for NeovimHandler {
-    fn clone(&self) -> Self {
-        NeovimHandler(Arc::clone(&self.0))
-    }
-}
 
 #[async_trait]
 impl Handler for NeovimHandler {
@@ -73,7 +67,7 @@ impl Handler for NeovimHandler {
     }
 }
 
-async fn start_nvim(editor: Arc<Mutex<Editor>>, receiver: Arc<Mutex<Receiver<UiCommand>>>) {
+async fn start_nvim(editor: Arc<Mutex<Editor>>, mut receiver: UnboundedReceiver<UiCommand>) {
     let (mut nvim, io_handler, _) = create::new_child_cmd(&mut create_nvim_command(), NeovimHandler(editor.clone())).await
         .unwrap_or_explained_panic("Could not create nvim process", "Could not locate or start the neovim process");
 
@@ -95,16 +89,21 @@ async fn start_nvim(editor: Arc<Mutex<Editor>>, receiver: Arc<Mutex<Receiver<UiC
         .unwrap_or_explained_panic("Could not attach.", "Could not attach ui to neovim process");
 
     loop {
-        let receiver = receiver.clone();
-        let r = spawn_blocking(move || {
-            let receiver = receiver.lock().unwrap();
-            receiver.recv()
-        }).await.expect("Could not await blocking call");
+        let mut commands = Vec::new();
+        let mut resize_command = None;
+        while let Ok(ui_command) = receiver.try_recv() {
+            if let UiCommand::Resize { .. } = ui_command {
+                resize_command = Some(ui_command);
+            } else {
+                commands.push(ui_command);
+            }
+        }
+        if let Some(resize_command) = resize_command {
+            commands.push(resize_command);
+        }
 
-        if let Ok(ui_command) = r {
+        for ui_command in commands.iter() {
             ui_command.execute(&nvim).await;
-        } else {
-            return
         }
     }
 }
@@ -113,9 +112,8 @@ fn main() {
     let rt = Runtime::new().unwrap();
 
     let editor = Arc::new(Mutex::new(Editor::new(INITIAL_WIDTH, INITIAL_HEIGHT)));
-    let (sender, receiver) = channel::<UiCommand>();
+    let (sender, receiver) = unbounded_channel::<UiCommand>();
     let editor_clone = editor.clone();
-    let receiver = Arc::new(Mutex::new(receiver));
     rt.spawn(async move {
         start_nvim(editor_clone, receiver).await;
     });

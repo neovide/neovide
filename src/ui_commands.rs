@@ -2,7 +2,7 @@ use nvim_rs::Neovim;
 use nvim_rs::compat::tokio::Compat;
 use tokio::process::ChildStdin;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum UiCommand {
     Resize { width: i64, height: i64 },
     Keyboard(String),

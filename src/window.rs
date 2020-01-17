@@ -8,7 +8,7 @@ use skulpin::winit::dpi::LogicalSize;
 use skulpin::winit::event::{ElementState, Event, MouseScrollDelta, StartCause, WindowEvent};
 use skulpin::winit::event_loop::{ControlFlow, EventLoop};
 use skulpin::winit::window::{Icon, WindowBuilder};
-use std::sync::mpsc::Sender;
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::editor::Editor;
 use crate::keybindings::construct_keybinding_string;
@@ -21,7 +21,7 @@ struct Asset;
 
 const EXTRA_LIVE_FRAMES: usize = 10;
 
-fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer, command_channel: &mut Sender<UiCommand>) {
+fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer, command_channel: &mut UnboundedSender<UiCommand>) {
     if new_size.width > 0.0 && new_size.height > 0.0 {
         let new_width = ((new_size.width + 1.0) as f32 / renderer.font_width) as u64;
         let new_height = ((new_size.height + 1.0) as f32 / renderer.font_height) as u64;
@@ -30,7 +30,7 @@ fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer, command_chan
     }
 }
 
-pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut command_channel: Sender<UiCommand>, initial_size: (u64, u64)) {
+pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut command_channel: UnboundedSender<UiCommand>, initial_size: (u64, u64)) {
     let mut renderer = Renderer::new(editor.clone());
     let event_loop = EventLoop::<()>::with_user_event();
 
@@ -41,7 +41,6 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut command_channel: Sender<UiCommand
     );
 
     let icon = {
-        dbg!(Asset::iter().map(|file| file.to_string()).collect::<Vec<String>>());
         let icon_data = Asset::get("nvim.ico").expect("Failed to read icon data");
         let icon = load_from_memory(&icon_data).expect("Failed to parse icon data");
         let (width, height) = icon.dimensions();
