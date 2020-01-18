@@ -103,12 +103,9 @@ async fn start_nvim(editor: Arc<Mutex<Editor>>, mut receiver: UnboundedReceiver<
             commands.push(resize_command);
         }
 
-        let nvim = nvim.clone();
-        tokio::spawn(async move {
-            for ui_command in commands.into_iter() {
-                ui_command.execute(&nvim).await;
-            }
-        });
+        for ui_command in commands.into_iter() {
+            ui_command.execute(&nvim).await;
+        }
     }
 }
 
