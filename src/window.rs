@@ -161,8 +161,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut command_channel: UnboundedSender<
                 };
 
                 if let Some(input_type) = vertical_input_type {
-                    let (grid_y, grid_x) = mouse_pos;
-                    command_channel.send(UiCommand::Scroll { direction: input_type.to_string(), position: (grid_x, grid_y) });
+                    command_channel.send(UiCommand::Scroll { direction: input_type.to_string(), position: mouse_pos });
                 }
 
                 let horizontal_input_type = if horizontal > 0.0 {
@@ -174,8 +173,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut command_channel: UnboundedSender<
                 };
 
                 if let Some(input_type) = horizontal_input_type {
-                    let (grid_y, grid_x) = mouse_pos;
-                    command_channel.send(UiCommand::Scroll { direction: input_type.to_string(), position: (grid_x, grid_y) });
+                    command_channel.send(UiCommand::Scroll { direction: input_type.to_string(), position: mouse_pos });
                 }
             }
 
