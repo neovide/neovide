@@ -88,6 +88,7 @@ async fn start_nvim(editor: Arc<Mutex<Editor>>, mut receiver: UnboundedReceiver<
     nvim.ui_attach(INITIAL_WIDTH as i64, INITIAL_HEIGHT as i64, &options).await
         .unwrap_or_explained_panic("Could not attach.", "Could not attach ui to neovim process");
 
+    let nvim = Arc::new(nvim);
     loop {
         let mut commands = Vec::new();
         let mut resize_command = None;
@@ -102,9 +103,12 @@ async fn start_nvim(editor: Arc<Mutex<Editor>>, mut receiver: UnboundedReceiver<
             commands.push(resize_command);
         }
 
-        for ui_command in commands.iter() {
-            ui_command.execute(&nvim).await;
-        }
+        let nvim = nvim.clone();
+        tokio::spawn(async move {
+            for ui_command in commands.into_iter() {
+                ui_command.execute(&nvim).await;
+            }
+        });
     }
 }
 
