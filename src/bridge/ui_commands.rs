@@ -34,4 +34,11 @@ impl UiCommand {
                     .expect("Mouse Drag Failed")
         }
     }
+
+    pub fn is_resize(&self) -> bool {
+        match self {
+            UiCommand::Resize { .. } => true,
+            _ => false
+        }
+    }
 }

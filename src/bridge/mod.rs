@@ -37,7 +37,19 @@ fn create_nvim_command() -> Command {
     cmd
 }
 
-pub async fn start_process(editor: Arc<Mutex<Editor>>, mut receiver: UnboundedReceiver<UiCommand>, grid_dimensions: (u64, u64)) {
+async fn drain(receiver: &mut UnboundedReceiver<UiCommand>) -> Option<Vec<UiCommand>> {
+    if let Some(ui_command) = receiver.recv().await {
+        let mut results = vec![ui_command];
+        while let Ok(ui_command) = receiver.try_recv() {
+            results.push(ui_command);
+        }
+        Some(results)
+    } else {
+        None
+    }
+}
+
+async fn start_process(editor: Arc<Mutex<Editor>>, mut receiver: UnboundedReceiver<UiCommand>, grid_dimensions: (u64, u64)) {
     let (width, height) = grid_dimensions;
     let (mut nvim, io_handler, _) = create::new_child_cmd(&mut create_nvim_command(), NeovimHandler(editor)).await
         .unwrap_or_explained_panic("Could not create nvim process", "Could not locate or start the neovim process");
@@ -61,21 +73,19 @@ pub async fn start_process(editor: Arc<Mutex<Editor>>, mut receiver: UnboundedRe
 
     let nvim = Arc::new(nvim);
     loop {
-        let mut commands = Vec::new();
-        let mut resize_command = None;
-        while let Ok(ui_command) = receiver.try_recv() {
-            if let UiCommand::Resize { .. } = ui_command {
-                resize_command = Some(ui_command);
-            } else {
-                commands.push(ui_command);
+        if let Some(commands) = drain(&mut receiver).await {
+            let (resize_list, other_commands): (Vec<UiCommand>, Vec<UiCommand>) = commands
+                .into_iter()
+                .partition(|command| command.is_resize());
+            if let Some(resize_command) = resize_list.into_iter().last() {
+                resize_command.execute(&nvim).await;
             }
-        }
-        if let Some(resize_command) = resize_command {
-            commands.push(resize_command);
-        }
 
-        for ui_command in commands.into_iter() {
-            ui_command.execute(&nvim).await;
+            for ui_command in other_commands.into_iter() {
+                ui_command.execute(&nvim).await;
+            }
+        } else {
+            break;
         }
     }
 }
