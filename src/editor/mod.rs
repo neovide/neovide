@@ -57,7 +57,7 @@ pub struct Editor {
 }
 
 impl Editor {
-    pub fn new(width: u64, height: u64) -> Editor {
+    pub fn new(dimensions: (u64, u64)) -> Editor {
         let mut editor = Editor {
             grid: Vec::new(),
             dirty: Vec::new(),
@@ -68,7 +68,7 @@ impl Editor {
             command_line: CommandLine::new(),
             title: "Neovide".to_string(),
             cursor: Cursor::new(),
-            size: (width, height),
+            size: dimensions,
             font_name: None,
             font_size: None,
             default_colors: Colors::new(Some(colors::WHITE), Some(colors::BLACK), Some(colors::GREY)),

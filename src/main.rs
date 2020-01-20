@@ -11,20 +11,14 @@ mod error_handling;
 
 use std::sync::{Arc, Mutex};
 
-use tokio::runtime::Runtime;
-use tokio::sync::mpsc::unbounded_channel;
-
 use window::ui_loop;
 use editor::Editor;
-use bridge::{start_nvim, UiCommand};
+use bridge::Bridge;
 
-const INITIAL_WIDTH: u64 = 100;
-const INITIAL_HEIGHT: u64 = 50;
+const INITIAL_DIMENSIONS: (u64, u64) = (100, 50);
 
 fn main() {
-    let editor = Arc::new(Mutex::new(Editor::new(INITIAL_WIDTH, INITIAL_HEIGHT)));
-    let (sender, receiver) = unbounded_channel::<UiCommand>();
-    let editor_clone = editor.clone();
-    start_nvim(editor_clone, receiver, (INITIAL_WIDTH, INITIAL_HEIGHT));
-    ui_loop(editor, sender, (INITIAL_WIDTH, INITIAL_HEIGHT));
+    let editor = Arc::new(Mutex::new(Editor::new(INITIAL_DIMENSIONS)));
+    let bridge = Bridge::new(editor.clone(), INITIAL_DIMENSIONS);
+    ui_loop(editor, bridge, INITIAL_DIMENSIONS);
 }

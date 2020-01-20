@@ -10,7 +10,7 @@ use rmpv::Value;
 use nvim_rs::{create::tokio as create, UiAttachOptions};
 use tokio::runtime::Runtime;
 use tokio::process::Command;
-use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 pub use events::*;
 pub use keybindings::*;
@@ -37,9 +37,9 @@ fn create_nvim_command() -> Command {
     cmd
 }
 
-async fn start_process(editor: Arc<Mutex<Editor>>, mut receiver: UnboundedReceiver<UiCommand>, grid_dimensions: (u64, u64)) {
+pub async fn start_process(editor: Arc<Mutex<Editor>>, mut receiver: UnboundedReceiver<UiCommand>, grid_dimensions: (u64, u64)) {
     let (width, height) = grid_dimensions;
-    let (mut nvim, io_handler, _) = create::new_child_cmd(&mut create_nvim_command(), NeovimHandler(editor.clone())).await
+    let (mut nvim, io_handler, _) = create::new_child_cmd(&mut create_nvim_command(), NeovimHandler(editor)).await
         .unwrap_or_explained_panic("Could not create nvim process", "Could not locate or start the neovim process");
 
     tokio::spawn(async move {
@@ -80,10 +80,24 @@ async fn start_process(editor: Arc<Mutex<Editor>>, mut receiver: UnboundedReceiv
     }
 }
 
-pub fn start_nvim(editor: Arc<Mutex<Editor>>, receiver: UnboundedReceiver<UiCommand>, grid_dimensions: (u64, u64)) {
-    let rt = Runtime::new().unwrap();
+pub struct Bridge {
+    runtime: Runtime,
+    sender: UnboundedSender<UiCommand>
+}
 
-    rt.spawn(async move {
-        start_process(editor, receiver, grid_dimensions).await;
-    });
+impl Bridge {
+    pub fn new(editor: Arc<Mutex<Editor>>, grid_dimensions: (u64, u64)) -> Bridge {
+        let runtime = Runtime::new().unwrap();
+        let (sender, receiver) = unbounded_channel::<UiCommand>();
+
+        runtime.spawn(async move {
+            start_process(editor, receiver, grid_dimensions).await;
+        });
+
+        Bridge { runtime, sender }
+    }
+
+    pub fn queue_command(&mut self, command: UiCommand) {
+        self.sender.send(command);
+    }
 }
