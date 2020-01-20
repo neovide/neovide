@@ -11,9 +11,9 @@ use skulpin::winit::window::{Icon, WindowBuilder};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::editor::Editor;
-use crate::keybindings::construct_keybinding_string;
+use crate::bridge::construct_keybinding_string;
 use crate::renderer::Renderer;
-use crate::ui_commands::UiCommand;
+use crate::bridge::UiCommand;
 
 #[derive(RustEmbed)]
 #[folder = "assets/"]

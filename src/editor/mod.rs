@@ -1,16 +1,17 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-use skulpin::skia_safe::colors;
-use skulpin::winit::window::Window;
-
 mod cursor;
 mod style;
 mod command_line;
 
+use std::collections::HashMap;
+use std::sync::Arc;
+
+use skulpin::skia_safe::colors;
+use skulpin::winit::window::Window;
+
 pub use cursor::{Cursor, CursorShape, CursorMode};
 pub use style::{Colors, Style};
 use command_line::CommandLine;
-use crate::events::{GridLineCell, GuiOption, RedrawEvent};
+use crate::bridge::{GridLineCell, GuiOption, RedrawEvent};
 
 pub type GridCell = Option<(char, Option<Style>)>;
 

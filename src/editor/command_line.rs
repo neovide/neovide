@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::events::{RedrawEvent, StyledContent};
+use crate::bridge::{RedrawEvent, StyledContent};
 use crate::editor::{DrawCommand, Style};
 
 const COMMAND_SCALE: u16 = 2;
