@@ -128,18 +128,12 @@ impl Editor {
             }
 
             for (col_index, cell) in row.iter().enumerate() {
-                if let Some((character, new_style)) = cell {
-                    if !command_matches(&command, &new_style) {
-                        add_command(&mut draw_commands, command);
-                        command = None;
-                    }
-                    add_character(&mut command, &character, row_index as u64, col_index as u64, new_style.clone());
-                } else {
-                    let style = command.as_ref().map(|command| command.style.clone()).flatten();
-                    add_character(&mut command, &' ', row_index as u64, col_index as u64, style);
-                    // add_command(&mut draw_commands, command);
-                    // command = None;
+                let (character, style) = cell.clone().unwrap_or_else(|| (' ', Some(Style::new(self.default_colors.clone()))));
+                if !command_matches(&command, &style) {
+                    add_command(&mut draw_commands, command);
+                    command = None;
                 }
+                add_character(&mut command, &character, row_index as u64, col_index as u64, style.clone());
             }
             add_command(&mut draw_commands, command);
         }
