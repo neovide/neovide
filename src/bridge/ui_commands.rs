@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use nvim_rs::Neovim;
 use nvim_rs::compat::tokio::Compat;
 use tokio::process::ChildStdin;

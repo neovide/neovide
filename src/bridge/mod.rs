@@ -91,7 +91,7 @@ async fn start_process(editor: Arc<Mutex<Editor>>, mut receiver: UnboundedReceiv
 }
 
 pub struct Bridge {
-    runtime: Runtime,
+    _runtime: Runtime,
     sender: UnboundedSender<UiCommand>
 }
 
@@ -104,10 +104,13 @@ impl Bridge {
             start_process(editor, receiver, grid_dimensions).await;
         });
 
-        Bridge { runtime, sender }
+        Bridge { _runtime: runtime, sender }
     }
 
     pub fn queue_command(&mut self, command: UiCommand) {
-        self.sender.send(command);
+        self.sender.send(command)
+            .unwrap_or_explained_panic(
+                "Could Not Send UI Command", 
+                "Could not send UI command from the window system to the neovim process.");
     }
 }

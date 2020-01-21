@@ -171,7 +171,7 @@ impl CursorRenderer {
 
         self.previous_position = {
             let editor = editor.lock().unwrap();
-            let (grid_x, grid_y) = cursor.position;
+            let (_, grid_y) = cursor.position;
             let (_, previous_y) = self.previous_position;
             let (_, height) = editor.size;
             if grid_y == height - 1 && previous_y != grid_y {
@@ -219,10 +219,9 @@ impl CursorRenderer {
             canvas.draw_path(&path, &paint);
 
             // Draw foreground
-            let (cursor_grid_y, cursor_grid_x) = cursor.position;
             paint.set_color(cursor.foreground(&default_colors).to_color());
             let editor = editor.lock().unwrap();
-            let character = editor.grid[cursor_grid_x as usize][cursor_grid_y as usize].clone()
+            let character = editor.grid[grid_y as usize][grid_x as usize].clone()
                 .map(|(character, _)| character)
                 .unwrap_or(' ');
             canvas.save();

@@ -1,17 +1,13 @@
 use std::collections::HashMap;
-use std::rc::Rc;
 
 use lru::LruCache;
-use skulpin::skia_safe::{TextBlob, Font, Point, TextBlobBuilder};
+use skulpin::skia_safe::{TextBlob, Font, TextBlobBuilder};
 use font_kit::source::SystemSource;
-use skribo::{
-    layout, layout_run, make_layout, FontCollection, FontFamily, FontRef, Layout, LayoutSession,
-    TextStyle
-};
+use skribo::{layout_run, FontRef, TextStyle};
 
 use super::fonts::FontLookup;
 
-const standard_character_string: &'static str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
+const STANDARD_CHARACTER_STRING: &'static str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
 
 #[derive(new, Clone, Hash, PartialEq, Eq)]
 struct FontKey {
@@ -107,7 +103,7 @@ impl CachingShaper {
         let font_key = FontKey::new(font_lookup.name.to_string(), font_lookup.base_size.to_string(), 1, false, false);
         let font_ref = self.get_font(&font_key);
         let style = TextStyle { size: font_lookup.base_size };
-        let layout = layout_run(&style, font_ref, standard_character_string);
+        let layout = layout_run(&style, font_ref, STANDARD_CHARACTER_STRING);
         let glyph_offsets: Vec<f32> = layout.glyphs.iter().map(|glyph| glyph.offset.x).collect();
         let glyph_advances: Vec<f32> = glyph_offsets.windows(2).map(|pair| pair[1] - pair[0]).collect();
 

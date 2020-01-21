@@ -1,6 +1,5 @@
 mod cursor;
 mod style;
-mod command_line;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -10,7 +9,6 @@ use skulpin::winit::window::Window;
 
 pub use cursor::{Cursor, CursorShape, CursorMode};
 pub use style::{Colors, Style};
-use command_line::CommandLine;
 use crate::bridge::{GridLineCell, GuiOption, RedrawEvent};
 
 pub type GridCell = Option<(char, Option<Style>)>;
@@ -24,20 +22,6 @@ pub struct DrawCommand {
     pub scale: u16
 }
 
-impl DrawCommand {
-    pub fn set_coverage(&self, dirty: &mut Vec<Vec<bool>>) {
-        let (left, top) = self.grid_position;
-        let text_width = self.text.chars().count() * self.scale as usize;
-
-        for y in top..(top + self.scale as u64 - 1) {
-            let row = &mut dirty[y as usize];
-            for x in left..(left + text_width as u64 - 1) {
-                row[x as usize] = true;
-            }
-        }
-    }
-}
-
 pub struct Editor {
     pub grid: Vec<Vec<GridCell>>,
     pub dirty: Vec<Vec<bool>>,
@@ -45,7 +29,6 @@ pub struct Editor {
 
     pub window: Option<Arc<Window>>,
 
-    pub command_line: CommandLine,
     pub title: String,
     pub size: (u64, u64),
     pub font_name: Option<String>,
@@ -65,7 +48,6 @@ impl Editor {
 
             window: None,
 
-            command_line: CommandLine::new(),
             title: "Neovide".to_string(),
             cursor: Cursor::new(),
             size: dimensions,
@@ -96,7 +78,7 @@ impl Editor {
             RedrawEvent::Clear { .. } => self.clear(),
             RedrawEvent::CursorGoto { row, column, .. } => self.cursor.position = (row, column),
             RedrawEvent::Scroll { top, bottom, left, right, rows, columns, .. } => self.scroll_region(top, bottom, left, right, rows, columns),
-            event => self.command_line.handle_command_events(event)
+            _ => {}
         };
     }
 
@@ -139,7 +121,7 @@ impl Editor {
         }
         let should_clear = self.should_clear;
 
-        let mut draw_commands = draw_commands.into_iter().filter(|command| {
+        let draw_commands = draw_commands.into_iter().filter(|command| {
             let (x, y) = command.grid_position;
             let dirty_row = &self.dirty[y as usize];
 
@@ -150,12 +132,6 @@ impl Editor {
             }
             return false;
         }).collect::<Vec<DrawCommand>>();
-
-        let mut command_line_draw_commands = self.command_line.draw(self.size, &self.defined_styles);
-        for command_line_draw_command in command_line_draw_commands.iter() {
-            command_line_draw_command.set_coverage(&mut self.dirty);
-        }
-        draw_commands.append(&mut command_line_draw_commands);
 
         let (width, height) = self.size;
         self.dirty = vec![vec![false; width as usize]; height as usize];

@@ -1,10 +1,5 @@
 use std::collections::HashMap;
-use skulpin::skia_safe::{GlyphId, Typeface, Font, FontStyle, Paint, Point};
-use font_kit::source::SystemSource;
-use skribo::{
-    layout, layout_run, make_layout, FontCollection, FontFamily, FontRef, Layout, LayoutSession,
-    TextStyle,
-};
+use skulpin::skia_safe::{Typeface, Font, FontStyle};
 use crate::editor::Style;
 
 pub struct Fonts {
