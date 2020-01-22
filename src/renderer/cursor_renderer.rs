@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use skulpin::skia_safe::{Canvas, Paint, Path, Point};
 
 use crate::renderer::{CachingShaper, FontLookup};
-use crate::editor::{Colors, Cursor, CursorShape, Editor};
+use crate::editor::{EDITOR, Colors, Cursor, CursorShape, Editor};
 
 const AVERAGE_MOTION_PERCENTAGE: f32 = 0.7;
 const MOTION_PERCENTAGE_SPREAD: f32 = 0.5;
@@ -171,13 +171,12 @@ impl CursorRenderer {
     pub fn draw(&mut self, 
             cursor: Cursor, default_colors: &Colors, 
             font_width: f32, font_height: f32,
-            paint: &mut Paint, editor: Arc<Mutex<Editor>>,
-            shaper: &mut CachingShaper, fonts_lookup: &mut FontLookup,
-            canvas: &mut Canvas) -> (bool, Option<Instant>) {
+            paint: &mut Paint, shaper: &mut CachingShaper, 
+            fonts_lookup: &mut FontLookup, canvas: &mut Canvas) -> (bool, Option<Instant>) {
         let (render, scheduled_update) = self.blink_status.update_status(&cursor);
 
         self.previous_position = {
-            let editor = editor.lock().unwrap();
+            let editor = EDITOR.lock().unwrap();
             let (_, grid_y) = cursor.position;
             let (_, previous_y) = self.previous_position;
             let (_, height) = editor.size;
@@ -227,7 +226,7 @@ impl CursorRenderer {
 
             // Draw foreground
             paint.set_color(cursor.foreground(&default_colors).to_color());
-            let editor = editor.lock().unwrap();
+            let editor = EDITOR.lock().unwrap();
             let character = editor.grid[grid_y as usize][grid_x as usize].clone()
                 .map(|(character, _)| character)
                 .unwrap_or(' ');

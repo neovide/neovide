@@ -15,9 +15,14 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 pub use events::*;
 pub use keybindings::*;
 pub use ui_commands::UiCommand;
-use crate::editor::Editor;
+use crate::editor::{EDITOR, Editor};
 use crate::error_handling::ResultPanicExplanation;
+use crate::INITIAL_DIMENSIONS;
 use handler::NeovimHandler;
+
+lazy_static! {
+    pub static ref BRIDGE: Bridge = Bridge::new();
+}
 
 #[cfg(target_os = "windows")]
 fn set_windows_creation_flags(cmd: &mut Command) {
@@ -49,9 +54,9 @@ async fn drain(receiver: &mut UnboundedReceiver<UiCommand>) -> Option<Vec<UiComm
     }
 }
 
-async fn start_process(editor: Arc<Mutex<Editor>>, mut receiver: UnboundedReceiver<UiCommand>, grid_dimensions: (u64, u64)) {
-    let (width, height) = grid_dimensions;
-    let (mut nvim, io_handler, _) = create::new_child_cmd(&mut create_nvim_command(), NeovimHandler(editor)).await
+async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
+    let (width, height) = INITIAL_DIMENSIONS;
+    let (mut nvim, io_handler, _) = create::new_child_cmd(&mut create_nvim_command(), NeovimHandler { }).await
         .unwrap_or_explained_panic("Could not create nvim process", "Could not locate or start the neovim process");
 
     tokio::spawn(async move {
@@ -96,19 +101,22 @@ pub struct Bridge {
 }
 
 impl Bridge {
-    pub fn new(editor: Arc<Mutex<Editor>>, grid_dimensions: (u64, u64)) -> Bridge {
+    pub fn new() -> Bridge {
         let runtime = Runtime::new().unwrap();
         let (sender, receiver) = unbounded_channel::<UiCommand>();
 
         runtime.spawn(async move {
-            start_process(editor, receiver, grid_dimensions).await;
+            start_process(receiver).await;
         });
+
+        println!("Bridge created.");
 
         Bridge { _runtime: runtime, sender }
     }
 
-    pub fn queue_command(&mut self, command: UiCommand) {
-        self.sender.send(command)
+    pub fn queue_command(&self, command: UiCommand) {
+        let mut sender = self.sender.clone();
+        sender.send(command)
             .unwrap_or_explained_panic(
                 "Could Not Send UI Command", 
                 "Could not send UI command from the window system to the neovim process.");

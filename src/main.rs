@@ -9,17 +9,16 @@ mod redraw_scheduler;
 
 #[macro_use] extern crate derive_new;
 #[macro_use] extern crate rust_embed;
+#[macro_use] extern crate lazy_static;
 
-use std::sync::{Arc, Mutex};
+use lazy_static::initialize;
 
+use bridge::BRIDGE;
 use window::ui_loop;
-use editor::Editor;
-use bridge::Bridge;
 
-const INITIAL_DIMENSIONS: (u64, u64) = (100, 50);
+pub const INITIAL_DIMENSIONS: (u64, u64) = (100, 50);
 
 fn main() {
-    let editor = Arc::new(Mutex::new(Editor::new(INITIAL_DIMENSIONS)));
-    let bridge = Bridge::new(editor.clone(), INITIAL_DIMENSIONS);
-    ui_loop(editor, bridge, INITIAL_DIMENSIONS);
+    initialize(&BRIDGE);
+    ui_loop();
 }

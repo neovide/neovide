@@ -13,7 +13,7 @@ pub use caching_shaper::CachingShaper;
 
 use cursor_renderer::CursorRenderer;
 use fonts::FontLookup;
-use crate::editor::{Editor, Style, Colors};
+use crate::editor::{EDITOR, Editor, Style, Colors};
 
 const DEFAULT_FONT_NAME: &str = "Delugia Nerd Font";
 const DEFAULT_FONT_SIZE: f32 = 14.0;
@@ -26,8 +26,6 @@ pub struct DrawResult {
 }
 
 pub struct Renderer {
-    editor: Arc<Mutex<Editor>>,
-
     surface: Option<Surface>,
     paint: Paint,
     fonts_lookup: FontLookup,
@@ -39,7 +37,7 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn new(editor: Arc<Mutex<Editor>>) -> Renderer {
+    pub fn new() -> Renderer {
         let surface = None;
         let mut paint = Paint::new(colors::WHITE, None);
         paint.set_anti_alias(false);
@@ -50,7 +48,7 @@ impl Renderer {
         let (font_width, font_height) = shaper.font_base_dimensions(&mut fonts_lookup);
         let cursor_renderer = CursorRenderer::new();
 
-        Renderer { editor, surface, paint, fonts_lookup, shaper, font_width, font_height, cursor_renderer }
+        Renderer { surface, paint, fonts_lookup, shaper, font_width, font_height, cursor_renderer }
     }
 
     fn set_font(&mut self, name: &str, size: f32) {
@@ -121,7 +119,7 @@ impl Renderer {
 
     pub fn draw(&mut self, gpu_canvas: &mut Canvas, coordinate_system_helper: &CoordinateSystemHelper) -> DrawResult {
         let ((draw_commands, should_clear), default_colors, cursor, font_name, font_size) = {
-            let mut editor = self.editor.lock().unwrap();
+            let mut editor = EDITOR.lock().unwrap();
             (
                 editor.build_draw_commands(), 
                 editor.default_colors.clone(), 
@@ -173,9 +171,8 @@ impl Renderer {
         let (cursor_animating, scheduled_cursor_update) = self.cursor_renderer.draw(
             cursor, &default_colors, 
             self.font_width, self.font_height, 
-            &mut self.paint, self.editor.clone(),
-            &mut self.shaper, &mut self.fonts_lookup,
-            gpu_canvas);
+            &mut self.paint, &mut self.shaper, 
+            &mut self.fonts_lookup, gpu_canvas);
 
         DrawResult::new(draw_commands.len() > 0 || cursor_animating, font_changed, scheduled_cursor_update)
     }

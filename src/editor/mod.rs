@@ -2,7 +2,7 @@ mod cursor;
 mod style;
 
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use skulpin::skia_safe::colors;
 use skulpin::winit::window::Window;
@@ -10,6 +10,12 @@ use skulpin::winit::window::Window;
 pub use cursor::{Cursor, CursorShape, CursorMode};
 pub use style::{Colors, Style};
 use crate::bridge::{GridLineCell, GuiOption, RedrawEvent};
+use crate::redraw_scheduler::REDRAW_SCHEDULER;
+use crate::INITIAL_DIMENSIONS;
+
+lazy_static! {
+    pub static ref EDITOR: Arc<Mutex<Editor>> = Arc::new(Mutex::new(Editor::new()));
+}
 
 pub type GridCell = Option<(char, Option<Style>)>;
 
@@ -27,8 +33,6 @@ pub struct Editor {
     pub dirty: Vec<Vec<bool>>,
     pub should_clear: bool,
 
-    pub window: Option<Arc<Window>>,
-
     pub title: String,
     pub size: (u64, u64),
     pub font_name: Option<String>,
@@ -40,17 +44,15 @@ pub struct Editor {
 }
 
 impl Editor {
-    pub fn new(dimensions: (u64, u64)) -> Editor {
+    pub fn new() -> Editor {
         let mut editor = Editor {
             grid: Vec::new(),
             dirty: Vec::new(),
             should_clear: true,
 
-            window: None,
-
             title: "Neovide".to_string(),
             cursor: Cursor::new(),
-            size: dimensions,
+            size: INITIAL_DIMENSIONS,
             font_name: None,
             font_size: None,
             default_colors: Colors::new(Some(colors::WHITE), Some(colors::BLACK), Some(colors::GREY)),
@@ -70,7 +72,7 @@ impl Editor {
             RedrawEvent::ModeChange { mode_index } => self.cursor.change_mode(mode_index, &self.defined_styles),
             RedrawEvent::BusyStart => self.cursor.enabled = false,
             RedrawEvent::BusyStop => self.cursor.enabled = true,
-            RedrawEvent::Flush => { self.window.as_ref().map(|window| window.request_redraw()); },
+            RedrawEvent::Flush => REDRAW_SCHEDULER.request_redraw(),
             RedrawEvent::Resize { width, height, .. } => self.resize((width, height)),
             RedrawEvent::DefaultColorsSet { colors } => self.default_colors = colors,
             RedrawEvent::HighlightAttributesDefine { id, style } => { self.defined_styles.insert(id, style); },

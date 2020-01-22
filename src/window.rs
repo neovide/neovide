@@ -7,12 +7,13 @@ use skulpin::skia_safe::icu;
 use skulpin::winit::dpi::LogicalSize;
 use skulpin::winit::event::{ElementState, Event, MouseScrollDelta, StartCause, WindowEvent};
 use skulpin::winit::event_loop::{ControlFlow, EventLoop};
-use skulpin::winit::window::{Icon, WindowBuilder};
+use skulpin::winit::window::{Icon, Window, WindowBuilder};
 
-use crate::editor::Editor;
-use crate::bridge::{construct_keybinding_string, Bridge, UiCommand};
+use crate::bridge::{construct_keybinding_string, BRIDGE, Bridge, UiCommand};
 use crate::renderer::Renderer;
-use crate::redraw_scheduler::RedrawScheduler;
+use crate::redraw_scheduler::REDRAW_SCHEDULER;
+use crate::error_handling::ResultPanicExplanation;
+use crate::INITIAL_DIMENSIONS;
 
 #[derive(RustEmbed)]
 #[folder = "assets/"]
@@ -20,20 +21,20 @@ struct Asset;
 
 const EXTRA_LIVE_FRAMES: usize = 10;
 
-fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer, bridge: &mut Bridge) {
+fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer) {
     if new_size.width > 0.0 && new_size.height > 0.0 {
         let new_width = ((new_size.width + 1.0) as f32 / renderer.font_width) as u64;
         let new_height = ((new_size.height + 1.0) as f32 / renderer.font_height) as u64;
         // Add 1 here to make sure resizing doesn't change the grid size on startup
-        bridge.queue_command(UiCommand::Resize { width: new_width as i64, height: new_height as i64 });
+        BRIDGE.queue_command(UiCommand::Resize { width: new_width as i64, height: new_height as i64 });
     }
 }
 
-pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut bridge: Bridge, initial_size: (u64, u64)) {
-    let mut renderer = Renderer::new(editor.clone());
+pub fn ui_loop() {
     let event_loop = EventLoop::<()>::with_user_event();
 
-    let (width, height) = initial_size;
+    let mut renderer = Renderer::new();
+    let (width, height) = INITIAL_DIMENSIONS;
     let logical_size = LogicalSize::new(
         (width as f32 * renderer.font_width) as f64, 
         (height as f32 * renderer.font_height + 1.0) as f64
@@ -57,6 +58,8 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut bridge: Bridge, initial_size: (u6
         .build(&event_loop)
         .expect("Failed to create window"));
 
+    REDRAW_SCHEDULER.set_window(&window);
+
     let mut skulpin_renderer = RendererBuilder::new()
         .prefer_integrated_gpu()
         .use_vulkan_debug_layer(true)
@@ -65,17 +68,11 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut bridge: Bridge, initial_size: (u6
         .build(&window)
         .expect("Failed to create renderer");
 
+    icu::init();
+
     let mut mouse_down = false;
     let mut mouse_pos = (0, 0);
 
-    icu::init();
-
-    {
-        let mut editor = editor.lock().unwrap();
-        editor.window = Some(window.clone());
-    }
-
-    let redraw_scheduler = RedrawScheduler::new(&window);
     let mut live_frames = 0;
     let mut frame_start = Instant::now();
     event_loop.run(move |event, _window_target, control_flow| {
@@ -94,7 +91,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut bridge: Bridge, initial_size: (u6
                 event: WindowEvent::Resized(new_size),
                 ..
             } => {
-                handle_new_grid_size(new_size, &renderer, &mut bridge)
+                handle_new_grid_size(window.inner_size(), &renderer)
             },
 
             Event::WindowEvent {
@@ -106,7 +103,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut bridge: Bridge, initial_size: (u6
             } => {
                 construct_keybinding_string(input)
                     .map(UiCommand::Keyboard)
-                    .map(|keybinding_string| bridge.queue_command(keybinding_string));
+                    .map(|keybinding_string| BRIDGE.queue_command(keybinding_string));
             },
 
             Event::WindowEvent {
@@ -120,7 +117,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut bridge: Bridge, initial_size: (u6
                 let grid_x = (position.y as f32 / renderer.font_height) as i64;
                 mouse_pos = (grid_x, grid_y);
                 if mouse_down {
-                    bridge.queue_command(UiCommand::Drag(grid_x, grid_y));
+                    BRIDGE.queue_command(UiCommand::Drag(grid_x, grid_y));
                 }
             }
 
@@ -142,7 +139,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut bridge: Bridge, initial_size: (u6
                     }
                 };
                 let (grid_x, grid_y) = mouse_pos;
-                bridge.queue_command(UiCommand::MouseButton { action: input_type.to_string(), position: (grid_x, grid_y) });
+                BRIDGE.queue_command(UiCommand::MouseButton { action: input_type.to_string(), position: (grid_x, grid_y) });
             }
 
             Event::WindowEvent {
@@ -161,7 +158,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut bridge: Bridge, initial_size: (u6
                 };
 
                 if let Some(input_type) = vertical_input_type {
-                    bridge.queue_command(UiCommand::Scroll { direction: input_type.to_string(), position: mouse_pos });
+                    BRIDGE.queue_command(UiCommand::Scroll { direction: input_type.to_string(), position: mouse_pos });
                 }
 
                 let horizontal_input_type = if horizontal > 0.0 {
@@ -173,13 +170,13 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut bridge: Bridge, initial_size: (u6
                 };
 
                 if let Some(input_type) = horizontal_input_type {
-                    bridge.queue_command(UiCommand::Scroll { direction: input_type.to_string(), position: mouse_pos });
+                    BRIDGE.queue_command(UiCommand::Scroll { direction: input_type.to_string(), position: mouse_pos });
                 }
             }
 
             Event::RedrawRequested { .. }  => {
                 frame_start = Instant::now();
-                if let Err(e) = skulpin_renderer.draw(&window.clone(), |canvas, coordinate_system_helper| {
+                if let Err(e) = skulpin_renderer.draw(&window, |canvas, coordinate_system_helper| {
                     let draw_result = renderer.draw(canvas, coordinate_system_helper);
                     if draw_result.is_animating {
                         live_frames = EXTRA_LIVE_FRAMES;
@@ -190,7 +187,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut bridge: Bridge, initial_size: (u6
                     }
 
                     if draw_result.font_changed {
-                        handle_new_grid_size(window.inner_size(), &renderer, &mut bridge)
+                        handle_new_grid_size(window.inner_size(), &renderer)
                     }
 
                     if live_frames > 0 {
@@ -200,7 +197,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut bridge: Bridge, initial_size: (u6
                     }
 
                     if let Some(scheduled_update) = draw_result.scheduled_update {
-                        redraw_scheduler.schedule(scheduled_update);
+                        REDRAW_SCHEDULER.schedule(scheduled_update);
                     }
                 }) {
                     println!("Error during draw: {:?}", e);

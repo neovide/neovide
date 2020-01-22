@@ -6,11 +6,11 @@ use async_trait::async_trait;
 use tokio::process::ChildStdin;
 
 use crate::error_handling::ResultPanicExplanation;
-use crate::editor::Editor;
+use crate::editor::{EDITOR, Editor};
 use super::events::parse_neovim_event;
 
 #[derive(Clone)]
-pub struct NeovimHandler(pub Arc<Mutex<Editor>>);
+pub struct NeovimHandler { }
 
 #[async_trait]
 impl Handler for NeovimHandler {
@@ -20,7 +20,7 @@ impl Handler for NeovimHandler {
         let parsed_events = parse_neovim_event(event_name, arguments)
             .unwrap_or_explained_panic("Could not parse event", "Could not parse event from neovim");
         for event in parsed_events {
-            let mut editor = self.0.lock().unwrap();
+            let mut editor = EDITOR.lock().unwrap();
             editor.handle_redraw_event(event);
         }
     }

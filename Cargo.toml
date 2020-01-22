@@ -22,6 +22,7 @@ image = "0.22.3"
 nvim-rs = { git = "https://github.com/KillTheMule/nvim-rs", branch = "futures", features = [ "use_tokio" ] }
 tokio = { version = "0.2.9", features = [ "blocking", "process", "time" ] }
 async-trait = "0.1.18"
+lazy_static = "1.4.0"
 
 [build-dependencies]
 winres = "0.1.11"
