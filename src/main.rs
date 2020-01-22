@@ -5,6 +5,7 @@ mod editor;
 mod window;
 mod renderer;
 mod error_handling;
+mod redraw_scheduler;
 
 #[macro_use] extern crate derive_new;
 #[macro_use] extern crate rust_embed;

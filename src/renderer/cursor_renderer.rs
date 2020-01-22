@@ -34,7 +34,7 @@ impl BlinkStatus {
         }
     }
 
-    pub fn update_status(&mut self, new_cursor: &Cursor) -> bool {
+    pub fn update_status(&mut self, new_cursor: &Cursor) -> (bool, Option<Instant>) {
         if self.previous_cursor.is_none() || new_cursor != self.previous_cursor.as_ref().unwrap() {
             self.previous_cursor = Some(new_cursor.clone());
             self.last_transition = Instant::now();
@@ -48,16 +48,16 @@ impl BlinkStatus {
         if new_cursor.blinkwait == Some(0) || 
             new_cursor.blinkoff == Some(0) ||
             new_cursor.blinkon == Some(0) {
-            return true;
+            return (true, None);
         }
 
         let delay = match self.state {
             BlinkState::Waiting => new_cursor.blinkwait,
             BlinkState::Off => new_cursor.blinkoff,
             BlinkState::On => new_cursor.blinkon
-        }.filter(|millis| millis > &0).map(Duration::from_millis);
+        }.filter(|millis| millis > &0).map(|millis| Duration::from_millis(millis));
 
-        if delay.map(|delay| Instant::now() - self.last_transition > delay).unwrap_or(false) {
+        if delay.map(|delay| self.last_transition + delay < Instant::now()).unwrap_or(false) {
             self.state = match self.state {
                 BlinkState::Waiting => BlinkState::On,
                 BlinkState::On => BlinkState::Off,
@@ -66,10 +66,17 @@ impl BlinkStatus {
             self.last_transition = Instant::now();
         }
 
-        match self.state {
-            BlinkState::Waiting | BlinkState::Off => false,
-            BlinkState::On => true
-        }
+        (
+            match self.state {
+                BlinkState::Waiting | BlinkState::Off => false,
+                BlinkState::On => true
+            }, 
+            (match self.state {
+                BlinkState::Waiting => new_cursor.blinkwait,
+                BlinkState::Off => new_cursor.blinkoff,
+                BlinkState::On => new_cursor.blinkon
+            }).map(|delay| self.last_transition + Duration::from_millis(delay))
+        )
     }
 }
 
@@ -166,8 +173,8 @@ impl CursorRenderer {
             font_width: f32, font_height: f32,
             paint: &mut Paint, editor: Arc<Mutex<Editor>>,
             shaper: &mut CachingShaper, fonts_lookup: &mut FontLookup,
-            canvas: &mut Canvas) -> bool {
-        let render = self.blink_status.update_status(&cursor);
+            canvas: &mut Canvas) -> (bool, Option<Instant>) {
+        let (render, scheduled_update) = self.blink_status.update_status(&cursor);
 
         self.previous_position = {
             let editor = editor.lock().unwrap();
@@ -233,6 +240,6 @@ impl CursorRenderer {
             canvas.restore();
         }
 
-        animating
+        (animating, scheduled_update)
     }
 }

@@ -20,7 +20,7 @@ rust-embed = { version = "5.2.0", features = ["debug-embed"] }
 image = "0.22.3"
 #nvim-rs = "0.1.0"
 nvim-rs = { git = "https://github.com/KillTheMule/nvim-rs", branch = "futures", features = [ "use_tokio" ] }
-tokio = { version = "0.2.9", features = [ "blocking", "process" ] }
+tokio = { version = "0.2.9", features = [ "blocking", "process", "time" ] }
 async-trait = "0.1.18"
 
 [build-dependencies]

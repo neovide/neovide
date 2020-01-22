@@ -10,9 +10,9 @@ use skulpin::winit::event_loop::{ControlFlow, EventLoop};
 use skulpin::winit::window::{Icon, WindowBuilder};
 
 use crate::editor::Editor;
-use crate::bridge::{construct_keybinding_string, Bridge};
+use crate::bridge::{construct_keybinding_string, Bridge, UiCommand};
 use crate::renderer::Renderer;
-use crate::bridge::UiCommand;
+use crate::redraw_scheduler::RedrawScheduler;
 
 #[derive(RustEmbed)]
 #[folder = "assets/"]
@@ -75,6 +75,7 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut bridge: Bridge, initial_size: (u6
         editor.window = Some(window.clone());
     }
 
+    let redraw_scheduler = RedrawScheduler::new(&window);
     let mut live_frames = 0;
     let mut frame_start = Instant::now();
     event_loop.run(move |event, _window_target, control_flow| {
@@ -196,6 +197,10 @@ pub fn ui_loop(editor: Arc<Mutex<Editor>>, mut bridge: Bridge, initial_size: (u6
                         *control_flow = ControlFlow::WaitUntil(frame_start + Duration::from_secs_f32(1.0 / 60.0));
                     } else {
                         *control_flow = ControlFlow::Wait;
+                    }
+
+                    if let Some(scheduled_update) = draw_result.scheduled_update {
+                        redraw_scheduler.schedule(scheduled_update);
                     }
                 }) {
                     println!("Error during draw: {:?}", e);

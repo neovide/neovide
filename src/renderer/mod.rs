@@ -1,4 +1,6 @@
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
+
 use skulpin::CoordinateSystemHelper;
 use skulpin::skia_safe::{Canvas, Paint, Surface, Budgeted, Rect, colors};
 use skulpin::skia_safe::gpu::SurfaceOrigin;
@@ -19,7 +21,8 @@ const DEFAULT_FONT_SIZE: f32 = 14.0;
 #[derive(new)]
 pub struct DrawResult {
     pub is_animating: bool,
-    pub font_changed: bool
+    pub font_changed: bool,
+    pub scheduled_update: Option<Instant>
 }
 
 pub struct Renderer {
@@ -167,13 +170,13 @@ impl Renderer {
 
         self.surface = Some(surface);
 
-        let cursor_animating = self.cursor_renderer.draw(
+        let (cursor_animating, scheduled_cursor_update) = self.cursor_renderer.draw(
             cursor, &default_colors, 
             self.font_width, self.font_height, 
             &mut self.paint, self.editor.clone(),
             &mut self.shaper, &mut self.fonts_lookup,
             gpu_canvas);
 
-        DrawResult::new(draw_commands.len() > 0 || cursor_animating, font_changed)
+        DrawResult::new(draw_commands.len() > 0 || cursor_animating, font_changed, scheduled_cursor_update)
     }
 }
