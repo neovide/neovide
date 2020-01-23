@@ -1,10 +1,9 @@
-use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use skulpin::skia_safe::{Canvas, Paint, Path, Point};
 
-use crate::renderer::{CachingShaper, FontLookup};
-use crate::editor::{EDITOR, Colors, Cursor, CursorShape, Editor};
+use crate::renderer::CachingShaper;
+use crate::editor::{EDITOR, Colors, Cursor, CursorShape};
 
 const AVERAGE_MOTION_PERCENTAGE: f32 = 0.7;
 const MOTION_PERCENTAGE_SPREAD: f32 = 0.5;
@@ -172,7 +171,7 @@ impl CursorRenderer {
             cursor: Cursor, default_colors: &Colors, 
             font_width: f32, font_height: f32,
             paint: &mut Paint, shaper: &mut CachingShaper, 
-            fonts_lookup: &mut FontLookup, canvas: &mut Canvas) -> (bool, Option<Instant>) {
+            canvas: &mut Canvas) -> (bool, Option<Instant>) {
         let (render, scheduled_update) = self.blink_status.update_status(&cursor);
 
         self.previous_position = {
@@ -233,9 +232,10 @@ impl CursorRenderer {
             canvas.save();
             canvas.clip_path(&path, None, Some(false));
             
-            canvas.draw_text_blob(
-                shaper.shape_cached(&character.to_string(), &fonts_lookup.name.clone(), fonts_lookup.base_size, 1, false, false, &fonts_lookup.size(1).normal), 
-                destination, &paint);
+            let blobs = &shaper.shape_cached(&character.to_string(), 1, false, false);
+            for blob in blobs.iter() {
+                canvas.draw_text_blob(&blob, destination, &paint);
+            }
             canvas.restore();
         }
 

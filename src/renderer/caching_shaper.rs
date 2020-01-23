@@ -1,109 +1,194 @@
+use std::sync::Arc;
 use std::collections::HashMap;
 
 use lru::LruCache;
-use skulpin::skia_safe::{TextBlob, Font, TextBlobBuilder};
+use skulpin::skia_safe::{TextBlob, Font as SkiaFont, FontStyle, Typeface, TextBlobBuilder};
 use font_kit::source::SystemSource;
-use skribo::{layout_run, FontRef, TextStyle};
-
-use super::fonts::FontLookup;
+use skribo::{layout, layout_run, FontRef as SkriboFont, FontFamily, FontCollection, TextStyle};
 
 const STANDARD_CHARACTER_STRING: &'static str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
 
-#[derive(new, Clone, Hash, PartialEq, Eq)]
+#[cfg(target_os = "windows")]
+const DEFAULT_FONT: &str = "Consolas";
+#[cfg(target_os = "windows")]
+const EMOJI_FONT: &str = "Segoe UI Emoji";
+
+#[cfg(target_os = "macos")]
+const DEFAULT_FONT: &str = "Menlo";
+#[cfg(target_os = "macos")]
+const EMOJI_FONT: &str = "Apple COlor Emoji";
+
+#[cfg(target_os = "linux")]
+const DEFAULT_FONT: &str = "Monospace";
+#[cfg(target_os = "linux")]
+const EMOJI_FONT: &str = "Noto Color Emoji";
+
+const DEFAULT_FONT_SIZE: f32 = 14.0;
+
+
+#[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct FontKey {
-    pub name: String,
-    pub base_size: String, // hack because comparison of floats doesn't work
     pub scale: u16,
     pub bold: bool,
     pub italic: bool
 }
 
-#[derive(new, Clone, Hash, PartialEq, Eq)]
+#[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {
     pub text: String,
     pub font_key: FontKey
 }
 
+struct FontPair {
+    normal: (SkiaFont, SkriboFont),
+    emoji: (SkiaFont, SkriboFont)
+}
+
+#[derive(Debug)]
 pub struct CachingShaper {
-    font_cache: LruCache<FontKey, FontRef>,
-    blob_cache: LruCache<ShapeKey, TextBlob>
+    pub font_name: String,
+    pub base_size: f32,
+    font_cache: LruCache<FontKey, FontPair>,
+    blob_cache: LruCache<ShapeKey, Vec<TextBlob>>
+}
+
+fn build_fonts(font_key: &FontKey, font_name: &str, base_size: f32) -> (SkiaFont, SkriboFont) {
+    let source = SystemSource::new();
+    let skribo_font = SkriboFont::new(
+        source.select_family_by_name(font_name)
+              .expect("Failed to load by postscript name")
+              .fonts()[0]
+              .load()
+              .unwrap());
+     
+    let font_style = match (font_key.bold, font_key.italic) {
+        (false, false) => FontStyle::normal(),
+        (true, false) => FontStyle::bold(),
+        (false, true) => FontStyle::italic(),
+        (true, true) => FontStyle::bold_italic()
+    };
+    let skia_font = SkiaFont::from_typeface(
+        Typeface::new(font_name.clone(), font_style).expect("Could not load skia font file"),
+        base_size * font_key.scale as f32);
+
+    (skia_font, skribo_font)
 }
 
 impl CachingShaper {
     pub fn new() -> CachingShaper {
         CachingShaper {
+            font_name: DEFAULT_FONT.to_string(),
+            base_size: DEFAULT_FONT_SIZE,
             font_cache: LruCache::new(100),
-            blob_cache: LruCache::new(10000)
+            blob_cache: LruCache::new(10000),
         }
     }
 
-    fn get_font(&mut self, font_key: &FontKey) -> &FontRef {
+    fn get_font_pair(&mut self, font_key: &FontKey) -> &FontPair {
         if !self.font_cache.contains(font_key) {
-            let source = SystemSource::new();
-            let font_name = font_key.name.clone();
-            let font = source
-                .select_family_by_name(&font_name)
-                .expect("Failed to load by postscript name")
-                .fonts()[0]
-                .load()
-                .unwrap();
-            self.font_cache.put(font_key.clone(), FontRef::new(font));
+            let font_pair = FontPair {
+                normal: build_fonts(font_key, &self.font_name, self.base_size),
+                emoji: build_fonts(font_key, EMOJI_FONT, self.base_size)
+            };
+            self.font_cache.put(font_key.clone(), font_pair);
         }
 
         self.font_cache.get(font_key).unwrap()
     }
 
-    pub fn shape(&mut self, text: &str, font_name: &str, base_size: f32, scale: u16, bold: bool, italic: bool, font: &Font) -> TextBlob {
-        let font_key = FontKey::new(font_name.to_string(), base_size.to_string(), scale, bold, italic);
-        let font_ref = self.get_font(&font_key);
+    pub fn shape(&mut self, text: &str, scale: u16, bold: bool, italic: bool) -> Vec<TextBlob> {
+        let base_size = self.base_size;
+        let font_key = FontKey::new(scale, bold, italic);
+        let font_pair = self.get_font_pair(&font_key);
 
         let style = TextStyle { size: base_size * scale as f32 };
-        let layout = layout_run(&style, &font_ref, text);
 
-        let mut blob_builder = TextBlobBuilder::new();
+        let mut family = FontFamily::new();
+        family.add_font(font_pair.normal.1.clone());
+        family.add_font(font_pair.emoji.1.clone());
 
-        
-        let count = layout.glyphs.len();
-        let metrics = font_ref.font.metrics();
-        let ascent = metrics.ascent * base_size / metrics.units_per_em as f32;
-        let (glyphs, positions) = blob_builder.alloc_run_pos_h(font, count, ascent, None);
+        let mut collection = FontCollection::new();
+        collection.add_family(family);
 
-        for (i, glyph_id) in layout.glyphs.iter().map(|glyph| glyph.glyph_id as u16).enumerate() {
-            glyphs[i] = glyph_id;
+        let layout = layout(&style, &collection, text);
+
+        let mut groups = Vec::new();
+        let mut group = Vec::new();
+        let mut previous_font: Option<SkriboFont> = None;
+
+        for glyph in layout.glyphs {
+            if previous_font.clone().map(|previous_font| Arc::ptr_eq(&previous_font.font, &glyph.font.font)).unwrap_or(true) {
+                group.push(glyph);
+            } else {
+                groups.push(group);
+                previous_font = Some(glyph.font.clone());
+                group = vec![glyph];
+            }
         }
-        for (i, offset) in layout.glyphs.iter().map(|glyph| glyph.offset.x as f32).enumerate() {
-            positions[i] = offset;
+        if !group.is_empty() {
+            groups.push(group);
         }
 
-        blob_builder.make().unwrap()
+        let mut blobs = Vec::new();
+        for group in groups {
+            if group.is_empty() {
+                continue;
+            }
+
+            let skribo_font = group[0].font.clone();
+            let skia_font = if Arc::ptr_eq(&skribo_font.font, &font_pair.normal.1.font) {
+                &font_pair.normal.0
+            } else {
+                &font_pair.emoji.0
+            };
+
+            let mut blob_builder = TextBlobBuilder::new();
+
+            let count = group.len();
+            let metrics = skribo_font.font.metrics();
+            let ascent = metrics.ascent * base_size / metrics.units_per_em as f32;
+            let (glyphs, positions) = blob_builder.alloc_run_pos_h(&skia_font, count, ascent, None);
+
+            for (i, glyph_id) in group.iter().map(|glyph| glyph.glyph_id as u16).enumerate() {
+                glyphs[i] = glyph_id;
+            }
+            for (i, offset) in group.iter().map(|glyph| glyph.offset.x as f32).enumerate() {
+                positions[i] = offset;
+            }
+            blobs.push(blob_builder.make().unwrap());
+        }
+
+        blobs
     }
 
-    pub fn shape_cached(&mut self, text: &str, font_name: &str, base_size: f32, scale: u16, bold: bool, italic: bool, font: &Font) -> &TextBlob {
-        let font_key = FontKey::new(font_name.to_string(), base_size.to_string(), scale, bold, italic);
+    pub fn shape_cached(&mut self, text: &str, scale: u16, bold: bool, italic: bool) -> &Vec<TextBlob> {
+        let font_key = FontKey::new(scale, bold, italic);
         let key = ShapeKey::new(text.to_string(), font_key);
         if !self.blob_cache.contains(&key) {
-            let blob = self.shape(text, font_name, base_size, scale, bold, italic, &font);
-            self.blob_cache.put(key.clone(), blob);
+            let blobs = self.shape(text, scale, bold, italic);
+            self.blob_cache.put(key.clone(), blobs);
         }
 
         self.blob_cache.get(&key).unwrap()
     }
 
-    pub fn clear(&mut self) {
+    pub fn change_font(&mut self, font_name: Option<&str>, base_size: Option<f32>) {
         self.font_cache.clear();
         self.blob_cache.clear();
+        self.font_name = font_name.unwrap_or(DEFAULT_FONT).to_string();
+        self.base_size = base_size.unwrap_or(DEFAULT_FONT_SIZE);
     }
 
-    pub fn font_base_dimensions(&mut self, font_lookup: &mut FontLookup) -> (f32, f32) {
-        let base_fonts = font_lookup.size(1);
-        let normal_font = &base_fonts.normal;
-        let (_, metrics) = normal_font.metrics();
+    pub fn font_base_dimensions(&mut self) -> (f32, f32) {
+        let base_size = self.base_size;
+        let font_key = FontKey::new(1, false, false);
+        let (skia_font, skribo_font) = &self.get_font_pair(&font_key).normal;
+
+        let (_, metrics) = skia_font.metrics();
         let font_height = metrics.descent - metrics.ascent;
 
-        let font_key = FontKey::new(font_lookup.name.to_string(), font_lookup.base_size.to_string(), 1, false, false);
-        let font_ref = self.get_font(&font_key);
-        let style = TextStyle { size: font_lookup.base_size };
-        let layout = layout_run(&style, font_ref, STANDARD_CHARACTER_STRING);
+        let style = TextStyle { size: base_size };
+        let layout = layout_run(&style, &skribo_font, STANDARD_CHARACTER_STRING);
         let glyph_offsets: Vec<f32> = layout.glyphs.iter().map(|glyph| glyph.offset.x).collect();
         let glyph_advances: Vec<f32> = glyph_offsets.windows(2).map(|pair| pair[1] - pair[0]).collect();
 
@@ -117,5 +202,13 @@ impl CachingShaper {
         let font_width = font_width.parse::<f32>().unwrap();
 
         (font_width, font_height)
+    }
+
+    pub fn underline_position(&mut self, scale: u16) -> f32 {
+        let font_key = FontKey::new(scale, false, false);
+        let (skia_font, _) = &self.get_font_pair(&font_key).normal;
+
+        let (_, metrics) = skia_font.metrics();
+        metrics.underline_position().unwrap()
     }
 }

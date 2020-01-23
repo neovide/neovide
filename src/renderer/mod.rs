@@ -1,4 +1,3 @@
-use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use skulpin::CoordinateSystemHelper;
@@ -7,16 +6,11 @@ use skulpin::skia_safe::gpu::SurfaceOrigin;
 
 mod caching_shaper;
 mod cursor_renderer;
-mod fonts;
 
 pub use caching_shaper::CachingShaper;
 
 use cursor_renderer::CursorRenderer;
-use fonts::FontLookup;
-use crate::editor::{EDITOR, Editor, Style, Colors};
-
-const DEFAULT_FONT_NAME: &str = "Delugia Nerd Font";
-const DEFAULT_FONT_SIZE: f32 = 14.0;
+use crate::editor::{EDITOR, Style, Colors};
 
 #[derive(new)]
 pub struct DrawResult {
@@ -28,7 +22,6 @@ pub struct DrawResult {
 pub struct Renderer {
     surface: Option<Surface>,
     paint: Paint,
-    fonts_lookup: FontLookup,
     shaper: CachingShaper,
 
     pub font_width: f32,
@@ -44,17 +37,15 @@ impl Renderer {
         
         let mut shaper = CachingShaper::new();
 
-        let mut fonts_lookup = FontLookup::new(DEFAULT_FONT_NAME, DEFAULT_FONT_SIZE);
-        let (font_width, font_height) = shaper.font_base_dimensions(&mut fonts_lookup);
+        let (font_width, font_height) = shaper.font_base_dimensions();
         let cursor_renderer = CursorRenderer::new();
 
-        Renderer { surface, paint, fonts_lookup, shaper, font_width, font_height, cursor_renderer }
+        Renderer { surface, paint, shaper, font_width, font_height, cursor_renderer }
     }
 
-    fn set_font(&mut self, name: &str, size: f32) {
-        self.fonts_lookup = FontLookup::new(name, size);
-        self.shaper.clear();
-        let (font_width, font_height) = self.shaper.font_base_dimensions(&mut self.fonts_lookup);
+    fn set_font(&mut self, name: Option<&str>, size: Option<f32>) {
+        self.shaper.change_font(name, size);
+        let (font_width, font_height) = self.shaper.font_base_dimensions();
         self.font_width = font_width;
         self.font_height = font_height;
     }
@@ -70,7 +61,7 @@ impl Renderer {
 
     fn draw_background(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), size: u16, style: &Option<Style>, default_colors: &Colors) {
         let region = self.compute_text_region(text, grid_pos, size);
-        let style = style.clone().unwrap_or(Style::new(default_colors.clone()));
+        let style = style.clone().unwrap_or_else(|| Style::new(default_colors.clone()));
 
         self.paint.set_color(style.background(default_colors).to_color());
         canvas.draw_rect(region, &self.paint);
@@ -82,7 +73,7 @@ impl Renderer {
         let y = grid_y as f32 * self.font_height;
         let width = text.chars().count() as f32 * self.font_width;
 
-        let style = style.clone().unwrap_or(Style::new(default_colors.clone()));
+        let style = style.clone().unwrap_or_else(|| Style::new(default_colors.clone()));
 
         canvas.save();
 
@@ -91,21 +82,17 @@ impl Renderer {
         canvas.clip_rect(region, None, Some(false));
 
         if style.underline || style.undercurl {
-            let (_, metrics) = self.fonts_lookup.size(size).get(&style).metrics();
-            let line_position = metrics.underline_position().unwrap();
-
+            let line_position = self.shaper.underline_position(size);
             self.paint.set_color(style.special(&default_colors).to_color());
             canvas.draw_line((x, y - line_position + self.font_height), (x + width, y - line_position + self.font_height), &self.paint);
         }
 
         self.paint.set_color(style.foreground(&default_colors).to_color());
         let text = text.trim_end();
-        if text.len() > 0 {
-            let font_name = self.fonts_lookup.name.clone();
-            let font_size = self.fonts_lookup.base_size;
-            let font = self.fonts_lookup.size(size).get(&style);
-            let blob = self.shaper.shape_cached(text, &font_name, font_size, size, style.bold, style.italic, font);
-            canvas.draw_text_blob(blob, (x, y), &self.paint);
+        if !text.is_empty() {
+            for blob in self.shaper.shape_cached(text, size, style.bold, style.italic).iter() {
+                canvas.draw_text_blob(blob, (x, y), &self.paint);
+            }
         }
 
         if style.strikethrough {
@@ -125,15 +112,15 @@ impl Renderer {
                 editor.default_colors.clone(), 
                 editor.cursor.clone(),
                 editor.font_name.clone(),
-                editor.font_size.clone()
+                editor.font_size
             )
         };
 
         let font_changed = 
-            font_name.clone().map(|new_name| new_name != self.fonts_lookup.name).unwrap_or(false) || 
-            font_size.map(|new_size| new_size != self.fonts_lookup.base_size).unwrap_or(false);
+            font_name.clone().map(|new_name| new_name != self.shaper.font_name).unwrap_or(false) || 
+            font_size.map(|new_size| (new_size - self.shaper.base_size).abs() > std::f32::EPSILON).unwrap_or(false);
         if font_changed {
-            self.set_font(&font_name.unwrap_or(DEFAULT_FONT_NAME.to_string()), font_size.unwrap_or(DEFAULT_FONT_SIZE));
+            self.set_font(font_name.as_deref(), font_size);
         }
 
         if should_clear {
@@ -171,9 +158,9 @@ impl Renderer {
         let (cursor_animating, scheduled_cursor_update) = self.cursor_renderer.draw(
             cursor, &default_colors, 
             self.font_width, self.font_height, 
-            &mut self.paint, &mut self.shaper, 
-            &mut self.fonts_lookup, gpu_canvas);
+            &mut self.paint, &mut self.shaper,
+            gpu_canvas);
 
-        DrawResult::new(draw_commands.len() > 0 || cursor_animating, font_changed, scheduled_cursor_update)
+        DrawResult::new(!draw_commands.is_empty() || cursor_animating, font_changed, scheduled_cursor_update)
     }
 }
