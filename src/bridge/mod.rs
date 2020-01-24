@@ -56,7 +56,7 @@ async fn drain(receiver: &mut UnboundedReceiver<UiCommand>) -> Option<Vec<UiComm
 
 async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
     let (width, height) = INITIAL_DIMENSIONS;
-    let (mut nvim, io_handler, _) = create::new_child_cmd(&mut create_nvim_command(), NeovimHandler { }).await
+    let (mut nvim, io_handler, _) = create::new_child_cmd(&mut create_nvim_command(), NeovimHandler::new()).await
         .unwrap_or_explained_panic("Could not create nvim process", "Could not locate or start the neovim process");
 
     tokio::spawn(async move {
