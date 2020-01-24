@@ -3,6 +3,7 @@ use std::time::Instant;
 use skulpin::CoordinateSystemHelper;
 use skulpin::skia_safe::{Canvas, Paint, Surface, Budgeted, Rect, colors};
 use skulpin::skia_safe::gpu::SurfaceOrigin;
+use unicode_segmentation::UnicodeSegmentation;
 
 mod caching_shaper;
 mod cursor_renderer;
@@ -54,7 +55,7 @@ impl Renderer {
         let (grid_x, grid_y) = grid_pos;
         let x = grid_x as f32 * self.font_width;
         let y = grid_y as f32 * self.font_height;
-        let width = text.chars().count() as f32 * self.font_width * size as f32;
+        let width = text.graphemes(true).count() as f32 * self.font_width * size as f32;
         let height = self.font_height * size as f32;
         Rect::new(x, y, x + width, y + height)
     }
@@ -71,13 +72,18 @@ impl Renderer {
         let (grid_x, grid_y) = grid_pos;
         let x = grid_x as f32 * self.font_width;
         let y = grid_y as f32 * self.font_height;
-        let width = text.chars().count() as f32 * self.font_width;
+        let width = text.graphemes(true).count() as f32 * self.font_width;
 
         let style = style.clone().unwrap_or_else(|| Style::new(default_colors.clone()));
 
         canvas.save();
 
         let region = self.compute_text_region(text, grid_pos, size);
+        let region = Rect::new(
+            region.x() - self.font_width, 
+            region.y(), 
+            region.x() + region.width() + self.font_width, 
+            region.y() + region.height());
 
         canvas.clip_rect(region, None, Some(false));
 

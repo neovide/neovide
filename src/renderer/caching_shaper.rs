@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use lru::LruCache;
 use skulpin::skia_safe::{TextBlob, Font as SkiaFont, FontStyle, Typeface, TextBlobBuilder};
 use font_kit::source::SystemSource;
-use skribo::{layout, layout_run, FontRef as SkriboFont, FontFamily, FontCollection, TextStyle};
+use skribo::{layout_run, LayoutSession, FontRef as SkriboFont, FontFamily, FontCollection, TextStyle};
 
 const STANDARD_CHARACTER_STRING: &'static str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
 
@@ -103,39 +103,22 @@ impl CachingShaper {
 
         let style = TextStyle { size: base_size * scale as f32 };
 
-        let mut family = FontFamily::new();
-        family.add_font(font_pair.normal.1.clone());
-        family.add_font(font_pair.emoji.1.clone());
-
         let mut collection = FontCollection::new();
-        collection.add_family(family);
 
-        let layout = layout(&style, &collection, text);
+        let mut normal_family = FontFamily::new();
+        normal_family.add_font(font_pair.normal.1.clone());
+        collection.add_family(normal_family);
 
-        let mut groups = Vec::new();
-        let mut group = Vec::new();
-        let mut previous_font: Option<SkriboFont> = None;
+        let mut emoji_family = FontFamily::new();
+        emoji_family.add_font(font_pair.emoji.1.clone());
+        collection.add_family(emoji_family);
 
-        for glyph in layout.glyphs {
-            if previous_font.clone().map(|previous_font| Arc::ptr_eq(&previous_font.font, &glyph.font.font)).unwrap_or(true) {
-                group.push(glyph);
-            } else {
-                groups.push(group);
-                previous_font = Some(glyph.font.clone());
-                group = vec![glyph];
-            }
-        }
-        if !group.is_empty() {
-            groups.push(group);
-        }
+        let session = LayoutSession::create(text, &style, &collection);
 
         let mut blobs = Vec::new();
-        for group in groups {
-            if group.is_empty() {
-                continue;
-            }
 
-            let skribo_font = group[0].font.clone();
+        for layout_run in session.iter_all() {
+            let skribo_font = layout_run.font();
             let skia_font = if Arc::ptr_eq(&skribo_font.font, &font_pair.normal.1.font) {
                 &font_pair.normal.0
             } else {
@@ -144,16 +127,14 @@ impl CachingShaper {
 
             let mut blob_builder = TextBlobBuilder::new();
 
-            let count = group.len();
+            let count = layout_run.glyphs().count();
             let metrics = skribo_font.font.metrics();
             let ascent = metrics.ascent * base_size / metrics.units_per_em as f32;
             let (glyphs, positions) = blob_builder.alloc_run_pos_h(&skia_font, count, ascent, None);
 
-            for (i, glyph_id) in group.iter().map(|glyph| glyph.glyph_id as u16).enumerate() {
-                glyphs[i] = glyph_id;
-            }
-            for (i, offset) in group.iter().map(|glyph| glyph.offset.x as f32).enumerate() {
-                positions[i] = offset;
+            for (i, glyph) in layout_run.glyphs().enumerate() {
+                glyphs[i] = glyph.glyph_id as u16;
+                positions[i] = glyph.offset.x;
             }
             blobs.push(blob_builder.make().unwrap());
         }

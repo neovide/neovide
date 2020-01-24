@@ -1485,6 +1485,7 @@ dependencies = [
  "skribo",
  "skulpin",
  "tokio",
+ "unicode-segmentation",
  "winres",
 ]
 

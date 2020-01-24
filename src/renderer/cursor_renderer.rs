@@ -195,7 +195,22 @@ impl CursorRenderer {
 
         let (grid_x, grid_y) = self.previous_position;
 
-        let font_dimensions: Point = (font_width, font_height).into();
+        let (character, font_dimensions): (String, Point) = {
+            let editor = EDITOR.lock().unwrap();
+            let character = editor.grid[grid_y as usize][grid_x as usize].clone()
+                .map(|(character, _)| character)
+                .unwrap_or(' '.to_string());
+            let is_double = editor.grid[grid_y as usize]
+                .get(grid_x as usize + 1)
+                .map(|cell| cell.as_ref().map(|(character, _)| character.is_empty()).unwrap_or(false))
+                .unwrap_or(false);
+
+            let font_width = match (is_double, &cursor.shape) {
+                (true, CursorShape::Block) => font_width * 2.0,
+                _ => font_width
+            };
+            (character, (font_width, font_height).into())
+        };
         let destination: Point = (grid_x as f32 * font_width, grid_y as f32 * font_height).into();
         let center_destination = destination + font_dimensions * 0.5;
 
@@ -226,9 +241,6 @@ impl CursorRenderer {
             // Draw foreground
             paint.set_color(cursor.foreground(&default_colors).to_color());
             let editor = EDITOR.lock().unwrap();
-            let character = editor.grid[grid_y as usize][grid_x as usize].clone()
-                .map(|(character, _)| character)
-                .unwrap_or(' ');
             canvas.save();
             canvas.clip_path(&path, None, Some(false));
             

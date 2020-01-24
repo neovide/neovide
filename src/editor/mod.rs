@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 
 use skulpin::skia_safe::colors;
 use skulpin::winit::window::Window;
+use unicode_segmentation::UnicodeSegmentation;
 
 pub use cursor::{Cursor, CursorShape, CursorMode};
 pub use style::{Colors, Style};
@@ -17,7 +18,7 @@ lazy_static! {
     pub static ref EDITOR: Arc<Mutex<Editor>> = Arc::new(Mutex::new(Editor::new()));
 }
 
-pub type GridCell = Option<(char, Option<Style>)>;
+pub type GridCell = Option<(String, Option<Style>)>;
 
 #[derive(new, Debug, Clone)]
 pub struct DrawCommand {
@@ -102,9 +103,9 @@ impl Editor {
                 }
             }
 
-            fn add_character(command: &mut Option<DrawCommand>, character: &char, row_index: u64, col_index: u64, style: Option<Style>) {
+            fn add_character(command: &mut Option<DrawCommand>, character: &str, row_index: u64, col_index: u64, style: Option<Style>) {
                 match command {
-                    Some(command) => command.text.push(character.clone()),
+                    Some(command) => command.text.push_str(character),
                     None => {
                         command.replace(DrawCommand::new(character.to_string(), (col_index, row_index), style));
                     }
@@ -112,12 +113,18 @@ impl Editor {
             }
 
             for (col_index, cell) in row.iter().enumerate() {
-                let (character, style) = cell.clone().unwrap_or_else(|| (' ', Some(Style::new(self.default_colors.clone()))));
-                if !command_matches(&command, &style) {
+                let (character, style) = cell.clone().unwrap_or_else(|| (' '.to_string(), Some(Style::new(self.default_colors.clone()))));
+                if character.is_empty() {
+                    add_character(&mut command, &" ", row_index as u64, col_index as u64, style.clone());
                     add_command(&mut draw_commands, command);
                     command = None;
+                } else {
+                    if !command_matches(&command, &style) {
+                        add_command(&mut draw_commands, command);
+                        command = None;
+                    }
+                    add_character(&mut command, &character, row_index as u64, col_index as u64, style.clone());
                 }
-                add_character(&mut command, &character, row_index as u64, col_index as u64, style.clone());
             }
             add_command(&mut draw_commands, command);
         }
@@ -127,7 +134,7 @@ impl Editor {
             let (x, y) = command.grid_position;
             let dirty_row = &self.dirty[y as usize];
 
-            for char_index in 0..command.text.chars().count() {
+            for char_index in 0..command.text.graphemes(true).count() {
                 if dirty_row[x as usize + char_index] {
                     return true;
                 }
@@ -155,15 +162,21 @@ impl Editor {
 
         let row = self.grid.get_mut(row_index as usize).expect("Grid must have size greater than row_index");
         let dirty_row = &mut self.dirty[row_index as usize];
-        for (i, character) in text.chars().enumerate() {
-            let pointer_index = i + *column_pos as usize;
-            if pointer_index < row.len() {
-                row[pointer_index] = Some((character, style.clone()));
-                dirty_row[pointer_index] = true;
-            }
-        }
 
-        *column_pos = *column_pos + text.chars().count() as u64;
+        if text.is_empty() {
+            row[*column_pos as usize] = Some(("".to_string(), style.clone()));
+            dirty_row[*column_pos as usize] = true;
+            *column_pos = *column_pos + 1;
+        } else {
+            for (i, character) in text.graphemes(true).enumerate() {
+                let pointer_index = i + *column_pos as usize;
+                if pointer_index < row.len() {
+                    row[pointer_index] = Some((character.to_string(), style.clone()));
+                    dirty_row[pointer_index] = true;
+                }
+            }
+            *column_pos = *column_pos + text.graphemes(true).count() as u64;
+        }
         self.previous_style = style;
     }
 
