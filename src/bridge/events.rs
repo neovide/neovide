@@ -14,6 +14,7 @@ pub enum EventParseError {
     InvalidU64(Value),
     InvalidI64(Value),
     InvalidBool(Value),
+    InvalidWindowAnchor(Value),
     InvalidEventFormat
 }
 type Result<T> = std::result::Result<T, EventParseError>;
@@ -27,6 +28,7 @@ impl fmt::Display for EventParseError {
             EventParseError::InvalidU64(value) => write!(f, "invalid u64 format {}", value),
             EventParseError::InvalidI64(value) => write!(f, "invalid i64 format {}", value),
             EventParseError::InvalidBool(value) => write!(f, "invalid bool format {}", value),
+            EventParseError::InvalidWindowAnchor(value) => write!(f, "invalid window anchor format {}", value),
             EventParseError::InvalidEventFormat => write!(f, "invalid event format")
         }
     }
@@ -100,6 +102,14 @@ pub enum GuiOption {
 }
 
 #[derive(Debug)]
+pub enum WindowAnchor {
+    NorthWest,
+    NorthEast,
+    SouthWest,
+    SouthEast
+}
+
+#[derive(Debug)]
 pub enum RedrawEvent {
     SetTitle { title: String },
     ModeInfoSet { cursor_modes: Vec<CursorMode> },
@@ -115,6 +125,12 @@ pub enum RedrawEvent {
     Clear { grid: u64 },
     CursorGoto { grid: u64, row: u64, column: u64 },
     Scroll { grid: u64, top: u64, bottom: u64, left: u64, right: u64, rows: i64, columns: i64 },
+    WindowPosition { grid: u64, window: u64, start_row: u64, start_column: u64, width: u64, height: u64 },
+    WindowFloatPosition { grid: u64, window: u64, anchor: WindowAnchor, anchor_grid: u64, anchor_row: u64, anchor_column: u64, focusable: bool },
+    WindowExternalPosition { grid: u64, window: u64 },
+    WindowHide { grid: u64 },
+    WindowClose { grid: u64 },
+    MessageSetPosition { grid: u64, row: u64, scrolled: bool, separator_character: String },
     CommandLineShow { content: StyledContent, position: u64, first_character: String, prompt: String, indent: u64, level: u64 },
     CommandLinePosition { position: u64, level: u64 },
     CommandLineSpecialCharacter { character: String, shift: bool, level: u64 },
@@ -395,6 +411,91 @@ fn parse_grid_scroll(grid_scroll_arguments: Vec<Value>) -> Result<RedrawEvent> {
     }
 }
 
+fn parse_win_pos(win_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [grid, window, start_row, start_column, width, height] = win_pos_arguments.as_slice() {
+        Ok(RedrawEvent::WindowPosition {
+            grid: parse_u64(&grid)?,
+            window: parse_u64(&window)?,
+            start_row: parse_u64(&start_row)?,
+            start_column: parse_u64(&start_column)?,
+            width: parse_u64(&width)?,
+            height: parse_u64(&height)?
+        })
+    } else {
+        Err(EventParseError::InvalidEventFormat)
+    }
+}
+
+fn parse_window_anchor(anchor: Value) -> Result<WindowAnchor> {
+    match parse_string(&anchor) {
+        Ok("NW") => Ok(WindowAnchor::NorthWest),
+        Ok("NE") => Ok(WindowAnchor::NorthEast),
+        Ok("SW") => Ok(WindowAnchor::SouthWest),
+        Ok("SE") => Ok(WindowAnchor::SouthEast),
+        _ => Err(InvalidWindowAnchor(value))
+    }
+}
+
+fn parse_win_float_pos(win_float_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [grid, window, anchor, anchor_grid, anchor_row, anchor_column, focusable] = win_float_pos_arguments.as_slice() {
+        Ok(RedrawEvent::WindowFloatPosition {
+            grid: parse_u64(&grid)?,
+            window: parse_u64(&window)?,
+            anchor: parse_window_anchor(&anchor)?,
+            anchor_grid: parse_u64(&anchor_grid)?,
+            anchor_row: parse_u64(&anchor_row)?,
+            anchor_column: parse_u64(&anchor_column)?,
+            focusable: parse_bool(&focusable)?
+        })
+    } else {
+        Err(EventParseError::InvalidEventFormat)
+    }
+}
+
+fn parse_win_external_pos(win_external_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [grid, window] = win_external_pos_arguments.as_slice() {
+        Ok(RedrawEvent::WindowExternalPosition {
+            grid: parse_u64(&grid)?,
+            window: parse_u64(&window)?
+        })
+    } else {
+        Err(EventParseError::InvalidEventFormat)
+    }
+}
+
+fn parse_win_hide(win_hide_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [grid] = win_hide_arguments.as_slice() {
+        Ok(RedrawEvent::WindowHide {
+            grid: parse_u64(&grid)?
+        })
+    } else {
+        Err(EventParseError::InvalidEventFormat)
+    }
+}
+
+fn parse_win_close(win_close_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [grid] = win_close_arguments.as_slice() {
+        Ok(RedrawEvent::WindowClose {
+            grid: parse_u64(&grid)?
+        })
+    } else {
+        Err(EventParseError::InvalidEventFormat)
+    }
+}
+
+fn parse_msg_set_pos(msg_set_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    if let [grid, row, scrolled, separator_character] = msg_set_pos_arguments.as_slice() {
+        Ok(RedrawEvent::MessageSetPosition {
+            grid: parse_u64(&grid)?,
+            row: parse_u64(&row)?,
+            scrolled: parse_bool(&scrolled)?,
+            separator_character: parse_string(&separator_character)?
+        })
+    } else {
+        Err(EventParseError::InvalidEventFormat)
+    }
+}
+
 fn parse_styled_content(line: &Value) -> Result<StyledContent> {
     parse_array(line)?.iter().map(|tuple| {
         if let [style_id, text] = parse_array(tuple)?.as_slice() {
@@ -557,6 +658,12 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
             "grid_clear" => Some(parse_clear(event_parameters)?),
             "grid_cursor_goto" => Some(parse_cursor_goto(event_parameters)?),
             "grid_scroll" => Some(parse_grid_scroll(event_parameters)?),
+            "win_pos" => Some(parse_win_pos(event_parameters)?),
+            "win_float_pos" => Some(parse_win_float_pos(event_parameters)?),
+            "win_external_pos" => Some(parse_win_external_pos(event_parameters)?),
+            "win_hide" => Some(parse_win_hide(event_parameters)?),
+            "win_close" => Some(parse_win_close(event_parameters)?),
+            "msg_set_pos" => Some(parse_msg_set_pos(event_parameters)?),
             "cmdline_show" => Some(parse_cmdline_show(event_parameters)?),
             "cmdline_pos" => Some(parse_cmdline_pos(event_parameters)?),
             "cmdline_special_char" => Some(parse_cmdline_special_char(event_parameters)?),
