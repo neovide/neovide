@@ -426,13 +426,13 @@ fn parse_win_pos(win_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
     }
 }
 
-fn parse_window_anchor(anchor: Value) -> Result<WindowAnchor> {
-    match parse_string(&anchor) {
-        Ok("NW") => Ok(WindowAnchor::NorthWest),
-        Ok("NE") => Ok(WindowAnchor::NorthEast),
-        Ok("SW") => Ok(WindowAnchor::SouthWest),
-        Ok("SE") => Ok(WindowAnchor::SouthEast),
-        _ => Err(InvalidWindowAnchor(value))
+fn parse_window_anchor(value: &Value) -> Result<WindowAnchor> {
+    match parse_string(value).ok().as_deref() {
+        Some("NW") => Ok(WindowAnchor::NorthWest),
+        Some("NE") => Ok(WindowAnchor::NorthEast),
+        Some("SW") => Ok(WindowAnchor::SouthWest),
+        Some("SE") => Ok(WindowAnchor::SouthEast),
+        _ => Err(EventParseError::InvalidWindowAnchor(value.clone()))
     }
 }
 
