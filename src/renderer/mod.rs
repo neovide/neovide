@@ -79,11 +79,6 @@ impl Renderer {
         canvas.save();
 
         let region = self.compute_text_region(text, grid_pos, size);
-        let region = Rect::new(
-            region.x() - self.font_width, 
-            region.y(), 
-            region.x() + region.width() + self.font_width, 
-            region.y() + region.height());
 
         canvas.clip_rect(region, None, Some(false));
 
