@@ -115,6 +115,9 @@ impl CachingShaper {
 
         let session = LayoutSession::create(text, &style, &collection);
 
+        let metrics = font_pair.normal.1.font.metrics();
+        let ascent = metrics.ascent * base_size / metrics.units_per_em as f32;
+
         let mut blobs = Vec::new();
 
         for layout_run in session.iter_all() {
@@ -128,8 +131,6 @@ impl CachingShaper {
             let mut blob_builder = TextBlobBuilder::new();
 
             let count = layout_run.glyphs().count();
-            let metrics = skribo_font.font.metrics();
-            let ascent = metrics.ascent * base_size / metrics.units_per_em as f32;
             let (glyphs, positions) = blob_builder.alloc_run_pos_h(&skia_font, count, ascent, None);
 
             for (i, glyph) in layout_run.glyphs().enumerate() {
