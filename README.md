@@ -29,13 +29,43 @@ Font fallback supports rendering of emoji not contained in the configured font.
 
 I've got more ideas for simple unobtrusive improvements. More to come.
 
+## Install
+
+Currently there is just a windows binary under the project releases https://github.com/Kethku/neovide/releases. I'm hoping to automate and produce mac and linux binaries as well, but I haven't gotten there yet.
+
+Installing should be as simple as downloading the binary, making sure `nvim.exe` is on your path, and running it. Everything should be self contained.
+
 ## Building
 
 Building instructions are somewhat limited at the moment. All the libraries I use are cross platform and should have
 support for Windows Mac and Linux. The rendering however is Vulcan based, so driver support for vulcan will be
 necessary. On Windows this should be enabled by default if you have a relatively recent system.
 
-Building requires a modern copy of Rust and should be as simple as running `cargo build --release` and running the
-resulting binary in `targets/release`.
+### Windows
 
-Better support and prebuilt binaries for non windows platforms is planned.
+1. Install latest version of rust. I recommend https://rustup.rs/
+1. Ensure graphics libraries are up to date.
+1. `git clone https://github.com/Kethku/neovide`
+1. `cd neovide`
+1. `cargo build --release`
+1. Copy `./targets/release/neovide.exe` to a known location and enjoy.
+
+### Mac
+
+1. Install latest version of rust. I recommend https://rustup.rs/
+1. Install vulcan sdk. I'm told `brew cask install apenngrace/vulkan/vulkan-sdk` works, but I can't test locally to find out.
+1. `git clone https://github.com/Kethku/neovide`
+1. `cd neovide`
+1. `cargo build --release`
+1. Copy `./targets/release/neovide` to a known location and enjoy.
+
+### Linux
+
+1. Install latest version of rust. I recommend https://rustup.rs/
+1. Install vulcan drivers. I'm not sure how on linux. Id appreciate a PR if you know more :)
+1. `git clone https://github.com/Kethku/neovide`
+1. `cd neovide`
+1. `cargo build --release`
+1. Copy `./targets/release/neovide` to a known location and enjoy.
+
+Note: Currently there seems to be problems with wayland https://github.com/aclysma/skulpin/issues/36. Any help would be appreciated.
