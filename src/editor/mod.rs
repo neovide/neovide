@@ -5,7 +5,6 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use skulpin::skia_safe::colors;
-use skulpin::winit::window::Window;
 use unicode_segmentation::UnicodeSegmentation;
 
 pub use cursor::{Cursor, CursorShape, CursorMode};

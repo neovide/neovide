@@ -12,7 +12,6 @@ use skulpin::winit::window::{Icon, Window, WindowBuilder};
 use crate::bridge::{construct_keybinding_string, BRIDGE, Bridge, UiCommand};
 use crate::renderer::Renderer;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
-use crate::error_handling::ResultPanicExplanation;
 use crate::INITIAL_DIMENSIONS;
 
 #[derive(RustEmbed)]
