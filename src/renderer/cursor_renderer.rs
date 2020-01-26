@@ -4,6 +4,7 @@ use skulpin::skia_safe::{Canvas, Paint, Path, Point};
 
 use crate::renderer::CachingShaper;
 use crate::editor::{EDITOR, Colors, Cursor, CursorShape};
+use crate::redraw_scheduler::REDRAW_SCHEDULER;
 
 const AVERAGE_MOTION_PERCENTAGE: f32 = 0.7;
 const MOTION_PERCENTAGE_SPREAD: f32 = 0.5;
@@ -33,7 +34,7 @@ impl BlinkStatus {
         }
     }
 
-    pub fn update_status(&mut self, new_cursor: &Cursor) -> (bool, Option<Instant>) {
+    pub fn update_status(&mut self, new_cursor: &Cursor) -> bool {
         if self.previous_cursor.is_none() || new_cursor != self.previous_cursor.as_ref().unwrap() {
             self.previous_cursor = Some(new_cursor.clone());
             self.last_transition = Instant::now();
@@ -47,7 +48,7 @@ impl BlinkStatus {
         if new_cursor.blinkwait == Some(0) || 
             new_cursor.blinkoff == Some(0) ||
             new_cursor.blinkon == Some(0) {
-            return (true, None);
+            return true;
         }
 
         let delay = match self.state {
@@ -65,17 +66,20 @@ impl BlinkStatus {
             self.last_transition = Instant::now();
         }
 
-        (
-            match self.state {
-                BlinkState::Waiting | BlinkState::Off => false,
-                BlinkState::On => true
-            }, 
-            (match self.state {
-                BlinkState::Waiting => new_cursor.blinkwait,
-                BlinkState::Off => new_cursor.blinkoff,
-                BlinkState::On => new_cursor.blinkon
-            }).map(|delay| self.last_transition + Duration::from_millis(delay))
-        )
+        let scheduled_frame = (match self.state {
+            BlinkState::Waiting => new_cursor.blinkwait,
+            BlinkState::Off => new_cursor.blinkoff,
+            BlinkState::On => new_cursor.blinkon
+        }).map(|delay| self.last_transition + Duration::from_millis(delay));
+
+        if let Some(scheduled_frame) = scheduled_frame {
+            REDRAW_SCHEDULER.schedule(scheduled_frame);
+        }
+
+        match self.state {
+            BlinkState::Waiting | BlinkState::Off => false,
+            BlinkState::On => true
+        }
     }
 }
 
@@ -171,8 +175,8 @@ impl CursorRenderer {
             cursor: Cursor, default_colors: &Colors, 
             font_width: f32, font_height: f32,
             paint: &mut Paint, shaper: &mut CachingShaper, 
-            canvas: &mut Canvas) -> (bool, Option<Instant>) {
-        let (render, scheduled_update) = self.blink_status.update_status(&cursor);
+            canvas: &mut Canvas) {
+        let render = self.blink_status.update_status(&cursor);
 
         self.previous_position = {
             let editor = EDITOR.lock().unwrap();
@@ -224,6 +228,10 @@ impl CursorRenderer {
             }
         }
 
+        if animating {
+            REDRAW_SCHEDULER.queue_next_frame();
+        }
+
         if cursor.enabled && render {
             // Draw Background
             paint.set_color(cursor.background(&default_colors).to_color());
@@ -240,7 +248,6 @@ impl CursorRenderer {
 
             // Draw foreground
             paint.set_color(cursor.foreground(&default_colors).to_color());
-            let editor = EDITOR.lock().unwrap();
             canvas.save();
             canvas.clip_path(&path, None, Some(false));
             
@@ -250,7 +257,5 @@ impl CursorRenderer {
             }
             canvas.restore();
         }
-
-        (animating, scheduled_update)
     }
 }

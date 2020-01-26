@@ -1,5 +1,5 @@
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::time::Instant;
 
 use image::{load_from_memory, GenericImageView, Pixel};
 use skulpin::{CoordinateSystem, RendererBuilder, PresentMode};
@@ -7,9 +7,9 @@ use skulpin::skia_safe::icu;
 use skulpin::winit::dpi::LogicalSize;
 use skulpin::winit::event::{ElementState, Event, MouseScrollDelta, StartCause, WindowEvent};
 use skulpin::winit::event_loop::{ControlFlow, EventLoop};
-use skulpin::winit::window::{Icon, Window, WindowBuilder};
+use skulpin::winit::window::{Icon, WindowBuilder};
 
-use crate::bridge::{construct_keybinding_string, BRIDGE, Bridge, UiCommand};
+use crate::bridge::{construct_keybinding_string, BRIDGE, UiCommand};
 use crate::renderer::Renderer;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::INITIAL_DIMENSIONS;
@@ -17,8 +17,6 @@ use crate::INITIAL_DIMENSIONS;
 #[derive(RustEmbed)]
 #[folder = "assets/"]
 struct Asset;
-
-const EXTRA_LIVE_FRAMES: usize = 10;
 
 fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer) {
     if new_size.width > 0.0 && new_size.height > 0.0 {
@@ -72,14 +70,9 @@ pub fn ui_loop() {
     let mut mouse_down = false;
     let mut mouse_pos = (0, 0);
 
-    let mut live_frames = 0;
-    let mut frame_start = Instant::now();
     event_loop.run(move |event, _window_target, control_flow| {
         match event {
-            Event::NewEvents(StartCause::Init) |
-            Event::NewEvents(StartCause::ResumeTimeReached { .. }) => {
-                window.request_redraw()
-            },
+            Event::NewEvents(StartCause::Init) => window.request_redraw(),
 
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
@@ -90,7 +83,7 @@ pub fn ui_loop() {
                 event: WindowEvent::Resized(new_size),
                 ..
             } => {
-                handle_new_grid_size(window.inner_size(), &renderer)
+                handle_new_grid_size(new_size, &renderer)
             },
 
             Event::WindowEvent {
@@ -174,30 +167,12 @@ pub fn ui_loop() {
             }
 
             Event::RedrawRequested { .. }  => {
-                frame_start = Instant::now();
                 if let Err(e) = skulpin_renderer.draw(&window, |canvas, coordinate_system_helper| {
-                    let draw_result = renderer.draw(canvas, coordinate_system_helper);
-                    if draw_result.is_animating {
-                        live_frames = EXTRA_LIVE_FRAMES;
-                    } else {
-                        if live_frames > 0 {
-                            live_frames = live_frames - 1;
-                        }
-                    }
-
-                    if draw_result.font_changed {
+                    if renderer.draw(canvas, coordinate_system_helper) {
                         handle_new_grid_size(window.inner_size(), &renderer)
                     }
 
-                    if live_frames > 0 {
-                        *control_flow = ControlFlow::WaitUntil(frame_start + Duration::from_secs_f32(1.0 / 60.0));
-                    } else {
-                        *control_flow = ControlFlow::Wait;
-                    }
-
-                    if let Some(scheduled_update) = draw_result.scheduled_update {
-                        REDRAW_SCHEDULER.schedule(scheduled_update);
-                    }
+                    *control_flow = ControlFlow::Wait;
                 }) {
                     println!("Error during draw: {:?}", e);
                     *control_flow = ControlFlow::Exit

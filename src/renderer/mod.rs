@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use skulpin::CoordinateSystemHelper;
 use skulpin::skia_safe::{Canvas, Paint, Surface, Budgeted, Rect, colors};
 use skulpin::skia_safe::gpu::SurfaceOrigin;
@@ -12,13 +10,6 @@ pub use caching_shaper::CachingShaper;
 
 use cursor_renderer::CursorRenderer;
 use crate::editor::{EDITOR, Style, Colors};
-
-#[derive(new)]
-pub struct DrawResult {
-    pub is_animating: bool,
-    pub font_changed: bool,
-    pub scheduled_update: Option<Instant>
-}
 
 pub struct Renderer {
     surface: Option<Surface>,
@@ -105,7 +96,7 @@ impl Renderer {
         canvas.restore();
     }
 
-    pub fn draw(&mut self, gpu_canvas: &mut Canvas, coordinate_system_helper: &CoordinateSystemHelper) -> DrawResult {
+    pub fn draw(&mut self, gpu_canvas: &mut Canvas, coordinate_system_helper: &CoordinateSystemHelper) -> bool {
         let ((draw_commands, should_clear), default_colors, cursor, font_name, font_size) = {
             let mut editor = EDITOR.lock().unwrap();
             (
@@ -156,12 +147,12 @@ impl Renderer {
 
         self.surface = Some(surface);
 
-        let (cursor_animating, scheduled_cursor_update) = self.cursor_renderer.draw(
+        self.cursor_renderer.draw(
             cursor, &default_colors, 
             self.font_width, self.font_height, 
             &mut self.paint, &mut self.shaper,
             gpu_canvas);
 
-        DrawResult::new(!draw_commands.is_empty() || cursor_animating, font_changed, scheduled_cursor_update)
+        font_changed
     }
 }

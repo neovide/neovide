@@ -72,7 +72,7 @@ impl Editor {
             RedrawEvent::ModeChange { mode_index } => self.cursor.change_mode(mode_index, &self.defined_styles),
             RedrawEvent::BusyStart => self.cursor.enabled = false,
             RedrawEvent::BusyStop => self.cursor.enabled = true,
-            RedrawEvent::Flush => REDRAW_SCHEDULER.request_redraw(),
+            RedrawEvent::Flush => REDRAW_SCHEDULER.queue_next_frame(),
             RedrawEvent::Resize { width, height, .. } => self.resize((width, height)),
             RedrawEvent::DefaultColorsSet { colors } => self.default_colors = colors,
             RedrawEvent::HighlightAttributesDefine { id, style } => { self.defined_styles.insert(id, style); },

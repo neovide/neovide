@@ -1,44 +1,81 @@
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
+use std::thread;
 
 use skulpin::winit::window::Window;
-use tokio::runtime::Runtime;
-use tokio::time::{Instant as TokioInstant, delay_until};
 
 lazy_static! {
     pub static ref REDRAW_SCHEDULER: RedrawScheduler = RedrawScheduler::new();
 }
 
 pub struct RedrawScheduler {
-    runtime: Runtime,
-    window: Mutex<Option<Arc<Window>>> // Swap to some atomic type
+    window: Mutex<Option<Arc<Window>>>, // Would prefer not to have to lock this every time.
+    frame_queued: AtomicBool,
+    scheduled_frame: Mutex<Option<Instant>>
+}
+
+pub fn redraw_loop() {
+    thread::spawn(|| {
+        loop {
+            let frame_start = Instant::now();
+
+            let request_redraw = {
+                if REDRAW_SCHEDULER.frame_queued.load(Ordering::Relaxed) {
+                    REDRAW_SCHEDULER.frame_queued.store(false, Ordering::Relaxed);
+                    true
+                } else {
+                    let mut next_scheduled_frame = REDRAW_SCHEDULER.scheduled_frame.lock().unwrap();
+                    if let Some(scheduled_frame) = next_scheduled_frame.clone() {
+                        if scheduled_frame < frame_start {
+                            *next_scheduled_frame = None;
+                            true
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    }
+                }
+            };
+
+            if request_redraw {
+                let window = REDRAW_SCHEDULER.window.lock().unwrap();
+                if let Some(window) = &*window {
+                    window.request_redraw();
+                }
+            }
+
+            if let Some(time_to_sleep) = Duration::from_secs_f32(1.0 / 60.0).checked_sub(Instant::now() - frame_start) {
+                thread::sleep(time_to_sleep)
+            }
+        }
+    });
 }
 
 impl RedrawScheduler {
     pub fn new() -> RedrawScheduler {
+        redraw_loop();
         RedrawScheduler { 
-            runtime: Runtime::new().unwrap(),
-            window: Mutex::new(None)
+            window: Mutex::new(None),
+            frame_queued: AtomicBool::new(false),
+            scheduled_frame: Mutex::new(None)
         }
     }
 
-    pub fn schedule(&self, time: Instant) {
-        let window = {
-            self.window.lock().unwrap().clone()
-        };
-
-        if let Some(window) = window {
-            self.runtime.spawn(async move {
-                delay_until(TokioInstant::from_std(time)).await;
-                window.request_redraw();
-            });
+    pub fn schedule(&self, new_scheduled: Instant) {
+        let mut scheduled_frame = self.scheduled_frame.lock().unwrap();
+        if let Some(previous_scheduled) = scheduled_frame.clone() {
+            if new_scheduled < previous_scheduled {
+                *scheduled_frame = Some(new_scheduled);
+            }
+        } else {
+            *scheduled_frame = Some(new_scheduled);
         }
     }
 
-    pub fn request_redraw(&self) {
-        if let Some(window) = self.window.lock().unwrap().as_ref() {
-            window.request_redraw();
-        }
+    pub fn queue_next_frame(&self) {
+        self.frame_queued.store(true, Ordering::Relaxed);
     }
 
     pub fn set_window(&self, window: &Arc<Window>){
