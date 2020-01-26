@@ -4,6 +4,8 @@ functionally like the terminal UI.
 
 ![Basic Screen Cap](./assets/BasicScreenCap.png)
 
+I've been using this as my daily driver since November 2019. It should be relatively stable, but I'm still working out some kinks and ironing out some cross platform issues. In general it should be usable at this point, and if it isn't I concider that a bug and appreciate a report in the issues! Any help and ideas are also greatly appreciated.
+
 ## Features
 Should be a standard full features Neovim GUI. Beyond that there are some visual nicities:
 
