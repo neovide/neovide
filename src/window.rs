@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use std::time::Instant;
 
 use image::{load_from_memory, GenericImageView, Pixel};
 use skulpin::{CoordinateSystem, RendererBuilder, PresentMode};
