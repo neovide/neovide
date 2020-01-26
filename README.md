@@ -6,6 +6,8 @@ functionally like the terminal UI.
 
 I've been using this as my daily driver since November 2019. It should be relatively stable, but I'm still working out some kinks and ironing out some cross platform issues. In general it should be usable at this point, and if it isn't I concider that a bug and appreciate a report in the issues! Any help and ideas are also greatly appreciated.
 
+I'm also very interested in suggestions code quality/style wise when it comes to Rust. I'm pretty new to the language and appreciate any critiques that you might have to offer. I won't take all of them, but I promise to concider anything you might have to offer.
+
 ## Features
 Should be a standard full features Neovim GUI. Beyond that there are some visual nicities:
 
