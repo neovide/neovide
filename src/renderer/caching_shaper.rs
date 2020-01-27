@@ -6,6 +6,8 @@ use skulpin::skia_safe::{TextBlob, Font as SkiaFont, FontStyle, Typeface, TextBl
 use font_kit::source::SystemSource;
 use skribo::{layout_run, LayoutSession, FontRef as SkriboFont, FontFamily, FontCollection, TextStyle};
 
+use crate::error_handling::OptionPanicExplanation;
+
 const STANDARD_CHARACTER_STRING: &'static str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
 
 #[cfg(target_os = "windows")]
@@ -41,7 +43,7 @@ struct ShapeKey {
 
 struct FontPair {
     normal: (SkiaFont, SkriboFont),
-    emoji: (SkiaFont, SkriboFont)
+    emoji: Option<(SkiaFont, SkriboFont)>
 }
 
 #[derive(Debug)]
@@ -52,14 +54,14 @@ pub struct CachingShaper {
     blob_cache: LruCache<ShapeKey, Vec<TextBlob>>
 }
 
-fn build_fonts(font_key: &FontKey, font_name: &str, base_size: f32) -> (SkiaFont, SkriboFont) {
+fn build_fonts(font_key: &FontKey, font_name: &str, base_size: f32) -> Option<(SkiaFont, SkriboFont)> {
     let source = SystemSource::new();
     let skribo_font = SkriboFont::new(
         source.select_family_by_name(font_name)
-              .expect("Failed to load by postscript name")
+              .ok()?
               .fonts()[0]
               .load()
-              .unwrap());
+              .ok()?);
      
     let font_style = match (font_key.bold, font_key.italic) {
         (false, false) => FontStyle::normal(),
@@ -68,10 +70,10 @@ fn build_fonts(font_key: &FontKey, font_name: &str, base_size: f32) -> (SkiaFont
         (true, true) => FontStyle::bold_italic()
     };
     let skia_font = SkiaFont::from_typeface(
-        Typeface::new(font_name.clone(), font_style).expect("Could not load skia font file"),
+        Typeface::new(font_name.clone(), font_style)?,
         base_size * font_key.scale as f32);
 
-    (skia_font, skribo_font)
+    Some((skia_font, skribo_font))
 }
 
 impl CachingShaper {
@@ -87,7 +89,10 @@ impl CachingShaper {
     fn get_font_pair(&mut self, font_key: &FontKey) -> &FontPair {
         if !self.font_cache.contains(font_key) {
             let font_pair = FontPair {
-                normal: build_fonts(font_key, &self.font_name, self.base_size),
+                normal: build_fonts(font_key, &self.font_name, self.base_size)
+                    .unwrap_or_explained_panic(
+                        "Could not load configured font", 
+                        &format!("Could not load {}. This font was either the font configured in init scripts via guifont, or the default font is not available on your machine. Defaults are defined here: https://github.com/Kethku/neovide/blob/master/src/renderer/caching_shaper.rs", &self.font_name)),
                 emoji: build_fonts(font_key, EMOJI_FONT, self.base_size)
             };
             self.font_cache.put(font_key.clone(), font_pair);
@@ -109,9 +114,11 @@ impl CachingShaper {
         normal_family.add_font(font_pair.normal.1.clone());
         collection.add_family(normal_family);
 
-        let mut emoji_family = FontFamily::new();
-        emoji_family.add_font(font_pair.emoji.1.clone());
-        collection.add_family(emoji_family);
+        if let Some(emoji_font_pair) = &font_pair.emoji {
+            let mut emoji_family = FontFamily::new();
+            emoji_family.add_font(emoji_font_pair.1.clone());
+            collection.add_family(emoji_family);
+        }
 
         let session = LayoutSession::create(text, &style, &collection);
 
@@ -125,7 +132,7 @@ impl CachingShaper {
             let skia_font = if Arc::ptr_eq(&skribo_font.font, &font_pair.normal.1.font) {
                 &font_pair.normal.0
             } else {
-                &font_pair.emoji.0
+                &font_pair.emoji.as_ref().unwrap().0
             };
 
             let mut blob_builder = TextBlobBuilder::new();

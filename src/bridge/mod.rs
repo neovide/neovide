@@ -3,7 +3,7 @@ mod handler;
 mod keybindings;
 mod ui_commands;
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::process::Stdio;
 
 use rmpv::Value;
@@ -15,7 +15,6 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 pub use events::*;
 pub use keybindings::*;
 pub use ui_commands::UiCommand;
-use crate::editor::{EDITOR, Editor};
 use crate::error_handling::ResultPanicExplanation;
 use crate::INITIAL_DIMENSIONS;
 use handler::NeovimHandler;
