@@ -67,7 +67,7 @@ necessary. On Windows this should be enabled by default if you have a relatively
 
 1. Install latest version of rust. I recommend https://rustup.rs/
 1. Install vulcan drivers. I'm not sure how on linux. Id appreciate a PR if you know more :)
-1. Install lib-gtk `sudo apt install libgtk-3-dev`
+1. Install lib gtk `sudo apt install libgtk-3-dev`
 1. `git clone https://github.com/Kethku/neovide`
 1. `cd neovide`
 1. `cargo build --release`
