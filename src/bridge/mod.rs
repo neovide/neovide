@@ -114,8 +114,7 @@ impl Bridge {
     }
 
     pub fn queue_command(&self, command: UiCommand) {
-        let mut sender = self.sender.clone();
-        sender.send(command)
+        self.sender.send(command)
             .unwrap_or_explained_panic(
                 "Could Not Send UI Command", 
                 "Could not send UI command from the window system to the neovim process.");

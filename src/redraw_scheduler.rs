@@ -46,7 +46,7 @@ pub fn redraw_loop() {
                 }
             }
 
-            if let Some(time_to_sleep) = Duration::from_secs_f32(1.0 / 60.0).checked_sub(Instant::now() - frame_start) {
+            if let Some(time_to_sleep) = Duration::from_secs_f32(1.0 / 60.0).checked_sub(frame_start.elapsed()) {
                 thread::sleep(time_to_sleep)
             }
         }

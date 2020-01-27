@@ -14,7 +14,6 @@ skulpin = "0.5"
 derive-new = "0.5"
 env_logger = "0.7.1"
 rmpv = "0.4.2"
-msgbox = "0.4.0"
 rust-embed = { version = "5.2.0", features = ["debug-embed"] }
 image = "0.22.3"
 nvim-rs = { git = "https://github.com/KillTheMule/nvim-rs", branch = "futures", features = [ "use_tokio" ] }
@@ -22,6 +21,9 @@ tokio = { version = "0.2.9", features = [ "blocking", "process", "time" ] }
 async-trait = "0.1.18"
 lazy_static = "1.4.0"
 unicode-segmentation = "1.6.0"
+
+[target.'cfg(not(linux))'.dependencies]
+msgbox = { version = "0.4.0"}
 
 [build-dependencies]
 winres = "0.1.11"

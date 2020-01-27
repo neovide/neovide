@@ -1,13 +1,11 @@
-use std::sync::{Arc, Mutex};
-
 use rmpv::Value;
 use nvim_rs::{Neovim, Handler, compat::tokio::Compat};
 use async_trait::async_trait;
 use tokio::process::ChildStdin;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 
 use crate::error_handling::ResultPanicExplanation;
-use crate::editor::{EDITOR, Editor};
+use crate::editor::EDITOR;
 use super::events::{RedrawEvent, parse_neovim_event};
 
 #[derive(Clone)]
@@ -32,7 +30,10 @@ impl NeovimHandler {
     }
 
     pub fn handle_redraw_event(&self, event: RedrawEvent) {
-        self.sender.send(event);
+        self.sender.send(event)
+            .unwrap_or_explained_panic(
+                "Could not process neovim event.", 
+                "The main thread for Neovide has closed the communication channel preventing a neovim event from being processed.");
     }
 }
 

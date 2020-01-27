@@ -21,19 +21,13 @@ impl CursorShape {
     }
 }
 
-#[derive(new, Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub struct CursorMode {
-    #[new(default)]
     pub shape: Option<CursorShape>,
-    #[new(default)]
     pub style_id: Option<u64>,
-    #[new(default)]
     pub cell_percentage: Option<f32>,
-    #[new(default)]
     pub blinkwait: Option<u64>,
-    #[new(default)]
     pub blinkon: Option<u64>,
-    #[new(default)]
     pub blinkoff: Option<u64>,
 }
 

@@ -223,7 +223,7 @@ fn parse_mode_info_set(mode_info_set_arguments: Vec<Value>) -> Result<RedrawEven
         let mut cursor_modes = Vec::new();
         for mode_info_value in mode_info_values {
             let info_map = parse_map(&mode_info_value)?;
-            let mut mode_info = CursorMode::new();
+            let mut mode_info = CursorMode::default();
             for (name, value) in info_map {
                 let name = parse_string(&name)?;
                 match name.as_ref() {
