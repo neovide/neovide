@@ -1,12 +1,9 @@
-use std::sync::Arc;
 use std::collections::HashMap;
 
 use lru::LruCache;
-use skulpin::skia_safe::{TextBlob, Font as SkiaFont, FontStyle, Typeface, TextBlobBuilder, Data};
+use skulpin::skia_safe::{TextBlob, Font as SkiaFont, Typeface, TextBlobBuilder, Data};
 use font_kit::{source::SystemSource, metrics::Metrics, properties::Properties, family_name::FamilyName};
-use skribo::{layout_run, LayoutSession, FontRef as SkriboFont, FontFamily, FontCollection, TextStyle};
-
-use crate::error_handling::OptionPanicExplanation;
+use skribo::{LayoutSession, FontRef as SkriboFont, FontFamily, FontCollection, TextStyle};
 
 const STANDARD_CHARACTER_STRING: &'static str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
 

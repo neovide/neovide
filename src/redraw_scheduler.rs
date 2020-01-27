@@ -1,9 +1,6 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicU16, Ordering};
-use std::time::{Duration, Instant};
-use std::thread;
-
-use skulpin::winit::window::Window;
+use std::time::Instant;
 
 lazy_static! {
     pub static ref REDRAW_SCHEDULER: RedrawScheduler = RedrawScheduler::new();
