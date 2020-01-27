@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use image::{load_from_memory, GenericImageView, Pixel};
 use skulpin::{CoordinateSystem, RendererBuilder, PresentMode};
@@ -54,8 +55,6 @@ pub fn ui_loop() {
         .build(&event_loop)
         .expect("Failed to create window"));
 
-    REDRAW_SCHEDULER.set_window(&window);
-
     let mut skulpin_renderer = RendererBuilder::new()
         .prefer_integrated_gpu()
         .use_vulkan_debug_layer(true)
@@ -71,7 +70,10 @@ pub fn ui_loop() {
 
     event_loop.run(move |event, _window_target, control_flow| {
         match event {
-            Event::NewEvents(StartCause::Init) => window.request_redraw(),
+            Event::NewEvents(StartCause::Init) |
+            Event::NewEvents(StartCause::ResumeTimeReached { .. }) => {
+                window.request_redraw()
+            },
 
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
@@ -166,16 +168,20 @@ pub fn ui_loop() {
             }
 
             Event::RedrawRequested { .. }  => {
-                if let Err(e) = skulpin_renderer.draw(&window, |canvas, coordinate_system_helper| {
-                    if renderer.draw(canvas, coordinate_system_helper) {
-                        handle_new_grid_size(window.inner_size(), &renderer)
-                    }
+                let frame_start = Instant::now();
 
-                    *control_flow = ControlFlow::Wait;
-                }) {
-                    println!("Error during draw: {:?}", e);
-                    *control_flow = ControlFlow::Exit
+                if REDRAW_SCHEDULER.should_draw() {
+                    if let Err(e) = skulpin_renderer.draw(&window, |canvas, coordinate_system_helper| {
+                        if renderer.draw(canvas, coordinate_system_helper) {
+                            handle_new_grid_size(window.inner_size(), &renderer)
+                        }
+
+                    }) {
+                        println!("Error during draw: {:?}", e);
+                    }
                 }
+
+                *control_flow = ControlFlow::WaitUntil(frame_start + Duration::from_secs_f32(1.0 / 60.0));
             },
 
             _ => {}
