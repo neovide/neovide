@@ -74,7 +74,7 @@ impl Renderer {
         canvas.clip_rect(region, None, Some(false));
 
         if style.underline || style.undercurl {
-            let line_position = self.shaper.underline_position(size);
+            let line_position = self.shaper.underline_position();
             self.paint.set_color(style.special(&default_colors).to_color());
             canvas.draw_line((x, y - line_position + self.font_height), (x + width, y - line_position + self.font_height), &self.paint);
         }
@@ -82,7 +82,7 @@ impl Renderer {
         self.paint.set_color(style.foreground(&default_colors).to_color());
         let text = text.trim_end();
         if !text.is_empty() {
-            for blob in self.shaper.shape_cached(text, size, style.bold, style.italic).iter() {
+            for blob in self.shaper.shape_cached(text, style.bold, style.italic).iter() {
                 canvas.draw_text_blob(blob, (x, y), &self.paint);
             }
         }
@@ -109,7 +109,7 @@ impl Renderer {
         };
 
         let font_changed = 
-            font_name.clone().map(|new_name| new_name != self.shaper.font_name).unwrap_or(false) || 
+            font_name != self.shaper.font_name || 
             font_size.map(|new_size| (new_size - self.shaper.base_size).abs() > std::f32::EPSILON).unwrap_or(false);
         if font_changed {
             self.set_font(font_name.as_deref(), font_size);

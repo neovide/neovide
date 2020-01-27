@@ -251,7 +251,7 @@ impl CursorRenderer {
             canvas.save();
             canvas.clip_path(&path, None, Some(false));
             
-            let blobs = &shaper.shape_cached(&character.to_string(), 1, false, false);
+            let blobs = &shaper.shape_cached(&character.to_string(), false, false);
             for blob in blobs.iter() {
                 canvas.draw_text_blob(&blob, destination, &paint);
             }
