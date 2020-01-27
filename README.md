@@ -65,11 +65,16 @@ necessary. On Windows this should be enabled by default if you have a relatively
 
 ### Linux (Probably Ubuntu, your millage may vary)
 
+1. Important: `Neovide` has been successfully compiled also in other distros
 1. Install latest version of rust. I recommend https://rustup.rs/
-1. Install vulcan drivers. I'm not sure how on linux. Id appreciate a PR if you know more :)
-1. Install lib gtk `sudo apt install libgtk-3-dev`
+1. Install lib gtk. For example: `sudo apt install libgtk-3-dev`
+1. Install `bzip2-devel` (or similar, depending on used distro)
+1. Depending on which libraries are or not already installed in the system, additional libraries may need to be installed (no fear, we will do the possible to add them here)
+1. If needed, install [vulkan-tools](https://github.com/LunarG/VulkanTools), etc. Informations available in the [vulkan](https://vulkan.lunarg.com/sdk/home) download page
+1. Download the [Vulkan SDK for Linux](https://vulkan.lunarg.com/sdk/home) and extract it in an easily accessible folder
 1. `git clone https://github.com/Kethku/neovide`
 1. `cd neovide`
+1. source /path/to//vulkansdk-linux-x86_64-1.1.130.0/1.1.130.0/setup-env.sh (version can change over time) in the shell that will be used to compile `Neovide`
 1. `cargo build --release`
 1. Copy `./targets/release/neovide` to a known location and enjoy.
 
