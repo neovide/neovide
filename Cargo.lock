@@ -2255,8 +2255,7 @@ dependencies = [
 [[package]]
 name = "skulpin"
 version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05fe5761e1abdb580a9255255f2cdb41382263e2fd3e5e03e681e5486f8b4f58"
+source = "git+https://github.com/aclysma/skulpin#c0b194833f97b839bd44a30fc2f17851b14e1016"
 dependencies = [
  "ash",
  "cocoa",

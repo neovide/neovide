@@ -5,9 +5,12 @@ functionally like the terminal UI.
 
 ![Basic Screen Cap](./assets/BasicScreenCap.png)
 
-I've been using this as my daily driver since November 2019. It should be relatively stable, but I'm still working out some kinks and ironing out some cross platform issues. In general it should be usable at this point, and if it isn't I consider that a bug and appreciate a report in the issues! Any help and ideas are also greatly appreciated.
+I've been using this as my daily driver since November 2019. It should be relatively stable, but I'm still working out some kinks 
+and ironing out some cross platform issues. In general it should be usable at this point, and if it isn't I consider that a bug and 
+appreciate a report in the issues! Any help and ideas are also greatly appreciated.
 
-I'm also very interested in suggestions code quality/style wise when it comes to Rust. I'm pretty new to the language and appreciate any critiques that you might have to offer. I won't take all of them, but I promise to consider anything you might have to offer.
+I'm also very interested in suggestions code quality/style wise when it comes to Rust. I'm pretty new to the language and appreciate 
+any critiques that you might have to offer. I won't take all of them, but I promise to consider anything you might have to offer.
 
 ## Features
 
@@ -37,9 +40,11 @@ I've got more ideas for simple unobtrusive improvements. More to come.
 
 ## Install
 
-Currently there is just a Windows binary under the [project releases](https://github.com/Kethku/neovide/releases). I'm hoping to automate and produce Mac and Linux binaries as well, but I haven't gotten there yet.
+Currently there is just a Windows binary under the [project releases](https://github.com/Kethku/neovide/releases). I'm 
+hoping to automate and produce Mac and Linux binaries as well, but I haven't gotten there yet.
 
-Installing should be as simple as downloading the binary, making sure `nvim.exe` is on your path, and running it. Everything should be self contained.
+Installing should be as simple as downloading the binary, making sure `nvim.exe` is on your path, and running it. Everything 
+should be self contained.
 
 ## Building
 
@@ -65,16 +70,28 @@ necessary. On Windows this should be enabled by default if you have a relatively
 5. `cargo build --release`
 6. Copy `./targets/release/neovide` to a known location and enjoy.
 
-### Linux (Probably Ubuntu, your millage may vary)
+### Linux
 
-1. Install the latest version of Rust. I recommend <https://rustup.rs/>
+Note: Neovide has been compiled for multiple other distros, but the commands may need to be modified slightly to work.
+
+1. Install `bzip2-devel` (or similar, depending on your distro)
 2. Install Vulkan drivers. I'm not sure how on Linux. Id appreciate a PR if you know more :)
-3. Install libgtk: `sudo apt install libgtk-3-dev`
-4. `git clone https://github.com/Kethku/neovide`
-5. `cd neovide`
-6. `cargo build --release`
-7. Copy `./targets/release/neovide` to a known location and enjoy.
+3. Depending on which libraries are already installed in the system, additonal libraries may need to be installed (Never
+   fear, we will do our best to add them here. Make an issue if you find one!)
+4. If needed, install [vulkan-tools](https://github.com/LunarG/VulkanTools), etc. Information available in the 
+   [vulkan](https://vulkan.lunarg.com/sdk/home) download page.
+5. Download the [Vulkan SDK for Linux](https://vulkan.lunarg.com/sdk/home) and extract it in an easily accessible
+   location.
+6. source /path/to//vulkansdk-linux-x86_64-1.1.130.0/1.1.130.0/setup-env.sh (version can change over time) in the shell 
+   that will be used to compile `Neovide`
+7. Install the latest version of Rust. I recommend <https://rustup.rs/>
+8. `git clone https://github.com/Kethku/neovide`
+9. `cd neovide`
+10. `cargo build --release`
+11. Copy `./targets/release/neovide` to a known location and enjoy.
 
-If you see an error complaining about DRI3 settings, links in this issue may help: <https://github.com/Kethku/neovide/issues/44#issuecomment-578618052>.
+If you see an error complaining about DRI3 settings, links in this issue may help: 
+<https://github.com/Kethku/neovide/issues/44#issuecomment-578618052>.
 
-Note: Currently there seems to be problems with Wayland: <https://github.com/aclysma/skulpin/issues/36>. Any help would be appreciated.
+Note: Currently some people seem to be encountering problems with Wayland: <https://github.com/aclysma/skulpin/issues/36>. 
+Any help would be appreciated.
