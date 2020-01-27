@@ -73,4 +73,6 @@ necessary. On Windows this should be enabled by default if you have a relatively
 1. `cargo build --release`
 1. Copy `./targets/release/neovide` to a known location and enjoy.
 
+If you see an error complaining about DRI3 settings, links in this issue may help. https://github.com/Kethku/neovide/issues/44#issuecomment-578618052
+
 Note: Currently there seems to be problems with wayland https://github.com/aclysma/skulpin/issues/36. Any help would be appreciated.
