@@ -39,8 +39,8 @@ fn build_collection_by_font_name(font_name: Option<&str>) -> FontCollection {
     let mut collection = FontCollection::new();
 
     if let Some(font_name) = font_name {
-        if let Ok(custom) = source.select_family_by_name(font_name) {
-            let font = custom.fonts()[0].load().unwrap();
+        if let Ok(custom) = source.select_best_match(&[FamilyName::Title(font_name.to_string())], &Properties::new()) {
+            let font = custom.load().unwrap();
             collection.add_family(FontFamily::new_from_font(font));
         }
     }
