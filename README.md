@@ -59,7 +59,7 @@ necessary. On Windows this should be enabled by default if you have a relatively
 3. `git clone https://github.com/Kethku/neovide`
 4. `cd neovide`
 5. `cargo build --release`
-6. Copy `./targets/release/neovide.exe` to a known location and enjoy.
+6. Copy `./target/release/neovide.exe` to a known location and enjoy.
 
 ### Mac
 
@@ -68,7 +68,7 @@ necessary. On Windows this should be enabled by default if you have a relatively
 3. `git clone https://github.com/Kethku/neovide`
 4. `cd neovide`
 5. `cargo build --release`
-6. Copy `./targets/release/neovide` to a known location and enjoy.
+6. Copy `./target/release/neovide` to a known location and enjoy.
 
 ### Linux
 
@@ -88,7 +88,7 @@ Note: Neovide has been compiled for multiple other distros, but the commands may
 8. `git clone https://github.com/Kethku/neovide`
 9. `cd neovide`
 10. `cargo build --release`
-11. Copy `./targets/release/neovide` to a known location and enjoy.
+11. Copy `./target/release/neovide` to a known location and enjoy.
 
 If you see an error complaining about DRI3 settings, links in this issue may help: 
 <https://github.com/Kethku/neovide/issues/44#issuecomment-578618052>.
