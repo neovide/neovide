@@ -167,18 +167,15 @@ pub fn ui_loop() {
                 }
             }
 
-            Event::RedrawRequested { .. }  => {
+            Event::RedrawRequested { .. } => {
                 let frame_start = Instant::now();
 
                 if REDRAW_SCHEDULER.should_draw() {
-                    if let Err(e) = skulpin_renderer.draw(&window, |canvas, coordinate_system_helper| {
+                    skulpin_renderer.draw(&window, |canvas, coordinate_system_helper| {
                         if renderer.draw(canvas, coordinate_system_helper) {
                             handle_new_grid_size(window.inner_size(), &renderer)
                         }
-
-                    }) {
-                        println!("Error during draw: {:?}", e);
-                    }
+                    }).ok();
                 }
 
                 *control_flow = ControlFlow::WaitUntil(frame_start + Duration::from_secs_f32(1.0 / 60.0));
