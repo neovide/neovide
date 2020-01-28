@@ -59,7 +59,7 @@ necessary. On Windows this should be enabled by default if you have a relatively
 3. `git clone https://github.com/Kethku/neovide`
 4. `cd neovide`
 5. `cargo build --release`
-6. Copy `./targets/release/neovide.exe` to a known location and enjoy.
+6. Copy `./target/release/neovide.exe` to a known location and enjoy.
 
 ### Mac
 
