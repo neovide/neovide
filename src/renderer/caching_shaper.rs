@@ -164,6 +164,6 @@ impl CachingShaper {
 
     pub fn underline_position(&mut self) -> f32 {
         let metrics = self.metrics();
-        metrics.underline_position
+        -metrics.underline_position * self.base_size / metrics.units_per_em as f32
     }
 }
