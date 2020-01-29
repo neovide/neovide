@@ -14,6 +14,15 @@ const EMOJI_FONT: &'static str = "NotoColorEmoji.ttf";
 const WIDE_FONT: &'static str = "NotoSansMonoCJKjp-Regular.otf";
 const WIDE_BOLD_FONT: &'static str = "NotoSansMonoCJKjp-Bold.otf";
 
+#[cfg(target_os = "windows")]
+const SYSTEM_EMOJI_FONT: &str = "Segoe UI Emoji";
+
+#[cfg(target_os = "macos")]
+const SYSTEM_EMOJI_FONT: &str = "Apple COlor Emoji";
+
+#[cfg(target_os = "linux")]
+const SYSTEM_EMOJI_FONT: &str = "Noto Color Emoji";
+
 #[derive(RustEmbed)]
 #[folder = "assets/fonts/"]
 struct Asset;
@@ -69,6 +78,11 @@ fn build_collection_by_font_name(font_name: Option<&str>, bold: bool, italic: bo
     let monospace_data = Asset::get(monospace_style).expect("Failed to read monospace font data");
     let monospace_font = Font::from_bytes(monospace_data.to_vec().into(), 0).expect("Failed to parse monospace font data");
     collection.add_family(FontFamily::new_from_font(monospace_font));
+
+    if let Ok(emoji) = source.select_family_by_name(SYSTEM_EMOJI_FONT) {
+        let font = emoji.fonts()[0].load().unwrap();
+        collection.add_family(FontFamily::new_from_font(font));
+    }
 
     let emoji_data = Asset::get(EMOJI_FONT).expect("Failed to read emoji font data");
     let emoji_font = Font::from_bytes(emoji_data.to_vec().into(), 0).expect("Failed to parse emoji font data");
