@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use image::{load_from_memory, GenericImageView, Pixel};
 use skulpin::{CoordinateSystem, RendererBuilder, PresentMode};
 use skulpin::skia_safe::icu;
-use skulpin::winit::dpi::LogicalSize;
+use skulpin::winit::dpi::{LogicalSize, PhysicalSize};
 use skulpin::winit::event::{ElementState, Event, MouseScrollDelta, StartCause, WindowEvent};
 use skulpin::winit::event_loop::{ControlFlow, EventLoop};
 use skulpin::winit::window::{Icon, WindowBuilder};
@@ -19,10 +19,10 @@ use crate::INITIAL_DIMENSIONS;
 #[folder = "assets/"]
 struct Asset;
 
-fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer) {
-    if new_size.width > 0.0 && new_size.height > 0.0 {
-        let new_width = ((new_size.width + 1.0) as f32 / renderer.font_width) as u64;
-        let new_height = ((new_size.height + 1.0) as f32 / renderer.font_height) as u64;
+fn handle_new_grid_size(new_size: PhysicalSize<u32>, renderer: &Renderer) {
+    if new_size.width > 0 && new_size.height > 0 {
+        let new_width = ((new_size.width + 1) as f32 / renderer.font_width) as u64;
+        let new_height = ((new_size.height + 1) as f32 / renderer.font_height) as u64;
         // Add 1 here to make sure resizing doesn't change the grid size on startup
         BRIDGE.queue_command(UiCommand::Resize { width: new_width as i64, height: new_height as i64 });
     }
