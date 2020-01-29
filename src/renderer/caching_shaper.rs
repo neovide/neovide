@@ -2,19 +2,19 @@ use std::collections::HashMap;
 
 use lru::LruCache;
 use skulpin::skia_safe::{TextBlob, Font as SkiaFont, Typeface, TextBlobBuilder, Data};
-use font_kit::{source::SystemSource, metrics::Metrics, properties::Properties, family_name::FamilyName};
+use font_kit::{source::SystemSource, metrics::Metrics, properties::Properties, family_name::FamilyName, font::Font};
 use skribo::{LayoutSession, FontRef as SkriboFont, FontFamily, FontCollection, TextStyle};
 
 const STANDARD_CHARACTER_STRING: &'static str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
 
-#[cfg(target_os = "windows")]
-const EMOJI_FONT: &str = "Segoe UI Emoji";
+const MONOSPACE_FONT: &'static str = "Fira Code Regular Nerd Font Complete.otf";
+const SYMBOL_FONT: &'static str = "DejaVuSansMono.ttf";
+const EMOJI_FONT: &'static str = "NotoColorEmoji.ttf";
+const WIDE_FONT: &'static str = "NotoSansMonoCJKjp-Regular.otf";
 
-#[cfg(target_os = "macos")]
-const EMOJI_FONT: &str = "Apple COlor Emoji";
-
-#[cfg(target_os = "linux")]
-const EMOJI_FONT: &str = "Noto Color Emoji";
+#[derive(RustEmbed)]
+#[folder = "assets/fonts/"]
+struct Asset;
 
 const DEFAULT_FONT_SIZE: f32 = 14.0;
 
@@ -45,15 +45,21 @@ fn build_collection_by_font_name(font_name: Option<&str>) -> FontCollection {
         }
     }
 
-    if let Ok(monospace) = source.select_best_match(&[FamilyName::Monospace], &Properties::new()) {
-        let font = monospace.load().unwrap();
-        collection.add_family(FontFamily::new_from_font(font));
-    }
+    let monospace_data = Asset::get(MONOSPACE_FONT).expect("Failed to read monospace font data");
+    let monospace_font = Font::from_bytes(monospace_data.to_vec().into(), 0).expect("Failed to parse monospace font data");
+    collection.add_family(FontFamily::new_from_font(monospace_font));
 
-    if let Ok(emoji) = source.select_family_by_name(EMOJI_FONT) {
-        let font = emoji.fonts()[0].load().unwrap();
-        collection.add_family(FontFamily::new_from_font(font));
-    }
+    let emoji_data = Asset::get(EMOJI_FONT).expect("Failed to read emoji font data");
+    let emoji_font = Font::from_bytes(emoji_data.to_vec().into(), 0).expect("Failed to parse emoji font data");
+    collection.add_family(FontFamily::new_from_font(emoji_font));
+
+    let wide_data = Asset::get(WIDE_FONT).expect("Failed to read wide font data");
+    let wide_font = Font::from_bytes(wide_data.to_vec().into(), 0).expect("Failed to parse wide font data");
+    collection.add_family(FontFamily::new_from_font(wide_font));
+
+    let symbol_data = Asset::get(SYMBOL_FONT).expect("Failed to read symbol font data");
+    let symbol_font = Font::from_bytes(symbol_data.to_vec().into(), 0).expect("Failed to parse symbol font data");
+    collection.add_family(FontFamily::new_from_font(symbol_font));
 
     collection
 }
