@@ -2,15 +2,17 @@ use std::collections::HashMap;
 
 use lru::LruCache;
 use skulpin::skia_safe::{TextBlob, Font as SkiaFont, Typeface, TextBlobBuilder, Data};
-use font_kit::{source::SystemSource, metrics::Metrics, properties::Properties, family_name::FamilyName, font::Font};
+use font_kit::{source::SystemSource, metrics::Metrics, properties::{Properties, Weight, Style, Stretch}, family_name::FamilyName, font::Font, };
 use skribo::{LayoutSession, FontRef as SkriboFont, FontFamily, FontCollection, TextStyle};
 
 const STANDARD_CHARACTER_STRING: &'static str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
 
 const MONOSPACE_FONT: &'static str = "Fira Code Regular Nerd Font Complete.otf";
+const MONOSPACE_BOLD_FONT: &'static str = "Fira Code Bold Nerd Font Complete.otf";
 const SYMBOL_FONT: &'static str = "DejaVuSansMono.ttf";
 const EMOJI_FONT: &'static str = "NotoColorEmoji.ttf";
 const WIDE_FONT: &'static str = "NotoSansMonoCJKjp-Regular.otf";
+const WIDE_BOLD_FONT: &'static str = "NotoSansMonoCJKjp-Bold.otf";
 
 #[derive(RustEmbed)]
 #[folder = "assets/fonts/"]
@@ -25,27 +27,46 @@ struct ShapeKey {
     pub italic: bool
 }
 
-pub struct CachingShaper {
-    pub font_name: Option<String>,
-    pub base_size: f32,
-    collection: FontCollection,
-    font_cache: LruCache<String, SkiaFont>,
-    blob_cache: LruCache<ShapeKey, Vec<TextBlob>>
+struct FontSet {
+    normal: FontCollection,
+    bold: FontCollection,
+    italic: FontCollection,
+    bold_italic: FontCollection,
 }
 
-fn build_collection_by_font_name(font_name: Option<&str>) -> FontCollection {
+fn build_collection_by_font_name(font_name: Option<&str>, bold: bool, italic: bool) -> FontCollection {
     let source = SystemSource::new();
 
     let mut collection = FontCollection::new();
 
     if let Some(font_name) = font_name {
-        if let Ok(custom) = source.select_best_match(&[FamilyName::Title(font_name.to_string())], &Properties::new()) {
+        let weight = if bold {
+            Weight::BOLD
+        } else {
+            Weight::NORMAL
+        };
+
+        let style = if italic {
+            Style::Italic
+        } else {
+            Style::Normal
+        };
+
+        let properties = Properties {
+            weight, style, stretch: Stretch::NORMAL
+        };
+        if let Ok(custom) = source.select_best_match(&[FamilyName::Title(font_name.to_string())], &properties) {
             let font = custom.load().unwrap();
             collection.add_family(FontFamily::new_from_font(font));
         }
     }
 
-    let monospace_data = Asset::get(MONOSPACE_FONT).expect("Failed to read monospace font data");
+    let monospace_style = if bold {
+        MONOSPACE_BOLD_FONT
+    } else {
+        MONOSPACE_FONT
+    };
+    let monospace_data = Asset::get(monospace_style).expect("Failed to read monospace font data");
     let monospace_font = Font::from_bytes(monospace_data.to_vec().into(), 0).expect("Failed to parse monospace font data");
     collection.add_family(FontFamily::new_from_font(monospace_font));
 
@@ -53,7 +74,12 @@ fn build_collection_by_font_name(font_name: Option<&str>) -> FontCollection {
     let emoji_font = Font::from_bytes(emoji_data.to_vec().into(), 0).expect("Failed to parse emoji font data");
     collection.add_family(FontFamily::new_from_font(emoji_font));
 
-    let wide_data = Asset::get(WIDE_FONT).expect("Failed to read wide font data");
+    let wide_style = if bold {
+        WIDE_BOLD_FONT
+    } else {
+        WIDE_FONT
+    };
+    let wide_data = Asset::get(wide_style).expect("Failed to read wide font data");
     let wide_font = Font::from_bytes(wide_data.to_vec().into(), 0).expect("Failed to parse wide font data");
     collection.add_family(FontFamily::new_from_font(wide_font));
 
@@ -64,7 +90,36 @@ fn build_collection_by_font_name(font_name: Option<&str>) -> FontCollection {
     collection
 }
 
-fn build_skia_font_from_skribo_font(skribo_font: &SkriboFont, base_size: f32) -> SkiaFont {
+impl FontSet {
+    fn new(font_name: Option<&str>) -> FontSet {
+        FontSet {
+            normal: build_collection_by_font_name(font_name, false, false),
+            bold: build_collection_by_font_name(font_name, true, false),
+            italic: build_collection_by_font_name(font_name, false, true),
+            bold_italic: build_collection_by_font_name(font_name, true, true),
+        }
+    }
+
+    fn get(&self, bold: bool, italic: bool) -> &FontCollection {
+        match (bold, italic) {
+            (false, false) => &self.normal,
+            (true, false) => &self.bold,
+            (false, true) => &self.italic,
+            (true, true) => &self.bold_italic
+        }
+    }
+}
+
+pub struct CachingShaper {
+    pub font_name: Option<String>,
+    pub base_size: f32,
+    font_set: FontSet,
+    font_cache: LruCache<String, SkiaFont>,
+    blob_cache: LruCache<ShapeKey, Vec<TextBlob>>
+}
+
+
+fn build_skia_font_from_skribo_font(skribo_font: &SkriboFont, base_size: f32, bold: bool, italic: bool) -> SkiaFont {
     let font_data = skribo_font.font.copy_font_data().unwrap();
     let skia_data = Data::new_copy(&font_data[..]);
     let typeface = Typeface::from_data(skia_data, None).unwrap();
@@ -77,17 +132,16 @@ impl CachingShaper {
         CachingShaper {
             font_name: None,
             base_size: DEFAULT_FONT_SIZE,
-            collection: build_collection_by_font_name(None),
+            font_set: FontSet::new(None),
             font_cache: LruCache::new(100),
             blob_cache: LruCache::new(10000),
         }
     }
 
-
-    fn get_skia_font(&mut self, skribo_font: &SkriboFont) -> &SkiaFont {
+    fn get_skia_font(&mut self, skribo_font: &SkriboFont, bold: bool, italic: bool) -> &SkiaFont {
         let font_name = skribo_font.font.postscript_name().unwrap();
         if !self.font_cache.contains(&font_name) {
-            let font = build_skia_font_from_skribo_font(skribo_font, self.base_size);
+            let font = build_skia_font_from_skribo_font(skribo_font, self.base_size, bold, italic);
             self.font_cache.put(font_name.clone(), font);
         }
 
@@ -95,13 +149,13 @@ impl CachingShaper {
     }
 
     fn metrics(&self) -> Metrics {
-        self.collection.itemize("a").next().unwrap().1.font.metrics()
+        self.font_set.normal.itemize("a").next().unwrap().1.font.metrics()
     }
 
     pub fn shape(&mut self, text: &str, bold: bool, italic: bool) -> Vec<TextBlob> {
         let style = TextStyle { size: self.base_size };
 
-        let session = LayoutSession::create(text, &style, &self.collection);
+        let session = LayoutSession::create(text, &style, &self.font_set.get(bold, italic));
 
         let metrics = self.metrics();
         let ascent = metrics.ascent * self.base_size / metrics.units_per_em as f32;
@@ -110,7 +164,7 @@ impl CachingShaper {
 
         for layout_run in session.iter_all() {
             let skribo_font = layout_run.font();
-            let skia_font = self.get_skia_font(&skribo_font);
+            let skia_font = self.get_skia_font(&skribo_font, bold, italic);
 
             let mut blob_builder = TextBlobBuilder::new();
 
@@ -140,7 +194,7 @@ impl CachingShaper {
     pub fn change_font(&mut self, font_name: Option<&str>, base_size: Option<f32>) {
         self.font_name = font_name.map(|name| name.to_string());
         self.base_size = base_size.unwrap_or(DEFAULT_FONT_SIZE);
-        self.collection = build_collection_by_font_name(font_name);
+        self.font_set = FontSet::new(font_name);
         self.font_cache.clear();
         self.blob_cache.clear();
     }
@@ -150,7 +204,7 @@ impl CachingShaper {
         let font_height = (metrics.ascent - metrics.descent) * self.base_size / metrics.units_per_em as f32;
 
         let style = TextStyle { size: self.base_size };
-        let session = LayoutSession::create(STANDARD_CHARACTER_STRING, &style, &self.collection);
+        let session = LayoutSession::create(STANDARD_CHARACTER_STRING, &style, &self.font_set.normal);
 
         let layout_run = session.iter_all().next().unwrap();
         let glyph_offsets: Vec<f32> = layout_run.glyphs().map(|glyph| glyph.offset.x).collect();
