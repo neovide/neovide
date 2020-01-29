@@ -12,6 +12,7 @@ use skulpin::winit::window::{Icon, WindowBuilder};
 use crate::bridge::{construct_keybinding_string, BRIDGE, UiCommand};
 use crate::renderer::Renderer;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
+use crate::editor::EDITOR;
 use crate::INITIAL_DIMENSIONS;
 
 #[derive(RustEmbed)]
@@ -48,8 +49,9 @@ pub fn ui_loop() {
         Icon::from_rgba(rgba, width, height).expect("Failed to create icon object")
     };
 
+    let mut title = "Neovide".to_string();
     let window = Arc::new(WindowBuilder::new()
-        .with_title("Neovide")
+        .with_title(&title)
         .with_inner_size(logical_size)
         .with_window_icon(Some(icon))
         .build(&event_loop)
@@ -169,6 +171,12 @@ pub fn ui_loop() {
 
             Event::RedrawRequested { .. } => {
                 let frame_start = Instant::now();
+
+                let editor_title = { EDITOR.lock().unwrap().title.clone() };
+                if title != editor_title {
+                    title = editor_title;
+                    window.set_title(&title);
+                }
 
                 if REDRAW_SCHEDULER.should_draw() {
                     if let Err(_)  = skulpin_renderer.draw(&window, |canvas, coordinate_system_helper| {
