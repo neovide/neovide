@@ -43,14 +43,15 @@ I've got more ideas for simple unobtrusive improvements. More to come.
 Currently there is just a Windows binary under the [project releases](https://github.com/Kethku/neovide/releases). I'm 
 hoping to automate and produce Mac and Linux binaries as well, but I haven't gotten there yet.
 
-Installing should be as simple as downloading the binary, making sure `nvim.exe` is on your path, and running it. Everything 
-should be self contained.
+Installing should be as simple as downloading the binary, making sure `nvim.exe` with version 0.4 or greater is on your path, and running it. Everything should be self contained.
 
 ## Building
 
 Building instructions are somewhat limited at the moment. All the libraries I use are cross platform and should have
 support for Windows, Mac, and Linux. The rendering however is Vulkan-based, so driver support for Vulkan will be
 necessary. On Windows this should be enabled by default if you have a relatively recent system.
+
+Note: Neovide requires neovim version 0.4 or greater.
 
 ### Windows
 
