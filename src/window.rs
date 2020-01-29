@@ -171,7 +171,7 @@ pub fn ui_loop() {
                 let frame_start = Instant::now();
 
                 if REDRAW_SCHEDULER.should_draw() {
-                    if let Err(e)  = skulpin_renderer.draw(&window, |canvas, coordinate_system_helper| {
+                    if let Err(_)  = skulpin_renderer.draw(&window, |canvas, coordinate_system_helper| {
                         if renderer.draw(canvas, coordinate_system_helper) {
                             handle_new_grid_size(window.inner_size(), &renderer)
                         }

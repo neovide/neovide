@@ -84,9 +84,11 @@ fn build_collection_by_font_name(font_name: Option<&str>, bold: bool, italic: bo
         collection.add_family(FontFamily::new_from_font(font));
     }
 
-    let emoji_data = Asset::get(EMOJI_FONT).expect("Failed to read emoji font data");
-    let emoji_font = Font::from_bytes(emoji_data.to_vec().into(), 0).expect("Failed to parse emoji font data");
-    collection.add_family(FontFamily::new_from_font(emoji_font));
+    if cfg!(not(macos)) {
+        let emoji_data = Asset::get(EMOJI_FONT).expect("Failed to read emoji font data");
+        let emoji_font = Font::from_bytes(emoji_data.to_vec().into(), 0).expect("Failed to parse emoji font data");
+        collection.add_family(FontFamily::new_from_font(emoji_font));
+    }
 
     let wide_style = if bold {
         WIDE_BOLD_FONT
@@ -133,7 +135,7 @@ pub struct CachingShaper {
 }
 
 
-fn build_skia_font_from_skribo_font(skribo_font: &SkriboFont, base_size: f32, bold: bool, italic: bool) -> SkiaFont {
+fn build_skia_font_from_skribo_font(skribo_font: &SkriboFont, base_size: f32) -> SkiaFont {
     let font_data = skribo_font.font.copy_font_data().unwrap();
     let skia_data = Data::new_copy(&font_data[..]);
     let typeface = Typeface::from_data(skia_data, None).unwrap();
@@ -152,10 +154,10 @@ impl CachingShaper {
         }
     }
 
-    fn get_skia_font(&mut self, skribo_font: &SkriboFont, bold: bool, italic: bool) -> &SkiaFont {
+    fn get_skia_font(&mut self, skribo_font: &SkriboFont) -> &SkiaFont {
         let font_name = skribo_font.font.postscript_name().unwrap();
         if !self.font_cache.contains(&font_name) {
-            let font = build_skia_font_from_skribo_font(skribo_font, self.base_size, bold, italic);
+            let font = build_skia_font_from_skribo_font(skribo_font, self.base_size);
             self.font_cache.put(font_name.clone(), font);
         }
 
@@ -178,7 +180,7 @@ impl CachingShaper {
 
         for layout_run in session.iter_all() {
             let skribo_font = layout_run.font();
-            let skia_font = self.get_skia_font(&skribo_font, bold, italic);
+            let skia_font = self.get_skia_font(&skribo_font);
 
             let mut blob_builder = TextBlobBuilder::new();
 
