@@ -18,7 +18,7 @@ const WIDE_BOLD_FONT: &'static str = "NotoSansMonoCJKjp-Bold.otf";
 const SYSTEM_EMOJI_FONT: &str = "Segoe UI Emoji";
 
 #[cfg(target_os = "macos")]
-const SYSTEM_EMOJI_FONT: &str = "Apple COlor Emoji";
+const SYSTEM_EMOJI_FONT: &str = "Apple Color Emoji";
 
 #[cfg(target_os = "linux")]
 const SYSTEM_EMOJI_FONT: &str = "Noto Color Emoji";
@@ -84,7 +84,7 @@ fn build_collection_by_font_name(font_name: Option<&str>, bold: bool, italic: bo
         collection.add_family(FontFamily::new_from_font(font));
     }
 
-    if cfg!(not(macos)) {
+    if cfg!(not(target_os = "macos")) {
         let emoji_data = Asset::get(EMOJI_FONT).expect("Failed to read emoji font data");
         let emoji_font = Font::from_bytes(emoji_data.to_vec().into(), 0).expect("Failed to parse emoji font data");
         collection.add_family(FontFamily::new_from_font(emoji_font));
