@@ -54,24 +54,6 @@ async fn drain(receiver: &mut UnboundedReceiver<UiCommand>) -> Option<Vec<UiComm
     }
 }
 
-async fn handle_current_commands(receiver: &mut UnboundedReceiver<UiCommand>, nvim: &Neovim<Compat<ChildStdin>>) -> bool {
-    if let Some(commands) = drain(receiver).await {
-        let (resize_list, other_commands): (Vec<UiCommand>, Vec<UiCommand>) = commands
-            .into_iter()
-            .partition(|command| command.is_resize());
-        if let Some(resize_command) = resize_list.into_iter().last() {
-            resize_command.execute(&nvim).await;
-        }
-
-        for ui_command in other_commands.into_iter() {
-            ui_command.execute(&nvim).await;
-        }
-        true
-    } else {
-        false
-    }
-}
-
 async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
     let (width, height) = INITIAL_DIMENSIONS;
     let (mut nvim, io_handler, _) = create::new_child_cmd(&mut create_nvim_command(), NeovimHandler::new()).await
@@ -97,7 +79,29 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
     let nvim = Arc::new(nvim);
     tokio::spawn(async move {
         loop {
-            if !handle_current_commands(&mut receiver, &nvim).await {
+            if let Some(commands) = drain(&mut receiver).await {
+                let (resize_list, other_commands): (Vec<UiCommand>, Vec<UiCommand>) = commands
+                    .into_iter()
+                    .partition(|command| command.is_resize());
+
+                for command in resize_list
+                    .into_iter().last().into_iter()
+                    .chain(other_commands.into_iter()) {
+
+                    let nvim = nvim.clone();
+                    tokio::spawn(async move {
+                        command.execute(&nvim).await;
+                    });
+                }
+                // resize_list.into_iter().last().map(|resize_command| tokio::spawn()
+                // if let Some(resize_command) =  {
+                //     tokio::spawn(resize_command.execute(&nvim));
+                // }
+
+                // for ui_command in other_commands.into_iter() {
+                //     tokio::spawn(ui_command.execute(&nvim));
+                // }
+            } else {
                 break;
             }
         }
@@ -114,7 +118,7 @@ impl Bridge {
         let mut runtime = Runtime::new().unwrap();
         let (sender, receiver) = unbounded_channel::<UiCommand>();
 
-        runtime.block_on(async move {
+        runtime.spawn(async move {
             start_process(receiver).await;
         });
 
