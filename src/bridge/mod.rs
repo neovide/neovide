@@ -79,7 +79,7 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
     } else {
         println!("Neovide requires version 0.4 or higher");
         std::process::exit(0);
-    }
+    };
 
     nvim.set_var("neovide", Value::Boolean(true)).await
         .unwrap_or_explained_panic("Could not communicate.", "Could not communicate with neovim process");
