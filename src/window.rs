@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use image::{load_from_memory, GenericImageView, Pixel};
 use skulpin::{CoordinateSystem, RendererBuilder, PresentMode};
 use skulpin::skia_safe::icu;
-use skulpin::winit::dpi::{LogicalSize, PhysicalSize};
+use skulpin::winit::dpi::LogicalSize;
 use skulpin::winit::event::{ElementState, Event, MouseScrollDelta, StartCause, WindowEvent};
 use skulpin::winit::event_loop::{ControlFlow, EventLoop};
 use skulpin::winit::window::{Icon, WindowBuilder};

@@ -7,10 +7,9 @@ use std::sync::Arc;
 use std::process::Stdio;
 
 use rmpv::Value;
-use nvim_rs::{create::tokio as create, UiAttachOptions, Neovim};
-use nvim_rs::compat::tokio::Compat;
+use nvim_rs::{create::tokio as create, UiAttachOptions};
 use tokio::runtime::Runtime;
-use tokio::process::{Command, ChildStdin};
+use tokio::process::Command;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 pub use events::*;
@@ -62,7 +61,11 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
     tokio::spawn(async move {
         match io_handler.await {
             Err(join_error) => eprintln!("Error joining IO loop: '{}'", join_error),
-            Ok(Err(error)) => eprintln!("Error: '{}'", error),
+            Ok(Err(error)) => {
+                if !error.is_channel_closed() {
+                    eprintln!("Error: '{}'", error);
+                }
+            },
             Ok(Ok(())) => {}
         };
         std::process::exit(0);
@@ -93,14 +96,6 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
                         command.execute(&nvim).await;
                     });
                 }
-                // resize_list.into_iter().last().map(|resize_command| tokio::spawn()
-                // if let Some(resize_command) =  {
-                //     tokio::spawn(resize_command.execute(&nvim));
-                // }
-
-                // for ui_command in other_commands.into_iter() {
-                //     tokio::spawn(ui_command.execute(&nvim));
-                // }
             } else {
                 break;
             }
@@ -115,7 +110,7 @@ pub struct Bridge {
 
 impl Bridge {
     pub fn new() -> Bridge {
-        let mut runtime = Runtime::new().unwrap();
+        let runtime = Runtime::new().unwrap();
         let (sender, receiver) = unbounded_channel::<UiCommand>();
 
         runtime.spawn(async move {
