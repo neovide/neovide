@@ -19,7 +19,7 @@ use crate::INITIAL_DIMENSIONS;
 #[folder = "assets/"]
 struct Asset;
 
-fn handle_new_grid_size(new_size: LogicalSize<f64>, renderer: &Renderer) {
+fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer) {
     if new_size.width > 0.0 && new_size.height > 0.0 {
         let new_width = ((new_size.width + 1.0) as f32 / renderer.font_width) as u64;
         let new_height = ((new_size.height + 1.0) as f32 / renderer.font_height) as u64;
@@ -86,7 +86,7 @@ pub fn ui_loop() {
                 event: WindowEvent::Resized(new_size),
                 ..
             } => {
-                handle_new_grid_size(new_size.to_logical(window.scale_factor()), &renderer)
+                handle_new_grid_size(new_size, &renderer)
             },
 
             Event::WindowEvent {
@@ -108,9 +108,9 @@ pub fn ui_loop() {
                 },
                 ..
             } => {
-                let position: LogicalPosition<f32> = position.to_logical(window.scale_factor());
-                let grid_y = (position.x / renderer.font_width) as i64;
-                let grid_x = (position.y / renderer.font_height) as i64;
+                let position: LogicalPosition = position;
+                let grid_y = (position.x / renderer.font_width as f64) as i64;
+                let grid_x = (position.y / renderer.font_height as f64) as i64;
                 let (old_x, old_y) = mouse_pos;
                 mouse_pos = (grid_x, grid_y);
                 if mouse_down && (old_x != grid_x || old_y != grid_y) {
@@ -187,7 +187,7 @@ pub fn ui_loop() {
                 if REDRAW_SCHEDULER.should_draw() {
                     if let Err(_)  = skulpin_renderer.draw(&window, |canvas, coordinate_system_helper| {
                         if renderer.draw(canvas, coordinate_system_helper) {
-                            handle_new_grid_size(window.inner_size().to_logical(window.scale_factor()), &renderer)
+                            handle_new_grid_size(window.inner_size(), &renderer)
                         }
                     }) {
                         println!("Render failed. Closing");
