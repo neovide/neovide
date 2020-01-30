@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::process::Stdio;
 
 use rmpv::Value;
-use nvim_rs::{create::tokio as create, UiAttachOptions};
+use nvim_rs::{create::tokio as create, UiAttachOptions, neovim_api};
 use tokio::runtime::Runtime;
 use tokio::process::Command;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
@@ -70,6 +70,16 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
         };
         std::process::exit(0);
     });
+
+    if let Ok(Value::Integer(correct_version)) = nvim.eval("has(\"nvim-0.4\")").await {
+        if correct_version.as_i64() != Some(1) {
+            println!("Neovide requires version 0.4 or higher");
+            std::process::exit(0);
+        }
+    } else {
+        println!("Neovide requires version 0.4 or higher");
+        std::process::exit(0);
+    }
 
     nvim.set_var("neovide", Value::Boolean(true)).await
         .unwrap_or_explained_panic("Could not communicate.", "Could not communicate with neovim process");
