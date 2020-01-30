@@ -159,95 +159,97 @@ fn unpack_color(packed_color: u64) -> Color4f {
     }
 }
 
-fn parse_array(array_value: &Value) -> Result<Vec<Value>> {
-    if let Value::Array(content) = array_value.clone() {
-        Ok(content.to_vec())
+fn parse_array(array_value: &Value) -> Result<&[Value]> {
+    if let Value::Array(content) = array_value {
+        Ok(&content[..])
     } else {
         Err(EventParseError::InvalidArray(array_value.clone()))
     }
 }
 
-fn parse_map(map_value: &Value) -> Result<Vec<(Value, Value)>> {
-    if let Value::Map(content) = map_value.clone() {
-        Ok(content)
+fn parse_map(map_value: &Value) -> Result<&[(Value, Value)]> {
+    if let Value::Map(content) = map_value {
+        Ok(&content[..])
     } else {
         Err(EventParseError::InvalidMap(map_value.clone()))
     }
 }
 
-fn parse_string(string_value: &Value) -> Result<String> {
-    if let Value::String(content) = string_value.clone() {
-        Ok(content.into_str().ok_or(EventParseError::InvalidString(string_value.clone()))?)
+fn parse_string(string_value: &Value) -> Result<&str> {
+    if let Value::String(content) = string_value {
+        content.as_str().ok_or_else(|| EventParseError::InvalidString(string_value.clone()))
     } else {
         Err(EventParseError::InvalidString(string_value.clone()))
     }
 }
 
 fn parse_u64(u64_value: &Value) -> Result<u64> {
-    if let Value::Integer(content) = u64_value.clone() {
-        Ok(content.as_u64().ok_or(EventParseError::InvalidU64(u64_value.clone()))?)
+    if let Value::Integer(content) = u64_value {
+        Ok(content.as_u64().ok_or_else(|| EventParseError::InvalidU64(u64_value.clone()))?)
     } else {
         Err(EventParseError::InvalidU64(u64_value.clone()))
     }
 }
 
 fn parse_i64(i64_value: &Value) -> Result<i64> {
-    if let Value::Integer(content) = i64_value.clone() {
-        Ok(content.as_i64().ok_or(EventParseError::InvalidI64(i64_value.clone()))?)
+    if let Value::Integer(content) = i64_value {
+        Ok(content.as_i64().ok_or_else(|| EventParseError::InvalidI64(i64_value.clone()))?)
     } else {
         Err(EventParseError::InvalidI64(i64_value.clone()))
     }
 }
 
 fn parse_bool(bool_value: &Value) -> Result<bool> {
-    if let Value::Boolean(content) = bool_value.clone() {
-        Ok(content)
+    if let Value::Boolean(content) = bool_value {
+        Ok(*content)
     } else {
         Err(EventParseError::InvalidBool(bool_value.clone()))
     }
 }
 
-fn parse_set_title(set_title_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [title] = set_title_arguments.as_slice() {
+fn parse_set_title(set_title_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [title] = set_title_arguments {
         Ok(RedrawEvent::SetTitle {
-            title: parse_string(title)?
+            title: parse_string(title)?.to_string()
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
     }
 }
 
-fn parse_mode_info_set(mode_info_set_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [_cursor_style_enabled, mode_info] = mode_info_set_arguments.as_slice() {
+fn parse_mode_info_set(mode_info_set_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [_cursor_style_enabled, mode_info] = mode_info_set_arguments {
         let mode_info_values = parse_array(mode_info)?;
-        let mut cursor_modes = Vec::new();
+        let mut cursor_modes = Vec::with_capacity(mode_info_values.len());
+
         for mode_info_value in mode_info_values {
-            let info_map = parse_map(&mode_info_value)?;
+            let info_map = parse_map(mode_info_value)?;
             let mut mode_info = CursorMode::default();
+
             for (name, value) in info_map {
-                let name = parse_string(&name)?;
-                match name.as_ref() {
+                match parse_string(name)? {
                     "cursor_shape" => {
-                        mode_info.shape = CursorShape::from_type_name(&parse_string(&value)?);
+                        mode_info.shape = CursorShape::from_type_name(parse_string(value)?);
                     },
                     "cell_percentage" => {
-                        mode_info.cell_percentage = Some(parse_u64(&value)? as f32 / 100.0);
+                        mode_info.cell_percentage = Some(parse_u64(value)? as f32 / 100.0);
                     },
                     "blinkwait" => {
-                        mode_info.blinkwait = Some(parse_u64(&value)?);
+                        mode_info.blinkwait = Some(parse_u64(value)?);
                     },
                     "blinkon" => {
-                        mode_info.blinkon = Some(parse_u64(&value)?);
+                        mode_info.blinkon = Some(parse_u64(value)?);
                     },
                     "blinkoff" => {
-                        mode_info.blinkoff = Some(parse_u64(&value)?);
+                        mode_info.blinkoff = Some(parse_u64(value)?);
                     }
                     "attr_id" => {
-                        mode_info.style_id = Some(parse_u64(&value)?);
+                        mode_info.style_id = Some(parse_u64(value)?);
                     },
                     _ => {}
                 }
             }
+
             cursor_modes.push(mode_info);
         }
         Ok(RedrawEvent::ModeInfoSet {
@@ -258,20 +260,20 @@ fn parse_mode_info_set(mode_info_set_arguments: Vec<Value>) -> Result<RedrawEven
     }
 }
 
-fn parse_option_set(option_set_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [name, value] = option_set_arguments.as_slice() {
+fn parse_option_set(option_set_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [name, value] = option_set_arguments {
         Ok(RedrawEvent::OptionSet {
-            gui_option: match parse_string(&name)?.as_ref() {
-                "arabicshape" => GuiOption::AribicShape(parse_bool(&value)?),
-                "ambiwidth" => GuiOption::AmbiWidth(parse_string(&value)?),
-                "emoji" => GuiOption::Emoji(parse_bool(&value)?),
-                "guifont" => GuiOption::GuiFont(parse_string(&value)?),
-                "guifontset" => GuiOption::GuiFontSet(parse_string(&value)?),
-                "guifontwide" => GuiOption::GuiFontWide(parse_string(&value)?),
-                "linespace" => GuiOption::LineSpace(parse_u64(&value)?),
-                "pumblend" => GuiOption::Pumblend(parse_u64(&value)?),
-                "showtabline" => GuiOption::ShowTabLine(parse_u64(&value)?),
-                "termguicolors" => GuiOption::TermGuiColors(parse_bool(&value)?),
+            gui_option: match parse_string(name)? {
+                "arabicshape" => GuiOption::AribicShape(parse_bool(value)?),
+                "ambiwidth" => GuiOption::AmbiWidth(parse_string(value)?.to_string()),
+                "emoji" => GuiOption::Emoji(parse_bool(value)?),
+                "guifont" => GuiOption::GuiFont(parse_string(value)?.to_string()),
+                "guifontset" => GuiOption::GuiFontSet(parse_string(value)?.to_string()),
+                "guifontwide" => GuiOption::GuiFontWide(parse_string(value)?.to_string()),
+                "linespace" => GuiOption::LineSpace(parse_u64(value)?),
+                "pumblend" => GuiOption::Pumblend(parse_u64(value)?),
+                "showtabline" => GuiOption::ShowTabLine(parse_u64(value)?),
+                "termguicolors" => GuiOption::TermGuiColors(parse_bool(value)?),
                 unknown_option => GuiOption::Unknown(unknown_option.to_string(), value.clone())
             }
         })
@@ -280,34 +282,34 @@ fn parse_option_set(option_set_arguments: Vec<Value>) -> Result<RedrawEvent> {
     }
 }
 
-fn parse_mode_change(mode_change_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [_mode, mode_index] = mode_change_arguments.as_slice() {
+fn parse_mode_change(mode_change_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [_mode, mode_index] = mode_change_arguments {
         Ok(RedrawEvent::ModeChange {
-            mode_index: parse_u64(&mode_index)?
+            mode_index: parse_u64(mode_index)?
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
     }
 }
 
-fn parse_grid_resize(grid_resize_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [grid_id, width, height] = grid_resize_arguments.as_slice() {
+fn parse_grid_resize(grid_resize_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [grid_id, width, height] = grid_resize_arguments {
         Ok(RedrawEvent::Resize { 
-            grid: parse_u64(&grid_id)?, width: parse_u64(&width)?, height: parse_u64(&height)?
+            grid: parse_u64(grid_id)?, width: parse_u64(width)?, height: parse_u64(height)?
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
     }
 }
 
-fn parse_default_colors(default_colors_arguments: Vec<Value>) -> Result<RedrawEvent> {
+fn parse_default_colors(default_colors_arguments: &[Value]) -> Result<RedrawEvent> {
     if let [
         foreground, background, special, _term_foreground, _term_background
-    ] = default_colors_arguments.as_slice() {
+    ] = default_colors_arguments {
         Ok(RedrawEvent::DefaultColorsSet {
             colors: Colors {
-                foreground: Some(unpack_color(parse_u64(&foreground)?)),
-                background: Some(unpack_color(parse_u64(&background)?)),
+                foreground: Some(unpack_color(parse_u64(foreground)?)),
+                background: Some(unpack_color(parse_u64(background)?)),
                 special: Some(unpack_color(parse_u64(special)?)),
             }
         })
@@ -319,6 +321,7 @@ fn parse_default_colors(default_colors_arguments: Vec<Value>) -> Result<RedrawEv
 fn parse_style(style_map: &Value) -> Result<Style> {
     if let Value::Map(attributes) = style_map {
         let mut style = Style::new(Colors::new(None, None, None));
+
         for attribute in attributes {
             if let (Value::String(name), value) = attribute {
                 match (name.as_str().unwrap(), value) {
@@ -338,39 +341,40 @@ fn parse_style(style_map: &Value) -> Result<Style> {
                 println!("Invalid attribute format");
             }
         }
+
         Ok(style)
     } else {
         Err(EventParseError::InvalidMap(style_map.clone()))
     }
 }
 
-fn parse_hl_attr_define(hl_attr_define_arguments: Vec<Value>) -> Result<RedrawEvent> {
+fn parse_hl_attr_define(hl_attr_define_arguments: &[Value]) -> Result<RedrawEvent> {
     if let [
         id, attributes, _terminal_attributes, _info
-    ] = hl_attr_define_arguments.as_slice() {
+    ] = hl_attr_define_arguments {
         let style = parse_style(attributes)?;
-        Ok(RedrawEvent::HighlightAttributesDefine { id: parse_u64(&id)?, style })
+        Ok(RedrawEvent::HighlightAttributesDefine { id: parse_u64(id)?, style })
     } else {
         Err(EventParseError::InvalidEventFormat)
     }
 }
 
-fn parse_grid_line_cell(grid_line_cell: Value) -> Result<GridLineCell> {
-    let cell_contents = parse_array(&grid_line_cell)?;
+fn parse_grid_line_cell(grid_line_cell: &Value) -> Result<GridLineCell> {
+    let cell_contents = parse_array(grid_line_cell)?;
     let text_value = cell_contents.get(0).ok_or(EventParseError::InvalidEventFormat)?;
     Ok(GridLineCell {
-        text: parse_string(&text_value)?,
-        highlight_id: cell_contents.get(1).map(|highlight_id| parse_u64(highlight_id)).transpose()?,
-        repeat: cell_contents.get(2).map(|repeat| parse_u64(repeat)).transpose()?
+        text: parse_string(text_value)?.to_string(),
+        highlight_id: cell_contents.get(1).map(parse_u64).transpose()?,
+        repeat: cell_contents.get(2).map(parse_u64).transpose()?
     })
 }
 
-fn parse_grid_line(grid_line_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [grid_id, row, column_start, cells] = grid_line_arguments.as_slice() {
+fn parse_grid_line(grid_line_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [grid_id, row, column_start, cells] = grid_line_arguments {
         Ok(RedrawEvent::GridLine {
-            grid: parse_u64(&grid_id)?, 
-            row: parse_u64(&row)?, column_start: parse_u64(&column_start)?,
-            cells: parse_array(&cells)?
+            grid: parse_u64(grid_id)?,
+            row: parse_u64(row)?, column_start: parse_u64(column_start)?,
+            cells: parse_array(cells)?
                 .into_iter()
                 .map(parse_grid_line_cell)
                 .collect::<Result<Vec<GridLineCell>>>()?
@@ -380,46 +384,46 @@ fn parse_grid_line(grid_line_arguments: Vec<Value>) -> Result<RedrawEvent> {
     }
 }
 
-fn parse_clear(clear_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [grid_id] = clear_arguments.as_slice() {
-        Ok(RedrawEvent::Clear { grid: parse_u64(&grid_id)? })
+fn parse_clear(clear_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [grid_id] = clear_arguments {
+        Ok(RedrawEvent::Clear { grid: parse_u64(grid_id)? })
     } else {
         Err(EventParseError::InvalidEventFormat)
     }
 }
 
-fn parse_cursor_goto(cursor_goto_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [grid_id, column, row] = cursor_goto_arguments.as_slice() {
+fn parse_cursor_goto(cursor_goto_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [grid_id, column, row] = cursor_goto_arguments {
         Ok(RedrawEvent::CursorGoto { 
-            grid: parse_u64(&grid_id)?, row: parse_u64(&row)?, column: parse_u64(&column)?
+            grid: parse_u64(grid_id)?, row: parse_u64(row)?, column: parse_u64(column)?
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
     }
 }
 
-fn parse_grid_scroll(grid_scroll_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [grid_id, top, bottom, left, right, rows, columns] = grid_scroll_arguments.as_slice() {
+fn parse_grid_scroll(grid_scroll_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [grid_id, top, bottom, left, right, rows, columns] = grid_scroll_arguments {
         Ok(RedrawEvent::Scroll {
-            grid: parse_u64(&grid_id)?, 
-            top: parse_u64(&top)?, bottom: parse_u64(&bottom)?,
-            left: parse_u64(&left)?, right: parse_u64(&right)?,
-            rows: parse_i64(&rows)?, columns: parse_i64(&columns)?
+            grid: parse_u64(grid_id)?,
+            top: parse_u64(top)?, bottom: parse_u64(bottom)?,
+            left: parse_u64(left)?, right: parse_u64(right)?,
+            rows: parse_i64(rows)?, columns: parse_i64(columns)?
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
     }
 }
 
-fn parse_win_pos(win_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [grid, window, start_row, start_column, width, height] = win_pos_arguments.as_slice() {
+fn parse_win_pos(win_pos_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [grid, window, start_row, start_column, width, height] = win_pos_arguments {
         Ok(RedrawEvent::WindowPosition {
-            grid: parse_u64(&grid)?,
-            window: parse_u64(&window)?,
-            start_row: parse_u64(&start_row)?,
-            start_column: parse_u64(&start_column)?,
-            width: parse_u64(&width)?,
-            height: parse_u64(&height)?
+            grid: parse_u64(grid)?,
+            window: parse_u64(window)?,
+            start_row: parse_u64(start_row)?,
+            start_column: parse_u64(start_column)?,
+            width: parse_u64(width)?,
+            height: parse_u64(height)?
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
@@ -427,7 +431,7 @@ fn parse_win_pos(win_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
 }
 
 fn parse_window_anchor(value: &Value) -> Result<WindowAnchor> {
-    match parse_string(value).ok().as_deref() {
+    match parse_string(value).ok() {
         Some("NW") => Ok(WindowAnchor::NorthWest),
         Some("NE") => Ok(WindowAnchor::NorthEast),
         Some("SW") => Ok(WindowAnchor::SouthWest),
@@ -436,60 +440,60 @@ fn parse_window_anchor(value: &Value) -> Result<WindowAnchor> {
     }
 }
 
-fn parse_win_float_pos(win_float_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [grid, window, anchor, anchor_grid, anchor_row, anchor_column, focusable] = win_float_pos_arguments.as_slice() {
+fn parse_win_float_pos(win_float_pos_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [grid, window, anchor, anchor_grid, anchor_row, anchor_column, focusable] = win_float_pos_arguments {
         Ok(RedrawEvent::WindowFloatPosition {
-            grid: parse_u64(&grid)?,
-            window: parse_u64(&window)?,
-            anchor: parse_window_anchor(&anchor)?,
-            anchor_grid: parse_u64(&anchor_grid)?,
-            anchor_row: parse_u64(&anchor_row)?,
-            anchor_column: parse_u64(&anchor_column)?,
-            focusable: parse_bool(&focusable)?
+            grid: parse_u64(grid)?,
+            window: parse_u64(window)?,
+            anchor: parse_window_anchor(anchor)?,
+            anchor_grid: parse_u64(anchor_grid)?,
+            anchor_row: parse_u64(anchor_row)?,
+            anchor_column: parse_u64(anchor_column)?,
+            focusable: parse_bool(focusable)?
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
     }
 }
 
-fn parse_win_external_pos(win_external_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [grid, window] = win_external_pos_arguments.as_slice() {
+fn parse_win_external_pos(win_external_pos_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [grid, window] = win_external_pos_arguments {
         Ok(RedrawEvent::WindowExternalPosition {
-            grid: parse_u64(&grid)?,
-            window: parse_u64(&window)?
+            grid: parse_u64(grid)?,
+            window: parse_u64(window)?
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
     }
 }
 
-fn parse_win_hide(win_hide_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [grid] = win_hide_arguments.as_slice() {
+fn parse_win_hide(win_hide_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [grid] = win_hide_arguments {
         Ok(RedrawEvent::WindowHide {
-            grid: parse_u64(&grid)?
+            grid: parse_u64(grid)?
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
     }
 }
 
-fn parse_win_close(win_close_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [grid] = win_close_arguments.as_slice() {
+fn parse_win_close(win_close_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [grid] = win_close_arguments {
         Ok(RedrawEvent::WindowClose {
-            grid: parse_u64(&grid)?
+            grid: parse_u64(grid)?
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
     }
 }
 
-fn parse_msg_set_pos(msg_set_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [grid, row, scrolled, separator_character] = msg_set_pos_arguments.as_slice() {
+fn parse_msg_set_pos(msg_set_pos_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [grid, row, scrolled, separator_character] = msg_set_pos_arguments {
         Ok(RedrawEvent::MessageSetPosition {
-            grid: parse_u64(&grid)?,
-            row: parse_u64(&row)?,
-            scrolled: parse_bool(&scrolled)?,
-            separator_character: parse_string(&separator_character)?
+            grid: parse_u64(grid)?,
+            row: parse_u64(row)?,
+            scrolled: parse_bool(scrolled)?,
+            separator_character: parse_string(separator_character)?.to_string()
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
@@ -498,67 +502,67 @@ fn parse_msg_set_pos(msg_set_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
 
 fn parse_styled_content(line: &Value) -> Result<StyledContent> {
     parse_array(line)?.iter().map(|tuple| {
-        if let [style_id, text] = parse_array(tuple)?.as_slice() {
-            Ok((parse_u64(style_id)?, parse_string(text)?))
+        if let [style_id, text] = parse_array(tuple)? {
+            Ok((parse_u64(style_id)?, parse_string(text)?.to_string()))
         } else {
             Err(EventParseError::InvalidEventFormat)
         }
-    }).collect::<Result<StyledContent>>()
+    }).collect()
 }
 
-fn parse_cmdline_show(cmdline_show_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [content, position, first_character, prompt, indent, level] = cmdline_show_arguments.as_slice() {
+fn parse_cmdline_show(cmdline_show_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [content, position, first_character, prompt, indent, level] = cmdline_show_arguments {
         Ok(RedrawEvent::CommandLineShow {
-            content: parse_styled_content(&content)?,
-            position: parse_u64(&position)?,
-            first_character: parse_string(&first_character)?,
-            prompt: parse_string(&prompt)?,
-            indent: parse_u64(&indent)?,
-            level: parse_u64(&level)?
+            content: parse_styled_content(content)?,
+            position: parse_u64(position)?,
+            first_character: parse_string(first_character)?.to_string(),
+            prompt: parse_string(prompt)?.to_string(),
+            indent: parse_u64(indent)?,
+            level: parse_u64(level)?
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
     }
 }
 
-fn parse_cmdline_pos(cmdline_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [position, level] = cmdline_pos_arguments.as_slice() {
+fn parse_cmdline_pos(cmdline_pos_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [position, level] = cmdline_pos_arguments {
         Ok(RedrawEvent::CommandLinePosition {
-            position: parse_u64(&position)?,
-            level: parse_u64(&level)?
+            position: parse_u64(position)?,
+            level: parse_u64(level)?
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
     }
 }
 
-fn parse_cmdline_special_char(cmdline_special_char_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [character, shift, level] = cmdline_special_char_arguments.as_slice() {
+fn parse_cmdline_special_char(cmdline_special_char_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [character, shift, level] = cmdline_special_char_arguments {
         Ok(RedrawEvent::CommandLineSpecialCharacter {
-            character: parse_string(&character)?,
-            shift: parse_bool(&shift)?,
-            level: parse_u64(&level)?
+            character: parse_string(character)?.to_string(),
+            shift: parse_bool(shift)?,
+            level: parse_u64(level)?
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
     }
 }
 
-fn parse_cmdline_block_show(cmdline_block_show_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [lines] = cmdline_block_show_arguments.as_slice() {
+fn parse_cmdline_block_show(cmdline_block_show_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [lines] = cmdline_block_show_arguments {
         Ok(RedrawEvent::CommandLineBlockShow {
             lines: parse_array(lines)?
                 .iter()
                 .map(parse_styled_content)
-                .collect::<Result<Vec<StyledContent>>>()?
+                .collect::<Result<_>>()?
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
     }
 }
 
-fn parse_cmdline_block_append(cmdline_block_append_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [line] = cmdline_block_append_arguments.as_slice() {
+fn parse_cmdline_block_append(cmdline_block_append_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [line] = cmdline_block_append_arguments {
         Ok(RedrawEvent::CommandLineBlockAppend {
             line: parse_styled_content(line)?
         })
@@ -567,42 +571,42 @@ fn parse_cmdline_block_append(cmdline_block_append_arguments: Vec<Value>) -> Res
     }
 }
 
-fn parse_msg_show(msg_show_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [kind, content, replace_last] = msg_show_arguments.as_slice() {
+fn parse_msg_show(msg_show_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [kind, content, replace_last] = msg_show_arguments {
         Ok(RedrawEvent::MessageShow {
-            kind: MessageKind::parse(&parse_string(&kind)?),
-            content: parse_styled_content(&content)?,
-            replace_last: parse_bool(&replace_last)?
+            kind: MessageKind::parse(parse_string(kind)?),
+            content: parse_styled_content(content)?,
+            replace_last: parse_bool(replace_last)?
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
     }
 }
 
-fn parse_msg_showmode(msg_showmode_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [content] = msg_showmode_arguments.as_slice() {
+fn parse_msg_showmode(msg_showmode_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [content] = msg_showmode_arguments {
         Ok(RedrawEvent::MessageShowMode {
-            content: parse_styled_content(&content)?,
+            content: parse_styled_content(content)?,
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
     }
 }
 
-fn parse_msg_showcmd(msg_showcmd_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [content] = msg_showcmd_arguments.as_slice() {
+fn parse_msg_showcmd(msg_showcmd_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [content] = msg_showcmd_arguments {
         Ok(RedrawEvent::MessageShowCommand {
-            content: parse_styled_content(&content)?,
+            content: parse_styled_content(content)?,
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
     }
 }
 
-fn parse_msg_ruler(msg_ruler_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [content] = msg_ruler_arguments.as_slice() {
+fn parse_msg_ruler(msg_ruler_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [content] = msg_ruler_arguments {
         Ok(RedrawEvent::MessageRuler {
-            content: parse_styled_content(&content)?,
+            content: parse_styled_content(content)?,
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
@@ -610,9 +614,9 @@ fn parse_msg_ruler(msg_ruler_arguments: Vec<Value>) -> Result<RedrawEvent> {
 }
 
 fn parse_msg_history_entry(entry: &Value) -> Result<(MessageKind, StyledContent)> {
-    if let [kind, content] = parse_array(entry)?.as_slice() {
+    if let [kind, content] = parse_array(entry)?{
         Ok((
-            MessageKind::parse(&parse_string(kind)?),
+            MessageKind::parse(parse_string(kind)?),
             parse_styled_content(content)?
         ))
     } else {
@@ -620,29 +624,29 @@ fn parse_msg_history_entry(entry: &Value) -> Result<(MessageKind, StyledContent)
     }
 }
 
-fn parse_msg_history_show(msg_history_show_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    if let [entries] = msg_history_show_arguments.as_slice() {
+fn parse_msg_history_show(msg_history_show_arguments: &[Value]) -> Result<RedrawEvent> {
+    if let [entries] = msg_history_show_arguments {
         Ok(RedrawEvent::MessageHistoryShow {
             entries: parse_array(entries)?
                 .iter()
                 .map(parse_msg_history_entry)
-                .collect::<Result<Vec<(MessageKind, StyledContent)>>>()?
+                .collect::<Result<_>>()?
         })
     } else {
         Err(EventParseError::InvalidEventFormat)
     }
 }
 
-pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
-    let event_contents = parse_array(&event_value)?.to_vec();
+pub fn parse_redraw_event(event_value: &Value) -> Result<Vec<RedrawEvent>> {
+    let event_contents = parse_array(event_value)?;
     let name_value = event_contents.get(0).ok_or(EventParseError::InvalidEventFormat)?;
-    let event_name = parse_string(&name_value)?;
+    let event_name = parse_string(name_value)?;
     let events = event_contents;
-    let mut parsed_events = Vec::new();
+    let mut parsed_events = Vec::with_capacity(events.len());
 
     for event in &events[1..] {
         let event_parameters = parse_array(&event)?;
-        let possible_parsed_event = match event_name.clone().as_ref() {
+        let possible_parsed_event = match event_name {
             "set_title" => Some(parse_set_title(event_parameters)?),
             "set_icon" => None, // Ignore set icon for now
             "mode_info_set" => Some(parse_mode_info_set(event_parameters)?),
@@ -688,8 +692,8 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
     Ok(parsed_events)
 }
 
-pub fn parse_neovim_event(event_name: String, arguments: Vec<Value>) -> Result<Vec<RedrawEvent>> {
-    let mut resulting_events = Vec::new();
+pub(in super) fn parse_neovim_event(event_name: &str, arguments: &[Value]) -> Result<Vec<RedrawEvent>> {
+    let mut resulting_events = Vec::with_capacity(arguments.len());
     if event_name == "redraw" {
         for event in arguments {
             resulting_events.append(&mut parse_redraw_event(event)?);
