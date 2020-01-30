@@ -19,10 +19,10 @@ use crate::INITIAL_DIMENSIONS;
 #[folder = "assets/"]
 struct Asset;
 
-fn handle_new_grid_size(new_size: PhysicalSize<u32>, renderer: &Renderer) {
-    if new_size.width > 0 && new_size.height > 0 {
-        let new_width = ((new_size.width + 1) as f32 / renderer.font_width) as u64;
-        let new_height = ((new_size.height + 1) as f32 / renderer.font_height) as u64;
+fn handle_new_grid_size(new_size: LogicalSize<f64>, renderer: &Renderer) {
+    if new_size.width > 0.0 && new_size.height > 0.0 {
+        let new_width = ((new_size.width + 1.0) as f32 / renderer.font_width) as u64;
+        let new_height = ((new_size.height + 1.0) as f32 / renderer.font_height) as u64;
         // Add 1 here to make sure resizing doesn't change the grid size on startup
         BRIDGE.queue_command(UiCommand::Resize { width: new_width as i64, height: new_height as i64 });
     }
@@ -86,7 +86,7 @@ pub fn ui_loop() {
                 event: WindowEvent::Resized(new_size),
                 ..
             } => {
-                handle_new_grid_size(new_size, &renderer)
+                handle_new_grid_size(new_size.to_logical(window.scale_factor()), &renderer)
             },
 
             Event::WindowEvent {
@@ -181,7 +181,7 @@ pub fn ui_loop() {
                 if REDRAW_SCHEDULER.should_draw() {
                     if let Err(_)  = skulpin_renderer.draw(&window, |canvas, coordinate_system_helper| {
                         if renderer.draw(canvas, coordinate_system_helper) {
-                            handle_new_grid_size(window.inner_size(), &renderer)
+                            handle_new_grid_size(window.inner_size().to_logical(window.scale_factor()), &renderer)
                         }
                     }) {
                         println!("Render failed. Closing");
