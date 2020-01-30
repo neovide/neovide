@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 use image::{load_from_memory, GenericImageView, Pixel};
 use skulpin::{CoordinateSystem, RendererBuilder, PresentMode};
 use skulpin::skia_safe::icu;
-use skulpin::winit::dpi::LogicalSize;
+use skulpin::winit::dpi::{LogicalSize, LogicalPosition};
 use skulpin::winit::event::{ElementState, Event, MouseScrollDelta, StartCause, WindowEvent};
 use skulpin::winit::event_loop::{ControlFlow, EventLoop};
 use skulpin::winit::window::{Icon, WindowBuilder};
@@ -108,10 +108,12 @@ pub fn ui_loop() {
                 },
                 ..
             } => {
-                let grid_y = (position.x as f32 / renderer.font_width) as i64;
-                let grid_x = (position.y as f32 / renderer.font_height) as i64;
+                let position: LogicalPosition<f32> = position.to_logical(window.scale_factor());
+                let grid_y = (position.x / renderer.font_width) as i64;
+                let grid_x = (position.y / renderer.font_height) as i64;
+                let (old_x, old_y) = mouse_pos;
                 mouse_pos = (grid_x, grid_y);
-                if mouse_down {
+                if mouse_down && (old_x != grid_x || old_y != grid_y) {
                     BRIDGE.queue_command(UiCommand::Drag(grid_x, grid_y));
                 }
             }
@@ -123,18 +125,22 @@ pub fn ui_loop() {
                 },
                 ..
             } => {
-                let input_type = match state {
-                    ElementState::Pressed => {
+                let input_type = match (state, mouse_down) {
+                    (ElementState::Pressed, false) => {
                         mouse_down = true;
-                        "press"
+                        Some("press")
                     },
-                    ElementState::Released => {
+                    (ElementState::Released, true) => {
                         mouse_down = false;
-                        "release"
-                    }
+                        Some("release")
+                    },
+                    _ => None
                 };
-                let (grid_x, grid_y) = mouse_pos;
-                BRIDGE.queue_command(UiCommand::MouseButton { action: input_type.to_string(), position: (grid_x, grid_y) });
+
+                if let Some(input_type) = input_type {
+                    let (grid_x, grid_y) = mouse_pos;
+                    BRIDGE.queue_command(UiCommand::MouseButton { action: input_type.to_string(), position: (grid_x, grid_y) });
+                }
             }
 
             Event::WindowEvent {

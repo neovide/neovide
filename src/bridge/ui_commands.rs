@@ -22,13 +22,13 @@ impl UiCommand {
                     .expect("Input failed"); 
             },
             UiCommand::MouseButton { action, position: (grid_x, grid_y) } => 
-                nvim.input_mouse("left", &action, "", 0, grid_x, grid_y).await
+                nvim.input_mouse("left", dbg!(&action), "", 0, grid_x, grid_y).await
                     .expect("Mouse Input Failed"),
             UiCommand::Scroll { direction, position: (grid_x, grid_y) } => 
                 nvim.input_mouse("wheel", &direction, "", 0, grid_x, grid_y).await
                     .expect("Mouse Scroll Failed"),
             UiCommand::Drag(grid_x, grid_y) =>
-                nvim.input_mouse("left", "drag", "", 0, grid_x, grid_y).await
+                nvim.input_mouse("left", "drag", "", 0, dbg!(grid_x), dbg!(grid_y)).await
                     .expect("Mouse Drag Failed")
         }
     }
