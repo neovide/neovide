@@ -95,63 +95,59 @@ fn parse_keycode(keycode: VirtualKeyCode) -> Option<(&'static str, bool)> {
 }
 
 fn append_modifiers(modifiers: ModifiersState, keycode_text: &str, special: bool) -> String {
-    let mut result = String::with_capacity(10 + keycode_text.len()); // Add 10 due to modifiers terms.
+    let mut result = keycode_text.to_string();
     let mut special = special;
 
-    if modifiers.logo() {
-        special = true;
-        result.push_str("D-");
-    }
-    if modifiers.alt() {
-        special = true;
-        result.push_str("M-");
-    }
-    if modifiers.ctrl() {
-        special = true;
-        result.push_str("C-");
-    }
-
     if modifiers.shift() {
-        match keycode_text {
-            "1" => result.push('!'),
-            "2" => result.push('@'),
-            "3" => result.push('#'),
-            "4" => result.push('$'),
-            "5" => result.push('%'),
-            "6" => result.push('^'),
-            "7" => result.push('&'),
-            "8" => result.push('*'),
-            "9" => result.push('('),
-            "0" => result.push(')'),
-            "'" => result.push('"'),
+        result = match result.as_ref() {
+            "1" => "!".to_string(),
+            "2" => "@".to_string(),
+            "3" => "#".to_string(),
+            "4" => "$".to_string(),
+            "5" => "%".to_string(),
+            "6" => "^".to_string(),
+            "7" => "&".to_string(),
+            "8" => "*".to_string(),
+            "9" => "(".to_string(),
+            "0" => ")".to_string(),
+            "'" => "\"".to_string(),
             "Bslash" => {
                 special = false;
-                result.push('|');
+                "|".to_string()
             },
             "," => {
                 special = true;
-                result.push_str("lt");
+                "lt".to_string()
             },
-            "=" => result.push('+'),
-            "`" => result.push('~'),
-            "[" => result.push('{'),
-            "-" => result.push('_'),
-            "." => result.push('>'),
-            "]" => result.push('}'),
-            ";" => result.push(':'),
-            "/" => result.push('?'),
+            "=" => "+".to_string(),
+            "`" => "~".to_string(),
+            "[" => "{".to_string(),
+            "-" => "_".to_string(),
+            "." => ">".to_string(),
+            "]" => "}".to_string(),
+            ";" => ":".to_string(),
+            "/" => "?".to_string(),
             other => {
                 special = true;
-
-                result.push_str("S-");
-                result.push_str(other);
+                format!("S-{}", other)
             }
         };
     }
+    if modifiers.ctrl() {
+        special = true;
+        result = format!("C-{}", result);
+    }
+    if modifiers.alt() {
+        special = true;
+        result = format!("M-{}", result);
+    }
+    if modifiers.logo() {
+        special = true;
+        result = format!("D-{}", result);
+    }
 
     if special {
-        result.insert(0, '<');
-        result.push('>');
+        result = format!("<{}>", result);
     }
 
     result
