@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::sync::Arc;
+
 use skulpin::skia_safe::Color4f;
 
 use super::style::{Style, Colors};
@@ -39,7 +41,7 @@ pub struct Cursor {
     pub blinkwait: Option<u64>,
     pub blinkon: Option<u64>,
     pub blinkoff: Option<u64>,
-    pub style: Option<Style>,
+    pub style: Option<Arc<Style>>,
     pub enabled: bool,
     pub mode_list: Vec<CursorMode>
 }
@@ -75,7 +77,7 @@ impl Cursor {
         }
     }
 
-    pub fn change_mode(&mut self, mode_index: u64, styles: &HashMap<u64, Style>) {
+    pub fn change_mode(&mut self, mode_index: u64, styles: &HashMap<u64, Arc<Style>>) {
         if let Some(CursorMode { shape, style_id, cell_percentage, blinkwait, blinkon, blinkoff }) = self.mode_list.get(mode_index as usize) {
             if let Some(shape) = shape {
                 self.shape = shape.clone();
