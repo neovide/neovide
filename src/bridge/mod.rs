@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::process::Stdio;
 
 use rmpv::Value;
-use nvim_rs::{create::tokio as create, UiAttachOptions, neovim_api};
+use nvim_rs::{create::tokio as create, UiAttachOptions};
 use tokio::runtime::Runtime;
 use tokio::process::Command;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
