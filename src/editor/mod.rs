@@ -204,48 +204,35 @@ impl Editor {
     }
 
     fn scroll_region(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64, cols: i64) {
-        let (top, bot) =  if rows > 0 {
-            (top as i64 + rows, bot as i64)
-        } else if rows < 0 {
-            (top as i64, bot as i64 + rows)
+        let (mut y, end_y, step_y) = if rows > 0 {
+            (top as i64 + rows, bot as i64, 1)
         } else {
-            (top as i64, bot as i64)
+            (bot as i64 + rows - 1, top as i64 - 1, -1)
         };
 
-        let (left, right) = if cols > 0 {
-            (left as i64 + cols, right as i64)
-        } else if rows < 0 {
-            (left as i64, right as i64 + cols)
+        let (start_x, end_x, step_x) = if cols > 0 {
+            (left as i64 + cols, right as i64, 1)
         } else {
-            (left as i64, right as i64)
+            (right as i64 + cols - 1, left as i64 - 1, -1)
         };
 
-        let mut region = Vec::new();
-        for y in top..bot {
-            let row = &self.grid[y as usize];
-            let mut copied_section = Vec::new();
-            for x in left..right {
-                copied_section.push(row[x as usize].clone());
-            }
-            region.push(copied_section);
-        }
-
-        let new_top = top as i64 - rows;
-        let new_left = left as i64 - cols;
-
-        for (y, row_section) in region.into_iter().enumerate() {
-            for (x, cell) in row_section.into_iter().enumerate() {
-                let y = new_top + y as i64;
-                if y >= 0 && y < self.grid.len() as i64 {
-                    let row = &mut self.grid[y as usize];
-                    let dirty_row = &mut self.dirty[y as usize];
-                    let x = new_left + x as i64;
-                    if x >= 0 && x < row.len() as i64 {
-                        row[x as usize] = cell;
-                        dirty_row[x as usize] = true;
+        while y != end_y {
+            let dest_y = y - rows;
+            if dest_y >= 0 && dest_y < self.size.1 as i64 {
+                let mut x = start_x;
+                while x != end_x {
+                    let dest_x = x - cols;
+                    if dest_x >= 0 && dest_x < self.size.0 as i64 {
+                        let cell = std::mem::replace(&mut self.grid[y as usize][x as usize], None);
+                        self.grid[dest_y as usize][dest_x as usize] = cell;
+                        self.dirty[dest_y as usize][dest_x as usize] = true;
+                        self.dirty[y as usize][x as usize] = true;
                     }
+                    x += step_x;
                 }
             }
+
+            y += step_y;
         }
     }
 
