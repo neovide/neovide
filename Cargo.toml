@@ -10,7 +10,7 @@ euclid = "0.20.7"
 font-kit = "0.4.0"
 skribo = { git = "https://github.com/linebender/skribo" }
 lru = "0.4.3"
-skulpin = "0.5.2"
+skulpin = { git = "https://github.com/kethku/skulpin", branch = "winit_20" }
 derive-new = "0.5"
 env_logger = "0.7.1"
 rmpv = "0.4.2"

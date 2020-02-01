@@ -544,9 +544,9 @@ dependencies = [
 
 [[package]]
 name = "dispatch"
-version = "0.1.4"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04e93ca78226c51902d7aa8c12c988338aadd9e85ed9c6be8aaac39192ff3605"
+checksum = "bd0c93bb4b0c6d9b77f4435b0ae98c24d17f1c45b2ff844c6151a07256ca923b"
 
 [[package]]
 name = "dlib"
@@ -2092,9 +2092,8 @@ dependencies = [
 
 [[package]]
 name = "skulpin"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6825386a1553c4e9da03bae6e6b044090c103bd3e94c5d099b98664c0eb3c23d"
+version = "0.6.0"
+source = "git+https://github.com/kethku/skulpin?branch=winit_20#2fda3cdc71903ddf756dc86f9c16bd42a7ef4959"
 dependencies = [
  "ash",
  "cocoa",
@@ -2477,13 +2476,11 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "winit"
-version = "0.20.0-alpha6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfa4308ca09f50e2f4688c631c36879521bffc39b949238b288ffd932864acbc"
+version = "0.20.0"
+source = "git+https://github.com/filnet/winit?branch=fix-panic-at-redraw-event-in-non-redraw-phase#1ddd984bdbec45e5345632e0999851c47f2b372d"
 dependencies = [
  "android_glue",
  "bitflags",
- "calloop",
  "cocoa",
  "core-foundation",
  "core-graphics",
@@ -2493,6 +2490,8 @@ dependencies = [
  "lazy_static",
  "libc",
  "log",
+ "mio",
+ "mio-extras",
  "objc",
  "parking_lot",
  "percent-encoding",
