@@ -17,13 +17,14 @@ lazy_static! {
     pub static ref EDITOR: Arc<Mutex<Editor>> = Arc::new(Mutex::new(Editor::new()));
 }
 
-pub type GridCell = Option<(String, Option<Style>)>;
+pub type GridCell = Option<(String, Option<Arc<Style>>)>;
 
 #[derive(new, Debug, Clone)]
 pub struct DrawCommand {
     pub text: String,
+    pub cell_width: u64,
     pub grid_position: (u64, u64),
-    pub style: Option<Style>,
+    pub style: Option<Arc<Style>>,
     #[new(value = "1")]
     pub scale: u16
 }
@@ -38,9 +39,9 @@ pub struct Editor {
     pub font_name: Option<String>,
     pub font_size: Option<f32>,
     pub cursor: Cursor,
-    pub default_colors: Colors,
-    pub defined_styles: HashMap<u64, Style>,
-    pub previous_style: Option<Style>
+    pub default_style: Arc<Style>,
+    pub defined_styles: HashMap<u64, Arc<Style>>,
+    pub previous_style: Option<Arc<Style>>
 }
 
 impl Editor {
@@ -51,11 +52,11 @@ impl Editor {
             should_clear: true,
 
             title: "Neovide".to_string(),
-            cursor: Cursor::new(),
             size: INITIAL_DIMENSIONS,
             font_name: None,
             font_size: None,
-            default_colors: Colors::new(Some(colors::WHITE), Some(colors::BLACK), Some(colors::GREY)),
+            cursor: Cursor::new(),
+            default_style: Arc::new(Style::new(Colors::new(Some(colors::WHITE), Some(colors::BLACK), Some(colors::GREY)))),
             defined_styles: HashMap::new(),
             previous_style: None
         };
@@ -74,8 +75,8 @@ impl Editor {
             RedrawEvent::BusyStop => self.cursor.enabled = true,
             RedrawEvent::Flush => REDRAW_SCHEDULER.queue_next_frame(),
             RedrawEvent::Resize { width, height, .. } => self.resize((width, height)),
-            RedrawEvent::DefaultColorsSet { colors } => self.default_colors = colors,
-            RedrawEvent::HighlightAttributesDefine { id, style } => { self.defined_styles.insert(id, style); },
+            RedrawEvent::DefaultColorsSet { colors } => self.default_style = Arc::new(Style::new(colors)),
+            RedrawEvent::HighlightAttributesDefine { id, style } => { self.defined_styles.insert(id, Arc::new(style)); },
             RedrawEvent::GridLine { row, column_start, cells, .. } => self.draw_grid_line(row, column_start, cells),
             RedrawEvent::Clear { .. } => self.clear(),
             RedrawEvent::CursorGoto { row, column, .. } => self.cursor.position = (row, column),
@@ -95,34 +96,44 @@ impl Editor {
                 }
             }
 
-            fn command_matches(command: &Option<DrawCommand>, style: &Option<Style>) -> bool {
+            fn command_matches(command: &Option<DrawCommand>, style: &Option<Arc<Style>>) -> bool {
                 match command {
                     Some(command) => &command.style == style,
                     None => true
                 }
             }
 
-            fn add_character(command: &mut Option<DrawCommand>, character: &str, row_index: u64, col_index: u64, style: Option<Style>) {
+            fn add_character(command: &mut Option<DrawCommand>, character: &str, row_index: u64, col_index: u64, style: Option<Arc<Style>>) {
                 match command {
-                    Some(command) => command.text.push_str(character),
+                    Some(command) => {
+                        command.text.push_str(character);
+                        command.cell_width += 1;
+                    },
                     None => {
-                        command.replace(DrawCommand::new(character.to_string(), (col_index, row_index), style));
+                        command.replace(DrawCommand::new(character.to_string(), 1, (col_index, row_index), style));
                     }
                 }
             }
 
             for (col_index, cell) in row.iter().enumerate() {
-                let (character, style) = cell.clone().unwrap_or_else(|| (' '.to_string(), Some(Style::new(self.default_colors.clone()))));
-                if character.is_empty() {
-                    add_character(&mut command, &" ", row_index as u64, col_index as u64, style.clone());
-                    add_command(&mut draw_commands, command);
-                    command = None;
+                if let Some((character, style)) = cell {
+                    if character.is_empty() {
+                        add_character(&mut command, &" ", row_index as u64, col_index as u64, style.clone());
+                        add_command(&mut draw_commands, command);
+                        command = None;
+                    } else {
+                        if !command_matches(&command, &style) {
+                            add_command(&mut draw_commands, command);
+                            command = None;
+                        }
+                        add_character(&mut command, &character, row_index as u64, col_index as u64, style.clone());
+                    }
                 } else {
-                    if !command_matches(&command, &style) {
+                    if !command_matches(&command, &None) {
                         add_command(&mut draw_commands, command);
                         command = None;
                     }
-                    add_character(&mut command, &character, row_index as u64, col_index as u64, style.clone());
+                    add_character(&mut command, " ", row_index as u64, col_index as u64, None);
                 }
             }
             add_command(&mut draw_commands, command);
@@ -133,8 +144,10 @@ impl Editor {
             let (x, y) = command.grid_position;
             let dirty_row = &self.dirty[y as usize];
 
-            for char_index in 0..command.text.graphemes(true).count() {
-                if dirty_row[x as usize + char_index] {
+            let min = (x as i64 - 1).max(0) as u64;
+            let max = (x + command.cell_width + 1).min(dirty_row.len() as u64);
+            for char_index in min..max {
+                if dirty_row[char_index as usize] {
                     return true;
                 }
             }
