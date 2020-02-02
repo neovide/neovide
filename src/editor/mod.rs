@@ -204,37 +204,35 @@ impl Editor {
     }
 
     fn scroll_region(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64, cols: i64) {
-        let (mut y, end_y, step_y) = if rows > 0 {
-            (top as i64 + rows, bot as i64, 1)
-        } else {
-            (bot as i64 + rows - 1, top as i64 - 1, -1)
-        };
 
-        let (start_x, end_x, step_x) = if cols > 0 {
-            (left as i64 + cols, right as i64, 1)
+        let y_iter : Box<dyn Iterator<Item=i64>> = if rows > 0 {
+            Box::new((top as i64 + rows).. bot as i64)
         } else {
-            (right as i64 + cols - 1, left as i64 - 1, -1)
+            Box::new((top as i64 .. (bot as i64 + rows)).rev())
         };
 
         let grid_width = self.size.0;
         let grid_height = self.size.1;
 
-        while y != end_y {
+        for y in y_iter {
             let dest_y = y - rows;
             if dest_y >= 0 && dest_y < grid_height as i64 {
-                let mut x = start_x;
-                while x != end_x {
+
+                let x_iter : Box<dyn Iterator<Item=i64>> = if cols > 0 {
+                    Box::new((left as i64 + cols) .. right as i64)
+                } else {
+                    Box::new((left as i64 .. (right as i64 + cols)).rev())
+                };
+
+                for x in x_iter {
                     let dest_x = x - cols;
                     if dest_x >= 0 && dest_x < grid_width as i64 {
                         let cell = self.grid[y as usize][x as usize].clone();
                         self.grid[dest_y as usize][dest_x as usize] = cell;
                         self.dirty[dest_y as usize][dest_x as usize] = true;
                     }
-                    x += step_x;
                 }
             }
-
-            y += step_y;
         }
     }
 
