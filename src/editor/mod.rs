@@ -204,45 +204,32 @@ impl Editor {
     }
 
     fn scroll_region(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64, cols: i64) {
-        let (top, bot) =  if rows > 0 {
-            (top as i64 + rows, bot as i64)
-        } else if rows < 0 {
-            (top as i64, bot as i64 + rows)
+
+        let y_iter : Box<dyn Iterator<Item=i64>> = if rows > 0 {
+            Box::new((top as i64 + rows).. bot as i64)
         } else {
-            (top as i64, bot as i64)
+            Box::new((top as i64 .. (bot as i64 + rows)).rev())
         };
 
-        let (left, right) = if cols > 0 {
-            (left as i64 + cols, right as i64)
-        } else if rows < 0 {
-            (left as i64, right as i64 + cols)
-        } else {
-            (left as i64, right as i64)
-        };
+        let grid_width = self.size.0;
+        let grid_height = self.size.1;
 
-        let mut region = Vec::new();
-        for y in top..bot {
-            let row = &self.grid[y as usize];
-            let mut copied_section = Vec::new();
-            for x in left..right {
-                copied_section.push(row[x as usize].clone());
-            }
-            region.push(copied_section);
-        }
+        for y in y_iter {
+            let dest_y = y - rows;
+            if dest_y >= 0 && dest_y < grid_height as i64 {
 
-        let new_top = top as i64 - rows;
-        let new_left = left as i64 - cols;
+                let x_iter : Box<dyn Iterator<Item=i64>> = if cols > 0 {
+                    Box::new((left as i64 + cols) .. right as i64)
+                } else {
+                    Box::new((left as i64 .. (right as i64 + cols)).rev())
+                };
 
-        for (y, row_section) in region.into_iter().enumerate() {
-            for (x, cell) in row_section.into_iter().enumerate() {
-                let y = new_top + y as i64;
-                if y >= 0 && y < self.grid.len() as i64 {
-                    let row = &mut self.grid[y as usize];
-                    let dirty_row = &mut self.dirty[y as usize];
-                    let x = new_left + x as i64;
-                    if x >= 0 && x < row.len() as i64 {
-                        row[x as usize] = cell;
-                        dirty_row[x as usize] = true;
+                for x in x_iter {
+                    let dest_x = x - cols;
+                    if dest_x >= 0 && dest_x < grid_width as i64 {
+                        let cell = self.grid[y as usize][x as usize].clone();
+                        self.grid[dest_y as usize][dest_x as usize] = cell;
+                        self.dirty[dest_y as usize][dest_x as usize] = true;
                     }
                 }
             }
