@@ -216,17 +216,19 @@ impl Editor {
             (right as i64 + cols - 1, left as i64 - 1, -1)
         };
 
+        let grid_width = self.size.0;
+        let grid_height = self.size.1;
+
         while y != end_y {
             let dest_y = y - rows;
-            if dest_y >= 0 && dest_y < self.size.1 as i64 {
+            if dest_y >= 0 && dest_y < grid_height as i64 {
                 let mut x = start_x;
                 while x != end_x {
                     let dest_x = x - cols;
-                    if dest_x >= 0 && dest_x < self.size.0 as i64 {
-                        let cell = std::mem::replace(&mut self.grid[y as usize][x as usize], None);
+                    if dest_x >= 0 && dest_x < grid_width as i64 {
+                        let cell = self.grid[y as usize][x as usize].clone();
                         self.grid[dest_y as usize][dest_x as usize] = cell;
                         self.dirty[dest_y as usize][dest_x as usize] = true;
-                        self.dirty[y as usize][x as usize] = true;
                     }
                     x += step_x;
                 }
