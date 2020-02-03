@@ -182,7 +182,7 @@ pub fn ui_loop() {
             Event::RedrawRequested { .. } => {
                 let frame_start = Instant::now();
 
-                let editor_title = { EDITOR.lock().unwrap().title.clone() };
+                let editor_title = { EDITOR.lock().title.clone() };
                 if title != editor_title {
                     title = editor_title;
                     window.set_title(&title);

@@ -3,8 +3,9 @@ mod style;
 mod grid;
 
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
+use parking_lot::Mutex;
 use skulpin::skia_safe::colors;
 use unicode_segmentation::UnicodeSegmentation;
 use log::trace;

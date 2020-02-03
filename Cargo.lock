@@ -1234,6 +1234,7 @@ dependencies = [
  "log",
  "lru",
  "nvim-rs",
+ "parking_lot",
  "rmpv",
  "rust-embed",
  "skribo",

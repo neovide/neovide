@@ -101,7 +101,7 @@ impl Renderer {
     pub fn draw(&mut self, gpu_canvas: &mut Canvas, coordinate_system_helper: &CoordinateSystemHelper) -> bool {
         trace!("Rendering");
         let ((draw_commands, should_clear), default_style, cursor, font_name, font_size) = {
-            let mut editor = EDITOR.lock().unwrap();
+            let mut editor = EDITOR.lock();
             (
                 editor.build_draw_commands(), 
                 editor.default_style.clone(), 

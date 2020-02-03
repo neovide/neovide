@@ -24,6 +24,7 @@ log = "0.4.8"
 flexi_logger = { version = "0.14.6", default-features = false }
 anyhow = "1.0.26"
 crossbeam = "0.7"
+parking_lot="0.10.0"
 
 [build-dependencies]
 winres = "0.1.11"
