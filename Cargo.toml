@@ -12,7 +12,7 @@ skribo = { git = "https://github.com/linebender/skribo" }
 lru = "0.4.3"
 skulpin = { git = "https://github.com/kethku/skulpin", branch = "winit_20" }
 derive-new = "0.5"
-rmpv = "0.4.2"
+rmpv = "0.4.4"
 rust-embed = { version = "5.2.0", features = ["debug-embed"] }
 image = "0.22.3"
 nvim-rs = { git = "https://github.com/KillTheMule/nvim-rs", features = [ "use_tokio" ] }

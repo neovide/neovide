@@ -44,7 +44,7 @@ impl Handler for NeovimHandler {
 
     async fn handle_notify(&self, event_name: String, arguments: Vec<Value>, _neovim: Neovim<Compat<ChildStdin>>) {
         trace!("Neovim notification: {:?}", &event_name);
-        let parsed_events = parse_neovim_event(&event_name, &arguments)
+        let parsed_events = parse_neovim_event(&event_name, arguments)
             .unwrap_or_explained_panic("Could not parse event from neovim");
         for event in parsed_events {
             self.handle_redraw_event(event);
