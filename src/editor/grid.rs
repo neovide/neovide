@@ -78,11 +78,10 @@ impl CharacterGrid {
         self.dirty.resize_with((self.width * self.height) as usize, || value);
     }
 
-    pub fn rows<'a>(&'a self) -> Vec<&'a [GridCell]> {
+    pub fn rows<'a>(&'a self) -> impl Iterator<Item=&'a[GridCell]> {
         (0..self.height)
-            .map(|row| {
+            .map(move |row| {
                 &self.characters[(row * self.width) as usize..((row + 1) * self.width) as usize]
             })
-            .collect()
     }
 }
