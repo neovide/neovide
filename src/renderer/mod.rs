@@ -3,7 +3,7 @@ use std::sync::Arc;
 use skulpin::CoordinateSystemHelper;
 use skulpin::skia_safe::{Canvas, Paint, Surface, Budgeted, Rect, colors};
 use skulpin::skia_safe::gpu::SurfaceOrigin;
-use unicode_segmentation::UnicodeSegmentation;
+use log::trace;
 
 mod caching_shaper;
 mod cursor_renderer;
@@ -11,7 +11,7 @@ mod cursor_renderer;
 pub use caching_shaper::CachingShaper;
 
 use cursor_renderer::CursorRenderer;
-use crate::editor::{EDITOR, Style, Colors};
+use crate::editor::{EDITOR, Style};
 
 pub struct Renderer {
     surface: Option<Surface>,
@@ -44,7 +44,7 @@ impl Renderer {
         self.font_height = font_height;
     }
 
-    fn compute_text_region(&self, text: &str, grid_pos: (u64, u64), cell_width: u64, size: u16) -> Rect {
+    fn compute_text_region(&self, grid_pos: (u64, u64), cell_width: u64, size: u16) -> Rect {
         let (grid_x, grid_y) = grid_pos;
         let x = grid_x as f32 * self.font_width;
         let y = grid_y as f32 * self.font_height;
@@ -53,8 +53,8 @@ impl Renderer {
         Rect::new(x, y, x + width, y + height)
     }
 
-    fn draw_background(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), cell_width:u64, size: u16, style: &Option<Arc<Style>>, default_style: &Arc<Style>) {
-        let region = self.compute_text_region(text, grid_pos, cell_width, size);
+    fn draw_background(&mut self, canvas: &mut Canvas, grid_pos: (u64, u64), cell_width:u64, size: u16, style: &Option<Arc<Style>>, default_style: &Arc<Style>) {
+        let region = self.compute_text_region(grid_pos, cell_width, size);
         let style = style.as_ref().unwrap_or(default_style);
 
         self.paint.set_color(style.background(&default_style.colors).to_color());
@@ -71,7 +71,7 @@ impl Renderer {
 
         canvas.save();
 
-        let region = self.compute_text_region(text, grid_pos, cell_width, size);
+        let region = self.compute_text_region(grid_pos, cell_width, size);
 
         canvas.clip_rect(region, None, Some(false));
 
@@ -99,6 +99,7 @@ impl Renderer {
     }
 
     pub fn draw(&mut self, gpu_canvas: &mut Canvas, coordinate_system_helper: &CoordinateSystemHelper) -> bool {
+        trace!("Rendering");
         let ((draw_commands, should_clear), default_style, cursor, font_name, font_size) = {
             let mut editor = EDITOR.lock().unwrap();
             (
@@ -136,7 +137,7 @@ impl Renderer {
         coordinate_system_helper.use_logical_coordinates(&mut canvas);
 
         for command in draw_commands.iter() {
-            self.draw_background(&mut canvas, &command.text, command.grid_position.clone(), command.cell_width, command.scale, &command.style, &default_style);
+            self.draw_background(&mut canvas, command.grid_position.clone(), command.cell_width, command.scale, &command.style, &default_style);
         }
         for command in draw_commands.iter() {
             self.draw_foreground(&mut canvas, &command.text, command.grid_position.clone(), command.cell_width, command.scale, &command.style, &default_style);

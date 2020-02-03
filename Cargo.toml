@@ -12,7 +12,6 @@ skribo = { git = "https://github.com/linebender/skribo" }
 lru = "0.4.3"
 skulpin = { git = "https://github.com/kethku/skulpin", branch = "winit_20" }
 derive-new = "0.5"
-env_logger = "0.7.1"
 rmpv = "0.4.2"
 rust-embed = { version = "5.2.0", features = ["debug-embed"] }
 image = "0.22.3"
@@ -21,9 +20,10 @@ tokio = { version = "0.2.9", features = [ "blocking", "process", "time" ] }
 async-trait = "0.1.18"
 lazy_static = "1.4.0"
 unicode-segmentation = "1.6.0"
-
-[target.'cfg(not(linux))'.dependencies]
-msgbox = { version = "0.4.0"}
+log = "0.4.8"
+flexi_logger = { version = "0.14.6", default-features = false }
+anyhow = "1.0.26"
+crossbeam = "0.7"
 
 [build-dependencies]
 winres = "0.1.11"

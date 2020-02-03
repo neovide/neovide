@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 
 use skulpin::skia_safe::colors;
 use unicode_segmentation::UnicodeSegmentation;
+use log::trace;
 
 pub use cursor::{Cursor, CursorShape, CursorMode};
 pub use style::{Colors, Style};
@@ -71,9 +72,18 @@ impl Editor {
             RedrawEvent::ModeInfoSet { cursor_modes } => self.cursor.mode_list = cursor_modes,
             RedrawEvent::OptionSet { gui_option } => self.set_option(gui_option),
             RedrawEvent::ModeChange { mode_index } => self.cursor.change_mode(mode_index, &self.defined_styles),
-            RedrawEvent::BusyStart => self.cursor.enabled = false,
-            RedrawEvent::BusyStop => self.cursor.enabled = true,
-            RedrawEvent::Flush => REDRAW_SCHEDULER.queue_next_frame(),
+            RedrawEvent::BusyStart => {
+                trace!("Cursor off");
+                self.cursor.enabled = false;
+            },
+            RedrawEvent::BusyStop => {
+                trace!("Cursor on");
+                self.cursor.enabled = true;
+            },
+            RedrawEvent::Flush => {
+                trace!("Image flushed");
+                REDRAW_SCHEDULER.queue_next_frame();
+            },
             RedrawEvent::Resize { width, height, .. } => self.resize((width, height)),
             RedrawEvent::DefaultColorsSet { colors } => self.default_style = Arc::new(Style::new(colors)),
             RedrawEvent::HighlightAttributesDefine { id, style } => { self.defined_styles.insert(id, Arc::new(style)); },
@@ -157,6 +167,8 @@ impl Editor {
         let (width, height) = self.size;
         self.dirty = vec![vec![false; width as usize]; height as usize];
         self.should_clear = false;
+
+        trace!("Draw commands sent");
         (draw_commands, should_clear)
     }
 
@@ -234,14 +246,17 @@ impl Editor {
                 }
             }
         }
+        trace!("Region scrolled");
     }
 
     fn resize(&mut self, new_size: (u64, u64)) {
+        trace!("Editor resized");
         self.size = new_size;
         self.clear();
     }
 
     fn clear(&mut self) {
+        trace!("Editor cleared");
         let (width, height) = self.size;
         self.grid = vec![vec![None; width as usize]; height as usize];
         self.dirty = vec![vec![true; width as usize]; height as usize];
@@ -249,6 +264,7 @@ impl Editor {
     }
 
     fn set_option(&mut self, gui_option: GuiOption) {
+        trace!("Option set {:?}", &gui_option);
         match gui_option {
             GuiOption::GuiFont(font_description) => {
                 let parts: Vec<&str> = font_description.split(":").collect();

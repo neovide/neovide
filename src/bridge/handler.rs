@@ -3,6 +3,7 @@ use nvim_rs::{Neovim, Handler, compat::tokio::Compat};
 use async_trait::async_trait;
 use tokio::process::ChildStdin;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
+use log::trace;
 
 use crate::error_handling::ResultPanicExplanation;
 use crate::editor::EDITOR;
@@ -32,7 +33,6 @@ impl NeovimHandler {
     pub fn handle_redraw_event(&self, event: RedrawEvent) {
         self.sender.send(event)
             .unwrap_or_explained_panic(
-                "Could not process neovim event.", 
                 "The main thread for Neovide has closed the communication channel preventing a neovim event from being processed.");
     }
 }
@@ -43,8 +43,9 @@ impl Handler for NeovimHandler {
     type Writer = Compat<ChildStdin>;
 
     async fn handle_notify(&self, event_name: String, arguments: Vec<Value>, _neovim: Neovim<Compat<ChildStdin>>) {
+        trace!("Neovim notification: {:?}", &event_name);
         let parsed_events = parse_neovim_event(&event_name, &arguments)
-            .unwrap_or_explained_panic("Could not parse event", "Could not parse event from neovim");
+            .unwrap_or_explained_panic("Could not parse event from neovim");
         for event in parsed_events {
             self.handle_redraw_event(event);
         }

@@ -2,6 +2,8 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicU16, Ordering};
 use std::time::Instant;
 
+use log::trace;
+
 lazy_static! {
     pub static ref REDRAW_SCHEDULER: RedrawScheduler = RedrawScheduler::new();
 }
@@ -15,6 +17,7 @@ pub struct RedrawScheduler {
 
 impl RedrawScheduler {
     pub fn new() -> RedrawScheduler {
+
         RedrawScheduler { 
             frames_queued: AtomicU16::new(1),
             scheduled_frame: Mutex::new(None)
@@ -22,6 +25,7 @@ impl RedrawScheduler {
     }
 
     pub fn schedule(&self, new_scheduled: Instant) {
+        trace!("Redraw scheduled for {:?}", new_scheduled);
         let mut scheduled_frame = self.scheduled_frame.lock().unwrap();
         if let Some(previous_scheduled) = scheduled_frame.clone() {
             if new_scheduled < previous_scheduled {
@@ -33,6 +37,7 @@ impl RedrawScheduler {
     }
 
     pub fn queue_next_frame(&self) {
+        trace!("Next frame queued");
         self.frames_queued.store(BUFFER_FRAMES, Ordering::Relaxed);
     }
 

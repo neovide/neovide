@@ -1,18 +1,20 @@
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
 use image::{load_from_memory, GenericImageView, Pixel};
 use skulpin::{CoordinateSystem, RendererBuilder, PresentMode};
-use skulpin::skia_safe::icu;
-use skulpin::winit::dpi::{LogicalSize, LogicalPosition};
+use skulpin::winit::dpi::LogicalSize;
 use skulpin::winit::event::{ElementState, Event, MouseScrollDelta, StartCause, WindowEvent};
 use skulpin::winit::event_loop::{ControlFlow, EventLoop};
 use skulpin::winit::window::{Icon, WindowBuilder};
+use log::{info, debug, trace, error};
 
 use crate::bridge::{construct_keybinding_string, BRIDGE, UiCommand};
 use crate::renderer::Renderer;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::editor::EDITOR;
+use crate::settings::SETTINGS;
 use crate::INITIAL_DIMENSIONS;
 
 #[derive(RustEmbed)]
@@ -48,6 +50,7 @@ pub fn ui_loop() {
         }
         Icon::from_rgba(rgba, width, height).expect("Failed to create icon object")
     };
+    info!("icon created");
 
     let mut title = "Neovide".to_string();
     let window = Arc::new(WindowBuilder::new()
@@ -56,6 +59,7 @@ pub fn ui_loop() {
         .with_window_icon(Some(icon))
         .build(&event_loop)
         .expect("Failed to create window"));
+    info!("window created");
 
     let mut skulpin_renderer = RendererBuilder::new()
         .prefer_integrated_gpu()
@@ -64,13 +68,14 @@ pub fn ui_loop() {
         .coordinate_system(CoordinateSystem::Logical)
         .build(&window)
         .expect("Failed to create renderer");
-
-    icu::init();
+    info!("renderer created");
 
     let mut mouse_down = false;
     let mut mouse_pos = (0, 0);
 
+    info!("Starting window event loop");
     event_loop.run(move |event, _window_target, control_flow| {
+        trace!("Window Event: {:?}", event);
         match event {
             Event::NewEvents(StartCause::Init) |
             Event::NewEvents(StartCause::ResumeTimeReached { .. }) => {
@@ -183,13 +188,14 @@ pub fn ui_loop() {
                     window.set_title(&title);
                 }
 
-                if REDRAW_SCHEDULER.should_draw() {
+                if REDRAW_SCHEDULER.should_draw() || SETTINGS.no_idle.load(Ordering::Relaxed) {
+                    debug!("Render Triggered");
                     if let Err(_)  = skulpin_renderer.draw(&window, |canvas, coordinate_system_helper| {
                         if renderer.draw(canvas, coordinate_system_helper) {
                             handle_new_grid_size(window.inner_size().to_logical(window.scale_factor()), &renderer)
                         }
                     }) {
-                        println!("Render failed. Closing");
+                        error!("Render failed. Closing");
                         *control_flow = ControlFlow::Exit;
                         return;
                     }

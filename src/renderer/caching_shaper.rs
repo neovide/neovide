@@ -5,6 +5,8 @@ use skulpin::skia_safe::{TextBlob, Font as SkiaFont, Typeface, TextBlobBuilder, 
 use font_kit::{source::SystemSource, metrics::Metrics, properties::{Properties, Weight, Style, Stretch}, family_name::FamilyName, font::Font, };
 use skribo::{LayoutSession, FontRef as SkriboFont, FontFamily, FontCollection, TextStyle};
 
+use log::trace;
+
 const STANDARD_CHARACTER_STRING: &'static str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
 
 const MONOSPACE_FONT: &'static str = "Fira Code Regular Nerd Font Complete.otf";
@@ -208,6 +210,7 @@ impl CachingShaper {
     }
 
     pub fn change_font(&mut self, font_name: Option<&str>, base_size: Option<f32>) {
+        trace!("Font changed {:?} {:?}", &font_name, &base_size);
         self.font_name = font_name.map(|name| name.to_string());
         self.base_size = base_size.unwrap_or(DEFAULT_FONT_SIZE);
         self.font_set = FontSet::new(font_name);
