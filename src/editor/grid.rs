@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use log::trace;
 
 use super::style::Style;
 
