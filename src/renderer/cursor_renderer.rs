@@ -182,8 +182,7 @@ impl CursorRenderer {
             let editor = EDITOR.lock().unwrap();
             let (_, grid_y) = cursor.position;
             let (_, previous_y) = self.previous_position;
-            let (_, height) = editor.size;
-            if grid_y == height - 1 && previous_y != grid_y {
+            if grid_y == editor.grid.height - 1 && previous_y != grid_y {
                 self.command_line_delay = self.command_line_delay + 1;
                 if self.command_line_delay < COMMAND_LINE_DELAY_FRAMES {
                     self.previous_position
@@ -201,18 +200,15 @@ impl CursorRenderer {
 
         let (character, font_dimensions): (String, Point) = {
             let editor = EDITOR.lock().unwrap();
-            let character = editor.grid
-                .get(grid_y as usize)
-                .and_then(|row| row.get(grid_x as usize).cloned())
-                .flatten()
-                .map(|(character, _)| character)
-                .unwrap_or(' '.to_string());
-            let is_double = editor.grid
-                .get(grid_y as usize)
-                .and_then(|row| row.get(grid_x as usize + 1).cloned())
-                .flatten()
-                .map(|(character, _)| character.is_empty())
-                .unwrap_or(false);
+            let character = match editor.grid.get_cell(grid_x, grid_y) {
+                Some(Some((character, _))) => character.clone(),
+                _ => ' '.to_string(),
+            };
+            
+            let is_double = match editor.grid.get_cell(grid_x + 1, grid_y) {
+                Some(Some((character, _))) => character.is_empty(),
+                _ => false,
+            };
 
             let font_width = match (is_double, &cursor.shape) {
                 (true, CursorShape::Block) => font_width * 2.0,
