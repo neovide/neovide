@@ -96,6 +96,9 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
         .unwrap_or_explained_panic("Could not attach ui to neovim process");
     info!("Neovim process attached");
 
+    nvim.set_option("lazyredraw", Value::Boolean(false)).await
+        .ok();
+
     let nvim = Arc::new(nvim);
     tokio::spawn(async move {
         info!("UiCommand processor started");
