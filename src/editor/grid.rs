@@ -15,14 +15,17 @@ pub struct CharacterGrid {
 }
 
 impl CharacterGrid {
-    pub fn new() -> CharacterGrid {
-        CharacterGrid {
+    pub fn new(size: (u64, u64)) -> CharacterGrid {
+        let mut result = CharacterGrid {
             characters: vec![],
             dirty: vec![],
             width: 0,
             height: 0,
             should_clear: true,
-        }
+        };
+
+        result.resize(size.0, size.1);
+        result
     }
 
     pub fn resize(&mut self, width: u64, height: u64) {

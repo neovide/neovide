@@ -182,8 +182,7 @@ impl CursorRenderer {
             let editor = EDITOR.lock().unwrap();
             let (_, grid_y) = cursor.position;
             let (_, previous_y) = self.previous_position;
-            let (_, height) = editor.size;
-            if grid_y == height - 1 && previous_y != grid_y {
+            if grid_y == editor.grid.height - 1 && previous_y != grid_y {
                 self.command_line_delay = self.command_line_delay + 1;
                 if self.command_line_delay < COMMAND_LINE_DELAY_FRAMES {
                     self.previous_position

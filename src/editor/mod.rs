@@ -33,7 +33,6 @@ pub struct DrawCommand {
 pub struct Editor {
     pub grid: CharacterGrid,
     pub title: String,
-    pub size: (u64, u64),
     pub font_name: Option<String>,
     pub font_size: Option<f32>,
     pub cursor: Cursor,
@@ -45,10 +44,8 @@ pub struct Editor {
 impl Editor {
     pub fn new() -> Editor {
         let mut editor = Editor {
-            grid: CharacterGrid::new(),
-
+            grid: CharacterGrid::new(INITIAL_DIMENSIONS),
             title: "Neovide".to_string(),
-            size: INITIAL_DIMENSIONS,
             font_name: None,
             font_size: None,
             cursor: Cursor::new(),
@@ -216,11 +213,9 @@ impl Editor {
             Box::new((top as i64 .. (bot as i64 + rows)).rev())
         };
 
-        let (_, height) = self.size;
-
         for y in y_iter {
             let dest_y = y - rows;
-            if dest_y >= 0 && dest_y < height as i64 {
+            if dest_y >= 0 && dest_y < self.grid.height as i64 {
 
                 let x_iter : Box<dyn Iterator<Item=i64>> = if cols > 0 {
                     Box::new((left as i64 + cols) .. right as i64)
