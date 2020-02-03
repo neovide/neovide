@@ -20,7 +20,7 @@ impl NeovimHandler {
 
         tokio::spawn(async move {
             while let Some(event) = receiver.recv().await {
-                let mut editor = EDITOR.lock().unwrap();
+                let mut editor = EDITOR.lock();
                 editor.handle_redraw_event(event);
             }
         });

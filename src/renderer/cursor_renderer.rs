@@ -179,7 +179,7 @@ impl CursorRenderer {
         let render = self.blink_status.update_status(&cursor);
 
         self.previous_position = {
-            let editor = EDITOR.lock().unwrap();
+            let editor = EDITOR.lock();
             let (_, grid_y) = cursor.position;
             let (_, previous_y) = self.previous_position;
             if grid_y == editor.grid.height - 1 && previous_y != grid_y {
@@ -199,7 +199,7 @@ impl CursorRenderer {
         let (grid_x, grid_y) = self.previous_position;
 
         let (character, font_dimensions): (String, Point) = {
-            let editor = EDITOR.lock().unwrap();
+            let editor = EDITOR.lock();
             let character = match editor.grid.get_cell(grid_x, grid_y) {
                 Some(Some((character, _))) => character.clone(),
                 _ => ' '.to_string(),
