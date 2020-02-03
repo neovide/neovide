@@ -80,7 +80,7 @@ impl Editor {
                 trace!("Image flushed");
                 REDRAW_SCHEDULER.queue_next_frame();
             },
-            RedrawEvent::Resize { width, height, .. } => self.grid.resize((width, height)),
+            RedrawEvent::Resize { width, height, .. } => self.grid.resize(width, height),
             RedrawEvent::DefaultColorsSet { colors } => self.default_style = Arc::new(Style::new(colors)),
             RedrawEvent::HighlightAttributesDefine { id, style } => { self.defined_styles.insert(id, Arc::new(style)); },
             RedrawEvent::GridLine { row, column_start, cells, .. } => self.draw_grid_line(row, column_start, cells),
@@ -179,14 +179,16 @@ impl Editor {
         }
 
         if text.is_empty() {
-            let cell_index = self.grid.cell_index(*column_pos, row_index).expect("Should not paint outside of grid");
-            self.grid.characters[cell_index] = Some(("".to_string(), style.clone())); // TODO -- Encapsulate 'characters' better
+            if let Some(cell) = self.grid.get_cell_mut(*column_pos, row_index) {
+                *cell = Some(("".to_string(), style.clone()));
+            }
+
             self.grid.set_dirty_cell(*column_pos, row_index);
             *column_pos = *column_pos + 1;
         } else {
             for (i, character) in text.graphemes(true).enumerate() {
-                if let Some(cell_index) = self.grid.cell_index(i as u64 + *column_pos, row_index) {
-                    self.grid.characters[cell_index] = Some((character.to_string(), style.clone())); // TODO -- Encapsulate 'characters' better
+                if let Some(cell) = self.grid.get_cell_mut(i as u64 + *column_pos, row_index) {
+                    *cell = Some((character.to_string(), style.clone()));
                     self.grid.set_dirty_cell(*column_pos, row_index);
                 }
             }
@@ -228,12 +230,13 @@ impl Editor {
 
                 for x in x_iter {
                     let dest_x = x - cols;
-                    let source_idx = self.grid.cell_index(x as u64, y as u64);
-                    let dest_idx = self.grid.cell_index(dest_x as u64, dest_y as u64);
+                    let cell_data = self.grid.get_cell(x as u64, y as u64).cloned();
 
-                    if let (Some(source_idx), Some(dest_idx)) = (source_idx, dest_idx) {
-                        self.grid.characters[dest_idx] = self.grid.characters[source_idx].clone(); // TODO -- Encapsulate 'characters' better
-                        self.grid.set_dirty_cell(dest_x as u64, dest_y as u64);
+                    if let Some(cell_data) =  cell_data.clone() {
+                        if let Some(dest_cell) = self.grid.get_cell_mut(dest_x as u64, dest_y as u64) {
+                            *dest_cell = cell_data.clone();
+                            self.grid.set_dirty_cell(dest_x as u64, dest_y as u64);
+                        }
                     }
                 }
             }

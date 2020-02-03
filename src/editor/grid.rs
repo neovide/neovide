@@ -3,15 +3,15 @@ use log::trace;
 
 use super::style::Style;
 
-type GridCell = Option<(String, Option<Arc<Style>>)>;
+pub type GridCell = Option<(String, Option<Arc<Style>>)>;
 
 pub struct CharacterGrid {
-    pub characters: Vec<GridCell>,
     pub width: u64,
     pub height: u64,
     pub should_clear: bool,
 
     dirty: Vec<bool>,
+    characters: Vec<GridCell>,
 }
 
 impl CharacterGrid {
@@ -25,27 +25,38 @@ impl CharacterGrid {
         }
     }
 
-    pub fn resize(&mut self, new_size: (u64, u64)) {
+    pub fn resize(&mut self, width: u64, height: u64) {
         trace!("Editor resized");
-        self.width = new_size.0;
-        self.height = new_size.1;
+        self.width = width;
+        self.height = height;
         self.clear();
     }
 
     pub fn clear(&mut self) {
         trace!("Editor cleared");
+        self.characters.clear();
+        self.dirty.clear();
+
         let cell_count = (self.width * self.height) as usize;
-        self.characters = vec![None; cell_count];
-        self.dirty = vec![true; cell_count];
+        self.characters.resize_with(cell_count, || None);
+        self.dirty.resize_with(cell_count, || true);
         self.should_clear = true;
     }
 
-    pub fn cell_index(&self, x: u64, y: u64) -> Option<usize> {
+    fn cell_index(&self, x: u64, y: u64) -> Option<usize> {
         if x >= self.width || y >= self.height {
             None
         } else {
             Some((x + y * self.width) as usize)
         }
+    }
+
+    pub fn get_cell<'a>(&'a self, x: u64, y: u64) -> Option<&'a GridCell> {
+        self.cell_index(x,y).map(|idx| &self.characters[idx])
+    }
+    
+    pub fn get_cell_mut<'a>(&'a mut self, x: u64, y: u64) -> Option<&'a mut GridCell> {
+        self.cell_index(x,y).map(move |idx| &mut self.characters[idx])
     }
 
     pub fn is_dirty_cell(&self, x: u64, y: u64) -> bool {
@@ -63,7 +74,8 @@ impl CharacterGrid {
     }
 
     pub fn set_dirty_all(&mut self, value: bool) {
-        self.dirty.resize(self.dirty.len(), value);
+        self.dirty.clear();
+        self.dirty.resize_with((self.width * self.height) as usize, || value);
     }
 
     pub fn rows<'a>(&'a self) -> Vec<&'a [GridCell]> {
