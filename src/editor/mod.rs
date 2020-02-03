@@ -1,5 +1,6 @@
 mod cursor;
 mod style;
+mod grid;
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -10,6 +11,7 @@ use log::trace;
 
 pub use cursor::{Cursor, CursorShape, CursorMode};
 pub use style::{Colors, Style};
+pub use grid::CharacterGrid;
 use crate::bridge::{GridLineCell, GuiOption, RedrawEvent};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::INITIAL_DIMENSIONS;
@@ -17,8 +19,6 @@ use crate::INITIAL_DIMENSIONS;
 lazy_static! {
     pub static ref EDITOR: Arc<Mutex<Editor>> = Arc::new(Mutex::new(Editor::new()));
 }
-
-pub type GridCell = Option<(String, Option<Arc<Style>>)>;
 
 #[derive(new, Debug, Clone)]
 pub struct DrawCommand {
@@ -31,10 +31,7 @@ pub struct DrawCommand {
 }
 
 pub struct Editor {
-    pub grid: Vec<GridCell>,
-    pub dirty: Vec<bool>,
-    pub should_clear: bool,
-
+    pub grid: CharacterGrid,
     pub title: String,
     pub size: (u64, u64),
     pub font_name: Option<String>,
@@ -48,9 +45,7 @@ pub struct Editor {
 impl Editor {
     pub fn new() -> Editor {
         let mut editor = Editor {
-            grid: Vec::new(),
-            dirty: Vec::new(),
-            should_clear: true,
+            grid: CharacterGrid::new(),
 
             title: "Neovide".to_string(),
             size: INITIAL_DIMENSIONS,
@@ -62,39 +57,10 @@ impl Editor {
             previous_style: None
         };
 
-        editor.clear();
+        editor.grid.clear();
         editor
     }
 
-    pub fn cell_index(&self, x: u64, y: u64) -> Option<usize> {
-        let (width, height) = self.size;
-        if x >= width || y >= height {
-            None
-        }else{
-            Some((x + y * width) as usize)
-        }
-    }
-    
-    pub fn is_dirty_cell(&self, x: u64, y: u64) -> bool{
-        if let Some(idx) = self.cell_index(x, y) {
-            self.dirty[idx]
-        }else{
-            false
-        }
-    }
-
-    pub fn set_dirty_cell(&mut self, x: u64, y: u64) {
-        if let Some(idx) = self.cell_index(x, y) {
-            self.dirty[idx] = true;
-        }
-    }
-
-    fn rows<'a> (&'a self) -> Vec<&'a [GridCell]> {
-        let (width, height) = self.size;
-        (0..height).map(|row| {
-            &self.grid[(row * width) as usize .. ((row+1) * width) as usize]
-        }).collect()
-    }
 
     pub fn handle_redraw_event(&mut self, event: RedrawEvent) {
         match event {
@@ -114,11 +80,11 @@ impl Editor {
                 trace!("Image flushed");
                 REDRAW_SCHEDULER.queue_next_frame();
             },
-            RedrawEvent::Resize { width, height, .. } => self.resize((width, height)),
+            RedrawEvent::Resize { width, height, .. } => self.grid.resize((width, height)),
             RedrawEvent::DefaultColorsSet { colors } => self.default_style = Arc::new(Style::new(colors)),
             RedrawEvent::HighlightAttributesDefine { id, style } => { self.defined_styles.insert(id, Arc::new(style)); },
             RedrawEvent::GridLine { row, column_start, cells, .. } => self.draw_grid_line(row, column_start, cells),
-            RedrawEvent::Clear { .. } => self.clear(),
+            RedrawEvent::Clear { .. } => self.grid.clear(),
             RedrawEvent::CursorGoto { row, column, .. } => self.cursor.position = (row, column),
             RedrawEvent::Scroll { top, bottom, left, right, rows, columns, .. } => self.scroll_region(top, bottom, left, right, rows, columns),
             _ => {}
@@ -127,7 +93,7 @@ impl Editor {
 
     pub fn build_draw_commands(&mut self) -> (Vec<DrawCommand>, bool) {
         let mut draw_commands = Vec::new();
-        for (row_index, row) in self.rows().iter().enumerate() {
+        for (row_index, row) in self.grid.rows().iter().enumerate() {
             let mut command = None;
 
             fn add_command(commands_list: &mut Vec<DrawCommand>, command: Option<DrawCommand>) {
@@ -178,25 +144,23 @@ impl Editor {
             }
             add_command(&mut draw_commands, command);
         }
-        let should_clear = self.should_clear;
+        let should_clear = self.grid.should_clear;
         
-        let (width, height) = self.size;
-
         let draw_commands = draw_commands.into_iter().filter(|command| {
             let (x, y) = command.grid_position;
 
             let min = (x as i64 - 1).max(0) as u64;
-            let max = (x + command.cell_width + 1).min(width);
+            let max = (x + command.cell_width + 1).min(self.grid.width);
             for char_index in min..max {
-                if self.is_dirty_cell(char_index, y) {
+                if self.grid.is_dirty_cell(char_index, y) {
                     return true;
                 }
             }
             return false;
         }).collect::<Vec<DrawCommand>>();
 
-        self.dirty = vec![false; (width * height) as usize];
-        self.should_clear = false;
+        self.grid.set_dirty_all(false);
+        self.grid.should_clear = false;
 
         trace!("Draw commands sent");
         (draw_commands, should_clear)
@@ -215,15 +179,15 @@ impl Editor {
         }
 
         if text.is_empty() {
-            let cell_index = self.cell_index(*column_pos, row_index).expect("Should not paint outside of grid");
-            self.grid[cell_index] = Some(("".to_string(), style.clone()));
-            self.set_dirty_cell(*column_pos, row_index);
+            let cell_index = self.grid.cell_index(*column_pos, row_index).expect("Should not paint outside of grid");
+            self.grid.characters[cell_index] = Some(("".to_string(), style.clone())); // TODO -- Encapsulate 'characters' better
+            self.grid.set_dirty_cell(*column_pos, row_index);
             *column_pos = *column_pos + 1;
         } else {
             for (i, character) in text.graphemes(true).enumerate() {
-                if let Some(cell_index) = self.cell_index(i as u64 + *column_pos, row_index) {
-                    self.grid[cell_index] = Some((character.to_string(), style.clone()));
-                    self.set_dirty_cell(*column_pos, row_index);
+                if let Some(cell_index) = self.grid.cell_index(i as u64 + *column_pos, row_index) {
+                    self.grid.characters[cell_index] = Some((character.to_string(), style.clone())); // TODO -- Encapsulate 'characters' better
+                    self.grid.set_dirty_cell(*column_pos, row_index);
                 }
             }
             *column_pos = *column_pos + text.graphemes(true).count() as u64;
@@ -232,7 +196,7 @@ impl Editor {
     }
 
     fn draw_grid_line(&mut self, row: u64, column_start: u64, cells: Vec<GridLineCell>) {
-        if row < self.grid.len() as u64 {
+        if row < self.grid.height {
             let mut column_pos = column_start;
             for cell in cells {
                 self.draw_grid_line_cell(row, &mut column_pos, cell);
@@ -264,31 +228,17 @@ impl Editor {
 
                 for x in x_iter {
                     let dest_x = x - cols;
-                    let source_idx = self.cell_index(x as u64, y as u64);
-                    let dest_idx = self.cell_index(dest_x as u64, dest_y as u64);
+                    let source_idx = self.grid.cell_index(x as u64, y as u64);
+                    let dest_idx = self.grid.cell_index(dest_x as u64, dest_y as u64);
 
                     if let (Some(source_idx), Some(dest_idx)) = (source_idx, dest_idx) {
-                        self.grid[dest_idx] = self.grid[source_idx].clone();
-                        self.set_dirty_cell(dest_x as u64, dest_y as u64);
+                        self.grid.characters[dest_idx] = self.grid.characters[source_idx].clone(); // TODO -- Encapsulate 'characters' better
+                        self.grid.set_dirty_cell(dest_x as u64, dest_y as u64);
                     }
                 }
             }
         }
         trace!("Region scrolled");
-    }
-
-    fn resize(&mut self, new_size: (u64, u64)) {
-        trace!("Editor resized");
-        self.size = new_size;
-        self.clear();
-    }
-
-    fn clear(&mut self) {
-        trace!("Editor cleared");
-        let (width, height) = self.size;
-        self.grid = vec![None; (width * height) as usize];
-        self.dirty = vec![true; (width * height) as usize];
-        self.should_clear = true;
     }
 
     fn set_option(&mut self, gui_option: GuiOption) {
