@@ -201,16 +201,13 @@ impl CursorRenderer {
 
         let (character, font_dimensions): (String, Point) = {
             let editor = EDITOR.lock().unwrap();
-            let character = editor.grid
-                .get(grid_y as usize)
-                .and_then(|row| row.get(grid_x as usize).cloned())
-                .flatten()
-                .map(|(character, _)| character)
-                .unwrap_or(' '.to_string());
-            let is_double = editor.grid
-                .get(grid_y as usize)
-                .and_then(|row| row.get(grid_x as usize + 1).cloned())
-                .flatten()
+            let character = editor.cell_index(grid_x, grid_y)
+                .and_then(|idx| editor.grid[idx].as_ref())
+                .map(|(character, _)| character.clone())
+                .unwrap_or_else(|| ' '.to_string());
+            
+            let is_double = editor.cell_index(grid_x + 1, grid_y)
+                .and_then(|idx| editor.grid[idx].as_ref())
                 .map(|(character, _)| character.is_empty())
                 .unwrap_or(false);
 

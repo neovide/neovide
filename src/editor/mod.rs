@@ -31,8 +31,8 @@ pub struct DrawCommand {
 }
 
 pub struct Editor {
-    pub grid: Vec<Vec<GridCell>>,
-    pub dirty: Vec<Vec<bool>>,
+    pub grid: Vec<GridCell>,
+    pub dirty: Vec<bool>,
     pub should_clear: bool,
 
     pub title: String,
@@ -66,6 +66,36 @@ impl Editor {
         editor
     }
 
+    pub fn cell_index(&self, x: u64, y: u64) -> Option<usize> {
+        let (width, height) = self.size;
+        if x >= width || y >= height {
+            None
+        }else{
+            Some((x + y * width) as usize)
+        }
+    }
+    
+    pub fn is_dirty_cell(&self, x: u64, y: u64) -> bool{
+        if let Some(idx) = self.cell_index(x, y) {
+            self.dirty[idx]
+        }else{
+            false
+        }
+    }
+
+    pub fn set_dirty_cell(&mut self, x: u64, y: u64) {
+        if let Some(idx) = self.cell_index(x, y) {
+            self.dirty[idx] = true;
+        }
+    }
+
+    fn rows<'a> (&'a self) -> Vec<&'a [GridCell]> {
+        let (width, height) = self.size;
+        (0..height).map(|row| {
+            &self.grid[(row * width) as usize .. ((row+1) * width) as usize]
+        }).collect()
+    }
+
     pub fn handle_redraw_event(&mut self, event: RedrawEvent) {
         match event {
             RedrawEvent::SetTitle { title } => self.title = title,
@@ -97,7 +127,7 @@ impl Editor {
 
     pub fn build_draw_commands(&mut self) -> (Vec<DrawCommand>, bool) {
         let mut draw_commands = Vec::new();
-        for (row_index, row) in self.grid.iter().enumerate() {
+        for (row_index, row) in self.rows().iter().enumerate() {
             let mut command = None;
 
             fn add_command(commands_list: &mut Vec<DrawCommand>, command: Option<DrawCommand>) {
@@ -149,23 +179,23 @@ impl Editor {
             add_command(&mut draw_commands, command);
         }
         let should_clear = self.should_clear;
+        
+        let (width, height) = self.size;
 
         let draw_commands = draw_commands.into_iter().filter(|command| {
             let (x, y) = command.grid_position;
-            let dirty_row = &self.dirty[y as usize];
 
             let min = (x as i64 - 1).max(0) as u64;
-            let max = (x + command.cell_width + 1).min(dirty_row.len() as u64);
+            let max = (x + command.cell_width + 1).min(width);
             for char_index in min..max {
-                if dirty_row[char_index as usize] {
+                if self.is_dirty_cell(char_index, y) {
                     return true;
                 }
             }
             return false;
         }).collect::<Vec<DrawCommand>>();
 
-        let (width, height) = self.size;
-        self.dirty = vec![vec![false; width as usize]; height as usize];
+        self.dirty = vec![false; (width * height) as usize];
         self.should_clear = false;
 
         trace!("Draw commands sent");
@@ -184,19 +214,16 @@ impl Editor {
             text = text.repeat(times as usize);
         }
 
-        let row = self.grid.get_mut(row_index as usize).expect("Grid must have size greater than row_index");
-        let dirty_row = &mut self.dirty[row_index as usize];
-
         if text.is_empty() {
-            row[*column_pos as usize] = Some(("".to_string(), style.clone()));
-            dirty_row[*column_pos as usize] = true;
+            let cell_index = self.cell_index(*column_pos, row_index).expect("Should not paint outside of grid");
+            self.grid[cell_index] = Some(("".to_string(), style.clone()));
+            self.set_dirty_cell(*column_pos, row_index);
             *column_pos = *column_pos + 1;
         } else {
             for (i, character) in text.graphemes(true).enumerate() {
-                let pointer_index = i + *column_pos as usize;
-                if pointer_index < row.len() {
-                    row[pointer_index] = Some((character.to_string(), style.clone()));
-                    dirty_row[pointer_index] = true;
+                if let Some(cell_index) = self.cell_index(i as u64 + *column_pos, row_index) {
+                    self.grid[cell_index] = Some((character.to_string(), style.clone()));
+                    self.set_dirty_cell(*column_pos, row_index);
                 }
             }
             *column_pos = *column_pos + text.graphemes(true).count() as u64;
@@ -223,12 +250,11 @@ impl Editor {
             Box::new((top as i64 .. (bot as i64 + rows)).rev())
         };
 
-        let grid_width = self.size.0;
-        let grid_height = self.size.1;
+        let (_, height) = self.size;
 
         for y in y_iter {
             let dest_y = y - rows;
-            if dest_y >= 0 && dest_y < grid_height as i64 {
+            if dest_y >= 0 && dest_y < height as i64 {
 
                 let x_iter : Box<dyn Iterator<Item=i64>> = if cols > 0 {
                     Box::new((left as i64 + cols) .. right as i64)
@@ -238,10 +264,12 @@ impl Editor {
 
                 for x in x_iter {
                     let dest_x = x - cols;
-                    if dest_x >= 0 && dest_x < grid_width as i64 {
-                        let cell = self.grid[y as usize][x as usize].clone();
-                        self.grid[dest_y as usize][dest_x as usize] = cell;
-                        self.dirty[dest_y as usize][dest_x as usize] = true;
+                    let source_idx = self.cell_index(x as u64, y as u64);
+                    let dest_idx = self.cell_index(dest_x as u64, dest_y as u64);
+
+                    if let (Some(source_idx), Some(dest_idx)) = (source_idx, dest_idx) {
+                        self.grid[dest_idx] = self.grid[source_idx].clone();
+                        self.set_dirty_cell(dest_x as u64, dest_y as u64);
                     }
                 }
             }
@@ -258,8 +286,8 @@ impl Editor {
     fn clear(&mut self) {
         trace!("Editor cleared");
         let (width, height) = self.size;
-        self.grid = vec![vec![None; width as usize]; height as usize];
-        self.dirty = vec![vec![true; width as usize]; height as usize];
+        self.grid = vec![None; (width * height) as usize];
+        self.dirty = vec![true; (width * height) as usize];
         self.should_clear = true;
     }
 
