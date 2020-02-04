@@ -15,7 +15,7 @@ derive-new = "0.5"
 rmpv = "0.4.4"
 rust-embed = { version = "5.2.0", features = ["debug-embed"] }
 image = "0.22.3"
-nvim-rs = { git = "https://github.com/KillTheMule/nvim-rs", features = [ "use_tokio" ] }
+nvim-rs = { git = "https://github.com/kethku/nvim-rs", features = [ "use_tokio" ] }
 tokio = { version = "0.2.9", features = [ "blocking", "process", "time" ] }
 async-trait = "0.1.18"
 lazy_static = "1.4.0"
