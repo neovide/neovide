@@ -104,6 +104,9 @@ pub fn ui_loop() {
                 },
                 ..
             } => {
+                // Only interpret 'char' events when we get a previous event without a virtual
+                // keycode (which we ignore for KeyboardInput events).
+                // This is a hack so we don't lose a bunch of input events on Linux
                 if input.virtual_keycode == None {
                     allow_next_char = true;
                 }else {
