@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 use image::{load_from_memory, GenericImageView, Pixel};
 use skulpin::{CoordinateSystem, RendererBuilder, PresentMode};
 use skulpin::winit::dpi::LogicalSize;
-use skulpin::winit::event::{ElementState, Event, MouseScrollDelta, StartCause, WindowEvent};
+use skulpin::winit::event::{ElementState, Event, MouseScrollDelta, StartCause, WindowEvent, ModifiersState};
 use skulpin::winit::event_loop::{ControlFlow, EventLoop};
 use skulpin::winit::window::{Icon, WindowBuilder};
 use log::{info, debug, trace, error};
@@ -73,6 +73,9 @@ pub fn ui_loop() {
     let mut mouse_down = false;
     let mut mouse_pos = (0, 0);
 
+    let mut allow_next_char = false;
+    let mut next_char_modifiers = ModifiersState::empty();
+
     info!("Starting window event loop");
     event_loop.run(move |event, _window_target, control_flow| {
         trace!("Window Event: {:?}", event);
@@ -101,9 +104,30 @@ pub fn ui_loop() {
                 },
                 ..
             } => {
+                // Only interpret 'char' events when we get a previous event without a virtual
+                // keycode (which we ignore for KeyboardInput events).
+                // This is a hack so we don't lose a bunch of input events on Linux
+                if input.virtual_keycode == None {
+                    allow_next_char = true;
+                }else {
+                    allow_next_char = false;
+                }
+                next_char_modifiers = input.modifiers;
+
                 construct_keybinding_string(input)
                     .map(UiCommand::Keyboard)
                     .map(|keybinding_string| BRIDGE.queue_command(keybinding_string));
+            },
+
+            Event::WindowEvent {
+                event: WindowEvent::ReceivedCharacter(c),
+                ..
+            } => {
+                if allow_next_char {
+                    next_char_modifiers.remove(ModifiersState::SHIFT);
+                    let keybinding = super::bridge::append_modifiers(next_char_modifiers, &c.to_string(), false);
+                    BRIDGE.queue_command(UiCommand::Keyboard(keybinding));
+                }
             },
 
             Event::WindowEvent {

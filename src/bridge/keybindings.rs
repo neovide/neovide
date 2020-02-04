@@ -94,7 +94,7 @@ fn parse_keycode(keycode: VirtualKeyCode) -> Option<(&'static str, bool)> {
     }
 }
 
-fn append_modifiers(modifiers: ModifiersState, keycode_text: &str, special: bool) -> String {
+pub fn append_modifiers(modifiers: ModifiersState, keycode_text: &str, special: bool) -> String {
     let mut result = keycode_text.to_string();
     let mut special = special;
 
