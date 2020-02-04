@@ -121,6 +121,7 @@ pub fn ui_loop() {
                 ..
             } => {
                 if allow_next_char {
+                    next_char_modifiers.remove(ModifiersState::SHIFT);
                     let keybinding = super::bridge::append_modifiers(next_char_modifiers, &c.to_string(), false);
                     BRIDGE.queue_command(UiCommand::Keyboard(keybinding));
                 }
