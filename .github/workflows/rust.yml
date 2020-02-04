@@ -1,0 +1,33 @@
+name: Rust
+
+on: [push]
+
+jobs:
+  build-windows:
+
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build
+      run: cargo build --release
+    - uses: actions/upload-artifact@v1
+      with:
+        name: neovide-windows.exe
+        path: ./target/release/neovide.exe
+
+  build-mac:
+
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install Vulkan SDK
+      run: |
+        brew cask install apenngrace/vulkan/vulkan-sdk
+    - name: Build
+      run: cargo build --release
+    - uses: actions/upload-artifact@v1
+      with:
+        name: neovide-macos
+        path: ./target/release/neovide
