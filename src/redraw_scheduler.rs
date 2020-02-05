@@ -4,11 +4,11 @@ use std::time::Instant;
 
 use log::trace;
 
+use crate::settings::SETTINGS;
+
 lazy_static! {
     pub static ref REDRAW_SCHEDULER: RedrawScheduler = RedrawScheduler::new();
 }
-
-const BUFFER_FRAMES: u16 = 60;
 
 pub struct RedrawScheduler {
     frames_queued: AtomicU16,
@@ -38,7 +38,8 @@ impl RedrawScheduler {
 
     pub fn queue_next_frame(&self) {
         trace!("Next frame queued");
-        self.frames_queued.store(BUFFER_FRAMES, Ordering::Relaxed);
+        let buffer_frames = SETTINGS.buffer_frames.load(Ordering::Relaxed);
+        self.frames_queued.store(buffer_frames, Ordering::Relaxed);
     }
 
     pub fn should_draw(&self) -> bool {

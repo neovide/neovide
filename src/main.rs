@@ -35,6 +35,9 @@ fn main() {
         } else if arg == "--noIdle" {
             SETTINGS.no_idle.store(true, Ordering::Relaxed);
             false
+        } else if arg == "--extraBufferFrames" {
+            SETTINGS.buffer_frames.store(60, Ordering::Relaxed);
+            false
         } else {
             true
         }

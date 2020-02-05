@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use image::{load_from_memory, GenericImageView, Pixel};
 use skulpin::{CoordinateSystem, RendererBuilder, PresentMode};
-use skulpin::winit::dpi::LogicalSize;
+use skulpin::winit::dpi::{LogicalSize, LogicalPosition};
 use skulpin::winit::event::{ElementState, Event, MouseScrollDelta, StartCause, WindowEvent, ModifiersState};
 use skulpin::winit::event_loop::{ControlFlow, EventLoop};
 use skulpin::winit::window::{Icon, WindowBuilder};
@@ -138,6 +138,7 @@ pub fn ui_loop() {
                 },
                 ..
             } => {
+                let position: LogicalPosition<f64> = position.to_logical(window.scale_factor());
                 let grid_y = (position.x / renderer.font_width as f64) as i64;
                 let grid_x = (position.y / renderer.font_height as f64) as i64;
                 let (old_x, old_y) = mouse_pos;
