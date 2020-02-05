@@ -229,7 +229,7 @@ impl CursorRenderer {
             }
         }
 
-        if animating {
+        if animating || self.command_line_delay != 0 {
             REDRAW_SCHEDULER.queue_next_frame();
         }
 
