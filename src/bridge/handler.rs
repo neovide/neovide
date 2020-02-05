@@ -2,12 +2,11 @@ use rmpv::Value;
 use nvim_rs::{Neovim, Handler, compat::tokio::Compat};
 use async_trait::async_trait;
 use tokio::process::ChildStdin;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
 use log::trace;
 
 use crate::error_handling::ResultPanicExplanation;
 use crate::editor::EDITOR;
-use super::events::{RedrawEvent, parse_neovim_event};
+use super::events::parse_neovim_event;
 
 #[derive(Clone)]
 pub struct NeovimHandler();

@@ -27,7 +27,7 @@ impl RedrawScheduler {
     pub fn schedule(&self, new_scheduled: Instant) {
         trace!("Redraw scheduled for {:?}", new_scheduled);
         let mut scheduled_frame = self.scheduled_frame.lock().unwrap();
-        if let Some(previous_scheduled) = scheduled_frame.clone() {
+        if let Some(previous_scheduled) = *scheduled_frame {
             if new_scheduled < previous_scheduled {
                 *scheduled_frame = Some(new_scheduled);
             }
@@ -48,7 +48,7 @@ impl RedrawScheduler {
             true
         } else {
             let mut next_scheduled_frame = self.scheduled_frame.lock().unwrap();
-            if let Some(scheduled_frame) = next_scheduled_frame.clone() {
+            if let Some(scheduled_frame) = *next_scheduled_frame {
                 if scheduled_frame < Instant::now() {
                     *next_scheduled_frame = None;
                     true

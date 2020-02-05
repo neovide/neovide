@@ -7,14 +7,14 @@ use skribo::{LayoutSession, FontRef as SkriboFont, FontFamily, FontCollection, T
 
 use log::trace;
 
-const STANDARD_CHARACTER_STRING: &'static str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
+const STANDARD_CHARACTER_STRING: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
 
-const MONOSPACE_FONT: &'static str = "Fira Code Regular Nerd Font Complete.otf";
-const MONOSPACE_BOLD_FONT: &'static str = "Fira Code Bold Nerd Font Complete.otf";
-const SYMBOL_FONT: &'static str = "DejaVuSansMono.ttf";
-const EMOJI_FONT: &'static str = "NotoColorEmoji.ttf";
-const WIDE_FONT: &'static str = "NotoSansMonoCJKjp-Regular.otf";
-const WIDE_BOLD_FONT: &'static str = "NotoSansMonoCJKjp-Bold.otf";
+const MONOSPACE_FONT: &str = "Fira Code Regular Nerd Font Complete.otf";
+const MONOSPACE_BOLD_FONT: &str = "Fira Code Bold Nerd Font Complete.otf";
+const SYMBOL_FONT: &str = "DejaVuSansMono.ttf";
+const EMOJI_FONT: &str = "NotoColorEmoji.ttf";
+const WIDE_FONT: &str = "NotoSansMonoCJKjp-Regular.otf";
+const WIDE_BOLD_FONT: &str = "NotoSansMonoCJKjp-Bold.otf";
 
 #[cfg(target_os = "windows")]
 const SYSTEM_EMOJI_FONT: &str = "Segoe UI Emoji";
@@ -235,7 +235,7 @@ impl CachingShaper {
                 .and_modify(|e| *e += 1)
                 .or_insert(1);
         }
-        let (font_width, _) = amounts.into_iter().max_by_key(|(_, count)| count.clone()).unwrap();
+        let (font_width, _) = amounts.into_iter().max_by_key(|(_, count)| *count).unwrap();
         let font_width = font_width.parse::<f32>().unwrap();
 
         (font_width, font_height)

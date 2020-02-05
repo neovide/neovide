@@ -63,7 +63,7 @@ impl Cursor {
 
     pub fn foreground(&self, default_colors: &Colors) -> Color4f {
         if let Some(style) = &self.style {
-            style.colors.foreground.clone().unwrap_or(default_colors.background.clone().unwrap())
+            style.colors.foreground.clone().unwrap_or_else(||default_colors.background.clone().unwrap())
         } else {
             default_colors.background.clone().unwrap()
         }
@@ -71,7 +71,7 @@ impl Cursor {
 
     pub fn background(&self, default_colors: &Colors) -> Color4f {
         if let Some(style) = &self.style {
-            style.colors.background.clone().unwrap_or(default_colors.foreground.clone().unwrap())
+            style.colors.background.clone().unwrap_or_else(||default_colors.foreground.clone().unwrap())
         } else {
             default_colors.foreground.clone().unwrap()
         }
@@ -86,13 +86,13 @@ impl Cursor {
             if let Some(style_id) = style_id {
                 self.style = styles
                     .get(style_id)
-                    .map(|style_reference| style_reference.clone());
+                    .cloned();
             }
 
-            self.cell_percentage = cell_percentage.clone();
-            self.blinkwait = blinkwait.clone();
-            self.blinkon = blinkon.clone();
-            self.blinkoff = blinkoff.clone();
+            self.cell_percentage = *cell_percentage;
+            self.blinkwait = *blinkwait;
+            self.blinkon = *blinkon;
+            self.blinkoff = *blinkoff;
         }
     }
 }
