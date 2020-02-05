@@ -1,6 +1,16 @@
-use skulpin::winit::event::{KeyboardInput, ElementState, ModifiersState, VirtualKeyCode};
+use log::trace;
+use skulpin::winit::event::{ElementState, KeyboardInput, ModifiersState, VirtualKeyCode};
 
 fn parse_keycode(keycode: VirtualKeyCode) -> Option<(&'static str, bool)> {
+    macro_rules! unsupported_key {
+        ($name: ident) => {{
+            if cfg!(debug_assertions) {
+                trace!("Unsupported key: $name");
+            }
+            None
+        }};
+    }
+
     match keycode {
         VirtualKeyCode::Key1 => Some(("1", false)),
         VirtualKeyCode::Key2 => Some(("2", false)),
@@ -63,6 +73,9 @@ fn parse_keycode(keycode: VirtualKeyCode) -> Option<(&'static str, bool)> {
         VirtualKeyCode::F22 => Some(("F22", true)),
         VirtualKeyCode::F23 => Some(("F23", true)),
         VirtualKeyCode::F24 => Some(("F24", true)),
+        VirtualKeyCode::Snapshot => unsupported_key!(Snapshot),
+        VirtualKeyCode::Scroll => unsupported_key!(Scroll),
+        VirtualKeyCode::Pause => unsupported_key!(Pause),
         VirtualKeyCode::Insert => Some(("Insert", true)),
         VirtualKeyCode::Home => Some(("Home", true)),
         VirtualKeyCode::Delete => Some(("Delete", true)),
@@ -76,21 +89,93 @@ fn parse_keycode(keycode: VirtualKeyCode) -> Option<(&'static str, bool)> {
         VirtualKeyCode::Back => Some(("BS", true)),
         VirtualKeyCode::Return => Some(("Enter", true)),
         VirtualKeyCode::Space => Some(("Space", true)),
+        VirtualKeyCode::Compose => unsupported_key!(Compose),
         VirtualKeyCode::Caret => Some(("^", false)),
+        VirtualKeyCode::Numlock => unsupported_key!(Numlock),
+        VirtualKeyCode::Numpad0 => Some(("0", false)),
+        VirtualKeyCode::Numpad1 => Some(("1", false)),
+        VirtualKeyCode::Numpad2 => Some(("2", false)),
+        VirtualKeyCode::Numpad3 => Some(("3", false)),
+        VirtualKeyCode::Numpad4 => Some(("4", false)),
+        VirtualKeyCode::Numpad5 => Some(("5", false)),
+        VirtualKeyCode::Numpad6 => Some(("6", false)),
+        VirtualKeyCode::Numpad7 => Some(("7", false)),
+        VirtualKeyCode::Numpad8 => Some(("8", false)),
+        VirtualKeyCode::Numpad9 => Some(("9", false)),
+        // These next two are for Brazillian keyboards according to
+        // https://hg.mozilla.org/integration/mozilla-inbound/rev/28039c359ce8#l2.31
+        // Mapping both to the same thing as firefox
+        VirtualKeyCode::AbntC1 => Some(("/", false)),
+        VirtualKeyCode::AbntC2 => Some((".", false)),
+        VirtualKeyCode::Add => Some(("+", true)),
         VirtualKeyCode::Apostrophe => Some(("'", false)),
+        VirtualKeyCode::Apps => unsupported_key!(Apps),
+        VirtualKeyCode::At => Some(("@", false)),
+        VirtualKeyCode::Ax => unsupported_key!(Ax),
         VirtualKeyCode::Backslash => Some(("Bslash", true)),
+        VirtualKeyCode::Calculator => unsupported_key!(Calculator),
+        VirtualKeyCode::Capital => unsupported_key!(Capital),
         VirtualKeyCode::Colon => Some((":", false)),
         VirtualKeyCode::Comma => Some((",", false)),
+        VirtualKeyCode::Convert => unsupported_key!(Convert),
+        VirtualKeyCode::Decimal => Some((".", false)),
+        VirtualKeyCode::Divide => Some(("/", false)),
         VirtualKeyCode::Equals => Some(("=", false)),
         VirtualKeyCode::Grave => Some(("`", false)),
+        VirtualKeyCode::Kana => unsupported_key!(Kana),
+        VirtualKeyCode::Kanji => unsupported_key!(Kanji),
+        VirtualKeyCode::LAlt => None, // Regular modifier key
         VirtualKeyCode::LBracket => Some(("[", false)),
+        VirtualKeyCode::LControl => None, // Regular modifier key
+        VirtualKeyCode::LShift => None,   // Regular modifier key
+        VirtualKeyCode::LWin => unsupported_key!(LWin),
+        VirtualKeyCode::Mail => unsupported_key!(Mail),
+        VirtualKeyCode::MediaSelect => unsupported_key!(MediaSelect),
+        VirtualKeyCode::MediaStop => unsupported_key!(MediaStop),
         VirtualKeyCode::Minus => Some(("-", false)),
+        VirtualKeyCode::Multiply => Some(("*", false)),
+        VirtualKeyCode::Mute => unsupported_key!(Mute),
+        VirtualKeyCode::MyComputer => unsupported_key!(MyComputer),
+        VirtualKeyCode::NavigateForward => unsupported_key!(NavigateForward),
+        VirtualKeyCode::NavigateBackward => unsupported_key!(NavigateBackward),
+        VirtualKeyCode::NextTrack => unsupported_key!(NextTrack),
+        VirtualKeyCode::NoConvert => unsupported_key!(NoConvert),
+        VirtualKeyCode::NumpadComma => Some((",", false)),
+        VirtualKeyCode::NumpadEnter => Some(("Enter", true)),
+        VirtualKeyCode::NumpadEquals => Some(("=", false)),
+        VirtualKeyCode::OEM102 => unsupported_key!(OEM102),
         VirtualKeyCode::Period => Some((".", false)),
+        VirtualKeyCode::PlayPause => unsupported_key!(PlayPause),
+        VirtualKeyCode::Power => unsupported_key!(Power),
+        VirtualKeyCode::PrevTrack => unsupported_key!(PrevTrack),
+        VirtualKeyCode::RAlt => None, // Regular modifier key
         VirtualKeyCode::RBracket => Some(("]", false)),
+        VirtualKeyCode::RControl => None, // Regular modifier key
+        VirtualKeyCode::RShift => None,   // Regular modifier key
+        VirtualKeyCode::RWin => unsupported_key!(RWin),
         VirtualKeyCode::Semicolon => Some((";", false)),
         VirtualKeyCode::Slash => Some(("/", false)),
+        VirtualKeyCode::Sleep => unsupported_key!(Sleep),
+        VirtualKeyCode::Stop => unsupported_key!(Stop),
+        VirtualKeyCode::Subtract => Some(("-", false)),
+        VirtualKeyCode::Sysrq => unsupported_key!(Sysrq),
         VirtualKeyCode::Tab => Some(("Tab", true)),
-        _ => None
+        VirtualKeyCode::Underline => unsupported_key!(Underline),
+        VirtualKeyCode::Unlabeled => unsupported_key!(Unlabeled),
+        VirtualKeyCode::VolumeDown => unsupported_key!(VolumeDown),
+        VirtualKeyCode::VolumeUp => unsupported_key!(VolumeUp),
+        VirtualKeyCode::Wake => unsupported_key!(Wake),
+        VirtualKeyCode::WebBack => unsupported_key!(WebBack),
+        VirtualKeyCode::WebFavorites => unsupported_key!(WebFavorites),
+        VirtualKeyCode::WebForward => unsupported_key!(WebForward),
+        VirtualKeyCode::WebHome => unsupported_key!(WebHome),
+        VirtualKeyCode::WebRefresh => unsupported_key!(WebRefresh),
+        VirtualKeyCode::WebSearch => unsupported_key!(WebSearch),
+        VirtualKeyCode::WebStop => unsupported_key!(WebStop),
+        VirtualKeyCode::Yen => Some(("¥", false)),
+        VirtualKeyCode::Copy => unsupported_key!(Copy),
+        VirtualKeyCode::Paste => unsupported_key!(Paste),
+        VirtualKeyCode::Cut => unsupported_key!(Cut),
     }
 }
 
