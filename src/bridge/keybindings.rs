@@ -84,6 +84,7 @@ fn parse_keycode(keycode: VirtualKeyCode) -> Option<(&'static str, bool)> {
         VirtualKeyCode::Equals => Some(("=", false)),
         VirtualKeyCode::Grave => Some(("`", false)),
         VirtualKeyCode::LBracket => Some(("[", false)),
+        VirtualKeyCode::Add => Some(("+", true)),
         VirtualKeyCode::Minus => Some(("-", false)),
         VirtualKeyCode::Period => Some((".", false)),
         VirtualKeyCode::RBracket => Some(("]", false)),
