@@ -102,24 +102,20 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
     let nvim = Arc::new(nvim);
     tokio::spawn(async move {
         info!("UiCommand processor started");
-        loop {
-            if let Some(commands) = drain(&mut receiver).await {
-                let (resize_list, other_commands): (Vec<UiCommand>, Vec<UiCommand>) = commands
-                    .into_iter()
-                    .partition(|command| command.is_resize());
+        while let Some(commands) = drain(&mut receiver).await {
+            let (resize_list, other_commands): (Vec<UiCommand>, Vec<UiCommand>) = commands
+                .into_iter()
+                .partition(|command| command.is_resize());
 
-                for command in resize_list
-                    .into_iter().last().into_iter()
-                    .chain(other_commands.into_iter()) {
+            for command in resize_list
+                .into_iter().last().into_iter()
+                .chain(other_commands.into_iter()) {
 
-                    let nvim = nvim.clone();
-                    tokio::spawn(async move {
-                        trace!("Executing UiCommand: {:?}", &command);
-                        command.execute(&nvim).await;
-                    });
-                }
-            } else {
-                break;
+                let nvim = nvim.clone();
+                tokio::spawn(async move {
+                    trace!("Executing UiCommand: {:?}", &command);
+                    command.execute(&nvim).await;
+                });
             }
         }
     });

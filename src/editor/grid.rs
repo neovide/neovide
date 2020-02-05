@@ -54,11 +54,11 @@ impl CharacterGrid {
         }
     }
 
-    pub fn get_cell<'a>(&'a self, x: u64, y: u64) -> Option<&'a GridCell> {
+    pub fn get_cell(&self, x: u64, y: u64) -> Option<&GridCell> {
         self.cell_index(x,y).map(|idx| &self.characters[idx])
     }
     
-    pub fn get_cell_mut<'a>(&'a mut self, x: u64, y: u64) -> Option<&'a mut GridCell> {
+    pub fn get_cell_mut(&mut self, x: u64, y: u64) -> Option<&mut GridCell> {
         self.cell_index(x,y).map(move |idx| &mut self.characters[idx])
     }
 
@@ -81,7 +81,7 @@ impl CharacterGrid {
         self.dirty.resize_with((self.width * self.height) as usize, || value);
     }
 
-    pub fn rows<'a>(&'a self) -> impl Iterator<Item=&'a[GridCell]> {
+    pub fn rows(&self) -> impl Iterator<Item=&[GridCell]> {
         (0..self.height)
             .map(move |row| {
                 &self.characters[(row * self.width) as usize..((row + 1) * self.width) as usize]

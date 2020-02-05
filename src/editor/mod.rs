@@ -154,7 +154,7 @@ impl Editor {
                     return true;
                 }
             }
-            return false;
+            false
         }).collect::<Vec<DrawCommand>>();
 
         self.grid.set_dirty_all(false);
@@ -167,7 +167,7 @@ impl Editor {
     fn draw_grid_line_cell(&mut self, row_index: u64, column_pos: &mut u64, cell: GridLineCell) {
         let style = match cell.highlight_id {
             Some(0) => None,
-            Some(style_id) => self.defined_styles.get(&style_id).map(|style| style.clone()),
+            Some(style_id) => self.defined_styles.get(&style_id).cloned(),
             None => self.previous_style.clone()
         };
 
@@ -182,7 +182,7 @@ impl Editor {
             }
 
             self.grid.set_dirty_cell(*column_pos, row_index);
-            *column_pos = *column_pos + 1;
+            *column_pos += 1;
         } else {
             for (i, character) in text.graphemes(true).enumerate() {
                 if let Some(cell) = self.grid.get_cell_mut(i as u64 + *column_pos, row_index) {
@@ -190,7 +190,7 @@ impl Editor {
                     self.grid.set_dirty_cell(*column_pos, row_index);
                 }
             }
-            *column_pos = *column_pos + text.graphemes(true).count() as u64;
+            *column_pos += text.graphemes(true).count() as u64;
         }
         self.previous_style = style;
     }
@@ -244,10 +244,10 @@ impl Editor {
         trace!("Option set {:?}", &gui_option);
         match gui_option {
             GuiOption::GuiFont(font_description) => {
-                let parts: Vec<&str> = font_description.split(":").collect();
+                let parts: Vec<&str> = font_description.split(':').collect();
                 self.font_name = Some(parts[0].to_string());
                 for part in parts.iter().skip(1) {
-                    if part.starts_with("h") && part.len() > 1 {
+                    if part.starts_with('h') && part.len() > 1 {
                         self.font_size = part[1..].parse::<f32>().ok();
                     }
                 }

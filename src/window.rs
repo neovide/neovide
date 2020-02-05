@@ -114,9 +114,10 @@ pub fn ui_loop() {
                 }
                 next_char_modifiers = input.modifiers;
 
-                construct_keybinding_string(input)
-                    .map(UiCommand::Keyboard)
-                    .map(|keybinding_string| BRIDGE.queue_command(keybinding_string));
+                if let Some(keybinding_string) = construct_keybinding_string(input)
+                    .map(UiCommand::Keyboard) {
+                        BRIDGE.queue_command(keybinding_string);
+                }
             },
 
             Event::WindowEvent {
@@ -214,11 +215,11 @@ pub fn ui_loop() {
 
                 if REDRAW_SCHEDULER.should_draw() || SETTINGS.no_idle.load(Ordering::Relaxed) {
                     debug!("Render Triggered");
-                    if let Err(_)  = skulpin_renderer.draw(&window, |canvas, coordinate_system_helper| {
+                    if skulpin_renderer.draw(&window, |canvas, coordinate_system_helper| {
                         if renderer.draw(canvas, coordinate_system_helper) {
                             handle_new_grid_size(window.inner_size().to_logical(window.scale_factor()), &renderer)
                         }
-                    }) {
+                    }).is_err() {
                         error!("Render failed. Closing");
                         *control_flow = ControlFlow::Exit;
                         return;

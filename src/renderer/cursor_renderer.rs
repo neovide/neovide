@@ -55,7 +55,7 @@ impl BlinkStatus {
             BlinkState::Waiting => new_cursor.blinkwait,
             BlinkState::Off => new_cursor.blinkoff,
             BlinkState::On => new_cursor.blinkon
-        }.filter(|millis| millis > &0).map(|millis| Duration::from_millis(millis));
+        }.filter(|millis| *millis > 0).map(Duration::from_millis);
 
         if delay.map(|delay| self.last_transition + delay < Instant::now()).unwrap_or(false) {
             self.state = match self.state {
@@ -183,7 +183,7 @@ impl CursorRenderer {
             let (_, grid_y) = cursor.position;
             let (_, previous_y) = self.previous_position;
             if grid_y == editor.grid.height - 1 && previous_y != grid_y {
-                self.command_line_delay = self.command_line_delay + 1;
+                self.command_line_delay += 1;
                 if self.command_line_delay < COMMAND_LINE_DELAY_FRAMES {
                     self.previous_position
                 } else {
@@ -252,7 +252,7 @@ impl CursorRenderer {
             canvas.save();
             canvas.clip_path(&path, None, Some(false));
             
-            let blobs = &shaper.shape_cached(&character.to_string(), false, false);
+            let blobs = &shaper.shape_cached(&character, false, false);
             for blob in blobs.iter() {
                 canvas.draw_text_blob(&blob, destination, &paint);
             }
