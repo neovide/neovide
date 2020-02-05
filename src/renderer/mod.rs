@@ -44,24 +44,24 @@ impl Renderer {
         self.font_height = font_height;
     }
 
-    fn compute_text_region(&self, grid_pos: (u64, u64), cell_width: u64, size: u16) -> Rect {
+    fn compute_text_region(&self, grid_pos: (u64, u64), cell_width: u64) -> Rect {
         let (grid_x, grid_y) = grid_pos;
         let x = grid_x as f32 * self.font_width;
         let y = grid_y as f32 * self.font_height;
-        let width = cell_width as f32 * self.font_width * size as f32;
-        let height = self.font_height * size as f32;
+        let width = cell_width as f32 * self.font_width as f32;
+        let height = self.font_height as f32;
         Rect::new(x, y, x + width, y + height)
     }
 
-    fn draw_background(&mut self, canvas: &mut Canvas, grid_pos: (u64, u64), cell_width:u64, size: u16, style: &Option<Arc<Style>>, default_style: &Arc<Style>) {
-        let region = self.compute_text_region(grid_pos, cell_width, size);
+    fn draw_background(&mut self, canvas: &mut Canvas, grid_pos: (u64, u64), cell_width:u64, style: &Option<Arc<Style>>, default_style: &Arc<Style>) {
+        let region = self.compute_text_region(grid_pos, cell_width);
         let style = style.as_ref().unwrap_or(default_style);
 
         self.paint.set_color(style.background(&default_style.colors).to_color());
         canvas.draw_rect(region, &self.paint);
     }
 
-    fn draw_foreground(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), cell_width: u64, size: u16, style: &Option<Arc<Style>>, default_style: &Arc<Style>) {
+    fn draw_foreground(&mut self, canvas: &mut Canvas, text: &str, grid_pos: (u64, u64), cell_width: u64, style: &Option<Arc<Style>>, default_style: &Arc<Style>) {
         let (grid_x, grid_y) = grid_pos;
         let x = grid_x as f32 * self.font_width;
         let y = grid_y as f32 * self.font_height;
@@ -71,7 +71,7 @@ impl Renderer {
 
         canvas.save();
 
-        let region = self.compute_text_region(grid_pos, cell_width, size);
+        let region = self.compute_text_region(grid_pos, cell_width);
 
         canvas.clip_rect(region, None, Some(false));
 
@@ -146,10 +146,10 @@ impl Renderer {
         coordinate_system_helper.use_logical_coordinates(&mut canvas);
 
         for command in draw_commands.iter() {
-            self.draw_background(&mut canvas, command.grid_position.clone(), command.cell_width, command.scale, &command.style, &default_style);
+            self.draw_background(&mut canvas, command.grid_position.clone(), command.cell_width, &command.style, &default_style);
         }
         for command in draw_commands.iter() {
-            self.draw_foreground(&mut canvas, &command.text, command.grid_position.clone(), command.cell_width, command.scale, &command.style, &default_style);
+            self.draw_foreground(&mut canvas, &command.text, command.grid_position.clone(), command.cell_width, &command.style, &default_style);
         }
 
         let image = surface.image_snapshot();

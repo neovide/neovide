@@ -26,9 +26,7 @@ pub struct DrawCommand {
     pub text: String,
     pub cell_width: u64,
     pub grid_position: (u64, u64),
-    pub style: Option<Arc<Style>>,
-    #[new(value = "1")]
-    pub scale: u16
+    pub style: Option<Arc<Style>>
 }
 
 pub struct Editor {
