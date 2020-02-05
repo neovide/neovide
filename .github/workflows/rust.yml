@@ -23,11 +23,23 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install Vulkan SDK
-      run: |
-        brew cask install apenngrace/vulkan/vulkan-sdk
+      run: brew cask install apenngrace/vulkan/vulkan-sdk
     - name: Build
-      run: cargo build --release
+      run: |
+        cargo install cargo-bundle
+        cargo bundle --release
+    - name: Update Bundle
+      run: |
+        cd target/release/bundle/osx/Neovide.app/Contents
+        mkdir Frameworks
+        cp /usr/local/lib/libvulkan.dylib ./Frameworks/
+        cp /usr/local/lib/libMoltenVK.dylib ./Frameworks/
+        mkdir -p Resources/vulkan
+        cp -r /usr/local/share/vulkan/icd.d ./Resources/vulkan/
+        jq '.ICD.library_path = "../../../Frameworks/libMoltenVK.dylib"' ./Resources/vulkan/icd.d/MoltenVK_icd.json > MoltenVK_icd.json
+        mv MoltenVK_icd.json ./Resources/vulkan/icd.d/
+        install_name_tool -add_rpath "@executable_path/../Frameworks" ./MacOS/neovide
     - uses: actions/upload-artifact@v1
       with:
-        name: neovide-macos
-        path: ./target/release/neovide
+        name: Neovide.app
+        path: ./target/release/bundle/osx/Neovide.app

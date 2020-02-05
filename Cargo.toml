@@ -1,9 +1,10 @@
 [package]
 name = "neovide"
-version = "0.1.0"
+version = "0.4.0"
 authors = ["keith <keith@the-simmons.net>"]
 edition = "2018"
 build = "build.rs"
+description = "A simple GUI for Neovim."
 
 [dependencies]
 euclid = "0.20.7"
@@ -31,3 +32,16 @@ winres = "0.1.11"
 
 [profile.release]
 debug = true
+
+[package.metadata.bundle]
+name = "Neovide"
+identifier = "com.kethku.neovide"
+icon = ["assets/nvim.ico"]
+version = "0.4.0"
+resources = []
+copyright = "Copyright (c) keith 2020. All rights reserved."
+category = "Productivity"
+short_description = "A simple GUI for Neovim."
+long_description = """
+This is a simple graphical user interface for Neovim. Where possible there are some graphical improvements, but it should act functionally like the terminal UI.
+"""
