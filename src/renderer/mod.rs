@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use skulpin::CoordinateSystemHelper;
-use skulpin::skia_safe::{Canvas, Paint, Surface, Budgeted, Rect, colors};
+use skulpin::skia_safe::{Canvas, Paint, Surface, Budgeted, Rect, colors, dash_path_effect};
 use skulpin::skia_safe::gpu::SurfaceOrigin;
 use log::trace;
 
@@ -77,7 +77,16 @@ impl Renderer {
 
         if style.underline || style.undercurl {
             let line_position = self.shaper.underline_position();
+            let stroke_width = self.shaper.base_size / 10.0;
             self.paint.set_color(style.special(&default_style.colors).to_color());
+            self.paint.set_stroke_width(stroke_width);
+
+            if style.undercurl {
+                self.paint.set_path_effect(dash_path_effect::new(&[stroke_width * 2.0, stroke_width * 2.0], 0.0));
+            } else {
+                self.paint.set_path_effect(None);
+            }
+
             canvas.draw_line((x, y - line_position + self.font_height), (x + width, y - line_position + self.font_height), &self.paint);
         }
 

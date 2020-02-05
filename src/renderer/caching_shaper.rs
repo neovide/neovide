@@ -29,7 +29,7 @@ const SYSTEM_EMOJI_FONT: &str = "Noto Color Emoji";
 #[folder = "assets/fonts/"]
 struct Asset;
 
-const DEFAULT_FONT_SIZE: f32 = 14.0;
+const DEFAULT_FONT_SIZE: f32 = 24.0;
 
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {
