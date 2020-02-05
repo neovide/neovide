@@ -1,4 +1,4 @@
-# Neovide
+# Neovide [![Gitter](https://badges.gitter.im/neovide/community.svg)](https://gitter.im/neovide/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 This is a simple graphical user interface for Neovim. Where possible there are some graphical improvements, but it should act
 functionally like the terminal UI.
