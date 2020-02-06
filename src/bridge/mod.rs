@@ -8,7 +8,7 @@ use std::process::Stdio;
 
 use rmpv::Value;
 use nvim_rs::{create::tokio as create, UiAttachOptions};
-use tokio::runtime::{Runtime};
+use tokio::runtime::Runtime;
 use tokio::process::Command;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use log::{info, error, trace};
@@ -34,10 +34,8 @@ fn set_windows_creation_flags(cmd: &mut Command) {
 fn create_nvim_command() -> Command {
     let mut cmd = Command::new("nvim");
 
-    let args = SETTINGS.neovim_arguments.swap(None).unwrap();
-
     cmd.arg("--embed")
-        .args(args.iter().skip(1))
+        .args(SETTINGS.neovim_arguments.iter().skip(1))
         .stderr(Stdio::inherit());
 
     #[cfg(target_os = "windows")]
