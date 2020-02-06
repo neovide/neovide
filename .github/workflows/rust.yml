@@ -43,3 +43,29 @@ jobs:
       with:
         name: Neovide.app
         path: ./target/release/bundle/osx
+
+  build-linux:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install Vulkan SDK
+      run:  |
+        curl -sL "http://packages.lunarg.com/lunarg-signing-key-pub.asc" | sudo apt-key add -
+        sudo curl -sLo "/etc/apt/sources.list.d/lunarg-vulkan-1.2.131-bionic.list" "http://packages.lunarg.com/vulkan/1.2.131/lunarg-vulkan-1.2.131-bionic.list"
+        sudo apt-get update -y
+        sudo apt-get install -y vulkan-sdk
+
+    - name: Install dependencies
+      run:  |
+        sudo apt-get install -y curl gnupg ca-certificates git gcc-multilib g++-multilib cmake libssl-dev pkg-config libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev libxi-dev
+
+    - name: Build
+      run: cargo build --release
+
+    - uses: actions/upload-artifact@v1
+      with:
+        name: neovide-linux
+        path: ./target/release/neovide
