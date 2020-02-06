@@ -8,6 +8,7 @@ lazy_static! {
 
 pub struct Settings {
     pub neovim_arguments: Vec<String>,
+    
     pub no_idle: AtomicBool,
     pub buffer_frames: AtomicU16
 }

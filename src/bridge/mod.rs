@@ -94,10 +94,9 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
         .unwrap_or_explained_panic("Could not attach ui to neovim process");
     info!("Neovim process attached");
 
-    nvim.set_option("lazyredraw", Value::Boolean(false)).await
-        .ok();
-
     let nvim = Arc::new(nvim);
+
+    let input_nvim = nvim.clone();
     tokio::spawn(async move {
         info!("UiCommand processor started");
         while let Some(commands) = drain(&mut receiver).await {
@@ -109,14 +108,17 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
                 .into_iter().last().into_iter()
                 .chain(other_commands.into_iter()) {
 
-                let nvim = nvim.clone();
+                let input_nvim = input_nvim.clone();
                 tokio::spawn(async move {
                     trace!("Executing UiCommand: {:?}", &command);
-                    command.execute(&nvim).await;
+                    command.execute(&input_nvim).await;
                 });
             }
         }
     });
+
+    nvim.set_option("lazyredraw", Value::Boolean(false)).await
+        .ok();
 }
 
 pub struct Bridge {
