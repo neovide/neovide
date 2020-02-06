@@ -205,7 +205,6 @@ impl Editor {
     }
 
     fn scroll_region(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64, cols: i64) {
-
         let y_iter : Box<dyn Iterator<Item=i64>> = if rows > 0 {
             Box::new((top as i64 + rows).. bot as i64)
         } else {
@@ -226,9 +225,9 @@ impl Editor {
                     let dest_x = x - cols;
                     let cell_data = self.grid.get_cell(x as u64, y as u64).cloned();
 
-                    if let Some(cell_data) =  cell_data.clone() {
+                    if let Some(cell_data) =  cell_data {
                         if let Some(dest_cell) = self.grid.get_cell_mut(dest_x as u64, dest_y as u64) {
-                            *dest_cell = cell_data.clone();
+                            *dest_cell = cell_data;
                             self.grid.set_dirty_cell(dest_x as u64, dest_y as u64);
                         }
                     }
