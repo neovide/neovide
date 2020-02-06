@@ -110,6 +110,3 @@ Instructions to build on Ubuntu
 
 If you see an error complaining about DRI3 settings, links in this issue may help:
 <https://github.com/Kethku/neovide/issues/44#issuecomment-578618052>.
-
-Note: Currently some people seem to be encountering problems with Wayland: <https://github.com/aclysma/skulpin/issues/36>.
-Any help would be appreciated.
