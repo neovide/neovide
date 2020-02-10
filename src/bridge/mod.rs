@@ -95,7 +95,6 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
     info!("Neovim process attached");
 
     let nvim = Arc::new(nvim);
-
     let input_nvim = nvim.clone();
     tokio::spawn(async move {
         info!("UiCommand processor started");
@@ -116,6 +115,9 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
             }
         }
     });
+
+    SETTINGS.read_initial_values(&nvim).await;
+    SETTINGS.setup_changed_listeners(&nvim).await;
 
     nvim.set_option("lazyredraw", Value::Boolean(false)).await
         .ok();

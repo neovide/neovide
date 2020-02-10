@@ -2,11 +2,11 @@ use rmpv::Value;
 use nvim_rs::{Neovim, Handler, compat::tokio::Compat};
 use async_trait::async_trait;
 use tokio::process::ChildStdin;
+use tokio::task;
 use log::trace;
 
-use crate::error_handling::ResultPanicExplanation;
-use crate::editor::EDITOR;
-use super::events::parse_neovim_event;
+use crate::settings::SETTINGS;
+use super::events::handle_redraw_event_group;
 
 #[derive(Clone)]
 pub struct NeovimHandler();
@@ -17,11 +17,16 @@ impl Handler for NeovimHandler {
 
     async fn handle_notify(&self, event_name: String, arguments: Vec<Value>, _neovim: Neovim<Compat<ChildStdin>>) {
         trace!("Neovim notification: {:?}", &event_name);
-        let parsed_events = parse_neovim_event(&event_name, arguments)
-            .unwrap_or_explained_panic("Could not parse event from neovim");
-        for event in parsed_events {
-            let mut editor = EDITOR.lock();
-            editor.handle_redraw_event(event);
-        }
+        task::spawn_blocking(move || {
+            match event_name.as_ref() {
+                "redraw" => {
+                    handle_redraw_event_group(arguments);
+                },
+                "setting_changed" => {
+                    SETTINGS.handle_changed_notification(arguments);
+                },
+                _ => {}
+            }
+        }).await.ok();
     }
 }

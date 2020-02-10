@@ -5,6 +5,8 @@ use std::convert::TryInto;
 use rmpv::Value;
 use skulpin::skia_safe::Color4f;
 
+use crate::editor::EDITOR;
+use crate::error_handling::ResultPanicExplanation;
 use crate::editor::{Colors, Style, CursorMode, CursorShape};
 
 #[derive(Debug, Clone)]
@@ -160,8 +162,7 @@ fn unpack_color(packed_color: u64) -> Color4f {
     }
 }
 
-fn extract_values<Arr: AsMut<[Value]>>(values: Vec<Value>, mut arr: Arr) -> Result<Arr>
-{
+fn extract_values<Arr: AsMut<[Value]>>(values: Vec<Value>, mut arr: Arr) -> Result<Arr> {
     let arr_ref = arr.as_mut();
 
     if values.len() != arr_ref.len() {
@@ -649,17 +650,16 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
     Ok(parsed_events)
 }
 
-pub(in super) fn parse_neovim_event(event_name: &str, arguments: Vec<Value>) -> Result<Vec<RedrawEvent>> {
-    let mut resulting_events = Vec::new();
-    if event_name == "redraw" {
-        resulting_events.reserve(arguments.len());
-        for event in arguments {
-            resulting_events.append(&mut parse_redraw_event(event)?);
+pub(in super) fn handle_redraw_event_group(arguments: Vec<Value>) {
+    for events in arguments {
+        let parsed_events = parse_redraw_event(events)
+            .unwrap_or_explained_panic("Could not parse event from neovim");
+
+        for parsed_event in parsed_events {
+            let mut editor = EDITOR.lock();
+            editor.handle_redraw_event(parsed_event);
         }
-    } else {
-        println!("Unknown global event {}", event_name);
     }
-    Ok(resulting_events)
 }
 
 

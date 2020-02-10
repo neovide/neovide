@@ -17,7 +17,6 @@ pub struct RedrawScheduler {
 
 impl RedrawScheduler {
     pub fn new() -> RedrawScheduler {
-
         RedrawScheduler { 
             frames_queued: AtomicU16::new(1),
             scheduled_frame: Mutex::new(None)
@@ -38,7 +37,7 @@ impl RedrawScheduler {
 
     pub fn queue_next_frame(&self) {
         trace!("Next frame queued");
-        let buffer_frames = SETTINGS.buffer_frames.load(Ordering::Relaxed);
+        let buffer_frames = SETTINGS.get("extra_buffer_frames").read_u16();
         self.frames_queued.store(buffer_frames, Ordering::Relaxed);
     }
 

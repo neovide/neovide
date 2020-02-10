@@ -214,7 +214,7 @@ pub fn ui_loop() {
                     window.set_title(&title);
                 }
 
-                if REDRAW_SCHEDULER.should_draw() || SETTINGS.no_idle.load(Ordering::Relaxed) {
+                if REDRAW_SCHEDULER.should_draw() || SETTINGS.get("no_idle").read_bool() {
                     debug!("Render Triggered");
                     if skulpin_renderer.draw(&window, |canvas, coordinate_system_helper| {
                         if renderer.draw(canvas, coordinate_system_helper) {
