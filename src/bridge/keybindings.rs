@@ -195,23 +195,10 @@ pub fn append_modifiers(modifiers: ModifiersState, keycode_text: &str, special: 
             "8" => "*".to_string(),
             "9" => "(".to_string(),
             "0" => ")".to_string(),
-            "'" => "\"".to_string(),
-            "Bslash" => {
-                special = false;
-                "|".to_string()
-            },
-            "," => {
+            "<" => {
                 special = true;
                 "lt".to_string()
-            },
-            "=" => "+".to_string(),
-            "`" => "~".to_string(),
-            "[" => "{".to_string(),
-            "-" => "_".to_string(),
-            "." => ">".to_string(),
-            "]" => "}".to_string(),
-            ";" => ":".to_string(),
-            "/" => "?".to_string(),
+            }
             other => {
                 special = true;
                 format!("S-{}", other)
@@ -234,7 +221,6 @@ pub fn append_modifiers(modifiers: ModifiersState, keycode_text: &str, special: 
     if special {
         result = format!("<{}>", result);
     }
-
     result
 }
 
@@ -251,7 +237,7 @@ pub fn construct_keybinding_string(input: KeyboardInput) -> Option<String> {
             } else {
                 None
             }
-        },
-        _ => None
+        }
+        _ => None,
     }
 }
