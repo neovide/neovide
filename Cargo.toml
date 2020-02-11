@@ -11,7 +11,7 @@ euclid = "0.20.7"
 font-kit = "0.5.0"
 skribo = { git = "https://github.com/linebender/skribo" }
 lru = "0.4.3"
-skulpin = { git = "https://github.com/kethku/skulpin", branch = "winit_20" }
+skulpin = { path = "../skulpin" }
 derive-new = "0.5"
 rmpv = "0.4.4"
 rust-embed = { version = "5.2.0", features = ["debug-embed"] }
