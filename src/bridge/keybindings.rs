@@ -184,7 +184,6 @@ pub fn append_modifiers(modifiers: ModifiersState, keycode_text: &str, special: 
     let mut special = special;
 
     if modifiers.shift() {
-        dbg!(&result);
         result = match result.as_ref() {
             "1" => "!".to_string(),
             "2" => "@".to_string(),
