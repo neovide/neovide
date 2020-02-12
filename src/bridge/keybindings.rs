@@ -218,6 +218,12 @@ pub fn append_modifiers(modifiers: ModifiersState, keycode_text: &str, special: 
             }
         };
     }
+
+    if result == "<" {
+        special = true;
+        result = "lt".to_string();
+    }
+
     if modifiers.ctrl() {
         special = true;
         result = format!("C-{}", result);
