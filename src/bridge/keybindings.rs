@@ -23,6 +23,7 @@ fn parse_keycode(keycode: Keycode) -> Option<(&'static str, bool)> {
         Keycode::Quotedbl => Some(("\"", false)),
         Keycode::Hash => Some(("#", false)),
         Keycode::Dollar => Some(("$", false)),
+        Keycode::Percent => Some(("%", false)),
         Keycode::Ampersand => Some(("&", false)),
         Keycode::Quote => Some(("'", false)),
         Keycode::LeftParen => Some(("(", false)),

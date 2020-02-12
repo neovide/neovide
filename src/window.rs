@@ -5,6 +5,7 @@ use log::{info, debug, trace, error};
 use skulpin::LogicalSize;
 use skulpin::sdl2;
 use skulpin::sdl2::EventPump;
+use skulpin::sdl2::event::Event;
 use skulpin::{RendererBuilder, PresentMode, CoordinateSystem};
 
 use crate::bridge::{construct_keybinding_string, BRIDGE, UiCommand};
@@ -19,9 +20,9 @@ use crate::INITIAL_DIMENSIONS;
 struct Asset;
 
 fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer) {
-    if new_size.width > 0.0 && new_size.height > 0.0 {
-        let new_width = ((new_size.width + 1.0) / renderer.font_width) as i64;
-        let new_height = ((new_size.height + 1.0) / renderer.font_height) as i64;
+    if new_size.width > 0 && new_size.height > 0 {
+        let new_width = ((new_size.width + 1) as f32 / renderer.font_width) as i64;
+        let new_height = ((new_size.height + 1) as f32 / renderer.font_height) as i64;
         // Add 1 here to make sure resizing doesn't change the grid size on startup
         BRIDGE.queue_command(UiCommand::Resize { width: new_width as i64, height: new_height as i64 });
     }
@@ -35,8 +36,8 @@ pub fn ui_loop() {
 
     let mut renderer = Renderer::new();
     let logical_size = LogicalSize::new(
-        (width as f32 * renderer.font_width) as f64, 
-        (height as f32 * renderer.font_height + 1.0) as f64
+        (width as f32 * renderer.font_width) as u32, 
+        (height as f32 * renderer.font_height + 1.0) as u32
     );
 
     // let icon = {
@@ -51,7 +52,7 @@ pub fn ui_loop() {
     // };
     // info!("icon created");
 
-    let mut window = video_subsystem.window("Neovide", width, height)
+    let mut window = video_subsystem.window("Neovide", logical_size.width, logical_size.height)
             .position_centered()
             .vulkan()
             .build()
@@ -77,7 +78,7 @@ pub fn ui_loop() {
 
     info!("Starting window event loop");
     let mut event_pump = sdl_context.event_pump().expect("Could not create sdl event pump");
-    loop {
+    'running: loop {
         let frame_start = Instant::now();
 
         let editor_title = { EDITOR.lock().title.clone() };
@@ -86,11 +87,18 @@ pub fn ui_loop() {
             window.set_title(&title);
         }
 
+        for event in event_pump.poll_iter() {
+            match event {
+                Event::Quit {..} => break 'running,
+                _ => {}
+            }
+        }
+
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get("no_idle").read_bool() {
             debug!("Render Triggered");
             if skulpin_renderer.draw(&window, |canvas, coordinate_system_helper| {
                 if renderer.draw(canvas, coordinate_system_helper) {
-                    handle_new_grid_size(window.inner_size().to_logical(window.scale_factor()), &renderer)
+                    handle_new_grid_size(window.vulkan_drawable_size().into(), &renderer)
                 }
             }).is_err() {
                 error!("Render failed. Closing");
