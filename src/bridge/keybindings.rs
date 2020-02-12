@@ -195,15 +195,15 @@ pub fn append_modifiers(modifiers: ModifiersState, keycode_text: &str, special: 
             "8" => "*".to_string(),
             "9" => "(".to_string(),
             "0" => ")".to_string(),
-            "<" => {
-                special = true;
-                "lt".to_string()
-            }
             other => {
                 special = true;
                 format!("S-{}", other)
             }
         };
+    }
+    if &result == "<" {
+        special = true;
+        result = "lt".to_string();
     }
     if modifiers.ctrl() {
         special = true;
@@ -220,8 +220,9 @@ pub fn append_modifiers(modifiers: ModifiersState, keycode_text: &str, special: 
 
     if special {
         result = format!("<{}>", result);
+        dbg!(&result);
     }
-    result
+    dbg!(result)
 }
 
 pub fn construct_keybinding_string(input: KeyboardInput) -> Option<String> {
