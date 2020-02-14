@@ -26,6 +26,9 @@ flexi_logger = { version = "0.14.6", default-features = false }
 anyhow = "1.0.26"
 parking_lot="0.10.0"
 
+[target.'cfg(windows)'.dependencies]
+winapi = "0.3.8"
+
 [build-dependencies]
 winres = "0.1.11"
 

@@ -279,11 +279,3 @@ pub fn append_modifiers(modifiers: Mod, keycode_text: &str, special: bool) -> St
 
     result
 }
-
-pub fn construct_keybinding_string(input: Keycode, modifiers: Mod) -> Option<String> {
-    if let Some((keycode_text, special)) = parse_keycode(input) {
-        Some(append_modifiers(modifiers, keycode_text, special))
-    } else {
-        None
-    }
-}

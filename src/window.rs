@@ -2,12 +2,12 @@ use std::time::{Duration, Instant};
 use std::thread::sleep;
 
 use log::{info, debug, trace, error};
-use skulpin::LogicalSize;
+use skulpin::{LogicalSize, PhysicalSize};
 use skulpin::sdl2;
 use skulpin::sdl2::EventPump;
-use skulpin::sdl2::event::Event;
+use skulpin::sdl2::event::{Event, WindowEvent};
 use skulpin::sdl2::keyboard::Mod;
-use skulpin::{RendererBuilder, PresentMode, CoordinateSystem};
+use skulpin::{RendererBuilder, PresentMode, CoordinateSystem, dpis};
 
 use crate::bridge::{parse_keycode, append_modifiers, BRIDGE, UiCommand};
 use crate::renderer::Renderer;
@@ -19,6 +19,15 @@ use crate::INITIAL_DIMENSIONS;
 #[derive(RustEmbed)]
 #[folder = "assets/"]
 struct Asset;
+
+#[cfg(windows)]
+fn windows_fix_dpi() {
+    use winapi::um::winuser::SetProcessDpiAwarenessContext;
+    use winapi::shared::windef::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2;
+    unsafe {
+        SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    }
+}
 
 fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer) {
     if new_size.width > 0 && new_size.height > 0 {
@@ -36,10 +45,10 @@ pub fn ui_loop() {
     let (width, height) = INITIAL_DIMENSIONS;
 
     let mut renderer = Renderer::new();
-    let logical_size = LogicalSize::new(
-        (width as f32 * renderer.font_width) as u32, 
-        (height as f32 * renderer.font_height + 1.0) as u32
-    );
+    let logical_size = LogicalSize {
+        width: (width as f32 * renderer.font_width) as u32, 
+        height: (height as f32 * renderer.font_height + 1.0) as u32
+    };
 
     // let icon = {
     //     let icon_data = Asset::get("nvim.ico").expect("Failed to read icon data");
@@ -53,9 +62,12 @@ pub fn ui_loop() {
     // };
     // info!("icon created");
 
+    windows_fix_dpi();
+
     let mut window = video_subsystem.window("Neovide", logical_size.width, logical_size.height)
             .position_centered()
             .allow_highdpi()
+            .resizable()
             .vulkan()
             .build()
             .expect("Failed to create window");
@@ -65,7 +77,7 @@ pub fn ui_loop() {
         .prefer_integrated_gpu()
         .use_vulkan_debug_layer(true)
         .present_mode_priority(vec![PresentMode::Mailbox, PresentMode::Immediate])
-        .coordinate_system(CoordinateSystem::Physical)
+        .coordinate_system(CoordinateSystem::Logical)
         .build(&window)
         .expect("Failed to create renderer");
     info!("renderer created");
@@ -77,6 +89,8 @@ pub fn ui_loop() {
     // let mut next_char_modifiers = ModifiersState::empty();
 
     let mut title = "Neovide".to_string();
+    let mut previous_size = LogicalSize::new(&window).unwrap();
+    let mut previous_dpis = dpis(&window).unwrap();
 
     info!("Starting window event loop");
     let mut event_pump = sdl_context.event_pump().expect("Could not create sdl event pump");
@@ -97,7 +111,6 @@ pub fn ui_loop() {
                     keymod: modifiers,
                     ..
                 } => {
-                    dbg!(keycode);
                     if let Some((key_text, special)) = parse_keycode(keycode) {
                         let will_text_input =
                             !modifiers.contains(Mod::LCTRLMOD) &&
@@ -113,19 +126,44 @@ pub fn ui_loop() {
                         BRIDGE.queue_command(UiCommand::Keyboard(append_modifiers(modifiers, key_text, special)));
                     }
                 },
+                Event::MouseMotion {
+
+                }
                 Event::TextInput {
                     text,
                     ..
-                } => BRIDGE.queue_command(UiCommand::Keyboard(text)),
+                } => {
+                    let text = if text == "<" {
+                        String::from("<lt>")
+                    } else {
+                        text
+                    };
+                    BRIDGE.queue_command(UiCommand::Keyboard(text))
+                },
                 _ => {}
             }
+        }
+
+        let new_size = LogicalSize::new(&window).unwrap();
+        if previous_size != new_size {
+            handle_new_grid_size(new_size, &renderer);
+            previous_size = new_size;
+        }
+
+        let new_dpis = dpis(&window).unwrap();
+        if previous_dpis != new_dpis {
+            let physical_size = PhysicalSize::new(&window);
+            window.set_size(
+                (physical_size.width as f32 * new_dpis.0 / previous_dpis.0) as u32,
+                (physical_size.height as f32 * new_dpis.1 / previous_dpis.1) as u32).unwrap();
+            previous_dpis = new_dpis;
         }
 
         debug!("Render Triggered");
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get("no_idle").read_bool() {
             if skulpin_renderer.draw(&window, |canvas, coordinate_system_helper| {
                 if renderer.draw(canvas, coordinate_system_helper) {
-                    handle_new_grid_size(window.vulkan_drawable_size().into(), &renderer)
+                    handle_new_grid_size(new_size, &renderer)
                 }
             }).is_err() {
                 error!("Render failed. Closing");
@@ -134,7 +172,7 @@ pub fn ui_loop() {
         }
 
         let elapsed = frame_start.elapsed();
-        let frame_length = Duration::from_secs_f32(1.0 / 30.0);
+        let frame_length = Duration::from_secs_f32(1.0 / 60.0);
         if elapsed < frame_length {
             sleep(frame_length - elapsed);
         }
@@ -143,57 +181,6 @@ pub fn ui_loop() {
     // event_loop.run(move |event, _window_target, control_flow| {
     //     trace!("Window Event: {:?}", event);
     //     match event {
-    //         Event::NewEvents(StartCause::Init) |
-    //         Event::NewEvents(StartCause::ResumeTimeReached { .. }) => {
-    //             window.request_redraw()
-    //         },
-
-    //         Event::WindowEvent {
-    //             event: WindowEvent::CloseRequested,
-    //             ..
-    //         } => *control_flow = ControlFlow::Exit,
-
-    //         Event::WindowEvent {
-    //             event: WindowEvent::Resized(new_size),
-    //             ..
-    //         } => {
-    //             handle_new_grid_size(new_size.to_logical(window.scale_factor()), &renderer)
-    //         },
-
-    //         Event::WindowEvent {
-    //             event: WindowEvent::KeyboardInput {
-    //                 input,
-    //                 ..
-    //             },
-    //             ..
-    //         } => {
-    //             // Only interpret 'char' events when we get a previous event without a virtual
-    //             // keycode (which we ignore for KeyboardInput events).
-    //             // This is a hack so we don't lose a bunch of input events on Linux
-    //             if input.virtual_keycode == None {
-    //                 allow_next_char = true;
-    //             }else {
-    //                 allow_next_char = false;
-    //             }
-    //             next_char_modifiers = input.modifiers;
-
-    //             if let Some(keybinding_string) = construct_keybinding_string(input)
-    //                 .map(UiCommand::Keyboard) {
-    //                     BRIDGE.queue_command(keybinding_string);
-    //             }
-    //         },
-
-    //         Event::WindowEvent {
-    //             event: WindowEvent::ReceivedCharacter(c),
-    //             ..
-    //         } => {
-    //             if allow_next_char {
-    //                 next_char_modifiers.remove(ModifiersState::SHIFT);
-    //                 let keybinding = super::bridge::append_modifiers(next_char_modifiers, &c.to_string(), false);
-    //                 BRIDGE.queue_command(UiCommand::Keyboard(keybinding));
-    //             }
-    //         },
-
     //         Event::WindowEvent {
     //             event: WindowEvent::CursorMoved {
     //                 position,
@@ -267,13 +254,6 @@ pub fn ui_loop() {
     //                 BRIDGE.queue_command(UiCommand::Scroll { direction: input_type.to_string(), position: mouse_pos });
     //             }
     //         }
-
-    //         Event::RedrawRequested { .. } => {
-
-    //             *control_flow = ControlFlow::WaitUntil(frame_start + Duration::from_secs_f32(1.0 / 60.0));
-    //         },
-
-    //         _ => {}
     //     }
     // })
 }
