@@ -20,7 +20,7 @@ use crate::INITIAL_DIMENSIONS;
 #[folder = "assets/"]
 struct Asset;
 
-#[cfg(windows)]
+#[cfg(target_os = "windows")]
 fn windows_fix_dpi() {
     use winapi::um::winuser::SetProcessDpiAwarenessContext;
     use winapi::shared::windef::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2;
@@ -84,9 +84,6 @@ pub fn ui_loop() {
 
     let mut mouse_down = false;
     let mut mouse_pos = (0, 0);
-
-    // let mut allow_next_char = false;
-    // let mut next_char_modifiers = ModifiersState::empty();
 
     let mut title = "Neovide".to_string();
     let mut previous_size = LogicalSize::new(&window).unwrap();
