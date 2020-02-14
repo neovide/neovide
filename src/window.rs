@@ -6,9 +6,10 @@ use skulpin::LogicalSize;
 use skulpin::sdl2;
 use skulpin::sdl2::EventPump;
 use skulpin::sdl2::event::Event;
+use skulpin::sdl2::keyboard::Mod;
 use skulpin::{RendererBuilder, PresentMode, CoordinateSystem};
 
-use crate::bridge::{construct_keybinding_string, BRIDGE, UiCommand};
+use crate::bridge::{parse_keycode, append_modifiers, BRIDGE, UiCommand};
 use crate::renderer::Renderer;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::editor::EDITOR;
@@ -54,6 +55,7 @@ pub fn ui_loop() {
 
     let mut window = video_subsystem.window("Neovide", logical_size.width, logical_size.height)
             .position_centered()
+            .allow_highdpi()
             .vulkan()
             .build()
             .expect("Failed to create window");
@@ -63,7 +65,7 @@ pub fn ui_loop() {
         .prefer_integrated_gpu()
         .use_vulkan_debug_layer(true)
         .present_mode_priority(vec![PresentMode::Mailbox, PresentMode::Immediate])
-        .coordinate_system(CoordinateSystem::Logical)
+        .coordinate_system(CoordinateSystem::Physical)
         .build(&window)
         .expect("Failed to create renderer");
     info!("renderer created");
@@ -90,12 +92,37 @@ pub fn ui_loop() {
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} => break 'running,
+                Event::KeyDown {
+                    keycode: Some(keycode),
+                    keymod: modifiers,
+                    ..
+                } => {
+                    dbg!(keycode);
+                    if let Some((key_text, special)) = parse_keycode(keycode) {
+                        let will_text_input =
+                            !modifiers.contains(Mod::LCTRLMOD) &&
+                            !modifiers.contains(Mod::RCTRLMOD) &&
+                            !modifiers.contains(Mod::LALTMOD) &&
+                            !modifiers.contains(Mod::RALTMOD) &&
+                            !modifiers.contains(Mod::LGUIMOD) &&
+                            !modifiers.contains(Mod::RGUIMOD);
+                        if will_text_input && !special {
+                            break;
+                        }
+
+                        BRIDGE.queue_command(UiCommand::Keyboard(append_modifiers(modifiers, key_text, special)));
+                    }
+                },
+                Event::TextInput {
+                    text,
+                    ..
+                } => BRIDGE.queue_command(UiCommand::Keyboard(text)),
                 _ => {}
             }
         }
 
+        debug!("Render Triggered");
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get("no_idle").read_bool() {
-            debug!("Render Triggered");
             if skulpin_renderer.draw(&window, |canvas, coordinate_system_helper| {
                 if renderer.draw(canvas, coordinate_system_helper) {
                     handle_new_grid_size(window.vulkan_drawable_size().into(), &renderer)
@@ -107,7 +134,7 @@ pub fn ui_loop() {
         }
 
         let elapsed = frame_start.elapsed();
-        let frame_length = Duration::from_secs_f32(1.0 / 60.0);
+        let frame_length = Duration::from_secs_f32(1.0 / 30.0);
         if elapsed < frame_length {
             sleep(frame_length - elapsed);
         }

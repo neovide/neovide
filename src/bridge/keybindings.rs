@@ -2,7 +2,7 @@ use log::trace;
 // use skulpin::winit::event::{ElementState, KeyboardInput, ModifiersState, VirtualKeyCode};
 use skulpin::sdl2::keyboard::{Keycode, Mod};
 
-fn parse_keycode(keycode: Keycode) -> Option<(&'static str, bool)> {
+pub fn parse_keycode(keycode: Keycode) -> Option<(&'static str, bool)> {
     macro_rules! unsupported_key {
         ($name: ident) => {{
             if cfg!(debug_assertions) {
@@ -15,10 +15,10 @@ fn parse_keycode(keycode: Keycode) -> Option<(&'static str, bool)> {
     // Documentation: https://www.libsdl.org/release/SDL-1.2.15/docs/html/sdlkey.html
     match keycode {
         Keycode::Backspace => Some(("BS", true)),
-        Keycode::Tab => Some((" ", false)),
-        Keycode::Return => Some(("\n", false)),
-        Keycode::Escape => Some(("ESC", true)),
-        Keycode::Space => Some((" ", true)),
+        Keycode::Tab => Some(("Tab", true)),
+        Keycode::Return => Some(("Enter", true)),
+        Keycode::Escape => Some(("Esc", true)),
+        Keycode::Space => Some((" ", false)),
         Keycode::Exclaim => Some(("!", false)),
         Keycode::Quotedbl => Some(("\"", false)),
         Keycode::Hash => Some(("#", false)),
@@ -114,7 +114,7 @@ fn parse_keycode(keycode: Keycode) -> Option<(&'static str, bool)> {
         Keycode::KpMultiply => Some(("*", true)),
         Keycode::KpMinus => Some(("-", true)),
         Keycode::KpPlus => Some(("+", true)),
-        Keycode::KpEnter => Some(("\n", true)),
+        Keycode::KpEnter => Some(("Enter", true)),
         Keycode::Kp0 => Some(("0", false)),
         Keycode::Kp1 => Some(("1", false)),
         Keycode::Kp2 => Some(("2", false)),
@@ -179,7 +179,7 @@ fn parse_keycode(keycode: Keycode) -> Option<(&'static str, bool)> {
         Keycode::KpRightParen => Some((")", false)),
         Keycode::KpLeftBrace => Some(("[", false)),
         Keycode::KpRightBrace => Some(("]", false)),
-        Keycode::KpTab => Some(("   ", false)),
+        Keycode::KpTab => Some(("TAB", true)),
         Keycode::KpBackspace => Some(("BS", true)),
         Keycode::KpA => Some(("A", false)),
         Keycode::KpB => Some(("B", false)),
@@ -248,7 +248,7 @@ fn parse_keycode(keycode: Keycode) -> Option<(&'static str, bool)> {
         Keycode::KbdIllumDown => unsupported_key!(KbdIllumDown),
         Keycode::KbdIllumUp => unsupported_key!(KbdIllumUp),
         Keycode::Eject => unsupported_key!(Eject),
-        Keycode::Sleep => unsupported_key!(Sleep),
+        Keycode::Sleep => unsupported_key!(Sleep)
     }
 }
 
