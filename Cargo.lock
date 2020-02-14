@@ -1039,7 +1039,7 @@ dependencies = [
  "rmpv 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "rust-embed 5.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "skribo 0.0.1 (git+https://github.com/linebender/skribo)",
- "skulpin 0.5.2",
+ "skulpin 0.5.2 (git+https://github.com/Kethku/skulpin?branch=sdl2)",
  "tokio 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "unicode-segmentation 1.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1610,6 +1610,7 @@ dependencies = [
 [[package]]
 name = "skulpin"
 version = "0.5.2"
+source = "git+https://github.com/Kethku/skulpin?branch=sdl2#c4926bb80017606fc49d205625facc14ee6c7897"
 dependencies = [
  "ash 0.29.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "cocoa 0.19.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2095,6 +2096,7 @@ dependencies = [
 "checksum skia-bindings 0.26.1 (registry+https://github.com/rust-lang/crates.io-index)" = "e3a38d82d2d3021c59e4a21f799f894bb59c8bf4161836896338ef50f8fe3cbc"
 "checksum skia-safe 0.26.1 (registry+https://github.com/rust-lang/crates.io-index)" = "3c02fb631f02d1a0a1e94c6ddd5a7200b7ef8b348c758e171da558fd72321015"
 "checksum skribo 0.0.1 (git+https://github.com/linebender/skribo)" = "<none>"
+"checksum skulpin 0.5.2 (git+https://github.com/Kethku/skulpin?branch=sdl2)" = "<none>"
 "checksum slab 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)" = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"
 "checksum smallvec 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5c2fb2ec9bcd216a5b0d0ccf31ab17b5ed1d627960edff65bbe95d3ce221cefc"
 "checksum socket2 0.3.11 (registry+https://github.com/rust-lang/crates.io-index)" = "e8b74de517221a2cb01a53349cf54182acdc31a074727d3079068448c0676d85"

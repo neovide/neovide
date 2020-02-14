@@ -126,9 +126,6 @@ pub fn ui_loop() {
                         BRIDGE.queue_command(UiCommand::Keyboard(append_modifiers(modifiers, key_text, special)));
                     }
                 },
-                Event::MouseMotion {
-
-                }
                 Event::TextInput {
                     text,
                     ..
