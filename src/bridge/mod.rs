@@ -77,11 +77,11 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
 
     if let Ok(Value::Integer(correct_version)) = nvim.eval("has(\"nvim-0.4\")").await {
         if correct_version.as_i64() != Some(1) {
-            error!("Neovide requires version 0.4 or higher");
+            eprintln!("Neovide requires version 0.4 or higher");
             std::process::exit(0);
         }
     } else {
-        error!("Neovide requires version 0.4 or higher");
+        eprintln!("Neovide requires version 0.4 or higher");
         std::process::exit(0);
     };
 
