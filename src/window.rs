@@ -1,11 +1,10 @@
 use std::time::{Duration, Instant};
 use std::thread::sleep;
 
-use log::{info, debug, trace, error};
+use log::{info, debug, error};
 use skulpin::{LogicalSize, PhysicalSize};
 use skulpin::sdl2;
-use skulpin::sdl2::EventPump;
-use skulpin::sdl2::event::{Event, WindowEvent};
+use skulpin::sdl2::event::Event;
 use skulpin::sdl2::keyboard::Mod;
 use skulpin::{RendererBuilder, PresentMode, CoordinateSystem, dpis};
 
@@ -97,17 +96,13 @@ pub fn ui_loop() {
         let editor_title = { EDITOR.lock().title.clone() };
         if title != editor_title {
             title = editor_title;
-            window.set_title(&title);
+            window.set_title(&title).expect("Could not set title");
         }
 
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} => break 'running,
-                Event::KeyDown {
-                    keycode: Some(keycode),
-                    keymod: modifiers,
-                    ..
-                } => {
+                Event::KeyDown { keycode: Some(keycode), keymod: modifiers, .. } => {
                     if let Some((key_text, special)) = parse_keycode(keycode) {
                         let will_text_input =
                             !modifiers.contains(Mod::LCTRLMOD) &&
@@ -123,16 +118,55 @@ pub fn ui_loop() {
                         BRIDGE.queue_command(UiCommand::Keyboard(append_modifiers(modifiers, key_text, special)));
                     }
                 },
-                Event::TextInput {
-                    text,
-                    ..
-                } => {
+                Event::TextInput { text, .. } => {
                     let text = if text == "<" {
                         String::from("<lt>")
                     } else {
                         text
                     };
                     BRIDGE.queue_command(UiCommand::Keyboard(text))
+                },
+                Event::MouseMotion { x, y, .. } => {
+                    let grid_x = (x as f32 / renderer.font_width) as i64;
+                    let grid_y = (y as f32 / renderer.font_height) as i64;
+                    let (old_x, old_y) = mouse_pos;
+                    mouse_pos = (grid_x, grid_y);
+                    if mouse_down && (old_x != grid_x || old_y != grid_y) {
+                        BRIDGE.queue_command(UiCommand::Drag(grid_x, grid_y));
+                    }
+                },
+                Event::MouseButtonDown { .. } => {
+                    BRIDGE.queue_command(UiCommand::MouseButton { action: String::from("press"), position: mouse_pos });
+                    mouse_down = true;
+                },
+                Event::MouseButtonUp { .. } => {
+                    BRIDGE.queue_command(UiCommand::MouseButton { action: String::from("release"), position: mouse_pos });
+                    mouse_down = false;
+                },
+                Event::MouseWheel { x, y, .. } => {
+                    let vertical_input_type = if y > 0 {
+                        Some("up")
+                    } else if y < 0 {
+                        Some("down")
+                    } else {
+                        None
+                    };
+
+                    if let Some(input_type) = vertical_input_type {
+                        BRIDGE.queue_command(UiCommand::Scroll { direction: input_type.to_string(), position: mouse_pos });
+                    }
+
+                    let horizontal_input_type = if x > 0 {
+                        Some("right")
+                    } else if x < 0 {
+                        Some("left")
+                    } else {
+                        None
+                    };
+
+                    if let Some(input_type) = horizontal_input_type {
+                        BRIDGE.queue_command(UiCommand::Scroll { direction: input_type.to_string(), position: mouse_pos });
+                    }
                 },
                 _ => {}
             }
@@ -171,83 +205,4 @@ pub fn ui_loop() {
             sleep(frame_length - elapsed);
         }
     }
-
-    // event_loop.run(move |event, _window_target, control_flow| {
-    //     trace!("Window Event: {:?}", event);
-    //     match event {
-    //         Event::WindowEvent {
-    //             event: WindowEvent::CursorMoved {
-    //                 position,
-    //                 ..
-    //             },
-    //             ..
-    //         } => {
-    //             let position: LogicalPosition<f64> = position.to_logical(window.scale_factor());
-    //             let grid_y = (position.x / renderer.font_width as f64) as i64;
-    //             let grid_x = (position.y / renderer.font_height as f64) as i64;
-    //             let (old_x, old_y) = mouse_pos;
-    //             mouse_pos = (grid_x, grid_y);
-    //             if mouse_down && (old_x != grid_x || old_y != grid_y) {
-    //                 BRIDGE.queue_command(UiCommand::Drag(grid_x, grid_y));
-    //             }
-    //         }
-
-    //         Event::WindowEvent {
-    //             event: WindowEvent::MouseInput {
-    //                 state,
-    //                 ..
-    //             },
-    //             ..
-    //         } => {
-    //             let input_type = match (state, mouse_down) {
-    //                 (ElementState::Pressed, false) => {
-    //                     mouse_down = true;
-    //                     Some("press")
-    //                 },
-    //                 (ElementState::Released, true) => {
-    //                     mouse_down = false;
-    //                     Some("release")
-    //                 },
-    //                 _ => None
-    //             };
-
-    //             if let Some(input_type) = input_type {
-    //                 let (grid_x, grid_y) = mouse_pos;
-    //                 BRIDGE.queue_command(UiCommand::MouseButton { action: input_type.to_string(), position: (grid_x, grid_y) });
-    //             }
-    //         }
-
-    //         Event::WindowEvent {
-    //             event: WindowEvent::MouseWheel {
-    //                 delta: MouseScrollDelta::LineDelta(horizontal, vertical),
-    //                 ..
-    //             },
-    //             ..
-    //         } => {
-    //             let vertical_input_type = if vertical > 0.0 {
-    //                 Some("up")
-    //             } else if vertical < 0.0 {
-    //                 Some("down")
-    //             } else {
-    //                 None
-    //             };
-
-    //             if let Some(input_type) = vertical_input_type {
-    //                 BRIDGE.queue_command(UiCommand::Scroll { direction: input_type.to_string(), position: mouse_pos });
-    //             }
-
-    //             let horizontal_input_type = if horizontal > 0.0 {
-    //                 Some("right")
-    //             } else if horizontal < 0.0 {
-    //                 Some("left")
-    //             } else {
-    //                 None
-    //             };
-
-    //             if let Some(input_type) = horizontal_input_type {
-    //                 BRIDGE.queue_command(UiCommand::Scroll { direction: input_type.to_string(), position: mouse_pos });
-    //             }
-    //         }
-    //     }
-    // })
 }
