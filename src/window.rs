@@ -19,12 +19,13 @@ use crate::INITIAL_DIMENSIONS;
 #[folder = "assets/"]
 struct Asset;
 
-#[cfg(target_os = "windows")]
 fn windows_fix_dpi() {
-    use winapi::um::winuser::SetProcessDpiAwarenessContext;
-    use winapi::shared::windef::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2;
-    unsafe {
-        SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    if cfg!(target_os = "windows") {
+        use winapi::um::winuser::SetProcessDpiAwarenessContext;
+        use winapi::shared::windef::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2;
+        unsafe {
+            SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+        }
     }
 }
 
@@ -60,7 +61,6 @@ pub fn ui_loop() {
     //     Icon::from_rgba(rgba, width, height).expect("Failed to create icon object")
     // };
     // info!("icon created");
-
     windows_fix_dpi();
 
     let mut window = video_subsystem.window("Neovide", logical_size.width, logical_size.height)
