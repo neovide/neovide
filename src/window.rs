@@ -102,6 +102,7 @@ pub fn ui_loop() {
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} => break 'running,
+                Event::Window {..} => REDRAW_SCHEDULER.queue_next_frame(),
                 Event::KeyDown { keycode: Some(keycode), keymod: modifiers, .. } => {
                     if let Some((key_text, special)) = parse_keycode(keycode) {
                         let will_text_input =
