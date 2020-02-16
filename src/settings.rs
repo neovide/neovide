@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
 use std::convert::TryInto;
 
 use rmpv::Value;
@@ -7,6 +6,7 @@ use nvim_rs::Neovim;
 use nvim_rs::compat::tokio::Compat;
 use flexi_logger::{Logger, Criterion, Naming, Cleanup};
 use tokio::process::ChildStdin;
+use parking_lot::Mutex;
 
 use crate::error_handling::ResultPanicExplanation;
 
@@ -15,47 +15,66 @@ lazy_static! {
 }
 
 pub enum Setting {
-    Bool(AtomicBool),
-    U16(AtomicU16)
+    Bool(bool),
+    U16(u16),
+    String(String)
 }
 
 impl Setting {
     fn new_bool(value: bool) -> Setting {
-        Setting::Bool(AtomicBool::new(value))
+        Setting::Bool(value)
     }
 
     pub fn read_bool(&self) -> bool {
-        if let Setting::Bool(atomic_bool) = self {
-            atomic_bool.load(Ordering::Relaxed)
+        if let Setting::Bool(value) = self {
+            *value
         } else {
             panic!("Could not read setting as bool");
         }
     }
 
     fn new_u16(value: u16) -> Setting {
-        Setting::U16(AtomicU16::new(value))
+        Setting::U16(value)
     }
 
     pub fn read_u16(&self) -> u16 {
-        if let Setting::U16(atomic_u16) = self {
-            atomic_u16.load(Ordering::Relaxed)
+        if let Setting::U16(value) = self {
+            *value
         } else {
             panic!("Could not read setting as u16");
         }
     }
+    
+    fn new_string(value: String) -> Setting {
+        Setting::String(value)
+    }
 
-    fn parse(&self, value: Value) {
+    pub fn read_string(&self) -> String {
+        if let Setting::String(value) = self {
+            value.clone()
+        } else {
+            panic!("Could not read setting as string");
+        }
+    }
+
+    fn parse(&mut self, value: Value) {
         match self {
-            Setting::Bool(atomic_bool) => {
+            Setting::Bool(internal_bool) => {
                 if let Ok(value) = value.try_into() {
                     let intermediate: u64 = value;
-                    atomic_bool.store(intermediate != 0, Ordering::Relaxed);
+                    *internal_bool = intermediate != 0;
                 }
             },
-            Setting::U16(atomic_u16) => {
+            Setting::U16(internal_u16) => {
                 if let Ok(value) = value.try_into() {
                     let intermediate: u64 = value;
-                    atomic_u16.store(intermediate as u16, Ordering::Relaxed);
+                    *internal_u16 = intermediate as u16;
+                }
+            },
+            Setting::String(internal_string) => {
+                if let Ok(value) = value.try_into() {
+                    let intermediate: String = value;
+                    *internal_string = intermediate;
                 }
             }
         }
@@ -63,39 +82,50 @@ impl Setting {
 
     fn unparse(&self) -> Value {
         match self {
-            Setting::Bool(atomic_bool) => {
-                let value = if atomic_bool.load(Ordering::Relaxed) {
+            Setting::Bool(internal_bool) => {
+                let value = if *internal_bool {
                     1
                 } else {
                     0
                 };
                 Value::from(value)
             },
-            Setting::U16(atomic_u16) => Value::from(atomic_u16.load(Ordering::Relaxed))
+            Setting::U16(internal_u16) => Value::from(*internal_u16),
+            Setting::String(internal_string) => Value::from(internal_string.as_str()),
+        }
+    }
+
+    fn clone(&self) -> Setting {
+        match self {
+            Setting::Bool(_) => Setting::new_bool(self.read_bool()),
+            Setting::U16(_) => Setting::new_u16(self.read_u16()),
+            Setting::String(_) => Setting::new_string(self.read_string()),
         }
     }
 }
 
 pub struct Settings {
     pub neovim_arguments: Vec<String>,
-    pub settings: HashMap<String, Setting>
+    pub settings: Mutex<HashMap<String, Setting>>
 }
 
 impl Settings {
     pub async fn read_initial_values(&self, nvim: &Neovim<Compat<ChildStdin>>) {
-        for (name, setting) in self.settings.iter() {
+        let keys : Vec<String>= self.settings.lock().keys().cloned().collect();
+        for name in keys {
             let variable_name = format!("g:neovide_{}", name.to_string());
             if let Ok(value) = nvim.get_var(&variable_name).await {
-                setting.parse(value);
+                self.settings.lock().get_mut(&name).unwrap().parse(value);
             } else {
+                let setting = self.get(&name);
                 nvim.set_var(&variable_name, setting.unparse()).await.ok();
             }
         }
     }
 
     pub async fn setup_changed_listeners(&self, nvim: &Neovim<Compat<ChildStdin>>) {
-        for name in self.settings.keys() {
-            let name = name.to_string();
+        let keys : Vec<String>= self.settings.lock().keys().cloned().collect();
+        for name in keys {
             let vimscript = 
                 format!("function NeovideNotify{}Changed(d, k, z)\n", name) +
                &format!("  call rpcnotify(1, \"setting_changed\", \"{}\", g:neovide_{})\n", name, name) +
@@ -110,18 +140,17 @@ impl Settings {
         let mut arguments = arguments.into_iter();
         let (name, value) = (arguments.next().unwrap(), arguments.next().unwrap());
         dbg!(&name, &value);
+           
+        let name: Result<String, _>= name.try_into();
+        let name = name.unwrap();
 
-        if let Some(setting) = name
-                .try_into()
-                .ok()
-                .as_ref()
-                .and_then(|name: &String| self.settings.get(name)) {
-            setting.parse(value);
-        }
+        self.settings.lock().get_mut(&name).unwrap().parse(value);
     }
 
-    pub fn get(&self, name: &str) -> &Setting {
-        self.settings.get(name).expect(&format!("Could not find option {}", name))
+    pub fn get(&self, name: &str) -> Setting {
+        let settings = self.settings.lock();
+        let setting = settings.get(name).expect(&format!("Could not find option {}", name));
+        setting.clone()
     }
 
     pub fn new() -> Settings {
@@ -152,6 +181,6 @@ impl Settings {
         settings.insert("no_idle".to_string(),  Setting::new_bool(no_idle));
         settings.insert("extra_buffer_frames".to_string(), Setting::new_u16(buffer_frames));
 
-        Settings { neovim_arguments, settings }
+        Settings { neovim_arguments, settings: Mutex::new(settings) }
     }
 }
