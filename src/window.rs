@@ -62,6 +62,7 @@ pub fn ui_loop() {
     // info!("icon created");
     #[cfg(target_os = "windows")]
     windows_fix_dpi();
+    sdl2::hint::set("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
 
     let mut window = video_subsystem.window("Neovide", logical_size.width, logical_size.height)
             .position_centered()
