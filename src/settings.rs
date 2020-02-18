@@ -183,6 +183,7 @@ impl Settings {
 
         settings.insert("no_idle".to_string(),  Setting::new_bool(no_idle));
         settings.insert("extra_buffer_frames".to_string(), Setting::new_u16(buffer_frames));
+        settings.insert("refresh_rate".to_string(), Setting::new_u16(60));
 
         Settings { neovim_arguments, settings: Mutex::new(settings) }
     }

@@ -215,7 +215,8 @@ pub fn ui_loop() {
         }
 
         let elapsed = frame_start.elapsed();
-        let frame_length = Duration::from_secs_f32(1.0 / 60.0);
+        let refresh_rate = SETTINGS.get("refresh_rate").read_u16() as f32;
+        let frame_length = Duration::from_secs_f32(1.0 / refresh_rate);
         if elapsed < frame_length {
             sleep(frame_length - elapsed);
         }
