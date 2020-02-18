@@ -76,7 +76,7 @@ pub fn ui_loop() {
     let mut skulpin_renderer = RendererBuilder::new()
         .prefer_integrated_gpu()
         .use_vulkan_debug_layer(true)
-        .present_mode_priority(vec![PresentMode::Mailbox, PresentMode::Immediate])
+        .present_mode_priority(vec![PresentMode::Immediate])
         .coordinate_system(CoordinateSystem::Logical)
         .build(&window)
         .expect("Failed to create renderer");
@@ -100,6 +100,7 @@ pub fn ui_loop() {
             window.set_title(&title).expect("Could not set title");
         }
 
+        let mut ignore_text_input = false;
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} => break 'running,
@@ -107,6 +108,7 @@ pub fn ui_loop() {
                 Event::KeyDown { keycode: Some(keycode), keymod: modifiers, .. } => {
                     if let Some((key_text, special)) = parse_keycode(keycode) {
                         let will_text_input =
+                            
                             !modifiers.contains(Mod::LCTRLMOD) &&
                             !modifiers.contains(Mod::RCTRLMOD) &&
                             !modifiers.contains(Mod::LALTMOD) &&
@@ -118,15 +120,20 @@ pub fn ui_loop() {
                         }
 
                         BRIDGE.queue_command(UiCommand::Keyboard(append_modifiers(modifiers, key_text, special)));
+                        ignore_text_input = true;
                     }
                 },
                 Event::TextInput { text, .. } => {
-                    let text = if text == "<" {
-                        String::from("<lt>")
+                    if ignore_text_input {
+                        ignore_text_input = false;
                     } else {
-                        text
-                    };
-                    BRIDGE.queue_command(UiCommand::Keyboard(text))
+                        let text = if text == "<" {
+                            String::from("<lt>")
+                        } else {
+                            text
+                        };
+                        BRIDGE.queue_command(UiCommand::Keyboard(text))
+                    }
                 },
                 Event::MouseMotion { x, y, .. } => {
                     let grid_x = (x as f32 / renderer.font_width) as i64;

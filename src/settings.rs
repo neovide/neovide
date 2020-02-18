@@ -113,7 +113,7 @@ pub struct Settings {
 
 impl Settings {
     pub async fn read_initial_values(&self, nvim: &Neovim<Compat<ChildStdin>>) {
-        let keys : Vec<String>= self.settings.lock().keys().cloned().collect();
+        let keys : Vec<String> = self.settings.lock().keys().cloned().collect();
         for name in keys {
             let variable_name = format!("neovide_{}", name.to_string());
             match nvim.get_var(&variable_name).await {
@@ -128,7 +128,7 @@ impl Settings {
     }
 
     pub async fn setup_changed_listeners(&self, nvim: &Neovim<Compat<ChildStdin>>) {
-        let keys : Vec<String>= self.settings.lock().keys().cloned().collect();
+        let keys : Vec<String> = self.settings.lock().keys().cloned().collect();
         for name in keys {
             let vimscript = 
                 format!("function NeovideNotify{}Changed(d, k, z)\n", name) +
