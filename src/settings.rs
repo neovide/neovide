@@ -7,6 +7,7 @@ use nvim_rs::compat::tokio::Compat;
 use flexi_logger::{Logger, Criterion, Naming, Cleanup};
 use tokio::process::ChildStdin;
 use parking_lot::Mutex;
+use log::warn;
 
 use crate::error_handling::ResultPanicExplanation;
 
@@ -14,6 +15,7 @@ lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new();
 }
 
+#[derive(Debug)]
 pub enum Setting {
     Bool(bool),
     U16(u16),
@@ -111,20 +113,22 @@ pub struct Settings {
 
 impl Settings {
     pub async fn read_initial_values(&self, nvim: &Neovim<Compat<ChildStdin>>) {
-        let keys : Vec<String>= self.settings.lock().keys().cloned().collect();
+        let keys : Vec<String> = self.settings.lock().keys().cloned().collect();
         for name in keys {
-            let variable_name = format!("g:neovide_{}", name.to_string());
-            if let Ok(value) = nvim.get_var(&variable_name).await {
-                self.settings.lock().get_mut(&name).unwrap().parse(value);
-            } else {
-                let setting = self.get(&name);
-                nvim.set_var(&variable_name, setting.unparse()).await.ok();
+            let variable_name = format!("neovide_{}", name.to_string());
+            match nvim.get_var(&variable_name).await {
+                Ok(value) => self.settings.lock().get_mut(&name).unwrap().parse(value),
+                Err(error) => {
+                    warn!("Initial value load failed for {}: {}", name, error);
+                    let setting = self.get(&name);
+                    nvim.set_var(&variable_name, setting.unparse()).await.ok();
+                }
             }
         }
     }
 
     pub async fn setup_changed_listeners(&self, nvim: &Neovim<Compat<ChildStdin>>) {
-        let keys : Vec<String>= self.settings.lock().keys().cloned().collect();
+        let keys : Vec<String> = self.settings.lock().keys().cloned().collect();
         for name in keys {
             let vimscript = 
                 format!("function NeovideNotify{}Changed(d, k, z)\n", name) +
@@ -139,7 +143,6 @@ impl Settings {
     pub fn handle_changed_notification(&self, arguments: Vec<Value>) {
         let mut arguments = arguments.into_iter();
         let (name, value) = (arguments.next().unwrap(), arguments.next().unwrap());
-        dbg!(&name, &value);
            
         let name: Result<String, _>= name.try_into();
         let name = name.unwrap();
@@ -180,6 +183,7 @@ impl Settings {
 
         settings.insert("no_idle".to_string(),  Setting::new_bool(no_idle));
         settings.insert("extra_buffer_frames".to_string(), Setting::new_u16(buffer_frames));
+        settings.insert("refresh_rate".to_string(), Setting::new_u16(60));
 
         Settings { neovim_arguments, settings: Mutex::new(settings) }
     }
