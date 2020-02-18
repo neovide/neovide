@@ -458,9 +458,9 @@ dependencies = [
 
 [[package]]
 name = "curl-sys"
-version = "0.4.25"
+version = "0.4.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c38ca47d60b86d0cc9d42caa90a0885669c2abc9791f871c81f58cdf39e979b"
+checksum = "0853fe2a575bb381b1f173610372c7722d9fa9bc4056512ed99fe6a644c388c6"
 dependencies = [
  "cc",
  "libc",
@@ -1630,7 +1630,7 @@ checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 [[package]]
 name = "sdl2"
 version = "0.33.0"
-source = "git+https://github.com/Rust-SDL2/rust-sdl2#4ff7e9ce79c42360bf02f716818cdb3bfd057370"
+source = "git+https://github.com/Rust-SDL2/rust-sdl2#c3f0088ea49f6c1b29b9e110313cd7b2a9833dc9"
 dependencies = [
  "bitflags",
  "lazy_static",
@@ -1641,7 +1641,7 @@ dependencies = [
 [[package]]
 name = "sdl2-sys"
 version = "0.33.0"
-source = "git+https://github.com/Rust-SDL2/rust-sdl2#4ff7e9ce79c42360bf02f716818cdb3bfd057370"
+source = "git+https://github.com/Rust-SDL2/rust-sdl2#c3f0088ea49f6c1b29b9e110313cd7b2a9833dc9"
 dependencies = [
  "cfg-if",
  "cmake",
@@ -1784,7 +1784,7 @@ dependencies = [
 [[package]]
 name = "skulpin"
 version = "0.5.2"
-source = "git+https://github.com/Kethku/skulpin?branch=sdl2#af8b8f50f5f02c727dcb9d9c5bc958de3b708513"
+source = "git+https://github.com/Kethku/skulpin?branch=sdl2#b4451490e457cd7ad504819a99d978a8d0f38ff4"
 dependencies = [
  "ash",
  "cocoa",

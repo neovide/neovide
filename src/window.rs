@@ -30,10 +30,10 @@ fn windows_fix_dpi() {
 
 fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer) {
     if new_size.width > 0 && new_size.height > 0 {
-        let new_width = ((new_size.width + 1) as f32 / renderer.font_width) as i64;
-        let new_height = ((new_size.height + 1) as f32 / renderer.font_height) as i64;
+        let new_width = ((new_size.width + 1) as f32 / renderer.font_width) as u32;
+        let new_height = ((new_size.height + 1) as f32 / renderer.font_height) as u32;
         // Add 1 here to make sure resizing doesn't change the grid size on startup
-        BRIDGE.queue_command(UiCommand::Resize { width: new_width as i64, height: new_height as i64 });
+        BRIDGE.queue_command(UiCommand::Resize { width: new_width, height: new_height });
     }
 }
 
@@ -83,7 +83,10 @@ pub fn ui_loop() {
     info!("renderer created");
 
     let mut mouse_down = false;
-    let mut mouse_pos = (0, 0);
+    let mut mouse_position = LogicalSize {
+        width: 0, 
+        height: 0
+    };
 
     let mut title = "Neovide".to_string();
     let mut previous_size = LogicalSize::new(&window).unwrap();
@@ -136,20 +139,23 @@ pub fn ui_loop() {
                     }
                 },
                 Event::MouseMotion { x, y, .. } => {
-                    let grid_x = (x as f32 / renderer.font_width) as i64;
-                    let grid_y = (y as f32 / renderer.font_height) as i64;
-                    let (old_x, old_y) = mouse_pos;
-                    mouse_pos = (grid_x, grid_y);
-                    if mouse_down && (old_x != grid_x || old_y != grid_y) {
-                        BRIDGE.queue_command(UiCommand::Drag(grid_x, grid_y));
+                    let previous_position = mouse_position;
+                    mouse_position = LogicalSize::from_physical_size_tuple((
+                            (x as f32 / renderer.font_width) as u32,
+                            (y as f32 / renderer.font_height) as u32
+                        ), 
+                        &window
+                    ).expect("Could not calculate logical mouse position");
+                    if mouse_down && previous_position != mouse_position {
+                        BRIDGE.queue_command(UiCommand::Drag(mouse_position.width, mouse_position.height));
                     }
                 },
                 Event::MouseButtonDown { .. } => {
-                    BRIDGE.queue_command(UiCommand::MouseButton { action: String::from("press"), position: mouse_pos });
+                    BRIDGE.queue_command(UiCommand::MouseButton { action: String::from("press"), position: (mouse_position.width, mouse_position.height) });
                     mouse_down = true;
                 },
                 Event::MouseButtonUp { .. } => {
-                    BRIDGE.queue_command(UiCommand::MouseButton { action: String::from("release"), position: mouse_pos });
+                    BRIDGE.queue_command(UiCommand::MouseButton { action: String::from("release"), position: (mouse_position.width, mouse_position.height) });
                     mouse_down = false;
                 },
                 Event::MouseWheel { x, y, .. } => {
@@ -162,7 +168,7 @@ pub fn ui_loop() {
                     };
 
                     if let Some(input_type) = vertical_input_type {
-                        BRIDGE.queue_command(UiCommand::Scroll { direction: input_type.to_string(), position: mouse_pos });
+                        BRIDGE.queue_command(UiCommand::Scroll { direction: input_type.to_string(), position: (mouse_position.width, mouse_position.height) });
                     }
 
                     let horizontal_input_type = if x > 0 {
@@ -174,7 +180,7 @@ pub fn ui_loop() {
                     };
 
                     if let Some(input_type) = horizontal_input_type {
-                        BRIDGE.queue_command(UiCommand::Scroll { direction: input_type.to_string(), position: mouse_pos });
+                        BRIDGE.queue_command(UiCommand::Scroll { direction: input_type.to_string(), position: (mouse_position.width, mouse_position.height) });
                     }
                 },
                 _ => {}
