@@ -5,6 +5,7 @@ use skulpin::skia_safe::{Canvas, Paint, Surface, Budgeted, Rect, colors, dash_pa
 use skulpin::skia_safe::gpu::SurfaceOrigin;
 use log::trace;
 
+mod animation_utils;
 mod caching_shaper;
 mod cursor_renderer;
 

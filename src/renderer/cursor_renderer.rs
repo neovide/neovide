@@ -2,12 +2,16 @@ use std::time::{Duration, Instant};
 
 use skulpin::skia_safe::{Canvas, Paint, Path, Point};
 
+use crate::settings::SETTINGS;
+use crate::renderer::animation_utils::*;
 use crate::renderer::CachingShaper;
 use crate::editor::{EDITOR, Colors, Cursor, CursorShape};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 
-const AVERAGE_MOTION_PERCENTAGE: f32 = 0.7;
-const MOTION_PERCENTAGE_SPREAD: f32 = 0.5;
+
+
+const BASE_ANIMATION_LENGTH_SECONDS: f32 = 0.06;
+const CURSOR_TRAIL_SIZE: f32 = 0.6;
 const COMMAND_LINE_DELAY_FRAMES: u64 = 5;
 const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
 
@@ -85,47 +89,67 @@ impl BlinkStatus {
 
 #[derive(Debug, Clone)]
 pub struct Corner {
-    pub current_position: Point,
-    pub relative_position: Point,
+    start_position: Point,
+    current_position: Point,
+    relative_position: Point,
+    previous_destination: Point, 
+    t: f32,
 }
 
+
 impl Corner {
-    pub fn new(relative_position: Point) -> Corner {
+    pub fn new() -> Corner {
         Corner {
+            start_position: Point::new(0.0, 0.0),
             current_position: Point::new(0.0, 0.0),
-            relative_position
+            relative_position: Point::new(0.0, 0.0),
+            previous_destination: Point::new(-1000.0, -1000.0),
+            t: 0.0,
         }
     }
 
-    pub fn update(&mut self, font_dimensions: Point, destination: Point) -> bool {
-        let relative_scaled_position: Point = 
-            (self.relative_position.x * font_dimensions.x, self.relative_position.y * font_dimensions.y).into();
-        let corner_destination = destination + relative_scaled_position;
-
-        let delta = corner_destination - self.current_position;
-
-        if delta.length() > 0.0 {
-            // Project relative_scaled_position (actual possition of the corner relative to the
-            // center of the cursor) onto the remaining distance vector. This gives us the relative
-            // distance to the destination along the delta vector which we can then use to scale the
-            // motion_percentage.
-            let motion_scale = delta.dot(relative_scaled_position) / delta.length() / font_dimensions.length();
-
-            // The motion_percentage is then equal to the motion_scale factor times the
-            // MOTION_PERCENTAGE_SPREAD and added to the AVERAGE_MOTION_PERCENTAGE. This way all of
-            // the percentages are positive and spread out by the spread constant.
-            let motion_percentage = motion_scale * MOTION_PERCENTAGE_SPREAD + AVERAGE_MOTION_PERCENTAGE;
-
-            // Then the current_position is animated by taking the delta vector, multiplying it by
-            // the motion_percentage and adding the resulting value to the current position causing
-            // the cursor to "jump" toward the target destination. Since further away corners jump
-            // slower, the cursor appears to smear toward the destination in a satisfying and
-            // visually trackable way.
-            let delta = corner_destination - self.current_position;
-            self.current_position += delta * motion_percentage;
+    pub fn update(&mut self, font_dimensions: Point, destination: Point, dt: f32) -> bool {
+        if destination != self.previous_destination {
+            self.t = 0.0;
+            self.start_position = self.current_position;
+            self.previous_destination = destination;
         }
 
-        delta.length() > 0.001
+        let finished_animating = self.t >= 1.0; // Check first if animation's over, so we still render one frame at t == 1.0
+
+        if self.t <= 1.0 {
+            // Calculate window-space destination for corner
+            let relative_scaled_position: Point = (
+                self.relative_position.x * font_dimensions.x,
+                self.relative_position.y * font_dimensions.y,
+            )
+                .into();
+
+            let corner_destination = destination + relative_scaled_position;
+
+            // Calculate how much a corner will be lagging behind based on how much it's aligned
+            // with the direction of motion. Corners in front will move faster than corners in the
+            // back
+            let corner_direction = {
+                let mut d = destination - self.current_position;
+                d.normalize();
+                d
+            };
+
+            let direction_alignment = corner_direction.dot(self.relative_position);
+
+            self.current_position = ease_point(
+                ease_linear,
+                self.start_position, 
+                corner_destination, 
+                self.t);
+
+            let corner_dt = dt * lerp(1.0, 1.0 - CURSOR_TRAIL_SIZE, direction_alignment);
+
+            self.t = (self.t + corner_dt / BASE_ANIMATION_LENGTH_SECONDS).min(1.0)
+        }
+
+        !finished_animating
     }
 }
 
@@ -139,7 +163,7 @@ pub struct CursorRenderer {
 impl CursorRenderer {
     pub fn new() -> CursorRenderer {
         let mut renderer = CursorRenderer {
-            corners: vec![Corner::new((0.0, 0.0).into()); 4],
+            corners: vec![Corner::new(); 4],
             previous_position: (0, 0),
             command_line_delay: 0,
             blink_status: BlinkStatus::new()
@@ -221,10 +245,12 @@ impl CursorRenderer {
 
         self.set_cursor_shape(&cursor.shape, cursor.cell_percentage.unwrap_or(DEFAULT_CELL_PERCENTAGE));
 
+        let dt = 1.0 / (SETTINGS.get("refresh_rate").read_u16() as f32);
+
         let mut animating = false;
         if !center_destination.is_zero() {
             for corner in self.corners.iter_mut() {
-                let corner_animating = corner.update(font_dimensions, center_destination);
+                let corner_animating = corner.update(font_dimensions, center_destination, dt);
                 animating = animating || corner_animating;
             }
         }
