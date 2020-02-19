@@ -1,6 +1,7 @@
 use nvim_rs::Neovim;
 use nvim_rs::compat::tokio::Compat;
 use tokio::process::ChildStdin;
+use log::trace;
 
 #[derive(Debug, Clone)]
 pub enum UiCommand {
@@ -18,6 +19,7 @@ impl UiCommand {
                 nvim.ui_try_resize(width.max(10) as i64, height.max(3) as i64).await
                     .expect("Resize failed"),
             UiCommand::Keyboard(input_command) => { 
+                trace!("Keyboard Input Sent: {}", input_command);
                 nvim.input(&input_command).await
                     .expect("Input failed"); 
             },

@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 use std::thread::sleep;
 
-use log::{info, debug, error};
+use log::{info, trace, debug, error};
 use skulpin::{LogicalSize, PhysicalSize};
 use skulpin::sdl2;
 use skulpin::sdl2::event::Event;
@@ -109,6 +109,7 @@ pub fn ui_loop() {
                 Event::Quit {..} => break 'running,
                 Event::Window {..} => REDRAW_SCHEDULER.queue_next_frame(),
                 Event::KeyDown { keycode: Some(keycode), keymod: modifiers, .. } => {
+                    trace!("KeyDown Received: {}", keycode);
                     if let Some((key_text, special)) = parse_keycode(keycode) {
                         let will_text_input =
                             
@@ -127,6 +128,7 @@ pub fn ui_loop() {
                     }
                 },
                 Event::TextInput { text, .. } => {
+                    trace!("Keyboard Input Received: {}", &text);
                     if ignore_text_input {
                         ignore_text_input = false;
                     } else {
