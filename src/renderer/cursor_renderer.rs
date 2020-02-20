@@ -10,7 +10,7 @@ use crate::redraw_scheduler::REDRAW_SCHEDULER;
 
 
 const BASE_ANIMATION_LENGTH_SECONDS: f32 = 0.06;
-const CURSOR_TRAIL_SIZE: f32 = 0.9;
+const CURSOR_TRAIL_SIZE: f32 = 0.6;
 const COMMAND_LINE_DELAY_FRAMES: u64 = 5;
 const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
 
@@ -144,22 +144,28 @@ impl Corner {
         // Calculate how much a corner will be lagging behind based on how much it's aligned
         // with the direction of motion. Corners in front will move faster than corners in the
         // back
-        let corner_direction = {
+        let travel_direction = {
             let mut d = destination - self.current_position;
             d.normalize();
             d
         };
 
-        let direction_alignment = -corner_direction.dot(self.relative_position); // TODO -- Fix math below so this doesn't have to be negated
+        let corner_direction = {
+            let mut d = self.relative_position;
+            d.normalize();
+            d
+        };
+
+        let direction_alignment = travel_direction.dot(corner_direction);
 
         self.current_position =
-            ease_point(ease_out_quad, self.start_position, corner_destination, self.t);
+            ease_point(ease_linear, self.start_position, corner_destination, self.t);
 
         if self.t == 1.0 {
             // We are at destination, move t out of 0-1 range to stop the animation
             self.t = 2.0;
         } else {
-            let corner_dt = dt * lerp(1.0, 1.0 - CURSOR_TRAIL_SIZE, direction_alignment);
+            let corner_dt = dt * lerp(1.0, 1.0 - CURSOR_TRAIL_SIZE, -direction_alignment);
             self.t = (self.t + corner_dt / BASE_ANIMATION_LENGTH_SECONDS).min(1.0)
         }
 
