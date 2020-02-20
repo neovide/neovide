@@ -96,7 +96,6 @@ pub struct Corner {
     t: f32,
 }
 
-
 impl Corner {
     pub fn new() -> Corner {
         Corner {
@@ -110,7 +109,15 @@ impl Corner {
 
     pub fn update(&mut self, font_dimensions: Point, destination: Point, dt: f32) -> bool {
         // Update destination if needed
+        let mut immediate_movement = false;
         if destination != self.previous_destination {
+            let travel_distance = destination - self.previous_destination;
+            let chars_travel_x = travel_distance.x / font_dimensions.x;
+            if travel_distance.y == 0.0 && (chars_travel_x - 1.0).abs() < 0.1 {
+                // We're moving one character to the right. Make movement immediate to avoid lag
+                // while typing
+                immediate_movement = true;
+            }
             self.t = 0.0;
             self.start_position = self.current_position;
             self.previous_destination = destination;
@@ -125,10 +132,15 @@ impl Corner {
         let relative_scaled_position: Point = (
             self.relative_position.x * font_dimensions.x,
             self.relative_position.y * font_dimensions.y,
-        )
-            .into();
+        ).into();
 
         let corner_destination = destination + relative_scaled_position;
+
+        if immediate_movement {
+            self.t = 1.0;
+            self.current_position = corner_destination;
+            return true;
+        }
 
         // Calculate how much a corner will be lagging behind based on how much it's aligned
         // with the direction of motion. Corners in front will move faster than corners in the
@@ -160,7 +172,8 @@ pub struct CursorRenderer {
     pub corners: Vec<Corner>,
     pub previous_position: (u64, u64),
     pub command_line_delay: u64,
-    blink_status: BlinkStatus
+    blink_status: BlinkStatus,
+    previous_cursor_shape: Option<CursorShape>,
 }
 
 impl CursorRenderer {
@@ -169,13 +182,21 @@ impl CursorRenderer {
             corners: vec![Corner::new(); 4],
             previous_position: (0, 0),
             command_line_delay: 0,
-            blink_status: BlinkStatus::new()
+            blink_status: BlinkStatus::new(),
+            previous_cursor_shape: None,
         };
         renderer.set_cursor_shape(&CursorShape::Block, DEFAULT_CELL_PERCENTAGE);
         renderer
     }
 
     fn set_cursor_shape(&mut self, cursor_shape: &CursorShape, cell_percentage: f32) {
+        let new_cursor = Some(cursor_shape.clone());
+        if self.previous_cursor_shape == new_cursor {
+            return;
+        }
+
+        self.previous_cursor_shape = new_cursor;
+
         self.corners = self.corners
             .clone()
             .into_iter().enumerate()
@@ -192,7 +213,10 @@ impl CursorRenderer {
                         // instead of the top.
                         CursorShape::Horizontal => (x, -((-y + 0.5) * cell_percentage - 0.5)).into()
                     },
+                    t: 0.0,
+                    start_position: corner.current_position,
                     .. corner
+
                 }
             })
             .collect::<Vec<Corner>>();
@@ -254,7 +278,7 @@ impl CursorRenderer {
         if !center_destination.is_zero() {
             for corner in self.corners.iter_mut() {
                 let corner_animating = corner.update(font_dimensions, center_destination, dt);
-                animating = animating || corner_animating;
+                animating |= corner_animating;
             }
         }
 
