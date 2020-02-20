@@ -109,47 +109,50 @@ impl Corner {
     }
 
     pub fn update(&mut self, font_dimensions: Point, destination: Point, dt: f32) -> bool {
+        // Update destination if needed
         if destination != self.previous_destination {
             self.t = 0.0;
             self.start_position = self.current_position;
             self.previous_destination = destination;
         }
 
-        let finished_animating = self.t >= 1.0; // Check first if animation's over, so we still render one frame at t == 1.0
+        // Check first if animation's over
+        if self.t > 1.0 {
+            return false;
+        }
 
-        if self.t <= 1.0 {
-            // Calculate window-space destination for corner
-            let relative_scaled_position: Point = (
-                self.relative_position.x * font_dimensions.x,
-                self.relative_position.y * font_dimensions.y,
-            )
-                .into();
+        // Calculate window-space destination for corner
+        let relative_scaled_position: Point = (
+            self.relative_position.x * font_dimensions.x,
+            self.relative_position.y * font_dimensions.y,
+        )
+            .into();
 
-            let corner_destination = destination + relative_scaled_position;
+        let corner_destination = destination + relative_scaled_position;
 
-            // Calculate how much a corner will be lagging behind based on how much it's aligned
-            // with the direction of motion. Corners in front will move faster than corners in the
-            // back
-            let corner_direction = {
-                let mut d = destination - self.current_position;
-                d.normalize();
-                d
-            };
+        // Calculate how much a corner will be lagging behind based on how much it's aligned
+        // with the direction of motion. Corners in front will move faster than corners in the
+        // back
+        let corner_direction = {
+            let mut d = destination - self.current_position;
+            d.normalize();
+            d
+        };
 
-            let direction_alignment = corner_direction.dot(self.relative_position);
+        let direction_alignment = corner_direction.dot(self.relative_position);
 
-            self.current_position = ease_point(
-                ease_linear,
-                self.start_position, 
-                corner_destination, 
-                self.t);
+        self.current_position =
+            ease_point(ease_linear, self.start_position, corner_destination, self.t);
 
+        if self.t == 1.0 {
+            // We are at destination, move t out of 0-1 range to stop the animation
+            self.t = 2.0;
+        } else {
             let corner_dt = dt * lerp(1.0, 1.0 - CURSOR_TRAIL_SIZE, direction_alignment);
-
             self.t = (self.t + corner_dt / BASE_ANIMATION_LENGTH_SECONDS).min(1.0)
         }
 
-        !finished_animating
+        true
     }
 }
 
