@@ -13,7 +13,7 @@ use animation_utils::*;
 mod cursor_vfx;
 
 const BASE_ANIMATION_LENGTH_SECONDS: f32 = 0.06;
-const CURSOR_TRAIL_SIZE: f32 = 0.6;
+const CURSOR_TRAIL_SIZE: f32 = 0.7;
 const COMMAND_LINE_DELAY_FRAMES: u64 = 5;
 const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
 
@@ -162,7 +162,7 @@ impl Corner {
         let direction_alignment = travel_direction.dot(corner_direction);
 
         self.current_position =
-            ease_point(ease_linear, self.start_position, corner_destination, self.t);
+            ease_point(ease_out_cubic, self.start_position, corner_destination, self.t);
 
         if self.t == 1.0 {
             // We are at destination, move t out of 0-1 range to stop the animation
@@ -182,7 +182,7 @@ pub struct CursorRenderer {
     pub command_line_delay: u64,
     blink_status: BlinkStatus,
     previous_cursor_shape: Option<CursorShape>,
-    cursor_vfx: cursor_vfx::CursorVFX,
+    cursor_vfx: Box<dyn cursor_vfx::CursorVFX>,
 }
 
 impl CursorRenderer {
@@ -193,7 +193,7 @@ impl CursorRenderer {
             command_line_delay: 0,
             blink_status: BlinkStatus::new(),
             previous_cursor_shape: None,
-            cursor_vfx:  cursor_vfx::CursorVFX{t: 0.0, center_position: Point{x:0.0, y:0.0}},
+            cursor_vfx: Box::new(cursor_vfx::SonicBoom{t: 0.0, center_position: Point{x:0.0, y:0.0}}),
         };
         renderer.set_cursor_shape(&CursorShape::Block, DEFAULT_CELL_PERCENTAGE);
         renderer
@@ -293,7 +293,7 @@ impl CursorRenderer {
                 let corner_animating = corner.update(font_dimensions, center_destination, dt);
                 animating |= corner_animating;
             }
-            let vfx_animating = self.cursor_vfx.update(dt);
+            let vfx_animating = self.cursor_vfx.update(center_destination, dt);
             animating |= vfx_animating;
         }
 

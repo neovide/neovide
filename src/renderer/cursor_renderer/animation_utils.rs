@@ -25,6 +25,28 @@ pub fn ease_in_out_quad(t: f32) -> f32 {
     }
 }
 
+#[allow(dead_code)]
+pub fn ease_in_cubic(t: f32) -> f32 {
+    t * t * t
+}
+
+#[allow(dead_code)]
+pub fn ease_out_cubic(t: f32) -> f32 {
+    let n = t - 1.0;
+    n * n * n + 1.0
+}
+
+#[allow(dead_code)]
+pub fn ease_in_out_cubic(t: f32) -> f32 {
+    let n = 2.0 * t;
+    if n < 1.0 {
+        0.5 * n * n * n
+    } else {
+        let n = n - 2.0;
+        0.5 * (n * n * n + 2.0)
+    }
+}
+
 pub fn lerp(start: f32, end: f32, t: f32) -> f32 {
     start + (end - start) * t
 }
