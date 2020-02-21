@@ -1,6 +1,7 @@
-use skulpin::skia_safe::{BlendMode, Canvas, Color, Paint, Point, Rect, paint::Style};
+use skulpin::skia_safe::{paint::Style, BlendMode, Canvas, Color, Paint, Point, Rect};
 
 use crate::editor::{Colors, Cursor};
+use super::animation_utils::*;
 
 pub trait CursorVFX {
     fn update(&mut self, current_cursor_destination: Point, dt: f32) -> bool;
@@ -50,10 +51,9 @@ impl CursorVFX for PointHighlight {
         paint.set_blend_mode(BlendMode::SrcOver);
 
         let base_color: Color = cursor.background(&colors).to_color();
-        let alpha = ((1.0 - self.t) * 255.0) as u8;
+        let alpha = ease(ease_in_quad, 255.0, 0.0, self.t) as u8;
         let color = Color::from_argb(alpha, base_color.r(), base_color.g(), base_color.b());
         paint.set_color(color);
-
 
         let size = 3.0 * font_size.1;
         let radius = self.t * size;
@@ -64,23 +64,21 @@ impl CursorVFX for PointHighlight {
             radius,
             radius,
         );
-        
+
         match self.mode {
             HighlightMode::SonicBoom => {
-
                 canvas.draw_oval(&rect, &paint);
-            },
+            }
             HighlightMode::Ripple => {
                 paint.set_style(Style::Stroke);
                 paint.set_stroke_width(font_size.1 * 0.2);
                 canvas.draw_oval(&rect, &paint);
-            },
+            }
             HighlightMode::Wireframe => {
                 paint.set_style(Style::Stroke);
                 paint.set_stroke_width(font_size.1 * 0.2);
                 canvas.draw_rect(&rect, &paint);
-            },
+            }
         }
-
     }
 }
