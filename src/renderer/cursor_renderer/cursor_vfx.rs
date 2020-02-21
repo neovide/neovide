@@ -118,8 +118,8 @@ impl ParticleTrail {
     }
 }
 
-const PARTICLE_DENSITY: f32 = 0.05; // TODO - density should be based on font size too
-const PARTICLE_LIFETIME: f32 = 1.0;
+const PARTICLE_DENSITY: f32 = 0.008;
+const PARTICLE_LIFETIME: f32 = 1.2;
 
 impl CursorVFX for ParticleTrail {
     fn update(&mut self, current_cursor_dest: Point, dt: f32) -> bool {
@@ -135,6 +135,7 @@ impl CursorVFX for ParticleTrail {
             }
         }
 
+        // Update particle positions
         for i in 0..self.particles.len() {
             let particle = &mut self.particles[i];
             particle.pos += particle.speed * dt;
@@ -144,17 +145,20 @@ impl CursorVFX for ParticleTrail {
         if current_cursor_dest != self.previous_cursor_dest {
             let travel = current_cursor_dest - self.previous_cursor_dest;
             let travel_distance = travel.length();
-            let particle_count = (travel_distance * PARTICLE_DENSITY) as usize;
+            // Increase amount of particles when cursor travels further
+            // TODO -- particle count should not depend on font size
+            let particle_count = (travel_distance.powf(1.5) * PARTICLE_DENSITY) as usize;
 
             let prev_p = self.previous_cursor_dest;
             for i in 0..particle_count {
                 let t = i as f32 / (particle_count as f32 - 1.0);
-                let rand_seed = t * std::f32::consts::E * 20.0;
-                let rand = Point::new(rand_seed.sin(), rand_seed.cos());
+
+                let phase = t * 60.0;
+                let rand = Point::new(phase.sin(), phase.cos());
 
                 let pos = prev_p + travel * (t + 0.3 * rand.x / particle_count as f32);
 
-                self.add_particle(pos, rand * 10.0, t * PARTICLE_LIFETIME);
+                self.add_particle(pos, rand * 20.0, t * PARTICLE_LIFETIME);
             }
 
             self.previous_cursor_dest = current_cursor_dest;
@@ -164,7 +168,7 @@ impl CursorVFX for ParticleTrail {
         !self.particles.is_empty()
     }
 
-    fn restart(&mut self, position: Point) {}
+    fn restart(&mut self, _position: Point) {}
 
     fn render(&self, canvas: &mut Canvas, cursor: &Cursor, colors: &Colors, font_size: (f32, f32)) {
         let mut paint = Paint::new(skulpin::skia_safe::colors::WHITE, None);
