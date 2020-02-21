@@ -194,7 +194,8 @@ impl CursorRenderer {
             command_line_delay: 0,
             blink_status: BlinkStatus::new(),
             previous_cursor_shape: None,
-            cursor_vfx: Box::new(PointHighlight::new(Point{x:0.0, y:0.0}, HighlightMode::Ripple)),
+            //cursor_vfx: Box::new(PointHighlight::new(Point{x:0.0, y:0.0}, HighlightMode::Ripple)),
+            cursor_vfx: Box::new(ParticleTrail::new()),
         };
         renderer.set_cursor_shape(&CursorShape::Block, DEFAULT_CELL_PERCENTAGE);
         renderer
