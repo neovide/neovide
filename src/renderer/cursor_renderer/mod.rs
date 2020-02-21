@@ -1,6 +1,6 @@
 use std::time::{Duration, Instant};
 
-use skulpin::skia_safe::{BlendMode, Canvas, Color, Paint, Path, Point, Rect};
+use skulpin::skia_safe::{Canvas, Paint, Path, Point};
 
 use crate::settings::SETTINGS;
 use crate::renderer::CachingShaper;
@@ -9,6 +9,8 @@ use crate::redraw_scheduler::REDRAW_SCHEDULER;
 
 mod animation_utils;
 use animation_utils::*;
+
+mod cursor_vfx;
 
 const BASE_ANIMATION_LENGTH_SECONDS: f32 = 0.06;
 const CURSOR_TRAIL_SIZE: f32 = 0.6;
@@ -174,52 +176,13 @@ impl Corner {
     }
 }
 
-// TODO -- Split into own file, make it a trait to have several impls
-// TODO -- Rename this impl as SonicBoom
-pub struct CursorVFX {
-    t: f32,
-    center_position: Point,
-}
-
-impl CursorVFX {
-    fn update(&mut self, dt: f32) -> bool {
-        self.t = (self.t + dt * 5.0).min(1.0); // TODO - speed config
-        return self.t < 1.0
-    }
-
-    fn reset(&mut self, position: Point) {
-        self.t = 0.0;
-        self.center_position = position;
-    }
-
-    fn render(&self, _paint: &mut Paint, canvas: &mut Canvas, cursor: &Cursor, colors: &Colors) {
-        if self.t == 1.0 {
-            return;
-        }
-        let mut paint = Paint::new(skulpin::skia_safe::colors::WHITE, None);
-        paint.set_blend_mode(BlendMode::SrcOver);
-
-        let base_color : Color = cursor.background(&colors).to_color();
-        let alpha = ((1.0 - self.t) * 255.0) as u8;
-        let color = Color::from_argb(alpha, base_color.r(), base_color.g(), base_color.b());
-        paint.set_color(color);
-
-        let size = 40.0; // TODO -- Compute from font size
-        let radius = self.t * size;
-        let hr = radius * 0.5;
-        let rect = Rect::from_xywh(self.center_position.x - hr, self.center_position.y - hr, radius, radius);
-
-        canvas.draw_oval(&rect, &paint);
-    }
-}
-
 pub struct CursorRenderer {
     pub corners: Vec<Corner>,
     pub previous_position: (u64, u64),
     pub command_line_delay: u64,
     blink_status: BlinkStatus,
     previous_cursor_shape: Option<CursorShape>,
-    cursor_vfx: CursorVFX,
+    cursor_vfx: cursor_vfx::CursorVFX,
 }
 
 impl CursorRenderer {
@@ -230,7 +193,7 @@ impl CursorRenderer {
             command_line_delay: 0,
             blink_status: BlinkStatus::new(),
             previous_cursor_shape: None,
-            cursor_vfx:  CursorVFX{t: 0.0, center_position: Point{x:0.0, y:0.0}},
+            cursor_vfx:  cursor_vfx::CursorVFX{t: 0.0, center_position: Point{x:0.0, y:0.0}},
         };
         renderer.set_cursor_shape(&CursorShape::Block, DEFAULT_CELL_PERCENTAGE);
         renderer
@@ -319,7 +282,7 @@ impl CursorRenderer {
             self.previous_cursor_shape = new_cursor;
             self.set_cursor_shape(&cursor.shape, cursor.cell_percentage.unwrap_or(DEFAULT_CELL_PERCENTAGE)); 
         
-            self.cursor_vfx.reset(center_destination);
+            self.cursor_vfx.restart(center_destination);
         }
 
         let dt = 1.0 / (SETTINGS.get("refresh_rate").read_u16() as f32);
