@@ -1,19 +1,37 @@
-use skulpin::skia_safe::{BlendMode, Canvas, Color, Paint, Point, Rect};
+use skulpin::skia_safe::{BlendMode, Canvas, Color, Paint, Point, Rect, paint::Style};
 
 use crate::editor::{Colors, Cursor};
 
 pub trait CursorVFX {
     fn update(&mut self, current_cursor_destination: Point, dt: f32) -> bool;
     fn restart(&mut self, position: Point);
-    fn render(&self, _paint: &mut Paint, canvas: &mut Canvas, cursor: &Cursor, colors: &Colors);
+    fn render(&self, canvas: &mut Canvas, cursor: &Cursor, colors: &Colors, font_size: (f32, f32));
 }
 
-pub struct SonicBoom {
-    pub t: f32,
-    pub center_position: Point,
+#[allow(dead_code)]
+pub enum HighlightMode {
+    SonicBoom,
+    Ripple,
+    Wireframe,
 }
 
-impl CursorVFX for SonicBoom {
+pub struct PointHighlight {
+    t: f32,
+    center_position: Point,
+    mode: HighlightMode,
+}
+
+impl PointHighlight {
+    pub fn new(center: Point, mode: HighlightMode) -> PointHighlight {
+        PointHighlight {
+            t: 0.0,
+            center_position: center,
+            mode,
+        }
+    }
+}
+
+impl CursorVFX for PointHighlight {
     fn update(&mut self, _current_cursor_destination: Point, dt: f32) -> bool {
         self.t = (self.t + dt * 5.0).min(1.0); // TODO - speed config
         return self.t < 1.0;
@@ -24,7 +42,7 @@ impl CursorVFX for SonicBoom {
         self.center_position = position;
     }
 
-    fn render(&self, _paint: &mut Paint, canvas: &mut Canvas, cursor: &Cursor, colors: &Colors) {
+    fn render(&self, canvas: &mut Canvas, cursor: &Cursor, colors: &Colors, font_size: (f32, f32)) {
         if self.t == 1.0 {
             return;
         }
@@ -36,7 +54,8 @@ impl CursorVFX for SonicBoom {
         let color = Color::from_argb(alpha, base_color.r(), base_color.g(), base_color.b());
         paint.set_color(color);
 
-        let size = 40.0; // TODO -- Compute from font size
+
+        let size = 3.0 * font_size.1;
         let radius = self.t * size;
         let hr = radius * 0.5;
         let rect = Rect::from_xywh(
@@ -45,7 +64,23 @@ impl CursorVFX for SonicBoom {
             radius,
             radius,
         );
+        
+        match self.mode {
+            HighlightMode::SonicBoom => {
 
-        canvas.draw_oval(&rect, &paint);
+                canvas.draw_oval(&rect, &paint);
+            },
+            HighlightMode::Ripple => {
+                paint.set_style(Style::Stroke);
+                paint.set_stroke_width(font_size.1 * 0.2);
+                canvas.draw_oval(&rect, &paint);
+            },
+            HighlightMode::Wireframe => {
+                paint.set_style(Style::Stroke);
+                paint.set_stroke_width(font_size.1 * 0.2);
+                canvas.draw_rect(&rect, &paint);
+            },
+        }
+
     }
 }

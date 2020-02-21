@@ -11,6 +11,7 @@ mod animation_utils;
 use animation_utils::*;
 
 mod cursor_vfx;
+use cursor_vfx::*;
 
 const BASE_ANIMATION_LENGTH_SECONDS: f32 = 0.06;
 const CURSOR_TRAIL_SIZE: f32 = 0.7;
@@ -182,7 +183,7 @@ pub struct CursorRenderer {
     pub command_line_delay: u64,
     blink_status: BlinkStatus,
     previous_cursor_shape: Option<CursorShape>,
-    cursor_vfx: Box<dyn cursor_vfx::CursorVFX>,
+    cursor_vfx: Box<dyn CursorVFX>,
 }
 
 impl CursorRenderer {
@@ -193,7 +194,7 @@ impl CursorRenderer {
             command_line_delay: 0,
             blink_status: BlinkStatus::new(),
             previous_cursor_shape: None,
-            cursor_vfx: Box::new(cursor_vfx::SonicBoom{t: 0.0, center_position: Point{x:0.0, y:0.0}}),
+            cursor_vfx: Box::new(PointHighlight::new(Point{x:0.0, y:0.0}, HighlightMode::Ripple)),
         };
         renderer.set_cursor_shape(&CursorShape::Block, DEFAULT_CELL_PERCENTAGE);
         renderer
@@ -325,7 +326,7 @@ impl CursorRenderer {
                 canvas.draw_text_blob(&blob, destination, &paint);
             }
             canvas.restore();
-            self.cursor_vfx.render(paint, canvas, &cursor, &default_colors);
+            self.cursor_vfx.render(canvas, &cursor, &default_colors, (font_width, font_height));
         }
     }
 }
