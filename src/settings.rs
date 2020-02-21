@@ -130,12 +130,16 @@ impl Settings {
     pub async fn setup_changed_listeners(&self, nvim: &Neovim<Compat<ChildStdin>>) {
         let keys : Vec<String> = self.settings.lock().keys().cloned().collect();
         for name in keys {
-            let vimscript = 
-                format!("function NeovideNotify{}Changed(d, k, z)\n", name) +
-               &format!("  call rpcnotify(1, \"setting_changed\", \"{}\", g:neovide_{})\n", name, name) +
-                        "endfunction\n" +
-               &format!("call dictwatcheradd(g:, \"neovide_{}\", \"NeovideNotify{}Changed\")", name, name);
-            nvim.exec(&vimscript, false).await
+            let vimscript = format!(
+                concat!(
+                "exe \"",
+                "fun! NeovideNotify{0}Changed(d, k, z)\n",
+                "call rpcnotify(1, 'setting_changed', '{0}', g:neovide_{0})\n",
+                "endf\n",
+                "call dictwatcheradd(g:, 'neovide_{0}', 'NeovideNotify{0}Changed')\"",
+                )
+            , name);
+            nvim.command(&vimscript).await
                 .unwrap_or_explained_panic(&format!("Could not setup setting notifier for {}", name));
         }
     }
