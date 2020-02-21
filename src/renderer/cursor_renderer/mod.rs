@@ -3,11 +3,12 @@ use std::time::{Duration, Instant};
 use skulpin::skia_safe::{BlendMode, Canvas, Color, Paint, Path, Point, Rect};
 
 use crate::settings::SETTINGS;
-use crate::renderer::animation_utils::*;
 use crate::renderer::CachingShaper;
 use crate::editor::{EDITOR, Colors, Cursor, CursorShape};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 
+mod animation_utils;
+use animation_utils::*;
 
 const BASE_ANIMATION_LENGTH_SECONDS: f32 = 0.06;
 const CURSOR_TRAIL_SIZE: f32 = 0.6;
