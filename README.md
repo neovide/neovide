@@ -18,7 +18,7 @@ Should be a standard full features Neovim GUI. Beyond that there are some visual
 
 ### Ligatures
 
-Supports ligatures and full HarfBuzz backed font rendering.
+Supports ligatures and full [HarfBuzz](https://www.freedesktop.org/wiki/Software/HarfBuzz/) backed font rendering.
 
 ![Ligatures](./assets/Ligatures.png)
 
