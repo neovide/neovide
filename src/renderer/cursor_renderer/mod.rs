@@ -230,10 +230,10 @@ impl CursorRenderer {
     pub fn draw(&mut self, 
             cursor: Cursor, default_colors: &Colors, 
             font_width: f32, font_height: f32,
-            paint: &mut Paint, shaper: &mut CachingShaper, 
-            canvas: &mut Canvas) {
+            shaper: &mut CachingShaper, canvas: &mut Canvas) {
         let render = self.blink_status.update_status(&cursor);
 
+        let mut paint = Paint::new(skulpin::skia_safe::colors::WHITE, None);
         paint.set_anti_alias(true);
 
         self.previous_position = {
