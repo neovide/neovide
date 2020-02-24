@@ -20,7 +20,7 @@ fn parse_changed_setting(name: &str, value: Option<Value>) -> Value {
         "extra_buffer_frames" => {
             let mut settings = SETTINGS.get::<RedrawSettings>();
             if let Some(value) = value {
-                settings.extra_buffer_frames= value.as_u64().unwrap(); // TODO -- handle wrong data type
+                settings.extra_buffer_frames = value.as_u64().unwrap(); // TODO -- handle wrong data type
                 SETTINGS.set(&settings);
             }
             Value::from(settings.extra_buffer_frames)
@@ -32,12 +32,12 @@ fn parse_changed_setting(name: &str, value: Option<Value>) -> Value {
 }
 
 pub fn initialize_settings() {
-    SETTINGS.set(&RedrawSettings { extra_buffer_frames: 60 });
+    SETTINGS.set(&RedrawSettings {
+        extra_buffer_frames: 60,
+    });
 
     SETTINGS.add_listener("extra_buffer_frames", parse_changed_setting);
 }
-
-
 
 pub struct RedrawScheduler {
     frames_queued: AtomicU16,
