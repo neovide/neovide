@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 use std::convert::TryInto;
+use std::any::{Any, TypeId};
 
-use rmpv::Value;
+pub use rmpv::Value;
 use nvim_rs::Neovim;
 use nvim_rs::compat::tokio::Compat;
 use flexi_logger::{Logger, Criterion, Naming, Cleanup};
 use tokio::process::ChildStdin;
-use parking_lot::Mutex;
+use parking_lot::RwLock;
 use log::warn;
 
 use crate::error_handling::ResultPanicExplanation;
@@ -15,120 +16,86 @@ lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new();
 }
 
-#[derive(Debug)]
-pub enum Setting {
-    Bool(bool),
-    U16(u16),
-    String(String)
-}
-
-impl Setting {
-    fn new_bool(value: bool) -> Setting {
-        Setting::Bool(value)
-    }
-
-    pub fn read_bool(&self) -> bool {
-        if let Setting::Bool(value) = self {
-            *value
-        } else {
-            panic!("Could not read setting as bool");
-        }
-    }
-
-    fn new_u16(value: u16) -> Setting {
-        Setting::U16(value)
-    }
-
-    pub fn read_u16(&self) -> u16 {
-        if let Setting::U16(value) = self {
-            *value
-        } else {
-            panic!("Could not read setting as u16");
-        }
-    }
-    
-    fn new_string(value: String) -> Setting {
-        Setting::String(value)
-    }
-
-    pub fn read_string(&self) -> String {
-        if let Setting::String(value) = self {
-            value.clone()
-        } else {
-            panic!("Could not read setting as string");
-        }
-    }
-
-    fn parse(&mut self, value: Value) {
-        match self {
-            Setting::Bool(internal_bool) => {
-                if let Ok(value) = value.try_into() {
-                    let intermediate: u64 = value;
-                    *internal_bool = intermediate != 0;
-                }
-            },
-            Setting::U16(internal_u16) => {
-                if let Ok(value) = value.try_into() {
-                    let intermediate: u64 = value;
-                    *internal_u16 = intermediate as u16;
-                }
-            },
-            Setting::String(internal_string) => {
-                if let Ok(value) = value.try_into() {
-                    let intermediate: String = value;
-                    *internal_string = intermediate;
-                }
-            }
-        }
-    }
-
-    fn unparse(&self) -> Value {
-        match self {
-            Setting::Bool(internal_bool) => {
-                let value = if *internal_bool {
-                    1
-                } else {
-                    0
-                };
-                Value::from(value)
-            },
-            Setting::U16(internal_u16) => Value::from(*internal_u16),
-            Setting::String(internal_string) => Value::from(internal_string.as_str()),
-        }
-    }
-
-    fn clone(&self) -> Setting {
-        match self {
-            Setting::Bool(_) => Setting::new_bool(self.read_bool()),
-            Setting::U16(_) => Setting::new_u16(self.read_u16()),
-            Setting::String(_) => Setting::new_string(self.read_string()),
-        }
-    }
+struct SettingsObject {
+    object: Box<dyn Any + Send + Sync>,
 }
 
 pub struct Settings {
     pub neovim_arguments: Vec<String>,
-    pub settings: Mutex<HashMap<String, Setting>>
+    settings: RwLock<HashMap<TypeId, SettingsObject>>,
+    listeners: RwLock<HashMap<String, fn (&str, Option<Value>)->Value>>,
 }
 
 impl Settings {
+
+    fn new() -> Settings {
+
+        let mut no_idle = false;
+        let mut buffer_frames = 1;
+
+        let neovim_arguments = std::env::args().filter(|arg| {
+            if arg == "--log" {
+                Logger::with_str("neovide")
+                    .log_to_file()
+                    .rotate(Criterion::Size(10_000_000), Naming::Timestamps, Cleanup::KeepLogFiles(1))
+                    .start()
+                    .expect("Could not start logger");
+                false
+            } else if arg == "--noIdle" {
+                no_idle = true;
+                false
+            } else if arg == "--extraBufferFrames" {
+                buffer_frames = 60;
+                false
+            } else {
+                true
+            }
+        }).collect::<Vec<String>>();
+
+
+        Settings{
+            neovim_arguments,
+            settings: RwLock::new(HashMap::new()),
+            listeners: RwLock::new(HashMap::new()),
+        }
+    }
+
+    pub fn add_listener(&self, property_name: &str, func: fn (&str, Option<Value>)-> Value) {
+        self.listeners.write().insert(String::from(property_name), func);
+    }
+    
+    pub fn set<T: Clone + Send + Sync + 'static >(&self, t: &T) {
+        let type_id : TypeId = TypeId::of::<T>();
+        let t : T = (*t).clone();
+        self.settings.write().insert(type_id, SettingsObject{ object: Box::new(t)});
+    }
+
+    pub fn get<'a, T: Clone + Send + Sync + 'static>(&'a self) -> T {
+        let read_lock = self.settings.read();
+        let boxed = &read_lock.get(&TypeId::of::<T>()).expect("Trying to retrieve a settings object that doesn't exist");
+        let value: &T = boxed.object.downcast_ref::<T>().expect("Attempted to extract a settings object of the wrong type");
+        (*value).clone()
+    }
+
     pub async fn read_initial_values(&self, nvim: &Neovim<Compat<ChildStdin>>) {
-        let keys : Vec<String> = self.settings.lock().keys().cloned().collect();
+        let keys : Vec<String> = self.listeners.read().keys().cloned().collect();
         for name in keys {
             let variable_name = format!("neovide_{}", name.to_string());
             match nvim.get_var(&variable_name).await {
-                Ok(value) => self.settings.lock().get_mut(&name).unwrap().parse(value),
+                Ok(value) => {
+                    self.listeners.read().get(&name).unwrap()(&name, Some(value));
+                },
                 Err(error) => {
                     warn!("Initial value load failed for {}: {}", name, error);
-                    let setting = self.get(&name);
-                    nvim.set_var(&variable_name, setting.unparse()).await.ok();
+                    let setting = self.listeners.read().get(&name).unwrap()(&name, None);
+                    nvim.set_var(&variable_name, setting).await.ok();
                 }
             }
         }
     }
 
     pub async fn setup_changed_listeners(&self, nvim: &Neovim<Compat<ChildStdin>>) {
-        let keys : Vec<String> = self.settings.lock().keys().cloned().collect();
+        let keys : Vec<String> = self.listeners.read().keys().cloned().collect();
         for name in keys {
             let vimscript = format!(
                 concat!(
@@ -151,15 +118,10 @@ impl Settings {
         let name: Result<String, _>= name.try_into();
         let name = name.unwrap();
 
-        self.settings.lock().get_mut(&name).unwrap().parse(value);
+        self.listeners.read().get(&name).unwrap()(&name, Some(value));
     }
 
-    pub fn get(&self, name: &str) -> Setting {
-        let settings = self.settings.lock();
-        let setting = settings.get(name).expect(&format!("Could not find option {}", name));
-        setting.clone()
-    }
-
+    /*
     pub fn new() -> Settings {
         let mut no_idle = false;
         let mut buffer_frames = 1;
@@ -191,4 +153,5 @@ impl Settings {
 
         Settings { neovim_arguments, settings: Mutex::new(settings) }
     }
+    */
 }

@@ -14,7 +14,7 @@ use crate::bridge::{parse_keycode, append_modifiers, BRIDGE, UiCommand};
 use crate::renderer::Renderer;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::editor::EDITOR;
-use crate::settings::SETTINGS;
+use crate::settings::{SETTINGS, Value};
 use crate::INITIAL_DIMENSIONS;
 
 #[derive(RustEmbed)]
@@ -236,7 +236,7 @@ impl WindowWrapper {
         }
 
         debug!("Render Triggered");
-        if REDRAW_SCHEDULER.should_draw() || SETTINGS.get("no_idle").read_bool() {
+        if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
             let renderer = &mut self.renderer;
             if self.skulpin_renderer.draw(&self.window, |canvas, coordinate_system_helper| {
                 if renderer.draw(canvas, coordinate_system_helper) {
@@ -249,6 +249,45 @@ impl WindowWrapper {
         }
         return true;
     }
+}
+
+#[derive(Clone)]
+struct WindowSettings {
+    refresh_rate: u64,
+    no_idle: bool,
+}
+
+fn parse_changed_setting(name: &str, value: Option<Value>) -> Value {
+    let mut settings = SETTINGS.get::<WindowSettings>();
+    match name {
+        "refresh_rate" => {
+            if let Some(value) = value {
+                settings.refresh_rate = value.as_u64().unwrap(); // TODO -- handle wrong data type
+                SETTINGS.set(&settings);
+            }
+            Value::from(settings.refresh_rate)
+        },
+        "no_idle" => {
+            if let Some(value) = value {
+                settings.no_idle = value.as_bool().unwrap(); // TODO -- handle wrong data type
+                SETTINGS.set(&settings);
+            }
+            Value::from(settings.no_idle)
+        },
+        _ => {
+            panic!(format!("Unknown setting: {}", name));
+        }
+    }
+}
+
+pub fn initialize_settings() {
+    SETTINGS.set(&WindowSettings {
+        refresh_rate: 60,
+        no_idle: false,
+    });
+
+    SETTINGS.add_listener("refresh_rate", parse_changed_setting);
+    SETTINGS.add_listener("no_idle", parse_changed_setting);
 }
 
 pub fn ui_loop() {
@@ -280,7 +319,7 @@ pub fn ui_loop() {
         }
 
         let elapsed = frame_start.elapsed();
-        let refresh_rate = SETTINGS.get("refresh_rate").read_u16() as f32;
+        let refresh_rate = SETTINGS.get::<WindowSettings>().refresh_rate as f32;
         let frame_length = Duration::from_secs_f32(1.0 / refresh_rate);
         if elapsed < frame_length {
             sleep(frame_length - elapsed);
