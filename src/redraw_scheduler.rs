@@ -4,10 +4,30 @@ use std::time::Instant;
 
 use log::trace;
 
-use crate::settings::SETTINGS;
+use crate::settings::*;
 
 lazy_static! {
     pub static ref REDRAW_SCHEDULER: RedrawScheduler = RedrawScheduler::new();
+}
+
+#[derive(Clone)]
+struct RedrawSettings {
+    extra_buffer_frames: u64,
+}
+
+pub fn initialize_settings() {
+    
+    let buffer_frames = if SETTINGS.neovim_arguments.contains(&String::from("--extraBufferFrames")) {
+        60
+    }else{
+        1
+    };
+
+    SETTINGS.set(&RedrawSettings {
+        extra_buffer_frames: buffer_frames,
+    });
+
+    register_nvim_setting!("extra_buffer_frames", RedrawSettings::extra_buffer_frames);
 }
 
 pub struct RedrawScheduler {
@@ -37,8 +57,8 @@ impl RedrawScheduler {
 
     pub fn queue_next_frame(&self) {
         trace!("Next frame queued");
-        let buffer_frames = SETTINGS.get("extra_buffer_frames").read_u16();
-        self.frames_queued.store(buffer_frames, Ordering::Relaxed);
+        let buffer_frames = SETTINGS.get::<RedrawSettings>().extra_buffer_frames;
+        self.frames_queued.store(buffer_frames as u16, Ordering::Relaxed);
     }
 
     pub fn should_draw(&self) -> bool {

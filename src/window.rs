@@ -10,11 +10,11 @@ use skulpin::sdl2::event::Event;
 use skulpin::sdl2::keyboard::{Mod, Keycode};
 use skulpin::{RendererBuilder, Renderer as SkulpinRenderer, PresentMode, CoordinateSystem, dpis};
 
+use crate::settings::*;
 use crate::bridge::{parse_keycode, append_modifiers, BRIDGE, UiCommand};
 use crate::renderer::Renderer;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::editor::EDITOR;
-use crate::settings::SETTINGS;
 use crate::INITIAL_DIMENSIONS;
 
 #[derive(RustEmbed)]
@@ -236,7 +236,7 @@ impl WindowWrapper {
         }
 
         debug!("Render Triggered");
-        if REDRAW_SCHEDULER.should_draw() || SETTINGS.get("no_idle").read_bool() {
+        if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
             let renderer = &mut self.renderer;
             if self.skulpin_renderer.draw(&self.window, |canvas, coordinate_system_helper| {
                 if renderer.draw(canvas, coordinate_system_helper) {
@@ -249,6 +249,25 @@ impl WindowWrapper {
         }
         return true;
     }
+}
+
+#[derive(Clone)]
+struct WindowSettings {
+    refresh_rate: u64,
+    no_idle: bool,
+}
+
+pub fn initialize_settings() {
+    
+    let no_idle = SETTINGS.neovim_arguments.contains(&String::from("--noIdle"));
+
+    SETTINGS.set(&WindowSettings {
+        refresh_rate: 60,
+        no_idle,
+    });
+    
+    register_nvim_setting!("refresh_rate", WindowSettings::refresh_rate);
+    register_nvim_setting!("no_idle", WindowSettings::no_idle);
 }
 
 pub fn ui_loop() {
@@ -280,7 +299,7 @@ pub fn ui_loop() {
         }
 
         let elapsed = frame_start.elapsed();
-        let refresh_rate = SETTINGS.get("refresh_rate").read_u16() as f32;
+        let refresh_rate = SETTINGS.get::<WindowSettings>().refresh_rate as f32;
         let frame_length = Duration::from_secs_f32(1.0 / refresh_rate);
         if elapsed < frame_length {
             sleep(frame_length - elapsed);

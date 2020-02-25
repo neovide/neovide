@@ -15,10 +15,10 @@ use log::{info, error, trace};
 
 pub use events::*;
 pub use keybindings::*;
+use crate::settings::*;
 pub use ui_commands::UiCommand;
 use handler::NeovimHandler;
 use crate::error_handling::ResultPanicExplanation;
-use crate::settings::SETTINGS;
 use crate::INITIAL_DIMENSIONS;
 
 
