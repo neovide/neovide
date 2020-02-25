@@ -16,10 +16,14 @@ lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new();
 }
 
+// Trait to allow for conversion from rmpv::Value to any other data type.
+// Note: Feel free to implement this trait for custom types in each subsystem.
+// The reverse conversion (MyType->Value) can be performed by implementing `From<MyType> for Value`
 pub trait FromValue {
     fn from_value(&mut self, value: Value);
 }
 
+// FromValue implementations for most typical types
 impl FromValue for f32 {
     fn from_value(&mut self, value: Value) {
         if value.is_f32() {
@@ -83,15 +87,19 @@ impl FromValue for bool {
     }
 }
 
+// Macro to register settings changed handlers.
+// Note: Invocations to this macro must happen before the call to Settings::read_initial_values.
 #[macro_export]
 macro_rules! register_nvim_setting {
     ($vim_setting_name: expr, $type_name:ident :: $field_name: ident) => {{
+        // The update func sets a new value for a setting
         fn update_func(value: Value) {
             let mut s = SETTINGS.get::<$type_name>();
             s.$field_name.from_value(value);
             SETTINGS.set(&s);
         }
 
+        // The reader func retrieves the current value for a setting
         fn reader_func() -> Value {
             let s = SETTINGS.get::<$type_name>();
             s.$field_name.into()
@@ -101,16 +109,21 @@ macro_rules! register_nvim_setting {
     }};
 }
 
+// Function types to handle settings updates
 type UpdateHandlerFunc = fn(Value);
 type ReaderFunc = fn()->Value;
 
-struct SettingsObject {
-    object: Box<dyn Any + Send + Sync>,
-}
 
+// The Settings struct acts as a global container where each of Neovide's subsystems can store
+// their own settings. It will also coordinate updates between Neovide and nvim to make sure the
+// settings remain consistent on both sides.
+// Note: As right now we're only sending new setting values to Neovide during the
+// read_initial_values call, after that point we should not modify the contents of the Settings
+// struct except when prompted by an update event from nvim. Otherwise, the settings in Neovide and
+// nvim will get out of sync.
 pub struct Settings {
     pub neovim_arguments: Vec<String>,
-    settings: RwLock<HashMap<TypeId, SettingsObject>>,
+    settings: RwLock<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
     listeners: RwLock<HashMap<String, UpdateHandlerFunc>>,
     readers: RwLock<HashMap<String, ReaderFunc>>,
 }
@@ -118,7 +131,6 @@ pub struct Settings {
 impl Settings {
 
     fn new() -> Settings {
-
         let neovim_arguments = std::env::args().filter(|arg| {
             if arg == "--log" {
                 Logger::with_str("neovide")
@@ -148,13 +160,13 @@ impl Settings {
     pub fn set<T: Clone + Send + Sync + 'static >(&self, t: &T) {
         let type_id : TypeId = TypeId::of::<T>();
         let t : T = (*t).clone();
-        self.settings.write().insert(type_id, SettingsObject{ object: Box::new(t)});
+        self.settings.write().insert(type_id, Box::new(t));
     }
 
     pub fn get<'a, T: Clone + Send + Sync + 'static>(&'a self) -> T {
         let read_lock = self.settings.read();
         let boxed = &read_lock.get(&TypeId::of::<T>()).expect("Trying to retrieve a settings object that doesn't exist");
-        let value: &T = boxed.object.downcast_ref::<T>().expect("Attempted to extract a settings object of the wrong type");
+        let value: &T = boxed.downcast_ref::<T>().expect("Attempted to extract a settings object of the wrong type");
         (*value).clone()
     }
 
