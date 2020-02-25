@@ -239,7 +239,10 @@ impl WindowWrapper {
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
             let renderer = &mut self.renderer;
             if self.skulpin_renderer.draw(&self.window, |canvas, coordinate_system_helper| {
-                if renderer.draw(canvas, coordinate_system_helper) {
+
+                let dt = 1.0 / (SETTINGS.get::<WindowSettings>().refresh_rate as f32);
+
+                if renderer.draw(canvas, coordinate_system_helper, dt) {
                     handle_new_grid_size(new_size, &renderer)
                 }
             }).is_err() {

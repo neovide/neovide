@@ -230,7 +230,8 @@ impl CursorRenderer {
     pub fn draw(&mut self, 
             cursor: Cursor, default_colors: &Colors, 
             font_width: f32, font_height: f32,
-            shaper: &mut CachingShaper, canvas: &mut Canvas) {
+            shaper: &mut CachingShaper, canvas: &mut Canvas,
+            dt: f32) {
         let render = self.blink_status.update_status(&cursor);
 
         let mut paint = Paint::new(skulpin::skia_safe::colors::WHITE, None);
@@ -286,8 +287,6 @@ impl CursorRenderer {
         
             self.cursor_vfx.restart(center_destination);
         }
-
-        let dt = 1.0 / (SETTINGS.get("refresh_rate").read_u16() as f32);
 
         let mut animating = false;
         if !center_destination.is_zero() {
