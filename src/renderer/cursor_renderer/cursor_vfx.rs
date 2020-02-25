@@ -1,19 +1,74 @@
 use skulpin::skia_safe::{paint::Style, BlendMode, Canvas, Color, Paint, Point, Rect};
+use log::error;
 
 use super::animation_utils::*;
 use crate::editor::{Colors, Cursor};
+use crate::settings::*;
 
-pub trait CursorVFX {
+pub trait CursorVfx {
     fn update(&mut self, current_cursor_destination: Point, dt: f32) -> bool;
     fn restart(&mut self, position: Point);
     fn render(&self, canvas: &mut Canvas, cursor: &Cursor, colors: &Colors, font_size: (f32, f32));
 }
 
-#[allow(dead_code)]
+#[derive(Clone, PartialEq)]
 pub enum HighlightMode {
     SonicBoom,
     Ripple,
     Wireframe,
+}
+
+#[derive(Clone, PartialEq)]
+pub enum TrailMode {
+    Railgun,
+}
+
+#[derive(Clone, PartialEq)]
+pub enum VfxMode {
+    Highlight(HighlightMode),
+    Trail(TrailMode),
+    Disabled,
+}
+
+impl FromValue for VfxMode {
+    fn from_value(&mut self, value: Value) {
+        if value.is_str() {
+            *self = match value.as_str().unwrap() {
+                "sonicboom" => VfxMode::Highlight(HighlightMode::SonicBoom),
+                "ripple" => VfxMode::Highlight(HighlightMode::Ripple),
+                "wireframe" => VfxMode::Highlight(HighlightMode::Wireframe),
+                "railgun" => VfxMode::Trail(TrailMode::Railgun),
+                "" => VfxMode::Disabled,
+                value => {
+                    error!("Expected a VfxMode name, but received {:?}", value);
+                    return;
+                }
+            };
+
+        }else{
+            error!("Expected a VfxMode string, but received {:?}", value);
+        }
+    }
+}
+
+impl From<VfxMode> for Value {
+    fn from(mode: VfxMode) -> Self {
+        match mode {
+            VfxMode::Highlight(HighlightMode::SonicBoom) => Value::from("sonicboom"),
+            VfxMode::Highlight(HighlightMode::Ripple) => Value::from("ripple"),
+            VfxMode::Highlight(HighlightMode::Wireframe) => Value::from("wireframe"),
+            VfxMode::Trail(TrailMode::Railgun) => Value::from("railgun"),
+            VfxMode::Disabled => Value::from(""),
+        }
+    }
+}
+
+pub fn new_cursor_vfx(mode: &VfxMode) -> Option<Box<dyn CursorVfx>> {
+    match mode {
+        VfxMode::Highlight(mode) => Some(Box::new(PointHighlight::new(mode))),
+        VfxMode::Trail(_) => Some(Box::new(ParticleTrail::new())),
+        VfxMode::Disabled => None,
+    }
 }
 
 pub struct PointHighlight {
@@ -23,16 +78,16 @@ pub struct PointHighlight {
 }
 
 impl PointHighlight {
-    pub fn new(center: Point, mode: HighlightMode) -> PointHighlight {
+    pub fn new(mode: &HighlightMode) -> PointHighlight {
         PointHighlight {
             t: 0.0,
-            center_position: center,
-            mode,
+            center_position: Point::new(0.0, 0.0),
+            mode: mode.clone(),
         }
     }
 }
 
-impl CursorVFX for PointHighlight {
+impl CursorVfx for PointHighlight {
     fn update(&mut self, _current_cursor_destination: Point, dt: f32) -> bool {
         self.t = (self.t + dt * 5.0).min(1.0); // TODO - speed config
         self.t < 1.0
@@ -121,7 +176,7 @@ impl ParticleTrail {
 const PARTICLE_DENSITY: f32 = 0.008;
 const PARTICLE_LIFETIME: f32 = 1.2;
 
-impl CursorVFX for ParticleTrail {
+impl CursorVfx for ParticleTrail {
     fn update(&mut self, current_cursor_dest: Point, dt: f32) -> bool {
         // Update lifetimes and remove dead particles
         let mut i = 0;

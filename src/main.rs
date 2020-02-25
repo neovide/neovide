@@ -25,6 +25,7 @@ pub const INITIAL_DIMENSIONS: (u64, u64) = (100, 50);
 fn main() {
     window::initialize_settings();
     redraw_scheduler::initialize_settings();
+    renderer::cursor_renderer::initialize_settings();
 
     initialize(&BRIDGE);
     ui_loop();

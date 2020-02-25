@@ -2,7 +2,7 @@ use std::time::{Duration, Instant};
 
 use skulpin::skia_safe::{Canvas, Paint, Path, Point};
 
-use crate::settings::SETTINGS;
+use crate::settings::*;
 use crate::renderer::CachingShaper;
 use crate::editor::{EDITOR, Colors, Cursor, CursorShape};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
@@ -11,14 +11,31 @@ mod animation_utils;
 use animation_utils::*;
 
 mod cursor_vfx;
-use cursor_vfx::*;
 
-const BASE_ANIMATION_LENGTH_SECONDS: f32 = 0.06;
 const CURSOR_TRAIL_SIZE: f32 = 0.7;
 const COMMAND_LINE_DELAY_FRAMES: u64 = 5;
 const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
 
 const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5)];
+
+
+#[derive(Clone)]
+pub struct CursorSettings {
+    animation_length: f32,
+    vfx_mode: cursor_vfx::VfxMode,
+}
+
+pub fn initialize_settings() {
+    
+    SETTINGS.set(&CursorSettings {
+        animation_length: 0.06,
+        vfx_mode: cursor_vfx::VfxMode::Disabled,
+    });
+    
+    register_nvim_setting!("cursor_animation_length", CursorSettings::animation_length);
+    register_nvim_setting!("cursor_vfx_mode", CursorSettings::vfx_mode);
+}
+
 
 enum BlinkState {
     Waiting,
@@ -110,7 +127,7 @@ impl Corner {
         }
     }
 
-    pub fn update(&mut self, font_dimensions: Point, destination: Point, dt: f32) -> bool {
+    pub fn update(&mut self, settings: &CursorSettings, font_dimensions: Point, destination: Point, dt: f32) -> bool {
         // Update destination if needed
         let mut immediate_movement = false;
         if destination != self.previous_destination {
@@ -170,7 +187,7 @@ impl Corner {
             self.t = 2.0;
         } else {
             let corner_dt = dt * lerp(1.0, 1.0 - CURSOR_TRAIL_SIZE, -direction_alignment);
-            self.t = (self.t + corner_dt / BASE_ANIMATION_LENGTH_SECONDS).min(1.0)
+            self.t = (self.t + corner_dt / settings.animation_length).min(1.0)
         }
 
         true
@@ -183,7 +200,8 @@ pub struct CursorRenderer {
     pub command_line_delay: u64,
     blink_status: BlinkStatus,
     previous_cursor_shape: Option<CursorShape>,
-    cursor_vfx: Box<dyn CursorVFX>,
+    cursor_vfx: Option<Box<dyn cursor_vfx::CursorVfx>>,
+    previous_vfx_mode: cursor_vfx::VfxMode,
 }
 
 impl CursorRenderer {
@@ -195,7 +213,8 @@ impl CursorRenderer {
             blink_status: BlinkStatus::new(),
             previous_cursor_shape: None,
             //cursor_vfx: Box::new(PointHighlight::new(Point{x:0.0, y:0.0}, HighlightMode::Ripple)),
-            cursor_vfx: Box::new(ParticleTrail::new()),
+            cursor_vfx: None,
+            previous_vfx_mode: cursor_vfx::VfxMode::Disabled,
         };
         renderer.set_cursor_shape(&CursorShape::Block, DEFAULT_CELL_PERCENTAGE);
         renderer
@@ -233,6 +252,13 @@ impl CursorRenderer {
             shaper: &mut CachingShaper, canvas: &mut Canvas,
             dt: f32) {
         let render = self.blink_status.update_status(&cursor);
+
+        let settings = SETTINGS.get::<CursorSettings>();
+
+        if settings.vfx_mode != self.previous_vfx_mode {
+            self.cursor_vfx = cursor_vfx::new_cursor_vfx(&settings.vfx_mode);
+            self.previous_vfx_mode = settings.vfx_mode.clone();
+        }
 
         let mut paint = Paint::new(skulpin::skia_safe::colors::WHITE, None);
         paint.set_anti_alias(true);
@@ -284,17 +310,25 @@ impl CursorRenderer {
         if self.previous_cursor_shape != new_cursor {
             self.previous_cursor_shape = new_cursor;
             self.set_cursor_shape(&cursor.shape, cursor.cell_percentage.unwrap_or(DEFAULT_CELL_PERCENTAGE)); 
-        
-            self.cursor_vfx.restart(center_destination);
+       
+            if let Some(vfx) = self.cursor_vfx.as_mut() {
+                vfx.restart(center_destination);
+            }
         }
 
         let mut animating = false;
         if !center_destination.is_zero() {
             for corner in self.corners.iter_mut() {
-                let corner_animating = corner.update(font_dimensions, center_destination, dt);
+                let corner_animating = corner.update(&settings, font_dimensions, center_destination, dt);
                 animating |= corner_animating;
             }
-            let vfx_animating = self.cursor_vfx.update(center_destination, dt);
+
+            let vfx_animating = if let Some(vfx) = self.cursor_vfx.as_mut() {
+                vfx.update(center_destination, dt)
+            }else{
+                false
+            };
+
             animating |= vfx_animating;
         }
 
@@ -326,7 +360,10 @@ impl CursorRenderer {
                 canvas.draw_text_blob(&blob, destination, &paint);
             }
             canvas.restore();
-            self.cursor_vfx.render(canvas, &cursor, &default_colors, (font_width, font_height));
+            if let Some(vfx) = self.cursor_vfx.as_ref() {
+                vfx.render(canvas, &cursor, &default_colors, (font_width, font_height));
+            }
+
         }
     }
 }

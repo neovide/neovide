@@ -6,7 +6,7 @@ use skulpin::skia_safe::gpu::SurfaceOrigin;
 use log::trace;
 
 mod caching_shaper;
-mod cursor_renderer;
+pub mod cursor_renderer;
 
 pub use caching_shaper::CachingShaper;
 

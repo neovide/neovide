@@ -26,7 +26,7 @@ pub trait FromValue {
 // FromValue implementations for most typical types
 impl FromValue for f32 {
     fn from_value(&mut self, value: Value) {
-        if value.is_f32() {
+        if value.is_f64() {
             *self = value.as_f64().unwrap() as f32; 
         }else{
             error!("Setting expected an f32, but received {:?}", value);
