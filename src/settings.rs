@@ -75,9 +75,10 @@ impl FromValue for String {
 
 impl FromValue for bool {
     fn from_value(&mut self, value: Value) {
-        // TODO -- Warn when incorrect type
         if value.is_bool() {
             *self = value.as_bool().unwrap();
+        }else{
+            error!("Setting expected a string, but received {:?}", value);
         }
     }
 }
