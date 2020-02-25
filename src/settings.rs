@@ -16,6 +16,85 @@ lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new();
 }
 
+pub trait FromValue {
+    fn from_value(&mut self, value: Value);
+}
+
+impl FromValue for f32 {
+    fn from_value(&mut self, value: Value) {
+        // TODO -- Warn when incorrect type
+        if value.is_f32() {
+            *self = value.as_f64().unwrap() as f32; 
+        }
+    }
+}
+
+impl FromValue for u64 {
+    fn from_value(&mut self, value: Value) {
+        // TODO -- Warn when incorrect type
+        if value.is_u64() {
+            *self = value.as_u64().unwrap(); 
+        }
+    }
+}
+
+impl FromValue for u32 {
+    fn from_value(&mut self, value: Value) {
+        // TODO -- Warn when incorrect type
+        if value.is_u64() {
+            *self = value.as_u64().unwrap() as u32; 
+        }
+    }
+}
+
+impl FromValue for i32 {
+    fn from_value(&mut self, value: Value) {
+        // TODO -- Warn when incorrect type
+        if value.is_i64() {
+            *self = value.as_i64().unwrap() as i32; 
+        }
+    }
+}
+
+impl FromValue for String {
+    fn from_value(&mut self, value: Value) {
+        // TODO -- Warn when incorrect type
+        if value.is_str() {
+            *self = String::from(value.as_str().unwrap());
+        }
+    }
+}
+
+impl FromValue for bool {
+    fn from_value(&mut self, value: Value) {
+        // TODO -- Warn when incorrect type
+        if value.is_bool() {
+            *self = value.as_bool().unwrap();
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! register_nvim_setting {
+    ($vim_setting_name: expr, $type_name:ident :: $field_name: ident) => {{
+        fn update_func(value: Value) {
+            let mut s = SETTINGS.get::<$type_name>();
+            s.$field_name.from_value(value);
+            SETTINGS.set(&s);
+        }
+
+        fn reader_func() -> Value {
+            let s = SETTINGS.get::<$type_name>();
+            s.$field_name.into()
+        }
+
+        SETTINGS.add_handlers($vim_setting_name, update_func, reader_func);
+    }};
+}
+
+type UpdateHandlerFunc = fn(Value);
+type ReaderFunc = fn()->Value;
+
 struct SettingsObject {
     object: Box<dyn Any + Send + Sync>,
 }
@@ -23,7 +102,8 @@ struct SettingsObject {
 pub struct Settings {
     pub neovim_arguments: Vec<String>,
     settings: RwLock<HashMap<TypeId, SettingsObject>>,
-    listeners: RwLock<HashMap<String, fn (&str, Option<Value>)->Value>>,
+    listeners: RwLock<HashMap<String, UpdateHandlerFunc>>,
+    readers: RwLock<HashMap<String, ReaderFunc>>,
 }
 
 impl Settings {
@@ -32,6 +112,8 @@ impl Settings {
 
         let mut no_idle = false;
         let mut buffer_frames = 1;
+
+        // TODO -- Make command line parsing work again
 
         let neovim_arguments = std::env::args().filter(|arg| {
             if arg == "--log" {
@@ -57,11 +139,13 @@ impl Settings {
             neovim_arguments,
             settings: RwLock::new(HashMap::new()),
             listeners: RwLock::new(HashMap::new()),
+            readers: RwLock::new(HashMap::new()),
         }
     }
 
-    pub fn add_listener(&self, property_name: &str, func: fn (&str, Option<Value>)-> Value) {
-        self.listeners.write().insert(String::from(property_name), func);
+    pub fn add_handlers(&self, property_name: &str, update_func: UpdateHandlerFunc, reader_func: ReaderFunc) {
+        self.listeners.write().insert(String::from(property_name), update_func);
+        self.readers.write().insert(String::from(property_name), reader_func);
     }
     
     pub fn set<T: Clone + Send + Sync + 'static >(&self, t: &T) {
@@ -83,11 +167,11 @@ impl Settings {
             let variable_name = format!("neovide_{}", name.to_string());
             match nvim.get_var(&variable_name).await {
                 Ok(value) => {
-                    self.listeners.read().get(&name).unwrap()(&name, Some(value));
+                    self.listeners.read().get(&name).unwrap()(value);
                 },
                 Err(error) => {
                     warn!("Initial value load failed for {}: {}", name, error);
-                    let setting = self.listeners.read().get(&name).unwrap()(&name, None);
+                    let setting = self.readers.read().get(&name).unwrap()();
                     nvim.set_var(&variable_name, setting).await.ok();
                 }
             }
@@ -118,40 +202,6 @@ impl Settings {
         let name: Result<String, _>= name.try_into();
         let name = name.unwrap();
 
-        self.listeners.read().get(&name).unwrap()(&name, Some(value));
+        self.listeners.read().get(&name).unwrap()(value);
     }
-
-    /*
-    pub fn new() -> Settings {
-        let mut no_idle = false;
-        let mut buffer_frames = 1;
-
-        let neovim_arguments = std::env::args().filter(|arg| {
-            if arg == "--log" {
-                Logger::with_str("neovide")
-                    .log_to_file()
-                    .rotate(Criterion::Size(10_000_000), Naming::Timestamps, Cleanup::KeepLogFiles(1))
-                    .start()
-                    .expect("Could not start logger");
-                false
-            } else if arg == "--noIdle" {
-                no_idle = true;
-                false
-            } else if arg == "--extraBufferFrames" {
-                buffer_frames = 60;
-                false
-            } else {
-                true
-            }
-        }).collect::<Vec<String>>();
-
-        let mut settings = HashMap::new();
-
-        settings.insert("no_idle".to_string(),  Setting::new_bool(no_idle));
-        settings.insert("extra_buffer_frames".to_string(), Setting::new_u16(buffer_frames));
-        settings.insert("refresh_rate".to_string(), Setting::new_u16(60));
-
-        Settings { neovim_arguments, settings: Mutex::new(settings) }
-    }
-    */
 }

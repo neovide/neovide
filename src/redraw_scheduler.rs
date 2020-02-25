@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use log::trace;
 
-use crate::settings::{SETTINGS, Value};
+use crate::settings::*;
 
 lazy_static! {
     pub static ref REDRAW_SCHEDULER: RedrawScheduler = RedrawScheduler::new();
@@ -15,28 +15,13 @@ struct RedrawSettings {
     extra_buffer_frames: u64,
 }
 
-fn parse_changed_setting(name: &str, value: Option<Value>) -> Value {
-    match name {
-        "extra_buffer_frames" => {
-            let mut settings = SETTINGS.get::<RedrawSettings>();
-            if let Some(value) = value {
-                settings.extra_buffer_frames = value.as_u64().unwrap(); // TODO -- handle wrong data type
-                SETTINGS.set(&settings);
-            }
-            Value::from(settings.extra_buffer_frames)
-        }
-        _ => {
-            panic!(format!("Unknown setting: {}", name));
-        }
-    }
-}
-
 pub fn initialize_settings() {
+
     SETTINGS.set(&RedrawSettings {
         extra_buffer_frames: 60,
     });
 
-    SETTINGS.add_listener("extra_buffer_frames", parse_changed_setting);
+    register_nvim_setting!("extra_buffer_frames", RedrawSettings::extra_buffer_frames);
 }
 
 pub struct RedrawScheduler {

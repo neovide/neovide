@@ -1,12 +1,15 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[macro_use]
+mod settings;
+
 mod bridge;
 mod editor;
 mod window;
 mod renderer;
 mod error_handling;
 mod redraw_scheduler;
-mod settings;
+
 
 #[macro_use] extern crate derive_new;
 #[macro_use] extern crate rust_embed;
