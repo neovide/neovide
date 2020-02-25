@@ -8,7 +8,7 @@ use nvim_rs::compat::tokio::Compat;
 use flexi_logger::{Logger, Criterion, Naming, Cleanup};
 use tokio::process::ChildStdin;
 use parking_lot::RwLock;
-use log::warn;
+use log::{error,warn};
 
 use crate::error_handling::ResultPanicExplanation;
 
@@ -22,46 +22,54 @@ pub trait FromValue {
 
 impl FromValue for f32 {
     fn from_value(&mut self, value: Value) {
-        // TODO -- Warn when incorrect type
         if value.is_f32() {
             *self = value.as_f64().unwrap() as f32; 
+        }else{
+            error!("Setting expected an f32, but received {:?}", value);
         }
+
     }
 }
 
 impl FromValue for u64 {
     fn from_value(&mut self, value: Value) {
-        // TODO -- Warn when incorrect type
         if value.is_u64() {
             *self = value.as_u64().unwrap(); 
+        }else{
+            error!("Setting expected a u64, but received {:?}", value);
         }
+
     }
 }
 
 impl FromValue for u32 {
     fn from_value(&mut self, value: Value) {
-        // TODO -- Warn when incorrect type
         if value.is_u64() {
             *self = value.as_u64().unwrap() as u32; 
+        }else{
+            error!("Setting expected a u32, but received {:?}", value);
         }
     }
 }
 
 impl FromValue for i32 {
     fn from_value(&mut self, value: Value) {
-        // TODO -- Warn when incorrect type
         if value.is_i64() {
             *self = value.as_i64().unwrap() as i32; 
+        }else{
+            error!("Setting expected an i32, but received {:?}", value);
         }
     }
 }
 
 impl FromValue for String {
     fn from_value(&mut self, value: Value) {
-        // TODO -- Warn when incorrect type
         if value.is_str() {
             *self = String::from(value.as_str().unwrap());
+        }else{
+            error!("Setting expected a string, but received {:?}", value);
         }
+
     }
 }
 
@@ -88,7 +96,7 @@ macro_rules! register_nvim_setting {
             s.$field_name.into()
         }
 
-        SETTINGS.add_handlers($vim_setting_name, update_func, reader_func);
+        SETTINGS.set_setting_handlers($vim_setting_name, update_func, reader_func);
     }};
 }
 
@@ -110,11 +118,6 @@ impl Settings {
 
     fn new() -> Settings {
 
-        let mut no_idle = false;
-        let mut buffer_frames = 1;
-
-        // TODO -- Make command line parsing work again
-
         let neovim_arguments = std::env::args().filter(|arg| {
             if arg == "--log" {
                 Logger::with_str("neovide")
@@ -123,17 +126,10 @@ impl Settings {
                     .start()
                     .expect("Could not start logger");
                 false
-            } else if arg == "--noIdle" {
-                no_idle = true;
-                false
-            } else if arg == "--extraBufferFrames" {
-                buffer_frames = 60;
-                false
             } else {
                 true
             }
         }).collect::<Vec<String>>();
-
 
         Settings{
             neovim_arguments,
@@ -143,7 +139,7 @@ impl Settings {
         }
     }
 
-    pub fn add_handlers(&self, property_name: &str, update_func: UpdateHandlerFunc, reader_func: ReaderFunc) {
+    pub fn set_setting_handlers(&self, property_name: &str, update_func: UpdateHandlerFunc, reader_func: ReaderFunc) {
         self.listeners.write().insert(String::from(property_name), update_func);
         self.readers.write().insert(String::from(property_name), reader_func);
     }

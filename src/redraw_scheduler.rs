@@ -16,9 +16,15 @@ struct RedrawSettings {
 }
 
 pub fn initialize_settings() {
+    
+    let buffer_frames = if SETTINGS.neovim_arguments.contains(&String::from("--extraBufferFrames")) {
+        60
+    }else{
+        1
+    };
 
     SETTINGS.set(&RedrawSettings {
-        extra_buffer_frames: 60,
+        extra_buffer_frames: buffer_frames,
     });
 
     register_nvim_setting!("extra_buffer_frames", RedrawSettings::extra_buffer_frames);

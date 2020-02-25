@@ -258,9 +258,12 @@ struct WindowSettings {
 }
 
 pub fn initialize_settings() {
+    
+    let no_idle = SETTINGS.neovim_arguments.contains(&String::from("--noIdle"));
+
     SETTINGS.set(&WindowSettings {
         refresh_rate: 60,
-        no_idle: false,
+        no_idle,
     });
     
     register_nvim_setting!("refresh_rate", WindowSettings::refresh_rate);
