@@ -28,7 +28,7 @@ pub struct CursorSettings {
 pub fn initialize_settings() {
     
     SETTINGS.set(&CursorSettings {
-        animation_length: 0.1,
+        animation_length: 0.13,
         vfx_mode: cursor_vfx::VfxMode::Disabled,
     });
     
@@ -179,8 +179,6 @@ impl Corner {
 
         let direction_alignment = travel_direction.dot(corner_direction);
 
-        self.current_position =
-            ease_point(ease_out_expo, self.start_position, corner_destination, self.t);
 
         if self.t == 1.0 {
             // We are at destination, move t out of 0-1 range to stop the animation
@@ -189,6 +187,9 @@ impl Corner {
             let corner_dt = dt * lerp(1.0, 1.0 - CURSOR_TRAIL_SIZE, -direction_alignment);
             self.t = (self.t + corner_dt / settings.animation_length).min(1.0)
         }
+        
+        self.current_position =
+            ease_point(ease_out_expo, self.start_position, corner_destination, self.t);
 
         true
     }

@@ -225,7 +225,7 @@ impl CursorVfx for ParticleTrail {
                     TrailMode::Torpedo => rng.rand_dir() * 10.0,
                     TrailMode::PixieDust => {
                         let base_dir = rng.rand_dir();
-                        let dir = Point::new(base_dir.x * 0.5, base_dir.y.abs());
+                        let dir = Point::new(base_dir.x * 0.5, 0.4 + base_dir.y.abs());
                         dir * 30.0
                     }
                 };
