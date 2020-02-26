@@ -220,19 +220,21 @@ impl WindowWrapper {
     }
 
     pub fn draw_frame(&mut self) -> bool {
-        let new_size = LogicalSize::new(&self.window).unwrap();
-        if self.previous_size != new_size {
-            handle_new_grid_size(new_size, &self.renderer);
-            self.previous_size = new_size;
+        if let Ok(new_size) = LogicalSize::new(&self.window) {
+            if self.previous_size != new_size {
+                handle_new_grid_size(new_size, &self.renderer);
+                self.previous_size = new_size;
+            }
         }
 
-        let new_dpis = dpis(&self.window).unwrap();
-        if self.previous_dpis != new_dpis {
-            let physical_size = PhysicalSize::new(&self.window);
-            self.window.set_size(
-                (physical_size.width as f32 * new_dpis.0 / self.previous_dpis.0) as u32,
-                (physical_size.height as f32 * new_dpis.1 / self.previous_dpis.1) as u32).unwrap();
-            self.previous_dpis = new_dpis;
+        if let Ok(new_dpis) = dpis(&self.window) {
+            if self.previous_dpis != new_dpis {
+                let physical_size = PhysicalSize::new(&self.window);
+                self.window.set_size(
+                    (physical_size.width as f32 * new_dpis.0 / self.previous_dpis.0) as u32,
+                    (physical_size.height as f32 * new_dpis.1 / self.previous_dpis.1) as u32).unwrap();
+                self.previous_dpis = new_dpis;
+            }
         }
 
         debug!("Render Triggered");
