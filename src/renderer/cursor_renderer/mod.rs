@@ -28,7 +28,7 @@ pub struct CursorSettings {
 pub fn initialize_settings() {
     
     SETTINGS.set(&CursorSettings {
-        animation_length: 0.06,
+        animation_length: 0.1,
         vfx_mode: cursor_vfx::VfxMode::Disabled,
     });
     
