@@ -22,6 +22,7 @@ pub enum HighlightMode {
 pub enum TrailMode {
     Railgun,
     Torpedo,
+    PixieDust,
 }
 
 #[derive(Clone, PartialEq)]
@@ -40,6 +41,7 @@ impl FromValue for VfxMode {
                 "wireframe" => VfxMode::Highlight(HighlightMode::Wireframe),
                 "railgun" => VfxMode::Trail(TrailMode::Railgun),
                 "torpedo" => VfxMode::Trail(TrailMode::Torpedo),
+                "pixiedust" => VfxMode::Trail(TrailMode::PixieDust),
                 "" => VfxMode::Disabled,
                 value => {
                     error!("Expected a VfxMode name, but received {:?}", value);
@@ -60,6 +62,7 @@ impl From<VfxMode> for Value {
             VfxMode::Highlight(HighlightMode::Wireframe) => Value::from("wireframe"),
             VfxMode::Trail(TrailMode::Railgun) => Value::from("railgun"),
             VfxMode::Trail(TrailMode::Torpedo) => Value::from("torpedo"),
+            VfxMode::Trail(TrailMode::PixieDust) => Value::from("pixiedust"),
             VfxMode::Disabled => Value::from(""),
         }
     }
@@ -220,6 +223,11 @@ impl CursorVfx for ParticleTrail {
                 let speed = match self.trail_mode {
                     TrailMode::Railgun => Point::new(phase.sin(), phase.cos()) * 20.0,
                     TrailMode::Torpedo => rng.rand_dir() * 10.0,
+                    TrailMode::PixieDust => {
+                        let base_dir = rng.rand_dir();
+                        let dir = Point::new(base_dir.x * 0.5, base_dir.y.abs());
+                        dir * 30.0
+                    }
                 };
 
                 let pos = prev_p + travel * (t + 0.3 * rng.next_f32() / particle_count as f32);
@@ -238,7 +246,13 @@ impl CursorVfx for ParticleTrail {
 
     fn render(&self, canvas: &mut Canvas, cursor: &Cursor, colors: &Colors, font_size: (f32, f32)) {
         let mut paint = Paint::new(skulpin::skia_safe::colors::WHITE, None);
-        paint.set_style(Style::Stroke);
+        match self.trail_mode {
+            TrailMode::Torpedo | TrailMode::Railgun => {
+                paint.set_style(Style::Stroke);
+            }
+            _ => {}
+        }
+
         paint.set_stroke_width(font_size.1 * 0.2);
         let base_color: Color = cursor.background(&colors).to_color();
 
@@ -250,11 +264,22 @@ impl CursorVfx for ParticleTrail {
             let color = Color::from_argb(alpha, base_color.r(), base_color.g(), base_color.b());
             paint.set_color(color);
 
-            let radius = font_size.0 * 0.5 * l;
+            let radius = match self.trail_mode {
+                TrailMode::Torpedo | TrailMode::Railgun => font_size.0 * 0.5 * l,
+                TrailMode::PixieDust => font_size.0 * 0.2,
+            };
             let hr = radius * 0.5;
 
             let rect = Rect::from_xywh(particle.pos.x - hr, particle.pos.y - hr, radius, radius);
-            canvas.draw_oval(&rect, &paint);
+
+            match self.trail_mode {
+                TrailMode::Torpedo | TrailMode::Railgun => {
+                    canvas.draw_oval(&rect, &paint);
+                }
+                TrailMode::PixieDust => {
+                    canvas.draw_rect(&rect, &paint);
+                }
+            }
             //canvas.draw_rect(&rect, &paint);
         });
     }
