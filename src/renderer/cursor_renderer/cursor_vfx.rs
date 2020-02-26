@@ -1,5 +1,5 @@
-use skulpin::skia_safe::{paint::Style, BlendMode, Canvas, Color, Paint, Point, Rect};
 use log::error;
+use skulpin::skia_safe::{paint::Style, BlendMode, Canvas, Color, Paint, Point, Rect};
 
 use super::animation_utils::*;
 use crate::editor::{Colors, Cursor};
@@ -21,6 +21,7 @@ pub enum HighlightMode {
 #[derive(Clone, PartialEq)]
 pub enum TrailMode {
     Railgun,
+    Torpedo,
 }
 
 #[derive(Clone, PartialEq)]
@@ -38,14 +39,14 @@ impl FromValue for VfxMode {
                 "ripple" => VfxMode::Highlight(HighlightMode::Ripple),
                 "wireframe" => VfxMode::Highlight(HighlightMode::Wireframe),
                 "railgun" => VfxMode::Trail(TrailMode::Railgun),
+                "torpedo" => VfxMode::Trail(TrailMode::Torpedo),
                 "" => VfxMode::Disabled,
                 value => {
                     error!("Expected a VfxMode name, but received {:?}", value);
                     return;
                 }
             };
-
-        }else{
+        } else {
             error!("Expected a VfxMode string, but received {:?}", value);
         }
     }
@@ -58,6 +59,7 @@ impl From<VfxMode> for Value {
             VfxMode::Highlight(HighlightMode::Ripple) => Value::from("ripple"),
             VfxMode::Highlight(HighlightMode::Wireframe) => Value::from("wireframe"),
             VfxMode::Trail(TrailMode::Railgun) => Value::from("railgun"),
+            VfxMode::Trail(TrailMode::Torpedo) => Value::from("torpedo"),
             VfxMode::Disabled => Value::from(""),
         }
     }
@@ -66,7 +68,7 @@ impl From<VfxMode> for Value {
 pub fn new_cursor_vfx(mode: &VfxMode) -> Option<Box<dyn CursorVfx>> {
     match mode {
         VfxMode::Highlight(mode) => Some(Box::new(PointHighlight::new(mode))),
-        VfxMode::Trail(_) => Some(Box::new(ParticleTrail::new())),
+        VfxMode::Trail(mode) => Some(Box::new(ParticleTrail::new(mode))),
         VfxMode::Disabled => None,
     }
 }
@@ -148,13 +150,15 @@ struct ParticleData {
 pub struct ParticleTrail {
     particles: Vec<ParticleData>,
     previous_cursor_dest: Point,
+    trail_mode: TrailMode,
 }
 
 impl ParticleTrail {
-    pub fn new() -> ParticleTrail {
+    pub fn new(trail_mode: &TrailMode) -> ParticleTrail {
         ParticleTrail {
             particles: vec![],
             previous_cursor_dest: Point::new(0.0, 0.0),
+            trail_mode: trail_mode.clone(),
         }
     }
 
@@ -205,15 +209,22 @@ impl CursorVfx for ParticleTrail {
             let particle_count = (travel_distance.powf(1.5) * PARTICLE_DENSITY) as usize;
 
             let prev_p = self.previous_cursor_dest;
+
+            let mut rng = RngState::new();
+
             for i in 0..particle_count {
                 let t = i as f32 / (particle_count as f32 - 1.0);
 
                 let phase = t * 60.0;
-                let rand = Point::new(phase.sin(), phase.cos());
 
-                let pos = prev_p + travel * (t + 0.3 * rand.x / particle_count as f32);
+                let speed = match self.trail_mode {
+                    TrailMode::Railgun => Point::new(phase.sin(), phase.cos()) * 20.0,
+                    TrailMode::Torpedo => rng.rand_dir() * 10.0,
+                };
 
-                self.add_particle(pos, rand * 20.0, t * PARTICLE_LIFETIME);
+                let pos = prev_p + travel * (t + 0.3 * rng.next_f32() / particle_count as f32);
+
+                self.add_particle(pos, speed, t * PARTICLE_LIFETIME);
             }
 
             self.previous_cursor_dest = current_cursor_dest;
@@ -235,7 +246,7 @@ impl CursorVfx for ParticleTrail {
 
         self.particles.iter().for_each(|particle| {
             let l = particle.lifetime / PARTICLE_LIFETIME;
-            let alpha = (l * 255.0) as u8;
+            let alpha = (l * 128.0) as u8;
             let color = Color::from_argb(alpha, base_color.r(), base_color.g(), base_color.b());
             paint.set_color(color);
 
@@ -246,5 +257,50 @@ impl CursorVfx for ParticleTrail {
             canvas.draw_oval(&rect, &paint);
             //canvas.draw_rect(&rect, &paint);
         });
+    }
+}
+
+// Random number generator based on http://www.pcg-random.org/
+struct RngState {
+    state: u64,
+    inc: u64,
+}
+
+impl RngState {
+    fn new() -> RngState {
+        RngState {
+            state: 0x853C49E6748FEA9Bu64,
+            inc: (0xDA3E39CB94B95BDBu64 << 1) | 1,
+        }
+    }
+    fn next(&mut self) -> u64 {
+        use std::num::Wrapping;
+
+        let old_state = self.state;
+        self.state =
+            (Wrapping(old_state) * Wrapping(6_364_136_223_846_793_005u64) + Wrapping(self.inc)).0;
+        let xorshifted = (old_state >> 18) ^ old_state >> 27;
+        let rot = (old_state >> 59) as i64;
+        (xorshifted >> rot as u64) | (xorshifted << ((-rot) & 31))
+    }
+
+    fn next_f32(&mut self) -> f32 {
+        let v = self.next();
+
+        let float_bits = (v as f64).to_bits();
+        let exponent = (float_bits >> 53) & ((1 << 10) - 1);
+        // Set exponent for 0-1 range
+        let new_exponent = exponent.max(32) - 32;
+
+        let new_bits = (new_exponent << 53) | (float_bits & 0x801F_FFFF_FFFF_FFFFu64);
+
+        f64::from_bits(new_bits) as f32
+    }
+
+    fn rand_dir(&mut self) -> Point {
+        let x = self.next_f32();
+        let y = self.next_f32();
+
+        Point::new(x * 2.0 - 1.0, y * 2.0 - 1.0)
     }
 }
