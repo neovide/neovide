@@ -16,7 +16,6 @@ mod redraw_scheduler;
 #[macro_use] extern crate lazy_static;
 
 use lazy_static::initialize;
-use log::{info, trace, debug, error};
 
 use bridge::BRIDGE;
 use window::ui_loop;
