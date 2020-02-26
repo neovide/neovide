@@ -28,6 +28,5 @@ fn main() {
     redraw_scheduler::initialize_settings();
 
     initialize(&BRIDGE);
-    error!("test");
     ui_loop();
 }
