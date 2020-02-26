@@ -47,6 +47,24 @@ pub fn ease_in_out_cubic(t: f32) -> f32 {
     }
 }
 
+#[allow(dead_code)]
+pub fn ease_in_expo(t: f32) -> f32 {
+    if t == 0.0 {
+        0.0
+    } else {
+        2.0f32.powf(10.0 * (t - 1.0))
+    }
+}
+
+#[allow(dead_code)]
+pub fn ease_out_expo(t: f32) -> f32 {
+    if t == 1.0 {
+        1.0
+    } else {
+        1.0 - 2.0f32.powf(-10.0 * t)
+    }
+}
+
 pub fn lerp(start: f32, end: f32, t: f32) -> f32 {
     start + (end - start) * t
 }

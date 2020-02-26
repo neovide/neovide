@@ -280,7 +280,6 @@ impl CursorVfx for ParticleTrail {
                     canvas.draw_rect(&rect, &paint);
                 }
             }
-            //canvas.draw_rect(&rect, &paint);
         });
     }
 }

@@ -180,7 +180,7 @@ impl Corner {
         let direction_alignment = travel_direction.dot(corner_direction);
 
         self.current_position =
-            ease_point(ease_out_cubic, self.start_position, corner_destination, self.t);
+            ease_point(ease_out_expo, self.start_position, corner_destination, self.t);
 
         if self.t == 1.0 {
             // We are at destination, move t out of 0-1 range to stop the animation
