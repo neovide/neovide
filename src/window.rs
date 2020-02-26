@@ -160,14 +160,16 @@ impl WindowWrapper {
 
     pub fn handle_pointer_motion(&mut self, x: i32, y: i32) {
         let previous_position = self.mouse_position;
-        self.mouse_position = LogicalSize::from_physical_size_tuple((
+        if let Ok(new_mouse_position) = LogicalSize::from_physical_size_tuple((
                 (x as f32 / self.renderer.font_width) as u32,
                 (y as f32 / self.renderer.font_height) as u32
             ), 
             &self.window
-        ).expect("Could not calculate logical mouse position");
-        if self.mouse_down && previous_position != self.mouse_position {
-            BRIDGE.queue_command(UiCommand::Drag(self.mouse_position.width, self.mouse_position.height));
+        ) {
+            self.mouse_position = new_mouse_position;
+            if self.mouse_down && previous_position != self.mouse_position {
+                BRIDGE.queue_command(UiCommand::Drag(self.mouse_position.width, self.mouse_position.height));
+            }
         }
     }
 
@@ -238,11 +240,12 @@ impl WindowWrapper {
         }
 
         debug!("Render Triggered");
+        let current_size = self.previous_size;
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
             let renderer = &mut self.renderer;
             if self.skulpin_renderer.draw(&self.window, |canvas, coordinate_system_helper| {
                 if renderer.draw(canvas, coordinate_system_helper) {
-                    handle_new_grid_size(new_size, &renderer)
+                    handle_new_grid_size(current_size, &renderer)
                 }
             }).is_err() {
                 error!("Render failed. Closing");

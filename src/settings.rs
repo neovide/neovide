@@ -5,7 +5,7 @@ use std::any::{Any, TypeId};
 pub use rmpv::Value;
 use nvim_rs::Neovim;
 use nvim_rs::compat::tokio::Compat;
-use flexi_logger::{Logger, Criterion, Naming, Cleanup};
+use flexi_logger::{Logger, Criterion, Naming, Cleanup, Duplicate};
 use tokio::process::ChildStdin;
 use parking_lot::RwLock;
 use log::{error,warn};
@@ -131,18 +131,28 @@ pub struct Settings {
 impl Settings {
 
     fn new() -> Settings {
+        let mut log_to_file = false;
         let neovim_arguments = std::env::args().filter(|arg| {
             if arg == "--log" {
-                Logger::with_str("neovide")
-                    .log_to_file()
-                    .rotate(Criterion::Size(10_000_000), Naming::Timestamps, Cleanup::KeepLogFiles(1))
-                    .start()
-                    .expect("Could not start logger");
+                log_to_file = true;
                 false
             } else {
                 true
             }
         }).collect::<Vec<String>>();
+
+        if log_to_file {
+            Logger::with_env_or_str("neovide")
+                .duplicate_to_stderr(Duplicate::Error)
+                .log_to_file()
+                .rotate(Criterion::Size(10_000_000), Naming::Timestamps, Cleanup::KeepLogFiles(1))
+                .start()
+                .expect("Could not start logger");
+        } else {
+            Logger::with_env_or_str("neovide = error")
+                .start()
+                .expect("Could not start logger");
+        }
 
         Settings{
             neovim_arguments,

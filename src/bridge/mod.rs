@@ -64,7 +64,7 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
     tokio::spawn(async move {
         info!("Close watcher started");
         match io_handler.await {
-            Err(join_error) => eprintln!("Error joining IO loop: '{}'", join_error),
+            Err(join_error) => error!("Error joining IO loop: '{}'", join_error),
             Ok(Err(error)) => {
                 if !error.is_channel_closed() {
                     error!("Error: '{}'", error);
@@ -77,11 +77,11 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
 
     if let Ok(Value::Integer(correct_version)) = nvim.eval("has(\"nvim-0.4\")").await {
         if correct_version.as_i64() != Some(1) {
-            eprintln!("Neovide requires version 0.4 or higher");
+            error!("Neovide requires version 0.4 or higher");
             std::process::exit(0);
         }
     } else {
-        eprintln!("Neovide requires version 0.4 or higher");
+        error!("Neovide requires version 0.4 or higher");
         std::process::exit(0);
     };
 
