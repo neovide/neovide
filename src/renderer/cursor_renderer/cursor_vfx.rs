@@ -179,6 +179,7 @@ pub struct ParticleTrail {
     particles: Vec<ParticleData>,
     previous_cursor_dest: Point,
     trail_mode: TrailMode,
+    rng: RngState,
 }
 
 impl ParticleTrail {
@@ -187,6 +188,7 @@ impl ParticleTrail {
             particles: vec![],
             previous_cursor_dest: Point::new(0.0, 0.0),
             trail_mode: trail_mode.clone(),
+            rng: RngState::new(),
         }
     }
 
@@ -236,8 +238,6 @@ impl CursorVfx for ParticleTrail {
 
             let prev_p = self.previous_cursor_dest;
 
-            let mut rng = RngState::new();
-
             for i in 0..particle_count {
                 let t = i as f32 / (particle_count as f32);
 
@@ -246,9 +246,9 @@ impl CursorVfx for ParticleTrail {
                         let phase = t * 60.0; // TODO -- Hardcoded spiral curl
                         Point::new(phase.sin(), phase.cos()) * 20.0 // TODO -- Hardcoded spiral outward speed
                     }
-                    TrailMode::Torpedo => rng.rand_dir_normalized() * 10.0, // TODO -- Hardcoded particle speed
+                    TrailMode::Torpedo => self.rng.rand_dir_normalized() * 10.0, // TODO -- Hardcoded particle speed
                     TrailMode::PixieDust => {
-                        let base_dir = rng.rand_dir_normalized();
+                        let base_dir = self.rng.rand_dir_normalized();
                         let dir = Point::new(base_dir.x * 0.5, 0.4 + base_dir.y.abs());
                         dir * 30.0 // TODO -- hardcoded particle speed
                     }
@@ -259,7 +259,7 @@ impl CursorVfx for ParticleTrail {
 
                 // Distribute particles along the travel distance, with a random offset to make it
                 // look random
-                let pos = prev_p + travel * rng.next_f32();
+                let pos = prev_p + travel * self.rng.next_f32();
 
                 self.add_particle(pos, speed, t * settings.vfx_particle_lifetime);
             }
