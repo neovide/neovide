@@ -181,8 +181,6 @@ impl ParticleTrail {
     }
 }
 
-const PARTICLE_DENSITY: f32 = 0.008;
-
 impl CursorVfx for ParticleTrail {
     fn update(&mut self, settings: &CursorSettings, current_cursor_dest: Point, dt: f32) -> bool {
         // Update lifetimes and remove dead particles
@@ -209,7 +207,7 @@ impl CursorVfx for ParticleTrail {
             let travel_distance = travel.length();
             // Increase amount of particles when cursor travels further
             // TODO -- particle count should not depend on font size
-            let particle_count = (travel_distance.powf(1.5) * PARTICLE_DENSITY) as usize;
+            let particle_count = (travel_distance.powf(1.5) * settings.vfx_particle_density * 0.01) as usize;
 
             let prev_p = self.previous_cursor_dest;
 

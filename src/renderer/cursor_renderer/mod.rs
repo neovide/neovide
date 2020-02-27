@@ -26,6 +26,7 @@ pub struct CursorSettings {
     vfx_mode: cursor_vfx::VfxMode,
     vfx_opacity: f32,
     vfx_particle_lifetime: f32,
+    vfx_particle_density: f32,
 }
 
 pub fn initialize_settings() {
@@ -36,6 +37,7 @@ pub fn initialize_settings() {
         vfx_mode: cursor_vfx::VfxMode::Disabled,
         vfx_opacity: 200.0,
         vfx_particle_lifetime: 1.2,
+        vfx_particle_density: 0.8,
     });
     
     register_nvim_setting!("cursor_animation_length", CursorSettings::animation_length);
@@ -43,6 +45,7 @@ pub fn initialize_settings() {
     register_nvim_setting!("cursor_vfx_mode", CursorSettings::vfx_mode);
     register_nvim_setting!("cursor_vfx_opacity", CursorSettings::vfx_opacity);
     register_nvim_setting!("cursor_vfx_particle_lifetime", CursorSettings::vfx_particle_lifetime);
+    register_nvim_setting!("cursor_vfx_particle_density", CursorSettings::vfx_particle_density);
 }
 
 // ----------------------------------------------------------------------------
