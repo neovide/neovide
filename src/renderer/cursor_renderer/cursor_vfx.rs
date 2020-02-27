@@ -2,14 +2,26 @@ use log::error;
 use skulpin::skia_safe::{paint::Style, BlendMode, Canvas, Color, Paint, Point, Rect};
 
 use super::animation_utils::*;
+use super::CursorSettings;
 use crate::editor::{Colors, Cursor};
 use crate::settings::*;
-use super::CursorSettings;
 
 pub trait CursorVfx {
-    fn update(&mut self, settings: &CursorSettings, current_cursor_destination: Point, dt: f32) -> bool;
+    fn update(
+        &mut self,
+        settings: &CursorSettings,
+        current_cursor_destination: Point,
+        dt: f32,
+    ) -> bool;
     fn restart(&mut self, position: Point);
-    fn render(&self, settings: &CursorSettings, canvas: &mut Canvas, cursor: &Cursor, colors: &Colors, font_size: (f32, f32));
+    fn render(
+        &self,
+        settings: &CursorSettings,
+        canvas: &mut Canvas,
+        cursor: &Cursor,
+        colors: &Colors,
+        font_size: (f32, f32),
+    );
 }
 
 #[derive(Clone, PartialEq)]
@@ -94,7 +106,12 @@ impl PointHighlight {
 }
 
 impl CursorVfx for PointHighlight {
-    fn update(&mut self, settings: &CursorSettings, _current_cursor_destination: Point, dt: f32) -> bool {
+    fn update(
+        &mut self,
+        _settings: &CursorSettings,
+        _current_cursor_destination: Point,
+        dt: f32,
+    ) -> bool {
         self.t = (self.t + dt * 5.0).min(1.0); // TODO - speed config
         self.t < 1.0
     }
@@ -104,7 +121,14 @@ impl CursorVfx for PointHighlight {
         self.center_position = position;
     }
 
-    fn render(&self, settings: &CursorSettings, canvas: &mut Canvas, cursor: &Cursor, colors: &Colors, font_size: (f32, f32)) {
+    fn render(
+        &self,
+        settings: &CursorSettings,
+        canvas: &mut Canvas,
+        cursor: &Cursor,
+        colors: &Colors,
+        font_size: (f32, f32),
+    ) {
         if self.t == 1.0 {
             return;
         }
@@ -207,7 +231,8 @@ impl CursorVfx for ParticleTrail {
             let travel_distance = travel.length();
             // Increase amount of particles when cursor travels further
             // TODO -- particle count should not depend on font size
-            let particle_count = (travel_distance.powf(1.5) * settings.vfx_particle_density * 0.01) as usize;
+            let particle_count =
+                (travel_distance.powf(1.5) * settings.vfx_particle_density * 0.01) as usize;
 
             let prev_p = self.previous_cursor_dest;
 
@@ -216,19 +241,25 @@ impl CursorVfx for ParticleTrail {
             for i in 0..particle_count {
                 let t = i as f32 / (particle_count as f32 - 1.0);
 
-                let phase = t * 60.0;
-
                 let speed = match self.trail_mode {
-                    TrailMode::Railgun => Point::new(phase.sin(), phase.cos()) * 20.0,
-                    TrailMode::Torpedo => rng.rand_dir() * 10.0,
+                    TrailMode::Railgun => {
+                        let phase = t * 60.0; // TODO -- Hardcoded spiral curl
+                        Point::new(phase.sin(), phase.cos()) * 20.0 // TODO -- Hardcoded spiral outward speed
+                    }
+                    TrailMode::Torpedo => rng.rand_dir_normalized() * 10.0, // TODO -- Hardcoded particle speed
                     TrailMode::PixieDust => {
-                        let base_dir = rng.rand_dir();
+                        let base_dir = rng.rand_dir_normalized();
                         let dir = Point::new(base_dir.x * 0.5, 0.4 + base_dir.y.abs());
-                        dir * 30.0
+                        dir * 30.0 // TODO -- hardcoded particle speed
                     }
                 };
 
-                let pos = prev_p + travel * (t + 0.3 * rng.next_f32() / particle_count as f32);
+                // TODO -- Spawn position should be at the base of the cursor, not the
+                // middle
+
+                // Distribute particles along the travel distance, with a random offset to make it
+                // look random
+                let pos = prev_p + travel * rng.next_f32();
 
                 self.add_particle(pos, speed, t * settings.vfx_particle_lifetime);
             }
@@ -242,16 +273,23 @@ impl CursorVfx for ParticleTrail {
 
     fn restart(&mut self, _position: Point) {}
 
-    fn render(&self, settings: &CursorSettings, canvas: &mut Canvas, cursor: &Cursor, colors: &Colors, font_size: (f32, f32)) {
+    fn render(
+        &self,
+        settings: &CursorSettings,
+        canvas: &mut Canvas,
+        cursor: &Cursor,
+        colors: &Colors,
+        font_size: (f32, f32),
+    ) {
         let mut paint = Paint::new(skulpin::skia_safe::colors::WHITE, None);
         match self.trail_mode {
             TrailMode::Torpedo | TrailMode::Railgun => {
                 paint.set_style(Style::Stroke);
+                paint.set_stroke_width(font_size.1 * 0.2);
             }
             _ => {}
         }
 
-        paint.set_stroke_width(font_size.1 * 0.2);
         let base_color: Color = cursor.background(&colors).to_color();
 
         paint.set_blend_mode(BlendMode::SrcOver);
@@ -266,8 +304,8 @@ impl CursorVfx for ParticleTrail {
                 TrailMode::Torpedo | TrailMode::Railgun => font_size.0 * 0.5 * l,
                 TrailMode::PixieDust => font_size.0 * 0.2,
             };
-            let hr = radius * 0.5;
 
+            let hr = radius * 0.5;
             let rect = Rect::from_xywh(particle.pos.x - hr, particle.pos.y - hr, radius, radius);
 
             match self.trail_mode {
@@ -295,34 +333,59 @@ impl RngState {
             inc: (0xDA3E39CB94B95BDBu64 << 1) | 1,
         }
     }
-    fn next(&mut self) -> u64 {
-        use std::num::Wrapping;
-
+    fn next(&mut self) -> u32 {
         let old_state = self.state;
-        self.state =
-            (Wrapping(old_state) * Wrapping(6_364_136_223_846_793_005u64) + Wrapping(self.inc)).0;
-        let xorshifted = (old_state >> 18) ^ old_state >> 27;
-        let rot = (old_state >> 59) as i64;
-        (xorshifted >> rot as u64) | (xorshifted << ((-rot) & 31))
+
+        // Implementation copied from:
+        // https://rust-random.github.io/rand/src/rand_pcg/pcg64.rs.html#103
+        let new_state = old_state
+            .wrapping_mul(6_364_136_223_846_793_005u64)
+            .wrapping_add(self.inc);
+
+        self.state = new_state;
+
+        const ROTATE: u32 = 59; // 64 - 5
+        const XSHIFT: u32 = 18; // (5 + 32) / 2
+        const SPARE: u32 = 27; // 64 - 32 - 5
+
+        let rot = (old_state >> ROTATE) as u32;
+        let xsh = (((old_state >> XSHIFT) ^ old_state) >> SPARE) as u32;
+        xsh.rotate_right(rot)
     }
 
     fn next_f32(&mut self) -> f32 {
         let v = self.next();
 
+        // In C we'd do ldexp(v, -32) to bring a number in the range [0,2^32) down to [0,1) range.
+        // But as we don't have ldexp in Rust, we're implementing the same idea (subtracting 32
+        // from the floating point exponent) manually.
+
+        // First, extract exponent bits
         let float_bits = (v as f64).to_bits();
-        let exponent = (float_bits >> 53) & ((1 << 10) - 1);
-        // Set exponent for 0-1 range
+        let exponent = (float_bits >> 52) & ((1 << 11) - 1);
+
+        // Set exponent for [0-1) range
         let new_exponent = exponent.max(32) - 32;
 
-        let new_bits = (new_exponent << 53) | (float_bits & 0x801F_FFFF_FFFF_FFFFu64);
+        // Build the new f64 value from the old mantissa and sign, and the new exponent
+        let new_bits = (new_exponent << 52) | (float_bits & 0x801F_FFFF_FFFF_FFFFu64);
 
         f64::from_bits(new_bits) as f32
     }
 
+    // Produces a random vector with x and y in the [-1,1) range
+    // Note: Vector is not normalized.
     fn rand_dir(&mut self) -> Point {
         let x = self.next_f32();
         let y = self.next_f32();
 
         Point::new(x * 2.0 - 1.0, y * 2.0 - 1.0)
     }
+
+    fn rand_dir_normalized(&mut self) -> Point {
+        let mut v = self.rand_dir();
+        v.normalize();
+        v
+    }
 }
+
