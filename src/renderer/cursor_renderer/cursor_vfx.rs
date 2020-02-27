@@ -239,7 +239,7 @@ impl CursorVfx for ParticleTrail {
             let mut rng = RngState::new();
 
             for i in 0..particle_count {
-                let t = i as f32 / (particle_count as f32 - 1.0);
+                let t = i as f32 / (particle_count as f32);
 
                 let speed = match self.trail_mode {
                     TrailMode::Railgun => {
