@@ -12,30 +12,40 @@ use animation_utils::*;
 
 mod cursor_vfx;
 
-const CURSOR_TRAIL_SIZE: f32 = 0.7;
 const COMMAND_LINE_DELAY_FRAMES: u64 = 5;
 const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
 
 const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5)];
 
+// ----------------------------------------------------------------------------
 
 #[derive(Clone)]
 pub struct CursorSettings {
     animation_length: f32,
+    trail_size: f32,
     vfx_mode: cursor_vfx::VfxMode,
+    vfx_opacity: f32,
+    vfx_particle_lifetime: f32,
 }
 
 pub fn initialize_settings() {
     
     SETTINGS.set(&CursorSettings {
         animation_length: 0.13,
+        trail_size: 0.7,
         vfx_mode: cursor_vfx::VfxMode::Disabled,
+        vfx_opacity: 200.0,
+        vfx_particle_lifetime: 1.2,
     });
     
     register_nvim_setting!("cursor_animation_length", CursorSettings::animation_length);
+    register_nvim_setting!("cursor_trail_size", CursorSettings::trail_size);
     register_nvim_setting!("cursor_vfx_mode", CursorSettings::vfx_mode);
+    register_nvim_setting!("cursor_vfx_opacity", CursorSettings::vfx_opacity);
+    register_nvim_setting!("cursor_vfx_particle_lifetime", CursorSettings::vfx_particle_lifetime);
 }
 
+// ----------------------------------------------------------------------------
 
 enum BlinkState {
     Waiting,
@@ -184,7 +194,7 @@ impl Corner {
             // We are at destination, move t out of 0-1 range to stop the animation
             self.t = 2.0;
         } else {
-            let corner_dt = dt * lerp(1.0, 1.0 - CURSOR_TRAIL_SIZE, -direction_alignment);
+            let corner_dt = dt * lerp(1.0, 1.0 - settings.trail_size, -direction_alignment);
             self.t = (self.t + corner_dt / settings.animation_length).min(1.0)
         }
         
@@ -325,7 +335,7 @@ impl CursorRenderer {
             }
 
             let vfx_animating = if let Some(vfx) = self.cursor_vfx.as_mut() {
-                vfx.update(center_destination, dt)
+                vfx.update(&settings, center_destination, dt)
             }else{
                 false
             };
@@ -362,7 +372,7 @@ impl CursorRenderer {
             }
             canvas.restore();
             if let Some(vfx) = self.cursor_vfx.as_ref() {
-                vfx.render(canvas, &cursor, &default_colors, (font_width, font_height));
+                vfx.render(&settings, canvas, &cursor, &default_colors, (font_width, font_height));
             }
 
         }

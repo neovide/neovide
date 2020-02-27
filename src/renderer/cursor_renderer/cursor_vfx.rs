@@ -4,11 +4,12 @@ use skulpin::skia_safe::{paint::Style, BlendMode, Canvas, Color, Paint, Point, R
 use super::animation_utils::*;
 use crate::editor::{Colors, Cursor};
 use crate::settings::*;
+use super::CursorSettings;
 
 pub trait CursorVfx {
-    fn update(&mut self, current_cursor_destination: Point, dt: f32) -> bool;
+    fn update(&mut self, settings: &CursorSettings, current_cursor_destination: Point, dt: f32) -> bool;
     fn restart(&mut self, position: Point);
-    fn render(&self, canvas: &mut Canvas, cursor: &Cursor, colors: &Colors, font_size: (f32, f32));
+    fn render(&self, settings: &CursorSettings, canvas: &mut Canvas, cursor: &Cursor, colors: &Colors, font_size: (f32, f32));
 }
 
 #[derive(Clone, PartialEq)]
@@ -93,7 +94,7 @@ impl PointHighlight {
 }
 
 impl CursorVfx for PointHighlight {
-    fn update(&mut self, _current_cursor_destination: Point, dt: f32) -> bool {
+    fn update(&mut self, settings: &CursorSettings, _current_cursor_destination: Point, dt: f32) -> bool {
         self.t = (self.t + dt * 5.0).min(1.0); // TODO - speed config
         self.t < 1.0
     }
@@ -103,7 +104,7 @@ impl CursorVfx for PointHighlight {
         self.center_position = position;
     }
 
-    fn render(&self, canvas: &mut Canvas, cursor: &Cursor, colors: &Colors, font_size: (f32, f32)) {
+    fn render(&self, settings: &CursorSettings, canvas: &mut Canvas, cursor: &Cursor, colors: &Colors, font_size: (f32, f32)) {
         if self.t == 1.0 {
             return;
         }
@@ -111,7 +112,7 @@ impl CursorVfx for PointHighlight {
         paint.set_blend_mode(BlendMode::SrcOver);
 
         let base_color: Color = cursor.background(&colors).to_color();
-        let alpha = ease(ease_in_quad, 255.0, 0.0, self.t) as u8;
+        let alpha = ease(ease_in_quad, settings.vfx_opacity, 0.0, self.t) as u8;
         let color = Color::from_argb(alpha, base_color.r(), base_color.g(), base_color.b());
         paint.set_color(color);
 
@@ -181,10 +182,9 @@ impl ParticleTrail {
 }
 
 const PARTICLE_DENSITY: f32 = 0.008;
-const PARTICLE_LIFETIME: f32 = 1.2;
 
 impl CursorVfx for ParticleTrail {
-    fn update(&mut self, current_cursor_dest: Point, dt: f32) -> bool {
+    fn update(&mut self, settings: &CursorSettings, current_cursor_dest: Point, dt: f32) -> bool {
         // Update lifetimes and remove dead particles
         let mut i = 0;
         while i < self.particles.len() {
@@ -232,7 +232,7 @@ impl CursorVfx for ParticleTrail {
 
                 let pos = prev_p + travel * (t + 0.3 * rng.next_f32() / particle_count as f32);
 
-                self.add_particle(pos, speed, t * PARTICLE_LIFETIME);
+                self.add_particle(pos, speed, t * settings.vfx_particle_lifetime);
             }
 
             self.previous_cursor_dest = current_cursor_dest;
@@ -244,7 +244,7 @@ impl CursorVfx for ParticleTrail {
 
     fn restart(&mut self, _position: Point) {}
 
-    fn render(&self, canvas: &mut Canvas, cursor: &Cursor, colors: &Colors, font_size: (f32, f32)) {
+    fn render(&self, settings: &CursorSettings, canvas: &mut Canvas, cursor: &Cursor, colors: &Colors, font_size: (f32, f32)) {
         let mut paint = Paint::new(skulpin::skia_safe::colors::WHITE, None);
         match self.trail_mode {
             TrailMode::Torpedo | TrailMode::Railgun => {
@@ -259,8 +259,8 @@ impl CursorVfx for ParticleTrail {
         paint.set_blend_mode(BlendMode::SrcOver);
 
         self.particles.iter().for_each(|particle| {
-            let l = particle.lifetime / PARTICLE_LIFETIME;
-            let alpha = (l * 128.0) as u8;
+            let l = particle.lifetime / settings.vfx_particle_lifetime;
+            let alpha = (l * settings.vfx_opacity) as u8;
             let color = Color::from_argb(alpha, base_color.r(), base_color.g(), base_color.b());
             paint.set_color(color);
 
