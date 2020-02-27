@@ -17,6 +17,15 @@ const WIDE_FONT: &str = "NotoSansMonoCJKjp-Regular.otf";
 const WIDE_BOLD_FONT: &str = "NotoSansMonoCJKjp-Bold.otf";
 
 #[cfg(target_os = "windows")]
+const SYSTEM_SYMBOL_FONT: &str = "Segoe UI Symbol";
+
+#[cfg(target_os = "linux")]
+const SYSTEM_SYMBOL_FONT: &str = "Unifont";
+
+#[cfg(target_os = "macos")]
+const SYSTEM_SYMBOL_FONT: &str = "Apple Symbols";
+
+#[cfg(target_os = "windows")]
 const SYSTEM_EMOJI_FONT: &str = "Segoe UI Emoji";
 
 #[cfg(target_os = "macos")]
@@ -24,6 +33,7 @@ const SYSTEM_EMOJI_FONT: &str = "Apple Color Emoji";
 
 #[cfg(target_os = "linux")]
 const SYSTEM_EMOJI_FONT: &str = "Noto Color Emoji";
+
 
 #[derive(RustEmbed)]
 #[folder = "assets/fonts/"]
@@ -83,6 +93,11 @@ fn build_collection_by_font_name(font_name: Option<&str>, bold: bool, italic: bo
 
     if let Ok(emoji) = source.select_family_by_name(SYSTEM_EMOJI_FONT) {
         let font = emoji.fonts()[0].load().unwrap();
+        collection.add_family(FontFamily::new_from_font(font));
+    }
+
+    if let Ok(sys_symbol) = source.select_family_by_name(SYSTEM_SYMBOL_FONT) {
+        let font = sys_symbol.fonts()[0].load().unwrap();
         collection.add_family(FontFamily::new_from_font(font));
     }
 
