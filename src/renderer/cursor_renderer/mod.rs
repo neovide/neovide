@@ -37,7 +37,7 @@ pub fn initialize_settings() {
         vfx_mode: cursor_vfx::VfxMode::Disabled,
         vfx_opacity: 200.0,
         vfx_particle_lifetime: 1.2,
-        vfx_particle_density: 0.8,
+        vfx_particle_density: 7.0,
     });
     
     register_nvim_setting!("cursor_animation_length", CursorSettings::animation_length);
@@ -338,7 +338,7 @@ impl CursorRenderer {
             }
 
             let vfx_animating = if let Some(vfx) = self.cursor_vfx.as_mut() {
-                vfx.update(&settings, center_destination, dt)
+                vfx.update(&settings, center_destination, (font_width, font_height), dt)
             }else{
                 false
             };
