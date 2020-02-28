@@ -259,7 +259,13 @@ impl CursorVfx for ParticleTrail {
 
                 // Distribute particles along the travel distance, with a random offset to make it
                 // look random
-                let pos = prev_p + travel * self.rng.next_f32();
+
+                let pos = match self.trail_mode {
+                    TrailMode::Railgun => prev_p + travel * t,
+                    TrailMode::PixieDust | TrailMode::Torpedo => {
+                        prev_p + travel * self.rng.next_f32()
+                    }
+                };
 
                 self.add_particle(pos, speed, t * settings.vfx_particle_lifetime);
             }
@@ -388,4 +394,3 @@ impl RngState {
         v
     }
 }
-
