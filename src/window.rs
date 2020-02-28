@@ -160,14 +160,16 @@ impl WindowWrapper {
 
     pub fn handle_pointer_motion(&mut self, x: i32, y: i32) {
         let previous_position = self.mouse_position;
-        self.mouse_position = LogicalSize::from_physical_size_tuple((
+        if let Ok(new_mouse_position) = LogicalSize::from_physical_size_tuple((
                 (x as f32 / self.renderer.font_width) as u32,
                 (y as f32 / self.renderer.font_height) as u32
             ), 
             &self.window
-        ).expect("Could not calculate logical mouse position");
-        if self.mouse_down && previous_position != self.mouse_position {
-            BRIDGE.queue_command(UiCommand::Drag(self.mouse_position.width, self.mouse_position.height));
+        ) {
+            self.mouse_position = new_mouse_position;
+            if self.mouse_down && previous_position != self.mouse_position {
+                BRIDGE.queue_command(UiCommand::Drag(self.mouse_position.width, self.mouse_position.height));
+            }
         }
     }
 
@@ -220,30 +222,32 @@ impl WindowWrapper {
     }
 
     pub fn draw_frame(&mut self) -> bool {
-        let new_size = LogicalSize::new(&self.window).unwrap();
-        if self.previous_size != new_size {
-            handle_new_grid_size(new_size, &self.renderer);
-            self.previous_size = new_size;
+        if let Ok(new_size) = LogicalSize::new(&self.window) {
+            if self.previous_size != new_size {
+                handle_new_grid_size(new_size, &self.renderer);
+                self.previous_size = new_size;
+            }
         }
 
-        let new_dpis = dpis(&self.window).unwrap();
-        if self.previous_dpis != new_dpis {
-            let physical_size = PhysicalSize::new(&self.window);
-            self.window.set_size(
-                (physical_size.width as f32 * new_dpis.0 / self.previous_dpis.0) as u32,
-                (physical_size.height as f32 * new_dpis.1 / self.previous_dpis.1) as u32).unwrap();
-            self.previous_dpis = new_dpis;
+        if let Ok(new_dpis) = dpis(&self.window) {
+            if self.previous_dpis != new_dpis {
+                let physical_size = PhysicalSize::new(&self.window);
+                self.window.set_size(
+                    (physical_size.width as f32 * new_dpis.0 / self.previous_dpis.0) as u32,
+                    (physical_size.height as f32 * new_dpis.1 / self.previous_dpis.1) as u32).unwrap();
+                self.previous_dpis = new_dpis;
+            }
         }
 
         debug!("Render Triggered");
+        let current_size = self.previous_size;
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
             let renderer = &mut self.renderer;
             if self.skulpin_renderer.draw(&self.window, |canvas, coordinate_system_helper| {
-
                 let dt = 1.0 / (SETTINGS.get::<WindowSettings>().refresh_rate as f32);
 
                 if renderer.draw(canvas, coordinate_system_helper, dt) {
-                    handle_new_grid_size(new_size, &renderer)
+                    handle_new_grid_size(current_size, &renderer)
                 }
             }).is_err() {
                 error!("Render failed. Closing");
