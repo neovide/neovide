@@ -28,7 +28,9 @@ pub struct CursorSettings {
     vfx_particle_lifetime: f32,
     vfx_particle_density: f32,
     vfx_particle_speed: f32,
-    vfx_particle_phase: f32, }
+    vfx_particle_phase: f32, 
+    vfx_particle_curl: f32, 
+}
 
 pub fn initialize_settings() {
     
@@ -41,6 +43,7 @@ pub fn initialize_settings() {
         vfx_particle_density: 7.0,
         vfx_particle_speed: 10.0,
         vfx_particle_phase: 1.5,
+        vfx_particle_curl: 1.0,
     });
     
     register_nvim_setting!("cursor_animation_length", CursorSettings::animation_length);
@@ -51,6 +54,7 @@ pub fn initialize_settings() {
     register_nvim_setting!("cursor_vfx_particle_density", CursorSettings::vfx_particle_density);
     register_nvim_setting!("cursor_vfx_particle_speed", CursorSettings::vfx_particle_speed);
     register_nvim_setting!("cursor_vfx_particle_phase", CursorSettings::vfx_particle_phase);
+    register_nvim_setting!("cursor_vfx_particle_curl", CursorSettings::vfx_particle_curl);
 }
 
 // ----------------------------------------------------------------------------

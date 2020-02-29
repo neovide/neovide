@@ -174,6 +174,7 @@ impl CursorVfx for PointHighlight {
 struct ParticleData {
     pos: Point,
     speed: Point,
+    rotation_speed: f32,
     lifetime: f32,
 }
 
@@ -194,10 +195,11 @@ impl ParticleTrail {
         }
     }
 
-    fn add_particle(&mut self, pos: Point, speed: Point, lifetime: f32) {
+    fn add_particle(&mut self, pos: Point, speed: Point, rotation_speed: f32, lifetime: f32) {
         self.particles.push(ParticleData {
             pos,
             speed,
+            rotation_speed,
             lifetime,
         });
     }
@@ -215,7 +217,8 @@ impl CursorVfx for ParticleTrail {
         settings: &CursorSettings,
         current_cursor_dest: Point,
         font_size: (f32, f32),
-        dt: f32) -> bool {
+        dt: f32,
+    ) -> bool {
         // Update lifetimes and remove dead particles
         let mut i = 0;
         while i < self.particles.len() {
@@ -232,15 +235,18 @@ impl CursorVfx for ParticleTrail {
         for i in 0..self.particles.len() {
             let particle = &mut self.particles[i];
             particle.pos += particle.speed * dt;
+            particle.speed = rotate_vec(particle.speed, dt * particle.rotation_speed);
         }
 
         // Spawn new particles
         if current_cursor_dest != self.previous_cursor_dest {
             let travel = current_cursor_dest - self.previous_cursor_dest;
             let travel_distance = travel.length();
+
             // Increase amount of particles when cursor travels further
-            let particle_count =
-                ((travel_distance / font_size.0).powf(1.5) * settings.vfx_particle_density * 0.01) as usize;
+            let particle_count = ((travel_distance / font_size.0).powf(1.5)
+                * settings.vfx_particle_density
+                * 0.01) as usize;
 
             let prev_p = self.previous_cursor_dest;
 
@@ -249,7 +255,9 @@ impl CursorVfx for ParticleTrail {
 
                 let speed = match self.trail_mode {
                     TrailMode::Railgun => {
-                        let phase = t / 3.141592 * settings.vfx_particle_phase * (travel_distance / font_size.0);
+                        let phase = t / 3.141592
+                            * settings.vfx_particle_phase
+                            * (travel_distance / font_size.0);
                         Point::new(phase.sin(), phase.cos()) * 2.0 * settings.vfx_particle_speed
                     }
                     TrailMode::Torpedo => {
@@ -274,7 +282,21 @@ impl CursorVfx for ParticleTrail {
                     }
                 };
 
-                self.add_particle(pos, speed, t * settings.vfx_particle_lifetime);
+                let rotation_speed = match self.trail_mode {
+                    TrailMode::Railgun => std::f32::consts::PI * settings.vfx_particle_curl,
+                    TrailMode::PixieDust | TrailMode::Torpedo => {
+                        (self.rng.next_f32() - 0.5)
+                            * std::f32::consts::FRAC_PI_2
+                            * settings.vfx_particle_curl
+                    }
+                };
+
+                self.add_particle(
+                    pos,
+                    speed,
+                    rotation_speed,
+                    t * settings.vfx_particle_lifetime,
+                );
             }
 
             self.previous_cursor_dest = current_cursor_dest;
@@ -400,4 +422,11 @@ impl RngState {
         v.normalize();
         v
     }
+}
+
+fn rotate_vec(v: Point, rot: f32) -> Point {
+    let sin = rot.sin();
+    let cos = rot.cos();
+
+    Point::new(v.x * cos - v.y * sin, v.x * sin + v.y * cos)
 }
