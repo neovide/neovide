@@ -91,7 +91,7 @@ impl MessageKind {
 
 #[derive(Debug)]
 pub enum GuiOption {
-    AribicShape(bool),
+    ArabicShape(bool),
     AmbiWidth(String),
     Emoji(bool),
     GuiFont(String),
@@ -257,7 +257,7 @@ fn parse_option_set(option_set_arguments: Vec<Value>) -> Result<RedrawEvent> {
 
     Ok(RedrawEvent::OptionSet {
         gui_option: match name.as_str() {
-            "arabicshape" => GuiOption::AribicShape(parse_bool(value)?),
+            "arabicshape" => GuiOption::ArabicShape(parse_bool(value)?),
             "ambiwidth" => GuiOption::AmbiWidth(parse_string(value)?),
             "emoji" => GuiOption::Emoji(parse_bool(value)?),
             "guifont" => GuiOption::GuiFont(parse_string(value)?),
