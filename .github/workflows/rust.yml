@@ -55,7 +55,7 @@ jobs:
       run:  |
         curl -sL "http://packages.lunarg.com/lunarg-signing-key-pub.asc" | sudo apt-key add -
         sudo curl -sLo "/etc/apt/sources.list.d/lunarg-vulkan-1.2.131-bionic.list" "http://packages.lunarg.com/vulkan/1.2.131/lunarg-vulkan-1.2.131-bionic.list"
-        sudo apt-get update -y
+        sudo apt-get update -y --ignore-missing
         sudo apt-get install -y vulkan-sdk
 
     - name: Install dependencies
