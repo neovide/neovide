@@ -6,12 +6,13 @@ use skulpin::skia_safe::gpu::SurfaceOrigin;
 use log::trace;
 
 mod caching_shaper;
-mod cursor_renderer;
+pub mod cursor_renderer;
 
 pub use caching_shaper::CachingShaper;
 
 use cursor_renderer::CursorRenderer;
 use crate::editor::{EDITOR, Style};
+
 
 pub struct Renderer {
     surface: Option<Surface>,
@@ -107,7 +108,9 @@ impl Renderer {
         canvas.restore();
     }
 
-    pub fn draw(&mut self, gpu_canvas: &mut Canvas, coordinate_system_helper: &CoordinateSystemHelper) -> bool {
+    pub fn draw(&mut self, gpu_canvas: &mut Canvas, 
+        coordinate_system_helper: &CoordinateSystemHelper,
+        dt: f32) -> bool {
         trace!("Rendering");
         let ((draw_commands, should_clear), default_style, cursor, font_name, font_size) = {
             let mut editor = EDITOR.lock();
@@ -162,8 +165,7 @@ impl Renderer {
         self.cursor_renderer.draw(
             cursor, &default_style.colors, 
             self.font_width, self.font_height, 
-            &mut self.paint, &mut self.shaper,
-            gpu_canvas);
+            &mut self.shaper, gpu_canvas, dt);
 
         font_changed
     }

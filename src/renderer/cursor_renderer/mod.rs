@@ -2,16 +2,53 @@ use std::time::{Duration, Instant};
 
 use skulpin::skia_safe::{Canvas, Paint, Path, Point};
 
+use crate::settings::*;
 use crate::renderer::CachingShaper;
 use crate::editor::{EDITOR, Colors, Cursor, CursorShape};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 
-const AVERAGE_MOTION_PERCENTAGE: f32 = 0.7;
-const MOTION_PERCENTAGE_SPREAD: f32 = 0.5;
+mod animation_utils;
+use animation_utils::*;
+
+mod cursor_vfx;
+
 const COMMAND_LINE_DELAY_FRAMES: u64 = 5;
 const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
 
 const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5)];
+
+// ----------------------------------------------------------------------------
+
+#[derive(Clone)]
+pub struct CursorSettings {
+    animation_length: f32,
+    trail_size: f32,
+    vfx_mode: cursor_vfx::VfxMode,
+    vfx_opacity: f32,
+    vfx_particle_lifetime: f32,
+    vfx_particle_density: f32,
+}
+
+pub fn initialize_settings() {
+    
+    SETTINGS.set(&CursorSettings {
+        animation_length: 0.13,
+        trail_size: 0.7,
+        vfx_mode: cursor_vfx::VfxMode::Disabled,
+        vfx_opacity: 200.0,
+        vfx_particle_lifetime: 1.2,
+        vfx_particle_density: 7.0,
+    });
+    
+    register_nvim_setting!("cursor_animation_length", CursorSettings::animation_length);
+    register_nvim_setting!("cursor_trail_size", CursorSettings::trail_size);
+    register_nvim_setting!("cursor_vfx_mode", CursorSettings::vfx_mode);
+    register_nvim_setting!("cursor_vfx_opacity", CursorSettings::vfx_opacity);
+    register_nvim_setting!("cursor_vfx_particle_lifetime", CursorSettings::vfx_particle_lifetime);
+    register_nvim_setting!("cursor_vfx_particle_density", CursorSettings::vfx_particle_density);
+}
+
+// ----------------------------------------------------------------------------
 
 enum BlinkState {
     Waiting,
@@ -85,47 +122,89 @@ impl BlinkStatus {
 
 #[derive(Debug, Clone)]
 pub struct Corner {
-    pub current_position: Point,
-    pub relative_position: Point,
+    start_position: Point,
+    current_position: Point,
+    relative_position: Point,
+    previous_destination: Point, 
+    t: f32,
 }
 
 impl Corner {
-    pub fn new(relative_position: Point) -> Corner {
+    pub fn new() -> Corner {
         Corner {
+            start_position: Point::new(0.0, 0.0),
             current_position: Point::new(0.0, 0.0),
-            relative_position
+            relative_position: Point::new(0.0, 0.0),
+            previous_destination: Point::new(-1000.0, -1000.0),
+            t: 0.0,
         }
     }
 
-    pub fn update(&mut self, font_dimensions: Point, destination: Point) -> bool {
-        let relative_scaled_position: Point = 
-            (self.relative_position.x * font_dimensions.x, self.relative_position.y * font_dimensions.y).into();
-        let corner_destination = destination + relative_scaled_position;
-
-        let delta = corner_destination - self.current_position;
-
-        if delta.length() > 0.0 {
-            // Project relative_scaled_position (actual possition of the corner relative to the
-            // center of the cursor) onto the remaining distance vector. This gives us the relative
-            // distance to the destination along the delta vector which we can then use to scale the
-            // motion_percentage.
-            let motion_scale = delta.dot(relative_scaled_position) / delta.length() / font_dimensions.length();
-
-            // The motion_percentage is then equal to the motion_scale factor times the
-            // MOTION_PERCENTAGE_SPREAD and added to the AVERAGE_MOTION_PERCENTAGE. This way all of
-            // the percentages are positive and spread out by the spread constant.
-            let motion_percentage = motion_scale * MOTION_PERCENTAGE_SPREAD + AVERAGE_MOTION_PERCENTAGE;
-
-            // Then the current_position is animated by taking the delta vector, multiplying it by
-            // the motion_percentage and adding the resulting value to the current position causing
-            // the cursor to "jump" toward the target destination. Since further away corners jump
-            // slower, the cursor appears to smear toward the destination in a satisfying and
-            // visually trackable way.
-            let delta = corner_destination - self.current_position;
-            self.current_position += delta * motion_percentage;
+    pub fn update(&mut self, settings: &CursorSettings, font_dimensions: Point, destination: Point, dt: f32) -> bool {
+        // Update destination if needed
+        let mut immediate_movement = false;
+        if destination != self.previous_destination {
+            let travel_distance = destination - self.previous_destination;
+            let chars_travel_x = travel_distance.x / font_dimensions.x;
+            if travel_distance.y == 0.0 && (chars_travel_x - 1.0).abs() < 0.1 {
+                // We're moving one character to the right. Make movement immediate to avoid lag
+                // while typing
+                immediate_movement = true;
+            }
+            self.t = 0.0;
+            self.start_position = self.current_position;
+            self.previous_destination = destination;
         }
 
-        delta.length() > 0.001
+        // Check first if animation's over
+        if self.t > 1.0 {
+            return false;
+        }
+
+        // Calculate window-space destination for corner
+        let relative_scaled_position: Point = (
+            self.relative_position.x * font_dimensions.x,
+            self.relative_position.y * font_dimensions.y,
+        ).into();
+
+        let corner_destination = destination + relative_scaled_position;
+
+        if immediate_movement {
+            self.t = 1.0;
+            self.current_position = corner_destination;
+            return true;
+        }
+
+        // Calculate how much a corner will be lagging behind based on how much it's aligned
+        // with the direction of motion. Corners in front will move faster than corners in the
+        // back
+        let travel_direction = {
+            let mut d = destination - self.current_position;
+            d.normalize();
+            d
+        };
+
+        let corner_direction = {
+            let mut d = self.relative_position;
+            d.normalize();
+            d
+        };
+
+        let direction_alignment = travel_direction.dot(corner_direction);
+
+
+        if self.t == 1.0 {
+            // We are at destination, move t out of 0-1 range to stop the animation
+            self.t = 2.0;
+        } else {
+            let corner_dt = dt * lerp(1.0, 1.0 - settings.trail_size, -direction_alignment);
+            self.t = (self.t + corner_dt / settings.animation_length).min(1.0)
+        }
+        
+        self.current_position =
+            ease_point(ease_out_expo, self.start_position, corner_destination, self.t);
+
+        true
     }
 }
 
@@ -133,16 +212,23 @@ pub struct CursorRenderer {
     pub corners: Vec<Corner>,
     pub previous_position: (u64, u64),
     pub command_line_delay: u64,
-    blink_status: BlinkStatus
+    blink_status: BlinkStatus,
+    previous_cursor_shape: Option<CursorShape>,
+    cursor_vfx: Option<Box<dyn cursor_vfx::CursorVfx>>,
+    previous_vfx_mode: cursor_vfx::VfxMode,
 }
 
 impl CursorRenderer {
     pub fn new() -> CursorRenderer {
         let mut renderer = CursorRenderer {
-            corners: vec![Corner::new((0.0, 0.0).into()); 4],
+            corners: vec![Corner::new(); 4],
             previous_position: (0, 0),
             command_line_delay: 0,
-            blink_status: BlinkStatus::new()
+            blink_status: BlinkStatus::new(),
+            previous_cursor_shape: None,
+            //cursor_vfx: Box::new(PointHighlight::new(Point{x:0.0, y:0.0}, HighlightMode::Ripple)),
+            cursor_vfx: None,
+            previous_vfx_mode: cursor_vfx::VfxMode::Disabled,
         };
         renderer.set_cursor_shape(&CursorShape::Block, DEFAULT_CELL_PERCENTAGE);
         renderer
@@ -165,7 +251,10 @@ impl CursorRenderer {
                         // instead of the top.
                         CursorShape::Horizontal => (x, -((-y + 0.5) * cell_percentage - 0.5)).into()
                     },
+                    t: 0.0,
+                    start_position: corner.current_position,
                     .. corner
+
                 }
             })
             .collect::<Vec<Corner>>();
@@ -174,9 +263,19 @@ impl CursorRenderer {
     pub fn draw(&mut self, 
             cursor: Cursor, default_colors: &Colors, 
             font_width: f32, font_height: f32,
-            paint: &mut Paint, shaper: &mut CachingShaper, 
-            canvas: &mut Canvas) {
+            shaper: &mut CachingShaper, canvas: &mut Canvas,
+            dt: f32) {
         let render = self.blink_status.update_status(&cursor);
+
+        let settings = SETTINGS.get::<CursorSettings>();
+
+        if settings.vfx_mode != self.previous_vfx_mode {
+            self.cursor_vfx = cursor_vfx::new_cursor_vfx(&settings.vfx_mode);
+            self.previous_vfx_mode = settings.vfx_mode.clone();
+        }
+
+        let mut paint = Paint::new(skulpin::skia_safe::colors::WHITE, None);
+        paint.set_anti_alias(true);
 
         self.previous_position = {
             let editor = EDITOR.lock();
@@ -195,6 +294,7 @@ impl CursorRenderer {
                 cursor.position
             }
         };
+        
 
         let (grid_x, grid_y) = self.previous_position;
 
@@ -219,14 +319,31 @@ impl CursorRenderer {
         let destination: Point = (grid_x as f32 * font_width, grid_y as f32 * font_height).into();
         let center_destination = destination + font_dimensions * 0.5;
 
-        self.set_cursor_shape(&cursor.shape, cursor.cell_percentage.unwrap_or(DEFAULT_CELL_PERCENTAGE));
+        let new_cursor = Some(cursor.shape.clone());
+
+        if self.previous_cursor_shape != new_cursor {
+            self.previous_cursor_shape = new_cursor;
+            self.set_cursor_shape(&cursor.shape, cursor.cell_percentage.unwrap_or(DEFAULT_CELL_PERCENTAGE)); 
+       
+            if let Some(vfx) = self.cursor_vfx.as_mut() {
+                vfx.restart(center_destination);
+            }
+        }
 
         let mut animating = false;
         if !center_destination.is_zero() {
             for corner in self.corners.iter_mut() {
-                let corner_animating = corner.update(font_dimensions, center_destination);
-                animating = animating || corner_animating;
+                let corner_animating = corner.update(&settings, font_dimensions, center_destination, dt);
+                animating |= corner_animating;
             }
+
+            let vfx_animating = if let Some(vfx) = self.cursor_vfx.as_mut() {
+                vfx.update(&settings, center_destination, (font_width, font_height), dt)
+            }else{
+                false
+            };
+
+            animating |= vfx_animating;
         }
 
         if animating || self.command_line_delay != 0 {
@@ -257,6 +374,10 @@ impl CursorRenderer {
                 canvas.draw_text_blob(&blob, destination, &paint);
             }
             canvas.restore();
+            if let Some(vfx) = self.cursor_vfx.as_ref() {
+                vfx.render(&settings, canvas, &cursor, &default_colors, (font_width, font_height));
+            }
+
         }
     }
 }

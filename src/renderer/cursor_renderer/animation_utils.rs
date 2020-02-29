@@ -1,0 +1,81 @@
+use skulpin::skia_safe::Point;
+
+#[allow(dead_code)]
+pub fn ease_linear(t: f32) -> f32 {
+    t
+}
+
+#[allow(dead_code)]
+pub fn ease_in_quad(t: f32) -> f32 {
+    t * t
+}
+
+#[allow(dead_code)]
+pub fn ease_out_quad(t: f32) -> f32 {
+    -t * (t - 2.0)
+}
+
+#[allow(dead_code)]
+pub fn ease_in_out_quad(t: f32) -> f32 {
+    if t < 0.5 {
+        2.0 * t * t
+    } else {
+        let n = t * 2.0 - 1.0;
+        -0.5 * (n * (n - 2.0) - 1.0)
+    }
+}
+
+#[allow(dead_code)]
+pub fn ease_in_cubic(t: f32) -> f32 {
+    t * t * t
+}
+
+#[allow(dead_code)]
+pub fn ease_out_cubic(t: f32) -> f32 {
+    let n = t - 1.0;
+    n * n * n + 1.0
+}
+
+#[allow(dead_code)]
+pub fn ease_in_out_cubic(t: f32) -> f32 {
+    let n = 2.0 * t;
+    if n < 1.0 {
+        0.5 * n * n * n
+    } else {
+        let n = n - 2.0;
+        0.5 * (n * n * n + 2.0)
+    }
+}
+
+#[allow(dead_code)]
+pub fn ease_in_expo(t: f32) -> f32 {
+    if t == 0.0 {
+        0.0
+    } else {
+        2.0f32.powf(10.0 * (t - 1.0))
+    }
+}
+
+#[allow(dead_code)]
+pub fn ease_out_expo(t: f32) -> f32 {
+    if t == 1.0 {
+        1.0
+    } else {
+        1.0 - 2.0f32.powf(-10.0 * t)
+    }
+}
+
+pub fn lerp(start: f32, end: f32, t: f32) -> f32 {
+    start + (end - start) * t
+}
+
+pub fn ease(ease_func: fn(f32) -> f32, start: f32, end: f32, t: f32) -> f32 {
+    lerp(start, end, ease_func(t))
+}
+
+pub fn ease_point(ease_func: fn(f32) -> f32, start: Point, end: Point, t: f32) -> Point {
+    Point {
+        x: ease(ease_func, start.x, end.x, t),
+        y: ease(ease_func, start.y, end.y, t),
+    }
+}
