@@ -249,22 +249,24 @@ impl CursorVfx for ParticleTrail {
 
                 let speed = match self.trail_mode {
                     TrailMode::Railgun => {
-                        let phase = t * 60.0; // TODO -- Hardcoded spiral curl
-                        Point::new(phase.sin(), phase.cos()) * 20.0 // TODO -- Hardcoded spiral outward speed
+                        let phase = t / 3.141592 * settings.vfx_particle_phase * (travel_distance / font_size.0);
+                        Point::new(phase.sin(), phase.cos()) * 2.0 * settings.vfx_particle_speed
                     }
                     TrailMode::Torpedo => {
-                        self.rng.rand_dir_normalized() * 10.0 // TODO -- Hardcoded particle speed
+                        let mut travel_dir = travel;
+                        travel_dir.normalize();
+                        let mut particle_dir = self.rng.rand_dir_normalized() - travel_dir * 1.5;
+                        particle_dir.normalize();
+                        particle_dir * settings.vfx_particle_speed
                     }
                     TrailMode::PixieDust => {
                         let base_dir = self.rng.rand_dir_normalized();
                         let dir = Point::new(base_dir.x * 0.5, 0.4 + base_dir.y.abs());
-                        dir * 30.0 // TODO -- hardcoded particle speed
+                        dir * 3.0 * settings.vfx_particle_speed
                     }
                 };
 
-                // Distribute particles along the travel distance, with a random offset to make it
-                // look random
-
+                // Distribute particles along the travel distance
                 let pos = match self.trail_mode {
                     TrailMode::Railgun => prev_p + travel * t,
                     TrailMode::PixieDust | TrailMode::Torpedo => {
