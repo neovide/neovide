@@ -18,7 +18,7 @@ Should be a standard full features Neovim GUI. Beyond that there are some visual
 
 ### Ligatures
 
-Supports ligatures and full [HarfBuzz](https://www.freedesktop.org/wiki/Software/HarfBuzz/) backed font rendering.
+Supports ligatures and full [HarfBuzz](https://www.freedesktop.org/wiki/Software/HarfBuzz/) backed font shaping.
 
 ![Ligatures](./assets/Ligatures.png)
 
@@ -75,7 +75,19 @@ Note: Neovide requires neovim version 0.4 or greater.
 
 ### Linux
 
-Note: Neovide has been successfully built on other destros but this reportedly works on ubuntu.
+#### Arch Linux
+
+There is an [AUR package for neovide](https://aur.archlinux.org/packages/neovide).
+
+```sh
+git clone https://aur.archlinux.org/neovide.git
+cd neovide
+makepkg -si
+```
+
+#### Debian/Ubuntu
+
+Note: Neovide has been successfully built on other distros but this reportedly works on Ubuntu.
 
 1. Install necessary dependencies
 
