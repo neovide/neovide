@@ -50,11 +50,15 @@ These are configurable via the `g:neovide_cursor_vfx_mode` global variable.
 let g:neovide_cursor_vfx_mode = "railgun"
 ```
 
+![Railgun](./assets/Railgun.gif)
+
 #### Torpedo
 
 ```
 let g:neovide_cursor_vfx_mode = "torpedo"
 ```
+
+![Torpedo](./assets/Torpedo.gif)
 
 #### Pixiedust
 
@@ -62,11 +66,15 @@ let g:neovide_cursor_vfx_mode = "torpedo"
 let g:neovide_cursor_vfx_mode = "pixiedust"
 ```
 
+![Pixiedust](./assets/Pixiedust.gif)
+
 #### Sonic Boom
 
 ```
 let g:neovide_cursor_vfx_mode = "sonicboom"
 ```
+
+![Sonicboom](./assets/Sonicboom.gif)
 
 #### Ripple
 
@@ -74,13 +82,15 @@ let g:neovide_cursor_vfx_mode = "sonicboom"
 let g:neovide_cursor_vfx_mode = "ripple"
 ```
 
+![Ripple](./assets/Ripple.gif)
+
 #### Wireframe
 
 ```
 let g:neovide_cursor_vfx_mode = "wireframe"
 ```
 
-
+![Wireframe](./assets/Wireframe.gif)
 
 
 ## Install
