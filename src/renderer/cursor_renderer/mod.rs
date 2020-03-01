@@ -1,4 +1,6 @@
-use std::time::{Duration, Instant};
+mod animation_utils;
+mod cursor_vfx;
+mod blink;
 
 use skulpin::skia_safe::{Canvas, Paint, Path, Point};
 
@@ -7,10 +9,9 @@ use crate::renderer::CachingShaper;
 use crate::editor::{EDITOR, Colors, Cursor, CursorShape};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 
-mod animation_utils;
 use animation_utils::*;
+use blink::*;
 
-mod cursor_vfx;
 
 const COMMAND_LINE_DELAY_FRAMES: u64 = 5;
 const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
@@ -33,7 +34,6 @@ pub struct CursorSettings {
 }
 
 pub fn initialize_settings() {
-    
     SETTINGS.set(&CursorSettings {
         animation_length: 0.13,
         trail_size: 0.7,
@@ -58,76 +58,6 @@ pub fn initialize_settings() {
 }
 
 // ----------------------------------------------------------------------------
-
-enum BlinkState {
-    Waiting,
-    On,
-    Off
-}
-
-struct BlinkStatus {
-    state: BlinkState,
-    last_transition: Instant,
-    previous_cursor: Option<Cursor>
-}
-
-impl BlinkStatus {
-    pub fn new() -> BlinkStatus {
-        BlinkStatus {
-            state: BlinkState::Waiting,
-            last_transition: Instant::now(),
-            previous_cursor: None
-        }
-    }
-
-    pub fn update_status(&mut self, new_cursor: &Cursor) -> bool {
-        if self.previous_cursor.is_none() || new_cursor != self.previous_cursor.as_ref().unwrap() {
-            self.previous_cursor = Some(new_cursor.clone());
-            self.last_transition = Instant::now();
-            if new_cursor.blinkwait.is_some() && new_cursor.blinkwait != Some(0) {
-                self.state = BlinkState::Waiting;
-            } else {
-                self.state = BlinkState::On;
-            }
-        } 
-
-        if new_cursor.blinkwait == Some(0) || 
-            new_cursor.blinkoff == Some(0) ||
-            new_cursor.blinkon == Some(0) {
-            return true;
-        }
-
-        let delay = match self.state {
-            BlinkState::Waiting => new_cursor.blinkwait,
-            BlinkState::Off => new_cursor.blinkoff,
-            BlinkState::On => new_cursor.blinkon
-        }.filter(|millis| *millis > 0).map(Duration::from_millis);
-
-        if delay.map(|delay| self.last_transition + delay < Instant::now()).unwrap_or(false) {
-            self.state = match self.state {
-                BlinkState::Waiting => BlinkState::On,
-                BlinkState::On => BlinkState::Off,
-                BlinkState::Off => BlinkState::On
-            };
-            self.last_transition = Instant::now();
-        }
-
-        let scheduled_frame = (match self.state {
-            BlinkState::Waiting => new_cursor.blinkwait,
-            BlinkState::Off => new_cursor.blinkoff,
-            BlinkState::On => new_cursor.blinkon
-        }).map(|delay| self.last_transition + Duration::from_millis(delay));
-
-        if let Some(scheduled_frame) = scheduled_frame {
-            REDRAW_SCHEDULER.schedule(scheduled_frame);
-        }
-
-        match self.state {
-            BlinkState::Waiting | BlinkState::Off => false,
-            BlinkState::On => true
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct Corner {
