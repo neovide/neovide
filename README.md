@@ -120,10 +120,7 @@ Note: Neovide requires neovim version 0.4 or greater.
 
 1. Install the latest version of Rust. I recommend <https://rustup.rs/>
 2. Install the Vulkan SDK. I'm told `brew cask install apenngrace/vulkan/vulkan-sdk` works, but I can't test locally to find out.
-3. `git clone https://github.com/Kethku/neovide`
-4. `cd neovide`
-5. `cargo build --release`
-6. Copy `./target/release/neovide` to a known location and enjoy.
+3. `cargo install --git https://github.com/Kethku/neovide`
 
 ### Linux
 
