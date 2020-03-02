@@ -151,7 +151,7 @@ Note: Neovide has been successfully built on other distros but this reportedly w
         gnupg ca-certificates git \
         gcc-multilib g++-multilib cmake libssl-dev pkg-config \
         libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev \
-        libbz2-dev freeglut3-dev libxmu-dev libxi-dev
+        libbz2-dev libsndio-dev freeglut3-dev libxmu-dev libxi-dev
     ```
 
 2. Install Vulkan SDK
