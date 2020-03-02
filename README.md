@@ -38,6 +38,61 @@ Font fallback supports rendering of emoji not contained in the configured font.
 
 I've got more ideas for simple unobtrusive improvements. More to come.
 
+## Some Nonsense ;)
+
+### Cursor Trails and Attention Grabbers
+
+These are configurable via the `g:neovide_cursor_vfx_mode` global variable.
+
+#### Railgun
+
+```
+let g:neovide_cursor_vfx_mode = "railgun"
+```
+
+![Railgun](./assets/Railgun.gif)
+
+#### Torpedo
+
+```
+let g:neovide_cursor_vfx_mode = "torpedo"
+```
+
+![Torpedo](./assets/Torpedo.gif)
+
+#### Pixiedust
+
+```
+let g:neovide_cursor_vfx_mode = "pixiedust"
+```
+
+![Pixiedust](./assets/Pixiedust.gif)
+
+#### Sonic Boom
+
+```
+let g:neovide_cursor_vfx_mode = "sonicboom"
+```
+
+![Sonicboom](./assets/Sonicboom.gif)
+
+#### Ripple
+
+```
+let g:neovide_cursor_vfx_mode = "ripple"
+```
+
+![Ripple](./assets/Ripple.gif)
+
+#### Wireframe
+
+```
+let g:neovide_cursor_vfx_mode = "wireframe"
+```
+
+![Wireframe](./assets/Wireframe.gif)
+
+
 ## Install
 
 Currently there is just a Windows binary under the [project releases](https://github.com/Kethku/neovide/releases). I'm
