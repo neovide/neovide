@@ -129,6 +129,8 @@ Note: Neovide requires neovim version 0.4 or greater.
 6. `cargo build --release`
 7. Copy `./target/release/neovide` to a known location and enjoy.
 
+Note: If you run into issues with the vulkan libraries being reported as not verified, this issue thread may help: https://github.com/Kethku/neovide/issues/167#issuecomment-593314579
+
 ### Linux
 
 #### Arch Linux
