@@ -133,16 +133,6 @@ Note: If you run into issues with the vulkan libraries being reported as not ver
 
 ### Linux
 
-#### Arch Linux
-
-There is an [AUR package for neovide](https://aur.archlinux.org/packages/neovide).
-
-```sh
-git clone https://aur.archlinux.org/neovide.git
-cd neovide
-makepkg -si
-```
-
 #### Debian/Ubuntu
 
 Note: Neovide has been successfully built on other distros but this reportedly works on Ubuntu.
