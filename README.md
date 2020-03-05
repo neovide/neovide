@@ -95,8 +95,7 @@ let g:neovide_cursor_vfx_mode = "wireframe"
 
 ## Install
 
-Currently there is just a Windows binary under the [project releases](https://github.com/Kethku/neovide/releases). I'm
-hoping to automate and produce Mac and Linux binaries as well, but I haven't gotten there yet.
+Relatively recent binaries can be found in the [project releases](https://github.com/Kethku/neovide/releases). But if you want the latest and greatest you should clone it and build yourself.
 
 Installing should be as simple as downloading the binary, making sure `nvim.exe` with version 0.4 or greater is on your path, and running it. Everything should be self contained.
 
