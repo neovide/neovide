@@ -1792,7 +1792,7 @@ dependencies = [
 [[package]]
 name = "skulpin"
 version = "0.5.2"
-source = "git+https://github.com/Kethku/skulpin?branch=sdl2#9c62459e55d46c824c16135f73a93b7f3c85a908"
+source = "git+https://github.com/Kethku/skulpin?branch=optional-sdl-embed#1a51128833bd6483a8a5f24e7ce311a837da4819"
 dependencies = [
  "ash",
  "cocoa",
