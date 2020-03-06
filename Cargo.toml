@@ -1,6 +1,6 @@
 [package]
 name = "neovide"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["keith <keith@the-simmons.net>"]
 edition = "2018"
 build = "build.rs"
