@@ -181,3 +181,6 @@ Note: Neovide has been successfully built on other destros but this reportedly w
 
 If you see an error complaining about DRI3 settings, links in this issue may help:
 <https://github.com/Kethku/neovide/issues/44#issuecomment-578618052>.
+
+Note: If you run into libsndio errors, try building without default features which will disable static linking of the SDL
+library.
