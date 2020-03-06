@@ -6,12 +6,16 @@ edition = "2018"
 build = "build.rs"
 description = "A simple GUI for Neovim."
 
+[features]
+default = ["sdl2-static-link"]
+sdl2-static-link = ["skulpin/sdl2-static-link"]
+
 [dependencies]
 euclid = "0.20.7"
 font-kit = "0.5.0"
 skribo = { git = "https://github.com/linebender/skribo" }
 lru = "0.4.3"
-skulpin = { git = "https://github.com/Kethku/skulpin", branch = "sdl2" }
+skulpin = { git = "https://github.com/Kethku/skulpin", branch = "optional-sdl-embed" }
 # skulpin = { path = "../skulpin" }
 derive-new = "0.5"
 rmpv = "0.4.4"
