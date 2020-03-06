@@ -92,6 +92,8 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
     options.set_rgb(true);
     nvim.ui_attach(width as i64, height as i64, &options).await
         .unwrap_or_explained_panic("Could not attach ui to neovim process");
+    nvim.command("runtime! ginit.vim").await
+        .unwrap_or_explained_panic("Could not add ginit.vim to runtime");
     info!("Neovim process attached");
 
     let nvim = Arc::new(nvim);
