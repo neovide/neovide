@@ -5,7 +5,7 @@ use skulpin::skia_safe::{TextBlob, Font as SkiaFont, Typeface, TextBlobBuilder, 
 use font_kit::{source::SystemSource, metrics::Metrics, properties::{Properties, Weight, Style, Stretch}, family_name::FamilyName, font::Font, };
 use skribo::{LayoutSession, FontRef as SkriboFont, FontFamily, FontCollection, TextStyle};
 
-use log::trace;
+use log::{trace, info, warn};
 
 const STANDARD_CHARACTER_STRING: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
 
@@ -55,6 +55,18 @@ struct FontSet {
     bold_italic: FontCollection,
 }
 
+pub fn add_font_to_collection_by_name(name: &str, source: &SystemSource, collection: &mut FontCollection) -> Option<()> {
+    source.select_family_by_name(name).ok()
+        .and_then(|matching_fonts| matching_fonts.fonts()[0].load().ok())
+        .map(|font| collection.add_family(FontFamily::new_from_font(font)))
+}
+
+pub fn add_asset_font_to_collection(name: &str, collection: &mut FontCollection) -> Option<()> {
+    Asset::get(name)
+        .and_then(|font_data| Font::from_bytes(font_data.to_vec().into(), 0).ok())
+        .map(|font| collection.add_family(FontFamily::new_from_font(font)))
+}
+
 fn build_collection_by_font_name(font_name: Option<&str>, bold: bool, italic: bool) -> FontCollection {
     let source = SystemSource::new();
 
@@ -77,8 +89,9 @@ fn build_collection_by_font_name(font_name: Option<&str>, bold: bool, italic: bo
             weight, style, stretch: Stretch::NORMAL
         };
         if let Ok(custom) = source.select_best_match(&[FamilyName::Title(font_name.to_string())], &properties) {
-            let font = custom.load().unwrap();
-            collection.add_family(FontFamily::new_from_font(font));
+            custom.load().ok()
+                .map(|matching_font| collection.add_family(FontFamily::new_from_font(matching_font)))
+                .unwrap_or_else(|| warn!("Could not load gui font"));
         }
     }
 
@@ -87,38 +100,33 @@ fn build_collection_by_font_name(font_name: Option<&str>, bold: bool, italic: bo
     } else {
         MONOSPACE_FONT
     };
-    let monospace_data = Asset::get(monospace_style).expect("Failed to read monospace font data");
-    let monospace_font = Font::from_bytes(monospace_data.to_vec().into(), 0).expect("Failed to parse monospace font data");
-    collection.add_family(FontFamily::new_from_font(monospace_font));
 
-    if let Ok(emoji) = source.select_family_by_name(SYSTEM_EMOJI_FONT) {
-        let font = emoji.fonts()[0].load().unwrap();
-        collection.add_family(FontFamily::new_from_font(font));
+    add_asset_font_to_collection(monospace_style, &mut collection)
+        .unwrap_or_else(|| warn!("Could not load embedded monospace font"));
+
+    if add_font_to_collection_by_name(SYSTEM_EMOJI_FONT, &source, &mut collection).is_none() {
+        if cfg!(not(target_os = "macos")) && add_asset_font_to_collection(EMOJI_FONT, &mut collection).is_some() {
+            info!("Fell back to embedded emoji font");
+        } else {
+            warn!("Could not load emoji font");
+        }
     }
 
-    if let Ok(sys_symbol) = source.select_family_by_name(SYSTEM_SYMBOL_FONT) {
-        let font = sys_symbol.fonts()[0].load().unwrap();
-        collection.add_family(FontFamily::new_from_font(font));
-    }
+    add_font_to_collection_by_name(SYSTEM_SYMBOL_FONT, &source, &mut collection)
+        .unwrap_or_else(|| warn!("Could not load system symbol font"));
 
-    if cfg!(not(target_os = "macos")) {
-        let emoji_data = Asset::get(EMOJI_FONT).expect("Failed to read emoji font data");
-        let emoji_font = Font::from_bytes(emoji_data.to_vec().into(), 0).expect("Failed to parse emoji font data");
-        collection.add_family(FontFamily::new_from_font(emoji_font));
-    }
 
     let wide_style = if bold {
         WIDE_BOLD_FONT
     } else {
         WIDE_FONT
     };
-    let wide_data = Asset::get(wide_style).expect("Failed to read wide font data");
-    let wide_font = Font::from_bytes(wide_data.to_vec().into(), 0).expect("Failed to parse wide font data");
-    collection.add_family(FontFamily::new_from_font(wide_font));
 
-    let symbol_data = Asset::get(SYMBOL_FONT).expect("Failed to read symbol font data");
-    let symbol_font = Font::from_bytes(symbol_data.to_vec().into(), 0).expect("Failed to parse symbol font data");
-    collection.add_family(FontFamily::new_from_font(symbol_font));
+    add_asset_font_to_collection(wide_style, &mut collection)
+        .unwrap_or_else(|| warn!("Could not load embedded wide font"));
+
+    add_asset_font_to_collection(SYMBOL_FONT, &mut collection)
+        .unwrap_or_else(|| warn!("Could not load embedded symbol font"));
 
     collection
 }
@@ -259,5 +267,17 @@ impl CachingShaper {
     pub fn underline_position(&mut self) -> f32 {
         let metrics = self.metrics();
         -metrics.underline_position * self.base_size / metrics.units_per_em as f32
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use font_kit::source::SystemSource;
+    use skribo::FontCollection;
+
+    #[test]
+    fn unmatched_font_returns_nothing() {
+        assert!(add_font_to_collection_by_name("Foobar", &SystemSource::new(), &mut FontCollection::new()).is_none());
     }
 }
