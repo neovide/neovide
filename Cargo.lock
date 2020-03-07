@@ -207,9 +207,9 @@ checksum = "4785bdd1c96b2a846b2bd7cc02e86b6b3dbf14e7e53446c4f54c92a361040822"
 
 [[package]]
 name = "chrono"
-version = "0.4.10"
+version = "0.4.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "31850b4a4d6bae316f7a09e691c944c28299298837edc0a03f755618c23cbc01"
+checksum = "80094f509cf8b5ae86a4966a39b3ff66cd7e2a3e594accec3743ff3fabeab5b2"
 dependencies = [
  "num-integer",
  "num-traits",
@@ -1750,9 +1750,9 @@ dependencies = [
 
 [[package]]
 name = "skia-bindings"
-version = "0.26.1"
+version = "0.23.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e3a38d82d2d3021c59e4a21f799f894bb59c8bf4161836896338ef50f8fe3cbc"
+checksum = "d2d508b4299a1ec465efff0ee446027e9d1faf9cbe6f175bf9bc7e833cce599b"
 dependencies = [
  "bindgen",
  "cc",
@@ -1767,9 +1767,9 @@ dependencies = [
 
 [[package]]
 name = "skia-safe"
-version = "0.26.1"
+version = "0.23.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c02fb631f02d1a0a1e94c6ddd5a7200b7ef8b348c758e171da558fd72321015"
+checksum = "24aed501f0ec23d877de2066c8f1d0680ff29b11a51da6f2dcbfafc0be2c6fde"
 dependencies = [
  "bitflags",
  "lazy_static",
@@ -1792,7 +1792,7 @@ dependencies = [
 [[package]]
 name = "skulpin"
 version = "0.5.2"
-source = "git+https://github.com/Kethku/skulpin?branch=optional-sdl-embed#5ae5c2810d0e4c76e354e2cbb01afd630a46c6b1"
+source = "git+https://github.com/Kethku/skulpin?branch=sdl2#bada37d74c44c75b66a10bcc96c8d12d46177ec0"
 dependencies = [
  "ash",
  "cocoa",
