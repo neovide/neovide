@@ -49,7 +49,8 @@ struct WindowWrapper {
     title: String,
     previous_size: LogicalSize,
     previous_dpis: (f32, f32),
-    ignore_text_input: bool
+    ignore_text_input: bool,
+    transparency: f32
 }
 
 impl WindowWrapper {
@@ -112,7 +113,8 @@ impl WindowWrapper {
             title: String::from("Neovide"),
             previous_size,
             previous_dpis,
-            ignore_text_input: false
+            ignore_text_input: false,
+            transparency: 1.0
         }
     }
 
@@ -121,6 +123,16 @@ impl WindowWrapper {
         if self.title != editor_title {
             self.title = editor_title;
             self.window.set_title(&self.title).expect("Could not set title");
+        }
+    }
+
+    pub fn synchronize_transparency(&mut self) {
+        let transparency = { SETTINGS.get::<WindowSettings>().transparency };
+        if let Ok(opacity) = self.window.opacity() {
+            if opacity != transparency {
+                self.window.set_opacity(transparency).ok();
+                self.transparency = transparency;
+            }
         }
     }
 
@@ -265,6 +277,7 @@ impl WindowWrapper {
 struct WindowSettings {
     refresh_rate: u64,
     no_idle: bool,
+    transparency: f32
 }
 
 pub fn initialize_settings() {
@@ -274,10 +287,12 @@ pub fn initialize_settings() {
     SETTINGS.set(&WindowSettings {
         refresh_rate: 60,
         no_idle,
+        transparency: 1.0
     });
     
     register_nvim_setting!("refresh_rate", WindowSettings::refresh_rate);
     register_nvim_setting!("no_idle", WindowSettings::no_idle);
+    register_nvim_setting!("transparency", WindowSettings::transparency);
 }
 
 pub fn ui_loop() {
@@ -289,6 +304,7 @@ pub fn ui_loop() {
         let frame_start = Instant::now();
 
         window.synchronize_title();
+        window.synchronize_transparency();
 
         for event in event_pump.poll_iter() {
             match event {
@@ -309,7 +325,7 @@ pub fn ui_loop() {
         }
 
         let elapsed = frame_start.elapsed();
-        let refresh_rate = SETTINGS.get::<WindowSettings>().refresh_rate as f32;
+        let refresh_rate = { SETTINGS.get::<WindowSettings>().refresh_rate as f32 };
         let frame_length = Duration::from_secs_f32(1.0 / refresh_rate);
         if elapsed < frame_length {
             sleep(frame_length - elapsed);
