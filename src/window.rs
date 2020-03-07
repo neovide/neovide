@@ -126,18 +126,18 @@ impl WindowWrapper {
 
     pub fn handle_key_down(&mut self, keycode: Keycode, modifiers: Mod) {
         trace!("KeyDown Received: {}", keycode);
-        const ALTGR: Mod = Mod::from_bits_truncate(0x0240);
 
         if let Some((key_text, special)) = parse_keycode(keycode) {
-            let will_text_input =
-                modifiers.contains(ALTGR) ||
-                !modifiers.contains(Mod::LCTRLMOD) &&
-                !modifiers.contains(Mod::RCTRLMOD) &&
-                !modifiers.contains(Mod::LALTMOD) &&
-                !modifiers.contains(Mod::RALTMOD) &&
-                !modifiers.contains(Mod::LGUIMOD) &&
-                !modifiers.contains(Mod::RGUIMOD);
-            if modifiers.contains(Mod::MODEMOD) || (will_text_input && !special) {
+            let ctrl = modifiers.contains(Mod::LCTRLMOD) || modifiers.contains(Mod::RCTRLMOD);
+            let alt = modifiers.contains(Mod::LALTMOD) || modifiers.contains(Mod::RALTMOD);
+            let gui = modifiers.contains(Mod::LGUIMOD) || modifiers.contains(Mod::RGUIMOD);
+
+            let will_text_input = 
+                modifiers.contains(Mod::MODEMOD) ||
+                (ctrl && alt) ||
+                !ctrl && !alt && !gui;
+
+            if will_text_input && !special {
                 self.ignore_text_input = false;
                 return;
             }
