@@ -67,7 +67,7 @@ pub fn add_asset_font_to_collection(name: &str, collection: &mut FontCollection)
         .map(|font| collection.add_family(FontFamily::new_from_font(font)))
 }
 
-fn build_collection_by_font_name(font_name: Option<&str>, bold: bool, italic: bool) -> FontCollection {
+pub fn build_collection_by_font_name(font_name: Option<&str>, bold: bool, italic: bool) -> FontCollection {
     let source = SystemSource::new();
 
     let mut collection = FontCollection::new();
@@ -279,5 +279,10 @@ mod tests {
     #[test]
     fn unmatched_font_returns_nothing() {
         assert!(add_font_to_collection_by_name("Foobar", &SystemSource::new(), &mut FontCollection::new()).is_none());
+    }
+
+    #[test]
+    fn build_font_collection_works() {
+        build_collection_by_font_name(None, true, true);
     }
 }
