@@ -7,8 +7,9 @@ build = "build.rs"
 description = "A simple GUI for Neovim."
 
 [features]
-default = ["sdl2-static-link"]
+default = ["sdl2-static-link", "embed-fonts"]
 sdl2-static-link = ["skulpin/sdl2-static-link"]
+embed-fonts = []
 
 [dependencies]
 euclid = "0.20.7"

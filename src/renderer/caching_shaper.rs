@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use lru::LruCache;
 use skulpin::skia_safe::{TextBlob, Font as SkiaFont, Typeface, TextBlobBuilder, Data};
-use font_kit::{source::SystemSource, metrics::Metrics, properties::{Properties, Weight, Style, Stretch}, family_name::FamilyName, font::Font, };
+use font_kit::{source::SystemSource, metrics::Metrics, properties::{Properties, Weight, Style, Stretch}, family_name::FamilyName, font::Font };
 use skribo::{LayoutSession, FontRef as SkriboFont, FontFamily, FontCollection, TextStyle};
 
 use log::{trace, info, warn};
@@ -34,7 +34,7 @@ const SYSTEM_EMOJI_FONT: &str = "Apple Color Emoji";
 #[cfg(target_os = "linux")]
 const SYSTEM_EMOJI_FONT: &str = "Noto Color Emoji";
 
-
+#[cfg(feature = "embed-fonts")]
 #[derive(RustEmbed)]
 #[folder = "assets/fonts/"]
 struct Asset;
@@ -61,6 +61,7 @@ pub fn add_font_to_collection_by_name(name: &str, source: &SystemSource, collect
         .map(|font| collection.add_family(FontFamily::new_from_font(font)))
 }
 
+#[cfg(feature = "embed-fonts")]
 pub fn add_asset_font_to_collection(name: &str, collection: &mut FontCollection) -> Option<()> {
     Asset::get(name)
         .and_then(|font_data| Font::from_bytes(font_data.to_vec().into(), 0).ok())
@@ -95,20 +96,26 @@ pub fn build_collection_by_font_name(font_name: Option<&str>, bold: bool, italic
         }
     }
 
-    let monospace_style = if bold {
-        MONOSPACE_BOLD_FONT
-    } else {
-        MONOSPACE_FONT
-    };
+    #[cfg(feature = "embed-fonts")]
+    {
+        let monospace_style = if bold {
+            MONOSPACE_BOLD_FONT
+        } else {
+            MONOSPACE_FONT
+        };
 
-    add_asset_font_to_collection(monospace_style, &mut collection)
-        .unwrap_or_else(|| warn!("Could not load embedded monospace font"));
+        add_asset_font_to_collection(monospace_style, &mut collection)
+            .unwrap_or_else(|| warn!("Could not load embedded monospace font"));
+    }
 
     if add_font_to_collection_by_name(SYSTEM_EMOJI_FONT, &source, &mut collection).is_none() {
-        if cfg!(not(target_os = "macos")) && add_asset_font_to_collection(EMOJI_FONT, &mut collection).is_some() {
-            info!("Fell back to embedded emoji font");
-        } else {
-            warn!("Could not load emoji font");
+        #[cfg(feature = "embed-fonts")]
+        {
+            if cfg!(not(target_os = "macos")) && add_asset_font_to_collection(EMOJI_FONT, &mut collection).is_some() {
+                info!("Fell back to embedded emoji font");
+            } else {
+                warn!("Could not load emoji font");
+            }
         }
     }
 
@@ -116,17 +123,20 @@ pub fn build_collection_by_font_name(font_name: Option<&str>, bold: bool, italic
         .unwrap_or_else(|| warn!("Could not load system symbol font"));
 
 
-    let wide_style = if bold {
-        WIDE_BOLD_FONT
-    } else {
-        WIDE_FONT
-    };
+    #[cfg(feature = "embed-fonts")]
+    {
+        let wide_style = if bold {
+            WIDE_BOLD_FONT
+        } else {
+            WIDE_FONT
+        };
 
-    add_asset_font_to_collection(wide_style, &mut collection)
-        .unwrap_or_else(|| warn!("Could not load embedded wide font"));
+        add_asset_font_to_collection(wide_style, &mut collection)
+            .unwrap_or_else(|| warn!("Could not load embedded wide font"));
 
-    add_asset_font_to_collection(SYMBOL_FONT, &mut collection)
-        .unwrap_or_else(|| warn!("Could not load embedded symbol font"));
+        add_asset_font_to_collection(SYMBOL_FONT, &mut collection)
+            .unwrap_or_else(|| warn!("Could not load embedded symbol font"));
+    }
 
     collection
 }
