@@ -5,7 +5,7 @@ use log::{info, trace, debug, error};
 use skulpin::{LogicalSize, PhysicalSize};
 use skulpin::sdl2;
 use skulpin::sdl2::Sdl;
-use skulpin::sdl2::video::Window;
+use skulpin::sdl2::video::{Window, FullscreenType};
 use skulpin::sdl2::event::Event;
 use skulpin::sdl2::keyboard::{Mod, Keycode};
 use skulpin::{RendererBuilder, Renderer as SkulpinRenderer, PresentMode, CoordinateSystem, dpis};
@@ -50,7 +50,8 @@ struct WindowWrapper {
     previous_size: LogicalSize,
     previous_dpis: (f32, f32),
     ignore_text_input: bool,
-    transparency: f32
+    transparency: f32,
+    fullscreen: bool
 }
 
 impl WindowWrapper {
@@ -114,25 +115,34 @@ impl WindowWrapper {
             previous_size,
             previous_dpis,
             ignore_text_input: false,
-            transparency: 1.0
+            transparency: 1.0,
+            fullscreen: false
         }
     }
 
-    pub fn synchronize_title(&mut self) {
+    pub fn synchronize_settings(&mut self) {
         let editor_title = { EDITOR.lock().title.clone() };
         if self.title != editor_title {
             self.title = editor_title;
             self.window.set_title(&self.title).expect("Could not set title");
         }
-    }
 
-    pub fn synchronize_transparency(&mut self) {
         let transparency = { SETTINGS.get::<WindowSettings>().transparency };
         if let Ok(opacity) = self.window.opacity() {
             if opacity != transparency {
                 self.window.set_opacity(transparency).ok();
                 self.transparency = transparency;
             }
+        }
+
+        let fullscreen = { SETTINGS.get::<WindowSettings>().fullscreen };
+        if self.fullscreen != fullscreen {
+            let state = match fullscreen {
+                true => FullscreenType::Desktop,
+                false => FullscreenType::Off
+            };
+            self.window.set_fullscreen(state).ok();
+            self.fullscreen = fullscreen;
         }
     }
 
@@ -276,23 +286,25 @@ impl WindowWrapper {
 #[derive(Clone)]
 struct WindowSettings {
     refresh_rate: u64,
+    transparency: f32,
     no_idle: bool,
-    transparency: f32
+    fullscreen: bool
 }
 
 pub fn initialize_settings() {
-    
     let no_idle = SETTINGS.neovim_arguments.contains(&String::from("--noIdle"));
 
     SETTINGS.set(&WindowSettings {
         refresh_rate: 60,
+        transparency: 1.0,
         no_idle,
-        transparency: 1.0
+        fullscreen: false
     });
     
     register_nvim_setting!("refresh_rate", WindowSettings::refresh_rate);
-    register_nvim_setting!("no_idle", WindowSettings::no_idle);
     register_nvim_setting!("transparency", WindowSettings::transparency);
+    register_nvim_setting!("no_idle", WindowSettings::no_idle);
+    register_nvim_setting!("fullscreen", WindowSettings::fullscreen);
 }
 
 pub fn ui_loop() {
@@ -303,8 +315,7 @@ pub fn ui_loop() {
     'running: loop {
         let frame_start = Instant::now();
 
-        window.synchronize_title();
-        window.synchronize_transparency();
+        window.synchronize_settings();
 
         for event in event_pump.poll_iter() {
             match event {
