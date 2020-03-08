@@ -255,7 +255,7 @@ impl WindowWrapper {
         }
 
         if let Ok(new_dpis) = dpis(&self.window) {
-            if self.previous_dpis != new_dpis && cfg!(target_os="windows") {
+            if self.previous_dpis != new_dpis {
                 let physical_size = PhysicalSize::new(&self.window);
                 self.window.set_size(
                     (physical_size.width as f32 * new_dpis.0 / self.previous_dpis.0) as u32,
