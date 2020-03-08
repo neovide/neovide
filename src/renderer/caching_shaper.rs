@@ -48,13 +48,6 @@ struct ShapeKey {
     pub italic: bool
 }
 
-struct FontSet {
-    normal: FontCollection,
-    bold: FontCollection,
-    italic: FontCollection,
-    bold_italic: FontCollection,
-}
-
 pub fn add_font_to_collection_by_name(name: &str, source: &SystemSource, collection: &mut FontCollection) -> Option<()> {
     source.select_family_by_name(name).ok()
         .and_then(|matching_fonts| matching_fonts.fonts()[0].load().ok())
@@ -80,10 +73,10 @@ pub fn build_collection_by_font_name(font_name: Option<&str>, bold: bool, italic
             Weight::NORMAL
         };
 
-        let style = if italic {
-            Style::Italic
-        } else {
+        let style = if !italic || bold {
             Style::Normal
+        } else {
+            Style::Italic
         };
 
         let properties = Properties {
@@ -141,22 +134,26 @@ pub fn build_collection_by_font_name(font_name: Option<&str>, bold: bool, italic
     collection
 }
 
+struct FontSet {
+    normal: FontCollection,
+    bold: FontCollection,
+    italic: FontCollection,
+}
+
 impl FontSet {
     fn new(font_name: Option<&str>) -> FontSet {
         FontSet {
             normal: build_collection_by_font_name(font_name, false, false),
             bold: build_collection_by_font_name(font_name, true, false),
             italic: build_collection_by_font_name(font_name, false, true),
-            bold_italic: build_collection_by_font_name(font_name, true, true),
         }
     }
 
     fn get(&self, bold: bool, italic: bool) -> &FontCollection {
         match (bold, italic) {
+            (true, _) => &self.bold,
             (false, false) => &self.normal,
-            (true, false) => &self.bold,
             (false, true) => &self.italic,
-            (true, true) => &self.bold_italic
         }
     }
 }
@@ -169,13 +166,12 @@ pub struct CachingShaper {
     blob_cache: LruCache<ShapeKey, Vec<TextBlob>>
 }
 
-
-fn build_skia_font_from_skribo_font(skribo_font: &SkriboFont, base_size: f32) -> SkiaFont {
-    let font_data = skribo_font.font.copy_font_data().unwrap();
+fn build_skia_font_from_skribo_font(skribo_font: &SkriboFont, base_size: f32) -> Option<SkiaFont> {
+    let font_data = skribo_font.font.copy_font_data()?;
     let skia_data = Data::new_copy(&font_data[..]);
-    let typeface = Typeface::from_data(skia_data, None).unwrap();
+    let typeface = Typeface::from_data(skia_data, None)?;
 
-    SkiaFont::from_typeface(typeface, base_size)
+    Some(SkiaFont::from_typeface(typeface, base_size))
 }
 
 impl CachingShaper {
@@ -184,19 +180,19 @@ impl CachingShaper {
             font_name: None,
             base_size: DEFAULT_FONT_SIZE,
             font_set: FontSet::new(None),
-            font_cache: LruCache::new(100),
+            font_cache: LruCache::new(10),
             blob_cache: LruCache::new(10000),
         }
     }
 
-    fn get_skia_font(&mut self, skribo_font: &SkriboFont) -> &SkiaFont {
+    fn get_skia_font(&mut self, skribo_font: &SkriboFont) -> Option<&SkiaFont> {
         let font_name = skribo_font.font.postscript_name().unwrap();
         if !self.font_cache.contains(&font_name) {
-            let font = build_skia_font_from_skribo_font(skribo_font, self.base_size);
+            let font = build_skia_font_from_skribo_font(skribo_font, self.base_size)?;
             self.font_cache.put(font_name.clone(), font);
         }
 
-        self.font_cache.get(&font_name).unwrap()
+        self.font_cache.get(&font_name)
     }
 
     fn metrics(&self) -> Metrics {
@@ -215,18 +211,18 @@ impl CachingShaper {
 
         for layout_run in session.iter_all() {
             let skribo_font = layout_run.font();
-            let skia_font = self.get_skia_font(&skribo_font);
+            if let Some(skia_font) = self.get_skia_font(&skribo_font) {
+                let mut blob_builder = TextBlobBuilder::new();
 
-            let mut blob_builder = TextBlobBuilder::new();
+                let count = layout_run.glyphs().count();
+                let (glyphs, positions) = blob_builder.alloc_run_pos_h(&skia_font, count, ascent, None);
 
-            let count = layout_run.glyphs().count();
-            let (glyphs, positions) = blob_builder.alloc_run_pos_h(&skia_font, count, ascent, None);
-
-            for (i, glyph) in layout_run.glyphs().enumerate() {
-                glyphs[i] = glyph.glyph_id as u16;
-                positions[i] = glyph.offset.x;
+                for (i, glyph) in layout_run.glyphs().enumerate() {
+                    glyphs[i] = glyph.glyph_id as u16;
+                    positions[i] = glyph.offset.x;
+                }
+                blobs.push(blob_builder.make().unwrap());
             }
-            blobs.push(blob_builder.make().unwrap());
         }
 
         blobs
