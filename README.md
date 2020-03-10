@@ -34,17 +34,7 @@ Font fallback supports rendering of emoji not contained in the configured font.
 
 ![Emoji](./assets/Emoji.png)
 
-#### More to Come
-
-I've got more ideas for simple unobtrusive improvements. More to come.
-
-## Some Nonsense ;)
-
-### Cursor Trails and Attention Grabbers
-
-These are configurable via the `g:neovide_cursor_vfx_mode` global variable.
-
-#### Railgun
+### Some Nonsense ;)
 
 ```
 let g:neovide_cursor_vfx_mode = "railgun"
@@ -52,46 +42,13 @@ let g:neovide_cursor_vfx_mode = "railgun"
 
 ![Railgun](./assets/Railgun.gif)
 
-#### Torpedo
+### More to Come
 
-```
-let g:neovide_cursor_vfx_mode = "torpedo"
-```
+I've got more ideas for simple unobtrusive improvements. More to come.
 
-![Torpedo](./assets/Torpedo.gif)
+## Configuration
 
-#### Pixiedust
-
-```
-let g:neovide_cursor_vfx_mode = "pixiedust"
-```
-
-![Pixiedust](./assets/Pixiedust.gif)
-
-#### Sonic Boom
-
-```
-let g:neovide_cursor_vfx_mode = "sonicboom"
-```
-
-![Sonicboom](./assets/Sonicboom.gif)
-
-#### Ripple
-
-```
-let g:neovide_cursor_vfx_mode = "ripple"
-```
-
-![Ripple](./assets/Ripple.gif)
-
-#### Wireframe
-
-```
-let g:neovide_cursor_vfx_mode = "wireframe"
-```
-
-![Wireframe](./assets/Wireframe.gif)
-
+Configuration is done almost completely via global neovide variables in your vim config and can be manipulated live at runtime. Details can be found [here](https://github.com/Kethku/neovide/wiki/Configuration).
 
 ## Install
 
