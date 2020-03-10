@@ -186,7 +186,7 @@ impl CachingShaper {
     }
 
     fn get_skia_font(&mut self, skribo_font: &SkriboFont) -> Option<&SkiaFont> {
-        let font_name = skribo_font.font.postscript_name().unwrap();
+        let font_name = skribo_font.font.postscript_name()?;
         if !self.font_cache.contains(&font_name) {
             let font = build_skia_font_from_skribo_font(skribo_font, self.base_size)?;
             self.font_cache.put(font_name.clone(), font);
@@ -222,6 +222,8 @@ impl CachingShaper {
                     positions[i] = glyph.offset.x;
                 }
                 blobs.push(blob_builder.make().unwrap());
+            } else {
+                warn!("Could not load scribo font");
             }
         }
 
