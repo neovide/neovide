@@ -58,6 +58,7 @@ impl WindowWrapper {
     pub fn new() -> WindowWrapper {
         let context = sdl2::init().expect("Failed to initialize sdl2");
         let video_subsystem = context.video().expect("Failed to create sdl video subsystem");
+        video_subsystem.text_input().start();
 
         let (width, height) = INITIAL_DIMENSIONS;
 
@@ -146,40 +147,21 @@ impl WindowWrapper {
         }
     }
 
-    pub fn handle_key_down(&mut self, keycode: Keycode, modifiers: Mod) {
-        trace!("KeyDown Received: {}", keycode);
+    pub fn handle_keyboard_input(&mut self, keycode: Option<Keycode>, modifiers: Option<Mod>, text: Option<String>) {
+        trace!("Keyboard Input Received: keycode-{:?} modifiers-{:?} text-{:?}", keycode, modifiers, text);
 
-        if let Some((key_text, special)) = parse_keycode(keycode) {
-            let ctrl = modifiers.contains(Mod::LCTRLMOD) || modifiers.contains(Mod::RCTRLMOD);
-            let alt = modifiers.contains(Mod::LALTMOD) || modifiers.contains(Mod::RALTMOD);
-            let gui = modifiers.contains(Mod::LGUIMOD) || modifiers.contains(Mod::RGUIMOD);
-
-            let will_text_input = 
-                modifiers.contains(Mod::MODEMOD) ||
-                (ctrl && alt) ||
-                !ctrl && !alt && !gui;
-
-            if will_text_input && !special {
-                self.ignore_text_input = false;
-                return;
-            }
-
-            BRIDGE.queue_command(UiCommand::Keyboard(append_modifiers(modifiers, key_text, special)));
-            self.ignore_text_input = true;
-        }
-    }
-
-    pub fn handle_text_input(&mut self, text: String) {
-        trace!("Keyboard Input Received: {}", &text);
-        if self.ignore_text_input {
-            self.ignore_text_input = false;
-        } else {
+        if let Some(text) = text {
             let text = if text == "<" {
                 String::from("<lt>")
             } else {
                 text
             };
             BRIDGE.queue_command(UiCommand::Keyboard(text))
+        } else if let Some(keycode) = keycode {
+            let modifiers = modifiers.unwrap();
+            if let Some((key_text, special)) = parse_keycode(keycode) {
+                BRIDGE.queue_command(UiCommand::Keyboard(append_modifiers(modifiers, key_text, special)));
+            }
         }
     }
 
@@ -317,12 +299,19 @@ pub fn ui_loop() {
 
         window.synchronize_settings();
 
+        let mut keycode = None;
+        let mut keymod = None;
+        let mut keytext = None;
+
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} => break 'running,
                 Event::Window {..} => REDRAW_SCHEDULER.queue_next_frame(),
-                Event::KeyDown { keycode: Some(keycode), keymod: modifiers, .. } => window.handle_key_down(keycode, modifiers),
-                Event::TextInput { text, .. } => window.handle_text_input(text),
+                Event::KeyDown { keycode: Some(received_keycode), keymod: received_modifiers, .. } => {
+                    keycode = Some(received_keycode);
+                    keymod = Some(received_modifiers);
+                },
+                Event::TextInput { text, .. } => keytext = Some(text),
                 Event::MouseMotion { x, y, .. } => window.handle_pointer_motion(x, y),
                 Event::MouseButtonDown { .. } => window.handle_pointer_down(),
                 Event::MouseButtonUp { .. } => window.handle_pointer_up(),
@@ -330,6 +319,8 @@ pub fn ui_loop() {
                 _ => {}
             }
         }
+
+        window.handle_keyboard_input(keycode, keymod, keytext);
 
         if !window.draw_frame() {
             break;
