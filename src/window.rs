@@ -167,8 +167,8 @@ impl WindowWrapper {
         }
     }
 
-    pub fn handle_key_down(&mut self, keycode: Keycode, modifiers: Mod) {
-        trace!("KeyDown Received: {}", keycode);
+    pub fn handle_keyboard_input(&mut self, keycode: Option<Keycode>, modifiers: Option<Mod>, text: Option<String>) {
+        trace!("Keyboard Input Received: keycode-{:?} modifiers-{:?} text-{:?}", keycode, modifiers, text);
 
         if let Some((key_text, special)) = parse_keycode(keycode) {
             let ctrl = modifiers.contains(Mod::LCTRLMOD) || modifiers.contains(Mod::RCTRLMOD);
@@ -201,6 +201,11 @@ impl WindowWrapper {
                 text
             };
             BRIDGE.queue_command(UiCommand::Keyboard(text))
+        } else if let Some(keycode) = keycode {
+            let modifiers = modifiers.unwrap();
+            if let Some((key_text, special)) = parse_keycode(keycode) {
+                BRIDGE.queue_command(UiCommand::Keyboard(append_modifiers(modifiers, key_text, special)));
+            }
         }
     }
 
@@ -366,6 +371,10 @@ pub fn ui_loop(context: Option<sdl2::Sdl>) {
 
         window.synchronize_settings();
 
+        let mut keycode = None;
+        let mut keymod = None;
+        let mut keytext = None;
+
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit { .. } => break 'running,
@@ -383,6 +392,8 @@ pub fn ui_loop(context: Option<sdl2::Sdl>) {
                 _ => {}
             }
         }
+
+        window.handle_keyboard_input(keycode, keymod, keytext);
 
         if !window.draw_frame() {
             break;
