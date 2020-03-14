@@ -1,3 +1,4 @@
+use std::sync::atomic::Ordering;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -273,6 +274,11 @@ impl WindowWrapper {
     }
 
     pub fn draw_frame(&mut self) -> bool {
+        if !BRIDGE.running.load(Ordering::Relaxed) {
+            self.window = None;
+            return false;
+        }
+
         if let Some(mut window) = self.window.take() {
             if let Ok(new_size) = LogicalSize::new(&window) {
                 if self.previous_size != new_size {

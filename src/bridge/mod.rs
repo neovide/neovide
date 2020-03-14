@@ -22,7 +22,6 @@ use handler::NeovimHandler;
 use crate::error_handling::ResultPanicExplanation;
 use crate::get_initial_dimensions;
 
-
 lazy_static! {
     pub static ref BRIDGE: Bridge = Bridge::new();
 }
@@ -140,7 +139,7 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
 pub struct Bridge {
     _runtime: Runtime, // Necessary to keep runtime running
     sender: UnboundedSender<UiCommand>,
-    running: Arc<AtomicBool>
+    pub running: Arc<AtomicBool>
 }
 
 impl Bridge {
