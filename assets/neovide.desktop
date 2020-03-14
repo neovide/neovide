@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Exec=neovide
+Icon=neovide
+Name=Neovide (nvim)
+Keywords=Text;Editor;
+Categories=Utility;TextEditor;
+Comment=No Nonsense Neovim Client in Rust
