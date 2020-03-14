@@ -268,10 +268,6 @@ pub fn append_modifiers(modifiers: Mod, keycode_text: &str, special: bool) -> St
         special = true;
         result = format!("M-{}", result);
     }
-    if modifiers.contains(Mod::LGUIMOD) || modifiers.contains(Mod::RGUIMOD) {
-        special = true;
-        result = format!("D-{}", result);
-    }
 
     if special {
         result = format!("<{}>", result);
