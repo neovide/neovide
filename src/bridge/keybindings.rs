@@ -1,5 +1,4 @@
 use log::trace;
-// use skulpin::winit::event::{ElementState, KeyboardInput, ModifiersState, VirtualKeyCode};
 use skulpin::sdl2::keyboard::{Keycode, Mod};
 
 pub fn parse_keycode(keycode: Keycode) -> Option<(&'static str, bool)> {
@@ -256,6 +255,11 @@ pub fn append_modifiers(modifiers: Mod, keycode_text: &str, special: bool) -> St
     let mut result = keycode_text.to_string();
     let mut special = special;
 
+    if result == "<" {
+        result = "lt".to_string();
+        special = true;
+    }
+
     if modifiers.contains(Mod::LSHIFTMOD) || modifiers.contains(Mod::RSHIFTMOD) {
         special = true;
         result = format!("S-{}", result);
@@ -267,6 +271,10 @@ pub fn append_modifiers(modifiers: Mod, keycode_text: &str, special: bool) -> St
     if modifiers.contains(Mod::LALTMOD) || modifiers.contains(Mod::RALTMOD) {
         special = true;
         result = format!("M-{}", result);
+    }
+    if cfg!(not(target_os = "windows")) && (modifiers.contains(Mod::LGUIMOD) || modifiers.contains(Mod::RGUIMOD)) {
+        special = true;
+        result = format!("D-{}", result);
     }
 
     if special {

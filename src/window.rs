@@ -167,7 +167,8 @@ impl WindowWrapper {
         }
     }
 
-    pub fn handle_keyboard_input(&mut self, keycode: Option<Keycode>, modifiers: Option<Mod>, text: Option<String>) {
+    pub fn handle_keyboard_input(&mut self, keycode: Option<Keycode>, text: Option<String>) {
+        let modifiers = self.context.keyboard().mod_state();
         trace!("Keyboard Input Received: keycode-{:?} modifiers-{:?} text-{:?}", keycode, modifiers, text);
 
         if let Some((key_text, special)) = parse_keycode(keycode) {
@@ -369,7 +370,6 @@ pub fn ui_loop(context: Option<sdl2::Sdl>) {
         window.synchronize_settings();
 
         let mut keycode = None;
-        let mut keymod = None;
         let mut keytext = None;
 
         for event in event_pump.poll_iter() {
@@ -390,7 +390,7 @@ pub fn ui_loop(context: Option<sdl2::Sdl>) {
             }
         }
 
-        window.handle_keyboard_input(keycode, keymod, keytext);
+        window.handle_keyboard_input(keycode, keytext);
 
         if !window.draw_frame() {
             break;
