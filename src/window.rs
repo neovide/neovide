@@ -2,14 +2,14 @@ use std::sync::atomic::Ordering;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use log::{debug, error, info, trace};
-pub use skulpin::sdl2;
-use skulpin::sdl2::event::Event;
-use skulpin::sdl2::keyboard::{Keycode, Mod};
-use skulpin::sdl2::video::{FullscreenType, Window};
-use skulpin::sdl2::Sdl;
-use skulpin::{dpis, CoordinateSystem, PresentMode, Renderer as SkulpinRenderer, RendererBuilder};
+use log::{info, trace, debug, error};
 use skulpin::{LogicalSize, PhysicalSize};
+use skulpin::sdl2;
+use skulpin::sdl2::Sdl;
+use skulpin::sdl2::video::{Window, FullscreenType};
+use skulpin::sdl2::event::{Event, WindowEvent};
+use skulpin::sdl2::keyboard::Keycode;
+use skulpin::{RendererBuilder, Renderer as SkulpinRenderer, PresentMode, CoordinateSystem, dpis};
 
 use crate::bridge::{append_modifiers, parse_keycode, UiCommand, BRIDGE};
 use crate::editor::EDITOR;
@@ -247,6 +247,15 @@ impl WindowWrapper {
         }
     }
 
+    pub fn handle_focus_lost(&mut self) {
+        BRIDGE.queue_command(UiCommand::FocusLost);
+    }
+
+    pub fn handle_focus_gained(&mut self) {
+        BRIDGE.queue_command(UiCommand::FocusGained);
+        REDRAW_SCHEDULER.queue_next_frame();
+    }
+
     pub fn draw_frame(&mut self) -> bool {
         if !BRIDGE.running.load(Ordering::Relaxed) {
             self.window = None;
@@ -342,18 +351,18 @@ pub fn ui_loop(context: Option<sdl2::Sdl>) {
 
         for event in event_pump.poll_iter() {
             match event {
-                Event::Quit { .. } => break 'running,
-                Event::Window { .. } => REDRAW_SCHEDULER.queue_next_frame(),
-                Event::KeyDown {
-                    keycode: Some(keycode),
-                    keymod: modifiers,
-                    ..
-                } => window.handle_key_down(keycode, modifiers),
-                Event::TextInput { text, .. } => window.handle_text_input(text),
+                Event::Quit {..} => break 'running,
+                Event::KeyDown { keycode: Some(received_keycode), .. } => {
+                    keycode = Some(received_keycode);
+                },
+                Event::TextInput { text, .. } => keytext = Some(text),
                 Event::MouseMotion { x, y, .. } => window.handle_pointer_motion(x, y),
                 Event::MouseButtonDown { .. } => window.handle_pointer_down(),
                 Event::MouseButtonUp { .. } => window.handle_pointer_up(),
                 Event::MouseWheel { x, y, .. } => window.handle_mouse_wheel(x, y),
+                Event::Window { win_event: WindowEvent::FocusLost, .. } => window.handle_focus_lost(),
+                Event::Window { win_event: WindowEvent::FocusGained, .. } => window.handle_focus_gained(),
+                Event::Window { .. } => REDRAW_SCHEDULER.queue_next_frame(),
                 _ => {}
             }
         }
