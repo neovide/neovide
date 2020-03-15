@@ -73,10 +73,10 @@ pub fn build_collection_by_font_name(font_name: Option<&str>, bold: bool, italic
             Weight::NORMAL
         };
 
-        let style = if !italic || bold {
-            Style::Normal
-        } else {
+        let style = if italic {
             Style::Italic
+        } else {
+            Style::Normal
         };
 
         let properties = Properties {
