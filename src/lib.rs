@@ -9,6 +9,7 @@ mod error_handling;
 pub mod redraw_scheduler;
 mod renderer;
 pub mod window;
+pub use skulpin::sdl2;
 
 #[macro_use]
 extern crate derive_new;

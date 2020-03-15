@@ -61,8 +61,6 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
     let (mut nvim, io_handler, _) = create::new_child_cmd(&mut create_nvim_command(), NeovimHandler()).await
         .unwrap_or_explained_panic("Could not locate or start the neovim process");
 
-    let running_clone1 = BRIDGE.running.clone();
-    let running_clone2 = BRIDGE.running.clone();
 
     tokio::spawn(async move {
         info!("Close watcher started");
@@ -75,8 +73,7 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
             },
             Ok(Ok(())) => {}
         };
-        // std::process::exit(0);
-        running_clone1.store(false, Ordering::Relaxed);
+        BRIDGE.running.store(false, Ordering::Relaxed);
     });
 
     if let Ok(Value::Integer(correct_version)) = nvim.eval("has(\"nvim-0.4\")").await {
@@ -96,7 +93,7 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
     options.set_rgb(true);
     nvim.ui_attach(width as i64, height as i64, &options).await
         .unwrap_or_explained_panic("Could not attach ui to neovim process");
-    if let Err(command_error) = nvim.command("runtime! ginit.vim").await {
+    if let Err(_command_error) = nvim.command("runtime! ginit.vim").await {
         nvim.command("echomsg \"error encountered in ginit.vim\"").await.ok();
     }
     info!("Neovim process attached");
@@ -106,7 +103,7 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
     tokio::spawn(async move {
         info!("UiCommand processor started");
         while let Some(commands) = drain(&mut receiver).await {
-            if !running_clone2.load(Ordering::Relaxed) {
+            if !BRIDGE.running.load(Ordering::Relaxed) {
                 return;
             }
             let (resize_list, other_commands): (Vec<UiCommand>, Vec<UiCommand>) = commands
@@ -116,10 +113,9 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
             for command in resize_list
                 .into_iter().last().into_iter()
                 .chain(other_commands.into_iter()) {
-                let running = running_clone2.clone();
                 let input_nvim = input_nvim.clone();
                 tokio::spawn(async move {
-                    if !running.load(Ordering::Relaxed) {
+                    if !BRIDGE.running.load(Ordering::Relaxed) {
                         return;
                     }
                     trace!("Executing UiCommand: {:?}", &command);
@@ -139,7 +135,7 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
 pub struct Bridge {
     _runtime: Runtime, // Necessary to keep runtime running
     sender: UnboundedSender<UiCommand>,
-    pub running: Arc<AtomicBool>
+    pub running: AtomicBool
 }
 
 impl Bridge {
@@ -150,11 +146,11 @@ impl Bridge {
         runtime.spawn(async move {
             start_process(receiver).await;
         });
-        Bridge { _runtime: runtime, sender, running: Arc::new(AtomicBool::new(true)) }
+        Bridge { _runtime: runtime, sender, running: AtomicBool::new(true) }
     }
 
     pub fn queue_command(&self, command: UiCommand) {
-        if !self.running.load(Ordering::Relaxed) {
+        if !BRIDGE.running.load(Ordering::Relaxed) {
             return;
         }
         trace!("UiCommand queued: {:?}", &command);

@@ -362,10 +362,7 @@ pub fn ui_loop(context: Option<sdl2::Sdl>) {
     let mut window = WindowWrapper::new(context);
 
     info!("Starting window event loop");
-    let mut event_pump = window
-        .context
-        .event_pump()
-        .expect("Could not create sdl event pump");
+    let mut event_pump = window.context.event_pump().expect("Could not create sdl event pump");
     'running: loop {
         let frame_start = Instant::now();
 
