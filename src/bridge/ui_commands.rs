@@ -9,7 +9,9 @@ pub enum UiCommand {
     Keyboard(String),
     MouseButton { action: String, position: (u32, u32) },
     Scroll { direction: String, position: (u32, u32) },
-    Drag(u32, u32)
+    Drag(u32, u32),
+    FocusLost,
+    FocusGained
 }
 
 impl UiCommand {
@@ -31,7 +33,15 @@ impl UiCommand {
                     .expect("Mouse Scroll Failed"),
             UiCommand::Drag(grid_x, grid_y) =>
                 nvim.input_mouse("left", "drag", "", 0, grid_y as i64, grid_x as i64).await
-                    .expect("Mouse Drag Failed")
+                    .expect("Mouse Drag Failed"),
+            UiCommand::FocusLost => {
+                nvim.command("if exists('#FocusLost') | doautocmd <nomodeline> FocusLost | endif").await
+                    .expect("Focus Lost Failed")
+            },
+            UiCommand::FocusGained => {
+                nvim.command("if exists('#FocusGained') | doautocmd <nomodeline> FocusGained | endif").await
+                    .expect("Focus Gained Failed")
+            },
         }
     }
 

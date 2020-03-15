@@ -6,7 +6,7 @@ use skulpin::{LogicalSize, PhysicalSize};
 use skulpin::sdl2;
 use skulpin::sdl2::Sdl;
 use skulpin::sdl2::video::{Window, FullscreenType};
-use skulpin::sdl2::event::Event;
+use skulpin::sdl2::event::{Event, WindowEvent};
 use skulpin::sdl2::keyboard::Keycode;
 use skulpin::{RendererBuilder, Renderer as SkulpinRenderer, PresentMode, CoordinateSystem, dpis};
 
@@ -220,6 +220,15 @@ impl WindowWrapper {
         }
     }
 
+    pub fn handle_focus_lost(&mut self) {
+        BRIDGE.queue_command(UiCommand::FocusLost);
+    }
+
+    pub fn handle_focus_gained(&mut self) {
+        BRIDGE.queue_command(UiCommand::FocusGained);
+        REDRAW_SCHEDULER.queue_next_frame();
+    }
+
     pub fn draw_frame(&mut self) -> bool {
         if let Ok(new_size) = LogicalSize::new(&self.window) {
             if self.previous_size != new_size {
@@ -297,7 +306,6 @@ pub fn ui_loop() {
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} => break 'running,
-                Event::Window {..} => REDRAW_SCHEDULER.queue_next_frame(),
                 Event::KeyDown { keycode: Some(received_keycode), .. } => {
                     keycode = Some(received_keycode);
                 },
@@ -306,6 +314,9 @@ pub fn ui_loop() {
                 Event::MouseButtonDown { .. } => window.handle_pointer_down(),
                 Event::MouseButtonUp { .. } => window.handle_pointer_up(),
                 Event::MouseWheel { x, y, .. } => window.handle_mouse_wheel(x, y),
+                Event::Window { win_event: WindowEvent::FocusLost, .. } => window.handle_focus_lost(),
+                Event::Window { win_event: WindowEvent::FocusGained, .. } => window.handle_focus_gained(),
+                Event::Window { .. } => REDRAW_SCHEDULER.queue_next_frame(),
                 _ => {}
             }
         }
