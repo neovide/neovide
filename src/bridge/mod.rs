@@ -1,6 +1,8 @@
+#[macro_use]
+pub mod layouts;
+
 mod events;
 mod handler;
-mod keybindings;
 mod ui_commands;
 
 use std::sync::Arc;
@@ -14,7 +16,7 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 use log::{info, error, trace};
 
 pub use events::*;
-pub use keybindings::*;
+pub use layouts::*;
 use crate::settings::*;
 pub use ui_commands::UiCommand;
 use handler::NeovimHandler;
@@ -93,7 +95,7 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
     nvim.ui_attach(width as i64, height as i64, &options).await
         .unwrap_or_explained_panic("Could not attach ui to neovim process");
     if let Err(command_error) = nvim.command("runtime! ginit.vim").await {
-        nvim.command("echomsg \"error encountered in ginit.vim\"").await.ok();
+        nvim.command(&format!("echomsg \"error encountered in ginit.vim {:?}\"", command_error)).await.ok();
     }
     info!("Neovim process attached");
 

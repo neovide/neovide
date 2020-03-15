@@ -11,7 +11,7 @@ use skulpin::sdl2::keyboard::Keycode;
 use skulpin::{RendererBuilder, Renderer as SkulpinRenderer, PresentMode, CoordinateSystem, dpis};
 
 use crate::settings::*;
-use crate::bridge::{parse_keycode, append_modifiers, BRIDGE, UiCommand};
+use crate::bridge::{produce_neovim_keybinding_string, BRIDGE, UiCommand};
 use crate::renderer::Renderer;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::editor::EDITOR;
@@ -49,7 +49,6 @@ struct WindowWrapper {
     title: String,
     previous_size: LogicalSize,
     previous_dpis: (f32, f32),
-    ignore_text_input: bool,
     transparency: f32,
     fullscreen: bool
 }
@@ -115,7 +114,6 @@ impl WindowWrapper {
             title: String::from("Neovide"),
             previous_size,
             previous_dpis,
-            ignore_text_input: false,
             transparency: 1.0,
             fullscreen: false
         }
@@ -149,12 +147,14 @@ impl WindowWrapper {
 
     pub fn handle_keyboard_input(&mut self, keycode: Option<Keycode>, text: Option<String>) {
         let modifiers = self.context.keyboard().mod_state();
-        trace!("Keyboard Input Received: keycode-{:?} modifiers-{:?} text-{:?}", keycode, modifiers, text);
 
-        text.as_deref()
-            .map(|text| (text, false))
-            .or_else(|| keycode.map(parse_keycode).flatten())
-            .map(|(text, special)| BRIDGE.queue_command(UiCommand::Keyboard(append_modifiers(modifiers, text, special))));
+        if keycode.is_some() || text.is_some() {
+            trace!("Keyboard Input Received: keycode-{:?} modifiers-{:?} text-{:?}", keycode, modifiers, text);
+        }
+
+        if let Some(keybinding_string) = produce_neovim_keybinding_string(keycode, text, modifiers) {
+            BRIDGE.queue_command(UiCommand::Keyboard(keybinding_string));
+        }
     }
 
     pub fn handle_pointer_motion(&mut self, x: i32, y: i32) {
