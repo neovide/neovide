@@ -7,7 +7,7 @@ use skulpin::sdl2;
 use skulpin::sdl2::Sdl;
 use skulpin::sdl2::video::{Window, FullscreenType};
 use skulpin::sdl2::event::Event;
-use skulpin::sdl2::keyboard::{Mod, Keycode};
+use skulpin::sdl2::keyboard::Keycode;
 use skulpin::{RendererBuilder, Renderer as SkulpinRenderer, PresentMode, CoordinateSystem, dpis};
 
 use crate::settings::*;
@@ -147,22 +147,14 @@ impl WindowWrapper {
         }
     }
 
-    pub fn handle_keyboard_input(&mut self, keycode: Option<Keycode>, modifiers: Option<Mod>, text: Option<String>) {
+    pub fn handle_keyboard_input(&mut self, keycode: Option<Keycode>, text: Option<String>) {
+        let modifiers = self.context.keyboard().mod_state();
         trace!("Keyboard Input Received: keycode-{:?} modifiers-{:?} text-{:?}", keycode, modifiers, text);
 
-        if let Some(text) = text {
-            let text = if text == "<" {
-                String::from("<lt>")
-            } else {
-                text
-            };
-            BRIDGE.queue_command(UiCommand::Keyboard(text))
-        } else if let Some(keycode) = keycode {
-            let modifiers = modifiers.unwrap();
-            if let Some((key_text, special)) = parse_keycode(keycode) {
-                BRIDGE.queue_command(UiCommand::Keyboard(append_modifiers(modifiers, key_text, special)));
-            }
-        }
+        text.as_deref()
+            .map(|text| (text, false))
+            .or_else(|| keycode.map(parse_keycode).flatten())
+            .map(|(text, special)| BRIDGE.queue_command(UiCommand::Keyboard(append_modifiers(modifiers, text, special))));
     }
 
     pub fn handle_pointer_motion(&mut self, x: i32, y: i32) {
@@ -300,16 +292,14 @@ pub fn ui_loop() {
         window.synchronize_settings();
 
         let mut keycode = None;
-        let mut keymod = None;
         let mut keytext = None;
 
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit {..} => break 'running,
                 Event::Window {..} => REDRAW_SCHEDULER.queue_next_frame(),
-                Event::KeyDown { keycode: Some(received_keycode), keymod: received_modifiers, .. } => {
+                Event::KeyDown { keycode: Some(received_keycode), .. } => {
                     keycode = Some(received_keycode);
-                    keymod = Some(received_modifiers);
                 },
                 Event::TextInput { text, .. } => keytext = Some(text),
                 Event::MouseMotion { x, y, .. } => window.handle_pointer_motion(x, y),
@@ -320,7 +310,7 @@ pub fn ui_loop() {
             }
         }
 
-        window.handle_keyboard_input(keycode, keymod, keytext);
+        window.handle_keyboard_input(keycode, keytext);
 
         if !window.draw_frame() {
             break;
