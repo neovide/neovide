@@ -132,7 +132,6 @@ impl WindowWrapper {
             title: String::from("Neovide"),
             previous_size,
             previous_dpis,
-            ignore_text_input: false,
             transparency: 1.0,
             fullscreen: false,
         }
@@ -169,44 +168,13 @@ impl WindowWrapper {
 
     pub fn handle_keyboard_input(&mut self, keycode: Option<Keycode>, text: Option<String>) {
         let modifiers = self.context.keyboard().mod_state();
-        trace!("Keyboard Input Received: keycode-{:?} modifiers-{:?} text-{:?}", keycode, modifiers, text);
 
-        if let Some((key_text, special)) = parse_keycode(keycode) {
-            let ctrl = modifiers.contains(Mod::LCTRLMOD) || modifiers.contains(Mod::RCTRLMOD);
-            let alt = modifiers.contains(Mod::LALTMOD) || modifiers.contains(Mod::RALTMOD);
-            let gui = modifiers.contains(Mod::LGUIMOD) || modifiers.contains(Mod::RGUIMOD);
-
-            let will_text_input =
-                modifiers.contains(Mod::MODEMOD) || (ctrl && alt) || !ctrl && !alt && !gui;
-
-            if will_text_input && !special {
-                self.ignore_text_input = false;
-                return;
-            }
-
-            BRIDGE.queue_command(UiCommand::Keyboard(append_modifiers(
-                modifiers, key_text, special,
-            )));
-            self.ignore_text_input = true;
+        if keycode.is_some() || text.is_some() {
+            trace!("Keyboard Input Received: keycode-{:?} modifiers-{:?} text-{:?}", keycode, modifiers, text);
         }
-    }
 
-    pub fn handle_text_input(&mut self, text: String) {
-        trace!("Keyboard Input Received: {}", &text);
-        if self.ignore_text_input {
-            self.ignore_text_input = false;
-        } else {
-            let text = if text == "<" {
-                String::from("<lt>")
-            } else {
-                text
-            };
-            BRIDGE.queue_command(UiCommand::Keyboard(text))
-        } else if let Some(keycode) = keycode {
-            let modifiers = modifiers.unwrap();
-            if let Some((key_text, special)) = parse_keycode(keycode) {
-                BRIDGE.queue_command(UiCommand::Keyboard(append_modifiers(modifiers, key_text, special)));
-            }
+        if let Some(keybinding_string) = produce_neovim_keybinding_string(keycode, text, modifiers) {
+            BRIDGE.queue_command(UiCommand::Keyboard(keybinding_string));
         }
     }
 

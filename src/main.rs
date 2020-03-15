@@ -10,12 +10,9 @@ mod redraw_scheduler;
 mod renderer;
 mod window;
 
-#[macro_use]
-extern crate derive_new;
-#[macro_use]
-extern crate rust_embed;
-#[macro_use]
-extern crate lazy_static;
+#[macro_use] extern crate derive_new;
+#[macro_use] extern crate rust_embed;
+#[macro_use] extern crate lazy_static;
 
 use lazy_static::initialize;
 
@@ -28,6 +25,7 @@ fn main() {
     window::initialize_settings();
     redraw_scheduler::initialize_settings();
     renderer::cursor_renderer::initialize_settings();
+    bridge::layouts::initialize_settings();
 
     initialize(&BRIDGE);
     ui_loop(None);
