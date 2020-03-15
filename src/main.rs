@@ -19,7 +19,10 @@ use lazy_static::initialize;
 use bridge::BRIDGE;
 use window::ui_loop;
 
-pub const INITIAL_DIMENSIONS: (u64, u64) = (100, 50);
+static mut INITIAL_DIMENSIONS: (u64, u64) = (100, 50);
+pub fn get_initial_dimensions() -> (u64, u64) {
+    unsafe { INITIAL_DIMENSIONS }
+}
 
 fn main() {
     window::initialize_settings();

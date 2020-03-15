@@ -371,4 +371,5 @@ pub fn ui_loop(context: Option<sdl2::Sdl>) {
             sleep(frame_length - elapsed);
         }
     }
+    std::process::exit(0);
 }
