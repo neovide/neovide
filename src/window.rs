@@ -302,6 +302,7 @@ pub fn ui_loop() {
 
         let mut keycode = None;
         let mut keytext = None;
+        let mut ignore_text_this_frame = false;
 
         for event in event_pump.poll_iter() {
             match event {
@@ -315,13 +316,18 @@ pub fn ui_loop() {
                 Event::MouseButtonUp { .. } => window.handle_pointer_up(),
                 Event::MouseWheel { x, y, .. } => window.handle_mouse_wheel(x, y),
                 Event::Window { win_event: WindowEvent::FocusLost, .. } => window.handle_focus_lost(),
-                Event::Window { win_event: WindowEvent::FocusGained, .. } => window.handle_focus_gained(),
+                Event::Window { win_event: WindowEvent::FocusGained, .. } => {
+                    ignore_text_this_frame = true; // Ignore any text events on the first frame when focus is regained. https://github.com/Kethku/neovide/issues/193
+                    window.handle_focus_gained();
+                },
                 Event::Window { .. } => REDRAW_SCHEDULER.queue_next_frame(),
                 _ => {}
             }
         }
 
-        window.handle_keyboard_input(keycode, keytext);
+        if !ignore_text_this_frame {
+            window.handle_keyboard_input(keycode, keytext);
+        }
 
         if !window.draw_frame() {
             break;
