@@ -9,10 +9,15 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+
+    - name: "Check formatting"
+      run: "cargo fmt --all -- --check"
+
     - name: Build
       run: |
         cargo test
         cargo build --release
+
     - uses: actions/upload-artifact@v1
       with:
         name: neovide-windows.exe
@@ -26,12 +31,17 @@ jobs:
     - uses: actions/checkout@v2
     - name: Install Vulkan SDK
       run: brew cask install apenngrace/vulkan/vulkan-sdk
+
+    - name: "Check formatting"
+      run: "cargo fmt --all -- --check"
+
     - name: Build
       run: |
         cargo test
         cargo build --release
         cargo install cargo-bundle
         cargo bundle --release
+
     - name: Update Bundle
       run: |
         cd target/release/bundle/osx/Neovide.app/Contents
@@ -65,6 +75,9 @@ jobs:
     - name: Install dependencies
       run:  |
         sudo apt-get install -y curl gnupg ca-certificates git gcc-multilib g++-multilib cmake libssl-dev pkg-config libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev libxi-dev libsdl2-dev
+
+    - name: "Check formatting"
+      run: "cargo fmt --all -- --check"
 
     - name: Build
       run: |
