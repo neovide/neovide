@@ -1,9 +1,9 @@
 mod qwerty;
 
-use log::{trace, error};
+use log::{error, trace};
 use skulpin::sdl2::keyboard::{Keycode, Mod};
 
-use crate::settings::{SETTINGS, FromValue, Value};
+use crate::settings::{FromValue, Value, SETTINGS};
 
 use qwerty::*;
 
@@ -14,14 +14,17 @@ pub fn unsupported_key<R>(keycode: Keycode) -> Option<R> {
 
 #[derive(Clone)]
 pub enum KeyboardLayout {
-    Qwerty
+    Qwerty,
 }
 
 impl FromValue for KeyboardLayout {
     fn from_value(&mut self, value: Value) {
         match value.as_str() {
             Some("qwerty") => *self = KeyboardLayout::Qwerty,
-            _ => error!("keyboard_layout setting expected a known keyboard layout name, but received: {}", value)
+            _ => error!(
+                "keyboard_layout setting expected a known keyboard layout name, but received: {}",
+                value
+            ),
         }
     }
 }
@@ -29,25 +32,32 @@ impl FromValue for KeyboardLayout {
 impl From<KeyboardLayout> for Value {
     fn from(layout: KeyboardLayout) -> Self {
         match layout {
-            KeyboardLayout::Qwerty => "qwerty".into()
+            KeyboardLayout::Qwerty => "qwerty".into(),
         }
     }
 }
 
 #[derive(Clone)]
 struct KeyboardSettings {
-    layout: KeyboardLayout
+    layout: KeyboardLayout,
 }
 
 pub fn initialize_settings() {
     SETTINGS.set(&KeyboardSettings {
-        layout: KeyboardLayout::Qwerty
+        layout: KeyboardLayout::Qwerty,
     });
 
     register_nvim_setting!("keyboard_layout", KeyboardSettings::layout);
 }
 
-fn append_modifiers(keycode_text: &str, special: bool, shift: bool, ctrl: bool, alt: bool, gui: bool) -> String {
+fn append_modifiers(
+    keycode_text: &str,
+    special: bool,
+    shift: bool,
+    ctrl: bool,
+    alt: bool,
+    gui: bool,
+) -> String {
     let mut result = keycode_text.to_string();
     let mut special = special;
 
@@ -80,7 +90,11 @@ fn append_modifiers(keycode_text: &str, special: bool, shift: bool, ctrl: bool, 
     result
 }
 
-pub fn produce_neovim_keybinding_string(keycode: Option<Keycode>, keytext: Option<String>, modifiers: Mod) -> Option<String> {
+pub fn produce_neovim_keybinding_string(
+    keycode: Option<Keycode>,
+    keytext: Option<String>,
+    modifiers: Mod,
+) -> Option<String> {
     let shift = modifiers.contains(Mod::LSHIFTMOD) || modifiers.contains(Mod::RSHIFTMOD);
     let ctrl = modifiers.contains(Mod::LCTRLMOD) || modifiers.contains(Mod::RCTRLMOD);
     let alt = modifiers.contains(Mod::LALTMOD) || modifiers.contains(Mod::RALTMOD);
@@ -90,7 +104,10 @@ pub fn produce_neovim_keybinding_string(keycode: Option<Keycode>, keytext: Optio
     } else if let Some(keycode) = keycode {
         (match SETTINGS.get::<KeyboardSettings>().layout {
             KeyboardLayout::Qwerty => handle_qwerty_layout(keycode, shift, ctrl, alt),
-        }).map(|(transformed_text, special, shift, ctrl, alt)| append_modifiers(transformed_text, special, shift, ctrl, alt, gui))
+        })
+        .map(|(transformed_text, special, shift, ctrl, alt)| {
+            append_modifiers(transformed_text, special, shift, ctrl, alt, gui)
+        })
     } else {
         None
     }

@@ -6,12 +6,13 @@ use log::{info, trace, debug, error};
 use skulpin::{LogicalSize, PhysicalSize};
 use skulpin::sdl2;
 use skulpin::sdl2::Sdl;
-use skulpin::sdl2::video::{Window, FullscreenType};
+
 use skulpin::sdl2::event::{Event, WindowEvent};
 use skulpin::sdl2::keyboard::Keycode;
-use skulpin::{RendererBuilder, Renderer as SkulpinRenderer, PresentMode, CoordinateSystem, dpis};
+use skulpin::sdl2::video::{FullscreenType, Window};
+use skulpin::{dpis, CoordinateSystem, PresentMode, Renderer as SkulpinRenderer, RendererBuilder};
 
-use crate::bridge::{append_modifiers, parse_keycode, UiCommand, BRIDGE};
+use crate::bridge::{produce_neovim_keybinding_string, UiCommand, BRIDGE};
 use crate::editor::EDITOR;
 use crate::get_initial_dimensions;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
@@ -170,10 +171,16 @@ impl WindowWrapper {
         let modifiers = self.context.keyboard().mod_state();
 
         if keycode.is_some() || text.is_some() {
-            trace!("Keyboard Input Received: keycode-{:?} modifiers-{:?} text-{:?}", keycode, modifiers, text);
+            trace!(
+                "Keyboard Input Received: keycode-{:?} modifiers-{:?} text-{:?}",
+                keycode,
+                modifiers,
+                text
+            );
         }
 
-        if let Some(keybinding_string) = produce_neovim_keybinding_string(keycode, text, modifiers) {
+        if let Some(keybinding_string) = produce_neovim_keybinding_string(keycode, text, modifiers)
+        {
             BRIDGE.queue_command(UiCommand::Keyboard(keybinding_string));
         }
     }
@@ -340,7 +347,10 @@ pub fn ui_loop(context: Option<sdl2::Sdl>) {
     let mut window = WindowWrapper::new(context);
 
     info!("Starting window event loop");
-    let mut event_pump = window.context.event_pump().expect("Could not create sdl event pump");
+    let mut event_pump = window
+        .context
+        .event_pump()
+        .expect("Could not create sdl event pump");
     'running: loop {
         let frame_start = Instant::now();
 
@@ -352,20 +362,29 @@ pub fn ui_loop(context: Option<sdl2::Sdl>) {
 
         for event in event_pump.poll_iter() {
             match event {
-                Event::Quit {..} => break 'running,
-                Event::KeyDown { keycode: Some(received_keycode), .. } => {
+                Event::Quit { .. } => break 'running,
+                Event::KeyDown {
+                    keycode: Some(received_keycode),
+                    ..
+                } => {
                     keycode = Some(received_keycode);
-                },
+                }
                 Event::TextInput { text, .. } => keytext = Some(text),
                 Event::MouseMotion { x, y, .. } => window.handle_pointer_motion(x, y),
                 Event::MouseButtonDown { .. } => window.handle_pointer_down(),
                 Event::MouseButtonUp { .. } => window.handle_pointer_up(),
                 Event::MouseWheel { x, y, .. } => window.handle_mouse_wheel(x, y),
-                Event::Window { win_event: WindowEvent::FocusLost, .. } => window.handle_focus_lost(),
-                Event::Window { win_event: WindowEvent::FocusGained, .. } => {
+                Event::Window {
+                    win_event: WindowEvent::FocusLost,
+                    ..
+                } => window.handle_focus_lost(),
+                Event::Window {
+                    win_event: WindowEvent::FocusGained,
+                    ..
+                } => {
                     ignore_text_this_frame = true; // Ignore any text events on the first frame when focus is regained. https://github.com/Kethku/neovide/issues/193
                     window.handle_focus_gained();
-                },
+                }
                 Event::Window { .. } => REDRAW_SCHEDULER.queue_next_frame(),
                 _ => {}
             }

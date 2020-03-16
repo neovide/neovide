@@ -1,12 +1,12 @@
-use rmpv::Value;
-use nvim_rs::{Neovim, Handler, compat::tokio::Compat};
 use async_trait::async_trait;
+use log::trace;
+use nvim_rs::{compat::tokio::Compat, Handler, Neovim};
+use rmpv::Value;
 use tokio::process::ChildStdin;
 use tokio::task;
-use log::trace;
 
-use crate::settings::SETTINGS;
 use super::events::handle_redraw_event_group;
+use crate::settings::SETTINGS;
 
 #[derive(Clone)]
 pub struct NeovimHandler();
@@ -15,18 +15,23 @@ pub struct NeovimHandler();
 impl Handler for NeovimHandler {
     type Writer = Compat<ChildStdin>;
 
-    async fn handle_notify(&self, event_name: String, arguments: Vec<Value>, _neovim: Neovim<Compat<ChildStdin>>) {
+    async fn handle_notify(
+        &self,
+        event_name: String,
+        arguments: Vec<Value>,
+        _neovim: Neovim<Compat<ChildStdin>>,
+    ) {
         trace!("Neovim notification: {:?}", &event_name);
-        task::spawn_blocking(move || {
-            match event_name.as_ref() {
-                "redraw" => {
-                    handle_redraw_event_group(arguments);
-                },
-                "setting_changed" => {
-                    SETTINGS.handle_changed_notification(arguments);
-                },
-                _ => {}
+        task::spawn_blocking(move || match event_name.as_ref() {
+            "redraw" => {
+                handle_redraw_event_group(arguments);
             }
-        }).await.ok();
+            "setting_changed" => {
+                SETTINGS.handle_changed_notification(arguments);
+            }
+            _ => {}
+        })
+        .await
+        .ok();
     }
 }

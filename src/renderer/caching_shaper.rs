@@ -1,13 +1,20 @@
 use std::collections::HashMap;
 
+use font_kit::{
+    family_name::FamilyName,
+    font::Font,
+    metrics::Metrics,
+    properties::{Properties, Stretch, Style, Weight},
+    source::SystemSource,
+};
 use lru::LruCache;
-use skulpin::skia_safe::{TextBlob, Font as SkiaFont, Typeface, TextBlobBuilder, Data};
-use font_kit::{source::SystemSource, metrics::Metrics, properties::{Properties, Weight, Style, Stretch}, family_name::FamilyName, font::Font };
-use skribo::{LayoutSession, FontRef as SkriboFont, FontFamily, FontCollection, TextStyle};
+use skribo::{FontCollection, FontFamily, FontRef as SkriboFont, LayoutSession, TextStyle};
+use skulpin::skia_safe::{Data, Font as SkiaFont, TextBlob, TextBlobBuilder, Typeface};
 
-use log::{trace, info, warn};
+use log::{info, trace, warn};
 
-const STANDARD_CHARACTER_STRING: &str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
+const STANDARD_CHARACTER_STRING: &str =
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
 
 const MONOSPACE_FONT: &str = "Fira Code Regular Nerd Font Complete.otf";
 const MONOSPACE_BOLD_FONT: &str = "Fira Code Bold Nerd Font Complete.otf";
@@ -45,11 +52,17 @@ const DEFAULT_FONT_SIZE: f32 = 14.0;
 struct ShapeKey {
     pub text: String,
     pub bold: bool,
-    pub italic: bool
+    pub italic: bool,
 }
 
-pub fn add_font_to_collection_by_name(name: &str, source: &SystemSource, collection: &mut FontCollection) -> Option<()> {
-    source.select_family_by_name(name).ok()
+pub fn add_font_to_collection_by_name(
+    name: &str,
+    source: &SystemSource,
+    collection: &mut FontCollection,
+) -> Option<()> {
+    source
+        .select_family_by_name(name)
+        .ok()
         .and_then(|matching_fonts| matching_fonts.fonts()[0].load().ok())
         .map(|font| collection.add_family(FontFamily::new_from_font(font)))
 }
@@ -61,17 +74,17 @@ pub fn add_asset_font_to_collection(name: &str, collection: &mut FontCollection)
         .map(|font| collection.add_family(FontFamily::new_from_font(font)))
 }
 
-pub fn build_collection_by_font_name(font_name: Option<&str>, bold: bool, italic: bool) -> FontCollection {
+pub fn build_collection_by_font_name(
+    font_name: Option<&str>,
+    bold: bool,
+    italic: bool,
+) -> FontCollection {
     let source = SystemSource::new();
 
     let mut collection = FontCollection::new();
 
     if let Some(font_name) = font_name {
-        let weight = if bold {
-            Weight::BOLD
-        } else {
-            Weight::NORMAL
-        };
+        let weight = if bold { Weight::BOLD } else { Weight::NORMAL };
 
         let style = if !italic || bold {
             Style::Normal
@@ -80,11 +93,19 @@ pub fn build_collection_by_font_name(font_name: Option<&str>, bold: bool, italic
         };
 
         let properties = Properties {
-            weight, style, stretch: Stretch::NORMAL
+            weight,
+            style,
+            stretch: Stretch::NORMAL,
         };
-        if let Ok(custom) = source.select_best_match(&[FamilyName::Title(font_name.to_string())], &properties) {
-            custom.load().ok()
-                .map(|matching_font| collection.add_family(FontFamily::new_from_font(matching_font)))
+        if let Ok(custom) =
+            source.select_best_match(&[FamilyName::Title(font_name.to_string())], &properties)
+        {
+            custom
+                .load()
+                .ok()
+                .map(|matching_font| {
+                    collection.add_family(FontFamily::new_from_font(matching_font))
+                })
                 .unwrap_or_else(|| warn!("Could not load gui font"));
         }
     }
@@ -104,7 +125,9 @@ pub fn build_collection_by_font_name(font_name: Option<&str>, bold: bool, italic
     if add_font_to_collection_by_name(SYSTEM_EMOJI_FONT, &source, &mut collection).is_none() {
         #[cfg(feature = "embed-fonts")]
         {
-            if cfg!(not(target_os = "macos")) && add_asset_font_to_collection(EMOJI_FONT, &mut collection).is_some() {
+            if cfg!(not(target_os = "macos"))
+                && add_asset_font_to_collection(EMOJI_FONT, &mut collection).is_some()
+            {
                 info!("Fell back to embedded emoji font");
             } else {
                 warn!("Could not load emoji font");
@@ -115,14 +138,9 @@ pub fn build_collection_by_font_name(font_name: Option<&str>, bold: bool, italic
     add_font_to_collection_by_name(SYSTEM_SYMBOL_FONT, &source, &mut collection)
         .unwrap_or_else(|| warn!("Could not load system symbol font"));
 
-
     #[cfg(feature = "embed-fonts")]
     {
-        let wide_style = if bold {
-            WIDE_BOLD_FONT
-        } else {
-            WIDE_FONT
-        };
+        let wide_style = if bold { WIDE_BOLD_FONT } else { WIDE_FONT };
 
         add_asset_font_to_collection(wide_style, &mut collection)
             .unwrap_or_else(|| warn!("Could not load embedded wide font"));
@@ -163,7 +181,7 @@ pub struct CachingShaper {
     pub base_size: f32,
     font_set: FontSet,
     font_cache: LruCache<String, SkiaFont>,
-    blob_cache: LruCache<ShapeKey, Vec<TextBlob>>
+    blob_cache: LruCache<ShapeKey, Vec<TextBlob>>,
 }
 
 fn build_skia_font_from_skribo_font(skribo_font: &SkriboFont, base_size: f32) -> Option<SkiaFont> {
@@ -196,11 +214,20 @@ impl CachingShaper {
     }
 
     fn metrics(&self) -> Metrics {
-        self.font_set.normal.itemize("a").next().unwrap().1.font.metrics()
+        self.font_set
+            .normal
+            .itemize("a")
+            .next()
+            .unwrap()
+            .1
+            .font
+            .metrics()
     }
 
     pub fn shape(&mut self, text: &str, bold: bool, italic: bool) -> Vec<TextBlob> {
-        let style = TextStyle { size: self.base_size };
+        let style = TextStyle {
+            size: self.base_size,
+        };
 
         let session = LayoutSession::create(text, &style, &self.font_set.get(bold, italic));
 
@@ -215,7 +242,8 @@ impl CachingShaper {
                 let mut blob_builder = TextBlobBuilder::new();
 
                 let count = layout_run.glyphs().count();
-                let (glyphs, positions) = blob_builder.alloc_run_pos_h(&skia_font, count, ascent, None);
+                let (glyphs, positions) =
+                    blob_builder.alloc_run_pos_h(&skia_font, count, ascent, None);
 
                 for (i, glyph) in layout_run.glyphs().enumerate() {
                     glyphs[i] = glyph.glyph_id as u16;
@@ -251,18 +279,26 @@ impl CachingShaper {
 
     pub fn font_base_dimensions(&mut self) -> (f32, f32) {
         let metrics = self.metrics();
-        let font_height = (metrics.ascent - metrics.descent) * self.base_size / metrics.units_per_em as f32;
+        let font_height =
+            (metrics.ascent - metrics.descent) * self.base_size / metrics.units_per_em as f32;
 
-        let style = TextStyle { size: self.base_size };
-        let session = LayoutSession::create(STANDARD_CHARACTER_STRING, &style, &self.font_set.normal);
+        let style = TextStyle {
+            size: self.base_size,
+        };
+        let session =
+            LayoutSession::create(STANDARD_CHARACTER_STRING, &style, &self.font_set.normal);
 
         let layout_run = session.iter_all().next().unwrap();
         let glyph_offsets: Vec<f32> = layout_run.glyphs().map(|glyph| glyph.offset.x).collect();
-        let glyph_advances: Vec<f32> = glyph_offsets.windows(2).map(|pair| pair[1] - pair[0]).collect();
+        let glyph_advances: Vec<f32> = glyph_offsets
+            .windows(2)
+            .map(|pair| pair[1] - pair[0])
+            .collect();
 
         let mut amounts = HashMap::new();
         for advance in glyph_advances.iter() {
-            amounts.entry(advance.to_string())
+            amounts
+                .entry(advance.to_string())
                 .and_modify(|e| *e += 1)
                 .or_insert(1);
         }
@@ -286,7 +322,12 @@ mod tests {
 
     #[test]
     fn unmatched_font_returns_nothing() {
-        assert!(add_font_to_collection_by_name("Foobar", &SystemSource::new(), &mut FontCollection::new()).is_none());
+        assert!(add_font_to_collection_by_name(
+            "Foobar",
+            &SystemSource::new(),
+            &mut FontCollection::new()
+        )
+        .is_none());
     }
 
     #[test]

@@ -1,17 +1,16 @@
 mod animation_utils;
-mod cursor_vfx;
 mod blink;
+mod cursor_vfx;
 
 use skulpin::skia_safe::{Canvas, Paint, Path, Point};
 
-use crate::settings::*;
-use crate::renderer::CachingShaper;
-use crate::editor::{EDITOR, Colors, Cursor, CursorShape};
+use crate::editor::{Colors, Cursor, CursorShape, EDITOR};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
+use crate::renderer::CachingShaper;
+use crate::settings::*;
 
 use animation_utils::*;
 use blink::*;
-
 
 const COMMAND_LINE_DELAY_FRAMES: u64 = 5;
 const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
@@ -29,8 +28,8 @@ pub struct CursorSettings {
     vfx_particle_lifetime: f32,
     vfx_particle_density: f32,
     vfx_particle_speed: f32,
-    vfx_particle_phase: f32, 
-    vfx_particle_curl: f32, 
+    vfx_particle_phase: f32,
+    vfx_particle_curl: f32,
 }
 
 pub fn initialize_settings() {
@@ -45,16 +44,31 @@ pub fn initialize_settings() {
         vfx_particle_phase: 1.5,
         vfx_particle_curl: 1.0,
     });
-    
+
     register_nvim_setting!("cursor_animation_length", CursorSettings::animation_length);
     register_nvim_setting!("cursor_trail_size", CursorSettings::trail_size);
     register_nvim_setting!("cursor_vfx_mode", CursorSettings::vfx_mode);
     register_nvim_setting!("cursor_vfx_opacity", CursorSettings::vfx_opacity);
-    register_nvim_setting!("cursor_vfx_particle_lifetime", CursorSettings::vfx_particle_lifetime);
-    register_nvim_setting!("cursor_vfx_particle_density", CursorSettings::vfx_particle_density);
-    register_nvim_setting!("cursor_vfx_particle_speed", CursorSettings::vfx_particle_speed);
-    register_nvim_setting!("cursor_vfx_particle_phase", CursorSettings::vfx_particle_phase);
-    register_nvim_setting!("cursor_vfx_particle_curl", CursorSettings::vfx_particle_curl);
+    register_nvim_setting!(
+        "cursor_vfx_particle_lifetime",
+        CursorSettings::vfx_particle_lifetime
+    );
+    register_nvim_setting!(
+        "cursor_vfx_particle_density",
+        CursorSettings::vfx_particle_density
+    );
+    register_nvim_setting!(
+        "cursor_vfx_particle_speed",
+        CursorSettings::vfx_particle_speed
+    );
+    register_nvim_setting!(
+        "cursor_vfx_particle_phase",
+        CursorSettings::vfx_particle_phase
+    );
+    register_nvim_setting!(
+        "cursor_vfx_particle_curl",
+        CursorSettings::vfx_particle_curl
+    );
 }
 
 // ----------------------------------------------------------------------------
@@ -64,7 +78,7 @@ pub struct Corner {
     start_position: Point,
     current_position: Point,
     relative_position: Point,
-    previous_destination: Point, 
+    previous_destination: Point,
     t: f32,
 }
 
@@ -79,7 +93,13 @@ impl Corner {
         }
     }
 
-    pub fn update(&mut self, settings: &CursorSettings, font_dimensions: Point, destination: Point, dt: f32) -> bool {
+    pub fn update(
+        &mut self,
+        settings: &CursorSettings,
+        font_dimensions: Point,
+        destination: Point,
+        dt: f32,
+    ) -> bool {
         // Update destination if needed
         let mut immediate_movement = false;
         if destination != self.previous_destination {
@@ -104,7 +124,8 @@ impl Corner {
         let relative_scaled_position: Point = (
             self.relative_position.x * font_dimensions.x,
             self.relative_position.y * font_dimensions.y,
-        ).into();
+        )
+            .into();
 
         let corner_destination = destination + relative_scaled_position;
 
@@ -131,7 +152,6 @@ impl Corner {
 
         let direction_alignment = travel_direction.dot(corner_direction);
 
-
         if self.t == 1.0 {
             // We are at destination, move t out of 0-1 range to stop the animation
             self.t = 2.0;
@@ -139,9 +159,13 @@ impl Corner {
             let corner_dt = dt * lerp(1.0, 1.0 - settings.trail_size, -direction_alignment);
             self.t = (self.t + corner_dt / settings.animation_length).min(1.0)
         }
-        
-        self.current_position =
-            ease_point(ease_out_expo, self.start_position, corner_destination, self.t);
+
+        self.current_position = ease_point(
+            ease_out_expo,
+            self.start_position,
+            corner_destination,
+            self.t,
+        );
 
         true
     }
@@ -174,9 +198,11 @@ impl CursorRenderer {
     }
 
     fn set_cursor_shape(&mut self, cursor_shape: &CursorShape, cell_percentage: f32) {
-        self.corners = self.corners
+        self.corners = self
+            .corners
             .clone()
-            .into_iter().enumerate()
+            .into_iter()
+            .enumerate()
             .map(|(i, corner)| {
                 let (x, y) = STANDARD_CORNERS[i];
                 Corner {
@@ -188,22 +214,28 @@ impl CursorRenderer {
                         // Do the same as above, but flip the y coordinate and then flip the result
                         // so that the horizontal bar is at the bottom of the character space
                         // instead of the top.
-                        CursorShape::Horizontal => (x, -((-y + 0.5) * cell_percentage - 0.5)).into()
+                        CursorShape::Horizontal => {
+                            (x, -((-y + 0.5) * cell_percentage - 0.5)).into()
+                        }
                     },
                     t: 0.0,
                     start_position: corner.current_position,
-                    .. corner
-
+                    ..corner
                 }
             })
             .collect::<Vec<Corner>>();
     }
 
-    pub fn draw(&mut self, 
-            cursor: Cursor, default_colors: &Colors, 
-            font_width: f32, font_height: f32,
-            shaper: &mut CachingShaper, canvas: &mut Canvas,
-            dt: f32) {
+    pub fn draw(
+        &mut self,
+        cursor: Cursor,
+        default_colors: &Colors,
+        font_width: f32,
+        font_height: f32,
+        shaper: &mut CachingShaper,
+        canvas: &mut Canvas,
+        dt: f32,
+    ) {
         let render = self.blink_status.update_status(&cursor);
 
         let settings = SETTINGS.get::<CursorSettings>();
@@ -233,7 +265,6 @@ impl CursorRenderer {
                 cursor.position
             }
         };
-        
 
         let (grid_x, grid_y) = self.previous_position;
 
@@ -243,7 +274,7 @@ impl CursorRenderer {
                 Some(Some((character, _))) => character.clone(),
                 _ => ' '.to_string(),
             };
-            
+
             let is_double = match editor.grid.get_cell(grid_x + 1, grid_y) {
                 Some(Some((character, _))) => character.is_empty(),
                 _ => false,
@@ -251,7 +282,7 @@ impl CursorRenderer {
 
             let font_width = match (is_double, &cursor.shape) {
                 (true, CursorShape::Block) => font_width * 2.0,
-                _ => font_width
+                _ => font_width,
             };
             (character, (font_width, font_height).into())
         };
@@ -262,8 +293,11 @@ impl CursorRenderer {
 
         if self.previous_cursor_shape != new_cursor {
             self.previous_cursor_shape = new_cursor;
-            self.set_cursor_shape(&cursor.shape, cursor.cell_percentage.unwrap_or(DEFAULT_CELL_PERCENTAGE)); 
-       
+            self.set_cursor_shape(
+                &cursor.shape,
+                cursor.cell_percentage.unwrap_or(DEFAULT_CELL_PERCENTAGE),
+            );
+
             if let Some(vfx) = self.cursor_vfx.as_mut() {
                 vfx.restart(center_destination);
             }
@@ -272,13 +306,14 @@ impl CursorRenderer {
         let mut animating = false;
         if !center_destination.is_zero() {
             for corner in self.corners.iter_mut() {
-                let corner_animating = corner.update(&settings, font_dimensions, center_destination, dt);
+                let corner_animating =
+                    corner.update(&settings, font_dimensions, center_destination, dt);
                 animating |= corner_animating;
             }
 
             let vfx_animating = if let Some(vfx) = self.cursor_vfx.as_mut() {
                 vfx.update(&settings, center_destination, (font_width, font_height), dt)
-            }else{
+            } else {
                 false
             };
 
@@ -307,16 +342,21 @@ impl CursorRenderer {
             paint.set_color(cursor.foreground(&default_colors).to_color());
             canvas.save();
             canvas.clip_path(&path, None, Some(false));
-            
+
             let blobs = &shaper.shape_cached(&character, false, false);
             for blob in blobs.iter() {
                 canvas.draw_text_blob(&blob, destination, &paint);
             }
             canvas.restore();
             if let Some(vfx) = self.cursor_vfx.as_ref() {
-                vfx.render(&settings, canvas, &cursor, &default_colors, (font_width, font_height));
+                vfx.render(
+                    &settings,
+                    canvas,
+                    &cursor,
+                    &default_colors,
+                    (font_width, font_height),
+                );
             }
-
         }
     }
 }
