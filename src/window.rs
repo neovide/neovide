@@ -1,7 +1,4 @@
-<<<<<<< HEAD
 use std::sync::atomic::Ordering;
-=======
->>>>>>> a530171... rust fmt
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
