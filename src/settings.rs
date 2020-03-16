@@ -1,14 +1,14 @@
+use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::any::{Any, TypeId};
 
-pub use rmpv::Value;
-use nvim_rs::Neovim;
+use flexi_logger::{Cleanup, Criterion, Duplicate, Logger, Naming};
+use log::{error, warn};
 use nvim_rs::compat::tokio::Compat;
-use flexi_logger::{Logger, Criterion, Naming, Cleanup, Duplicate};
-use tokio::process::ChildStdin;
+use nvim_rs::Neovim;
 use parking_lot::RwLock;
-use log::{error,warn};
+pub use rmpv::Value;
+use tokio::process::ChildStdin;
 
 use crate::error_handling::ResultPanicExplanation;
 
@@ -27,12 +27,12 @@ pub trait FromValue {
 impl FromValue for f32 {
     fn from_value(&mut self, value: Value) {
         if value.is_f64() {
-            *self = value.as_f64().unwrap() as f32; 
-        }else if value.is_i64() {
-            *self = value.as_i64().unwrap() as f32; 
-        }else if value.is_u64() {
-            *self = value.as_u64().unwrap() as f32; 
-        }else{
+            *self = value.as_f64().unwrap() as f32;
+        } else if value.is_i64() {
+            *self = value.as_i64().unwrap() as f32;
+        } else if value.is_u64() {
+            *self = value.as_u64().unwrap() as f32;
+        } else {
             error!("Setting expected an f32, but received {:?}", value);
         }
     }
@@ -41,19 +41,18 @@ impl FromValue for f32 {
 impl FromValue for u64 {
     fn from_value(&mut self, value: Value) {
         if value.is_u64() {
-            *self = value.as_u64().unwrap(); 
-        }else{
+            *self = value.as_u64().unwrap();
+        } else {
             error!("Setting expected a u64, but received {:?}", value);
         }
-
     }
 }
 
 impl FromValue for u32 {
     fn from_value(&mut self, value: Value) {
         if value.is_u64() {
-            *self = value.as_u64().unwrap() as u32; 
-        }else{
+            *self = value.as_u64().unwrap() as u32;
+        } else {
             error!("Setting expected a u32, but received {:?}", value);
         }
     }
@@ -62,8 +61,8 @@ impl FromValue for u32 {
 impl FromValue for i32 {
     fn from_value(&mut self, value: Value) {
         if value.is_i64() {
-            *self = value.as_i64().unwrap() as i32; 
-        }else{
+            *self = value.as_i64().unwrap() as i32;
+        } else {
             error!("Setting expected an i32, but received {:?}", value);
         }
     }
@@ -73,10 +72,9 @@ impl FromValue for String {
     fn from_value(&mut self, value: Value) {
         if value.is_str() {
             *self = String::from(value.as_str().unwrap());
-        }else{
+        } else {
             error!("Setting expected a string, but received {:?}", value);
         }
-
     }
 }
 
@@ -84,9 +82,9 @@ impl FromValue for bool {
     fn from_value(&mut self, value: Value) {
         if value.is_bool() {
             *self = value.as_bool().unwrap();
-        }else if value.is_u64() {
+        } else if value.is_u64() {
             *self = value.as_u64().unwrap() != 0;
-        }else{
+        } else {
             error!("Setting expected a string, but received {:?}", value);
         }
     }
@@ -116,8 +114,7 @@ macro_rules! register_nvim_setting {
 
 // Function types to handle settings updates
 type UpdateHandlerFunc = fn(Value);
-type ReaderFunc = fn()->Value;
-
+type ReaderFunc = fn() -> Value;
 
 // The Settings struct acts as a global container where each of Neovide's subsystems can store
 // their own settings. It will also coordinate updates between Neovide and nvim to make sure the
@@ -134,23 +131,28 @@ pub struct Settings {
 }
 
 impl Settings {
-
     fn new() -> Settings {
         let mut log_to_file = false;
-        let neovim_arguments = std::env::args().filter(|arg| {
-            if arg == "--log" {
-                log_to_file = true;
-                false
-            } else {
-                true
-            }
-        }).collect::<Vec<String>>();
+        let neovim_arguments = std::env::args()
+            .filter(|arg| {
+                if arg == "--log" {
+                    log_to_file = true;
+                    false
+                } else {
+                    true
+                }
+            })
+            .collect::<Vec<String>>();
 
         if log_to_file {
             Logger::with_env_or_str("neovide")
                 .duplicate_to_stderr(Duplicate::Error)
                 .log_to_file()
-                .rotate(Criterion::Size(10_000_000), Naming::Timestamps, Cleanup::KeepLogFiles(1))
+                .rotate(
+                    Criterion::Size(10_000_000),
+                    Naming::Timestamps,
+                    Cleanup::KeepLogFiles(1),
+                )
                 .start()
                 .expect("Could not start logger");
         } else {
@@ -159,7 +161,7 @@ impl Settings {
                 .expect("Could not start logger");
         }
 
-        Settings{
+        Settings {
             neovim_arguments,
             settings: RwLock::new(HashMap::new()),
             listeners: RwLock::new(HashMap::new()),
@@ -167,32 +169,45 @@ impl Settings {
         }
     }
 
-    pub fn set_setting_handlers(&self, property_name: &str, update_func: UpdateHandlerFunc, reader_func: ReaderFunc) {
-        self.listeners.write().insert(String::from(property_name), update_func);
-        self.readers.write().insert(String::from(property_name), reader_func);
+    pub fn set_setting_handlers(
+        &self,
+        property_name: &str,
+        update_func: UpdateHandlerFunc,
+        reader_func: ReaderFunc,
+    ) {
+        self.listeners
+            .write()
+            .insert(String::from(property_name), update_func);
+        self.readers
+            .write()
+            .insert(String::from(property_name), reader_func);
     }
-    
-    pub fn set<T: Clone + Send + Sync + 'static >(&self, t: &T) {
-        let type_id : TypeId = TypeId::of::<T>();
-        let t : T = (*t).clone();
+
+    pub fn set<T: Clone + Send + Sync + 'static>(&self, t: &T) {
+        let type_id: TypeId = TypeId::of::<T>();
+        let t: T = (*t).clone();
         self.settings.write().insert(type_id, Box::new(t));
     }
 
     pub fn get<'a, T: Clone + Send + Sync + 'static>(&'a self) -> T {
         let read_lock = self.settings.read();
-        let boxed = &read_lock.get(&TypeId::of::<T>()).expect("Trying to retrieve a settings object that doesn't exist");
-        let value: &T = boxed.downcast_ref::<T>().expect("Attempted to extract a settings object of the wrong type");
+        let boxed = &read_lock
+            .get(&TypeId::of::<T>())
+            .expect("Trying to retrieve a settings object that doesn't exist");
+        let value: &T = boxed
+            .downcast_ref::<T>()
+            .expect("Attempted to extract a settings object of the wrong type");
         (*value).clone()
     }
 
     pub async fn read_initial_values(&self, nvim: &Neovim<Compat<ChildStdin>>) {
-        let keys : Vec<String> = self.listeners.read().keys().cloned().collect();
+        let keys: Vec<String> = self.listeners.read().keys().cloned().collect();
         for name in keys {
             let variable_name = format!("neovide_{}", name.to_string());
             match nvim.get_var(&variable_name).await {
                 Ok(value) => {
                     self.listeners.read().get(&name).unwrap()(value);
-                },
+                }
                 Err(error) => {
                     warn!("Initial value load failed for {}: {}", name, error);
                     let setting = self.readers.read().get(&name).unwrap()();
@@ -203,27 +218,32 @@ impl Settings {
     }
 
     pub async fn setup_changed_listeners(&self, nvim: &Neovim<Compat<ChildStdin>>) {
-        let keys : Vec<String> = self.listeners.read().keys().cloned().collect();
+        let keys: Vec<String> = self.listeners.read().keys().cloned().collect();
         for name in keys {
             let vimscript = format!(
                 concat!(
-                "exe \"",
-                "fun! NeovideNotify{0}Changed(d, k, z)\n",
-                "call rpcnotify(1, 'setting_changed', '{0}', g:neovide_{0})\n",
-                "endf\n",
-                "call dictwatcheradd(g:, 'neovide_{0}', 'NeovideNotify{0}Changed')\"",
-                )
-            , name);
-            nvim.command(&vimscript).await
-                .unwrap_or_explained_panic(&format!("Could not setup setting notifier for {}", name));
+                    "exe \"",
+                    "fun! NeovideNotify{0}Changed(d, k, z)\n",
+                    "call rpcnotify(1, 'setting_changed', '{0}', g:neovide_{0})\n",
+                    "endf\n",
+                    "call dictwatcheradd(g:, 'neovide_{0}', 'NeovideNotify{0}Changed')\"",
+                ),
+                name
+            );
+            nvim.command(&vimscript)
+                .await
+                .unwrap_or_explained_panic(&format!(
+                    "Could not setup setting notifier for {}",
+                    name
+                ));
         }
     }
 
     pub fn handle_changed_notification(&self, arguments: Vec<Value>) {
         let mut arguments = arguments.into_iter();
         let (name, value) = (arguments.next().unwrap(), arguments.next().unwrap());
-           
-        let name: Result<String, _>= name.try_into();
+
+        let name: Result<String, _> = name.try_into();
         let name = name.unwrap();
 
         self.listeners.read().get(&name).unwrap()(value);

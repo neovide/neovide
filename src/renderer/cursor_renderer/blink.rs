@@ -6,13 +6,13 @@ use crate::redraw_scheduler::REDRAW_SCHEDULER;
 pub enum BlinkState {
     Waiting,
     On,
-    Off
+    Off,
 }
 
 pub struct BlinkStatus {
     state: BlinkState,
     last_transition: Instant,
-    previous_cursor: Option<Cursor>
+    previous_cursor: Option<Cursor>,
 }
 
 impl BlinkStatus {
@@ -20,7 +20,7 @@ impl BlinkStatus {
         BlinkStatus {
             state: BlinkState::Waiting,
             last_transition: Instant::now(),
-            previous_cursor: None
+            previous_cursor: None,
         }
     }
 
@@ -33,25 +33,31 @@ impl BlinkStatus {
             } else {
                 self.state = BlinkState::On;
             }
-        } 
+        }
 
-        if new_cursor.blinkwait == Some(0) || 
-            new_cursor.blinkoff == Some(0) ||
-            new_cursor.blinkon == Some(0) {
+        if new_cursor.blinkwait == Some(0)
+            || new_cursor.blinkoff == Some(0)
+            || new_cursor.blinkon == Some(0)
+        {
             return true;
         }
 
         let delay = match self.state {
             BlinkState::Waiting => new_cursor.blinkwait,
             BlinkState::Off => new_cursor.blinkoff,
-            BlinkState::On => new_cursor.blinkon
-        }.filter(|millis| *millis > 0).map(Duration::from_millis);
+            BlinkState::On => new_cursor.blinkon,
+        }
+        .filter(|millis| *millis > 0)
+        .map(Duration::from_millis);
 
-        if delay.map(|delay| self.last_transition + delay < Instant::now()).unwrap_or(false) {
+        if delay
+            .map(|delay| self.last_transition + delay < Instant::now())
+            .unwrap_or(false)
+        {
             self.state = match self.state {
                 BlinkState::Waiting => BlinkState::On,
                 BlinkState::On => BlinkState::Off,
-                BlinkState::Off => BlinkState::On
+                BlinkState::Off => BlinkState::On,
             };
             self.last_transition = Instant::now();
         }
@@ -59,8 +65,9 @@ impl BlinkStatus {
         let scheduled_frame = (match self.state {
             BlinkState::Waiting => new_cursor.blinkwait,
             BlinkState::Off => new_cursor.blinkoff,
-            BlinkState::On => new_cursor.blinkon
-        }).map(|delay| self.last_transition + Duration::from_millis(delay));
+            BlinkState::On => new_cursor.blinkon,
+        })
+        .map(|delay| self.last_transition + Duration::from_millis(delay));
 
         if let Some(scheduled_frame) = scheduled_frame {
             REDRAW_SCHEDULER.schedule(scheduled_frame);
@@ -68,7 +75,7 @@ impl BlinkStatus {
 
         match self.state {
             BlinkState::Waiting | BlinkState::Off => false,
-            BlinkState::On => true
+            BlinkState::On => true,
         }
     }
 }
