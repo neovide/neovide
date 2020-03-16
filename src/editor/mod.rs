@@ -106,7 +106,6 @@ impl Editor {
                 columns,
                 ..
             } => self.scroll_region(top, bottom, left, right, rows, columns),
-            RedrawEvent::WindowClose { .. } => self.grid.clear(),
             _ => {}
         };
     }

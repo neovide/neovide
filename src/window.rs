@@ -1,9 +1,11 @@
+<<<<<<< HEAD
 use std::sync::atomic::Ordering;
+=======
+>>>>>>> a530171... rust fmt
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use log::{info, trace, debug, error};
-use skulpin::{LogicalSize, PhysicalSize};
+use log::{debug, error, info, trace};
 use skulpin::sdl2;
 use skulpin::sdl2::Sdl;
 
@@ -60,7 +62,7 @@ pub struct WindowWrapper {
 }
 
 impl WindowWrapper {
-    pub fn new(context: Option<sdl2::Sdl>) -> WindowWrapper {
+    pub fn new(context: Option<Sdl>) -> WindowWrapper {
         let ctx = match context {
             Some(ctx) => ctx,
             None => sdl2::init().expect("Failed to initialize sdl2"),
@@ -69,7 +71,7 @@ impl WindowWrapper {
         Self::with_context(ctx)
     }
 
-    pub fn with_context(context: sdl2::Sdl) -> WindowWrapper {
+    pub fn with_context(context: Sdl) -> WindowWrapper {
         let video_subsystem = context
             .video()
             .expect("Failed to create sdl video subsystem");
@@ -139,13 +141,13 @@ impl WindowWrapper {
     }
 
     pub fn synchronize_settings(&mut self) {
+<<<<<<< HEAD
         if let Some(mut window) = self.window.take() {
             let editor_title = { EDITOR.lock().title.clone() };
             if self.title != editor_title {
                 self.title = editor_title;
                 window.set_title(&self.title).expect("Could not set title");
             }
-
             let transparency = { SETTINGS.get::<WindowSettings>().transparency };
             if let Ok(opacity) = window.opacity() {
                 if opacity != transparency {
@@ -343,7 +345,7 @@ pub fn initialize_settings() {
     register_nvim_setting!("fullscreen", WindowSettings::fullscreen);
 }
 
-pub fn ui_loop(context: Option<sdl2::Sdl>) {
+pub fn ui_loop(context: Option<Sdl>) {
     let mut window = WindowWrapper::new(context);
 
     info!("Starting window event loop");

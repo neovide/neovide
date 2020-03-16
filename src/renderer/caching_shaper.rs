@@ -86,11 +86,7 @@ pub fn build_collection_by_font_name(
     if let Some(font_name) = font_name {
         let weight = if bold { Weight::BOLD } else { Weight::NORMAL };
 
-        let style = if italic {
-            Style::Italic
-        } else {
-            Style::Normal
-        };
+        let style = if italic { Style::Italic } else { Style::Normal };
 
         let properties = Properties {
             weight,

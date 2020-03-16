@@ -100,7 +100,7 @@ pub fn produce_neovim_keybinding_string(
     let alt = modifiers.contains(Mod::LALTMOD) || modifiers.contains(Mod::RALTMOD);
     let gui = modifiers.contains(Mod::LGUIMOD) || modifiers.contains(Mod::RGUIMOD);
     if let Some(text) = keytext {
-        Some(append_modifiers(&text, false, shift, ctrl, alt, gui))
+        Some(append_modifiers(&text, false, false, ctrl, alt, gui))
     } else if let Some(keycode) = keycode {
         (match SETTINGS.get::<KeyboardSettings>().layout {
             KeyboardLayout::Qwerty => handle_qwerty_layout(keycode, shift, ctrl, alt),
