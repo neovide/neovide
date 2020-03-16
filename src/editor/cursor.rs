@@ -3,13 +3,13 @@ use std::sync::Arc;
 
 use skulpin::skia_safe::Color4f;
 
-use super::style::{Style, Colors};
+use super::style::{Colors, Style};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CursorShape {
     Block,
     Horizontal,
-    Vertical
+    Vertical,
 }
 
 impl CursorShape {
@@ -18,7 +18,7 @@ impl CursorShape {
             "block" => Some(CursorShape::Block),
             "horizontal" => Some(CursorShape::Horizontal),
             "vertical" => Some(CursorShape::Vertical),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -43,7 +43,7 @@ pub struct Cursor {
     pub blinkoff: Option<u64>,
     pub style: Option<Arc<Style>>,
     pub enabled: bool,
-    pub mode_list: Vec<CursorMode>
+    pub mode_list: Vec<CursorMode>,
 }
 
 impl Cursor {
@@ -57,13 +57,17 @@ impl Cursor {
             blinkon: None,
             blinkoff: None,
             enabled: true,
-            mode_list: Vec::new()
+            mode_list: Vec::new(),
         }
     }
 
     pub fn foreground(&self, default_colors: &Colors) -> Color4f {
         if let Some(style) = &self.style {
-            style.colors.foreground.clone().unwrap_or_else(||default_colors.background.clone().unwrap())
+            style
+                .colors
+                .foreground
+                .clone()
+                .unwrap_or_else(|| default_colors.background.clone().unwrap())
         } else {
             default_colors.background.clone().unwrap()
         }
@@ -71,22 +75,32 @@ impl Cursor {
 
     pub fn background(&self, default_colors: &Colors) -> Color4f {
         if let Some(style) = &self.style {
-            style.colors.background.clone().unwrap_or_else(||default_colors.foreground.clone().unwrap())
+            style
+                .colors
+                .background
+                .clone()
+                .unwrap_or_else(|| default_colors.foreground.clone().unwrap())
         } else {
             default_colors.foreground.clone().unwrap()
         }
     }
 
     pub fn change_mode(&mut self, mode_index: u64, styles: &HashMap<u64, Arc<Style>>) {
-        if let Some(CursorMode { shape, style_id, cell_percentage, blinkwait, blinkon, blinkoff }) = self.mode_list.get(mode_index as usize) {
+        if let Some(CursorMode {
+            shape,
+            style_id,
+            cell_percentage,
+            blinkwait,
+            blinkon,
+            blinkoff,
+        }) = self.mode_list.get(mode_index as usize)
+        {
             if let Some(shape) = shape {
                 self.shape = shape.clone();
             }
 
             if let Some(style_id) = style_id {
-                self.style = styles
-                    .get(style_id)
-                    .cloned();
+                self.style = styles.get(style_id).cloned();
             }
 
             self.cell_percentage = *cell_percentage;

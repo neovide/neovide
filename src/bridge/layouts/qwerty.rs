@@ -2,7 +2,12 @@ use super::unsupported_key;
 
 use skulpin::sdl2::keyboard::Keycode;
 
-pub fn handle_qwerty_layout(keycode: Keycode, shift: bool, ctrl: bool, alt: bool) -> Option<(&'static str, bool, bool, bool, bool)> {
+pub fn handle_qwerty_layout(
+    keycode: Keycode,
+    shift: bool,
+    ctrl: bool,
+    alt: bool,
+) -> Option<(&'static str, bool, bool, bool, bool)> {
     match (keycode, shift, ctrl, alt) {
         (Keycode::Backspace, shift, ctrl, alt) => Some(("BS", true, shift, ctrl, alt)),
         (Keycode::Tab, shift, ctrl, alt) => Some(("Tab", true, shift, ctrl, alt)),
@@ -255,10 +260,10 @@ pub fn handle_qwerty_layout(keycode: Keycode, shift: bool, ctrl: bool, alt: bool
         (Keycode::BrightnessDown, _, _, _) => unsupported_key(Keycode::BrightnessDown),
         (Keycode::BrightnessUp, _, _, _) => unsupported_key(Keycode::BrightnessUp),
         (Keycode::DisplaySwitch, _, _, _) => unsupported_key(Keycode::DisplaySwitch),
-        (Keycode::KbdIllumToggle, _, _, _) =>unsupported_key(Keycode::KbdIllumToggle),
+        (Keycode::KbdIllumToggle, _, _, _) => unsupported_key(Keycode::KbdIllumToggle),
         (Keycode::KbdIllumDown, _, _, _) => unsupported_key(Keycode::KbdIllumDown),
         (Keycode::KbdIllumUp, _, _, _) => unsupported_key(Keycode::KbdIllumUp),
         (Keycode::Eject, _, _, _) => unsupported_key(Keycode::Eject),
-        (Keycode::Sleep, _, _, _) => unsupported_key(Keycode::Sleep)
+        (Keycode::Sleep, _, _, _) => unsupported_key(Keycode::Sleep),
     }
 }

@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use log::trace;
+use std::sync::Arc;
 
 use super::style::Style;
 
@@ -55,11 +55,12 @@ impl CharacterGrid {
     }
 
     pub fn get_cell(&self, x: u64, y: u64) -> Option<&GridCell> {
-        self.cell_index(x,y).map(|idx| &self.characters[idx])
+        self.cell_index(x, y).map(|idx| &self.characters[idx])
     }
-    
+
     pub fn get_cell_mut(&mut self, x: u64, y: u64) -> Option<&mut GridCell> {
-        self.cell_index(x,y).map(move |idx| &mut self.characters[idx])
+        self.cell_index(x, y)
+            .map(move |idx| &mut self.characters[idx])
     }
 
     pub fn is_dirty_cell(&self, x: u64, y: u64) -> bool {
@@ -78,13 +79,13 @@ impl CharacterGrid {
 
     pub fn set_dirty_all(&mut self, value: bool) {
         self.dirty.clear();
-        self.dirty.resize_with((self.width * self.height) as usize, || value);
+        self.dirty
+            .resize_with((self.width * self.height) as usize, || value);
     }
 
-    pub fn rows(&self) -> impl Iterator<Item=&[GridCell]> {
-        (0..self.height)
-            .map(move |row| {
-                &self.characters[(row * self.width) as usize..((row + 1) * self.width) as usize]
-            })
+    pub fn rows(&self) -> impl Iterator<Item = &[GridCell]> {
+        (0..self.height).map(move |row| {
+            &self.characters[(row * self.width) as usize..((row + 1) * self.width) as usize]
+        })
     }
 }

@@ -15,8 +15,8 @@ impl<T, E: ToString> ResultPanicExplanation<T, E> for Result<T, E> {
             Err(error) => {
                 let explanation = format!("{}: {}", explanation, error.to_string());
                 show_error(&explanation);
-            },
-            Ok(content) => content
+            }
+            Ok(content) => content,
         }
     }
 }
@@ -30,8 +30,8 @@ impl<T> OptionPanicExplanation<T> for Option<T> {
         match self {
             None => {
                 show_error(explanation);
-            },
-            Some(content) => content
+            }
+            Some(content) => content,
         }
     }
 }
