@@ -12,8 +12,8 @@ jobs:
 
     - name: "Check formatting"
       run: |
-      cargo install rustfmt
-      cargo fmt --all -- --check
+        cargo install rustfmt
+        cargo fmt --all -- --check
 
     - name: Build
       run: |
