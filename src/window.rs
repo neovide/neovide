@@ -1,21 +1,23 @@
+use std::sync::atomic::Ordering;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
 use log::{debug, error, info, trace};
 use skulpin::sdl2;
+use skulpin::sdl2::Sdl;
+use skulpin::{LogicalSize,PhysicalSize};
+
 use skulpin::sdl2::event::{Event, WindowEvent};
 use skulpin::sdl2::keyboard::Keycode;
 use skulpin::sdl2::video::{FullscreenType, Window};
-use skulpin::sdl2::Sdl;
 use skulpin::{dpis, CoordinateSystem, PresentMode, Renderer as SkulpinRenderer, RendererBuilder};
-use skulpin::{LogicalSize, PhysicalSize};
 
 use crate::bridge::{produce_neovim_keybinding_string, UiCommand, BRIDGE};
 use crate::editor::EDITOR;
+use crate::get_initial_dimensions;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::renderer::Renderer;
 use crate::settings::*;
-use crate::INITIAL_DIMENSIONS;
 
 #[derive(RustEmbed)]
 #[folder = "assets/"]
@@ -42,29 +44,36 @@ fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer) {
     }
 }
 
-struct WindowWrapper {
-    context: Sdl,
-    window: Window,
-    skulpin_renderer: SkulpinRenderer,
-    renderer: Renderer,
-    mouse_down: bool,
-    mouse_position: LogicalSize,
-    title: String,
-    previous_size: LogicalSize,
-    previous_dpis: (f32, f32),
-    transparency: f32,
-    fullscreen: bool,
+pub struct WindowWrapper {
+    pub context: Sdl,
+    pub window: Option<Window>,
+    pub skulpin_renderer: SkulpinRenderer,
+    pub renderer: Renderer,
+    pub mouse_down: bool,
+    pub mouse_position: LogicalSize,
+    pub title: String,
+    pub previous_size: LogicalSize,
+    pub previous_dpis: (f32, f32),
+    pub transparency: f32,
+    pub fullscreen: bool,
 }
 
 impl WindowWrapper {
-    pub fn new() -> WindowWrapper {
-        let context = sdl2::init().expect("Failed to initialize sdl2");
+    pub fn new(context: Option<Sdl>) -> WindowWrapper {
+        let ctx = match context {
+            Some(ctx) => ctx,
+            None => sdl2::init().expect("Failed to initialize sdl2"),
+        };
+
+        Self::with_context(ctx)
+    }
+
+    pub fn with_context(context: Sdl) -> WindowWrapper {
         let video_subsystem = context
             .video()
             .expect("Failed to create sdl video subsystem");
-        video_subsystem.text_input().start();
 
-        let (width, height) = INITIAL_DIMENSIONS;
+        let (width, height) = get_initial_dimensions();
 
         let renderer = Renderer::new();
         let logical_size = LogicalSize {
@@ -112,7 +121,7 @@ impl WindowWrapper {
 
         WindowWrapper {
             context,
-            window,
+            window: Some(window),
             skulpin_renderer,
             renderer,
             mouse_down: false,
@@ -129,30 +138,30 @@ impl WindowWrapper {
     }
 
     pub fn synchronize_settings(&mut self) {
-        let editor_title = { EDITOR.lock().title.clone() };
-        if self.title != editor_title {
-            self.title = editor_title;
-            self.window
-                .set_title(&self.title)
-                .expect("Could not set title");
-        }
-
-        let transparency = { SETTINGS.get::<WindowSettings>().transparency };
-        if let Ok(opacity) = self.window.opacity() {
-            if opacity != transparency {
-                self.window.set_opacity(transparency).ok();
-                self.transparency = transparency;
+        if let Some(mut window) = self.window.take() {
+            let editor_title = { EDITOR.lock().title.clone() };
+            if self.title != editor_title {
+                self.title = editor_title;
+                window.set_title(&self.title).expect("Could not set title");
             }
-        }
+            let transparency = { SETTINGS.get::<WindowSettings>().transparency };
+            if let Ok(opacity) = window.opacity() {
+                if opacity != transparency {
+                    window.set_opacity(transparency).ok();
+                    self.transparency = transparency;
+                }
+            }
 
-        let fullscreen = { SETTINGS.get::<WindowSettings>().fullscreen };
-        if self.fullscreen != fullscreen {
-            let state = match fullscreen {
-                true => FullscreenType::Desktop,
-                false => FullscreenType::Off,
-            };
-            self.window.set_fullscreen(state).ok();
-            self.fullscreen = fullscreen;
+            let fullscreen = { SETTINGS.get::<WindowSettings>().fullscreen };
+            if self.fullscreen != fullscreen {
+                let state = match fullscreen {
+                    true => FullscreenType::Desktop,
+                    false => FullscreenType::Off,
+                };
+                window.set_fullscreen(state).ok();
+                self.fullscreen = fullscreen;
+            }
+            self.window = Some(window);
         }
     }
 
@@ -175,20 +184,22 @@ impl WindowWrapper {
     }
 
     pub fn handle_pointer_motion(&mut self, x: i32, y: i32) {
-        let previous_position = self.mouse_position;
-        if let Ok(new_mouse_position) = LogicalSize::from_physical_size_tuple(
-            (
-                (x as f32 / self.renderer.font_width) as u32,
-                (y as f32 / self.renderer.font_height) as u32,
-            ),
-            &self.window,
-        ) {
-            self.mouse_position = new_mouse_position;
-            if self.mouse_down && previous_position != self.mouse_position {
-                BRIDGE.queue_command(UiCommand::Drag(
-                    self.mouse_position.width,
-                    self.mouse_position.height,
-                ));
+        if let Some(window) = &self.window {
+            let previous_position = self.mouse_position;
+            if let Ok(new_mouse_position) = LogicalSize::from_physical_size_tuple(
+                (
+                    (x as f32 / self.renderer.font_width) as u32,
+                    (y as f32 / self.renderer.font_height) as u32,
+                ),
+                &window,
+            ) {
+                self.mouse_position = new_mouse_position;
+                if self.mouse_down && previous_position != self.mouse_position {
+                    BRIDGE.queue_command(UiCommand::Drag(
+                        self.mouse_position.width,
+                        self.mouse_position.height,
+                    ));
+                }
             }
         }
     }
@@ -251,52 +262,62 @@ impl WindowWrapper {
     }
 
     pub fn draw_frame(&mut self) -> bool {
-        if let Ok(new_size) = LogicalSize::new(&self.window) {
-            if self.previous_size != new_size {
-                handle_new_grid_size(new_size, &self.renderer);
-                self.previous_size = new_size;
-            }
+        if !BRIDGE.running.load(Ordering::Relaxed) {
+            self.window = None;
+            return false;
         }
 
-        if let Ok(new_dpis) = dpis(&self.window) {
-            if self.previous_dpis != new_dpis {
-                let physical_size = PhysicalSize::new(&self.window);
-                self.window
-                    .set_size(
-                        (physical_size.width as f32 * new_dpis.0 / self.previous_dpis.0) as u32,
-                        (physical_size.height as f32 * new_dpis.1 / self.previous_dpis.1) as u32,
-                    )
-                    .unwrap();
-                self.previous_dpis = new_dpis;
+        if let Some(mut window) = self.window.take() {
+            if let Ok(new_size) = LogicalSize::new(&window) {
+                if self.previous_size != new_size {
+                    handle_new_grid_size(new_size, &self.renderer);
+                    self.previous_size = new_size;
+                }
             }
-        }
 
-        debug!("Render Triggered");
-        let current_size = self.previous_size;
-        if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
-            let renderer = &mut self.renderer;
-            if self
-                .skulpin_renderer
-                .draw(&self.window, |canvas, coordinate_system_helper| {
-                    let dt = 1.0 / (SETTINGS.get::<WindowSettings>().refresh_rate as f32);
-
-                    if renderer.draw(canvas, coordinate_system_helper, dt) {
-                        handle_new_grid_size(current_size, &renderer)
-                    }
-                })
-                .is_err()
-            {
-                error!("Render failed. Closing");
-                return false;
+            if let Ok(new_dpis) = dpis(&window) {
+                if self.previous_dpis != new_dpis && cfg!(target_os = "windows") {
+                    let physical_size = PhysicalSize::new(&window);
+                    window
+                        .set_size(
+                            (physical_size.width as f32 * new_dpis.0 / self.previous_dpis.0) as u32,
+                            (physical_size.height as f32 * new_dpis.1 / self.previous_dpis.1)
+                                as u32,
+                        )
+                        .unwrap();
+                    self.previous_dpis = new_dpis;
+                }
             }
+
+            debug!("Render Triggered");
+            let current_size = self.previous_size;
+            if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
+                let renderer = &mut self.renderer;
+                if self
+                    .skulpin_renderer
+                    .draw(&window, |canvas, coordinate_system_helper| {
+                        let dt = 1.0 / (SETTINGS.get::<WindowSettings>().refresh_rate as f32);
+
+                        if renderer.draw(canvas, coordinate_system_helper, dt) {
+                            handle_new_grid_size(current_size, &renderer)
+                        }
+                    })
+                    .is_err()
+                {
+                    error!("Render failed. Closing");
+                    return false;
+                }
+            }
+            self.window = Some(window);
+            return true;
         }
-        return true;
+        return false;
     }
 }
 
 #[derive(Clone)]
-struct WindowSettings {
-    refresh_rate: u64,
+pub struct WindowSettings {
+    pub refresh_rate: u64,
     transparency: f32,
     no_idle: bool,
     fullscreen: bool,
@@ -320,8 +341,8 @@ pub fn initialize_settings() {
     register_nvim_setting!("fullscreen", WindowSettings::fullscreen);
 }
 
-pub fn ui_loop() {
-    let mut window = WindowWrapper::new();
+pub fn ui_loop(context: Option<Sdl>) {
+    let mut window = WindowWrapper::new(context);
 
     info!("Starting window event loop");
     let mut event_pump = window
@@ -382,4 +403,5 @@ pub fn ui_loop() {
             sleep(frame_length - elapsed);
         }
     }
+    std::process::exit(0);
 }

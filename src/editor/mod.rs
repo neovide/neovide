@@ -11,11 +11,12 @@ use skulpin::skia_safe::colors;
 use unicode_segmentation::UnicodeSegmentation;
 
 use crate::bridge::{GridLineCell, GuiOption, RedrawEvent};
-use crate::redraw_scheduler::REDRAW_SCHEDULER;
-use crate::INITIAL_DIMENSIONS;
 pub use cursor::{Cursor, CursorMode, CursorShape};
 pub use grid::CharacterGrid;
 pub use style::{Colors, Style};
+
+use crate::get_initial_dimensions;
+use crate::redraw_scheduler::REDRAW_SCHEDULER;
 
 lazy_static! {
     pub static ref EDITOR: Arc<Mutex<Editor>> = Arc::new(Mutex::new(Editor::new()));
@@ -43,7 +44,7 @@ pub struct Editor {
 impl Editor {
     pub fn new() -> Editor {
         let mut editor = Editor {
-            grid: CharacterGrid::new(INITIAL_DIMENSIONS),
+            grid: CharacterGrid::new(get_initial_dimensions()),
             title: "Neovide".to_string(),
             font_name: None,
             font_size: None,
