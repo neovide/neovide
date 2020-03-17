@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 use log::{debug, error, info, trace};
 use skulpin::sdl2;
 use skulpin::sdl2::Sdl;
-use skulpin::{LogicalSize,PhysicalSize};
+use skulpin::{LogicalSize, PhysicalSize};
 
 use skulpin::sdl2::event::{Event, WindowEvent};
 use skulpin::sdl2::keyboard::Keycode;
