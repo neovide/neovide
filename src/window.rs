@@ -56,6 +56,48 @@ struct WindowWrapper {
     fullscreen: bool,
 }
 
+pub fn window_geometry() -> Result<(u64, u64), String> {
+    let prefix = "--geometry=";
+
+    std::env::args()
+        .filter(|arg| arg.starts_with(prefix))
+        .next()
+        .map_or(Ok(INITIAL_DIMENSIONS), |arg| {
+            let input = &arg[prefix.len()..];
+            let invalid_parse_err = format!(
+                "Invalid geometry: {}\nValid format: <width>x<height>",
+                input
+            );
+
+            input
+                .split('x')
+                .map(|dimension| {
+                    dimension
+                        .parse::<u64>()
+                        .or(Err(invalid_parse_err.as_str()))
+                        .and_then(|dimension| {
+                            if dimension > 0 {
+                                Ok(dimension)
+                            } else {
+                                Err("Invalid geometry: Window dimensions should be greater than 0.")
+                            }
+                        })
+                })
+                .collect::<Result<Vec<_>, &str>>()
+                .and_then(|dimensions| {
+                    if let [width, height] = dimensions[..] {
+                        Ok((width, height))
+                    } else {
+                        Err(invalid_parse_err.as_str())
+                    }
+                })
+                .map_err(|msg| msg.to_owned())
+        })
+}
+pub fn window_geometry_or_default() -> (u64, u64) {
+    window_geometry().unwrap_or(INITIAL_DIMENSIONS)
+}
+
 impl WindowWrapper {
     pub fn new() -> WindowWrapper {
         let context = sdl2::init().expect("Failed to initialize sdl2");
@@ -64,7 +106,7 @@ impl WindowWrapper {
             .expect("Failed to create sdl video subsystem");
         video_subsystem.text_input().start();
 
-        let (width, height) = INITIAL_DIMENSIONS;
+        let (width, height) = window_geometry_or_default();
 
         let renderer = Renderer::new();
         let logical_size = LogicalSize {

@@ -12,7 +12,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 use crate::bridge::{GridLineCell, GuiOption, RedrawEvent};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
-use crate::INITIAL_DIMENSIONS;
+use crate::window::window_geometry_or_default;
 pub use cursor::{Cursor, CursorMode, CursorShape};
 pub use grid::CharacterGrid;
 pub use style::{Colors, Style};
@@ -43,7 +43,7 @@ pub struct Editor {
 impl Editor {
     pub fn new() -> Editor {
         let mut editor = Editor {
-            grid: CharacterGrid::new(INITIAL_DIMENSIONS),
+            grid: CharacterGrid::new(window_geometry_or_default()),
             title: "Neovide".to_string(),
             font_name: None,
             font_size: None,

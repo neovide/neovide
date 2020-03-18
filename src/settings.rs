@@ -138,6 +138,8 @@ impl Settings {
                 if arg == "--log" {
                     log_to_file = true;
                     false
+                } else if arg.starts_with("--geometry=") {
+                    false
                 } else {
                     true
                 }

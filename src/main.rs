@@ -20,11 +20,17 @@ extern crate lazy_static;
 use lazy_static::initialize;
 
 use bridge::BRIDGE;
+use std::process;
 use window::ui_loop;
+use window::window_geometry;
 
 pub const INITIAL_DIMENSIONS: (u64, u64) = (100, 50);
 
 fn main() {
+    if let Err(err) = window_geometry() {
+        eprintln!("{}", err);
+        process::exit(1);
+    };
     window::initialize_settings();
     redraw_scheduler::initialize_settings();
     renderer::cursor_renderer::initialize_settings();
