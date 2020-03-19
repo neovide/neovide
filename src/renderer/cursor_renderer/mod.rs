@@ -21,6 +21,7 @@ const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.
 
 #[derive(Clone)]
 pub struct CursorSettings {
+    antialiasing: bool,
     animation_length: f32,
     trail_size: f32,
     vfx_mode: cursor_vfx::VfxMode,
@@ -34,6 +35,7 @@ pub struct CursorSettings {
 
 pub fn initialize_settings() {
     SETTINGS.set(&CursorSettings {
+        antialiasing: true,
         animation_length: 0.13,
         trail_size: 0.7,
         vfx_mode: cursor_vfx::VfxMode::Disabled,
@@ -45,6 +47,7 @@ pub fn initialize_settings() {
         vfx_particle_curl: 1.0,
     });
 
+    register_nvim_setting!("cursor_antialiasing", CursorSettings::antialiasing);
     register_nvim_setting!("cursor_animation_length", CursorSettings::animation_length);
     register_nvim_setting!("cursor_trail_size", CursorSettings::trail_size);
     register_nvim_setting!("cursor_vfx_mode", CursorSettings::vfx_mode);
@@ -246,7 +249,7 @@ impl CursorRenderer {
         }
 
         let mut paint = Paint::new(skulpin::skia_safe::colors::WHITE, None);
-        paint.set_anti_alias(true);
+        paint.set_anti_alias(settings.antialiasing);
 
         self.previous_position = {
             let editor = EDITOR.lock();
