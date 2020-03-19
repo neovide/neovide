@@ -132,7 +132,7 @@ Note: Neovide has been successfully built on other destros but this reportedly w
 
 5. Build
 
-    `~/.cargo/bin/cargo build --release`
+    `cd neovide && ~/.cargo/bin/cargo build --release`
 
 6. Copy `./target/release/neovide` to a known location and enjoy.
 
