@@ -17,7 +17,7 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 use crate::error_handling::ResultPanicExplanation;
 use crate::settings::*;
-use crate::INITIAL_DIMENSIONS;
+use crate::window::window_geometry_or_default;
 pub use events::*;
 use handler::NeovimHandler;
 pub use layouts::*;
@@ -58,7 +58,7 @@ async fn drain(receiver: &mut UnboundedReceiver<UiCommand>) -> Option<Vec<UiComm
 }
 
 async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
-    let (width, height) = INITIAL_DIMENSIONS;
+    let (width, height) = window_geometry_or_default();
     let (mut nvim, io_handler, _) =
         create::new_child_cmd(&mut create_nvim_command(), NeovimHandler())
             .await
