@@ -121,6 +121,9 @@ Note: Neovide has been successfully built on other destros but this reportedly w
     sudo apt-get update -y
     sudo apt-get install -y vulkan-sdk
     ```
+    
+    Alternatively if you are running an amd graphics card you may have more success by installing amdvlk.
+    https://github.com/Kethku/neovide/issues/209
 
 3. Install Rust
 
