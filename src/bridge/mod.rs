@@ -32,8 +32,27 @@ fn set_windows_creation_flags(cmd: &mut Command) {
     cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
 }
 
+#[cfg(target_os = "windows")]
+fn build_cmd() -> Command {
+    if std::env::args()
+        .collect::<Vec<String>>()
+        .contains(&String::from("--wsl"))
+    {
+        let mut cmd = Command::new("wsl");
+        cmd.arg("nvim");
+        cmd
+    } else {
+        Command::new("nvim")
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn build_cmd() -> Command {
+    Command::new("nvim")
+}
+
 fn create_nvim_command() -> Command {
-    let mut cmd = Command::new("nvim");
+    let mut cmd = build_cmd();
 
     cmd.arg("--embed")
         .args(SETTINGS.neovim_arguments.iter().skip(1))

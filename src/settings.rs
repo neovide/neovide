@@ -140,6 +140,8 @@ impl Settings {
                     false
                 } else if arg.starts_with("--geometry=") {
                     false
+                } else if arg == "--wsl" {
+                    false
                 } else {
                     true
                 }
