@@ -6,6 +6,7 @@ mod handler;
 mod ui_commands;
 
 use std::process::Stdio;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use log::{error, info, trace};
@@ -94,7 +95,7 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
             }
             Ok(Ok(())) => {}
         };
-        std::process::exit(0);
+        BRIDGE.running.store(false, Ordering::Relaxed);
     });
 
     if let Ok(Value::Integer(correct_version)) = nvim.eval("has(\"nvim-0.4\")").await {
@@ -131,6 +132,9 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
     tokio::spawn(async move {
         info!("UiCommand processor started");
         while let Some(commands) = drain(&mut receiver).await {
+            if !BRIDGE.running.load(Ordering::Relaxed) {
+                return;
+            }
             let (resize_list, other_commands): (Vec<UiCommand>, Vec<UiCommand>) = commands
                 .into_iter()
                 .partition(|command| command.is_resize());
@@ -143,6 +147,9 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
             {
                 let input_nvim = input_nvim.clone();
                 tokio::spawn(async move {
+                    if !BRIDGE.running.load(Ordering::Relaxed) {
+                        return;
+                    }
                     trace!("Executing UiCommand: {:?}", &command);
                     command.execute(&input_nvim).await;
                 });
@@ -161,6 +168,7 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
 pub struct Bridge {
     _runtime: Runtime, // Necessary to keep runtime running
     sender: UnboundedSender<UiCommand>,
+    pub running: AtomicBool,
 }
 
 impl Bridge {
@@ -171,14 +179,17 @@ impl Bridge {
         runtime.spawn(async move {
             start_process(receiver).await;
         });
-
         Bridge {
             _runtime: runtime,
             sender,
+            running: AtomicBool::new(true),
         }
     }
 
     pub fn queue_command(&self, command: UiCommand) {
+        if !BRIDGE.running.load(Ordering::Relaxed) {
+            return;
+        }
         trace!("UiCommand queued: {:?}", &command);
         self.sender.send(command).unwrap_or_explained_panic(
             "Could not send UI command from the window system to the neovim process.",
