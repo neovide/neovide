@@ -1,2 +1,3 @@
 install: cargo build --release; rm c:/dev/tools/neovide.* -ErrorAction SilentlyContinue; cp ./target/release/neovide.exe c:/dev/tools/neovide.exe
 check: cargo fmt --all -- --check
+code: code . -g {0}:{1}:{2}
