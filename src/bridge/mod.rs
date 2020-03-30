@@ -33,26 +33,48 @@ fn set_windows_creation_flags(cmd: &mut Command) {
 }
 
 #[cfg(target_os = "windows")]
-fn build_cmd() -> Command {
+fn platform_build_nvim_cmd(bin: &str) -> Command {
     if std::env::args()
         .collect::<Vec<String>>()
         .contains(&String::from("--wsl"))
     {
         let mut cmd = Command::new("wsl");
-        cmd.arg("nvim");
+        cmd.arg(bin);
         cmd
     } else {
-        Command::new("nvim")
+        Command::new(bin)
     }
 }
 
-#[cfg(not(target_os = "windows"))]
-fn build_cmd() -> Command {
-    Command::new("nvim")
+#[cfg(target_os = "macos")]
+fn platform_build_nvim_cmd(bin: &str) -> Command {
+    use std::path::Path;
+
+    let default_path = "/usr/local/bin/nvim";
+    if Path::new(&bin).exists() {
+        Command::new(bin)
+    } else {
+        Command::new(default_path)
+    }
 }
 
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+fn platform_build_nvim_cmd(bin: &str) -> Command {
+    Command::new(bin)
+}
+
+
+fn build_nvim_cmd() -> Command {
+    let key = "NEOVIM_BIN";
+    match std::env::var_os(key) {
+        Some(path) => platform_build_nvim_cmd(&path.to_string_lossy()),
+        None => platform_build_nvim_cmd("nvim"),
+    }
+}
+
+
 fn create_nvim_command() -> Command {
-    let mut cmd = build_cmd();
+    let mut cmd = build_nvim_cmd();
 
     cmd.arg("--embed")
         .args(SETTINGS.neovim_arguments.iter().skip(1))
