@@ -63,7 +63,6 @@ fn platform_build_nvim_cmd(bin: &str) -> Command {
     Command::new(bin)
 }
 
-
 fn build_nvim_cmd() -> Command {
     let key = "NEOVIM_BIN";
     match std::env::var_os(key) {
@@ -71,7 +70,6 @@ fn build_nvim_cmd() -> Command {
         None => platform_build_nvim_cmd("nvim"),
     }
 }
-
 
 fn create_nvim_command() -> Command {
     let mut cmd = build_nvim_cmd();
