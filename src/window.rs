@@ -38,7 +38,6 @@ fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer) {
     if new_size.width > 0 && new_size.height > 0 {
         let new_width = ((new_size.width + 1) as f32 / renderer.font_width) as u32;
         let new_height = ((new_size.height + 1) as f32 / renderer.font_height) as u32;
-        // Add 1 here to make sure resizing doesn't change the grid size on startup
         BRIDGE.queue_command(UiCommand::Resize {
             width: new_width,
             height: new_height,
@@ -46,7 +45,6 @@ fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer) {
     }
 }
 
-// removed window and dpi
 struct WindowWrapper {
     context: Sdl,
     window: sdl2::video::Window,
@@ -223,18 +221,12 @@ impl WindowWrapper {
 
     pub fn handle_pointer_motion(&mut self, x: i32, y: i32) {
         let previous_position = self.mouse_position;
-        // TODO : This is just so that it compiles
         let physical_size = PhysicalSize::new(
             (x as f32 / self.renderer.font_width) as u32,
             (y as f32 / self.renderer.font_height) as u32,
         );
-        // if let Ok(new_mouse_position) = physical_size.to_logical(0.5) {
-        // LogicalSize::from_physical_size_tuple( (
-        //     (x as f32 / self.renderer.font_width) as u32,
-        //     (y as f32 / self.renderer.font_height) as u32,
-        // ),
-        // &self.window,
-        // {
+
+        // TODO : not sure this is the best way to get mouse position
         self.mouse_position = physical_size.to_logical(1.0);
         if self.mouse_down && previous_position != self.mouse_position {
             BRIDGE.queue_command(UiCommand::Drag(
@@ -242,7 +234,6 @@ impl WindowWrapper {
                 self.mouse_position.height,
             ));
         }
-        // }
     }
 
     pub fn handle_pointer_down(&mut self) {
@@ -305,25 +296,10 @@ impl WindowWrapper {
     pub fn draw_frame(&mut self) -> bool {
         let sdl_window = Sdl2Window::new(&self.window);
         let new_size = sdl_window.logical_size();
-        // if let Ok(new_size) = sdl_window.logical_size() {
         if self.previous_size != new_size {
             handle_new_grid_size(new_size, &self.renderer);
             self.previous_size = new_size;
         }
-        // }
-
-        // if let Ok(new_dpis) = dpis(&self.window) {
-        //     if self.previous_dpis != new_dpis {
-        //         let physical_size = PhysicalSize::new(&self.window);
-        //         self.window
-        //             .set_size(
-        //                 (physical_size.width as f32 * new_dpis.0 / self.previous_dpis.0) as u32,
-        //                 (physical_size.height as f32 * new_dpis.1 / self.previous_dpis.1) as u32,
-        //             )
-        //             .unwrap();
-        //         self.previous_dpis = new_dpis;
-        //     }
-        // }
 
         debug!("Render Triggered");
         let current_size = self.previous_size;
