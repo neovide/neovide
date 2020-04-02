@@ -1,3 +1,4 @@
+use std::sync::atomic::Ordering;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
@@ -293,6 +294,10 @@ impl WindowWrapper {
     }
 
     pub fn draw_frame(&mut self) -> bool {
+        if !BRIDGE.running.load(Ordering::Relaxed) {
+            return false;
+        }
+
         if let Ok(new_size) = LogicalSize::new(&self.window) {
             if self.previous_size != new_size {
                 handle_new_grid_size(new_size, &self.renderer);
@@ -420,8 +425,11 @@ pub fn ui_loop() {
         let elapsed = frame_start.elapsed();
         let refresh_rate = { SETTINGS.get::<WindowSettings>().refresh_rate as f32 };
         let frame_length = Duration::from_secs_f32(1.0 / refresh_rate);
+
         if elapsed < frame_length {
             sleep(frame_length - elapsed);
         }
     }
+
+    std::process::exit(0);
 }
