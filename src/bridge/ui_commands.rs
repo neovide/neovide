@@ -21,7 +21,7 @@ pub enum UiCommand {
     Drag(u32, u32),
     FocusLost,
     FocusGained,
-    Quit
+    Quit,
 }
 
 impl UiCommand {
@@ -62,8 +62,7 @@ impl UiCommand {
                 .await
                 .expect("Focus Gained Failed"),
             UiCommand::Quit => {
-                nvim.command("qa!")
-                    .await.ok(); // Ignoring result as it won't succeed since the app closed.
+                nvim.command("qa!").await.ok(); // Ignoring result as it won't succeed since the app closed.
             }
         }
     }

@@ -391,7 +391,10 @@ pub fn ui_loop() {
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit { .. } => window.handle_quit(),
-                Event::KeyDown { keycode: received_keycode, .. } => {
+                Event::KeyDown {
+                    keycode: received_keycode,
+                    ..
+                } => {
                     keycode = received_keycode;
                 }
                 Event::TextInput { text, .. } => keytext = Some(text),
