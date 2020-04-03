@@ -199,6 +199,10 @@ impl WindowWrapper {
         }
     }
 
+    pub fn handle_quit(&mut self) {
+        BRIDGE.queue_command(UiCommand::Quit);
+    }
+
     pub fn handle_keyboard_input(&mut self, keycode: Option<Keycode>, text: Option<String>) {
         let modifiers = self.context.keyboard().mod_state();
 
@@ -375,7 +379,7 @@ pub fn ui_loop() {
         .context
         .event_pump()
         .expect("Could not create sdl event pump");
-    'running: loop {
+    loop {
         let frame_start = Instant::now();
 
         window.synchronize_settings();
@@ -386,12 +390,12 @@ pub fn ui_loop() {
 
         for event in event_pump.poll_iter() {
             match event {
-                Event::Quit { .. } => break 'running,
+                Event::Quit { .. } => window.handle_quit(),
                 Event::KeyDown {
-                    keycode: Some(received_keycode),
+                    keycode: received_keycode,
                     ..
                 } => {
-                    keycode = Some(received_keycode);
+                    keycode = received_keycode;
                 }
                 Event::TextInput { text, .. } => keytext = Some(text),
                 Event::MouseMotion { x, y, .. } => window.handle_pointer_motion(x, y),
