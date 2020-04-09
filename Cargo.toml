@@ -40,6 +40,8 @@ winres = "0.1.11"
 
 [profile.release]
 debug = true
+lto = true
+incremental = true
 
 [package.metadata.bundle]
 name = "Neovide"
