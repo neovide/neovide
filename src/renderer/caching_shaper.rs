@@ -16,12 +16,14 @@ use log::{info, trace, warn};
 const STANDARD_CHARACTER_STRING: &str =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
 
-const MONOSPACE_FONT: &str = "Fira Code Regular Nerd Font Complete.otf";
-const MONOSPACE_BOLD_FONT: &str = "Fira Code Bold Nerd Font Complete.otf";
-const SYMBOL_FONT: &str = "DejaVuSansMono.ttf";
-const EMOJI_FONT: &str = "NotoColorEmoji.ttf";
-const WIDE_FONT: &str = "NotoSansMonoCJKjp-Regular.otf";
-const WIDE_BOLD_FONT: &str = "NotoSansMonoCJKjp-Bold.otf";
+#[cfg(target_os = "windows")]
+const SYSTEM_DEFAULT_FONT: &str = "Consolas";
+
+#[cfg(target_os = "linux")]
+const SYSTEM_DEFAULT_FONT: &str = "Droid Sans Mono";
+
+#[cfg(target_os = "macos")]
+const SYSTEM_DEFAULT_FONT: &str = "Menlo";
 
 #[cfg(target_os = "windows")]
 const SYSTEM_SYMBOL_FONT: &str = "Segoe UI Symbol";
@@ -41,6 +43,9 @@ const SYSTEM_EMOJI_FONT: &str = "Apple Color Emoji";
 #[cfg(target_os = "linux")]
 const SYSTEM_EMOJI_FONT: &str = "Noto Color Emoji";
 
+const SYMBOL_FONT: &str = "Extra Symbols.otf";
+const MISSING_GLYPHS_FONT: &str = "Missing Glyphs.otf";
+
 #[cfg(feature = "embed-fonts")]
 #[derive(RustEmbed)]
 #[folder = "assets/fonts/"]
@@ -55,44 +60,74 @@ struct ShapeKey {
     pub italic: bool,
 }
 
-pub fn add_font_to_collection_by_name(
-    name: &str,
-    source: &SystemSource,
-    collection: &mut FontCollection,
-) -> Option<()> {
-    source
-        .select_family_by_name(name)
-        .ok()
-        .and_then(|matching_fonts| matching_fonts.fonts()[0].load().ok())
-        .map(|font| collection.add_family(FontFamily::new_from_font(font)))
+pub struct FontLoader {
+    cache: LruCache<String, FontCollection>,
 }
 
-#[cfg(feature = "embed-fonts")]
-pub fn add_asset_font_to_collection(name: &str, collection: &mut FontCollection) -> Option<()> {
-    Asset::get(name)
-        .and_then(|font_data| Font::from_bytes(font_data.to_vec().into(), 0).ok())
-        .map(|font| collection.add_family(FontFamily::new_from_font(font)))
-}
+impl FontLoader {
+    pub fn new() -> FontLoader {
+        FontLoader {
+            cache: LruCache::new(10),
+        }
+    }
 
-pub fn build_collection_by_font_name(
-    font_name: Option<&str>,
-    bold: bool,
-    italic: bool,
-) -> FontCollection {
-    let source = SystemSource::new();
+    pub fn get(&mut self, font_name: &str) -> Option<&FontCollection> {
+        let nameref = &font_name.to_string();
 
-    let mut collection = FontCollection::new();
+        if self.cache.contains(nameref) {
+            return self.cache.get(nameref);
+        }
 
-    if let Some(font_name) = font_name {
+        None
+    }
+
+    pub fn load_all_variants(&mut self, font_name: &str) -> Option<&FontCollection> {
+        let nameref = &font_name.to_string();
+
+        if self.cache.contains(nameref) {
+            return self.cache.get(nameref);
+        }
+
+        let source = SystemSource::new();
+        let mut collection = FontCollection::new();
+
+        source
+            .select_family_by_name(font_name)
+            .ok()
+            .map(|matching_fonts| {
+                let fonts = matching_fonts.fonts();
+
+                for font in fonts.into_iter() {
+                    if let Some(font) = font.load().ok() {
+                        // do something with this
+                        let props: Properties = font.properties();
+
+                        collection.add_family(FontFamily::new_from_font(font))
+                    }
+                }
+            });
+
+        self.cache.put(font_name.to_string(), collection);
+        self.cache.get(nameref)
+    }
+
+    pub fn load(&mut self, font_name: &str, bold: bool, italic: bool) -> Option<&FontCollection> {
+        let nameref = &font_name.to_string();
+
+        if self.cache.contains(nameref) {
+            return self.cache.get(nameref);
+        }
+
+        let source = SystemSource::new();
+        let mut collection = FontCollection::new();
         let weight = if bold { Weight::BOLD } else { Weight::NORMAL };
-
         let style = if italic { Style::Italic } else { Style::Normal };
-
         let properties = Properties {
             weight,
             style,
             stretch: Stretch::NORMAL,
         };
+
         if let Ok(custom) =
             source.select_best_match(&[FamilyName::Title(font_name.to_string())], &properties)
         {
@@ -103,79 +138,35 @@ pub fn build_collection_by_font_name(
                     collection.add_family(FontFamily::new_from_font(matching_font))
                 })
                 .unwrap_or_else(|| warn!("Could not load gui font"));
+
+            self.cache.put(font_name.to_string(), collection);
         }
+
+        self.cache.get(nameref)
     }
 
-    #[cfg(feature = "embed-fonts")]
-    {
-        let monospace_style = if bold {
-            MONOSPACE_BOLD_FONT
-        } else {
-            MONOSPACE_FONT
-        };
+    pub fn load_from_asset(&mut self, font_name: &str) -> Option<&FontCollection> {
+        let mut collection = FontCollection::new();
+        let nameref = &font_name.to_string();
 
-        add_asset_font_to_collection(monospace_style, &mut collection)
-            .unwrap_or_else(|| warn!("Could not load embedded monospace font"));
-    }
-
-    if add_font_to_collection_by_name(SYSTEM_EMOJI_FONT, &source, &mut collection).is_none() {
-        #[cfg(feature = "embed-fonts")]
-        {
-            if cfg!(not(target_os = "macos"))
-                && add_asset_font_to_collection(EMOJI_FONT, &mut collection).is_some()
-            {
-                info!("Fell back to embedded emoji font");
-            } else {
-                warn!("Could not load emoji font");
-            }
+        if self.cache.contains(nameref) {
+            return self.cache.get(nameref);
         }
-    }
 
-    add_font_to_collection_by_name(SYSTEM_SYMBOL_FONT, &source, &mut collection)
-        .unwrap_or_else(|| warn!("Could not load system symbol font"));
+        Asset::get(font_name)
+            .and_then(|font_data| Font::from_bytes(font_data.to_vec().into(), 0).ok())
+            .map(|font| collection.add_family(FontFamily::new_from_font(font)));
 
-    #[cfg(feature = "embed-fonts")]
-    {
-        let wide_style = if bold { WIDE_BOLD_FONT } else { WIDE_FONT };
-
-        add_asset_font_to_collection(wide_style, &mut collection)
-            .unwrap_or_else(|| warn!("Could not load embedded wide font"));
-
-        add_asset_font_to_collection(SYMBOL_FONT, &mut collection)
-            .unwrap_or_else(|| warn!("Could not load embedded symbol font"));
-    }
-
-    collection
-}
-
-struct FontSet {
-    normal: FontCollection,
-    bold: FontCollection,
-    italic: FontCollection,
-}
-
-impl FontSet {
-    fn new(font_name: Option<&str>) -> FontSet {
-        FontSet {
-            normal: build_collection_by_font_name(font_name, false, false),
-            bold: build_collection_by_font_name(font_name, true, false),
-            italic: build_collection_by_font_name(font_name, false, true),
-        }
-    }
-
-    fn get(&self, bold: bool, italic: bool) -> &FontCollection {
-        match (bold, italic) {
-            (true, _) => &self.bold,
-            (false, false) => &self.normal,
-            (false, true) => &self.italic,
-        }
+        self.cache.put(font_name.to_string(), collection);
+        self.cache.get(nameref)
     }
 }
 
 pub struct CachingShaper {
     pub font_name: Option<String>,
     pub base_size: f32,
-    font_set: FontSet,
+    // font_set: FontSet,
+    font_loader: FontLoader,
     font_cache: LruCache<String, SkiaFont>,
     blob_cache: LruCache<ShapeKey, Vec<TextBlob>>,
 }
@@ -190,10 +181,15 @@ fn build_skia_font_from_skribo_font(skribo_font: &SkriboFont, base_size: f32) ->
 
 impl CachingShaper {
     pub fn new() -> CachingShaper {
+        let mut loader = FontLoader::new();
+
+        loader.load_all_variants(SYSTEM_DEFAULT_FONT);
+
         CachingShaper {
-            font_name: None,
+            font_name: Some(String::from(SYSTEM_DEFAULT_FONT)),
             base_size: DEFAULT_FONT_SIZE,
-            font_set: FontSet::new(None),
+            // font_set: FontSet::new(Some(SYSTEM_DEFAULT_FONT), &mut loader),
+            font_loader: loader,
             font_cache: LruCache::new(10),
             blob_cache: LruCache::new(10000),
         }
@@ -201,6 +197,7 @@ impl CachingShaper {
 
     fn get_skia_font(&mut self, skribo_font: &SkriboFont) -> Option<&SkiaFont> {
         let font_name = skribo_font.font.postscript_name()?;
+
         if !self.font_cache.contains(&font_name) {
             let font = build_skia_font_from_skribo_font(skribo_font, self.base_size)?;
             self.font_cache.put(font_name.clone(), font);
@@ -209,15 +206,14 @@ impl CachingShaper {
         self.font_cache.get(&font_name)
     }
 
-    fn metrics(&self) -> Metrics {
-        self.font_set
-            .normal
-            .itemize("a")
-            .next()
-            .unwrap()
-            .1
-            .font
-            .metrics()
+    fn metrics(&mut self) -> Option<Metrics> {
+        let var_name = self.font_name.clone().unwrap_or_default();
+
+        if let Some(font) = self.font_loader.get(&var_name) {
+            return Some(font.itemize("a").next().unwrap().1.font.metrics());
+        }
+
+        None
     }
 
     pub fn shape(&mut self, text: &str, bold: bool, italic: bool) -> Vec<TextBlob> {
@@ -225,18 +221,18 @@ impl CachingShaper {
             size: self.base_size,
         };
 
-        let session = LayoutSession::create(text, &style, &self.font_set.get(bold, italic));
-
-        let metrics = self.metrics();
+        let var_name = self.font_name.clone().unwrap_or_default();
+        let font_collection = self.font_loader.get(&var_name).unwrap();
+        let session = LayoutSession::create(text, &style, font_collection);
+        let metrics = self.metrics().unwrap();
         let ascent = metrics.ascent * self.base_size / metrics.units_per_em as f32;
-
         let mut blobs = Vec::new();
 
         for layout_run in session.iter_all() {
             let skribo_font = layout_run.font();
+
             if let Some(skia_font) = self.get_skia_font(&skribo_font) {
                 let mut blob_builder = TextBlobBuilder::new();
-
                 let count = layout_run.glyphs().count();
                 let (glyphs, positions) =
                     blob_builder.alloc_run_pos_h(&skia_font, count, ascent, None);
@@ -245,6 +241,7 @@ impl CachingShaper {
                     glyphs[i] = glyph.glyph_id as u16;
                     positions[i] = glyph.offset.x;
                 }
+
                 blobs.push(blob_builder.make().unwrap());
             } else {
                 warn!("Could not load scribo font");
@@ -256,6 +253,7 @@ impl CachingShaper {
 
     pub fn shape_cached(&mut self, text: &str, bold: bool, italic: bool) -> &Vec<TextBlob> {
         let key = ShapeKey::new(text.to_string(), bold, italic);
+
         if !self.blob_cache.contains(&key) {
             let blobs = self.shape(text, bold, italic);
             self.blob_cache.put(key.clone(), blobs);
@@ -268,21 +266,23 @@ impl CachingShaper {
         trace!("Font changed {:?} {:?}", &font_name, &base_size);
         self.font_name = font_name.map(|name| name.to_string());
         self.base_size = base_size.unwrap_or(DEFAULT_FONT_SIZE);
-        self.font_set = FontSet::new(font_name);
+        self.font_loader
+            .load(font_name.unwrap_or_default(), false, false);
         self.font_cache.clear();
         self.blob_cache.clear();
     }
 
     pub fn font_base_dimensions(&mut self) -> (f32, f32) {
-        let metrics = self.metrics();
+        let var_name = self.font_name.clone().unwrap_or_default();
+        let metrics = self.metrics().unwrap();
+        let font_collection = self.font_loader.get(&var_name).unwrap();
         let font_height =
             (metrics.ascent - metrics.descent) * self.base_size / metrics.units_per_em as f32;
 
         let style = TextStyle {
             size: self.base_size,
         };
-        let session =
-            LayoutSession::create(STANDARD_CHARACTER_STRING, &style, &self.font_set.normal);
+        let session = LayoutSession::create(STANDARD_CHARACTER_STRING, &style, font_collection);
 
         let layout_run = session.iter_all().next().unwrap();
         let glyph_offsets: Vec<f32> = layout_run.glyphs().map(|glyph| glyph.offset.x).collect();
@@ -305,29 +305,7 @@ impl CachingShaper {
     }
 
     pub fn underline_position(&mut self) -> f32 {
-        let metrics = self.metrics();
+        let metrics = self.metrics().unwrap();
         -metrics.underline_position * self.base_size / metrics.units_per_em as f32
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use font_kit::source::SystemSource;
-    use skribo::FontCollection;
-
-    #[test]
-    fn unmatched_font_returns_nothing() {
-        assert!(add_font_to_collection_by_name(
-            "Foobar",
-            &SystemSource::new(),
-            &mut FontCollection::new()
-        )
-        .is_none());
-    }
-
-    #[test]
-    fn build_font_collection_works() {
-        build_collection_by_font_name(None, true, true);
     }
 }
