@@ -5,15 +5,16 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(Windows) Launch",
-            "type": "cppvsdbg",
+            "name": "Debug",
+            "type": "lldb",
             "request": "launch",
-            "program": "${workspaceRoot}/target/debug/neovide.exe",
+            "program": "${workspaceRoot}/target/debug/neovide",
             "args": [],
-            "stopAtEntry": false,
             "cwd": "${workspaceRoot}",
-            "environment": [],
-            "externalConsole": true
+            "env": {
+                "RUST_LOG": "info",
+                "RUST_BACKTRACE": "1"
+            }
         },
     ]
 }
