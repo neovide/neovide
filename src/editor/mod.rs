@@ -70,32 +70,32 @@ impl Editor {
             RedrawEvent::OptionSet { gui_option } => self.set_option(gui_option),
             RedrawEvent::ModeChange { mode_index } => {
                 self.cursor.change_mode(mode_index, &self.defined_styles)
-            },
+            }
             RedrawEvent::MouseOn => {
                 self.mouse_enabled = true;
-            },
+            }
             RedrawEvent::MouseOff => {
                 self.mouse_enabled = false;
-            },
+            }
             RedrawEvent::BusyStart => {
                 trace!("Cursor off");
                 self.cursor.enabled = false;
-            },
+            }
             RedrawEvent::BusyStop => {
                 trace!("Cursor on");
                 self.cursor.enabled = true;
-            },
+            }
             RedrawEvent::Flush => {
                 trace!("Image flushed");
                 REDRAW_SCHEDULER.queue_next_frame();
-            },
+            }
             RedrawEvent::Resize { width, height, .. } => self.grid.resize(width, height),
             RedrawEvent::DefaultColorsSet { colors } => {
                 self.default_style = Arc::new(Style::new(colors))
-            },
+            }
             RedrawEvent::HighlightAttributesDefine { id, style } => {
                 self.defined_styles.insert(id, Arc::new(style));
-            },
+            }
             RedrawEvent::GridLine {
                 row,
                 column_start,

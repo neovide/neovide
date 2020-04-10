@@ -46,7 +46,7 @@ impl UiCommand {
                         .await
                         .expect("Mouse Input Failed");
                 }
-            },
+            }
             UiCommand::Scroll {
                 direction,
                 position: (grid_x, grid_y),
@@ -56,14 +56,14 @@ impl UiCommand {
                         .await
                         .expect("Mouse Scroll Failed");
                 }
-            },
+            }
             UiCommand::Drag(grid_x, grid_y) => {
                 if { EDITOR.lock().mouse_enabled } {
                     nvim.input_mouse("left", "drag", "", 0, grid_y as i64, grid_x as i64)
                         .await
                         .expect("Mouse Drag Failed");
                 }
-            },
+            }
             UiCommand::FocusLost => nvim
                 .command("if exists('#FocusLost') | doautocmd <nomodeline> FocusLost | endif")
                 .await

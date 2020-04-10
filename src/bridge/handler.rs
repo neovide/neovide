@@ -25,10 +25,10 @@ impl Handler for NeovimHandler {
         task::spawn_blocking(move || match event_name.as_ref() {
             "redraw" => {
                 handle_redraw_event_group(arguments);
-            },
+            }
             "setting_changed" => {
                 SETTINGS.handle_changed_notification(arguments);
-            },
+            }
             _ => {}
         })
         .await
