@@ -7,8 +7,7 @@ build = "build.rs"
 description = "A simple GUI for Neovim."
 
 [features]
-default = ["sdl2-static-link", "embed-fonts"]
-sdl2-static-link = ["skulpin/sdl2-static-link"]
+default = ["embed-fonts"]
 embed-fonts = []
 
 [dependencies]
@@ -16,8 +15,8 @@ euclid = "0.20.7"
 font-kit = "0.6.0"
 skribo = { git = "https://github.com/linebender/skribo" }
 lru = "0.4.3"
-skulpin = { git = "https://github.com/Kethku/skulpin", branch = "sdl2" }
-# skulpin = { path = "../skulpin" }
+skulpin = { version = "0.9.0", features=["skulpin_sdl2"] }
+sdl2 = { version = ">=0.33", features = ["bundled", "static-link"] }
 derive-new = "0.5"
 rmpv = "0.4.4"
 rust-embed = { version = "5.2.0", features = ["debug-embed"] }

@@ -7,9 +7,9 @@ use skulpin::sdl2;
 use skulpin::sdl2::event::{Event, WindowEvent};
 use skulpin::sdl2::keyboard::Keycode;
 use skulpin::sdl2::video::Window;
+use skulpin::sdl2::video::FullscreenType;
 use skulpin::sdl2::Sdl;
-use skulpin::{dpis, CoordinateSystem, PresentMode, Renderer as SkulpinRenderer, RendererBuilder};
-use skulpin::{LogicalSize, PhysicalSize};
+use skulpin::{Window, CoordinateSystem, PresentMode, Renderer as SkulpinRenderer, RendererBuilder, LogicalSize, PhysicalSize, Sdl2Window};
 
 use crate::bridge::{produce_neovim_keybinding_string, UiCommand, BRIDGE};
 use crate::editor::EDITOR;
@@ -45,14 +45,13 @@ fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer) {
 
 struct WindowWrapper {
     context: Sdl,
-    window: Window,
+    window: sdl2::video::Window,
     skulpin_renderer: SkulpinRenderer,
     renderer: Renderer,
     mouse_down: bool,
     mouse_position: LogicalSize,
     title: String,
     previous_size: LogicalSize,
-    previous_dpis: (f32, f32),
     transparency: f32,
     fullscreen: bool,
     cached_size: (i32, i32),
@@ -133,7 +132,7 @@ impl WindowWrapper {
         // };
         // info!("icon created");
 
-        let window = video_subsystem
+        let sdl_window = video_subsystem
             .window("Neovide", logical_size.width, logical_size.height)
             .position_centered()
             .allow_highdpi()
@@ -143,21 +142,22 @@ impl WindowWrapper {
             .expect("Failed to create window");
         info!("window created");
 
-        let skulpin_renderer = RendererBuilder::new()
-            .prefer_integrated_gpu()
-            .use_vulkan_debug_layer(true)
-            .present_mode_priority(vec![PresentMode::Immediate])
-            .coordinate_system(CoordinateSystem::Logical)
-            .build(&window)
-            .expect("Failed to create renderer");
-        info!("renderer created");
+        let skulpin_renderer = {
+            let sdl_window_wrapper = Sdl2Window::new(&sdl_window);
+            RendererBuilder::new()
+                .prefer_integrated_gpu()
+                .use_vulkan_debug_layer(true)
+                .present_mode_priority(vec![PresentMode::Immediate])
+                .coordinate_system(CoordinateSystem::Logical)
+                .build(&sdl_window_wrapper)
+                .expect("Failed to create renderer")
+        };
 
-        let previous_size = LogicalSize::new(&window).unwrap();
-        let previous_dpis = dpis(&window).unwrap();
+        info!("renderer created");
 
         WindowWrapper {
             context,
-            window,
+            window: sdl_window,
             skulpin_renderer,
             renderer,
             mouse_down: false,
@@ -166,8 +166,7 @@ impl WindowWrapper {
                 height: 0,
             },
             title: String::from("Neovide"),
-            previous_size,
-            previous_dpis,
+            previous_size: logical_size,
             transparency: 1.0,
             fullscreen: false,
             cached_size: (0, 0),
@@ -268,20 +267,17 @@ impl WindowWrapper {
 
     pub fn handle_pointer_motion(&mut self, x: i32, y: i32) {
         let previous_position = self.mouse_position;
-        if let Ok(new_mouse_position) = LogicalSize::from_physical_size_tuple(
-            (
-                (x as f32 / self.renderer.font_width) as u32,
-                (y as f32 / self.renderer.font_height) as u32,
-            ),
-            &self.window,
-        ) {
-            self.mouse_position = new_mouse_position;
-            if self.mouse_down && previous_position != self.mouse_position {
-                BRIDGE.queue_command(UiCommand::Drag(
-                    self.mouse_position.width,
-                    self.mouse_position.height,
-                ));
-            }
+        let physical_size = PhysicalSize::new(
+            (x as f32 / self.renderer.font_width) as u32,
+            (y as f32 / self.renderer.font_height) as u32
+        );
+
+        self.mouse_position = physical_size.to_logical(1.0);
+        if self.mouse_down && previous_position != self.mouse_position {
+            BRIDGE.queue_command(UiCommand::Drag(
+                self.mouse_position.width,
+                self.mouse_position.height,
+            ));
         }
     }
 
@@ -347,24 +343,11 @@ impl WindowWrapper {
             return false;
         }
 
-        if let Ok(new_size) = LogicalSize::new(&self.window) {
-            if self.previous_size != new_size {
-                handle_new_grid_size(new_size, &self.renderer);
-                self.previous_size = new_size;
-            }
-        }
-
-        if let Ok(new_dpis) = dpis(&self.window) {
-            if self.previous_dpis != new_dpis {
-                let physical_size = PhysicalSize::new(&self.window);
-                self.window
-                    .set_size(
-                        (physical_size.width as f32 * new_dpis.0 / self.previous_dpis.0) as u32,
-                        (physical_size.height as f32 * new_dpis.1 / self.previous_dpis.1) as u32,
-                    )
-                    .unwrap();
-                self.previous_dpis = new_dpis;
-            }
+        let sdl_window_wrapper = Sdl2Window::new(&self.window);
+        let new_size = sdl_window_wrapper.logical_size();
+        if self.previous_size != new_size {
+            handle_new_grid_size(new_size, &self.renderer);
+            self.previous_size = new_size;
         }
 
         debug!("Render Triggered");
@@ -373,10 +356,10 @@ impl WindowWrapper {
             let renderer = &mut self.renderer;
             if self
                 .skulpin_renderer
-                .draw(&self.window, |canvas, coordinate_system_helper| {
+                .draw(&sdl_window_wrapper, |canvas, coordinate_system_helper| {
                     let dt = 1.0 / (SETTINGS.get::<WindowSettings>().refresh_rate as f32);
 
-                    if renderer.draw(canvas, coordinate_system_helper, dt) {
+                    if renderer.draw(canvas, &coordinate_system_helper, dt) {
                         handle_new_grid_size(current_size, &renderer)
                     }
                 })
