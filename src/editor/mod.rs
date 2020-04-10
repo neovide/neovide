@@ -32,6 +32,7 @@ pub struct DrawCommand {
 pub struct Editor {
     pub grid: CharacterGrid,
     pub title: String,
+    pub mouse_enabled: bool,
     pub font_name: Option<String>,
     pub font_size: Option<f32>,
     pub cursor: Cursor,
@@ -45,6 +46,7 @@ impl Editor {
         let mut editor = Editor {
             grid: CharacterGrid::new(window_geometry_or_default()),
             title: "Neovide".to_string(),
+            mouse_enabled: true,
             font_name: None,
             font_size: None,
             cursor: Cursor::new(),
@@ -68,26 +70,32 @@ impl Editor {
             RedrawEvent::OptionSet { gui_option } => self.set_option(gui_option),
             RedrawEvent::ModeChange { mode_index } => {
                 self.cursor.change_mode(mode_index, &self.defined_styles)
-            }
+            },
+            RedrawEvent::MouseOn => {
+                self.mouse_enabled = true;
+            },
+            RedrawEvent::MouseOff => {
+                self.mouse_enabled = false;
+            },
             RedrawEvent::BusyStart => {
                 trace!("Cursor off");
                 self.cursor.enabled = false;
-            }
+            },
             RedrawEvent::BusyStop => {
                 trace!("Cursor on");
                 self.cursor.enabled = true;
-            }
+            },
             RedrawEvent::Flush => {
                 trace!("Image flushed");
                 REDRAW_SCHEDULER.queue_next_frame();
-            }
+            },
             RedrawEvent::Resize { width, height, .. } => self.grid.resize(width, height),
             RedrawEvent::DefaultColorsSet { colors } => {
                 self.default_style = Arc::new(Style::new(colors))
-            }
+            },
             RedrawEvent::HighlightAttributesDefine { id, style } => {
                 self.defined_styles.insert(id, Arc::new(style));
-            }
+            },
             RedrawEvent::GridLine {
                 row,
                 column_start,

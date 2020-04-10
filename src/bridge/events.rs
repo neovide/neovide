@@ -128,6 +128,8 @@ pub enum RedrawEvent {
     ModeChange {
         mode_index: u64,
     },
+    MouseOn,
+    MouseOff,
     BusyStart,
     BusyStop,
     Flush,
@@ -779,6 +781,8 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
             "mode_info_set" => Some(parse_mode_info_set(event_parameters)?),
             "option_set" => Some(parse_option_set(event_parameters)?),
             "mode_change" => Some(parse_mode_change(event_parameters)?),
+            "mouse_on" => Some(RedrawEvent::MouseOn),
+            "mouse_off" => Some(RedrawEvent::MouseOff),
             "busy_start" => Some(RedrawEvent::BusyStart),
             "busy_stop" => Some(RedrawEvent::BusyStop),
             "flush" => Some(RedrawEvent::Flush),
