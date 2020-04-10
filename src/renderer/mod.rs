@@ -6,8 +6,8 @@ use skulpin::skia_safe::{colors, dash_path_effect, Budgeted, Canvas, Paint, Rect
 use skulpin::CoordinateSystemHelper;
 
 mod caching_shaper;
-pub mod cursor_renderer;
 
+pub mod cursor_renderer;
 pub use caching_shaper::CachingShaper;
 
 use crate::editor::{Style, EDITOR};
@@ -151,6 +151,7 @@ impl Renderer {
         dt: f32,
     ) -> bool {
         trace!("Rendering");
+
         let ((draw_commands, should_clear), default_style, cursor, font_name, font_size) = {
             let mut editor = EDITOR.lock();
             (
@@ -162,10 +163,14 @@ impl Renderer {
             )
         };
 
-        let font_changed = font_name != self.shaper.font_name
+        let current_font = Some(self.shaper.font_name.clone().unwrap_or(String::from("")));
+        let editor_font = if font_name.clone().unwrap_or_default().is_empty() { &current_font } else { &font_name };
+
+        let font_changed = current_font != *editor_font
             || font_size
                 .map(|new_size| (new_size - self.shaper.base_size).abs() > std::f32::EPSILON)
                 .unwrap_or(false);
+
         if font_changed {
             self.set_font(font_name.as_deref(), font_size);
         }
