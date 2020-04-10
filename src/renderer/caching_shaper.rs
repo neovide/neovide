@@ -20,13 +20,10 @@ cfg_if::cfg_if! {
         const SYSTEM_DEFAULT_FONT: &str = "Consolas";
         const SYSTEM_SYMBOL_FONT: &str = "Segoe UI Symbol";
         const SYSTEM_EMOJI_FONT: &str = "Segoe UI Emoji";
-
     } else if #[cfg(target_os = "linux")] {
         const SYSTEM_DEFAULT_FONT: &str = "Droid Sans Mono";
         const SYSTEM_SYMBOL_FONT: &str = "Unifont";
         const SYSTEM_EMOJI_FONT: &str = "Noto Color Emoji";
-
-
     } else if #[cfg(target_os = "macos")] {
         const SYSTEM_DEFAULT_FONT: &str = "Menlo";
         const SYSTEM_SYMBOL_FONT: &str = "Apple Symbols";
@@ -250,6 +247,7 @@ impl CachingShaper {
 
     fn get_skia_font(&mut self, skribo_font: &SkriboFont) -> Option<&SkiaFont> {
         let font_name = skribo_font.font.postscript_name()?;
+
         if !self.font_cache.contains(&font_name) {
             let font = build_skia_font_from_skribo_font(skribo_font, self.base_size)?;
             self.font_cache.put(font_name.clone(), font);
@@ -281,9 +279,9 @@ impl CachingShaper {
 
         for layout_run in session.iter_all() {
             let skribo_font = layout_run.font();
+
             if let Some(skia_font) = self.get_skia_font(&skribo_font) {
                 let mut blob_builder = TextBlobBuilder::new();
-
                 let count = layout_run.glyphs().count();
                 let (glyphs, positions) =
                     blob_builder.alloc_run_pos_h(&skia_font, count, ascent, None);
@@ -292,6 +290,7 @@ impl CachingShaper {
                     glyphs[i] = glyph.glyph_id as u16;
                     positions[i] = glyph.offset.x;
                 }
+
                 blobs.push(blob_builder.make().unwrap());
             } else {
                 warn!("Could not load scribo font");
@@ -303,6 +302,7 @@ impl CachingShaper {
 
     pub fn shape_cached(&mut self, text: &str, bold: bool, italic: bool) -> &Vec<TextBlob> {
         let key = ShapeKey::new(text.to_string(), bold, italic);
+
         if !self.blob_cache.contains(&key) {
             let blobs = self.shape(text, bold, italic);
             self.blob_cache.put(key.clone(), blobs);
@@ -340,6 +340,7 @@ impl CachingShaper {
                 .and_modify(|e| *e += 1)
                 .or_insert(1);
         }
+
         let (font_width, _) = amounts.into_iter().max_by_key(|(_, count)| *count).unwrap();
         let font_width = font_width.parse::<f32>().unwrap();
 
