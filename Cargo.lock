@@ -1151,6 +1151,7 @@ version = "0.5.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "cfg-if",
  "derive-new",
  "euclid",
  "flexi_logger",

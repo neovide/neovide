@@ -16,35 +16,27 @@ use log::{info, trace, warn};
 const STANDARD_CHARACTER_STRING: &str =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
 
-#[cfg(target_os = "windows")]
+cfg_if::cfg_if! {
+    if #[cfg(target_os = "windows")] {
 const SYSTEM_DEFAULT_FONT: &str = "Consolas";
-
-#[cfg(target_os = "linux")]
-const SYSTEM_DEFAULT_FONT: &str = "Droid Sans Mono";
-
-#[cfg(target_os = "macos")]
-const SYSTEM_DEFAULT_FONT: &str = "Menlo";
-
-#[cfg(target_os = "windows")]
 const SYSTEM_SYMBOL_FONT: &str = "Segoe UI Symbol";
+        const SYSTEM_EMOJI_FONT: &str = "Segoe UI Emoji";
 
-#[cfg(target_os = "linux")]
+    } else if #[cfg(target_os = "linux")] {
+        const SYSTEM_DEFAULT_FONT: &str = "Droid Sans Mono";
 const SYSTEM_SYMBOL_FONT: &str = "Unifont";
+        const SYSTEM_EMOJI_FONT: &str = "Noto Color Emoji";
 
-#[cfg(target_os = "macos")]
-const SYSTEM_SYMBOL_FONT: &str = "Apple Symbols";
 
-#[cfg(target_os = "windows")]
-const SYSTEM_EMOJI_FONT: &str = "Segoe UI Emoji";
-
-#[cfg(target_os = "macos")]
+    } else if #[cfg(target_os = "macos")] {
+        const SYSTEM_DEFAULT_FONT: &str = "Menlo";
+        const SYSTEM_SYMBOL_FONT: &str = "Apple Symbols";
 const SYSTEM_EMOJI_FONT: &str = "Apple Color Emoji";
+    }
+}
 
-#[cfg(target_os = "linux")]
-const SYSTEM_EMOJI_FONT: &str = "Noto Color Emoji";
-
-const SYMBOL_FONT: &str = "Extra Symbols.otf";
-const MISSING_GLYPHS_FONT: &str = "Missing Glyphs.otf";
+const EXTRA_SYMBOL_FONT: &str = "Extra Symbols.otf";
+const MISSING_GLYPH_FONT: &str = "Missing Glyphs.otf";
 
 #[cfg(feature = "embed-fonts")]
 #[derive(RustEmbed)]
