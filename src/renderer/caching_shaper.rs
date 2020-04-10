@@ -11,11 +11,12 @@ use skribo::{FontCollection, FontFamily, FontRef as SkriboFont, LayoutSession, T
 use skulpin::skia_safe::{Data, Font as SkiaFont, TextBlob, TextBlobBuilder, Typeface};
 
 use log::{trace, warn};
+use cfg_if::cfg_if as define;
 
 const STANDARD_CHARACTER_STRING: &str =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
 
-cfg_if::cfg_if! {
+define! {
     if #[cfg(target_os = "windows")] {
         const SYSTEM_DEFAULT_FONT: &str = "Consolas";
         const SYSTEM_SYMBOL_FONT: &str = "Segoe UI Symbol";
