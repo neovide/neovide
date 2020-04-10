@@ -67,16 +67,16 @@ impl ExtendedFontFamily {
 
         None
     }
-}
 
-fn to_family(x: ExtendedFontFamily) -> FontFamily {
-    let mut y = FontFamily::new();
-
-    for font in x.fonts {
-        y.add_font(font);
+    pub fn to_family(self) -> FontFamily {
+        let mut new_family = FontFamily::new();
+    
+        for font in self.fonts {
+            new_family.add_font(font);
+        }
+    
+        new_family
     }
-
-    y
 }
 
 pub struct FontLoader {
@@ -172,19 +172,19 @@ pub fn build_collection_by_font_name(
     }
 
     if let Some(family) = loader.get_or_load(SYSTEM_SYMBOL_FONT, false) {
-        collection.add_family(to_family(family));
+        collection.add_family(family.to_family());
     }
 
     if let Some(family) = loader.get_or_load(SYSTEM_EMOJI_FONT, false) {
-        collection.add_family(to_family(family));
+        collection.add_family(family.to_family());
     }
 
     if let Some(family) = loader.get_or_load(EXTRA_SYMBOL_FONT, true) {
-        collection.add_family(to_family(family));
+        collection.add_family(family.to_family());
     }
 
     if let Some(family) = loader.get_or_load(MISSING_GLYPH_FONT, true) {
-        collection.add_family(to_family(family));
+        collection.add_family(family.to_family());
     }
 
     collection
