@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug",
+            "name": "(Mac/Linux) Debug",
             "type": "lldb",
             "request": "launch",
             "program": "${workspaceRoot}/target/debug/neovide",
@@ -15,6 +15,17 @@
                 "RUST_LOG": "info",
                 "RUST_BACKTRACE": "1"
             }
+        },
+        {
+            "name": "(Windows) Debug",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/target/debug/neovide.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceRoot}",
+            "environment": [],
+            "externalConsole": true
         },
     ]
 }
