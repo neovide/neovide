@@ -176,20 +176,16 @@ pub fn build_collection_by_font_name(
         }
     }
 
-    if let Some(family) = loader.get_or_load(SYSTEM_SYMBOL_FONT, false) {
-        collection.add_family(family.to_family());
+    for font in &[SYSTEM_SYMBOL_FONT, SYSTEM_EMOJI_FONT] {
+        if let Some(family) = loader.get_or_load(font, false) {
+            collection.add_family(family.to_family());
+        }
     }
 
-    if let Some(family) = loader.get_or_load(SYSTEM_EMOJI_FONT, false) {
-        collection.add_family(family.to_family());
-    }
-
-    if let Some(family) = loader.get_or_load(EXTRA_SYMBOL_FONT, true) {
-        collection.add_family(family.to_family());
-    }
-
-    if let Some(family) = loader.get_or_load(MISSING_GLYPH_FONT, true) {
-        collection.add_family(family.to_family());
+    for font in &[EXTRA_SYMBOL_FONT, MISSING_GLYPH_FONT] {
+        if let Some(family) = loader.get_or_load(font, true) {
+            collection.add_family(family.to_family());
+        }
     }
 
     collection
