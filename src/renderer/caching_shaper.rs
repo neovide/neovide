@@ -294,7 +294,7 @@ impl CachingShaper {
 
                 blobs.push(blob_builder.make().unwrap());
             } else {
-                warn!("Could not load scribo font");
+                warn!("Could not load skribo font");
             }
         }
 
