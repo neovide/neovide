@@ -10,8 +10,8 @@ use lru::LruCache;
 use skribo::{FontCollection, FontFamily, FontRef as SkriboFont, LayoutSession, TextStyle};
 use skulpin::skia_safe::{Data, Font as SkiaFont, TextBlob, TextBlobBuilder, Typeface};
 
-use log::{trace, warn};
 use cfg_if::cfg_if as define;
+use log::{trace, warn};
 
 const STANDARD_CHARACTER_STRING: &str =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
@@ -44,7 +44,7 @@ const DEFAULT_FONT_SIZE: f32 = 14.0;
 
 #[derive(Clone)]
 pub struct ExtendedFontFamily {
-    pub fonts: Vec<SkriboFont>
+    pub fonts: Vec<SkriboFont>,
 }
 
 impl ExtendedFontFamily {
@@ -71,25 +71,25 @@ impl ExtendedFontFamily {
 
     pub fn to_family(self) -> FontFamily {
         let mut new_family = FontFamily::new();
-    
+
         for font in self.fonts {
             new_family.add_font(font);
         }
-    
+
         new_family
     }
 }
 
 pub struct FontLoader {
     cache: LruCache<String, ExtendedFontFamily>,
-    source: SystemSource
+    source: SystemSource,
 }
 
 impl FontLoader {
     pub fn new() -> FontLoader {
         FontLoader {
             cache: LruCache::new(10),
-            source: SystemSource::new()
+            source: SystemSource::new(),
         }
     }
 
@@ -134,10 +134,14 @@ impl FontLoader {
 
     pub fn get_or_load(&mut self, font_name: &str, asset: bool) -> Option<ExtendedFontFamily> {
         if let Some(family) = self.get(font_name) {
-            return Some(family)
+            return Some(family);
         }
 
-        if asset { self.load_from_asset(font_name) } else { self.load(font_name) }
+        if asset {
+            self.load_from_asset(font_name)
+        } else {
+            self.load(font_name)
+        }
     }
 }
 
@@ -323,9 +327,13 @@ impl CachingShaper {
 
     pub fn font_base_dimensions(&mut self) -> (f32, f32) {
         let metrics = self.metrics();
-        let font_height = (metrics.ascent - metrics.descent) * self.base_size / metrics.units_per_em as f32;
-        let style = TextStyle { size: self.base_size, };
-        let session = LayoutSession::create(STANDARD_CHARACTER_STRING, &style, &self.font_set.normal);
+        let font_height =
+            (metrics.ascent - metrics.descent) * self.base_size / metrics.units_per_em as f32;
+        let style = TextStyle {
+            size: self.base_size,
+        };
+        let session =
+            LayoutSession::create(STANDARD_CHARACTER_STRING, &style, &self.font_set.normal);
         let layout_run = session.iter_all().next().unwrap();
         let glyph_offsets: Vec<f32> = layout_run.glyphs().map(|glyph| glyph.offset.x).collect();
         let glyph_advances: Vec<f32> = glyph_offsets
