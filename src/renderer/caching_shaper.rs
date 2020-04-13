@@ -266,7 +266,7 @@ impl CachingShaper {
             .normal
             .itemize("a")
             .next()
-            .unwrap()
+            .expect("Cannot get font metrics")
             .1
             .font
             .metrics()
