@@ -135,13 +135,13 @@ impl WindowWrapper {
 
         let window = video_subsystem
             .window("Neovide", logical_size.width, logical_size.height)
+            .position_centered()
             .allow_highdpi()
             .resizable()
             .vulkan()
             .build()
             .expect("Failed to create window");
         info!("window created");
-
 
         let skulpin_renderer = RendererBuilder::new()
             .prefer_integrated_gpu()
