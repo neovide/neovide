@@ -66,6 +66,10 @@ impl ExtendedFontFamily {
             }
         }
 
+        if let Some(handle) = &self.fonts.first() {
+            return Some(&handle.font);
+        }
+
         None
     }
 
