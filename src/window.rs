@@ -239,6 +239,7 @@ impl WindowWrapper {
         if let Some(key) = keycode {
             if key == Keycode::Return && modifiers.contains(Mod::LALTMOD) {
                 self.toggle_fullscreen();
+                return;
             }
         }
 
