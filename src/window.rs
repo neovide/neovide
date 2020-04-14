@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 use log::{debug, error, info, trace};
 use skulpin::sdl2;
 use skulpin::sdl2::event::{Event, WindowEvent};
-use skulpin::sdl2::keyboard::{Keycode, Mod};
+use skulpin::sdl2::keyboard::{Keycode};
 use skulpin::sdl2::video::{Window};
 use skulpin::sdl2::Sdl;
 use skulpin::{dpis, CoordinateSystem, PresentMode, Renderer as SkulpinRenderer, RendererBuilder};
@@ -55,8 +55,7 @@ struct WindowWrapper {
     previous_dpis: (f32, f32),
     transparency: f32,
     fullscreen: bool,
-    cached_width: i32,
-    cached_height: i32,
+    cached_size: (i32, i32),
     cached_position: (i32, i32)
 }
 
@@ -171,8 +170,7 @@ impl WindowWrapper {
             previous_dpis,
             transparency: 1.0,
             fullscreen: false,
-            cached_width: 0,
-            cached_height: 0,
+            cached_size: (0, 0),
             cached_position: (0, 0)
         }
     }
@@ -188,7 +186,7 @@ impl WindowWrapper {
                     sdl2::sys::SDL_SetWindowResizable(raw_handle, sdl2::sys::SDL_bool::SDL_TRUE);
 
                     // Use cached size and position
-                    self.window.set_size(self.cached_width as u32, self.cached_height as u32).unwrap();
+                    self.window.set_size(self.cached_size.0 as u32, self.cached_size.1 as u32).unwrap();
                     self.window.set_position(
                         sdl2::video::WindowPos::Positioned(self.cached_position.0), 
                         sdl2::video::WindowPos::Positioned(self.cached_position.1)
@@ -197,7 +195,7 @@ impl WindowWrapper {
                 }
                 else {
                     // Cache the size and position
-                    sdl2::sys::SDL_GetWindowSize(raw_handle, &mut self.cached_width, &mut self.cached_height);
+                    sdl2::sys::SDL_GetWindowSize(raw_handle, &mut self.cached_size.0, &mut self.cached_size.1);
                     sdl2::sys::SDL_GetWindowPosition(raw_handle, &mut self.cached_position.0, &mut self.cached_position.1);
                     sdl2::sys::SDL_SetWindowResizable(raw_handle, sdl2::sys::SDL_bool::SDL_FALSE);
 
@@ -227,6 +225,11 @@ impl WindowWrapper {
                 self.transparency = transparency;
             }
         }
+
+        let fullscreen = { SETTINGS.get::<WindowSettings>().fullscreen };
+        if self.fullscreen != fullscreen {
+            self.toggle_fullscreen();
+        }
     }
 
     pub fn handle_quit(&mut self) {
@@ -235,13 +238,6 @@ impl WindowWrapper {
 
     pub fn handle_keyboard_input(&mut self, keycode: Option<Keycode>, text: Option<String>) {
         let modifiers = self.context.keyboard().mod_state();
-
-        if let Some(key) = keycode {
-            if key == Keycode::Return && modifiers.contains(Mod::LALTMOD) {
-                self.toggle_fullscreen();
-                return;
-            }
-        }
 
         if keycode.is_some() || text.is_some() {
             trace!(
@@ -411,10 +407,6 @@ pub fn initialize_settings() {
 pub fn ui_loop() {
     let mut window = WindowWrapper::new();
     
-    if SETTINGS.get::<WindowSettings>().fullscreen {
-        window.toggle_fullscreen();
-    }
-
     info!("Starting window event loop");
     let mut event_pump = window
         .context
