@@ -203,7 +203,7 @@ impl WindowWrapper {
 
                     // Set window to fullscreen
                     self.window.set_size(rect.width(), rect.height()).unwrap();   
-                    self.window.set_position(sdl2::video::WindowPos::Positioned(0), sdl2::video::WindowPos::Positioned(0));
+                    self.window.set_position(sdl2::video::WindowPos::Positioned(rect.x()), sdl2::video::WindowPos::Positioned(rect.y()));
                     self.window.set_bordered(true);
                 }
             }
