@@ -64,20 +64,20 @@ fn append_modifiers(
     if result == "<" {
         result = "lt".to_string();
         special = true;
-    }
+    }    
 
     if shift {
         special = true;
         result = format!("S-{}", result);
     }
-    if ctrl {
+	if ctrl && !alt {
         special = true;
         result = format!("C-{}", result);
     }
-    if alt {
+    if alt && !ctrl {
         special = true;
         result = format!("M-{}", result);
-    }
+	}
     if cfg!(not(target_os = "windows")) && gui {
         special = true;
         result = format!("D-{}", result);
