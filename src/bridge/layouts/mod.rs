@@ -70,14 +70,14 @@ fn append_modifiers(
         special = true;
         result = format!("S-{}", result);
     }
-	if ctrl && !alt {
+    if ctrl {
         special = true;
         result = format!("C-{}", result);
     }
-    if alt && !ctrl {
+    if alt {
         special = true;
         result = format!("M-{}", result);
-	}
+    }
     if cfg!(not(target_os = "windows")) && gui {
         special = true;
         result = format!("D-{}", result);
