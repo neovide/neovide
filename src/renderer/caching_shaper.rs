@@ -165,17 +165,25 @@ pub fn build_collection_by_font_name(
     let mut collection = FontCollection::new();
 
     if let Some(font_name) = font_name {
-        if let Some(family) = loader.get_or_load(font_name, false) {
-            let weight = if bold { Weight::BOLD } else { Weight::NORMAL };
-            let style = if italic { Style::Italic } else { Style::Normal };
-            let properties = Properties {
-                weight,
-                style,
-                stretch: Stretch::NORMAL,
-            };
+        let weight = if bold { Weight::BOLD } else { Weight::NORMAL };
+        let style = if italic { Style::Italic } else { Style::Normal };
+        let properties = Properties {
+            weight,
+            style,
+            stretch: Stretch::NORMAL,
+        };
 
+        if let Some(family) = loader.get_or_load(font_name, false) {
             if let Some(font) = family.get(properties) {
                 collection.add_family(FontFamily::new_from_font(font.clone()));
+            }
+        } else {
+            if font_name != SYSTEM_DEFAULT_FONT {
+                if let Some(family) = loader.get_or_load(SYSTEM_DEFAULT_FONT, false) {
+                    if let Some(font) = family.get(properties) {
+                        collection.add_family(FontFamily::new_from_font(font.clone()));
+                    }
+                }
             }
         }
     }
