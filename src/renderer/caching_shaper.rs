@@ -1,17 +1,15 @@
-use std::collections::HashMap;
-
+use cfg_if::cfg_if as define;
 use font_kit::{
     font::Font,
     metrics::Metrics,
     properties::{Properties, Stretch, Style, Weight},
     source::SystemSource,
 };
+use log::{trace, warn};
 use lru::LruCache;
 use skribo::{FontCollection, FontFamily, FontRef as SkriboFont, LayoutSession, TextStyle};
 use skulpin::skia_safe::{Data, Font as SkiaFont, TextBlob, TextBlobBuilder, Typeface};
-
-use cfg_if::cfg_if as define;
-use log::{trace, warn};
+use std::collections::HashMap;
 
 const STANDARD_CHARACTER_STRING: &str =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
