@@ -64,7 +64,7 @@ fn append_modifiers(
     if result == "<" {
         result = "lt".to_string();
         special = true;
-    }
+    }    
 
     if shift {
         special = true;

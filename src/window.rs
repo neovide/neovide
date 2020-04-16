@@ -5,8 +5,8 @@ use std::time::{Duration, Instant};
 use log::{debug, error, info, trace};
 use skulpin::sdl2;
 use skulpin::sdl2::event::{Event, WindowEvent};
-use skulpin::sdl2::keyboard::Keycode;
-use skulpin::sdl2::video::{FullscreenType, Window};
+use skulpin::sdl2::keyboard::{Keycode};
+use skulpin::sdl2::video::{Window};
 use skulpin::sdl2::Sdl;
 use skulpin::{dpis, CoordinateSystem, PresentMode, Renderer as SkulpinRenderer, RendererBuilder};
 use skulpin::{LogicalSize, PhysicalSize};
@@ -55,6 +55,8 @@ struct WindowWrapper {
     previous_dpis: (f32, f32),
     transparency: f32,
     fullscreen: bool,
+    cached_size: (i32, i32),
+    cached_position: (i32, i32)
 }
 
 pub fn window_geometry() -> Result<(u64, u64), String> {
@@ -168,7 +170,43 @@ impl WindowWrapper {
             previous_dpis,
             transparency: 1.0,
             fullscreen: false,
+            cached_size: (0, 0),
+            cached_position: (0, 0)
         }
+    }
+
+    pub fn toggle_fullscreen(&mut self) {
+        unsafe {
+            let raw_handle = self.window.raw();
+            let display_index = sdl2::sys::SDL_GetWindowDisplayIndex(raw_handle);
+
+            if let Ok(rect) = self.window.subsystem().display_bounds(display_index) {    
+                if self.fullscreen {
+                    // Set window back to resizable
+                    sdl2::sys::SDL_SetWindowResizable(raw_handle, sdl2::sys::SDL_bool::SDL_TRUE);
+
+                    // Use cached size and position
+                    self.window.set_size(self.cached_size.0 as u32, self.cached_size.1 as u32).unwrap();
+                    self.window.set_position(
+                        sdl2::video::WindowPos::Positioned(self.cached_position.0), 
+                        sdl2::video::WindowPos::Positioned(self.cached_position.1)
+                    );
+                    self.window.set_bordered(true);
+                }
+                else {
+                    // Cache the size and position
+                    sdl2::sys::SDL_GetWindowSize(raw_handle, &mut self.cached_size.0, &mut self.cached_size.1);
+                    sdl2::sys::SDL_GetWindowPosition(raw_handle, &mut self.cached_position.0, &mut self.cached_position.1);
+                    sdl2::sys::SDL_SetWindowResizable(raw_handle, sdl2::sys::SDL_bool::SDL_FALSE);
+
+                    // Set window to fullscreen
+                    self.window.set_size(rect.width(), rect.height()).unwrap();   
+                    self.window.set_position(sdl2::video::WindowPos::Positioned(rect.x()), sdl2::video::WindowPos::Positioned(rect.y()));
+                    self.window.set_bordered(true);
+                }
+            }
+        }
+        self.fullscreen = !self.fullscreen;
     }
 
     pub fn synchronize_settings(&mut self) {
@@ -190,12 +228,7 @@ impl WindowWrapper {
 
         let fullscreen = { SETTINGS.get::<WindowSettings>().fullscreen };
         if self.fullscreen != fullscreen {
-            let state = match fullscreen {
-                true => FullscreenType::Desktop,
-                false => FullscreenType::Off,
-            };
-            self.window.set_fullscreen(state).ok();
-            self.fullscreen = fullscreen;
+            self.toggle_fullscreen();
         }
     }
 
@@ -373,7 +406,7 @@ pub fn initialize_settings() {
 
 pub fn ui_loop() {
     let mut window = WindowWrapper::new();
-
+    
     info!("Starting window event loop");
     let mut event_pump = window
         .context
