@@ -4,6 +4,7 @@ use font_kit::{
     metrics::Metrics,
     properties::{Properties, Stretch, Style, Weight},
     source::SystemSource,
+    handle::Handle
 };
 use log::{trace, warn};
 use lru::LruCache;
@@ -71,7 +72,19 @@ impl ExtendedFontFamily {
         None
     }
 
-    pub fn to_family(self) -> FontFamily {
+    pub fn from_normal_font_family(fonts: &[Handle]) -> ExtendedFontFamily {
+        let mut family = ExtendedFontFamily::new();
+
+        for font in fonts.into_iter() {
+            if let Ok(font) = font.load() {
+                family.add_font(SkriboFont::new(font));
+            }
+        }
+
+        family
+    }
+
+    pub fn to_normal_font_family(self) -> FontFamily {
         let mut new_family = FontFamily::new();
 
         for font in self.fonts {
@@ -96,11 +109,7 @@ impl FontLoader {
     }
 
     fn get(&mut self, font_name: &str) -> Option<ExtendedFontFamily> {
-        if let Some(family) = self.cache.get(&String::from(font_name)) {
-            return Some(family.clone());
-        }
-
-        None
+        return self.cache.get(&String::from(font_name)).cloned();
     }
 
     #[cfg(feature = "embed-fonts")]
@@ -121,14 +130,7 @@ impl FontLoader {
             _ => return None,
         };
 
-        let fonts = handle.fonts();
-        let mut family = ExtendedFontFamily::new();
-
-        for font in fonts.into_iter() {
-            if let Ok(font) = font.load() {
-                family.add_font(SkriboFont::new(font));
-            }
-        }
+        let family = ExtendedFontFamily::from_normal_font_family(handle.fonts());
 
         self.cache.put(String::from(font_name), family);
         self.get(font_name)
@@ -185,13 +187,13 @@ pub fn build_collection_by_font_name(
 
     for font in &[SYSTEM_SYMBOL_FONT, SYSTEM_EMOJI_FONT] {
         if let Some(family) = loader.get_or_load(font, false) {
-            collection.add_family(family.to_family());
+            collection.add_family(family.to_normal_font_family());
         }
     }
 
     for font in &[EXTRA_SYMBOL_FONT, MISSING_GLYPH_FONT] {
         if let Some(family) = loader.get_or_load(font, true) {
-            collection.add_family(family.to_family());
+            collection.add_family(family.to_normal_font_family());
         }
     }
 
