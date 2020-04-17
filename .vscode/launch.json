@@ -5,7 +5,19 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(Windows) Launch",
+            "name": "(Mac/Linux) Debug",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceRoot}/target/debug/neovide",
+            "args": [],
+            "cwd": "${workspaceRoot}",
+            "env": {
+                "RUST_LOG": "info",
+                "RUST_BACKTRACE": "1"
+            }
+        },
+        {
+            "name": "(Windows) Debug",
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceRoot}/target/debug/neovide.exe",

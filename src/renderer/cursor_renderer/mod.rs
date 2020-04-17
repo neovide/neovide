@@ -105,14 +105,17 @@ impl Corner {
     ) -> bool {
         // Update destination if needed
         let mut immediate_movement = false;
+
         if destination != self.previous_destination {
             let travel_distance = destination - self.previous_destination;
             let chars_travel_x = travel_distance.x / font_dimensions.x;
+
             if travel_distance.y == 0.0 && (chars_travel_x - 1.0).abs() < 0.1 {
                 // We're moving one character to the right. Make movement immediate to avoid lag
                 // while typing
                 immediate_movement = true;
             }
+
             self.t = 0.0;
             self.start_position = self.current_position;
             self.previous_destination = destination;
@@ -127,8 +130,7 @@ impl Corner {
         let relative_scaled_position: Point = (
             self.relative_position.x * font_dimensions.x,
             self.relative_position.y * font_dimensions.y,
-        )
-            .into();
+        ).into();
 
         let corner_destination = destination + relative_scaled_position;
 
@@ -240,7 +242,6 @@ impl CursorRenderer {
         dt: f32,
     ) {
         let render = self.blink_status.update_status(&cursor);
-
         let settings = SETTINGS.get::<CursorSettings>();
 
         if settings.vfx_mode != self.previous_vfx_mode {
@@ -270,7 +271,6 @@ impl CursorRenderer {
         };
 
         let (grid_x, grid_y) = self.previous_position;
-
         let (character, font_dimensions): (String, Point) = {
             let editor = EDITOR.lock();
             let character = match editor.grid.get_cell(grid_x, grid_y) {
@@ -289,9 +289,9 @@ impl CursorRenderer {
             };
             (character, (font_width, font_height).into())
         };
+
         let destination: Point = (grid_x as f32 * font_width, grid_y as f32 * font_height).into();
         let center_destination = destination + font_dimensions * 0.5;
-
         let new_cursor = Some(cursor.shape.clone());
 
         if self.previous_cursor_shape != new_cursor {
@@ -307,6 +307,7 @@ impl CursorRenderer {
         }
 
         let mut animating = false;
+
         if !center_destination.is_zero() {
             for corner in self.corners.iter_mut() {
                 let corner_animating =
