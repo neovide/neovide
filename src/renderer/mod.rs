@@ -164,7 +164,11 @@ impl Renderer {
         };
 
         let current_font = Some(self.shaper.font_name.clone().unwrap_or(String::from("")));
-        let editor_font = if font_name.clone().unwrap_or_default().is_empty() { &current_font } else { &font_name };
+        let editor_font = if font_name.clone().unwrap_or_default().is_empty() {
+            &current_font
+        } else {
+            &font_name
+        };
 
         let font_changed = current_font != *editor_font
             || font_size

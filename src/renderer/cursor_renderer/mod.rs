@@ -130,7 +130,8 @@ impl Corner {
         let relative_scaled_position: Point = (
             self.relative_position.x * font_dimensions.x,
             self.relative_position.y * font_dimensions.y,
-        ).into();
+        )
+            .into();
 
         let corner_destination = destination + relative_scaled_position;
 

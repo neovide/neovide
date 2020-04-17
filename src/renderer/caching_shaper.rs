@@ -1,10 +1,10 @@
 use cfg_if::cfg_if as define;
 use font_kit::{
     font::Font,
+    handle::Handle,
     metrics::Metrics,
     properties::{Properties, Stretch, Style, Weight},
     source::SystemSource,
-    handle::Handle
 };
 use log::{trace, warn};
 use lru::LruCache;
@@ -298,7 +298,7 @@ impl CachingShaper {
 
                 for (i, glyph) in layout_run.glyphs().enumerate() {
                     glyphs[i] = glyph.glyph_id as u16;
-                    positions[i] = glyph.offset.x;
+                    positions[i] = glyph.offset.x();
                 }
 
                 blobs.push(blob_builder.make().unwrap());
@@ -340,7 +340,7 @@ impl CachingShaper {
         let session =
             LayoutSession::create(STANDARD_CHARACTER_STRING, &style, &self.font_set.normal);
         let layout_run = session.iter_all().next().unwrap();
-        let glyph_offsets: Vec<f32> = layout_run.glyphs().map(|glyph| glyph.offset.x).collect();
+        let glyph_offsets: Vec<f32> = layout_run.glyphs().map(|glyph| glyph.offset.x()).collect();
         let glyph_advances: Vec<f32> = glyph_offsets
             .windows(2)
             .map(|pair| pair[1] - pair[0])
