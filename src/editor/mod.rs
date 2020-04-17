@@ -111,6 +111,7 @@ impl Editor {
 
     pub fn build_draw_commands(&mut self) -> (Vec<DrawCommand>, bool) {
         let mut draw_commands = Vec::new();
+
         for (row_index, row) in self.grid.rows().enumerate() {
             let mut command = None;
 
