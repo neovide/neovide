@@ -166,7 +166,12 @@ impl Corner {
             // We are at destination, move t out of 0-1 range to stop the animation
             self.t = 2.0;
         } else {
-            let corner_dt = dt * lerp(1.0, 1.0 - settings.trail_size, -direction_alignment);
+            let corner_dt = dt
+                * lerp(
+                    1.0,
+                    (1.0 - settings.trail_size).max(0.0).min(1.0),
+                    -direction_alignment,
+                );
             self.t = (self.t + corner_dt / settings.animation_length).min(1.0)
         }
 
