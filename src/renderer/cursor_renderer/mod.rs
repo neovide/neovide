@@ -215,6 +215,7 @@ impl CursorRenderer {
             .enumerate()
             .map(|(i, corner)| {
                 let (x, y) = STANDARD_CORNERS[i];
+
                 Corner {
                     relative_position: match cursor_shape {
                         CursorShape::Block => (x, y).into(),
@@ -261,8 +262,10 @@ impl CursorRenderer {
             let editor = EDITOR.lock();
             let (_, grid_y) = cursor.position;
             let (_, previous_y) = self.previous_position;
+
             if grid_y == editor.grid.height - 1 && previous_y != grid_y {
                 self.command_line_delay += 1;
+
                 if self.command_line_delay < COMMAND_LINE_DELAY_FRAMES {
                     self.previous_position
                 } else {
@@ -342,23 +345,29 @@ impl CursorRenderer {
             // The cursor is made up of four points, so I create a path with each of the four
             // corners.
             let mut path = Path::new();
+
             path.move_to(self.corners[0].current_position);
             path.line_to(self.corners[1].current_position);
             path.line_to(self.corners[2].current_position);
             path.line_to(self.corners[3].current_position);
             path.close();
+
             canvas.draw_path(&path, &paint);
 
             // Draw foreground
             paint.set_color(cursor.foreground(&default_colors).to_color());
+
             canvas.save();
             canvas.clip_path(&path, None, Some(false));
 
             let blobs = &shaper.shape_cached(&character, false, false);
+
             for blob in blobs.iter() {
                 canvas.draw_text_blob(&blob, destination, &paint);
             }
+
             canvas.restore();
+
             if let Some(vfx) = self.cursor_vfx.as_ref() {
                 vfx.render(
                     &settings,

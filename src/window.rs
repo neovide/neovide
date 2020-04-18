@@ -97,6 +97,7 @@ pub fn window_geometry() -> Result<(u64, u64), String> {
                 .map_err(|msg| msg.to_owned())
         })
 }
+
 pub fn window_geometry_or_default() -> (u64, u64) {
     window_geometry().unwrap_or(INITIAL_DIMENSIONS)
 }
@@ -218,11 +219,13 @@ impl WindowWrapper {
                 }
             }
         }
+
         self.fullscreen = !self.fullscreen;
     }
 
     pub fn synchronize_settings(&mut self) {
         let editor_title = { EDITOR.lock().title.clone() };
+
         if self.title != editor_title {
             self.title = editor_title;
             self.window
@@ -231,6 +234,7 @@ impl WindowWrapper {
         }
 
         let transparency = { SETTINGS.get::<WindowSettings>().transparency };
+
         if let Ok(opacity) = self.window.opacity() {
             if opacity != transparency {
                 self.window.set_opacity(transparency).ok();
@@ -239,6 +243,7 @@ impl WindowWrapper {
         }
 
         let fullscreen = { SETTINGS.get::<WindowSettings>().fullscreen };
+
         if self.fullscreen != fullscreen {
             self.toggle_fullscreen();
         }
@@ -268,6 +273,7 @@ impl WindowWrapper {
 
     pub fn handle_pointer_motion(&mut self, x: i32, y: i32) {
         let previous_position = self.mouse_position;
+
         if let Ok(new_mouse_position) = LogicalSize::from_physical_size_tuple(
             (
                 (x as f32 / self.renderer.font_width) as u32,
@@ -276,6 +282,7 @@ impl WindowWrapper {
             &self.window,
         ) {
             self.mouse_position = new_mouse_position;
+
             if self.mouse_down && previous_position != self.mouse_position {
                 BRIDGE.queue_command(UiCommand::Drag(
                     self.mouse_position.width,
@@ -357,6 +364,7 @@ impl WindowWrapper {
         if let Ok(new_dpis) = dpis(&self.window) {
             if self.previous_dpis != new_dpis {
                 let physical_size = PhysicalSize::new(&self.window);
+
                 self.window
                     .set_size(
                         (physical_size.width as f32 * new_dpis.0 / self.previous_dpis.0) as u32,
@@ -368,9 +376,12 @@ impl WindowWrapper {
         }
 
         debug!("Render Triggered");
+
         let current_size = self.previous_size;
+
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
             let renderer = &mut self.renderer;
+
             if self
                 .skulpin_renderer
                 .draw(&self.window, |canvas, coordinate_system_helper| {
@@ -386,6 +397,7 @@ impl WindowWrapper {
                 return false;
             }
         }
+
         return true;
     }
 }
@@ -424,6 +436,7 @@ pub fn ui_loop() {
         .context
         .event_pump()
         .expect("Could not create sdl event pump");
+
     loop {
         let frame_start = Instant::now();
 

@@ -197,15 +197,15 @@ impl Editor {
             }
             add_command(&mut draw_commands, command);
         }
-        let should_clear = self.grid.should_clear;
 
+        let should_clear = self.grid.should_clear;
         let draw_commands = draw_commands
             .into_iter()
             .filter(|command| {
                 let (x, y) = command.grid_position;
-
                 let min = (x as i64 - 1).max(0) as u64;
                 let max = (x + command.cell_width + 1).min(self.grid.width);
+
                 for char_index in min..max {
                     if self.grid.is_dirty_cell(char_index, y) {
                         return true;
@@ -230,6 +230,7 @@ impl Editor {
         };
 
         let mut text = cell.text;
+
         if let Some(times) = cell.repeat {
             text = text.repeat(times as usize);
         }
@@ -250,6 +251,7 @@ impl Editor {
             }
             *column_pos += text.graphemes(true).count() as u64;
         }
+
         self.previous_style = style;
     }
 

@@ -215,6 +215,7 @@ impl Renderer {
                 &default_style,
             );
         }
+
         for command in draw_commands.iter() {
             self.draw_foreground(
                 &mut canvas,
@@ -234,10 +235,10 @@ impl Renderer {
             window_size.width as f32,
             window_size.height as f32,
         );
+
         gpu_canvas.draw_image_rect(image, None, &image_destination, &self.paint);
 
         self.surface = Some(surface);
-
         self.cursor_renderer.draw(
             cursor,
             &default_style.colors,
