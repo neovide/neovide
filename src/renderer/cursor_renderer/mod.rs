@@ -23,6 +23,7 @@ const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.
 pub struct CursorSettings {
     antialiasing: bool,
     animation_length: f32,
+    animate_in_insert_mode: bool,
     trail_size: f32,
     vfx_mode: cursor_vfx::VfxMode,
     vfx_opacity: f32,
@@ -37,6 +38,7 @@ pub fn initialize_settings() {
     SETTINGS.set(&CursorSettings {
         antialiasing: true,
         animation_length: 0.13,
+        animate_in_insert_mode: true,
         trail_size: 0.7,
         vfx_mode: cursor_vfx::VfxMode::Disabled,
         vfx_opacity: 200.0,
@@ -48,6 +50,10 @@ pub fn initialize_settings() {
     });
 
     register_nvim_setting!("cursor_antialiasing", CursorSettings::antialiasing);
+    register_nvim_setting!(
+        "cursor_animate_in_insert_mode",
+        CursorSettings::animate_in_insert_mode
+    );
     register_nvim_setting!("cursor_animation_length", CursorSettings::animation_length);
     register_nvim_setting!("cursor_trail_size", CursorSettings::trail_size);
     register_nvim_setting!("cursor_vfx_mode", CursorSettings::vfx_mode);
@@ -102,17 +108,15 @@ impl Corner {
         font_dimensions: Point,
         destination: Point,
         dt: f32,
+        mode: u64,
     ) -> bool {
         // Update destination if needed
         let mut immediate_movement = false;
 
         if destination != self.previous_destination {
-            let travel_distance = destination - self.previous_destination;
-            let chars_travel_x = travel_distance.x / font_dimensions.x;
-
-            if travel_distance.y == 0.0 && (chars_travel_x - 1.0).abs() < 0.1 {
-                // We're moving one character to the right. Make movement immediate to avoid lag
-                // while typing
+            // 2 for insert mode as it's the only mode where
+            // the cursor might appear to lag behind
+            if !settings.animate_in_insert_mode && mode == 2 {
                 immediate_movement = true;
             }
 
@@ -272,7 +276,7 @@ impl CursorRenderer {
         };
 
         let (grid_x, grid_y) = self.previous_position;
-        let (character, font_dimensions): (String, Point) = {
+        let (character, font_dimensions, mode): (String, Point, u64) = {
             let editor = EDITOR.lock();
             let character = match editor.grid.get_cell(grid_x, grid_y) {
                 Some(Some((character, _))) => character.clone(),
@@ -288,7 +292,8 @@ impl CursorRenderer {
                 (true, CursorShape::Block) => font_width * 2.0,
                 _ => font_width,
             };
-            (character, (font_width, font_height).into())
+
+            (character, (font_width, font_height).into(), editor.mode)
         };
 
         let destination: Point = (grid_x as f32 * font_width, grid_y as f32 * font_height).into();
@@ -312,7 +317,8 @@ impl CursorRenderer {
         if !center_destination.is_zero() {
             for corner in self.corners.iter_mut() {
                 let corner_animating =
-                    corner.update(&settings, font_dimensions, center_destination, dt);
+                    corner.update(&settings, font_dimensions, center_destination, dt, mode);
+
                 animating |= corner_animating;
             }
 

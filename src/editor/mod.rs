@@ -39,6 +39,7 @@ pub struct Editor {
     pub default_style: Arc<Style>,
     pub defined_styles: HashMap<u64, Arc<Style>>,
     pub previous_style: Option<Arc<Style>>,
+    pub mode: u64,
 }
 
 impl Editor {
@@ -57,6 +58,7 @@ impl Editor {
             ))),
             defined_styles: HashMap::new(),
             previous_style: None,
+            mode: 0,
         };
 
         editor.grid.clear();
@@ -69,6 +71,7 @@ impl Editor {
             RedrawEvent::ModeInfoSet { cursor_modes } => self.cursor.mode_list = cursor_modes,
             RedrawEvent::OptionSet { gui_option } => self.set_option(gui_option),
             RedrawEvent::ModeChange { mode_index } => {
+                self.mode = mode_index;
                 self.cursor.change_mode(mode_index, &self.defined_styles)
             }
             RedrawEvent::MouseOn => {
