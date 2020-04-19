@@ -1248,7 +1248,7 @@ dependencies = [
  "parking_lot",
  "rmpv",
  "rust-embed",
- "sdl2",
+ "sdl2-sys",
  "skribo",
  "skulpin",
  "tokio",
