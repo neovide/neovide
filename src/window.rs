@@ -7,7 +7,10 @@ use skulpin::sdl2;
 use skulpin::sdl2::event::{Event, WindowEvent};
 use skulpin::sdl2::keyboard::Keycode;
 use skulpin::sdl2::Sdl;
-use skulpin::{Window, CoordinateSystem, PresentMode, Renderer as SkulpinRenderer, RendererBuilder, LogicalSize, PhysicalSize, Sdl2Window};
+use skulpin::{
+    CoordinateSystem, LogicalSize, PhysicalSize, PresentMode, Renderer as SkulpinRenderer,
+    RendererBuilder, Sdl2Window, Window,
+};
 
 use crate::bridge::{produce_neovim_keybinding_string, UiCommand, BRIDGE};
 use crate::editor::EDITOR;
@@ -267,7 +270,7 @@ impl WindowWrapper {
         let previous_position = self.mouse_position;
         let physical_size = PhysicalSize::new(
             (x as f32 / self.renderer.font_width) as u32,
-            (y as f32 / self.renderer.font_height) as u32
+            (y as f32 / self.renderer.font_height) as u32,
         );
 
         self.mouse_position = physical_size.to_logical(1.0);
