@@ -16,7 +16,6 @@ font-kit = "0.6.0"
 skribo = { git = "https://github.com/linebender/skribo" }
 lru = "0.4.3"
 skulpin = { version = "0.9.0", features=["skulpin_sdl2"] }
-sdl2 = { version = ">=0.33", features = ["bundled", "static-link"] }
 derive-new = "0.5"
 rmpv = "0.4.4"
 rust-embed = { version = "5.2.0", features = ["debug-embed"] }
@@ -37,6 +36,10 @@ winapi = "0.3.8"
 
 [build-dependencies]
 winres = "0.1.11"
+sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", default-features = false, features = ["bundled", "static-link"] }
+
+[patch.crates-io]
+sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", default-features = false, features = ["bundled", "static-link"] }
 
 [profile.release]
 debug = true

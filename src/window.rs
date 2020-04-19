@@ -6,7 +6,6 @@ use log::{debug, error, info, trace};
 use skulpin::sdl2;
 use skulpin::sdl2::event::{Event, WindowEvent};
 use skulpin::sdl2::keyboard::Keycode;
-use skulpin::sdl2::video::Window;
 use skulpin::sdl2::video::FullscreenType;
 use skulpin::sdl2::Sdl;
 use skulpin::{Window, CoordinateSystem, PresentMode, Renderer as SkulpinRenderer, RendererBuilder, LogicalSize, PhysicalSize, Sdl2Window};
