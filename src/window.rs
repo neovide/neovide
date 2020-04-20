@@ -454,6 +454,9 @@ pub fn ui_loop() {
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit { .. } => window.handle_quit(),
+                Event::DropFile { filename, ..} => {
+                    BRIDGE.queue_command(UiCommand::FileDrop(filename));
+                }
                 Event::KeyDown {
                     keycode: received_keycode,
                     ..
