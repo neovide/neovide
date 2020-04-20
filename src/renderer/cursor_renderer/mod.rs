@@ -9,6 +9,7 @@ use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::renderer::CachingShaper;
 use crate::settings::*;
 
+use crate::bridge::EditorMode;
 use animation_utils::*;
 use blink::*;
 
@@ -23,6 +24,7 @@ const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.
 pub struct CursorSettings {
     antialiasing: bool,
     animation_length: f32,
+    animate_in_insert_mode: bool,
     trail_size: f32,
     vfx_mode: cursor_vfx::VfxMode,
     vfx_opacity: f32,
@@ -37,6 +39,7 @@ pub fn initialize_settings() {
     SETTINGS.set(&CursorSettings {
         antialiasing: true,
         animation_length: 0.13,
+        animate_in_insert_mode: true,
         trail_size: 0.7,
         vfx_mode: cursor_vfx::VfxMode::Disabled,
         vfx_opacity: 200.0,
@@ -48,6 +51,10 @@ pub fn initialize_settings() {
     });
 
     register_nvim_setting!("cursor_antialiasing", CursorSettings::antialiasing);
+    register_nvim_setting!(
+        "cursor_animate_in_insert_mode",
+        CursorSettings::animate_in_insert_mode
+    );
     register_nvim_setting!("cursor_animation_length", CursorSettings::animation_length);
     register_nvim_setting!("cursor_trail_size", CursorSettings::trail_size);
     register_nvim_setting!("cursor_vfx_mode", CursorSettings::vfx_mode);
@@ -102,20 +109,9 @@ impl Corner {
         font_dimensions: Point,
         destination: Point,
         dt: f32,
+        immediate_movement: bool,
     ) -> bool {
-        // Update destination if needed
-        let mut immediate_movement = false;
-
         if destination != self.previous_destination {
-            let travel_distance = destination - self.previous_destination;
-            let chars_travel_x = travel_distance.x / font_dimensions.x;
-
-            if travel_distance.y == 0.0 && (chars_travel_x - 1.0).abs() < 0.1 {
-                // We're moving one character to the right. Make movement immediate to avoid lag
-                // while typing
-                immediate_movement = true;
-            }
-
             self.t = 0.0;
             self.start_position = self.current_position;
             self.previous_destination = destination;
@@ -162,7 +158,12 @@ impl Corner {
             // We are at destination, move t out of 0-1 range to stop the animation
             self.t = 2.0;
         } else {
-            let corner_dt = dt * lerp(1.0, 1.0 - settings.trail_size, -direction_alignment);
+            let corner_dt = dt
+                * lerp(
+                    1.0,
+                    (1.0 - settings.trail_size).max(0.0).min(1.0),
+                    -direction_alignment,
+                );
             self.t = (self.t + corner_dt / settings.animation_length).min(1.0)
         }
 
@@ -211,6 +212,7 @@ impl CursorRenderer {
             .enumerate()
             .map(|(i, corner)| {
                 let (x, y) = STANDARD_CORNERS[i];
+
                 Corner {
                     relative_position: match cursor_shape {
                         CursorShape::Block => (x, y).into(),
@@ -257,8 +259,10 @@ impl CursorRenderer {
             let editor = EDITOR.lock();
             let (_, grid_y) = cursor.position;
             let (_, previous_y) = self.previous_position;
+
             if grid_y == editor.grid.height - 1 && previous_y != grid_y {
                 self.command_line_delay += 1;
+
                 if self.command_line_delay < COMMAND_LINE_DELAY_FRAMES {
                     self.previous_position
                 } else {
@@ -272,7 +276,7 @@ impl CursorRenderer {
         };
 
         let (grid_x, grid_y) = self.previous_position;
-        let (character, font_dimensions): (String, Point) = {
+        let (character, font_dimensions, in_insert_mode): (String, Point, bool) = {
             let editor = EDITOR.lock();
             let character = match editor.grid.get_cell(grid_x, grid_y) {
                 Some(Some((character, _))) => character.clone(),
@@ -288,7 +292,13 @@ impl CursorRenderer {
                 (true, CursorShape::Block) => font_width * 2.0,
                 _ => font_width,
             };
-            (character, (font_width, font_height).into())
+
+            let in_insert_mode = match editor.current_mode {
+                EditorMode::Insert => true,
+                _ => false,
+            };
+
+            (character, (font_width, font_height).into(), in_insert_mode)
         };
 
         let destination: Point = (grid_x as f32 * font_width, grid_y as f32 * font_height).into();
@@ -311,8 +321,14 @@ impl CursorRenderer {
 
         if !center_destination.is_zero() {
             for corner in self.corners.iter_mut() {
-                let corner_animating =
-                    corner.update(&settings, font_dimensions, center_destination, dt);
+                let corner_animating = corner.update(
+                    &settings,
+                    font_dimensions,
+                    center_destination,
+                    dt,
+                    !settings.animate_in_insert_mode && in_insert_mode,
+                );
+
                 animating |= corner_animating;
             }
 
@@ -336,23 +352,29 @@ impl CursorRenderer {
             // The cursor is made up of four points, so I create a path with each of the four
             // corners.
             let mut path = Path::new();
+
             path.move_to(self.corners[0].current_position);
             path.line_to(self.corners[1].current_position);
             path.line_to(self.corners[2].current_position);
             path.line_to(self.corners[3].current_position);
             path.close();
+
             canvas.draw_path(&path, &paint);
 
             // Draw foreground
             paint.set_color(cursor.foreground(&default_colors).to_color());
+
             canvas.save();
             canvas.clip_path(&path, None, Some(false));
 
             let blobs = &shaper.shape_cached(&character, false, false);
+
             for blob in blobs.iter() {
                 canvas.draw_text_blob(&blob, destination, &paint);
             }
+
             canvas.restore();
+
             if let Some(vfx) = self.cursor_vfx.as_ref() {
                 vfx.render(
                     &settings,

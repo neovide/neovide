@@ -115,6 +115,20 @@ pub enum WindowAnchor {
 }
 
 #[derive(Debug)]
+pub enum EditorMode {
+    // The set of modes reported will change in new versions of Nvim, for
+    // instance more sub-modes and temporary states might be represented as
+    // separate modes. (however we can safely do this as these are the main modes)
+    // for instance if we are in Terminal mode and even though status-line shows Terminal,
+    // we still get one of these as the _editor_ mode
+    Normal,
+    Insert,
+    Visual,
+    CmdLine,
+    Unknown(String),
+}
+
+#[derive(Debug)]
 pub enum RedrawEvent {
     SetTitle {
         title: String,
@@ -126,6 +140,7 @@ pub enum RedrawEvent {
         gui_option: GuiOption,
     },
     ModeChange {
+        mode: EditorMode,
         mode_index: u64,
     },
     MouseOn,
@@ -373,9 +388,17 @@ fn parse_option_set(option_set_arguments: Vec<Value>) -> Result<RedrawEvent> {
 }
 
 fn parse_mode_change(mode_change_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [_mode, mode_index] = extract_values(mode_change_arguments, [Value::Nil, Value::Nil])?;
+    let [mode, mode_index] = extract_values(mode_change_arguments, [Value::Nil, Value::Nil])?;
+    let mode_name = parse_string(mode)?;
 
     Ok(RedrawEvent::ModeChange {
+        mode: match mode_name.as_str() {
+            "normal" => EditorMode::Normal,
+            "insert" => EditorMode::Insert,
+            "visual" => EditorMode::Visual,
+            "cmdline_normal" => EditorMode::CmdLine,
+            _ => EditorMode::Unknown(mode_name),
+        },
         mode_index: parse_u64(mode_index)?,
     })
 }
