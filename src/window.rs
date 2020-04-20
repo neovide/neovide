@@ -55,7 +55,7 @@ struct WindowWrapper {
     previous_dpis: (f32, f32),
     transparency: f32,
     fullscreen: bool,
-    cached_size: (i32, i32),
+    cached_size: (u32, u32),
     cached_position: (i32, i32),
 }
 
@@ -176,46 +176,44 @@ impl WindowWrapper {
     }
 
     pub fn toggle_fullscreen(&mut self) {
-        unsafe {
-            let raw_handle = self.window.raw();
-            let display_index = sdl2::sys::SDL_GetWindowDisplayIndex(raw_handle);
+        let raw_handle = self.window.raw();
 
-            if let Ok(rect) = self.window.subsystem().display_bounds(display_index) {
-                if self.fullscreen {
+        if self.fullscreen {
+            if cfg!(not(target_os = "macos")) {
+                unsafe {
                     // Set window back to resizable
                     sdl2::sys::SDL_SetWindowResizable(raw_handle, sdl2::sys::SDL_bool::SDL_TRUE);
+                }
+            }
 
-                    // Use cached size and position
-                    self.window
-                        .set_size(self.cached_size.0 as u32, self.cached_size.1 as u32)
-                        .unwrap();
-                    self.window.set_position(
-                        sdl2::video::WindowPos::Positioned(self.cached_position.0),
-                        sdl2::video::WindowPos::Positioned(self.cached_position.1),
-                    );
-                    self.window.set_bordered(true);
-                } else {
-                    // Cache the size and position
-                    sdl2::sys::SDL_GetWindowSize(
-                        raw_handle,
-                        &mut self.cached_size.0,
-                        &mut self.cached_size.1,
-                    );
-                    sdl2::sys::SDL_GetWindowPosition(
-                        raw_handle,
-                        &mut self.cached_position.0,
-                        &mut self.cached_position.1,
-                    );
-                    sdl2::sys::SDL_SetWindowResizable(raw_handle, sdl2::sys::SDL_bool::SDL_FALSE);
+            // Use cached size and position
+            self.window
+                .set_size(self.cached_size.0, self.cached_size.1)
+                .unwrap();
+            self.window.set_position(
+                sdl2::video::WindowPos::Positioned(self.cached_position.0),
+                sdl2::video::WindowPos::Positioned(self.cached_position.1),
+            );
+        } else {
+            self.cached_size = self.window.size();
+            self.cached_position = self.window.position();
 
+            if cfg!(not(target_os = "macos")) {
+                let raw_handle = self.window.raw();
+                let display_index = self.window.display_index().unwrap();
+                if let Ok(rect) = self.window.subsystem().display_bounds(display_index) {
+                    unsafe {
+                        sdl2::sys::SDL_SetWindowResizable(raw_handle, sdl2::sys::SDL_bool::SDL_FALSE);
+                    }
                     // Set window to fullscreen
                     self.window.set_size(rect.width(), rect.height()).unwrap();
                     self.window.set_position(
                         sdl2::video::WindowPos::Positioned(rect.x()),
                         sdl2::video::WindowPos::Positioned(rect.y()),
                     );
-                    self.window.set_bordered(true);
                 }
+            } else {
+                self.window.maximize();
             }
         }
         self.fullscreen = !self.fullscreen;
