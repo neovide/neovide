@@ -10,7 +10,7 @@ use parking_lot::Mutex;
 use skulpin::skia_safe::colors;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::bridge::{GridLineCell, GuiOption, RedrawEvent};
+use crate::bridge::{EditorMode, GridLineCell, GuiOption, RedrawEvent};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::window::window_geometry_or_default;
 pub use cursor::{Cursor, CursorMode, CursorShape};
@@ -39,7 +39,8 @@ pub struct Editor {
     pub default_style: Arc<Style>,
     pub defined_styles: HashMap<u64, Arc<Style>>,
     pub previous_style: Option<Arc<Style>>,
-    pub mode: u64,
+    pub mode_list: Vec<CursorMode>,
+    pub current_mode: EditorMode,
 }
 
 impl Editor {
@@ -58,7 +59,8 @@ impl Editor {
             ))),
             defined_styles: HashMap::new(),
             previous_style: None,
-            mode: 0,
+            mode_list: Vec::new(),
+            current_mode: EditorMode::Unknown(String::from("")),
         };
 
         editor.grid.clear();
@@ -68,11 +70,13 @@ impl Editor {
     pub fn handle_redraw_event(&mut self, event: RedrawEvent) {
         match event {
             RedrawEvent::SetTitle { title } => self.title = title,
-            RedrawEvent::ModeInfoSet { cursor_modes } => self.cursor.mode_list = cursor_modes,
+            RedrawEvent::ModeInfoSet { cursor_modes } => self.mode_list = cursor_modes,
             RedrawEvent::OptionSet { gui_option } => self.set_option(gui_option),
-            RedrawEvent::ModeChange { mode_index } => {
-                self.mode = mode_index;
-                self.cursor.change_mode(mode_index, &self.defined_styles)
+            RedrawEvent::ModeChange { mode, mode_index } => {
+                if let Some(cursor_mode) = self.mode_list.get(mode_index as usize) {
+                    self.cursor.change_mode(cursor_mode, &self.defined_styles);
+                    self.current_mode = mode
+                }
             }
             RedrawEvent::MouseOn => {
                 self.mouse_enabled = true;
