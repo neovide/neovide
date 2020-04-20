@@ -9,6 +9,7 @@ use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::renderer::CachingShaper;
 use crate::settings::*;
 
+use crate::bridge::EditorMode;
 use animation_utils::*;
 use blink::*;
 
@@ -108,18 +109,9 @@ impl Corner {
         font_dimensions: Point,
         destination: Point,
         dt: f32,
-        mode: u64,
+        immediate_movement: bool,
     ) -> bool {
-        // Update destination if needed
-        let mut immediate_movement = false;
-
         if destination != self.previous_destination {
-            // 2 for insert mode as it's the only mode where
-            // the cursor might appear to lag behind
-            if !settings.animate_in_insert_mode && mode == 2 {
-                immediate_movement = true;
-            }
-
             self.t = 0.0;
             self.start_position = self.current_position;
             self.previous_destination = destination;
@@ -284,7 +276,7 @@ impl CursorRenderer {
         };
 
         let (grid_x, grid_y) = self.previous_position;
-        let (character, font_dimensions, mode): (String, Point, u64) = {
+        let (character, font_dimensions, in_insert_mode): (String, Point, bool) = {
             let editor = EDITOR.lock();
             let character = match editor.grid.get_cell(grid_x, grid_y) {
                 Some(Some((character, _))) => character.clone(),
@@ -301,7 +293,12 @@ impl CursorRenderer {
                 _ => font_width,
             };
 
-            (character, (font_width, font_height).into(), editor.mode)
+            let in_insert_mode = match editor.current_mode {
+                EditorMode::Insert => true,
+                _ => false,
+            };
+
+            (character, (font_width, font_height).into(), in_insert_mode)
         };
 
         let destination: Point = (grid_x as f32 * font_width, grid_y as f32 * font_height).into();
@@ -324,8 +321,13 @@ impl CursorRenderer {
 
         if !center_destination.is_zero() {
             for corner in self.corners.iter_mut() {
-                let corner_animating =
-                    corner.update(&settings, font_dimensions, center_destination, dt, mode);
+                let corner_animating = corner.update(
+                    &settings,
+                    font_dimensions,
+                    center_destination,
+                    dt,
+                    !settings.animate_in_insert_mode && in_insert_mode,
+                );
 
                 animating |= corner_animating;
             }
