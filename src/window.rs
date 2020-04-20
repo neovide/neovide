@@ -6,7 +6,7 @@ use log::{debug, error, info, trace};
 use skulpin::sdl2;
 use skulpin::sdl2::event::{Event, WindowEvent};
 use skulpin::sdl2::keyboard::Keycode;
-use skulpin::sdl2::video::Window;
+use skulpin::sdl2::video::{FullscreenType, Window};
 use skulpin::sdl2::Sdl;
 use skulpin::{dpis, CoordinateSystem, PresentMode, Renderer as SkulpinRenderer, RendererBuilder};
 use skulpin::{LogicalSize, PhysicalSize};
@@ -177,11 +177,13 @@ impl WindowWrapper {
 
     pub fn toggle_fullscreen(&mut self) {
         if self.fullscreen {
-            if cfg!(not(target_os = "macos")) {
+            if cfg!(target_os = "windows") {
                 unsafe {
                     let raw_handle = self.window.raw();
                     sdl2::sys::SDL_SetWindowResizable(raw_handle, sdl2::sys::SDL_bool::SDL_TRUE);
                 }
+            } else {
+                self.window.set_fullscreen(FullscreenType::Off).ok();
             }
 
             // Use cached size and position
@@ -196,20 +198,13 @@ impl WindowWrapper {
             self.cached_size = self.window.size();
             self.cached_position = self.window.position();
 
-            if cfg!(not(target_os = "macos")) {
+            if cfg!(target_os = "windows") {
                 let video_subsystem = self.window.subsystem();
-                if let Ok(rect) = self
-                    .window
-                    .display_index()
-                    .and_then(|index| video_subsystem.display_bounds(index))
-                {
+                if let Ok(rect) = self.window.display_index().and_then(|index| video_subsystem.display_bounds(index)) {
                     // Set window to fullscreen
                     unsafe {
                         let raw_handle = self.window.raw();
-                        sdl2::sys::SDL_SetWindowResizable(
-                            raw_handle,
-                            sdl2::sys::SDL_bool::SDL_FALSE,
-                        );
+                        sdl2::sys::SDL_SetWindowResizable(raw_handle, sdl2::sys::SDL_bool::SDL_FALSE);
                     }
                     self.window.set_size(rect.width(), rect.height()).unwrap();
                     self.window.set_position(
@@ -218,7 +213,7 @@ impl WindowWrapper {
                     );
                 }
             } else {
-                self.window.maximize();
+                self.window.set_fullscreen(FullscreenType::Desktop).ok();
             }
         }
         self.fullscreen = !self.fullscreen;
