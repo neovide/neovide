@@ -6,7 +6,7 @@ use log::{debug, error, info, trace};
 use skulpin::sdl2;
 use skulpin::sdl2::event::{Event, WindowEvent};
 use skulpin::sdl2::keyboard::Keycode;
-use skulpin::sdl2::video::Window;
+use skulpin::sdl2::video::{FullscreenType, Window};
 use skulpin::sdl2::Sdl;
 use skulpin::{dpis, CoordinateSystem, PresentMode, Renderer as SkulpinRenderer, RendererBuilder};
 use skulpin::{LogicalSize, PhysicalSize};
@@ -55,7 +55,7 @@ struct WindowWrapper {
     previous_dpis: (f32, f32),
     transparency: f32,
     fullscreen: bool,
-    cached_size: (i32, i32),
+    cached_size: (u32, u32),
     cached_position: (i32, i32),
 }
 
@@ -177,46 +177,51 @@ impl WindowWrapper {
     }
 
     pub fn toggle_fullscreen(&mut self) {
-        unsafe {
-            let raw_handle = self.window.raw();
-            let display_index = sdl2::sys::SDL_GetWindowDisplayIndex(raw_handle);
-
-            if let Ok(rect) = self.window.subsystem().display_bounds(display_index) {
-                if self.fullscreen {
-                    // Set window back to resizable
+        if self.fullscreen {
+            if cfg!(target_os = "windows") {
+                unsafe {
+                    let raw_handle = self.window.raw();
                     sdl2::sys::SDL_SetWindowResizable(raw_handle, sdl2::sys::SDL_bool::SDL_TRUE);
+                }
+            } else {
+                self.window.set_fullscreen(FullscreenType::Off).ok();
+            }
 
-                    // Use cached size and position
-                    self.window
-                        .set_size(self.cached_size.0 as u32, self.cached_size.1 as u32)
-                        .unwrap();
-                    self.window.set_position(
-                        sdl2::video::WindowPos::Positioned(self.cached_position.0),
-                        sdl2::video::WindowPos::Positioned(self.cached_position.1),
-                    );
-                    self.window.set_bordered(true);
-                } else {
-                    // Cache the size and position
-                    sdl2::sys::SDL_GetWindowSize(
-                        raw_handle,
-                        &mut self.cached_size.0,
-                        &mut self.cached_size.1,
-                    );
-                    sdl2::sys::SDL_GetWindowPosition(
-                        raw_handle,
-                        &mut self.cached_position.0,
-                        &mut self.cached_position.1,
-                    );
-                    sdl2::sys::SDL_SetWindowResizable(raw_handle, sdl2::sys::SDL_bool::SDL_FALSE);
+            // Use cached size and position
+            self.window
+                .set_size(self.cached_size.0, self.cached_size.1)
+                .unwrap();
+            self.window.set_position(
+                sdl2::video::WindowPos::Positioned(self.cached_position.0),
+                sdl2::video::WindowPos::Positioned(self.cached_position.1),
+            );
+        } else {
+            self.cached_size = self.window.size();
+            self.cached_position = self.window.position();
 
+            if cfg!(target_os = "windows") {
+                let video_subsystem = self.window.subsystem();
+                if let Ok(rect) = self
+                    .window
+                    .display_index()
+                    .and_then(|index| video_subsystem.display_bounds(index))
+                {
                     // Set window to fullscreen
+                    unsafe {
+                        let raw_handle = self.window.raw();
+                        sdl2::sys::SDL_SetWindowResizable(
+                            raw_handle,
+                            sdl2::sys::SDL_bool::SDL_FALSE,
+                        );
+                    }
                     self.window.set_size(rect.width(), rect.height()).unwrap();
                     self.window.set_position(
                         sdl2::video::WindowPos::Positioned(rect.x()),
                         sdl2::video::WindowPos::Positioned(rect.y()),
                     );
-                    self.window.set_bordered(true);
                 }
+            } else {
+                self.window.set_fullscreen(FullscreenType::Desktop).ok();
             }
         }
 
