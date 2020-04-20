@@ -176,12 +176,10 @@ impl WindowWrapper {
     }
 
     pub fn toggle_fullscreen(&mut self) {
-        let raw_handle = self.window.raw();
-
         if self.fullscreen {
             if cfg!(not(target_os = "macos")) {
                 unsafe {
-                    // Set window back to resizable
+                    let raw_handle = self.window.raw();
                     sdl2::sys::SDL_SetWindowResizable(raw_handle, sdl2::sys::SDL_bool::SDL_TRUE);
                 }
             }
@@ -199,13 +197,20 @@ impl WindowWrapper {
             self.cached_position = self.window.position();
 
             if cfg!(not(target_os = "macos")) {
-                let raw_handle = self.window.raw();
-                let display_index = self.window.display_index().unwrap();
-                if let Ok(rect) = self.window.subsystem().display_bounds(display_index) {
-                    unsafe {
-                        sdl2::sys::SDL_SetWindowResizable(raw_handle, sdl2::sys::SDL_bool::SDL_FALSE);
-                    }
+                let video_subsystem = self.window.subsystem();
+                if let Ok(rect) = self
+                    .window
+                    .display_index()
+                    .and_then(|index| video_subsystem.display_bounds(index))
+                {
                     // Set window to fullscreen
+                    unsafe {
+                        let raw_handle = self.window.raw();
+                        sdl2::sys::SDL_SetWindowResizable(
+                            raw_handle,
+                            sdl2::sys::SDL_bool::SDL_FALSE,
+                        );
+                    }
                     self.window.set_size(rect.width(), rect.height()).unwrap();
                     self.window.set_position(
                         sdl2::video::WindowPos::Positioned(rect.x()),
