@@ -273,7 +273,8 @@ impl WindowWrapper {
             (y as f32 / self.renderer.font_height) as u32,
         );
 
-        self.mouse_position = physical_size.to_logical(1.0);
+        let sdl_window_wrapper = Sdl2Window::new(&self.window);
+        self.mouse_position = physical_size.to_logical(sdl_window_wrapper.scale_factor());
         if self.mouse_down && previous_position != self.mouse_position {
             BRIDGE.queue_command(UiCommand::Drag(
                 self.mouse_position.width,

@@ -1924,8 +1924,7 @@ dependencies = [
 [[package]]
 name = "skulpin"
 version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9dd4af3f78364d587c25990361d63d4e9707e7f4a40636c2875db39212b11786"
+source = "git+https://github.com/kethku/skulpin?branch=windows-dpi-fix#24ce66e217980490e5891fa113ade2c9dbec02c6"
 dependencies = [
  "log",
  "skulpin-app-winit",
@@ -1937,8 +1936,7 @@ dependencies = [
 [[package]]
 name = "skulpin-app-winit"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b94b802ebaa595692fdf7e68535a301e0dc21146839766d4fca6b4085e7efcad"
+source = "git+https://github.com/kethku/skulpin?branch=windows-dpi-fix#24ce66e217980490e5891fa113ade2c9dbec02c6"
 dependencies = [
  "log",
  "skulpin-renderer",
@@ -1948,8 +1946,7 @@ dependencies = [
 [[package]]
 name = "skulpin-renderer"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "951abd350f1f0fd54acceb479e9af6329cda9e35498da5242c6f07255af4580c"
+source = "git+https://github.com/kethku/skulpin?branch=windows-dpi-fix#24ce66e217980490e5891fa113ade2c9dbec02c6"
 dependencies = [
  "ash",
  "log",
@@ -1960,8 +1957,7 @@ dependencies = [
 [[package]]
 name = "skulpin-renderer-sdl2"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "766028ec539df61ad43b8378467d08c2e866a1967141c292c34e5118cf22c592"
+source = "git+https://github.com/kethku/skulpin?branch=windows-dpi-fix#24ce66e217980490e5891fa113ade2c9dbec02c6"
 dependencies = [
  "log",
  "sdl2",
@@ -1971,8 +1967,7 @@ dependencies = [
 [[package]]
 name = "skulpin-renderer-winit"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23e6adf5a21a5108143a6225835010aeee4ef0e83285716fd89e0e6ea3e0081c"
+source = "git+https://github.com/kethku/skulpin?branch=windows-dpi-fix#24ce66e217980490e5891fa113ade2c9dbec02c6"
 dependencies = [
  "cocoa",
  "log",
