@@ -134,12 +134,14 @@ impl CursorVfx for PointHighlight {
         if self.t == 1.0 {
             return;
         }
+
         let mut paint = Paint::new(skulpin::skia_safe::colors::WHITE, None);
         paint.set_blend_mode(BlendMode::SrcOver);
 
         let base_color: Color = cursor.background(&colors).to_color();
         let alpha = ease(ease_in_quad, settings.vfx_opacity, 0.0, self.t) as u8;
         let color = Color::from_argb(alpha, base_color.r(), base_color.g(), base_color.b());
+
         paint.set_color(color);
 
         let size = 3.0 * font_size.1;
