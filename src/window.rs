@@ -200,11 +200,18 @@ impl WindowWrapper {
 
             if cfg!(target_os = "windows") {
                 let video_subsystem = self.window.subsystem();
-                if let Ok(rect) = self.window.display_index().and_then(|index| video_subsystem.display_bounds(index)) {
+                if let Ok(rect) = self
+                    .window
+                    .display_index()
+                    .and_then(|index| video_subsystem.display_bounds(index))
+                {
                     // Set window to fullscreen
                     unsafe {
                         let raw_handle = self.window.raw();
-                        sdl2::sys::SDL_SetWindowResizable(raw_handle, sdl2::sys::SDL_bool::SDL_FALSE);
+                        sdl2::sys::SDL_SetWindowResizable(
+                            raw_handle,
+                            sdl2::sys::SDL_bool::SDL_FALSE,
+                        );
                     }
                     self.window.set_size(rect.width(), rect.height()).unwrap();
                     self.window.set_position(
