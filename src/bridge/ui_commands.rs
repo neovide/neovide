@@ -75,7 +75,7 @@ impl UiCommand {
                 .expect("Focus Gained Failed"),
             UiCommand::Quit => {
                 nvim.command("qa!").await.ok(); // Ignoring result as it won't succeed since the app closed.
-            },
+            }
             UiCommand::FileDrop(path) => {
                 nvim.command(format!("e {}", path).as_str()).await.ok();
             }
