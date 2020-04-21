@@ -20,7 +20,6 @@ lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new();
 }
 
-
 // Macro to register settings changed handlers.
 // Note: Invocations to this macro must happen before the call to Settings::read_initial_values.
 #[macro_export]
@@ -132,7 +131,6 @@ impl Settings {
         }
         let mut write_lock = self.settings.write();
         write_lock.insert(type_id, Box::new(t));
-
     }
 
     pub fn get<'a, T: Clone + Send + Sync + 'static>(&'a self) -> T {
@@ -203,12 +201,11 @@ mod tests {
 
     use super::*;
 
-    use nvim_rs::{create::tokio as create};
     use crate::bridge::create_nvim_command;
     use async_trait::async_trait;
+    use nvim_rs::create::tokio as create;
     use nvim_rs::{compat::tokio::Compat, Handler, Neovim};
 
-    
     #[derive(Clone)]
     pub struct NeovimHandler();
 
@@ -233,8 +230,7 @@ mod tests {
 
         let property_name = "foo";
 
-        fn noop_update(_v: Value) {
-        }
+        fn noop_update(_v: Value) {}
 
         fn noop_read() -> Value {
             Value::Nil
@@ -309,14 +305,12 @@ mod tests {
         let v4: String = format!("neovide_{}", v1);
         let v5: String = format!("neovide_{}", v2);
 
-        let (nvim, _, _) =
-        create::new_child_cmd(&mut create_nvim_command(), NeovimHandler())
+        let (nvim, _, _) = create::new_child_cmd(&mut create_nvim_command(), NeovimHandler())
             .await
             .unwrap_or_explained_panic("Could not locate or start the neovim process");
         nvim.set_var(&v4, Value::from(v2.clone())).await.ok();
 
-        fn noop_update(_v: Value) {
-        }
+        fn noop_update(_v: Value) {}
 
         fn noop_read() -> Value {
             Value::from("baz".to_string())
