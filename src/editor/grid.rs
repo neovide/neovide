@@ -16,8 +16,7 @@ pub struct CharacterGrid {
 
 impl CharacterGrid {
     pub fn new(size: (u64, u64)) -> CharacterGrid {
-        let width = size.0;
-        let height = size.1;
+        let (width, height) = size;
         let cell_count = (width * height) as usize;
         CharacterGrid {
             characters: vec![None; cell_count],
