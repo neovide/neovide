@@ -45,7 +45,7 @@ pub struct Editor {
 
 impl Editor {
     pub fn new() -> Editor {
-        let mut editor = Editor {
+        Editor {
             grid: CharacterGrid::new(window_geometry_or_default()),
             title: "Neovide".to_string(),
             mouse_enabled: true,
@@ -61,10 +61,7 @@ impl Editor {
             previous_style: None,
             mode_list: Vec::new(),
             current_mode: EditorMode::Unknown(String::from("")),
-        };
-
-        editor.grid.clear();
-        editor
+        }
     }
 
     pub fn handle_redraw_event(&mut self, event: RedrawEvent) {

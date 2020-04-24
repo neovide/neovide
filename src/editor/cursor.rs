@@ -107,3 +107,126 @@ impl Cursor {
         self.blinkoff = *blinkoff;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const COLORS: Colors = Colors {
+        foreground: Some(Color4f::new(0.1, 0.1, 0.1, 0.1)),
+        background: Some(Color4f::new(0.2, 0.1, 0.1, 0.1)),
+        special: Some(Color4f::new(0.3, 0.1, 0.1, 0.1)),
+    };
+
+    const DEFAULT_COLORS: Colors = Colors {
+        foreground: Some(Color4f::new(0.1, 0.2, 0.1, 0.1)),
+        background: Some(Color4f::new(0.2, 0.2, 0.1, 0.1)),
+        special: Some(Color4f::new(0.3, 0.2, 0.1, 0.1)),
+    };
+
+    const NONE_COLORS: Colors = Colors {
+        foreground: None,
+        background: None,
+        special: None,
+    };
+
+    #[test]
+    fn test_from_type_name() {
+        assert_eq!(
+            CursorShape::from_type_name("block"),
+            Some(CursorShape::Block)
+        );
+        assert_eq!(
+            CursorShape::from_type_name("horizontal"),
+            Some(CursorShape::Horizontal)
+        );
+        assert_eq!(
+            CursorShape::from_type_name("vertical"),
+            Some(CursorShape::Vertical)
+        );
+    }
+
+    #[test]
+    fn test_foreground() {
+        let mut cursor = Cursor::new();
+        let style = Some(Arc::new(Style::new(COLORS)));
+
+        assert_eq!(
+            cursor.foreground(&DEFAULT_COLORS),
+            DEFAULT_COLORS.background.clone().unwrap()
+        );
+        cursor.style = style.clone();
+        assert_eq!(
+            cursor.foreground(&DEFAULT_COLORS),
+            COLORS.foreground.clone().unwrap()
+        );
+
+        cursor.style = Some(Arc::new(Style::new(NONE_COLORS)));
+        assert_eq!(
+            cursor.foreground(&DEFAULT_COLORS),
+            DEFAULT_COLORS.background.clone().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_background() {
+        let mut cursor = Cursor::new();
+        let style = Some(Arc::new(Style::new(COLORS)));
+
+        assert_eq!(
+            cursor.background(&DEFAULT_COLORS),
+            DEFAULT_COLORS.foreground.clone().unwrap()
+        );
+        cursor.style = style.clone();
+        assert_eq!(
+            cursor.background(&DEFAULT_COLORS),
+            COLORS.background.clone().unwrap()
+        );
+
+        cursor.style = Some(Arc::new(Style::new(NONE_COLORS)));
+        assert_eq!(
+            cursor.background(&DEFAULT_COLORS),
+            DEFAULT_COLORS.foreground.clone().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_change_mode() {
+        let cursor_mode = CursorMode {
+            shape: Some(CursorShape::Horizontal),
+            style_id: Some(1),
+            cell_percentage: Some(100.0),
+            blinkwait: Some(1),
+            blinkon: Some(1),
+            blinkoff: Some(1),
+        };
+        let mut styles = HashMap::new();
+        styles.insert(1, Arc::new(Style::new(COLORS)));
+
+        let mut cursor = Cursor::new();
+
+        cursor.change_mode(&cursor_mode, &styles);
+        assert_eq!(cursor.shape, CursorShape::Horizontal);
+        assert_eq!(cursor.style, styles.get(&1).cloned());
+        assert_eq!(cursor.cell_percentage, Some(100.0));
+        assert_eq!(cursor.blinkwait, Some(1));
+        assert_eq!(cursor.blinkon, Some(1));
+        assert_eq!(cursor.blinkoff, Some(1));
+
+        let cursor_mode_with_none = CursorMode {
+            shape: None,
+            style_id: None,
+            cell_percentage: None,
+            blinkwait: None,
+            blinkon: None,
+            blinkoff: None,
+        };
+        cursor.change_mode(&cursor_mode_with_none, &styles);
+        assert_eq!(cursor.shape, CursorShape::Horizontal);
+        assert_eq!(cursor.style, styles.get(&1).cloned());
+        assert_eq!(cursor.cell_percentage, None);
+        assert_eq!(cursor.blinkwait, None);
+        assert_eq!(cursor.blinkon, None);
+        assert_eq!(cursor.blinkoff, None);
+    }
+}
