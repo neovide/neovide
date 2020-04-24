@@ -33,6 +33,7 @@ cfg-if = "0.1.10"
 
 [dev-dependencies]
 mockall = "0.7.0"
+rand = "0.7.3"
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3.8"
