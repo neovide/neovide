@@ -113,8 +113,8 @@ mod tests {
     impl Context {
         fn new() -> Self {
             let size = (
-                thread_rng().gen::<u64>() % 500,
-                thread_rng().gen::<u64>() % 500,
+                (thread_rng().gen::<u64>() % 500) + 1,
+                (thread_rng().gen::<u64>() % 500) + 1,
             );
             let (x, y) = (
                 thread_rng().gen::<u64>() % size.0,
@@ -280,8 +280,8 @@ mod tests {
         let context = Context::new();
         let mut character_grid = CharacterGrid::new(context.size);
         let (width, height) = (
-            thread_rng().gen::<u64>() % 500,
-            thread_rng().gen::<u64>() % 500,
+            (thread_rng().gen::<u64>() % 500) + 1,
+            (thread_rng().gen::<u64>() % 500) + 1,
         );
         let new_area = (width * height) as usize;
 
