@@ -10,7 +10,11 @@ use log::{trace, warn};
 use lru::LruCache;
 use skribo::{FontCollection, FontFamily, FontRef as SkriboFont, LayoutSession, TextStyle};
 use skulpin::skia_safe::{Data, Font as SkiaFont, TextBlob, TextBlobBuilder, Typeface};
+
 use std::collections::HashMap;
+use std::iter;
+
+use super::font_options::FontOptions;
 
 const STANDARD_CHARACTER_STRING: &str =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
@@ -158,29 +162,27 @@ struct ShapeKey {
 
 pub fn build_collection_by_font_name(
     loader: &mut FontLoader,
-    font_name: Option<&str>,
+    fallback_list: &Vec<String>,
     bold: bool,
     italic: bool,
 ) -> FontCollection {
     let mut collection = FontCollection::new();
 
-    if let Some(font_name) = font_name {
-        let weight = if bold { Weight::BOLD } else { Weight::NORMAL };
-        let style = if italic { Style::Italic } else { Style::Normal };
-        let properties = Properties {
-            weight,
-            style,
-            stretch: Stretch::NORMAL,
-        };
+    let weight = if bold { Weight::BOLD } else { Weight::NORMAL };
+    let style = if italic { Style::Italic } else { Style::Normal };
+    let properties = Properties {
+        weight,
+        style,
+        stretch: Stretch::NORMAL,
+    };
 
-        let gui_fonts = &[font_name, SYSTEM_DEFAULT_FONT];
+    let gui_fonts = fallback_list.iter().map(|fallback_item| fallback_item.as_ref()).chain(iter::once(SYSTEM_DEFAULT_FONT));
 
-        for font_name in gui_fonts {
-            if let Some(family) = loader.get_or_load(font_name, false) {
-                if let Some(font) = family.get(properties) {
-                    collection.add_family(FontFamily::new_from_font(font.clone()));
-                    break;
-                }
+    for font_name in gui_fonts {
+        if let Some(family) = loader.get_or_load(font_name, false) {
+            if let Some(font) = family.get(properties) {
+                collection.add_family(FontFamily::new_from_font(font.clone()));
+                break;
             }
         }
     }
@@ -207,11 +209,11 @@ struct FontSet {
 }
 
 impl FontSet {
-    fn new(font_name: Option<&str>, mut loader: &mut FontLoader) -> FontSet {
+    fn new(fallback_list: &Vec<String>, mut loader: &mut FontLoader) -> FontSet {
         FontSet {
-            normal: build_collection_by_font_name(&mut loader, font_name, false, false),
-            bold: build_collection_by_font_name(&mut loader, font_name, true, false),
-            italic: build_collection_by_font_name(&mut loader, font_name, false, true),
+            normal: build_collection_by_font_name(&mut loader, fallback_list, false, false),
+            bold: build_collection_by_font_name(&mut loader, fallback_list, true, false),
+            italic: build_collection_by_font_name(&mut loader, fallback_list, false, true),
         }
     }
 
@@ -225,8 +227,7 @@ impl FontSet {
 }
 
 pub struct CachingShaper {
-    pub font_name: Option<String>,
-    pub base_size: f32,
+    pub options: FontOptions,
     font_set: FontSet,
     font_loader: FontLoader,
     font_cache: LruCache<String, SkiaFont>,
@@ -243,12 +244,14 @@ fn build_skia_font_from_skribo_font(skribo_font: &SkriboFont, base_size: f32) ->
 
 impl CachingShaper {
     pub fn new() -> CachingShaper {
+        let options = FontOptions::new(String::from(SYSTEM_DEFAULT_FONT), DEFAULT_FONT_SIZE);
         let mut loader = FontLoader::new();
+        let font_set = FontSet::new(&options.fallback_list, &mut loader);
+
 
         CachingShaper {
-            font_name: Some(String::from(SYSTEM_DEFAULT_FONT)),
-            base_size: DEFAULT_FONT_SIZE,
-            font_set: FontSet::new(Some(SYSTEM_DEFAULT_FONT), &mut loader),
+            options,
+            font_set,
             font_loader: loader,
             font_cache: LruCache::new(10),
             blob_cache: LruCache::new(10000),
@@ -259,7 +262,7 @@ impl CachingShaper {
         let font_name = skribo_font.font.postscript_name()?;
 
         if !self.font_cache.contains(&font_name) {
-            let font = build_skia_font_from_skribo_font(skribo_font, self.base_size)?;
+            let font = build_skia_font_from_skribo_font(skribo_font, self.options.size)?;
             self.font_cache.put(font_name.clone(), font);
         }
 
@@ -279,12 +282,12 @@ impl CachingShaper {
 
     pub fn shape(&mut self, text: &str, bold: bool, italic: bool) -> Vec<TextBlob> {
         let style = TextStyle {
-            size: self.base_size,
+            size: self.options.size,
         };
 
         let session = LayoutSession::create(text, &style, &self.font_set.get(bold, italic));
         let metrics = self.metrics();
-        let ascent = metrics.ascent * self.base_size / metrics.units_per_em as f32;
+        let ascent = metrics.ascent * self.options.size / metrics.units_per_em as f32;
         let mut blobs = Vec::new();
 
         for layout_run in session.iter_all() {
@@ -321,21 +324,23 @@ impl CachingShaper {
         self.blob_cache.get(&key).unwrap()
     }
 
-    pub fn change_font(&mut self, font_name: Option<&str>, base_size: Option<f32>) {
-        trace!("Font changed {:?} {:?}", &font_name, &base_size);
-        self.font_name = font_name.map(|name| name.to_string());
-        self.base_size = base_size.unwrap_or(DEFAULT_FONT_SIZE);
-        self.font_set = FontSet::new(font_name, &mut self.font_loader);
-        self.font_cache.clear();
-        self.blob_cache.clear();
+    pub fn update_font(&mut self, guifont_setting: &str) -> bool {
+        let updated = self.options.update(guifont_setting);
+        if updated {
+            trace!("Font changed: {:?}", self.options);
+            self.font_set = FontSet::new(&self.options.fallback_list, &mut self.font_loader);
+            self.font_cache.clear();
+            self.blob_cache.clear();
+        }
+        updated
     }
 
     pub fn font_base_dimensions(&mut self) -> (f32, f32) {
         let metrics = self.metrics();
         let font_height =
-            (metrics.ascent - metrics.descent) * self.base_size / metrics.units_per_em as f32;
+            (metrics.ascent - metrics.descent) * self.options.size / metrics.units_per_em as f32;
         let style = TextStyle {
-            size: self.base_size,
+            size: self.options.size,
         };
         let session =
             LayoutSession::create(STANDARD_CHARACTER_STRING, &style, &self.font_set.normal);
@@ -363,6 +368,6 @@ impl CachingShaper {
 
     pub fn underline_position(&mut self) -> f32 {
         let metrics = self.metrics();
-        -metrics.underline_position * self.base_size / metrics.units_per_em as f32
+        -metrics.underline_position * self.options.size / metrics.units_per_em as f32
     }
 }

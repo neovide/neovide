@@ -6,8 +6,10 @@ use skulpin::skia_safe::{colors, dash_path_effect, Budgeted, Canvas, Paint, Rect
 use skulpin::CoordinateSystemHelper;
 
 mod caching_shaper;
-
+pub mod font_options;
 pub mod cursor_renderer;
+
+pub use font_options::*;
 pub use caching_shaper::CachingShaper;
 
 use crate::editor::{Style, EDITOR};
@@ -44,11 +46,14 @@ impl Renderer {
         }
     }
 
-    fn set_font(&mut self, name: Option<&str>, size: Option<f32>) {
-        self.shaper.change_font(name, size);
-        let (font_width, font_height) = self.shaper.font_base_dimensions();
-        self.font_width = font_width;
-        self.font_height = font_height;
+    fn update_font(&mut self, guifont_setting: &str) -> bool {
+        let updated = self.shaper.update_font(guifont_setting);
+        if updated {
+            let (font_width, font_height) = self.shaper.font_base_dimensions();
+            self.font_width = font_width;
+            self.font_height = font_height;
+        }
+        updated
     }
 
     fn compute_text_region(&self, grid_pos: (u64, u64), cell_width: u64) -> Rect {
@@ -100,7 +105,7 @@ impl Renderer {
 
         if style.underline || style.undercurl {
             let line_position = self.shaper.underline_position();
-            let stroke_width = self.shaper.base_size / 10.0;
+            let stroke_width = self.shaper.options.size / 10.0;
             self.paint
                 .set_color(style.special(&default_style.colors).to_color());
             self.paint.set_stroke_width(stroke_width);
@@ -152,32 +157,19 @@ impl Renderer {
     ) -> bool {
         trace!("Rendering");
 
-        let ((draw_commands, should_clear), default_style, cursor, font_name, font_size) = {
+        let ((draw_commands, should_clear), default_style, cursor, guifont_setting) = {
             let mut editor = EDITOR.lock();
             (
                 editor.build_draw_commands(),
                 editor.default_style.clone(),
                 editor.cursor.clone(),
-                editor.font_name.clone(),
-                editor.font_size,
+                editor.guifont.clone()
             )
         };
 
-        let current_font = Some(self.shaper.font_name.clone().unwrap_or(String::from("")));
-        let editor_font = if font_name.clone().unwrap_or_default().is_empty() {
-            &current_font
-        } else {
-            &font_name
-        };
-
-        let font_changed = current_font != *editor_font
-            || font_size
-                .map(|new_size| (new_size - self.shaper.base_size).abs() > std::f32::EPSILON)
-                .unwrap_or(false);
-
-        if font_changed {
-            self.set_font(font_name.as_deref(), font_size);
-        }
+        let font_changed = guifont_setting
+            .map(|guifont| self.update_font(&guifont))
+            .unwrap_or(false);
 
         if should_clear {
             self.surface = None;

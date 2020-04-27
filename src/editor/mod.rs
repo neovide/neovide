@@ -33,8 +33,7 @@ pub struct Editor {
     pub grid: CharacterGrid,
     pub title: String,
     pub mouse_enabled: bool,
-    pub font_name: Option<String>,
-    pub font_size: Option<f32>,
+    pub guifont: Option<String>,
     pub cursor: Cursor,
     pub default_style: Arc<Style>,
     pub defined_styles: HashMap<u64, Arc<Style>>,
@@ -49,8 +48,7 @@ impl Editor {
             grid: CharacterGrid::new(window_geometry_or_default()),
             title: "Neovide".to_string(),
             mouse_enabled: true,
-            font_name: None,
-            font_size: None,
+            guifont: None,
             cursor: Cursor::new(),
             default_style: Arc::new(Style::new(Colors::new(
                 Some(colors::WHITE),
@@ -304,14 +302,8 @@ impl Editor {
     fn set_option(&mut self, gui_option: GuiOption) {
         trace!("Option set {:?}", &gui_option);
         match gui_option {
-            GuiOption::GuiFont(font_description) => {
-                let parts: Vec<&str> = font_description.split(':').collect();
-                self.font_name = Some(parts[0].to_string());
-                for part in parts.iter().skip(1) {
-                    if part.starts_with('h') && part.len() > 1 {
-                        self.font_size = part[1..].parse::<f32>().ok();
-                    }
-                }
+            GuiOption::GuiFont(guifont) => {
+                self.guifont = Some(guifont);
             }
             _ => {}
         }
