@@ -6,11 +6,11 @@ use skulpin::skia_safe::{colors, dash_path_effect, Budgeted, Canvas, Paint, Rect
 use skulpin::CoordinateSystemHelper;
 
 mod caching_shaper;
-pub mod font_options;
 pub mod cursor_renderer;
+pub mod font_options;
 
-pub use font_options::*;
 pub use caching_shaper::CachingShaper;
+pub use font_options::*;
 
 use crate::editor::{Style, EDITOR};
 use cursor_renderer::CursorRenderer;
@@ -163,7 +163,7 @@ impl Renderer {
                 editor.build_draw_commands(),
                 editor.default_style.clone(),
                 editor.cursor.clone(),
-                editor.guifont.clone()
+                editor.guifont.clone(),
             )
         };
 
