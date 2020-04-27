@@ -35,6 +35,7 @@ jobs:
 
     - name: "Check formatting"
       run: |
+        rustup component add rustfmt --toolchain stable-x86_64-apple-darwin
         cargo fmt --all -- --check
 
     - name: Build
