@@ -176,7 +176,10 @@ pub fn build_collection_by_font_name(
         stretch: Stretch::NORMAL,
     };
 
-    let gui_fonts = fallback_list.iter().map(|fallback_item| fallback_item.as_ref()).chain(iter::once(SYSTEM_DEFAULT_FONT));
+    let gui_fonts = fallback_list
+        .iter()
+        .map(|fallback_item| fallback_item.as_ref())
+        .chain(iter::once(SYSTEM_DEFAULT_FONT));
 
     for font_name in gui_fonts {
         if let Some(family) = loader.get_or_load(font_name, false) {
@@ -247,7 +250,6 @@ impl CachingShaper {
         let options = FontOptions::new(String::from(SYSTEM_DEFAULT_FONT), DEFAULT_FONT_SIZE);
         let mut loader = FontLoader::new();
         let font_set = FontSet::new(&options.fallback_list, &mut loader);
-
 
         CachingShaper {
             options,
