@@ -72,7 +72,7 @@ fn build_nvim_cmd() -> Command {
     }
 }
 
-fn create_nvim_command() -> Command {
+pub fn create_nvim_command() -> Command {
     let mut cmd = build_nvim_cmd();
 
     cmd.arg("--embed")

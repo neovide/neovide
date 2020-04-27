@@ -31,6 +31,9 @@ anyhow = "1.0.26"
 parking_lot="0.10.0"
 cfg-if = "0.1.10"
 
+[dev-dependencies]
+mockall = "0.7.0"
+
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3.8"
 

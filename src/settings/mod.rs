@@ -2,92 +2,22 @@ use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::convert::TryInto;
 
+#[cfg(not(test))]
 use flexi_logger::{Cleanup, Criterion, Duplicate, Logger, Naming};
-use log::{error, warn};
+use log::warn;
 use nvim_rs::compat::tokio::Compat;
 use nvim_rs::Neovim;
 use parking_lot::RwLock;
 pub use rmpv::Value;
+mod from_value;
+pub use from_value::FromValue;
+
 use tokio::process::ChildStdin;
 
 use crate::error_handling::ResultPanicExplanation;
 
 lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new();
-}
-
-// Trait to allow for conversion from rmpv::Value to any other data type.
-// Note: Feel free to implement this trait for custom types in each subsystem.
-// The reverse conversion (MyType->Value) can be performed by implementing `From<MyType> for Value`
-pub trait FromValue {
-    fn from_value(&mut self, value: Value);
-}
-
-// FromValue implementations for most typical types
-impl FromValue for f32 {
-    fn from_value(&mut self, value: Value) {
-        if value.is_f64() {
-            *self = value.as_f64().unwrap() as f32;
-        } else if value.is_i64() {
-            *self = value.as_i64().unwrap() as f32;
-        } else if value.is_u64() {
-            *self = value.as_u64().unwrap() as f32;
-        } else {
-            error!("Setting expected an f32, but received {:?}", value);
-        }
-    }
-}
-
-impl FromValue for u64 {
-    fn from_value(&mut self, value: Value) {
-        if value.is_u64() {
-            *self = value.as_u64().unwrap();
-        } else {
-            error!("Setting expected a u64, but received {:?}", value);
-        }
-    }
-}
-
-impl FromValue for u32 {
-    fn from_value(&mut self, value: Value) {
-        if value.is_u64() {
-            *self = value.as_u64().unwrap() as u32;
-        } else {
-            error!("Setting expected a u32, but received {:?}", value);
-        }
-    }
-}
-
-impl FromValue for i32 {
-    fn from_value(&mut self, value: Value) {
-        if value.is_i64() {
-            *self = value.as_i64().unwrap() as i32;
-        } else {
-            error!("Setting expected an i32, but received {:?}", value);
-        }
-    }
-}
-
-impl FromValue for String {
-    fn from_value(&mut self, value: Value) {
-        if value.is_str() {
-            *self = String::from(value.as_str().unwrap());
-        } else {
-            error!("Setting expected a string, but received {:?}", value);
-        }
-    }
-}
-
-impl FromValue for bool {
-    fn from_value(&mut self, value: Value) {
-        if value.is_bool() {
-            *self = value.as_bool().unwrap();
-        } else if value.is_u64() {
-            *self = value.as_u64().unwrap() != 0;
-        } else {
-            error!("Setting expected a string, but received {:?}", value);
-        }
-    }
 }
 
 // Macro to register settings changed handlers.
@@ -131,7 +61,7 @@ pub struct Settings {
 }
 
 impl Settings {
-    fn new() -> Settings {
+    fn new() -> Self {
         let mut log_to_file = false;
         let neovim_arguments = std::env::args()
             .filter(|arg| {
@@ -148,6 +78,19 @@ impl Settings {
             })
             .collect::<Vec<String>>();
 
+        #[cfg(not(test))]
+        Settings::init_logger(log_to_file);
+
+        Self {
+            neovim_arguments,
+            settings: RwLock::new(HashMap::new()),
+            listeners: RwLock::new(HashMap::new()),
+            readers: RwLock::new(HashMap::new()),
+        }
+    }
+
+    #[cfg(not(test))]
+    fn init_logger(log_to_file: bool) {
         if log_to_file {
             Logger::with_env_or_str("neovide")
                 .duplicate_to_stderr(Duplicate::Error)
@@ -163,13 +106,6 @@ impl Settings {
             Logger::with_env_or_str("neovide = error")
                 .start()
                 .expect("Could not start logger");
-        }
-
-        Settings {
-            neovim_arguments,
-            settings: RwLock::new(HashMap::new()),
-            listeners: RwLock::new(HashMap::new()),
-            readers: RwLock::new(HashMap::new()),
         }
     }
 
@@ -190,7 +126,11 @@ impl Settings {
     pub fn set<T: Clone + Send + Sync + 'static>(&self, t: &T) {
         let type_id: TypeId = TypeId::of::<T>();
         let t: T = (*t).clone();
-        self.settings.write().insert(type_id, Box::new(t));
+        unsafe {
+            self.settings.force_unlock_write();
+        }
+        let mut write_lock = self.settings.write();
+        write_lock.insert(type_id, Box::new(t));
     }
 
     pub fn get<'a, T: Clone + Send + Sync + 'static>(&'a self) -> T {
@@ -253,5 +193,154 @@ impl Settings {
         let name = name.unwrap();
 
         self.listeners.read().get(&name).unwrap()(value);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    use crate::bridge::create_nvim_command;
+    use async_trait::async_trait;
+    use nvim_rs::create::tokio as create;
+    use nvim_rs::{compat::tokio::Compat, Handler, Neovim};
+
+    #[derive(Clone)]
+    pub struct NeovimHandler();
+
+    #[async_trait]
+    impl Handler for NeovimHandler {
+        type Writer = Compat<ChildStdin>;
+
+        async fn handle_notify(
+            &self,
+            _event_name: String,
+            _arguments: Vec<Value>,
+            _neovim: Neovim<Compat<ChildStdin>>,
+        ) {
+        }
+    }
+
+    use tokio;
+
+    #[test]
+    fn test_set_setting_handlers() {
+        let settings = Settings::new();
+
+        let property_name = "foo";
+
+        fn noop_update(_v: Value) {}
+
+        fn noop_read() -> Value {
+            Value::Nil
+        }
+
+        settings.set_setting_handlers(property_name, noop_update, noop_read);
+        let listeners = settings.listeners.read();
+        let readers = settings.readers.read();
+        let listener = listeners.get(property_name).unwrap();
+        let reader = readers.get(property_name).unwrap();
+        assert_eq!(&(noop_update as UpdateHandlerFunc), listener);
+        assert_eq!(&(noop_read as ReaderFunc), reader);
+    }
+
+    #[test]
+    fn test_set() {
+        let settings = Settings::new();
+
+        let v1: u32 = 1;
+        let v2: f32 = 1.0;
+        let vt1 = TypeId::of::<u32>();
+        let vt2 = TypeId::of::<f32>();
+        let v3: u32 = 2;
+
+        settings.set(&v1);
+        let values = settings.settings.read();
+        let r1 = values.get(&vt1).unwrap().downcast_ref::<u32>().unwrap();
+        assert_eq!(v1, *r1);
+
+        settings.set(&v2);
+
+        settings.set(&v3);
+
+        let r2 = values.get(&vt1).unwrap().downcast_ref::<u32>().unwrap();
+        let r3 = values.get(&vt2).unwrap().downcast_ref::<f32>().unwrap();
+
+        assert_eq!(v3, *r2);
+        assert_eq!(v2, *r3);
+    }
+
+    #[test]
+    fn test_get() {
+        let settings = Settings::new();
+
+        let v1: u32 = 1;
+        let v2: f32 = 1.0;
+        let vt1 = TypeId::of::<u32>();
+        let vt2 = TypeId::of::<f32>();
+
+        let mut values = settings.settings.write();
+        values.insert(vt1, Box::new(v1.clone()));
+        values.insert(vt2, Box::new(v2.clone()));
+
+        unsafe {
+            settings.settings.force_unlock_write();
+        }
+
+        let r1 = settings.get::<u32>();
+        let r2 = settings.get::<f32>();
+
+        assert_eq!(v1, r1);
+        assert_eq!(v2, r2);
+    }
+
+    #[tokio::test]
+    async fn test_read_initial_values() {
+        let settings = Settings::new();
+
+        let v1: String = "foo".to_string();
+        let v2: String = "bar".to_string();
+        let v3: String = "baz".to_string();
+        let v4: String = format!("neovide_{}", v1);
+        let v5: String = format!("neovide_{}", v2);
+
+        let (nvim, _, _) = create::new_child_cmd(&mut create_nvim_command(), NeovimHandler())
+            .await
+            .unwrap_or_explained_panic("Could not locate or start the neovim process");
+        nvim.set_var(&v4, Value::from(v2.clone())).await.ok();
+
+        fn noop_update(_v: Value) {}
+
+        fn noop_read() -> Value {
+            Value::from("baz".to_string())
+        }
+
+        let mut listeners = settings.listeners.write();
+        listeners.insert(v1.clone(), noop_update);
+        listeners.insert(v2.clone(), noop_update);
+
+        unsafe {
+            settings.listeners.force_unlock_write();
+        }
+
+        let mut readers = settings.readers.write();
+        readers.insert(v1.clone(), noop_read);
+        readers.insert(v2.clone(), noop_read);
+
+        unsafe {
+            settings.readers.force_unlock_write();
+        }
+
+        settings.read_initial_values(&nvim).await;
+
+        let rt1 = nvim.get_var(&v4).await.unwrap();
+        let rt2 = nvim.get_var(&v5).await.unwrap();
+
+        let r1 = rt1.as_str().unwrap();
+        let r2 = rt2.as_str().unwrap();
+
+        assert_eq!(r1, v2);
+        assert_eq!(r2, v3);
     }
 }
