@@ -70,9 +70,9 @@ dependencies = [
 
 [[package]]
 name = "arc-swap"
-version = "0.4.5"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d663a8e9a99154b5fb793032533f6328da35e23aac63d5c152279aa8ba356825"
+checksum = "b585a98a234c46fc563103e9278c9391fde1f4e6850334da895d27edb9580f62"
 
 [[package]]
 name = "arrayref"
@@ -103,7 +103,7 @@ checksum = "da71fef07bc806586090247e971229289f64c210a278ee5ae419314eb386b31d"
 dependencies = [
  "proc-macro2 1.0.10",
  "quote 1.0.3",
- "syn 1.0.17",
+ "syn 1.0.18",
 ]
 
 [[package]]
@@ -217,9 +217,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.50"
+version = "1.0.52"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95e28fa049fda1c330bcf9d723be7663a899c4679724b34c81e9f5a326aab8cd"
+checksum = "c3d87b23d6a92cd03af510a5ade527033f6aa6fa92161e2d5863a907d4c5e31d"
 
 [[package]]
 name = "cexpr"
@@ -293,14 +293,14 @@ dependencies = [
 
 [[package]]
 name = "cocoa"
-version = "0.19.1"
+version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f29f7768b2d1be17b96158e3285951d366b40211320fb30826a76cb7a0da6400"
+checksum = "0a4736c86d51bd878b474400d9ec888156f4037015f5d09794fab9f26eab1ad4"
 dependencies = [
  "bitflags",
  "block",
- "core-foundation 0.6.4",
- "core-graphics 0.17.3",
+ "core-foundation",
+ "core-graphics",
  "foreign-types",
  "libc",
  "objc",
@@ -340,47 +340,17 @@ checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 
 [[package]]
 name = "core-foundation"
-version = "0.6.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25b9e03f145fd4f2bf705e07b900cd41fc636598fe5dc452fd0db1441c3f496d"
-dependencies = [
- "core-foundation-sys 0.6.2",
- "libc",
-]
-
-[[package]]
-name = "core-foundation"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "57d24c7a13c43e870e37c1556b74555437870a04514f7685f5b354e090567171"
+source = "git+https://github.com/servo/core-foundation-rs#508a3728950759116f05f9eecd72d74d2555fa6c"
 dependencies = [
- "core-foundation-sys 0.7.0",
+ "core-foundation-sys",
  "libc",
 ]
 
 [[package]]
 name = "core-foundation-sys"
-version = "0.6.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7ca8a5221364ef15ce201e8ed2f609fc312682a8f4e0e3d4aa5879764e0fa3b"
-
-[[package]]
-name = "core-foundation-sys"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3a71ab494c0b5b860bdc8407ae08978052417070c2ced38573a9157ad75b8ac"
-
-[[package]]
-name = "core-graphics"
-version = "0.17.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56790968ab1c8a1202a102e6de05fc6e1ec87da99e4e93e9a7d13efbfc1e95a9"
-dependencies = [
- "bitflags",
- "core-foundation 0.6.4",
- "foreign-types",
- "libc",
-]
+source = "git+https://github.com/servo/core-foundation-rs#508a3728950759116f05f9eecd72d74d2555fa6c"
 
 [[package]]
 name = "core-graphics"
@@ -389,19 +359,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59e78b2e0aaf43f08e7ae0d6bc96895ef72ff0921c7d4ff4762201b2dba376dd"
 dependencies = [
  "bitflags",
- "core-foundation 0.7.0",
- "foreign-types",
- "libc",
-]
-
-[[package]]
-name = "core-text"
-version = "13.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db84654ad95211c082cf9795f6f83dc17d0ae6c985ac1b906369dc7384ed346d"
-dependencies = [
- "core-foundation 0.6.4",
- "core-graphics 0.17.3",
+ "core-foundation",
  "foreign-types",
  "libc",
 ]
@@ -412,8 +370,8 @@ version = "15.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "131b3fd1f8bd5db9f2b398fa4fdb6008c64afc04d447c306ac2c7e98fba2a61d"
 dependencies = [
- "core-foundation 0.7.0",
- "core-graphics 0.19.0",
+ "core-foundation",
+ "core-graphics",
  "foreign-types",
  "libc",
 ]
@@ -421,12 +379,11 @@ dependencies = [
 [[package]]
 name = "core-video-sys"
 version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8dc065219542086f72d1e9f7aadbbab0989e980263695d129d502082d063a9d0"
+source = "git+https://github.com/LuoZijun/rust-core-video-sys#e2f65ad65f0ca470b20cc5068d64b3773408d2f8"
 dependencies = [
  "cfg-if",
- "core-foundation-sys 0.6.2",
- "core-graphics 0.17.3",
+ "core-foundation-sys",
+ "core-graphics",
  "libc",
  "objc",
 ]
@@ -535,7 +492,7 @@ checksum = "71f31892cd5c62e414316f2963c5689242c43d8e7bbcaaeca97e5e28c95d91d9"
 dependencies = [
  "proc-macro2 1.0.10",
  "quote 1.0.3",
- "syn 1.0.17",
+ "syn 1.0.18",
 ]
 
 [[package]]
@@ -717,9 +674,9 @@ checksum = "8f953474ebbe3460775ed2da52435477cc029493284d6ceb635598586a2c6298"
 dependencies = [
  "bitflags",
  "byteorder",
- "core-foundation 0.7.0",
- "core-graphics 0.19.0",
- "core-text 15.0.0",
+ "core-foundation",
+ "core-graphics",
+ "core-text",
  "dirs",
  "dwrote",
  "float-ord",
@@ -844,7 +801,7 @@ dependencies = [
  "proc-macro-hack",
  "proc-macro2 1.0.10",
  "quote 1.0.3",
- "syn 1.0.17",
+ "syn 1.0.18",
 ]
 
 [[package]]
@@ -910,8 +867,7 @@ checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 [[package]]
 name = "harfbuzz"
 version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46f7426266a5ece3e49eae6f48e602c0f8c39917354a847eac9c06437dcde8da"
+source = "git+https://github.com/j4qfrost/rust-harfbuzz#2454e501f158ba4fafa3843071f787edc1eeffb8"
 dependencies = [
  "harfbuzz-sys",
 ]
@@ -919,12 +875,11 @@ dependencies = [
 [[package]]
 name = "harfbuzz-sys"
 version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "212d74cab8498b2d15700b694fb38f77562869d05e1f8b602dd05221a1ca2d63"
+source = "git+https://github.com/j4qfrost/rust-harfbuzz#2454e501f158ba4fafa3843071f787edc1eeffb8"
 dependencies = [
  "cc",
- "core-graphics 0.17.3",
- "core-text 13.3.2",
+ "core-graphics",
+ "core-text",
  "foreign-types",
  "freetype",
  "pkg-config",
@@ -995,9 +950,9 @@ dependencies = [
 
 [[package]]
 name = "instant"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c346c299e3fe8ef94dc10c2c0253d858a69aac1245157a3bf4125915d528caf"
+checksum = "f7152d2aed88aa566e7a342250f21ba2222c1ae230ad577499dbfa3c18475b80"
 
 [[package]]
 name = "iovec"
@@ -1158,14 +1113,14 @@ dependencies = [
 
 [[package]]
 name = "metal"
-version = "0.17.1"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f83c7dcc2038e12f68493fa3de44235df27b2497178e257185b4b5b5d028a1e4"
+checksum = "e198a0ee42bdbe9ef2c09d0b9426f3b2b47d90d93a4a9b0395c4cea605e92dc0"
 dependencies = [
  "bitflags",
  "block",
  "cocoa",
- "core-graphics 0.17.3",
+ "core-graphics",
  "foreign-types",
  "log",
  "objc",
@@ -1280,7 +1235,7 @@ dependencies = [
  "cfg-if",
  "proc-macro2 1.0.10",
  "quote 1.0.3",
- "syn 1.0.17",
+ "syn 1.0.18",
 ]
 
 [[package]]
@@ -1488,9 +1443,9 @@ dependencies = [
 
 [[package]]
 name = "parking_lot_core"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e136c1904604defe99ce5fd71a28d473fa60a12255d511aa78a9ddf11237aeb"
+checksum = "d58c7c768d4ba344e3e8d72518ac13e259d7c7ade24167003b8488e10b6740a3"
 dependencies = [
  "cfg-if",
  "cloudabi",
@@ -1548,7 +1503,7 @@ checksum = "8988430ce790d8682672117bc06dda364c0be32d3abd738234f19f3240bad99a"
 dependencies = [
  "proc-macro2 1.0.10",
  "quote 1.0.3",
- "syn 1.0.17",
+ "syn 1.0.18",
 ]
 
 [[package]]
@@ -1559,9 +1514,9 @@ checksum = "237844750cfbb86f67afe27eee600dfbbcb6188d734139b534cbfbf4f96792ae"
 
 [[package]]
 name = "pin-utils"
-version = "0.1.0-alpha.4"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5894c618ce612a3fa23881b152b608bafb8c56cfc22f434a3ba3120b40f7b587"
+checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
 name = "pkg-config"
@@ -1830,7 +1785,7 @@ checksum = "60cacc306d294556771c6e92737ba7e6be0264144bc46dd713a14ef384b0d6b8"
 dependencies = [
  "quote 1.0.3",
  "rust-embed-utils",
- "syn 1.0.17",
+ "syn 1.0.18",
  "walkdir",
 ]
 
@@ -1880,9 +1835,9 @@ dependencies = [
 
 [[package]]
 name = "ryu"
-version = "1.0.3"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "535622e6be132bccd223f4bb2b8ac8d53cda3c7a6394944d3b2b33fb974f9d76"
+checksum = "ed3d612bc64430efeb3f7ee6ef26d590dce0c43249217bddc62112540c7941e1"
 
 [[package]]
 name = "same-file"
@@ -1917,8 +1872,8 @@ checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
 name = "sdl2"
-version = "0.33.0"
-source = "git+https://github.com/Rust-SDL2/rust-sdl2#2b460ff49a1bde07b6c99111c9cf136f884e9cf2"
+version = "0.34.0"
+source = "git+https://github.com/Rust-SDL2/rust-sdl2#3c6e104ec89fb5cce193ec4e11d385a5df342d88"
 dependencies = [
  "bitflags",
  "lazy_static",
@@ -1928,8 +1883,8 @@ dependencies = [
 
 [[package]]
 name = "sdl2-sys"
-version = "0.33.0"
-source = "git+https://github.com/Rust-SDL2/rust-sdl2#2b460ff49a1bde07b6c99111c9cf136f884e9cf2"
+version = "0.34.0"
+source = "git+https://github.com/Rust-SDL2/rust-sdl2#3c6e104ec89fb5cce193ec4e11d385a5df342d88"
 dependencies = [
  "cfg-if",
  "cmake",
@@ -2021,8 +1976,7 @@ dependencies = [
 [[package]]
 name = "skia-bindings"
 version = "0.27.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ef181a694c8e2961ae2d08acbd814eba9e8840b1523d6c4f8c1fd8881b38394"
+source = "git+https://github.com/rust-skia/rust-skia#133682dd943687b9c0cb6d334699275e4862f208"
 dependencies = [
  "bindgen",
  "cc",
@@ -2038,8 +1992,7 @@ dependencies = [
 [[package]]
 name = "skia-safe"
 version = "0.27.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f903a58575ccbe0c24c375c58bb0e5a1ff553f813b01a4baf9521682de87e77d"
+source = "git+https://github.com/rust-skia/rust-skia#133682dd943687b9c0cb6d334699275e4862f208"
 dependencies = [
  "bitflags",
  "lazy_static",
@@ -2062,7 +2015,7 @@ dependencies = [
 [[package]]
 name = "skulpin"
 version = "0.9.0"
-source = "git+https://github.com/kethku/skulpin?branch=windows-dpi-fix#24ce66e217980490e5891fa113ade2c9dbec02c6"
+source = "git+https://github.com/j4qfrost/skulpin?branch=update-macos-deps#ad6e8e0141f509ec26d5fa11b9c5c30862fa506a"
 dependencies = [
  "log",
  "skulpin-app-winit",
@@ -2074,7 +2027,7 @@ dependencies = [
 [[package]]
 name = "skulpin-app-winit"
 version = "0.3.0"
-source = "git+https://github.com/kethku/skulpin?branch=windows-dpi-fix#24ce66e217980490e5891fa113ade2c9dbec02c6"
+source = "git+https://github.com/j4qfrost/skulpin?branch=update-macos-deps#ad6e8e0141f509ec26d5fa11b9c5c30862fa506a"
 dependencies = [
  "log",
  "skulpin-renderer",
@@ -2084,7 +2037,7 @@ dependencies = [
 [[package]]
 name = "skulpin-renderer"
 version = "0.3.0"
-source = "git+https://github.com/kethku/skulpin?branch=windows-dpi-fix#24ce66e217980490e5891fa113ade2c9dbec02c6"
+source = "git+https://github.com/j4qfrost/skulpin?branch=update-macos-deps#ad6e8e0141f509ec26d5fa11b9c5c30862fa506a"
 dependencies = [
  "ash",
  "log",
@@ -2095,7 +2048,7 @@ dependencies = [
 [[package]]
 name = "skulpin-renderer-sdl2"
 version = "0.3.0"
-source = "git+https://github.com/kethku/skulpin?branch=windows-dpi-fix#24ce66e217980490e5891fa113ade2c9dbec02c6"
+source = "git+https://github.com/j4qfrost/skulpin?branch=update-macos-deps#ad6e8e0141f509ec26d5fa11b9c5c30862fa506a"
 dependencies = [
  "log",
  "sdl2",
@@ -2105,7 +2058,7 @@ dependencies = [
 [[package]]
 name = "skulpin-renderer-winit"
 version = "0.3.0"
-source = "git+https://github.com/kethku/skulpin?branch=windows-dpi-fix#24ce66e217980490e5891fa113ade2c9dbec02c6"
+source = "git+https://github.com/j4qfrost/skulpin?branch=update-macos-deps#ad6e8e0141f509ec26d5fa11b9c5c30862fa506a"
 dependencies = [
  "cocoa",
  "log",
@@ -2125,9 +2078,9 @@ checksum = "c111b5bd5695e56cffe5129854aa230b39c93a305372fdbb2668ca2394eea9f8"
 
 [[package]]
 name = "smallvec"
-version = "1.3.0"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05720e22615919e4734f6a99ceae50d00226c3c5aca406e102ebc33298214e0a"
+checksum = "c7cb5678e1615754284ec264d9bb5b4c27d2018577fd90ac0ceb578591ed5ee4"
 
 [[package]]
 name = "smithay-client-toolkit"
@@ -2185,9 +2138,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.17"
+version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0df0eb663f387145cab623dea85b09c2c5b4b0aef44e945d928e682fce71bb03"
+checksum = "410a7488c0a728c7ceb4ad59b9567eb4053d02e8cc7f5c0e0eeeb39518369213"
 dependencies = [
  "proc-macro2 1.0.10",
  "quote 1.0.3",
@@ -2247,20 +2200,19 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.1.42"
+version = "0.1.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db8dcfca086c1143c9270ac42a2bbd8a7ee477b78ac8e45b19abfb0cbede4b6f"
+checksum = "ca8a50ef2360fbd1eeb0ecd46795a87a19024eb4b53c5dc916ca1fd95fe62438"
 dependencies = [
  "libc",
- "redox_syscall",
  "winapi 0.3.8",
 ]
 
 [[package]]
 name = "tokio"
-version = "0.2.18"
+version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34ef16d072d2b6dc8b4a56c70f5c5ced1a37752116f8e7c1e80c659aa7cb6713"
+checksum = "7d9c43f1bb96970e153bcbae39a65e249ccb942bd9d36dbdf086024920417c9c"
 dependencies = [
  "bytes 0.5.4",
  "fnv",
@@ -2298,7 +2250,7 @@ checksum = "f0c3acc6aa564495a0f2e1d59fab677cd7f81a19994cfc7f3ad0e64301560389"
 dependencies = [
  "proc-macro2 1.0.10",
  "quote 1.0.3",
- "syn 1.0.17",
+ "syn 1.0.18",
 ]
 
 [[package]]
@@ -2500,9 +2452,9 @@ checksum = "ac3b87c63620426dd9b991e5ce0329eff545bccbbb34f3be09ff6fb6ab51b7b6"
 
 [[package]]
 name = "winapi-util"
-version = "0.1.4"
+version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa515c5163a99cc82bab70fd3bfdd36d827be85de63737b40fcef2ce084a436e"
+checksum = "70ec6ce85bb158151cae5e5c87f95a8e97d2c0c4b001223f33a334e3ce5de178"
 dependencies = [
  "winapi 0.3.8",
 ]
@@ -2515,15 +2467,14 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "winit"
-version = "0.22.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc53342d3d1a3d57f3949e0692d93d5a8adb7814d8683cef4a09c2b550e94246"
+version = "0.20.0"
+source = "git+https://github.com/j4qfrost/winit.git#9975ced049381f6651d06871239fc0899e421638"
 dependencies = [
  "android_glue",
  "bitflags",
  "cocoa",
- "core-foundation 0.6.4",
- "core-graphics 0.17.3",
+ "core-foundation",
+ "core-graphics",
  "core-video-sys",
  "dispatch",
  "instant",
