@@ -13,7 +13,7 @@ embed-fonts = []
 [dependencies]
 euclid = "0.20.7"
 font-kit = "0.6.0"
-skribo = { git = "https://github.com/linebender/skribo" }
+skribo = { git = "https://github.com/j4qfrost/skribo" }
 lru = "0.4.3"
 skulpin = { git = "https://github.com/j4qfrost/skulpin", branch = "update-macos-deps", features = ["skulpin_sdl2"] }
 # skulpin = { path = "../skulpin", features = ["skulpin_sdl2"] }
@@ -45,10 +45,6 @@ sdl2-sys = { git = "https://github.com/Rust-SDL2/rust-sdl2", default-features = 
 
 [patch.crates-io]
 sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", default-features = false }
-core-foundation-sys = { git = "https://github.com/servo/core-foundation-rs" }
-core-foundation = { git = "https://github.com/servo/core-foundation-rs" }
-harfbuzz = { git = "https://github.com/j4qfrost/rust-harfbuzz" }
-harfbuzz-sys = { git = "https://github.com/j4qfrost/rust-harfbuzz" }
 
 [profile.release]
 debug = true
