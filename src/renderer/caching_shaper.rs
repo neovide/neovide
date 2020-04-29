@@ -26,7 +26,7 @@ define! {
         const SYSTEM_EMOJI_FONT: &str = "Segoe UI Emoji";
     } else if #[cfg(target_os = "linux")] {
         const SYSTEM_DEFAULT_FONT: &str = "Droid Sans Mono";
-        const SYSTEM_SYMBOL_FONT: &str = "Unifont";
+        const SYSTEM_SYMBOL_FONT: &str = "Noto Sans Mono";
         const SYSTEM_EMOJI_FONT: &str = "Noto Color Emoji";
     } else if #[cfg(target_os = "macos")] {
         const SYSTEM_DEFAULT_FONT: &str = "Menlo";
