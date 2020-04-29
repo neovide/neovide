@@ -14,9 +14,19 @@ jobs:
       run: |
         cargo fmt --all -- --check
 
-    - name: Build
+    - name: Install Neovim
       run: |
-        RUST_BACKTRACE=full cargo test
+        choco install -y neovim
+
+    - name: Test
+      env:
+        NEOVIM_BIN: "C:/tools/neovim/Neovim/bin/nvim.exe"
+        RUST_BACKTRACE: full
+      run: |
+        cargo test
+
+    - name: Build Release
+      run: |
         cargo build --release
 
     - uses: actions/upload-artifact@v1
@@ -38,13 +48,16 @@ jobs:
         rustup component add rustfmt --toolchain stable-x86_64-apple-darwin
         cargo fmt --all -- --check
 
-    - name: Set LLVM Path
+    - name: Uninstall Conflicting LLVM
       run: |
         brew uninstall llvm
 
-    - name: Test
+    - name: Install Neovim
       run: |
         brew install neovim
+
+    - name: Test
+      run: |
         RUST_BACKTRACE=full cargo test
 
     - name: Build Release
@@ -92,9 +105,12 @@ jobs:
       run: |
         cargo fmt --all -- --check
 
-    - name: Test
+    - name: Install Neovim
       run: |
         sudo apt-get install -y neovim
+
+    - name: Test
+      run: |
         RUST_BACKTRACE=full cargo test
 
     - name: Build Release
@@ -113,3 +129,4 @@ jobs:
         cargo install cargo-tarpaulin
         cargo tarpaulin --out Xml  --ignore-tests
         bash <(curl -s https://codecov.io/bash)
+
