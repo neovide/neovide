@@ -10,13 +10,17 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: "Check formatting"
+    - name: Check formatting
       run: |
         cargo fmt --all -- --check
 
-    - name: Build
+    - name: Test
       run: |
-        cargo test
+        choco install -y neovim
+        RUST_BACKTRACE=full cargo test
+
+    - name: Build Release
+      run: |
         cargo build --release
 
     - uses: actions/upload-artifact@v1
@@ -33,13 +37,22 @@ jobs:
     - name: Install Vulkan SDK
       run: brew cask install apenngrace/vulkan/vulkan-sdk
 
-    - name: "Check formatting"
+    - name: Check formatting
       run: |
+        rustup component add rustfmt --toolchain stable-x86_64-apple-darwin
         cargo fmt --all -- --check
 
-    - name: Build
+    - name: Set LLVM Path
       run: |
-        cargo test
+        brew uninstall llvm
+
+    - name: Test
+      run: |
+        brew install neovim
+        RUST_BACKTRACE=full cargo test
+
+    - name: Build Release
+      run: |
         cargo build --release
         cargo install cargo-bundle
         cargo bundle --release
@@ -55,6 +68,7 @@ jobs:
         jq '.ICD.library_path = "../../../Frameworks/libMoltenVK.dylib"' ./Resources/vulkan/icd.d/MoltenVK_icd.json > MoltenVK_icd.json
         mv MoltenVK_icd.json ./Resources/vulkan/icd.d/
         install_name_tool -add_rpath "@executable_path/../Frameworks" ./MacOS/neovide
+
     - uses: actions/upload-artifact@v1
       with:
         name: Neovide.app
@@ -78,14 +92,24 @@ jobs:
       run:  |
         sudo apt-get install -y curl gnupg ca-certificates git gcc-multilib g++-multilib cmake libssl-dev pkg-config libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev libxi-dev libsdl2-dev
 
-    - name: "Check formatting"
+    - name: Check formatting
       run: |
         cargo fmt --all -- --check
 
-    - name: Build
+    - name: Test
       run: |
-        cargo test
+        sudo apt-get install -y neovim
+        RUST_BACKTRACE=full cargo test
+
+    - name: Build Release
+      run: |
         cargo build --release
+
+    - name: Generate Coverage Report
+      run: |
+        cargo install cargo-tarpaulin
+        cargo tarpaulin --out Xml --ignore-tests
+        bash <(curl -s https://codecov.io/bash)
 
     - uses: actions/upload-artifact@v1
       with:
