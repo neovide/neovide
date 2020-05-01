@@ -117,12 +117,6 @@ jobs:
       run: |
         cargo build --release
 
-    - name: Generate Coverage Report
-      run: |
-        cargo install cargo-tarpaulin
-        cargo tarpaulin --out Xml --ignore-tests
-        bash <(curl -s https://codecov.io/bash)
-
     - uses: actions/upload-artifact@v1
       with:
         name: neovide-linux
