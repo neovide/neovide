@@ -671,8 +671,7 @@ checksum = "2fad85553e09a6f881f739c29f0b00b0f01357c743266d478b68951ce23285f3"
 [[package]]
 name = "font-kit"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f953474ebbe3460775ed2da52435477cc029493284d6ceb635598586a2c6298"
+source = "git+https://github.com/j4qfrost/font-kit#5a8b6eea5cf79930469e85a58a3bcb7986173c8a"
 dependencies = [
  "bitflags",
  "byteorder",
@@ -727,7 +726,8 @@ dependencies = [
 [[package]]
 name = "freetype"
 version = "0.5.1"
-source = "git+https://github.com/servo/rust-freetype#8383492199175131ccc9b43d297bad4f9fb51069"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b73222ab32d9ad65fe0e1c3258da8d614fd47cf19fce92b09eb520060c5c5ad5"
 dependencies = [
  "freetype-sys",
  "libc",
