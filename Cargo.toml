@@ -12,11 +12,10 @@ embed-fonts = []
 
 [dependencies]
 euclid = "0.20.7"
-font-kit = {git = "https://github.com/j4qfrost/font-kit" }
-skribo = { git = "https://github.com/j4qfrost/skribo" }
+font-kit = "0.6.0"
+skribo = { git = "https://github.com/linebender/skribo" }
 lru = "0.4.3"
-skulpin = { git = "https://github.com/j4qfrost/skulpin", branch = "update-macos-deps", features = ["skulpin_sdl2"] }
-# skulpin = { path = "../skulpin", features = ["skulpin_sdl2"] }
+skulpin = { git = "https://github.com/kethku/skulpin", branch = "windows-dpi-fix", features = ["skulpin_sdl2"] }
 derive-new = "0.5"
 rmpv = "0.4.4"
 rust-embed = { version = "5.2.0", features = ["debug-embed"] }
@@ -34,7 +33,7 @@ cfg-if = "0.1.10"
 
 [dev-dependencies]
 mockall = "0.7.0"
-rand = "0.7.3"
+rand = "0.7"
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3.8"
@@ -45,7 +44,6 @@ sdl2-sys = { git = "https://github.com/Rust-SDL2/rust-sdl2", default-features = 
 
 [patch.crates-io]
 sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", default-features = false }
-font-kit = {git = "https://github.com/j4qfrost/font-kit" }
 
 [profile.release]
 debug = true
