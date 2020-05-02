@@ -727,8 +727,7 @@ dependencies = [
 [[package]]
 name = "freetype"
 version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b73222ab32d9ad65fe0e1c3258da8d614fd47cf19fce92b09eb520060c5c5ad5"
+source = "git+https://github.com/servo/rust-freetype#8383492199175131ccc9b43d297bad4f9fb51069"
 dependencies = [
  "freetype-sys",
  "libc",

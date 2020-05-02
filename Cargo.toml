@@ -45,6 +45,7 @@ sdl2-sys = { git = "https://github.com/Rust-SDL2/rust-sdl2", default-features = 
 
 [patch.crates-io]
 sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", default-features = false }
+freetype = { git = "https://github.com/servo/rust-freetype" }
 
 [profile.release]
 debug = true
