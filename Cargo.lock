@@ -602,16 +602,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "expat-sys"
-version = "2.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "658f19728920138342f68408b7cf7644d90d4784353d8ebc32e7e8663dbe45fa"
-dependencies = [
- "cmake",
- "pkg-config",
-]
-
-[[package]]
 name = "filetime"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -671,7 +661,7 @@ checksum = "2fad85553e09a6f881f739c29f0b00b0f01357c743266d478b68951ce23285f3"
 [[package]]
 name = "font-kit"
 version = "0.6.0"
-source = "git+https://github.com/j4qfrost/font-kit#a14b6431f7aa9746ac6eb5a4d3eaa68477f540ee"
+source = "git+https://github.com/j4qfrost/font-kit#a3aa4d1eeb30ca54c37ff20bd4c9c090206cb2aa"
 dependencies = [
  "bitflags",
  "byteorder",
@@ -681,38 +671,12 @@ dependencies = [
  "dirs",
  "dwrote",
  "float-ord",
- "freetype 0.5.1",
+ "freetype",
  "lazy_static",
  "libc",
  "log",
  "pathfinder_geometry",
  "pathfinder_simd",
- "servo-fontconfig",
- "walkdir",
- "winapi 0.3.8",
-]
-
-[[package]]
-name = "font-kit"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f953474ebbe3460775ed2da52435477cc029493284d6ceb635598586a2c6298"
-dependencies = [
- "bitflags",
- "byteorder",
- "core-foundation",
- "core-graphics",
- "core-text",
- "dirs",
- "dwrote",
- "float-ord",
- "freetype 0.4.1",
- "lazy_static",
- "libc",
- "log",
- "pathfinder_geometry",
- "pathfinder_simd",
- "servo-fontconfig",
  "walkdir",
  "winapi 0.3.8",
 ]
@@ -737,16 +701,6 @@ name = "fragile"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69a039c3498dc930fe810151a34ba0c1c70b02b8625035592e74432f678591f2"
-
-[[package]]
-name = "freetype"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11926b2b410b469d0e9399eca4cbbe237a9ef02176c485803b29216307e8e028"
-dependencies = [
- "libc",
- "servo-freetype-sys",
-]
 
 [[package]]
 name = "freetype"
@@ -928,7 +882,7 @@ dependencies = [
  "core-graphics",
  "core-text",
  "foreign-types",
- "freetype 0.5.1",
+ "freetype",
  "pkg-config",
 ]
 
@@ -1295,7 +1249,7 @@ dependencies = [
  "derive-new",
  "euclid",
  "flexi_logger",
- "font-kit 0.6.0 (git+https://github.com/j4qfrost/font-kit)",
+ "font-kit",
  "image",
  "lazy_static",
  "log",
@@ -1974,37 +1928,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "servo-fontconfig"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a088f8d775a5c5314aae09bd77340bc9c67d72b9a45258be34c83548b4814cd9"
-dependencies = [
- "libc",
- "servo-fontconfig-sys",
-]
-
-[[package]]
-name = "servo-fontconfig-sys"
-version = "4.0.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62b3e166450f523f4db06c14f02a2d39e76d49b5d8cbd224338d93e3595c156c"
-dependencies = [
- "expat-sys",
- "pkg-config",
- "servo-freetype-sys",
-]
-
-[[package]]
-name = "servo-freetype-sys"
-version = "4.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9232032c2e85118c0282c6562c84cab12316e655491ba0a5d1905b2320060d1b"
-dependencies = [
- "cmake",
- "pkg-config",
-]
-
-[[package]]
 name = "shlex"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2051,7 +1974,7 @@ name = "skribo"
 version = "0.1.0"
 source = "git+https://github.com/j4qfrost/skribo#9bcfb9abd14fe4ad0f0047044c02374ac0a88f89"
 dependencies = [
- "font-kit 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "font-kit",
  "harfbuzz",
  "harfbuzz-sys",
  "log",
