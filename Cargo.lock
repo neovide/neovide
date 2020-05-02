@@ -671,7 +671,32 @@ checksum = "2fad85553e09a6f881f739c29f0b00b0f01357c743266d478b68951ce23285f3"
 [[package]]
 name = "font-kit"
 version = "0.6.0"
-source = "git+https://github.com/j4qfrost/font-kit#5a8b6eea5cf79930469e85a58a3bcb7986173c8a"
+source = "git+https://github.com/j4qfrost/font-kit#a14b6431f7aa9746ac6eb5a4d3eaa68477f540ee"
+dependencies = [
+ "bitflags",
+ "byteorder",
+ "core-foundation",
+ "core-graphics",
+ "core-text",
+ "dirs",
+ "dwrote",
+ "float-ord",
+ "freetype 0.5.1",
+ "lazy_static",
+ "libc",
+ "log",
+ "pathfinder_geometry",
+ "pathfinder_simd",
+ "servo-fontconfig",
+ "walkdir",
+ "winapi 0.3.8",
+]
+
+[[package]]
+name = "font-kit"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f953474ebbe3460775ed2da52435477cc029493284d6ceb635598586a2c6298"
 dependencies = [
  "bitflags",
  "byteorder",
@@ -1270,7 +1295,7 @@ dependencies = [
  "derive-new",
  "euclid",
  "flexi_logger",
- "font-kit",
+ "font-kit 0.6.0 (git+https://github.com/j4qfrost/font-kit)",
  "image",
  "lazy_static",
  "log",
@@ -2026,7 +2051,7 @@ name = "skribo"
 version = "0.1.0"
 source = "git+https://github.com/j4qfrost/skribo#9bcfb9abd14fe4ad0f0047044c02374ac0a88f89"
 dependencies = [
- "font-kit",
+ "font-kit 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "harfbuzz",
  "harfbuzz-sys",
  "log",
@@ -2490,7 +2515,7 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 [[package]]
 name = "winit"
 version = "0.20.0"
-source = "git+https://github.com/j4qfrost/winit.git#36ab8909b9a2efee06fc1f8af50b5987d7274f80"
+source = "git+https://github.com/j4qfrost/winit.git#f3b49929b4be74f476af452fc764bf8b36bfc10d"
 dependencies = [
  "android_glue",
  "bitflags",
