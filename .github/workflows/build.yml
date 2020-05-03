@@ -57,8 +57,10 @@ jobs:
         brew install neovim
 
     - name: Test
+      env:
+        RUST_BACKTRACE: full
       run: |
-        RUST_BACKTRACE=full cargo test
+        cargo test
 
     - name: Build Release
       run: |
@@ -110,8 +112,10 @@ jobs:
         sudo apt-get install -y neovim
 
     - name: Test
+      env:
+        RUST_BACKTRACE: full
       run: |
-        RUST_BACKTRACE=full cargo test
+        cargo test
 
     - name: Build Release
       run: |
@@ -121,3 +125,13 @@ jobs:
       with:
         name: neovide-linux
         path: ./target/release/neovide
+
+    - name: Generate Coverage Report
+      env:
+        FORCE_SKIA_BUILD: 1
+        RUST_BACKTRACE: full
+      run: |
+        cargo install cargo-tarpaulin
+        cargo tarpaulin --out Xml  --ignore-tests --no-default-features --features="embed-fonts"
+        bash <(curl -s https://codecov.io/bash)
+
