@@ -62,3 +62,97 @@ impl Style {
             .unwrap_or_else(|| default_colors.special.clone().unwrap())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const COLORS: Colors = Colors {
+        foreground: Some(Color4f::new(0.1, 0.1, 0.1, 0.1)),
+        background: Some(Color4f::new(0.2, 0.1, 0.1, 0.1)),
+        special: Some(Color4f::new(0.3, 0.1, 0.1, 0.1)),
+    };
+
+    const DEFAULT_COLORS: Colors = Colors {
+        foreground: Some(Color4f::new(0.1, 0.2, 0.1, 0.1)),
+        background: Some(Color4f::new(0.2, 0.2, 0.1, 0.1)),
+        special: Some(Color4f::new(0.3, 0.2, 0.1, 0.1)),
+    };
+
+    #[test]
+    fn test_foreground() {
+        let mut style = Style::new(COLORS);
+
+        assert_eq!(
+            style.foreground(&DEFAULT_COLORS),
+            COLORS.foreground.clone().unwrap()
+        );
+        style.colors.foreground = None;
+        assert_eq!(
+            style.foreground(&DEFAULT_COLORS),
+            DEFAULT_COLORS.foreground.clone().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_foreground_reverse() {
+        let mut style = Style::new(COLORS);
+        style.reverse = true;
+
+        assert_eq!(
+            style.foreground(&DEFAULT_COLORS),
+            COLORS.background.clone().unwrap()
+        );
+        style.colors.background = None;
+        assert_eq!(
+            style.foreground(&DEFAULT_COLORS),
+            DEFAULT_COLORS.background.clone().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_background() {
+        let mut style = Style::new(COLORS);
+
+        assert_eq!(
+            style.background(&DEFAULT_COLORS),
+            COLORS.background.clone().unwrap()
+        );
+        style.colors.background = None;
+        assert_eq!(
+            style.background(&DEFAULT_COLORS),
+            DEFAULT_COLORS.background.clone().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_background_reverse() {
+        let mut style = Style::new(COLORS);
+        style.reverse = true;
+
+        assert_eq!(
+            style.background(&DEFAULT_COLORS),
+            COLORS.foreground.clone().unwrap()
+        );
+        style.colors.foreground = None;
+        assert_eq!(
+            style.background(&DEFAULT_COLORS),
+            DEFAULT_COLORS.foreground.clone().unwrap()
+        );
+    }
+
+    #[test]
+    fn test_special() {
+        let mut style = Style::new(COLORS);
+
+        assert_eq!(
+            style.special(&DEFAULT_COLORS),
+            COLORS.special.clone().unwrap()
+        );
+        style.colors.special = None;
+        assert_eq!(
+            style.special(&DEFAULT_COLORS),
+            DEFAULT_COLORS.special.clone().unwrap()
+        );
+    }
+}
