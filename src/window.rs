@@ -289,7 +289,7 @@ impl WindowWrapper {
             let sdl_window_wrapper = Sdl2Window::new(&self.window);
             self.mouse_position = physical_size.to_logical(sdl_window_wrapper.scale_factor());
         }
-        
+
         #[cfg(target_os = "macos")]
         {
             self.mouse_position = physical_size.to_logical(1.0);
