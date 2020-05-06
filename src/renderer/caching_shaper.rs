@@ -130,7 +130,10 @@ impl FontLoader {
 
     #[cfg(not(feature = "embed-fonts"))]
     fn load_from_asset(&self, font_name: &str) -> Option<ExtendedFontFamily> {
-        warn!("Tried to load {} from assets but build didn't include embed-fonts feature", font_name);
+        warn!(
+            "Tried to load {} from assets but build didn't include embed-fonts feature",
+            font_name
+        );
         None
     }
 
@@ -194,7 +197,12 @@ pub fn build_collection_by_font_name(
         }
     }
 
-    for font in &[SYSTEM_SYMBOL_FONT, SYSTEM_EMOJI_FONT, EXTRA_SYMBOL_FONT, MISSING_GLYPH_FONT] {
+    for font in &[
+        SYSTEM_SYMBOL_FONT,
+        SYSTEM_EMOJI_FONT,
+        EXTRA_SYMBOL_FONT,
+        MISSING_GLYPH_FONT,
+    ] {
         if let Some(family) = loader.get_or_load(font) {
             collection.add_family(family.to_normal_font_family());
         }
