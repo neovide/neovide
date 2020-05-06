@@ -152,7 +152,7 @@ impl FontLoader {
     pub fn get_or_load(&mut self, font_name: &str) -> Option<ExtendedFontFamily> {
         if let Some(family) = self.get(font_name) {
             Some(family)
-        }  else if let Some(family) = self.load(font_name) {
+        } else if let Some(family) = self.load(font_name) {
             Some(family)
         } else {
             self.load_from_asset(font_name)
