@@ -117,7 +117,7 @@ impl FontLoader {
     }
 
     #[cfg(feature = "embed-fonts")]
-    fn load_from_asset(&mut self, font_name: &str) -> Option<ExtendedFontFamily> {
+    pub fn load_from_asset(&mut self, font_name: &str) -> Option<ExtendedFontFamily> {
         let mut family = ExtendedFontFamily::new();
 
         Asset::get(font_name)
@@ -126,6 +126,15 @@ impl FontLoader {
 
         self.cache.put(String::from(font_name), family);
         self.get(font_name)
+    }
+
+    #[cfg(not(feature = "embed-fonts"))]
+    pub fn load_from_asset(&self, font_name: &str) -> Option<ExtendedFontFamily> {
+        warn!(
+            "Tried to load {} from assets but build didn't include embed-fonts feature",
+            font_name
+        );
+        None
     }
 
     fn load(&mut self, font_name: &str) -> Option<ExtendedFontFamily> {
@@ -140,24 +149,11 @@ impl FontLoader {
         self.get(font_name)
     }
 
-    pub fn get_or_load(&mut self, font_name: &str, asset: bool) -> Option<ExtendedFontFamily> {
+    pub fn get_or_load(&mut self, font_name: &str) -> Option<ExtendedFontFamily> {
         if let Some(family) = self.get(font_name) {
             return Some(family);
         }
-
-        if asset {
-            #[cfg(not(feature = "embed-fonts"))]
-            {
-                warn!("Tried to load '{}' from assets but build didn't include embed-fonts feature", font_name);
-                None
-            }
-            #[cfg(feature = "embed-fonts")]
-            {
-                self.load_from_asset(font_name)
-            }
-        } else {
-            self.load(font_name)
-        }
+        self.load(font_name)
     }
 }
 
@@ -190,7 +186,7 @@ pub fn build_collection_by_font_name(
         .chain(iter::once(SYSTEM_DEFAULT_FONT));
 
     for font_name in gui_fonts {
-        if let Some(family) = loader.get_or_load(font_name, false) {
+        if let Some(family) = loader.get_or_load(font_name) {
             if let Some(font) = family.get(properties) {
                 collection.add_family(FontFamily::new_from_font(font.clone()));
                 break;
@@ -199,15 +195,20 @@ pub fn build_collection_by_font_name(
     }
 
     for font in &[SYSTEM_SYMBOL_FONT, SYSTEM_EMOJI_FONT] {
-        if let Some(family) = loader.get_or_load(font, false) {
+        if let Some(family) = loader.get_or_load(font) {
             collection.add_family(family.to_normal_font_family());
         }
     }
-    for font in &[EXTRA_SYMBOL_FONT, MISSING_GLYPH_FONT] {
-        if let Some(family) = loader.get_or_load(font, true) {
-            collection.add_family(family.to_normal_font_family());
+
+    #[cfg(feature = "embed-fonts")]
+    {
+        for font in &[EXTRA_SYMBOL_FONT, MISSING_GLYPH_FONT] {
+            if let Some(family) = loader.load_from_asset(font) {
+                collection.add_family(family.to_normal_font_family());
+            }
         }
     }
+
 
     collection
 }
