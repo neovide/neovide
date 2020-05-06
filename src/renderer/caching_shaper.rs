@@ -140,6 +140,7 @@ impl FontLoader {
         self.get(font_name)
     }
 
+    #[cfg(feature = "embed-fonts")]
     pub fn get_or_load(&mut self, font_name: &str, asset: bool) -> Option<ExtendedFontFamily> {
         if let Some(family) = self.get(font_name) {
             return Some(family);
@@ -147,6 +148,20 @@ impl FontLoader {
 
         if asset {
             self.load_from_asset(font_name)
+        } else {
+            self.load(font_name)
+        }
+    }
+
+    #[cfg(not(feature = "embed-fonts"))]
+    pub fn get_or_load(&mut self, font_name: &str, asset: bool) -> Option<ExtendedFontFamily> {
+        if let Some(family) = self.get(font_name) {
+            return Some(family);
+        }
+
+        if asset {
+            warn!("Tried to load {} from assets but build didn't include embed-fonts feature",font_name);
+            None
         } else {
             self.load(font_name)
         }
@@ -195,7 +210,6 @@ pub fn build_collection_by_font_name(
             collection.add_family(family.to_normal_font_family());
         }
     }
-
     for font in &[EXTRA_SYMBOL_FONT, MISSING_GLYPH_FONT] {
         if let Some(family) = loader.get_or_load(font, true) {
             collection.add_family(family.to_normal_font_family());
