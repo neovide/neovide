@@ -144,9 +144,12 @@ impl FontLoader {
         };
 
         let family = ExtendedFontFamily::from_normal_font_family(handle.fonts());
-
-        self.cache.put(String::from(font_name), family);
-        self.get(font_name)
+        if family.fonts.len() > 0 {
+            self.cache.put(String::from(font_name), family);
+            self.get(font_name)
+        } else {
+            None
+        }
     }
 
     pub fn get_or_load(&mut self, font_name: &str) -> Option<ExtendedFontFamily> {
