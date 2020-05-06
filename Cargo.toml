@@ -35,6 +35,11 @@ cfg-if = "0.1.10"
 mockall = "0.7.0"
 rand = "0.7"
 
+[dev-dependencies.cargo-husky]
+version = "1"
+default-features = false
+features = ["precommit-hook", "run-cargo-test", "run-cargo-clippy"]
+
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3.8"
 
