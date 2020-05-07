@@ -307,21 +307,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "cocoa"
-version = "0.20.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0a4736c86d51bd878b474400d9ec888156f4037015f5d09794fab9f26eab1ad4"
-dependencies = [
- "bitflags",
- "block",
- "core-foundation 0.7.0",
- "core-graphics 0.19.0",
- "foreign-types",
- "libc",
- "objc",
-]
-
-[[package]]
 name = "color_quant"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1173,14 +1158,14 @@ dependencies = [
 
 [[package]]
 name = "metal"
-version = "0.18.0"
+version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e198a0ee42bdbe9ef2c09d0b9426f3b2b47d90d93a4a9b0395c4cea605e92dc0"
+checksum = "f83c7dcc2038e12f68493fa3de44235df27b2497178e257185b4b5b5d028a1e4"
 dependencies = [
  "bitflags",
  "block",
- "cocoa 0.20.0",
- "core-graphics 0.19.0",
+ "cocoa",
+ "core-graphics 0.17.3",
  "foreign-types",
  "log",
  "objc",
@@ -2078,8 +2063,8 @@ dependencies = [
 
 [[package]]
 name = "skulpin"
-version = "0.9.0"
-source = "git+https://github.com/j4qfrost/skulpin?branch=update-macos-deps#7ae2c4f6567e7f91c7dd4fbd81d2e07fcfad861d"
+version = "0.9.2"
+source = "git+https://github.com/aclysma/skulpin#9ab2c72fef9b903b70faad369c6fd60ffea82727"
 dependencies = [
  "log",
  "skulpin-app-winit",
@@ -2091,7 +2076,7 @@ dependencies = [
 [[package]]
 name = "skulpin-app-winit"
 version = "0.3.0"
-source = "git+https://github.com/j4qfrost/skulpin?branch=update-macos-deps#7ae2c4f6567e7f91c7dd4fbd81d2e07fcfad861d"
+source = "git+https://github.com/aclysma/skulpin#9ab2c72fef9b903b70faad369c6fd60ffea82727"
 dependencies = [
  "log",
  "skulpin-renderer",
@@ -2100,8 +2085,8 @@ dependencies = [
 
 [[package]]
 name = "skulpin-renderer"
-version = "0.3.0"
-source = "git+https://github.com/j4qfrost/skulpin?branch=update-macos-deps#7ae2c4f6567e7f91c7dd4fbd81d2e07fcfad861d"
+version = "0.3.1"
+source = "git+https://github.com/aclysma/skulpin#9ab2c72fef9b903b70faad369c6fd60ffea82727"
 dependencies = [
  "ash",
  "log",
@@ -2111,8 +2096,8 @@ dependencies = [
 
 [[package]]
 name = "skulpin-renderer-sdl2"
-version = "0.3.0"
-source = "git+https://github.com/j4qfrost/skulpin?branch=update-macos-deps#7ae2c4f6567e7f91c7dd4fbd81d2e07fcfad861d"
+version = "0.3.1"
+source = "git+https://github.com/aclysma/skulpin#9ab2c72fef9b903b70faad369c6fd60ffea82727"
 dependencies = [
  "log",
  "sdl2",
@@ -2121,10 +2106,10 @@ dependencies = [
 
 [[package]]
 name = "skulpin-renderer-winit"
-version = "0.3.0"
-source = "git+https://github.com/j4qfrost/skulpin?branch=update-macos-deps#7ae2c4f6567e7f91c7dd4fbd81d2e07fcfad861d"
+version = "0.3.1"
+source = "git+https://github.com/aclysma/skulpin#9ab2c72fef9b903b70faad369c6fd60ffea82727"
 dependencies = [
- "cocoa 0.20.0",
+ "cocoa",
  "log",
  "metal",
  "objc",
@@ -2537,7 +2522,7 @@ checksum = "fc53342d3d1a3d57f3949e0692d93d5a8adb7814d8683cef4a09c2b550e94246"
 dependencies = [
  "android_glue",
  "bitflags",
- "cocoa 0.19.1",
+ "cocoa",
  "core-foundation 0.6.4",
  "core-graphics 0.17.3",
  "core-video-sys",
