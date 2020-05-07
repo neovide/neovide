@@ -131,7 +131,7 @@ impl CursorVfx for PointHighlight {
         colors: &Colors,
         font_size: (f32, f32),
     ) {
-        if (self.t - 1.0).abs() < f32::EPSILON {
+        if (self.t - 1.0).abs() < std::f32::EPSILON {
             return;
         }
 
