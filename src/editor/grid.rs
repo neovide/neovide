@@ -79,7 +79,7 @@ impl CharacterGrid {
     }
 
     pub fn set_characters_all(&mut self, value: GridCell) {
-        let cloned_value = value.clone();
+        let cloned_value = value;
         self.characters.clear();
         self.characters
             .resize_with((self.width * self.height) as usize, || {

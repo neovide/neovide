@@ -42,7 +42,7 @@ impl UiCommand {
                 action,
                 position: (grid_x, grid_y),
             } => {
-                if { EDITOR.lock().mouse_enabled } {
+                if EDITOR.lock().mouse_enabled {
                     nvim.input_mouse("left", &action, "", 0, grid_y as i64, grid_x as i64)
                         .await
                         .expect("Mouse Input Failed");
@@ -52,14 +52,14 @@ impl UiCommand {
                 direction,
                 position: (grid_x, grid_y),
             } => {
-                if { EDITOR.lock().mouse_enabled } {
+                if EDITOR.lock().mouse_enabled {
                     nvim.input_mouse("wheel", &direction, "", 0, grid_y as i64, grid_x as i64)
                         .await
                         .expect("Mouse Scroll Failed");
                 }
             }
             UiCommand::Drag(grid_x, grid_y) => {
-                if { EDITOR.lock().mouse_enabled } {
+                if EDITOR.lock().mouse_enabled {
                     nvim.input_mouse("left", "drag", "", 0, grid_y as i64, grid_x as i64)
                         .await
                         .expect("Mouse Drag Failed");

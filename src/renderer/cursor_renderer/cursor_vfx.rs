@@ -131,7 +131,7 @@ impl CursorVfx for PointHighlight {
         colors: &Colors,
         font_size: (f32, f32),
     ) {
-        if self.t == 1.0 {
+        if (self.t - 1.0).abs() < f32::EPSILON {
             return;
         }
 
@@ -257,7 +257,7 @@ impl CursorVfx for ParticleTrail {
 
                 let speed = match self.trail_mode {
                     TrailMode::Railgun => {
-                        let phase = t / 3.141592
+                        let phase = t / std::f32::consts::PI
                             * settings.vfx_particle_phase
                             * (travel_distance / font_size.0);
                         Point::new(phase.sin(), phase.cos()) * 2.0 * settings.vfx_particle_speed

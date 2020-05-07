@@ -32,7 +32,7 @@ impl FontOptions {
                 .map(|fallback| fallback.to_string())
                 .collect();
 
-            if parsed_fallback_list.len() > 0 && self.fallback_list != parsed_fallback_list {
+            if parsed_fallback_list.is_empty() && self.fallback_list != parsed_fallback_list {
                 self.fallback_list = parsed_fallback_list;
                 updated = true;
             }
@@ -40,7 +40,7 @@ impl FontOptions {
 
         for part in parts {
             if part.starts_with('h') && part.len() > 1 {
-                if let Some(size) = part[1..].parse::<f32>().ok() {
+                if let Ok(size) = part[1..].parse::<f32>() {
                     if (self.size - size).abs() > std::f32::EPSILON {
                         self.size = size;
                         updated = true;

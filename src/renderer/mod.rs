@@ -201,7 +201,7 @@ impl Renderer {
         for command in draw_commands.iter() {
             self.draw_background(
                 &mut canvas,
-                command.grid_position.clone(),
+                command.grid_position,
                 command.cell_width,
                 &command.style,
                 &default_style,
@@ -212,7 +212,7 @@ impl Renderer {
             self.draw_foreground(
                 &mut canvas,
                 &command.text,
-                command.grid_position.clone(),
+                command.grid_position,
                 command.cell_width,
                 &command.style,
                 &default_style,
@@ -234,8 +234,8 @@ impl Renderer {
         self.cursor_renderer.draw(
             cursor,
             &default_style.colors,
-            self.font_width,
-            self.font_height,
+            (self.font_width,
+            self.font_height),
             &mut self.shaper,
             gpu_canvas,
             dt,

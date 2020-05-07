@@ -118,7 +118,7 @@ impl Corner {
         }
 
         // Check first if animation's over
-        if self.t > 1.0 {
+        if (self.t - 1.0).abs() < f32::EPSILON {
             return false;
         }
 
@@ -154,7 +154,7 @@ impl Corner {
 
         let direction_alignment = travel_direction.dot(corner_direction);
 
-        if self.t == 1.0 {
+        if (self.t - 1.0).abs() < f32::EPSILON {
             // We are at destination, move t out of 0-1 range to stop the animation
             self.t = 2.0;
         } else {
@@ -238,12 +238,12 @@ impl CursorRenderer {
         &mut self,
         cursor: Cursor,
         default_colors: &Colors,
-        font_width: f32,
-        font_height: f32,
+        font_size: (f32, f32),
         shaper: &mut CachingShaper,
         canvas: &mut Canvas,
         dt: f32,
     ) {
+        let (font_width, font_height) = font_size;
         let render = self.blink_status.update_status(&cursor);
         let settings = SETTINGS.get::<CursorSettings>();
 
