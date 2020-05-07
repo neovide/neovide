@@ -234,8 +234,7 @@ impl Renderer {
         self.cursor_renderer.draw(
             cursor,
             &default_style.colors,
-            (self.font_width,
-            self.font_height),
+            (self.font_width, self.font_height),
             &mut self.shaper,
             gpu_canvas,
             dt,
