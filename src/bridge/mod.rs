@@ -70,7 +70,7 @@ fn build_nvim_cmd() -> Command {
     } else if let Ok(path) = which::which("nvim") {
         platform_build_nvim_cmd(path.to_str().unwrap())
     } else {
-        error!("Neovim is not installed!");
+        error!("nvim not found!");
         std::process::exit(1);
     }
 }
