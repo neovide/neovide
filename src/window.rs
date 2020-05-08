@@ -149,7 +149,7 @@ impl WindowWrapper {
             let sdl_window_wrapper = Sdl2Window::new(&sdl_window);
             RendererBuilder::new()
                 .prefer_integrated_gpu()
-                .use_vulkan_debug_layer(true)
+                .use_vulkan_debug_layer(false)
                 .present_mode_priority(vec![PresentMode::Immediate])
                 .coordinate_system(CoordinateSystem::Logical)
                 .build(&sdl_window_wrapper)
