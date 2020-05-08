@@ -65,10 +65,13 @@ fn platform_build_nvim_cmd(bin: &str) -> Command {
 }
 
 fn build_nvim_cmd() -> Command {
-    let key = "NEOVIM_BIN";
-    match std::env::var_os(key) {
-        Some(path) => platform_build_nvim_cmd(&path.to_string_lossy()),
-        None => platform_build_nvim_cmd("nvim"),
+    if let Some(path) = std::env::var_os("NEOVIM_BIN") {
+        platform_build_nvim_cmd(&path.to_string_lossy())
+    } else if let Ok(path) = which::which("nvim") {
+        platform_build_nvim_cmd(path.to_str().unwrap())
+    } else {
+        error!("Neovim is not installed!");
+        std::process::exit(1);
     }
 }
 
