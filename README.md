@@ -99,43 +99,49 @@ cd neovide
 makepkg -si
 ```
 
+Install Unifont dependency
+
+```sh
+sudo yay -S ttf-unifont
+```
+
 #### Debian/Ubuntu
 
 Note: Neovide has been successfully built on other destros but this reportedly works on ubuntu.
 
 1. Install necessary dependencies
 
-    ```sh
-    sudo apt-get install -y curl \
-        gnupg ca-certificates git \
-        gcc-multilib g++-multilib cmake libssl-dev pkg-config \
-        libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev \
-        libbz2-dev libsndio-dev freeglut3-dev libxmu-dev libxi-dev
-    ```
+   ```sh
+   sudo apt-get install -y curl \
+       gnupg ca-certificates git \
+       gcc-multilib g++-multilib cmake libssl-dev pkg-config \
+       libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev \
+       libbz2-dev libsndio-dev freeglut3-dev libxmu-dev libxi-dev ttf-unifont
+   ```
 
 2. Install Vulkan SDK
 
-    ```sh
-    curl -sL "http://packages.lunarg.com/lunarg-signing-key-pub.asc" | sudo apt-key add -
-    sudo curl -sLo "/etc/apt/sources.list.d/lunarg-vulkan-1.2.131-bionic.list" "http://packages.lunarg.com/vulkan/1.2.131/lunarg-vulkan-1.2.131-bionic.list"
-    sudo apt-get update -y
-    sudo apt-get install -y vulkan-sdk
-    ```
-    
-    Alternatively if you are running an amd graphics card you may have more success by installing amdvlk.
-    https://github.com/Kethku/neovide/issues/209
+   ```sh
+   curl -sL "http://packages.lunarg.com/lunarg-signing-key-pub.asc" | sudo apt-key add -
+   sudo curl -sLo "/etc/apt/sources.list.d/lunarg-vulkan-1.2.131-bionic.list" "http://packages.lunarg.com/vulkan/1.2.131/lunarg-vulkan-1.2.131-bionic.list"
+   sudo apt-get update -y
+   sudo apt-get install -y vulkan-sdk
+   ```
+
+   Alternatively if you are running an amd graphics card you may have more success by installing amdvlk.
+   https://github.com/Kethku/neovide/issues/209
 
 3. Install Rust
 
-    `curl --proto '=https' --tlsv1.2 -sSf "https://sh.rustup.rs" | sh`
+   `curl --proto '=https' --tlsv1.2 -sSf "https://sh.rustup.rs" | sh`
 
 4. Clone the repository
 
-    `git clone "https://github.com/Kethku/neovide"`
+   `git clone "https://github.com/Kethku/neovide"`
 
 5. Build
 
-    `cd neovide && ~/.cargo/bin/cargo build --release`
+   `cd neovide && ~/.cargo/bin/cargo build --release`
 
 6. Copy `./target/release/neovide` to a known location and enjoy.
 
