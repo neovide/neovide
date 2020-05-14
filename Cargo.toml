@@ -41,6 +41,10 @@ winapi = "0.3.8"
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.11"
+sdl2-sys = { version = "0.34", default-features = false, features = ["bundled", "static-link"] }
+
+[target.'cfg(macos)'.build-dependencies]
+sdl2-sys = { version = "0.34", default-features = false, features = ["bundled", "static-link"] }
 
 [profile.release]
 debug = true
