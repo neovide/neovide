@@ -634,15 +634,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bb1f6b1ce1c140482ea30ddd3335fc0024ac7ee112895426e0a629a6c20adfe3"
 
 [[package]]
-name = "encoding_rs"
-version = "0.8.22"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd8d03faa7fe0c1431609dfad7bbe827af30f82e1e2ae6f7ee4fca6bd764bc28"
-dependencies = [
- "cfg-if",
-]
-
-[[package]]
 name = "env_logger"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1316,7 +1307,7 @@ dependencies = [
 
 [[package]]
 name = "neovide"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -1335,7 +1326,6 @@ dependencies = [
  "rand",
  "rmpv",
  "rust-embed",
- "sdl2-sys",
  "skribo",
  "skulpin",
  "tokio",
@@ -1955,9 +1945,9 @@ checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
 name = "sdl2"
-version = "0.33.0"
+version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f74124048ea86b5cd50236b2443f6f57cf4625a8e8818009b4e50dbb8729a43"
+checksum = "6693f362118c0cd32858fe33a14d74cc3111bbc3a7de1aee88e5289fd9289f97"
 dependencies = [
  "bitflags",
  "lazy_static",
@@ -1967,16 +1957,12 @@ dependencies = [
 
 [[package]]
 name = "sdl2-sys"
-version = "0.33.0"
+version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2e1deb61ff274d29fb985017d4611d4004b113676eaa9c06754194caf82094e"
+checksum = "575db20c45cce6565d4ece46509288ded53f5571dc89e4af165a562eb0eeec26"
 dependencies = [
  "cfg-if",
- "cmake",
- "flate2",
  "libc",
- "tar",
- "unidiff",
 ]
 
 [[package]]
@@ -2387,17 +2373,6 @@ name = "unicode-xid"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "826e7639553986605ec5979c7dd957c7895e93eabed50ab2ffa7f6128a75097c"
-
-[[package]]
-name = "unidiff"
-version = "0.3.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c152966fd1e11a44da1063caf6ca3c615cf5760603223015441df29a9653ae9"
-dependencies = [
- "encoding_rs",
- "lazy_static",
- "regex",
-]
 
 [[package]]
 name = "vcpkg"
