@@ -59,12 +59,12 @@ fn append_modifiers(
     gui: bool,
 ) -> String {
     let mut result = keycode_text.to_string();
-    let mut special = special;
-
-    if result == "<" {
+    let mut special = if result == "<" {
         result = "lt".to_string();
-        special = true;
-    }
+        true
+    } else {
+        special
+    };
 
     if shift {
         special = true;
