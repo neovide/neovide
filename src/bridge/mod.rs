@@ -72,9 +72,11 @@ fn build_nvim_cmd() -> Command {
     }
 
     #[cfg(not(target_os = "macos"))]
-    if let Ok(path) = which::which("nvim") {
-        if let Some(cmd) = platform_build_nvim_cmd(path.to_str().unwrap()) {
-            return cmd;
+    {
+        if let Ok(path) = which::which("nvim") {
+            if let Some(cmd) = platform_build_nvim_cmd(path.to_str().unwrap()) {
+                return cmd;
+            }
         }
     }
 
