@@ -35,6 +35,7 @@ fn set_windows_creation_flags(cmd: &mut Command) {
 
 #[cfg(target_os = "windows")]
 fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
+    use std::path::Path;
     if !Path::new(&bin).exists() {
         return None;
     }
@@ -54,7 +55,6 @@ fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
 #[cfg(not(target_os = "windows"))]
 fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
     use std::path::Path;
-
     if Path::new(&bin).exists() {
         Some(Command::new(bin))
     } else {
