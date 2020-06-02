@@ -32,7 +32,7 @@ impl FontOptions {
                 .map(|fallback| fallback.to_string())
                 .collect();
 
-            if parsed_fallback_list.is_empty() && self.fallback_list != parsed_fallback_list {
+            if !parsed_fallback_list.is_empty() && self.fallback_list != parsed_fallback_list {
                 self.fallback_list = parsed_fallback_list;
                 updated = true;
             }
