@@ -9,7 +9,7 @@ use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use log::{error, info, trace};
+use log::{error, info, trace, warn};
 use nvim_rs::{create::tokio as create, UiAttachOptions};
 use rmpv::Value;
 use tokio::process::Command;
@@ -34,41 +34,55 @@ fn set_windows_creation_flags(cmd: &mut Command) {
 }
 
 #[cfg(target_os = "windows")]
-fn platform_build_nvim_cmd(bin: &str) -> Command {
+fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
+    if !Path::new(&bin).exists() {
+        return None;
+    }
+
     if std::env::args()
         .collect::<Vec<String>>()
         .contains(&String::from("--wsl"))
     {
         let mut cmd = Command::new("wsl");
         cmd.arg(bin);
-        cmd
+        Some(cmd)
     } else {
-        Command::new(bin)
+        Some(Command::new(bin))
     }
 }
 
-#[cfg(target_os = "macos")]
-fn platform_build_nvim_cmd(bin: &str) -> Command {
+#[cfg(not(target_os = "windows"))]
+fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
     use std::path::Path;
 
-    let default_path = "/usr/local/bin/nvim";
     if Path::new(&bin).exists() {
-        Command::new(bin)
+        Some(Command::new(bin))
     } else {
-        Command::new(default_path)
+        None
     }
-}
-
-#[cfg(not(any(target_os = "windows", target_os = "macos")))]
-fn platform_build_nvim_cmd(bin: &str) -> Command {
-    Command::new(bin)
 }
 
 fn build_nvim_cmd() -> Command {
     if let Some(path) = std::env::var_os("NEOVIM_BIN") {
-        platform_build_nvim_cmd(&path.to_string_lossy())
-    } else if let Ok(path) = which::which("nvim") {
-        platform_build_nvim_cmd(path.to_str().unwrap())
+        if let Some(cmd) = platform_build_nvim_cmd(&path.to_string_lossy()) {
+            return cmd;
+        } else {
+            warn!("NEOVIM_BIN is invalid falling back to first bin in PATH");
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        if let Ok(path) = which::which("nvim") {
+            if let Some(cmd) = platform_build_nvim_cmd(path.to_str().unwrap()) {
+                return cmd;
+            }
+        }
+    }
+
+    let default_path = "/usr/local/bin/nvim";
+    if let Some(cmd) = platform_build_nvim_cmd(default_path) {
+        cmd
     } else {
         error!("nvim not found!");
         std::process::exit(1);
