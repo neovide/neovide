@@ -35,15 +35,17 @@ fn main() {
     #[cfg(target_os = "macos")]
     {
         use std::env;
-        let mut profile_path = dirs::home_dir().unwrap();
-        profile_path.push(".profile");
-        let shell = env::var("SHELL").unwrap();
-        let cmd = format!(
-            "(source /etc/profile && source {} && echo $PATH)",
-            profile_path.to_str().unwrap()
-        );
-        if let Ok(path) = process::Command::new(shell).arg("-c").arg(cmd).output() {
-            env::set_var("PATH", std::str::from_utf8(&path.stdout).unwrap());
+        if env::var_os("TERM").is_none() {
+            let mut profile_path = dirs::home_dir().unwrap();
+            profile_path.push(".profile");
+            let shell = env::var("SHELL").unwrap();
+            let cmd = format!(
+                "(source /etc/profile && source {} && echo $PATH)",
+                profile_path.to_str().unwrap()
+            );
+            if let Ok(path) = process::Command::new(shell).arg("-c").arg(cmd).output() {
+                env::set_var("PATH", std::str::from_utf8(&path.stdout).unwrap());
+            }
         }
     }
 
