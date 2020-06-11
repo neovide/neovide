@@ -29,6 +29,12 @@ impl Handler for NeovimHandler {
             "setting_changed" => {
                 SETTINGS.handle_changed_notification(arguments);
             }
+            "neovide.reg_right_click" => {
+                // TODO(nganhkhoa): Register right click menu
+            }
+            "neovide.unreg_right_click" => {
+                // TODO(nganhkhoa): Unregister right click menu
+            }
             _ => {}
         })
         .await

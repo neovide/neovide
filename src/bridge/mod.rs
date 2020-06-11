@@ -108,6 +108,18 @@ async fn drain(receiver: &mut UnboundedReceiver<UiCommand>) -> Option<Vec<UiComm
     }
 }
 
+fn build_neovide_command(channel: u64, nargs: u64, command: &str, action: &str) -> String {
+    // TODO(nganhkhoa): multiple arguments
+    let num_args: String = if nargs > 1 { "+".to_string() } else { nargs.to_string() };
+    let cmd = format!("command! -nargs={} -complete=expression {} call rpcnotify({}, '{}')",
+        num_args,
+        command,
+        channel,
+        action
+    );
+    cmd
+}
+
 async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
     let (width, height) = window_geometry_or_default();
     let (mut nvim, io_handler, _) =
@@ -153,6 +165,41 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
         .await
         .ok();
     }
+
+    nvim.set_client_info(
+        "neovide",
+        vec![(Value::from("major"), Value::from(0)), (Value::from("minor"), Value::from(6))],
+        "ui",
+        vec![],
+        vec![]
+    ).await.ok();
+
+    // parsing the client list to get the channel id for neovide
+    let neovide_channel: u64 =
+        nvim.list_chans().await.ok()
+        .and_then(|chans| {
+            let (_, id) = chans.iter().find_map(|chan| {
+                chan.as_map()?.iter().find(|(key, val)| {
+                    key.as_str() == Some("client") &&
+                    val.as_map().map_or(false, |client|
+                        client.iter().any(|(_, v)| {
+                            v.as_str() == Some("neovide")
+                        })
+                    )
+                }).map(|_| chan)
+            })?
+            .as_map()?.iter().find(|(k, _)| {
+                k.as_str() == Some("id")
+            })?;
+            id.as_u64()
+        }).unwrap_or(0);
+    info!("Neovide registered with channel {}", neovide_channel);
+
+    nvim.command(&build_neovide_command(neovide_channel, 0, "NeovideRegisterRightClick", "neovide.reg_right_click"))
+        .await.ok();
+    nvim.command(&build_neovide_command(neovide_channel, 0, "NeovideUnregisterRightClick", "neovide.unreg_right_click"))
+        .await.ok();
+
     nvim.ui_attach(width as i64, height as i64, &options)
         .await
         .unwrap_or_explained_panic("Could not attach ui to neovim process");
