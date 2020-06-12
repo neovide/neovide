@@ -195,8 +195,11 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
         }).unwrap_or(0);
     info!("Neovide registered with channel {}", neovide_channel);
 
+    #[cfg(windows)]
     nvim.command(&build_neovide_command(neovide_channel, 0, "NeovideRegisterRightClick", "neovide.reg_right_click"))
         .await.ok();
+
+    #[cfg(windows)]
     nvim.command(&build_neovide_command(neovide_channel, 0, "NeovideUnregisterRightClick", "neovide.unreg_right_click"))
         .await.ok();
 
