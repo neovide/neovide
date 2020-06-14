@@ -11,6 +11,7 @@ use parking_lot::RwLock;
 pub use rmpv::Value;
 mod from_value;
 pub use from_value::FromValue;
+pub mod windows_registry;
 
 use tokio::process::ChildStdin;
 
