@@ -443,7 +443,7 @@ pub fn ui_loop() {
                 }
                 Event::TextInput { text, .. } => {
                     if let Some(keycode) = keycode {
-                        if keycode.name() != text.to_uppercase() {
+                        if text.len() > 1 || keycode.name() != text.to_uppercase() {
                             keytexts.push((Some(keycode), Some(text)));
                         }
                     }
