@@ -64,8 +64,7 @@ pub fn window_geometry() -> Result<(u64, u64), String> {
     let prefix = "--geometry=";
 
     std::env::args()
-        .filter(|arg| arg.starts_with(prefix))
-        .next()
+        .find(|arg| arg.starts_with(prefix))
         .map_or(Ok(INITIAL_DIMENSIONS), |arg| {
             let input = &arg[prefix.len()..];
             let invalid_parse_err = format!(
@@ -78,7 +77,7 @@ pub fn window_geometry() -> Result<(u64, u64), String> {
                 .map(|dimension| {
                     dimension
                         .parse::<u64>()
-                        .or(Err(invalid_parse_err.as_str()))
+                        .or_else(|_| Err(invalid_parse_err.as_str()))
                         .and_then(|dimension| {
                             if dimension > 0 {
                                 Ok(dimension)
@@ -149,7 +148,7 @@ impl WindowWrapper {
             let sdl_window_wrapper = Sdl2Window::new(&sdl_window);
             RendererBuilder::new()
                 .prefer_integrated_gpu()
-                .use_vulkan_debug_layer(true)
+                .use_vulkan_debug_layer(false)
                 .present_mode_priority(vec![PresentMode::Immediate])
                 .coordinate_system(CoordinateSystem::Logical)
                 .build(&sdl_window_wrapper)
@@ -242,7 +241,7 @@ impl WindowWrapper {
         let transparency = { SETTINGS.get::<WindowSettings>().transparency };
 
         if let Ok(opacity) = self.window.opacity() {
-            if opacity != transparency {
+            if (opacity - transparency).abs() > std::f32::EPSILON {
                 self.window.set_opacity(transparency).ok();
                 self.transparency = transparency;
             }
@@ -311,12 +310,10 @@ impl WindowWrapper {
     }
 
     pub fn handle_mouse_wheel(&mut self, x: i32, y: i32) {
-        let vertical_input_type = if y > 0 {
-            Some("up")
-        } else if y < 0 {
-            Some("down")
-        } else {
-            None
+        let vertical_input_type = match y {
+            _ if y > 0 => Some("up"),
+            _ if y < 0 => Some("down"),
+            _ => None,
         };
 
         if let Some(input_type) = vertical_input_type {
@@ -326,12 +323,10 @@ impl WindowWrapper {
             });
         }
 
-        let horizontal_input_type = if x > 0 {
-            Some("right")
-        } else if x < 0 {
-            Some("left")
-        } else {
-            None
+        let horizontal_input_type = match y {
+            _ if x > 0 => Some("right"),
+            _ if x < 0 => Some("left"),
+            _ => None,
         };
 
         if let Some(input_type) = horizontal_input_type {
@@ -369,8 +364,7 @@ impl WindowWrapper {
 
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
             let renderer = &mut self.renderer;
-
-            if self
+            let error = self
                 .skulpin_renderer
                 .draw(&sdl_window_wrapper, |canvas, coordinate_system_helper| {
                     let dt = 1.0 / (SETTINGS.get::<WindowSettings>().refresh_rate as f32);
@@ -379,14 +373,14 @@ impl WindowWrapper {
                         handle_new_grid_size(current_size, &renderer)
                     }
                 })
-                .is_err()
-            {
+                .is_err();
+            if error {
                 error!("Render failed. Closing");
                 return false;
             }
         }
 
-        return true;
+        true
     }
 }
 

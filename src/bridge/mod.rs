@@ -9,7 +9,7 @@ use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use log::{error, info, trace};
+use log::{error, info, trace, warn};
 use nvim_rs::{create::tokio as create, UiAttachOptions};
 use rmpv::Value;
 use tokio::process::Command;
@@ -22,53 +22,64 @@ use crate::window::window_geometry_or_default;
 pub use events::*;
 use handler::NeovimHandler;
 pub use layouts::*;
+use std::env;
+use std::path::Path;
 pub use ui_commands::UiCommand;
 
 lazy_static! {
     pub static ref BRIDGE: Bridge = Bridge::new();
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(windows)]
 fn set_windows_creation_flags(cmd: &mut Command) {
     cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
 }
 
-#[cfg(target_os = "windows")]
-fn platform_build_nvim_cmd(bin: &str) -> Command {
-    if std::env::args()
+#[cfg(windows)]
+fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
+    if !Path::new(&bin).exists() {
+        return None;
+    }
+
+    if env::args()
         .collect::<Vec<String>>()
         .contains(&String::from("--wsl"))
     {
         let mut cmd = Command::new("wsl");
         cmd.arg(bin);
-        cmd
+        Some(cmd)
     } else {
-        Command::new(bin)
+        Some(Command::new(bin))
     }
 }
 
-#[cfg(target_os = "macos")]
-fn platform_build_nvim_cmd(bin: &str) -> Command {
-    use std::path::Path;
-
-    let default_path = "/usr/local/bin/nvim";
+#[cfg(unix)]
+fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
     if Path::new(&bin).exists() {
-        Command::new(bin)
+        Some(Command::new(bin))
     } else {
-        Command::new(default_path)
+        None
     }
-}
-
-#[cfg(not(any(target_os = "windows", target_os = "macos")))]
-fn platform_build_nvim_cmd(bin: &str) -> Command {
-    Command::new(bin)
 }
 
 fn build_nvim_cmd() -> Command {
-    let key = "NEOVIM_BIN";
-    match std::env::var_os(key) {
-        Some(path) => platform_build_nvim_cmd(&path.to_string_lossy()),
-        None => platform_build_nvim_cmd("nvim"),
+    if let Ok(path) = env::var("NEOVIM_BIN") {
+        if let Some(cmd) = platform_build_nvim_cmd(&path) {
+            return cmd;
+        } else {
+            warn!("NEOVIM_BIN is invalid falling back to first bin in PATH");
+        }
+    }
+    if let Ok(path) = which::which("nvim") {
+        if let Some(cmd) = platform_build_nvim_cmd(path.to_str().unwrap()) {
+            cmd
+        } else {
+            error!("nvim does not have proper permissions!");
+            std::process::exit(1);
+        }
+    } else {
+        error!("nvim not found!");
+        std::process::exit(1);
     }
 }
 
@@ -79,7 +90,7 @@ pub fn create_nvim_command() -> Command {
         .args(SETTINGS.neovim_arguments.iter().skip(1))
         .stderr(Stdio::inherit());
 
-    #[cfg(target_os = "windows")]
+    #[cfg(windows)]
     set_windows_creation_flags(&mut cmd);
 
     cmd

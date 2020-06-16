@@ -301,11 +301,8 @@ impl Editor {
 
     fn set_option(&mut self, gui_option: GuiOption) {
         trace!("Option set {:?}", &gui_option);
-        match gui_option {
-            GuiOption::GuiFont(guifont) => {
-                self.guifont = Some(guifont);
-            }
-            _ => {}
+        if let GuiOption::GuiFont(guifont) = gui_option {
+            self.guifont = Some(guifont);
         }
     }
 }

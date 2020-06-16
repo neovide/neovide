@@ -1,6 +1,6 @@
 [package]
 name = "neovide"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["keith <keith@the-simmons.net>"]
 edition = "2018"
 build = "build.rs"
@@ -15,7 +15,7 @@ euclid = "0.20.7"
 font-kit = "0.6.0"
 skribo = { git = "https://github.com/linebender/skribo" }
 lru = "0.4.3"
-skulpin = { git = "https://github.com/j4qfrost/skulpin", branch = "update-macos-deps", features = ["skulpin_sdl2"] }
+skulpin = { git = "https://github.com/aclysma/skulpin", branch = "master", features = ["skulpin_sdl2"] }
 derive-new = "0.5"
 rmpv = "0.4.4"
 rust-embed = { version = "5.2.0", features = ["debug-embed"] }
@@ -30,20 +30,27 @@ flexi_logger = { version = "0.14.6", default-features = false }
 anyhow = "1.0.26"
 parking_lot="0.10.0"
 cfg-if = "0.1.10"
+which = "4"
+dirs = "2"
 
 [dev-dependencies]
 mockall = "0.7.0"
 rand = "0.7"
 
+[dev-dependencies.cargo-husky]
+version = "1"
+default-features = false
+features = ["precommit-hook", "run-cargo-test", "run-cargo-clippy", "run-cargo-fmt"]
+
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3.8"
 
-[build-dependencies]
+[target.'cfg(windows)'.build-dependencies]
 winres = "0.1.11"
-sdl2-sys = { version = "0.33", default-features = false, features = ["bundled", "static-link"] }
+sdl2-sys = { version = "0.34", default-features = false, features = ["bundled", "static-link"] }
 
-# [patch.crates-io]
-# sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2", default-features = false }
+[target.'cfg(macos)'.build-dependencies]
+sdl2-sys = { version = "0.34", default-features = false, features = ["bundled", "static-link"] }
 
 [profile.release]
 debug = true
@@ -54,7 +61,7 @@ incremental = true
 name = "Neovide"
 identifier = "com.kethku.neovide"
 icon = ["assets/nvim.ico"]
-version = "0.4.0"
+version = "0.6.0"
 resources = []
 copyright = "Copyright (c) keith 2020. All rights reserved."
 category = "Productivity"

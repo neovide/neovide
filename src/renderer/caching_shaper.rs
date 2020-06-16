@@ -79,7 +79,7 @@ impl ExtendedFontFamily {
     pub fn from_normal_font_family(fonts: &[Handle]) -> ExtendedFontFamily {
         let mut family = ExtendedFontFamily::new();
 
-        for font in fonts.into_iter() {
+        for font in fonts.iter() {
             if let Ok(font) = font.load() {
                 family.add_font(SkriboFont::new(font));
             }
@@ -88,11 +88,11 @@ impl ExtendedFontFamily {
         family
     }
 
-    pub fn to_normal_font_family(self) -> FontFamily {
+    pub fn to_normal_font_family(&self) -> FontFamily {
         let mut new_family = FontFamily::new();
 
-        for font in self.fonts {
-            new_family.add_font(font);
+        for font in &self.fonts {
+            new_family.add_font(font.clone());
         }
 
         new_family
@@ -113,17 +113,18 @@ impl FontLoader {
     }
 
     fn get(&mut self, font_name: &str) -> Option<ExtendedFontFamily> {
-        return self.cache.get(&String::from(font_name)).cloned();
+        self.cache.get(&String::from(font_name)).cloned()
     }
 
     #[cfg(feature = "embed-fonts")]
     fn load_from_asset(&mut self, font_name: &str) -> Option<ExtendedFontFamily> {
         let mut family = ExtendedFontFamily::new();
 
-        Asset::get(font_name)
+        if let Some(font) = Asset::get(font_name)
             .and_then(|font_data| Font::from_bytes(font_data.to_vec().into(), 0).ok())
-            .map(|font| family.add_font(SkriboFont::new(font)));
-
+        {
+            family.add_font(SkriboFont::new(font))
+        }
         self.cache.put(String::from(font_name), family);
         self.get(font_name)
     }
@@ -172,7 +173,7 @@ struct ShapeKey {
 
 pub fn build_collection_by_font_name(
     loader: &mut FontLoader,
-    fallback_list: &Vec<String>,
+    fallback_list: &[String],
     bold: bool,
     italic: bool,
 ) -> FontCollection {
@@ -221,7 +222,7 @@ struct FontSet {
 }
 
 impl FontSet {
-    fn new(fallback_list: &Vec<String>, mut loader: &mut FontLoader) -> FontSet {
+    fn new(fallback_list: &[String], mut loader: &mut FontLoader) -> FontSet {
         FontSet {
             normal: build_collection_by_font_name(&mut loader, fallback_list, false, false),
             bold: build_collection_by_font_name(&mut loader, fallback_list, true, false),

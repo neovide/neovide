@@ -68,12 +68,8 @@ impl Settings {
                 if arg == "--log" {
                     log_to_file = true;
                     false
-                } else if arg.starts_with("--geometry=") {
-                    false
-                } else if arg == "--wsl" {
-                    false
                 } else {
-                    true
+                    !(arg.starts_with("--geometry=") || arg == "--wsl")
                 }
             })
             .collect::<Vec<String>>();
@@ -133,7 +129,7 @@ impl Settings {
         write_lock.insert(type_id, Box::new(t));
     }
 
-    pub fn get<'a, T: Clone + Send + Sync + 'static>(&'a self) -> T {
+    pub fn get<T: Clone + Send + Sync + 'static>(&'_ self) -> T {
         let read_lock = self.settings.read();
         let boxed = &read_lock
             .get(&TypeId::of::<T>())
