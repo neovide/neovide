@@ -425,7 +425,7 @@ pub fn ui_loop() {
         window.synchronize_settings();
 
         let mut keycode = None;
-        let mut keytexts = Vec::new();
+        let mut keytexts: Vec<(Option<Keycode>, Option<String>)> = Vec::new();
         let mut ignore_text_this_frame = false;
 
         for event in event_pump.poll_iter() {
@@ -439,8 +439,15 @@ pub fn ui_loop() {
                     ..
                 } => {
                     keycode = received_keycode;
+                    keytexts.push((keycode, None));
                 }
-                Event::TextInput { text, .. } => keytexts.push((keycode, Some(text))),
+                Event::TextInput { text, .. } => {
+                    if let Some(keycode) = keycode {
+                        if keycode.name() != text.to_uppercase() {
+                            keytexts.push((Some(keycode), Some(text)));
+                        }
+                    }
+                }
                 Event::MouseMotion { x, y, .. } => window.handle_pointer_motion(x, y),
                 Event::MouseButtonDown { .. } => window.handle_pointer_down(),
                 Event::MouseButtonUp { .. } => window.handle_pointer_up(),
