@@ -145,7 +145,7 @@ impl FontLoader {
         };
 
         let family = ExtendedFontFamily::from_normal_font_family(handle.fonts());
-        if family.fonts.len() > 0 {
+        if !family.fonts.is_empty() {
             self.cache.put(String::from(font_name), family);
             self.get(font_name)
         } else {
