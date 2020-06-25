@@ -2,10 +2,13 @@ use std::ffi::{CString};
 use std::ptr::{null, null_mut};
 #[cfg(windows)]
 use winapi::{
+    ctypes::{c_void},
     shared::minwindef::{HKEY, MAX_PATH, DWORD},
     um::{
         winnt::{
+            HANDLE,
             REG_SZ, REG_OPTION_NON_VOLATILE, KEY_WRITE,
+            TOKEN_QUERY, TOKEN_ELEVATION, TokenElevation
         },
         winreg::{
             RegCreateKeyExA, RegSetValueExA, RegCloseKey, RegDeleteTreeA,
@@ -13,6 +16,15 @@ use winapi::{
         },
         libloaderapi::{
             GetModuleFileNameA
+        },
+        securitybaseapi::{
+            GetTokenInformation
+        },
+        processthreadsapi::{
+            GetCurrentProcess, OpenProcessToken,
+        },
+        handleapi::{
+            CloseHandle
         }
     }
 };
@@ -29,17 +41,18 @@ fn get_binary_path() -> String {
 }
 
 #[cfg(target_os = "windows")]
-pub fn unregister_rightclick() {
+pub fn unregister_rightclick() -> bool {
     let str_registry_path_1 = CString::new("Directory\\Background\\shell\\Neovide").unwrap();
     let str_registry_path_2 = CString::new("*\\shell\\Neovide").unwrap();
     unsafe {
-        RegDeleteTreeA(HKEY_CLASSES_ROOT, str_registry_path_1.as_ptr());
-        RegDeleteTreeA(HKEY_CLASSES_ROOT, str_registry_path_2.as_ptr());
+        let s1 = RegDeleteTreeA(HKEY_CLASSES_ROOT, str_registry_path_1.as_ptr());
+        let s2 = RegDeleteTreeA(HKEY_CLASSES_ROOT, str_registry_path_2.as_ptr());
+        s1 == 0 && s2 == 0
     }
 }
 
 #[cfg(target_os = "windows")]
-pub fn register_rightclick_directory() {
+pub fn register_rightclick_directory() -> bool {
     let neovide_path = get_binary_path();
     let mut registry_key: HKEY = null_mut();
     let str_registry_path = CString::new("Directory\\Background\\shell\\Neovide").unwrap();
@@ -49,12 +62,13 @@ pub fn register_rightclick_directory() {
     let str_description= CString::new("Open with Neovide").unwrap();
     let str_neovide_path = CString::new(neovide_path.as_bytes()).unwrap();
     unsafe {
-        RegCreateKeyExA(
+        if RegCreateKeyExA(
             HKEY_CLASSES_ROOT, str_registry_path.as_ptr(),
             0, null_mut(),
             REG_OPTION_NON_VOLATILE, KEY_WRITE,
-            null_mut(), &mut registry_key, null_mut()
-        );
+            null_mut(), &mut registry_key, null_mut()) != 0 {
+            return false;
+        }
         let registry_values = [
             (null(), REG_SZ, str_description.as_ptr() as *const u8, str_description.to_bytes().len() + 1),
             (str_icon.as_ptr(), REG_SZ, str_neovide_path.as_ptr() as *const u8, str_neovide_path.to_bytes().len() + 1),
@@ -64,12 +78,13 @@ pub fn register_rightclick_directory() {
         }
         RegCloseKey(registry_key);
 
-        RegCreateKeyExA(
+        if RegCreateKeyExA(
             HKEY_CLASSES_ROOT, str_registry_command_path.as_ptr(),
             0, null_mut(),
             REG_OPTION_NON_VOLATILE, KEY_WRITE,
-            null_mut(), &mut registry_key, null_mut()
-        );
+            null_mut(), &mut registry_key, null_mut()) != 0 {
+            return false;
+        }
         let registry_values = [
             (null(), REG_SZ, str_command.as_ptr() as *const u8, str_command.to_bytes().len() + 1),
         ];
@@ -78,10 +93,11 @@ pub fn register_rightclick_directory() {
         }
         RegCloseKey(registry_key);
     }
+    true
 }
 
 #[cfg(target_os = "windows")]
-pub fn register_rightclick_file() {
+pub fn register_rightclick_file() -> bool {
     let neovide_path = get_binary_path();
     let mut registry_key: HKEY = null_mut();
     let str_registry_path = CString::new("*\\shell\\Neovide").unwrap();
@@ -91,12 +107,13 @@ pub fn register_rightclick_file() {
     let str_description= CString::new("Open with Neovide").unwrap();
     let str_neovide_path = CString::new(neovide_path.as_bytes()).unwrap();
     unsafe {
-        RegCreateKeyExA(
+        if RegCreateKeyExA(
             HKEY_CLASSES_ROOT, str_registry_path.as_ptr(),
             0, null_mut(),
             REG_OPTION_NON_VOLATILE, KEY_WRITE,
-            null_mut(), &mut registry_key, null_mut()
-        );
+            null_mut(), &mut registry_key, null_mut()) != 0 {
+            return false;
+        }
         let registry_values = [
             (null(), REG_SZ, str_description.as_ptr() as *const u8, str_description.to_bytes().len() + 1),
             (str_icon.as_ptr(), REG_SZ, str_neovide_path.as_ptr() as *const u8, str_neovide_path.to_bytes().len() + 1),
@@ -106,12 +123,13 @@ pub fn register_rightclick_file() {
         }
         RegCloseKey(registry_key);
 
-        RegCreateKeyExA(
+        if RegCreateKeyExA(
             HKEY_CLASSES_ROOT, str_registry_command_path.as_ptr(),
             0, null_mut(),
             REG_OPTION_NON_VOLATILE, KEY_WRITE,
-            null_mut(), &mut registry_key, null_mut()
-        );
+            null_mut(), &mut registry_key, null_mut()) != 0 {
+            return false;
+        }
         let registry_values = [
             (null(), REG_SZ, str_command.as_ptr() as *const u8, str_command.to_bytes().len() + 1),
         ];
@@ -120,5 +138,24 @@ pub fn register_rightclick_file() {
         }
         RegCloseKey(registry_key);
     }
+    true
 }
 
+#[cfg(target_os = "windows")]
+#[allow(dead_code)]
+pub fn is_elevated() -> bool {
+    let mut token_handle: HANDLE = null_mut();
+    let mut elevation = TOKEN_ELEVATION {
+        TokenIsElevated: 0
+    };
+    let result: bool;
+    unsafe {
+        OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token_handle);
+        GetTokenInformation(token_handle, TokenElevation,
+                            &mut elevation as *mut _ as *mut c_void,
+                            4 /* sizeof(DWORD) */, null_mut());
+        result = elevation.TokenIsElevated != 0;
+        CloseHandle(token_handle);
+    }
+    result
+}

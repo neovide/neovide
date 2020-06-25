@@ -10,7 +10,7 @@ use crate::settings::SETTINGS;
 
 #[cfg(windows)]
 use crate::settings::windows_registry::{
-    unregister_rightclick,
+    /* is_elevated, */ unregister_rightclick,
     register_rightclick_directory, register_rightclick_file
 };
 
@@ -36,15 +36,25 @@ impl Handler for NeovimHandler {
                 SETTINGS.handle_changed_notification(arguments);
             }
             "neovide.reg_right_click" => {
-                if cfg!(windows) {
-                    unregister_rightclick();
-                    register_rightclick_directory();
-                    register_rightclick_file();
+                // let elevated = is_elevated();
+                if cfg!(windows) /* && elevated */ {
+                    if  !(unregister_rightclick() &&
+                          register_rightclick_directory() &&
+                          register_rightclick_file()) {
+                        // _neovim.err_write("Registering Windows registry can only be done when \"run as administrator\"")
+                        //     .await
+                        //     .ok();
+                    }
                 }
             }
             "neovide.unreg_right_click" => {
-                if cfg!(windows) {
-                    unregister_rightclick();
+                // let elevated = is_elevated();
+                if cfg!(windows) /* && elevated */ {
+                    if !unregister_rightclick() {
+                        // _neovim.err_write("Unregistering Windows registry can only be done when \"run as administrator\"")
+                        //     .await
+                        //     .ok();
+                    }
                 }
             }
             _ => {}

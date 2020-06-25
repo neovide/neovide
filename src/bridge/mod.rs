@@ -108,16 +108,17 @@ async fn drain(receiver: &mut UnboundedReceiver<UiCommand>) -> Option<Vec<UiComm
     }
 }
 
-fn build_neovide_command(channel: u64, nargs: u64, command: &str, action: &str) -> String {
-    // TODO(nganhkhoa): multiple arguments
-    let num_args: String = if nargs > 1 { "+".to_string() } else { nargs.to_string() };
-    let cmd = format!("command! -nargs={} -complete=expression {} call rpcnotify({}, '{}')",
-        num_args,
-        command,
-        channel,
-        action
-    );
-    cmd
+fn build_neovide_command(channel: u64, num_args: u64, command: &str, event: &str) -> String {
+    let nargs: String = if num_args > 1 { "+".to_string() } else { num_args.to_string() };
+    if num_args == 0 {
+        return format!("command! -nargs={} -complete=expression {} call rpcnotify({}, 'neovide.{}')",
+            nargs, command, channel, event
+        );
+    } else {
+        return format!("command! -nargs={} -complete=expression {} call rpcnotify({}, 'neovide.{}', <args>)",
+            nargs, command, channel, event
+        );
+    };
 }
 
 async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
@@ -168,7 +169,8 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
 
     nvim.set_client_info(
         "neovide",
-        vec![(Value::from("major"), Value::from(0)), (Value::from("minor"), Value::from(6))],
+        vec![(Value::from("major"), Value::from(0u64)),
+             (Value::from("minor"), Value::from(6u64))],
         "ui",
         vec![],
         vec![]
@@ -178,29 +180,38 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
     let neovide_channel: u64 =
         nvim.list_chans().await.ok()
         .and_then(|chans| {
-            let (_, id) = chans.iter().find_map(|chan| {
-                chan.as_map()?.iter().find(|(key, val)| {
-                    key.as_str() == Some("client") &&
-                    val.as_map().map_or(false, |client|
-                        client.iter().any(|(_, v)| {
-                            v.as_str() == Some("neovide")
-                        })
-                    )
-                }).map(|_| chan)
-            })?
-            .as_map()?.iter().find(|(k, _)| {
-                k.as_str() == Some("id")
-            })?;
-            id.as_u64()
+            for chan in chans.iter() {
+                let mut found = false;
+                let mut id = None;
+                for (key, val) in chan.as_map()?.iter() {
+                    if key.as_str()? == "id" {
+                        id = val.as_u64();
+                        continue;
+                    }
+                    if key.as_str()? != "client" {
+                        continue;
+                    }
+                    for (attribute, value) in val.as_map()?.iter() {
+                        if attribute.as_str()? == "name" && value.as_str()? == "neovide" {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                if found {
+                    return id;
+                }
+            }
+            None
         }).unwrap_or(0);
-    info!("Neovide registered with channel {}", neovide_channel);
+    info!("Neovide registered to nvim with channel id {}", neovide_channel);
 
     #[cfg(windows)]
-    nvim.command(&build_neovide_command(neovide_channel, 0, "NeovideRegisterRightClick", "neovide.reg_right_click"))
+    nvim.command(&build_neovide_command(neovide_channel, 0, "NeovideRegisterRightClick", "reg_right_click"))
         .await.ok();
 
     #[cfg(windows)]
-    nvim.command(&build_neovide_command(neovide_channel, 0, "NeovideUnregisterRightClick", "neovide.unreg_right_click"))
+    nvim.command(&build_neovide_command(neovide_channel, 0, "NeovideUnregisterRightClick", "unreg_right_click"))
         .await.ok();
 
     nvim.ui_attach(width as i64, height as i64, &options)
