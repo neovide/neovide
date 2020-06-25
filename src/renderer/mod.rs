@@ -51,7 +51,7 @@ impl Renderer {
         if updated {
             let (font_width, font_height) = self.shaper.font_base_dimensions();
             self.font_width = font_width;
-            self.font_height = font_height;
+            self.font_height = font_height.ceil();
         }
         updated
     }
