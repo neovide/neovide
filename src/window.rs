@@ -424,6 +424,8 @@ pub fn ui_loop() {
 
         window.synchronize_settings();
 
+        let mut keyboard_inputs = Vec::new();
+
         let mut keycode = None;
         let mut keytext = None;
         let mut ignore_text_this_frame = false;
@@ -438,9 +440,31 @@ pub fn ui_loop() {
                     keycode: received_keycode,
                     ..
                 } => {
+                    if received_keycode.is_some() {
+                        keyboard_inputs.push((keycode, None));
+                    }
+
                     keycode = received_keycode;
+
+                    if keytext.is_some() {
+                        keyboard_inputs.push((keycode, keytext));
+                        keycode = None;
+                        keytext = None;
+                    }
                 }
-                Event::TextInput { text, .. } => keytext = Some(text),
+                Event::TextInput { text, .. } => {
+                    if keytext.is_some() {
+                        keyboard_inputs.push((None, keytext));
+                    }
+
+                    keytext = Some(text);
+
+                    if keycode.is_some() {
+                        keyboard_inputs.push((keycode, keytext));
+                        keycode = None;
+                        keytext = None;
+                    }
+                }
                 Event::MouseMotion { x, y, .. } => window.handle_pointer_motion(x, y),
                 Event::MouseButtonDown { .. } => window.handle_pointer_down(),
                 Event::MouseButtonUp { .. } => window.handle_pointer_up(),
@@ -461,8 +485,12 @@ pub fn ui_loop() {
             }
         }
 
+        keyboard_inputs.push((keycode, keytext));
+
         if !ignore_text_this_frame {
-            window.handle_keyboard_input(keycode, keytext);
+            for (keycode, keytext) in keyboard_inputs.into_iter() {
+                window.handle_keyboard_input(keycode, keytext);
+            }
         }
 
         if !window.draw_frame() {
