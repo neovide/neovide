@@ -440,7 +440,10 @@ pub fn ui_loop() {
                     keycode: received_keycode,
                     ..
                 } => {
-                    if received_keycode.is_some() {
+                    info!("Keycode: {:?}", &keycode);
+                    // If keycode has a value, add it to the list as the new keycode supercedes
+                    // this one.
+                    if keycode.is_some() {
                         keyboard_inputs.push((keycode, None));
                     }
 
@@ -453,6 +456,7 @@ pub fn ui_loop() {
                     }
                 }
                 Event::TextInput { text, .. } => {
+                    info!("Text Input: {}", &text);
                     if keytext.is_some() {
                         keyboard_inputs.push((None, keytext));
                     }
