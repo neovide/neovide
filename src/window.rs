@@ -440,7 +440,6 @@ pub fn ui_loop() {
                     keycode: received_keycode,
                     ..
                 } => {
-                    info!("Keycode: {:?}", &keycode);
                     // If keycode has a value, add it to the list as the new keycode supercedes
                     // this one.
                     if keycode.is_some() {
@@ -448,26 +447,15 @@ pub fn ui_loop() {
                     }
 
                     keycode = received_keycode;
-
-                    if keytext.is_some() {
-                        keyboard_inputs.push((keycode, keytext));
-                        keycode = None;
-                        keytext = None;
-                    }
                 }
                 Event::TextInput { text, .. } => {
-                    info!("Text Input: {}", &text);
+                    // If keycode has a value, add it to the list as the new keycode supercedes
+                    // this one.
                     if keytext.is_some() {
                         keyboard_inputs.push((None, keytext));
                     }
 
                     keytext = Some(text);
-
-                    if keycode.is_some() {
-                        keyboard_inputs.push((keycode, keytext));
-                        keycode = None;
-                        keytext = None;
-                    }
                 }
                 Event::MouseMotion { x, y, .. } => window.handle_pointer_motion(x, y),
                 Event::MouseButtonDown { .. } => window.handle_pointer_down(),
@@ -486,6 +474,14 @@ pub fn ui_loop() {
                 }
                 Event::Window { .. } => REDRAW_SCHEDULER.queue_next_frame(),
                 _ => {}
+            }
+
+            // If both keycode and keytext have values, then add them to the list and reset the
+            // variables.
+            if keycode.is_some() && keytext.is_some() {
+                keyboard_inputs.push((keycode, keytext));
+                keycode = None;
+                keytext = None;
             }
         }
 
