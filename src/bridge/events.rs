@@ -263,7 +263,7 @@ pub enum RedrawEvent {
 
 fn unpack_color(packed_color: u64) -> Color4f {
     let packed_color = packed_color as u32;
-    let r = ((packed_color & 0xff0000) >> 16) as f32;
+    let r = ((packed_color & 0x00ff_0000) >> 16) as f32;
     let g = ((packed_color & 0xff00) >> 8) as f32;
     let b = (packed_color & 0xff) as f32;
     Color4f {

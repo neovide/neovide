@@ -32,7 +32,7 @@ lazy_static! {
 
 #[cfg(windows)]
 fn set_windows_creation_flags(cmd: &mut Command) {
-    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
 }
 
 #[cfg(windows)]
@@ -41,10 +41,7 @@ fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
         return None;
     }
 
-    if env::args()
-        .collect::<Vec<String>>()
-        .contains(&String::from("--wsl"))
-    {
+    if env::args().any(|x| x == "--wsl") {
         let mut cmd = Command::new("wsl");
         cmd.arg(bin);
         Some(cmd)
