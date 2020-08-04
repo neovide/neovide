@@ -2,13 +2,10 @@ use std::ffi::{CString};
 use std::ptr::{null, null_mut};
 #[cfg(windows)]
 use winapi::{
-    ctypes::{c_void},
     shared::minwindef::{HKEY, MAX_PATH, DWORD},
     um::{
         winnt::{
-            HANDLE,
-            REG_SZ, REG_OPTION_NON_VOLATILE, KEY_WRITE,
-            TOKEN_QUERY, TOKEN_ELEVATION, TokenElevation
+            REG_SZ, REG_OPTION_NON_VOLATILE, KEY_WRITE
         },
         winreg::{
             RegCreateKeyExA, RegSetValueExA, RegCloseKey, RegDeleteTreeA,
@@ -17,15 +14,6 @@ use winapi::{
         libloaderapi::{
             GetModuleFileNameA
         },
-        securitybaseapi::{
-            GetTokenInformation
-        },
-        processthreadsapi::{
-            GetCurrentProcess, OpenProcessToken,
-        },
-        handleapi::{
-            CloseHandle
-        }
     }
 };
 
@@ -35,7 +23,7 @@ fn get_binary_path() -> String {
     unsafe {
         GetModuleFileNameA(null_mut(), buffer.as_mut_ptr() as *mut i8, MAX_PATH as DWORD);
         CString::from_vec_unchecked(buffer)
-        .into_string().unwrap_or("".to_string())
+        .into_string().unwrap_or_else(|_| "".to_string())
         .trim_end_matches(char::from(0)).to_string()
     }
 }
@@ -67,6 +55,7 @@ pub fn register_rightclick_directory() -> bool {
             0, null_mut(),
             REG_OPTION_NON_VOLATILE, KEY_WRITE,
             null_mut(), &mut registry_key, null_mut()) != 0 {
+            RegCloseKey(registry_key);
             return false;
         }
         let registry_values = [
@@ -112,6 +101,7 @@ pub fn register_rightclick_file() -> bool {
             0, null_mut(),
             REG_OPTION_NON_VOLATILE, KEY_WRITE,
             null_mut(), &mut registry_key, null_mut()) != 0 {
+            RegCloseKey(registry_key);
             return false;
         }
         let registry_values = [
@@ -139,23 +129,4 @@ pub fn register_rightclick_file() -> bool {
         RegCloseKey(registry_key);
     }
     true
-}
-
-#[cfg(target_os = "windows")]
-#[allow(dead_code)]
-pub fn is_elevated() -> bool {
-    let mut token_handle: HANDLE = null_mut();
-    let mut elevation = TOKEN_ELEVATION {
-        TokenIsElevated: 0
-    };
-    let result: bool;
-    unsafe {
-        OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token_handle);
-        GetTokenInformation(token_handle, TokenElevation,
-                            &mut elevation as *mut _ as *mut c_void,
-                            4 /* sizeof(DWORD) */, null_mut());
-        result = elevation.TokenIsElevated != 0;
-        CloseHandle(token_handle);
-    }
-    result
 }

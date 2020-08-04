@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use log::trace;
+use log::{trace, error};
 use nvim_rs::{compat::tokio::Compat, Handler, Neovim};
 use rmpv::Value;
 use tokio::process::ChildStdin;
@@ -10,7 +10,7 @@ use crate::settings::SETTINGS;
 
 #[cfg(windows)]
 use crate::settings::windows_registry::{
-    /* is_elevated, */ unregister_rightclick,
+    unregister_rightclick,
     register_rightclick_directory, register_rightclick_file
 };
 
@@ -35,26 +35,17 @@ impl Handler for NeovimHandler {
             "setting_changed" => {
                 SETTINGS.handle_changed_notification(arguments);
             }
-            "neovide.reg_right_click" => {
-                // let elevated = is_elevated();
-                if cfg!(windows) /* && elevated */ {
-                    if  !(unregister_rightclick() &&
-                          register_rightclick_directory() &&
-                          register_rightclick_file()) {
-                        // _neovim.err_write("Registering Windows registry can only be done when \"run as administrator\"")
-                        //     .await
-                        //     .ok();
-                    }
+            "neovide.register_right_click" => {
+                if cfg!(windows) &&
+                        !(unregister_rightclick() &&
+                        register_rightclick_directory() &&
+                        register_rightclick_file()) {
+                    error!("Setup of Windows Registry failed, probably no Admin");
                 }
             }
-            "neovide.unreg_right_click" => {
-                // let elevated = is_elevated();
-                if cfg!(windows) /* && elevated */ {
-                    if !unregister_rightclick() {
-                        // _neovim.err_write("Unregistering Windows registry can only be done when \"run as administrator\"")
-                        //     .await
-                        //     .ok();
-                    }
+            "neovide.unregister_right_click" => {
+                if cfg!(windows) && !unregister_rightclick() {
+                    error!("Removal of Windows Registry failed, probably no Admin");
                 }
             }
             _ => {}
