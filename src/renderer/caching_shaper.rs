@@ -196,7 +196,6 @@ pub fn build_collection_by_font_name(
         if let Some(family) = loader.get_or_load(font_name) {
             if let Some(font) = family.get(properties) {
                 collection.add_family(FontFamily::new_from_font(font.clone()));
-                break;
             }
         }
     }
