@@ -5,6 +5,7 @@ use font_kit::{
     metrics::Metrics,
     properties::{Properties, Stretch, Style, Weight},
     source::SystemSource,
+    family_handle::FamilyHandle,
 };
 use log::{trace, warn};
 use lru::LruCache;
@@ -60,42 +61,46 @@ impl ExtendedFontFamily {
     }
 
     pub fn get(&self, props: Properties) -> Option<&Font> {
-        for handle in &self.fonts {
-            let font = &handle.font;
-            let properties = font.properties();
+        if let Some(first_handle) = &self.fonts.first() {
+            for handle in &self.fonts {
+                let font = &handle.font;
+                let properties = font.properties();
 
-            if properties.weight == props.weight && properties.style == props.style {
-                return Some(&font);
+                if properties.weight == props.weight && properties.style == props.style {
+                    return Some(&font);
+                }
             }
-        }
 
-        if let Some(handle) = &self.fonts.first() {
-            return Some(&handle.font);
+            return Some(&first_handle.font);
         }
 
         None
     }
+}
 
-    pub fn from_normal_font_family(fonts: &[Handle]) -> ExtendedFontFamily {
-        let mut family = ExtendedFontFamily::new();
-
-        for font in fonts.iter() {
-            if let Ok(font) = font.load() {
-                family.add_font(SkriboFont::new(font));
-            }
-        }
-
-        family
+impl From<FamilyHandle> for ExtendedFontFamily {
+    fn from(handle: FamilyHandle) -> Self {
+        handle
+            .fonts()
+            .iter()
+            .fold(ExtendedFontFamily::new(), |mut family, font| {
+                if let Ok(font) = font.load() {
+                    family.add_font(SkriboFont::new(font));
+                }
+                family
+            })
     }
+}
 
-    pub fn to_normal_font_family(&self) -> FontFamily {
-        let mut new_family = FontFamily::new();
-
-        for font in &self.fonts {
-            new_family.add_font(font.clone());
-        }
-
-        new_family
+impl From<ExtendedFontFamily> for FontFamily {
+    fn from(extended_font_family: ExtendedFontFamily) -> Self {
+        extended_font_family
+            .fonts
+            .iter()
+            .fold(FontFamily::new(), |mut new_family, font| {
+                new_family.add_font(font.clone());
+                new_family
+            })
     }
 }
 
@@ -123,10 +128,12 @@ impl FontLoader {
         if let Some(font) = Asset::get(font_name)
             .and_then(|font_data| Font::from_bytes(font_data.to_vec().into(), 0).ok())
         {
-            family.add_font(SkriboFont::new(font))
+            family.add_font(SkriboFont::new(font));
+            self.cache.put(String::from(font_name), family);
+            self.get(font_name)
+        } else {
+            None
         }
-        self.cache.put(String::from(font_name), family);
-        self.get(font_name)
     }
 
     #[cfg(not(feature = "embed-fonts"))]
@@ -144,7 +151,7 @@ impl FontLoader {
             _ => return None,
         };
 
-        let family = ExtendedFontFamily::from_normal_font_family(handle.fonts());
+        let family = ExtendedFontFamily::from(handle);
         if !family.fonts.is_empty() {
             self.cache.put(String::from(font_name), family);
             self.get(font_name)
@@ -162,6 +169,48 @@ impl FontLoader {
             self.load_from_asset(font_name)
         }
     }
+
+    pub fn build_collection_by_font_name(
+        &mut self,
+        fallback_list: &[String],
+        properties: Properties,
+    ) -> FontCollection {
+        let mut collection = FontCollection::new();
+
+        let gui_fonts = fallback_list
+            .iter()
+            .map(|fallback_item| fallback_item.as_ref())
+            .chain(iter::once(SYSTEM_DEFAULT_FONT));
+
+        for font_name in gui_fonts {
+            if let Some(family) = self.get_or_load(font_name) {
+                if let Some(font) = family.get(properties) {
+                    collection.add_family(FontFamily::new_from_font(font.clone()));
+                }
+            }
+        }
+
+        for font in &[
+            SYSTEM_SYMBOL_FONT,
+            SYSTEM_EMOJI_FONT,
+            EXTRA_SYMBOL_FONT,
+            MISSING_GLYPH_FONT,
+        ] {
+            if let Some(family) = self.get_or_load(font) {
+                collection.add_family(FontFamily::from(family));
+            }
+        }
+        if self.cache.is_empty() {
+            let families = self.source.all_families().expect("should load all fonts");
+            let family_name = EXTRA_SYMBOL_FONT;
+            let family = self
+                .get_or_load(&family_name)
+                .expect("should load family");
+            let font = family.get(properties).expect("should load font");
+            collection.add_family(FontFamily::new_from_font(font.clone()));
+        }
+        collection
+    }
 }
 
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
@@ -171,47 +220,14 @@ struct ShapeKey {
     pub italic: bool,
 }
 
-pub fn build_collection_by_font_name(
-    loader: &mut FontLoader,
-    fallback_list: &[String],
-    bold: bool,
-    italic: bool,
-) -> FontCollection {
-    let mut collection = FontCollection::new();
-
+pub fn build_properties(bold: bool, italic: bool) -> Properties {
     let weight = if bold { Weight::BOLD } else { Weight::NORMAL };
     let style = if italic { Style::Italic } else { Style::Normal };
-    let properties = Properties {
+    Properties {
         weight,
         style,
         stretch: Stretch::NORMAL,
-    };
-
-    let gui_fonts = fallback_list
-        .iter()
-        .map(|fallback_item| fallback_item.as_ref())
-        .chain(iter::once(SYSTEM_DEFAULT_FONT));
-
-    for font_name in gui_fonts {
-        if let Some(family) = loader.get_or_load(font_name) {
-            if let Some(font) = family.get(properties) {
-                collection.add_family(FontFamily::new_from_font(font.clone()));
-            }
-        }
     }
-
-    for font in &[
-        SYSTEM_SYMBOL_FONT,
-        SYSTEM_EMOJI_FONT,
-        EXTRA_SYMBOL_FONT,
-        MISSING_GLYPH_FONT,
-    ] {
-        if let Some(family) = loader.get_or_load(font) {
-            collection.add_family(family.to_normal_font_family());
-        }
-    }
-
-    collection
 }
 
 struct FontSet {
@@ -223,9 +239,9 @@ struct FontSet {
 impl FontSet {
     fn new(fallback_list: &[String], mut loader: &mut FontLoader) -> FontSet {
         FontSet {
-            normal: build_collection_by_font_name(&mut loader, fallback_list, false, false),
-            bold: build_collection_by_font_name(&mut loader, fallback_list, true, false),
-            italic: build_collection_by_font_name(&mut loader, fallback_list, false, true),
+            normal: loader.build_collection_by_font_name(fallback_list, build_properties(false, false)),
+            bold: loader.build_collection_by_font_name(fallback_list, build_properties(true, false)),
+            italic: loader.build_collection_by_font_name(fallback_list, build_properties(false, true)),
         }
     }
 
@@ -271,7 +287,6 @@ impl CachingShaper {
 
     fn get_skia_font(&mut self, skribo_font: &SkriboFont) -> Option<&SkiaFont> {
         let font_name = skribo_font.font.postscript_name()?;
-
         if !self.font_cache.contains(&font_name) {
             let font = build_skia_font_from_skribo_font(skribo_font, self.options.size)?;
             self.font_cache.put(font_name.clone(), font);
@@ -295,7 +310,6 @@ impl CachingShaper {
         let style = TextStyle {
             size: self.options.size,
         };
-
         let session = LayoutSession::create(text, &style, &self.font_set.get(bold, italic));
         let metrics = self.metrics();
         let ascent = metrics.ascent * self.options.size / metrics.units_per_em as f32;
@@ -380,5 +394,32 @@ impl CachingShaper {
     pub fn underline_position(&mut self) -> f32 {
         let metrics = self.metrics();
         -metrics.underline_position * self.options.size / metrics.units_per_em as f32
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    mod extended_font_family {
+        use super::Asset;
+        use super::ExtendedFontFamily;
+        use super::EXTRA_SYMBOL_FONT;
+        use font_kit::font::Font;
+        use skribo::FontRef as SkriboFont;
+
+        #[test]
+        pub fn test_add_font() {
+            let mut eft = ExtendedFontFamily::new();
+            let font = Asset::get(EXTRA_SYMBOL_FONT)
+                .and_then(|font_data| Font::from_bytes(font_data.to_vec().into(), 0).ok())
+                .unwrap();
+            let font = SkriboFont::new(font.clone());
+            eft.add_font(font.clone());
+            assert_eq!(
+                font.font.full_name(),
+                eft.fonts.pop().unwrap().font.full_name()
+            );
+        }
     }
 }
