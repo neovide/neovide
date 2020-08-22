@@ -531,6 +531,9 @@ mod test {
             let font_family = loader.load(junk_text);
             assert!(font_family.is_none());
 
+            #[cfg(target_os = "linux")]
+            const SYSTEM_DEFAULT_FONT: &str = "DejaVu Serif";
+
             let font_family = loader.load(SYSTEM_DEFAULT_FONT);
             let result = font_family.unwrap().fonts.first().unwrap().font.full_name();
             assert_eq!(
