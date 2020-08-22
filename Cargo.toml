@@ -7,7 +7,7 @@ build = "build.rs"
 description = "A simple GUI for Neovim."
 
 [features]
-default = ["embed-fonts"]
+default = []
 embed-fonts = []
 
 [dependencies]

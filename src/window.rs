@@ -77,7 +77,7 @@ pub fn window_geometry() -> Result<(u64, u64), String> {
                 .map(|dimension| {
                     dimension
                         .parse::<u64>()
-                        .or_else(|_| Err(invalid_parse_err.as_str()))
+                        .map_err(|_| invalid_parse_err.as_str())
                         .and_then(|dimension| {
                             if dimension > 0 {
                                 Ok(dimension)
