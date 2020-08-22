@@ -14,6 +14,8 @@ use skulpin::skia_safe::{Data, Font as SkiaFont, TextBlob, TextBlobBuilder, Type
 use std::collections::HashMap;
 use std::iter;
 
+use rand::Rng;
+
 use super::font_options::FontOptions;
 
 const STANDARD_CHARACTER_STRING: &str =
@@ -112,6 +114,7 @@ impl From<ExtendedFontFamily> for FontFamily {
 pub struct FontLoader {
     cache: LruCache<String, ExtendedFontFamily>,
     source: SystemSource,
+    random_font_index: Option<usize>,
 }
 
 impl FontLoader {
@@ -119,6 +122,7 @@ impl FontLoader {
         FontLoader {
             cache: LruCache::new(10),
             source: SystemSource::new(),
+            random_font_index: None,
         }
     }
 
@@ -165,6 +169,22 @@ impl FontLoader {
         }
     }
 
+    fn get_random_system_font(&mut self) -> Font {
+        let handle = self
+            .source
+            .select_family_by_name("")
+            .expect("some font family exists");
+        let n = if let Some(n) = self.random_font_index {
+            n
+        } else {
+            rand::thread_rng().gen::<usize>() % handle.fonts().len()
+        };
+
+        let font_handle = &handle.fonts()[n];
+        self.random_font_index = Some(n);
+        font_handle.load().expect("font to load")
+    }
+
     pub fn get_or_load(&mut self, font_name: &str) -> Option<ExtendedFontFamily> {
         if let Some(cached) = self.get(font_name) {
             Some(cached)
@@ -207,13 +227,7 @@ impl FontLoader {
         }
 
         if self.cache.is_empty() {
-            let handle = self
-                .source
-                .select_family_by_name("")
-                .expect("some font family exists");
-            let font_handle = &handle.fonts()[1];
-            let font = font_handle.load().expect("font to load");
-            println!("{:?}", &font);
+            let font = self.get_random_system_font();
             collection.add_family(FontFamily::new_from_font(font));
         }
         collection
