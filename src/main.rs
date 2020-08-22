@@ -1,5 +1,4 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-#![feature(half_open_range_patterns)]
 
 #[macro_use]
 mod settings;
