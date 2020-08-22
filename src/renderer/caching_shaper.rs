@@ -114,7 +114,7 @@ impl From<ExtendedFontFamily> for FontFamily {
 pub struct FontLoader {
     cache: LruCache<String, ExtendedFontFamily>,
     source: SystemSource,
-    random_font_index: Option<usize>,
+    random_font_name: Option<String>,
 }
 
 impl FontLoader {
@@ -122,7 +122,7 @@ impl FontLoader {
         FontLoader {
             cache: LruCache::new(10),
             source: SystemSource::new(),
-            random_font_index: None,
+            random_font_name: None,
         }
     }
 
@@ -169,20 +169,16 @@ impl FontLoader {
         }
     }
 
-    fn get_random_system_font(&mut self) -> Font {
-        let handle = self
-            .source
-            .select_family_by_name("")
-            .expect("some font family exists");
-        let n = if let Some(n) = self.random_font_index {
-            n
+    fn get_random_system_font_family(&mut self) -> Option<ExtendedFontFamily> {
+        if let Some(font) = self.random_font_name.clone() {
+            self.get(&font)
         } else {
-            rand::thread_rng().gen::<usize>() % handle.fonts().len()
-        };
-
-        let font_handle = &handle.fonts()[n];
-        self.random_font_index = Some(n);
-        font_handle.load().expect("font to load")
+            let font_names = self.source.all_families().expect("fonts exist");
+            let n = rand::thread_rng().gen::<usize>() % font_names.len();
+            let font_name = &font_names[n];
+            self.random_font_name = Some(font_name.clone());
+            self.load(&font_name)
+        }
     }
 
     pub fn get_or_load(&mut self, font_name: &str) -> Option<ExtendedFontFamily> {
@@ -227,8 +223,8 @@ impl FontLoader {
         }
 
         if self.cache.is_empty() {
-            let font = self.get_random_system_font();
-            collection.add_family(FontFamily::new_from_font(font));
+            let font_family = self.get_random_system_font_family();
+            collection.add_family(FontFamily::from(font_family.expect("font family loaded")));
         }
         collection
     }
@@ -541,6 +537,27 @@ mod test {
                 &loader
                     .cache
                     .get(&SYSTEM_DEFAULT_FONT.to_string())
+                    .unwrap()
+                    .fonts
+                    .first()
+                    .unwrap()
+                    .font
+                    .full_name()
+            );
+        }
+
+        #[test]
+        fn test_get_random_system_font() {
+            let mut loader = FontLoader::new();
+
+            let font_family = loader.get_random_system_font_family();
+            let font_name = loader.random_font_name.unwrap();
+            let result = font_family.unwrap().fonts.first().unwrap().font.full_name();
+            assert_eq!(
+                &result,
+                &loader
+                    .cache
+                    .get(&font_name)
                     .unwrap()
                     .fonts
                     .first()
