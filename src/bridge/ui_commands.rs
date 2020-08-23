@@ -83,9 +83,6 @@ impl UiCommand {
     }
 
     pub fn is_resize(&self) -> bool {
-        match self {
-            UiCommand::Resize { .. } => true,
-            _ => false,
-        }
+        matches!(self, UiCommand::Resize { .. })
     }
 }
