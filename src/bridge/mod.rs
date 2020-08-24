@@ -32,7 +32,7 @@ lazy_static! {
 
 #[cfg(windows)]
 fn set_windows_creation_flags(cmd: &mut Command) {
-    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
 }
 
 #[cfg(windows)]
@@ -41,10 +41,7 @@ fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
         return None;
     }
 
-    if env::args()
-        .collect::<Vec<String>>()
-        .contains(&String::from("--wsl"))
-    {
+    if env::args().any(|arg| arg == "--wsl") {
         let mut cmd = Command::new("wsl");
         cmd.arg(bin);
         Some(cmd)
@@ -81,6 +78,25 @@ fn build_nvim_cmd() -> Command {
         error!("nvim not found!");
         std::process::exit(1);
     }
+}
+
+pub fn build_neovide_command(channel: u64, num_args: u64, command: &str, event: &str) -> String {
+    let nargs: String = if num_args > 1 {
+        "+".to_string()
+    } else {
+        num_args.to_string()
+    };
+    if num_args == 0 {
+        return format!(
+            "command! -nargs={} -complete=expression {} call rpcnotify({}, 'neovide.{}')",
+            nargs, command, channel, event
+        );
+    } else {
+        return format!(
+            "command! -nargs={} -complete=expression {} call rpcnotify({}, 'neovide.{}', <args>)",
+            nargs, command, channel, event
+        );
+    };
 }
 
 pub fn create_nvim_command() -> Command {
@@ -153,6 +169,76 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
         .await
         .ok();
     }
+
+    nvim.set_client_info(
+        "neovide",
+        vec![
+            (Value::from("major"), Value::from(0u64)),
+            (Value::from("minor"), Value::from(6u64)),
+        ],
+        "ui",
+        vec![],
+        vec![],
+    )
+    .await
+    .ok();
+
+    // parsing the client list to get the channel id for neovide
+    let neovide_channel: u64 = nvim
+        .list_chans()
+        .await
+        .ok()
+        .and_then(|chans| {
+            for chan in chans.iter() {
+                let mut found = false;
+                let mut id = None;
+                for (key, val) in chan.as_map()?.iter() {
+                    if key.as_str()? == "id" {
+                        id = val.as_u64();
+                        continue;
+                    }
+                    if key.as_str()? != "client" {
+                        continue;
+                    }
+                    for (attribute, value) in val.as_map()?.iter() {
+                        if attribute.as_str()? == "name" && value.as_str()? == "neovide" {
+                            found = true;
+                            break;
+                        }
+                    }
+                }
+                if found {
+                    return id;
+                }
+            }
+            None
+        })
+        .unwrap_or(0);
+    info!(
+        "Neovide registered to nvim with channel id {}",
+        neovide_channel
+    );
+
+    #[cfg(windows)]
+    nvim.command(&build_neovide_command(
+        neovide_channel,
+        0,
+        "NeovideRegisterRightClick",
+        "register_right_click",
+    ))
+    .await
+    .ok();
+
+    #[cfg(windows)]
+    nvim.command(&build_neovide_command(
+        neovide_channel,
+        0,
+        "NeovideUnregisterRightClick",
+        "unregister_right_click",
+    ))
+    .await
+    .ok();
+
     nvim.ui_attach(width as i64, height as i64, &options)
         .await
         .unwrap_or_explained_panic("Could not attach ui to neovim process");

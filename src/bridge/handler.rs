@@ -6,6 +6,8 @@ use tokio::process::ChildStdin;
 use tokio::task;
 
 use super::events::handle_redraw_event_group;
+use super::ui_commands::UiCommand;
+use super::BRIDGE;
 use crate::settings::SETTINGS;
 
 #[derive(Clone)]
@@ -28,6 +30,12 @@ impl Handler for NeovimHandler {
             }
             "setting_changed" => {
                 SETTINGS.handle_changed_notification(arguments);
+            }
+            "neovide.register_right_click" => {
+                BRIDGE.queue_command(UiCommand::RegisterRightClick);
+            }
+            "neovide.unregister_right_click" => {
+                BRIDGE.queue_command(UiCommand::UnregisterRightClick);
             }
             _ => {}
         })
