@@ -35,7 +35,8 @@ impl Handler for NeovimHandler {
                 SETTINGS.handle_changed_notification(arguments);
             }
             "neovide.register_right_click" => {
-                if cfg!(windows) {
+                #[cfg(windows)]
+                {
                     if unregister_rightclick() {
                         error!("Setup of Windows Registry failed during unregister. Try running as Admin?");
                     }
@@ -48,8 +49,11 @@ impl Handler for NeovimHandler {
                 }
             }
             "neovide.unregister_right_click" => {
-                if cfg!(windows) && !unregister_rightclick() {
-                    error!("Removal of Windows Registry failed, probably no Admin");
+                #[cfg(windows)]
+                {
+                    if !unregister_rightclick() {
+                        error!("Removal of Windows Registry failed, probably no Admin");
+                    }
                 }
             }
             _ => {}
