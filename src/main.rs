@@ -38,13 +38,23 @@ fn main() {
         if env::var_os("TERM").is_none() {
             let mut profile_path = dirs::home_dir().unwrap();
             profile_path.push(".profile");
+            let mut zshrc_path = dirs::home_dir().unwrap();
+            zshrc_path.push(".zshrc");
             let shell = env::var("SHELL").unwrap();
             let cmd = format!(
-                "(source /etc/profile && source {} && echo $PATH)",
-                profile_path.to_str().unwrap()
+                "(source /etc/profile && source {} && printenv)",
+                profile_path.to_str().unwrap(),
             );
-            if let Ok(path) = process::Command::new(shell).arg("-c").arg(cmd).output() {
-                env::set_var("PATH", std::str::from_utf8(&path.stdout).unwrap());
+            if let Ok(environment) = process::Command::new(shell).arg("-c").arg(cmd).output() {
+                let vars = std::str::from_utf8(&environment.stdout)
+                    .unwrap()
+                    .split('\n');
+                for v in vars {
+                    let var: Vec<&str> = v.splitn(2, '=').collect();
+                    if let Some(value) = var.get(1) {
+                        env::set_var(var[0], value);
+                    }
+                }
             }
         }
     }
