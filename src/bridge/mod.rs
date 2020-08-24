@@ -80,6 +80,25 @@ fn build_nvim_cmd() -> Command {
     }
 }
 
+pub fn build_neovide_command(channel: u64, num_args: u64, command: &str, event: &str) -> String {
+    let nargs: String = if num_args > 1 {
+        "+".to_string()
+    } else {
+        num_args.to_string()
+    };
+    if num_args == 0 {
+        return format!(
+            "command! -nargs={} -complete=expression {} call rpcnotify({}, 'neovide.{}')",
+            nargs, command, channel, event
+        );
+    } else {
+        return format!(
+            "command! -nargs={} -complete=expression {} call rpcnotify({}, 'neovide.{}', <args>)",
+            nargs, command, channel, event
+        );
+    };
+}
+
 pub fn create_nvim_command() -> Command {
     let mut cmd = build_nvim_cmd();
 
@@ -103,25 +122,6 @@ async fn drain(receiver: &mut UnboundedReceiver<UiCommand>) -> Option<Vec<UiComm
     } else {
         None
     }
-}
-
-fn build_neovide_command(channel: u64, num_args: u64, command: &str, event: &str) -> String {
-    let nargs: String = if num_args > 1 {
-        "+".to_string()
-    } else {
-        num_args.to_string()
-    };
-    if num_args == 0 {
-        return format!(
-            "command! -nargs={} -complete=expression {} call rpcnotify({}, 'neovide.{}')",
-            nargs, command, channel, event
-        );
-    } else {
-        return format!(
-            "command! -nargs={} -complete=expression {} call rpcnotify({}, 'neovide.{}', <args>)",
-            nargs, command, channel, event
-        );
-    };
 }
 
 async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
