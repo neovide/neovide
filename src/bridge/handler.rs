@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use log::{trace, error};
+use log::{error, trace};
 use nvim_rs::{compat::tokio::Compat, Handler, Neovim};
 use rmpv::Value;
 use tokio::process::ChildStdin;
@@ -10,8 +10,7 @@ use crate::settings::SETTINGS;
 
 #[cfg(windows)]
 use crate::settings::windows_registry::{
-    unregister_rightclick,
-    register_rightclick_directory, register_rightclick_file
+    register_rightclick_directory, register_rightclick_file, unregister_rightclick,
 };
 
 #[derive(Clone)]
@@ -36,11 +35,16 @@ impl Handler for NeovimHandler {
                 SETTINGS.handle_changed_notification(arguments);
             }
             "neovide.register_right_click" => {
-                if cfg!(windows) &&
-                        !(unregister_rightclick() &&
-                        register_rightclick_directory() &&
-                        register_rightclick_file()) {
-                    error!("Setup of Windows Registry failed, probably no Admin");
+                if cfg!(windows) {
+                    if unregister_rightclick() {
+                        error!("Setup of Windows Registry failed during unregister. Try running as Admin?");
+                    }
+                    if !register_rightclick_directory() {
+                        error!("Setup of Windows Registry failed during directory registration. Try running as Admin?");
+                    }
+                    if !register_rightclick_file() {
+                        error!("Setup of Windows Registry failed during file registration. Try running as Admin?");
+                    }
                 }
             }
             "neovide.unregister_right_click" => {
