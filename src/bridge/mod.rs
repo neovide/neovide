@@ -183,37 +183,23 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
     .await
     .ok();
 
-    // parsing the client list to get the channel id for neovide
     let neovide_channel: u64 = nvim
         .list_chans()
         .await
         .ok()
-        .and_then(|chans| {
-            for chan in chans.iter() {
-                let mut found = false;
-                let mut id = None;
-                for (key, val) in chan.as_map()?.iter() {
-                    if key.as_str()? == "id" {
-                        id = val.as_u64();
-                        continue;
-                    }
-                    if key.as_str()? != "client" {
-                        continue;
-                    }
-                    for (attribute, value) in val.as_map()?.iter() {
-                        if attribute.as_str()? == "name" && value.as_str()? == "neovide" {
-                            found = true;
-                            break;
-                        }
-                    }
-                }
-                if found {
-                    return id;
-                }
-            }
-            None
+        .and_then(|channel_values| parse_channel_list(channel_values).ok())
+        .and_then(|channel_list| {
+            channel_list.iter().find_map(|channel| match channel {
+                ChannelInfo {
+                    id,
+                    client: Some(ClientInfo { name, .. }),
+                    ..
+                } if name == "neovide" => Some(*id),
+                _ => None,
+            })
         })
         .unwrap_or(0);
+
     info!(
         "Neovide registered to nvim with channel id {}",
         neovide_channel
