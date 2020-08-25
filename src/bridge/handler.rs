@@ -31,9 +31,11 @@ impl Handler for NeovimHandler {
             "setting_changed" => {
                 SETTINGS.handle_changed_notification(arguments);
             }
+            #[cfg(windows)]
             "neovide.register_right_click" => {
                 BRIDGE.queue_command(UiCommand::RegisterRightClick);
             }
+            #[cfg(windows)]
             "neovide.unregister_right_click" => {
                 BRIDGE.queue_command(UiCommand::UnregisterRightClick);
             }
