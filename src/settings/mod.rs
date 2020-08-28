@@ -12,6 +12,9 @@ pub use rmpv::Value;
 mod from_value;
 pub use from_value::FromValue;
 
+#[cfg(windows)]
+pub mod windows_registry;
+
 use tokio::process::ChildStdin;
 
 use crate::error_handling::ResultPanicExplanation;

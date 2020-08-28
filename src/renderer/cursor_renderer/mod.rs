@@ -293,10 +293,7 @@ impl CursorRenderer {
                 _ => font_width,
             };
 
-            let in_insert_mode = match editor.current_mode {
-                EditorMode::Insert => true,
-                _ => false,
-            };
+            let in_insert_mode = matches!(editor.current_mode, EditorMode::Insert);
 
             (character, (font_width, font_height).into(), in_insert_mode)
         };

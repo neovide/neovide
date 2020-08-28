@@ -6,6 +6,10 @@ use tokio::process::ChildStdin;
 use tokio::task;
 
 use super::events::handle_redraw_event_group;
+#[cfg(windows)]
+use super::ui_commands::UiCommand;
+#[cfg(windows)]
+use super::BRIDGE;
 use crate::settings::SETTINGS;
 
 #[derive(Clone)]
@@ -28,6 +32,14 @@ impl Handler for NeovimHandler {
             }
             "setting_changed" => {
                 SETTINGS.handle_changed_notification(arguments);
+            }
+            #[cfg(windows)]
+            "neovide.register_right_click" => {
+                BRIDGE.queue_command(UiCommand::RegisterRightClick);
+            }
+            #[cfg(windows)]
+            "neovide.unregister_right_click" => {
+                BRIDGE.queue_command(UiCommand::UnregisterRightClick);
             }
             _ => {}
         })

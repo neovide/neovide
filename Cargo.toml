@@ -7,7 +7,7 @@ build = "build.rs"
 description = "A simple GUI for Neovim."
 
 [features]
-default = ["embed-fonts"]
+default = []
 embed-fonts = []
 
 [dependencies]
@@ -32,10 +32,10 @@ parking_lot="0.10.0"
 cfg-if = "0.1.10"
 which = "4"
 dirs = "2"
+rand = "0.7"
 
 [dev-dependencies]
 mockall = "0.7.0"
-rand = "0.7"
 
 [dev-dependencies.cargo-husky]
 version = "1"

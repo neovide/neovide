@@ -4,6 +4,10 @@ use nvim_rs::Neovim;
 use tokio::process::ChildStdin;
 
 use crate::editor::EDITOR;
+#[cfg(windows)]
+use crate::settings::windows_registry::{
+    register_rightclick_directory, register_rightclick_file, unregister_rightclick,
+};
 
 #[derive(Debug, Clone)]
 pub enum UiCommand {
@@ -25,6 +29,10 @@ pub enum UiCommand {
     FocusLost,
     FocusGained,
     Quit,
+    #[cfg(windows)]
+    RegisterRightClick,
+    #[cfg(windows)]
+    UnregisterRightClick,
 }
 
 impl UiCommand {
@@ -79,13 +87,36 @@ impl UiCommand {
             UiCommand::FileDrop(path) => {
                 nvim.command(format!("e {}", path).as_str()).await.ok();
             }
+            #[cfg(windows)]
+            UiCommand::RegisterRightClick => {
+                if unregister_rightclick() {
+                    let msg = "Could not unregister previous menu item. Possibly already registered or not running as Admin?";
+                    nvim.err_writeln(msg).await.ok();
+                    trace!("{}", msg);
+                }
+                if !register_rightclick_directory() {
+                    let msg = "Could not register directory context menu item. Possibly already registered or not running as Admin?";
+                    nvim.err_writeln(msg).await.ok();
+                    trace!("{}", msg);
+                }
+                if !register_rightclick_file() {
+                    let msg = "Could not register file context menu item. Possibly already registered or not running as Admin?";
+                    nvim.err_writeln(msg).await.ok();
+                    trace!("{}", msg);
+                }
+            }
+            #[cfg(windows)]
+            UiCommand::UnregisterRightClick => {
+                if !unregister_rightclick() {
+                    let msg = "Could not remove context menu items. Possibly already removed or not running as Admin?";
+                    nvim.err_writeln(msg).await.ok();
+                    trace!("{}", msg);
+                }
+            }
         }
     }
 
     pub fn is_resize(&self) -> bool {
-        match self {
-            UiCommand::Resize { .. } => true,
-            _ => false,
-        }
+        matches!(self, UiCommand::Resize { .. })
     }
 }
