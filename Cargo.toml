@@ -7,8 +7,10 @@ build = "build.rs"
 description = "A simple GUI for Neovim."
 
 [features]
-default = []
+default = ["winit"]
 embed-fonts = []
+sdl2 = ["skulpin/skulpin_sdl2"]
+winit = ["skulpin/skulpin_winit"]
 
 [dependencies]
 euclid = "0.20.7"
