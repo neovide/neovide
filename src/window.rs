@@ -424,6 +424,8 @@ pub fn ui_loop() {
 
         window.synchronize_settings();
 
+        let mut keyboard_inputs = Vec::new();
+
         let mut keycode = None;
         let mut keytext = None;
         let mut ignore_text_this_frame = false;
@@ -438,9 +440,23 @@ pub fn ui_loop() {
                     keycode: received_keycode,
                     ..
                 } => {
+                    // If keycode has a value, add it to the list as the new keycode supercedes
+                    // this one.
+                    if keycode.is_some() {
+                        keyboard_inputs.push((keycode, None));
+                    }
+
                     keycode = received_keycode;
                 }
-                Event::TextInput { text, .. } => keytext = Some(text),
+                Event::TextInput { text, .. } => {
+                    // If keycode has a value, add it to the list as the new keycode supercedes
+                    // this one.
+                    if keytext.is_some() {
+                        keyboard_inputs.push((None, keytext));
+                    }
+
+                    keytext = Some(text);
+                }
                 Event::MouseMotion { x, y, .. } => window.handle_pointer_motion(x, y),
                 Event::MouseButtonDown { .. } => window.handle_pointer_down(),
                 Event::MouseButtonUp { .. } => window.handle_pointer_up(),
@@ -459,10 +475,22 @@ pub fn ui_loop() {
                 Event::Window { .. } => REDRAW_SCHEDULER.queue_next_frame(),
                 _ => {}
             }
+
+            // If both keycode and keytext have values, then add them to the list and reset the
+            // variables.
+            if keycode.is_some() && keytext.is_some() {
+                keyboard_inputs.push((keycode, keytext));
+                keycode = None;
+                keytext = None;
+            }
         }
 
+        keyboard_inputs.push((keycode, keytext));
+
         if !ignore_text_this_frame {
-            window.handle_keyboard_input(keycode, keytext);
+            for (keycode, keytext) in keyboard_inputs.into_iter() {
+                window.handle_keyboard_input(keycode, keytext);
+            }
         }
 
         if !window.draw_frame() {
