@@ -122,18 +122,6 @@ impl WindowWrapper {
         windows_fix_dpi();
         sdl2::hint::set("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
 
-        // let icon = {
-        //     let icon_data = Asset::get("nvim.ico").expect("Failed to read icon data");
-        //     let icon = load_from_memory(&icon_data).expect("Failed to parse icon data");
-        //     let (width, height) = icon.dimensions();
-        //     let mut rgba = Vec::with_capacity((width * height) as usize * 4);
-        //     for (_, _, pixel) in icon.pixels() {
-        //         rgba.extend_from_slice(&pixel.to_rgba().0);
-        //     }
-        //     Icon::from_rgba(rgba, width, height).expect("Failed to create icon object")
-        // };
-        // info!("icon created");
-
         let sdl_window = video_subsystem
             .window("Neovide", logical_size.width, logical_size.height)
             .position_centered()

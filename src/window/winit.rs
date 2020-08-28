@@ -1,6 +1,7 @@
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant};
 
+use image::{load_from_memory, GenericImageView, Pixel};
 use log::{debug, error, info, trace};
 use skulpin::winit;
 use skulpin::winit::event::VirtualKeyCode as Keycode;
@@ -8,7 +9,7 @@ use skulpin::winit::event::{
     ElementState, Event, ModifiersState, MouseButton, MouseScrollDelta, WindowEvent,
 };
 use skulpin::winit::event_loop::{ControlFlow, EventLoop};
-use skulpin::winit::window::Fullscreen;
+use skulpin::winit::window::{Fullscreen, Icon};
 use skulpin::{
     winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
     CoordinateSystem, PresentMode, Renderer as SkulpinRenderer, RendererBuilder, Window,
@@ -113,21 +114,22 @@ impl WindowWrapper {
         #[cfg(target_os = "windows")]
         windows_fix_dpi();
 
-        // let icon = {
-        //     let icon_data = Asset::get("nvim.ico").expect("Failed to read icon data");
-        //     let icon = load_from_memory(&icon_data).expect("Failed to parse icon data");
-        //     let (width, height) = icon.dimensions();
-        //     let mut rgba = Vec::with_capacity((width * height) as usize * 4);
-        //     for (_, _, pixel) in icon.pixels() {
-        //         rgba.extend_from_slice(&pixel.to_rgba().0);
-        //     }
-        //     Icon::from_rgba(rgba, width, height).expect("Failed to create icon object")
-        // };
-        // info!("icon created");
+        let icon = {
+            let icon_data = Asset::get("nvim.ico").expect("Failed to read icon data");
+            let icon = load_from_memory(&icon_data).expect("Failed to parse icon data");
+            let (width, height) = icon.dimensions();
+            let mut rgba = Vec::with_capacity((width * height) as usize * 4);
+            for (_, _, pixel) in icon.pixels() {
+                rgba.extend_from_slice(&pixel.to_rgba().0);
+            }
+            Icon::from_rgba(rgba, width, height).expect("Failed to create icon object")
+        };
+        info!("icon created");
 
         let winit_window = winit::window::WindowBuilder::new()
             .with_title("Neovide")
             .with_inner_size(logical_size)
+            .with_window_icon(Some(icon))
             .build(event_loop)
             .expect("Failed to create window");
         info!("window created");
