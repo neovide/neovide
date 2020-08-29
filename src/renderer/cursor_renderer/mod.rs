@@ -276,26 +276,18 @@ impl CursorRenderer {
         };
 
         let (grid_x, grid_y) = self.previous_position;
-        let (character, font_dimensions, in_insert_mode): (String, Point, bool) = {
+        let character = cursor.text;
+
+        let font_width = match (cursor.double_width, &cursor.shape) {
+            (true, CursorShape::Block) => font_width * 2.0,
+            _ => font_width
+        };
+
+        let font_dimensions: Point = (font_width, font_height).into();
+
+        let in_insert_mode = {
             let editor = EDITOR.lock();
-            let character = match editor.grid.get_cell(grid_x, grid_y) {
-                Some(Some((character, _))) => character.clone(),
-                _ => ' '.to_string(),
-            };
-
-            let is_double = match editor.grid.get_cell(grid_x + 1, grid_y) {
-                Some(Some((character, _))) => character.is_empty(),
-                _ => false,
-            };
-
-            let font_width = match (is_double, &cursor.shape) {
-                (true, CursorShape::Block) => font_width * 2.0,
-                _ => font_width,
-            };
-
-            let in_insert_mode = matches!(editor.current_mode, EditorMode::Insert);
-
-            (character, (font_width, font_height).into(), in_insert_mode)
+            matches!(editor.current_mode, EditorMode::Insert);
         };
 
         let destination: Point = (grid_x as f32 * font_width, grid_y as f32 * font_height).into();

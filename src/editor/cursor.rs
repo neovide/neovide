@@ -43,6 +43,8 @@ pub struct Cursor {
     pub blinkoff: Option<u64>,
     pub style: Option<Arc<Style>>,
     pub enabled: bool,
+    pub double_width: bool,
+    pub character: String
 }
 
 impl Cursor {
@@ -56,6 +58,8 @@ impl Cursor {
             blinkon: None,
             blinkoff: None,
             enabled: true,
+            double_width: false,
+            character: " ".to_string()
         }
     }
 
