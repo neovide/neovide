@@ -7,7 +7,7 @@ build = "build.rs"
 description = "A simple GUI for Neovim."
 
 [features]
-default = ["winit"]
+default = ["sdl2"]
 embed-fonts = []
 sdl2 = ["skulpin/skulpin_sdl2"]
 winit = ["skulpin/skulpin_winit"]
@@ -17,7 +17,7 @@ euclid = "0.20.7"
 font-kit = "0.6.0"
 skribo = { git = "https://github.com/linebender/skribo" }
 lru = "0.4.3"
-skulpin = { git = "https://github.com/aclysma/skulpin", default-features = false }
+skulpin = { git = "https://github.com/aclysma/skulpin" }
 derive-new = "0.5"
 rmpv = "0.4.4"
 rust-embed = { version = "5.2.0", features = ["debug-embed"] }
@@ -45,10 +45,12 @@ default-features = false
 features = ["precommit-hook", "run-cargo-test", "run-cargo-clippy", "run-cargo-fmt"]
 
 [target.'cfg(windows)'.dependencies]
-winapi = "0.3.8"
+winapi = { version = "0.3.8", features = ["winuser"] }
+sdl2-sys = { version = "0.34", default-features = false, features = ["bundled", "static-link"] }
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.11"
+sdl2-sys = { version = "0.34", default-features = false, features = ["bundled", "static-link"] }
 
 [profile.release]
 debug = false
