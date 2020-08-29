@@ -7,15 +7,17 @@ build = "build.rs"
 description = "A simple GUI for Neovim."
 
 [features]
-default = []
+default = ["winit"]
 embed-fonts = []
+sdl2 = ["skulpin/skulpin_sdl2"]
+winit = ["skulpin/skulpin_winit"]
 
 [dependencies]
 euclid = "0.20.7"
 font-kit = "0.6.0"
 skribo = { git = "https://github.com/linebender/skribo" }
 lru = "0.4.3"
-skulpin = { git = "https://github.com/aclysma/skulpin", branch = "master", features = ["skulpin_sdl2"] }
+skulpin = { git = "https://github.com/aclysma/skulpin", default-features = false }
 derive-new = "0.5"
 rmpv = "0.4.4"
 rust-embed = { version = "5.2.0", features = ["debug-embed"] }
@@ -47,15 +49,12 @@ winapi = "0.3.8"
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.11"
-sdl2-sys = { version = "0.34", default-features = false, features = ["bundled", "static-link"] }
-
-[target.'cfg(macos)'.build-dependencies]
-sdl2-sys = { version = "0.34", default-features = false, features = ["bundled", "static-link"] }
 
 [profile.release]
-debug = true
+debug = false
 lto = true
 incremental = true
+opt-level = 'z'
 
 [package.metadata.bundle]
 name = "Neovide"
