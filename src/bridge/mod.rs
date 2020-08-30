@@ -110,21 +110,22 @@ async fn drain(receiver: &mut UnboundedReceiver<UiCommand>) -> Option<Vec<UiComm
 
 async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
     let (width, height) = window_geometry_or_default();
-    let (mut nvim, io_handler, _) =
+    let (mut nvim, io_handler, methods_handler, _) =
         create::new_child_cmd(&mut create_nvim_command(), NeovimHandler())
             .await
             .unwrap_or_explained_panic("Could not locate or start the neovim process");
 
+    tokio::spawn(methods_handler);
     tokio::spawn(async move {
         info!("Close watcher started");
         match io_handler.await {
-            Err(join_error) => error!("Error joining IO loop: '{}'", join_error),
-            Ok(Err(error)) => {
+            //Err(join_error) => error!("Error joining IO loop: '{}'", join_error),
+            Err(error) => {
                 if !error.is_channel_closed() {
                     error!("Error: '{}'", error);
                 }
             }
-            Ok(Ok(())) => {}
+            Ok(()) => {}
         };
         BRIDGE.running.store(false, Ordering::Relaxed);
     });
