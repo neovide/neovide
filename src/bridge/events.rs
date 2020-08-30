@@ -10,7 +10,7 @@ use crate::editor::{Colors, CursorMode, CursorShape, Style};
 use crate::error_handling::ResultPanicExplanation;
 
 #[derive(Debug, Clone)]
-pub enum EventParseError {
+pub enum ParseError {
     InvalidArray(Value),
     InvalidMap(Value),
     InvalidString(Value),
@@ -18,28 +18,28 @@ pub enum EventParseError {
     InvalidI64(Value),
     InvalidBool(Value),
     InvalidWindowAnchor(Value),
-    InvalidEventFormat,
+    InvalidFormat,
 }
-type Result<T> = std::result::Result<T, EventParseError>;
+type Result<T> = std::result::Result<T, ParseError>;
 
-impl fmt::Display for EventParseError {
+impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            EventParseError::InvalidArray(value) => write!(f, "invalid array format {}", value),
-            EventParseError::InvalidMap(value) => write!(f, "invalid map format {}", value),
-            EventParseError::InvalidString(value) => write!(f, "invalid string format {}", value),
-            EventParseError::InvalidU64(value) => write!(f, "invalid u64 format {}", value),
-            EventParseError::InvalidI64(value) => write!(f, "invalid i64 format {}", value),
-            EventParseError::InvalidBool(value) => write!(f, "invalid bool format {}", value),
-            EventParseError::InvalidWindowAnchor(value) => {
+            ParseError::InvalidArray(value) => write!(f, "invalid array format {}", value),
+            ParseError::InvalidMap(value) => write!(f, "invalid map format {}", value),
+            ParseError::InvalidString(value) => write!(f, "invalid string format {}", value),
+            ParseError::InvalidU64(value) => write!(f, "invalid u64 format {}", value),
+            ParseError::InvalidI64(value) => write!(f, "invalid i64 format {}", value),
+            ParseError::InvalidBool(value) => write!(f, "invalid bool format {}", value),
+            ParseError::InvalidWindowAnchor(value) => {
                 write!(f, "invalid window anchor format {}", value)
             }
-            EventParseError::InvalidEventFormat => write!(f, "invalid event format"),
+            ParseError::InvalidFormat => write!(f, "invalid event format"),
         }
     }
 }
 
-impl error::Error for EventParseError {
+impl error::Error for ParseError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         None
     }
@@ -261,6 +261,76 @@ pub enum RedrawEvent {
     },
 }
 
+#[derive(Debug)]
+pub enum ChannelStreamType {
+    STDIO,
+    STDERR,
+    Socket,
+    Job,
+}
+
+impl Default for ChannelStreamType {
+    fn default() -> Self {
+        Self::STDIO
+    }
+}
+
+#[derive(Debug)]
+pub enum ChannelMode {
+    Bytes,
+    Terminal,
+    RPC,
+}
+
+impl Default for ChannelMode {
+    fn default() -> Self {
+        Self::Bytes
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct ClientVersion {
+    pub major: u64,
+    pub minor: Option<u64>,
+    pub patch: Option<u64>,
+    pub prerelease: Option<String>,
+    pub commit: Option<String>,
+}
+
+#[derive(Debug)]
+pub enum ClientType {
+    Remote,
+    UI,
+    Embedder,
+    Host,
+    Plugin,
+}
+
+impl Default for ClientType {
+    fn default() -> Self {
+        Self::Remote
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct ClientInfo {
+    pub name: String,
+    pub version: ClientVersion,
+    pub client_type: ClientType,
+    // methods
+    // attributes
+}
+
+#[derive(Debug, Default)]
+pub struct ChannelInfo {
+    pub id: u64,
+    pub stream: ChannelStreamType,
+    pub mode: ChannelMode,
+    pub pty: Option<String>,
+    pub buffer: Option<String>,
+    pub client: Option<ClientInfo>,
+}
+
 fn unpack_color(packed_color: u64) -> Color4f {
     let packed_color = packed_color as u32;
     let r = ((packed_color & 0x00ff_0000) >> 16) as f32;
@@ -278,7 +348,7 @@ fn extract_values<Arr: AsMut<[Value]>>(values: Vec<Value>, mut arr: Arr) -> Resu
     let arr_ref = arr.as_mut();
 
     if values.len() != arr_ref.len() {
-        Err(EventParseError::InvalidEventFormat)
+        Err(ParseError::InvalidFormat)
     } else {
         for (i, val) in values.into_iter().enumerate() {
             arr_ref[i] = val;
@@ -289,31 +359,27 @@ fn extract_values<Arr: AsMut<[Value]>>(values: Vec<Value>, mut arr: Arr) -> Resu
 }
 
 fn parse_array(array_value: Value) -> Result<Vec<Value>> {
-    array_value
-        .try_into()
-        .map_err(EventParseError::InvalidArray)
+    array_value.try_into().map_err(ParseError::InvalidArray)
 }
 
 fn parse_map(map_value: Value) -> Result<Vec<(Value, Value)>> {
-    map_value.try_into().map_err(EventParseError::InvalidMap)
+    map_value.try_into().map_err(ParseError::InvalidMap)
 }
 
 fn parse_string(string_value: Value) -> Result<String> {
-    string_value
-        .try_into()
-        .map_err(EventParseError::InvalidString)
+    string_value.try_into().map_err(ParseError::InvalidString)
 }
 
 fn parse_u64(u64_value: Value) -> Result<u64> {
-    u64_value.try_into().map_err(EventParseError::InvalidU64)
+    u64_value.try_into().map_err(ParseError::InvalidU64)
 }
 
 fn parse_i64(i64_value: Value) -> Result<i64> {
-    i64_value.try_into().map_err(EventParseError::InvalidI64)
+    i64_value.try_into().map_err(ParseError::InvalidI64)
 }
 
 fn parse_bool(bool_value: Value) -> Result<bool> {
-    bool_value.try_into().map_err(EventParseError::InvalidBool)
+    bool_value.try_into().map_err(ParseError::InvalidBool)
 }
 
 fn parse_set_title(set_title_arguments: Vec<Value>) -> Result<RedrawEvent> {
@@ -486,7 +552,7 @@ fn parse_grid_line_cell(grid_line_cell: Value) -> Result<GridLineCell> {
     let text_value = cell_contents
         .first_mut()
         .map(|v| take_value(v))
-        .ok_or(EventParseError::InvalidEventFormat)?;
+        .ok_or(ParseError::InvalidFormat)?;
 
     let highlight_id = cell_contents
         .get_mut(1)
@@ -592,7 +658,7 @@ fn parse_window_anchor(value: Value) -> Result<WindowAnchor> {
         "NE" => Ok(WindowAnchor::NorthEast),
         "SW" => Ok(WindowAnchor::SouthWest),
         "SE" => Ok(WindowAnchor::SouthEast),
-        _ => Err(EventParseError::InvalidWindowAnchor(value_str.into())),
+        _ => Err(ParseError::InvalidWindowAnchor(value_str.into())),
     }
 }
 
@@ -790,7 +856,7 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
     let mut event_contents = parse_array(event_value)?.into_iter();
     let event_name = event_contents
         .next()
-        .ok_or(EventParseError::InvalidEventFormat)
+        .ok_or(ParseError::InvalidFormat)
         .and_then(parse_string)?;
 
     let events = event_contents;
@@ -844,6 +910,113 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
     }
 
     Ok(parsed_events)
+}
+
+pub fn parse_channel_stream_type(channel_stream_value: Value) -> Result<ChannelStreamType> {
+    match parse_string(channel_stream_value)?.as_ref() {
+        "stdio" => Ok(ChannelStreamType::STDIO),
+        "stderr" => Ok(ChannelStreamType::STDERR),
+        "socket" => Ok(ChannelStreamType::Socket),
+        "job" => Ok(ChannelStreamType::Job),
+        _ => Err(ParseError::InvalidFormat),
+    }
+}
+
+pub fn parse_channel_mode(channel_mode_value: Value) -> Result<ChannelMode> {
+    match parse_string(channel_mode_value)?.as_ref() {
+        "bytes" => Ok(ChannelMode::Bytes),
+        "terminal" => Ok(ChannelMode::Terminal),
+        "rpc" => Ok(ChannelMode::RPC),
+        _ => Err(ParseError::InvalidFormat),
+    }
+}
+
+pub fn parse_client_version(version_value: Value) -> Result<ClientVersion> {
+    let version_map = parse_map(version_value)?;
+
+    let mut version = ClientVersion::default();
+
+    for version_property in version_map {
+        if let (Value::String(name), value) = version_property {
+            match (name.as_str().unwrap(), value) {
+                ("major", major) => version.major = parse_u64(major)?,
+                ("minor", minor) => version.minor = Some(parse_u64(minor)?),
+                ("patch", patch) => version.patch = Some(parse_u64(patch)?),
+                ("prerelease", prerelease) => version.prerelease = Some(parse_string(prerelease)?),
+                ("commit", commit) => version.commit = Some(parse_string(commit)?),
+                _ => println!("Ignored client version property: {}", name),
+            }
+        } else {
+            println!("Invalid client version format");
+        }
+    }
+
+    Ok(version)
+}
+
+pub fn parse_client_type(client_type_value: Value) -> Result<ClientType> {
+    match parse_string(client_type_value)?.as_ref() {
+        "remote" => Ok(ClientType::Remote),
+        "ui" => Ok(ClientType::UI),
+        "embedder" => Ok(ClientType::Embedder),
+        "host" => Ok(ClientType::Host),
+        "plugin" => Ok(ClientType::Plugin),
+        _ => Err(ParseError::InvalidFormat),
+    }
+}
+
+pub fn parse_client_info(client_info_value: Value) -> Result<ClientInfo> {
+    let client_info_map = parse_map(client_info_value)?;
+
+    let mut client_info = ClientInfo::default();
+
+    for info_property in client_info_map {
+        if let (Value::String(name), value) = info_property {
+            match (name.as_str().unwrap(), value) {
+                ("name", name) => client_info.name = parse_string(name)?,
+                ("version", version) => client_info.version = parse_client_version(version)?,
+                ("type", client_type) => client_info.client_type = parse_client_type(client_type)?,
+                _ => println!("Ignored client type property: {}", name),
+            }
+        } else {
+            println!("Invalid client info format");
+        }
+    }
+
+    Ok(client_info)
+}
+
+pub fn parse_channel_info(channel_value: Value) -> Result<ChannelInfo> {
+    let channel_map = parse_map(channel_value)?;
+
+    let mut channel_info = ChannelInfo::default();
+
+    for channel_property in channel_map {
+        if let (Value::String(name), value) = channel_property {
+            match (name.as_str().unwrap(), value) {
+                ("id", channel_id) => channel_info.id = parse_u64(channel_id)?,
+                ("stream", stream) => channel_info.stream = parse_channel_stream_type(stream)?,
+                ("mode", mode) => channel_info.mode = parse_channel_mode(mode)?,
+                ("pty", pty) => channel_info.pty = Some(parse_string(pty)?),
+                ("buffer", buffer) => channel_info.buffer = Some(parse_string(buffer)?),
+                ("client", client_info) => {
+                    channel_info.client = Some(parse_client_info(client_info)?)
+                }
+                _ => println!("Ignored channel info property: {}", name),
+            }
+        } else {
+            println!("Invalid channel info format");
+        }
+    }
+
+    Ok(channel_info)
+}
+
+pub fn parse_channel_list(channel_infos: Vec<Value>) -> Result<Vec<ChannelInfo>> {
+    channel_infos
+        .into_iter()
+        .map(parse_channel_info)
+        .collect::<Result<Vec<ChannelInfo>>>()
 }
 
 pub(super) fn handle_redraw_event_group(arguments: Vec<Value>) {
