@@ -259,19 +259,17 @@ impl Editor {
             window.anchor_type = WindowAnchor::NorthWest;
             window.anchor_row = row as f64;
             window.anchor_column = 0.0;
-        } else {
-            if let Some(parent) = self.windows.get(&1) {
-                let new_window = Window::new(
-                    grid,
-                    parent.grid.width,
-                    1,
-                    None,
-                    WindowAnchor::NorthWest,
-                    row as f64,
-                    0.0,
-                );
-                self.windows.insert(grid, new_window);
-            }
+        } else if let Some(parent) = self.windows.get(&1) {
+            let new_window = Window::new(
+                grid,
+                parent.grid.width,
+                1,
+                None,
+                WindowAnchor::NorthWest,
+                row as f64,
+                0.0,
+            );
+            self.windows.insert(grid, new_window);
         }
 
         if let Some(parent) = self.windows.get_mut(&1) {
