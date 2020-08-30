@@ -13,7 +13,6 @@ use crate::bridge::EditorMode;
 use animation_utils::*;
 use blink::*;
 
-const COMMAND_LINE_DELAY_FRAMES: u64 = 5;
 const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
 
 const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5)];
@@ -180,8 +179,6 @@ impl Corner {
 
 pub struct CursorRenderer {
     pub corners: Vec<Corner>,
-    pub previous_position: (u64, u64),
-    pub command_line_delay: u64,
     blink_status: BlinkStatus,
     previous_cursor_shape: Option<CursorShape>,
     cursor_vfx: Option<Box<dyn cursor_vfx::CursorVfx>>,
@@ -192,8 +189,6 @@ impl CursorRenderer {
     pub fn new() -> CursorRenderer {
         let mut renderer = CursorRenderer {
             corners: vec![Corner::new(); 4],
-            previous_position: (0, 0),
-            command_line_delay: 0,
             blink_status: BlinkStatus::new(),
             previous_cursor_shape: None,
             //cursor_vfx: Box::new(PointHighlight::new(Point{x:0.0, y:0.0}, HighlightMode::Ripple)),
@@ -255,39 +250,19 @@ impl CursorRenderer {
         let mut paint = Paint::new(skulpin::skia_safe::colors::WHITE, None);
         paint.set_anti_alias(settings.antialiasing);
 
-        self.previous_position = {
-            let editor = EDITOR.lock();
-            let (_, grid_y) = cursor.position;
-            let (_, previous_y) = self.previous_position;
-
-            if grid_y == editor.grid.height - 1 && previous_y != grid_y {
-                self.command_line_delay += 1;
-
-                if self.command_line_delay < COMMAND_LINE_DELAY_FRAMES {
-                    self.previous_position
-                } else {
-                    self.command_line_delay = 0;
-                    cursor.position
-                }
-            } else {
-                self.command_line_delay = 0;
-                cursor.position
-            }
-        };
-
-        let (grid_x, grid_y) = self.previous_position;
-        let character = cursor.text;
+        let (grid_x, grid_y) = cursor.position;
+        let character = &cursor.character;
 
         let font_width = match (cursor.double_width, &cursor.shape) {
             (true, CursorShape::Block) => font_width * 2.0,
-            _ => font_width
+            _ => font_width,
         };
 
         let font_dimensions: Point = (font_width, font_height).into();
 
         let in_insert_mode = {
             let editor = EDITOR.lock();
-            matches!(editor.current_mode, EditorMode::Insert);
+            matches!(editor.current_mode, EditorMode::Insert)
         };
 
         let destination: Point = (grid_x as f32 * font_width, grid_y as f32 * font_height).into();
@@ -330,7 +305,7 @@ impl CursorRenderer {
             animating |= vfx_animating;
         }
 
-        if animating || self.command_line_delay != 0 {
+        if animating {
             REDRAW_SCHEDULER.queue_next_frame();
         }
 

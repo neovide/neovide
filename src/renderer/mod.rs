@@ -3,7 +3,9 @@ use std::sync::Arc;
 
 use log::trace;
 use skulpin::skia_safe::gpu::SurfaceOrigin;
-use skulpin::skia_safe::{colors, dash_path_effect, Budgeted, Canvas, Paint, Rect, Surface, ImageInfo};
+use skulpin::skia_safe::{
+    colors, dash_path_effect, Budgeted, Canvas, ImageInfo, Paint, Rect, Surface,
+};
 use skulpin::CoordinateSystemHelper;
 
 mod caching_shaper;
@@ -13,7 +15,7 @@ pub mod font_options;
 pub use caching_shaper::CachingShaper;
 pub use font_options::*;
 
-use crate::editor::{Style, EDITOR};
+use crate::editor::{Style, WindowRenderInfo, EDITOR};
 use cursor_renderer::CursorRenderer;
 
 pub struct Renderer {
@@ -149,11 +151,21 @@ impl Renderer {
         canvas.restore();
     }
 
-    pub fn build_window_surface(&self, gpu_canvas: &mut Canvas, default_style: &Arc<Style>, dimensions: (u64, u64)) -> Surface {
+    pub fn build_window_surface(
+        &self,
+        gpu_canvas: &mut Canvas,
+        default_style: &Arc<Style>,
+        dimensions: (i32, i32),
+    ) -> Surface {
         let mut context = gpu_canvas.gpu_context().unwrap();
-        let budgeted = Budgeted::YES;
+        let budgeted = Budgeted::Yes;
         let parent_image_info = gpu_canvas.image_info();
-        let image_info = ImageInfo::new(dimensions, parent_image_info.color_type(), parent_image_info.alpha_type(), parent_image_info.color_space());
+        let image_info = ImageInfo::new(
+            dimensions,
+            parent_image_info.color_type(),
+            parent_image_info.alpha_type(),
+            parent_image_info.color_space(),
+        );
         let surface_origin = SurfaceOrigin::TopLeft;
         let mut surface = Surface::new_render_target(
             &mut context,
@@ -170,24 +182,36 @@ impl Renderer {
         surface
     }
 
-    pub fn draw_window(&mut self, root_canvas: &mut Canvas, window_render_info: &WindowRenderInfo, coordinate_system_helper: &CoordinateSystemHelper, default_style: Arc<Style>) {
-        let image_width = (window_render_info.width * self.font_width) as i32;
-        let image_height = (window_render_info.height * self.font_height) as i32;
+    pub fn draw_window(
+        &mut self,
+        root_canvas: &mut Canvas,
+        window_render_info: &WindowRenderInfo,
+        default_style: &Arc<Style>,
+    ) {
+        let image_width = (window_render_info.width as f32 * self.font_width) as i32;
+        let image_height = (window_render_info.height as f32 * self.font_height) as i32;
 
-        let mut surface_entry = self.window_surfaces.entry(&window_render_info.grid_id);
+        let mut surface = if window_render_info.should_clear {
+            None
+        } else {
+            self.window_surfaces.remove(&window_render_info.grid_id)
+        }
+        .unwrap_or_else(|| {
+            self.build_window_surface(root_canvas, &default_style, (image_width, image_height))
+        });
 
-        let build_surface = || build_window_surface(gpu_canvas, default_style, (image_width, image_height));
-
-        if window_render_info.should_clear {
-            surface_entry = surface_entry.insert(build_surface());
+        if surface.width() != image_width || surface.height() != image_height {
+            let image = surface.image_snapshot();
+            surface =
+                self.build_window_surface(root_canvas, &default_style, (image_width, image_height));
+            let image_destination =
+                Rect::new(0.0, 0.0, image.width() as f32, image.height() as f32);
+            surface
+                .canvas()
+                .draw_image_rect(image, None, &image_destination, &self.paint);
         }
 
-        let surface = self.window_surfaces
-            .entry(&window_render_info.grid_id)
-            .or_insert_with(build_surface());
-
         let mut canvas = surface.canvas();
-        coordinate_system_helper.use_logical_coordinates(&mut canvas);
 
         for command in window_render_info.draw_commands.iter() {
             self.draw_background(
@@ -212,18 +236,23 @@ impl Renderer {
 
         let image = surface.image_snapshot();
 
-        let (grid_left, grid_right) = window_render_info.grid_position;
+        let (grid_left, grid_top) = window_render_info.grid_position;
+        let image_left = grid_left as f32 * self.font_width;
+        let image_top = grid_top as f32 * self.font_height;
         let image_destination = Rect::new(
-            grid_left * self.font_width,
-            grid_height * self.font_height,
-            image_width as f32,
-            image_height as f32,
+            image_left,
+            image_top,
+            image_left + image_width as f32,
+            image_top + image_height as f32,
         );
 
         root_canvas.draw_image_rect(image, None, &image_destination, &self.paint);
 
+        self.window_surfaces
+            .insert(window_render_info.grid_id, surface);
+
         for child_window_render_info in window_render_info.child_windows.iter() {
-            self.draw_window(root_canvas, child_window_render_info, coordinate_system_helper, default_style);
+            self.draw_window(root_canvas, child_window_render_info, default_style);
         }
     }
 
@@ -245,11 +274,22 @@ impl Renderer {
             )
         };
 
+        gpu_canvas.clear(default_style.colors.background.clone().unwrap().to_color());
+
         let font_changed = guifont_setting
             .map(|guifont| self.update_font(&guifont))
             .unwrap_or(false);
 
-        self.surface = Some(surface);
+        for closed_window_id in render_info.closed_window_ids.iter() {
+            self.window_surfaces.remove(&closed_window_id);
+        }
+
+        coordinate_system_helper.use_logical_coordinates(gpu_canvas);
+
+        for window_render_info in render_info.windows.iter() {
+            self.draw_window(gpu_canvas, window_render_info, &default_style);
+        }
+
         self.cursor_renderer.draw(
             cursor,
             &default_style.colors,

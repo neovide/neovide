@@ -35,7 +35,7 @@ pub struct CursorMode {
 
 #[derive(Clone, PartialEq)]
 pub struct Cursor {
-    pub position: (u64, u64),
+    pub position: (f64, f64),
     pub shape: CursorShape,
     pub cell_percentage: Option<f32>,
     pub blinkwait: Option<u64>,
@@ -44,13 +44,13 @@ pub struct Cursor {
     pub style: Option<Arc<Style>>,
     pub enabled: bool,
     pub double_width: bool,
-    pub character: String
+    pub character: String,
 }
 
 impl Cursor {
     pub fn new() -> Cursor {
         Cursor {
-            position: (0, 0),
+            position: (0.0, 0.0),
             shape: CursorShape::Block,
             style: None,
             cell_percentage: None,
@@ -59,7 +59,7 @@ impl Cursor {
             blinkoff: None,
             enabled: true,
             double_width: false,
-            character: " ".to_string()
+            character: " ".to_string(),
         }
     }
 

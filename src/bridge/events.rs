@@ -16,6 +16,7 @@ pub enum ParseError {
     InvalidString(Value),
     InvalidU64(Value),
     InvalidI64(Value),
+    InvalidF64(Value),
     InvalidBool(Value),
     InvalidWindowAnchor(Value),
     InvalidFormat,
@@ -30,6 +31,7 @@ impl fmt::Display for ParseError {
             ParseError::InvalidString(value) => write!(f, "invalid string format {}", value),
             ParseError::InvalidU64(value) => write!(f, "invalid u64 format {}", value),
             ParseError::InvalidI64(value) => write!(f, "invalid i64 format {}", value),
+            ParseError::InvalidF64(value) => write!(f, "invalid f64 format {}", value),
             ParseError::InvalidBool(value) => write!(f, "invalid bool format {}", value),
             ParseError::InvalidWindowAnchor(value) => {
                 write!(f, "invalid window anchor format {}", value)
@@ -185,7 +187,6 @@ pub enum RedrawEvent {
     },
     WindowPosition {
         grid: u64,
-        window: u64,
         start_row: u64,
         start_column: u64,
         width: u64,
@@ -193,16 +194,14 @@ pub enum RedrawEvent {
     },
     WindowFloatPosition {
         grid: u64,
-        window: u64,
         anchor: WindowAnchor,
         anchor_grid: u64,
-        anchor_row: u64,
-        anchor_column: u64,
+        anchor_row: f64,
+        anchor_column: f64,
         focusable: bool,
     },
     WindowExternalPosition {
         grid: u64,
-        window: u64,
     },
     WindowHide {
         grid: u64,
@@ -376,6 +375,10 @@ fn parse_u64(u64_value: Value) -> Result<u64> {
 
 fn parse_i64(i64_value: Value) -> Result<i64> {
     i64_value.try_into().map_err(ParseError::InvalidI64)
+}
+
+fn parse_f64(f64_value: Value) -> Result<f64> {
+    f64_value.try_into().map_err(ParseError::InvalidF64)
 }
 
 fn parse_bool(bool_value: Value) -> Result<bool> {
@@ -638,12 +641,11 @@ fn parse_win_pos(win_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
         Value::Nil,
         Value::Nil,
     ];
-    let [grid, window, start_row, start_column, width, height] =
+    let [grid, _window, start_row, start_column, width, height] =
         extract_values(win_pos_arguments, values)?;
 
     Ok(RedrawEvent::WindowPosition {
         grid: parse_u64(grid)?,
-        window: parse_u64(window)?,
         start_row: parse_u64(start_row)?,
         start_column: parse_u64(start_column)?,
         width: parse_u64(width)?,
@@ -672,26 +674,24 @@ fn parse_win_float_pos(win_float_pos_arguments: Vec<Value>) -> Result<RedrawEven
         Value::Nil,
         Value::Nil,
     ];
-    let [grid, window, anchor, anchor_grid, anchor_row, anchor_column, focusable] =
+    let [grid, _window, anchor, anchor_grid, anchor_row, anchor_column, focusable] =
         extract_values(win_float_pos_arguments, values)?;
 
     Ok(RedrawEvent::WindowFloatPosition {
         grid: parse_u64(grid)?,
-        window: parse_u64(window)?,
         anchor: parse_window_anchor(anchor)?,
         anchor_grid: parse_u64(anchor_grid)?,
-        anchor_row: parse_u64(anchor_row)?,
-        anchor_column: parse_u64(anchor_column)?,
+        anchor_row: parse_f64(anchor_row)?,
+        anchor_column: parse_f64(anchor_column)?,
         focusable: parse_bool(focusable)?,
     })
 }
 
 fn parse_win_external_pos(win_external_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [grid, window] = extract_values(win_external_pos_arguments, [Value::Nil, Value::Nil])?;
+    let [grid, _window] = extract_values(win_external_pos_arguments, [Value::Nil, Value::Nil])?;
 
     Ok(RedrawEvent::WindowExternalPosition {
         grid: parse_u64(grid)?,
-        window: parse_u64(window)?,
     })
 }
 

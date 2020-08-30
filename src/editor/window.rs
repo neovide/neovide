@@ -1,12 +1,12 @@
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use log::trace;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::bridge::{GridLineCell, WindowAnchor};
 use super::grid::CharacterGrid;
 use super::style::Style;
+use crate::bridge::{GridLineCell, WindowAnchor};
 
 #[derive(new, Debug, Clone)]
 pub struct DrawCommand {
@@ -17,24 +17,35 @@ pub struct DrawCommand {
 }
 
 pub struct Window {
-    pub id: u64,
     pub grid_id: u64,
     pub grid: CharacterGrid,
     pub hidden: bool,
     pub anchor_grid_id: Option<u64>,
     pub anchor_type: WindowAnchor,
-    pub anchor_row: u64,
-    pub anchor_column: u64,
+    pub anchor_row: f64,
+    pub anchor_column: f64,
     pub children: HashSet<u64>,
 }
 
 impl Window {
-    pub fn new(id: u64, grid_id: u64, width: u64, height: u64, anchor_grid_id: Option<u64>, anchor_type: WindowAnchor, anchor_row: u64, anchor_column: u64) -> Window {
+    pub fn new(
+        grid_id: u64,
+        width: u64,
+        height: u64,
+        anchor_grid_id: Option<u64>,
+        anchor_type: WindowAnchor,
+        anchor_row: f64,
+        anchor_column: f64,
+    ) -> Window {
         Window {
-            id, grid_id, anchor_grid_id, anchor_type, anchor_row, anchor_column,
+            grid_id,
+            anchor_grid_id,
+            anchor_type,
+            anchor_row,
+            anchor_column,
             grid: CharacterGrid::new((width, height)),
             hidden: false,
-            children: HashSet::new()
+            children: HashSet::new(),
         }
     }
 
@@ -42,7 +53,14 @@ impl Window {
         self.grid.resize(width, height);
     }
 
-    fn draw_grid_line_cell(&mut self, row_index: u64, column_pos: &mut u64, cell: GridLineCell, defined_styles: &HashMap<u64, Arc<Style>>, previous_style: &mut Option<Arc<Style>>) {
+    fn draw_grid_line_cell(
+        &mut self,
+        row_index: u64,
+        column_pos: &mut u64,
+        cell: GridLineCell,
+        defined_styles: &HashMap<u64, Arc<Style>>,
+        previous_style: &mut Option<Arc<Style>>,
+    ) {
         let style = match cell.highlight_id {
             Some(0) => None,
             Some(style_id) => defined_styles.get(&style_id).cloned(),
@@ -75,18 +93,39 @@ impl Window {
         *previous_style = style;
     }
 
-    pub fn draw_grid_line(&mut self, row: u64, column_start: u64, cells: Vec<GridLineCell>, defined_styles: &HashMap<u64, Arc<Style>>, previous_style: &mut Option<Arc<Style>>) {
+    pub fn draw_grid_line(
+        &mut self,
+        row: u64,
+        column_start: u64,
+        cells: Vec<GridLineCell>,
+        defined_styles: &HashMap<u64, Arc<Style>>,
+        previous_style: &mut Option<Arc<Style>>,
+    ) {
         if row < self.grid.height {
             let mut column_pos = column_start;
             for cell in cells {
-                self.draw_grid_line_cell(row, &mut column_pos, cell, defined_styles, previous_style);
+                self.draw_grid_line_cell(
+                    row,
+                    &mut column_pos,
+                    cell,
+                    defined_styles,
+                    previous_style,
+                );
             }
         } else {
             println!("Draw command out of bounds");
         }
     }
 
-    pub fn scroll_region(&mut self, top: u64, bot: u64, left: u64, right: u64, rows: i64, cols: i64) {
+    pub fn scroll_region(
+        &mut self,
+        top: u64,
+        bot: u64,
+        left: u64,
+        right: u64,
+        rows: i64,
+        cols: i64,
+    ) {
         let y_iter: Box<dyn Iterator<Item = i64>> = if rows > 0 {
             Box::new((top as i64 + rows)..bot as i64)
         } else {
