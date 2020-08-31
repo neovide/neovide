@@ -23,15 +23,30 @@ impl CharacterGrid {
             dirty: vec![true; cell_count],
             width,
             height,
-            should_clear: true,
+            should_clear: false,
         }
     }
 
     pub fn resize(&mut self, width: u64, height: u64) {
         trace!("Editor resized");
+        let new_cell_count = (width * height) as usize;
+        let new_dirty = vec![false; new_cell_count];
+        let default_cell: GridCell = None;
+        let mut new_characters = vec![default_cell; new_cell_count];
+
+        dbg!(self.width);
+        for x in 0..self.width.min(width) {
+            for y in 0..self.height.min(height) {
+                if let Some(existing_cell) = self.get_cell(x, y) {
+                    new_characters[(x + y * width) as usize] = existing_cell.clone();
+                }
+            }
+        }
+
         self.width = width;
         self.height = height;
-        self.clear();
+        self.dirty = new_dirty;
+        self.characters = new_characters;
     }
 
     pub fn clear(&mut self) {

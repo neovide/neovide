@@ -32,8 +32,7 @@ pub struct WindowRenderInfo {
     pub width: u64,
     pub height: u64,
     pub should_clear: bool,
-    pub draw_commands: Vec<DrawCommand>,
-    pub child_windows: Vec<WindowRenderInfo>,
+    pub draw_commands: Vec<DrawCommand>
 }
 
 pub struct Editor {
@@ -146,6 +145,7 @@ impl Editor {
                     .get_mut(&grid)
                     .map(|window| window.grid.clear());
             }
+            RedrawEvent::Destroy { grid } => self.close_window(grid),
             RedrawEvent::Scroll {
                 grid,
                 top,
@@ -341,22 +341,11 @@ impl Editor {
 
     fn build_window_render_info(&mut self, grid: u64) -> Option<WindowRenderInfo> {
         let grid_position = self.get_window_top_left(grid)?;
-
         let window = self.windows.get_mut(&grid)?;
 
-        if window.hidden {
-            return None;
-        }
-
         let (draw_commands, should_clear) = window.build_draw_commands();
-        let children = window.children.clone();
         let width = window.grid.width;
         let height = window.grid.height;
-
-        let child_windows = children
-            .iter()
-            .filter_map(|child_id| self.build_window_render_info(*child_id))
-            .collect();
 
         Some(WindowRenderInfo {
             grid_id: grid,
@@ -364,23 +353,27 @@ impl Editor {
             width,
             height,
             should_clear,
-            draw_commands,
-            child_windows,
+            draw_commands
         })
     }
 
     pub fn build_render_info(&mut self) -> RenderInfo {
         let mut windows = Vec::new();
 
-        let root_window_ids: Vec<u64> = self
-            .windows
-            .values()
-            .filter(|window| !window.hidden && window.anchor_grid_id.is_none())
-            .map(|window| window.grid_id)
-            .collect();
+        let window_ids: Vec<u64> = {
+            let (mut root_windows, mut floating_windows): (Vec<&Window>, Vec<&Window>) = self.windows
+                .values()
+                .filter(|window| !window.hidden)
+                .partition(|window| window.anchor_grid_id.is_none());
 
-        for root_window_id in root_window_ids.into_iter() {
-            if let Some(window_render_info) = self.build_window_render_info(root_window_id) {
+            root_windows.sort_by(|window_a, window_b| window_a.grid_id.partial_cmp(&window_b.grid_id).unwrap());
+            floating_windows.sort_by(|window_a, window_b| window_a.grid_id.partial_cmp(&window_b.grid_id).unwrap());
+
+            root_windows.into_iter().chain(floating_windows.into_iter()).map(|window| window.grid_id).collect()
+        };
+
+        for window_id in window_ids.into_iter() {
+            if let Some(window_render_info) = self.build_window_render_info(window_id) {
                 windows.push(window_render_info);
             }
         }

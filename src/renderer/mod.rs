@@ -4,8 +4,9 @@ use std::sync::Arc;
 use log::trace;
 use skulpin::skia_safe::gpu::SurfaceOrigin;
 use skulpin::skia_safe::{
-    colors, dash_path_effect, Budgeted, Canvas, ImageInfo, Paint, Rect, Surface,
+    colors, dash_path_effect, Budgeted, Canvas, ImageInfo, Paint, Rect, Surface, Color
 };
+use skulpin::skia_safe::paint::Style as PaintStyle;
 use skulpin::CoordinateSystemHelper;
 
 mod caching_shaper;
@@ -201,14 +202,9 @@ impl Renderer {
         });
 
         if surface.width() != image_width || surface.height() != image_height {
-            let image = surface.image_snapshot();
-            surface =
-                self.build_window_surface(root_canvas, &default_style, (image_width, image_height));
-            let image_destination =
-                Rect::new(0.0, 0.0, image.width() as f32, image.height() as f32);
-            surface
-                .canvas()
-                .draw_image_rect(image, None, &image_destination, &self.paint);
+            let mut old_surface = surface;
+            surface = self.build_window_surface(root_canvas, &default_style, (image_width, image_height));
+            old_surface.draw(surface.canvas(), (0.0, 0.0), None);
         }
 
         let mut canvas = surface.canvas();
@@ -234,26 +230,20 @@ impl Renderer {
             );
         }
 
-        let image = surface.image_snapshot();
-
         let (grid_left, grid_top) = window_render_info.grid_position;
         let image_left = grid_left as f32 * self.font_width;
         let image_top = grid_top as f32 * self.font_height;
-        let image_destination = Rect::new(
-            image_left,
-            image_top,
-            image_left + image_width as f32,
-            image_top + image_height as f32,
-        );
 
-        root_canvas.draw_image_rect(image, None, &image_destination, &self.paint);
+        root_canvas.save_layer(&Default::default());
+
+        unsafe {
+            surface.draw(root_canvas.surface().unwrap().canvas(), (image_left, image_top), None);
+        }
+
+        root_canvas.restore();
 
         self.window_surfaces
             .insert(window_render_info.grid_id, surface);
-
-        for child_window_render_info in window_render_info.child_windows.iter() {
-            self.draw_window(root_canvas, child_window_render_info, default_style);
-        }
     }
 
     pub fn draw(

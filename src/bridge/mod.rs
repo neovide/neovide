@@ -160,7 +160,7 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
         .unwrap_or_explained_panic("Could not communicate with neovim process");
     let mut options = UiAttachOptions::new();
     options.set_linegrid_external(true);
-    // options.set_multigrid_external(true);
+    options.set_multigrid_external(true);
     options.set_rgb(true);
     if let Err(command_error) = nvim.command("runtime! ginit.vim").await {
         nvim.command(&format!(

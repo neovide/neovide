@@ -171,6 +171,9 @@ pub enum RedrawEvent {
     Clear {
         grid: u64,
     },
+    Destroy {
+        grid: u64,
+    },
     CursorGoto {
         grid: u64,
         row: u64,
@@ -590,15 +593,23 @@ fn parse_grid_line(grid_line_arguments: Vec<Value>) -> Result<RedrawEvent> {
     })
 }
 
-fn parse_clear(clear_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [grid_id] = extract_values(clear_arguments, [Value::Nil])?;
+fn parse_grid_clear(grid_clear_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    let [grid_id] = extract_values(grid_clear_arguments, [Value::Nil])?;
 
     Ok(RedrawEvent::Clear {
         grid: parse_u64(grid_id)?,
     })
 }
 
-fn parse_cursor_goto(cursor_goto_arguments: Vec<Value>) -> Result<RedrawEvent> {
+fn parse_grid_destroy(grid_destroy_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    let [grid_id] = extract_values(grid_destroy_arguments, [Value::Nil])?;
+
+    Ok(RedrawEvent::Destroy {
+        grid: parse_u64(grid_id)?,
+    })
+}
+
+fn parse_grid_cursor_goto(cursor_goto_arguments: Vec<Value>) -> Result<RedrawEvent> {
     let [grid_id, column, row] =
         extract_values(cursor_goto_arguments, [Value::Nil, Value::Nil, Value::Nil])?;
 
@@ -691,7 +702,7 @@ fn parse_win_external_pos(win_external_pos_arguments: Vec<Value>) -> Result<Redr
     let [grid, _window] = extract_values(win_external_pos_arguments, [Value::Nil, Value::Nil])?;
 
     Ok(RedrawEvent::WindowExternalPosition {
-        grid: parse_u64(grid)?,
+        grid: parse_u64(grid)?
     })
 }
 
@@ -879,8 +890,9 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
             "default_colors_set" => Some(parse_default_colors(event_parameters)?),
             "hl_attr_define" => Some(parse_hl_attr_define(event_parameters)?),
             "grid_line" => Some(parse_grid_line(event_parameters)?),
-            "grid_clear" => Some(parse_clear(event_parameters)?),
-            "grid_cursor_goto" => Some(parse_cursor_goto(event_parameters)?),
+            "grid_clear" => Some(parse_grid_clear(event_parameters)?),
+            "grid_destroy" => Some(parse_grid_destroy(event_parameters)?),
+            "grid_cursor_goto" => Some(parse_grid_cursor_goto(event_parameters)?),
             "grid_scroll" => Some(parse_grid_scroll(event_parameters)?),
             "win_pos" => Some(parse_win_pos(event_parameters)?),
             "win_float_pos" => Some(parse_win_float_pos(event_parameters)?),
