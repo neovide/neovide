@@ -34,7 +34,6 @@ impl CharacterGrid {
         let default_cell: GridCell = None;
         let mut new_characters = vec![default_cell; new_cell_count];
 
-        dbg!(self.width);
         for x in 0..self.width.min(width) {
             for y in 0..self.height.min(height) {
                 if let Some(existing_cell) = self.get_cell(x, y) {

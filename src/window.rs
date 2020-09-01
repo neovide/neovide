@@ -12,6 +12,7 @@ use skulpin::{
     CoordinateSystem, LogicalSize, PhysicalSize, PresentMode, Renderer as SkulpinRenderer,
     RendererBuilder, Sdl2Window, Window,
 };
+use skulpin::skia_safe::Rect;
 
 use crate::bridge::{produce_neovim_keybinding_string, UiCommand, BRIDGE};
 use crate::editor::EDITOR;
@@ -52,6 +53,7 @@ struct WindowWrapper {
     renderer: Renderer,
     mouse_down: bool,
     mouse_position: LogicalSize,
+    grid_id_under_mouse: u64,
     title: String,
     previous_size: LogicalSize,
     transparency: f32,
@@ -167,6 +169,7 @@ impl WindowWrapper {
                 width: 0,
                 height: 0,
             },
+            grid_id_under_mouse: 0,
             title: String::from("Neovide"),
             previous_size: logical_size,
             transparency: 1.0,
@@ -278,24 +281,42 @@ impl WindowWrapper {
 
     pub fn handle_pointer_motion(&mut self, x: i32, y: i32) {
         let previous_position = self.mouse_position;
-        let physical_size = PhysicalSize::new(
-            (x as f32 / self.renderer.font_width) as u32,
-            (y as f32 / self.renderer.font_height) as u32,
-        );
-
         let sdl_window_wrapper = Sdl2Window::new(&self.window);
-        self.mouse_position = physical_size.to_logical(sdl_window_wrapper.scale_factor());
-        if self.mouse_down && previous_position != self.mouse_position {
-            BRIDGE.queue_command(UiCommand::Drag(
-                self.mouse_position.width,
-                self.mouse_position.height,
-            ));
+        let logical_position = PhysicalSize::new(x as u32, y as u32)
+            .to_logical(sdl_window_wrapper.scale_factor());
+
+        let mut top_grid_position = None;
+
+        for (grid_id, window_region) in self.renderer.window_regions.iter() {
+            if logical_position.width >= window_region.left as u32 && logical_position.width < window_region.right as u32 &&
+                logical_position.height >= window_region.top as u32 && logical_position.height < window_region.bottom as u32 {
+                top_grid_position = Some((
+                    grid_id, 
+                    LogicalSize::new(logical_position.width - window_region.left as u32, logical_position.height - window_region.top as u32)
+                ));
+            }
+        }
+
+        if let Some((grid_id, grid_position)) = top_grid_position {
+            self.grid_id_under_mouse = dbg!(*grid_id);
+            self.mouse_position = LogicalSize::new(
+                (grid_position.width as f32 / self.renderer.font_width) as u32,
+                (grid_position.height as f32 / self.renderer.font_height) as u32
+            );
+
+            if self.mouse_down && previous_position != self.mouse_position {
+                BRIDGE.queue_command(UiCommand::Drag {
+                    grid_id: self.grid_id_under_mouse,
+                    position: (self.mouse_position.width, self.mouse_position.height),
+                });
+            }
         }
     }
 
     pub fn handle_pointer_down(&mut self) {
         BRIDGE.queue_command(UiCommand::MouseButton {
             action: String::from("press"),
+            grid_id: self.grid_id_under_mouse,
             position: (self.mouse_position.width, self.mouse_position.height),
         });
         self.mouse_down = true;
@@ -304,6 +325,7 @@ impl WindowWrapper {
     pub fn handle_pointer_up(&mut self) {
         BRIDGE.queue_command(UiCommand::MouseButton {
             action: String::from("release"),
+            grid_id: self.grid_id_under_mouse,
             position: (self.mouse_position.width, self.mouse_position.height),
         });
         self.mouse_down = false;
@@ -319,6 +341,7 @@ impl WindowWrapper {
         if let Some(input_type) = vertical_input_type {
             BRIDGE.queue_command(UiCommand::Scroll {
                 direction: input_type.to_string(),
+                grid_id: self.grid_id_under_mouse,
                 position: (self.mouse_position.width, self.mouse_position.height),
             });
         }
@@ -332,6 +355,7 @@ impl WindowWrapper {
         if let Some(input_type) = horizontal_input_type {
             BRIDGE.queue_command(UiCommand::Scroll {
                 direction: input_type.to_string(),
+                grid_id: self.grid_id_under_mouse,
                 position: (self.mouse_position.width, self.mouse_position.height),
             });
         }

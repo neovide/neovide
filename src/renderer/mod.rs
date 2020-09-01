@@ -4,9 +4,8 @@ use std::sync::Arc;
 use log::trace;
 use skulpin::skia_safe::gpu::SurfaceOrigin;
 use skulpin::skia_safe::{
-    colors, dash_path_effect, Budgeted, Canvas, ImageInfo, Paint, Rect, Surface, Color
+    colors, dash_path_effect, Budgeted, Canvas, ImageInfo, Paint, Rect, Surface
 };
-use skulpin::skia_safe::paint::Style as PaintStyle;
 use skulpin::CoordinateSystemHelper;
 
 mod caching_shaper;
@@ -17,34 +16,45 @@ pub use caching_shaper::CachingShaper;
 pub use font_options::*;
 
 use crate::editor::{Style, WindowRenderInfo, EDITOR};
+use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use cursor_renderer::CursorRenderer;
 
+pub struct RenderedWindow {
+    surface: Surface,
+    current_position: (f32, f32)
+}
+
 pub struct Renderer {
-    window_surfaces: HashMap<u64, Surface>,
+    rendered_windows: HashMap<u64, RenderedWindow>,
     paint: Paint,
     shaper: CachingShaper,
 
     pub font_width: f32,
     pub font_height: f32,
+    pub window_regions: Vec<(u64, Rect)>,
     cursor_renderer: CursorRenderer,
 }
 
 impl Renderer {
     pub fn new() -> Renderer {
+        let rendered_windows = HashMap::new();
+
         let mut paint = Paint::new(colors::WHITE, None);
         paint.set_anti_alias(false);
 
         let mut shaper = CachingShaper::new();
 
         let (font_width, font_height) = shaper.font_base_dimensions();
+        let window_regions = Vec::new();
         let cursor_renderer = CursorRenderer::new();
 
         Renderer {
-            window_surfaces: HashMap::new(),
+            rendered_windows,
             paint,
             shaper,
             font_width,
             font_height,
+            window_regions,
             cursor_renderer,
         }
     }
@@ -188,26 +198,39 @@ impl Renderer {
         root_canvas: &mut Canvas,
         window_render_info: &WindowRenderInfo,
         default_style: &Arc<Style>,
-    ) {
+    ) -> (u64, Rect) {
+        let (grid_left, grid_top) = window_render_info.grid_position;
+        let target_left = grid_left as f32 * self.font_width;
+        let target_top = grid_top as f32 * self.font_height;
+
         let image_width = (window_render_info.width as f32 * self.font_width) as i32;
         let image_height = (window_render_info.height as f32 * self.font_height) as i32;
 
-        let mut surface = if window_render_info.should_clear {
+        let mut rendered_window = if window_render_info.should_clear {
             None
         } else {
-            self.window_surfaces.remove(&window_render_info.grid_id)
+            self.rendered_windows.remove(&window_render_info.grid_id)
         }
         .unwrap_or_else(|| {
-            self.build_window_surface(root_canvas, &default_style, (image_width, image_height))
+            let surface = self.build_window_surface(root_canvas, &default_style, (image_width, image_height));
+            RenderedWindow {
+                surface,
+                current_position: (target_left, target_top)
+            }
         });
 
-        if surface.width() != image_width || surface.height() != image_height {
-            let mut old_surface = surface;
-            surface = self.build_window_surface(root_canvas, &default_style, (image_width, image_height));
-            old_surface.draw(surface.canvas(), (0.0, 0.0), None);
+        if rendered_window.surface.width() != image_width || rendered_window.surface.height() != image_height {
+            let mut old_surface = rendered_window.surface;
+            rendered_window.surface = self.build_window_surface(root_canvas, &default_style, (image_width, image_height));
+            old_surface.draw(rendered_window.surface.canvas(), (0.0, 0.0), None);
         }
 
-        let mut canvas = surface.canvas();
+        let (current_left, current_top) = rendered_window.current_position;
+        let current_left = current_left + (target_left - current_left) * 0.4;
+        let current_top = current_top +  (target_top - current_top) * 0.4;
+        rendered_window.current_position = (current_left, current_top);
+
+        let mut canvas = rendered_window.surface.canvas();
 
         for command in window_render_info.draw_commands.iter() {
             self.draw_background(
@@ -230,20 +253,17 @@ impl Renderer {
             );
         }
 
-        let (grid_left, grid_top) = window_render_info.grid_position;
-        let image_left = grid_left as f32 * self.font_width;
-        let image_top = grid_top as f32 * self.font_height;
-
         root_canvas.save_layer(&Default::default());
 
         unsafe {
-            surface.draw(root_canvas.surface().unwrap().canvas(), (image_left, image_top), None);
+            rendered_window.surface.draw(root_canvas.surface().unwrap().canvas(), (current_left, current_top), None);
         }
 
         root_canvas.restore();
 
-        self.window_surfaces
-            .insert(window_render_info.grid_id, surface);
+        self.rendered_windows.insert(window_render_info.grid_id, rendered_window);
+
+        (window_render_info.grid_id, Rect::new(current_left, current_top, current_left + image_width as f32, current_top + image_height as f32))
     }
 
     pub fn draw(
@@ -253,6 +273,8 @@ impl Renderer {
         dt: f32,
     ) -> bool {
         trace!("Rendering");
+
+        REDRAW_SCHEDULER.queue_next_frame();
 
         let (render_info, default_style, cursor, guifont_setting) = {
             let mut editor = EDITOR.lock();
@@ -271,14 +293,15 @@ impl Renderer {
             .unwrap_or(false);
 
         for closed_window_id in render_info.closed_window_ids.iter() {
-            self.window_surfaces.remove(&closed_window_id);
+            self.rendered_windows.remove(&closed_window_id);
         }
 
         coordinate_system_helper.use_logical_coordinates(gpu_canvas);
 
-        for window_render_info in render_info.windows.iter() {
-            self.draw_window(gpu_canvas, window_render_info, &default_style);
-        }
+        self.window_regions = render_info.windows
+            .iter()
+            .map(|window_render_info| self.draw_window(gpu_canvas, window_render_info, &default_style))
+            .collect();
 
         self.cursor_renderer.draw(
             cursor,
