@@ -46,11 +46,11 @@ features = ["precommit-hook", "run-cargo-test", "run-cargo-clippy", "run-cargo-f
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.8", features = ["winuser"] }
-sdl2-sys = { version = "0.34", default-features = false, features = ["bundled", "static-link"] }
+sdl2-sys = { version = "0.34" }
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.11"
-sdl2-sys = { version = "0.34", default-features = false, features = ["bundled", "static-link"] }
+sdl2-sys = { version = "0.34" }
 
 [profile.release]
 debug = false
