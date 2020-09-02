@@ -1,4 +1,3 @@
-mod animation_utils;
 mod blink;
 mod cursor_vfx;
 
@@ -7,10 +6,10 @@ use skulpin::skia_safe::{Canvas, Paint, Path, Point};
 use crate::editor::{Colors, Cursor, CursorShape, EDITOR};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::renderer::CachingShaper;
+use crate::renderer::animation_utils::*;
 use crate::settings::*;
-
 use crate::bridge::EditorMode;
-use animation_utils::*;
+
 use blink::*;
 
 const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;

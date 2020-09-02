@@ -4,24 +4,93 @@ use std::sync::Arc;
 use log::trace;
 use skulpin::skia_safe::gpu::SurfaceOrigin;
 use skulpin::skia_safe::{
-    colors, dash_path_effect, Budgeted, Canvas, ImageInfo, Paint, Rect, Surface
+    colors, dash_path_effect, Budgeted, Canvas, ImageInfo, Paint, Rect, Surface, Point, Color, image_filters::*
 };
 use skulpin::CoordinateSystemHelper;
 
 mod caching_shaper;
 pub mod cursor_renderer;
 pub mod font_options;
+pub mod animation_utils;
 
 pub use caching_shaper::CachingShaper;
 pub use font_options::*;
+use animation_utils::*;
 
 use crate::editor::{Style, WindowRenderInfo, EDITOR};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
+use crate::settings::*;
 use cursor_renderer::CursorRenderer;
+
+
+// ----------------------------------------------------------------------------
+
+#[derive(Clone)]
+pub struct RendererSettings {
+    animation_length: f32,
+}
+
+pub fn initialize_settings() {
+    SETTINGS.set(&RendererSettings {
+        animation_length: 0.15,
+    });
+
+    register_nvim_setting!("window_animation_length", RendererSettings::animation_length);
+}
+
+// ----------------------------------------------------------------------------
 
 pub struct RenderedWindow {
     surface: Surface,
-    current_position: (f32, f32)
+    start_position: Point,
+    current_position: Point,
+    previous_destination: Point,
+    t: f32
+}
+
+impl RenderedWindow {
+    pub fn new(surface: Surface, position: Point) -> RenderedWindow {
+        RenderedWindow {
+            surface,
+            start_position: position.clone(),
+            current_position: position.clone(),
+            previous_destination: position.clone(),
+            t: 2.0 // 2.0 is out of the 0.0 to 1.0 range and stops animation
+        }
+    }
+
+    pub fn update(
+        &mut self,
+        settings: &RendererSettings,
+        destination: Point,
+        dt: f32
+    ) -> bool {
+        if destination != self.previous_destination {
+            self.t = 0.0;
+            self.start_position = self.current_position;
+            self.previous_destination = destination;
+        }
+
+        if (self.t - 1.0).abs() < std::f32::EPSILON {
+            return false;
+        }
+
+        if (self.t - 1.0).abs() < std::f32::EPSILON {
+            // We are at destination, move t out of 0-1 range to stop the animation
+            self.t = 2.0;
+        } else {
+            self.t = (self.t + dt / settings.animation_length).min(1.0);
+        }
+
+        self.current_position = ease_point(
+            ease_out_expo,
+            self.start_position,
+            destination,
+            self.t,
+        );
+
+        true
+    }
 }
 
 pub struct Renderer {
@@ -195,13 +264,14 @@ impl Renderer {
 
     pub fn draw_window(
         &mut self,
+        settings: &RendererSettings,
         root_canvas: &mut Canvas,
         window_render_info: &WindowRenderInfo,
         default_style: &Arc<Style>,
+        dt: f32
     ) -> (u64, Rect) {
         let (grid_left, grid_top) = window_render_info.grid_position;
-        let target_left = grid_left as f32 * self.font_width;
-        let target_top = grid_top as f32 * self.font_height;
+        let window_destination = Point::new(grid_left as f32 * self.font_width, grid_top as f32 * self.font_height);
 
         let image_width = (window_render_info.width as f32 * self.font_width) as i32;
         let image_height = (window_render_info.height as f32 * self.font_height) as i32;
@@ -213,10 +283,7 @@ impl Renderer {
         }
         .unwrap_or_else(|| {
             let surface = self.build_window_surface(root_canvas, &default_style, (image_width, image_height));
-            RenderedWindow {
-                surface,
-                current_position: (target_left, target_top)
-            }
+            RenderedWindow::new(surface, window_destination)
         });
 
         if rendered_window.surface.width() != image_width || rendered_window.surface.height() != image_height {
@@ -225,10 +292,7 @@ impl Renderer {
             old_surface.draw(rendered_window.surface.canvas(), (0.0, 0.0), None);
         }
 
-        let (current_left, current_top) = rendered_window.current_position;
-        let current_left = current_left + (target_left - current_left) * 0.4;
-        let current_top = current_top +  (target_top - current_top) * 0.4;
-        rendered_window.current_position = (current_left, current_top);
+        rendered_window.update(settings, window_destination, dt);
 
         let mut canvas = rendered_window.surface.canvas();
 
@@ -255,15 +319,17 @@ impl Renderer {
 
         root_canvas.save_layer(&Default::default());
 
-        unsafe {
-            rendered_window.surface.draw(root_canvas.surface().unwrap().canvas(), (current_left, current_top), None);
-        }
+        rendered_window.surface.draw(
+            root_canvas.as_mut(),
+            (rendered_window.current_position.x, rendered_window.current_position.y), 
+            None);
 
         root_canvas.restore();
 
+        let window_position = rendered_window.current_position.clone();
         self.rendered_windows.insert(window_render_info.grid_id, rendered_window);
 
-        (window_render_info.grid_id, Rect::new(current_left, current_top, current_left + image_width as f32, current_top + image_height as f32))
+        (window_render_info.grid_id, Rect::from_point_and_size(window_position, (image_width as f32, image_height as f32)))
     }
 
     pub fn draw(
@@ -275,6 +341,7 @@ impl Renderer {
         trace!("Rendering");
 
         REDRAW_SCHEDULER.queue_next_frame();
+        let settings = SETTINGS.get::<RendererSettings>();
 
         let (render_info, default_style, cursor, guifont_setting) = {
             let mut editor = EDITOR.lock();
@@ -300,7 +367,7 @@ impl Renderer {
 
         self.window_regions = render_info.windows
             .iter()
-            .map(|window_render_info| self.draw_window(gpu_canvas, window_render_info, &default_style))
+            .map(|window_render_info| self.draw_window(&settings, gpu_canvas, window_render_info, &default_style, dt))
             .collect();
 
         self.cursor_renderer.draw(

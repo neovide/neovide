@@ -8,11 +8,11 @@ use skulpin::sdl2::event::{Event, WindowEvent};
 use skulpin::sdl2::keyboard::Keycode;
 use skulpin::sdl2::video::FullscreenType;
 use skulpin::sdl2::Sdl;
+use skulpin::ash::prelude::VkResult;
 use skulpin::{
     CoordinateSystem, LogicalSize, PhysicalSize, PresentMode, Renderer as SkulpinRenderer,
     RendererBuilder, Sdl2Window, Window,
 };
-use skulpin::skia_safe::Rect;
 
 use crate::bridge::{produce_neovim_keybinding_string, UiCommand, BRIDGE};
 use crate::editor::EDITOR;
@@ -175,7 +175,7 @@ impl WindowWrapper {
             transparency: 1.0,
             fullscreen: false,
             cached_size: (0, 0),
-            cached_position: (0, 0),
+            cached_position: (0, 0)
         }
     }
 
@@ -285,11 +285,13 @@ impl WindowWrapper {
         let logical_position = PhysicalSize::new(x as u32, y as u32)
             .to_logical(sdl_window_wrapper.scale_factor());
 
+        let mut top_window_position = (0.0, 0.0);
         let mut top_grid_position = None;
 
         for (grid_id, window_region) in self.renderer.window_regions.iter() {
             if logical_position.width >= window_region.left as u32 && logical_position.width < window_region.right as u32 &&
                 logical_position.height >= window_region.top as u32 && logical_position.height < window_region.bottom as u32 {
+                top_window_position = (window_region.left, window_region.top);
                 top_grid_position = Some((
                     grid_id, 
                     LogicalSize::new(logical_position.width - window_region.left as u32, logical_position.height - window_region.top as u32)
@@ -298,16 +300,20 @@ impl WindowWrapper {
         }
 
         if let Some((grid_id, grid_position)) = top_grid_position {
-            self.grid_id_under_mouse = dbg!(*grid_id);
+            self.grid_id_under_mouse = *grid_id;
             self.mouse_position = LogicalSize::new(
                 (grid_position.width as f32 / self.renderer.font_width) as u32,
                 (grid_position.height as f32 / self.renderer.font_height) as u32
             );
 
             if self.mouse_down && previous_position != self.mouse_position {
+                let (window_left, window_top) = top_window_position;
+                let adjusted_drag_left = self.mouse_position.width + (window_left / self.renderer.font_width) as u32;
+                let adjusted_drag_top = self.mouse_position.height + (window_top / self.renderer.font_height) as u32;
+
                 BRIDGE.queue_command(UiCommand::Drag {
                     grid_id: self.grid_id_under_mouse,
-                    position: (self.mouse_position.width, self.mouse_position.height),
+                    position: (adjusted_drag_left, adjusted_drag_top),
                 });
             }
         }
@@ -370,11 +376,7 @@ impl WindowWrapper {
         REDRAW_SCHEDULER.queue_next_frame();
     }
 
-    pub fn draw_frame(&mut self) -> bool {
-        if !BRIDGE.running.load(Ordering::Relaxed) {
-            return false;
-        }
-
+    pub fn draw_frame(&mut self, dt: f32) -> VkResult<bool> {
         let sdl_window_wrapper = Sdl2Window::new(&self.window);
         let new_size = sdl_window_wrapper.logical_size();
         if self.previous_size != new_size {
@@ -388,23 +390,17 @@ impl WindowWrapper {
 
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
             let renderer = &mut self.renderer;
-            let error = self
-                .skulpin_renderer
+            self.skulpin_renderer
                 .draw(&sdl_window_wrapper, |canvas, coordinate_system_helper| {
-                    let dt = 1.0 / (SETTINGS.get::<WindowSettings>().refresh_rate as f32);
-
                     if renderer.draw(canvas, &coordinate_system_helper, dt) {
                         handle_new_grid_size(current_size, &renderer)
                     }
-                })
-                .is_err();
-            if error {
-                error!("Render failed. Closing");
-                return false;
-            }
-        }
+                })?;
 
-        true
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 }
 
@@ -443,7 +439,13 @@ pub fn ui_loop() {
         .event_pump()
         .expect("Could not create sdl event pump");
 
+    let mut was_animating = false;
+    let mut previous_frame_start = Instant::now();
     loop {
+        if !BRIDGE.running.load(Ordering::Relaxed) {
+            break;
+        }
+
         let frame_start = Instant::now();
 
         window.synchronize_settings();
@@ -489,16 +491,30 @@ pub fn ui_loop() {
             window.handle_keyboard_input(keycode, keytext);
         }
 
-        if !window.draw_frame() {
-            break;
+        let refresh_rate = { SETTINGS.get::<WindowSettings>().refresh_rate as f32 };
+        let dt = if was_animating {
+            previous_frame_start.elapsed().as_secs_f32()
+        } else {
+            1.0 / refresh_rate
+        };
+
+        match window.draw_frame(dt) {
+            Ok(animating) => {
+                was_animating = animating;
+            },
+            Err(error) => {
+                error!("Render failed: {}", error);
+                break;
+            }
         }
 
         let elapsed = frame_start.elapsed();
-        let refresh_rate = { SETTINGS.get::<WindowSettings>().refresh_rate as f32 };
-        let frame_length = Duration::from_secs_f32(1.0 / refresh_rate);
+        let expected_frame_length = Duration::from_secs_f32(1.0 / refresh_rate);
 
-        if elapsed < frame_length {
-            sleep(frame_length - elapsed);
+        previous_frame_start = frame_start;
+
+        if elapsed < expected_frame_length {
+            sleep(expected_frame_length - elapsed);
         }
     }
 

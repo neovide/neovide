@@ -52,6 +52,7 @@ fn main() {
 
     window::initialize_settings();
     redraw_scheduler::initialize_settings();
+    renderer::initialize_settings();
     renderer::cursor_renderer::initialize_settings();
     bridge::layouts::initialize_settings();
 
