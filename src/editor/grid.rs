@@ -245,19 +245,4 @@ mod tests {
         assert_eq!(character_grid.height, height);
         assert_eq!(character_grid.characters, vec![None; new_area]);
     }
-
-    #[test]
-    fn test_rows() {
-        let context = Context::new();
-        let character_grid = CharacterGrid::new(context.size);
-        let mut end = 0;
-
-        // RUN FUNCTION
-        for (row_index, row) in character_grid.rows().enumerate() {
-            assert_eq!(row.len(), context.size.0 as usize);
-            end = row_index;
-        }
-
-        assert_eq!(end, (context.size.1 - 1) as usize);
-    }
 }
