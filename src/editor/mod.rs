@@ -31,6 +31,7 @@ pub struct WindowRenderInfo {
     pub grid_position: (f64, f64),
     pub width: u64,
     pub height: u64,
+    pub floating: bool,
     pub draw_commands: Vec<DrawCommand>
 }
 
@@ -242,16 +243,19 @@ impl Editor {
     }
 
     fn set_message_position(&mut self, grid: u64, row: u64) {
+        let parent_width = self.windows.get(&1).map(|parent| parent.grid.width).unwrap_or(1);
+
         if let Some(window) = self.windows.get_mut(&grid) {
             window.hidden = false;
             window.anchor_grid_id = Some(1);
             window.anchor_type = WindowAnchor::NorthWest;
             window.anchor_row = row as f64;
             window.anchor_column = 0.0;
-        } else if let Some(parent) = self.windows.get(&1) {
+            window.resize(parent_width, window.grid.height);
+        } else {
             let new_window = Window::new(
                 grid,
-                parent.grid.width,
+                parent_width,
                 1,
                 None,
                 WindowAnchor::NorthWest,
@@ -337,6 +341,7 @@ impl Editor {
             grid_position,
             width,
             height,
+            floating: window.anchor_grid_id.is_some(),
             draw_commands
         })
     }

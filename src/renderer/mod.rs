@@ -4,9 +4,11 @@ use std::sync::Arc;
 use log::trace;
 use skulpin::skia_safe::gpu::SurfaceOrigin;
 use skulpin::skia_safe::{
-    colors, dash_path_effect, Budgeted, Canvas, ImageInfo, Paint, Rect, Surface, Point
+    colors, dash_path_effect, Budgeted, Canvas, ImageInfo, Paint, Rect, Surface, Point, BlendMode, image_filters::blur
 };
-use skulpin::skia_safe::canvas::SrcRectConstraint;
+use skulpin::skia_safe::canvas::{
+    SrcRectConstraint, SaveLayerRec
+};
 use skulpin::CoordinateSystemHelper;
 
 mod caching_shaper;
@@ -155,12 +157,20 @@ impl Renderer {
         cell_width: u64,
         style: &Option<Arc<Style>>,
         default_style: &Arc<Style>,
+        floating: bool
     ) {
+        self.paint.set_blend_mode(BlendMode::Src);
+
         let region = self.compute_text_region(grid_pos, cell_width);
         let style = style.as_ref().unwrap_or(default_style);
 
-        self.paint
-            .set_color(style.background(&default_style.colors).to_color());
+        let mut color = style.background(&default_style.colors);
+
+        if floating {
+            color.a = 0.8;
+        }
+
+        self.paint.set_color(color.to_color());
         canvas.draw_rect(region, &self.paint);
     }
 
@@ -290,12 +300,14 @@ impl Renderer {
                     text, cell_width, grid_position, style
                 } => {
                     let mut canvas = rendered_window.surface.canvas();
+
                     self.draw_background(
                         &mut canvas,
                         grid_position,
                         cell_width,
                         &style,
                         &default_style,
+                        window_render_info.floating
                     );
                     self.draw_foreground(
                         &mut canvas,
@@ -343,13 +355,23 @@ impl Renderer {
             REDRAW_SCHEDULER.queue_next_frame();
         }
 
-        root_canvas.save_layer(&Default::default());
+        root_canvas.save();
+        // let region = Rect::new(5.0, 5.0, 500.0, 500.0);
+        // root_canvas.clip_rect(&region, None, Some(false));
+
+        // let blur = blur((5.0, 5.0), None, None, None).unwrap();
+        // let save_layer_rec = SaveLayerRec::default()
+        //     .backdrop(&blur)
+        //     .bounds(&region);
+
+        // root_canvas.save_layer(&save_layer_rec);
 
         rendered_window.surface.draw(
             root_canvas.as_mut(),
             (rendered_window.current_position.x, rendered_window.current_position.y), 
             None);
 
+        // root_canvas.restore();
         root_canvas.restore();
 
         let window_position = rendered_window.current_position.clone();
