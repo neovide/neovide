@@ -1,7 +1,8 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
+use std::mem::swap;
 
-use log::trace;
+use log::{trace, warn};
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::grid::CharacterGrid;
@@ -9,11 +10,23 @@ use super::style::Style;
 use crate::bridge::{GridLineCell, WindowAnchor};
 
 #[derive(new, Debug, Clone)]
-pub struct DrawCommand {
-    pub text: String,
-    pub cell_width: u64,
-    pub grid_position: (u64, u64),
-    pub style: Option<Arc<Style>>,
+pub enum DrawCommand {
+    Cell {
+        text: String,
+        cell_width: u64,
+        grid_position: (u64, u64),
+        style: Option<Arc<Style>>,
+    },
+    Scroll {
+        top: u64,
+        bot: u64,
+        left: u64,
+        right: u64,
+        rows: i64,
+        cols: i64,
+    },
+    Resize,
+    Clear
 }
 
 pub struct Window {
@@ -24,7 +37,7 @@ pub struct Window {
     pub anchor_type: WindowAnchor,
     pub anchor_row: f64,
     pub anchor_column: f64,
-    pub children: HashSet<u64>,
+    pub queued_draw_commands: Vec<DrawCommand>
 }
 
 impl Window {
@@ -45,12 +58,18 @@ impl Window {
             anchor_column,
             grid: CharacterGrid::new((width, height)),
             hidden: false,
-            children: HashSet::new(),
+            queued_draw_commands: Vec::new()
         }
     }
 
     pub fn resize(&mut self, width: u64, height: u64) {
         self.grid.resize(width, height);
+        self.queued_draw_commands.push(DrawCommand::Resize)
+    }
+
+    pub fn clear(&mut self) {
+        self.grid.clear();
+        self.queued_draw_commands.push(DrawCommand::Clear);
     }
 
     fn draw_grid_line_cell(
@@ -73,22 +92,60 @@ impl Window {
             text = text.repeat(times as usize);
         }
 
+        let mut draw_command_start_index = column_pos.clone();
         if text.is_empty() {
             if let Some(cell) = self.grid.get_cell_mut(*column_pos, row_index) {
                 *cell = Some(("".to_string(), style.clone()));
             }
-
-            self.grid.set_dirty_cell(*column_pos, row_index);
             *column_pos += 1;
         } else {
             for (i, character) in text.graphemes(true).enumerate() {
                 if let Some(cell) = self.grid.get_cell_mut(i as u64 + *column_pos, row_index) {
                     *cell = Some((character.to_string(), style.clone()));
-                    self.grid.set_dirty_cell(*column_pos, row_index);
                 }
             }
             *column_pos += text.graphemes(true).count() as u64;
         }
+
+        let row = self.grid.row(row_index).unwrap();
+        loop {
+            if draw_command_start_index > 0 {
+                if let Some((_, previous_style)) = &row[draw_command_start_index as usize - 1] {
+                    if &style == previous_style {
+                        draw_command_start_index = draw_command_start_index - 1;
+                        continue;
+                    }
+                }
+            }
+            break;
+        }
+
+
+        let mut draw_command_end_index = column_pos.clone() - 1;
+        loop {
+            if draw_command_end_index < self.grid.width - 1 {
+                if let Some((_, next_style)) = &row[draw_command_end_index as usize] {
+                    if &style == next_style {
+                        draw_command_end_index = draw_command_end_index + 1;
+                        continue;
+                    }
+                }
+            }
+            break;
+        }
+
+        let mut text = String::new();
+        for x in draw_command_start_index..draw_command_end_index {
+            let (character, _) = row[x as usize].as_ref().unwrap();
+            text.push_str(character);
+        }
+
+        self.queued_draw_commands.push(DrawCommand::Cell {
+            text,
+            cell_width: draw_command_end_index - draw_command_start_index,
+            grid_position: (draw_command_start_index, row_index),
+            style: style.clone()
+        });
 
         *previous_style = style;
     }
@@ -113,7 +170,7 @@ impl Window {
                 );
             }
         } else {
-            println!("Draw command out of bounds");
+            warn!("Draw command out of bounds");
         }
     }
 
@@ -150,114 +207,23 @@ impl Window {
                             self.grid.get_cell_mut(dest_x as u64, dest_y as u64)
                         {
                             *dest_cell = cell_data;
-                            self.grid.set_dirty_cell(dest_x as u64, dest_y as u64);
                         }
                     }
                 }
             }
         }
-        trace!("Region scrolled");
+
+        self.queued_draw_commands.push(DrawCommand::Scroll {
+            top, bot, left, right, rows, cols
+        });
     }
 
-    pub fn build_draw_commands(&mut self) -> (Vec<DrawCommand>, bool) {
+    pub fn build_draw_commands(&mut self) -> Vec<DrawCommand> {
+
         let mut draw_commands = Vec::new();
-
-        for (row_index, row) in self.grid.rows().enumerate() {
-            let mut command = None;
-
-            fn add_command(commands_list: &mut Vec<DrawCommand>, command: Option<DrawCommand>) {
-                if let Some(command) = command {
-                    commands_list.push(command);
-                }
-            }
-
-            fn command_matches(command: &Option<DrawCommand>, style: &Option<Arc<Style>>) -> bool {
-                match command {
-                    Some(command) => &command.style == style,
-                    None => true,
-                }
-            }
-
-            fn add_character(
-                command: &mut Option<DrawCommand>,
-                character: &str,
-                row_index: u64,
-                col_index: u64,
-                style: Option<Arc<Style>>,
-            ) {
-                match command {
-                    Some(command) => {
-                        command.text.push_str(character);
-                        command.cell_width += 1;
-                    }
-                    None => {
-                        command.replace(DrawCommand::new(
-                            character.to_string(),
-                            1,
-                            (col_index, row_index),
-                            style,
-                        ));
-                    }
-                }
-            }
-
-            for (col_index, cell) in row.iter().enumerate() {
-                if let Some((character, style)) = cell {
-                    if character.is_empty() {
-                        add_character(
-                            &mut command,
-                            &" ",
-                            row_index as u64,
-                            col_index as u64,
-                            style.clone(),
-                        );
-                        add_command(&mut draw_commands, command);
-                        command = None;
-                    } else {
-                        if !command_matches(&command, &style) {
-                            add_command(&mut draw_commands, command);
-                            command = None;
-                        }
-                        add_character(
-                            &mut command,
-                            &character,
-                            row_index as u64,
-                            col_index as u64,
-                            style.clone(),
-                        );
-                    }
-                } else {
-                    if !command_matches(&command, &None) {
-                        add_command(&mut draw_commands, command);
-                        command = None;
-                    }
-                    add_character(&mut command, " ", row_index as u64, col_index as u64, None);
-                }
-            }
-            add_command(&mut draw_commands, command);
-        }
-
-        let should_clear = self.grid.should_clear;
-        let draw_commands = draw_commands
-            .into_iter()
-            .filter(|command| {
-                let (x, y) = command.grid_position;
-                let min = (x as i64 - 1).max(0) as u64;
-                let max = (x + command.cell_width + 1).min(self.grid.width);
-
-                for char_index in min..max {
-                    if self.grid.is_dirty_cell(char_index, y) {
-                        return true;
-                    }
-                }
-                false
-            })
-            .collect::<Vec<DrawCommand>>();
-
-        self.grid.set_dirty_all(false);
-        self.grid.should_clear = false;
+        swap(&mut self.queued_draw_commands, &mut draw_commands);
 
         trace!("Draw commands sent");
-        (draw_commands, should_clear)
+        draw_commands
     }
 }

@@ -4,8 +4,9 @@ use std::sync::Arc;
 use log::trace;
 use skulpin::skia_safe::gpu::SurfaceOrigin;
 use skulpin::skia_safe::{
-    colors, dash_path_effect, Budgeted, Canvas, ImageInfo, Paint, Rect, Surface, Point, Color, image_filters::*
+    colors, dash_path_effect, Budgeted, Canvas, ImageInfo, Paint, Rect, Surface, Point
 };
+use skulpin::skia_safe::canvas::SrcRectConstraint;
 use skulpin::CoordinateSystemHelper;
 
 mod caching_shaper;
@@ -17,7 +18,7 @@ pub use caching_shaper::CachingShaper;
 pub use font_options::*;
 use animation_utils::*;
 
-use crate::editor::{Style, WindowRenderInfo, EDITOR};
+use crate::editor::{Style, WindowRenderInfo, EDITOR, DrawCommand};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::settings::*;
 use cursor_renderer::CursorRenderer;
@@ -266,7 +267,7 @@ impl Renderer {
         &mut self,
         settings: &RendererSettings,
         root_canvas: &mut Canvas,
-        window_render_info: &WindowRenderInfo,
+        window_render_info: WindowRenderInfo,
         default_style: &Arc<Style>,
         dt: f32
     ) -> (u64, Rect) {
@@ -276,45 +277,70 @@ impl Renderer {
         let image_width = (window_render_info.width as f32 * self.font_width) as i32;
         let image_height = (window_render_info.height as f32 * self.font_height) as i32;
 
-        let mut rendered_window = if window_render_info.should_clear {
-            None
-        } else {
-            self.rendered_windows.remove(&window_render_info.grid_id)
+        let mut rendered_window = self.rendered_windows
+            .remove(&window_render_info.grid_id)
+            .unwrap_or_else(|| {
+                let surface = self.build_window_surface(root_canvas, &default_style, (image_width, image_height));
+                RenderedWindow::new(surface, window_destination)
+            });
+
+        for command in window_render_info.draw_commands.into_iter() {
+            match command {
+                DrawCommand::Cell {
+                    text, cell_width, grid_position, style
+                } => {
+                    let mut canvas = rendered_window.surface.canvas();
+                    self.draw_background(
+                        &mut canvas,
+                        grid_position,
+                        cell_width,
+                        &style,
+                        &default_style,
+                    );
+                    self.draw_foreground(
+                        &mut canvas,
+                        &text,
+                        grid_position,
+                        cell_width,
+                        &style,
+                        &default_style,
+                    );
+                },
+                DrawCommand::Scroll {
+                    top, bot, left, right, rows, cols
+                } => {
+                    let scrolled_region = Rect::new(
+                        left as f32 * self.font_width,
+                        top as f32 * self.font_height,
+                        right as f32 * self.font_width,
+                        bot as f32 * self.font_height);
+
+                    let snapshot = rendered_window.surface.image_snapshot();
+                    let canvas = rendered_window.surface.canvas();
+
+                    canvas.save();
+                    canvas.clip_rect(scrolled_region, None, Some(false));
+
+                    let mut translated_region = scrolled_region.clone();
+                    translated_region.offset((-cols as f32 * self.font_width, -rows as f32 * self.font_height));
+
+                    canvas.draw_image_rect(snapshot, Some((&scrolled_region, SrcRectConstraint::Fast)), translated_region, &self.paint);
+
+                    canvas.restore();
+                },
+                DrawCommand::Resize => {
+                    let mut old_surface = rendered_window.surface;
+                    rendered_window.surface = self.build_window_surface(root_canvas, &default_style, (image_width, image_height));
+                    old_surface.draw(rendered_window.surface.canvas(), (0.0, 0.0), None);
+                },
+                DrawCommand::Clear => {
+                    rendered_window.surface = self.build_window_surface(root_canvas, &default_style, (image_width, image_height));
+                }
+            }
         }
-        .unwrap_or_else(|| {
-            let surface = self.build_window_surface(root_canvas, &default_style, (image_width, image_height));
-            RenderedWindow::new(surface, window_destination)
-        });
 
-        if rendered_window.surface.width() != image_width || rendered_window.surface.height() != image_height {
-            let mut old_surface = rendered_window.surface;
-            rendered_window.surface = self.build_window_surface(root_canvas, &default_style, (image_width, image_height));
-            old_surface.draw(rendered_window.surface.canvas(), (0.0, 0.0), None);
-        }
-
-        rendered_window.update(settings, window_destination, dt);
-
-        let mut canvas = rendered_window.surface.canvas();
-
-        for command in window_render_info.draw_commands.iter() {
-            self.draw_background(
-                &mut canvas,
-                command.grid_position,
-                command.cell_width,
-                &command.style,
-                &default_style,
-            );
-        }
-
-        for command in window_render_info.draw_commands.iter() {
-            self.draw_foreground(
-                &mut canvas,
-                &command.text,
-                command.grid_position,
-                command.cell_width,
-                &command.style,
-                &default_style,
-            );
+        if rendered_window.update(settings, window_destination, dt) {
+            REDRAW_SCHEDULER.queue_next_frame();
         }
 
         root_canvas.save_layer(&Default::default());
@@ -340,7 +366,6 @@ impl Renderer {
     ) -> bool {
         trace!("Rendering");
 
-        REDRAW_SCHEDULER.queue_next_frame();
         let settings = SETTINGS.get::<RendererSettings>();
 
         let (render_info, default_style, cursor, guifont_setting) = {
@@ -366,7 +391,7 @@ impl Renderer {
         coordinate_system_helper.use_logical_coordinates(gpu_canvas);
 
         self.window_regions = render_info.windows
-            .iter()
+            .into_iter()
             .map(|window_render_info| self.draw_window(&settings, gpu_canvas, window_render_info, &default_style, dt))
             .collect();
 

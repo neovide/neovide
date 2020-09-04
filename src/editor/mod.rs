@@ -31,7 +31,6 @@ pub struct WindowRenderInfo {
     pub grid_position: (f64, f64),
     pub width: u64,
     pub height: u64,
-    pub should_clear: bool,
     pub draw_commands: Vec<DrawCommand>
 }
 
@@ -143,7 +142,7 @@ impl Editor {
             RedrawEvent::Clear { grid } => {
                 self.windows
                     .get_mut(&grid)
-                    .map(|window| window.grid.clear());
+                    .map(|window| window.clear());
             }
             RedrawEvent::Destroy { grid } => self.close_window(grid),
             RedrawEvent::Scroll {
@@ -190,12 +189,6 @@ impl Editor {
     }
 
     fn close_window(&mut self, grid: u64) {
-        self.windows
-            .get(&grid)
-            .and_then(|window| window.anchor_grid_id)
-            .and_then(|parent_window_id| self.windows.get_mut(&parent_window_id))
-            .map(|parent_window| parent_window.children.remove(&grid));
-
         self.windows.remove(&grid);
         self.closed_window_ids.insert(grid);
     }
@@ -246,10 +239,6 @@ impl Editor {
         } else {
             error!("Attempted to float window that does not exist.");
         }
-
-        if let Some(anchor_window) = self.windows.get_mut(&anchor_grid) {
-            anchor_window.children.insert(grid);
-        }
     }
 
     fn set_message_position(&mut self, grid: u64, row: u64) {
@@ -270,10 +259,6 @@ impl Editor {
                 0.0,
             );
             self.windows.insert(grid, new_window);
-        }
-
-        if let Some(parent) = self.windows.get_mut(&1) {
-            parent.children.insert(grid);
         }
     }
 
@@ -339,20 +324,19 @@ impl Editor {
         }
     }
 
-    fn build_window_render_info(&mut self, grid: u64) -> Option<WindowRenderInfo> {
-        let grid_position = self.get_window_top_left(grid)?;
-        let window = self.windows.get_mut(&grid)?;
+    fn build_window_render_info(&mut self, grid_id: u64) -> Option<WindowRenderInfo> {
+        let grid_position = self.get_window_top_left(grid_id)?;
+        let window = self.windows.get_mut(&grid_id)?;
 
-        let (draw_commands, should_clear) = window.build_draw_commands();
+        let draw_commands = window.build_draw_commands();
         let width = window.grid.width;
         let height = window.grid.height;
 
         Some(WindowRenderInfo {
-            grid_id: grid,
+            grid_id,
             grid_position,
             width,
             height,
-            should_clear,
             draw_commands
         })
     }

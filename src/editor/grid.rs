@@ -1,4 +1,3 @@
-use log::trace;
 use std::sync::Arc;
 
 use super::style::Style;
@@ -8,9 +7,7 @@ pub type GridCell = Option<(String, Option<Arc<Style>>)>;
 pub struct CharacterGrid {
     pub width: u64,
     pub height: u64,
-    pub should_clear: bool,
 
-    dirty: Vec<bool>,
     characters: Vec<GridCell>,
 }
 
@@ -20,17 +17,13 @@ impl CharacterGrid {
         let cell_count = (width * height) as usize;
         CharacterGrid {
             characters: vec![None; cell_count],
-            dirty: vec![true; cell_count],
             width,
             height,
-            should_clear: false,
         }
     }
 
     pub fn resize(&mut self, width: u64, height: u64) {
-        trace!("Editor resized");
         let new_cell_count = (width * height) as usize;
-        let new_dirty = vec![false; new_cell_count];
         let default_cell: GridCell = None;
         let mut new_characters = vec![default_cell; new_cell_count];
 
@@ -44,15 +37,11 @@ impl CharacterGrid {
 
         self.width = width;
         self.height = height;
-        self.dirty = new_dirty;
         self.characters = new_characters;
     }
 
     pub fn clear(&mut self) {
-        trace!("Editor cleared");
         self.set_characters_all(None);
-        self.set_dirty_all(true);
-        self.should_clear = true;
     }
 
     fn cell_index(&self, x: u64, y: u64) -> Option<usize> {
@@ -72,26 +61,6 @@ impl CharacterGrid {
             .map(move |idx| &mut self.characters[idx])
     }
 
-    pub fn is_dirty_cell(&self, x: u64, y: u64) -> bool {
-        if let Some(idx) = self.cell_index(x, y) {
-            self.dirty[idx]
-        } else {
-            false
-        }
-    }
-
-    pub fn set_dirty_cell(&mut self, x: u64, y: u64) {
-        if let Some(idx) = self.cell_index(x, y) {
-            self.dirty[idx] = true;
-        }
-    }
-
-    pub fn set_dirty_all(&mut self, value: bool) {
-        self.dirty.clear();
-        self.dirty
-            .resize_with((self.width * self.height) as usize, || value);
-    }
-
     pub fn set_characters_all(&mut self, value: GridCell) {
         self.characters.clear();
         self.characters
@@ -100,10 +69,12 @@ impl CharacterGrid {
             });
     }
 
-    pub fn rows(&self) -> impl Iterator<Item = &[GridCell]> {
-        (0..self.height).map(move |row| {
-            &self.characters[(row * self.width) as usize..((row + 1) * self.width) as usize]
-        })
+    pub fn row(&self, row_index: u64) -> Option<&[GridCell]> {
+        if row_index < self.height {
+            Some(&self.characters[(row_index * self.width) as usize..((row_index + 1) * self.width) as usize])
+        } else {
+            None
+        }
     }
 }
 
@@ -156,9 +127,7 @@ mod tests {
         let character_grid = CharacterGrid::new(context.size);
         assert_eq!(character_grid.width, context.size.0);
         assert_eq!(character_grid.height, context.size.1);
-        assert_eq!(character_grid.should_clear, true);
         assert_eq!(character_grid.characters, vec![None; context.area]);
-        assert_eq!(character_grid.dirty, vec![true; context.area]);
     }
 
     #[test]
@@ -218,37 +187,6 @@ mod tests {
     }
 
     #[test]
-    fn test_is_dirty_cell() {
-        let context = Context::new();
-        let mut character_grid = CharacterGrid::new(context.size);
-        character_grid.dirty[context.index] = false;
-
-        // RUN FUNCTION
-        assert!(!character_grid.is_dirty_cell(context.x, context.y));
-    }
-
-    #[test]
-    fn test_set_dirty_cell() {
-        let context = Context::new();
-        let mut character_grid = CharacterGrid::new(context.size);
-        character_grid.dirty = vec![false; context.area];
-
-        // RUN FUNCTION
-        character_grid.set_dirty_cell(context.x, context.y);
-        assert!(character_grid.dirty[context.index]);
-    }
-
-    #[test]
-    fn test_set_dirty_all() {
-        let context = Context::new();
-        let mut character_grid = CharacterGrid::new(context.size);
-
-        // RUN FUNCTION
-        character_grid.set_dirty_all(false);
-        assert_eq!(character_grid.dirty, vec![false; context.area]);
-    }
-
-    #[test]
     fn test_set_characters_all() {
         let context = Context::new();
         let grid_cell = Some((
@@ -274,18 +212,14 @@ mod tests {
             "foo".to_string(),
             Some(Arc::new(Style::new(context.none_colors))),
         ));
-        character_grid.dirty = vec![false; context.area];
         character_grid.characters = vec![grid_cell.clone(); context.area];
-        character_grid.should_clear = false;
 
         // RUN FUNCTION
         character_grid.clear();
 
         assert_eq!(character_grid.width, context.size.0);
         assert_eq!(character_grid.height, context.size.1);
-        assert_eq!(character_grid.should_clear, true);
         assert_eq!(character_grid.characters, vec![None; context.area]);
-        assert_eq!(character_grid.dirty, vec![true; context.area]);
     }
 
     #[test]
@@ -302,18 +236,14 @@ mod tests {
             "foo".to_string(),
             Some(Arc::new(Style::new(context.none_colors))),
         ));
-        character_grid.dirty = vec![false; context.area];
         character_grid.characters = vec![grid_cell.clone(); context.area];
-        character_grid.should_clear = false;
 
         // RUN FUNCTION
         character_grid.resize(width, height);
 
         assert_eq!(character_grid.width, width);
         assert_eq!(character_grid.height, height);
-        assert_eq!(character_grid.should_clear, true);
         assert_eq!(character_grid.characters, vec![None; new_area]);
-        assert_eq!(character_grid.dirty, vec![true; new_area]);
     }
 
     #[test]
