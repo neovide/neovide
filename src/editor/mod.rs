@@ -114,11 +114,9 @@ impl Editor {
                 height,
             } => {
                 if let Some(window) = self.windows.get_mut(&grid) {
-                    window.grid.resize(width, height);
+                    window.resize(width, height);
                 } else {
-                    let new_window =
-                        Window::new(grid, width, height, None, WindowAnchor::NorthWest, 0.0, 0.0);
-                    self.windows.insert(grid, new_window);
+                    self.windows.insert(grid, Window::new(grid, width, height, None, WindowAnchor::NorthWest, 0.0, 0.0));
                 }
             }
             RedrawEvent::GridLine {

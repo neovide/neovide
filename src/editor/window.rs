@@ -92,7 +92,7 @@ impl Window {
             text = text.repeat(times as usize);
         }
 
-        let mut draw_command_start_index = column_pos.clone();
+        let cell_start_index = column_pos.clone();
         if text.is_empty() {
             if let Some(cell) = self.grid.get_cell_mut(*column_pos, row_index) {
                 *cell = Some(("".to_string(), style.clone()));
@@ -108,27 +108,26 @@ impl Window {
         }
 
         let row = self.grid.row(row_index).unwrap();
-        loop {
-            if draw_command_start_index > 0 {
-                if let Some((_, previous_style)) = &row[draw_command_start_index as usize - 1] {
-                    if &style == previous_style {
-                        draw_command_start_index = draw_command_start_index - 1;
-                        continue;
-                    }
+
+        let mut draw_command_start_index = cell_start_index;
+        for possible_start_index in (cell_start_index.checked_sub(3).unwrap_or(0)..cell_start_index).rev() {
+            if let Some((_, possible_start_style)) = &row[possible_start_index as usize] {
+                if &style == possible_start_style {
+                    draw_command_start_index = possible_start_index;
+                    continue;
                 }
             }
             break;
         }
 
 
-        let mut draw_command_end_index = column_pos.clone() - 1;
-        loop {
-            if draw_command_end_index < self.grid.width - 1 {
-                if let Some((_, next_style)) = &row[draw_command_end_index as usize] {
-                    if &style == next_style {
-                        draw_command_end_index = draw_command_end_index + 1;
-                        continue;
-                    }
+        let cell_end_index = column_pos.clone();
+        let mut draw_command_end_index = column_pos.clone();
+        for possible_end_index in cell_end_index..(cell_end_index + 3).min(self.grid.width - 1) {
+            if let Some((_, possible_end_style)) = &row[possible_end_index as usize] {
+                if &style == possible_end_style {
+                    draw_command_end_index = possible_end_index;
+                    continue;
                 }
             }
             break;
@@ -219,7 +218,6 @@ impl Window {
     }
 
     pub fn build_draw_commands(&mut self) -> Vec<DrawCommand> {
-
         let mut draw_commands = Vec::new();
         swap(&mut self.queued_draw_commands, &mut draw_commands);
 

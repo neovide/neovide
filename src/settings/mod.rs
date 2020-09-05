@@ -305,7 +305,9 @@ mod tests {
         let (nvim, _, _) = create::new_child_cmd(&mut create_nvim_command(), NeovimHandler())
             .await
             .unwrap_or_explained_panic("Could not locate or start the neovim process");
+
         nvim.set_var(&v4, Value::from(v2.clone())).await.ok();
+        println!("v4 set");
 
         fn noop_update(_v: Value) {}
 

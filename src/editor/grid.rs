@@ -243,6 +243,6 @@ mod tests {
 
         assert_eq!(character_grid.width, width);
         assert_eq!(character_grid.height, height);
-        assert_eq!(character_grid.characters, vec![None; new_area]);
+        assert_eq!(character_grid.characters, vec![grid_cell.clone(); new_area]);
     }
 }

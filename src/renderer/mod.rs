@@ -31,14 +31,20 @@ use cursor_renderer::CursorRenderer;
 #[derive(Clone)]
 pub struct RendererSettings {
     animation_length: f32,
+    floating_opacity: f32,
+    floating_blur: bool,
 }
 
 pub fn initialize_settings() {
     SETTINGS.set(&RendererSettings {
         animation_length: 0.15,
+        floating_opacity: 0.7,
+        floating_blur: true,
     });
 
     register_nvim_setting!("window_animation_length", RendererSettings::animation_length);
+    register_nvim_setting!("floating_window_opacity", RendererSettings::floating_opacity);
+    register_nvim_setting!("floating_window_blur", RendererSettings::floating_opacity);
 }
 
 // ----------------------------------------------------------------------------
@@ -157,7 +163,8 @@ impl Renderer {
         cell_width: u64,
         style: &Option<Arc<Style>>,
         default_style: &Arc<Style>,
-        floating: bool
+        floating: bool,
+        settings: &RendererSettings
     ) {
         self.paint.set_blend_mode(BlendMode::Src);
 
@@ -167,7 +174,7 @@ impl Renderer {
         let mut color = style.background(&default_style.colors);
 
         if floating {
-            color.a = 0.8;
+            color.a = color.a * settings.floating_opacity.min(1.0).max(0.0);
         }
 
         self.paint.set_color(color.to_color());
@@ -307,7 +314,8 @@ impl Renderer {
                         cell_width,
                         &style,
                         &default_style,
-                        window_render_info.floating
+                        window_render_info.floating,
+                        settings
                     );
                     self.draw_foreground(
                         &mut canvas,
@@ -356,22 +364,27 @@ impl Renderer {
         }
 
         root_canvas.save();
-        // let region = Rect::new(5.0, 5.0, 500.0, 500.0);
-        // root_canvas.clip_rect(&region, None, Some(false));
 
-        // let blur = blur((5.0, 5.0), None, None, None).unwrap();
-        // let save_layer_rec = SaveLayerRec::default()
-        //     .backdrop(&blur)
-        //     .bounds(&region);
+        let region = Rect::from_point_and_size(rendered_window.current_position, (image_width, image_height));
+        root_canvas.clip_rect(&region, None, Some(false));
+        if window_render_info.floating && settings.floating_blur {
+            let blur = blur((2.0, 2.0), None, None, None).unwrap();
+            let save_layer_rec = SaveLayerRec::default()
+                .backdrop(&blur)
+                .bounds(&region);
 
-        // root_canvas.save_layer(&save_layer_rec);
+            root_canvas.save_layer(&save_layer_rec);
+        }
 
         rendered_window.surface.draw(
             root_canvas.as_mut(),
             (rendered_window.current_position.x, rendered_window.current_position.y), 
             None);
 
-        // root_canvas.restore();
+        if window_render_info.floating {
+            root_canvas.restore();
+        }
+
         root_canvas.restore();
 
         let window_position = rendered_window.current_position.clone();

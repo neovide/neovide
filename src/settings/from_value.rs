@@ -70,7 +70,7 @@ impl FromValue for bool {
         } else if value.is_u64() {
             *self = value.as_u64().unwrap() != 0;
         } else {
-            error!("Setting expected a string, but received {:?}", value);
+            error!("Setting expected a bool or 0/1, but received {:?}", value);
         }
     }
 }
