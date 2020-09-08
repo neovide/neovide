@@ -7,6 +7,7 @@ use skulpin::sdl2;
 use skulpin::sdl2::event::{Event, WindowEvent};
 use skulpin::sdl2::keyboard::Keycode;
 use skulpin::sdl2::video::FullscreenType;
+use skulpin::sdl2::EventPump;
 use skulpin::sdl2::Sdl;
 use skulpin::{
     CoordinateSystem, LogicalSize, PhysicalSize, PresentMode, Renderer as SkulpinRenderer,
@@ -334,6 +335,68 @@ impl WindowWrapper {
         REDRAW_SCHEDULER.queue_next_frame();
     }
 
+    pub fn process_editor_events(&mut self, event_pump: &mut EventPump) {
+        let mut keyboard_inputs = Vec::new();
+        let mut keycode = None;
+        let mut keytext = None;
+        let mut ignore_text_this_frame = false;
+
+        for event in event_pump.poll_iter() {
+            match event {
+                Event::Quit { .. } => self.handle_quit(),
+                Event::DropFile { filename, .. } => {
+                    BRIDGE.queue_command(UiCommand::FileDrop(filename));
+                }
+                Event::KeyDown {
+                    keycode: received_keycode,
+                    ..
+                } => {
+                    // If keycode has a value, add it to the list as the new keycode supercedes
+                    // this one.
+                    if keycode.is_some() {
+                        keyboard_inputs.push((keycode, None));
+                    }
+
+                    keycode = received_keycode;
+                }
+                Event::TextInput { text, .. } => {
+                    // If keycode has a value, add it to the list as the new keycode supercedes
+                    // this one.
+                    if keytext.is_some() {
+                        keyboard_inputs.push((None, keytext));
+                    }
+
+                    keytext = Some(text);
+                }
+                Event::MouseMotion { x, y, .. } => self.handle_pointer_motion(x, y),
+                Event::MouseButtonDown { .. } => self.handle_pointer_down(),
+                Event::MouseButtonUp { .. } => self.handle_pointer_up(),
+                Event::MouseWheel { x, y, .. } => self.handle_mouse_wheel(x, y),
+                Event::Window {
+                    win_event: WindowEvent::FocusLost,
+                    ..
+                } => self.handle_focus_lost(),
+                Event::Window {
+                    win_event: WindowEvent::FocusGained,
+                    ..
+                } => {
+                    ignore_text_this_frame = true; // Ignore any text events on the first frame when focus is regained. https://github.com/Kethku/neovide/issues/193
+                    self.handle_focus_gained();
+                }
+                Event::Window { .. } => REDRAW_SCHEDULER.queue_next_frame(),
+                _ => {}
+            }
+        }
+
+        keyboard_inputs.push((keycode, keytext));
+
+        if !ignore_text_this_frame {
+            for (keycode, keytext) in keyboard_inputs.into_iter() {
+                self.handle_keyboard_input(keycode, keytext);
+            }
+        }
+    }
+
     pub fn draw_frame(&mut self) -> bool {
         if !BRIDGE.running.load(Ordering::Relaxed) {
             return false;
@@ -409,78 +472,9 @@ pub fn ui_loop() {
 
     loop {
         let frame_start = Instant::now();
-
         window.synchronize_settings();
 
-        let mut keyboard_inputs = Vec::new();
-
-        let mut keycode = None;
-        let mut keytext = None;
-        let mut ignore_text_this_frame = false;
-
-        for event in event_pump.poll_iter() {
-            match event {
-                Event::Quit { .. } => window.handle_quit(),
-                Event::DropFile { filename, .. } => {
-                    BRIDGE.queue_command(UiCommand::FileDrop(filename));
-                }
-                Event::KeyDown {
-                    keycode: received_keycode,
-                    ..
-                } => {
-                    // If keycode has a value, add it to the list as the new keycode supercedes
-                    // this one.
-                    if keycode.is_some() {
-                        keyboard_inputs.push((keycode, None));
-                    }
-
-                    keycode = received_keycode;
-                }
-                Event::TextInput { text, .. } => {
-                    // If keycode has a value, add it to the list as the new keycode supercedes
-                    // this one.
-                    if keytext.is_some() {
-                        keyboard_inputs.push((None, keytext));
-                    }
-
-                    keytext = Some(text);
-                }
-                Event::MouseMotion { x, y, .. } => window.handle_pointer_motion(x, y),
-                Event::MouseButtonDown { .. } => window.handle_pointer_down(),
-                Event::MouseButtonUp { .. } => window.handle_pointer_up(),
-                Event::MouseWheel { x, y, .. } => window.handle_mouse_wheel(x, y),
-                Event::Window {
-                    win_event: WindowEvent::FocusLost,
-                    ..
-                } => window.handle_focus_lost(),
-                Event::Window {
-                    win_event: WindowEvent::FocusGained,
-                    ..
-                } => {
-                    ignore_text_this_frame = true; // Ignore any text events on the first frame when focus is regained. https://github.com/Kethku/neovide/issues/193
-                    window.handle_focus_gained();
-                }
-                Event::Window { .. } => REDRAW_SCHEDULER.queue_next_frame(),
-                _ => {}
-            }
-
-            // If both keycode and keytext have values, then add them to the list and reset the
-            // variables.
-            if keycode.is_some() && keytext.is_some() {
-                keyboard_inputs.push((keycode, keytext));
-                keycode = None;
-                keytext = None;
-            }
-        }
-
-        keyboard_inputs.push((keycode, keytext));
-
-        if !ignore_text_this_frame {
-            for (keycode, keytext) in keyboard_inputs.into_iter() {
-                window.handle_keyboard_input(keycode, keytext);
-            }
-        }
-
+        window.process_editor_events(&mut event_pump);
         if !window.draw_frame() {
             break;
         }
