@@ -123,7 +123,7 @@ impl WindowWrapper {
         windows_fix_dpi();
         sdl2::hint::set("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
 
-        let sdl_window = video_subsystem
+        let mut sdl_window = video_subsystem
             .window("Neovide", logical_size.width, logical_size.height)
             .position_centered()
             .allow_highdpi()
@@ -132,6 +132,10 @@ impl WindowWrapper {
             .build()
             .expect("Failed to create window");
         info!("window created");
+
+        if std::env::args().any(|arg| arg == "--maximized") {
+            sdl_window.maximize();
+        }
 
         let skulpin_renderer = {
             let sdl_window_wrapper = Sdl2Window::new(&sdl_window);
