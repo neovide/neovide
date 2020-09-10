@@ -175,6 +175,7 @@ impl Renderer {
             self.surface = None;
         }
 
+        #[allow(deprecated)]
         let mut surface = self.surface.take().unwrap_or_else(|| {
             let mut context = gpu_canvas.gpu_context().unwrap();
             let budgeted = Budgeted::YES;
