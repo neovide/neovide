@@ -72,7 +72,7 @@ impl Settings {
                     log_to_file = true;
                     false
                 } else {
-                    !(arg.starts_with("--geometry=") || arg == "--wsl")
+                    !(arg.starts_with("--geometry=") || arg == "--wsl" || arg == "--maximized")
                 }
             })
             .collect::<Vec<String>>();
