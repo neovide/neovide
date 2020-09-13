@@ -3,12 +3,12 @@ mod grid;
 mod style;
 mod window;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::mpsc::{Sender, Receiver};
+use std::thread;
 
 use log::{error, trace};
-use parking_lot::Mutex;
-use skulpin::skia_safe::colors;
 
 use crate::bridge::{EditorMode, GuiOption, RedrawEvent, WindowAnchor};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
@@ -17,107 +17,121 @@ pub use grid::CharacterGrid;
 pub use style::{Colors, Style};
 pub use window::*;
 
-lazy_static! {
-    pub static ref EDITOR: Arc<Mutex<Editor>> = Arc::new(Mutex::new(Editor::new()));
+pub struct AnchorInfo {
+    pub anchor_grid_id: u64,
+    pub anchor_type: WindowAnchor,
+    pub anchor_left: f64,
+    pub anchor_top: f64,
 }
 
-pub struct RenderInfo {
-    pub windows: Vec<WindowRenderInfo>,
-    pub closed_window_ids: Vec<u64>,
+impl WindowAnchor {
+    fn modified_top_left(&self, grid_left: f64, grid_top: f64, width: u64, height: u64) -> (f64, f64) {
+        match self {
+            WindowAnchor::NorthWest => (
+                grid_left,
+                grid_top,
+            ),
+            WindowAnchor::NorthEast => (
+                grid_left - width as f64,
+                grid_top,
+            ),
+            WindowAnchor::SouthWest => (
+                grid_left,
+                grid_top - height as f64,
+            ),
+            WindowAnchor::SouthEast => (
+                grid_left - width as f64,
+                grid_top - height as f64,
+            ),
+        }
+    }
 }
 
-pub struct WindowRenderInfo {
-    pub grid_id: u64,
-    pub grid_position: (f64, f64),
-    pub width: u64,
-    pub height: u64,
-    pub floating: bool,
-    pub draw_commands: Vec<DrawCommand>
+pub enum DrawCommand {
+    CloseWindow(u64),
+    Window {
+        grid_id: u64,
+        command: WindowDrawCommand
+    },
+    UpdateCursor(Cursor),
+    FontChanged(String),
+    DefaultStyleChanged(Style),
+    TitleChanged(String),
+    SetMouseEnabled(bool),
 }
 
 pub struct Editor {
-    pub title: String,
     pub windows: HashMap<u64, Window>,
-    pub closed_window_ids: HashSet<u64>,
-    pub mouse_enabled: bool,
-    pub guifont: Option<String>,
     pub cursor: Cursor,
-    pub default_style: Arc<Style>,
     pub defined_styles: HashMap<u64, Arc<Style>>,
     pub previous_style: Option<Arc<Style>>,
     pub mode_list: Vec<CursorMode>,
     pub current_mode: EditorMode,
+    pub draw_command_sender: Sender<DrawCommand>
 }
 
 impl Editor {
-    pub fn new() -> Editor {
+    pub fn new(draw_command_sender: Sender<DrawCommand>) -> Editor {
         Editor {
-            title: "Neovide".to_string(),
             windows: HashMap::new(),
-            closed_window_ids: HashSet::new(),
-            mouse_enabled: true,
-            guifont: None,
             cursor: Cursor::new(),
-            default_style: Arc::new(Style::new(Colors::new(
-                Some(colors::WHITE),
-                Some(colors::BLACK),
-                Some(colors::GREY),
-            ))),
             defined_styles: HashMap::new(),
             previous_style: None,
             mode_list: Vec::new(),
             current_mode: EditorMode::Unknown(String::from("")),
+            draw_command_sender
         }
     }
 
     pub fn handle_redraw_event(&mut self, event: RedrawEvent) {
         match event {
-            RedrawEvent::SetTitle { title } => self.title = title,
+            RedrawEvent::SetTitle { title } => {
+                self.draw_command_sender.send(DrawCommand::TitleChanged(title)).ok();
+            },
             RedrawEvent::ModeInfoSet { cursor_modes } => self.mode_list = cursor_modes,
             RedrawEvent::OptionSet { gui_option } => self.set_option(gui_option),
             RedrawEvent::ModeChange { mode, mode_index } => {
                 if let Some(cursor_mode) = self.mode_list.get(mode_index as usize) {
                     self.cursor.change_mode(cursor_mode, &self.defined_styles);
-                    self.current_mode = mode
+                    self.current_mode = mode;
+                    self.draw_command_sender.send(DrawCommand::UpdateCursor(self.cursor.clone())).ok();
                 }
             }
             RedrawEvent::MouseOn => {
-                self.mouse_enabled = true;
+                self.draw_command_sender.send(DrawCommand::SetMouseEnabled(true)).ok();
             }
             RedrawEvent::MouseOff => {
-                self.mouse_enabled = false;
+                self.draw_command_sender.send(DrawCommand::SetMouseEnabled(false)).ok();
             }
             RedrawEvent::BusyStart => {
                 trace!("Cursor off");
                 self.cursor.enabled = false;
+                self.draw_command_sender.send(DrawCommand::UpdateCursor(self.cursor.clone())).ok();
             }
             RedrawEvent::BusyStop => {
                 trace!("Cursor on");
                 self.cursor.enabled = true;
+                self.draw_command_sender.send(DrawCommand::UpdateCursor(self.cursor.clone())).ok();
             }
             RedrawEvent::Flush => {
                 trace!("Image flushed");
                 REDRAW_SCHEDULER.queue_next_frame();
             }
             RedrawEvent::DefaultColorsSet { colors } => {
-                self.default_style = Arc::new(Style::new(colors))
+                self.draw_command_sender.send(DrawCommand::DefaultStyleChanged(Style::new(colors))).ok();
             }
             RedrawEvent::HighlightAttributesDefine { id, style } => {
                 self.defined_styles.insert(id, Arc::new(style));
             }
-            RedrawEvent::CursorGoto { grid, row, column } => {
-                self.set_cursor_position(grid, row, column)
+            RedrawEvent::CursorGoto { grid, column: left, row: top } => {
+                self.set_cursor_position(grid, left, top)
             }
             RedrawEvent::Resize {
                 grid,
                 width,
                 height,
             } => {
-                if let Some(window) = self.windows.get_mut(&grid) {
-                    window.resize(width, height);
-                } else {
-                    self.windows.insert(grid, Window::new(grid, width, height, None, WindowAnchor::NorthWest, 0.0, 0.0));
-                }
+                self.resize_window(grid, width, height);
             }
             RedrawEvent::GridLine {
                 grid,
@@ -163,21 +177,21 @@ impl Editor {
                 start_column,
                 width,
                 height,
-            } => self.set_window_position(grid, start_row, start_column, width, height),
+            } => self.set_window_position(grid, start_column, start_row, width, height),
             RedrawEvent::WindowFloatPosition {
                 grid,
                 anchor,
                 anchor_grid,
-                anchor_row,
-                anchor_column,
+                anchor_column: anchor_left,
+                anchor_row: anchor_top,
                 ..
             } => {
-                self.set_window_float_position(grid, anchor_grid, anchor, anchor_row, anchor_column)
+                self.set_window_float_position(grid, anchor_grid, anchor, anchor_left, anchor_top)
             }
             RedrawEvent::WindowHide { grid } => {
                 self.windows
-                    .get_mut(&grid)
-                    .map(|window| window.hidden = true);
+                    .get(&grid)
+                    .map(|window| window.hide());
             }
             RedrawEvent::WindowClose { grid } => self.close_window(grid),
             RedrawEvent::MessageSetPosition { grid, row, .. } => {
@@ -188,34 +202,55 @@ impl Editor {
     }
 
     fn close_window(&mut self, grid: u64) {
-        self.windows.remove(&grid);
-        self.closed_window_ids.insert(grid);
+        if let Some(window) = self.windows.remove(&grid) {
+            window.close();
+            self.draw_command_sender.send(DrawCommand::CloseWindow(grid)).ok();
+        }
+    }
+
+    fn resize_window(&mut self, grid: u64, width: u64, height: u64) {
+        println!("editor resize {}", grid);
+        if let Some(window) = self.windows.get_mut(&grid) {
+            window.resize(width, height);
+        } else {
+            let window = Window::new(
+                grid, 
+                width, 
+                height, 
+                None, 
+                0.0, 
+                0.0, 
+                self.draw_command_sender.clone());
+            self.windows.insert(grid, window);
+        }
     }
 
     fn set_window_position(
         &mut self,
         grid: u64,
-        start_row: u64,
-        start_column: u64,
+        start_left: u64,
+        start_top: u64,
         width: u64,
         height: u64,
     ) {
+        println!("position {}", grid);
         if let Some(window) = self.windows.get_mut(&grid) {
-            window.hidden = false;
-            window.anchor_grid_id = None;
-            window.anchor_type = WindowAnchor::NorthWest;
-            window.anchor_row = start_row as f64;
-            window.anchor_column = start_column as f64;
-            window.resize(width, height);
+            window.position(
+                width,
+                height,
+                None,
+                start_left as f64,
+                start_top as f64);
+            window.show();
         } else {
             let new_window = Window::new(
                 grid,
                 width,
                 height,
                 None,
-                WindowAnchor::NorthWest,
-                start_row as f64,
-                start_column as f64,
+                start_left as f64,
+                start_top as f64,
+                self.draw_command_sender.clone()
             );
             self.windows.insert(grid, new_window);
         }
@@ -226,39 +261,56 @@ impl Editor {
         grid: u64,
         anchor_grid: u64,
         anchor_type: WindowAnchor,
-        anchor_row: f64,
-        anchor_column: f64,
+        anchor_left: f64,
+        anchor_top: f64,
     ) {
+        println!("floating position {}", grid);
+        let parent_position = self.get_window_top_left(anchor_grid);
         if let Some(window) = self.windows.get_mut(&grid) {
-            window.hidden = false;
-            window.anchor_grid_id = Some(anchor_grid);
-            window.anchor_type = anchor_type;
-            window.anchor_row = anchor_row;
-            window.anchor_column = anchor_column;
+            let width = window.get_width();
+            let height = window.get_height();
+            let (mut modified_left, mut modified_top) = anchor_type.modified_top_left(
+                anchor_left, anchor_top,
+                width, height);
+
+            if let Some((parent_left, parent_top)) = parent_position {
+                modified_left = parent_left + modified_left;
+                modified_top = parent_top + modified_top;
+            }
+
+            window.position(
+                width, height,
+                Some(AnchorInfo {
+                    anchor_grid_id: anchor_grid, 
+                    anchor_type, anchor_left, anchor_top
+                }),
+                modified_left, modified_top);
+            window.show();
         } else {
             error!("Attempted to float window that does not exist.");
         }
     }
 
-    fn set_message_position(&mut self, grid: u64, row: u64) {
-        let parent_width = self.windows.get(&1).map(|parent| parent.grid.width).unwrap_or(1);
+    fn set_message_position(&mut self, grid: u64, grid_top: u64) {
+        println!("message position {}", grid);
+        let parent_width = self.windows.get(&1).map(|parent| parent.get_width()).unwrap_or(1);
 
         if let Some(window) = self.windows.get_mut(&grid) {
-            window.hidden = false;
-            window.anchor_grid_id = Some(1);
-            window.anchor_type = WindowAnchor::NorthWest;
-            window.anchor_row = row as f64;
-            window.anchor_column = 0.0;
-            window.resize(parent_width, window.grid.height);
+            window.position(
+                parent_width, window.get_height(),
+                None,
+                0.0,
+                grid_top as f64);
+            window.show();
         } else {
             let new_window = Window::new(
                 grid,
                 parent_width,
                 1,
                 None,
-                WindowAnchor::NorthWest,
-                row as f64,
                 0.0,
+                grid_top as f64,
+                self.draw_command_sender.clone()
             );
             self.windows.insert(grid, new_window);
         }
@@ -266,111 +318,61 @@ impl Editor {
 
     fn get_window_top_left(&self, grid: u64) -> Option<(f64, f64)> {
         let window = self.windows.get(&grid)?;
+        let window_anchor_info = &window.anchor_info;
 
-        match window.anchor_grid_id {
-            Some(anchor_grid) => {
-                let (parent_anchor_column, parent_anchor_row) =
-                    self.get_window_top_left(anchor_grid)?;
-                match window.anchor_type {
-                    WindowAnchor::NorthWest => Some((
-                        parent_anchor_column + window.anchor_column,
-                        parent_anchor_row + window.anchor_row,
-                    )),
-                    WindowAnchor::NorthEast => Some((
-                        parent_anchor_column + window.anchor_column - window.grid.width as f64,
-                        parent_anchor_row + window.anchor_row,
-                    )),
-                    WindowAnchor::SouthWest => Some((
-                        parent_anchor_column + window.anchor_column,
-                        parent_anchor_row + window.anchor_row - window.grid.height as f64,
-                    )),
-                    WindowAnchor::SouthEast => Some((
-                        parent_anchor_column + window.anchor_column - window.grid.width as f64,
-                        parent_anchor_row + window.anchor_row - window.grid.height as f64,
-                    )),
-                }
+        match window_anchor_info {
+            Some(anchor_info) => {
+                let (parent_anchor_left, parent_anchor_top) =
+                    self.get_window_top_left(anchor_info.anchor_grid_id)?;
+
+                let (anchor_modified_left, anchor_modified_top) = anchor_info.anchor_type.modified_top_left(
+                    anchor_info.anchor_left, anchor_info.anchor_top,
+                    window.get_width(), window.get_height());
+
+                Some((parent_anchor_left + anchor_modified_left, parent_anchor_top + anchor_modified_top))
             }
-            None => Some((window.anchor_column, window.anchor_row)),
+            None => Some(window.get_grid_position()),
         }
     }
 
-    fn set_cursor_position(&mut self, grid: u64, row: u64, column: u64) {
+    fn set_cursor_position(&mut self, grid: u64, grid_left: u64, grid_top: u64) {
         match self.get_window_top_left(grid) {
-            Some((window_row, window_column)) => {
-                self.cursor.position = (window_row + row as f64, window_column + column as f64);
+            Some((window_left, window_top)) => {
+                self.cursor.position = (window_left + grid_left as f64, window_top + grid_top as f64);
 
                 if let Some(window) = self.windows.get(&grid) {
-                    self.cursor.character = match window.grid.get_cell(row, column) {
-                        Some(Some((character, _))) => character.clone(),
-                        _ => ' '.to_string(),
-                    };
-
-                    self.cursor.double_width = match window.grid.get_cell(row, column + 1) {
-                        Some(Some((character, _))) => character.is_empty(),
-                        _ => false,
-                    };
+                    let (character, double_width) = window.get_cursor_character(grid_left, grid_top);
+                    self.cursor.character = character;
+                    self.cursor.double_width = double_width;
                 }
             }
             None => {
-                self.cursor.position = (row as f64, column as f64);
+                self.cursor.position = (grid_left as f64, grid_top as f64);
                 self.cursor.double_width = false;
                 self.cursor.character = " ".to_string();
             }
         }
+        self.draw_command_sender.send(DrawCommand::UpdateCursor(self.cursor.clone())).ok();
     }
 
     fn set_option(&mut self, gui_option: GuiOption) {
         trace!("Option set {:?}", &gui_option);
         if let GuiOption::GuiFont(guifont) = gui_option {
-            self.guifont = Some(guifont);
+            self.draw_command_sender.send(DrawCommand::FontChanged(guifont)).ok();
         }
     }
+}
 
-    fn build_window_render_info(&mut self, grid_id: u64) -> Option<WindowRenderInfo> {
-        let grid_position = self.get_window_top_left(grid_id)?;
-        let window = self.windows.get_mut(&grid_id)?;
+pub fn start_editor(redraw_event_receiver: Receiver<RedrawEvent>, draw_command_sender: Sender<DrawCommand>) {
+    thread::spawn(move || {
+        let mut editor = Editor::new(draw_command_sender);
 
-        let draw_commands = window.build_draw_commands();
-        let width = window.grid.width;
-        let height = window.grid.height;
-
-        Some(WindowRenderInfo {
-            grid_id,
-            grid_position,
-            width,
-            height,
-            floating: window.anchor_grid_id.is_some(),
-            draw_commands
-        })
-    }
-
-    pub fn build_render_info(&mut self) -> RenderInfo {
-        let mut windows = Vec::new();
-
-        let window_ids: Vec<u64> = {
-            let (mut root_windows, mut floating_windows): (Vec<&Window>, Vec<&Window>) = self.windows
-                .values()
-                .filter(|window| !window.hidden)
-                .partition(|window| window.anchor_grid_id.is_none());
-
-            root_windows.sort_by(|window_a, window_b| window_a.grid_id.partial_cmp(&window_b.grid_id).unwrap());
-            floating_windows.sort_by(|window_a, window_b| window_a.grid_id.partial_cmp(&window_b.grid_id).unwrap());
-
-            root_windows.into_iter().chain(floating_windows.into_iter()).map(|window| window.grid_id).collect()
-        };
-
-        for window_id in window_ids.into_iter() {
-            if let Some(window_render_info) = self.build_window_render_info(window_id) {
-                windows.push(window_render_info);
+        loop {
+            if let Ok(redraw_event) = redraw_event_receiver.recv() {
+                editor.handle_redraw_event(redraw_event);
+            } else {
+                break;
             }
         }
-
-        let closed_window_ids = self.closed_window_ids.iter().copied().collect();
-        self.closed_window_ids.clear();
-
-        RenderInfo {
-            windows,
-            closed_window_ids,
-        }
-    }
+    });
 }

@@ -3,12 +3,11 @@ mod cursor_vfx;
 
 use skulpin::skia_safe::{Canvas, Paint, Path, Point};
 
-use crate::editor::{Colors, Cursor, CursorShape, EDITOR};
+use crate::editor::{Colors, Cursor, CursorShape};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::renderer::CachingShaper;
 use crate::renderer::animation_utils::*;
 use crate::settings::*;
-use crate::bridge::EditorMode;
 
 use blink::*;
 
@@ -178,6 +177,7 @@ impl Corner {
 
 pub struct CursorRenderer {
     pub corners: Vec<Corner>,
+    cursor: Cursor,
     blink_status: BlinkStatus,
     previous_cursor_shape: Option<CursorShape>,
     cursor_vfx: Option<Box<dyn cursor_vfx::CursorVfx>>,
@@ -188,6 +188,7 @@ impl CursorRenderer {
     pub fn new() -> CursorRenderer {
         let mut renderer = CursorRenderer {
             corners: vec![Corner::new(); 4],
+            cursor: Cursor::new(),
             blink_status: BlinkStatus::new(),
             previous_cursor_shape: None,
             //cursor_vfx: Box::new(PointHighlight::new(Point{x:0.0, y:0.0}, HighlightMode::Ripple)),
@@ -196,6 +197,10 @@ impl CursorRenderer {
         };
         renderer.set_cursor_shape(&CursorShape::Block, DEFAULT_CELL_PERCENTAGE);
         renderer
+    }
+
+    pub fn update_cursor(&mut self, new_cursor: Cursor) {
+        self.cursor = new_cursor;
     }
 
     fn set_cursor_shape(&mut self, cursor_shape: &CursorShape, cell_percentage: f32) {
@@ -230,7 +235,6 @@ impl CursorRenderer {
 
     pub fn draw(
         &mut self,
-        cursor: Cursor,
         default_colors: &Colors,
         font_size: (f32, f32),
         shaper: &mut CachingShaper,
@@ -238,7 +242,7 @@ impl CursorRenderer {
         dt: f32,
     ) {
         let (font_width, font_height) = font_size;
-        let render = self.blink_status.update_status(&cursor);
+        let render = self.blink_status.update_status(&self.cursor);
         let settings = SETTINGS.get::<CursorSettings>();
 
         if settings.vfx_mode != self.previous_vfx_mode {
@@ -249,30 +253,31 @@ impl CursorRenderer {
         let mut paint = Paint::new(skulpin::skia_safe::colors::WHITE, None);
         paint.set_anti_alias(settings.antialiasing);
 
-        let (grid_x, grid_y) = cursor.position;
-        let character = &cursor.character;
+        let (grid_x, grid_y) = self.cursor.position;
+        let character = self.cursor.character.clone();
 
-        let font_width = match (cursor.double_width, &cursor.shape) {
+        let font_width = match (self.cursor.double_width, &self.cursor.shape) {
             (true, CursorShape::Block) => font_width * 2.0,
             _ => font_width,
         };
 
         let font_dimensions: Point = (font_width, font_height).into();
 
-        let in_insert_mode = {
-            let editor = EDITOR.lock();
-            matches!(editor.current_mode, EditorMode::Insert)
-        };
+        let in_insert_mode = false;
+        // {
+            // let editor = EDITOR.lock();
+            // matches!(editor.current_mode, EditorMode::Insert)
+        // };
 
         let destination: Point = (grid_x as f32 * font_width, grid_y as f32 * font_height).into();
         let center_destination = destination + font_dimensions * 0.5;
-        let new_cursor = Some(cursor.shape.clone());
+        let new_cursor = Some(self.cursor.shape.clone());
 
         if self.previous_cursor_shape != new_cursor {
-            self.previous_cursor_shape = new_cursor;
+            self.previous_cursor_shape = new_cursor.clone();
             self.set_cursor_shape(
-                &cursor.shape,
-                cursor.cell_percentage.unwrap_or(DEFAULT_CELL_PERCENTAGE),
+                &new_cursor.unwrap(),
+                self.cursor.cell_percentage.unwrap_or(DEFAULT_CELL_PERCENTAGE),
             );
 
             if let Some(vfx) = self.cursor_vfx.as_mut() {
@@ -308,9 +313,9 @@ impl CursorRenderer {
             REDRAW_SCHEDULER.queue_next_frame();
         }
 
-        if cursor.enabled && render {
+        if self.cursor.enabled && render {
             // Draw Background
-            paint.set_color(cursor.background(&default_colors).to_color());
+            paint.set_color(self.cursor.background(&default_colors).to_color());
 
             // The cursor is made up of four points, so I create a path with each of the four
             // corners.
@@ -325,7 +330,7 @@ impl CursorRenderer {
             canvas.draw_path(&path, &paint);
 
             // Draw foreground
-            paint.set_color(cursor.foreground(&default_colors).to_color());
+            paint.set_color(self.cursor.foreground(&default_colors).to_color());
 
             canvas.save();
             canvas.clip_path(&path, None, Some(false));
@@ -342,7 +347,7 @@ impl CursorRenderer {
                 vfx.render(
                     &settings,
                     canvas,
-                    &cursor,
+                    &self.cursor,
                     &default_colors,
                     (font_width, font_height),
                 );

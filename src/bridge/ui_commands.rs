@@ -3,7 +3,6 @@ use nvim_rs::compat::tokio::Compat;
 use nvim_rs::Neovim;
 use tokio::process::ChildStdin;
 
-use crate::editor::EDITOR;
 #[cfg(windows)]
 use crate::settings::windows_registry::{
     register_rightclick_directory, register_rightclick_file, unregister_rightclick,
@@ -56,32 +55,26 @@ impl UiCommand {
                 grid_id,
                 position: (grid_x, grid_y),
             } => {
-                if EDITOR.lock().mouse_enabled {
-                    nvim.input_mouse("left", &action, "", grid_id as i64, grid_y as i64, grid_x as i64)
-                        .await
-                        .expect("Mouse Input Failed");
-                }
+                nvim.input_mouse("left", &action, "", grid_id as i64, grid_y as i64, grid_x as i64)
+                    .await
+                    .expect("Mouse Input Failed");
             }
             UiCommand::Scroll {
                 direction,
                 grid_id,
                 position: (grid_x, grid_y),
             } => {
-                if EDITOR.lock().mouse_enabled {
-                    nvim.input_mouse("wheel", &direction, "", grid_id as i64, grid_y as i64, grid_x as i64)
-                        .await
-                        .expect("Mouse Scroll Failed");
-                }
+                nvim.input_mouse("wheel", &direction, "", grid_id as i64, grid_y as i64, grid_x as i64)
+                    .await
+                    .expect("Mouse Scroll Failed");
             }
             UiCommand::Drag {
                 grid_id,
                 position: (grid_x, grid_y)
             } => {
-                if EDITOR.lock().mouse_enabled {
-                    nvim.input_mouse("left", "drag", "", grid_id as i64, grid_y as i64, grid_x as i64)
-                        .await
-                        .expect("Mouse Drag Failed");
-                }
+                nvim.input_mouse("left", "drag", "", grid_id as i64, grid_y as i64, grid_x as i64)
+                    .await
+                    .expect("Mouse Drag Failed");
             }
             UiCommand::FocusLost => nvim
                 .command("if exists('#FocusLost') | doautocmd <nomodeline> FocusLost | endif")

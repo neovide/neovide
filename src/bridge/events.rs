@@ -5,9 +5,7 @@ use std::fmt;
 use rmpv::Value;
 use skulpin::skia_safe::Color4f;
 
-use crate::editor::EDITOR;
 use crate::editor::{Colors, CursorMode, CursorShape, Style};
-use crate::error_handling::ResultPanicExplanation;
 
 #[derive(Debug, Clone)]
 pub enum ParseError {
@@ -610,7 +608,7 @@ fn parse_grid_destroy(grid_destroy_arguments: Vec<Value>) -> Result<RedrawEvent>
 }
 
 fn parse_grid_cursor_goto(cursor_goto_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [grid_id, column, row] =
+    let [grid_id, row, column] =
         extract_values(cursor_goto_arguments, [Value::Nil, Value::Nil, Value::Nil])?;
 
     Ok(RedrawEvent::CursorGoto {
@@ -1029,16 +1027,4 @@ pub fn parse_channel_list(channel_infos: Vec<Value>) -> Result<Vec<ChannelInfo>>
         .into_iter()
         .map(parse_channel_info)
         .collect::<Result<Vec<ChannelInfo>>>()
-}
-
-pub(super) fn handle_redraw_event_group(arguments: Vec<Value>) {
-    for events in arguments {
-        let parsed_events = parse_redraw_event(events)
-            .unwrap_or_explained_panic("Could not parse event from neovim");
-
-        for parsed_event in parsed_events {
-            let mut editor = EDITOR.lock();
-            editor.handle_redraw_event(parsed_event);
-        }
-    }
 }

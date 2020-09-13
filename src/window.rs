@@ -1,6 +1,8 @@
-use std::sync::atomic::Ordering;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
+use std::sync::Arc;
+use std::sync::atomic::{Ordering, AtomicBool};
+use std::sync::mpsc::Receiver;
 
 use log::{debug, error, info, trace};
 use skulpin::sdl2;
@@ -13,13 +15,15 @@ use skulpin::{
     CoordinateSystem, LogicalSize, PhysicalSize, PresentMode, Renderer as SkulpinRenderer,
     RendererBuilder, Sdl2Window, Window,
 };
+use tokio::sync::mpsc::UnboundedSender;
 
-use crate::bridge::{produce_neovim_keybinding_string, UiCommand, BRIDGE};
-use crate::editor::EDITOR;
+use crate::editor::DrawCommand;
+use crate::bridge::{produce_neovim_keybinding_string, UiCommand};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::renderer::Renderer;
 use crate::settings::*;
 use crate::INITIAL_DIMENSIONS;
+use crate::error_handling::ResultPanicExplanation;
 
 #[derive(RustEmbed)]
 #[folder = "assets/"]
@@ -34,15 +38,15 @@ fn windows_fix_dpi() {
     }
 }
 
-fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer) {
+fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer, ui_command_sender: &UnboundedSender<UiCommand>) {
     if new_size.width > 0 && new_size.height > 0 {
         let new_width = ((new_size.width + 1) as f32 / renderer.font_width) as u32;
         let new_height = ((new_size.height + 1) as f32 / renderer.font_height) as u32;
         // Add 1 here to make sure resizing doesn't change the grid size on startup
-        BRIDGE.queue_command(UiCommand::Resize {
+        ui_command_sender.send(UiCommand::Resize {
             width: new_width,
             height: new_height,
-        });
+        }).ok();
     }
 }
 
@@ -53,6 +57,7 @@ struct WindowWrapper {
     renderer: Renderer,
     mouse_down: bool,
     mouse_position: LogicalSize,
+    mouse_enabled: bool,
     grid_id_under_mouse: u64,
     title: String,
     previous_size: LogicalSize,
@@ -60,6 +65,8 @@ struct WindowWrapper {
     fullscreen: bool,
     cached_size: (u32, u32),
     cached_position: (i32, i32),
+    ui_command_sender: UnboundedSender<UiCommand>,
+    running: Arc<AtomicBool>
 }
 
 pub fn window_geometry() -> Result<(u64, u64), String> {
@@ -105,7 +112,7 @@ pub fn window_geometry_or_default() -> (u64, u64) {
 }
 
 impl WindowWrapper {
-    pub fn new() -> WindowWrapper {
+    pub fn new(ui_command_sender: UnboundedSender<UiCommand>, running: Arc<AtomicBool>) -> WindowWrapper {
         let context = sdl2::init().expect("Failed to initialize sdl2");
         let video_subsystem = context
             .video()
@@ -123,18 +130,6 @@ impl WindowWrapper {
         #[cfg(target_os = "windows")]
         windows_fix_dpi();
         sdl2::hint::set("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
-
-        // let icon = {
-        //     let icon_data = Asset::get("nvim.ico").expect("Failed to read icon data");
-        //     let icon = load_from_memory(&icon_data).expect("Failed to parse icon data");
-        //     let (width, height) = icon.dimensions();
-        //     let mut rgba = Vec::with_capacity((width * height) as usize * 4);
-        //     for (_, _, pixel) in icon.pixels() {
-        //         rgba.extend_from_slice(&pixel.to_rgba().0);
-        //     }
-        //     Icon::from_rgba(rgba, width, height).expect("Failed to create icon object")
-        // };
-        // info!("icon created");
 
         let sdl_window = video_subsystem
             .window("Neovide", logical_size.width, logical_size.height)
@@ -169,13 +164,16 @@ impl WindowWrapper {
                 width: 0,
                 height: 0,
             },
+            mouse_enabled: true,
             grid_id_under_mouse: 0,
             title: String::from("Neovide"),
             previous_size: logical_size,
             transparency: 1.0,
             fullscreen: false,
             cached_size: (0, 0),
-            cached_position: (0, 0)
+            cached_position: (0, 0),
+            ui_command_sender,
+            running
         }
     }
 
@@ -232,15 +230,6 @@ impl WindowWrapper {
     }
 
     pub fn synchronize_settings(&mut self) {
-        let editor_title = { EDITOR.lock().title.clone() };
-
-        if self.title != editor_title {
-            self.title = editor_title;
-            self.window
-                .set_title(&self.title)
-                .expect("Could not set title");
-        }
-
         let transparency = { SETTINGS.get::<WindowSettings>().transparency };
 
         if let Ok(opacity) = self.window.opacity() {
@@ -257,8 +246,15 @@ impl WindowWrapper {
         }
     }
 
+    pub fn handle_title_changed(&mut self, new_title: String) {
+        self.title = new_title;
+        self.window
+            .set_title(&self.title)
+            .expect("Could not set title");
+    }
+
     pub fn handle_quit(&mut self) {
-        BRIDGE.queue_command(UiCommand::Quit);
+        self.running.store(false, Ordering::Relaxed);
     }
 
     pub fn handle_keyboard_input(&mut self, keycode: Option<Keycode>, text: Option<String>) {
@@ -275,7 +271,9 @@ impl WindowWrapper {
 
         if let Some(keybinding_string) = produce_neovim_keybinding_string(keycode, text, modifiers)
         {
-            BRIDGE.queue_command(UiCommand::Keyboard(keybinding_string));
+            self.ui_command_sender.send(UiCommand::Keyboard(keybinding_string)).unwrap_or_explained_panic(
+                "Could not send UI command from the window system to the neovim process.",
+            );
         }
     }
 
@@ -306,38 +304,46 @@ impl WindowWrapper {
                 (grid_position.height as f32 / self.renderer.font_height) as u32
             );
 
-            if self.mouse_down && previous_position != self.mouse_position {
+            if self.mouse_enabled && self.mouse_down && previous_position != self.mouse_position {
                 let (window_left, window_top) = top_window_position;
                 let adjusted_drag_left = self.mouse_position.width + (window_left / self.renderer.font_width) as u32;
                 let adjusted_drag_top = self.mouse_position.height + (window_top / self.renderer.font_height) as u32;
 
-                BRIDGE.queue_command(UiCommand::Drag {
+                self.ui_command_sender.send(UiCommand::Drag {
                     grid_id: self.grid_id_under_mouse,
                     position: (adjusted_drag_left, adjusted_drag_top),
-                });
+                }).ok();
             }
         }
     }
 
     pub fn handle_pointer_down(&mut self) {
-        BRIDGE.queue_command(UiCommand::MouseButton {
-            action: String::from("press"),
-            grid_id: self.grid_id_under_mouse,
-            position: (self.mouse_position.width, self.mouse_position.height),
-        });
+        if self.mouse_enabled {
+            self.ui_command_sender.send(UiCommand::MouseButton {
+                action: String::from("press"),
+                grid_id: self.grid_id_under_mouse,
+                position: (self.mouse_position.width, self.mouse_position.height),
+            }).ok();
+        }
         self.mouse_down = true;
     }
 
     pub fn handle_pointer_up(&mut self) {
-        BRIDGE.queue_command(UiCommand::MouseButton {
-            action: String::from("release"),
-            grid_id: self.grid_id_under_mouse,
-            position: (self.mouse_position.width, self.mouse_position.height),
-        });
+        if self.mouse_enabled {
+            self.ui_command_sender.send(UiCommand::MouseButton {
+                action: String::from("release"),
+                grid_id: self.grid_id_under_mouse,
+                position: (self.mouse_position.width, self.mouse_position.height),
+            }).ok();
+        }
         self.mouse_down = false;
     }
 
     pub fn handle_mouse_wheel(&mut self, x: i32, y: i32) {
+        if !self.mouse_enabled {
+            return;
+        }
+
         let vertical_input_type = match y {
             _ if y > 0 => Some("up"),
             _ if y < 0 => Some("down"),
@@ -345,11 +351,11 @@ impl WindowWrapper {
         };
 
         if let Some(input_type) = vertical_input_type {
-            BRIDGE.queue_command(UiCommand::Scroll {
+            self.ui_command_sender.send(UiCommand::Scroll {
                 direction: input_type.to_string(),
                 grid_id: self.grid_id_under_mouse,
                 position: (self.mouse_position.width, self.mouse_position.height),
-            });
+            }).ok();
         }
 
         let horizontal_input_type = match y {
@@ -359,42 +365,42 @@ impl WindowWrapper {
         };
 
         if let Some(input_type) = horizontal_input_type {
-            BRIDGE.queue_command(UiCommand::Scroll {
+            self.ui_command_sender.send(UiCommand::Scroll {
                 direction: input_type.to_string(),
                 grid_id: self.grid_id_under_mouse,
                 position: (self.mouse_position.width, self.mouse_position.height),
-            });
+            }).ok();
         }
     }
 
     pub fn handle_focus_lost(&mut self) {
-        BRIDGE.queue_command(UiCommand::FocusLost);
+        self.ui_command_sender.send(UiCommand::FocusLost).ok();
     }
 
     pub fn handle_focus_gained(&mut self) {
-        BRIDGE.queue_command(UiCommand::FocusGained);
+        self.ui_command_sender.send(UiCommand::FocusGained).ok();
         REDRAW_SCHEDULER.queue_next_frame();
     }
 
-    pub fn draw_frame(&mut self, dt: f32) -> VkResult<bool> {
+    pub fn draw_frame(&mut self, draw_commands: Vec<DrawCommand>, dt: f32) -> VkResult<bool> {
         let sdl_window_wrapper = Sdl2Window::new(&self.window);
         let new_size = sdl_window_wrapper.logical_size();
         if self.previous_size != new_size {
-            handle_new_grid_size(new_size, &self.renderer);
+            handle_new_grid_size(new_size, &self.renderer, &self.ui_command_sender);
             self.previous_size = new_size;
         }
 
         debug!("Render Triggered");
 
-        let current_size = self.previous_size;
-
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
             let renderer = &mut self.renderer;
             self.skulpin_renderer
                 .draw(&sdl_window_wrapper, |canvas, coordinate_system_helper| {
-                    if renderer.draw(canvas, &coordinate_system_helper, dt) {
-                        handle_new_grid_size(current_size, &renderer)
+                    for draw_command in draw_commands.into_iter() {
+                        renderer.handle_draw_command(canvas, draw_command);
                     }
+
+                    renderer.draw_frame(canvas, &coordinate_system_helper, dt) 
                 })?;
 
             Ok(true)
@@ -430,8 +436,8 @@ pub fn initialize_settings() {
     register_nvim_setting!("fullscreen", WindowSettings::fullscreen);
 }
 
-pub fn ui_loop() {
-    let mut window = WindowWrapper::new();
+pub fn start_window(draw_command_receiver: Receiver<DrawCommand>, ui_command_sender: UnboundedSender<UiCommand>, running: Arc<AtomicBool>) {
+    let mut window = WindowWrapper::new(ui_command_sender.clone(), running.clone());
 
     info!("Starting window event loop");
     let mut event_pump = window
@@ -442,7 +448,7 @@ pub fn ui_loop() {
     let mut was_animating = false;
     let mut previous_frame_start = Instant::now();
     loop {
-        if !BRIDGE.running.load(Ordering::Relaxed) {
+        if !running.load(Ordering::Relaxed) {
             break;
         }
 
@@ -458,7 +464,7 @@ pub fn ui_loop() {
             match event {
                 Event::Quit { .. } => window.handle_quit(),
                 Event::DropFile { filename, .. } => {
-                    BRIDGE.queue_command(UiCommand::FileDrop(filename));
+                    ui_command_sender.send(UiCommand::FileDrop(filename)).ok();
                 }
                 Event::KeyDown {
                     keycode: received_keycode,
@@ -498,7 +504,17 @@ pub fn ui_loop() {
             1.0 / refresh_rate
         };
 
-        match window.draw_frame(dt) {
+        let mut unhandled_draw_commands = Vec::new();
+
+        for draw_command in draw_command_receiver.try_iter() {
+            match draw_command {
+                DrawCommand::TitleChanged(new_title) => window.handle_title_changed(new_title),
+                DrawCommand::SetMouseEnabled(mouse_enabled) => window.mouse_enabled = mouse_enabled,
+                unhandled_command => unhandled_draw_commands.push(unhandled_command)
+            }
+        }
+
+        match window.draw_frame(unhandled_draw_commands, dt) {
             Ok(animating) => {
                 was_animating = animating;
             },

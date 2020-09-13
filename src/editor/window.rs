@@ -1,20 +1,29 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::mem::swap;
+use std::sync::mpsc::Sender;
 
-use log::{trace, warn};
+use log::warn;
 use unicode_segmentation::UnicodeSegmentation;
 
+use super::{DrawCommand, AnchorInfo};
 use super::grid::CharacterGrid;
 use super::style::Style;
-use crate::bridge::{GridLineCell, WindowAnchor};
+use crate::bridge::GridLineCell;
 
 #[derive(new, Debug, Clone)]
-pub enum DrawCommand {
+pub enum WindowDrawCommand {
+    Position {
+        grid_left: f64,
+        grid_top: f64,
+        width: u64,
+        height: u64,
+        floating: bool
+    },
     Cell {
         text: String,
         cell_width: u64,
-        grid_position: (u64, u64),
+        window_left: u64,
+        window_top: u64,
         style: Option<Arc<Style>>,
     },
     Scroll {
@@ -25,19 +34,22 @@ pub enum DrawCommand {
         rows: i64,
         cols: i64,
     },
-    Resize,
-    Clear
+    Clear,
+    Show,
+    Hide,
+    Close
 }
 
 pub struct Window {
-    pub grid_id: u64,
-    pub grid: CharacterGrid,
-    pub hidden: bool,
-    pub anchor_grid_id: Option<u64>,
-    pub anchor_type: WindowAnchor,
-    pub anchor_row: f64,
-    pub anchor_column: f64,
-    pub queued_draw_commands: Vec<DrawCommand>
+    grid_id: u64,
+    grid: CharacterGrid,
+
+    pub anchor_info: Option<AnchorInfo>,
+
+    grid_left: f64,
+    grid_top: f64,
+
+    draw_command_sender: Sender<DrawCommand>
 }
 
 impl Window {
@@ -45,31 +57,77 @@ impl Window {
         grid_id: u64,
         width: u64,
         height: u64,
-        anchor_grid_id: Option<u64>,
-        anchor_type: WindowAnchor,
-        anchor_row: f64,
-        anchor_column: f64,
+        anchor_info: Option<AnchorInfo>,
+        grid_left: f64,
+        grid_top: f64,
+        draw_command_sender: Sender<DrawCommand>
     ) -> Window {
-        Window {
+        let window = Window {
             grid_id,
-            anchor_grid_id,
-            anchor_type,
-            anchor_row,
-            anchor_column,
             grid: CharacterGrid::new((width, height)),
-            hidden: false,
-            queued_draw_commands: Vec::new()
-        }
+            anchor_info,
+            grid_left,
+            grid_top,
+            draw_command_sender
+        };
+        window.send_updated_position();
+        window
+    }
+
+    fn send_command(&self, command: WindowDrawCommand) {
+        self.draw_command_sender.send(DrawCommand::Window {
+            grid_id: self.grid_id,
+            command
+        }).ok();
+    }
+
+    fn send_updated_position(&self) {
+        self.send_command(WindowDrawCommand::Position {
+            grid_left: self.grid_left,
+            grid_top: self.grid_top,
+            width: self.grid.width,
+            height: self.grid.height,
+            floating: self.anchor_info.is_some()
+        });
+    }
+
+    pub fn get_cursor_character(&self, window_left: u64, window_top: u64) -> (String, bool) {
+        let character = match self.grid.get_cell(window_left, window_top) {
+            Some(Some((character, _))) => character.clone(),
+            _ => ' '.to_string(),
+        };
+
+        let double_width = match self.grid.get_cell(window_left + 1, window_top) {
+            Some(Some((character, _))) => character.is_empty(),
+            _ => false,
+        };
+
+        (character, double_width)
+    }
+
+    pub fn get_width(&self) -> u64 {
+        self.grid.width
+    }
+
+    pub fn get_height(&self) -> u64 {
+        self.grid.height
+    }
+
+    pub fn get_grid_position(&self) -> (f64, f64) {
+        (self.grid_left, self.grid_top)
+    }
+
+    pub fn position(&mut self, width: u64, height: u64, anchor_info: Option<AnchorInfo>, grid_left: f64, grid_top: f64) {
+        self.grid.resize(width, height);
+        self.anchor_info = anchor_info;
+        self.grid_left = grid_left;
+        self.grid_top = grid_top;
+        self.send_updated_position();
     }
 
     pub fn resize(&mut self, width: u64, height: u64) {
         self.grid.resize(width, height);
-        self.queued_draw_commands.push(DrawCommand::Resize)
-    }
-
-    pub fn clear(&mut self) {
-        self.grid.clear();
-        self.queued_draw_commands.push(DrawCommand::Clear);
+        self.send_updated_position();
     }
 
     fn draw_grid_line_cell(
@@ -139,10 +197,11 @@ impl Window {
             text.push_str(character);
         }
 
-        self.queued_draw_commands.push(DrawCommand::Cell {
+        self.send_command(WindowDrawCommand::Cell {
             text,
             cell_width: draw_command_end_index - draw_command_start_index,
-            grid_position: (draw_command_start_index, row_index),
+            window_left: draw_command_start_index,
+            window_top: row_index,
             style: style.clone()
         });
 
@@ -212,16 +271,25 @@ impl Window {
             }
         }
 
-        self.queued_draw_commands.push(DrawCommand::Scroll {
+        self.send_command(WindowDrawCommand::Scroll {
             top, bot, left, right, rows, cols
         });
     }
 
-    pub fn build_draw_commands(&mut self) -> Vec<DrawCommand> {
-        let mut draw_commands = Vec::new();
-        swap(&mut self.queued_draw_commands, &mut draw_commands);
+    pub fn clear(&mut self) {
+        self.grid.clear();
+        self.send_command(WindowDrawCommand::Clear);
+    }
 
-        trace!("Draw commands sent");
-        draw_commands
+    pub fn hide(&self) {
+        self.send_command(WindowDrawCommand::Hide);
+    }
+
+    pub fn show(&self) {
+        self.send_command(WindowDrawCommand::Show);
+    }
+
+    pub fn close(&self) {
+        self.send_command(WindowDrawCommand::Close);
     }
 }
