@@ -3,7 +3,6 @@ use std::time::{Duration, Instant};
 
 use image::{load_from_memory, GenericImageView, Pixel};
 use log::{error, info, trace};
-use skulpin::winit;
 use skulpin::winit::event::VirtualKeyCode as Keycode;
 use skulpin::winit::event::{
     ElementState, Event, ModifiersState, MouseButton, MouseScrollDelta, StartCause, WindowEvent,
@@ -12,10 +11,10 @@ use skulpin::winit::event_loop::{ControlFlow, EventLoop};
 use skulpin::winit::window::{Icon, Window};
 use skulpin::{
     winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition},
-    CoordinateSystem, PresentMode, Renderer as SkulpinRenderer, RendererBuilder,
-    Window as OtherWindow, WinitWindow,
+    Renderer as SkulpinRenderer, Window as OtherWindow, WinitWindow,
 };
 
+use super::manager::*;
 use crate::bridge::{produce_neovim_keybinding_string, UiCommand, BRIDGE};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::renderer::Renderer;
@@ -188,16 +187,6 @@ impl NeovideHandle {
     }
 }
 
-trait WindowHandle {
-    fn window(&mut self) -> &Window;
-    fn set_window(&mut self, window: Window);
-    fn logical_size(&self) -> LogicalSize<u32>;
-    fn process_event(&mut self, e: WindowEvent) -> Option<ControlFlow>;
-    fn update(&mut self) -> bool;
-    fn should_draw(&self) -> bool;
-    fn draw(&mut self, skulpin_renderer: &mut SkulpinRenderer) -> bool;
-}
-
 impl Default for NeovideHandle {
     fn default() -> NeovideHandle {
         let renderer = Renderer::new();
@@ -231,6 +220,40 @@ impl WindowHandle for NeovideHandle {
         }
     }
 
+    fn update(&mut self) -> bool {
+        if !self.ignore_text_this_frame {
+            self.handle_keyboard_input();
+        }
+        true
+    }
+
+    fn should_draw(&self) -> bool {
+        REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle
+    }
+
+    fn draw(&mut self, skulpin_renderer: &mut SkulpinRenderer) -> bool {
+        if !BRIDGE.running.load(Ordering::Relaxed) {
+            return false;
+        }
+        if self.should_draw() {
+            let renderer = &mut self.renderer;
+            let window = WinitWindow::new(&self.window.as_ref().unwrap());
+            let error = skulpin_renderer
+                .draw(&window, |canvas, coordinate_system_helper| {
+                    let dt = 1.0 / (SETTINGS.get::<WindowSettings>().refresh_rate as f32);
+                    renderer.draw(canvas, &coordinate_system_helper, dt);
+                })
+                .is_err();
+            if error {
+                error!("Render failed. Closing");
+                return false;
+            }
+        }
+        true
+    }
+}
+
+impl EventProcessor for NeovideHandle {
     fn process_event(&mut self, e: WindowEvent) -> Option<ControlFlow> {
         self.ignore_text_this_frame = false;
 
@@ -284,38 +307,6 @@ impl WindowHandle for NeovideHandle {
 
         None
     }
-
-    fn update(&mut self) -> bool {
-        if !self.ignore_text_this_frame {
-            self.handle_keyboard_input();
-        }
-        true
-    }
-
-    fn should_draw(&self) -> bool {
-        REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle
-    }
-
-    fn draw(&mut self, skulpin_renderer: &mut SkulpinRenderer) -> bool {
-        if !BRIDGE.running.load(Ordering::Relaxed) {
-            return false;
-        }
-        if self.should_draw() {
-            let renderer = &mut self.renderer;
-            let window = WinitWindow::new(&self.window.as_ref().unwrap());
-            let error = skulpin_renderer
-                .draw(&window, |canvas, coordinate_system_helper| {
-                    let dt = 1.0 / (SETTINGS.get::<WindowSettings>().refresh_rate as f32);
-                    renderer.draw(canvas, &coordinate_system_helper, dt);
-                })
-                .is_err();
-            if error {
-                error!("Render failed. Closing");
-                return false;
-            }
-        }
-        true
-    }
 }
 
 #[derive(Clone)]
@@ -342,111 +333,6 @@ pub fn initialize_settings() {
     register_nvim_setting!("transparency", WindowSettings::transparency);
     register_nvim_setting!("no_idle", WindowSettings::no_idle);
     register_nvim_setting!("fullscreen", WindowSettings::fullscreen);
-}
-
-use skulpin::winit::event_loop::{EventLoopClosed, EventLoopProxy, EventLoopWindowTarget};
-use skulpin::winit::window::WindowId;
-use std::collections::HashMap;
-
-struct WindowManager<T: 'static + NoopEvent> {
-    windows: HashMap<WindowId, Box<dyn WindowHandle>>,
-    renderer: Option<SkulpinRenderer>,
-    proxy: EventLoopProxy<T>,
-}
-
-impl<T: NoopEvent> WindowManager<T> {
-    pub fn new(proxy: EventLoopProxy<T>) -> Self {
-        Self {
-            windows: HashMap::new(),
-            renderer: None,
-            proxy,
-        }
-    }
-
-    pub fn noop(&self) -> Result<(), EventLoopClosed<T>> {
-        self.proxy.send_event(T::noop())
-    }
-
-    pub fn handle_event(&mut self, id: WindowId, event: WindowEvent) -> Option<ControlFlow> {
-        if let Some(handle) = self.windows.get_mut(&id) {
-            handle.process_event(event)
-        } else {
-            None
-        }
-    }
-
-    pub fn initialize_renderer(&mut self, window: &Window) {
-        let renderer = {
-            let winit_window_wrapper = WinitWindow::new(window);
-            RendererBuilder::new()
-                .prefer_integrated_gpu()
-                .use_vulkan_debug_layer(false)
-                .present_mode_priority(vec![PresentMode::Immediate])
-                .coordinate_system(CoordinateSystem::Logical)
-                .build(&winit_window_wrapper)
-                .expect("Failed to create renderer")
-        };
-        self.renderer = Some(renderer);
-    }
-
-    pub fn create_window<U: 'static + WindowHandle + Default>(
-        &mut self,
-        title: &str,
-        window_target: &EventLoopWindowTarget<T>,
-        icon: Option<Icon>,
-    ) {
-        let mut handle = Box::new(U::default());
-        let logical_size = handle.logical_size();
-
-        let window = winit::window::WindowBuilder::new()
-            .with_title(title)
-            .with_inner_size(logical_size)
-            .with_window_icon(icon)
-            .build(window_target)
-            .expect("Failed to create window");
-        info!("window created");
-        if self.renderer.is_none() {
-            self.initialize_renderer(&window);
-        }
-        let window_id = window.id();
-        handle.set_window(window);
-        self.windows.insert(window_id, handle);
-    }
-
-    pub fn update_all(&mut self) -> bool {
-        for handle in self.windows.values_mut() {
-            if !handle.update() {
-                return false;
-            }
-        }
-        true
-    }
-
-    pub fn render_all(&mut self) -> bool {
-        let mut renderer = self.renderer.as_mut().unwrap();
-        for handle in self.windows.values_mut() {
-            if !handle.draw(&mut renderer) {
-                return false;
-            }
-        }
-        true
-    }
-}
-
-trait NoopEvent {
-    fn noop() -> Self;
-}
-
-#[derive(Debug)]
-pub enum NeovideEvent {
-    // Pause(WindowId),
-    Noop,
-}
-
-impl NoopEvent for NeovideEvent {
-    fn noop() -> Self {
-        NeovideEvent::Noop
-    }
 }
 
 pub fn ui_loop() {
