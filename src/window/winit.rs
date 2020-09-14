@@ -6,10 +6,10 @@ use log::{error, info, trace};
 use skulpin::winit;
 use skulpin::winit::event::VirtualKeyCode as Keycode;
 use skulpin::winit::event::{
-    ElementState, Event, ModifiersState, MouseButton, MouseScrollDelta, WindowEvent,
+    ElementState, Event, ModifiersState, MouseButton, MouseScrollDelta, StartCause, WindowEvent,
 };
 use skulpin::winit::event_loop::{ControlFlow, EventLoop};
-use skulpin::winit::window::{Fullscreen, Icon, Window};
+use skulpin::winit::window::{Icon, Window};
 use skulpin::{
     winit::dpi::{LogicalPosition, LogicalSize, PhysicalPosition},
     CoordinateSystem, PresentMode, Renderer as SkulpinRenderer, RendererBuilder,
@@ -17,7 +17,6 @@ use skulpin::{
 };
 
 use crate::bridge::{produce_neovim_keybinding_string, UiCommand, BRIDGE};
-use crate::editor::EDITOR;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::renderer::Renderer;
 use crate::settings::*;
@@ -47,6 +46,7 @@ fn handle_new_grid_size(new_size: LogicalSize<u32>, renderer: &Renderer) {
 }
 
 struct NeovideHandle {
+    window: Option<Window>,
     renderer: Renderer,
     mouse_down: bool,
     mouse_position: LogicalPosition<u32>,
@@ -98,19 +98,6 @@ pub fn window_geometry_or_default() -> (u64, u64) {
 }
 
 impl NeovideHandle {
-    pub fn new() -> NeovideHandle {
-        let renderer = Renderer::new();
-
-        NeovideHandle {
-            renderer,
-            mouse_down: false,
-            mouse_position: LogicalPosition { x: 0, y: 0 },
-            keycode: None,
-            modifiers: None,
-            ignore_text_this_frame: false,
-        }
-    }
-
     pub fn handle_quit(&mut self) {
         BRIDGE.queue_command(UiCommand::Quit);
     }
@@ -129,14 +116,14 @@ impl NeovideHandle {
         }
     }
 
-    pub fn handle_pointer_motion(&mut self, position: PhysicalPosition<f64>, window: &Window) {
+    pub fn handle_pointer_motion(&mut self, position: PhysicalPosition<f64>) {
         let previous_position = self.mouse_position;
         let physical_position = PhysicalPosition::new(
             (position.x as f32 / self.renderer.font_width) as u32,
             (position.y as f32 / self.renderer.font_height) as u32,
         );
 
-        let winit_window_wrapper = WinitWindow::new(window);
+        let winit_window_wrapper = WinitWindow::new(&self.window.as_ref().unwrap());
         self.mouse_position = physical_position.to_logical(winit_window_wrapper.scale_factor());
         if self.mouse_down && previous_position != self.mouse_position {
             BRIDGE.queue_command(UiCommand::Drag(
@@ -202,14 +189,49 @@ impl NeovideHandle {
 }
 
 trait WindowHandle {
-    fn process_event(&mut self, e: WindowEvent, window: &Window) -> Option<ControlFlow>;
-    fn update(&mut self);
+    fn window(&mut self) -> &Window;
+    fn set_window(&mut self, window: Window);
+    fn logical_size(&self) -> LogicalSize<u32>;
+    fn process_event(&mut self, e: WindowEvent) -> Option<ControlFlow>;
+    fn update(&mut self) -> bool;
     fn should_draw(&self) -> bool;
-    fn draw(&mut self, window: &mut WinitWindow, skulpin_renderer: &mut SkulpinRenderer) -> bool;
+    fn draw(&mut self, skulpin_renderer: &mut SkulpinRenderer) -> bool;
+}
+
+impl Default for NeovideHandle {
+    fn default() -> NeovideHandle {
+        let renderer = Renderer::new();
+
+        NeovideHandle {
+            window: None,
+            renderer,
+            mouse_down: false,
+            mouse_position: LogicalPosition { x: 0, y: 0 },
+            keycode: None,
+            modifiers: None,
+            ignore_text_this_frame: false,
+        }
+    }
 }
 
 impl WindowHandle for NeovideHandle {
-    fn process_event(&mut self, e: WindowEvent, window: &Window) -> Option<ControlFlow> {
+    fn window(&mut self) -> &Window {
+        self.window.as_ref().unwrap()
+    }
+
+    fn set_window(&mut self, window: Window) {
+        self.window = Some(window);
+    }
+
+    fn logical_size(&self) -> LogicalSize<u32> {
+        let (width, height) = window_geometry_or_default();
+        LogicalSize {
+            width: (width as f32 * self.renderer.font_width) as u32,
+            height: (height as f32 * self.renderer.font_height) as u32,
+        }
+    }
+
+    fn process_event(&mut self, e: WindowEvent) -> Option<ControlFlow> {
         self.ignore_text_this_frame = false;
 
         match e {
@@ -230,9 +252,7 @@ impl WindowHandle for NeovideHandle {
             WindowEvent::ModifiersChanged(m) => {
                 self.modifiers = Some(m);
             }
-            WindowEvent::CursorMoved { position, .. } => {
-                self.handle_pointer_motion(position, &window)
-            }
+            WindowEvent::CursorMoved { position, .. } => self.handle_pointer_motion(position),
             WindowEvent::MouseWheel {
                 delta: MouseScrollDelta::LineDelta(x, y),
                 ..
@@ -256,7 +276,7 @@ impl WindowHandle for NeovideHandle {
                 }
             }
             WindowEvent::Resized(size) => {
-                let scale_factor = window.scale_factor();
+                let scale_factor = self.window.as_ref().unwrap().scale_factor();
                 handle_new_grid_size(size.to_logical(scale_factor), &self.renderer);
             }
             _ => REDRAW_SCHEDULER.queue_next_frame(),
@@ -265,24 +285,26 @@ impl WindowHandle for NeovideHandle {
         None
     }
 
-    fn update(&mut self) {
+    fn update(&mut self) -> bool {
         if !self.ignore_text_this_frame {
             self.handle_keyboard_input();
         }
+        true
     }
 
     fn should_draw(&self) -> bool {
         REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle
     }
 
-    fn draw(&mut self, window: &mut WinitWindow, skulpin_renderer: &mut SkulpinRenderer) -> bool {
+    fn draw(&mut self, skulpin_renderer: &mut SkulpinRenderer) -> bool {
         if !BRIDGE.running.load(Ordering::Relaxed) {
             return false;
         }
         if self.should_draw() {
             let renderer = &mut self.renderer;
+            let window = WinitWindow::new(&self.window.as_ref().unwrap());
             let error = skulpin_renderer
-                .draw(window, |canvas, coordinate_system_helper| {
+                .draw(&window, |canvas, coordinate_system_helper| {
                     let dt = 1.0 / (SETTINGS.get::<WindowSettings>().refresh_rate as f32);
                     renderer.draw(canvas, &coordinate_system_helper, dt);
                 })
@@ -322,29 +344,112 @@ pub fn initialize_settings() {
     register_nvim_setting!("fullscreen", WindowSettings::fullscreen);
 }
 
-// use std::collections::HashMap;
-// use skulpin::winit::window::WindowId;
-// use skulpin::winit::window::Icon;
+use skulpin::winit::event_loop::{EventLoopClosed, EventLoopProxy, EventLoopWindowTarget};
+use skulpin::winit::window::WindowId;
+use std::collections::HashMap;
 
-// struct WindowManager {
-//     windows: HashMap<WindowId, Window>,
-// }
+struct WindowManager<T: 'static + NoopEvent> {
+    windows: HashMap<WindowId, Box<dyn WindowHandle>>,
+    renderer: Option<SkulpinRenderer>,
+    proxy: EventLoopProxy<T>,
+}
 
-// impl WindowManager {
-//     pub fn create_window(title: &str, size: Option<LogicalSize>, icon: Option<Icon>, window_target: &EventLoopWindowTarget<()>) -> WindowId {
+impl<T: NoopEvent> WindowManager<T> {
+    pub fn new(proxy: EventLoopProxy<T>) -> Self {
+        Self {
+            windows: HashMap::new(),
+            renderer: None,
+            proxy,
+        }
+    }
 
-//     }
-// }
+    pub fn noop(&self) -> Result<(), EventLoopClosed<T>> {
+        self.proxy.send_event(T::noop())
+    }
 
-// #[derive(Debug)]
-// pub enum NeovideEvent {
-//     Initialized,
-//     Pause(WindowId),
-// }
+    pub fn handle_event(&mut self, id: WindowId, event: WindowEvent) -> Option<ControlFlow> {
+        if let Some(handle) = self.windows.get_mut(&id) {
+            handle.process_event(event)
+        } else {
+            None
+        }
+    }
+
+    pub fn initialize_renderer(&mut self, window: &Window) {
+        let renderer = {
+            let winit_window_wrapper = WinitWindow::new(window);
+            RendererBuilder::new()
+                .prefer_integrated_gpu()
+                .use_vulkan_debug_layer(false)
+                .present_mode_priority(vec![PresentMode::Immediate])
+                .coordinate_system(CoordinateSystem::Logical)
+                .build(&winit_window_wrapper)
+                .expect("Failed to create renderer")
+        };
+        self.renderer = Some(renderer);
+    }
+
+    pub fn create_window<U: 'static + WindowHandle + Default>(
+        &mut self,
+        title: &str,
+        window_target: &EventLoopWindowTarget<T>,
+        icon: Option<Icon>,
+    ) {
+        let mut handle = Box::new(U::default());
+        let logical_size = handle.logical_size();
+
+        let window = winit::window::WindowBuilder::new()
+            .with_title(title)
+            .with_inner_size(logical_size)
+            .with_window_icon(icon)
+            .build(window_target)
+            .expect("Failed to create window");
+        info!("window created");
+        if self.renderer.is_none() {
+            self.initialize_renderer(&window);
+        }
+        let window_id = window.id();
+        handle.set_window(window);
+        self.windows.insert(window_id, handle);
+    }
+
+    pub fn update_all(&mut self) -> bool {
+        for handle in self.windows.values_mut() {
+            if !handle.update() {
+                return false;
+            }
+        }
+        true
+    }
+
+    pub fn render_all(&mut self) -> bool {
+        let mut renderer = self.renderer.as_mut().unwrap();
+        for handle in self.windows.values_mut() {
+            if !handle.draw(&mut renderer) {
+                return false;
+            }
+        }
+        true
+    }
+}
+
+trait NoopEvent {
+    fn noop() -> Self;
+}
+
+#[derive(Debug)]
+pub enum NeovideEvent {
+    // Pause(WindowId),
+    Noop,
+}
+
+impl NoopEvent for NeovideEvent {
+    fn noop() -> Self {
+        NeovideEvent::Noop
+    }
+}
 
 pub fn ui_loop() {
-    let mut window_helper = NeovideHandle::new();
-
     #[cfg(target_os = "windows")]
     windows_fix_dpi();
 
@@ -360,53 +465,38 @@ pub fn ui_loop() {
     };
 
     info!("icon created");
-    let (width, height) = window_geometry_or_default();
-    let logical_size = LogicalSize {
-        width: (width as f32 * window_helper.renderer.font_width) as u32,
-        height: (height as f32 * window_helper.renderer.font_height) as u32,
-    };
 
-    let event_loop = EventLoop::<()>::with_user_event();
-    let mut winit_window = winit::window::WindowBuilder::new()
-        .with_title("Neovide")
-        .with_inner_size(logical_size)
-        .with_window_icon(Some(icon))
-        .build(&event_loop)
-        .expect("Failed to create window");
-    info!("window created");
-
-    let mut skulpin_renderer = {
-        let winit_window_wrapper = WinitWindow::new(&winit_window);
-        RendererBuilder::new()
-            .prefer_integrated_gpu()
-            .use_vulkan_debug_layer(false)
-            .present_mode_priority(vec![PresentMode::Immediate])
-            .coordinate_system(CoordinateSystem::Logical)
-            .build(&winit_window_wrapper)
-            .expect("Failed to create renderer")
-    };
+    let event_loop = EventLoop::<NeovideEvent>::with_user_event();
+    let event_loop_proxy = event_loop.create_proxy();
+    let mut window_manager: WindowManager<NeovideEvent> = WindowManager::new(event_loop_proxy);
 
     info!("renderer created");
 
-    event_loop.run(move |e, _window_target, control_flow| {
+    event_loop.run(move |e, window_target, control_flow| {
         let frame_start = Instant::now();
-
         match e {
+            Event::NewEvents(StartCause::Init) => {
+                window_manager.create_window::<NeovideHandle>(
+                    "Neovide",
+                    window_target,
+                    Some(icon.clone()),
+                );
+                if window_manager.noop().is_err() {
+                    std::process::exit(0);
+                }
+            }
             Event::LoopDestroyed => std::process::exit(0),
             Event::WindowEvent { window_id, event } => {
-                if let Some(cf) = window_helper.process_event(event, &winit_window) {
+                if let Some(cf) = window_manager.handle_event(window_id, event) {
                     *control_flow = cf;
                 }
             }
             _ => {}
         }
 
-        let mut winit_window_wrapper = WinitWindow::new(&winit_window);
-        if !window_helper.draw(&mut winit_window_wrapper, &mut skulpin_renderer) {
+        if !window_manager.render_all() || !window_manager.update_all() {
             *control_flow = ControlFlow::Exit;
         }
-
-        window_helper.update();
 
         if *control_flow != ControlFlow::Exit {
             let elapsed = frame_start.elapsed();
