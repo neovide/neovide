@@ -52,7 +52,7 @@ impl<T: NoopEvent> WindowManager<T> {
         }
     }
 
-    pub fn initialize_renderer(&mut self, window: &Window) {
+    fn initialize_renderer(&mut self, window: &Window) {
         let renderer = {
             let winit_window_wrapper = WinitWindow::new(window);
             RendererBuilder::new()

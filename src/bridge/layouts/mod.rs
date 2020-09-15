@@ -127,18 +127,14 @@ pub fn produce_neovim_keybinding_string(
 pub fn produce_neovim_keybinding_string(
     keycode: Option<Keycode>,
     keytext: Option<String>,
-    modifiers: Option<ModifiersState>,
+    modifiers: ModifiersState,
 ) -> Option<String> {
-    let mut shift = false;
-    let mut ctrl = false;
-    let mut alt = false;
-    let mut gui = false;
-    if let Some(modifiers) = modifiers {
-        shift = modifiers.shift();
-        ctrl = modifiers.ctrl();
-        alt = modifiers.alt();
-        gui = modifiers.logo();
-    }
+    let shift = modifiers.shift();
+    let ctrl = modifiers.ctrl();
+    let alt = modifiers.alt();
+    let gui = modifiers.logo();
+
+    println!("{:?} {:?}", keycode, modifiers);
 
     if let Some(text) = keytext {
         Some(append_modifiers(&text, false, false, ctrl, alt, gui))

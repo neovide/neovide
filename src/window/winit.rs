@@ -50,7 +50,7 @@ struct NeovideHandle {
     mouse_down: bool,
     mouse_position: LogicalPosition<u32>,
     keycode: Option<Keycode>,
-    modifiers: Option<ModifiersState>,
+    modifiers: ModifiersState,
     ignore_text_this_frame: bool,
 }
 
@@ -97,25 +97,40 @@ pub fn window_geometry_or_default() -> (u64, u64) {
 }
 
 impl NeovideHandle {
-    pub fn handle_quit(&mut self) {
+    fn handle_quit(&mut self) {
         BRIDGE.queue_command(UiCommand::Quit);
     }
 
-    pub fn handle_keyboard_input(&mut self) {
+    fn handle_keyboard_input(&mut self) {
         if self.keycode.is_some() {
             trace!("Keyboard Input Received: keycode-{:?}", self.keycode);
-
-            if let Some(keybinding_string) =
-                produce_neovim_keybinding_string(self.keycode, None, self.modifiers)
-            {
-                BRIDGE.queue_command(UiCommand::Keyboard(keybinding_string));
-                self.keycode = None;
-                self.modifiers = None;
+            match self.keycode.unwrap() {
+                Keycode::LControl | Keycode::RControl => {
+                    self.modifiers.insert(ModifiersState::CTRL);
+                    self.keycode = None;
+                }
+                Keycode::LShift | Keycode::RShift => {
+                    self.modifiers.insert(ModifiersState::SHIFT);
+                    self.keycode = None;
+                }
+                Keycode::LAlt | Keycode::RAlt => {
+                    self.modifiers.insert(ModifiersState::ALT);
+                    self.keycode = None;
+                }
+                _ => {}
             }
+        }
+
+        if let Some(keybinding_string) =
+            produce_neovim_keybinding_string(self.keycode, None, self.modifiers)
+        {
+            BRIDGE.queue_command(UiCommand::Keyboard(keybinding_string));
+            self.keycode = None;
+            self.modifiers = ModifiersState::empty();
         }
     }
 
-    pub fn handle_pointer_motion(&mut self, position: PhysicalPosition<f64>) {
+    fn handle_pointer_motion(&mut self, position: PhysicalPosition<f64>) {
         let previous_position = self.mouse_position;
         let physical_position = PhysicalPosition::new(
             (position.x as f32 / self.renderer.font_width) as u32,
@@ -132,7 +147,7 @@ impl NeovideHandle {
         }
     }
 
-    pub fn handle_pointer_down(&mut self) {
+    fn handle_pointer_down(&mut self) {
         BRIDGE.queue_command(UiCommand::MouseButton {
             action: String::from("press"),
             position: (self.mouse_position.x, self.mouse_position.y),
@@ -140,7 +155,7 @@ impl NeovideHandle {
         self.mouse_down = true;
     }
 
-    pub fn handle_pointer_up(&mut self) {
+    fn handle_pointer_up(&mut self) {
         BRIDGE.queue_command(UiCommand::MouseButton {
             action: String::from("release"),
             position: (self.mouse_position.x, self.mouse_position.y),
@@ -148,7 +163,7 @@ impl NeovideHandle {
         self.mouse_down = false;
     }
 
-    pub fn handle_mouse_wheel(&mut self, x: f32, y: f32) {
+    fn handle_mouse_wheel(&mut self, x: f32, y: f32) {
         let vertical_input_type = match y {
             _ if y > 0.0 => Some("up"),
             _ if y < 0.0 => Some("down"),
@@ -176,11 +191,11 @@ impl NeovideHandle {
         }
     }
 
-    pub fn handle_focus_lost(&mut self) {
+    fn handle_focus_lost(&mut self) {
         BRIDGE.queue_command(UiCommand::FocusLost);
     }
 
-    pub fn handle_focus_gained(&mut self) {
+    fn handle_focus_gained(&mut self) {
         self.ignore_text_this_frame = true; // Ignore any text events on the first frame when focus is regained. https://github.com/Kethku/neovide/issues/193
         BRIDGE.queue_command(UiCommand::FocusGained);
         REDRAW_SCHEDULER.queue_next_frame();
@@ -190,14 +205,13 @@ impl NeovideHandle {
 impl Default for NeovideHandle {
     fn default() -> NeovideHandle {
         let renderer = Renderer::new();
-
         NeovideHandle {
             window: None,
             renderer,
             mouse_down: false,
             mouse_position: LogicalPosition { x: 0, y: 0 },
             keycode: None,
-            modifiers: None,
+            modifiers: ModifiersState::empty(),
             ignore_text_this_frame: false,
         }
     }
@@ -221,9 +235,7 @@ impl WindowHandle for NeovideHandle {
     }
 
     fn update(&mut self) -> bool {
-        if !self.ignore_text_this_frame {
-            self.handle_keyboard_input();
-        }
+        self.handle_keyboard_input();
         true
     }
 
@@ -255,8 +267,6 @@ impl WindowHandle for NeovideHandle {
 
 impl EventProcessor for NeovideHandle {
     fn process_event(&mut self, e: WindowEvent) -> Option<ControlFlow> {
-        self.ignore_text_this_frame = false;
-
         match e {
             WindowEvent::CloseRequested => {
                 self.handle_quit();
@@ -269,11 +279,15 @@ impl EventProcessor for NeovideHandle {
             }
             WindowEvent::KeyboardInput { input, .. } => {
                 if input.state == ElementState::Pressed {
-                    self.keycode = input.virtual_keycode;
+                    if !self.ignore_text_this_frame {
+                        self.keycode = input.virtual_keycode;
+                    } else {
+                        self.ignore_text_this_frame = false;
+                    }
                 }
             }
             WindowEvent::ModifiersChanged(m) => {
-                self.modifiers = Some(m);
+                self.modifiers = m;
             }
             WindowEvent::CursorMoved { position, .. } => self.handle_pointer_motion(position),
             WindowEvent::MouseWheel {
@@ -304,7 +318,6 @@ impl EventProcessor for NeovideHandle {
             }
             _ => REDRAW_SCHEDULER.queue_next_frame(),
         }
-
         None
     }
 }
