@@ -134,8 +134,6 @@ pub fn produce_neovim_keybinding_string(
     let alt = modifiers.alt();
     let gui = modifiers.logo();
 
-    println!("{:?} {:?}", keycode, modifiers);
-
     if let Some(text) = keytext {
         Some(append_modifiers(&text, false, false, ctrl, alt, gui))
     } else if let Some(keycode) = keycode {
