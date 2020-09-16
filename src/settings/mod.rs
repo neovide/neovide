@@ -5,15 +5,12 @@ use std::convert::TryInto;
 #[cfg(not(test))]
 use flexi_logger::{Cleanup, Criterion, Duplicate, Logger, Naming};
 use log::warn;
-use nvim_rs::compat::tokio::Compat;
-use nvim_rs::Neovim;
+use neovim_lib::{Neovim, NeovimApi};
 use parking_lot::RwLock;
 pub use rmpv::Value;
 mod from_value;
 pub use from_value::FromValue;
 pub mod windows_registry;
-
-use tokio::process::ChildStdin;
 
 use crate::error_handling::ResultPanicExplanation;
 
@@ -141,25 +138,25 @@ impl Settings {
         (*value).clone()
     }
 
-    pub async fn read_initial_values(&self, nvim: &Neovim<Compat<ChildStdin>>) {
+    pub fn read_initial_values(&self, nvim: &mut Neovim) {
         let keys: Vec<String> = self.listeners.read().keys().cloned().collect();
 
         for name in keys {
             let variable_name = format!("neovide_{}", name.to_string());
-            match nvim.get_var(&variable_name).await {
+            match nvim.get_var(&variable_name) {
                 Ok(value) => {
                     self.listeners.read().get(&name).unwrap()(value);
                 }
                 Err(error) => {
                     warn!("Initial value load failed for {}: {}", name, error);
                     let setting = self.readers.read().get(&name).unwrap()();
-                    nvim.set_var(&variable_name, setting).await.ok();
+                    nvim.set_var(&variable_name, setting).ok();
                 }
             }
         }
     }
 
-    pub async fn setup_changed_listeners(&self, nvim: &Neovim<Compat<ChildStdin>>) {
+    pub fn setup_changed_listeners(&self, nvim: &mut Neovim) {
         let keys: Vec<String> = self.listeners.read().keys().cloned().collect();
 
         for name in keys {
@@ -174,7 +171,6 @@ impl Settings {
                 name
             );
             nvim.command(&vimscript)
-                .await
                 .unwrap_or_explained_panic(&format!(
                     "Could not setup setting notifier for {}",
                     name

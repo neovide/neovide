@@ -12,7 +12,7 @@ embed-fonts = []
 
 [dependencies]
 euclid = "0.20.7"
-font-kit = "0.6.0"
+font-kit = "0.10.0"
 skribo = { git = "https://github.com/linebender/skribo" }
 lru = "0.4.3"
 skulpin = { git = "https://github.com/aclysma/skulpin", branch = "master", features = ["skulpin_sdl2"] }
@@ -20,9 +20,7 @@ derive-new = "0.5"
 rmpv = "0.4.4"
 rust-embed = { version = "5.2.0", features = ["debug-embed"] }
 image = "0.22.3"
-nvim-rs = { git = "https://github.com/kethku/nvim-rs", features = [ "use_tokio" ] }
-tokio = { version = "0.2.9", features = [ "blocking", "process", "time" ] }
-async-trait = "0.1.18"
+neovim-lib = { git = "https://github.com/kethku/neovim-lib" }
 lazy_static = "1.4.0"
 unicode-segmentation = "1.6.0"
 log = "0.4.8"

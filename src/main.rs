@@ -23,8 +23,6 @@ use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::channel;
 use std::process;
 
-use tokio::sync::mpsc::unbounded_channel;
-
 use window::window_geometry;
 
 use bridge::start_bridge; 
@@ -135,7 +133,7 @@ fn main() {
 
     let (redraw_event_sender, redraw_event_receiver) = channel();
     let (draw_command_sender, draw_command_receiver) = channel();
-    let (ui_command_sender, ui_command_receiver) = unbounded_channel();
+    let (ui_command_sender, ui_command_receiver) = channel();
 
     start_bridge(ui_command_sender.clone(), ui_command_receiver, redraw_event_sender, running.clone());
     start_editor(redraw_event_receiver, draw_command_sender);

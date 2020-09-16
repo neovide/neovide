@@ -2,7 +2,7 @@ use std::thread::sleep;
 use std::time::{Duration, Instant};
 use std::sync::Arc;
 use std::sync::atomic::{Ordering, AtomicBool};
-use std::sync::mpsc::Receiver;
+use std::sync::mpsc::{Sender, Receiver};
 
 use log::{debug, error, info, trace};
 use skulpin::sdl2;
@@ -15,7 +15,6 @@ use skulpin::{
     CoordinateSystem, LogicalSize, PhysicalSize, PresentMode, Renderer as SkulpinRenderer,
     RendererBuilder, Sdl2Window, Window,
 };
-use tokio::sync::mpsc::UnboundedSender;
 
 use crate::editor::DrawCommand;
 use crate::bridge::{produce_neovim_keybinding_string, UiCommand};
@@ -38,7 +37,7 @@ fn windows_fix_dpi() {
     }
 }
 
-fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer, ui_command_sender: &UnboundedSender<UiCommand>) {
+fn handle_new_grid_size(new_size: LogicalSize, renderer: &Renderer, ui_command_sender: &Sender<UiCommand>) {
     if new_size.width > 0 && new_size.height > 0 {
         let new_width = ((new_size.width + 1) as f32 / renderer.font_width) as u32;
         let new_height = ((new_size.height + 1) as f32 / renderer.font_height) as u32;
@@ -65,7 +64,7 @@ struct WindowWrapper {
     fullscreen: bool,
     cached_size: (u32, u32),
     cached_position: (i32, i32),
-    ui_command_sender: UnboundedSender<UiCommand>,
+    ui_command_sender: Sender<UiCommand>,
     running: Arc<AtomicBool>
 }
 
@@ -112,7 +111,7 @@ pub fn window_geometry_or_default() -> (u64, u64) {
 }
 
 impl WindowWrapper {
-    pub fn new(ui_command_sender: UnboundedSender<UiCommand>, running: Arc<AtomicBool>) -> WindowWrapper {
+    pub fn new(ui_command_sender: Sender<UiCommand>, running: Arc<AtomicBool>) -> WindowWrapper {
         let context = sdl2::init().expect("Failed to initialize sdl2");
         let video_subsystem = context
             .video()
@@ -436,7 +435,7 @@ pub fn initialize_settings() {
     register_nvim_setting!("fullscreen", WindowSettings::fullscreen);
 }
 
-pub fn start_window(draw_command_receiver: Receiver<DrawCommand>, ui_command_sender: UnboundedSender<UiCommand>, running: Arc<AtomicBool>) {
+pub fn start_window(draw_command_receiver: Receiver<DrawCommand>, ui_command_sender: Sender<UiCommand>, running: Arc<AtomicBool>) {
     let mut window = WindowWrapper::new(ui_command_sender.clone(), running.clone());
 
     info!("Starting window event loop");
