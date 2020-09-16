@@ -77,7 +77,6 @@ impl FromValue for bool {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
 
     #[test]
