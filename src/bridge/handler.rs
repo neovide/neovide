@@ -26,24 +26,22 @@ impl Handler for NeovimHandler {
         _neovim: Neovim<Compat<ChildStdin>>,
     ) {
         trace!("Neovim notification: {:?}", &event_name);
-        task::spawn_blocking(move || {
-            match event_name.as_ref() {
-                "redraw" => {
-                    handle_redraw_event_group(arguments);
-                }
-                "setting_changed" => {
-                    SETTINGS.handle_changed_notification(arguments);
-                }
-                #[cfg(windows)]
-                "neovide.register_right_click" => {
-                    BRIDGE.queue_command(UiCommand::RegisterRightClick);
-                }
-                #[cfg(windows)]
-                "neovide.unregister_right_click" => {
-                    BRIDGE.queue_command(UiCommand::UnregisterRightClick);
-                }
-                _ => {}
+        task::spawn_blocking(move || match event_name.as_ref() {
+            "redraw" => {
+                handle_redraw_event_group(arguments);
             }
+            "setting_changed" => {
+                SETTINGS.handle_changed_notification(arguments);
+            }
+            #[cfg(windows)]
+            "neovide.register_right_click" => {
+                BRIDGE.queue_command(UiCommand::RegisterRightClick);
+            }
+            #[cfg(windows)]
+            "neovide.unregister_right_click" => {
+                BRIDGE.queue_command(UiCommand::UnregisterRightClick);
+            }
+            _ => {}
         })
         .await
         .ok();
