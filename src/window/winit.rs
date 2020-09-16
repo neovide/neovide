@@ -50,6 +50,7 @@ struct NeovideHandle {
     mouse_down: bool,
     mouse_position: LogicalPosition<u32>,
     keycode: Option<Keycode>,
+    text: Option<String>,
     modifiers: ModifiersState,
     ignore_text_this_frame: bool,
 }
@@ -104,28 +105,14 @@ impl NeovideHandle {
     fn handle_keyboard_input(&mut self) {
         if self.keycode.is_some() {
             trace!("Keyboard Input Received: keycode-{:?}", self.keycode);
-            match self.keycode.unwrap() {
-                Keycode::LControl | Keycode::RControl => {
-                    self.modifiers.insert(ModifiersState::CTRL);
-                    self.keycode = None;
-                }
-                Keycode::LShift | Keycode::RShift => {
-                    self.modifiers.insert(ModifiersState::SHIFT);
-                    self.keycode = None;
-                }
-                Keycode::LAlt | Keycode::RAlt => {
-                    self.modifiers.insert(ModifiersState::ALT);
-                    self.keycode = None;
-                }
-                _ => {}
-            }
         }
 
         if let Some(keybinding_string) =
-            produce_neovim_keybinding_string(self.keycode, None, self.modifiers)
+            produce_neovim_keybinding_string(self.keycode, self.text.as_ref(), self.modifiers)
         {
             BRIDGE.queue_command(UiCommand::Keyboard(keybinding_string));
             self.keycode = None;
+            self.text = None;
             self.modifiers = ModifiersState::empty();
         }
     }
@@ -211,6 +198,7 @@ impl Default for NeovideHandle {
             mouse_down: false,
             mouse_position: LogicalPosition { x: 0, y: 0 },
             keycode: None,
+            text: None,
             modifiers: ModifiersState::empty(),
             ignore_text_this_frame: false,
         }
@@ -277,17 +265,16 @@ impl EventProcessor for NeovideHandle {
                     path.into_os_string().into_string().unwrap(),
                 ));
             }
+            WindowEvent::ReceivedCharacter(c) => {
+                self.text = Some(c.to_string());
+            }
             WindowEvent::KeyboardInput { input, .. } => {
-                if input.state == ElementState::Pressed {
-                    if !self.ignore_text_this_frame {
-                        self.keycode = input.virtual_keycode;
-                    } else {
-                        self.ignore_text_this_frame = false;
-                    }
+                if input.state == ElementState::Released {
+                    self.ignore_text_this_frame = false;
                 }
             }
             WindowEvent::ModifiersChanged(m) => {
-                self.modifiers = m;
+                self.modifiers.set(m, true);
             }
             WindowEvent::CursorMoved { position, .. } => self.handle_pointer_motion(position),
             WindowEvent::MouseWheel {
@@ -395,7 +382,9 @@ pub fn ui_loop() {
 
         if !window_manager.update_all() || !window_manager.render_all() {
             *control_flow = ControlFlow::Exit;
-        } else {
+        }
+
+        if *control_flow != ControlFlow::Exit {
             let elapsed = frame_start.elapsed();
             let refresh_rate = { SETTINGS.get::<WindowSettings>().refresh_rate as f32 };
             let frame_length = Duration::from_secs_f32(1.0 / refresh_rate);

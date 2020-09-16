@@ -126,7 +126,7 @@ pub fn produce_neovim_keybinding_string(
 #[cfg(feature = "winit")]
 pub fn produce_neovim_keybinding_string(
     keycode: Option<Keycode>,
-    keytext: Option<String>,
+    keytext: Option<&String>,
     modifiers: ModifiersState,
 ) -> Option<String> {
     let shift = modifiers.shift();
@@ -135,7 +135,7 @@ pub fn produce_neovim_keybinding_string(
     let gui = modifiers.logo();
 
     if let Some(text) = keytext {
-        Some(append_modifiers(&text, false, false, ctrl, alt, gui))
+        Some(append_modifiers(text, false, false, ctrl, alt, gui))
     } else if let Some(keycode) = keycode {
         (match SETTINGS.get::<KeyboardSettings>().layout {
             KeyboardLayout::Qwerty => handle_qwerty_layout(keycode, shift, ctrl, alt),
