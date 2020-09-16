@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::mpsc::Receiver;
 
-use log::{trace, error};
+use log::{trace, warn, error};
 use skulpin::skia_safe::{
-    colors, dash_path_effect, Canvas, Paint, Rect, BlendMode
+    colors, dash_path_effect, Canvas, Paint, Rect, BlendMode, Color
 };
 use skulpin::CoordinateSystemHelper;
 
@@ -57,10 +58,11 @@ pub struct Renderer {
     pub font_width: f32,
     pub font_height: f32,
     pub window_regions: Vec<(u64, Rect)>,
+    pub draw_command_receiver: Receiver<DrawCommand>,
 }
 
 impl Renderer {
-    pub fn new() -> Renderer {
+    pub fn new(draw_command_receiver: Receiver<DrawCommand>) -> Renderer {
         let rendered_windows = HashMap::new();
         let cursor_renderer = CursorRenderer::new();
         let settings = SETTINGS.get::<RendererSettings>();
@@ -87,6 +89,7 @@ impl Renderer {
             font_width,
             font_height,
             window_regions,
+            draw_command_receiver,
         }
     }
 
@@ -115,20 +118,13 @@ impl Renderer {
         grid_pos: (u64, u64),
         cell_width: u64,
         style: &Option<Arc<Style>>,
-        floating: bool,
     ) {
         self.paint.set_blend_mode(BlendMode::Src);
 
         let region = self.compute_text_region(grid_pos, cell_width);
         let style = style.as_ref().unwrap_or(&self.default_style);
 
-        let mut color = style.background(&self.default_style.colors);
-
-        if floating {
-            color.a = color.a * self.settings.floating_opacity.min(1.0).max(0.0);
-        }
-
-        self.paint.set_color(color.to_color());
+        self.paint.set_color(style.background(&self.default_style.colors).to_color());
         canvas.draw_rect(region, &self.paint);
     }
 
@@ -152,6 +148,10 @@ impl Renderer {
         let region = self.compute_text_region(grid_pos, cell_width);
 
         canvas.clip_rect(region, None, Some(false));
+        self.paint.set_blend_mode(BlendMode::Src);
+        let transparent = Color::from_argb(0, 255, 255, 255);
+        self.paint.set_color(transparent);
+        canvas.draw_rect(region, &self.paint);
 
         if style.underline || style.undercurl {
             let line_position = self.shaper.underline_position();
@@ -200,6 +200,7 @@ impl Renderer {
     }
 
     pub fn handle_draw_command(&mut self, root_canvas: &mut Canvas, draw_command: DrawCommand) {
+        warn!("{:?}", &draw_command);
         match draw_command {
             DrawCommand::Window {
                 grid_id,
@@ -212,13 +213,14 @@ impl Renderer {
                 command
             } => {
                 if let Some(rendered_window) = self.rendered_windows.remove(&grid_id) {
+                    warn!("Window positioned {}", grid_id);
                     let rendered_window = rendered_window.handle_window_draw_command(self, command);
                     self.rendered_windows.insert(grid_id, rendered_window);
                 } else if let WindowDrawCommand::Position { 
                     grid_left, grid_top,
                     width, height, ..
                 } = command {
-                    println!("Created window {}", grid_id);
+                    warn!("Created window {}", grid_id);
                     let new_window = RenderedWindow::new(
                         root_canvas, &self, grid_id, 
                         (grid_left as f32, grid_top as f32).into(), 
@@ -250,6 +252,11 @@ impl Renderer {
         dt: f32,
     ) {
         trace!("Rendering");
+
+        let draw_commands: Vec<DrawCommand> = self.draw_command_receiver.try_iter().collect();
+        for draw_command in draw_commands.into_iter() {
+            self.handle_draw_command(root_canvas, draw_command);
+        }
 
         root_canvas.clear(self.default_style.colors.background.clone().unwrap().to_color());
 

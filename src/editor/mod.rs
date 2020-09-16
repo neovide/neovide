@@ -7,8 +7,9 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::mpsc::{Sender, Receiver};
 use std::thread;
+use std::fmt;
 
-use log::{error, trace};
+use log::{error, warn, trace};
 
 use crate::bridge::{EditorMode, GuiOption, RedrawEvent, WindowAnchor};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
@@ -56,8 +57,23 @@ pub enum DrawCommand {
     UpdateCursor(Cursor),
     FontChanged(String),
     DefaultStyleChanged(Style),
+}
+
+pub enum WindowCommand {
     TitleChanged(String),
     SetMouseEnabled(bool),
+}
+
+impl fmt::Debug for DrawCommand {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DrawCommand::CloseWindow(_) => write!(formatter, "CloseWindow"),
+            DrawCommand::Window { grid_id, command } => write!(formatter, "Window {} {:?}", grid_id, command),
+            DrawCommand::UpdateCursor(_) => write!(formatter, "UpdateCursor"),
+            DrawCommand::FontChanged(_) => write!(formatter, "FontChanged"),
+            DrawCommand::DefaultStyleChanged(_) => write!(formatter, "DefaultStyleChanged"),
+        }
+    }
 }
 
 pub struct Editor {
@@ -67,11 +83,12 @@ pub struct Editor {
     pub previous_style: Option<Arc<Style>>,
     pub mode_list: Vec<CursorMode>,
     pub current_mode: EditorMode,
-    pub draw_command_sender: Sender<DrawCommand>
+    pub draw_command_sender: Sender<DrawCommand>,
+    pub window_command_sender: Sender<WindowCommand>,
 }
 
 impl Editor {
-    pub fn new(draw_command_sender: Sender<DrawCommand>) -> Editor {
+    pub fn new(draw_command_sender: Sender<DrawCommand>, window_command_sender: Sender<WindowCommand>) -> Editor {
         Editor {
             windows: HashMap::new(),
             cursor: Cursor::new(),
@@ -79,14 +96,15 @@ impl Editor {
             previous_style: None,
             mode_list: Vec::new(),
             current_mode: EditorMode::Unknown(String::from("")),
-            draw_command_sender
+            draw_command_sender,
+            window_command_sender
         }
     }
 
     pub fn handle_redraw_event(&mut self, event: RedrawEvent) {
         match event {
             RedrawEvent::SetTitle { title } => {
-                self.draw_command_sender.send(DrawCommand::TitleChanged(title)).ok();
+                self.window_command_sender.send(WindowCommand::TitleChanged(title)).ok();
             },
             RedrawEvent::ModeInfoSet { cursor_modes } => self.mode_list = cursor_modes,
             RedrawEvent::OptionSet { gui_option } => self.set_option(gui_option),
@@ -98,10 +116,10 @@ impl Editor {
                 }
             }
             RedrawEvent::MouseOn => {
-                self.draw_command_sender.send(DrawCommand::SetMouseEnabled(true)).ok();
+                self.window_command_sender.send(WindowCommand::SetMouseEnabled(true)).ok();
             }
             RedrawEvent::MouseOff => {
-                self.draw_command_sender.send(DrawCommand::SetMouseEnabled(false)).ok();
+                self.window_command_sender.send(WindowCommand::SetMouseEnabled(false)).ok();
             }
             RedrawEvent::BusyStart => {
                 trace!("Cursor off");
@@ -209,7 +227,7 @@ impl Editor {
     }
 
     fn resize_window(&mut self, grid: u64, width: u64, height: u64) {
-        println!("editor resize {}", grid);
+        warn!("editor resize {}", grid);
         if let Some(window) = self.windows.get_mut(&grid) {
             window.resize(width, height);
         } else {
@@ -233,7 +251,7 @@ impl Editor {
         width: u64,
         height: u64,
     ) {
-        println!("position {}", grid);
+        warn!("position {}", grid);
         if let Some(window) = self.windows.get_mut(&grid) {
             window.position(
                 width,
@@ -264,7 +282,7 @@ impl Editor {
         anchor_left: f64,
         anchor_top: f64,
     ) {
-        println!("floating position {}", grid);
+        warn!("floating position {}", grid);
         let parent_position = self.get_window_top_left(anchor_grid);
         if let Some(window) = self.windows.get_mut(&grid) {
             let width = window.get_width();
@@ -292,7 +310,7 @@ impl Editor {
     }
 
     fn set_message_position(&mut self, grid: u64, grid_top: u64) {
-        println!("message position {}", grid);
+        warn!("message position {}", grid);
         let parent_width = self.windows.get(&1).map(|parent| parent.get_width()).unwrap_or(1);
 
         if let Some(window) = self.windows.get_mut(&grid) {
@@ -363,9 +381,9 @@ impl Editor {
     }
 }
 
-pub fn start_editor(redraw_event_receiver: Receiver<RedrawEvent>, draw_command_sender: Sender<DrawCommand>) {
+pub fn start_editor(redraw_event_receiver: Receiver<RedrawEvent>, draw_command_sender: Sender<DrawCommand>, window_command_sender: Sender<WindowCommand>) {
     thread::spawn(move || {
-        let mut editor = Editor::new(draw_command_sender);
+        let mut editor = Editor::new(draw_command_sender, window_command_sender);
 
         loop {
             if let Ok(redraw_event) = redraw_event_receiver.recv() {

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::mpsc::Sender;
+use std::fmt;
 
 use log::warn;
 use unicode_segmentation::UnicodeSegmentation;
@@ -10,7 +11,7 @@ use super::grid::CharacterGrid;
 use super::style::Style;
 use crate::bridge::GridLineCell;
 
-#[derive(new, Debug, Clone)]
+#[derive(new, Clone)]
 pub enum WindowDrawCommand {
     Position {
         grid_left: f64,
@@ -38,6 +39,20 @@ pub enum WindowDrawCommand {
     Show,
     Hide,
     Close
+}
+
+impl fmt::Debug for WindowDrawCommand {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            WindowDrawCommand::Position { .. } => write!(formatter, "Position"),
+            WindowDrawCommand::Cell { .. } => write!(formatter, "Cell"),
+            WindowDrawCommand::Scroll { .. } => write!(formatter, "Scroll"),
+            WindowDrawCommand::Clear => write!(formatter, "Clear"),
+            WindowDrawCommand::Show => write!(formatter, "Show"),
+            WindowDrawCommand::Hide => write!(formatter, "Hide"),
+            WindowDrawCommand::Close => write!(formatter, "Close"),
+        }
+    }
 }
 
 pub struct Window {

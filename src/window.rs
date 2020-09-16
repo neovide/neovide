@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::sync::atomic::{Ordering, AtomicBool};
 use std::sync::mpsc::{Sender, Receiver};
 
-use log::{debug, error, info, trace};
+use log::{debug, error, warn, info, trace};
 use skulpin::sdl2;
 use skulpin::sdl2::event::{Event, WindowEvent};
 use skulpin::sdl2::keyboard::Keycode;
@@ -16,7 +16,7 @@ use skulpin::{
     RendererBuilder, Sdl2Window, Window,
 };
 
-use crate::editor::DrawCommand;
+use crate::editor::{DrawCommand, WindowCommand};
 use crate::bridge::{produce_neovim_keybinding_string, UiCommand};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::renderer::Renderer;
@@ -111,7 +111,7 @@ pub fn window_geometry_or_default() -> (u64, u64) {
 }
 
 impl WindowWrapper {
-    pub fn new(ui_command_sender: Sender<UiCommand>, running: Arc<AtomicBool>) -> WindowWrapper {
+    pub fn new(ui_command_sender: Sender<UiCommand>, draw_command_receiver: Receiver<DrawCommand>, running: Arc<AtomicBool>) -> WindowWrapper {
         let context = sdl2::init().expect("Failed to initialize sdl2");
         let video_subsystem = context
             .video()
@@ -120,7 +120,7 @@ impl WindowWrapper {
 
         let (width, height) = window_geometry_or_default();
 
-        let renderer = Renderer::new();
+        let renderer = Renderer::new(draw_command_receiver);
         let logical_size = LogicalSize {
             width: (width as f32 * renderer.font_width) as u32,
             height: (height as f32 * renderer.font_height + 1.0) as u32,
@@ -381,7 +381,7 @@ impl WindowWrapper {
         REDRAW_SCHEDULER.queue_next_frame();
     }
 
-    pub fn draw_frame(&mut self, draw_commands: Vec<DrawCommand>, dt: f32) -> VkResult<bool> {
+    pub fn draw_frame(&mut self, dt: f32) -> VkResult<bool> {
         let sdl_window_wrapper = Sdl2Window::new(&self.window);
         let new_size = sdl_window_wrapper.logical_size();
         if self.previous_size != new_size {
@@ -395,10 +395,6 @@ impl WindowWrapper {
             let renderer = &mut self.renderer;
             self.skulpin_renderer
                 .draw(&sdl_window_wrapper, |canvas, coordinate_system_helper| {
-                    for draw_command in draw_commands.into_iter() {
-                        renderer.handle_draw_command(canvas, draw_command);
-                    }
-
                     renderer.draw_frame(canvas, &coordinate_system_helper, dt) 
                 })?;
 
@@ -435,8 +431,8 @@ pub fn initialize_settings() {
     register_nvim_setting!("fullscreen", WindowSettings::fullscreen);
 }
 
-pub fn start_window(draw_command_receiver: Receiver<DrawCommand>, ui_command_sender: Sender<UiCommand>, running: Arc<AtomicBool>) {
-    let mut window = WindowWrapper::new(ui_command_sender.clone(), running.clone());
+pub fn start_window(draw_command_receiver: Receiver<DrawCommand>, window_command_receiver: Receiver<WindowCommand>, ui_command_sender: Sender<UiCommand>, running: Arc<AtomicBool>) {
+    let mut window = WindowWrapper::new(ui_command_sender.clone(), draw_command_receiver, running.clone());
 
     info!("Starting window event loop");
     let mut event_pump = window
@@ -503,17 +499,14 @@ pub fn start_window(draw_command_receiver: Receiver<DrawCommand>, ui_command_sen
             1.0 / refresh_rate
         };
 
-        let mut unhandled_draw_commands = Vec::new();
-
-        for draw_command in draw_command_receiver.try_iter() {
-            match draw_command {
-                DrawCommand::TitleChanged(new_title) => window.handle_title_changed(new_title),
-                DrawCommand::SetMouseEnabled(mouse_enabled) => window.mouse_enabled = mouse_enabled,
-                unhandled_command => unhandled_draw_commands.push(unhandled_command)
+        for window_command in window_command_receiver.try_iter() {
+            match window_command {
+                WindowCommand::TitleChanged(new_title) => window.handle_title_changed(new_title),
+                WindowCommand::SetMouseEnabled(mouse_enabled) => window.mouse_enabled = mouse_enabled,
             }
         }
 
-        match window.draw_frame(unhandled_draw_commands, dt) {
+        match window.draw_frame(dt) {
             Ok(animating) => {
                 was_animating = animating;
             },
