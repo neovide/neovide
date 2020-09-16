@@ -215,10 +215,15 @@ impl WindowHandle for NeovideHandle {
     }
 
     fn logical_size(&self) -> LogicalSize<u32> {
-        let (width, height) = window_geometry_or_default();
-        LogicalSize {
-            width: (width as f32 * self.renderer.font_width) as u32,
-            height: (height as f32 * self.renderer.font_height) as u32,
+        if let Some(window) = self.window.as_ref() {
+            let scale_factor = window.scale_factor();
+            window.inner_size().to_logical(scale_factor)
+        } else {
+            let (width, height) = window_geometry_or_default();
+            LogicalSize {
+                width: (width as f32 * self.renderer.font_width) as u32,
+                height: (height as f32 * self.renderer.font_height) as u32,
+            }
         }
     }
 
