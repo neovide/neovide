@@ -218,8 +218,8 @@ impl Default for NeovideHandle {
 }
 
 impl WindowHandle for NeovideHandle {
-    fn window(&mut self) -> &Window {
-        self.window.as_ref().unwrap()
+    fn window(&mut self) -> Window {
+        self.window.take().unwrap()
     }
 
     fn set_window(&mut self, window: Window) {
@@ -393,11 +393,9 @@ pub fn ui_loop() {
             _ => {}
         }
 
-        if !window_manager.render_all() || !window_manager.update_all() {
+        if !window_manager.update_all() || !window_manager.render_all() {
             *control_flow = ControlFlow::Exit;
-        }
-
-        if *control_flow != ControlFlow::Exit {
+        } else {
             let elapsed = frame_start.elapsed();
             let refresh_rate = { SETTINGS.get::<WindowSettings>().refresh_rate as f32 };
             let frame_length = Duration::from_secs_f32(1.0 / refresh_rate);

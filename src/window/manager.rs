@@ -17,7 +17,7 @@ pub trait EventProcessor {
 }
 
 pub trait WindowHandle: EventProcessor {
-    fn window(&mut self) -> &Window;
+    fn window(&mut self) -> Window;
     fn set_window(&mut self, window: Window);
     fn logical_size(&self) -> LogicalSize<u32>;
     fn update(&mut self) -> bool;
