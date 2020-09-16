@@ -197,7 +197,6 @@ impl Settings {
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
 
     use crate::bridge::create_nvim_command;
