@@ -7,9 +7,10 @@ build = "build.rs"
 description = "A simple GUI for Neovim."
 
 [features]
-default = ["sdl2"]
+default = ["glfw"]
 embed-fonts = []
 sdl2 = ["skulpin/skulpin_sdl2"]
+glfw = ["skulpin/skulpin_glfw"]
 winit = ["skulpin/skulpin_winit"]
 
 [dependencies]
@@ -17,7 +18,7 @@ euclid = "0.20.7"
 font-kit = "0.6.0"
 skribo = { git = "https://github.com/linebender/skribo" }
 lru = "0.4.3"
-skulpin = { git = "https://github.com/aclysma/skulpin" }
+skulpin = { git = "https://github.com/uhuntu/skulpin", branch = "glfw-windows" }
 derive-new = "0.5"
 rmpv = "0.4.4"
 rust-embed = { version = "5.2.0", features = ["debug-embed"] }

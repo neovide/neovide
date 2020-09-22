@@ -1,5 +1,7 @@
 #[cfg_attr(feature = "sdl2", path = "sdl2.rs")]
 #[cfg_attr(feature = "winit", path = "winit.rs")]
+#[cfg_attr(feature = "glfw", path = "glfw.rs")]
+
 mod qwerty;
 
 use log::{error, trace};
@@ -9,8 +11,15 @@ use skulpin::sdl2::keyboard::{Keycode, Mod};
 
 #[cfg(feature = "winit")]
 use skulpin::winit::event::ModifiersState;
+
 #[cfg(feature = "winit")]
 use skulpin::winit::event::VirtualKeyCode as Keycode;
+
+#[cfg(feature = "glfw")]
+use skulpin::glfw::Key as Keycode;
+
+#[cfg(feature = "glfw")]
+use skulpin::glfw::Modifiers as Mod;
 
 use crate::settings::{FromValue, Value, SETTINGS};
 
@@ -109,6 +118,36 @@ pub fn produce_neovim_keybinding_string(
     let ctrl = modifiers.contains(Mod::LCTRLMOD) || modifiers.contains(Mod::RCTRLMOD);
     let alt = modifiers.contains(Mod::LALTMOD) || modifiers.contains(Mod::RALTMOD);
     let gui = modifiers.contains(Mod::LGUIMOD) || modifiers.contains(Mod::RGUIMOD);
+    if let Some(text) = keytext {
+        Some(append_modifiers(&text, false, false, ctrl, alt, gui))
+    } else if let Some(keycode) = keycode {
+        (match SETTINGS.get::<KeyboardSettings>().layout {
+            KeyboardLayout::Qwerty => handle_qwerty_layout(keycode, shift, ctrl, alt),
+        })
+        .map(|(transformed_text, special, shift, ctrl, alt)| {
+            append_modifiers(transformed_text, special, shift, ctrl, alt, gui)
+        })
+    } else {
+        None
+    }
+}
+
+#[cfg(feature = "glfw")]
+pub fn produce_neovim_keybinding_string(
+    keycode: Option<Keycode>,
+    keytext: Option<String>,
+    modifiers: Option<Mod>,
+) -> Option<String> {
+    let mut shift = false;
+    let mut ctrl = false;
+    let mut alt = false;
+    let mut gui = false;
+    if let Some(modifiers) = modifiers {
+        shift = modifiers.contains(Mod::Shift);
+        ctrl = modifiers.contains(Mod::Control);
+        alt = modifiers.contains(Mod::Alt);
+        gui = modifiers.contains(Mod::Alt);
+    }
     if let Some(text) = keytext {
         Some(append_modifiers(&text, false, false, ctrl, alt, gui))
     } else if let Some(keycode) = keycode {

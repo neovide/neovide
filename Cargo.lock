@@ -88,11 +88,22 @@ checksum = "cff77d8686867eceff3105329d4698d96c2391c176d5d03adc90c7389162b5b8"
 
 [[package]]
 name = "ash"
-version = "0.30.0"
+version = "0.31.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69daec0742947f33a85931fa3cb0ce5f07929159dcbd1f0cbb5b2912e2978509"
+checksum = "c69a8137596e84c22d57f3da1b5de1d4230b1742a710091c85f4d7ce50f00f38"
 dependencies = [
- "libloading",
+ "libloading 0.6.3",
+]
+
+[[package]]
+name = "ash-window"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "905c4ca25f752e7ab3c3e8f2882625f876e4c3ea5feffbc83f81d697e043afd6"
+dependencies = [
+ "ash",
+ "raw-window-handle",
+ "raw-window-metal",
 ]
 
 [[package]]
@@ -137,9 +148,9 @@ checksum = "b41b7ea54a0c9d92199de89e20e58d49f02f8e699814ef3fdf266f6f748d15c7"
 
 [[package]]
 name = "bindgen"
-version = "0.53.2"
+version = "0.55.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6bb26d6a69a335b8cb0e7c7e9775cd5666611dc50a37177c3f2cedcfc040e8c8"
+checksum = "75b13ce559e6433d360c26305643803cb52cfbabbc2b9c47ce04a58493dfb443"
 dependencies = [
  "bitflags",
  "cexpr",
@@ -255,13 +266,13 @@ dependencies = [
 
 [[package]]
 name = "clang-sys"
-version = "0.29.3"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe6837df1d5cba2397b835c8530f51723267e16abbf83892e9e5af4f0e5dd10a"
+checksum = "9da1484c6a890e374ca5086062d4847e0a2c1e5eba9afa5d48c09e8eb39b2519"
 dependencies = [
  "glob",
  "libc",
- "libloading",
+ "libloading 0.6.3",
 ]
 
 [[package]]
@@ -307,6 +318,21 @@ dependencies = [
  "block",
  "core-foundation 0.6.4",
  "core-graphics 0.17.3",
+ "foreign-types",
+ "libc",
+ "objc",
+]
+
+[[package]]
+name = "cocoa"
+version = "0.20.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c49e86fc36d5704151f5996b7b3795385f50ce09e3be0f47a0cfde869681cf8"
+dependencies = [
+ "bitflags",
+ "block",
+ "core-foundation 0.7.0",
+ "core-graphics 0.19.0",
  "foreign-types",
  "libc",
  "objc",
@@ -584,7 +610,7 @@ version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77e51249a9d823a4cb79e3eca6dcd756153e8ed0157b6c04775d04bf1b13b76a"
 dependencies = [
- "libloading",
+ "libloading 0.5.2",
 ]
 
 [[package]]
@@ -908,6 +934,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "glfw"
+version = "0.40.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "985f851b0d032911e199f308689d25c71f79d12c44625c3a31b683ad4e4f5dd9"
+dependencies = [
+ "bitflags",
+ "glfw-sys",
+ "log",
+ "objc",
+ "raw-window-handle",
+ "semver",
+ "winapi 0.3.8",
+]
+
+[[package]]
+name = "glfw-sys"
+version = "3.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b567b13b593ec58ea912b2658ee6230ffe20a069fa5b771800acc69bb3a157e"
+dependencies = [
+ "cmake",
+]
+
+[[package]]
 name = "glob"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1069,6 +1119,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "libloading"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2443d8f0478b16759158b2f66d525991a05491138bc05814ef52a250148ef4f9"
+dependencies = [
+ "cfg-if",
+ "winapi 0.3.8",
+]
+
+[[package]]
 name = "libz-sys"
 version = "1.0.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1160,21 +1220,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4fc2c02a7e374099d4ee95a193111f72d2110197fe200272371758f6c3643d8"
 dependencies = [
  "autocfg 1.0.0",
-]
-
-[[package]]
-name = "metal"
-version = "0.17.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f83c7dcc2038e12f68493fa3de44235df27b2497178e257185b4b5b5d028a1e4"
-dependencies = [
- "bitflags",
- "block",
- "cocoa",
- "core-graphics 0.17.3",
- "foreign-types",
- "log",
- "objc",
 ]
 
 [[package]]
@@ -1445,16 +1490,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "915b1b472bc21c53464d6c8461c9d3af805ba1ef837e1cac254428f4a77177b1"
 dependencies = [
  "malloc_buf",
- "objc_exception",
-]
-
-[[package]]
-name = "objc_exception"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad970fb455818ad6cba4c122ad012fae53ae8b4795f86378bce65e4f6bab2ca4"
-dependencies = [
- "cc",
 ]
 
 [[package]]
@@ -1730,6 +1765,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "raw-window-metal"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b0f43bdc87adef4ce827b07775c9e59716b52f369696e7fb4ec7c4acb4e20b1"
+dependencies = [
+ "cocoa 0.20.2",
+ "core-graphics 0.19.0",
+ "objc",
+ "raw-window-handle",
+]
+
+[[package]]
 name = "rayon"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1933,6 +1980,7 @@ dependencies = [
  "bitflags",
  "lazy_static",
  "libc",
+ "raw-window-handle",
  "sdl2-sys",
 ]
 
@@ -2032,9 +2080,9 @@ dependencies = [
 
 [[package]]
 name = "skia-bindings"
-version = "0.27.3"
+version = "0.33.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfa4cc006be07441ba7129e9ac39c750af5d5120759e95a3ba121d9c6ca94c0e"
+checksum = "29c5185b034cf64abcb41b864d7049de55e43f842f15e5e682ee4888b32366cb"
 dependencies = [
  "bindgen",
  "cc",
@@ -2049,9 +2097,9 @@ dependencies = [
 
 [[package]]
 name = "skia-safe"
-version = "0.27.3"
+version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "59cfb4ded0c38514114de4b0835e9aea335382f0e318a365be62af40dd904faa"
+checksum = "aa82b761a1f1184826f28596fbd4710581c315926fc73749cef9337a3537d085"
 dependencies = [
  "bitflags",
  "lazy_static",
@@ -2073,20 +2121,21 @@ dependencies = [
 
 [[package]]
 name = "skulpin"
-version = "0.9.4"
-source = "git+https://github.com/aclysma/skulpin#6139a1f158080b5007b81c60110162bbd4a9d3a9"
+version = "0.10.0"
+source = "git+https://github.com/uhuntu/skulpin?branch=glfw-windows#fe9536a23f67d41c151a4c34b449768d0e50cde5"
 dependencies = [
  "log",
  "skulpin-app-winit",
  "skulpin-renderer",
+ "skulpin-renderer-glfw",
  "skulpin-renderer-sdl2",
  "skulpin-renderer-winit",
 ]
 
 [[package]]
 name = "skulpin-app-winit"
-version = "0.3.0"
-source = "git+https://github.com/aclysma/skulpin#6139a1f158080b5007b81c60110162bbd4a9d3a9"
+version = "0.4.0"
+source = "git+https://github.com/uhuntu/skulpin?branch=glfw-windows#fe9536a23f67d41c151a4c34b449768d0e50cde5"
 dependencies = [
  "log",
  "skulpin-renderer",
@@ -2095,8 +2144,8 @@ dependencies = [
 
 [[package]]
 name = "skulpin-renderer"
-version = "0.3.1"
-source = "git+https://github.com/aclysma/skulpin#6139a1f158080b5007b81c60110162bbd4a9d3a9"
+version = "0.4.0"
+source = "git+https://github.com/uhuntu/skulpin?branch=glfw-windows#fe9536a23f67d41c151a4c34b449768d0e50cde5"
 dependencies = [
  "ash",
  "log",
@@ -2105,27 +2154,38 @@ dependencies = [
 ]
 
 [[package]]
-name = "skulpin-renderer-sdl2"
-version = "0.3.3"
-source = "git+https://github.com/aclysma/skulpin#6139a1f158080b5007b81c60110162bbd4a9d3a9"
+name = "skulpin-renderer-glfw"
+version = "0.1.0"
+source = "git+https://github.com/uhuntu/skulpin?branch=glfw-windows#fe9536a23f67d41c151a4c34b449768d0e50cde5"
 dependencies = [
+ "ash-window",
+ "glfw",
  "log",
+ "raw-window-handle",
+ "skulpin-renderer",
+]
+
+[[package]]
+name = "skulpin-renderer-sdl2"
+version = "0.4.0"
+source = "git+https://github.com/uhuntu/skulpin?branch=glfw-windows#fe9536a23f67d41c151a4c34b449768d0e50cde5"
+dependencies = [
+ "ash-window",
+ "log",
+ "raw-window-handle",
  "sdl2",
  "skulpin-renderer",
 ]
 
 [[package]]
 name = "skulpin-renderer-winit"
-version = "0.3.1"
-source = "git+https://github.com/aclysma/skulpin#6139a1f158080b5007b81c60110162bbd4a9d3a9"
+version = "0.4.0"
+source = "git+https://github.com/uhuntu/skulpin?branch=glfw-windows#fe9536a23f67d41c151a4c34b449768d0e50cde5"
 dependencies = [
- "cocoa",
+ "ash-window",
  "log",
- "metal",
- "objc",
  "raw-window-handle",
  "skulpin-renderer",
- "winapi 0.3.8",
  "winit",
 ]
 
@@ -2568,7 +2628,7 @@ checksum = "fc53342d3d1a3d57f3949e0692d93d5a8adb7814d8683cef4a09c2b550e94246"
 dependencies = [
  "android_glue",
  "bitflags",
- "cocoa",
+ "cocoa 0.19.1",
  "core-foundation 0.6.4",
  "core-graphics 0.17.3",
  "core-video-sys",

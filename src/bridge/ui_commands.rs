@@ -3,7 +3,9 @@ use nvim_rs::compat::tokio::Compat;
 use nvim_rs::Neovim;
 use tokio::process::ChildStdin;
 
+#[cfg(not(feature = "glfw"))]
 use crate::editor::EDITOR;
+
 #[cfg(windows)]
 use crate::settings::windows_registry::{
     register_rightclick_directory, register_rightclick_file, unregister_rightclick,
@@ -16,17 +18,23 @@ pub enum UiCommand {
         height: u32,
     },
     Keyboard(String),
+    #[cfg(not(feature = "glfw"))]
     MouseButton {
         action: String,
         position: (u32, u32),
     },
+    #[cfg(not(feature = "glfw"))]
     Scroll {
         direction: String,
         position: (u32, u32),
     },
+    #[cfg(not(feature = "glfw"))]
     Drag(u32, u32),
+    #[cfg(not(feature = "glfw"))]
     FileDrop(String),
+    #[cfg(not(feature = "glfw"))]
     FocusLost,
+    #[cfg(not(feature = "glfw"))]
     FocusGained,
     Quit,
     #[cfg(windows)]
@@ -46,6 +54,7 @@ impl UiCommand {
                 trace!("Keyboard Input Sent: {}", input_command);
                 nvim.input(&input_command).await.expect("Input failed");
             }
+            #[cfg(not(feature = "glfw"))]
             UiCommand::MouseButton {
                 action,
                 position: (grid_x, grid_y),
@@ -56,6 +65,7 @@ impl UiCommand {
                         .expect("Mouse Input Failed");
                 }
             }
+            #[cfg(not(feature = "glfw"))]
             UiCommand::Scroll {
                 direction,
                 position: (grid_x, grid_y),
@@ -66,6 +76,7 @@ impl UiCommand {
                         .expect("Mouse Scroll Failed");
                 }
             }
+            #[cfg(not(feature = "glfw"))]
             UiCommand::Drag(grid_x, grid_y) => {
                 if EDITOR.lock().mouse_enabled {
                     nvim.input_mouse("left", "drag", "", 0, grid_y as i64, grid_x as i64)
@@ -73,10 +84,12 @@ impl UiCommand {
                         .expect("Mouse Drag Failed");
                 }
             }
+            #[cfg(not(feature = "glfw"))]
             UiCommand::FocusLost => nvim
                 .command("if exists('#FocusLost') | doautocmd <nomodeline> FocusLost | endif")
                 .await
                 .expect("Focus Lost Failed"),
+            #[cfg(not(feature = "glfw"))]
             UiCommand::FocusGained => nvim
                 .command("if exists('#FocusGained') | doautocmd <nomodeline> FocusGained | endif")
                 .await
@@ -84,6 +97,7 @@ impl UiCommand {
             UiCommand::Quit => {
                 nvim.command("qa!").await.ok(); // Ignoring result as it won't succeed since the app closed.
             }
+            #[cfg(not(feature = "glfw"))]
             UiCommand::FileDrop(path) => {
                 nvim.command(format!("e {}", path).as_str()).await.ok();
             }
