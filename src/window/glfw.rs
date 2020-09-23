@@ -10,8 +10,8 @@ use skulpin::glfw::Glfw;
 use skulpin::glfw::Key as Keycode;
 use skulpin::glfw::{Action, WindowEvent};
 use skulpin::{
-    CoordinateSystem, GlfwWindow, LogicalSize, PresentMode,
-    Renderer as SkulpinRenderer, RendererBuilder, Window,
+    CoordinateSystem, GlfwWindow, LogicalSize, PresentMode, Renderer as SkulpinRenderer,
+    RendererBuilder, Window,
 };
 
 use skulpin::glfw::Modifiers as Mod;
@@ -54,6 +54,7 @@ struct WindowWrapper {
     events: Receiver<(f64, WindowEvent)>,
     skulpin_renderer: SkulpinRenderer,
     renderer: Renderer,
+    mouse_position: LogicalSize,
     title: String,
     previous_size: LogicalSize,
 }
@@ -124,9 +125,7 @@ impl WindowWrapper {
             )
             .expect("Failed to create GLFW window.");
 
-        glfw_window.set_key_polling(true);
-        glfw_window.set_char_polling(true);
-        glfw_window.set_close_polling(true);
+        glfw_window.set_all_polling(true);
 
         let skulpin_renderer = {
             let sdl_window_wrapper = GlfwWindow::new(&glfw_window);
@@ -147,6 +146,10 @@ impl WindowWrapper {
             events,
             skulpin_renderer,
             renderer,
+            mouse_position: LogicalSize {
+                width: 0,
+                height: 0,
+            },
             title: String::from("Neovide"),
             previous_size: logical_size,
         }
@@ -165,7 +168,7 @@ impl WindowWrapper {
         let _fullscreen = { SETTINGS.get::<WindowSettings>().fullscreen };
     }
 
-    pub fn handle_quit(&mut self) {
+    pub fn handle_quit(&self) {
         BRIDGE.queue_command(UiCommand::Quit);
     }
 
@@ -187,6 +190,34 @@ impl WindowWrapper {
         if let Some(keybinding_string) = produce_neovim_keybinding_string(keycode, text, modifiers)
         {
             BRIDGE.queue_command(UiCommand::Keyboard(keybinding_string));
+        }
+    }
+
+    pub fn handle_mouse_wheel(&self, x: i32, y: i32) {
+        let vertical_input_type = match y {
+            _ if y > 0 => Some("up"),
+            _ if y < 0 => Some("down"),
+            _ => None,
+        };
+
+        if let Some(input_type) = vertical_input_type {
+            BRIDGE.queue_command(UiCommand::Scroll {
+                direction: input_type.to_string(),
+                position: (self.mouse_position.width, self.mouse_position.height),
+            });
+        }
+
+        let horizontal_input_type = match y {
+            _ if x > 0 => Some("right"),
+            _ if x < 0 => Some("left"),
+            _ => None,
+        };
+
+        if let Some(input_type) = horizontal_input_type {
+            BRIDGE.queue_command(UiCommand::Scroll {
+                direction: input_type.to_string(),
+                position: (self.mouse_position.width, self.mouse_position.height),
+            });
         }
     }
 
@@ -269,14 +300,13 @@ pub fn ui_loop() {
         let mut keycode = None;
         let mut keytext = None;
         let mut modifiers = None;
-        let mut close = false;
 
         window.context.poll_events();
 
         for (_, event) in glfw::flush_messages(&window.events) {
             match event {
                 WindowEvent::Close => {
-                    close = true;
+                    window.handle_quit();
                 }
                 WindowEvent::Key(key, _scancode, action, mods) => {
                     if action == Action::Press || action == Action::Repeat {
@@ -300,6 +330,9 @@ pub fn ui_loop() {
 
                     keytext = Some(char.to_string());
                 }
+                WindowEvent::Scroll(x, y) => {
+                    window.handle_mouse_wheel(x as i32, y as i32);
+                }
                 _ => {}
             }
 
@@ -310,10 +343,6 @@ pub fn ui_loop() {
                 keycode = None;
                 keytext = None;
             }
-        }
-
-        if close {
-            window.handle_quit();
         }
 
         keyboard_inputs.push((keycode, keytext));

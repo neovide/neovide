@@ -3,7 +3,6 @@ use nvim_rs::compat::tokio::Compat;
 use nvim_rs::Neovim;
 use tokio::process::ChildStdin;
 
-#[cfg(not(feature = "glfw"))]
 use crate::editor::EDITOR;
 
 #[cfg(windows)]
@@ -23,7 +22,6 @@ pub enum UiCommand {
         action: String,
         position: (u32, u32),
     },
-    #[cfg(not(feature = "glfw"))]
     Scroll {
         direction: String,
         position: (u32, u32),
@@ -65,7 +63,6 @@ impl UiCommand {
                         .expect("Mouse Input Failed");
                 }
             }
-            #[cfg(not(feature = "glfw"))]
             UiCommand::Scroll {
                 direction,
                 position: (grid_x, grid_y),
