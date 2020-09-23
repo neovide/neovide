@@ -273,7 +273,7 @@ pub fn initialize_settings() {
         .contains(&String::from("--noIdle"));
 
     SETTINGS.set(&WindowSettings {
-        refresh_rate: 60,
+        refresh_rate: 120,
         transparency: 1.0,
         no_idle,
         fullscreen: false,
