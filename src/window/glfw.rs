@@ -226,8 +226,8 @@ impl WindowWrapper {
             return false;
         }
 
-        let sdl_window_wrapper = GlfwWindow::new(&self.window);
-        let new_size = sdl_window_wrapper.logical_size();
+        let glfw_window_wrapper = GlfwWindow::new(&self.window);
+        let new_size = glfw_window_wrapper.logical_size();
         if self.previous_size != new_size {
             handle_new_grid_size(new_size, &self.renderer);
             self.previous_size = new_size;
@@ -241,7 +241,7 @@ impl WindowWrapper {
             let renderer = &mut self.renderer;
             let error = self
                 .skulpin_renderer
-                .draw(&sdl_window_wrapper, |canvas, coordinate_system_helper| {
+                .draw(&glfw_window_wrapper, |canvas, coordinate_system_helper| {
                     let dt = 1.0 / (SETTINGS.get::<WindowSettings>().refresh_rate as f32);
 
                     if renderer.draw(canvas, &coordinate_system_helper, dt) {
