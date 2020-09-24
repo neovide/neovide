@@ -196,9 +196,9 @@ checksum = "7b02b629252fe8ef6460461409564e2c21d0c8e77e0944f3d189ff06c4e932ad"
 
 [[package]]
 name = "cc"
-version = "1.0.59"
+version = "1.0.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66120af515773fb005778dc07c261bd201ec8ce50bd6e7144c927753fe013381"
+checksum = "ef611cc68ff783f18535d77ddd080185275713d852c4f5cbb6122c462a7a825c"
 
 [[package]]
 name = "cexpr"
@@ -329,11 +329,11 @@ dependencies = [
 
 [[package]]
 name = "core-foundation"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b5ed8e7e76c45974e15e41bfa8d5b0483cd90191639e01d8f5f1e606299d3fb"
+checksum = "0a89e2ae426ea83155dccf10c0fa6b1463ef6d5fcb44cee0b224a408fa640a62"
 dependencies = [
- "core-foundation-sys 0.8.0",
+ "core-foundation-sys 0.8.1",
  "libc",
 ]
 
@@ -345,9 +345,9 @@ checksum = "b3a71ab494c0b5b860bdc8407ae08978052417070c2ced38573a9157ad75b8ac"
 
 [[package]]
 name = "core-foundation-sys"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a21fa21941700a3cd8fcb4091f361a6a712fac632f85d9f487cc892045d55c6"
+checksum = "c0af3b5e4601de3837c9332e29e0aae47a0d46ebfa246d12b82f564bac233393"
 
 [[package]]
 name = "core-graphics"
@@ -363,12 +363,12 @@ dependencies = [
 
 [[package]]
 name = "core-graphics"
-version = "0.22.0"
+version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f6082396a349fa49674ba1bda4077332a18bf150e8fa75745ece07085e29a113"
+checksum = "fc239bba52bab96649441699533a68de294a101533b0270b2d65aa402b29a7f9"
 dependencies = [
  "bitflags",
- "core-foundation 0.9.0",
+ "core-foundation 0.9.1",
  "core-graphics-types",
  "foreign-types",
  "libc",
@@ -376,24 +376,24 @@ dependencies = [
 
 [[package]]
 name = "core-graphics-types"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e92f5d519093a4178296707dbaa3880eae85a5ef5386675f361a1cf25376e93c"
+checksum = "3a68b68b3446082644c91ac778bf50cd4104bfb002b5a6a7c44cca5a2c70788b"
 dependencies = [
  "bitflags",
- "core-foundation 0.9.0",
+ "core-foundation 0.9.1",
  "foreign-types",
  "libc",
 ]
 
 [[package]]
 name = "core-text"
-version = "19.0.0"
+version = "19.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04dfae50af11e72657fe7174cddb1ecddc5398037f7f6f39533ad69207c9a4e2"
+checksum = "d2c7f46e8b820fd5f4b28528104b28b0a91cbe9e9c5bde8017087fb44bc93a60"
 dependencies = [
- "core-foundation 0.9.0",
- "core-graphics 0.22.0",
+ "core-foundation 0.9.1",
+ "core-graphics 0.22.1",
  "foreign-types",
  "libc",
 ]
@@ -515,7 +515,7 @@ checksum = "cb582b60359da160a9477ee80f15c8d784c477e69c217ef2cdd4169c24ea380f"
 dependencies = [
  "proc-macro2 1.0.21",
  "quote 1.0.7",
- "syn 1.0.40",
+ "syn 1.0.41",
 ]
 
 [[package]]
@@ -526,7 +526,7 @@ checksum = "71f31892cd5c62e414316f2963c5689242c43d8e7bbcaaeca97e5e28c95d91d9"
 dependencies = [
  "proc-macro2 1.0.21",
  "quote 1.0.7",
- "syn 1.0.40",
+ "syn 1.0.41",
 ]
 
 [[package]]
@@ -597,9 +597,9 @@ dependencies = [
 
 [[package]]
 name = "either"
-version = "1.6.0"
+version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd56b59865bce947ac5958779cfa508f6c3b9497cc762b7e24a12d11ccde2c4f"
+checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
 name = "encoding_rs"
@@ -701,8 +701,8 @@ checksum = "1f9042cb45150fb2b2a012fc03d0f1d2071f18e90397b9d2a5ec8ade8464bf20"
 dependencies = [
  "bitflags",
  "byteorder",
- "core-foundation 0.9.0",
- "core-graphics 0.22.0",
+ "core-foundation 0.9.1",
+ "core-graphics 0.22.1",
  "core-text",
  "dirs",
  "dwrote",
@@ -819,7 +819,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bf8c27ca13930dc4ffe474880040fe9e0f03c2121600dc9c95423624cab3e467"
 dependencies = [
  "cc",
- "core-graphics 0.22.0",
+ "core-graphics 0.22.1",
  "core-text",
  "foreign-types",
  "freetype",
@@ -847,9 +847,9 @@ dependencies = [
 
 [[package]]
 name = "hermit-abi"
-version = "0.1.15"
+version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3deed196b6e7f9e44a2ae8d94225d80302d81208b1bb673fd21fe634645c85a9"
+checksum = "4c30f6d0bc6b00693347368a67d41b58f2fb851215ff1da49e90fe2c5c667151"
 dependencies = [
  "libc",
 ]
@@ -891,9 +891,12 @@ dependencies = [
 
 [[package]]
 name = "instant"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b141fdc7836c525d4d594027d318c84161ca17aaf8113ab1f81ab93ae897485"
+checksum = "63312a18f7ea8760cdd0a7c5aac1a619752a246b833545e3e36d1f81f7cd9e66"
+dependencies = [
+ "cfg-if",
+]
 
 [[package]]
 name = "iovec"
@@ -1061,9 +1064,9 @@ dependencies = [
 
 [[package]]
 name = "memoffset"
-version = "0.5.5"
+version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c198b026e1bbf08a937e94c6c60f9ec4a2267f5b0d2eec9c1b21b061ce2be55f"
+checksum = "043175f069eda7b85febe4a74abbaeff828d9f8b448515d3151a14a3542811aa"
 dependencies = [
  "autocfg 1.0.1",
 ]
@@ -1160,7 +1163,7 @@ dependencies = [
  "cfg-if",
  "proc-macro2 1.0.21",
  "quote 1.0.7",
- "syn 1.0.40",
+ "syn 1.0.41",
 ]
 
 [[package]]
@@ -1357,7 +1360,7 @@ dependencies = [
  "proc-macro-crate",
  "proc-macro2 1.0.21",
  "quote 1.0.7",
- "syn 1.0.40",
+ "syn 1.0.41",
 ]
 
 [[package]]
@@ -1636,9 +1639,9 @@ dependencies = [
 
 [[package]]
 name = "rayon-core"
-version = "1.8.0"
+version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91739a34c4355b5434ce54c9086c5895604a9c278586d1f1aa95e04f66b525a0"
+checksum = "e8c4fec834fb6e6d2dd5eece3c7b432a52f0ba887cf40e595190c4107edc08bf"
 dependencies = [
  "crossbeam-channel",
  "crossbeam-deque",
@@ -1735,7 +1738,7 @@ checksum = "7903c2cf599db8f310b392332f38367ca4acc84420fa1aee3536299f433c10d5"
 dependencies = [
  "quote 1.0.7",
  "rust-embed-utils",
- "syn 1.0.40",
+ "syn 1.0.41",
  "walkdir",
 ]
 
@@ -1959,7 +1962,7 @@ dependencies = [
 [[package]]
 name = "skulpin"
 version = "0.10.0"
-source = "git+https://github.com/aclysma/skulpin?branch=master#e4abfe06f10565bcf17c57c79ad6bf626033cf9c"
+source = "git+https://github.com/aclysma/skulpin?branch=master#fd476242e176383faf0db127cde0408d0b20cfd0"
 dependencies = [
  "log",
  "skulpin-app-winit",
@@ -1971,7 +1974,7 @@ dependencies = [
 [[package]]
 name = "skulpin-app-winit"
 version = "0.4.0"
-source = "git+https://github.com/aclysma/skulpin?branch=master#e4abfe06f10565bcf17c57c79ad6bf626033cf9c"
+source = "git+https://github.com/aclysma/skulpin?branch=master#fd476242e176383faf0db127cde0408d0b20cfd0"
 dependencies = [
  "log",
  "skulpin-renderer",
@@ -1981,7 +1984,7 @@ dependencies = [
 [[package]]
 name = "skulpin-renderer"
 version = "0.4.0"
-source = "git+https://github.com/aclysma/skulpin?branch=master#e4abfe06f10565bcf17c57c79ad6bf626033cf9c"
+source = "git+https://github.com/aclysma/skulpin?branch=master#fd476242e176383faf0db127cde0408d0b20cfd0"
 dependencies = [
  "ash",
  "log",
@@ -1992,7 +1995,7 @@ dependencies = [
 [[package]]
 name = "skulpin-renderer-sdl2"
 version = "0.4.0"
-source = "git+https://github.com/aclysma/skulpin?branch=master#e4abfe06f10565bcf17c57c79ad6bf626033cf9c"
+source = "git+https://github.com/aclysma/skulpin?branch=master#fd476242e176383faf0db127cde0408d0b20cfd0"
 dependencies = [
  "log",
  "sdl2",
@@ -2002,7 +2005,7 @@ dependencies = [
 [[package]]
 name = "skulpin-renderer-winit"
 version = "0.4.0"
-source = "git+https://github.com/aclysma/skulpin?branch=master#e4abfe06f10565bcf17c57c79ad6bf626033cf9c"
+source = "git+https://github.com/aclysma/skulpin?branch=master#fd476242e176383faf0db127cde0408d0b20cfd0"
 dependencies = [
  "cocoa",
  "log",
@@ -2082,9 +2085,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.40"
+version = "1.0.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "963f7d3cc59b59b9325165add223142bbf1df27655d07789f109896d353d8350"
+checksum = "6690e3e9f692504b941dc6c3b188fd28df054f7fb8469ab40680df52fdcc842b"
 dependencies = [
  "proc-macro2 1.0.21",
  "quote 1.0.7",
@@ -2138,7 +2141,7 @@ checksum = "bd80fc12f73063ac132ac92aceea36734f04a1d93c1240c6944e23a3b8841793"
 dependencies = [
  "proc-macro2 1.0.21",
  "quote 1.0.7",
- "syn 1.0.40",
+ "syn 1.0.41",
 ]
 
 [[package]]

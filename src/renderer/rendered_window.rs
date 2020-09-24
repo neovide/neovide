@@ -1,6 +1,6 @@
 use skulpin::skia_safe::gpu::SurfaceOrigin;
 use skulpin::skia_safe::{
-    Budgeted, Canvas, ImageInfo, Rect, Surface, Point, Paint, Color, image_filters::blur
+    Budgeted, Canvas, ImageInfo, Rect, Surface, Point, Paint, Color, BlendMode, image_filters::blur
 };
 use skulpin::skia_safe::canvas::{
     SaveLayerRec,
@@ -146,11 +146,12 @@ impl RenderedWindow {
             paint.set_color(Color::from_argb(a, 255, 255, 255));
         }
 
-        let background_snapshot = self.background_surface.image_snapshot();
-        root_canvas.draw_image(background_snapshot, (current_pixel_position.x, current_pixel_position.y), Some(&paint));
+        self.background_surface.draw(root_canvas.as_mut(), (current_pixel_position.x, current_pixel_position.y), Some(&paint));
 
-        let foreground_snapshot = self.foreground_surface.image_snapshot();
-        root_canvas.draw_image(foreground_snapshot, (current_pixel_position.x, current_pixel_position.y), None);
+        let mut paint = Paint::default();
+        paint.set_blend_mode(BlendMode::SrcOver);
+
+        self.foreground_surface.draw(root_canvas.as_mut(), (current_pixel_position.x, current_pixel_position.y), Some(&paint));
 
         if self.floating {
             root_canvas.restore();
@@ -174,25 +175,44 @@ impl RenderedWindow {
                 let new_destination: Point = (grid_left as f32, grid_top as f32).into();
 
                 if self.grid_destination != new_destination {
-                    self.t = 0.0; // Reset animation as we have a new destination.
-                    self.grid_start_position = self.grid_current_position;
-                    self.grid_destination = new_destination;
+                    if self.grid_start_position.x.abs() > f32::EPSILON || self.grid_start_position.y.abs() > f32::EPSILON {
+                        self.t = 0.0; // Reset animation as we have a new destination.
+                        self.grid_start_position = self.grid_current_position;
+                        self.grid_destination = new_destination;
+                    } else {
+                        // We don't want to animate since the window is animating out of the start location, 
+                        // so we set t to 2.0 to stop animations.
+                        self.t = 2.0; 
+                        self.grid_start_position = new_destination;
+                        self.grid_destination = new_destination;
+                    }
                 }
 
                 if grid_width != self.grid_width || grid_height != self.grid_height {
-                    let mut old_background = self.background_surface;
-                    self.background_surface = build_window_surface(old_background.canvas(), &renderer, grid_width, grid_height);
-                    old_background.draw(self.background_surface.canvas(), (0.0, 0.0), None);
+                    {
+                        let mut old_background = self.background_surface;
+                        self.background_surface = build_window_surface(old_background.canvas(), &renderer, grid_width, grid_height);
+                        old_background.draw(self.background_surface.canvas(), (0.0, 0.0), None);
+                    }
 
-                    let mut old_foreground = self.foreground_surface;
-                    self.foreground_surface = build_window_surface(old_foreground.canvas(), &renderer, grid_width, grid_height);
-                    old_foreground.draw(self.foreground_surface.canvas(), (0.0, 0.0), None);
+                    {
+                        let mut old_foreground = self.foreground_surface;
+                        self.foreground_surface = build_window_surface(old_foreground.canvas(), &renderer, grid_width, grid_height);
+                        old_foreground.draw(self.foreground_surface.canvas(), (0.0, 0.0), None);
+                    }
 
                     self.grid_width = grid_width;
                     self.grid_height = grid_height;
                 }
 
                 self.floating = floating;
+
+                if self.hidden {
+                    self.hidden = false;
+                    self.t = 2.0; // We don't want to animate since the window is becoming visible, so we set t to 2.0 to stop animations.
+                    self.grid_start_position = new_destination;
+                    self.grid_destination = new_destination;
+                }
             },
             WindowDrawCommand::Cell {
                 text, cell_width, window_left, window_top, style
@@ -217,7 +237,7 @@ impl RenderedWindow {
                         grid_position,
                         cell_width,
                         &style,
-                        );
+                    );
                 }
             },
             WindowDrawCommand::Scroll {
@@ -266,7 +286,14 @@ impl RenderedWindow {
                 let foreground_canvas = self.foreground_surface.canvas();
                 self.foreground_surface = build_window_surface(foreground_canvas, &renderer, self.grid_width, self.grid_height);
             },
-            WindowDrawCommand::Show => self.hidden = false,
+            WindowDrawCommand::Show => {
+                if self.hidden {
+                    self.hidden = false;
+                    self.t = 2.0; // We don't want to animate since the window is becoming visible, so we set t to 2.0 to stop animations.
+                    self.grid_start_position = self.grid_destination;
+                    self.grid_destination = self.grid_destination;
+                }
+            },
             WindowDrawCommand::Hide => self.hidden = true,
             _ => {}
         };

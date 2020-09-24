@@ -148,8 +148,9 @@ impl Renderer {
         let region = self.compute_text_region(grid_pos, cell_width);
 
         canvas.clip_rect(region, None, Some(false));
+
         self.paint.set_blend_mode(BlendMode::Src);
-        let transparent = Color::from_argb(0, 255, 255, 255);
+        let transparent = Color::from_argb(0, 0, 0, 0);
         self.paint.set_color(transparent);
         canvas.draw_rect(region, &self.paint);
 

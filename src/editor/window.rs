@@ -102,7 +102,7 @@ impl Window {
             grid_top: self.grid_top,
             width: self.grid.width,
             height: self.grid.height,
-            floating: self.anchor_info.is_some()
+            floating: self.anchor_info.is_some(),
         });
     }
 
@@ -228,9 +228,9 @@ impl Window {
         row: u64,
         column_start: u64,
         cells: Vec<GridLineCell>,
-        defined_styles: &HashMap<u64, Arc<Style>>,
-        previous_style: &mut Option<Arc<Style>>,
+        defined_styles: &HashMap<u64, Arc<Style>>
     ) {
+        let mut previous_style = None;
         if row < self.grid.height {
             let mut column_pos = column_start;
             for cell in cells {
@@ -239,7 +239,7 @@ impl Window {
                     &mut column_pos,
                     cell,
                     defined_styles,
-                    previous_style,
+                    &mut previous_style,
                 );
             }
         } else {

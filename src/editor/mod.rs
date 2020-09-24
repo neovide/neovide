@@ -80,7 +80,6 @@ pub struct Editor {
     pub windows: HashMap<u64, Window>,
     pub cursor: Cursor,
     pub defined_styles: HashMap<u64, Arc<Style>>,
-    pub previous_style: Option<Arc<Style>>,
     pub mode_list: Vec<CursorMode>,
     pub current_mode: EditorMode,
     pub draw_command_sender: Sender<DrawCommand>,
@@ -93,7 +92,6 @@ impl Editor {
             windows: HashMap::new(),
             cursor: Cursor::new(),
             defined_styles: HashMap::new(),
-            previous_style: None,
             mode_list: Vec::new(),
             current_mode: EditorMode::Unknown(String::from("")),
             draw_command_sender,
@@ -158,17 +156,14 @@ impl Editor {
                 cells,
             } => {
                 let defined_styles = &self.defined_styles;
-                let mut previous_style = self.previous_style.clone();
                 self.windows.get_mut(&grid).map(|window| {
                     window.draw_grid_line(
                         row,
                         column_start,
                         cells,
-                        defined_styles,
-                        &mut previous_style,
+                        defined_styles
                     )
                 });
-                self.previous_style = previous_style;
             }
             RedrawEvent::Clear { grid } => {
                 self.windows
