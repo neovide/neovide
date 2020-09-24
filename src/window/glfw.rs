@@ -4,14 +4,14 @@ use std::time::{Duration, Instant};
 
 use std::sync::mpsc::Receiver;
 
-use log::{error, info, trace};
+use log::{debug, error, info, trace};
 use skulpin::glfw;
 use skulpin::glfw::Glfw;
 use skulpin::glfw::Key as Keycode;
 use skulpin::glfw::{Action, WindowEvent};
 use skulpin::{
-    CoordinateSystem, GlfwWindow, LogicalSize, PresentMode, Renderer as SkulpinRenderer,
-    RendererBuilder, Window,
+    CoordinateSystem, GlfwWindow, LogicalSize, PhysicalSize, PresentMode,
+    Renderer as SkulpinRenderer, RendererBuilder, Window,
 };
 
 use skulpin::glfw::Modifiers as Mod;
@@ -54,6 +54,7 @@ struct WindowWrapper {
     events: Receiver<(f64, WindowEvent)>,
     skulpin_renderer: SkulpinRenderer,
     renderer: Renderer,
+    mouse_down: bool,
     mouse_position: LogicalSize,
     title: String,
     previous_size: LogicalSize,
@@ -146,6 +147,7 @@ impl WindowWrapper {
             events,
             skulpin_renderer,
             renderer,
+            mouse_down: false,
             mouse_position: LogicalSize {
                 width: 0,
                 height: 0,
@@ -193,6 +195,39 @@ impl WindowWrapper {
         }
     }
 
+    pub fn handle_pointer_motion(&mut self, x: i32, y: i32) {
+        let previous_position = self.mouse_position;
+        let physical_size = PhysicalSize::new(
+            (x as f32 / self.renderer.font_width) as u32,
+            (y as f32 / self.renderer.font_height) as u32,
+        );
+
+        let sdl_window_wrapper = GlfwWindow::new(&self.window);
+        self.mouse_position = physical_size.to_logical(sdl_window_wrapper.scale_factor());
+        if self.mouse_down && previous_position != self.mouse_position {
+            BRIDGE.queue_command(UiCommand::Drag(
+                self.mouse_position.width,
+                self.mouse_position.height,
+            ));
+        }
+    }
+
+    pub fn handle_pointer_down(&mut self) {
+        BRIDGE.queue_command(UiCommand::MouseButton {
+            action: String::from("press"),
+            position: (self.mouse_position.width, self.mouse_position.height),
+        });
+        self.mouse_down = true;
+    }
+
+    pub fn handle_pointer_up(&mut self) {
+        BRIDGE.queue_command(UiCommand::MouseButton {
+            action: String::from("release"),
+            position: (self.mouse_position.width, self.mouse_position.height),
+        });
+        self.mouse_down = false;
+    }
+
     pub fn handle_mouse_wheel(&self, x: i32, y: i32) {
         let vertical_input_type = match y {
             _ if y > 0 => Some("up"),
@@ -221,6 +256,15 @@ impl WindowWrapper {
         }
     }
 
+    pub fn handle_focus_lost(&self) {
+        BRIDGE.queue_command(UiCommand::FocusLost);
+    }
+
+    pub fn handle_focus_gained(&self) {
+        BRIDGE.queue_command(UiCommand::FocusGained);
+        REDRAW_SCHEDULER.queue_next_frame();
+    }
+
     pub fn draw_frame(&mut self) -> bool {
         if !BRIDGE.running.load(Ordering::Relaxed) {
             return false;
@@ -233,7 +277,7 @@ impl WindowWrapper {
             self.previous_size = new_size;
         }
 
-        // debug!("Render Triggered");
+        debug!("Render Triggered");
 
         let current_size = self.previous_size;
 
@@ -296,17 +340,22 @@ pub fn ui_loop() {
         window.synchronize_settings();
 
         let mut keyboard_inputs = Vec::new();
+        let mut mouse_down_inputs = Vec::new();
+        let mut motion_inputs = Vec::new();
 
         let mut keycode = None;
         let mut keytext = None;
         let mut modifiers = None;
+        let mut ignore_text_this_frame = false;
 
         window.context.poll_events();
 
         for (_, event) in glfw::flush_messages(&window.events) {
             match event {
-                WindowEvent::Close => {
-                    window.handle_quit();
+                WindowEvent::Close => window.handle_quit(),
+                WindowEvent::FileDrop(paths) => {
+                    let filename = paths.last().unwrap().to_str().unwrap().to_string();
+                    BRIDGE.queue_command(UiCommand::FileDrop(filename));
                 }
                 WindowEvent::Key(key, _scancode, action, mods) => {
                     if action == Action::Press || action == Action::Repeat {
@@ -330,8 +379,23 @@ pub fn ui_loop() {
 
                     keytext = Some(char.to_string());
                 }
-                WindowEvent::Scroll(x, y) => {
-                    window.handle_mouse_wheel(x as i32, y as i32);
+                WindowEvent::CursorPos(x, y) => {
+                    motion_inputs.push((x as i32, y as i32));
+                }
+                WindowEvent::MouseButton(_, action, _) => {
+                    if action == Action::Press {
+                        mouse_down_inputs.push(true);
+                    } else {
+                        mouse_down_inputs.push(false);
+                    }
+                }
+                WindowEvent::Scroll(x, y) => window.handle_mouse_wheel(x as i32, y as i32),
+                WindowEvent::Focus(false) | WindowEvent::CursorEnter(false) => {
+                    window.handle_focus_lost();
+                }
+                WindowEvent::Focus(true) | WindowEvent::CursorEnter(true) => {
+                    ignore_text_this_frame = true; // Ignore any text events on the first frame when focus is regained. https://github.com/Kethku/neovide/issues/193
+                    window.handle_focus_gained();
                 }
                 _ => {}
             }
@@ -347,8 +411,20 @@ pub fn ui_loop() {
 
         keyboard_inputs.push((keycode, keytext));
 
-        for (keycode, keytext) in keyboard_inputs.into_iter() {
-            window.handle_keyboard_input(keycode, keytext, modifiers);
+        if !ignore_text_this_frame {
+            for (keycode, keytext) in keyboard_inputs.into_iter() {
+                window.handle_keyboard_input(keycode, keytext, modifiers);
+            }
+            for down in mouse_down_inputs.into_iter() {
+                if down {
+                    window.handle_pointer_down();
+                } else {
+                    window.handle_pointer_up();
+                }
+            }
+            for (x, y) in motion_inputs.into_iter() {
+                window.handle_pointer_motion(x as i32, y as i32);
+            }
         }
 
         if !window.draw_frame() {

@@ -371,7 +371,6 @@ impl WindowWrapper {
         true
     }
 }
-
 #[derive(Clone)]
 struct WindowSettings {
     refresh_rate: u64,
