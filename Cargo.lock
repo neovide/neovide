@@ -2122,7 +2122,7 @@ dependencies = [
 [[package]]
 name = "skulpin"
 version = "0.10.0"
-source = "git+https://github.com/uhuntu/skulpin?branch=glfw-windows#fe9536a23f67d41c151a4c34b449768d0e50cde5"
+source = "git+https://github.com/aclysma/skulpin?branch=glfw#d1d44d96ca5bd990f2c653bec46d7f3d3aac6324"
 dependencies = [
  "log",
  "skulpin-app-winit",
@@ -2135,7 +2135,7 @@ dependencies = [
 [[package]]
 name = "skulpin-app-winit"
 version = "0.4.0"
-source = "git+https://github.com/uhuntu/skulpin?branch=glfw-windows#fe9536a23f67d41c151a4c34b449768d0e50cde5"
+source = "git+https://github.com/aclysma/skulpin?branch=glfw#d1d44d96ca5bd990f2c653bec46d7f3d3aac6324"
 dependencies = [
  "log",
  "skulpin-renderer",
@@ -2145,7 +2145,7 @@ dependencies = [
 [[package]]
 name = "skulpin-renderer"
 version = "0.4.0"
-source = "git+https://github.com/uhuntu/skulpin?branch=glfw-windows#fe9536a23f67d41c151a4c34b449768d0e50cde5"
+source = "git+https://github.com/aclysma/skulpin?branch=glfw#d1d44d96ca5bd990f2c653bec46d7f3d3aac6324"
 dependencies = [
  "ash",
  "log",
@@ -2156,7 +2156,7 @@ dependencies = [
 [[package]]
 name = "skulpin-renderer-glfw"
 version = "0.1.0"
-source = "git+https://github.com/uhuntu/skulpin?branch=glfw-windows#fe9536a23f67d41c151a4c34b449768d0e50cde5"
+source = "git+https://github.com/aclysma/skulpin?branch=glfw#d1d44d96ca5bd990f2c653bec46d7f3d3aac6324"
 dependencies = [
  "ash-window",
  "glfw",
@@ -2168,7 +2168,7 @@ dependencies = [
 [[package]]
 name = "skulpin-renderer-sdl2"
 version = "0.4.0"
-source = "git+https://github.com/uhuntu/skulpin?branch=glfw-windows#fe9536a23f67d41c151a4c34b449768d0e50cde5"
+source = "git+https://github.com/aclysma/skulpin?branch=glfw#d1d44d96ca5bd990f2c653bec46d7f3d3aac6324"
 dependencies = [
  "ash-window",
  "log",
@@ -2180,7 +2180,7 @@ dependencies = [
 [[package]]
 name = "skulpin-renderer-winit"
 version = "0.4.0"
-source = "git+https://github.com/uhuntu/skulpin?branch=glfw-windows#fe9536a23f67d41c151a4c34b449768d0e50cde5"
+source = "git+https://github.com/aclysma/skulpin?branch=glfw#d1d44d96ca5bd990f2c653bec46d7f3d3aac6324"
 dependencies = [
  "ash-window",
  "log",
