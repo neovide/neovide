@@ -145,27 +145,32 @@ impl Window {
         self.send_updated_position();
     }
 
-    fn draw_grid_line_cell(
+    fn modify_grid(
         &mut self,
         row_index: u64,
         column_pos: &mut u64,
         cell: GridLineCell,
         defined_styles: &HashMap<u64, Arc<Style>>,
-        previous_style: &mut Option<Arc<Style>>,
+        previous_style: &mut Option<Arc<Style>>, 
     ) {
+        // Get the defined style from the style list
         let style = match cell.highlight_id {
             Some(0) => None,
-            Some(style_id) => defined_styles.get(&style_id).cloned(),
-            None => previous_style.clone(),
+            Some(style_id) => {
+                defined_styles.get(&style_id).cloned()
+            },
+            None => {
+                previous_style.clone()
+            },
         };
 
+        // Compute text
         let mut text = cell.text;
-
         if let Some(times) = cell.repeat {
             text = text.repeat(times as usize);
         }
 
-        let cell_start_index = column_pos.clone();
+        // Insert the contents of the cell into the grid.
         if text.is_empty() {
             if let Some(cell) = self.grid.get_cell_mut(*column_pos, row_index) {
                 *cell = Some(("".to_string(), style.clone()));
@@ -179,26 +184,40 @@ impl Window {
             }
             *column_pos += text.graphemes(true).count() as u64;
         }
+    }
 
+    fn send_draw_command(
+        &mut self,
+        row_index: u64,
+        line_start: u64,
+        current_start: u64
+    ) -> Option<u64> {
         let row = self.grid.row(row_index).unwrap();
 
-        let mut draw_command_start_index = cell_start_index;
-        for possible_start_index in (cell_start_index.checked_sub(3).unwrap_or(0)..cell_start_index).rev() {
-            if let Some((_, possible_start_style)) = &row[possible_start_index as usize] {
-                if &style == possible_start_style {
-                    draw_command_start_index = possible_start_index;
-                    continue;
+        let (_, style) = &row[current_start as usize].as_ref()?;
+
+        let mut draw_command_start_index = current_start;
+        if current_start == line_start {
+            // Locate contiguous same styled cells before the inserted cells.
+            // This way any ligatures are correctly rerendered.
+            // This could be sped up if we knew what characters were a part of a ligature, but in the
+            // current system we do not.
+            for possible_start_index in (0..current_start).rev() {
+                if let Some((_, possible_start_style)) = &row[possible_start_index as usize] {
+                    if style == possible_start_style {
+                        draw_command_start_index = possible_start_index;
+                        continue;
+                    }
                 }
+                break;
             }
-            break;
         }
 
 
-        let cell_end_index = column_pos.clone();
-        let mut draw_command_end_index = column_pos.clone();
-        for possible_end_index in cell_end_index..(cell_end_index + 3).min(self.grid.width - 1) {
+        let mut draw_command_end_index = current_start;
+        for possible_end_index in draw_command_start_index..(self.grid.width - 1) {
             if let Some((_, possible_end_style)) = &row[possible_end_index as usize] {
-                if &style == possible_end_style {
+                if style == possible_end_style {
                     draw_command_end_index = possible_end_index;
                     continue;
                 }
@@ -206,12 +225,14 @@ impl Window {
             break;
         }
 
+        // Build up the actual text to be rendered including the contiguously styled bits.
         let mut text = String::new();
-        for x in draw_command_start_index..draw_command_end_index {
+        for x in draw_command_start_index..draw_command_end_index+1 {
             let (character, _) = row[x as usize].as_ref().unwrap();
             text.push_str(character);
         }
 
+        // Send a window draw command to the current window.
         self.send_command(WindowDrawCommand::Cell {
             text,
             cell_width: draw_command_end_index - draw_command_start_index,
@@ -220,7 +241,7 @@ impl Window {
             style: style.clone()
         });
 
-        *previous_style = style;
+        Some(draw_command_end_index + 1)
     }
 
     pub fn draw_grid_line(
@@ -234,13 +255,22 @@ impl Window {
         if row < self.grid.height {
             let mut column_pos = column_start;
             for cell in cells {
-                self.draw_grid_line_cell(
+                self.modify_grid(
                     row,
                     &mut column_pos,
                     cell,
                     defined_styles,
                     &mut previous_style,
                 );
+            }
+
+            let mut current_start = column_start;
+            while current_start < self.grid.width - 1 {
+                if let Some(next_start) = self.send_draw_command(row, column_start, current_start) {
+                    current_start = next_start;
+                } else {
+                    break;
+                }
             }
         } else {
             warn!("Draw command out of bounds");
@@ -262,6 +292,12 @@ impl Window {
             Box::new((top as i64..(bot as i64 + rows)).rev())
         };
 
+        self.send_command(WindowDrawCommand::Scroll {
+            top, bot, left, right, rows, cols
+        });
+
+        // Scrolls must not only translate the rendered texture, but also must move the grid data
+        // accordingly so that future renders work correctly.
         for y in y_iter {
             let dest_y = y - rows;
             if dest_y >= 0 && dest_y < self.grid.height as i64 {
@@ -285,10 +321,6 @@ impl Window {
                 }
             }
         }
-
-        self.send_command(WindowDrawCommand::Scroll {
-            top, bot, left, right, rows, cols
-        });
     }
 
     pub fn clear(&mut self) {

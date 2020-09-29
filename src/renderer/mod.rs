@@ -251,11 +251,15 @@ impl Renderer {
         root_canvas: &mut Canvas,
         coordinate_system_helper: &CoordinateSystemHelper,
         dt: f32,
-    ) {
+    ) -> bool {
         trace!("Rendering");
+        let mut font_changed = false;
 
         let draw_commands: Vec<DrawCommand> = self.draw_command_receiver.try_iter().collect();
         for draw_command in draw_commands.into_iter() {
+            if let DrawCommand::FontChanged(_) = draw_command {
+                font_changed = true;
+            }
             self.handle_draw_command(root_canvas, draw_command);
         }
 
@@ -290,5 +294,7 @@ impl Renderer {
             root_canvas,
             dt,
         );
+
+        font_changed
     }
 }

@@ -391,11 +391,16 @@ impl WindowWrapper {
 
         debug!("Render Triggered");
 
+        let current_size = self.previous_size;
+        let ui_command_sender = self.ui_command_sender.clone();
+
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
             let renderer = &mut self.renderer;
             self.skulpin_renderer
                 .draw(&sdl_window_wrapper, |canvas, coordinate_system_helper| {
-                    renderer.draw_frame(canvas, &coordinate_system_helper, dt) 
+                    if renderer.draw_frame(canvas, &coordinate_system_helper, dt) {
+                        handle_new_grid_size(current_size, &renderer, &ui_command_sender);
+                    }
                 })?;
 
             Ok(true)
