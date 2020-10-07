@@ -14,10 +14,10 @@ winit = ["skulpin/skulpin_winit"]
 
 [dependencies]
 euclid = "0.20.7"
-font-kit = "0.6.0"
+font-kit = "0.10.0"
 skribo = { git = "https://github.com/linebender/skribo" }
 lru = "0.4.3"
-skulpin = { git = "https://github.com/aclysma/skulpin" }
+skulpin = { git = "https://github.com/aclysma/skulpin", default-features = false }
 derive-new = "0.5"
 rmpv = "0.4.4"
 rust-embed = { version = "5.2.0", features = ["debug-embed"] }
@@ -51,6 +51,9 @@ sdl2-sys = { version = "0.34.3", default-features = false, features = ["bundled"
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.11"
 sdl2-sys = { version = "0.34.3", default-features = false, features = ["bundled", "static-link"] }
+
+[patch.crates-io]
+sdl2-sys = { version = "0.34.2", git = "https://github.com/Rust-SDL2/rust-sdl2.git" }
 
 [profile.release]
 debug = false
