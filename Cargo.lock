@@ -2145,8 +2145,8 @@ dependencies = [
 
 [[package]]
 name = "sdl2-sys"
-version = "0.34.2"
-source = "git+https://github.com/Rust-SDL2/rust-sdl2.git?rev=dcd311dc0682f52936eef9ecaa584986ced750bf#dcd311dc0682f52936eef9ecaa584986ced750bf"
+version = "0.34.3"
+source = "git+https://github.com/Rust-SDL2/rust-sdl2.git#ed465322d137e207b03403a6f452d176ef9efda0"
 dependencies = [
  "cfg-if",
  "cmake",

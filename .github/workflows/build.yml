@@ -23,11 +23,11 @@ jobs:
         NEOVIM_BIN: "C:/tools/neovim/Neovim/bin/nvim.exe"
         RUST_BACKTRACE: full
       run: |
-        cargo test
+        cargo test --features=static
 
     - name: Build Release
       run: |
-        cargo build --release
+        cargo build --release --features=static
 
     - uses: actions/upload-artifact@v1
       with:
