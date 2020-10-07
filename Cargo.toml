@@ -49,7 +49,6 @@ winapi = { version = "0.3.8", features = ["winuser"] }
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.11"
-sdl2-sys = { version = "0.34.3", default-features = false, features = ["bundled", "static-link"] }
 
 [patch.crates-io]
 sdl2-sys = { git = "https://github.com/Rust-SDL2/rust-sdl2.git" }
