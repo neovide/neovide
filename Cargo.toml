@@ -53,6 +53,7 @@ winres = "0.1.11"
 sdl2-sys = { git = "https://github.com/Rust-SDL2/rust-sdl2.git", default-features = false, features = ["bundled", "static-link"] }
 
 [patch.crates-io]
+sdl2 = { git = "https://github.com/Rust-SDL2/rust-sdl2.git" }
 sdl2-sys = { git = "https://github.com/Rust-SDL2/rust-sdl2.git" }
 
 [profile.release]
