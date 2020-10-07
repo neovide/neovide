@@ -173,7 +173,7 @@ impl Window {
         // Insert the contents of the cell into the grid.
         if text.is_empty() {
             if let Some(cell) = self.grid.get_cell_mut(*column_pos, row_index) {
-                *cell = Some(("".to_string(), style.clone()));
+                *cell = Some((" ".to_string(), style.clone()));
             }
             *column_pos += 1;
         } else {
@@ -183,6 +183,10 @@ impl Window {
                 }
             }
             *column_pos += text.graphemes(true).count() as u64;
+        }
+
+        if let Some(style) = style {
+            *previous_style = Some(style);
         }
     }
 
@@ -215,7 +219,7 @@ impl Window {
 
 
         let mut draw_command_end_index = current_start;
-        for possible_end_index in draw_command_start_index..(self.grid.width - 1) {
+        for possible_end_index in draw_command_start_index..self.grid.width {
             if let Some((_, possible_end_style)) = &row[possible_end_index as usize] {
                 if style == possible_end_style {
                     draw_command_end_index = possible_end_index;
@@ -227,7 +231,7 @@ impl Window {
 
         // Build up the actual text to be rendered including the contiguously styled bits.
         let mut text = String::new();
-        for x in draw_command_start_index..draw_command_end_index+1 {
+        for x in draw_command_start_index..draw_command_end_index {
             let (character, _) = row[x as usize].as_ref().unwrap();
             text.push_str(character);
         }
@@ -235,7 +239,7 @@ impl Window {
         // Send a window draw command to the current window.
         self.send_command(WindowDrawCommand::Cell {
             text,
-            cell_width: draw_command_end_index - draw_command_start_index,
+            cell_width: draw_command_end_index - draw_command_start_index + 1,
             window_left: draw_command_start_index,
             window_top: row_index,
             style: style.clone()
@@ -265,7 +269,8 @@ impl Window {
             }
 
             let mut current_start = column_start;
-            while current_start < self.grid.width - 1 {
+            while current_start < column_pos {
+                println!("{}", current_start);
                 if let Some(next_start) = self.send_draw_command(row, column_start, current_start) {
                     current_start = next_start;
                 } else {

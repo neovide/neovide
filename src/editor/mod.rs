@@ -110,7 +110,6 @@ impl Editor {
                 if let Some(cursor_mode) = self.mode_list.get(mode_index as usize) {
                     self.cursor.change_mode(cursor_mode, &self.defined_styles);
                     self.current_mode = mode;
-                    self.draw_command_sender.send(DrawCommand::UpdateCursor(self.cursor.clone())).ok();
                 }
             }
             RedrawEvent::MouseOn => {
@@ -122,15 +121,14 @@ impl Editor {
             RedrawEvent::BusyStart => {
                 trace!("Cursor off");
                 self.cursor.enabled = false;
-                self.draw_command_sender.send(DrawCommand::UpdateCursor(self.cursor.clone())).ok();
             }
             RedrawEvent::BusyStop => {
                 trace!("Cursor on");
                 self.cursor.enabled = true;
-                self.draw_command_sender.send(DrawCommand::UpdateCursor(self.cursor.clone())).ok();
             }
             RedrawEvent::Flush => {
                 trace!("Image flushed");
+                self.send_cursor_info();
                 REDRAW_SCHEDULER.queue_next_frame();
             }
             RedrawEvent::DefaultColorsSet { colors } => {
@@ -349,11 +347,17 @@ impl Editor {
     }
 
     fn set_cursor_position(&mut self, grid: u64, grid_left: u64, grid_top: u64) {
-        match self.get_window_top_left(grid) {
+        self.cursor.parent_window_id = grid;
+        self.cursor.grid_position = (grid_left, grid_top);
+    }
+
+    fn send_cursor_info(&mut self) {
+        let (grid_left, grid_top) = self.cursor.grid_position;
+        match self.get_window_top_left(self.cursor.parent_window_id) {
             Some((window_left, window_top)) => {
                 self.cursor.position = (window_left + grid_left as f64, window_top + grid_top as f64);
 
-                if let Some(window) = self.windows.get(&grid) {
+                if let Some(window) = self.windows.get(&self.cursor.parent_window_id) {
                     let (character, double_width) = window.get_cursor_character(grid_left, grid_top);
                     self.cursor.character = character;
                     self.cursor.double_width = double_width;

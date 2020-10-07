@@ -219,7 +219,7 @@ impl RenderedWindow {
             } => {
                 let grid_position = (window_left, window_top);
 
-                println!("{} left: {} top: {}", text, window_left, window_top);
+                // println!("{} left: {} top: {}", text, window_left, window_top);
 
                 {
                     let mut background_canvas = self.background_surface.canvas();
