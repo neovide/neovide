@@ -82,7 +82,7 @@ fn build_nvim_cmd() -> Command {
         }
         #[cfg(windows)]
         {
-            return Some(Command::new("nvim"));
+            return Command::new("nvim");
         }
     }
 }
