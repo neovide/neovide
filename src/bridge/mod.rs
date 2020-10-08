@@ -38,7 +38,7 @@ fn set_windows_creation_flags(cmd: &mut Command) {
 #[cfg(windows)]
 fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
     if !Path::new(&bin).exists() {
-        return Some(Command::new("nvim"));
+        return None;
     }
 
     if env::args().any(|arg| arg == "--wsl") {
@@ -75,8 +75,15 @@ fn build_nvim_cmd() -> Command {
             std::process::exit(1);
         }
     } else {
-        error!("nvim not found!");
-        std::process::exit(1);
+        #[cfg(unix)]
+        {
+            error!("nvim not found!");
+            std::process::exit(1);
+        }
+        #[cfg(windows)]
+        {
+            return Some(Command::new("nvim"));
+        }
     }
 }
 
