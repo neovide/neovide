@@ -38,7 +38,7 @@ fn set_windows_creation_flags(cmd: &mut Command) {
 #[cfg(windows)]
 fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
     if !Path::new(&bin).exists() {
-        return Some("nvim");
+        return Some(Command::new("nvim"));
     }
 
     if env::args().any(|arg| arg == "--wsl") {
