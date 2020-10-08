@@ -231,7 +231,7 @@ impl Window {
 
         // Build up the actual text to be rendered including the contiguously styled bits.
         let mut text = String::new();
-        for x in draw_command_start_index..draw_command_end_index {
+        for x in draw_command_start_index..(draw_command_end_index + 1) {
             let (character, _) = row[x as usize].as_ref().unwrap();
             text.push_str(character);
         }
@@ -270,7 +270,6 @@ impl Window {
 
             let mut current_start = column_start;
             while current_start < column_pos {
-                println!("{}", current_start);
                 if let Some(next_start) = self.send_draw_command(row, column_start, current_start) {
                     current_start = next_start;
                 } else {
