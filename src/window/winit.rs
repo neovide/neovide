@@ -208,13 +208,19 @@ impl WindowWrapper {
     pub fn handle_keyboard_input(
         &mut self,
         keycode: Option<Keycode>,
+        keytext: Option<String>,
         modifiers: Option<ModifiersState>,
     ) {
-        if keycode.is_some() {
-            trace!("Keyboard Input Received: keycode-{:?}", keycode);
+        if keycode.is_some() || keytext.is_some() {
+            trace!(
+                "Keyboard Input Received: keycode-{:?} keytext-{:?}",
+                keycode,
+                keytext
+            );
         }
 
-        if let Some(keybinding_string) = produce_neovim_keybinding_string(keycode, None, modifiers)
+        if let Some(keybinding_string) =
+            produce_neovim_keybinding_string(keycode, keytext, modifiers)
         {
             BRIDGE.queue_command(UiCommand::Keyboard(keybinding_string));
         }
@@ -358,12 +364,14 @@ pub fn initialize_settings() {
 pub fn ui_loop() {
     let event_loop = EventLoop::<()>::with_user_event();
     let mut window = WindowWrapper::new(&event_loop);
+    let mut keycode_prev = None;
     event_loop.run(move |e, _window_target, control_flow| {
         let frame_start = Instant::now();
 
         window.synchronize_settings();
 
         let mut keycode = None;
+        let mut keytext = None;
         let mut modifiers = None;
         let mut ignore_text_this_frame = false;
 
@@ -392,6 +400,15 @@ pub fn ui_loop() {
             } => {
                 if input.state == ElementState::Pressed {
                     keycode = input.virtual_keycode;
+                    keycode_prev = keycode;
+                }
+            }
+            Event::WindowEvent {
+                event: WindowEvent::ReceivedCharacter(char),
+                ..
+            } => {
+                if keycode_prev.is_none() {
+                    keytext = Some(char.to_string());
                 }
             }
             Event::WindowEvent {
@@ -444,7 +461,7 @@ pub fn ui_loop() {
         }
 
         if !ignore_text_this_frame {
-            window.handle_keyboard_input(keycode, modifiers);
+            window.handle_keyboard_input(keycode, keytext, modifiers);
         }
 
         if !window.draw_frame() {
