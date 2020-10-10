@@ -71,7 +71,10 @@ impl CharacterGrid {
 
     pub fn row(&self, row_index: u64) -> Option<&[GridCell]> {
         if row_index < self.height {
-            Some(&self.characters[(row_index * self.width) as usize..((row_index + 1) * self.width) as usize])
+            Some(
+                &self.characters
+                    [(row_index * self.width) as usize..((row_index + 1) * self.width) as usize],
+            )
         } else {
             None
         }
@@ -230,7 +233,6 @@ mod tests {
             (thread_rng().gen::<u64>() % 500) + 1,
             (thread_rng().gen::<u64>() % 500) + 1,
         );
-        let new_area = (width * height) as usize;
 
         let grid_cell = Some((
             "foo".to_string(),
@@ -243,6 +245,18 @@ mod tests {
 
         assert_eq!(character_grid.width, width);
         assert_eq!(character_grid.height, height);
-        assert_eq!(character_grid.characters, vec![grid_cell.clone(); new_area]);
+
+        let (original_width, original_height) = context.size;
+        for x in 0..original_width.min(width) {
+            for y in 0..original_height.min(height) {
+                assert_eq!(character_grid.get_cell(x, y).unwrap(), &grid_cell);
+            }
+        }
+
+        for x in original_width..width {
+            for y in original_height..height {
+                assert_eq!(character_grid.get_cell(x, y).unwrap(), &None);
+            }
+        }
     }
 }

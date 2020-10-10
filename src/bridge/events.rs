@@ -700,7 +700,7 @@ fn parse_win_external_pos(win_external_pos_arguments: Vec<Value>) -> Result<Redr
     let [grid, _window] = extract_values(win_external_pos_arguments, [Value::Nil, Value::Nil])?;
 
     Ok(RedrawEvent::WindowExternalPosition {
-        grid: parse_u64(grid)?
+        grid: parse_u64(grid)?,
     })
 }
 

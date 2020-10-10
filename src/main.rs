@@ -18,14 +18,14 @@ extern crate rust_embed;
 #[macro_use]
 extern crate lazy_static;
 
-use std::sync::Arc;
+use std::process;
 use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::channel;
-use std::process;
+use std::sync::Arc;
 
 use window::window_geometry;
 
-use bridge::start_bridge; 
+use bridge::start_bridge;
 use editor::start_editor;
 use window::start_window;
 
@@ -132,11 +132,25 @@ fn main() {
     let running = Arc::new(AtomicBool::new(true));
 
     let (redraw_event_sender, redraw_event_receiver) = channel();
-    let (draw_command_sender, draw_command_receiver) = channel();
+    let (batched_draw_command_sender, batched_draw_command_receiver) = channel();
     let (ui_command_sender, ui_command_receiver) = channel();
     let (window_command_sender, window_command_receiver) = channel();
 
-    start_bridge(ui_command_sender.clone(), ui_command_receiver, redraw_event_sender, running.clone());
-    start_editor(redraw_event_receiver, draw_command_sender, window_command_sender);
-    start_window(draw_command_receiver, window_command_receiver, ui_command_sender, running.clone());
+    start_bridge(
+        ui_command_sender.clone(),
+        ui_command_receiver,
+        redraw_event_sender,
+        running.clone(),
+    );
+    start_editor(
+        redraw_event_receiver,
+        batched_draw_command_sender,
+        window_command_sender,
+    );
+    start_window(
+        batched_draw_command_receiver,
+        window_command_receiver,
+        ui_command_sender,
+        running.clone(),
+    );
 }

@@ -1,27 +1,24 @@
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::sync::mpsc::Receiver;
+use std::sync::Arc;
 
-use log::{trace, warn, error};
-use skulpin::skia_safe::{
-    colors, dash_path_effect, Canvas, Paint, Rect, BlendMode, Color
-};
+use log::{error, trace, warn};
+use skulpin::skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect};
 use skulpin::CoordinateSystemHelper;
 
+pub mod animation_utils;
 mod caching_shaper;
-mod rendered_window;
 pub mod cursor_renderer;
 pub mod font_options;
-pub mod animation_utils;
+mod rendered_window;
 
 pub use caching_shaper::CachingShaper;
 pub use font_options::*;
 
-use crate::editor::{Style, Colors, DrawCommand, WindowDrawCommand};
+use crate::editor::{Colors, DrawCommand, Style, WindowDrawCommand};
 use crate::settings::*;
 use cursor_renderer::CursorRenderer;
 use rendered_window::RenderedWindow;
-
 
 // ----------------------------------------------------------------------------
 
@@ -39,13 +36,18 @@ pub fn initialize_settings() {
         floating_blur: true,
     });
 
-    register_nvim_setting!("window_animation_length", RendererSettings::animation_length);
-    register_nvim_setting!("floating_window_opacity", RendererSettings::floating_opacity);
+    register_nvim_setting!(
+        "window_animation_length",
+        RendererSettings::animation_length
+    );
+    register_nvim_setting!(
+        "floating_window_opacity",
+        RendererSettings::floating_opacity
+    );
     register_nvim_setting!("floating_window_blur", RendererSettings::floating_opacity);
 }
 
 // ----------------------------------------------------------------------------
-
 
 pub struct Renderer {
     rendered_windows: HashMap<u64, RenderedWindow>,
@@ -58,11 +60,11 @@ pub struct Renderer {
     pub font_width: f32,
     pub font_height: f32,
     pub window_regions: Vec<(u64, Rect)>,
-    pub draw_command_receiver: Receiver<DrawCommand>,
+    pub batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
 }
 
 impl Renderer {
-    pub fn new(draw_command_receiver: Receiver<DrawCommand>) -> Renderer {
+    pub fn new(batched_draw_command_receiver: Receiver<Vec<DrawCommand>>) -> Renderer {
         let rendered_windows = HashMap::new();
         let cursor_renderer = CursorRenderer::new();
         let settings = SETTINGS.get::<RendererSettings>();
@@ -89,7 +91,7 @@ impl Renderer {
             font_width,
             font_height,
             window_regions,
-            draw_command_receiver,
+            batched_draw_command_receiver,
         }
     }
 
@@ -124,7 +126,8 @@ impl Renderer {
         let region = self.compute_text_region(grid_pos, cell_width);
         let style = style.as_ref().unwrap_or(&self.default_style);
 
-        self.paint.set_color(style.background(&self.default_style.colors).to_color());
+        self.paint
+            .set_color(style.background(&self.default_style.colors).to_color());
         canvas.draw_rect(region, &self.paint);
     }
 
@@ -205,44 +208,49 @@ impl Renderer {
         match draw_command {
             DrawCommand::Window {
                 grid_id,
-                command: WindowDrawCommand::Close
+                command: WindowDrawCommand::Close,
             } => {
                 self.rendered_windows.remove(&grid_id);
-            },
-            DrawCommand::Window {
-                grid_id,
-                command
-            } => {
+            }
+            DrawCommand::Window { grid_id, command } => {
                 if let Some(rendered_window) = self.rendered_windows.remove(&grid_id) {
                     warn!("Window positioned {}", grid_id);
                     let rendered_window = rendered_window.handle_window_draw_command(self, command);
                     self.rendered_windows.insert(grid_id, rendered_window);
-                } else if let WindowDrawCommand::Position { 
-                    grid_left, grid_top,
-                    width, height, ..
-                } = command {
+                } else if let WindowDrawCommand::Position {
+                    grid_left,
+                    grid_top,
+                    width,
+                    height,
+                    ..
+                } = command
+                {
                     warn!("Created window {}", grid_id);
                     let new_window = RenderedWindow::new(
-                        root_canvas, &self, grid_id, 
-                        (grid_left as f32, grid_top as f32).into(), 
-                        width, height);
+                        root_canvas,
+                        &self,
+                        grid_id,
+                        (grid_left as f32, grid_top as f32).into(),
+                        width,
+                        height,
+                    );
                     self.rendered_windows.insert(grid_id, new_window);
                 } else {
                     error!("WindowDrawCommand sent for uninitialized grid {}", grid_id);
                 }
-            },
+            }
             DrawCommand::UpdateCursor(new_cursor) => {
                 self.cursor_renderer.update_cursor(new_cursor);
-            },
+            }
             DrawCommand::FontChanged(new_font) => {
                 if self.update_font(&new_font) {
                     // Resize all the grids
                 }
-            },
+            }
             DrawCommand::DefaultStyleChanged(new_style) => {
                 self.default_style = Arc::new(new_style);
-            },
-            _ => { }
+            }
+            _ => {}
         }
     }
 
@@ -255,7 +263,12 @@ impl Renderer {
         trace!("Rendering");
         let mut font_changed = false;
 
-        let draw_commands: Vec<DrawCommand> = self.draw_command_receiver.try_iter().collect();
+        let draw_commands: Vec<DrawCommand> = self
+            .batched_draw_command_receiver
+            .try_iter() // Iterator of Vec of DrawCommand
+            .map(|batch| batch.into_iter()) // Iterator of Iterator of DrawCommand
+            .flatten() // Iterator of DrawCommand
+            .collect(); // Vec of DrawCommand
         for draw_command in draw_commands.into_iter() {
             if let DrawCommand::FontChanged(_) = draw_command {
                 font_changed = true;
@@ -263,20 +276,36 @@ impl Renderer {
             self.handle_draw_command(root_canvas, draw_command);
         }
 
-        root_canvas.clear(self.default_style.colors.background.clone().unwrap().to_color());
+        root_canvas.clear(
+            self.default_style
+                .colors
+                .background
+                .clone()
+                .unwrap()
+                .to_color(),
+        );
 
         coordinate_system_helper.use_logical_coordinates(root_canvas);
 
         let windows: Vec<&mut RenderedWindow> = {
-            let (mut root_windows, mut floating_windows): (Vec<&mut RenderedWindow>, Vec<&mut RenderedWindow>) = self.rendered_windows
+            let (mut root_windows, mut floating_windows): (
+                Vec<&mut RenderedWindow>,
+                Vec<&mut RenderedWindow>,
+            ) = self
+                .rendered_windows
                 .values_mut()
                 .filter(|window| !window.hidden)
                 .partition(|window| !window.floating);
 
-            root_windows.sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
-            floating_windows.sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
+            root_windows
+                .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
+            floating_windows
+                .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
 
-            root_windows.into_iter().chain(floating_windows.into_iter()).collect()
+            root_windows
+                .into_iter()
+                .chain(floating_windows.into_iter())
+                .collect()
         };
 
         let settings = &self.settings;

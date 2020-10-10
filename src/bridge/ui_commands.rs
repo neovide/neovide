@@ -52,23 +52,44 @@ impl UiCommand {
                 grid_id,
                 position: (grid_x, grid_y),
             } => {
-                nvim.input_mouse("left", &action, "", grid_id as i64, grid_y as i64, grid_x as i64)
-                    .expect("Mouse Input Failed");
+                nvim.input_mouse(
+                    "left",
+                    &action,
+                    "",
+                    grid_id as i64,
+                    grid_y as i64,
+                    grid_x as i64,
+                )
+                .expect("Mouse Input Failed");
             }
             UiCommand::Scroll {
                 direction,
                 grid_id,
                 position: (grid_x, grid_y),
             } => {
-                nvim.input_mouse("wheel", &direction, "", grid_id as i64, grid_y as i64, grid_x as i64)
-                    .expect("Mouse Scroll Failed");
+                nvim.input_mouse(
+                    "wheel",
+                    &direction,
+                    "",
+                    grid_id as i64,
+                    grid_y as i64,
+                    grid_x as i64,
+                )
+                .expect("Mouse Scroll Failed");
             }
             UiCommand::Drag {
                 grid_id,
-                position: (grid_x, grid_y)
+                position: (grid_x, grid_y),
             } => {
-                nvim.input_mouse("left", "drag", "", grid_id as i64, grid_y as i64, grid_x as i64)
-                    .expect("Mouse Drag Failed");
+                nvim.input_mouse(
+                    "left",
+                    "drag",
+                    "",
+                    grid_id as i64,
+                    grid_y as i64,
+                    grid_x as i64,
+                )
+                .expect("Mouse Drag Failed");
             }
             UiCommand::FocusLost => nvim
                 .command("if exists('#FocusLost') | doautocmd <nomodeline> FocusLost | endif")

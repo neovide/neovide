@@ -5,8 +5,8 @@ use skulpin::skia_safe::{Canvas, Paint, Path, Point};
 
 use crate::editor::{Colors, Cursor, CursorShape};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
-use crate::renderer::CachingShaper;
 use crate::renderer::animation_utils::*;
+use crate::renderer::CachingShaper;
 use crate::settings::*;
 
 use blink::*;
@@ -265,8 +265,8 @@ impl CursorRenderer {
 
         let in_insert_mode = false;
         // {
-            // let editor = EDITOR.lock();
-            // matches!(editor.current_mode, EditorMode::Insert)
+        // let editor = EDITOR.lock();
+        // matches!(editor.current_mode, EditorMode::Insert)
         // };
 
         let destination: Point = (grid_x as f32 * font_width, grid_y as f32 * font_height).into();
@@ -277,7 +277,9 @@ impl CursorRenderer {
             self.previous_cursor_shape = new_cursor.clone();
             self.set_cursor_shape(
                 &new_cursor.unwrap(),
-                self.cursor.cell_percentage.unwrap_or(DEFAULT_CELL_PERCENTAGE),
+                self.cursor
+                    .cell_percentage
+                    .unwrap_or(DEFAULT_CELL_PERCENTAGE),
             );
 
             if let Some(vfx) = self.cursor_vfx.as_mut() {

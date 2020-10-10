@@ -4,12 +4,12 @@ pub mod layouts;
 mod events;
 mod ui_commands;
 
-use std::process::{Stdio, Command};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use std::sync::mpsc::{Sender, Receiver};
 use std::env;
 use std::path::Path;
+use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{Receiver, Sender};
+use std::sync::Arc;
 use std::thread;
 
 #[cfg(windows)]
@@ -108,10 +108,16 @@ pub fn create_nvim_command() -> Command {
     cmd
 }
 
-pub fn start_bridge(ui_command_sender: Sender<UiCommand>, ui_command_receiver: Receiver<UiCommand>, redraw_event_sender: Sender<RedrawEvent>, running: Arc<AtomicBool>) {
+pub fn start_bridge(
+    ui_command_sender: Sender<UiCommand>,
+    ui_command_receiver: Receiver<UiCommand>,
+    redraw_event_sender: Sender<RedrawEvent>,
+    running: Arc<AtomicBool>,
+) {
     thread::spawn(move || {
         let (width, height) = window_geometry_or_default();
-        let mut session = Session::new_child_cmd(&mut create_nvim_command()).unwrap_or_explained_panic("Could not locate or start neovim process");
+        let mut session = Session::new_child_cmd(&mut create_nvim_command())
+            .unwrap_or_explained_panic("Could not locate or start neovim process");
         let notification_receiver = session.start_event_loop_channel();
 
         let mut nvim = Neovim::new(session);
@@ -126,7 +132,8 @@ pub fn start_bridge(ui_command_sender: Sender<UiCommand>, ui_command_receiver: R
             std::process::exit(0);
         };
 
-        nvim.set_var("neovide", Value::Boolean(true)).unwrap_or_explained_panic("Could not communicate with neovim process");
+        nvim.set_var("neovide", Value::Boolean(true))
+            .unwrap_or_explained_panic("Could not communicate with neovim process");
         if let Err(command_error) = nvim.command("runtime! ginit.vim") {
             nvim.command(&format!(
                 "echomsg \"error encountered in ginit.vim {:?}\"",
@@ -200,61 +207,58 @@ pub fn start_bridge(ui_command_sender: Sender<UiCommand>, ui_command_receiver: R
         SETTINGS.setup_changed_listeners(&mut nvim);
 
         let notification_running = running.clone();
-        thread::spawn(move || {
-            loop {
-                if !notification_running.load(Ordering::Relaxed) {
+        thread::spawn(move || loop {
+            if !notification_running.load(Ordering::Relaxed) {
+                break;
+            }
+
+            match notification_receiver.recv() {
+                Ok((event_name, arguments)) => match event_name.as_ref() {
+                    "redraw" => {
+                        for events in arguments {
+                            let parsed_events = parse_redraw_event(events)
+                                .unwrap_or_explained_panic("Could not parse event from neovim");
+
+                            for parsed_event in parsed_events {
+                                redraw_event_sender.send(parsed_event).ok();
+                            }
+                        }
+                    }
+                    "setting_changed" => {
+                        SETTINGS.handle_changed_notification(arguments);
+                    }
+                    #[cfg(windows)]
+                    "neovide.register_right_click" => {
+                        ui_command_sender.send(UiCommand::RegisterRightClick).ok();
+                    }
+                    #[cfg(windows)]
+                    "neovide.unregister_right_click" => {
+                        ui_command_sender.send(UiCommand::UnregisterRightClick).ok();
+                    }
+                    _ => {}
+                },
+                Err(error) => {
+                    error!("Notification channel closed: {}", error);
+                    notification_running.store(false, Ordering::Relaxed);
                     break;
                 }
-
-                match notification_receiver.recv() {
-                    Ok((event_name, arguments)) =>
-                        match event_name.as_ref() {
-                            "redraw" => {
-                                for events in arguments {
-                                    let parsed_events = parse_redraw_event(events)
-                                        .unwrap_or_explained_panic("Could not parse event from neovim");
-
-                                    for parsed_event in parsed_events {
-                                        redraw_event_sender.send(parsed_event).ok();
-                                    }
-                                }
-                            }
-                            "setting_changed" => {
-                                SETTINGS.handle_changed_notification(arguments);
-                            }
-                            #[cfg(windows)]
-                            "neovide.register_right_click" => {
-                                ui_command_sender.send(UiCommand::RegisterRightClick).ok();
-                            }
-                            #[cfg(windows)]
-                            "neovide.unregister_right_click" => {
-                                ui_command_sender.send(UiCommand::UnregisterRightClick).ok();
-                            }
-                            _ => {}
-                        },
-                    Err(error) => {
-                        notification_running.store(false, Ordering::Relaxed);
-                        break;
-                    }
-                }
-            } 
+            }
         });
 
         let ui_command_running = running.clone();
-        thread::spawn(move || {
-            loop {
-                if !ui_command_running.load(Ordering::Relaxed) {
-                    break;
-                }
+        thread::spawn(move || loop {
+            if !ui_command_running.load(Ordering::Relaxed) {
+                break;
+            }
 
-                match ui_command_receiver.recv() {
-                    Ok(ui_command) => {
-                        ui_command.execute(&mut nvim);
-                    },
-                    Err(error) => {
-                        ui_command_running.store(false, Ordering::Relaxed);
-                        break;
-                    }
+            match ui_command_receiver.recv() {
+                Ok(ui_command) => {
+                    ui_command.execute(&mut nvim);
+                }
+                Err(error) => {
+                    error!("Ui command channel closed: {}", error);
+                    ui_command_running.store(false, Ordering::Relaxed);
+                    break;
                 }
             }
         });

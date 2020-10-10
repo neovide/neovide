@@ -1,14 +1,13 @@
 use std::collections::HashMap;
-use std::sync::Arc;
-use std::sync::mpsc::Sender;
 use std::fmt;
+use std::sync::Arc;
 
 use log::warn;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{DrawCommand, AnchorInfo};
 use super::grid::CharacterGrid;
 use super::style::Style;
+use super::{AnchorInfo, DrawCommand, DrawCommandBatcher};
 use crate::bridge::GridLineCell;
 
 #[derive(new, Clone)]
@@ -18,7 +17,7 @@ pub enum WindowDrawCommand {
         grid_top: f64,
         width: u64,
         height: u64,
-        floating: bool
+        floating: bool,
     },
     Cell {
         text: String,
@@ -38,7 +37,7 @@ pub enum WindowDrawCommand {
     Clear,
     Show,
     Hide,
-    Close
+    Close,
 }
 
 impl fmt::Debug for WindowDrawCommand {
@@ -64,7 +63,7 @@ pub struct Window {
     grid_left: f64,
     grid_top: f64,
 
-    draw_command_sender: Sender<DrawCommand>
+    draw_command_batcher: Arc<DrawCommandBatcher>,
 }
 
 impl Window {
@@ -75,7 +74,7 @@ impl Window {
         anchor_info: Option<AnchorInfo>,
         grid_left: f64,
         grid_top: f64,
-        draw_command_sender: Sender<DrawCommand>
+        draw_command_batcher: Arc<DrawCommandBatcher>,
     ) -> Window {
         let window = Window {
             grid_id,
@@ -83,17 +82,19 @@ impl Window {
             anchor_info,
             grid_left,
             grid_top,
-            draw_command_sender
+            draw_command_batcher,
         };
         window.send_updated_position();
         window
     }
 
     fn send_command(&self, command: WindowDrawCommand) {
-        self.draw_command_sender.send(DrawCommand::Window {
-            grid_id: self.grid_id,
-            command
-        }).ok();
+        self.draw_command_batcher
+            .queue(DrawCommand::Window {
+                grid_id: self.grid_id,
+                command,
+            })
+            .ok();
     }
 
     fn send_updated_position(&self) {
@@ -132,7 +133,14 @@ impl Window {
         (self.grid_left, self.grid_top)
     }
 
-    pub fn position(&mut self, width: u64, height: u64, anchor_info: Option<AnchorInfo>, grid_left: f64, grid_top: f64) {
+    pub fn position(
+        &mut self,
+        width: u64,
+        height: u64,
+        anchor_info: Option<AnchorInfo>,
+        grid_left: f64,
+        grid_top: f64,
+    ) {
         self.grid.resize(width, height);
         self.anchor_info = anchor_info;
         self.grid_left = grid_left;
@@ -151,17 +159,13 @@ impl Window {
         column_pos: &mut u64,
         cell: GridLineCell,
         defined_styles: &HashMap<u64, Arc<Style>>,
-        previous_style: &mut Option<Arc<Style>>, 
+        previous_style: &mut Option<Arc<Style>>,
     ) {
         // Get the defined style from the style list
         let style = match cell.highlight_id {
             Some(0) => None,
-            Some(style_id) => {
-                defined_styles.get(&style_id).cloned()
-            },
-            None => {
-                previous_style.clone()
-            },
+            Some(style_id) => defined_styles.get(&style_id).cloned(),
+            None => previous_style.clone(),
         };
 
         // Compute text
@@ -185,16 +189,14 @@ impl Window {
             *column_pos += text.graphemes(true).count() as u64;
         }
 
-        if let Some(style) = style {
-            *previous_style = Some(style);
-        }
+        *previous_style = style;
     }
 
     fn send_draw_command(
         &mut self,
         row_index: u64,
         line_start: u64,
-        current_start: u64
+        current_start: u64,
     ) -> Option<u64> {
         let row = self.grid.row(row_index).unwrap();
 
@@ -216,7 +218,6 @@ impl Window {
                 break;
             }
         }
-
 
         let mut draw_command_end_index = current_start;
         for possible_end_index in draw_command_start_index..self.grid.width {
@@ -242,7 +243,7 @@ impl Window {
             cell_width: draw_command_end_index - draw_command_start_index + 1,
             window_left: draw_command_start_index,
             window_top: row_index,
-            style: style.clone()
+            style: style.clone(),
         });
 
         Some(draw_command_end_index + 1)
@@ -253,7 +254,7 @@ impl Window {
         row: u64,
         column_start: u64,
         cells: Vec<GridLineCell>,
-        defined_styles: &HashMap<u64, Arc<Style>>
+        defined_styles: &HashMap<u64, Arc<Style>>,
     ) {
         let mut previous_style = None;
         if row < self.grid.height {
@@ -297,7 +298,12 @@ impl Window {
         };
 
         self.send_command(WindowDrawCommand::Scroll {
-            top, bot, left, right, rows, cols
+            top,
+            bot,
+            left,
+            right,
+            rows,
+            cols,
         });
 
         // Scrolls must not only translate the rendered texture, but also must move the grid data
