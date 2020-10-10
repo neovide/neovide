@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, info, trace};
 use skulpin::ash::prelude::VkResult;
 use skulpin::sdl2;
 use skulpin::sdl2::event::{Event, WindowEvent};
