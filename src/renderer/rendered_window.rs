@@ -29,7 +29,7 @@ fn build_window_surface(
         parent_image_info.color_space(),
     );
     let surface_origin = SurfaceOrigin::TopLeft;
-    let mut surface = Surface::new_render_target(
+    Surface::new_render_target(
         &mut context,
         budgeted,
         &image_info,
@@ -38,8 +38,7 @@ fn build_window_surface(
         None,
         None,
     )
-    .expect("Could not create surface");
-    surface
+    .expect("Could not create surface")
 }
 
 fn build_background_window_surface(
@@ -109,6 +108,18 @@ impl RenderedWindow {
         }
     }
 
+    pub fn pixel_region(&self, font_width: f32, font_height: f32) -> Rect {
+        let current_pixel_position = Point::new(
+            self.grid_current_position.x * font_width,
+            self.grid_current_position.y * font_height,
+        );
+
+        let image_width = (self.grid_width as f32 * font_width) as i32;
+        let image_height = (self.grid_height as f32 * font_height) as i32;
+
+        Rect::from_point_and_size(current_pixel_position, (image_width, image_height))
+    }
+
     pub fn update(&mut self, settings: &RendererSettings, dt: f32) -> bool {
         if (self.t - 1.0).abs() < std::f32::EPSILON {
             return false;
@@ -139,13 +150,7 @@ impl RenderedWindow {
         font_height: f32,
         dt: f32,
     ) -> (u64, Rect) {
-        let current_pixel_position = Point::new(
-            self.grid_current_position.x * font_width,
-            self.grid_current_position.y * font_height,
-        );
-
-        let image_width = (self.grid_width as f32 * font_width) as i32;
-        let image_height = (self.grid_height as f32 * font_height) as i32;
+        let pixel_region = self.pixel_region(font_width, font_height);
 
         if self.update(settings, dt) {
             REDRAW_SCHEDULER.queue_next_frame();
@@ -153,12 +158,13 @@ impl RenderedWindow {
 
         root_canvas.save();
 
-        let region = Rect::from_point_and_size(current_pixel_position, (image_width, image_height));
-        root_canvas.clip_rect(&region, None, Some(false));
+        root_canvas.clip_rect(&pixel_region, None, Some(false));
 
         if self.floating && settings.floating_blur {
             let blur = blur((2.0, 2.0), None, None, None).unwrap();
-            let save_layer_rec = SaveLayerRec::default().backdrop(&blur).bounds(&region);
+            let save_layer_rec = SaveLayerRec::default()
+                .backdrop(&blur)
+                .bounds(&pixel_region);
 
             root_canvas.save_layer(&save_layer_rec);
         }
@@ -172,7 +178,7 @@ impl RenderedWindow {
 
         self.background_surface.draw(
             root_canvas.as_mut(),
-            (current_pixel_position.x, current_pixel_position.y),
+            (pixel_region.left(), pixel_region.top()),
             Some(&paint),
         );
 
@@ -181,7 +187,7 @@ impl RenderedWindow {
 
         self.foreground_surface.draw(
             root_canvas.as_mut(),
-            (current_pixel_position.x, current_pixel_position.y),
+            (pixel_region.left(), pixel_region.top()),
             Some(&paint),
         );
 
@@ -191,12 +197,7 @@ impl RenderedWindow {
 
         root_canvas.restore();
 
-        let window_position = current_pixel_position.clone();
-
-        (
-            self.id,
-            Rect::from_point_and_size(window_position, (image_width as f32, image_height as f32)),
-        )
+        (self.id, pixel_region)
     }
 
     pub fn handle_window_draw_command(

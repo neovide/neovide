@@ -4,9 +4,10 @@ use std::sync::Arc;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use log::{debug, error, info, trace};
+use log::{debug, error, trace};
 use skulpin::ash::prelude::VkResult;
 use skulpin::sdl2;
+use skulpin::sdl2::EventPump;
 use skulpin::sdl2::event::{Event, WindowEvent};
 use skulpin::sdl2::keyboard::Keycode;
 use skulpin::sdl2::video::FullscreenType;
@@ -16,49 +17,24 @@ use skulpin::{
     RendererBuilder, Sdl2Window, Window,
 };
 
+use super::handle_new_grid_size;
+use super::settings::*;
 use crate::bridge::{produce_neovim_keybinding_string, UiCommand};
-use crate::editor::{DrawCommand, WindowCommand};
+use crate::editor::WindowCommand;
 use crate::error_handling::ResultPanicExplanation;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::renderer::Renderer;
 use crate::settings::*;
-use crate::INITIAL_DIMENSIONS;
 
 #[derive(RustEmbed)]
 #[folder = "assets/"]
 struct Asset;
 
-#[cfg(target_os = "windows")]
-fn windows_fix_dpi() {
-    use winapi::shared::windef::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2;
-    use winapi::um::winuser::SetProcessDpiAwarenessContext;
-    unsafe {
-        SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-    }
-}
-
-fn handle_new_grid_size(
-    new_size: LogicalSize,
-    renderer: &Renderer,
-    ui_command_sender: &Sender<UiCommand>,
-) {
-    if new_size.width > 0 && new_size.height > 0 {
-        let new_width = ((new_size.width + 1) as f32 / renderer.font_width) as u32;
-        let new_height = ((new_size.height + 1) as f32 / renderer.font_height) as u32;
-        // Add 1 here to make sure resizing doesn't change the grid size on startup
-        ui_command_sender
-            .send(UiCommand::Resize {
-                width: new_width,
-                height: new_height,
-            })
-            .ok();
-    }
-}
-
-struct WindowWrapper {
+pub struct Sdl2WindowWrapper {
     context: Sdl,
     window: sdl2::video::Window,
     skulpin_renderer: SkulpinRenderer,
+    event_pump: EventPump,
     renderer: Renderer,
     mouse_down: bool,
     mouse_position: LogicalSize,
@@ -71,121 +47,11 @@ struct WindowWrapper {
     cached_size: (u32, u32),
     cached_position: (i32, i32),
     ui_command_sender: Sender<UiCommand>,
+    window_command_receiver: Receiver<WindowCommand>,
     running: Arc<AtomicBool>,
 }
 
-pub fn window_geometry() -> Result<(u64, u64), String> {
-    let prefix = "--geometry=";
-
-    std::env::args()
-        .find(|arg| arg.starts_with(prefix))
-        .map_or(Ok(INITIAL_DIMENSIONS), |arg| {
-            let input = &arg[prefix.len()..];
-            let invalid_parse_err = format!(
-                "Invalid geometry: {}\nValid format: <width>x<height>",
-                input
-            );
-
-            input
-                .split('x')
-                .map(|dimension| {
-                    dimension
-                        .parse::<u64>()
-                        .map_err(|_| invalid_parse_err.as_str())
-                        .and_then(|dimension| {
-                            if dimension > 0 {
-                                Ok(dimension)
-                            } else {
-                                Err("Invalid geometry: Window dimensions should be greater than 0.")
-                            }
-                        })
-                })
-                .collect::<Result<Vec<_>, &str>>()
-                .and_then(|dimensions| {
-                    if let [width, height] = dimensions[..] {
-                        Ok((width, height))
-                    } else {
-                        Err(invalid_parse_err.as_str())
-                    }
-                })
-                .map_err(|msg| msg.to_owned())
-        })
-}
-
-pub fn window_geometry_or_default() -> (u64, u64) {
-    window_geometry().unwrap_or(INITIAL_DIMENSIONS)
-}
-
-impl WindowWrapper {
-    pub fn new(
-        ui_command_sender: Sender<UiCommand>,
-        batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
-        running: Arc<AtomicBool>,
-    ) -> WindowWrapper {
-        let context = sdl2::init().expect("Failed to initialize sdl2");
-        let video_subsystem = context
-            .video()
-            .expect("Failed to create sdl video subsystem");
-        video_subsystem.text_input().start();
-
-        let (width, height) = window_geometry_or_default();
-
-        let renderer = Renderer::new(batched_draw_command_receiver);
-        let logical_size = LogicalSize {
-            width: (width as f32 * renderer.font_width) as u32,
-            height: (height as f32 * renderer.font_height + 1.0) as u32,
-        };
-
-        #[cfg(target_os = "windows")]
-        windows_fix_dpi();
-        sdl2::hint::set("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
-
-        let sdl_window = video_subsystem
-            .window("Neovide", logical_size.width, logical_size.height)
-            .position_centered()
-            .allow_highdpi()
-            .resizable()
-            .vulkan()
-            .build()
-            .expect("Failed to create window");
-        info!("window created");
-
-        let skulpin_renderer = {
-            let sdl_window_wrapper = Sdl2Window::new(&sdl_window);
-            RendererBuilder::new()
-                .prefer_integrated_gpu()
-                .use_vulkan_debug_layer(false)
-                .present_mode_priority(vec![PresentMode::Immediate])
-                .coordinate_system(CoordinateSystem::Logical)
-                .build(&sdl_window_wrapper)
-                .expect("Failed to create renderer")
-        };
-
-        info!("renderer created");
-
-        WindowWrapper {
-            context,
-            window: sdl_window,
-            skulpin_renderer,
-            renderer,
-            mouse_down: false,
-            mouse_position: LogicalSize {
-                width: 0,
-                height: 0,
-            },
-            mouse_enabled: true,
-            grid_id_under_mouse: 0,
-            title: String::from("Neovide"),
-            previous_size: logical_size,
-            transparency: 1.0,
-            fullscreen: false,
-            cached_size: (0, 0),
-            cached_position: (0, 0),
-            ui_command_sender,
-            running,
-        }
-    }
-
+impl Sdl2WindowWrapper {
     pub fn toggle_fullscreen(&mut self) {
         if self.fullscreen {
             if cfg!(target_os = "windows") {
@@ -411,7 +277,63 @@ impl WindowWrapper {
         REDRAW_SCHEDULER.queue_next_frame();
     }
 
-    pub fn draw_frame(&mut self, dt: f32) -> VkResult<bool> {
+    fn handle_events(&mut self) {
+        self.synchronize_settings();
+
+        let mut keycode = None;
+        let mut keytext = None;
+        let mut ignore_text_this_frame = false;
+
+        let window_events: Vec<Event> = self.event_pump.poll_iter().collect();
+        for event in window_events.into_iter() {
+            match event {
+                Event::Quit { .. } => self.handle_quit(),
+                Event::DropFile { filename, .. } => {
+                    self.ui_command_sender.send(UiCommand::FileDrop(filename)).ok();
+                }
+                Event::KeyDown {
+                    keycode: received_keycode,
+                    ..
+                } => {
+                    keycode = received_keycode;
+                }
+                Event::TextInput { text, .. } => keytext = Some(text),
+                Event::MouseMotion { x, y, .. } => self.handle_pointer_motion(x, y),
+                Event::MouseButtonDown { .. } => self.handle_pointer_down(),
+                Event::MouseButtonUp { .. } => self.handle_pointer_up(),
+                Event::MouseWheel { x, y, .. } => self.handle_mouse_wheel(x, y),
+                Event::Window {
+                    win_event: WindowEvent::FocusLost,
+                    ..
+                } => self.handle_focus_lost(),
+                Event::Window {
+                    win_event: WindowEvent::FocusGained,
+                    ..
+                } => {
+                    ignore_text_this_frame = true; // Ignore any text events on the first frame when focus is regained. https://github.com/Kethku/neovide/issues/193
+                    self.handle_focus_gained();
+                }
+                Event::Window { .. } => REDRAW_SCHEDULER.queue_next_frame(),
+                _ => {}
+            }
+        }
+
+        if !ignore_text_this_frame {
+            self.handle_keyboard_input(keycode, keytext);
+        }
+
+        let window_commands: Vec<WindowCommand> = self.window_command_receiver.try_iter().collect();
+        for window_command in window_commands.into_iter() {
+            match window_command {
+                WindowCommand::TitleChanged(new_title) => self.handle_title_changed(new_title),
+                WindowCommand::SetMouseEnabled(mouse_enabled) => {
+                    self.mouse_enabled = mouse_enabled
+                }
+            }
+        }
+    }
+
+    fn draw_frame(&mut self, dt: f32) -> VkResult<bool> {
         let sdl_window_wrapper = Sdl2Window::new(&self.window);
         let new_size = sdl_window_wrapper.logical_size();
         if self.previous_size != new_size {
@@ -419,12 +341,12 @@ impl WindowWrapper {
             self.previous_size = new_size;
         }
 
-        debug!("Render Triggered");
-
         let current_size = self.previous_size;
         let ui_command_sender = self.ui_command_sender.clone();
 
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
+            debug!("Render Triggered");
+
             let renderer = &mut self.renderer;
             self.skulpin_renderer.draw(
                 &sdl_window_wrapper,
@@ -442,49 +364,68 @@ impl WindowWrapper {
     }
 }
 
-#[derive(Clone)]
-struct WindowSettings {
-    refresh_rate: u64,
-    transparency: f32,
-    no_idle: bool,
-    fullscreen: bool,
-}
+pub fn start_loop(
+        window_command_receiver: Receiver<WindowCommand>,
+        ui_command_sender: Sender<UiCommand>,
+        running: Arc<AtomicBool>,
+        logical_size: LogicalSize,
+        renderer: Renderer
+    ) {
+    sdl2::hint::set("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
 
-pub fn initialize_settings() {
-    let no_idle = SETTINGS
-        .neovim_arguments
-        .contains(&String::from("--noIdle"));
+    let context = sdl2::init().expect("Failed to initialize sdl2");
+    let video_subsystem = context
+        .video()
+        .expect("Failed to create sdl video subsystem");
+    video_subsystem.text_input().start();
 
-    SETTINGS.set(&WindowSettings {
-        refresh_rate: 60,
-        transparency: 1.0,
-        no_idle,
-        fullscreen: false,
-    });
+    let sdl_window = video_subsystem
+        .window("Neovide", logical_size.width, logical_size.height)
+        .position_centered()
+        .allow_highdpi()
+        .resizable()
+        .vulkan()
+        .build()
+        .expect("Failed to create window");
 
-    register_nvim_setting!("refresh_rate", WindowSettings::refresh_rate);
-    register_nvim_setting!("transparency", WindowSettings::transparency);
-    register_nvim_setting!("no_idle", WindowSettings::no_idle);
-    register_nvim_setting!("fullscreen", WindowSettings::fullscreen);
-}
+    let skulpin_renderer = {
+        let sdl_window_wrapper = Sdl2Window::new(&sdl_window);
+        RendererBuilder::new()
+            .prefer_integrated_gpu()
+            .use_vulkan_debug_layer(false)
+            .present_mode_priority(vec![PresentMode::Immediate])
+            .coordinate_system(CoordinateSystem::Logical)
+            .build(&sdl_window_wrapper)
+            .expect("Failed to create renderer")
+    };
 
-pub fn start_window(
-    batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
-    window_command_receiver: Receiver<WindowCommand>,
-    ui_command_sender: Sender<UiCommand>,
-    running: Arc<AtomicBool>,
-) {
-    let mut window = WindowWrapper::new(
-        ui_command_sender.clone(),
-        batched_draw_command_receiver,
-        running.clone(),
-    );
-
-    info!("Starting window event loop");
-    let mut event_pump = window
-        .context
+    let event_pump = context
         .event_pump()
         .expect("Could not create sdl event pump");
+
+    let mut window_wrapper = Sdl2WindowWrapper {
+        context,
+        window: sdl_window,
+        skulpin_renderer,
+        renderer,
+        event_pump,
+        mouse_down: false,
+        mouse_position: LogicalSize {
+            width: 0,
+            height: 0,
+        },
+        mouse_enabled: true,
+        grid_id_under_mouse: 0,
+        title: String::from("Neovide"),
+        previous_size: logical_size,
+        transparency: 1.0,
+        fullscreen: false,
+        cached_size: (0, 0),
+        cached_position: (0, 0),
+        ui_command_sender,
+        window_command_receiver,
+        running: running.clone(),
+    };
 
     let mut was_animating = false;
     let mut previous_frame_start = Instant::now();
@@ -495,49 +436,6 @@ pub fn start_window(
 
         let frame_start = Instant::now();
 
-        window.synchronize_settings();
-
-        let mut keycode = None;
-        let mut keytext = None;
-        let mut ignore_text_this_frame = false;
-
-        for event in event_pump.poll_iter() {
-            match event {
-                Event::Quit { .. } => window.handle_quit(),
-                Event::DropFile { filename, .. } => {
-                    ui_command_sender.send(UiCommand::FileDrop(filename)).ok();
-                }
-                Event::KeyDown {
-                    keycode: received_keycode,
-                    ..
-                } => {
-                    keycode = received_keycode;
-                }
-                Event::TextInput { text, .. } => keytext = Some(text),
-                Event::MouseMotion { x, y, .. } => window.handle_pointer_motion(x, y),
-                Event::MouseButtonDown { .. } => window.handle_pointer_down(),
-                Event::MouseButtonUp { .. } => window.handle_pointer_up(),
-                Event::MouseWheel { x, y, .. } => window.handle_mouse_wheel(x, y),
-                Event::Window {
-                    win_event: WindowEvent::FocusLost,
-                    ..
-                } => window.handle_focus_lost(),
-                Event::Window {
-                    win_event: WindowEvent::FocusGained,
-                    ..
-                } => {
-                    ignore_text_this_frame = true; // Ignore any text events on the first frame when focus is regained. https://github.com/Kethku/neovide/issues/193
-                    window.handle_focus_gained();
-                }
-                Event::Window { .. } => REDRAW_SCHEDULER.queue_next_frame(),
-                _ => {}
-            }
-        }
-
-        if !ignore_text_this_frame {
-            window.handle_keyboard_input(keycode, keytext);
-        }
-
         let refresh_rate = { SETTINGS.get::<WindowSettings>().refresh_rate as f32 };
         let dt = if was_animating {
             previous_frame_start.elapsed().as_secs_f32()
@@ -545,16 +443,9 @@ pub fn start_window(
             1.0 / refresh_rate
         };
 
-        for window_command in window_command_receiver.try_iter() {
-            match window_command {
-                WindowCommand::TitleChanged(new_title) => window.handle_title_changed(new_title),
-                WindowCommand::SetMouseEnabled(mouse_enabled) => {
-                    window.mouse_enabled = mouse_enabled
-                }
-            }
-        }
+        window_wrapper.handle_events();
 
-        match window.draw_frame(dt) {
+        match window_wrapper.draw_frame(dt) {
             Ok(animating) => {
                 was_animating = animating;
             }

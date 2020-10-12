@@ -27,7 +27,7 @@ use window::window_geometry;
 
 use bridge::start_bridge;
 use editor::start_editor;
-use window::start_window;
+use window::create_window;
 
 pub const INITIAL_DIMENSIONS: (u64, u64) = (100, 50);
 
@@ -147,7 +147,7 @@ fn main() {
         batched_draw_command_sender,
         window_command_sender,
     );
-    start_window(
+    create_window(
         batched_draw_command_receiver,
         window_command_receiver,
         ui_command_sender,

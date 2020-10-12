@@ -237,8 +237,7 @@ pub fn start_bridge(
                     }
                     _ => {}
                 },
-                Err(error) => {
-                    error!("Notification channel closed: {}", error);
+                Err(_) => {
                     notification_running.store(false, Ordering::Relaxed);
                     break;
                 }
@@ -255,8 +254,7 @@ pub fn start_bridge(
                 Ok(ui_command) => {
                     ui_command.execute(&mut nvim);
                 }
-                Err(error) => {
-                    error!("Ui command channel closed: {}", error);
+                Err(_) => {
                     ui_command_running.store(false, Ordering::Relaxed);
                     break;
                 }

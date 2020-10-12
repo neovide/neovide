@@ -285,6 +285,13 @@ impl Renderer {
                 .to_color(),
         );
 
+        root_canvas.save();
+
+        if let Some(root_window) = self.rendered_windows.get(&1) {
+            let clip_rect = root_window.pixel_region(self.font_width, self.font_height);
+            root_canvas.clip_rect(&clip_rect, None, Some(false));
+        }
+
         coordinate_system_helper.use_logical_coordinates(root_canvas);
 
         let windows: Vec<&mut RenderedWindow> = {
@@ -323,6 +330,8 @@ impl Renderer {
             root_canvas,
             dt,
         );
+
+        root_canvas.restore();
 
         font_changed
     }

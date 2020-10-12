@@ -30,7 +30,6 @@ pub enum UiCommand {
     FileDrop(String),
     FocusLost,
     FocusGained,
-    Quit,
     #[cfg(windows)]
     RegisterRightClick,
     #[cfg(windows)]
@@ -97,9 +96,6 @@ impl UiCommand {
             UiCommand::FocusGained => nvim
                 .command("if exists('#FocusGained') | doautocmd <nomodeline> FocusGained | endif")
                 .expect("Focus Gained Failed"),
-            UiCommand::Quit => {
-                nvim.command("qa!").ok(); // Ignoring result as it won't succeed since the app closed.
-            }
             UiCommand::FileDrop(path) => {
                 nvim.command(format!("e {}", path).as_str()).ok();
             }

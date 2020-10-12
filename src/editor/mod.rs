@@ -313,11 +313,18 @@ impl Editor {
             .map(|parent| parent.get_width())
             .unwrap_or(1);
 
+        let anchor_info = AnchorInfo {
+            anchor_grid_id: 1, // Base Grid
+            anchor_type: WindowAnchor::NorthWest,
+            anchor_left: 0.0,
+            anchor_top: 0.0
+        };
+
         if let Some(window) = self.windows.get_mut(&grid) {
             window.position(
                 parent_width,
                 window.get_height(),
-                None,
+                Some(anchor_info),
                 0.0,
                 grid_top as f64,
             );
@@ -327,7 +334,7 @@ impl Editor {
                 grid,
                 parent_width,
                 1,
-                None,
+                Some(anchor_info),
                 0.0,
                 grid_top as f64,
                 self.draw_command_batcher.clone(),
