@@ -317,7 +317,7 @@ impl Editor {
             anchor_grid_id: 1, // Base Grid
             anchor_type: WindowAnchor::NorthWest,
             anchor_left: 0.0,
-            anchor_top: 0.0
+            anchor_top: grid_top as f64
         };
 
         if let Some(window) = self.windows.get_mut(&grid) {

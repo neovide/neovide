@@ -1962,7 +1962,7 @@ dependencies = [
 [[package]]
 name = "skulpin"
 version = "0.10.0"
-source = "git+https://github.com/aclysma/skulpin?branch=master#fd476242e176383faf0db127cde0408d0b20cfd0"
+source = "git+https://github.com/aclysma/skulpin#fd476242e176383faf0db127cde0408d0b20cfd0"
 dependencies = [
  "log",
  "skulpin-app-winit",
@@ -1974,7 +1974,7 @@ dependencies = [
 [[package]]
 name = "skulpin-app-winit"
 version = "0.4.0"
-source = "git+https://github.com/aclysma/skulpin?branch=master#fd476242e176383faf0db127cde0408d0b20cfd0"
+source = "git+https://github.com/aclysma/skulpin#fd476242e176383faf0db127cde0408d0b20cfd0"
 dependencies = [
  "log",
  "skulpin-renderer",
@@ -1984,7 +1984,7 @@ dependencies = [
 [[package]]
 name = "skulpin-renderer"
 version = "0.4.0"
-source = "git+https://github.com/aclysma/skulpin?branch=master#fd476242e176383faf0db127cde0408d0b20cfd0"
+source = "git+https://github.com/aclysma/skulpin#fd476242e176383faf0db127cde0408d0b20cfd0"
 dependencies = [
  "ash",
  "log",
@@ -1995,7 +1995,7 @@ dependencies = [
 [[package]]
 name = "skulpin-renderer-sdl2"
 version = "0.4.0"
-source = "git+https://github.com/aclysma/skulpin?branch=master#fd476242e176383faf0db127cde0408d0b20cfd0"
+source = "git+https://github.com/aclysma/skulpin#fd476242e176383faf0db127cde0408d0b20cfd0"
 dependencies = [
  "log",
  "sdl2",
@@ -2005,7 +2005,7 @@ dependencies = [
 [[package]]
 name = "skulpin-renderer-winit"
 version = "0.4.0"
-source = "git+https://github.com/aclysma/skulpin?branch=master#fd476242e176383faf0db127cde0408d0b20cfd0"
+source = "git+https://github.com/aclysma/skulpin#fd476242e176383faf0db127cde0408d0b20cfd0"
 dependencies = [
  "cocoa",
  "log",
