@@ -29,16 +29,14 @@ fn set_windows_creation_flags(cmd: &mut Command) {
 
 #[cfg(windows)]
 fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
-    if !Path::new(&bin).exists() {
-        return None;
-    }
-
     if env::args().any(|arg| arg == "--wsl") {
         let mut cmd = Command::new("wsl");
         cmd.arg(bin);
         Some(cmd)
-    } else {
+    } else if Path::new(&bin).exists() {
         Some(Command::new(bin))
+    } else {
+        None
     }
 }
 
@@ -57,6 +55,23 @@ fn build_nvim_cmd() -> Command {
             return cmd;
         } else {
             warn!("NEOVIM_BIN is invalid falling back to first bin in PATH");
+        }
+    }
+    #[cfg(windows)]
+    if env::args().any(|arg| arg == "--wsl") {
+        if let Ok(output) = std::process::Command::new("wsl").arg("which").arg("nvim").output() {
+            if output.status.success() {
+                let path = String::from_utf8(output.stdout).unwrap();
+                let mut cmd = Command::new("wsl");
+                cmd.arg(path.trim());
+                return cmd;
+            } else {
+                error!("nvim not found in WSL path");
+                std::process::exit(1);
+            }
+        } else {
+            error!("wsl which nvim failed");
+            std::process::exit(1);
         }
     }
     if let Ok(path) = which::which("nvim") {
