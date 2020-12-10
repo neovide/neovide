@@ -110,8 +110,13 @@ pub fn create_nvim_command() -> Command {
     let mut cmd = build_nvim_cmd();
 
     cmd.arg("--embed")
-        .args(SETTINGS.neovim_arguments.iter().skip(1))
-        .stderr(Stdio::inherit());
+        .args(SETTINGS.neovim_arguments.iter().skip(1));
+
+    #[cfg(not(debug_assertions))]
+    cmd.stderr(Stdio::piped());
+
+    #[cfg(debug_assertions)]
+    cmd.stderr(Stdio::inherit());
 
     #[cfg(windows)]
     set_windows_creation_flags(&mut cmd);
