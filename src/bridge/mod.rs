@@ -132,6 +132,11 @@ async fn start_process(mut receiver: UnboundedReceiver<UiCommand>) {
             .await
             .unwrap_or_explained_panic("Could not locate or start the neovim process");
 
+    if nvim.get_api_info().await.is_err() {
+        error!("Cannot get neovim api info, either neovide is launched with an unknown command line option or neovim version not supported!");
+        std::process::exit(-1);
+    }
+
     tokio::spawn(async move {
         info!("Close watcher started");
         match io_handler.await {
