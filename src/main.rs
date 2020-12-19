@@ -36,7 +36,7 @@ fn main() {
     {
         // incase of app bundle, we can just pass --disowned option straight away to bypass this check
         #[cfg(not(debug_assertions))]
-        if std::env::args().find(|f| f == "--disowned").is_none() {
+        if !std::env::args().any(|f| f == "--disowned") {
             if let Ok(curr_exe) = std::env::current_exe() {
                 assert!(std::process::Command::new(curr_exe)
                     .args(std::env::args().skip(1))
