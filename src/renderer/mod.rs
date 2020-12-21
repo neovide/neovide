@@ -44,7 +44,7 @@ pub fn initialize_settings() {
         "floating_window_opacity",
         RendererSettings::floating_opacity
     );
-    register_nvim_setting!("floating_window_blur", RendererSettings::floating_opacity);
+    register_nvim_setting!("floating_window_blur", RendererSettings::floating_blur);
 }
 
 // ----------------------------------------------------------------------------
@@ -52,7 +52,6 @@ pub fn initialize_settings() {
 pub struct Renderer {
     rendered_windows: HashMap<u64, RenderedWindow>,
     cursor_renderer: CursorRenderer,
-    settings: RendererSettings,
 
     pub paint: Paint,
     pub shaper: CachingShaper,
@@ -67,7 +66,6 @@ impl Renderer {
     pub fn new(batched_draw_command_receiver: Receiver<Vec<DrawCommand>>) -> Renderer {
         let rendered_windows = HashMap::new();
         let cursor_renderer = CursorRenderer::new();
-        let settings = SETTINGS.get::<RendererSettings>();
 
         let mut paint = Paint::new(colors::WHITE, None);
         paint.set_anti_alias(false);
@@ -83,7 +81,6 @@ impl Renderer {
         Renderer {
             rendered_windows,
             cursor_renderer,
-            settings,
 
             paint,
             shaper,
@@ -315,12 +312,12 @@ impl Renderer {
                 .collect()
         };
 
-        let settings = &self.settings;
+        let settings = SETTINGS.get::<RendererSettings>();
         let font_width = self.font_width;
         let font_height = self.font_height;
         self.window_regions = windows
             .into_iter()
-            .map(|window| window.draw(root_canvas, settings, font_width, font_height, dt))
+            .map(|window| window.draw(root_canvas, &settings, font_width, font_height, dt))
             .collect();
 
         self.cursor_renderer.draw(
