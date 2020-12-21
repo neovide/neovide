@@ -34,6 +34,21 @@ fn main() {
 
     #[cfg(target_os = "macos")]
     {
+        // incase of app bundle, we can just pass --disowned option straight away to bypass this check
+        #[cfg(not(debug_assertions))]
+        if !std::env::args().any(|f| f == "--disowned") {
+            if let Ok(curr_exe) = std::env::current_exe() {
+                assert!(std::process::Command::new(curr_exe)
+                    .args(std::env::args().skip(1))
+                    .arg("--disowned")
+                    .spawn()
+                    .is_ok());
+                std::process::exit(0);
+            } else {
+                eprintln!("error in disowning process, cannot obtain the path for the current executable, continuing without disowning...");
+            }
+        }
+
         use std::env;
         if env::var_os("TERM").is_none() {
             let mut profile_path = dirs::home_dir().unwrap();

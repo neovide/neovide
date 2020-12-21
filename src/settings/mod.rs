@@ -78,7 +78,7 @@ impl Settings {
                     println!("neovide : {}", env!("CARGO_PKG_DESCRIPTION"));
                     std::process::exit(0);
                 } else {
-                    !(arg.starts_with("--geometry=") || arg == "--wsl")
+                    !(arg.starts_with("--geometry=") || arg == "--wsl" || arg == "--disowned")
                 }
             })
             .collect::<Vec<String>>();
