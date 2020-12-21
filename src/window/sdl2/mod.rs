@@ -1,9 +1,10 @@
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
+use crossfire::mpsc::TxUnbounded;
 use log::{debug, error, trace};
 use skulpin::ash::prelude::VkResult;
 use skulpin::sdl2;
@@ -46,7 +47,7 @@ pub struct Sdl2WindowWrapper {
     fullscreen: bool,
     cached_size: (u32, u32),
     cached_position: (i32, i32),
-    ui_command_sender: Sender<UiCommand>,
+    ui_command_sender: TxUnbounded<UiCommand>,
     window_command_receiver: Receiver<WindowCommand>,
     running: Arc<AtomicBool>,
 }
@@ -376,7 +377,7 @@ impl Sdl2WindowWrapper {
 
 pub fn start_loop(
     window_command_receiver: Receiver<WindowCommand>,
-    ui_command_sender: Sender<UiCommand>,
+    ui_command_sender: TxUnbounded<UiCommand>,
     running: Arc<AtomicBool>,
     logical_size: LogicalSize,
     renderer: Renderer,

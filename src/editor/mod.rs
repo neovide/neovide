@@ -10,6 +10,7 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 use std::thread;
 
+use crossfire::mpsc::RxUnbounded;
 use log::{error, trace, warn};
 
 use crate::bridge::{EditorMode, GuiOption, RedrawEvent, WindowAnchor};
@@ -418,14 +419,14 @@ impl Editor {
 }
 
 pub fn start_editor(
-    redraw_event_receiver: Receiver<RedrawEvent>,
+    redraw_event_receiver: RxUnbounded<RedrawEvent>,
     batched_draw_command_sender: Sender<Vec<DrawCommand>>,
     window_command_sender: Sender<WindowCommand>,
 ) {
     thread::spawn(move || {
         let mut editor = Editor::new(batched_draw_command_sender, window_command_sender);
 
-        while let Ok(redraw_event) = redraw_event_receiver.recv() {
+        while let Ok(redraw_event) = redraw_event_receiver.recv_blocking() {
             editor.handle_redraw_event(redraw_event);
         }
     });

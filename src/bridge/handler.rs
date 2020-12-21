@@ -2,6 +2,7 @@ use std::sync::Arc;
 use std::sync::mpsc::Sender;
 
 use async_trait::async_trait;
+use crossfire::mpsc::TxUnbounded;
 use log::trace;
 use nvim_rs::{compat::tokio::Compat, Handler, Neovim};
 use rmpv::Value;
@@ -17,12 +18,12 @@ use crate::error_handling::ResultPanicExplanation;
 
 #[derive(Clone)]
 pub struct NeovimHandler {
-    ui_command_sender: Arc<Mutex<UnboundedSender<UiCommand>>>,
-    redraw_event_sender: Arc<Mutex<Sender<RedrawEvent>>>
+    ui_command_sender: Arc<Mutex<TxUnbounded<UiCommand>>>,
+    redraw_event_sender: Arc<Mutex<TxUnbounded<RedrawEvent>>>
 }
 
 impl NeovimHandler {
-    pub fn new(ui_command_sender: UnboundedSender<UiCommand>, redraw_event_sender: Sender<RedrawEvent>) -> NeovimHandler {
+    pub fn new(ui_command_sender: TxUnbounded<UiCommand>, redraw_event_sender: TxUnbounded<RedrawEvent>) -> NeovimHandler {
         NeovimHandler {
             ui_command_sender: Arc::new(Mutex::new(ui_command_sender)),
             redraw_event_sender: Arc::new(Mutex::new(redraw_event_sender))

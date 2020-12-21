@@ -6,6 +6,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::Arc;
 
+use crossfire::mpsc::TxUnbounded;
 use skulpin::LogicalSize;
 
 use crate::bridge::UiCommand;
@@ -72,7 +73,7 @@ fn windows_fix_dpi() {
 fn handle_new_grid_size(
     new_size: LogicalSize,
     renderer: &Renderer,
-    ui_command_sender: &Sender<UiCommand>,
+    ui_command_sender: &TxUnbounded<UiCommand>,
 ) {
     if new_size.width > 0 && new_size.height > 0 {
         // Add 1 here to make sure resizing doesn't change the grid size on startup
@@ -90,7 +91,7 @@ fn handle_new_grid_size(
 pub fn create_window(
     batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
     window_command_receiver: Receiver<WindowCommand>,
-    ui_command_sender: Sender<UiCommand>,
+    ui_command_sender: TxUnbounded<UiCommand>,
     running: Arc<AtomicBool>,
 ) {
     let (width, height) = window_geometry_or_default();

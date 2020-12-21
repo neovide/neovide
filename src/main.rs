@@ -18,9 +18,11 @@ extern crate rust_embed;
 extern crate lazy_static;
 
 use std::process;
+use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::channel;
-use std::sync::Arc;
+
+use crossfire::mpsc::unbounded_future;
 
 use window::window_geometry;
 
@@ -130,12 +132,13 @@ fn main() {
 
     let running = Arc::new(AtomicBool::new(true));
 
-    let (redraw_event_sender, redraw_event_receiver) = channel();
+    let (redraw_event_sender, redraw_event_receiver) = unbounded_future();
     let (batched_draw_command_sender, batched_draw_command_receiver) = channel();
-    let (ui_command_sender, ui_command_receiver) = channel();
+    let (ui_command_sender, ui_command_receiver) = unbounded_future();
     let (window_command_sender, window_command_receiver) = channel();
 
-    start_bridge(
+    // We need to keep the bridge reference around to prevent the tokio runtime from getting freed
+    let bridge = start_bridge(
         ui_command_sender.clone(),
         ui_command_receiver,
         redraw_event_sender,
