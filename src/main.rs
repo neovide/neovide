@@ -150,6 +150,6 @@ fn main() {
         batched_draw_command_receiver,
         window_command_receiver,
         ui_command_sender,
-        running.clone(),
+        running,
     );
 }

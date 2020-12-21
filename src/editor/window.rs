@@ -43,7 +43,15 @@ pub enum WindowDrawCommand {
 impl fmt::Debug for WindowDrawCommand {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            WindowDrawCommand::Position { .. } => write!(formatter, "Position"),
+            WindowDrawCommand::Position {
+                grid_left,
+                grid_top,
+                ..
+            } => write!(
+                formatter,
+                "Position {{ left: {}, right: {} }}",
+                grid_left, grid_top
+            ),
             WindowDrawCommand::Cell { .. } => write!(formatter, "Cell"),
             WindowDrawCommand::Scroll { .. } => write!(formatter, "Scroll"),
             WindowDrawCommand::Clear => write!(formatter, "Clear"),

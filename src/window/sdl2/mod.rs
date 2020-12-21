@@ -7,10 +7,10 @@ use std::time::{Duration, Instant};
 use log::{debug, error, trace};
 use skulpin::ash::prelude::VkResult;
 use skulpin::sdl2;
-use skulpin::sdl2::EventPump;
 use skulpin::sdl2::event::{Event, WindowEvent};
 use skulpin::sdl2::keyboard::Keycode;
 use skulpin::sdl2::video::FullscreenType;
+use skulpin::sdl2::EventPump;
 use skulpin::sdl2::Sdl;
 use skulpin::{
     CoordinateSystem, LogicalSize, PhysicalSize, PresentMode, Renderer as SkulpinRenderer,
@@ -163,25 +163,26 @@ impl Sdl2WindowWrapper {
         let mut top_window_position = (0.0, 0.0);
         let mut top_grid_position = None;
 
-        for (grid_id, window_region) in self.renderer.window_regions.iter() {
-            if logical_position.width >= window_region.left as u32
-                && logical_position.width < window_region.right as u32
-                && logical_position.height >= window_region.top as u32
-                && logical_position.height < window_region.bottom as u32
+        for details in self.renderer.window_regions.iter() {
+            if logical_position.width >= details.region.left as u32
+                && logical_position.width < details.region.right as u32
+                && logical_position.height >= details.region.top as u32
+                && logical_position.height < details.region.bottom as u32
             {
-                top_window_position = (window_region.left, window_region.top);
+                top_window_position = (details.region.left, details.region.top);
                 top_grid_position = Some((
-                    grid_id,
+                    details.id,
                     LogicalSize::new(
-                        logical_position.width - window_region.left as u32,
-                        logical_position.height - window_region.top as u32,
+                        logical_position.width - details.region.left as u32,
+                        logical_position.height - details.region.top as u32,
                     ),
+                    details.floating,
                 ));
             }
         }
 
-        if let Some((grid_id, grid_position)) = top_grid_position {
-            self.grid_id_under_mouse = *grid_id;
+        if let Some((grid_id, grid_position, grid_floating)) = top_grid_position {
+            self.grid_id_under_mouse = grid_id;
             self.mouse_position = LogicalSize::new(
                 (grid_position.width as f32 / self.renderer.font_width) as u32,
                 (grid_position.height as f32 / self.renderer.font_height) as u32,
@@ -189,15 +190,24 @@ impl Sdl2WindowWrapper {
 
             if self.mouse_enabled && self.mouse_down && previous_position != self.mouse_position {
                 let (window_left, window_top) = top_window_position;
-                let adjusted_drag_left =
-                    self.mouse_position.width + (window_left / self.renderer.font_width) as u32;
-                let adjusted_drag_top =
-                    self.mouse_position.height + (window_top / self.renderer.font_height) as u32;
+
+                // Until https://github.com/neovim/neovim/pull/12667 is merged, we have to special
+                // case non floating windows. Floating windows correctly transform mouse positions
+                // into grid coordinates, but non floating windows do not.
+                let position = if grid_floating {
+                    (self.mouse_position.width, self.mouse_position.height)
+                } else {
+                    let adjusted_drag_left =
+                        self.mouse_position.width + (window_left / self.renderer.font_width) as u32;
+                    let adjusted_drag_top = self.mouse_position.height
+                        + (window_top / self.renderer.font_height) as u32;
+                    (adjusted_drag_left, adjusted_drag_top)
+                };
 
                 self.ui_command_sender
                     .send(UiCommand::Drag {
                         grid_id: self.grid_id_under_mouse,
-                        position: (adjusted_drag_left, adjusted_drag_top),
+                        position,
                     })
                     .ok();
             }
@@ -289,7 +299,9 @@ impl Sdl2WindowWrapper {
             match event {
                 Event::Quit { .. } => self.handle_quit(),
                 Event::DropFile { filename, .. } => {
-                    self.ui_command_sender.send(UiCommand::FileDrop(filename)).ok();
+                    self.ui_command_sender
+                        .send(UiCommand::FileDrop(filename))
+                        .ok();
                 }
                 Event::KeyDown {
                     keycode: received_keycode,
@@ -326,9 +338,7 @@ impl Sdl2WindowWrapper {
         for window_command in window_commands.into_iter() {
             match window_command {
                 WindowCommand::TitleChanged(new_title) => self.handle_title_changed(new_title),
-                WindowCommand::SetMouseEnabled(mouse_enabled) => {
-                    self.mouse_enabled = mouse_enabled
-                }
+                WindowCommand::SetMouseEnabled(mouse_enabled) => self.mouse_enabled = mouse_enabled,
             }
         }
     }
@@ -365,12 +375,12 @@ impl Sdl2WindowWrapper {
 }
 
 pub fn start_loop(
-        window_command_receiver: Receiver<WindowCommand>,
-        ui_command_sender: Sender<UiCommand>,
-        running: Arc<AtomicBool>,
-        logical_size: LogicalSize,
-        renderer: Renderer
-    ) {
+    window_command_receiver: Receiver<WindowCommand>,
+    ui_command_sender: Sender<UiCommand>,
+    running: Arc<AtomicBool>,
+    logical_size: LogicalSize,
+    renderer: Renderer,
+) {
     sdl2::hint::set("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
 
     let context = sdl2::init().expect("Failed to initialize sdl2");

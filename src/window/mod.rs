@@ -1,17 +1,17 @@
+mod settings;
 #[cfg_attr(feature = "sdl2", path = "sdl2/mod.rs")]
 mod window_wrapper;
-mod settings;
 
-use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
-use std::sync::mpsc::{Sender, Receiver};
+use std::sync::mpsc::{Receiver, Sender};
+use std::sync::Arc;
 
 use skulpin::LogicalSize;
 
-use crate::INITIAL_DIMENSIONS;
 use crate::bridge::UiCommand;
 use crate::editor::{DrawCommand, WindowCommand};
 use crate::renderer::Renderer;
+use crate::INITIAL_DIMENSIONS;
 
 #[cfg(feature = "sdl2")]
 pub use window_wrapper::start_loop;
@@ -109,5 +109,6 @@ pub fn create_window(
         ui_command_sender,
         running,
         logical_size,
-        renderer);
+        renderer,
+    );
 }

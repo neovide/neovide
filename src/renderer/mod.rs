@@ -14,11 +14,11 @@ mod rendered_window;
 
 pub use caching_shaper::CachingShaper;
 pub use font_options::*;
+pub use rendered_window::{RenderedWindow, WindowDrawDetails};
 
 use crate::editor::{Colors, DrawCommand, Style, WindowDrawCommand};
 use crate::settings::*;
 use cursor_renderer::CursorRenderer;
-use rendered_window::RenderedWindow;
 
 // ----------------------------------------------------------------------------
 
@@ -59,7 +59,7 @@ pub struct Renderer {
     pub default_style: Arc<Style>,
     pub font_width: f32,
     pub font_height: f32,
-    pub window_regions: Vec<(u64, Rect)>,
+    pub window_regions: Vec<WindowDrawDetails>,
     pub batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
 }
 

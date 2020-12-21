@@ -166,12 +166,16 @@ impl Editor {
                 cells,
             } => {
                 let defined_styles = &self.defined_styles;
-                self.windows
-                    .get_mut(&grid)
-                    .map(|window| window.draw_grid_line(row, column_start, cells, defined_styles));
+                let window = self.windows.get_mut(&grid);
+                if let Some(window) = window {
+                    window.draw_grid_line(row, column_start, cells, defined_styles);
+                }
             }
             RedrawEvent::Clear { grid } => {
-                self.windows.get_mut(&grid).map(|window| window.clear());
+                let window = self.windows.get_mut(&grid);
+                if let Some(window) = window {
+                    window.clear();
+                }
             }
             RedrawEvent::Destroy { grid } => self.close_window(grid),
             RedrawEvent::Scroll {
@@ -183,9 +187,10 @@ impl Editor {
                 rows,
                 columns,
             } => {
-                self.windows
-                    .get_mut(&grid)
-                    .map(|window| window.scroll_region(top, bottom, left, right, rows, columns));
+                let window = self.windows.get_mut(&grid);
+                if let Some(window) = window {
+                    window.scroll_region(top, bottom, left, right, rows, columns);
+                }
             }
             RedrawEvent::WindowPosition {
                 grid,
@@ -203,7 +208,10 @@ impl Editor {
                 ..
             } => self.set_window_float_position(grid, anchor_grid, anchor, anchor_left, anchor_top),
             RedrawEvent::WindowHide { grid } => {
-                self.windows.get(&grid).map(|window| window.hide());
+                let window = self.windows.get(&grid);
+                if let Some(window) = window {
+                    window.hide();
+                }
             }
             RedrawEvent::WindowClose { grid } => self.close_window(grid),
             RedrawEvent::MessageSetPosition { grid, row, .. } => {
@@ -283,8 +291,8 @@ impl Editor {
                 anchor_type.modified_top_left(anchor_left, anchor_top, width, height);
 
             if let Some((parent_left, parent_top)) = parent_position {
-                modified_left = parent_left + modified_left;
-                modified_top = parent_top + modified_top;
+                modified_left += parent_left;
+                modified_top += parent_top;
             }
 
             window.position(
@@ -317,7 +325,7 @@ impl Editor {
             anchor_grid_id: 1, // Base Grid
             anchor_type: WindowAnchor::NorthWest,
             anchor_left: 0.0,
-            anchor_top: grid_top as f64
+            anchor_top: grid_top as f64,
         };
 
         if let Some(window) = self.windows.get_mut(&grid) {
@@ -417,12 +425,8 @@ pub fn start_editor(
     thread::spawn(move || {
         let mut editor = Editor::new(batched_draw_command_sender, window_command_sender);
 
-        loop {
-            if let Ok(redraw_event) = redraw_event_receiver.recv() {
-                editor.handle_redraw_event(redraw_event);
-            } else {
-                break;
-            }
+        while let Ok(redraw_event) = redraw_event_receiver.recv() {
+            editor.handle_redraw_event(redraw_event);
         }
     });
 }

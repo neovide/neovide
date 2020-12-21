@@ -203,9 +203,6 @@ pub fn start_bridge(
             .unwrap_or_explained_panic("Could not attach ui to neovim process");
         info!("Neovim process attached");
 
-        SETTINGS.read_initial_values(&mut nvim);
-        SETTINGS.setup_changed_listeners(&mut nvim);
-
         let notification_running = running.clone();
         thread::spawn(move || loop {
             if !notification_running.load(Ordering::Relaxed) {
@@ -243,6 +240,9 @@ pub fn start_bridge(
                 }
             }
         });
+
+        SETTINGS.read_initial_values(&mut nvim);
+        SETTINGS.setup_changed_listeners(&mut nvim);
 
         let ui_command_running = running.clone();
         thread::spawn(move || loop {

@@ -77,6 +77,12 @@ pub struct RenderedWindow {
     t: f32,
 }
 
+pub struct WindowDrawDetails {
+    pub id: u64,
+    pub region: Rect,
+    pub floating: bool,
+}
+
 impl RenderedWindow {
     pub fn new(
         parent_canvas: &mut Canvas,
@@ -149,12 +155,12 @@ impl RenderedWindow {
         font_width: f32,
         font_height: f32,
         dt: f32,
-    ) -> (u64, Rect) {
-        let pixel_region = self.pixel_region(font_width, font_height);
-
+    ) -> WindowDrawDetails {
         if self.update(settings, dt) {
             REDRAW_SCHEDULER.queue_next_frame();
         }
+
+        let pixel_region = self.pixel_region(font_width, font_height);
 
         root_canvas.save();
 
@@ -197,7 +203,11 @@ impl RenderedWindow {
 
         root_canvas.restore();
 
-        (self.id, pixel_region)
+        WindowDrawDetails {
+            id: self.id,
+            region: pixel_region,
+            floating: self.floating,
+        }
     }
 
     pub fn handle_window_draw_command(
@@ -319,7 +329,7 @@ impl RenderedWindow {
                     background_canvas.save();
                     background_canvas.clip_rect(scrolled_region, None, Some(false));
 
-                    let mut translated_region = scrolled_region.clone();
+                    let mut translated_region = scrolled_region;
                     translated_region.offset((
                         -cols as f32 * renderer.font_width,
                         -rows as f32 * renderer.font_height,
@@ -342,7 +352,7 @@ impl RenderedWindow {
                     foreground_canvas.save();
                     foreground_canvas.clip_rect(scrolled_region, None, Some(false));
 
-                    let mut translated_region = scrolled_region.clone();
+                    let mut translated_region = scrolled_region;
                     translated_region.offset((
                         -cols as f32 * renderer.font_width,
                         -rows as f32 * renderer.font_height,
@@ -380,7 +390,6 @@ impl RenderedWindow {
                     self.hidden = false;
                     self.t = 2.0; // We don't want to animate since the window is becoming visible, so we set t to 2.0 to stop animations.
                     self.grid_start_position = self.grid_destination;
-                    self.grid_destination = self.grid_destination;
                 }
             }
             WindowDrawCommand::Hide => self.hidden = true,
