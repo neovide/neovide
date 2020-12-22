@@ -414,6 +414,9 @@ impl Editor {
             self.draw_command_batcher
                 .queue(DrawCommand::FontChanged(guifont))
                 .ok();
+            for window in self.windows.values() {
+                window.redraw();
+            }
         }
     }
 }

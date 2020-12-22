@@ -200,8 +200,12 @@ impl Window {
         *previous_style = style;
     }
 
+    // Send a draw command for the given row starting from current_start up until the next style
+    // change. If the current_start is the same as line_start, this will also work backwards in the
+    // line in order to ensure that ligatures before the beginning of the grid cell are also
+    // updated.
     fn send_draw_command(
-        &mut self,
+        &self,
         row_index: u64,
         line_start: u64,
         current_start: u64,
@@ -344,6 +348,20 @@ impl Window {
     pub fn clear(&mut self) {
         self.grid.clear();
         self.send_command(WindowDrawCommand::Clear);
+    }
+
+    pub fn redraw(&self) {
+        self.send_command(WindowDrawCommand::Clear);
+        for row in 0..self.grid.height {
+            let mut current_start = 0;
+            while current_start < self.grid.width {
+                if let Some(next_start) = self.send_draw_command(row, 0, current_start) {
+                    current_start = next_start;
+                } else {
+                    break;
+                }
+            }
+        }
     }
 
     pub fn hide(&self) {
