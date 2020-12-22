@@ -3,7 +3,7 @@ mod settings;
 mod window_wrapper;
 
 use std::sync::atomic::AtomicBool;
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 
 use crossfire::mpsc::TxUnbounded;

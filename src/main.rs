@@ -18,9 +18,9 @@ extern crate rust_embed;
 extern crate lazy_static;
 
 use std::process;
-use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::sync::mpsc::channel;
+use std::sync::Arc;
 
 use crossfire::mpsc::unbounded_future;
 
@@ -138,7 +138,7 @@ fn main() {
     let (window_command_sender, window_command_receiver) = channel();
 
     // We need to keep the bridge reference around to prevent the tokio runtime from getting freed
-    let bridge = start_bridge(
+    let _bridge = start_bridge(
         ui_command_sender.clone(),
         ui_command_receiver,
         redraw_event_sender,

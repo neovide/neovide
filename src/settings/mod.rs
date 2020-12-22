@@ -69,7 +69,7 @@ impl Settings {
                     log_to_file = true;
                     false
                 } else {
-                    !(arg.starts_with("--geometry=") || arg == "--wsl")
+                    !(arg.starts_with("--geometry=") || arg == "--wsl" || arg == "--multiGrid")
                 }
             })
             .collect::<Vec<String>>();
@@ -194,11 +194,29 @@ impl Settings {
 
 #[cfg(test)]
 mod tests {
-    use neovim_lib::{Neovim, NeovimApi, Session, UiAttachOptions};
+    use async_trait::async_trait;
+    use nvim_rs::create::tokio as create;
+    use nvim_rs::{compat::tokio::Compat, Handler, Neovim};
+    use tokio;
 
     use super::*;
-
     use crate::bridge::create_nvim_command;
+
+    #[derive(Clone)]
+    pub struct NeovimHandler();
+
+    #[async_trait]
+    impl Handler for NeovimHandler {
+        type Writer = Compat<ChildStdin>;
+
+        async fn handle_notify(
+            &self,
+            _event_name: String,
+            _arguments: Vec<Value>,
+            _neovim: Neovim<Compat<ChildStdin>>,
+        ) {
+        }
+    }
 
     #[test]
     fn test_set_setting_handlers() {
@@ -271,8 +289,8 @@ mod tests {
         assert_eq!(v2, r2);
     }
 
-    #[test]
-    fn test_read_initial_values() {
+    #[tokio::test]
+    async fn test_read_initial_values() {
         let settings = Settings::new();
 
         let v1: String = "foo".to_string();
@@ -281,12 +299,10 @@ mod tests {
         let v4: String = format!("neovide_{}", v1);
         let v5: String = format!("neovide_{}", v2);
 
-        let mut session = Session::new_child_cmd(&mut create_nvim_command())
-            .unwrap_or_explained_panic("Could not locate or start neovim process");
-        session.start_event_loop_channel();
-        let mut nvim = Neovim::new(session);
-
-        nvim.set_var(&v4, Value::from(v2.clone())).unwrap();
+        let (nvim, _, _) = create::new_child_cmd(&mut create_nvim_command(), NeovimHandler())
+            .await
+            .unwrap_or_explained_panic("Could not locate or start the neovim process");
+        nvim.set_var(&v4, Value::from(v2.clone())).await.ok();
 
         fn noop_update(_v: Value) {}
 
@@ -310,10 +326,10 @@ mod tests {
             settings.readers.force_unlock_write();
         }
 
-        settings.read_initial_values(&mut nvim);
+        settings.read_initial_values(&nvim).await;
 
-        let rt1 = nvim.get_var(&v4).unwrap();
-        let rt2 = nvim.get_var(&v5).unwrap();
+        let rt1 = nvim.get_var(&v4).await.unwrap();
+        let rt2 = nvim.get_var(&v5).await.unwrap();
 
         let r1 = rt1.as_str().unwrap();
         let r2 = rt2.as_str().unwrap();

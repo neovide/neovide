@@ -6,7 +6,7 @@ mod window;
 
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::mpsc::{Receiver, Sender};
+use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::thread;
 
