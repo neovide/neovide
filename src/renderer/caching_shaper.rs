@@ -73,7 +73,10 @@ impl ExtendedFontFamily {
                 let font = &handle.font;
                 let properties = font.properties();
 
-                if properties.weight == props.weight && properties.style == props.style {
+                if properties.weight == props.weight
+                    && properties.style == props.style
+                    && properties.stretch == props.stretch
+                {
                     return Some(&font);
                 }
             }

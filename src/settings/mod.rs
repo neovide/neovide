@@ -68,8 +68,17 @@ impl Settings {
                 if arg == "--log" {
                     log_to_file = true;
                     false
+                } else if arg == "--version" || arg == "-v" {
+                    println!("Neovide version: {}", env!("CARGO_PKG_VERSION"));
+                    std::process::exit(0);
+                } else if arg == "--help" || arg == "-h" {
+                    println!("neovide: {}", env!("CARGO_PKG_DESCRIPTION"));
+                    std::process::exit(0);
                 } else {
-                    !(arg.starts_with("--geometry=") || arg == "--wsl" || arg == "--multiGrid")
+                    !(arg.starts_with("--geometry=")
+                        || arg == "--wsl"
+                        || arg == "--disowned"
+                        || arg == "--multiGrid")
                 }
             })
             .collect::<Vec<String>>();
