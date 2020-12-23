@@ -1,4 +1,5 @@
 use crate::settings::*;
+use super::keyboard::initialize_settings as keyboard_initialize_settings;
 
 #[derive(Clone)]
 pub struct WindowSettings {
@@ -24,4 +25,6 @@ pub fn initialize_settings() {
     register_nvim_setting!("transparency", WindowSettings::transparency);
     register_nvim_setting!("no_idle", WindowSettings::no_idle);
     register_nvim_setting!("fullscreen", WindowSettings::fullscreen);
+
+    keyboard_initialize_settings();
 }

@@ -10,6 +10,7 @@ description = "A simple GUI for Neovim."
 default = ["sdl2"]
 embed-fonts = []
 sdl2 = ["skulpin/skulpin_sdl2"]
+winit = ["skulpin/skulpin_winit"]
 
 [dependencies]
 euclid = "0.20.7"

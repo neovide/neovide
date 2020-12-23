@@ -124,7 +124,6 @@ fn main() {
         }
     }
 
-    bridge::layouts::initialize_settings();
     window::initialize_settings();
     redraw_scheduler::initialize_settings();
     renderer::initialize_settings();

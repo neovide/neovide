@@ -1,3 +1,6 @@
+#[macro_use]
+mod layouts;
+
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
@@ -20,12 +23,14 @@ use skulpin::{
 
 use super::handle_new_grid_size;
 use super::settings::*;
-use crate::bridge::{produce_neovim_keybinding_string, UiCommand};
+pub use super::keyboard;
+use crate::bridge::UiCommand;
 use crate::editor::WindowCommand;
 use crate::error_handling::ResultPanicExplanation;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::renderer::Renderer;
 use crate::settings::*;
+use layouts::produce_neovim_keybinding_string;
 
 #[derive(RustEmbed)]
 #[folder = "assets/"]

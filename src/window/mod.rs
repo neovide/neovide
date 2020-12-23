@@ -1,5 +1,8 @@
 mod settings;
+pub mod keyboard;
+
 #[cfg_attr(feature = "sdl2", path = "sdl2/mod.rs")]
+#[cfg_attr(feature = "winit", path = "winit/mod.rs")]
 mod window_wrapper;
 
 use std::sync::atomic::AtomicBool;
