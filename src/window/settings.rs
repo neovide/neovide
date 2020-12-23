@@ -1,5 +1,5 @@
-use crate::settings::*;
 use super::keyboard::initialize_settings as keyboard_initialize_settings;
+use crate::settings::*;
 
 #[derive(Clone)]
 pub struct WindowSettings {

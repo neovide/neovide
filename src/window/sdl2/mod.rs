@@ -22,8 +22,8 @@ use skulpin::{
 };
 
 use super::handle_new_grid_size;
-use super::settings::*;
 pub use super::keyboard;
+use super::settings::*;
 use crate::bridge::UiCommand;
 use crate::editor::WindowCommand;
 use crate::error_handling::ResultPanicExplanation;

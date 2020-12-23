@@ -1,4 +1,4 @@
-use log::{error, trace};
+use log::error;
 
 use crate::settings::*;
 

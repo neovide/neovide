@@ -1,5 +1,5 @@
-mod settings;
 pub mod keyboard;
+mod settings;
 
 #[cfg_attr(feature = "sdl2", path = "sdl2/mod.rs")]
 #[cfg_attr(feature = "winit", path = "winit/mod.rs")]
@@ -18,6 +18,8 @@ use crate::renderer::Renderer;
 use crate::INITIAL_DIMENSIONS;
 
 #[cfg(feature = "sdl2")]
+pub use window_wrapper::start_loop;
+#[cfg(feature = "winit")]
 pub use window_wrapper::start_loop;
 
 pub use settings::*;

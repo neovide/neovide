@@ -10,8 +10,8 @@ use std::time::{Duration, Instant};
 use crossfire::mpsc::TxUnbounded;
 use image::{load_from_memory, GenericImageView, Pixel};
 use log::{debug, error, info, trace};
+use skulpin::ash::prelude::VkResult;
 use skulpin::winit;
-use skulpin::winit::dpi::Size;
 use skulpin::winit::event::VirtualKeyCode as Keycode;
 use skulpin::winit::event::{
     ElementState, Event, ModifiersState, MouseButton, MouseScrollDelta, WindowEvent,
@@ -19,13 +19,13 @@ use skulpin::winit::event::{
 use skulpin::winit::event_loop::{ControlFlow, EventLoop};
 use skulpin::winit::window::{Fullscreen, Icon};
 use skulpin::{
-    CoordinateSystem, LogicalSize, PhysicalSize,  PresentMode, Renderer as SkulpinRenderer, 
+    CoordinateSystem, LogicalSize, PhysicalSize, PresentMode, Renderer as SkulpinRenderer,
     RendererBuilder, Window, WinitWindow,
 };
 
 use super::handle_new_grid_size;
-use super::settings::*;
 pub use super::keyboard;
+use super::settings::*;
 use crate::bridge::UiCommand;
 use crate::editor::WindowCommand;
 use crate::error_handling::ResultPanicExplanation;
@@ -46,12 +46,13 @@ pub struct WinitWindowWrapper {
     mouse_position: LogicalSize,
     mouse_enabled: bool,
     grid_id_under_mouse: u64,
+    current_modifiers: Option<ModifiersState>,
     title: String,
     previous_size: LogicalSize,
     transparency: f32,
     fullscreen: bool,
-    cached_size: (u32, u32),
-    cached_position: (i32, i32),
+    cached_size: LogicalSize,
+    cached_position: LogicalSize,
     ui_command_sender: TxUnbounded<UiCommand>,
     window_command_receiver: Receiver<WindowCommand>,
     running: Arc<AtomicBool>,
@@ -63,11 +64,21 @@ impl WinitWindowWrapper {
             self.window.set_fullscreen(None);
 
             // Use cached size and position
-            self.window.set_inner_size(self.cached_size.into::<Size>());
-            self.window.set_outer_position(self.cached_position.into::<Size>());
+            self.window.set_inner_size(winit::dpi::LogicalSize::new(
+                self.cached_size.width,
+                self.cached_size.height,
+            ));
+            self.window
+                .set_outer_position(winit::dpi::LogicalPosition::new(
+                    self.cached_position.width,
+                    self.cached_position.height,
+                ));
         } else {
-            self.cached_size = self.window.inner_size().into();
-            self.cached_position = self.window.outer_position().unwrap().into();
+            let current_size = self.window.inner_size();
+            self.cached_size = LogicalSize::new(current_size.width, current_size.height);
+            let current_position = self.window.outer_position().unwrap();
+            self.cached_position =
+                LogicalSize::new(current_position.x as u32, current_position.y as u32);
             let handle = self.window.current_monitor();
             self.window
                 .set_fullscreen(Some(Fullscreen::Borderless(handle)));
@@ -77,18 +88,16 @@ impl WinitWindowWrapper {
     }
 
     pub fn synchronize_settings(&mut self) {
-        let editor_title = { EDITOR.lock().title.clone() };
-
-        if self.title != editor_title {
-            self.title = editor_title;
-            self.window.set_title(&self.title);
-        }
-
         let fullscreen = { SETTINGS.get::<WindowSettings>().fullscreen };
 
         if self.fullscreen != fullscreen {
             self.toggle_fullscreen();
         }
+    }
+
+    pub fn handle_title_changed(&mut self, new_title: String) {
+        self.title = new_title;
+        self.window.set_title(&self.title);
     }
 
     pub fn handle_quit(&mut self) {
@@ -102,7 +111,7 @@ impl WinitWindowWrapper {
     ) {
         if keycode.is_some() {
             trace!(
-                "Keyboard Input Received: keycode-{:?} modifiers-{:?} ", 
+                "Keyboard Input Received: keycode-{:?} modifiers-{:?} ",
                 keycode,
                 modifiers
             );
@@ -253,7 +262,6 @@ impl WinitWindowWrapper {
 
     pub fn handle_event(&mut self, event: Event<()>) {
         let mut keycode = None;
-        let mut modifiers = None;
         let mut ignore_text_this_frame = false;
 
         match event {
@@ -270,9 +278,11 @@ impl WinitWindowWrapper {
                 event: WindowEvent::DroppedFile(path),
                 ..
             } => {
-                self.ui_command_sender.send(UiCommand::FileDrop(
-                    path.into_os_string().into_string().unwrap(),
-                )).ok();
+                self.ui_command_sender
+                    .send(UiCommand::FileDrop(
+                        path.into_os_string().into_string().unwrap(),
+                    ))
+                    .ok();
             }
             Event::WindowEvent {
                 event: WindowEvent::KeyboardInput { input, .. },
@@ -286,7 +296,7 @@ impl WinitWindowWrapper {
                 event: WindowEvent::ModifiersChanged(m),
                 ..
             } => {
-                modifiers = Some(m);
+                self.current_modifiers = Some(m);
             }
             Event::WindowEvent {
                 event: WindowEvent::CursorMoved { position, .. },
@@ -332,7 +342,7 @@ impl WinitWindowWrapper {
         }
 
         if !ignore_text_this_frame {
-            window.handle_keyboard_input(keycode, modifiers);
+            self.handle_keyboard_input(keycode, self.current_modifiers);
         }
     }
 
@@ -352,7 +362,7 @@ impl WinitWindowWrapper {
 
             let renderer = &mut self.renderer;
             self.skulpin_renderer.draw(
-                &sdl_window_wrapper,
+                &winit_window_wrapper,
                 |canvas, coordinate_system_helper| {
                     if renderer.draw_frame(canvas, &coordinate_system_helper, dt) {
                         handle_new_grid_size(current_size, &renderer, &ui_command_sender);
@@ -386,11 +396,15 @@ pub fn start_loop(
     };
     info!("icon created");
 
+    let event_loop = EventLoop::new();
     let winit_window = winit::window::WindowBuilder::new()
         .with_title("Neovide")
-        .with_inner_size((logical_size.width, logical_size.height).into())
+        .with_inner_size(winit::dpi::LogicalSize::new(
+            logical_size.width,
+            logical_size.height,
+        ))
         .with_window_icon(Some(icon))
-        .build(event_loop)
+        .build(&event_loop)
         .expect("Failed to create window");
     info!("window created");
 
@@ -418,12 +432,13 @@ pub fn start_loop(
         },
         mouse_enabled: true,
         grid_id_under_mouse: 0,
+        current_modifiers: None,
         title: String::from("Neovide"),
         previous_size: logical_size,
         transparency: 1.0,
         fullscreen: false,
-        cached_size: (0, 0),
-        cached_position: (0, 0),
+        cached_size: LogicalSize::new(0, 0),
+        cached_position: LogicalSize::new(0, 0),
         ui_command_sender,
         window_command_receiver,
         running: running.clone(),
@@ -432,7 +447,6 @@ pub fn start_loop(
     let mut was_animating = false;
     let mut previous_frame_start = Instant::now();
 
-    let event_loop = EventLoop::new();
     event_loop.run(move |e, _window_target, control_flow| {
         if !running.load(Ordering::Relaxed) {
             *control_flow = ControlFlow::Exit;
@@ -452,13 +466,26 @@ pub fn start_loop(
 
         window_wrapper.handle_event(e);
 
+        let window_commands: Vec<WindowCommand> =
+            window_wrapper.window_command_receiver.try_iter().collect();
+        for window_command in window_commands.into_iter() {
+            match window_command {
+                WindowCommand::TitleChanged(new_title) => {
+                    window_wrapper.handle_title_changed(new_title)
+                }
+                WindowCommand::SetMouseEnabled(mouse_enabled) => {
+                    window_wrapper.mouse_enabled = mouse_enabled
+                }
+            }
+        }
+
         match window_wrapper.draw_frame(dt) {
             Ok(animating) => {
                 was_animating = animating;
             }
             Err(error) => {
                 error!("Render failed: {}", error);
-                self.running.store(false, Ordering::Relaxed);
+                window_wrapper.running.store(false, Ordering::Relaxed);
                 return;
             }
         }

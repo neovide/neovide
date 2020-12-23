@@ -4,9 +4,9 @@ use log::trace;
 use skulpin::winit::event::ModifiersState;
 use skulpin::winit::event::VirtualKeyCode as Keycode;
 
-use qwerty::*;
 use super::keyboard::*;
 use crate::settings::*;
+use qwerty::*;
 
 pub fn unsupported_key<R>(keycode: Keycode) -> Option<R> {
     trace!("Unsupported key: {:?}", keycode);
