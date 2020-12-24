@@ -10,15 +10,9 @@ pub fn handle_qwerty_layout(
     ctrl: bool,
     alt: bool,
 ) -> Option<Keypress<'static>> {
-    let special = |text| {
-        Some(Keypress::new(text, true, shift, ctrl, alt))
-    };
-    let normal = |text| {
-        Some(Keypress::new(text, false, shift, ctrl, alt))
-    };
-    let partial = |text| {
-        Some(Keypress::new(text, false, false, ctrl, alt))
-    };
+    let special = |text| Some(Keypress::new(text, true, shift, ctrl, alt));
+    let normal = |text| Some(Keypress::new(text, false, shift, ctrl, alt));
+    let partial = |text| Some(Keypress::new(text, false, false, ctrl, alt));
     match (keycode, shift) {
         (Keycode::Back, _) => special("BS"),
         (Keycode::Tab, _) => special("Tab"),
@@ -54,7 +48,6 @@ pub fn handle_qwerty_layout(
         (Keycode::Key8, false) => partial("8"),
         (Keycode::Key8, true) => partial("*"),
         (Keycode::Key9, false) => partial("9"),
-        // Note: code originally had ( as a special character but this doens't seem to be necessary
         (Keycode::Key9, true) => partial("("),
         (Keycode::Colon, _) => normal(":"),
         (Keycode::Semicolon, false) => partial(";"),
@@ -110,8 +103,6 @@ pub fn handle_qwerty_layout(
         (Keycode::F10, _) => special("F10"),
         (Keycode::F11, _) => special("F11"),
         (Keycode::F12, _) => special("F12"),
-        (Keycode::Snapshot, _) => unsupported_key(Keycode::Snapshot),
-        (Keycode::Pause, _) => unsupported_key(Keycode::Pause),
         (Keycode::Insert, _) => special("Insert"),
         (Keycode::Home, _) => special("Home"),
         (Keycode::PageUp, _) => special("PageUp"),
@@ -131,8 +122,6 @@ pub fn handle_qwerty_layout(
         (Keycode::Numpad7, _) => normal("7"),
         (Keycode::Numpad8, _) => normal("8"),
         (Keycode::Numpad9, _) => normal("9"),
-        (Keycode::Apps, _) => unsupported_key(Keycode::Apps),
-        (Keycode::Power, _) => unsupported_key(Keycode::Power),
         (Keycode::F13, _) => special("F13"),
         (Keycode::F14, _) => special("F14"),
         (Keycode::F15, _) => special("F15"),
@@ -145,32 +134,12 @@ pub fn handle_qwerty_layout(
         (Keycode::F22, _) => special("F22"),
         (Keycode::F23, _) => special("F23"),
         (Keycode::F24, _) => special("F24"),
-        (Keycode::Cut, _) => unsupported_key(Keycode::Cut),
-        (Keycode::Copy, _) => unsupported_key(Keycode::Copy),
-        (Keycode::Paste, _) => unsupported_key(Keycode::Paste),
-        (Keycode::Mute, _) => unsupported_key(Keycode::Mute),
-        (Keycode::VolumeUp, _) => unsupported_key(Keycode::VolumeUp),
-        (Keycode::VolumeDown, _) => unsupported_key(Keycode::VolumeDown),
-        (Keycode::Sysrq, _) => unsupported_key(Keycode::Sysrq),
         (Keycode::LControl, _) => None,
         (Keycode::LShift, _) => None,
         (Keycode::LAlt, _) => None,
         (Keycode::RControl, _) => None,
         (Keycode::RShift, _) => None,
         (Keycode::RAlt, _) => None,
-        (Keycode::MediaStop, _) => unsupported_key(Keycode::MediaStop),
-        (Keycode::MediaSelect, _) => unsupported_key(Keycode::MediaSelect),
-        (Keycode::Calculator, _) => unsupported_key(Keycode::Calculator),
-        (Keycode::MyComputer, _) => unsupported_key(Keycode::MyComputer),
-        (Keycode::WebSearch, _) => unsupported_key(Keycode::WebSearch),
-        (Keycode::WebHome, _) => unsupported_key(Keycode::WebHome),
-        (Keycode::WebBack, _) => unsupported_key(Keycode::WebBack),
-        (Keycode::WebForward, _) => unsupported_key(Keycode::WebForward),
-        (Keycode::NavigateBackward, _) => unsupported_key(Keycode::NavigateBackward),
-        (Keycode::NavigateForward, _) => unsupported_key(Keycode::NavigateForward),
-        (Keycode::WebStop, _) => unsupported_key(Keycode::WebStop),
-        (Keycode::WebRefresh, _) => unsupported_key(Keycode::WebRefresh),
-        (Keycode::Sleep, _) => unsupported_key(Keycode::Sleep),
-        _ => None,
+        (keycode, _) => unsupported_key(keycode),
     }
 }
