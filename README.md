@@ -30,14 +30,17 @@ Cursor animates into position with a smear effect to improve tracking of cursor 
 
 ### Animated Windows
 
-Windows animate into position when they are moved making it easier to see how layout changes happen.
+Windows animate into position when they are moved making it easier to see how layout changes happen. Note, multigrid must be enabled for 
+this to work.
+https://github.com/Kethku/neovide/wiki/Configuration#multiGrid
 
 ![Animated Windows](./assets/AnimatedWindows.gif)
 
 ### Blurred Floating Windows
 
 The backgrounds of floating windows are blurred improving the visual separation between foreground and background from
-built in window transparency.
+built in window transparency. Note, multigrid must be enabled for this to work.
+https://github.com/Kethku/neovide/wiki/Configuration#multiGrid
 
 ![Blurred Floating Windows](./assets/BlurredFloatingWindows.png)
 
