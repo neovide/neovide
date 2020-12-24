@@ -1,6 +1,9 @@
 #[cfg_attr(feature = "sdl2", path = "sdl2.rs")]
 #[cfg_attr(feature = "winit", path = "winit.rs")]
 mod qwerty;
+mod keypress;
+
+use keypress::Keypress;
 
 use log::{error, trace};
 
@@ -16,6 +19,7 @@ use crate::settings::{FromValue, Value, SETTINGS};
 
 use qwerty::*;
 
+/// Handler for noop keyboard events.
 pub fn unsupported_key<R>(keycode: Keycode) -> Option<R> {
     trace!("Unsupported key: {:?}", keycode);
     None
@@ -59,46 +63,6 @@ pub fn initialize_settings() {
     register_nvim_setting!("keyboard_layout", KeyboardSettings::layout);
 }
 
-fn append_modifiers(
-    keycode_text: &str,
-    special: bool,
-    shift: bool,
-    ctrl: bool,
-    alt: bool,
-    gui: bool,
-) -> String {
-    let mut result = keycode_text.to_string();
-    let mut special = if result == "<" {
-        result = "lt".to_string();
-        true
-    } else {
-        special
-    };
-
-    if shift {
-        special = true;
-        result = format!("S-{}", result);
-    }
-    if ctrl {
-        special = true;
-        result = format!("C-{}", result);
-    }
-    if alt {
-        special = true;
-        result = format!("M-{}", result);
-    }
-    if cfg!(not(target_os = "windows")) && gui {
-        special = true;
-        result = format!("D-{}", result);
-    }
-
-    if special {
-        result = format!("<{}>", result);
-    }
-
-    result
-}
-
 #[cfg(feature = "sdl2")]
 pub fn produce_neovim_keybinding_string(
     keycode: Option<Keycode>,
@@ -110,13 +74,13 @@ pub fn produce_neovim_keybinding_string(
     let alt = modifiers.contains(Mod::LALTMOD) || modifiers.contains(Mod::RALTMOD);
     let gui = modifiers.contains(Mod::LGUIMOD) || modifiers.contains(Mod::RGUIMOD);
     if let Some(text) = keytext {
-        Some(append_modifiers(&text, false, false, ctrl, alt, gui))
+        Some(Keypress::new(&text, false, false, ctrl, alt).as_token(gui))
     } else if let Some(keycode) = keycode {
         (match SETTINGS.get::<KeyboardSettings>().layout {
             KeyboardLayout::Qwerty => handle_qwerty_layout(keycode, shift, ctrl, alt),
         })
-        .map(|(transformed_text, special, shift, ctrl, alt)| {
-            append_modifiers(transformed_text, special, shift, ctrl, alt, gui)
+        .map(|e| {
+            e.as_token(gui)
         })
     } else {
         None
