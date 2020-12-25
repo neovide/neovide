@@ -4,15 +4,10 @@ use super::Keypress;
 use skulpin::sdl2::keyboard::Keycode;
 
 /// Maps winit keyboard events to Vim tokens
-pub fn handle_qwerty_layout(
-    keycode: Keycode,
-    shift: bool,
-    ctrl: bool,
-    alt: bool,
-) -> Option<Keypress<'static>> {
-    let special = |text| Some(Keypress::new(text, true, shift, ctrl, alt));
-    let normal = |text| Some(Keypress::new(text, false, shift, ctrl, alt));
-    let partial = |text| Some(Keypress::new(text, false, false, ctrl, alt));
+pub fn handle_qwerty_layout(keycode: Keycode, shift: bool) -> Option<Keypress<'static>> {
+    let special = |text| Some(Keypress::new(text, true, true));
+    let normal = |text| Some(Keypress::new(text, false, true));
+    let partial = |text| Some(Keypress::new(text, false, false));
     match (keycode, shift) {
         (Keycode::Backspace, _) => special("BS"),
         (Keycode::Tab, _) => special("Tab"),
@@ -32,7 +27,7 @@ pub fn handle_qwerty_layout(
         (Keycode::Asterisk, _) => normal("*"),
         (Keycode::Plus, _) => normal("+"),
         (Keycode::Comma, false) => normal(","),
-        (Keycode::Comma, true) => normal("<"),
+        (Keycode::Comma, true) => special("lt"),
         (Keycode::Minus, false) => partial("-"),
         (Keycode::Minus, true) => partial("_"),
         (Keycode::Period, false) => partial("."),
@@ -62,7 +57,7 @@ pub fn handle_qwerty_layout(
         (Keycode::Colon, _) => normal(":"),
         (Keycode::Semicolon, false) => partial(";"),
         (Keycode::Semicolon, true) => partial(":"),
-        (Keycode::Less, _) => normal("lt"),
+        (Keycode::Less, _) => special("lt"),
         (Keycode::Equals, false) => partial("="),
         (Keycode::Equals, true) => partial("+"),
         (Keycode::Greater, _) => normal("gt"),
