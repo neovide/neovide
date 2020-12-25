@@ -1,58 +1,52 @@
+use super::modifiers::Modifiers;
+
 /// Information about how to translate keyboard into Vim input
+#[derive(Debug, Clone)]
 pub struct Keypress<'a> {
-    /// The Vim input token corresponding to the keypress
-    text: &'a str,
+    /// The name of the key in Vimscript.
+    /// See `:help key-notation` for more details.
+    key_name: &'a str,
+
     /// Whether the token should be enclosed in brackets, such as <Esc> or <BS>
     special: bool,
-    /// Whether the shift key was pressed
-    shift: bool,
-    // Whether the control key was pressed
-    ctrl: bool,
-    /// Whether the alt key was pressed
-    alt: bool,
+
+    /// Whether the shift key should be considered for inclusion in the token.
+    use_shift: bool,
 }
 
 impl<'a> Keypress<'a> {
-    pub const fn new(text: &'a str, special: bool, shift: bool, ctrl: bool, alt: bool) -> Self {
+    pub const fn new(key_name: &'a str, special: bool, use_shift: bool) -> Self {
         Self {
-            text,
+            key_name,
             special,
-            shift,
-            ctrl,
-            alt,
+            use_shift,
         }
     }
 
-    pub fn as_token(&self, gui: bool) -> String {
-        let mut result = self.text.to_string();
-        let mut special = if result == "<" {
-            result = "lt".to_string();
-            true
-        } else {
-            self.special
-        };
-
-        if self.shift {
-            special = true;
-            result = format!("S-{}", result);
-        }
-        if self.ctrl {
-            special = true;
-            result = format!("C-{}", result);
-        }
-        if self.alt {
-            special = true;
-            result = format!("M-{}", result);
-        }
-        if cfg!(not(target_os = "windows")) && gui {
-            special = true;
-            result = format!("D-{}", result);
-        }
-
-        if special {
-            result = format!("<{}>", result);
-        }
-
+    /// Converts the keypress to a Neovim input
+    pub fn as_token(&self, mods: Modifiers) -> String {
+        let shift = self.use_shift && mods.shift;
+        let special = self.special || shift || mods.control || mods.meta || use_command(mods.logo);
+        let open = if special { "<" } else { "" };
+        let command = if use_command(mods.logo) { "D-" } else { "" };
+        let shift = if shift { "S-" } else { "" };
+        let control = if mods.control { "C-" } else { "" };
+        let meta = if mods.meta { "M-" } else { "" };
+        let close = if special { ">" } else { "" };
+        let result = format!(
+            "{}{}{}{}{}{}{}",
+            open, command, shift, control, meta, self.key_name, close
+        );
         result
     }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn use_command(gui: bool) -> bool {
+    return gui;
+}
+
+#[cfg(target_os = "windows")]
+fn use_command(_: bool) -> bool {
+    false
 }

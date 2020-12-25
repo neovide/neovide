@@ -1,9 +1,11 @@
+mod keypress;
+mod modifiers;
 #[cfg_attr(feature = "sdl2", path = "sdl2.rs")]
 #[cfg_attr(feature = "winit", path = "winit.rs")]
 mod qwerty;
-mod keypress;
 
 use keypress::Keypress;
+use modifiers::Modifiers;
 
 use log::{error, trace};
 
@@ -20,13 +22,14 @@ use crate::settings::{FromValue, Value, SETTINGS};
 use qwerty::*;
 
 /// Handler for noop keyboard events.
-pub fn unsupported_key<R>(keycode: Keycode) -> Option<R> {
+fn unsupported_key<R>(keycode: Keycode) -> Option<R> {
     trace!("Unsupported key: {:?}", keycode);
     None
 }
 
+/// The keyboard layout used for input.
 #[derive(Clone)]
-pub enum KeyboardLayout {
+enum KeyboardLayout {
     Qwerty,
 }
 
@@ -55,11 +58,11 @@ struct KeyboardSettings {
     layout: KeyboardLayout,
 }
 
+/// Sets up Neovim settings related to keyboard layout.
 pub fn initialize_settings() {
     SETTINGS.set(&KeyboardSettings {
         layout: KeyboardLayout::Qwerty,
     });
-
     register_nvim_setting!("keyboard_layout", KeyboardSettings::layout);
 }
 
@@ -70,21 +73,11 @@ pub fn produce_neovim_keybinding_string(
     modifiers: Mod,
 ) -> Option<String> {
     let shift = modifiers.contains(Mod::LSHIFTMOD) || modifiers.contains(Mod::RSHIFTMOD);
-    let ctrl = modifiers.contains(Mod::LCTRLMOD) || modifiers.contains(Mod::RCTRLMOD);
-    let alt = modifiers.contains(Mod::LALTMOD) || modifiers.contains(Mod::RALTMOD);
-    let gui = modifiers.contains(Mod::LGUIMOD) || modifiers.contains(Mod::RGUIMOD);
-    if let Some(text) = keytext {
-        Some(Keypress::new(&text, false, false, ctrl, alt).as_token(gui))
-    } else if let Some(keycode) = keycode {
-        (match SETTINGS.get::<KeyboardSettings>().layout {
-            KeyboardLayout::Qwerty => handle_qwerty_layout(keycode, shift, ctrl, alt),
-        })
-        .map(|e| {
-            e.as_token(gui)
-        })
-    } else {
-        None
-    }
+    let control = modifiers.contains(Mod::LCTRLMOD) || modifiers.contains(Mod::RCTRLMOD);
+    let meta = modifiers.contains(Mod::LALTMOD) || modifiers.contains(Mod::RALTMOD);
+    let logo = modifiers.contains(Mod::LGUIMOD) || modifiers.contains(Mod::RGUIMOD);
+    let mods = Modifiers::new(shift, control, meta, logo);
+    produce_neovim_keybinding_string_shared(keycode, keytext, mods)
 }
 
 #[cfg(feature = "winit")]
@@ -93,26 +86,31 @@ pub fn produce_neovim_keybinding_string(
     keytext: Option<String>,
     modifiers: Option<ModifiersState>,
 ) -> Option<String> {
-    let mut shift = false;
-    let mut ctrl = false;
-    let mut alt = false;
-    let mut gui = false;
-    if let Some(modifiers) = modifiers {
-        shift = modifiers.shift();
-        ctrl = modifiers.ctrl();
-        alt = modifiers.alt();
-        gui = modifiers.logo();
-    }
+    let mods = if let Some(modifiers) = modifiers {
+        Modifiers::new(
+            modifiers.shift(),
+            modifiers.ctrl(),
+            modifiers.alt(),
+            modifiers.logo(),
+        )
+    } else {
+        Modifiers::new(false, false, false, false)
+    };
+    produce_neovim_keybinding_string_shared(keycode, keytext, mods)
+}
 
+fn produce_neovim_keybinding_string_shared(
+    keycode: Option<Keycode>,
+    keytext: Option<String>,
+    mods: Modifiers,
+) -> Option<String> {
     if let Some(text) = keytext {
-        Some(append_modifiers(&text, false, false, ctrl, alt, gui))
+        Some(Keypress::new(&text, false, false).as_token(mods))
     } else if let Some(keycode) = keycode {
-        (match SETTINGS.get::<KeyboardSettings>().layout {
-            KeyboardLayout::Qwerty => handle_qwerty_layout(keycode, shift, ctrl, alt),
-        })
-        .map(|(transformed_text, special, shift, ctrl, alt)| {
-            append_modifiers(transformed_text, special, shift, ctrl, alt, gui)
-        })
+        match SETTINGS.get::<KeyboardSettings>().layout {
+            KeyboardLayout::Qwerty => handle_qwerty_layout(keycode, mods.shift),
+        }
+        .map(|e| e.as_token(mods))
     } else {
         None
     }
