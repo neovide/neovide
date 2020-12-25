@@ -105,7 +105,14 @@ fn produce_neovim_keybinding_string_shared(
     mods: Modifiers,
 ) -> Option<String> {
     if let Some(text) = keytext {
-        Some(Keypress::new(&text, false, false).as_token(mods))
+        Some(
+            if text == "<" {
+                Keypress::new("lt", true, true)
+            } else {
+                Keypress::new(&text, false, false)
+            }
+            .as_token(mods),
+        )
     } else if let Some(keycode) = keycode {
         match SETTINGS.get::<KeyboardSettings>().layout {
             KeyboardLayout::Qwerty => handle_qwerty_layout(keycode, mods.shift),

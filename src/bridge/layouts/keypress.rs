@@ -26,9 +26,9 @@ impl<'a> Keypress<'a> {
     /// Converts the keypress to a Neovim input
     pub fn as_token(&self, mods: Modifiers) -> String {
         let shift = self.use_shift && mods.shift;
-        let special = self.special || shift || mods.control || mods.meta || use_command(mods.logo);
+        let special = self.special || shift || mods.control || mods.meta || use_logo(mods.logo);
         let open = if special { "<" } else { "" };
-        let command = if use_command(mods.logo) { "D-" } else { "" };
+        let command = if use_logo(mods.logo) { "D-" } else { "" };
         let shift = if shift { "S-" } else { "" };
         let control = if mods.control { "C-" } else { "" };
         let meta = if mods.meta { "M-" } else { "" };
@@ -42,11 +42,13 @@ impl<'a> Keypress<'a> {
 }
 
 #[cfg(not(target_os = "windows"))]
-fn use_command(gui: bool) -> bool {
-    return gui;
+fn use_logo(logo: bool) -> bool {
+    return logo;
 }
 
+// The Windows key is used for OS-level shortcuts,
+// so we want to ignore the logo key on this platform.
 #[cfg(target_os = "windows")]
-fn use_command(_: bool) -> bool {
+fn use_logo(_: bool) -> bool {
     false
 }
