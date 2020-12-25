@@ -3,7 +3,6 @@ use nvim_rs::compat::tokio::Compat;
 use nvim_rs::Neovim;
 use tokio::process::ChildStdin;
 
-use crate::editor::EDITOR;
 #[cfg(windows)]
 use crate::settings::windows_registry::{
     register_rightclick_directory, register_rightclick_file, unregister_rightclick,
@@ -18,17 +17,21 @@ pub enum UiCommand {
     Keyboard(String),
     MouseButton {
         action: String,
+        grid_id: u64,
         position: (u32, u32),
     },
     Scroll {
         direction: String,
+        grid_id: u64,
         position: (u32, u32),
     },
-    Drag(u32, u32),
+    Drag {
+        grid_id: u64,
+        position: (u32, u32),
+    },
     FileDrop(String),
     FocusLost,
     FocusGained,
-    Quit,
     #[cfg(windows)]
     RegisterRightClick,
     #[cfg(windows)]
@@ -48,30 +51,50 @@ impl UiCommand {
             }
             UiCommand::MouseButton {
                 action,
+                grid_id,
                 position: (grid_x, grid_y),
             } => {
-                if EDITOR.lock().mouse_enabled {
-                    nvim.input_mouse("left", &action, "", 0, grid_y as i64, grid_x as i64)
-                        .await
-                        .expect("Mouse Input Failed");
-                }
+                nvim.input_mouse(
+                    "left",
+                    &action,
+                    "",
+                    grid_id as i64,
+                    grid_y as i64,
+                    grid_x as i64,
+                )
+                .await
+                .expect("Mouse Input Failed");
             }
             UiCommand::Scroll {
                 direction,
+                grid_id,
                 position: (grid_x, grid_y),
             } => {
-                if EDITOR.lock().mouse_enabled {
-                    nvim.input_mouse("wheel", &direction, "", 0, grid_y as i64, grid_x as i64)
-                        .await
-                        .expect("Mouse Scroll Failed");
-                }
+                nvim.input_mouse(
+                    "wheel",
+                    &direction,
+                    "",
+                    grid_id as i64,
+                    grid_y as i64,
+                    grid_x as i64,
+                )
+                .await
+                .expect("Mouse Scroll Failed");
             }
-            UiCommand::Drag(grid_x, grid_y) => {
-                if EDITOR.lock().mouse_enabled {
-                    nvim.input_mouse("left", "drag", "", 0, grid_y as i64, grid_x as i64)
-                        .await
-                        .expect("Mouse Drag Failed");
-                }
+            UiCommand::Drag {
+                grid_id,
+                position: (grid_x, grid_y),
+            } => {
+                nvim.input_mouse(
+                    "left",
+                    "drag",
+                    "",
+                    grid_id as i64,
+                    grid_y as i64,
+                    grid_x as i64,
+                )
+                .await
+                .expect("Mouse Drag Failed");
             }
             UiCommand::FocusLost => nvim
                 .command("if exists('#FocusLost') | doautocmd <nomodeline> FocusLost | endif")
@@ -81,9 +104,6 @@ impl UiCommand {
                 .command("if exists('#FocusGained') | doautocmd <nomodeline> FocusGained | endif")
                 .await
                 .expect("Focus Gained Failed"),
-            UiCommand::Quit => {
-                nvim.command("qa!").await.ok(); // Ignoring result as it won't succeed since the app closed.
-            }
             UiCommand::FileDrop(path) => {
                 nvim.command(format!("e {}", path).as_str()).await.ok();
             }
@@ -114,9 +134,5 @@ impl UiCommand {
                 }
             }
         }
-    }
-
-    pub fn is_resize(&self) -> bool {
-        matches!(self, UiCommand::Resize { .. })
     }
 }

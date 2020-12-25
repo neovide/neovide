@@ -1,9 +1,9 @@
 use log::error;
 use skulpin::skia_safe::{paint::Style, BlendMode, Canvas, Color, Paint, Point, Rect};
 
-use super::animation_utils::*;
 use super::CursorSettings;
 use crate::editor::{Colors, Cursor};
+use crate::renderer::animation_utils::*;
 use crate::settings::*;
 
 pub trait CursorVfx {

@@ -5,9 +5,7 @@ use std::fmt;
 use rmpv::Value;
 use skulpin::skia_safe::Color4f;
 
-use crate::editor::EDITOR;
 use crate::editor::{Colors, CursorMode, CursorShape, Style};
-use crate::error_handling::ResultPanicExplanation;
 
 #[derive(Debug, Clone)]
 pub enum ParseError {
@@ -16,6 +14,7 @@ pub enum ParseError {
     InvalidString(Value),
     InvalidU64(Value),
     InvalidI64(Value),
+    InvalidF64(Value),
     InvalidBool(Value),
     InvalidWindowAnchor(Value),
     InvalidFormat,
@@ -30,6 +29,7 @@ impl fmt::Display for ParseError {
             ParseError::InvalidString(value) => write!(f, "invalid string format {}", value),
             ParseError::InvalidU64(value) => write!(f, "invalid u64 format {}", value),
             ParseError::InvalidI64(value) => write!(f, "invalid i64 format {}", value),
+            ParseError::InvalidF64(value) => write!(f, "invalid f64 format {}", value),
             ParseError::InvalidBool(value) => write!(f, "invalid bool format {}", value),
             ParseError::InvalidWindowAnchor(value) => {
                 write!(f, "invalid window anchor format {}", value)
@@ -169,6 +169,9 @@ pub enum RedrawEvent {
     Clear {
         grid: u64,
     },
+    Destroy {
+        grid: u64,
+    },
     CursorGoto {
         grid: u64,
         row: u64,
@@ -185,7 +188,6 @@ pub enum RedrawEvent {
     },
     WindowPosition {
         grid: u64,
-        window: u64,
         start_row: u64,
         start_column: u64,
         width: u64,
@@ -193,16 +195,14 @@ pub enum RedrawEvent {
     },
     WindowFloatPosition {
         grid: u64,
-        window: u64,
         anchor: WindowAnchor,
         anchor_grid: u64,
-        anchor_row: u64,
-        anchor_column: u64,
+        anchor_row: f64,
+        anchor_column: f64,
         focusable: bool,
     },
     WindowExternalPosition {
         grid: u64,
-        window: u64,
     },
     WindowHide {
         grid: u64,
@@ -376,6 +376,10 @@ fn parse_u64(u64_value: Value) -> Result<u64> {
 
 fn parse_i64(i64_value: Value) -> Result<i64> {
     i64_value.try_into().map_err(ParseError::InvalidI64)
+}
+
+fn parse_f64(f64_value: Value) -> Result<f64> {
+    f64_value.try_into().map_err(ParseError::InvalidF64)
 }
 
 fn parse_bool(bool_value: Value) -> Result<bool> {
@@ -587,16 +591,24 @@ fn parse_grid_line(grid_line_arguments: Vec<Value>) -> Result<RedrawEvent> {
     })
 }
 
-fn parse_clear(clear_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [grid_id] = extract_values(clear_arguments, [Value::Nil])?;
+fn parse_grid_clear(grid_clear_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    let [grid_id] = extract_values(grid_clear_arguments, [Value::Nil])?;
 
     Ok(RedrawEvent::Clear {
         grid: parse_u64(grid_id)?,
     })
 }
 
-fn parse_cursor_goto(cursor_goto_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [grid_id, column, row] =
+fn parse_grid_destroy(grid_destroy_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    let [grid_id] = extract_values(grid_destroy_arguments, [Value::Nil])?;
+
+    Ok(RedrawEvent::Destroy {
+        grid: parse_u64(grid_id)?,
+    })
+}
+
+fn parse_grid_cursor_goto(cursor_goto_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    let [grid_id, row, column] =
         extract_values(cursor_goto_arguments, [Value::Nil, Value::Nil, Value::Nil])?;
 
     Ok(RedrawEvent::CursorGoto {
@@ -638,12 +650,11 @@ fn parse_win_pos(win_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
         Value::Nil,
         Value::Nil,
     ];
-    let [grid, window, start_row, start_column, width, height] =
+    let [grid, _window, start_row, start_column, width, height] =
         extract_values(win_pos_arguments, values)?;
 
     Ok(RedrawEvent::WindowPosition {
         grid: parse_u64(grid)?,
-        window: parse_u64(window)?,
         start_row: parse_u64(start_row)?,
         start_column: parse_u64(start_column)?,
         width: parse_u64(width)?,
@@ -672,26 +683,24 @@ fn parse_win_float_pos(win_float_pos_arguments: Vec<Value>) -> Result<RedrawEven
         Value::Nil,
         Value::Nil,
     ];
-    let [grid, window, anchor, anchor_grid, anchor_row, anchor_column, focusable] =
+    let [grid, _window, anchor, anchor_grid, anchor_row, anchor_column, focusable] =
         extract_values(win_float_pos_arguments, values)?;
 
     Ok(RedrawEvent::WindowFloatPosition {
         grid: parse_u64(grid)?,
-        window: parse_u64(window)?,
         anchor: parse_window_anchor(anchor)?,
         anchor_grid: parse_u64(anchor_grid)?,
-        anchor_row: parse_u64(anchor_row)?,
-        anchor_column: parse_u64(anchor_column)?,
+        anchor_row: parse_f64(anchor_row)?,
+        anchor_column: parse_f64(anchor_column)?,
         focusable: parse_bool(focusable)?,
     })
 }
 
 fn parse_win_external_pos(win_external_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [grid, window] = extract_values(win_external_pos_arguments, [Value::Nil, Value::Nil])?;
+    let [grid, _window] = extract_values(win_external_pos_arguments, [Value::Nil, Value::Nil])?;
 
     Ok(RedrawEvent::WindowExternalPosition {
         grid: parse_u64(grid)?,
-        window: parse_u64(window)?,
     })
 }
 
@@ -879,8 +888,9 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
             "default_colors_set" => Some(parse_default_colors(event_parameters)?),
             "hl_attr_define" => Some(parse_hl_attr_define(event_parameters)?),
             "grid_line" => Some(parse_grid_line(event_parameters)?),
-            "grid_clear" => Some(parse_clear(event_parameters)?),
-            "grid_cursor_goto" => Some(parse_cursor_goto(event_parameters)?),
+            "grid_clear" => Some(parse_grid_clear(event_parameters)?),
+            "grid_destroy" => Some(parse_grid_destroy(event_parameters)?),
+            "grid_cursor_goto" => Some(parse_grid_cursor_goto(event_parameters)?),
             "grid_scroll" => Some(parse_grid_scroll(event_parameters)?),
             "win_pos" => Some(parse_win_pos(event_parameters)?),
             "win_float_pos" => Some(parse_win_float_pos(event_parameters)?),
@@ -1017,16 +1027,4 @@ pub fn parse_channel_list(channel_infos: Vec<Value>) -> Result<Vec<ChannelInfo>>
         .into_iter()
         .map(parse_channel_info)
         .collect::<Result<Vec<ChannelInfo>>>()
-}
-
-pub(super) fn handle_redraw_event_group(arguments: Vec<Value>) {
-    for events in arguments {
-        let parsed_events = parse_redraw_event(events)
-            .unwrap_or_explained_panic("Could not parse event from neovim");
-
-        for parsed_event in parsed_events {
-            let mut editor = EDITOR.lock();
-            editor.handle_redraw_event(parsed_event);
-        }
-    }
 }

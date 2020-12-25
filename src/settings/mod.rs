@@ -4,18 +4,15 @@ use std::convert::TryInto;
 
 #[cfg(not(test))]
 use flexi_logger::{Cleanup, Criterion, Duplicate, Logger, Naming};
+mod from_value;
+pub use from_value::FromValue;
 use log::warn;
 use nvim_rs::compat::tokio::Compat;
 use nvim_rs::Neovim;
 use parking_lot::RwLock;
 pub use rmpv::Value;
-mod from_value;
-pub use from_value::FromValue;
-
-#[cfg(windows)]
-pub mod windows_registry;
-
 use tokio::process::ChildStdin;
+pub mod windows_registry;
 
 use crate::error_handling::ResultPanicExplanation;
 
@@ -75,10 +72,13 @@ impl Settings {
                     println!("Neovide version: {}", env!("CARGO_PKG_VERSION"));
                     std::process::exit(0);
                 } else if arg == "--help" || arg == "-h" {
-                    println!("neovide : {}", env!("CARGO_PKG_DESCRIPTION"));
+                    println!("neovide: {}", env!("CARGO_PKG_DESCRIPTION"));
                     std::process::exit(0);
                 } else {
-                    !(arg.starts_with("--geometry=") || arg == "--wsl" || arg == "--disowned")
+                    !(arg.starts_with("--geometry=")
+                        || arg == "--wsl"
+                        || arg == "--disowned"
+                        || arg == "--multiGrid")
                 }
             })
             .collect::<Vec<String>>();
@@ -203,12 +203,13 @@ impl Settings {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    use crate::bridge::create_nvim_command;
     use async_trait::async_trait;
     use nvim_rs::create::tokio as create;
     use nvim_rs::{compat::tokio::Compat, Handler, Neovim};
+    use tokio;
+
+    use super::*;
+    use crate::bridge::create_nvim_command;
 
     #[derive(Clone)]
     pub struct NeovimHandler();
@@ -225,8 +226,6 @@ mod tests {
         ) {
         }
     }
-
-    use tokio;
 
     #[test]
     fn test_set_setting_handlers() {

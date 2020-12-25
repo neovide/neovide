@@ -17,7 +17,7 @@ euclid = "0.20.7"
 font-kit = "0.10.0"
 skribo = { git = "https://github.com/linebender/skribo" }
 lru = "0.4.3"
-skulpin = { git = "https://github.com/aclysma/skulpin", default-features = false }
+skulpin = { git = "https://github.com/aclysma/skulpin", branch = "master", features = ["skulpin_sdl2"] }
 derive-new = "0.5"
 rmpv = "0.4.4"
 rust-embed = { version = "5.2.0", features = ["debug-embed"] }
@@ -25,6 +25,7 @@ image = "0.22.3"
 nvim-rs = { git = "https://github.com/kethku/nvim-rs", features = [ "use_tokio" ] }
 tokio = { version = "0.2.9", features = [ "blocking", "process", "time" ] }
 async-trait = "0.1.18"
+crossfire = "0.1"
 lazy_static = "1.4.0"
 unicode-segmentation = "1.6.0"
 log = "0.4.8"
@@ -35,6 +36,7 @@ cfg-if = "0.1.10"
 which = "4"
 dirs = "2"
 rand = "0.7"
+skia-safe = "0.32.1"
 
 [dev-dependencies]
 mockall = "0.7.0"
@@ -45,17 +47,19 @@ default-features = false
 features = ["precommit-hook", "run-cargo-test", "run-cargo-clippy", "run-cargo-fmt"]
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3.8", features = ["winuser"] }
+winapi = "0.3.8"
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.11"
-sdl2-sys = { version = "=0.34.2", default-features = false, features = ["bundled", "static-link"] }
+sdl2-sys = { version = "0.34.3", default-features = false, features = ["bundled", "static-link"] }
+
+[target.'cfg(macos)'.build-dependencies]
+sdl2-sys = { version = "0.34.3", default-features = false, features = ["bundled", "static-link"] }
 
 [profile.release]
-debug = false
+debug = true
 lto = true
 incremental = true
-opt-level = 'z'
 
 [package.metadata.bundle]
 name = "Neovide"
