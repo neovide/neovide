@@ -1,5 +1,3 @@
-use log::error;
-
 use crate::settings::*;
 
 #[derive(Clone)]
@@ -11,7 +9,7 @@ impl FromValue for KeyboardLayout {
     fn from_value(&mut self, value: Value) {
         match value.as_str() {
             Some("qwerty") => *self = KeyboardLayout::Qwerty,
-            _ => error!(
+            _ => log::error!(
                 "keyboard_layout setting expected a known keyboard layout name, but received: {}",
                 value
             ),
@@ -19,9 +17,9 @@ impl FromValue for KeyboardLayout {
     }
 }
 
-impl From<KeyboardLayout> for Value {
-    fn from(layout: KeyboardLayout) -> Self {
-        match layout {
+impl Into<Value> for KeyboardLayout {
+    fn into(self) -> Value {
+        match self {
             KeyboardLayout::Qwerty => "qwerty".into(),
         }
     }
