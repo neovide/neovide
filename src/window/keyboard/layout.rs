@@ -17,9 +17,9 @@ impl FromValue for KeyboardLayout {
     }
 }
 
-impl Into<Value> for KeyboardLayout {
-    fn into(self) -> Value {
-        match self {
+impl From<KeyboardLayout> for Value {
+    fn from(layout: KeyboardLayout) -> Self {
+        match layout {
             KeyboardLayout::Qwerty => "qwerty".into(),
         }
     }

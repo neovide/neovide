@@ -13,14 +13,3 @@ pub struct Modifiers {
     /// Windows key on PC, command key on Mac
     pub logo: bool,
 }
-
-impl Modifiers {
-    pub fn new(shift: bool, control: bool, meta: bool, logo: bool) -> Self {
-        Self {
-            shift,
-            control,
-            meta,
-            logo,
-        }
-    }
-}

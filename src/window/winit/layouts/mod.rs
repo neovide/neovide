@@ -5,14 +5,14 @@ use skulpin::winit::event::ModifiersState;
 
 pub use qwerty::handle_qwerty_layout;
 
-impl Into<Modifiers> for Option<ModifiersState> {
-    fn into(self) -> Modifiers {
-        if let Some(modifiers) = self {
+impl From<Option<ModifiersState>> for Modifiers {
+    fn from(state: Option<ModifiersState>) -> Modifiers {
+        if let Some(modifiers) = state {
             Modifiers {
-                shift: modifiers.shift(),
-                control: modifiers.ctrl(),
-                meta: modifiers.alt(),
-                logo: modifiers.logo(),
+                shift: state.shift(),
+                control: state.ctrl(),
+                meta: state.alt(),
+                logo: state.logo(),
             }
         } else {
             Modifiers::new(false, false, false, false)
