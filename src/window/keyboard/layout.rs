@@ -1,4 +1,4 @@
-use crate::settings::*;
+use crate::settings::{FromValue, Value};
 
 #[derive(Clone)]
 pub enum KeyboardLayout {
@@ -23,16 +23,4 @@ impl Into<Value> for KeyboardLayout {
             KeyboardLayout::Qwerty => "qwerty".into(),
         }
     }
-}
-
-#[derive(Clone)]
-pub struct KeyboardSettings {
-    pub layout: KeyboardLayout,
-}
-
-pub fn initialize_settings() {
-    SETTINGS.set(&KeyboardSettings {
-        layout: KeyboardLayout::Qwerty,
-    });
-    register_nvim_setting!("keyboard_layout", KeyboardSettings::layout);
 }

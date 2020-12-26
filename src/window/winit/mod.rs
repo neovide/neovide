@@ -1,37 +1,36 @@
 #[macro_use]
 mod layouts;
 
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::Receiver;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
-
+use super::{handle_new_grid_size, keyboard::neovim_keybinding_string, settings::WindowSettings};
+use crate::{
+    bridge::UiCommand, editor::WindowCommand, error_handling::ResultPanicExplanation,
+    redraw_scheduler::REDRAW_SCHEDULER, renderer::Renderer, settings::SETTINGS,
+};
 use crossfire::mpsc::TxUnbounded;
 use image::{load_from_memory, GenericImageView, Pixel};
-use log::{debug, error, info, trace};
-use skulpin::ash::prelude::VkResult;
-use skulpin::winit;
-use skulpin::winit::event::VirtualKeyCode as Keycode;
-use skulpin::winit::event::{
-    ElementState, Event, ModifiersState, MouseButton, MouseScrollDelta, WindowEvent,
-};
-use skulpin::winit::event_loop::{ControlFlow, EventLoop};
-use skulpin::winit::window::{Fullscreen, Icon};
+use layouts::handle_qwerty_layout;
 use skulpin::{
+    ash::prelude::VkResult,
+    winit::{
+        self,
+        event::{
+            ElementState, Event, ModifiersState, MouseButton, MouseScrollDelta,
+            VirtualKeyCode as Keycode, WindowEvent,
+        },
+        event_loop::{ControlFlow, EventLoop},
+        window::{Fullscreen, Icon},
+    },
     CoordinateSystem, LogicalSize, PhysicalSize, PresentMode, Renderer as SkulpinRenderer,
     RendererBuilder, Window, WinitWindow,
 };
-
-use super::settings::*;
-use super::{handle_new_grid_size, layouts_shared::neovim_keybinding_string};
-use crate::bridge::UiCommand;
-use crate::editor::WindowCommand;
-use crate::error_handling::ResultPanicExplanation;
-use crate::redraw_scheduler::REDRAW_SCHEDULER;
-use crate::renderer::Renderer;
-use crate::settings::*;
-pub use crate::window::layouts_shared::keyboard;
-use layouts::handle_qwerty_layout;
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc::Receiver,
+        Arc,
+    },
+    time::{Duration, Instant},
+};
 
 #[derive(RustEmbed)]
 #[folder = "assets/"]
@@ -108,7 +107,7 @@ impl WinitWindowWrapper {
         modifiers: Option<ModifiersState>,
     ) {
         if keycode.is_some() {
-            trace!(
+            log::trace!(
                 "Keyboard Input Received: keycode-{:?} modifiers-{:?} ",
                 keycode,
                 modifiers
@@ -357,7 +356,7 @@ impl WinitWindowWrapper {
         let ui_command_sender = self.ui_command_sender.clone();
 
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
-            debug!("Render Triggered");
+            log::debug!("Render Triggered");
 
             let renderer = &mut self.renderer;
             self.skulpin_renderer.draw(
@@ -393,7 +392,7 @@ pub fn start_loop(
         }
         Icon::from_rgba(rgba, width, height).expect("Failed to create icon object")
     };
-    info!("icon created");
+    log::info!("icon created");
 
     let event_loop = EventLoop::new();
     let winit_window = winit::window::WindowBuilder::new()
@@ -405,7 +404,7 @@ pub fn start_loop(
         .with_window_icon(Some(icon))
         .build(&event_loop)
         .expect("Failed to create window");
-    info!("window created");
+    log::info!("window created");
 
     let skulpin_renderer = {
         let winit_window_wrapper = WinitWindow::new(&winit_window);
@@ -480,7 +479,7 @@ pub fn start_loop(
                 was_animating = animating;
             }
             Err(error) => {
-                error!("Render failed: {}", error);
+                log::error!("Render failed: {}", error);
                 window_wrapper.running.store(false, Ordering::Relaxed);
                 return;
             }

@@ -1,4 +1,4 @@
-use super::modifiers::Modifiers;
+use super::Modifiers;
 
 /// Information about how to translate keyboard into Vim input
 #[derive(Debug, Clone)]

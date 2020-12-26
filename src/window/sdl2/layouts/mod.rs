@@ -1,7 +1,6 @@
 mod qwerty;
 
-use crate::window::layouts_shared;
-use layouts_shared::modifiers::Modifiers;
+use crate::window::keyboard::Modifiers;
 use skulpin::sdl2::keyboard::Mod;
 
 pub use qwerty::handle_qwerty_layout;

@@ -1,4 +1,4 @@
-use crate::window::layouts_shared::{token::Token, unsupported_key};
+use crate::window::keyboard::{unsupported_key, Token};
 use skulpin::winit::event::VirtualKeyCode::{self, *};
 
 /// Maps winit keyboard events to Vim tokens

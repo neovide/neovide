@@ -1,13 +1,16 @@
-use self::{
-    keyboard::{KeyboardLayout, KeyboardSettings},
-    modifiers::Modifiers,
-    token::Token,
-};
+mod layout;
+mod modifiers;
+mod settings;
+mod token;
+
 use crate::settings::SETTINGS;
 
-pub mod keyboard;
-pub mod modifiers;
-pub mod token;
+pub use self::{
+    layout::KeyboardLayout,
+    modifiers::Modifiers,
+    settings::{initialize_settings, KeyboardSettings},
+    token::Token,
+};
 
 type KeycodeToTokenFn<T> = fn(T, bool) -> Option<Token<'static>>;
 

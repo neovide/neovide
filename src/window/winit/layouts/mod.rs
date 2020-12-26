@@ -1,10 +1,9 @@
 mod qwerty;
 
+use crate::window::keyboard::Modifiers;
 use skulpin::winit::event::ModifiersState;
 
-use crate::window::layouts_shared::modifiers::Modifiers;
-
-pub use qwerty::*;
+pub use qwerty::handle_qwerty_layout;
 
 impl Into<Modifiers> for Option<ModifiersState> {
     fn into(self) -> Modifiers {
