@@ -1,6 +1,5 @@
 use std::ffi::CString;
 use std::ptr::{null, null_mut};
-#[cfg(windows)]
 use winapi::{
     shared::minwindef::{DWORD, HKEY, MAX_PATH},
     um::{
@@ -10,7 +9,6 @@ use winapi::{
     },
 };
 
-#[cfg(target_os = "windows")]
 fn get_binary_path() -> String {
     let mut buffer = vec![0u8; MAX_PATH];
     unsafe {
@@ -27,7 +25,6 @@ fn get_binary_path() -> String {
     }
 }
 
-#[cfg(target_os = "windows")]
 pub fn unregister_rightclick() -> bool {
     let str_registry_path_1 = CString::new("Directory\\Background\\shell\\Neovide").unwrap();
     let str_registry_path_2 = CString::new("*\\shell\\Neovide").unwrap();
@@ -38,7 +35,6 @@ pub fn unregister_rightclick() -> bool {
     }
 }
 
-#[cfg(target_os = "windows")]
 pub fn register_rightclick_directory() -> bool {
     let neovide_path = get_binary_path();
     let mut registry_key: HKEY = null_mut();
@@ -126,7 +122,6 @@ pub fn register_rightclick_directory() -> bool {
     true
 }
 
-#[cfg(target_os = "windows")]
 pub fn register_rightclick_file() -> bool {
     let neovide_path = get_binary_path();
     let mut registry_key: HKEY = null_mut();

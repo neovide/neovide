@@ -101,20 +101,13 @@ pub fn create_window(
 ) {
     let (width, height) = window_geometry_or_default();
 
-    let renderer = Renderer::new(batched_draw_command_receiver);
-    let logical_size = LogicalSize {
-        width: (width as f32 * renderer.font_width) as u32,
-        height: (height as f32 * renderer.font_height + 1.0) as u32,
-    };
-
     #[cfg(target_os = "windows")]
     windows_fix_dpi();
 
     start_loop(
         window_command_receiver,
         ui_command_sender,
+        batched_draw_command_receiver,
         running,
-        logical_size,
-        renderer,
     );
 }

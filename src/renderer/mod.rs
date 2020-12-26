@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
+
 use std::sync::Arc;
 
 use log::{error, trace, warn};
@@ -59,11 +60,11 @@ pub struct Renderer {
     pub font_width: f32,
     pub font_height: f32,
     pub window_regions: Vec<WindowDrawDetails>,
-    pub batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
+    pub batched_draw_command_receiver: Option<Arc<Receiver<Vec<DrawCommand>>>>,
 }
 
 impl Renderer {
-    pub fn new(batched_draw_command_receiver: Receiver<Vec<DrawCommand>>) -> Renderer {
+    pub fn new() -> Renderer {
         let rendered_windows = HashMap::new();
         let cursor_renderer = CursorRenderer::new();
 
@@ -88,8 +89,15 @@ impl Renderer {
             font_width,
             font_height,
             window_regions,
-            batched_draw_command_receiver,
+            batched_draw_command_receiver: None,
         }
+    }
+
+    pub fn set_command_receiver(
+        &mut self,
+        batched_draw_command_receiver: Option<Arc<Receiver<Vec<DrawCommand>>>>,
+    ) {
+        self.batched_draw_command_receiver = batched_draw_command_receiver;
     }
 
     fn update_font(&mut self, guifont_setting: &str) -> bool {
@@ -262,6 +270,8 @@ impl Renderer {
 
         let draw_commands: Vec<DrawCommand> = self
             .batched_draw_command_receiver
+            .as_ref()
+            .unwrap()
             .try_iter() // Iterator of Vec of DrawCommand
             .map(|batch| batch.into_iter()) // Iterator of Iterator of DrawCommand
             .flatten() // Iterator of DrawCommand

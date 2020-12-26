@@ -366,8 +366,8 @@ struct RngState {
 impl RngState {
     fn new() -> RngState {
         RngState {
-            state: 0x853C_49E6_748F_EA9Bu64,
-            inc: (0xDA3E_39CB_94B9_5BDBu64 << 1) | 1,
+            state: 0x853C_49E6_748F_EA9B_u64,
+            inc: (0xDA3E_39CB_94B9_5BDB_u64 << 1) | 1,
         }
     }
     fn next(&mut self) -> u32 {

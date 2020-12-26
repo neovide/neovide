@@ -1,4 +1,4 @@
-use log::{error, trace};
+use log::trace;
 use nvim_rs::compat::tokio::Compat;
 use nvim_rs::Neovim;
 use tokio::process::ChildStdin;
@@ -112,17 +112,17 @@ impl UiCommand {
                 if unregister_rightclick() {
                     let msg = "Could not unregister previous menu item. Possibly already registered or not running as Admin?";
                     nvim.err_writeln(msg).await.ok();
-                    error!("{}", msg);
+                    trace!("{}", msg);
                 }
                 if !register_rightclick_directory() {
                     let msg = "Could not register directory context menu item. Possibly already registered or not running as Admin?";
                     nvim.err_writeln(msg).await.ok();
-                    error!("{}", msg);
+                    trace!("{}", msg);
                 }
                 if !register_rightclick_file() {
                     let msg = "Could not register file context menu item. Possibly already registered or not running as Admin?";
                     nvim.err_writeln(msg).await.ok();
-                    error!("{}", msg);
+                    trace!("{}", msg);
                 }
             }
             #[cfg(windows)]
@@ -130,7 +130,7 @@ impl UiCommand {
                 if !unregister_rightclick() {
                     let msg = "Could not remove context menu items. Possibly already removed or not running as Admin?";
                     nvim.err_writeln(msg).await.ok();
-                    error!("{}", msg);
+                    trace!("{}", msg);
                 }
             }
         }

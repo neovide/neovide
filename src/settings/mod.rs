@@ -12,6 +12,7 @@ use nvim_rs::Neovim;
 use parking_lot::RwLock;
 pub use rmpv::Value;
 use tokio::process::ChildStdin;
+#[cfg(windows)]
 pub mod windows_registry;
 
 use crate::error_handling::ResultPanicExplanation;
