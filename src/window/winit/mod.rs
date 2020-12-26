@@ -4,7 +4,6 @@ mod layouts;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
-use std::thread::sleep;
 use std::time::{Duration, Instant};
 
 use crossfire::mpsc::TxUnbounded;
@@ -23,16 +22,16 @@ use skulpin::{
     RendererBuilder, Window, WinitWindow,
 };
 
-use super::handle_new_grid_size;
-pub use super::keyboard;
 use super::settings::*;
+use super::{handle_new_grid_size, layouts_shared::neovim_keybinding_string};
 use crate::bridge::UiCommand;
 use crate::editor::WindowCommand;
 use crate::error_handling::ResultPanicExplanation;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::renderer::Renderer;
 use crate::settings::*;
-use layouts::produce_neovim_keybinding_string;
+pub use crate::window::layouts_shared::keyboard;
+use layouts::handle_qwerty_layout;
 
 #[derive(RustEmbed)]
 #[folder = "assets/"]
@@ -49,7 +48,6 @@ pub struct WinitWindowWrapper {
     current_modifiers: Option<ModifiersState>,
     title: String,
     previous_size: LogicalSize,
-    transparency: f32,
     fullscreen: bool,
     cached_size: LogicalSize,
     cached_position: LogicalSize,
@@ -117,7 +115,8 @@ impl WinitWindowWrapper {
             );
         }
 
-        if let Some(keybinding_string) = produce_neovim_keybinding_string(keycode, None, modifiers)
+        if let Some(keybinding_string) =
+            neovim_keybinding_string(keycode, None, modifiers, handle_qwerty_layout)
         {
             self.ui_command_sender
                 .send(UiCommand::Keyboard(keybinding_string))
@@ -408,8 +407,6 @@ pub fn start_loop(
         .expect("Failed to create window");
     info!("window created");
 
-    let scale_factor = winit_window.scale_factor();
-
     let skulpin_renderer = {
         let winit_window_wrapper = WinitWindow::new(&winit_window);
         RendererBuilder::new()
@@ -435,7 +432,6 @@ pub fn start_loop(
         current_modifiers: None,
         title: String::from("Neovide"),
         previous_size: logical_size,
-        transparency: 1.0,
         fullscreen: false,
         cached_size: LogicalSize::new(0, 0),
         cached_position: LogicalSize::new(0, 0),
@@ -445,7 +441,7 @@ pub fn start_loop(
     };
 
     let mut was_animating = false;
-    let mut previous_frame_start = Instant::now();
+    let previous_frame_start = Instant::now();
 
     event_loop.run(move |e, _window_target, control_flow| {
         if !running.load(Ordering::Relaxed) {

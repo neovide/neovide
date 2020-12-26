@@ -1,4 +1,4 @@
-pub mod keyboard;
+mod layouts_shared;
 mod settings;
 
 #[cfg_attr(feature = "sdl2", path = "sdl2/mod.rs")]

@@ -21,16 +21,15 @@ use skulpin::{
     RendererBuilder, Sdl2Window, Window,
 };
 
-use super::handle_new_grid_size;
-pub use super::keyboard;
 use super::settings::*;
+use super::{handle_new_grid_size, layouts_shared::neovim_keybinding_string};
 use crate::bridge::UiCommand;
 use crate::editor::WindowCommand;
 use crate::error_handling::ResultPanicExplanation;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::renderer::Renderer;
 use crate::settings::*;
-use layouts::produce_neovim_keybinding_string;
+use layouts::handle_qwerty_layout;
 
 #[derive(RustEmbed)]
 #[folder = "assets/"]
@@ -150,7 +149,8 @@ impl Sdl2WindowWrapper {
             );
         }
 
-        if let Some(keybinding_string) = produce_neovim_keybinding_string(keycode, text, modifiers)
+        if let Some(keybinding_string) =
+            neovim_keybinding_string(keycode, text, modifiers, handle_qwerty_layout)
         {
             self.ui_command_sender
                 .send(UiCommand::Keyboard(keybinding_string))
