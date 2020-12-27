@@ -200,7 +200,11 @@ impl CursorRenderer {
         let mut renderer = CursorRenderer {
             corners: vec![Corner::new(); 4],
             cursor: Cursor::new(),
+
             current_center: Point::new(0f32, 0f32),
+            destination: Point::new(0f32, 0f32),
+            source: Point::new(0f32, 0f32),
+
             blink_status: BlinkStatus::new(),
             previous_cursor_shape: None,
             //cursor_vfx: Box::new(PointHighlight::new(Point{x:0.0, y:0.0}, HighlightMode::Ripple)),
