@@ -40,7 +40,7 @@ pub fn initialize_settings() {
         animation_length: 0.13,
         animate_in_insert_mode: true,
         preserve_volume: true,
-        max_speed: 1f32,
+        max_speed: 8f32,
         trail_size: 0.7,
         vfx_mode: cursor_vfx::VfxMode::Disabled,
         vfx_opacity: 200.0,
@@ -188,6 +188,7 @@ pub struct CursorRenderer {
     current_center: Point,
     source: Point,
     destination: Point,
+    t: f32,
 
     blink_status: BlinkStatus,
     previous_cursor_shape: Option<CursorShape>,
@@ -204,6 +205,7 @@ impl CursorRenderer {
             current_center: Point::new(0f32, 0f32),
             destination: Point::new(0f32, 0f32),
             source: Point::new(0f32, 0f32),
+            t: 0f32,
 
             blink_status: BlinkStatus::new(),
             previous_cursor_shape: None,
@@ -322,24 +324,44 @@ impl CursorRenderer {
 
             // -----------------------------------------------------------------
 
-            if self.destination != destination {
+            // Check, are these in pixels or grid points?
+            if self.destination != center_destination {
                 self.source = self.current_center;
-                self.destination = destination;
+                self.destination = center_destination;
+                self.t = dt * settings.max_speed;
             };
 
-            let mut dir: Point = (destination - self.current_center).into();
-            let l = settings.max_speed.min(dir.length());
-            dir.normalize();
-            dir *= l;
-            self.current_center += dir;
+            let dst = Point {
+                x: self.destination.x * font_dimensions.x,
+                y: self.destination.y * font_dimensions.y,
+            };
+            let src = Point {
+                x: self.source.x * font_dimensions.x,
+                y: self.source.y * font_dimensions.y,
+            };
+            let dir = self.destination - self.source;
+            let dir: Point = dir.into();
+            let dir_len = dir.length();
+            let t = self.t / dir_len;
+            let t = t.min(1f32);
+            let lo = t * t;
+            let hi = 1.0 - (1.0 - t) * (1.0 - t);
+            let t = lerp(lo, hi, t);
+
+            let p = Point {
+                x: lerp(self.source.x, self.destination.x, t),
+                y: lerp(self.source.y, self.destination.y, t),
+            };
+            self.current_center = p;
+
             for corner in self.corners.iter_mut() {
                 let mut rel = corner.relative_position;
                 rel.x *= font_dimensions.x;
                 rel.y *= font_dimensions.y;
-                corner.current_position =
-                    self.current_center + rel + font_dimensions.scaled(0.5f32);
+                corner.current_position = self.current_center + rel;
             }
 
+            self.t += dt * settings.max_speed;
             animating = true;
 
             // -----------------------------------------------------------------
