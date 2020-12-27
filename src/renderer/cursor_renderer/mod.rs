@@ -22,7 +22,7 @@ pub struct CursorSettings {
     antialiasing: bool,
     animation_length: f32,
     animate_in_insert_mode: bool,
-    preserve_volume: bool,
+    squash_and_stretch: f32,
     spring_constant: f32,
     damping_divisor: f32,
     trail_size: f32,
@@ -40,7 +40,7 @@ pub fn initialize_settings() {
         antialiasing: true,
         animation_length: 0.13,
         animate_in_insert_mode: true,
-        preserve_volume: true,
+        squash_and_stretch: 0.01f32,
         spring_constant: 1024f32,
         damping_divisor: 1.5f32,
         trail_size: 0.7,
@@ -82,7 +82,7 @@ pub fn initialize_settings() {
         "cursor_vfx_particle_curl",
         CursorSettings::vfx_particle_curl
     );
-    register_nvim_setting!("cursor_preserve_volume", CursorSettings::preserve_volume);
+    register_nvim_setting!("cursor_squash_and_stretch", CursorSettings::squash_and_stretch);
     register_nvim_setting!("cursor_spring_constant", CursorSettings::spring_constant);
     register_nvim_setting!("cursor_damping_divisor", CursorSettings::damping_divisor);
 }
@@ -323,8 +323,8 @@ impl CursorRenderer {
 
             // -----------------------------------------------------------------
 
-            // Note: implicit euler integration becomes unstable for 
-            // spring constant values greater than about 1024. 
+            // Note: implicit euler integration becomes unstable for
+            // spring constant values greater than about 1024.
 
             let src = self.current_center;
             let dst = center_destination;
@@ -339,10 +339,24 @@ impl CursorRenderer {
             self.velocity += a * dt;
             self.current_center += self.velocity * dt;
 
+            let r_norm = {
+                let mut r_norm = r;
+                r_norm.normalize();
+                r_norm
+            };
+            let scale = 1.0 + r.length() * settings.squash_and_stretch;
+            let theta = r_norm.y.atan2(r_norm.x);
+            let unrot = Matrix2::rot(-theta);
+            let scale = Matrix2::scale(scale, 1.0 / scale);
+            let rot = Matrix2::rot(theta);
+            let m = Matrix2::mul_mat(scale, unrot);
+            let m = Matrix2::mul_mat(rot, m);
+
             for corner in self.corners.iter_mut() {
                 let mut rel = corner.relative_position;
                 rel.x *= font_dimensions.x;
                 rel.y *= font_dimensions.y;
+                let rel = m.mul_vec(rel);
                 corner.current_position = self.current_center + rel;
             }
 
@@ -403,5 +417,55 @@ impl CursorRenderer {
                 );
             }
         }
+    }
+}
+
+struct Matrix2 {
+    pub m: [[f32; 2]; 2],
+}
+
+impl Matrix2 {
+    pub fn rot(theta: f32) -> Self {
+        let cos = theta.cos();
+        let sin = theta.sin();
+        Self {
+            m: [[cos, -sin], [sin, cos]],
+        }
+    }
+
+    pub fn scale(x: f32, y: f32) -> Self {
+        Self {
+            m: [[x, 0.0], [0.0, y]],
+        }
+    }
+
+    pub fn mul_mat(l: Self, r: Self) -> Self {
+        Self {
+            m: [
+                [
+                    l[0][0] * r[0][0] + l[0][1] * r[1][0],
+                    l[0][0] * r[0][1] + l[0][1] * r[1][1],
+                ],
+                [
+                    l[1][0] * r[0][0] + l[1][1] * r[1][0],
+                    l[1][0] * r[0][1] + l[1][1] * r[1][1],
+                ],
+            ],
+        }
+    }
+
+    pub fn mul_vec(&self, v: Point) -> Point {
+        Point {
+            x: v.x * self[0][0] + v.y * self[0][1],
+            y: v.x * self[1][0] + v.y * self[1][1],
+        }
+    }
+}
+
+impl std::ops::Index<usize> for Matrix2 {
+    type Output = [f32; 2];
+
+    fn index(&self, i: usize) -> &Self::Output {
+        &self.m[i]
     }
 }
