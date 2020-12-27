@@ -22,9 +22,10 @@ pub struct CursorSettings {
     antialiasing: bool,
     animation_length: f32,
     animate_in_insert_mode: bool,
+    springloaded: bool,
     squash_and_stretch: f32,
     spring_constant: f32,
-    damping_divisor: f32,
+    damping: f32,
     trail_size: f32,
     vfx_mode: cursor_vfx::VfxMode,
     vfx_opacity: f32,
@@ -40,9 +41,15 @@ pub fn initialize_settings() {
         antialiasing: true,
         animation_length: 0.13,
         animate_in_insert_mode: true,
-        squash_and_stretch: 0.01f32,
-        spring_constant: 1024f32,
-        damping_divisor: 1.5f32,
+        /// Whether to use the alternative spring-damper cursor movement
+        springloaded: true,
+        /// How much the cursor should deform in the direction of movement
+        squash_and_stretch: 0.015,
+        /// Higher spring constants yield faster cursor movement
+        spring_constant: 1024.0,
+        /// 1 is critically damped, <1 is underdamped, >1 is overdamped
+        /// Less damping means snappier cursor movement that will overshoot its target
+        damping: 0.666,
         trail_size: 0.7,
         vfx_mode: cursor_vfx::VfxMode::Disabled,
         vfx_opacity: 200.0,
@@ -82,9 +89,13 @@ pub fn initialize_settings() {
         "cursor_vfx_particle_curl",
         CursorSettings::vfx_particle_curl
     );
-    register_nvim_setting!("cursor_squash_and_stretch", CursorSettings::squash_and_stretch);
+    register_nvim_setting!("cursor_springloaded", CursorSettings::springloaded);
+    register_nvim_setting!(
+        "cursor_squash_and_stretch",
+        CursorSettings::squash_and_stretch
+    );
     register_nvim_setting!("cursor_spring_constant", CursorSettings::spring_constant);
-    register_nvim_setting!("cursor_damping_divisor", CursorSettings::damping_divisor);
+    register_nvim_setting!("cursor_damping", CursorSettings::damping);
 }
 
 // ----------------------------------------------------------------------------
@@ -307,62 +318,55 @@ impl CursorRenderer {
         let mut animating = false;
 
         if !center_destination.is_zero() {
-            /*
-            for corner in self.corners.iter_mut() {
-                let corner_animating = corner.update(
-                    &settings,
-                    font_dimensions,
-                    center_destination,
-                    dt,
-                    !settings.animate_in_insert_mode && in_insert_mode,
-                );
+            if settings.springloaded {
+                // Note: implicit euler integration becomes unstable for
+                // spring constant values greater than about 1024.
 
-                animating |= corner_animating;
+                let toward = center_destination - self.current_center;
+                let toward: Point = toward.into();
+                let b = settings.spring_constant.sqrt() * 2.0 * settings.damping;
+                let spring_force = toward * settings.spring_constant;
+                let damping_force = self.velocity * -b;
+                let acceleration = spring_force + damping_force;
+                self.velocity += acceleration * dt;
+                self.current_center += self.velocity * dt;
+
+                let toward_unit = {
+                    let mut toward_unit = toward;
+                    toward_unit.normalize();
+                    toward_unit
+                };
+                let scale = 1.0 + toward.length() * settings.squash_and_stretch;
+                let theta = toward_unit.y.atan2(toward_unit.x);
+                let unrot = Matrix2::rot(-theta);
+                let scale = Matrix2::scale(scale, 1.0 / scale);
+                let rot = Matrix2::rot(theta);
+                let squash_transform = rot * scale * unrot;
+
+                for corner in self.corners.iter_mut() {
+                    let mut rel = corner.relative_position;
+                    rel.x *= font_dimensions.x;
+                    rel.y *= font_dimensions.y;
+                    let rel = squash_transform.mul_vec(rel);
+                    corner.current_position = self.current_center + rel;
+                }
+
+                let near_target = toward.length() < std::f32::EPSILON;
+                let critically_slow = self.velocity.length() < std::f32::EPSILON;
+                animating = !(near_target && critically_slow);
+            } else {
+                for corner in self.corners.iter_mut() {
+                    let corner_animating = corner.update(
+                        &settings,
+                        font_dimensions,
+                        center_destination,
+                        dt,
+                        !settings.animate_in_insert_mode && in_insert_mode,
+                    );
+
+                    animating |= corner_animating;
+                }
             }
-            */
-
-            // -----------------------------------------------------------------
-
-            // Note: implicit euler integration becomes unstable for
-            // spring constant values greater than about 1024.
-
-            let src = self.current_center;
-            let dst = center_destination;
-
-            let r = dst - src;
-            let r: Point = r.into();
-            let k = settings.spring_constant;
-            let b = (4f32 * k).sqrt() / settings.damping_divisor;
-            let f_k = r * k;
-            let f_b = self.velocity * -b;
-            let a = f_k + f_b;
-            self.velocity += a * dt;
-            self.current_center += self.velocity * dt;
-
-            let r_norm = {
-                let mut r_norm = r;
-                r_norm.normalize();
-                r_norm
-            };
-            let scale = 1.0 + r.length() * settings.squash_and_stretch;
-            let theta = r_norm.y.atan2(r_norm.x);
-            let unrot = Matrix2::rot(-theta);
-            let scale = Matrix2::scale(scale, 1.0 / scale);
-            let rot = Matrix2::rot(theta);
-            let m = Matrix2::mul_mat(scale, unrot);
-            let m = Matrix2::mul_mat(rot, m);
-
-            for corner in self.corners.iter_mut() {
-                let mut rel = corner.relative_position;
-                rel.x *= font_dimensions.x;
-                rel.y *= font_dimensions.y;
-                let rel = m.mul_vec(rel);
-                corner.current_position = self.current_center + rel;
-            }
-
-            animating = true;
-
-            // -----------------------------------------------------------------
 
             let vfx_animating = if let Some(vfx) = self.cursor_vfx.as_mut() {
                 vfx.update(&settings, center_destination, (font_width, font_height), dt)
@@ -439,25 +443,29 @@ impl Matrix2 {
         }
     }
 
-    pub fn mul_mat(l: Self, r: Self) -> Self {
-        Self {
-            m: [
-                [
-                    l[0][0] * r[0][0] + l[0][1] * r[1][0],
-                    l[0][0] * r[0][1] + l[0][1] * r[1][1],
-                ],
-                [
-                    l[1][0] * r[0][0] + l[1][1] * r[1][0],
-                    l[1][0] * r[0][1] + l[1][1] * r[1][1],
-                ],
-            ],
-        }
-    }
-
     pub fn mul_vec(&self, v: Point) -> Point {
         Point {
             x: v.x * self[0][0] + v.y * self[0][1],
             y: v.x * self[1][0] + v.y * self[1][1],
+        }
+    }
+}
+
+impl std::ops::Mul for Matrix2 {
+    type Output = Matrix2;
+
+    fn mul(self, rhs: Self) -> Self {
+        Self {
+            m: [
+                [
+                    self[0][0] * rhs[0][0] + self[0][1] * rhs[1][0],
+                    self[0][0] * rhs[0][1] + self[0][1] * rhs[1][1],
+                ],
+                [
+                    self[1][0] * rhs[0][0] + self[1][1] * rhs[1][0],
+                    self[1][0] * rhs[0][1] + self[1][1] * rhs[1][1],
+                ],
+            ],
         }
     }
 }
