@@ -23,7 +23,8 @@ pub struct CursorSettings {
     animation_length: f32,
     animate_in_insert_mode: bool,
     preserve_volume: bool,
-    max_speed: f32,
+    spring_constant: f32,
+    damping_divisor: f32,
     trail_size: f32,
     vfx_mode: cursor_vfx::VfxMode,
     vfx_opacity: f32,
@@ -40,7 +41,8 @@ pub fn initialize_settings() {
         animation_length: 0.13,
         animate_in_insert_mode: true,
         preserve_volume: true,
-        max_speed: 8f32,
+        spring_constant: 1024f32,
+        damping_divisor: 1.5f32,
         trail_size: 0.7,
         vfx_mode: cursor_vfx::VfxMode::Disabled,
         vfx_opacity: 200.0,
@@ -81,7 +83,8 @@ pub fn initialize_settings() {
         CursorSettings::vfx_particle_curl
     );
     register_nvim_setting!("cursor_preserve_volume", CursorSettings::preserve_volume);
-    register_nvim_setting!("cursor_max_speed", CursorSettings::max_speed);
+    register_nvim_setting!("cursor_spring_constant", CursorSettings::spring_constant);
+    register_nvim_setting!("cursor_damping_divisor", CursorSettings::damping_divisor);
 }
 
 // ----------------------------------------------------------------------------
@@ -186,9 +189,7 @@ pub struct CursorRenderer {
     cursor: Cursor,
 
     current_center: Point,
-    source: Point,
-    destination: Point,
-    t: f32,
+    velocity: Point,
 
     blink_status: BlinkStatus,
     previous_cursor_shape: Option<CursorShape>,
@@ -203,9 +204,7 @@ impl CursorRenderer {
             cursor: Cursor::new(),
 
             current_center: Point::new(0f32, 0f32),
-            destination: Point::new(0f32, 0f32),
-            source: Point::new(0f32, 0f32),
-            t: 0f32,
+            velocity: Point::new(0f32, 0f32),
 
             blink_status: BlinkStatus::new(),
             previous_cursor_shape: None,
@@ -324,35 +323,21 @@ impl CursorRenderer {
 
             // -----------------------------------------------------------------
 
-            // Check, are these in pixels or grid points?
-            if self.destination != center_destination {
-                self.source = self.current_center;
-                self.destination = center_destination;
-                self.t = dt * settings.max_speed;
-            };
+            // Note: implicit euler integration becomes unstable for 
+            // spring constant values greater than about 1024. 
 
-            let dst = Point {
-                x: self.destination.x * font_dimensions.x,
-                y: self.destination.y * font_dimensions.y,
-            };
-            let src = Point {
-                x: self.source.x * font_dimensions.x,
-                y: self.source.y * font_dimensions.y,
-            };
-            let dir = self.destination - self.source;
-            let dir: Point = dir.into();
-            let dir_len = dir.length();
-            let t = self.t / dir_len;
-            let t = t.min(1f32);
-            let lo = t * t;
-            let hi = 1.0 - (1.0 - t) * (1.0 - t);
-            let t = lerp(lo, hi, t);
+            let src = self.current_center;
+            let dst = center_destination;
 
-            let p = Point {
-                x: lerp(self.source.x, self.destination.x, t),
-                y: lerp(self.source.y, self.destination.y, t),
-            };
-            self.current_center = p;
+            let r = dst - src;
+            let r: Point = r.into();
+            let k = settings.spring_constant;
+            let b = (4f32 * k).sqrt() / settings.damping_divisor;
+            let f_k = r * k;
+            let f_b = self.velocity * -b;
+            let a = f_k + f_b;
+            self.velocity += a * dt;
+            self.current_center += self.velocity * dt;
 
             for corner in self.corners.iter_mut() {
                 let mut rel = corner.relative_position;
@@ -361,7 +346,6 @@ impl CursorRenderer {
                 corner.current_position = self.current_center + rel;
             }
 
-            self.t += dt * settings.max_speed;
             animating = true;
 
             // -----------------------------------------------------------------
