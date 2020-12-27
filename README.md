@@ -50,6 +50,10 @@ Font fallback supports rendering of emoji not contained in the configured font.
 
 ![Emoji](./assets/Emoji.png)
 
+### WSL Support
+
+Neovide supports displaying a full gui window from inside wsl via the `--wsl` command argument. Communication is passed via standard io into the wsl copy of neovim providing identical experience similar to visual studio code's remote editing https://code.visualstudio.com/docs/remote/remote-overview.
+
 ### Some Nonsense ;)
 
 ```
