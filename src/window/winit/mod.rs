@@ -1,38 +1,36 @@
 #[macro_use]
 mod layouts;
 
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::Receiver;
-use std::sync::Arc;
-use std::thread::sleep;
-use std::time::{Duration, Instant};
-
+use super::{handle_new_grid_size, keyboard::neovim_keybinding_string, settings::WindowSettings};
+use crate::{
+    bridge::UiCommand, editor::WindowCommand, error_handling::ResultPanicExplanation,
+    redraw_scheduler::REDRAW_SCHEDULER, renderer::Renderer, settings::SETTINGS,
+};
 use crossfire::mpsc::TxUnbounded;
 use image::{load_from_memory, GenericImageView, Pixel};
-use log::{debug, error, info, trace};
-use skulpin::ash::prelude::VkResult;
-use skulpin::winit;
-use skulpin::winit::event::VirtualKeyCode as Keycode;
-use skulpin::winit::event::{
-    ElementState, Event, ModifiersState, MouseButton, MouseScrollDelta, WindowEvent,
-};
-use skulpin::winit::event_loop::{ControlFlow, EventLoop};
-use skulpin::winit::window::{Fullscreen, Icon};
+use layouts::handle_qwerty_layout;
 use skulpin::{
+    ash::prelude::VkResult,
+    winit::{
+        self,
+        event::{
+            ElementState, Event, ModifiersState, MouseButton, MouseScrollDelta,
+            VirtualKeyCode as Keycode, WindowEvent,
+        },
+        event_loop::{ControlFlow, EventLoop},
+        window::{Fullscreen, Icon},
+    },
     CoordinateSystem, LogicalSize, PhysicalSize, PresentMode, Renderer as SkulpinRenderer,
     RendererBuilder, Window, WinitWindow,
 };
-
-use super::handle_new_grid_size;
-pub use super::keyboard;
-use super::settings::*;
-use crate::bridge::UiCommand;
-use crate::editor::WindowCommand;
-use crate::error_handling::ResultPanicExplanation;
-use crate::redraw_scheduler::REDRAW_SCHEDULER;
-use crate::renderer::Renderer;
-use crate::settings::*;
-use layouts::produce_neovim_keybinding_string;
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc::Receiver,
+        Arc,
+    },
+    time::{Duration, Instant},
+};
 
 #[derive(RustEmbed)]
 #[folder = "assets/"]
@@ -49,7 +47,6 @@ pub struct WinitWindowWrapper {
     current_modifiers: Option<ModifiersState>,
     title: String,
     previous_size: LogicalSize,
-    transparency: f32,
     fullscreen: bool,
     cached_size: LogicalSize,
     cached_position: LogicalSize,
@@ -110,14 +107,15 @@ impl WinitWindowWrapper {
         modifiers: Option<ModifiersState>,
     ) {
         if keycode.is_some() {
-            trace!(
+            log::trace!(
                 "Keyboard Input Received: keycode-{:?} modifiers-{:?} ",
                 keycode,
                 modifiers
             );
         }
 
-        if let Some(keybinding_string) = produce_neovim_keybinding_string(keycode, None, modifiers)
+        if let Some(keybinding_string) =
+            neovim_keybinding_string(keycode, None, modifiers, handle_qwerty_layout)
         {
             self.ui_command_sender
                 .send(UiCommand::Keyboard(keybinding_string))
@@ -358,7 +356,7 @@ impl WinitWindowWrapper {
         let ui_command_sender = self.ui_command_sender.clone();
 
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
-            debug!("Render Triggered");
+            log::debug!("Render Triggered");
 
             let renderer = &mut self.renderer;
             self.skulpin_renderer.draw(
@@ -394,7 +392,7 @@ pub fn start_loop(
         }
         Icon::from_rgba(rgba, width, height).expect("Failed to create icon object")
     };
-    info!("icon created");
+    log::info!("icon created");
 
     let event_loop = EventLoop::new();
     let winit_window = winit::window::WindowBuilder::new()
@@ -406,9 +404,7 @@ pub fn start_loop(
         .with_window_icon(Some(icon))
         .build(&event_loop)
         .expect("Failed to create window");
-    info!("window created");
-
-    let scale_factor = winit_window.scale_factor();
+    log::info!("window created");
 
     let skulpin_renderer = {
         let winit_window_wrapper = WinitWindow::new(&winit_window);
@@ -435,7 +431,6 @@ pub fn start_loop(
         current_modifiers: None,
         title: String::from("Neovide"),
         previous_size: logical_size,
-        transparency: 1.0,
         fullscreen: false,
         cached_size: LogicalSize::new(0, 0),
         cached_position: LogicalSize::new(0, 0),
@@ -445,7 +440,7 @@ pub fn start_loop(
     };
 
     let mut was_animating = false;
-    let mut previous_frame_start = Instant::now();
+    let previous_frame_start = Instant::now();
 
     event_loop.run(move |e, _window_target, control_flow| {
         if !running.load(Ordering::Relaxed) {
@@ -484,7 +479,7 @@ pub fn start_loop(
                 was_animating = animating;
             }
             Err(error) => {
-                error!("Render failed: {}", error);
+                log::error!("Render failed: {}", error);
                 window_wrapper.running.store(false, Ordering::Relaxed);
                 return;
             }

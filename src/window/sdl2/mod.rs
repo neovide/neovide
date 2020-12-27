@@ -1,36 +1,34 @@
 #[macro_use]
 mod layouts;
 
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::Receiver;
-use std::sync::Arc;
-use std::thread::sleep;
-use std::time::{Duration, Instant};
-
+use super::{handle_new_grid_size, keyboard::neovim_keybinding_string, WindowSettings};
+use crate::{
+    bridge::UiCommand, editor::WindowCommand, error_handling::ResultPanicExplanation,
+    redraw_scheduler::REDRAW_SCHEDULER, renderer::Renderer, settings::SETTINGS,
+};
 use crossfire::mpsc::TxUnbounded;
-use log::{debug, error, trace};
-use skulpin::ash::prelude::VkResult;
-use skulpin::sdl2;
-use skulpin::sdl2::event::{Event, WindowEvent};
-use skulpin::sdl2::keyboard::Keycode;
-use skulpin::sdl2::video::FullscreenType;
-use skulpin::sdl2::EventPump;
-use skulpin::sdl2::Sdl;
+use layouts::handle_qwerty_layout;
 use skulpin::{
+    ash::prelude::VkResult,
+    sdl2::{
+        self,
+        event::{Event, WindowEvent},
+        keyboard::Keycode,
+        video::FullscreenType,
+        EventPump, Sdl,
+    },
     CoordinateSystem, LogicalSize, PhysicalSize, PresentMode, Renderer as SkulpinRenderer,
     RendererBuilder, Sdl2Window, Window,
 };
-
-use super::handle_new_grid_size;
-pub use super::keyboard;
-use super::settings::*;
-use crate::bridge::UiCommand;
-use crate::editor::WindowCommand;
-use crate::error_handling::ResultPanicExplanation;
-use crate::redraw_scheduler::REDRAW_SCHEDULER;
-use crate::renderer::Renderer;
-use crate::settings::*;
-use layouts::produce_neovim_keybinding_string;
+use std::{
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        mpsc::Receiver,
+        Arc,
+    },
+    thread::sleep,
+    time::{Duration, Instant},
+};
 
 #[derive(RustEmbed)]
 #[folder = "assets/"]
@@ -142,7 +140,7 @@ impl Sdl2WindowWrapper {
         let modifiers = self.context.keyboard().mod_state();
 
         if keycode.is_some() || text.is_some() {
-            trace!(
+            log::trace!(
                 "Keyboard Input Received: keycode-{:?} modifiers-{:?} text-{:?}",
                 keycode,
                 modifiers,
@@ -150,7 +148,8 @@ impl Sdl2WindowWrapper {
             );
         }
 
-        if let Some(keybinding_string) = produce_neovim_keybinding_string(keycode, text, modifiers)
+        if let Some(keybinding_string) =
+            neovim_keybinding_string(keycode, text, modifiers, handle_qwerty_layout)
         {
             self.ui_command_sender
                 .send(UiCommand::Keyboard(keybinding_string))
@@ -361,7 +360,7 @@ impl Sdl2WindowWrapper {
         let ui_command_sender = self.ui_command_sender.clone();
 
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
-            debug!("Render Triggered");
+            log::debug!("Render Triggered");
 
             let renderer = &mut self.renderer;
             self.skulpin_renderer.draw(
@@ -466,7 +465,7 @@ pub fn start_loop(
                 was_animating = animating;
             }
             Err(error) => {
-                error!("Render failed: {}", error);
+                log::error!("Render failed: {}", error);
                 break;
             }
         }

@@ -1,21 +1,19 @@
-pub mod keyboard;
+mod keyboard;
 mod settings;
 
 #[cfg_attr(feature = "sdl2", path = "sdl2/mod.rs")]
 #[cfg_attr(feature = "winit", path = "winit/mod.rs")]
 mod window_wrapper;
 
-use std::sync::atomic::AtomicBool;
-use std::sync::mpsc::Receiver;
-use std::sync::Arc;
-
+use crate::{
+    bridge::UiCommand,
+    editor::{DrawCommand, WindowCommand},
+    renderer::Renderer,
+    INITIAL_DIMENSIONS,
+};
 use crossfire::mpsc::TxUnbounded;
 use skulpin::LogicalSize;
-
-use crate::bridge::UiCommand;
-use crate::editor::{DrawCommand, WindowCommand};
-use crate::renderer::Renderer;
-use crate::INITIAL_DIMENSIONS;
+use std::sync::{atomic::AtomicBool, mpsc::Receiver, Arc};
 
 #[cfg(feature = "sdl2")]
 pub use window_wrapper::start_loop;
