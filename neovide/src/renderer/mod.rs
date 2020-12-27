@@ -90,7 +90,6 @@ impl Renderer {
         Renderer {
             rendered_windows,
             cursor_renderer,
-
             current_mode,
             paint,
             shaper,
