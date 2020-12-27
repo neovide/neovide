@@ -22,6 +22,7 @@ pub struct CursorSettings {
     antialiasing: bool,
     animation_length: f32,
     animate_in_insert_mode: bool,
+    preserve_volume: bool,
     trail_size: f32,
     vfx_mode: cursor_vfx::VfxMode,
     vfx_opacity: f32,
@@ -37,6 +38,7 @@ pub fn initialize_settings() {
         antialiasing: true,
         animation_length: 0.13,
         animate_in_insert_mode: true,
+        preserve_volume: true,
         trail_size: 0.7,
         vfx_mode: cursor_vfx::VfxMode::Disabled,
         vfx_opacity: 200.0,
@@ -76,6 +78,7 @@ pub fn initialize_settings() {
         "cursor_vfx_particle_curl",
         CursorSettings::vfx_particle_curl
     );
+    register_nvim_setting!("cursor_preserve_volume", CursorSettings::preserve_volume);
 }
 
 // ----------------------------------------------------------------------------
@@ -290,6 +293,7 @@ impl CursorRenderer {
         let mut animating = false;
 
         if !center_destination.is_zero() {
+            /*
             for corner in self.corners.iter_mut() {
                 let corner_animating = corner.update(
                     &settings,
@@ -301,6 +305,89 @@ impl CursorRenderer {
 
                 animating |= corner_animating;
             }
+            */
+
+            // -----------------------------------------------------------------
+
+            let max_speed = 1f32;
+
+            // if destination != self.previous_destination {
+            //     self.t = 0.0;
+            //     self.start_position = self.current_position;
+            //     self.previous_destination = destination;
+            // }
+
+            // Check first if animation's over
+            // if (self.t - 1.0).abs() < std::f32::EPSILON {
+            //     return false;
+            // }
+
+            // Calculate window-space destination for corner
+            // let relative_scaled_position: Point = (
+            //     self.relative_position.x * font_dimensions.x,
+            //     self.relative_position.y * font_dimensions.y,
+            // )
+            //     .into();
+
+            // let corner_destination = destination + relative_scaled_position;
+
+            // if immediate_movement {
+            //     self.t = 1.0;
+            //     self.current_position = corner_destination;
+            //     return true;
+            // }
+
+            // Calculate how much a corner will be lagging behind based on how much it's aligned
+            // with the direction of motion. Corners in front will move faster than corners in the
+            // back
+            // let travel_direction = {
+            //     let mut d = destination - self.current_position;
+            //     d.normalize();
+            //     d
+            // };
+
+            // let corner_direction = {
+            //     let mut d = self.relative_position;
+            //     d.normalize();
+            //     d
+            // };
+
+            let pos = Point {
+                x: self.cursor.position.0 as f32 * font_dimensions.x,
+                y: self.cursor.position.1 as f32 * font_dimensions.y,
+            };
+            let pos = pos + font_dimensions * 0.5f32;
+            let dir = destination - pos;
+            for corner in self.corners.iter_mut() {
+                let mut rel = corner.relative_position;
+                rel.x *= font_dimensions.x;
+                rel.y *= font_dimensions.y;
+                corner.current_position = pos + rel;
+            }
+
+            // let direction_alignment = travel_direction.dot(corner_direction);
+
+            // if (self.t - 1.0).abs() < std::f32::EPSILON {
+            //     // We are at destination, move t out of 0-1 range to stop the animation
+            //     self.t = 2.0;
+            // } else {
+            //     let corner_dt = dt
+            //         * lerp(
+            //             1.0,
+            //             (1.0 - settings.trail_size).max(0.0).min(1.0),
+            //             -direction_alignment,
+            //         );
+            //     self.t = (self.t + corner_dt / settings.animation_length).min(1.0)
+            // }
+
+            // self.current_position = ease_point(
+            //     ease_out_expo,
+            //     self.start_position,
+            //     corner_destination,
+            //     self.t,
+            // );
+
+            // -----------------------------------------------------------------
 
             let vfx_animating = if let Some(vfx) = self.cursor_vfx.as_mut() {
                 vfx.update(&settings, center_destination, (font_width, font_height), dt)
