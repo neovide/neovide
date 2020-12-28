@@ -3,6 +3,9 @@
 #[macro_use]
 mod settings;
 
+#[macro_use]
+extern crate neovide_derive;
+
 mod bridge;
 mod editor;
 mod error_handling;
@@ -28,6 +31,8 @@ use window::window_geometry;
 
 use bridge::start_bridge;
 use editor::start_editor;
+use renderer::cursor_renderer::CursorSettings;
+use settings::SettingGroup;
 use window::create_window;
 
 pub const INITIAL_DIMENSIONS: (u64, u64) = (100, 50);
@@ -142,7 +147,7 @@ fn main() {
     window::initialize_settings();
     redraw_scheduler::initialize_settings();
     renderer::initialize_settings();
-    renderer::cursor_renderer::initialize_settings();
+    CursorSettings::default().register();
 
     let running = Arc::new(AtomicBool::new(true));
 

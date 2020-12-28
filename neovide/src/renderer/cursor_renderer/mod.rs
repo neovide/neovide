@@ -1,7 +1,7 @@
 mod blink;
 mod cursor_vfx;
 
-use neovide_derive::SettingGroup;
+// use neovide_derive::SettingGroup;
 use skulpin::skia_safe::{Canvas, Paint, Path, Point};
 
 use crate::editor::{Colors, Cursor, CursorShape};
@@ -19,7 +19,7 @@ const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.
 
 // ----------------------------------------------------------------------------
 
-#[setting_prefix("cursor")]
+#[setting_prefix = "cursor"]
 #[derive(Clone, SettingGroup)]
 pub struct CursorSettings {
     antialiasing: bool,
@@ -53,6 +53,7 @@ impl Default for CursorSettings {
     }
 }
 
+/*
 pub fn initialize_settings() {
     SETTINGS.set(&CursorSettings::default());
 
@@ -86,6 +87,7 @@ pub fn initialize_settings() {
         CursorSettings::vfx_particle_curl
     );
 }
+*/
 
 // ----------------------------------------------------------------------------
 
