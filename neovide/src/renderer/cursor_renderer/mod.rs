@@ -20,8 +20,6 @@ const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
 
 const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5)];
 
-// ----------------------------------------------------------------------------
-
 #[setting_prefix = "cursor"]
 #[derive(Clone, SettingGroup)]
 pub struct CursorSettings {
@@ -55,44 +53,6 @@ impl Default for CursorSettings {
         }
     }
 }
-
-/*
-pub fn initialize_settings() {
-    SETTINGS.set(&CursorSettings::default());
-
-    register_nvim_setting!("cursor_antialiasing", CursorSettings::antialiasing);
-    register_nvim_setting!(
-        "cursor_animate_in_insert_mode",
-        CursorSettings::animate_in_insert_mode
-    );
-    register_nvim_setting!("cursor_animation_length", CursorSettings::animation_length);
-    register_nvim_setting!("cursor_trail_size", CursorSettings::trail_size);
-    register_nvim_setting!("cursor_vfx_mode", CursorSettings::vfx_mode);
-    register_nvim_setting!("cursor_vfx_opacity", CursorSettings::vfx_opacity);
-    register_nvim_setting!(
-        "cursor_vfx_particle_lifetime",
-        CursorSettings::vfx_particle_lifetime
-    );
-    register_nvim_setting!(
-        "cursor_vfx_particle_density",
-        CursorSettings::vfx_particle_density
-    );
-    register_nvim_setting!(
-        "cursor_vfx_particle_speed",
-        CursorSettings::vfx_particle_speed
-    );
-    register_nvim_setting!(
-        "cursor_vfx_particle_phase",
-        CursorSettings::vfx_particle_phase
-    );
-    register_nvim_setting!(
-        "cursor_vfx_particle_curl",
-        CursorSettings::vfx_particle_curl
-    );
-}
-*/
-
-// ----------------------------------------------------------------------------
 
 #[derive(Debug, Clone)]
 pub struct Corner {

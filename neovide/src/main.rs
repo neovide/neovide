@@ -31,7 +31,7 @@ use window::window_geometry;
 
 use bridge::start_bridge;
 use editor::start_editor;
-use renderer::cursor_renderer::CursorSettings;
+use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 use settings::SettingGroup;
 use window::create_window;
 
@@ -144,9 +144,10 @@ fn main() {
         }
     }
 
-    window::initialize_settings();
-    redraw_scheduler::initialize_settings();
-    renderer::initialize_settings();
+    window::KeyboardSettings::default().register();
+    window::WindowSettings::default().register();
+    redraw_scheduler::RedrawSettings::default().register();
+    RendererSettings::default().register();
     CursorSettings::default().register();
 
     let running = Arc::new(AtomicBool::new(true));

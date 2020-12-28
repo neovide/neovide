@@ -10,26 +10,24 @@ lazy_static! {
     pub static ref REDRAW_SCHEDULER: RedrawScheduler = RedrawScheduler::new();
 }
 
-#[derive(Clone)]
-struct RedrawSettings {
+#[derive(Clone, SettingGroup)]
+pub struct RedrawSettings {
     extra_buffer_frames: u64,
 }
 
-pub fn initialize_settings() {
-    let buffer_frames = if SETTINGS
-        .neovim_arguments
-        .contains(&String::from("--extraBufferFrames"))
-    {
-        60
-    } else {
-        1
-    };
-
-    SETTINGS.set(&RedrawSettings {
-        extra_buffer_frames: buffer_frames,
-    });
-
-    register_nvim_setting!("extra_buffer_frames", RedrawSettings::extra_buffer_frames);
+impl Default for RedrawSettings {
+    fn default() -> Self {
+        Self {
+            extra_buffer_frames: if SETTINGS
+                .neovim_arguments
+                .contains(&"--extraBufferFrames".to_string())
+            {
+                60
+            } else {
+                1
+            },
+        }
+    }
 }
 
 pub struct RedrawScheduler {

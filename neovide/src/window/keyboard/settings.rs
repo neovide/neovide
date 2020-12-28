@@ -1,17 +1,16 @@
 use super::KeyboardLayout;
-use crate::{
-    register_nvim_setting,
-    settings::{FromValue, Value, SETTINGS},
-};
+use crate::settings::FromValue;
 
-#[derive(Clone)]
+#[setting_prefix = "keyboard"]
+#[derive(Clone, SettingGroup)]
 pub struct KeyboardSettings {
     pub layout: KeyboardLayout,
 }
 
-pub fn initialize_settings() {
-    SETTINGS.set(&KeyboardSettings {
-        layout: KeyboardLayout::Qwerty,
-    });
-    register_nvim_setting!("keyboard_layout", KeyboardSettings::layout);
+impl Default for KeyboardSettings {
+    fn default() -> Self {
+        Self {
+            layout: KeyboardLayout::Qwerty,
+        }
+    }
 }
