@@ -7,7 +7,6 @@ pub fn setting_group(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
     match setting_prefix(input.attrs) {
         Some(prefix) => {
-            println!("{:?}", prefix);
             let mut functions = vec![];
             let mut register_fragments = vec![];
             match input.data {
@@ -17,18 +16,21 @@ pub fn setting_group(item: TokenStream) -> TokenStream {
                             let update_func_name = quote::format_ident!("update_{}", ident);
                             let reader_func_name = quote::format_ident!("reader_{}", ident);
                             functions.push(quote! {
-                                fn #update_func_name (value: Value) {
+                                // TODO: operate on self
+                                fn #update_func_name (value: rmpv::Value) {
+                                    println!("Update");
                                     let mut s = crate::settings::SETTINGS.get::<Self>();
                                     s.#ident.from_value(value);
-                                    SETTINGS.set(&s);
+                                    crate::settings::SETTINGS.set(&s);
                                 }
 
-                                fn #reader_func_name () -> Value {
+                                fn #reader_func_name () -> rmpv::Value {
+                                    println!("Read");
                                     let s = crate::settings::SETTINGS.get::<Self>();
                                     s.#ident.into()
                                 }
                             });
-                            let vim_setting_name = format!("neovide_{}_{}", prefix, ident);
+                            let vim_setting_name = format!("{}_{}", prefix, ident);
                             register_fragments.push(quote! {
                                 crate::settings::SETTINGS.set_setting_handlers(
                                     #vim_setting_name,
@@ -41,16 +43,20 @@ pub fn setting_group(item: TokenStream) -> TokenStream {
                                 field.colon_token,
                                 "Expected named struct fields",
                             )
+                            // issue
                             .to_compile_error();
                         }
                     }
                 }
                 syn::Data::Enum(data) => {
+                    // TODO: This would not correctly get called because
+                    // .to_compile_error() is lazily evaluated
                     syn::Error::new_spanned(data.enum_token, "Derive macro expects a struct")
                         .to_compile_error();
                 }
                 syn::Data::Union(data) => {
                     syn::Error::new_spanned(data.union_token, "Derive macro expects a struct")
+                        // issue
                         .to_compile_error();
                 }
             }
@@ -63,13 +69,13 @@ pub fn setting_group(item: TokenStream) -> TokenStream {
 
                 impl crate::settings::SettingGroup for #name {
                     fn register(&self) {
-                        let s: Self = Default::default();
-                        crate::settings::SETTINGS.set(&s);
+                        println!("Registered");
+                        crate::settings::SETTINGS.set(self);
                         #(#register_fragments)*
                     }
                 }
             };
-            println!("{}", expanded.clone().to_string());
+            println!("{}", expanded.to_string());
             TokenStream::from(expanded)
         }
         None => syn::Error::new_spanned(
