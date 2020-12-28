@@ -38,6 +38,10 @@ pub enum WindowDrawCommand {
     Show,
     Hide,
     Close,
+    Viewport {
+        top_line: f64,
+        bottom_line: f64,
+    }
 }
 
 impl fmt::Debug for WindowDrawCommand {
@@ -58,6 +62,13 @@ impl fmt::Debug for WindowDrawCommand {
             WindowDrawCommand::Show => write!(formatter, "Show"),
             WindowDrawCommand::Hide => write!(formatter, "Hide"),
             WindowDrawCommand::Close => write!(formatter, "Close"),
+            WindowDrawCommand::Viewport { 
+                top_line, 
+                bottom_line 
+            } => write!(
+                formatter, 
+                "Viewport {{ top: {}, bottom: {} }}",
+                top_line, bottom_line),
         }
     }
 }
@@ -374,5 +385,11 @@ impl Window {
 
     pub fn close(&self) {
         self.send_command(WindowDrawCommand::Close);
+    }
+
+    pub fn update_viewport(&self, top_line: f64, bottom_line: f64) {
+        self.send_command(WindowDrawCommand::Viewport {
+            top_line, bottom_line
+        });
     }
 }

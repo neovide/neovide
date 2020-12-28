@@ -218,6 +218,9 @@ impl Editor {
             RedrawEvent::MessageSetPosition { grid, row, .. } => {
                 self.set_message_position(grid, row)
             }
+            RedrawEvent::WindowViewport { grid, top_line, bottom_line, .. } => {
+                self.send_updated_viewport(grid, top_line, bottom_line)
+            }
             _ => {}
         };
     }
@@ -417,6 +420,14 @@ impl Editor {
             for window in self.windows.values() {
                 window.redraw();
             }
+        }
+    }
+
+    fn send_updated_viewport(&mut self, grid: u64, top_line: f64, bottom_line: f64) {
+        if let Some(window) = self.windows.get_mut(&grid) {
+            window.update_viewport(top_line, bottom_line);
+        } else {
+            warn!("viewport event received before window initialized");
         }
     }
 }

@@ -11,14 +11,10 @@ use crate::redraw_scheduler::REDRAW_SCHEDULER;
 
 fn build_window_surface(
     parent_canvas: &mut Canvas,
-    renderer: &Renderer,
-    grid_width: u64,
-    grid_height: u64,
+    pixel_width: i32,
+    pixel_height: i32,
 ) -> Surface {
-    let dimensions = (
-        (grid_width as f32 * renderer.font_width) as i32,
-        (grid_height as f32 * renderer.font_height) as i32,
-    );
+    let dimensions = (pixel_width, pixel_height);
     let mut context = parent_canvas.gpu_context().unwrap();
     let budgeted = Budgeted::Yes;
     let parent_image_info = parent_canvas.image_info();
@@ -41,6 +37,17 @@ fn build_window_surface(
     .expect("Could not create surface")
 }
 
+fn build_window_surface_with_grid_size(
+    parent_canvas: &mut Canvas,
+    renderer: &Renderer,
+    grid_width: u64,
+    grid_height: u64,
+) -> Surface {
+    let pixel_width = (grid_width as f32 * renderer.font_width) as i32;
+    let pixel_height = (grid_height as f32 * renderer.font_height) as i32;
+    build_window_surface(parent_canvas, pixel_width, pixel_height)
+}
+
 fn build_background_window_surface(
     parent_canvas: &mut Canvas,
     renderer: &Renderer,
@@ -61,9 +68,36 @@ fn build_background_window_surface(
     surface
 }
 
+struct SurfacePair {
+    background: Surface,
+    foreground: Surface,
+    top_line: f64,
+    bottom_line: f64
+}
+
+impl SurfacePair {
+    fn new(
+        parent_canvas: &mut Canvas, 
+        renderer: &Renderer, 
+        grid_width: u64, grid_height: u64, 
+        top_line: f64, bottom_line: f64
+    ) -> SurfacePair {
+        let background =
+            build_background_window_surface(parent_canvas, renderer, grid_width, grid_height);
+        let foreground =
+            build_window_surface_with_grid_size(parent_canvas, renderer, grid_width, grid_height);
+
+        SurfacePair { background, foreground, top_line, bottom_line }
+    }
+
+    fn clone(&Self) -> SurfacePair {
+        self.background.
+    }
+}
+
 pub struct RenderedWindow {
-    background_surface: Surface,
-    foreground_surface: Surface,
+    old_surfaces: Vec<SurfacePair>,
+    current_surfaces: SurfacePair,
     pub id: u64,
     pub hidden: bool,
     pub floating: bool,
@@ -215,6 +249,7 @@ impl RenderedWindow {
         renderer: &mut Renderer,
         draw_command: WindowDrawCommand,
     ) -> Self {
+        dbg!(&draw_command);
         match draw_command {
             WindowDrawCommand::Position {
                 grid_left,
@@ -393,6 +428,14 @@ impl RenderedWindow {
                 }
             }
             WindowDrawCommand::Hide => self.hidden = true,
+            WindowDrawCommand::Viewport {
+                top_line, bottom_line
+            } => {
+                // Copy surfaces into new surfaces
+                // Set new target viewport position and initialize animation timer
+                // Add current surfaces to old surface list
+                // Set new surfaces as current surfaces to animate in
+            }
             _ => {}
         };
 

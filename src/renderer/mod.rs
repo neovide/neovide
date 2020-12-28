@@ -211,7 +211,6 @@ impl Renderer {
             }
             DrawCommand::Window { grid_id, command } => {
                 if let Some(rendered_window) = self.rendered_windows.remove(&grid_id) {
-                    warn!("Window positioned {}", grid_id);
                     let rendered_window = rendered_window.handle_window_draw_command(self, command);
                     self.rendered_windows.insert(grid_id, rendered_window);
                 } else if let WindowDrawCommand::Position {

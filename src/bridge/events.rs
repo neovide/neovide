@@ -926,6 +926,7 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
             "win_hide" => Some(parse_win_hide(event_parameters)?),
             "win_close" => Some(parse_win_close(event_parameters)?),
             "msg_set_pos" => Some(parse_msg_set_pos(event_parameters)?),
+            "win_viewport" => Some(parse_win_viewport(event_parameters)?),
             "cmdline_show" => Some(parse_cmdline_show(event_parameters)?),
             "cmdline_pos" => Some(parse_cmdline_pos(event_parameters)?),
             "cmdline_special_char" => Some(parse_cmdline_special_char(event_parameters)?),
