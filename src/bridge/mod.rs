@@ -59,7 +59,11 @@ fn build_nvim_cmd() -> Command {
     }
     #[cfg(windows)]
     if env::args().any(|arg| arg == "--wsl") {
-        if let Ok(output) = std::process::Command::new("wsl").arg("which").arg("nvim").output() {
+        if let Ok(output) = std::process::Command::new("wsl")
+            .arg("which")
+            .arg("nvim")
+            .output()
+        {
             if output.status.success() {
                 let path = String::from_utf8(output.stdout).unwrap();
                 let mut cmd = Command::new("wsl");
