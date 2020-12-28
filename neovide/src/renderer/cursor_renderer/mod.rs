@@ -9,7 +9,6 @@ use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::renderer::animation_utils::*;
 use crate::renderer::CachingShaper;
 use crate::settings::{FromValue, SETTINGS};
-use rmpv::Value;
 
 use blink::*;
 
