@@ -1,13 +1,15 @@
 mod blink;
 mod cursor_vfx;
 
+use neovide_derive::SettingGroup;
 use skulpin::skia_safe::{Canvas, Paint, Path, Point};
 
 use crate::editor::{Colors, Cursor, CursorShape};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::renderer::animation_utils::*;
 use crate::renderer::CachingShaper;
-use crate::settings::*;
+use crate::settings::{FromValue, SETTINGS};
+use rmpv::Value;
 
 use blink::*;
 
@@ -17,7 +19,8 @@ const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.
 
 // ----------------------------------------------------------------------------
 
-#[derive(Clone)]
+#[setting_prefix("cursor")]
+#[derive(Clone, SettingGroup)]
 pub struct CursorSettings {
     antialiasing: bool,
     animation_length: f32,
@@ -32,20 +35,26 @@ pub struct CursorSettings {
     vfx_particle_curl: f32,
 }
 
+impl Default for CursorSettings {
+    fn default() -> Self {
+        CursorSettings {
+            antialiasing: true,
+            animation_length: 0.13,
+            animate_in_insert_mode: true,
+            trail_size: 0.7,
+            vfx_mode: cursor_vfx::VfxMode::Disabled,
+            vfx_opacity: 200.0,
+            vfx_particle_lifetime: 1.2,
+            vfx_particle_density: 7.0,
+            vfx_particle_speed: 10.0,
+            vfx_particle_phase: 1.5,
+            vfx_particle_curl: 1.0,
+        }
+    }
+}
+
 pub fn initialize_settings() {
-    SETTINGS.set(&CursorSettings {
-        antialiasing: true,
-        animation_length: 0.13,
-        animate_in_insert_mode: true,
-        trail_size: 0.7,
-        vfx_mode: cursor_vfx::VfxMode::Disabled,
-        vfx_opacity: 200.0,
-        vfx_particle_lifetime: 1.2,
-        vfx_particle_density: 7.0,
-        vfx_particle_speed: 10.0,
-        vfx_particle_phase: 1.5,
-        vfx_particle_curl: 1.0,
-    });
+    SETTINGS.set(&CursorSettings::default());
 
     register_nvim_setting!("cursor_antialiasing", CursorSettings::antialiasing);
     register_nvim_setting!(

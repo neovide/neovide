@@ -20,6 +20,10 @@ lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new();
 }
 
+pub trait SettingGroup {
+    fn register(&self);
+}
+
 // Macro to register settings changed handlers.
 // Note: Invocations to this macro must happen before the call to Settings::read_initial_values.
 #[macro_export]
