@@ -20,34 +20,23 @@ use crate::editor::{Colors, DrawCommand, Style, WindowDrawCommand};
 use crate::settings::*;
 use cursor_renderer::CursorRenderer;
 
-// ----------------------------------------------------------------------------
-
-#[derive(Clone)]
+#[setting_prefix = "window"]
+#[derive(Clone, SettingGroup)]
 pub struct RendererSettings {
     animation_length: f32,
     floating_opacity: f32,
     floating_blur: bool,
 }
 
-pub fn initialize_settings() {
-    SETTINGS.set(&RendererSettings {
-        animation_length: 0.15,
-        floating_opacity: 0.7,
-        floating_blur: true,
-    });
-
-    register_nvim_setting!(
-        "window_animation_length",
-        RendererSettings::animation_length
-    );
-    register_nvim_setting!(
-        "floating_window_opacity",
-        RendererSettings::floating_opacity
-    );
-    register_nvim_setting!("floating_window_blur", RendererSettings::floating_blur);
+impl Default for RendererSettings {
+    fn default() -> Self {
+        Self {
+            animation_length: 0.15,
+            floating_opacity: 0.7,
+            floating_blur: true,
+        }
+    }
 }
-
-// ----------------------------------------------------------------------------
 
 pub struct Renderer {
     rendered_windows: HashMap<u64, RenderedWindow>,
