@@ -54,7 +54,7 @@ fn build_background_window_surface(
     grid_width: u64,
     grid_height: u64,
 ) -> Surface {
-    let mut surface = build_window_surface(parent_canvas, renderer, grid_width, grid_height);
+    let mut surface = build_window_surface_with_grid_size(parent_canvas, renderer, grid_width, grid_height);
     let canvas = surface.canvas();
     canvas.clear(
         renderer
@@ -68,11 +68,20 @@ fn build_background_window_surface(
     surface
 }
 
+fn clone_window_surface(surface: &mut Surface) -> Surface {
+    let snapshot = surface.image_snapshot();
+    let mut canvas = surface.canvas();
+    let mut new_surface = build_window_surface(&mut canvas, snapshot.width(), snapshot.height());
+    let new_canvas = new_surface.canvas();
+    new_canvas.draw_image(snapshot, (0.0, 0.0), None);
+    new_surface
+}
+
 struct SurfacePair {
     background: Surface,
     foreground: Surface,
-    top_line: f64,
-    bottom_line: f64
+    top_line: f32,
+    bottom_line: f32
 }
 
 impl SurfacePair {
@@ -80,7 +89,7 @@ impl SurfacePair {
         parent_canvas: &mut Canvas, 
         renderer: &Renderer, 
         grid_width: u64, grid_height: u64, 
-        top_line: f64, bottom_line: f64
+        top_line: f32, bottom_line: f32
     ) -> SurfacePair {
         let background =
             build_background_window_surface(parent_canvas, renderer, grid_width, grid_height);
@@ -90,14 +99,21 @@ impl SurfacePair {
         SurfacePair { background, foreground, top_line, bottom_line }
     }
 
-    fn clone(&Self) -> SurfacePair {
-        self.background.
+    fn clone(&mut self) -> SurfacePair {
+        let new_background = clone_window_surface(&mut self.background);
+        let new_foreground = clone_window_surface(&mut self.foreground);
+        SurfacePair {
+            background: new_background,
+            foreground: new_foreground,
+            top_line: self.top_line,
+            bottom_line: self.bottom_line
+        }
     }
 }
 
 pub struct RenderedWindow {
-    old_surfaces: Vec<SurfacePair>,
     current_surfaces: SurfacePair,
+
     pub id: u64,
     pub hidden: bool,
     pub floating: bool,
@@ -108,7 +124,12 @@ pub struct RenderedWindow {
     grid_start_position: Point,
     grid_current_position: Point,
     grid_destination: Point,
-    t: f32,
+    position_t: f32,
+
+    start_scroll: f32,
+    current_scroll: f32,
+    scroll_destination: f32,
+    scroll_t: f32
 }
 
 pub struct WindowDrawDetails {
@@ -126,14 +147,10 @@ impl RenderedWindow {
         grid_width: u64,
         grid_height: u64,
     ) -> RenderedWindow {
-        let background_surface =
-            build_background_window_surface(parent_canvas, renderer, grid_width, grid_height);
-        let foreground_surface =
-            build_window_surface(parent_canvas, renderer, grid_width, grid_height);
+        let current_surfaces = SurfacePair::new(parent_canvas, renderer, grid_width, grid_height, 0.0, 0.0);
 
         RenderedWindow {
-            background_surface,
-            foreground_surface,
+            current_surfaces,
             id,
             hidden: false,
             floating: false,
@@ -144,7 +161,12 @@ impl RenderedWindow {
             grid_start_position: grid_position,
             grid_current_position: grid_position,
             grid_destination: grid_position,
-            t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation
+            position_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation
+
+            start_scroll: 0.0,
+            current_scroll: 0.0,
+            scroll_destination: 0.0,
+            scroll_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation
         }
     }
 
@@ -161,25 +183,43 @@ impl RenderedWindow {
     }
 
     pub fn update(&mut self, settings: &RendererSettings, dt: f32) -> bool {
-        if (self.t - 1.0).abs() < std::f32::EPSILON {
-            return false;
+        let mut animating = false;
+
+        {
+            if (self.position_t - 1.0).abs() < std::f32::EPSILON {
+                // We are at destination, move t out of 0-1 range to stop the animation
+                self.position_t = 2.0;
+            } else {
+                animating = true;
+                self.position_t = (self.position_t + dt / settings.position_animation_length).min(1.0);
+            }
+
+            self.grid_current_position = ease_point(
+                ease_out_expo,
+                self.grid_start_position,
+                self.grid_destination,
+                self.position_t,
+            );
         }
 
-        if (self.t - 1.0).abs() < std::f32::EPSILON {
-            // We are at destination, move t out of 0-1 range to stop the animation
-            self.t = 2.0;
-        } else {
-            self.t = (self.t + dt / settings.animation_length).min(1.0);
+        {
+            if (self.scroll_t - 1.0).abs() < std::f32::EPSILON {
+                // We are at destination, move t out of 0-1 range to stop the animation
+                self.scroll_t = 2.0
+            } else {
+                animating = true;
+                self.scroll_t = (self.scroll_t + dt / settings.scroll_animation_length).min(1.0);
+            }
+
+            self.current_scroll = ease(
+                ease_out_expo,
+                self.start_scroll,
+                self.scroll_destination,
+                self.scroll_t,
+            );
         }
 
-        self.grid_current_position = ease_point(
-            ease_out_expo,
-            self.grid_start_position,
-            self.grid_destination,
-            self.t,
-        );
-
-        true
+        return animating;
     }
 
     pub fn draw(
@@ -216,18 +256,19 @@ impl RenderedWindow {
             paint.set_color(Color::from_argb(a, 255, 255, 255));
         }
 
-        self.background_surface.draw(
+        let scroll_offset = self.current_surfaces.top_line * font_height - self.current_scroll * font_height;
+        self.current_surfaces.background.draw(
             root_canvas.as_mut(),
-            (pixel_region.left(), pixel_region.top()),
+            (pixel_region.left(), pixel_region.top() + scroll_offset),
             Some(&paint),
         );
 
         let mut paint = Paint::default();
         paint.set_blend_mode(BlendMode::SrcOver);
 
-        self.foreground_surface.draw(
+        self.current_surfaces.foreground.draw(
             root_canvas.as_mut(),
-            (pixel_region.left(), pixel_region.top()),
+            (pixel_region.left(), pixel_region.top() + scroll_offset),
             Some(&paint),
         );
 
@@ -249,7 +290,6 @@ impl RenderedWindow {
         renderer: &mut Renderer,
         draw_command: WindowDrawCommand,
     ) -> Self {
-        dbg!(&draw_command);
         match draw_command {
             WindowDrawCommand::Position {
                 grid_left,
@@ -264,13 +304,13 @@ impl RenderedWindow {
                     if self.grid_start_position.x.abs() > f32::EPSILON
                         || self.grid_start_position.y.abs() > f32::EPSILON
                     {
-                        self.t = 0.0; // Reset animation as we have a new destination.
+                        self.position_t = 0.0; // Reset animation as we have a new destination.
                         self.grid_start_position = self.grid_current_position;
                         self.grid_destination = new_destination;
                     } else {
                         // We don't want to animate since the window is animating out of the start location,
                         // so we set t to 2.0 to stop animations.
-                        self.t = 2.0;
+                        self.position_t = 2.0;
                         self.grid_start_position = new_destination;
                         self.grid_destination = new_destination;
                     }
@@ -278,25 +318,25 @@ impl RenderedWindow {
 
                 if grid_width != self.grid_width || grid_height != self.grid_height {
                     {
-                        let mut old_background = self.background_surface;
-                        self.background_surface = build_background_window_surface(
+                        let mut old_background = self.current_surfaces.background;
+                        self.current_surfaces.background = build_background_window_surface(
                             old_background.canvas(),
                             &renderer,
                             grid_width,
                             grid_height,
                         );
-                        old_background.draw(self.background_surface.canvas(), (0.0, 0.0), None);
+                        old_background.draw(self.current_surfaces.background.canvas(), (0.0, 0.0), None);
                     }
 
                     {
-                        let mut old_foreground = self.foreground_surface;
-                        self.foreground_surface = build_window_surface(
+                        let mut old_foreground = self.current_surfaces.foreground;
+                        self.current_surfaces.foreground = build_window_surface_with_grid_size(
                             old_foreground.canvas(),
                             &renderer,
                             grid_width,
                             grid_height,
                         );
-                        old_foreground.draw(self.foreground_surface.canvas(), (0.0, 0.0), None);
+                        old_foreground.draw(self.current_surfaces.foreground.canvas(), (0.0, 0.0), None);
                     }
 
                     self.grid_width = grid_width;
@@ -307,7 +347,7 @@ impl RenderedWindow {
 
                 if self.hidden {
                     self.hidden = false;
-                    self.t = 2.0; // We don't want to animate since the window is becoming visible, so we set t to 2.0 to stop animations.
+                    self.position_t = 2.0; // We don't want to animate since the window is becoming visible, so we set t to 2.0 to stop animations.
                     self.grid_start_position = new_destination;
                     self.grid_destination = new_destination;
                 }
@@ -322,7 +362,7 @@ impl RenderedWindow {
                 let grid_position = (window_left, window_top);
 
                 {
-                    let mut background_canvas = self.background_surface.canvas();
+                    let mut background_canvas = self.current_surfaces.background.canvas();
                     renderer.draw_background(
                         &mut background_canvas,
                         grid_position,
@@ -332,7 +372,7 @@ impl RenderedWindow {
                 }
 
                 {
-                    let mut foreground_canvas = self.foreground_surface.canvas();
+                    let mut foreground_canvas = self.current_surfaces.foreground.canvas();
                     renderer.draw_foreground(
                         &mut foreground_canvas,
                         &text,
@@ -358,8 +398,8 @@ impl RenderedWindow {
                 );
 
                 {
-                    let background_snapshot = self.background_surface.image_snapshot();
-                    let background_canvas = self.background_surface.canvas();
+                    let background_snapshot = self.current_surfaces.background.image_snapshot();
+                    let background_canvas = self.current_surfaces.background.canvas();
 
                     background_canvas.save();
                     background_canvas.clip_rect(scrolled_region, None, Some(false));
@@ -381,8 +421,8 @@ impl RenderedWindow {
                 }
 
                 {
-                    let foreground_snapshot = self.foreground_surface.image_snapshot();
-                    let foreground_canvas = self.foreground_surface.canvas();
+                    let foreground_snapshot = self.current_surfaces.foreground.image_snapshot();
+                    let foreground_canvas = self.current_surfaces.foreground.canvas();
 
                     foreground_canvas.save();
                     foreground_canvas.clip_rect(scrolled_region, None, Some(false));
@@ -404,16 +444,16 @@ impl RenderedWindow {
                 }
             }
             WindowDrawCommand::Clear => {
-                let background_canvas = self.background_surface.canvas();
-                self.background_surface = build_background_window_surface(
+                let background_canvas = self.current_surfaces.background.canvas();
+                self.current_surfaces.background = build_background_window_surface(
                     background_canvas,
                     &renderer,
                     self.grid_width,
                     self.grid_height,
                 );
 
-                let foreground_canvas = self.foreground_surface.canvas();
-                self.foreground_surface = build_window_surface(
+                let foreground_canvas = self.current_surfaces.foreground.canvas();
+                self.current_surfaces.foreground = build_window_surface_with_grid_size(
                     foreground_canvas,
                     &renderer,
                     self.grid_width,
@@ -423,7 +463,7 @@ impl RenderedWindow {
             WindowDrawCommand::Show => {
                 if self.hidden {
                     self.hidden = false;
-                    self.t = 2.0; // We don't want to animate since the window is becoming visible, so we set t to 2.0 to stop animations.
+                    self.position_t = 2.0; // We don't want to animate since the window is becoming visible, so we set t to 2.0 to stop animations.
                     self.grid_start_position = self.grid_destination;
                 }
             }
@@ -431,10 +471,14 @@ impl RenderedWindow {
             WindowDrawCommand::Viewport {
                 top_line, bottom_line
             } => {
-                // Copy surfaces into new surfaces
-                // Set new target viewport position and initialize animation timer
-                // Add current surfaces to old surface list
-                // Set new surfaces as current surfaces to animate in
+                if (self.current_surfaces.top_line - top_line as f32).abs() > std::f32::EPSILON {
+                    self.current_surfaces.top_line = top_line as f32;
+                    self.current_surfaces.bottom_line = bottom_line as f32;
+                    // Set new target viewport position and initialize animation timer
+                    self.start_scroll = self.current_scroll;
+                    self.scroll_destination = top_line as f32;
+                    self.scroll_t = 0.0;
+                }
             }
             _ => {}
         };

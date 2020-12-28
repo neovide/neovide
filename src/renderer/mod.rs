@@ -24,21 +24,27 @@ use cursor_renderer::CursorRenderer;
 
 #[derive(Clone)]
 pub struct RendererSettings {
-    animation_length: f32,
+    position_animation_length: f32,
+    scroll_animation_length: f32,
     floating_opacity: f32,
     floating_blur: bool,
 }
 
 pub fn initialize_settings() {
     SETTINGS.set(&RendererSettings {
-        animation_length: 0.15,
+        position_animation_length: 0.15,
+        scroll_animation_length: 0.3,
         floating_opacity: 0.7,
         floating_blur: true,
     });
 
     register_nvim_setting!(
-        "window_animation_length",
-        RendererSettings::animation_length
+        "window_position_animation_length",
+        RendererSettings::position_animation_length
+    );
+    register_nvim_setting!(
+        "window_scroll_animation_length",
+        RendererSettings::scroll_animation_length
     );
     register_nvim_setting!(
         "floating_window_opacity",
