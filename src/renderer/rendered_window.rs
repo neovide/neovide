@@ -1,3 +1,4 @@
+use std::collections::VecDeque;
 use std::iter;
 
 use skulpin::skia_safe::canvas::{SaveLayerRec, SrcRectConstraint};
@@ -114,7 +115,7 @@ impl SurfacePair {
 }
 
 pub struct RenderedWindow {
-    old_surfaces: Vec<SurfacePair>,
+    old_surfaces: VecDeque<SurfacePair>,
     current_surfaces: SurfacePair,
 
     pub id: u64,
@@ -154,7 +155,7 @@ impl RenderedWindow {
             SurfacePair::new(parent_canvas, renderer, grid_width, grid_height, 0.0, 0.0);
 
         RenderedWindow {
-            old_surfaces: Vec::new(),
+            old_surfaces: VecDeque::new(),
             current_surfaces,
             id,
             hidden: false,
@@ -224,26 +225,9 @@ impl RenderedWindow {
                 self.scroll_destination,
                 self.scroll_t,
             );
-
-            if self.scroll_t < 1.0 {
-                if self.current_scroll < self.scroll_destination {
-                    // Scrolling Down
-                    let viewport_top = self.current_scroll;
-                    // We don't need any old surfaces which are above the top of the current viewport
-                    self.old_surfaces
-                        .retain(|old_pair| old_pair.bottom_line + 1.0 > viewport_top);
-                } else {
-                    // Scrolling Up
-                    // We don't need any old surfaces which are below the bottom of the current
-                    // viewport
-                    let viewport_bottom = self.current_scroll + self.grid_height as f32;
-                    self.old_surfaces
-                        .retain(|old_pair| old_pair.top_line - 1.0 < viewport_bottom);
-                }
-            }
         }
 
-        return animating;
+        animating
     }
 
     pub fn draw(
@@ -544,7 +528,11 @@ impl RenderedWindow {
 
                     let current_surfaces = self.current_surfaces;
                     self.current_surfaces = new_surfaces;
-                    self.old_surfaces.push(current_surfaces);
+                    self.old_surfaces.push_back(current_surfaces);
+
+                    if self.old_surfaces.len() > 5 {
+                        self.old_surfaces.pop_front();
+                    }
                 }
             }
             _ => {}
