@@ -117,6 +117,15 @@ impl Renderer {
         Rect::new(x, y, x + width, y + height)
     }
 
+    fn get_default_background(&self) -> Color {
+        self.default_style
+            .colors
+            .background
+            .clone()
+            .unwrap()
+            .to_color()
+    }
+
     fn draw_background(
         &mut self,
         canvas: &mut Canvas,
@@ -296,6 +305,10 @@ impl Renderer {
 
         coordinate_system_helper.use_logical_coordinates(root_canvas);
 
+        let default_background = self.get_default_background();
+        let font_width = self.font_width;
+        let font_height = self.font_height;
+
         let windows: Vec<&mut RenderedWindow> = {
             let (mut root_windows, mut floating_windows): (
                 Vec<&mut RenderedWindow>,
@@ -318,11 +331,18 @@ impl Renderer {
         };
 
         let settings = SETTINGS.get::<RendererSettings>();
-        let font_width = self.font_width;
-        let font_height = self.font_height;
         self.window_regions = windows
             .into_iter()
-            .map(|window| window.draw(root_canvas, &settings, font_width, font_height, dt))
+            .map(|window| {
+                window.draw(
+                    root_canvas,
+                    &settings,
+                    default_background,
+                    font_width,
+                    font_height,
+                    dt,
+                )
+            })
             .collect();
 
         self.cursor_renderer.draw(

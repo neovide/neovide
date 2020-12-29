@@ -218,9 +218,12 @@ impl Editor {
             RedrawEvent::MessageSetPosition { grid, row, .. } => {
                 self.set_message_position(grid, row)
             }
-            RedrawEvent::WindowViewport { grid, top_line, bottom_line, .. } => {
-                self.send_updated_viewport(grid, top_line, bottom_line)
-            }
+            RedrawEvent::WindowViewport {
+                grid,
+                top_line,
+                bottom_line,
+                ..
+            } => self.send_updated_viewport(grid, top_line, bottom_line),
             _ => {}
         };
     }

@@ -1,3 +1,5 @@
+use std::iter;
+
 use skulpin::skia_safe::canvas::{SaveLayerRec, SrcRectConstraint};
 use skulpin::skia_safe::gpu::SurfaceOrigin;
 use skulpin::skia_safe::{
@@ -54,17 +56,10 @@ fn build_background_window_surface(
     grid_width: u64,
     grid_height: u64,
 ) -> Surface {
-    let mut surface = build_window_surface_with_grid_size(parent_canvas, renderer, grid_width, grid_height);
+    let mut surface =
+        build_window_surface_with_grid_size(parent_canvas, renderer, grid_width, grid_height);
     let canvas = surface.canvas();
-    canvas.clear(
-        renderer
-            .default_style
-            .colors
-            .background
-            .clone()
-            .unwrap()
-            .to_color(),
-    );
+    canvas.clear(renderer.get_default_background());
     surface
 }
 
@@ -81,22 +76,29 @@ struct SurfacePair {
     background: Surface,
     foreground: Surface,
     top_line: f32,
-    bottom_line: f32
+    bottom_line: f32,
 }
 
 impl SurfacePair {
     fn new(
-        parent_canvas: &mut Canvas, 
-        renderer: &Renderer, 
-        grid_width: u64, grid_height: u64, 
-        top_line: f32, bottom_line: f32
+        parent_canvas: &mut Canvas,
+        renderer: &Renderer,
+        grid_width: u64,
+        grid_height: u64,
+        top_line: f32,
+        bottom_line: f32,
     ) -> SurfacePair {
         let background =
             build_background_window_surface(parent_canvas, renderer, grid_width, grid_height);
         let foreground =
             build_window_surface_with_grid_size(parent_canvas, renderer, grid_width, grid_height);
 
-        SurfacePair { background, foreground, top_line, bottom_line }
+        SurfacePair {
+            background,
+            foreground,
+            top_line,
+            bottom_line,
+        }
     }
 
     fn clone(&mut self) -> SurfacePair {
@@ -106,12 +108,13 @@ impl SurfacePair {
             background: new_background,
             foreground: new_foreground,
             top_line: self.top_line,
-            bottom_line: self.bottom_line
+            bottom_line: self.bottom_line,
         }
     }
 }
 
 pub struct RenderedWindow {
+    old_surfaces: Vec<SurfacePair>,
     current_surfaces: SurfacePair,
 
     pub id: u64,
@@ -129,7 +132,7 @@ pub struct RenderedWindow {
     start_scroll: f32,
     current_scroll: f32,
     scroll_destination: f32,
-    scroll_t: f32
+    scroll_t: f32,
 }
 
 pub struct WindowDrawDetails {
@@ -147,9 +150,11 @@ impl RenderedWindow {
         grid_width: u64,
         grid_height: u64,
     ) -> RenderedWindow {
-        let current_surfaces = SurfacePair::new(parent_canvas, renderer, grid_width, grid_height, 0.0, 0.0);
+        let current_surfaces =
+            SurfacePair::new(parent_canvas, renderer, grid_width, grid_height, 0.0, 0.0);
 
         RenderedWindow {
+            old_surfaces: Vec::new(),
             current_surfaces,
             id,
             hidden: false,
@@ -191,7 +196,8 @@ impl RenderedWindow {
                 self.position_t = 2.0;
             } else {
                 animating = true;
-                self.position_t = (self.position_t + dt / settings.position_animation_length).min(1.0);
+                self.position_t =
+                    (self.position_t + dt / settings.position_animation_length).min(1.0);
             }
 
             self.grid_current_position = ease_point(
@@ -205,7 +211,8 @@ impl RenderedWindow {
         {
             if (self.scroll_t - 1.0).abs() < std::f32::EPSILON {
                 // We are at destination, move t out of 0-1 range to stop the animation
-                self.scroll_t = 2.0
+                self.scroll_t = 2.0;
+                self.old_surfaces.clear();
             } else {
                 animating = true;
                 self.scroll_t = (self.scroll_t + dt / settings.scroll_animation_length).min(1.0);
@@ -217,6 +224,23 @@ impl RenderedWindow {
                 self.scroll_destination,
                 self.scroll_t,
             );
+
+            if self.scroll_t < 1.0 {
+                if self.current_scroll < self.scroll_destination {
+                    // Scrolling Down
+                    let viewport_top = self.current_scroll;
+                    // We don't need any old surfaces which are above the top of the current viewport
+                    self.old_surfaces
+                        .retain(|old_pair| old_pair.bottom_line + 1.0 > viewport_top);
+                } else {
+                    // Scrolling Up
+                    // We don't need any old surfaces which are below the bottom of the current
+                    // viewport
+                    let viewport_bottom = self.current_scroll + self.grid_height as f32;
+                    self.old_surfaces
+                        .retain(|old_pair| old_pair.top_line - 1.0 < viewport_bottom);
+                }
+            }
         }
 
         return animating;
@@ -226,6 +250,7 @@ impl RenderedWindow {
         &mut self,
         root_canvas: &mut Canvas,
         settings: &RendererSettings,
+        default_background: Color,
         font_width: f32,
         font_height: f32,
         dt: f32,
@@ -237,7 +262,6 @@ impl RenderedWindow {
         let pixel_region = self.pixel_region(font_width, font_height);
 
         root_canvas.save();
-
         root_canvas.clip_rect(&pixel_region, None, Some(false));
 
         if self.floating && settings.floating_blur {
@@ -250,27 +274,55 @@ impl RenderedWindow {
         }
 
         let mut paint = Paint::default();
+        // We want each surface to overwrite the one underneath and will use layers to ensure
+        // only lower priority surfaces will get clobbered and not the underlying windows
+        paint.set_blend_mode(BlendMode::Src);
 
-        if self.floating {
-            let a = (settings.floating_opacity.min(1.0).max(0.0) * 255.0) as u8;
+        {
+            // Save layer so that setting the blend mode doesn't effect the blur
+            root_canvas.save_layer(&SaveLayerRec::default());
+            let mut a = 255;
+            if self.floating {
+                a = (settings.floating_opacity.min(1.0).max(0.0) * 255.0) as u8;
+            }
+
+            paint.set_color(default_background.with_a(a));
+            root_canvas.draw_rect(pixel_region, &paint);
+
             paint.set_color(Color::from_argb(a, 255, 255, 255));
+
+            for surface_pair in iter::once(&mut self.current_surfaces)
+                .chain(self.old_surfaces.iter_mut())
+                .rev()
+            {
+                let scroll_offset =
+                    surface_pair.top_line * font_height - self.current_scroll * font_height;
+                surface_pair.background.draw(
+                    root_canvas.as_mut(),
+                    (pixel_region.left(), pixel_region.top() + scroll_offset),
+                    Some(&paint),
+                );
+            }
+            root_canvas.restore();
         }
 
-        let scroll_offset = self.current_surfaces.top_line * font_height - self.current_scroll * font_height;
-        self.current_surfaces.background.draw(
-            root_canvas.as_mut(),
-            (pixel_region.left(), pixel_region.top() + scroll_offset),
-            Some(&paint),
-        );
-
-        let mut paint = Paint::default();
-        paint.set_blend_mode(BlendMode::SrcOver);
-
-        self.current_surfaces.foreground.draw(
-            root_canvas.as_mut(),
-            (pixel_region.left(), pixel_region.top() + scroll_offset),
-            Some(&paint),
-        );
+        {
+            // Save layer so that text may safely overwrite images underneath
+            root_canvas.save_layer(&SaveLayerRec::default());
+            for surface_pair in iter::once(&mut self.current_surfaces)
+                .chain(self.old_surfaces.iter_mut())
+                .rev()
+            {
+                let scroll_offset =
+                    surface_pair.top_line * font_height - self.current_scroll * font_height;
+                surface_pair.foreground.draw(
+                    root_canvas.as_mut(),
+                    (pixel_region.left(), pixel_region.top() + scroll_offset),
+                    Some(&paint),
+                );
+            }
+            root_canvas.restore();
+        }
 
         if self.floating {
             root_canvas.restore();
@@ -325,7 +377,11 @@ impl RenderedWindow {
                             grid_width,
                             grid_height,
                         );
-                        old_background.draw(self.current_surfaces.background.canvas(), (0.0, 0.0), None);
+                        old_background.draw(
+                            self.current_surfaces.background.canvas(),
+                            (0.0, 0.0),
+                            None,
+                        );
                     }
 
                     {
@@ -336,7 +392,11 @@ impl RenderedWindow {
                             grid_width,
                             grid_height,
                         );
-                        old_foreground.draw(self.current_surfaces.foreground.canvas(), (0.0, 0.0), None);
+                        old_foreground.draw(
+                            self.current_surfaces.foreground.canvas(),
+                            (0.0, 0.0),
+                            None,
+                        );
                     }
 
                     self.grid_width = grid_width;
@@ -469,15 +529,22 @@ impl RenderedWindow {
             }
             WindowDrawCommand::Hide => self.hidden = true,
             WindowDrawCommand::Viewport {
-                top_line, bottom_line
+                top_line,
+                bottom_line,
             } => {
                 if (self.current_surfaces.top_line - top_line as f32).abs() > std::f32::EPSILON {
-                    self.current_surfaces.top_line = top_line as f32;
-                    self.current_surfaces.bottom_line = bottom_line as f32;
+                    let mut new_surfaces = self.current_surfaces.clone();
+                    new_surfaces.top_line = top_line as f32;
+                    new_surfaces.bottom_line = bottom_line as f32;
+
                     // Set new target viewport position and initialize animation timer
                     self.start_scroll = self.current_scroll;
                     self.scroll_destination = top_line as f32;
                     self.scroll_t = 0.0;
+
+                    let current_surfaces = self.current_surfaces;
+                    self.current_surfaces = new_surfaces;
+                    self.old_surfaces.push(current_surfaces);
                 }
             }
             _ => {}
