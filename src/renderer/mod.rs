@@ -16,6 +16,7 @@ pub use caching_shaper::CachingShaper;
 pub use font_options::*;
 pub use rendered_window::{RenderedWindow, WindowDrawDetails};
 
+use crate::bridge::EditorMode;
 use crate::editor::{Colors, DrawCommand, Style, WindowDrawCommand};
 use crate::settings::*;
 use cursor_renderer::CursorRenderer;
@@ -59,6 +60,7 @@ pub struct Renderer {
     rendered_windows: HashMap<u64, RenderedWindow>,
     cursor_renderer: CursorRenderer,
 
+    pub current_mode: EditorMode,
     pub paint: Paint,
     pub shaper: CachingShaper,
     pub default_style: Arc<Style>,
@@ -73,6 +75,7 @@ impl Renderer {
         let rendered_windows = HashMap::new();
         let cursor_renderer = CursorRenderer::new();
 
+        let current_mode = EditorMode::Unknown(String::from(""));
         let mut paint = Paint::new(colors::WHITE, None);
         paint.set_anti_alias(false);
         let mut shaper = CachingShaper::new();
@@ -88,6 +91,7 @@ impl Renderer {
             rendered_windows,
             cursor_renderer,
 
+            current_mode,
             paint,
             shaper,
             default_style,
@@ -98,14 +102,12 @@ impl Renderer {
         }
     }
 
-    fn update_font(&mut self, guifont_setting: &str) -> bool {
-        let updated = self.shaper.update_font(guifont_setting);
-        if updated {
+    fn update_font(&mut self, guifont_setting: &str) {
+        if self.shaper.update_font(guifont_setting) {
             let (font_width, font_height) = self.shaper.font_base_dimensions();
             self.font_width = font_width;
             self.font_height = font_height.ceil();
         }
-        updated
     }
 
     fn compute_text_region(&self, grid_pos: (u64, u64), cell_width: u64) -> Rect {
@@ -254,12 +256,13 @@ impl Renderer {
                 self.cursor_renderer.update_cursor(new_cursor);
             }
             DrawCommand::FontChanged(new_font) => {
-                if self.update_font(&new_font) {
-                    // Resize all the grids
-                }
+                self.update_font(&new_font);
             }
             DrawCommand::DefaultStyleChanged(new_style) => {
                 self.default_style = Arc::new(new_style);
+            }
+            DrawCommand::ModeChanged(new_mode) => {
+                self.current_mode = new_mode;
             }
             _ => {}
         }
@@ -345,9 +348,14 @@ impl Renderer {
             })
             .collect();
 
+        let windows = &self.rendered_windows;
+        self.cursor_renderer
+            .update_cursor_destination(font_width, font_height, windows);
+
         self.cursor_renderer.draw(
             &self.default_style.colors,
             (self.font_width, self.font_height),
+            &self.current_mode,
             &mut self.shaper,
             root_canvas,
             dt,

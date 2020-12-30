@@ -54,6 +54,7 @@ pub enum DrawCommand {
     UpdateCursor(Cursor),
     FontChanged(String),
     DefaultStyleChanged(Style),
+    ModeChanged(EditorMode),
 }
 
 pub enum WindowCommand {
@@ -71,6 +72,7 @@ impl fmt::Debug for DrawCommand {
             DrawCommand::UpdateCursor(_) => write!(formatter, "UpdateCursor"),
             DrawCommand::FontChanged(_) => write!(formatter, "FontChanged"),
             DrawCommand::DefaultStyleChanged(_) => write!(formatter, "DefaultStyleChanged"),
+            DrawCommand::ModeChanged(_) => write!(formatter, "ModeChanged"),
         }
     }
 }
@@ -80,7 +82,6 @@ pub struct Editor {
     pub cursor: Cursor,
     pub defined_styles: HashMap<u64, Arc<Style>>,
     pub mode_list: Vec<CursorMode>,
-    pub current_mode: EditorMode,
     pub draw_command_batcher: Arc<DrawCommandBatcher>,
     pub window_command_sender: Sender<WindowCommand>,
 }
@@ -95,7 +96,6 @@ impl Editor {
             cursor: Cursor::new(),
             defined_styles: HashMap::new(),
             mode_list: Vec::new(),
-            current_mode: EditorMode::Unknown(String::from("")),
             draw_command_batcher: Arc::new(DrawCommandBatcher::new(batched_draw_command_sender)),
             window_command_sender,
         }
@@ -113,8 +113,10 @@ impl Editor {
             RedrawEvent::ModeChange { mode, mode_index } => {
                 if let Some(cursor_mode) = self.mode_list.get(mode_index as usize) {
                     self.cursor.change_mode(cursor_mode, &self.defined_styles);
-                    self.current_mode = mode;
                 }
+                self.draw_command_batcher
+                    .queue(DrawCommand::ModeChanged(mode))
+                    .ok();
             }
             RedrawEvent::MouseOn => {
                 self.window_command_sender
@@ -391,23 +393,13 @@ impl Editor {
 
     fn send_cursor_info(&mut self) {
         let (grid_left, grid_top) = self.cursor.grid_position;
-        match self.get_window_top_left(self.cursor.parent_window_id) {
-            Some((window_left, window_top)) => {
-                self.cursor.position =
-                    (window_left + grid_left as f64, window_top + grid_top as f64);
-
-                if let Some(window) = self.windows.get(&self.cursor.parent_window_id) {
-                    let (character, double_width) =
-                        window.get_cursor_character(grid_left, grid_top);
-                    self.cursor.character = character;
-                    self.cursor.double_width = double_width;
-                }
-            }
-            None => {
-                self.cursor.position = (grid_left as f64, grid_top as f64);
-                self.cursor.double_width = false;
-                self.cursor.character = " ".to_string();
-            }
+        if let Some(window) = self.windows.get(&self.cursor.parent_window_id) {
+            let (character, double_width) = window.get_cursor_character(grid_left, grid_top);
+            self.cursor.character = character;
+            self.cursor.double_width = double_width;
+        } else {
+            self.cursor.double_width = false;
+            self.cursor.character = " ".to_string();
         }
         self.draw_command_batcher
             .queue(DrawCommand::UpdateCursor(self.cursor.clone()))

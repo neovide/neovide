@@ -73,10 +73,10 @@ fn clone_window_surface(surface: &mut Surface) -> Surface {
     new_surface
 }
 
-struct SurfacePair {
+pub struct SurfacePair {
     background: Surface,
     foreground: Surface,
-    top_line: f32,
+    pub top_line: f32,
     bottom_line: f32,
 }
 
@@ -116,7 +116,7 @@ impl SurfacePair {
 
 pub struct RenderedWindow {
     old_surfaces: VecDeque<SurfacePair>,
-    current_surfaces: SurfacePair,
+    pub current_surfaces: SurfacePair,
 
     pub id: u64,
     pub hidden: bool,
@@ -126,12 +126,12 @@ pub struct RenderedWindow {
     grid_height: u64,
 
     grid_start_position: Point,
-    grid_current_position: Point,
+    pub grid_current_position: Point,
     grid_destination: Point,
     position_t: f32,
 
     start_scroll: f32,
-    current_scroll: f32,
+    pub current_scroll: f32,
     scroll_destination: f32,
     scroll_t: f32,
 }
