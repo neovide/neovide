@@ -28,6 +28,14 @@ Cursor animates into position with a smear effect to improve tracking of cursor 
 
 ![Animated Cursor](./assets/AnimatedCursor.gif)
 
+### Smooth Scrolling
+
+Scroll operations on buffers in neovim will be animated smoothly pixel wise rather than line by line at a time. Note, multigrid must be
+enabled for this to work.
+https://github.com/Kethku/neovide/wiki/Configuration#multiGrid
+
+![Smooth Scrolling](./assets/SmoothScrolling.gif)
+
 ### Animated Windows
 
 Windows animate into position when they are moved making it easier to see how layout changes happen. Note, multigrid must be enabled for 
