@@ -16,6 +16,7 @@ pub use caching_shaper::CachingShaper;
 pub use font_options::*;
 pub use rendered_window::{RenderedWindow, WindowDrawDetails};
 
+use crate::bridge::EditorMode;
 use crate::editor::{Colors, DrawCommand, Style, WindowDrawCommand};
 use crate::settings::*;
 use cursor_renderer::CursorRenderer;
@@ -24,21 +25,27 @@ use cursor_renderer::CursorRenderer;
 
 #[derive(Clone)]
 pub struct RendererSettings {
-    animation_length: f32,
+    position_animation_length: f32,
+    scroll_animation_length: f32,
     floating_opacity: f32,
     floating_blur: bool,
 }
 
 pub fn initialize_settings() {
     SETTINGS.set(&RendererSettings {
-        animation_length: 0.15,
+        position_animation_length: 0.15,
+        scroll_animation_length: 0.3,
         floating_opacity: 0.7,
         floating_blur: true,
     });
 
     register_nvim_setting!(
-        "window_animation_length",
-        RendererSettings::animation_length
+        "window_position_animation_length",
+        RendererSettings::position_animation_length
+    );
+    register_nvim_setting!(
+        "window_scroll_animation_length",
+        RendererSettings::scroll_animation_length
     );
     register_nvim_setting!(
         "floating_window_opacity",
@@ -53,6 +60,7 @@ pub struct Renderer {
     rendered_windows: HashMap<u64, RenderedWindow>,
     cursor_renderer: CursorRenderer,
 
+    pub current_mode: EditorMode,
     pub paint: Paint,
     pub shaper: CachingShaper,
     pub default_style: Arc<Style>,
@@ -67,6 +75,7 @@ impl Renderer {
         let rendered_windows = HashMap::new();
         let cursor_renderer = CursorRenderer::new();
 
+        let current_mode = EditorMode::Unknown(String::from(""));
         let mut paint = Paint::new(colors::WHITE, None);
         paint.set_anti_alias(false);
         let mut shaper = CachingShaper::new();
@@ -82,6 +91,7 @@ impl Renderer {
             rendered_windows,
             cursor_renderer,
 
+            current_mode,
             paint,
             shaper,
             default_style,
@@ -92,14 +102,12 @@ impl Renderer {
         }
     }
 
-    fn update_font(&mut self, guifont_setting: &str) -> bool {
-        let updated = self.shaper.update_font(guifont_setting);
-        if updated {
+    fn update_font(&mut self, guifont_setting: &str) {
+        if self.shaper.update_font(guifont_setting) {
             let (font_width, font_height) = self.shaper.font_base_dimensions();
             self.font_width = font_width;
             self.font_height = font_height.ceil();
         }
-        updated
     }
 
     fn compute_text_region(&self, grid_pos: (u64, u64), cell_width: u64) -> Rect {
@@ -109,6 +117,15 @@ impl Renderer {
         let width = cell_width as f32 * self.font_width as f32;
         let height = self.font_height as f32;
         Rect::new(x, y, x + width, y + height)
+    }
+
+    fn get_default_background(&self) -> Color {
+        self.default_style
+            .colors
+            .background
+            .clone()
+            .unwrap()
+            .to_color()
     }
 
     fn draw_background(
@@ -211,7 +228,6 @@ impl Renderer {
             }
             DrawCommand::Window { grid_id, command } => {
                 if let Some(rendered_window) = self.rendered_windows.remove(&grid_id) {
-                    warn!("Window positioned {}", grid_id);
                     let rendered_window = rendered_window.handle_window_draw_command(self, command);
                     self.rendered_windows.insert(grid_id, rendered_window);
                 } else if let WindowDrawCommand::Position {
@@ -240,12 +256,13 @@ impl Renderer {
                 self.cursor_renderer.update_cursor(new_cursor);
             }
             DrawCommand::FontChanged(new_font) => {
-                if self.update_font(&new_font) {
-                    // Resize all the grids
-                }
+                self.update_font(&new_font);
             }
             DrawCommand::DefaultStyleChanged(new_style) => {
                 self.default_style = Arc::new(new_style);
+            }
+            DrawCommand::ModeChanged(new_mode) => {
+                self.current_mode = new_mode;
             }
             _ => {}
         }
@@ -291,6 +308,10 @@ impl Renderer {
 
         coordinate_system_helper.use_logical_coordinates(root_canvas);
 
+        let default_background = self.get_default_background();
+        let font_width = self.font_width;
+        let font_height = self.font_height;
+
         let windows: Vec<&mut RenderedWindow> = {
             let (mut root_windows, mut floating_windows): (
                 Vec<&mut RenderedWindow>,
@@ -313,16 +334,28 @@ impl Renderer {
         };
 
         let settings = SETTINGS.get::<RendererSettings>();
-        let font_width = self.font_width;
-        let font_height = self.font_height;
         self.window_regions = windows
             .into_iter()
-            .map(|window| window.draw(root_canvas, &settings, font_width, font_height, dt))
+            .map(|window| {
+                window.draw(
+                    root_canvas,
+                    &settings,
+                    default_background,
+                    font_width,
+                    font_height,
+                    dt,
+                )
+            })
             .collect();
+
+        let windows = &self.rendered_windows;
+        self.cursor_renderer
+            .update_cursor_destination(font_width, font_height, windows);
 
         self.cursor_renderer.draw(
             &self.default_style.colors,
             (self.font_width, self.font_height),
+            &self.current_mode,
             &mut self.shaper,
             root_canvas,
             dt,

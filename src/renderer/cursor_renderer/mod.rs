@@ -1,8 +1,12 @@
 mod blink;
 mod cursor_vfx;
 
+use std::collections::HashMap;
+
 use skulpin::skia_safe::{Canvas, Paint, Path, Point};
 
+use super::RenderedWindow;
+use crate::bridge::EditorMode;
 use crate::editor::{Colors, Cursor, CursorShape};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::renderer::animation_utils::*;
@@ -178,6 +182,7 @@ impl Corner {
 pub struct CursorRenderer {
     pub corners: Vec<Corner>,
     cursor: Cursor,
+    destination: Point,
     blink_status: BlinkStatus,
     previous_cursor_shape: Option<CursorShape>,
     cursor_vfx: Option<Box<dyn cursor_vfx::CursorVfx>>,
@@ -189,9 +194,9 @@ impl CursorRenderer {
         let mut renderer = CursorRenderer {
             corners: vec![Corner::new(); 4],
             cursor: Cursor::new(),
+            destination: (0.0, 0.0).into(),
             blink_status: BlinkStatus::new(),
             previous_cursor_shape: None,
-            //cursor_vfx: Box::new(PointHighlight::new(Point{x:0.0, y:0.0}, HighlightMode::Ripple)),
             cursor_vfx: None,
             previous_vfx_mode: cursor_vfx::VfxMode::Disabled,
         };
@@ -233,10 +238,36 @@ impl CursorRenderer {
             .collect::<Vec<Corner>>();
     }
 
+    pub fn update_cursor_destination(
+        &mut self,
+        font_width: f32,
+        font_height: f32,
+        windows: &HashMap<u64, RenderedWindow>,
+    ) {
+        let (cursor_grid_x, cursor_grid_y) = self.cursor.grid_position;
+
+        if let Some(window) = windows.get(&self.cursor.parent_window_id) {
+            self.destination = (
+                (cursor_grid_x as f32 + window.grid_current_position.x) * font_width,
+                (cursor_grid_y as f32 + window.grid_current_position.y
+                    - (window.current_scroll - window.current_surfaces.top_line))
+                    * font_height,
+            )
+                .into();
+        } else {
+            self.destination = (
+                cursor_grid_x as f32 * font_width,
+                cursor_grid_y as f32 * font_height,
+            )
+                .into();
+        }
+    }
+
     pub fn draw(
         &mut self,
         default_colors: &Colors,
         font_size: (f32, f32),
+        current_mode: &EditorMode,
         shaper: &mut CachingShaper,
         canvas: &mut Canvas,
         dt: f32,
@@ -253,7 +284,6 @@ impl CursorRenderer {
         let mut paint = Paint::new(skulpin::skia_safe::colors::WHITE, None);
         paint.set_anti_alias(settings.antialiasing);
 
-        let (grid_x, grid_y) = self.cursor.position;
         let character = self.cursor.character.clone();
 
         let font_width = match (self.cursor.double_width, &self.cursor.shape) {
@@ -263,14 +293,9 @@ impl CursorRenderer {
 
         let font_dimensions: Point = (font_width, font_height).into();
 
-        let in_insert_mode = false;
-        // {
-        // let editor = EDITOR.lock();
-        // matches!(editor.current_mode, EditorMode::Insert)
-        // };
+        let in_insert_mode = matches!(current_mode, EditorMode::Insert);
 
-        let destination: Point = (grid_x as f32 * font_width, grid_y as f32 * font_height).into();
-        let center_destination = destination + font_dimensions * 0.5;
+        let center_destination = self.destination + font_dimensions * 0.5;
         let new_cursor = Some(self.cursor.shape.clone());
 
         if self.previous_cursor_shape != new_cursor {
@@ -340,7 +365,7 @@ impl CursorRenderer {
             let blobs = &shaper.shape_cached(&character, false, false);
 
             for blob in blobs.iter() {
-                canvas.draw_text_blob(&blob, destination, &paint);
+                canvas.draw_text_blob(&blob, self.destination, &paint);
             }
 
             canvas.restore();
