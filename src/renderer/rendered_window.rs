@@ -16,6 +16,7 @@ fn build_window_surface(
     parent_canvas: &mut Canvas,
     pixel_width: i32,
     pixel_height: i32,
+    scaling: f32,
 ) -> Surface {
     let dimensions = (pixel_width, pixel_height);
     let mut context = parent_canvas.gpu_context().unwrap();
@@ -28,7 +29,7 @@ fn build_window_surface(
         parent_image_info.color_space(),
     );
     let surface_origin = SurfaceOrigin::TopLeft;
-    Surface::new_render_target(
+    let mut surface = Surface::new_render_target(
         &mut context,
         budgeted,
         &image_info,
@@ -37,7 +38,11 @@ fn build_window_surface(
         None,
         None,
     )
-    .expect("Could not create surface")
+    .expect("Could not create surface");
+
+    surface.canvas().scale((1.0 / scaling, 1.0 / scaling));
+
+    surface
 }
 
 fn build_window_surface_with_grid_size(
@@ -45,10 +50,11 @@ fn build_window_surface_with_grid_size(
     renderer: &Renderer,
     grid_width: u64,
     grid_height: u64,
+    scaling: f32,
 ) -> Surface {
-    let pixel_width = (grid_width as f32 * renderer.font_width) as i32;
-    let pixel_height = (grid_height as f32 * renderer.font_height) as i32;
-    build_window_surface(parent_canvas, pixel_width, pixel_height)
+    let pixel_width = (grid_width as f32 * renderer.font_width / scaling) as i32;
+    let pixel_height = (grid_height as f32 * renderer.font_height / scaling) as i32;
+    build_window_surface(parent_canvas, pixel_width, pixel_height, scaling)
 }
 
 fn build_background_window_surface(
@@ -56,9 +62,15 @@ fn build_background_window_surface(
     renderer: &Renderer,
     grid_width: u64,
     grid_height: u64,
+    scaling: f32,
 ) -> Surface {
-    let mut surface =
-        build_window_surface_with_grid_size(parent_canvas, renderer, grid_width, grid_height);
+    let mut surface = build_window_surface_with_grid_size(
+        parent_canvas,
+        renderer,
+        grid_width,
+        grid_height,
+        scaling,
+    );
     let canvas = surface.canvas();
     canvas.clear(renderer.get_default_background());
     surface
@@ -66,8 +78,12 @@ fn build_background_window_surface(
 
 fn clone_window_surface(surface: &mut Surface) -> Surface {
     let snapshot = surface.image_snapshot();
-    let mut canvas = surface.canvas();
-    let mut new_surface = build_window_surface(&mut canvas, snapshot.width(), snapshot.height());
+    let mut new_surface = build_window_surface(
+        surface.canvas(),
+        snapshot.width(),
+        snapshot.height(),
+        1.0,
+    );
     let new_canvas = new_surface.canvas();
     new_canvas.draw_image(snapshot, (0.0, 0.0), None);
     new_surface
@@ -88,11 +104,22 @@ impl SurfacePair {
         grid_height: u64,
         top_line: f32,
         bottom_line: f32,
+        scaling: f32,
     ) -> SurfacePair {
-        let background =
-            build_background_window_surface(parent_canvas, renderer, grid_width, grid_height);
-        let foreground =
-            build_window_surface_with_grid_size(parent_canvas, renderer, grid_width, grid_height);
+        let background = build_background_window_surface(
+            parent_canvas,
+            renderer,
+            grid_width,
+            grid_height,
+            scaling,
+        );
+        let foreground = build_window_surface_with_grid_size(
+            parent_canvas,
+            renderer,
+            grid_width,
+            grid_height,
+            scaling,
+        );
 
         SurfacePair {
             background,
@@ -150,9 +177,17 @@ impl RenderedWindow {
         grid_position: Point,
         grid_width: u64,
         grid_height: u64,
+        scaling: f32,
     ) -> RenderedWindow {
-        let current_surfaces =
-            SurfacePair::new(parent_canvas, renderer, grid_width, grid_height, 0.0, 0.0);
+        let current_surfaces = SurfacePair::new(
+            parent_canvas,
+            renderer,
+            grid_width,
+            grid_height,
+            0.0,
+            0.0,
+            scaling,
+        );
 
         RenderedWindow {
             old_surfaces: VecDeque::new(),
@@ -281,10 +316,12 @@ impl RenderedWindow {
             {
                 let scroll_offset =
                     surface_pair.top_line * font_height - self.current_scroll * font_height;
-                surface_pair.background.draw(
-                    root_canvas.as_mut(),
-                    (pixel_region.left(), pixel_region.top() + scroll_offset),
-                    Some(&paint),
+                let background_snapshot = surface_pair.background.image_snapshot();
+                root_canvas.draw_image_rect(
+                    background_snapshot,
+                    None,
+                    pixel_region.with_offset((0.0, scroll_offset)),
+                    &paint,
                 );
             }
             root_canvas.restore();
@@ -299,10 +336,12 @@ impl RenderedWindow {
             {
                 let scroll_offset =
                     surface_pair.top_line * font_height - self.current_scroll * font_height;
-                surface_pair.foreground.draw(
-                    root_canvas.as_mut(),
-                    (pixel_region.left(), pixel_region.top() + scroll_offset),
-                    Some(&paint),
+                let foreground_snapshot = surface_pair.foreground.image_snapshot();
+                root_canvas.draw_image_rect(
+                    foreground_snapshot,
+                    None,
+                    pixel_region.with_offset((0.0, scroll_offset)),
+                    &paint,
                 );
             }
             root_canvas.restore();
@@ -325,6 +364,7 @@ impl RenderedWindow {
         mut self,
         renderer: &mut Renderer,
         draw_command: WindowDrawCommand,
+        scaling: f32,
     ) -> Self {
         match draw_command {
             WindowDrawCommand::Position {
@@ -360,6 +400,7 @@ impl RenderedWindow {
                             &renderer,
                             grid_width,
                             grid_height,
+                            scaling,
                         );
                         old_background.draw(
                             self.current_surfaces.background.canvas(),
@@ -375,6 +416,7 @@ impl RenderedWindow {
                             &renderer,
                             grid_width,
                             grid_height,
+                            scaling,
                         );
                         old_foreground.draw(
                             self.current_surfaces.foreground.canvas(),
@@ -406,9 +448,8 @@ impl RenderedWindow {
                 let grid_position = (window_left, window_top);
 
                 {
-                    let mut background_canvas = self.current_surfaces.background.canvas();
                     renderer.draw_background(
-                        &mut background_canvas,
+                        self.current_surfaces.background.canvas(),
                         grid_position,
                         cell_width,
                         &style,
@@ -416,9 +457,8 @@ impl RenderedWindow {
                 }
 
                 {
-                    let mut foreground_canvas = self.current_surfaces.foreground.canvas();
                     renderer.draw_foreground(
-                        &mut foreground_canvas,
+                        self.current_surfaces.foreground.canvas(),
                         &text,
                         grid_position,
                         cell_width,
@@ -488,20 +528,20 @@ impl RenderedWindow {
                 }
             }
             WindowDrawCommand::Clear => {
-                let background_canvas = self.current_surfaces.background.canvas();
                 self.current_surfaces.background = build_background_window_surface(
-                    background_canvas,
+                    self.current_surfaces.background.canvas(),
                     &renderer,
                     self.grid_width,
                     self.grid_height,
+                    scaling,
                 );
 
-                let foreground_canvas = self.current_surfaces.foreground.canvas();
                 self.current_surfaces.foreground = build_window_surface_with_grid_size(
-                    foreground_canvas,
+                    self.current_surfaces.foreground.canvas(),
                     &renderer,
                     self.grid_width,
                     self.grid_height,
+                    scaling,
                 );
             }
             WindowDrawCommand::Show => {

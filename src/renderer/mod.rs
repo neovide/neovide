@@ -3,7 +3,9 @@ use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 
 use log::{error, trace, warn};
-use skulpin::skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect};
+use skulpin::skia_safe::{
+    colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect, Surface,
+};
 use skulpin::CoordinateSystemHelper;
 
 pub mod animation_utils;
@@ -217,7 +219,12 @@ impl Renderer {
         canvas.restore();
     }
 
-    pub fn handle_draw_command(&mut self, root_canvas: &mut Canvas, draw_command: DrawCommand) {
+    pub fn handle_draw_command(
+        &mut self,
+        root_canvas: &mut Canvas,
+        draw_command: DrawCommand,
+        scaling: f32,
+    ) {
         warn!("{:?}", &draw_command);
         match draw_command {
             DrawCommand::Window {
@@ -228,7 +235,8 @@ impl Renderer {
             }
             DrawCommand::Window { grid_id, command } => {
                 if let Some(rendered_window) = self.rendered_windows.remove(&grid_id) {
-                    let rendered_window = rendered_window.handle_window_draw_command(self, command);
+                    let rendered_window =
+                        rendered_window.handle_window_draw_command(self, command, scaling);
                     self.rendered_windows.insert(grid_id, rendered_window);
                 } else if let WindowDrawCommand::Position {
                     grid_left,
@@ -246,6 +254,7 @@ impl Renderer {
                         (grid_left as f32, grid_top as f32).into(),
                         width,
                         height,
+                        scaling,
                     );
                     self.rendered_windows.insert(grid_id, new_window);
                 } else {
@@ -273,6 +282,7 @@ impl Renderer {
         root_canvas: &mut Canvas,
         coordinate_system_helper: &CoordinateSystemHelper,
         dt: f32,
+        scaling: f32,
     ) -> bool {
         trace!("Rendering");
         let mut font_changed = false;
@@ -287,7 +297,7 @@ impl Renderer {
             if let DrawCommand::FontChanged(_) = draw_command {
                 font_changed = true;
             }
-            self.handle_draw_command(root_canvas, draw_command);
+            self.handle_draw_command(root_canvas, draw_command, scaling);
         }
 
         root_canvas.clear(
