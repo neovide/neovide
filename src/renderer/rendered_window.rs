@@ -133,8 +133,8 @@ pub struct RenderedWindow {
     pub hidden: bool,
     pub floating: bool,
 
-    grid_width: u64,
-    grid_height: u64,
+    pub grid_width: u64,
+    pub grid_height: u64,
 
     grid_start_position: Point,
     pub grid_current_position: Point,
