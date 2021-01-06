@@ -3,9 +3,7 @@ use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 
 use log::{error, trace, warn};
-use skulpin::skia_safe::{
-    colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect, Surface,
-};
+use skulpin::skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect};
 use skulpin::CoordinateSystemHelper;
 
 pub mod animation_utils;
