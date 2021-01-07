@@ -166,11 +166,13 @@ impl Window {
         self.grid_left = grid_left;
         self.grid_top = grid_top;
         self.send_updated_position();
+        self.redraw();
     }
 
     pub fn resize(&mut self, width: u64, height: u64) {
         self.grid.resize(width, height);
         self.send_updated_position();
+        self.redraw();
     }
 
     fn modify_grid(
