@@ -6,6 +6,11 @@ edition = "2018"
 build = "build.rs"
 description = "A simple GUI for Neovim."
 
+[workspace]
+members = [
+    "neovide-derive"
+]
+
 [features]
 default = ["sdl2"]
 embed-fonts = []
@@ -13,6 +18,7 @@ sdl2 = ["skulpin/skulpin_sdl2"]
 winit = ["skulpin/skulpin_winit"]
 
 [dependencies]
+neovide-derive = { path = "neovide-derive" }
 euclid = "0.20.7"
 font-kit = "0.10.0"
 skribo = { git = "https://github.com/linebender/skribo" }

@@ -20,26 +20,8 @@ lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new();
 }
 
-// Macro to register settings changed handlers.
-// Note: Invocations to this macro must happen before the call to Settings::read_initial_values.
-#[macro_export]
-macro_rules! register_nvim_setting {
-    ($vim_setting_name: expr, $type_name:ident :: $field_name: ident) => {{
-        // The update func sets a new value for a setting
-        fn update_func(value: Value) {
-            let mut s = SETTINGS.get::<$type_name>();
-            s.$field_name.from_value(value);
-            SETTINGS.set(&s);
-        }
-
-        // The reader func retrieves the current value for a setting
-        fn reader_func() -> Value {
-            let s = SETTINGS.get::<$type_name>();
-            s.$field_name.into()
-        }
-
-        SETTINGS.set_setting_handlers($vim_setting_name, update_func, reader_func);
-    }};
+pub trait SettingGroup {
+    fn register(&self);
 }
 
 // Function types to handle settings updates

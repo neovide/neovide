@@ -6,10 +6,7 @@ mod token;
 use crate::settings::SETTINGS;
 
 pub use self::{
-    layout::KeyboardLayout,
-    modifiers::Modifiers,
-    settings::{initialize_settings, KeyboardSettings},
-    token::Token,
+    layout::KeyboardLayout, modifiers::Modifiers, settings::KeyboardSettings, token::Token,
 };
 
 type KeycodeToTokenFn<T> = fn(T, bool) -> Option<Token<'static>>;

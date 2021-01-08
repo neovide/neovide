@@ -1505,6 +1505,7 @@ dependencies = [
  "log",
  "lru",
  "mockall",
+ "neovide-derive",
  "nvim-rs",
  "parking_lot",
  "rand",
@@ -1519,6 +1520,14 @@ dependencies = [
  "which 4.0.2",
  "winapi 0.3.9",
  "winres",
+]
+
+[[package]]
+name = "neovide-derive"
+version = "0.1.0"
+dependencies = [
+ "quote 1.0.7",
+ "syn 1.0.54",
 ]
 
 [[package]]

@@ -1,13 +1,14 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 #[macro_use]
-mod settings;
+extern crate neovide_derive;
 
 mod bridge;
 mod editor;
 mod error_handling;
 mod redraw_scheduler;
 mod renderer;
+mod settings;
 mod window;
 
 #[macro_use]
@@ -17,18 +18,17 @@ extern crate rust_embed;
 #[macro_use]
 extern crate lazy_static;
 
-use std::process;
-use std::sync::atomic::AtomicBool;
-use std::sync::mpsc::channel;
-use std::sync::Arc;
+use std::{
+    process,
+    sync::{atomic::AtomicBool, mpsc::channel, Arc},
+};
 
 use crossfire::mpsc::unbounded_future;
 
-use window::window_geometry;
-
 use bridge::start_bridge;
 use editor::start_editor;
-use window::create_window;
+use renderer::{cursor_renderer::CursorSettings, RendererSettings};
+use window::{create_window, window_geometry, KeyboardSettings, WindowSettings};
 
 pub const INITIAL_DIMENSIONS: (u64, u64) = (100, 50);
 
@@ -139,10 +139,11 @@ fn main() {
         }
     }
 
-    window::initialize_settings();
-    redraw_scheduler::initialize_settings();
-    renderer::initialize_settings();
-    renderer::cursor_renderer::initialize_settings();
+    KeyboardSettings::register();
+    WindowSettings::register();
+    redraw_scheduler::RedrawSettings::register();
+    RendererSettings::register();
+    CursorSettings::register();
 
     let running = Arc::new(AtomicBool::new(true));
 
