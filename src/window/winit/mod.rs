@@ -402,6 +402,7 @@ pub fn start_loop(
             logical_size.height,
         ))
         .with_window_icon(Some(icon))
+        .with_maximized(std::env::args().any(|arg| arg == "--maximized"))
         .build(&event_loop)
         .expect("Failed to create window");
     log::info!("window created");

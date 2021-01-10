@@ -60,7 +60,8 @@ impl Settings {
                     !(arg.starts_with("--geometry=")
                         || arg == "--wsl"
                         || arg == "--disowned"
-                        || arg == "--multiGrid")
+                        || arg == "--multiGrid"
+                        || arg == "--maximized")
                 }
             })
             .collect::<Vec<String>>();

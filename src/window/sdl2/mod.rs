@@ -395,7 +395,7 @@ pub fn start_loop(
         .expect("Failed to create sdl video subsystem");
     video_subsystem.text_input().start();
 
-    let sdl_window = video_subsystem
+    let mut sdl_window = video_subsystem
         .window("Neovide", logical_size.width, logical_size.height)
         .position_centered()
         .allow_highdpi()
@@ -403,6 +403,11 @@ pub fn start_loop(
         .vulkan()
         .build()
         .expect("Failed to create window");
+    log::info!("window created");
+
+    if std::env::args().any(|arg| arg == "--maximized") {
+        sdl_window.maximize();
+    }
 
     let skulpin_renderer = {
         let sdl_window_wrapper = Sdl2Window::new(&sdl_window);
