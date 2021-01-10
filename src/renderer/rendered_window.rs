@@ -320,6 +320,8 @@ impl RenderedWindow {
         }
 
         {
+            paint.set_color(Color::WHITE);
+
             // Save layer so that text may safely overwrite images underneath
             root_canvas.save_layer(&SaveLayerRec::default());
 
