@@ -144,7 +144,7 @@ fn main() {
             if let Ok(path) = std::process::Command::new(shell)
                 .arg("-c")
                 .arg(cmd)
-                .output() 
+                .output()
             {
                 env::set_var("PATH", std::str::from_utf8(&path.stdout).unwrap());
             }
