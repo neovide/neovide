@@ -141,7 +141,7 @@ fn main() {
                 "(source /etc/profile && source {} && echo $PATH)",
                 profile_path.to_str().unwrap()
             );
-            if let Ok(path) = process::Command::new(shell).arg("-c").arg(cmd).output() {
+            if let Ok(path) = std::process::Command::new(shell).arg("-c").arg(cmd).output() {
                 env::set_var("PATH", std::str::from_utf8(&path.stdout).unwrap());
             }
         }
