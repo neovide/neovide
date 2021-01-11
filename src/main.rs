@@ -10,6 +10,7 @@ mod redraw_scheduler;
 mod renderer;
 mod settings;
 mod window;
+pub mod windows_utils;
 
 #[macro_use]
 extern crate derive_new;
@@ -18,10 +19,7 @@ extern crate rust_embed;
 #[macro_use]
 extern crate lazy_static;
 
-use std::{
-    process,
-    sync::{atomic::AtomicBool, mpsc::channel, Arc},
-};
+use std::sync::{atomic::AtomicBool, mpsc::channel, Arc};
 
 use crossfire::mpsc::unbounded_future;
 
@@ -29,6 +27,7 @@ use bridge::start_bridge;
 use editor::start_editor;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 use window::{create_window, window_geometry, KeyboardSettings, WindowSettings};
+use windows_utils::attach_parent_console;
 
 pub const INITIAL_DIMENSIONS: (u64, u64) = (100, 50);
 
@@ -101,11 +100,22 @@ fn main() {
     //   another frame next frame, or if it can safely skip drawing to save battery and cpu power.
     //   Multiple other parts of the app "queue_next_frame" function to ensure animations continue
     //   properly or updates to the graphics are pushed to the screen.
+    println!("This is a test");
+
+    if std::env::args().any(|arg| arg == "--version" || arg == "-v") {
+        attach_parent_console();
+        println!("Neovide version: {}", env!("CARGO_PKG_VERSION"));
+    }
+
+    if std::env::args().any(|arg| arg == "--help" || arg == "-h") {
+        attach_parent_console();
+        println!("Neovide: {}", env!("CARGO_PKG_DESCRIPTION"));
+    }
 
     if let Err(err) = window_geometry() {
         eprintln!("{}", err);
-        process::exit(1);
-    };
+        return;
+    }
 
     #[cfg(target_os = "macos")]
     {
@@ -118,7 +128,6 @@ fn main() {
                     .arg("--disowned")
                     .spawn()
                     .is_ok());
-                std::process::exit(0);
             } else {
                 eprintln!("error in disowning process, cannot obtain the path for the current executable, continuing without disowning...");
             }

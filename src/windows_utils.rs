@@ -5,6 +5,7 @@ use winapi::{
     shared::minwindef::{DWORD, HKEY, MAX_PATH},
     um::{
         libloaderapi::GetModuleFileNameA,
+        wincon::{AttachConsole, ATTACH_PARENT_PROCESS},
         winnt::{KEY_WRITE, REG_OPTION_NON_VOLATILE, REG_SZ},
         winreg::{RegCloseKey, RegCreateKeyExA, RegDeleteTreeA, RegSetValueExA, HKEY_CLASSES_ROOT},
     },
@@ -211,4 +212,10 @@ pub fn register_rightclick_file() -> bool {
         RegCloseKey(registry_key);
     }
     true
+}
+
+pub fn attach_parent_console() {
+    unsafe {
+        AttachConsole(ATTACH_PARENT_PROCESS);
+    }
 }
