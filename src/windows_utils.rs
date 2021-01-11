@@ -215,6 +215,7 @@ pub fn register_rightclick_file() -> bool {
 }
 
 pub fn attach_parent_console() {
+    #[cfg(target_os = "windows")]
     unsafe {
         AttachConsole(ATTACH_PARENT_PROCESS);
     }

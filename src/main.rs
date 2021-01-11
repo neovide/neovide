@@ -100,7 +100,6 @@ fn main() {
     //   another frame next frame, or if it can safely skip drawing to save battery and cpu power.
     //   Multiple other parts of the app "queue_next_frame" function to ensure animations continue
     //   properly or updates to the graphics are pushed to the screen.
-    println!("This is a test");
 
     if std::env::args().any(|arg| arg == "--version" || arg == "-v") {
         attach_parent_console();
