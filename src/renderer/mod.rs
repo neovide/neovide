@@ -7,13 +7,11 @@ use skulpin::skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Pai
 use skulpin::CoordinateSystemHelper;
 
 pub mod animation_utils;
-mod caching_shaper;
 pub mod cursor_renderer;
-pub mod font_options;
+mod fonts;
 mod rendered_window;
 
-pub use caching_shaper::CachingShaper;
-pub use font_options::*;
+pub use fonts::caching_shaper::CachingShaper;
 pub use rendered_window::{RenderedWindow, WindowDrawDetails};
 
 use crate::bridge::EditorMode;
