@@ -4,7 +4,7 @@ use nvim_rs::Neovim;
 use tokio::process::ChildStdin;
 
 #[cfg(windows)]
-use crate::settings::windows_registry::{
+use crate::windows_utils::{
     register_rightclick_directory, register_rightclick_file, unregister_rightclick,
 };
 

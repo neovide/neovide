@@ -12,7 +12,6 @@ use nvim_rs::Neovim;
 use parking_lot::RwLock;
 pub use rmpv::Value;
 use tokio::process::ChildStdin;
-pub mod windows_registry;
 
 use crate::error_handling::ResultPanicExplanation;
 
@@ -50,14 +49,12 @@ impl Settings {
                 if arg == "--log" {
                     log_to_file = true;
                     false
-                } else if arg == "--version" || arg == "-v" {
-                    println!("Neovide version: {}", env!("CARGO_PKG_VERSION"));
-                    std::process::exit(0);
-                } else if arg == "--help" || arg == "-h" {
-                    println!("neovide: {}", env!("CARGO_PKG_DESCRIPTION"));
-                    std::process::exit(0);
                 } else {
                     !(arg.starts_with("--geometry=")
+                        || arg == "--version"
+                        || arg == "-v"
+                        || arg == "--help"
+                        || arg == "-h"
                         || arg == "--wsl"
                         || arg == "--disowned"
                         || arg == "--multiGrid"
