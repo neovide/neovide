@@ -358,11 +358,12 @@ impl WinitWindowWrapper {
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
             log::debug!("Render Triggered");
 
+            let scaling = winit_window_wrapper.scale_factor();
             let renderer = &mut self.renderer;
             self.skulpin_renderer.draw(
                 &winit_window_wrapper,
                 |canvas, coordinate_system_helper| {
-                    if renderer.draw_frame(canvas, &coordinate_system_helper, dt) {
+                    if renderer.draw_frame(canvas, &coordinate_system_helper, dt, scaling as f32) {
                         handle_new_grid_size(current_size, &renderer, &ui_command_sender);
                     }
                 },
