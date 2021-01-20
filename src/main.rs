@@ -127,6 +127,7 @@ fn main() {
                     .arg("--disowned")
                     .spawn()
                     .is_ok());
+                return;
             } else {
                 eprintln!("error in disowning process, cannot obtain the path for the current executable, continuing without disowning...");
             }
