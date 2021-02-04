@@ -7,6 +7,7 @@ use crate::{
     redraw_scheduler::REDRAW_SCHEDULER, renderer::Renderer, settings::SETTINGS,
 };
 use crossfire::mpsc::TxUnbounded;
+use image::load_from_memory_with_format;
 use layouts::handle_qwerty_layout;
 use skulpin::{
     ash::prelude::VkResult,
@@ -391,6 +392,35 @@ fn allow_compositing() {
     sdl2::hint::set(name, "0");
 }
 
+fn set_icon(win: &mut sdl2::video::Window) {
+    let icon_data = Asset::get("nvim.ico").expect("Failed to read icon data");
+    let icon = load_from_memory_with_format(&icon_data, image::ImageFormat::ICO)
+        .expect("Failed to parse icon data");
+
+    // SDL2 pixel formats are endianness-dependent. This code may show colours wrong on big endian
+    // platforms, but `image` doesn't seem to have any way of letting us ask it to respect the
+    // platform endianness in its pixel formats.
+    //
+    // It appears that to `image`, RGBA means R G B A linearly laid out in memory, whereas from
+    // what I can tell, SDL2 reads the u32 there and extracts components accordingly, getting
+    // 0xAABBGGRR on x86_64 and other little endian platforms.
+    let icon = icon.into_rgba();
+    let width = icon.width();
+    let height = icon.height();
+    let mut icon = icon.into_raw();
+
+    let surf = sdl2::surface::Surface::from_data(
+        &mut icon,
+        width,
+        height,
+        4 * width,
+        sdl2::pixels::PixelFormatEnum::ABGR8888,
+    )
+    .expect("Failed to create icon surface");
+
+    win.set_icon(surf);
+}
+
 pub fn start_loop(
     window_command_receiver: Receiver<WindowCommand>,
     ui_command_sender: TxUnbounded<UiCommand>,
@@ -418,6 +448,8 @@ pub fn start_loop(
         .build()
         .expect("Failed to create window");
     log::info!("window created");
+
+    set_icon(&mut sdl_window);
 
     if std::env::args().any(|arg| arg == "--maximized") {
         sdl_window.maximize();
