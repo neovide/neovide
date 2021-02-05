@@ -380,6 +380,17 @@ impl Sdl2WindowWrapper {
     }
 }
 
+fn allow_compositing() {
+    // This fixes any vestiges of https://github.com/Kethku/neovide/issues/370
+    // which is an issue where KDE and perhaps others misbehave when compositing is forced off for
+    // a window, as is done by default with SDL2. Since this just sets a hint that will be ignored
+    // if unsupported, it is OK to leave in for all platforms.
+    //
+    // This is `sdl2_sys::SDL_HINT_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR`
+    let name = "SDL_VIDEO_X11_NET_WM_BYPASS_COMPOSITOR";
+    sdl2::hint::set(name, "0");
+}
+
 pub fn start_loop(
     window_command_receiver: Receiver<WindowCommand>,
     ui_command_sender: TxUnbounded<UiCommand>,
@@ -390,6 +401,9 @@ pub fn start_loop(
     sdl2::hint::set("SDL_MOUSE_FOCUS_CLICKTHROUGH", "1");
 
     let context = sdl2::init().expect("Failed to initialize sdl2");
+
+    allow_compositing();
+
     let video_subsystem = context
         .video()
         .expect("Failed to create sdl video subsystem");
