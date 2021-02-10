@@ -397,13 +397,6 @@ fn set_icon(win: &mut sdl2::video::Window) {
     let icon = load_from_memory_with_format(&icon_data, image::ImageFormat::ICO)
         .expect("Failed to parse icon data");
 
-    // SDL2 pixel formats are endianness-dependent. This code may show colours wrong on big endian
-    // platforms, but `image` doesn't seem to have any way of letting us ask it to respect the
-    // platform endianness in its pixel formats.
-    //
-    // It appears that to `image`, RGBA means R G B A linearly laid out in memory, whereas from
-    // what I can tell, SDL2 reads the u32 there and extracts components accordingly, getting
-    // 0xAABBGGRR on x86_64 and other little endian platforms.
     let icon = icon.into_rgba();
     let width = icon.width();
     let height = icon.height();
@@ -414,7 +407,7 @@ fn set_icon(win: &mut sdl2::video::Window) {
         width,
         height,
         4 * width,
-        sdl2::pixels::PixelFormatEnum::ABGR8888,
+        sdl2::pixels::PixelFormatEnum::RGBA32,
     )
     .expect("Failed to create icon surface");
 
