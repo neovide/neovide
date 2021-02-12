@@ -15,7 +15,7 @@ members = [
 default = ["sdl2"]
 embed-fonts = []
 sdl2 = ["skulpin/skulpin_sdl2"]
-winit = ["skulpin/skulpin_winit"]
+winit = ["skulpin/skulpin_winit", "skulpin/winit-23"]
 
 [dependencies]
 neovide-derive = { path = "neovide-derive" }
@@ -23,7 +23,7 @@ euclid = "0.20.7"
 font-kit = "0.10.0"
 skribo = { git = "https://github.com/linebender/skribo" }
 lru = "0.4.3"
-skulpin = { git = "https://github.com/aclysma/skulpin", branch = "master", features = ["skulpin_sdl2"] }
+skulpin = { git = "https://github.com/aclysma/skulpin", branch = "master", default-features = false }
 derive-new = "0.5"
 rmpv = "0.4.4"
 rust-embed = { version = "5.2.0", features = ["debug-embed"] }
