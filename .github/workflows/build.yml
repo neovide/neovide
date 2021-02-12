@@ -41,11 +41,8 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Install Cask
-      run: brew install homebrew/cask 
-
     - name: Install Vulkan SDK
-      run: brew cask install apenngrace/vulkan/vulkan-sdk
+      run: brew install apenngrace/vulkan/vulkan-sdk
 
     - name: Check formatting
       run: |
