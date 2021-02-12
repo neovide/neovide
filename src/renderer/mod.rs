@@ -62,7 +62,9 @@ impl Renderer {
         let mut paint = Paint::new(colors::WHITE, None);
         paint.set_anti_alias(false);
         let mut shaper = CachingShaper::new();
-        let (font_width, font_height) = shaper.font_base_dimensions();
+        let (font_width_raw, font_height_raw) = shaper.font_base_dimensions();
+        let font_width = font_width_raw;
+        let font_height = font_height_raw.ceil();
         let default_style = Arc::new(Style::new(Colors::new(
             Some(colors::WHITE),
             Some(colors::BLACK),
