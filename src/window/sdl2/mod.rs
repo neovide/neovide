@@ -451,7 +451,7 @@ pub fn start_loop(
     let skulpin_renderer = {
         let sdl_window_wrapper = Sdl2Window::new(&sdl_window);
         RendererBuilder::new()
-            .prefer_integrated_gpu()
+            .prefer_discrete_gpu()
             .use_vulkan_debug_layer(false)
             .present_mode_priority(vec![PresentMode::Immediate])
             .coordinate_system(CoordinateSystem::Logical)
