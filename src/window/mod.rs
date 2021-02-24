@@ -3,6 +3,7 @@ mod settings;
 
 #[cfg_attr(feature = "sdl2", path = "sdl2/mod.rs")]
 #[cfg_attr(feature = "winit", path = "winit/mod.rs")]
+#[cfg_attr(feature = "opengl", path = "glutin/mod.rs")]
 mod window_wrapper;
 
 use crate::{
@@ -12,12 +13,13 @@ use crate::{
     INITIAL_DIMENSIONS,
 };
 use crossfire::mpsc::TxUnbounded;
-use skulpin::LogicalSize;
 use std::sync::{atomic::AtomicBool, mpsc::Receiver, Arc};
 
 #[cfg(feature = "sdl2")]
 pub use window_wrapper::start_loop;
 #[cfg(feature = "winit")]
+pub use window_wrapper::start_loop;
+#[cfg(feature = "opengl")]
 pub use window_wrapper::start_loop;
 
 pub use settings::*;
@@ -75,14 +77,15 @@ fn windows_fix_dpi() {
 }
 
 fn handle_new_grid_size(
-    new_size: LogicalSize,
+    new_size: (u32, u32),
     renderer: &Renderer,
     ui_command_sender: &TxUnbounded<UiCommand>,
 ) {
-    if new_size.width > 0 && new_size.height > 0 {
+    let (new_width, new_height) = new_size;
+    if new_width > 0 && new_height > 0 {
         // Add 1 here to make sure resizing doesn't change the grid size on startup
-        let new_width = ((new_size.width + 1) as f32 / renderer.font_width) as u32;
-        let new_height = ((new_size.height + 1) as f32 / renderer.font_height) as u32;
+        let new_width = ((new_width + 1) as f32 / renderer.font_width) as u32;
+        let new_height = ((new_height + 1) as f32 / renderer.font_height) as u32;
         ui_command_sender
             .send(UiCommand::Resize {
                 width: new_width,
@@ -101,10 +104,10 @@ pub fn create_window(
     let (width, height) = window_geometry_or_default();
 
     let renderer = Renderer::new(batched_draw_command_receiver);
-    let logical_size = LogicalSize {
-        width: (width as f32 * renderer.font_width) as u32,
-        height: (height as f32 * renderer.font_height + 1.0) as u32,
-    };
+    let logical_size = (
+        (width as f32 * renderer.font_width) as u32,
+        (height as f32 * renderer.font_height + 1.0) as u32,
+    );
 
     #[cfg(target_os = "windows")]
     windows_fix_dpi();

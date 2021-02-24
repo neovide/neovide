@@ -3,7 +3,7 @@ use std::error;
 use std::fmt;
 
 use rmpv::Value;
-use skulpin::skia_safe::Color4f;
+use skia_safe::Color4f;
 
 use crate::editor::{Colors, CursorMode, CursorShape, Style};
 

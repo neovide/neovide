@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 
-use skulpin::skia_safe::canvas::{SaveLayerRec, SrcRectConstraint};
-use skulpin::skia_safe::gpu::SurfaceOrigin;
-use skulpin::skia_safe::{
+use skia_safe::canvas::{SaveLayerRec, SrcRectConstraint};
+use skia_safe::gpu::SurfaceOrigin;
+use skia_safe::{
     image_filters::blur, BlendMode, Budgeted, Canvas, Color, Image, ImageInfo, Paint, Point, Rect,
     Surface,
 };
@@ -18,7 +18,7 @@ fn build_window_surface(
     pixel_height: i32,
 ) -> Surface {
     let dimensions = (pixel_width, pixel_height);
-    let mut context = parent_canvas.gpu_context().unwrap();
+    let mut context = parent_canvas.recording_context().unwrap();
     let budgeted = Budgeted::Yes;
     let parent_image_info = parent_canvas.image_info();
     let image_info = ImageInfo::new(
