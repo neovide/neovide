@@ -16,7 +16,7 @@ default = ["opengl"]
 embed-fonts = []
 sdl2 = ["skulpin", "skulpin/skulpin_sdl2"]
 winit = ["skulpin", "skulpin/skulpin_winit", "skulpin/winit-23"]
-opengl = ["glutin", "gl", "skia-safe/gl"]
+opengl = ["glutin", "gl", "skia-safe/gl", "skia-safe/x11"]
 
 [dependencies]
 neovide-derive = { path = "neovide-derive" }
