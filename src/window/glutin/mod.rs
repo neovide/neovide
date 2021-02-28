@@ -361,7 +361,7 @@ impl GlutinWindowWrapper {
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
             log::debug!("Render Triggered");
 
-            let scaling = self.windowed_context.window().scale_factor();
+            let scaling = 1.0 / self.windowed_context.window().scale_factor();
             let renderer = &mut self.renderer;
 
             let canvas = self.skia_renderer.canvas();

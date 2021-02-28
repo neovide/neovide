@@ -286,12 +286,13 @@ impl Renderer {
 
         root_canvas.save();
 
+        root_canvas.reset_matrix();
+        root_canvas.scale((1.0 / scaling, 1.0 / scaling));
+
         if let Some(root_window) = self.rendered_windows.get(&1) {
             let clip_rect = root_window.pixel_region(self.font_width, self.font_height);
             root_canvas.clip_rect(&clip_rect, None, Some(false));
         }
-
-        // coordinate_system_helper.use_logical_coordinates(root_canvas);
 
         let default_background = self.get_default_background();
         let font_width = self.font_width;
