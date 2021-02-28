@@ -12,11 +12,8 @@ members = [
 ]
 
 [features]
-default = ["opengl"]
+default = []
 embed-fonts = []
-sdl2 = ["skulpin", "skulpin/skulpin_sdl2"]
-winit = ["skulpin", "skulpin/skulpin_winit", "skulpin/winit-23"]
-opengl = ["glutin", "gl", "skia-safe/gl"]
 
 [dependencies]
 neovide-derive = { path = "neovide-derive" }
@@ -36,17 +33,14 @@ lazy_static = "1.4.0"
 unicode-segmentation = "1.6.0"
 log = "0.4.8"
 flexi_logger = { version = "0.14.6", default-features = false }
-anyhow = "1.0.26"
 parking_lot="0.10.0"
 cfg-if = "0.1.10"
 which = "4"
 dirs = "2"
 rand = "0.7"
-skia-safe = "0.37.0"
-
-glutin = { version = "0.26", optional = true }
-gl = { version = "0.14.0", optional = true }
-skulpin = { git = "https://github.com/aclysma/skulpin", branch = "master", default-features = false, optional = true }
+skia-safe = { version = "0.37.0", features = [ "gl" ] }
+glutin = "0.26"
+gl = "0.14.0"
 
 [dev-dependencies]
 mockall = "0.7.0"
@@ -61,10 +55,6 @@ winapi = { version = "0.3.9", features = ["winuser"] }
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.11"
-sdl2-sys = { version = "0.34.3", default-features = false, features = ["bundled", "static-link"] }
-
-[target.'cfg(macos)'.build-dependencies]
-sdl2-sys = { version = "0.34.3", default-features = false, features = ["bundled", "static-link"] }
 
 [profile.release]
 debug = true

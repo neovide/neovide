@@ -1,9 +1,5 @@
 mod keyboard;
 mod settings;
-
-#[cfg_attr(feature = "sdl2", path = "sdl2/mod.rs")]
-#[cfg_attr(feature = "winit", path = "winit/mod.rs")]
-#[cfg_attr(feature = "opengl", path = "glutin/mod.rs")]
 mod window_wrapper;
 
 use crate::{
@@ -15,11 +11,6 @@ use crate::{
 use crossfire::mpsc::TxUnbounded;
 use std::sync::{atomic::AtomicBool, mpsc::Receiver, Arc};
 
-#[cfg(feature = "sdl2")]
-pub use window_wrapper::start_loop;
-#[cfg(feature = "winit")]
-pub use window_wrapper::start_loop;
-#[cfg(feature = "opengl")]
 pub use window_wrapper::start_loop;
 
 pub use settings::*;

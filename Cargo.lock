@@ -65,12 +65,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "anyhow"
-version = "1.0.38"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afddf7f520a80dbf76e6f50a35bca42a2331ef227a28b3b6dc5c2e2338d114b1"
-
-[[package]]
 name = "arrayref"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -81,26 +75,6 @@ name = "arrayvec"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "23b62fc65de8e4e7f52534fb52b0f3ed04746ae267519eef2a83941e8085068b"
-
-[[package]]
-name = "ash"
-version = "0.31.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c69a8137596e84c22d57f3da1b5de1d4230b1742a710091c85f4d7ce50f00f38"
-dependencies = [
- "libloading",
-]
-
-[[package]]
-name = "ash-window"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "905c4ca25f752e7ab3c3e8f2882625f876e4c3ea5feffbc83f81d697e043afd6"
-dependencies = [
- "ash",
- "raw-window-handle",
- "raw-window-metal",
-]
 
 [[package]]
 name = "async-trait"
@@ -835,15 +809,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
-name = "encoding_rs"
-version = "0.8.26"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "801bbab217d7f79c0062f4f7205b5d4427c6d1a7bd7aafdd1475f7c59d62b283"
-dependencies = [
- "cfg-if 1.0.0",
-]
-
-[[package]]
 name = "env_logger"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1210,7 +1175,7 @@ dependencies = [
  "wayland-client",
  "wayland-egl",
  "winapi 0.3.9",
- "winit 0.24.0",
+ "winit",
 ]
 
 [[package]]
@@ -1709,7 +1674,6 @@ checksum = "c44922cb3dbb1c70b5e5f443d63b64363a898564d739ba5198e3a9138442868d"
 name = "neovide"
 version = "0.6.0"
 dependencies = [
- "anyhow",
  "async-trait",
  "cargo-husky",
  "cfg-if 0.1.10",
@@ -1732,10 +1696,8 @@ dependencies = [
  "rand",
  "rmpv",
  "rust-embed",
- "sdl2-sys",
  "skia-safe",
  "skribo",
- "skulpin",
  "tokio",
  "unicode-segmentation",
  "which 4.0.2",
@@ -2229,18 +2191,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "raw-window-metal"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2cd21ed1cdef7f1b1579b972148ba6058b5b545959a14d91ea83c4f0ea9f289b"
-dependencies = [
- "cocoa 0.24.0",
- "core-graphics 0.22.2",
- "objc",
- "raw-window-handle",
-]
-
-[[package]]
 name = "rayon"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2462,34 +2412,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "sdl2"
-version = "0.34.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcbb85f4211627a7291c83434d6bbfa723e28dcaa53c7606087e3c61929e4b9c"
-dependencies = [
- "bitflags",
- "lazy_static",
- "libc",
- "raw-window-handle",
- "sdl2-sys",
-]
-
-[[package]]
-name = "sdl2-sys"
-version = "0.34.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28d81feded049b9c14eceb4a4f6d596a98cebbd59abdba949c5552a015466d33"
-dependencies = [
- "cfg-if 0.1.10",
- "cmake",
- "flate2",
- "libc",
- "tar",
- "unidiff",
- "version-compare",
-]
-
-[[package]]
 name = "semver"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2628,63 +2550,6 @@ dependencies = [
  "log",
  "pathfinder_geometry",
  "unicode-normalization",
-]
-
-[[package]]
-name = "skulpin"
-version = "0.11.1"
-source = "git+https://github.com/aclysma/skulpin?branch=master#8a913ed52fcbe3cdd2cb97ed245f7e5798ee05c4"
-dependencies = [
- "log",
- "skulpin-app-winit",
- "skulpin-renderer",
- "skulpin-renderer-sdl2",
- "skulpin-renderer-winit",
-]
-
-[[package]]
-name = "skulpin-app-winit"
-version = "0.5.0"
-source = "git+https://github.com/aclysma/skulpin?branch=master#8a913ed52fcbe3cdd2cb97ed245f7e5798ee05c4"
-dependencies = [
- "log",
- "skulpin-renderer",
- "skulpin-renderer-winit",
-]
-
-[[package]]
-name = "skulpin-renderer"
-version = "0.5.0"
-source = "git+https://github.com/aclysma/skulpin?branch=master#8a913ed52fcbe3cdd2cb97ed245f7e5798ee05c4"
-dependencies = [
- "ash",
- "log",
- "skia-bindings",
- "skia-safe",
-]
-
-[[package]]
-name = "skulpin-renderer-sdl2"
-version = "0.5.0"
-source = "git+https://github.com/aclysma/skulpin?branch=master#8a913ed52fcbe3cdd2cb97ed245f7e5798ee05c4"
-dependencies = [
- "ash-window",
- "log",
- "raw-window-handle",
- "sdl2",
- "skulpin-renderer",
-]
-
-[[package]]
-name = "skulpin-renderer-winit"
-version = "0.5.0"
-source = "git+https://github.com/aclysma/skulpin?branch=master#8a913ed52fcbe3cdd2cb97ed245f7e5798ee05c4"
-dependencies = [
- "ash-window",
- "log",
- "raw-window-handle",
- "skulpin-renderer",
- "winit 0.23.0",
 ]
 
 [[package]]
@@ -3079,17 +2944,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7fe0bb3479651439c9112f72b6c505038574c9fbb575ed1bf3b797fa39dd564"
 
 [[package]]
-name = "unidiff"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8a62719acf1933bfdbeb73a657ecd9ecece70b405125267dd549e2e2edc232c"
-dependencies = [
- "encoding_rs",
- "lazy_static",
- "regex",
-]
-
-[[package]]
 name = "untrusted"
 version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3131,12 +2985,6 @@ name = "vec_map"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1bddf1187be692e79c5ffeab891132dfb0f236ed36a43c7ed39f1165ee20191"
-
-[[package]]
-name = "version-compare"
-version = "0.0.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d63556a25bae6ea31b52e640d7c41d1ab27faba4ccb600013837a3d0b3994ca1"
 
 [[package]]
 name = "version_check"
@@ -3394,37 +3242,6 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
-
-[[package]]
-name = "winit"
-version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5bc559da567d8aa671bbcd08304d49e982c7bf2cb91e10288b9188931c1b772"
-dependencies = [
- "bitflags",
- "cocoa 0.23.0",
- "core-foundation 0.9.1",
- "core-graphics 0.22.2",
- "core-video-sys",
- "dispatch",
- "instant",
- "lazy_static",
- "libc",
- "log",
- "mio",
- "mio-extras",
- "ndk",
- "ndk-glue",
- "ndk-sys",
- "objc",
- "parking_lot 0.11.1",
- "percent-encoding",
- "raw-window-handle",
- "smithay-client-toolkit",
- "wayland-client",
- "winapi 0.3.9",
- "x11-dl",
-]
 
 [[package]]
 name = "winit"
