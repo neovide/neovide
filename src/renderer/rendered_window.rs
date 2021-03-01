@@ -209,7 +209,7 @@ impl RenderedWindow {
     pub fn update(&mut self, settings: &RendererSettings, dt: f32) -> bool {
         let mut animating = false;
 
-        {
+        if self.position_t != 2.0 {
             if (self.position_t - 1.0).abs() < std::f32::EPSILON {
                 // We are at destination, move t out of 0-1 range to stop the animation
                 self.position_t = 2.0;
@@ -227,7 +227,7 @@ impl RenderedWindow {
             );
         }
 
-        {
+        if self.scroll_t != 2.0 {
             if (self.scroll_t - 1.0).abs() < std::f32::EPSILON {
                 // We are at destination, move t out of 0-1 range to stop the animation
                 self.scroll_t = 2.0;
