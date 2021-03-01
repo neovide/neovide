@@ -45,13 +45,12 @@ pub struct GlutinWindowWrapper {
     grid_id_under_mouse: u64,
     current_modifiers: Option<ModifiersState>,
     title: String,
-    previous_size: LogicalSize<u32>,
+    previous_size: PhysicalSize<u32>,
     fullscreen: bool,
     cached_size: LogicalSize<u32>,
     cached_position: LogicalPosition<u32>,
     ui_command_sender: TxUnbounded<UiCommand>,
     window_command_receiver: Receiver<WindowCommand>,
-    running: Arc<AtomicBool>,
 }
 
 impl GlutinWindowWrapper {
@@ -90,13 +89,25 @@ impl GlutinWindowWrapper {
         }
     }
 
+    pub fn handle_window_commands(&mut self) {
+        let window_commands: Vec<WindowCommand> = self.window_command_receiver.try_iter().collect();
+        for window_command in window_commands.into_iter() {
+            match window_command {
+                WindowCommand::TitleChanged(new_title) => self.handle_title_changed(new_title),
+                WindowCommand::SetMouseEnabled(mouse_enabled) => self.mouse_enabled = mouse_enabled,
+            }
+        }
+    }
+
     pub fn handle_title_changed(&mut self, new_title: String) {
         self.title = new_title;
         self.windowed_context.window().set_title(&self.title);
     }
 
     pub fn handle_quit(&mut self) {
-        self.running.store(false, Ordering::Relaxed);
+        self.ui_command_sender
+            .send(UiCommand::Quit)
+            .expect("Could not send quit command to bridge");
     }
 
     pub fn handle_keyboard_input(
@@ -342,17 +353,18 @@ impl GlutinWindowWrapper {
         }
     }
 
-    pub fn draw_frame(&mut self, dt: f32) -> bool {
+    pub fn draw_frame(&mut self, dt: f32) {
         let window = self.windowed_context.window();
-        let new_size = window.inner_size().to_logical(window.scale_factor());
+        let new_size = window.inner_size();
         if self.previous_size != new_size {
+            self.previous_size = new_size;
+            let new_size = new_size.to_logical(window.scale_factor());
             handle_new_grid_size(
                 (new_size.width, new_size.height),
                 &self.renderer,
                 &self.ui_command_sender,
             );
             self.skia_renderer.resize(&self.windowed_context);
-            self.previous_size = new_size;
         }
 
         let current_size = self.previous_size;
@@ -373,10 +385,6 @@ impl GlutinWindowWrapper {
             canvas.flush();
 
             self.windowed_context.swap_buffers().unwrap();
-
-            true
-        } else {
-            false
         }
     }
 }
@@ -417,6 +425,7 @@ pub fn start_loop(
         .build_windowed(winit_window_builder, &event_loop)
         .unwrap();
     let windowed_context = unsafe { windowed_context.make_current().unwrap() };
+    let previous_size = logical_size.to_physical(windowed_context.window().scale_factor());
 
     log::info!("window created");
 
@@ -432,17 +441,15 @@ pub fn start_loop(
         grid_id_under_mouse: 0,
         current_modifiers: None,
         title: String::from("Neovide"),
-        previous_size: logical_size,
+        previous_size,
         fullscreen: false,
         cached_size: LogicalSize::new(0, 0),
         cached_position: LogicalPosition::new(0, 0),
         ui_command_sender,
         window_command_receiver,
-        running: running.clone(),
     };
 
-    let mut was_animating = false;
-    let previous_frame_start = Instant::now();
+    let mut previous_frame_start = Instant::now();
 
     event_loop.run(move |e, _window_target, control_flow| {
         if !running.load(Ordering::Relaxed) {
@@ -451,37 +458,20 @@ pub fn start_loop(
 
         let frame_start = Instant::now();
 
-        let refresh_rate = { SETTINGS.get::<WindowSettings>().refresh_rate as f32 };
-        let dt = if was_animating {
-            previous_frame_start.elapsed().as_secs_f32()
-        } else {
-            1.0 / refresh_rate
-        };
-
+        window_wrapper.handle_window_commands();
         window_wrapper.synchronize_settings();
-
         window_wrapper.handle_event(e);
 
-        let window_commands: Vec<WindowCommand> =
-            window_wrapper.window_command_receiver.try_iter().collect();
-        for window_command in window_commands.into_iter() {
-            match window_command {
-                WindowCommand::TitleChanged(new_title) => {
-                    window_wrapper.handle_title_changed(new_title)
-                }
-                WindowCommand::SetMouseEnabled(mouse_enabled) => {
-                    window_wrapper.mouse_enabled = mouse_enabled
-                }
-            }
+        let refresh_rate = { SETTINGS.get::<WindowSettings>().refresh_rate as f32 };
+        let expected_frame_length_seconds = 1.0 / refresh_rate;
+        let frame_duration = Duration::from_secs_f32(expected_frame_length_seconds);
+
+        if frame_start - previous_frame_start > frame_duration {
+            let dt = previous_frame_start.elapsed().as_secs_f32();
+            window_wrapper.draw_frame(dt);
+            previous_frame_start = frame_start;
         }
 
-        was_animating = window_wrapper.draw_frame(dt);
-
-        let elapsed = frame_start.elapsed();
-        let frame_length = Duration::from_secs_f32(1.0 / refresh_rate);
-
-        if elapsed < frame_length {
-            *control_flow = ControlFlow::WaitUntil(Instant::now() + frame_length);
-        }
+        *control_flow = ControlFlow::Poll;
     });
 }
