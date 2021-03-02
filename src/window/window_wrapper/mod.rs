@@ -472,6 +472,6 @@ pub fn start_loop(
             previous_frame_start = frame_start;
         }
 
-        *control_flow = ControlFlow::Poll;
+        *control_flow = ControlFlow::WaitUntil(previous_frame_start + frame_duration)
     });
 }
