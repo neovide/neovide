@@ -3,8 +3,8 @@ use std::collections::HashMap;
 use font_kit::metrics::Metrics;
 use log::{trace, warn};
 use lru::LruCache;
+use skia_safe::{Font as SkiaFont, TextBlob, TextBlobBuilder};
 use skribo::{FontCollection, FontRef as SkriboFont, LayoutSession, TextStyle};
-use skulpin::skia_safe::{Font as SkiaFont, TextBlob, TextBlobBuilder};
 
 use super::font_loader::*;
 use super::font_options::*;

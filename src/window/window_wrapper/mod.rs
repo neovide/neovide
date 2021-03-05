@@ -1,5 +1,6 @@
 #[macro_use]
 mod layouts;
+mod renderer;
 
 use super::{handle_new_grid_size, keyboard::neovim_keybinding_string, settings::WindowSettings};
 use crate::{
@@ -7,22 +8,20 @@ use crate::{
     redraw_scheduler::REDRAW_SCHEDULER, renderer::Renderer, settings::SETTINGS,
 };
 use crossfire::mpsc::TxUnbounded;
+use glutin::{
+    self,
+    dpi::{LogicalPosition, LogicalSize, PhysicalSize},
+    event::{
+        ElementState, Event, ModifiersState, MouseButton, MouseScrollDelta,
+        VirtualKeyCode as Keycode, WindowEvent,
+    },
+    event_loop::{ControlFlow, EventLoop},
+    window::{self, Fullscreen, Icon},
+    ContextBuilder, GlProfile, WindowedContext,
+};
 use image::{load_from_memory, GenericImageView, Pixel};
 use layouts::handle_qwerty_layout;
-use skulpin::{
-    ash::prelude::VkResult,
-    winit::{
-        self,
-        event::{
-            ElementState, Event, ModifiersState, MouseButton, MouseScrollDelta,
-            VirtualKeyCode as Keycode, WindowEvent,
-        },
-        event_loop::{ControlFlow, EventLoop},
-        window::{Fullscreen, Icon},
-    },
-    CoordinateSystem, LogicalSize, PhysicalSize, PresentMode, Renderer as SkulpinRenderer,
-    RendererBuilder, Window, WinitWindow,
-};
+use renderer::SkiaRenderer;
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -36,49 +35,47 @@ use std::{
 #[folder = "assets/"]
 struct Asset;
 
-pub struct WinitWindowWrapper {
-    window: winit::window::Window,
-    skulpin_renderer: SkulpinRenderer,
+pub struct GlutinWindowWrapper {
+    windowed_context: WindowedContext<glutin::PossiblyCurrent>,
+    skia_renderer: SkiaRenderer,
     renderer: Renderer,
     mouse_down: bool,
-    mouse_position: LogicalSize,
+    mouse_position: LogicalPosition<u32>,
     mouse_enabled: bool,
     grid_id_under_mouse: u64,
     current_modifiers: Option<ModifiersState>,
     title: String,
-    previous_size: LogicalSize,
+    previous_size: PhysicalSize<u32>,
     fullscreen: bool,
-    cached_size: LogicalSize,
-    cached_position: LogicalSize,
+    cached_size: LogicalSize<u32>,
+    cached_position: LogicalPosition<u32>,
     ui_command_sender: TxUnbounded<UiCommand>,
     window_command_receiver: Receiver<WindowCommand>,
-    running: Arc<AtomicBool>,
 }
 
-impl WinitWindowWrapper {
+impl GlutinWindowWrapper {
     pub fn toggle_fullscreen(&mut self) {
+        let window = self.windowed_context.window();
         if self.fullscreen {
-            self.window.set_fullscreen(None);
+            window.set_fullscreen(None);
 
             // Use cached size and position
-            self.window.set_inner_size(winit::dpi::LogicalSize::new(
+            window.set_inner_size(LogicalSize::new(
                 self.cached_size.width,
                 self.cached_size.height,
             ));
-            self.window
-                .set_outer_position(winit::dpi::LogicalPosition::new(
-                    self.cached_position.width,
-                    self.cached_position.height,
-                ));
+            window.set_outer_position(LogicalPosition::new(
+                self.cached_position.x,
+                self.cached_position.y,
+            ));
         } else {
-            let current_size = self.window.inner_size();
+            let current_size = window.inner_size();
             self.cached_size = LogicalSize::new(current_size.width, current_size.height);
-            let current_position = self.window.outer_position().unwrap();
+            let current_position = window.outer_position().unwrap();
             self.cached_position =
-                LogicalSize::new(current_position.x as u32, current_position.y as u32);
-            let handle = self.window.current_monitor();
-            self.window
-                .set_fullscreen(Some(Fullscreen::Borderless(handle)));
+                LogicalPosition::new(current_position.x as u32, current_position.y as u32);
+            let handle = window.current_monitor();
+            window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
         }
 
         self.fullscreen = !self.fullscreen;
@@ -92,13 +89,25 @@ impl WinitWindowWrapper {
         }
     }
 
+    pub fn handle_window_commands(&mut self) {
+        let window_commands: Vec<WindowCommand> = self.window_command_receiver.try_iter().collect();
+        for window_command in window_commands.into_iter() {
+            match window_command {
+                WindowCommand::TitleChanged(new_title) => self.handle_title_changed(new_title),
+                WindowCommand::SetMouseEnabled(mouse_enabled) => self.mouse_enabled = mouse_enabled,
+            }
+        }
+    }
+
     pub fn handle_title_changed(&mut self, new_title: String) {
         self.title = new_title;
-        self.window.set_title(&self.title);
+        self.windowed_context.window().set_title(&self.title);
     }
 
     pub fn handle_quit(&mut self) {
-        self.running.store(false, Ordering::Relaxed);
+        self.ui_command_sender
+            .send(UiCommand::Quit)
+            .expect("Could not send quit command to bridge");
     }
 
     pub fn handle_keyboard_input(
@@ -127,9 +136,9 @@ impl WinitWindowWrapper {
 
     pub fn handle_pointer_motion(&mut self, x: i32, y: i32) {
         let previous_position = self.mouse_position;
-        let winit_window_wrapper = WinitWindow::new(&self.window);
-        let logical_position =
-            PhysicalSize::new(x as u32, y as u32).to_logical(winit_window_wrapper.scale_factor());
+
+        let logical_position: LogicalSize<u32> = PhysicalSize::new(x as u32, y as u32)
+            .to_logical(self.windowed_context.window().scale_factor());
 
         let mut top_window_position = (0.0, 0.0);
         let mut top_grid_position = None;
@@ -143,7 +152,7 @@ impl WinitWindowWrapper {
                 top_window_position = (details.region.left, details.region.top);
                 top_grid_position = Some((
                     details.id,
-                    LogicalSize::new(
+                    LogicalSize::<u32>::new(
                         logical_position.width - details.region.left as u32,
                         logical_position.height - details.region.top as u32,
                     ),
@@ -154,7 +163,7 @@ impl WinitWindowWrapper {
 
         if let Some((grid_id, grid_position, grid_floating)) = top_grid_position {
             self.grid_id_under_mouse = grid_id;
-            self.mouse_position = LogicalSize::new(
+            self.mouse_position = LogicalPosition::new(
                 (grid_position.width as f32 / self.renderer.font_width) as u32,
                 (grid_position.height as f32 / self.renderer.font_height) as u32,
             );
@@ -166,12 +175,12 @@ impl WinitWindowWrapper {
                 // case non floating windows. Floating windows correctly transform mouse positions
                 // into grid coordinates, but non floating windows do not.
                 let position = if grid_floating {
-                    (self.mouse_position.width, self.mouse_position.height)
+                    (self.mouse_position.x, self.mouse_position.y)
                 } else {
                     let adjusted_drag_left =
-                        self.mouse_position.width + (window_left / self.renderer.font_width) as u32;
-                    let adjusted_drag_top = self.mouse_position.height
-                        + (window_top / self.renderer.font_height) as u32;
+                        self.mouse_position.x + (window_left / self.renderer.font_width) as u32;
+                    let adjusted_drag_top =
+                        self.mouse_position.y + (window_top / self.renderer.font_height) as u32;
                     (adjusted_drag_left, adjusted_drag_top)
                 };
 
@@ -191,7 +200,7 @@ impl WinitWindowWrapper {
                 .send(UiCommand::MouseButton {
                     action: String::from("press"),
                     grid_id: self.grid_id_under_mouse,
-                    position: (self.mouse_position.width, self.mouse_position.height),
+                    position: (self.mouse_position.x, self.mouse_position.y),
                 })
                 .ok();
         }
@@ -204,7 +213,7 @@ impl WinitWindowWrapper {
                 .send(UiCommand::MouseButton {
                     action: String::from("release"),
                     grid_id: self.grid_id_under_mouse,
-                    position: (self.mouse_position.width, self.mouse_position.height),
+                    position: (self.mouse_position.x, self.mouse_position.y),
                 })
                 .ok();
         }
@@ -227,7 +236,7 @@ impl WinitWindowWrapper {
                 .send(UiCommand::Scroll {
                     direction: input_type.to_string(),
                     grid_id: self.grid_id_under_mouse,
-                    position: (self.mouse_position.width, self.mouse_position.height),
+                    position: (self.mouse_position.x, self.mouse_position.y),
                 })
                 .ok();
         }
@@ -243,7 +252,7 @@ impl WinitWindowWrapper {
                 .send(UiCommand::Scroll {
                     direction: input_type.to_string(),
                     grid_id: self.grid_id_under_mouse,
-                    position: (self.mouse_position.width, self.mouse_position.height),
+                    position: (self.mouse_position.x, self.mouse_position.y),
                 })
                 .ok();
         }
@@ -344,12 +353,18 @@ impl WinitWindowWrapper {
         }
     }
 
-    pub fn draw_frame(&mut self, dt: f32) -> VkResult<bool> {
-        let winit_window_wrapper = WinitWindow::new(&self.window);
-        let new_size = winit_window_wrapper.logical_size();
+    pub fn draw_frame(&mut self, dt: f32) {
+        let window = self.windowed_context.window();
+        let new_size = window.inner_size();
         if self.previous_size != new_size {
-            handle_new_grid_size(new_size, &self.renderer, &self.ui_command_sender);
             self.previous_size = new_size;
+            let new_size = new_size.to_logical(window.scale_factor());
+            handle_new_grid_size(
+                (new_size.width, new_size.height),
+                &self.renderer,
+                &self.ui_command_sender,
+            );
+            self.skia_renderer.resize(&self.windowed_context);
         }
 
         let current_size = self.previous_size;
@@ -358,20 +373,18 @@ impl WinitWindowWrapper {
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
             log::debug!("Render Triggered");
 
-            let scaling = winit_window_wrapper.scale_factor();
+            let scaling = 1.0 / self.windowed_context.window().scale_factor();
             let renderer = &mut self.renderer;
-            self.skulpin_renderer.draw(
-                &winit_window_wrapper,
-                |canvas, coordinate_system_helper| {
-                    if renderer.draw_frame(canvas, &coordinate_system_helper, dt, scaling as f32) {
-                        handle_new_grid_size(current_size, &renderer, &ui_command_sender);
-                    }
-                },
-            )?;
 
-            Ok(true)
-        } else {
-            Ok(false)
+            let canvas = self.skia_renderer.canvas();
+
+            if renderer.draw_frame(canvas, dt, scaling as f32) {
+                handle_new_grid_size(current_size.into(), &renderer, &ui_command_sender);
+            }
+
+            canvas.flush();
+
+            self.windowed_context.swap_buffers().unwrap();
         }
     }
 }
@@ -380,7 +393,7 @@ pub fn start_loop(
     window_command_receiver: Receiver<WindowCommand>,
     ui_command_sender: TxUnbounded<UiCommand>,
     running: Arc<AtomicBool>,
-    logical_size: LogicalSize,
+    logical_size: (u32, u32),
     renderer: Renderer,
 ) {
     let icon = {
@@ -396,102 +409,69 @@ pub fn start_loop(
     log::info!("icon created");
 
     let event_loop = EventLoop::new();
-    let winit_window = winit::window::WindowBuilder::new()
+    let logical_size: LogicalSize<u32> = logical_size.into();
+    let winit_window_builder = window::WindowBuilder::new()
         .with_title("Neovide")
-        .with_inner_size(winit::dpi::LogicalSize::new(
-            logical_size.width,
-            logical_size.height,
-        ))
+        .with_inner_size(logical_size)
         .with_window_icon(Some(icon))
-        .with_maximized(std::env::args().any(|arg| arg == "--maximized"))
-        .build(&event_loop)
-        .expect("Failed to create window");
+        .with_maximized(std::env::args().any(|arg| arg == "--maximized"));
+
+    let windowed_context = ContextBuilder::new()
+        .with_depth_buffer(0)
+        .with_stencil_buffer(0)
+        .with_pixel_format(24, 8)
+        .with_double_buffer(Some(true))
+        .with_gl_profile(GlProfile::Core)
+        .build_windowed(winit_window_builder, &event_loop)
+        .unwrap();
+    let windowed_context = unsafe { windowed_context.make_current().unwrap() };
+    let previous_size = logical_size.to_physical(windowed_context.window().scale_factor());
+
     log::info!("window created");
 
-    let skulpin_renderer = {
-        let winit_window_wrapper = WinitWindow::new(&winit_window);
-        RendererBuilder::new()
-            .prefer_integrated_gpu()
-            .use_vulkan_debug_layer(false)
-            .present_mode_priority(vec![PresentMode::Immediate])
-            .coordinate_system(CoordinateSystem::Logical)
-            .build(&winit_window_wrapper)
-            .expect("Failed to create renderer")
-    };
+    let skia_renderer = SkiaRenderer::new(&windowed_context);
 
-    let mut window_wrapper = WinitWindowWrapper {
-        window: winit_window,
-        skulpin_renderer,
+    let mut window_wrapper = GlutinWindowWrapper {
+        windowed_context,
+        skia_renderer,
         renderer,
         mouse_down: false,
-        mouse_position: LogicalSize {
-            width: 0,
-            height: 0,
-        },
+        mouse_position: LogicalPosition::new(0, 0),
         mouse_enabled: true,
         grid_id_under_mouse: 0,
         current_modifiers: None,
         title: String::from("Neovide"),
-        previous_size: logical_size,
+        previous_size,
         fullscreen: false,
         cached_size: LogicalSize::new(0, 0),
-        cached_position: LogicalSize::new(0, 0),
+        cached_position: LogicalPosition::new(0, 0),
         ui_command_sender,
         window_command_receiver,
-        running: running.clone(),
     };
 
-    let mut was_animating = false;
-    let previous_frame_start = Instant::now();
+    let mut previous_frame_start = Instant::now();
 
     event_loop.run(move |e, _window_target, control_flow| {
         if !running.load(Ordering::Relaxed) {
-            *control_flow = ControlFlow::Exit;
-            return;
+            std::process::exit(0);
         }
 
         let frame_start = Instant::now();
 
-        let refresh_rate = { SETTINGS.get::<WindowSettings>().refresh_rate as f32 };
-        let dt = if was_animating {
-            previous_frame_start.elapsed().as_secs_f32()
-        } else {
-            1.0 / refresh_rate
-        };
-
+        window_wrapper.handle_window_commands();
         window_wrapper.synchronize_settings();
-
         window_wrapper.handle_event(e);
 
-        let window_commands: Vec<WindowCommand> =
-            window_wrapper.window_command_receiver.try_iter().collect();
-        for window_command in window_commands.into_iter() {
-            match window_command {
-                WindowCommand::TitleChanged(new_title) => {
-                    window_wrapper.handle_title_changed(new_title)
-                }
-                WindowCommand::SetMouseEnabled(mouse_enabled) => {
-                    window_wrapper.mouse_enabled = mouse_enabled
-                }
-            }
+        let refresh_rate = { SETTINGS.get::<WindowSettings>().refresh_rate as f32 };
+        let expected_frame_length_seconds = 1.0 / refresh_rate;
+        let frame_duration = Duration::from_secs_f32(expected_frame_length_seconds);
+
+        if frame_start - previous_frame_start > frame_duration {
+            let dt = previous_frame_start.elapsed().as_secs_f32();
+            window_wrapper.draw_frame(dt);
+            previous_frame_start = frame_start;
         }
 
-        match window_wrapper.draw_frame(dt) {
-            Ok(animating) => {
-                was_animating = animating;
-            }
-            Err(error) => {
-                log::error!("Render failed: {}", error);
-                window_wrapper.running.store(false, Ordering::Relaxed);
-                return;
-            }
-        }
-
-        let elapsed = frame_start.elapsed();
-        let frame_length = Duration::from_secs_f32(1.0 / refresh_rate);
-
-        if elapsed < frame_length {
-            *control_flow = ControlFlow::WaitUntil(Instant::now() + frame_length);
-        }
+        *control_flow = ControlFlow::WaitUntil(previous_frame_start + frame_duration)
     });
 }
