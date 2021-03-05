@@ -3,8 +3,7 @@ use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 
 use log::{error, trace, warn};
-use skulpin::skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect};
-use skulpin::CoordinateSystemHelper;
+use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect};
 
 pub mod animation_utils;
 pub mod cursor_renderer;
@@ -259,13 +258,7 @@ impl Renderer {
         }
     }
 
-    pub fn draw_frame(
-        &mut self,
-        root_canvas: &mut Canvas,
-        coordinate_system_helper: &CoordinateSystemHelper,
-        dt: f32,
-        scaling: f32,
-    ) -> bool {
+    pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32, scaling: f32) -> bool {
         trace!("Rendering");
         let mut font_changed = false;
 
@@ -293,12 +286,13 @@ impl Renderer {
 
         root_canvas.save();
 
+        root_canvas.reset_matrix();
+        root_canvas.scale((1.0 / scaling, 1.0 / scaling));
+
         if let Some(root_window) = self.rendered_windows.get(&1) {
             let clip_rect = root_window.pixel_region(self.font_width, self.font_height);
             root_canvas.clip_rect(&clip_rect, None, Some(false));
         }
-
-        coordinate_system_helper.use_logical_coordinates(root_canvas);
 
         let default_background = self.get_default_background();
         let font_width = self.font_width;

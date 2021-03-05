@@ -4,7 +4,7 @@ mod cursor_vfx;
 use std::collections::HashMap;
 
 // use neovide_derive::SettingGroup;
-use skulpin::skia_safe::{Canvas, Paint, Path, Point};
+use skia_safe::{Canvas, Paint, Path, Point};
 
 use super::RenderedWindow;
 use crate::bridge::EditorMode;
@@ -256,7 +256,7 @@ impl CursorRenderer {
             self.previous_vfx_mode = settings.vfx_mode.clone();
         }
 
-        let mut paint = Paint::new(skulpin::skia_safe::colors::WHITE, None);
+        let mut paint = Paint::new(skia_safe::colors::WHITE, None);
         paint.set_anti_alias(settings.antialiasing);
 
         let character = self.cursor.character.clone();

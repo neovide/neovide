@@ -1,7 +1,7 @@
 mod qwerty;
 
 use crate::window::keyboard::Modifiers;
-use skulpin::winit::event::ModifiersState;
+use glutin::event::ModifiersState;
 
 pub use qwerty::handle_qwerty_layout;
 

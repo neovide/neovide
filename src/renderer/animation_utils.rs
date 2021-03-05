@@ -1,4 +1,4 @@
-use skulpin::skia_safe::Point;
+use skia_safe::Point;
 
 #[allow(dead_code)]
 pub fn ease_linear(t: f32) -> f32 {

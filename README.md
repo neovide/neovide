@@ -136,8 +136,7 @@ Installing should be as simple as downloading the binary, making sure `nvim.exe`
 
 1. Install the latest version of Rust. I recommend <https://rustup.rs/>
 2. Install CMake. Using homebrew: `brew install cmake`
-3. Install the Vulkan SDK. I'm told `brew install apenngrace/vulkan/vulkan-sdk` works, but I can't test locally to find out.
-4. Build and install Neovide:
+3. Build and install Neovide:
 
     ```sh
     git clone https://github.com/Kethku/neovide
@@ -145,7 +144,7 @@ Installing should be as simple as downloading the binary, making sure `nvim.exe`
     cargo build --release
     ```
 
-5. Copy `./target/release/neovide` to a known location and enjoy.
+4. Copy `./target/release/neovide` to a known location and enjoy.
 
 ### Linux
 
@@ -188,40 +187,29 @@ makepkg -si
         libbz2-dev libsndio-dev freeglut3-dev libxmu-dev libxi-dev
     ```
 
-2. Install Vulkan SDK (adjust for your preferred package manager, may already be in your repository)
-
-    ```sh
-    curl -sL "http://packages.lunarg.com/lunarg-signing-key-pub.asc" | sudo apt-key add -
-    sudo curl -sLo "/etc/apt/sources.list.d/lunarg-vulkan-1.2.131-bionic.list" "http://packages.lunarg.com/vulkan/1.2.131/lunarg-vulkan-1.2.131-bionic.list"
-    sudo apt update -y
-    sudo apt install -y vulkan-sdk
-    ```
-
-3. Install Rust
+2. Install Rust
 
     ```sh
     curl --proto '=https' --tlsv1.2 -sSf "https://sh.rustup.rs" | sh
     ```
 
-4. Clone the repository
+3. Clone the repository
 
     ```sh
     git clone "https://github.com/Kethku/neovide"
     ```
 
-5. Build
+4. Build
 
     ```sh
     cd neovide && ~/.cargo/bin/cargo build --release
     ```
 
-6. Copy `./target/release/neovide` to a known location and enjoy.
+5. Copy `./target/release/neovide` to a known location and enjoy.
 
 ## Troubleshooting
 - Neovide requires that a font be set in `init.vim` otherwise errors might be encountered. This can be fixed by adding `set guifont=Your\ Font\ Name:h15` in init.vim file. Reference issue [#527](https://github.com/Kethku/neovide/issues/527).
 - On OSX, if you run into issues with the vulkan libraries being reported as not verified, please reference issue [#167](https://github.com/Kethku/neovide/issues/167#issuecomment-593314579).
 
 ### Linux-specific
-- If you recieve an error of `SdlError("Installed Vulkan doesn't implement the VK_KHR_surface extension")`, please try installing the AMD Vulkan Driver (commonly, `amdvlk`). Reference issue [#209](https://github.com/Kethku/neovide/issues/209).
 - If you recieve errors complaining about DRI3 settings, please reference issue [#44](https://github.com/Kethku/neovide/issues/44#issuecomment-578618052).
-- If you recieve libsndio-related errors, try building without default features (this disables static linking of the SDL library).

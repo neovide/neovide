@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use skulpin::skia_safe::Color4f;
+use skia_safe::Color4f;
 
 use super::style::{Colors, Style};
 

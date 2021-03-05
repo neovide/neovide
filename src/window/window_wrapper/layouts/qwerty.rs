@@ -1,5 +1,5 @@
 use crate::window::keyboard::{unsupported_key, Token};
-use skulpin::winit::event::VirtualKeyCode::{self, *};
+use glutin::event::VirtualKeyCode::{self, *};
 
 /// Maps winit keyboard events to Vim tokens
 pub fn handle_qwerty_layout(keycode: VirtualKeyCode, shift: bool) -> Option<Token<'static>> {

@@ -1,6 +1,6 @@
 use font_kit::properties::{Properties, Stretch, Style, Weight};
+use skia_safe::{Data, Font as SkiaFont, Typeface};
 use skribo::FontRef as SkriboFont;
-use skulpin::skia_safe::{Data, Font as SkiaFont, Typeface};
 
 pub fn build_skia_font_from_skribo_font(
     skribo_font: &SkriboFont,
