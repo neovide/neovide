@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 
-use skulpin::skia_safe::canvas::{SaveLayerRec, SrcRectConstraint};
-use skulpin::skia_safe::gpu::SurfaceOrigin;
-use skulpin::skia_safe::{
+use skia_safe::canvas::{SaveLayerRec, SrcRectConstraint};
+use skia_safe::gpu::SurfaceOrigin;
+use skia_safe::{
     image_filters::blur, BlendMode, Budgeted, Canvas, Color, Image, ImageInfo, Paint, Point, Rect,
     Surface,
 };
@@ -18,7 +18,7 @@ fn build_window_surface(
     pixel_height: i32,
 ) -> Surface {
     let dimensions = (pixel_width, pixel_height);
-    let mut context = parent_canvas.gpu_context().unwrap();
+    let mut context = parent_canvas.recording_context().unwrap();
     let budgeted = Budgeted::Yes;
     let parent_image_info = parent_canvas.image_info();
     let image_info = ImageInfo::new(
@@ -210,7 +210,7 @@ impl RenderedWindow {
         let mut animating = false;
 
         {
-            if (self.position_t - 1.0).abs() < std::f32::EPSILON {
+            if 1.0 - self.position_t < std::f32::EPSILON {
                 // We are at destination, move t out of 0-1 range to stop the animation
                 self.position_t = 2.0;
             } else {
@@ -228,7 +228,7 @@ impl RenderedWindow {
         }
 
         {
-            if (self.scroll_t - 1.0).abs() < std::f32::EPSILON {
+            if 1.0 - self.scroll_t < std::f32::EPSILON {
                 // We are at destination, move t out of 0-1 range to stop the animation
                 self.scroll_t = 2.0;
                 self.snapshots.clear();

@@ -111,7 +111,7 @@ Installing should be as simple as downloading the binary, making sure `nvim.exe`
 ## Building
 
 Building instructions are somewhat limited at the moment. All the libraries I use are cross platform and should have
-support for Windows, Mac, and Linux. The rendering however is Vulkan-based, so driver support for Vulkan will be
+support for Windows, Mac, and Linux. The rendering however is based on opengl, so a good gpu driver will be
 necessary. On Windows this should be enabled by default if you have a relatively recent system.
 
 Note: Neovide requires neovim version 0.4 or greater.
@@ -131,13 +131,10 @@ Note: Neovide requires neovim version 0.4 or greater.
 
 1. Install the latest version of Rust. I recommend <https://rustup.rs/>
 2. Install CMake. Using homebrew: `brew install cmake`
-3. Install the Vulkan SDK. I'm told `brew install apenngrace/vulkan/vulkan-sdk` works, but I can't test locally to find out.
 4. `git clone https://github.com/Kethku/neovide`
 5. `cd neovide`
 6. `cargo build --release`
 7. Copy `./target/release/neovide` to a known location and enjoy.
-
-Note: If you run into issues with the vulkan libraries being reported as not verified, this issue thread may help: https://github.com/Kethku/neovide/issues/167#issuecomment-593314579
 
 ### Linux
 
@@ -169,31 +166,19 @@ Note: Neovide has been successfully built on other distros but this reportedly w
         libbz2-dev libsndio-dev freeglut3-dev libxmu-dev libxi-dev
     ```
 
-2. Install Vulkan SDK
-
-    ```sh
-    curl -sL "http://packages.lunarg.com/lunarg-signing-key-pub.asc" | sudo apt-key add -
-    sudo curl -sLo "/etc/apt/sources.list.d/lunarg-vulkan-1.2.131-bionic.list" "http://packages.lunarg.com/vulkan/1.2.131/lunarg-vulkan-1.2.131-bionic.list"
-    sudo apt-get update -y
-    sudo apt-get install -y vulkan-sdk
-    ```
-    
-    Alternatively if you are running an amd graphics card you may have more success by installing amdvlk.
-    https://github.com/Kethku/neovide/issues/209
-
-3. Install Rust
+2. Install Rust
 
     `curl --proto '=https' --tlsv1.2 -sSf "https://sh.rustup.rs" | sh`
 
-4. Clone the repository
+3. Clone the repository
 
     `git clone "https://github.com/Kethku/neovide"`
 
-5. Build
+4. Build
 
     `cd neovide && ~/.cargo/bin/cargo build --release`
 
-6. Copy `./target/release/neovide` to a known location and enjoy.
+5. Copy `./target/release/neovide` to a known location and enjoy.
 
 If you see an error complaining about DRI3 settings, links in this issue may help:
 <https://github.com/Kethku/neovide/issues/44#issuecomment-578618052>.

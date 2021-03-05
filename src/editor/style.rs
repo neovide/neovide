@@ -1,4 +1,4 @@
-use skulpin::skia_safe::Color4f;
+use skia_safe::Color4f;
 
 #[derive(new, PartialEq, Debug, Clone)]
 pub struct Colors {

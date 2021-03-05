@@ -154,7 +154,6 @@ fn main() {
 
     KeyboardSettings::register();
     WindowSettings::register();
-    redraw_scheduler::RedrawSettings::register();
     RendererSettings::register();
     CursorSettings::register();
 
