@@ -15,6 +15,7 @@ jobs:
       with:
         profile: minimal
         toolchain: nightly
+        components: rustfmt
         override: true
 
     - name: Check formatting
@@ -53,6 +54,7 @@ jobs:
       with:
         profile: minimal
         toolchain: nightly
+        components: rustfmt
         override: true
 
     - name: Install Vulkan SDK
@@ -115,6 +117,7 @@ jobs:
       with:
         profile: minimal
         toolchain: nightly
+        components: rustfmt
         override: true
 
     - name: Install Vulkan SDK
