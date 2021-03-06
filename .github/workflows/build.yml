@@ -57,9 +57,6 @@ jobs:
         components: rustfmt
         override: true
 
-    - name: Install Vulkan SDK
-      run: brew install apenngrace/vulkan/vulkan-sdk
-
     - name: Check formatting
       run: |
         rustup component add rustfmt --toolchain stable-x86_64-apple-darwin
@@ -83,18 +80,6 @@ jobs:
         cargo install cargo-bundle
         cargo bundle --release
 
-    - name: Update Bundle
-      run: |
-        cd target/release/bundle/osx/Neovide.app/Contents
-        mkdir Frameworks
-        cp /usr/local/lib/libvulkan.dylib ./Frameworks/
-        cp /usr/local/lib/libMoltenVK.dylib ./Frameworks/
-        mkdir -p Resources/vulkan
-        cp -r /usr/local/share/vulkan/icd.d ./Resources/vulkan/
-        jq '.ICD.library_path = "../../../Frameworks/libMoltenVK.dylib"' ./Resources/vulkan/icd.d/MoltenVK_icd.json > MoltenVK_icd.json
-        mv MoltenVK_icd.json ./Resources/vulkan/icd.d/
-        install_name_tool -add_rpath "@executable_path/../Frameworks" ./MacOS/neovide
-
     - uses: actions/upload-artifact@v1
       with:
         name: Neovide.app
@@ -114,13 +99,6 @@ jobs:
         toolchain: nightly
         components: rustfmt
         override: true
-
-    - name: Install Vulkan SDK
-      run:  |
-        curl -sL "http://packages.lunarg.com/lunarg-signing-key-pub.asc" | sudo apt-key add -
-        sudo curl -sLo "/etc/apt/sources.list.d/lunarg-vulkan-1.2.131-bionic.list" "http://packages.lunarg.com/vulkan/1.2.131/lunarg-vulkan-1.2.131-bionic.list"
-        sudo apt-get update -y --ignore-missing
-        sudo apt-get install -y vulkan-sdk
 
     - name: Install dependencies
       run:  |
