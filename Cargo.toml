@@ -5,6 +5,7 @@ authors = ["keith <keith@the-simmons.net>"]
 edition = "2018"
 build = "build.rs"
 description = "A simple GUI for Neovim."
+resolver = "2"
 
 [workspace]
 members = [
@@ -38,7 +39,6 @@ cfg-if = "0.1.10"
 which = "4"
 dirs = "2"
 rand = "0.7"
-skia-safe = { version = "0.37.0", features = [ "gl" ] }
 glutin = "0.26"
 gl = "0.14.0"
 
@@ -55,6 +55,15 @@ winapi = { version = "0.3.9", features = ["winuser"] }
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.11"
+
+[target.'cfg(linux)'.dependencies.skia-safe]
+version = "0.37.0"
+features = [ "gl", "x11" ]
+
+[target.'cfg(not(linux))'.dependencies.skia-safe]
+version = "0.37.0"
+features = [ "gl" ]
+
 
 [profile.release]
 debug = true

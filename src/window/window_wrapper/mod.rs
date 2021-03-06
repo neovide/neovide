@@ -422,6 +422,8 @@ pub fn start_loop(
         .with_pixel_format(24, 8)
         .with_double_buffer(Some(true))
         .with_gl_profile(GlProfile::Core)
+        .with_vsync(false)
+        .with_srgb(false)
         .build_windowed(winit_window_builder, &event_loop)
         .unwrap();
     let windowed_context = unsafe { windowed_context.make_current().unwrap() };
