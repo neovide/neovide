@@ -50,12 +50,10 @@ impl SkiaRenderer {
     pub fn new(windowed_context: &WindowedContext) -> SkiaRenderer {
         gl::load_with(|s| windowed_context.get_proc_address(&s));
 
-        let interface = skia_safe::gpu::gl::Interface::new_native()
-            .expect("Could not create native graphics interface");
-
-        if !interface.validate() {
-            panic!("Native graphics interface not valid");
-        }
+        let interface = skia_safe::gpu::gl::Interface::new_load_with(|name| {
+            windowed_context.get_proc_address(name)
+        })
+        .expect("Could not create interface");
 
         let mut gr_context = skia_safe::gpu::DirectContext::new_gl(Some(interface), None)
             .expect("Could not create direct context");
