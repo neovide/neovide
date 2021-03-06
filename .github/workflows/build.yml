@@ -10,6 +10,13 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
+    - name: Install Nightly toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: nightly
+        override: true
+
     - name: Check formatting
       run: |
         cargo fmt --all -- --check
@@ -44,6 +51,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+
+    - name: Install Nightly toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: nightly
+        override: true
 
     - name: Install Vulkan SDK
       run: brew install apenngrace/vulkan/vulkan-sdk
@@ -104,6 +118,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
+
+    - name: Install Nightly toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: nightly
+        override: true
 
     - name: Install Vulkan SDK
       run:  |
