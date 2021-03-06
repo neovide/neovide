@@ -14,13 +14,18 @@ fn create_surface(
     let pixel_format = windowed_context.get_pixel_format();
     let size = windowed_context.window().inner_size();
     let size = (
-        size.width.try_into().unwrap(),
-        size.height.try_into().unwrap(),
+        size.width.try_into().expect("Could not convert width"),
+        size.height.try_into().expect("Could not convert height"),
     );
     let backend_render_target = BackendRenderTarget::new_gl(
         size,
-        pixel_format.multisampling.map(|s| s.try_into().unwrap()),
-        pixel_format.stencil_bits.try_into().unwrap(),
+        pixel_format
+            .multisampling
+            .map(|s| s.try_into().expect("Could not convert multisampling")),
+        pixel_format
+            .stencil_bits
+            .try_into()
+            .expect("Could not convert stencil"),
         fb_info,
     );
     windowed_context.resize(size.into());
@@ -32,7 +37,7 @@ fn create_surface(
         None,
         None,
     )
-    .unwrap()
+    .expect("Could not create skia surface")
 }
 
 pub struct SkiaRenderer {
@@ -45,13 +50,21 @@ impl SkiaRenderer {
     pub fn new(windowed_context: &WindowedContext) -> SkiaRenderer {
         gl::load_with(|s| windowed_context.get_proc_address(&s));
 
-        let mut gr_context = skia_safe::gpu::DirectContext::new_gl(None, None).unwrap();
+        let interface = skia_safe::gpu::gl::Interface::new_native()
+            .expect("Could not create native graphics interface");
+
+        if !interface.validate() {
+            panic!("Native graphics interface not valid");
+        }
+
+        let mut gr_context = skia_safe::gpu::DirectContext::new_gl(Some(interface), None)
+            .expect("Could not create direct context");
         let fb_info = {
             let mut fboid: GLint = 0;
             unsafe { gl::GetIntegerv(gl::FRAMEBUFFER_BINDING, &mut fboid) };
 
             FramebufferInfo {
-                fboid: fboid.try_into().unwrap(),
+                fboid: fboid.try_into().expect("Could not create frame buffer id"),
                 format: skia_safe::gpu::gl::Format::RGBA8.into(),
             }
         };
