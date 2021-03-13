@@ -138,7 +138,7 @@ impl Renderer {
     ) {
         let (grid_x, grid_y) = grid_pos;
         let x = grid_x as f32 * self.font_width;
-        let y = grid_y as f32 * self.font_height;
+        let y = grid_y as f32 * self.font_height + self.shaper.y_adjustment();
         let width = cell_width as f32 * self.font_width;
 
         let style = style.as_ref().unwrap_or(&self.default_style);
