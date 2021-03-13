@@ -337,10 +337,15 @@ impl CursorRenderer {
             canvas.save();
             canvas.clip_path(&path, None, Some(false));
 
+            let y_adjustment = shaper.y_adjustment();
             let blobs = &shaper.shape_cached(&character, false, false);
 
             for blob in blobs.iter() {
-                canvas.draw_text_blob(&blob, self.destination, &paint);
+                canvas.draw_text_blob(
+                    &blob,
+                    (self.destination.x, self.destination.y - y_adjustment),
+                    &paint,
+                );
             }
 
             canvas.restore();
