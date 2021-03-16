@@ -376,13 +376,15 @@ impl GlutinWindowWrapper {
             let scaling = 1.0 / self.windowed_context.window().scale_factor();
             let renderer = &mut self.renderer;
 
-            let canvas = self.skia_renderer.canvas();
+            {
+                let canvas = self.skia_renderer.canvas();
 
-            if renderer.draw_frame(canvas, dt, scaling as f32) {
-                handle_new_grid_size(current_size.into(), &renderer, &ui_command_sender);
+                if renderer.draw_frame(canvas, dt, scaling as f32) {
+                    handle_new_grid_size(current_size.into(), &renderer, &ui_command_sender);
+                }
             }
 
-            canvas.flush();
+            self.skia_renderer.gr_context.flush(None);
 
             self.windowed_context.swap_buffers().unwrap();
         }

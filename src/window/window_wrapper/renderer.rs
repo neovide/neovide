@@ -41,7 +41,7 @@ fn create_surface(
 }
 
 pub struct SkiaRenderer {
-    gr_context: DirectContext,
+    pub gr_context: DirectContext,
     fb_info: FramebufferInfo,
     surface: Surface,
 }
