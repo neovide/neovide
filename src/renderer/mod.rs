@@ -138,7 +138,7 @@ impl Renderer {
     ) {
         let (grid_x, grid_y) = grid_pos;
         let x = grid_x as f32 * self.font_width;
-        let y = grid_y as f32 * self.font_height + self.shaper.y_adjustment();
+        let y = grid_y as f32 * self.font_height;
         let width = cell_width as f32 * self.font_width;
 
         let style = style.as_ref().unwrap_or(&self.default_style);
@@ -177,6 +177,8 @@ impl Renderer {
             );
         }
 
+        let y_adjustment = self.shaper.y_adjustment();
+
         self.paint
             .set_color(style.foreground(&self.default_style.colors).to_color());
         let text = text.trim_end();
@@ -186,7 +188,7 @@ impl Renderer {
                 .shape_cached(text, style.bold, style.italic)
                 .iter()
             {
-                canvas.draw_text_blob(blob, (x, y), &self.paint);
+                canvas.draw_text_blob(blob, (x, y + y_adjustment), &self.paint);
             }
         }
 

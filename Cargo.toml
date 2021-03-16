@@ -19,8 +19,6 @@ embed-fonts = []
 [dependencies]
 neovide-derive = { path = "neovide-derive" }
 euclid = "0.20.7"
-font-kit = "0.10.0"
-skribo = { git = "https://github.com/linebender/skribo" }
 lru = "0.4.3"
 derive-new = "0.5"
 rmpv = "0.4.4"
@@ -41,6 +39,7 @@ dirs = "2"
 rand = "0.7"
 glutin = "0.26"
 gl = "0.14.0"
+rustybuzz = "0.3.0"
 
 [dev-dependencies]
 mockall = "0.7.0"
@@ -57,12 +56,14 @@ winapi = { version = "0.3.9", features = ["winuser"] }
 winres = "0.1.11"
 
 [target.'cfg(linux)'.dependencies.skia-safe]
-version = "0.37.0"
 features = [ "gl", "x11" ]
+git = "https://github.com/pragmatrix/rust-skia"
+branch = "typeface-open-stream"
 
 [target.'cfg(not(linux))'.dependencies.skia-safe]
-version = "0.37.0"
 features = [ "gl" ]
+git = "https://github.com/pragmatrix/rust-skia"
+branch = "typeface-open-stream"
 
 
 [profile.release]

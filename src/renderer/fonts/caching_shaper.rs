@@ -1,6 +1,7 @@
 use log::trace;
 use lru::LruCache;
-use skia_safe::{Font, FontMetrics, FontMgr, FontStyle, TextBlob};
+use rustybuzz::{shape, Face, UnicodeBuffer};
+use skia_safe::{Font, FontMetrics, FontMgr, FontStyle, TextBlob, TextBlobBuilder};
 
 use super::font_options::*;
 
@@ -24,7 +25,6 @@ struct ShapeKey {
 pub struct CachingShaper {
     pub options: FontOptions,
     font_mgr: FontMgr,
-    font_cache: LruCache<String, Font>,
     blob_cache: LruCache<ShapeKey, Vec<TextBlob>>,
 }
 
@@ -33,7 +33,6 @@ impl CachingShaper {
         CachingShaper {
             options: FontOptions::new(String::from("consolas"), DEFAULT_FONT_SIZE),
             font_mgr: FontMgr::new(),
-            font_cache: LruCache::new(10),
             blob_cache: LruCache::new(10000),
         }
     }
@@ -57,12 +56,30 @@ impl CachingShaper {
             .font_mgr
             .match_family_style(font_name, font_style)
             .unwrap();
-        let font = Font::from_typeface(typeface, self.options.size);
+        let units_per_em = typeface.units_per_em().unwrap() as f32;
 
-        let mut blobs = Vec::new();
-        let blob = TextBlob::from_str(text, &font).unwrap();
-        blobs.push(blob);
-        blobs
+        let (data, index) = typeface.to_font_data().expect("Could not get font data");
+        let face = Face::from_slice(&data, index as u32).expect("Could not create font face");
+        let mut unicode_buffer = UnicodeBuffer::new();
+        unicode_buffer.push_str(text);
+
+        let shaped_glyphs = shape(&face, &[], unicode_buffer);
+        let shaped_positions = shaped_glyphs.glyph_positions();
+        let shaped_infos = shaped_glyphs.glyph_infos();
+
+        let font = Font::from_typeface(typeface, self.options.size);
+        let mut blob_builder = TextBlobBuilder::new();
+        let (glyphs, positions) =
+            blob_builder.alloc_run_pos_h(&font, shaped_glyphs.len(), 0.0, None);
+        let mut current_point = 0.0;
+        for (i, (shaped_position, shaped_info)) in
+            shaped_positions.iter().zip(shaped_infos).enumerate()
+        {
+            glyphs[i] = shaped_info.codepoint as u16;
+            positions[i] = current_point;
+            current_point += shaped_position.x_advance as f32 * self.options.size / units_per_em;
+        }
+        vec![blob_builder.make().expect("Could not create textblob")]
     }
 
     pub fn shape_cached(&mut self, text: &str, bold: bool, italic: bool) -> &Vec<TextBlob> {
@@ -80,7 +97,6 @@ impl CachingShaper {
         let updated = self.options.update(guifont_setting);
         if updated {
             trace!("Font changed: {:?}", self.options);
-            self.font_cache.clear();
             self.blob_cache.clear();
         }
         updated
@@ -96,8 +112,8 @@ impl CachingShaper {
             .font_mgr
             .match_family_style(font_name, font_style)
             .unwrap();
-        let font = Font::from_typeface(typeface, self.options.size);
 
+        let font = Font::from_typeface(typeface, self.options.size);
         let (text_width, _) = font.measure_str(STANDARD_CHARACTER_STRING, None);
         let font_width = text_width / STANDARD_CHARACTER_STRING.len() as f32;
 
@@ -111,6 +127,6 @@ impl CachingShaper {
 
     pub fn y_adjustment(&self) -> f32 {
         let metrics = self.metrics();
-        metrics.leading - metrics.ascent
+        -metrics.ascent
     }
 }

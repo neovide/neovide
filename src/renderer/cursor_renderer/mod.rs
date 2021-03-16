@@ -343,7 +343,7 @@ impl CursorRenderer {
             for blob in blobs.iter() {
                 canvas.draw_text_blob(
                     &blob,
-                    (self.destination.x, self.destination.y - y_adjustment),
+                    (self.destination.x, self.destination.y + y_adjustment),
                     &paint,
                 );
             }
