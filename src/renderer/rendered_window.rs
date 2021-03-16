@@ -4,7 +4,7 @@ use skia_safe::canvas::{SaveLayerRec, SrcRectConstraint};
 use skia_safe::gpu::SurfaceOrigin;
 use skia_safe::{
     image_filters::blur, BlendMode, Budgeted, Canvas, Color, Image, ImageInfo, Paint, Point, Rect,
-    Surface,
+    SamplingOptions, Surface,
 };
 
 use super::animation_utils::*;
@@ -409,6 +409,7 @@ impl RenderedWindow {
                         old_background.draw(
                             self.current_surfaces.background.canvas(),
                             (0.0, 0.0),
+                            SamplingOptions::default(),
                             None,
                         );
                     }
@@ -425,6 +426,7 @@ impl RenderedWindow {
                         old_foreground.draw(
                             self.current_surfaces.foreground.canvas(),
                             (0.0, 0.0),
+                            SamplingOptions::default(),
                             None,
                         );
                     }
