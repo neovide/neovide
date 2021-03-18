@@ -115,6 +115,12 @@ pub fn create_nvim_command() -> Command {
 
     cmd.arg("--embed")
         .args(SETTINGS.neovim_arguments.iter().skip(1));
+    cmd.arg("--cmd")
+        .args(SETTINGS.neovim_arguments.iter().skip(1));
+    cmd.arg("set termguicolors")
+        .args(SETTINGS.neovim_arguments.iter().skip(1));
+
+
 
     #[cfg(not(debug_assertions))]
     cmd.stderr(Stdio::piped());
