@@ -1,3 +1,4 @@
+use cfg_if::cfg_if;
 use log::trace;
 use lru::LruCache;
 use rustybuzz::{shape, Face, UnicodeBuffer};
@@ -7,6 +8,16 @@ use super::font_options::*;
 
 const STANDARD_CHARACTER_STRING: &str =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
+
+cfg_if! {
+    if #[cfg(target_os = "windows")] {
+        pub const SYSTEM_DEFAULT_FONT: &str = "Consolas";
+    } else if #[cfg(target_os = "linux")] {
+        pub const SYSTEM_DEFAULT_FONT: &str = "Ubuntu";
+    } else if #[cfg(target_os = "macos")] {
+        pub const SYSTEM_DEFAULT_FONT: &str = "Menlo";
+    }
+}
 
 #[cfg(any(feature = "embed-fonts", test))]
 #[derive(RustEmbed)]
@@ -31,7 +42,7 @@ pub struct CachingShaper {
 impl CachingShaper {
     pub fn new() -> CachingShaper {
         CachingShaper {
-            options: FontOptions::new(String::from("consolas"), DEFAULT_FONT_SIZE),
+            options: FontOptions::new(String::from(SYSTEM_DEFAULT_FONT), DEFAULT_FONT_SIZE),
             font_mgr: FontMgr::new(),
             blob_cache: LruCache::new(10000),
         }
