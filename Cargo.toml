@@ -31,7 +31,7 @@ crossfire = "0.1"
 lazy_static = "1.4.0"
 unicode-segmentation = "1.6.0"
 log = "0.4.8"
-flexi_logger = { version = "0.14.6", default-features = false }
+flexi_logger = { version = "0.15", default-features = false }
 parking_lot="0.10.0"
 cfg-if = "0.1.10"
 which = "4"
@@ -60,13 +60,11 @@ winres = "0.1.11"
 
 [target.'cfg(linux)'.dependencies.skia-safe]
 features = [ "gl", "x11" ]
-git = "https://github.com/pragmatrix/rust-skia"
-branch = "typeface-open-stream"
+git = "https://github.com/rust-skia/rust-skia"
 
 [target.'cfg(not(linux))'.dependencies.skia-safe]
 features = [ "gl" ]
-git = "https://github.com/pragmatrix/rust-skia"
-branch = "typeface-open-stream"
+git = "https://github.com/rust-skia/rust-skia"
 
 
 [profile.release]
