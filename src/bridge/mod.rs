@@ -112,13 +112,7 @@ pub fn build_neovide_command(channel: u64, num_args: u64, command: &str, event: 
 
 pub fn create_nvim_command() -> Command {
     let mut cmd = build_nvim_cmd();
-
-    cmd.arg("--embed")
-        .args(SETTINGS.neovim_arguments.iter().skip(1));
-    cmd.arg("--cmd")
-        .args(SETTINGS.neovim_arguments.iter().skip(1));
-    cmd.arg("set termguicolors")
-        .args(SETTINGS.neovim_arguments.iter().skip(1));
+    cmd.args(&["--embed", "--cmd", "set termguicolors"]).args(SETTINGS.neovim_arguments.iter().skip(1));
 
 
 
