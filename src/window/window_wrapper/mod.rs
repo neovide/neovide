@@ -422,7 +422,6 @@ pub fn start_loop(
         .with_depth_buffer(0)
         .with_stencil_buffer(0)
         .with_pixel_format(24, 8)
-        .with_double_buffer(Some(true))
         .with_gl_profile(GlProfile::Core)
         .with_vsync(false)
         .with_srgb(false)
