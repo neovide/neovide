@@ -241,6 +241,9 @@ async fn start_neovim_runtime(
     nvim.set_option("lazyredraw", Value::Boolean(false))
         .await
         .ok();
+    nvim.set_option("termguicolors", Value::Boolean(true))
+        .await
+        .ok();
 
     let mut options = UiAttachOptions::new();
     options.set_linegrid_external(true);
