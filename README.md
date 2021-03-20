@@ -12,6 +12,8 @@ appreciate a report in the issues! Any help and ideas are also greatly appreciat
 I'm also very interested in suggestions code quality/style wise when it comes to Rust. I'm pretty new to the language and appreciate
 any critiques that you might have to offer. I won't take all of them, but I promise to consider anything you might have to offer.
 
+ [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/G2G040CA8)
+
 ## Features
 
 Should be a standard full features Neovim GUI. Beyond that there are some visual niceties:
