@@ -47,11 +47,6 @@ skia-safe = "0.32.1"
 [dev-dependencies]
 mockall = "0.7.0"
 
-[dev-dependencies.cargo-husky]
-version = "1"
-default-features = false
-features = ["precommit-hook", "run-cargo-test", "run-cargo-clippy", "run-cargo-fmt"]
-
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.9", features = ["winuser"] }
 

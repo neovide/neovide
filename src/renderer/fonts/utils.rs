@@ -10,7 +10,11 @@ pub fn build_skia_font_from_skribo_font(
     let skia_data = Data::new_copy(&font_data[..]);
     let typeface = Typeface::from_data(skia_data, None)?;
 
-    Some(SkiaFont::from_typeface(typeface, base_size))
+    let mut font = SkiaFont::from_typeface(typeface, base_size);
+    font.set_subpixel(true); // subpixel positioning of glyphs
+    font.set_hinting(skia_safe::FontHinting::None);
+    font.set_edging(skia_safe::font::Edging::SubpixelAntiAlias);
+    Some(font)
 }
 
 pub fn build_properties(bold: bool, italic: bool) -> Properties {

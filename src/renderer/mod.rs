@@ -150,7 +150,7 @@ impl Renderer {
 
         canvas.clip_rect(region, None, Some(false));
 
-        self.paint.set_blend_mode(BlendMode::Src);
+        self.paint.set_blend_mode(BlendMode::SrcOver);
         let transparent = Color::from_argb(0, 0, 0, 0);
         self.paint.set_color(transparent);
         canvas.draw_rect(region, &self.paint);
