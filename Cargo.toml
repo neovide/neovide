@@ -31,7 +31,7 @@ crossfire = "0.1"
 lazy_static = "1.4.0"
 unicode-segmentation = "1.6.0"
 log = "0.4.8"
-flexi_logger = { version = "0.15", default-features = false }
+flexi_logger = { version = "0.17.1", default-features = false }
 parking_lot="0.10.0"
 cfg-if = "0.1.10"
 which = "4"
@@ -52,12 +52,11 @@ winres = "0.1.11"
 
 [target.'cfg(linux)'.dependencies.skia-safe]
 features = [ "gl", "x11" ]
-git = "https://github.com/rust-skia/rust-skia"
+version = "0.38.3"
 
 [target.'cfg(not(linux))'.dependencies.skia-safe]
 features = [ "gl" ]
-git = "https://github.com/rust-skia/rust-skia"
-
+version = "0.38.3"
 
 [profile.release]
 debug = true
@@ -68,9 +67,9 @@ incremental = true
 name = "Neovide"
 identifier = "com.kethku.neovide"
 icon = ["assets/nvim.ico"]
-version = "0.6.0"
+version = "0.7.0"
 resources = []
-copyright = "Copyright (c) keith 2020. All rights reserved."
+copyright = "Copyright (c) Keith 2021. All rights reserved."
 category = "Productivity"
 short_description = "A simple GUI for Neovim."
 long_description = """
