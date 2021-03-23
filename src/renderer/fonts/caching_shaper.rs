@@ -118,7 +118,7 @@ impl CachingShaper {
 
                 for (i, glyph) in layout_run.glyphs().enumerate() {
                     glyphs[i] = glyph.glyph_id as u16;
-                    positions[i] = glyph.offset.x();
+                    positions[i] = glyph.offset.x().floor();
                 }
 
                 blobs.push(blob_builder.make().unwrap());

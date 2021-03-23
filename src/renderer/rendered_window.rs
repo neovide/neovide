@@ -29,7 +29,7 @@ fn build_window_surface(
     );
     let surface_origin = SurfaceOrigin::TopLeft;
     // subpixel layout (should be configurable/obtained from fontconfig)
-    let props = SurfaceProps::new(SurfacePropsFlags::default(), skia_safe::PixelGeometry::BGRH);
+    let props = SurfaceProps::new(SurfacePropsFlags::default(), skia_safe::PixelGeometry::RGBH);
     Surface::new_render_target(
         &mut context,
         budgeted,
