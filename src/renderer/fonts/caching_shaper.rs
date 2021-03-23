@@ -2,7 +2,9 @@ use cfg_if::cfg_if;
 use log::trace;
 use lru::LruCache;
 use rustybuzz::{shape, Face, UnicodeBuffer};
-use skia_safe::{Font, FontMetrics, FontMgr, FontStyle, TextBlob, TextBlobBuilder};
+use skia_safe::{
+    font::Edging, Font, FontHinting, FontMetrics, FontMgr, FontStyle, TextBlob, TextBlobBuilder,
+};
 
 use super::font_options::*;
 
@@ -67,7 +69,7 @@ impl CachingShaper {
             .font_mgr
             .match_family_style(font_name, font_style)
             .unwrap();
-        let units_per_em = typeface.units_per_em().unwrap() as f32;
+        let units_per_em = typeface.units_per_em().unwrap();
 
         let (data, index) = typeface.to_font_data().expect("Could not get font data");
         let face = Face::from_slice(&data, index as u32).expect("Could not create font face");
@@ -78,17 +80,22 @@ impl CachingShaper {
         let shaped_positions = shaped_glyphs.glyph_positions();
         let shaped_infos = shaped_glyphs.glyph_infos();
 
-        let font = Font::from_typeface(typeface, self.options.size);
+        let mut font = Font::from_typeface(typeface, self.options.size);
+        font.set_subpixel(true);
+        font.set_hinting(FontHinting::Full);
+        font.set_edging(Edging::SubpixelAntiAlias);
+
         let mut blob_builder = TextBlobBuilder::new();
         let (glyphs, positions) =
             blob_builder.alloc_run_pos_h(&font, shaped_glyphs.len(), 0.0, None);
-        let mut current_point = 0.0;
+        let mut current_point: f32 = 0.0;
         for (i, (shaped_position, shaped_info)) in
             shaped_positions.iter().zip(shaped_infos).enumerate()
         {
             glyphs[i] = shaped_info.codepoint as u16;
-            positions[i] = current_point;
-            current_point += shaped_position.x_advance as f32 * self.options.size / units_per_em;
+            positions[i] = current_point.floor();
+            current_point +=
+                shaped_position.x_advance as f32 * self.options.size / units_per_em as f32;
         }
         vec![blob_builder.make().expect("Could not create textblob")]
     }
