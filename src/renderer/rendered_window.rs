@@ -29,7 +29,7 @@ fn build_window_surface(
     );
     let surface_origin = SurfaceOrigin::TopLeft;
     // subpixel layout (should be configurable/obtained from fontconfig)
-    let props = SurfaceProps::new(SurfacePropsFlags::default(), skia_safe::PixelGeometry::BGRH);
+    let props = SurfaceProps::new(SurfacePropsFlags::default(), skia_safe::PixelGeometry::RGBH);
     Surface::new_render_target(
         &mut context,
         budgeted,
@@ -168,12 +168,12 @@ impl RenderedWindow {
 
     pub fn pixel_region(&self, font_width: f32, font_height: f32) -> Rect {
         let current_pixel_position = Point::new(
-            self.grid_current_position.x * font_width,
-            self.grid_current_position.y * font_height,
+            (self.grid_current_position.x * font_width).floor(),
+            (self.grid_current_position.y * font_height).floor(),
         );
 
-        let image_width = (self.grid_width as f32 * font_width) as i32;
-        let image_height = (self.grid_height as f32 * font_height) as i32;
+        let image_width = (self.grid_width as f32 * font_width).floor() as i32;
+        let image_height = (self.grid_height as f32 * font_height).floor() as i32;
 
         Rect::from_point_and_size(current_pixel_position, (image_width, image_height))
     }
@@ -251,6 +251,7 @@ impl RenderedWindow {
         // We want each surface to overwrite the one underneath and will use layers to ensure
         // only lower priority surfaces will get clobbered and not the underlying windows
         paint.set_blend_mode(BlendMode::Src);
+        paint.set_anti_alias(false);
 
         // Save layer so that setting the blend mode doesn't effect the blur
         root_canvas.save_layer(&SaveLayerRec::default());
@@ -271,7 +272,7 @@ impl RenderedWindow {
             root_canvas.draw_image_rect(
                 image,
                 None,
-                pixel_region.with_offset((0.0, scroll_offset)),
+                pixel_region.with_offset((0.0, scroll_offset.floor())),
                 &paint,
             );
         }
@@ -282,7 +283,7 @@ impl RenderedWindow {
         root_canvas.draw_image_rect(
             snapshot,
             None,
-            pixel_region.with_offset((0.0, scroll_offset)),
+            pixel_region.with_offset((0.0, scroll_offset.floor())),
             &paint,
         );
 
@@ -343,10 +344,11 @@ impl RenderedWindow {
                         scaling,
                     );
                     old_surface.draw(
-                        self.current_surface.surface.canvas(), 
-                        (0.0, 0.0), 
+                        self.current_surface.surface.canvas(),
+                        (0.0, 0.0),
                         SamplingOptions::default(),
-                        None);
+                        None,
+                    );
 
                     self.grid_width = grid_width;
                     self.grid_height = grid_height;
