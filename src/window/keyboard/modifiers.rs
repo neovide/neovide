@@ -1,3 +1,4 @@
+use glutin::keyboard::ModifiersState;
 /// The keyboard modifiers associated with a keystroke
 #[derive(Debug, Copy, Clone)]
 pub struct Modifiers {

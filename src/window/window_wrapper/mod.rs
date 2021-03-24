@@ -12,9 +12,10 @@ use glutin::{
     self,
     dpi::{LogicalPosition, LogicalSize, PhysicalSize},
     event::{
-        ElementState, Event, ModifiersState, MouseButton, MouseScrollDelta,
-        VirtualKeyCode as Keycode, WindowEvent,
+        ElementState, Event, MouseButton, MouseScrollDelta,
+        WindowEvent,
     },
+    keyboard::{Key, ModifiersState},
     event_loop::{ControlFlow, EventLoop},
     window::{self, Fullscreen, Icon},
     ContextBuilder, GlProfile, WindowedContext,
@@ -112,7 +113,7 @@ impl GlutinWindowWrapper {
 
     pub fn handle_keyboard_input(
         &mut self,
-        keycode: Option<Keycode>,
+        keycode: Option<Key<'static>>,
         modifiers: Option<ModifiersState>,
     ) {
         if keycode.is_some() {
@@ -292,11 +293,11 @@ impl GlutinWindowWrapper {
                     .ok();
             }
             Event::WindowEvent {
-                event: WindowEvent::KeyboardInput { input, .. },
+                event: WindowEvent::KeyboardInput { event, .. },
                 ..
             } => {
-                if input.state == ElementState::Pressed {
-                    keycode = input.virtual_keycode;
+                if event.state == ElementState::Pressed {
+                    keycode = Some(event.logical_key);
                 }
             }
             Event::WindowEvent {
