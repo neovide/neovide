@@ -149,11 +149,6 @@ impl Renderer {
 
         canvas.clip_rect(region, None, Some(false));
 
-        self.paint.set_blend_mode(BlendMode::Src);
-        let transparent = Color::from_argb(0, 0, 0, 0);
-        self.paint.set_color(transparent);
-        canvas.draw_rect(region, &self.paint);
-
         if style.underline || style.undercurl {
             let line_position = self.shaper.underline_position();
             let stroke_width = self.shaper.options.size / 10.0;
@@ -181,6 +176,7 @@ impl Renderer {
 
         self.paint
             .set_color(style.foreground(&self.default_style.colors).to_color());
+        self.paint.set_anti_alias(false);
         let text = text.trim_end();
         if !text.is_empty() {
             for blob in self
