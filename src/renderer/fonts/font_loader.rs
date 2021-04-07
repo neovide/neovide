@@ -230,6 +230,7 @@ mod test {
     }
 
     #[test]
+    #[ignore]
     fn test_load() {
         let mut loader = FontLoader::new();
         let junk_text = "uhasiudhaiudshiaushd";

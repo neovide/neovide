@@ -270,15 +270,15 @@ pub enum RedrawEvent {
 
 #[derive(Debug)]
 pub enum ChannelStreamType {
-    STDIO,
-    STDERR,
+    Stdio,
+    Stderr,
     Socket,
     Job,
 }
 
 impl Default for ChannelStreamType {
     fn default() -> Self {
-        Self::STDIO
+        Self::Stdio
     }
 }
 
@@ -286,7 +286,7 @@ impl Default for ChannelStreamType {
 pub enum ChannelMode {
     Bytes,
     Terminal,
-    RPC,
+    Rpc,
 }
 
 impl Default for ChannelMode {
@@ -307,7 +307,7 @@ pub struct ClientVersion {
 #[derive(Debug)]
 pub enum ClientType {
     Remote,
-    UI,
+    Ui,
     Embedder,
     Host,
     Plugin,
@@ -953,8 +953,8 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
 
 pub fn parse_channel_stream_type(channel_stream_value: Value) -> Result<ChannelStreamType> {
     match parse_string(channel_stream_value)?.as_ref() {
-        "stdio" => Ok(ChannelStreamType::STDIO),
-        "stderr" => Ok(ChannelStreamType::STDERR),
+        "stdio" => Ok(ChannelStreamType::Stdio),
+        "stderr" => Ok(ChannelStreamType::Stderr),
         "socket" => Ok(ChannelStreamType::Socket),
         "job" => Ok(ChannelStreamType::Job),
         _ => Err(ParseError::InvalidFormat),
@@ -965,7 +965,7 @@ pub fn parse_channel_mode(channel_mode_value: Value) -> Result<ChannelMode> {
     match parse_string(channel_mode_value)?.as_ref() {
         "bytes" => Ok(ChannelMode::Bytes),
         "terminal" => Ok(ChannelMode::Terminal),
-        "rpc" => Ok(ChannelMode::RPC),
+        "rpc" => Ok(ChannelMode::Rpc),
         _ => Err(ParseError::InvalidFormat),
     }
 }
@@ -996,7 +996,7 @@ pub fn parse_client_version(version_value: Value) -> Result<ClientVersion> {
 pub fn parse_client_type(client_type_value: Value) -> Result<ClientType> {
     match parse_string(client_type_value)?.as_ref() {
         "remote" => Ok(ClientType::Remote),
-        "ui" => Ok(ClientType::UI),
+        "ui" => Ok(ClientType::Ui),
         "embedder" => Ok(ClientType::Embedder),
         "host" => Ok(ClientType::Host),
         "plugin" => Ok(ClientType::Plugin),

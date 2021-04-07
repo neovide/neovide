@@ -42,7 +42,7 @@ impl<'a> Token<'a> {
 
 #[cfg(not(target_os = "windows"))]
 fn use_logo(logo: bool) -> bool {
-    return logo;
+    logo
 }
 
 // The Windows key is used for OS-level shortcuts,
