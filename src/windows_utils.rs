@@ -1,5 +1,9 @@
-use std::ffi::CString;
-use std::ptr::{null, null_mut};
+#[cfg(target_os = "windows")]
+use {
+    std::ffi::CString,
+    std::ptr::{null, null_mut},
+};
+
 #[cfg(windows)]
 use winapi::{
     shared::minwindef::{DWORD, HKEY, MAX_PATH},
