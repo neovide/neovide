@@ -1,4 +1,8 @@
-use log::{error, trace};
+use log::trace;
+
+#[cfg(windows)]
+use log::Error;
+
 use nvim_rs::compat::tokio::Compat;
 use nvim_rs::Neovim;
 use tokio::process::ChildStdin;

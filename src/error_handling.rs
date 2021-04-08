@@ -2,7 +2,7 @@ use log::error;
 
 fn show_error(explanation: &str) -> ! {
     error!("{}", explanation);
-    panic!(explanation.to_string());
+    panic!("{}", explanation.to_string());
 }
 
 pub trait ResultPanicExplanation<T, E: ToString> {
