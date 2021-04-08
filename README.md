@@ -131,7 +131,7 @@ makepkg -si
 
 #### Debian/Ubuntu
 
-Note: Neovide has been successfully built on other destros but this reportedly works on ubuntu.
+Note: Neovide has been successfully built on other distros but this reportedly works on ubuntu.
 
 1. Install necessary dependencies
 
