@@ -1,3 +1,5 @@
+use std::ffi::CString;
+use std::ptr::{null, null_mut};
 #[cfg(windows)]
 use winapi::{
     shared::minwindef::{DWORD, HKEY, MAX_PATH},

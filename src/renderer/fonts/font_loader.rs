@@ -230,7 +230,6 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn test_load() {
         let mut loader = FontLoader::new();
         let junk_text = "uhasiudhaiudshiaushd";
@@ -238,7 +237,7 @@ mod test {
         assert!(font_family.is_none());
 
         #[cfg(target_os = "linux")]
-        const SYSTEM_DEFAULT_FONT: &str = "DejaVu Serif";
+        const SYSTEM_DEFAULT_FONT: &str = "monospace";
 
         let font_family = loader.load(SYSTEM_DEFAULT_FONT);
         let result = font_family.unwrap().fonts.first().unwrap().font.full_name();

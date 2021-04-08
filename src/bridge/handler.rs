@@ -44,7 +44,7 @@ impl Handler for NeovimHandler {
     ) {
         trace!("Neovim notification: {:?}", &event_name);
 
-        let _ui_command_sender = self.ui_command_sender.clone();
+        let ui_command_sender = self.ui_command_sender.clone();
         let redraw_event_sender = self.redraw_event_sender.clone();
         task::spawn_blocking(move || match event_name.as_ref() {
             "redraw" => {
