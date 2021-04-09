@@ -1,7 +1,7 @@
 use log::trace;
 
 #[cfg(windows)]
-use log::Error;
+use log::error;
 
 use nvim_rs::compat::tokio::Compat;
 use nvim_rs::Neovim;
