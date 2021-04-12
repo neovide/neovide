@@ -79,10 +79,15 @@ jobs:
         mv MoltenVK_icd.json ./Resources/vulkan/icd.d/
         install_name_tool -add_rpath "@executable_path/../Frameworks" ./MacOS/neovide
 
+    - name: Create .dmg file
+      run: |
+        hdiutil create Neovide-uncompressed.dmg -volname "Neovide" -srcfolder target/release/bundle/osx
+        hdiutil convert Neovide-uncompressed.dmg -format UDZO -o Neovide.dmg
+
     - uses: actions/upload-artifact@v1
       with:
-        name: Neovide.app
-        path: ./target/release/bundle/osx
+        name: Neovide.dmg
+        path: ./Neovide.dmg
 
   build-linux:
 
