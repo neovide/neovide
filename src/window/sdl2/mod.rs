@@ -432,14 +432,25 @@ pub fn start_loop(
         .expect("Failed to create sdl video subsystem");
     video_subsystem.text_input().start();
 
-    let mut sdl_window = video_subsystem
-        .window("Neovide", logical_size.width, logical_size.height)
-        .position_centered()
-        .allow_highdpi()
-        .resizable()
-        .vulkan()
-        .build()
-        .expect("Failed to create window");
+    let mut sdl_window = if cfg!(target_os = "macos") {
+        video_subsystem
+            .window("Neovide", logical_size.width, logical_size.height)
+            .position_centered()
+            .allow_highdpi()
+            .resizable()
+            // .vulkan() call emited as it causes errors on some systems
+            .build()
+            .expect("Failed to create window")
+    } else {
+        video_subsystem
+            .window("Neovide", logical_size.width, logical_size.height)
+            .position_centered()
+            .allow_highdpi()
+            .resizable()
+            .vulkan()
+            .build()
+            .expect("Failed to create window")
+    };
     log::info!("window created");
 
     set_icon(&mut sdl_window);
