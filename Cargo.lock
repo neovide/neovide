@@ -1577,6 +1577,7 @@ dependencies = [
  "euclid",
  "flexi_logger",
  "font-kit",
+ "futures 0.3.12",
  "image",
  "lazy_static",
  "log",

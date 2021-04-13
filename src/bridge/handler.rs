@@ -3,7 +3,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use crossfire::mpsc::TxUnbounded;
 use log::trace;
-use nvim_rs::{compat::tokio::Compat, Handler, Neovim};
+use nvim_rs::{Handler, Neovim};
 use parking_lot::Mutex;
 use rmpv::Value;
 use tokio::task;
@@ -34,13 +34,13 @@ impl NeovimHandler {
 
 #[async_trait]
 impl Handler for NeovimHandler {
-    type Writer = Compat<TxWrapper>;
+    type Writer = TxWrapper;
 
     async fn handle_notify(
         &self,
         event_name: String,
         arguments: Vec<Value>,
-        _neovim: Neovim<Compat<TxWrapper>>,
+        _neovim: Neovim<TxWrapper>,
     ) {
         trace!("Neovim notification: {:?}", &event_name);
 

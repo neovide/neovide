@@ -14,7 +14,7 @@ use tokio::{
     task::JoinHandle,
 };
 
-use nvim_rs::compat::tokio::{Compat, TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
+use nvim_rs::compat::tokio::TokioAsyncReadCompatExt;
 use nvim_rs::{error::LoopError, neovim::Neovim, Handler};
 
 use crate::bridge::{TxWrapper, WrapTx};
@@ -23,21 +23,14 @@ use crate::bridge::{TxWrapper, WrapTx};
 pub async fn new_tcp<A, H>(
     addr: A,
     handler: H,
-) -> io::Result<(
-    Neovim<Compat<TxWrapper>>,
-    JoinHandle<Result<(), Box<LoopError>>>,
-)>
+) -> io::Result<(Neovim<TxWrapper>, JoinHandle<Result<(), Box<LoopError>>>)>
 where
     A: ToSocketAddrs,
-    H: Handler<Writer = Compat<TxWrapper>>,
+    H: Handler<Writer = TxWrapper>,
 {
     let stream = TcpStream::connect(addr).await?;
     let (reader, writer) = split(stream);
-    let (neovim, io) = Neovim::<Compat<TxWrapper>>::new(
-        reader.compat_read(),
-        writer.wrap_tx().compat_write(),
-        handler,
-    );
+    let (neovim, io) = Neovim::<TxWrapper>::new(reader.compat_read(), writer.wrap_tx(), handler);
     let io_handle = spawn(io);
 
     Ok((neovim, io_handle))
@@ -49,12 +42,9 @@ where
 pub async fn new_child_cmd<H>(
     cmd: &mut Command,
     handler: H,
-) -> io::Result<(
-    Neovim<Compat<TxWrapper>>,
-    JoinHandle<Result<(), Box<LoopError>>>,
-)>
+) -> io::Result<(Neovim<TxWrapper>, JoinHandle<Result<(), Box<LoopError>>>)>
 where
-    H: Handler<Writer = Compat<TxWrapper>>,
+    H: Handler<Writer = TxWrapper>,
 {
     let mut child = cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).spawn()?;
     let stdout = child
@@ -66,10 +56,9 @@ where
         .stdin
         .take()
         .ok_or_else(|| Error::new(ErrorKind::Other, "Can't open stdin"))?
-        .wrap_tx()
-        .compat_write();
+        .wrap_tx();
 
-    let (neovim, io) = Neovim::<Compat<TxWrapper>>::new(stdout, stdin, handler);
+    let (neovim, io) = Neovim::<TxWrapper>::new(stdout, stdin, handler);
     let io_handle = spawn(io);
 
     Ok((neovim, io_handle))

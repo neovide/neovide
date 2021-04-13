@@ -44,6 +44,7 @@ dirs = "2"
 rand = "0.7"
 skia-safe = "0.32.1"
 pin-project = "0.4.27"
+futures = "0.3.12"
 
 [dev-dependencies]
 mockall = "0.7.0"

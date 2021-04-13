@@ -7,7 +7,6 @@ use flexi_logger::{Cleanup, Criterion, Duplicate, Logger, Naming};
 mod from_value;
 pub use from_value::FromValue;
 use log::warn;
-use nvim_rs::compat::tokio::Compat;
 use nvim_rs::Neovim;
 use parking_lot::RwLock;
 pub use rmpv::Value;
@@ -130,7 +129,7 @@ impl Settings {
         (*value).clone()
     }
 
-    pub async fn read_initial_values(&self, nvim: &Neovim<Compat<TxWrapper>>) {
+    pub async fn read_initial_values(&self, nvim: &Neovim<TxWrapper>) {
         let keys: Vec<String> = self.listeners.read().keys().cloned().collect();
 
         for name in keys {
@@ -148,7 +147,7 @@ impl Settings {
         }
     }
 
-    pub async fn setup_changed_listeners(&self, nvim: &Neovim<Compat<TxWrapper>>) {
+    pub async fn setup_changed_listeners(&self, nvim: &Neovim<TxWrapper>) {
         let keys: Vec<String> = self.listeners.read().keys().cloned().collect();
 
         for name in keys {
@@ -185,7 +184,7 @@ impl Settings {
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
-    use nvim_rs::{compat::tokio::Compat, Handler, Neovim};
+    use nvim_rs::{Handler, Neovim};
     use tokio;
 
     use super::*;
@@ -196,13 +195,13 @@ mod tests {
 
     #[async_trait]
     impl Handler for NeovimHandler {
-        type Writer = Compat<TxWrapper>;
+        type Writer = TxWrapper;
 
         async fn handle_notify(
             &self,
             _event_name: String,
             _arguments: Vec<Value>,
-            _neovim: Neovim<Compat<TxWrapper>>,
+            _neovim: Neovim<TxWrapper>,
         ) {
         }
     }

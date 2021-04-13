@@ -14,7 +14,7 @@ pub enum TxWrapper {
     Tcp(#[pin] WriteHalf<TcpStream>),
 }
 
-impl AsyncWrite for TxWrapper {
+impl futures::io::AsyncWrite for TxWrapper {
     fn poll_write(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -33,10 +33,10 @@ impl AsyncWrite for TxWrapper {
         }
     }
 
-    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
+    fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<(), io::Error>> {
         match self.project() {
-            TxProj::Child(inner) => inner.poll_flush(cx),
-            TxProj::Tcp(inner) => inner.poll_flush(cx),
+            TxProj::Child(inner) => inner.poll_shutdown(cx),
+            TxProj::Tcp(inner) => inner.poll_shutdown(cx),
         }
     }
 }
