@@ -128,8 +128,10 @@ git clone https://aur.archlinux.org/neovide-git.git
 cd neovide
 makepkg -si
 ```
-Note: Neovide might require a Noto Sans font on the first install.
+Note: Neovide requires that a font be set in `init.vim` otherwise errors might be encountered.
 See [#527](https://github.com/Kethku/neovide/issues/527)
+
+This can be fixed by adding `set guifont=Your\ Font\ Name:h15` in init.vim file.
 
 #### Debian/Ubuntu
 
