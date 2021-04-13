@@ -12,6 +12,8 @@ use nvim_rs::Neovim;
 use parking_lot::RwLock;
 pub use rmpv::Value;
 use tokio::process::ChildStdin;
+use tokio::net::TcpStream;
+use tokio::io::WriteHalf;
 
 use crate::error_handling::ResultPanicExplanation;
 
@@ -129,7 +131,7 @@ impl Settings {
         (*value).clone()
     }
 
-    pub async fn read_initial_values(&self, nvim: &Neovim<Compat<ChildStdin>>) {
+    pub async fn read_initial_values(&self, nvim: &Neovim<Compat<WriteHalf<TcpStream>>>) {
         let keys: Vec<String> = self.listeners.read().keys().cloned().collect();
 
         for name in keys {
@@ -147,7 +149,7 @@ impl Settings {
         }
     }
 
-    pub async fn setup_changed_listeners(&self, nvim: &Neovim<Compat<ChildStdin>>) {
+    pub async fn setup_changed_listeners(&self, nvim: &Neovim<Compat<WriteHalf<TcpStream>>>) {
         let keys: Vec<String> = self.listeners.read().keys().cloned().collect();
 
         for name in keys {
@@ -196,13 +198,13 @@ mod tests {
 
     #[async_trait]
     impl Handler for NeovimHandler {
-        type Writer = Compat<ChildStdin>;
+        type Writer = Compat<WriteHalf<TcpStream>>;
 
         async fn handle_notify(
             &self,
             _event_name: String,
             _arguments: Vec<Value>,
-            _neovim: Neovim<Compat<ChildStdin>>,
+            _neovim: Neovim<Compat<WriteHalf<TcpStream>>>,
         ) {
         }
     }

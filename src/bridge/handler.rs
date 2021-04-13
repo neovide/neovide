@@ -8,6 +8,8 @@ use parking_lot::Mutex;
 use rmpv::Value;
 use tokio::process::ChildStdin;
 use tokio::task;
+use tokio::io::WriteHalf;
+use tokio::net::TcpStream;
 
 use super::events::{parse_redraw_event, RedrawEvent};
 use super::ui_commands::UiCommand;
@@ -34,13 +36,13 @@ impl NeovimHandler {
 
 #[async_trait]
 impl Handler for NeovimHandler {
-    type Writer = Compat<ChildStdin>;
+    type Writer = Compat<WriteHalf<TcpStream>>;
 
     async fn handle_notify(
         &self,
         event_name: String,
         arguments: Vec<Value>,
-        _neovim: Neovim<Compat<ChildStdin>>,
+        _neovim: Neovim<Compat<WriteHalf<TcpStream>>>,
     ) {
         trace!("Neovim notification: {:?}", &event_name);
 
