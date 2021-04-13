@@ -128,6 +128,8 @@ git clone https://aur.archlinux.org/neovide-git.git
 cd neovide
 makepkg -si
 ```
+Note: Neovide might require a Noto Sans font on the first install.
+See [#527](https://github.com/Kethku/neovide/issues/527)
 
 #### Debian/Ubuntu
 
