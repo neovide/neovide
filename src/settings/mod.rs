@@ -12,8 +12,8 @@ use nvim_rs::Neovim;
 use parking_lot::RwLock;
 pub use rmpv::Value;
 
-use crate::error_handling::ResultPanicExplanation;
 use crate::bridge::TxWrapper;
+use crate::error_handling::ResultPanicExplanation;
 
 lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new();
@@ -51,6 +51,7 @@ impl Settings {
                     false
                 } else {
                     !(arg.starts_with("--geometry=")
+                        || arg.starts_with("--remote-tcp=")
                         || arg == "--version"
                         || arg == "-v"
                         || arg == "--help"
@@ -188,7 +189,7 @@ mod tests {
     use tokio;
 
     use super::*;
-    use crate::bridge::{create_nvim_command, create};
+    use crate::bridge::{create, create_nvim_command};
 
     #[derive(Clone)]
     pub struct NeovimHandler();
