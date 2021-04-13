@@ -6,13 +6,11 @@ use log::trace;
 use nvim_rs::{compat::tokio::Compat, Handler, Neovim};
 use parking_lot::Mutex;
 use rmpv::Value;
-use tokio::process::ChildStdin;
 use tokio::task;
-use tokio::io::WriteHalf;
-use tokio::net::TcpStream;
 
 use super::events::{parse_redraw_event, RedrawEvent};
 use super::ui_commands::UiCommand;
+use crate::bridge::TxWrapper;
 use crate::error_handling::ResultPanicExplanation;
 use crate::settings::SETTINGS;
 
@@ -36,13 +34,13 @@ impl NeovimHandler {
 
 #[async_trait]
 impl Handler for NeovimHandler {
-    type Writer = Compat<WriteHalf<TcpStream>>;
+    type Writer = Compat<TxWrapper>;
 
     async fn handle_notify(
         &self,
         event_name: String,
         arguments: Vec<Value>,
-        _neovim: Neovim<Compat<WriteHalf<TcpStream>>>,
+        _neovim: Neovim<Compat<TxWrapper>>,
     ) {
         trace!("Neovim notification: {:?}", &event_name);
 

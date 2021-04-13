@@ -11,11 +11,9 @@ use nvim_rs::compat::tokio::Compat;
 use nvim_rs::Neovim;
 use parking_lot::RwLock;
 pub use rmpv::Value;
-use tokio::process::ChildStdin;
-use tokio::net::TcpStream;
-use tokio::io::WriteHalf;
 
 use crate::error_handling::ResultPanicExplanation;
+use crate::bridge::TxWrapper;
 
 lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new();
@@ -131,7 +129,7 @@ impl Settings {
         (*value).clone()
     }
 
-    pub async fn read_initial_values(&self, nvim: &Neovim<Compat<WriteHalf<TcpStream>>>) {
+    pub async fn read_initial_values(&self, nvim: &Neovim<Compat<TxWrapper>>) {
         let keys: Vec<String> = self.listeners.read().keys().cloned().collect();
 
         for name in keys {
@@ -149,7 +147,7 @@ impl Settings {
         }
     }
 
-    pub async fn setup_changed_listeners(&self, nvim: &Neovim<Compat<WriteHalf<TcpStream>>>) {
+    pub async fn setup_changed_listeners(&self, nvim: &Neovim<Compat<TxWrapper>>) {
         let keys: Vec<String> = self.listeners.read().keys().cloned().collect();
 
         for name in keys {
@@ -186,25 +184,24 @@ impl Settings {
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
-    use nvim_rs::create::tokio as create;
     use nvim_rs::{compat::tokio::Compat, Handler, Neovim};
     use tokio;
 
     use super::*;
-    use crate::bridge::create_nvim_command;
+    use crate::bridge::{create_nvim_command, create};
 
     #[derive(Clone)]
     pub struct NeovimHandler();
 
     #[async_trait]
     impl Handler for NeovimHandler {
-        type Writer = Compat<WriteHalf<TcpStream>>;
+        type Writer = Compat<TxWrapper>;
 
         async fn handle_notify(
             &self,
             _event_name: String,
             _arguments: Vec<Value>,
-            _neovim: Neovim<Compat<WriteHalf<TcpStream>>>,
+            _neovim: Neovim<Compat<TxWrapper>>,
         ) {
         }
     }
@@ -290,7 +287,7 @@ mod tests {
         let v4: String = format!("neovide_{}", v1);
         let v5: String = format!("neovide_{}", v2);
 
-        let (nvim, _, _) = create::new_child_cmd(&mut create_nvim_command(), NeovimHandler())
+        let (nvim, _) = create::new_child_cmd(&mut create_nvim_command(), NeovimHandler())
             .await
             .unwrap_or_explained_panic("Could not locate or start the neovim process");
         nvim.set_var(&v4, Value::from(v2.clone())).await.ok();

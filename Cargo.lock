@@ -1585,6 +1585,7 @@ dependencies = [
  "neovide-derive",
  "nvim-rs",
  "parking_lot 0.10.2",
+ "pin-project",
  "rand",
  "rmpv",
  "rust-embed",

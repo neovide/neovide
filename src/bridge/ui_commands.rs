@@ -5,9 +5,8 @@ use log::error;
 
 use nvim_rs::compat::tokio::Compat;
 use nvim_rs::Neovim;
-use tokio::process::ChildStdin;
-use tokio::net::TcpStream;
-use tokio::io::WriteHalf;
+
+use crate::bridge::TxWrapper;
 
 #[cfg(windows)]
 use crate::windows_utils::{
@@ -45,7 +44,7 @@ pub enum UiCommand {
 }
 
 impl UiCommand {
-    pub async fn execute(self, nvim: &Neovim<Compat<WriteHalf<TcpStream>>>) {
+    pub async fn execute(self, nvim: &Neovim<Compat<TxWrapper>>) {
         match self {
             UiCommand::Resize { width, height } => nvim
                 .ui_try_resize(width.max(10) as i64, height.max(3) as i64)
