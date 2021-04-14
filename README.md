@@ -64,6 +64,28 @@ Font fallback supports rendering of emoji not contained in the configured font.
 
 Neovide supports displaying a full gui window from inside wsl via the `--wsl` command argument. Communication is passed via standard io into the wsl copy of neovim providing identical experience similar to visual studio code's remote editing https://code.visualstudio.com/docs/remote/remote-overview.
 
+### Remote TCP Support
+
+Neovide supports connecting to a remote instance of Neovim over a TCP socket via the `--remote-tcp` command argument. This would allow you to run Neovim on a remote machine and use the GUI on your local machine, connecting over the network.
+
+Launch Neovim as a TCP server (on port 6666) by running:
+
+```sh
+nvim --headless --listen localhost:6666
+```
+
+And then connect to it using:
+
+```sh
+/path/to/neovide --remote-tcp=localhost:6666
+```
+
+By specifying to listen on localhost, you only allow connections from your local computer. If you are actually doing this over a network you will want to use SSH port forwarding for security, and then connect as before.
+
+```sh
+ssh -L 6666:localhost:6666 ip.of.other.machine nvim --headless --listen localhost:6666
+```
+
 ### Some Nonsense ;)
 
 ```

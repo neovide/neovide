@@ -7,12 +7,11 @@ use flexi_logger::{Cleanup, Criterion, Duplicate, Logger, Naming};
 mod from_value;
 pub use from_value::FromValue;
 use log::warn;
-use nvim_rs::compat::tokio::Compat;
 use nvim_rs::Neovim;
 use parking_lot::RwLock;
 pub use rmpv::Value;
-use tokio::process::ChildStdin;
 
+use crate::bridge::TxWrapper;
 use crate::error_handling::ResultPanicExplanation;
 
 lazy_static! {
@@ -51,6 +50,7 @@ impl Settings {
                     false
                 } else {
                     !(arg.starts_with("--geometry=")
+                        || arg.starts_with("--remote-tcp=")
                         || arg == "--version"
                         || arg == "-v"
                         || arg == "--help"
@@ -129,7 +129,7 @@ impl Settings {
         (*value).clone()
     }
 
-    pub async fn read_initial_values(&self, nvim: &Neovim<Compat<ChildStdin>>) {
+    pub async fn read_initial_values(&self, nvim: &Neovim<TxWrapper>) {
         let keys: Vec<String> = self.listeners.read().keys().cloned().collect();
 
         for name in keys {
@@ -147,7 +147,7 @@ impl Settings {
         }
     }
 
-    pub async fn setup_changed_listeners(&self, nvim: &Neovim<Compat<ChildStdin>>) {
+    pub async fn setup_changed_listeners(&self, nvim: &Neovim<TxWrapper>) {
         let keys: Vec<String> = self.listeners.read().keys().cloned().collect();
 
         for name in keys {
@@ -184,25 +184,24 @@ impl Settings {
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
-    use nvim_rs::create::tokio as create;
-    use nvim_rs::{compat::tokio::Compat, Handler, Neovim};
+    use nvim_rs::{Handler, Neovim};
     use tokio;
 
     use super::*;
-    use crate::bridge::create_nvim_command;
+    use crate::bridge::{create, create_nvim_command};
 
     #[derive(Clone)]
     pub struct NeovimHandler();
 
     #[async_trait]
     impl Handler for NeovimHandler {
-        type Writer = Compat<ChildStdin>;
+        type Writer = TxWrapper;
 
         async fn handle_notify(
             &self,
             _event_name: String,
             _arguments: Vec<Value>,
-            _neovim: Neovim<Compat<ChildStdin>>,
+            _neovim: Neovim<TxWrapper>,
         ) {
         }
     }
@@ -288,7 +287,7 @@ mod tests {
         let v4: String = format!("neovide_{}", v1);
         let v5: String = format!("neovide_{}", v2);
 
-        let (nvim, _, _) = create::new_child_cmd(&mut create_nvim_command(), NeovimHandler())
+        let (nvim, _) = create::new_child_cmd(&mut create_nvim_command(), NeovimHandler())
             .await
             .unwrap_or_explained_panic("Could not locate or start the neovim process");
         nvim.set_var(&v4, Value::from(v2.clone())).await.ok();

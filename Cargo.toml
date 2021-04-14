@@ -29,7 +29,7 @@ rmpv = "0.4.4"
 rust-embed = { version = "5.2.0", features = ["debug-embed"] }
 image = "0.22.3"
 nvim-rs = { git = "https://github.com/kethku/nvim-rs", features = [ "use_tokio" ] }
-tokio = { version = "0.2.9", features = [ "blocking", "process", "time" ] }
+tokio = { version = "0.2.9", features = [ "blocking", "process", "time", "tcp" ] }
 async-trait = "0.1.18"
 crossfire = "0.1"
 lazy_static = "1.4.0"
@@ -43,6 +43,8 @@ which = "4"
 dirs = "2"
 rand = "0.7"
 skia-safe = "0.32.1"
+pin-project = "0.4.27"
+futures = "0.3.12"
 
 [dev-dependencies]
 mockall = "0.7.0"

@@ -1,5 +1,7 @@
+pub mod create;
 mod events;
 mod handler;
+mod tx_wrapper;
 mod ui_commands;
 
 use std::env;
@@ -10,7 +12,7 @@ use std::sync::Arc;
 
 use crossfire::mpsc::{RxUnbounded, TxUnbounded};
 use log::{error, info, warn};
-use nvim_rs::{create::tokio as create, UiAttachOptions};
+use nvim_rs::UiAttachOptions;
 use rmpv::Value;
 use tokio::process::Command;
 use tokio::runtime::Runtime;
@@ -20,6 +22,7 @@ use crate::settings::*;
 use crate::window::window_geometry_or_default;
 pub use events::*;
 use handler::NeovimHandler;
+pub use tx_wrapper::{TxWrapper, WrapTx};
 pub use ui_commands::UiCommand;
 
 #[cfg(windows)]
@@ -129,6 +132,22 @@ pub fn create_nvim_command() -> Command {
     cmd
 }
 
+enum ConnectionMode {
+    Child,
+    RemoteTcp(String),
+}
+
+fn connection_mode() -> ConnectionMode {
+    let tcp_prefix = "--remote-tcp=";
+
+    if let Some(arg) = std::env::args().find(|arg| arg.starts_with(tcp_prefix)) {
+        let input = &arg[tcp_prefix.len()..];
+        ConnectionMode::RemoteTcp(input.to_owned())
+    } else {
+        ConnectionMode::Child
+    }
+}
+
 async fn start_neovim_runtime(
     ui_command_sender: TxUnbounded<UiCommand>,
     ui_command_receiver: RxUnbounded<UiCommand>,
@@ -137,9 +156,11 @@ async fn start_neovim_runtime(
 ) {
     let (width, height) = window_geometry_or_default();
     let handler = NeovimHandler::new(ui_command_sender.clone(), redraw_event_sender.clone());
-    let (mut nvim, io_handler, _) = create::new_child_cmd(&mut create_nvim_command(), handler)
-        .await
-        .unwrap_or_explained_panic("Could not locate or start neovim process");
+    let (mut nvim, io_handler) = match connection_mode() {
+        ConnectionMode::Child => create::new_child_cmd(&mut create_nvim_command(), handler).await,
+        ConnectionMode::RemoteTcp(address) => create::new_tcp(address, handler).await,
+    }
+    .unwrap_or_explained_panic("Could not locate or start neovim process");
 
     if nvim.get_api_info().await.is_err() {
         error!("Cannot get neovim api info, either neovide is launched with an unknown command line option or neovim version not supported!");

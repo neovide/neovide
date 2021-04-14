@@ -3,9 +3,9 @@ use log::trace;
 #[cfg(windows)]
 use log::error;
 
-use nvim_rs::compat::tokio::Compat;
 use nvim_rs::Neovim;
-use tokio::process::ChildStdin;
+
+use crate::bridge::TxWrapper;
 
 #[cfg(windows)]
 use crate::windows_utils::{
@@ -43,7 +43,7 @@ pub enum UiCommand {
 }
 
 impl UiCommand {
-    pub async fn execute(self, nvim: &Neovim<Compat<ChildStdin>>) {
+    pub async fn execute(self, nvim: &Neovim<TxWrapper>) {
         match self {
             UiCommand::Resize { width, height } => nvim
                 .ui_try_resize(width.max(10) as i64, height.max(3) as i64)
