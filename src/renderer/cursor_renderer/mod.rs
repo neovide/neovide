@@ -20,8 +20,8 @@ const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
 
 const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5)];
 
-#[setting_prefix = "cursor"]
 #[derive(Clone, SettingGroup)]
+#[setting_prefix = "cursor"]
 pub struct CursorSettings {
     antialiasing: bool,
     animation_length: f32,

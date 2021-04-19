@@ -7,12 +7,12 @@ pub fn setting_group(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
     let prefix = setting_prefix(input.attrs.as_ref())
         .map(|p| format!("{}_", p))
-        .unwrap_or("".to_string());
+        .unwrap_or_else(|| "".to_string());
     stream(input, prefix)
 }
 
 fn stream(input: DeriveInput, prefix: String) -> TokenStream {
-    const ERR_MSG: &'static str = "Derive macro expects a struct";
+    const ERR_MSG: &str = "Derive macro expects a struct";
     match input.data {
         Data::Struct(ref data) => struct_stream(input.ident, prefix, data),
         Data::Enum(data) => Error::new_spanned(data.enum_token, ERR_MSG)

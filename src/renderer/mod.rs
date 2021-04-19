@@ -19,8 +19,8 @@ use crate::editor::{Colors, DrawCommand, Style, WindowDrawCommand};
 use crate::settings::*;
 use cursor_renderer::CursorRenderer;
 
-#[setting_prefix = "window"]
 #[derive(Clone, SettingGroup)]
+#[setting_prefix = "window"]
 pub struct RendererSettings {
     position_animation_length: f32,
     scroll_animation_length: f32,
