@@ -37,7 +37,6 @@ cfg-if = "0.1.10"
 which = "4"
 dirs = "2"
 rand = "0.7"
-skia-safe = { version = "0.37.0", features = [ "gl" ] }
 pin-project = "0.4.27"
 futures = "0.3.12"
 glutin = "0.26"
