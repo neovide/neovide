@@ -147,7 +147,7 @@ There is an [AUR package for neovide](https://aur.archlinux.org/packages/neovide
 
 ```sh
 git clone https://aur.archlinux.org/neovide-git.git
-cd neovide
+cd neovide-git
 makepkg -si
 ```
 Note: Neovide requires that a font be set in `init.vim` otherwise errors might be encountered.
