@@ -88,7 +88,7 @@ ssh -L 6666:localhost:6666 ip.of.other.machine nvim --headless --listen localhos
 
 ### Some Nonsense ;)
 
-```
+```vim
 let g:neovide_cursor_vfx_mode = "railgun"
 ```
 
@@ -114,7 +114,7 @@ Building instructions are somewhat limited at the moment. All the libraries I us
 support for Windows, Mac, and Linux. The rendering however is Vulkan-based, so driver support for Vulkan will be
 necessary. On Windows this should be enabled by default if you have a relatively recent system.
 
-Note: Neovide requires neovim version 0.4 or greater.
+**Note**: Neovide requires neovim version 0.4 or greater.
 
 ### Windows
 
