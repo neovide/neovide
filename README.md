@@ -104,19 +104,19 @@ Configuration is done almost completely via global neovide variables in your vim
 
 ## Install
 
-Relatively recent binaries can be found in the [project releases](https://github.com/Kethku/neovide/releases). But if you want the latest and greatest you should clone it and build yourself.
-
-Installing should be as simple as downloading the binary, making sure `nvim.exe` with version 0.4 or greater is on your path, and running it. Everything should be self contained.
-
-## Building
-
-Building instructions are somewhat limited at the moment. All the libraries I use are cross platform and should have
+**Note**: Building instructions are somewhat limited at the moment. All the libraries I use are cross platform and should have
 support for Windows, Mac, and Linux. The rendering however is Vulkan-based, so driver support for Vulkan will be
 necessary. On Windows this should be enabled by default if you have a relatively recent system.
 
 **Note**: Neovide requires neovim version 0.4 or greater.
 
-### Windows
+### From binary
+
+Relatively recent binaries can be found in the [project releases](https://github.com/Kethku/neovide/releases). But if you want the latest and greatest you should clone it and build yourself.
+
+Installing should be as simple as downloading the binary, making sure `nvim.exe` with version 0.4 or greater is on your path, and running it. Everything should be self contained.
+
+### Windows (from source)
 
 1. Install the latest version of Rust. I recommend <https://rustup.rs/>
 2. Install CMake. I use chocolatey: `choco install cmake --installargs '"ADD_CMAKE_TO_PATH=System"' -y`
@@ -132,7 +132,7 @@ necessary. On Windows this should be enabled by default if you have a relatively
 
 6. Copy `./target/release/neovide.exe` to a known location and enjoy.
 
-### Mac
+### Mac (from source)
 
 1. Install the latest version of Rust. I recommend <https://rustup.rs/>
 2. Install CMake. Using homebrew: `brew install cmake`
