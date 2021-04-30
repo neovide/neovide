@@ -122,22 +122,30 @@ Note: Neovide requires neovim version 0.4 or greater.
 2. Install CMake. I use chocolatey: `choco install cmake --installargs '"ADD_CMAKE_TO_PATH=System"' -y`
 3. Install LLVM. I use chocolatey: `choco install llvm -y`
 4. Ensure graphics libraries are up to date.
-5. `git clone https://github.com/Kethku/neovide`
-6. `cd neovide`
-7. `cargo build --release`
-8. Copy `./target/release/neovide.exe` to a known location and enjoy.
+5. Build and install Neovide:
+
+    ```sh
+    git clone https://github.com/Kethku/neovide
+    cd neovide
+    cargo build --release
+    ```
+
+6. Copy `./target/release/neovide.exe` to a known location and enjoy.
 
 ### Mac
 
 1. Install the latest version of Rust. I recommend <https://rustup.rs/>
 2. Install CMake. Using homebrew: `brew install cmake`
 3. Install the Vulkan SDK. I'm told `brew install apenngrace/vulkan/vulkan-sdk` works, but I can't test locally to find out.
-4. `git clone https://github.com/Kethku/neovide`
-5. `cd neovide`
-6. `cargo build --release`
-7. Copy `./target/release/neovide` to a known location and enjoy.
+4. Build and install Neovide:
 
-Note: If you run into issues with the vulkan libraries being reported as not verified, this issue thread may help: https://github.com/Kethku/neovide/issues/167#issuecomment-593314579
+    ```sh
+    git clone https://github.com/Kethku/neovide
+    cd neovide
+    cargo build --release
+    ```
+
+5. Copy `./target/release/neovide` to a known location and enjoy.
 
 ### Linux
 
