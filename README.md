@@ -40,7 +40,7 @@ https://github.com/Kethku/neovide/wiki/Configuration#multiGrid
 
 ### Animated Windows
 
-Windows animate into position when they are moved making it easier to see how layout changes happen. Note, multigrid must be enabled for 
+Windows animate into position when they are moved making it easier to see how layout changes happen. Note, multigrid must be enabled for
 this to work.
 https://github.com/Kethku/neovide/wiki/Configuration#multiGrid
 
@@ -150,6 +150,18 @@ git clone https://aur.archlinux.org/neovide-git.git
 cd neovide-git
 makepkg -si
 ```
+
+To install a non-default branch:
+
+```sh
+git clone https://aur.archlinux.org/neovide-git.git
+cd neovide-git
+nvim PKGBUILD
+:%s/l}/l}#branch=branch-name-here/
+:wq
+makepkg -si
+```
+
 Note: Neovide requires that a font be set in `init.vim` otherwise errors might be encountered.
 See [#527](https://github.com/Kethku/neovide/issues/527)
 
@@ -177,7 +189,7 @@ Note: Neovide has been successfully built on other distros but this reportedly w
     sudo apt-get update -y
     sudo apt-get install -y vulkan-sdk
     ```
-    
+
     Alternatively if you are running an amd graphics card you may have more success by installing amdvlk.
     https://github.com/Kethku/neovide/issues/209
 
