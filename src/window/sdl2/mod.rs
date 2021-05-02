@@ -47,7 +47,6 @@ pub struct Sdl2WindowWrapper {
     grid_id_under_mouse: u64,
     title: String,
     previous_size: LogicalSize,
-    transparency: f32,
     fullscreen: bool,
     cached_size: (u32, u32),
     cached_position: (i32, i32),
@@ -115,7 +114,6 @@ impl Sdl2WindowWrapper {
         if let Ok(opacity) = self.window.opacity() {
             if (opacity - transparency).abs() > std::f32::EPSILON {
                 self.window.set_opacity(transparency).ok();
-                self.transparency = transparency;
             }
         }
 
@@ -477,7 +475,6 @@ pub fn start_loop(
         grid_id_under_mouse: 0,
         title: String::from("Neovide"),
         previous_size: logical_size,
-        transparency: 1.0,
         fullscreen: false,
         cached_size: (0, 0),
         cached_position: (0, 0),

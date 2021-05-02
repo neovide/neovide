@@ -1,8 +1,8 @@
 use super::KeyboardLayout;
 use crate::settings::FromValue;
 
-#[setting_prefix = "keyboard"]
 #[derive(Clone, SettingGroup)]
+#[setting_prefix = "keyboard"]
 pub struct KeyboardSettings {
     pub layout: KeyboardLayout,
 }
