@@ -88,7 +88,7 @@ ssh -L 6666:localhost:6666 ip.of.other.machine nvim --headless --listen localhos
 
 ### Some Nonsense ;)
 
-```
+```vim
 let g:neovide_cursor_vfx_mode = "railgun"
 ```
 
@@ -104,40 +104,48 @@ Configuration is done almost completely via global neovide variables in your vim
 
 ## Install
 
+**Note**: Building instructions are somewhat limited at the moment. All the libraries I use are cross platform and should have
+support for Windows, Mac, and Linux. The rendering however is Vulkan-based, so driver support for Vulkan will be
+necessary. On Windows this should be enabled by default if you have a relatively recent system.
+
+**Note**: Neovide requires neovim version 0.4 or greater.
+
+### From binary
+
 Relatively recent binaries can be found in the [project releases](https://github.com/Kethku/neovide/releases). But if you want the latest and greatest you should clone it and build yourself.
 
 Installing should be as simple as downloading the binary, making sure `nvim.exe` with version 0.4 or greater is on your path, and running it. Everything should be self contained.
 
-## Building
-
-Building instructions are somewhat limited at the moment. All the libraries I use are cross platform and should have
-support for Windows, Mac, and Linux. The rendering however is Vulkan-based, so driver support for Vulkan will be
-necessary. On Windows this should be enabled by default if you have a relatively recent system.
-
-Note: Neovide requires neovim version 0.4 or greater.
-
-### Windows
+### Windows (from source)
 
 1. Install the latest version of Rust. I recommend <https://rustup.rs/>
 2. Install CMake. I use chocolatey: `choco install cmake --installargs '"ADD_CMAKE_TO_PATH=System"' -y`
 3. Install LLVM. I use chocolatey: `choco install llvm -y`
 4. Ensure graphics libraries are up to date.
-5. `git clone https://github.com/Kethku/neovide`
-6. `cd neovide`
-7. `cargo build --release`
-8. Copy `./target/release/neovide.exe` to a known location and enjoy.
+5. Build and install Neovide:
 
-### Mac
+    ```sh
+    git clone https://github.com/Kethku/neovide
+    cd neovide
+    cargo build --release
+    ```
+
+6. Copy `./target/release/neovide.exe` to a known location and enjoy.
+
+### Mac (from source)
 
 1. Install the latest version of Rust. I recommend <https://rustup.rs/>
 2. Install CMake. Using homebrew: `brew install cmake`
 3. Install the Vulkan SDK. I'm told `brew install apenngrace/vulkan/vulkan-sdk` works, but I can't test locally to find out.
-4. `git clone https://github.com/Kethku/neovide`
-5. `cd neovide`
-6. `cargo build --release`
-7. Copy `./target/release/neovide` to a known location and enjoy.
+4. Build and install Neovide:
 
-Note: If you run into issues with the vulkan libraries being reported as not verified, this issue thread may help: https://github.com/Kethku/neovide/issues/167#issuecomment-593314579
+    ```sh
+    git clone https://github.com/Kethku/neovide
+    cd neovide
+    cargo build --release
+    ```
+
+5. Copy `./target/release/neovide` to a known location and enjoy.
 
 ### Linux
 
@@ -145,70 +153,75 @@ Note: If you run into issues with the vulkan libraries being reported as not ver
 
 There is an [AUR package for neovide](https://aur.archlinux.org/packages/neovide-git/).
 
+##### With Paru (or your preferred AUR helper)
+
+```sh
+paru -S neovide-git
+```
+
+##### Without helper
+
 ```sh
 git clone https://aur.archlinux.org/neovide-git.git
 cd neovide-git
 makepkg -si
 ```
 
-To install a non-default branch:
+##### With non-default branch
 
 ```sh
 git clone https://aur.archlinux.org/neovide-git.git
 cd neovide-git
-nvim PKGBUILD
-:%s/l}/l}#branch=branch-name-here/
-:wq
+REGEX=$(printf 's/{url}/&\#branch=%s/g' '<YOUR-BRANCH-HERE>')
+sed "$REGEX" PKGBUILD
 makepkg -si
 ```
 
-Note: Neovide requires that a font be set in `init.vim` otherwise errors might be encountered.
-See [#527](https://github.com/Kethku/neovide/issues/527)
-
-This can be fixed by adding `set guifont=Your\ Font\ Name:h15` in init.vim file.
-
-#### Debian/Ubuntu
-
-Note: Neovide has been successfully built on other distros but this reportedly works on ubuntu.
-
-1. Install necessary dependencies
+#### From source
+1. Install necessary dependencies (adjust for your preferred package manager)
 
     ```sh
-    sudo apt-get install -y curl \
+    sudo apt install -y curl \
         gnupg ca-certificates git \
         gcc-multilib g++-multilib cmake libssl-dev pkg-config \
         libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev \
         libbz2-dev libsndio-dev freeglut3-dev libxmu-dev libxi-dev
     ```
 
-2. Install Vulkan SDK
+2. Install Vulkan SDK (adjust for your preferred package manager, may already be in your repository)
 
     ```sh
     curl -sL "http://packages.lunarg.com/lunarg-signing-key-pub.asc" | sudo apt-key add -
     sudo curl -sLo "/etc/apt/sources.list.d/lunarg-vulkan-1.2.131-bionic.list" "http://packages.lunarg.com/vulkan/1.2.131/lunarg-vulkan-1.2.131-bionic.list"
-    sudo apt-get update -y
-    sudo apt-get install -y vulkan-sdk
+    sudo apt update -y
+    sudo apt install -y vulkan-sdk
     ```
-
-    Alternatively if you are running an amd graphics card you may have more success by installing amdvlk.
-    https://github.com/Kethku/neovide/issues/209
 
 3. Install Rust
 
-    `curl --proto '=https' --tlsv1.2 -sSf "https://sh.rustup.rs" | sh`
+    ```sh
+    curl --proto '=https' --tlsv1.2 -sSf "https://sh.rustup.rs" | sh
+    ```
 
 4. Clone the repository
 
-    `git clone "https://github.com/Kethku/neovide"`
+    ```sh
+    git clone "https://github.com/Kethku/neovide"
+    ```
 
 5. Build
 
-    `cd neovide && ~/.cargo/bin/cargo build --release`
+    ```sh
+    cd neovide && ~/.cargo/bin/cargo build --release
+    ```
 
 6. Copy `./target/release/neovide` to a known location and enjoy.
 
-If you see an error complaining about DRI3 settings, links in this issue may help:
-<https://github.com/Kethku/neovide/issues/44#issuecomment-578618052>.
+## Troubleshooting
+- Neovide requires that a font be set in `init.vim` otherwise errors might be encountered. This can be fixed by adding `set guifont=Your\ Font\ Name:h15` in init.vim file. Reference issue [#527](https://github.com/Kethku/neovide/issues/527).
+- On OSX, if you run into issues with the vulkan libraries being reported as not verified, please reference issue [#167](https://github.com/Kethku/neovide/issues/167#issuecomment-593314579).
 
-Note: If you run into libsndio errors, try building without default features which will disable static linking of the SDL
-library.
+### Linux-specific
+- If you recieve an error of `SdlError("Installed Vulkan doesn't implement the VK_KHR_surface extension")`, please try installing the AMD Vulkan Driver (commonly, `amdvlk`). Reference issue [#209](https://github.com/Kethku/neovide/issues/209).
+- If you recieve errors complaining about DRI3 settings, please reference issue [#44](https://github.com/Kethku/neovide/issues/44#issuecomment-578618052).
+- If you recieve libsndio-related errors, try building without default features (this disables static linking of the SDL library).
