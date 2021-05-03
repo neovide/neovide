@@ -25,6 +25,7 @@ const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.
 pub struct CursorSettings {
     antialiasing: bool,
     animation_length: f32,
+    distance_length_adjust: bool,
     animate_in_insert_mode: bool,
     trail_size: f32,
     vfx_mode: cursor_vfx::VfxMode,
@@ -43,6 +44,7 @@ impl Default for CursorSettings {
             animation_length: 0.13,
             animate_in_insert_mode: true,
             trail_size: 0.7,
+            distance_length_adjust: false,
             vfx_mode: cursor_vfx::VfxMode::Disabled,
             vfx_opacity: 200.0,
             vfx_particle_lifetime: 1.2,
@@ -60,6 +62,7 @@ pub struct Corner {
     current_position: Point,
     relative_position: Point,
     previous_destination: Point,
+    length_multiplier: f32,
     t: f32,
 }
 
@@ -70,6 +73,7 @@ impl Corner {
             current_position: Point::new(0.0, 0.0),
             relative_position: Point::new(0.0, 0.0),
             previous_destination: Point::new(-1000.0, -1000.0),
+            length_multiplier: 1.0,
             t: 0.0,
         }
     }
@@ -86,6 +90,11 @@ impl Corner {
             self.t = 0.0;
             self.start_position = self.current_position;
             self.previous_destination = destination;
+            self.length_multiplier = if settings.distance_length_adjust {
+                (destination - self.current_position).length().log10()
+            } else {
+                1.0
+            }
         }
 
         // Check first if animation's over
@@ -135,7 +144,7 @@ impl Corner {
                     (1.0 - settings.trail_size).max(0.0).min(1.0),
                     -direction_alignment,
                 );
-            self.t = (self.t + corner_dt / settings.animation_length).min(1.0)
+            self.t = (self.t + corner_dt / (settings.animation_length * self.length_multiplier)).min(1.0)
         }
 
         self.current_position = ease_point(
