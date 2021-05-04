@@ -27,6 +27,7 @@ pub struct CursorSettings {
     animation_length: f32,
     distance_length_adjust: bool,
     animate_in_insert_mode: bool,
+    animate_command_line: bool,
     trail_size: f32,
     vfx_mode: cursor_vfx::VfxMode,
     vfx_opacity: f32,
@@ -43,6 +44,7 @@ impl Default for CursorSettings {
             antialiasing: true,
             animation_length: 0.13,
             animate_in_insert_mode: true,
+            animate_command_line: true,
             trail_size: 0.7,
             distance_length_adjust: false,
             vfx_mode: cursor_vfx::VfxMode::Disabled,
@@ -164,6 +166,7 @@ pub struct CursorRenderer {
     destination: Point,
     blink_status: BlinkStatus,
     previous_cursor_shape: Option<CursorShape>,
+    previous_editor_mode: EditorMode,
     cursor_vfx: Option<Box<dyn cursor_vfx::CursorVfx>>,
     previous_vfx_mode: cursor_vfx::VfxMode,
 }
@@ -176,6 +179,7 @@ impl CursorRenderer {
             destination: (0.0, 0.0).into(),
             blink_status: BlinkStatus::new(),
             previous_cursor_shape: None,
+            previous_editor_mode: EditorMode::Normal,
             cursor_vfx: None,
             previous_vfx_mode: cursor_vfx::VfxMode::Disabled,
         };
@@ -222,22 +226,25 @@ impl CursorRenderer {
         font_width: f32,
         font_height: f32,
         windows: &HashMap<u64, RenderedWindow>,
+        current_mode: &EditorMode,
     ) {
         let (cursor_grid_x, cursor_grid_y) = self.cursor.grid_position;
 
         if let Some(window) = windows.get(&self.cursor.parent_window_id) {
-            let grid_x = cursor_grid_x as f32 + window.grid_current_position.x;
-            let mut grid_y = cursor_grid_y as f32 + window.grid_current_position.y
-                - (window.current_scroll - window.current_surfaces.top_line);
+            if cursor_grid_y < window.grid_height-1 || matches!(current_mode, EditorMode::CmdLine) {
+                let grid_x = cursor_grid_x as f32 + window.grid_current_position.x;
+                let mut grid_y = cursor_grid_y as f32 + window.grid_current_position.y
+                    - (window.current_scroll - window.current_surfaces.top_line);
 
-            // Prevent the cursor from targeting a position outside its current window. Since only
-            // the vertical direction is effected by scrolling, we only have to clamp the vertical
-            // grid position.
-            grid_y = grid_y
-                .max(window.grid_current_position.y)
-                .min(window.grid_current_position.y + window.grid_height as f32 - 1.0);
+                // Prevent the cursor from targeting a position outside its current window. Since only
+                // the vertical direction is effected by scrolling, we only have to clamp the vertical
+                // grid position.
+                grid_y = grid_y
+                    .max(window.grid_current_position.y)
+                    .min(window.grid_current_position.y + window.grid_height as f32 - 1.0);
 
-            self.destination = (grid_x * font_width, grid_y * font_height).into();
+                self.destination = (grid_x * font_width, grid_y * font_height).into();
+            }
         } else {
             self.destination = (
                 cursor_grid_x as f32 * font_width,
@@ -278,6 +285,8 @@ impl CursorRenderer {
         let font_dimensions: Point = (font_width, font_height).into();
 
         let in_insert_mode = matches!(current_mode, EditorMode::Insert);
+        let changed_to_from_cmdline = !matches!(self.previous_editor_mode, EditorMode::CmdLine) 
+                                      ^ matches!(current_mode, EditorMode::CmdLine);
 
         let center_destination = self.destination + font_dimensions * 0.5;
         let new_cursor = Some(self.cursor.shape.clone());
@@ -305,7 +314,8 @@ impl CursorRenderer {
                     font_dimensions,
                     center_destination,
                     dt,
-                    !settings.animate_in_insert_mode && in_insert_mode,
+                    !settings.animate_in_insert_mode && in_insert_mode 
+                    || !settings.animate_command_line && !changed_to_from_cmdline,
                 );
 
                 animating |= corner_animating;
@@ -322,6 +332,8 @@ impl CursorRenderer {
 
         if animating {
             REDRAW_SCHEDULER.queue_next_frame();
+        } else {
+            self.previous_editor_mode = current_mode.clone();
         }
 
         if self.cursor.enabled && render {
