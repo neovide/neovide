@@ -16,7 +16,7 @@ any critiques that you might have to offer. I won't take all of them, but I prom
 
 ## Features
 
-Should be a standard full features Neovim GUI. Beyond that there are some visual niceties:
+Should be a standard fully featured Neovim GUI. Beyond that there are some visual niceties:
 
 ### Ligatures
 
@@ -112,7 +112,8 @@ necessary. On Windows this should be enabled by default if you have a relatively
 
 ### From binary
 
-Relatively recent binaries can be found in the [project releases](https://github.com/Kethku/neovide/releases). But if you want the latest and greatest you should clone it and build yourself.
+Building instructions are somewhat limited at the moment. All the libraries I use are cross platform and should have support for Windows, Mac, and Linux. The rendering is based on opengl, so a good gpu driver will be
+necessary. On Windows this should be enabled by default if you have a relatively recent system.
 
 Installing should be as simple as downloading the binary, making sure `nvim.exe` with version 0.4 or greater is on your path, and running it. Everything should be self contained.
 
@@ -136,15 +137,10 @@ Installing should be as simple as downloading the binary, making sure `nvim.exe`
 
 1. Install the latest version of Rust. I recommend <https://rustup.rs/>
 2. Install CMake. Using homebrew: `brew install cmake`
-3. Build and install Neovide:
-
-    ```sh
-    git clone https://github.com/Kethku/neovide
-    cd neovide
-    cargo build --release
-    ```
-
-4. Copy `./target/release/neovide` to a known location and enjoy.
+3. `git clone https://github.com/Kethku/neovide`
+4. `cd neovide`
+5. `cargo build --release`
+6. Copy `./target/release/neovide` to a known location and enjoy.
 
 ### Linux
 
@@ -165,6 +161,19 @@ git clone https://aur.archlinux.org/neovide-git.git
 cd neovide-git
 makepkg -si
 ```
+To install a non-default branch:
+
+```sh
+git clone https://aur.archlinux.org/neovide-git.git
+cd neovide-git
+nvim PKGBUILD
+:%s/l}/l}#branch=branch-name-here/
+:wq
+makepkg -si
+```
+
+Note: Neovide requires that a font be set in `init.vim` otherwise errors might be encountered.
+See [#527](https://github.com/Kethku/neovide/issues/527)
 
 ##### With non-default branch
 
@@ -209,7 +218,6 @@ makepkg -si
 
 ## Troubleshooting
 - Neovide requires that a font be set in `init.vim` otherwise errors might be encountered. This can be fixed by adding `set guifont=Your\ Font\ Name:h15` in init.vim file. Reference issue [#527](https://github.com/Kethku/neovide/issues/527).
-- On OSX, if you run into issues with the vulkan libraries being reported as not verified, please reference issue [#167](https://github.com/Kethku/neovide/issues/167#issuecomment-593314579).
 
 ### Linux-specific
 - If you recieve errors complaining about DRI3 settings, please reference issue [#44](https://github.com/Kethku/neovide/issues/44#issuecomment-578618052).
