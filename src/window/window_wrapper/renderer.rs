@@ -51,6 +51,9 @@ impl SkiaRenderer {
         gl::load_with(|s| windowed_context.get_proc_address(&s));
 
         let interface = skia_safe::gpu::gl::Interface::new_load_with(|name| {
+            if name == "eglGetCurrentDisplay" {
+                return std::ptr::null();
+            }
             windowed_context.get_proc_address(name)
         })
         .expect("Could not create interface");

@@ -324,14 +324,13 @@ impl RenderedWindow {
                     {
                         self.position_t = 0.0; // Reset animation as we have a new destination.
                         self.grid_start_position = self.grid_current_position;
-                        self.grid_destination = new_destination;
                     } else {
                         // We don't want to animate since the window is animating out of the start location,
                         // so we set t to 2.0 to stop animations.
                         self.position_t = 2.0;
                         self.grid_start_position = new_destination;
-                        self.grid_destination = new_destination;
                     }
+                    self.grid_destination = new_destination;
                 }
 
                 if grid_width != self.grid_width || grid_height != self.grid_height {

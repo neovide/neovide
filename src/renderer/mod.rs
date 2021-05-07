@@ -18,8 +18,9 @@ use crate::editor::{Colors, DrawCommand, Style, WindowDrawCommand};
 use crate::settings::*;
 use cursor_renderer::CursorRenderer;
 
-#[setting_prefix = "window"]
-#[derive(Clone, SettingGroup)]
+#[derive(SettingGroup)]
+#[setting_prefix = "keyboard"]
+#[derive(Clone)]
 pub struct RendererSettings {
     position_animation_length: f32,
     scroll_animation_length: f32,
@@ -103,12 +104,7 @@ impl Renderer {
     }
 
     fn get_default_background(&self) -> Color {
-        self.default_style
-            .colors
-            .background
-            .clone()
-            .unwrap()
-            .to_color()
+        self.default_style.colors.background.unwrap().to_color()
     }
 
     fn draw_background(
@@ -273,14 +269,7 @@ impl Renderer {
             self.handle_draw_command(root_canvas, draw_command, scaling);
         }
 
-        root_canvas.clear(
-            self.default_style
-                .colors
-                .background
-                .clone()
-                .unwrap()
-                .to_color(),
-        );
+        root_canvas.clear(self.default_style.colors.background.unwrap().to_color());
 
         root_canvas.save();
 

@@ -31,13 +31,11 @@ impl Style {
         if self.reverse {
             self.colors
                 .background
-                .clone()
-                .unwrap_or_else(|| default_colors.background.clone().unwrap())
+                .unwrap_or_else(|| default_colors.background.unwrap())
         } else {
             self.colors
                 .foreground
-                .clone()
-                .unwrap_or_else(|| default_colors.foreground.clone().unwrap())
+                .unwrap_or_else(|| default_colors.foreground.unwrap())
         }
     }
 
@@ -45,21 +43,18 @@ impl Style {
         if self.reverse {
             self.colors
                 .foreground
-                .clone()
-                .unwrap_or_else(|| default_colors.foreground.clone().unwrap())
+                .unwrap_or_else(|| default_colors.foreground.unwrap())
         } else {
             self.colors
                 .background
-                .clone()
-                .unwrap_or_else(|| default_colors.background.clone().unwrap())
+                .unwrap_or_else(|| default_colors.background.unwrap())
         }
     }
 
     pub fn special(&self, default_colors: &Colors) -> Color4f {
         self.colors
             .special
-            .clone()
-            .unwrap_or_else(|| default_colors.special.clone().unwrap())
+            .unwrap_or_else(|| default_colors.special.unwrap())
     }
 }
 
@@ -85,12 +80,12 @@ mod tests {
 
         assert_eq!(
             style.foreground(&DEFAULT_COLORS),
-            COLORS.foreground.clone().unwrap()
+            COLORS.foreground.unwrap()
         );
         style.colors.foreground = None;
         assert_eq!(
             style.foreground(&DEFAULT_COLORS),
-            DEFAULT_COLORS.foreground.clone().unwrap()
+            DEFAULT_COLORS.foreground.unwrap()
         );
     }
 
@@ -101,12 +96,12 @@ mod tests {
 
         assert_eq!(
             style.foreground(&DEFAULT_COLORS),
-            COLORS.background.clone().unwrap()
+            COLORS.background.unwrap()
         );
         style.colors.background = None;
         assert_eq!(
             style.foreground(&DEFAULT_COLORS),
-            DEFAULT_COLORS.background.clone().unwrap()
+            DEFAULT_COLORS.background.unwrap()
         );
     }
 
@@ -116,12 +111,12 @@ mod tests {
 
         assert_eq!(
             style.background(&DEFAULT_COLORS),
-            COLORS.background.clone().unwrap()
+            COLORS.background.unwrap()
         );
         style.colors.background = None;
         assert_eq!(
             style.background(&DEFAULT_COLORS),
-            DEFAULT_COLORS.background.clone().unwrap()
+            DEFAULT_COLORS.background.unwrap()
         );
     }
 
@@ -132,12 +127,12 @@ mod tests {
 
         assert_eq!(
             style.background(&DEFAULT_COLORS),
-            COLORS.foreground.clone().unwrap()
+            COLORS.foreground.unwrap()
         );
         style.colors.foreground = None;
         assert_eq!(
             style.background(&DEFAULT_COLORS),
-            DEFAULT_COLORS.foreground.clone().unwrap()
+            DEFAULT_COLORS.foreground.unwrap()
         );
     }
 
@@ -145,14 +140,11 @@ mod tests {
     fn test_special() {
         let mut style = Style::new(COLORS);
 
-        assert_eq!(
-            style.special(&DEFAULT_COLORS),
-            COLORS.special.clone().unwrap()
-        );
+        assert_eq!(style.special(&DEFAULT_COLORS), COLORS.special.unwrap());
         style.colors.special = None;
         assert_eq!(
             style.special(&DEFAULT_COLORS),
-            DEFAULT_COLORS.special.clone().unwrap()
+            DEFAULT_COLORS.special.unwrap()
         );
     }
 }
