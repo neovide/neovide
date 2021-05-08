@@ -19,7 +19,7 @@ use crate::settings::*;
 use cursor_renderer::CursorRenderer;
 
 #[derive(SettingGroup)]
-#[setting_prefix = "keyboard"]
+#[setting_prefix = "window"]
 #[derive(Clone)]
 pub struct RendererSettings {
     position_animation_length: f32,
