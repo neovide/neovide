@@ -21,7 +21,7 @@ const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
 const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5)];
 
 #[derive(SettingGroup)]
-#[setting_prefix = "cursor"]
+#[setting_prefix = "keyboard"]
 #[derive(Clone)]
 pub struct CursorSettings {
     antialiasing: bool,
