@@ -10,9 +10,12 @@ jobs:
     - name: Check out Git repository
       uses: actions/checkout@v2
     
-    - name: Build Snapcraft
-      env:
-        SNAPCRAFT_BUILD_ENVIRONMENT_MEMORY: 6G
+    - name: Install Snapcraft
       uses: samuelmeuli/action-snapcraft@v1
       with:
         snapcraft_token: ${{ secrets.snapcraft_token }}
+
+    - name: Build Snap
+      env:
+        SNAPCRAFT_BUILD_ENVIRONMENT_MEMORY: 6G
+      run: snapcraft
