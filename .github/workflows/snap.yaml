@@ -10,10 +10,9 @@ jobs:
     - name: Check out Git repository
       uses: actions/checkout@v2
     
-    - name: Install Snapcraft
+    - name: Build Snapcraft
       env:
         SNAPCRAFT_BUILD_ENVIRONMENT_MEMORY: 6G
       uses: samuelmeuli/action-snapcraft@v1
       with:
         snapcraft_token: ${{ secrets.snapcraft_token }}
-        skip_install: true # optional, if already installed in an earlier step
