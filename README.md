@@ -17,7 +17,7 @@ any critiques that you might have to offer. I won't take all of them, but I prom
 
 ## Features
 
-Should be a standard full features Neovim GUI. Beyond that there are some visual niceties:
+Should be a standard fully featured Neovim GUI. Beyond that there are some visual niceties:
 
 ### Ligatures
 
@@ -41,7 +41,7 @@ https://github.com/Kethku/neovide/wiki/Configuration#multiGrid
 
 ### Animated Windows
 
-Windows animate into position when they are moved making it easier to see how layout changes happen. Note, multigrid must be enabled for 
+Windows animate into position when they are moved making it easier to see how layout changes happen. Note, multigrid must be enabled for
 this to work.
 https://github.com/Kethku/neovide/wiki/Configuration#multiGrid
 
@@ -111,8 +111,7 @@ Installing should be as simple as downloading the binary, making sure `nvim.exe`
 
 ## Building
 
-Building instructions are somewhat limited at the moment. All the libraries I use are cross platform and should have
-support for Windows, Mac, and Linux. The rendering however is based on opengl, so a good gpu driver will be
+Building instructions are somewhat limited at the moment. All the libraries I use are cross platform and should have support for Windows, Mac, and Linux. The rendering is based on opengl, so a good gpu driver will be
 necessary. On Windows this should be enabled by default if you have a relatively recent system.
 
 Note: Neovide requires neovim version 0.4 or greater.
@@ -132,10 +131,10 @@ Note: Neovide requires neovim version 0.4 or greater.
 
 1. Install the latest version of Rust. I recommend <https://rustup.rs/>
 2. Install CMake. Using homebrew: `brew install cmake`
-4. `git clone https://github.com/Kethku/neovide`
-5. `cd neovide`
-6. `cargo build --release`
-7. Copy `./target/release/neovide` to a known location and enjoy.
+3. `git clone https://github.com/Kethku/neovide`
+4. `cd neovide`
+5. `cargo build --release`
+6. Copy `./target/release/neovide` to a known location and enjoy.
 
 ### Linux
 
@@ -145,9 +144,21 @@ There is an [AUR package for neovide](https://aur.archlinux.org/packages/neovide
 
 ```sh
 git clone https://aur.archlinux.org/neovide-git.git
-cd neovide
+cd neovide-git
 makepkg -si
 ```
+
+To install a non-default branch:
+
+```sh
+git clone https://aur.archlinux.org/neovide-git.git
+cd neovide-git
+nvim PKGBUILD
+:%s/l}/l}#branch=branch-name-here/
+:wq
+makepkg -si
+```
+
 Note: Neovide requires that a font be set in `init.vim` otherwise errors might be encountered.
 See [#527](https://github.com/Kethku/neovide/issues/527)
 
