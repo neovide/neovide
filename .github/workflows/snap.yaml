@@ -17,6 +17,7 @@ jobs:
         use_lxd: true
 
     - name: Build Snap
+      id: build
       env:
         SNAPCRAFT_BUILD_ENVIRONMENT_MEMORY: 6G
       run: sg lxd -c 'snapcraft --use-lxd'
