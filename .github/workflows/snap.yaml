@@ -14,8 +14,9 @@ jobs:
       uses: samuelmeuli/action-snapcraft@v1
       with:
         snapcraft_token: ${{ secrets.snapcraft_token }}
+        use_lxd: true
 
     - name: Build Snap
       env:
         SNAPCRAFT_BUILD_ENVIRONMENT_MEMORY: 6G
-      run: snapcraft
+      run: sg lxd -c 'snapcraft --use-lxd'
