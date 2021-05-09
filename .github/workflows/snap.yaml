@@ -10,20 +10,17 @@ jobs:
     - name: Check out Git repository
       uses: actions/checkout@v2
     
-    - name: Install Snapcraft
-      uses: samuelmeuli/action-snapcraft@v1
-      with:
-        snapcraft_token: ${{ secrets.SNAPCRAFT_TOKEN }}
-        use_lxd: true
-
-    - name: Build Snap
-      id: build
+    - uses: snapcore/action-build@v1
       env:
         SNAPCRAFT_BUILD_ENVIRONMENT_MEMORY: 6G
-      run: sg lxd -c 'snapcraft --use-lxd'
+      id: snapcraft
+    
+    - uses: actions/upload-artifact@v2
+      with:
+        name: snap
+        path: ${{ steps.snapcraft.outputs.snap }}
 
-    - name: Push Snap
-      uses: snapcore/action-publish@v1
+    - uses: snapcore/action-publish@v1
       with:
         store_login: ${{ secrets.SNAPCRAFT_TOKEN }}
-        snap: ${{ steps.build.outputs.snap }}
+        snap: ${{ steps.snapcraft.outputs.snap }}
