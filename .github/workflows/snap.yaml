@@ -1,5 +1,7 @@
 name: Snap
 
+on: [push]
+
 jobs:
   snap:
     runs-on: ubuntu-18.04
