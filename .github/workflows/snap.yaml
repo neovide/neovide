@@ -13,10 +13,16 @@ jobs:
     - name: Install Snapcraft
       uses: samuelmeuli/action-snapcraft@v1
       with:
-        snapcraft_token: ${{ secrets.snapcraft_token }}
+        snapcraft_token: ${{ secrets.SNAPCRAFT_TOKEN }}
         use_lxd: true
 
     - name: Build Snap
       env:
         SNAPCRAFT_BUILD_ENVIRONMENT_MEMORY: 6G
       run: sg lxd -c 'snapcraft --use-lxd'
+
+    - name: Push Snap
+      uses: snapcore/action-publish@v1
+      with:
+        store_login: ${{ secrets.SNAPCRAFT_TOKEN }}
+        snap: ${{ steps.build.outputs.snap }}
