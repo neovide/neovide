@@ -161,6 +161,7 @@ git clone https://aur.archlinux.org/neovide-git.git
 cd neovide-git
 makepkg -si
 ```
+
 To install a non-default branch:
 
 ```sh

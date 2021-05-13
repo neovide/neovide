@@ -8,9 +8,7 @@ description = "A simple GUI for Neovim."
 resolver = "2"
 
 [workspace]
-members = [
-    "neovide-derive"
-]
+members = ["neovide-derive"]
 
 [features]
 default = []
@@ -24,15 +22,15 @@ derive-new = "0.5"
 rmpv = "0.4.4"
 rust-embed = { version = "5.2.0", features = ["debug-embed"] }
 image = "0.22.3"
-nvim-rs = { git = "https://github.com/kethku/nvim-rs", features = [ "use_tokio" ] }
-tokio = { version = "0.2.9", features = [ "blocking", "process", "time", "tcp" ] }
+nvim-rs = { git = "https://github.com/kethku/nvim-rs", features = ["use_tokio"] }
+tokio = { version = "0.2.9", features = ["blocking", "process", "time", "tcp"] }
 async-trait = "0.1.18"
 crossfire = "0.1"
 lazy_static = "1.4.0"
 unicode-segmentation = "1.6.0"
 log = "0.4.8"
 flexi_logger = { version = "0.17.1", default-features = false }
-parking_lot="0.10.0"
+parking_lot = "0.10.0"
 cfg-if = "0.1.10"
 which = "4"
 dirs = "2"
@@ -42,6 +40,7 @@ futures = "0.3.12"
 glutin = "0.26"
 gl = "0.14.0"
 rustybuzz = "0.3.0"
+regex = "1.5.4"
 
 [dev-dependencies]
 mockall = "0.7.0"
