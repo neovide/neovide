@@ -104,11 +104,13 @@ fn main() {
     if std::env::args().any(|arg| arg == "--version" || arg == "-v") {
         attach_parent_console();
         println!("Neovide version: {}", env!("CARGO_PKG_VERSION"));
+        return;
     }
 
     if std::env::args().any(|arg| arg == "--help" || arg == "-h") {
         attach_parent_console();
         println!("Neovide: {}", env!("CARGO_PKG_DESCRIPTION"));
+        return;
     }
 
     if let Err(err) = window_geometry() {
