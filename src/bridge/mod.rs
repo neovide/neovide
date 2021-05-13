@@ -22,6 +22,7 @@ use crate::settings::*;
 use crate::window::window_geometry_or_default;
 pub use events::*;
 use handler::NeovimHandler;
+use regex::Regex;
 pub use tx_wrapper::{TxWrapper, WrapTx};
 pub use ui_commands::UiCommand;
 
@@ -182,13 +183,14 @@ async fn start_neovim_runtime(
         close_watcher_running.store(false, Ordering::Relaxed);
     });
 
-    if let Ok(Value::Integer(correct_version)) = nvim.eval("has(\"nvim-0.4\")").await {
-        if correct_version.as_i64() != Some(1) {
-            error!("Neovide requires version 0.4 or higher");
+    if let Ok(output) = nvim.command_output("version").await {
+        let re = Regex::new(r"NVIM v0.[4-9]\d*.\d+").unwrap();
+        if !re.is_match(&output) {
+            error!("Neovide requires nvim version 0.4 or higher. Download the latest version here https://github.com/neovim/neovim/wiki/Installing-Neovim");
             std::process::exit(0);
         }
     } else {
-        error!("Neovide requires version 0.4 or higher");
+        error!("Neovide requires nvim version 0.4 or higher. Download the latest version here https://github.com/neovim/neovim/wiki/Installing-Neovim");
         std::process::exit(0);
     };
 
