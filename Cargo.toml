@@ -5,6 +5,7 @@ authors = ["keith <keith@the-simmons.net>"]
 edition = "2018"
 build = "build.rs"
 description = "A simple GUI for Neovim."
+resolver = "2"
 
 [workspace]
 members = [
