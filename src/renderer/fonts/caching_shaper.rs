@@ -15,7 +15,7 @@ cfg_if! {
     if #[cfg(target_os = "windows")] {
         pub const SYSTEM_DEFAULT_FONT: &str = "Consolas";
     } else if #[cfg(target_os = "linux")] {
-        pub const SYSTEM_DEFAULT_FONT: &str = "Ubuntu";
+        pub const SYSTEM_DEFAULT_FONT: &str = "monospace";
     } else if #[cfg(target_os = "macos")] {
         pub const SYSTEM_DEFAULT_FONT: &str = "Menlo";
     }
