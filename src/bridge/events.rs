@@ -114,7 +114,7 @@ pub enum WindowAnchor {
     SouthEast,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum EditorMode {
     // The set of modes reported will change in new versions of Nvim, for
     // instance more sub-modes and temporary states might be represented as

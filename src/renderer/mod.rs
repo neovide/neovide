@@ -323,7 +323,7 @@ impl Renderer {
 
         let windows = &self.rendered_windows;
         self.cursor_renderer
-            .update_cursor_destination(font_width, font_height, windows);
+            .update_cursor_destination(font_width, font_height, windows, &self.current_mode);
 
         self.cursor_renderer.draw(
             &self.default_style.colors,

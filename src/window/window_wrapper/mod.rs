@@ -135,6 +135,11 @@ impl GlutinWindowWrapper {
     }
 
     pub fn handle_pointer_motion(&mut self, x: i32, y: i32) {
+        let size = self.windowed_context.window().inner_size();
+        if x < 0 || x as u32 >= size.width || y < 0 || y as u32 >= size.height {
+            return;
+        }
+
         let previous_position = self.mouse_position;
 
         let logical_position: LogicalSize<u32> = PhysicalSize::new(x as u32, y as u32)
