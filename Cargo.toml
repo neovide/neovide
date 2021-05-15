@@ -52,11 +52,11 @@ winapi = { version = "0.3.9", features = ["winuser"] }
 winres = "0.1.11"
 
 [target.'cfg(linux)'.dependencies.skia-safe]
-features = [ "gl", "egl" ]
+features = ["gl", "egl"]
 version = "0.39.1"
 
 [target.'cfg(not(linux))'.dependencies.skia-safe]
-features = [ "gl" ]
+features = ["gl"]
 version = "0.39.1"
 
 [profile.release]

@@ -1,5 +1,6 @@
 # Neovide [![Gitter](https://badges.gitter.im/neovide/community.svg)](https://gitter.im/neovide/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) [![Discussions](https://img.shields.io/badge/GitHub-Discussions-green?logo=github)](https://github.com/Kethku/neovide/discussions)
 
+
 This is a simple graphical user interface for Neovim. Where possible there are some graphical improvements, but it should act
 functionally like the terminal UI.
 
@@ -222,3 +223,6 @@ makepkg -si
 
 ### Linux-specific
 - If you recieve errors complaining about DRI3 settings, please reference issue [#44](https://github.com/Kethku/neovide/issues/44#issuecomment-578618052).
+
+[![Get it from the Snap Store](https://snapcraft.io/static/images/badges/en/snap-store-white.svg)](https://snapcraft.io/neovide)
+
