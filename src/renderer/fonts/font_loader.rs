@@ -1,10 +1,10 @@
 use std::iter;
 use std::sync::Arc;
 
-use skia_safe::{
-    font::Edging, Font, FontMgr, FontHinting, FontStyle, TextBlob, TextBlobBuilder, Typeface, Data
-};
 use lru::LruCache;
+use skia_safe::{
+    font::Edging, Data, Font, FontHinting, FontMgr, FontStyle, TextBlob, TextBlobBuilder, Typeface,
+};
 
 use super::swash_font::SwashFont;
 
@@ -30,7 +30,7 @@ impl FontPair {
 
         Some(Self {
             skia_font,
-            swash_font
+            swash_font,
         })
     }
 }
@@ -46,7 +46,7 @@ impl FontLoader {
         FontLoader {
             font_mgr: FontMgr::new(),
             cache: LruCache::new(10),
-            font_size
+            font_size,
         }
     }
 
@@ -70,7 +70,7 @@ impl FontLoader {
         if let Some(cached) = self.cache.get(&font_name) {
             return Some(cached.clone());
         }
-        
+
         let loaded_font = if let Some(font_name) = &font_name {
             self.load(font_name)?
         } else {

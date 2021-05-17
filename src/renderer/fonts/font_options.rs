@@ -32,12 +32,10 @@ impl FontOptions {
             }
         }
 
-        fallback_list.map(|fallback_list| {
-            FontOptions {
-                guifont_setting: Some(guifont_setting.to_string()),
-                fallback_list,
-                size
-            }
+        fallback_list.map(|fallback_list| FontOptions {
+            guifont_setting: Some(guifont_setting.to_string()),
+            fallback_list,
+            size,
         })
     }
 }
@@ -48,7 +46,7 @@ impl PartialEq for FontOptions {
             return true;
         }
 
-        self.fallback_list == other.fallback_list && 
-            (self.size - other.size).abs() < std::f32::EPSILON
+        self.fallback_list == other.fallback_list
+            && (self.size - other.size).abs() < std::f32::EPSILON
     }
 }

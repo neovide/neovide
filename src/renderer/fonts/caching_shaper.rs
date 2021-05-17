@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use lru::LruCache;
-use swash::shape::{ShapeContext, ShaperBuilder};
 use skia_safe::{FontMetrics, TextBlob, TextBlobBuilder};
+use swash::shape::{ShapeContext, ShaperBuilder};
 
 use super::font_loader::*;
 use super::font_options::*;
@@ -42,12 +42,20 @@ impl CachingShaper {
     }
 
     fn current_font_pair(&mut self) -> Arc<FontPair> {
-        let font_name = self.options.as_ref().map(|options| options.fallback_list.first().unwrap().clone());
-        self.font_loader.get_or_load(font_name).unwrap_or_else(|| self.font_loader.get_or_load(None).unwrap())
+        let font_name = self
+            .options
+            .as_ref()
+            .map(|options| options.fallback_list.first().unwrap().clone());
+        self.font_loader
+            .get_or_load(font_name)
+            .unwrap_or_else(|| self.font_loader.get_or_load(None).unwrap())
     }
 
     pub fn current_size(&self) -> f32 {
-        self.options.as_ref().map(|options| options.size).unwrap_or(DEFAULT_FONT_SIZE)
+        self.options
+            .as_ref()
+            .map(|options| options.size)
+            .unwrap_or(DEFAULT_FONT_SIZE)
     }
 
     fn metrics(&mut self) -> FontMetrics {
@@ -59,9 +67,15 @@ impl CachingShaper {
     pub fn shape(&mut self, text: &str) -> Vec<TextBlob> {
         let font_pair = self.current_font_pair();
         let current_size = self.current_size();
-        let units_per_em = font_pair.skia_font.typeface().unwrap().units_per_em().unwrap();
+        let units_per_em = font_pair
+            .skia_font
+            .typeface()
+            .unwrap()
+            .units_per_em()
+            .unwrap();
 
-        let mut shaper = self.shape_context
+        let mut shaper = self
+            .shape_context
             .builder(font_pair.swash_font.as_ref())
             .size(current_size)
             .build();
@@ -138,7 +152,9 @@ impl CachingShaper {
 
         let font_pair = self.current_font_pair();
 
-        let (text_width, _) = font_pair.skia_font.measure_str(STANDARD_CHARACTER_STRING, None);
+        let (text_width, _) = font_pair
+            .skia_font
+            .measure_str(STANDARD_CHARACTER_STRING, None);
         let font_width = text_width / STANDARD_CHARACTER_STRING.len() as f32;
 
         (font_width, font_height)

@@ -147,7 +147,8 @@ impl Corner {
                     (1.0 - settings.trail_size).max(0.0).min(1.0),
                     -direction_alignment,
                 );
-            self.t = (self.t + corner_dt / (settings.animation_length * self.length_multiplier)).min(1.0)
+            self.t =
+                (self.t + corner_dt / (settings.animation_length * self.length_multiplier)).min(1.0)
         }
 
         self.current_position = ease_point(
@@ -232,7 +233,8 @@ impl CursorRenderer {
         let (cursor_grid_x, cursor_grid_y) = self.cursor.grid_position;
 
         if let Some(window) = windows.get(&self.cursor.parent_window_id) {
-            if cursor_grid_y < window.grid_height-1 || matches!(current_mode, EditorMode::CmdLine) {
+            if cursor_grid_y < window.grid_height - 1 || matches!(current_mode, EditorMode::CmdLine)
+            {
                 let grid_x = cursor_grid_x as f32 + window.grid_current_position.x;
                 let mut grid_y = cursor_grid_y as f32 + window.grid_current_position.y
                     - (window.current_scroll - window.current_surface.top_line);
@@ -286,8 +288,8 @@ impl CursorRenderer {
         let font_dimensions: Point = (font_width, font_height).into();
 
         let in_insert_mode = matches!(current_mode, EditorMode::Insert);
-        let changed_to_from_cmdline = !matches!(self.previous_editor_mode, EditorMode::CmdLine) 
-                                      ^ matches!(current_mode, EditorMode::CmdLine);
+        let changed_to_from_cmdline = !matches!(self.previous_editor_mode, EditorMode::CmdLine)
+            ^ matches!(current_mode, EditorMode::CmdLine);
 
         let center_destination = self.destination + font_dimensions * 0.5;
         let new_cursor = Some(self.cursor.shape.clone());
@@ -310,8 +312,8 @@ impl CursorRenderer {
 
         if !center_destination.is_zero() {
             for corner in self.corners.iter_mut() {
-                let immediate_movement = !settings.animate_in_insert_mode && in_insert_mode ||
-                    !settings.animate_command_line && !changed_to_from_cmdline;
+                let immediate_movement = !settings.animate_in_insert_mode && in_insert_mode
+                    || !settings.animate_command_line && !changed_to_from_cmdline;
 
                 let corner_animating = corner.update(
                     &settings,
