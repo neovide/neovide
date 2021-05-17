@@ -147,7 +147,7 @@ impl Renderer {
 
         if style.underline || style.undercurl {
             let line_position = self.shaper.underline_position();
-            let stroke_width = self.shaper.options.size / 10.0;
+            let stroke_width = self.shaper.current_size() / 10.0;
             self.paint
                 .set_color(style.special(&self.default_style.colors).to_color());
             self.paint.set_stroke_width(stroke_width);

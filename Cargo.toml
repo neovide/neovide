@@ -39,8 +39,8 @@ pin-project = "0.4.27"
 futures = "0.3.12"
 glutin = "0.26"
 gl = "0.14.0"
-rustybuzz = "0.3.0"
 regex = "1.5.4"
+swash = "0.1.2"
 
 [dev-dependencies]
 mockall = "0.7.0"
