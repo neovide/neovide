@@ -233,21 +233,18 @@ impl CursorRenderer {
         let (cursor_grid_x, cursor_grid_y) = self.cursor.grid_position;
 
         if let Some(window) = windows.get(&self.cursor.parent_window_id) {
-            if cursor_grid_y < window.grid_height - 1 || matches!(current_mode, EditorMode::CmdLine)
-            {
-                let grid_x = cursor_grid_x as f32 + window.grid_current_position.x;
-                let mut grid_y = cursor_grid_y as f32 + window.grid_current_position.y
-                    - (window.current_scroll - window.current_surface.top_line);
+            let grid_x = cursor_grid_x as f32 + window.grid_current_position.x;
+            let mut grid_y = cursor_grid_y as f32 + window.grid_current_position.y
+                - (window.current_scroll - window.current_surface.top_line);
 
-                // Prevent the cursor from targeting a position outside its current window. Since only
-                // the vertical direction is effected by scrolling, we only have to clamp the vertical
-                // grid position.
-                grid_y = grid_y
-                    .max(window.grid_current_position.y)
-                    .min(window.grid_current_position.y + window.grid_height as f32 - 1.0);
+            // Prevent the cursor from targeting a position outside its current window. Since only
+            // the vertical direction is effected by scrolling, we only have to clamp the vertical
+            // grid position.
+            grid_y = grid_y
+                .max(window.grid_current_position.y)
+                .min(window.grid_current_position.y + window.grid_height as f32 - 1.0);
 
-                self.destination = (grid_x * font_width, grid_y * font_height).into();
-            }
+            self.destination = (grid_x * font_width, grid_y * font_height).into();
         } else {
             self.destination = (
                 cursor_grid_x as f32 * font_width,

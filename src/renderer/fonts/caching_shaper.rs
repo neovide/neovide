@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use lru::LruCache;
-use skia_safe::{FontMetrics, TextBlob, TextBlobBuilder};
+use skia_safe::{FontMetrics, FontMgr, TextBlob, TextBlobBuilder};
 use swash::shape::{ShapeContext, ShaperBuilder};
 
 use super::font_loader::*;
@@ -110,16 +110,6 @@ impl CachingShaper {
             dbg!(glyph_data);
         }
         vec![blob.expect("Could not create textblob")]
-
-        // let mut current_point: f32 = 0.0;
-        // for (i, (shaped_position, shaped_info)) in
-        //     shaped_positions.iter().zip(shaped_infos).enumerate()
-        // {
-        //     glyphs[i] = shaped_info.codepoint as u16;
-        //     positions[i] = current_point.floor();
-        //     current_point +=
-        //         shaped_position.x_advance as f32 * self.current_size() / units_per_em as f32;
-        // }
     }
 
     pub fn shape_cached(&mut self, text: &str, bold: bool, italic: bool) -> &Vec<TextBlob> {
