@@ -10,21 +10,23 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Install Nightly toolchain
+    - name: Install Nightly Toolchain
       uses: actions-rs/toolchain@v1
       with:
         profile: minimal
         toolchain: nightly
-        components: rustfmt
+        components: rustfmt clippy
         override: true
 
-    - name: Check formatting
+    - name: Check Formatting
       run: |
         cargo fmt --all -- --check
 
-    - name: Lint with Clippy
-      run: |
-        cargo clippy --all -- -D warnings
+    - name: Run Clippy
+      uses: actions-rs/clippy-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        args: --all -- -D warnings
 
     - name: Install Neovim
       run: |
@@ -53,23 +55,22 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Install Nightly toolchain
+    - name: Install Nightly Toolchain
       uses: actions-rs/toolchain@v1
       with:
         profile: minimal
         toolchain: nightly
-        components: rustfmt
+        components: rustfmt clippy
         override: true
 
-    - name: Check formatting
+    - name: Check Formatting
       run: |
-        rustup component add rustfmt --toolchain stable-x86_64-apple-darwin
         cargo fmt --all -- --check
 
-    - name: Lint with Clippy
-      run: |
-        rustup component add clippy --toolchain stable-x86_64-apple-darwin
-        cargo clippy --all -- -D warnings
+    - uses: actions-rs/clippy-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        args: --all -- -D warnings
 
     - name: Uninstall Conflicting LLVM
       run: |
@@ -106,25 +107,26 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Install Nightly toolchain
+    - name: Install Nightly Toolchain
       uses: actions-rs/toolchain@v1
       with:
         profile: minimal
         toolchain: nightly
-        components: rustfmt
+        components: rustfmt clippy
         override: true
 
-    - name: Install dependencies
+    - name: Install Dependencies
       run:  |
         sudo apt-get install -y curl gnupg ca-certificates git gcc-multilib g++-multilib cmake libssl-dev pkg-config libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev libxi-dev libsdl2-dev
         
-    - name: Check formatting
+    - name: Check Formatting
       run: |
         cargo fmt --all -- --check
 
-    - name: Lint with Clippy
-      run: |
-        cargo clippy --all -- -D warnings
+    - uses: actions-rs/clippy-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        args: --all -- -D warnings
 
     - name: Install Neovim
       run: |
