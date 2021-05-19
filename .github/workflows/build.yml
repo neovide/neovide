@@ -15,7 +15,7 @@ jobs:
       with:
         profile: minimal
         toolchain: nightly
-        components: rustfmt clippy
+        components: rustfmt, clippy
         override: true
 
     - name: Check Formatting
@@ -60,7 +60,7 @@ jobs:
       with:
         profile: minimal
         toolchain: nightly
-        components: rustfmt clippy
+        components: rustfmt, clippy
         override: true
 
     - name: Check Formatting
@@ -112,7 +112,7 @@ jobs:
       with:
         profile: minimal
         toolchain: nightly
-        components: rustfmt clippy
+        components: rustfmt, clippy
         override: true
 
     - name: Install Dependencies
