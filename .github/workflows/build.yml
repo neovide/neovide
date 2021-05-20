@@ -18,6 +18,8 @@ jobs:
         components: rustfmt, clippy
         override: true
 
+    - uses: Swatinem/rust-cache@v1
+
     - name: Check Formatting
       run: |
         cargo fmt --all -- --check
@@ -62,6 +64,8 @@ jobs:
         toolchain: nightly
         components: rustfmt, clippy
         override: true
+
+    - uses: Swatinem/rust-cache@v1
 
     - name: Check Formatting
       run: |
@@ -114,6 +118,8 @@ jobs:
         toolchain: nightly
         components: rustfmt, clippy
         override: true
+
+    - uses: Swatinem/rust-cache@v1
 
     - name: Install Dependencies
       run:  |
