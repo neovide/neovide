@@ -9,6 +9,7 @@ pub struct WindowSettings {
     pub transparency: f32,
     pub fullscreen: bool,
     pub iso_layout: bool,
+    pub remember_dimension: bool,
 }
 
 impl Default for WindowSettings {
@@ -21,6 +22,7 @@ impl Default for WindowSettings {
             no_idle: SETTINGS
                 .neovim_arguments
                 .contains(&String::from("--noIdle")),
+            remember_dimension: false,
         }
     }
 }

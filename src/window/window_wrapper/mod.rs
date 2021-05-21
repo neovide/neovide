@@ -3,6 +3,7 @@ mod layouts;
 mod renderer;
 
 use super::{handle_new_grid_size, keyboard::neovim_keybinding_string, settings::WindowSettings};
+use crate::settings::maybe_save_window_size;
 use crate::{
     bridge::UiCommand, editor::WindowCommand, error_handling::ResultPanicExplanation,
     redraw_scheduler::REDRAW_SCHEDULER, renderer::Renderer, settings::SETTINGS,
@@ -461,6 +462,7 @@ pub fn start_loop(
 
     event_loop.run(move |e, _window_target, control_flow| {
         if !running.load(Ordering::Relaxed) {
+            maybe_save_window_size(window_wrapper.previous_size, &window_wrapper.renderer);
             std::process::exit(0);
         }
 

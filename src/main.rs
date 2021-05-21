@@ -113,7 +113,7 @@ fn main() {
         return;
     }
 
-    if let Err(err) = window_geometry() {
+    if let Err(err) = window_geometry(Err("do not load saved window settings yet".into())) {
         eprintln!("{}", err);
         return;
     }

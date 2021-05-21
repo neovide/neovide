@@ -18,6 +18,7 @@ use tokio::process::Command;
 use tokio::runtime::Runtime;
 
 use crate::error_handling::ResultPanicExplanation;
+use crate::settings::try_to_load_last_window_size;
 use crate::settings::*;
 use crate::window::window_geometry_or_default;
 pub use events::*;
@@ -155,7 +156,6 @@ async fn start_neovim_runtime(
     redraw_event_sender: TxUnbounded<RedrawEvent>,
     running: Arc<AtomicBool>,
 ) {
-    let (width, height) = window_geometry_or_default();
     let handler = NeovimHandler::new(ui_command_sender.clone(), redraw_event_sender.clone());
     let (mut nvim, io_handler) = match connection_mode() {
         ConnectionMode::Child => create::new_child_cmd(&mut create_nvim_command(), handler).await,
@@ -275,6 +275,9 @@ async fn start_neovim_runtime(
         options.set_multigrid_external(true);
     }
     options.set_rgb(true);
+
+    let last_setting = try_to_load_last_window_size();
+    let (width, height) = window_geometry_or_default(last_setting);
     nvim.ui_attach(width as i64, height as i64, &options)
         .await
         .unwrap_or_explained_panic("Could not attach ui to neovim process");

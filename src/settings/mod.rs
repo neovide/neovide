@@ -1,15 +1,20 @@
 use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::convert::TryInto;
+use std::path::PathBuf;
+use glutin::dpi::PhysicalSize;
 
 #[cfg(not(test))]
 use flexi_logger::{Cleanup, Criterion, Duplicate, Logger, Naming};
 mod from_value;
+use crate::renderer::Renderer;
+use crate::window::WindowSettings;
 pub use from_value::FromValue;
 use log::warn;
 use nvim_rs::Neovim;
 use parking_lot::RwLock;
 pub use rmpv::Value;
+use serde::{Deserialize, Serialize};
 
 use crate::bridge::TxWrapper;
 use crate::error_handling::ResultPanicExplanation;
@@ -181,6 +186,40 @@ impl Settings {
     }
 }
 
+pub fn try_to_load_last_window_size() -> Result<(u64, u64), String> {
+    let mut settings_path = dirs::home_dir().unwrap();
+    settings_path.push(".local/share/nvim/neovide-settings.txt");
+    let serialized_size = std::fs::read_to_string(&settings_path).map_err(|e| e.to_string())?;
+
+    let de: PhysicalSize<u32> = serde_json::from_str(&serialized_size).map_err(|e| e.to_string())?;
+    log::debug!("Loaded Window Size: {:?}", de);
+    Ok((de.width as u64, de.height as u64))
+}
+#[cfg(unix)]
+fn neovim_std_datapath() -> PathBuf {
+    let mut settings_path = dirs::home_dir().unwrap();
+    settings_path.push(".local/share/nvim/neovide-settings.txt");
+    settings_path
+}
+
+#[cfg(windows)]
+fn neovim_std_datapath() -> PathBuf {
+    let mut settings_path = dirs::home_dir().unwrap();
+    settings_path.push("AppData/Local/nvim-data/neovide-settings.txt");
+    settings_path
+}
+pub fn maybe_save_window_size(window_size: PhysicalSize<u32>, renderer: &Renderer) {
+    if SETTINGS.get::<WindowSettings>().remember_dimension {
+        let settings_path = neovim_std_datapath();
+        let window_size = PhysicalSize::<u32> {
+            width: (window_size.width as f32 / renderer.font_width) as u32,
+            height: (window_size.height as f32 / renderer.font_height) as u32,
+        };
+        let se = serde_json::to_string(&window_size).unwrap();
+        log::debug!("Saved Window Size: {}", se);
+        std::fs::write(settings_path, se).unwrap();
+    }
+}
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;

@@ -6,6 +6,7 @@ use crate::{
     bridge::UiCommand,
     editor::{DrawCommand, WindowCommand},
     renderer::Renderer,
+    settings::try_to_load_last_window_size,
     INITIAL_DIMENSIONS,
 };
 use crossfire::mpsc::TxUnbounded;
@@ -14,13 +15,14 @@ use std::sync::{atomic::AtomicBool, mpsc::Receiver, Arc};
 pub use window_wrapper::start_loop;
 
 pub use settings::*;
-
-pub fn window_geometry() -> Result<(u64, u64), String> {
+pub fn window_geometry(last_setting: Result<(u64, u64), String>) -> Result<(u64, u64), String> {
     let prefix = "--geometry=";
 
+    let default_window_size = last_setting.or(Ok(INITIAL_DIMENSIONS));
+    log::debug!("Default window size = {:?}", default_window_size);
     std::env::args()
         .find(|arg| arg.starts_with(prefix))
-        .map_or(Ok(INITIAL_DIMENSIONS), |arg| {
+        .map_or(default_window_size, |arg| {
             let input = &arg[prefix.len()..];
             let invalid_parse_err = format!(
                 "Invalid geometry: {}\nValid format: <width>x<height>",
@@ -53,8 +55,8 @@ pub fn window_geometry() -> Result<(u64, u64), String> {
         })
 }
 
-pub fn window_geometry_or_default() -> (u64, u64) {
-    window_geometry().unwrap_or(INITIAL_DIMENSIONS)
+pub fn window_geometry_or_default(last_setting: Result<(u64, u64), String>) -> (u64, u64) {
+    window_geometry(last_setting).unwrap_or(INITIAL_DIMENSIONS)
 }
 
 #[cfg(target_os = "windows")]
@@ -92,7 +94,8 @@ pub fn create_window(
     ui_command_sender: TxUnbounded<UiCommand>,
     running: Arc<AtomicBool>,
 ) {
-    let (width, height) = window_geometry_or_default();
+    let last_setting = try_to_load_last_window_size();
+    let (width, height) = window_geometry_or_default(last_setting);
 
     let renderer = Renderer::new(batched_draw_command_receiver);
     let logical_size = (
