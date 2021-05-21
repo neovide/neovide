@@ -1,6 +1,8 @@
 use std::convert::TryInto;
 use std::error;
 use std::fmt;
+use std::fmt::Debug;
+use std::rc::Rc;
 
 use rmpv::Value;
 use skia_safe::Color4f;
@@ -17,7 +19,7 @@ pub enum ParseError {
     InvalidF64(Value),
     InvalidBool(Value),
     InvalidWindowAnchor(Value),
-    InvalidFormat,
+    InvalidFormat(String),
 }
 type Result<T> = std::result::Result<T, ParseError>;
 
@@ -34,7 +36,7 @@ impl fmt::Display for ParseError {
             ParseError::InvalidWindowAnchor(value) => {
                 write!(f, "invalid window anchor format {}", value)
             }
-            ParseError::InvalidFormat => write!(f, "invalid event format"),
+            ParseError::InvalidFormat(debug_text) => write!(f, "invalid event format {}", debug_text),
         }
     }
 }
@@ -355,7 +357,7 @@ fn extract_values<Arr: AsMut<[Value]>>(values: Vec<Value>, mut arr: Arr) -> Resu
     let arr_ref = arr.as_mut();
 
     if values.len() != arr_ref.len() {
-        Err(ParseError::InvalidFormat)
+        Err(ParseError::InvalidFormat(format!("{:?}", values)))
     } else {
         for (i, val) in values.into_iter().enumerate() {
             arr_ref[i] = val;
@@ -563,7 +565,7 @@ fn parse_grid_line_cell(grid_line_cell: Value) -> Result<GridLineCell> {
     let text_value = cell_contents
         .first_mut()
         .map(|v| take_value(v))
-        .ok_or(ParseError::InvalidFormat)?;
+        .ok_or(ParseError::InvalidFormat(format!("{:?}", cell_contents)))?;
 
     let highlight_id = cell_contents
         .get_mut(1)
@@ -689,8 +691,9 @@ fn parse_win_float_pos(win_float_pos_arguments: Vec<Value>) -> Result<RedrawEven
         Value::Nil,
         Value::Nil,
         Value::Nil,
+        Value::Nil,
     ];
-    let [grid, _window, anchor, anchor_grid, anchor_row, anchor_column, focusable] =
+    let [grid, _window, anchor, anchor_grid, anchor_row, anchor_column, focusable, _sort_order] =
         extract_values(win_float_pos_arguments, values)?;
 
     Ok(RedrawEvent::WindowFloatPosition {
@@ -893,7 +896,7 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
     let mut event_contents = parse_array(event_value)?.into_iter();
     let event_name = event_contents
         .next()
-        .ok_or(ParseError::InvalidFormat)
+        .ok_or(ParseError::InvalidFormat(format!("{:?}", event_contents)))
         .and_then(parse_string)?;
 
     let events = event_contents;
@@ -921,7 +924,7 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
             "grid_cursor_goto" => Some(parse_grid_cursor_goto(event_parameters)?),
             "grid_scroll" => Some(parse_grid_scroll(event_parameters)?),
             "win_pos" => Some(parse_win_pos(event_parameters)?),
-            "win_float_pos" => Some(parse_win_float_pos(event_parameters)?),
+            "win_float_pos" => Some(parse_win_float_pos(dbg!(event_parameters))?),
             "win_external_pos" => Some(parse_win_external_pos(event_parameters)?),
             "win_hide" => Some(parse_win_hide(event_parameters)?),
             "win_close" => Some(parse_win_close(event_parameters)?),
@@ -957,7 +960,7 @@ pub fn parse_channel_stream_type(channel_stream_value: Value) -> Result<ChannelS
         "stderr" => Ok(ChannelStreamType::Stderr),
         "socket" => Ok(ChannelStreamType::Socket),
         "job" => Ok(ChannelStreamType::Job),
-        _ => Err(ParseError::InvalidFormat),
+        stream_type => Err(ParseError::InvalidFormat(format!("{:?}", stream_type))),
     }
 }
 
@@ -966,7 +969,7 @@ pub fn parse_channel_mode(channel_mode_value: Value) -> Result<ChannelMode> {
         "bytes" => Ok(ChannelMode::Bytes),
         "terminal" => Ok(ChannelMode::Terminal),
         "rpc" => Ok(ChannelMode::Rpc),
-        _ => Err(ParseError::InvalidFormat),
+        channel_mode => Err(ParseError::InvalidFormat(format!("{:?}", channel_mode))),
     }
 }
 
@@ -1000,7 +1003,7 @@ pub fn parse_client_type(client_type_value: Value) -> Result<ClientType> {
         "embedder" => Ok(ClientType::Embedder),
         "host" => Ok(ClientType::Host),
         "plugin" => Ok(ClientType::Plugin),
-        _ => Err(ParseError::InvalidFormat),
+        client_type => Err(ParseError::InvalidFormat(format!("{:?}", client_type))),
     }
 }
 
