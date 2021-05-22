@@ -63,8 +63,7 @@ fn build_nvim_cmd() -> Command {
     #[cfg(windows)]
     if env::args().any(|arg| arg == "--wsl") {
         if let Ok(output) = std::process::Command::new("wsl")
-            .arg("which")
-            .arg("nvim")
+            .args(&["bash", "-ic", "which nvim"])
             .output()
         {
             if output.status.success() {
