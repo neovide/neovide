@@ -75,8 +75,8 @@ impl BlinkStatus {
         }
 
         match self.state {
-            BlinkState::Waiting | BlinkState::Off => false,
-            BlinkState::On => true,
+            BlinkState::Off => false,
+            BlinkState::On | BlinkState::Waiting => true,
         }
     }
 }
