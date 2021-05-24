@@ -41,9 +41,9 @@ pub fn handle_command_line_arguments() {
     (@arg log_to_file: --log "Log to a file")
     (@arg disowned: --disowned "Disown the process. (only on macos)")
     (@arg maximized: --maximized "Maximize the window.")
-    (@arg multi_grid: --multigrid "Enable Multigrid")
+    (@arg multi_grid: --multi-grid "Enable Multigrid")
     (@arg wsl: --wsl "Run in WSL")
-    (@arg remote_tcp: --remote +takes_value "Connect to Remote TCP")
+    (@arg remote_tcp: --remote-tcp +takes_value "Connect to Remote TCP")
     (@arg geometry: --geometry +takes_value "Specify the Geometry of the window")
 
     (@arg files: +takes_value +multiple "Open Files")
