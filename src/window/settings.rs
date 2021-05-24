@@ -1,4 +1,4 @@
-use crate::settings::*;
+use crate::{cmd_line::CmdLineSettings, settings::*};
 
 pub use super::keyboard::KeyboardSettings;
 
@@ -19,7 +19,8 @@ impl Default for WindowSettings {
             iso_layout: false,
             refresh_rate: 60,
             no_idle: SETTINGS
-                .neovim_arguments
+                .get::<CmdLineSettings>()
+                .neovim_args
                 .contains(&String::from("--noIdle")),
         }
     }

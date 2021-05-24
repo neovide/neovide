@@ -17,9 +17,9 @@ use rmpv::Value;
 use tokio::process::Command;
 use tokio::runtime::Runtime;
 
-use crate::error_handling::ResultPanicExplanation;
 use crate::settings::*;
 use crate::window::window_geometry_or_default;
+use crate::{cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation};
 pub use events::*;
 use handler::NeovimHandler;
 use regex::Regex;
@@ -119,7 +119,7 @@ pub fn create_nvim_command() -> Command {
     let mut cmd = build_nvim_cmd();
 
     cmd.arg("--embed")
-        .args(SETTINGS.neovim_arguments.iter().skip(1));
+        .args(SETTINGS.get::<CmdLineSettings>().neovim_args.iter().skip(1));
 
     #[cfg(not(debug_assertions))]
     cmd.stderr(Stdio::piped());

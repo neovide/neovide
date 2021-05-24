@@ -1495,6 +1495,7 @@ version = "0.7.0"
 dependencies = [
  "async-trait",
  "cfg-if 0.1.10",
+ "clap",
  "crossfire",
  "derive-new",
  "dirs",

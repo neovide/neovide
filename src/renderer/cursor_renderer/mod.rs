@@ -316,7 +316,12 @@ impl CursorRenderer {
                     font_dimensions,
                     center_destination,
                     dt,
+<<<<<<< HEAD
                     immediate_movement,
+=======
+                    !settings.animate_in_insert_mode && in_insert_mode
+                        || !settings.animate_command_line && !changed_to_from_cmdline,
+>>>>>>> 6933a5f... implemented command line parsing with clap
                 );
 
                 animating |= corner_animating;

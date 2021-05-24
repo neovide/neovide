@@ -1,9 +1,16 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[cfg(not(test))]
+use flexi_logger::{Cleanup, Criterion, Duplicate, Logger, Naming};
+
 #[macro_use]
 extern crate neovide_derive;
 
+#[macro_use]
+extern crate clap;
+
 mod bridge;
+mod cmd_line;
 mod editor;
 mod error_handling;
 mod redraw_scheduler;
@@ -24,10 +31,13 @@ use std::sync::{atomic::AtomicBool, mpsc::channel, Arc};
 use crossfire::mpsc::unbounded_future;
 
 use bridge::start_bridge;
+#[cfg(not(test))]
+use cmd_line::CmdLineSettings;
 use editor::start_editor;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
+#[cfg(not(test))]
+use settings::SETTINGS;
 use window::{create_window, window_geometry, KeyboardSettings, WindowSettings};
-use windows_utils::attach_parent_console;
 
 pub const INITIAL_DIMENSIONS: (u64, u64) = (100, 50);
 
@@ -101,22 +111,15 @@ fn main() {
     //   Multiple other parts of the app "queue_next_frame" function to ensure animations continue
     //   properly or updates to the graphics are pushed to the screen.
 
-    if std::env::args().any(|arg| arg == "--version" || arg == "-v") {
-        attach_parent_console();
-        println!("Neovide version: {}", env!("CARGO_PKG_VERSION"));
-        return;
-    }
-
-    if std::env::args().any(|arg| arg == "--help" || arg == "-h") {
-        attach_parent_console();
-        println!("Neovide: {}", env!("CARGO_PKG_DESCRIPTION"));
-        return;
-    }
+    cmd_line::handle_command_line_arguments(); //Will exit if -h or -v
 
     if let Err(err) = window_geometry() {
         eprintln!("{}", err);
         return;
     }
+
+    #[cfg(not(test))]
+    init_logger();
 
     #[cfg(target_os = "macos")]
     {
@@ -184,4 +187,32 @@ fn main() {
         ui_command_sender,
         running,
     );
+}
+
+#[cfg(not(test))]
+pub fn init_logger() {
+    let verbosity = match SETTINGS.get::<CmdLineSettings>().verbosity {
+        0 => "warn",
+        1 => "info",
+        2 => "debug",
+        _ => "trace",
+    };
+    let log_to_file = SETTINGS.get::<CmdLineSettings>().log_to_file;
+
+    if log_to_file {
+        Logger::with_env_or_str("neovide")
+            .duplicate_to_stderr(Duplicate::Error)
+            .log_to_file()
+            .rotate(
+                Criterion::Size(10_000_000),
+                Naming::Timestamps,
+                Cleanup::KeepLogFiles(1),
+            )
+            .start()
+            .expect("Could not start logger");
+    } else {
+        Logger::with_env_or_str(format!("neovide = {}", verbosity))
+            .start()
+            .expect("Could not start logger");
+    }
 }
