@@ -318,6 +318,7 @@ impl GlutinWindowWrapper {
                 event:
                     WindowEvent::MouseWheel {
                         delta: MouseScrollDelta::LineDelta(x, y),
+                        delta: MouseScrollDelta::PixelDelta(y),
                         ..
                     },
                 ..
