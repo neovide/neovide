@@ -5,6 +5,7 @@ pub struct CmdLineSettings {
     pub verbosity: u64,
     pub log_to_file: bool,
     pub neovim_args: Vec<String>,
+    pub files_to_open: Vec<String>,
 }
 
 impl Default for CmdLineSettings {
@@ -13,6 +14,7 @@ impl Default for CmdLineSettings {
             verbosity: 0,
             log_to_file: false,
             neovim_args: vec![],
+            files_to_open: vec![],
         }
     }
 }
@@ -24,6 +26,7 @@ pub fn handle_command_line_arguments() {
     (about: crate_description!())
     (@arg verbosity: -v ... "Set the level of output information")
     (@arg log_to_file: --log "Log to a file")
+    (@arg files: +takes_value +multiple "Open Files")
     (@arg neovim_args: +takes_value +multiple +last "Args to pass to Neovim")
                         );
     let matches = clapp.get_matches();
@@ -35,5 +38,9 @@ pub fn handle_command_line_arguments() {
             .unwrap_or_default(),
         verbosity: matches.occurrences_of("verbosity"),
         log_to_file: matches.is_present("log_to_file"),
+        files_to_open: matches
+            .values_of("files")
+            .map(|opt| opt.map(|v| v.to_owned()).collect())
+            .unwrap_or_default(),
     });
 }
