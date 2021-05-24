@@ -1,5 +1,7 @@
 use crate::settings::*;
 
+use clap::{App, Arg};
+
 #[derive(Clone)]
 pub struct CmdLineSettings {
     pub verbosity: u64,
@@ -33,22 +35,65 @@ impl Default for CmdLineSettings {
 }
 
 pub fn handle_command_line_arguments() {
-    let clapp = clap_app!(neovide =>
-    (author: crate_authors!())
-    (version: crate_version!())
-    (about: crate_description!())
-    (@arg verbosity: -v ... "Set the level of output information")
-    (@arg log_to_file: --log "Log to a file")
-    (@arg disowned: --disowned "Disown the process. (only on macos)")
-    (@arg maximized: --maximized "Maximize the window.")
-    (@arg multi_grid: --multi-grid "Enable Multigrid")
-    (@arg wsl: --wsl "Run in WSL")
-    (@arg remote_tcp: --remote-tcp +takes_value "Connect to Remote TCP")
-    (@arg geometry: --geometry +takes_value "Specify the Geometry of the window")
+    let clapp = App::new("Neovide")
+        .version(crate_version!())
+        .author(crate_authors!())
+        .about(crate_description!())
+        .arg(
+            Arg::with_name("verbosity")
+                .short("v")
+                .multiple(true)
+                .help("Set the level of verbosity"),
+        )
+        .arg(
+            Arg::with_name("log_to_file")
+                .long("log")
+                .help("Log to a file"),
+        )
+        .arg(
+            Arg::with_name("disowned")
+                .long("disowned")
+                .help("Disown the process. (only on macos)"),
+        )
+        .arg(
+            Arg::with_name("maximized")
+                .long("maximized")
+                .help("Maximize the window"),
+        )
+        .arg(
+            Arg::with_name("multi_grid")
+                //.long("multi-grid") TODO: multiGrid is the current way to call this, but I
+                //personally would prefer sticking to a unix-y way of naming things...
+                .long("multiGrid")
+                .help("Enable Multigrid"),
+        )
+        .arg(Arg::with_name("wsl").long("wsl").help("Run in WSL"))
+        .arg(
+            Arg::with_name("remote_tcp")
+                .long("remote-tcp")
+                .takes_value(true)
+                .help("Connect to Remote TCP"),
+        )
+        .arg(
+            Arg::with_name("geometry")
+                .long("geometry")
+                .takes_value(true)
+                .help("Specify the Geometry of the window"),
+        )
+        .arg(
+            Arg::with_name("files")
+                .multiple(true)
+                .takes_value(true)
+                .help("Specify the Geometry of the window"),
+        )
+        .arg(
+            Arg::with_name("neovim_args")
+                .multiple(true)
+                .takes_value(true)
+                .last(true)
+                .help("Specify Arguments to pass down to neovim"),
+        );
 
-    (@arg files: +takes_value +multiple "Open Files")
-    (@arg neovim_args: +takes_value +multiple +last "Args to pass to Neovim")
-                        );
     let matches = clapp.get_matches();
 
     SETTINGS.set::<CmdLineSettings>(&CmdLineSettings {
