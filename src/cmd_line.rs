@@ -28,8 +28,6 @@ pub fn handle_command_line_arguments() {
                         );
     let matches = clapp.get_matches();
 
-    println!("Occ: {}", matches.occurrences_of("verbosity"));
-
     SETTINGS.set::<CmdLineSettings>(&CmdLineSettings {
         neovim_args: matches
             .values_of("neovim_args")
