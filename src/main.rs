@@ -123,9 +123,10 @@ fn main() {
 
     #[cfg(target_os = "macos")]
     {
+        let disowned_arg = SETTINGS.get::<CmdLineSettings>().disowned;
         // incase of app bundle, we can just pass --disowned option straight away to bypass this check
         #[cfg(not(debug_assertions))]
-        if !std::env::args().any(|f| f == "--disowned") {
+        if !SETTINGS.get::<CmdLineSettings>().disowned {
             if let Ok(curr_exe) = std::env::current_exe() {
                 assert!(std::process::Command::new(curr_exe)
                     .args(std::env::args().skip(1))

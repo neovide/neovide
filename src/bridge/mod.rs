@@ -33,7 +33,7 @@ fn set_windows_creation_flags(cmd: &mut Command) {
 
 #[cfg(windows)]
 fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
-    if env::args().any(|arg| arg == "--wsl") {
+    if SETTINGS.get::<CmdLineSettings>().wsl {
         let mut cmd = Command::new("wsl");
         cmd.arg(bin);
         Some(cmd)
@@ -62,7 +62,7 @@ fn build_nvim_cmd() -> Command {
         }
     }
     #[cfg(windows)]
-    if env::args().any(|arg| arg == "--wsl") {
+    if SETTINGS.get::<CmdLineSettings>().wsl {
         if let Ok(output) = std::process::Command::new("wsl")
             .arg("which")
             .arg("nvim")
@@ -142,11 +142,8 @@ enum ConnectionMode {
 }
 
 fn connection_mode() -> ConnectionMode {
-    let tcp_prefix = "--remote-tcp=";
-
-    if let Some(arg) = std::env::args().find(|arg| arg.starts_with(tcp_prefix)) {
-        let input = &arg[tcp_prefix.len()..];
-        ConnectionMode::RemoteTcp(input.to_owned())
+    if let Some(arg) = SETTINGS.get::<CmdLineSettings>().remote_tcp {
+        ConnectionMode::RemoteTcp(arg)
     } else {
         ConnectionMode::Child
     }
@@ -274,7 +271,8 @@ async fn start_neovim_runtime(
 
     let mut options = UiAttachOptions::new();
     options.set_linegrid_external(true);
-    if env::args().any(|arg| arg == "--multiGrid") || env::var("NeovideMultiGrid").is_ok() {
+
+    if SETTINGS.get::<CmdLineSettings>().multi_grid || env::var("NeovideMultiGrid").is_ok() {
         options.set_multigrid_external(true);
     }
     options.set_rgb(true);

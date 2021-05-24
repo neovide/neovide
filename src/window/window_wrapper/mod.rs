@@ -4,8 +4,9 @@ mod renderer;
 
 use super::{handle_new_grid_size, keyboard::neovim_keybinding_string, settings::WindowSettings};
 use crate::{
-    bridge::UiCommand, editor::WindowCommand, error_handling::ResultPanicExplanation,
-    redraw_scheduler::REDRAW_SCHEDULER, renderer::Renderer, settings::SETTINGS,
+    bridge::UiCommand, cmd_line::CmdLineSettings, editor::WindowCommand,
+    error_handling::ResultPanicExplanation, redraw_scheduler::REDRAW_SCHEDULER, renderer::Renderer,
+    settings::SETTINGS,
 };
 use crossfire::mpsc::TxUnbounded;
 use glutin::{
@@ -428,7 +429,7 @@ pub fn start_loop(
         .with_title("Neovide")
         .with_inner_size(logical_size)
         .with_window_icon(Some(icon))
-        .with_maximized(std::env::args().any(|arg| arg == "--maximized"));
+        .with_maximized(SETTINGS.get::<CmdLineSettings>().maximized);
 
     let windowed_context = ContextBuilder::new()
         .with_depth_buffer(0)

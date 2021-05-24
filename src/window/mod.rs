@@ -4,8 +4,10 @@ mod window_wrapper;
 
 use crate::{
     bridge::UiCommand,
+    cmd_line::CmdLineSettings,
     editor::{DrawCommand, WindowCommand},
     renderer::Renderer,
+    settings::SETTINGS,
     INITIAL_DIMENSIONS,
 };
 use crossfire::mpsc::TxUnbounded;
@@ -16,12 +18,11 @@ pub use window_wrapper::start_loop;
 pub use settings::*;
 
 pub fn window_geometry() -> Result<(u64, u64), String> {
-    let prefix = "--geometry=";
-
-    std::env::args()
-        .find(|arg| arg.starts_with(prefix))
-        .map_or(Ok(INITIAL_DIMENSIONS), |arg| {
-            let input = &arg[prefix.len()..];
+    //TODO: Maybe move this parsing into cmd_line...
+    SETTINGS
+        .get::<CmdLineSettings>()
+        .geometry
+        .map_or(Ok(INITIAL_DIMENSIONS), |input| {
             let invalid_parse_err = format!(
                 "Invalid geometry: {}\nValid format: <width>x<height>",
                 input
