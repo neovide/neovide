@@ -225,7 +225,7 @@ impl GlutinWindowWrapper {
         self.mouse_down = false;
     }
 
-    pub fn handle_mouse_wheel(&mut self, x: i32, y: i32) {
+    pub fn handle_mouse_wheel(&mut self, x: f32, y: f32) {
         if !self.mouse_enabled {
             return;
         }
@@ -321,7 +321,7 @@ impl GlutinWindowWrapper {
                         ..
                     },
                 ..
-            } => self.handle_mouse_wheel(x as i32, y as i32),
+            } => self.handle_mouse_wheel(x as f32, y as f32),
             Event::WindowEvent {
                 event:
                     WindowEvent::MouseWheel {
@@ -329,7 +329,7 @@ impl GlutinWindowWrapper {
                         ..
                     },
                 ..
-            } => self.handle_mouse_wheel(0, ((lpos.y as f32)/10f32) as i32),
+            } => self.handle_mouse_wheel(0, (lpos.y as f32)/10f32,
             Event::WindowEvent {
                 event:
                     WindowEvent::MouseInput {
