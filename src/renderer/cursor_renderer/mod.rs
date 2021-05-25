@@ -228,7 +228,6 @@ impl CursorRenderer {
         font_width: f32,
         font_height: f32,
         windows: &HashMap<u64, RenderedWindow>,
-        current_mode: &EditorMode,
     ) {
         let (cursor_grid_x, cursor_grid_y) = self.cursor.grid_position;
 

@@ -326,7 +326,6 @@ impl Renderer {
             font_width,
             font_height,
             windows,
-            &self.current_mode,
         );
 
         self.cursor_renderer.draw(

@@ -2,7 +2,6 @@ use std::convert::TryInto;
 use std::error;
 use std::fmt;
 use std::fmt::Debug;
-use std::rc::Rc;
 
 use rmpv::Value;
 use skia_safe::Color4f;
@@ -36,7 +35,9 @@ impl fmt::Display for ParseError {
             ParseError::InvalidWindowAnchor(value) => {
                 write!(f, "invalid window anchor format {}", value)
             }
-            ParseError::InvalidFormat(debug_text) => write!(f, "invalid event format {}", debug_text),
+            ParseError::InvalidFormat(debug_text) => {
+                write!(f, "invalid event format {}", debug_text)
+            }
         }
     }
 }

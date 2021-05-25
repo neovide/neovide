@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use lru::LruCache;
 use skia_safe::{FontMetrics, FontMgr, TextBlob, TextBlobBuilder};
-use swash::shape::{ShapeContext, ShaperBuilder};
+use swash::shape::ShapeContext;
 
 use super::font_loader::*;
 use super::font_options::*;
@@ -64,15 +64,46 @@ impl CachingShaper {
         metrics
     }
 
+    pub fn update_font(&mut self, guifont_setting: &str) -> bool {
+        let new_options = FontOptions::parse(guifont_setting, DEFAULT_FONT_SIZE);
+
+        if new_options != self.options && new_options.is_some() {
+            self.font_loader = FontLoader::new(new_options.as_ref().unwrap().size);
+            self.blob_cache.clear();
+            self.options = new_options;
+
+            return true;
+        }
+        return false;
+    }
+
+    pub fn font_base_dimensions(&mut self) -> (f32, f32) {
+        let metrics = self.metrics();
+        let font_height = metrics.descent - metrics.ascent;
+
+        let font_pair = self.current_font_pair();
+
+        let (text_width, _) = font_pair
+            .skia_font
+            .measure_str(STANDARD_CHARACTER_STRING, None);
+        let font_width = text_width / STANDARD_CHARACTER_STRING.len() as f32;
+
+        (font_width, font_height)
+    }
+
+    pub fn underline_position(&mut self) -> f32 {
+        let metrics = self.metrics();
+        -metrics.underline_position().unwrap() * self.current_size()
+    }
+
+    pub fn y_adjustment(&mut self) -> f32 {
+        let metrics = self.metrics();
+        -metrics.ascent
+    }
+
     pub fn shape(&mut self, text: &str) -> Vec<TextBlob> {
         let font_pair = self.current_font_pair();
         let current_size = self.current_size();
-        let units_per_em = font_pair
-            .skia_font
-            .typeface()
-            .unwrap()
-            .units_per_em()
-            .unwrap();
 
         let mut shaper = self
             .shape_context
@@ -121,42 +152,5 @@ impl CachingShaper {
         }
 
         self.blob_cache.get(&key).unwrap()
-    }
-
-    pub fn update_font(&mut self, guifont_setting: &str) -> bool {
-        let new_options = FontOptions::parse(guifont_setting, DEFAULT_FONT_SIZE);
-
-        if new_options != self.options && new_options.is_some() {
-            self.font_loader = FontLoader::new(new_options.as_ref().unwrap().size);
-            self.blob_cache.clear();
-            self.options = new_options;
-
-            return true;
-        }
-        return false;
-    }
-
-    pub fn font_base_dimensions(&mut self) -> (f32, f32) {
-        let metrics = self.metrics();
-        let font_height = metrics.descent - metrics.ascent;
-
-        let font_pair = self.current_font_pair();
-
-        let (text_width, _) = font_pair
-            .skia_font
-            .measure_str(STANDARD_CHARACTER_STRING, None);
-        let font_width = text_width / STANDARD_CHARACTER_STRING.len() as f32;
-
-        (font_width, font_height)
-    }
-
-    pub fn underline_position(&mut self) -> f32 {
-        let metrics = self.metrics();
-        -metrics.underline_position().unwrap() * self.current_size()
-    }
-
-    pub fn y_adjustment(&mut self) -> f32 {
-        let metrics = self.metrics();
-        -metrics.ascent
     }
 }
