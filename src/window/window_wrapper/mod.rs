@@ -325,11 +325,11 @@ impl GlutinWindowWrapper {
             Event::WindowEvent {
                 event:
                     WindowEvent::MouseWheel {
-                        delta: MouseScrollDelta::PixelDelta(lpos),
+                        delta: MouseScrollDelta::PixelDelta(logical_position),
                         ..
                     },
                 ..
-            } => self.handle_mouse_wheel(0.0, (lpos.y as f32)/10f32),
+            } => self.handle_mouse_wheel(0.0, (logical_position.y as f32)/10f32),
             Event::WindowEvent {
                 event:
                     WindowEvent::MouseInput {
