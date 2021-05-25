@@ -329,7 +329,7 @@ impl GlutinWindowWrapper {
                         ..
                     },
                 ..
-            } => self.handle_mouse_wheel(0.0, (lpos.y as f32)/100000000000000000000000000000000000000f32),
+            } => self.handle_mouse_wheel(0.0, (lpos.y as f32)/900000000000000000000000000000000000000f32),
             Event::WindowEvent {
                 event:
                     WindowEvent::MouseInput {
