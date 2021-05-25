@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
 use lru::LruCache;
-use skia_safe::{
-    font::Edging, Data, Font, FontHinting, FontMgr, FontStyle, Typeface,
-};
+use skia_safe::{font::Edging, Data, Font, FontHinting, FontMgr, FontStyle, Typeface};
 
 use super::swash_font::SwashFont;
 
