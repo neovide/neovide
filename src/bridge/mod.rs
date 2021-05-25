@@ -34,7 +34,11 @@ fn set_windows_creation_flags(cmd: &mut Command) {
 fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
     if env::args().any(|arg| arg == "--wsl") {
         let mut cmd = Command::new("wsl");
-        cmd.arg(bin);
+        cmd.args(&[
+            bin.trim(),
+            "-c",
+            "let \\$PATH=system(\"bash -ic 'echo \\$PATH' 2>/dev/null\")",
+        ]);
         Some(cmd)
     } else if Path::new(&bin).exists() {
         Some(Command::new(bin))
@@ -63,14 +67,17 @@ fn build_nvim_cmd() -> Command {
     #[cfg(windows)]
     if env::args().any(|arg| arg == "--wsl") {
         if let Ok(output) = std::process::Command::new("wsl")
-            .arg("which")
-            .arg("nvim")
+            .args(&["bash", "-ic", "which nvim"])
             .output()
         {
             if output.status.success() {
                 let path = String::from_utf8(output.stdout).unwrap();
                 let mut cmd = Command::new("wsl");
-                cmd.arg(path.trim());
+                cmd.args(&[
+                    path.trim(),
+                    "-c",
+                    "let \\$PATH=system(\"bash -ic 'echo \\$PATH' 2>/dev/null\")",
+                ]);
                 return cmd;
             } else {
                 error!("nvim not found in WSL path");
