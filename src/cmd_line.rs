@@ -2,11 +2,12 @@ use crate::settings::*;
 
 use clap::{App, Arg};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CmdLineSettings {
     pub verbosity: u64,
     pub log_to_file: bool,
     pub neovim_args: Vec<String>,
+    pub neovim_bin: Option<String>,
     pub files_to_open: Vec<String>,
 
     pub disowned: bool,
@@ -20,6 +21,7 @@ pub struct CmdLineSettings {
 impl Default for CmdLineSettings {
     fn default() -> Self {
         Self {
+            neovim_bin: None,
             verbosity: 0,
             log_to_file: false,
             neovim_args: vec![],
@@ -96,7 +98,14 @@ pub fn handle_command_line_arguments() {
 
     let matches = clapp.get_matches();
 
+    /*
+     * Integrate Environment Variables as Defaults to the command-line ones.
+     *
+     * NEOVIM_BIN
+     * NeovideMultiGrid || --multiGrid
+     */
     SETTINGS.set::<CmdLineSettings>(&CmdLineSettings {
+        neovim_bin: std::env::var("NEOVIM_BIN").ok(),
         neovim_args: matches
             .values_of("neovim_args")
             .map(|opt| opt.map(|v| v.to_owned()).collect())
@@ -108,7 +117,7 @@ pub fn handle_command_line_arguments() {
             .map(|opt| opt.map(|v| v.to_owned()).collect())
             .unwrap_or_default(),
         maximized: matches.is_present("maximized"),
-        multi_grid: matches.is_present("multi_grid"),
+        multi_grid: std::env::var("NeovideMultiGrid").is_ok() || matches.is_present("multi_grid"),
         remote_tcp: matches.value_of("remote_tcp").map(|i| i.to_owned()),
         disowned: matches.is_present("disowned"),
         wsl: matches.is_present("wsl"),

@@ -4,7 +4,6 @@ mod handler;
 mod tx_wrapper;
 mod ui_commands;
 
-use std::env;
 use std::path::Path;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -54,7 +53,7 @@ fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
 }
 
 fn build_nvim_cmd() -> Command {
-    if let Ok(path) = env::var("NEOVIM_BIN") {
+    if let Some(path) = SETTINGS.get::<CmdLineSettings>().neovim_bin {
         if let Some(cmd) = platform_build_nvim_cmd(&path) {
             return cmd;
         } else {
@@ -272,7 +271,7 @@ async fn start_neovim_runtime(
     let mut options = UiAttachOptions::new();
     options.set_linegrid_external(true);
 
-    if SETTINGS.get::<CmdLineSettings>().multi_grid || env::var("NeovideMultiGrid").is_ok() {
+    if SETTINGS.get::<CmdLineSettings>().multi_grid {
         options.set_multigrid_external(true);
     }
     options.set_rgb(true);
