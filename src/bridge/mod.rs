@@ -4,7 +4,6 @@ mod handler;
 mod tx_wrapper;
 mod ui_commands;
 
-use std::env;
 use std::path::Path;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -17,9 +16,9 @@ use rmpv::Value;
 use tokio::process::Command;
 use tokio::runtime::Runtime;
 
-use crate::error_handling::ResultPanicExplanation;
 use crate::settings::*;
 use crate::window::window_geometry_or_default;
+use crate::{cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation};
 pub use events::*;
 use handler::NeovimHandler;
 use regex::Regex;
@@ -33,7 +32,7 @@ fn set_windows_creation_flags(cmd: &mut Command) {
 
 #[cfg(windows)]
 fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
-    if env::args().any(|arg| arg == "--wsl") {
+    if SETTINGS.get::<CmdLineSettings>().wsl {
         let mut cmd = Command::new("wsl");
         cmd.arg(bin);
         Some(cmd)
@@ -54,7 +53,7 @@ fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
 }
 
 fn build_nvim_cmd() -> Command {
-    if let Ok(path) = env::var("NEOVIM_BIN") {
+    if let Some(path) = SETTINGS.get::<CmdLineSettings>().neovim_bin {
         if let Some(cmd) = platform_build_nvim_cmd(&path) {
             return cmd;
         } else {
@@ -62,7 +61,7 @@ fn build_nvim_cmd() -> Command {
         }
     }
     #[cfg(windows)]
-    if env::args().any(|arg| arg == "--wsl") {
+    if SETTINGS.get::<CmdLineSettings>().wsl {
         if let Ok(output) = std::process::Command::new("wsl")
             .arg("which")
             .arg("nvim")
@@ -119,7 +118,10 @@ pub fn create_nvim_command() -> Command {
     let mut cmd = build_nvim_cmd();
 
     cmd.arg("--embed")
-        .args(SETTINGS.neovim_arguments.iter().skip(1));
+        .args(SETTINGS.get::<CmdLineSettings>().neovim_args.iter())
+        .args(SETTINGS.get::<CmdLineSettings>().files_to_open.iter());
+
+    info!("Starting neovim with: {:?}", cmd);
 
     #[cfg(not(debug_assertions))]
     cmd.stderr(Stdio::piped());
@@ -139,11 +141,8 @@ enum ConnectionMode {
 }
 
 fn connection_mode() -> ConnectionMode {
-    let tcp_prefix = "--remote-tcp=";
-
-    if let Some(arg) = std::env::args().find(|arg| arg.starts_with(tcp_prefix)) {
-        let input = &arg[tcp_prefix.len()..];
-        ConnectionMode::RemoteTcp(input.to_owned())
+    if let Some(arg) = SETTINGS.get::<CmdLineSettings>().remote_tcp {
+        ConnectionMode::RemoteTcp(arg)
     } else {
         ConnectionMode::Child
     }
@@ -271,7 +270,8 @@ async fn start_neovim_runtime(
 
     let mut options = UiAttachOptions::new();
     options.set_linegrid_external(true);
-    if env::args().any(|arg| arg == "--multiGrid") || env::var("NeovideMultiGrid").is_ok() {
+
+    if SETTINGS.get::<CmdLineSettings>().multi_grid {
         options.set_multigrid_external(true);
     }
     options.set_rgb(true);
