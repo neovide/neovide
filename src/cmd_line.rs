@@ -117,7 +117,9 @@ pub fn handle_command_line_arguments() {
             .map(|opt| opt.map(|v| v.to_owned()).collect())
             .unwrap_or_default(),
         maximized: matches.is_present("maximized"),
-        multi_grid: std::env::var("NeovideMultiGrid").is_ok() || matches.is_present("multi_grid"),
+        multi_grid: std::env::var("NEOVIDE_MULTIGRID").is_ok()
+            || std::env::var("NeovideMultiGrid").is_ok()
+            || matches.is_present("multi_grid"),
         remote_tcp: matches.value_of("remote_tcp").map(|i| i.to_owned()),
         disowned: matches.is_present("disowned"),
         wsl: matches.is_present("wsl"),
