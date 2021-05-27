@@ -9,7 +9,7 @@ use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use crossfire::mpsc::{RxUnbounded, TxUnbounded};
+use crossfire::mpsc::RxUnbounded;
 use log::{error, info, warn};
 use nvim_rs::UiAttachOptions;
 use rmpv::Value;
@@ -17,7 +17,6 @@ use tokio::process::Command;
 use tokio::runtime::Runtime;
 
 use crate::channel_utils::*;
-use crate::error_handling::ResultPanicExplanation;
 use crate::settings::*;
 use crate::window::window_geometry_or_default;
 use crate::{cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation};

@@ -4,8 +4,8 @@ mod window_wrapper;
 
 use crate::{
     bridge::UiCommand,
-    cmd_line::CmdLineSettings,
     channel_utils::*,
+    cmd_line::CmdLineSettings,
     editor::{DrawCommand, WindowCommand},
     renderer::Renderer,
     settings::SETTINGS,

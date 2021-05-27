@@ -3,7 +3,6 @@ use std::sync::Arc;
 use lru::LruCache;
 use skia_safe::{FontMetrics, FontMgr, TextBlob, TextBlobBuilder};
 use swash::shape::ShapeContext;
-use swash::text::cluster::{CharCluster, CharInfo, Parser, Token};
 
 use super::font_loader::*;
 use super::font_options::*;

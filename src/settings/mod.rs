@@ -4,7 +4,7 @@ use std::convert::TryInto;
 
 mod from_value;
 pub use from_value::FromValue;
-use log::warn;
+use log::trace;
 use nvim_rs::Neovim;
 use parking_lot::RwLock;
 pub use rmpv::Value;
@@ -91,7 +91,7 @@ impl Settings {
                     self.listeners.read().get(&name).unwrap()(value);
                 }
                 Err(error) => {
-                    warn!("Initial value load failed for {}: {}", name, error);
+                    trace!("Initial value load failed for {}: {}", name, error);
                     let setting = self.readers.read().get(&name).unwrap()();
                     nvim.set_var(&variable_name, setting).await.ok();
                 }

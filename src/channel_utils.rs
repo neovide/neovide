@@ -1,16 +1,22 @@
 use std::fmt::Debug;
-use std::sync::mpsc::{Sender, SendError};
+use std::sync::mpsc::{SendError, Sender};
 
-use log::trace;
 use crossfire::mpsc::{SendError as TxError, TxUnbounded};
+use log::trace;
 
 #[derive(Clone)]
-pub struct LoggingSender<T> where T : Debug {
+pub struct LoggingSender<T>
+where
+    T: Debug,
+{
     sender: Sender<T>,
     channel_name: String,
 }
 
-impl<T> LoggingSender<T> where T : Debug {
+impl<T> LoggingSender<T>
+where
+    T: Debug,
+{
     pub fn attach(sender: Sender<T>, channel_name: String) -> Self {
         Self {
             sender,
@@ -25,17 +31,20 @@ impl<T> LoggingSender<T> where T : Debug {
 }
 
 #[derive(Clone)]
-pub struct LoggingTx<T> where T : Debug {
+pub struct LoggingTx<T>
+where
+    T: Debug,
+{
     tx: TxUnbounded<T>,
     channel_name: String,
 }
 
-impl<T> LoggingTx<T> where T : Debug {
+impl<T> LoggingTx<T>
+where
+    T: Debug,
+{
     pub fn attach(tx: TxUnbounded<T>, channel_name: String) -> Self {
-        Self {
-            tx,
-            channel_name,
-        }
+        Self { tx, channel_name }
     }
 
     pub fn send(&self, message: T) -> Result<(), TxError<T>> {

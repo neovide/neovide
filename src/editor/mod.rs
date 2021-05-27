@@ -6,15 +6,14 @@ mod window;
 
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::thread;
 
 use crossfire::mpsc::RxUnbounded;
-use log::{error, warn, trace};
+use log::{error, trace};
 
-use crate::channel_utils::*;
 use crate::bridge::{EditorMode, GuiOption, RedrawEvent, WindowAnchor};
+use crate::channel_utils::*;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 pub use cursor::{Cursor, CursorMode, CursorShape};
 pub use draw_command_batcher::DrawCommandBatcher;
@@ -214,7 +213,14 @@ impl Editor {
                 anchor_row: anchor_top,
                 sort_order,
                 ..
-            } => self.set_window_float_position(grid, anchor_grid, anchor, anchor_left, anchor_top, sort_order),
+            } => self.set_window_float_position(
+                grid,
+                anchor_grid,
+                anchor,
+                anchor_left,
+                anchor_top,
+                sort_order,
+            ),
             RedrawEvent::WindowHide { grid } => {
                 let window = self.windows.get(&grid);
                 if let Some(window) = window {
@@ -427,7 +433,7 @@ impl Editor {
         if let Some(window) = self.windows.get_mut(&grid) {
             window.update_viewport(top_line, bottom_line);
         } else {
-            warn!("viewport event received before window initialized");
+            trace!("viewport event received before window initialized");
         }
     }
 }

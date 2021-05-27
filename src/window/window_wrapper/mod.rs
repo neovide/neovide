@@ -4,8 +4,8 @@ mod renderer;
 
 use super::{handle_new_grid_size, keyboard::neovim_keybinding_string, settings::WindowSettings};
 use crate::{
-    channel_utils::*, bridge::UiCommand, cmd_line::CmdLineSettings, editor::WindowCommand, 
-    error_handling::ResultPanicExplanation, redraw_scheduler::REDRAW_SCHEDULER, renderer::Renderer, 
+    bridge::UiCommand, channel_utils::*, cmd_line::CmdLineSettings, editor::WindowCommand,
+    error_handling::ResultPanicExplanation, redraw_scheduler::REDRAW_SCHEDULER, renderer::Renderer,
     settings::SETTINGS,
 };
 use glutin::{
