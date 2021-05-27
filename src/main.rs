@@ -17,6 +17,7 @@ mod redraw_scheduler;
 mod renderer;
 mod settings;
 mod window;
+mod channel_utils;
 pub mod windows_utils;
 
 #[macro_use]
@@ -39,6 +40,7 @@ use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 use settings::SETTINGS;
 use window::{create_window, window_geometry, KeyboardSettings, WindowSettings};
 
+pub use channel_utils::*;
 pub const INITIAL_DIMENSIONS: (u64, u64) = (100, 50);
 
 fn main() {
@@ -166,26 +168,33 @@ fn main() {
     let running = Arc::new(AtomicBool::new(true));
 
     let (redraw_event_sender, redraw_event_receiver) = unbounded_future();
+    let logging_redraw_event_sender = LoggingTx::attach(redraw_event_sender, "redraw_event".to_owned());
+
     let (batched_draw_command_sender, batched_draw_command_receiver) = channel();
+    let logging_batched_draw_command_sender = LoggingSender::attach(batched_draw_command_sender, "batched_draw_command".to_owned());
+
     let (ui_command_sender, ui_command_receiver) = unbounded_future();
+    let logging_ui_command_sender = LoggingTx::attach(ui_command_sender, "ui_command".to_owned());
+
     let (window_command_sender, window_command_receiver) = channel();
+    let logging_window_command_sender = LoggingSender::attach(window_command_sender, "window_command".to_owned());
 
     // We need to keep the bridge reference around to prevent the tokio runtime from getting freed
     let _bridge = start_bridge(
-        ui_command_sender.clone(),
+        logging_ui_command_sender.clone(),
         ui_command_receiver,
-        redraw_event_sender,
+        logging_redraw_event_sender,
         running.clone(),
     );
     start_editor(
         redraw_event_receiver,
-        batched_draw_command_sender,
-        window_command_sender,
+        logging_batched_draw_command_sender,
+        logging_window_command_sender,
     );
     create_window(
         batched_draw_command_receiver,
         window_command_receiver,
-        ui_command_sender,
+        logging_ui_command_sender,
         running,
     );
 }

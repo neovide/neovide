@@ -4,11 +4,10 @@ mod renderer;
 
 use super::{handle_new_grid_size, keyboard::neovim_keybinding_string, settings::WindowSettings};
 use crate::{
-    bridge::UiCommand, cmd_line::CmdLineSettings, editor::WindowCommand,
-    error_handling::ResultPanicExplanation, redraw_scheduler::REDRAW_SCHEDULER, renderer::Renderer,
+    channel_utils::*, bridge::UiCommand, cmd_line::CmdLineSettings, editor::WindowCommand, 
+    error_handling::ResultPanicExplanation, redraw_scheduler::REDRAW_SCHEDULER, renderer::Renderer, 
     settings::SETTINGS,
 };
-use crossfire::mpsc::TxUnbounded;
 use glutin::{
     self,
     dpi::{LogicalPosition, LogicalSize, PhysicalSize},
@@ -50,7 +49,7 @@ pub struct GlutinWindowWrapper {
     fullscreen: bool,
     cached_size: LogicalSize<u32>,
     cached_position: LogicalPosition<u32>,
-    ui_command_sender: TxUnbounded<UiCommand>,
+    ui_command_sender: LoggingTx<UiCommand>,
     window_command_receiver: Receiver<WindowCommand>,
 }
 
@@ -166,7 +165,7 @@ impl GlutinWindowWrapper {
                         logical_position.width - details.region.left as u32,
                         logical_position.height - details.region.top as u32,
                     ),
-                    details.floating,
+                    details.floating_order.is_some(),
                 ));
             }
         }
@@ -410,7 +409,7 @@ impl GlutinWindowWrapper {
 
 pub fn start_loop(
     window_command_receiver: Receiver<WindowCommand>,
-    ui_command_sender: TxUnbounded<UiCommand>,
+    ui_command_sender: LoggingTx<UiCommand>,
     running: Arc<AtomicBool>,
     logical_size: (u32, u32),
     renderer: Renderer,

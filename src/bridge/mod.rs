@@ -16,6 +16,8 @@ use rmpv::Value;
 use tokio::process::Command;
 use tokio::runtime::Runtime;
 
+use crate::channel_utils::*;
+use crate::error_handling::ResultPanicExplanation;
 use crate::settings::*;
 use crate::window::window_geometry_or_default;
 use crate::{cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation};
@@ -149,9 +151,9 @@ fn connection_mode() -> ConnectionMode {
 }
 
 async fn start_neovim_runtime(
-    ui_command_sender: TxUnbounded<UiCommand>,
+    ui_command_sender: LoggingTx<UiCommand>,
     ui_command_receiver: RxUnbounded<UiCommand>,
-    redraw_event_sender: TxUnbounded<RedrawEvent>,
+    redraw_event_sender: LoggingTx<RedrawEvent>,
     running: Arc<AtomicBool>,
 ) {
     let (width, height) = window_geometry_or_default();
@@ -315,9 +317,9 @@ pub struct Bridge {
 }
 
 pub fn start_bridge(
-    ui_command_sender: TxUnbounded<UiCommand>,
+    ui_command_sender: LoggingTx<UiCommand>,
     ui_command_receiver: RxUnbounded<UiCommand>,
-    redraw_event_sender: TxUnbounded<RedrawEvent>,
+    redraw_event_sender: LoggingTx<RedrawEvent>,
     running: Arc<AtomicBool>,
 ) -> Bridge {
     let runtime = Runtime::new().unwrap();

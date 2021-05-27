@@ -103,7 +103,7 @@ pub struct RenderedWindow {
 
     pub id: u64,
     pub hidden: bool,
-    pub floating: bool,
+    pub floating_order: Option<u64>,
 
     pub grid_width: u64,
     pub grid_height: u64,
@@ -122,7 +122,7 @@ pub struct RenderedWindow {
 pub struct WindowDrawDetails {
     pub id: u64,
     pub region: Rect,
-    pub floating: bool,
+    pub floating_order: Option<u64>,
 }
 
 impl RenderedWindow {
@@ -149,7 +149,7 @@ impl RenderedWindow {
             current_surface,
             id,
             hidden: false,
-            floating: false,
+            floating_order: None,
 
             grid_width,
             grid_height,
@@ -238,7 +238,7 @@ impl RenderedWindow {
         root_canvas.save();
         root_canvas.clip_rect(&pixel_region, None, Some(false));
 
-        if self.floating && settings.floating_blur {
+        if self.floating_order.is_some() && settings.floating_blur {
             let blur = blur((2.0, 2.0), None, None, None).unwrap();
             let save_layer_rec = SaveLayerRec::default()
                 .backdrop(&blur)
@@ -256,7 +256,7 @@ impl RenderedWindow {
         // Save layer so that setting the blend mode doesn't effect the blur
         root_canvas.save_layer(&SaveLayerRec::default());
         let mut a = 255;
-        if self.floating {
+        if self.floating_order.is_some() {
             a = (settings.floating_opacity.min(1.0).max(0.0) * 255.0) as u8;
         }
 
@@ -289,7 +289,7 @@ impl RenderedWindow {
 
         root_canvas.restore();
 
-        if self.floating {
+        if self.floating_order.is_some() {
             root_canvas.restore();
         }
 
@@ -298,7 +298,7 @@ impl RenderedWindow {
         WindowDrawDetails {
             id: self.id,
             region: pixel_region,
-            floating: self.floating,
+            floating_order: self.floating_order,
         }
     }
 
@@ -314,7 +314,7 @@ impl RenderedWindow {
                 grid_top,
                 width: grid_width,
                 height: grid_height,
-                floating,
+                floating_order,
             } => {
                 let new_destination: Point = (grid_left as f32, grid_top as f32).into();
 
@@ -353,7 +353,7 @@ impl RenderedWindow {
                     self.grid_height = grid_height;
                 }
 
-                self.floating = floating;
+                self.floating_order = floating_order;
 
                 if self.hidden {
                     self.hidden = false;

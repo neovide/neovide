@@ -5,12 +5,12 @@ mod window_wrapper;
 use crate::{
     bridge::UiCommand,
     cmd_line::CmdLineSettings,
+    channel_utils::*,
     editor::{DrawCommand, WindowCommand},
     renderer::Renderer,
     settings::SETTINGS,
     INITIAL_DIMENSIONS,
 };
-use crossfire::mpsc::TxUnbounded;
 use std::sync::{atomic::AtomicBool, mpsc::Receiver, Arc};
 
 pub use window_wrapper::start_loop;
@@ -71,7 +71,7 @@ fn windows_fix_dpi() {
 fn handle_new_grid_size(
     new_size: (u32, u32),
     renderer: &Renderer,
-    ui_command_sender: &TxUnbounded<UiCommand>,
+    ui_command_sender: &LoggingTx<UiCommand>,
 ) {
     let (new_width, new_height) = new_size;
     if new_width > 0 && new_height > 0 {
@@ -90,7 +90,7 @@ fn handle_new_grid_size(
 pub fn create_window(
     batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
     window_command_receiver: Receiver<WindowCommand>,
-    ui_command_sender: TxUnbounded<UiCommand>,
+    ui_command_sender: LoggingTx<UiCommand>,
     running: Arc<AtomicBool>,
 ) {
     let (width, height) = window_geometry_or_default();

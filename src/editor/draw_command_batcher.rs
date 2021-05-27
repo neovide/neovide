@@ -1,16 +1,17 @@
 use std::sync::mpsc::{channel, Receiver, SendError, Sender};
 
+use crate::channel_utils::*;
 use super::DrawCommand;
 
 pub struct DrawCommandBatcher {
     window_draw_command_sender: Sender<DrawCommand>,
     window_draw_command_receiver: Receiver<DrawCommand>,
 
-    batched_draw_command_sender: Sender<Vec<DrawCommand>>,
+    batched_draw_command_sender: LoggingSender<Vec<DrawCommand>>,
 }
 
 impl DrawCommandBatcher {
-    pub fn new(batched_draw_command_sender: Sender<Vec<DrawCommand>>) -> DrawCommandBatcher {
+    pub fn new(batched_draw_command_sender: LoggingSender<Vec<DrawCommand>>) -> DrawCommandBatcher {
         let (sender, receiver) = channel();
 
         DrawCommandBatcher {

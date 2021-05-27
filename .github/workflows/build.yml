@@ -24,11 +24,9 @@ jobs:
       run: |
         cargo fmt --all -- --check
 
-    - name: Run Clippy
-      uses: actions-rs/clippy-check@v1
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        args: --all -- -D warnings
+    - name: Lint with Clippy
+      run: |
+        cargo clippy --all -- -D warnings
 
     - name: Install Neovim
       run: |
@@ -71,10 +69,9 @@ jobs:
       run: |
         cargo fmt --all -- --check
 
-    - uses: actions-rs/clippy-check@v1
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        args: --all -- -D warnings
+    - name: Lint with Clippy
+      run: |
+        cargo clippy --all -- -D warnings
 
     - name: Uninstall Conflicting LLVM
       run: |
@@ -129,10 +126,9 @@ jobs:
       run: |
         cargo fmt --all -- --check
 
-    - uses: actions-rs/clippy-check@v1
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        args: --all -- -D warnings
+    - name: Lint with Clippy
+      run: |
+        cargo clippy --all -- -D warnings
 
     - name: Install Neovim
       run: |

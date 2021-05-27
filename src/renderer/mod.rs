@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 
-use log::{error, trace, warn};
+use log::{error, trace};
 use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect};
 
 pub mod animation_utils;
@@ -200,7 +200,6 @@ impl Renderer {
         draw_command: DrawCommand,
         scaling: f32,
     ) {
-        warn!("{:?}", &draw_command);
         match draw_command {
             DrawCommand::Window {
                 grid_id,
@@ -221,7 +220,6 @@ impl Renderer {
                     ..
                 } = command
                 {
-                    warn!("Created window {}", grid_id);
                     let new_window = RenderedWindow::new(
                         root_canvas,
                         &self,
@@ -253,7 +251,7 @@ impl Renderer {
     }
 
     pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32, scaling: f32) -> bool {
-        trace!("Rendering");
+        trace!("Drawing Frame");
         let mut font_changed = false;
 
         let draw_commands: Vec<DrawCommand> = self
@@ -293,12 +291,12 @@ impl Renderer {
                 .rendered_windows
                 .values_mut()
                 .filter(|window| !window.hidden)
-                .partition(|window| !window.floating);
+                .partition(|window| window.floating_order.is_none());
 
-            root_windows
-                .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
-            floating_windows
-                .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
+            root_windows.sort_by(
+                |window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
+            floating_windows.sort_by(
+                |window_a, window_b| window_a.floating_order.unwrap().partial_cmp(&window_b.floating_order.unwrap()).unwrap());
 
             root_windows
                 .into_iter()

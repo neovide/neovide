@@ -8,7 +8,7 @@ use skia_safe::Color4f;
 
 use crate::editor::{Colors, CursorMode, CursorShape, Style};
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub enum ParseError {
     InvalidArray(Value),
     InvalidMap(Value),
@@ -48,7 +48,7 @@ impl error::Error for ParseError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct GridLineCell {
     pub text: String,
     pub highlight_id: Option<u64>,
@@ -57,7 +57,7 @@ pub struct GridLineCell {
 
 pub type StyledContent = Vec<(u64, String)>;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum MessageKind {
     Unknown,
     Confirm,
@@ -94,7 +94,7 @@ impl MessageKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum GuiOption {
     ArabicShape(bool),
     AmbiWidth(String),
@@ -109,7 +109,7 @@ pub enum GuiOption {
     Unknown(String, Value),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum WindowAnchor {
     NorthWest,
     NorthEast,
@@ -117,7 +117,7 @@ pub enum WindowAnchor {
     SouthEast,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub enum EditorMode {
     // The set of modes reported will change in new versions of Nvim, for
     // instance more sub-modes and temporary states might be represented as
@@ -131,7 +131,7 @@ pub enum EditorMode {
     Unknown(String),
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub enum RedrawEvent {
     SetTitle {
         title: String,
@@ -203,6 +203,7 @@ pub enum RedrawEvent {
         anchor_row: f64,
         anchor_column: f64,
         focusable: bool,
+        sort_order: u64,
     },
     WindowExternalPosition {
         grid: u64,
@@ -694,7 +695,7 @@ fn parse_win_float_pos(win_float_pos_arguments: Vec<Value>) -> Result<RedrawEven
         Value::Nil,
         Value::Nil,
     ];
-    let [grid, _window, anchor, anchor_grid, anchor_row, anchor_column, focusable, _sort_order] =
+    let [grid, _window, anchor, anchor_grid, anchor_row, anchor_column, focusable, sort_order] =
         extract_values(win_float_pos_arguments, values)?;
 
     Ok(RedrawEvent::WindowFloatPosition {
@@ -704,6 +705,7 @@ fn parse_win_float_pos(win_float_pos_arguments: Vec<Value>) -> Result<RedrawEven
         anchor_row: parse_f64(anchor_row)?,
         anchor_column: parse_f64(anchor_column)?,
         focusable: parse_bool(focusable)?,
+        sort_order: parse_u64(sort_order)?,
     })
 }
 
@@ -925,7 +927,7 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
             "grid_cursor_goto" => Some(parse_grid_cursor_goto(event_parameters)?),
             "grid_scroll" => Some(parse_grid_scroll(event_parameters)?),
             "win_pos" => Some(parse_win_pos(event_parameters)?),
-            "win_float_pos" => Some(parse_win_float_pos(dbg!(event_parameters))?),
+            "win_float_pos" => Some(parse_win_float_pos(event_parameters)?),
             "win_external_pos" => Some(parse_win_external_pos(event_parameters)?),
             "win_hide" => Some(parse_win_hide(event_parameters)?),
             "win_close" => Some(parse_win_close(event_parameters)?),
