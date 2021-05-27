@@ -105,10 +105,14 @@ impl GlutinWindowWrapper {
         self.windowed_context.window().set_title(&self.title);
     }
 
-    pub fn handle_quit(&mut self) {
-        self.ui_command_sender
-            .send(UiCommand::Quit)
-            .expect("Could not send quit command to bridge");
+    pub fn handle_quit(&mut self, running: &Arc<AtomicBool>) {
+        if let None = SETTINGS.get::<CmdLineSettings>().remote_tcp {
+            self.ui_command_sender
+                .send(UiCommand::Quit)
+                .expect("Could not send quit command to bridge");
+        } else {
+            running.store(false, Ordering::Relaxed);
+        }
     }
 
     pub fn handle_keyboard_input(
@@ -273,19 +277,19 @@ impl GlutinWindowWrapper {
         REDRAW_SCHEDULER.queue_next_frame();
     }
 
-    pub fn handle_event(&mut self, event: Event<()>) {
+    pub fn handle_event(&mut self, event: Event<()>, running: &Arc<AtomicBool>) {
         let mut keycode = None;
         let mut ignore_text_this_frame = false;
 
         match event {
             Event::LoopDestroyed => {
-                self.handle_quit();
+                self.handle_quit(running);
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
             } => {
-                self.handle_quit();
+                self.handle_quit(running);
             }
             Event::WindowEvent {
                 event: WindowEvent::DroppedFile(path),
@@ -476,7 +480,7 @@ pub fn start_loop(
 
         window_wrapper.handle_window_commands();
         window_wrapper.synchronize_settings();
-        window_wrapper.handle_event(e);
+        window_wrapper.handle_event(e, &running);
 
         let refresh_rate = { SETTINGS.get::<WindowSettings>().refresh_rate as f32 };
         let expected_frame_length_seconds = 1.0 / refresh_rate;

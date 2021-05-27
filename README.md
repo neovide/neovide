@@ -87,6 +87,8 @@ By specifying to listen on localhost, you only allow connections from your local
 ssh -L 6666:localhost:6666 ip.of.other.machine nvim --headless --listen localhost:6666
 ```
 
+Finally, if you would like to leave the neovim server running, close the neovide application window instead of issuing a `:q` command.
+
 ### Some Nonsense ;)
 
 ```vim
