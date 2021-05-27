@@ -203,7 +203,7 @@ pub enum RedrawEvent {
         anchor_row: f64,
         anchor_column: f64,
         focusable: bool,
-        sort_order: u64,
+        sort_order: Option<u64>,
     },
     WindowExternalPosition {
         grid: u64,
@@ -685,28 +685,54 @@ fn parse_window_anchor(value: Value) -> Result<WindowAnchor> {
 }
 
 fn parse_win_float_pos(win_float_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let values = [
-        Value::Nil,
-        Value::Nil,
-        Value::Nil,
-        Value::Nil,
-        Value::Nil,
-        Value::Nil,
-        Value::Nil,
-        Value::Nil,
-    ];
-    let [grid, _window, anchor, anchor_grid, anchor_row, anchor_column, focusable, sort_order] =
-        extract_values(win_float_pos_arguments, values)?;
+    if win_float_pos_arguments.len() == 8 {
+        let values = [
+            Value::Nil,
+            Value::Nil,
+            Value::Nil,
+            Value::Nil,
+            Value::Nil,
+            Value::Nil,
+            Value::Nil,
+            Value::Nil,
+        ];
 
-    Ok(RedrawEvent::WindowFloatPosition {
-        grid: parse_u64(grid)?,
-        anchor: parse_window_anchor(anchor)?,
-        anchor_grid: parse_u64(anchor_grid)?,
-        anchor_row: parse_f64(anchor_row)?,
-        anchor_column: parse_f64(anchor_column)?,
-        focusable: parse_bool(focusable)?,
-        sort_order: parse_u64(sort_order)?,
-    })
+        let [grid, _window, anchor, anchor_grid, anchor_row, anchor_column, focusable, sort_order] =
+            extract_values(win_float_pos_arguments, values)?;
+
+        Ok(RedrawEvent::WindowFloatPosition {
+            grid: parse_u64(grid)?,
+            anchor: parse_window_anchor(anchor)?,
+            anchor_grid: parse_u64(anchor_grid)?,
+            anchor_row: parse_f64(anchor_row)?,
+            anchor_column: parse_f64(anchor_column)?,
+            focusable: parse_bool(focusable)?,
+            sort_order: Some(parse_u64(sort_order)?),
+        })
+    } else {
+        let values = [
+            Value::Nil,
+            Value::Nil,
+            Value::Nil,
+            Value::Nil,
+            Value::Nil,
+            Value::Nil,
+            Value::Nil,
+        ];
+
+        let [grid, _window, anchor, anchor_grid, anchor_row, anchor_column, focusable] =
+            extract_values(win_float_pos_arguments, values)?;
+
+        Ok(RedrawEvent::WindowFloatPosition {
+            grid: parse_u64(grid)?,
+            anchor: parse_window_anchor(anchor)?,
+            anchor_grid: parse_u64(anchor_grid)?,
+            anchor_row: parse_f64(anchor_row)?,
+            anchor_column: parse_f64(anchor_column)?,
+            focusable: parse_bool(focusable)?,
+            sort_order: None,
+        })
+    }
 }
 
 fn parse_win_external_pos(win_external_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {

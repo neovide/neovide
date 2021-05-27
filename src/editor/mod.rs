@@ -300,7 +300,7 @@ impl Editor {
         anchor_type: WindowAnchor,
         anchor_left: f64,
         anchor_top: f64,
-        sort_order: u64,
+        sort_order: Option<u64>,
     ) {
         let parent_position = self.get_window_top_left(anchor_grid);
         if let Some(window) = self.windows.get_mut(&grid) {
@@ -322,7 +322,7 @@ impl Editor {
                     anchor_type,
                     anchor_left,
                     anchor_top,
-                    sort_order,
+                    sort_order: sort_order.unwrap_or(grid),
                 }),
                 modified_left,
                 modified_top,
@@ -345,7 +345,7 @@ impl Editor {
             anchor_type: WindowAnchor::NorthWest,
             anchor_left: 0.0,
             anchor_top: grid_top as f64,
-            sort_order: 100,
+            sort_order: std::u64::MAX,
         };
 
         if let Some(window) = self.windows.get_mut(&grid) {
