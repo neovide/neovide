@@ -105,7 +105,7 @@ impl GlutinWindowWrapper {
     }
 
     pub fn handle_quit(&mut self, running: &Arc<AtomicBool>) {
-        if let None = SETTINGS.get::<CmdLineSettings>().remote_tcp {
+        if SETTINGS.get::<CmdLineSettings>().remote_tcp.is_none() {
             self.ui_command_sender
                 .send(UiCommand::Quit)
                 .expect("Could not send quit command to bridge");

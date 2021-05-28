@@ -19,7 +19,7 @@ impl FontOptions {
                 .map(|fallback| fallback.to_string())
                 .collect();
 
-            if parsed_fallback_list.len() > 0 {
+            if !parsed_fallback_list.is_empty() {
                 fallback_list = Some(parsed_fallback_list);
             }
         }

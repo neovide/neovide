@@ -567,7 +567,7 @@ fn parse_grid_line_cell(grid_line_cell: Value) -> Result<GridLineCell> {
     let text_value = cell_contents
         .first_mut()
         .map(|v| take_value(v))
-        .ok_or(ParseError::InvalidFormat(format!("{:?}", cell_contents)))?;
+        .ok_or_else(|| ParseError::InvalidFormat(format!("{:?}", cell_contents)))?;
 
     let highlight_id = cell_contents
         .get_mut(1)
@@ -925,7 +925,7 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
     let mut event_contents = parse_array(event_value)?.into_iter();
     let event_name = event_contents
         .next()
-        .ok_or(ParseError::InvalidFormat(format!("{:?}", event_contents)))
+        .ok_or_else(|| ParseError::InvalidFormat(format!("{:?}", event_contents)))
         .and_then(parse_string)?;
 
     let events = event_contents;

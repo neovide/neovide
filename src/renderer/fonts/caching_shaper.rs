@@ -72,9 +72,10 @@ impl CachingShaper {
             self.blob_cache.clear();
             self.options = new_options;
 
-            return true;
+            true
+        } else {
+            false
         }
-        return false;
     }
 
     pub fn font_base_dimensions(&mut self) -> (f32, f32) {
@@ -121,7 +122,7 @@ impl CachingShaper {
             }
         });
 
-        if glyph_data.len() == 0 {
+        if glyph_data.is_empty() {
             return Vec::new();
         }
 
