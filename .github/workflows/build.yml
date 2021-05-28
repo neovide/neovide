@@ -41,7 +41,7 @@ jobs:
         NEOVIM_BIN: "C:/tools/neovim/Neovim/bin/nvim.exe"
         RUST_BACKTRACE: full
       run: |
-        cargo test -- --format json | cargo2junit > results.xml
+        cargo test -- -- -Z unstable-options --format json | cargo2junit > results.xml
 
     - name: Build Release
       run: |
@@ -90,7 +90,7 @@ jobs:
         NEOVIM_BIN: "C:/tools/neovim/Neovim/bin/nvim.exe"
         RUST_BACKTRACE: full
       run: |
-        cargo test -- --format json | cargo2junit > results.xml
+        cargo test -- -- -Z unstable-options --format json | cargo2junit > results.xml
 
     - name: Build Release
       run: |
@@ -146,7 +146,7 @@ jobs:
         NEOVIM_BIN: "C:/tools/neovim/Neovim/bin/nvim.exe"
         RUST_BACKTRACE: full
       run: |
-        cargo test -- --format json | cargo2junit > results.xml
+        cargo test -- -- -Z unstable-options --format json | cargo2junit > results.xml
 
     - name: Build Release
       run: |
