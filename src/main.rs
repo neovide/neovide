@@ -125,7 +125,6 @@ fn main() {
 
     #[cfg(target_os = "macos")]
     {
-        let disowned_arg = SETTINGS.get::<CmdLineSettings>().disowned;
         // incase of app bundle, we can just pass --disowned option straight away to bypass this check
         #[cfg(not(debug_assertions))]
         if !SETTINGS.get::<CmdLineSettings>().disowned {
