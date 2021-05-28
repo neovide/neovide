@@ -250,16 +250,18 @@ impl Renderer {
         }
     }
 
+    #[allow(clippy::needless_collect)]
     pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32, scaling: f32) -> bool {
         trace!("Drawing Frame");
         let mut font_changed = false;
 
-        let draw_commands: Vec<DrawCommand> = self
+        let draw_commands: Vec<_> = self
             .batched_draw_command_receiver
             .try_iter() // Iterator of Vec of DrawCommand
             .map(|batch| batch.into_iter()) // Iterator of Iterator of DrawCommand
             .flatten() // Iterator of DrawCommand
-            .collect(); // Vec of DrawCommand
+            .collect();
+
         for draw_command in draw_commands.into_iter() {
             if let DrawCommand::FontChanged(_) = draw_command {
                 font_changed = true;

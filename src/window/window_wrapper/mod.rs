@@ -89,6 +89,7 @@ impl GlutinWindowWrapper {
         }
     }
 
+    #[allow(clippy::needless_collect)]
     pub fn handle_window_commands(&mut self) {
         let window_commands: Vec<WindowCommand> = self.window_command_receiver.try_iter().collect();
         for window_command in window_commands.into_iter() {
