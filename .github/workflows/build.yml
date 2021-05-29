@@ -43,6 +43,12 @@ jobs:
       run: |
         cargo test -- -- -Z unstable-options --format json | cargo2junit > results.xml
 
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v1
+      if: always()
+      with:
+        files: results.xml
+
     - name: Build Release
       run: |
         cargo build --release
@@ -66,6 +72,10 @@ jobs:
         toolchain: nightly
         components: rustfmt, clippy
         override: true
+
+    - name: Install Utilities
+      run: |
+        cargo install cargo2junit
 
     - uses: Swatinem/rust-cache@v1
 
@@ -122,6 +132,10 @@ jobs:
         toolchain: nightly
         components: rustfmt, clippy
         override: true
+
+    - name: Install Utilities
+      run: |
+        cargo install cargo2junit
 
     - uses: Swatinem/rust-cache@v1
 
