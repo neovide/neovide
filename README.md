@@ -119,7 +119,20 @@ necessary. On Windows this should be enabled by default if you have a relatively
 
 Installing should be as simple as downloading the binary, making sure `nvim.exe` with version 0.4 or greater is on your path, and running it. Everything should be self contained.
 
-### Windows (from source)
+### Windows
+
+#### Package manager
+
+[Scoop](https://scoop.sh/) has Neovide in the `extras` bucket. Ensure you have the `extras` bucket, and install:
+
+```
+$ scoop bucket list
+main
+extras
+$ scoop install neovide
+```
+
+#### From source
 
 1. Install the latest version of Rust. I recommend <https://rustup.rs/>
 2. Install CMake. I use chocolatey: `choco install cmake --installargs '"ADD_CMAKE_TO_PATH=System"' -y`
