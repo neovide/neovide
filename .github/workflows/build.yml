@@ -44,7 +44,7 @@ jobs:
         cargo test -- -- -Z unstable-options --format json | cargo2junit > results.xml
 
     - name: Publish Test Results
-      uses: EnricoMi/publish-unit-test-result-action@v1
+      uses: EnricoMi/publish-unit-test-result-action/composite@v1
       if: always()
       with:
         files: results.xml
@@ -101,6 +101,12 @@ jobs:
         RUST_BACKTRACE: full
       run: |
         cargo test -- -- -Z unstable-options --format json | cargo2junit > results.xml
+
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action/composite@v1
+      if: always()
+      with:
+        files: results.xml
 
     - name: Build Release
       run: |
@@ -161,6 +167,12 @@ jobs:
         RUST_BACKTRACE: full
       run: |
         cargo test -- -- -Z unstable-options --format json | cargo2junit > results.xml
+
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v1
+      if: always()
+      with:
+        files: results.xml
 
     - name: Build Release
       run: |
