@@ -16,6 +16,7 @@ pub struct CmdLineSettings {
     pub remote_tcp: Option<String>,
     pub multi_grid: bool,
     pub maximized: bool,
+    pub frameless: bool,
 }
 
 impl Default for CmdLineSettings {
@@ -32,6 +33,7 @@ impl Default for CmdLineSettings {
             remote_tcp: None,
             multi_grid: false,
             maximized: false,
+            frameless: false,
         }
     }
 }
@@ -68,6 +70,11 @@ pub fn handle_command_line_arguments() {
                 //personally would prefer sticking to a unix-y way of naming things...
                 .long("multiGrid")
                 .help("Enable Multigrid"),
+        )
+        .arg(
+            Arg::with_name("frameless")
+            .long("frameless")
+            .help("Removes the window frame. NOTE: Window might not be resizable after this setting is enabled.")
         )
         .arg(Arg::with_name("wsl").long("wsl").help("Run in WSL"))
         .arg(
@@ -124,5 +131,6 @@ pub fn handle_command_line_arguments() {
         disowned: matches.is_present("disowned"),
         wsl: matches.is_present("wsl"),
         geometry: matches.value_of("geometry").map(|i| i.to_owned()),
+        frameless: matches.is_present("frameless"),
     });
 }
