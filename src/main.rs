@@ -1,9 +1,17 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[cfg(not(test))]
+use flexi_logger::{Cleanup, Criterion, Duplicate, Logger, Naming};
+
 #[macro_use]
 extern crate neovide_derive;
 
+#[macro_use]
+extern crate clap;
+
 mod bridge;
+mod channel_utils;
+mod cmd_line;
 mod editor;
 mod error_handling;
 mod redraw_scheduler;
@@ -24,11 +32,15 @@ use std::sync::{atomic::AtomicBool, mpsc::channel, Arc};
 use crossfire::mpsc::unbounded_future;
 
 use bridge::start_bridge;
+#[cfg(not(test))]
+use cmd_line::CmdLineSettings;
 use editor::start_editor;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
+#[cfg(not(test))]
+use settings::SETTINGS;
 use window::{create_window, window_geometry, KeyboardSettings, WindowSettings};
-use windows_utils::attach_parent_console;
 
+pub use channel_utils::*;
 pub const INITIAL_DIMENSIONS: (u64, u64) = (100, 50);
 
 fn main() {
@@ -101,28 +113,21 @@ fn main() {
     //   Multiple other parts of the app "queue_next_frame" function to ensure animations continue
     //   properly or updates to the graphics are pushed to the screen.
 
-    if std::env::args().any(|arg| arg == "--version" || arg == "-v") {
-        attach_parent_console();
-        println!("Neovide version: {}", env!("CARGO_PKG_VERSION"));
-        return;
-    }
-
-    if std::env::args().any(|arg| arg == "--help" || arg == "-h") {
-        attach_parent_console();
-        println!("Neovide: {}", env!("CARGO_PKG_DESCRIPTION"));
-        return;
-    }
+    cmd_line::handle_command_line_arguments(); //Will exit if -h or -v
 
     if let Err(err) = window_geometry() {
         eprintln!("{}", err);
         return;
     }
 
+    #[cfg(not(test))]
+    init_logger();
+
     #[cfg(target_os = "macos")]
     {
         // incase of app bundle, we can just pass --disowned option straight away to bypass this check
         #[cfg(not(debug_assertions))]
-        if !std::env::args().any(|f| f == "--disowned") {
+        if !SETTINGS.get::<CmdLineSettings>().disowned {
             if let Ok(curr_exe) = std::env::current_exe() {
                 assert!(std::process::Command::new(curr_exe)
                     .args(std::env::args().skip(1))
@@ -156,33 +161,72 @@ fn main() {
 
     KeyboardSettings::register();
     WindowSettings::register();
-    redraw_scheduler::RedrawSettings::register();
     RendererSettings::register();
     CursorSettings::register();
 
     let running = Arc::new(AtomicBool::new(true));
 
     let (redraw_event_sender, redraw_event_receiver) = unbounded_future();
+    let logging_redraw_event_sender =
+        LoggingTx::attach(redraw_event_sender, "redraw_event".to_owned());
+
     let (batched_draw_command_sender, batched_draw_command_receiver) = channel();
+    let logging_batched_draw_command_sender = LoggingSender::attach(
+        batched_draw_command_sender,
+        "batched_draw_command".to_owned(),
+    );
+
     let (ui_command_sender, ui_command_receiver) = unbounded_future();
+    let logging_ui_command_sender = LoggingTx::attach(ui_command_sender, "ui_command".to_owned());
+
     let (window_command_sender, window_command_receiver) = channel();
+    let logging_window_command_sender =
+        LoggingSender::attach(window_command_sender, "window_command".to_owned());
 
     // We need to keep the bridge reference around to prevent the tokio runtime from getting freed
     let _bridge = start_bridge(
-        ui_command_sender.clone(),
+        logging_ui_command_sender.clone(),
         ui_command_receiver,
-        redraw_event_sender,
+        logging_redraw_event_sender,
         running.clone(),
     );
     start_editor(
         redraw_event_receiver,
-        batched_draw_command_sender,
-        window_command_sender,
+        logging_batched_draw_command_sender,
+        logging_window_command_sender,
     );
     create_window(
         batched_draw_command_receiver,
         window_command_receiver,
-        ui_command_sender,
+        logging_ui_command_sender,
         running,
     );
+}
+
+#[cfg(not(test))]
+pub fn init_logger() {
+    let verbosity = match SETTINGS.get::<CmdLineSettings>().verbosity {
+        0 => "warn",
+        1 => "info",
+        2 => "debug",
+        _ => "trace",
+    };
+    let log_to_file = SETTINGS.get::<CmdLineSettings>().log_to_file;
+
+    if log_to_file {
+        Logger::with_env_or_str("neovide")
+            .duplicate_to_stderr(Duplicate::Error)
+            .log_to_file()
+            .rotate(
+                Criterion::Size(10_000_000),
+                Naming::Timestamps,
+                Cleanup::KeepLogFiles(1),
+            )
+            .start()
+            .expect("Could not start logger");
+    } else {
+        Logger::with_env_or_str(format!("neovide = {}", verbosity))
+            .start()
+            .expect("Could not start logger");
+    }
 }

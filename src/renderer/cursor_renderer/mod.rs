@@ -4,7 +4,7 @@ mod cursor_vfx;
 use std::collections::HashMap;
 
 // use neovide_derive::SettingGroup;
-use skulpin::skia_safe::{Canvas, Paint, Path, Point};
+use skia_safe::{Canvas, Paint, Path, Point};
 
 use super::RenderedWindow;
 use crate::bridge::EditorMode;
@@ -20,8 +20,9 @@ const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
 
 const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5)];
 
-#[derive(Clone, SettingGroup)]
+#[derive(SettingGroup)]
 #[setting_prefix = "cursor"]
+#[derive(Clone)]
 pub struct CursorSettings {
     antialiasing: bool,
     animation_length: f32,
@@ -42,7 +43,8 @@ impl Default for CursorSettings {
     fn default() -> Self {
         CursorSettings {
             antialiasing: true,
-            animation_length: 0.13,
+            animation_length: 0.06,
+            distance_length_adjust: true,
             animate_in_insert_mode: true,
             animate_command_line: true,
             trail_size: 0.7,
@@ -272,7 +274,7 @@ impl CursorRenderer {
             self.previous_vfx_mode = settings.vfx_mode.clone();
         }
 
-        let mut paint = Paint::new(skulpin::skia_safe::colors::WHITE, None);
+        let mut paint = Paint::new(skia_safe::colors::WHITE, None);
         paint.set_anti_alias(settings.antialiasing);
 
         let character = self.cursor.character.clone();
@@ -309,6 +311,9 @@ impl CursorRenderer {
 
         if !center_destination.is_zero() {
             for corner in self.corners.iter_mut() {
+                let immediate_movement = !settings.animate_in_insert_mode && in_insert_mode
+                    || !settings.animate_command_line && !changed_to_from_cmdline;
+
                 let corner_animating = corner.update(
                     &settings,
                     font_dimensions,
@@ -358,10 +363,15 @@ impl CursorRenderer {
             canvas.save();
             canvas.clip_path(&path, None, Some(false));
 
+            let y_adjustment = shaper.y_adjustment();
             let blobs = &shaper.shape_cached(&character, false, false);
 
             for blob in blobs.iter() {
-                canvas.draw_text_blob(&blob, self.destination, &paint);
+                canvas.draw_text_blob(
+                    &blob,
+                    (self.destination.x, self.destination.y + y_adjustment),
+                    &paint,
+                );
             }
 
             canvas.restore();

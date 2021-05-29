@@ -2,9 +2,8 @@ use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 
-use log::{error, trace, warn};
-use skulpin::skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect};
-use skulpin::CoordinateSystemHelper;
+use log::{error, trace};
+use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect};
 
 pub mod animation_utils;
 pub mod cursor_renderer;
@@ -19,8 +18,9 @@ use crate::editor::{Colors, DrawCommand, Style, WindowDrawCommand};
 use crate::settings::*;
 use cursor_renderer::CursorRenderer;
 
-#[derive(Clone, SettingGroup)]
+#[derive(SettingGroup)]
 #[setting_prefix = "window"]
+#[derive(Clone)]
 pub struct RendererSettings {
     position_animation_length: f32,
     scroll_animation_length: f32,
@@ -104,12 +104,7 @@ impl Renderer {
     }
 
     fn get_default_background(&self) -> Color {
-        self.default_style
-            .colors
-            .background
-            .clone()
-            .unwrap()
-            .to_color()
+        self.default_style.colors.background.unwrap().to_color()
     }
 
     fn draw_background(
@@ -150,14 +145,9 @@ impl Renderer {
 
         canvas.clip_rect(region, None, Some(false));
 
-        self.paint.set_blend_mode(BlendMode::Src);
-        let transparent = Color::from_argb(0, 0, 0, 0);
-        self.paint.set_color(transparent);
-        canvas.draw_rect(region, &self.paint);
-
         if style.underline || style.undercurl {
             let line_position = self.shaper.underline_position();
-            let stroke_width = self.shaper.options.size / 10.0;
+            let stroke_width = self.shaper.current_size() / 10.0;
             self.paint
                 .set_color(style.special(&self.default_style.colors).to_color());
             self.paint.set_stroke_width(stroke_width);
@@ -178,8 +168,11 @@ impl Renderer {
             );
         }
 
+        let y_adjustment = self.shaper.y_adjustment();
+
         self.paint
             .set_color(style.foreground(&self.default_style.colors).to_color());
+        self.paint.set_anti_alias(false);
         let text = text.trim_end();
         if !text.is_empty() {
             for blob in self
@@ -187,7 +180,7 @@ impl Renderer {
                 .shape_cached(text, style.bold, style.italic)
                 .iter()
             {
-                canvas.draw_text_blob(blob, (x, y), &self.paint);
+                canvas.draw_text_blob(blob, (x, y + y_adjustment), &self.paint);
             }
         }
 
@@ -207,7 +200,6 @@ impl Renderer {
         draw_command: DrawCommand,
         scaling: f32,
     ) {
-        warn!("{:?}", &draw_command);
         match draw_command {
             DrawCommand::Window {
                 grid_id,
@@ -228,7 +220,6 @@ impl Renderer {
                     ..
                 } = command
                 {
-                    warn!("Created window {}", grid_id);
                     let new_window = RenderedWindow::new(
                         root_canvas,
                         &self,
@@ -259,22 +250,18 @@ impl Renderer {
         }
     }
 
-    pub fn draw_frame(
-        &mut self,
-        root_canvas: &mut Canvas,
-        coordinate_system_helper: &CoordinateSystemHelper,
-        dt: f32,
-        scaling: f32,
-    ) -> bool {
-        trace!("Rendering");
+    #[allow(clippy::needless_collect)]
+    pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32, scaling: f32) -> bool {
+        trace!("Drawing Frame");
         let mut font_changed = false;
 
-        let draw_commands: Vec<DrawCommand> = self
+        let draw_commands: Vec<_> = self
             .batched_draw_command_receiver
             .try_iter() // Iterator of Vec of DrawCommand
             .map(|batch| batch.into_iter()) // Iterator of Iterator of DrawCommand
             .flatten() // Iterator of DrawCommand
-            .collect(); // Vec of DrawCommand
+            .collect();
+
         for draw_command in draw_commands.into_iter() {
             if let DrawCommand::FontChanged(_) = draw_command {
                 font_changed = true;
@@ -282,23 +269,17 @@ impl Renderer {
             self.handle_draw_command(root_canvas, draw_command, scaling);
         }
 
-        root_canvas.clear(
-            self.default_style
-                .colors
-                .background
-                .clone()
-                .unwrap()
-                .to_color(),
-        );
+        root_canvas.clear(self.default_style.colors.background.unwrap().to_color());
 
         root_canvas.save();
+
+        root_canvas.reset_matrix();
+        root_canvas.scale((1.0 / scaling, 1.0 / scaling));
 
         if let Some(root_window) = self.rendered_windows.get(&1) {
             let clip_rect = root_window.pixel_region(self.font_width, self.font_height);
             root_canvas.clip_rect(&clip_rect, None, Some(false));
         }
-
-        coordinate_system_helper.use_logical_coordinates(root_canvas);
 
         let default_background = self.get_default_background();
         let font_width = self.font_width;
@@ -312,12 +293,17 @@ impl Renderer {
                 .rendered_windows
                 .values_mut()
                 .filter(|window| !window.hidden)
-                .partition(|window| !window.floating);
+                .partition(|window| window.floating_order.is_none());
 
             root_windows
                 .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
-            floating_windows
-                .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
+            floating_windows.sort_by(|window_a, window_b| {
+                window_a
+                    .floating_order
+                    .unwrap()
+                    .partial_cmp(&window_b.floating_order.unwrap())
+                    .unwrap()
+            });
 
             root_windows
                 .into_iter()

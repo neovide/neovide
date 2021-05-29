@@ -1,10 +1,10 @@
 use std::collections::VecDeque;
 
-use skulpin::skia_safe::canvas::{SaveLayerRec, SrcRectConstraint};
-use skulpin::skia_safe::gpu::SurfaceOrigin;
-use skulpin::skia_safe::{
+use skia_safe::canvas::{SaveLayerRec, SrcRectConstraint};
+use skia_safe::gpu::SurfaceOrigin;
+use skia_safe::{
     image_filters::blur, BlendMode, Budgeted, Canvas, Color, Image, ImageInfo, Paint, Point, Rect,
-    Surface,
+    SamplingOptions, Surface, SurfaceProps, SurfacePropsFlags,
 };
 
 use super::animation_utils::*;
@@ -18,7 +18,7 @@ fn build_window_surface(
     pixel_height: i32,
 ) -> Surface {
     let dimensions = (pixel_width, pixel_height);
-    let mut context = parent_canvas.gpu_context().unwrap();
+    let mut context = parent_canvas.recording_context().unwrap();
     let budgeted = Budgeted::Yes;
     let parent_image_info = parent_canvas.image_info();
     let image_info = ImageInfo::new(
@@ -28,13 +28,15 @@ fn build_window_surface(
         parent_image_info.color_space(),
     );
     let surface_origin = SurfaceOrigin::TopLeft;
+    // subpixel layout (should be configurable/obtained from fontconfig)
+    let props = SurfaceProps::new(SurfacePropsFlags::default(), skia_safe::PixelGeometry::RGBH);
     Surface::new_render_target(
         &mut context,
         budgeted,
         &image_info,
         None,
         surface_origin,
-        None,
+        Some(&props),
         None,
     )
     .expect("Could not create surface")
@@ -49,41 +51,24 @@ fn build_window_surface_with_grid_size(
 ) -> Surface {
     let pixel_width = (grid_width as f32 * renderer.font_width / scaling) as i32;
     let pixel_height = (grid_height as f32 * renderer.font_height / scaling) as i32;
-    build_window_surface(parent_canvas, pixel_width, pixel_height)
-}
+    let mut surface = build_window_surface(parent_canvas, pixel_width, pixel_height);
 
-fn build_background_window_surface(
-    parent_canvas: &mut Canvas,
-    renderer: &Renderer,
-    grid_width: u64,
-    grid_height: u64,
-    scaling: f32,
-) -> Surface {
-    let mut surface = build_window_surface_with_grid_size(
-        parent_canvas,
-        renderer,
-        grid_width,
-        grid_height,
-        scaling,
-    );
     let canvas = surface.canvas();
     canvas.clear(renderer.get_default_background());
     surface
 }
 
-pub struct SnapshotPair {
-    background: Image,
-    foreground: Image,
+pub struct LocatedSnapshot {
+    image: Image,
     top_line: f32,
 }
 
-pub struct SurfacePair {
-    background: Surface,
-    foreground: Surface,
+pub struct LocatedSurface {
+    surface: Surface,
     pub top_line: f32,
 }
 
-impl SurfacePair {
+impl LocatedSurface {
     fn new(
         parent_canvas: &mut Canvas,
         renderer: &Renderer,
@@ -91,15 +76,8 @@ impl SurfacePair {
         grid_height: u64,
         top_line: f32,
         scaling: f32,
-    ) -> SurfacePair {
-        let background = build_background_window_surface(
-            parent_canvas,
-            renderer,
-            grid_width,
-            grid_height,
-            scaling,
-        );
-        let foreground = build_window_surface_with_grid_size(
+    ) -> LocatedSurface {
+        let surface = build_window_surface_with_grid_size(
             parent_canvas,
             renderer,
             grid_width,
@@ -107,31 +85,25 @@ impl SurfacePair {
             scaling,
         );
 
-        SurfacePair {
-            background,
-            foreground,
-            top_line,
-        }
+        LocatedSurface { surface, top_line }
     }
 
-    fn snapshot(&mut self) -> SnapshotPair {
-        let background = self.background.image_snapshot();
-        let foreground = self.foreground.image_snapshot();
-        SnapshotPair {
-            background,
-            foreground,
+    fn snapshot(&mut self) -> LocatedSnapshot {
+        let image = self.surface.image_snapshot();
+        LocatedSnapshot {
+            image,
             top_line: self.top_line,
         }
     }
 }
 
 pub struct RenderedWindow {
-    snapshots: VecDeque<SnapshotPair>,
-    pub current_surfaces: SurfacePair,
+    snapshots: VecDeque<LocatedSnapshot>,
+    pub current_surface: LocatedSurface,
 
     pub id: u64,
     pub hidden: bool,
-    pub floating: bool,
+    pub floating_order: Option<u64>,
 
     pub grid_width: u64,
     pub grid_height: u64,
@@ -150,7 +122,7 @@ pub struct RenderedWindow {
 pub struct WindowDrawDetails {
     pub id: u64,
     pub region: Rect,
-    pub floating: bool,
+    pub floating_order: Option<u64>,
 }
 
 impl RenderedWindow {
@@ -163,7 +135,7 @@ impl RenderedWindow {
         grid_height: u64,
         scaling: f32,
     ) -> RenderedWindow {
-        let current_surfaces = SurfacePair::new(
+        let current_surface = LocatedSurface::new(
             parent_canvas,
             renderer,
             grid_width,
@@ -174,10 +146,10 @@ impl RenderedWindow {
 
         RenderedWindow {
             snapshots: VecDeque::new(),
-            current_surfaces,
+            current_surface,
             id,
             hidden: false,
-            floating: false,
+            floating_order: None,
 
             grid_width,
             grid_height,
@@ -196,12 +168,12 @@ impl RenderedWindow {
 
     pub fn pixel_region(&self, font_width: f32, font_height: f32) -> Rect {
         let current_pixel_position = Point::new(
-            self.grid_current_position.x * font_width,
-            self.grid_current_position.y * font_height,
+            (self.grid_current_position.x * font_width).floor(),
+            (self.grid_current_position.y * font_height).floor(),
         );
 
-        let image_width = (self.grid_width as f32 * font_width) as i32;
-        let image_height = (self.grid_height as f32 * font_height) as i32;
+        let image_width = (self.grid_width as f32 * font_width).floor() as i32;
+        let image_height = (self.grid_height as f32 * font_height).floor() as i32;
 
         Rect::from_point_and_size(current_pixel_position, (image_width, image_height))
     }
@@ -210,7 +182,7 @@ impl RenderedWindow {
         let mut animating = false;
 
         {
-            if (self.position_t - 1.0).abs() < std::f32::EPSILON {
+            if 1.0 - self.position_t < std::f32::EPSILON {
                 // We are at destination, move t out of 0-1 range to stop the animation
                 self.position_t = 2.0;
             } else {
@@ -228,7 +200,7 @@ impl RenderedWindow {
         }
 
         {
-            if (self.scroll_t - 1.0).abs() < std::f32::EPSILON {
+            if 1.0 - self.scroll_t < std::f32::EPSILON {
                 // We are at destination, move t out of 0-1 range to stop the animation
                 self.scroll_t = 2.0;
                 self.snapshots.clear();
@@ -266,7 +238,7 @@ impl RenderedWindow {
         root_canvas.save();
         root_canvas.clip_rect(&pixel_region, None, Some(false));
 
-        if self.floating && settings.floating_blur {
+        if self.floating_order.is_some() && settings.floating_blur {
             let blur = blur((2.0, 2.0), None, None, None).unwrap();
             let save_layer_rec = SaveLayerRec::default()
                 .backdrop(&blur)
@@ -279,79 +251,45 @@ impl RenderedWindow {
         // We want each surface to overwrite the one underneath and will use layers to ensure
         // only lower priority surfaces will get clobbered and not the underlying windows
         paint.set_blend_mode(BlendMode::Src);
+        paint.set_anti_alias(false);
 
-        {
-            // Save layer so that setting the blend mode doesn't effect the blur
-            root_canvas.save_layer(&SaveLayerRec::default());
-            let mut a = 255;
-            if self.floating {
-                a = (settings.floating_opacity.min(1.0).max(0.0) * 255.0) as u8;
-            }
-
-            paint.set_color(default_background.with_a(a));
-            root_canvas.draw_rect(pixel_region, &paint);
-
-            paint.set_color(Color::from_argb(a, 255, 255, 255));
-
-            // Draw background scrolling snapshots
-            for snapshot_pair in self.snapshots.iter_mut().rev() {
-                let scroll_offset =
-                    snapshot_pair.top_line * font_height - self.current_scroll * font_height;
-                let background_snapshot = &mut snapshot_pair.background;
-                root_canvas.draw_image_rect(
-                    background_snapshot,
-                    None,
-                    pixel_region.with_offset((0.0, scroll_offset)),
-                    &paint,
-                );
-            }
-            // Draw background
-            let scroll_offset =
-                self.current_surfaces.top_line * font_height - self.current_scroll * font_height;
-            let background_snapshot = self.current_surfaces.background.image_snapshot();
-            root_canvas.draw_image_rect(
-                background_snapshot,
-                None,
-                pixel_region.with_offset((0.0, scroll_offset)),
-                &paint,
-            );
-
-            root_canvas.restore();
+        // Save layer so that setting the blend mode doesn't effect the blur
+        root_canvas.save_layer(&SaveLayerRec::default());
+        let mut a = 255;
+        if self.floating_order.is_some() {
+            a = (settings.floating_opacity.min(1.0).max(0.0) * 255.0) as u8;
         }
 
-        {
-            paint.set_color(Color::WHITE);
+        paint.set_color(default_background.with_a(a));
+        root_canvas.draw_rect(pixel_region, &paint);
 
-            // Save layer so that text may safely overwrite images underneath
-            root_canvas.save_layer(&SaveLayerRec::default());
+        paint.set_color(Color::from_argb(a, 255, 255, 255));
 
-            // Draw foreground scrolling snapshots
-            for snapshot_pair in self.snapshots.iter_mut().rev() {
-                let scroll_offset =
-                    snapshot_pair.top_line * font_height - self.current_scroll * font_height;
-                let foreground_snapshot = &mut snapshot_pair.foreground;
-                root_canvas.draw_image_rect(
-                    foreground_snapshot,
-                    None,
-                    pixel_region.with_offset((0.0, scroll_offset)),
-                    &paint,
-                );
-            }
-
-            // Draw foreground
-            let scroll_offset =
-                self.current_surfaces.top_line * font_height - self.current_scroll * font_height;
-            let foreground_snapshot = self.current_surfaces.foreground.image_snapshot();
+        // Draw scrolling snapshots
+        for snapshot in self.snapshots.iter_mut().rev() {
+            let scroll_offset = snapshot.top_line * font_height - self.current_scroll * font_height;
+            let image = &mut snapshot.image;
             root_canvas.draw_image_rect(
-                foreground_snapshot,
+                image,
                 None,
-                pixel_region.with_offset((0.0, scroll_offset)),
+                pixel_region.with_offset((0.0, scroll_offset.floor())),
                 &paint,
             );
-            root_canvas.restore();
         }
+        // Draw current surface
+        let scroll_offset =
+            self.current_surface.top_line * font_height - self.current_scroll * font_height;
+        let snapshot = self.current_surface.surface.image_snapshot();
+        root_canvas.draw_image_rect(
+            snapshot,
+            None,
+            pixel_region.with_offset((0.0, scroll_offset.floor())),
+            &paint,
+        );
 
-        if self.floating {
+        root_canvas.restore();
+
+        if self.floating_order.is_some() {
             root_canvas.restore();
         }
 
@@ -360,7 +298,7 @@ impl RenderedWindow {
         WindowDrawDetails {
             id: self.id,
             region: pixel_region,
-            floating: self.floating,
+            floating_order: self.floating_order,
         }
     }
 
@@ -376,7 +314,7 @@ impl RenderedWindow {
                 grid_top,
                 width: grid_width,
                 height: grid_height,
-                floating,
+                floating_order,
             } => {
                 let new_destination: Point = (grid_left as f32, grid_top as f32).into();
 
@@ -386,54 +324,36 @@ impl RenderedWindow {
                     {
                         self.position_t = 0.0; // Reset animation as we have a new destination.
                         self.grid_start_position = self.grid_current_position;
-                        self.grid_destination = new_destination;
                     } else {
                         // We don't want to animate since the window is animating out of the start location,
                         // so we set t to 2.0 to stop animations.
                         self.position_t = 2.0;
                         self.grid_start_position = new_destination;
-                        self.grid_destination = new_destination;
                     }
+                    self.grid_destination = new_destination;
                 }
 
                 if grid_width != self.grid_width || grid_height != self.grid_height {
-                    {
-                        let mut old_background = self.current_surfaces.background;
-                        self.current_surfaces.background = build_background_window_surface(
-                            old_background.canvas(),
-                            &renderer,
-                            grid_width,
-                            grid_height,
-                            scaling,
-                        );
-                        old_background.draw(
-                            self.current_surfaces.background.canvas(),
-                            (0.0, 0.0),
-                            None,
-                        );
-                    }
-
-                    {
-                        let mut old_foreground = self.current_surfaces.foreground;
-                        self.current_surfaces.foreground = build_window_surface_with_grid_size(
-                            old_foreground.canvas(),
-                            &renderer,
-                            grid_width,
-                            grid_height,
-                            scaling,
-                        );
-                        old_foreground.draw(
-                            self.current_surfaces.foreground.canvas(),
-                            (0.0, 0.0),
-                            None,
-                        );
-                    }
+                    let mut old_surface = self.current_surface.surface;
+                    self.current_surface.surface = build_window_surface_with_grid_size(
+                        old_surface.canvas(),
+                        &renderer,
+                        grid_width,
+                        grid_height,
+                        scaling,
+                    );
+                    old_surface.draw(
+                        self.current_surface.surface.canvas(),
+                        (0.0, 0.0),
+                        SamplingOptions::default(),
+                        None,
+                    );
 
                     self.grid_width = grid_width;
                     self.grid_height = grid_height;
                 }
 
-                self.floating = floating;
+                self.floating_order = floating_order;
 
                 if self.hidden {
                     self.hidden = false;
@@ -451,21 +371,12 @@ impl RenderedWindow {
             } => {
                 let grid_position = (window_left, window_top);
 
-                {
-                    let canvas = self.current_surfaces.background.canvas();
-                    canvas.save();
-                    canvas.scale((1.0 / scaling, 1.0 / scaling));
-                    renderer.draw_background(canvas, grid_position, cell_width, &style);
-                    canvas.restore();
-                }
-
-                {
-                    let canvas = self.current_surfaces.foreground.canvas();
-                    canvas.save();
-                    canvas.scale((1.0 / scaling, 1.0 / scaling));
-                    renderer.draw_foreground(canvas, &text, grid_position, cell_width, &style);
-                    canvas.restore();
-                }
+                let canvas = self.current_surface.surface.canvas();
+                canvas.save();
+                canvas.scale((1.0 / scaling, 1.0 / scaling));
+                renderer.draw_background(canvas, grid_position, cell_width, &style);
+                renderer.draw_foreground(canvas, &text, grid_position, cell_width, &style);
+                canvas.restore();
             }
             WindowDrawCommand::Scroll {
                 top,
@@ -488,51 +399,24 @@ impl RenderedWindow {
                     -rows as f32 * renderer.font_height / scaling,
                 ));
 
-                {
-                    let background_snapshot = self.current_surfaces.background.image_snapshot();
-                    let background_canvas = self.current_surfaces.background.canvas();
+                let snapshot = self.current_surface.surface.image_snapshot();
+                let canvas = self.current_surface.surface.canvas();
 
-                    background_canvas.save();
-                    background_canvas.clip_rect(scrolled_region, None, Some(false));
+                canvas.save();
+                canvas.clip_rect(scrolled_region, None, Some(false));
 
-                    background_canvas.draw_image_rect(
-                        background_snapshot,
-                        Some((&scrolled_region, SrcRectConstraint::Fast)),
-                        translated_region,
-                        &renderer.paint,
-                    );
-
-                    background_canvas.restore();
-                }
-
-                {
-                    let foreground_snapshot = self.current_surfaces.foreground.image_snapshot();
-                    let foreground_canvas = self.current_surfaces.foreground.canvas();
-
-                    foreground_canvas.save();
-                    foreground_canvas.clip_rect(scrolled_region, None, Some(false));
-
-                    foreground_canvas.draw_image_rect(
-                        foreground_snapshot,
-                        Some((&scrolled_region, SrcRectConstraint::Fast)),
-                        translated_region,
-                        &renderer.paint,
-                    );
-
-                    foreground_canvas.restore();
-                }
-            }
-            WindowDrawCommand::Clear => {
-                self.current_surfaces.background = build_background_window_surface(
-                    self.current_surfaces.background.canvas(),
-                    &renderer,
-                    self.grid_width,
-                    self.grid_height,
-                    scaling,
+                canvas.draw_image_rect(
+                    snapshot,
+                    Some((&scrolled_region, SrcRectConstraint::Fast)),
+                    translated_region,
+                    &renderer.paint,
                 );
 
-                self.current_surfaces.foreground = build_window_surface_with_grid_size(
-                    self.current_surfaces.foreground.canvas(),
+                canvas.restore();
+            }
+            WindowDrawCommand::Clear => {
+                self.current_surface.surface = build_window_surface_with_grid_size(
+                    self.current_surface.surface.canvas(),
                     &renderer,
                     self.grid_width,
                     self.grid_height,
@@ -550,15 +434,15 @@ impl RenderedWindow {
             }
             WindowDrawCommand::Hide => self.hidden = true,
             WindowDrawCommand::Viewport { top_line, .. } => {
-                if (self.current_surfaces.top_line - top_line as f32).abs() > std::f32::EPSILON {
-                    let new_snapshot = self.current_surfaces.snapshot();
+                if (self.current_surface.top_line - top_line as f32).abs() > std::f32::EPSILON {
+                    let new_snapshot = self.current_surface.snapshot();
                     self.snapshots.push_back(new_snapshot);
 
                     if self.snapshots.len() > 5 {
                         self.snapshots.pop_front();
                     }
 
-                    self.current_surfaces.top_line = top_line as f32;
+                    self.current_surface.top_line = top_line as f32;
 
                     // Set new target viewport position and initialize animation timer
                     self.start_scroll = self.current_scroll;

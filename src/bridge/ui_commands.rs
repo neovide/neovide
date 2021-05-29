@@ -14,6 +14,7 @@ use crate::windows_utils::{
 
 #[derive(Debug, Clone)]
 pub enum UiCommand {
+    Quit,
     Resize {
         width: u32,
         height: u32,
@@ -45,6 +46,9 @@ pub enum UiCommand {
 impl UiCommand {
     pub async fn execute(self, nvim: &Neovim<TxWrapper>) {
         match self {
+            UiCommand::Quit => {
+                nvim.command("qa!").await.ok();
+            }
             UiCommand::Resize { width, height } => nvim
                 .ui_try_resize(width.max(10) as i64, height.max(3) as i64)
                 .await

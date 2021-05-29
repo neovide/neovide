@@ -17,7 +17,7 @@ pub enum WindowDrawCommand {
         grid_top: f64,
         width: u64,
         height: u64,
-        floating: bool,
+        floating_order: Option<u64>,
     },
     Cell {
         text: String,
@@ -123,7 +123,7 @@ impl Window {
             grid_top: self.grid_top,
             width: self.grid.width,
             height: self.grid.height,
-            floating: self.anchor_info.is_some(),
+            floating_order: self.anchor_info.clone().map(|anchor| anchor.sort_order),
         });
     }
 

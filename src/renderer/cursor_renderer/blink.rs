@@ -3,6 +3,7 @@ use std::time::{Duration, Instant};
 use crate::editor::Cursor;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 
+#[derive(Debug)]
 pub enum BlinkState {
     Waiting,
     On,
@@ -74,8 +75,8 @@ impl BlinkStatus {
         }
 
         match self.state {
-            BlinkState::Waiting | BlinkState::Off => false,
-            BlinkState::On => true,
+            BlinkState::Off => false,
+            BlinkState::On | BlinkState::Waiting => true,
         }
     }
 }

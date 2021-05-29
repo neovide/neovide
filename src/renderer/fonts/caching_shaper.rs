@@ -1,23 +1,14 @@
-use std::collections::HashMap;
+use std::sync::Arc;
 
-use font_kit::metrics::Metrics;
-use log::{trace, warn};
 use lru::LruCache;
-use skribo::{FontCollection, FontRef as SkriboFont, LayoutSession, TextStyle};
-use skulpin::skia_safe::{Font as SkiaFont, TextBlob, TextBlobBuilder};
+use skia_safe::{FontMetrics, FontMgr, TextBlob, TextBlobBuilder};
+use swash::shape::ShapeContext;
 
 use super::font_loader::*;
 use super::font_options::*;
-use super::utils::*;
 
 const STANDARD_CHARACTER_STRING: &str =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
-
-#[cfg(any(feature = "embed-fonts", test))]
-#[derive(RustEmbed)]
-#[folder = "assets/fonts/"]
-pub struct Asset;
-
 const DEFAULT_FONT_SIZE: f32 = 14.0;
 
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
@@ -27,164 +18,137 @@ struct ShapeKey {
     pub italic: bool,
 }
 
-struct FontSet {
-    normal: FontCollection,
-    bold: FontCollection,
-    italic: FontCollection,
-}
-
-impl FontSet {
-    fn new(fallback_list: &[String], loader: &mut FontLoader) -> FontSet {
-        FontSet {
-            normal: loader
-                .build_collection_by_font_name(fallback_list, build_properties(false, false)),
-            bold: loader
-                .build_collection_by_font_name(fallback_list, build_properties(true, false)),
-            italic: loader
-                .build_collection_by_font_name(fallback_list, build_properties(false, true)),
-        }
-    }
-
-    fn get(&self, bold: bool, italic: bool) -> &FontCollection {
-        match (bold, italic) {
-            (true, _) => &self.bold,
-            (false, false) => &self.normal,
-            (false, true) => &self.italic,
-        }
-    }
-}
-
 pub struct CachingShaper {
-    pub options: FontOptions,
-    font_set: FontSet,
+    pub options: Option<FontOptions>,
     font_loader: FontLoader,
-    font_cache: LruCache<String, SkiaFont>,
     blob_cache: LruCache<ShapeKey, Vec<TextBlob>>,
+    shape_context: ShapeContext,
 }
 
 impl CachingShaper {
     pub fn new() -> CachingShaper {
-        let options = FontOptions::new(String::from(SYSTEM_DEFAULT_FONT), DEFAULT_FONT_SIZE);
-        let mut loader = FontLoader::new();
-        let font_set = FontSet::new(&options.fallback_list, &mut loader);
-
+        let font_mgr = FontMgr::new();
+        assert_ne!(
+            font_mgr.count_families(),
+            0,
+            "Font Manager did not load fonts!"
+        );
         CachingShaper {
-            options,
-            font_set,
-            font_loader: loader,
-            font_cache: LruCache::new(10),
+            options: None,
+            font_loader: FontLoader::new(DEFAULT_FONT_SIZE),
             blob_cache: LruCache::new(10000),
+            shape_context: ShapeContext::new(),
         }
     }
 
-    fn get_skia_font(&mut self, skribo_font: &SkriboFont) -> Option<&SkiaFont> {
-        let font_name = skribo_font.font.postscript_name()?;
-        if !self.font_cache.contains(&font_name) {
-            let font = build_skia_font_from_skribo_font(skribo_font, self.options.size)?;
-            self.font_cache.put(font_name.clone(), font);
-        }
-
-        self.font_cache.get(&font_name)
+    fn current_font_pair(&mut self) -> Arc<FontPair> {
+        let font_name = self
+            .options
+            .as_ref()
+            .map(|options| options.fallback_list.first().unwrap().clone());
+        self.font_loader
+            .get_or_load(font_name)
+            .unwrap_or_else(|| self.font_loader.get_or_load(None).unwrap())
     }
 
-    fn metrics(&self) -> Metrics {
-        self.font_set
-            .normal
-            .itemize("a")
-            .next()
-            .expect("Cannot get font metrics")
-            .1
-            .font
-            .metrics()
+    pub fn current_size(&self) -> f32 {
+        self.options
+            .as_ref()
+            .map(|options| options.size)
+            .unwrap_or(DEFAULT_FONT_SIZE)
     }
 
-    pub fn shape(&mut self, text: &str, bold: bool, italic: bool) -> Vec<TextBlob> {
-        let style = TextStyle {
-            size: self.options.size,
-        };
-        let session = LayoutSession::create(text, &style, &self.font_set.get(bold, italic));
-        let metrics = self.metrics();
-        let ascent = metrics.ascent * self.options.size / metrics.units_per_em as f32;
-        let mut blobs = Vec::new();
-
-        for layout_run in session.iter_all() {
-            let skribo_font = layout_run.font();
-
-            if let Some(skia_font) = self.get_skia_font(&skribo_font) {
-                let mut blob_builder = TextBlobBuilder::new();
-                let count = layout_run.glyphs().count();
-                let (glyphs, positions) =
-                    blob_builder.alloc_run_pos_h(&skia_font, count, ascent, None);
-
-                for (i, glyph) in layout_run.glyphs().enumerate() {
-                    glyphs[i] = glyph.glyph_id as u16;
-                    positions[i] = glyph.offset.x();
-                }
-
-                blobs.push(blob_builder.make().unwrap());
-            } else {
-                warn!("Could not load skribo font");
-            }
-        }
-
-        blobs
-    }
-
-    pub fn shape_cached(&mut self, text: &str, bold: bool, italic: bool) -> &Vec<TextBlob> {
-        let key = ShapeKey::new(text.to_string(), bold, italic);
-
-        if !self.blob_cache.contains(&key) {
-            let blobs = self.shape(text, bold, italic);
-            self.blob_cache.put(key.clone(), blobs);
-        }
-
-        self.blob_cache.get(&key).unwrap()
+    fn metrics(&mut self) -> FontMetrics {
+        let font_pair = self.current_font_pair();
+        let (_, metrics) = font_pair.skia_font.metrics();
+        metrics
     }
 
     pub fn update_font(&mut self, guifont_setting: &str) -> bool {
-        let updated = self.options.update(guifont_setting);
-        if updated {
-            trace!("Font changed: {:?}", self.options);
-            self.font_set = FontSet::new(&self.options.fallback_list, &mut self.font_loader);
-            self.font_cache.clear();
+        let new_options = FontOptions::parse(guifont_setting, DEFAULT_FONT_SIZE);
+
+        if new_options != self.options && new_options.is_some() {
+            self.font_loader = FontLoader::new(new_options.as_ref().unwrap().size);
             self.blob_cache.clear();
+            self.options = new_options;
+
+            true
+        } else {
+            false
         }
-        updated
     }
 
     pub fn font_base_dimensions(&mut self) -> (f32, f32) {
         let metrics = self.metrics();
-        let font_height =
-            (metrics.ascent - metrics.descent) * self.options.size / metrics.units_per_em as f32;
-        let style = TextStyle {
-            size: self.options.size,
-        };
-        let session =
-            LayoutSession::create(STANDARD_CHARACTER_STRING, &style, &self.font_set.normal);
-        let layout_run = session.iter_all().next().unwrap();
-        let glyph_offsets: Vec<f32> = layout_run.glyphs().map(|glyph| glyph.offset.x()).collect();
-        let glyph_advances: Vec<f32> = glyph_offsets
-            .windows(2)
-            .map(|pair| pair[1] - pair[0])
-            .collect();
+        let font_height = metrics.descent - metrics.ascent;
 
-        let mut amounts = HashMap::new();
+        let font_pair = self.current_font_pair();
 
-        for advance in glyph_advances.iter() {
-            amounts
-                .entry(advance.to_string())
-                .and_modify(|e| *e += 1)
-                .or_insert(1);
-        }
-
-        let (font_width, _) = amounts.into_iter().max_by_key(|(_, count)| *count).unwrap();
-        let font_width = font_width.parse::<f32>().unwrap();
+        let (text_width, _) = font_pair
+            .skia_font
+            .measure_str(STANDARD_CHARACTER_STRING, None);
+        let font_width = text_width / STANDARD_CHARACTER_STRING.len() as f32;
 
         (font_width, font_height)
     }
 
     pub fn underline_position(&mut self) -> f32 {
         let metrics = self.metrics();
-        -metrics.underline_position * self.options.size / metrics.units_per_em as f32
+        -metrics.underline_position().unwrap() * self.current_size()
+    }
+
+    pub fn y_adjustment(&mut self) -> f32 {
+        let metrics = self.metrics();
+        -metrics.ascent
+    }
+
+    pub fn shape(&mut self, text: &str) -> Vec<TextBlob> {
+        let font_pair = self.current_font_pair();
+        let current_size = self.current_size();
+
+        let mut shaper = self
+            .shape_context
+            .builder(font_pair.swash_font.as_ref())
+            .size(current_size)
+            .build();
+
+        shaper.add_str(text);
+
+        let mut glyph_data = Vec::new();
+
+        shaper.shape_with(|glyph_cluster| {
+            for glyph in glyph_cluster.glyphs {
+                glyph_data.push((glyph.id, glyph.advance));
+            }
+        });
+
+        if glyph_data.is_empty() {
+            return Vec::new();
+        }
+
+        let mut blob_builder = TextBlobBuilder::new();
+        let (glyphs, positions) =
+            blob_builder.alloc_run_pos_h(&font_pair.skia_font, glyph_data.len(), 0.0, None);
+
+        let mut current_point: f32 = 0.0;
+        for (i, (glyph_id, glyph_advance)) in glyph_data.iter().enumerate() {
+            glyphs[i] = *glyph_id;
+            positions[i] = current_point.floor();
+            current_point += glyph_advance;
+        }
+
+        let blob = blob_builder.make();
+        vec![blob.expect("Could not create textblob")]
+    }
+
+    pub fn shape_cached(&mut self, text: &str, bold: bool, italic: bool) -> &Vec<TextBlob> {
+        let key = ShapeKey::new(text.to_string(), bold, italic);
+
+        if !self.blob_cache.contains(&key) {
+            let blobs = self.shape(text);
+            self.blob_cache.put(key.clone(), blobs);
+        }
+
+        self.blob_cache.get(&key).unwrap()
     }
 }

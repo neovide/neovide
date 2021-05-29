@@ -1,5 +1,5 @@
 use log::error;
-use skulpin::skia_safe::{paint::Style, BlendMode, Canvas, Color, Paint, Point, Rect};
+use skia_safe::{paint::Style, BlendMode, Canvas, Color, Paint, Point, Rect};
 
 use super::CursorSettings;
 use crate::editor::{Colors, Cursor};
@@ -135,7 +135,7 @@ impl CursorVfx for PointHighlight {
             return;
         }
 
-        let mut paint = Paint::new(skulpin::skia_safe::colors::WHITE, None);
+        let mut paint = Paint::new(skia_safe::colors::WHITE, None);
         paint.set_blend_mode(BlendMode::SrcOver);
 
         let base_color: Color = cursor.background(&colors).to_color();
@@ -318,7 +318,7 @@ impl CursorVfx for ParticleTrail {
         colors: &Colors,
         font_size: (f32, f32),
     ) {
-        let mut paint = Paint::new(skulpin::skia_safe::colors::WHITE, None);
+        let mut paint = Paint::new(skia_safe::colors::WHITE, None);
         match self.trail_mode {
             TrailMode::Torpedo | TrailMode::Railgun => {
                 paint.set_style(Style::Stroke);

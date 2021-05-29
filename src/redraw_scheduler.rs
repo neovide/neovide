@@ -1,10 +1,10 @@
-use std::sync::atomic::{AtomicU16, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::Instant;
 
 use log::trace;
 
-use crate::settings::*;
+use crate::{cmd_line::CmdLineSettings, settings::*};
 
 lazy_static! {
     pub static ref REDRAW_SCHEDULER: RedrawScheduler = RedrawScheduler::new();
@@ -19,7 +19,8 @@ impl Default for RedrawSettings {
     fn default() -> Self {
         Self {
             extra_buffer_frames: if SETTINGS
-                .neovim_arguments
+                .get::<CmdLineSettings>()
+                .neovim_args
                 .contains(&"--extraBufferFrames".to_string())
             {
                 60
@@ -31,15 +32,15 @@ impl Default for RedrawSettings {
 }
 
 pub struct RedrawScheduler {
-    frames_queued: AtomicU16,
     scheduled_frame: Mutex<Option<Instant>>,
+    frame_queued: AtomicBool,
 }
 
 impl RedrawScheduler {
     pub fn new() -> RedrawScheduler {
         RedrawScheduler {
-            frames_queued: AtomicU16::new(1),
             scheduled_frame: Mutex::new(None),
+            frame_queued: AtomicBool::new(true),
         }
     }
 
@@ -58,18 +59,12 @@ impl RedrawScheduler {
 
     pub fn queue_next_frame(&self) {
         trace!("Next frame queued");
-        let buffer_frames = SETTINGS.get::<RedrawSettings>().extra_buffer_frames;
-
-        self.frames_queued
-            .store(buffer_frames as u16, Ordering::Relaxed);
+        self.frame_queued.store(true, Ordering::Relaxed);
     }
 
     pub fn should_draw(&self) -> bool {
-        let frames_queued = self.frames_queued.load(Ordering::Relaxed);
-
-        if frames_queued > 0 {
-            self.frames_queued
-                .store(frames_queued - 1, Ordering::Relaxed);
+        if self.frame_queued.load(Ordering::Relaxed) {
+            self.frame_queued.store(false, Ordering::Relaxed);
             true
         } else {
             let mut next_scheduled_frame = self.scheduled_frame.lock().unwrap();
