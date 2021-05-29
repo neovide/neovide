@@ -1,8 +1,7 @@
 # Neovide [![Gitter](https://badges.gitter.im/neovide/community.svg)](https://gitter.im/neovide/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) [![Discussions](https://img.shields.io/badge/GitHub-Discussions-green?logo=github)](https://github.com/Kethku/neovide/discussions)
 
-
-This is a simple graphical user interface for Neovim. Where possible there are some graphical improvements, but it should act
-functionally like the terminal UI.
+This is a simple graphical user interface for [Neovim](https://github.com/neovim/neovim) (an aggressively refactored and updated 
+Vim editor). Where possible there are some graphical improvements, but functionally it should act like the terminal UI.
 
 ![Basic Screen Cap](./assets/BasicScreenCap.png)
 
