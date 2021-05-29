@@ -33,7 +33,7 @@ impl Default for CmdLineSettings {
             remote_tcp: None,
             multi_grid: false,
             maximized: false,
-            frameless: true,
+            frameless: false,
         }
     }
 }
@@ -74,7 +74,7 @@ pub fn handle_command_line_arguments() {
         .arg(
             Arg::with_name("frameless")
             .long("frameless")
-            .help("Enables Frameless Neovide")
+            .help("Removes the window frame. NOTE: Window might not be resizable after this setting is enabled.")
         )
         .arg(Arg::with_name("wsl").long("wsl").help("Run in WSL"))
         .arg(
@@ -131,6 +131,6 @@ pub fn handle_command_line_arguments() {
         disowned: matches.is_present("disowned"),
         wsl: matches.is_present("wsl"),
         geometry: matches.value_of("geometry").map(|i| i.to_owned()),
-        frameless: !matches.is_present("frameless"),
+        frameless: matches.is_present("frameless"),
     });
 }
