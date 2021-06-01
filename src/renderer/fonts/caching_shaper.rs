@@ -3,6 +3,8 @@ use std::sync::Arc;
 use lru::LruCache;
 use skia_safe::{FontMetrics, FontMgr, TextBlob, TextBlobBuilder};
 use swash::shape::ShapeContext;
+use swash::text::Script;
+use swash::text::cluster::{CharCluster, Parser, Status, Token};
 
 use super::font_loader::*;
 use super::font_options::*;
@@ -27,12 +29,6 @@ pub struct CachingShaper {
 
 impl CachingShaper {
     pub fn new() -> CachingShaper {
-        let font_mgr = FontMgr::new();
-        assert_ne!(
-            font_mgr.count_families(),
-            0,
-            "Font Manager did not load fonts!"
-        );
         CachingShaper {
             options: None,
             font_loader: FontLoader::new(DEFAULT_FONT_SIZE),
@@ -102,43 +98,91 @@ impl CachingShaper {
         -metrics.ascent
     }
 
+    fn build_clusters(&mut self, text: &str) -> Vec<(CharCluster, Arc<FontPair>)> {
+        let mut cluster = CharCluster::new();
+        let mut parser  =  Parser::new(
+            Script::Latin,
+            text.char_indices().map(|(i, ch)| Token {
+                ch,
+                offset: i as u32,
+                len: ch.len_utf8() as u8,
+                info: ch.into(),
+                data: 0,
+            })
+        );
+
+        let mut results = Vec::new();
+        while parser.next(&mut cluster) {
+            if let Some(options) = &self.options {
+                let mut best = None;
+                for font_name in options.fallback_list.iter() {
+                    if let Some(font_pair) = self.font_loader.get_or_load(Some(font_name.to_owned())) {
+                        let charmap = font_pair.swash_font.as_ref().charmap();
+                        match cluster.map(|ch| charmap.map(ch)) {
+                            Status::Complete => {
+                                results.push((cluster.to_owned(), font_pair.clone()));
+                                break;
+                            },
+                            Status::Keep => best = Some(font_pair.clone()),
+                            Status::Discard => {}
+                        }
+                    }
+                }
+
+                if let Some(best) = best {
+                    results.push((cluster.to_owned(), best.clone()));
+                }
+            } else {
+                let default_font = self.font_loader.get_or_load(None).expect("Could not load default font");
+                results.push((cluster.to_owned(), default_font));
+            }
+        }
+        results
+    }
+
     pub fn shape(&mut self, text: &str) -> Vec<TextBlob> {
-        let font_pair = self.current_font_pair();
         let current_size = self.current_size();
 
-        let mut shaper = self
-            .shape_context
-            .builder(font_pair.swash_font.as_ref())
-            .size(current_size)
-            .build();
-
-        shaper.add_str(text);
-
-        let mut glyph_data = Vec::new();
-
-        shaper.shape_with(|glyph_cluster| {
-            for glyph in glyph_cluster.glyphs {
-                glyph_data.push((glyph.id, glyph.advance));
-            }
-        });
-
-        if glyph_data.is_empty() {
-            return Vec::new();
-        }
-
-        let mut blob_builder = TextBlobBuilder::new();
-        let (glyphs, positions) =
-            blob_builder.alloc_run_pos_h(&font_pair.skia_font, glyph_data.len(), 0.0, None);
+        let mut resulting_blobs = Vec::new();
 
         let mut current_point: f32 = 0.0;
-        for (i, (glyph_id, glyph_advance)) in glyph_data.iter().enumerate() {
-            glyphs[i] = *glyph_id;
-            positions[i] = current_point.floor();
-            current_point += glyph_advance;
+        for (mut cluster, font_pair) in self.build_clusters(text) {
+            let mut shaper = self
+                .shape_context
+                .builder(font_pair.swash_font.as_ref())
+                .size(current_size)
+                .build();
+
+            let charmap = font_pair.swash_font.as_ref().charmap();
+            cluster.map(|ch| charmap.map(ch));
+            shaper.add_cluster(&cluster);
+
+            let mut glyph_data = Vec::new();
+
+            shaper.shape_with(|glyph_cluster| {
+                for glyph in glyph_cluster.glyphs {
+                    glyph_data.push((glyph.id, glyph.advance));
+                }
+            });
+
+            if glyph_data.is_empty() {
+                return Vec::new();
+            }
+
+            let mut blob_builder = TextBlobBuilder::new();
+            let (glyphs, positions) =
+                blob_builder.alloc_run_pos_h(&font_pair.skia_font, glyph_data.len(), 0.0, None);
+            for (i, (glyph_id, glyph_advance)) in glyph_data.iter().enumerate() {
+                glyphs[i] = *glyph_id;
+                positions[i] = current_point.floor();
+                current_point += glyph_advance;
+            }
+
+            let blob = blob_builder.make();
+            resulting_blobs.push(blob.expect("Could not create textblob"));
         }
 
-        let blob = blob_builder.make();
-        vec![blob.expect("Could not create textblob")]
+        resulting_blobs
     }
 
     pub fn shape_cached(&mut self, text: &str, bold: bool, italic: bool) -> &Vec<TextBlob> {
