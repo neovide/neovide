@@ -19,8 +19,8 @@ pub enum WindowDrawCommand {
         height: u64,
         floating_order: Option<u64>,
     },
-    Cell {
-        text: String,
+    Cells {
+        cells: Vec<(String, bool)>,
         cell_width: u64,
         window_left: u64,
         window_top: u64,
@@ -56,7 +56,7 @@ impl fmt::Debug for WindowDrawCommand {
                 "Position {{ left: {}, right: {} }}",
                 grid_left, grid_top
             ),
-            WindowDrawCommand::Cell { .. } => write!(formatter, "Cell"),
+            WindowDrawCommand::Cells { .. } => write!(formatter, "Cell"),
             WindowDrawCommand::Scroll { .. } => write!(formatter, "Scroll"),
             WindowDrawCommand::Clear => write!(formatter, "Clear"),
             WindowDrawCommand::Show => write!(formatter, "Show"),
@@ -257,15 +257,23 @@ impl Window {
         }
 
         // Build up the actual text to be rendered including the contiguously styled bits.
-        let mut text = String::new();
+        let mut cells = Vec::new();
         for x in draw_command_start_index..(draw_command_end_index + 1) {
             let (character, _) = row[x as usize].as_ref().unwrap();
-            text.push_str(character);
+            if character.is_empty() {
+                if !cells.is_empty() {
+                    // Represent previous cell as double width
+                    let (previous_character, _) = cells[cells.len() - 1];
+                    cells[cells.len() - 1] = (previous_character, true);
+                }
+            } else {
+                cells.push((character, false));
+            }
         }
 
         // Send a window draw command to the current window.
-        self.send_command(WindowDrawCommand::Cell {
-            text,
+        self.send_command(WindowDrawCommand::Cells {
+            cells,
             cell_width: draw_command_end_index - draw_command_start_index + 1,
             window_left: draw_command_start_index,
             window_top: row_index,

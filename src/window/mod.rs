@@ -60,7 +60,6 @@ pub fn window_geometry_or_default() -> (u64, u64) {
 
 #[cfg(target_os = "windows")]
 fn windows_fix_dpi() {
-    println!("dpi fix applied");
     use winapi::shared::windef::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2;
     use winapi::um::winuser::SetProcessDpiAwarenessContext;
     unsafe {

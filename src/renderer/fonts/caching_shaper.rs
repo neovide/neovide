@@ -38,13 +38,15 @@ impl CachingShaper {
     }
 
     fn current_font_pair(&mut self) -> Arc<FontPair> {
-        let font_name = self
+        let font_key = self
             .options
             .as_ref()
-            .map(|options| options.fallback_list.first().unwrap().clone());
+            .map(|options| options.fallback_list.first().unwrap().clone().into())
+            .unwrap_or(FontKey::Default);
+
         self.font_loader
-            .get_or_load(font_name)
-            .unwrap_or_else(|| self.font_loader.get_or_load(None).unwrap())
+            .get_or_load(font_key)
+            .expect("Could not load font")
     }
 
     pub fn current_size(&self) -> f32 {
@@ -112,33 +114,34 @@ impl CachingShaper {
         );
 
         let mut results = Vec::new();
-        while parser.next(&mut cluster) {
+        'cluster: while parser.next(&mut cluster) {
             if let Some(options) = &self.options {
                 let mut best = None;
                 for font_name in options.fallback_list.iter() {
-                    if let Some(font_pair) =
-                        self.font_loader.get_or_load(Some(font_name.to_owned()))
-                    {
+                    if let Some(font_pair) = self.font_loader.get_or_load(font_name.into()) {
                         let charmap = font_pair.swash_font.as_ref().charmap();
                         match cluster.map(|ch| charmap.map(ch)) {
                             Status::Complete => {
                                 results.push((cluster.to_owned(), font_pair.clone()));
-                                break;
-                            }
-                            Status::Keep => best = Some(font_pair.clone()),
-                            Status::Discard => {}
+                                continue 'cluster;
+                            },
+                            Status::Keep => best = Some(font_pair),
+                            Status::Discard => {},
                         }
                     }
                 }
 
                 if let Some(best) = best {
                     results.push((cluster.to_owned(), best.clone()));
+                    continue 'cluster;
                 }
+            }
+
+            let first_cluster_char = cluster.chars()[0].ch;
+            if let Some(font_pair) = self.font_loader.get_or_load(FontKey::Character(first_cluster_char.clone())) {
+                results.push((cluster.to_owned(), font_pair));
             } else {
-                let default_font = self
-                    .font_loader
-                    .get_or_load(None)
-                    .expect("Could not load default font");
+                let default_font = self.font_loader.get_or_load(FontKey::Default).expect("Could not load default font");
                 results.push((cluster.to_owned(), default_font));
             }
         }

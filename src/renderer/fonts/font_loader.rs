@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use lru::LruCache;
-use skia_safe::{font::Edging, Data, Font, FontHinting, FontMgr, FontStyle, Typeface};
+use skia_safe::{font::Edging, Data, Font, FontHinting, FontMgr, FontStyle, Typeface, Unichar};
 
 use super::swash_font::SwashFont;
 
@@ -34,8 +34,41 @@ impl FontPair {
 
 pub struct FontLoader {
     font_mgr: FontMgr,
-    cache: LruCache<Option<String>, Arc<FontPair>>,
+    cache: LruCache<FontKey, Arc<FontPair>>,
     font_size: f32,
+}
+
+#[derive(Hash, PartialEq, Eq, Clone)]
+pub enum FontKey {
+    Default,
+    Name(String),
+    Character(char),
+}
+
+impl From<&str> for FontKey {
+    fn from(string: &str) -> FontKey {
+        let string = string.to_string();
+        FontKey::Name(string)
+    }
+}
+
+impl From<&String> for FontKey {
+    fn from(string: &String) -> FontKey {
+        let string = string.to_owned();
+        FontKey::Name(string)
+    }
+}
+
+impl From<String> for FontKey {
+    fn from(string: String) -> FontKey {
+        FontKey::Name(string)
+    }
+}
+
+impl From<char> for FontKey {
+    fn from(character: char) -> FontKey {
+        FontKey::Character(character)
+    }
 }
 
 impl FontLoader {
@@ -47,36 +80,41 @@ impl FontLoader {
         }
     }
 
-    fn load(&mut self, font_name: &str) -> Option<FontPair> {
-        let font_style = FontStyle::normal();
-        let typeface = self
-            .font_mgr
-            .match_family_style(font_name, font_style)
-            .unwrap();
-        FontPair::new(Font::from_typeface(typeface, self.font_size))
+    fn load(&mut self, font_key: FontKey) -> Option<FontPair> {
+        match font_key {
+            FontKey::Default => {
+                let default_font_data = Asset::get(DEFAULT_FONT).unwrap();
+                let data = Data::new_copy(&default_font_data);
+                let typeface = Typeface::from_data(data, 0).unwrap();
+                FontPair::new(Font::from_typeface(typeface, self.font_size))
+            },
+            FontKey::Name(name) => {
+                let font_style = FontStyle::normal();
+                let typeface = self
+                    .font_mgr
+                    .match_family_style(name, font_style)?;
+                FontPair::new(Font::from_typeface(typeface, self.font_size))
+            },
+            FontKey::Character(character) => {
+                let font_style = FontStyle::normal();
+                let typeface = self
+                    .font_mgr
+                    .match_family_style_character("", font_style, &[], character as i32)?;
+                FontPair::new(Font::from_typeface(typeface, self.font_size))
+            }
+        }
     }
 
-    fn load_default(&mut self) -> Option<FontPair> {
-        let default_font_data = Asset::get(DEFAULT_FONT).unwrap();
-        let data = Data::new_copy(&default_font_data);
-        let typeface = Typeface::from_data(data, 0).unwrap();
-        FontPair::new(Font::from_typeface(typeface, self.font_size))
-    }
-
-    pub fn get_or_load(&mut self, font_name: Option<String>) -> Option<Arc<FontPair>> {
-        if let Some(cached) = self.cache.get(&font_name) {
+    pub fn get_or_load(&mut self, font_key: FontKey) -> Option<Arc<FontPair>> {
+        if let Some(cached) = self.cache.get(&font_key) {
             return Some(cached.clone());
         }
 
-        let loaded_font = if let Some(font_name) = &font_name {
-            self.load(font_name)?
-        } else {
-            self.load_default()?
-        };
+        let loaded_font = self.load(font_key.clone())?;
 
         let font_arc = Arc::new(loaded_font);
 
-        self.cache.put(font_name, font_arc.clone());
+        self.cache.put(font_key, font_arc.clone());
 
         Some(font_arc)
     }
