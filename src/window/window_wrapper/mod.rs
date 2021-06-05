@@ -236,8 +236,8 @@ impl GlutinWindowWrapper {
         }
 
         let vertical_input_type = match y {
-            _ if y > 2.0 => Some("up"),
-            _ if y < -2.0 => Some("down"),
+            _ if y > 1.8 => Some("up"),
+            _ if y < -1.8 => Some("down"),
             _ => None,
         };
 
@@ -252,8 +252,8 @@ impl GlutinWindowWrapper {
         }
 
         let horizontal_input_type = match y {
-            _ if x > 2.0 => Some("left"),
-            _ if x < -2.0 => Some("right"),
+            _ if x > 1.8 => Some("left"),
+            _ if x < -1.8 => Some("right"),
             _ => None,
         };
 
