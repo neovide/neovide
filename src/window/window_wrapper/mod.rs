@@ -236,8 +236,8 @@ impl GlutinWindowWrapper {
         }
 
         let vertical_input_type = match y {
-            _ if y > 0.0 => Some("up"),
-            _ if y < 0.0 => Some("down"),
+            _ if y > 2.0 => Some("up"),
+            _ if y < -2.0 => Some("down"),
             _ => None,
         };
 
@@ -252,8 +252,8 @@ impl GlutinWindowWrapper {
         }
 
         let horizontal_input_type = match y {
-            _ if x > 0.0 => Some("right"),
-            _ if x < 0.0 => Some("left"),
+            _ if x > 2.0 => Some("left"),
+            _ if x < -2.0 => Some("right"),
             _ => None,
         };
 
@@ -334,7 +334,7 @@ impl GlutinWindowWrapper {
                         ..
                     },
                 ..
-            } => self.handle_mouse_wheel(0.0, logical_position.y as f32),
+            } => self.handle_mouse_wheel(logical_position.x as f32, logical_position.y as f32),
             Event::WindowEvent {
                 event:
                     WindowEvent::MouseInput {
