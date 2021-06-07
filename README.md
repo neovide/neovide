@@ -1,7 +1,7 @@
 # Neovide [![Gitter](https://badges.gitter.im/neovide/community.svg)](https://gitter.im/neovide/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) [![Discussions](https://img.shields.io/badge/GitHub-Discussions-green?logo=github)](https://github.com/Kethku/neovide/discussions)
 
-This is a simple graphical user interface for Neovim. Where possible there are some graphical improvements, but it should act
-functionally like the terminal UI.
+This is a simple graphical user interface for [Neovim](https://github.com/neovim/neovim) (an aggressively refactored and updated 
+Vim editor). Where possible there are some graphical improvements, but functionally it should act like the terminal UI.
 
 ![Basic Screen Cap](./assets/BasicScreenCap.png)
 
@@ -86,9 +86,11 @@ By specifying to listen on localhost, you only allow connections from your local
 ssh -L 6666:localhost:6666 ip.of.other.machine nvim --headless --listen localhost:6666
 ```
 
+Finally, if you would like to leave the neovim server running, close the neovide application window instead of issuing a `:q` command.
+
 ### Some Nonsense ;)
 
-```
+```vim
 let g:neovide_cursor_vfx_mode = "railgun"
 ```
 
@@ -104,29 +106,49 @@ Configuration is done almost completely via global neovide variables in your vim
 
 ## Install
 
-Relatively recent binaries can be found in the [project releases](https://github.com/Kethku/neovide/releases). But if you want the latest and greatest you should clone it and build yourself.
+**Note**: Building instructions are somewhat limited at the moment. All the libraries I use are cross platform and should have
+support for Windows, Mac, and Linux. The rendering however is Vulkan-based, so driver support for Vulkan will be
+necessary. On Windows this should be enabled by default if you have a relatively recent system.
 
-Installing should be as simple as downloading the binary, making sure `nvim.exe` with version 0.4 or greater is on your path, and running it. Everything should be self contained.
+**Note**: Neovide requires neovim version 0.4 or greater.
 
-## Building
+### From binary
 
 Building instructions are somewhat limited at the moment. All the libraries I use are cross platform and should have support for Windows, Mac, and Linux. The rendering is based on opengl, so a good gpu driver will be
 necessary. On Windows this should be enabled by default if you have a relatively recent system.
 
-Note: Neovide requires neovim version 0.4 or greater.
+Installing should be as simple as downloading the binary, making sure `nvim.exe` with version 0.4 or greater is on your path, and running it. Everything should be self contained.
 
 ### Windows
+
+#### Package manager
+
+[Scoop](https://scoop.sh/) has Neovide in the `extras` bucket. Ensure you have the `extras` bucket, and install:
+
+```
+$ scoop bucket list
+main
+extras
+$ scoop install neovide
+```
+
+#### From source
 
 1. Install the latest version of Rust. I recommend <https://rustup.rs/>
 2. Install CMake. I use chocolatey: `choco install cmake --installargs '"ADD_CMAKE_TO_PATH=System"' -y`
 3. Install LLVM. I use chocolatey: `choco install llvm -y`
 4. Ensure graphics libraries are up to date.
-5. `git clone https://github.com/Kethku/neovide`
-6. `cd neovide`
-7. `cargo build --release`
-8. Copy `./target/release/neovide.exe` to a known location and enjoy.
+5. Build and install Neovide:
 
-### Mac
+    ```sh
+    git clone https://github.com/Kethku/neovide
+    cd neovide
+    cargo build --release
+    ```
+
+6. Copy `./target/release/neovide.exe` to a known location and enjoy.
+
+### Mac (from source)
 
 1. Install the latest version of Rust. I recommend <https://rustup.rs/>
 2. Install CMake. Using homebrew: `brew install cmake`
@@ -140,6 +162,14 @@ Note: Neovide requires neovim version 0.4 or greater.
 #### Arch Linux
 
 There is an [AUR package for neovide](https://aur.archlinux.org/packages/neovide-git/).
+
+##### With Paru (or your preferred AUR helper)
+
+```sh
+paru -S neovide-git
+```
+
+##### Without helper
 
 ```sh
 git clone https://aur.archlinux.org/neovide-git.git
@@ -161,16 +191,21 @@ makepkg -si
 Note: Neovide requires that a font be set in `init.vim` otherwise errors might be encountered.
 See [#527](https://github.com/Kethku/neovide/issues/527)
 
-This can be fixed by adding `set guifont=Your\ Font\ Name:h15` in init.vim file.
+##### With non-default branch
 
-#### Debian/Ubuntu
+```sh
+git clone https://aur.archlinux.org/neovide-git.git
+cd neovide-git
+REGEX=$(printf 's/{url}/&\#branch=%s/g' '<YOUR-BRANCH-HERE>')
+sed "$REGEX" PKGBUILD
+makepkg -si
+```
 
-Note: Neovide has been successfully built on other distros but this reportedly works on ubuntu.
-
-1. Install necessary dependencies
+#### From source
+1. Install necessary dependencies (adjust for your preferred package manager)
 
     ```sh
-    sudo apt-get install -y curl \
+    sudo apt install -y curl \
         gnupg ca-certificates git \
         gcc-multilib g++-multilib cmake libssl-dev pkg-config \
         libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev \
@@ -179,20 +214,29 @@ Note: Neovide has been successfully built on other distros but this reportedly w
 
 2. Install Rust
 
-    `curl --proto '=https' --tlsv1.2 -sSf "https://sh.rustup.rs" | sh`
+    ```sh
+    curl --proto '=https' --tlsv1.2 -sSf "https://sh.rustup.rs" | sh
+    ```
 
 3. Clone the repository
 
-    `git clone "https://github.com/Kethku/neovide"`
+    ```sh
+    git clone "https://github.com/Kethku/neovide"
+    ```
 
 4. Build
 
-    `cd neovide && ~/.cargo/bin/cargo build --release`
+    ```sh
+    cd neovide && ~/.cargo/bin/cargo build --release
+    ```
 
 5. Copy `./target/release/neovide` to a known location and enjoy.
 
-If you see an error complaining about DRI3 settings, links in this issue may help:
-<https://github.com/Kethku/neovide/issues/44#issuecomment-578618052>.
+## Troubleshooting
+- Neovide requires that a font be set in `init.vim` otherwise errors might be encountered. This can be fixed by adding `set guifont=Your\ Font\ Name:h15` in init.vim file. Reference issue [#527](https://github.com/Kethku/neovide/issues/527).
 
-Note: If you run into libsndio errors, try building without default features which will disable static linking of the SDL
-library.
+### Linux-specific
+- If you recieve errors complaining about DRI3 settings, please reference issue [#44](https://github.com/Kethku/neovide/issues/44#issuecomment-578618052).
+
+[![Get it from the Snap Store](https://snapcraft.io/static/images/badges/en/snap-store-white.svg)](https://snapcraft.io/neovide)
+

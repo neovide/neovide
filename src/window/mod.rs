@@ -4,11 +4,13 @@ mod window_wrapper;
 
 use crate::{
     bridge::UiCommand,
+    channel_utils::*,
+    cmd_line::CmdLineSettings,
     editor::{DrawCommand, WindowCommand},
     renderer::Renderer,
+    settings::SETTINGS,
     INITIAL_DIMENSIONS,
 };
-use crossfire::mpsc::TxUnbounded;
 use std::sync::{atomic::AtomicBool, mpsc::Receiver, Arc};
 
 pub use window_wrapper::start_loop;
@@ -16,12 +18,11 @@ pub use window_wrapper::start_loop;
 pub use settings::*;
 
 pub fn window_geometry() -> Result<(u64, u64), String> {
-    let prefix = "--geometry=";
-
-    std::env::args()
-        .find(|arg| arg.starts_with(prefix))
-        .map_or(Ok(INITIAL_DIMENSIONS), |arg| {
-            let input = &arg[prefix.len()..];
+    //TODO: Maybe move this parsing into cmd_line...
+    SETTINGS
+        .get::<CmdLineSettings>()
+        .geometry
+        .map_or(Ok(INITIAL_DIMENSIONS), |input| {
             let invalid_parse_err = format!(
                 "Invalid geometry: {}\nValid format: <width>x<height>",
                 input
@@ -70,7 +71,7 @@ fn windows_fix_dpi() {
 fn handle_new_grid_size(
     new_size: (u32, u32),
     renderer: &Renderer,
-    ui_command_sender: &TxUnbounded<UiCommand>,
+    ui_command_sender: &LoggingTx<UiCommand>,
 ) {
     let (new_width, new_height) = new_size;
     if new_width > 0 && new_height > 0 {
@@ -89,7 +90,7 @@ fn handle_new_grid_size(
 pub fn create_window(
     batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
     window_command_receiver: Receiver<WindowCommand>,
-    ui_command_sender: TxUnbounded<UiCommand>,
+    ui_command_sender: LoggingTx<UiCommand>,
     running: Arc<AtomicBool>,
 ) {
     let (width, height) = window_geometry_or_default();

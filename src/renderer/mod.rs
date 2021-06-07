@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 
-use log::{error, trace, warn};
+use log::{error, trace};
 use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect};
 
 pub mod animation_utils;
@@ -18,8 +18,9 @@ use crate::editor::{Colors, DrawCommand, Style, WindowDrawCommand};
 use crate::settings::*;
 use cursor_renderer::CursorRenderer;
 
+#[derive(SettingGroup)]
 #[setting_prefix = "window"]
-#[derive(Clone, SettingGroup)]
+#[derive(Clone)]
 pub struct RendererSettings {
     position_animation_length: f32,
     scroll_animation_length: f32,
@@ -103,12 +104,7 @@ impl Renderer {
     }
 
     fn get_default_background(&self) -> Color {
-        self.default_style
-            .colors
-            .background
-            .clone()
-            .unwrap()
-            .to_color()
+        self.default_style.colors.background.unwrap().to_color()
     }
 
     fn draw_background(
@@ -151,7 +147,7 @@ impl Renderer {
 
         if style.underline || style.undercurl {
             let line_position = self.shaper.underline_position();
-            let stroke_width = self.shaper.options.size / 10.0;
+            let stroke_width = self.shaper.current_size() / 10.0;
             self.paint
                 .set_color(style.special(&self.default_style.colors).to_color());
             self.paint.set_stroke_width(stroke_width);
@@ -204,7 +200,6 @@ impl Renderer {
         draw_command: DrawCommand,
         scaling: f32,
     ) {
-        warn!("{:?}", &draw_command);
         match draw_command {
             DrawCommand::Window {
                 grid_id,
@@ -225,7 +220,6 @@ impl Renderer {
                     ..
                 } = command
                 {
-                    warn!("Created window {}", grid_id);
                     let new_window = RenderedWindow::new(
                         root_canvas,
                         &self,
@@ -256,16 +250,18 @@ impl Renderer {
         }
     }
 
+    #[allow(clippy::needless_collect)]
     pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32, scaling: f32) -> bool {
-        trace!("Rendering");
+        trace!("Drawing Frame");
         let mut font_changed = false;
 
-        let draw_commands: Vec<DrawCommand> = self
+        let draw_commands: Vec<_> = self
             .batched_draw_command_receiver
             .try_iter() // Iterator of Vec of DrawCommand
             .map(|batch| batch.into_iter()) // Iterator of Iterator of DrawCommand
             .flatten() // Iterator of DrawCommand
-            .collect(); // Vec of DrawCommand
+            .collect();
+
         for draw_command in draw_commands.into_iter() {
             if let DrawCommand::FontChanged(_) = draw_command {
                 font_changed = true;
@@ -273,14 +269,7 @@ impl Renderer {
             self.handle_draw_command(root_canvas, draw_command, scaling);
         }
 
-        root_canvas.clear(
-            self.default_style
-                .colors
-                .background
-                .clone()
-                .unwrap()
-                .to_color(),
-        );
+        root_canvas.clear(self.default_style.colors.background.unwrap().to_color());
 
         root_canvas.save();
 
@@ -304,12 +293,17 @@ impl Renderer {
                 .rendered_windows
                 .values_mut()
                 .filter(|window| !window.hidden)
-                .partition(|window| !window.floating);
+                .partition(|window| window.floating_order.is_none());
 
             root_windows
                 .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
-            floating_windows
-                .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
+            floating_windows.sort_by(|window_a, window_b| {
+                window_a
+                    .floating_order
+                    .unwrap()
+                    .partial_cmp(&window_b.floating_order.unwrap())
+                    .unwrap()
+            });
 
             root_windows
                 .into_iter()

@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use crossfire::mpsc::TxUnbounded;
 use log::trace;
 use nvim_rs::{Handler, Neovim};
 use parking_lot::Mutex;
@@ -11,19 +10,20 @@ use tokio::task;
 use super::events::{parse_redraw_event, RedrawEvent};
 use super::ui_commands::UiCommand;
 use crate::bridge::TxWrapper;
+use crate::channel_utils::*;
 use crate::error_handling::ResultPanicExplanation;
 use crate::settings::SETTINGS;
 
 #[derive(Clone)]
 pub struct NeovimHandler {
-    ui_command_sender: Arc<Mutex<TxUnbounded<UiCommand>>>,
-    redraw_event_sender: Arc<Mutex<TxUnbounded<RedrawEvent>>>,
+    ui_command_sender: Arc<Mutex<LoggingTx<UiCommand>>>,
+    redraw_event_sender: Arc<Mutex<LoggingTx<RedrawEvent>>>,
 }
 
 impl NeovimHandler {
     pub fn new(
-        ui_command_sender: TxUnbounded<UiCommand>,
-        redraw_event_sender: TxUnbounded<RedrawEvent>,
+        ui_command_sender: LoggingTx<UiCommand>,
+        redraw_event_sender: LoggingTx<RedrawEvent>,
     ) -> NeovimHandler {
         NeovimHandler {
             ui_command_sender: Arc::new(Mutex::new(ui_command_sender)),

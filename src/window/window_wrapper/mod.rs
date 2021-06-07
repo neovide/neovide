@@ -4,10 +4,10 @@ mod renderer;
 
 use super::{handle_new_grid_size, keyboard::neovim_keybinding_string, settings::WindowSettings};
 use crate::{
-    bridge::UiCommand, editor::WindowCommand, error_handling::ResultPanicExplanation,
-    redraw_scheduler::REDRAW_SCHEDULER, renderer::Renderer, settings::SETTINGS,
+    bridge::UiCommand, channel_utils::*, cmd_line::CmdLineSettings, editor::WindowCommand,
+    error_handling::ResultPanicExplanation, redraw_scheduler::REDRAW_SCHEDULER, renderer::Renderer,
+    settings::SETTINGS,
 };
-use crossfire::mpsc::TxUnbounded;
 use glutin::{
     self,
     dpi::{LogicalPosition, LogicalSize, PhysicalSize},
@@ -49,7 +49,7 @@ pub struct GlutinWindowWrapper {
     fullscreen: bool,
     cached_size: LogicalSize<u32>,
     cached_position: LogicalPosition<u32>,
-    ui_command_sender: TxUnbounded<UiCommand>,
+    ui_command_sender: LoggingTx<UiCommand>,
     window_command_receiver: Receiver<WindowCommand>,
 }
 
@@ -89,6 +89,7 @@ impl GlutinWindowWrapper {
         }
     }
 
+    #[allow(clippy::needless_collect)]
     pub fn handle_window_commands(&mut self) {
         let window_commands: Vec<WindowCommand> = self.window_command_receiver.try_iter().collect();
         for window_command in window_commands.into_iter() {
@@ -104,10 +105,14 @@ impl GlutinWindowWrapper {
         self.windowed_context.window().set_title(&self.title);
     }
 
-    pub fn handle_quit(&mut self) {
-        self.ui_command_sender
-            .send(UiCommand::Quit)
-            .expect("Could not send quit command to bridge");
+    pub fn handle_quit(&mut self, running: &Arc<AtomicBool>) {
+        if SETTINGS.get::<CmdLineSettings>().remote_tcp.is_none() {
+            self.ui_command_sender
+                .send(UiCommand::Quit)
+                .expect("Could not send quit command to bridge");
+        } else {
+            running.store(false, Ordering::Relaxed);
+        }
     }
 
     pub fn handle_keyboard_input(
@@ -135,6 +140,11 @@ impl GlutinWindowWrapper {
     }
 
     pub fn handle_pointer_motion(&mut self, x: i32, y: i32) {
+        let size = self.windowed_context.window().inner_size();
+        if x < 0 || x as u32 >= size.width || y < 0 || y as u32 >= size.height {
+            return;
+        }
+
         let previous_position = self.mouse_position;
 
         let logical_position: LogicalSize<u32> = PhysicalSize::new(x as u32, y as u32)
@@ -156,7 +166,7 @@ impl GlutinWindowWrapper {
                         logical_position.width - details.region.left as u32,
                         logical_position.height - details.region.top as u32,
                     ),
-                    details.floating,
+                    details.floating_order.is_some(),
                 ));
             }
         }
@@ -220,14 +230,14 @@ impl GlutinWindowWrapper {
         self.mouse_down = false;
     }
 
-    pub fn handle_mouse_wheel(&mut self, x: i32, y: i32) {
+    pub fn handle_mouse_wheel(&mut self, x: f32, y: f32) {
         if !self.mouse_enabled {
             return;
         }
 
         let vertical_input_type = match y {
-            _ if y > 0 => Some("up"),
-            _ if y < 0 => Some("down"),
+            _ if y > 0.0 => Some("up"),
+            _ if y < 0.0 => Some("down"),
             _ => None,
         };
 
@@ -242,8 +252,8 @@ impl GlutinWindowWrapper {
         }
 
         let horizontal_input_type = match y {
-            _ if x > 0 => Some("right"),
-            _ if x < 0 => Some("left"),
+            _ if x > 0.0 => Some("right"),
+            _ if x < 0.0 => Some("left"),
             _ => None,
         };
 
@@ -267,19 +277,19 @@ impl GlutinWindowWrapper {
         REDRAW_SCHEDULER.queue_next_frame();
     }
 
-    pub fn handle_event(&mut self, event: Event<()>) {
+    pub fn handle_event(&mut self, event: Event<()>, running: &Arc<AtomicBool>) {
         let mut keycode = None;
         let mut ignore_text_this_frame = false;
 
         match event {
             Event::LoopDestroyed => {
-                self.handle_quit();
+                self.handle_quit(running);
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
             } => {
-                self.handle_quit();
+                self.handle_quit(running);
             }
             Event::WindowEvent {
                 event: WindowEvent::DroppedFile(path),
@@ -316,8 +326,15 @@ impl GlutinWindowWrapper {
                         ..
                     },
                 ..
-            } => self.handle_mouse_wheel(x as i32, y as i32),
-
+            } => self.handle_mouse_wheel(x as f32, y as f32),
+            Event::WindowEvent {
+                event:
+                    WindowEvent::MouseWheel {
+                        delta: MouseScrollDelta::PixelDelta(logical_position),
+                        ..
+                    },
+                ..
+            } => self.handle_mouse_wheel(0.0, logical_position.y as f32),
             Event::WindowEvent {
                 event:
                     WindowEvent::MouseInput {
@@ -393,7 +410,7 @@ impl GlutinWindowWrapper {
 
 pub fn start_loop(
     window_command_receiver: Receiver<WindowCommand>,
-    ui_command_sender: TxUnbounded<UiCommand>,
+    ui_command_sender: LoggingTx<UiCommand>,
     running: Arc<AtomicBool>,
     logical_size: (u32, u32),
     renderer: Renderer,
@@ -416,7 +433,8 @@ pub fn start_loop(
         .with_title("Neovide")
         .with_inner_size(logical_size)
         .with_window_icon(Some(icon))
-        .with_maximized(std::env::args().any(|arg| arg == "--maximized"));
+        .with_maximized(SETTINGS.get::<CmdLineSettings>().maximized)
+        .with_decorations(!SETTINGS.get::<CmdLineSettings>().frameless);
 
     let windowed_context = ContextBuilder::new()
         .with_depth_buffer(0)
@@ -463,7 +481,7 @@ pub fn start_loop(
 
         window_wrapper.handle_window_commands();
         window_wrapper.synchronize_settings();
-        window_wrapper.handle_event(e);
+        window_wrapper.handle_event(e, &running);
 
         let refresh_rate = { SETTINGS.get::<WindowSettings>().refresh_rate as f32 };
         let expected_frame_length_seconds = 1.0 / refresh_rate;
