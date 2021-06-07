@@ -131,10 +131,6 @@ jobs:
         rustup component add rustfmt --toolchain stable-aarch64-apple-darwin
         cargo fmt --all -- --check
 
-    - name: Uninstall Conflicting LLVM
-      run: |
-        brew uninstall llvm
-
     - name: Install Neovim
       run: |
         brew install neovim
