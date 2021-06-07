@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use lru::LruCache;
-use skia_safe::{FontMetrics, FontMgr, TextBlob, TextBlobBuilder};
+use skia_safe::{FontMetrics, TextBlob, TextBlobBuilder};
 use swash::shape::ShapeContext;
 use swash::text::cluster::{CharCluster, Parser, Status, Token};
 use swash::text::Script;

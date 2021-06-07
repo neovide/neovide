@@ -48,7 +48,7 @@ pub struct SkiaRenderer {
 
 impl SkiaRenderer {
     pub fn new(windowed_context: &WindowedContext) -> SkiaRenderer {
-        gl::load_with(|s| windowed_context.get_proc_address(&s));
+        gl::load_with(|s| windowed_context.get_proc_address(s));
 
         let interface = skia_safe::gpu::gl::Interface::new_load_with(|name| {
             if name == "eglGetCurrentDisplay" {
