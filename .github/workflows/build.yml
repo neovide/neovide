@@ -158,5 +158,5 @@ jobs:
 
     - uses: actions/upload-artifact@v1
       with:
-        name: Neovide.dmg
+        name: Neovide-m1.dmg
         path: ./Neovide.dmg
