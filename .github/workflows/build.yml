@@ -128,7 +128,7 @@ jobs:
 
     - name: Check formatting
       run: |
-        rustup component add rustfmt --toolchain aarch64-apple-darwin
+        rustup component add rustfmt --toolchain stable-aarch64-apple-darwin
         cargo fmt --all -- --check
 
     - name: Uninstall Conflicting LLVM
