@@ -200,8 +200,6 @@ jobs:
       run: |
         cargo install cargo2junit
 
-    - uses: Swatinem/rust-cache@v1
-
     - name: Check Formatting
       run: |
         cargo fmt --all -- --check
