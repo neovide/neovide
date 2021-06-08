@@ -210,10 +210,6 @@ jobs:
       run: |
         cargo clippy --all -- -D warnings
 
-    - name: Uninstall Conflicting LLVM
-      run: |
-        brew uninstall llvm
-
     - name: Install Neovim
       run: |
         brew install neovim
