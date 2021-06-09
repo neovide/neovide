@@ -32,6 +32,12 @@ impl FontPair {
     }
 }
 
+impl PartialEq for FontPair {
+    fn eq(&self, other: &Self) -> bool {
+        self.swash_font.key == other.swash_font.key
+    }
+}
+
 pub struct FontLoader {
     font_mgr: FontMgr,
     cache: LruCache<FontKey, Arc<FontPair>>,

@@ -20,10 +20,10 @@ pub enum WindowDrawCommand {
         floating_order: Option<u64>,
     },
     Cells {
-        cells: Vec<(String, bool)>,
-        cell_width: u64,
+        cells: Vec<String>,
         window_left: u64,
         window_top: u64,
+        width: u64,
         style: Option<Arc<Style>>,
     },
     Scroll {
@@ -199,88 +199,62 @@ impl Window {
         // Insert the contents of the cell into the grid.
         if text.is_empty() {
             if let Some(cell) = self.grid.get_cell_mut(*column_pos, row_index) {
-                *cell = Some((" ".to_string(), style.clone()));
+                *cell = Some((text, style.clone()));
             }
             *column_pos += 1;
         } else {
-            for (i, character) in text.graphemes(true).enumerate() {
-                if let Some(cell) = self.grid.get_cell_mut(i as u64 + *column_pos, row_index) {
+            for character in text.graphemes(true) {
+                if let Some(cell) = self.grid.get_cell_mut(*column_pos, row_index) {
                     *cell = Some((character.to_string(), style.clone()));
                 }
+                *column_pos += 1;
             }
-            *column_pos += text.graphemes(true).count() as u64;
         }
 
         *previous_style = style;
     }
 
     // Send a draw command for the given row starting from current_start up until the next style
-    // change. If the current_start is the same as line_start, this will also work backwards in the
-    // line in order to ensure that ligatures before the beginning of the grid cell are also
-    // updated.
+    // change or double width character.
     fn send_draw_command(
         &self,
         row_index: u64,
-        line_start: u64,
-        current_start: u64,
+        start: u64,
     ) -> Option<u64> {
         let row = self.grid.row(row_index).unwrap();
 
-        let (_, style) = &row[current_start as usize].as_ref()?;
+        let (_, style) = &row[start as usize].as_ref()?;
 
-        let mut draw_command_start_index = current_start;
-        if current_start == line_start {
-            // Locate contiguous same styled cells before the inserted cells.
-            // This way any ligatures are correctly rerendered.
-            // This could be sped up if we knew what characters were a part of a ligature, but in the
-            // current system we do not.
-            for possible_start_index in (0..current_start).rev() {
-                if let Some((_, possible_start_style)) = &row[possible_start_index as usize] {
-                    if style == possible_start_style {
-                        draw_command_start_index = possible_start_index;
-                        continue;
-                    }
-                }
-                break;
-            }
-        }
-
-        let mut draw_command_end_index = current_start;
-        for possible_end_index in draw_command_start_index..self.grid.width {
-            if let Some((_, possible_end_style)) = &row[possible_end_index as usize] {
-                if style == possible_end_style {
-                    draw_command_end_index = possible_end_index;
-                    continue;
-                }
-            }
-            break;
-        }
-
-        // Build up the actual text to be rendered including the contiguously styled bits.
         let mut cells = Vec::new();
-        for x in draw_command_start_index..(draw_command_end_index + 1) {
-            let (character, _) = row[x as usize].as_ref().unwrap();
-            if character.is_empty() {
-                if !cells.is_empty() {
-                    // Represent previous cell as double width
-                    let (previous_character, _) = cells[cells.len() - 1];
-                    cells[cells.len() - 1] = (previous_character, true);
+        let mut width = 0;
+        for possible_end_index in start..self.grid.width {
+            if let Some((character, possible_end_style)) = &row[possible_end_index as usize] {
+                // Style doesn't match. Draw what we've got
+                if style != possible_end_style {
+                    break;
                 }
-            } else {
-                cells.push((character, false));
+
+                width += 1;
+                // The previous character is double width, so send this as its own draw command
+                if character.is_empty() {
+                    break;
+                }
+
+                // Add the grid cell to the cells to render
+                cells.push(character.clone());
             }
         }
 
         // Send a window draw command to the current window.
         self.send_command(WindowDrawCommand::Cells {
             cells,
-            cell_width: draw_command_end_index - draw_command_start_index + 1,
-            window_left: draw_command_start_index,
+            window_left: start,
             window_top: row_index,
+            width,
             style: style.clone(),
         });
 
-        Some(draw_command_end_index + 1)
+        Some(start + width)
     }
 
     pub fn draw_grid_line(
@@ -303,9 +277,9 @@ impl Window {
                 );
             }
 
-            let mut current_start = column_start;
-            while current_start < column_pos {
-                if let Some(next_start) = self.send_draw_command(row, column_start, current_start) {
+            let mut current_start = 0;
+            while current_start < self.grid.width {
+                if let Some(next_start) = self.send_draw_command(row, current_start) {
                     current_start = next_start;
                 } else {
                     break;
@@ -377,7 +351,7 @@ impl Window {
         for row in 0..self.grid.height {
             let mut current_start = 0;
             while current_start < self.grid.width {
-                if let Some(next_start) = self.send_draw_command(row, 0, current_start) {
+                if let Some(next_start) = self.send_draw_command(row, current_start) {
                     current_start = next_start;
                 } else {
                     break;

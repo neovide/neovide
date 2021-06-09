@@ -127,7 +127,7 @@ impl Renderer {
     fn draw_foreground(
         &mut self,
         canvas: &mut Canvas,
-        text: &str,
+        cells: &Vec<String>,
         grid_pos: (u64, u64),
         cell_width: u64,
         style: &Option<Arc<Style>>,
@@ -173,15 +173,13 @@ impl Renderer {
         self.paint
             .set_color(style.foreground(&self.default_style.colors).to_color());
         self.paint.set_anti_alias(false);
-        let text = text.trim_end();
-        if !text.is_empty() {
-            for blob in self
-                .shaper
-                .shape_cached(text, style.bold, style.italic)
-                .iter()
-            {
-                canvas.draw_text_blob(blob, (x, y + y_adjustment), &self.paint);
-            }
+
+        for blob in self
+            .shaper
+            .shape_cached(cells, style.bold, style.italic)
+            .iter()
+        {
+            canvas.draw_text_blob(blob, (x, y + y_adjustment), &self.paint);
         }
 
         if style.strikethrough {

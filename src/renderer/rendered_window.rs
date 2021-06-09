@@ -362,11 +362,11 @@ impl RenderedWindow {
                     self.grid_destination = new_destination;
                 }
             }
-            WindowDrawCommand::Cell {
-                text,
-                cell_width,
+            WindowDrawCommand::Cells {
+                cells,
                 window_left,
                 window_top,
+                width,
                 style,
             } => {
                 let grid_position = (window_left, window_top);
@@ -374,8 +374,8 @@ impl RenderedWindow {
                 let canvas = self.current_surface.surface.canvas();
                 canvas.save();
                 canvas.scale((1.0 / scaling, 1.0 / scaling));
-                renderer.draw_background(canvas, grid_position, cell_width, &style);
-                renderer.draw_foreground(canvas, &text, grid_position, cell_width, &style);
+                renderer.draw_background(canvas, grid_position, width, &style);
+                renderer.draw_foreground(canvas, &cells, grid_position, width, &style);
                 canvas.restore();
             }
             WindowDrawCommand::Scroll {

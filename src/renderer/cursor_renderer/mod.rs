@@ -360,7 +360,7 @@ impl CursorRenderer {
             canvas.clip_path(&path, None, Some(false));
 
             let y_adjustment = shaper.y_adjustment();
-            let blobs = &shaper.shape_cached(&character, false, false);
+            let blobs = &shaper.shape_cached(&vec![character], false, false);
 
             for blob in blobs.iter() {
                 canvas.draw_text_blob(
