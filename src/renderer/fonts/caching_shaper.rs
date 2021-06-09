@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use lru::LruCache;
-use skia_safe::{FontMetrics, FontMgr, TextBlob, TextBlobBuilder};
+use skia_safe::{FontMetrics, TextBlob, TextBlobBuilder};
 use swash::shape::ShapeContext;
-use swash::text::Script;
 use swash::text::cluster::{CharCluster, Parser, Status, Token};
+use swash::text::Script;
 
 use super::font_loader::*;
 use super::font_options::*;
@@ -100,7 +100,7 @@ impl CachingShaper {
 
     fn build_clusters(&mut self, text: &str) -> Vec<(CharCluster, Arc<FontPair>)> {
         let mut cluster = CharCluster::new();
-        let mut parser  =  Parser::new(
+        let mut parser = Parser::new(
             Script::Latin,
             text.char_indices().map(|(i, ch)| Token {
                 ch,
@@ -108,7 +108,7 @@ impl CachingShaper {
                 len: ch.len_utf8() as u8,
                 info: ch.into(),
                 data: 0,
-            })
+            }),
         );
 
         let mut results = Vec::new();
@@ -116,13 +116,15 @@ impl CachingShaper {
             if let Some(options) = &self.options {
                 let mut best = None;
                 for font_name in options.fallback_list.iter() {
-                    if let Some(font_pair) = self.font_loader.get_or_load(Some(font_name.to_owned())) {
+                    if let Some(font_pair) =
+                        self.font_loader.get_or_load(Some(font_name.to_owned()))
+                    {
                         let charmap = font_pair.swash_font.as_ref().charmap();
                         match cluster.map(|ch| charmap.map(ch)) {
                             Status::Complete => {
                                 results.push((cluster.to_owned(), font_pair.clone()));
                                 break;
-                            },
+                            }
                             Status::Keep => best = Some(font_pair.clone()),
                             Status::Discard => {}
                         }
@@ -133,7 +135,10 @@ impl CachingShaper {
                     results.push((cluster.to_owned(), best.clone()));
                 }
             } else {
-                let default_font = self.font_loader.get_or_load(None).expect("Could not load default font");
+                let default_font = self
+                    .font_loader
+                    .get_or_load(None)
+                    .expect("Could not load default font");
                 results.push((cluster.to_owned(), default_font));
             }
         }

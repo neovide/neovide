@@ -97,7 +97,6 @@ jobs:
 
     - name: Test
       env:
-        NEOVIM_BIN: "C:/tools/neovim/Neovim/bin/nvim.exe"
         RUST_BACKTRACE: full
       run: |
         cargo test -- -- -Z unstable-options --format json | cargo2junit > results.xml
@@ -147,7 +146,7 @@ jobs:
 
     - name: Install Dependencies
       run:  |
-        sudo apt-get install -y curl gnupg ca-certificates git gcc-multilib g++-multilib cmake libssl-dev pkg-config libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev libxi-dev libsdl2-dev
+        sudo apt-get install -y curl gnupg ca-certificates git gcc-multilib g++-multilib cmake libssl-dev pkg-config libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev libxi-dev
         
     - name: Check Formatting
       run: |
@@ -163,7 +162,6 @@ jobs:
 
     - name: Test
       env:
-        NEOVIM_BIN: "C:/tools/neovim/Neovim/bin/nvim.exe"
         RUST_BACKTRACE: full
       run: |
         cargo test -- -- -Z unstable-options --format json | cargo2junit > results.xml
@@ -182,3 +180,62 @@ jobs:
       with:
         name: neovide-linux
         path: ./target/release/neovide
+
+  build-m1:
+
+    runs-on: self-hosted
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install Nightly Toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: nightly
+        components: rustfmt, clippy
+        override: true
+
+    - name: Install Utilities
+      run: |
+        cargo install cargo2junit
+
+    - name: Check Formatting
+      run: |
+        cargo fmt --all -- --check
+
+    - name: Lint with Clippy
+      run: |
+        cargo clippy --all -- -D warnings
+
+    - name: Install Neovim
+      run: |
+        brew install neovim
+
+    - name: Test
+      env:
+        RUST_BACKTRACE: full
+      run: |
+        cargo test -- -- -Z unstable-options --format json | cargo2junit > results.xml
+
+    - name: Publish Test Results
+      uses: EnricoMi/publish-unit-test-result-action/composite@v1
+      if: always()
+      with:
+        files: results.xml
+
+    - name: Build Release
+      run: |
+        cargo build --release
+        cargo install cargo-bundle
+        cargo bundle --release
+
+    - name: Create .dmg file
+      run: |
+        hdiutil create Neovide-uncompressed.dmg -volname "Neovide" -srcfolder target/release/bundle/osx
+        hdiutil convert Neovide-uncompressed.dmg -format UDZO -o Neovide.dmg
+
+    - uses: actions/upload-artifact@v1
+      with:
+        name: Neovide-m1.dmg
+        path: ./Neovide.dmg

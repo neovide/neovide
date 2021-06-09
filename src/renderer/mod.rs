@@ -222,7 +222,7 @@ impl Renderer {
                 {
                     let new_window = RenderedWindow::new(
                         root_canvas,
-                        &self,
+                        self,
                         grid_id,
                         (grid_left as f32, grid_top as f32).into(),
                         width,

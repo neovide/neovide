@@ -337,7 +337,7 @@ impl RenderedWindow {
                     let mut old_surface = self.current_surface.surface;
                     self.current_surface.surface = build_window_surface_with_grid_size(
                         old_surface.canvas(),
-                        &renderer,
+                        renderer,
                         grid_width,
                         grid_height,
                         scaling,
@@ -417,7 +417,7 @@ impl RenderedWindow {
             WindowDrawCommand::Clear => {
                 self.current_surface.surface = build_window_surface_with_grid_size(
                     self.current_surface.surface.canvas(),
-                    &renderer,
+                    renderer,
                     self.grid_width,
                     self.grid_height,
                     scaling,

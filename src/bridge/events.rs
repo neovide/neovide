@@ -10,32 +10,32 @@ use crate::editor::{Colors, CursorMode, CursorShape, Style};
 
 #[derive(Clone, Debug)]
 pub enum ParseError {
-    InvalidArray(Value),
-    InvalidMap(Value),
-    InvalidString(Value),
-    InvalidU64(Value),
-    InvalidI64(Value),
-    InvalidF64(Value),
-    InvalidBool(Value),
-    InvalidWindowAnchor(Value),
-    InvalidFormat(String),
+    Array(Value),
+    Map(Value),
+    String(Value),
+    U64(Value),
+    I64(Value),
+    F64(Value),
+    Bool(Value),
+    WindowAnchor(Value),
+    Format(String),
 }
 type Result<T> = std::result::Result<T, ParseError>;
 
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ParseError::InvalidArray(value) => write!(f, "invalid array format {}", value),
-            ParseError::InvalidMap(value) => write!(f, "invalid map format {}", value),
-            ParseError::InvalidString(value) => write!(f, "invalid string format {}", value),
-            ParseError::InvalidU64(value) => write!(f, "invalid u64 format {}", value),
-            ParseError::InvalidI64(value) => write!(f, "invalid i64 format {}", value),
-            ParseError::InvalidF64(value) => write!(f, "invalid f64 format {}", value),
-            ParseError::InvalidBool(value) => write!(f, "invalid bool format {}", value),
-            ParseError::InvalidWindowAnchor(value) => {
+            ParseError::Array(value) => write!(f, "invalid array format {}", value),
+            ParseError::Map(value) => write!(f, "invalid map format {}", value),
+            ParseError::String(value) => write!(f, "invalid string format {}", value),
+            ParseError::U64(value) => write!(f, "invalid u64 format {}", value),
+            ParseError::I64(value) => write!(f, "invalid i64 format {}", value),
+            ParseError::F64(value) => write!(f, "invalid f64 format {}", value),
+            ParseError::Bool(value) => write!(f, "invalid bool format {}", value),
+            ParseError::WindowAnchor(value) => {
                 write!(f, "invalid window anchor format {}", value)
             }
-            ParseError::InvalidFormat(debug_text) => {
+            ParseError::Format(debug_text) => {
                 write!(f, "invalid event format {}", debug_text)
             }
         }
@@ -359,7 +359,7 @@ fn extract_values<Arr: AsMut<[Value]>>(values: Vec<Value>, mut arr: Arr) -> Resu
     let arr_ref = arr.as_mut();
 
     if values.len() != arr_ref.len() {
-        Err(ParseError::InvalidFormat(format!("{:?}", values)))
+        Err(ParseError::Format(format!("{:?}", values)))
     } else {
         for (i, val) in values.into_iter().enumerate() {
             arr_ref[i] = val;
@@ -370,31 +370,31 @@ fn extract_values<Arr: AsMut<[Value]>>(values: Vec<Value>, mut arr: Arr) -> Resu
 }
 
 fn parse_array(array_value: Value) -> Result<Vec<Value>> {
-    array_value.try_into().map_err(ParseError::InvalidArray)
+    array_value.try_into().map_err(ParseError::Array)
 }
 
 fn parse_map(map_value: Value) -> Result<Vec<(Value, Value)>> {
-    map_value.try_into().map_err(ParseError::InvalidMap)
+    map_value.try_into().map_err(ParseError::Map)
 }
 
 fn parse_string(string_value: Value) -> Result<String> {
-    string_value.try_into().map_err(ParseError::InvalidString)
+    string_value.try_into().map_err(ParseError::String)
 }
 
 fn parse_u64(u64_value: Value) -> Result<u64> {
-    u64_value.try_into().map_err(ParseError::InvalidU64)
+    u64_value.try_into().map_err(ParseError::U64)
 }
 
 fn parse_i64(i64_value: Value) -> Result<i64> {
-    i64_value.try_into().map_err(ParseError::InvalidI64)
+    i64_value.try_into().map_err(ParseError::I64)
 }
 
 fn parse_f64(f64_value: Value) -> Result<f64> {
-    f64_value.try_into().map_err(ParseError::InvalidF64)
+    f64_value.try_into().map_err(ParseError::F64)
 }
 
 fn parse_bool(bool_value: Value) -> Result<bool> {
-    bool_value.try_into().map_err(ParseError::InvalidBool)
+    bool_value.try_into().map_err(ParseError::Bool)
 }
 
 fn parse_set_title(set_title_arguments: Vec<Value>) -> Result<RedrawEvent> {
@@ -567,7 +567,7 @@ fn parse_grid_line_cell(grid_line_cell: Value) -> Result<GridLineCell> {
     let text_value = cell_contents
         .first_mut()
         .map(|v| take_value(v))
-        .ok_or_else(|| ParseError::InvalidFormat(format!("{:?}", cell_contents)))?;
+        .ok_or_else(|| ParseError::Format(format!("{:?}", cell_contents)))?;
 
     let highlight_id = cell_contents
         .get_mut(1)
@@ -680,7 +680,7 @@ fn parse_window_anchor(value: Value) -> Result<WindowAnchor> {
         "NE" => Ok(WindowAnchor::NorthEast),
         "SW" => Ok(WindowAnchor::SouthWest),
         "SE" => Ok(WindowAnchor::SouthEast),
-        _ => Err(ParseError::InvalidWindowAnchor(value_str.into())),
+        _ => Err(ParseError::WindowAnchor(value_str.into())),
     }
 }
 
@@ -925,7 +925,7 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
     let mut event_contents = parse_array(event_value)?.into_iter();
     let event_name = event_contents
         .next()
-        .ok_or_else(|| ParseError::InvalidFormat(format!("{:?}", event_contents)))
+        .ok_or_else(|| ParseError::Format(format!("{:?}", event_contents)))
         .and_then(parse_string)?;
 
     let events = event_contents;
@@ -989,7 +989,7 @@ pub fn parse_channel_stream_type(channel_stream_value: Value) -> Result<ChannelS
         "stderr" => Ok(ChannelStreamType::Stderr),
         "socket" => Ok(ChannelStreamType::Socket),
         "job" => Ok(ChannelStreamType::Job),
-        stream_type => Err(ParseError::InvalidFormat(format!("{:?}", stream_type))),
+        stream_type => Err(ParseError::Format(format!("{:?}", stream_type))),
     }
 }
 
@@ -998,7 +998,7 @@ pub fn parse_channel_mode(channel_mode_value: Value) -> Result<ChannelMode> {
         "bytes" => Ok(ChannelMode::Bytes),
         "terminal" => Ok(ChannelMode::Terminal),
         "rpc" => Ok(ChannelMode::Rpc),
-        channel_mode => Err(ParseError::InvalidFormat(format!("{:?}", channel_mode))),
+        channel_mode => Err(ParseError::Format(format!("{:?}", channel_mode))),
     }
 }
 
@@ -1032,7 +1032,7 @@ pub fn parse_client_type(client_type_value: Value) -> Result<ClientType> {
         "embedder" => Ok(ClientType::Embedder),
         "host" => Ok(ClientType::Host),
         "plugin" => Ok(ClientType::Plugin),
-        client_type => Err(ParseError::InvalidFormat(format!("{:?}", client_type))),
+        client_type => Err(ParseError::Format(format!("{:?}", client_type))),
     }
 }
 

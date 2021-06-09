@@ -397,7 +397,7 @@ impl GlutinWindowWrapper {
                 let canvas = self.skia_renderer.canvas();
 
                 if renderer.draw_frame(canvas, dt, scaling as f32) {
-                    handle_new_grid_size(current_size.into(), &renderer, &ui_command_sender);
+                    handle_new_grid_size(current_size.into(), renderer, &ui_command_sender);
                 }
             }
 

@@ -339,7 +339,7 @@ impl CursorRenderer {
 
         if self.cursor.enabled && render {
             // Draw Background
-            paint.set_color(self.cursor.background(&default_colors).to_color());
+            paint.set_color(self.cursor.background(default_colors).to_color());
 
             // The cursor is made up of four points, so I create a path with each of the four
             // corners.
@@ -354,7 +354,7 @@ impl CursorRenderer {
             canvas.draw_path(&path, &paint);
 
             // Draw foreground
-            paint.set_color(self.cursor.foreground(&default_colors).to_color());
+            paint.set_color(self.cursor.foreground(default_colors).to_color());
 
             canvas.save();
             canvas.clip_path(&path, None, Some(false));
@@ -377,7 +377,7 @@ impl CursorRenderer {
                     &settings,
                     canvas,
                     &self.cursor,
-                    &default_colors,
+                    default_colors,
                     (font_width, font_height),
                 );
             }

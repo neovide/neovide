@@ -138,7 +138,7 @@ impl CursorVfx for PointHighlight {
         let mut paint = Paint::new(skia_safe::colors::WHITE, None);
         paint.set_blend_mode(BlendMode::SrcOver);
 
-        let base_color: Color = cursor.background(&colors).to_color();
+        let base_color: Color = cursor.background(colors).to_color();
         let alpha = ease(ease_in_quad, settings.vfx_opacity, 0.0, self.t) as u8;
         let color = Color::from_argb(alpha, base_color.r(), base_color.g(), base_color.b());
 
@@ -327,7 +327,7 @@ impl CursorVfx for ParticleTrail {
             _ => {}
         }
 
-        let base_color: Color = cursor.background(&colors).to_color();
+        let base_color: Color = cursor.background(colors).to_color();
 
         paint.set_blend_mode(BlendMode::SrcOver);
 
