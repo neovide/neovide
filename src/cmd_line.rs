@@ -124,7 +124,6 @@ pub fn handle_command_line_arguments() {
             .map(|opt| opt.map(|v| v.to_owned()).collect())
             .unwrap_or_default(),
         maximized: matches.is_present("maximized")
-            || std::env::var("NeovideMaximized").is_ok()
             || std::env::var("NEOVIDE_MAXIMIZED").is_ok(),
         multi_grid: std::env::var("NEOVIDE_MULTIGRID").is_ok()
             || std::env::var("NeovideMultiGrid").is_ok()
@@ -134,7 +133,6 @@ pub fn handle_command_line_arguments() {
         wsl: matches.is_present("wsl"),
         geometry: matches.value_of("geometry").map(|i| i.to_owned()),
         frameless: matches.is_present("frameless")
-            || std::env::var("NeovideFrameless").is_ok()
             || std::env::var("NEOVIDE_FRAMELESS").is_ok(),
     });
 }
