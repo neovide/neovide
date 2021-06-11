@@ -68,15 +68,15 @@ fn windows_fix_dpi() {
 }
 
 fn handle_new_grid_size(
-    new_size: (u32, u32),
+    new_size: (u64, u64),
     renderer: &Renderer,
     ui_command_sender: &LoggingTx<UiCommand>,
 ) {
     let (new_width, new_height) = new_size;
     if new_width > 0 && new_height > 0 {
         // Add 1 here to make sure resizing doesn't change the grid size on startup
-        let new_width = ((new_width + 1) as f32 / renderer.font_width) as u32;
-        let new_height = ((new_height + 1) as f32 / renderer.font_height) as u32;
+        let new_width = ((new_width + 1) / renderer.font_width) as u32;
+        let new_height = ((new_height + 1) / renderer.font_height) as u32;
         ui_command_sender
             .send(UiCommand::Resize {
                 width: new_width,
@@ -96,8 +96,8 @@ pub fn create_window(
 
     let renderer = Renderer::new(batched_draw_command_receiver);
     let logical_size = (
-        (width as f32 * renderer.font_width) as u32,
-        (height as f32 * renderer.font_height + 1.0) as u32,
+        (width * renderer.font_width) as u64,
+        (height * renderer.font_height + 1) as u64,
     );
 
     #[cfg(target_os = "windows")]

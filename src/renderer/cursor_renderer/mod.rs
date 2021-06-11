@@ -225,8 +225,8 @@ impl CursorRenderer {
 
     pub fn update_cursor_destination(
         &mut self,
-        font_width: f32,
-        font_height: f32,
+        font_width: u64,
+        font_height: u64,
         windows: &HashMap<u64, RenderedWindow>,
     ) {
         let (cursor_grid_x, cursor_grid_y) = self.cursor.grid_position;
@@ -234,7 +234,7 @@ impl CursorRenderer {
         if let Some(window) = windows.get(&self.cursor.parent_window_id) {
             let grid_x = cursor_grid_x as f32 + window.grid_current_position.x;
             let mut grid_y = cursor_grid_y as f32 + window.grid_current_position.y
-                - (window.current_scroll - window.current_surface.top_line);
+                - (window.current_scroll - window.current_surface.top_line as f32);
 
             // Prevent the cursor from targeting a position outside its current window. Since only
             // the vertical direction is effected by scrolling, we only have to clamp the vertical
@@ -243,11 +243,11 @@ impl CursorRenderer {
                 .max(window.grid_current_position.y)
                 .min(window.grid_current_position.y + window.grid_height as f32 - 1.0);
 
-            self.destination = (grid_x * font_width, grid_y * font_height).into();
+            self.destination = (grid_x * font_width as f32, grid_y * font_height as f32).into();
         } else {
             self.destination = (
-                cursor_grid_x as f32 * font_width,
-                cursor_grid_y as f32 * font_height,
+                (cursor_grid_x * font_width) as f32,
+                (cursor_grid_y * font_height) as f32,
             )
                 .into();
         }
@@ -256,7 +256,7 @@ impl CursorRenderer {
     pub fn draw(
         &mut self,
         default_colors: &Colors,
-        font_size: (f32, f32),
+        font_size: (u64, u64),
         current_mode: &EditorMode,
         shaper: &mut CachingShaper,
         canvas: &mut Canvas,
@@ -277,11 +277,11 @@ impl CursorRenderer {
         let character = self.cursor.character.clone();
 
         let font_width = match (self.cursor.double_width, &self.cursor.shape) {
-            (true, CursorShape::Block) => font_width * 2.0,
+            (true, CursorShape::Block) => font_width * 2,
             _ => font_width,
         };
 
-        let font_dimensions: Point = (font_width, font_height).into();
+        let font_dimensions: Point = (font_width as f32, font_height as f32).into();
 
         let in_insert_mode = matches!(current_mode, EditorMode::Insert);
         let changed_to_from_cmdline = !matches!(self.previous_editor_mode, EditorMode::CmdLine)
@@ -365,7 +365,7 @@ impl CursorRenderer {
             for blob in blobs.iter() {
                 canvas.draw_text_blob(
                     &blob,
-                    (self.destination.x, self.destination.y + y_adjustment),
+                    (self.destination.x, self.destination.y + y_adjustment as f32),
                     &paint,
                 );
             }

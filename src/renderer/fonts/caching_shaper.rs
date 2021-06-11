@@ -82,25 +82,27 @@ impl CachingShaper {
         }
     }
 
-    pub fn font_base_dimensions(&mut self) -> (f32, f32) {
+    pub fn font_base_dimensions(&mut self) -> (u64, u64) {
         let metrics = self.metrics();
-        let font_height = metrics.ascent + metrics.descent;
-        let font_width = metrics.average_width;
+        let font_height = (metrics.ascent + metrics.descent) as u64;
+        let font_width = metrics.average_width as u64;
 
         (font_width, font_height)
     }
 
-    pub fn underline_position(&mut self) -> f32 {
-        self.metrics().underline_offset
+    pub fn underline_position(&mut self) -> u64 {
+        self.metrics().underline_offset as u64
     }
 
-    pub fn y_adjustment(&mut self) -> f32 {
-        self.metrics().ascent
+    pub fn y_adjustment(&mut self) -> u64 {
+        self.metrics().ascent as u64
     }
 
     fn build_clusters(&mut self, text: &str) -> Vec<(Vec<CharCluster>, Arc<FontPair>)> {
         let mut cluster = CharCluster::new();
 
+        // Enumerate the characters storing the glyph index in the user data so that we can position
+        // glyphs according to Neovim's grid rules
         let mut character_index = 0;
         let mut parser  =  Parser::new(
             Script::Latin,
@@ -209,7 +211,7 @@ impl CachingShaper {
 
             shaper.shape_with(|glyph_cluster| {
                 for glyph in glyph_cluster.glyphs {
-                    glyph_data.push((glyph.id, glyph.data as f32 * glyph_width));
+                    glyph_data.push((glyph.id, glyph.data as u64 * glyph_width));
                 }
             });
 
@@ -222,7 +224,7 @@ impl CachingShaper {
                 blob_builder.alloc_run_pos_h(&font_pair.skia_font, glyph_data.len(), 0.0, None);
             for (i, (glyph_id, glyph_x_position)) in glyph_data.iter().enumerate() {
                 glyphs[i] = *glyph_id;
-                positions[i] = glyph_x_position.floor();
+                positions[i] = *glyph_x_position as f32;
             }
 
             let blob = blob_builder.make();

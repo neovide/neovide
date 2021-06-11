@@ -47,8 +47,8 @@ pub struct Renderer {
     pub paint: Paint,
     pub shaper: CachingShaper,
     pub default_style: Arc<Style>,
-    pub font_width: f32,
-    pub font_height: f32,
+    pub font_width: u64,
+    pub font_height: u64,
     pub window_regions: Vec<WindowDrawDetails>,
     pub batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
 }
@@ -64,7 +64,7 @@ impl Renderer {
         let mut shaper = CachingShaper::new();
         let (font_width_raw, font_height_raw) = shaper.font_base_dimensions();
         let font_width = font_width_raw;
-        let font_height = font_height_raw.ceil();
+        let font_height = font_height_raw;
         let default_style = Arc::new(Style::new(Colors::new(
             Some(colors::WHITE),
             Some(colors::BLACK),
@@ -90,17 +90,17 @@ impl Renderer {
         if self.shaper.update_font(guifont_setting) {
             let (font_width, font_height) = self.shaper.font_base_dimensions();
             self.font_width = font_width;
-            self.font_height = font_height.ceil();
+            self.font_height = font_height;
         }
     }
 
     fn compute_text_region(&self, grid_pos: (u64, u64), cell_width: u64) -> Rect {
         let (grid_x, grid_y) = grid_pos;
-        let x = grid_x as f32 * self.font_width;
-        let y = grid_y as f32 * self.font_height;
-        let width = cell_width as f32 * self.font_width as f32;
-        let height = self.font_height as f32;
-        Rect::new(x, y, x + width, y + height)
+        let x = grid_x * self.font_width;
+        let y = grid_y * self.font_height;
+        let width = cell_width * self.font_width;
+        let height = self.font_height;
+        Rect::new(x as f32, y as f32, (x + width) as f32, (y + height) as f32)
     }
 
     fn get_default_background(&self) -> Color {
@@ -133,9 +133,9 @@ impl Renderer {
         style: &Option<Arc<Style>>,
     ) {
         let (grid_x, grid_y) = grid_pos;
-        let x = grid_x as f32 * self.font_width;
-        let y = grid_y as f32 * self.font_height;
-        let width = cell_width as f32 * self.font_width;
+        let x = grid_x * self.font_width;
+        let y = grid_y * self.font_height;
+        let width = cell_width * self.font_width;
 
         let style = style.as_ref().unwrap_or(&self.default_style);
 
@@ -162,8 +162,8 @@ impl Renderer {
             }
 
             canvas.draw_line(
-                (x, y - line_position + self.font_height),
-                (x + width, y - line_position + self.font_height),
+                (x as f32, (y - line_position + self.font_height) as f32),
+                ((x + width) as f32, (y - line_position + self.font_height) as f32),
                 &self.paint,
             );
         }
@@ -179,14 +179,14 @@ impl Renderer {
             .shape_cached(cells, style.bold, style.italic)
             .iter()
         {
-            canvas.draw_text_blob(blob, (x, y + y_adjustment), &self.paint);
+            canvas.draw_text_blob(blob, (x as f32, (y + y_adjustment) as f32), &self.paint);
         }
 
         if style.strikethrough {
             let line_position = region.center_y();
             self.paint
                 .set_color(style.special(&self.default_style.colors).to_color());
-            canvas.draw_line((x, line_position), (x + width, line_position), &self.paint);
+            canvas.draw_line((x as f32, line_position), ((x + width) as f32, line_position), &self.paint);
         }
 
         canvas.restore();

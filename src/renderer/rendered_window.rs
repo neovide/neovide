@@ -14,10 +14,10 @@ use crate::redraw_scheduler::REDRAW_SCHEDULER;
 
 fn build_window_surface(
     parent_canvas: &mut Canvas,
-    pixel_width: i32,
-    pixel_height: i32,
+    pixel_width: u64,
+    pixel_height: u64,
 ) -> Surface {
-    let dimensions = (pixel_width, pixel_height);
+    let dimensions = (pixel_width as i32, pixel_height as i32);
     let mut context = parent_canvas.recording_context().unwrap();
     let budgeted = Budgeted::Yes;
     let parent_image_info = parent_canvas.image_info();
@@ -49,8 +49,8 @@ fn build_window_surface_with_grid_size(
     grid_height: u64,
     scaling: f32,
 ) -> Surface {
-    let pixel_width = (grid_width as f32 * renderer.font_width / scaling) as i32;
-    let pixel_height = (grid_height as f32 * renderer.font_height / scaling) as i32;
+    let pixel_width = ((grid_width * renderer.font_width) as f32 / scaling) as u64;
+    let pixel_height = ((grid_height * renderer.font_height) as f32 / scaling) as u64;
     let mut surface = build_window_surface(parent_canvas, pixel_width, pixel_height);
 
     let canvas = surface.canvas();
@@ -60,12 +60,12 @@ fn build_window_surface_with_grid_size(
 
 pub struct LocatedSnapshot {
     image: Image,
-    top_line: f32,
+    top_line: u64,
 }
 
 pub struct LocatedSurface {
     surface: Surface,
-    pub top_line: f32,
+    pub top_line: u64,
 }
 
 impl LocatedSurface {
@@ -74,7 +74,7 @@ impl LocatedSurface {
         renderer: &Renderer,
         grid_width: u64,
         grid_height: u64,
-        top_line: f32,
+        top_line: u64,
         scaling: f32,
     ) -> LocatedSurface {
         let surface = build_window_surface_with_grid_size(
@@ -140,7 +140,7 @@ impl RenderedWindow {
             renderer,
             grid_width,
             grid_height,
-            0.0,
+            0,
             scaling,
         );
 
@@ -166,14 +166,14 @@ impl RenderedWindow {
         }
     }
 
-    pub fn pixel_region(&self, font_width: f32, font_height: f32) -> Rect {
+    pub fn pixel_region(&self, font_width: u64, font_height: u64) -> Rect {
         let current_pixel_position = Point::new(
-            (self.grid_current_position.x * font_width).floor(),
-            (self.grid_current_position.y * font_height).floor(),
+            self.grid_current_position.x * font_width as f32,
+            self.grid_current_position.y * font_height as f32,
         );
 
-        let image_width = (self.grid_width as f32 * font_width).floor() as i32;
-        let image_height = (self.grid_height as f32 * font_height).floor() as i32;
+        let image_width = (self.grid_width * font_width) as i32;
+        let image_height = (self.grid_height * font_height) as i32;
 
         Rect::from_point_and_size(current_pixel_position, (image_width, image_height))
     }
@@ -225,8 +225,8 @@ impl RenderedWindow {
         root_canvas: &mut Canvas,
         settings: &RendererSettings,
         default_background: Color,
-        font_width: f32,
-        font_height: f32,
+        font_width: u64,
+        font_height: u64,
         dt: f32,
     ) -> WindowDrawDetails {
         if self.update(settings, dt) {
@@ -267,23 +267,23 @@ impl RenderedWindow {
 
         // Draw scrolling snapshots
         for snapshot in self.snapshots.iter_mut().rev() {
-            let scroll_offset = snapshot.top_line * font_height - self.current_scroll * font_height;
+            let scroll_offset = (snapshot.top_line * font_height) as f32 - (self.current_scroll * font_height as f32);
             let image = &mut snapshot.image;
             root_canvas.draw_image_rect(
                 image,
                 None,
-                pixel_region.with_offset((0.0, scroll_offset.floor())),
+                pixel_region.with_offset((0.0, scroll_offset as f32)),
                 &paint,
             );
         }
         // Draw current surface
         let scroll_offset =
-            self.current_surface.top_line * font_height - self.current_scroll * font_height;
+            (self.current_surface.top_line * font_height) as f32 - (self.current_scroll * font_height as f32) ;
         let snapshot = self.current_surface.surface.image_snapshot();
         root_canvas.draw_image_rect(
             snapshot,
             None,
-            pixel_region.with_offset((0.0, scroll_offset.floor())),
+            pixel_region.with_offset((0.0, scroll_offset as f32)),
             &paint,
         );
 
@@ -387,16 +387,16 @@ impl RenderedWindow {
                 cols,
             } => {
                 let scrolled_region = Rect::new(
-                    left as f32 * renderer.font_width / scaling,
-                    top as f32 * renderer.font_height / scaling,
-                    right as f32 * renderer.font_width / scaling,
-                    bot as f32 * renderer.font_height / scaling,
+                    (left * renderer.font_width) as f32 / scaling,
+                    (top * renderer.font_height) as f32 / scaling,
+                    (right * renderer.font_width) as f32 / scaling,
+                    (bot * renderer.font_height) as f32 / scaling,
                 );
 
                 let mut translated_region = scrolled_region;
                 translated_region.offset((
-                    -cols as f32 * renderer.font_width / scaling,
-                    -rows as f32 * renderer.font_height / scaling,
+                    (-cols * renderer.font_width as i64) as f32 / scaling,
+                    (-rows * renderer.font_height as i64) as f32 / scaling,
                 ));
 
                 let snapshot = self.current_surface.surface.image_snapshot();
@@ -434,7 +434,7 @@ impl RenderedWindow {
             }
             WindowDrawCommand::Hide => self.hidden = true,
             WindowDrawCommand::Viewport { top_line, .. } => {
-                if (self.current_surface.top_line - top_line as f32).abs() > std::f32::EPSILON {
+                if self.current_surface.top_line != top_line as u64 {
                     let new_snapshot = self.current_surface.snapshot();
                     self.snapshots.push_back(new_snapshot);
 
@@ -442,7 +442,7 @@ impl RenderedWindow {
                         self.snapshots.pop_front();
                     }
 
-                    self.current_surface.top_line = top_line as f32;
+                    self.current_surface.top_line = top_line as u64;
 
                     // Set new target viewport position and initialize animation timer
                     self.start_scroll = self.current_scroll;
