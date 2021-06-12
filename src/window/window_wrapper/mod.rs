@@ -442,6 +442,7 @@ pub fn start_loop(
 
     let windowed_context = ContextBuilder::new()
         .with_pixel_format(24, 8)
+        .with_stencil_buffer(8)
         .with_gl_profile(GlProfile::Core)
         .with_vsync(false)
         .with_srgb(false)

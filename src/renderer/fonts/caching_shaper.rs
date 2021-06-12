@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use log::{error, trace};
 use lru::LruCache;
 use skia_safe::{TextBlob, TextBlobBuilder};
 use swash::Metrics;
@@ -84,7 +85,7 @@ impl CachingShaper {
 
     pub fn font_base_dimensions(&mut self) -> (u64, u64) {
         let metrics = self.metrics();
-        let font_height = (metrics.ascent + metrics.descent) as u64;
+        let font_height = (metrics.ascent + metrics.descent).ceil() as u64;
         let font_width = metrics.average_width as u64;
 
         (font_width, font_height)
