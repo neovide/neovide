@@ -174,8 +174,8 @@ impl GlutinWindowWrapper {
         if let Some((grid_id, grid_position, grid_floating)) = top_grid_position {
             self.grid_id_under_mouse = grid_id;
             self.mouse_position = LogicalPosition::new(
-                (grid_position.width as f32 / self.renderer.font_width) as u32,
-                (grid_position.height as f32 / self.renderer.font_height) as u32,
+                (grid_position.width as u64 / self.renderer.font_width) as u32,
+                (grid_position.height as u64 / self.renderer.font_height) as u32,
             );
 
             if self.mouse_enabled && self.mouse_down && previous_position != self.mouse_position {
@@ -187,10 +187,10 @@ impl GlutinWindowWrapper {
                 let position = if grid_floating {
                     (self.mouse_position.x, self.mouse_position.y)
                 } else {
-                    let adjusted_drag_left =
-                        self.mouse_position.x + (window_left / self.renderer.font_width) as u32;
-                    let adjusted_drag_top =
-                        self.mouse_position.y + (window_top / self.renderer.font_height) as u32;
+                    let adjusted_drag_left = self.mouse_position.x
+                        + (window_left / self.renderer.font_width as f32) as u32;
+                    let adjusted_drag_top = self.mouse_position.y
+                        + (window_top / self.renderer.font_height as f32) as u32;
                     (adjusted_drag_left, adjusted_drag_top)
                 };
 
@@ -375,9 +375,9 @@ impl GlutinWindowWrapper {
         let new_size = window.inner_size();
         if self.previous_size != new_size {
             self.previous_size = new_size;
-            let new_size = new_size.to_logical(window.scale_factor());
+            let new_size: LogicalSize<u32> = new_size.to_logical(window.scale_factor());
             handle_new_grid_size(
-                (new_size.width, new_size.height),
+                (new_size.width as u64, new_size.height as u64),
                 &self.renderer,
                 &self.ui_command_sender,
             );
@@ -397,7 +397,11 @@ impl GlutinWindowWrapper {
                 let canvas = self.skia_renderer.canvas();
 
                 if renderer.draw_frame(canvas, dt, scaling as f32) {
-                    handle_new_grid_size(current_size.into(), renderer, &ui_command_sender);
+                    handle_new_grid_size(
+                        (current_size.width as u64, current_size.height as u64),
+                        &renderer,
+                        &ui_command_sender,
+                    );
                 }
             }
 
@@ -412,7 +416,7 @@ pub fn start_loop(
     window_command_receiver: Receiver<WindowCommand>,
     ui_command_sender: LoggingTx<UiCommand>,
     running: Arc<AtomicBool>,
-    logical_size: (u32, u32),
+    logical_size: (u64, u64),
     renderer: Renderer,
 ) {
     let icon = {
@@ -428,7 +432,8 @@ pub fn start_loop(
     log::info!("icon created");
 
     let event_loop = EventLoop::new();
-    let logical_size: LogicalSize<u32> = logical_size.into();
+    let (width, height) = logical_size;
+    let logical_size: LogicalSize<u32> = (width as u32, height as u32).into();
     let winit_window_builder = window::WindowBuilder::new()
         .with_title("Neovide")
         .with_inner_size(logical_size)
@@ -437,9 +442,8 @@ pub fn start_loop(
         .with_decorations(!SETTINGS.get::<CmdLineSettings>().frameless);
 
     let windowed_context = ContextBuilder::new()
-        .with_depth_buffer(0)
-        .with_stencil_buffer(0)
         .with_pixel_format(24, 8)
+        .with_stencil_buffer(8)
         .with_gl_profile(GlProfile::Core)
         .with_vsync(false)
         .with_srgb(false)

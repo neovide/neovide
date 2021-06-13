@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fmt;
 use std::sync::Arc;
 
 use log::warn;
@@ -10,7 +9,7 @@ use super::style::Style;
 use super::{AnchorInfo, DrawCommand, DrawCommandBatcher};
 use crate::bridge::GridLineCell;
 
-#[derive(new, Clone)]
+#[derive(new, Clone, Debug)]
 pub enum WindowDrawCommand {
     Position {
         grid_left: f64,
@@ -19,11 +18,11 @@ pub enum WindowDrawCommand {
         height: u64,
         floating_order: Option<u64>,
     },
-    Cell {
-        text: String,
-        cell_width: u64,
+    Cells {
+        cells: Vec<String>,
         window_left: u64,
         window_top: u64,
+        width: u64,
         style: Option<Arc<Style>>,
     },
     Scroll {
@@ -42,36 +41,6 @@ pub enum WindowDrawCommand {
         top_line: f64,
         bottom_line: f64,
     },
-}
-
-impl fmt::Debug for WindowDrawCommand {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            WindowDrawCommand::Position {
-                grid_left,
-                grid_top,
-                ..
-            } => write!(
-                formatter,
-                "Position {{ left: {}, right: {} }}",
-                grid_left, grid_top
-            ),
-            WindowDrawCommand::Cell { .. } => write!(formatter, "Cell"),
-            WindowDrawCommand::Scroll { .. } => write!(formatter, "Scroll"),
-            WindowDrawCommand::Clear => write!(formatter, "Clear"),
-            WindowDrawCommand::Show => write!(formatter, "Show"),
-            WindowDrawCommand::Hide => write!(formatter, "Hide"),
-            WindowDrawCommand::Close => write!(formatter, "Close"),
-            WindowDrawCommand::Viewport {
-                top_line,
-                bottom_line,
-            } => write!(
-                formatter,
-                "Viewport {{ top: {}, bottom: {} }}",
-                top_line, bottom_line
-            ),
-        }
-    }
 }
 
 pub struct Window {
@@ -129,12 +98,12 @@ impl Window {
 
     pub fn get_cursor_character(&self, window_left: u64, window_top: u64) -> (String, bool) {
         let character = match self.grid.get_cell(window_left, window_top) {
-            Some(Some((character, _))) => character.clone(),
+            Some((character, _)) => character.clone(),
             _ => ' '.to_string(),
         };
 
         let double_width = match self.grid.get_cell(window_left + 1, window_top) {
-            Some(Some((character, _))) => character.is_empty(),
+            Some((character, _)) => character.is_empty(),
             _ => false,
         };
 
@@ -199,80 +168,58 @@ impl Window {
         // Insert the contents of the cell into the grid.
         if text.is_empty() {
             if let Some(cell) = self.grid.get_cell_mut(*column_pos, row_index) {
-                *cell = Some((" ".to_string(), style.clone()));
+                *cell = (text, style.clone());
             }
             *column_pos += 1;
         } else {
-            for (i, character) in text.graphemes(true).enumerate() {
-                if let Some(cell) = self.grid.get_cell_mut(i as u64 + *column_pos, row_index) {
-                    *cell = Some((character.to_string(), style.clone()));
+            for character in text.graphemes(true) {
+                if let Some(cell) = self.grid.get_cell_mut(*column_pos, row_index) {
+                    *cell = (character.to_string(), style.clone());
                 }
+                *column_pos += 1;
             }
-            *column_pos += text.graphemes(true).count() as u64;
         }
 
         *previous_style = style;
     }
 
     // Send a draw command for the given row starting from current_start up until the next style
-    // change. If the current_start is the same as line_start, this will also work backwards in the
-    // line in order to ensure that ligatures before the beginning of the grid cell are also
-    // updated.
-    fn send_draw_command(
-        &self,
-        row_index: u64,
-        line_start: u64,
-        current_start: u64,
-    ) -> Option<u64> {
+    // change or double width character.
+    fn send_draw_command(&self, row_index: u64, start: u64) -> Option<u64> {
         let row = self.grid.row(row_index).unwrap();
 
-        let (_, style) = &row[current_start as usize].as_ref()?;
+        let (_, style) = &row[start as usize];
 
-        let mut draw_command_start_index = current_start;
-        if current_start == line_start {
-            // Locate contiguous same styled cells before the inserted cells.
-            // This way any ligatures are correctly rerendered.
-            // This could be sped up if we knew what characters were a part of a ligature, but in the
-            // current system we do not.
-            for possible_start_index in (0..current_start).rev() {
-                if let Some((_, possible_start_style)) = &row[possible_start_index as usize] {
-                    if style == possible_start_style {
-                        draw_command_start_index = possible_start_index;
-                        continue;
-                    }
-                }
+        let mut cells = Vec::new();
+        let mut width = 0;
+        for possible_end_index in start..self.grid.width {
+            let (character, possible_end_style) = &row[possible_end_index as usize];
+
+            // Style doesn't match. Draw what we've got
+            if style != possible_end_style {
                 break;
             }
-        }
 
-        let mut draw_command_end_index = current_start;
-        for possible_end_index in draw_command_start_index..self.grid.width {
-            if let Some((_, possible_end_style)) = &row[possible_end_index as usize] {
-                if style == possible_end_style {
-                    draw_command_end_index = possible_end_index;
-                    continue;
-                }
+            width += 1;
+            // The previous character is double width, so send this as its own draw command
+            if character.is_empty() {
+                break;
             }
-            break;
-        }
 
-        // Build up the actual text to be rendered including the contiguously styled bits.
-        let mut text = String::new();
-        for x in draw_command_start_index..(draw_command_end_index + 1) {
-            let (character, _) = row[x as usize].as_ref().unwrap();
-            text.push_str(character);
+            // Add the grid cell to the cells to render
+            cells.push(character.clone());
         }
 
         // Send a window draw command to the current window.
-        self.send_command(WindowDrawCommand::Cell {
-            text,
-            cell_width: draw_command_end_index - draw_command_start_index + 1,
-            window_left: draw_command_start_index,
+        self.send_command(WindowDrawCommand::Cells {
+            cells,
+            window_left: start,
             window_top: row_index,
+            width,
             style: style.clone(),
         });
 
-        Some(draw_command_end_index + 1)
+        Some(start + width)
     }
 
     pub fn draw_grid_line(
@@ -295,9 +242,11 @@ impl Window {
                 );
             }
 
-            let mut current_start = column_start;
-            while current_start < column_pos {
-                if let Some(next_start) = self.send_draw_command(row, column_start, current_start) {
+            // Redraw the participating line by calling send_draw_command starting at 0
+            // until current_start is greater than the grid width
+            let mut current_start = 0;
+            while current_start < self.grid.width {
+                if let Some(next_start) = self.send_draw_command(row, current_start) {
                     current_start = next_start;
                 } else {
                     break;
@@ -369,7 +318,7 @@ impl Window {
         for row in 0..self.grid.height {
             let mut current_start = 0;
             while current_start < self.grid.width {
-                if let Some(next_start) = self.send_draw_command(row, 0, current_start) {
+                if let Some(next_start) = self.send_draw_command(row, current_start) {
                     current_start = next_start;
                 } else {
                     break;
@@ -395,5 +344,56 @@ impl Window {
             top_line,
             bottom_line,
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::channel_utils::*;
+    use std::collections::HashMap;
+    use std::sync::mpsc::*;
+
+    fn build_test_channels() -> (Receiver<Vec<DrawCommand>>, Arc<DrawCommandBatcher>) {
+        let (batched_draw_command_sender, batched_draw_command_receiver) = channel();
+        let logging_batched_draw_command_sender = LoggingSender::attach(
+            batched_draw_command_sender,
+            "batched_draw_command".to_owned(),
+        );
+
+        let draw_command_batcher =
+            Arc::new(DrawCommandBatcher::new(logging_batched_draw_command_sender));
+
+        (batched_draw_command_receiver, draw_command_batcher)
+    }
+
+    #[test]
+    fn windowSeparator_modifiesGridAndSendsDrawCommand() {
+        let (batched_receiver, batched_sender) = build_test_channels();
+        let mut window = Window::new(1, 114, 64, None, 0.0, 0.0, batched_sender.clone());
+        batched_sender
+            .send_batch()
+            .expect("Could not send batch of commands");
+        batched_receiver.recv().expect("Could not receive commands");
+
+        window.draw_grid_line(
+            1,
+            70,
+            vec![GridLineCell {
+                text: "|".to_owned(),
+                highlight_id: None,
+                repeat: None,
+            }],
+            &HashMap::new(),
+        );
+
+        assert_eq!(window.grid.get_cell(70, 1), Some(&("|".to_owned(), None)));
+
+        batched_sender
+            .send_batch()
+            .expect("Could not send batch of commands");
+
+        let sent_commands = batched_receiver.recv().expect("Could not receive commands");
+        assert!(sent_commands.len() != 0);
     }
 }

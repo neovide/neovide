@@ -3,7 +3,7 @@ use swash::{CacheKey, FontRef};
 pub struct SwashFont {
     data: Vec<u8>,
     offset: u32,
-    key: CacheKey,
+    pub key: CacheKey,
 }
 
 impl SwashFont {
