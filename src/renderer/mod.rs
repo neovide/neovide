@@ -127,7 +127,7 @@ impl Renderer {
     fn draw_foreground(
         &mut self,
         canvas: &mut Canvas,
-        cells: &Vec<String>,
+        cells: &[String],
         grid_pos: (u64, u64),
         cell_width: u64,
         style: &Option<Arc<Style>>,
@@ -163,7 +163,10 @@ impl Renderer {
 
             canvas.draw_line(
                 (x as f32, (y - line_position + self.font_height) as f32),
-                ((x + width) as f32, (y - line_position + self.font_height) as f32),
+                (
+                    (x + width) as f32,
+                    (y - line_position + self.font_height) as f32,
+                ),
                 &self.paint,
             );
         }
@@ -186,7 +189,11 @@ impl Renderer {
             let line_position = region.center_y();
             self.paint
                 .set_color(style.special(&self.default_style.colors).to_color());
-            canvas.draw_line((x as f32, line_position), ((x + width) as f32, line_position), &self.paint);
+            canvas.draw_line(
+                (x as f32, line_position),
+                ((x + width) as f32, line_position),
+                &self.paint,
+            );
         }
 
         canvas.restore();

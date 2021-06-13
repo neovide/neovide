@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fmt;
 use std::sync::Arc;
 
 use log::warn;
@@ -186,11 +185,7 @@ impl Window {
 
     // Send a draw command for the given row starting from current_start up until the next style
     // change or double width character.
-    fn send_draw_command(
-        &self,
-        row_index: u64,
-        start: u64,
-    ) -> Option<u64> {
+    fn send_draw_command(&self, row_index: u64, start: u64) -> Option<u64> {
         let row = self.grid.row(row_index).unwrap();
 
         let (_, style) = &row[start as usize];
@@ -356,8 +351,8 @@ impl Window {
 mod tests {
     use super::*;
     use crate::channel_utils::*;
-    use std::sync::mpsc::*;
     use std::collections::HashMap;
+    use std::sync::mpsc::*;
 
     fn build_test_channels() -> (Receiver<Vec<DrawCommand>>, Arc<DrawCommandBatcher>) {
         let (batched_draw_command_sender, batched_draw_command_receiver) = channel();
@@ -366,7 +361,8 @@ mod tests {
             "batched_draw_command".to_owned(),
         );
 
-        let draw_command_batcher = Arc::new(DrawCommandBatcher::new(logging_batched_draw_command_sender));
+        let draw_command_batcher =
+            Arc::new(DrawCommandBatcher::new(logging_batched_draw_command_sender));
 
         (batched_draw_command_receiver, draw_command_batcher)
     }
@@ -375,14 +371,27 @@ mod tests {
     fn windowSeparator_modifiesGridAndSendsDrawCommand() {
         let (batched_receiver, batched_sender) = build_test_channels();
         let mut window = Window::new(1, 114, 64, None, 0.0, 0.0, batched_sender.clone());
-        batched_sender.send_batch().expect("Could not send batch of commands");
+        batched_sender
+            .send_batch()
+            .expect("Could not send batch of commands");
         batched_receiver.recv().expect("Could not receive commands");
 
-        window.draw_grid_line(1, 70, vec![GridLineCell { text: "|".to_owned(), highlight_id: None, repeat: None }], &HashMap::new());
+        window.draw_grid_line(
+            1,
+            70,
+            vec![GridLineCell {
+                text: "|".to_owned(),
+                highlight_id: None,
+                repeat: None,
+            }],
+            &HashMap::new(),
+        );
 
         assert_eq!(window.grid.get_cell(70, 1), Some(&("|".to_owned(), None)));
 
-        batched_sender.send_batch().expect("Could not send batch of commands");
+        batched_sender
+            .send_batch()
+            .expect("Could not send batch of commands");
 
         let sent_commands = batched_receiver.recv().expect("Could not receive commands");
         assert!(sent_commands.len() != 0);

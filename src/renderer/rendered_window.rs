@@ -135,14 +135,8 @@ impl RenderedWindow {
         grid_height: u64,
         scaling: f32,
     ) -> RenderedWindow {
-        let current_surface = LocatedSurface::new(
-            parent_canvas,
-            renderer,
-            grid_width,
-            grid_height,
-            0,
-            scaling,
-        );
+        let current_surface =
+            LocatedSurface::new(parent_canvas, renderer, grid_width, grid_height, 0, scaling);
 
         RenderedWindow {
             snapshots: VecDeque::new(),
@@ -267,7 +261,8 @@ impl RenderedWindow {
 
         // Draw scrolling snapshots
         for snapshot in self.snapshots.iter_mut().rev() {
-            let scroll_offset = (snapshot.top_line * font_height) as f32 - (self.current_scroll * font_height as f32);
+            let scroll_offset = (snapshot.top_line * font_height) as f32
+                - (self.current_scroll * font_height as f32);
             let image = &mut snapshot.image;
             root_canvas.draw_image_rect(
                 image,
@@ -277,8 +272,8 @@ impl RenderedWindow {
             );
         }
         // Draw current surface
-        let scroll_offset =
-            (self.current_surface.top_line * font_height) as f32 - (self.current_scroll * font_height as f32) ;
+        let scroll_offset = (self.current_surface.top_line * font_height) as f32
+            - (self.current_scroll * font_height as f32);
         let snapshot = self.current_surface.surface.image_snapshot();
         root_canvas.draw_image_rect(
             snapshot,

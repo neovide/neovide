@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use lru::LruCache;
-use skia_safe::{font::Edging, Data, Font, FontHinting, FontMgr, FontStyle, Typeface, Unichar};
+use skia_safe::{font::Edging, Data, Font, FontHinting, FontMgr, FontStyle, Typeface};
 
 use super::swash_font::SwashFont;
 
@@ -93,19 +93,20 @@ impl FontLoader {
                 let data = Data::new_copy(&default_font_data);
                 let typeface = Typeface::from_data(data, 0).unwrap();
                 FontPair::new(Font::from_typeface(typeface, self.font_size))
-            },
+            }
             FontKey::Name(name) => {
                 let font_style = FontStyle::normal();
-                let typeface = self
-                    .font_mgr
-                    .match_family_style(name, font_style)?;
+                let typeface = self.font_mgr.match_family_style(name, font_style)?;
                 FontPair::new(Font::from_typeface(typeface, self.font_size))
-            },
+            }
             FontKey::Character(character) => {
                 let font_style = FontStyle::normal();
-                let typeface = self
-                    .font_mgr
-                    .match_family_style_character("", font_style, &[], character as i32)?;
+                let typeface = self.font_mgr.match_family_style_character(
+                    "",
+                    font_style,
+                    &[],
+                    character as i32,
+                )?;
                 FontPair::new(Font::from_typeface(typeface, self.font_size))
             }
         }

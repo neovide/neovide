@@ -70,9 +70,7 @@ impl CharacterGrid {
     pub fn set_all_characters(&mut self, value: GridCell) {
         self.characters.clear();
         self.characters
-            .resize_with((self.width * self.height) as usize, || {
-                value.clone()
-            });
+            .resize_with((self.width * self.height) as usize, || value.clone());
     }
 
     pub fn row(&self, row_index: u64) -> Option<&[GridCell]> {
@@ -136,7 +134,10 @@ mod tests {
         let character_grid = CharacterGrid::new(context.size);
         assert_eq!(character_grid.width, context.size.0);
         assert_eq!(character_grid.height, context.size.1);
-        assert_eq!(character_grid.characters, vec![default_cell!(); context.area]);
+        assert_eq!(
+            character_grid.characters,
+            vec![default_cell!(); context.area]
+        );
     }
 
     #[test]
@@ -155,9 +156,7 @@ mod tests {
 
         // RUN FUNCTION
         assert_eq!(
-            character_grid
-                .get_cell(context.x, context.y)
-                .unwrap(),
+            character_grid.get_cell(context.x, context.y).unwrap(),
             &result
         );
     }
@@ -184,9 +183,7 @@ mod tests {
         );
 
         assert_eq!(
-            character_grid
-                .get_cell_mut(context.x, context.y)
-                .unwrap(),
+            character_grid.get_cell_mut(context.x, context.y).unwrap(),
             &result
         );
     }
@@ -224,7 +221,10 @@ mod tests {
 
         assert_eq!(character_grid.width, context.size.0);
         assert_eq!(character_grid.height, context.size.1);
-        assert_eq!(character_grid.characters, vec![default_cell!(); context.area]);
+        assert_eq!(
+            character_grid.characters,
+            vec![default_cell!(); context.area]
+        );
     }
 
     #[test]

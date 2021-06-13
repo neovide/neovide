@@ -187,10 +187,10 @@ impl GlutinWindowWrapper {
                 let position = if grid_floating {
                     (self.mouse_position.x, self.mouse_position.y)
                 } else {
-                    let adjusted_drag_left =
-                        self.mouse_position.x + (window_left / self.renderer.font_width as f32) as u32;
-                    let adjusted_drag_top =
-                        self.mouse_position.y + (window_top / self.renderer.font_height as f32) as u32;
+                    let adjusted_drag_left = self.mouse_position.x
+                        + (window_left / self.renderer.font_width as f32) as u32;
+                    let adjusted_drag_top = self.mouse_position.y
+                        + (window_top / self.renderer.font_height as f32) as u32;
                     (adjusted_drag_left, adjusted_drag_top)
                 };
 
@@ -398,9 +398,10 @@ impl GlutinWindowWrapper {
 
                 if renderer.draw_frame(canvas, dt, scaling as f32) {
                     handle_new_grid_size(
-                        (current_size.width as u64, current_size.height as u64), 
-                        &renderer, 
-                        &ui_command_sender);
+                        (current_size.width as u64, current_size.height as u64),
+                        &renderer,
+                        &ui_command_sender,
+                    );
                 }
             }
 

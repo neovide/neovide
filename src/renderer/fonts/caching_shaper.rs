@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
-use log::{error, trace};
+use log::trace;
 use lru::LruCache;
 use skia_safe::{TextBlob, TextBlobBuilder};
-use swash::Metrics;
 use swash::shape::ShapeContext;
-use swash::text::Script;
 use swash::text::cluster::{CharCluster, Parser, Status, Token};
+use swash::text::Script;
+use swash::Metrics;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::font_loader::*;
@@ -61,7 +61,8 @@ impl CachingShaper {
         let font_pair = self.current_font_pair();
         let size = self.current_size();
 
-        let shaper = self.shape_context
+        let shaper = self
+            .shape_context
             .builder(font_pair.swash_font.as_ref())
             .size(size)
             .build();
@@ -105,21 +106,24 @@ impl CachingShaper {
         // Enumerate the characters storing the glyph index in the user data so that we can position
         // glyphs according to Neovim's grid rules
         let mut character_index = 0;
-        let mut parser  =  Parser::new(
+        let mut parser = Parser::new(
             Script::Latin,
-            text.graphemes(true).enumerate().map(|(glyph_index, unicode_segment)| 
-                unicode_segment.chars().map(move |character| {
-                    let token = Token {
-                        ch: character,
-                        offset: character_index as u32,
-                        len: character.len_utf8() as u8,
-                        info: character.into(),
-                        data: glyph_index as u32,
-                    };
-                    character_index += 1;
-                    token
+            text.graphemes(true)
+                .enumerate()
+                .map(|(glyph_index, unicode_segment)| {
+                    unicode_segment.chars().map(move |character| {
+                        let token = Token {
+                            ch: character,
+                            offset: character_index as u32,
+                            len: character.len_utf8() as u8,
+                            info: character.into(),
+                            data: glyph_index as u32,
+                        };
+                        character_index += 1;
+                        token
+                    })
                 })
-            ).flatten()
+                .flatten(),
         );
 
         let mut results = Vec::new();
@@ -134,9 +138,9 @@ impl CachingShaper {
                             Status::Complete => {
                                 results.push((cluster.to_owned(), font_pair.clone()));
                                 continue 'cluster;
-                            },
+                            }
                             Status::Keep => best = Some(font_pair),
-                            Status::Discard => {},
+                            Status::Discard => {}
                         }
                     }
                 }
@@ -151,11 +155,17 @@ impl CachingShaper {
             // No font in the fallback list worked, so query skia via the font loader for a font
             // which matches the first character
             let first_cluster_char = cluster.chars()[0].ch;
-            if let Some(font_pair) = self.font_loader.get_or_load(FontKey::Character(first_cluster_char.clone())) {
+            if let Some(font_pair) = self
+                .font_loader
+                .get_or_load(FontKey::Character(first_cluster_char))
+            {
                 results.push((cluster.to_owned(), font_pair));
             } else {
                 // Skia crapped out too. Lets fallback to our built in fallback font.
-                let default_font = self.font_loader.get_or_load(FontKey::Default).expect("Could not load default font");
+                let default_font = self
+                    .font_loader
+                    .get_or_load(FontKey::Default)
+                    .expect("Could not load default font");
                 results.push((cluster.to_owned(), default_font));
             }
         }
@@ -187,7 +197,7 @@ impl CachingShaper {
         grouped_results
     }
 
-    pub fn shape(&mut self, cells: &Vec<String>) -> Vec<TextBlob> {
+    pub fn shape(&mut self, cells: &[String]) -> Vec<TextBlob> {
         let current_size = self.current_size();
         let (glyph_width, _) = self.font_base_dimensions();
 
@@ -236,8 +246,8 @@ impl CachingShaper {
         resulting_blobs
     }
 
-    pub fn shape_cached(&mut self, cells: &Vec<String>, bold: bool, italic: bool) -> &Vec<TextBlob> {
-        let key = ShapeKey::new(cells.clone(), bold, italic);
+    pub fn shape_cached(&mut self, cells: &[String], bold: bool, italic: bool) -> &Vec<TextBlob> {
+        let key = ShapeKey::new(cells.to_vec(), bold, italic);
 
         if !self.blob_cache.contains(&key) {
             let blobs = self.shape(&cells);

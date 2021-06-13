@@ -6,7 +6,6 @@ use flexi_logger::{Cleanup, Criterion, Duplicate, Logger, Naming};
 // Test naming occasionally uses camelCase with underscores to separate sections of
 // the test name.
 #[cfg_attr(test, allow(non_snake_case))]
-
 #[macro_use]
 extern crate neovide_derive;
 

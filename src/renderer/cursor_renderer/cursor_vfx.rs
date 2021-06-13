@@ -261,14 +261,14 @@ impl CursorVfx for ParticleTrail {
                             * settings.vfx_particle_phase
                             * (travel_distance / font_size.0 as f32);
                         Point::new(phase.sin(), phase.cos()) * 2.0 * settings.vfx_particle_speed
-                    },
+                    }
                     TrailMode::Torpedo => {
                         let mut travel_dir = travel;
                         travel_dir.normalize();
                         let mut particle_dir = self.rng.rand_dir_normalized() - travel_dir * 1.5;
                         particle_dir.normalize();
                         particle_dir * settings.vfx_particle_speed
-                    },
+                    }
                     TrailMode::PixieDust => {
                         let base_dir = self.rng.rand_dir_normalized();
                         let dir = Point::new(base_dir.x * 0.5, 0.4 + base_dir.y.abs());
@@ -280,7 +280,9 @@ impl CursorVfx for ParticleTrail {
                 let pos = match self.trail_mode {
                     TrailMode::Railgun => prev_p + travel * t,
                     TrailMode::PixieDust | TrailMode::Torpedo => {
-                        prev_p + travel * self.rng.next_f32() + Point::new(0.0, font_size.1 as f32 * 0.5)
+                        prev_p
+                            + travel * self.rng.next_f32()
+                            + Point::new(0.0, font_size.1 as f32 * 0.5)
                     }
                 };
 

@@ -123,8 +123,7 @@ pub fn handle_command_line_arguments() {
             .values_of("files")
             .map(|opt| opt.map(|v| v.to_owned()).collect())
             .unwrap_or_default(),
-        maximized: matches.is_present("maximized")
-            || std::env::var("NEOVIDE_MAXIMIZED").is_ok(),
+        maximized: matches.is_present("maximized") || std::env::var("NEOVIDE_MAXIMIZED").is_ok(),
         multi_grid: std::env::var("NEOVIDE_MULTIGRID").is_ok()
             || std::env::var("NeovideMultiGrid").is_ok()
             || matches.is_present("multi_grid"),
@@ -132,7 +131,6 @@ pub fn handle_command_line_arguments() {
         disowned: matches.is_present("disowned"),
         wsl: matches.is_present("wsl"),
         geometry: matches.value_of("geometry").map(|i| i.to_owned()),
-        frameless: matches.is_present("frameless")
-            || std::env::var("NEOVIDE_FRAMELESS").is_ok(),
+        frameless: matches.is_present("frameless") || std::env::var("NEOVIDE_FRAMELESS").is_ok(),
     });
 }
