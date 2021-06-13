@@ -10,7 +10,7 @@ use super::style::Style;
 use super::{AnchorInfo, DrawCommand, DrawCommandBatcher};
 use crate::bridge::GridLineCell;
 
-#[derive(new, Clone)]
+#[derive(new, Clone, Debug)]
 pub enum WindowDrawCommand {
     Position {
         grid_left: f64,
@@ -42,36 +42,6 @@ pub enum WindowDrawCommand {
         top_line: f64,
         bottom_line: f64,
     },
-}
-
-impl fmt::Debug for WindowDrawCommand {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            WindowDrawCommand::Position {
-                grid_left,
-                grid_top,
-                ..
-            } => write!(
-                formatter,
-                "Position {{ left: {}, right: {} }}",
-                grid_left, grid_top
-            ),
-            WindowDrawCommand::Cells { .. } => write!(formatter, "Cell"),
-            WindowDrawCommand::Scroll { .. } => write!(formatter, "Scroll"),
-            WindowDrawCommand::Clear => write!(formatter, "Clear"),
-            WindowDrawCommand::Show => write!(formatter, "Show"),
-            WindowDrawCommand::Hide => write!(formatter, "Hide"),
-            WindowDrawCommand::Close => write!(formatter, "Close"),
-            WindowDrawCommand::Viewport {
-                top_line,
-                bottom_line,
-            } => write!(
-                formatter,
-                "Viewport {{ top: {}, bottom: {} }}",
-                top_line, bottom_line
-            ),
-        }
-    }
 }
 
 pub struct Window {
@@ -129,12 +99,12 @@ impl Window {
 
     pub fn get_cursor_character(&self, window_left: u64, window_top: u64) -> (String, bool) {
         let character = match self.grid.get_cell(window_left, window_top) {
-            Some(Some((character, _))) => character.clone(),
+            Some((character, _)) => character.clone(),
             _ => ' '.to_string(),
         };
 
         let double_width = match self.grid.get_cell(window_left + 1, window_top) {
-            Some(Some((character, _))) => character.is_empty(),
+            Some((character, _)) => character.is_empty(),
             _ => false,
         };
 
@@ -199,13 +169,13 @@ impl Window {
         // Insert the contents of the cell into the grid.
         if text.is_empty() {
             if let Some(cell) = self.grid.get_cell_mut(*column_pos, row_index) {
-                *cell = Some((text, style.clone()));
+                *cell = (text, style.clone());
             }
             *column_pos += 1;
         } else {
             for character in text.graphemes(true) {
                 if let Some(cell) = self.grid.get_cell_mut(*column_pos, row_index) {
-                    *cell = Some((character.to_string(), style.clone()));
+                    *cell = (character.to_string(), style.clone());
                 }
                 *column_pos += 1;
             }
@@ -223,26 +193,26 @@ impl Window {
     ) -> Option<u64> {
         let row = self.grid.row(row_index).unwrap();
 
-        let (_, style) = &row[start as usize].as_ref()?;
+        let (_, style) = &row[start as usize];
 
         let mut cells = Vec::new();
         let mut width = 0;
         for possible_end_index in start..self.grid.width {
-            if let Some((character, possible_end_style)) = &row[possible_end_index as usize] {
-                // Style doesn't match. Draw what we've got
-                if style != possible_end_style {
-                    break;
-                }
+            let (character, possible_end_style) = &row[possible_end_index as usize];
 
-                width += 1;
-                // The previous character is double width, so send this as its own draw command
-                if character.is_empty() {
-                    break;
-                }
-
-                // Add the grid cell to the cells to render
-                cells.push(character.clone());
+            // Style doesn't match. Draw what we've got
+            if style != possible_end_style {
+                break;
             }
+
+            width += 1;
+            // The previous character is double width, so send this as its own draw command
+            if character.is_empty() {
+                break;
+            }
+
+            // Add the grid cell to the cells to render
+            cells.push(character.clone());
         }
 
         // Send a window draw command to the current window.
@@ -277,6 +247,8 @@ impl Window {
                 );
             }
 
+            // Redraw the participating line by calling send_draw_command starting at 0
+            // until current_start is greater than the grid width
             let mut current_start = 0;
             while current_start < self.grid.width {
                 if let Some(next_start) = self.send_draw_command(row, current_start) {
@@ -377,5 +349,42 @@ impl Window {
             top_line,
             bottom_line,
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::channel_utils::*;
+    use std::sync::mpsc::*;
+    use std::collections::HashMap;
+
+    fn build_test_channels() -> (Receiver<Vec<DrawCommand>>, Arc<DrawCommandBatcher>) {
+        let (batched_draw_command_sender, batched_draw_command_receiver) = channel();
+        let logging_batched_draw_command_sender = LoggingSender::attach(
+            batched_draw_command_sender,
+            "batched_draw_command".to_owned(),
+        );
+
+        let draw_command_batcher = Arc::new(DrawCommandBatcher::new(logging_batched_draw_command_sender));
+
+        (batched_draw_command_receiver, draw_command_batcher)
+    }
+
+    #[test]
+    fn windowSeparator_modifiesGridAndSendsDrawCommand() {
+        let (batched_receiver, batched_sender) = build_test_channels();
+        let mut window = Window::new(1, 114, 64, None, 0.0, 0.0, batched_sender.clone());
+        batched_sender.send_batch().expect("Could not send batch of commands");
+        batched_receiver.recv().expect("Could not receive commands");
+
+        window.draw_grid_line(1, 70, vec![GridLineCell { text: "|".to_owned(), highlight_id: None, repeat: None }], &HashMap::new());
+
+        assert_eq!(window.grid.get_cell(70, 1), Some(&("|".to_owned(), None)));
+
+        batched_sender.send_batch().expect("Could not send batch of commands");
+
+        let sent_commands = batched_receiver.recv().expect("Could not receive commands");
+        assert!(sent_commands.len() != 0);
     }
 }

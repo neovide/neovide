@@ -2,7 +2,14 @@ use std::sync::Arc;
 
 use super::style::Style;
 
-pub type GridCell = Option<(String, Option<Arc<Style>>)>;
+pub type GridCell = (String, Option<Arc<Style>>);
+
+#[macro_export]
+macro_rules! default_cell {
+    () => {
+        (" ".to_owned(), None)
+    };
+}
 
 pub struct CharacterGrid {
     pub width: u64,
@@ -16,7 +23,7 @@ impl CharacterGrid {
         let (width, height) = size;
         let cell_count = (width * height) as usize;
         CharacterGrid {
-            characters: vec![None; cell_count],
+            characters: vec![default_cell!(); cell_count],
             width,
             height,
         }
@@ -24,8 +31,7 @@ impl CharacterGrid {
 
     pub fn resize(&mut self, width: u64, height: u64) {
         let new_cell_count = (width * height) as usize;
-        let default_cell: GridCell = None;
-        let mut new_characters = vec![default_cell; new_cell_count];
+        let mut new_characters = vec![default_cell!(); new_cell_count];
 
         for x in 0..self.width.min(width) {
             for y in 0..self.height.min(height) {
@@ -41,7 +47,7 @@ impl CharacterGrid {
     }
 
     pub fn clear(&mut self) {
-        self.set_characters_all(None);
+        self.set_all_characters(default_cell!());
     }
 
     fn cell_index(&self, x: u64, y: u64) -> Option<usize> {
@@ -61,11 +67,11 @@ impl CharacterGrid {
             .map(move |idx| &mut self.characters[idx])
     }
 
-    pub fn set_characters_all(&mut self, value: GridCell) {
+    pub fn set_all_characters(&mut self, value: GridCell) {
         self.characters.clear();
         self.characters
             .resize_with((self.width * self.height) as usize, || {
-                value.as_ref().cloned()
+                value.clone()
             });
     }
 
@@ -123,25 +129,25 @@ mod tests {
     }
 
     #[test]
-    fn test_new() {
+    fn new_constructsGrid() {
         let context = Context::new();
 
         // RUN FUNCTION
         let character_grid = CharacterGrid::new(context.size);
         assert_eq!(character_grid.width, context.size.0);
         assert_eq!(character_grid.height, context.size.1);
-        assert_eq!(character_grid.characters, vec![None; context.area]);
+        assert_eq!(character_grid.characters, vec![default_cell!(); context.area]);
     }
 
     #[test]
-    fn test_get_cell() {
+    fn getCell_returnsExpectedCell() {
         let context = Context::new();
         let mut character_grid = CharacterGrid::new(context.size);
 
-        character_grid.characters[context.index] = Some((
+        character_grid.characters[context.index] = (
             "foo".to_string(),
             Some(Arc::new(Style::new(context.none_colors.clone()))),
-        ));
+        );
         let result = (
             "foo".to_string(),
             Some(Arc::new(Style::new(context.none_colors.clone()))),
@@ -151,22 +157,20 @@ mod tests {
         assert_eq!(
             character_grid
                 .get_cell(context.x, context.y)
-                .unwrap()
-                .as_ref()
                 .unwrap(),
             &result
         );
     }
 
     #[test]
-    fn test_get_cell_mut() {
+    fn getCellMut_modifiersGridProperly() {
         let context = Context::new();
         let mut character_grid = CharacterGrid::new(context.size);
 
-        character_grid.characters[context.index] = Some((
+        character_grid.characters[context.index] = (
             "foo".to_string(),
             Some(Arc::new(Style::new(context.none_colors.clone()))),
-        ));
+        );
         let result = (
             "bar".to_string(),
             Some(Arc::new(Style::new(context.none_colors.clone()))),
@@ -174,32 +178,30 @@ mod tests {
 
         // RUN FUNCTION
         let cell = character_grid.get_cell_mut(context.x, context.y).unwrap();
-        *cell = Some((
+        *cell = (
             "bar".to_string(),
             Some(Arc::new(Style::new(context.none_colors.clone()))),
-        ));
+        );
 
         assert_eq!(
             character_grid
                 .get_cell_mut(context.x, context.y)
-                .unwrap()
-                .as_ref()
                 .unwrap(),
             &result
         );
     }
 
     #[test]
-    fn test_set_characters_all() {
+    fn setAllCharacters_setsAllCellsToGivenCharacter() {
         let context = Context::new();
-        let grid_cell = Some((
+        let grid_cell = (
             "foo".to_string(),
             Some(Arc::new(Style::new(context.none_colors))),
-        ));
+        );
         let mut character_grid = CharacterGrid::new(context.size);
 
         // RUN FUNCTION
-        character_grid.set_characters_all(grid_cell.clone());
+        character_grid.set_all_characters(grid_cell.clone());
         assert_eq!(
             character_grid.characters,
             vec![grid_cell.clone(); context.area]
@@ -207,14 +209,14 @@ mod tests {
     }
 
     #[test]
-    fn test_clear() {
+    fn clear_emptiesBuffer() {
         let context = Context::new();
         let mut character_grid = CharacterGrid::new(context.size);
 
-        let grid_cell = Some((
+        let grid_cell = (
             "foo".to_string(),
             Some(Arc::new(Style::new(context.none_colors))),
-        ));
+        );
         character_grid.characters = vec![grid_cell.clone(); context.area];
 
         // RUN FUNCTION
@@ -222,11 +224,11 @@ mod tests {
 
         assert_eq!(character_grid.width, context.size.0);
         assert_eq!(character_grid.height, context.size.1);
-        assert_eq!(character_grid.characters, vec![None; context.area]);
+        assert_eq!(character_grid.characters, vec![default_cell!(); context.area]);
     }
 
     #[test]
-    fn test_resize() {
+    fn resize_clearsAndResizesGrid() {
         let context = Context::new();
         let mut character_grid = CharacterGrid::new(context.size);
         let (width, height) = (
@@ -234,10 +236,10 @@ mod tests {
             (thread_rng().gen::<u64>() % 500) + 1,
         );
 
-        let grid_cell = Some((
+        let grid_cell = (
             "foo".to_string(),
             Some(Arc::new(Style::new(context.none_colors))),
-        ));
+        );
         character_grid.characters = vec![grid_cell.clone(); context.area];
 
         // RUN FUNCTION
@@ -255,7 +257,7 @@ mod tests {
 
         for x in original_width..width {
             for y in original_height..height {
-                assert_eq!(character_grid.get_cell(x, y).unwrap(), &None);
+                assert_eq!(character_grid.get_cell(x, y).unwrap(), &default_cell!());
             }
         }
     }

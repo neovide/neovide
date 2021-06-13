@@ -194,6 +194,7 @@ impl CachingShaper {
         let mut resulting_blobs = Vec::new();
 
         let text = cells.concat();
+        trace!("Shaping text: {}", text);
 
         for (cluster_group, font_pair) in self.build_clusters(&text) {
             let mut shaper = self
