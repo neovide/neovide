@@ -1,13 +1,12 @@
 use std::sync::Arc;
-use std::iter;
 
 use log::{trace, warn};
 use lru::LruCache;
 use skia_safe::{TextBlob, TextBlobBuilder};
-use swash::Metrics;
-use swash::shape::{ShapeContext, Shaper};
+use swash::shape::ShapeContext;
 use swash::text::cluster::{CharCluster, Parser, Status, Token};
 use swash::text::Script;
+use swash::Metrics;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::font_loader::*;
@@ -75,7 +74,8 @@ impl CachingShaper {
     fn metrics(&mut self) -> Metrics {
         let font_pair = self.current_font_pair();
         let size = self.current_size();
-        let shaper = self.shape_context
+        let shaper = self
+            .shape_context
             .builder(font_pair.swash_font.as_ref())
             .size(size)
             .build();
@@ -132,7 +132,12 @@ impl CachingShaper {
 
             // Add guifont fallback list
             if let Some(options) = &self.options {
-                font_fallback_keys.extend(options.fallback_list.iter().map(|font_name| font_name.into()));
+                font_fallback_keys.extend(
+                    options
+                        .fallback_list
+                        .iter()
+                        .map(|font_name| font_name.into()),
+                );
             }
             // Add default font
             font_fallback_keys.push(FontKey::Default);
