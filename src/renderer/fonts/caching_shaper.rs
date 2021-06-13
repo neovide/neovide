@@ -3,10 +3,9 @@ use std::sync::Arc;
 use log::trace;
 use lru::LruCache;
 use skia_safe::{TextBlob, TextBlobBuilder};
-use swash::shape::ShapeContext;
+use swash::shape::{ShapeContext, Shaper};
 use swash::text::cluster::{CharCluster, Parser, Status, Token};
 use swash::text::Script;
-use swash::Metrics;
 use unicode_segmentation::UnicodeSegmentation;
 
 use super::font_loader::*;
@@ -57,19 +56,6 @@ impl CachingShaper {
             .unwrap_or(DEFAULT_FONT_SIZE)
     }
 
-    fn metrics(&mut self) -> Metrics {
-        let font_pair = self.current_font_pair();
-        let size = self.current_size();
-
-        let shaper = self
-            .shape_context
-            .builder(font_pair.swash_font.as_ref())
-            .size(size)
-            .build();
-
-        shaper.metrics()
-    }
-
     pub fn update_font(&mut self, guifont_setting: &str) -> bool {
         let new_options = FontOptions::parse(guifont_setting, DEFAULT_FONT_SIZE);
 
@@ -85,19 +71,46 @@ impl CachingShaper {
     }
 
     pub fn font_base_dimensions(&mut self) -> (u64, u64) {
-        let metrics = self.metrics();
+        let font_pair = self.current_font_pair();
+        let size = self.current_size();
+        let shaper = self.shape_context
+            .builder(font_pair.swash_font.as_ref())
+            .size(size)
+            .build();
+
+        let metrics = shaper.metrics();
+
+        let font_ref = font_pair.swash_font.as_ref();
+        let glyph_metrics = font_ref.glyph_metrics(shaper.normalized_coords());
+        let charmap = font_ref.charmap();
+        let glyph_id = charmap.map('Z');
+
         let font_height = (metrics.ascent + metrics.descent).ceil() as u64;
-        let font_width = metrics.average_width as u64;
+        let font_width = glyph_metrics.advance_width(glyph_id) as u64;
 
         (font_width, font_height)
     }
 
     pub fn underline_position(&mut self) -> u64 {
-        self.metrics().underline_offset as u64
+        let font_pair = self.current_font_pair();
+        let size = self.current_size();
+        let shaper = self.shape_context
+            .builder(font_pair.swash_font.as_ref())
+            .size(size)
+            .build();
+
+        shaper.metrics().underline_offset as u64
     }
 
     pub fn y_adjustment(&mut self) -> u64 {
-        self.metrics().ascent as u64
+        let font_pair = self.current_font_pair();
+        let size = self.current_size();
+        let shaper = self.shape_context
+            .builder(font_pair.swash_font.as_ref())
+            .size(size)
+            .build();
+
+        shaper.metrics().ascent as u64
     }
 
     fn build_clusters(&mut self, text: &str) -> Vec<(Vec<CharCluster>, Arc<FontPair>)> {
