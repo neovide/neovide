@@ -2,11 +2,9 @@ use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::convert::TryInto;
 
-#[cfg(not(test))]
-use flexi_logger::{Cleanup, Criterion, Duplicate, Logger, Naming};
 mod from_value;
 pub use from_value::FromValue;
-use log::warn;
+use log::trace;
 use nvim_rs::Neovim;
 use parking_lot::RwLock;
 pub use rmpv::Value;
@@ -34,7 +32,6 @@ type ReaderFunc = fn() -> Value;
 // struct except when prompted by an update event from nvim. Otherwise, the settings in Neovide and
 // nvim will get out of sync.
 pub struct Settings {
-    pub neovim_arguments: Vec<String>,
     settings: RwLock<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
     listeners: RwLock<HashMap<String, UpdateHandlerFunc>>,
     readers: RwLock<HashMap<String, ReaderFunc>>,
@@ -42,55 +39,10 @@ pub struct Settings {
 
 impl Settings {
     fn new() -> Self {
-        let mut log_to_file = false;
-        let neovim_arguments = std::env::args()
-            .filter(|arg| {
-                if arg == "--log" {
-                    log_to_file = true;
-                    false
-                } else {
-                    !(arg.starts_with("--geometry=")
-                        || arg.starts_with("--remote-tcp=")
-                        || arg == "--version"
-                        || arg == "-v"
-                        || arg == "--help"
-                        || arg == "-h"
-                        || arg == "--wsl"
-                        || arg == "--disowned"
-                        || arg == "--multiGrid"
-                        || arg == "--maximized")
-                }
-            })
-            .collect::<Vec<String>>();
-
-        #[cfg(not(test))]
-        Settings::init_logger(log_to_file);
-
         Self {
-            neovim_arguments,
             settings: RwLock::new(HashMap::new()),
             listeners: RwLock::new(HashMap::new()),
             readers: RwLock::new(HashMap::new()),
-        }
-    }
-
-    #[cfg(not(test))]
-    fn init_logger(log_to_file: bool) {
-        if log_to_file {
-            Logger::with_env_or_str("neovide")
-                .duplicate_to_stderr(Duplicate::Error)
-                .log_to_file()
-                .rotate(
-                    Criterion::Size(10_000_000),
-                    Naming::Timestamps,
-                    Cleanup::KeepLogFiles(1),
-                )
-                .start()
-                .expect("Could not start logger");
-        } else {
-            Logger::with_env_or_str("neovide = error")
-                .start()
-                .expect("Could not start logger");
         }
     }
 
@@ -122,7 +74,7 @@ impl Settings {
         let read_lock = self.settings.read();
         let boxed = &read_lock
             .get(&TypeId::of::<T>())
-            .expect("Trying to retrieve a settings object that doesn't exist");
+            .expect("Trying to retrieve a settings object that doesn't exist: {:?}");
         let value: &T = boxed
             .downcast_ref::<T>()
             .expect("Attempted to extract a settings object of the wrong type");
@@ -139,7 +91,7 @@ impl Settings {
                     self.listeners.read().get(&name).unwrap()(value);
                 }
                 Err(error) => {
-                    warn!("Initial value load failed for {}: {}", name, error);
+                    trace!("Initial value load failed for {}: {}", name, error);
                     let setting = self.readers.read().get(&name).unwrap()();
                     nvim.set_var(&variable_name, setting).await.ok();
                 }
@@ -188,7 +140,10 @@ mod tests {
     use tokio;
 
     use super::*;
-    use crate::bridge::{create, create_nvim_command};
+    use crate::{
+        bridge::{create, create_nvim_command},
+        cmd_line::CmdLineSettings,
+    };
 
     #[derive(Clone)]
     pub struct NeovimHandler();
@@ -286,6 +241,10 @@ mod tests {
         let v3: String = "baz".to_string();
         let v4: String = format!("neovide_{}", v1);
         let v5: String = format!("neovide_{}", v2);
+
+        //create_nvim_command tries to read from CmdLineSettings.neovim_args
+        //TODO: this sets a static variable. Can this have side effects on other tests?
+        SETTINGS.set::<CmdLineSettings>(&CmdLineSettings::default());
 
         let (nvim, _) = create::new_child_cmd(&mut create_nvim_command(), NeovimHandler())
             .await

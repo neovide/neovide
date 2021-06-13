@@ -6,14 +6,14 @@ mod window;
 
 use std::collections::HashMap;
 use std::fmt;
-use std::sync::mpsc::Sender;
 use std::sync::Arc;
 use std::thread;
 
 use crossfire::mpsc::RxUnbounded;
-use log::{error, trace, warn};
+use log::{error, trace};
 
 use crate::bridge::{EditorMode, GuiOption, RedrawEvent, WindowAnchor};
+use crate::channel_utils::*;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 pub use cursor::{Cursor, CursorMode, CursorShape};
 pub use draw_command_batcher::DrawCommandBatcher;
@@ -21,11 +21,13 @@ pub use grid::CharacterGrid;
 pub use style::{Colors, Style};
 pub use window::*;
 
+#[derive(Clone)]
 pub struct AnchorInfo {
     pub anchor_grid_id: u64,
     pub anchor_type: WindowAnchor,
     pub anchor_left: f64,
     pub anchor_top: f64,
+    pub sort_order: u64,
 }
 
 impl WindowAnchor {
@@ -57,6 +59,7 @@ pub enum DrawCommand {
     ModeChanged(EditorMode),
 }
 
+#[derive(Debug)]
 pub enum WindowCommand {
     TitleChanged(String),
     SetMouseEnabled(bool),
@@ -83,13 +86,13 @@ pub struct Editor {
     pub defined_styles: HashMap<u64, Arc<Style>>,
     pub mode_list: Vec<CursorMode>,
     pub draw_command_batcher: Arc<DrawCommandBatcher>,
-    pub window_command_sender: Sender<WindowCommand>,
+    pub window_command_sender: LoggingSender<WindowCommand>,
 }
 
 impl Editor {
     pub fn new(
-        batched_draw_command_sender: Sender<Vec<DrawCommand>>,
-        window_command_sender: Sender<WindowCommand>,
+        batched_draw_command_sender: LoggingSender<Vec<DrawCommand>>,
+        window_command_sender: LoggingSender<WindowCommand>,
     ) -> Editor {
         Editor {
             windows: HashMap::new(),
@@ -208,8 +211,16 @@ impl Editor {
                 anchor_grid,
                 anchor_column: anchor_left,
                 anchor_row: anchor_top,
+                sort_order,
                 ..
-            } => self.set_window_float_position(grid, anchor_grid, anchor, anchor_left, anchor_top),
+            } => self.set_window_float_position(
+                grid,
+                anchor_grid,
+                anchor,
+                anchor_left,
+                anchor_top,
+                sort_order,
+            ),
             RedrawEvent::WindowHide { grid } => {
                 let window = self.windows.get(&grid);
                 if let Some(window) = window {
@@ -240,7 +251,7 @@ impl Editor {
     }
 
     fn resize_window(&mut self, grid: u64, width: u64, height: u64) {
-        warn!("editor resize {}", grid);
+        trace!("editor resize {}", grid);
         if let Some(window) = self.windows.get_mut(&grid) {
             window.resize(width, height);
         } else {
@@ -265,7 +276,6 @@ impl Editor {
         width: u64,
         height: u64,
     ) {
-        warn!("position {}", grid);
         if let Some(window) = self.windows.get_mut(&grid) {
             window.position(width, height, None, start_left as f64, start_top as f64);
             window.show();
@@ -290,8 +300,8 @@ impl Editor {
         anchor_type: WindowAnchor,
         anchor_left: f64,
         anchor_top: f64,
+        sort_order: Option<u64>,
     ) {
-        warn!("floating position {}", grid);
         let parent_position = self.get_window_top_left(anchor_grid);
         if let Some(window) = self.windows.get_mut(&grid) {
             let width = window.get_width();
@@ -312,6 +322,7 @@ impl Editor {
                     anchor_type,
                     anchor_left,
                     anchor_top,
+                    sort_order: sort_order.unwrap_or(grid),
                 }),
                 modified_left,
                 modified_top,
@@ -323,7 +334,6 @@ impl Editor {
     }
 
     fn set_message_position(&mut self, grid: u64, grid_top: u64) {
-        warn!("message position {}", grid);
         let parent_width = self
             .windows
             .get(&1)
@@ -335,6 +345,7 @@ impl Editor {
             anchor_type: WindowAnchor::NorthWest,
             anchor_left: 0.0,
             anchor_top: grid_top as f64,
+            sort_order: std::u64::MAX,
         };
 
         if let Some(window) = self.windows.get_mut(&grid) {
@@ -422,15 +433,15 @@ impl Editor {
         if let Some(window) = self.windows.get_mut(&grid) {
             window.update_viewport(top_line, bottom_line);
         } else {
-            warn!("viewport event received before window initialized");
+            trace!("viewport event received before window initialized");
         }
     }
 }
 
 pub fn start_editor(
     redraw_event_receiver: RxUnbounded<RedrawEvent>,
-    batched_draw_command_sender: Sender<Vec<DrawCommand>>,
-    window_command_sender: Sender<WindowCommand>,
+    batched_draw_command_sender: LoggingSender<Vec<DrawCommand>>,
+    window_command_sender: LoggingSender<WindowCommand>,
 ) {
     thread::spawn(move || {
         let mut editor = Editor::new(batched_draw_command_sender, window_command_sender);

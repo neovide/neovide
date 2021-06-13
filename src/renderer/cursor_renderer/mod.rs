@@ -4,7 +4,7 @@ mod cursor_vfx;
 use std::collections::HashMap;
 
 // use neovide_derive::SettingGroup;
-use skulpin::skia_safe::{Canvas, Paint, Path, Point};
+use skia_safe::{Canvas, Paint, Path, Point};
 
 use super::RenderedWindow;
 use crate::bridge::EditorMode;
@@ -20,8 +20,9 @@ const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
 
 const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5)];
 
-#[derive(Clone, SettingGroup)]
+#[derive(SettingGroup)]
 #[setting_prefix = "cursor"]
+#[derive(Clone)]
 pub struct CursorSettings {
     antialiasing: bool,
     animation_length: f32,
@@ -42,7 +43,8 @@ impl Default for CursorSettings {
     fn default() -> Self {
         CursorSettings {
             antialiasing: true,
-            animation_length: 0.13,
+            animation_length: 0.06,
+            distance_length_adjust: true,
             animate_in_insert_mode: true,
             animate_command_line: true,
             trail_size: 0.7,
@@ -146,7 +148,8 @@ impl Corner {
                     (1.0 - settings.trail_size).max(0.0).min(1.0),
                     -direction_alignment,
                 );
-            self.t = (self.t + corner_dt / (settings.animation_length * self.length_multiplier)).min(1.0)
+            self.t =
+                (self.t + corner_dt / (settings.animation_length * self.length_multiplier)).min(1.0)
         }
 
         self.current_position = ease_point(
@@ -223,32 +226,30 @@ impl CursorRenderer {
 
     pub fn update_cursor_destination(
         &mut self,
-        font_width: f32,
-        font_height: f32,
+        font_width: u64,
+        font_height: u64,
         windows: &HashMap<u64, RenderedWindow>,
         current_mode: &EditorMode,
     ) {
         let (cursor_grid_x, cursor_grid_y) = self.cursor.grid_position;
 
         if let Some(window) = windows.get(&self.cursor.parent_window_id) {
-            if cursor_grid_y < window.grid_height-1 || matches!(current_mode, EditorMode::CmdLine) {
-                let grid_x = cursor_grid_x as f32 + window.grid_current_position.x;
-                let mut grid_y = cursor_grid_y as f32 + window.grid_current_position.y
-                    - (window.current_scroll - window.current_surfaces.top_line);
+            let grid_x = cursor_grid_x as f32 + window.grid_current_position.x;
+            let mut grid_y = cursor_grid_y as f32 + window.grid_current_position.y
+                - (window.current_scroll - window.current_surface.top_line as f32);
 
-                // Prevent the cursor from targeting a position outside its current window. Since only
-                // the vertical direction is effected by scrolling, we only have to clamp the vertical
-                // grid position.
-                grid_y = grid_y
-                    .max(window.grid_current_position.y)
-                    .min(window.grid_current_position.y + window.grid_height as f32 - 1.0);
+            // Prevent the cursor from targeting a position outside its current window. Since only
+            // the vertical direction is effected by scrolling, we only have to clamp the vertical
+            // grid position.
+            grid_y = grid_y
+                .max(window.grid_current_position.y)
+                .min(window.grid_current_position.y + window.grid_height as f32 - 1.0);
 
-                self.destination = (grid_x * font_width, grid_y * font_height).into();
-            }
+            self.destination = (grid_x * font_width as f32, grid_y * font_height as f32).into();
         } else {
             self.destination = (
-                cursor_grid_x as f32 * font_width,
-                cursor_grid_y as f32 * font_height,
+                (cursor_grid_x * font_width) as f32,
+                (cursor_grid_y * font_height) as f32,
             )
                 .into();
         }
@@ -257,7 +258,7 @@ impl CursorRenderer {
     pub fn draw(
         &mut self,
         default_colors: &Colors,
-        font_size: (f32, f32),
+        font_size: (u64, u64),
         current_mode: &EditorMode,
         shaper: &mut CachingShaper,
         canvas: &mut Canvas,
@@ -272,21 +273,22 @@ impl CursorRenderer {
             self.previous_vfx_mode = settings.vfx_mode.clone();
         }
 
-        let mut paint = Paint::new(skulpin::skia_safe::colors::WHITE, None);
+        let mut paint = Paint::new(skia_safe::colors::WHITE, None);
         paint.set_anti_alias(settings.antialiasing);
 
         let character = self.cursor.character.clone();
 
         let font_width = match (self.cursor.double_width, &self.cursor.shape) {
-            (true, CursorShape::Block) => font_width * 2.0,
+            (true, CursorShape::Block) => font_width * 2,
             _ => font_width,
         };
 
-        let font_dimensions: Point = (font_width, font_height).into();
+        let font_dimensions: Point = (font_width as f32, font_height as f32).into();
 
         let in_insert_mode = matches!(current_mode, EditorMode::Insert);
-        let changed_to_from_cmdline = !matches!(self.previous_editor_mode, EditorMode::CmdLine) 
-                                      ^ matches!(current_mode, EditorMode::CmdLine);
+
+        let changed_to_from_cmdline = !matches!(self.previous_editor_mode, EditorMode::CmdLine)
+            ^ matches!(current_mode, EditorMode::CmdLine);
 
         let center_destination = self.destination + font_dimensions * 0.5;
         let new_cursor = Some(self.cursor.shape.clone());
@@ -309,13 +311,15 @@ impl CursorRenderer {
 
         if !center_destination.is_zero() {
             for corner in self.corners.iter_mut() {
+                let immediate_movement = !settings.animate_in_insert_mode && in_insert_mode
+                    || !settings.animate_command_line && !changed_to_from_cmdline;
+
                 let corner_animating = corner.update(
                     &settings,
                     font_dimensions,
                     center_destination,
                     dt,
-                    !settings.animate_in_insert_mode && in_insert_mode 
-                    || !settings.animate_command_line && !changed_to_from_cmdline,
+                    immediate_movement,
                 );
 
                 animating |= corner_animating;
@@ -338,7 +342,7 @@ impl CursorRenderer {
 
         if self.cursor.enabled && render {
             // Draw Background
-            paint.set_color(self.cursor.background(&default_colors).to_color());
+            paint.set_color(self.cursor.background(default_colors).to_color());
 
             // The cursor is made up of four points, so I create a path with each of the four
             // corners.
@@ -353,15 +357,20 @@ impl CursorRenderer {
             canvas.draw_path(&path, &paint);
 
             // Draw foreground
-            paint.set_color(self.cursor.foreground(&default_colors).to_color());
+            paint.set_color(self.cursor.foreground(default_colors).to_color());
 
             canvas.save();
             canvas.clip_path(&path, None, Some(false));
 
-            let blobs = &shaper.shape_cached(&character, false, false);
+            let y_adjustment = shaper.y_adjustment();
+            let blobs = &shaper.shape_cached(&[character], false, false);
 
             for blob in blobs.iter() {
-                canvas.draw_text_blob(&blob, self.destination, &paint);
+                canvas.draw_text_blob(
+                    &blob,
+                    (self.destination.x, self.destination.y + y_adjustment as f32),
+                    &paint,
+                );
             }
 
             canvas.restore();
@@ -371,7 +380,7 @@ impl CursorRenderer {
                     &settings,
                     canvas,
                     &self.cursor,
-                    &default_colors,
+                    default_colors,
                     (font_width, font_height),
                 );
             }

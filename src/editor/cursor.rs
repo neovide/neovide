@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use skulpin::skia_safe::Color4f;
+use skia_safe::Color4f;
 
 use super::style::{Colors, Style};
 
@@ -70,10 +70,9 @@ impl Cursor {
             style
                 .colors
                 .foreground
-                .clone()
-                .unwrap_or_else(|| default_colors.background.clone().unwrap())
+                .unwrap_or_else(|| default_colors.background.unwrap())
         } else {
-            default_colors.background.clone().unwrap()
+            default_colors.background.unwrap()
         }
     }
 
@@ -82,10 +81,9 @@ impl Cursor {
             style
                 .colors
                 .background
-                .clone()
-                .unwrap_or_else(|| default_colors.foreground.clone().unwrap())
+                .unwrap_or_else(|| default_colors.foreground.unwrap())
         } else {
-            default_colors.foreground.clone().unwrap()
+            default_colors.foreground.unwrap()
         }
     }
 
@@ -159,18 +157,18 @@ mod tests {
 
         assert_eq!(
             cursor.foreground(&DEFAULT_COLORS),
-            DEFAULT_COLORS.background.clone().unwrap()
+            DEFAULT_COLORS.background.unwrap()
         );
         cursor.style = style.clone();
         assert_eq!(
             cursor.foreground(&DEFAULT_COLORS),
-            COLORS.foreground.clone().unwrap()
+            COLORS.foreground.unwrap()
         );
 
         cursor.style = Some(Arc::new(Style::new(NONE_COLORS)));
         assert_eq!(
             cursor.foreground(&DEFAULT_COLORS),
-            DEFAULT_COLORS.background.clone().unwrap()
+            DEFAULT_COLORS.background.unwrap()
         );
     }
 
@@ -181,18 +179,18 @@ mod tests {
 
         assert_eq!(
             cursor.background(&DEFAULT_COLORS),
-            DEFAULT_COLORS.foreground.clone().unwrap()
+            DEFAULT_COLORS.foreground.unwrap()
         );
         cursor.style = style.clone();
         assert_eq!(
             cursor.background(&DEFAULT_COLORS),
-            COLORS.background.clone().unwrap()
+            COLORS.background.unwrap()
         );
 
         cursor.style = Some(Arc::new(Style::new(NONE_COLORS)));
         assert_eq!(
             cursor.background(&DEFAULT_COLORS),
-            DEFAULT_COLORS.foreground.clone().unwrap()
+            DEFAULT_COLORS.foreground.unwrap()
         );
     }
 
