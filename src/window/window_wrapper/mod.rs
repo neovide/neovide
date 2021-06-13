@@ -399,7 +399,7 @@ impl GlutinWindowWrapper {
                 if renderer.draw_frame(canvas, dt, scaling as f32) {
                     handle_new_grid_size(
                         (current_size.width as u64, current_size.height as u64),
-                        &renderer,
+                        renderer,
                         &ui_command_sender,
                     );
                 }

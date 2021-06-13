@@ -250,7 +250,7 @@ impl CachingShaper {
         let key = ShapeKey::new(cells.to_vec(), bold, italic);
 
         if !self.blob_cache.contains(&key) {
-            let blobs = self.shape(&cells);
+            let blobs = self.shape(cells);
             self.blob_cache.put(key.clone(), blobs);
         }
 
