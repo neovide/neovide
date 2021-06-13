@@ -1,8 +1,10 @@
 use std::sync::Arc;
+use std::iter;
 
-use log::trace;
+use log::{trace, warn};
 use lru::LruCache;
 use skia_safe::{TextBlob, TextBlobBuilder};
+use swash::Metrics;
 use swash::shape::{ShapeContext, Shaper};
 use swash::text::cluster::{CharCluster, Parser, Status, Token};
 use swash::text::Script;
@@ -70,7 +72,7 @@ impl CachingShaper {
         }
     }
 
-    pub fn font_base_dimensions(&mut self) -> (u64, u64) {
+    fn metrics(&mut self) -> Metrics {
         let font_pair = self.current_font_pair();
         let size = self.current_size();
         let shaper = self.shape_context
@@ -78,39 +80,24 @@ impl CachingShaper {
             .size(size)
             .build();
 
-        let metrics = shaper.metrics();
+        shaper.metrics()
+    }
 
-        let font_ref = font_pair.swash_font.as_ref();
-        let glyph_metrics = font_ref.glyph_metrics(shaper.normalized_coords());
-        let charmap = font_ref.charmap();
-        let glyph_id = charmap.map('Z');
-
-        let font_height = (metrics.ascent + metrics.descent).ceil() as u64;
-        let font_width = glyph_metrics.advance_width(glyph_id) as u64;
+    pub fn font_base_dimensions(&mut self) -> (u64, u64) {
+        let metrics = self.metrics();
+        let font_height = (metrics.ascent + metrics.descent + metrics.leading).ceil() as u64;
+        let font_width = metrics.average_width as u64;
 
         (font_width, font_height)
     }
 
     pub fn underline_position(&mut self) -> u64 {
-        let font_pair = self.current_font_pair();
-        let size = self.current_size();
-        let shaper = self.shape_context
-            .builder(font_pair.swash_font.as_ref())
-            .size(size)
-            .build();
-
-        shaper.metrics().underline_offset as u64
+        self.metrics().underline_offset as u64
     }
 
     pub fn y_adjustment(&mut self) -> u64 {
-        let font_pair = self.current_font_pair();
-        let size = self.current_size();
-        let shaper = self.shape_context
-            .builder(font_pair.swash_font.as_ref())
-            .size(size)
-            .build();
-
-        shaper.metrics().ascent as u64
+        let metrics = self.metrics();
+        (metrics.ascent + metrics.leading) as u64
     }
 
     fn build_clusters(&mut self, text: &str) -> Vec<(Vec<CharCluster>, Arc<FontPair>)> {
@@ -141,40 +128,42 @@ impl CachingShaper {
 
         let mut results = Vec::new();
         'cluster: while parser.next(&mut cluster) {
-            if let Some(options) = &self.options {
-                let mut best = None;
-                // Use the cluster.map function to select a viable font from the fallback list
-                for font_name in options.fallback_list.iter() {
-                    if let Some(font_pair) = self.font_loader.get_or_load(font_name.into()) {
-                        let charmap = font_pair.swash_font.as_ref().charmap();
-                        match cluster.map(|ch| charmap.map(ch)) {
-                            Status::Complete => {
-                                results.push((cluster.to_owned(), font_pair.clone()));
-                                continue 'cluster;
-                            }
-                            Status::Keep => best = Some(font_pair),
-                            Status::Discard => {}
-                        }
-                    }
-                }
+            let mut font_fallback_keys = Vec::new();
 
-                // If we find a font with partial coverage of the cluster, select it
-                if let Some(best) = best {
-                    results.push((cluster.to_owned(), best.clone()));
-                    continue 'cluster;
+            // Add guifont fallback list
+            if let Some(options) = &self.options {
+                font_fallback_keys.extend(options.fallback_list.iter().map(|font_name| font_name.into()));
+            }
+            // Add default font
+            font_fallback_keys.push(FontKey::Default);
+
+            // Add skia fallback
+            font_fallback_keys.push(cluster.chars()[0].ch.into());
+
+            let mut best = None;
+            // Use the cluster.map function to select a viable font from the fallback list
+            for fallback_key in font_fallback_keys.into_iter() {
+                if let Some(font_pair) = self.font_loader.get_or_load(fallback_key) {
+                    let charmap = font_pair.swash_font.as_ref().charmap();
+                    match cluster.map(|ch| charmap.map(ch)) {
+                        Status::Complete => {
+                            results.push((cluster.to_owned(), font_pair.clone()));
+                            continue 'cluster;
+                        }
+                        Status::Keep => best = Some(font_pair),
+                        Status::Discard => {}
+                    }
                 }
             }
 
-            // No font in the fallback list worked, so query skia via the font loader for a font
-            // which matches the first character
-            let first_cluster_char = cluster.chars()[0].ch;
-            if let Some(font_pair) = self
-                .font_loader
-                .get_or_load(FontKey::Character(first_cluster_char))
-            {
-                results.push((cluster.to_owned(), font_pair));
+            // If we find a font with partial coverage of the cluster, select it
+            if let Some(best) = best {
+                results.push((cluster.to_owned(), best.clone()));
+                continue 'cluster;
             } else {
-                // Skia crapped out too. Lets fallback to our built in fallback font.
+                warn!("No valid font for {:?}", cluster.chars());
+
+                // No good match. Just render with the default font.
                 let default_font = self
                     .font_loader
                     .get_or_load(FontKey::Default)

@@ -44,7 +44,7 @@ pub struct FontLoader {
     font_size: f32,
 }
 
-#[derive(Hash, PartialEq, Eq, Clone)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum FontKey {
     Default,
     Name(String),
