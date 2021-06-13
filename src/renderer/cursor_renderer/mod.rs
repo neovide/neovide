@@ -48,7 +48,6 @@ impl Default for CursorSettings {
             animate_in_insert_mode: true,
             animate_command_line: true,
             trail_size: 0.7,
-            distance_length_adjust: false,
             vfx_mode: cursor_vfx::VfxMode::Disabled,
             vfx_opacity: 200.0,
             vfx_particle_lifetime: 1.2,
@@ -229,7 +228,6 @@ impl CursorRenderer {
         font_width: u64,
         font_height: u64,
         windows: &HashMap<u64, RenderedWindow>,
-        current_mode: &EditorMode,
     ) {
         let (cursor_grid_x, cursor_grid_y) = self.cursor.grid_position;
 
