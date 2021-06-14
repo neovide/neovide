@@ -198,6 +198,13 @@ REGEX=$(printf 's/{url}/&\#branch=%s/g' '<YOUR-BRANCH-HERE>')
 sed "$REGEX" PKGBUILD
 makepkg -si
 ```
+#### With Snap
+Neovide is also available in the Snap Store. You can install it 
+using the command below.
+
+```
+snap install --channel=beta neovide
+```
 
 #### From source
 1. Install necessary dependencies (adjust for your preferred package manager)
