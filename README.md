@@ -201,9 +201,10 @@ makepkg -si
 #### With Snap
 Neovide is also available in the Snap Store. You can install it 
 using the command below.
+[![Get it from the Snap Store](https://snapcraft.io/static/images/badges/en/snap-store-white.svg)](https://snapcraft.io/neovide)
 
 ```
-snap install --channel=beta neovide
+snap install neovide
 ```
 
 #### From source
@@ -242,6 +243,3 @@ snap install --channel=beta neovide
 
 ### Linux-specific
 - If you recieve errors complaining about DRI3 settings, please reference issue [#44](https://github.com/Kethku/neovide/issues/44#issuecomment-578618052).
-
-[![Get it from the Snap Store](https://snapcraft.io/static/images/badges/en/snap-store-white.svg)](https://snapcraft.io/neovide)
-
