@@ -127,7 +127,7 @@ mod tests {
     }
 
     #[test]
-    fn new_constructsGrid() {
+    fn new_constructs_grid() {
         let context = Context::new();
 
         // RUN FUNCTION
@@ -141,7 +141,7 @@ mod tests {
     }
 
     #[test]
-    fn getCell_returnsExpectedCell() {
+    fn get_cell_returns_expected_cell() {
         let context = Context::new();
         let mut character_grid = CharacterGrid::new(context.size);
 
@@ -162,7 +162,7 @@ mod tests {
     }
 
     #[test]
-    fn getCellMut_modifiersGridProperly() {
+    fn get_cell_mut_modifiers_grid_properly() {
         let context = Context::new();
         let mut character_grid = CharacterGrid::new(context.size);
 
@@ -189,7 +189,7 @@ mod tests {
     }
 
     #[test]
-    fn setAllCharacters_setsAllCellsToGivenCharacter() {
+    fn set_all_characters_sets_all_cells_to_given_character() {
         let context = Context::new();
         let grid_cell = (
             "foo".to_string(),
@@ -206,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn clear_emptiesBuffer() {
+    fn clear_empties_buffer() {
         let context = Context::new();
         let mut character_grid = CharacterGrid::new(context.size);
 
@@ -228,7 +228,7 @@ mod tests {
     }
 
     #[test]
-    fn resize_clearsAndResizesGrid() {
+    fn resize_clears_and_resizes_grid() {
         let context = Context::new();
         let mut character_grid = CharacterGrid::new(context.size);
         let (width, height) = (
