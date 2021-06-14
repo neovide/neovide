@@ -251,7 +251,7 @@ impl GlutinWindowWrapper {
                 .ok();
         }
 
-        let horizontal_input_type = match y {
+        let horizontal_input_type = match x {
             _ if x > 1.8 => Some("left"),
             _ if x < -1.8 => Some("right"),
             _ => None,
