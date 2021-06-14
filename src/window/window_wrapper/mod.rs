@@ -231,13 +231,14 @@ impl GlutinWindowWrapper {
     }
 
     pub fn handle_mouse_wheel(&mut self, x: f32, y: f32) {
+        let scroll_dead_zone = SETTINGS.get::<WindowSettings>().scroll_dead_zone;
         if !self.mouse_enabled {
             return;
         }
 
         let vertical_input_type = match y {
-            _ if y > 1.8 => Some("up"),
-            _ if y < -1.8 => Some("down"),
+            _ if y > scroll_dead_zone => Some("up"),
+            _ if y < -scroll_dead_zone => Some("down"),
             _ => None,
         };
 
@@ -252,8 +253,8 @@ impl GlutinWindowWrapper {
         }
 
         let horizontal_input_type = match x {
-            _ if x > 1.8 => Some("right"),
-            _ if x < -1.8 => Some("left"),
+            _ if x > scroll_dead_zone => Some("right"),
+            _ if x < -scroll_dead_zone => Some("left"),
             _ => None,
         };
 
