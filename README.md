@@ -105,8 +105,7 @@ Configuration is done almost completely via global neovide variables in your vim
 ## Install
 
 **Note**: Building instructions are somewhat limited at the moment. All the libraries I use are cross platform and should have
-support for Windows, Mac, and Linux. The rendering however is Vulkan-based, so driver support for Vulkan will be
-necessary. On Windows this should be enabled by default if you have a relatively recent system.
+support for Windows, Mac, and Linux. On Windows this should be enabled by default if you have a relatively recent system.
 
 **Note**: Neovide requires neovim version 0.4 or greater.
 
