@@ -24,8 +24,11 @@ A clear and concise description of what you expected to happen.
 If applicable, add screenshots to help explain your problem.
 
 **Desktop (please complete the following information):**
- - OS: [e.g. Windows 10]
- - Version [e.g. 2.0.0]
+ - OS: [e.g. macOS 11.4]
+ - Neovide Version [e.g. 0.5.0]
+ - Neovim Version [e.g. 0.5.0]
+
+**Please run `neovide --log` and paste the results here:**
 
 **Additional context**
 Add any other context about the problem here.
