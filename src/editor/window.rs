@@ -368,7 +368,7 @@ mod tests {
     }
 
     #[test]
-    fn windowSeparator_modifiesGridAndSendsDrawCommand() {
+    fn window_separator_modifies_grid_and_sends_draw_command() {
         let (batched_receiver, batched_sender) = build_test_channels();
         let mut window = Window::new(1, 114, 64, None, 0.0, 0.0, batched_sender.clone());
         batched_sender
