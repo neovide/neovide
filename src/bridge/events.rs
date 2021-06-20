@@ -127,6 +127,7 @@ pub enum EditorMode {
     Normal,
     Insert,
     Visual,
+    Replace,
     CmdLine,
     Unknown(String),
 }
@@ -477,6 +478,7 @@ fn parse_mode_change(mode_change_arguments: Vec<Value>) -> Result<RedrawEvent> {
             "normal" => EditorMode::Normal,
             "insert" => EditorMode::Insert,
             "visual" => EditorMode::Visual,
+            "replace" => EditorMode::Replace,
             "cmdline_normal" => EditorMode::CmdLine,
             _ => EditorMode::Unknown(mode_name),
         },

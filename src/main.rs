@@ -41,7 +41,7 @@ use editor::start_editor;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 #[cfg(not(test))]
 use settings::SETTINGS;
-use window::{create_window, window_geometry, KeyboardSettings, WindowSettings};
+use window::{create_window, window_geometry, WindowSettings};
 
 pub use channel_utils::*;
 pub const INITIAL_DIMENSIONS: (u64, u64) = (100, 50);
@@ -162,7 +162,6 @@ fn main() {
         }
     }
 
-    KeyboardSettings::register();
     WindowSettings::register();
     RendererSettings::register();
     CursorSettings::register();
