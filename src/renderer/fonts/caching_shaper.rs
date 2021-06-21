@@ -235,7 +235,7 @@ impl CachingShaper {
             });
 
             if glyph_data.is_empty() {
-                return Vec::new();
+                continue;
             }
 
             let mut blob_builder = TextBlobBuilder::new();
