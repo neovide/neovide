@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use log::{trace, warn};
+use log::trace;
 use lru::LruCache;
 use skia_safe::{TextBlob, TextBlobBuilder};
 use swash::shape::ShapeContext;
-use swash::text::cluster::{Char, CharCluster, Parser, Status, Token};
+use swash::text::cluster::{CharCluster, Parser, Status, Token};
 use swash::text::Script;
 use swash::Metrics;
 use unicode_segmentation::UnicodeSegmentation;
