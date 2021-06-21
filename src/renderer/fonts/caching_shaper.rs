@@ -4,7 +4,7 @@ use log::{trace, warn};
 use lru::LruCache;
 use skia_safe::{TextBlob, TextBlobBuilder};
 use swash::shape::ShapeContext;
-use swash::text::cluster::{CharCluster, Parser, Status, Token};
+use swash::text::cluster::{Char, CharCluster, Parser, Status, Token};
 use swash::text::Script;
 use swash::Metrics;
 use unicode_segmentation::UnicodeSegmentation;
@@ -46,7 +46,7 @@ impl CachingShaper {
             .unwrap_or(FontKey::Default);
 
         self.font_loader
-            .get_or_load(font_key)
+            .get_or_load(&font_key)
             .expect("Could not load font")
     }
 
@@ -128,6 +128,8 @@ impl CachingShaper {
 
         let mut results = Vec::new();
         'cluster: while parser.next(&mut cluster) {
+            // TODO: Don't redo this work for every cluster. Save it some how
+            // Create font fallback list
             let mut font_fallback_keys = Vec::new();
 
             // Add guifont fallback list
@@ -145,9 +147,12 @@ impl CachingShaper {
             // Add skia fallback
             font_fallback_keys.push(cluster.chars()[0].ch.into());
 
+            // Add last resort
+            font_fallback_keys.push(FontKey::LastResort);
+
             let mut best = None;
             // Use the cluster.map function to select a viable font from the fallback list
-            for fallback_key in font_fallback_keys.into_iter() {
+            for fallback_key in font_fallback_keys.iter() {
                 if let Some(font_pair) = self.font_loader.get_or_load(fallback_key) {
                     let charmap = font_pair.swash_font.as_ref().charmap();
                     match cluster.map(|ch| charmap.map(ch)) {
@@ -161,19 +166,9 @@ impl CachingShaper {
                 }
             }
 
-            // If we find a font with partial coverage of the cluster, select it
             if let Some(best) = best {
+                // Last Resort covers all of the unicode space so we will always have a fallback
                 results.push((cluster.to_owned(), best.clone()));
-                continue 'cluster;
-            } else {
-                warn!("No valid font for {:?}", cluster.chars());
-
-                // No good match. Just render with the default font.
-                let default_font = self
-                    .font_loader
-                    .get_or_load(FontKey::Default)
-                    .expect("Could not load default font");
-                results.push((cluster.to_owned(), default_font));
             }
         }
 
@@ -188,7 +183,7 @@ impl CachingShaper {
                     current_group.push(cluster);
                 } else {
                     grouped_results.push((current_group, current_font));
-                    current_group = Vec::new();
+                    current_group = vec![cluster];
                     current_font_option = Some(font);
                 }
             } else {
