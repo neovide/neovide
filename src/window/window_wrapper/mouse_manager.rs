@@ -1,12 +1,23 @@
 use glutin::{
-    self,
-    dpi::{LogicalPosition, LogicalSize, PhysicalSize},
-    event::{ElementState, Event, MouseButton, MouseScrollDelta, WindowEvent},
-    PossiblyCurrent, WindowedContext,
+    self, 
+    WindowedContext, 
+    dpi::{
+        LogicalPosition, 
+        LogicalSize, 
+        PhysicalSize
+    }, 
+    event::{
+        ElementState, 
+        Event, 
+        MouseButton, 
+        MouseScrollDelta, 
+        WindowEvent,
+    }, 
+    PossiblyCurrent
 };
 
-use crate::bridge::UiCommand;
 use crate::channel_utils::LoggingTx;
+use crate::bridge::UiCommand;
 use crate::renderer::Renderer;
 
 pub struct MouseManager {
@@ -27,14 +38,8 @@ impl MouseManager {
             enabled: true,
         }
     }
-
-    fn handle_pointer_motion(
-        &mut self,
-        x: i32,
-        y: i32,
-        renderer: &Renderer,
-        windowed_context: &WindowedContext<PossiblyCurrent>,
-    ) {
+    
+    fn handle_pointer_motion(&mut self, x: i32, y: i32, renderer: &Renderer, windowed_context: &WindowedContext<PossiblyCurrent>) {
         let size = windowed_context.window().inner_size();
         if x < 0 || x as u32 >= size.width || y < 0 || y as u32 >= size.height {
             return;
@@ -82,10 +87,10 @@ impl MouseManager {
                 let position = if grid_floating {
                     (self.position.x, self.position.y)
                 } else {
-                    let adjusted_drag_left =
-                        self.position.x + (window_left / renderer.font_width as f32) as u32;
-                    let adjusted_drag_top =
-                        self.position.y + (window_top / renderer.font_height as f32) as u32;
+                    let adjusted_drag_left = self.position.x
+                        + (window_left / renderer.font_width as f32) as u32;
+                    let adjusted_drag_top = self.position.y
+                        + (window_top / renderer.font_height as f32) as u32;
                     (adjusted_drag_left, adjusted_drag_top)
                 };
 
@@ -163,22 +168,14 @@ impl MouseManager {
         }
     }
 
-    pub fn handle_event(
-        &mut self,
-        event: &Event<()>,
-        renderer: &Renderer,
-        windowed_context: &WindowedContext<PossiblyCurrent>,
-    ) {
+    pub fn handle_event(&mut self, event: &Event<()>, renderer: &Renderer, windowed_context: &WindowedContext<PossiblyCurrent>) {
         match event {
             Event::WindowEvent {
                 event: WindowEvent::CursorMoved { position, .. },
                 ..
             } => self.handle_pointer_motion(
-                position.x as i32,
-                position.y as i32,
-                renderer,
-                windowed_context,
-            ),
+                position.x as i32, position.y as i32, 
+                renderer, windowed_context),
             Event::WindowEvent {
                 event:
                     WindowEvent::MouseWheel {
@@ -209,7 +206,7 @@ impl MouseManager {
                 } else {
                     self.handle_pointer_up();
                 }
-            }
+            },
             _ => {}
         }
     }

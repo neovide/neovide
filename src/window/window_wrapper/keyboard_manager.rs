@@ -99,35 +99,33 @@ impl KeyboardManager {
     }
 
     pub fn handle_event(&mut self, event: &Event<()>) {
-        if let Event::WindowEvent {
-            event: WindowEvent::KeyboardInput {
-                event: key_event, ..
-            },
-            ..
-        } = event
-        {
-            let key_pressed = match key_event.state {
-                ElementState::Pressed => true,
-                ElementState::Released => false,
-            };
+        match event {
+            Event::WindowEvent {
+                event: WindowEvent::KeyboardInput {
+                    event: key_event, ..
+                },
+                ..
+            } => {
+                if key_event.state == ElementState::Pressed {
+                    if let Some((key_text, special)) = get_key_text(key_event.logical_key) {
+                        let keybinding_string = self.format_keybinding_string(special, key_text);
 
-            match key_event.logical_key {
-                Key::Shift => self.shift = key_pressed,
-                Key::Control => self.ctrl = key_pressed,
-                Key::Alt => self.alt = key_pressed,
-                Key::Super => self.logo = key_pressed,
-                _ => {}
-            };
-
-            if key_event.state == ElementState::Pressed {
-                if let Some((key_text, special)) = get_key_text(key_event.logical_key) {
-                    let keybinding_string = self.format_keybinding_string(special, key_text);
-
-                    self.command_sender
-                        .send(UiCommand::Keyboard(keybinding_string))
-                        .expect("Could not send keyboard ui command");
+                        self.command_sender
+                            .send(UiCommand::Keyboard(keybinding_string))
+                            .expect("Could not send keyboard ui command");
+                    }
                 }
-            }
+            },
+            Event::WindowEvent {
+                event: WindowEvent::ModifiersChanged(modifiers),
+                ..
+            } => {
+                self.shift = modifiers.shift_key();
+                self.ctrl = modifiers.control_key();
+                self.alt = modifiers.alt_key();
+                self.logo = modifiers.super_key();
+            },
+            _ => { }
         }
     }
 }
