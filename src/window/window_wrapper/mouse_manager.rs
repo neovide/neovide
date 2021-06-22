@@ -14,6 +14,7 @@ use glutin::{
     }, 
     PossiblyCurrent
 };
+use skia_safe::Rect;
 
 use crate::channel_utils::LoggingTx;
 use crate::bridge::UiCommand;
@@ -21,10 +22,16 @@ use crate::renderer::{Renderer, WindowDrawDetails};
 use crate::settings::SETTINGS;
 use crate::window::WindowSettings;
 
-fn clamp_position(position: LogicalPosition<u32>, max_width: u32, max_height: u32) -> LogicalPosition<u32> {
+fn clamp_position(position: LogicalPosition<f32>, region: Rect, font_width: u64, font_height: u64) -> LogicalPosition<f32> {
     LogicalPosition::new(
-        position.x.min(max_width),
-        position.y.min(max_height))
+        position.x.min(region.right - font_width as f32).max(region.left),
+        position.y.min(region.bottom - font_height as f32).max(region.top))
+}
+
+fn to_grid_coords(position: LogicalPosition<f32>, font_width: u64, font_height: u64) -> LogicalPosition<u32> {
+    LogicalPosition::new(
+        (position.x as u64 / font_width) as u32,
+        (position.y as u64 / font_height) as u32)
 }
 
 pub struct MouseManager {
@@ -58,7 +65,7 @@ impl MouseManager {
             return;
         }
 
-        let logical_position: LogicalPosition<u32> = PhysicalPosition::new(x as u32, y as u32)
+        let logical_position: LogicalPosition<f32> = PhysicalPosition::new(x as u32, y as u32)
             .to_logical(windowed_context.window().scale_factor());
 
         // If dragging, the relevant window (the one which we send all commands to) is the one
@@ -70,26 +77,23 @@ impl MouseManager {
             // the rendered window regions are sorted by draw order, so the earlier windows in the
             // list are drawn under the later ones
             renderer.window_regions.iter().filter(|details| {
-                logical_position.x >= details.region.left as u32 && 
-                logical_position.x < details.region.right as u32 && 
-                logical_position.y >= details.region.top as u32 && 
-                logical_position.y < details.region.bottom as u32
+                logical_position.x >= details.region.left && 
+                logical_position.x < details.region.right && 
+                logical_position.y >= details.region.top && 
+                logical_position.y < details.region.bottom
             }).last()
         };
 
+        let global_bounds = relevant_window_details.map(|details| details.region).unwrap_or(Rect::from_wh(size.width as f32, size.height as f32));
+        let clamped_position = clamp_position(logical_position, global_bounds, renderer.font_width, renderer.font_height);
 
-        self.position =
-                LogicalPosition::new(
-                    logical_position.x / renderer.font_width as u32,
-                    logical_position.y / renderer.font_height as u32
-                );
+        self.position = to_grid_coords(clamped_position, renderer.font_width, renderer.font_height);
 
         if let Some(relevant_window_details) = relevant_window_details {
-            self.relative_position = 
-                LogicalPosition::new(
-                    (logical_position.x as i64 - relevant_window_details.region.left as i64) as u32 / renderer.font_width as u32,
-                    (logical_position.y as i64 - relevant_window_details.region.top as i64) as u32 / renderer.font_height as u32,
-                );
+            let relative_position = LogicalPosition::new(
+                clamped_position.x - relevant_window_details.region.left,
+                clamped_position.y - relevant_window_details.region.top);
+            self.relative_position = to_grid_coords(relative_position, renderer.font_width, renderer.font_height);
 
             let previous_position = self.drag_position;
             // Until https://github.com/neovim/neovim/pull/12667 is merged, we have to special
@@ -110,7 +114,7 @@ impl MouseManager {
                 self.command_sender
                     .send(UiCommand::Drag {
                         grid_id: relevant_window_details.id,
-                        position: dbg!(self.drag_position.into()),
+                        position: self.drag_position.into(),
                     })
                     .ok();
             } else {
