@@ -1,27 +1,7 @@
-#[macro_use]
-mod layouts;
+mod keyboard_manager;
+mod mouse_manager;
 mod renderer;
 
-use super::{handle_new_grid_size, keyboard::neovim_keybinding_string, settings::WindowSettings};
-use crate::{
-    bridge::UiCommand, channel_utils::*, cmd_line::CmdLineSettings, editor::WindowCommand,
-    error_handling::ResultPanicExplanation, redraw_scheduler::REDRAW_SCHEDULER, renderer::Renderer,
-    settings::SETTINGS,
-};
-use glutin::{
-    self,
-    dpi::{LogicalPosition, LogicalSize, PhysicalSize},
-    event::{
-        ElementState, Event, ModifiersState, MouseButton, MouseScrollDelta,
-        VirtualKeyCode as Keycode, WindowEvent,
-    },
-    event_loop::{ControlFlow, EventLoop},
-    window::{self, Fullscreen, Icon},
-    ContextBuilder, GlProfile, WindowedContext,
-};
-use image::{load_from_memory, GenericImageView, Pixel};
-use layouts::handle_qwerty_layout;
-use renderer::SkiaRenderer;
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -31,6 +11,25 @@ use std::{
     time::{Duration, Instant},
 };
 
+use glutin::{
+    self,
+    dpi::{LogicalPosition, LogicalSize, PhysicalSize},
+    event::{Event, WindowEvent},
+    event_loop::{ControlFlow, EventLoop},
+    window::{self, Fullscreen, Icon},
+    ContextBuilder, GlProfile, WindowedContext,
+};
+
+use super::{handle_new_grid_size, settings::WindowSettings};
+use crate::{
+    bridge::UiCommand, channel_utils::*, cmd_line::CmdLineSettings, editor::WindowCommand,
+    redraw_scheduler::REDRAW_SCHEDULER, renderer::Renderer, settings::SETTINGS,
+};
+use image::{load_from_memory, GenericImageView, Pixel};
+use keyboard_manager::KeyboardManager;
+use mouse_manager::MouseManager;
+use renderer::SkiaRenderer;
+
 #[derive(RustEmbed)]
 #[folder = "assets/"]
 struct Asset;
@@ -39,11 +38,8 @@ pub struct GlutinWindowWrapper {
     windowed_context: WindowedContext<glutin::PossiblyCurrent>,
     skia_renderer: SkiaRenderer,
     renderer: Renderer,
-    mouse_down: bool,
-    mouse_position: LogicalPosition<u32>,
-    mouse_enabled: bool,
-    grid_id_under_mouse: u64,
-    current_modifiers: Option<ModifiersState>,
+    keyboard_manager: KeyboardManager,
+    mouse_manager: MouseManager,
     title: String,
     previous_size: PhysicalSize<u32>,
     fullscreen: bool,
@@ -95,7 +91,9 @@ impl GlutinWindowWrapper {
         for window_command in window_commands.into_iter() {
             match window_command {
                 WindowCommand::TitleChanged(new_title) => self.handle_title_changed(new_title),
-                WindowCommand::SetMouseEnabled(mouse_enabled) => self.mouse_enabled = mouse_enabled,
+                WindowCommand::SetMouseEnabled(mouse_enabled) => {
+                    self.mouse_manager.enabled = mouse_enabled
+                }
             }
         }
     }
@@ -115,160 +113,6 @@ impl GlutinWindowWrapper {
         }
     }
 
-    pub fn handle_keyboard_input(
-        &mut self,
-        keycode: Option<Keycode>,
-        modifiers: Option<ModifiersState>,
-    ) {
-        if keycode.is_some() {
-            log::trace!(
-                "Keyboard Input Received: keycode-{:?} modifiers-{:?} ",
-                keycode,
-                modifiers
-            );
-        }
-
-        if let Some(keybinding_string) =
-            neovim_keybinding_string(keycode, None, modifiers, handle_qwerty_layout)
-        {
-            self.ui_command_sender
-                .send(UiCommand::Keyboard(keybinding_string))
-                .unwrap_or_explained_panic(
-                    "Could not send UI command from the window system to the neovim process.",
-                );
-        }
-    }
-
-    pub fn handle_pointer_motion(&mut self, x: i32, y: i32) {
-        let size = self.windowed_context.window().inner_size();
-        if x < 0 || x as u32 >= size.width || y < 0 || y as u32 >= size.height {
-            return;
-        }
-
-        let previous_position = self.mouse_position;
-
-        let logical_position: LogicalSize<u32> = PhysicalSize::new(x as u32, y as u32)
-            .to_logical(self.windowed_context.window().scale_factor());
-
-        let mut top_window_position = (0.0, 0.0);
-        let mut top_grid_position = None;
-
-        for details in self.renderer.window_regions.iter() {
-            if logical_position.width >= details.region.left as u32
-                && logical_position.width < details.region.right as u32
-                && logical_position.height >= details.region.top as u32
-                && logical_position.height < details.region.bottom as u32
-            {
-                top_window_position = (details.region.left, details.region.top);
-                top_grid_position = Some((
-                    details.id,
-                    LogicalSize::<u32>::new(
-                        logical_position.width - details.region.left as u32,
-                        logical_position.height - details.region.top as u32,
-                    ),
-                    details.floating_order.is_some(),
-                ));
-            }
-        }
-
-        if let Some((grid_id, grid_position, grid_floating)) = top_grid_position {
-            self.grid_id_under_mouse = grid_id;
-            self.mouse_position = LogicalPosition::new(
-                (grid_position.width as u64 / self.renderer.font_width) as u32,
-                (grid_position.height as u64 / self.renderer.font_height) as u32,
-            );
-
-            if self.mouse_enabled && self.mouse_down && previous_position != self.mouse_position {
-                let (window_left, window_top) = top_window_position;
-
-                // Until https://github.com/neovim/neovim/pull/12667 is merged, we have to special
-                // case non floating windows. Floating windows correctly transform mouse positions
-                // into grid coordinates, but non floating windows do not.
-                let position = if grid_floating {
-                    (self.mouse_position.x, self.mouse_position.y)
-                } else {
-                    let adjusted_drag_left = self.mouse_position.x
-                        + (window_left / self.renderer.font_width as f32) as u32;
-                    let adjusted_drag_top = self.mouse_position.y
-                        + (window_top / self.renderer.font_height as f32) as u32;
-                    (adjusted_drag_left, adjusted_drag_top)
-                };
-
-                self.ui_command_sender
-                    .send(UiCommand::Drag {
-                        grid_id: self.grid_id_under_mouse,
-                        position,
-                    })
-                    .ok();
-            }
-        }
-    }
-
-    pub fn handle_pointer_down(&mut self) {
-        if self.mouse_enabled {
-            self.ui_command_sender
-                .send(UiCommand::MouseButton {
-                    action: String::from("press"),
-                    grid_id: self.grid_id_under_mouse,
-                    position: (self.mouse_position.x, self.mouse_position.y),
-                })
-                .ok();
-        }
-        self.mouse_down = true;
-    }
-
-    pub fn handle_pointer_up(&mut self) {
-        if self.mouse_enabled {
-            self.ui_command_sender
-                .send(UiCommand::MouseButton {
-                    action: String::from("release"),
-                    grid_id: self.grid_id_under_mouse,
-                    position: (self.mouse_position.x, self.mouse_position.y),
-                })
-                .ok();
-        }
-        self.mouse_down = false;
-    }
-
-    pub fn handle_mouse_wheel(&mut self, x: f32, y: f32) {
-        let scroll_dead_zone = SETTINGS.get::<WindowSettings>().scroll_dead_zone;
-        if !self.mouse_enabled {
-            return;
-        }
-
-        let vertical_input_type = match y {
-            _ if y > scroll_dead_zone => Some("up"),
-            _ if y < -scroll_dead_zone => Some("down"),
-            _ => None,
-        };
-
-        if let Some(input_type) = vertical_input_type {
-            self.ui_command_sender
-                .send(UiCommand::Scroll {
-                    direction: input_type.to_string(),
-                    grid_id: self.grid_id_under_mouse,
-                    position: (self.mouse_position.x, self.mouse_position.y),
-                })
-                .ok();
-        }
-
-        let horizontal_input_type = match x {
-            _ if x > scroll_dead_zone => Some("right"),
-            _ if x < -scroll_dead_zone => Some("left"),
-            _ => None,
-        };
-
-        if let Some(input_type) = horizontal_input_type {
-            self.ui_command_sender
-                .send(UiCommand::Scroll {
-                    direction: input_type.to_string(),
-                    grid_id: self.grid_id_under_mouse,
-                    position: (self.mouse_position.x, self.mouse_position.y),
-                })
-                .ok();
-        }
-    }
-
     pub fn handle_focus_lost(&mut self) {
         self.ui_command_sender.send(UiCommand::FocusLost).ok();
     }
@@ -279,9 +123,9 @@ impl GlutinWindowWrapper {
     }
 
     pub fn handle_event(&mut self, event: Event<()>, running: &Arc<AtomicBool>) {
-        let mut keycode = None;
-        let mut ignore_text_this_frame = false;
-
+        self.keyboard_manager.handle_event(&event);
+        self.mouse_manager
+            .handle_event(&event, &self.renderer, &self.windowed_context);
         match event {
             Event::LoopDestroyed => {
                 self.handle_quit(running);
@@ -303,60 +147,10 @@ impl GlutinWindowWrapper {
                     .ok();
             }
             Event::WindowEvent {
-                event: WindowEvent::KeyboardInput { input, .. },
-                ..
-            } => {
-                if input.state == ElementState::Pressed {
-                    keycode = input.virtual_keycode;
-                }
-            }
-            Event::WindowEvent {
-                event: WindowEvent::ModifiersChanged(m),
-                ..
-            } => {
-                self.current_modifiers = Some(m);
-            }
-            Event::WindowEvent {
-                event: WindowEvent::CursorMoved { position, .. },
-                ..
-            } => self.handle_pointer_motion(position.x as i32, position.y as i32),
-            Event::WindowEvent {
-                event:
-                    WindowEvent::MouseWheel {
-                        delta: MouseScrollDelta::LineDelta(x, y),
-                        ..
-                    },
-                ..
-            } => self.handle_mouse_wheel(x as f32, y as f32),
-            Event::WindowEvent {
-                event:
-                    WindowEvent::MouseWheel {
-                        delta: MouseScrollDelta::PixelDelta(logical_position),
-                        ..
-                    },
-                ..
-            } => self.handle_mouse_wheel(logical_position.x as f32, logical_position.y as f32),
-            Event::WindowEvent {
-                event:
-                    WindowEvent::MouseInput {
-                        button: MouseButton::Left,
-                        state,
-                        ..
-                    },
-                ..
-            } => {
-                if state == ElementState::Pressed {
-                    self.handle_pointer_down();
-                } else {
-                    self.handle_pointer_up();
-                }
-            }
-            Event::WindowEvent {
                 event: WindowEvent::Focused(focus),
                 ..
             } => {
                 if focus {
-                    ignore_text_this_frame = true; // Ignore any text events on the first frame when focus is regained. https://github.com/Kethku/neovide/issues/193
                     self.handle_focus_gained();
                 } else {
                     self.handle_focus_lost();
@@ -364,10 +158,6 @@ impl GlutinWindowWrapper {
             }
             Event::WindowEvent { .. } => REDRAW_SCHEDULER.queue_next_frame(),
             _ => {}
-        }
-
-        if !ignore_text_this_frame {
-            self.handle_keyboard_input(keycode, self.current_modifiers);
         }
     }
 
@@ -461,11 +251,8 @@ pub fn start_loop(
         windowed_context,
         skia_renderer,
         renderer,
-        mouse_down: false,
-        mouse_position: LogicalPosition::new(0, 0),
-        mouse_enabled: true,
-        grid_id_under_mouse: 0,
-        current_modifiers: None,
+        keyboard_manager: KeyboardManager::new(ui_command_sender.clone()),
+        mouse_manager: MouseManager::new(ui_command_sender.clone()),
         title: String::from("Neovide"),
         previous_size,
         fullscreen: false,
