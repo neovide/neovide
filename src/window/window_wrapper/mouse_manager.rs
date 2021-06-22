@@ -21,10 +21,19 @@ use crate::renderer::{Renderer, WindowDrawDetails};
 use crate::settings::SETTINGS;
 use crate::window::WindowSettings;
 
+fn clamp_position(position: LogicalPosition<u32>, max_width: u32, max_height: u32) -> LogicalPosition<u32> {
+    LogicalPosition::new(
+        position.x.min(max_width),
+        position.y.min(max_height))
+}
+
 pub struct MouseManager {
     command_sender: LoggingTx<UiCommand>,
     dragging: bool,
+    has_moved: bool,
     position: LogicalPosition<u32>,
+    relative_position: LogicalPosition<u32>,
+    drag_position: LogicalPosition<u32>,
     window_details_under_mouse: Option<WindowDrawDetails>,
     pub enabled: bool,
 }
@@ -34,7 +43,10 @@ impl MouseManager {
         MouseManager {
             command_sender,
             dragging: false,
+            has_moved: false,
             position: LogicalPosition::new(0, 0),
+            relative_position: LogicalPosition::new(0, 0),
+            drag_position: LogicalPosition::new(0, 0),
             window_details_under_mouse: None,
             enabled: true,
         }
@@ -65,84 +77,84 @@ impl MouseManager {
             }).last()
         };
 
-        if let Some(relevant_window_details) = relevant_window_details {
-            let previous_position = self.position;
-            // Until https://github.com/neovim/neovim/pull/12667 is merged, we have to special
-            // case non floating windows. Floating windows correctly transform mouse positions
-            // into grid coordinates, but non floating windows do not.
-            self.position = if relevant_window_details.floating_order.is_some() {
-                // Floating windows handle relative grid coordinates just fine
-                LogicalPosition::new(
-                    (logical_position.x - relevant_window_details.region.left as u32) / renderer.font_width as u32,
-                    (logical_position.y - relevant_window_details.region.top as u32) / renderer.font_height as u32,
-                )
-            } else {
-                // Non floating windows need global coordinates
+
+        self.position =
                 LogicalPosition::new(
                     logical_position.x / renderer.font_width as u32,
                     logical_position.y / renderer.font_height as u32
-                )
+                );
+
+        if let Some(relevant_window_details) = relevant_window_details {
+            self.relative_position = 
+                LogicalPosition::new(
+                    (logical_position.x as i64 - relevant_window_details.region.left as i64) as u32 / renderer.font_width as u32,
+                    (logical_position.y as i64 - relevant_window_details.region.top as i64) as u32 / renderer.font_height as u32,
+                );
+
+            let previous_position = self.drag_position;
+            // Until https://github.com/neovim/neovim/pull/12667 is merged, we have to special
+            // case non floating windows. Floating windows correctly transform mouse positions
+            // into grid coordinates, but non floating windows do not.
+            self.drag_position =  if relevant_window_details.floating_order.is_some() {
+                // Floating windows handle relative grid coordinates just fine
+                self.relative_position.clone()
+            } else {
+                // Non floating windows need global coordinates
+                self.position.clone()
             };
 
+            let has_moved = self.drag_position != previous_position;
+
             // If dragging and we haven't already sent a position, send a drag command
-            if self.dragging && self.position != previous_position {
-                let window_id_to_send_to = self.window_details_under_mouse.as_ref().map(|details| details.id).unwrap_or(0);
+            if self.dragging && has_moved {
                 self.command_sender
                     .send(UiCommand::Drag {
-                        grid_id: window_id_to_send_to,
-                        position: self.position.into(),
+                        grid_id: relevant_window_details.id,
+                        position: dbg!(self.drag_position.into()),
                     })
                     .ok();
             } else {
                 // otherwise, update the window_id_under_mouse to match the one selected
                 self.window_details_under_mouse = Some(relevant_window_details.clone());
             }
+
+            self.has_moved = self.dragging && (self.has_moved || has_moved);
         }
     }
 
-    fn handle_pointer_down(&mut self, renderer: &Renderer) {
+    fn handle_pointer_transition(&mut self, down: bool) {
         // For some reason pointer down is handled differently from pointer up and drag.
         // Floating windows: relative coordinates are great.
         // Non floating windows: rather than global coordinates, relative are needed
         if self.enabled  {
             if let Some(details) = &self.window_details_under_mouse {
-                if details.floating_order.is_some() {
-                    self.command_sender
-                        .send(UiCommand::MouseButton {
-                            action: String::from("press"),
-                            grid_id: details.id,
-                            position: (self.position.x, self.position.y),
-                        })
-                        .ok();
+                let action = if down {
+                    "press".to_owned()
                 } else {
-                    let relative_position = (
-                        self.position.x - (details.region.left as u64 / renderer.font_width) as u32,
-                        self.position.y - (details.region.top as u64 / renderer.font_height) as u32,
-                    );
-                    self.command_sender
-                        .send(UiCommand::MouseButton {
-                            action: String::from("press"),
-                            grid_id: details.id,
-                            position: relative_position,
-                        })
-                        .ok();
-                }
+                    "release".to_owned()
+                };
+
+                let position = if !down && self.has_moved {
+                    self.drag_position
+                } else {
+                    self.relative_position
+                };
+
+                self.command_sender
+                    .send(UiCommand::MouseButton {
+                        action,
+                        grid_id: details.id,
+                        position: position.into(),
+                    })
+                    .ok();
             }
         }
-        self.dragging = true;
-    }
 
-    fn handle_pointer_up(&mut self) {
-        if self.enabled {
-            self.command_sender
-                .send(UiCommand::MouseButton {
-                    action: String::from("release"),
-                    grid_id: self.window_details_under_mouse.as_ref().map(|details| details.id).unwrap_or(0),
-                    position: (self.position.x, self.position.y),
-                })
-                .ok();
+        self.dragging = down;
+
+        if !self.dragging {
+            self.has_moved = false;
         }
-        self.dragging = false;
     }
 
     fn handle_mouse_wheel(&mut self, x: f32, y: f32) {
@@ -163,7 +175,7 @@ impl MouseManager {
                 .send(UiCommand::Scroll {
                     direction: input_type.to_string(),
                     grid_id: self.window_details_under_mouse.as_ref().map(|details| details.id).unwrap_or(0),
-                    position: (self.position.x, self.position.y),
+                    position: self.drag_position.into(),
                 })
                 .ok();
         }
@@ -179,7 +191,7 @@ impl MouseManager {
                 .send(UiCommand::Scroll {
                     direction: input_type.to_string(),
                     grid_id: self.window_details_under_mouse.as_ref().map(|details| details.id).unwrap_or(0),
-                    position: (self.position.x, self.position.y),
+                    position: self.drag_position.into(),
                 })
                 .ok();
         }
@@ -217,13 +229,7 @@ impl MouseManager {
                         ..
                     },
                 ..
-            } => {
-                if state == &ElementState::Pressed {
-                    self.handle_pointer_down(renderer);
-                } else {
-                    self.handle_pointer_up();
-                }
-            },
+            } => self.handle_pointer_transition(state == &ElementState::Pressed),
             _ => {}
         }
     }
