@@ -3,8 +3,7 @@ use glutin::{
     WindowedContext, 
     dpi::{
         LogicalPosition, 
-        LogicalSize, 
-        PhysicalSize
+        PhysicalPosition,
     }, 
     event::{
         ElementState, 
@@ -18,13 +17,13 @@ use glutin::{
 
 use crate::channel_utils::LoggingTx;
 use crate::bridge::UiCommand;
-use crate::renderer::Renderer;
+use crate::renderer::{Renderer, WindowDrawDetails};
 
 pub struct MouseManager {
     command_sender: LoggingTx<UiCommand>,
-    button_down: bool,
+    dragging: bool,
     position: LogicalPosition<u32>,
-    grid_id_under_mouse: u64,
+    window_details_under_mouse: Option<WindowDrawDetails>,
     pub enabled: bool,
 }
 
@@ -32,9 +31,9 @@ impl MouseManager {
     pub fn new(command_sender: LoggingTx<UiCommand>) -> MouseManager {
         MouseManager {
             command_sender,
-            button_down: false,
+            dragging: false,
             position: LogicalPosition::new(0, 0),
-            grid_id_under_mouse: 0,
+            window_details_under_mouse: None,
             enabled: true,
         }
     }
@@ -45,76 +44,90 @@ impl MouseManager {
             return;
         }
 
-        let previous_position = self.position;
-
-        let logical_position: LogicalSize<u32> = PhysicalSize::new(x as u32, y as u32)
+        let logical_position: LogicalPosition<u32> = PhysicalPosition::new(x as u32, y as u32)
             .to_logical(windowed_context.window().scale_factor());
 
-        let mut top_window_position = (0.0, 0.0);
-        let mut top_grid_position = None;
+        // If dragging, the relevant window (the one which we send all commands to) is the one
+        // which the mouse drag started on. Otherwise its the top rendered window
+        let relevant_window_details = if self.dragging {
+            renderer.window_regions.iter()
+                .find(|details| details.id == self.window_details_under_mouse.as_ref().expect("If dragging, there should be a window details recorded").id)
+        } else {
+            // the rendered window regions are sorted by draw order, so the earlier windows in the
+            // list are drawn under the later ones
+            renderer.window_regions.iter().filter(|details| {
+                logical_position.x >= details.region.left as u32 && 
+                logical_position.x < details.region.right as u32 && 
+                logical_position.y >= details.region.top as u32 && 
+                logical_position.y < details.region.bottom as u32
+            }).last()
+        };
 
-        for details in renderer.window_regions.iter() {
-            if logical_position.width >= details.region.left as u32
-                && logical_position.width < details.region.right as u32
-                && logical_position.height >= details.region.top as u32
-                && logical_position.height < details.region.bottom as u32
-            {
-                top_window_position = (details.region.left, details.region.top);
-                top_grid_position = Some((
-                    details.id,
-                    LogicalSize::<u32>::new(
-                        logical_position.width - details.region.left as u32,
-                        logical_position.height - details.region.top as u32,
-                    ),
-                    details.floating_order.is_some(),
-                ));
-            }
-        }
+        if let Some(relevant_window_details) = relevant_window_details {
+            let previous_position = self.position;
+            // Until https://github.com/neovim/neovim/pull/12667 is merged, we have to special
+            // case non floating windows. Floating windows correctly transform mouse positions
+            // into grid coordinates, but non floating windows do not.
+            self.position = if relevant_window_details.floating_order.is_some() {
+                // Floating windows handle relative grid coordinates just fine
+                LogicalPosition::new(
+                    (logical_position.x - relevant_window_details.region.left as u32) / renderer.font_width as u32,
+                    (logical_position.y - relevant_window_details.region.top as u32) / renderer.font_height as u32,
+                )
+            } else {
+                // Non floating windows need global coordinates
+                LogicalPosition::new(
+                    logical_position.x / renderer.font_width as u32,
+                    logical_position.y / renderer.font_height as u32
+                )
+            };
 
-        if let Some((grid_id, grid_position, grid_floating)) = top_grid_position {
-            self.grid_id_under_mouse = grid_id;
-            self.position = LogicalPosition::new(
-                (grid_position.width as u64 / renderer.font_width) as u32,
-                (grid_position.height as u64 / renderer.font_height) as u32,
-            );
-
-            if self.enabled && self.button_down && previous_position != self.position {
-                let (window_left, window_top) = top_window_position;
-
-                // Until https://github.com/neovim/neovim/pull/12667 is merged, we have to special
-                // case non floating windows. Floating windows correctly transform mouse positions
-                // into grid coordinates, but non floating windows do not.
-                let position = if grid_floating {
-                    (self.position.x, self.position.y)
-                } else {
-                    let adjusted_drag_left = self.position.x
-                        + (window_left / renderer.font_width as f32) as u32;
-                    let adjusted_drag_top = self.position.y
-                        + (window_top / renderer.font_height as f32) as u32;
-                    (adjusted_drag_left, adjusted_drag_top)
-                };
-
+            // If dragging and we haven't already sent a position, send a drag command
+            if self.dragging && self.position != previous_position {
+                let window_id_to_send_to = self.window_details_under_mouse.as_ref().map(|details| details.id).unwrap_or(0);
                 self.command_sender
                     .send(UiCommand::Drag {
-                        grid_id: self.grid_id_under_mouse,
-                        position,
+                        grid_id: window_id_to_send_to,
+                        position: self.position.into(),
                     })
                     .ok();
+            } else {
+                // otherwise, update the window_id_under_mouse to match the one selected
+                self.window_details_under_mouse = Some(relevant_window_details.clone());
             }
         }
     }
 
-    fn handle_pointer_down(&mut self) {
-        if self.enabled {
-            self.command_sender
-                .send(UiCommand::MouseButton {
-                    action: String::from("press"),
-                    grid_id: self.grid_id_under_mouse,
-                    position: (self.position.x, self.position.y),
-                })
-                .ok();
+    fn handle_pointer_down(&mut self, renderer: &Renderer) {
+        // For some reason pointer down is handled differently from pointer up and drag.
+        // Floating windows: relative coordinates are great.
+        // Non floating windows: rather than global coordinates, relative are needed
+        if self.enabled  {
+            if let Some(details) = &self.window_details_under_mouse {
+                if details.floating_order.is_some() {
+                    self.command_sender
+                        .send(UiCommand::MouseButton {
+                            action: String::from("press"),
+                            grid_id: details.id,
+                            position: (self.position.x, self.position.y),
+                        })
+                        .ok();
+                } else {
+                    let relative_position = (
+                        self.position.x - (details.region.left as u64 / renderer.font_width) as u32,
+                        self.position.y - (details.region.top as u64 / renderer.font_height) as u32,
+                    );
+                    self.command_sender
+                        .send(UiCommand::MouseButton {
+                            action: String::from("press"),
+                            grid_id: details.id,
+                            position: relative_position,
+                        })
+                        .ok();
+                }
+            }
         }
-        self.button_down = true;
+        self.dragging = true;
     }
 
     fn handle_pointer_up(&mut self) {
@@ -122,12 +135,12 @@ impl MouseManager {
             self.command_sender
                 .send(UiCommand::MouseButton {
                     action: String::from("release"),
-                    grid_id: self.grid_id_under_mouse,
+                    grid_id: self.window_details_under_mouse.as_ref().map(|details| details.id).unwrap_or(0),
                     position: (self.position.x, self.position.y),
                 })
                 .ok();
         }
-        self.button_down = false;
+        self.dragging = false;
     }
 
     fn handle_mouse_wheel(&mut self, x: f32, y: f32) {
@@ -145,7 +158,7 @@ impl MouseManager {
             self.command_sender
                 .send(UiCommand::Scroll {
                     direction: input_type.to_string(),
-                    grid_id: self.grid_id_under_mouse,
+                    grid_id: self.window_details_under_mouse.as_ref().map(|details| details.id).unwrap_or(0),
                     position: (self.position.x, self.position.y),
                 })
                 .ok();
@@ -161,7 +174,7 @@ impl MouseManager {
             self.command_sender
                 .send(UiCommand::Scroll {
                     direction: input_type.to_string(),
-                    grid_id: self.grid_id_under_mouse,
+                    grid_id: self.window_details_under_mouse.as_ref().map(|details| details.id).unwrap_or(0),
                     position: (self.position.x, self.position.y),
                 })
                 .ok();
@@ -202,7 +215,7 @@ impl MouseManager {
                 ..
             } => {
                 if state == &ElementState::Pressed {
-                    self.handle_pointer_down();
+                    self.handle_pointer_down(renderer);
                 } else {
                     self.handle_pointer_up();
                 }

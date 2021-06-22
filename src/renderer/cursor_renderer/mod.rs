@@ -100,6 +100,10 @@ impl Corner {
             }
         }
 
+        if self.length_multiplier < 0.25 {
+            println!("{}", self.length_multiplier);
+        }
+
         // Check first if animation's over
         if (self.t - 1.0).abs() < std::f32::EPSILON {
             return false;
@@ -109,8 +113,7 @@ impl Corner {
         let relative_scaled_position: Point = (
             self.relative_position.x * font_dimensions.x,
             self.relative_position.y * font_dimensions.y,
-        )
-            .into();
+        ).into();
 
         let corner_destination = destination + relative_scaled_position;
 
