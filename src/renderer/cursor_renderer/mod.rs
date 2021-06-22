@@ -94,7 +94,10 @@ impl Corner {
             self.start_position = self.current_position;
             self.previous_destination = destination;
             self.length_multiplier = if settings.distance_length_adjust {
-                (destination - self.current_position).length().log10().max(0.0)
+                (destination - self.current_position)
+                    .length()
+                    .log10()
+                    .max(0.0)
             } else {
                 1.0
             }
@@ -109,7 +112,8 @@ impl Corner {
         let relative_scaled_position: Point = (
             self.relative_position.x * font_dimensions.x,
             self.relative_position.y * font_dimensions.y,
-        ).into();
+        )
+            .into();
 
         let corner_destination = destination + relative_scaled_position;
 

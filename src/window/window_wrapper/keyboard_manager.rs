@@ -101,9 +101,10 @@ impl KeyboardManager {
     pub fn handle_event(&mut self, event: &Event<()>) {
         match event {
             Event::WindowEvent {
-                event: WindowEvent::KeyboardInput {
-                    event: key_event, ..
-                },
+                event:
+                    WindowEvent::KeyboardInput {
+                        event: key_event, ..
+                    },
                 ..
             } => {
                 if key_event.state == ElementState::Pressed {
@@ -115,7 +116,7 @@ impl KeyboardManager {
                             .expect("Could not send keyboard ui command");
                     }
                 }
-            },
+            }
             Event::WindowEvent {
                 event: WindowEvent::ModifiersChanged(modifiers),
                 ..
@@ -124,8 +125,8 @@ impl KeyboardManager {
                 self.ctrl = modifiers.control_key();
                 self.alt = modifiers.alt_key();
                 self.logo = modifiers.super_key();
-            },
-            _ => { }
+            }
+            _ => {}
         }
     }
 }
