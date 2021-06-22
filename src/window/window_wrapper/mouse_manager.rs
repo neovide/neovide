@@ -18,6 +18,8 @@ use glutin::{
 use crate::channel_utils::LoggingTx;
 use crate::bridge::UiCommand;
 use crate::renderer::{Renderer, WindowDrawDetails};
+use crate::settings::SETTINGS;
+use crate::window::WindowSettings;
 
 pub struct MouseManager {
     command_sender: LoggingTx<UiCommand>,
@@ -148,9 +150,11 @@ impl MouseManager {
             return;
         }
 
+        let scroll_dead_zone = SETTINGS.get::<WindowSettings>().scroll_dead_zone;
+
         let vertical_input_type = match y {
-            _ if y > 1.8 => Some("up"),
-            _ if y < -1.8 => Some("down"),
+            _ if y > scroll_dead_zone => Some("up"),
+            _ if y < -scroll_dead_zone => Some("down"),
             _ => None,
         };
 
@@ -165,8 +169,8 @@ impl MouseManager {
         }
 
         let horizontal_input_type = match x {
-            _ if x > 1.8 => Some("right"),
-            _ if x < -1.8 => Some("left"),
+            _ if x > scroll_dead_zone => Some("right"),
+            _ if x < -scroll_dead_zone => Some("left"),
             _ => None,
         };
 
