@@ -109,7 +109,7 @@ impl MouseManager {
 
         let global_bounds = relevant_window_details
             .map(|details| details.region)
-            .unwrap_or(Rect::from_wh(size.width as f32, size.height as f32));
+            .unwrap_or_else(|| Rect::from_wh(size.width as f32, size.height as f32));
         let clamped_position = clamp_position(
             logical_position,
             global_bounds,
@@ -133,10 +133,10 @@ impl MouseManager {
             // into grid coordinates, but non floating windows do not.
             self.drag_position = if relevant_window_details.floating_order.is_some() {
                 // Floating windows handle relative grid coordinates just fine
-                self.relative_position.clone()
+                self.relative_position
             } else {
                 // Non floating windows need global coordinates
-                self.position.clone()
+                self.position
             };
 
             let has_moved = self.drag_position != previous_position;
