@@ -119,6 +119,7 @@ pub struct RenderedWindow {
     scroll_t: f32,
 }
 
+#[derive(Clone, Debug)]
 pub struct WindowDrawDetails {
     pub id: u64,
     pub region: Rect,

@@ -5,7 +5,6 @@ mod style;
 mod window;
 
 use std::collections::HashMap;
-use std::fmt;
 use std::sync::Arc;
 use std::thread;
 
@@ -47,6 +46,7 @@ impl WindowAnchor {
     }
 }
 
+#[derive(Debug)]
 pub enum DrawCommand {
     CloseWindow(u64),
     Window {
@@ -63,21 +63,6 @@ pub enum DrawCommand {
 pub enum WindowCommand {
     TitleChanged(String),
     SetMouseEnabled(bool),
-}
-
-impl fmt::Debug for DrawCommand {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            DrawCommand::CloseWindow(_) => write!(formatter, "CloseWindow"),
-            DrawCommand::Window { grid_id, command } => {
-                write!(formatter, "Window {} {:?}", grid_id, command)
-            }
-            DrawCommand::UpdateCursor(_) => write!(formatter, "UpdateCursor"),
-            DrawCommand::FontChanged(_) => write!(formatter, "FontChanged"),
-            DrawCommand::DefaultStyleChanged(_) => write!(formatter, "DefaultStyleChanged"),
-            DrawCommand::ModeChanged(_) => write!(formatter, "ModeChanged"),
-        }
-    }
 }
 
 pub struct Editor {

@@ -1,7 +1,5 @@
 use crate::{cmd_line::CmdLineSettings, settings::*};
 
-pub use super::keyboard::KeyboardSettings;
-
 #[derive(Clone, SettingGroup)]
 pub struct WindowSettings {
     pub refresh_rate: u64,

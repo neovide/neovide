@@ -94,7 +94,10 @@ impl Corner {
             self.start_position = self.current_position;
             self.previous_destination = destination;
             self.length_multiplier = if settings.distance_length_adjust {
-                (destination - self.current_position).length().log10()
+                (destination - self.current_position)
+                    .length()
+                    .log10()
+                    .max(0.0)
             } else {
                 1.0
             }

@@ -1,4 +1,3 @@
-mod keyboard;
 mod settings;
 mod window_wrapper;
 

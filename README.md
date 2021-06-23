@@ -147,12 +147,13 @@ $ scoop install neovide
 
 ### Mac (from source)
 
-1. Install the latest version of Rust. I recommend <https://rustup.rs/>
-2. Install CMake. Using homebrew: `brew install cmake`
-3. `git clone https://github.com/Kethku/neovide`
-4. `cd neovide`
-5. `cargo build --release`
-6. Copy `./target/release/neovide` to a known location and enjoy.
+1. Install the latest version of Rust. Using homebrew: `brew install rustup`
+2. Configure rust by running `rustup-init`
+3. Install CMake. Using homebrew: `brew install cmake`
+4. `git clone https://github.com/Kethku/neovide`
+5. `cd neovide`
+6. `cargo build --release`
+7. Copy `./target/release/neovide` to a known location and enjoy.
 
 ### Linux
 
@@ -197,6 +198,15 @@ REGEX=$(printf 's/{url}/&\#branch=%s/g' '<YOUR-BRANCH-HERE>')
 sed "$REGEX" PKGBUILD
 makepkg -si
 ```
+#### With Snap
+Neovide is also available in the Snap Store. You can install it 
+using the command below.
+
+```
+snap install neovide
+```
+[![Get it from the Snap Store](https://snapcraft.io/static/images/badges/en/snap-store-white.svg)](https://snapcraft.io/neovide)
+
 
 #### From source
 1. Install necessary dependencies (adjust for your preferred package manager)
@@ -206,7 +216,7 @@ makepkg -si
         gnupg ca-certificates git \
         gcc-multilib g++-multilib cmake libssl-dev pkg-config \
         libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev \
-        libbz2-dev libsndio-dev freeglut3-dev libxmu-dev libxi-dev
+        libbz2-dev libsndio-dev freeglut3-dev libxmu-dev libxi-dev libfontconfig1-dev
     ```
 
 2. Install Rust
@@ -234,6 +244,3 @@ makepkg -si
 
 ### Linux-specific
 - If you recieve errors complaining about DRI3 settings, please reference issue [#44](https://github.com/Kethku/neovide/issues/44#issuecomment-578618052).
-
-[![Get it from the Snap Store](https://snapcraft.io/static/images/badges/en/snap-store-white.svg)](https://snapcraft.io/neovide)
-

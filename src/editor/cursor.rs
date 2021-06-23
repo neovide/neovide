@@ -33,7 +33,7 @@ pub struct CursorMode {
     pub blinkoff: Option<u64>,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Cursor {
     pub grid_position: (u64, u64),
     pub parent_window_id: u64,

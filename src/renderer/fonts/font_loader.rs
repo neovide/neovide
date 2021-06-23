@@ -10,6 +10,7 @@ use super::swash_font::SwashFont;
 pub struct Asset;
 
 const DEFAULT_FONT: &str = "FiraCode-Regular.ttf";
+const LAST_RESORT_FONT: &str = "LastResort-Regular.ttf";
 
 pub struct FontPair {
     pub skia_font: Font,
@@ -46,9 +47,10 @@ pub struct FontLoader {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum FontKey {
-    Default,
     Name(String),
     Character(char),
+    Default,
+    LastResort,
 }
 
 impl From<&str> for FontKey {
@@ -88,12 +90,6 @@ impl FontLoader {
 
     fn load(&mut self, font_key: FontKey) -> Option<FontPair> {
         match font_key {
-            FontKey::Default => {
-                let default_font_data = Asset::get(DEFAULT_FONT).unwrap();
-                let data = Data::new_copy(&default_font_data);
-                let typeface = Typeface::from_data(data, 0).unwrap();
-                FontPair::new(Font::from_typeface(typeface, self.font_size))
-            }
             FontKey::Name(name) => {
                 let font_style = FontStyle::normal();
                 let typeface = self.font_mgr.match_family_style(name, font_style)?;
@@ -109,11 +105,23 @@ impl FontLoader {
                 )?;
                 FontPair::new(Font::from_typeface(typeface, self.font_size))
             }
+            FontKey::Default => {
+                let default_font_data = Asset::get(DEFAULT_FONT).unwrap();
+                let data = Data::new_copy(&default_font_data);
+                let typeface = Typeface::from_data(data, 0).unwrap();
+                FontPair::new(Font::from_typeface(typeface, self.font_size))
+            }
+            FontKey::LastResort => {
+                let default_font_data = Asset::get(LAST_RESORT_FONT).unwrap();
+                let data = Data::new_copy(&default_font_data);
+                let typeface = Typeface::from_data(data, 0).unwrap();
+                FontPair::new(Font::from_typeface(typeface, self.font_size))
+            }
         }
     }
 
-    pub fn get_or_load(&mut self, font_key: FontKey) -> Option<Arc<FontPair>> {
-        if let Some(cached) = self.cache.get(&font_key) {
+    pub fn get_or_load(&mut self, font_key: &FontKey) -> Option<Arc<FontPair>> {
+        if let Some(cached) = self.cache.get(font_key) {
             return Some(cached.clone());
         }
 
@@ -121,7 +129,7 @@ impl FontLoader {
 
         let font_arc = Arc::new(loaded_font);
 
-        self.cache.put(font_key, font_arc.clone());
+        self.cache.put(font_key.clone(), font_arc.clone());
 
         Some(font_arc)
     }
