@@ -107,21 +107,13 @@ jobs:
       with:
         files: results.xml
 
-    - name: Build Release
-      run: |
-        cargo build --release
-        cargo install cargo-bundle
-        cargo bundle --release
+    - name: Make App
+      run: make dmg
 
-    - name: Create .dmg file
+    - name: Upload Application
       run: |
-        hdiutil create Neovide-uncompressed.dmg -volname "Neovide" -srcfolder target/release/bundle/osx
-        hdiutil convert Neovide-uncompressed.dmg -format UDZO -o Neovide.dmg
-
-    - uses: actions/upload-artifact@v1
-      with:
-        name: Neovide.dmg
-        path: ./Neovide.dmg
+        mv ./target/release/osx/Neovide.dmg ./Neovide-${GITHUB_REF##*/}.dmg
+        ./.github/workflows/upload_asset.sh ./Neovide-${GITHUB_REF##*/}.dmg $GITHUB_TOKEN
 
   build-linux:
 
