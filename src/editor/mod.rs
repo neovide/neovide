@@ -383,6 +383,26 @@ impl Editor {
     }
 
     fn set_cursor_position(&mut self, grid: u64, grid_left: u64, grid_top: u64) {
+        // The gutter is window ID 3. Automatic command execution sometimes sends the
+        // cursor to the gutter unexpectedly, causing confusing trail effects.
+        let cursor_sent_to_gutter = self.cursor.parent_window_id != 3 && grid == 3;
+
+        // When the user presses ":" to type a command, the cursor is sent to the gutter
+        // in position 1 (right after the ":"). In that case, it's probably intentional
+        // and OK to show a trail.
+        let gutter_probably_intentional = grid_left == 1;
+
+        // Keep cursor unchanged if we suspect it was unintentionally sent to the gutter.
+        if cursor_sent_to_gutter && !gutter_probably_intentional {
+            trace!(
+                "Cursor unexpectedly sent to gutter ({} {} {})",
+                grid,
+                grid_left,
+                grid_top
+            );
+            return;
+        }
+
         self.cursor.parent_window_id = grid;
         self.cursor.grid_position = (grid_left, grid_top);
     }
