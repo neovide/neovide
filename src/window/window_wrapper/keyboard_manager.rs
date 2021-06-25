@@ -32,44 +32,88 @@ fn or_empty(condition: bool, text: &str) -> &str {
     }
 }
 
-fn get_key_text(key: Key<'static>) -> Option<(&str, bool)> {
+
+
+// fn get_key_text(key: Key<'static>) -> Option<(&str, bool)> {
+//     match key {
+//         Key::Character(character_text) => match character_text {
+//             " " => Some(("Space", true)),
+//             "<" => Some(("lt", true)),
+//             "\\" => Some(("Bslash", true)),
+//             "|" => Some(("Bar", true)),
+//             "   " => Some(("Tab", true)),
+//             "\n" => Some(("CR", true)),
+//             _ => Some((character_text, false)),
+//         },
+//         Key::Backspace => Some(("BS", true)),
+//         Key::Tab => Some(("Tab", true)),
+//         Key::Enter => Some(("CR", true)),
+//         Key::Escape => Some(("Esc", true)),
+//         Key::Space => Some(("Space", true)),
+//         Key::Delete => Some(("Del", true)),
+//         Key::ArrowUp => Some(("Up", true)),
+//         Key::ArrowDown => Some(("Down", true)),
+//         Key::ArrowLeft => Some(("Left", true)),
+//         Key::ArrowRight => Some(("Right", true)),
+//         Key::F1 => Some(("F1", true)),
+//         Key::F2 => Some(("F2", true)),
+//         Key::F3 => Some(("F3", true)),
+//         Key::F4 => Some(("F4", true)),
+//         Key::F5 => Some(("F5", true)),
+//         Key::F6 => Some(("F6", true)),
+//         Key::F7 => Some(("F7", true)),
+//         Key::F8 => Some(("F8", true)),
+//         Key::F9 => Some(("F9", true)),
+//         Key::F10 => Some(("F10", true)),
+//         Key::F11 => Some(("F11", true)),
+//         Key::F12 => Some(("F12", true)),
+//         Key::Insert => Some(("Insert", true)),
+//         Key::Home => Some(("Home", true)),
+//         Key::End => Some(("End", true)),
+//         Key::PageUp => Some(("PageUp", true)),
+//         Key::PageDown => Some(("PageDown", true)),
+//         _ => None,
+//     }
+// }
+
+fn is_control_key(key: Key<'static>) -> Option<&str> {
     match key {
-        Key::Character(character_text) => match character_text {
-            " " => Some(("Space", true)),
-            "<" => Some(("lt", true)),
-            "\\" => Some(("Bslash", true)),
-            "|" => Some(("Bar", true)),
-            "   " => Some(("Tab", true)),
-            "\n" => Some(("CR", true)),
-            _ => Some((character_text, false)),
-        },
-        Key::Backspace => Some(("BS", true)),
-        Key::Tab => Some(("Tab", true)),
-        Key::Enter => Some(("CR", true)),
-        Key::Escape => Some(("Esc", true)),
-        Key::Space => Some(("Space", true)),
-        Key::Delete => Some(("Del", true)),
-        Key::ArrowUp => Some(("Up", true)),
-        Key::ArrowDown => Some(("Down", true)),
-        Key::ArrowLeft => Some(("Left", true)),
-        Key::ArrowRight => Some(("Right", true)),
-        Key::F1 => Some(("F1", true)),
-        Key::F2 => Some(("F2", true)),
-        Key::F3 => Some(("F3", true)),
-        Key::F4 => Some(("F4", true)),
-        Key::F5 => Some(("F5", true)),
-        Key::F6 => Some(("F6", true)),
-        Key::F7 => Some(("F7", true)),
-        Key::F8 => Some(("F8", true)),
-        Key::F9 => Some(("F9", true)),
-        Key::F10 => Some(("F10", true)),
-        Key::F11 => Some(("F11", true)),
-        Key::F12 => Some(("F12", true)),
-        Key::Insert => Some(("Insert", true)),
-        Key::Home => Some(("Home", true)),
-        Key::End => Some(("End", true)),
-        Key::PageUp => Some(("PageUp", true)),
-        Key::PageDown => Some(("PageDown", true)),
+        Key::Backspace => Some("BS"),
+        Key::Escape => Some("Esc"),
+        Key::Delete => Some("Del"),
+        Key::ArrowUp => Some("Up"),
+        Key::ArrowDown => Some("Down"),
+        Key::ArrowLeft => Some("Left"),
+        Key::ArrowRight => Some("Right"),
+        Key::F1 => Some("F1"),
+        Key::F2 => Some("F2"),
+        Key::F3 => Some("F3"),
+        Key::F4 => Some("F4"),
+        Key::F5 => Some("F5"),
+        Key::F6 => Some("F6"),
+        Key::F7 => Some("F7"),
+        Key::F8 => Some("F8"),
+        Key::F9 => Some("F9"),
+        Key::F10 => Some("F10"),
+        Key::F11 => Some("F11"),
+        Key::F12 => Some("F12"),
+        Key::Insert => Some("Insert"),
+        Key::Home => Some("Home"),
+        Key::End => Some("End"),
+        Key::PageUp => Some("PageUp"),
+        Key::PageDown => Some("PageDown"),
+        _ => None,
+    }
+}
+
+fn is_special(text: &str) -> Option<&str> {
+    match text {
+        " " => Some("Space"),
+        "<" => Some("lt"),
+        "\\" => Some("Bslash"),
+        "|" => Some("Bar"),
+        "\t" => Some("Tab"),
+        "\n" => Some("CR"),
         _ => None,
     }
 }
@@ -108,8 +152,18 @@ impl KeyboardManager {
                 ..
             } => {
                 if key_event.state == ElementState::Pressed {
-                    if let Some((key_text, special)) = get_key_text(key_event.logical_key) {
-                        let keybinding_string = self.format_keybinding_string(special, key_text);
+                    if let Some(key_text) = is_control_key(key_event.logical_key) {
+                        let keybinding_string = self.format_keybinding_string(true, key_text);
+
+                        self.command_sender
+                            .send(UiCommand::Keyboard(keybinding_string))
+                            .expect("Could not send keyboard ui command");
+                    } else if let Some(key_text) = key_event.text {
+                        let keybinding_string = if let Some(escaped_text) = is_special(key_text) {
+                            self.format_keybinding_string(true, escaped_text)
+                        } else {
+                            self.format_keybinding_string(false, key_text)
+                        };
 
                         self.command_sender
                             .send(UiCommand::Keyboard(keybinding_string))
