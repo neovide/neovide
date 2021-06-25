@@ -86,16 +86,15 @@ impl KeyboardManager {
     }
 
     fn format_keybinding_string(&self, special: bool, text: &str) -> String {
-        let special = special || self.shift || self.ctrl || self.alt || self.logo;
+        let special = special || self.ctrl || self.alt || self.logo;
 
         let open = or_empty(special, "<");
-        let shift = or_empty(self.shift, "S-");
         let ctrl = or_empty(self.ctrl, "C-");
         let alt = or_empty(self.alt, "M-");
         let logo = or_empty(use_logo(self.logo), "D-");
         let close = or_empty(special, ">");
 
-        format!("{}{}{}{}{}{}{}", open, shift, ctrl, alt, logo, text, close)
+        format!("{}{}{}{}{}{}", open, ctrl, alt, logo, text, close)
     }
 
     pub fn handle_event(&mut self, event: &Event<()>) {
