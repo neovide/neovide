@@ -1,4 +1,4 @@
-use glutin::event::{ElementState, Event, WindowEvent};
+use glutin::event::{ElementState, Event, KeyEvent, WindowEvent};
 use glutin::keyboard::Key;
 
 use crate::bridge::UiCommand;
@@ -71,6 +71,8 @@ pub struct KeyboardManager {
     ctrl: bool,
     alt: bool,
     logo: bool,
+    ignore_input_this_frame: bool,
+    queued_key_events: Vec<KeyEvent>,
 }
 
 impl KeyboardManager {
@@ -80,6 +82,8 @@ impl KeyboardManager {
             ctrl: false,
             alt: false,
             logo: false,
+            ignore_input_this_frame: false,
+            queued_key_events: Vec::new(),
         }
     }
 
@@ -98,39 +102,72 @@ impl KeyboardManager {
     pub fn handle_event(&mut self, event: &Event<()>) {
         match event {
             Event::WindowEvent {
+                event: WindowEvent::Focused(focused),
+                ..
+            } => {
+                // The window was just focused, so ignore keyboard events that were submitted this
+                // frame.
+                self.ignore_input_this_frame = *focused;
+            }
+            Event::WindowEvent {
                 event:
                     WindowEvent::KeyboardInput {
                         event: key_event, ..
                     },
                 ..
             } => {
-                if key_event.state == ElementState::Pressed {
-                    if let Some(key_text) = is_control_key(key_event.logical_key) {
-                        let keybinding_string = self.format_keybinding_string(true, key_text);
-
-                        self.command_sender
-                            .send(UiCommand::Keyboard(keybinding_string))
-                            .expect("Could not send keyboard ui command");
-                    } else if let Some(key_text) = key_event.text {
-                        let keybinding_string = if let Some(escaped_text) = is_special(key_text) {
-                            self.format_keybinding_string(true, escaped_text)
-                        } else {
-                            self.format_keybinding_string(false, key_text)
-                        };
-
-                        self.command_sender
-                            .send(UiCommand::Keyboard(keybinding_string))
-                            .expect("Could not send keyboard ui command");
-                    }
-                }
+                // Store the event so that we can ignore it properly if the window was just
+                // focused.
+                self.queued_key_events.push(key_event.clone());
             }
             Event::WindowEvent {
                 event: WindowEvent::ModifiersChanged(modifiers),
                 ..
             } => {
+                // Record the modifer states so that we can properly add them to the keybinding
+                // text
                 self.ctrl = modifiers.control_key();
                 self.alt = modifiers.alt_key();
                 self.logo = modifiers.super_key();
+            }
+            Event::MainEventsCleared => {
+                // And the window wasn't just focused.
+                if !self.ignore_input_this_frame {
+                    // If we have a keyboard event this frame
+                    for key_event in self.queued_key_events.iter() {
+                        // And a key was pressed
+                        if key_event.state == ElementState::Pressed {
+                            // Determine if this key event represents a key which won't ever
+                            // present text.
+                            if let Some(key_text) = is_control_key(key_event.logical_key) {
+                                let keybinding_string =
+                                    self.format_keybinding_string(true, key_text);
+
+                                self.command_sender
+                                    .send(UiCommand::Keyboard(keybinding_string))
+                                    .expect("Could not send keyboard ui command");
+                            } else if let Some(key_text) = key_event.text {
+                                // This is not a control key, so we rely upon winit to determine if
+                                // this is a deadkey or not.
+                                let keybinding_string =
+                                    if let Some(escaped_text) = is_special(key_text) {
+                                        self.format_keybinding_string(true, escaped_text)
+                                    } else {
+                                        self.format_keybinding_string(false, key_text)
+                                    };
+
+                                self.command_sender
+                                    .send(UiCommand::Keyboard(keybinding_string))
+                                    .expect("Could not send keyboard ui command");
+                            }
+                        }
+                    }
+                }
+
+                // Regardless of whether this was a valid keyboard input or not, rest ignoring and
+                // whatever event was queued.
+                self.ignore_input_this_frame = false;
+                self.queued_key_events.clear();
             }
             _ => {}
         }
