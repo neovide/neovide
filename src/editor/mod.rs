@@ -242,6 +242,7 @@ impl Editor {
         } else {
             let window = Window::new(
                 grid,
+                WindowType::Editor,
                 width,
                 height,
                 None,
@@ -267,6 +268,7 @@ impl Editor {
         } else {
             let new_window = Window::new(
                 grid,
+                WindowType::Editor,
                 width,
                 height,
                 None,
@@ -334,6 +336,7 @@ impl Editor {
         };
 
         if let Some(window) = self.windows.get_mut(&grid) {
+            window.window_type = WindowType::Message;
             window.position(
                 parent_width,
                 window.get_height(),
@@ -345,6 +348,7 @@ impl Editor {
         } else {
             let new_window = Window::new(
                 grid,
+                WindowType::Message,
                 parent_width,
                 1,
                 Some(anchor_info),
@@ -383,6 +387,28 @@ impl Editor {
     }
 
     fn set_cursor_position(&mut self, grid: u64, grid_left: u64, grid_top: u64) {
+        match self.windows.get(&grid) {
+            Some(Window { window_type: WindowType::Message, .. }) => {
+                // When the user presses ":" to type a command, the cursor is sent to the gutter
+                // in position 1 (right after the ":"). In all other cases, we want to skip
+                // positioning to avoid confusing movements.
+                let intentional = grid_left == 1;
+                // If the cursor was already in this message, we can still move within it.
+                let already_there = self.cursor.parent_window_id == grid;
+
+                if !intentional && !already_there {
+                    trace!(
+                        "Cursor unexpectedly sent to message buffer {} ({}, {})",
+                        grid,
+                        grid_left,
+                        grid_top
+                    );
+                    return;
+                }
+            }
+            _ => {}
+        }
+
         self.cursor.parent_window_id = grid;
         self.cursor.grid_position = (grid_left, grid_top);
     }
