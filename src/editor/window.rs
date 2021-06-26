@@ -43,9 +43,15 @@ pub enum WindowDrawCommand {
     },
 }
 
+pub enum WindowType {
+    Editor,
+    Message
+}
+
 pub struct Window {
     grid_id: u64,
     grid: CharacterGrid,
+    pub window_type: WindowType,
 
     pub anchor_info: Option<AnchorInfo>,
 
@@ -58,6 +64,7 @@ pub struct Window {
 impl Window {
     pub fn new(
         grid_id: u64,
+        window_type: WindowType,
         width: u64,
         height: u64,
         anchor_info: Option<AnchorInfo>,
@@ -68,6 +75,7 @@ impl Window {
         let window = Window {
             grid_id,
             grid: CharacterGrid::new((width, height)),
+            window_type,
             anchor_info,
             grid_left,
             grid_top,
@@ -370,7 +378,9 @@ mod tests {
     #[test]
     fn window_separator_modifies_grid_and_sends_draw_command() {
         let (batched_receiver, batched_sender) = build_test_channels();
-        let mut window = Window::new(1, 114, 64, None, 0.0, 0.0, batched_sender.clone());
+        let mut window = Window::new(
+            1, WindowType::Editor, 114, 64, None, 0.0, 0.0, batched_sender.clone()
+        );
         batched_sender
             .send_batch()
             .expect("Could not send batch of commands");
