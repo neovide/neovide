@@ -29,7 +29,7 @@ impl CharacterGrid {
         }
     }
 
-    pub fn resize(&mut self, width: u64, height: u64) {
+    pub fn resize(&mut self, (width, height): (u64, u64)) {
         let new_cell_count = (width * height) as usize;
         let mut new_characters = vec![default_cell!(); new_cell_count];
 

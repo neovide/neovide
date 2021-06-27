@@ -12,10 +12,8 @@ use crate::bridge::GridLineCell;
 #[derive(new, Clone, Debug)]
 pub enum WindowDrawCommand {
     Position {
-        grid_left: f64,
-        grid_top: f64,
-        width: u64,
-        height: u64,
+        grid_position: (f64, f64),
+        grid_size: (u64, u64),
         floating_order: Option<u64>,
     },
     Cells {
@@ -43,14 +41,18 @@ pub enum WindowDrawCommand {
     },
 }
 
+pub enum WindowType {
+    Editor,
+    Message,
+}
+
 pub struct Window {
     grid_id: u64,
     grid: CharacterGrid,
+    pub window_type: WindowType,
 
     pub anchor_info: Option<AnchorInfo>,
-
-    grid_left: f64,
-    grid_top: f64,
+    grid_position: (f64, f64),
 
     draw_command_batcher: Arc<DrawCommandBatcher>,
 }
@@ -58,19 +60,18 @@ pub struct Window {
 impl Window {
     pub fn new(
         grid_id: u64,
-        width: u64,
-        height: u64,
+        window_type: WindowType,
         anchor_info: Option<AnchorInfo>,
-        grid_left: f64,
-        grid_top: f64,
+        grid_position: (f64, f64),
+        grid_size: (u64, u64),
         draw_command_batcher: Arc<DrawCommandBatcher>,
     ) -> Window {
         let window = Window {
             grid_id,
-            grid: CharacterGrid::new((width, height)),
+            grid: CharacterGrid::new(grid_size),
+            window_type,
             anchor_info,
-            grid_left,
-            grid_top,
+            grid_position,
             draw_command_batcher,
         };
         window.send_updated_position();
@@ -88,10 +89,8 @@ impl Window {
 
     fn send_updated_position(&self) {
         self.send_command(WindowDrawCommand::Position {
-            grid_left: self.grid_left,
-            grid_top: self.grid_top,
-            width: self.grid.width,
-            height: self.grid.height,
+            grid_position: self.grid_position,
+            grid_size: (self.grid.width, self.grid.height),
             floating_order: self.anchor_info.clone().map(|anchor| anchor.sort_order),
         });
     }
@@ -119,27 +118,24 @@ impl Window {
     }
 
     pub fn get_grid_position(&self) -> (f64, f64) {
-        (self.grid_left, self.grid_top)
+        self.grid_position
     }
 
     pub fn position(
         &mut self,
-        width: u64,
-        height: u64,
         anchor_info: Option<AnchorInfo>,
-        grid_left: f64,
-        grid_top: f64,
+        grid_size: (u64, u64),
+        grid_position: (f64, f64),
     ) {
-        self.grid.resize(width, height);
+        self.grid.resize(grid_size);
         self.anchor_info = anchor_info;
-        self.grid_left = grid_left;
-        self.grid_top = grid_top;
+        self.grid_position = grid_position;
         self.send_updated_position();
         self.redraw();
     }
 
-    pub fn resize(&mut self, width: u64, height: u64) {
-        self.grid.resize(width, height);
+    pub fn resize(&mut self, new_size: (u64, u64)) {
+        self.grid.resize(new_size);
         self.send_updated_position();
         self.redraw();
     }
@@ -370,7 +366,14 @@ mod tests {
     #[test]
     fn window_separator_modifies_grid_and_sends_draw_command() {
         let (batched_receiver, batched_sender) = build_test_channels();
-        let mut window = Window::new(1, 114, 64, None, 0.0, 0.0, batched_sender.clone());
+        let mut window = Window::new(
+            1,
+            WindowType::Editor,
+            None,
+            (0.0, 0.0),
+            (114, 64),
+            batched_sender.clone(),
+        );
         batched_sender
             .send_batch()
             .expect("Could not send batch of commands");
