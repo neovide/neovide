@@ -1,6 +1,8 @@
 use glutin::event::{ElementState, Event, KeyEvent, WindowEvent};
 use glutin::keyboard::Key;
 
+use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
+
 use crate::bridge::UiCommand;
 use crate::channel_utils::LoggingTx;
 
@@ -146,7 +148,7 @@ impl KeyboardManager {
                                 self.command_sender
                                     .send(UiCommand::Keyboard(keybinding_string))
                                     .expect("Could not send keyboard ui command");
-                            } else if let Some(key_text) = key_event.text {
+                            } else if let Some(key_text) = key_event.text_with_all_modifiers() {
                                 // This is not a control key, so we rely upon winit to determine if
                                 // this is a deadkey or not.
                                 let keybinding_string =
