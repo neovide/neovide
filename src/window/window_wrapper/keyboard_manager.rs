@@ -18,7 +18,6 @@ fn use_logo(_: bool) -> bool {
     false
 }
 
-
 #[cfg(not(target_os = "macos"))]
 fn use_alt(alt: bool) -> bool {
     alt
@@ -166,11 +165,14 @@ impl KeyboardManager {
                                     .send(UiCommand::Keyboard(keybinding_string))
                                     .expect("Could not send keyboard ui command");
                             } else {
-                                let key_text = if self.alt && cfg!(target_os = "macos") {
-                                    key_event.text_with_all_modifiers()
-                                } else {
-                                    key_event.text
-                                };
+                                let is_dead_key = key_event.text_with_all_modifiers().is_some()
+                                    && key_event.text.is_none();
+                                let key_text =
+                                    if (self.alt || is_dead_key) && cfg!(target_os = "macos") {
+                                        key_event.text_with_all_modifiers()
+                                    } else {
+                                        key_event.text
+                                    };
 
                                 if let Some(key_text) = key_text {
                                     // This is not a control key, so we rely upon winit to determine if
