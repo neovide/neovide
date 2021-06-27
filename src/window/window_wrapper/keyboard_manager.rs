@@ -83,6 +83,7 @@ fn is_special(text: &str) -> Option<&str> {
 
 pub struct KeyboardManager {
     command_sender: LoggingTx<UiCommand>,
+    shift: bool,
     ctrl: bool,
     alt: bool,
     logo: bool,
@@ -94,6 +95,7 @@ impl KeyboardManager {
     pub fn new(command_sender: LoggingTx<UiCommand>) -> KeyboardManager {
         KeyboardManager {
             command_sender,
+            shift: false,
             ctrl: false,
             alt: false,
             logo: false,
@@ -102,16 +104,17 @@ impl KeyboardManager {
         }
     }
 
-    fn format_keybinding_string(&self, special: bool, text: &str) -> String {
-        let special = special || self.ctrl || self.alt || self.logo;
+    fn format_keybinding_string(&self, special: bool, use_shift: bool, text: &str) -> String {
+        let special = special || self.ctrl || use_alt(self.alt) || use_logo(self.logo);
 
         let open = or_empty(special, "<");
+        let shift = or_empty(self.shift && use_shift, "S-");
         let ctrl = or_empty(self.ctrl, "C-");
         let alt = or_empty(use_alt(self.alt), "M-");
         let logo = or_empty(use_logo(self.logo), "D-");
         let close = or_empty(special, ">");
 
-        format!("{}{}{}{}{}{}", open, ctrl, alt, logo, text, close)
+        format!("{}{}{}{}{}{}{}", open, shift, ctrl, alt, logo, text, close)
     }
 
     pub fn handle_event(&mut self, event: &Event<()>) {
@@ -141,6 +144,7 @@ impl KeyboardManager {
             } => {
                 // Record the modifer states so that we can properly add them to the keybinding
                 // text
+                self.shift = modifiers.shift_key();
                 self.ctrl = modifiers.control_key();
                 self.alt = modifiers.alt_key();
                 self.logo = modifiers.super_key();
@@ -156,7 +160,7 @@ impl KeyboardManager {
                             // present text.
                             if let Some(key_text) = is_control_key(key_event.logical_key) {
                                 let keybinding_string =
-                                    self.format_keybinding_string(true, key_text);
+                                    self.format_keybinding_string(true, true, key_text);
 
                                 self.command_sender
                                     .send(UiCommand::Keyboard(keybinding_string))
@@ -166,9 +170,9 @@ impl KeyboardManager {
                                 // this is a deadkey or not.
                                 let keybinding_string =
                                     if let Some(escaped_text) = is_special(key_text) {
-                                        self.format_keybinding_string(true, escaped_text)
+                                        self.format_keybinding_string(true, false, escaped_text)
                                     } else {
-                                        self.format_keybinding_string(false, key_text)
+                                        self.format_keybinding_string(false, false, key_text)
                                     };
 
                                 self.command_sender
