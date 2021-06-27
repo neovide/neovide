@@ -18,6 +18,19 @@ fn use_logo(_: bool) -> bool {
     false
 }
 
+
+#[cfg(not(target_os = "macos"))]
+fn use_alt(alt: bool) -> bool {
+    alt
+}
+
+// The option or alt key is used on Macos for character set changes
+// and does not operate the same as other systems.
+#[cfg(target_os = "macos")]
+fn use_alt(_: bool) -> bool {
+    false
+}
+
 fn or_empty(condition: bool, text: &str) -> &str {
     if condition {
         text
@@ -94,7 +107,7 @@ impl KeyboardManager {
 
         let open = or_empty(special, "<");
         let ctrl = or_empty(self.ctrl, "C-");
-        let alt = or_empty(self.alt, "M-");
+        let alt = or_empty(use_alt(self.alt), "M-");
         let logo = or_empty(use_logo(self.logo), "D-");
         let close = or_empty(special, ">");
 
