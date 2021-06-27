@@ -20,7 +20,7 @@ pub use grid::CharacterGrid;
 pub use style::{Colors, Style};
 pub use window::*;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AnchorInfo {
     pub anchor_grid_id: u64,
     pub anchor_type: WindowAnchor,
@@ -39,9 +39,9 @@ impl WindowAnchor {
     ) -> (f64, f64) {
         match self {
             WindowAnchor::NorthWest => (grid_left, grid_top),
-            WindowAnchor::NorthEast => (grid_left - width as f64, grid_top),
-            WindowAnchor::SouthWest => (grid_left, grid_top - height as f64),
-            WindowAnchor::SouthEast => (grid_left - width as f64, grid_top - height as f64),
+            WindowAnchor::NorthEast => (grid_left + width as f64, grid_top),
+            WindowAnchor::SouthWest => (grid_left, grid_top + height as f64),
+            WindowAnchor::SouthEast => (grid_left + width as f64, grid_top + height as f64),
         }
     }
 }
