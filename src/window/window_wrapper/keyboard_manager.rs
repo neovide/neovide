@@ -165,19 +165,27 @@ impl KeyboardManager {
                                 self.command_sender
                                     .send(UiCommand::Keyboard(keybinding_string))
                                     .expect("Could not send keyboard ui command");
-                            } else if let Some(key_text) = key_event.text_with_all_modifiers() {
-                                // This is not a control key, so we rely upon winit to determine if
-                                // this is a deadkey or not.
-                                let keybinding_string =
-                                    if let Some(escaped_text) = is_special(key_text) {
-                                        self.format_keybinding_string(true, false, escaped_text)
-                                    } else {
-                                        self.format_keybinding_string(false, false, key_text)
-                                    };
+                            } else {
+                                let key_text = if self.alt && cfg!(target_os = "macos") {
+                                    key_event.text_with_all_modifiers()
+                                } else {
+                                    key_event.text
+                                };
 
-                                self.command_sender
-                                    .send(UiCommand::Keyboard(keybinding_string))
-                                    .expect("Could not send keyboard ui command");
+                                if let Some(key_text) = key_text {
+                                    // This is not a control key, so we rely upon winit to determine if
+                                    // this is a deadkey or not.
+                                    let keybinding_string =
+                                        if let Some(escaped_text) = is_special(key_text) {
+                                            self.format_keybinding_string(true, false, escaped_text)
+                                        } else {
+                                            self.format_keybinding_string(false, false, key_text)
+                                        };
+
+                                    self.command_sender
+                                        .send(UiCommand::Keyboard(keybinding_string))
+                                        .expect("Could not send keyboard ui command");
+                                }
                             }
                         }
                     }
