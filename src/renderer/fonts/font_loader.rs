@@ -46,36 +46,45 @@ pub struct FontLoader {
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
-pub enum FontKey {
+pub struct FontKey {
+    // TODO(smolck): Could make these private and add constructor method(s)?
+    // Would theoretically make things safer I guess, but not sure . . .
+    pub bold: bool,
+    pub italic: bool,
+    pub font_selection: FontSelection,
+}
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone)]
+pub enum FontSelection {
     Name(String),
     Character(char),
     Default,
     LastResort,
 }
 
-impl From<&str> for FontKey {
-    fn from(string: &str) -> FontKey {
+impl From<&str> for FontSelection {
+    fn from(string: &str) -> FontSelection {
         let string = string.to_string();
-        FontKey::Name(string)
+        FontSelection::Name(string)
     }
 }
 
-impl From<&String> for FontKey {
-    fn from(string: &String) -> FontKey {
+impl From<&String> for FontSelection {
+    fn from(string: &String) -> FontSelection {
         let string = string.to_owned();
-        FontKey::Name(string)
+        FontSelection::Name(string)
     }
 }
 
-impl From<String> for FontKey {
-    fn from(string: String) -> FontKey {
-        FontKey::Name(string)
+impl From<String> for FontSelection {
+    fn from(string: String) -> FontSelection {
+        FontSelection::Name(string)
     }
 }
 
-impl From<char> for FontKey {
-    fn from(character: char) -> FontKey {
-        FontKey::Character(character)
+impl From<char> for FontSelection {
+    fn from(character: char) -> FontSelection {
+        FontSelection::Character(character)
     }
 }
 
@@ -89,14 +98,19 @@ impl FontLoader {
     }
 
     fn load(&mut self, font_key: FontKey) -> Option<FontPair> {
-        match font_key {
-            FontKey::Name(name) => {
-                let font_style = FontStyle::normal();
+        let font_style = match (font_key.bold, font_key.italic) {
+            (true, true) => FontStyle::bold_italic(),
+            (false, true) => FontStyle::italic(),
+            (true, false) => FontStyle::bold(),
+            (false, false) => FontStyle::normal(),
+        };
+
+        match font_key.font_selection {
+            FontSelection::Name(name) => {
                 let typeface = self.font_mgr.match_family_style(name, font_style)?;
                 FontPair::new(Font::from_typeface(typeface, self.font_size))
             }
-            FontKey::Character(character) => {
-                let font_style = FontStyle::normal();
+            FontSelection::Character(character) => {
                 let typeface = self.font_mgr.match_family_style_character(
                     "",
                     font_style,
@@ -105,13 +119,13 @@ impl FontLoader {
                 )?;
                 FontPair::new(Font::from_typeface(typeface, self.font_size))
             }
-            FontKey::Default => {
+            FontSelection::Default => {
                 let default_font_data = Asset::get(DEFAULT_FONT).unwrap();
                 let data = Data::new_copy(&default_font_data);
                 let typeface = Typeface::from_data(data, 0).unwrap();
                 FontPair::new(Font::from_typeface(typeface, self.font_size))
             }
-            FontKey::LastResort => {
+            FontSelection::LastResort => {
                 let default_font_data = Asset::get(LAST_RESORT_FONT).unwrap();
                 let data = Data::new_copy(&default_font_data);
                 let typeface = Typeface::from_data(data, 0).unwrap();
