@@ -18,6 +18,7 @@ use glutin::{
     event_loop::{ControlFlow, EventLoop},
     window::{self, Fullscreen, Icon},
     ContextBuilder, GlProfile, WindowedContext,
+    platform::unix::WindowBuilderExtUnix,
 };
 
 use super::{handle_new_grid_size, settings::WindowSettings};
@@ -231,6 +232,9 @@ pub fn start_loop(
         .with_window_icon(Some(icon))
         .with_maximized(SETTINGS.get::<CmdLineSettings>().maximized)
         .with_decorations(!SETTINGS.get::<CmdLineSettings>().frameless);
+
+    #[cfg(target_os = "linux")]
+    let winit_window_builder = winit_window_builder.with_app_id("Neovide".to_string());
 
     let windowed_context = ContextBuilder::new()
         .with_pixel_format(24, 8)
