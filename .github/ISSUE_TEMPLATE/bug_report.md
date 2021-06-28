@@ -2,7 +2,7 @@
 name: Bug report
 about: Create a report to help us improve
 title: ''
-labels: ''
+labels: 'bug'
 assignees: ''
 
 ---
@@ -28,7 +28,7 @@ If applicable, add screenshots to help explain your problem.
  - Neovide Version [e.g. 0.5.0]
  - Neovim Version [e.g. 0.5.0]
 
-**Please run `neovide --log` and paste the results here:**
+**Please run `neovide --log` and paste the contents of the `.log` file here:**
 
 **Additional context**
 Add any other context about the problem here.

@@ -218,10 +218,8 @@ impl Renderer {
                         rendered_window.handle_window_draw_command(self, command, scaling);
                     self.rendered_windows.insert(grid_id, rendered_window);
                 } else if let WindowDrawCommand::Position {
-                    grid_left,
-                    grid_top,
-                    width,
-                    height,
+                    grid_position: (grid_left, grid_top),
+                    grid_size: (width, height),
                     ..
                 } = command
                 {

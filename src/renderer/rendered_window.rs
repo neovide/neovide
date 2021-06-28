@@ -306,10 +306,8 @@ impl RenderedWindow {
     ) -> Self {
         match draw_command {
             WindowDrawCommand::Position {
-                grid_left,
-                grid_top,
-                width: grid_width,
-                height: grid_height,
+                grid_position: (grid_left, grid_top),
+                grid_size: (grid_width, grid_height),
                 floating_order,
             } => {
                 let new_destination: Point = (grid_left as f32, grid_top as f32).into();

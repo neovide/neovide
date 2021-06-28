@@ -212,7 +212,7 @@ pub fn start_loop(
     renderer: Renderer,
 ) {
     let icon = {
-        let icon_data = Asset::get("nvim.ico").expect("Failed to read icon data");
+        let icon_data = Asset::get("neovide.ico").expect("Failed to read icon data");
         let icon = load_from_memory(&icon_data).expect("Failed to parse icon data");
         let (width, height) = icon.dimensions();
         let mut rgba = Vec::with_capacity((width * height) as usize * 4);
