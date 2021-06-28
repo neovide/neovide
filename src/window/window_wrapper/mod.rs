@@ -18,8 +18,11 @@ use glutin::{
     event_loop::{ControlFlow, EventLoop},
     window::{self, Fullscreen, Icon},
     ContextBuilder, GlProfile, WindowedContext,
-    platform::unix::WindowBuilderExtUnix,
 };
+
+
+#[cfg(target_os = "linux")]
+use glutin::platform::unix::WindowBuilderExtUnix;
 
 use super::{handle_new_grid_size, settings::WindowSettings};
 use crate::{

@@ -39,6 +39,12 @@ impl CachingShaper {
     }
 
     fn current_font_pair(&mut self) -> Arc<FontPair> {
+        let default_key = FontKey {
+            italic: false,
+            bold: false,
+            font_selection: FontSelection::Default,
+        };
+
         let font_key = self
             .options
             .as_ref()
@@ -47,15 +53,13 @@ impl CachingShaper {
                 bold: options.bold,
                 font_selection: options.fallback_list.first().unwrap().clone().into(),
             })
-            .unwrap_or(FontKey {
-                italic: true,
-                bold: true,
-                font_selection: FontSelection::Default,
-            });
+            .unwrap_or(default_key.clone());
 
-        self.font_loader
-            .get_or_load(&font_key)
-            .expect("Could not load font")
+        if let Some(font_pair) = self.font_loader.get_or_load(&font_key) {
+            return font_pair;
+        } 
+
+        self.font_loader.get_or_load(&default_key).expect("Could not load font")
     }
 
     pub fn current_size(&self) -> f32 {
@@ -108,7 +112,7 @@ impl CachingShaper {
         (metrics.ascent + metrics.leading) as u64
     }
 
-    fn build_clusters(&mut self, text: &str) -> Vec<(Vec<CharCluster>, Arc<FontPair>)> {
+    fn build_clusters(&mut self, text: &str, bold: bool, italic: bool) -> Vec<(Vec<CharCluster>, Arc<FontPair>)> {
         let mut cluster = CharCluster::new();
 
         // Enumerate the characters storing the glyph index in the user data so that we can position
@@ -143,29 +147,46 @@ impl CachingShaper {
             // Add guifont fallback list
             if let Some(options) = &self.options {
                 font_fallback_keys.extend(options.fallback_list.iter().map(|font_name| FontKey {
-                    italic: options.italic,
-                    bold: options.bold,
+                    italic: options.italic || italic,
+                    bold: options.bold || bold,
                     font_selection: font_name.into(),
                 }));
-            }
-            // Add default font
-            font_fallback_keys.push(FontKey {
-                italic: true,
-                bold: true,
-                font_selection: FontSelection::Default,
-            });
 
-            // Add skia fallback
-            font_fallback_keys.push(FontKey {
-                italic: true,
-                bold: true,
-                font_selection: cluster.chars()[0].ch.into(),
-            });
+                // Add default font
+                font_fallback_keys.push(FontKey {
+                    italic: options.italic || italic,
+                    bold: options.bold || bold,
+                    font_selection: FontSelection::Default,
+                });
+
+                // Add skia fallback
+                font_fallback_keys.push(FontKey {
+                    italic: options.italic || italic,
+                    bold: options.bold || bold,
+                    font_selection: cluster.chars()[0].ch.into(),
+                });
+            } else {
+                // No confgured option. Default to not italic and not bold versions
+
+                // Add default font
+                font_fallback_keys.push(FontKey {
+                    italic,
+                    bold,
+                    font_selection: FontSelection::Default,
+                });
+
+                // Add skia fallback
+                font_fallback_keys.push(FontKey {
+                    italic,
+                    bold,
+                    font_selection: cluster.chars()[0].ch.into(),
+                });
+            }
 
             // Add last resort
             font_fallback_keys.push(FontKey {
-                italic: true,
-                bold: true,
+                italic: false,
+                bold: false,
                 font_selection: FontSelection::LastResort,
             });
 
@@ -218,7 +239,7 @@ impl CachingShaper {
         grouped_results
     }
 
-    pub fn shape(&mut self, cells: &[String]) -> Vec<TextBlob> {
+    pub fn shape(&mut self, cells: &[String], bold: bool, italic: bool) -> Vec<TextBlob> {
         let current_size = self.current_size();
         let (glyph_width, _) = self.font_base_dimensions();
 
@@ -227,7 +248,7 @@ impl CachingShaper {
         let text = cells.concat();
         trace!("Shaping text: {}", text);
 
-        for (cluster_group, font_pair) in self.build_clusters(&text) {
+        for (cluster_group, font_pair) in self.build_clusters(&text, bold, italic) {
             let mut shaper = self
                 .shape_context
                 .builder(font_pair.swash_font.as_ref())
@@ -271,7 +292,7 @@ impl CachingShaper {
         let key = ShapeKey::new(cells.to_vec(), bold, italic);
 
         if !self.blob_cache.contains(&key) {
-            let blobs = self.shape(cells);
+            let blobs = self.shape(cells, bold, italic);
             self.blob_cache.put(key.clone(), blobs);
         }
 
