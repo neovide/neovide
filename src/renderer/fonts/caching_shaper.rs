@@ -42,8 +42,16 @@ impl CachingShaper {
         let font_key = self
             .options
             .as_ref()
-            .map(|options| options.fallback_list.first().unwrap().clone().into())
-            .unwrap_or(FontKey::Default);
+            .map(|options| FontKey {
+                italic: options.italic,
+                bold: options.bold,
+                font_selection: options.fallback_list.first().unwrap().clone().into(),
+            })
+            .unwrap_or(FontKey {
+                italic: true,
+                bold: true,
+                font_selection: FontSelection::Default,
+            });
 
         self.font_loader
             .get_or_load(&font_key)
@@ -134,21 +142,32 @@ impl CachingShaper {
 
             // Add guifont fallback list
             if let Some(options) = &self.options {
-                font_fallback_keys.extend(
-                    options
-                        .fallback_list
-                        .iter()
-                        .map(|font_name| font_name.into()),
-                );
+                font_fallback_keys.extend(options.fallback_list.iter().map(|font_name| FontKey {
+                    italic: options.italic,
+                    bold: options.bold,
+                    font_selection: font_name.into(),
+                }));
             }
             // Add default font
-            font_fallback_keys.push(FontKey::Default);
+            font_fallback_keys.push(FontKey {
+                italic: true,
+                bold: true,
+                font_selection: FontSelection::Default,
+            });
 
             // Add skia fallback
-            font_fallback_keys.push(cluster.chars()[0].ch.into());
+            font_fallback_keys.push(FontKey {
+                italic: true,
+                bold: true,
+                font_selection: cluster.chars()[0].ch.into(),
+            });
 
             // Add last resort
-            font_fallback_keys.push(FontKey::LastResort);
+            font_fallback_keys.push(FontKey {
+                italic: true,
+                bold: true,
+                font_selection: FontSelection::LastResort,
+            });
 
             let mut best = None;
             // Use the cluster.map function to select a viable font from the fallback list

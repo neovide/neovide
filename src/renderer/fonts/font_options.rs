@@ -3,12 +3,16 @@ pub struct FontOptions {
     guifont_setting: Option<String>,
     pub fallback_list: Vec<String>,
     pub size: f32,
+    pub bold: bool,
+    pub italic: bool,
 }
 
 impl FontOptions {
     pub fn parse(guifont_setting: &str, default_size: f32) -> Option<FontOptions> {
         let mut fallback_list = None;
         let mut size = default_size;
+        let mut bold = false;
+        let mut italic = false;
 
         let mut parts = guifont_setting.split(':').filter(|part| !part.is_empty());
 
@@ -29,12 +33,18 @@ impl FontOptions {
                 if let Ok(parsed_size) = part[1..].parse::<f32>() {
                     size = parsed_size
                 }
+            } else if part == "b" {
+                bold = true;
+            } else if part == "i" {
+                italic = true;
             }
         }
 
         fallback_list.map(|fallback_list| FontOptions {
             guifont_setting: Some(guifont_setting.to_string()),
             fallback_list,
+            bold,
+            italic,
             size,
         })
     }
@@ -48,5 +58,7 @@ impl PartialEq for FontOptions {
 
         self.fallback_list == other.fallback_list
             && (self.size - other.size).abs() < std::f32::EPSILON
+            && self.bold == other.bold
+            && self.italic == other.italic
     }
 }
