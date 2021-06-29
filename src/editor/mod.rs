@@ -39,9 +39,9 @@ impl WindowAnchor {
     ) -> (f64, f64) {
         match self {
             WindowAnchor::NorthWest => (grid_left, grid_top),
-            WindowAnchor::NorthEast => (grid_left + width as f64, grid_top),
-            WindowAnchor::SouthWest => (grid_left, grid_top + height as f64),
-            WindowAnchor::SouthEast => (grid_left + width as f64, grid_top + height as f64),
+            WindowAnchor::NorthEast => (grid_left - width as f64, grid_top),
+            WindowAnchor::SouthWest => (grid_left, grid_top - height as f64),
+            WindowAnchor::SouthEast => (grid_left - width as f64, grid_top - height as f64),
         }
     }
 }
