@@ -20,7 +20,6 @@ use glutin::{
     ContextBuilder, GlProfile, WindowedContext,
 };
 
-
 #[cfg(target_os = "linux")]
 use glutin::platform::unix::WindowBuilderExtUnix;
 

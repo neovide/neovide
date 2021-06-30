@@ -53,13 +53,15 @@ impl CachingShaper {
                 bold: options.bold,
                 font_selection: options.fallback_list.first().unwrap().clone().into(),
             })
-            .unwrap_or(default_key.clone());
+            .unwrap_or_else(|| default_key.clone());
 
         if let Some(font_pair) = self.font_loader.get_or_load(&font_key) {
             return font_pair;
-        } 
+        }
 
-        self.font_loader.get_or_load(&default_key).expect("Could not load font")
+        self.font_loader
+            .get_or_load(&default_key)
+            .expect("Could not load font")
     }
 
     pub fn current_size(&self) -> f32 {
@@ -112,7 +114,12 @@ impl CachingShaper {
         (metrics.ascent + metrics.leading) as u64
     }
 
-    fn build_clusters(&mut self, text: &str, bold: bool, italic: bool) -> Vec<(Vec<CharCluster>, Arc<FontPair>)> {
+    fn build_clusters(
+        &mut self,
+        text: &str,
+        bold: bool,
+        italic: bool,
+    ) -> Vec<(Vec<CharCluster>, Arc<FontPair>)> {
         let mut cluster = CharCluster::new();
 
         // Enumerate the characters storing the glyph index in the user data so that we can position
