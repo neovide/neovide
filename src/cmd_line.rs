@@ -4,7 +4,7 @@ use clap::{App, Arg};
 
 #[derive(Clone, Debug)]
 pub struct CmdLineSettings {
-    pub verbosity: u64,
+    pub verbosiy: u64,
     pub log_to_file: bool,
     pub neovim_args: Vec<String>,
     pub neovim_bin: Option<String>,
