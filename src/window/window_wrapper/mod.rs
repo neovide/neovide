@@ -13,7 +13,7 @@ use std::{
 
 use glutin::{
     self,
-    dpi::{LogicalSize, PhysicalSize},
+    dpi::PhysicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{self, Fullscreen, Icon},
@@ -25,8 +25,9 @@ use glutin::platform::unix::WindowBuilderExtUnix;
 
 use super::{handle_new_grid_size, settings::WindowSettings};
 use crate::{
-    bridge::UiCommand, channel_utils::*, cmd_line::CmdLineSettings, editor::WindowCommand,
-    redraw_scheduler::REDRAW_SCHEDULER, renderer::Renderer, settings::SETTINGS,
+    bridge::UiCommand, channel_utils::*, cmd_line::CmdLineSettings, editor::DrawCommand,
+    editor::WindowCommand, redraw_scheduler::REDRAW_SCHEDULER, renderer::Renderer,
+    settings::SETTINGS,
 };
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
@@ -149,36 +150,25 @@ impl GlutinWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         let window = self.windowed_context.window();
-        let scaling = window.scale_factor();
         let current_size = window.inner_size();
         let previous_size = self.saved_inner_size;
 
         if previous_size != current_size {
             self.saved_inner_size = current_size;
-            handle_new_grid_size(
-                current_size.to_logical(scaling),
-                &self.renderer,
-                &self.ui_command_sender,
-            );
+            handle_new_grid_size(current_size, &self.renderer, &self.ui_command_sender);
             self.skia_renderer.resize(&self.windowed_context);
         }
 
         let ui_command_sender = self.ui_command_sender.clone();
 
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
-            log::debug!("Render triggered using scale factor: {}", scaling);
-
             let renderer = &mut self.renderer;
 
             {
                 let canvas = self.skia_renderer.canvas();
 
-                if renderer.draw_frame(canvas, dt, scaling as f32) {
-                    handle_new_grid_size(
-                        current_size.to_logical(scaling),
-                        renderer,
-                        &ui_command_sender,
-                    );
+                if renderer.draw_frame(canvas, dt) {
+                    handle_new_grid_size(current_size, renderer, &ui_command_sender);
                 }
             }
 
@@ -189,11 +179,11 @@ impl GlutinWindowWrapper {
 }
 
 pub fn start_loop(
+    batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
     window_command_receiver: Receiver<WindowCommand>,
     ui_command_sender: LoggingTx<UiCommand>,
     running: Arc<AtomicBool>,
-    logical_size: (u64, u64),
-    renderer: Renderer,
+    initial_size: (u64, u64),
 ) {
     let icon = {
         let icon_data = Asset::get("neovide.ico").expect("Failed to read icon data");
@@ -208,11 +198,9 @@ pub fn start_loop(
     log::info!("icon created");
 
     let event_loop = EventLoop::new();
-    let (width, height) = logical_size;
-    let logical_size: LogicalSize<u32> = (width as u32, height as u32).into();
+
     let winit_window_builder = window::WindowBuilder::new()
         .with_title("Neovide")
-        .with_inner_size(logical_size)
         .with_window_icon(Some(icon))
         .with_maximized(SETTINGS.get::<CmdLineSettings>().maximized)
         .with_decorations(!SETTINGS.get::<CmdLineSettings>().frameless);
@@ -229,11 +217,20 @@ pub fn start_loop(
         .build_windowed(winit_window_builder, &event_loop)
         .unwrap();
     let windowed_context = unsafe { windowed_context.make_current().unwrap() };
-    let initial_size = windowed_context.window().inner_size();
 
     log::info!("window created");
 
     let skia_renderer = SkiaRenderer::new(&windowed_context);
+    let scale_factor = windowed_context.window().scale_factor();
+    let renderer = Renderer::new(batched_draw_command_receiver, scale_factor);
+    let window = windowed_context.window();
+
+    let initial_inner_size =
+        get_initial_window_size(initial_size, (renderer.font_width, renderer.font_height));
+
+    window.set_inner_size(initial_inner_size);
+
+    let saved_inner_size = window.inner_size();
 
     let mut window_wrapper = GlutinWindowWrapper {
         windowed_context,
@@ -243,7 +240,7 @@ pub fn start_loop(
         mouse_manager: MouseManager::new(ui_command_sender.clone()),
         title: String::from("Neovide"),
         fullscreen: false,
-        saved_inner_size: initial_size,
+        saved_inner_size,
         ui_command_sender,
         window_command_receiver,
     };
@@ -273,4 +270,13 @@ pub fn start_loop(
 
         *control_flow = ControlFlow::WaitUntil(previous_frame_start + frame_duration)
     });
+}
+
+fn get_initial_window_size(
+    dimensions: (u64, u64),
+    font_dimesions: (u64, u64),
+) -> PhysicalSize<u32> {
+    let (width, height) = dimensions;
+    let (font_width, font_height) = font_dimesions;
+    PhysicalSize::new((width * font_width) as u32, (height * font_height) as u32)
 }

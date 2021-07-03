@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 
-use log::{error, trace};
+use log::error;
 use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect};
 
 pub mod animation_utils;
@@ -54,17 +54,18 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn new(batched_draw_command_receiver: Receiver<Vec<DrawCommand>>) -> Renderer {
+    pub fn new(
+        batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
+        scale_factor: f64,
+    ) -> Renderer {
         let rendered_windows = HashMap::new();
         let cursor_renderer = CursorRenderer::new();
 
         let current_mode = EditorMode::Unknown(String::from(""));
         let mut paint = Paint::new(colors::WHITE, None);
         paint.set_anti_alias(false);
-        let mut shaper = CachingShaper::new();
-        let (font_width_raw, font_height_raw) = shaper.font_base_dimensions();
-        let font_width = font_width_raw;
-        let font_height = font_height_raw;
+        let mut shaper = CachingShaper::new(scale_factor as f32);
+        let (font_width, font_height) = shaper.font_base_dimensions();
         let default_style = Arc::new(Style::new(Colors::new(
             Some(colors::WHITE),
             Some(colors::BLACK),
@@ -199,12 +200,7 @@ impl Renderer {
         canvas.restore();
     }
 
-    pub fn handle_draw_command(
-        &mut self,
-        root_canvas: &mut Canvas,
-        draw_command: DrawCommand,
-        scaling: f32,
-    ) {
+    pub fn handle_draw_command(&mut self, root_canvas: &mut Canvas, draw_command: DrawCommand) {
         match draw_command {
             DrawCommand::Window {
                 grid_id,
@@ -214,8 +210,7 @@ impl Renderer {
             }
             DrawCommand::Window { grid_id, command } => {
                 if let Some(rendered_window) = self.rendered_windows.remove(&grid_id) {
-                    let rendered_window =
-                        rendered_window.handle_window_draw_command(self, command, scaling);
+                    let rendered_window = rendered_window.handle_window_draw_command(self, command);
                     self.rendered_windows.insert(grid_id, rendered_window);
                 } else if let WindowDrawCommand::Position {
                     grid_position: (grid_left, grid_top),
@@ -230,7 +225,6 @@ impl Renderer {
                         (grid_left as f32, grid_top as f32).into(),
                         width,
                         height,
-                        scaling,
                     );
                     self.rendered_windows.insert(grid_id, new_window);
                 } else {
@@ -254,8 +248,7 @@ impl Renderer {
     }
 
     #[allow(clippy::needless_collect)]
-    pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32, scaling: f32) -> bool {
-        trace!("Drawing Frame at {} scale", scaling);
+    pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32) -> bool {
         let mut font_changed = false;
 
         let draw_commands: Vec<_> = self
@@ -269,7 +262,7 @@ impl Renderer {
             if let DrawCommand::FontChanged(_) = draw_command {
                 font_changed = true;
             }
-            self.handle_draw_command(root_canvas, draw_command, scaling);
+            self.handle_draw_command(root_canvas, draw_command);
         }
 
         root_canvas.clear(self.default_style.colors.background.unwrap().to_color());
@@ -277,7 +270,6 @@ impl Renderer {
         root_canvas.save();
 
         root_canvas.reset_matrix();
-        root_canvas.scale((scaling, scaling));
 
         if let Some(root_window) = self.rendered_windows.get(&1) {
             let clip_rect = root_window.pixel_region(self.font_width, self.font_height);
