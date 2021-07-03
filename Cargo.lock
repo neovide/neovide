@@ -2276,7 +2276,7 @@ dependencies = [
 
 [[package]]
 name = "skia-bindings"
-version = "0.39.1"
+version = "0.40.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "751462e70a68391c38c76d5e14ea24ed4bedd7db4b9bcefffa179f63bddf5c86"
 dependencies = [
@@ -2294,7 +2294,7 @@ dependencies = [
 
 [[package]]
 name = "skia-safe"
-version = "0.39.1"
+version = "0.40.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4b06dfa844d8f75dd616b600c1dd018950ee5eff19bb36d97ec4a7232b3bdb60"
 dependencies = [
