@@ -10,6 +10,7 @@ use crate::{
     settings::SETTINGS,
     INITIAL_DIMENSIONS,
 };
+use glutin::dpi::LogicalSize;
 use std::sync::{atomic::AtomicBool, mpsc::Receiver, Arc};
 
 pub use window_wrapper::start_loop;
@@ -67,20 +68,16 @@ fn windows_fix_dpi() {
 }
 
 fn handle_new_grid_size(
-    new_size: (u64, u64),
+    new_size: LogicalSize<u32>,
     renderer: &Renderer,
     ui_command_sender: &LoggingTx<UiCommand>,
 ) {
-    let (new_width, new_height) = new_size;
-    if new_width > 0 && new_height > 0 {
+    if new_size.width > 0 && new_size.height > 0 {
         // Add 1 here to make sure resizing doesn't change the grid size on startup
-        let new_width = ((new_width + 1) / renderer.font_width) as u32;
-        let new_height = ((new_height + 1) / renderer.font_height) as u32;
+        let width = ((new_size.width + 1) / renderer.font_width as u32) as u32;
+        let height = ((new_size.height + 1) / renderer.font_height as u32) as u32;
         ui_command_sender
-            .send(UiCommand::Resize {
-                width: new_width,
-                height: new_height,
-            })
+            .send(UiCommand::Resize { width, height })
             .ok();
     }
 }

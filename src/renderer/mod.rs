@@ -255,7 +255,7 @@ impl Renderer {
 
     #[allow(clippy::needless_collect)]
     pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32, scaling: f32) -> bool {
-        trace!("Drawing Frame");
+        trace!("Drawing Frame at {} scale", scaling);
         let mut font_changed = false;
 
         let draw_commands: Vec<_> = self
@@ -277,7 +277,7 @@ impl Renderer {
         root_canvas.save();
 
         root_canvas.reset_matrix();
-        root_canvas.scale((1.0 / scaling, 1.0 / scaling));
+        root_canvas.scale((scaling, scaling));
 
         if let Some(root_window) = self.rendered_windows.get(&1) {
             let clip_rect = root_window.pixel_region(self.font_width, self.font_height);

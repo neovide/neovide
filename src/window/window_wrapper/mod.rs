@@ -166,12 +166,13 @@ impl GlutinWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         let window = self.windowed_context.window();
+        let scaling = window.scale_factor();
         let new_size = window.inner_size();
+
         if self.previous_size != new_size {
             self.previous_size = new_size;
-            let new_size: LogicalSize<u32> = new_size.to_logical(window.scale_factor());
             handle_new_grid_size(
-                (new_size.width as u64, new_size.height as u64),
+                new_size.to_logical(scaling),
                 &self.renderer,
                 &self.ui_command_sender,
             );
@@ -182,9 +183,8 @@ impl GlutinWindowWrapper {
         let ui_command_sender = self.ui_command_sender.clone();
 
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
-            log::debug!("Render Triggered");
+            log::debug!("Render triggered using scale factor: {}", scaling);
 
-            let scaling = 1.0 / self.windowed_context.window().scale_factor();
             let renderer = &mut self.renderer;
 
             {
@@ -192,7 +192,7 @@ impl GlutinWindowWrapper {
 
                 if renderer.draw_frame(canvas, dt, scaling as f32) {
                     handle_new_grid_size(
-                        (current_size.width as u64, current_size.height as u64),
+                        current_size.to_logical(scaling),
                         renderer,
                         &ui_command_sender,
                     );
