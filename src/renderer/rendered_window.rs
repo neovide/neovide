@@ -49,8 +49,8 @@ fn build_window_surface_with_grid_size(
     grid_height: u64,
     scaling: f32,
 ) -> Surface {
-    let pixel_width = ((grid_width * renderer.font_width) as f32 / scaling) as u64;
-    let pixel_height = ((grid_height * renderer.font_height) as f32 / scaling) as u64;
+    let pixel_width = ((grid_width * renderer.font_width) as f32 * scaling) as u64;
+    let pixel_height = ((grid_height * renderer.font_height) as f32 * scaling) as u64;
     let mut surface = build_window_surface(parent_canvas, pixel_width, pixel_height);
 
     let canvas = surface.canvas();
@@ -367,7 +367,7 @@ impl RenderedWindow {
 
                 let canvas = self.current_surface.surface.canvas();
                 canvas.save();
-                canvas.scale((1.0 / scaling, 1.0 / scaling));
+                canvas.scale((scaling, scaling));
                 renderer.draw_background(canvas, grid_position, width, &style);
                 renderer.draw_foreground(canvas, &cells, grid_position, width, &style);
                 canvas.restore();
@@ -381,16 +381,16 @@ impl RenderedWindow {
                 cols,
             } => {
                 let scrolled_region = Rect::new(
-                    (left * renderer.font_width) as f32 / scaling,
-                    (top * renderer.font_height) as f32 / scaling,
-                    (right * renderer.font_width) as f32 / scaling,
-                    (bot * renderer.font_height) as f32 / scaling,
+                    (left * renderer.font_width) as f32 * scaling,
+                    (top * renderer.font_height) as f32 * scaling,
+                    (right * renderer.font_width) as f32 * scaling,
+                    (bot * renderer.font_height) as f32 * scaling,
                 );
 
                 let mut translated_region = scrolled_region;
                 translated_region.offset((
-                    (-cols * renderer.font_width as i64) as f32 / scaling,
-                    (-rows * renderer.font_height as i64) as f32 / scaling,
+                    (-cols * renderer.font_width as i64) as f32 * scaling,
+                    (-rows * renderer.font_height as i64) as f32 * scaling,
                 ));
 
                 let snapshot = self.current_surface.surface.image_snapshot();
