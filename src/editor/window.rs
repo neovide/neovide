@@ -25,7 +25,7 @@ pub enum WindowDrawCommand {
     },
     Scroll {
         top: u64,
-        bot: u64,
+        bottom: u64,
         left: u64,
         right: u64,
         rows: i64,
@@ -256,21 +256,21 @@ impl Window {
     pub fn scroll_region(
         &mut self,
         top: u64,
-        bot: u64,
+        bottom: u64,
         left: u64,
         right: u64,
         rows: i64,
         cols: i64,
     ) {
         let y_iter: Box<dyn Iterator<Item = i64>> = if rows > 0 {
-            Box::new((top as i64 + rows)..bot as i64)
+            Box::new((top as i64 + rows)..bottom as i64)
         } else {
-            Box::new((top as i64..(bot as i64 + rows)).rev())
+            Box::new((top as i64..(bottom as i64 + rows)).rev())
         };
 
         self.send_command(WindowDrawCommand::Scroll {
             top,
-            bot,
+            bottom,
             left,
             right,
             rows,
