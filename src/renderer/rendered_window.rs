@@ -374,7 +374,7 @@ impl RenderedWindow {
             }
             WindowDrawCommand::Scroll {
                 top,
-                bot,
+                bottom,
                 left,
                 right,
                 rows,
@@ -384,7 +384,7 @@ impl RenderedWindow {
                     (left * renderer.font_width) as f32 * scaling,
                     (top * renderer.font_height) as f32 * scaling,
                     (right * renderer.font_width) as f32 * scaling,
-                    (bot * renderer.font_height) as f32 * scaling,
+                    (bottom * renderer.font_height) as f32 * scaling,
                 );
 
                 let mut translated_region = scrolled_region;
