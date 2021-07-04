@@ -13,7 +13,7 @@ use std::{
 
 use glutin::{
     self,
-    dpi::{LogicalPosition, LogicalSize, PhysicalSize},
+    dpi::{LogicalSize, PhysicalSize},
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{self, Fullscreen, Icon},
@@ -44,10 +44,8 @@ pub struct GlutinWindowWrapper {
     keyboard_manager: KeyboardManager,
     mouse_manager: MouseManager,
     title: String,
-    previous_size: PhysicalSize<u32>,
     fullscreen: bool,
-    cached_size: LogicalSize<u32>,
-    cached_position: LogicalPosition<u32>,
+    saved_inner_size: PhysicalSize<u32>,
     ui_command_sender: LoggingTx<UiCommand>,
     window_command_receiver: Receiver<WindowCommand>,
 }
@@ -57,22 +55,7 @@ impl GlutinWindowWrapper {
         let window = self.windowed_context.window();
         if self.fullscreen {
             window.set_fullscreen(None);
-
-            // Use cached size and position
-            window.set_inner_size(LogicalSize::new(
-                self.cached_size.width,
-                self.cached_size.height,
-            ));
-            window.set_outer_position(LogicalPosition::new(
-                self.cached_position.x,
-                self.cached_position.y,
-            ));
         } else {
-            let current_size = window.inner_size();
-            self.cached_size = LogicalSize::new(current_size.width, current_size.height);
-            let current_position = window.outer_position().unwrap();
-            self.cached_position =
-                LogicalPosition::new(current_position.x as u32, current_position.y as u32);
             let handle = window.current_monitor();
             window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
         }
@@ -167,19 +150,19 @@ impl GlutinWindowWrapper {
     pub fn draw_frame(&mut self, dt: f32) {
         let window = self.windowed_context.window();
         let scaling = window.scale_factor();
-        let new_size = window.inner_size();
+        let current_size = window.inner_size();
+        let previous_size = self.saved_inner_size;
 
-        if self.previous_size != new_size {
-            self.previous_size = new_size;
+        if previous_size != current_size {
+            self.saved_inner_size = current_size;
             handle_new_grid_size(
-                new_size.to_logical(scaling),
+                current_size.to_logical(scaling),
                 &self.renderer,
                 &self.ui_command_sender,
             );
             self.skia_renderer.resize(&self.windowed_context);
         }
 
-        let current_size = self.previous_size;
         let ui_command_sender = self.ui_command_sender.clone();
 
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
@@ -200,7 +183,6 @@ impl GlutinWindowWrapper {
             }
 
             self.skia_renderer.gr_context.flush(None);
-
             self.windowed_context.swap_buffers().unwrap();
         }
     }
@@ -247,7 +229,7 @@ pub fn start_loop(
         .build_windowed(winit_window_builder, &event_loop)
         .unwrap();
     let windowed_context = unsafe { windowed_context.make_current().unwrap() };
-    let previous_size = logical_size.to_physical(windowed_context.window().scale_factor());
+    let initial_size = windowed_context.window().inner_size();
 
     log::info!("window created");
 
@@ -260,10 +242,8 @@ pub fn start_loop(
         keyboard_manager: KeyboardManager::new(ui_command_sender.clone()),
         mouse_manager: MouseManager::new(ui_command_sender.clone()),
         title: String::from("Neovide"),
-        previous_size,
         fullscreen: false,
-        cached_size: LogicalSize::new(0, 0),
-        cached_position: LogicalPosition::new(0, 0),
+        saved_inner_size: initial_size,
         ui_command_sender,
         window_command_receiver,
     };
