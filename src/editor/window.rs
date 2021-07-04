@@ -23,14 +23,6 @@ pub enum WindowDrawCommand {
         width: u64,
         style: Option<Arc<Style>>,
     },
-    Scroll {
-        top: u64,
-        bot: u64,
-        left: u64,
-        right: u64,
-        rows: i64,
-        cols: i64,
-    },
     Clear,
     Show,
     Hide,
@@ -218,6 +210,17 @@ impl Window {
         Some(start + width)
     }
 
+    fn send_line(&self, row: u64) {
+        let mut current_start = 0;
+        while current_start < self.grid.width {
+            if let Some(next_start) = self.send_draw_command(row, current_start) {
+                current_start = next_start;
+            } else {
+                break;
+            }
+        }
+    }
+
     pub fn draw_grid_line(
         &mut self,
         row: u64,
@@ -240,14 +243,7 @@ impl Window {
 
             // Redraw the participating line by calling send_draw_command starting at 0
             // until current_start is greater than the grid width
-            let mut current_start = 0;
-            while current_start < self.grid.width {
-                if let Some(next_start) = self.send_draw_command(row, current_start) {
-                    current_start = next_start;
-                } else {
-                    break;
-                }
-            }
+            self.send_line(row);
         } else {
             warn!("Draw command out of bounds");
         }
@@ -267,15 +263,6 @@ impl Window {
         } else {
             Box::new((top as i64..(bot as i64 + rows)).rev())
         };
-
-        self.send_command(WindowDrawCommand::Scroll {
-            top,
-            bot,
-            left,
-            right,
-            rows,
-            cols,
-        });
 
         // Scrolls must not only translate the rendered texture, but also must move the grid data
         // accordingly so that future renders work correctly.
@@ -301,6 +288,10 @@ impl Window {
                     }
                 }
             }
+        }
+
+        for modified_row in top..bot {
+            self.send_line(modified_row);
         }
     }
 

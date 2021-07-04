@@ -1,6 +1,6 @@
 use std::collections::VecDeque;
 
-use skia_safe::canvas::{SaveLayerRec, SrcRectConstraint};
+use skia_safe::canvas::SaveLayerRec;
 use skia_safe::gpu::SurfaceOrigin;
 use skia_safe::{
     image_filters::blur, BlendMode, Budgeted, Canvas, Color, Image, ImageInfo, Paint, Point, Rect,
@@ -370,42 +370,6 @@ impl RenderedWindow {
                 canvas.scale((scaling, scaling));
                 renderer.draw_background(canvas, grid_position, width, &style);
                 renderer.draw_foreground(canvas, &cells, grid_position, width, &style);
-                canvas.restore();
-            }
-            WindowDrawCommand::Scroll {
-                top,
-                bot,
-                left,
-                right,
-                rows,
-                cols,
-            } => {
-                let scrolled_region = Rect::new(
-                    (left * renderer.font_width) as f32 * scaling,
-                    (top * renderer.font_height) as f32 * scaling,
-                    (right * renderer.font_width) as f32 * scaling,
-                    (bot * renderer.font_height) as f32 * scaling,
-                );
-
-                let mut translated_region = scrolled_region;
-                translated_region.offset((
-                    (-cols * renderer.font_width as i64) as f32 * scaling,
-                    (-rows * renderer.font_height as i64) as f32 * scaling,
-                ));
-
-                let snapshot = self.current_surface.surface.image_snapshot();
-                let canvas = self.current_surface.surface.canvas();
-
-                canvas.save();
-                canvas.clip_rect(scrolled_region, None, Some(false));
-
-                canvas.draw_image_rect(
-                    snapshot,
-                    Some((&scrolled_region, SrcRectConstraint::Fast)),
-                    translated_region,
-                    &renderer.paint,
-                );
-
                 canvas.restore();
             }
             WindowDrawCommand::Clear => {
