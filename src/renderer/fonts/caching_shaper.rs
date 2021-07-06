@@ -33,7 +33,7 @@ impl CachingShaper {
     pub fn new(scale_factor: f32) -> CachingShaper {
         CachingShaper {
             options: None,
-            font_loader: FontLoader::new(DEFAULT_FONT_SIZE),
+            font_loader: FontLoader::new(DEFAULT_FONT_SIZE * scale_factor),
             blob_cache: LruCache::new(10000),
             shape_context: ShapeContext::new(),
             scale_factor,
