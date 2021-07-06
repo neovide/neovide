@@ -1,4 +1,4 @@
-name: Clippy
+name: Lint
 
 on:
   push:
@@ -15,21 +15,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
 
-    - name: Install Nightly Toolchain
-      uses: actions-rs/toolchain@v1
-      with:
-        profile: minimal
-        toolchain: nightly
-        components: rustfmt
-        override: true
+      - name: Install clippy and runstfmt
+        run: rustup component add clippy rustfmt
 
-    - name: Check formatting
-      run: |
-        cargo fmt --all -- --check
+      - name: Run clippy
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Lint with Clippy
-      uses: actions-rs/clippy-check@v1.0.7
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check Formatting
+        run: |
+          cargo fmt --all -- --check
