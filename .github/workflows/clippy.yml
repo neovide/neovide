@@ -15,11 +15,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
-      - run: rustup component add clippy rustfmt
-      - uses: actions-rs/clippy-check@v1
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install clippy and runstfmt
+        run: rustup component add clippy rustfmt
+
+      - name: Run clippy
+        uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Check Formatting
         run: |
           cargo fmt --all -- --check
