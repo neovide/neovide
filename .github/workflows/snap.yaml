@@ -1,6 +1,8 @@
 name: Snap
 
-on: [push]
+on:
+  push:
+    branches: [ main ]
 
 jobs:
   snap:
@@ -9,12 +11,12 @@ jobs:
     steps:
     - name: Check out Git repository
       uses: actions/checkout@v2
-    
+
     - uses: snapcore/action-build@v1
       env:
         SNAPCRAFT_BUILD_ENVIRONMENT_MEMORY: 6G
       id: snapcraft
-    
+
     - uses: actions/upload-artifact@v2
       with:
         name: snap
