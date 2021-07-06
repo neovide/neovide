@@ -111,7 +111,7 @@ impl CachingShaper {
 
     pub fn y_adjustment(&mut self) -> u64 {
         let metrics = self.metrics();
-        (metrics.ascent + metrics.leading) as u64
+        (metrics.ascent + metrics.leading).ceil() as u64
     }
 
     fn build_clusters(
@@ -248,7 +248,7 @@ impl CachingShaper {
 
     pub fn shape(&mut self, cells: &[String], bold: bool, italic: bool) -> Vec<TextBlob> {
         let current_size = self.current_size();
-        let (glyph_width, _) = self.font_base_dimensions();
+        let (glyph_width, glyph_height) = self.font_base_dimensions();
 
         let mut resulting_blobs = Vec::new();
 
@@ -272,7 +272,11 @@ impl CachingShaper {
 
             shaper.shape_with(|glyph_cluster| {
                 for glyph in glyph_cluster.glyphs {
-                    glyph_data.push((glyph.id, glyph.data as u64 * glyph_width));
+                    let position = (
+                        (glyph.data as u64 * glyph_width) as f32,
+                        glyph.y,
+                    );
+                    glyph_data.push((glyph.id, position));
                 }
             });
 
@@ -282,10 +286,10 @@ impl CachingShaper {
 
             let mut blob_builder = TextBlobBuilder::new();
             let (glyphs, positions) =
-                blob_builder.alloc_run_pos_h(&font_pair.skia_font, glyph_data.len(), 0.0, None);
-            for (i, (glyph_id, glyph_x_position)) in glyph_data.iter().enumerate() {
+                blob_builder.alloc_run_pos(&font_pair.skia_font, glyph_data.len(), None);
+            for (i, (glyph_id, glyph_position)) in glyph_data.iter().enumerate() {
                 glyphs[i] = *glyph_id;
-                positions[i] = *glyph_x_position as f32;
+                positions[i] = (*glyph_position).into();
             }
 
             let blob = blob_builder.make();
