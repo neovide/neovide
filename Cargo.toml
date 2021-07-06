@@ -55,11 +55,11 @@ winres = "0.1.11"
 
 [target.'cfg(linux)'.dependencies.skia-safe]
 features = ["gl", "egl"]
-version = "0.39.1"
+version = "0.40.2"
 
 [target.'cfg(not(linux))'.dependencies.skia-safe]
 features = ["gl"]
-version = "0.39.1"
+version = "0.40.2"
 
 [profile.release]
 debug = true
