@@ -1,4 +1,4 @@
-name: Clippy
+name: Lint
 
 on:
   push:
@@ -22,14 +22,13 @@ jobs:
       with:
         profile: minimal
         toolchain: nightly
-        components: rustfmt
+        components: rustfmt, clippy
         override: true
 
     - name: Check formatting
       run: |
-        cargo fmt --all -- --check
+        cargo fmt -- --check src/**/*.rs
 
     - name: Lint with Clippy
-      uses: actions-rs/clippy-check@v1.0.7
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        cargo clippy -- -D warnings
