@@ -218,8 +218,6 @@ pub fn start_loop(
         .unwrap();
     let windowed_context = unsafe { windowed_context.make_current().unwrap() };
 
-    log::info!("window created");
-
     let skia_renderer = SkiaRenderer::new(&windowed_context);
     let scale_factor = windowed_context.window().scale_factor();
     let renderer = Renderer::new(batched_draw_command_receiver, scale_factor);
@@ -229,6 +227,13 @@ pub fn start_loop(
         get_initial_window_size(initial_size, (renderer.font_width, renderer.font_height));
 
     window.set_inner_size(initial_inner_size);
+
+    log::info!(
+        "window created (scale_factor: {}, font_size: {}x{})",
+        scale_factor,
+        renderer.font_width,
+        renderer.font_height,
+    );
 
     let saved_inner_size = window.inner_size();
 
