@@ -26,15 +26,17 @@ pub struct CachingShaper {
     font_loader: FontLoader,
     blob_cache: LruCache<ShapeKey, Vec<TextBlob>>,
     shape_context: ShapeContext,
+    scale_factor: f32,
 }
 
 impl CachingShaper {
-    pub fn new() -> CachingShaper {
+    pub fn new(scale_factor: f32) -> CachingShaper {
         CachingShaper {
             options: None,
-            font_loader: FontLoader::new(DEFAULT_FONT_SIZE),
+            font_loader: FontLoader::new(DEFAULT_FONT_SIZE * scale_factor),
             blob_cache: LruCache::new(10000),
             shape_context: ShapeContext::new(),
+            scale_factor,
         }
     }
 
@@ -69,13 +71,15 @@ impl CachingShaper {
             .as_ref()
             .map(|options| options.size)
             .unwrap_or(DEFAULT_FONT_SIZE)
+            * self.scale_factor
     }
 
     pub fn update_font(&mut self, guifont_setting: &str) -> bool {
         let new_options = FontOptions::parse(guifont_setting, DEFAULT_FONT_SIZE);
 
         if new_options != self.options && new_options.is_some() {
-            self.font_loader = FontLoader::new(new_options.as_ref().unwrap().size);
+            self.font_loader =
+                FontLoader::new(new_options.as_ref().unwrap().size * self.scale_factor);
             self.blob_cache.clear();
             self.options = new_options;
 

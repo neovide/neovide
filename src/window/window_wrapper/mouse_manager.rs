@@ -1,6 +1,6 @@
 use glutin::{
     self,
-    dpi::{LogicalPosition, PhysicalPosition},
+    dpi::PhysicalPosition,
     event::{ElementState, Event, MouseButton, MouseScrollDelta, WindowEvent},
     PossiblyCurrent, WindowedContext,
 };
@@ -13,12 +13,12 @@ use crate::settings::SETTINGS;
 use crate::window::WindowSettings;
 
 fn clamp_position(
-    position: LogicalPosition<f32>,
+    position: PhysicalPosition<f32>,
     region: Rect,
     font_width: u64,
     font_height: u64,
-) -> LogicalPosition<f32> {
-    LogicalPosition::new(
+) -> PhysicalPosition<f32> {
+    PhysicalPosition::new(
         position
             .x
             .min(region.right - font_width as f32)
@@ -31,11 +31,11 @@ fn clamp_position(
 }
 
 fn to_grid_coords(
-    position: LogicalPosition<f32>,
+    position: PhysicalPosition<f32>,
     font_width: u64,
     font_height: u64,
-) -> LogicalPosition<u32> {
-    LogicalPosition::new(
+) -> PhysicalPosition<u32> {
+    PhysicalPosition::new(
         (position.x as u64 / font_width) as u32,
         (position.y as u64 / font_height) as u32,
     )
@@ -45,9 +45,9 @@ pub struct MouseManager {
     command_sender: LoggingTx<UiCommand>,
     dragging: bool,
     has_moved: bool,
-    position: LogicalPosition<u32>,
-    relative_position: LogicalPosition<u32>,
-    drag_position: LogicalPosition<u32>,
+    position: PhysicalPosition<u32>,
+    relative_position: PhysicalPosition<u32>,
+    drag_position: PhysicalPosition<u32>,
     window_details_under_mouse: Option<WindowDrawDetails>,
     pub enabled: bool,
 }
@@ -58,9 +58,9 @@ impl MouseManager {
             command_sender,
             dragging: false,
             has_moved: false,
-            position: LogicalPosition::new(0, 0),
-            relative_position: LogicalPosition::new(0, 0),
-            drag_position: LogicalPosition::new(0, 0),
+            position: PhysicalPosition::new(0, 0),
+            relative_position: PhysicalPosition::new(0, 0),
+            drag_position: PhysicalPosition::new(0, 0),
             window_details_under_mouse: None,
             enabled: true,
         }
@@ -78,8 +78,7 @@ impl MouseManager {
             return;
         }
 
-        let logical_position: LogicalPosition<f32> = PhysicalPosition::new(x as u32, y as u32)
-            .to_logical(windowed_context.window().scale_factor());
+        let position: PhysicalPosition<f32> = PhysicalPosition::new(x as f32, y as f32);
 
         // If dragging, the relevant window (the one which we send all commands to) is the one
         // which the mouse drag started on. Otherwise its the top rendered window
@@ -99,10 +98,10 @@ impl MouseManager {
                 .window_regions
                 .iter()
                 .filter(|details| {
-                    logical_position.x >= details.region.left
-                        && logical_position.x < details.region.right
-                        && logical_position.y >= details.region.top
-                        && logical_position.y < details.region.bottom
+                    position.x >= details.region.left
+                        && position.x < details.region.right
+                        && position.y >= details.region.top
+                        && position.y < details.region.bottom
                 })
                 .last()
         };
@@ -111,7 +110,7 @@ impl MouseManager {
             .map(|details| details.region)
             .unwrap_or_else(|| Rect::from_wh(size.width as f32, size.height as f32));
         let clamped_position = clamp_position(
-            logical_position,
+            position,
             global_bounds,
             renderer.font_width,
             renderer.font_height,
@@ -120,7 +119,7 @@ impl MouseManager {
         self.position = to_grid_coords(clamped_position, renderer.font_width, renderer.font_height);
 
         if let Some(relevant_window_details) = relevant_window_details {
-            let relative_position = LogicalPosition::new(
+            let relative_position = PhysicalPosition::new(
                 clamped_position.x - relevant_window_details.region.left,
                 clamped_position.y - relevant_window_details.region.top,
             );
@@ -268,11 +267,11 @@ impl MouseManager {
             Event::WindowEvent {
                 event:
                     WindowEvent::MouseWheel {
-                        delta: MouseScrollDelta::PixelDelta(logical_position),
+                        delta: MouseScrollDelta::PixelDelta(position),
                         ..
                     },
                 ..
-            } => self.handle_mouse_wheel(logical_position.x as f32, logical_position.y as f32),
+            } => self.handle_mouse_wheel(position.x as f32, position.y as f32),
             Event::WindowEvent {
                 event:
                     WindowEvent::MouseInput {

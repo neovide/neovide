@@ -10,7 +10,7 @@ use crate::{
     settings::SETTINGS,
     INITIAL_DIMENSIONS,
 };
-use glutin::dpi::LogicalSize;
+use glutin::dpi::PhysicalSize;
 use std::sync::{atomic::AtomicBool, mpsc::Receiver, Arc};
 
 pub use window_wrapper::start_loop;
@@ -68,7 +68,7 @@ fn windows_fix_dpi() {
 }
 
 fn handle_new_grid_size(
-    new_size: LogicalSize<u32>,
+    new_size: PhysicalSize<u32>,
     renderer: &Renderer,
     ui_command_sender: &LoggingTx<UiCommand>,
 ) {
@@ -88,22 +88,14 @@ pub fn create_window(
     ui_command_sender: LoggingTx<UiCommand>,
     running: Arc<AtomicBool>,
 ) {
-    let (width, height) = window_geometry_or_default();
-
-    let renderer = Renderer::new(batched_draw_command_receiver);
-    let logical_size = (
-        (width * renderer.font_width) as u64,
-        (height * renderer.font_height + 1) as u64,
-    );
-
     #[cfg(target_os = "windows")]
     windows_fix_dpi();
 
     start_loop(
+        batched_draw_command_receiver,
         window_command_receiver,
         ui_command_sender,
         running,
-        logical_size,
-        renderer,
+        window_geometry_or_default(),
     );
 }
