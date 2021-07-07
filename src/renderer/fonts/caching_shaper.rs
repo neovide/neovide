@@ -276,10 +276,7 @@ impl CachingShaper {
 
             shaper.shape_with(|glyph_cluster| {
                 for glyph in glyph_cluster.glyphs {
-                    let position = (
-                        (glyph.data as u64 * glyph_width) as f32,
-                        glyph.y,
-                    );
+                    let position = ((glyph.data as u64 * glyph_width) as f32, glyph.y);
                     glyph_data.push((glyph.id, position));
                 }
             });
