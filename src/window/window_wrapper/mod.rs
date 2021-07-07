@@ -226,7 +226,9 @@ pub fn start_loop(
     let initial_inner_size =
         get_initial_window_size(initial_size, (renderer.font_width, renderer.font_height));
 
-    window.set_inner_size(initial_inner_size);
+    if !window.is_maximized() {
+        window.set_inner_size(initial_inner_size);
+    }
 
     log::info!(
         "window created (scale_factor: {}, font_size: {}x{})",
