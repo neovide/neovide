@@ -18,7 +18,6 @@ use tokio::runtime::Runtime;
 
 use crate::channel_utils::*;
 use crate::settings::*;
-use crate::window::window_geometry_or_default;
 use crate::{cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation};
 pub use events::*;
 use handler::NeovimHandler;
@@ -162,7 +161,6 @@ async fn start_neovim_runtime(
     redraw_event_sender: LoggingTx<RedrawEvent>,
     running: Arc<AtomicBool>,
 ) {
-    let (width, height) = window_geometry_or_default();
     let handler = NeovimHandler::new(ui_command_sender.clone(), redraw_event_sender.clone());
     let (mut nvim, io_handler) = match connection_mode() {
         ConnectionMode::Child => create::new_child_cmd(&mut create_nvim_command(), handler).await,
@@ -276,6 +274,7 @@ async fn start_neovim_runtime(
         .await
         .ok();
 
+    let WindowGeometry { width, height } = SETTINGS.get::<CmdLineSettings>().geometry;
     let mut options = UiAttachOptions::new();
     options.set_linegrid_external(true);
 

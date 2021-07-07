@@ -25,9 +25,14 @@ use glutin::platform::unix::WindowBuilderExtUnix;
 
 use super::{handle_new_grid_size, settings::WindowSettings};
 use crate::{
-    bridge::UiCommand, channel_utils::*, cmd_line::CmdLineSettings, editor::DrawCommand,
-    editor::WindowCommand, redraw_scheduler::REDRAW_SCHEDULER, renderer::Renderer,
-    settings::SETTINGS,
+    bridge::UiCommand,
+    channel_utils::*,
+    cmd_line::CmdLineSettings,
+    editor::DrawCommand,
+    editor::WindowCommand,
+    redraw_scheduler::REDRAW_SCHEDULER,
+    renderer::Renderer,
+    settings::{WindowGeometry, SETTINGS},
 };
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
@@ -183,7 +188,6 @@ pub fn start_loop(
     window_command_receiver: Receiver<WindowCommand>,
     ui_command_sender: LoggingTx<UiCommand>,
     running: Arc<AtomicBool>,
-    initial_size: (u64, u64),
 ) {
     let icon = {
         let icon_data = Asset::get("neovide.ico").expect("Failed to read icon data");
@@ -223,11 +227,11 @@ pub fn start_loop(
     let renderer = Renderer::new(batched_draw_command_receiver, scale_factor);
     let window = windowed_context.window();
 
-    let initial_inner_size =
-        get_initial_window_size(initial_size, (renderer.font_width, renderer.font_height));
-
     if !window.is_maximized() {
-        window.set_inner_size(initial_inner_size);
+        window.set_inner_size(get_initial_window_size((
+            renderer.font_width,
+            renderer.font_height,
+        )));
     }
 
     log::info!(
@@ -279,11 +283,8 @@ pub fn start_loop(
     });
 }
 
-fn get_initial_window_size(
-    dimensions: (u64, u64),
-    font_dimesions: (u64, u64),
-) -> PhysicalSize<u32> {
-    let (width, height) = dimensions;
+fn get_initial_window_size(font_dimesions: (u64, u64)) -> PhysicalSize<u32> {
+    let WindowGeometry { width, height } = SETTINGS.get::<CmdLineSettings>().geometry;
     let (font_width, font_height) = font_dimesions;
     PhysicalSize::new((width * font_width) as u32, (height * font_height) as u32)
 }
