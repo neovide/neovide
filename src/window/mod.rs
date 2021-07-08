@@ -4,11 +4,8 @@ mod window_wrapper;
 use crate::{
     bridge::UiCommand,
     channel_utils::*,
-    cmd_line::CmdLineSettings,
     editor::{DrawCommand, WindowCommand},
     renderer::Renderer,
-    settings::SETTINGS,
-    INITIAL_DIMENSIONS,
 };
 use glutin::dpi::PhysicalSize;
 use std::sync::{atomic::AtomicBool, mpsc::Receiver, Arc};
@@ -16,47 +13,6 @@ use std::sync::{atomic::AtomicBool, mpsc::Receiver, Arc};
 pub use window_wrapper::start_loop;
 
 pub use settings::*;
-
-pub fn window_geometry() -> Result<(u64, u64), String> {
-    //TODO: Maybe move this parsing into cmd_line...
-    SETTINGS
-        .get::<CmdLineSettings>()
-        .geometry
-        .map_or(Ok(INITIAL_DIMENSIONS), |input| {
-            let invalid_parse_err = format!(
-                "Invalid geometry: {}\nValid format: <width>x<height>",
-                input
-            );
-
-            input
-                .split('x')
-                .map(|dimension| {
-                    dimension
-                        .parse::<u64>()
-                        .map_err(|_| invalid_parse_err.as_str())
-                        .and_then(|dimension| {
-                            if dimension > 0 {
-                                Ok(dimension)
-                            } else {
-                                Err("Invalid geometry: Window dimensions should be greater than 0.")
-                            }
-                        })
-                })
-                .collect::<Result<Vec<_>, &str>>()
-                .and_then(|dimensions| {
-                    if let [width, height] = dimensions[..] {
-                        Ok((width, height))
-                    } else {
-                        Err(invalid_parse_err.as_str())
-                    }
-                })
-                .map_err(|msg| msg.to_owned())
-        })
-}
-
-pub fn window_geometry_or_default() -> (u64, u64) {
-    window_geometry().unwrap_or(INITIAL_DIMENSIONS)
-}
 
 #[cfg(target_os = "windows")]
 fn windows_fix_dpi() {
@@ -96,6 +52,5 @@ pub fn create_window(
         window_command_receiver,
         ui_command_sender,
         running,
-        window_geometry_or_default(),
     );
 }
