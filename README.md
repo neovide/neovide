@@ -18,7 +18,7 @@ Should be a standard fully featured Neovim GUI. Beyond that there are some visua
 
 ### Ligatures
 
-Supports ligatures and full [HarfBuzz](https://www.freedesktop.org/wiki/Software/HarfBuzz/) backed font shaping.
+Supports ligatures and font shaping.
 
 ![Ligatures](./assets/Ligatures.png)
 
