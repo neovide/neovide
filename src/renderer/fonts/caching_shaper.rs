@@ -316,7 +316,7 @@ impl CachingShaper {
 fn points_to_pixels(value: f32) -> f32 {
     // Fonts in neovim are using points, not pixels.
     //
-    // Skia docs is incorrectly statint it uses points, but uses pixels:
+    // Skia docs is incorrectly stating it uses points, but uses pixels:
     // https://api.skia.org/classSkFont.html#a7e28a156a517d01bc608c14c761346bf
     // https://github.com/mono/SkiaSharp/issues/1147#issuecomment-587421201
     //
