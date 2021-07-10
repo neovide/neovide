@@ -2927,7 +2927,6 @@ dependencies = [
  "percent-encoding",
  "raw-window-handle",
  "scopeguard",
- "serde",
  "smithay-client-toolkit",
  "unicode-segmentation",
  "wayland-client",

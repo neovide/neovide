@@ -23,7 +23,7 @@ impl Default for WindowSettings {
                 .neovim_args
                 .contains(&String::from("--noIdle")),
             scroll_dead_zone: 0.0,
-            remember_dimension: false,
+            remember_window_size: false,
         }
     }
 }

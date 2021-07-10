@@ -28,7 +28,7 @@ impl Default for CmdLineSettings {
             neovim_args: vec![],
             files_to_open: vec![],
             disowned: false,
-            geometry: *DEFAULT_WINDOW_GEOMETRY,
+            geometry: DEFAULT_WINDOW_GEOMETRY,
             wsl: false,
             remote_tcp: None,
             multi_grid: false,
