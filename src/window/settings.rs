@@ -8,7 +8,7 @@ pub struct WindowSettings {
     pub fullscreen: bool,
     pub iso_layout: bool,
     pub scroll_dead_zone: f32,
-    pub remember_dimension: bool,
+    pub remember_window_size: bool,
 }
 
 impl Default for WindowSettings {
