@@ -49,7 +49,7 @@ jobs:
       run: |
         cargo build --release
         
-    - name: Zip Windows artifact
+    - name: Archive Windows artifact
       run: |
         powershell Compress-Archive ./target/release/neovide.exe ./target/release/neovide.zip 
 
@@ -167,11 +167,15 @@ jobs:
     - name: Build Release
       run: |
         cargo build --release
+        
+    - name: Archive Linux artifact
+      run: |
+        tar czvf ./target/release/neovide.tar.gz ./target/release/neovide
 
     - uses: actions/upload-artifact@v1
       with:
-        name: neovide-linux
-        path: ./target/release/neovide
+        name: neovide-linux.tar.gz
+        path: ./target/release/neovide.tar.gz
 
   build-m1:
 
