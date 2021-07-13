@@ -48,11 +48,15 @@ jobs:
     - name: Build Release
       run: |
         cargo build --release
+        
+    - name: Zip Windows artifact
+      run: |
+        powershell Compress-Archive ./target/release/neovide.exe neovide.zip 
 
     - uses: actions/upload-artifact@v1
       with:
-        name: neovide-windows.exe
-        path: ./target/release/neovide.exe
+        name: neovide-windows.zip
+        path: ./target/release/neovide.zip
 
   build-mac:
 
