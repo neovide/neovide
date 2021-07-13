@@ -51,7 +51,7 @@ jobs:
         
     - name: Zip Windows artifact
       run: |
-        powershell Compress-Archive ./target/release/neovide.exe neovide.zip 
+        powershell Compress-Archive ./target/release/neovide.exe ./target/release/neovide.zip 
 
     - uses: actions/upload-artifact@v1
       with:
