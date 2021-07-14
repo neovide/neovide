@@ -321,6 +321,9 @@ fn points_to_pixels(value: f32) -> f32 {
     // https://github.com/mono/SkiaSharp/issues/1147#issuecomment-587421201
     //
     // So, we need to convert points to pixels.
+    //
+    // In reality, this depends on DPI/PPI of monitor, but here we only care about converting
+    // from points to pixels, so this is standard constant values.
     let pixels_per_inch = 96.0;
     let points_per_inch = 72.0;
     let pixels_per_point = pixels_per_inch / points_per_inch;
