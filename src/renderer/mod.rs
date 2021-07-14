@@ -266,9 +266,7 @@ impl Renderer {
         }
 
         root_canvas.clear(self.default_style.colors.background.unwrap().to_color());
-
         root_canvas.save();
-
         root_canvas.reset_matrix();
 
         if let Some(root_window) = self.rendered_windows.get(&1) {

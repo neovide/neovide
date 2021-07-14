@@ -222,10 +222,10 @@ pub fn start_loop(
         .unwrap();
     let windowed_context = unsafe { windowed_context.make_current().unwrap() };
 
-    let skia_renderer = SkiaRenderer::new(&windowed_context);
+    let window = windowed_context.window();
+
     let scale_factor = windowed_context.window().scale_factor();
     let renderer = Renderer::new(batched_draw_command_receiver, scale_factor);
-    let window = windowed_context.window();
 
     if !window.is_maximized() {
         window.set_inner_size(get_initial_window_size((
@@ -234,14 +234,16 @@ pub fn start_loop(
         )));
     }
 
+    let saved_inner_size = window.inner_size();
+
+    let skia_renderer = SkiaRenderer::new(&windowed_context);
+
     log::info!(
         "window created (scale_factor: {}, font_size: {}x{})",
         scale_factor,
         renderer.font_width,
         renderer.font_height,
     );
-
-    let saved_inner_size = window.inner_size();
 
     let mut window_wrapper = GlutinWindowWrapper {
         windowed_context,
