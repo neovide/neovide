@@ -26,9 +26,10 @@ pub fn try_to_load_last_window_size() -> Result<WindowGeometry, String> {
     let settings_path = neovim_std_datapath();
     let serialized_size = std::fs::read_to_string(&settings_path).map_err(|e| e.to_string())?;
 
-    let de: WindowGeometry = serde_json::from_str(&serialized_size).map_err(|e| e.to_string())?;
-    log::debug!("Loaded Window Size: {:?}", de);
-    Ok(de)
+    let saved_window_size: WindowGeometry =
+        serde_json::from_str(&serialized_size).map_err(|e| e.to_string())?;
+    log::debug!("Loaded Window Size: {:?}", saved_window_size);
+    Ok(saved_window_size)
 }
 pub const DEFAULT_WINDOW_GEOMETRY: WindowGeometry = WindowGeometry {
     width: 100,
