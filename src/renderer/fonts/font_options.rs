@@ -50,18 +50,12 @@ impl FontOptions {
             size,
         }
     }
-    pub fn as_font_key(&self) -> FontKey {
-        let font_selection = self
-            .font_list
+
+    pub fn primary_font(&self) -> FontSelection {
+        self.font_list
             .first()
             .map(|f| FontSelection::from(f))
-            .unwrap_or(FontSelection::Default);
-
-        FontKey {
-            italic: self.italic,
-            bold: self.bold,
-            font_selection,
-        }
+            .unwrap_or(FontSelection::Default)
     }
 }
 

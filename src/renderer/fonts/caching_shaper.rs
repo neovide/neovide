@@ -43,8 +43,7 @@ impl CachingShaper {
 
     fn current_font_pair(&mut self) -> Arc<FontPair> {
         let default_key = FontKey::default();
-
-        let font_key = self.options.as_font_key();
+        let font_key = FontKey::from(&self.options);
 
         if let Some(font_pair) = self.font_loader.get_or_load(&font_key) {
             return font_pair;

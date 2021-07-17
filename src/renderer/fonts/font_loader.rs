@@ -4,6 +4,7 @@ use lru::LruCache;
 use skia_safe::{font::Edging, Data, Font, FontHinting, FontMgr, FontStyle, Typeface};
 
 use super::swash_font::SwashFont;
+use super::font_options::FontOptions;
 
 #[derive(RustEmbed)]
 #[folder = "assets/fonts/"]
@@ -60,6 +61,16 @@ impl Default for FontKey {
             italic: false,
             bold: false,
             font_selection: FontSelection::Default,
+        }
+    }
+}
+
+impl From<&FontOptions> for FontKey {
+    fn from(options: &FontOptions) -> FontKey {
+        FontKey {
+            italic: options.italic,
+            bold: options.bold,
+            font_selection: options.primary_font(),
         }
     }
 }
