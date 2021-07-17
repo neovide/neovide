@@ -47,7 +47,7 @@ impl FontOptions {
             font_list,
             bold,
             italic,
-            size,
+            size: points_to_pixels(size),
         }
     }
 
@@ -65,7 +65,7 @@ impl Default for FontOptions {
             font_list: Vec::new(),
             bold: false,
             italic: false,
-            size: DEFAULT_FONT_SIZE,
+            size: points_to_pixels(DEFAULT_FONT_SIZE),
         }
     }
 }
@@ -77,4 +77,26 @@ impl PartialEq for FontOptions {
             && self.bold == other.bold
             && self.italic == other.italic
     }
+}
+
+fn points_to_pixels(value: f32) -> f32 {
+    // Fonts in neovim are using points, not pixels.
+    //
+    // Skia docs is incorrectly stating it uses points, but uses pixels:
+    // https://api.skia.org/classSkFont.html#a7e28a156a517d01bc608c14c761346bf
+    // https://github.com/mono/SkiaSharp/issues/1147#issuecomment-587421201
+    //
+    // So, we need to convert points to pixels.
+    //
+    // In reality, this depends on DPI/PPI of monitor, but here we only care about converting
+    // from points to pixels, so this is standard constant values.
+    let pixels_per_inch = 96.0;
+    let points_per_inch = 72.0;
+    // On macos points == pixels
+    #[cfg(target_os = "macos")]
+    let points_per_inch = 96.0;
+
+    let pixels_per_point = pixels_per_inch / points_per_inch;
+
+    value * pixels_per_point
 }

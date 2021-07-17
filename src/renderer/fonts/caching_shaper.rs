@@ -28,8 +28,7 @@ pub struct CachingShaper {
 }
 
 impl CachingShaper {
-    pub fn new(device_scale_factor: f32) -> CachingShaper {
-        let scale_factor = points_to_pixels(device_scale_factor);
+    pub fn new(scale_factor: f32) -> CachingShaper {
         let options = FontOptions::default();
         let font_size = options.size * scale_factor;
         CachingShaper {
@@ -58,9 +57,9 @@ impl CachingShaper {
         self.options.size * self.scale_factor
     }
 
-    pub fn update_scale_factor(&mut self, device_scale_factor: f32) {
-        trace!("Device scale_factor changed: {:.2}", device_scale_factor);
-        self.scale_factor = device_scale_factor * points_to_pixels(device_scale_factor);
+    pub fn update_scale_factor(&mut self, scale_factor: f32) {
+        trace!("scale_factor changed: {:.2}", scale_factor);
+        self.scale_factor = scale_factor;
         self.reset_font_loader();
     }
 
@@ -282,26 +281,4 @@ impl CachingShaper {
 
         self.blob_cache.get(&key).unwrap()
     }
-}
-
-fn points_to_pixels(value: f32) -> f32 {
-    // Fonts in neovim are using points, not pixels.
-    //
-    // Skia docs is incorrectly stating it uses points, but uses pixels:
-    // https://api.skia.org/classSkFont.html#a7e28a156a517d01bc608c14c761346bf
-    // https://github.com/mono/SkiaSharp/issues/1147#issuecomment-587421201
-    //
-    // So, we need to convert points to pixels.
-    //
-    // In reality, this depends on DPI/PPI of monitor, but here we only care about converting
-    // from points to pixels, so this is standard constant values.
-    let pixels_per_inch = 96.0;
-    let points_per_inch = 72.0;
-    // On macos points == pixels
-    #[cfg(target_os = "macos")]
-    let points_per_inch = 96.0;
-
-    let pixels_per_point = pixels_per_inch / points_per_inch;
-
-    value * pixels_per_point
 }
