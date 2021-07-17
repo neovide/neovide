@@ -3,8 +3,8 @@ use std::sync::Arc;
 use lru::LruCache;
 use skia_safe::{font::Edging, Data, Font, FontHinting, FontMgr, FontStyle, Typeface};
 
-use super::swash_font::SwashFont;
 use super::font_options::FontOptions;
+use super::swash_font::SwashFont;
 
 #[derive(RustEmbed)]
 #[folder = "assets/fonts/"]

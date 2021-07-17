@@ -11,7 +11,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use log::trace;
 use glutin::{
     self,
     dpi::PhysicalSize,
@@ -20,6 +19,7 @@ use glutin::{
     window::{self, Fullscreen, Icon},
     ContextBuilder, GlProfile, WindowedContext,
 };
+use log::trace;
 
 #[cfg(target_os = "linux")]
 use glutin::platform::unix::WindowBuilderExtUnix;
