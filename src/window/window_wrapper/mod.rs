@@ -19,6 +19,7 @@ use glutin::{
     window::{self, Fullscreen, Icon},
     ContextBuilder, GlProfile, WindowedContext,
 };
+use log::trace;
 
 #[cfg(target_os = "linux")]
 use glutin::platform::unix::WindowBuilderExtUnix;
@@ -129,6 +130,12 @@ impl GlutinWindowWrapper {
                 self.handle_quit(running);
             }
             Event::WindowEvent {
+                event: WindowEvent::ScaleFactorChanged { scale_factor, .. },
+                ..
+            } => {
+                self.handle_scale_factor_update(scale_factor);
+            }
+            Event::WindowEvent {
                 event: WindowEvent::DroppedFile(path),
                 ..
             } => {
@@ -159,6 +166,7 @@ impl GlutinWindowWrapper {
         let previous_size = self.saved_inner_size;
 
         if previous_size != current_size {
+            trace!("Updating grid size: {:#?}", current_size);
             self.saved_inner_size = current_size;
             handle_new_grid_size(current_size, &self.renderer, &self.ui_command_sender);
             self.skia_renderer.resize(&self.windowed_context);
@@ -180,6 +188,10 @@ impl GlutinWindowWrapper {
             self.skia_renderer.gr_context.flush(None);
             self.windowed_context.swap_buffers().unwrap();
         }
+    }
+
+    fn handle_scale_factor_update(&mut self, scale_factor: f64) {
+        self.renderer.handle_scale_factor_update(scale_factor);
     }
 }
 

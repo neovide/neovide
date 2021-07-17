@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 
-use log::error;
+use log::{error, trace};
 use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect};
 
 pub mod animation_utils;
@@ -87,12 +87,25 @@ impl Renderer {
         }
     }
 
+    pub fn handle_scale_factor_update(&mut self, scale_factor: f64) {
+        self.shaper.update_scale_factor(scale_factor as f32);
+        self.update_font_dimensions();
+    }
+
     fn update_font(&mut self, guifont_setting: &str) {
-        if self.shaper.update_font(guifont_setting) {
-            let (font_width, font_height) = self.shaper.font_base_dimensions();
-            self.font_width = font_width;
-            self.font_height = font_height;
-        }
+        self.shaper.update_font(guifont_setting);
+        self.update_font_dimensions();
+    }
+
+    fn update_font_dimensions(&mut self) {
+        let (font_width, font_height) = self.shaper.font_base_dimensions();
+        self.font_width = font_width;
+        self.font_height = font_height;
+        trace!(
+            "Updating font dimensions: {}x{}",
+            self.font_height,
+            self.font_width,
+        );
     }
 
     fn compute_text_region(&self, grid_pos: (u64, u64), cell_width: u64) -> Rect {
