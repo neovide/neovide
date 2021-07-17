@@ -1,4 +1,4 @@
-use super::font_loader::{FontKey, FontSelection};
+use super::font_loader::FontSelection;
 
 const DEFAULT_FONT_SIZE: f32 = 14.0;
 

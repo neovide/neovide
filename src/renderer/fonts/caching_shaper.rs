@@ -154,8 +154,8 @@ impl CachingShaper {
 
             // Add default font
             font_fallback_keys.push(FontKey {
-                italic,
-                bold,
+                italic: self.options.italic || italic,
+                bold: self.options.bold || bold,
                 font_selection: FontSelection::Default,
             });
 
