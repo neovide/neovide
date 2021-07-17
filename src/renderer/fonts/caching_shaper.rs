@@ -12,8 +12,6 @@ use unicode_segmentation::UnicodeSegmentation;
 use super::font_loader::*;
 use super::font_options::*;
 
-const DEFAULT_FONT_SIZE: f32 = 14.0;
-
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {
     pub cells: Vec<String>,
@@ -22,7 +20,7 @@ struct ShapeKey {
 }
 
 pub struct CachingShaper {
-    pub options: Option<FontOptions>,
+    options: FontOptions,
     font_loader: FontLoader,
     blob_cache: LruCache<ShapeKey, Vec<TextBlob>>,
     shape_context: ShapeContext,
@@ -32,9 +30,11 @@ pub struct CachingShaper {
 impl CachingShaper {
     pub fn new(device_scale_factor: f32) -> CachingShaper {
         let scale_factor = points_to_pixels(device_scale_factor);
+        let options = FontOptions::default();
+        let font_size = options.size * scale_factor;
         CachingShaper {
-            options: None,
-            font_loader: FontLoader::new(DEFAULT_FONT_SIZE * scale_factor),
+            options,
+            font_loader: FontLoader::new(font_size),
             blob_cache: LruCache::new(10000),
             shape_context: ShapeContext::new(),
             scale_factor,
@@ -42,21 +42,9 @@ impl CachingShaper {
     }
 
     fn current_font_pair(&mut self) -> Arc<FontPair> {
-        let default_key = FontKey {
-            italic: false,
-            bold: false,
-            font_selection: FontSelection::Default,
-        };
+        let default_key = FontKey::default();
 
-        let font_key = self
-            .options
-            .as_ref()
-            .map(|options| FontKey {
-                italic: options.italic,
-                bold: options.bold,
-                font_selection: options.fallback_list.first().unwrap().clone().into(),
-            })
-            .unwrap_or_else(|| default_key.clone());
+        let font_key = self.options.as_font_key();
 
         if let Some(font_pair) = self.font_loader.get_or_load(&font_key) {
             return font_pair;
@@ -68,26 +56,28 @@ impl CachingShaper {
     }
 
     pub fn current_size(&self) -> f32 {
-        self.options
-            .as_ref()
-            .map(|options| options.size)
-            .unwrap_or(DEFAULT_FONT_SIZE)
-            * self.scale_factor
+        self.options.size * self.scale_factor
     }
 
-    pub fn update_font(&mut self, guifont_setting: &str) -> bool {
-        let new_options = FontOptions::parse(guifont_setting, DEFAULT_FONT_SIZE);
+    pub fn update_scale_factor(&mut self, device_scale_factor: f32) {
+        trace!("Device scale_factor changed: {:.2}", device_scale_factor);
+        self.scale_factor = device_scale_factor * points_to_pixels(device_scale_factor);
+        self.reset_font_loader();
+    }
 
-        if new_options != self.options && new_options.is_some() {
-            self.font_loader =
-                FontLoader::new(new_options.as_ref().unwrap().size * self.scale_factor);
-            self.blob_cache.clear();
-            self.options = new_options;
+    pub fn update_font(&mut self, guifont_setting: &str) {
+        trace!("Updating font: {}", guifont_setting);
 
-            true
-        } else {
-            false
-        }
+        self.options = FontOptions::parse(guifont_setting);
+        self.reset_font_loader();
+    }
+
+    fn reset_font_loader(&mut self) {
+        let font_size = self.options.size * self.scale_factor;
+        trace!("Using font_size: {:.2}px", font_size);
+
+        self.font_loader = FontLoader::new(font_size);
+        self.blob_cache.clear();
     }
 
     fn metrics(&mut self) -> Metrics {
@@ -156,44 +146,26 @@ impl CachingShaper {
             // Create font fallback list
             let mut font_fallback_keys = Vec::new();
 
-            // Add guifont fallback list
-            if let Some(options) = &self.options {
-                font_fallback_keys.extend(options.fallback_list.iter().map(|font_name| FontKey {
-                    italic: options.italic || italic,
-                    bold: options.bold || bold,
-                    font_selection: font_name.into(),
-                }));
+            // Add parsed fonts from guifont
+            font_fallback_keys.extend(self.options.font_list.iter().map(|font_name| FontKey {
+                italic: self.options.italic || italic,
+                bold: self.options.bold || bold,
+                font_selection: font_name.into(),
+            }));
 
-                // Add default font
-                font_fallback_keys.push(FontKey {
-                    italic: options.italic || italic,
-                    bold: options.bold || bold,
-                    font_selection: FontSelection::Default,
-                });
+            // Add default font
+            font_fallback_keys.push(FontKey {
+                italic,
+                bold,
+                font_selection: FontSelection::Default,
+            });
 
-                // Add skia fallback
-                font_fallback_keys.push(FontKey {
-                    italic: options.italic || italic,
-                    bold: options.bold || bold,
-                    font_selection: cluster.chars()[0].ch.into(),
-                });
-            } else {
-                // No confgured option. Default to not italic and not bold versions
-
-                // Add default font
-                font_fallback_keys.push(FontKey {
-                    italic,
-                    bold,
-                    font_selection: FontSelection::Default,
-                });
-
-                // Add skia fallback
-                font_fallback_keys.push(FontKey {
-                    italic,
-                    bold,
-                    font_selection: cluster.chars()[0].ch.into(),
-                });
-            }
+            // Add skia fallback
+            font_fallback_keys.push(FontKey {
+                italic,
+                bold,
+                font_selection: cluster.chars()[0].ch.into(),
+            });
 
             // Add last resort
             font_fallback_keys.push(FontKey {

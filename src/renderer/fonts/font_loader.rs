@@ -54,6 +54,16 @@ pub struct FontKey {
     pub font_selection: FontSelection,
 }
 
+impl Default for FontKey {
+    fn default() -> Self {
+        FontKey {
+            italic: false,
+            bold: false,
+            font_selection: FontSelection::Default,
+        }
+    }
+}
+
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub enum FontSelection {
     Name(String),
