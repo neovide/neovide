@@ -36,8 +36,8 @@ impl Default for CmdLineSettings {
             multi_grid: false,
             maximized: false,
             frameless: false,
-            wayland_app_id: String::from("Neovide"),
-            x11_wm_class: String::from("Neovide"),
+            wayland_app_id: String::from("neovide"),
+            x11_wm_class: String::from("neovide"),
         }
     }
 }
@@ -152,12 +152,12 @@ pub fn handle_command_line_arguments() -> Result<(), String> {
         geometry: parse_window_geometry(matches.value_of("geometry").map(|i| i.to_owned()))?,
         wayland_app_id: matches
             .value_of("wayland_app_id")
-            .unwrap_or_default()
+            .unwrap_or("neovide")
             .to_string(),
         x11_wm_class: matches
             .value_of("x11_wm_class")
-            .unwrap_or_default()
-            .to_string(),
+            .unwrap_or("neovide")
+            .to_string()
     });
     Ok(())
 }
