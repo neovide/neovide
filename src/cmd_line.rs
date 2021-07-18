@@ -157,7 +157,7 @@ pub fn handle_command_line_arguments() -> Result<(), String> {
         x11_wm_class: matches
             .value_of("x11_wm_class")
             .unwrap_or("neovide")
-            .to_string()
+            .to_string(),
     });
     Ok(())
 }
