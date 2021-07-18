@@ -226,8 +226,8 @@ pub fn start_loop(
         .with_app_id(SETTINGS.get::<CmdLineSettings>().wayland_app_id.to_string());
     #[cfg(target_os = "linux")]
     let winit_window_builder = winit_window_builder.with_class(
-        SETTINGS.get::<CmdLineSettings>().x11_class.to_string(),
-        SETTINGS.get::<CmdLineSettings>().x11_class.to_string(),
+        SETTINGS.get::<CmdLineSettings>().x11_wm_class.to_string(),
+        "Neovide".to_string(),
     );
 
     let windowed_context = ContextBuilder::new()

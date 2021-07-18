@@ -17,8 +17,8 @@ pub struct CmdLineSettings {
     pub multi_grid: bool,
     pub maximized: bool,
     pub frameless: bool,
-    pub wayland_app_id: std::string::String,
-    pub x11_class: std::string::String,
+    pub wayland_app_id: String,
+    pub x11_wm_class: String,
 }
 
 impl Default for CmdLineSettings {
@@ -37,7 +37,7 @@ impl Default for CmdLineSettings {
             maximized: false,
             frameless: false,
             wayland_app_id: "Neovide".to_string(),
-            x11_class: "Neovide".to_string(),
+            x11_wm_class: "Neovide".to_string(),
         }
     }
 }
@@ -112,14 +112,12 @@ pub fn handle_command_line_arguments() -> Result<(), String> {
         )
         .arg(
             Arg::with_name("wayland_app_id")
-                .long("appid")
-                .short("a")
+                .long("wayland_app_id")
                 .takes_value(true)
         )
         .arg(
             Arg::with_name("x11_class")
-                .long("class")
-                .short("c")
+                .long("x11_class")
                 .takes_value(true)
         );
 
@@ -156,7 +154,7 @@ pub fn handle_command_line_arguments() -> Result<(), String> {
             .value_of("wayland_app_id")
             .unwrap_or(&"Neovide".to_owned().to_string())
             .to_string(),
-        x11_class: matches
+        x11_wm_class: matches
             .value_of("x11_class")
             .unwrap_or(&"Neovide".to_owned().to_string())
             .to_string(),
