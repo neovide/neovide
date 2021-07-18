@@ -103,19 +103,6 @@ impl KeyboardManager {
         }
     }
 
-    fn format_keybinding_string(&self, special: bool, use_shift: bool, text: &str) -> String {
-        let special = special || self.ctrl || use_alt(self.alt) || use_logo(self.logo);
-
-        let open = or_empty(special, "<");
-        let shift = or_empty(self.shift && use_shift, "S-");
-        let ctrl = or_empty(self.ctrl, "C-");
-        let alt = or_empty(use_alt(self.alt), "M-");
-        let logo = or_empty(use_logo(self.logo), "D-");
-        let close = or_empty(special, ">");
-
-        format!("{}{}{}{}{}{}{}", open, shift, ctrl, alt, logo, text, close)
-    }
-
     pub fn handle_event(&mut self, event: &Event<()>) {
         match event {
             Event::WindowEvent {
@@ -155,39 +142,10 @@ impl KeyboardManager {
                     for key_event in self.queued_key_events.iter() {
                         // And a key was pressed
                         if key_event.state == ElementState::Pressed {
-                            // Determine if this key event represents a key which won't ever
-                            // present text.
-                            if let Some(key_text) = is_control_key(key_event.logical_key) {
-                                let keybinding_string =
-                                    self.format_keybinding_string(true, true, key_text);
-
+                            if let Some(keybinding) = self.maybe_get_keybinding(key_event) {
                                 self.command_sender
-                                    .send(UiCommand::Keyboard(keybinding_string))
+                                    .send(UiCommand::Keyboard(keybinding))
                                     .expect("Could not send keyboard ui command");
-                            } else {
-                                let is_dead_key = key_event.text_with_all_modifiers().is_some()
-                                    && key_event.text.is_none();
-                                let key_text =
-                                    if (self.alt || is_dead_key) && cfg!(target_os = "macos") {
-                                        key_event.text_with_all_modifiers()
-                                    } else {
-                                        key_event.text
-                                    };
-
-                                if let Some(key_text) = key_text {
-                                    // This is not a control key, so we rely upon winit to determine if
-                                    // this is a deadkey or not.
-                                    let keybinding_string =
-                                        if let Some(escaped_text) = is_special(key_text) {
-                                            self.format_keybinding_string(true, false, escaped_text)
-                                        } else {
-                                            self.format_keybinding_string(false, false, key_text)
-                                        };
-
-                                    self.command_sender
-                                        .send(UiCommand::Keyboard(keybinding_string))
-                                        .expect("Could not send keyboard ui command");
-                                }
                             }
                         }
                     }
@@ -200,5 +158,48 @@ impl KeyboardManager {
             }
             _ => {}
         }
+    }
+
+    fn maybe_get_keybinding(&self, key_event: &KeyEvent) -> Option<String> {
+        // Determine if this key event represents a key which won't ever
+        // present text.
+        if let Some(key_text) = is_control_key(key_event.logical_key) {
+            Some(self.format_keybinding_string(true, true, key_text))
+        } else {
+            let is_dead_key =
+                key_event.text_with_all_modifiers().is_some() && key_event.text.is_none();
+            let key_text = if (self.alt || is_dead_key) && cfg!(target_os = "macos") {
+                key_event.text_with_all_modifiers()
+            } else {
+                key_event.text
+            };
+
+            if let Some(key_text) = key_text {
+                // This is not a control key, so we rely upon winit to determine if
+                // this is a deadkey or not.
+                let keybinding_string = if let Some(escaped_text) = is_special(key_text) {
+                    self.format_keybinding_string(true, false, escaped_text)
+                } else {
+                    self.format_keybinding_string(false, false, key_text)
+                };
+
+                Some(keybinding_string)
+            } else {
+                None
+            }
+        }
+    }
+
+    fn format_keybinding_string(&self, special: bool, use_shift: bool, text: &str) -> String {
+        let special = special || self.ctrl || use_alt(self.alt) || use_logo(self.logo);
+
+        let open = or_empty(special, "<");
+        let shift = or_empty(self.shift && use_shift, "S-");
+        let ctrl = or_empty(self.ctrl, "C-");
+        let alt = or_empty(use_alt(self.alt), "M-");
+        let logo = or_empty(use_logo(self.logo), "D-");
+        let close = or_empty(special, ">");
+
+        format!("{}{}{}{}{}{}{}", open, shift, ctrl, alt, logo, text, close)
     }
 }
