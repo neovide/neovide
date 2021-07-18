@@ -18,6 +18,7 @@ pub struct CmdLineSettings {
     pub maximized: bool,
     pub frameless: bool,
     pub wayland_app_id: std::string::String,
+    pub x11_class: std::string::String,
 }
 
 impl Default for CmdLineSettings {
@@ -36,6 +37,7 @@ impl Default for CmdLineSettings {
             maximized: false,
             frameless: false,
             wayland_app_id: "Neovide".to_string(),
+            x11_class: "Neovide".to_string(),
         }
     }
 }
@@ -152,7 +154,12 @@ pub fn handle_command_line_arguments() -> Result<(), String> {
         geometry: parse_window_geometry(matches.value_of("geometry").map(|i| i.to_owned()))?,
         wayland_app_id: matches
             .value_of("wayland_app_id")
-            .unwrap_or_default().to_string(),
+            .unwrap_or(&"Neovide".to_owned().to_string())
+            .to_string(),
+        x11_class: matches
+            .value_of("x11_class")
+            .unwrap_or(&"Neovide".to_owned().to_string())
+            .to_string(),
     });
     Ok(())
 }

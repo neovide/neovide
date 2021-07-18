@@ -39,7 +39,6 @@ use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
 use mouse_manager::MouseManager;
 use renderer::SkiaRenderer;
-use crate::settings::Value;
 
 #[derive(RustEmbed)]
 #[folder = "assets/"]
@@ -222,11 +221,13 @@ pub fn start_loop(
         .with_maximized(SETTINGS.get::<CmdLineSettings>().maximized)
         .with_decorations(!SETTINGS.get::<CmdLineSettings>().frameless);
 
-    //let window_indentifier = sub_matches.value_of("wayland_app_id").unwrap_or(&"Neovide".to_string());
     #[cfg(target_os = "linux")]
     let winit_window_builder = winit_window_builder
-        .with_app_id(SETTINGS.get::<wayland_app_id>());
-    //let winit_window_builder = winit_window_builder.with_class(wayland_app_id.to_string(), wayland_app_id.to_string());
+        .with_app_id(SETTINGS.get::<CmdLineSettings>().wayland_app_id.to_string());
+    let winit_window_builder = winit_window_builder.with_class(
+        SETTINGS.get::<CmdLineSettings>().x11_class.to_string(),
+        SETTINGS.get::<CmdLineSettings>().x11_class.to_string(),
+    );
 
     let windowed_context = ContextBuilder::new()
         .with_pixel_format(24, 8)
