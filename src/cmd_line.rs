@@ -112,7 +112,7 @@ pub fn handle_command_line_arguments() -> Result<(), String> {
         )
         .arg(
             Arg::with_name("wayland_app_id")
-                .long("wayland-appid")
+                .long("wayland-app-id")
                 .takes_value(true)
         )
         .arg(
