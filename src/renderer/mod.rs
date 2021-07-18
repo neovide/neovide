@@ -54,17 +54,18 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    pub fn new(batched_draw_command_receiver: Receiver<Vec<DrawCommand>>) -> Renderer {
+    pub fn new(
+        batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
+        scale_factor: f64,
+    ) -> Renderer {
         let rendered_windows = HashMap::new();
         let cursor_renderer = CursorRenderer::new();
 
         let current_mode = EditorMode::Unknown(String::from(""));
         let mut paint = Paint::new(colors::WHITE, None);
         paint.set_anti_alias(false);
-        let mut shaper = CachingShaper::new();
-        let (font_width_raw, font_height_raw) = shaper.font_base_dimensions();
-        let font_width = font_width_raw;
-        let font_height = font_height_raw;
+        let mut shaper = CachingShaper::new(scale_factor as f32);
+        let (font_width, font_height) = shaper.font_base_dimensions();
         let default_style = Arc::new(Style::new(Colors::new(
             Some(colors::WHITE),
             Some(colors::BLACK),
@@ -86,12 +87,25 @@ impl Renderer {
         }
     }
 
+    pub fn handle_scale_factor_update(&mut self, scale_factor: f64) {
+        self.shaper.update_scale_factor(scale_factor as f32);
+        self.update_font_dimensions();
+    }
+
     fn update_font(&mut self, guifont_setting: &str) {
-        if self.shaper.update_font(guifont_setting) {
-            let (font_width, font_height) = self.shaper.font_base_dimensions();
-            self.font_width = font_width;
-            self.font_height = font_height;
-        }
+        self.shaper.update_font(guifont_setting);
+        self.update_font_dimensions();
+    }
+
+    fn update_font_dimensions(&mut self) {
+        let (font_width, font_height) = self.shaper.font_base_dimensions();
+        self.font_width = font_width;
+        self.font_height = font_height;
+        trace!(
+            "Updating font dimensions: {}x{}",
+            self.font_height,
+            self.font_width,
+        );
     }
 
     fn compute_text_region(&self, grid_pos: (u64, u64), cell_width: u64) -> Rect {
@@ -199,12 +213,7 @@ impl Renderer {
         canvas.restore();
     }
 
-    pub fn handle_draw_command(
-        &mut self,
-        root_canvas: &mut Canvas,
-        draw_command: DrawCommand,
-        scaling: f32,
-    ) {
+    pub fn handle_draw_command(&mut self, root_canvas: &mut Canvas, draw_command: DrawCommand) {
         match draw_command {
             DrawCommand::Window {
                 grid_id,
@@ -214,8 +223,7 @@ impl Renderer {
             }
             DrawCommand::Window { grid_id, command } => {
                 if let Some(rendered_window) = self.rendered_windows.remove(&grid_id) {
-                    let rendered_window =
-                        rendered_window.handle_window_draw_command(self, command, scaling);
+                    let rendered_window = rendered_window.handle_window_draw_command(self, command);
                     self.rendered_windows.insert(grid_id, rendered_window);
                 } else if let WindowDrawCommand::Position {
                     grid_position: (grid_left, grid_top),
@@ -230,7 +238,6 @@ impl Renderer {
                         (grid_left as f32, grid_top as f32).into(),
                         width,
                         height,
-                        scaling,
                     );
                     self.rendered_windows.insert(grid_id, new_window);
                 } else {
@@ -254,8 +261,7 @@ impl Renderer {
     }
 
     #[allow(clippy::needless_collect)]
-    pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32, scaling: f32) -> bool {
-        trace!("Drawing Frame");
+    pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32) -> bool {
         let mut font_changed = false;
 
         let draw_commands: Vec<_> = self
@@ -269,15 +275,12 @@ impl Renderer {
             if let DrawCommand::FontChanged(_) = draw_command {
                 font_changed = true;
             }
-            self.handle_draw_command(root_canvas, draw_command, scaling);
+            self.handle_draw_command(root_canvas, draw_command);
         }
 
         root_canvas.clear(self.default_style.colors.background.unwrap().to_color());
-
         root_canvas.save();
-
         root_canvas.reset_matrix();
-        root_canvas.scale((1.0 / scaling, 1.0 / scaling));
 
         if let Some(root_window) = self.rendered_windows.get(&1) {
             let clip_rect = root_window.pixel_region(self.font_width, self.font_height);

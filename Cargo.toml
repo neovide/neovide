@@ -55,11 +55,11 @@ winres = "0.1.11"
 
 [target.'cfg(linux)'.dependencies.skia-safe]
 features = ["gl", "egl"]
-version = "0.39.1"
+version = "^0.40.2"
 
 [target.'cfg(not(linux))'.dependencies.skia-safe]
 features = ["gl"]
-version = "0.39.1"
+version = "^0.40.2"
 
 [profile.release]
 debug = true
@@ -69,7 +69,7 @@ incremental = true
 [package.metadata.bundle]
 name = "Neovide"
 identifier = "com.kethku.neovide"
-icon = ["assets/nvim.ico"]
+icon = ["assets/neovide.ico"]
 version = "0.7.0"
 resources = []
 copyright = "Copyright (c) Keith 2021. All rights reserved."

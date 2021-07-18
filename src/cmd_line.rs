@@ -11,7 +11,7 @@ pub struct CmdLineSettings {
     pub files_to_open: Vec<String>,
 
     pub disowned: bool,
-    pub geometry: Option<String>,
+    pub geometry: WindowGeometry,
     pub wsl: bool,
     pub remote_tcp: Option<String>,
     pub multi_grid: bool,
@@ -29,7 +29,7 @@ impl Default for CmdLineSettings {
             neovim_args: vec![],
             files_to_open: vec![],
             disowned: false,
-            geometry: None,
+            geometry: DEFAULT_WINDOW_GEOMETRY,
             wsl: false,
             remote_tcp: None,
             multi_grid: false,
@@ -40,7 +40,7 @@ impl Default for CmdLineSettings {
     }
 }
 
-pub fn handle_command_line_arguments() {
+pub fn handle_command_line_arguments() -> Result<(), String> {
     let clapp = App::new("Neovide")
         .version(crate_version!())
         .author(crate_authors!())
@@ -148,10 +148,11 @@ pub fn handle_command_line_arguments() {
         remote_tcp: matches.value_of("remote_tcp").map(|i| i.to_owned()),
         disowned: matches.is_present("disowned"),
         wsl: matches.is_present("wsl"),
-        geometry: matches.value_of("geometry").map(|i| i.to_owned()),
         frameless: matches.is_present("frameless") || std::env::var("NEOVIDE_FRAMELESS").is_ok(),
+        geometry: parse_window_geometry(matches.value_of("geometry").map(|i| i.to_owned()))?,
         wayland_app_id: matches
             .value_of("wayland_app_id")
             .unwrap_or_default().to_string(),
     });
+    Ok(())
 }

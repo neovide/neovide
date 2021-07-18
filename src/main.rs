@@ -41,10 +41,9 @@ use editor::start_editor;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 #[cfg(not(test))]
 use settings::SETTINGS;
-use window::{create_window, window_geometry, WindowSettings};
+use window::{create_window, WindowSettings};
 
 pub use channel_utils::*;
-pub const INITIAL_DIMENSIONS: (u64, u64) = (100, 50);
 
 fn main() {
     //  -----------
@@ -116,9 +115,8 @@ fn main() {
     //   Multiple other parts of the app "queue_next_frame" function to ensure animations continue
     //   properly or updates to the graphics are pushed to the screen.
 
-    cmd_line::handle_command_line_arguments(); //Will exit if -h or -v
-
-    if let Err(err) = window_geometry() {
+    //Will exit if -h or -v
+    if let Err(err) = cmd_line::handle_command_line_arguments() {
         eprintln!("{}", err);
         return;
     }

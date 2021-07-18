@@ -3,6 +3,7 @@ use std::sync::Arc;
 use lru::LruCache;
 use skia_safe::{font::Edging, Data, Font, FontHinting, FontMgr, FontStyle, Typeface};
 
+use super::font_options::FontOptions;
 use super::swash_font::SwashFont;
 
 #[derive(RustEmbed)]
@@ -52,6 +53,26 @@ pub struct FontKey {
     pub bold: bool,
     pub italic: bool,
     pub font_selection: FontSelection,
+}
+
+impl Default for FontKey {
+    fn default() -> Self {
+        FontKey {
+            italic: false,
+            bold: false,
+            font_selection: FontSelection::Default,
+        }
+    }
+}
+
+impl From<&FontOptions> for FontKey {
+    fn from(options: &FontOptions) -> FontKey {
+        FontKey {
+            italic: options.italic,
+            bold: options.bold,
+            font_selection: options.primary_font(),
+        }
+    }
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]

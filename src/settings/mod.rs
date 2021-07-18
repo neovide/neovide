@@ -3,11 +3,13 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 
 mod from_value;
+mod window_geometry;
 pub use from_value::FromValue;
 use log::trace;
 use nvim_rs::Neovim;
 use parking_lot::RwLock;
 pub use rmpv::Value;
+pub use window_geometry::{parse_window_geometry, WindowGeometry, DEFAULT_WINDOW_GEOMETRY};
 
 use crate::bridge::TxWrapper;
 use crate::error_handling::ResultPanicExplanation;

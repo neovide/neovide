@@ -243,7 +243,7 @@ mod tests {
         character_grid.characters = vec![grid_cell.clone(); context.area];
 
         // RUN FUNCTION
-        character_grid.resize(width, height);
+        character_grid.resize((width, height));
 
         assert_eq!(character_grid.width, width);
         assert_eq!(character_grid.height, height);

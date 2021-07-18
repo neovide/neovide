@@ -47,10 +47,9 @@ fn build_window_surface_with_grid_size(
     renderer: &Renderer,
     grid_width: u64,
     grid_height: u64,
-    scaling: f32,
 ) -> Surface {
-    let pixel_width = ((grid_width * renderer.font_width) as f32 / scaling) as u64;
-    let pixel_height = ((grid_height * renderer.font_height) as f32 / scaling) as u64;
+    let pixel_width = ((grid_width * renderer.font_width) as f32) as u64;
+    let pixel_height = ((grid_height * renderer.font_height) as f32) as u64;
     let mut surface = build_window_surface(parent_canvas, pixel_width, pixel_height);
 
     let canvas = surface.canvas();
@@ -75,15 +74,9 @@ impl LocatedSurface {
         grid_width: u64,
         grid_height: u64,
         top_line: u64,
-        scaling: f32,
     ) -> LocatedSurface {
-        let surface = build_window_surface_with_grid_size(
-            parent_canvas,
-            renderer,
-            grid_width,
-            grid_height,
-            scaling,
-        );
+        let surface =
+            build_window_surface_with_grid_size(parent_canvas, renderer, grid_width, grid_height);
 
         LocatedSurface { surface, top_line }
     }
@@ -134,10 +127,9 @@ impl RenderedWindow {
         grid_position: Point,
         grid_width: u64,
         grid_height: u64,
-        scaling: f32,
     ) -> RenderedWindow {
         let current_surface =
-            LocatedSurface::new(parent_canvas, renderer, grid_width, grid_height, 0, scaling);
+            LocatedSurface::new(parent_canvas, renderer, grid_width, grid_height, 0);
 
         RenderedWindow {
             snapshots: VecDeque::new(),
@@ -302,7 +294,6 @@ impl RenderedWindow {
         mut self,
         renderer: &mut Renderer,
         draw_command: WindowDrawCommand,
-        scaling: f32,
     ) -> Self {
         match draw_command {
             WindowDrawCommand::Position {
@@ -334,7 +325,6 @@ impl RenderedWindow {
                         renderer,
                         grid_width,
                         grid_height,
-                        scaling,
                     );
                     old_surface.draw(
                         self.current_surface.surface.canvas(),
@@ -367,38 +357,36 @@ impl RenderedWindow {
 
                 let canvas = self.current_surface.surface.canvas();
                 canvas.save();
-                canvas.scale((1.0 / scaling, 1.0 / scaling));
                 renderer.draw_background(canvas, grid_position, width, &style);
                 renderer.draw_foreground(canvas, &cells, grid_position, width, &style);
                 canvas.restore();
             }
             WindowDrawCommand::Scroll {
                 top,
-                bot,
+                bottom,
                 left,
                 right,
                 rows,
                 cols,
             } => {
+                let font_width = renderer.font_width as f32;
+                let font_height = renderer.font_height as f32;
                 let scrolled_region = Rect::new(
-                    (left * renderer.font_width) as f32 / scaling,
-                    (top * renderer.font_height) as f32 / scaling,
-                    (right * renderer.font_width) as f32 / scaling,
-                    (bot * renderer.font_height) as f32 / scaling,
+                    left as f32 * font_width,
+                    top as f32 * font_height,
+                    right as f32 * font_width,
+                    bottom as f32 * font_height,
                 );
 
                 let mut translated_region = scrolled_region;
-                translated_region.offset((
-                    (-cols * renderer.font_width as i64) as f32 / scaling,
-                    (-rows * renderer.font_height as i64) as f32 / scaling,
-                ));
+                translated_region.offset((-cols as f32 * font_width, -rows as f32 * font_height));
 
                 let snapshot = self.current_surface.surface.image_snapshot();
                 let canvas = self.current_surface.surface.canvas();
 
                 canvas.save();
-                canvas.clip_rect(scrolled_region, None, Some(false));
 
+                canvas.clip_rect(scrolled_region, None, Some(false));
                 canvas.draw_image_rect(
                     snapshot,
                     Some((&scrolled_region, SrcRectConstraint::Fast)),
@@ -414,7 +402,6 @@ impl RenderedWindow {
                     renderer,
                     self.grid_width,
                     self.grid_height,
-                    scaling,
                 );
 
                 self.snapshots.clear();
