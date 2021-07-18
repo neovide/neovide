@@ -222,13 +222,12 @@ pub fn start_loop(
         .with_decorations(!SETTINGS.get::<CmdLineSettings>().frameless);
 
     #[cfg(target_os = "linux")]
-    let winit_window_builder =
-        winit_window_builder.with_app_id(SETTINGS.get::<CmdLineSettings>().wayland_app_id);
-    #[cfg(target_os = "linux")]
-    let winit_window_builder = winit_window_builder.with_class(
-        SETTINGS.get::<CmdLineSettings>().x11_wm_class,
-        "Neovide".to_string(),
-    );
+    let winit_window_builder = winit_window_builder
+        .with_app_id(SETTINGS.get::<CmdLineSettings>().wayland_app_id)
+        .with_class(
+            SETTINGS.get::<CmdLineSettings>().x11_wm_class,
+            "Neovide".to_string(),
+        );
 
     let windowed_context = ContextBuilder::new()
         .with_pixel_format(24, 8)
