@@ -226,7 +226,7 @@ pub fn start_loop(
         .with_app_id(SETTINGS.get::<CmdLineSettings>().wayland_app_id)
         .with_class(
             SETTINGS.get::<CmdLineSettings>().x11_wm_class,
-            "Neovide".to_string(),
+            "neovide".to_string(),
         );
 
     let windowed_context = ContextBuilder::new()
