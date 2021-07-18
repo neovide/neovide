@@ -204,6 +204,8 @@ impl GlutinWindowWrapper {
     }
 }
 
+const WINDOW_INDENTIFIER: &'static str = "Neovide";
+
 pub fn start_loop(
     window_command_receiver: Receiver<WindowCommand>,
     ui_command_sender: LoggingTx<UiCommand>,
@@ -233,8 +235,10 @@ pub fn start_loop(
         .with_maximized(SETTINGS.get::<CmdLineSettings>().maximized)
         .with_decorations(!SETTINGS.get::<CmdLineSettings>().frameless);
 
+    //let window_indentifier = sub_matches.value_of("wayland_app_id").unwrap_or(&"Neovide".to_string());
     #[cfg(target_os = "linux")]
-    let winit_window_builder = winit_window_builder.with_app_id("Neovide".to_string());
+    let winit_window_builder = winit_window_builder.with_app_id(WINDOW_INDENTIFIER.to_string());
+    let winit_window_builder = winit_window_builder.with_class(WINDOW_INDENTIFIER.to_string(), WINDOW_INDENTIFIER.to_string());
 
     let windowed_context = ContextBuilder::new()
         .with_pixel_format(24, 8)

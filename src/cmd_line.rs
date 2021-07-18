@@ -2,6 +2,7 @@ use crate::settings::*;
 
 use clap::{App, Arg};
 
+
 #[derive(Clone, Debug)]
 pub struct CmdLineSettings {
     pub verbosity: u64,
@@ -76,7 +77,11 @@ pub fn handle_command_line_arguments() {
             .long("frameless")
             .help("Removes the window frame. NOTE: Window might not be resizable after this setting is enabled.")
         )
-        .arg(Arg::with_name("wsl").long("wsl").help("Run in WSL"))
+        .arg(
+            Arg::with_name("wsl")
+                .long("wsl")
+                .help("Run in WSL")
+        )
         .arg(
             Arg::with_name("remote_tcp")
                 .long("remote-tcp")
@@ -101,6 +106,18 @@ pub fn handle_command_line_arguments() {
                 .takes_value(true)
                 .last(true)
                 .help("Specify Arguments to pass down to neovim"),
+        )
+        .arg(
+            Arg::with_name("wayland_app_id")
+                .long("appid")
+                .short("a")
+                .takes_value(true)
+        )
+        .arg(
+            Arg::with_name("x11_class")
+                .long("class")
+                .short("c")
+                .takes_value(true)
         );
 
     let matches = clapp.get_matches();
