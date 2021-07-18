@@ -6,80 +6,6 @@ use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use crate::bridge::UiCommand;
 use crate::channel_utils::LoggingTx;
 
-#[cfg(not(target_os = "windows"))]
-fn use_logo(logo: bool) -> bool {
-    logo
-}
-
-// The Windows key is used for OS-level shortcuts,
-// so we want to ignore the logo key on this platform.
-#[cfg(target_os = "windows")]
-fn use_logo(_: bool) -> bool {
-    false
-}
-
-#[cfg(not(target_os = "macos"))]
-fn use_alt(alt: bool) -> bool {
-    alt
-}
-
-// The option or alt key is used on Macos for character set changes
-// and does not operate the same as other systems.
-#[cfg(target_os = "macos")]
-fn use_alt(_: bool) -> bool {
-    false
-}
-
-fn or_empty(condition: bool, text: &str) -> &str {
-    if condition {
-        text
-    } else {
-        ""
-    }
-}
-
-fn is_control_key(key: Key<'static>) -> Option<&str> {
-    match key {
-        Key::Backspace => Some("BS"),
-        Key::Escape => Some("Esc"),
-        Key::Delete => Some("Del"),
-        Key::ArrowUp => Some("Up"),
-        Key::ArrowDown => Some("Down"),
-        Key::ArrowLeft => Some("Left"),
-        Key::ArrowRight => Some("Right"),
-        Key::F1 => Some("F1"),
-        Key::F2 => Some("F2"),
-        Key::F3 => Some("F3"),
-        Key::F4 => Some("F4"),
-        Key::F5 => Some("F5"),
-        Key::F6 => Some("F6"),
-        Key::F7 => Some("F7"),
-        Key::F8 => Some("F8"),
-        Key::F9 => Some("F9"),
-        Key::F10 => Some("F10"),
-        Key::F11 => Some("F11"),
-        Key::F12 => Some("F12"),
-        Key::Insert => Some("Insert"),
-        Key::Home => Some("Home"),
-        Key::End => Some("End"),
-        Key::PageUp => Some("PageUp"),
-        Key::PageDown => Some("PageDown"),
-        _ => None,
-    }
-}
-
-fn is_special(text: &str) -> Option<&str> {
-    match text {
-        " " => Some("Space"),
-        "<" => Some("lt"),
-        "\\" => Some("Bslash"),
-        "|" => Some("Bar"),
-        "\t" => Some("Tab"),
-        "\n" => Some("CR"),
-        _ => None,
-    }
-}
-
 pub struct KeyboardManager {
     command_sender: LoggingTx<UiCommand>,
     shift: bool,
@@ -201,5 +127,79 @@ impl KeyboardManager {
         let close = or_empty(special, ">");
 
         format!("{}{}{}{}{}{}{}", open, shift, ctrl, alt, logo, text, close)
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn use_logo(logo: bool) -> bool {
+    logo
+}
+
+// The Windows key is used for OS-level shortcuts,
+// so we want to ignore the logo key on this platform.
+#[cfg(target_os = "windows")]
+fn use_logo(_: bool) -> bool {
+    false
+}
+
+#[cfg(not(target_os = "macos"))]
+fn use_alt(alt: bool) -> bool {
+    alt
+}
+
+// The option or alt key is used on Macos for character set changes
+// and does not operate the same as other systems.
+#[cfg(target_os = "macos")]
+fn use_alt(_: bool) -> bool {
+    false
+}
+
+fn or_empty(condition: bool, text: &str) -> &str {
+    if condition {
+        text
+    } else {
+        ""
+    }
+}
+
+fn is_control_key(key: Key<'static>) -> Option<&str> {
+    match key {
+        Key::Backspace => Some("BS"),
+        Key::Escape => Some("Esc"),
+        Key::Delete => Some("Del"),
+        Key::ArrowUp => Some("Up"),
+        Key::ArrowDown => Some("Down"),
+        Key::ArrowLeft => Some("Left"),
+        Key::ArrowRight => Some("Right"),
+        Key::F1 => Some("F1"),
+        Key::F2 => Some("F2"),
+        Key::F3 => Some("F3"),
+        Key::F4 => Some("F4"),
+        Key::F5 => Some("F5"),
+        Key::F6 => Some("F6"),
+        Key::F7 => Some("F7"),
+        Key::F8 => Some("F8"),
+        Key::F9 => Some("F9"),
+        Key::F10 => Some("F10"),
+        Key::F11 => Some("F11"),
+        Key::F12 => Some("F12"),
+        Key::Insert => Some("Insert"),
+        Key::Home => Some("Home"),
+        Key::End => Some("End"),
+        Key::PageUp => Some("PageUp"),
+        Key::PageDown => Some("PageDown"),
+        _ => None,
+    }
+}
+
+fn is_special(text: &str) -> Option<&str> {
+    match text {
+        " " => Some("Space"),
+        "<" => Some("lt"),
+        "\\" => Some("Bslash"),
+        "|" => Some("Bar"),
+        "\t" => Some("Tab"),
+        "\n" => Some("CR"),
+        _ => None,
     }
 }
