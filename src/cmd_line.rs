@@ -117,7 +117,7 @@ pub fn handle_command_line_arguments() -> Result<(), String> {
         )
         .arg(
             Arg::with_name("x11_wm_class")
-                .long("x11-class")
+                .long("x11-wm-class")
                 .takes_value(true)
         );
 
