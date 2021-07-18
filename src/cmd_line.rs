@@ -2,7 +2,6 @@ use crate::settings::*;
 
 use clap::{App, Arg};
 
-
 #[derive(Clone, Debug)]
 pub struct CmdLineSettings {
     pub verbosity: u64,
@@ -18,6 +17,7 @@ pub struct CmdLineSettings {
     pub multi_grid: bool,
     pub maximized: bool,
     pub frameless: bool,
+    pub wayland_app_id: std::string::String,
 }
 
 impl Default for CmdLineSettings {
@@ -35,6 +35,7 @@ impl Default for CmdLineSettings {
             multi_grid: false,
             maximized: false,
             frameless: false,
+            wayland_app_id: "Neovide".to_string(),
         }
     }
 }
@@ -149,5 +150,8 @@ pub fn handle_command_line_arguments() {
         wsl: matches.is_present("wsl"),
         geometry: matches.value_of("geometry").map(|i| i.to_owned()),
         frameless: matches.is_present("frameless") || std::env::var("NEOVIDE_FRAMELESS").is_ok(),
+        wayland_app_id: matches
+            .value_of("wayland_app_id")
+            .unwrap_or_default().to_string(),
     });
 }
