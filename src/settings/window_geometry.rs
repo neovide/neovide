@@ -12,13 +12,13 @@ pub struct WindowGeometry {
 }
 
 #[cfg(unix)]
-const SETTINGS_PATH_EXTENSION: &str = ".local/share/nvim/neovide-settings.json";
+const SETTINGS_PATH: &str = ".local/share/nvim/neovide-settings.json";
 #[cfg(windows)]
-const SETTINGS_PATH_EXTENSION: &str = "AppData/Local/nvim-data/neovide-settings.json";
+const SETTINGS_PATH: &str = "AppData/Local/nvim-data/neovide-settings.json";
 
 fn neovim_std_datapath() -> PathBuf {
     let mut settings_path = dirs::home_dir().unwrap();
-    settings_path.push(SETTINGS_PATH_EXTENSION);
+    settings_path.push(SETTINGS_PATH);
     settings_path
 }
 
@@ -26,10 +26,10 @@ pub fn try_to_load_last_window_size() -> Result<WindowGeometry, String> {
     let settings_path = neovim_std_datapath();
     let serialized_size = std::fs::read_to_string(&settings_path).map_err(|e| e.to_string())?;
 
-    let saved_window_size: WindowGeometry =
+    let deserialize_size: WindowGeometry =
         serde_json::from_str(&serialized_size).map_err(|e| e.to_string())?;
-    log::debug!("Loaded Window Size: {:?}", saved_window_size);
-    Ok(saved_window_size)
+    log::debug!("Loaded Window Size: {:?}", deserialize_size);
+    Ok(deserialize_size)
 }
 pub const DEFAULT_WINDOW_GEOMETRY: WindowGeometry = WindowGeometry {
     width: 100,
@@ -50,9 +50,9 @@ pub fn maybe_save_window_size(window_size: PhysicalSize<u32>, renderer: &Rendere
     };
 
     let settings_path = neovim_std_datapath();
-    let se = serde_json::to_string(&saved_window_size).unwrap();
-    //log::debug!("Saved Window Size: {}", se);
-    std::fs::write(settings_path, se).unwrap();
+    let serialized_size = serde_json::to_string(&saved_window_size).unwrap();
+    log::debug!("Saved Window Size: {}", serialized_size);
+    std::fs::write(settings_path, serialized_size).unwrap();
 }
 
 pub fn parse_window_geometry(geometry: Option<String>) -> Result<WindowGeometry, String> {
