@@ -224,8 +224,10 @@ pub fn start_loop(
     #[cfg(target_os = "linux")]
     let winit_window_builder = winit_window_builder
         .with_app_id(SETTINGS.get::<CmdLineSettings>().wayland_app_id)
-        .with_class("neovide".to_string(), SETTINGS.get::<CmdLineSettings>().x11_wm_class
-    );
+        .with_class(
+            "neovide".to_string(),
+            SETTINGS.get::<CmdLineSettings>().x11_wm_class,
+        );
 
     let windowed_context = ContextBuilder::new()
         .with_pixel_format(24, 8)
