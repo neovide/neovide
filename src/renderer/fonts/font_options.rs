@@ -54,7 +54,7 @@ impl FontOptions {
     pub fn primary_font(&self) -> FontSelection {
         self.font_list
             .first()
-            .map(|f| FontSelection::from(f))
+            .map(FontSelection::from)
             .unwrap_or(FontSelection::Default)
     }
 }
