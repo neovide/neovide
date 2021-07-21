@@ -150,14 +150,20 @@ pub fn handle_command_line_arguments() -> Result<(), String> {
         wsl: matches.is_present("wsl"),
         frameless: matches.is_present("frameless") || std::env::var("NEOVIDE_FRAMELESS").is_ok(),
         geometry: parse_window_geometry(matches.value_of("geometry").map(|i| i.to_owned()))?,
-        wayland_app_id: matches
-            .value_of("wayland_app_id")
-            .unwrap_or("neovide")
-            .to_string(),
-        x11_wm_class: matches
-            .value_of("x11_wm_class")
-            .unwrap_or("neovide")
-            .to_string(),
+        wayland_app_id: match std::env::var("NEOVIDE_APP_ID") {
+            Ok(val) => val,
+            Err(_) => matches
+                .value_of("wayland_app_id")
+                .unwrap_or("neovide")
+                .to_string(),
+        },
+        x11_wm_class: match std::env::var("NEOVIDE_WM_CLASS") {
+            Ok(val) => val,
+            Err(_) => matches
+                .value_of("x11_wm_class")
+                .unwrap_or("neovide")
+                .to_string(),
+        },
     });
     Ok(())
 }
