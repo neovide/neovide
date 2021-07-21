@@ -36,8 +36,8 @@ impl Default for CmdLineSettings {
             multi_grid: false,
             maximized: false,
             frameless: false,
-            wayland_app_id: String::from("neovide"),
-            x11_wm_class: String::from("neovide"),
+            wayland_app_id: String::new(),
+            x11_wm_class: String::new(),
         }
     }
 }
