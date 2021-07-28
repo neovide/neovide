@@ -2354,9 +2354,9 @@ checksum = "6446ced80d6c486436db5c078dde11a9f73d42b57fb273121e160b84f63d894c"
 
 [[package]]
 name = "swash"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1f17dda4029832e4e76811523e06387273a9964c2cd4df1cecd35832d2b4b6d3"
+checksum = "2e93e08b0b45f521dc31215ca67abd2ce2237a3269768f053b2bfbc26023ed93"
 dependencies = [
  "yazi",
  "zeno",
@@ -2994,12 +2994,12 @@ checksum = "b07db065a5cf61a7e4ba64f29e67db906fb1787316516c4e6e5ff0fea1efcd8a"
 
 [[package]]
 name = "yazi"
-version = "0.1.3"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3c1df78998bea4c8b5f315efe7e5c12bc06eb794478f8b46636ac321306e972"
+checksum = "c03b3e19c937b5b9bd8e52b1c88f30cce5c0d33d676cf174866175bb794ff658"
 
 [[package]]
 name = "zeno"
-version = "0.2.0"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea708573d4a67f939793b0d3f923d105bfdf06bbd6acb3f9cd02ce1bd905f6c8"
+checksum = "c110ba09c9b3a43edd4803d570df0da2414fed6e822e22b976a4e3ef50860701"
