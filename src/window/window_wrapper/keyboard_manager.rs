@@ -32,12 +32,12 @@ impl KeyboardManager {
     pub fn handle_event(&mut self, event: &Event<()>) {
         match event {
             Event::WindowEvent {
-                event: WindowEvent::Focused(focused),
+                event: WindowEvent::Focused(_focused),
                 ..
             } => {
-                // The window was just focused, so ignore keyboard events that were submitted this
-                // frame.
-                self.ignore_input_this_frame = *focused;
+                // When window is just focused or lost it's focus, ignore keyboard events 
+                // that were submitted this frame
+                self.ignore_input_this_frame = true;
             }
             Event::WindowEvent {
                 event:
