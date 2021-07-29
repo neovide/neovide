@@ -66,8 +66,16 @@ impl CachingShaper {
     pub fn update_font(&mut self, guifont_setting: &str) {
         trace!("Updating font: {}", guifont_setting);
 
-        self.options = FontOptions::parse(guifont_setting);
-        self.reset_font_loader();
+        let options = FontOptions::parse(guifont_setting);
+        let font_key = FontKey::from(&options);
+
+        if let Some(_) = self.font_loader.get_or_load(&font_key) {
+            trace!("Font updated to: {}", guifont_setting);
+            self.options = options;
+            self.reset_font_loader();
+        } else {
+            trace!("Font can't be updated to: {}", guifont_setting);
+        }
     }
 
     fn reset_font_loader(&mut self) {
