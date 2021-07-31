@@ -35,7 +35,7 @@ impl KeyboardManager {
                 event: WindowEvent::Focused(_focused),
                 ..
             } => {
-                // When window is just focused or lost it's focus, ignore keyboard events 
+                // When window is just focused or lost it's focus, ignore keyboard events
                 // that were submitted this frame
                 self.ignore_input_this_frame = true;
             }
