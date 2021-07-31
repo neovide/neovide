@@ -69,7 +69,7 @@ impl CachingShaper {
         let options = FontOptions::parse(guifont_setting);
         let font_key = FontKey::from(&options);
 
-        if let Some(_) = self.font_loader.get_or_load(&font_key) {
+        if self.font_loader.get_or_load(&font_key).is_some() {
             trace!("Font updated to: {}", guifont_setting);
             self.options = options;
             self.reset_font_loader();
