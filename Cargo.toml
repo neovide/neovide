@@ -14,6 +14,7 @@ members = ["neovide-derive"]
 [features]
 default = []
 embed-fonts = []
+debug-renderer = []
 
 [dependencies]
 neovide-derive = { path = "neovide-derive" }
