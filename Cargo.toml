@@ -17,6 +17,8 @@ embed-fonts = []
 debug-renderer = []
 
 [dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 neovide-derive = { path = "neovide-derive" }
 euclid = "0.20.7"
 lru = "0.4.3"
