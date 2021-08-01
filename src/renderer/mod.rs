@@ -3,7 +3,7 @@ use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 
 use log::{error, trace};
-use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect};
+use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect, HSV};
 
 pub mod animation_utils;
 pub mod cursor_renderer;
@@ -133,8 +133,14 @@ impl Renderer {
         let region = self.compute_text_region(grid_pos, cell_width);
         let style = style.as_ref().unwrap_or(&self.default_style);
 
-        self.paint
-            .set_color(style.background(&self.default_style.colors).to_color());
+        if cfg!(feature = "debug-renderer") {
+            let random_hsv: HSV = (rand::random::<f32>() * 360.0, 0.3, 0.3).into();
+            let random_color = random_hsv.to_color(255);
+            self.paint.set_color(random_color);
+        } else {
+            self.paint
+                .set_color(style.background(&self.default_style.colors).to_color());
+        }
         canvas.draw_rect(region, &self.paint);
     }
 
@@ -162,6 +168,7 @@ impl Renderer {
         if style.underline || style.undercurl {
             let line_position = self.shaper.underline_position();
             let stroke_width = self.shaper.current_size() / 10.0;
+
             self.paint
                 .set_color(style.special(&self.default_style.colors).to_color());
             self.paint.set_stroke_width(stroke_width);
@@ -187,8 +194,14 @@ impl Renderer {
 
         let y_adjustment = self.shaper.y_adjustment();
 
-        self.paint
-            .set_color(style.foreground(&self.default_style.colors).to_color());
+        if cfg!(feature = "debug-renderer") {
+            let random_hsv: HSV = (rand::random::<f32>() * 360.0, 1.0, 1.0).into();
+            let random_color = random_hsv.to_color(255);
+            self.paint.set_color(random_color);
+        } else {
+            self.paint
+                .set_color(style.foreground(&self.default_style.colors).to_color());
+        }
         self.paint.set_anti_alias(false);
 
         for blob in self
