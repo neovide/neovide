@@ -35,11 +35,9 @@ use std::sync::{atomic::AtomicBool, mpsc::channel, Arc};
 use crossfire::mpsc::unbounded_future;
 
 use bridge::start_bridge;
-#[cfg(not(test))]
 use cmd_line::CmdLineSettings;
 use editor::start_editor;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
-#[cfg(not(test))]
 use settings::SETTINGS;
 use window::{create_window, WindowSettings};
 
@@ -124,6 +122,8 @@ fn main() {
     #[cfg(not(test))]
     init_logger();
 
+    maybe_disown();
+
     #[cfg(target_os = "windows")]
     windows_fix_dpi();
 
@@ -175,29 +175,46 @@ fn main() {
 
 #[cfg(not(test))]
 pub fn init_logger() {
-    let verbosity = match SETTINGS.get::<CmdLineSettings>().verbosity {
+    let settings = SETTINGS.get::<CmdLineSettings>();
+
+    let verbosity = match settings.verbosity {
         0 => "warn",
         1 => "info",
         2 => "debug",
         _ => "trace",
     };
-    let log_to_file = SETTINGS.get::<CmdLineSettings>().log_to_file;
-
-    if log_to_file {
-        Logger::with_env_or_str("neovide")
+    let logger = match settings.log_to_file {
+        true => Logger::with_env_or_str("neovide")
             .duplicate_to_stderr(Duplicate::Error)
             .log_to_file()
             .rotate(
                 Criterion::Size(10_000_000),
                 Naming::Timestamps,
                 Cleanup::KeepLogFiles(1),
-            )
-            .start()
-            .expect("Could not start logger");
+            ),
+        false => Logger::with_env_or_str(format!("neovide = {}", verbosity)),
+    };
+    logger.start().expect("Could not start logger");
+}
+
+fn maybe_disown() {
+    use std::{env, process};
+
+    let settings = SETTINGS.get::<CmdLineSettings>();
+
+    if cfg!(debug_assertions) || settings.nofork {
+        return;
+    }
+
+    if let Ok(current_exe) = env::current_exe() {
+        assert!(process::Command::new(current_exe)
+            .args(env::args().skip(1))
+            .arg("--nofork")
+            .spawn()
+            .is_ok());
+        process::exit(0);
     } else {
-        Logger::with_env_or_str(format!("neovide = {}", verbosity))
-            .start()
-            .expect("Could not start logger");
+        eprintln!("error in disowning process, cannot obtain the path for the current executable, continuing without disowning...");
     }
 }
 
@@ -212,22 +229,8 @@ fn windows_fix_dpi() {
 
 #[cfg(target_os = "macos")]
 fn handle_macos() {
-    // incase of app bundle, we can just pass --disowned option straight away to bypass this check
-    #[cfg(not(debug_assertions))]
-    if !SETTINGS.get::<CmdLineSettings>().disowned {
-        if let Ok(curr_exe) = std::env::current_exe() {
-            assert!(std::process::Command::new(curr_exe)
-                .args(std::env::args().skip(1))
-                .arg("--disowned")
-                .spawn()
-                .is_ok());
-            std::process::exit(0);
-        } else {
-            eprintln!("error in disowning process, cannot obtain the path for the current executable, continuing without disowning...");
-        }
-    }
-
     use std::env;
+
     if env::var_os("TERM").is_none() {
         let mut profile_path = dirs::home_dir().unwrap();
         profile_path.push(".profile");

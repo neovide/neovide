@@ -10,7 +10,7 @@ pub struct CmdLineSettings {
     pub neovim_bin: Option<String>,
     pub files_to_open: Vec<String>,
 
-    pub disowned: bool,
+    pub nofork: bool,
     pub geometry: WindowGeometry,
     pub wsl: bool,
     pub remote_tcp: Option<String>,
@@ -29,7 +29,7 @@ impl Default for CmdLineSettings {
             log_to_file: false,
             neovim_args: vec![],
             files_to_open: vec![],
-            disowned: false,
+            nofork: false,
             geometry: DEFAULT_WINDOW_GEOMETRY,
             wsl: false,
             remote_tcp: None,
@@ -51,7 +51,7 @@ pub fn handle_command_line_arguments() -> Result<(), String> {
             Arg::with_name("verbosity")
                 .short("v")
                 .multiple(true)
-                .help("Set the level of verbosity"),
+                .help("Increase verbosity level (repeatable up to 4 times; implies --nofork)"),
         )
         .arg(
             Arg::with_name("log_to_file")
@@ -59,9 +59,9 @@ pub fn handle_command_line_arguments() -> Result<(), String> {
                 .help("Log to a file"),
         )
         .arg(
-            Arg::with_name("disowned")
-                .long("disowned")
-                .help("Disown the process. (only on macos)"),
+            Arg::with_name("nofork")
+                .long("nofork")
+                .help("Do not detach process from terminal"),
         )
         .arg(
             Arg::with_name("maximized")
@@ -101,7 +101,7 @@ pub fn handle_command_line_arguments() -> Result<(), String> {
             Arg::with_name("files")
                 .multiple(true)
                 .takes_value(true)
-                .help("Specify the Geometry of the window"),
+                .help("Files to open"),
         )
         .arg(
             Arg::with_name("neovim_args")
@@ -146,7 +146,7 @@ pub fn handle_command_line_arguments() -> Result<(), String> {
             || std::env::var("NeovideMultiGrid").is_ok()
             || matches.is_present("multi_grid"),
         remote_tcp: matches.value_of("remote_tcp").map(|i| i.to_owned()),
-        disowned: matches.is_present("disowned"),
+        nofork: matches.is_present("nofork") || matches.is_present("verbosity"),
         wsl: matches.is_present("wsl"),
         frameless: matches.is_present("frameless") || std::env::var("NEOVIDE_FRAMELESS").is_ok(),
         geometry: parse_window_geometry(matches.value_of("geometry").map(|i| i.to_owned()))?,
