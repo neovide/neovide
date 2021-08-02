@@ -24,7 +24,7 @@ use log::trace;
 #[cfg(target_os = "linux")]
 use glutin::platform::unix::WindowBuilderExtUnix;
 
-use super::{handle_new_grid_size, settings::WindowSettings};
+use super::settings::WindowSettings;
 use crate::{
     bridge::UiCommand,
     channel_utils::*,
@@ -168,11 +168,9 @@ impl GlutinWindowWrapper {
         if previous_size != current_size {
             trace!("Updating grid size: {:#?}", current_size);
             self.saved_inner_size = current_size;
-            handle_new_grid_size(current_size, &self.renderer, &self.ui_command_sender);
+            self.handle_new_grid_size(current_size);
             self.skia_renderer.resize(&self.windowed_context);
         }
-
-        let ui_command_sender = self.ui_command_sender.clone();
 
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
             let renderer = &mut self.renderer;
@@ -181,7 +179,7 @@ impl GlutinWindowWrapper {
                 let canvas = self.skia_renderer.canvas();
 
                 if renderer.draw_frame(canvas, dt) {
-                    handle_new_grid_size(current_size, renderer, &ui_command_sender);
+                    self.handle_new_grid_size(current_size);
                 }
             }
 
@@ -190,12 +188,23 @@ impl GlutinWindowWrapper {
         }
     }
 
+    fn handle_new_grid_size(&self, new_size: PhysicalSize<u32>) {
+        if new_size.width > 0 && new_size.height > 0 {
+            // Add 1 here to make sure resizing doesn't change the grid size on startup
+            let width = ((new_size.width + 1) / self.renderer.font_width as u32) as u32;
+            let height = ((new_size.height + 1) / self.renderer.font_height as u32) as u32;
+            self.ui_command_sender
+                .send(UiCommand::Resize { width, height })
+                .ok();
+        }
+    }
+
     fn handle_scale_factor_update(&mut self, scale_factor: f64) {
         self.renderer.handle_scale_factor_update(scale_factor);
     }
 }
 
-pub fn start_loop(
+pub fn create_window(
     batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
     window_command_receiver: Receiver<WindowCommand>,
     ui_command_sender: LoggingTx<UiCommand>,

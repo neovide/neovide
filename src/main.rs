@@ -124,41 +124,11 @@ fn main() {
     #[cfg(not(test))]
     init_logger();
 
-    #[cfg(target_os = "macos")]
-    {
-        // incase of app bundle, we can just pass --disowned option straight away to bypass this check
-        #[cfg(not(debug_assertions))]
-        if !SETTINGS.get::<CmdLineSettings>().disowned {
-            if let Ok(curr_exe) = std::env::current_exe() {
-                assert!(std::process::Command::new(curr_exe)
-                    .args(std::env::args().skip(1))
-                    .arg("--disowned")
-                    .spawn()
-                    .is_ok());
-                return;
-            } else {
-                eprintln!("error in disowning process, cannot obtain the path for the current executable, continuing without disowning...");
-            }
-        }
+    #[cfg(target_os = "windows")]
+    windows_fix_dpi();
 
-        use std::env;
-        if env::var_os("TERM").is_none() {
-            let mut profile_path = dirs::home_dir().unwrap();
-            profile_path.push(".profile");
-            let shell = env::var("SHELL").unwrap();
-            let cmd = format!(
-                "(source /etc/profile && source {} && echo $PATH)",
-                profile_path.to_str().unwrap()
-            );
-            if let Ok(path) = std::process::Command::new(shell)
-                .arg("-c")
-                .arg(cmd)
-                .output()
-            {
-                env::set_var("PATH", std::str::from_utf8(&path.stdout).unwrap());
-            }
-        }
-    }
+    #[cfg(target_os = "macos")]
+    handle_macos();
 
     WindowSettings::register();
     RendererSettings::register();
@@ -228,5 +198,50 @@ pub fn init_logger() {
         Logger::with_env_or_str(format!("neovide = {}", verbosity))
             .start()
             .expect("Could not start logger");
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn windows_fix_dpi() {
+    use winapi::shared::windef::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2;
+    use winapi::um::winuser::SetProcessDpiAwarenessContext;
+    unsafe {
+        SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn handle_macos() {
+    // incase of app bundle, we can just pass --disowned option straight away to bypass this check
+    #[cfg(not(debug_assertions))]
+    if !SETTINGS.get::<CmdLineSettings>().disowned {
+        if let Ok(curr_exe) = std::env::current_exe() {
+            assert!(std::process::Command::new(curr_exe)
+                .args(std::env::args().skip(1))
+                .arg("--disowned")
+                .spawn()
+                .is_ok());
+            std::process::exit(0);
+        } else {
+            eprintln!("error in disowning process, cannot obtain the path for the current executable, continuing without disowning...");
+        }
+    }
+
+    use std::env;
+    if env::var_os("TERM").is_none() {
+        let mut profile_path = dirs::home_dir().unwrap();
+        profile_path.push(".profile");
+        let shell = env::var("SHELL").unwrap();
+        let cmd = format!(
+            "(source /etc/profile && source {} && echo $PATH)",
+            profile_path.to_str().unwrap()
+        );
+        if let Ok(path) = std::process::Command::new(shell)
+            .arg("-c")
+            .arg(cmd)
+            .output()
+        {
+            env::set_var("PATH", std::str::from_utf8(&path.stdout).unwrap());
+        }
     }
 }
