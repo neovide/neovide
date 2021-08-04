@@ -39,7 +39,7 @@ use cmd_line::CmdLineSettings;
 use editor::start_editor;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 use settings::SETTINGS;
-use window::{create_window, WindowSettings};
+use window::{create_window, KeyboardSettings, WindowSettings};
 
 pub use channel_utils::*;
 
@@ -133,6 +133,7 @@ fn main() {
     WindowSettings::register();
     RendererSettings::register();
     CursorSettings::register();
+    KeyboardSettings::register();
 
     let running = Arc::new(AtomicBool::new(true));
 
