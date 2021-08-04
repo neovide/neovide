@@ -5,8 +5,8 @@ use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 
 use crate::bridge::UiCommand;
 use crate::channel_utils::LoggingTx;
-use crate::window::KeyboardSettings;
 use crate::settings::SETTINGS;
+use crate::window::KeyboardSettings;
 
 pub struct KeyboardManager {
     command_sender: LoggingTx<UiCommand>,
