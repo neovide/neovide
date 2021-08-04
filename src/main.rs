@@ -208,8 +208,8 @@ fn maybe_disown() {
 
     if let Ok(current_exe) = env::current_exe() {
         assert!(process::Command::new(current_exe)
-            .args(env::args().skip(1))
             .arg("--nofork")
+            .args(env::args().skip(1))
             .spawn()
             .is_ok());
         process::exit(0);
