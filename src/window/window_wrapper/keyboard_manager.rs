@@ -5,6 +5,8 @@ use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 
 use crate::bridge::UiCommand;
 use crate::channel_utils::LoggingTx;
+use crate::window::KeyboardSettings;
+use crate::settings::SETTINGS;
 
 pub struct KeyboardManager {
     command_sender: LoggingTx<UiCommand>,
@@ -63,7 +65,9 @@ impl KeyboardManager {
             }
             Event::MainEventsCleared => {
                 // And the window wasn't just focused.
-                if !self.ignore_input_this_frame {
+                let settings = SETTINGS.get::<KeyboardSettings>();
+
+                if !self.should_ignore_input(&settings) {
                     // If we have a keyboard event this frame
                     for key_event in self.queued_key_events.iter() {
                         // And a key was pressed
@@ -86,9 +90,14 @@ impl KeyboardManager {
         }
     }
 
+    fn should_ignore_input(&self, settings: &KeyboardSettings) -> bool {
+        self.ignore_input_this_frame || (self.logo && !settings.use_logo)
+    }
+
     fn maybe_get_keybinding(&self, key_event: &KeyEvent) -> Option<String> {
         // Determine if this key event represents a key which won't ever
         // present text.
+
         if let Some(key_text) = is_control_key(key_event.logical_key) {
             Some(self.format_keybinding_string(true, true, key_text))
         } else {
@@ -117,29 +126,17 @@ impl KeyboardManager {
     }
 
     fn format_keybinding_string(&self, special: bool, use_shift: bool, text: &str) -> String {
-        let special = special || self.ctrl || use_alt(self.alt) || use_logo(self.logo);
+        let special = special || self.ctrl || use_alt(self.alt) || self.logo;
 
         let open = or_empty(special, "<");
         let shift = or_empty(self.shift && use_shift, "S-");
         let ctrl = or_empty(self.ctrl, "C-");
         let alt = or_empty(use_alt(self.alt), "M-");
-        let logo = or_empty(use_logo(self.logo), "D-");
+        let logo = or_empty(self.logo, "D-");
         let close = or_empty(special, ">");
 
         format!("{}{}{}{}{}{}{}", open, shift, ctrl, alt, logo, text, close)
     }
-}
-
-#[cfg(not(target_os = "windows"))]
-fn use_logo(logo: bool) -> bool {
-    logo
-}
-
-// The Windows key is used for OS-level shortcuts,
-// so we want to ignore the logo key on this platform.
-#[cfg(target_os = "windows")]
-fn use_logo(_: bool) -> bool {
-    false
 }
 
 #[cfg(not(target_os = "macos"))]

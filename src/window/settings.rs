@@ -25,3 +25,9 @@ impl Default for WindowSettings {
         }
     }
 }
+
+#[derive(Clone, Default, SettingGroup)]
+#[setting_prefix = "input"]
+pub struct KeyboardSettings {
+    pub use_logo: bool
+}
