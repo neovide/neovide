@@ -214,17 +214,20 @@ impl MouseManager {
         };
 
         if let Some(input_type) = vertical_input_type {
-            self.command_sender
-                .send(UiCommand::Scroll {
-                    direction: input_type.to_string(),
-                    grid_id: self
-                        .window_details_under_mouse
-                        .as_ref()
-                        .map(|details| details.id)
-                        .unwrap_or(0),
-                    position: self.drag_position.into(),
-                })
-                .ok();
+            let scroll_command = UiCommand::Scroll {
+                direction: input_type.to_string(),
+                grid_id: self
+                    .window_details_under_mouse
+                    .as_ref()
+                    .map(|details| details.id)
+                    .unwrap_or(0),
+                position: self.drag_position.into(),
+            };
+            for _ in 0..(new_y-previous_y).abs() {
+                self.command_sender
+                    .send(scroll_command.clone())
+                    .ok();
+            }
         }
 
         let previous_x = self.scroll_position.x as i64;
@@ -238,17 +241,20 @@ impl MouseManager {
         };
 
         if let Some(input_type) = horizontal_input_type {
-            self.command_sender
-                .send(UiCommand::Scroll {
-                    direction: input_type.to_string(),
-                    grid_id: self
-                        .window_details_under_mouse
-                        .as_ref()
-                        .map(|details| details.id)
-                        .unwrap_or(0),
-                    position: self.drag_position.into(),
-                })
-                .ok();
+            let scroll_command = UiCommand::Scroll {
+                direction: input_type.to_string(),
+                grid_id: self
+                    .window_details_under_mouse
+                    .as_ref()
+                    .map(|details| details.id)
+                    .unwrap_or(0),
+                position: self.drag_position.into(),
+            };
+            for _ in 0..(new_x - previous_x).abs() {
+                self.command_sender
+                    .send(scroll_command.clone())
+                    .ok();
+            }
         }
     }
 
