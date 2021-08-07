@@ -274,15 +274,13 @@ async fn start_neovim_runtime(
         .await
         .ok();
 
-    let WindowGeometry { width, height } = SETTINGS.get::<CmdLineSettings>().geometry;
+    let settings = SETTINGS.get::<CmdLineSettings>();
+    let geometry = settings.geometry;
     let mut options = UiAttachOptions::new();
     options.set_linegrid_external(true);
-
-    if SETTINGS.get::<CmdLineSettings>().multi_grid {
-        options.set_multigrid_external(true);
-    }
+    options.set_multigrid_external(settings.multi_grid);
     options.set_rgb(true);
-    nvim.ui_attach(width as i64, height as i64, &options)
+    nvim.ui_attach(geometry.width as i64, geometry.height as i64, &options)
         .await
         .unwrap_or_explained_panic("Could not attach ui to neovim process");
 
