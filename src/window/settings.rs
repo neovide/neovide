@@ -7,7 +7,6 @@ pub struct WindowSettings {
     pub transparency: f32,
     pub fullscreen: bool,
     pub iso_layout: bool,
-    pub scroll_dead_zone: f32,
     pub remember_window_size: bool,
 }
 
@@ -22,7 +21,6 @@ impl Default for WindowSettings {
                 .get::<CmdLineSettings>()
                 .neovim_args
                 .contains(&String::from("--noIdle")),
-            scroll_dead_zone: 0.0,
             remember_window_size: false,
         }
     }
