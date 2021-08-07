@@ -223,10 +223,8 @@ impl MouseManager {
                     .unwrap_or(0),
                 position: self.drag_position.into(),
             };
-            for _ in 0..(new_y-previous_y).abs() {
-                self.command_sender
-                    .send(scroll_command.clone())
-                    .ok();
+            for _ in 0..(new_y - previous_y).abs() {
+                self.command_sender.send(scroll_command.clone()).ok();
             }
         }
 
@@ -251,15 +249,16 @@ impl MouseManager {
                 position: self.drag_position.into(),
             };
             for _ in 0..(new_x - previous_x).abs() {
-                self.command_sender
-                    .send(scroll_command.clone())
-                    .ok();
+                self.command_sender.send(scroll_command.clone()).ok();
             }
         }
     }
 
     fn handle_pixel_scroll(&mut self, renderer: &Renderer, pixel_x: f32, pixel_y: f32) {
-        self.handle_line_scroll(pixel_x / renderer.font_width as f32, pixel_y / renderer.font_height as f32);
+        self.handle_line_scroll(
+            pixel_x / renderer.font_width as f32,
+            pixel_y / renderer.font_height as f32,
+        );
     }
 
     pub fn handle_event(
@@ -285,9 +284,7 @@ impl MouseManager {
                         ..
                     },
                 ..
-            } => {
-                self.handle_line_scroll(*x, *y)
-            },
+            } => self.handle_line_scroll(*x, *y),
             Event::WindowEvent {
                 event:
                     WindowEvent::MouseWheel {
