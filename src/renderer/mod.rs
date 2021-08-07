@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 
+use glutin::dpi::PhysicalSize;
 use log::{error, trace};
 use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect, HSV};
 
@@ -51,6 +52,7 @@ pub struct Renderer {
     pub font_height: u64,
     pub window_regions: Vec<WindowDrawDetails>,
     pub batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
+    pub is_ready: bool,
 }
 
 impl Renderer {
@@ -84,6 +86,24 @@ impl Renderer {
             font_height,
             window_regions,
             batched_draw_command_receiver,
+            is_ready: false,
+        }
+    }
+
+    // TODO: Refactor code to use these two functions instead of multiplication.
+    /// Convert PhysicalSize to grid size
+    pub fn to_grid_size(&self, new_size: PhysicalSize<u32>) -> (u64, u64) {
+        let width = new_size.width as u64 / self.font_width;
+        let height = new_size.height as u64 / self.font_height;
+        (width, height)
+    }
+
+    /// Convert grid size to PhysicalSize
+    pub fn to_physical_size(&self, new_size: (u64, u64)) -> PhysicalSize<u32> {
+        let (width, height) = new_size;
+        PhysicalSize {
+            width: (width * self.font_width) as u32,
+            height: (height * self.font_height) as u32,
         }
     }
 
@@ -101,10 +121,11 @@ impl Renderer {
         let (font_width, font_height) = self.shaper.font_base_dimensions();
         self.font_width = font_width;
         self.font_height = font_height;
+        self.is_ready = true;
         trace!(
             "Updating font dimensions: {}x{}",
-            self.font_height,
             self.font_width,
+            self.font_height,
         );
     }
 

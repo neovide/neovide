@@ -16,8 +16,8 @@ use crate::windows_utils::{
 pub enum UiCommand {
     Quit,
     Resize {
-        width: u32,
-        height: u32,
+        width: u64,
+        height: u64,
     },
     Keyboard(String),
     MouseButton {
