@@ -1,7 +1,5 @@
-use crate::renderer::Renderer;
 use crate::settings::SETTINGS;
 use crate::window::WindowSettings;
-use glutin::dpi::PhysicalSize;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -36,12 +34,10 @@ pub const DEFAULT_WINDOW_GEOMETRY: WindowGeometry = WindowGeometry {
     height: 50,
 };
 
-pub fn maybe_save_window_size(window_size: PhysicalSize<u32>, renderer: &Renderer) {
+pub fn maybe_save_window_size(grid_size: (u64, u64)) {
     let saved_window_size = if SETTINGS.get::<WindowSettings>().remember_window_size {
-        WindowGeometry {
-            width: (window_size.width as f32 / renderer.font_width as f32) as u64,
-            height: (window_size.height as f32 / renderer.font_height as f32) as u64,
-        }
+        let (width, height) = grid_size;
+        WindowGeometry { width, height }
     } else {
         WindowGeometry {
             width: DEFAULT_WINDOW_GEOMETRY.width as u64,

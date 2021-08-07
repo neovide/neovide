@@ -236,7 +236,6 @@ impl Editor {
     }
 
     fn resize_window(&mut self, grid: u64, width: u64, height: u64) {
-        trace!("editor resize {}", grid);
         if let Some(window) = self.windows.get_mut(&grid) {
             window.resize((width, height));
         } else {
