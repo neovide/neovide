@@ -70,9 +70,7 @@ pub fn handle_command_line_arguments() -> Result<(), String> {
         )
         .arg(
             Arg::with_name("multi_grid")
-                //.long("multi-grid") TODO: multiGrid is the current way to call this, but I
-                //personally would prefer sticking to a unix-y way of naming things...
-                .long("multiGrid")
+                .long("multigrid")
                 .help("Enable Multigrid"),
         )
         .arg(
@@ -127,7 +125,7 @@ pub fn handle_command_line_arguments() -> Result<(), String> {
      * Integrate Environment Variables as Defaults to the command-line ones.
      *
      * NEOVIM_BIN
-     * NeovideMultiGrid || --multiGrid
+     * NEOVIDE_MULTIGRID || --multigrid
      */
     SETTINGS.set::<CmdLineSettings>(&CmdLineSettings {
         neovim_bin: std::env::var("NEOVIM_BIN").ok(),
@@ -142,9 +140,7 @@ pub fn handle_command_line_arguments() -> Result<(), String> {
             .map(|opt| opt.map(|v| v.to_owned()).collect())
             .unwrap_or_default(),
         maximized: matches.is_present("maximized") || std::env::var("NEOVIDE_MAXIMIZED").is_ok(),
-        multi_grid: std::env::var("NEOVIDE_MULTIGRID").is_ok()
-            || std::env::var("NeovideMultiGrid").is_ok()
-            || matches.is_present("multi_grid"),
+        multi_grid: std::env::var("NEOVIDE_MULTIGRID").is_ok() || matches.is_present("multi_grid"),
         remote_tcp: matches.value_of("remote_tcp").map(|i| i.to_owned()),
         nofork: matches.is_present("nofork") || matches.is_present("verbosity"),
         wsl: matches.is_present("wsl"),
