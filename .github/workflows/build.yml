@@ -51,6 +51,7 @@ jobs:
         
     - name: Archive Windows artifact
       run: |
+        powershell rm ./target/release/neovide.zip
         powershell Compress-Archive ./target/release/neovide.exe ./target/release/neovide.zip 
 
     - uses: actions/upload-artifact@v1
