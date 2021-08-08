@@ -52,9 +52,8 @@ pub struct GlutinWindowWrapper {
     mouse_manager: MouseManager,
     title: String,
     fullscreen: bool,
-    first_render_pass: bool,
     saved_inner_size: PhysicalSize<u32>,
-    saved_grid_size: (u64, u64),
+    saved_grid_size: Option<WindowGeometry>,
     ui_command_sender: LoggingTx<UiCommand>,
     window_command_receiver: Receiver<WindowCommand>,
 }
@@ -176,11 +175,10 @@ impl GlutinWindowWrapper {
             return;
         }
 
-        if self.first_render_pass {
-            self.first_render_pass = false;
-            if !window.is_maximized() {
-                window.set_inner_size(self.renderer.to_physical_size(self.saved_grid_size));
-            }
+        if self.saved_grid_size.is_none() && !window.is_maximized() {
+            let size = SETTINGS.get::<CmdLineSettings>().geometry;
+            window.set_inner_size(self.renderer.to_physical_size((size.width, size.height)));
+            self.saved_grid_size = Some(size);
         }
 
         let new_size = window.inner_size();
@@ -193,14 +191,17 @@ impl GlutinWindowWrapper {
     }
 
     fn handle_new_grid_size(&mut self, new_size: PhysicalSize<u32>) {
-        let (width, height) = self.renderer.to_grid_size(new_size);
-        if self.saved_grid_size == (width, height) {
+        let grid_size: WindowGeometry = self.renderer.to_grid_size(new_size).into();
+        if self.saved_grid_size == Some(grid_size) {
             trace!("Grid matched saved size, skip update.");
             return;
         }
-        self.saved_grid_size = (width, height);
+        self.saved_grid_size = Some(grid_size);
         self.ui_command_sender
-            .send(UiCommand::Resize { width, height })
+            .send(UiCommand::Resize {
+                width: grid_size.width,
+                height: grid_size.height,
+            })
             .ok();
     }
 
@@ -268,8 +269,6 @@ pub fn create_window(
         renderer.font_height,
     );
 
-    let WindowGeometry { width, height } = SETTINGS.get::<CmdLineSettings>().geometry;
-
     let mut window_wrapper = GlutinWindowWrapper {
         windowed_context,
         skia_renderer,
@@ -278,9 +277,8 @@ pub fn create_window(
         mouse_manager: MouseManager::new(ui_command_sender.clone()),
         title: String::from("Neovide"),
         fullscreen: false,
-        first_render_pass: true,
         saved_inner_size,
-        saved_grid_size: (width, height),
+        saved_grid_size: None,
         ui_command_sender,
         window_command_receiver,
     };
