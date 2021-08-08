@@ -3,16 +3,22 @@ use crate::window::WindowSettings;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[cfg(unix)]
+const SETTINGS_PATH: &str = ".local/share/nvim/neovide-settings.json";
+#[cfg(windows)]
+const SETTINGS_PATH: &str = "AppData/Local/nvim-data/neovide-settings.json";
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub struct WindowGeometry {
     pub width: u64,
     pub height: u64,
 }
 
-#[cfg(unix)]
-const SETTINGS_PATH: &str = ".local/share/nvim/neovide-settings.json";
-#[cfg(windows)]
-const SETTINGS_PATH: &str = "AppData/Local/nvim-data/neovide-settings.json";
+impl From<(u64, u64)> for WindowGeometry {
+    fn from((width, height): (u64, u64)) -> Self {
+        WindowGeometry { width, height }
+    }
+}
 
 fn neovim_std_datapath() -> PathBuf {
     let mut settings_path = dirs::home_dir().unwrap();
@@ -34,10 +40,10 @@ pub const DEFAULT_WINDOW_GEOMETRY: WindowGeometry = WindowGeometry {
     height: 50,
 };
 
-pub fn maybe_save_window_size(grid_size: (u64, u64)) {
-    let saved_window_size = if SETTINGS.get::<WindowSettings>().remember_window_size {
-        let (width, height) = grid_size;
-        WindowGeometry { width, height }
+pub fn maybe_save_window_size(grid_size: Option<WindowGeometry>) {
+    let settings = SETTINGS.get::<WindowSettings>();
+    let saved_window_size = if settings.remember_window_size && grid_size.is_some() {
+        grid_size.unwrap()
     } else {
         WindowGeometry {
             width: DEFAULT_WINDOW_GEOMETRY.width as u64,
