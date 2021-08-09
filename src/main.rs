@@ -27,8 +27,6 @@ pub mod windows_utils;
 #[macro_use]
 extern crate derive_new;
 #[macro_use]
-extern crate rust_embed;
-#[macro_use]
 extern crate lazy_static;
 
 use std::sync::{atomic::AtomicBool, mpsc::channel, Arc};
