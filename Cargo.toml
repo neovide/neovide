@@ -24,7 +24,7 @@ lru = "0.4.3"
 derive-new = "0.5"
 rmpv = "0.4.4"
 rust-embed = { version = "5.2.0", features = ["debug-embed"] }
-image = "0.22.3"
+image = { version = "0.22.3", default-features = false, features = ["ico"] }
 nvim-rs = { git = "https://github.com/KillTheMule/nvim-rs", branch = "master", features = ["use_tokio"] }
 tokio = { version = "1.1.1", features = ["full"] }
 tokio-util = "0.6.7"
