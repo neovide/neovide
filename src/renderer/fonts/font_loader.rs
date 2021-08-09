@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use lru::LruCache;
+use skia_safe::font_style::{Slant, Weight, Width};
 use skia_safe::{font::Edging, Data, Font, FontHinting, FontMgr, FontStyle, Typeface};
 
 use super::font_options::FontOptions;
@@ -51,14 +52,14 @@ pub struct FontKey {
     // TODO(smolck): Could make these private and add constructor method(s)?
     // Would theoretically make things safer I guess, but not sure . . .
     pub bold: bool,
-    pub italic: bool,
+    pub slant: Slant,
     pub font_selection: FontSelection,
 }
 
 impl Default for FontKey {
     fn default() -> Self {
         FontKey {
-            italic: false,
+            slant: Slant::Upright,
             bold: false,
             font_selection: FontSelection::Default,
         }
@@ -68,7 +69,7 @@ impl Default for FontKey {
 impl From<&FontOptions> for FontKey {
     fn from(options: &FontOptions) -> FontKey {
         FontKey {
-            italic: options.italic,
+            slant: super::slant(options.italic),
             bold: options.bold,
             font_selection: options.primary_font(),
         }
@@ -119,12 +120,17 @@ impl FontLoader {
     }
 
     fn load(&mut self, font_key: FontKey) -> Option<FontPair> {
-        let font_style = match (font_key.bold, font_key.italic) {
-            (true, true) => FontStyle::bold_italic(),
-            (false, true) => FontStyle::italic(),
-            (true, false) => FontStyle::bold(),
-            (false, false) => FontStyle::normal(),
-        };
+        let font_style = FontStyle::new(
+            {
+                if font_key.bold {
+                    Weight::BOLD
+                } else {
+                    Weight::NORMAL
+                }
+            },
+            Width::NORMAL,
+            font_key.slant,
+        );
 
         match font_key.font_selection {
             FontSelection::Name(name) => {
