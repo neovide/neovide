@@ -231,7 +231,7 @@ impl CachingShaper {
 
     pub fn shape(&mut self, cells: &[String], bold: bool, italic: bool) -> Vec<TextBlob> {
         let current_size = self.current_size();
-        let (glyph_width, _glyph_height) = self.font_base_dimensions();
+        let (glyph_width, ..) = self.font_base_dimensions();
 
         let mut resulting_blobs = Vec::new();
 

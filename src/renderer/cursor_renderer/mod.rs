@@ -228,8 +228,7 @@ impl CursorRenderer {
 
     pub fn update_cursor_destination(
         &mut self,
-        font_width: u64,
-        font_height: u64,
+        (font_width, font_height): (u64, u64),
         windows: &HashMap<u64, RenderedWindow>,
     ) {
         let (cursor_grid_x, cursor_grid_y) = self.cursor.grid_position;
@@ -244,7 +243,7 @@ impl CursorRenderer {
             // grid position.
             grid_y = grid_y
                 .max(window.grid_current_position.y)
-                .min(window.grid_current_position.y + window.grid_height as f32 - 1.0);
+                .min(window.grid_current_position.y + window.grid_size.height as f32 - 1.0);
 
             self.destination = (grid_x * font_width as f32, grid_y * font_height as f32).into();
         } else {
@@ -259,13 +258,12 @@ impl CursorRenderer {
     pub fn draw(
         &mut self,
         default_colors: &Colors,
-        font_size: (u64, u64),
+        (font_width, font_height): (u64, u64),
         current_mode: &EditorMode,
         shaper: &mut CachingShaper,
         canvas: &mut Canvas,
         dt: f32,
     ) {
-        let (font_width, font_height) = font_size;
         let render = self.blink_status.update_status(&self.cursor);
         let settings = SETTINGS.get::<CursorSettings>();
 

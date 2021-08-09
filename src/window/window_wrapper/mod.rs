@@ -33,7 +33,8 @@ use crate::{
     editor::WindowCommand,
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::Renderer,
-    settings::{maybe_save_window_size, WindowGeometry, SETTINGS},
+    settings::{maybe_save_window_size, SETTINGS},
+    utils::Dimensions,
 };
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
@@ -53,7 +54,7 @@ pub struct GlutinWindowWrapper {
     title: String,
     fullscreen: bool,
     saved_inner_size: PhysicalSize<u32>,
-    saved_grid_size: Option<WindowGeometry>,
+    saved_grid_size: Option<Dimensions>,
     ui_command_sender: LoggingTx<UiCommand>,
     window_command_receiver: Receiver<WindowCommand>,
 }
@@ -177,7 +178,7 @@ impl GlutinWindowWrapper {
 
         if self.saved_grid_size.is_none() && !window.is_maximized() {
             let size = SETTINGS.get::<CmdLineSettings>().geometry;
-            window.set_inner_size(self.renderer.to_physical_size((size.width, size.height)));
+            window.set_inner_size(self.renderer.convert_grid_to_physical(size));
             self.saved_grid_size = Some(size);
         }
 
@@ -191,7 +192,7 @@ impl GlutinWindowWrapper {
     }
 
     fn handle_new_grid_size(&mut self, new_size: PhysicalSize<u32>) {
-        let grid_size: WindowGeometry = self.renderer.to_grid_size(new_size).into();
+        let grid_size = self.renderer.convert_physical_to_grid(new_size);
         if self.saved_grid_size == Some(grid_size) {
             trace!("Grid matched saved size, skip update.");
             return;
@@ -263,10 +264,9 @@ pub fn create_window(
     let skia_renderer = SkiaRenderer::new(&windowed_context);
 
     log::info!(
-        "window created (scale_factor: {}, font_size: {}x{})",
+        "window created (scale_factor: {}, font_dimensions: {:?})",
         scale_factor,
-        renderer.font_width,
-        renderer.font_height,
+        renderer.font_dimensions,
     );
 
     let mut window_wrapper = GlutinWindowWrapper {
