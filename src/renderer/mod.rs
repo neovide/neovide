@@ -20,13 +20,13 @@ use crate::settings::*;
 use cursor_renderer::CursorRenderer;
 
 #[derive(SettingGroup)]
-#[setting_prefix = "window"]
 #[derive(Clone)]
 pub struct RendererSettings {
     position_animation_length: f32,
     scroll_animation_length: f32,
     floating_opacity: f32,
     floating_blur: bool,
+    debug_renderer: bool,
 }
 
 impl Default for RendererSettings {
@@ -36,6 +36,7 @@ impl Default for RendererSettings {
             scroll_animation_length: 0.3,
             floating_opacity: 0.7,
             floating_blur: true,
+            debug_renderer: false,
         }
     }
 }
@@ -43,8 +44,7 @@ impl Default for RendererSettings {
 pub struct Renderer {
     rendered_windows: HashMap<u64, RenderedWindow>,
     cursor_renderer: CursorRenderer,
-
-    pub current_mode: EditorMode,
+    current_mode: EditorMode,
     pub paint: Paint,
     pub shaper: CachingShaper,
     pub default_style: Arc<Style>,
@@ -154,7 +154,7 @@ impl Renderer {
         let region = self.compute_text_region(grid_pos, cell_width);
         let style = style.as_ref().unwrap_or(&self.default_style);
 
-        if cfg!(feature = "debug-renderer") {
+        if SETTINGS.get_global::<RendererSettings>().debug_renderer {
             let random_hsv: HSV = (rand::random::<f32>() * 360.0, 0.3, 0.3).into();
             let random_color = random_hsv.to_color(255);
             self.paint.set_color(random_color);
@@ -215,7 +215,7 @@ impl Renderer {
 
         let y_adjustment = self.shaper.y_adjustment();
 
-        if cfg!(feature = "debug-renderer") {
+        if SETTINGS.get_global::<RendererSettings>().debug_renderer {
             let random_hsv: HSV = (rand::random::<f32>() * 360.0, 1.0, 1.0).into();
             let random_color = random_hsv.to_color(255);
             self.paint.set_color(random_color);

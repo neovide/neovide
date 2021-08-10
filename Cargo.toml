@@ -14,7 +14,6 @@ members = ["neovide-derive"]
 [features]
 default = []
 embed-fonts = []
-debug-renderer = []
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
