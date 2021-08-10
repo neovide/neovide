@@ -42,7 +42,6 @@ futures = "0.3.12"
 glutin = { git = "https://github.com/Kethku/glutin", branch = "new-keyboard-all" }
 winit = { git = "https://github.com/Kethku/winit", branch = "new-keyboard-all", default-features = false }
 gl = "0.14.0"
-regex = "1.5.4"
 swash = "0.1.4"
 clap="2.33.3"
 
