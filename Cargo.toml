@@ -28,7 +28,7 @@ rust-embed = { version = "5.2.0", features = ["debug-embed"] }
 image = "0.22.3"
 nvim-rs = { git = "https://github.com/KillTheMule/nvim-rs", branch = "master", features = ["use_tokio"] }
 tokio = { version = "1.1.1", features = ["full"] }
-tokio-util = "*"
+tokio-util = "0.6.7
 async-trait = "0.1.18"
 crossfire = "0.1"
 lazy_static = "1.4.0"
