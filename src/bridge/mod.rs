@@ -9,12 +9,12 @@ use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use crossfire::mpsc::RxUnbounded;
 use log::{error, info, warn};
 use nvim_rs::UiAttachOptions;
 use rmpv::Value;
 use tokio::process::Command;
 use tokio::runtime::Runtime;
+use tokio::sync::mpsc;
 
 use crate::channel_utils::*;
 use crate::settings::*;
@@ -157,7 +157,7 @@ fn connection_mode() -> ConnectionMode {
 
 async fn start_neovim_runtime(
     ui_command_sender: LoggingTx<UiCommand>,
-    ui_command_receiver: RxUnbounded<UiCommand>,
+    mut ui_command_receiver: mpsc::UnboundedReceiver<UiCommand>,
     redraw_event_sender: LoggingTx<RedrawEvent>,
     running: Arc<AtomicBool>,
 ) {
@@ -297,13 +297,13 @@ async fn start_neovim_runtime(
             }
 
             match ui_command_receiver.recv().await {
-                Ok(ui_command) => {
+                Some(ui_command) => {
                     let input_nvim = input_nvim.clone();
                     tokio::spawn(async move {
                         ui_command.execute(&input_nvim).await;
                     });
                 }
-                Err(_) => {
+                None => {
                     ui_command_running.store(false, Ordering::Relaxed);
                     break;
                 }
@@ -321,7 +321,7 @@ pub struct Bridge {
 
 pub fn start_bridge(
     ui_command_sender: LoggingTx<UiCommand>,
-    ui_command_receiver: RxUnbounded<UiCommand>,
+    ui_command_receiver: mpsc::UnboundedReceiver<UiCommand>,
     redraw_event_sender: LoggingTx<RedrawEvent>,
     running: Arc<AtomicBool>,
 ) -> Bridge {
