@@ -6,7 +6,10 @@ use crate::settings::SETTINGS;
 pub mod caching_shaper;
 mod font_loader;
 mod font_options;
+mod font_weight;
 mod swash_font;
+
+pub use font_weight::FontWeight;
 
 fn slant(italic: bool) -> Slant {
     if italic {

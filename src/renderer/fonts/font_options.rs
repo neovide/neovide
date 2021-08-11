@@ -1,4 +1,4 @@
-use super::font_loader::FontSelection;
+use super::{font_loader::FontSelection, FontWeight};
 
 const DEFAULT_FONT_SIZE: f32 = 14.0;
 
@@ -56,6 +56,14 @@ impl FontOptions {
             .first()
             .map(FontSelection::from)
             .unwrap_or(FontSelection::Default)
+    }
+
+    pub fn get_weight(&self, bold: bool) -> FontWeight {
+        if self.bold || bold {
+            FontWeight::Bold
+        } else {
+            FontWeight::Normal
+        }
     }
 }
 

@@ -9,13 +9,12 @@ use swash::text::Script;
 use swash::Metrics;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::font_loader::*;
-use super::font_options::*;
+use super::{font_loader::*, font_options::*, FontWeight};
 
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {
     pub cells: Vec<String>,
-    pub bold: bool,
+    pub weight: FontWeight,
     pub slant: Slant,
 }
 
@@ -147,6 +146,13 @@ impl CachingShaper {
         );
 
         let slant = super::slant(self.options.italic || italic);
+        let skia_weight = {
+            if bold {
+                FontWeight::Bold
+            } else {
+                FontWeight::Normal
+            }
+        };
         let skia_slant = super::slant(italic);
 
         let mut results = Vec::new();
@@ -157,29 +163,29 @@ impl CachingShaper {
 
             // Add parsed fonts from guifont
             font_fallback_keys.extend(self.options.font_list.iter().map(|font_name| FontKey {
+                weight: self.options.get_weight(bold),
                 slant,
-                bold: self.options.bold || bold,
                 font_selection: font_name.into(),
             }));
 
             // Add default font
             font_fallback_keys.push(FontKey {
+                weight: self.options.get_weight(bold),
                 slant,
-                bold: self.options.bold || bold,
                 font_selection: FontSelection::Default,
             });
 
             // Add skia fallback
             font_fallback_keys.push(FontKey {
+                weight: skia_weight,
                 slant: skia_slant,
-                bold,
                 font_selection: cluster.chars()[0].ch.into(),
             });
 
             // Add last resort
             font_fallback_keys.push(FontKey {
+                weight: FontWeight::Normal,
                 slant: Slant::Upright,
-                bold: false,
                 font_selection: FontSelection::LastResort,
             });
 
@@ -283,7 +289,15 @@ impl CachingShaper {
     }
 
     pub fn shape_cached(&mut self, cells: &[String], bold: bool, italic: bool) -> &Vec<TextBlob> {
-        let key = ShapeKey::new(cells.to_vec(), bold, super::slant(italic));
+        let weight = {
+            if bold {
+                FontWeight::Bold
+            } else {
+                FontWeight::Normal
+            }
+        };
+
+        let key = ShapeKey::new(cells.to_vec(), weight, super::slant(italic));
 
         if !self.blob_cache.contains(&key) {
             let blobs = self.shape(cells, bold, italic);
