@@ -19,8 +19,7 @@ use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
 pub use rendered_window::{RenderedWindow, WindowDrawDetails};
 
-#[derive(SettingGroup)]
-#[derive(Clone)]
+#[derive(SettingGroup, Clone)]
 pub struct RendererSettings {
     position_animation_length: f32,
     scroll_animation_length: f32,
