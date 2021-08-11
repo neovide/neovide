@@ -37,7 +37,7 @@ use crossfire::mpsc::unbounded_future;
 use bridge::start_bridge;
 use cmd_line::CmdLineSettings;
 use editor::start_editor;
-use renderer::{cursor_renderer::CursorSettings, FontSettings, RendererSettings};
+use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 use settings::SETTINGS;
 use window::{create_window, KeyboardSettings, WindowSettings};
 
@@ -134,7 +134,6 @@ fn main() {
     RendererSettings::register();
     CursorSettings::register();
     KeyboardSettings::register();
-    FontSettings::register();
 
     let running = Arc::new(AtomicBool::new(true));
 

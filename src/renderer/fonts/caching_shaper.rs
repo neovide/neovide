@@ -2,20 +2,20 @@ use std::sync::Arc;
 
 use log::trace;
 use lru::LruCache;
-use skia_safe::{font_style::Slant, TextBlob, TextBlobBuilder};
+use skia_safe::{TextBlob, TextBlobBuilder};
 use swash::shape::ShapeContext;
 use swash::text::cluster::{CharCluster, Parser, Status, Token};
 use swash::text::Script;
 use swash::Metrics;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{font_loader::*, font_options::*, FontWeight};
+use super::{font_loader::*, font_options::*, FontSlant, FontWeight};
 
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {
     pub cells: Vec<String>,
     pub weight: FontWeight,
-    pub slant: Slant,
+    pub slant: FontSlant,
 }
 
 pub struct CachingShaper {
@@ -145,16 +145,6 @@ impl CachingShaper {
                 .flatten(),
         );
 
-        let slant = super::slant(self.options.italic || italic);
-        let skia_weight = {
-            if bold {
-                FontWeight::Bold
-            } else {
-                FontWeight::Normal
-            }
-        };
-        let skia_slant = super::slant(italic);
-
         let mut results = Vec::new();
         'cluster: while parser.next(&mut cluster) {
             // TODO: Don't redo this work for every cluster. Save it some how
@@ -163,29 +153,29 @@ impl CachingShaper {
 
             // Add parsed fonts from guifont
             font_fallback_keys.extend(self.options.font_list.iter().map(|font_name| FontKey {
-                weight: self.options.get_weight(bold),
-                slant,
+                weight: self.options.get_weight(self.options.bold || bold),
+                slant: self.options.get_slant(self.options.italic || italic),
                 font_selection: font_name.into(),
             }));
 
             // Add default font
             font_fallback_keys.push(FontKey {
-                weight: self.options.get_weight(bold),
-                slant,
+                weight: self.options.get_weight(self.options.bold || bold),
+                slant: self.options.get_slant(self.options.italic || italic),
                 font_selection: FontSelection::Default,
             });
 
             // Add skia fallback
             font_fallback_keys.push(FontKey {
-                weight: skia_weight,
-                slant: skia_slant,
+                weight: self.options.get_weight(bold),
+                slant: self.options.get_slant(italic),
                 font_selection: cluster.chars()[0].ch.into(),
             });
 
             // Add last resort
             font_fallback_keys.push(FontKey {
                 weight: FontWeight::Normal,
-                slant: Slant::Upright,
+                slant: FontSlant::Upright,
                 font_selection: FontSelection::LastResort,
             });
 
@@ -289,15 +279,11 @@ impl CachingShaper {
     }
 
     pub fn shape_cached(&mut self, cells: &[String], bold: bool, italic: bool) -> &Vec<TextBlob> {
-        let weight = {
-            if bold {
-                FontWeight::Bold
-            } else {
-                FontWeight::Normal
-            }
-        };
-
-        let key = ShapeKey::new(cells.to_vec(), weight, super::slant(italic));
+        let key = ShapeKey::new(
+            cells.to_vec(),
+            self.options.get_weight(bold),
+            self.options.get_slant(italic),
+        );
 
         if !self.blob_cache.contains(&key) {
             let blobs = self.shape(cells, bold, italic);

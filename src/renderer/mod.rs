@@ -9,11 +9,9 @@ pub mod animation_utils;
 pub mod cursor_renderer;
 mod fonts;
 mod rendered_window;
-mod settings;
 
 pub use fonts::caching_shaper::CachingShaper;
 pub use rendered_window::{RenderedWindow, WindowDrawDetails};
-pub use settings::*;
 
 use crate::bridge::EditorMode;
 use crate::editor::{Colors, DrawCommand, Style, WindowDrawCommand};
@@ -44,7 +42,6 @@ impl Default for RendererSettings {
 pub struct Renderer {
     rendered_windows: HashMap<u64, RenderedWindow>,
     cursor_renderer: CursorRenderer,
-    font_use_italic_as_oblique: bool,
 
     pub current_mode: EditorMode,
     pub paint: Paint,
@@ -79,7 +76,6 @@ impl Renderer {
         Renderer {
             rendered_windows,
             cursor_renderer,
-            font_use_italic_as_oblique: false,
             current_mode,
             paint,
             shaper,
@@ -363,12 +359,6 @@ impl Renderer {
         );
 
         root_canvas.restore();
-
-        let font_use_italic_as_oblique = { SETTINGS.get::<FontSettings>().use_italic_as_oblique };
-        if font_use_italic_as_oblique != self.font_use_italic_as_oblique {
-            self.font_use_italic_as_oblique = font_use_italic_as_oblique;
-            font_changed = true;
-        }
 
         font_changed
     }

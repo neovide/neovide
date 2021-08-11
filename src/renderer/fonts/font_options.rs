@@ -1,9 +1,11 @@
-use super::{font_loader::FontSelection, FontWeight};
+use super::{font_loader::FontSelection, FontSlant, FontWeight};
 
 const DEFAULT_FONT_SIZE: f32 = 14.0;
 
 #[derive(Clone, Debug)]
 pub struct FontOptions {
+    use_italic_as_oblique: bool,
+
     pub font_list: Vec<String>,
     pub size: f32,
     pub bold: bool,
@@ -16,6 +18,7 @@ impl FontOptions {
         let mut size = DEFAULT_FONT_SIZE;
         let mut bold = false;
         let mut italic = false;
+        let mut use_italic_as_oblique = false;
 
         let mut parts = guifont_setting.split(':').filter(|part| !part.is_empty());
 
@@ -40,10 +43,13 @@ impl FontOptions {
                 bold = true;
             } else if part == "i" {
                 italic = true;
+            } else if part == "o" {
+                use_italic_as_oblique = true;
             }
         }
 
         FontOptions {
+            use_italic_as_oblique,
             font_list,
             bold,
             italic,
@@ -59,10 +65,22 @@ impl FontOptions {
     }
 
     pub fn get_weight(&self, bold: bool) -> FontWeight {
-        if self.bold || bold {
+        if bold {
             FontWeight::Bold
         } else {
             FontWeight::Normal
+        }
+    }
+
+    pub fn get_slant(&self, italic: bool) -> FontSlant {
+        if italic {
+            if self.use_italic_as_oblique {
+                FontSlant::Oblique
+            } else {
+                FontSlant::Italic
+            }
+        } else {
+            FontSlant::Upright
         }
     }
 }
@@ -70,6 +88,7 @@ impl FontOptions {
 impl Default for FontOptions {
     fn default() -> Self {
         FontOptions {
+            use_italic_as_oblique: false,
             font_list: Vec::new(),
             bold: false,
             italic: false,
@@ -80,7 +99,8 @@ impl Default for FontOptions {
 
 impl PartialEq for FontOptions {
     fn eq(&self, other: &Self) -> bool {
-        self.font_list == other.font_list
+        self.use_italic_as_oblique == other.use_italic_as_oblique
+            && self.font_list == other.font_list
             && (self.size - other.size).abs() < std::f32::EPSILON
             && self.bold == other.bold
             && self.italic == other.italic

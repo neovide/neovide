@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use lru::LruCache;
-use skia_safe::font_style::{Slant, Width};
+use skia_safe::font_style::Width;
 use skia_safe::{font::Edging, Data, Font, FontHinting, FontMgr, FontStyle, Typeface};
 
-use super::{font_options::FontOptions, swash_font::SwashFont, FontWeight};
+use super::{font_options::FontOptions, swash_font::SwashFont, FontSlant, FontWeight};
 
 #[derive(RustEmbed)]
 #[folder = "assets/fonts/"]
@@ -51,7 +51,7 @@ pub struct FontKey {
     // TODO(smolck): Could make these private and add constructor method(s)?
     // Would theoretically make things safer I guess, but not sure . . .
     pub weight: FontWeight,
-    pub slant: Slant,
+    pub slant: FontSlant,
     pub font_selection: FontSelection,
 }
 
@@ -59,7 +59,7 @@ impl Default for FontKey {
     fn default() -> Self {
         FontKey {
             weight: FontWeight::Normal,
-            slant: Slant::Upright,
+            slant: FontSlant::Upright,
             font_selection: FontSelection::Default,
         }
     }
@@ -68,8 +68,8 @@ impl Default for FontKey {
 impl From<&FontOptions> for FontKey {
     fn from(options: &FontOptions) -> FontKey {
         FontKey {
-            weight: options.get_weight(false),
-            slant: super::slant(options.italic),
+            weight: options.get_weight(options.bold),
+            slant: options.get_slant(options.italic),
             font_selection: options.primary_font(),
         }
     }
@@ -119,7 +119,9 @@ impl FontLoader {
     }
 
     fn load(&mut self, font_key: FontKey) -> Option<FontPair> {
-        let font_style = FontStyle::new(font_key.weight.into(), Width::NORMAL, font_key.slant);
+        let weight = font_key.weight.into();
+        let slant = font_key.slant.into();
+        let font_style = FontStyle::new(weight, Width::NORMAL, slant);
 
         match font_key.font_selection {
             FontSelection::Name(name) => {
