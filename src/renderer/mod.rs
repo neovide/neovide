@@ -1,3 +1,8 @@
+pub mod animation_utils;
+pub mod cursor_renderer;
+mod fonts;
+mod rendered_window;
+
 use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
@@ -6,18 +11,13 @@ use glutin::dpi::PhysicalSize;
 use log::{error, trace};
 use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect, HSV};
 
-pub mod animation_utils;
-pub mod cursor_renderer;
-mod fonts;
-mod rendered_window;
-
-pub use fonts::caching_shaper::CachingShaper;
-pub use rendered_window::{RenderedWindow, WindowDrawDetails};
-
 use crate::bridge::EditorMode;
 use crate::editor::{Colors, DrawCommand, Style, WindowDrawCommand};
 use crate::settings::*;
+use crate::utils::Dimensions;
 use cursor_renderer::CursorRenderer;
+pub use fonts::caching_shaper::CachingShaper;
+pub use rendered_window::{RenderedWindow, WindowDrawDetails};
 
 #[derive(SettingGroup)]
 #[derive(Clone)]
@@ -48,8 +48,7 @@ pub struct Renderer {
     pub paint: Paint,
     pub shaper: CachingShaper,
     pub default_style: Arc<Style>,
-    pub font_width: u64,
-    pub font_height: u64,
+    pub font_dimensions: Dimensions,
     pub window_regions: Vec<WindowDrawDetails>,
     pub batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
     pub is_ready: bool,
@@ -67,7 +66,7 @@ impl Renderer {
         let mut paint = Paint::new(colors::WHITE, None);
         paint.set_anti_alias(false);
         let mut shaper = CachingShaper::new(scale_factor as f32);
-        let (font_width, font_height) = shaper.font_base_dimensions();
+        let font_dimensions: Dimensions = shaper.font_base_dimensions().into();
         let default_style = Arc::new(Style::new(Colors::new(
             Some(colors::WHITE),
             Some(colors::BLACK),
@@ -82,29 +81,21 @@ impl Renderer {
             paint,
             shaper,
             default_style,
-            font_width,
-            font_height,
+            font_dimensions,
             window_regions,
             batched_draw_command_receiver,
             is_ready: false,
         }
     }
 
-    // TODO: Refactor code to use these two functions instead of multiplication.
     /// Convert PhysicalSize to grid size
-    pub fn to_grid_size(&self, new_size: PhysicalSize<u32>) -> (u64, u64) {
-        let width = new_size.width as u64 / self.font_width;
-        let height = new_size.height as u64 / self.font_height;
-        (width, height)
+    pub fn convert_physical_to_grid(&self, physical: PhysicalSize<u32>) -> Dimensions {
+        Dimensions::from(physical) / self.font_dimensions
     }
 
     /// Convert grid size to PhysicalSize
-    pub fn to_physical_size(&self, new_size: (u64, u64)) -> PhysicalSize<u32> {
-        let (width, height) = new_size;
-        PhysicalSize {
-            width: (width * self.font_width) as u32,
-            height: (height * self.font_height) as u32,
-        }
+    pub fn convert_grid_to_physical(&self, grid: Dimensions) -> PhysicalSize<u32> {
+        (grid * self.font_dimensions).into()
     }
 
     pub fn handle_scale_factor_update(&mut self, scale_factor: f64) {
@@ -118,23 +109,15 @@ impl Renderer {
     }
 
     fn update_font_dimensions(&mut self) {
-        let (font_width, font_height) = self.shaper.font_base_dimensions();
-        self.font_width = font_width;
-        self.font_height = font_height;
+        self.font_dimensions = self.shaper.font_base_dimensions().into();
         self.is_ready = true;
-        trace!(
-            "Updating font dimensions: {}x{}",
-            self.font_width,
-            self.font_height,
-        );
+        trace!("Updated font dimensions: {:?}", self.font_dimensions,);
     }
 
-    fn compute_text_region(&self, grid_pos: (u64, u64), cell_width: u64) -> Rect {
-        let (grid_x, grid_y) = grid_pos;
-        let x = grid_x * self.font_width;
-        let y = grid_y * self.font_height;
-        let width = cell_width * self.font_width;
-        let height = self.font_height;
+    fn compute_text_region(&self, grid_position: (u64, u64), cell_width: u64) -> Rect {
+        let (x, y) = grid_position * self.font_dimensions;
+        let width = cell_width * self.font_dimensions.width;
+        let height = self.font_dimensions.height;
         Rect::new(x as f32, y as f32, (x + width) as f32, (y + height) as f32)
     }
 
@@ -145,13 +128,13 @@ impl Renderer {
     fn draw_background(
         &mut self,
         canvas: &mut Canvas,
-        grid_pos: (u64, u64),
+        grid_position: (u64, u64),
         cell_width: u64,
         style: &Option<Arc<Style>>,
     ) {
         self.paint.set_blend_mode(BlendMode::Src);
 
-        let region = self.compute_text_region(grid_pos, cell_width);
+        let region = self.compute_text_region(grid_position, cell_width);
         let style = style.as_ref().unwrap_or(&self.default_style);
 
         if SETTINGS.get_global::<RendererSettings>().debug_renderer {
@@ -169,20 +152,18 @@ impl Renderer {
         &mut self,
         canvas: &mut Canvas,
         cells: &[String],
-        grid_pos: (u64, u64),
+        grid_position: (u64, u64),
         cell_width: u64,
         style: &Option<Arc<Style>>,
     ) {
-        let (grid_x, grid_y) = grid_pos;
-        let x = grid_x * self.font_width;
-        let y = grid_y * self.font_height;
-        let width = cell_width * self.font_width;
+        let (x, y) = grid_position * self.font_dimensions;
+        let width = cell_width * self.font_dimensions.width;
 
         let style = style.as_ref().unwrap_or(&self.default_style);
 
         canvas.save();
 
-        let region = self.compute_text_region(grid_pos, cell_width);
+        let region = self.compute_text_region(grid_position, cell_width);
 
         canvas.clip_rect(region, None, Some(false));
 
@@ -204,10 +185,13 @@ impl Renderer {
             }
 
             canvas.draw_line(
-                (x as f32, (y - line_position + self.font_height) as f32),
+                (
+                    x as f32,
+                    (y - line_position + self.font_dimensions.height) as f32,
+                ),
                 (
                     (x + width) as f32,
-                    (y - line_position + self.font_height) as f32,
+                    (y - line_position + self.font_dimensions.height) as f32,
                 ),
                 &self.paint,
             );
@@ -270,8 +254,7 @@ impl Renderer {
                         self,
                         grid_id,
                         (grid_left as f32, grid_top as f32).into(),
-                        width,
-                        height,
+                        (width, height).into(),
                     );
                     self.rendered_windows.insert(grid_id, new_window);
                 } else {
@@ -317,13 +300,11 @@ impl Renderer {
         root_canvas.reset_matrix();
 
         if let Some(root_window) = self.rendered_windows.get(&1) {
-            let clip_rect = root_window.pixel_region(self.font_width, self.font_height);
+            let clip_rect = root_window.pixel_region(self.font_dimensions);
             root_canvas.clip_rect(&clip_rect, None, Some(false));
         }
 
         let default_background = self.get_default_background();
-        let font_width = self.font_width;
-        let font_height = self.font_height;
 
         let windows: Vec<&mut RenderedWindow> = {
             let (mut root_windows, mut floating_windows): (
@@ -352,6 +333,7 @@ impl Renderer {
         };
 
         let settings = SETTINGS.get::<RendererSettings>();
+        let font_dimensions = self.font_dimensions;
         self.window_regions = windows
             .into_iter()
             .map(|window| {
@@ -359,8 +341,7 @@ impl Renderer {
                     root_canvas,
                     &settings,
                     default_background,
-                    font_width,
-                    font_height,
+                    font_dimensions,
                     dt,
                 )
             })
@@ -368,11 +349,11 @@ impl Renderer {
 
         let windows = &self.rendered_windows;
         self.cursor_renderer
-            .update_cursor_destination(font_width, font_height, windows);
+            .update_cursor_destination(font_dimensions.into(), windows);
 
         self.cursor_renderer.draw(
             &self.default_style.colors,
-            (self.font_width, self.font_height),
+            font_dimensions.into(),
             &self.current_mode,
             &mut self.shaper,
             root_canvas,

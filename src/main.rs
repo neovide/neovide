@@ -20,6 +20,7 @@ mod error_handling;
 mod redraw_scheduler;
 mod renderer;
 mod settings;
+mod utils;
 mod window;
 pub mod windows_utils;
 

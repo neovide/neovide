@@ -1,4 +1,5 @@
 use crate::settings::*;
+use crate::utils::Dimensions;
 
 use clap::{App, Arg};
 
@@ -11,7 +12,7 @@ pub struct CmdLineSettings {
     pub files_to_open: Vec<String>,
 
     pub nofork: bool,
-    pub geometry: WindowGeometry,
+    pub geometry: Dimensions,
     pub wsl: bool,
     pub remote_tcp: Option<String>,
     pub multi_grid: bool,
