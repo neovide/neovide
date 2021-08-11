@@ -136,7 +136,7 @@ impl Renderer {
         let region = self.compute_text_region(grid_position, cell_width);
         let style = style.as_ref().unwrap_or(&self.default_style);
 
-        if SETTINGS.get_global::<RendererSettings>().debug_renderer {
+        if SETTINGS.get::<RendererSettings>().debug_renderer {
             let random_hsv: HSV = (rand::random::<f32>() * 360.0, 0.3, 0.3).into();
             let random_color = random_hsv.to_color(255);
             self.paint.set_color(random_color);
@@ -198,7 +198,7 @@ impl Renderer {
 
         let y_adjustment = self.shaper.y_adjustment();
 
-        if SETTINGS.get_global::<RendererSettings>().debug_renderer {
+        if SETTINGS.get::<RendererSettings>().debug_renderer {
             let random_hsv: HSV = (rand::random::<f32>() * 360.0, 1.0, 1.0).into();
             let random_color = random_hsv.to_color(255);
             self.paint.set_color(random_color);
