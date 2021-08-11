@@ -14,7 +14,7 @@ use nvim_rs::UiAttachOptions;
 use rmpv::Value;
 use tokio::process::Command;
 use tokio::runtime::Runtime;
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::channel_utils::*;
 use crate::settings::*;
@@ -156,7 +156,7 @@ fn connection_mode() -> ConnectionMode {
 
 async fn start_neovim_runtime(
     ui_command_sender: LoggingTx<UiCommand>,
-    mut ui_command_receiver: mpsc::UnboundedReceiver<UiCommand>,
+    mut ui_command_receiver: UnboundedReceiver<UiCommand>,
     redraw_event_sender: LoggingTx<RedrawEvent>,
     running: Arc<AtomicBool>,
 ) {
@@ -317,7 +317,7 @@ pub struct Bridge {
 
 pub fn start_bridge(
     ui_command_sender: LoggingTx<UiCommand>,
-    ui_command_receiver: mpsc::UnboundedReceiver<UiCommand>,
+    ui_command_receiver: UnboundedReceiver<UiCommand>,
     redraw_event_sender: LoggingTx<RedrawEvent>,
     running: Arc<AtomicBool>,
 ) -> Bridge {

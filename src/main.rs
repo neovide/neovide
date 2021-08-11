@@ -30,7 +30,7 @@ extern crate lazy_static;
 
 use std::sync::{atomic::AtomicBool, mpsc::channel, Arc};
 
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::unbounded_channel;
 
 use bridge::start_bridge;
 use cmd_line::CmdLineSettings;
@@ -135,7 +135,7 @@ fn main() {
 
     let running = Arc::new(AtomicBool::new(true));
 
-    let (redraw_event_sender, redraw_event_receiver) = mpsc::unbounded_channel();
+    let (redraw_event_sender, redraw_event_receiver) = unbounded_channel();
     let logging_redraw_event_sender =
         LoggingTx::attach(redraw_event_sender, "redraw_event".to_owned());
 
@@ -145,7 +145,7 @@ fn main() {
         "batched_draw_command".to_owned(),
     );
 
-    let (ui_command_sender, ui_command_receiver) = mpsc::unbounded_channel();
+    let (ui_command_sender, ui_command_receiver) = unbounded_channel();
     let logging_ui_command_sender = LoggingTx::attach(ui_command_sender, "ui_command".to_owned());
 
     let (window_command_sender, window_command_receiver) = channel();

@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::thread;
 
 use log::{error, trace};
-use tokio::sync::mpsc;
+use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::bridge::{EditorMode, GuiOption, RedrawEvent, WindowAnchor};
 use crate::channel_utils::*;
@@ -440,7 +440,7 @@ impl Editor {
 }
 
 pub fn start_editor(
-    mut redraw_event_receiver: mpsc::UnboundedReceiver<RedrawEvent>,
+    mut redraw_event_receiver: UnboundedReceiver<RedrawEvent>,
     batched_draw_command_sender: LoggingSender<Vec<DrawCommand>>,
     window_command_sender: LoggingSender<WindowCommand>,
 ) {
