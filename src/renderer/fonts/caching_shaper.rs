@@ -14,8 +14,8 @@ use super::{font_loader::*, font_options::*, FontSlant, FontWeight};
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {
     pub cells: Vec<String>,
-    pub weight: FontWeight,
-    pub slant: FontSlant,
+    pub bold: bool,
+    pub italic: bool,
 }
 
 pub struct CachingShaper {
@@ -279,11 +279,7 @@ impl CachingShaper {
     }
 
     pub fn shape_cached(&mut self, cells: &[String], bold: bool, italic: bool) -> &Vec<TextBlob> {
-        let key = ShapeKey::new(
-            cells.to_vec(),
-            self.options.get_weight(bold),
-            self.options.get_slant(italic),
-        );
+        let key = ShapeKey::new(cells.to_vec(), bold, italic);
 
         if !self.blob_cache.contains(&key) {
             let blobs = self.shape(cells, bold, italic);

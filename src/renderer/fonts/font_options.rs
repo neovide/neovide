@@ -4,12 +4,11 @@ const DEFAULT_FONT_SIZE: f32 = 14.0;
 
 #[derive(Clone, Debug)]
 pub struct FontOptions {
-    use_italic_as_oblique: bool,
-
     pub font_list: Vec<String>,
     pub size: f32,
     pub bold: bool,
     pub italic: bool,
+    use_italic_as_oblique: bool,
 }
 
 impl FontOptions {
@@ -43,7 +42,7 @@ impl FontOptions {
                 bold = true;
             } else if part == "i" {
                 italic = true;
-            } else if part == "o" {
+            } else if part == "i-as-o" {
                 use_italic_as_oblique = true;
             }
         }
