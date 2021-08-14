@@ -227,7 +227,6 @@ pub fn create_window(
         }
         Icon::from_rgba(rgba, width, height).expect("Failed to create icon object")
     };
-    log::info!("icon created");
 
     let event_loop = EventLoop::new();
 
