@@ -31,8 +31,8 @@ extern crate lazy_static;
 
 use std::sync::{atomic::AtomicBool, mpsc::channel, Arc};
 
-use tokio::sync::mpsc::unbounded_channel;
 use log::trace;
+use tokio::sync::mpsc::unbounded_channel;
 
 use bridge::start_bridge;
 use cmd_line::CmdLineSettings;
