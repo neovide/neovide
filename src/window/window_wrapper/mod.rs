@@ -264,7 +264,7 @@ pub fn create_window(
     let skia_renderer = SkiaRenderer::new(&windowed_context);
 
     log::info!(
-        "window created (scale_factor: {}, font_dimensions: {:?})",
+        "window created (scale_factor: {:.4}, font_dimensions: {:?})",
         scale_factor,
         renderer.font_dimensions,
     );
