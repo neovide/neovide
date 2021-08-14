@@ -230,7 +230,7 @@ impl Renderer {
         canvas.restore();
     }
 
-    pub fn handle_draw_command(&mut self, root_canvas: &mut Canvas, draw_command: DrawCommand) {
+    fn handle_draw_command(&mut self, root_canvas: &mut Canvas, draw_command: DrawCommand) {
         match draw_command {
             DrawCommand::Window {
                 grid_id,
@@ -276,16 +276,19 @@ impl Renderer {
         }
     }
 
+    /// Draws frame
+    ///
+    /// # Returns
+    /// `bool` indicating whether or not font was changed during this frame.
     #[allow(clippy::needless_collect)]
     pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32) -> bool {
-        let mut font_changed = false;
-
         let draw_commands: Vec<_> = self
             .batched_draw_command_receiver
             .try_iter() // Iterator of Vec of DrawCommand
             .map(|batch| batch.into_iter()) // Iterator of Iterator of DrawCommand
             .flatten() // Iterator of DrawCommand
             .collect();
+        let mut font_changed = false;
 
         for draw_command in draw_commands.into_iter() {
             if let DrawCommand::FontChanged(_) = draw_command {
