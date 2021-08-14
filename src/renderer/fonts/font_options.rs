@@ -1,4 +1,5 @@
-use super::{font_loader::FontSelection, FontSlant, FontWeight};
+use super::font_loader::FontSelection;
+use skia_safe::font_style::{Slant, Weight};
 
 const DEFAULT_FONT_SIZE: f32 = 14.0;
 
@@ -63,23 +64,23 @@ impl FontOptions {
             .unwrap_or(FontSelection::Default)
     }
 
-    pub fn get_weight(&self, bold: bool) -> FontWeight {
+    pub fn get_weight(&self, bold: bool) -> Weight {
         if bold {
-            FontWeight::Bold
+            Weight::BOLD
         } else {
-            FontWeight::Normal
+            Weight::NORMAL
         }
     }
 
-    pub fn get_slant(&self, italic: bool) -> FontSlant {
+    pub fn get_slant(&self, italic: bool) -> Slant {
         if italic {
             if self.use_italic_as_oblique {
-                FontSlant::Oblique
+                Slant::Oblique
             } else {
-                FontSlant::Italic
+                Slant::Italic
             }
         } else {
-            FontSlant::Upright
+            Slant::Upright
         }
     }
 }

@@ -1,3 +1,4 @@
+use std::rc::Rc;
 use std::sync::Arc;
 
 use log::trace;
@@ -9,7 +10,7 @@ use swash::text::Script;
 use swash::Metrics;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::{font_loader::*, font_options::*, FontSlant, FontWeight};
+use super::{font_loader::*, font_options::*};
 
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {
@@ -19,7 +20,7 @@ struct ShapeKey {
 }
 
 pub struct CachingShaper {
-    options: FontOptions,
+    options: Rc<FontOptions>,
     font_loader: FontLoader,
     blob_cache: LruCache<ShapeKey, Vec<TextBlob>>,
     shape_context: ShapeContext,
@@ -28,11 +29,11 @@ pub struct CachingShaper {
 
 impl CachingShaper {
     pub fn new(scale_factor: f32) -> CachingShaper {
-        let options = FontOptions::default();
+        let options = Rc::new(FontOptions::default());
         let font_size = options.size * scale_factor;
         CachingShaper {
-            options,
-            font_loader: FontLoader::new(font_size),
+            options: options.clone(),
+            font_loader: FontLoader::new(font_size, options),
             blob_cache: LruCache::new(10000),
             shape_context: ShapeContext::new(),
             scale_factor,
@@ -41,7 +42,7 @@ impl CachingShaper {
 
     fn current_font_pair(&mut self) -> Arc<FontPair> {
         let default_key = FontKey::default();
-        let font_key = FontKey::from(&self.options);
+        let font_key = FontKey::from(self.options.as_ref());
 
         if let Some(font_pair) = self.font_loader.get_or_load(&font_key) {
             return font_pair;
@@ -70,7 +71,7 @@ impl CachingShaper {
 
         if self.font_loader.get_or_load(&font_key).is_some() {
             trace!("Font updated to: {}", guifont_setting);
-            self.options = options;
+            self.options = Rc::new(options);
             self.reset_font_loader();
         } else {
             trace!("Font can't be updated to: {}", guifont_setting);
@@ -81,7 +82,7 @@ impl CachingShaper {
         let font_size = self.options.size * self.scale_factor;
         trace!("Using font_size: {:.2}px", font_size);
 
-        self.font_loader = FontLoader::new(font_size);
+        self.font_loader = FontLoader::new(font_size, self.options.clone());
         self.blob_cache.clear();
     }
 
@@ -153,29 +154,29 @@ impl CachingShaper {
 
             // Add parsed fonts from guifont
             font_fallback_keys.extend(self.options.font_list.iter().map(|font_name| FontKey {
-                weight: self.options.get_weight(self.options.bold || bold),
-                slant: self.options.get_slant(self.options.italic || italic),
+                bold: self.options.bold || bold,
+                italic: self.options.italic || italic,
                 font_selection: font_name.into(),
             }));
 
             // Add default font
             font_fallback_keys.push(FontKey {
-                weight: self.options.get_weight(self.options.bold || bold),
-                slant: self.options.get_slant(self.options.italic || italic),
+                bold: self.options.bold || bold,
+                italic: self.options.italic || italic,
                 font_selection: FontSelection::Default,
             });
 
             // Add skia fallback
             font_fallback_keys.push(FontKey {
-                weight: self.options.get_weight(bold),
-                slant: self.options.get_slant(italic),
+                bold,
+                italic,
                 font_selection: cluster.chars()[0].ch.into(),
             });
 
             // Add last resort
             font_fallback_keys.push(FontKey {
-                weight: FontWeight::Normal,
-                slant: FontSlant::Upright,
+                bold: false,
+                italic: false,
                 font_selection: FontSelection::LastResort,
             });
 
