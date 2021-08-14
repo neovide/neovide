@@ -164,9 +164,10 @@ impl GlutinWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         let window = self.windowed_context.window();
+        let mut font_changed = false;
 
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
-            self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
+            font_changed = self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
             self.skia_renderer.gr_context.flush(None);
             self.windowed_context.swap_buffers().unwrap();
         }
@@ -180,11 +181,13 @@ impl GlutinWindowWrapper {
             let size = SETTINGS.get::<CmdLineSettings>().geometry;
             window.set_inner_size(self.renderer.convert_grid_to_physical(size));
             self.saved_grid_size = Some(size);
+            // Font change at startup is ignored, so grid size (and startup screen) could be preserved.
+            font_changed = false;
         }
 
         let new_size = window.inner_size();
 
-        if self.saved_inner_size != new_size {
+        if self.saved_inner_size != new_size || font_changed {
             self.saved_inner_size = new_size;
             self.handle_new_grid_size(new_size);
             self.skia_renderer.resize(&self.windowed_context);
