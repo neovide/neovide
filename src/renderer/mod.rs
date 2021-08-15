@@ -10,12 +10,15 @@ use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 
 use glutin::{PossiblyCurrent, WindowedContext};
-use log::error;
+use glutin::dpi::PhysicalSize;
+use log::{trace,error};
 use skia_safe::Canvas;
 
+use crate::cmd_line::CmdLineSettings;
 use crate::bridge::EditorMode;
 use crate::editor::{DrawCommand, WindowDrawCommand};
 use crate::settings::*;
+use crate::utils::Dimensions;
 use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
@@ -52,7 +55,10 @@ pub struct Renderer {
     pub window_regions: Vec<WindowDrawDetails>,
 
     pub batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
+    pub saved_grid_size: Option<Dimensions>,
     skia_renderer: SkiaRenderer,
+
+    saved_inner_size: PhysicalSize<u32>,
 }
 
 impl Renderer {
@@ -60,7 +66,8 @@ impl Renderer {
         batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
         windowed_context: &WindowedContext<PossiblyCurrent>,
     ) -> Self {
-        let scale_factor = windowed_context.window().scale_factor();
+        let window = windowed_context.window();
+        let scale_factor = window.scale_factor();
         let cursor_renderer = CursorRenderer::new();
         let grid_renderer = GridRenderer::new(scale_factor);
         let current_mode = EditorMode::Unknown(String::from(""));
@@ -81,6 +88,8 @@ impl Renderer {
             current_mode,
             window_regions,
             batched_draw_command_receiver,
+            saved_inner_size: window.inner_size(),
+            saved_grid_size: None,
             skia_renderer: SkiaRenderer::new(&windowed_context),
         }
     }
@@ -224,9 +233,45 @@ impl Renderer {
         }
     }
 
-    // This is temporary, until i move other parts of GlutinWindowWrapper.draw_frame into
-    // Renderer.
-    pub fn skia_renderer_resize(&mut self, windowed_context: &WindowedContext<PossiblyCurrent>) {
-        self.skia_renderer.resize(windowed_context);
+    pub fn post_redraw(
+        &mut self,
+        windowed_context: &WindowedContext<PossiblyCurrent>,
+        mut font_changed: bool,
+    ) -> Option<Dimensions> {
+        // Wait until fonts are loaded, so we can set proper window size.
+        if !self.grid_renderer.is_ready {
+            return None;
+        }
+
+        let window = windowed_context.window();
+        if self.saved_grid_size.is_none() && !window.is_maximized() {
+            let size = SETTINGS.get::<CmdLineSettings>().geometry;
+            window.set_inner_size(self.grid_renderer.convert_grid_to_physical(size));
+            self.saved_grid_size = Some(size);
+            // Font change at startup is ignored, so grid size (and startup screen) could be preserved.
+            font_changed = false;
+        }
+
+        let new_size = window.inner_size();
+        let mut retval = None;
+
+        if self.saved_inner_size != new_size || font_changed {
+            self.saved_inner_size = new_size;
+            retval = self.handle_new_grid_size(new_size);
+            self.skia_renderer.resize(windowed_context);
+        }
+        retval
+    }
+
+    fn handle_new_grid_size(&mut self, new_size: PhysicalSize<u32>) -> Option<Dimensions> {
+        let grid_size = self
+            .grid_renderer
+            .convert_physical_to_grid(new_size);
+        if self.saved_grid_size == Some(grid_size) {
+            trace!("Grid matched saved size, skip update.");
+            return None;
+        }
+        self.saved_grid_size = Some(grid_size);
+        self.saved_grid_size
     }
 }

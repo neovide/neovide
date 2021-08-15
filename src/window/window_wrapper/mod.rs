@@ -12,13 +12,11 @@ use std::{
 
 use glutin::{
     self,
-    dpi::PhysicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{self, Fullscreen, Icon},
     ContextBuilder, GlProfile, WindowedContext,
 };
-use log::trace;
 
 #[cfg(target_os = "linux")]
 use glutin::platform::unix::WindowBuilderExtUnix;
@@ -33,7 +31,6 @@ use crate::{
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::Renderer,
     settings::{maybe_save_window_size, SETTINGS},
-    utils::Dimensions,
 };
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
@@ -48,8 +45,6 @@ pub struct GlutinWindowWrapper {
     mouse_manager: MouseManager,
     title: String,
     fullscreen: bool,
-    saved_inner_size: PhysicalSize<u32>,
-    saved_grid_size: Option<Dimensions>,
     ui_command_sender: LoggingTx<UiCommand>,
     window_command_receiver: Receiver<WindowCommand>,
 }
@@ -130,7 +125,9 @@ impl GlutinWindowWrapper {
                 event: WindowEvent::ScaleFactorChanged { scale_factor, .. },
                 ..
             } => {
-                self.renderer.grid_renderer.handle_scale_factor_update(scale_factor);
+                self.renderer
+                    .grid_renderer
+                    .handle_scale_factor_update(scale_factor);
             }
             Event::WindowEvent {
                 event: WindowEvent::DroppedFile(path),
@@ -158,7 +155,6 @@ impl GlutinWindowWrapper {
     }
 
     pub fn draw_frame(&mut self, dt: f32) {
-        let window = self.windowed_context.window();
         let mut font_changed = false;
 
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
@@ -166,44 +162,17 @@ impl GlutinWindowWrapper {
             self.windowed_context.swap_buffers().unwrap();
         }
 
-        // Wait until fonts are loaded, so we can set proper window size.
-        if !self.renderer.grid_renderer.is_ready {
-            return;
-        }
-
-        if self.saved_grid_size.is_none() && !window.is_maximized() {
-            let size = SETTINGS.get::<CmdLineSettings>().geometry;
-            window.set_inner_size(self.renderer.grid_renderer.convert_grid_to_physical(size));
-            self.saved_grid_size = Some(size);
-            // Font change at startup is ignored, so grid size (and startup screen) could be preserved.
-            font_changed = false;
-        }
-
-        let new_size = window.inner_size();
-
-        if self.saved_inner_size != new_size || font_changed {
-            self.saved_inner_size = new_size;
-            self.handle_new_grid_size(new_size);
-            self.renderer.skia_renderer_resize(&self.windowed_context);
-        }
-    }
-
-    fn handle_new_grid_size(&mut self, new_size: PhysicalSize<u32>) {
-        let grid_size = self
+        if let Some(new_grid_size) = self
             .renderer
-            .grid_renderer
-            .convert_physical_to_grid(new_size);
-        if self.saved_grid_size == Some(grid_size) {
-            trace!("Grid matched saved size, skip update.");
-            return;
+            .post_redraw(&self.windowed_context, font_changed)
+        {
+            self.ui_command_sender
+                .send(UiCommand::Resize {
+                    width: new_grid_size.width,
+                    height: new_grid_size.height,
+                })
+                .ok();
         }
-        self.saved_grid_size = Some(grid_size);
-        self.ui_command_sender
-            .send(UiCommand::Resize {
-                width: grid_size.width,
-                height: grid_size.height,
-            })
-            .ok();
     }
 }
 
@@ -249,10 +218,7 @@ pub fn create_window(
         .unwrap();
     let windowed_context = unsafe { windowed_context.make_current().unwrap() };
 
-    let window = windowed_context.window();
-
     let renderer = Renderer::new(batched_draw_command_receiver, &windowed_context);
-    let saved_inner_size = window.inner_size();
 
     let mut window_wrapper = GlutinWindowWrapper {
         windowed_context,
@@ -261,8 +227,6 @@ pub fn create_window(
         mouse_manager: MouseManager::new(ui_command_sender.clone()),
         title: String::from("Neovide"),
         fullscreen: false,
-        saved_inner_size,
-        saved_grid_size: None,
         ui_command_sender,
         window_command_receiver,
     };
@@ -271,7 +235,7 @@ pub fn create_window(
 
     event_loop.run(move |e, _window_target, control_flow| {
         if !running.load(Ordering::Relaxed) {
-            maybe_save_window_size(window_wrapper.saved_grid_size);
+            maybe_save_window_size(window_wrapper.renderer.saved_grid_size);
             std::process::exit(0);
         }
 
