@@ -1,6 +1,5 @@
 mod keyboard_manager;
 mod mouse_manager;
-mod renderer;
 
 use std::{
     sync::{
@@ -39,13 +38,11 @@ use crate::{
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
 use mouse_manager::MouseManager;
-use renderer::SkiaRenderer;
 
 static ICON: &[u8] = include_bytes!("../../../assets/neovide.ico");
 
 pub struct GlutinWindowWrapper {
     windowed_context: WindowedContext<glutin::PossiblyCurrent>,
-    skia_renderer: SkiaRenderer,
     renderer: Renderer,
     keyboard_manager: KeyboardManager,
     mouse_manager: MouseManager,
@@ -133,7 +130,7 @@ impl GlutinWindowWrapper {
                 event: WindowEvent::ScaleFactorChanged { scale_factor, .. },
                 ..
             } => {
-                self.handle_scale_factor_update(scale_factor);
+                self.renderer.grid_renderer.handle_scale_factor_update(scale_factor);
             }
             Event::WindowEvent {
                 event: WindowEvent::DroppedFile(path),
@@ -165,8 +162,7 @@ impl GlutinWindowWrapper {
         let mut font_changed = false;
 
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
-            font_changed = self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
-            self.skia_renderer.gr_context.flush(None);
+            font_changed = self.renderer.draw_frame(dt);
             self.windowed_context.swap_buffers().unwrap();
         }
 
@@ -188,7 +184,7 @@ impl GlutinWindowWrapper {
         if self.saved_inner_size != new_size || font_changed {
             self.saved_inner_size = new_size;
             self.handle_new_grid_size(new_size);
-            self.skia_renderer.resize(&self.windowed_context);
+            self.renderer.skia_renderer_resize(&self.windowed_context);
         }
     }
 
@@ -208,12 +204,6 @@ impl GlutinWindowWrapper {
                 height: grid_size.height,
             })
             .ok();
-    }
-
-    fn handle_scale_factor_update(&mut self, scale_factor: f64) {
-        self.renderer
-            .grid_renderer
-            .handle_scale_factor_update(scale_factor);
     }
 }
 
@@ -261,21 +251,11 @@ pub fn create_window(
 
     let window = windowed_context.window();
 
-    let scale_factor = windowed_context.window().scale_factor();
-    let renderer = Renderer::new(batched_draw_command_receiver, scale_factor);
+    let renderer = Renderer::new(batched_draw_command_receiver, &windowed_context);
     let saved_inner_size = window.inner_size();
-
-    let skia_renderer = SkiaRenderer::new(&windowed_context);
-
-    log::info!(
-        "window created (scale_factor: {:.4}, font_dimensions: {:?})",
-        scale_factor,
-        renderer.grid_renderer.font_dimensions,
-    );
 
     let mut window_wrapper = GlutinWindowWrapper {
         windowed_context,
-        skia_renderer,
         renderer,
         keyboard_manager: KeyboardManager::new(ui_command_sender.clone()),
         mouse_manager: MouseManager::new(ui_command_sender.clone()),

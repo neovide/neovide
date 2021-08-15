@@ -3,11 +3,13 @@ pub mod cursor_renderer;
 mod fonts;
 pub mod grid_renderer;
 mod rendered_window;
+mod skia_renderer;
 
 use std::collections::{hash_map::Entry, HashMap};
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 
+use glutin::{PossiblyCurrent, WindowedContext};
 use log::error;
 use skia_safe::Canvas;
 
@@ -18,6 +20,7 @@ use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
 pub use rendered_window::{RenderedWindow, WindowDrawDetails};
+use skia_renderer::SkiaRenderer;
 
 #[derive(SettingGroup, Clone)]
 pub struct RendererSettings {
@@ -49,16 +52,24 @@ pub struct Renderer {
     pub window_regions: Vec<WindowDrawDetails>,
 
     pub batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
+    skia_renderer: SkiaRenderer,
 }
 
 impl Renderer {
     pub fn new(
         batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
-        scale_factor: f64,
+        windowed_context: &WindowedContext<PossiblyCurrent>,
     ) -> Self {
+        let scale_factor = windowed_context.window().scale_factor();
         let cursor_renderer = CursorRenderer::new();
         let grid_renderer = GridRenderer::new(scale_factor);
         let current_mode = EditorMode::Unknown(String::from(""));
+
+        log::info!(
+            "Creating Renderer (scale_factor: {:.4}, font_dimensions: {:?})",
+            scale_factor,
+            grid_renderer.font_dimensions,
+        );
 
         let rendered_windows = HashMap::new();
         let window_regions = Vec::new();
@@ -70,6 +81,7 @@ impl Renderer {
             current_mode,
             window_regions,
             batched_draw_command_receiver,
+            skia_renderer: SkiaRenderer::new(&windowed_context),
         }
     }
 
@@ -78,7 +90,7 @@ impl Renderer {
     /// # Returns
     /// `bool` indicating whether or not font was changed during this frame.
     #[allow(clippy::needless_collect)]
-    pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32) -> bool {
+    pub fn draw_frame(&mut self, dt: f32) -> bool {
         let draw_commands: Vec<_> = self
             .batched_draw_command_receiver
             .try_iter() // Iterator of Vec of DrawCommand
@@ -86,6 +98,7 @@ impl Renderer {
             .flatten() // Iterator of DrawCommand
             .collect();
         let mut font_changed = false;
+        let root_canvas = self.skia_renderer.canvas();
 
         for draw_command in draw_commands.into_iter() {
             if let DrawCommand::FontChanged(_) = draw_command {
@@ -154,6 +167,7 @@ impl Renderer {
             .draw(&mut self.grid_renderer, &self.current_mode, root_canvas, dt);
 
         root_canvas.restore();
+        self.skia_renderer.gr_context.flush(None);
 
         font_changed
     }
@@ -208,5 +222,11 @@ impl Renderer {
             }
             _ => {}
         }
+    }
+
+    // This is temporary, until i move other parts of GlutinWindowWrapper.draw_frame into
+    // Renderer.
+    pub fn skia_renderer_resize(&mut self, windowed_context: &WindowedContext<PossiblyCurrent>) {
+        self.skia_renderer.resize(windowed_context);
     }
 }
