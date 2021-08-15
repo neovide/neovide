@@ -214,6 +214,7 @@ jobs:
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action/composite@v1
       if: always()
+      continue-on-error: true
       with:
         files: results.xml
 
