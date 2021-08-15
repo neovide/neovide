@@ -99,7 +99,7 @@ impl Renderer {
     /// # Returns
     /// `bool` indicating whether or not font was changed during this frame.
     #[allow(clippy::needless_collect)]
-    pub fn draw_frame(&mut self, dt: f32) -> bool {
+    pub fn draw_frame(&mut self, windowed_context: &WindowedContext<PossiblyCurrent>, dt: f32) -> Option<Dimensions> {
         let draw_commands: Vec<_> = self
             .batched_draw_command_receiver
             .try_iter() // Iterator of Vec of DrawCommand
@@ -109,7 +109,7 @@ impl Renderer {
         let mut font_changed = false;
         let root_canvas = self.skia_renderer.canvas();
 
-        for draw_command in draw_commands.into_iter() {
+        for draw_command in draw_commands {
             if let DrawCommand::FontChanged(_) = draw_command {
                 font_changed = true;
             }
@@ -178,7 +178,7 @@ impl Renderer {
         root_canvas.restore();
         self.skia_renderer.gr_context.flush(None);
 
-        font_changed
+        self.post_redraw(windowed_context, font_changed)
     }
 
     fn handle_draw_command(&mut self, root_canvas: &mut Canvas, draw_command: DrawCommand) {

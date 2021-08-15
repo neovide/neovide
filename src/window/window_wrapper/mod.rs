@@ -155,23 +155,16 @@ impl GlutinWindowWrapper {
     }
 
     pub fn draw_frame(&mut self, dt: f32) {
-        let mut font_changed = false;
-
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
-            font_changed = self.renderer.draw_frame(dt);
+            if let Some(new_grid_size) = self.renderer.draw_frame(&self.windowed_context, dt) {
+                self.ui_command_sender
+                    .send(UiCommand::Resize {
+                        width: new_grid_size.width,
+                        height: new_grid_size.height,
+                    })
+                    .ok();
+            }
             self.windowed_context.swap_buffers().unwrap();
-        }
-
-        if let Some(new_grid_size) = self
-            .renderer
-            .post_redraw(&self.windowed_context, font_changed)
-        {
-            self.ui_command_sender
-                .send(UiCommand::Resize {
-                    width: new_grid_size.width,
-                    height: new_grid_size.height,
-                })
-                .ok();
         }
     }
 }
