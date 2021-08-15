@@ -171,13 +171,13 @@ impl GlutinWindowWrapper {
         }
 
         // Wait until fonts are loaded, so we can set proper window size.
-        if !self.renderer.is_ready {
+        if !self.renderer.grid_renderer.is_ready {
             return;
         }
 
         if self.saved_grid_size.is_none() && !window.is_maximized() {
             let size = SETTINGS.get::<CmdLineSettings>().geometry;
-            window.set_inner_size(self.renderer.convert_grid_to_physical(size));
+            window.set_inner_size(self.renderer.grid_renderer.convert_grid_to_physical(size));
             self.saved_grid_size = Some(size);
             // Font change at startup is ignored, so grid size (and startup screen) could be preserved.
             font_changed = false;
@@ -193,7 +193,10 @@ impl GlutinWindowWrapper {
     }
 
     fn handle_new_grid_size(&mut self, new_size: PhysicalSize<u32>) {
-        let grid_size = self.renderer.convert_physical_to_grid(new_size);
+        let grid_size = self
+            .renderer
+            .grid_renderer
+            .convert_physical_to_grid(new_size);
         if self.saved_grid_size == Some(grid_size) {
             trace!("Grid matched saved size, skip update.");
             return;
@@ -208,7 +211,9 @@ impl GlutinWindowWrapper {
     }
 
     fn handle_scale_factor_update(&mut self, scale_factor: f64) {
-        self.renderer.handle_scale_factor_update(scale_factor);
+        self.renderer
+            .grid_renderer
+            .handle_scale_factor_update(scale_factor);
     }
 }
 
@@ -265,7 +270,7 @@ pub fn create_window(
     log::info!(
         "window created (scale_factor: {:.4}, font_dimensions: {:?})",
         scale_factor,
-        renderer.font_dimensions,
+        renderer.grid_renderer.font_dimensions,
     );
 
     let mut window_wrapper = GlutinWindowWrapper {
