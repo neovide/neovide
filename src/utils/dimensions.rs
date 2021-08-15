@@ -22,6 +22,9 @@ macro_rules! impl_from_tuple_to_dimensions {
     };
 }
 
+impl_from_tuple_to_dimensions!(u64);
+impl_from_tuple_to_dimensions!(f32);
+
 macro_rules! impl_from_dimensions_to_tuple {
     ($type:ty) => {
         impl From<Dimensions> for ($type, $type) {
@@ -31,9 +34,6 @@ macro_rules! impl_from_dimensions_to_tuple {
         }
     };
 }
-
-impl_from_tuple_to_dimensions!(u64);
-impl_from_tuple_to_dimensions!(f32);
 
 impl_from_dimensions_to_tuple!(u64);
 impl_from_dimensions_to_tuple!(u32);

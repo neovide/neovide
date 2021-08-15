@@ -8,7 +8,7 @@ use skia_safe::{
 };
 
 use super::animation_utils::*;
-use super::{Renderer, RendererSettings};
+use super::{GridRenderer, RendererSettings};
 use crate::editor::WindowDrawCommand;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::utils::Dimensions;
@@ -40,14 +40,16 @@ fn build_window_surface(parent_canvas: &mut Canvas, pixel_size: (i32, i32)) -> S
 
 fn build_window_surface_with_grid_size(
     parent_canvas: &mut Canvas,
-    renderer: &Renderer,
+    grid_renderer: &GridRenderer,
     grid_size: Dimensions,
 ) -> Surface {
-    let mut surface =
-        build_window_surface(parent_canvas, (grid_size * renderer.font_dimensions).into());
+    let mut surface = build_window_surface(
+        parent_canvas,
+        (grid_size * grid_renderer.font_dimensions).into(),
+    );
 
     let canvas = surface.canvas();
-    canvas.clear(renderer.get_default_background());
+    canvas.clear(grid_renderer.get_default_background());
     surface
 }
 
@@ -64,11 +66,11 @@ pub struct LocatedSurface {
 impl LocatedSurface {
     fn new(
         parent_canvas: &mut Canvas,
-        renderer: &Renderer,
+        grid_renderer: &GridRenderer,
         grid_size: Dimensions,
         top_line: u64,
     ) -> LocatedSurface {
-        let surface = build_window_surface_with_grid_size(parent_canvas, renderer, grid_size);
+        let surface = build_window_surface_with_grid_size(parent_canvas, grid_renderer, grid_size);
 
         LocatedSurface { surface, top_line }
     }
@@ -113,12 +115,12 @@ pub struct WindowDrawDetails {
 impl RenderedWindow {
     pub fn new(
         parent_canvas: &mut Canvas,
-        renderer: &Renderer,
+        grid_renderer: &GridRenderer,
         id: u64,
         grid_position: Point,
         grid_size: Dimensions,
     ) -> RenderedWindow {
-        let current_surface = LocatedSurface::new(parent_canvas, renderer, grid_size, 0);
+        let current_surface = LocatedSurface::new(parent_canvas, grid_renderer, grid_size, 0);
 
         RenderedWindow {
             snapshots: VecDeque::new(),
@@ -279,10 +281,10 @@ impl RenderedWindow {
     }
 
     pub fn handle_window_draw_command(
-        mut self,
-        renderer: &mut Renderer,
+        &mut self,
+        grid_renderer: &mut GridRenderer,
         draw_command: WindowDrawCommand,
-    ) -> Self {
+    ) {
         match draw_command {
             WindowDrawCommand::Position {
                 grid_position: (grid_left, grid_top),
@@ -308,19 +310,19 @@ impl RenderedWindow {
                 }
 
                 if self.grid_size != new_grid_size {
-                    let mut old_surface = self.current_surface.surface;
-                    self.current_surface.surface = build_window_surface_with_grid_size(
-                        old_surface.canvas(),
-                        renderer,
+                    let mut new_surface = build_window_surface_with_grid_size(
+                        self.current_surface.surface.canvas(),
+                        grid_renderer,
                         new_grid_size,
                     );
-                    old_surface.draw(
-                        self.current_surface.surface.canvas(),
+                    self.current_surface.surface.draw(
+                        new_surface.canvas(),
                         (0.0, 0.0),
                         SamplingOptions::default(),
                         None,
                     );
 
+                    self.current_surface.surface = new_surface;
                     self.grid_size = new_grid_size;
                 }
 
@@ -344,8 +346,8 @@ impl RenderedWindow {
                 let canvas = self.current_surface.surface.canvas();
 
                 canvas.save();
-                renderer.draw_background(canvas, grid_position, width, &style);
-                renderer.draw_foreground(canvas, &cells, grid_position, width, &style);
+                grid_renderer.draw_background(canvas, grid_position, width, &style);
+                grid_renderer.draw_foreground(canvas, &cells, grid_position, width, &style);
                 canvas.restore();
             }
             WindowDrawCommand::Scroll {
@@ -359,7 +361,7 @@ impl RenderedWindow {
                 let Dimensions {
                     width: font_width,
                     height: font_height,
-                } = renderer.font_dimensions;
+                } = grid_renderer.font_dimensions;
                 let scrolled_region = Rect::new(
                     (left * font_width) as f32,
                     (top * font_height) as f32,
@@ -383,7 +385,7 @@ impl RenderedWindow {
                     snapshot,
                     Some((&scrolled_region, SrcRectConstraint::Fast)),
                     translated_region,
-                    &renderer.paint,
+                    &grid_renderer.paint,
                 );
 
                 canvas.restore();
@@ -391,7 +393,7 @@ impl RenderedWindow {
             WindowDrawCommand::Clear => {
                 self.current_surface.surface = build_window_surface_with_grid_size(
                     self.current_surface.surface.canvas(),
-                    renderer,
+                    grid_renderer,
                     self.grid_size,
                 );
 
@@ -424,7 +426,5 @@ impl RenderedWindow {
             }
             _ => {}
         };
-
-        self
     }
 }

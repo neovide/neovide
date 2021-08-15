@@ -1,22 +1,22 @@
 pub mod animation_utils;
 pub mod cursor_renderer;
 mod fonts;
+pub mod grid_renderer;
 mod rendered_window;
 
-use std::collections::HashMap;
+use std::collections::{hash_map::Entry, HashMap};
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 
-use glutin::dpi::PhysicalSize;
-use log::{error, trace};
-use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect, HSV};
+use log::error;
+use skia_safe::Canvas;
 
 use crate::bridge::EditorMode;
-use crate::editor::{Colors, DrawCommand, Style, WindowDrawCommand};
+use crate::editor::{DrawCommand, WindowDrawCommand};
 use crate::settings::*;
-use crate::utils::Dimensions;
 use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
+pub use grid_renderer::GridRenderer;
 pub use rendered_window::{RenderedWindow, WindowDrawDetails};
 
 #[derive(SettingGroup, Clone)]
@@ -41,238 +41,35 @@ impl Default for RendererSettings {
 }
 
 pub struct Renderer {
-    rendered_windows: HashMap<u64, RenderedWindow>,
     cursor_renderer: CursorRenderer,
+    pub grid_renderer: GridRenderer,
     current_mode: EditorMode,
-    pub paint: Paint,
-    pub shaper: CachingShaper,
-    pub default_style: Arc<Style>,
-    pub font_dimensions: Dimensions,
+
+    rendered_windows: HashMap<u64, RenderedWindow>,
     pub window_regions: Vec<WindowDrawDetails>,
+
     pub batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
-    pub is_ready: bool,
 }
 
 impl Renderer {
     pub fn new(
         batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
         scale_factor: f64,
-    ) -> Renderer {
-        let rendered_windows = HashMap::new();
+    ) -> Self {
         let cursor_renderer = CursorRenderer::new();
-
+        let grid_renderer = GridRenderer::new(scale_factor);
         let current_mode = EditorMode::Unknown(String::from(""));
-        let mut paint = Paint::new(colors::WHITE, None);
-        paint.set_anti_alias(false);
-        let mut shaper = CachingShaper::new(scale_factor as f32);
-        let font_dimensions: Dimensions = shaper.font_base_dimensions().into();
-        let default_style = Arc::new(Style::new(Colors::new(
-            Some(colors::WHITE),
-            Some(colors::BLACK),
-            Some(colors::GREY),
-        )));
+
+        let rendered_windows = HashMap::new();
         let window_regions = Vec::new();
 
         Renderer {
             rendered_windows,
             cursor_renderer,
+            grid_renderer,
             current_mode,
-            paint,
-            shaper,
-            default_style,
-            font_dimensions,
             window_regions,
             batched_draw_command_receiver,
-            is_ready: false,
-        }
-    }
-
-    /// Convert PhysicalSize to grid size
-    pub fn convert_physical_to_grid(&self, physical: PhysicalSize<u32>) -> Dimensions {
-        Dimensions::from(physical) / self.font_dimensions
-    }
-
-    /// Convert grid size to PhysicalSize
-    pub fn convert_grid_to_physical(&self, grid: Dimensions) -> PhysicalSize<u32> {
-        (grid * self.font_dimensions).into()
-    }
-
-    pub fn handle_scale_factor_update(&mut self, scale_factor: f64) {
-        self.shaper.update_scale_factor(scale_factor as f32);
-        self.update_font_dimensions();
-    }
-
-    fn update_font(&mut self, guifont_setting: &str) {
-        self.shaper.update_font(guifont_setting);
-        self.update_font_dimensions();
-    }
-
-    fn update_font_dimensions(&mut self) {
-        self.font_dimensions = self.shaper.font_base_dimensions().into();
-        self.is_ready = true;
-        trace!("Updated font dimensions: {:?}", self.font_dimensions,);
-    }
-
-    fn compute_text_region(&self, grid_position: (u64, u64), cell_width: u64) -> Rect {
-        let (x, y) = grid_position * self.font_dimensions;
-        let width = cell_width * self.font_dimensions.width;
-        let height = self.font_dimensions.height;
-        Rect::new(x as f32, y as f32, (x + width) as f32, (y + height) as f32)
-    }
-
-    fn get_default_background(&self) -> Color {
-        self.default_style.colors.background.unwrap().to_color()
-    }
-
-    fn draw_background(
-        &mut self,
-        canvas: &mut Canvas,
-        grid_position: (u64, u64),
-        cell_width: u64,
-        style: &Option<Arc<Style>>,
-    ) {
-        self.paint.set_blend_mode(BlendMode::Src);
-
-        let region = self.compute_text_region(grid_position, cell_width);
-        let style = style.as_ref().unwrap_or(&self.default_style);
-
-        if SETTINGS.get::<RendererSettings>().debug_renderer {
-            let random_hsv: HSV = (rand::random::<f32>() * 360.0, 0.3, 0.3).into();
-            let random_color = random_hsv.to_color(255);
-            self.paint.set_color(random_color);
-        } else {
-            self.paint
-                .set_color(style.background(&self.default_style.colors).to_color());
-        }
-        canvas.draw_rect(region, &self.paint);
-    }
-
-    fn draw_foreground(
-        &mut self,
-        canvas: &mut Canvas,
-        cells: &[String],
-        grid_position: (u64, u64),
-        cell_width: u64,
-        style: &Option<Arc<Style>>,
-    ) {
-        let (x, y) = grid_position * self.font_dimensions;
-        let width = cell_width * self.font_dimensions.width;
-
-        let style = style.as_ref().unwrap_or(&self.default_style);
-
-        canvas.save();
-
-        let region = self.compute_text_region(grid_position, cell_width);
-
-        canvas.clip_rect(region, None, Some(false));
-
-        if style.underline || style.undercurl {
-            let line_position = self.shaper.underline_position();
-            let stroke_width = self.shaper.current_size() / 10.0;
-
-            self.paint
-                .set_color(style.special(&self.default_style.colors).to_color());
-            self.paint.set_stroke_width(stroke_width);
-
-            if style.undercurl {
-                self.paint.set_path_effect(dash_path_effect::new(
-                    &[stroke_width * 2.0, stroke_width * 2.0],
-                    0.0,
-                ));
-            } else {
-                self.paint.set_path_effect(None);
-            }
-
-            canvas.draw_line(
-                (
-                    x as f32,
-                    (y - line_position + self.font_dimensions.height) as f32,
-                ),
-                (
-                    (x + width) as f32,
-                    (y - line_position + self.font_dimensions.height) as f32,
-                ),
-                &self.paint,
-            );
-        }
-
-        let y_adjustment = self.shaper.y_adjustment();
-
-        if SETTINGS.get::<RendererSettings>().debug_renderer {
-            let random_hsv: HSV = (rand::random::<f32>() * 360.0, 1.0, 1.0).into();
-            let random_color = random_hsv.to_color(255);
-            self.paint.set_color(random_color);
-        } else {
-            self.paint
-                .set_color(style.foreground(&self.default_style.colors).to_color());
-        }
-        self.paint.set_anti_alias(false);
-
-        for blob in self
-            .shaper
-            .shape_cached(cells, style.bold, style.italic)
-            .iter()
-        {
-            canvas.draw_text_blob(blob, (x as f32, (y + y_adjustment) as f32), &self.paint);
-        }
-
-        if style.strikethrough {
-            let line_position = region.center_y();
-            self.paint
-                .set_color(style.special(&self.default_style.colors).to_color());
-            canvas.draw_line(
-                (x as f32, line_position),
-                ((x + width) as f32, line_position),
-                &self.paint,
-            );
-        }
-
-        canvas.restore();
-    }
-
-    fn handle_draw_command(&mut self, root_canvas: &mut Canvas, draw_command: DrawCommand) {
-        match draw_command {
-            DrawCommand::Window {
-                grid_id,
-                command: WindowDrawCommand::Close,
-            } => {
-                self.rendered_windows.remove(&grid_id);
-            }
-            DrawCommand::Window { grid_id, command } => {
-                if let Some(rendered_window) = self.rendered_windows.remove(&grid_id) {
-                    let rendered_window = rendered_window.handle_window_draw_command(self, command);
-                    self.rendered_windows.insert(grid_id, rendered_window);
-                } else if let WindowDrawCommand::Position {
-                    grid_position: (grid_left, grid_top),
-                    grid_size: (width, height),
-                    ..
-                } = command
-                {
-                    let new_window = RenderedWindow::new(
-                        root_canvas,
-                        self,
-                        grid_id,
-                        (grid_left as f32, grid_top as f32).into(),
-                        (width, height).into(),
-                    );
-                    self.rendered_windows.insert(grid_id, new_window);
-                } else {
-                    error!("WindowDrawCommand sent for uninitialized grid {}", grid_id);
-                }
-            }
-            DrawCommand::UpdateCursor(new_cursor) => {
-                self.cursor_renderer.update_cursor(new_cursor);
-            }
-            DrawCommand::FontChanged(new_font) => {
-                self.update_font(&new_font);
-            }
-            DrawCommand::DefaultStyleChanged(new_style) => {
-                self.default_style = Arc::new(new_style);
-            }
-            DrawCommand::ModeChanged(new_mode) => {
-                self.current_mode = new_mode;
-            }
-            _ => {}
         }
     }
 
@@ -297,16 +94,17 @@ impl Renderer {
             self.handle_draw_command(root_canvas, draw_command);
         }
 
-        root_canvas.clear(self.default_style.colors.background.unwrap().to_color());
+        let default_background = self.grid_renderer.get_default_background();
+        let font_dimensions = self.grid_renderer.font_dimensions;
+
+        root_canvas.clear(default_background);
         root_canvas.save();
         root_canvas.reset_matrix();
 
         if let Some(root_window) = self.rendered_windows.get(&1) {
-            let clip_rect = root_window.pixel_region(self.font_dimensions);
+            let clip_rect = root_window.pixel_region(font_dimensions);
             root_canvas.clip_rect(&clip_rect, None, Some(false));
         }
-
-        let default_background = self.get_default_background();
 
         let windows: Vec<&mut RenderedWindow> = {
             let (mut root_windows, mut floating_windows): (
@@ -335,7 +133,6 @@ impl Renderer {
         };
 
         let settings = SETTINGS.get::<RendererSettings>();
-        let font_dimensions = self.font_dimensions;
         self.window_regions = windows
             .into_iter()
             .map(|window| {
@@ -353,17 +150,63 @@ impl Renderer {
         self.cursor_renderer
             .update_cursor_destination(font_dimensions.into(), windows);
 
-        self.cursor_renderer.draw(
-            &self.default_style.colors,
-            font_dimensions.into(),
-            &self.current_mode,
-            &mut self.shaper,
-            root_canvas,
-            dt,
-        );
+        self.cursor_renderer
+            .draw(&mut self.grid_renderer, &self.current_mode, root_canvas, dt);
 
         root_canvas.restore();
 
         font_changed
+    }
+
+    fn handle_draw_command(&mut self, root_canvas: &mut Canvas, draw_command: DrawCommand) {
+        match draw_command {
+            DrawCommand::Window {
+                grid_id,
+                command: WindowDrawCommand::Close,
+            } => {
+                self.rendered_windows.remove(&grid_id);
+            }
+            DrawCommand::Window { grid_id, command } => {
+                match self.rendered_windows.entry(grid_id) {
+                    Entry::Occupied(mut occupied_entry) => {
+                        let rendered_window = occupied_entry.get_mut();
+                        rendered_window
+                            .handle_window_draw_command(&mut self.grid_renderer, command);
+                    }
+                    Entry::Vacant(vacant_entry) => {
+                        if let WindowDrawCommand::Position {
+                            grid_position: (grid_left, grid_top),
+                            grid_size: (width, height),
+                            ..
+                        } = command
+                        {
+                            let new_window = RenderedWindow::new(
+                                root_canvas,
+                                &self.grid_renderer,
+                                grid_id,
+                                (grid_left as f32, grid_top as f32).into(),
+                                (width, height).into(),
+                            );
+                            vacant_entry.insert(new_window);
+                        } else {
+                            error!("WindowDrawCommand sent for uninitialized grid {}", grid_id);
+                        }
+                    }
+                }
+            }
+            DrawCommand::UpdateCursor(new_cursor) => {
+                self.cursor_renderer.update_cursor(new_cursor);
+            }
+            DrawCommand::FontChanged(new_font) => {
+                self.grid_renderer.update_font(&new_font);
+            }
+            DrawCommand::DefaultStyleChanged(new_style) => {
+                self.grid_renderer.default_style = Arc::new(new_style);
+            }
+            DrawCommand::ModeChanged(new_mode) => {
+                self.current_mode = new_mode;
+            }
+            _ => {}
+        }
     }
 }

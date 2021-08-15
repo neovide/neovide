@@ -113,18 +113,26 @@ impl MouseManager {
         let global_bounds = relevant_window_details
             .map(|details| details.region)
             .unwrap_or_else(|| Rect::from_wh(size.width as f32, size.height as f32));
-        let clamped_position =
-            clamp_position(position, global_bounds, renderer.font_dimensions.into());
+        let clamped_position = clamp_position(
+            position,
+            global_bounds,
+            renderer.grid_renderer.font_dimensions.into(),
+        );
 
-        self.position = to_grid_coords(clamped_position, renderer.font_dimensions.into());
+        self.position = to_grid_coords(
+            clamped_position,
+            renderer.grid_renderer.font_dimensions.into(),
+        );
 
         if let Some(relevant_window_details) = relevant_window_details {
             let relative_position = PhysicalPosition::new(
                 clamped_position.x - relevant_window_details.region.left,
                 clamped_position.y - relevant_window_details.region.top,
             );
-            self.relative_position =
-                to_grid_coords(relative_position, renderer.font_dimensions.into());
+            self.relative_position = to_grid_coords(
+                relative_position,
+                renderer.grid_renderer.font_dimensions.into(),
+            );
 
             let previous_position = self.drag_position;
             // Until https://github.com/neovim/neovim/pull/12667 is merged, we have to special
@@ -288,7 +296,7 @@ impl MouseManager {
                     },
                 ..
             } => self.handle_pixel_scroll(
-                renderer.font_dimensions.into(),
+                renderer.grid_renderer.font_dimensions.into(),
                 (delta.x as f32, delta.y as f32),
             ),
             Event::WindowEvent {
