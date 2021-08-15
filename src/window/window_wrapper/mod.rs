@@ -30,6 +30,7 @@ use crate::{
     editor::WindowCommand,
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::Renderer,
+    renderer::skia_renderer::SkiaRenderer,
     settings::{maybe_save_window_size, SETTINGS},
 };
 use image::{load_from_memory, GenericImageView, Pixel};
@@ -47,6 +48,7 @@ pub struct GlutinWindowWrapper {
     fullscreen: bool,
     ui_command_sender: LoggingTx<UiCommand>,
     window_command_receiver: Receiver<WindowCommand>,
+    skia_renderer: SkiaRenderer,
 }
 
 impl GlutinWindowWrapper {
@@ -156,7 +158,11 @@ impl GlutinWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
-            if let Some(new_grid_size) = self.renderer.draw_frame(&self.windowed_context, dt) {
+            let root_canvas = self.skia_renderer.canvas();
+            let r = self.renderer.draw_frame(root_canvas, &self.windowed_context, dt);
+            self.skia_renderer.gr_context.flush(None);
+            if let Some(new_grid_size) = r {
+                self.skia_renderer.resize(&self.windowed_context);
                 self.ui_command_sender
                     .send(UiCommand::Resize {
                         width: new_grid_size.width,
@@ -164,7 +170,6 @@ impl GlutinWindowWrapper {
                     })
                     .ok();
             }
-            self.windowed_context.swap_buffers().unwrap();
         }
     }
 }
@@ -212,6 +217,7 @@ pub fn create_window(
     let windowed_context = unsafe { windowed_context.make_current().unwrap() };
 
     let renderer = Renderer::new(batched_draw_command_receiver, &windowed_context);
+    let skia_renderer = SkiaRenderer::new(&windowed_context);
 
     let mut window_wrapper = GlutinWindowWrapper {
         windowed_context,
@@ -222,6 +228,7 @@ pub fn create_window(
         fullscreen: false,
         ui_command_sender,
         window_command_receiver,
+        skia_renderer,
     };
 
     let mut previous_frame_start = Instant::now();

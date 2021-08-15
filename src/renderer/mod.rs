@@ -3,7 +3,7 @@ pub mod cursor_renderer;
 mod fonts;
 pub mod grid_renderer;
 mod rendered_window;
-mod skia_renderer;
+pub mod skia_renderer;
 
 use std::collections::{hash_map::Entry, HashMap};
 use std::sync::mpsc::Receiver;
@@ -23,7 +23,6 @@ use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
 pub use rendered_window::{RenderedWindow, WindowDrawDetails};
-use skia_renderer::SkiaRenderer;
 
 #[derive(SettingGroup, Clone)]
 pub struct RendererSettings {
@@ -56,7 +55,6 @@ pub struct Renderer {
 
     pub batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
     pub saved_grid_size: Option<Dimensions>,
-    skia_renderer: SkiaRenderer,
 
     saved_inner_size: PhysicalSize<u32>,
 }
@@ -90,7 +88,6 @@ impl Renderer {
             batched_draw_command_receiver,
             saved_inner_size: window.inner_size(),
             saved_grid_size: None,
-            skia_renderer: SkiaRenderer::new(&windowed_context),
         }
     }
 
@@ -99,7 +96,7 @@ impl Renderer {
     /// # Returns
     /// `bool` indicating whether or not font was changed during this frame.
     #[allow(clippy::needless_collect)]
-    pub fn draw_frame(&mut self, windowed_context: &WindowedContext<PossiblyCurrent>, dt: f32) -> Option<Dimensions> {
+    pub fn draw_frame(&mut self, root_canvas: &mut Canvas, windowed_context: &WindowedContext<PossiblyCurrent>, dt: f32) -> Option<Dimensions> {
         let draw_commands: Vec<_> = self
             .batched_draw_command_receiver
             .try_iter() // Iterator of Vec of DrawCommand
@@ -107,7 +104,6 @@ impl Renderer {
             .flatten() // Iterator of DrawCommand
             .collect();
         let mut font_changed = false;
-        let root_canvas = self.skia_renderer.canvas();
 
         for draw_command in draw_commands {
             if let DrawCommand::FontChanged(_) = draw_command {
@@ -176,7 +172,8 @@ impl Renderer {
             .draw(&mut self.grid_renderer, &self.current_mode, root_canvas, dt);
 
         root_canvas.restore();
-        self.skia_renderer.gr_context.flush(None);
+
+        windowed_context.swap_buffers().unwrap();
 
         self.post_redraw(windowed_context, font_changed)
     }
@@ -253,14 +250,12 @@ impl Renderer {
         }
 
         let new_size = window.inner_size();
-        let mut retval = None;
 
         if self.saved_inner_size != new_size || font_changed {
             self.saved_inner_size = new_size;
-            retval = self.handle_new_grid_size(new_size);
-            self.skia_renderer.resize(windowed_context);
+            return self.handle_new_grid_size(new_size);
         }
-        retval
+        None
     }
 
     fn handle_new_grid_size(&mut self, new_size: PhysicalSize<u32>) -> Option<Dimensions> {
