@@ -175,8 +175,8 @@ impl GlutinWindowWrapper {
             return;
         }
 
-        if self.saved_grid_size.is_none() && !window.is_maximized() {
-            let settings = SETTINGS.get::<CmdLineSettings>();
+        let settings = SETTINGS.get::<CmdLineSettings>();
+        if self.saved_grid_size.is_none() && !settings.maximized {
             window.set_inner_size(
                 self.renderer
                     .grid_renderer
@@ -185,7 +185,7 @@ impl GlutinWindowWrapper {
             self.saved_grid_size = Some(settings.geometry);
             // Font change at startup is ignored, so grid size (and startup screen) could be preserved.
             // But only when --maximize is not used. With maximized window we should redraw grid.
-            font_changed = settings.maximized;
+            font_changed = false;
         }
 
         let new_size = window.inner_size();
