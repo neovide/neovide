@@ -36,7 +36,7 @@ fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
         cmd.args(&[
             bin.trim(),
             "-c",
-            "let \\$PATH=system(\"bash -ic 'echo \\$PATH' 2>/dev/null\")",
+            "let \\$PATH=system(\"\\$SHELL -lic 'echo \\$PATH' 2>/dev/null\")",
         ]);
         Some(cmd)
     } else if Path::new(&bin).exists() {
@@ -66,7 +66,7 @@ fn build_nvim_cmd() -> Command {
     #[cfg(windows)]
     if SETTINGS.get::<CmdLineSettings>().wsl {
         if let Ok(output) = std::process::Command::new("wsl")
-            .args(&["bash", "-ic", "which nvim"])
+            .args(&["$SHELL", "-lic", "which nvim"])
             .output()
         {
             if output.status.success() {
@@ -75,7 +75,7 @@ fn build_nvim_cmd() -> Command {
                 cmd.args(&[
                     path.trim(),
                     "-c",
-                    "let \\$PATH=system(\"bash -ic 'echo \\$PATH' 2>/dev/null\")",
+                    "let \\$PATH=system(\"\\$SHELL -lic 'echo \\$PATH' 2>/dev/null\")",
                 ]);
                 return cmd;
             } else {
