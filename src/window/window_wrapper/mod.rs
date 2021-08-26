@@ -230,6 +230,7 @@ pub fn start_loop(
         .with_inner_size(logical_size)
         .with_window_icon(Some(icon))
         .with_maximized(SETTINGS.get::<CmdLineSettings>().maximized)
+        .with_transparent(true)
         .with_decorations(!SETTINGS.get::<CmdLineSettings>().frameless);
 
     let windowed_context = ContextBuilder::new()
