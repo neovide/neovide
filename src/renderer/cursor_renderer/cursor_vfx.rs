@@ -2,8 +2,8 @@ use log::error;
 use skia_safe::{paint::Style, BlendMode, Canvas, Color, Paint, Point, Rect};
 
 use super::CursorSettings;
-use crate::editor::{Colors, Cursor};
-use crate::renderer::animation_utils::*;
+use crate::editor::Cursor;
+use crate::renderer::{animation_utils::*, grid_renderer::GridRenderer};
 use crate::settings::*;
 
 pub trait CursorVfx {
@@ -11,7 +11,7 @@ pub trait CursorVfx {
         &mut self,
         settings: &CursorSettings,
         current_cursor_destination: Point,
-        font_size: (u64, u64),
+        cursor_dimensions: Point,
         dt: f32,
     ) -> bool;
     fn restart(&mut self, position: Point);
@@ -19,9 +19,8 @@ pub trait CursorVfx {
         &self,
         settings: &CursorSettings,
         canvas: &mut Canvas,
+        grid_renderer: &mut GridRenderer,
         cursor: &Cursor,
-        colors: &Colors,
-        font_size: (u64, u64),
     );
 }
 
@@ -111,7 +110,7 @@ impl CursorVfx for PointHighlight {
         &mut self,
         _settings: &CursorSettings,
         _current_cursor_destination: Point,
-        _font_size: (u64, u64),
+        _cursor_dimensions: Point,
         dt: f32,
     ) -> bool {
         self.t = (self.t + dt * 5.0).min(1.0); // TODO - speed config
@@ -127,9 +126,8 @@ impl CursorVfx for PointHighlight {
         &self,
         settings: &CursorSettings,
         canvas: &mut Canvas,
+        grid_renderer: &mut GridRenderer,
         cursor: &Cursor,
-        colors: &Colors,
-        font_size: (u64, u64),
     ) {
         if (self.t - 1.0).abs() < std::f32::EPSILON {
             return;
@@ -138,13 +136,15 @@ impl CursorVfx for PointHighlight {
         let mut paint = Paint::new(skia_safe::colors::WHITE, None);
         paint.set_blend_mode(BlendMode::SrcOver);
 
+        let colors = &grid_renderer.default_style.colors;
         let base_color: Color = cursor.background(colors).to_color();
         let alpha = ease(ease_in_quad, settings.vfx_opacity, 0.0, self.t) as u8;
         let color = Color::from_argb(alpha, base_color.r(), base_color.g(), base_color.b());
 
         paint.set_color(color);
 
-        let size = 3 * font_size.1;
+        let cursor_height = grid_renderer.font_dimensions.height;
+        let size = 3 * cursor_height;
         let radius = self.t * size as f32;
         let hr = radius * 0.5;
         let rect = Rect::from_xywh(
@@ -160,12 +160,12 @@ impl CursorVfx for PointHighlight {
             }
             HighlightMode::Ripple => {
                 paint.set_style(Style::Stroke);
-                paint.set_stroke_width(font_size.1 as f32 * 0.2);
+                paint.set_stroke_width(cursor_height as f32 * 0.2);
                 canvas.draw_oval(&rect, &paint);
             }
             HighlightMode::Wireframe => {
                 paint.set_style(Style::Stroke);
-                paint.set_stroke_width(font_size.1 as f32 * 0.2);
+                paint.set_stroke_width(cursor_height as f32 * 0.2);
                 canvas.draw_rect(&rect, &paint);
             }
         }
@@ -218,7 +218,7 @@ impl CursorVfx for ParticleTrail {
         &mut self,
         settings: &CursorSettings,
         current_cursor_dest: Point,
-        font_size: (u64, u64),
+        cursor_dimensions: Point,
         dt: f32,
     ) -> bool {
         // Update lifetimes and remove dead particles
@@ -246,7 +246,7 @@ impl CursorVfx for ParticleTrail {
             let travel_distance = travel.length();
 
             // Increase amount of particles when cursor travels further
-            let particle_count = ((travel_distance / font_size.0 as f32).powf(1.5)
+            let particle_count = ((travel_distance / cursor_dimensions.y as f32).powf(1.5)
                 * settings.vfx_particle_density
                 * 0.01) as usize;
 
@@ -259,7 +259,7 @@ impl CursorVfx for ParticleTrail {
                     TrailMode::Railgun => {
                         let phase = t / std::f32::consts::PI
                             * settings.vfx_particle_phase
-                            * (travel_distance / font_size.0 as f32);
+                            * (travel_distance / cursor_dimensions.y as f32);
                         Point::new(phase.sin(), phase.cos()) * 2.0 * settings.vfx_particle_speed
                     }
                     TrailMode::Torpedo => {
@@ -282,7 +282,7 @@ impl CursorVfx for ParticleTrail {
                     TrailMode::PixieDust | TrailMode::Torpedo => {
                         prev_p
                             + travel * self.rng.next_f32()
-                            + Point::new(0.0, font_size.1 as f32 * 0.5)
+                            + Point::new(0.0, cursor_dimensions.y as f32 * 0.5)
                     }
                 };
 
@@ -316,19 +316,20 @@ impl CursorVfx for ParticleTrail {
         &self,
         settings: &CursorSettings,
         canvas: &mut Canvas,
+        grid_renderer: &mut GridRenderer,
         cursor: &Cursor,
-        colors: &Colors,
-        font_size: (u64, u64),
     ) {
         let mut paint = Paint::new(skia_safe::colors::WHITE, None);
+        let font_dimensions = grid_renderer.font_dimensions;
         match self.trail_mode {
             TrailMode::Torpedo | TrailMode::Railgun => {
                 paint.set_style(Style::Stroke);
-                paint.set_stroke_width(font_size.1 as f32 * 0.2);
+                paint.set_stroke_width(font_dimensions.height as f32 * 0.2);
             }
             _ => {}
         }
 
+        let colors = &grid_renderer.default_style.colors;
         let base_color: Color = cursor.background(colors).to_color();
 
         paint.set_blend_mode(BlendMode::SrcOver);
@@ -340,8 +341,10 @@ impl CursorVfx for ParticleTrail {
             paint.set_color(color);
 
             let radius = match self.trail_mode {
-                TrailMode::Torpedo | TrailMode::Railgun => font_size.0 as f32 * 0.5 * lifetime,
-                TrailMode::PixieDust => font_size.0 as f32 * 0.2,
+                TrailMode::Torpedo | TrailMode::Railgun => {
+                    font_dimensions.width as f32 * 0.5 * lifetime
+                }
+                TrailMode::PixieDust => font_dimensions.width as f32 * 0.2,
             };
 
             let hr = radius * 0.5;

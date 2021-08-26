@@ -8,8 +8,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::thread;
 
-use crossfire::mpsc::RxUnbounded;
 use log::{error, trace};
+use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::bridge::{EditorMode, GuiOption, RedrawEvent, WindowAnchor};
 use crate::channel_utils::*;
@@ -20,7 +20,7 @@ pub use grid::CharacterGrid;
 pub use style::{Colors, Style};
 pub use window::*;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct AnchorInfo {
     pub anchor_grid_id: u64,
     pub anchor_type: WindowAnchor,
@@ -236,17 +236,15 @@ impl Editor {
     }
 
     fn resize_window(&mut self, grid: u64, width: u64, height: u64) {
-        trace!("editor resize {}", grid);
         if let Some(window) = self.windows.get_mut(&grid) {
-            window.resize(width, height);
+            window.resize((width, height));
         } else {
             let window = Window::new(
                 grid,
-                width,
-                height,
+                WindowType::Editor,
                 None,
-                0.0,
-                0.0,
+                (0.0, 0.0),
+                (width, height),
                 self.draw_command_batcher.clone(),
             );
             self.windows.insert(grid, window);
@@ -262,16 +260,15 @@ impl Editor {
         height: u64,
     ) {
         if let Some(window) = self.windows.get_mut(&grid) {
-            window.position(width, height, None, start_left as f64, start_top as f64);
+            window.position(None, (width, height), (start_left as f64, start_top as f64));
             window.show();
         } else {
             let new_window = Window::new(
                 grid,
-                width,
-                height,
+                WindowType::Editor,
                 None,
-                start_left as f64,
-                start_top as f64,
+                (start_left as f64, start_top as f64),
+                (width, height),
                 self.draw_command_batcher.clone(),
             );
             self.windows.insert(grid, new_window);
@@ -300,8 +297,6 @@ impl Editor {
             }
 
             window.position(
-                width,
-                height,
                 Some(AnchorInfo {
                     anchor_grid_id: anchor_grid,
                     anchor_type,
@@ -309,8 +304,8 @@ impl Editor {
                     anchor_top,
                     sort_order: sort_order.unwrap_or(grid),
                 }),
-                modified_left,
-                modified_top,
+                (width, height),
+                (modified_left, modified_top),
             );
             window.show();
         } else {
@@ -334,22 +329,20 @@ impl Editor {
         };
 
         if let Some(window) = self.windows.get_mut(&grid) {
+            window.window_type = WindowType::Message;
             window.position(
-                parent_width,
-                window.get_height(),
                 Some(anchor_info),
-                0.0,
-                grid_top as f64,
+                (parent_width, window.get_height()),
+                (0.0, grid_top as f64),
             );
             window.show();
         } else {
             let new_window = Window::new(
                 grid,
-                parent_width,
-                1,
+                WindowType::Message,
                 Some(anchor_info),
-                0.0,
-                grid_top as f64,
+                (0.0, grid_top as f64),
+                (parent_width, 1),
                 self.draw_command_batcher.clone(),
             );
             self.windows.insert(grid, new_window);
@@ -383,6 +376,29 @@ impl Editor {
     }
 
     fn set_cursor_position(&mut self, grid: u64, grid_left: u64, grid_top: u64) {
+        if let Some(Window {
+            window_type: WindowType::Message,
+            ..
+        }) = self.windows.get(&grid)
+        {
+            // When the user presses ":" to type a command, the cursor is sent to the gutter
+            // in position 1 (right after the ":"). In all other cases, we want to skip
+            // positioning to avoid confusing movements.
+            let intentional = grid_left == 1;
+            // If the cursor was already in this message, we can still move within it.
+            let already_there = self.cursor.parent_window_id == grid;
+
+            if !intentional && !already_there {
+                trace!(
+                    "Cursor unexpectedly sent to message buffer {} ({}, {})",
+                    grid,
+                    grid_left,
+                    grid_top
+                );
+                return;
+            }
+        }
+
         self.cursor.parent_window_id = grid;
         self.cursor.grid_position = (grid_left, grid_top);
     }
@@ -424,14 +440,14 @@ impl Editor {
 }
 
 pub fn start_editor(
-    redraw_event_receiver: RxUnbounded<RedrawEvent>,
+    mut redraw_event_receiver: UnboundedReceiver<RedrawEvent>,
     batched_draw_command_sender: LoggingSender<Vec<DrawCommand>>,
     window_command_sender: LoggingSender<WindowCommand>,
 ) {
     thread::spawn(move || {
         let mut editor = Editor::new(batched_draw_command_sender, window_command_sender);
 
-        while let Ok(redraw_event) = redraw_event_receiver.recv_blocking() {
+        while let Some(redraw_event) = redraw_event_receiver.blocking_recv() {
             editor.handle_redraw_event(redraw_event);
         }
     });

@@ -13,26 +13,35 @@ use std::{
 
 use glutin::{
     self,
-    dpi::{LogicalPosition, LogicalSize, PhysicalSize},
+    dpi::PhysicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{self, Fullscreen, Icon},
     ContextBuilder, GlProfile, WindowedContext,
 };
+use log::trace;
 
-use super::{handle_new_grid_size, settings::WindowSettings};
+#[cfg(target_os = "linux")]
+use glutin::platform::unix::WindowBuilderExtUnix;
+
+use super::settings::WindowSettings;
 use crate::{
-    bridge::UiCommand, channel_utils::*, cmd_line::CmdLineSettings, editor::WindowCommand,
-    redraw_scheduler::REDRAW_SCHEDULER, renderer::Renderer, settings::SETTINGS,
+    bridge::UiCommand,
+    channel_utils::*,
+    cmd_line::CmdLineSettings,
+    editor::DrawCommand,
+    editor::WindowCommand,
+    redraw_scheduler::REDRAW_SCHEDULER,
+    renderer::Renderer,
+    settings::{maybe_save_window_size, SETTINGS},
+    utils::Dimensions,
 };
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
 use mouse_manager::MouseManager;
 use renderer::SkiaRenderer;
 
-#[derive(RustEmbed)]
-#[folder = "assets/"]
-struct Asset;
+static ICON: &[u8] = include_bytes!("../../../assets/neovide.ico");
 
 pub struct GlutinWindowWrapper {
     windowed_context: WindowedContext<glutin::PossiblyCurrent>,
@@ -41,10 +50,9 @@ pub struct GlutinWindowWrapper {
     keyboard_manager: KeyboardManager,
     mouse_manager: MouseManager,
     title: String,
-    previous_size: PhysicalSize<u32>,
     fullscreen: bool,
-    cached_size: LogicalSize<u32>,
-    cached_position: LogicalPosition<u32>,
+    saved_inner_size: PhysicalSize<u32>,
+    saved_grid_size: Option<Dimensions>,
     ui_command_sender: LoggingTx<UiCommand>,
     window_command_receiver: Receiver<WindowCommand>,
 }
@@ -54,22 +62,7 @@ impl GlutinWindowWrapper {
         let window = self.windowed_context.window();
         if self.fullscreen {
             window.set_fullscreen(None);
-
-            // Use cached size and position
-            window.set_inner_size(LogicalSize::new(
-                self.cached_size.width,
-                self.cached_size.height,
-            ));
-            window.set_outer_position(LogicalPosition::new(
-                self.cached_position.x,
-                self.cached_position.y,
-            ));
         } else {
-            let current_size = window.inner_size();
-            self.cached_size = LogicalSize::new(current_size.width, current_size.height);
-            let current_position = window.outer_position().unwrap();
-            self.cached_position =
-                LogicalPosition::new(current_position.x as u32, current_position.y as u32);
             let handle = window.current_monitor();
             window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
         }
@@ -137,6 +130,12 @@ impl GlutinWindowWrapper {
                 self.handle_quit(running);
             }
             Event::WindowEvent {
+                event: WindowEvent::ScaleFactorChanged { scale_factor, .. },
+                ..
+            } => {
+                self.handle_scale_factor_update(scale_factor);
+            }
+            Event::WindowEvent {
                 event: WindowEvent::DroppedFile(path),
                 ..
             } => {
@@ -163,56 +162,74 @@ impl GlutinWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         let window = self.windowed_context.window();
-        let new_size = window.inner_size();
-        if self.previous_size != new_size {
-            self.previous_size = new_size;
-            let new_size: LogicalSize<u32> = new_size.to_logical(window.scale_factor());
-            handle_new_grid_size(
-                (new_size.width as u64, new_size.height as u64),
-                &self.renderer,
-                &self.ui_command_sender,
-            );
-            self.skia_renderer.resize(&self.windowed_context);
-        }
-
-        let current_size = self.previous_size;
-        let ui_command_sender = self.ui_command_sender.clone();
+        let mut font_changed = false;
 
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
-            log::debug!("Render Triggered");
-
-            let scaling = 1.0 / self.windowed_context.window().scale_factor();
-            let renderer = &mut self.renderer;
-
-            {
-                let canvas = self.skia_renderer.canvas();
-
-                if renderer.draw_frame(canvas, dt, scaling as f32) {
-                    handle_new_grid_size(
-                        (current_size.width as u64, current_size.height as u64),
-                        renderer,
-                        &ui_command_sender,
-                    );
-                }
-            }
-
+            font_changed = self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
             self.skia_renderer.gr_context.flush(None);
-
             self.windowed_context.swap_buffers().unwrap();
         }
+
+        // Wait until fonts are loaded, so we can set proper window size.
+        if !self.renderer.grid_renderer.is_ready {
+            return;
+        }
+
+        let settings = SETTINGS.get::<CmdLineSettings>();
+        if self.saved_grid_size.is_none() && !settings.maximized {
+            window.set_inner_size(
+                self.renderer
+                    .grid_renderer
+                    .convert_grid_to_physical(settings.geometry),
+            );
+            self.saved_grid_size = Some(settings.geometry);
+            // Font change at startup is ignored, so grid size (and startup screen) could be preserved.
+            // But only when --maximize is not used. With maximized window we should redraw grid.
+            font_changed = false;
+        }
+
+        let new_size = window.inner_size();
+
+        if self.saved_inner_size != new_size || font_changed {
+            self.saved_inner_size = new_size;
+            self.handle_new_grid_size(new_size);
+            self.skia_renderer.resize(&self.windowed_context);
+        }
+    }
+
+    fn handle_new_grid_size(&mut self, new_size: PhysicalSize<u32>) {
+        let grid_size = self
+            .renderer
+            .grid_renderer
+            .convert_physical_to_grid(new_size);
+        if self.saved_grid_size == Some(grid_size) {
+            trace!("Grid matched saved size, skip update.");
+            return;
+        }
+        self.saved_grid_size = Some(grid_size);
+        self.ui_command_sender
+            .send(UiCommand::Resize {
+                width: grid_size.width,
+                height: grid_size.height,
+            })
+            .ok();
+    }
+
+    fn handle_scale_factor_update(&mut self, scale_factor: f64) {
+        self.renderer
+            .grid_renderer
+            .handle_scale_factor_update(scale_factor);
     }
 }
 
-pub fn start_loop(
+pub fn create_window(
+    batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
     window_command_receiver: Receiver<WindowCommand>,
     ui_command_sender: LoggingTx<UiCommand>,
     running: Arc<AtomicBool>,
-    logical_size: (u64, u64),
-    renderer: Renderer,
 ) {
     let icon = {
-        let icon_data = Asset::get("nvim.ico").expect("Failed to read icon data");
-        let icon = load_from_memory(&icon_data).expect("Failed to parse icon data");
+        let icon = load_from_memory(ICON).expect("Failed to parse icon data");
         let (width, height) = icon.dimensions();
         let mut rgba = Vec::with_capacity((width * height) as usize * 4);
         for (_, _, pixel) in icon.pixels() {
@@ -220,18 +237,23 @@ pub fn start_loop(
         }
         Icon::from_rgba(rgba, width, height).expect("Failed to create icon object")
     };
-    log::info!("icon created");
 
     let event_loop = EventLoop::new();
-    let (width, height) = logical_size;
-    let logical_size: LogicalSize<u32> = (width as u32, height as u32).into();
+
     let winit_window_builder = window::WindowBuilder::new()
         .with_title("Neovide")
-        .with_inner_size(logical_size)
         .with_window_icon(Some(icon))
         .with_maximized(SETTINGS.get::<CmdLineSettings>().maximized)
         .with_transparent(true)
         .with_decorations(!SETTINGS.get::<CmdLineSettings>().frameless);
+
+    #[cfg(target_os = "linux")]
+    let winit_window_builder = winit_window_builder
+        .with_app_id(SETTINGS.get::<CmdLineSettings>().wayland_app_id)
+        .with_class(
+            "neovide".to_string(),
+            SETTINGS.get::<CmdLineSettings>().x11_wm_class,
+        );
 
     let windowed_context = ContextBuilder::new()
         .with_pixel_format(24, 8)
@@ -242,11 +264,20 @@ pub fn start_loop(
         .build_windowed(winit_window_builder, &event_loop)
         .unwrap();
     let windowed_context = unsafe { windowed_context.make_current().unwrap() };
-    let previous_size = logical_size.to_physical(windowed_context.window().scale_factor());
 
-    log::info!("window created");
+    let window = windowed_context.window();
+
+    let scale_factor = windowed_context.window().scale_factor();
+    let renderer = Renderer::new(batched_draw_command_receiver, scale_factor);
+    let saved_inner_size = window.inner_size();
 
     let skia_renderer = SkiaRenderer::new(&windowed_context);
+
+    log::info!(
+        "window created (scale_factor: {:.4}, font_dimensions: {:?})",
+        scale_factor,
+        renderer.grid_renderer.font_dimensions,
+    );
 
     let mut window_wrapper = GlutinWindowWrapper {
         windowed_context,
@@ -255,10 +286,9 @@ pub fn start_loop(
         keyboard_manager: KeyboardManager::new(ui_command_sender.clone()),
         mouse_manager: MouseManager::new(ui_command_sender.clone()),
         title: String::from("Neovide"),
-        previous_size,
         fullscreen: false,
-        cached_size: LogicalSize::new(0, 0),
-        cached_position: LogicalPosition::new(0, 0),
+        saved_inner_size,
+        saved_grid_size: None,
         ui_command_sender,
         window_command_receiver,
     };
@@ -267,6 +297,7 @@ pub fn start_loop(
 
     event_loop.run(move |e, _window_target, control_flow| {
         if !running.load(Ordering::Relaxed) {
+            maybe_save_window_size(window_wrapper.saved_grid_size);
             std::process::exit(0);
         }
 

@@ -6,12 +6,11 @@ use std::collections::HashMap;
 // use neovide_derive::SettingGroup;
 use skia_safe::{Canvas, Paint, Path, Point};
 
-use super::RenderedWindow;
+use super::{GridRenderer, RenderedWindow};
 use crate::bridge::EditorMode;
-use crate::editor::{Colors, Cursor, CursorShape};
+use crate::editor::{Cursor, CursorShape};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::renderer::animation_utils::*;
-use crate::renderer::CachingShaper;
 use crate::settings::{FromValue, SETTINGS};
 
 use blink::*;
@@ -228,8 +227,7 @@ impl CursorRenderer {
 
     pub fn update_cursor_destination(
         &mut self,
-        font_width: u64,
-        font_height: u64,
+        (font_width, font_height): (u64, u64),
         windows: &HashMap<u64, RenderedWindow>,
     ) {
         let (cursor_grid_x, cursor_grid_y) = self.cursor.grid_position;
@@ -244,7 +242,7 @@ impl CursorRenderer {
             // grid position.
             grid_y = grid_y
                 .max(window.grid_current_position.y)
-                .min(window.grid_current_position.y + window.grid_height as f32 - 1.0);
+                .min(window.grid_current_position.y + window.grid_size.height as f32 - 1.0);
 
             self.destination = (grid_x * font_width as f32, grid_y * font_height as f32).into();
         } else {
@@ -258,14 +256,11 @@ impl CursorRenderer {
 
     pub fn draw(
         &mut self,
-        default_colors: &Colors,
-        font_size: (u64, u64),
+        grid_renderer: &mut GridRenderer,
         current_mode: &EditorMode,
-        shaper: &mut CachingShaper,
         canvas: &mut Canvas,
         dt: f32,
     ) {
-        let (font_width, font_height) = font_size;
         let render = self.blink_status.update_status(&self.cursor);
         let settings = SETTINGS.get::<CursorSettings>();
 
@@ -279,19 +274,23 @@ impl CursorRenderer {
 
         let character = self.cursor.character.clone();
 
-        let font_width = match (self.cursor.double_width, &self.cursor.shape) {
-            (true, CursorShape::Block) => font_width * 2,
-            _ => font_width,
-        };
+        let mut cursor_width = grid_renderer.font_dimensions.width;
+        if self.cursor.double_width && self.cursor.shape == CursorShape::Block {
+            cursor_width *= 2;
+        }
 
-        let font_dimensions: Point = (font_width as f32, font_height as f32).into();
+        let cursor_dimensions: Point = (
+            cursor_width as f32,
+            grid_renderer.font_dimensions.height as f32,
+        )
+            .into();
 
         let in_insert_mode = matches!(current_mode, EditorMode::Insert);
 
         let changed_to_from_cmdline = !matches!(self.previous_editor_mode, EditorMode::CmdLine)
             ^ matches!(current_mode, EditorMode::CmdLine);
 
-        let center_destination = self.destination + font_dimensions * 0.5;
+        let center_destination = self.destination + cursor_dimensions * 0.5;
         let new_cursor = Some(self.cursor.shape.clone());
 
         if self.previous_cursor_shape != new_cursor {
@@ -317,7 +316,7 @@ impl CursorRenderer {
 
                 let corner_animating = corner.update(
                     &settings,
-                    font_dimensions,
+                    cursor_dimensions,
                     center_destination,
                     dt,
                     immediate_movement,
@@ -327,7 +326,7 @@ impl CursorRenderer {
             }
 
             let vfx_animating = if let Some(vfx) = self.cursor_vfx.as_mut() {
-                vfx.update(&settings, center_destination, (font_width, font_height), dt)
+                vfx.update(&settings, center_destination, cursor_dimensions, dt)
             } else {
                 false
             };
@@ -343,7 +342,11 @@ impl CursorRenderer {
 
         if self.cursor.enabled && render {
             // Draw Background
-            paint.set_color(self.cursor.background(default_colors).to_color());
+            let background_color = self
+                .cursor
+                .background(&grid_renderer.default_style.colors)
+                .to_color();
+            paint.set_color(background_color);
 
             // The cursor is made up of four points, so I create a path with each of the four
             // corners.
@@ -358,13 +361,19 @@ impl CursorRenderer {
             canvas.draw_path(&path, &paint);
 
             // Draw foreground
-            paint.set_color(self.cursor.foreground(default_colors).to_color());
+            let foreground_color = self
+                .cursor
+                .foreground(&grid_renderer.default_style.colors)
+                .to_color();
+            paint.set_color(foreground_color);
 
             canvas.save();
             canvas.clip_path(&path, None, Some(false));
 
-            let y_adjustment = shaper.y_adjustment();
-            let blobs = &shaper.shape_cached(&[character], false, false);
+            let y_adjustment = grid_renderer.shaper.y_adjustment();
+            let blobs = &grid_renderer
+                .shaper
+                .shape_cached(&[character], false, false);
 
             for blob in blobs.iter() {
                 canvas.draw_text_blob(
@@ -377,13 +386,7 @@ impl CursorRenderer {
             canvas.restore();
 
             if let Some(vfx) = self.cursor_vfx.as_ref() {
-                vfx.render(
-                    &settings,
-                    canvas,
-                    &self.cursor,
-                    default_colors,
-                    (font_width, font_height),
-                );
+                vfx.render(&settings, canvas, grid_renderer, &self.cursor);
             }
         }
     }

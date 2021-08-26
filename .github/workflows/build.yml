@@ -15,7 +15,7 @@ jobs:
       with:
         profile: minimal
         toolchain: nightly
-        components: rustfmt, clippy
+        components: rustfmt
         override: true
 
     - name: Install Utilities
@@ -27,10 +27,6 @@ jobs:
     - name: Check Formatting
       run: |
         cargo fmt --all -- --check
-
-    - name: Lint with Clippy
-      run: |
-        cargo clippy --all -- -D warnings
 
     - name: Install Neovim
       run: |
@@ -52,11 +48,16 @@ jobs:
     - name: Build Release
       run: |
         cargo build --release
+        
+    - name: Archive Windows artifact
+      run: |
+        powershell rm ./target/release/neovide.zip
+        powershell Compress-Archive ./target/release/neovide.exe ./target/release/neovide.zip 
 
     - uses: actions/upload-artifact@v1
       with:
-        name: neovide-windows.exe
-        path: ./target/release/neovide.exe
+        name: neovide-windows.zip
+        path: ./target/release/neovide.zip
 
   build-mac:
 
@@ -70,7 +71,7 @@ jobs:
       with:
         profile: minimal
         toolchain: nightly
-        components: rustfmt, clippy
+        components: rustfmt
         override: true
 
     - name: Install Utilities
@@ -82,10 +83,6 @@ jobs:
     - name: Check Formatting
       run: |
         cargo fmt --all -- --check
-
-    - name: Lint with Clippy
-      run: |
-        cargo clippy --all -- -D warnings
 
     - name: Uninstall Conflicting LLVM
       run: |
@@ -135,7 +132,7 @@ jobs:
       with:
         profile: minimal
         toolchain: nightly
-        components: rustfmt, clippy
+        components: rustfmt
         override: true
 
     - name: Install Utilities
@@ -147,14 +144,10 @@ jobs:
     - name: Install Dependencies
       run:  |
         sudo apt-get install -y curl gnupg ca-certificates git gcc-multilib g++-multilib cmake libssl-dev pkg-config libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev libxi-dev
-        
+
     - name: Check Formatting
       run: |
         cargo fmt --all -- --check
-
-    - name: Lint with Clippy
-      run: |
-        cargo clippy --all -- -D warnings
 
     - name: Install Neovim
       run: |
@@ -175,11 +168,15 @@ jobs:
     - name: Build Release
       run: |
         cargo build --release
+        
+    - name: Archive Linux artifact
+      run: |
+        tar czvf ./target/release/neovide.tar.gz ./target/release/neovide
 
     - uses: actions/upload-artifact@v1
       with:
-        name: neovide-linux
-        path: ./target/release/neovide
+        name: neovide-linux.tar.gz
+        path: ./target/release/neovide.tar.gz
 
   build-m1:
 
@@ -193,7 +190,7 @@ jobs:
       with:
         profile: minimal
         toolchain: nightly
-        components: rustfmt, clippy
+        components: rustfmt
         override: true
 
     - name: Install Utilities
@@ -204,13 +201,9 @@ jobs:
       run: |
         cargo fmt --all -- --check
 
-    - name: Lint with Clippy
-      run: |
-        cargo clippy --all -- -D warnings
-
     - name: Install Neovim
       run: |
-        brew install neovim
+        arch -arm64 brew install neovim
 
     - name: Test
       env:
@@ -221,6 +214,7 @@ jobs:
     - name: Publish Test Results
       uses: EnricoMi/publish-unit-test-result-action/composite@v1
       if: always()
+      continue-on-error: true
       with:
         files: results.xml
 

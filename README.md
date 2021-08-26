@@ -1,6 +1,6 @@
 # Neovide [![Gitter](https://badges.gitter.im/neovide/community.svg)](https://gitter.im/neovide/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge) [![Discussions](https://img.shields.io/badge/GitHub-Discussions-green?logo=github)](https://github.com/Kethku/neovide/discussions)
 
-This is a simple graphical user interface for [Neovim](https://github.com/neovim/neovim) (an aggressively refactored and updated 
+This is a simple graphical user interface for [Neovim](https://github.com/neovim/neovim) (an aggressively refactored and updated
 Vim editor). Where possible there are some graphical improvements, but functionally it should act like the terminal UI.
 
 ![Basic Screen Cap](./assets/BasicScreenCap.png)
@@ -18,7 +18,7 @@ Should be a standard fully featured Neovim GUI. Beyond that there are some visua
 
 ### Ligatures
 
-Supports ligatures and full [HarfBuzz](https://www.freedesktop.org/wiki/Software/HarfBuzz/) backed font shaping.
+Supports ligatures and font shaping.
 
 ![Ligatures](./assets/Ligatures.png)
 
@@ -32,7 +32,7 @@ Cursor animates into position with a smear effect to improve tracking of cursor 
 
 Scroll operations on buffers in neovim will be animated smoothly pixel wise rather than line by line at a time. Note, multigrid must be
 enabled for this to work.
-https://github.com/Kethku/neovide/wiki/Configuration#multiGrid
+https://github.com/Kethku/neovide/wiki/Configuration#multigrid
 
 ![Smooth Scrolling](./assets/SmoothScrolling.gif)
 
@@ -40,7 +40,7 @@ https://github.com/Kethku/neovide/wiki/Configuration#multiGrid
 
 Windows animate into position when they are moved making it easier to see how layout changes happen. Note, multigrid must be enabled for
 this to work.
-https://github.com/Kethku/neovide/wiki/Configuration#multiGrid
+https://github.com/Kethku/neovide/wiki/Configuration#multigrid
 
 ![Animated Windows](./assets/AnimatedWindows.gif)
 
@@ -48,7 +48,7 @@ https://github.com/Kethku/neovide/wiki/Configuration#multiGrid
 
 The backgrounds of floating windows are blurred improving the visual separation between foreground and background from
 built in window transparency. Note, multigrid must be enabled for this to work.
-https://github.com/Kethku/neovide/wiki/Configuration#multiGrid
+https://github.com/Kethku/neovide/wiki/Configuration#multigrid
 
 ![Blurred Floating Windows](./assets/BlurredFloatingWindows.png)
 
@@ -199,7 +199,7 @@ sed "$REGEX" PKGBUILD
 makepkg -si
 ```
 #### With Snap
-Neovide is also available in the Snap Store. You can install it 
+Neovide is also available in the Snap Store. You can install it
 using the command below.
 
 ```

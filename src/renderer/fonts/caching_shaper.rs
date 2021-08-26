@@ -12,8 +12,6 @@ use unicode_segmentation::UnicodeSegmentation;
 use super::font_loader::*;
 use super::font_options::*;
 
-const DEFAULT_FONT_SIZE: f32 = 14.0;
-
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {
     pub cells: Vec<String>,
@@ -22,53 +20,70 @@ struct ShapeKey {
 }
 
 pub struct CachingShaper {
-    pub options: Option<FontOptions>,
+    options: FontOptions,
     font_loader: FontLoader,
     blob_cache: LruCache<ShapeKey, Vec<TextBlob>>,
     shape_context: ShapeContext,
+    scale_factor: f32,
 }
 
 impl CachingShaper {
-    pub fn new() -> CachingShaper {
+    pub fn new(scale_factor: f32) -> CachingShaper {
+        let options = FontOptions::default();
+        let font_size = options.size * scale_factor;
         CachingShaper {
-            options: None,
-            font_loader: FontLoader::new(DEFAULT_FONT_SIZE),
+            options,
+            font_loader: FontLoader::new(font_size),
             blob_cache: LruCache::new(10000),
             shape_context: ShapeContext::new(),
+            scale_factor,
         }
     }
 
     fn current_font_pair(&mut self) -> Arc<FontPair> {
-        let font_key = self
-            .options
-            .as_ref()
-            .map(|options| options.fallback_list.first().unwrap().clone().into())
-            .unwrap_or(FontKey::Default);
+        let default_key = FontKey::default();
+        let font_key = FontKey::from(&self.options);
+
+        if let Some(font_pair) = self.font_loader.get_or_load(&font_key) {
+            return font_pair;
+        }
 
         self.font_loader
-            .get_or_load(&font_key)
+            .get_or_load(&default_key)
             .expect("Could not load font")
     }
 
     pub fn current_size(&self) -> f32 {
-        self.options
-            .as_ref()
-            .map(|options| options.size)
-            .unwrap_or(DEFAULT_FONT_SIZE)
+        self.options.size * self.scale_factor
     }
 
-    pub fn update_font(&mut self, guifont_setting: &str) -> bool {
-        let new_options = FontOptions::parse(guifont_setting, DEFAULT_FONT_SIZE);
+    pub fn update_scale_factor(&mut self, scale_factor: f32) {
+        trace!("scale_factor changed: {:.2}", scale_factor);
+        self.scale_factor = scale_factor;
+        self.reset_font_loader();
+    }
 
-        if new_options != self.options && new_options.is_some() {
-            self.font_loader = FontLoader::new(new_options.as_ref().unwrap().size);
-            self.blob_cache.clear();
-            self.options = new_options;
+    pub fn update_font(&mut self, guifont_setting: &str) {
+        trace!("Updating font: {}", guifont_setting);
 
-            true
+        let options = FontOptions::parse(guifont_setting);
+        let font_key = FontKey::from(&options);
+
+        if self.font_loader.get_or_load(&font_key).is_some() {
+            trace!("Font updated to: {}", guifont_setting);
+            self.options = options;
+            self.reset_font_loader();
         } else {
-            false
+            trace!("Font can't be updated to: {}", guifont_setting);
         }
+    }
+
+    fn reset_font_loader(&mut self) {
+        let font_size = self.options.size * self.scale_factor;
+        trace!("Using font_size: {:.2}px", font_size);
+
+        self.font_loader = FontLoader::new(font_size);
+        self.blob_cache.clear();
     }
 
     fn metrics(&mut self) -> Metrics {
@@ -97,10 +112,15 @@ impl CachingShaper {
 
     pub fn y_adjustment(&mut self) -> u64 {
         let metrics = self.metrics();
-        (metrics.ascent + metrics.leading) as u64
+        (metrics.ascent + metrics.leading).ceil() as u64
     }
 
-    fn build_clusters(&mut self, text: &str) -> Vec<(Vec<CharCluster>, Arc<FontPair>)> {
+    fn build_clusters(
+        &mut self,
+        text: &str,
+        bold: bool,
+        italic: bool,
+    ) -> Vec<(Vec<CharCluster>, Arc<FontPair>)> {
         let mut cluster = CharCluster::new();
 
         // Enumerate the characters storing the glyph index in the user data so that we can position
@@ -132,23 +152,33 @@ impl CachingShaper {
             // Create font fallback list
             let mut font_fallback_keys = Vec::new();
 
-            // Add guifont fallback list
-            if let Some(options) = &self.options {
-                font_fallback_keys.extend(
-                    options
-                        .fallback_list
-                        .iter()
-                        .map(|font_name| font_name.into()),
-                );
-            }
+            // Add parsed fonts from guifont
+            font_fallback_keys.extend(self.options.font_list.iter().map(|font_name| FontKey {
+                italic: self.options.italic || italic,
+                bold: self.options.bold || bold,
+                font_selection: font_name.into(),
+            }));
+
             // Add default font
-            font_fallback_keys.push(FontKey::Default);
+            font_fallback_keys.push(FontKey {
+                italic: self.options.italic || italic,
+                bold: self.options.bold || bold,
+                font_selection: FontSelection::Default,
+            });
 
             // Add skia fallback
-            font_fallback_keys.push(cluster.chars()[0].ch.into());
+            font_fallback_keys.push(FontKey {
+                italic,
+                bold,
+                font_selection: cluster.chars()[0].ch.into(),
+            });
 
             // Add last resort
-            font_fallback_keys.push(FontKey::LastResort);
+            font_fallback_keys.push(FontKey {
+                italic: false,
+                bold: false,
+                font_selection: FontSelection::LastResort,
+            });
 
             let mut best = None;
             // Use the cluster.map function to select a viable font from the fallback list
@@ -199,16 +229,16 @@ impl CachingShaper {
         grouped_results
     }
 
-    pub fn shape(&mut self, cells: &[String]) -> Vec<TextBlob> {
+    pub fn shape(&mut self, cells: &[String], bold: bool, italic: bool) -> Vec<TextBlob> {
         let current_size = self.current_size();
-        let (glyph_width, _) = self.font_base_dimensions();
+        let (glyph_width, ..) = self.font_base_dimensions();
 
         let mut resulting_blobs = Vec::new();
 
         let text = cells.concat();
         trace!("Shaping text: {}", text);
 
-        for (cluster_group, font_pair) in self.build_clusters(&text) {
+        for (cluster_group, font_pair) in self.build_clusters(&text, bold, italic) {
             let mut shaper = self
                 .shape_context
                 .builder(font_pair.swash_font.as_ref())
@@ -225,7 +255,8 @@ impl CachingShaper {
 
             shaper.shape_with(|glyph_cluster| {
                 for glyph in glyph_cluster.glyphs {
-                    glyph_data.push((glyph.id, glyph.data as u64 * glyph_width));
+                    let position = ((glyph.data as u64 * glyph_width) as f32, glyph.y);
+                    glyph_data.push((glyph.id, position));
                 }
             });
 
@@ -235,10 +266,10 @@ impl CachingShaper {
 
             let mut blob_builder = TextBlobBuilder::new();
             let (glyphs, positions) =
-                blob_builder.alloc_run_pos_h(&font_pair.skia_font, glyph_data.len(), 0.0, None);
-            for (i, (glyph_id, glyph_x_position)) in glyph_data.iter().enumerate() {
+                blob_builder.alloc_run_pos(&font_pair.skia_font, glyph_data.len(), None);
+            for (i, (glyph_id, glyph_position)) in glyph_data.iter().enumerate() {
                 glyphs[i] = *glyph_id;
-                positions[i] = *glyph_x_position as f32;
+                positions[i] = (*glyph_position).into();
             }
 
             let blob = blob_builder.make();
@@ -252,7 +283,7 @@ impl CachingShaper {
         let key = ShapeKey::new(cells.to_vec(), bold, italic);
 
         if !self.blob_cache.contains(&key) {
-            let blobs = self.shape(cells);
+            let blobs = self.shape(cells, bold, italic);
             self.blob_cache.put(key.clone(), blobs);
         }
 

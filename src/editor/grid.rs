@@ -29,7 +29,7 @@ impl CharacterGrid {
         }
     }
 
-    pub fn resize(&mut self, width: u64, height: u64) {
+    pub fn resize(&mut self, (width, height): (u64, u64)) {
         let new_cell_count = (width * height) as usize;
         let mut new_characters = vec![default_cell!(); new_cell_count];
 
@@ -243,7 +243,7 @@ mod tests {
         character_grid.characters = vec![grid_cell.clone(); context.area];
 
         // RUN FUNCTION
-        character_grid.resize(width, height);
+        character_grid.resize((width, height));
 
         assert_eq!(character_grid.width, width);
         assert_eq!(character_grid.height, height);

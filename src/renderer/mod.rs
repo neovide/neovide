@@ -1,31 +1,31 @@
-use std::collections::HashMap;
-use std::sync::mpsc::Receiver;
-use std::sync::Arc;
-
-use log::{error, trace};
-use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect};
-
 pub mod animation_utils;
 pub mod cursor_renderer;
 mod fonts;
+pub mod grid_renderer;
 mod rendered_window;
 
-pub use fonts::caching_shaper::CachingShaper;
-pub use rendered_window::{RenderedWindow, WindowDrawDetails};
+use std::collections::{hash_map::Entry, HashMap};
+use std::sync::mpsc::Receiver;
+use std::sync::Arc;
+
+use log::error;
+use skia_safe::Canvas;
 
 use crate::bridge::EditorMode;
-use crate::editor::{Colors, DrawCommand, Style, WindowDrawCommand};
+use crate::editor::{DrawCommand, WindowDrawCommand};
 use crate::settings::*;
 use cursor_renderer::CursorRenderer;
+pub use fonts::caching_shaper::CachingShaper;
+pub use grid_renderer::GridRenderer;
+pub use rendered_window::{RenderedWindow, WindowDrawDetails};
 
-#[derive(SettingGroup)]
-#[setting_prefix = "window"]
-#[derive(Clone)]
+#[derive(SettingGroup, Clone)]
 pub struct RendererSettings {
     position_animation_length: f32,
     scroll_animation_length: f32,
     floating_opacity: f32,
     floating_blur: bool,
+    debug_renderer: bool,
 }
 
 impl Default for RendererSettings {
@@ -35,260 +35,76 @@ impl Default for RendererSettings {
             scroll_animation_length: 0.3,
             floating_opacity: 0.7,
             floating_blur: true,
+            debug_renderer: false,
         }
     }
 }
 
 pub struct Renderer {
-    rendered_windows: HashMap<u64, RenderedWindow>,
     cursor_renderer: CursorRenderer,
+    pub grid_renderer: GridRenderer,
+    current_mode: EditorMode,
 
-    pub current_mode: EditorMode,
-    pub paint: Paint,
-    pub shaper: CachingShaper,
-    pub default_style: Arc<Style>,
-    pub font_width: u64,
-    pub font_height: u64,
+    rendered_windows: HashMap<u64, RenderedWindow>,
     pub window_regions: Vec<WindowDrawDetails>,
+
     pub batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
 }
 
 impl Renderer {
-    pub fn new(batched_draw_command_receiver: Receiver<Vec<DrawCommand>>) -> Renderer {
-        let rendered_windows = HashMap::new();
+    pub fn new(
+        batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
+        scale_factor: f64,
+    ) -> Self {
         let cursor_renderer = CursorRenderer::new();
-
+        let grid_renderer = GridRenderer::new(scale_factor);
         let current_mode = EditorMode::Unknown(String::from(""));
-        let mut paint = Paint::new(colors::WHITE, None);
-        paint.set_anti_alias(false);
-        let mut shaper = CachingShaper::new();
-        let (font_width_raw, font_height_raw) = shaper.font_base_dimensions();
-        let font_width = font_width_raw;
-        let font_height = font_height_raw;
-        let default_style = Arc::new(Style::new(Colors::new(
-            Some(colors::WHITE),
-            Some(colors::BLACK),
-            Some(colors::GREY),
-        )));
+
+        let rendered_windows = HashMap::new();
         let window_regions = Vec::new();
 
         Renderer {
             rendered_windows,
             cursor_renderer,
+            grid_renderer,
             current_mode,
-            paint,
-            shaper,
-            default_style,
-            font_width,
-            font_height,
             window_regions,
             batched_draw_command_receiver,
         }
     }
 
-    fn update_font(&mut self, guifont_setting: &str) {
-        if self.shaper.update_font(guifont_setting) {
-            let (font_width, font_height) = self.shaper.font_base_dimensions();
-            self.font_width = font_width;
-            self.font_height = font_height;
-        }
-    }
-
-    fn compute_text_region(&self, grid_pos: (u64, u64), cell_width: u64) -> Rect {
-        let (grid_x, grid_y) = grid_pos;
-        let x = grid_x * self.font_width;
-        let y = grid_y * self.font_height;
-        let width = cell_width * self.font_width;
-        let height = self.font_height;
-        Rect::new(x as f32, y as f32, (x + width) as f32, (y + height) as f32)
-    }
-
-    fn get_default_background(&self) -> Color {
-        self.default_style.colors.background.unwrap().to_color()
-    }
-
-    fn draw_background(
-        &mut self,
-        canvas: &mut Canvas,
-        grid_pos: (u64, u64),
-        cell_width: u64,
-        style: &Option<Arc<Style>>,
-    ) {
-        self.paint.set_blend_mode(BlendMode::Src);
-
-        let region = self.compute_text_region(grid_pos, cell_width);
-        let style = style.as_ref().unwrap_or(&self.default_style);
-
-        self.paint
-            .set_color(style.background(&self.default_style.colors).to_color());
-        canvas.draw_rect(region, &self.paint);
-    }
-
-    fn draw_foreground(
-        &mut self,
-        canvas: &mut Canvas,
-        cells: &[String],
-        grid_pos: (u64, u64),
-        cell_width: u64,
-        style: &Option<Arc<Style>>,
-    ) {
-        let (grid_x, grid_y) = grid_pos;
-        let x = grid_x * self.font_width;
-        let y = grid_y * self.font_height;
-        let width = cell_width * self.font_width;
-
-        let style = style.as_ref().unwrap_or(&self.default_style);
-
-        canvas.save();
-
-        let region = self.compute_text_region(grid_pos, cell_width);
-
-        canvas.clip_rect(region, None, Some(false));
-
-        if style.underline || style.undercurl {
-            let line_position = self.shaper.underline_position();
-            let stroke_width = self.shaper.current_size() / 10.0;
-            self.paint
-                .set_color(style.special(&self.default_style.colors).to_color());
-            self.paint.set_stroke_width(stroke_width);
-
-            if style.undercurl {
-                self.paint.set_path_effect(dash_path_effect::new(
-                    &[stroke_width * 2.0, stroke_width * 2.0],
-                    0.0,
-                ));
-            } else {
-                self.paint.set_path_effect(None);
-            }
-
-            canvas.draw_line(
-                (x as f32, (y - line_position + self.font_height) as f32),
-                (
-                    (x + width) as f32,
-                    (y - line_position + self.font_height) as f32,
-                ),
-                &self.paint,
-            );
-        }
-
-        let y_adjustment = self.shaper.y_adjustment();
-
-        self.paint
-            .set_color(style.foreground(&self.default_style.colors).to_color());
-        self.paint.set_anti_alias(false);
-
-        for blob in self
-            .shaper
-            .shape_cached(cells, style.bold, style.italic)
-            .iter()
-        {
-            canvas.draw_text_blob(blob, (x as f32, (y + y_adjustment) as f32), &self.paint);
-        }
-
-        if style.strikethrough {
-            let line_position = region.center_y();
-            self.paint
-                .set_color(style.special(&self.default_style.colors).to_color());
-            canvas.draw_line(
-                (x as f32, line_position),
-                ((x + width) as f32, line_position),
-                &self.paint,
-            );
-        }
-
-        canvas.restore();
-    }
-
-    pub fn handle_draw_command(
-        &mut self,
-        root_canvas: &mut Canvas,
-        draw_command: DrawCommand,
-        scaling: f32,
-    ) {
-        match draw_command {
-            DrawCommand::Window {
-                grid_id,
-                command: WindowDrawCommand::Close,
-            } => {
-                self.rendered_windows.remove(&grid_id);
-            }
-            DrawCommand::Window { grid_id, command } => {
-                if let Some(rendered_window) = self.rendered_windows.remove(&grid_id) {
-                    let rendered_window =
-                        rendered_window.handle_window_draw_command(self, command, scaling);
-                    self.rendered_windows.insert(grid_id, rendered_window);
-                } else if let WindowDrawCommand::Position {
-                    grid_left,
-                    grid_top,
-                    width,
-                    height,
-                    ..
-                } = command
-                {
-                    let new_window = RenderedWindow::new(
-                        root_canvas,
-                        self,
-                        grid_id,
-                        (grid_left as f32, grid_top as f32).into(),
-                        width,
-                        height,
-                        scaling,
-                    );
-                    self.rendered_windows.insert(grid_id, new_window);
-                } else {
-                    error!("WindowDrawCommand sent for uninitialized grid {}", grid_id);
-                }
-            }
-            DrawCommand::UpdateCursor(new_cursor) => {
-                self.cursor_renderer.update_cursor(new_cursor);
-            }
-            DrawCommand::FontChanged(new_font) => {
-                self.update_font(&new_font);
-            }
-            DrawCommand::DefaultStyleChanged(new_style) => {
-                self.default_style = Arc::new(new_style);
-            }
-            DrawCommand::ModeChanged(new_mode) => {
-                self.current_mode = new_mode;
-            }
-            _ => {}
-        }
-    }
-
+    /// Draws frame
+    ///
+    /// # Returns
+    /// `bool` indicating whether or not font was changed during this frame.
     #[allow(clippy::needless_collect)]
-    pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32, scaling: f32) -> bool {
-        trace!("Drawing Frame");
-        let mut font_changed = false;
-
+    pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32) -> bool {
         let draw_commands: Vec<_> = self
             .batched_draw_command_receiver
             .try_iter() // Iterator of Vec of DrawCommand
             .map(|batch| batch.into_iter()) // Iterator of Iterator of DrawCommand
             .flatten() // Iterator of DrawCommand
             .collect();
+        let mut font_changed = false;
 
         for draw_command in draw_commands.into_iter() {
             if let DrawCommand::FontChanged(_) = draw_command {
                 font_changed = true;
             }
-            self.handle_draw_command(root_canvas, draw_command, scaling);
+            self.handle_draw_command(root_canvas, draw_command);
         }
 
-        root_canvas.clear(self.default_style.colors.background.unwrap().to_color());
+        let default_background = self.grid_renderer.get_default_background();
+        let font_dimensions = self.grid_renderer.font_dimensions;
 
+        root_canvas.clear(default_background);
         root_canvas.save();
-
         root_canvas.reset_matrix();
-        root_canvas.scale((1.0 / scaling, 1.0 / scaling));
 
         if let Some(root_window) = self.rendered_windows.get(&1) {
-            let clip_rect = root_window.pixel_region(self.font_width, self.font_height);
+            let clip_rect = root_window.pixel_region(font_dimensions);
             root_canvas.clip_rect(&clip_rect, None, Some(false));
         }
-
-        let default_background = self.get_default_background();
-        let font_width = self.font_width;
-        let font_height = self.font_height;
 
         let windows: Vec<&mut RenderedWindow> = {
             let (mut root_windows, mut floating_windows): (
@@ -324,8 +140,7 @@ impl Renderer {
                     root_canvas,
                     &settings,
                     default_background,
-                    font_width,
-                    font_height,
+                    font_dimensions,
                     dt,
                 )
             })
@@ -333,19 +148,65 @@ impl Renderer {
 
         let windows = &self.rendered_windows;
         self.cursor_renderer
-            .update_cursor_destination(font_width, font_height, windows);
+            .update_cursor_destination(font_dimensions.into(), windows);
 
-        self.cursor_renderer.draw(
-            &self.default_style.colors,
-            (self.font_width, self.font_height),
-            &self.current_mode,
-            &mut self.shaper,
-            root_canvas,
-            dt,
-        );
+        self.cursor_renderer
+            .draw(&mut self.grid_renderer, &self.current_mode, root_canvas, dt);
 
         root_canvas.restore();
 
         font_changed
+    }
+
+    fn handle_draw_command(&mut self, root_canvas: &mut Canvas, draw_command: DrawCommand) {
+        match draw_command {
+            DrawCommand::Window {
+                grid_id,
+                command: WindowDrawCommand::Close,
+            } => {
+                self.rendered_windows.remove(&grid_id);
+            }
+            DrawCommand::Window { grid_id, command } => {
+                match self.rendered_windows.entry(grid_id) {
+                    Entry::Occupied(mut occupied_entry) => {
+                        let rendered_window = occupied_entry.get_mut();
+                        rendered_window
+                            .handle_window_draw_command(&mut self.grid_renderer, command);
+                    }
+                    Entry::Vacant(vacant_entry) => {
+                        if let WindowDrawCommand::Position {
+                            grid_position: (grid_left, grid_top),
+                            grid_size: (width, height),
+                            ..
+                        } = command
+                        {
+                            let new_window = RenderedWindow::new(
+                                root_canvas,
+                                &self.grid_renderer,
+                                grid_id,
+                                (grid_left as f32, grid_top as f32).into(),
+                                (width, height).into(),
+                            );
+                            vacant_entry.insert(new_window);
+                        } else {
+                            error!("WindowDrawCommand sent for uninitialized grid {}", grid_id);
+                        }
+                    }
+                }
+            }
+            DrawCommand::UpdateCursor(new_cursor) => {
+                self.cursor_renderer.update_cursor(new_cursor);
+            }
+            DrawCommand::FontChanged(new_font) => {
+                self.grid_renderer.update_font(&new_font);
+            }
+            DrawCommand::DefaultStyleChanged(new_style) => {
+                self.grid_renderer.default_style = Arc::new(new_style);
+            }
+            DrawCommand::ModeChanged(new_mode) => {
+                self.current_mode = new_mode;
+            }
+            _ => {}
+        }
     }
 }

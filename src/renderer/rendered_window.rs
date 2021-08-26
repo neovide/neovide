@@ -8,21 +8,17 @@ use skia_safe::{
 };
 
 use super::animation_utils::*;
-use super::{Renderer, RendererSettings};
+use super::{GridRenderer, RendererSettings};
 use crate::editor::WindowDrawCommand;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
+use crate::utils::Dimensions;
 
-fn build_window_surface(
-    parent_canvas: &mut Canvas,
-    pixel_width: u64,
-    pixel_height: u64,
-) -> Surface {
-    let dimensions = (pixel_width as i32, pixel_height as i32);
+fn build_window_surface(parent_canvas: &mut Canvas, pixel_size: (i32, i32)) -> Surface {
     let mut context = parent_canvas.recording_context().unwrap();
     let budgeted = Budgeted::Yes;
     let parent_image_info = parent_canvas.image_info();
     let image_info = ImageInfo::new(
-        dimensions,
+        pixel_size,
         parent_image_info.color_type(),
         parent_image_info.alpha_type(),
         parent_image_info.color_space(),
@@ -44,17 +40,16 @@ fn build_window_surface(
 
 fn build_window_surface_with_grid_size(
     parent_canvas: &mut Canvas,
-    renderer: &Renderer,
-    grid_width: u64,
-    grid_height: u64,
-    scaling: f32,
+    grid_renderer: &GridRenderer,
+    grid_size: Dimensions,
 ) -> Surface {
-    let pixel_width = ((grid_width * renderer.font_width) as f32 / scaling) as u64;
-    let pixel_height = ((grid_height * renderer.font_height) as f32 / scaling) as u64;
-    let mut surface = build_window_surface(parent_canvas, pixel_width, pixel_height);
+    let mut surface = build_window_surface(
+        parent_canvas,
+        (grid_size * grid_renderer.font_dimensions).into(),
+    );
 
     let canvas = surface.canvas();
-    canvas.clear(renderer.get_default_background());
+    canvas.clear(grid_renderer.get_default_background());
     surface
 }
 
@@ -71,19 +66,11 @@ pub struct LocatedSurface {
 impl LocatedSurface {
     fn new(
         parent_canvas: &mut Canvas,
-        renderer: &Renderer,
-        grid_width: u64,
-        grid_height: u64,
+        grid_renderer: &GridRenderer,
+        grid_size: Dimensions,
         top_line: u64,
-        scaling: f32,
     ) -> LocatedSurface {
-        let surface = build_window_surface_with_grid_size(
-            parent_canvas,
-            renderer,
-            grid_width,
-            grid_height,
-            scaling,
-        );
+        let surface = build_window_surface_with_grid_size(parent_canvas, grid_renderer, grid_size);
 
         LocatedSurface { surface, top_line }
     }
@@ -105,8 +92,7 @@ pub struct RenderedWindow {
     pub hidden: bool,
     pub floating_order: Option<u64>,
 
-    pub grid_width: u64,
-    pub grid_height: u64,
+    pub grid_size: Dimensions,
 
     grid_start_position: Point,
     pub grid_current_position: Point,
@@ -129,15 +115,12 @@ pub struct WindowDrawDetails {
 impl RenderedWindow {
     pub fn new(
         parent_canvas: &mut Canvas,
-        renderer: &Renderer,
+        grid_renderer: &GridRenderer,
         id: u64,
         grid_position: Point,
-        grid_width: u64,
-        grid_height: u64,
-        scaling: f32,
+        grid_size: Dimensions,
     ) -> RenderedWindow {
-        let current_surface =
-            LocatedSurface::new(parent_canvas, renderer, grid_width, grid_height, 0, scaling);
+        let current_surface = LocatedSurface::new(parent_canvas, grid_renderer, grid_size, 0);
 
         RenderedWindow {
             snapshots: VecDeque::new(),
@@ -146,8 +129,7 @@ impl RenderedWindow {
             hidden: false,
             floating_order: None,
 
-            grid_width,
-            grid_height,
+            grid_size,
 
             grid_start_position: grid_position,
             grid_current_position: grid_position,
@@ -161,16 +143,15 @@ impl RenderedWindow {
         }
     }
 
-    pub fn pixel_region(&self, font_width: u64, font_height: u64) -> Rect {
+    pub fn pixel_region(&self, font_dimensions: Dimensions) -> Rect {
         let current_pixel_position = Point::new(
-            self.grid_current_position.x * font_width as f32,
-            self.grid_current_position.y * font_height as f32,
+            self.grid_current_position.x * font_dimensions.width as f32,
+            self.grid_current_position.y * font_dimensions.height as f32,
         );
 
-        let image_width = (self.grid_width * font_width) as i32;
-        let image_height = (self.grid_height * font_height) as i32;
+        let image_size: (i32, i32) = (self.grid_size * font_dimensions).into();
 
-        Rect::from_point_and_size(current_pixel_position, (image_width, image_height))
+        Rect::from_point_and_size(current_pixel_position, image_size)
     }
 
     pub fn update(&mut self, settings: &RendererSettings, dt: f32) -> bool {
@@ -220,15 +201,14 @@ impl RenderedWindow {
         root_canvas: &mut Canvas,
         settings: &RendererSettings,
         default_background: Color,
-        font_width: u64,
-        font_height: u64,
+        font_dimensions: Dimensions,
         dt: f32,
     ) -> WindowDrawDetails {
         if self.update(settings, dt) {
             REDRAW_SCHEDULER.queue_next_frame();
         }
 
-        let pixel_region = self.pixel_region(font_width, font_height);
+        let pixel_region = self.pixel_region(font_dimensions);
 
         root_canvas.save();
         root_canvas.clip_rect(&pixel_region, None, Some(false));
@@ -259,6 +239,8 @@ impl RenderedWindow {
         root_canvas.draw_rect(pixel_region, &paint);
 
         paint.set_color(Color::from_argb(a, 255, 255, 255));
+
+        let font_height = font_dimensions.height;
 
         // Draw scrolling snapshots
         for snapshot in self.snapshots.iter_mut().rev() {
@@ -299,20 +281,18 @@ impl RenderedWindow {
     }
 
     pub fn handle_window_draw_command(
-        mut self,
-        renderer: &mut Renderer,
+        &mut self,
+        grid_renderer: &mut GridRenderer,
         draw_command: WindowDrawCommand,
-        scaling: f32,
-    ) -> Self {
+    ) {
         match draw_command {
             WindowDrawCommand::Position {
-                grid_left,
-                grid_top,
-                width: grid_width,
-                height: grid_height,
+                grid_position: (grid_left, grid_top),
+                grid_size,
                 floating_order,
             } => {
                 let new_destination: Point = (grid_left as f32, grid_top as f32).into();
+                let new_grid_size: Dimensions = grid_size.into();
 
                 if self.grid_destination != new_destination {
                     if self.grid_start_position.x.abs() > f32::EPSILON
@@ -329,24 +309,21 @@ impl RenderedWindow {
                     self.grid_destination = new_destination;
                 }
 
-                if grid_width != self.grid_width || grid_height != self.grid_height {
-                    let mut old_surface = self.current_surface.surface;
-                    self.current_surface.surface = build_window_surface_with_grid_size(
-                        old_surface.canvas(),
-                        renderer,
-                        grid_width,
-                        grid_height,
-                        scaling,
-                    );
-                    old_surface.draw(
+                if self.grid_size != new_grid_size {
+                    let mut new_surface = build_window_surface_with_grid_size(
                         self.current_surface.surface.canvas(),
+                        grid_renderer,
+                        new_grid_size,
+                    );
+                    self.current_surface.surface.draw(
+                        new_surface.canvas(),
                         (0.0, 0.0),
                         SamplingOptions::default(),
                         None,
                     );
 
-                    self.grid_width = grid_width;
-                    self.grid_height = grid_height;
+                    self.current_surface.surface = new_surface;
+                    self.grid_size = new_grid_size;
                 }
 
                 self.floating_order = floating_order;
@@ -366,46 +343,49 @@ impl RenderedWindow {
                 style,
             } => {
                 let grid_position = (window_left, window_top);
-
                 let canvas = self.current_surface.surface.canvas();
+
                 canvas.save();
-                canvas.scale((1.0 / scaling, 1.0 / scaling));
-                renderer.draw_background(canvas, grid_position, width, &style);
-                renderer.draw_foreground(canvas, &cells, grid_position, width, &style);
+                grid_renderer.draw_background(canvas, grid_position, width, &style);
+                grid_renderer.draw_foreground(canvas, &cells, grid_position, width, &style);
                 canvas.restore();
             }
             WindowDrawCommand::Scroll {
                 top,
-                bot,
+                bottom,
                 left,
                 right,
                 rows,
                 cols,
             } => {
+                let Dimensions {
+                    width: font_width,
+                    height: font_height,
+                } = grid_renderer.font_dimensions;
                 let scrolled_region = Rect::new(
-                    (left * renderer.font_width) as f32 / scaling,
-                    (top * renderer.font_height) as f32 / scaling,
-                    (right * renderer.font_width) as f32 / scaling,
-                    (bot * renderer.font_height) as f32 / scaling,
+                    (left * font_width) as f32,
+                    (top * font_height) as f32,
+                    (right * font_width) as f32,
+                    (bottom * font_height) as f32,
                 );
 
                 let mut translated_region = scrolled_region;
                 translated_region.offset((
-                    (-cols * renderer.font_width as i64) as f32 / scaling,
-                    (-rows * renderer.font_height as i64) as f32 / scaling,
+                    -cols as f32 * font_width as f32,
+                    -rows as f32 * font_height as f32,
                 ));
 
                 let snapshot = self.current_surface.surface.image_snapshot();
                 let canvas = self.current_surface.surface.canvas();
 
                 canvas.save();
-                canvas.clip_rect(scrolled_region, None, Some(false));
 
+                canvas.clip_rect(scrolled_region, None, Some(false));
                 canvas.draw_image_rect(
                     snapshot,
                     Some((&scrolled_region, SrcRectConstraint::Fast)),
                     translated_region,
-                    &renderer.paint,
+                    &grid_renderer.paint,
                 );
 
                 canvas.restore();
@@ -413,10 +393,8 @@ impl RenderedWindow {
             WindowDrawCommand::Clear => {
                 self.current_surface.surface = build_window_surface_with_grid_size(
                     self.current_surface.surface.canvas(),
-                    renderer,
-                    self.grid_width,
-                    self.grid_height,
-                    scaling,
+                    grid_renderer,
+                    self.grid_size,
                 );
 
                 self.snapshots.clear();
@@ -448,7 +426,5 @@ impl RenderedWindow {
             }
             _ => {}
         };
-
-        self
     }
 }

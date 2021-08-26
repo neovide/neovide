@@ -1,6 +1,8 @@
+use std::cmp::Ordering;
+
 use glutin::{
     self,
-    dpi::{LogicalPosition, PhysicalPosition},
+    dpi::PhysicalPosition,
     event::{ElementState, Event, MouseButton, MouseScrollDelta, WindowEvent},
     PossiblyCurrent, WindowedContext,
 };
@@ -9,16 +11,13 @@ use skia_safe::Rect;
 use crate::bridge::UiCommand;
 use crate::channel_utils::LoggingTx;
 use crate::renderer::{Renderer, WindowDrawDetails};
-use crate::settings::SETTINGS;
-use crate::window::WindowSettings;
 
 fn clamp_position(
-    position: LogicalPosition<f32>,
+    position: PhysicalPosition<f32>,
     region: Rect,
-    font_width: u64,
-    font_height: u64,
-) -> LogicalPosition<f32> {
-    LogicalPosition::new(
+    (font_width, font_height): (u64, u64),
+) -> PhysicalPosition<f32> {
+    PhysicalPosition::new(
         position
             .x
             .min(region.right - font_width as f32)
@@ -31,11 +30,10 @@ fn clamp_position(
 }
 
 fn to_grid_coords(
-    position: LogicalPosition<f32>,
-    font_width: u64,
-    font_height: u64,
-) -> LogicalPosition<u32> {
-    LogicalPosition::new(
+    position: PhysicalPosition<f32>,
+    (font_width, font_height): (u64, u64),
+) -> PhysicalPosition<u32> {
+    PhysicalPosition::new(
         (position.x as u64 / font_width) as u32,
         (position.y as u64 / font_height) as u32,
     )
@@ -43,11 +41,16 @@ fn to_grid_coords(
 
 pub struct MouseManager {
     command_sender: LoggingTx<UiCommand>,
+
     dragging: bool,
+    drag_position: PhysicalPosition<u32>,
+
     has_moved: bool,
-    position: LogicalPosition<u32>,
-    relative_position: LogicalPosition<u32>,
-    drag_position: LogicalPosition<u32>,
+    position: PhysicalPosition<u32>,
+    relative_position: PhysicalPosition<u32>,
+
+    scroll_position: PhysicalPosition<f32>,
+
     window_details_under_mouse: Option<WindowDrawDetails>,
     pub enabled: bool,
 }
@@ -58,9 +61,10 @@ impl MouseManager {
             command_sender,
             dragging: false,
             has_moved: false,
-            position: LogicalPosition::new(0, 0),
-            relative_position: LogicalPosition::new(0, 0),
-            drag_position: LogicalPosition::new(0, 0),
+            position: PhysicalPosition::new(0, 0),
+            relative_position: PhysicalPosition::new(0, 0),
+            drag_position: PhysicalPosition::new(0, 0),
+            scroll_position: PhysicalPosition::new(0.0, 0.0),
             window_details_under_mouse: None,
             enabled: true,
         }
@@ -78,8 +82,7 @@ impl MouseManager {
             return;
         }
 
-        let logical_position: LogicalPosition<f32> = PhysicalPosition::new(x as u32, y as u32)
-            .to_logical(windowed_context.window().scale_factor());
+        let position: PhysicalPosition<f32> = PhysicalPosition::new(x as f32, y as f32);
 
         // If dragging, the relevant window (the one which we send all commands to) is the one
         // which the mouse drag started on. Otherwise its the top rendered window
@@ -99,10 +102,10 @@ impl MouseManager {
                 .window_regions
                 .iter()
                 .filter(|details| {
-                    logical_position.x >= details.region.left
-                        && logical_position.x < details.region.right
-                        && logical_position.y >= details.region.top
-                        && logical_position.y < details.region.bottom
+                    position.x >= details.region.left
+                        && position.x < details.region.right
+                        && position.y >= details.region.top
+                        && position.y < details.region.bottom
                 })
                 .last()
         };
@@ -111,21 +114,25 @@ impl MouseManager {
             .map(|details| details.region)
             .unwrap_or_else(|| Rect::from_wh(size.width as f32, size.height as f32));
         let clamped_position = clamp_position(
-            logical_position,
+            position,
             global_bounds,
-            renderer.font_width,
-            renderer.font_height,
+            renderer.grid_renderer.font_dimensions.into(),
         );
 
-        self.position = to_grid_coords(clamped_position, renderer.font_width, renderer.font_height);
+        self.position = to_grid_coords(
+            clamped_position,
+            renderer.grid_renderer.font_dimensions.into(),
+        );
 
         if let Some(relevant_window_details) = relevant_window_details {
-            let relative_position = LogicalPosition::new(
+            let relative_position = PhysicalPosition::new(
                 clamped_position.x - relevant_window_details.region.left,
                 clamped_position.y - relevant_window_details.region.top,
             );
-            self.relative_position =
-                to_grid_coords(relative_position, renderer.font_width, renderer.font_height);
+            self.relative_position = to_grid_coords(
+                relative_position,
+                renderer.grid_renderer.font_dimensions.into(),
+            );
 
             let previous_position = self.drag_position;
             // Until https://github.com/neovim/neovim/pull/12667 is merged, we have to special
@@ -193,52 +200,68 @@ impl MouseManager {
         }
     }
 
-    fn handle_mouse_wheel(&mut self, x: f32, y: f32) {
+    fn handle_line_scroll(&mut self, x: f32, y: f32) {
         if !self.enabled {
             return;
         }
 
-        let scroll_dead_zone = SETTINGS.get::<WindowSettings>().scroll_dead_zone;
+        let previous_y = self.scroll_position.y as i64;
+        self.scroll_position.y += y;
+        let new_y = self.scroll_position.y as i64;
 
-        let vertical_input_type = match y {
-            _ if y > scroll_dead_zone => Some("up"),
-            _ if y < -scroll_dead_zone => Some("down"),
+        let vertical_input_type = match new_y.partial_cmp(&previous_y) {
+            Some(Ordering::Greater) => Some("up"),
+            Some(Ordering::Less) => Some("down"),
             _ => None,
         };
 
         if let Some(input_type) = vertical_input_type {
-            self.command_sender
-                .send(UiCommand::Scroll {
-                    direction: input_type.to_string(),
-                    grid_id: self
-                        .window_details_under_mouse
-                        .as_ref()
-                        .map(|details| details.id)
-                        .unwrap_or(0),
-                    position: self.drag_position.into(),
-                })
-                .ok();
+            let scroll_command = UiCommand::Scroll {
+                direction: input_type.to_string(),
+                grid_id: self
+                    .window_details_under_mouse
+                    .as_ref()
+                    .map(|details| details.id)
+                    .unwrap_or(0),
+                position: self.drag_position.into(),
+            };
+            for _ in 0..(new_y - previous_y).abs() {
+                self.command_sender.send(scroll_command.clone()).ok();
+            }
         }
 
-        let horizontal_input_type = match x {
-            _ if x > scroll_dead_zone => Some("right"),
-            _ if x < -scroll_dead_zone => Some("left"),
+        let previous_x = self.scroll_position.x as i64;
+        self.scroll_position.x += x;
+        let new_x = self.scroll_position.x as i64;
+
+        let horizontal_input_type = match new_x.partial_cmp(&previous_x) {
+            Some(Ordering::Greater) => Some("right"),
+            Some(Ordering::Less) => Some("left"),
             _ => None,
         };
 
         if let Some(input_type) = horizontal_input_type {
-            self.command_sender
-                .send(UiCommand::Scroll {
-                    direction: input_type.to_string(),
-                    grid_id: self
-                        .window_details_under_mouse
-                        .as_ref()
-                        .map(|details| details.id)
-                        .unwrap_or(0),
-                    position: self.drag_position.into(),
-                })
-                .ok();
+            let scroll_command = UiCommand::Scroll {
+                direction: input_type.to_string(),
+                grid_id: self
+                    .window_details_under_mouse
+                    .as_ref()
+                    .map(|details| details.id)
+                    .unwrap_or(0),
+                position: self.drag_position.into(),
+            };
+            for _ in 0..(new_x - previous_x).abs() {
+                self.command_sender.send(scroll_command.clone()).ok();
+            }
         }
+    }
+
+    fn handle_pixel_scroll(
+        &mut self,
+        (font_width, font_height): (u64, u64),
+        (pixel_x, pixel_y): (f32, f32),
+    ) {
+        self.handle_line_scroll(pixel_x / font_width as f32, pixel_y / font_height as f32);
     }
 
     pub fn handle_event(
@@ -264,15 +287,18 @@ impl MouseManager {
                         ..
                     },
                 ..
-            } => self.handle_mouse_wheel(*x as f32, *y as f32),
+            } => self.handle_line_scroll(*x, *y),
             Event::WindowEvent {
                 event:
                     WindowEvent::MouseWheel {
-                        delta: MouseScrollDelta::PixelDelta(logical_position),
+                        delta: MouseScrollDelta::PixelDelta(delta),
                         ..
                     },
                 ..
-            } => self.handle_mouse_wheel(logical_position.x as f32, logical_position.y as f32),
+            } => self.handle_pixel_scroll(
+                renderer.grid_renderer.font_dimensions.into(),
+                (delta.x as f32, delta.y as f32),
+            ),
             Event::WindowEvent {
                 event:
                     WindowEvent::MouseInput {

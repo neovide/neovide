@@ -20,31 +20,28 @@ mod error_handling;
 mod redraw_scheduler;
 mod renderer;
 mod settings;
+mod utils;
 mod window;
 pub mod windows_utils;
 
 #[macro_use]
 extern crate derive_new;
 #[macro_use]
-extern crate rust_embed;
-#[macro_use]
 extern crate lazy_static;
 
 use std::sync::{atomic::AtomicBool, mpsc::channel, Arc};
 
-use crossfire::mpsc::unbounded_future;
+use log::trace;
+use tokio::sync::mpsc::unbounded_channel;
 
 use bridge::start_bridge;
-#[cfg(not(test))]
 use cmd_line::CmdLineSettings;
 use editor::start_editor;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
-#[cfg(not(test))]
 use settings::SETTINGS;
-use window::{create_window, window_geometry, WindowSettings};
+use window::{create_window, KeyboardSettings, WindowSettings};
 
 pub use channel_utils::*;
-pub const INITIAL_DIMENSIONS: (u64, u64) = (100, 50);
 
 fn main() {
     //  -----------
@@ -116,9 +113,8 @@ fn main() {
     //   Multiple other parts of the app "queue_next_frame" function to ensure animations continue
     //   properly or updates to the graphics are pushed to the screen.
 
-    cmd_line::handle_command_line_arguments(); //Will exit if -h or -v
-
-    if let Err(err) = window_geometry() {
+    //Will exit if -h or -v
+    if let Err(err) = cmd_line::handle_command_line_arguments() {
         eprintln!("{}", err);
         return;
     }
@@ -126,49 +122,24 @@ fn main() {
     #[cfg(not(test))]
     init_logger();
 
-    #[cfg(target_os = "macos")]
-    {
-        // incase of app bundle, we can just pass --disowned option straight away to bypass this check
-        #[cfg(not(debug_assertions))]
-        if !SETTINGS.get::<CmdLineSettings>().disowned {
-            if let Ok(curr_exe) = std::env::current_exe() {
-                assert!(std::process::Command::new(curr_exe)
-                    .args(std::env::args().skip(1))
-                    .arg("--disowned")
-                    .spawn()
-                    .is_ok());
-                return;
-            } else {
-                eprintln!("error in disowning process, cannot obtain the path for the current executable, continuing without disowning...");
-            }
-        }
+    trace!("Neovide version: {}", crate_version!());
 
-        use std::env;
-        if env::var_os("TERM").is_none() {
-            let mut profile_path = dirs::home_dir().unwrap();
-            profile_path.push(".profile");
-            let shell = env::var("SHELL").unwrap();
-            let cmd = format!(
-                "(source /etc/profile && source {} && echo $PATH)",
-                profile_path.to_str().unwrap()
-            );
-            if let Ok(path) = std::process::Command::new(shell)
-                .arg("-c")
-                .arg(cmd)
-                .output()
-            {
-                env::set_var("PATH", std::str::from_utf8(&path.stdout).unwrap());
-            }
-        }
-    }
+    maybe_disown();
+
+    #[cfg(target_os = "windows")]
+    windows_fix_dpi();
+
+    #[cfg(target_os = "macos")]
+    handle_macos();
 
     WindowSettings::register();
     RendererSettings::register();
     CursorSettings::register();
+    KeyboardSettings::register();
 
     let running = Arc::new(AtomicBool::new(true));
 
-    let (redraw_event_sender, redraw_event_receiver) = unbounded_future();
+    let (redraw_event_sender, redraw_event_receiver) = unbounded_channel();
     let logging_redraw_event_sender =
         LoggingTx::attach(redraw_event_sender, "redraw_event".to_owned());
 
@@ -178,7 +149,7 @@ fn main() {
         "batched_draw_command".to_owned(),
     );
 
-    let (ui_command_sender, ui_command_receiver) = unbounded_future();
+    let (ui_command_sender, ui_command_receiver) = unbounded_channel();
     let logging_ui_command_sender = LoggingTx::attach(ui_command_sender, "ui_command".to_owned());
 
     let (window_command_sender, window_command_receiver) = channel();
@@ -207,28 +178,76 @@ fn main() {
 
 #[cfg(not(test))]
 pub fn init_logger() {
-    let verbosity = match SETTINGS.get::<CmdLineSettings>().verbosity {
+    let settings = SETTINGS.get::<CmdLineSettings>();
+
+    let verbosity = match settings.verbosity {
         0 => "warn",
         1 => "info",
         2 => "debug",
         _ => "trace",
     };
-    let log_to_file = SETTINGS.get::<CmdLineSettings>().log_to_file;
-
-    if log_to_file {
-        Logger::with_env_or_str("neovide")
+    let logger = match settings.log_to_file {
+        true => Logger::with_env_or_str("neovide")
             .duplicate_to_stderr(Duplicate::Error)
             .log_to_file()
             .rotate(
                 Criterion::Size(10_000_000),
                 Naming::Timestamps,
                 Cleanup::KeepLogFiles(1),
-            )
-            .start()
-            .expect("Could not start logger");
+            ),
+        false => Logger::with_env_or_str(format!("neovide = {}", verbosity)),
+    };
+    logger.start().expect("Could not start logger");
+}
+
+fn maybe_disown() {
+    use std::{env, process};
+
+    let settings = SETTINGS.get::<CmdLineSettings>();
+
+    if cfg!(debug_assertions) || settings.nofork {
+        return;
+    }
+
+    if let Ok(current_exe) = env::current_exe() {
+        assert!(process::Command::new(current_exe)
+            .arg("--nofork")
+            .args(env::args().skip(1))
+            .spawn()
+            .is_ok());
+        process::exit(0);
     } else {
-        Logger::with_env_or_str(format!("neovide = {}", verbosity))
-            .start()
-            .expect("Could not start logger");
+        eprintln!("error in disowning process, cannot obtain the path for the current executable, continuing without disowning...");
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn windows_fix_dpi() {
+    use winapi::shared::windef::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2;
+    use winapi::um::winuser::SetProcessDpiAwarenessContext;
+    unsafe {
+        SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn handle_macos() {
+    use std::env;
+
+    if env::var_os("TERM").is_none() {
+        let mut profile_path = dirs::home_dir().unwrap();
+        profile_path.push(".profile");
+        let shell = env::var("SHELL").unwrap();
+        let cmd = format!(
+            "(source /etc/profile && source {} && echo $PATH)",
+            profile_path.to_str().unwrap()
+        );
+        if let Ok(path) = std::process::Command::new(shell)
+            .arg("-c")
+            .arg(cmd)
+            .output()
+        {
+            env::set_var("PATH", std::str::from_utf8(&path.stdout).unwrap());
+        }
     }
 }

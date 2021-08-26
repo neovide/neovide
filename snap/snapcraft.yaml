@@ -1,13 +1,13 @@
 name: neovide # you probably want to 'snapcraft register <name>'
 base: core18 # the base snap is the execution environment for this snap
-version: "0.7.0+git"
+version: "0.8.0+git"
 summary: The snappiest vim editor you are likely to find.
 description: |
   This is a simple graphical user interface for Neovim. Where possible there are some graphical improvements,
   but it should act functionally like the terminal UI.
 
 grade: stable # must be 'stable' to release into candidate/stable channels
-confinement: strict # use 'strict' once you have the right plugs and slots
+confinement: classic # use 'strict' once you have the right plugs and slots
 build-packages:
   - cmake
   - freeglut3-dev

@@ -3,6 +3,7 @@ use std::error;
 use std::fmt;
 use std::fmt::Debug;
 
+use log::debug;
 use rmpv::Value;
 use skia_safe::Color4f;
 
@@ -537,10 +538,10 @@ fn parse_style(style_map: Value) -> Result<Style> {
                 ("underline", Value::Boolean(underline)) => style.underline = underline,
                 ("undercurl", Value::Boolean(undercurl)) => style.undercurl = undercurl,
                 ("blend", Value::Integer(blend)) => style.blend = blend.as_u64().unwrap() as u8,
-                _ => println!("Ignored style attribute: {}", name),
+                _ => debug!("Ignored style attribute: {}", name),
             }
         } else {
-            println!("Invalid attribute format");
+            debug!("Invalid attribute format");
         }
     }
 
@@ -1017,10 +1018,10 @@ pub fn parse_client_version(version_value: Value) -> Result<ClientVersion> {
                 ("patch", patch) => version.patch = Some(parse_u64(patch)?),
                 ("prerelease", prerelease) => version.prerelease = Some(parse_string(prerelease)?),
                 ("commit", commit) => version.commit = Some(parse_string(commit)?),
-                _ => println!("Ignored client version property: {}", name),
+                _ => debug!("Ignored client version property: {}", name),
             }
         } else {
-            println!("Invalid client version format");
+            debug!("Invalid client version format");
         }
     }
 
@@ -1049,10 +1050,10 @@ pub fn parse_client_info(client_info_value: Value) -> Result<ClientInfo> {
                 ("name", name) => client_info.name = parse_string(name)?,
                 ("version", version) => client_info.version = parse_client_version(version)?,
                 ("type", client_type) => client_info.client_type = parse_client_type(client_type)?,
-                _ => println!("Ignored client type property: {}", name),
+                _ => debug!("Ignored client type property: {}", name),
             }
         } else {
-            println!("Invalid client info format");
+            debug!("Invalid client info format");
         }
     }
 
@@ -1075,10 +1076,10 @@ pub fn parse_channel_info(channel_value: Value) -> Result<ChannelInfo> {
                 ("client", client_info) => {
                     channel_info.client = Some(parse_client_info(client_info)?)
                 }
-                _ => println!("Ignored channel info property: {}", name),
+                _ => debug!("Ignored channel info property: {}", name),
             }
         } else {
-            println!("Invalid channel info format");
+            debug!("Invalid channel info format");
         }
     }
 

@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 use std::sync::mpsc::{SendError, Sender};
 
-use crossfire::mpsc::{SendError as TxError, TxUnbounded};
 use log::trace;
+use tokio::sync::mpsc::{error::SendError as TokioSendError, UnboundedSender};
 
 #[derive(Clone)]
 pub struct LoggingSender<T>
@@ -35,7 +35,7 @@ pub struct LoggingTx<T>
 where
     T: Debug,
 {
-    tx: TxUnbounded<T>,
+    tx: UnboundedSender<T>,
     channel_name: String,
 }
 
@@ -43,11 +43,11 @@ impl<T> LoggingTx<T>
 where
     T: Debug,
 {
-    pub fn attach(tx: TxUnbounded<T>, channel_name: String) -> Self {
+    pub fn attach(tx: UnboundedSender<T>, channel_name: String) -> Self {
         Self { tx, channel_name }
     }
 
-    pub fn send(&self, message: T) -> Result<(), TxError<T>> {
+    pub fn send(&self, message: T) -> Result<(), TokioSendError<T>> {
         trace!("{} {:?}", self.channel_name, &message);
         self.tx.send(message)
     }

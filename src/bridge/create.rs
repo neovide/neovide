@@ -14,8 +14,8 @@ use tokio::{
     task::JoinHandle,
 };
 
-use nvim_rs::compat::tokio::TokioAsyncReadCompatExt;
 use nvim_rs::{error::LoopError, neovim::Neovim, Handler};
+use tokio_util::compat::TokioAsyncReadCompatExt;
 
 use crate::bridge::{TxWrapper, WrapTx};
 
@@ -30,7 +30,7 @@ where
 {
     let stream = TcpStream::connect(addr).await?;
     let (reader, writer) = split(stream);
-    let (neovim, io) = Neovim::<TxWrapper>::new(reader.compat_read(), writer.wrap_tx(), handler);
+    let (neovim, io) = Neovim::<TxWrapper>::new(reader.compat(), writer.wrap_tx(), handler);
     let io_handle = spawn(io);
 
     Ok((neovim, io_handle))
@@ -51,7 +51,7 @@ where
         .stdout
         .take()
         .ok_or_else(|| Error::new(ErrorKind::Other, "Can't open stdout"))?
-        .compat_read();
+        .compat();
     let stdin = child
         .stdin
         .take()
