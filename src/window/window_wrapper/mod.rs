@@ -185,7 +185,9 @@ impl GlutinWindowWrapper {
             self.saved_grid_size = Some(settings.geometry);
             // Font change at startup is ignored, so grid size (and startup screen) could be preserved.
             // But only when --maximize is not used. With maximized window we should redraw grid.
-            font_changed = false;
+            //
+            // temporary disable this: https://github.com/neovide/neovide/issues/918
+            // font_changed = false;
         }
 
         let new_size = window.inner_size();
