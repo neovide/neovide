@@ -175,8 +175,13 @@ impl GlutinWindowWrapper {
             return;
         }
 
+        let new_size = window.inner_size();
         let settings = SETTINGS.get::<CmdLineSettings>();
-        if self.saved_grid_size.is_none() && !settings.maximized {
+        // Resize at startup happens when window is maximized or when using tiling WM
+        // which already resized window.
+        let resized_at_startup = settings.maximized || is_already_resized(new_size);
+
+        if self.saved_grid_size.is_none() && !resized_at_startup {
             window.set_inner_size(
                 self.renderer
                     .grid_renderer
@@ -184,13 +189,9 @@ impl GlutinWindowWrapper {
             );
             self.saved_grid_size = Some(settings.geometry);
             // Font change at startup is ignored, so grid size (and startup screen) could be preserved.
-            // But only when --maximize is not used. With maximized window we should redraw grid.
-            //
-            // temporary disable this: https://github.com/neovide/neovide/issues/918
-            // font_changed = false;
+            // But only when not resized yet. With maximized or resized window we should redraw grid.
+            font_changed = false;
         }
-
-        let new_size = window.inner_size();
 
         if self.saved_inner_size != new_size || font_changed {
             self.saved_inner_size = new_size;
@@ -320,4 +321,8 @@ pub fn create_window(
 
         *control_flow = ControlFlow::WaitUntil(previous_frame_start + frame_duration)
     });
+}
+
+fn is_already_resized(size: PhysicalSize<u32>) -> bool {
+    size != PhysicalSize::from((800, 600))
 }
