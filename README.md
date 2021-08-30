@@ -198,6 +198,13 @@ REGEX=$(printf 's/{url}/&\#branch=%s/g' '<YOUR-BRANCH-HERE>')
 sed "$REGEX" PKGBUILD
 makepkg -si
 ```
+#### Fedora
+Neovide nightly is currently available using [chrisbouchard COPR](https://copr.fedorainfracloud.org/coprs/chrisbouchard/neovide-nightly/)
+```
+dnf copr enable chrisbouchard/neovide-nightly 
+dnf install neovide
+```
+
 #### With Snap
 Neovide is also available in the Snap Store. You can install it
 using the command below.
