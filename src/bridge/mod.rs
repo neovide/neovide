@@ -161,7 +161,7 @@ async fn start_neovim_runtime(
     running: Arc<AtomicBool>,
 ) {
     let handler = NeovimHandler::new(ui_command_sender.clone(), redraw_event_sender.clone());
-    let (mut nvim, io_handler) = match connection_mode() {
+    let (nvim, io_handler) = match connection_mode() {
         ConnectionMode::Child => create::new_child_cmd(&mut create_nvim_command(), handler).await,
         ConnectionMode::RemoteTcp(address) => create::new_tcp(address, handler).await,
     }
