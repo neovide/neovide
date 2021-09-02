@@ -84,7 +84,7 @@ impl KeyboardManager {
                     }
                 }
 
-                // Regardless of whether this was a valid keyboard input or not, rest ignoring and
+                // Regardless of whether this was a valid keyboard input or not, reset ignoring and
                 // whatever event was queued.
                 self.ignore_input_this_frame = false;
                 self.queued_key_events.clear();
