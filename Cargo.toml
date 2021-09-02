@@ -22,7 +22,7 @@ neovide-derive = { path = "neovide-derive" }
 euclid = "0.20.7"
 lru = "0.4.3"
 derive-new = "0.5"
-rmpv = "0.4.4"
+rmpv = "1.0.0"
 image = { version = "0.22.3", default-features = false, features = ["ico"] }
 nvim-rs = { git = "https://github.com/KillTheMule/nvim-rs", branch = "master", features = ["use_tokio"] }
 tokio = { version = "1.1.1", features = ["full"] }
