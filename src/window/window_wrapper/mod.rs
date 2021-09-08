@@ -243,11 +243,12 @@ pub fn create_window(
 
     let event_loop = EventLoop::new();
 
+    let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
     let winit_window_builder = window::WindowBuilder::new()
         .with_title("Neovide")
         .with_window_icon(Some(icon))
-        .with_maximized(SETTINGS.get::<CmdLineSettings>().maximized)
-        .with_decorations(!SETTINGS.get::<CmdLineSettings>().frameless);
+        .with_maximized(cmd_line_settings.maximized)
+        .with_decorations(!cmd_line_settings.frameless);
 
     #[cfg(target_os = "linux")]
     let winit_window_builder = winit_window_builder
@@ -262,7 +263,7 @@ pub fn create_window(
         .with_stencil_buffer(8)
         .with_gl_profile(GlProfile::Core)
         .with_vsync(false)
-        .with_srgb(false)
+        .with_srgb(cmd_line_settings.srgb)
         .build_windowed(winit_window_builder, &event_loop)
         .unwrap();
     let windowed_context = unsafe { windowed_context.make_current().unwrap() };
