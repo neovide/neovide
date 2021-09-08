@@ -1,4 +1,5 @@
 /target
+/.vs
 **/*.rs.bk
 *.log
 .DS_Store

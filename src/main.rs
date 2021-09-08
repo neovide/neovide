@@ -205,7 +205,7 @@ fn maybe_disown() {
 
     let settings = SETTINGS.get::<CmdLineSettings>();
 
-    if cfg!(debug_assertions) || settings.nofork {
+    if cfg!(debug_assertions) || settings.no_fork {
         return;
     }
 
