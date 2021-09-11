@@ -228,6 +228,7 @@ pub enum RedrawEvent {
         bottom_line: f64,
         current_line: f64,
         current_column: f64,
+        line_count: f64,
     },
     CommandLineShow {
         content: StyledContent,
@@ -782,8 +783,9 @@ fn parse_win_viewport(win_viewport_arguments: Vec<Value>) -> Result<RedrawEvent>
         Value::Nil,
         Value::Nil,
         Value::Nil,
+        Value::Nil,
     ];
-    let [grid, _window, top_line, bottom_line, current_line, current_column] =
+    let [grid, _window, top_line, bottom_line, current_line, current_column, line_count] =
         extract_values(win_viewport_arguments, values)?;
 
     Ok(RedrawEvent::WindowViewport {
@@ -792,6 +794,7 @@ fn parse_win_viewport(win_viewport_arguments: Vec<Value>) -> Result<RedrawEvent>
         bottom_line: parse_f64(bottom_line)?,
         current_line: parse_f64(current_line)?,
         current_column: parse_f64(current_column)?,
+        line_count: parse_f64(line_count)?,
     })
 }
 
