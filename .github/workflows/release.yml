@@ -1,4 +1,4 @@
-name: Snap
+name: Releases
 
 on:
   workflow_dispatch:
