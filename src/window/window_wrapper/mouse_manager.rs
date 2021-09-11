@@ -15,8 +15,7 @@ use crate::renderer::{Renderer, WindowDrawDetails};
 fn clamp_position(
     position: PhysicalPosition<f32>,
     region: Rect,
-    font_width: u64,
-    font_height: u64,
+    (font_width, font_height): (u64, u64),
 ) -> PhysicalPosition<f32> {
     PhysicalPosition::new(
         position
@@ -32,8 +31,7 @@ fn clamp_position(
 
 fn to_grid_coords(
     position: PhysicalPosition<f32>,
-    font_width: u64,
-    font_height: u64,
+    (font_width, font_height): (u64, u64),
 ) -> PhysicalPosition<u32> {
     PhysicalPosition::new(
         (position.x as u64 / font_width) as u32,
@@ -118,19 +116,23 @@ impl MouseManager {
         let clamped_position = clamp_position(
             position,
             global_bounds,
-            renderer.font_width,
-            renderer.font_height,
+            renderer.grid_renderer.font_dimensions.into(),
         );
 
-        self.position = to_grid_coords(clamped_position, renderer.font_width, renderer.font_height);
+        self.position = to_grid_coords(
+            clamped_position,
+            renderer.grid_renderer.font_dimensions.into(),
+        );
 
         if let Some(relevant_window_details) = relevant_window_details {
             let relative_position = PhysicalPosition::new(
                 clamped_position.x - relevant_window_details.region.left,
                 clamped_position.y - relevant_window_details.region.top,
             );
-            self.relative_position =
-                to_grid_coords(relative_position, renderer.font_width, renderer.font_height);
+            self.relative_position = to_grid_coords(
+                relative_position,
+                renderer.grid_renderer.font_dimensions.into(),
+            );
 
             let previous_position = self.drag_position;
             // Until https://github.com/neovim/neovim/pull/12667 is merged, we have to special
@@ -254,11 +256,12 @@ impl MouseManager {
         }
     }
 
-    fn handle_pixel_scroll(&mut self, renderer: &Renderer, pixel_x: f32, pixel_y: f32) {
-        self.handle_line_scroll(
-            pixel_x / renderer.font_width as f32,
-            pixel_y / renderer.font_height as f32,
-        );
+    fn handle_pixel_scroll(
+        &mut self,
+        (font_width, font_height): (u64, u64),
+        (pixel_x, pixel_y): (f32, f32),
+    ) {
+        self.handle_line_scroll(pixel_x / font_width as f32, pixel_y / font_height as f32);
     }
 
     pub fn handle_event(
@@ -292,7 +295,10 @@ impl MouseManager {
                         ..
                     },
                 ..
-            } => self.handle_pixel_scroll(renderer, delta.x as f32, delta.y as f32),
+            } => self.handle_pixel_scroll(
+                renderer.grid_renderer.font_dimensions.into(),
+                (delta.x as f32, delta.y as f32),
+            ),
             Event::WindowEvent {
                 event:
                     WindowEvent::MouseInput {

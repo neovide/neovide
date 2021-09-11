@@ -9,19 +9,18 @@ use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use crossfire::mpsc::RxUnbounded;
 use log::{error, info, warn};
 use nvim_rs::UiAttachOptions;
 use rmpv::Value;
 use tokio::process::Command;
 use tokio::runtime::Runtime;
+use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::channel_utils::*;
 use crate::settings::*;
 use crate::{cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation};
 pub use events::*;
 use handler::NeovimHandler;
-use regex::Regex;
 pub use tx_wrapper::{TxWrapper, WrapTx};
 pub use ui_commands::UiCommand;
 
@@ -37,7 +36,7 @@ fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
         cmd.args(&[
             bin.trim(),
             "-c",
-            "let \\$PATH=system(\"bash -ic 'echo \\$PATH' 2>/dev/null\")",
+            "let \\$PATH=system(\"\\$SHELL -lic 'echo \\$PATH' 2>/dev/null\")",
         ]);
         Some(cmd)
     } else if Path::new(&bin).exists() {
@@ -67,7 +66,7 @@ fn build_nvim_cmd() -> Command {
     #[cfg(windows)]
     if SETTINGS.get::<CmdLineSettings>().wsl {
         if let Ok(output) = std::process::Command::new("wsl")
-            .args(&["bash", "-ic", "which nvim"])
+            .args(&["$SHELL", "-lic", "which nvim"])
             .output()
         {
             if output.status.success() {
@@ -76,7 +75,7 @@ fn build_nvim_cmd() -> Command {
                 cmd.args(&[
                     path.trim(),
                     "-c",
-                    "let \\$PATH=system(\"bash -ic 'echo \\$PATH' 2>/dev/null\")",
+                    "let \\$PATH=system(\"\\$SHELL -lic 'echo \\$PATH' 2>/dev/null\")",
                 ]);
                 return cmd;
             } else {
@@ -157,12 +156,12 @@ fn connection_mode() -> ConnectionMode {
 
 async fn start_neovim_runtime(
     ui_command_sender: LoggingTx<UiCommand>,
-    ui_command_receiver: RxUnbounded<UiCommand>,
+    mut ui_command_receiver: UnboundedReceiver<UiCommand>,
     redraw_event_sender: LoggingTx<RedrawEvent>,
     running: Arc<AtomicBool>,
 ) {
     let handler = NeovimHandler::new(ui_command_sender.clone(), redraw_event_sender.clone());
-    let (mut nvim, io_handler) = match connection_mode() {
+    let (nvim, io_handler) = match connection_mode() {
         ConnectionMode::Child => create::new_child_cmd(&mut create_nvim_command(), handler).await,
         ConnectionMode::RemoteTcp(address) => create::new_tcp(address, handler).await,
     }
@@ -188,16 +187,13 @@ async fn start_neovim_runtime(
         close_watcher_running.store(false, Ordering::Relaxed);
     });
 
-    if let Ok(output) = nvim.command_output("version").await {
-        let re = Regex::new(r"NVIM v0.[4-9]\d*.\d+").unwrap();
-        if !re.is_match(&output) {
+    match nvim.command_output("echo has('nvim-0.4')").await.as_deref() {
+        Ok("1") => {} // This is just a guard
+        _ => {
             error!("Neovide requires nvim version 0.4 or higher. Download the latest version here https://github.com/neovim/neovim/wiki/Installing-Neovim");
             std::process::exit(0);
         }
-    } else {
-        error!("Neovide requires nvim version 0.4 or higher. Download the latest version here https://github.com/neovim/neovim/wiki/Installing-Neovim");
-        std::process::exit(0);
-    };
+    }
 
     nvim.set_var("neovide", Value::Boolean(true))
         .await
@@ -297,13 +293,13 @@ async fn start_neovim_runtime(
             }
 
             match ui_command_receiver.recv().await {
-                Ok(ui_command) => {
+                Some(ui_command) => {
                     let input_nvim = input_nvim.clone();
                     tokio::spawn(async move {
                         ui_command.execute(&input_nvim).await;
                     });
                 }
-                Err(_) => {
+                None => {
                     ui_command_running.store(false, Ordering::Relaxed);
                     break;
                 }
@@ -321,7 +317,7 @@ pub struct Bridge {
 
 pub fn start_bridge(
     ui_command_sender: LoggingTx<UiCommand>,
-    ui_command_receiver: RxUnbounded<UiCommand>,
+    ui_command_receiver: UnboundedReceiver<UiCommand>,
     redraw_event_sender: LoggingTx<RedrawEvent>,
     running: Arc<AtomicBool>,
 ) -> Bridge {

@@ -20,19 +20,19 @@ mod error_handling;
 mod redraw_scheduler;
 mod renderer;
 mod settings;
+mod utils;
 mod window;
 pub mod windows_utils;
 
 #[macro_use]
 extern crate derive_new;
 #[macro_use]
-extern crate rust_embed;
-#[macro_use]
 extern crate lazy_static;
 
 use std::sync::{atomic::AtomicBool, mpsc::channel, Arc};
 
-use crossfire::mpsc::unbounded_future;
+use log::trace;
+use tokio::sync::mpsc::unbounded_channel;
 
 use bridge::start_bridge;
 use cmd_line::CmdLineSettings;
@@ -122,6 +122,8 @@ fn main() {
     #[cfg(not(test))]
     init_logger();
 
+    trace!("Neovide version: {}", crate_version!());
+
     maybe_disown();
 
     #[cfg(target_os = "windows")]
@@ -137,7 +139,7 @@ fn main() {
 
     let running = Arc::new(AtomicBool::new(true));
 
-    let (redraw_event_sender, redraw_event_receiver) = unbounded_future();
+    let (redraw_event_sender, redraw_event_receiver) = unbounded_channel();
     let logging_redraw_event_sender =
         LoggingTx::attach(redraw_event_sender, "redraw_event".to_owned());
 
@@ -147,7 +149,7 @@ fn main() {
         "batched_draw_command".to_owned(),
     );
 
-    let (ui_command_sender, ui_command_receiver) = unbounded_future();
+    let (ui_command_sender, ui_command_receiver) = unbounded_channel();
     let logging_ui_command_sender = LoggingTx::attach(ui_command_sender, "ui_command".to_owned());
 
     let (window_command_sender, window_command_receiver) = channel();
@@ -203,7 +205,7 @@ fn maybe_disown() {
 
     let settings = SETTINGS.get::<CmdLineSettings>();
 
-    if cfg!(debug_assertions) || settings.nofork {
+    if cfg!(debug_assertions) || settings.no_fork {
         return;
     }
 

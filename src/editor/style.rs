@@ -54,7 +54,7 @@ impl Style {
     pub fn special(&self, default_colors: &Colors) -> Color4f {
         self.colors
             .special
-            .unwrap_or_else(|| default_colors.special.unwrap())
+            .unwrap_or_else(|| self.foreground(default_colors))
     }
 }
 

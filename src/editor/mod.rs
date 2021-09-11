@@ -8,8 +8,8 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::thread;
 
-use crossfire::mpsc::RxUnbounded;
 use log::{error, trace};
+use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::bridge::{EditorMode, GuiOption, RedrawEvent, WindowAnchor};
 use crate::channel_utils::*;
@@ -440,14 +440,14 @@ impl Editor {
 }
 
 pub fn start_editor(
-    redraw_event_receiver: RxUnbounded<RedrawEvent>,
+    mut redraw_event_receiver: UnboundedReceiver<RedrawEvent>,
     batched_draw_command_sender: LoggingSender<Vec<DrawCommand>>,
     window_command_sender: LoggingSender<WindowCommand>,
 ) {
     thread::spawn(move || {
         let mut editor = Editor::new(batched_draw_command_sender, window_command_sender);
 
-        while let Ok(redraw_event) = redraw_event_receiver.recv_blocking() {
+        while let Some(redraw_event) = redraw_event_receiver.blocking_recv() {
             editor.handle_redraw_event(redraw_event);
         }
     });

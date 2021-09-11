@@ -33,16 +33,15 @@ use crate::{
     editor::WindowCommand,
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::Renderer,
-    settings::{maybe_save_window_size, WindowGeometry, SETTINGS},
+    settings::{maybe_save_window_size, SETTINGS},
+    utils::Dimensions,
 };
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
 use mouse_manager::MouseManager;
 use renderer::SkiaRenderer;
 
-#[derive(RustEmbed)]
-#[folder = "assets/"]
-struct Asset;
+static ICON: &[u8] = include_bytes!("../../../assets/neovide.ico");
 
 pub struct GlutinWindowWrapper {
     windowed_context: WindowedContext<glutin::PossiblyCurrent>,
@@ -53,7 +52,7 @@ pub struct GlutinWindowWrapper {
     title: String,
     fullscreen: bool,
     saved_inner_size: PhysicalSize<u32>,
-    saved_grid_size: Option<WindowGeometry>,
+    saved_grid_size: Option<Dimensions>,
     ui_command_sender: LoggingTx<UiCommand>,
     window_command_receiver: Receiver<WindowCommand>,
 }
@@ -163,27 +162,38 @@ impl GlutinWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         let window = self.windowed_context.window();
+        let mut font_changed = false;
 
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
-            self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
+            font_changed = self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
             self.skia_renderer.gr_context.flush(None);
             self.windowed_context.swap_buffers().unwrap();
         }
 
         // Wait until fonts are loaded, so we can set proper window size.
-        if !self.renderer.is_ready {
+        if !self.renderer.grid_renderer.is_ready {
             return;
         }
 
-        if self.saved_grid_size.is_none() && !window.is_maximized() {
-            let size = SETTINGS.get::<CmdLineSettings>().geometry;
-            window.set_inner_size(self.renderer.to_physical_size((size.width, size.height)));
-            self.saved_grid_size = Some(size);
+        let new_size = window.inner_size();
+        let settings = SETTINGS.get::<CmdLineSettings>();
+        // Resize at startup happens when window is maximized or when using tiling WM
+        // which already resized window.
+        let resized_at_startup = settings.maximized || is_already_resized(new_size);
+
+        if self.saved_grid_size.is_none() && !resized_at_startup {
+            window.set_inner_size(
+                self.renderer
+                    .grid_renderer
+                    .convert_grid_to_physical(settings.geometry),
+            );
+            self.saved_grid_size = Some(settings.geometry);
+            // Font change at startup is ignored, so grid size (and startup screen) could be preserved.
+            // But only when not resized yet. With maximized or resized window we should redraw grid.
+            font_changed = false;
         }
 
-        let new_size = window.inner_size();
-
-        if self.saved_inner_size != new_size {
+        if self.saved_inner_size != new_size || font_changed {
             self.saved_inner_size = new_size;
             self.handle_new_grid_size(new_size);
             self.skia_renderer.resize(&self.windowed_context);
@@ -191,7 +201,10 @@ impl GlutinWindowWrapper {
     }
 
     fn handle_new_grid_size(&mut self, new_size: PhysicalSize<u32>) {
-        let grid_size: WindowGeometry = self.renderer.to_grid_size(new_size).into();
+        let grid_size = self
+            .renderer
+            .grid_renderer
+            .convert_physical_to_grid(new_size);
         if self.saved_grid_size == Some(grid_size) {
             trace!("Grid matched saved size, skip update.");
             return;
@@ -206,7 +219,9 @@ impl GlutinWindowWrapper {
     }
 
     fn handle_scale_factor_update(&mut self, scale_factor: f64) {
-        self.renderer.handle_scale_factor_update(scale_factor);
+        self.renderer
+            .grid_renderer
+            .handle_scale_factor_update(scale_factor);
     }
 }
 
@@ -217,8 +232,7 @@ pub fn create_window(
     running: Arc<AtomicBool>,
 ) {
     let icon = {
-        let icon_data = Asset::get("neovide.ico").expect("Failed to read icon data");
-        let icon = load_from_memory(&icon_data).expect("Failed to parse icon data");
+        let icon = load_from_memory(ICON).expect("Failed to parse icon data");
         let (width, height) = icon.dimensions();
         let mut rgba = Vec::with_capacity((width * height) as usize * 4);
         for (_, _, pixel) in icon.pixels() {
@@ -226,15 +240,15 @@ pub fn create_window(
         }
         Icon::from_rgba(rgba, width, height).expect("Failed to create icon object")
     };
-    log::info!("icon created");
 
     let event_loop = EventLoop::new();
 
+    let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
     let winit_window_builder = window::WindowBuilder::new()
         .with_title("Neovide")
         .with_window_icon(Some(icon))
-        .with_maximized(SETTINGS.get::<CmdLineSettings>().maximized)
-        .with_decorations(!SETTINGS.get::<CmdLineSettings>().frameless);
+        .with_maximized(cmd_line_settings.maximized)
+        .with_decorations(!cmd_line_settings.frameless);
 
     #[cfg(target_os = "linux")]
     let winit_window_builder = winit_window_builder
@@ -249,7 +263,7 @@ pub fn create_window(
         .with_stencil_buffer(8)
         .with_gl_profile(GlProfile::Core)
         .with_vsync(false)
-        .with_srgb(false)
+        .with_srgb(cmd_line_settings.srgb)
         .build_windowed(winit_window_builder, &event_loop)
         .unwrap();
     let windowed_context = unsafe { windowed_context.make_current().unwrap() };
@@ -263,10 +277,9 @@ pub fn create_window(
     let skia_renderer = SkiaRenderer::new(&windowed_context);
 
     log::info!(
-        "window created (scale_factor: {}, font_size: {}x{})",
+        "window created (scale_factor: {:.4}, font_dimensions: {:?})",
         scale_factor,
-        renderer.font_width,
-        renderer.font_height,
+        renderer.grid_renderer.font_dimensions,
     );
 
     let mut window_wrapper = GlutinWindowWrapper {
@@ -309,4 +322,8 @@ pub fn create_window(
 
         *control_flow = ControlFlow::WaitUntil(previous_frame_start + frame_duration)
     });
+}
+
+fn is_already_resized(size: PhysicalSize<u32>) -> bool {
+    size != PhysicalSize::from((800, 600))
 }
