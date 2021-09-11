@@ -6,12 +6,8 @@ use skia_safe::{font::Edging, Data, Font, FontHinting, FontMgr, FontStyle, Typef
 use super::font_options::FontOptions;
 use super::swash_font::SwashFont;
 
-#[derive(RustEmbed)]
-#[folder = "assets/fonts/"]
-pub struct Asset;
-
-const DEFAULT_FONT: &str = "FiraCode-Regular.ttf";
-const LAST_RESORT_FONT: &str = "LastResort-Regular.ttf";
+static DEFAULT_FONT: &[u8] = include_bytes!("../../../assets/fonts/FiraCode-Regular.ttf");
+static LAST_RESORT_FONT: &[u8] = include_bytes!("../../../assets/fonts/LastResort-Regular.ttf");
 
 pub struct FontPair {
     pub skia_font: Font,
@@ -141,14 +137,12 @@ impl FontLoader {
                 FontPair::new(Font::from_typeface(typeface, self.font_size))
             }
             FontSelection::Default => {
-                let default_font_data = Asset::get(DEFAULT_FONT).unwrap();
-                let data = Data::new_copy(&default_font_data);
+                let data = Data::new_copy(DEFAULT_FONT);
                 let typeface = Typeface::from_data(data, 0).unwrap();
                 FontPair::new(Font::from_typeface(typeface, self.font_size))
             }
             FontSelection::LastResort => {
-                let default_font_data = Asset::get(LAST_RESORT_FONT).unwrap();
-                let data = Data::new_copy(&default_font_data);
+                let data = Data::new_copy(LAST_RESORT_FONT);
                 let typeface = Typeface::from_data(data, 0).unwrap();
                 FontPair::new(Font::from_typeface(typeface, self.font_size))
             }

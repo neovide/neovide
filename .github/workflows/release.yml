@@ -1,8 +1,12 @@
-name: Snap
+name: Releases
 
 on:
-  push:
-    branches: [main]
+  workflow_dispatch:
+    inputs:
+      logLevel:
+        description: "Log level"
+        required: true
+        default: "warning"
 
 jobs:
   snap:
@@ -24,5 +28,5 @@ jobs:
 
       - uses: snapcore/action-publish@v1
         with:
-          store_login: ${{ secrets.SNAPCRAFT_EDGE_TOKEN }}
+          store_login: ${{ secrets.SNAPCRAFT_TOKEN }}
           snap: ${{ steps.snapcraft.outputs.snap }}

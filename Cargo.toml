@@ -1,6 +1,6 @@
 [package]
 name = "neovide"
-version = "0.7.0"
+version = "0.8.0"
 authors = ["keith <keith@the-simmons.net>"]
 edition = "2018"
 build = "build.rs"
@@ -14,7 +14,6 @@ members = ["neovide-derive"]
 [features]
 default = []
 embed-fonts = []
-debug-renderer = []
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
@@ -23,14 +22,12 @@ neovide-derive = { path = "neovide-derive" }
 euclid = "0.20.7"
 lru = "0.4.3"
 derive-new = "0.5"
-rmpv = "0.4.4"
-rust-embed = { version = "5.2.0", features = ["debug-embed"] }
-image = "0.22.3"
+rmpv = "1.0.0"
+image = { version = "0.22.3", default-features = false, features = ["ico"] }
 nvim-rs = { git = "https://github.com/KillTheMule/nvim-rs", branch = "master", features = ["use_tokio"] }
 tokio = { version = "1.1.1", features = ["full"] }
 tokio-util = "0.6.7"
 async-trait = "0.1.18"
-crossfire = "0.1"
 lazy_static = "1.4.0"
 unicode-segmentation = "1.6.0"
 log = "0.4.8"
@@ -45,7 +42,6 @@ futures = "0.3.12"
 glutin = { git = "https://github.com/Kethku/glutin", branch = "new-keyboard-all" }
 winit = { git = "https://github.com/Kethku/winit", branch = "new-keyboard-all", default-features = false }
 gl = "0.14.0"
-regex = "1.5.4"
 swash = "0.1.4"
 clap="2.33.3"
 
