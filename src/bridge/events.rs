@@ -374,7 +374,9 @@ fn extract_values<const REQ: usize>(values: Vec<Value>) -> Result<[Value; REQ]> 
     }
 }
 
-fn extract_values_with_optional<const REQ: usize, const OPT: usize>(values: Vec<Value>) -> Result<([Value; REQ], [Option<Value>; OPT])> {
+fn extract_values_with_optional<const REQ: usize, const OPT: usize>(
+    values: Vec<Value>,
+) -> Result<([Value; REQ], [Option<Value>; OPT])> {
     if REQ > values.len() {
         Err(ParseError::Format(format!("{:?}", values)))
     } else {
@@ -389,7 +391,10 @@ fn extract_values_with_optional<const REQ: usize, const OPT: usize>(values: Vec<
             }
         }
 
-        Ok((required_values.try_into().unwrap(), optional_values.try_into().unwrap()))
+        Ok((
+            required_values.try_into().unwrap(),
+            optional_values.try_into().unwrap(),
+        ))
     }
 }
 
@@ -430,8 +435,7 @@ fn parse_set_title(set_title_arguments: Vec<Value>) -> Result<RedrawEvent> {
 }
 
 fn parse_mode_info_set(mode_info_set_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [_cursor_style_enabled, mode_info] =
-        extract_values(mode_info_set_arguments)?;
+    let [_cursor_style_enabled, mode_info] = extract_values(mode_info_set_arguments)?;
 
     let mode_info_values = parse_array(mode_info)?;
     let mut cursor_modes = Vec::with_capacity(mode_info_values.len());
@@ -510,8 +514,7 @@ fn parse_mode_change(mode_change_arguments: Vec<Value>) -> Result<RedrawEvent> {
 }
 
 fn parse_grid_resize(grid_resize_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [grid_id, width, height] =
-        extract_values(grid_resize_arguments)?;
+    let [grid_id, width, height] = extract_values(grid_resize_arguments)?;
 
     Ok(RedrawEvent::Resize {
         grid: parse_u64(grid_id)?,
@@ -570,8 +573,7 @@ fn parse_style(style_map: Value) -> Result<Style> {
 }
 
 fn parse_hl_attr_define(hl_attr_define_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [id, attributes, _terminal_attributes, _info] =
-        extract_values(hl_attr_define_arguments)?;
+    let [id, attributes, _terminal_attributes, _info] = extract_values(hl_attr_define_arguments)?;
 
     let style = parse_style(attributes)?;
     Ok(RedrawEvent::HighlightAttributesDefine {
@@ -641,8 +643,7 @@ fn parse_grid_destroy(grid_destroy_arguments: Vec<Value>) -> Result<RedrawEvent>
 }
 
 fn parse_grid_cursor_goto(cursor_goto_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [grid_id, row, column] =
-        extract_values(cursor_goto_arguments)?;
+    let [grid_id, row, column] = extract_values(cursor_goto_arguments)?;
 
     Ok(RedrawEvent::CursorGoto {
         grid: parse_u64(grid_id)?,
@@ -652,8 +653,7 @@ fn parse_grid_cursor_goto(cursor_goto_arguments: Vec<Value>) -> Result<RedrawEve
 }
 
 fn parse_grid_scroll(grid_scroll_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [grid_id, top, bottom, left, right, rows, columns] =
-        extract_values(grid_scroll_arguments)?;
+    let [grid_id, top, bottom, left, right, rows, columns] = extract_values(grid_scroll_arguments)?;
     Ok(RedrawEvent::Scroll {
         grid: parse_u64(grid_id)?,
         top: parse_u64(top)?,
@@ -800,9 +800,7 @@ fn parse_cmdline_pos(cmdline_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
 }
 
 fn parse_cmdline_special_char(cmdline_special_char_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [character, shift, level] = extract_values(
-        cmdline_special_char_arguments,
-    )?;
+    let [character, shift, level] = extract_values(cmdline_special_char_arguments)?;
 
     Ok(RedrawEvent::CommandLineSpecialCharacter {
         character: parse_string(character)?,
@@ -831,8 +829,7 @@ fn parse_cmdline_block_append(cmdline_block_append_arguments: Vec<Value>) -> Res
 }
 
 fn parse_msg_show(msg_show_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [kind, content, replace_last] =
-        extract_values(msg_show_arguments)?;
+    let [kind, content, replace_last] = extract_values(msg_show_arguments)?;
 
     Ok(RedrawEvent::MessageShow {
         kind: MessageKind::parse(&parse_string(kind)?),
