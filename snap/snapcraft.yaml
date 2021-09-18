@@ -114,5 +114,8 @@ apps:
     plugs:
       - desktop
       - desktop-legacy
+      - wayland
+      - unity7
+      - x11
     command-chain:
       - bin/desktop-launch
