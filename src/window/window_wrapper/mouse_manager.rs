@@ -165,32 +165,42 @@ impl MouseManager {
         }
     }
 
-    fn handle_pointer_transition(&mut self, down: bool) {
+    fn handle_pointer_transition(&mut self, mouse_button: &MouseButton, down: bool) {
         // For some reason pointer down is handled differently from pointer up and drag.
         // Floating windows: relative coordinates are great.
         // Non floating windows: rather than global coordinates, relative are needed
         if self.enabled {
-            if let Some(details) = &self.window_details_under_mouse {
-                let action = if down {
-                    "press".to_owned()
-                } else {
-                    "release".to_owned()
-                };
+            let button_text = match mouse_button {
+                MouseButton::Left => Some("left"),
+                MouseButton::Right => Some("right"),
+                MouseButton::Middle => Some("middle"),
+                _ => None,
+            };
 
-                let position = if !down && self.has_moved {
-                    self.drag_position
-                } else {
-                    self.relative_position
-                };
+            if let Some(button_text) = button_text {
+                if let Some(details) = &self.window_details_under_mouse {
+                    let action = if down {
+                        "press".to_owned()
+                    } else {
+                        "release".to_owned()
+                    };
 
-                self.command_sender
-                    .send(UiCommand::MouseButton {
-                        action,
-                        grid_id: details.id,
-                        position: position.into(),
-                    })
-                    .ok();
-            }
+                    let position = if !down && self.has_moved {
+                        self.drag_position
+                    } else {
+                        self.relative_position
+                    };
+
+                    self.command_sender
+                        .send(UiCommand::MouseButton {
+                            button: button_text.to_string(),
+                            action,
+                            grid_id: details.id,
+                            position: position.into(),
+                        })
+                        .ok();
+                }
+            } 
         }
 
         self.dragging = down;
@@ -302,12 +312,12 @@ impl MouseManager {
             Event::WindowEvent {
                 event:
                     WindowEvent::MouseInput {
-                        button: MouseButton::Left,
+                        button,
                         state,
                         ..
                     },
                 ..
-            } => self.handle_pointer_transition(state == &ElementState::Pressed),
+            } => self.handle_pointer_transition(button, state == &ElementState::Pressed),
             _ => {}
         }
     }

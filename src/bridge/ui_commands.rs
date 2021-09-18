@@ -21,6 +21,7 @@ pub enum UiCommand {
     },
     Keyboard(String),
     MouseButton {
+        button: String,
         action: String,
         grid_id: u64,
         position: (u32, u32),
@@ -58,12 +59,13 @@ impl UiCommand {
                 nvim.input(&input_command).await.expect("Input failed");
             }
             UiCommand::MouseButton {
+                button,
                 action,
                 grid_id,
                 position: (grid_x, grid_y),
             } => {
                 nvim.input_mouse(
-                    "left",
+                    &button,
                     &action,
                     "",
                     grid_id as i64,
