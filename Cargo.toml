@@ -4,7 +4,7 @@ version = "0.8.0"
 authors = ["keith <keith@the-simmons.net>"]
 edition = "2018"
 build = "build.rs"
-description = "No Nonsense Neovim Gui"
+description = "Neovide: No Nonsense Neovim Gui"
 repository = "https://github.com/neovide/neovide"
 resolver = "2"
 
