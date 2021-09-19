@@ -158,7 +158,7 @@ pub fn handle_command_line_arguments() -> Result<(), String> {
 
         no_fork: matches.is_present("nofork") || matches.is_present("verbosity"),
         no_idle: matches.is_present("noidle") || std::env::var("NEOVIDE_NOIDLE").is_ok(),
-        srgb: matches.is_present("srgb") || !std::env::var("NEOVIDE_NO_SRGB").is_ok(),
+        srgb: matches.is_present("srgb") || std::env::var("NEOVIDE_NO_SRGB").is_err(),
         geometry: parse_window_geometry(matches.value_of("geometry").map(|i| i.to_owned()))?,
         wsl: matches.is_present("wsl"),
         remote_tcp: matches.value_of("remote_tcp").map(|i| i.to_owned()),

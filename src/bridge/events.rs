@@ -706,7 +706,7 @@ fn parse_win_float_pos(win_float_pos_arguments: Vec<Value>) -> Result<RedrawEven
         anchor_row: parse_f64(anchor_row)?,
         anchor_column: parse_f64(anchor_column)?,
         focusable: parse_bool(focusable)?,
-        sort_order: sort_order,
+        sort_order,
     })
 }
 

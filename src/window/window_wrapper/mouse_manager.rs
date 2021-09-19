@@ -200,7 +200,7 @@ impl MouseManager {
                         })
                         .ok();
                 }
-            } 
+            }
         }
 
         self.dragging = down;
@@ -310,12 +310,7 @@ impl MouseManager {
                 (delta.x as f32, delta.y as f32),
             ),
             Event::WindowEvent {
-                event:
-                    WindowEvent::MouseInput {
-                        button,
-                        state,
-                        ..
-                    },
+                event: WindowEvent::MouseInput { button, state, .. },
                 ..
             } => self.handle_pointer_transition(button, state == &ElementState::Pressed),
             _ => {}
