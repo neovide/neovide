@@ -30,6 +30,7 @@ pub enum UiCommand {
         direction: String,
         grid_id: u64,
         position: (u32, u32),
+        modifier_string: String,
     },
     Drag {
         grid_id: u64,
@@ -79,11 +80,12 @@ impl UiCommand {
                 direction,
                 grid_id,
                 position: (grid_x, grid_y),
+                modifier_string,
             } => {
                 nvim.input_mouse(
                     "wheel",
                     &direction,
-                    "",
+                    &modifier_string,
                     grid_id as i64,
                     grid_y as i64,
                     grid_x as i64,
