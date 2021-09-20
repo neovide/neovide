@@ -43,6 +43,9 @@ use renderer::SkiaRenderer;
 
 static ICON: &[u8] = include_bytes!("../../../assets/neovide.ico");
 
+const MIN_WINDOW_WIDTH: u64 = 15;
+const MIN_WINDOW_HEIGHT: u64 = 6;
+
 pub struct GlutinWindowWrapper {
     windowed_context: WindowedContext<glutin::PossiblyCurrent>,
     skia_renderer: SkiaRenderer,
@@ -205,6 +208,12 @@ impl GlutinWindowWrapper {
             .renderer
             .grid_renderer
             .convert_physical_to_grid(new_size);
+
+        // Have a minimum size
+        if grid_size.width < MIN_WINDOW_WIDTH || grid_size.height < MIN_WINDOW_HEIGHT {
+            return;
+        }
+
         if self.saved_grid_size == Some(grid_size) {
             trace!("Grid matched saved size, skip update.");
             return;

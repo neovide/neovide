@@ -74,8 +74,6 @@ impl Handler for NeovimHandler {
                 ui_command_sender.send(UiCommand::UnregisterRightClick).ok();
             }
             _ => {}
-        })
-        .await
-        .ok();
+        });
     }
 }
