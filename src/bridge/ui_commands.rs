@@ -25,6 +25,7 @@ pub enum UiCommand {
         action: String,
         grid_id: u64,
         position: (u32, u32),
+        modifier_string: String,
     },
     Scroll {
         direction: String,
@@ -33,8 +34,10 @@ pub enum UiCommand {
         modifier_string: String,
     },
     Drag {
+        button: String,
         grid_id: u64,
         position: (u32, u32),
+        modifier_string: String,
     },
     FileDrop(String),
     FocusLost,
@@ -64,11 +67,12 @@ impl UiCommand {
                 action,
                 grid_id,
                 position: (grid_x, grid_y),
+                modifier_string,
             } => {
                 nvim.input_mouse(
                     &button,
                     &action,
-                    "",
+                    &modifier_string,
                     grid_id as i64,
                     grid_y as i64,
                     grid_x as i64,
@@ -94,13 +98,15 @@ impl UiCommand {
                 .expect("Mouse Scroll Failed");
             }
             UiCommand::Drag {
+                button,
                 grid_id,
                 position: (grid_x, grid_y),
+                modifier_string,
             } => {
                 nvim.input_mouse(
-                    "left",
+                    &button,
                     "drag",
-                    "",
+                    &modifier_string,
                     grid_id as i64,
                     grid_y as i64,
                     grid_x as i64,

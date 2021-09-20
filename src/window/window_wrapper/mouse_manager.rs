@@ -40,10 +40,19 @@ fn to_grid_coords(
     )
 }
 
+fn mouse_button_to_button_text(mouse_button: &MouseButton) -> Option<String> {
+    match mouse_button {
+        MouseButton::Left => Some("left".to_owned()),
+        MouseButton::Right => Some("right".to_owned()),
+        MouseButton::Middle => Some("middle".to_owned()),
+        _ => None,
+    }
+}
+
 pub struct MouseManager {
     command_sender: LoggingTx<UiCommand>,
 
-    dragging: bool,
+    dragging: Option<String>,
     drag_position: PhysicalPosition<u32>,
 
     has_moved: bool,
@@ -60,7 +69,7 @@ impl MouseManager {
     pub fn new(command_sender: LoggingTx<UiCommand>) -> MouseManager {
         MouseManager {
             command_sender,
-            dragging: false,
+            dragging: None,
             has_moved: false,
             position: PhysicalPosition::new(0, 0),
             relative_position: PhysicalPosition::new(0, 0),
@@ -75,6 +84,7 @@ impl MouseManager {
         &mut self,
         x: i32,
         y: i32,
+        keyboard_manager: &KeyboardManager,
         renderer: &Renderer,
         windowed_context: &WindowedContext<PossiblyCurrent>,
     ) {
@@ -87,7 +97,7 @@ impl MouseManager {
 
         // If dragging, the relevant window (the one which we send all commands to) is the one
         // which the mouse drag started on. Otherwise its the top rendered window
-        let relevant_window_details = if self.dragging {
+        let relevant_window_details = if self.dragging.is_some() {
             renderer.window_regions.iter().find(|details| {
                 details.id
                     == self
@@ -150,11 +160,13 @@ impl MouseManager {
             let has_moved = self.drag_position != previous_position;
 
             // If dragging and we haven't already sent a position, send a drag command
-            if self.dragging && has_moved {
+            if self.dragging.is_some() && has_moved {
                 self.command_sender
                     .send(UiCommand::Drag {
+                        button: self.dragging.as_ref().unwrap().to_owned(),
                         grid_id: relevant_window_details.id,
                         position: self.drag_position.into(),
+                        modifier_string: keyboard_manager.format_modifier_string(true),
                     })
                     .ok();
             } else {
@@ -162,23 +174,16 @@ impl MouseManager {
                 self.window_details_under_mouse = Some(relevant_window_details.clone());
             }
 
-            self.has_moved = self.dragging && (self.has_moved || has_moved);
+            self.has_moved = self.dragging.is_some() && (self.has_moved || has_moved);
         }
     }
 
-    fn handle_pointer_transition(&mut self, mouse_button: &MouseButton, down: bool) {
+    fn handle_pointer_transition(&mut self, mouse_button: &MouseButton, down: bool, keyboard_manager: &KeyboardManager) {
         // For some reason pointer down is handled differently from pointer up and drag.
         // Floating windows: relative coordinates are great.
         // Non floating windows: rather than global coordinates, relative are needed
         if self.enabled {
-            let button_text = match mouse_button {
-                MouseButton::Left => Some("left"),
-                MouseButton::Right => Some("right"),
-                MouseButton::Middle => Some("middle"),
-                _ => None,
-            };
-
-            if let Some(button_text) = button_text {
+            if let Some(button_text) = mouse_button_to_button_text(mouse_button) {
                 if let Some(details) = &self.window_details_under_mouse {
                     let action = if down {
                         "press".to_owned()
@@ -194,20 +199,21 @@ impl MouseManager {
 
                     self.command_sender
                         .send(UiCommand::MouseButton {
-                            button: button_text.to_string(),
+                            button: button_text.clone(),
                             action,
                             grid_id: details.id,
                             position: position.into(),
+                            modifier_string: keyboard_manager.format_modifier_string(true),
                         })
                         .ok();
                 }
+
+                self.dragging = Some(button_text);
+
+                if !self.dragging.is_some() {
+                    self.has_moved = false;
+                }
             }
-        }
-
-        self.dragging = down;
-
-        if !self.dragging {
-            self.has_moved = false;
         }
     }
 
@@ -295,6 +301,7 @@ impl MouseManager {
             } => self.handle_pointer_motion(
                 position.x as i32,
                 position.y as i32,
+                keyboard_manager,
                 renderer,
                 windowed_context,
             ),
@@ -321,7 +328,10 @@ impl MouseManager {
             Event::WindowEvent {
                 event: WindowEvent::MouseInput { button, state, .. },
                 ..
-            } => self.handle_pointer_transition(button, state == &ElementState::Pressed),
+            } => self.handle_pointer_transition(
+                button, 
+                state == &ElementState::Pressed, 
+                keyboard_manager),
             _ => {}
         }
     }
