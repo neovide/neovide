@@ -121,7 +121,11 @@ impl GlutinWindowWrapper {
     pub fn handle_event(&mut self, event: Event<()>, running: &Arc<AtomicBool>) {
         self.keyboard_manager.handle_event(&event);
         self.mouse_manager.handle_event(
-            &event, &self.keyboard_manager, &self.renderer, &self.windowed_context);
+            &event,
+            &self.keyboard_manager,
+            &self.renderer,
+            &self.windowed_context,
+        );
         match event {
             Event::LoopDestroyed => {
                 self.handle_quit(running);

@@ -8,10 +8,10 @@ use glutin::{
 };
 use skia_safe::Rect;
 
+use super::keyboard_manager::KeyboardManager;
 use crate::bridge::UiCommand;
 use crate::channel_utils::LoggingTx;
 use crate::renderer::{Renderer, WindowDrawDetails};
-use super::keyboard_manager::KeyboardManager;
 
 fn clamp_position(
     position: PhysicalPosition<f32>,
@@ -178,7 +178,12 @@ impl MouseManager {
         }
     }
 
-    fn handle_pointer_transition(&mut self, mouse_button: &MouseButton, down: bool, keyboard_manager: &KeyboardManager) {
+    fn handle_pointer_transition(
+        &mut self,
+        mouse_button: &MouseButton,
+        down: bool,
+        keyboard_manager: &KeyboardManager,
+    ) {
         // For some reason pointer down is handled differently from pointer up and drag.
         // Floating windows: relative coordinates are great.
         // Non floating windows: rather than global coordinates, relative are needed
@@ -210,7 +215,7 @@ impl MouseManager {
 
                 self.dragging = Some(button_text);
 
-                if !self.dragging.is_some() {
+                if self.dragging.is_none() {
                     self.has_moved = false;
                 }
             }
@@ -282,9 +287,10 @@ impl MouseManager {
         keyboard_manager: &KeyboardManager,
     ) {
         self.handle_line_scroll(
-            pixel_x / font_width as f32, 
-            pixel_y / font_height as f32, 
-            keyboard_manager);
+            pixel_x / font_width as f32,
+            pixel_y / font_height as f32,
+            keyboard_manager,
+        );
     }
 
     pub fn handle_event(
@@ -329,9 +335,10 @@ impl MouseManager {
                 event: WindowEvent::MouseInput { button, state, .. },
                 ..
             } => self.handle_pointer_transition(
-                button, 
-                state == &ElementState::Pressed, 
-                keyboard_manager),
+                button,
+                state == &ElementState::Pressed,
+                keyboard_manager,
+            ),
             _ => {}
         }
     }
