@@ -129,13 +129,19 @@ impl KeyboardManager {
         let special = special || self.ctrl || use_alt(self.alt) || self.logo;
 
         let open = or_empty(special, "<");
+        let modifiers = self.format_modifier_string(use_shift);
+        let close = or_empty(special, ">");
+
+        open.to_owned() + &modifiers + text + close
+    }
+
+    pub fn format_modifier_string(&self, use_shift: bool) -> String {
         let shift = or_empty(self.shift && use_shift, "S-");
         let ctrl = or_empty(self.ctrl, "C-");
         let alt = or_empty(use_alt(self.alt), "M-");
         let logo = or_empty(self.logo, "D-");
-        let close = or_empty(special, ">");
 
-        format!("{}{}{}{}{}{}{}", open, shift, ctrl, alt, logo, text, close)
+        shift.to_owned() + ctrl + alt + logo
     }
 }
 

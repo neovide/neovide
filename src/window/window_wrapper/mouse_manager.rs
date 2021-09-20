@@ -11,6 +11,7 @@ use skia_safe::Rect;
 use crate::bridge::UiCommand;
 use crate::channel_utils::LoggingTx;
 use crate::renderer::{Renderer, WindowDrawDetails};
+use super::keyboard_manager::KeyboardManager;
 
 fn clamp_position(
     position: PhysicalPosition<f32>,
@@ -210,7 +211,7 @@ impl MouseManager {
         }
     }
 
-    fn handle_line_scroll(&mut self, x: f32, y: f32) {
+    fn handle_line_scroll(&mut self, x: f32, y: f32, keyboard_manager: &KeyboardManager) {
         if !self.enabled {
             return;
         }
@@ -234,6 +235,7 @@ impl MouseManager {
                     .map(|details| details.id)
                     .unwrap_or(0),
                 position: self.drag_position.into(),
+                modifier_string: keyboard_manager.format_modifier_string(true),
             };
             for _ in 0..(new_y - previous_y).abs() {
                 self.command_sender.send(scroll_command.clone()).ok();
@@ -259,6 +261,7 @@ impl MouseManager {
                     .map(|details| details.id)
                     .unwrap_or(0),
                 position: self.drag_position.into(),
+                modifier_string: keyboard_manager.format_modifier_string(true),
             };
             for _ in 0..(new_x - previous_x).abs() {
                 self.command_sender.send(scroll_command.clone()).ok();
@@ -270,13 +273,18 @@ impl MouseManager {
         &mut self,
         (font_width, font_height): (u64, u64),
         (pixel_x, pixel_y): (f32, f32),
+        keyboard_manager: &KeyboardManager,
     ) {
-        self.handle_line_scroll(pixel_x / font_width as f32, pixel_y / font_height as f32);
+        self.handle_line_scroll(
+            pixel_x / font_width as f32, 
+            pixel_y / font_height as f32, 
+            keyboard_manager);
     }
 
     pub fn handle_event(
         &mut self,
         event: &Event<()>,
+        keyboard_manager: &KeyboardManager,
         renderer: &Renderer,
         windowed_context: &WindowedContext<PossiblyCurrent>,
     ) {
@@ -297,7 +305,7 @@ impl MouseManager {
                         ..
                     },
                 ..
-            } => self.handle_line_scroll(*x, *y),
+            } => self.handle_line_scroll(*x, *y, keyboard_manager),
             Event::WindowEvent {
                 event:
                     WindowEvent::MouseWheel {
@@ -308,6 +316,7 @@ impl MouseManager {
             } => self.handle_pixel_scroll(
                 renderer.grid_renderer.font_dimensions.into(),
                 (delta.x as f32, delta.y as f32),
+                keyboard_manager,
             ),
             Event::WindowEvent {
                 event: WindowEvent::MouseInput { button, state, .. },
