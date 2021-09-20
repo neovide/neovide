@@ -43,7 +43,7 @@ use renderer::SkiaRenderer;
 
 static ICON: &[u8] = include_bytes!("../../../assets/neovide.ico");
 
-const MIN_WINDOW_WIDTH: u64 = 15;
+const MIN_WINDOW_WIDTH: u64 = 20;
 const MIN_WINDOW_HEIGHT: u64 = 6;
 
 pub struct GlutinWindowWrapper {
