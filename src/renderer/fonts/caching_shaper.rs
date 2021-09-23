@@ -14,7 +14,7 @@ use super::font_options::*;
 
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {
-    pub cells: Vec<String>,
+    pub text: String,
     pub bold: bool,
     pub italic: bool,
 }
@@ -229,13 +229,12 @@ impl CachingShaper {
         grouped_results
     }
 
-    pub fn shape(&mut self, cells: &[String], bold: bool, italic: bool) -> Vec<TextBlob> {
+    pub fn shape(&mut self, text: String, bold: bool, italic: bool) -> Vec<TextBlob> {
         let current_size = self.current_size();
         let (glyph_width, ..) = self.font_base_dimensions();
 
         let mut resulting_blobs = Vec::new();
 
-        let text = cells.concat();
         trace!("Shaping text: {}", text);
 
         for (cluster_group, font_pair) in self.build_clusters(&text, bold, italic) {
@@ -279,11 +278,11 @@ impl CachingShaper {
         resulting_blobs
     }
 
-    pub fn shape_cached(&mut self, cells: &[String], bold: bool, italic: bool) -> &Vec<TextBlob> {
-        let key = ShapeKey::new(cells.to_vec(), bold, italic);
+    pub fn shape_cached(&mut self, text: String, bold: bool, italic: bool) -> &Vec<TextBlob> {
+        let key = ShapeKey::new(text.clone(), bold, italic);
 
         if !self.blob_cache.contains(&key) {
-            let blobs = self.shape(cells, bold, italic);
+            let blobs = self.shape(text, bold, italic);
             self.blob_cache.put(key.clone(), blobs);
         }
 

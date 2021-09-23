@@ -373,7 +373,7 @@ impl CursorRenderer {
             let y_adjustment = grid_renderer.shaper.y_adjustment();
             let blobs = &grid_renderer
                 .shaper
-                .shape_cached(&[character], false, false);
+                .shape_cached(character, false, false);
 
             for blob in blobs.iter() {
                 canvas.draw_text_blob(

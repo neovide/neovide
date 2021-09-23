@@ -9,20 +9,23 @@ use super::style::Style;
 use super::{AnchorInfo, DrawCommand, DrawCommandBatcher};
 use crate::bridge::GridLineCell;
 
-#[derive(new, Clone, Debug)]
+#[derive(Clone, Debug)]
+pub struct LineFragment {
+    pub text: String,
+    pub window_left: u64,
+    pub window_top: u64,
+    pub width: u64,
+    pub style: Option<Arc<Style>>,
+}
+
+#[derive(Clone, Debug)]
 pub enum WindowDrawCommand {
     Position {
         grid_position: (f64, f64),
         grid_size: (u64, u64),
         floating_order: Option<u64>,
     },
-    Cells {
-        cells: Vec<String>,
-        window_left: u64,
-        window_top: u64,
-        width: u64,
-        style: Option<Arc<Style>>,
-    },
+    DrawLine(Vec<LineFragment>),
     Scroll {
         top: u64,
         bottom: u64,
@@ -179,14 +182,14 @@ impl Window {
         *previous_style = style;
     }
 
-    // Send a draw command for the given row starting from current_start up until the next style
+    // Build a line fragment for the given row starting from current_start up until the next style
     // change or double width character.
-    fn send_draw_command(&self, row_index: u64, start: u64) -> Option<u64> {
+    fn build_line_fragment(&self, row_index: u64, start: u64) -> (u64, LineFragment) {
         let row = self.grid.row(row_index).unwrap();
 
         let (_, style) = &row[start as usize];
 
-        let mut cells = Vec::new();
+        let mut text = String::new();
         let mut width = 0;
         for possible_end_index in start..self.grid.width {
             let (character, possible_end_style) = &row[possible_end_index as usize];
@@ -203,19 +206,35 @@ impl Window {
             }
 
             // Add the grid cell to the cells to render
-            cells.push(character.clone());
+            text.push_str(character);
         }
 
-        // Send a window draw command to the current window.
-        self.send_command(WindowDrawCommand::Cells {
-            cells,
+        let line_fragment = LineFragment {
+            text,
             window_left: start,
             window_top: row_index,
             width,
             style: style.clone(),
-        });
+        };
 
-        Some(start + width)
+        (start + width, line_fragment)
+    }
+
+
+    // Redraw line by calling build_line_fragment starting at 0
+    // until current_start is greater than the grid width and sending the resulting
+    // fragments as a batch
+    fn redraw_line(&self, row: u64) {
+        // until current_start is greater than the grid width and sending the resulting
+        // fragments as a batch
+        let mut current_start = 0;
+        let mut line_fragments = Vec::new();
+        while current_start < self.grid.width {
+            let (next_start, line_fragment) = self.build_line_fragment(row, current_start);
+            current_start = next_start;
+            line_fragments.push(line_fragment);
+        }
+        self.send_command(WindowDrawCommand::DrawLine(line_fragments));
     }
 
     pub fn draw_grid_line(
@@ -238,16 +257,7 @@ impl Window {
                 );
             }
 
-            // Redraw the participating line by calling send_draw_command starting at 0
-            // until current_start is greater than the grid width
-            let mut current_start = 0;
-            while current_start < self.grid.width {
-                if let Some(next_start) = self.send_draw_command(row, current_start) {
-                    current_start = next_start;
-                } else {
-                    break;
-                }
-            }
+            self.redraw_line(row);
         } else {
             warn!("Draw command out of bounds");
         }
@@ -312,14 +322,7 @@ impl Window {
     pub fn redraw(&self) {
         self.send_command(WindowDrawCommand::Clear);
         for row in 0..self.grid.height {
-            let mut current_start = 0;
-            while current_start < self.grid.width {
-                if let Some(next_start) = self.send_draw_command(row, current_start) {
-                    current_start = next_start;
-                } else {
-                    break;
-                }
-            }
+            self.redraw_line(row);
         }
     }
 
