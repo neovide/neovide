@@ -115,7 +115,11 @@ impl GridRenderer {
 
         canvas.save();
 
-        let region = self.compute_text_region(grid_position, cell_width);
+        // We don't want to clip text in the x position, only the y so we add a buffer of 1
+        // character on either side of the region so that we clip vertically but not horizontally
+        let (grid_x, grid_y) = grid_position;
+        let clip_position = (grid_x.checked_sub(1).unwrap_or(0), grid_y);
+        let region = self.compute_text_region(clip_position, cell_width + 2);
 
         canvas.clip_rect(region, None, Some(false));
 
