@@ -9,7 +9,7 @@ use skia_safe::{
 
 use super::animation_utils::*;
 use super::{GridRenderer, RendererSettings};
-use crate::editor::WindowDrawCommand;
+use crate::editor::{WindowDrawCommand, LineFragment};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::utils::Dimensions;
 
@@ -335,19 +335,33 @@ impl RenderedWindow {
                     self.grid_destination = new_destination;
                 }
             }
-            WindowDrawCommand::Cells {
-                cells,
-                window_left,
-                window_top,
-                width,
-                style,
-            } => {
-                let grid_position = (window_left, window_top);
+            WindowDrawCommand::DrawLine(line_fragments) => {
                 let canvas = self.current_surface.surface.canvas();
 
                 canvas.save();
-                grid_renderer.draw_background(canvas, grid_position, width, &style);
-                grid_renderer.draw_foreground(canvas, &cells, grid_position, width, &style);
+                for line_fragment in line_fragments.iter() {
+                    let LineFragment {
+                        window_left,
+                        window_top,
+                        width,
+                        style,
+                        ..
+                    } = line_fragment;
+                    let grid_position = (*window_left, *window_top);
+                    grid_renderer.draw_background(canvas, grid_position, *width, &style);
+                }
+
+                for line_fragment in line_fragments.into_iter() {
+                    let LineFragment {
+                        text,
+                        window_left,
+                        window_top,
+                        width,
+                        style
+                    } = line_fragment;
+                    let grid_position = (window_left, window_top);
+                    grid_renderer.draw_foreground(canvas, text, grid_position, width, &style);
+                }
                 canvas.restore();
             }
             WindowDrawCommand::Scroll {

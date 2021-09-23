@@ -103,7 +103,7 @@ impl GridRenderer {
     pub fn draw_foreground(
         &mut self,
         canvas: &mut Canvas,
-        cells: &[String],
+        text: String,
         grid_position: (u64, u64),
         cell_width: u64,
         style: &Option<Arc<Style>>,
@@ -163,7 +163,7 @@ impl GridRenderer {
 
         for blob in self
             .shaper
-            .shape_cached(cells, style.bold, style.italic)
+            .shape_cached(text, style.bold, style.italic)
             .iter()
         {
             canvas.draw_text_blob(blob, (x as f32, (y + y_adjustment) as f32), &self.paint);
