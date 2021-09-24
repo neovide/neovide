@@ -9,7 +9,7 @@ use skia_safe::{
 
 use super::animation_utils::*;
 use super::{GridRenderer, RendererSettings};
-use crate::editor::{WindowDrawCommand, LineFragment};
+use crate::editor::{LineFragment, WindowDrawCommand};
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::utils::Dimensions;
 
@@ -348,7 +348,7 @@ impl RenderedWindow {
                         ..
                     } = line_fragment;
                     let grid_position = (*window_left, *window_top);
-                    grid_renderer.draw_background(canvas, grid_position, *width, &style);
+                    grid_renderer.draw_background(canvas, grid_position, *width, style);
                 }
 
                 for line_fragment in line_fragments.into_iter() {
@@ -357,7 +357,7 @@ impl RenderedWindow {
                         window_left,
                         window_top,
                         width,
-                        style
+                        style,
                     } = line_fragment;
                     let grid_position = (window_left, window_top);
                     grid_renderer.draw_foreground(canvas, text, grid_position, width, &style);
