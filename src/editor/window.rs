@@ -220,7 +220,6 @@ impl Window {
         (start + width, line_fragment)
     }
 
-
     // Redraw line by calling build_line_fragment starting at 0
     // until current_start is greater than the grid width and sending the resulting
     // fragments as a batch
