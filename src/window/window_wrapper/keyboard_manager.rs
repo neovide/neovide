@@ -67,24 +67,28 @@ impl KeyboardManager {
                 // And the window wasn't just focused.
                 let settings = SETTINGS.get::<KeyboardSettings>();
 
-                if !self.should_ignore_input(&settings) {
-                    // If we have a keyboard event this frame
-                    for key_event in self.queued_key_events.iter() {
-                        // And a key was pressed
+                if self.should_ignore_input(&settings) {
+                    self.queued_key_events.clear();
+                    self.ignore_input_this_frame = false;
+                } else {
+                    // Process one keyboard event at a time. If we send more than one event per
+                    // frame, then there's a chance that nvim will re-order the events.
+                    loop {
+                        if self.queued_key_events.is_empty() {
+                            break;
+                        }
+
+                        let key_event = self.queued_key_events.remove(0);
                         if key_event.state == ElementState::Pressed {
-                            if let Some(keybinding) = self.maybe_get_keybinding(key_event) {
+                            if let Some(keybinding) = self.maybe_get_keybinding(&key_event) {
                                 self.command_sender
                                     .send(UiCommand::Keyboard(keybinding))
                                     .expect("Could not send keyboard ui command");
+                                break;
                             }
                         }
                     }
                 }
-
-                // Regardless of whether this was a valid keyboard input or not, rest ignoring and
-                // whatever event was queued.
-                self.ignore_input_this_frame = false;
-                self.queued_key_events.clear();
             }
             _ => {}
         }
