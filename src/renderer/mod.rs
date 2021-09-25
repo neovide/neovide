@@ -4,6 +4,7 @@ mod fonts;
 pub mod grid_renderer;
 mod rendered_window;
 
+use crate::WindowSettings;
 use std::collections::{hash_map::Entry, HashMap};
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
@@ -97,7 +98,8 @@ impl Renderer {
         let default_background = self.grid_renderer.get_default_background();
         let font_dimensions = self.grid_renderer.font_dimensions;
 
-        root_canvas.clear(default_background);
+        let transparency = {SETTINGS.get::<WindowSettings>().transparency};
+        root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
         root_canvas.save();
         root_canvas.reset_matrix();
 
