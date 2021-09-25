@@ -75,7 +75,10 @@ impl GridRenderer {
     }
 
     pub fn get_default_background(&self) -> Color {
-        let transparency = {SETTINGS.get::<WindowSettings>().transparency};
+        let mut transparency = {SETTINGS.get::<WindowSettings>().transparency};
+        if transparency < 1.0 {
+            transparency = 0.0;
+        }
         self.default_style.colors.background.unwrap().to_color().with_a((255.0 * transparency) as u8)
     }
 
