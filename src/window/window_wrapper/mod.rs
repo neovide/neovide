@@ -80,8 +80,7 @@ impl GlutinWindowWrapper {
 
         let transparency = { SETTINGS.get::<WindowSettings>().transparency };
         if self.transparency != transparency {
-            self.transparency = transparency;
-            self.toggle_fullscreen();
+            //TODO: HERE REDRAW WINDOW
         }
 
     }
