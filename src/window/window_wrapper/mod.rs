@@ -51,7 +51,6 @@ pub struct GlutinWindowWrapper {
     mouse_manager: MouseManager,
     title: String,
     fullscreen: bool,
-    transparency: f32,
     saved_inner_size: PhysicalSize<u32>,
     saved_grid_size: Option<Dimensions>,
     ui_command_sender: LoggingTx<UiCommand>,
@@ -77,12 +76,6 @@ impl GlutinWindowWrapper {
         if self.fullscreen != fullscreen {
             self.toggle_fullscreen();
         }
-
-        let transparency = { SETTINGS.get::<WindowSettings>().transparency };
-        if self.transparency != transparency {
-            //TODO: HERE REDRAW WINDOW
-        }
-
     }
 
     #[allow(clippy::needless_collect)]
@@ -317,7 +310,6 @@ pub fn create_window(
         mouse_manager: MouseManager::new(ui_command_sender.clone()),
         title: String::from("Neovide"),
         fullscreen: false,
-        transparency: 1.0,
         saved_inner_size,
         saved_grid_size: None,
         ui_command_sender,
