@@ -87,6 +87,9 @@ impl Renderer {
             .collect();
         let mut font_changed = false;
 
+        let default_background = self.grid_renderer.get_default_background();
+        root_canvas.clear(default_background);
+
         for draw_command in draw_commands.into_iter() {
             if let DrawCommand::FontChanged(_) = draw_command {
                 font_changed = true;
@@ -94,10 +97,8 @@ impl Renderer {
             self.handle_draw_command(root_canvas, draw_command);
         }
 
-        let default_background = self.grid_renderer.get_default_background();
         let font_dimensions = self.grid_renderer.font_dimensions;
 
-        root_canvas.clear(default_background);
         root_canvas.save();
         root_canvas.reset_matrix();
 
