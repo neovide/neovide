@@ -100,8 +100,9 @@ impl GridRenderer {
                 .set_color(style.background(&self.default_style.colors).to_color());
         }
 
-        let transparency = {SETTINGS.get::<WindowSettings>().transparency};
-        self.paint.set_alpha_f(transparency);
+        if self.paint.color() == Color::BLACK {
+            self.paint.set_alpha(0);
+        }
         canvas.draw_rect(region, &self.paint);
     }
 
