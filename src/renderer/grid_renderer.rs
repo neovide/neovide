@@ -103,7 +103,7 @@ impl GridRenderer {
                 .set_color(style.background(&self.default_style.colors).to_color());
         }
 
-        if self.paint.color() == Color::BLACK {
+        if self.paint.color() == self.get_default_background().with_a(255) {
             self.paint.set_alpha(0);
         }
         canvas.draw_rect(region, &self.paint);
