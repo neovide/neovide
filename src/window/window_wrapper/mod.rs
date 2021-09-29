@@ -26,7 +26,7 @@ use glutin::platform::unix::WindowBuilderExtUnix;
 
 use super::settings::WindowSettings;
 use crate::{
-    bridge::UiCommand,
+    bridge::{ParallelCommand, UiCommand},
     channel_utils::*,
     cmd_line::CmdLineSettings,
     editor::DrawCommand,
@@ -102,7 +102,7 @@ impl GlutinWindowWrapper {
     pub fn handle_quit(&mut self, running: &Arc<AtomicBool>) {
         if SETTINGS.get::<CmdLineSettings>().remote_tcp.is_none() {
             self.ui_command_sender
-                .send(UiCommand::Quit)
+                .send(ParallelCommand::Quit.into())
                 .expect("Could not send quit command to bridge");
         } else {
             running.store(false, Ordering::Relaxed);
@@ -110,11 +110,11 @@ impl GlutinWindowWrapper {
     }
 
     pub fn handle_focus_lost(&mut self) {
-        self.ui_command_sender.send(UiCommand::FocusLost).ok();
+        self.ui_command_sender.send(ParallelCommand::FocusLost.into()).ok();
     }
 
     pub fn handle_focus_gained(&mut self) {
-        self.ui_command_sender.send(UiCommand::FocusGained).ok();
+        self.ui_command_sender.send(ParallelCommand::FocusGained.into()).ok();
         REDRAW_SCHEDULER.queue_next_frame();
     }
 
@@ -147,9 +147,9 @@ impl GlutinWindowWrapper {
                 ..
             } => {
                 self.ui_command_sender
-                    .send(UiCommand::FileDrop(
+                    .send(ParallelCommand::FileDrop(
                         path.into_os_string().into_string().unwrap(),
-                    ))
+                    ).into())
                     .ok();
             }
             Event::WindowEvent {
@@ -224,10 +224,10 @@ impl GlutinWindowWrapper {
         }
         self.saved_grid_size = Some(grid_size);
         self.ui_command_sender
-            .send(UiCommand::Resize {
+            .send(ParallelCommand::Resize {
                 width: grid_size.width,
                 height: grid_size.height,
-            })
+            }.into())
             .ok();
     }
 

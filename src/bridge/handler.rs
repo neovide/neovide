@@ -8,7 +8,7 @@ use rmpv::Value;
 use tokio::task;
 
 use super::events::{parse_redraw_event, RedrawEvent};
-use super::ui_commands::UiCommand;
+use super::ui_commands::{ParallelCommand, UiCommand};
 use crate::bridge::TxWrapper;
 use crate::channel_utils::*;
 use crate::error_handling::ResultPanicExplanation;
@@ -66,12 +66,12 @@ impl Handler for NeovimHandler {
             #[cfg(windows)]
             "neovide.register_right_click" => {
                 let ui_command_sender = ui_command_sender.lock();
-                ui_command_sender.send(UiCommand::RegisterRightClick).ok();
+                ui_command_sender.send(ParallelCommand::RegisterRightClick.into()).ok();
             }
             #[cfg(windows)]
             "neovide.unregister_right_click" => {
                 let ui_command_sender = ui_command_sender.lock();
-                ui_command_sender.send(UiCommand::UnregisterRightClick).ok();
+                ui_command_sender.send(ParallelCommand::UnregisterRightClick.into()).ok();
             }
             _ => {}
         });
