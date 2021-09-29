@@ -8,8 +8,12 @@ use glutin::{
 };
 use skia_safe::Rect;
 
+<<<<<<< Updated upstream
 use super::keyboard_manager::KeyboardManager;
 use crate::bridge::UiCommand;
+=======
+use crate::bridge::{SerialCommand, UiCommand};
+>>>>>>> Stashed changes
 use crate::channel_utils::LoggingTx;
 use crate::renderer::{Renderer, WindowDrawDetails};
 
@@ -162,12 +166,19 @@ impl MouseManager {
             // If dragging and we haven't already sent a position, send a drag command
             if self.dragging.is_some() && has_moved {
                 self.command_sender
+<<<<<<< Updated upstream
                     .send(UiCommand::Drag {
                         button: self.dragging.as_ref().unwrap().to_owned(),
                         grid_id: relevant_window_details.id,
                         position: self.drag_position.into(),
                         modifier_string: keyboard_manager.format_modifier_string(true),
                     })
+=======
+                    .send(SerialCommand::Drag {
+                        grid_id: relevant_window_details.id,
+                        position: self.drag_position.into(),
+                    }.into())
+>>>>>>> Stashed changes
                     .ok();
             } else {
                 // otherwise, update the window_id_under_mouse to match the one selected
@@ -203,6 +214,7 @@ impl MouseManager {
                     };
 
                     self.command_sender
+<<<<<<< Updated upstream
                         .send(UiCommand::MouseButton {
                             button: button_text.clone(),
                             action,
@@ -210,6 +222,14 @@ impl MouseManager {
                             position: position.into(),
                             modifier_string: keyboard_manager.format_modifier_string(true),
                         })
+=======
+                        .send(SerialCommand::MouseButton {
+                            button: button_text.to_string(),
+                            action,
+                            grid_id: details.id,
+                            position: position.into(),
+                        }.into())
+>>>>>>> Stashed changes
                         .ok();
                 }
 
@@ -238,7 +258,7 @@ impl MouseManager {
         };
 
         if let Some(input_type) = vertical_input_type {
-            let scroll_command = UiCommand::Scroll {
+            let scroll_command: UiCommand = SerialCommand::Scroll {
                 direction: input_type.to_string(),
                 grid_id: self
                     .window_details_under_mouse
@@ -246,8 +266,12 @@ impl MouseManager {
                     .map(|details| details.id)
                     .unwrap_or(0),
                 position: self.drag_position.into(),
+<<<<<<< Updated upstream
                 modifier_string: keyboard_manager.format_modifier_string(true),
             };
+=======
+            }.into();
+>>>>>>> Stashed changes
             for _ in 0..(new_y - previous_y).abs() {
                 self.command_sender.send(scroll_command.clone()).ok();
             }
@@ -264,7 +288,7 @@ impl MouseManager {
         };
 
         if let Some(input_type) = horizontal_input_type {
-            let scroll_command = UiCommand::Scroll {
+            let scroll_command: UiCommand = SerialCommand::Scroll {
                 direction: input_type.to_string(),
                 grid_id: self
                     .window_details_under_mouse
@@ -272,8 +296,12 @@ impl MouseManager {
                     .map(|details| details.id)
                     .unwrap_or(0),
                 position: self.drag_position.into(),
+<<<<<<< Updated upstream
                 modifier_string: keyboard_manager.format_modifier_string(true),
             };
+=======
+            }.into();
+>>>>>>> Stashed changes
             for _ in 0..(new_x - previous_x).abs() {
                 self.command_sender.send(scroll_command.clone()).ok();
             }

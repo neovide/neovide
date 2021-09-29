@@ -22,7 +22,7 @@ use crate::{cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation};
 pub use events::*;
 use handler::NeovimHandler;
 pub use tx_wrapper::{TxWrapper, WrapTx};
-pub use ui_commands::UiCommand;
+pub use ui_commands::{UiCommand, SerialCommand, ParallelCommand, start_ui_command_handler};
 
 #[cfg(windows)]
 fn set_windows_creation_flags(cmd: &mut Command) {
@@ -156,7 +156,7 @@ fn connection_mode() -> ConnectionMode {
 
 async fn start_neovim_runtime(
     ui_command_sender: LoggingTx<UiCommand>,
-    mut ui_command_receiver: UnboundedReceiver<UiCommand>,
+    ui_command_receiver: UnboundedReceiver<UiCommand>,
     redraw_event_sender: LoggingTx<RedrawEvent>,
     running: Arc<AtomicBool>,
 ) {
@@ -284,29 +284,7 @@ async fn start_neovim_runtime(
 
     let nvim = Arc::new(nvim);
 
-    let ui_command_running = running.clone();
-    let input_nvim = nvim.clone();
-    tokio::spawn(async move {
-        loop {
-            if !ui_command_running.load(Ordering::Relaxed) {
-                break;
-            }
-
-            match ui_command_receiver.recv().await {
-                Some(ui_command) => {
-                    let input_nvim = input_nvim.clone();
-                    tokio::spawn(async move {
-                        ui_command.execute(&input_nvim).await;
-                    });
-                }
-                None => {
-                    ui_command_running.store(false, Ordering::Relaxed);
-                    break;
-                }
-            }
-        }
-    });
-
+    start_ui_command_handler(running.clone(), ui_command_receiver, nvim.clone());
     SETTINGS.read_initial_values(&nvim).await;
     SETTINGS.setup_changed_listeners(&nvim).await;
 }
