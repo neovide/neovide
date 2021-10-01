@@ -91,12 +91,8 @@ impl SerialCommand {
                 .await
                 .expect("Mouse Scroll Failed");
             }
-<<<<<<< Updated upstream
-            UiCommand::Drag {
-                button,
-=======
             SerialCommand::Drag {
->>>>>>> Stashed changes
+                button,
                 grid_id,
                 position: (grid_x, grid_y),
                 modifier_string,
@@ -203,7 +199,7 @@ impl From<ParallelCommand> for UiCommand {
 }
 
 pub fn start_ui_command_handler(running: Arc<AtomicBool>, mut ui_command_receiver: UnboundedReceiver<UiCommand>, nvim: Arc<Neovim<TxWrapper>>) {
-    let serial_tx = start_serial_command_handler(running, nvim);
+    let serial_tx = start_serial_command_handler(running.clone(), nvim.clone());
 
     tokio::spawn(async move {
         loop {
@@ -230,7 +226,7 @@ pub fn start_ui_command_handler(running: Arc<AtomicBool>, mut ui_command_receive
 }
 
 pub fn start_serial_command_handler(running: Arc<AtomicBool>, nvim: Arc<Neovim<TxWrapper>>) -> UnboundedSender<SerialCommand> {
-    let (serial_tx, serial_rx) = unbounded_channel::<SerialCommand>();
+    let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
     tokio::spawn(async move {
         loop {
             if !running.load(Ordering::Relaxed) {
