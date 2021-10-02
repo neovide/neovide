@@ -48,15 +48,10 @@ jobs:
         run: |
           cargo build --release
 
-      - name: Archive Windows artifact
-        run: |
-          powershell rm ./target/release/neovide.zip
-          powershell Compress-Archive ./target/release/neovide.exe ./target/release/neovide.zip
-
-      - uses: actions/upload-artifact@v1
+      - uses: actions/upload-artifact@v2
         with:
           name: neovide-windows.zip
-          path: ./target/release/neovide.zip
+          path: ./target/release/neovide.exe
 
   build-mac:
     runs-on: macos-latest
