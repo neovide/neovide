@@ -50,7 +50,7 @@ jobs:
 
       - uses: actions/upload-artifact@v2
         with:
-          name: neovide-windows.zip
+          name: neovide-windows
           path: ./target/release/neovide.exe
 
   build-mac:
