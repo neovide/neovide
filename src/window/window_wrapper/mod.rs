@@ -308,7 +308,7 @@ pub fn create_window(
     let mut previous_frame_start = Instant::now();
 
     event_loop.run(move |e, _window_target, control_flow| {
-        if RUNNING_TRACKER.is_running() {
+        if !RUNNING_TRACKER.is_running() {
             maybe_save_window_size(window_wrapper.saved_grid_size);
             std::process::exit(0);
         }
