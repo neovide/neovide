@@ -18,6 +18,7 @@ use tokio::sync::mpsc::{
 };
 
 use crate::bridge::TxWrapper;
+use crate::running_tracker::RUNNING_TRACKER;
 #[cfg(windows)]
 use crate::windows_utils::{
     register_rightclick_directory, register_rightclick_file, unregister_rightclick,
@@ -198,52 +199,38 @@ impl From<ParallelCommand> for UiCommand {
     }
 }
 
-pub fn start_ui_command_handler(running: Arc<AtomicBool>, mut ui_command_receiver: UnboundedReceiver<UiCommand>, nvim: Arc<Neovim<TxWrapper>>) {
-    let serial_tx = start_serial_command_handler(running.clone(), nvim.clone());
-
+pub fn start_ui_command_handler(mut ui_command_receiver: UnboundedReceiver<UiCommand>, nvim: Arc<Neovim<TxWrapper>>) {
+    let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
+    let ui_command_nvim = nvim.clone();
     tokio::spawn(async move {
-        loop {
-            if !running.load(Ordering::Relaxed) {
-                break;
-            }
-
+        while RUNNING_TRACKER.is_running() {
             match ui_command_receiver.recv().await {
                 Some(UiCommand::Serial(serial_command)) => 
                     serial_tx.send(serial_command).expect("Could not send serial ui command"),
                 Some(UiCommand::Parallel(parallel_command)) => {
-                    let nvim = nvim.clone();
+                    let ui_command_nvim = ui_command_nvim.clone();
                     tokio::spawn(async move {
-                        parallel_command.execute(&nvim).await;
+                        parallel_command.execute(&ui_command_nvim).await;
                     });
                 }
                 None => {
-                    running.store(false, Ordering::Relaxed);
-                    break;
+                    RUNNING_TRACKER.quit("ui command channel failed");
                 }
             }
         }
     });
-}
 
-pub fn start_serial_command_handler(running: Arc<AtomicBool>, nvim: Arc<Neovim<TxWrapper>>) -> UnboundedSender<SerialCommand> {
-    let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
+    let serial_command_nvim = nvim.clone();
     tokio::spawn(async move {
-        loop {
-            if !running.load(Ordering::Relaxed) {
-                break;
-            }
-
+        while RUNNING_TRACKER.is_running() {
             match serial_rx.recv().await {
                 Some(serial_command) => {
-                    serial_command.execute(&nvim).await;
+                    serial_command.execute(&serial_command_nvim).await;
                 },
                 None => {
-                    running.store(false, Ordering::Relaxed);
-                    break;
+                    RUNNING_TRACKER.quit("serial ui command channel failed");
                 },
             }
         }
     });
-
-    serial_tx
 }

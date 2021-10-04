@@ -6,7 +6,6 @@ mod ui_commands;
 
 use std::path::Path;
 use std::process::Stdio;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use log::{error, info, warn};
@@ -17,6 +16,7 @@ use tokio::runtime::Runtime;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::channel_utils::*;
+use crate::running_tracker::*;
 use crate::settings::*;
 use crate::{cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation};
 pub use events::*;
@@ -158,7 +158,6 @@ async fn start_neovim_runtime(
     ui_command_sender: LoggingTx<UiCommand>,
     ui_command_receiver: UnboundedReceiver<UiCommand>,
     redraw_event_sender: LoggingTx<RedrawEvent>,
-    running: Arc<AtomicBool>,
 ) {
     let handler = NeovimHandler::new(ui_command_sender.clone(), redraw_event_sender.clone());
     let (nvim, io_handler) = match connection_mode() {
@@ -172,7 +171,6 @@ async fn start_neovim_runtime(
         std::process::exit(-1);
     }
 
-    let close_watcher_running = running.clone();
     tokio::spawn(async move {
         info!("Close watcher started");
         match io_handler.await {
@@ -184,7 +182,7 @@ async fn start_neovim_runtime(
             }
             Ok(Ok(())) => {}
         };
-        close_watcher_running.store(false, Ordering::Relaxed);
+        RUNNING_TRACKER.quit("neovim processed failed");
     });
 
     match nvim.command_output("echo has('nvim-0.4')").await.as_deref() {
@@ -284,7 +282,7 @@ async fn start_neovim_runtime(
 
     let nvim = Arc::new(nvim);
 
-    start_ui_command_handler(running.clone(), ui_command_receiver, nvim.clone());
+    start_ui_command_handler(ui_command_receiver, nvim.clone());
     SETTINGS.read_initial_values(&nvim).await;
     SETTINGS.setup_changed_listeners(&nvim).await;
 }
@@ -297,14 +295,12 @@ pub fn start_bridge(
     ui_command_sender: LoggingTx<UiCommand>,
     ui_command_receiver: UnboundedReceiver<UiCommand>,
     redraw_event_sender: LoggingTx<RedrawEvent>,
-    running: Arc<AtomicBool>,
 ) -> Bridge {
     let runtime = Runtime::new().unwrap();
     runtime.spawn(start_neovim_runtime(
         ui_command_sender,
         ui_command_receiver,
         redraw_event_sender,
-        running,
     ));
     Bridge { _runtime: runtime }
 }
