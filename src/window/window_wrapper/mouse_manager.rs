@@ -162,12 +162,15 @@ impl MouseManager {
             // If dragging and we haven't already sent a position, send a drag command
             if self.dragging.is_some() && has_moved {
                 self.command_sender
-                    .send(SerialCommand::Drag {
-                        button: self.dragging.as_ref().unwrap().to_owned(),
-                        grid_id: relevant_window_details.id,
-                        position: self.drag_position.into(),
-                        modifier_string: keyboard_manager.format_modifier_string(true),
-                    }.into())
+                    .send(
+                        SerialCommand::Drag {
+                            button: self.dragging.as_ref().unwrap().to_owned(),
+                            grid_id: relevant_window_details.id,
+                            position: self.drag_position.into(),
+                            modifier_string: keyboard_manager.format_modifier_string(true),
+                        }
+                        .into(),
+                    )
                     .ok();
             } else {
                 // otherwise, update the window_id_under_mouse to match the one selected
@@ -203,13 +206,16 @@ impl MouseManager {
                     };
 
                     self.command_sender
-                        .send(SerialCommand::MouseButton {
-                            button: button_text.clone(),
-                            action,
-                            grid_id: details.id,
-                            position: position.into(),
-                            modifier_string: keyboard_manager.format_modifier_string(true),
-                        }.into())
+                        .send(
+                            SerialCommand::MouseButton {
+                                button: button_text.clone(),
+                                action,
+                                grid_id: details.id,
+                                position: position.into(),
+                                modifier_string: keyboard_manager.format_modifier_string(true),
+                            }
+                            .into(),
+                        )
                         .ok();
                 }
 
@@ -247,7 +253,8 @@ impl MouseManager {
                     .unwrap_or(0),
                 position: self.drag_position.into(),
                 modifier_string: keyboard_manager.format_modifier_string(true),
-            }.into();
+            }
+            .into();
             for _ in 0..(new_y - previous_y).abs() {
                 self.command_sender.send(scroll_command.clone()).ok();
             }
@@ -273,7 +280,8 @@ impl MouseManager {
                     .unwrap_or(0),
                 position: self.drag_position.into(),
                 modifier_string: keyboard_manager.format_modifier_string(true),
-            }.into();
+            }
+            .into();
             for _ in 0..(new_x - previous_x).abs() {
                 self.command_sender.send(scroll_command.clone()).ok();
             }

@@ -107,11 +107,15 @@ impl GlutinWindowWrapper {
     }
 
     pub fn handle_focus_lost(&mut self) {
-        self.ui_command_sender.send(ParallelCommand::FocusLost.into()).ok();
+        self.ui_command_sender
+            .send(ParallelCommand::FocusLost.into())
+            .ok();
     }
 
     pub fn handle_focus_gained(&mut self) {
-        self.ui_command_sender.send(ParallelCommand::FocusGained.into()).ok();
+        self.ui_command_sender
+            .send(ParallelCommand::FocusGained.into())
+            .ok();
         REDRAW_SCHEDULER.queue_next_frame();
     }
 
@@ -144,9 +148,10 @@ impl GlutinWindowWrapper {
                 ..
             } => {
                 self.ui_command_sender
-                    .send(ParallelCommand::FileDrop(
-                        path.into_os_string().into_string().unwrap(),
-                    ).into())
+                    .send(
+                        ParallelCommand::FileDrop(path.into_os_string().into_string().unwrap())
+                            .into(),
+                    )
                     .ok();
             }
             Event::WindowEvent {
@@ -221,10 +226,13 @@ impl GlutinWindowWrapper {
         }
         self.saved_grid_size = Some(grid_size);
         self.ui_command_sender
-            .send(ParallelCommand::Resize {
-                width: grid_size.width,
-                height: grid_size.height,
-            }.into())
+            .send(
+                ParallelCommand::Resize {
+                    width: grid_size.width,
+                    height: grid_size.height,
+                }
+                .into(),
+            )
             .ok();
     }
 

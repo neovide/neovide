@@ -19,9 +19,9 @@ mod editor;
 mod error_handling;
 mod redraw_scheduler;
 mod renderer;
+mod running_tracker;
 mod settings;
 mod utils;
-mod running_tracker;
 mod window;
 mod windows_utils;
 
@@ -30,7 +30,7 @@ extern crate derive_new;
 #[macro_use]
 extern crate lazy_static;
 
-use std::sync::{atomic::AtomicBool, mpsc::channel, Arc};
+use std::sync::mpsc::channel;
 
 use log::trace;
 use tokio::sync::mpsc::unbounded_channel;

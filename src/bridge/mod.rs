@@ -22,7 +22,7 @@ use crate::{cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation};
 pub use events::*;
 use handler::NeovimHandler;
 pub use tx_wrapper::{TxWrapper, WrapTx};
-pub use ui_commands::{UiCommand, SerialCommand, ParallelCommand, start_ui_command_handler};
+pub use ui_commands::{start_ui_command_handler, ParallelCommand, SerialCommand, UiCommand};
 
 #[cfg(windows)]
 fn set_windows_creation_flags(cmd: &mut Command) {

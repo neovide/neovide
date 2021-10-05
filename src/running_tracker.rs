@@ -1,9 +1,6 @@
 use std::sync::{
-    Arc, 
-    atomic::{
-        AtomicBool,
-        Ordering,
-    },
+    atomic::{AtomicBool, Ordering},
+    Arc,
 };
 
 use log::info;
@@ -13,13 +10,13 @@ lazy_static! {
 }
 
 pub struct RunningTracker {
-    running: Arc<AtomicBool>
+    running: Arc<AtomicBool>,
 }
 
 impl RunningTracker {
     fn new() -> Self {
         Self {
-            running: Arc::new(AtomicBool::new(true))
+            running: Arc::new(AtomicBool::new(true)),
         }
     }
 
