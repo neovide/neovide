@@ -1,21 +1,11 @@
-use std::sync::{
-    Arc, 
-    atomic::{
-        AtomicBool,
-        Ordering,
-    },
-};
+use std::sync::Arc;
 
-use log::trace;
 #[cfg(windows)]
 use log::error;
+use log::trace;
 
 use nvim_rs::Neovim;
-use tokio::sync::mpsc::{
-    unbounded_channel,
-    UnboundedReceiver,
-    UnboundedSender,
-};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
 use crate::bridge::TxWrapper;
 use crate::running_tracker::RUNNING_TRACKER;
@@ -180,7 +170,6 @@ impl ParallelCommand {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub enum UiCommand {
     Serial(SerialCommand),
@@ -199,14 +188,18 @@ impl From<ParallelCommand> for UiCommand {
     }
 }
 
-pub fn start_ui_command_handler(mut ui_command_receiver: UnboundedReceiver<UiCommand>, nvim: Arc<Neovim<TxWrapper>>) {
+pub fn start_ui_command_handler(
+    mut ui_command_receiver: UnboundedReceiver<UiCommand>,
+    nvim: Arc<Neovim<TxWrapper>>,
+) {
     let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
     let ui_command_nvim = nvim.clone();
     tokio::spawn(async move {
         while RUNNING_TRACKER.is_running() {
             match ui_command_receiver.recv().await {
-                Some(UiCommand::Serial(serial_command)) => 
-                    serial_tx.send(serial_command).expect("Could not send serial ui command"),
+                Some(UiCommand::Serial(serial_command)) => serial_tx
+                    .send(serial_command)
+                    .expect("Could not send serial ui command"),
                 Some(UiCommand::Parallel(parallel_command)) => {
                     let ui_command_nvim = ui_command_nvim.clone();
                     tokio::spawn(async move {
@@ -220,16 +213,15 @@ pub fn start_ui_command_handler(mut ui_command_receiver: UnboundedReceiver<UiCom
         }
     });
 
-    let serial_command_nvim = nvim.clone();
     tokio::spawn(async move {
         while RUNNING_TRACKER.is_running() {
             match serial_rx.recv().await {
                 Some(serial_command) => {
-                    serial_command.execute(&serial_command_nvim).await;
-                },
+                    serial_command.execute(&nvim).await;
+                }
                 None => {
                     RUNNING_TRACKER.quit("serial ui command channel failed");
-                },
+                }
             }
         }
     });

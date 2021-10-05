@@ -66,12 +66,16 @@ impl Handler for NeovimHandler {
             #[cfg(windows)]
             "neovide.register_right_click" => {
                 let ui_command_sender = ui_command_sender.lock();
-                ui_command_sender.send(ParallelCommand::RegisterRightClick.into()).ok();
+                ui_command_sender
+                    .send(ParallelCommand::RegisterRightClick.into())
+                    .ok();
             }
             #[cfg(windows)]
             "neovide.unregister_right_click" => {
                 let ui_command_sender = ui_command_sender.lock();
-                ui_command_sender.send(ParallelCommand::UnregisterRightClick.into()).ok();
+                ui_command_sender
+                    .send(ParallelCommand::UnregisterRightClick.into())
+                    .ok();
             }
             _ => {}
         });
