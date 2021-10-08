@@ -219,7 +219,12 @@ impl MouseManager {
                         .ok();
                 }
 
-                self.dragging = Some(button_text);
+
+                if down {
+                    self.dragging = Some(button_text);
+                } else {
+                    self.dragging = None;
+                }
 
                 if self.dragging.is_none() {
                     self.has_moved = false;
