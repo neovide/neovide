@@ -1,4 +1,4 @@
-# Neovide [![Discord](https://badgen.net/badge/icon/discord?icon=discord&label)](https://discord.gg/4AnGwba4) [![Chat on Matrix](https://matrix.to/img/matrix-badge.svg)](https://matrix.to/#/#neovide_community:gitter.im) [![Discussions](https://img.shields.io/badge/GitHub-Discussions-green?logo=github)](https://github.com/Kethku/neovide/discussions)
+# Neovide [![Discord](https://badgen.net/badge/icon/discord?icon=discord&label)](https://discord.gg/SjFpZdQys6) [![Chat on Matrix](https://matrix.to/img/matrix-badge.svg)](https://matrix.to/#/#neovide_community:gitter.im) [![Discussions](https://img.shields.io/badge/GitHub-Discussions-green?logo=github)](https://github.com/Kethku/neovide/discussions)
 
 This is a simple graphical user interface for [Neovim](https://github.com/neovim/neovim) (an aggressively refactored and updated
 Vim editor). Where possible there are some graphical improvements, but functionally it should act like the terminal UI.
