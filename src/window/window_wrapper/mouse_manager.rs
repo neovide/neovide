@@ -219,7 +219,6 @@ impl MouseManager {
                         .ok();
                 }
 
-
                 if down {
                     self.dragging = Some(button_text);
                 } else {
