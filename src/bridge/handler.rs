@@ -37,6 +37,21 @@ impl Handler for NeovimHandler {
         _neovim: Neovim<TxWrapper>,
     ) -> Result<Value, Value> {
         match event_name.as_ref() {
+            "neovide.get_clipboard" => {
+                let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
+                let lines = ctx
+                    .get_contents()
+                    .unwrap()
+                    .replace("\r", "")
+                    .split("\n")
+                    .map(|line| Value::from(line))
+                    .collect::<Vec<Value>>();
+                // returns a [[String], RegType]
+                Ok(Value::from(vec![
+                    Value::from(lines),
+                    Value::from("V") // default regtype as Line paste
+                ]))
+            }
             _ => {
                 Ok(Value::from("rpcrequest not handled"))
             }
