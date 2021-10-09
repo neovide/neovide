@@ -30,6 +30,19 @@ impl NeovimHandler {
 impl Handler for NeovimHandler {
     type Writer = TxWrapper;
 
+    async fn handle_request(
+        &self,
+        event_name: String,
+        arguments: Vec<Value>,
+        _neovim: Neovim<TxWrapper>,
+    ) -> Result<Value, Value> {
+        match event_name.as_ref() {
+            _ => {
+                Ok(Value::from("rpcrequest not handled"))
+            }
+        }
+    }
+
     async fn handle_notify(
         &self,
         event_name: String,
