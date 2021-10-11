@@ -143,17 +143,17 @@ impl ParallelCommand {
             #[cfg(windows)]
             ParallelCommand::RegisterRightClick => {
                 if unregister_rightclick() {
-                    let msg = "Could not unregister previous menu item. Possibly already registered or not running as Admin?";
+                    let msg = "Could not unregister previous menu item. Possibly already registered.";
                     nvim.err_writeln(msg).await.ok();
                     error!("{}", msg);
                 }
                 if !register_rightclick_directory() {
-                    let msg = "Could not register directory context menu item. Possibly already registered or not running as Admin?";
+                    let msg = "Could not register directory context menu item. Possibly already registered.";
                     nvim.err_writeln(msg).await.ok();
                     error!("{}", msg);
                 }
                 if !register_rightclick_file() {
-                    let msg = "Could not register file context menu item. Possibly already registered or not running as Admin?";
+                    let msg = "Could not register file context menu item. Possibly already registered.";
                     nvim.err_writeln(msg).await.ok();
                     error!("{}", msg);
                 }
@@ -161,7 +161,7 @@ impl ParallelCommand {
             #[cfg(windows)]
             ParallelCommand::UnregisterRightClick => {
                 if !unregister_rightclick() {
-                    let msg = "Could not remove context menu items. Possibly already removed or not running as Admin?";
+                    let msg = "Could not remove context menu items. Possibly already removed.";
                     nvim.err_writeln(msg).await.ok();
                     error!("{}", msg);
                 }
