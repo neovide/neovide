@@ -118,6 +118,12 @@ pub fn handle_command_line_arguments() -> Result<(), String> {
                 .help("Files to open"),
         )
         .arg(
+            Arg::with_name("neovim_bin")
+                .long("neovim-bin")
+                .takes_value(true)
+                .help("Specify path to neovim"),
+        )
+        .arg(
             Arg::with_name("neovim_args")
                 .multiple(true)
                 .takes_value(true)
@@ -150,7 +156,10 @@ pub fn handle_command_line_arguments() -> Result<(), String> {
             .values_of("neovim_args")
             .map(|opt| opt.map(|v| v.to_owned()).collect())
             .unwrap_or_default(),
-        neovim_bin: std::env::var("NEOVIM_BIN").ok(),
+        neovim_bin: match std::env::var("NEOVIM_BIN") {
+            Ok(val) => Some(val),
+            Err(_) => matches.value_of("neovim_bin").map(|b| b.to_string()),
+        },
         files_to_open: matches
             .values_of("files")
             .map(|opt| opt.map(|v| v.to_owned()).collect())
