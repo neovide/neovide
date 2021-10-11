@@ -143,7 +143,8 @@ impl ParallelCommand {
             #[cfg(windows)]
             ParallelCommand::RegisterRightClick => {
                 if unregister_rightclick() {
-                    let msg = "Could not unregister previous menu item. Possibly already registered.";
+                    let msg =
+                        "Could not unregister previous menu item. Possibly already registered.";
                     nvim.err_writeln(msg).await.ok();
                     error!("{}", msg);
                 }
@@ -153,7 +154,8 @@ impl ParallelCommand {
                     error!("{}", msg);
                 }
                 if !register_rightclick_file() {
-                    let msg = "Could not register file context menu item. Possibly already registered.";
+                    let msg =
+                        "Could not register file context menu item. Possibly already registered.";
                     nvim.err_writeln(msg).await.ok();
                     error!("{}", msg);
                 }
