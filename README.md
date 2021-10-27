@@ -138,7 +138,7 @@ $ scoop install neovide
 5. Build and install Neovide:
 
     ```sh
-    git clone https://github.com/Kethku/neovide
+    git clone https://github.com/Kethku/neovide --depth=1
     cd neovide
     cargo build --release
     ```
@@ -150,7 +150,7 @@ $ scoop install neovide
 1. Install the latest version of Rust. Using homebrew: `brew install rustup`
 2. Configure rust by running `rustup-init`
 3. Install CMake. Using homebrew: `brew install cmake`
-4. `git clone https://github.com/Kethku/neovide`
+4. `git clone https://github.com/Kethku/neovide --depth=1`
 5. `cd neovide`
 6. `cargo build --release`
 7. Copy `./target/release/neovide` to a known location and enjoy.
@@ -170,7 +170,7 @@ paru -S neovide-git
 ##### Without helper
 
 ```sh
-git clone https://aur.archlinux.org/neovide-git.git
+git clone https://aur.archlinux.org/neovide-git.git --depth=1
 cd neovide-git
 makepkg -si
 ```
@@ -178,7 +178,7 @@ makepkg -si
 To install a non-default branch:
 
 ```sh
-git clone https://aur.archlinux.org/neovide-git.git
+git clone https://aur.archlinux.org/neovide-git.git --depth=1 
 cd neovide-git
 nvim PKGBUILD
 :%s/l}/l}#branch=branch-name-here/
@@ -192,7 +192,7 @@ See [#527](https://github.com/Kethku/neovide/issues/527)
 ##### With non-default branch
 
 ```sh
-git clone https://aur.archlinux.org/neovide-git.git
+git clone https://aur.archlinux.org/neovide-git.git --depth=1 
 cd neovide-git
 REGEX=$(printf 's/{url}/&\#branch=%s/g' '<YOUR-BRANCH-HERE>')
 sed "$REGEX" PKGBUILD
