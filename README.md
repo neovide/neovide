@@ -147,7 +147,7 @@ $ scoop install neovide
 
 ### Mac (from source)
 
-1. Install the latest version of Rust. Using homebrew: `brew install rustup`
+1. Install the latest version of Rust. Using homebrew: `brew install rustup-init`
 2. Configure rust by running `rustup-init`
 3. Install CMake. Using homebrew: `brew install cmake`
 4. `git clone https://github.com/Kethku/neovide`
