@@ -316,13 +316,16 @@ impl MouseManager {
             Event::WindowEvent {
                 event: WindowEvent::CursorMoved { position, .. },
                 ..
-            } => self.handle_pointer_motion(
-                position.x as i32,
-                position.y as i32,
-                keyboard_manager,
-                renderer,
-                windowed_context,
-            ),
+            } => {
+                self.handle_pointer_motion(
+                    position.x as i32,
+                    position.y as i32,
+                    keyboard_manager,
+                    renderer,
+                    windowed_context,
+                );
+                windowed_context.window().set_cursor_visible(true);
+            }
             Event::WindowEvent {
                 event:
                     WindowEvent::MouseWheel {
