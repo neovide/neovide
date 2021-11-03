@@ -1,6 +1,6 @@
-use glutin::{PossiblyCurrent, WindowedContext};
 use glutin::event::{ElementState, Event, KeyEvent, WindowEvent};
 use glutin::keyboard::Key;
+use glutin::{PossiblyCurrent, WindowedContext};
 
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 
@@ -32,7 +32,11 @@ impl KeyboardManager {
         }
     }
 
-    pub fn handle_event(&mut self, event: &Event<()>, windowed_context: &WindowedContext<PossiblyCurrent>) {
+    pub fn handle_event(
+        &mut self,
+        event: &Event<()>,
+        windowed_context: &WindowedContext<PossiblyCurrent>,
+    ) {
         match event {
             Event::WindowEvent {
                 event: WindowEvent::Focused(_focused),
