@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{iter, sync::Arc};
 
 use super::style::Style;
 
@@ -31,19 +31,15 @@ impl CharacterGrid {
 
     pub fn resize(&mut self, (width, height): (u64, u64)) {
         let new_cell_count = (width * height) as usize;
-        let mut new_characters = vec![default_cell!(); new_cell_count];
-
-        for x in 0..self.width.min(width) {
-            for y in 0..self.height.min(height) {
-                if let Some(existing_cell) = self.get_cell(x, y) {
-                    new_characters[(x + y * width) as usize] = existing_cell.clone();
-                }
-            }
+        if new_cell_count > self.characters.len() {
+            let placeholders_count = new_cell_count - self.characters.len();
+            self.characters.reserve(placeholders_count);
+            self.characters
+                .extend(iter::repeat(default_cell!()).take(placeholders_count))
         }
 
         self.width = width;
         self.height = height;
-        self.characters = new_characters;
     }
 
     pub fn clear(&mut self) {
