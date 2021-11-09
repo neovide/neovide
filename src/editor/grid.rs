@@ -59,12 +59,13 @@ impl CharacterGrid {
     }
 
     pub fn get_cell(&self, x: u64, y: u64) -> Option<&GridCell> {
-        self.cell_index(x, y).map(|idx| &self.characters[idx])
+        self.cell_index(x, y)
+            .map(|idx| unsafe { self.characters.get_unchecked(idx) })
     }
 
     pub fn get_cell_mut(&mut self, x: u64, y: u64) -> Option<&mut GridCell> {
         self.cell_index(x, y)
-            .map(move |idx| &mut self.characters[idx])
+            .map(move |idx| unsafe { self.characters.get_unchecked_mut(idx) })
     }
 
     pub fn set_all_characters(&mut self, value: GridCell) {
