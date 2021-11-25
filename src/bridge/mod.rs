@@ -37,12 +37,8 @@ fn build_nvim_cmd_with_args(bin: &str) -> Command {
     #[cfg(windows)]
     if SETTINGS.get::<CmdLineSettings>().wsl {
         let mut cmd = Command::new("wsl");
-        cmd.args(&[
-            bin.trim(),
-            "-c",
-            "let \\$PATH=system(\"\\$SHELL -lic 'echo \\$PATH' 2>/dev/null\")",
-        ]);
-        cmd.args(args);
+        let argstring = format!("{} {}", bin.trim(), args.join(" "));
+        cmd.args(&["$SHELL", "-lc", &argstring]);
         return cmd;
     }
     let mut cmd = Command::new(bin);
