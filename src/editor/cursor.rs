@@ -66,16 +66,14 @@ impl Cursor {
     }
 
     pub fn foreground(&self, default_colors: &Colors) -> Color4f {
-        self
-            .style
+        self.style
             .as_ref()
             .and_then(|s| s.colors.foreground)
             .unwrap_or(default_colors.background.unwrap())
     }
 
     pub fn background(&self, default_colors: &Colors) -> Color4f {
-        self
-            .style
+        self.style
             .as_ref()
             .and_then(|s| s.colors.background)
             .unwrap_or(default_colors.foreground.unwrap())
