@@ -69,14 +69,14 @@ impl Cursor {
         self.style
             .as_ref()
             .and_then(|s| s.colors.foreground)
-            .unwrap_or(default_colors.background.unwrap())
+            .unwrap_or_else(|| default_colors.background.unwrap())
     }
 
     pub fn background(&self, default_colors: &Colors) -> Color4f {
         self.style
             .as_ref()
             .and_then(|s| s.colors.background)
-            .unwrap_or(default_colors.foreground.unwrap())
+            .unwrap_or_else(|| default_colors.foreground.unwrap())
     }
 
     pub fn change_mode(&mut self, cursor_mode: &CursorMode, styles: &HashMap<u64, Arc<Style>>) {

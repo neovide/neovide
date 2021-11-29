@@ -591,17 +591,17 @@ fn parse_grid_line_cell(grid_line_cell: Value) -> Result<GridLineCell> {
 
     let text_value = cell_contents
         .first_mut()
-        .map(|v| take_value(v))
+        .map(take_value)
         .ok_or_else(|| ParseError::Format(format!("{:?}", cell_contents)))?;
 
     let highlight_id = cell_contents
         .get_mut(1)
-        .map(|v| take_value(v))
+        .map(take_value)
         .map(parse_u64)
         .transpose()?;
     let repeat = cell_contents
         .get_mut(2)
-        .map(|v| take_value(v))
+        .map(take_value)
         .map(parse_u64)
         .transpose()?;
 
