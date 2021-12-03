@@ -144,7 +144,7 @@ mod tests {
         style.colors.special = None;
         assert_eq!(
             style.special(&DEFAULT_COLORS),
-            DEFAULT_COLORS.special.unwrap()
+            style.foreground(&DEFAULT_COLORS),
         );
     }
 }
