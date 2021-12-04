@@ -8,7 +8,9 @@ use rmpv::Value;
 use tokio::task;
 
 use super::events::{parse_redraw_event, RedrawEvent};
-use super::ui_commands::{ParallelCommand, UiCommand};
+#[cfg(windows)]
+use super::ui_commands::ParallelCommand;
+use super::ui_commands::UiCommand;
 use crate::bridge::TxWrapper;
 use crate::channel_utils::*;
 use crate::error_handling::ResultPanicExplanation;
