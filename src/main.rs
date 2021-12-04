@@ -160,6 +160,7 @@ fn main() {
 
     // We need to keep the bridge reference around to prevent the tokio runtime from getting freed
     let _bridge = start_bridge(
+        #[cfg(windows)]
         logging_ui_command_sender.clone(),
         ui_command_receiver,
         logging_redraw_event_sender,
