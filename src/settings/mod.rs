@@ -87,7 +87,7 @@ impl Settings {
         let keys: Vec<String> = self.listeners.read().keys().cloned().collect();
 
         for name in keys {
-            let variable_name = format!("neovide_{}", name.to_string());
+            let variable_name = format!("neovide_{}", name);
             match nvim.get_var(&variable_name).await {
                 Ok(value) => {
                     self.listeners.read().get(&name).unwrap()(value);

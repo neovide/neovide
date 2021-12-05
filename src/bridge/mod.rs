@@ -6,7 +6,6 @@ mod ui_commands;
 
 use std::path::Path;
 use std::process::Stdio;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use log::{error, info, warn};
@@ -17,12 +16,13 @@ use tokio::runtime::Runtime;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::channel_utils::*;
+use crate::running_tracker::*;
 use crate::settings::*;
 use crate::{cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation};
 pub use events::*;
 use handler::NeovimHandler;
 pub use tx_wrapper::{TxWrapper, WrapTx};
-pub use ui_commands::UiCommand;
+pub use ui_commands::{start_ui_command_handler, ParallelCommand, SerialCommand, UiCommand};
 
 #[cfg(windows)]
 fn set_windows_creation_flags(cmd: &mut Command) {
@@ -156,9 +156,8 @@ fn connection_mode() -> ConnectionMode {
 
 async fn start_neovim_runtime(
     ui_command_sender: LoggingTx<UiCommand>,
-    mut ui_command_receiver: UnboundedReceiver<UiCommand>,
+    ui_command_receiver: UnboundedReceiver<UiCommand>,
     redraw_event_sender: LoggingTx<RedrawEvent>,
-    running: Arc<AtomicBool>,
 ) {
     let handler = NeovimHandler::new(ui_command_sender.clone(), redraw_event_sender.clone());
     let (nvim, io_handler) = match connection_mode() {
@@ -172,7 +171,6 @@ async fn start_neovim_runtime(
         std::process::exit(-1);
     }
 
-    let close_watcher_running = running.clone();
     tokio::spawn(async move {
         info!("Close watcher started");
         match io_handler.await {
@@ -184,7 +182,7 @@ async fn start_neovim_runtime(
             }
             Ok(Ok(())) => {}
         };
-        close_watcher_running.store(false, Ordering::Relaxed);
+        RUNNING_TRACKER.quit("neovim processed failed");
     });
 
     match nvim.command_output("echo has('nvim-0.4')").await.as_deref() {
@@ -284,29 +282,7 @@ async fn start_neovim_runtime(
 
     let nvim = Arc::new(nvim);
 
-    let ui_command_running = running.clone();
-    let input_nvim = nvim.clone();
-    tokio::spawn(async move {
-        loop {
-            if !ui_command_running.load(Ordering::Relaxed) {
-                break;
-            }
-
-            match ui_command_receiver.recv().await {
-                Some(ui_command) => {
-                    let input_nvim = input_nvim.clone();
-                    tokio::spawn(async move {
-                        ui_command.execute(&input_nvim).await;
-                    });
-                }
-                None => {
-                    ui_command_running.store(false, Ordering::Relaxed);
-                    break;
-                }
-            }
-        }
-    });
-
+    start_ui_command_handler(ui_command_receiver, nvim.clone());
     SETTINGS.read_initial_values(&nvim).await;
     SETTINGS.setup_changed_listeners(&nvim).await;
 }
@@ -319,14 +295,12 @@ pub fn start_bridge(
     ui_command_sender: LoggingTx<UiCommand>,
     ui_command_receiver: UnboundedReceiver<UiCommand>,
     redraw_event_sender: LoggingTx<RedrawEvent>,
-    running: Arc<AtomicBool>,
 ) -> Bridge {
     let runtime = Runtime::new().unwrap();
     runtime.spawn(start_neovim_runtime(
         ui_command_sender,
         ui_command_receiver,
         redraw_event_sender,
-        running,
     ));
     Bridge { _runtime: runtime }
 }

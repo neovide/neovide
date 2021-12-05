@@ -4,31 +4,8 @@ use std::time::Instant;
 
 use log::trace;
 
-use crate::{cmd_line::CmdLineSettings, settings::*};
-
 lazy_static! {
     pub static ref REDRAW_SCHEDULER: RedrawScheduler = RedrawScheduler::new();
-}
-
-#[derive(Clone, SettingGroup)]
-pub struct RedrawSettings {
-    extra_buffer_frames: u64,
-}
-
-impl Default for RedrawSettings {
-    fn default() -> Self {
-        Self {
-            extra_buffer_frames: if SETTINGS
-                .get::<CmdLineSettings>()
-                .neovim_args
-                .contains(&"--extraBufferFrames".to_string())
-            {
-                60
-            } else {
-                1
-            },
-        }
-    }
 }
 
 pub struct RedrawScheduler {

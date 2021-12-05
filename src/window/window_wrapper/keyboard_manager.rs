@@ -3,7 +3,7 @@ use glutin::keyboard::Key;
 
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 
-use crate::bridge::UiCommand;
+use crate::bridge::{SerialCommand, UiCommand};
 use crate::channel_utils::LoggingTx;
 use crate::settings::SETTINGS;
 use crate::window::KeyboardSettings;
@@ -74,7 +74,7 @@ impl KeyboardManager {
                         if key_event.state == ElementState::Pressed {
                             if let Some(keybinding) = self.maybe_get_keybinding(key_event) {
                                 self.command_sender
-                                    .send(UiCommand::Keyboard(keybinding))
+                                    .send(SerialCommand::Keyboard(keybinding).into())
                                     .expect("Could not send keyboard ui command");
                             }
                         }

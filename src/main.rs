@@ -19,17 +19,18 @@ mod editor;
 mod error_handling;
 mod redraw_scheduler;
 mod renderer;
+mod running_tracker;
 mod settings;
 mod utils;
 mod window;
-pub mod windows_utils;
+mod windows_utils;
 
 #[macro_use]
 extern crate derive_new;
 #[macro_use]
 extern crate lazy_static;
 
-use std::sync::{atomic::AtomicBool, mpsc::channel, Arc};
+use std::sync::mpsc::channel;
 
 use log::trace;
 use tokio::sync::mpsc::unbounded_channel;
@@ -42,6 +43,8 @@ use settings::SETTINGS;
 use window::{create_window, KeyboardSettings, WindowSettings};
 
 pub use channel_utils::*;
+pub use running_tracker::*;
+pub use windows_utils::*;
 
 fn main() {
     //  -----------
@@ -137,8 +140,6 @@ fn main() {
     CursorSettings::register();
     KeyboardSettings::register();
 
-    let running = Arc::new(AtomicBool::new(true));
-
     let (redraw_event_sender, redraw_event_receiver) = unbounded_channel();
     let logging_redraw_event_sender =
         LoggingTx::attach(redraw_event_sender, "redraw_event".to_owned());
@@ -161,7 +162,6 @@ fn main() {
         logging_ui_command_sender.clone(),
         ui_command_receiver,
         logging_redraw_event_sender,
-        running.clone(),
     );
     start_editor(
         redraw_event_receiver,
@@ -172,7 +172,6 @@ fn main() {
         batched_draw_command_receiver,
         window_command_receiver,
         logging_ui_command_sender,
-        running,
     );
 }
 

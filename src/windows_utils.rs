@@ -11,7 +11,7 @@ use winapi::{
         libloaderapi::GetModuleFileNameA,
         wincon::{AttachConsole, ATTACH_PARENT_PROCESS},
         winnt::{KEY_WRITE, REG_OPTION_NON_VOLATILE, REG_SZ},
-        winreg::{RegCloseKey, RegCreateKeyExA, RegDeleteTreeA, RegSetValueExA, HKEY_CLASSES_ROOT},
+        winreg::{RegCloseKey, RegCreateKeyExA, RegDeleteTreeA, RegSetValueExA, HKEY_CURRENT_USER},
     },
 };
 
@@ -34,11 +34,12 @@ fn get_binary_path() -> String {
 
 #[cfg(target_os = "windows")]
 pub fn unregister_rightclick() -> bool {
-    let str_registry_path_1 = CString::new("Directory\\Background\\shell\\Neovide").unwrap();
-    let str_registry_path_2 = CString::new("*\\shell\\Neovide").unwrap();
+    let str_registry_path_1 =
+        CString::new("Software\\Classes\\Directory\\Background\\shell\\Neovide").unwrap();
+    let str_registry_path_2 = CString::new("Software\\Classes\\*\\shell\\Neovide").unwrap();
     unsafe {
-        let s1 = RegDeleteTreeA(HKEY_CLASSES_ROOT, str_registry_path_1.as_ptr());
-        let s2 = RegDeleteTreeA(HKEY_CLASSES_ROOT, str_registry_path_2.as_ptr());
+        let s1 = RegDeleteTreeA(HKEY_CURRENT_USER, str_registry_path_1.as_ptr());
+        let s2 = RegDeleteTreeA(HKEY_CURRENT_USER, str_registry_path_2.as_ptr());
         s1 == 0 && s2 == 0
     }
 }
@@ -47,16 +48,17 @@ pub fn unregister_rightclick() -> bool {
 pub fn register_rightclick_directory() -> bool {
     let neovide_path = get_binary_path();
     let mut registry_key: HKEY = null_mut();
-    let str_registry_path = CString::new("Directory\\Background\\shell\\Neovide").unwrap();
+    let str_registry_path =
+        CString::new("Software\\Classes\\Directory\\Background\\shell\\Neovide").unwrap();
     let str_registry_command_path =
-        CString::new("Directory\\Background\\shell\\Neovide\\command").unwrap();
+        CString::new("Software\\Classes\\Directory\\Background\\shell\\Neovide\\command").unwrap();
     let str_icon = CString::new("Icon").unwrap();
     let str_command = CString::new(format!("{} \"%V\"", neovide_path).as_bytes()).unwrap();
     let str_description = CString::new("Open with Neovide").unwrap();
     let str_neovide_path = CString::new(neovide_path.as_bytes()).unwrap();
     unsafe {
         if RegCreateKeyExA(
-            HKEY_CLASSES_ROOT,
+            HKEY_CURRENT_USER,
             str_registry_path.as_ptr(),
             0,
             null_mut(),
@@ -97,7 +99,7 @@ pub fn register_rightclick_directory() -> bool {
         RegCloseKey(registry_key);
 
         if RegCreateKeyExA(
-            HKEY_CLASSES_ROOT,
+            HKEY_CURRENT_USER,
             str_registry_command_path.as_ptr(),
             0,
             null_mut(),
@@ -135,15 +137,16 @@ pub fn register_rightclick_directory() -> bool {
 pub fn register_rightclick_file() -> bool {
     let neovide_path = get_binary_path();
     let mut registry_key: HKEY = null_mut();
-    let str_registry_path = CString::new("*\\shell\\Neovide").unwrap();
-    let str_registry_command_path = CString::new("*\\shell\\Neovide\\command").unwrap();
+    let str_registry_path = CString::new("Software\\Classes\\*\\shell\\Neovide").unwrap();
+    let str_registry_command_path =
+        CString::new("Software\\Classes\\*\\shell\\Neovide\\command").unwrap();
     let str_icon = CString::new("Icon").unwrap();
     let str_command = CString::new(format!("{} \"%1\"", neovide_path).as_bytes()).unwrap();
     let str_description = CString::new("Open with Neovide").unwrap();
     let str_neovide_path = CString::new(neovide_path.as_bytes()).unwrap();
     unsafe {
         if RegCreateKeyExA(
-            HKEY_CLASSES_ROOT,
+            HKEY_CURRENT_USER,
             str_registry_path.as_ptr(),
             0,
             null_mut(),
@@ -184,7 +187,7 @@ pub fn register_rightclick_file() -> bool {
         RegCloseKey(registry_key);
 
         if RegCreateKeyExA(
-            HKEY_CLASSES_ROOT,
+            HKEY_CURRENT_USER,
             str_registry_command_path.as_ptr(),
             0,
             null_mut(),

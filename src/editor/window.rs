@@ -271,10 +271,14 @@ impl Window {
         rows: i64,
         cols: i64,
     ) {
-        let y_iter: Box<dyn Iterator<Item = i64>> = if rows > 0 {
-            Box::new((top as i64 + rows)..bottom as i64)
+        let mut top_to_bottom;
+        let mut bottom_to_top;
+        let y_iter: &mut dyn Iterator<Item = i64> = if rows > 0 {
+            top_to_bottom = (top as i64 + rows)..bottom as i64;
+            &mut top_to_bottom
         } else {
-            Box::new((top as i64..(bottom as i64 + rows)).rev())
+            bottom_to_top = (top as i64..(bottom as i64 + rows)).rev();
+            &mut bottom_to_top
         };
 
         self.send_command(WindowDrawCommand::Scroll {
@@ -290,11 +294,15 @@ impl Window {
         // accordingly so that future renders work correctly.
         for y in y_iter {
             let dest_y = y - rows;
+            let mut cols_left;
+            let mut cols_right;
             if dest_y >= 0 && dest_y < self.grid.height as i64 {
-                let x_iter: Box<dyn Iterator<Item = i64>> = if cols > 0 {
-                    Box::new((left as i64 + cols)..right as i64)
+                let x_iter: &mut dyn Iterator<Item = i64> = if cols > 0 {
+                    cols_left = (left as i64 + cols)..right as i64;
+                    &mut cols_left
                 } else {
-                    Box::new((left as i64..(right as i64 + cols)).rev())
+                    cols_right = (left as i64..(right as i64 + cols)).rev();
+                    &mut cols_right
                 };
 
                 for x in x_iter {

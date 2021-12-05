@@ -66,25 +66,17 @@ impl Cursor {
     }
 
     pub fn foreground(&self, default_colors: &Colors) -> Color4f {
-        if let Some(style) = &self.style {
-            style
-                .colors
-                .foreground
-                .unwrap_or_else(|| default_colors.background.unwrap())
-        } else {
-            default_colors.background.unwrap()
-        }
+        self.style
+            .as_ref()
+            .and_then(|s| s.colors.foreground)
+            .unwrap_or_else(|| default_colors.background.unwrap())
     }
 
     pub fn background(&self, default_colors: &Colors) -> Color4f {
-        if let Some(style) = &self.style {
-            style
-                .colors
-                .background
-                .unwrap_or_else(|| default_colors.foreground.unwrap())
-        } else {
-            default_colors.foreground.unwrap()
-        }
+        self.style
+            .as_ref()
+            .and_then(|s| s.colors.background)
+            .unwrap_or_else(|| default_colors.foreground.unwrap())
     }
 
     pub fn change_mode(&mut self, cursor_mode: &CursorMode, styles: &HashMap<u64, Arc<Style>>) {

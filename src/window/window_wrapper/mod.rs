@@ -3,11 +3,7 @@ mod mouse_manager;
 mod renderer;
 
 use std::{
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        mpsc::Receiver,
-        Arc,
-    },
+    sync::mpsc::Receiver,
     time::{Duration, Instant},
 };
 
@@ -26,13 +22,14 @@ use glutin::platform::unix::WindowBuilderExtUnix;
 
 use super::settings::WindowSettings;
 use crate::{
-    bridge::UiCommand,
+    bridge::{ParallelCommand, UiCommand},
     channel_utils::*,
     cmd_line::CmdLineSettings,
     editor::DrawCommand,
     editor::WindowCommand,
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::Renderer,
+    running_tracker::*,
     settings::{maybe_save_window_size, SETTINGS},
     utils::Dimensions,
 };
@@ -99,26 +96,30 @@ impl GlutinWindowWrapper {
         self.windowed_context.window().set_title(&self.title);
     }
 
-    pub fn handle_quit(&mut self, running: &Arc<AtomicBool>) {
+    pub fn handle_quit(&mut self) {
         if SETTINGS.get::<CmdLineSettings>().remote_tcp.is_none() {
             self.ui_command_sender
-                .send(UiCommand::Quit)
+                .send(ParallelCommand::Quit.into())
                 .expect("Could not send quit command to bridge");
         } else {
-            running.store(false, Ordering::Relaxed);
+            RUNNING_TRACKER.quit("window closed");
         }
     }
 
     pub fn handle_focus_lost(&mut self) {
-        self.ui_command_sender.send(UiCommand::FocusLost).ok();
+        self.ui_command_sender
+            .send(ParallelCommand::FocusLost.into())
+            .ok();
     }
 
     pub fn handle_focus_gained(&mut self) {
-        self.ui_command_sender.send(UiCommand::FocusGained).ok();
+        self.ui_command_sender
+            .send(ParallelCommand::FocusGained.into())
+            .ok();
         REDRAW_SCHEDULER.queue_next_frame();
     }
 
-    pub fn handle_event(&mut self, event: Event<()>, running: &Arc<AtomicBool>) {
+    pub fn handle_event(&mut self, event: Event<()>) {
         self.keyboard_manager.handle_event(&event);
         self.mouse_manager.handle_event(
             &event,
@@ -128,13 +129,13 @@ impl GlutinWindowWrapper {
         );
         match event {
             Event::LoopDestroyed => {
-                self.handle_quit(running);
+                self.handle_quit();
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
             } => {
-                self.handle_quit(running);
+                self.handle_quit();
             }
             Event::WindowEvent {
                 event: WindowEvent::ScaleFactorChanged { scale_factor, .. },
@@ -147,9 +148,10 @@ impl GlutinWindowWrapper {
                 ..
             } => {
                 self.ui_command_sender
-                    .send(UiCommand::FileDrop(
-                        path.into_os_string().into_string().unwrap(),
-                    ))
+                    .send(
+                        ParallelCommand::FileDrop(path.into_os_string().into_string().unwrap())
+                            .into(),
+                    )
                     .ok();
             }
             Event::WindowEvent {
@@ -162,7 +164,9 @@ impl GlutinWindowWrapper {
                     self.handle_focus_lost();
                 }
             }
-            Event::WindowEvent { .. } => REDRAW_SCHEDULER.queue_next_frame(),
+            Event::RedrawRequested(..) | Event::WindowEvent { .. } => {
+                REDRAW_SCHEDULER.queue_next_frame()
+            }
             _ => {}
         }
     }
@@ -224,10 +228,13 @@ impl GlutinWindowWrapper {
         }
         self.saved_grid_size = Some(grid_size);
         self.ui_command_sender
-            .send(UiCommand::Resize {
-                width: grid_size.width,
-                height: grid_size.height,
-            })
+            .send(
+                ParallelCommand::Resize {
+                    width: grid_size.width,
+                    height: grid_size.height,
+                }
+                .into(),
+            )
             .ok();
     }
 
@@ -242,7 +249,6 @@ pub fn create_window(
     batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
     window_command_receiver: Receiver<WindowCommand>,
     ui_command_sender: LoggingTx<UiCommand>,
-    running: Arc<AtomicBool>,
 ) {
     let icon = {
         let icon = load_from_memory(ICON).expect("Failed to parse icon data");
@@ -313,7 +319,7 @@ pub fn create_window(
     let mut previous_frame_start = Instant::now();
 
     event_loop.run(move |e, _window_target, control_flow| {
-        if !running.load(Ordering::Relaxed) {
+        if !RUNNING_TRACKER.is_running() {
             maybe_save_window_size(window_wrapper.saved_grid_size);
             std::process::exit(0);
         }
@@ -322,7 +328,7 @@ pub fn create_window(
 
         window_wrapper.handle_window_commands();
         window_wrapper.synchronize_settings();
-        window_wrapper.handle_event(e, &running);
+        window_wrapper.handle_event(e);
 
         let refresh_rate = { SETTINGS.get::<WindowSettings>().refresh_rate as f32 };
         let expected_frame_length_seconds = 1.0 / refresh_rate;

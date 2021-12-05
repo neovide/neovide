@@ -9,7 +9,7 @@ use glutin::{
 use skia_safe::Rect;
 
 use super::keyboard_manager::KeyboardManager;
-use crate::bridge::UiCommand;
+use crate::bridge::{SerialCommand, UiCommand};
 use crate::channel_utils::LoggingTx;
 use crate::renderer::{Renderer, WindowDrawDetails};
 
@@ -162,12 +162,15 @@ impl MouseManager {
             // If dragging and we haven't already sent a position, send a drag command
             if self.dragging.is_some() && has_moved {
                 self.command_sender
-                    .send(UiCommand::Drag {
-                        button: self.dragging.as_ref().unwrap().to_owned(),
-                        grid_id: relevant_window_details.id,
-                        position: self.drag_position.into(),
-                        modifier_string: keyboard_manager.format_modifier_string(true),
-                    })
+                    .send(
+                        SerialCommand::Drag {
+                            button: self.dragging.as_ref().unwrap().to_owned(),
+                            grid_id: relevant_window_details.id,
+                            position: self.drag_position.into(),
+                            modifier_string: keyboard_manager.format_modifier_string(true),
+                        }
+                        .into(),
+                    )
                     .ok();
             } else {
                 // otherwise, update the window_id_under_mouse to match the one selected
@@ -203,17 +206,24 @@ impl MouseManager {
                     };
 
                     self.command_sender
-                        .send(UiCommand::MouseButton {
-                            button: button_text.clone(),
-                            action,
-                            grid_id: details.id,
-                            position: position.into(),
-                            modifier_string: keyboard_manager.format_modifier_string(true),
-                        })
+                        .send(
+                            SerialCommand::MouseButton {
+                                button: button_text.clone(),
+                                action,
+                                grid_id: details.id,
+                                position: position.into(),
+                                modifier_string: keyboard_manager.format_modifier_string(true),
+                            }
+                            .into(),
+                        )
                         .ok();
                 }
 
-                self.dragging = Some(button_text);
+                if down {
+                    self.dragging = Some(button_text);
+                } else {
+                    self.dragging = None;
+                }
 
                 if self.dragging.is_none() {
                     self.has_moved = false;
@@ -238,7 +248,7 @@ impl MouseManager {
         };
 
         if let Some(input_type) = vertical_input_type {
-            let scroll_command = UiCommand::Scroll {
+            let scroll_command: UiCommand = SerialCommand::Scroll {
                 direction: input_type.to_string(),
                 grid_id: self
                     .window_details_under_mouse
@@ -247,7 +257,8 @@ impl MouseManager {
                     .unwrap_or(0),
                 position: self.drag_position.into(),
                 modifier_string: keyboard_manager.format_modifier_string(true),
-            };
+            }
+            .into();
             for _ in 0..(new_y - previous_y).abs() {
                 self.command_sender.send(scroll_command.clone()).ok();
             }
@@ -264,7 +275,7 @@ impl MouseManager {
         };
 
         if let Some(input_type) = horizontal_input_type {
-            let scroll_command = UiCommand::Scroll {
+            let scroll_command: UiCommand = SerialCommand::Scroll {
                 direction: input_type.to_string(),
                 grid_id: self
                     .window_details_under_mouse
@@ -273,7 +284,8 @@ impl MouseManager {
                     .unwrap_or(0),
                 position: self.drag_position.into(),
                 modifier_string: keyboard_manager.format_modifier_string(true),
-            };
+            }
+            .into();
             for _ in 0..(new_x - previous_x).abs() {
                 self.command_sender.send(scroll_command.clone()).ok();
             }
