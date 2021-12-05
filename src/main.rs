@@ -231,7 +231,6 @@ fn handle_macos() {
     if env::var_os("TERM").is_none() {
         let shell = env::var("SHELL").unwrap();
         let cmd = "printenv PATH";
-        
         if let Ok(path) = std::process::Command::new(shell)
             .arg("-lic")
             .arg(cmd)
