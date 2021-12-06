@@ -343,9 +343,12 @@ pub fn create_window(
 
         if !was_centered {
             let window = window_wrapper.windowed_context.window();
+            let new_size = window.inner_size();
             if let Some(handle) = window.current_monitor() {
-                center_window(handle, window);
-                was_centered = true;
+                if is_already_resized(new_size) {
+                    center_window(handle, window);
+                    was_centered = true;
+                }
             }
         }
 
@@ -360,8 +363,8 @@ fn is_already_resized(size: PhysicalSize<u32>) -> bool {
 fn center_window(handle: winit::monitor::MonitorHandle, window: &Window) {
     let outer_size = window.outer_size();
     let monitor_size = handle.size();
-    let window_x = (monitor_size.width - outer_size.width) / 2;
-    let window_y = (monitor_size.height - outer_size.height) / 2;
+    let window_x = (monitor_size.width as i32 - outer_size.width as i32) / 2;
+    let window_y = (monitor_size.height as i32 - outer_size.height as i32) / 2;
     window.set_outer_position(PhysicalPosition {
         x: window_x,
         y: window_y,

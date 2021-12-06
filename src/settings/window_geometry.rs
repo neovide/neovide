@@ -24,7 +24,7 @@ pub fn try_to_load_last_window_size() -> Result<Dimensions, String> {
 }
 pub const DEFAULT_WINDOW_GEOMETRY: Dimensions = Dimensions {
     width: 100,
-    height: 50,
+    height: 30,
 };
 
 pub fn maybe_save_window_size(grid_size: Option<Dimensions>) {
