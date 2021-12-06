@@ -9,10 +9,10 @@ use std::{
 
 use glutin::{
     self,
-    dpi::PhysicalSize,
+    dpi::{PhysicalPosition, PhysicalSize},
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{self, Fullscreen, Icon},
+    window::{self, Fullscreen, Icon, Window},
     ContextBuilder, GlProfile, WindowedContext,
 };
 use log::trace;
@@ -317,6 +317,8 @@ pub fn create_window(
 
     let mut previous_frame_start = Instant::now();
 
+    let mut was_centered = cmd_line_settings.maximized;
+
     event_loop.run(move |e, _window_target, control_flow| {
         if !RUNNING_TRACKER.is_running() {
             maybe_save_window_size(window_wrapper.saved_grid_size);
@@ -339,10 +341,29 @@ pub fn create_window(
             previous_frame_start = frame_start;
         }
 
+        if !was_centered {
+            let window = window_wrapper.windowed_context.window();
+            if let Some(handle) = window.current_monitor() {
+                center_window(handle, window);
+                was_centered = true;
+            }
+        }
+
         *control_flow = ControlFlow::WaitUntil(previous_frame_start + frame_duration)
     });
 }
 
 fn is_already_resized(size: PhysicalSize<u32>) -> bool {
     size != PhysicalSize::from((800, 600))
+}
+
+fn center_window(handle: winit::monitor::MonitorHandle, window: &Window) {
+    let outer_size = window.outer_size();
+    let monitor_size = handle.size();
+    let window_x = (monitor_size.width - outer_size.width) / 2;
+    let window_y = (monitor_size.height - outer_size.height) / 2;
+    window.set_outer_position(PhysicalPosition {
+        x: window_x,
+        y: window_y,
+    });
 }
