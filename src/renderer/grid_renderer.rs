@@ -1,4 +1,3 @@
-use crate::WindowSettings;
 use std::sync::Arc;
 
 use glutin::dpi::PhysicalSize;
@@ -75,16 +74,7 @@ impl GridRenderer {
     }
 
     pub fn get_default_background(&self) -> Color {
-        let mut transparency = { SETTINGS.get::<WindowSettings>().transparency };
-        if transparency < 1.0 {
-            transparency = 0.0;
-        }
-        self.default_style
-            .colors
-            .background
-            .unwrap()
-            .to_color()
-            .with_a((255.0 * transparency) as u8)
+        self.default_style.colors.background.unwrap().to_color()
     }
 
     pub fn draw_background(
@@ -108,7 +98,7 @@ impl GridRenderer {
                 .set_color(style.background(&self.default_style.colors).to_color());
         }
 
-        if self.paint.color() == self.get_default_background().with_a(255) {
+        if self.paint.color() == self.get_default_background() {
             self.paint.set_alpha(0);
         }
         canvas.draw_rect(region, &self.paint);
