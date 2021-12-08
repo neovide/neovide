@@ -291,6 +291,8 @@ impl RenderedWindow {
                 grid_size,
                 floating_order,
             } => {
+                let grid_left = grid_left.max(0.0);
+                let grid_top = grid_top.max(0.0);
                 let new_destination: Point = (grid_left as f32, grid_top as f32).into();
                 let new_grid_size: Dimensions = grid_size.into();
 
