@@ -213,6 +213,10 @@ impl RenderedWindow {
         root_canvas.save();
         root_canvas.clip_rect(&pixel_region, None, Some(false));
 
+        if self.floating_order.is_none() {
+            root_canvas.clear(default_background);
+        }
+
         if self.floating_order.is_some() && settings.floating_blur {
             let blur = blur((2.0, 2.0), None, None, None).unwrap();
             let save_layer_rec = SaveLayerRec::default()
