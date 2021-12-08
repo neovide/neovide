@@ -54,7 +54,7 @@ jobs:
           path: ./target/release/neovide.exe
 
   build-mac:
-    runs-on: macos-latest
+    runs-on: macos-11
 
     steps:
       - uses: actions/checkout@v2
@@ -66,6 +66,14 @@ jobs:
           toolchain: nightly
           components: rustfmt
           override: true
+
+      - name: Add x86_64 target
+        run: |
+          rustup target add x86_64-apple-darwin
+
+      - name: Add aarch64 target
+        run: |
+          rustup target add aarch64-apple-darwin
 
       - name: Install Utilities
         run: |
@@ -97,11 +105,30 @@ jobs:
         with:
           files: results.xml
 
-      - name: Build Release
+      - name: Build x86 app
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "10.11"
         run: |
-          cargo build --release
-          cargo install cargo-bundle
-          cargo bundle --release
+          cargo build --release --target=x86_64-apple-darwin
+          cargo bundle --release --target=x86_64-apple-darwin
+
+      - name: Build aarch64 app
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "10.11"
+        run: |
+          cargo build --release --target=aarch64-apple-darwin
+          cargo bundle --release --target=aarch64-apple-darwin
+
+      - name: Merge into a universal app
+        run: |
+          mkdir -p target/release/bundle/osx
+          cp -R target/x86_64-apple-darwin/release/bundle/osx/Neovide.app \
+            target/release/bundle/osx/Neovide.app
+          rm target/release/bundle/osx/Neovide.app/Contents/MacOS/neovide
+          lipo target/x86_64-apple-darwin/release/bundle/osx/Neovide.app/Contents/MacOS/neovide \
+            target/aarch64-apple-darwin/release/bundle/osx/Neovide.app/Contents/MacOS/neovide \
+            -create -output \
+            target/release/bundle/osx/Neovide.app/Contents/MacOS/neovide
 
       - name: Create .dmg file
         run: |
@@ -170,57 +197,3 @@ jobs:
           name: neovide-linux.tar.gz
           path: ./target/release/neovide.tar.gz
 
-  build-m1:
-    runs-on: self-hosted
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Install Nightly Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          components: rustfmt
-          override: true
-
-      - name: Install Utilities
-        run: |
-          cargo install cargo2junit
-
-      - name: Check Formatting
-        run: |
-          cargo fmt --all -- --check
-
-      - name: Install Neovim
-        run: |
-          arch -arm64 brew install neovim
-
-      - name: Test
-        env:
-          RUST_BACKTRACE: full
-        run: |
-          cargo test -- -- -Z unstable-options --format json | cargo2junit > results.xml
-
-      - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action/composite@v1
-        if: always()
-        continue-on-error: true
-        with:
-          files: results.xml
-
-      - name: Build Release
-        run: |
-          cargo build --release
-          cargo install cargo-bundle
-          cargo bundle --release
-
-      - name: Create .dmg file
-        run: |
-          hdiutil create Neovide-uncompressed.dmg -volname "Neovide" -srcfolder target/release/bundle/osx
-          hdiutil convert Neovide-uncompressed.dmg -format UDZO -o Neovide.dmg
-
-      - uses: actions/upload-artifact@v1
-        with:
-          name: Neovide-m1.dmg
-          path: ./Neovide.dmg
