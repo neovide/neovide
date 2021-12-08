@@ -20,6 +20,8 @@ pub struct CmdLineSettings {
     pub multi_grid: bool,
     pub maximized: bool,
     pub frameless: bool,
+    #[cfg(target_os = "macos")]
+    pub buttonless: bool,
     pub wayland_app_id: String,
     pub x11_wm_class: String,
 }
@@ -42,6 +44,8 @@ impl Default for CmdLineSettings {
             multi_grid: false,
             maximized: false,
             frameless: false,
+            #[cfg(target_os = "macos")]
+            buttonless: false,
             wayland_app_id: String::new(),
             x11_wm_class: String::new(),
         }
@@ -91,8 +95,13 @@ pub fn handle_command_line_arguments() -> Result<(), String> {
         )
         .arg(
             Arg::with_name("frameless")
-            .long("frameless")
-            .help("Removes the window frame. NOTE: Window might not be resizable after this setting is enabled.")
+                .long("frameless")
+                .help("Removes the window frame. NOTE: Window might not be resizable after this setting is enabled.")
+        )
+        .arg(
+            Arg::with_name("buttonless")
+                .long("buttonless")
+                .help("Removes buttons and title. Shadow is visible. NOTE: Only for macOS."),
         )
         .arg(
             Arg::with_name("wsl")
@@ -165,6 +174,8 @@ pub fn handle_command_line_arguments() -> Result<(), String> {
         multi_grid: std::env::var("NEOVIDE_MULTIGRID").is_ok() || matches.is_present("multi_grid"),
         maximized: matches.is_present("maximized") || std::env::var("NEOVIDE_MAXIMIZED").is_ok(),
         frameless: matches.is_present("frameless") || std::env::var("NEOVIDE_FRAMELESS").is_ok(),
+        #[cfg(target_os = "macos")]
+        buttonless: matches.is_present("buttonless") || std::env::var("NEOVIDE_BUTTONLESS").is_ok(),
         wayland_app_id: match std::env::var("NEOVIDE_APP_ID") {
             Ok(val) => val,
             Err(_) => matches

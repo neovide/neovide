@@ -17,6 +17,9 @@ use glutin::{
 };
 use log::trace;
 
+#[cfg(target_os = "macos")]
+use glutin::platform::macos::WindowBuilderExtMacOS;
+
 #[cfg(target_os = "linux")]
 use glutin::platform::unix::WindowBuilderExtUnix;
 
@@ -263,11 +266,36 @@ pub fn create_window(
     let event_loop = EventLoop::new();
 
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
+    #[cfg(not(target_os = "macos"))]
     let winit_window_builder = window::WindowBuilder::new()
         .with_title("Neovide")
         .with_window_icon(Some(icon))
         .with_maximized(cmd_line_settings.maximized)
         .with_decorations(!cmd_line_settings.frameless);
+
+    #[cfg(target_os = "macos")]
+    let frame = (cmd_line_settings.frameless, cmd_line_settings.buttonless);
+
+    #[cfg(target_os = "macos")]
+    let winit_window_builder = match frame {
+        (false, false) => window::WindowBuilder::new()
+            .with_title("Neovide")
+            .with_window_icon(Some(icon))
+            .with_maximized(cmd_line_settings.maximized),
+        (true, false) => window::WindowBuilder::new()
+            .with_title("Neovide")
+            .with_window_icon(Some(icon))
+            .with_maximized(cmd_line_settings.maximized)
+            .with_decorations(false),
+        (_, true) => window::WindowBuilder::new()
+            .with_window_icon(Some(icon))
+            .with_maximized(cmd_line_settings.maximized)
+            //.with_has_shadow(false)
+            .with_title_hidden(true)
+            .with_titlebar_buttons_hidden(true)
+            .with_titlebar_transparent(true)
+            .with_fullsize_content_view(true),
+    };
 
     #[cfg(target_os = "linux")]
     let winit_window_builder = winit_window_builder
