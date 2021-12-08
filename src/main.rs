@@ -230,9 +230,10 @@ fn handle_macos() {
 
     if env::var_os("TERM").is_none() {
         let shell = env::var("SHELL").unwrap();
+        // printenv is the proper way to print env variables. using echo $PATH would break Fish.
         let cmd = "printenv PATH";
         if let Ok(path) = std::process::Command::new(shell)
-            .arg("-lic")
+            .arg("-lic") // interactive login shell, this simulates opening a real terminal emulator
             .arg(cmd)
             .output()
         {
