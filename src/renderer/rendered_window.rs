@@ -354,7 +354,13 @@ impl RenderedWindow {
                         ..
                     } = line_fragment;
                     let grid_position = (*window_left, *window_top);
-                    grid_renderer.draw_background(canvas, grid_position, *width, style);
+                    grid_renderer.draw_background(
+                        canvas,
+                        grid_position,
+                        *width,
+                        style,
+                        self.floating_order.is_some(),
+                    );
                 }
 
                 for line_fragment in line_fragments.into_iter() {
