@@ -137,7 +137,7 @@ impl Renderer {
                 window.draw(
                     root_canvas,
                     &settings,
-                    default_background,
+                    default_background.with_a((255.0 * transparency) as u8),
                     font_dimensions,
                     dt,
                 )
