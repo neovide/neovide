@@ -5,6 +5,7 @@ pub mod grid_renderer;
 mod rendered_window;
 
 use crate::WindowSettings;
+use std::cmp::Ordering;
 use std::collections::{hash_map::Entry, HashMap};
 use std::sync::mpsc::Receiver;
 use std::sync::Arc;
@@ -98,7 +99,7 @@ impl Renderer {
         let default_background = self.grid_renderer.get_default_background();
         let font_dimensions = self.grid_renderer.font_dimensions;
 
-        let transparency = {SETTINGS.get::<WindowSettings>().transparency};
+        let transparency = { SETTINGS.get::<WindowSettings>().transparency };
         root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
         root_canvas.save();
         root_canvas.reset_matrix();
@@ -120,13 +121,8 @@ impl Renderer {
 
             root_windows
                 .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
-            floating_windows.sort_by(|window_a, window_b| {
-                window_a
-                    .floating_order
-                    .unwrap()
-                    .partial_cmp(&window_b.floating_order.unwrap())
-                    .unwrap()
-            });
+
+            floating_windows.sort_by(floating_sort);
 
             root_windows
                 .into_iter()
@@ -211,4 +207,31 @@ impl Renderer {
             _ => {}
         }
     }
+}
+
+/// Defines how floating windows are sorted.
+fn floating_sort(window_a: &&mut RenderedWindow, window_b: &&mut RenderedWindow) -> Ordering {
+    // First, compare floating order
+    let mut ord = window_a
+        .floating_order
+        .unwrap()
+        .partial_cmp(&window_b.floating_order.unwrap())
+        .unwrap();
+    if ord == Ordering::Equal {
+        // If equal, compare grid pos x
+        ord = window_a
+            .grid_current_position
+            .x
+            .partial_cmp(&window_b.grid_current_position.x)
+            .unwrap();
+        if ord == Ordering::Equal {
+            // If equal, compare grid pos z
+            ord = window_a
+                .grid_current_position
+                .y
+                .partial_cmp(&window_b.grid_current_position.y)
+                .unwrap();
+        }
+    }
+    ord
 }
