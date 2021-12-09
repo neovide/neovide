@@ -78,6 +78,7 @@ jobs:
       - name: Install Utilities
         run: |
           cargo install cargo2junit
+          cargo install cargo-bundle
 
       - uses: Swatinem/rust-cache@v1
 
