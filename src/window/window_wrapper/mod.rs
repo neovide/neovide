@@ -346,7 +346,7 @@ pub fn create_window(
             let new_size = window.inner_size();
             if let Some(handle) = window.current_monitor() {
                 if is_already_resized(new_size) {
-                    center_window(handle, window);
+                    center_or_maximize_window(handle, window);
                     was_centered = true;
                 }
             }
@@ -360,13 +360,22 @@ fn is_already_resized(size: PhysicalSize<u32>) -> bool {
     size != PhysicalSize::from((800, 600))
 }
 
-fn center_window(handle: winit::monitor::MonitorHandle, window: &Window) {
+fn center_or_maximize_window(handle: winit::monitor::MonitorHandle, window: &Window) {
     let outer_size = window.outer_size();
     let monitor_size = handle.size();
-    let window_x = (monitor_size.width as i32 - outer_size.width as i32) / 2;
-    let window_y = (monitor_size.height as i32 - outer_size.height as i32) / 2;
-    window.set_outer_position(PhysicalPosition {
-        x: window_x,
-        y: window_y,
-    });
+    let window_x = monitor_size
+        .width
+        .checked_sub(outer_size.width)
+        .map(|x| x / 2);
+    let window_y = monitor_size
+        .height
+        .checked_sub(outer_size.height)
+        .map(|y| y / 2);
+    match (window_x, window_y) {
+        (Some(window_x), Some(window_y)) => window.set_outer_position(PhysicalPosition {
+            x: window_x,
+            y: window_y,
+        }),
+        _ => window.set_maximized(true),
+    }
 }
