@@ -146,6 +146,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - name: Update apt
+        run: |
+          sudo apt-get update
+
       - name: Install Nightly Toolchain
         uses: actions-rs/toolchain@v1
         with:
