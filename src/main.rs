@@ -234,15 +234,18 @@ fn handle_macos() {
     use std::env;
 
     if env::var_os("TERM").is_none() {
-        let mut profile_path = dirs::home_dir().unwrap();
-        profile_path.push(".profile");
+        //let mut profile_path = dirs::home_dir().unwrap();
+        //profile_path.push(".profile");
         let shell = env::var("SHELL").unwrap();
-        let cmd = format!(
-            "(source /etc/profile && source {} && echo $PATH)",
-            profile_path.to_str().unwrap()
-        );
+        //let cmd = format!(
+        //    "(source /etc/profile && source {} && echo $PATH)",
+        //    profile_path.to_str().unwrap()
+        //);
+        // printenv is the proper way to print env variables. using echo $PATH would break Fish.
+        let cmd = "printenv PATH";
         if let Ok(path) = std::process::Command::new(shell)
-            .arg("-c")
+            //.arg("-c")
+            .arg("-lic")
             .arg(cmd)
             .output()
         {
