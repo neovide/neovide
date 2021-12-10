@@ -169,12 +169,12 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
             .value_of("wayland_app_id")
             .map(|v| v.to_owned())
             .or_else(|| std::env::var("NEOVIDE_APP_ID").ok())
-            .unwrap_or("neovide".to_owned()),
+            .unwrap_or_else(|| "neovide".to_owned()),
         x11_wm_class: matches
             .value_of("x11_wm_class")
             .map(|v| v.to_owned())
             .or_else(|| std::env::var("NEOVIDE_X11_WM_CLASS").ok())
-            .unwrap_or("neovide".to_owned()),
+            .unwrap_or_else(|| "neovide".to_owned()),
     });
     Ok(())
 }
