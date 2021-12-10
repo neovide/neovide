@@ -31,6 +31,7 @@ extern crate derive_new;
 extern crate lazy_static;
 
 use std::sync::mpsc::channel;
+use std::env::args;
 
 use log::trace;
 use tokio::sync::mpsc::unbounded_channel;
@@ -117,7 +118,7 @@ fn main() {
     //   properly or updates to the graphics are pushed to the screen.
 
     //Will exit if -h or -v
-    if let Err(err) = cmd_line::handle_command_line_arguments() {
+    if let Err(err) = cmd_line::handle_command_line_arguments(args().collect()) {
         eprintln!("{}", err);
         return;
     }
@@ -179,12 +180,6 @@ fn main() {
 pub fn init_logger() {
     let settings = SETTINGS.get::<CmdLineSettings>();
 
-    let verbosity = match settings.verbosity {
-        0 => "warn",
-        1 => "info",
-        2 => "debug",
-        _ => "trace",
-    };
     let logger = match settings.log_to_file {
         true => Logger::with_env_or_str("neovide")
             .duplicate_to_stderr(Duplicate::Error)
@@ -194,7 +189,7 @@ pub fn init_logger() {
                 Naming::Timestamps,
                 Cleanup::KeepLogFiles(1),
             ),
-        false => Logger::with_env_or_str(format!("neovide = {}", verbosity)),
+        false => Logger::with_env_or_str(format!("neovide = {}", "trace")),
     };
     logger.start().expect("Could not start logger");
 }
