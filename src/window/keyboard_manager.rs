@@ -8,13 +8,17 @@ use crate::event_aggregator::EVENT_AGGREGATOR;
 use crate::settings::SETTINGS;
 use crate::window::KeyboardSettings;
 
+enum KeyOrIme {
+    Key(KeyEvent),
+    Ime(String),
+}
 pub struct KeyboardManager {
     shift: bool,
     ctrl: bool,
     alt: bool,
     logo: bool,
     ignore_input_this_frame: bool,
-    queued_key_events: Vec<KeyEvent>,
+    queued_key_or_ime_events: Vec<KeyOrIme>,
 }
 
 impl KeyboardManager {
@@ -25,7 +29,7 @@ impl KeyboardManager {
             alt: false,
             logo: false,
             ignore_input_this_frame: false,
-            queued_key_events: Vec::new(),
+            queued_key_or_ime_events: Vec::new(),
         }
     }
 
@@ -48,7 +52,15 @@ impl KeyboardManager {
             } => {
                 // Store the event so that we can ignore it properly if the window was just
                 // focused.
-                self.queued_key_events.push(key_event.clone());
+                self.queued_key_or_ime_events
+                    .push(KeyOrIme::Key(key_event.clone()));
+            }
+            Event::WindowEvent {
+                event: WindowEvent::ReceivedImeText(string),
+                ..
+            } => {
+                self.queued_key_or_ime_events
+                    .push(KeyOrIme::Ime(string.to_string()));
             }
             Event::WindowEvent {
                 event: WindowEvent::ModifiersChanged(modifiers),
@@ -67,12 +79,20 @@ impl KeyboardManager {
 
                 if !self.should_ignore_input(&settings) {
                     // If we have a keyboard event this frame
-                    for key_event in self.queued_key_events.iter() {
-                        // And a key was pressed
-                        if key_event.state == ElementState::Pressed {
-                            if let Some(keybinding) = self.maybe_get_keybinding(key_event) {
+                    for key_or_ime_event in self.queued_key_or_ime_events.iter() {
+                        match key_or_ime_event {
+                            KeyOrIme::Key(key_event) => {
+                                // And a key was pressed
+                                if key_event.state == ElementState::Pressed {
+                                    if let Some(keybinding) = self.maybe_get_keybinding(key_event) {
+                                        EVENT_AGGREGATOR
+                                            .send(UiCommand::Serial(SerialCommand::Keyboard(keybinding)));
+                                    }
+                                }
+                            }
+                            KeyOrIme::Ime(raw_input) => {
                                 EVENT_AGGREGATOR
-                                    .send(UiCommand::Serial(SerialCommand::Keyboard(keybinding)));
+                                    .send(UiCommand::Serial(SerialCommand::Keyboard(raw_input.to_string())));
                             }
                         }
                     }
@@ -81,7 +101,7 @@ impl KeyboardManager {
                 // Regardless of whether this was a valid keyboard input or not, rest ignoring and
                 // whatever event was queued.
                 self.ignore_input_this_frame = false;
-                self.queued_key_events.clear();
+                self.queued_key_or_ime_events.clear();
             }
             _ => {}
         }
