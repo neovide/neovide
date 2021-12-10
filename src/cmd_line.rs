@@ -7,6 +7,7 @@ use clap::{App, Arg};
 pub struct CmdLineSettings {
     // Pass through arguments
     pub neovim_args: Vec<String>,
+    pub files_to_open: Vec<String>,
     // Command-line arguments only
     pub geometry: Dimensions,
     pub verbosity: u64,
@@ -31,6 +32,7 @@ impl Default for CmdLineSettings {
         Self {
             // Pass through arguments
             neovim_args: vec![],
+            files_to_open: vec![],
             // Command-line arguments only
             geometry: DEFAULT_WINDOW_GEOMETRY,
             verbosity: 0,
@@ -59,6 +61,12 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
         .about(crate_description!())
         // Pass through arguments
         .arg(
+            Arg::with_name("files_to_open")
+                .multiple(true)
+                .takes_value(true)
+                .help("Files to open"),
+        )
+        .arg(
             Arg::with_name("neovim_args")
                 .multiple(true)
                 .takes_value(true)
@@ -66,7 +74,12 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
                 .help("Specify Arguments to pass down to neovim"),
         )
         // Command-line arguments only
-        .arg(Arg::with_name("verbosity").short("v"))
+        .arg(
+            Arg::with_name("verbosity")
+                .short("v")
+                .multiple(true)
+                .help("Increase verbosity level (repeatable up to 4 times; implies --nofork)"),
+        )
         .arg(
             Arg::with_name("geometry")
                 .long("geometry")
@@ -149,6 +162,10 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
         // Pass through arguments
         neovim_args: matches
             .values_of("neovim_args")
+            .map(|opt| opt.map(|v| v.to_owned()).collect())
+            .unwrap_or_default(),
+        files_to_open: matches
+            .values_of("files_to_open")
             .map(|opt| opt.map(|v| v.to_owned()).collect())
             .unwrap_or_default(),
         // Command-line arguments only
