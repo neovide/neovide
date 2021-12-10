@@ -7,7 +7,6 @@ use clap::{App, Arg};
 pub struct CmdLineSettings {
     // Pass through arguments
     pub neovim_args: Vec<String>,
-    pub files_to_open: Vec<String>,
     // Command-line arguments only
     pub geometry: Dimensions,
     pub verbosity: u64,
@@ -32,7 +31,6 @@ impl Default for CmdLineSettings {
         Self {
             // Pass through arguments
             neovim_args: vec![],
-            files_to_open: vec![],
             // Command-line arguments only
             geometry: DEFAULT_WINDOW_GEOMETRY,
             verbosity: 0,
@@ -152,6 +150,16 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
         );
 
     let matches = clapp.get_matches_from(args);
+    let mut neovim_args: Vec<String> = matches
+        .values_of("neovim_args")
+        .map(|opt| opt.map(|v| v.to_owned()).collect())
+        .unwrap_or_default();
+    neovim_args.extend::<Vec<String>>(
+        matches
+            .values_of("files_to_open")
+            .map(|opt| opt.map(|v| v.to_owned()).collect())
+            .unwrap_or_default(),
+    );
 
     /*
      * Integrate Environment Variables as Defaults to the command-line ones.
@@ -160,14 +168,7 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
      */
     SETTINGS.set::<CmdLineSettings>(&CmdLineSettings {
         // Pass through arguments
-        neovim_args: matches
-            .values_of("neovim_args")
-            .map(|opt| opt.map(|v| v.to_owned()).collect())
-            .unwrap_or_default(),
-        files_to_open: matches
-            .values_of("files_to_open")
-            .map(|opt| opt.map(|v| v.to_owned()).collect())
-            .unwrap_or_default(),
+        neovim_args: neovim_args,
         // Command-line arguments only
         verbosity: matches.occurrences_of("verbosity"),
         geometry: parse_window_geometry(matches.value_of("geometry").map(|i| i.to_owned()))?,
