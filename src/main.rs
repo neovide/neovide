@@ -30,8 +30,8 @@ extern crate derive_new;
 #[macro_use]
 extern crate lazy_static;
 
-use std::sync::mpsc::channel;
 use std::env::args;
+use std::sync::mpsc::channel;
 
 use log::trace;
 use tokio::sync::mpsc::unbounded_channel;

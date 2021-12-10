@@ -123,7 +123,8 @@ pub fn build_neovide_command(channel: u64, num_args: u64, command: &str, event: 
 pub fn create_nvim_command() -> Command {
     let mut cmd = build_nvim_cmd();
 
-    cmd.arg("--embed").args(SETTINGS.get::<CmdLineSettings>().neovim_args.iter());
+    cmd.arg("--embed")
+        .args(SETTINGS.get::<CmdLineSettings>().neovim_args.iter());
 
     info!("Starting neovim with: {:?}", cmd);
 
