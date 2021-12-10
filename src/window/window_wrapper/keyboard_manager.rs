@@ -1,13 +1,12 @@
 use glutin::event::{ElementState, Event, KeyEvent, WindowEvent};
 use glutin::keyboard::Key;
-use glutin::{PossiblyCurrent, WindowedContext};
 
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 
 use crate::bridge::{SerialCommand, UiCommand};
 use crate::channel_utils::LoggingTx;
 use crate::settings::SETTINGS;
-use crate::window::{KeyboardSettings, WindowSettings};
+use crate::window::KeyboardSettings;
 
 pub struct KeyboardManager {
     command_sender: LoggingTx<UiCommand>,
@@ -32,11 +31,7 @@ impl KeyboardManager {
         }
     }
 
-    pub fn handle_event(
-        &mut self,
-        event: &Event<()>,
-        windowed_context: &WindowedContext<PossiblyCurrent>,
-    ) {
+    pub fn handle_event(&mut self, event: &Event<()>) {
         match event {
             Event::WindowEvent {
                 event: WindowEvent::Focused(_focused),
@@ -71,16 +66,12 @@ impl KeyboardManager {
             Event::MainEventsCleared => {
                 // And the window wasn't just focused.
                 let settings = SETTINGS.get::<KeyboardSettings>();
-                let window_settings = SETTINGS.get::<WindowSettings>();
 
                 if !self.should_ignore_input(&settings) {
                     // If we have a keyboard event this frame
                     for key_event in self.queued_key_events.iter() {
                         // And a key was pressed
                         if key_event.state == ElementState::Pressed {
-                            if window_settings.hide_mouse_when_typing {
-                                windowed_context.window().set_cursor_visible(false);
-                            }
                             if let Some(keybinding) = self.maybe_get_keybinding(key_event) {
                                 self.command_sender
                                     .send(SerialCommand::Keyboard(keybinding).into())

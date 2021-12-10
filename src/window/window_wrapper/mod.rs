@@ -120,8 +120,7 @@ impl GlutinWindowWrapper {
     }
 
     pub fn handle_event(&mut self, event: Event<()>) {
-        self.keyboard_manager
-            .handle_event(&event, &self.windowed_context);
+        self.keyboard_manager.handle_event(&event);
         self.mouse_manager.handle_event(
             &event,
             &self.keyboard_manager,
