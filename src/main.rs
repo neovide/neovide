@@ -180,6 +180,12 @@ fn main() {
 #[cfg(not(test))]
 pub fn init_logger() {
     let settings = SETTINGS.get::<CmdLineSettings>();
+    let verbosity = match settings.verbosity {
+        0 => "warn",
+        1 => "info",
+        2 => "debug",
+        _ => "trace",
+    };
 
     let logger = if settings.log_to_file {
         Logger::with_env_or_str("neovide")
