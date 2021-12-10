@@ -181,17 +181,19 @@ fn main() {
 pub fn init_logger() {
     let settings = SETTINGS.get::<CmdLineSettings>();
 
-    let logger = match settings.log_to_file {
-        true => Logger::with_env_or_str("neovide")
-            .duplicate_to_stderr(Duplicate::Error)
+    let logger = if settings.log_to_file {
+        Logger::with_env_or_str("neovide")
             .log_to_file()
             .rotate(
                 Criterion::Size(10_000_000),
                 Naming::Timestamps,
                 Cleanup::KeepLogFiles(1),
-            ),
-        false => Logger::with_env_or_str(format!("neovide = {}", "trace")),
+            )
+            .duplicate_to_stderr(Duplicate::Error)
+    } else {
+        Logger::with_env_or_str("neovide = error")
     };
+
     logger.start().expect("Could not start logger");
 }
 
