@@ -168,7 +168,7 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
      */
     SETTINGS.set::<CmdLineSettings>(&CmdLineSettings {
         // Pass through arguments
-        neovim_args: neovim_args,
+        neovim_args,
         // Command-line arguments only
         verbosity: matches.occurrences_of("verbosity"),
         geometry: parse_window_geometry(matches.value_of("geometry").map(|i| i.to_owned()))?,
