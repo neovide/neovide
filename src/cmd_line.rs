@@ -9,6 +9,7 @@ pub struct CmdLineSettings {
     pub neovim_args: Vec<String>,
     // Command-line arguments only
     pub geometry: Dimensions,
+    pub verbosity: u64,
     pub log_to_file: bool,
     pub no_fork: bool,
     pub remote_tcp: Option<String>,
@@ -32,6 +33,7 @@ impl Default for CmdLineSettings {
             neovim_args: vec![],
             // Command-line arguments only
             geometry: DEFAULT_WINDOW_GEOMETRY,
+            verbosity: 0,
             log_to_file: false,
             no_fork: false,
             remote_tcp: None,
@@ -64,6 +66,7 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
                 .help("Specify Arguments to pass down to neovim"),
         )
         // Command-line arguments only
+        .arg(Arg::with_name("verbosity").short("v"))
         .arg(
             Arg::with_name("geometry")
                 .long("geometry")
@@ -149,9 +152,10 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
             .map(|opt| opt.map(|v| v.to_owned()).collect())
             .unwrap_or_default(),
         // Command-line arguments only
+        verbosity: matches.occurrences_of("verbosity"),
         geometry: parse_window_geometry(matches.value_of("geometry").map(|i| i.to_owned()))?,
         log_to_file: matches.is_present("log_to_file"),
-        no_fork: matches.is_present("nofork"),
+        no_fork: matches.is_present("nofork") || matches.is_present("verbosity"),
         remote_tcp: matches.value_of("remote_tcp").map(|i| i.to_owned()),
         wsl: matches.is_present("wsl"),
         // Command-line flags with environment variable fallback
