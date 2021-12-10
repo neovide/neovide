@@ -124,7 +124,8 @@ pub fn create_nvim_command() -> Command {
     let mut cmd = build_nvim_cmd();
 
     cmd.arg("--embed")
-        .args(SETTINGS.get::<CmdLineSettings>().neovim_args.iter());
+        .args(SETTINGS.get::<CmdLineSettings>().neovim_args.iter())
+        .args(SETTINGS.get::<CmdLineSettings>().files_to_open.iter());
 
     info!("Starting neovim with: {:?}", cmd);
 
