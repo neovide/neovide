@@ -231,6 +231,59 @@ mod tests {
     }
 
     #[test]
+    fn test_files_to_open() {
+        let args: Vec<String> = vec!["neovide", "./foo.txt", "./bar.md"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        let _accessing_settings = ACCESSING_SETTINGS.lock().unwrap();
+        handle_command_line_arguments(args).expect("Could not parse arguments");
+        assert_eq!(
+            SETTINGS.get::<CmdLineSettings>().neovim_args,
+            vec!["./foo.txt", "./bar.md"]
+        );
+    }
+
+    #[test]
+    fn test_files_to_open_with_passthrough() {
+        let args: Vec<String> = vec!["neovide", "./foo.txt", "./bar.md", "--", "--clean"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        let _accessing_settings = ACCESSING_SETTINGS.lock().unwrap();
+        handle_command_line_arguments(args).expect("Could not parse arguments");
+        assert_eq!(
+            SETTINGS.get::<CmdLineSettings>().neovim_args,
+            vec!["--clean", "./foo.txt", "./bar.md"]
+        );
+    }
+
+    #[test]
+    fn test_files_to_open_with_flag() {
+        let args: Vec<String> = vec!["neovide", "./foo.txt", "./bar.md", "--geometry=42x24"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        let _accessing_settings = ACCESSING_SETTINGS.lock().unwrap();
+        handle_command_line_arguments(args).expect("Could not parse arguments");
+        assert_eq!(
+            SETTINGS.get::<CmdLineSettings>().neovim_args,
+            vec!["./foo.txt", "./bar.md"]
+        );
+
+        assert_eq!(
+            SETTINGS.get::<CmdLineSettings>().geometry,
+            Dimensions {
+                width: 42,
+                height: 24
+            }
+        );
+    }
+
+    #[test]
     fn test_geometry() {
         let args: Vec<String> = vec!["neovide", "--geometry=42x24"]
             .iter()
