@@ -9,8 +9,7 @@ use tokio::task;
 
 use super::events::{parse_redraw_event, RedrawEvent};
 #[cfg(windows)]
-use super::ui_commands::ParallelCommand;
-use super::ui_commands::UiCommand;
+use super::ui_commands::{ParallelCommand, UiCommand};
 use crate::bridge::TxWrapper;
 use crate::channel_utils::*;
 use crate::error_handling::ResultPanicExplanation;
@@ -18,16 +17,18 @@ use crate::settings::SETTINGS;
 
 #[derive(Clone)]
 pub struct NeovimHandler {
+    #[cfg(windows)]
     ui_command_sender: Arc<Mutex<LoggingTx<UiCommand>>>,
     redraw_event_sender: Arc<Mutex<LoggingTx<RedrawEvent>>>,
 }
 
 impl NeovimHandler {
     pub fn new(
-        ui_command_sender: LoggingTx<UiCommand>,
+        #[cfg(windows)] ui_command_sender: LoggingTx<UiCommand>,
         redraw_event_sender: LoggingTx<RedrawEvent>,
     ) -> NeovimHandler {
         NeovimHandler {
+            #[cfg(windows)]
             ui_command_sender: Arc::new(Mutex::new(ui_command_sender)),
             redraw_event_sender: Arc::new(Mutex::new(redraw_event_sender)),
         }

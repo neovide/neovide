@@ -12,6 +12,8 @@ use super::keyboard_manager::KeyboardManager;
 use crate::bridge::{SerialCommand, UiCommand};
 use crate::channel_utils::LoggingTx;
 use crate::renderer::{Renderer, WindowDrawDetails};
+use crate::settings::SETTINGS;
+use crate::window::WindowSettings;
 
 fn clamp_position(
     position: PhysicalPosition<f32>,
@@ -62,6 +64,8 @@ pub struct MouseManager {
     scroll_position: PhysicalPosition<f32>,
 
     window_details_under_mouse: Option<WindowDrawDetails>,
+
+    mouse_hidden: bool,
     pub enabled: bool,
 }
 
@@ -76,6 +80,7 @@ impl MouseManager {
             drag_position: PhysicalPosition::new(0, 0),
             scroll_position: PhysicalPosition::new(0.0, 0.0),
             window_details_under_mouse: None,
+            mouse_hidden: false,
             enabled: true,
         }
     }
@@ -316,13 +321,19 @@ impl MouseManager {
             Event::WindowEvent {
                 event: WindowEvent::CursorMoved { position, .. },
                 ..
-            } => self.handle_pointer_motion(
-                position.x as i32,
-                position.y as i32,
-                keyboard_manager,
-                renderer,
-                windowed_context,
-            ),
+            } => {
+                self.handle_pointer_motion(
+                    position.x as i32,
+                    position.y as i32,
+                    keyboard_manager,
+                    renderer,
+                    windowed_context,
+                );
+                if self.mouse_hidden {
+                    windowed_context.window().set_cursor_visible(true);
+                    self.mouse_hidden = false;
+                }
+            }
             Event::WindowEvent {
                 event:
                     WindowEvent::MouseWheel {
@@ -351,6 +362,21 @@ impl MouseManager {
                 state == &ElementState::Pressed,
                 keyboard_manager,
             ),
+            Event::WindowEvent {
+                event:
+                    WindowEvent::KeyboardInput {
+                        event: key_event, ..
+                    },
+                ..
+            } => {
+                if key_event.state == ElementState::Pressed {
+                    let window_settings = SETTINGS.get::<WindowSettings>();
+                    if window_settings.hide_mouse_when_typing && !self.mouse_hidden {
+                        windowed_context.window().set_cursor_visible(false);
+                        self.mouse_hidden = true;
+                    }
+                }
+            }
             _ => {}
         }
     }

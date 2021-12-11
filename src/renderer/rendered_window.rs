@@ -213,6 +213,10 @@ impl RenderedWindow {
         root_canvas.save();
         root_canvas.clip_rect(&pixel_region, None, Some(false));
 
+        if self.floating_order.is_none() {
+            root_canvas.clear(default_background);
+        }
+
         if self.floating_order.is_some() && settings.floating_blur {
             let blur = blur((2.0, 2.0), None, None, None).unwrap();
             let save_layer_rec = SaveLayerRec::default()
@@ -238,7 +242,7 @@ impl RenderedWindow {
         paint.set_color(default_background.with_a(a));
         root_canvas.draw_rect(pixel_region, &paint);
 
-        paint.set_color(Color::from_argb(a, 255, 255, 255));
+        paint.set_color(Color::from_argb(255, 255, 255, 255));
 
         let font_height = font_dimensions.height;
 
@@ -350,7 +354,13 @@ impl RenderedWindow {
                         ..
                     } = line_fragment;
                     let grid_position = (*window_left, *window_top);
-                    grid_renderer.draw_background(canvas, grid_position, *width, style);
+                    grid_renderer.draw_background(
+                        canvas,
+                        grid_position,
+                        *width,
+                        style,
+                        self.floating_order.is_some(),
+                    );
                 }
 
                 for line_fragment in line_fragments.into_iter() {

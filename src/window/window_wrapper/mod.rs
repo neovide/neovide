@@ -271,6 +271,7 @@ pub fn create_window(
         .with_title("Neovide")
         .with_window_icon(Some(icon))
         .with_maximized(cmd_line_settings.maximized)
+        .with_transparent(true)
         .with_decorations(!cmd_line_settings.frameless);
 
     #[cfg(target_os = "macos")]

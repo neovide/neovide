@@ -30,6 +30,7 @@ extern crate derive_new;
 #[macro_use]
 extern crate lazy_static;
 
+use std::env::args;
 use std::sync::mpsc::channel;
 
 use log::trace;
@@ -117,7 +118,7 @@ fn main() {
     //   properly or updates to the graphics are pushed to the screen.
 
     //Will exit if -h or -v
-    if let Err(err) = cmd_line::handle_command_line_arguments() {
+    if let Err(err) = cmd_line::handle_command_line_arguments(args().collect()) {
         eprintln!("{}", err);
         return;
     }
@@ -159,6 +160,7 @@ fn main() {
 
     // We need to keep the bridge reference around to prevent the tokio runtime from getting freed
     let _bridge = start_bridge(
+        #[cfg(windows)]
         logging_ui_command_sender.clone(),
         ui_command_receiver,
         logging_redraw_event_sender,
@@ -179,23 +181,19 @@ fn main() {
 pub fn init_logger() {
     let settings = SETTINGS.get::<CmdLineSettings>();
 
-    let verbosity = match settings.verbosity {
-        0 => "warn",
-        1 => "info",
-        2 => "debug",
-        _ => "trace",
-    };
-    let logger = match settings.log_to_file {
-        true => Logger::with_env_or_str("neovide")
-            .duplicate_to_stderr(Duplicate::Error)
+    let logger = if settings.log_to_file {
+        Logger::with_env_or_str("neovide")
             .log_to_file()
             .rotate(
                 Criterion::Size(10_000_000),
                 Naming::Timestamps,
                 Cleanup::KeepLogFiles(1),
-            ),
-        false => Logger::with_env_or_str(format!("neovide = {}", verbosity)),
+            )
+            .duplicate_to_stderr(Duplicate::Error)
+    } else {
+        Logger::with_env_or_str("neovide = error")
     };
+
     logger.start().expect("Could not start logger");
 }
 
@@ -234,18 +232,11 @@ fn handle_macos() {
     use std::env;
 
     if env::var_os("TERM").is_none() {
-        //let mut profile_path = dirs::home_dir().unwrap();
-        //profile_path.push(".profile");
         let shell = env::var("SHELL").unwrap();
-        //let cmd = format!(
-        //    "(source /etc/profile && source {} && echo $PATH)",
-        //    profile_path.to_str().unwrap()
-        //);
         // printenv is the proper way to print env variables. using echo $PATH would break Fish.
         let cmd = "printenv PATH";
         if let Ok(path) = std::process::Command::new(shell)
-            //.arg("-c")
-            .arg("-lic")
+            .arg("-lic") // interactive login shell, this simulates opening a real terminal emulator
             .arg(cmd)
             .output()
         {

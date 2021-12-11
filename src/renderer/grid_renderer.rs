@@ -83,6 +83,7 @@ impl GridRenderer {
         grid_position: (u64, u64),
         cell_width: u64,
         style: &Option<Arc<Style>>,
+        is_floating: bool,
     ) {
         self.paint.set_blend_mode(BlendMode::Src);
 
@@ -96,6 +97,15 @@ impl GridRenderer {
         } else {
             self.paint
                 .set_color(style.background(&self.default_style.colors).to_color());
+        }
+
+        if self.paint.color() == self.get_default_background() {
+            if is_floating {
+                self.paint
+                    .set_alpha((255.0 * SETTINGS.get::<RendererSettings>().floating_opacity) as u8);
+            } else {
+                self.paint.set_alpha(0);
+            }
         }
         canvas.draw_rect(region, &self.paint);
     }

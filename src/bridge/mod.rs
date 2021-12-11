@@ -124,8 +124,7 @@ pub fn create_nvim_command() -> Command {
     let mut cmd = build_nvim_cmd();
 
     cmd.arg("--embed")
-        .args(SETTINGS.get::<CmdLineSettings>().neovim_args.iter())
-        .args(SETTINGS.get::<CmdLineSettings>().files_to_open.iter());
+        .args(SETTINGS.get::<CmdLineSettings>().neovim_args.iter());
 
     info!("Starting neovim with: {:?}", cmd);
 
@@ -155,11 +154,14 @@ fn connection_mode() -> ConnectionMode {
 }
 
 async fn start_neovim_runtime(
-    ui_command_sender: LoggingTx<UiCommand>,
+    #[cfg(windows)] ui_command_sender: LoggingTx<UiCommand>,
     ui_command_receiver: UnboundedReceiver<UiCommand>,
     redraw_event_sender: LoggingTx<RedrawEvent>,
 ) {
+    #[cfg(windows)]
     let handler = NeovimHandler::new(ui_command_sender.clone(), redraw_event_sender.clone());
+    #[cfg(not(windows))]
+    let handler = NeovimHandler::new(redraw_event_sender.clone());
     let (nvim, io_handler) = match connection_mode() {
         ConnectionMode::Child => create::new_child_cmd(&mut create_nvim_command(), handler).await,
         ConnectionMode::RemoteTcp(address) => create::new_tcp(address, handler).await,
@@ -292,12 +294,13 @@ pub struct Bridge {
 }
 
 pub fn start_bridge(
-    ui_command_sender: LoggingTx<UiCommand>,
+    #[cfg(windows)] ui_command_sender: LoggingTx<UiCommand>,
     ui_command_receiver: UnboundedReceiver<UiCommand>,
     redraw_event_sender: LoggingTx<RedrawEvent>,
 ) -> Bridge {
     let runtime = Runtime::new().unwrap();
     runtime.spawn(start_neovim_runtime(
+        #[cfg(windows)]
         ui_command_sender,
         ui_command_receiver,
         redraw_event_sender,

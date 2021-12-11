@@ -8,6 +8,7 @@ pub struct WindowSettings {
     pub fullscreen: bool,
     pub iso_layout: bool,
     pub remember_window_size: bool,
+    pub hide_mouse_when_typing: bool,
 }
 
 impl Default for WindowSettings {
@@ -19,6 +20,7 @@ impl Default for WindowSettings {
             refresh_rate: 60,
             no_idle: SETTINGS.get::<CmdLineSettings>().no_idle,
             remember_window_size: false,
+            hide_mouse_when_typing: false,
         }
     }
 }
