@@ -19,12 +19,6 @@ pub struct CmdLineSettings {
     pub multi_grid: bool,
     pub no_idle: bool,
     pub srgb: bool,
-    pub geometry: Dimensions,
-    pub wsl: bool,
-    pub remote_tcp: Option<String>,
-    pub multi_grid: bool,
-    pub maximized: bool,
-    pub frameless: bool,
     #[cfg(target_os = "macos")]
     pub buttonless: bool,
     // Command-line arguments with environment variable fallback
@@ -50,12 +44,6 @@ impl Default for CmdLineSettings {
             multi_grid: false,
             no_idle: false,
             srgb: true,
-            geometry: DEFAULT_WINDOW_GEOMETRY,
-            wsl: false,
-            remote_tcp: None,
-            multi_grid: false,
-            maximized: false,
-            frameless: false,
             #[cfg(target_os = "macos")]
             buttonless: false,
             // Command-line arguments with environment variable fallback
@@ -199,28 +187,8 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
         multi_grid: matches.is_present("multi_grid") || std::env::var("NEOVIDE_MULTIGRID").is_ok(),
         no_idle: matches.is_present("noidle") || std::env::var("NEOVIDE_NOIDLE").is_ok(),
         srgb: matches.is_present("srgb") || std::env::var("NEOVIDE_NO_SRGB").is_err(),
-        geometry: parse_window_geometry(matches.value_of("geometry").map(|i| i.to_owned()))?,
-        wsl: matches.is_present("wsl"),
-        remote_tcp: matches.value_of("remote_tcp").map(|i| i.to_owned()),
-        multi_grid: std::env::var("NEOVIDE_MULTIGRID").is_ok() || matches.is_present("multi_grid"),
-        maximized: matches.is_present("maximized") || std::env::var("NEOVIDE_MAXIMIZED").is_ok(),
-        frameless: matches.is_present("frameless") || std::env::var("NEOVIDE_FRAMELESS").is_ok(),
         #[cfg(target_os = "macos")]
         buttonless: matches.is_present("buttonless") || std::env::var("NEOVIDE_BUTTONLESS").is_ok(),
-        wayland_app_id: match std::env::var("NEOVIDE_APP_ID") {
-            Ok(val) => val,
-            Err(_) => matches
-                .value_of("wayland_app_id")
-                .unwrap_or("neovide")
-                .to_string(),
-        },
-        x11_wm_class: match std::env::var("NEOVIDE_WM_CLASS") {
-            Ok(val) => val,
-            Err(_) => matches
-                .value_of("x11_wm_class")
-                .unwrap_or("neovide")
-                .to_string(),
-        },
         // Command-line arguments with environment variable fallback
         neovim_bin: matches
             .value_of("neovim_bin")
