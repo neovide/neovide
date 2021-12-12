@@ -79,8 +79,8 @@ impl KeyboardManager {
 
                 if !self.should_ignore_input(&settings) {
                     // If we have a keyboard event this frame
-                    for key_or_ime_event in self.queued_input_events.iter() {
-                        match key_or_ime_event {
+                    for input_event in self.queued_input_events.iter() {
+                        match input_event {
                             InputEvent::KeyEvent(key_event) => {
                                 // And a key was pressed
                                 if key_event.state == ElementState::Pressed {
