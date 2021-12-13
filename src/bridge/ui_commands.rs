@@ -154,7 +154,7 @@ impl ParallelCommand {
                     "",
                     "    :set guifont=Cascadia\\ Code\\ PL:h12",
                     "",
-                    "You may specify multiple fonts separated by commas like so:",
+                    "You may specify multiple fonts for fallback purposes separated by commas like so:",
                     "",
                     "    :set guifont=Cascadia\\ Code\\ PL,Delugia\\ Nerd\\ Font:h12",
                     "",
