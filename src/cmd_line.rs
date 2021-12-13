@@ -134,11 +134,13 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
             Arg::with_name("wayland_app_id")
                 .long("wayland-app-id")
                 .takes_value(true)
+                .help("Specify an App ID for Wayland"),
         )
         .arg(
             Arg::with_name("x11_wm_class")
                 .long("x11-wm-class")
                 .takes_value(true)
+                .help("Specify an X11 WM class"),
         );
 
     let matches = clapp.get_matches_from(args);
