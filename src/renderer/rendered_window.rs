@@ -242,7 +242,7 @@ impl RenderedWindow {
         paint.set_color(default_background.with_a(a));
         root_canvas.draw_rect(pixel_region, &paint);
 
-        paint.set_color(Color::from_argb(255, 255, 255, 255));
+        paint.set_color(Color::from_argb(a, 255, 255, 255));
 
         let font_height = font_dimensions.height;
 
