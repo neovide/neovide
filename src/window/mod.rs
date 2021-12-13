@@ -283,8 +283,6 @@ pub fn create_window(
         Frame::Full => winit_window_builder,
         Frame::None => winit_window_builder.with_decorations(false),
         Frame::Buttonless => window::WindowBuilder::new()
-            // This option removes the shadow & makes the margin color black(?)
-            //.with_has_shadow(false)
             .with_title_hidden(true)
             .with_titlebar_buttons_hidden(true)
             .with_titlebar_transparent(true)
