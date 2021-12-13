@@ -880,7 +880,7 @@ checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 [[package]]
 name = "glutin"
 version = "0.26.0"
-source = "git+https://github.com/Kethku/glutin?branch=new-keyboard-all#cf509674b403e0f90f2db41a084e303cbd90fbf5"
+source = "git+https://github.com/neovide/glutin?branch=new-keyboard-all#cf509674b403e0f90f2db41a084e303cbd90fbf5"
 dependencies = [
  "android_glue",
  "cgl",
@@ -900,13 +900,13 @@ dependencies = [
  "wayland-client",
  "wayland-egl",
  "winapi",
- "winit",
+ "winit 0.24.0 (git+https://github.com/Kethku/winit?branch=new-keyboard-all)",
 ]
 
 [[package]]
 name = "glutin_egl_sys"
 version = "0.1.5"
-source = "git+https://github.com/Kethku/glutin?branch=new-keyboard-all#cf509674b403e0f90f2db41a084e303cbd90fbf5"
+source = "git+https://github.com/neovide/glutin?branch=new-keyboard-all#cf509674b403e0f90f2db41a084e303cbd90fbf5"
 dependencies = [
  "gl_generator",
  "winapi",
@@ -915,12 +915,12 @@ dependencies = [
 [[package]]
 name = "glutin_emscripten_sys"
 version = "0.1.1"
-source = "git+https://github.com/Kethku/glutin?branch=new-keyboard-all#cf509674b403e0f90f2db41a084e303cbd90fbf5"
+source = "git+https://github.com/neovide/glutin?branch=new-keyboard-all#cf509674b403e0f90f2db41a084e303cbd90fbf5"
 
 [[package]]
 name = "glutin_gles2_sys"
 version = "0.1.5"
-source = "git+https://github.com/Kethku/glutin?branch=new-keyboard-all#cf509674b403e0f90f2db41a084e303cbd90fbf5"
+source = "git+https://github.com/neovide/glutin?branch=new-keyboard-all#cf509674b403e0f90f2db41a084e303cbd90fbf5"
 dependencies = [
  "gl_generator",
  "objc",
@@ -929,7 +929,7 @@ dependencies = [
 [[package]]
 name = "glutin_glx_sys"
 version = "0.1.7"
-source = "git+https://github.com/Kethku/glutin?branch=new-keyboard-all#cf509674b403e0f90f2db41a084e303cbd90fbf5"
+source = "git+https://github.com/neovide/glutin?branch=new-keyboard-all#cf509674b403e0f90f2db41a084e303cbd90fbf5"
 dependencies = [
  "gl_generator",
  "x11-dl",
@@ -938,7 +938,7 @@ dependencies = [
 [[package]]
 name = "glutin_wgl_sys"
 version = "0.1.5"
-source = "git+https://github.com/Kethku/glutin?branch=new-keyboard-all#cf509674b403e0f90f2db41a084e303cbd90fbf5"
+source = "git+https://github.com/neovide/glutin?branch=new-keyboard-all#cf509674b403e0f90f2db41a084e303cbd90fbf5"
 dependencies = [
  "gl_generator",
 ]
@@ -1351,7 +1351,7 @@ dependencies = [
  "unicode-segmentation",
  "which",
  "winapi",
- "winit",
+ "winit 0.24.0 (git+https://github.com/neovide/winit?branch=new-keyboard-all)",
  "winres",
 ]
 
@@ -2566,6 +2566,41 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 name = "winit"
 version = "0.24.0"
 source = "git+https://github.com/Kethku/winit?branch=new-keyboard-all#3b5462ec315aae8d95b9440ff6c52a5412c2cca4"
+dependencies = [
+ "bitflags",
+ "cocoa",
+ "core-foundation 0.9.1",
+ "core-graphics 0.22.2",
+ "core-video-sys",
+ "dispatch",
+ "instant",
+ "lazy_static",
+ "libc",
+ "log",
+ "memmap2 0.2.3",
+ "mio",
+ "mio-misc",
+ "nameof",
+ "ndk",
+ "ndk-glue",
+ "ndk-sys",
+ "objc",
+ "parking_lot 0.11.2",
+ "percent-encoding",
+ "raw-window-handle",
+ "scopeguard",
+ "smithay-client-toolkit",
+ "unicode-segmentation",
+ "wayland-client",
+ "winapi",
+ "x11-dl",
+ "xkbcommon-dl",
+]
+
+[[package]]
+name = "winit"
+version = "0.24.0"
+source = "git+https://github.com/neovide/winit?branch=new-keyboard-all#3b5462ec315aae8d95b9440ff6c52a5412c2cca4"
 dependencies = [
  "bitflags",
  "cocoa",

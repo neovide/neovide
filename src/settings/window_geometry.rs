@@ -8,6 +8,11 @@ const SETTINGS_PATH: &str = ".local/share/nvim/neovide-settings.json";
 #[cfg(windows)]
 const SETTINGS_PATH: &str = "AppData/Local/nvim-data/neovide-settings.json";
 
+pub const DEFAULT_WINDOW_GEOMETRY: Dimensions = Dimensions {
+    width: 100,
+    height: 50,
+};
+
 fn neovim_std_datapath() -> PathBuf {
     let mut settings_path = dirs::home_dir().unwrap();
     settings_path.push(SETTINGS_PATH);
@@ -18,14 +23,16 @@ pub fn try_to_load_last_window_size() -> Result<Dimensions, String> {
     let settings_path = neovim_std_datapath();
     let json = std::fs::read_to_string(&settings_path).map_err(|e| e.to_string())?;
 
-    let geometry: Dimensions = serde_json::from_str(&json).map_err(|e| e.to_string())?;
-    log::debug!("Loaded Window Size: {:?}", geometry);
-    Ok(geometry)
+    let loaded_geometry: Dimensions = serde_json::from_str(&json).map_err(|e| e.to_string())?;
+    log::debug!("Loaded Window Size: {:?}", loaded_geometry);
+
+    if loaded_geometry.width == 0 || loaded_geometry.height == 0 {
+        log::warn!("Invalid Saved Window Size. Reverting to default");
+        Ok(DEFAULT_WINDOW_GEOMETRY)
+    } else {
+        Ok(loaded_geometry)
+    }
 }
-pub const DEFAULT_WINDOW_GEOMETRY: Dimensions = Dimensions {
-    width: 100,
-    height: 50,
-};
 
 pub fn maybe_save_window_size(grid_size: Option<Dimensions>) {
     let settings = SETTINGS.get::<WindowSettings>();

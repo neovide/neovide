@@ -39,8 +39,8 @@ dirs = "2"
 rand = "0.7"
 pin-project = "0.4.27"
 futures = "0.3.12"
-glutin = { git = "https://github.com/Kethku/glutin", branch = "new-keyboard-all" }
-winit = { git = "https://github.com/Kethku/winit", branch = "new-keyboard-all", default-features = false }
+glutin = { git = "https://github.com/neovide/glutin", branch = "new-keyboard-all" }
+winit = { git = "https://github.com/neovide/winit", branch = "new-keyboard-all" }
 gl = "0.14.0"
 swash = "0.1.4"
 clap="2.33.3"
@@ -71,7 +71,7 @@ incremental = true
 name = "Neovide"
 identifier = "com.kethku.neovide"
 icon = ["assets/neovide.ico"]
-version = "0.7.0"
+version = "0.8.0"
 resources = []
 copyright = "Copyright (c) Keith 2021. All rights reserved."
 category = "Productivity"

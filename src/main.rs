@@ -117,6 +117,9 @@ fn main() {
     //   Multiple other parts of the app "queue_next_frame" function to ensure animations continue
     //   properly or updates to the graphics are pushed to the screen.
 
+    #[cfg(target_os = "windows")]
+    windows_attach_to_console();
+
     //Will exit if -h or -v
     if let Err(err) = cmd_line::handle_command_line_arguments(args().collect()) {
         eprintln!("{}", err);
@@ -242,5 +245,14 @@ fn handle_macos() {
         {
             env::set_var("PATH", std::str::from_utf8(&path.stdout).unwrap());
         }
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn windows_attach_to_console() {
+    // Attach to parent console tip found here: https://github.com/rust-lang/rust/issues/67159#issuecomment-987882771
+    use winapi::um::wincon::{AttachConsole, ATTACH_PARENT_PROCESS};
+    unsafe {
+        AttachConsole(ATTACH_PARENT_PROCESS);
     }
 }

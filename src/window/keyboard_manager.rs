@@ -1,7 +1,7 @@
 use glutin::event::{ElementState, Event, KeyEvent, WindowEvent};
 use glutin::keyboard::Key;
 
-use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
+use glutin::platform::modifier_supplement::KeyEventExtModifierSupplement;
 
 use crate::bridge::{SerialCommand, UiCommand};
 use crate::channel_utils::LoggingTx;
