@@ -4,7 +4,7 @@ use std::sync::Arc;
 use log::error;
 use log::trace;
 
-use nvim_rs::Neovim;
+use nvim_rs::{Neovim, call_args, rpc::model::IntoVal};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
 use crate::bridge::TxWrapper;
@@ -15,7 +15,9 @@ use crate::windows_utils::{
 };
 
 // Serial commands are any commands which must complete before the next value is sent. This
-// includes keyboard and mouse input which would cuase problems if sent out of order.
+// includes keyboard and mouse input which would cause problems if sent out of order.
+//
+// When in doubt, use Parallel Commands.
 #[derive(Debug, Clone)]
 pub enum SerialCommand {
     Keyboard(String),
@@ -113,6 +115,7 @@ pub enum ParallelCommand {
     FileDrop(String),
     FocusLost,
     FocusGained,
+    DisplayAvailableFonts(Vec<String>),
     #[cfg(windows)]
     RegisterRightClick,
     #[cfg(windows)]
@@ -139,6 +142,44 @@ impl ParallelCommand {
                 .expect("Focus Gained Failed"),
             ParallelCommand::FileDrop(path) => {
                 nvim.command(format!("e {}", path).as_str()).await.ok();
+            }
+            ParallelCommand::DisplayAvailableFonts(fonts) => {
+                let mut content: Vec<String> = vec![
+                    "What follows are the font names available for guifont. To use one of these, type:",
+                    "",
+                    "    :set guifont=<font name>:h<font size>",
+                    "",
+                    "where <font name> is one of the following with spaces escaped",
+                    "and <font size> is the desired font size. As an example:",
+                    "",
+                    "    :set guifont=Cascadia\\ Code\\ PL:h12",
+                    "",
+                    "You may specify multiple fonts separated by commas like so:",
+                    "",
+                    "    :set guifont=Cascadia\\ Code\\ PL,Delugia\\ Nerd\\ Font:h12",
+                    "",
+                    "------------------------------",
+                    "Available Fonts on this System",
+                    "------------------------------",
+                ].into_iter().map(|text| text.to_owned()).collect();
+                content.extend(fonts);
+
+                nvim.command("split").await.ok();
+                nvim.command("noswapfile hide enew").await.ok();
+                nvim.command("setlocal buftype=nofile").await.ok();
+                nvim.command("setlocal bufhidden=hide").await.ok();
+                nvim.command("\"setlocal nobuflisted").await.ok();
+                nvim.command("\"lcd ~").await.ok();
+                nvim.command("file scratch").await.ok();
+                nvim.call(
+                    "nvim_buf_set_lines", 
+                    call_args![
+                        0i64,
+                        0i64,
+                        -1i64,
+                        false,
+                        content
+                    ]).await.ok();
             }
             #[cfg(windows)]
             ParallelCommand::RegisterRightClick => {
