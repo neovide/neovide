@@ -422,7 +422,7 @@ impl Editor {
     fn set_option(&mut self, gui_option: GuiOption) {
         trace!("Option set {:?}", &gui_option);
         if let GuiOption::GuiFont(guifont) = gui_option {
-            if guifont == "*".to_owned() {
+            if guifont == *"*" {
                 self.window_command_sender
                     .send(WindowCommand::ListAvailableFonts)
                     .ok();

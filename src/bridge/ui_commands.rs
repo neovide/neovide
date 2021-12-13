@@ -4,7 +4,7 @@ use std::sync::Arc;
 use log::error;
 use log::trace;
 
-use nvim_rs::{Neovim, call_args, rpc::model::IntoVal};
+use nvim_rs::{call_args, rpc::model::IntoVal, Neovim};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
 use crate::bridge::TxWrapper;
@@ -172,14 +172,11 @@ impl ParallelCommand {
                 nvim.command("\"lcd ~").await.ok();
                 nvim.command("file scratch").await.ok();
                 nvim.call(
-                    "nvim_buf_set_lines", 
-                    call_args![
-                        0i64,
-                        0i64,
-                        -1i64,
-                        false,
-                        content
-                    ]).await.ok();
+                    "nvim_buf_set_lines",
+                    call_args![0i64, 0i64, -1i64, false, content],
+                )
+                .await
+                .ok();
             }
             #[cfg(windows)]
             ParallelCommand::RegisterRightClick => {
