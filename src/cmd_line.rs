@@ -123,6 +123,11 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
                 .long("srgb")
                 .help("Use standard color space to initialize the window. Swapping this variable sometimes fixes issues on startup"),
         )
+        .arg(
+            Arg::with_name("nosrgb")
+                .long("nosrgb")
+                .help("Do not use standard color space to initialize the window. Swapping this variable sometimes fixes issues on startup"),
+        )
         // Command-line arguments with environment variable fallback
         .arg(
             Arg::with_name("neovim_bin")
