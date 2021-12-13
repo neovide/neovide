@@ -256,4 +256,3 @@ fn windows_attach_to_console() {
         AttachConsole(ATTACH_PARENT_PROCESS);
     }
 }
-
