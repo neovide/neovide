@@ -270,7 +270,6 @@ pub fn create_window(
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
     let frame_decoration = cmd_line_settings.frame;
 
-    #[cfg(not(target_os = "macos"))]
     let winit_window_builder = window::WindowBuilder::new()
         .with_title("Neovide")
         .with_window_icon(Some(icon))
@@ -281,22 +280,17 @@ pub fn create_window(
 
     #[cfg(target_os = "macos")]
     let winit_window_builder = match frame_decoration {
-        Frame::Full => window::WindowBuilder::new()
-            .with_title("Neovide")
-            .with_window_icon(Some(icon))
-            .with_maximized(cmd_line_settings.maximized),
-        Frame::None => window::WindowBuilder::new()
-            .with_title("Neovide")
-            .with_window_icon(Some(icon))
-            .with_maximized(cmd_line_settings.maximized)
-            .with_decorations(false),
+        Frame::Full => winit_window_builder,
+        Frame::None => winit_window_builder.with_decorations(false),
         Frame::Buttonless => window::WindowBuilder::new()
-            .with_window_icon(Some(icon))
-            .with_maximized(cmd_line_settings.maximized)
             // This option removes the shadow & makes the margin color black(?)
             //.with_has_shadow(false)
             .with_title_hidden(true)
             .with_titlebar_buttons_hidden(true)
+            .with_titlebar_transparent(true)
+            .with_fullsize_content_view(true),
+        Frame::Transparent => winit_window_builder
+            .with_title_hidden(true)
             .with_titlebar_transparent(true)
             .with_fullsize_content_view(true),
     };

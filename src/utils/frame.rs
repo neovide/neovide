@@ -3,6 +3,8 @@
 pub enum Frame {
     Full,
     #[cfg(target_os = "macos")]
+    Transparent,
+    #[cfg(target_os = "macos")]
     Buttonless,
     None,
 }
@@ -17,6 +19,8 @@ impl Frame {
     pub fn from_string(decoration: String) -> Frame {
         match decoration.to_lowercase().as_str() {
             "full" => Frame::Full,
+            #[cfg(target_os = "macos")]
+            "transparent" => Frame::Transparent,
             #[cfg(target_os = "macos")]
             "buttonless" => Frame::Buttonless,
             "none" => Frame::None,
