@@ -162,4 +162,8 @@ impl FontLoader {
 
         Some(font_arc)
     }
+
+    pub fn font_names(&self) -> Vec<String> {
+        self.font_mgr.family_names().collect()
+    }
 }

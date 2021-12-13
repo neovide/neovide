@@ -75,6 +75,10 @@ impl Renderer {
         }
     }
 
+    pub fn font_names(&self) -> Vec<String> {
+        self.grid_renderer.font_names()
+    }
+
     /// Draws frame
     ///
     /// # Returns

@@ -88,7 +88,8 @@ impl GlutinWindowWrapper {
                 WindowCommand::TitleChanged(new_title) => self.handle_title_changed(new_title),
                 WindowCommand::SetMouseEnabled(mouse_enabled) => {
                     self.mouse_manager.enabled = mouse_enabled
-                }
+                },
+                WindowCommand::ListAvailableFonts => self.send_font_names(),
             }
         }
     }
@@ -96,6 +97,11 @@ impl GlutinWindowWrapper {
     pub fn handle_title_changed(&mut self, new_title: String) {
         self.title = new_title;
         self.windowed_context.window().set_title(&self.title);
+    }
+
+    pub fn send_font_names(&self) {
+        let font_names = self.renderer.font_names();
+        self.ui_command_sender.send(UiCommand::Parallel(ParallelCommand::DisplayAvailableFonts(font_names))).unwrap();
     }
 
     pub fn handle_quit(&mut self) {

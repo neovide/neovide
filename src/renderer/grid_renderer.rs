@@ -41,6 +41,10 @@ impl GridRenderer {
         }
     }
 
+    pub fn font_names(&self) -> Vec<String> {
+        self.shaper.font_names()
+    }
+
     /// Convert PhysicalSize to grid size
     pub fn convert_physical_to_grid(&self, physical: PhysicalSize<u32>) -> Dimensions {
         Dimensions::from(physical) / self.font_dimensions

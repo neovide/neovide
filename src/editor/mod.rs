@@ -63,6 +63,7 @@ pub enum DrawCommand {
 pub enum WindowCommand {
     TitleChanged(String),
     SetMouseEnabled(bool),
+    ListAvailableFonts,
 }
 
 pub struct Editor {
@@ -421,9 +422,16 @@ impl Editor {
     fn set_option(&mut self, gui_option: GuiOption) {
         trace!("Option set {:?}", &gui_option);
         if let GuiOption::GuiFont(guifont) = gui_option {
+            if guifont == "*".to_owned() {
+                self.window_command_sender
+                    .send(WindowCommand::ListAvailableFonts)
+                    .ok();
+            }
+
             self.draw_command_batcher
                 .queue(DrawCommand::FontChanged(guifont))
                 .ok();
+
             for window in self.windows.values() {
                 window.redraw();
             }
