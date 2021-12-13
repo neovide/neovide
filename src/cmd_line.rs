@@ -119,11 +119,6 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
                 .help("Render every frame. Takes more power and cpu time but possibly fixes animation issues"),
         )
         .arg(
-            Arg::with_name("srgb")
-                .long("srgb")
-                .help("Use standard color space to initialize the window. Swapping this variable sometimes fixes issues on startup"),
-        )
-        .arg(
             Arg::with_name("nosrgb")
                 .long("nosrgb")
                 .help("Do not use standard color space to initialize the window. Swapping this variable sometimes fixes issues on startup"),
@@ -178,8 +173,9 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
         frameless: matches.is_present("frameless") || std::env::var("NEOVIDE_FRAMELESS").is_ok(),
         maximized: matches.is_present("maximized") || std::env::var("NEOVIDE_MAXIMIZED").is_ok(),
         multi_grid: matches.is_present("multi_grid") || std::env::var("NEOVIDE_MULTIGRID").is_ok(),
-        no_idle: matches.is_present("noidle") || std::env::var("NEOVIDE_NOIDLE").is_ok(),
-        srgb: matches.is_present("srgb") || std::env::var("NEOVIDE_NO_SRGB").is_err(),
+        no_idle: matches.is_present("noidle") || std::env::var("NEOVIDE_NO_IDLE").is_ok(),
+        // Srgb is enabled by default, so set it to false if nosrgb or NOEVIDE_NO_SRGB is set
+        srgb: !(matches.is_present("nosrgb") || std::env::var("NEOVIDE_NO_SRGB").is_ok()),
         // Command-line arguments with environment variable fallback
         neovim_bin: matches
             .value_of("neovim_bin")
