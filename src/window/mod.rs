@@ -18,6 +18,9 @@ use glutin::{
 };
 use log::trace;
 
+#[cfg(target_os = "macos")]
+use glutin::platform::macos::WindowBuilderExtMacOS;
+
 #[cfg(target_os = "linux")]
 use glutin::platform::unix::WindowBuilderExtUnix;
 
@@ -31,7 +34,7 @@ use crate::{
     renderer::Renderer,
     running_tracker::*,
     settings::{maybe_save_window_size, SETTINGS},
-    utils::Dimensions,
+    utils::{Dimensions, Frame},
 };
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
@@ -265,12 +268,38 @@ pub fn create_window(
     let event_loop = EventLoop::new();
 
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
+    let frame_decoration = cmd_line_settings.frame;
+
+    #[cfg(not(target_os = "macos"))]
     let winit_window_builder = window::WindowBuilder::new()
         .with_title("Neovide")
         .with_window_icon(Some(icon))
         .with_maximized(cmd_line_settings.maximized)
         .with_transparent(true)
-        .with_decorations(!cmd_line_settings.frameless);
+        // There is only two options for windows & linux, no need to match more options.
+        .with_decorations(frame_decoration == Frame::Full);
+
+    #[cfg(target_os = "macos")]
+    let winit_window_builder = match frame_decoration {
+        Frame::Full => window::WindowBuilder::new()
+            .with_title("Neovide")
+            .with_window_icon(Some(icon))
+            .with_maximized(cmd_line_settings.maximized),
+        Frame::None => window::WindowBuilder::new()
+            .with_title("Neovide")
+            .with_window_icon(Some(icon))
+            .with_maximized(cmd_line_settings.maximized)
+            .with_decorations(false),
+        Frame::Buttonless => window::WindowBuilder::new()
+            .with_window_icon(Some(icon))
+            .with_maximized(cmd_line_settings.maximized)
+            // This option removes the shadow & makes the margin color black(?)
+            //.with_has_shadow(false)
+            .with_title_hidden(true)
+            .with_titlebar_buttons_hidden(true)
+            .with_titlebar_transparent(true)
+            .with_fullsize_content_view(true),
+    };
 
     #[cfg(target_os = "linux")]
     let winit_window_builder = winit_window_builder
