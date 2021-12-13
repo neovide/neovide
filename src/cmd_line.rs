@@ -173,12 +173,10 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
         // Command-line flags with environment variable fallback
         frame: match matches.value_of("frame") {
             Some(val) => Frame::from_string(val.to_string()),
-            None => {
-                match std::env::var("NEOVIDE_FRAME") {
-                    Ok(f) => Frame::from_string(f),
-                    Err(_) => Frame::Full,
-                }
-            }
+            None => match std::env::var("NEOVIDE_FRAME") {
+                Ok(f) => Frame::from_string(f),
+                Err(_) => Frame::Full,
+            },
         },
         maximized: matches.is_present("maximized") || std::env::var("NEOVIDE_MAXIMIZED").is_ok(),
         multi_grid: matches.is_present("multi_grid") || std::env::var("NEOVIDE_MULTIGRID").is_ok(),
