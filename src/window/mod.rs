@@ -278,7 +278,8 @@ pub fn create_window(
 
     // There is only two options for windows & linux, no need to match more options.
     #[cfg(not(target_os = "macos"))]
-    let winit_window_builder = winit_window_builder.with_decorations(frame_decoration == Frame::Full);
+    let winit_window_builder =
+        winit_window_builder.with_decorations(frame_decoration == Frame::Full);
 
     #[cfg(target_os = "macos")]
     let winit_window_builder = match frame_decoration {
