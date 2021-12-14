@@ -274,15 +274,18 @@ pub fn create_window(
         .with_title("Neovide")
         .with_window_icon(Some(icon))
         .with_maximized(cmd_line_settings.maximized)
-        .with_transparent(true)
-        // There is only two options for windows & linux, no need to match more options.
-        .with_decorations(frame_decoration == Frame::Full);
+        .with_transparent(true);
+
+    // There is only two options for windows & linux, no need to match more options.
+    #[cfg(not(target_os = "macos"))]
+    let winit_window_builder = winit_window_builder.with_decorations(frame_decoration == Frame::Full);
 
     #[cfg(target_os = "macos")]
     let winit_window_builder = match frame_decoration {
         Frame::Full => winit_window_builder,
         Frame::None => winit_window_builder.with_decorations(false),
         Frame::Buttonless => winit_window_builder
+            .with_transparent(true)
             .with_title_hidden(true)
             .with_titlebar_buttons_hidden(true)
             .with_titlebar_transparent(true)
