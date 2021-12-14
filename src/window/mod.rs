@@ -282,7 +282,7 @@ pub fn create_window(
     let winit_window_builder = match frame_decoration {
         Frame::Full => winit_window_builder,
         Frame::None => winit_window_builder.with_decorations(false),
-        Frame::Buttonless => window::WindowBuilder::new()
+        Frame::Buttonless => winit_window_builder
             .with_title_hidden(true)
             .with_titlebar_buttons_hidden(true)
             .with_titlebar_transparent(true)
