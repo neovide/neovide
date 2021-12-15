@@ -123,6 +123,7 @@ jobs:
       - name: Merge into a universal app
         run: |
           mkdir -p target/release/bundle/osx
+          rm -rf target/release/bundle/osx/Neovide.app || true
           cp -R target/x86_64-apple-darwin/release/bundle/osx/Neovide.app \
             target/release/bundle/osx/Neovide.app
           rm target/release/bundle/osx/Neovide.app/Contents/MacOS/neovide
@@ -130,6 +131,7 @@ jobs:
             target/aarch64-apple-darwin/release/bundle/osx/Neovide.app/Contents/MacOS/neovide \
             -create -output \
             target/release/bundle/osx/Neovide.app/Contents/MacOS/neovide
+          codesign --force --deep -s - target/release/bundle/osx/Neovide.app
 
       - name: Create .dmg file
         run: |
