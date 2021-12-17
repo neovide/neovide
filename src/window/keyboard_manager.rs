@@ -1,8 +1,6 @@
 use glutin::event::{ElementState, Event, KeyEvent, WindowEvent};
 use glutin::keyboard::Key;
 
-use glutin::platform::modifier_supplement::KeyEventExtModifierSupplement;
-
 use crate::bridge::{SerialCommand, UiCommand};
 use crate::channel_utils::LoggingTx;
 use crate::settings::SETTINGS;
@@ -122,13 +120,7 @@ impl KeyboardManager {
         if let Some(key_text) = is_control_key(key_event.logical_key) {
             Some(self.format_keybinding_string(true, true, key_text))
         } else {
-            let is_dead_key =
-                key_event.text_with_all_modifiers().is_some() && key_event.text.is_none();
-            let key_text = if (self.alt || is_dead_key) && cfg!(target_os = "macos") {
-                key_event.text_with_all_modifiers()
-            } else {
-                key_event.text
-            };
+            let key_text = key_event.text;
 
             if let Some(key_text) = key_text {
                 // This is not a control key, so we rely upon winit to determine if
