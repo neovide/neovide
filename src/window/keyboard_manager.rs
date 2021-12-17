@@ -125,8 +125,10 @@ impl KeyboardManager {
             let key_text = key_event.text;
             if let Some(ori_key_text) = key_text {
                 let mut key_text = ori_key_text;
-                if let Some(modify) = key_event.text_with_all_modifiers() {
-                    key_text = modify;
+                if self.alt {
+                    if let Some(modify) = key_event.text_with_all_modifiers() {
+                        key_text = modify;
+                    }
                 }
                 // This is not a control key, so we rely upon winit to determine if
                 // this is a deadkey or not.
