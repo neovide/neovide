@@ -1,6 +1,8 @@
 use glutin::event::{ElementState, Event, KeyEvent, WindowEvent};
 use glutin::keyboard::Key;
 
+use glutin::platform::modifier_supplement::KeyEventExtModifierSupplement;
+
 use crate::bridge::{SerialCommand, UiCommand};
 use crate::channel_utils::LoggingTx;
 use crate::settings::SETTINGS;
@@ -121,8 +123,11 @@ impl KeyboardManager {
             Some(self.format_keybinding_string(true, true, key_text))
         } else {
             let key_text = key_event.text;
-
-            if let Some(key_text) = key_text {
+            if let Some(ori_key_text) = key_text {
+                let mut key_text = ori_key_text;
+                if let Some(modify) = key_event.text_with_all_modifiers() {
+                    key_text = modify;
+                }
                 // This is not a control key, so we rely upon winit to determine if
                 // this is a deadkey or not.
                 let keybinding_string = if let Some(escaped_text) = is_special(key_text) {
