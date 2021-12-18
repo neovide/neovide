@@ -1,5 +1,6 @@
 use glutin::event::{ElementState, Event, KeyEvent, WindowEvent};
 use glutin::keyboard::Key;
+use glutin::keyboard::Key::Dead;
 
 use glutin::platform::modifier_supplement::KeyEventExtModifierSupplement;
 
@@ -17,6 +18,7 @@ pub struct KeyboardManager {
     shift: bool,
     ctrl: bool,
     alt: bool,
+    pre_is_dead: Option<char>,
     logo: bool,
     ignore_input_this_frame: bool,
     queued_input_events: Vec<InputEvent>,
@@ -29,6 +31,7 @@ impl KeyboardManager {
             shift: false,
             ctrl: false,
             alt: false,
+            pre_is_dead: None,
             logo: false,
             ignore_input_this_frame: false,
             queued_input_events: Vec::new(),
@@ -81,25 +84,36 @@ impl KeyboardManager {
 
                 if !self.should_ignore_input(&settings) {
                     // If we have a keyboard event this frame
+                    let mut pre_is_dead = self.pre_is_dead;
                     for input_event in self.queued_input_events.iter() {
                         match input_event {
                             InputEvent::KeyEvent(key_event) => {
                                 // And a key was pressed
                                 if key_event.state == ElementState::Pressed {
-                                    if let Some(keybinding) = self.maybe_get_keybinding(key_event) {
+                                    if let Some(keybinding) =
+                                        self.maybe_get_keybinding(key_event, &mut pre_is_dead)
+                                    {
                                         self.command_sender
                                             .send(SerialCommand::Keyboard(keybinding).into())
                                             .expect("Could not send keyboard ui command");
                                     }
+                                } else if key_event.state == ElementState::Released {
+                                    // dead key detect here
+                                    if let Dead(dead_key) = key_event.logical_key {
+                                        pre_is_dead = dead_key; //should wait for the next input text_with_all_modifiers, and ignore the next ime.
+                                    }
                                 }
                             }
                             InputEvent::ImeInput(raw_input) => {
-                                self.command_sender
-                                    .send(SerialCommand::Keyboard(raw_input.to_string()).into())
-                                    .expect("Could not send keyboard ime string");
+                                if pre_is_dead.is_none() {
+                                    self.command_sender
+                                        .send(SerialCommand::Keyboard(raw_input.to_string()).into())
+                                        .expect("Could not send keyboard ime string");
+                                }
                             }
                         }
                     }
+                    self.pre_is_dead = pre_is_dead;
                 }
 
                 // Regardless of whether this was a valid keyboard input or not, rest ignoring and
@@ -115,14 +129,29 @@ impl KeyboardManager {
         self.ignore_input_this_frame || (self.logo && !settings.use_logo)
     }
 
-    fn maybe_get_keybinding(&self, key_event: &KeyEvent) -> Option<String> {
+    fn maybe_get_keybinding(
+        &self,
+        key_event: &KeyEvent,
+        pre_is_dead: &mut Option<char>,
+    ) -> Option<String> {
         // Determine if this key event represents a key which won't ever
         // present text.
-
         if let Some(key_text) = is_control_key(key_event.logical_key) {
-            Some(self.format_keybinding_string(true, true, key_text))
+            if pre_is_dead.is_some() {
+                //recover dead key to normal character
+                let real_char = String::from(pre_is_dead.unwrap());
+                *pre_is_dead = None;
+                Some(real_char + &self.format_keybinding_string(true, true, key_text))
+            } else {
+                Some(self.format_keybinding_string(true, true, key_text))
+            }
         } else {
-            let key_text = key_event.text;
+            let key_text = if pre_is_dead.is_none() {
+                key_event.text
+            } else {
+                key_event.text_with_all_modifiers()
+            };
+            *pre_is_dead = None;
             if let Some(ori_key_text) = key_text {
                 let mut key_text = ori_key_text;
                 if self.alt {
