@@ -9,7 +9,10 @@ use log::trace;
 use nvim_rs::Neovim;
 use parking_lot::RwLock;
 pub use rmpv::Value;
-pub use window_geometry::{maybe_save_window_size, parse_window_geometry, DEFAULT_WINDOW_GEOMETRY};
+pub use window_geometry::{
+    load_last_window_position, maybe_save_window_position, maybe_save_window_size,
+    parse_window_geometry, DEFAULT_WINDOW_GEOMETRY,
+};
 
 use crate::bridge::TxWrapper;
 use crate::error_handling::ResultPanicExplanation;

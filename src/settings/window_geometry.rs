@@ -1,6 +1,7 @@
 use crate::settings::SETTINGS;
 use crate::utils::Dimensions;
 use crate::window::WindowSettings;
+use glutin::dpi::PhysicalPosition;
 use std::path::PathBuf;
 
 #[cfg(unix)]
@@ -34,6 +35,25 @@ pub fn try_to_load_last_window_size() -> Result<Dimensions, String> {
     }
 }
 
+pub fn load_last_window_position() -> PhysicalPosition<i32> {
+    let settings_path = neovim_std_datapath();
+    let json = std::fs::read_to_string(&settings_path).map_err(|e| e.to_string());
+    if json.is_err() {
+        return PhysicalPosition::default();
+    }
+    let json = json.unwrap();
+
+    let loaded_position: Result<PhysicalPosition<i32>, _> =
+        serde_json::from_str(&json).map_err(|e| e.to_string());
+    if loaded_position.is_err() {
+        return PhysicalPosition::default();
+    }
+    let loaded_position = loaded_position.unwrap();
+    log::debug!("Loaded Window Position: {:?}", loaded_position);
+
+    loaded_position
+}
+
 pub fn maybe_save_window_size(grid_size: Option<Dimensions>) {
     let settings = SETTINGS.get::<WindowSettings>();
     let saved_window_size = if settings.remember_window_size {
@@ -45,6 +65,20 @@ pub fn maybe_save_window_size(grid_size: Option<Dimensions>) {
     let settings_path = neovim_std_datapath();
     let json = serde_json::to_string(&saved_window_size).unwrap();
     log::debug!("Saved Window Size: {}", json);
+    std::fs::write(settings_path, json).unwrap();
+}
+
+pub fn maybe_save_window_position(position: Option<PhysicalPosition<i32>>) {
+    let settings = SETTINGS.get::<WindowSettings>();
+    let saved_window_position = if settings.remember_window_position {
+        position.unwrap_or_default()
+    } else {
+        PhysicalPosition::default()
+    };
+
+    let settings_path = neovim_std_datapath();
+    let json = serde_json::to_string(&saved_window_position).unwrap();
+    log::debug!("Saved Window Position: {}", json);
     std::fs::write(settings_path, json).unwrap();
 }
 
