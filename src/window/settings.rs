@@ -20,8 +20,8 @@ impl Default for WindowSettings {
             iso_layout: false,
             refresh_rate: 60,
             no_idle: SETTINGS.get::<CmdLineSettings>().no_idle,
-            remember_window_size: false,
-            remember_window_position: false,
+            remember_window_size: true,
+            remember_window_position: true,
             hide_mouse_when_typing: false,
         }
     }
