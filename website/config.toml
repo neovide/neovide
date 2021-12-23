@@ -1,0 +1,23 @@
+# The URL the site will be built for
+base_url = "https://neovide.eu.org"
+theme = "juice"
+
+# Whether to automatically compile all Sass files in the sass directory
+compile_sass = true
+
+# Whether to build a search index to be used later on by a JavaScript library
+build_search_index = false
+
+[markdown]
+# Whether to do syntax highlighting
+# Theme can be customised by setting the `highlight_theme` variable to a theme supported by Zola
+highlight_code = true
+
+[extra]
+# Put all your custom variables here
+juice_logo_name = "Neovide"
+juice_logo_path = "assets/neovide.svg"
+juice_extra_menu = [
+    { title = "Github", link = "https://github.com/neovide/neovide"}
+]
+repository_url = "https://github.com/neovide/neovide"

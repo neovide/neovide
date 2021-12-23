@@ -1,0 +1,4 @@
+# Zola output
+public
+# Will be copied during the build process
+static/assets
