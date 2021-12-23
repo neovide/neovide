@@ -1,5 +1,6 @@
 ---
 title: Neovide
+date: 2021-12-23T22:13:46
 ---
 
 This is a simple graphical user interface for [Neovim](https://github.com/neovim/neovim) (an aggressively refactored and updated

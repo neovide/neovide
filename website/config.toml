@@ -1,5 +1,5 @@
 # The URL the site will be built for
-base_url = "https://neovide.eu.org"
+base_url = "https://cljoly.github.io/neovide"
 theme = "juice"
 
 # Whether to automatically compile all Sass files in the sass directory
