@@ -154,6 +154,9 @@ $ scoop install neovide
 5. `cd neovide`
 6. `cargo build --release`
 7. Copy `./target/release/neovide` to a known location and enjoy.
+8. `cargo install cargo-bundle`
+9. `cargo bundle --release`
+10. Copy `./target/release/bundle/osx/neovide.app` to `~/Applications` and enjoy.
 
 ### Linux
 
