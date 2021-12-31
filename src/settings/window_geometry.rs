@@ -2,20 +2,32 @@ use crate::settings::SETTINGS;
 use crate::utils::Dimensions;
 use crate::window::WindowSettings;
 use std::path::PathBuf;
-
 #[cfg(unix)]
-const SETTINGS_PATH: &str = ".local/share/nvim/neovide-settings.json";
-#[cfg(windows)]
-const SETTINGS_PATH: &str = "AppData/Local/nvim-data/neovide-settings.json";
+use xdg;
+
+const SETTINGS_FILE: &str = "neovide-settings.json";
 
 pub const DEFAULT_WINDOW_GEOMETRY: Dimensions = Dimensions {
     width: 100,
     height: 50,
 };
 
+#[cfg(windows)]
 fn neovim_std_datapath() -> PathBuf {
-    let mut settings_path = dirs::home_dir().unwrap();
-    settings_path.push(SETTINGS_PATH);
+    let mut data_path = dirs::home_dir().unwrap();
+    data_path.push("AppData/local/nvim-data");
+    data_path
+}
+
+#[cfg(unix)]
+fn neovim_std_datapath() -> PathBuf {
+    let xdg_dirs = xdg::BaseDirectories::with_prefix("nvim").unwrap();
+    xdg_dirs.get_data_home()
+}
+
+fn settings_path() -> PathBuf {
+    let mut settings_path = neovim_std_datapath();
+    settings_path.push(SETTINGS_FILE);
     settings_path
 }
 
@@ -42,7 +54,8 @@ pub fn maybe_save_window_size(grid_size: Option<Dimensions>) {
         DEFAULT_WINDOW_GEOMETRY
     };
 
-    let settings_path = neovim_std_datapath();
+    let settings_path = settings_path();
+    std::fs::create_dir_all(neovim_std_datapath()).unwrap();
     let json = serde_json::to_string(&saved_window_size).unwrap();
     log::debug!("Saved Window Size: {}", json);
     std::fs::write(settings_path, json).unwrap();

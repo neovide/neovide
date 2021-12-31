@@ -44,6 +44,7 @@ winit = { git = "https://github.com/neovide/winit", branch = "new-keyboard-all" 
 gl = "0.14.0"
 swash = "0.1.4"
 clap="2.33.3"
+xdg="2.4.0"
 
 [dev-dependencies]
 mockall = "0.7.0"
