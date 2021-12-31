@@ -30,7 +30,9 @@ use crate::{
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::Renderer,
     running_tracker::*,
-    settings::{maybe_save_window_size, SETTINGS},
+    settings::{
+        load_last_window_position, maybe_save_window_position, maybe_save_window_size, SETTINGS,
+    },
     utils::Dimensions,
 };
 use image::{load_from_memory, GenericImageView, Pixel};
@@ -270,7 +272,8 @@ pub fn create_window(
         .with_window_icon(Some(icon))
         .with_maximized(cmd_line_settings.maximized)
         .with_transparent(true)
-        .with_decorations(!cmd_line_settings.frameless);
+        .with_decorations(!cmd_line_settings.frameless)
+        .with_position(load_last_window_position());
 
     #[cfg(target_os = "linux")]
     let winit_window_builder = winit_window_builder
@@ -323,6 +326,13 @@ pub fn create_window(
     event_loop.run(move |e, _window_target, control_flow| {
         if !RUNNING_TRACKER.is_running() {
             maybe_save_window_size(window_wrapper.saved_grid_size);
+            maybe_save_window_position(
+                window_wrapper
+                    .windowed_context
+                    .window()
+                    .outer_position()
+                    .ok(),
+            );
             std::process::exit(0);
         }
 
