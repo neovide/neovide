@@ -571,6 +571,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "dirs"
+version = "3.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "30baa043103c9d0c2a57cf537cc2f35623889dc0d405e6c3cccfadbc81c71309"
+dependencies = [
+ "dirs-sys",
+]
+
+[[package]]
 name = "dirs-sys"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1325,7 +1334,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "clap",
  "derive-new",
- "dirs",
+ "dirs 2.0.2",
  "euclid",
  "flexi_logger",
  "futures 0.3.17",
@@ -1353,6 +1362,7 @@ dependencies = [
  "winapi",
  "winit 0.24.0 (git+https://github.com/neovide/winit?branch=new-keyboard-all)",
  "winres",
+ "xdg",
 ]
 
 [[package]]
@@ -2673,9 +2683,12 @@ dependencies = [
 
 [[package]]
 name = "xdg"
-version = "2.2.0"
+version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d089681aa106a86fade1b0128fb5daf07d5867a509ab036d99988dec80429a57"
+checksum = "3a23fe958c70412687039c86f578938b4a0bb50ec788e96bce4d6ab00ddd5803"
+dependencies = [
+ "dirs 3.0.2",
+]
 
 [[package]]
 name = "xkbcommon-dl"
