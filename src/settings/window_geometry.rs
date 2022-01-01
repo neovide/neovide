@@ -2,6 +2,7 @@ use crate::settings::SETTINGS;
 use crate::utils::Dimensions;
 use crate::window::WindowSettings;
 use glutin::dpi::PhysicalPosition;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 #[cfg(unix)]
 use xdg;
@@ -12,6 +13,23 @@ pub const DEFAULT_WINDOW_GEOMETRY: Dimensions = Dimensions {
     width: 100,
     height: 50,
 };
+
+#[derive(Serialize, Deserialize)]
+struct PersistentWindowSettings {
+    #[serde(default)]
+    position: PhysicalPosition<i32>,
+    #[serde(default = "default_size")]
+    size: Dimensions,
+}
+
+fn default_size() -> Dimensions {
+    DEFAULT_WINDOW_GEOMETRY
+}
+
+#[derive(Serialize, Deserialize)]
+struct PersistentSettings {
+    window: PersistentWindowSettings,
+}
 
 #[cfg(windows)]
 fn neovim_std_datapath() -> PathBuf {
@@ -32,11 +50,15 @@ fn settings_path() -> PathBuf {
     settings_path
 }
 
-pub fn try_to_load_last_window_size() -> Result<Dimensions, String> {
-    let settings_path = neovim_std_datapath();
+fn load_settings() -> Result<PersistentSettings, String> {
+    let settings_path = settings_path();
     let json = std::fs::read_to_string(&settings_path).map_err(|e| e.to_string())?;
+    serde_json::from_str(&json).map_err(|e| e.to_string())
+}
 
-    let loaded_geometry: Dimensions = serde_json::from_str(&json).map_err(|e| e.to_string())?;
+pub fn try_to_load_last_window_size() -> Result<Dimensions, String> {
+    let settings = load_settings()?;
+    let loaded_geometry = settings.window.size;
     log::debug!("Loaded Window Size: {:?}", loaded_geometry);
 
     if loaded_geometry.width == 0 || loaded_geometry.height == 0 {
@@ -48,50 +70,44 @@ pub fn try_to_load_last_window_size() -> Result<Dimensions, String> {
 }
 
 pub fn load_last_window_position() -> PhysicalPosition<i32> {
-    let settings_path = neovim_std_datapath();
-    let json = std::fs::read_to_string(&settings_path).map_err(|e| e.to_string());
-    if json.is_err() {
-        return PhysicalPosition::default();
+    let settings = load_settings();
+    if let Ok(settings) = settings {
+        let loaded_position = settings.window.position;
+        log::debug!("Loaded Window Position: {:?}", loaded_position);
+        loaded_position
+    } else {
+        PhysicalPosition::default()
     }
-    let json = json.unwrap();
-
-    let loaded_position: Result<PhysicalPosition<i32>, _> =
-        serde_json::from_str(&json).map_err(|e| e.to_string());
-    if loaded_position.is_err() {
-        return PhysicalPosition::default();
-    }
-    let loaded_position = loaded_position.unwrap();
-    log::debug!("Loaded Window Position: {:?}", loaded_position);
-
-    loaded_position
 }
 
-pub fn maybe_save_window_size(grid_size: Option<Dimensions>) {
-    let settings = SETTINGS.get::<WindowSettings>();
-    let saved_window_size = if settings.remember_window_size {
-        grid_size.unwrap_or(DEFAULT_WINDOW_GEOMETRY)
-    } else {
-        DEFAULT_WINDOW_GEOMETRY
+pub fn save_window_geometry(
+    grid_size: Option<Dimensions>,
+    position: Option<PhysicalPosition<i32>>,
+) {
+    let window_settings = SETTINGS.get::<WindowSettings>();
+    let settings = PersistentSettings {
+        window: PersistentWindowSettings {
+            size: {
+                window_settings
+                    .remember_window_size
+                    .then(|| grid_size)
+                    .flatten()
+                    .unwrap_or(DEFAULT_WINDOW_GEOMETRY)
+            },
+            position: {
+                window_settings
+                    .remember_window_position
+                    .then(|| position)
+                    .flatten()
+                    .unwrap_or_default()
+            },
+        },
     };
 
     let settings_path = settings_path();
     std::fs::create_dir_all(neovim_std_datapath()).unwrap();
-    let json = serde_json::to_string(&saved_window_size).unwrap();
-    log::debug!("Saved Window Size: {}", json);
-    std::fs::write(settings_path, json).unwrap();
-}
-
-pub fn maybe_save_window_position(position: Option<PhysicalPosition<i32>>) {
-    let settings = SETTINGS.get::<WindowSettings>();
-    let saved_window_position = if settings.remember_window_position {
-        position.unwrap_or_default()
-    } else {
-        PhysicalPosition::default()
-    };
-
-    let settings_path = neovim_std_datapath();
-    let json = serde_json::to_string(&saved_window_position).unwrap();
-    log::debug!("Saved Window Position: {}", json);
+    let json = serde_json::to_string(&settings).unwrap();
+    log::debug!("Saved Window Settings: {}", json);
     std::fs::write(settings_path, json).unwrap();
 }
 
