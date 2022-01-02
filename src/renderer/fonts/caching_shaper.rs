@@ -25,19 +25,23 @@ pub struct CachingShaper {
     blob_cache: LruCache<ShapeKey, Vec<TextBlob>>,
     shape_context: ShapeContext,
     scale_factor: f32,
+    fudge_factor: f32,
 }
 
 impl CachingShaper {
     pub fn new(scale_factor: f32) -> CachingShaper {
         let options = FontOptions::default();
         let font_size = options.size * scale_factor;
-        CachingShaper {
+        let mut shaper = CachingShaper {
             options,
             font_loader: FontLoader::new(font_size),
             blob_cache: LruCache::new(10000),
             shape_context: ShapeContext::new(),
             scale_factor,
-        }
+            fudge_factor: 1.0,
+        };
+        shaper.reset_font_loader();
+        shaper
     }
 
     fn current_font_pair(&mut self) -> Arc<FontPair> {
@@ -54,7 +58,7 @@ impl CachingShaper {
     }
 
     pub fn current_size(&self) -> f32 {
-        self.options.size * self.scale_factor
+        self.options.size * self.scale_factor * self.fudge_factor
     }
 
     pub fn update_scale_factor(&mut self, scale_factor: f32) {
@@ -79,8 +83,20 @@ impl CachingShaper {
     }
 
     fn reset_font_loader(&mut self) {
-        let font_size = self.options.size * self.scale_factor;
+        // Calculate the new fudge factor required to scale the font width to the nearest exact pixel
+        // NOTE: This temporarily loads the font without any fudge factor, since the interface
+        // nees a size and we don't know the exact one until it's calculated.
+        self.fudge_factor = 1.0;
+        let mut font_size = self.current_size();
         trace!("Using font_size: {:.2}px", font_size);
+        self.font_loader = FontLoader::new(font_size);
+        let font_width = self.metrics().average_width;
+        trace!("Font width: {:.2}px", font_width);
+        self.fudge_factor = font_width.round() / font_width;
+        trace!("Fudge factor: {:.2}", self.fudge_factor);
+        font_size = self.current_size();
+        trace!("Fudged font size: {:.2}px", font_size);
+        trace!("Fudged font width: {:.2}px", self.metrics().average_width);
 
         self.font_loader = FontLoader::new(font_size);
         self.blob_cache.clear();
@@ -101,7 +117,7 @@ impl CachingShaper {
     pub fn font_base_dimensions(&mut self) -> (u64, u64) {
         let metrics = self.metrics();
         let font_height = (metrics.ascent + metrics.descent + metrics.leading).ceil() as u64;
-        let font_width = metrics.average_width as u64;
+        let font_width = metrics.average_width.round() as u64;
 
         (font_width, font_height)
     }
