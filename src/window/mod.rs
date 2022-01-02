@@ -30,9 +30,7 @@ use crate::{
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::Renderer,
     running_tracker::*,
-    settings::{
-        load_last_window_position, maybe_save_window_position, maybe_save_window_size, SETTINGS,
-    },
+    settings::{load_last_window_position, save_window_geometry, SETTINGS},
     utils::Dimensions,
 };
 use image::{load_from_memory, GenericImageView, Pixel};
@@ -325,8 +323,8 @@ pub fn create_window(
 
     event_loop.run(move |e, _window_target, control_flow| {
         if !RUNNING_TRACKER.is_running() {
-            maybe_save_window_size(window_wrapper.saved_grid_size);
-            maybe_save_window_position(
+            save_window_geometry(
+                window_wrapper.saved_grid_size,
                 window_wrapper
                     .windowed_context
                     .window()
