@@ -4,8 +4,6 @@ use crate::window::WindowSettings;
 use glutin::dpi::PhysicalPosition;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-#[cfg(unix)]
-use xdg;
 
 const SETTINGS_FILE: &str = "neovide-settings.json";
 
