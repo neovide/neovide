@@ -145,7 +145,9 @@ impl ParallelCommand {
             }
             ParallelCommand::DisplayAvailableFonts(fonts) => {
                 let mut content: Vec<String> = vec![
-                    "What follows are the font names available for guifont. To use one of these, type:",
+                    "What follows are the font names available for guifont. You can try any of them with <CR> in normal mode.",
+                    "",
+                    "To switch to one of them, use one of them, type:",
                     "",
                     "    :set guifont=<font name>:h<font size>",
                     "",
@@ -158,6 +160,7 @@ impl ParallelCommand {
                     "",
                     "    :set guifont=Cascadia\\ Code\\ PL,Delugia\\ Nerd\\ Font:h12",
                     "",
+                    "Make sure to add the above command when you're happy with it to your .vimrc file or similar config to make it permanent.",
                     "------------------------------",
                     "Available Fonts on this System",
                     "------------------------------",
@@ -174,6 +177,11 @@ impl ParallelCommand {
                 nvim.call(
                     "nvim_buf_set_lines",
                     call_args![0i64, 0i64, -1i64, false, content],
+                )
+                .await
+                .ok();
+                nvim.command(
+                    "nnoremap <buffer> <CR> <cmd>lua vim.opt.guifont=vim.fn.getline('.')<CR>",
                 )
                 .await
                 .ok();
