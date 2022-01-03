@@ -90,34 +90,50 @@ impl CachingShaper {
         let mut font_size = self.current_size();
         trace!("Using font_size: {:.2}px", font_size);
         self.font_loader = FontLoader::new(font_size);
-        let font_width = self.metrics().average_width;
-        trace!("Font width: {:.2}px", font_width);
+        let (metrics, font_width) = self.info();
+        trace!(
+            "Font width: {:.2}px {:.2}px",
+            font_width,
+            metrics.average_width
+        );
         self.fudge_factor = font_width.round() / font_width;
         trace!("Fudge factor: {:.2}", self.fudge_factor);
         font_size = self.current_size();
         trace!("Fudged font size: {:.2}px", font_size);
-        trace!("Fudged font width: {:.2}px", self.metrics().average_width);
+        trace!("Fudged font width: {:.2}px", self.info().1);
 
         self.font_loader = FontLoader::new(font_size);
         self.blob_cache.clear();
     }
 
-    fn metrics(&mut self) -> Metrics {
+    fn info(&mut self) -> (Metrics, f32) {
         let font_pair = self.current_font_pair();
         let size = self.current_size();
-        let shaper = self
+        let mut shaper = self
             .shape_context
             .builder(font_pair.swash_font.as_ref())
             .size(size)
             .build();
+        shaper.add_str("M");
+        let metrics = shaper.metrics();
+        let mut advance = metrics.average_width;
+        shaper.shape_with(|cluster| {
+            advance = cluster
+                .glyphs
+                .first()
+                .map_or(metrics.average_width, |g| g.advance);
+        });
+        (metrics, advance)
+    }
 
-        shaper.metrics()
+    fn metrics(&mut self) -> Metrics {
+        self.info().0
     }
 
     pub fn font_base_dimensions(&mut self) -> (u64, u64) {
-        let metrics = self.metrics();
+        let (metrics, glyph_advance) = self.info();
         let font_height = (metrics.ascent + metrics.descent + metrics.leading).ceil() as u64;
-        let font_width = metrics.average_width.round() as u64;
+        let font_width = (glyph_advance + 0.5).floor() as u64;
 
         (font_width, font_height)
     }
