@@ -85,7 +85,7 @@ impl CachingShaper {
     fn reset_font_loader(&mut self) {
         // Calculate the new fudge factor required to scale the font width to the nearest exact pixel
         // NOTE: This temporarily loads the font without any fudge factor, since the interface
-        // nees a size and we don't know the exact one until it's calculated.
+        // needs a size and we don't know the exact one until it's calculated.
         self.fudge_factor = 1.0;
         let mut font_size = self.current_size();
         trace!("Using font_size: {:.2}px", font_size);
