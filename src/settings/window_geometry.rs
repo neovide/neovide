@@ -12,12 +12,15 @@ pub const DEFAULT_WINDOW_GEOMETRY: Dimensions = Dimensions {
     height: 50,
 };
 
-#[derive(Serialize, Deserialize)]
-struct PersistentWindowSettings {
-    #[serde(default)]
-    position: PhysicalPosition<i32>,
-    #[serde(default = "default_size")]
-    size: Dimensions,
+#[derive(Serialize, Deserialize, Debug)]
+pub enum PersistentWindowSettings {
+    Maximized,
+    Windowed {
+        #[serde(default)]
+        position: PhysicalPosition<i32>,
+        #[serde(default = "default_size")]
+        size: Dimensions,
+    },
 }
 
 fn default_size() -> Dimensions {
@@ -54,51 +57,47 @@ fn load_settings() -> Result<PersistentSettings, String> {
     serde_json::from_str(&json).map_err(|e| e.to_string())
 }
 
-pub fn try_to_load_last_window_size() -> Result<Dimensions, String> {
+pub fn load_last_window_settings() -> Result<PersistentWindowSettings, String> {
     let settings = load_settings()?;
-    let loaded_geometry = settings.window.size;
-    log::debug!("Loaded Window Size: {:?}", loaded_geometry);
+    let mut loaded_settings = settings.window;
+    log::debug!("Loaded window settings: {:?}", loaded_settings);
 
-    if loaded_geometry.width == 0 || loaded_geometry.height == 0 {
-        log::warn!("Invalid Saved Window Size. Reverting to default");
-        Ok(DEFAULT_WINDOW_GEOMETRY)
-    } else {
-        Ok(loaded_geometry)
+    if let PersistentWindowSettings::Windowed { size, .. } = &mut loaded_settings {
+        if size.width == 0 || size.height == 0 {
+            *size = DEFAULT_WINDOW_GEOMETRY;
+        }
     }
-}
 
-pub fn load_last_window_position() -> PhysicalPosition<i32> {
-    let settings = load_settings();
-    if let Ok(settings) = settings {
-        let loaded_position = settings.window.position;
-        log::debug!("Loaded Window Position: {:?}", loaded_position);
-        loaded_position
-    } else {
-        PhysicalPosition::default()
-    }
+    Ok(loaded_settings)
 }
 
 pub fn save_window_geometry(
+    maximized: bool,
     grid_size: Option<Dimensions>,
     position: Option<PhysicalPosition<i32>>,
 ) {
     let window_settings = SETTINGS.get::<WindowSettings>();
+
     let settings = PersistentSettings {
-        window: PersistentWindowSettings {
-            size: {
-                window_settings
-                    .remember_window_size
-                    .then(|| grid_size)
-                    .flatten()
-                    .unwrap_or(DEFAULT_WINDOW_GEOMETRY)
-            },
-            position: {
-                window_settings
-                    .remember_window_position
-                    .then(|| position)
-                    .flatten()
-                    .unwrap_or_default()
-            },
+        window: if maximized && window_settings.remember_window_size {
+            PersistentWindowSettings::Maximized
+        } else {
+            PersistentWindowSettings::Windowed {
+                size: {
+                    window_settings
+                        .remember_window_size
+                        .then(|| grid_size)
+                        .flatten()
+                        .unwrap_or(DEFAULT_WINDOW_GEOMETRY)
+                },
+                position: {
+                    window_settings
+                        .remember_window_position
+                        .then(|| position)
+                        .flatten()
+                        .unwrap_or_default()
+                },
+            }
         },
     };
 
@@ -110,8 +109,16 @@ pub fn save_window_geometry(
 }
 
 pub fn parse_window_geometry(geometry: Option<String>) -> Result<Dimensions, String> {
-    let saved_window_size =
-        try_to_load_last_window_size().or::<String>(Ok(DEFAULT_WINDOW_GEOMETRY));
+    let saved_window_size = load_last_window_settings()
+        .and_then(|window_settings| {
+            if let PersistentWindowSettings::Windowed { size, .. } = window_settings {
+                Ok(size)
+            } else {
+                Err(String::from("Window was maximized"))
+            }
+        })
+        .or::<String>(Ok(DEFAULT_WINDOW_GEOMETRY));
+
     geometry.map_or(saved_window_size, |input| {
         let invalid_parse_err = format!(
             "Invalid geometry: {}\nValid format: <width>x<height>",

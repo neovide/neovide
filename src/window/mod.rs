@@ -30,7 +30,9 @@ use crate::{
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::Renderer,
     running_tracker::*,
-    settings::{load_last_window_position, save_window_geometry, SETTINGS},
+    settings::{
+        load_last_window_settings, save_window_geometry, PersistentWindowSettings, SETTINGS,
+    },
     utils::Dimensions,
 };
 use image::{load_from_memory, GenericImageView, Pixel};
@@ -275,21 +277,37 @@ pub fn create_window(
     let event_loop = EventLoop::new();
 
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
-    let winit_window_builder = window::WindowBuilder::new()
+
+    let mut maximized = cmd_line_settings.maximized;
+    let mut previous_position = None;
+    if let Ok(last_window_settings) = load_last_window_settings() {
+        match last_window_settings {
+            PersistentWindowSettings::Maximized => {
+                maximized = true;
+            }
+            PersistentWindowSettings::Windowed { position, .. } => {
+                previous_position = Some(position);
+            }
+        }
+    }
+
+    let mut winit_window_builder = window::WindowBuilder::new()
         .with_title("Neovide")
         .with_window_icon(Some(icon))
-        .with_maximized(cmd_line_settings.maximized)
+        .with_maximized(maximized)
         .with_transparent(true)
-        .with_decorations(!cmd_line_settings.frameless)
-        .with_position(load_last_window_position());
+        .with_decorations(!cmd_line_settings.frameless);
+
+    if let Some(previous_position) = previous_position {
+        if !maximized {
+            winit_window_builder = winit_window_builder.with_position(previous_position);
+        }
+    }
 
     #[cfg(target_os = "linux")]
     let winit_window_builder = winit_window_builder
-        .with_app_id(SETTINGS.get::<CmdLineSettings>().wayland_app_id)
-        .with_class(
-            "neovide".to_string(),
-            SETTINGS.get::<CmdLineSettings>().x11_wm_class,
-        );
+        .with_app_id(cmd_line_settings.wayland_app_id)
+        .with_class("neovide".to_string(), cmd_line_settings.x11_wm_class);
 
     let windowed_context = ContextBuilder::new()
         .with_pixel_format(24, 8)
@@ -333,13 +351,11 @@ pub fn create_window(
 
     event_loop.run(move |e, _window_target, control_flow| {
         if !RUNNING_TRACKER.is_running() {
+            let window = window_wrapper.windowed_context.window();
             save_window_geometry(
+                window.is_maximized(),
                 window_wrapper.saved_grid_size,
-                window_wrapper
-                    .windowed_context
-                    .window()
-                    .outer_position()
-                    .ok(),
+                window.outer_position().ok(),
             );
             std::process::exit(0);
         }
