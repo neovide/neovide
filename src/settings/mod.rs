@@ -10,7 +10,8 @@ use nvim_rs::Neovim;
 use parking_lot::RwLock;
 pub use rmpv::Value;
 pub use window_geometry::{
-    load_last_window_position, parse_window_geometry, save_window_geometry, DEFAULT_WINDOW_GEOMETRY,
+    load_last_window_settings, parse_window_geometry, save_window_geometry,
+    PersistentWindowSettings, DEFAULT_WINDOW_GEOMETRY,
 };
 
 use crate::bridge::TxWrapper;
