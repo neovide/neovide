@@ -142,8 +142,8 @@ impl KeyboardManager {
             } else {
                 key_event.text_with_all_modifiers()
             };
-            if let Some(ori_key_text) = key_text {
-                let mut key_text = ori_key_text;
+            if let Some(original_key_text) = key_text {
+                let mut key_text = original_key_text;
                 if self.alt {
                     if let Some(modify) = key_event.text_with_all_modifiers() {
                         key_text = modify;
