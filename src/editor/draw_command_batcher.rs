@@ -1,23 +1,20 @@
 use std::sync::mpsc::{channel, Receiver, SendError, Sender};
 
 use super::DrawCommand;
-use crate::channel_utils::*;
+use crate::event_aggregator::EVENT_AGGREGATOR;
 
 pub struct DrawCommandBatcher {
     window_draw_command_sender: Sender<DrawCommand>,
     window_draw_command_receiver: Receiver<DrawCommand>,
-
-    batched_draw_command_sender: LoggingSender<Vec<DrawCommand>>,
 }
 
 impl DrawCommandBatcher {
-    pub fn new(batched_draw_command_sender: LoggingSender<Vec<DrawCommand>>) -> DrawCommandBatcher {
+    pub fn new() -> DrawCommandBatcher {
         let (sender, receiver) = channel();
 
         DrawCommandBatcher {
             window_draw_command_sender: sender,
             window_draw_command_receiver: receiver,
-            batched_draw_command_sender,
         }
     }
 
@@ -25,8 +22,8 @@ impl DrawCommandBatcher {
         self.window_draw_command_sender.send(draw_command)
     }
 
-    pub fn send_batch(&self) -> Result<(), SendError<Vec<DrawCommand>>> {
-        let batch = self.window_draw_command_receiver.try_iter().collect();
-        self.batched_draw_command_sender.send(batch)
+    pub fn send_batch(&self) {
+        let batch: Vec<DrawCommand> = self.window_draw_command_receiver.try_iter().collect();
+        EVENT_AGGREGATOR.send(batch);
     }
 }

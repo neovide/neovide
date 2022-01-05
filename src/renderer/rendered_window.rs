@@ -1,4 +1,5 @@
 use std::collections::VecDeque;
+use std::sync::Arc;
 
 use skia_safe::canvas::{SaveLayerRec, SrcRectConstraint};
 use skia_safe::gpu::SurfaceOrigin;
@@ -9,9 +10,44 @@ use skia_safe::{
 
 use super::animation_utils::*;
 use super::{GridRenderer, RendererSettings};
-use crate::editor::{LineFragment, WindowDrawCommand};
+use crate::editor::Style;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::utils::Dimensions;
+
+#[derive(Clone, Debug)]
+pub struct LineFragment {
+    pub text: String,
+    pub window_left: u64,
+    pub window_top: u64,
+    pub width: u64,
+    pub style: Option<Arc<Style>>,
+}
+
+#[derive(Clone, Debug)]
+pub enum WindowDrawCommand {
+    Position {
+        grid_position: (f64, f64),
+        grid_size: (u64, u64),
+        floating_order: Option<u64>,
+    },
+    DrawLine(Vec<LineFragment>),
+    Scroll {
+        top: u64,
+        bottom: u64,
+        left: u64,
+        right: u64,
+        rows: i64,
+        cols: i64,
+    },
+    Clear,
+    Show,
+    Hide,
+    Close,
+    Viewport {
+        top_line: f64,
+        bottom_line: f64,
+    },
+}
 
 fn build_window_surface(parent_canvas: &mut Canvas, pixel_size: (i32, i32)) -> Surface {
     let mut context = parent_canvas.recording_context().unwrap();

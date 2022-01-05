@@ -17,6 +17,7 @@ mod channel_utils;
 mod cmd_line;
 mod editor;
 mod error_handling;
+mod event_aggregator;
 mod redraw_scheduler;
 mod renderer;
 mod running_tracker;
@@ -31,10 +32,8 @@ extern crate derive_new;
 extern crate lazy_static;
 
 use std::env::args;
-use std::sync::mpsc::channel;
 
 use log::trace;
-use tokio::sync::mpsc::unbounded_channel;
 
 use bridge::start_bridge;
 use cmd_line::CmdLineSettings;
@@ -44,6 +43,7 @@ use settings::SETTINGS;
 use window::{create_window, KeyboardSettings, WindowSettings};
 
 pub use channel_utils::*;
+pub use event_aggregator::*;
 pub use running_tracker::*;
 pub use windows_utils::*;
 
@@ -144,40 +144,10 @@ fn main() {
     CursorSettings::register();
     KeyboardSettings::register();
 
-    let (redraw_event_sender, redraw_event_receiver) = unbounded_channel();
-    let logging_redraw_event_sender =
-        LoggingTx::attach(redraw_event_sender, "redraw_event".to_owned());
-
-    let (batched_draw_command_sender, batched_draw_command_receiver) = channel();
-    let logging_batched_draw_command_sender = LoggingSender::attach(
-        batched_draw_command_sender,
-        "batched_draw_command".to_owned(),
-    );
-
-    let (ui_command_sender, ui_command_receiver) = unbounded_channel();
-    let logging_ui_command_sender = LoggingTx::attach(ui_command_sender, "ui_command".to_owned());
-
-    let (window_command_sender, window_command_receiver) = channel();
-    let logging_window_command_sender =
-        LoggingSender::attach(window_command_sender, "window_command".to_owned());
-
     // We need to keep the bridge reference around to prevent the tokio runtime from getting freed
-    let _bridge = start_bridge(
-        #[cfg(windows)]
-        logging_ui_command_sender.clone(),
-        ui_command_receiver,
-        logging_redraw_event_sender,
-    );
-    start_editor(
-        redraw_event_receiver,
-        logging_batched_draw_command_sender,
-        logging_window_command_sender,
-    );
-    create_window(
-        batched_draw_command_receiver,
-        window_command_receiver,
-        logging_ui_command_sender,
-    );
+    let _bridge = start_bridge();
+    start_editor();
+    create_window();
 }
 
 #[cfg(not(test))]

@@ -4,12 +4,11 @@ use glutin::keyboard::Key;
 use glutin::platform::modifier_supplement::KeyEventExtModifierSupplement;
 
 use crate::bridge::{SerialCommand, UiCommand};
-use crate::channel_utils::LoggingTx;
+use crate::event_aggregator::EVENT_AGGREGATOR;
 use crate::settings::SETTINGS;
 use crate::window::KeyboardSettings;
 
 pub struct KeyboardManager {
-    command_sender: LoggingTx<UiCommand>,
     shift: bool,
     ctrl: bool,
     alt: bool,
@@ -19,9 +18,8 @@ pub struct KeyboardManager {
 }
 
 impl KeyboardManager {
-    pub fn new(command_sender: LoggingTx<UiCommand>) -> KeyboardManager {
+    pub fn new() -> KeyboardManager {
         KeyboardManager {
-            command_sender,
             shift: false,
             ctrl: false,
             alt: false,
@@ -73,9 +71,8 @@ impl KeyboardManager {
                         // And a key was pressed
                         if key_event.state == ElementState::Pressed {
                             if let Some(keybinding) = self.maybe_get_keybinding(key_event) {
-                                self.command_sender
-                                    .send(SerialCommand::Keyboard(keybinding).into())
-                                    .expect("Could not send keyboard ui command");
+                                EVENT_AGGREGATOR
+                                    .send(UiCommand::Serial(SerialCommand::Keyboard(keybinding)));
                             }
                         }
                     }

@@ -5,9 +5,10 @@ use log::error;
 use log::trace;
 
 use nvim_rs::{call_args, rpc::model::IntoVal, Neovim};
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
+use tokio::sync::mpsc::unbounded_channel;
 
 use crate::bridge::TxWrapper;
+use crate::event_aggregator::EVENT_AGGREGATOR;
 use crate::running_tracker::RUNNING_TRACKER;
 #[cfg(windows)]
 use crate::windows_utils::{
@@ -18,7 +19,7 @@ use crate::windows_utils::{
 // includes keyboard and mouse input which would cause problems if sent out of order.
 //
 // When in doubt, use Parallel Commands.
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug)]
 pub enum SerialCommand {
     Keyboard(String),
     MouseButton {
@@ -236,13 +237,11 @@ impl From<ParallelCommand> for UiCommand {
     }
 }
 
-pub fn start_ui_command_handler(
-    mut ui_command_receiver: UnboundedReceiver<UiCommand>,
-    nvim: Arc<Neovim<TxWrapper>>,
-) {
+pub fn start_ui_command_handler(nvim: Arc<Neovim<TxWrapper>>) {
     let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
     let ui_command_nvim = nvim.clone();
     tokio::spawn(async move {
+        let mut ui_command_receiver = EVENT_AGGREGATOR.register_event::<UiCommand>();
         while RUNNING_TRACKER.is_running() {
             match ui_command_receiver.recv().await {
                 Some(UiCommand::Serial(serial_command)) => serial_tx

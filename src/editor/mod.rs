@@ -9,11 +9,12 @@ use std::sync::Arc;
 use std::thread;
 
 use log::{error, trace};
-use tokio::sync::mpsc::UnboundedReceiver;
 
-use crate::bridge::{EditorMode, GuiOption, RedrawEvent, WindowAnchor};
-use crate::channel_utils::*;
+use crate::bridge::{GuiOption, RedrawEvent, WindowAnchor};
+use crate::event_aggregator::EVENT_AGGREGATOR;
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
+use crate::renderer::DrawCommand;
+use crate::window::WindowCommand;
 pub use cursor::{Cursor, CursorMode, CursorShape};
 pub use draw_command_batcher::DrawCommandBatcher;
 pub use grid::CharacterGrid;
@@ -46,24 +47,10 @@ impl WindowAnchor {
     }
 }
 
-#[derive(Debug)]
-pub enum DrawCommand {
-    CloseWindow(u64),
-    Window {
-        grid_id: u64,
-        command: WindowDrawCommand,
-    },
-    UpdateCursor(Cursor),
-    FontChanged(String),
-    DefaultStyleChanged(Style),
-    ModeChanged(EditorMode),
-}
-
-#[derive(Debug)]
-pub enum WindowCommand {
-    TitleChanged(String),
-    SetMouseEnabled(bool),
-    ListAvailableFonts,
+#[derive(Clone, Debug)]
+pub enum EditorCommand {
+    NeovimRedrawEvent(RedrawEvent),
+    RedrawScreen,
 }
 
 pub struct Editor {
@@ -72,158 +59,150 @@ pub struct Editor {
     pub defined_styles: HashMap<u64, Arc<Style>>,
     pub mode_list: Vec<CursorMode>,
     pub draw_command_batcher: Arc<DrawCommandBatcher>,
-    pub window_command_sender: LoggingSender<WindowCommand>,
 }
 
 impl Editor {
-    pub fn new(
-        batched_draw_command_sender: LoggingSender<Vec<DrawCommand>>,
-        window_command_sender: LoggingSender<WindowCommand>,
-    ) -> Editor {
+    pub fn new() -> Editor {
         Editor {
             windows: HashMap::new(),
             cursor: Cursor::new(),
             defined_styles: HashMap::new(),
             mode_list: Vec::new(),
-            draw_command_batcher: Arc::new(DrawCommandBatcher::new(batched_draw_command_sender)),
-            window_command_sender,
+            draw_command_batcher: Arc::new(DrawCommandBatcher::new()),
         }
     }
 
-    pub fn handle_redraw_event(&mut self, event: RedrawEvent) {
-        match event {
-            RedrawEvent::SetTitle { title } => {
-                self.window_command_sender
-                    .send(WindowCommand::TitleChanged(title))
-                    .ok();
-            }
-            RedrawEvent::ModeInfoSet { cursor_modes } => self.mode_list = cursor_modes,
-            RedrawEvent::OptionSet { gui_option } => self.set_option(gui_option),
-            RedrawEvent::ModeChange { mode, mode_index } => {
-                if let Some(cursor_mode) = self.mode_list.get(mode_index as usize) {
-                    self.cursor.change_mode(cursor_mode, &self.defined_styles);
+    pub fn handle_editor_command(&mut self, command: EditorCommand) {
+        match command {
+            EditorCommand::NeovimRedrawEvent(event) => match event {
+                RedrawEvent::SetTitle { title } => {
+                    EVENT_AGGREGATOR.send(WindowCommand::TitleChanged(title));
                 }
-                self.draw_command_batcher
-                    .queue(DrawCommand::ModeChanged(mode))
-                    .ok();
-            }
-            RedrawEvent::MouseOn => {
-                self.window_command_sender
-                    .send(WindowCommand::SetMouseEnabled(true))
-                    .ok();
-            }
-            RedrawEvent::MouseOff => {
-                self.window_command_sender
-                    .send(WindowCommand::SetMouseEnabled(false))
-                    .ok();
-            }
-            RedrawEvent::BusyStart => {
-                trace!("Cursor off");
-                self.cursor.enabled = false;
-            }
-            RedrawEvent::BusyStop => {
-                trace!("Cursor on");
-                self.cursor.enabled = true;
-            }
-            RedrawEvent::Flush => {
-                trace!("Image flushed");
-                self.send_cursor_info();
-                self.draw_command_batcher.send_batch().ok();
-                REDRAW_SCHEDULER.queue_next_frame();
-            }
-            RedrawEvent::DefaultColorsSet { colors } => {
-                self.draw_command_batcher
-                    .queue(DrawCommand::DefaultStyleChanged(Style::new(colors)))
-                    .ok();
-            }
-            RedrawEvent::HighlightAttributesDefine { id, style } => {
-                self.defined_styles.insert(id, Arc::new(style));
-            }
-            RedrawEvent::CursorGoto {
-                grid,
-                column: left,
-                row: top,
-            } => self.set_cursor_position(grid, left, top),
-            RedrawEvent::Resize {
-                grid,
-                width,
-                height,
-            } => {
-                self.resize_window(grid, width, height);
-            }
-            RedrawEvent::GridLine {
-                grid,
-                row,
-                column_start,
-                cells,
-            } => {
-                let defined_styles = &self.defined_styles;
-                let window = self.windows.get_mut(&grid);
-                if let Some(window) = window {
-                    window.draw_grid_line(row, column_start, cells, defined_styles);
+                RedrawEvent::ModeInfoSet { cursor_modes } => self.mode_list = cursor_modes,
+                RedrawEvent::OptionSet { gui_option } => self.set_option(gui_option),
+                RedrawEvent::ModeChange { mode, mode_index } => {
+                    if let Some(cursor_mode) = self.mode_list.get(mode_index as usize) {
+                        self.cursor.change_mode(cursor_mode, &self.defined_styles);
+                    }
+                    self.draw_command_batcher
+                        .queue(DrawCommand::ModeChanged(mode))
+                        .ok();
                 }
-            }
-            RedrawEvent::Clear { grid } => {
-                let window = self.windows.get_mut(&grid);
-                if let Some(window) = window {
-                    window.clear();
+                RedrawEvent::MouseOn => {
+                    EVENT_AGGREGATOR.send(WindowCommand::SetMouseEnabled(true));
                 }
-            }
-            RedrawEvent::Destroy { grid } => self.close_window(grid),
-            RedrawEvent::Scroll {
-                grid,
-                top,
-                bottom,
-                left,
-                right,
-                rows,
-                columns,
-            } => {
-                let window = self.windows.get_mut(&grid);
-                if let Some(window) = window {
-                    window.scroll_region(top, bottom, left, right, rows, columns);
+                RedrawEvent::MouseOff => {
+                    EVENT_AGGREGATOR.send(WindowCommand::SetMouseEnabled(false));
                 }
-            }
-            RedrawEvent::WindowPosition {
-                grid,
-                start_row,
-                start_column,
-                width,
-                height,
-            } => self.set_window_position(grid, start_column, start_row, width, height),
-            RedrawEvent::WindowFloatPosition {
-                grid,
-                anchor,
-                anchor_grid,
-                anchor_column: anchor_left,
-                anchor_row: anchor_top,
-                sort_order,
-                ..
-            } => self.set_window_float_position(
-                grid,
-                anchor_grid,
-                anchor,
-                anchor_left,
-                anchor_top,
-                sort_order,
-            ),
-            RedrawEvent::WindowHide { grid } => {
-                let window = self.windows.get(&grid);
-                if let Some(window) = window {
-                    window.hide();
+                RedrawEvent::BusyStart => {
+                    trace!("Cursor off");
+                    self.cursor.enabled = false;
                 }
-            }
-            RedrawEvent::WindowClose { grid } => self.close_window(grid),
-            RedrawEvent::MessageSetPosition { grid, row, .. } => {
-                self.set_message_position(grid, row)
-            }
-            RedrawEvent::WindowViewport {
-                grid,
-                top_line,
-                bottom_line,
-                ..
-            } => self.send_updated_viewport(grid, top_line, bottom_line),
-            _ => {}
+                RedrawEvent::BusyStop => {
+                    trace!("Cursor on");
+                    self.cursor.enabled = true;
+                }
+                RedrawEvent::Flush => {
+                    trace!("Image flushed");
+                    self.send_cursor_info();
+                    self.draw_command_batcher.send_batch();
+                    REDRAW_SCHEDULER.queue_next_frame();
+                }
+                RedrawEvent::DefaultColorsSet { colors } => {
+                    self.draw_command_batcher
+                        .queue(DrawCommand::DefaultStyleChanged(Style::new(colors)))
+                        .ok();
+                }
+                RedrawEvent::HighlightAttributesDefine { id, style } => {
+                    self.defined_styles.insert(id, Arc::new(style));
+                }
+                RedrawEvent::CursorGoto {
+                    grid,
+                    column: left,
+                    row: top,
+                } => self.set_cursor_position(grid, left, top),
+                RedrawEvent::Resize {
+                    grid,
+                    width,
+                    height,
+                } => {
+                    self.resize_window(grid, width, height);
+                }
+                RedrawEvent::GridLine {
+                    grid,
+                    row,
+                    column_start,
+                    cells,
+                } => {
+                    let defined_styles = &self.defined_styles;
+                    let window = self.windows.get_mut(&grid);
+                    if let Some(window) = window {
+                        window.draw_grid_line(row, column_start, cells, defined_styles);
+                    }
+                }
+                RedrawEvent::Clear { grid } => {
+                    let window = self.windows.get_mut(&grid);
+                    if let Some(window) = window {
+                        window.clear();
+                    }
+                }
+                RedrawEvent::Destroy { grid } => self.close_window(grid),
+                RedrawEvent::Scroll {
+                    grid,
+                    top,
+                    bottom,
+                    left,
+                    right,
+                    rows,
+                    columns,
+                } => {
+                    let window = self.windows.get_mut(&grid);
+                    if let Some(window) = window {
+                        window.scroll_region(top, bottom, left, right, rows, columns);
+                    }
+                }
+                RedrawEvent::WindowPosition {
+                    grid,
+                    start_row,
+                    start_column,
+                    width,
+                    height,
+                } => self.set_window_position(grid, start_column, start_row, width, height),
+                RedrawEvent::WindowFloatPosition {
+                    grid,
+                    anchor,
+                    anchor_grid,
+                    anchor_column: anchor_left,
+                    anchor_row: anchor_top,
+                    sort_order,
+                    ..
+                } => self.set_window_float_position(
+                    grid,
+                    anchor_grid,
+                    anchor,
+                    anchor_left,
+                    anchor_top,
+                    sort_order,
+                ),
+                RedrawEvent::WindowHide { grid } => {
+                    let window = self.windows.get(&grid);
+                    if let Some(window) = window {
+                        window.hide();
+                    }
+                }
+                RedrawEvent::WindowClose { grid } => self.close_window(grid),
+                RedrawEvent::MessageSetPosition { grid, row, .. } => {
+                    self.set_message_position(grid, row)
+                }
+                RedrawEvent::WindowViewport {
+                    grid,
+                    top_line,
+                    bottom_line,
+                    ..
+                } => self.send_updated_viewport(grid, top_line, bottom_line),
+                _ => {}
+            },
+            EditorCommand::RedrawScreen => self.redraw_screen(),
         };
     }
 
@@ -423,18 +402,14 @@ impl Editor {
         trace!("Option set {:?}", &gui_option);
         if let GuiOption::GuiFont(guifont) = gui_option {
             if guifont == *"*" {
-                self.window_command_sender
-                    .send(WindowCommand::ListAvailableFonts)
-                    .ok();
+                EVENT_AGGREGATOR.send(WindowCommand::ListAvailableFonts);
             }
 
             self.draw_command_batcher
                 .queue(DrawCommand::FontChanged(guifont))
                 .ok();
 
-            for window in self.windows.values() {
-                window.redraw();
-            }
+            self.redraw_screen();
         }
     }
 
@@ -445,18 +420,21 @@ impl Editor {
             trace!("viewport event received before window initialized");
         }
     }
+
+    fn redraw_screen(&mut self) {
+        for window in self.windows.values() {
+            window.redraw();
+        }
+    }
 }
 
-pub fn start_editor(
-    mut redraw_event_receiver: UnboundedReceiver<RedrawEvent>,
-    batched_draw_command_sender: LoggingSender<Vec<DrawCommand>>,
-    window_command_sender: LoggingSender<WindowCommand>,
-) {
+pub fn start_editor() {
     thread::spawn(move || {
-        let mut editor = Editor::new(batched_draw_command_sender, window_command_sender);
+        let mut editor = Editor::new();
 
-        while let Some(redraw_event) = redraw_event_receiver.blocking_recv() {
-            editor.handle_redraw_event(redraw_event);
+        let mut editor_command_receiver = EVENT_AGGREGATOR.register_event::<EditorCommand>();
+        while let Some(editor_command) = editor_command_receiver.blocking_recv() {
+            editor.handle_editor_command(editor_command);
         }
     });
 }

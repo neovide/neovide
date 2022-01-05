@@ -10,7 +10,7 @@ use skia_safe::Rect;
 
 use super::keyboard_manager::KeyboardManager;
 use crate::bridge::{SerialCommand, UiCommand};
-use crate::channel_utils::LoggingTx;
+use crate::event_aggregator::EVENT_AGGREGATOR;
 use crate::renderer::{Renderer, WindowDrawDetails};
 use crate::settings::SETTINGS;
 use crate::window::WindowSettings;
@@ -52,8 +52,6 @@ fn mouse_button_to_button_text(mouse_button: &MouseButton) -> Option<String> {
 }
 
 pub struct MouseManager {
-    command_sender: LoggingTx<UiCommand>,
-
     dragging: Option<String>,
     drag_position: PhysicalPosition<u32>,
 
@@ -70,9 +68,8 @@ pub struct MouseManager {
 }
 
 impl MouseManager {
-    pub fn new(command_sender: LoggingTx<UiCommand>) -> MouseManager {
+    pub fn new() -> MouseManager {
         MouseManager {
-            command_sender,
             dragging: None,
             has_moved: false,
             position: PhysicalPosition::new(0, 0),
@@ -166,17 +163,12 @@ impl MouseManager {
 
             // If dragging and we haven't already sent a position, send a drag command
             if self.dragging.is_some() && has_moved {
-                self.command_sender
-                    .send(
-                        SerialCommand::Drag {
-                            button: self.dragging.as_ref().unwrap().to_owned(),
-                            grid_id: relevant_window_details.id,
-                            position: self.drag_position.into(),
-                            modifier_string: keyboard_manager.format_modifier_string(true),
-                        }
-                        .into(),
-                    )
-                    .ok();
+                EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Drag {
+                    button: self.dragging.as_ref().unwrap().to_owned(),
+                    grid_id: relevant_window_details.id,
+                    position: self.drag_position.into(),
+                    modifier_string: keyboard_manager.format_modifier_string(true),
+                }));
             } else {
                 // otherwise, update the window_id_under_mouse to match the one selected
                 self.window_details_under_mouse = Some(relevant_window_details.clone());
@@ -210,18 +202,13 @@ impl MouseManager {
                         self.relative_position
                     };
 
-                    self.command_sender
-                        .send(
-                            SerialCommand::MouseButton {
-                                button: button_text.clone(),
-                                action,
-                                grid_id: details.id,
-                                position: position.into(),
-                                modifier_string: keyboard_manager.format_modifier_string(true),
-                            }
-                            .into(),
-                        )
-                        .ok();
+                    EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::MouseButton {
+                        button: button_text.clone(),
+                        action,
+                        grid_id: details.id,
+                        position: position.into(),
+                        modifier_string: keyboard_manager.format_modifier_string(true),
+                    }));
                 }
 
                 if down {
@@ -265,7 +252,7 @@ impl MouseManager {
             }
             .into();
             for _ in 0..(new_y - previous_y).abs() {
-                self.command_sender.send(scroll_command.clone()).ok();
+                EVENT_AGGREGATOR.send(scroll_command.clone());
             }
         }
 
@@ -292,7 +279,7 @@ impl MouseManager {
             }
             .into();
             for _ in 0..(new_x - previous_x).abs() {
-                self.command_sender.send(scroll_command.clone()).ok();
+                EVENT_AGGREGATOR.send(scroll_command.clone());
             }
         }
     }

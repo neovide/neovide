@@ -7,19 +7,20 @@ mod rendered_window;
 use crate::WindowSettings;
 use std::cmp::Ordering;
 use std::collections::{hash_map::Entry, HashMap};
-use std::sync::mpsc::Receiver;
 use std::sync::Arc;
 
 use log::error;
 use skia_safe::Canvas;
+use tokio::sync::mpsc::UnboundedReceiver;
 
 use crate::bridge::EditorMode;
-use crate::editor::{DrawCommand, WindowDrawCommand};
+use crate::editor::{Cursor, Style};
+use crate::event_aggregator::EVENT_AGGREGATOR;
 use crate::settings::*;
 use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
-pub use rendered_window::{RenderedWindow, WindowDrawDetails};
+pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails};
 
 #[derive(SettingGroup, Clone)]
 pub struct RendererSettings {
@@ -42,6 +43,19 @@ impl Default for RendererSettings {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum DrawCommand {
+    CloseWindow(u64),
+    Window {
+        grid_id: u64,
+        command: WindowDrawCommand,
+    },
+    UpdateCursor(Cursor),
+    FontChanged(String),
+    DefaultStyleChanged(Style),
+    ModeChanged(EditorMode),
+}
+
 pub struct Renderer {
     cursor_renderer: CursorRenderer,
     pub grid_renderer: GridRenderer,
@@ -50,20 +64,19 @@ pub struct Renderer {
     rendered_windows: HashMap<u64, RenderedWindow>,
     pub window_regions: Vec<WindowDrawDetails>,
 
-    pub batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
+    pub batched_draw_command_receiver: UnboundedReceiver<Vec<DrawCommand>>,
 }
 
 impl Renderer {
-    pub fn new(
-        batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
-        scale_factor: f64,
-    ) -> Self {
+    pub fn new(scale_factor: f64) -> Self {
         let cursor_renderer = CursorRenderer::new();
         let grid_renderer = GridRenderer::new(scale_factor);
         let current_mode = EditorMode::Unknown(String::from(""));
 
         let rendered_windows = HashMap::new();
         let window_regions = Vec::new();
+
+        let batched_draw_command_receiver = EVENT_AGGREGATOR.register_event::<Vec<DrawCommand>>();
 
         Renderer {
             rendered_windows,
@@ -85,12 +98,11 @@ impl Renderer {
     /// `bool` indicating whether or not font was changed during this frame.
     #[allow(clippy::needless_collect)]
     pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32) -> bool {
-        let draw_commands: Vec<_> = self
-            .batched_draw_command_receiver
-            .try_iter() // Iterator of Vec of DrawCommand
-            .map(|batch| batch.into_iter()) // Iterator of Iterator of DrawCommand
-            .flatten() // Iterator of DrawCommand
-            .collect();
+        let mut draw_commands = Vec::new();
+        while let Ok(draw_command) = self.batched_draw_command_receiver.try_recv() {
+            draw_commands.extend(draw_command);
+        }
+
         let mut font_changed = false;
 
         for draw_command in draw_commands.into_iter() {
