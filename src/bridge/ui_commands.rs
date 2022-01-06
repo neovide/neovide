@@ -7,12 +7,12 @@ use log::trace;
 use nvim_rs::{call_args, rpc::model::IntoVal, Neovim};
 use tokio::sync::mpsc::unbounded_channel;
 
-use crate::bridge::TxWrapper;
-use crate::event_aggregator::EVENT_AGGREGATOR;
-use crate::running_tracker::RUNNING_TRACKER;
 #[cfg(windows)]
 use crate::windows_utils::{
     register_rightclick_directory, register_rightclick_file, unregister_rightclick,
+};
+use crate::{
+    bridge::TxWrapper, event_aggregator::EVENT_AGGREGATOR, running_tracker::RUNNING_TRACKER,
 };
 
 // Serial commands are any commands which must complete before the next value is sent. This

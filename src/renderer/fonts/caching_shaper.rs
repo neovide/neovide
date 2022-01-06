@@ -3,14 +3,17 @@ use std::sync::Arc;
 use log::trace;
 use lru::LruCache;
 use skia_safe::{TextBlob, TextBlobBuilder};
-use swash::shape::ShapeContext;
-use swash::text::cluster::{CharCluster, Parser, Status, Token};
-use swash::text::Script;
-use swash::Metrics;
+use swash::{
+    shape::ShapeContext,
+    text::{
+        cluster::{CharCluster, Parser, Status, Token},
+        Script,
+    },
+    Metrics,
+};
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::font_loader::*;
-use super::font_options::*;
+use crate::renderer::fonts::{font_loader::*, font_options::*};
 
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {

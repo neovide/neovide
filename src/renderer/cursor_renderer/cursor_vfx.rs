@@ -1,10 +1,13 @@
 use log::error;
+use nvim_rs::Value;
 use skia_safe::{paint::Style, BlendMode, Canvas, Color, Paint, Point, Rect};
 
-use super::CursorSettings;
-use crate::editor::Cursor;
-use crate::renderer::{animation_utils::*, grid_renderer::GridRenderer};
-use crate::settings::*;
+use crate::{
+    editor::Cursor,
+    renderer::cursor_renderer::CursorSettings,
+    renderer::{animation_utils::*, grid_renderer::GridRenderer},
+    settings::*,
+};
 
 pub trait CursorVfx {
     fn update(

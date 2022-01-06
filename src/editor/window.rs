@@ -1,14 +1,13 @@
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use log::warn;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::grid::CharacterGrid;
-use super::style::Style;
-use super::{AnchorInfo, DrawCommand, DrawCommandBatcher};
-use crate::bridge::GridLineCell;
-use crate::renderer::{LineFragment, WindowDrawCommand};
+use crate::{
+    bridge::GridLineCell,
+    editor::{grid::CharacterGrid, style::Style, AnchorInfo, DrawCommand, DrawCommandBatcher},
+    renderer::{LineFragment, WindowDrawCommand},
+};
 
 pub enum WindowType {
     Editor,

@@ -4,19 +4,24 @@ mod fonts;
 pub mod grid_renderer;
 mod rendered_window;
 
-use crate::WindowSettings;
-use std::cmp::Ordering;
-use std::collections::{hash_map::Entry, HashMap};
-use std::sync::Arc;
+use std::{
+    cmp::Ordering,
+    collections::{hash_map::Entry, HashMap},
+    sync::Arc,
+};
 
 use log::error;
 use skia_safe::Canvas;
 use tokio::sync::mpsc::UnboundedReceiver;
 
-use crate::bridge::EditorMode;
-use crate::editor::{Cursor, Style};
-use crate::event_aggregator::EVENT_AGGREGATOR;
-use crate::settings::*;
+use crate::{
+    bridge::EditorMode,
+    editor::{Cursor, Style},
+    event_aggregator::EVENT_AGGREGATOR,
+    settings::*,
+    WindowSettings,
+};
+
 use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;

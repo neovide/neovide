@@ -4,14 +4,15 @@ use nvim_rs::{Handler, Neovim};
 use rmpv::Value;
 use tokio::task;
 
-use super::events::parse_redraw_event;
 #[cfg(windows)]
-use super::ui_commands::{ParallelCommand, UiCommand};
-use crate::bridge::TxWrapper;
-use crate::editor::EditorCommand;
-use crate::error_handling::ResultPanicExplanation;
-use crate::event_aggregator::EVENT_AGGREGATOR;
-use crate::settings::SETTINGS;
+use crate::bridge::ui_commands::{ParallelCommand, UiCommand};
+use crate::{
+    bridge::{events::parse_redraw_event, TxWrapper},
+    editor::EditorCommand,
+    error_handling::ResultPanicExplanation,
+    event_aggregator::EVENT_AGGREGATOR,
+    settings::SETTINGS,
+};
 
 #[derive(Clone)]
 pub struct NeovimHandler {}

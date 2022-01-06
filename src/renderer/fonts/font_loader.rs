@@ -3,8 +3,7 @@ use std::sync::Arc;
 use lru::LruCache;
 use skia_safe::{font::Edging, Data, Font, FontHinting, FontMgr, FontStyle, Typeface};
 
-use super::font_options::FontOptions;
-use super::swash_font::SwashFont;
+use crate::renderer::fonts::{font_options::FontOptions, swash_font::SwashFont};
 
 static DEFAULT_FONT: &[u8] = include_bytes!("../../../assets/fonts/FiraCode-Regular.ttf");
 static LAST_RESORT_FONT: &[u8] = include_bytes!("../../../assets/fonts/LastResort-Regular.ttf");

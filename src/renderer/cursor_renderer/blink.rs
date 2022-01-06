@@ -1,7 +1,6 @@
 use std::time::{Duration, Instant};
 
-use crate::editor::Cursor;
-use crate::redraw_scheduler::REDRAW_SCHEDULER;
+use crate::{editor::Cursor, redraw_scheduler::REDRAW_SCHEDULER};
 
 #[derive(Debug)]
 pub enum BlinkState {

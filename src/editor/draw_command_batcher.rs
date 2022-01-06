@@ -1,7 +1,6 @@
 use std::sync::mpsc::{channel, Receiver, SendError, Sender};
 
-use super::DrawCommand;
-use crate::event_aggregator::EVENT_AGGREGATOR;
+use crate::{editor::DrawCommand, event_aggregator::EVENT_AGGREGATOR};
 
 pub struct DrawCommandBatcher {
     window_draw_command_sender: Sender<DrawCommand>,

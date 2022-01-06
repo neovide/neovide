@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::style::Style;
+use crate::editor::style::Style;
 
 pub type GridCell = (String, Option<Arc<Style>>);
 

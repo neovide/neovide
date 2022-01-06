@@ -1,13 +1,15 @@
-use glutin::event::{ElementState, Event, KeyEvent, WindowEvent};
-use glutin::keyboard::Key;
-use glutin::keyboard::Key::Dead;
+use glutin::{
+    event::{ElementState, Event, KeyEvent, WindowEvent},
+    keyboard::{Key, Key::Dead},
+    platform::modifier_supplement::KeyEventExtModifierSupplement,
+};
 
-use glutin::platform::modifier_supplement::KeyEventExtModifierSupplement;
-
-use crate::bridge::{SerialCommand, UiCommand};
-use crate::event_aggregator::EVENT_AGGREGATOR;
-use crate::settings::SETTINGS;
-use crate::window::KeyboardSettings;
+use crate::{
+    bridge::{SerialCommand, UiCommand},
+    event_aggregator::EVENT_AGGREGATOR,
+    settings::SETTINGS,
+    window::KeyboardSettings,
+};
 
 enum InputEvent {
     KeyEvent(KeyEvent),
@@ -89,8 +91,9 @@ impl KeyboardManager {
                                 // And a key was pressed
                                 if key_event.state == ElementState::Pressed {
                                     if let Some(keybinding) = self.maybe_get_keybinding(key_event) {
-                                        EVENT_AGGREGATOR
-                                            .send(UiCommand::Serial(SerialCommand::Keyboard(keybinding)));
+                                        EVENT_AGGREGATOR.send(UiCommand::Serial(
+                                            SerialCommand::Keyboard(keybinding),
+                                        ));
                                     }
                                     next_dead_key = None;
                                 } else if key_event.state == ElementState::Released {
@@ -103,8 +106,9 @@ impl KeyboardManager {
                             }
                             InputEvent::ImeInput(raw_input) => {
                                 if self.prev_dead_key.is_none() {
-                                    EVENT_AGGREGATOR
-                                        .send(UiCommand::Serial(SerialCommand::Keyboard(raw_input.to_string())));
+                                    EVENT_AGGREGATOR.send(UiCommand::Serial(
+                                        SerialCommand::Keyboard(raw_input.to_string()),
+                                    ));
                                 }
                             }
                         }

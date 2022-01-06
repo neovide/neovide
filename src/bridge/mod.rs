@@ -4,19 +4,18 @@ mod handler;
 mod tx_wrapper;
 mod ui_commands;
 
-use std::path::Path;
-use std::process::Stdio;
-use std::sync::Arc;
+use std::{path::Path, process::Stdio, sync::Arc};
 
 use log::{error, info, warn};
 use nvim_rs::UiAttachOptions;
 use rmpv::Value;
-use tokio::process::Command;
-use tokio::runtime::Runtime;
+use tokio::{process::Command, runtime::Runtime};
 
-use crate::running_tracker::*;
-use crate::settings::*;
-use crate::{cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation};
+use crate::{
+    cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation, running_tracker::*,
+    settings::*,
+};
+
 pub use events::*;
 use handler::NeovimHandler;
 pub use tx_wrapper::{TxWrapper, WrapTx};

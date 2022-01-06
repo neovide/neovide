@@ -8,12 +8,14 @@ use glutin::{
 };
 use skia_safe::Rect;
 
-use super::keyboard_manager::KeyboardManager;
-use crate::bridge::{SerialCommand, UiCommand};
-use crate::event_aggregator::EVENT_AGGREGATOR;
-use crate::renderer::{Renderer, WindowDrawDetails};
-use crate::settings::SETTINGS;
-use crate::window::WindowSettings;
+use crate::{
+    bridge::{SerialCommand, UiCommand},
+    event_aggregator::EVENT_AGGREGATOR,
+    renderer::{Renderer, WindowDrawDetails},
+    settings::SETTINGS,
+    window::keyboard_manager::KeyboardManager,
+    window::WindowSettings,
+};
 
 fn clamp_position(
     position: PhysicalPosition<f32>,

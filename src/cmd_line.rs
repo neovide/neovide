@@ -1,5 +1,4 @@
-use crate::settings::*;
-use crate::utils::Dimensions;
+use crate::{dimensions::Dimensions, settings::*};
 
 use clap::{App, Arg};
 

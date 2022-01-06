@@ -1,18 +1,19 @@
-use std::collections::VecDeque;
-use std::sync::Arc;
+use std::{collections::VecDeque, sync::Arc};
 
-use skia_safe::canvas::{SaveLayerRec, SrcRectConstraint};
-use skia_safe::gpu::SurfaceOrigin;
 use skia_safe::{
-    image_filters::blur, BlendMode, Budgeted, Canvas, Color, Image, ImageInfo, Paint, Point, Rect,
-    SamplingOptions, Surface, SurfaceProps, SurfacePropsFlags,
+    canvas::{SaveLayerRec, SrcRectConstraint},
+    gpu::SurfaceOrigin,
+    image_filters::blur,
+    BlendMode, Budgeted, Canvas, Color, Image, ImageInfo, Paint, Point, Rect, SamplingOptions,
+    Surface, SurfaceProps, SurfacePropsFlags,
 };
 
-use super::animation_utils::*;
-use super::{GridRenderer, RendererSettings};
-use crate::editor::Style;
-use crate::redraw_scheduler::REDRAW_SCHEDULER;
-use crate::utils::Dimensions;
+use crate::{
+    dimensions::Dimensions,
+    editor::Style,
+    redraw_scheduler::REDRAW_SCHEDULER,
+    renderer::{animation_utils::*, GridRenderer, RendererSettings},
+};
 
 #[derive(Clone, Debug)]
 pub struct LineFragment {

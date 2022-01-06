@@ -1,9 +1,11 @@
-use skia_safe::gpu::gl::FramebufferInfo;
-use skia_safe::gpu::{BackendRenderTarget, DirectContext, SurfaceOrigin};
-use skia_safe::{Canvas, ColorType, Surface};
 use std::convert::TryInto;
 
 use gl::types::*;
+use skia_safe::{
+    gpu::{gl::FramebufferInfo, BackendRenderTarget, DirectContext, SurfaceOrigin},
+    Canvas, ColorType, Surface,
+};
+
 type WindowedContext = glutin::ContextWrapper<glutin::PossiblyCurrent, glutin::window::Window>;
 
 fn create_surface(

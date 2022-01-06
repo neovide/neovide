@@ -1,6 +1,8 @@
-use std::any::{type_name, Any, TypeId};
-use std::collections::{hash_map::Entry, HashMap};
-use std::fmt::Debug;
+use std::{
+    any::{type_name, Any, TypeId},
+    collections::{hash_map::Entry, HashMap},
+    fmt::Debug,
+};
 
 use parking_lot::{Mutex, RwLock};
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};

@@ -4,17 +4,18 @@ mod grid;
 mod style;
 mod window;
 
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::thread;
+use std::{collections::HashMap, sync::Arc, thread};
 
 use log::{error, trace};
 
-use crate::bridge::{GuiOption, RedrawEvent, WindowAnchor};
-use crate::event_aggregator::EVENT_AGGREGATOR;
-use crate::redraw_scheduler::REDRAW_SCHEDULER;
-use crate::renderer::DrawCommand;
-use crate::window::WindowCommand;
+use crate::{
+    bridge::{GuiOption, RedrawEvent, WindowAnchor},
+    event_aggregator::EVENT_AGGREGATOR,
+    redraw_scheduler::REDRAW_SCHEDULER,
+    renderer::DrawCommand,
+    window::WindowCommand,
+};
+
 pub use cursor::{Cursor, CursorMode, CursorShape};
 pub use draw_command_batcher::DrawCommandBatcher;
 pub use grid::CharacterGrid;

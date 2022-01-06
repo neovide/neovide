@@ -1,9 +1,9 @@
-use crate::settings::SETTINGS;
-use crate::utils::Dimensions;
-use crate::window::WindowSettings;
+use std::path::PathBuf;
+
 use glutin::dpi::PhysicalPosition;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+
+use crate::{dimensions::Dimensions, settings::SETTINGS, window::WindowSettings};
 
 const SETTINGS_FILE: &str = "neovide-settings.json";
 

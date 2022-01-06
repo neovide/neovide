@@ -27,6 +27,7 @@ use renderer::SkiaRenderer;
 use crate::{
     bridge::{ParallelCommand, UiCommand},
     cmd_line::CmdLineSettings,
+    dimensions::Dimensions,
     editor::EditorCommand,
     event_aggregator::EVENT_AGGREGATOR,
     redraw_scheduler::REDRAW_SCHEDULER,
@@ -35,7 +36,6 @@ use crate::{
     settings::{
         load_last_window_settings, save_window_geometry, PersistentWindowSettings, SETTINGS,
     },
-    utils::Dimensions,
 };
 pub use settings::{KeyboardSettings, WindowSettings};
 

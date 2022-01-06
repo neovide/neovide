@@ -1,8 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-#[cfg(not(test))]
-use flexi_logger::{Cleanup, Criterion, Duplicate, Logger, Naming};
-
 // Test naming occasionally uses camelCase with underscores to separate sections of
 // the test name.
 #[cfg_attr(test, allow(non_snake_case))]
@@ -15,6 +12,7 @@ extern crate clap;
 mod bridge;
 mod channel_utils;
 mod cmd_line;
+mod dimensions;
 mod editor;
 mod error_handling;
 mod event_aggregator;
@@ -22,7 +20,6 @@ mod redraw_scheduler;
 mod renderer;
 mod running_tracker;
 mod settings;
-mod utils;
 mod window;
 mod windows_utils;
 
@@ -33,6 +30,8 @@ extern crate lazy_static;
 
 use std::env::args;
 
+#[cfg(not(test))]
+use flexi_logger::{Cleanup, Criterion, Duplicate, Logger, Naming};
 use log::trace;
 
 use bridge::start_bridge;

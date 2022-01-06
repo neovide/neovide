@@ -4,11 +4,13 @@ use glutin::dpi::PhysicalSize;
 use log::trace;
 use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect, HSV};
 
-use super::{CachingShaper, RendererSettings};
-use crate::editor::{Colors, Style};
-use crate::settings::*;
-use crate::utils::Dimensions;
-use crate::window::WindowSettings;
+use crate::{
+    dimensions::Dimensions,
+    editor::{Colors, Style},
+    renderer::{CachingShaper, RendererSettings},
+    settings::*,
+    window::WindowSettings,
+};
 
 pub struct GridRenderer {
     pub shaper: CachingShaper,
