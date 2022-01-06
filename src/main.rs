@@ -48,34 +48,26 @@ pub use running_tracker::*;
 pub use windows_utils::*;
 
 fn main() {
-    //  -----------
-    // | DATA FLOW |
-    //  -----------
-    //
-    // Data flows in a circular motion via channels. This allows each component to handle and
-    // process data on their own thread while not blocking the other components from processing.
-    //
-    // This way Neovim continues to produce events, the window doesn't freeze and queues up ui
-    // commands, and the editor can do the processing necessary to handle the UI events
-    // effectively.
-    //
-    // BRIDGE
-    //   V REDRAW EVENT
-    // EDITOR
-    //   V DRAW COMMAND
-    // WINDOW
-    //   V UI COMMAND
-    // BRIDGE
+    //  --------------
+    // | Architecture |
+    //  --------------
     //
     // BRIDGE:
     //   The bridge is responsible for the connection to the neovim process itself. It is in charge
-    //   of starting and communicating to and from the process.
+    //   of starting and communicating to and from the process. The bridge is async and has a
+    //   couple of sub components:
     //
-    // REDRAW EVENT:
-    //   Redraw events are direct events from the neovim process meant to specify how the editor
-    //   should be drawn to the screen. They also include other things such as whether the mouse is
-    //   enabled. The bridge takes these events, filters out some of them meant only for
-    //   filtering, and forwards them to the editor.
+    //     NEOVIM HANDLER:
+    //       This component handles events from neovim sent specifically to the gui. This includes
+    //       redraw events responsible for updating the gui state, and custom neovide specific
+    //       events which are registered on startup and handle syncing of settings or features from
+    //       the neovim process.
+    //
+    //     UI COMMAND HANDLER:
+    //       This component handles communication from other components to the neovim process. The
+    //       commands are split into Serial and Parallel commands. Serial commands must be
+    //       processed in order while parallel commands can be processed in any order and in
+    //       parallel.
     //
     // EDITOR:
     //   The editor is responsible for processing and transforming redraw events into something
@@ -85,9 +77,10 @@ fn main() {
     //   on it's own thread. Ideally heavily computationally expensive tasks should be done in the
     //   editor.
     //
-    // DRAW COMMAND:
-    //   The draw commands are distilled render information describing actions to be done at the
-    //   window by window level.
+    // RENDERER:
+    //   The renderer is responsible for drawing the editor's output to the screen. It uses skia
+    //   for drawing and is responsible for maintaining the various draw surfaces which are stored
+    //   to prevent unnecessary redraws.
     //
     // WINDOW:
     //   The window is responsible for rendering and gathering input events from the user. This
@@ -95,16 +88,19 @@ fn main() {
     //   screen. The ui commands are then forwarded back to the BRIDGE to convert them into
     //   commands for neovim to handle properly.
     //
-    // UI COMMAND:
-    //   The ui commands are things like text input/key bindings, outer window resizes, and mouse
-    //   inputs.
-    //
     //  ------------------
     // | Other Components |
     //  ------------------
     //
     // Neovide also includes some other systems which are globally available via lazy static
     // instantiations.
+    //
+    // EVENT AGGREGATOR:
+    //   Central system which distributes events to each of the other components. This is done
+    //   using TypeIds and channels. Any component can publish any Clone + Debug + Send + Sync type
+    //   to the aggregator, but only one component can subscribe to any type. The system takes
+    //   pains to ensure that channels are shared by thread in order to keep things performant.
+    //   Also tokio channels are used so that the async components can properly await for events.
     //
     // SETTINGS:
     //   The settings system is live updated from global variables in neovim with the prefix
