@@ -150,16 +150,7 @@ impl MouseManager {
             );
 
             let previous_position = self.drag_position;
-            // Until https://github.com/neovim/neovim/pull/12667 is merged, we have to special
-            // case non floating windows. Floating windows correctly transform mouse positions
-            // into grid coordinates, but non floating windows do not.
-            self.drag_position = if relevant_window_details.floating_order.is_some() {
-                // Floating windows handle relative grid coordinates just fine
-                self.relative_position
-            } else {
-                // Non floating windows need global coordinates
-                self.position
-            };
+            self.drag_position = self.relative_position;
 
             let has_moved = self.drag_position != previous_position;
 
