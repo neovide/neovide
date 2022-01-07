@@ -41,8 +41,7 @@ impl Handler for NeovimHandler {
                         .unwrap_or_explained_panic("Could not parse event from neovim");
 
                     for parsed_event in parsed_events {
-                        EVENT_AGGREGATOR
-                            .send(EditorCommand::NeovimRedrawEvent(parsed_event));
+                        EVENT_AGGREGATOR.send(EditorCommand::NeovimRedrawEvent(parsed_event));
                     }
                 }
             }
@@ -51,13 +50,11 @@ impl Handler for NeovimHandler {
             }
             #[cfg(windows)]
             "neovide.register_right_click" => {
-                EVENT_AGGREGATOR
-                    .send(UiCommand::Parallel(ParallelCommand::RegisterRightClick));
+                EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::RegisterRightClick));
             }
             #[cfg(windows)]
             "neovide.unregister_right_click" => {
-                EVENT_AGGREGATOR
-                    .send(UiCommand::Parallel(ParallelCommand::UnregisterRightClick));
+                EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::UnregisterRightClick));
             }
             _ => {}
         }
