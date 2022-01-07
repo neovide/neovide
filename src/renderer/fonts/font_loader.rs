@@ -17,7 +17,7 @@ impl FontPair {
     fn new(mut skia_font: Font) -> Option<FontPair> {
         skia_font.set_subpixel(true);
         skia_font.set_hinting(FontHinting::Full);
-        skia_font.set_edging(Edging::SubpixelAntiAlias);
+        skia_font.set_edging(Edging::AntiAlias);
 
         let (font_data, index) = skia_font.typeface().unwrap().to_font_data().unwrap();
         let swash_font = SwashFont::from_data(font_data, index)?;
