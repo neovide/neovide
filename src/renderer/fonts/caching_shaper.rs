@@ -181,7 +181,7 @@ impl CachingShaper {
                         character_index += 1;
                         token
                     })
-                })
+                }),
         );
 
         let mut results = Vec::new();
