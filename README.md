@@ -107,14 +107,14 @@ Configuration is done almost completely via global neovide variables in your vim
 **Note**: Building instructions are somewhat limited at the moment. All the libraries I use are cross platform and should have
 support for Windows, Mac, and Linux. On Windows this should be enabled by default if you have a relatively recent system.
 
-**Note**: Neovide requires neovim version 0.6 or greater.
+**Note**: Neovide requires neovim version 0.6 or greater if built from main, or 0.4 if downloaded from releases.
 
 ### From binary
 
 Building instructions are somewhat limited at the moment. All the libraries I use are cross platform and should have support for Windows, Mac, and Linux. The rendering is based on opengl, so a good gpu driver will be
 necessary. On Windows this should be enabled by default if you have a relatively recent system.
 
-Installing should be as simple as downloading the binary, making sure `nvim.exe` with version 0.6 or greater is on your path, and running it. Everything should be self contained.
+Installing should be as simple as downloading the binary, making sure `nvim.exe` with version 0.4 or greater is on your path, and running it. Everything should be self contained.
 
 ### Windows
 
