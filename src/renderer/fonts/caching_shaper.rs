@@ -169,7 +169,7 @@ impl CachingShaper {
             Script::Latin,
             text.graphemes(true)
                 .enumerate()
-                .map(|(glyph_index, unicode_segment)| {
+                .flat_map(|(glyph_index, unicode_segment)| {
                     unicode_segment.chars().map(move |character| {
                         let token = Token {
                             ch: character,
@@ -182,7 +182,6 @@ impl CachingShaper {
                         token
                     })
                 })
-                .flatten(),
         );
 
         let mut results = Vec::new();
