@@ -3,7 +3,11 @@ use std::sync::Arc;
 use lru::LruCache;
 use skia_safe::{font::Edging, Data, Font, FontHinting, FontMgr, FontStyle, Typeface};
 
-use crate::renderer::fonts::{font_options::FontOptions, swash_font::SwashFont};
+use crate::{
+    renderer::fonts::{font_options::FontOptions, swash_font::SwashFont},
+    settings::SETTINGS,
+    window::WindowSettings,
+};
 
 static DEFAULT_FONT: &[u8] = include_bytes!("../../../assets/fonts/FiraCode-Regular.ttf");
 static LAST_RESORT_FONT: &[u8] = include_bytes!("../../../assets/fonts/LastResort-Regular.ttf");
@@ -17,7 +21,13 @@ impl FontPair {
     fn new(mut skia_font: Font) -> Option<FontPair> {
         skia_font.set_subpixel(true);
         skia_font.set_hinting(FontHinting::Full);
-        skia_font.set_edging(Edging::AntiAlias);
+
+        let settings = SETTINGS.get::<WindowSettings>();
+        if settings.font_subpixel_antialiasing {
+            skia_font.set_edging(Edging::SubpixelAntiAlias);
+        } else {
+            skia_font.set_edging(Edging::AntiAlias);
+        };
 
         let (font_data, index) = skia_font.typeface().unwrap().to_font_data().unwrap();
         let swash_font = SwashFont::from_data(font_data, index)?;
