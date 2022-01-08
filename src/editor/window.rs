@@ -63,10 +63,14 @@ impl Window {
         });
     }
 
-    pub fn get_cursor_character(&self, window_left: u64, window_top: u64) -> (String, bool) {
+    pub fn get_cursor_character(
+        &self,
+        window_left: u64,
+        window_top: u64,
+    ) -> (String, Option<Arc<Style>>, bool) {
         let character = match self.grid.get_cell(window_left, window_top) {
-            Some((character, _)) => character.clone(),
-            _ => ' '.to_string(),
+            Some((character, style)) => (character.clone(), style.clone()),
+            _ => (' '.to_string(), None),
         };
 
         let double_width = match self.grid.get_cell(window_left + 1, window_top) {
@@ -74,7 +78,7 @@ impl Window {
             _ => false,
         };
 
-        (character, double_width)
+        (character.0, character.1, double_width)
     }
 
     pub fn get_width(&self) -> u64 {

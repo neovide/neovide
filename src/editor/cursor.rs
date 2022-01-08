@@ -4,6 +4,8 @@ use skia_safe::Color4f;
 
 use crate::editor::style::{Colors, Style};
 
+use super::grid::GridCell;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum CursorShape {
     Block,
@@ -44,7 +46,7 @@ pub struct Cursor {
     pub style: Option<Arc<Style>>,
     pub enabled: bool,
     pub double_width: bool,
-    pub character: String,
+    pub character: GridCell,
 }
 
 impl Cursor {
@@ -60,7 +62,7 @@ impl Cursor {
             blinkoff: None,
             enabled: true,
             double_width: false,
-            character: " ".to_string(),
+            character: (" ".to_string(), None),
         }
     }
 
