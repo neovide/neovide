@@ -171,6 +171,19 @@ impl MouseManager {
         }
     }
 
+    fn paste(&self) {
+        let content = match cli_clipboard::get_contents() {
+            Ok(text) => text,
+            Err(..) => String::new(),
+        };
+
+        EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Paste {
+            data: content,
+            crlf: false,
+            phase: -1,
+        }));
+    }
+
     fn handle_pointer_transition(
         &mut self,
         mouse_button: &MouseButton,
@@ -337,11 +350,17 @@ impl MouseManager {
             Event::WindowEvent {
                 event: WindowEvent::MouseInput { button, state, .. },
                 ..
-            } => self.handle_pointer_transition(
-                button,
-                state == &ElementState::Pressed,
-                keyboard_manager,
-            ),
+            } => {
+                if button == &MouseButton::Middle && state == &ElementState::Released {
+                    self.paste()
+                } else {
+                    self.handle_pointer_transition(
+                        button,
+                        state == &ElementState::Pressed,
+                        keyboard_manager,
+                    )
+                }
+            }
             Event::WindowEvent {
                 event:
                     WindowEvent::KeyboardInput {

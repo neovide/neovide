@@ -41,6 +41,11 @@ pub enum SerialCommand {
         position: (u32, u32),
         modifier_string: String,
     },
+    Paste {
+        data: String,
+        crlf: bool,
+        phase: i64,
+    },
 }
 
 impl SerialCommand {
@@ -101,6 +106,11 @@ impl SerialCommand {
                 )
                 .await
                 .expect("Mouse Drag Failed");
+            }
+            SerialCommand::Paste { data, crlf, phase } => {
+                nvim.paste(data.as_ref(), crlf, phase)
+                    .await
+                    .expect("Paste failed");
             }
         }
     }
