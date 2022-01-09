@@ -68,7 +68,7 @@ impl Window {
         window_left: u64,
         window_top: u64,
     ) -> (String, Option<Arc<Style>>, bool) {
-        let character = match self.grid.get_cell(window_left, window_top) {
+        let grid_cell = match self.grid.get_cell(window_left, window_top) {
             Some((character, style)) => (character.clone(), style.clone()),
             _ => (' '.to_string(), None),
         };
@@ -78,7 +78,7 @@ impl Window {
             _ => false,
         };
 
-        (character.0, character.1, double_width)
+        (grid_cell.0, grid_cell.1, double_width)
     }
 
     pub fn get_width(&self) -> u64 {
