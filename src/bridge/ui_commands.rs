@@ -110,7 +110,7 @@ impl SerialCommand {
             SerialCommand::Paste { data, crlf, phase } => {
                 nvim.paste(data.as_ref(), crlf, phase)
                     .await
-                    .expect("Paste failed");
+                    .unwrap_or(false);
             }
         }
     }
