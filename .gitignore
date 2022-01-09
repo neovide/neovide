@@ -1,4 +1,3 @@
-/.vscode
 /target
 /.vs
 **/*.rs.bk
