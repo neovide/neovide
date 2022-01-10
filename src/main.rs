@@ -16,6 +16,7 @@ mod dimensions;
 mod editor;
 mod error_handling;
 mod event_aggregator;
+mod frame;
 mod redraw_scheduler;
 mod renderer;
 mod running_tracker;

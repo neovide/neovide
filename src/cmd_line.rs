@@ -1,4 +1,4 @@
-use crate::{dimensions::Dimensions, settings::*};
+use crate::{dimensions::Dimensions, frame::Frame, settings::*};
 
 use clap::{App, Arg};
 
@@ -13,7 +13,7 @@ pub struct CmdLineSettings {
     pub remote_tcp: Option<String>,
     pub wsl: bool,
     // Command-line flags with environment variable fallback
-    pub frameless: bool,
+    pub frame: Frame,
     pub maximized: bool,
     pub multi_grid: bool,
     pub no_idle: bool,
@@ -36,7 +36,7 @@ impl Default for CmdLineSettings {
             remote_tcp: None,
             wsl: false,
             // Command-line flags with environment variable fallback
-            frameless: false,
+            frame: Frame::Full,
             maximized: false,
             multi_grid: false,
             no_idle: false,
@@ -98,9 +98,10 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
         )
         // Command-line flags with environment variable fallback
         .arg(
-            Arg::with_name("frameless")
-            .long("frameless")
-            .help("Removes the window frame. NOTE: Window might not be resizable after this setting is enabled.")
+            Arg::with_name("frame")
+            .long("frame")
+            .takes_value(true)
+            .help("Configure the window frame. NOTE: Window might not be resizable if setting is None.")
         )
         .arg(
             Arg::with_name("maximized")
@@ -169,7 +170,13 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
         remote_tcp: matches.value_of("remote_tcp").map(|i| i.to_owned()),
         wsl: matches.is_present("wsl"),
         // Command-line flags with environment variable fallback
-        frameless: matches.is_present("frameless") || std::env::var("NEOVIDE_FRAMELESS").is_ok(),
+        frame: match matches.value_of("frame") {
+            Some(val) => Frame::from_string(val.to_string()),
+            None => match std::env::var("NEOVIDE_FRAME") {
+                Ok(f) => Frame::from_string(f),
+                Err(_) => Frame::Full,
+            },
+        },
         maximized: matches.is_present("maximized") || std::env::var("NEOVIDE_MAXIMIZED").is_ok(),
         multi_grid: matches.is_present("multi_grid") || std::env::var("NEOVIDE_MULTIGRID").is_ok(),
         no_idle: matches.is_present("noidle") || std::env::var("NEOVIDE_NO_IDLE").is_ok(),
@@ -308,14 +315,14 @@ mod tests {
 
     #[test]
     fn test_frameless_flag() {
-        let args: Vec<String> = vec!["neovide", "--frameless"]
+        let args: Vec<String> = vec!["neovide", "--frame=full"]
             .iter()
             .map(|s| s.to_string())
             .collect();
 
         let _accessing_settings = ACCESSING_SETTINGS.lock().unwrap();
         handle_command_line_arguments(args).expect("Could not parse arguments");
-        assert_eq!(SETTINGS.get::<CmdLineSettings>().frameless, true);
+        assert_eq!(SETTINGS.get::<CmdLineSettings>().frame, Frame::Full);
     }
 
     #[test]
@@ -323,9 +330,9 @@ mod tests {
         let args: Vec<String> = vec!["neovide"].iter().map(|s| s.to_string()).collect();
 
         let _accessing_settings = ACCESSING_SETTINGS.lock().unwrap();
-        set_var("NEOVIDE_FRAMELESS", "true");
+        set_var("NEOVIDE_FRAME", "none");
         handle_command_line_arguments(args).expect("Could not parse arguments");
-        assert_eq!(SETTINGS.get::<CmdLineSettings>().frameless, true);
+        assert_eq!(SETTINGS.get::<CmdLineSettings>().frame, Frame::None);
     }
 
     #[test]

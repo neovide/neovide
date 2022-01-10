@@ -16,6 +16,9 @@ use glutin::{
 use log::trace;
 use tokio::sync::mpsc::UnboundedReceiver;
 
+#[cfg(target_os = "macos")]
+use glutin::platform::macos::WindowBuilderExtMacOS;
+
 #[cfg(target_os = "linux")]
 use glutin::platform::unix::WindowBuilderExtUnix;
 
@@ -30,6 +33,7 @@ use crate::{
     dimensions::Dimensions,
     editor::EditorCommand,
     event_aggregator::EVENT_AGGREGATOR,
+    frame::Frame,
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::Renderer,
     running_tracker::*,
@@ -275,12 +279,34 @@ pub fn create_window() {
         }
     }
 
-    let mut winit_window_builder = window::WindowBuilder::new()
+    let winit_window_builder = window::WindowBuilder::new()
         .with_title("Neovide")
         .with_window_icon(Some(icon))
         .with_maximized(maximized)
-        .with_transparent(true)
-        .with_decorations(!cmd_line_settings.frameless);
+        .with_transparent(true);
+
+    let frame_decoration = cmd_line_settings.frame;
+
+    // There is only two options for windows & linux, no need to match more options.
+    #[cfg(not(target_os = "macos"))]
+    let mut winit_window_builder =
+        winit_window_builder.with_decorations(frame_decoration == Frame::Full);
+
+    #[cfg(target_os = "macos")]
+    let mut winit_window_builder = match frame_decoration {
+        Frame::Full => winit_window_builder,
+        Frame::None => winit_window_builder.with_decorations(false),
+        Frame::Buttonless => winit_window_builder
+            .with_transparent(true)
+            .with_title_hidden(true)
+            .with_titlebar_buttons_hidden(true)
+            .with_titlebar_transparent(true)
+            .with_fullsize_content_view(true),
+        Frame::Transparent => winit_window_builder
+            .with_title_hidden(true)
+            .with_titlebar_transparent(true)
+            .with_fullsize_content_view(true),
+    };
 
     if let Some(previous_position) = previous_position {
         if !maximized {
