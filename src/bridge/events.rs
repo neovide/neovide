@@ -1,7 +1,8 @@
-use std::convert::TryInto;
-use std::error;
-use std::fmt;
-use std::fmt::Debug;
+use std::{
+    convert::TryInto,
+    error,
+    fmt::{self, Debug},
+};
 
 use log::debug;
 use rmpv::Value;

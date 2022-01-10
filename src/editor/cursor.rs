@@ -1,9 +1,8 @@
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use skia_safe::Color4f;
 
-use super::style::{Colors, Style};
+use crate::editor::style::{Colors, Style};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CursorShape {

@@ -6,6 +6,7 @@ use std::{
     process::Stdio,
 };
 
+use nvim_rs::{error::LoopError, neovim::Neovim, Handler};
 use tokio::{
     io::split,
     net::{TcpStream, ToSocketAddrs},
@@ -13,8 +14,6 @@ use tokio::{
     spawn,
     task::JoinHandle,
 };
-
-use nvim_rs::{error::LoopError, neovim::Neovim, Handler};
 use tokio_util::compat::TokioAsyncReadCompatExt;
 
 use crate::bridge::{TxWrapper, WrapTx};

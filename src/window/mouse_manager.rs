@@ -8,12 +8,14 @@ use glutin::{
 };
 use skia_safe::Rect;
 
-use super::keyboard_manager::KeyboardManager;
-use crate::bridge::{SerialCommand, UiCommand};
-use crate::channel_utils::LoggingTx;
-use crate::renderer::{Renderer, WindowDrawDetails};
-use crate::settings::SETTINGS;
-use crate::window::WindowSettings;
+use crate::{
+    bridge::{SerialCommand, UiCommand},
+    event_aggregator::EVENT_AGGREGATOR,
+    renderer::{Renderer, WindowDrawDetails},
+    settings::SETTINGS,
+    window::keyboard_manager::KeyboardManager,
+    window::WindowSettings,
+};
 
 fn clamp_position(
     position: PhysicalPosition<f32>,
@@ -52,8 +54,6 @@ fn mouse_button_to_button_text(mouse_button: &MouseButton) -> Option<String> {
 }
 
 pub struct MouseManager {
-    command_sender: LoggingTx<UiCommand>,
-
     dragging: Option<String>,
     drag_position: PhysicalPosition<u32>,
 
@@ -70,9 +70,8 @@ pub struct MouseManager {
 }
 
 impl MouseManager {
-    pub fn new(command_sender: LoggingTx<UiCommand>) -> MouseManager {
+    pub fn new() -> MouseManager {
         MouseManager {
-            command_sender,
             dragging: None,
             has_moved: false,
             position: PhysicalPosition::new(0, 0),
@@ -151,32 +150,18 @@ impl MouseManager {
             );
 
             let previous_position = self.drag_position;
-            // Until https://github.com/neovim/neovim/pull/12667 is merged, we have to special
-            // case non floating windows. Floating windows correctly transform mouse positions
-            // into grid coordinates, but non floating windows do not.
-            self.drag_position = if relevant_window_details.floating_order.is_some() {
-                // Floating windows handle relative grid coordinates just fine
-                self.relative_position
-            } else {
-                // Non floating windows need global coordinates
-                self.position
-            };
+            self.drag_position = self.relative_position;
 
             let has_moved = self.drag_position != previous_position;
 
             // If dragging and we haven't already sent a position, send a drag command
             if self.dragging.is_some() && has_moved {
-                self.command_sender
-                    .send(
-                        SerialCommand::Drag {
-                            button: self.dragging.as_ref().unwrap().to_owned(),
-                            grid_id: relevant_window_details.id,
-                            position: self.drag_position.into(),
-                            modifier_string: keyboard_manager.format_modifier_string(true),
-                        }
-                        .into(),
-                    )
-                    .ok();
+                EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Drag {
+                    button: self.dragging.as_ref().unwrap().to_owned(),
+                    grid_id: relevant_window_details.id,
+                    position: self.drag_position.into(),
+                    modifier_string: keyboard_manager.format_modifier_string(true),
+                }));
             } else {
                 // otherwise, update the window_id_under_mouse to match the one selected
                 self.window_details_under_mouse = Some(relevant_window_details.clone());
@@ -210,18 +195,13 @@ impl MouseManager {
                         self.relative_position
                     };
 
-                    self.command_sender
-                        .send(
-                            SerialCommand::MouseButton {
-                                button: button_text.clone(),
-                                action,
-                                grid_id: details.id,
-                                position: position.into(),
-                                modifier_string: keyboard_manager.format_modifier_string(true),
-                            }
-                            .into(),
-                        )
-                        .ok();
+                    EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::MouseButton {
+                        button: button_text.clone(),
+                        action,
+                        grid_id: details.id,
+                        position: position.into(),
+                        modifier_string: keyboard_manager.format_modifier_string(true),
+                    }));
                 }
 
                 if down {
@@ -265,7 +245,7 @@ impl MouseManager {
             }
             .into();
             for _ in 0..(new_y - previous_y).abs() {
-                self.command_sender.send(scroll_command.clone()).ok();
+                EVENT_AGGREGATOR.send(scroll_command.clone());
             }
         }
 
@@ -292,7 +272,7 @@ impl MouseManager {
             }
             .into();
             for _ in 0..(new_x - previous_x).abs() {
-                self.command_sender.send(scroll_command.clone()).ok();
+                EVENT_AGGREGATOR.send(scroll_command.clone());
             }
         }
     }

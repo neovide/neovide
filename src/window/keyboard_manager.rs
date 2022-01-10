@@ -1,33 +1,40 @@
-use glutin::event::{ElementState, Event, KeyEvent, WindowEvent};
-use glutin::keyboard::Key;
+use glutin::{
+    event::{ElementState, Event, KeyEvent, WindowEvent},
+    keyboard::{Key, Key::Dead},
+    platform::modifier_supplement::KeyEventExtModifierSupplement,
+};
 
-use glutin::platform::modifier_supplement::KeyEventExtModifierSupplement;
+use crate::{
+    bridge::{SerialCommand, UiCommand},
+    event_aggregator::EVENT_AGGREGATOR,
+    settings::SETTINGS,
+    window::KeyboardSettings,
+};
 
-use crate::bridge::{SerialCommand, UiCommand};
-use crate::channel_utils::LoggingTx;
-use crate::settings::SETTINGS;
-use crate::window::KeyboardSettings;
-
+enum InputEvent {
+    KeyEvent(KeyEvent),
+    ImeInput(String),
+}
 pub struct KeyboardManager {
-    command_sender: LoggingTx<UiCommand>,
     shift: bool,
     ctrl: bool,
     alt: bool,
+    prev_dead_key: Option<char>,
     logo: bool,
     ignore_input_this_frame: bool,
-    queued_key_events: Vec<KeyEvent>,
+    queued_input_events: Vec<InputEvent>,
 }
 
 impl KeyboardManager {
-    pub fn new(command_sender: LoggingTx<UiCommand>) -> KeyboardManager {
+    pub fn new() -> KeyboardManager {
         KeyboardManager {
-            command_sender,
             shift: false,
             ctrl: false,
             alt: false,
+            prev_dead_key: None,
             logo: false,
             ignore_input_this_frame: false,
-            queued_key_events: Vec::new(),
+            queued_input_events: Vec::new(),
         }
     }
 
@@ -50,7 +57,15 @@ impl KeyboardManager {
             } => {
                 // Store the event so that we can ignore it properly if the window was just
                 // focused.
-                self.queued_key_events.push(key_event.clone());
+                self.queued_input_events
+                    .push(InputEvent::KeyEvent(key_event.clone()));
+            }
+            Event::WindowEvent {
+                event: WindowEvent::ReceivedImeText(string),
+                ..
+            } => {
+                self.queued_input_events
+                    .push(InputEvent::ImeInput(string.to_string()));
             }
             Event::WindowEvent {
                 event: WindowEvent::ModifiersChanged(modifiers),
@@ -69,22 +84,42 @@ impl KeyboardManager {
 
                 if !self.should_ignore_input(&settings) {
                     // If we have a keyboard event this frame
-                    for key_event in self.queued_key_events.iter() {
-                        // And a key was pressed
-                        if key_event.state == ElementState::Pressed {
-                            if let Some(keybinding) = self.maybe_get_keybinding(key_event) {
-                                self.command_sender
-                                    .send(SerialCommand::Keyboard(keybinding).into())
-                                    .expect("Could not send keyboard ui command");
+                    for input_event in self.queued_input_events.iter() {
+                        let mut next_dead_key = self.prev_dead_key;
+                        match input_event {
+                            InputEvent::KeyEvent(key_event) => {
+                                // And a key was pressed
+                                if key_event.state == ElementState::Pressed {
+                                    if let Some(keybinding) = self.maybe_get_keybinding(key_event) {
+                                        EVENT_AGGREGATOR.send(UiCommand::Serial(
+                                            SerialCommand::Keyboard(keybinding),
+                                        ));
+                                    }
+                                    next_dead_key = None;
+                                } else if key_event.state == ElementState::Released {
+                                    // dead key detect here
+                                    if let Dead(dead_key) = key_event.logical_key {
+                                        // should wait for the next input text_with_all_modifiers, and ignore the next ime.
+                                        next_dead_key = dead_key;
+                                    }
+                                }
+                            }
+                            InputEvent::ImeInput(raw_input) => {
+                                if self.prev_dead_key.is_none() {
+                                    EVENT_AGGREGATOR.send(UiCommand::Serial(
+                                        SerialCommand::Keyboard(raw_input.to_string()),
+                                    ));
+                                }
                             }
                         }
+                        self.prev_dead_key = next_dead_key;
                     }
                 }
 
                 // Regardless of whether this was a valid keyboard input or not, rest ignoring and
                 // whatever event was queued.
                 self.ignore_input_this_frame = false;
-                self.queued_key_events.clear();
+                self.queued_input_events.clear();
             }
             _ => {}
         }
@@ -97,19 +132,27 @@ impl KeyboardManager {
     fn maybe_get_keybinding(&self, key_event: &KeyEvent) -> Option<String> {
         // Determine if this key event represents a key which won't ever
         // present text.
-
         if let Some(key_text) = is_control_key(key_event.logical_key) {
-            Some(self.format_keybinding_string(true, true, key_text))
-        } else {
-            let is_dead_key =
-                key_event.text_with_all_modifiers().is_some() && key_event.text.is_none();
-            let key_text = if (self.alt || is_dead_key) && cfg!(target_os = "macos") {
-                key_event.text_with_all_modifiers()
+            if self.prev_dead_key.is_some() {
+                //recover dead key to normal character
+                let real_char = String::from(self.prev_dead_key.unwrap());
+                Some(real_char + &self.format_keybinding_string(true, true, key_text))
             } else {
+                Some(self.format_keybinding_string(true, true, key_text))
+            }
+        } else {
+            let key_text = if self.prev_dead_key.is_none() {
                 key_event.text
+            } else {
+                key_event.text_with_all_modifiers()
             };
-
-            if let Some(key_text) = key_text {
+            if let Some(original_key_text) = key_text {
+                let mut key_text = original_key_text;
+                if self.alt {
+                    if let Some(modify) = key_event.text_with_all_modifiers() {
+                        key_text = modify;
+                    }
+                }
                 // This is not a control key, so we rely upon winit to determine if
                 // this is a deadkey or not.
                 let keybinding_string = if let Some(escaped_text) = is_special(key_text) {

@@ -4,21 +4,18 @@ mod handler;
 mod tx_wrapper;
 mod ui_commands;
 
-use std::path::Path;
-use std::process::Stdio;
-use std::sync::Arc;
+use std::{path::Path, process::Stdio, sync::Arc};
 
 use log::{error, info, warn};
 use nvim_rs::UiAttachOptions;
 use rmpv::Value;
-use tokio::process::Command;
-use tokio::runtime::Runtime;
-use tokio::sync::mpsc::UnboundedReceiver;
+use tokio::{process::Command, runtime::Runtime};
 
-use crate::channel_utils::*;
-use crate::running_tracker::*;
-use crate::settings::*;
-use crate::{cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation};
+use crate::{
+    cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation, running_tracker::*,
+    settings::*,
+};
+
 pub use events::*;
 use handler::NeovimHandler;
 pub use tx_wrapper::{TxWrapper, WrapTx};
@@ -109,7 +106,7 @@ pub fn build_neovide_command(channel: u64, num_args: u64, command: &str, event: 
     };
     if num_args == 0 {
         return format!(
-            "command! -nargs={} -complete=expression {} call rpcnotify({}, 'neovide.{}')",
+            "command! -nargs={} {} call rpcnotify({}, 'neovide.{}')",
             nargs, command, channel, event
         );
     } else {
@@ -153,15 +150,8 @@ fn connection_mode() -> ConnectionMode {
     }
 }
 
-async fn start_neovim_runtime(
-    #[cfg(windows)] ui_command_sender: LoggingTx<UiCommand>,
-    ui_command_receiver: UnboundedReceiver<UiCommand>,
-    redraw_event_sender: LoggingTx<RedrawEvent>,
-) {
-    #[cfg(windows)]
-    let handler = NeovimHandler::new(ui_command_sender.clone(), redraw_event_sender.clone());
-    #[cfg(not(windows))]
-    let handler = NeovimHandler::new(redraw_event_sender.clone());
+async fn start_neovim_runtime() {
+    let handler = NeovimHandler::new();
     let (nvim, io_handler) = match connection_mode() {
         ConnectionMode::Child => create::new_child_cmd(&mut create_nvim_command(), handler).await,
         ConnectionMode::RemoteTcp(address) => create::new_tcp(address, handler).await,
@@ -284,7 +274,7 @@ async fn start_neovim_runtime(
 
     let nvim = Arc::new(nvim);
 
-    start_ui_command_handler(ui_command_receiver, nvim.clone());
+    start_ui_command_handler(nvim.clone());
     SETTINGS.read_initial_values(&nvim).await;
     SETTINGS.setup_changed_listeners(&nvim).await;
 }
@@ -293,17 +283,8 @@ pub struct Bridge {
     _runtime: Runtime, // Necessary to keep runtime running
 }
 
-pub fn start_bridge(
-    #[cfg(windows)] ui_command_sender: LoggingTx<UiCommand>,
-    ui_command_receiver: UnboundedReceiver<UiCommand>,
-    redraw_event_sender: LoggingTx<RedrawEvent>,
-) -> Bridge {
+pub fn start_bridge() -> Bridge {
     let runtime = Runtime::new().unwrap();
-    runtime.spawn(start_neovim_runtime(
-        #[cfg(windows)]
-        ui_command_sender,
-        ui_command_receiver,
-        redraw_event_sender,
-    ));
+    runtime.spawn(start_neovim_runtime());
     Bridge { _runtime: runtime }
 }

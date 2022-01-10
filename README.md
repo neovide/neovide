@@ -107,7 +107,7 @@ Configuration is done almost completely via global neovide variables in your vim
 **Note**: Building instructions are somewhat limited at the moment. All the libraries I use are cross platform and should have
 support for Windows, Mac, and Linux. On Windows this should be enabled by default if you have a relatively recent system.
 
-**Note**: Neovide requires neovim version 0.4 or greater.
+**Note**: Neovide requires neovim version 0.6 or greater if built from main, or 0.4 if downloaded from releases.
 
 ### From binary
 
@@ -154,6 +154,9 @@ $ scoop install neovide
 5. `cd neovide`
 6. `cargo build --release`
 7. Copy `./target/release/neovide` to a known location and enjoy.
+8. `cargo install cargo-bundle`
+9. `cargo bundle --release`
+10. Copy `./target/release/bundle/osx/neovide.app` to `~/Applications` and enjoy.
 
 ### Linux
 

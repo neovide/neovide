@@ -1,48 +1,13 @@
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use log::warn;
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::grid::CharacterGrid;
-use super::style::Style;
-use super::{AnchorInfo, DrawCommand, DrawCommandBatcher};
-use crate::bridge::GridLineCell;
-
-#[derive(Clone, Debug)]
-pub struct LineFragment {
-    pub text: String,
-    pub window_left: u64,
-    pub window_top: u64,
-    pub width: u64,
-    pub style: Option<Arc<Style>>,
-}
-
-#[derive(Clone, Debug)]
-pub enum WindowDrawCommand {
-    Position {
-        grid_position: (f64, f64),
-        grid_size: (u64, u64),
-        floating_order: Option<u64>,
-    },
-    DrawLine(Vec<LineFragment>),
-    Scroll {
-        top: u64,
-        bottom: u64,
-        left: u64,
-        right: u64,
-        rows: i64,
-        cols: i64,
-    },
-    Clear,
-    Show,
-    Hide,
-    Close,
-    Viewport {
-        top_line: f64,
-        bottom_line: f64,
-    },
-}
+use crate::{
+    bridge::GridLineCell,
+    editor::{grid::CharacterGrid, style::Style, AnchorInfo, DrawCommand, DrawCommandBatcher},
+    renderer::{LineFragment, WindowDrawCommand},
+};
 
 pub enum WindowType {
     Editor,

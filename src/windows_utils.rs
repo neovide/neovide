@@ -1,7 +1,7 @@
 #[cfg(target_os = "windows")]
-use {
-    std::ffi::CString,
-    std::ptr::{null, null_mut},
+use std::{
+    ffi::CString,
+    ptr::{null, null_mut},
 };
 
 #[cfg(windows)]

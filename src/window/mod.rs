@@ -3,10 +3,7 @@ mod mouse_manager;
 mod renderer;
 mod settings;
 
-use std::{
-    sync::mpsc::Receiver,
-    time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
 use glutin::{
     self,
@@ -17,6 +14,7 @@ use glutin::{
     ContextBuilder, GlProfile, WindowedContext,
 };
 use log::trace;
+use tokio::sync::mpsc::UnboundedReceiver;
 
 #[cfg(target_os = "macos")]
 use glutin::platform::macos::WindowBuilderExtMacOS;
@@ -24,29 +22,38 @@ use glutin::platform::macos::WindowBuilderExtMacOS;
 #[cfg(target_os = "linux")]
 use glutin::platform::unix::WindowBuilderExtUnix;
 
-use crate::{
-    bridge::{ParallelCommand, UiCommand},
-    channel_utils::*,
-    cmd_line::CmdLineSettings,
-    editor::DrawCommand,
-    editor::WindowCommand,
-    redraw_scheduler::REDRAW_SCHEDULER,
-    renderer::Renderer,
-    running_tracker::*,
-    settings::{maybe_save_window_size, SETTINGS},
-    utils::{Dimensions, Frame},
-};
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
 use mouse_manager::MouseManager;
 use renderer::SkiaRenderer;
 
+use crate::{
+    bridge::{ParallelCommand, UiCommand},
+    cmd_line::CmdLineSettings,
+    dimensions::Dimensions,
+    editor::EditorCommand,
+    event_aggregator::EVENT_AGGREGATOR,
+    frame::Frame,
+    redraw_scheduler::REDRAW_SCHEDULER,
+    renderer::Renderer,
+    running_tracker::*,
+    settings::{
+        load_last_window_settings, save_window_geometry, PersistentWindowSettings, SETTINGS,
+    },
+};
 pub use settings::{KeyboardSettings, WindowSettings};
 
 static ICON: &[u8] = include_bytes!("../../assets/neovide.ico");
 
 const MIN_WINDOW_WIDTH: u64 = 20;
 const MIN_WINDOW_HEIGHT: u64 = 6;
+
+#[derive(Clone, Debug)]
+pub enum WindowCommand {
+    TitleChanged(String),
+    SetMouseEnabled(bool),
+    ListAvailableFonts,
+}
 
 pub struct GlutinWindowWrapper {
     windowed_context: WindowedContext<glutin::PossiblyCurrent>,
@@ -58,8 +65,7 @@ pub struct GlutinWindowWrapper {
     fullscreen: bool,
     saved_inner_size: PhysicalSize<u32>,
     saved_grid_size: Option<Dimensions>,
-    ui_command_sender: LoggingTx<UiCommand>,
-    window_command_receiver: Receiver<WindowCommand>,
+    window_command_receiver: UnboundedReceiver<WindowCommand>,
 }
 
 impl GlutinWindowWrapper {
@@ -85,13 +91,13 @@ impl GlutinWindowWrapper {
 
     #[allow(clippy::needless_collect)]
     pub fn handle_window_commands(&mut self) {
-        let window_commands: Vec<WindowCommand> = self.window_command_receiver.try_iter().collect();
-        for window_command in window_commands.into_iter() {
+        while let Ok(window_command) = self.window_command_receiver.try_recv() {
             match window_command {
                 WindowCommand::TitleChanged(new_title) => self.handle_title_changed(new_title),
                 WindowCommand::SetMouseEnabled(mouse_enabled) => {
                     self.mouse_manager.enabled = mouse_enabled
                 }
+                WindowCommand::ListAvailableFonts => self.send_font_names(),
             }
         }
     }
@@ -101,26 +107,27 @@ impl GlutinWindowWrapper {
         self.windowed_context.window().set_title(&self.title);
     }
 
+    pub fn send_font_names(&self) {
+        let font_names = self.renderer.font_names();
+        EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::DisplayAvailableFonts(
+            font_names,
+        )));
+    }
+
     pub fn handle_quit(&mut self) {
         if SETTINGS.get::<CmdLineSettings>().remote_tcp.is_none() {
-            self.ui_command_sender
-                .send(ParallelCommand::Quit.into())
-                .expect("Could not send quit command to bridge");
+            EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::Quit));
         } else {
             RUNNING_TRACKER.quit("window closed");
         }
     }
 
     pub fn handle_focus_lost(&mut self) {
-        self.ui_command_sender
-            .send(ParallelCommand::FocusLost.into())
-            .ok();
+        EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::FocusLost));
     }
 
     pub fn handle_focus_gained(&mut self) {
-        self.ui_command_sender
-            .send(ParallelCommand::FocusGained.into())
-            .ok();
+        EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::FocusGained));
         REDRAW_SCHEDULER.queue_next_frame();
     }
 
@@ -135,6 +142,9 @@ impl GlutinWindowWrapper {
         match event {
             Event::LoopDestroyed => {
                 self.handle_quit();
+            }
+            Event::Resumed => {
+                EVENT_AGGREGATOR.send(EditorCommand::RedrawScreen);
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
@@ -152,12 +162,8 @@ impl GlutinWindowWrapper {
                 event: WindowEvent::DroppedFile(path),
                 ..
             } => {
-                self.ui_command_sender
-                    .send(
-                        ParallelCommand::FileDrop(path.into_os_string().into_string().unwrap())
-                            .into(),
-                    )
-                    .ok();
+                let file_path = path.into_os_string().into_string().unwrap();
+                EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::FileDrop(file_path)));
             }
             Event::WindowEvent {
                 event: WindowEvent::Focused(focus),
@@ -232,15 +238,10 @@ impl GlutinWindowWrapper {
             return;
         }
         self.saved_grid_size = Some(grid_size);
-        self.ui_command_sender
-            .send(
-                ParallelCommand::Resize {
-                    width: grid_size.width,
-                    height: grid_size.height,
-                }
-                .into(),
-            )
-            .ok();
+        EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::Resize {
+            width: grid_size.width,
+            height: grid_size.height,
+        }));
     }
 
     fn handle_scale_factor_update(&mut self, scale_factor: f64) {
@@ -250,11 +251,7 @@ impl GlutinWindowWrapper {
     }
 }
 
-pub fn create_window(
-    batched_draw_command_receiver: Receiver<Vec<DrawCommand>>,
-    window_command_receiver: Receiver<WindowCommand>,
-    ui_command_sender: LoggingTx<UiCommand>,
-) {
+pub fn create_window() {
     let icon = {
         let icon = load_from_memory(ICON).expect("Failed to parse icon data");
         let (width, height) = icon.dimensions();
@@ -268,21 +265,35 @@ pub fn create_window(
     let event_loop = EventLoop::new();
 
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
-    let frame_decoration = cmd_line_settings.frame;
+
+    let mut maximized = cmd_line_settings.maximized;
+    let mut previous_position = None;
+    if let Ok(last_window_settings) = load_last_window_settings() {
+        match last_window_settings {
+            PersistentWindowSettings::Maximized => {
+                maximized = true;
+            }
+            PersistentWindowSettings::Windowed { position, .. } => {
+                previous_position = Some(position);
+            }
+        }
+    }
 
     let winit_window_builder = window::WindowBuilder::new()
         .with_title("Neovide")
         .with_window_icon(Some(icon))
-        .with_maximized(cmd_line_settings.maximized)
+        .with_maximized(maximized)
         .with_transparent(true);
+
+    let frame_decoration = cmd_line_settings.frame;
 
     // There is only two options for windows & linux, no need to match more options.
     #[cfg(not(target_os = "macos"))]
-    let winit_window_builder =
+    let mut winit_window_builder =
         winit_window_builder.with_decorations(frame_decoration == Frame::Full);
 
     #[cfg(target_os = "macos")]
-    let winit_window_builder = match frame_decoration {
+    let mut winit_window_builder = match frame_decoration {
         Frame::Full => winit_window_builder,
         Frame::None => winit_window_builder.with_decorations(false),
         Frame::Buttonless => winit_window_builder
@@ -297,13 +308,16 @@ pub fn create_window(
             .with_fullsize_content_view(true),
     };
 
+    if let Some(previous_position) = previous_position {
+        if !maximized {
+            winit_window_builder = winit_window_builder.with_position(previous_position);
+        }
+    }
+
     #[cfg(target_os = "linux")]
     let winit_window_builder = winit_window_builder
-        .with_app_id(SETTINGS.get::<CmdLineSettings>().wayland_app_id)
-        .with_class(
-            "neovide".to_string(),
-            SETTINGS.get::<CmdLineSettings>().x11_wm_class,
-        );
+        .with_app_id(cmd_line_settings.wayland_app_id)
+        .with_class("neovide".to_string(), cmd_line_settings.x11_wm_class);
 
     let windowed_context = ContextBuilder::new()
         .with_pixel_format(24, 8)
@@ -318,10 +332,12 @@ pub fn create_window(
     let window = windowed_context.window();
 
     let scale_factor = windowed_context.window().scale_factor();
-    let renderer = Renderer::new(batched_draw_command_receiver, scale_factor);
+    let renderer = Renderer::new(scale_factor);
     let saved_inner_size = window.inner_size();
 
     let skia_renderer = SkiaRenderer::new(&windowed_context);
+
+    let window_command_receiver = EVENT_AGGREGATOR.register_event::<WindowCommand>();
 
     log::info!(
         "window created (scale_factor: {:.4}, font_dimensions: {:?})",
@@ -333,13 +349,12 @@ pub fn create_window(
         windowed_context,
         skia_renderer,
         renderer,
-        keyboard_manager: KeyboardManager::new(ui_command_sender.clone()),
-        mouse_manager: MouseManager::new(ui_command_sender.clone()),
+        keyboard_manager: KeyboardManager::new(),
+        mouse_manager: MouseManager::new(),
         title: String::from("Neovide"),
         fullscreen: false,
         saved_inner_size,
         saved_grid_size: None,
-        ui_command_sender,
         window_command_receiver,
     };
 
@@ -347,7 +362,12 @@ pub fn create_window(
 
     event_loop.run(move |e, _window_target, control_flow| {
         if !RUNNING_TRACKER.is_running() {
-            maybe_save_window_size(window_wrapper.saved_grid_size);
+            let window = window_wrapper.windowed_context.window();
+            save_window_geometry(
+                window.is_maximized(),
+                window_wrapper.saved_grid_size,
+                window.outer_position().ok(),
+            );
             std::process::exit(0);
         }
 

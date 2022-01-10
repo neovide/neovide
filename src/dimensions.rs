@@ -1,6 +1,7 @@
+use std::ops::{Div, Mul};
+
 use glutin::dpi::PhysicalSize;
 use serde::{Deserialize, Serialize};
-use std::ops::{Div, Mul};
 
 // Maybe this should be independent from serialization?
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
