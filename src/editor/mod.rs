@@ -387,7 +387,7 @@ impl Editor {
     fn send_cursor_info(&mut self) {
         let (grid_left, grid_top) = self.cursor.grid_position;
         if let Some(window) = self.windows.get(&self.cursor.parent_window_id) {
-            let (character, style, double_width) = window.get_cursor_character(grid_left, grid_top);
+            let (character, style, double_width) = window.get_cursor_grid_cell(grid_left, grid_top);
             self.cursor.grid_cell = (character, style);
             self.cursor.double_width = double_width;
         } else {

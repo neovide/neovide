@@ -63,7 +63,7 @@ impl Window {
         });
     }
 
-    pub fn get_cursor_character(
+    pub fn get_cursor_grid_cell(
         &self,
         window_left: u64,
         window_top: u64,
