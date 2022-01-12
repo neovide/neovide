@@ -1,5 +1,7 @@
-use std::fmt::Debug;
-use std::sync::mpsc::{SendError, Sender};
+use std::{
+    fmt::Debug,
+    sync::mpsc::{SendError, Sender},
+};
 
 use log::trace;
 use tokio::sync::mpsc::{error::SendError as TokioSendError, UnboundedSender};

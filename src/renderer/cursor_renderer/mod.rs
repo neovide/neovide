@@ -3,15 +3,16 @@ mod cursor_vfx;
 
 use std::collections::HashMap;
 
-// use neovide_derive::SettingGroup;
 use skia_safe::{Canvas, Paint, Path, Point};
 
-use super::{GridRenderer, RenderedWindow};
-use crate::bridge::EditorMode;
-use crate::editor::{Cursor, CursorShape};
-use crate::redraw_scheduler::REDRAW_SCHEDULER;
-use crate::renderer::animation_utils::*;
-use crate::settings::{FromValue, SETTINGS};
+use crate::{
+    bridge::EditorMode,
+    editor::{Cursor, CursorShape},
+    redraw_scheduler::REDRAW_SCHEDULER,
+    renderer::animation_utils::*,
+    renderer::{GridRenderer, RenderedWindow},
+    settings::{FromValue, SETTINGS},
+};
 
 use blink::*;
 

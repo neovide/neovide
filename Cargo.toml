@@ -39,11 +39,12 @@ dirs = "2"
 rand = "0.7"
 pin-project = "0.4.27"
 futures = "0.3.12"
-glutin = { git = "https://github.com/neovide/glutin", branch = "new-keyboard-all" }
+glutin = { git = "https://github.com/neovide/glutin", branch = "new-keyboard-all", features=["serde"] }
 winit = { git = "https://github.com/neovide/winit", branch = "new-keyboard-all" }
 gl = "0.14.0"
 swash = "0.1.4"
 clap="2.33.3"
+xdg="2.4.0"
 
 [dev-dependencies]
 mockall = "0.7.0"

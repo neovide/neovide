@@ -3,14 +3,17 @@ use std::sync::Arc;
 use log::trace;
 use lru::LruCache;
 use skia_safe::{TextBlob, TextBlobBuilder};
-use swash::shape::ShapeContext;
-use swash::text::cluster::{CharCluster, Parser, Status, Token};
-use swash::text::Script;
-use swash::Metrics;
+use swash::{
+    shape::ShapeContext,
+    text::{
+        cluster::{CharCluster, Parser, Status, Token},
+        Script,
+    },
+    Metrics,
+};
 use unicode_segmentation::UnicodeSegmentation;
 
-use super::font_loader::*;
-use super::font_options::*;
+use crate::renderer::fonts::{font_loader::*, font_options::*};
 
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {
@@ -25,19 +28,23 @@ pub struct CachingShaper {
     blob_cache: LruCache<ShapeKey, Vec<TextBlob>>,
     shape_context: ShapeContext,
     scale_factor: f32,
+    fudge_factor: f32,
 }
 
 impl CachingShaper {
     pub fn new(scale_factor: f32) -> CachingShaper {
         let options = FontOptions::default();
         let font_size = options.size * scale_factor;
-        CachingShaper {
+        let mut shaper = CachingShaper {
             options,
             font_loader: FontLoader::new(font_size),
             blob_cache: LruCache::new(10000),
             shape_context: ShapeContext::new(),
             scale_factor,
-        }
+            fudge_factor: 1.0,
+        };
+        shaper.reset_font_loader();
+        shaper
     }
 
     fn current_font_pair(&mut self) -> Arc<FontPair> {
@@ -54,7 +61,7 @@ impl CachingShaper {
     }
 
     pub fn current_size(&self) -> f32 {
-        self.options.size * self.scale_factor
+        self.options.size * self.scale_factor * self.fudge_factor
     }
 
     pub fn update_scale_factor(&mut self, scale_factor: f32) {
@@ -79,29 +86,61 @@ impl CachingShaper {
     }
 
     fn reset_font_loader(&mut self) {
-        let font_size = self.options.size * self.scale_factor;
+        // Calculate the new fudge factor required to scale the font width to the nearest exact pixel
+        // NOTE: This temporarily loads the font without any fudge factor, since the interface
+        // needs a size and we don't know the exact one until it's calculated.
+        self.fudge_factor = 1.0;
+        let mut font_size = self.current_size();
         trace!("Using font_size: {:.2}px", font_size);
+        self.font_loader = FontLoader::new(font_size);
+        let (metrics, font_width) = self.info();
+        trace!(
+            "Font width: {:.2}px {:.2}px",
+            font_width,
+            metrics.average_width
+        );
+        self.fudge_factor = font_width.round() / font_width;
+        trace!("Fudge factor: {:.2}", self.fudge_factor);
+        font_size = self.current_size();
+        trace!("Fudged font size: {:.2}px", font_size);
+        trace!("Fudged font width: {:.2}px", self.info().1);
 
         self.font_loader = FontLoader::new(font_size);
         self.blob_cache.clear();
     }
 
-    fn metrics(&mut self) -> Metrics {
+    pub fn font_names(&self) -> Vec<String> {
+        self.font_loader.font_names()
+    }
+
+    fn info(&mut self) -> (Metrics, f32) {
         let font_pair = self.current_font_pair();
         let size = self.current_size();
-        let shaper = self
+        let mut shaper = self
             .shape_context
             .builder(font_pair.swash_font.as_ref())
             .size(size)
             .build();
+        shaper.add_str("M");
+        let metrics = shaper.metrics();
+        let mut advance = metrics.average_width;
+        shaper.shape_with(|cluster| {
+            advance = cluster
+                .glyphs
+                .first()
+                .map_or(metrics.average_width, |g| g.advance);
+        });
+        (metrics, advance)
+    }
 
-        shaper.metrics()
+    fn metrics(&mut self) -> Metrics {
+        self.info().0
     }
 
     pub fn font_base_dimensions(&mut self) -> (u64, u64) {
-        let metrics = self.metrics();
+        let (metrics, glyph_advance) = self.info();
         let font_height = (metrics.ascent + metrics.descent + metrics.leading).ceil() as u64;
-        let font_width = metrics.average_width as u64;
+        let font_width = (glyph_advance + 0.5).floor() as u64;
 
         (font_width, font_height)
     }
@@ -130,7 +169,7 @@ impl CachingShaper {
             Script::Latin,
             text.graphemes(true)
                 .enumerate()
-                .map(|(glyph_index, unicode_segment)| {
+                .flat_map(|(glyph_index, unicode_segment)| {
                     unicode_segment.chars().map(move |character| {
                         let token = Token {
                             ch: character,
@@ -142,8 +181,7 @@ impl CachingShaper {
                         character_index += 1;
                         token
                     })
-                })
-                .flatten(),
+                }),
         );
 
         let mut results = Vec::new();

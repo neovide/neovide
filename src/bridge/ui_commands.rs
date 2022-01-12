@@ -4,19 +4,22 @@ use std::sync::Arc;
 use log::error;
 use log::trace;
 
-use nvim_rs::Neovim;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
+use nvim_rs::{call_args, rpc::model::IntoVal, Neovim};
+use tokio::sync::mpsc::unbounded_channel;
 
-use crate::bridge::TxWrapper;
-use crate::running_tracker::RUNNING_TRACKER;
 #[cfg(windows)]
 use crate::windows_utils::{
     register_rightclick_directory, register_rightclick_file, unregister_rightclick,
 };
+use crate::{
+    bridge::TxWrapper, event_aggregator::EVENT_AGGREGATOR, running_tracker::RUNNING_TRACKER,
+};
 
 // Serial commands are any commands which must complete before the next value is sent. This
-// includes keyboard and mouse input which would cuase problems if sent out of order.
-#[derive(Debug, Clone)]
+// includes keyboard and mouse input which would cause problems if sent out of order.
+//
+// When in doubt, use Parallel Commands.
+#[derive(Clone, Debug)]
 pub enum SerialCommand {
     Keyboard(String),
     MouseButton {
@@ -113,6 +116,7 @@ pub enum ParallelCommand {
     FileDrop(String),
     FocusLost,
     FocusGained,
+    DisplayAvailableFonts(Vec<String>),
     #[cfg(windows)]
     RegisterRightClick,
     #[cfg(windows)]
@@ -139,6 +143,49 @@ impl ParallelCommand {
                 .expect("Focus Gained Failed"),
             ParallelCommand::FileDrop(path) => {
                 nvim.command(format!("e {}", path).as_str()).await.ok();
+            }
+            ParallelCommand::DisplayAvailableFonts(fonts) => {
+                let mut content: Vec<String> = vec![
+                    "What follows are the font names available for guifont. You can try any of them with <CR> in normal mode.",
+                    "",
+                    "To switch to one of them, use one of them, type:",
+                    "",
+                    "    :set guifont=<font name>:h<font size>",
+                    "",
+                    "where <font name> is one of the following with spaces escaped",
+                    "and <font size> is the desired font size. As an example:",
+                    "",
+                    "    :set guifont=Cascadia\\ Code\\ PL:h12",
+                    "",
+                    "You may specify multiple fonts for fallback purposes separated by commas like so:",
+                    "",
+                    "    :set guifont=Cascadia\\ Code\\ PL,Delugia\\ Nerd\\ Font:h12",
+                    "",
+                    "Make sure to add the above command when you're happy with it to your .vimrc file or similar config to make it permanent.",
+                    "------------------------------",
+                    "Available Fonts on this System",
+                    "------------------------------",
+                ].into_iter().map(|text| text.to_owned()).collect();
+                content.extend(fonts);
+
+                nvim.command("split").await.ok();
+                nvim.command("noswapfile hide enew").await.ok();
+                nvim.command("setlocal buftype=nofile").await.ok();
+                nvim.command("setlocal bufhidden=hide").await.ok();
+                nvim.command("\"setlocal nobuflisted").await.ok();
+                nvim.command("\"lcd ~").await.ok();
+                nvim.command("file scratch").await.ok();
+                nvim.call(
+                    "nvim_buf_set_lines",
+                    call_args![0i64, 0i64, -1i64, false, content],
+                )
+                .await
+                .ok();
+                nvim.command(
+                    "nnoremap <buffer> <CR> <cmd>lua vim.opt.guifont=vim.fn.getline('.')<CR>",
+                )
+                .await
+                .ok();
             }
             #[cfg(windows)]
             ParallelCommand::RegisterRightClick => {
@@ -190,13 +237,11 @@ impl From<ParallelCommand> for UiCommand {
     }
 }
 
-pub fn start_ui_command_handler(
-    mut ui_command_receiver: UnboundedReceiver<UiCommand>,
-    nvim: Arc<Neovim<TxWrapper>>,
-) {
+pub fn start_ui_command_handler(nvim: Arc<Neovim<TxWrapper>>) {
     let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
     let ui_command_nvim = nvim.clone();
     tokio::spawn(async move {
+        let mut ui_command_receiver = EVENT_AGGREGATOR.register_event::<UiCommand>();
         while RUNNING_TRACKER.is_running() {
             match ui_command_receiver.recv().await {
                 Some(UiCommand::Serial(serial_command)) => serial_tx

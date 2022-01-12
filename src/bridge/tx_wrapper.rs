@@ -1,7 +1,10 @@
+use std::{
+    io,
+    pin::Pin,
+    task::{Context, Poll},
+};
+
 use pin_project::pin_project;
-use std::io;
-use std::pin::Pin;
-use std::task::{Context, Poll};
 use tokio::{
     io::{AsyncWrite, WriteHalf},
     net::TcpStream,
