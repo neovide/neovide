@@ -273,7 +273,7 @@ impl CursorRenderer {
         let mut paint = Paint::new(skia_safe::colors::WHITE, None);
         paint.set_anti_alias(settings.antialiasing);
 
-        let character = self.cursor.character.0.clone();
+        let character = self.cursor.grid_cell.0.clone();
 
         let mut cursor_width = grid_renderer.font_dimensions.width;
         if self.cursor.double_width && self.cursor.shape == CursorShape::Block {
@@ -374,7 +374,7 @@ impl CursorRenderer {
         canvas.clip_path(&path, None, Some(false));
 
         let y_adjustment = grid_renderer.shaper.y_adjustment();
-        let style = &self.cursor.character.1;
+        let style = &self.cursor.grid_cell.1;
 
         let bold = style.as_ref().map(|x| x.bold).unwrap_or(false);
         let italic = style.as_ref().map(|x| x.italic).unwrap_or(false);

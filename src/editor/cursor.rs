@@ -46,7 +46,7 @@ pub struct Cursor {
     pub style: Option<Arc<Style>>,
     pub enabled: bool,
     pub double_width: bool,
-    pub character: GridCell,
+    pub grid_cell: GridCell,
 }
 
 impl Cursor {
@@ -62,7 +62,7 @@ impl Cursor {
             blinkoff: None,
             enabled: true,
             double_width: false,
-            character: (" ".to_string(), None),
+            grid_cell: (" ".to_string(), None),
         }
     }
 
