@@ -1,9 +1,12 @@
-use std::cmp::Ordering;
+use std::{cmp::Ordering, collections::HashMap};
 
 use glutin::{
     self,
     dpi::PhysicalPosition,
-    event::{ElementState, Event, MouseButton, MouseScrollDelta, WindowEvent},
+    event::{
+        DeviceId, ElementState, Event, MouseButton, MouseScrollDelta, Touch, TouchPhase,
+        WindowEvent,
+    },
     PossiblyCurrent, WindowedContext,
 };
 use skia_safe::Rect;
@@ -63,6 +66,9 @@ pub struct MouseManager {
 
     scroll_position: PhysicalPosition<f32>,
 
+    // the tuple allows to keep track of different fingers per device
+    touch_position: HashMap<(DeviceId, u64), PhysicalPosition<f32>>,
+
     window_details_under_mouse: Option<WindowDrawDetails>,
 
     mouse_hidden: bool,
@@ -78,6 +84,7 @@ impl MouseManager {
             relative_position: PhysicalPosition::new(0, 0),
             drag_position: PhysicalPosition::new(0, 0),
             scroll_position: PhysicalPosition::new(0.0, 0.0),
+            touch_position: HashMap::new(),
             window_details_under_mouse: None,
             mouse_hidden: false,
             enabled: true,
@@ -290,6 +297,32 @@ impl MouseManager {
         );
     }
 
+    fn handle_touch(
+        &mut self,
+        font_size: (u64, u64),
+        keyboard_manager: &KeyboardManager,
+        finger_id: (DeviceId, u64),
+        location: PhysicalPosition<f32>,
+        phase: &TouchPhase,
+    ) {
+        match phase {
+            TouchPhase::Started => {
+                self.touch_position.insert(finger_id, location);
+            }
+            TouchPhase::Moved => {
+                // not updating the position would cause the movement to "escalate" from the
+                // starting point
+                if let Some(last_location) = self.touch_position.insert(finger_id, location) {
+                    let delta = (location.x - last_location.x, location.y - last_location.y);
+                    self.handle_pixel_scroll(font_size, delta, keyboard_manager);
+                }
+            }
+            TouchPhase::Ended | TouchPhase::Cancelled => {
+                self.touch_position.remove(&finger_id);
+            }
+        }
+    }
+
     pub fn handle_event(
         &mut self,
         event: &Event<()>,
@@ -333,6 +366,23 @@ impl MouseManager {
                 renderer.grid_renderer.font_dimensions.into(),
                 (delta.x as f32, delta.y as f32),
                 keyboard_manager,
+            ),
+            Event::WindowEvent {
+                event:
+                    WindowEvent::Touch(Touch {
+                        device_id,
+                        id,
+                        location,
+                        phase,
+                        ..
+                    }),
+                ..
+            } => self.handle_touch(
+                renderer.grid_renderer.font_dimensions.into(),
+                keyboard_manager,
+                (*device_id, *id),
+                location.cast(),
+                phase,
             ),
             Event::WindowEvent {
                 event: WindowEvent::MouseInput { button, state, .. },
