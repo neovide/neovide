@@ -26,27 +26,57 @@ fn set_windows_creation_flags(cmd: &mut Command) {
     cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
 }
 
-#[cfg(windows)]
-fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
+fn build_nvim_cmd_with_args(bin: &str) -> Command {
+    let mut args = Vec::<String>::new();
+    args.push("--embed".to_string());
+    args.extend(SETTINGS.get::<CmdLineSettings>().neovim_args);
+
+    #[cfg(windows)]
     if SETTINGS.get::<CmdLineSettings>().wsl {
         let mut cmd = Command::new("wsl");
-        cmd.args(&[
-            bin.trim(),
-            "-c",
-            "let \\$PATH=system(\"\\$SHELL -lic 'echo \\$PATH' 2>/dev/null\")",
-        ]);
-        Some(cmd)
-    } else if Path::new(&bin).exists() {
-        Some(Command::new(bin))
-    } else {
-        None
+        let argstring = format!("{} {}", bin.trim(), args.join(" "));
+        cmd.args(&["$SHELL", "-lc", &argstring]);
+        return cmd;
     }
+    let mut cmd = Command::new(bin);
+    cmd.args(args);
+    cmd
 }
 
-#[cfg(unix)]
-fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
-    if Path::new(&bin).exists() {
-        Some(Command::new(bin))
+fn platform_exists(bin: &str) -> bool {
+    #[cfg(windows)]
+    if SETTINGS.get::<CmdLineSettings>().wsl {
+        if let Ok(output) = std::process::Command::new("wsl")
+            .args(&["$SHELL", "-lic"])
+            .arg(format!("exists -x {}", bin))
+            .output()
+        {
+            return output.status.success();
+        } else {
+            error!("wsl exists failed");
+            std::process::exit(1);
+        }
+    }
+    Path::new(&bin).exists()
+}
+
+fn platform_which(bin: &str) -> Option<String> {
+    #[cfg(windows)]
+    if SETTINGS.get::<CmdLineSettings>().wsl {
+        if let Ok(output) = std::process::Command::new("wsl")
+            .args(&["$SHELL", "-lic"])
+            .arg(format!("which {}", bin))
+            .output()
+        {
+            if output.status.success() {
+                return Some(String::from_utf8(output.stdout).unwrap());
+            } else {
+                return None;
+            }
+        }
+    }
+    if let Ok(path) = which::which(bin) {
+        path.into_os_string().into_string().ok()
     } else {
         None
     }
@@ -54,43 +84,14 @@ fn platform_build_nvim_cmd(bin: &str) -> Option<Command> {
 
 fn build_nvim_cmd() -> Command {
     if let Some(path) = SETTINGS.get::<CmdLineSettings>().neovim_bin {
-        if let Some(cmd) = platform_build_nvim_cmd(&path) {
-            return cmd;
+        if platform_exists(&path) {
+            return build_nvim_cmd_with_args(&path);
         } else {
             warn!("NEOVIM_BIN is invalid falling back to first bin in PATH");
         }
     }
-    #[cfg(windows)]
-    if SETTINGS.get::<CmdLineSettings>().wsl {
-        if let Ok(output) = std::process::Command::new("wsl")
-            .args(&["$SHELL", "-lic", "which nvim"])
-            .output()
-        {
-            if output.status.success() {
-                let path = String::from_utf8(output.stdout).unwrap();
-                let mut cmd = Command::new("wsl");
-                cmd.args(&[
-                    path.trim(),
-                    "-c",
-                    "let \\$PATH=system(\"\\$SHELL -lic 'echo \\$PATH' 2>/dev/null\")",
-                ]);
-                return cmd;
-            } else {
-                error!("nvim not found in WSL path");
-                std::process::exit(1);
-            }
-        } else {
-            error!("wsl which nvim failed");
-            std::process::exit(1);
-        }
-    }
-    if let Ok(path) = which::which("nvim") {
-        if let Some(cmd) = platform_build_nvim_cmd(path.to_str().unwrap()) {
-            cmd
-        } else {
-            error!("nvim does not have proper permissions!");
-            std::process::exit(1);
-        }
+    if let Some(path) = platform_which("nvim") {
+        build_nvim_cmd_with_args(&path)
     } else {
         error!("nvim not found!");
         std::process::exit(1);
@@ -119,9 +120,6 @@ pub fn build_neovide_command(channel: u64, num_args: u64, command: &str, event: 
 
 pub fn create_nvim_command() -> Command {
     let mut cmd = build_nvim_cmd();
-
-    cmd.arg("--embed")
-        .args(SETTINGS.get::<CmdLineSettings>().neovim_args.iter());
 
     info!("Starting neovim with: {:?}", cmd);
 
