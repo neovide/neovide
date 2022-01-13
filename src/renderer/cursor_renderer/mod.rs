@@ -273,7 +273,7 @@ impl CursorRenderer {
         let mut paint = Paint::new(skia_safe::colors::WHITE, None);
         paint.set_anti_alias(settings.antialiasing);
 
-        let character = self.cursor.character.clone();
+        let character = self.cursor.grid_cell.0.clone();
 
         let mut cursor_width = grid_renderer.font_dimensions.width;
         if self.cursor.double_width && self.cursor.shape == CursorShape::Block {
@@ -341,52 +341,58 @@ impl CursorRenderer {
             self.previous_editor_mode = current_mode.clone();
         }
 
-        if self.cursor.enabled && render {
-            // Draw Background
-            let background_color = self
-                .cursor
-                .background(&grid_renderer.default_style.colors)
-                .to_color();
-            paint.set_color(background_color);
+        if !(self.cursor.enabled && render) {
+            return;
+        }
+        // Draw Background
+        let background_color = self
+            .cursor
+            .background(&grid_renderer.default_style.colors)
+            .to_color();
+        paint.set_color(background_color);
 
-            // The cursor is made up of four points, so I create a path with each of the four
-            // corners.
-            let mut path = Path::new();
+        // The cursor is made up of four points, so I create a path with each of the four
+        // corners.
+        let mut path = Path::new();
 
-            path.move_to(self.corners[0].current_position);
-            path.line_to(self.corners[1].current_position);
-            path.line_to(self.corners[2].current_position);
-            path.line_to(self.corners[3].current_position);
-            path.close();
+        path.move_to(self.corners[0].current_position);
+        path.line_to(self.corners[1].current_position);
+        path.line_to(self.corners[2].current_position);
+        path.line_to(self.corners[3].current_position);
+        path.close();
 
-            canvas.draw_path(&path, &paint);
+        canvas.draw_path(&path, &paint);
 
-            // Draw foreground
-            let foreground_color = self
-                .cursor
-                .foreground(&grid_renderer.default_style.colors)
-                .to_color();
-            paint.set_color(foreground_color);
+        // Draw foreground
+        let foreground_color = self
+            .cursor
+            .foreground(&grid_renderer.default_style.colors)
+            .to_color();
+        paint.set_color(foreground_color);
 
-            canvas.save();
-            canvas.clip_path(&path, None, Some(false));
+        canvas.save();
+        canvas.clip_path(&path, None, Some(false));
 
-            let y_adjustment = grid_renderer.shaper.y_adjustment();
-            let blobs = &grid_renderer.shaper.shape_cached(character, false, false);
+        let y_adjustment = grid_renderer.shaper.y_adjustment();
+        let style = &self.cursor.grid_cell.1;
 
-            for blob in blobs.iter() {
-                canvas.draw_text_blob(
-                    &blob,
-                    (self.destination.x, self.destination.y + y_adjustment as f32),
-                    &paint,
-                );
-            }
+        let bold = style.as_ref().map(|x| x.bold).unwrap_or(false);
+        let italic = style.as_ref().map(|x| x.italic).unwrap_or(false);
 
-            canvas.restore();
+        let blobs = &grid_renderer.shaper.shape_cached(character, bold, italic);
 
-            if let Some(vfx) = self.cursor_vfx.as_ref() {
-                vfx.render(&settings, canvas, grid_renderer, &self.cursor);
-            }
+        for blob in blobs.iter() {
+            canvas.draw_text_blob(
+                &blob,
+                (self.destination.x, self.destination.y + y_adjustment as f32),
+                &paint,
+            );
+        }
+
+        canvas.restore();
+
+        if let Some(vfx) = self.cursor_vfx.as_ref() {
+            vfx.render(&settings, canvas, grid_renderer, &self.cursor);
         }
     }
 }
