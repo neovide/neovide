@@ -313,7 +313,7 @@ impl MouseManager {
                 // not updating the position would cause the movement to "escalate" from the
                 // starting point
                 if let Some(last_location) = self.touch_position.insert(finger_id, location) {
-                    let delta = (location.x - last_location.x, location.y - last_location.y);
+                    let delta = (last_location.x - location.x, location.y - last_location.y);
                     self.handle_pixel_scroll(font_size, delta, keyboard_manager);
                 }
             }
