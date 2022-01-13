@@ -248,6 +248,7 @@ impl GlutinWindowWrapper {
         self.renderer
             .grid_renderer
             .handle_scale_factor_update(scale_factor);
+        EVENT_AGGREGATOR.send(EditorCommand::RedrawScreen);
     }
 }
 
