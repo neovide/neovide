@@ -1,4 +1,8 @@
-use std::{cmp::Ordering, collections::HashMap};
+use std::{
+    cmp::Ordering,
+    collections::HashMap,
+    time::{Duration, Instant},
+};
 
 use glutin::{
     self,
@@ -58,6 +62,7 @@ fn mouse_button_to_button_text(mouse_button: &MouseButton) -> Option<String> {
 
 #[derive(Debug)]
 struct TouchTrace {
+    start_time: Instant,
     start: PhysicalPosition<f32>,
     last: PhysicalPosition<f32>,
     left_deadzone_once: bool,
@@ -321,6 +326,7 @@ impl MouseManager {
                 self.touch_position.insert(
                     finger_id,
                     TouchTrace {
+                        start_time: Instant::now(),
                         start: location,
                         last: location,
                         left_deadzone_once: !enable_deadzone,
@@ -328,9 +334,8 @@ impl MouseManager {
                 );
             }
             TouchPhase::Moved => {
-                // not updating the position would cause the movement to "escalate" from the
-                // starting point
-                // TODO multisn8: timeout for "drag"
+                let mut dragging_just_now = false;
+
                 if let Some(trace) = self.touch_position.get_mut(&finger_id) {
                     if !trace.left_deadzone_once {
                         let distance_to_start = ((trace.start.x - location.x).powi(2)
@@ -341,21 +346,48 @@ impl MouseManager {
                         if distance_to_start >= settings.touch_deadzone {
                             trace.left_deadzone_once = true;
                         }
+
+                        let timeout_setting = Duration::from_micros(
+                            (settings.touch_drag_timeout * 1_000_000.) as u64,
+                        );
+                        if self.dragging.is_none() && trace.start_time.elapsed() >= timeout_setting
+                        {
+                            dragging_just_now = true;
+                        }
+                    }
+
+                    if self.dragging.is_some() {
+                        self.handle_pointer_motion(
+                            location.x.round() as i32,
+                            location.y.round() as i32,
+                            keyboard_manager,
+                            renderer,
+                            windowed_context,
+                        )
                     }
                     // the double check might seem useless, but the if branch above might set
                     // trace.left_deadzone_once - which urges to check again
-                    if trace.left_deadzone_once {
+                    else if trace.left_deadzone_once {
                         let delta = (trace.last.x - location.x, location.y - trace.last.y);
+
+                        // not updating the position would cause the movement to "escalate" from the
+                        // starting point
                         trace.last = location;
 
                         let font_size = renderer.grid_renderer.font_dimensions.into();
-
                         self.handle_pixel_scroll(font_size, delta, keyboard_manager);
                     }
+                }
+
+                if dragging_just_now {
+                    self.handle_pointer_transition(&MouseButton::Left, true, keyboard_manager);
                 }
             }
             TouchPhase::Ended | TouchPhase::Cancelled => {
                 if let Some(trace) = self.touch_position.remove(&finger_id) {
+                    if self.dragging.is_some() {
+                        self.handle_pointer_transition(&MouseButton::Left, false, keyboard_manager);
+                    }
                     if !trace.left_deadzone_once {
                         self.handle_pointer_motion(
                             trace.start.x.round() as i32,
