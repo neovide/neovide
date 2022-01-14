@@ -10,6 +10,7 @@ pub struct WindowSettings {
     pub remember_window_size: bool,
     pub remember_window_position: bool,
     pub hide_mouse_when_typing: bool,
+    pub touch_deadzone: f32,
 }
 
 impl Default for WindowSettings {
@@ -23,6 +24,7 @@ impl Default for WindowSettings {
             remember_window_size: true,
             remember_window_position: true,
             hide_mouse_when_typing: false,
+            touch_deadzone: 10.0, // TODO add to config docs
         }
     }
 }

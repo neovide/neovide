@@ -56,6 +56,13 @@ fn mouse_button_to_button_text(mouse_button: &MouseButton) -> Option<String> {
     }
 }
 
+#[derive(Debug)]
+struct TouchTrace {
+    start: PhysicalPosition<f32>,
+    last: PhysicalPosition<f32>,
+    left_deadzone_once: bool,
+}
+
 pub struct MouseManager {
     dragging: Option<String>,
     drag_position: PhysicalPosition<u32>,
@@ -67,7 +74,7 @@ pub struct MouseManager {
     scroll_position: PhysicalPosition<f32>,
 
     // the tuple allows to keep track of different fingers per device
-    touch_position: HashMap<(DeviceId, u64), PhysicalPosition<f32>>,
+    touch_position: HashMap<(DeviceId, u64), TouchTrace>,
 
     window_details_under_mouse: Option<WindowDrawDetails>,
 
@@ -299,26 +306,68 @@ impl MouseManager {
 
     fn handle_touch(
         &mut self,
-        font_size: (u64, u64),
         keyboard_manager: &KeyboardManager,
+        renderer: &Renderer,
+        windowed_context: &WindowedContext<PossiblyCurrent>,
         finger_id: (DeviceId, u64),
         location: PhysicalPosition<f32>,
         phase: &TouchPhase,
     ) {
         match phase {
             TouchPhase::Started => {
-                self.touch_position.insert(finger_id, location);
+                let settings = SETTINGS.get::<WindowSettings>();
+                let enable_deadzone = settings.touch_deadzone >= 0.0;
+
+                self.touch_position.insert(
+                    finger_id,
+                    TouchTrace {
+                        start: location,
+                        last: location,
+                        left_deadzone_once: !enable_deadzone,
+                    },
+                );
             }
             TouchPhase::Moved => {
                 // not updating the position would cause the movement to "escalate" from the
                 // starting point
-                if let Some(last_location) = self.touch_position.insert(finger_id, location) {
-                    let delta = (last_location.x - location.x, location.y - last_location.y);
-                    self.handle_pixel_scroll(font_size, delta, keyboard_manager);
+                // TODO multisn8: timeout for "drag"
+                if let Some(trace) = self.touch_position.get_mut(&finger_id) {
+                    if !trace.left_deadzone_once {
+                        let distance_to_start = ((trace.start.x - location.x).powi(2)
+                            + (trace.start.y - location.y).powi(2))
+                        .sqrt();
+
+                        let settings = SETTINGS.get::<WindowSettings>();
+                        if distance_to_start >= settings.touch_deadzone {
+                            trace.left_deadzone_once = true;
+                        }
+                    }
+                    // the double check might seem useless, but the if branch above might set
+                    // trace.left_deadzone_once - which urges to check again
+                    if trace.left_deadzone_once {
+                        let delta = (trace.last.x - location.x, location.y - trace.last.y);
+                        trace.last = location;
+
+                        let font_size = renderer.grid_renderer.font_dimensions.into();
+
+                        self.handle_pixel_scroll(font_size, delta, keyboard_manager);
+                    }
                 }
             }
             TouchPhase::Ended | TouchPhase::Cancelled => {
-                self.touch_position.remove(&finger_id);
+                if let Some(trace) = self.touch_position.remove(&finger_id) {
+                    if !trace.left_deadzone_once {
+                        self.handle_pointer_motion(
+                            trace.start.x.round() as i32,
+                            trace.start.y.round() as i32,
+                            keyboard_manager,
+                            renderer,
+                            windowed_context,
+                        );
+                        self.handle_pointer_transition(&MouseButton::Left, true, keyboard_manager);
+                        self.handle_pointer_transition(&MouseButton::Left, false, keyboard_manager);
+                    }
+                }
             }
         }
     }
@@ -378,8 +427,9 @@ impl MouseManager {
                     }),
                 ..
             } => self.handle_touch(
-                renderer.grid_renderer.font_dimensions.into(),
                 keyboard_manager,
+                renderer,
+                windowed_context,
                 (*device_id, *id),
                 location.cast(),
                 phase,
