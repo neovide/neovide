@@ -363,7 +363,7 @@ impl MouseManager {
                             keyboard_manager,
                             renderer,
                             windowed_context,
-                        )
+                        );
                     }
                     // the double check might seem useless, but the if branch above might set
                     // trace.left_deadzone_once - which urges to check again
@@ -380,6 +380,13 @@ impl MouseManager {
                 }
 
                 if dragging_just_now {
+                    self.handle_pointer_motion(
+                        location.x.round() as i32,
+                        location.y.round() as i32,
+                        keyboard_manager,
+                        renderer,
+                        windowed_context,
+                    );
                     self.handle_pointer_transition(&MouseButton::Left, true, keyboard_manager);
                 }
             }
