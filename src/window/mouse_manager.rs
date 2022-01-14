@@ -356,7 +356,7 @@ impl MouseManager {
                         }
                     }
 
-                    if self.dragging.is_some() {
+                    if self.dragging.is_some() || dragging_just_now {
                         self.handle_pointer_motion(
                             location.x.round() as i32,
                             location.y.round() as i32,
