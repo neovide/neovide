@@ -25,8 +25,8 @@ impl Default for WindowSettings {
             remember_window_size: true,
             remember_window_position: true,
             hide_mouse_when_typing: false,
-            touch_deadzone: 10.0,    // TODO add to config docs
-            touch_drag_timeout: 0.6, //
+            touch_deadzone: 6.0,
+            touch_drag_timeout: 0.17,
         }
     }
 }
