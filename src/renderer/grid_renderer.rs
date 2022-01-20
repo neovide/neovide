@@ -142,20 +142,21 @@ impl GridRenderer {
         canvas.clip_rect(region, None, Some(false));
 
         if style.underline || style.undercurl {
+            let mut underline_paint = self.paint.clone();
+
             let line_position = self.shaper.underline_position();
             let stroke_width = self.shaper.current_size() / 10.0;
 
-            self.paint
-                .set_color(style.special(&self.default_style.colors).to_color());
-            self.paint.set_stroke_width(stroke_width);
+            underline_paint.set_color(style.special(&self.default_style.colors).to_color());
+            underline_paint.set_stroke_width(stroke_width);
 
             if style.undercurl {
-                self.paint.set_path_effect(dash_path_effect::new(
+                underline_paint.set_path_effect(dash_path_effect::new(
                     &[stroke_width * 2.0, stroke_width * 2.0],
                     0.0,
                 ));
             } else {
-                self.paint.set_path_effect(None);
+                underline_paint.set_path_effect(None);
             }
 
             canvas.draw_line(
@@ -167,7 +168,7 @@ impl GridRenderer {
                     (x + width) as f32,
                     (y - line_position + self.font_dimensions.height) as f32,
                 ),
-                &self.paint,
+                &underline_paint,
             );
         }
 
