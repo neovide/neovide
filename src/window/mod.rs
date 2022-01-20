@@ -339,20 +339,21 @@ pub fn create_window() {
         let monitor_width = monitor_size.width as i32;
         let monitor_height = monitor_size.height as i32;
 
-        let window_position = window.outer_position().expect("Could not get window position");
+        let window_position = window
+            .outer_position()
+            .expect("Could not get window position");
         let window_size = window.outer_size();
         let window_width = window_size.width as i32;
         let window_height = window_size.height as i32;
 
-        if window_position.x + window_width < monitor_position.x ||
-            window_position.y + window_height < monitor_position.y ||
-            window_position.x > monitor_position.x + monitor_width ||
-            window_position.y > monitor_position.y + monitor_height
+        if window_position.x + window_width < monitor_position.x
+            || window_position.y + window_height < monitor_position.y
+            || window_position.x > monitor_position.x + monitor_width
+            || window_position.y > monitor_position.y + monitor_height
         {
             window.set_outer_position(monitor_position);
         }
     }
-
 
     let scale_factor = windowed_context.window().scale_factor();
     let renderer = Renderer::new(scale_factor);

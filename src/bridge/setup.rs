@@ -66,8 +66,14 @@ pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>, is_remote: b
     nvim.set_client_info(
         "neovide",
         vec![
-            (Value::from("major"), Value::from(env!("CARGO_PKG_VERSION_MAJOR"))),
-            (Value::from("minor"), Value::from(env!("CARGO_PKG_VERSION_MINOR"))),
+            (
+                Value::from("major"),
+                Value::from(env!("CARGO_PKG_VERSION_MAJOR")),
+            ),
+            (
+                Value::from("minor"),
+                Value::from(env!("CARGO_PKG_VERSION_MINOR")),
+            ),
         ],
         "ui",
         vec![],
