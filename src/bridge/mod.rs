@@ -115,6 +115,16 @@ fn build_nvim_cmd_with_args(bin: &str) -> Command {
         cmd.args(&["$SHELL", "-lc", &argstring]);
         return cmd;
     }
+
+    #[cfg(macos)]
+    {
+        let shell = env::var("SHELL").unwrap();
+        let mut cmd = Command::new(shell);
+        let argstring = format!("{} {}", bin.trim(), args.join(" "));
+        cmd.args(&["-lc", &argstring]);
+        return cmd;
+    }
+
     let mut cmd = Command::new(bin);
     cmd.args(args);
     cmd
