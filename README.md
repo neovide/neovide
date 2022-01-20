@@ -5,7 +5,7 @@ date: 2021-12-23T22:13:46
 ---
 end_insert -->
 <!-- remove -->
-# Neovide [![Discord](https://badgen.net/badge/icon/discord?icon=discord&label)](https://discord.gg/SjFpZdQys6) [![Chat on Matrix](https://matrix.to/img/matrix-badge.svg)](https://matrix.to/#/#neovide_community:gitter.im) [![Discussions](https://img.shields.io/badge/GitHub-Discussions-green?logo=github)](https://github.com/Kethku/neovide/discussions)
+# Neovide [![Discord](https://badgen.net/badge/icon/discord?icon=discord&label)](https://discord.gg/SjFpZdQys6) [![Chat on Matrix](https://matrix.to/img/matrix-badge.svg)](https://matrix.to/#/#neovide_community:gitter.im) [![Discussions](https://img.shields.io/badge/GitHub-Discussions-green?logo=github)](https://github.com/neovide/neovide/discussions)
 <!-- end_remove -->
 <!-- Powered by https://cj.rs/riss -->
 
@@ -41,7 +41,7 @@ Cursor animates into position with a smear effect to improve tracking of cursor 
 
 Scroll operations on buffers in neovim will be animated smoothly pixel wise rather than line by line at a time. Note, multigrid must be
 enabled for this to work.
-https://github.com/Kethku/neovide/wiki/Configuration#multigrid
+https://github.com/neovide/neovide/wiki/Configuration#multigrid
 
 ![Smooth Scrolling](./assets/SmoothScrolling.gif)
 
@@ -49,7 +49,7 @@ https://github.com/Kethku/neovide/wiki/Configuration#multigrid
 
 Windows animate into position when they are moved making it easier to see how layout changes happen. Note, multigrid must be enabled for
 this to work.
-https://github.com/Kethku/neovide/wiki/Configuration#multigrid
+https://github.com/neovide/neovide/wiki/Configuration#multigrid
 
 ![Animated Windows](./assets/AnimatedWindows.gif)
 
@@ -57,7 +57,7 @@ https://github.com/Kethku/neovide/wiki/Configuration#multigrid
 
 The backgrounds of floating windows are blurred improving the visual separation between foreground and background from
 built in window transparency. Note, multigrid must be enabled for this to work.
-https://github.com/Kethku/neovide/wiki/Configuration#multigrid
+https://github.com/neovide/neovide/wiki/Configuration#multigrid
 
 ![Blurred Floating Windows](./assets/BlurredFloatingWindows.png)
 
@@ -109,7 +109,7 @@ I've got more ideas for simple unobtrusive improvements. More to come.
 
 ## Configuration
 
-Configuration is done almost completely via global neovide variables in your vim config and can be manipulated live at runtime. Details can be found [here](https://github.com/Kethku/neovide/wiki/Configuration).
+Configuration is done almost completely via global neovide variables in your vim config and can be manipulated live at runtime. Details can be found [here](https://github.com/neovide/neovide/wiki/Configuration).
 
 ## Install
 
@@ -147,7 +147,7 @@ $ scoop install neovide
 5. Build and install Neovide:
 
     ```sh
-    git clone https://github.com/Kethku/neovide
+    git clone https://github.com/neovide/neovide
     cd neovide
     cargo build --release
     ```
@@ -159,7 +159,7 @@ $ scoop install neovide
 1. Install the latest version of Rust. Using homebrew: `brew install rustup-init`
 2. Configure rust by running `rustup-init`
 3. Install CMake. Using homebrew: `brew install cmake`
-4. `git clone https://github.com/Kethku/neovide`
+4. `git clone https://github.com/neovide/neovide`
 5. `cd neovide`
 6. `cargo build --release`
 7. Copy `./target/release/neovide` to a known location and enjoy.
@@ -199,7 +199,7 @@ makepkg -si
 ```
 
 Note: Neovide requires that a font be set in `init.vim` otherwise errors might be encountered.
-See [#527](https://github.com/Kethku/neovide/issues/527)
+See [#527](https://github.com/neovide/neovide/issues/527)
 
 ##### With non-default branch
 
@@ -240,7 +240,7 @@ snap install neovide
 3. Clone the repository
 
     ```sh
-    git clone "https://github.com/Kethku/neovide"
+    git clone "https://github.com/neovide/neovide"
     ```
 
 4. Build
@@ -252,7 +252,7 @@ snap install neovide
 5. Copy `./target/release/neovide` to a known location and enjoy.
 
 ## Troubleshooting
-- Neovide requires that a font be set in `init.vim` otherwise errors might be encountered. This can be fixed by adding `set guifont=Your\ Font\ Name:h15` in init.vim file. Reference issue [#527](https://github.com/Kethku/neovide/issues/527).
+- Neovide requires that a font be set in `init.vim` otherwise errors might be encountered. This can be fixed by adding `set guifont=Your\ Font\ Name:h15` in init.vim file. Reference issue [#527](https://github.com/neovide/neovide/issues/527).
 
 ### Linux-specific
-- If you recieve errors complaining about DRI3 settings, please reference issue [#44](https://github.com/Kethku/neovide/issues/44#issuecomment-578618052).
+- If you recieve errors complaining about DRI3 settings, please reference issue [#44](https://github.com/neovide/neovide/issues/44#issuecomment-578618052).
