@@ -32,11 +32,22 @@ impl Handler for NeovimHandler {
         &self,
         event_name: String,
         _arguments: Vec<Value>,
-        _neovim: Neovim<TxWrapper>,
+        neovim: Neovim<TxWrapper>,
     ) -> Result<Value, Value> {
+        trace!("Neovim request: {:?}", &event_name);
+
         match event_name.as_ref() {
             "neovide.get_clipboard" => {
-                get_remote_clipboard().or(Err(Value::from("cannot get clipboard contents")))
+                let endline_type = neovim.command_output("set ff")
+                    .await.ok()
+                    .and_then(|format| {
+                        let mut s = format.split('=');
+                        s.next();
+                        s.next().map(String::from)
+                    });
+
+                get_remote_clipboard(endline_type.as_deref())
+                    .or(Err(Value::from("cannot get remote clipboard content")))
             }
             _ => Ok(Value::from("rpcrequest not handled")),
         }
