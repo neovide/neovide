@@ -38,8 +38,10 @@ impl Handler for NeovimHandler {
 
         match event_name.as_ref() {
             "neovide.get_clipboard" => {
-                let endline_type = neovim.command_output("set ff")
-                    .await.ok()
+                let endline_type = neovim
+                    .command_output("set ff")
+                    .await
+                    .ok()
                     .and_then(|format| {
                         let mut s = format.split('=');
                         s.next();

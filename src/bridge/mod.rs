@@ -19,10 +19,7 @@ use crate::{
 
 pub use events::*;
 use handler::NeovimHandler;
-use setup::{
-    setup_neovide_specific_state,
-    setup_neovide_remote_clipboard
-};
+use setup::setup_neovide_specific_state;
 pub use tx_wrapper::{TxWrapper, WrapTx};
 pub use ui_commands::{start_ui_command_handler, ParallelCommand, SerialCommand, UiCommand};
 

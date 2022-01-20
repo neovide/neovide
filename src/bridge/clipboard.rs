@@ -16,9 +16,9 @@ pub fn get_remote_clipboard(format: Option<&str>) -> Result<Value, Box<dyn Error
         // else, \r is stripped, leaving only \n
         clipboard_raw
     }
-        .split("\n")
-        .map(|line| Value::from(line))
-        .collect::<Vec<Value>>();
+    .split("\n")
+    .map(|line| Value::from(line))
+    .collect::<Vec<Value>>();
 
     let lines = Value::from(lines);
     // v paste is normal paste (everything in lines is pasted)
@@ -27,9 +27,7 @@ pub fn get_remote_clipboard(format: Option<&str>) -> Result<Value, Box<dyn Error
     let paste_mode = Value::from("v");
 
     // returns [content: [String], paste_mode: v or V]
-    Ok(Value::from(vec![
-        lines, paste_mode,
-    ]))
+    Ok(Value::from(vec![lines, paste_mode]))
 }
 
 pub fn set_remote_clipboard(arguments: Vec<Value>) -> Result<(), Box<dyn Error>> {

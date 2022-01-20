@@ -11,14 +11,17 @@ pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<TxWrapper>, neovide_ch
     // users can opt-out with
     // vim: `let g:neovide_no_custom_clipboard = v:true`
     // lua: `vim.g.neovide_no_custom_clipboard = true`
-    let no_custom_clipboard = nvim.get_var("neovide_no_custom_clipboard")
-        .await.ok()
+    let no_custom_clipboard = nvim
+        .get_var("neovide_no_custom_clipboard")
+        .await
+        .ok()
         .and_then(|v| v.as_bool());
     if Some(true) == no_custom_clipboard {
         info!("Neovide working remotely but custom clipboard is disabled");
         return;
     }
 
+    // don't know how to setup lambdas with Value, so use string as command
     let custom_clipboard = r#"
         let g:clipboard = {
           'name': 'custom',
@@ -36,16 +39,12 @@ pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<TxWrapper>, neovide_ch
             '+': {-> rpcrequest(neovide_channel, 'neovide.get_clipboard', '+')},
             '*': {-> rpcrequest(neovide_channel, 'neovide.get_clipboard', '*')},
           },
-        }"#
-        .replace("\n", "")
           'cache_enabled': 0
         }
         "#
-        .replace("\n", "") // make one-liner, because multiline is not accepted (?)
-        .replace("neovide_channel", &neovide_channel.to_string());
-    nvim.command(&custom_clipboard)
-        .await
-        .ok();
+    .replace("\n", "") // make one-liner, because multiline is not accepted (?)
+    .replace("neovide_channel", &neovide_channel.to_string());
+    nvim.command(&custom_clipboard).await.ok();
 }
 
 pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>, is_remote: bool) {
