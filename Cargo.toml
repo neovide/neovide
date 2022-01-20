@@ -70,7 +70,7 @@ incremental = true
 
 [package.metadata.bundle]
 name = "Neovide"
-identifier = "com.kethku.neovide"
+identifier = "com.neovide.neovide"
 icon = ["assets/neovide.ico"]
 version = "0.8.0"
 resources = []
