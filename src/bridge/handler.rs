@@ -3,9 +3,7 @@ use log::trace;
 use nvim_rs::{Handler, Neovim};
 use rmpv::Value;
 
-use clipboard::ClipboardProvider;
-use clipboard::ClipboardContext;
-
+use crate::bridge::clipboard::{get_remote_clipboard, set_remote_clipboard};
 #[cfg(windows)]
 use crate::bridge::ui_commands::{ParallelCommand, UiCommand};
 use crate::{
@@ -33,28 +31,14 @@ impl Handler for NeovimHandler {
     async fn handle_request(
         &self,
         event_name: String,
-        arguments: Vec<Value>,
+        _arguments: Vec<Value>,
         _neovim: Neovim<TxWrapper>,
     ) -> Result<Value, Value> {
         match event_name.as_ref() {
             "neovide.get_clipboard" => {
-                let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
-                let lines = ctx
-                    .get_contents()
-                    .unwrap()
-                    .replace("\r", "")
-                    .split("\n")
-                    .map(|line| Value::from(line))
-                    .collect::<Vec<Value>>();
-                // returns a [[String], RegType]
-                Ok(Value::from(vec![
-                    Value::from(lines),
-                    Value::from("V") // default regtype as Line paste
-                ]))
+                get_remote_clipboard().or(Err(Value::from("cannot get clipboard contents")))
             }
-            _ => {
-                Ok(Value::from("rpcrequest not handled"))
-            }
+            _ => Ok(Value::from("rpcrequest not handled")),
         }
     }
 
@@ -95,23 +79,7 @@ impl Handler for NeovimHandler {
                 EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::UnregisterRightClick));
             }
             "neovide.set_clipboard" => {
-                if (arguments.len() != 3) {
-                    return;
-                }
-                let lines = arguments[0]
-                    .as_array()
-                    .map(|arr| arr
-                        .iter()
-                        .filter_map(|x| x.as_str().map(String::from))
-                        .collect::<Vec<String>>()
-                        .join("\n"))
-                    .unwrap();
-                let regtype = arguments[1].as_str().unwrap();
-                let register = arguments[2].as_str().unwrap();
-                if (register == "+") {
-                    let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
-                    ctx.set_contents(lines).unwrap();
-                }
+                set_remote_clipboard(arguments).ok();
             }
             _ => {}
         }

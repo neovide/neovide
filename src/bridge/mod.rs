@@ -1,3 +1,4 @@
+mod clipboard;
 pub mod create;
 mod events;
 mod handler;
