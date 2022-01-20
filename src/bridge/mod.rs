@@ -1,3 +1,4 @@
+mod clipboard;
 pub mod create;
 mod events;
 mod handler;
@@ -59,7 +60,11 @@ async fn start_neovim_runtime() {
         }
     }
 
-    setup_neovide_specific_state(&nvim).await;
+    if let ConnectionMode::RemoteTcp(_) = connection_mode() {
+        setup_neovide_specific_state(&nvim, true).await;
+    } else {
+        setup_neovide_specific_state(&nvim, false).await;
+    }
 
     let settings = SETTINGS.get::<CmdLineSettings>();
     let geometry = settings.geometry;

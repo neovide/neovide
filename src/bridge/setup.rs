@@ -7,7 +7,47 @@ use crate::{
     error_handling::ResultPanicExplanation,
 };
 
-pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>) {
+pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<TxWrapper>, neovide_channel: u64) {
+    // users can opt-out with
+    // vim: `let g:neovide_no_custom_clipboard = v:true`
+    // lua: `vim.g.neovide_no_custom_clipboard = true`
+    let no_custom_clipboard = nvim
+        .get_var("neovide_no_custom_clipboard")
+        .await
+        .ok()
+        .and_then(|v| v.as_bool());
+    if Some(true) == no_custom_clipboard {
+        info!("Neovide working remotely but custom clipboard is disabled");
+        return;
+    }
+
+    // don't know how to setup lambdas with Value, so use string as command
+    let custom_clipboard = r#"
+        let g:clipboard = {
+          'name': 'custom',
+          'copy': {
+            '+': {
+              lines,
+              regtype -> rpcnotify(neovide_channel, 'neovide.set_clipboard', lines, regtype, '+')
+            },
+            '*': {
+              lines,
+              regtype -> rpcnotify(neovide_channel, 'neovide.set_clipboard', lines, regtype, '*')
+            },
+          },
+          'paste': {
+            '+': {-> rpcrequest(neovide_channel, 'neovide.get_clipboard', '+')},
+            '*': {-> rpcrequest(neovide_channel, 'neovide.get_clipboard', '*')},
+          },
+          'cache_enabled': 0
+        }
+        "#
+    .replace("\n", "") // make one-liner, because multiline is not accepted (?)
+    .replace("neovide_channel", &neovide_channel.to_string());
+    nvim.command(&custom_clipboard).await.ok();
+}
+
+pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>, is_remote: bool) {
     // Set variable indicating to user config that neovide is being used
     nvim.set_var("neovide", Value::Boolean(true))
         .await
@@ -94,6 +134,10 @@ pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>) {
     nvim.command("autocmd VimLeave * call rpcnotify(1, 'neovide.quit', v:exiting)")
         .await
         .ok();
+
+    if is_remote {
+        setup_neovide_remote_clipboard(nvim, neovide_channel).await;
+    }
 }
 
 #[cfg(windows)]
