@@ -7,7 +7,33 @@ use crate::{
     error_handling::ResultPanicExplanation,
 };
 
-pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>) {
+pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<TxWrapper>, neovide_channel: u64) {
+    let custom_clipboard = r#"
+        let g:clipboard = {
+          'name': 'custom',
+          'copy': {
+            '+': {
+              lines,
+              regtype -> rpcnotify(neovide_channel, 'neovide.set_clipboard', lines, regtype, '+')
+            },
+            '*': {
+              lines,
+              regtype -> rpcnotify(neovide_channel, 'neovide.set_clipboard', lines, regtype, '*')
+            },
+          },
+          'paste': {
+            '+': {-> rpcrequest(neovide_channel, 'neovide.get_clipboard', '+')},
+            '*': {-> rpcrequest(neovide_channel, 'neovide.get_clipboard', '*')},
+          },
+        }"#
+        .replace("\n", "")
+        .replace("neovide_channel", &neovide_channel.to_string());
+    nvim.command(&custom_clipboard)
+        .await
+        .ok();
+}
+
+pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>, is_remote: bool) {
     // Set variable indicating to user config that neovide is being used
     nvim.set_var("neovide", Value::Boolean(true))
         .await
@@ -94,6 +120,10 @@ pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>) {
     nvim.command("autocmd VimLeave * call rpcnotify(1, 'neovide.quit', v:exiting)")
         .await
         .ok();
+
+    if is_remote {
+        setup_neovide_remote_clipboard(nvim, neovide_channel).await;
+    }
 }
 
 #[cfg(windows)]

@@ -3,6 +3,9 @@ use log::trace;
 use nvim_rs::{Handler, Neovim};
 use rmpv::Value;
 
+use clipboard::ClipboardProvider;
+use clipboard::ClipboardContext;
+
 #[cfg(windows)]
 use crate::bridge::ui_commands::{ParallelCommand, UiCommand};
 use crate::{
@@ -62,6 +65,25 @@ impl Handler for NeovimHandler {
             #[cfg(windows)]
             "neovide.unregister_right_click" => {
                 EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::UnregisterRightClick));
+            }
+            "neovide.set_clipboard" => {
+                if (arguments.len() != 3) {
+                    return;
+                }
+                let lines = arguments[0]
+                    .as_array()
+                    .map(|arr| arr
+                        .iter()
+                        .filter_map(|x| x.as_str().map(String::from))
+                        .collect::<Vec<String>>()
+                        .join("\n"))
+                    .unwrap();
+                let regtype = arguments[1].as_str().unwrap();
+                let register = arguments[2].as_str().unwrap();
+                if (register == "+") {
+                    let mut ctx: ClipboardContext = ClipboardProvider::new().unwrap();
+                    ctx.set_contents(lines).unwrap();
+                }
             }
             _ => {}
         }
