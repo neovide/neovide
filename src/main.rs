@@ -140,8 +140,7 @@ fn main() {
     CursorSettings::register();
     KeyboardSettings::register();
 
-    // We need to keep the bridge reference around to prevent the tokio runtime from getting freed
-    let _bridge = start_bridge();
+    start_bridge();
     start_editor();
     create_window();
 }

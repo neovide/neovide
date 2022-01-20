@@ -369,7 +369,8 @@ pub fn create_window() {
                 window_wrapper.saved_grid_size,
                 window.outer_position().ok(),
             );
-            std::process::exit(0);
+
+            std::process::exit(RUNNING_TRACKER.exit_code());
         }
 
         let frame_start = Instant::now();

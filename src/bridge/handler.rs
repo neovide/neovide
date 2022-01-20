@@ -10,6 +10,7 @@ use crate::{
     editor::EditorCommand,
     error_handling::ResultPanicExplanation,
     event_aggregator::EVENT_AGGREGATOR,
+    running_tracker::*,
     settings::SETTINGS,
 };
 
@@ -47,6 +48,12 @@ impl Handler for NeovimHandler {
             }
             "setting_changed" => {
                 SETTINGS.handle_changed_notification(arguments);
+            }
+            "neovide.quit" => {
+                let error_code = arguments[0]
+                    .as_i64()
+                    .expect("Could not parse error code from neovim");
+                RUNNING_TRACKER.quit_with_code(error_code as i32, "Quit from neovim");
             }
             #[cfg(windows)]
             "neovide.register_right_click" => {
