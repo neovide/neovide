@@ -148,8 +148,7 @@ impl GridRenderer {
             let line_position = self.shaper.underline_position();
             let stroke_width = self.shaper.current_size() / 10.0;
 
-            underline_paint
-                .set_color(style.special(&self.default_style.colors).to_color());
+            underline_paint.set_color(style.special(&self.default_style.colors).to_color());
             underline_paint.set_stroke_width(stroke_width);
 
             if style.undercurl {
