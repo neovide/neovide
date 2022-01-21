@@ -60,11 +60,18 @@ async fn start_neovim_runtime() {
         }
     }
 
-    if let ConnectionMode::RemoteTcp(_) = connection_mode() {
-        setup_neovide_specific_state(&nvim, true).await;
+    #[cfg(windows)]
+    let is_wsl = SETTINGS.get::<CmdLineSettings>().wsl;
+    #[cfg(not(windows))]
+    let is_wsl = false;
+
+    let is_remote = if let ConnectionMode::RemoteTcp(_) = connection_mode() {
+        true
     } else {
-        setup_neovide_specific_state(&nvim, false).await;
-    }
+        is_wsl
+    };
+
+    setup_neovide_specific_state(&nvim, is_remote).await;
 
     let settings = SETTINGS.get::<CmdLineSettings>();
     let geometry = settings.geometry;
