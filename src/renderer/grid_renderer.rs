@@ -106,14 +106,14 @@ impl GridRenderer {
                 .set_color(style.background(&self.default_style.colors).to_color());
         }
 
-        // Only make background color transparent
-        if self.paint.color() == self.get_default_background() {
-            if is_floating {
-                self.paint
-                    .set_alpha((255.0 * SETTINGS.get::<RendererSettings>().floating_opacity) as u8);
-            } else if (SETTINGS.get::<WindowSettings>().transparency - 1.0).abs() > f32::EPSILON {
-                self.paint.set_alpha(0);
-            }
+        if is_floating {
+            self.paint
+                .set_alpha((255.0 * SETTINGS.get::<RendererSettings>().floating_opacity) as u8);
+        } else if (SETTINGS.get::<WindowSettings>().transparency - 1.0).abs() > f32::EPSILON
+            // Only make background color transparent
+            && self.paint.color() == self.get_default_background()
+        {
+            self.paint.set_alpha(0);
         }
         canvas.draw_rect(region, &self.paint);
     }
