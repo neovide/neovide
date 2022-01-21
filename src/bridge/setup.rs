@@ -63,17 +63,13 @@ pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>, is_remote: b
     }
 
     // Set details about the neovide version
+    let major = env!("CARGO_PKG_VERSION_MAJOR").parse::<u64>().unwrap_or(0);
+    let minor = env!("CARGO_PKG_VERSION_MINOR").parse::<u64>().unwrap_or(0);
     nvim.set_client_info(
         "neovide",
         vec![
-            (
-                Value::from("major"),
-                Value::from(env!("CARGO_PKG_VERSION_MAJOR")),
-            ),
-            (
-                Value::from("minor"),
-                Value::from(env!("CARGO_PKG_VERSION_MINOR")),
-            ),
+            (Value::from("major"), Value::from(major)),
+            (Value::from("minor"), Value::from(minor)),
         ],
         "ui",
         vec![],
