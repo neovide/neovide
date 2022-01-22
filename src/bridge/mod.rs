@@ -60,13 +60,14 @@ async fn start_neovim_runtime() {
         }
     }
 
-    if let ConnectionMode::RemoteTcp(_) = connection_mode() {
-        setup_neovide_specific_state(&nvim, true).await;
-    } else {
-        setup_neovide_specific_state(&nvim, false).await;
-    }
-
     let settings = SETTINGS.get::<CmdLineSettings>();
+
+    let mut is_remote = settings.wsl;
+    if let ConnectionMode::RemoteTcp(_) = connection_mode() {
+        is_remote = true;
+    }
+    setup_neovide_specific_state(&nvim, is_remote).await;
+
     let geometry = settings.geometry;
     let mut options = UiAttachOptions::new();
     options.set_linegrid_external(true);
