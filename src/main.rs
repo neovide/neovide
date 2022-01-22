@@ -132,9 +132,6 @@ fn main() {
     #[cfg(target_os = "windows")]
     windows_fix_dpi();
 
-    #[cfg(target_os = "macos")]
-    handle_macos();
-
     WindowSettings::register();
     RendererSettings::register();
     CursorSettings::register();
@@ -195,27 +192,6 @@ fn windows_fix_dpi() {
     use winapi::um::winuser::SetProcessDpiAwarenessContext;
     unsafe {
         SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-    }
-}
-
-#[cfg(target_os = "macos")]
-fn handle_macos() {
-    use std::env;
-
-    if env::var_os("TERM").is_none() {
-        let shell = env::var("SHELL").unwrap();
-        // printenv is the proper way to print env variables. using echo $PATH would break Fish.
-        let cmd = "printenv PATH";
-        if let Ok(path) = std::process::Command::new(shell)
-            .arg("-lic") // interactive login shell, this simulates opening a real terminal emulator
-            .arg(cmd)
-            .output()
-        {
-            env::set_var(
-                "PATH",
-                std::str::from_utf8(&path.stdout).unwrap().trim_end(),
-            );
-        }
     }
 }
 
