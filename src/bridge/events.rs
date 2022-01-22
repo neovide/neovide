@@ -304,36 +304,8 @@ impl Default for ChannelMode {
 }
 
 #[derive(Debug, Default)]
-pub struct ClientVersion {
-    pub major: u64,
-    pub minor: Option<u64>,
-    pub patch: Option<u64>,
-    pub prerelease: Option<String>,
-    pub commit: Option<String>,
-}
-
-#[derive(Debug)]
-pub enum ClientType {
-    Remote,
-    Ui,
-    Embedder,
-    Host,
-    Plugin,
-}
-
-impl Default for ClientType {
-    fn default() -> Self {
-        Self::Remote
-    }
-}
-
-#[derive(Debug, Default)]
 pub struct ClientInfo {
     pub name: String,
-    pub version: ClientVersion,
-    pub client_type: ClientType,
-    // methods
-    // attributes
 }
 
 #[derive(Debug, Default)]
@@ -964,40 +936,6 @@ pub fn parse_channel_mode(channel_mode_value: Value) -> Result<ChannelMode> {
     }
 }
 
-pub fn parse_client_version(version_value: Value) -> Result<ClientVersion> {
-    let version_map = parse_map(version_value)?;
-
-    let mut version = ClientVersion::default();
-
-    for version_property in version_map {
-        if let (Value::String(name), value) = version_property {
-            match (name.as_str().unwrap(), value) {
-                ("major", major) => version.major = parse_u64(major)?,
-                ("minor", minor) => version.minor = Some(parse_u64(minor)?),
-                ("patch", patch) => version.patch = Some(parse_u64(patch)?),
-                ("prerelease", prerelease) => version.prerelease = Some(parse_string(prerelease)?),
-                ("commit", commit) => version.commit = Some(parse_string(commit)?),
-                _ => debug!("Ignored client version property: {}", name),
-            }
-        } else {
-            debug!("Invalid client version format");
-        }
-    }
-
-    Ok(version)
-}
-
-pub fn parse_client_type(client_type_value: Value) -> Result<ClientType> {
-    match parse_string(client_type_value)?.as_ref() {
-        "remote" => Ok(ClientType::Remote),
-        "ui" => Ok(ClientType::Ui),
-        "embedder" => Ok(ClientType::Embedder),
-        "host" => Ok(ClientType::Host),
-        "plugin" => Ok(ClientType::Plugin),
-        client_type => Err(ParseError::Format(format!("{:?}", client_type))),
-    }
-}
-
 pub fn parse_client_info(client_info_value: Value) -> Result<ClientInfo> {
     let client_info_map = parse_map(client_info_value)?;
 
@@ -1007,8 +945,6 @@ pub fn parse_client_info(client_info_value: Value) -> Result<ClientInfo> {
         if let (Value::String(name), value) = info_property {
             match (name.as_str().unwrap(), value) {
                 ("name", name) => client_info.name = parse_string(name)?,
-                ("version", version) => client_info.version = parse_client_version(version)?,
-                ("type", client_type) => client_info.client_type = parse_client_type(client_type)?,
                 _ => debug!("Ignored client type property: {}", name),
             }
         } else {
