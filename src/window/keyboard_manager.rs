@@ -9,6 +9,7 @@ use glutin::{
     keyboard::{Key, Key::Dead},
     platform::modifier_supplement::KeyEventExtModifierSupplement,
 };
+use log::info;
 
 enum InputEvent {
     KeyEvent(KeyEvent),
@@ -76,6 +77,7 @@ impl KeyboardManager {
                 self.ctrl = modifiers.control_key();
                 self.alt = modifiers.alt_key();
                 self.logo = modifiers.super_key();
+                info!("mods: {:?}", modifiers,);
             }
             Event::MainEventsCleared => {
                 // If the window wasn't just focused.
@@ -88,6 +90,10 @@ impl KeyboardManager {
                                 // And a key was pressed
                                 if key_event.state == ElementState::Pressed {
                                     if let Some(keybinding) = self.maybe_get_keybinding(key_event) {
+                                        info!(
+                                            "{} shift: {}, ctrl: {}, alt: {}, logo: {}",
+                                            keybinding, self.shift, self.ctrl, self.alt, self.logo
+                                        );
                                         EVENT_AGGREGATOR.send(UiCommand::Serial(
                                             SerialCommand::Keyboard(keybinding),
                                         ));
