@@ -1,14 +1,13 @@
-use glutin::{
-    event::{ElementState, Event, KeyEvent, WindowEvent},
-    keyboard::{Key, Key::Dead},
-    platform::modifier_supplement::KeyEventExtModifierSupplement,
-};
-
 use crate::{
     bridge::{SerialCommand, UiCommand},
     event_aggregator::EVENT_AGGREGATOR,
     settings::SETTINGS,
     window::KeyboardSettings,
+};
+use glutin::{
+    event::{ElementState, Event, KeyEvent, WindowEvent},
+    keyboard::{Key, Key::Dead},
+    platform::modifier_supplement::KeyEventExtModifierSupplement,
 };
 
 enum InputEvent {
@@ -79,11 +78,9 @@ impl KeyboardManager {
                 self.logo = modifiers.super_key();
             }
             Event::MainEventsCleared => {
-                // And the window wasn't just focused.
-                let settings = SETTINGS.get::<KeyboardSettings>();
-
-                if !self.should_ignore_input(&settings) {
-                    // If we have a keyboard event this frame
+                // If the window wasn't just focused.
+                if !self.should_ignore_input() {
+                    // And we have a keyboard event this frame
                     for input_event in self.queued_input_events.iter() {
                         let mut next_dead_key = self.prev_dead_key;
                         match input_event {
@@ -125,7 +122,8 @@ impl KeyboardManager {
         }
     }
 
-    fn should_ignore_input(&self, settings: &KeyboardSettings) -> bool {
+    fn should_ignore_input(&self) -> bool {
+        let settings = SETTINGS.get::<KeyboardSettings>();
         self.ignore_input_this_frame || (self.logo && !settings.use_logo)
     }
 
