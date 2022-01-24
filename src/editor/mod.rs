@@ -113,6 +113,9 @@ impl Editor {
                     self.draw_command_batcher
                         .queue(DrawCommand::DefaultStyleChanged(Style::new(colors)))
                         .ok();
+                    self.redraw_screen();
+                    self.draw_command_batcher.send_batch();
+                    REDRAW_SCHEDULER.queue_next_frame();
                 }
                 RedrawEvent::HighlightAttributesDefine { id, style } => {
                     self.defined_styles.insert(id, Arc::new(style));
