@@ -1,5 +1,3 @@
-use super::font_loader::FontSelection;
-
 const DEFAULT_FONT_SIZE: f32 = 14.0;
 
 #[derive(Clone, Debug)]
@@ -51,11 +49,8 @@ impl FontOptions {
         }
     }
 
-    pub fn primary_font(&self) -> FontSelection {
-        self.font_list
-            .first()
-            .map(FontSelection::from)
-            .unwrap_or(FontSelection::Default)
+    pub fn primary_font(&self) -> Option<String> {
+        self.font_list.first().cloned()
     }
 }
 

@@ -3,13 +3,8 @@ use std::sync::Arc;
 use log::{trace, warn};
 use lru::LruCache;
 use skia_safe::{
-    graphics::{
-        font_cache_used,
-        font_cache_limit,
-        set_font_cache_limit,
-    },
-    TextBlob, 
-    TextBlobBuilder,
+    graphics::{font_cache_limit, font_cache_used, set_font_cache_limit},
+    TextBlob, TextBlobBuilder,
 };
 use swash::{
     shape::ShapeContext,
@@ -56,16 +51,17 @@ impl CachingShaper {
     }
 
     fn current_font_pair(&mut self) -> Arc<FontPair> {
-        let default_key = FontKey::default();
-        let font_key = FontKey::from(&self.options);
-
-        if let Some(font_pair) = self.font_loader.get_or_load(&font_key) {
-            return font_pair;
-        }
-
         self.font_loader
-            .get_or_load(&default_key)
-            .expect("Could not load font")
+            .get_or_load(&FontKey {
+                bold: false,
+                italic: false,
+                family_name: self.options.primary_font(),
+            })
+            .unwrap_or_else(|| {
+                self.font_loader
+                    .get_or_load(&FontKey::default())
+                    .expect("Could not load default font")
+            })
     }
 
     pub fn current_size(&self) -> f32 {
@@ -82,7 +78,11 @@ impl CachingShaper {
         trace!("Updating font: {}", guifont_setting);
 
         let options = FontOptions::parse(guifont_setting);
-        let font_key = FontKey::from(&options);
+        let font_key = FontKey {
+            bold: false,
+            italic: false,
+            family_name: options.primary_font(),
+        };
 
         if self.font_loader.get_or_load(&font_key).is_some() {
             trace!("Font updated to: {}", guifont_setting);
@@ -202,32 +202,20 @@ impl CachingShaper {
             font_fallback_keys.extend(self.options.font_list.iter().map(|font_name| FontKey {
                 italic: self.options.italic || italic,
                 bold: self.options.bold || bold,
-                font_selection: font_name.into(),
+                family_name: Some(font_name.clone()),
             }));
 
             // Add default font
             font_fallback_keys.push(FontKey {
                 italic: self.options.italic || italic,
                 bold: self.options.bold || bold,
-                font_selection: FontSelection::Default,
+                family_name: None,
             });
 
-            // Add skia fallback
-            font_fallback_keys.push(FontKey {
-                italic,
-                bold,
-                font_selection: cluster.chars()[0].ch.into(),
-            });
-
-            // Add last resort
-            font_fallback_keys.push(FontKey {
-                italic: false,
-                bold: false,
-                font_selection: FontSelection::LastResort,
-            });
+            // Use the cluster.map function to select a viable font from the fallback list and loaded fonts
 
             let mut best = None;
-            // Use the cluster.map function to select a viable font from the fallback list
+            // Search through the configured and default fonts for a match
             for fallback_key in font_fallback_keys.iter() {
                 if let Some(font_pair) = self.font_loader.get_or_load(fallback_key) {
                     let charmap = font_pair.swash_font.as_ref().charmap();
@@ -242,9 +230,36 @@ impl CachingShaper {
                 }
             }
 
+            // Configured font/default didn't work. Search through currently loaded ones
+            for loaded_font in self.font_loader.loaded_fonts() {
+                let charmap = loaded_font.swash_font.as_ref().charmap();
+                match cluster.map(|ch| charmap.map(ch)) {
+                    Status::Complete => {
+                        results.push((cluster.to_owned(), loaded_font.clone()));
+                        self.font_loader.refresh(loaded_font.as_ref());
+                        continue 'cluster;
+                    }
+                    Status::Keep => best = Some(loaded_font),
+                    Status::Discard => {}
+                }
+            }
+
             if let Some(best) = best {
-                // Last Resort covers all of the unicode space so we will always have a fallback
                 results.push((cluster.to_owned(), best.clone()));
+            } else {
+                let fallback_character = cluster.chars()[0].ch;
+                if let Some(fallback_font) =
+                    self.font_loader
+                        .load_font_for_character(bold, italic, fallback_character)
+                {
+                    results.push((cluster.to_owned(), fallback_font));
+                } else {
+                    // Last Resort covers all of the unicode space so we will always have a fallback
+                    results.push((
+                        cluster.to_owned(),
+                        self.font_loader.get_or_load_last_resort(),
+                    ));
+                }
             }
         }
 

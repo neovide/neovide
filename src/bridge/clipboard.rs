@@ -7,17 +7,17 @@ use clipboard::ClipboardProvider;
 
 pub fn get_remote_clipboard(format: Option<&str>) -> Result<Value, Box<dyn Error>> {
     let mut ctx: ClipboardContext = ClipboardProvider::new()?;
-    let clipboard_raw = ctx.get_contents()?.replace("\r", "");
+    let clipboard_raw = ctx.get_contents()?.replace('\r', "");
 
     let lines = if let Some("dos") = format {
         // add \r to lines of current file format is dos
-        clipboard_raw.replace("\n", "\r\n")
+        clipboard_raw.replace('\n', "\r\n")
     } else {
         // else, \r is stripped, leaving only \n
         clipboard_raw
     }
-    .split("\n")
-    .map(|line| Value::from(line))
+    .split('\n')
+    .map(Value::from)
     .collect::<Vec<Value>>();
 
     let lines = Value::from(lines);
@@ -45,7 +45,7 @@ pub fn set_remote_clipboard(arguments: Vec<Value>) -> Result<(), Box<dyn Error>>
         .map(|arr| {
             arr.iter()
                 .filter_map(|x| x.as_str().map(String::from))
-                .map(|s| s.replace("\r", "")) // strip \r
+                .map(|s| s.replace('\r', "")) // strip \r
                 .collect::<Vec<String>>()
                 .join(endline)
         })

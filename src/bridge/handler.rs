@@ -49,7 +49,7 @@ impl Handler for NeovimHandler {
                     });
 
                 get_remote_clipboard(endline_type.as_deref())
-                    .or(Err(Value::from("cannot get remote clipboard content")))
+                    .map_err(|_| Value::from("cannot get remote clipboard content"))
             }
             _ => Ok(Value::from("rpcrequest not handled")),
         }
