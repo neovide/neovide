@@ -1,8 +1,16 @@
 use std::sync::Arc;
 
-use log::trace;
+use log::{trace, warn};
 use lru::LruCache;
-use skia_safe::{TextBlob, TextBlobBuilder};
+use skia_safe::{
+    graphics::{
+        font_cache_used,
+        font_cache_limit,
+        set_font_cache_limit,
+    },
+    TextBlob, 
+    TextBlobBuilder,
+};
 use swash::{
     shape::ShapeContext,
     text::{
@@ -267,6 +275,18 @@ impl CachingShaper {
         grouped_results
     }
 
+    pub fn adjust_font_cache_size(&self) {
+        let current_font_cache_size = font_cache_limit() as f32;
+        let percent_font_cache_used = font_cache_used() as f32 / current_font_cache_size;
+        if percent_font_cache_used > 0.9 {
+            warn!(
+                "Font cache is {}% full, increasing cache size",
+                percent_font_cache_used * 100.0
+            );
+            set_font_cache_limit((percent_font_cache_used * 1.5) as usize);
+        }
+    }
+
     pub fn shape(&mut self, text: String, bold: bool, italic: bool) -> Vec<TextBlob> {
         let current_size = self.current_size();
         let (glyph_width, ..) = self.font_base_dimensions();
@@ -312,6 +332,8 @@ impl CachingShaper {
             let blob = blob_builder.make();
             resulting_blobs.push(blob.expect("Could not create textblob"));
         }
+
+        self.adjust_font_cache_size();
 
         resulting_blobs
     }
