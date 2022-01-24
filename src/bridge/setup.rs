@@ -42,7 +42,7 @@ pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<TxWrapper>, neovide_ch
           'cache_enabled': 0
         }
         "#
-    .replace("\n", "") // make one-liner, because multiline is not accepted (?)
+    .replace('\n', "") // make one-liner, because multiline is not accepted (?)
     .replace("neovide_channel", &neovide_channel.to_string());
     nvim.command(&custom_clipboard).await.ok();
 }
