@@ -23,7 +23,7 @@ pub fn create_nvim_command() -> TokioCommand {
     #[cfg(windows)]
     set_windows_creation_flags(&mut cmd);
 
-    cmd
+    dbg!(cmd)
 }
 
 #[cfg(target_os = "windows")]
@@ -83,7 +83,8 @@ fn platform_which(bin: &str) -> Option<String> {
     if let Some(mut which_command) = create_platform_shell_command(format!("which {}", bin)) {
         if let Ok(output) = which_command.output() {
             if output.status.success() {
-                return Some(String::from_utf8(output.stdout).unwrap());
+                let nvim_path = String::from_utf8(output.stdout).unwrap();
+                return Some(nvim_path.trim().to_owned());
             } else {
                 return None;
             }
@@ -101,20 +102,20 @@ fn platform_which(bin: &str) -> Option<String> {
 fn build_nvim_cmd_with_args(bin: &str) -> TokioCommand {
     let mut args = vec!["--embed".to_string()];
     args.extend(SETTINGS.get::<CmdLineSettings>().neovim_args);
+    let args_str = args.join(" ");
 
-    let mut cmd = if cfg!(target_os = "windows") && SETTINGS.get::<CmdLineSettings>().wsl {
+    if cfg!(target_os = "windows") && SETTINGS.get::<CmdLineSettings>().wsl {
         let mut cmd = TokioCommand::new("wsl");
-        cmd.args(&["$SHELL", "-lc", bin.trim()]);
+        cmd.args(&["$SHELL", "-lc", &format!("{} {}", bin, args_str)]);
         cmd
     } else if cfg!(target_os = "macos") {
         let shell = env::var("SHELL").unwrap();
         let mut cmd = TokioCommand::new(shell);
-        cmd.args(&["-lc", bin.trim()]);
+        cmd.args(&["-lc", &format!("{} {}", bin, args_str)]);
         cmd
     } else {
-        TokioCommand::new(bin)
-    };
-
-    cmd.args(args);
-    cmd
+        let mut cmd = TokioCommand::new(bin);
+        cmd.arg(args_str);
+        cmd
+    }
 }
