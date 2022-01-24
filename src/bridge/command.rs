@@ -1,4 +1,5 @@
 use std::{
+    env,
     path::Path,
     process::{Command as StdCommand, Stdio},
 };
@@ -25,7 +26,7 @@ pub fn create_nvim_command() -> TokioCommand {
     cmd
 }
 
-#[cfg(windows)]
+#[cfg(target_os = "windows")]
 fn set_windows_creation_flags(cmd: &mut TokioCommand) {
     cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
 }
@@ -46,47 +47,41 @@ fn build_nvim_cmd() -> TokioCommand {
     }
 }
 
-fn platform_exists(bin: &str) -> bool {
-    #[cfg(windows)]
-    if SETTINGS.get::<CmdLineSettings>().wsl {
-        if let Ok(output) = StdCommand::new("wsl")
-            .args(&["$SHELL", "-lic"])
-            .arg(format!("exists -x {}", bin))
-            .output()
-        {
-            return output.status.success();
-        } else {
-            error!("wsl exists failed");
-            std::process::exit(1);
-        }
-    }
+// Creates a shell command if needed on this platform (wsl or macos)
+fn create_platform_shell_command(command: String) -> Option<StdCommand> {
+    if cfg!(target_os = "windows") && SETTINGS.get::<CmdLineSettings>().wsl {
+        let mut result = StdCommand::new("wsl");
+        result.args(&["$SHELL", "-lic"]);
+        result.arg(command);
 
-    #[cfg(target_os = "macos")]
-    {
+        Some(result)
+    } else if cfg!(target_os = "macos") {
         let shell = env::var("SHELL").unwrap();
-        if let Ok(output) = StdCommand::new(shell)
-            .args(&["-lic"])
-            .arg(format!("exists -x {}", bin))
-            .output()
-        {
-            return output.status.success();
+        let mut result = StdCommand::new(shell);
+        result.args(&["-lic"]);
+        result.arg(command);
+        Some(result)
+    } else {
+        None
+    }
+}
+
+fn platform_exists(bin: &str) -> bool {
+    if let Some(mut exists_command) = create_platform_shell_command(format!("exists -x {}", bin)) {
+        if let Ok(output) = exists_command.output() {
+            output.status.success()
         } else {
-            error!("macos exists failed");
+            error!("Exists failed");
             std::process::exit(1);
         }
+    } else {
+        Path::new(&bin).exists()
     }
-
-    Path::new(&bin).exists()
 }
 
 fn platform_which(bin: &str) -> Option<String> {
-    #[cfg(windows)]
-    if SETTINGS.get::<CmdLineSettings>().wsl {
-        if let Ok(output) = StdCommand::new("wsl")
-            .args(&["$SHELL", "-lic"])
-            .arg(format!("which {}", bin))
-            .output()
-        {
+    if let Some(mut which_command) = create_platform_shell_command(format!("which {}", bin)) {
+        if let Ok(output) = which_command.output() {
             if output.status.success() {
                 return Some(String::from_utf8(output.stdout).unwrap());
             } else {
@@ -95,22 +90,7 @@ fn platform_which(bin: &str) -> Option<String> {
         }
     }
 
-    #[cfg(target_os = "macos")]
-    {
-        let shell = env::var("SHELL").unwrap();
-        if let Ok(output) = StdCommand::new(shell)
-            .args(&["-lic"])
-            .arg(format!("which {}", bin))
-            .output()
-        {
-            if output.status.success() {
-                return Some(String::from_utf8(output.stdout).unwrap());
-            } else {
-                return None;
-            }
-        }
-    }
-
+    // Platform command failed, fallback to which crate
     if let Ok(path) = which::which(bin) {
         path.into_os_string().into_string().ok()
     } else {
@@ -122,24 +102,19 @@ fn build_nvim_cmd_with_args(bin: &str) -> TokioCommand {
     let mut args = vec!["--embed".to_string()];
     args.extend(SETTINGS.get::<CmdLineSettings>().neovim_args);
 
-    #[cfg(windows)]
-    if SETTINGS.get::<CmdLineSettings>().wsl {
+    let mut cmd = if cfg!(target_os = "windows") && SETTINGS.get::<CmdLineSettings>().wsl {
         let mut cmd = TokioCommand::new("wsl");
         cmd.args(&["$SHELL", "-lc", bin.trim()]);
-        cmd.args(args);
-        return cmd;
-    }
-
-    #[cfg(target_os = "macos")]
-    {
+        cmd
+    } else if cfg!(target_os = "macos") {
         let shell = env::var("SHELL").unwrap();
         let mut cmd = TokioCommand::new(shell);
         cmd.args(&["-lc", bin.trim()]);
-        cmd.args(args);
-        return cmd;
-    }
+        cmd
+    } else {
+        TokioCommand::new(bin)
+    };
 
-    let mut cmd = TokioCommand::new(bin);
     cmd.args(args);
     cmd
 }

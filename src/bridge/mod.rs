@@ -53,7 +53,7 @@ async fn start_neovim_runtime() {
     .unwrap_or_explained_panic("Could not locate or start neovim process");
 
     // Check the neovim version to ensure its high enough
-    match nvim.command_output("echo has('nvim-0.4')").await.as_deref() {
+    match dbg!(nvim.command_output("echo has('nvim-0.4')").await.as_deref()) {
         Ok("1") => {} // This is just a guard
         _ => {
             error!("Neovide requires nvim version 0.4 or higher. Download the latest version here https://github.com/neovim/neovim/wiki/Installing-Neovim");
