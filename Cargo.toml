@@ -39,8 +39,8 @@ dirs = "2"
 rand = "0.7"
 pin-project = "0.4.27"
 futures = "0.3.12"
-glutin = { path = "/home/serg/src/glutin/glutin", features=["serde"] }
-winit = { path = "/home/serg/src/winit/" }
+glutin = { git = "https://github.com/neovide/glutin", branch = "fix-stuck-shift", features=["serde"] }
+winit = { git = "https://github.com/neovide/winit", branch = "fix-stuck-shift" }
 gl = "0.14.0"
 swash = "0.1.4"
 clap="2.33.3"

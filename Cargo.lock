@@ -901,6 +901,7 @@ checksum = "9b919933a397b79c37e33b77bb2aa3dc8eb6e165ad809e58ff75bc7db2e34574"
 [[package]]
 name = "glutin"
 version = "0.26.0"
+source = "git+https://github.com/neovide/glutin?branch=fix-stuck-shift#66207be03c506721ff2c77b691ff0de3aa4d3d2c"
 dependencies = [
  "android_glue",
  "cgl",
@@ -926,6 +927,7 @@ dependencies = [
 [[package]]
 name = "glutin_egl_sys"
 version = "0.1.5"
+source = "git+https://github.com/neovide/glutin?branch=fix-stuck-shift#66207be03c506721ff2c77b691ff0de3aa4d3d2c"
 dependencies = [
  "gl_generator",
  "winapi",
@@ -934,10 +936,12 @@ dependencies = [
 [[package]]
 name = "glutin_emscripten_sys"
 version = "0.1.1"
+source = "git+https://github.com/neovide/glutin?branch=fix-stuck-shift#66207be03c506721ff2c77b691ff0de3aa4d3d2c"
 
 [[package]]
 name = "glutin_gles2_sys"
 version = "0.1.5"
+source = "git+https://github.com/neovide/glutin?branch=fix-stuck-shift#66207be03c506721ff2c77b691ff0de3aa4d3d2c"
 dependencies = [
  "gl_generator",
  "objc",
@@ -946,6 +950,7 @@ dependencies = [
 [[package]]
 name = "glutin_glx_sys"
 version = "0.1.7"
+source = "git+https://github.com/neovide/glutin?branch=fix-stuck-shift#66207be03c506721ff2c77b691ff0de3aa4d3d2c"
 dependencies = [
  "gl_generator",
  "x11-dl",
@@ -954,6 +959,7 @@ dependencies = [
 [[package]]
 name = "glutin_wgl_sys"
 version = "0.1.5"
+source = "git+https://github.com/neovide/glutin?branch=fix-stuck-shift#66207be03c506721ff2c77b691ff0de3aa4d3d2c"
 dependencies = [
  "gl_generator",
 ]
@@ -2598,6 +2604,7 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 [[package]]
 name = "winit"
 version = "0.24.0"
+source = "git+https://github.com/neovide/winit?branch=fix-stuck-shift#0899a3db69c14cecb9507829a9e612a015940cbf"
 dependencies = [
  "bitflags",
  "cocoa",
