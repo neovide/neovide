@@ -113,9 +113,6 @@ fn main() {
     //   Multiple other parts of the app "queue_next_frame" function to ensure animations continue
     //   properly or updates to the graphics are pushed to the screen.
 
-    // #[cfg(target_os = "windows")]
-    // windows_attach_to_console();
-
     //Will exit if -h or -v
     if let Err(err) = cmd_line::handle_command_line_arguments(args().collect()) {
         eprintln!("{}", err);
