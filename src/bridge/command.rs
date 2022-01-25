@@ -115,7 +115,7 @@ fn build_nvim_cmd_with_args(bin: &str) -> TokioCommand {
         cmd
     } else {
         let mut cmd = TokioCommand::new(bin);
-        cmd.arg(args_str);
+        cmd.args(args);
         cmd
     }
 }
