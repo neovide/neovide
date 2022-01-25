@@ -203,7 +203,6 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
     Ok(())
 }
 
-
 #[cfg(target_os = "windows")]
 fn windows_attach_to_console() {
     // Attach to parent console tip found here: https://github.com/rust-lang/rust/issues/67159#issuecomment-987882771
