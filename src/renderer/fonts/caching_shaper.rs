@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use log::{trace, warn};
+use log::{debug, trace, warn};
 use lru::LruCache;
 use skia_safe::{
     graphics::{font_cache_limit, font_cache_used, set_font_cache_limit},
@@ -69,13 +69,13 @@ impl CachingShaper {
     }
 
     pub fn update_scale_factor(&mut self, scale_factor: f32) {
-        trace!("scale_factor changed: {:.2}", scale_factor);
+        debug!("scale_factor changed: {:.2}", scale_factor);
         self.scale_factor = scale_factor;
         self.reset_font_loader();
     }
 
     pub fn update_font(&mut self, guifont_setting: &str) {
-        trace!("Updating font: {}", guifont_setting);
+        debug!("Updating font: {}", guifont_setting);
 
         let options = FontOptions::parse(guifont_setting);
         let font_key = FontKey {
@@ -85,11 +85,11 @@ impl CachingShaper {
         };
 
         if self.font_loader.get_or_load(&font_key).is_some() {
-            trace!("Font updated to: {}", guifont_setting);
+            debug!("Font updated to: {}", guifont_setting);
             self.options = options;
             self.reset_font_loader();
         } else {
-            trace!("Font can't be updated to: {}", guifont_setting);
+            debug!("Font can't be updated to: {}", guifont_setting);
         }
     }
 
@@ -99,19 +99,18 @@ impl CachingShaper {
         // needs a size and we don't know the exact one until it's calculated.
         self.fudge_factor = 1.0;
         let mut font_size = self.current_size();
-        trace!("Using font_size: {:.2}px", font_size);
+        debug!("Original font_size: {:.2}px", font_size);
         self.font_loader = FontLoader::new(font_size);
         let (metrics, font_width) = self.info();
-        trace!(
-            "Font width: {:.2}px {:.2}px",
-            font_width,
-            metrics.average_width
+        debug!(
+            "Font width: {:.2}px (avg: {:.2}px)",
+            font_width, metrics.average_width
         );
         self.fudge_factor = font_width.round() / font_width;
-        trace!("Fudge factor: {:.2}", self.fudge_factor);
+        debug!("Fudge factor: {:.2}", self.fudge_factor);
         font_size = self.current_size();
-        trace!("Fudged font size: {:.2}px", font_size);
-        trace!("Fudged font width: {:.2}px", self.info().1);
+        debug!("Fudged font size: {:.2}px", font_size);
+        debug!("Fudged font width: {:.2}px", self.info().1);
 
         self.font_loader = FontLoader::new(font_size);
         self.blob_cache.clear();
