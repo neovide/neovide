@@ -23,7 +23,7 @@ pub fn create_nvim_command() -> TokioCommand {
     #[cfg(windows)]
     set_windows_creation_flags(&mut cmd);
 
-    dbg!(cmd)
+    cmd
 }
 
 #[cfg(target_os = "windows")]
