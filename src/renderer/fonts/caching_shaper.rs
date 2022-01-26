@@ -94,25 +94,28 @@ impl CachingShaper {
     }
 
     fn reset_font_loader(&mut self) {
-        // Calculate the new fudge factor required to scale the font width to the nearest exact pixel
-        // NOTE: This temporarily loads the font without any fudge factor, since the interface
-        // needs a size and we don't know the exact one until it's calculated.
         self.fudge_factor = 1.0;
         let mut font_size = self.current_size();
         debug!("Original font_size: {:.2}px", font_size);
-        self.font_loader = FontLoader::new(font_size);
-        let (metrics, font_width) = self.info();
-        debug!(
-            "Font width: {:.2}px (avg: {:.2}px)",
-            font_width, metrics.average_width
-        );
-        self.fudge_factor = font_width.round() / font_width;
-        debug!("Fudge factor: {:.2}", self.fudge_factor);
-        font_size = self.current_size();
-        debug!("Fudged font size: {:.2}px", font_size);
-        debug!("Fudged font width: {:.2}px", self.info().1);
 
         self.font_loader = FontLoader::new(font_size);
+        let (metrics, font_width) = self.info();
+
+        debug!("Original font_width: {:.2}px", font_width);
+
+        if !self.options.allow_float_size {
+            // Calculate the new fudge factor required to scale the font width to the nearest exact pixel
+            debug!(
+                "Font width: {:.2}px (avg: {:.2}px)",
+                font_width, metrics.average_width
+            );
+            self.fudge_factor = font_width.round() / font_width;
+            debug!("Fudge factor: {:.2}", self.fudge_factor);
+            font_size = self.current_size();
+            debug!("Fudged font size: {:.2}px", font_size);
+            debug!("Fudged font width: {:.2}px", self.info().1);
+            self.font_loader = FontLoader::new(font_size);
+        }
         self.blob_cache.clear();
     }
 
