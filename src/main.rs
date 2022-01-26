@@ -191,4 +191,3 @@ fn maybe_disown() {
         eprintln!("error in disowning process, cannot obtain the path for the current executable, continuing without disowning...");
     }
 }
-

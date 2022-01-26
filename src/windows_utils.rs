@@ -6,7 +6,7 @@ use std::{
 use winapi::{
     shared::{
         minwindef::{DWORD, HKEY, MAX_PATH},
-        windef::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+        windef::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
     },
     um::{
         libloaderapi::GetModuleFileNameA,
