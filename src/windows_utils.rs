@@ -1,21 +1,22 @@
-#[cfg(target_os = "windows")]
 use std::{
     ffi::CString,
     ptr::{null, null_mut},
 };
 
-#[cfg(windows)]
 use winapi::{
-    shared::minwindef::{DWORD, HKEY, MAX_PATH},
+    shared::{
+        minwindef::{DWORD, HKEY, MAX_PATH},
+        windef::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+    },
     um::{
         libloaderapi::GetModuleFileNameA,
-        wincon::{AttachConsole, ATTACH_PARENT_PROCESS},
+        wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS},
         winnt::{KEY_WRITE, REG_OPTION_NON_VOLATILE, REG_SZ},
         winreg::{RegCloseKey, RegCreateKeyExA, RegDeleteTreeA, RegSetValueExA, HKEY_CURRENT_USER},
+        winuser::SetProcessDpiAwarenessContext,
     },
 };
 
-#[cfg(target_os = "windows")]
 fn get_binary_path() -> String {
     let mut buffer = vec![0u8; MAX_PATH];
     unsafe {
@@ -32,7 +33,6 @@ fn get_binary_path() -> String {
     }
 }
 
-#[cfg(target_os = "windows")]
 pub fn unregister_rightclick() -> bool {
     let str_registry_path_1 =
         CString::new("Software\\Classes\\Directory\\Background\\shell\\Neovide").unwrap();
@@ -44,7 +44,6 @@ pub fn unregister_rightclick() -> bool {
     }
 }
 
-#[cfg(target_os = "windows")]
 pub fn register_rightclick_directory() -> bool {
     let neovide_path = get_binary_path();
     let mut registry_key: HKEY = null_mut();
@@ -133,7 +132,6 @@ pub fn register_rightclick_directory() -> bool {
     true
 }
 
-#[cfg(target_os = "windows")]
 pub fn register_rightclick_file() -> bool {
     let neovide_path = get_binary_path();
     let mut registry_key: HKEY = null_mut();
@@ -221,9 +219,21 @@ pub fn register_rightclick_file() -> bool {
     true
 }
 
-pub fn attach_parent_console() {
-    #[cfg(target_os = "windows")]
+pub fn windows_fix_dpi() {
+    unsafe {
+        SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    }
+}
+
+pub fn windows_attach_to_console() {
+    // Attach to parent console tip found here: https://github.com/rust-lang/rust/issues/67159#issuecomment-987882771
     unsafe {
         AttachConsole(ATTACH_PARENT_PROCESS);
+    }
+}
+
+pub fn windows_detach_from_console() {
+    unsafe {
+        FreeConsole();
     }
 }

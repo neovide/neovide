@@ -143,7 +143,6 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
                 .help("Specify an X11 WM class"),
         );
 
-    windows_attach_to_console();
     let matches = clapp.get_matches_from(args);
     let mut neovim_args: Vec<String> = matches
         .values_of("neovim_args")
@@ -155,7 +154,6 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
             .map(|opt| opt.map(|v| v.to_owned()).collect())
             .unwrap_or_default(),
     );
-    windows_detach_from_console();
 
     /*
      * Integrate Environment Variables as Defaults to the command-line ones.
@@ -201,23 +199,6 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
             .unwrap_or_else(|| "neovide".to_owned()),
     });
     Ok(())
-}
-
-#[cfg(target_os = "windows")]
-fn windows_attach_to_console() {
-    // Attach to parent console tip found here: https://github.com/rust-lang/rust/issues/67159#issuecomment-987882771
-    use winapi::um::wincon::{AttachConsole, ATTACH_PARENT_PROCESS};
-    unsafe {
-        AttachConsole(ATTACH_PARENT_PROCESS);
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn windows_detach_from_console() {
-    use winapi::um::wincon::FreeConsole;
-    unsafe {
-        FreeConsole();
-    }
 }
 
 #[cfg(test)]

@@ -22,6 +22,8 @@ mod renderer;
 mod running_tracker;
 mod settings;
 mod window;
+
+#[cfg(target_os = "windows")]
 mod windows_utils;
 
 #[macro_use]
@@ -45,6 +47,7 @@ use window::{create_window, KeyboardSettings, WindowSettings};
 pub use channel_utils::*;
 pub use event_aggregator::*;
 pub use running_tracker::*;
+#[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
 fn main() {
@@ -113,6 +116,9 @@ fn main() {
     //   Multiple other parts of the app "queue_next_frame" function to ensure animations continue
     //   properly or updates to the graphics are pushed to the screen.
 
+    #[cfg(target_os = "windows")]
+    windows_attach_to_console();
+
     //Will exit if -h or -v
     if let Err(err) = cmd_line::handle_command_line_arguments(args().collect()) {
         eprintln!("{}", err);
@@ -168,6 +174,9 @@ fn maybe_disown() {
         return;
     }
 
+    #[cfg(target_os = "windows")]
+    windows_detach_from_console();
+
     if let Ok(current_exe) = env::current_exe() {
         assert!(process::Command::new(current_exe)
             .stdin(process::Stdio::null())
@@ -183,11 +192,3 @@ fn maybe_disown() {
     }
 }
 
-#[cfg(target_os = "windows")]
-fn windows_fix_dpi() {
-    use winapi::shared::windef::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2;
-    use winapi::um::winuser::SetProcessDpiAwarenessContext;
-    unsafe {
-        SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-    }
-}
