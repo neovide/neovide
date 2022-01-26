@@ -13,6 +13,7 @@ use crate::{
     editor::Style,
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
+    settings::*,
 };
 
 #[derive(Clone, Debug)]
@@ -194,7 +195,7 @@ impl RenderedWindow {
     pub fn update(&mut self, settings: &RendererSettings, dt: f32) -> bool {
         let mut animating = false;
 
-        {
+        if settings.window_animation {
             if 1.0 - self.position_t < std::f32::EPSILON {
                 // We are at destination, move t out of 0-1 range to stop the animation
                 self.position_t = 2.0;
@@ -210,9 +211,11 @@ impl RenderedWindow {
                 self.grid_destination,
                 self.position_t,
             );
+        } else {
+            self.grid_current_position = self.grid_destination;
         }
 
-        {
+        if settings.smooth_scrolling {
             if 1.0 - self.scroll_t < std::f32::EPSILON {
                 // We are at destination, move t out of 0-1 range to stop the animation
                 self.scroll_t = 2.0;
@@ -228,6 +231,8 @@ impl RenderedWindow {
                 self.scroll_destination,
                 self.scroll_t,
             );
+        } else {
+            self.current_scroll = self.scroll_destination;
         }
 
         animating
@@ -284,20 +289,24 @@ impl RenderedWindow {
         let font_height = font_dimensions.height;
 
         // Draw scrolling snapshots
-        for snapshot in self.snapshots.iter_mut().rev() {
-            let scroll_offset = (snapshot.top_line * font_height) as f32
-                - (self.current_scroll * font_height as f32);
-            let image = &mut snapshot.image;
-            root_canvas.draw_image_rect(
-                image,
-                None,
-                pixel_region.with_offset((0.0, scroll_offset as f32)),
-                &paint,
-            );
+        if settings.smooth_scrolling {
+            for snapshot in self.snapshots.iter_mut().rev() {
+                let scroll_offset = (snapshot.top_line * font_height) as f32
+                    - (self.current_scroll * font_height as f32);
+                let image = &mut snapshot.image;
+                root_canvas.draw_image_rect(
+                    image,
+                    None,
+                    pixel_region.with_offset((0.0, scroll_offset as f32)),
+                    &paint,
+                );
+            }
         }
+
         // Draw current surface
         let scroll_offset = (self.current_surface.top_line * font_height) as f32
             - (self.current_scroll * font_height as f32);
+
         let snapshot = self.current_surface.surface.image_snapshot();
         root_canvas.draw_image_rect(
             snapshot,
@@ -471,20 +480,22 @@ impl RenderedWindow {
             }
             WindowDrawCommand::Hide => self.hidden = true,
             WindowDrawCommand::Viewport { top_line, .. } => {
-                if self.current_surface.top_line != top_line as u64 {
-                    let new_snapshot = self.current_surface.snapshot();
-                    self.snapshots.push_back(new_snapshot);
+                if SETTINGS.get::<RendererSettings>().smooth_scrolling {
+                    if self.current_surface.top_line != top_line as u64 {
+                        let new_snapshot = self.current_surface.snapshot();
+                        self.snapshots.push_back(new_snapshot);
 
-                    if self.snapshots.len() > 5 {
-                        self.snapshots.pop_front();
+                        if self.snapshots.len() > 5 {
+                            self.snapshots.pop_front();
+                        }
+
+                        self.current_surface.top_line = top_line as u64;
+
+                        // Set new target viewport position and initialize animation timer
+                        self.start_scroll = self.current_scroll;
+                        self.scroll_destination = top_line as f32;
+                        self.scroll_t = 0.0;
                     }
-
-                    self.current_surface.top_line = top_line as u64;
-
-                    // Set new target viewport position and initialize animation timer
-                    self.start_scroll = self.current_scroll;
-                    self.scroll_destination = top_line as f32;
-                    self.scroll_t = 0.0;
                 }
             }
             _ => {}

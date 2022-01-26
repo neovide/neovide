@@ -30,7 +30,9 @@ pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, Windo
 #[derive(SettingGroup, Clone)]
 pub struct RendererSettings {
     position_animation_length: f32,
+    window_animation: bool,
     scroll_animation_length: f32,
+    smooth_scrolling: bool,
     floating_opacity: f32,
     floating_blur: bool,
     debug_renderer: bool,
@@ -40,7 +42,9 @@ impl Default for RendererSettings {
     fn default() -> Self {
         Self {
             position_animation_length: 0.15,
+            window_animation: true,
             scroll_animation_length: 0.3,
+            smooth_scrolling: true,
             floating_opacity: 0.7,
             floating_blur: true,
             debug_renderer: false,
