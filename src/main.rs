@@ -22,6 +22,8 @@ mod renderer;
 mod running_tracker;
 mod settings;
 mod window;
+
+#[cfg(target_os = "windows")]
 mod windows_utils;
 
 #[macro_use]
@@ -45,6 +47,7 @@ use window::{create_window, KeyboardSettings, WindowSettings};
 pub use channel_utils::*;
 pub use event_aggregator::*;
 pub use running_tracker::*;
+#[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
 fn main() {
@@ -171,6 +174,9 @@ fn maybe_disown() {
         return;
     }
 
+    #[cfg(target_os = "windows")]
+    windows_detach_from_console();
+
     if let Ok(current_exe) = env::current_exe() {
         assert!(process::Command::new(current_exe)
             .stdin(process::Stdio::null())
@@ -183,23 +189,5 @@ fn maybe_disown() {
         process::exit(0);
     } else {
         eprintln!("error in disowning process, cannot obtain the path for the current executable, continuing without disowning...");
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn windows_fix_dpi() {
-    use winapi::shared::windef::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2;
-    use winapi::um::winuser::SetProcessDpiAwarenessContext;
-    unsafe {
-        SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn windows_attach_to_console() {
-    // Attach to parent console tip found here: https://github.com/rust-lang/rust/issues/67159#issuecomment-987882771
-    use winapi::um::wincon::{AttachConsole, ATTACH_PARENT_PROCESS};
-    unsafe {
-        AttachConsole(ATTACH_PARENT_PROCESS);
     }
 }
