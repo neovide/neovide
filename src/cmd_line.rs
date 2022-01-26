@@ -38,7 +38,7 @@ impl Default for CmdLineSettings {
             // Command-line flags with environment variable fallback
             frame: Frame::Full,
             maximized: false,
-            multi_grid: false,
+            multi_grid: true,
             no_idle: false,
             srgb: true,
             // Command-line arguments with environment variable fallback
@@ -109,9 +109,9 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
                 .help("Maximize the window"),
         )
         .arg(
-            Arg::with_name("multi_grid")
-                .long("multigrid")
-                .help("Enable Multigrid"),
+            Arg::with_name("no_multi_grid")
+                .long("nomultigrid")
+                .help("Disable Multigrid"),
         )
         .arg(
             Arg::with_name("noidle")
@@ -178,7 +178,7 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
             },
         },
         maximized: matches.is_present("maximized") || std::env::var("NEOVIDE_MAXIMIZED").is_ok(),
-        multi_grid: matches.is_present("multi_grid") || std::env::var("NEOVIDE_MULTIGRID").is_ok(),
+        multi_grid: matches.is_present("no_multi_grid") || std::env::var("NEOVIDE_NO_MULTIGRID").is_ok(),
         no_idle: matches.is_present("noidle") || std::env::var("NEOVIDE_NO_IDLE").is_ok(),
         // Srgb is enabled by default, so set it to false if nosrgb or NOEVIDE_NO_SRGB is set
         srgb: !(matches.is_present("nosrgb") || std::env::var("NEOVIDE_NO_SRGB").is_ok()),
