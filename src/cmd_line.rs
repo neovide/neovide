@@ -179,7 +179,8 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
         },
         maximized: matches.is_present("maximized") || std::env::var("NEOVIDE_MAXIMIZED").is_ok(),
         // Multigrid should be enabled by default so set it to false if NEOVIDE_NO_MULTI_GRID is set
-        multi_grid: !(matches.is_present("no_multi_grid") || std::env::var("NEOVIDE_NO_MULTIGRID").is_ok()),
+        multi_grid: !(matches.is_present("no_multi_grid")
+            || std::env::var("NEOVIDE_NO_MULTIGRID").is_ok()),
         no_idle: matches.is_present("noidle") || std::env::var("NEOVIDE_NO_IDLE").is_ok(),
         // Srgb is enabled by default, so set it to false if nosrgb or NOEVIDE_NO_SRGB is set
         srgb: !(matches.is_present("nosrgb") || std::env::var("NEOVIDE_NO_SRGB").is_ok()),

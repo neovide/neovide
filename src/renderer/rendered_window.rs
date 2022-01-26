@@ -480,22 +480,22 @@ impl RenderedWindow {
             }
             WindowDrawCommand::Hide => self.hidden = true,
             WindowDrawCommand::Viewport { top_line, .. } => {
-                if SETTINGS.get::<RendererSettings>().smooth_scrolling {
-                    if self.current_surface.top_line != top_line as u64 {
-                        let new_snapshot = self.current_surface.snapshot();
-                        self.snapshots.push_back(new_snapshot);
+                if SETTINGS.get::<RendererSettings>().smooth_scrolling
+                    && self.current_surface.top_line != top_line as u64
+                {
+                    let new_snapshot = self.current_surface.snapshot();
+                    self.snapshots.push_back(new_snapshot);
 
-                        if self.snapshots.len() > 5 {
-                            self.snapshots.pop_front();
-                        }
-
-                        self.current_surface.top_line = top_line as u64;
-
-                        // Set new target viewport position and initialize animation timer
-                        self.start_scroll = self.current_scroll;
-                        self.scroll_destination = top_line as f32;
-                        self.scroll_t = 0.0;
+                    if self.snapshots.len() > 5 {
+                        self.snapshots.pop_front();
                     }
+
+                    self.current_surface.top_line = top_line as u64;
+
+                    // Set new target viewport position and initialize animation timer
+                    self.start_scroll = self.current_scroll;
+                    self.scroll_destination = top_line as f32;
+                    self.scroll_t = 0.0;
                 }
             }
             _ => {}
