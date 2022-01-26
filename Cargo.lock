@@ -2604,7 +2604,7 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 [[package]]
 name = "winit"
 version = "0.24.0"
-source = "git+https://github.com/neovide/winit?branch=fix-stuck-shift#0899a3db69c14cecb9507829a9e612a015940cbf"
+source = "git+https://github.com/neovide/winit?branch=fix-stuck-shift#d8715b1d14ce052a6f6b7f46508a4bfdf7fe601f"
 dependencies = [
  "bitflags",
  "cocoa",
