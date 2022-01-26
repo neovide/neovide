@@ -81,8 +81,8 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
                 .help("Log to a file"),
         )
         .arg(
-            Arg::with_name("nofork")
-                .long("nofork")
+            Arg::with_name("no_fork")
+                .long("no-fork")
                 .help("Do not detach process from terminal"),
         )
         .arg(
@@ -114,13 +114,13 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
                 .help("Disable Multigrid"),
         )
         .arg(
-            Arg::with_name("noidle")
-                .long("noidle")
+            Arg::with_name("no_idle")
+                .long("no-idle")
                 .help("Render every frame. Takes more power and cpu time but possibly fixes animation issues"),
         )
         .arg(
-            Arg::with_name("nosrgb")
-                .long("nosrgb")
+            Arg::with_name("no_srgb")
+                .long("no-srgb")
                 .help("Do not use standard color space to initialize the window. Swapping this variable sometimes fixes issues on startup"),
         )
         // Command-line arguments with environment variable fallback
@@ -166,7 +166,7 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
         // Command-line arguments only
         geometry: parse_window_geometry(matches.value_of("geometry").map(|i| i.to_owned()))?,
         log_to_file: matches.is_present("log_to_file"),
-        no_fork: matches.is_present("nofork"),
+        no_fork: matches.is_present("no_fork"),
         remote_tcp: matches.value_of("remote_tcp").map(|i| i.to_owned()),
         wsl: matches.is_present("wsl"),
         // Command-line flags with environment variable fallback
@@ -181,9 +181,9 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
         // Multigrid should be enabled by default so set it to false if NEOVIDE_NO_MULTI_GRID is set
         multi_grid: !(matches.is_present("no_multi_grid")
             || std::env::var("NEOVIDE_NO_MULTIGRID").is_ok()),
-        no_idle: matches.is_present("noidle") || std::env::var("NEOVIDE_NO_IDLE").is_ok(),
+        no_idle: matches.is_present("no_idle") || std::env::var("NEOVIDE_NO_IDLE").is_ok(),
         // Srgb is enabled by default, so set it to false if nosrgb or NOEVIDE_NO_SRGB is set
-        srgb: !(matches.is_present("nosrgb") || std::env::var("NEOVIDE_NO_SRGB").is_ok()),
+        srgb: !(matches.is_present("no_srgb") || std::env::var("NEOVIDE_NO_SRGB").is_ok()),
         // Command-line arguments with environment variable fallback
         neovim_bin: matches
             .value_of("neovim_bin")
