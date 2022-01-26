@@ -110,7 +110,7 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
         )
         .arg(
             Arg::with_name("no_multi_grid")
-                .long("nomultigrid")
+                .long("no-multigrid")
                 .help("Disable Multigrid"),
         )
         .arg(
