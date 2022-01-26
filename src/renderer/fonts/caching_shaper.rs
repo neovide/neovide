@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
-use log::trace;
+use log::{debug, trace, warn};
 use lru::LruCache;
-use skia_safe::{TextBlob, TextBlobBuilder};
+use skia_safe::{
+    graphics::{font_cache_limit, font_cache_used, set_font_cache_limit},
+    TextBlob, TextBlobBuilder,
+};
 use swash::{
     shape::ShapeContext,
     text::{
@@ -48,16 +51,17 @@ impl CachingShaper {
     }
 
     fn current_font_pair(&mut self) -> Arc<FontPair> {
-        let default_key = FontKey::default();
-        let font_key = FontKey::from(&self.options);
-
-        if let Some(font_pair) = self.font_loader.get_or_load(&font_key) {
-            return font_pair;
-        }
-
         self.font_loader
-            .get_or_load(&default_key)
-            .expect("Could not load font")
+            .get_or_load(&FontKey {
+                bold: false,
+                italic: false,
+                family_name: self.options.primary_font(),
+            })
+            .unwrap_or_else(|| {
+                self.font_loader
+                    .get_or_load(&FontKey::default())
+                    .expect("Could not load default font")
+            })
     }
 
     pub fn current_size(&self) -> f32 {
@@ -65,47 +69,53 @@ impl CachingShaper {
     }
 
     pub fn update_scale_factor(&mut self, scale_factor: f32) {
-        trace!("scale_factor changed: {:.2}", scale_factor);
+        debug!("scale_factor changed: {:.2}", scale_factor);
         self.scale_factor = scale_factor;
         self.reset_font_loader();
     }
 
     pub fn update_font(&mut self, guifont_setting: &str) {
-        trace!("Updating font: {}", guifont_setting);
+        debug!("Updating font: {}", guifont_setting);
 
         let options = FontOptions::parse(guifont_setting);
-        let font_key = FontKey::from(&options);
+        let font_key = FontKey {
+            bold: false,
+            italic: false,
+            family_name: options.primary_font(),
+        };
 
         if self.font_loader.get_or_load(&font_key).is_some() {
-            trace!("Font updated to: {}", guifont_setting);
+            debug!("Font updated to: {}", guifont_setting);
             self.options = options;
             self.reset_font_loader();
         } else {
-            trace!("Font can't be updated to: {}", guifont_setting);
+            debug!("Font can't be updated to: {}", guifont_setting);
         }
     }
 
     fn reset_font_loader(&mut self) {
-        // Calculate the new fudge factor required to scale the font width to the nearest exact pixel
-        // NOTE: This temporarily loads the font without any fudge factor, since the interface
-        // needs a size and we don't know the exact one until it's calculated.
         self.fudge_factor = 1.0;
         let mut font_size = self.current_size();
-        trace!("Using font_size: {:.2}px", font_size);
-        self.font_loader = FontLoader::new(font_size);
-        let (metrics, font_width) = self.info();
-        trace!(
-            "Font width: {:.2}px {:.2}px",
-            font_width,
-            metrics.average_width
-        );
-        self.fudge_factor = font_width.round() / font_width;
-        trace!("Fudge factor: {:.2}", self.fudge_factor);
-        font_size = self.current_size();
-        trace!("Fudged font size: {:.2}px", font_size);
-        trace!("Fudged font width: {:.2}px", self.info().1);
+        debug!("Original font_size: {:.2}px", font_size);
 
         self.font_loader = FontLoader::new(font_size);
+        let (metrics, font_width) = self.info();
+
+        debug!("Original font_width: {:.2}px", font_width);
+
+        if !self.options.allow_float_size {
+            // Calculate the new fudge factor required to scale the font width to the nearest exact pixel
+            debug!(
+                "Font width: {:.2}px (avg: {:.2}px)",
+                font_width, metrics.average_width
+            );
+            self.fudge_factor = font_width.round() / font_width;
+            debug!("Fudge factor: {:.2}", self.fudge_factor);
+            font_size = self.current_size();
+            debug!("Fudged font size: {:.2}px", font_size);
+            debug!("Fudged font width: {:.2}px", self.info().1);
+            self.font_loader = FontLoader::new(font_size);
+        }
         self.blob_cache.clear();
     }
 
@@ -194,32 +204,20 @@ impl CachingShaper {
             font_fallback_keys.extend(self.options.font_list.iter().map(|font_name| FontKey {
                 italic: self.options.italic || italic,
                 bold: self.options.bold || bold,
-                font_selection: font_name.into(),
+                family_name: Some(font_name.clone()),
             }));
 
             // Add default font
             font_fallback_keys.push(FontKey {
                 italic: self.options.italic || italic,
                 bold: self.options.bold || bold,
-                font_selection: FontSelection::Default,
+                family_name: None,
             });
 
-            // Add skia fallback
-            font_fallback_keys.push(FontKey {
-                italic,
-                bold,
-                font_selection: cluster.chars()[0].ch.into(),
-            });
-
-            // Add last resort
-            font_fallback_keys.push(FontKey {
-                italic: false,
-                bold: false,
-                font_selection: FontSelection::LastResort,
-            });
+            // Use the cluster.map function to select a viable font from the fallback list and loaded fonts
 
             let mut best = None;
-            // Use the cluster.map function to select a viable font from the fallback list
+            // Search through the configured and default fonts for a match
             for fallback_key in font_fallback_keys.iter() {
                 if let Some(font_pair) = self.font_loader.get_or_load(fallback_key) {
                     let charmap = font_pair.swash_font.as_ref().charmap();
@@ -234,9 +232,36 @@ impl CachingShaper {
                 }
             }
 
+            // Configured font/default didn't work. Search through currently loaded ones
+            for loaded_font in self.font_loader.loaded_fonts() {
+                let charmap = loaded_font.swash_font.as_ref().charmap();
+                match cluster.map(|ch| charmap.map(ch)) {
+                    Status::Complete => {
+                        results.push((cluster.to_owned(), loaded_font.clone()));
+                        self.font_loader.refresh(loaded_font.as_ref());
+                        continue 'cluster;
+                    }
+                    Status::Keep => best = Some(loaded_font),
+                    Status::Discard => {}
+                }
+            }
+
             if let Some(best) = best {
-                // Last Resort covers all of the unicode space so we will always have a fallback
                 results.push((cluster.to_owned(), best.clone()));
+            } else {
+                let fallback_character = cluster.chars()[0].ch;
+                if let Some(fallback_font) =
+                    self.font_loader
+                        .load_font_for_character(bold, italic, fallback_character)
+                {
+                    results.push((cluster.to_owned(), fallback_font));
+                } else {
+                    // Last Resort covers all of the unicode space so we will always have a fallback
+                    results.push((
+                        cluster.to_owned(),
+                        self.font_loader.get_or_load_last_resort(),
+                    ));
+                }
             }
         }
 
@@ -265,6 +290,18 @@ impl CachingShaper {
         }
 
         grouped_results
+    }
+
+    pub fn adjust_font_cache_size(&self) {
+        let current_font_cache_size = font_cache_limit() as f32;
+        let percent_font_cache_used = font_cache_used() as f32 / current_font_cache_size;
+        if percent_font_cache_used > 0.9 {
+            warn!(
+                "Font cache is {}% full, increasing cache size",
+                percent_font_cache_used * 100.0
+            );
+            set_font_cache_limit((percent_font_cache_used * 1.5) as usize);
+        }
     }
 
     pub fn shape(&mut self, text: String, bold: bool, italic: bool) -> Vec<TextBlob> {
@@ -312,6 +349,8 @@ impl CachingShaper {
             let blob = blob_builder.make();
             resulting_blobs.push(blob.expect("Could not create textblob"));
         }
+
+        self.adjust_font_cache_size();
 
         resulting_blobs
     }

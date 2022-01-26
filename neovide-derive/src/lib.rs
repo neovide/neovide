@@ -31,7 +31,7 @@ fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream 
             quote! {{
                 fn update_func(value: rmpv::Value) {
                     let mut s = crate::settings::SETTINGS.get::<#name>();
-                    s.#ident.from_value(value);
+                    s.#ident.parse_from_value(value);
                     crate::settings::SETTINGS.set(&s);
                 }
 

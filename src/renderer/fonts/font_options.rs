@@ -1,5 +1,3 @@
-use super::font_loader::FontSelection;
-
 const DEFAULT_FONT_SIZE: f32 = 14.0;
 
 #[derive(Clone, Debug)]
@@ -8,6 +6,7 @@ pub struct FontOptions {
     pub size: f32,
     pub bold: bool,
     pub italic: bool,
+    pub allow_float_size: bool,
 }
 
 impl FontOptions {
@@ -16,6 +15,7 @@ impl FontOptions {
         let mut size = DEFAULT_FONT_SIZE;
         let mut bold = false;
         let mut italic = false;
+        let mut allow_float_size = false;
 
         let mut parts = guifont_setting.split(':').filter(|part| !part.is_empty());
 
@@ -33,6 +33,9 @@ impl FontOptions {
 
         for part in parts {
             if part.starts_with('h') && part.len() > 1 {
+                if part.contains('.') {
+                    allow_float_size = true;
+                }
                 if let Ok(parsed_size) = part[1..].parse::<f32>() {
                     size = parsed_size
                 }
@@ -47,15 +50,13 @@ impl FontOptions {
             font_list,
             bold,
             italic,
+            allow_float_size,
             size: points_to_pixels(size),
         }
     }
 
-    pub fn primary_font(&self) -> FontSelection {
-        self.font_list
-            .first()
-            .map(FontSelection::from)
-            .unwrap_or(FontSelection::Default)
+    pub fn primary_font(&self) -> Option<String> {
+        self.font_list.first().cloned()
     }
 }
 
@@ -65,6 +66,7 @@ impl Default for FontOptions {
             font_list: Vec::new(),
             bold: false,
             italic: false,
+            allow_float_size: false,
             size: points_to_pixels(DEFAULT_FONT_SIZE),
         }
     }

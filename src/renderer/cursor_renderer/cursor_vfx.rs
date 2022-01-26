@@ -48,8 +48,8 @@ pub enum VfxMode {
     Disabled,
 }
 
-impl FromValue for VfxMode {
-    fn from_value(&mut self, value: Value) {
+impl ParseFromValue for VfxMode {
+    fn parse_from_value(&mut self, value: Value) {
         if value.is_str() {
             *self = match value.as_str().unwrap() {
                 "sonicboom" => VfxMode::Highlight(HighlightMode::SonicBoom),
