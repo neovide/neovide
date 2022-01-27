@@ -17,7 +17,7 @@ use crate::{
     settings::*,
 };
 
-use command::create_nvim_command;
+pub use command::create_nvim_command;
 pub use events::*;
 use handler::NeovimHandler;
 use setup::setup_neovide_specific_state;
