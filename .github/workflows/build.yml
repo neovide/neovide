@@ -36,7 +36,19 @@ jobs:
           NEOVIM_BIN: "C:/tools/neovim/Neovim/bin/nvim.exe"
           RUST_BACKTRACE: full
         run: |
-          cargo test -- -- -Z unstable-options --format json | cargo2junit > results.xml
+          # Tag: BROKEN_CI
+          # Refs: https://github.com/neovide/neovide/issues/1182
+          # WARNING: Currently this command does not do what it's expected to do,
+          # for some reason all arguments after -- is ignored.
+          # So results.xml is empty.
+          # There was -- -- before, but that was broken too.
+          cargo test -- -Z unstable-options --format json > results.json
+          # This and `set -eo pipefail` for MacOS/Linux
+          # is added, becouse without it pipe will eat exit status.
+          # Docs are stating that it should work by default, but it does not.
+          # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#exit-codes-and-error-action-preference
+          # Oh, it still does not fail on Windows. ¯\_(ツ)_/¯
+          cat results.json | cargo2junit > results.xml
 
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action/composite@v1
@@ -98,7 +110,9 @@ jobs:
         env:
           RUST_BACKTRACE: full
         run: |
-          cargo test -- -- -Z unstable-options --format json | cargo2junit > results.xml
+          # Tag: BROKEN_CI
+          set -eo pipefail
+          cargo test -- -Z unstable-options --format json | cargo2junit > results.xml
 
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action/composite@v1
@@ -149,10 +163,6 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - name: Update apt
-        run: |
-          sudo apt-get update
-
       - name: Install Nightly Toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -167,23 +177,24 @@ jobs:
 
       - uses: Swatinem/rust-cache@v1
 
-      - name: Install Dependencies
-        run: |
-          sudo apt-get install -y curl gnupg ca-certificates git gcc-multilib g++-multilib cmake libssl-dev pkg-config libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev libxi-dev
-
       - name: Check Formatting
         run: |
           cargo fmt --all -- --check
 
-      - name: Install Neovim
+      - name: Install dependencies and neovim
         run: |
-          sudo apt-get install -y neovim
+          sudo apt-get update
+          sudo apt-get -qq install -y \
+            curl gnupg ca-certificates git gcc-multilib g++-multilib cmake libssl-dev pkg-config libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev libxi-dev\
+            neovim
 
       - name: Test
         env:
           RUST_BACKTRACE: full
         run: |
-          cargo test -- -- -Z unstable-options --format json | cargo2junit > results.xml
+          # Tags: BROKEN_CI
+          set -eo pipefail
+          cargo test -- -Z unstable-options --format json | cargo2junit > results.xml
 
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v1
