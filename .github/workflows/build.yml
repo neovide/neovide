@@ -36,12 +36,10 @@ jobs:
           NEOVIM_BIN: "C:/tools/neovim/Neovim/bin/nvim.exe"
           RUST_BACKTRACE: full
         run: |
-          # Tag: BROKEN_CI
-          # Refs: https://github.com/neovide/neovide/issues/1182
-          # WARNING: Currently this command does not do what it's expected to do,
-          # for some reason all arguments after -- is ignored.
-          # So results.xml is empty.
-          # There was -- -- before, but that was broken too.
+          # Pay attention not to break BUILD stage of a test,
+          # when tests are failing at BUILD stage, everything after -- is ignored,
+          # and no json output will be generated.
+          # Becouse those arguments is passed to compiled test binary. And it is failed to compile.
           cargo test -- -Z unstable-options --format json > results.json
           # This and `set -eo pipefail` for MacOS/Linux
           # is added, becouse without it pipe will eat exit status.
@@ -110,7 +108,6 @@ jobs:
         env:
           RUST_BACKTRACE: full
         run: |
-          # Tag: BROKEN_CI
           set -eo pipefail
           cargo test -- -Z unstable-options --format json | cargo2junit > results.xml
 
@@ -192,7 +189,6 @@ jobs:
         env:
           RUST_BACKTRACE: full
         run: |
-          # Tags: BROKEN_CI
           set -eo pipefail
           cargo test -- -Z unstable-options --format json | cargo2junit > results.xml
 
