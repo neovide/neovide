@@ -325,19 +325,13 @@ impl Window {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::channel_utils::*;
     use std::collections::HashMap;
     use std::sync::mpsc::*;
 
     fn build_test_channels() -> (Receiver<Vec<DrawCommand>>, Arc<DrawCommandBatcher>) {
-        let (batched_draw_command_sender, batched_draw_command_receiver) = channel();
-        let logging_batched_draw_command_sender = LoggingSender::attach(
-            batched_draw_command_sender,
-            "batched_draw_command".to_owned(),
-        );
+        let (_batched_draw_command_sender, batched_draw_command_receiver) = channel();
 
-        let draw_command_batcher =
-            Arc::new(DrawCommandBatcher::new(logging_batched_draw_command_sender));
+        let draw_command_batcher = Arc::new(DrawCommandBatcher::new());
 
         (batched_draw_command_receiver, draw_command_batcher)
     }
@@ -353,9 +347,7 @@ mod tests {
             (114, 64),
             batched_sender.clone(),
         );
-        batched_sender
-            .send_batch()
-            .expect("Could not send batch of commands");
+        batched_sender.send_batch();
         batched_receiver.recv().expect("Could not receive commands");
 
         window.draw_grid_line(
@@ -371,9 +363,7 @@ mod tests {
 
         assert_eq!(window.grid.get_cell(70, 1), Some(&("|".to_owned(), None)));
 
-        batched_sender
-            .send_batch()
-            .expect("Could not send batch of commands");
+        batched_sender.send_batch();
 
         let sent_commands = batched_receiver.recv().expect("Could not receive commands");
         assert!(sent_commands.len() != 0);
