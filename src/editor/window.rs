@@ -348,7 +348,6 @@ mod tests {
             batched_sender.clone(),
         );
         batched_sender.send_batch();
-        //.expect("Could not send batch of commands");
         batched_receiver.recv().expect("Could not receive commands");
 
         window.draw_grid_line(
@@ -365,7 +364,6 @@ mod tests {
         assert_eq!(window.grid.get_cell(70, 1), Some(&("|".to_owned(), None)));
 
         batched_sender.send_batch();
-        //.expect("Could not send batch of commands");
 
         let sent_commands = batched_receiver.recv().expect("Could not receive commands");
         assert!(sent_commands.len() != 0);
