@@ -39,8 +39,19 @@ dirs = "2"
 rand = "0.7"
 pin-project = "0.4.27"
 futures = "0.3.12"
-glutin = { git = "https://github.com/neovide/glutin", branch = "fix-stuck-shift", features=["serde"] }
-winit = { git = "https://github.com/neovide/winit", branch = "fix-stuck-shift" }
+# We're using our own forks for winit and glutin,
+# to fix some keyboard-related issues.
+# This PR resolves issues with modifiers behaviour under X11
+# and currenctly our glutin#neovide-x11-nt is based on it.
+# https://github.com/maroider/winit/pull/6
+# Previouse PR should be merged into next one:
+# https://github.com/rust-windowing/winit/pull/1932
+# And after this one is merged, we can use official versions.
+winit = { git = "https://github.com/neovide/winit", branch = "neovide-x11-nt" }
+# glutin is using this branch https://github.com/mahkoh/glutin/tree/x11-nt
+# with added small patch to support KeyEvent.text_with_all_modifiers
+# After it's merged upstream we should make PR with this small change.
+glutin = { git = "https://github.com/neovide/glutin", branch = "neovide-x11-nt", features=["serde"] }
 gl = "0.14.0"
 swash = "0.1.4"
 clap="2.33.3"
