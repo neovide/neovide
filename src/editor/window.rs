@@ -345,7 +345,9 @@ mod tests {
 
         draw_command_batcher.send_batch();
 
-        draw_command_receiver.try_recv().expect("Could not receive commands");
+        draw_command_receiver
+            .try_recv()
+            .expect("Could not receive commands");
 
         window.draw_grid_line(
             1,
@@ -362,7 +364,9 @@ mod tests {
 
         draw_command_batcher.send_batch();
 
-        let sent_commands = draw_command_receiver.try_recv().expect("Could not receive commands");
+        let sent_commands = draw_command_receiver
+            .try_recv()
+            .expect("Could not receive commands");
         assert!(sent_commands.len() != 0);
     }
 }
