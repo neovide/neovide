@@ -340,8 +340,7 @@ impl CursorRenderer {
         } else {
             self.previous_editor_mode = current_mode.clone();
         }
-
-        if !(self.cursor.enabled && render) {
+        if !(self.cursor.enabled && render) || self.cursor.blend_is_hide() {
             return;
         }
         // Draw Background
