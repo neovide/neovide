@@ -80,11 +80,11 @@ impl Cursor {
             .unwrap_or_else(|| default_colors.foreground.unwrap())
     }
 
-    pub fn blend_is_hide(&self) -> bool {
-        self.style
+    pub fn alpha(&self) -> u8 {
+        return self.style
             .as_ref()
-            .map(|s| s.blend == 100)
-            .unwrap_or(false)
+            .map(|s| 255 * (100 - s.blend))
+            .unwrap_or(255)
     }
 
     pub fn change_mode(&mut self, cursor_mode: &CursorMode, styles: &HashMap<u64, Arc<Style>>) {

@@ -340,14 +340,15 @@ impl CursorRenderer {
         } else {
             self.previous_editor_mode = current_mode.clone();
         }
-        if !(self.cursor.enabled && render) || self.cursor.blend_is_hide() {
+        if !(self.cursor.enabled && render) {
             return;
         }
         // Draw Background
         let background_color = self
             .cursor
             .background(&grid_renderer.default_style.colors)
-            .to_color();
+            .to_color()
+            .with_a(self.cursor.alpha());
         paint.set_color(background_color);
 
         // The cursor is made up of four points, so I create a path with each of the four
@@ -366,7 +367,8 @@ impl CursorRenderer {
         let foreground_color = self
             .cursor
             .foreground(&grid_renderer.default_style.colors)
-            .to_color();
+            .to_color()
+            .with_a(self.cursor.alpha());
         paint.set_color(foreground_color);
 
         canvas.save();
