@@ -85,7 +85,7 @@ impl Editor {
                     self.mode_list = cursor_modes;
                     if let Some(curr_mode_i) = self.current_mode_index.clone() {
                         if let Some(curr_mode) = self.mode_list.get(curr_mode_i as usize) {
-                          self.cursor.change_mode(curr_mode, &self.defined_styles)
+                            self.cursor.change_mode(curr_mode, &self.defined_styles)
                         }
                     }
                 }
