@@ -83,7 +83,7 @@ impl Cursor {
     pub fn alpha(&self) -> u8 {
         return self.style
             .as_ref()
-            .map(|s| 255 * (100 - s.blend))
+            .map(|s| (255 as f32 * ((100 - s.blend) as f32 / (100.0 as f32))) as u8)
             .unwrap_or(255)
     }
 
