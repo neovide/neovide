@@ -5,7 +5,7 @@ mod settings;
 
 use std::{
     sync::Arc,
-    time::{Duration, Instant},
+    time::Instant,
 };
 
 use glutin::{
@@ -13,8 +13,8 @@ use glutin::{
     dpi::PhysicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{self, Window, Fullscreen, Icon},
-    ContextBuilder, GlProfile, RawContext, PossiblyCurrent,
+    window::{self, Fullscreen, Icon, Window},
+    ContextBuilder, GlProfile, PossiblyCurrent, RawContext,
 };
 use log::trace;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -79,7 +79,8 @@ impl GlutinWindowWrapper {
             self.window.set_fullscreen(None);
         } else {
             let handle = self.window.current_monitor();
-            self.window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
+            self.window
+                .set_fullscreen(Some(Fullscreen::Borderless(handle)));
         }
 
         self.fullscreen = !self.fullscreen;
@@ -179,9 +180,7 @@ impl GlutinWindowWrapper {
                     self.handle_focus_lost();
                 }
             }
-            Event::RedrawRequested(..) | Event::WindowEvent { .. } => {
-                REDRAW_SCHEDULER.redraw()
-            }
+            Event::RedrawRequested(..) | Event::WindowEvent { .. } => REDRAW_SCHEDULER.redraw(),
             _ => {}
         }
     }
@@ -327,13 +326,12 @@ pub fn create_window() {
         .with_srgb(cmd_line_settings.srgb)
         .build_windowed(winit_window_builder, &event_loop)
         .unwrap();
-    let (gl_context, window) = unsafe { 
-        windowed_context.make_current().unwrap().split()
-    };
+    let (gl_context, window) = unsafe { windowed_context.make_current().unwrap().split() };
     let window = Arc::new(window);
     REDRAW_SCHEDULER.register_window(window.clone());
 
-    let max_monitor_frame_rate = window.available_monitors()
+    let max_monitor_frame_rate = window
+        .available_monitors()
         .flat_map(|monitor| monitor.video_modes())
         .map(|mode| mode.refresh_rate())
         .max()
@@ -410,14 +408,17 @@ pub fn create_window() {
         window_wrapper.handle_event(&e);
 
         if let Event::MainEventsCleared = e {
-            let frame_time = frame_start.duration_since(previous_frame_start).as_secs_f32();
+            let frame_time = frame_start
+                .duration_since(previous_frame_start)
+                .as_secs_f32();
             let configured_refresh_rate = SETTINGS.get::<WindowSettings>().refresh_rate;
 
             let refresh_rate = if configured_refresh_rate != 0 {
                 configured_refresh_rate
             } else {
                 max_monitor_frame_rate
-            } as f32 * 1.1;
+            } as f32
+                * 1.1;
             // Set the rendered refresh rate to 1.1 * the configured rate.
             // This is to avoid being too close to the frame length which would cause skipped
             // frames.

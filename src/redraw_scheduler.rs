@@ -6,8 +6,8 @@ use std::{
         mpsc::{channel, Sender},
         Arc,
     },
-    time::Instant,
     thread,
+    time::Instant,
 };
 
 use glutin::window::Window;
@@ -54,7 +54,9 @@ impl RedrawScheduler {
                 }
 
                 if let Some(Reverse(next_scheduled_instant)) = scheduled_instants.peek() {
-                    if let Ok(new_schedule) = schedule_receiver.recv_timeout(*next_scheduled_instant - Instant::now()) {
+                    if let Ok(new_schedule) =
+                        schedule_receiver.recv_timeout(*next_scheduled_instant - Instant::now())
+                    {
                         scheduled_instants.push(Reverse(new_schedule));
                     }
                 } else if let Ok(new_schedule) = schedule_receiver.recv() {
@@ -73,9 +75,7 @@ impl RedrawScheduler {
             if let Some(sender) = sender_option.as_ref() {
                 sender.send(redraw_at).unwrap();
             } else {
-                let sender = {
-                    self.schedule_sender.lock().clone()
-                };
+                let sender = { self.schedule_sender.lock().clone() };
 
                 let mut empty_sender_option = RwLockUpgradableReadGuard::upgrade(sender_option);
                 sender.send(redraw_at).unwrap();
@@ -98,7 +98,8 @@ impl RedrawScheduler {
     pub fn should_draw_again(&self) -> bool {
         let remaining_frames = self.frame_buffer.load(Ordering::Relaxed);
         if remaining_frames > 0 {
-            self.frame_buffer.store(remaining_frames - 1, Ordering::Relaxed);
+            self.frame_buffer
+                .store(remaining_frames - 1, Ordering::Relaxed);
             true
         } else {
             false

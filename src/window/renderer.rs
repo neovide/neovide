@@ -1,13 +1,10 @@
 use std::convert::TryInto;
 
 use gl::types::*;
+use glutin::{window::Window, PossiblyCurrent, RawContext};
 use skia_safe::{
     gpu::{gl::FramebufferInfo, BackendRenderTarget, DirectContext, SurfaceOrigin},
     Canvas, ColorType, Surface,
-};
-use glutin::{
-    window::Window,
-    RawContext, PossiblyCurrent,
 };
 
 fn create_surface(
@@ -88,6 +85,11 @@ impl SkiaRenderer {
     }
 
     pub fn resize(&mut self, gl_context: &RawContext<PossiblyCurrent>, window: &Window) {
-        self.surface = create_surface(gl_context, window, &mut self.skia_context, self.framebuffer_info);
+        self.surface = create_surface(
+            gl_context,
+            window,
+            &mut self.skia_context,
+            self.framebuffer_info,
+        );
     }
 }

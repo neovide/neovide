@@ -84,7 +84,7 @@ impl Cursor {
         return self
             .style
             .as_ref()
-            .map(|s| (255 as f32 * ((100 - s.blend) as f32 / (100.0 as f32))) as u8)
+            .map(|s| (255_f32 * ((100 - s.blend) as f32 / (100.0_f32))) as u8)
             .unwrap_or(255);
     }
 
