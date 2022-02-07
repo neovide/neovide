@@ -5,16 +5,19 @@ use skia_safe::{
     gpu::{gl::FramebufferInfo, BackendRenderTarget, DirectContext, SurfaceOrigin},
     Canvas, ColorType, Surface,
 };
-
-type WindowedContext = glutin::ContextWrapper<glutin::PossiblyCurrent, glutin::window::Window>;
+use glutin::{
+    window::Window,
+    RawContext, PossiblyCurrent,
+};
 
 fn create_surface(
-    windowed_context: &WindowedContext,
+    gl_context: &RawContext<PossiblyCurrent>,
+    window: &Window,
     gr_context: &mut DirectContext,
-    fb_info: FramebufferInfo,
+    framebuffer_info: FramebufferInfo,
 ) -> Surface {
-    let pixel_format = windowed_context.get_pixel_format();
-    let size = windowed_context.window().inner_size();
+    let pixel_format = gl_context.get_pixel_format();
+    let size = window.inner_size();
     let size = (
         size.width.try_into().expect("Could not convert width"),
         size.height.try_into().expect("Could not convert height"),
@@ -28,9 +31,9 @@ fn create_surface(
             .stencil_bits
             .try_into()
             .expect("Could not convert stencil"),
-        fb_info,
+        framebuffer_info,
     );
-    windowed_context.resize(size.into());
+    gl_context.resize(size.into());
     Surface::from_backend_render_target(
         gr_context,
         &backend_render_target,
@@ -43,26 +46,26 @@ fn create_surface(
 }
 
 pub struct SkiaRenderer {
-    pub gr_context: DirectContext,
-    fb_info: FramebufferInfo,
+    pub skia_context: DirectContext,
+    framebuffer_info: FramebufferInfo,
     surface: Surface,
 }
 
 impl SkiaRenderer {
-    pub fn new(windowed_context: &WindowedContext) -> SkiaRenderer {
-        gl::load_with(|s| windowed_context.get_proc_address(s));
+    pub fn new(gl_context: &RawContext<PossiblyCurrent>, window: &Window) -> SkiaRenderer {
+        gl::load_with(|s| gl_context.get_proc_address(s));
 
         let interface = skia_safe::gpu::gl::Interface::new_load_with(|name| {
             if name == "eglGetCurrentDisplay" {
                 return std::ptr::null();
             }
-            windowed_context.get_proc_address(name)
+            gl_context.get_proc_address(name)
         })
         .expect("Could not create interface");
 
-        let mut gr_context = skia_safe::gpu::DirectContext::new_gl(Some(interface), None)
+        let mut skia_context = skia_safe::gpu::DirectContext::new_gl(Some(interface), None)
             .expect("Could not create direct context");
-        let fb_info = {
+        let framebuffer_info = {
             let mut fboid: GLint = 0;
             unsafe { gl::GetIntegerv(gl::FRAMEBUFFER_BINDING, &mut fboid) };
 
@@ -71,11 +74,11 @@ impl SkiaRenderer {
                 format: skia_safe::gpu::gl::Format::RGBA8.into(),
             }
         };
-        let surface = create_surface(windowed_context, &mut gr_context, fb_info);
+        let surface = create_surface(gl_context, window, &mut skia_context, framebuffer_info);
 
         SkiaRenderer {
-            gr_context,
-            fb_info,
+            skia_context,
+            framebuffer_info,
             surface,
         }
     }
@@ -84,7 +87,7 @@ impl SkiaRenderer {
         self.surface.canvas()
     }
 
-    pub fn resize(&mut self, windowed_context: &WindowedContext) {
-        self.surface = create_surface(windowed_context, &mut self.gr_context, self.fb_info);
+    pub fn resize(&mut self, gl_context: &RawContext<PossiblyCurrent>, window: &Window) {
+        self.surface = create_surface(gl_context, window, &mut self.skia_context, self.framebuffer_info);
     }
 }

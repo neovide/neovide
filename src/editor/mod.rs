@@ -119,7 +119,7 @@ impl Editor {
                     trace!("Image flushed");
                     self.send_cursor_info();
                     self.draw_command_batcher.send_batch();
-                    REDRAW_SCHEDULER.queue_next_frame();
+                    REDRAW_SCHEDULER.redraw();
                 }
                 RedrawEvent::DefaultColorsSet { colors } => {
                     self.draw_command_batcher
@@ -127,7 +127,7 @@ impl Editor {
                         .ok();
                     self.redraw_screen();
                     self.draw_command_batcher.send_batch();
-                    REDRAW_SCHEDULER.queue_next_frame();
+                    REDRAW_SCHEDULER.redraw();
                 }
                 RedrawEvent::HighlightAttributesDefine { id, style } => {
                     self.defined_styles.insert(id, Arc::new(style));

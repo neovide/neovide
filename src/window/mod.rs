@@ -3,15 +3,18 @@ mod mouse_manager;
 mod renderer;
 mod settings;
 
-use std::time::{Duration, Instant};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use glutin::{
     self,
     dpi::PhysicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{self, Fullscreen, Icon},
-    ContextBuilder, GlProfile, WindowedContext,
+    window::{self, Window, Fullscreen, Icon},
+    ContextBuilder, GlProfile, RawContext, PossiblyCurrent,
 };
 use log::trace;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -56,7 +59,9 @@ pub enum WindowCommand {
 }
 
 pub struct GlutinWindowWrapper {
-    windowed_context: WindowedContext<glutin::PossiblyCurrent>,
+    // gl_context must be before window in the struct to ensure that it is dropped before the window
+    gl_context: RawContext<PossiblyCurrent>,
+    window: Arc<Window>,
     skia_renderer: SkiaRenderer,
     renderer: Renderer,
     keyboard_manager: KeyboardManager,
@@ -70,12 +75,11 @@ pub struct GlutinWindowWrapper {
 
 impl GlutinWindowWrapper {
     pub fn toggle_fullscreen(&mut self) {
-        let window = self.windowed_context.window();
         if self.fullscreen {
-            window.set_fullscreen(None);
+            self.window.set_fullscreen(None);
         } else {
-            let handle = window.current_monitor();
-            window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
+            let handle = self.window.current_monitor();
+            self.window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
         }
 
         self.fullscreen = !self.fullscreen;
@@ -104,7 +108,7 @@ impl GlutinWindowWrapper {
 
     pub fn handle_title_changed(&mut self, new_title: String) {
         self.title = new_title;
-        self.windowed_context.window().set_title(&self.title);
+        self.window.set_title(&self.title);
     }
 
     pub fn send_font_names(&self) {
@@ -128,16 +132,16 @@ impl GlutinWindowWrapper {
 
     pub fn handle_focus_gained(&mut self) {
         EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::FocusGained));
-        REDRAW_SCHEDULER.queue_next_frame();
+        REDRAW_SCHEDULER.redraw();
     }
 
-    pub fn handle_event(&mut self, event: Event<()>) {
-        self.keyboard_manager.handle_event(&event);
+    pub fn handle_event(&mut self, event: &Event<()>) {
+        self.keyboard_manager.handle_event(event);
         self.mouse_manager.handle_event(
-            &event,
+            event,
             &self.keyboard_manager,
             &self.renderer,
-            &self.windowed_context,
+            &self.window,
         );
         match event {
             Event::LoopDestroyed => {
@@ -156,55 +160,50 @@ impl GlutinWindowWrapper {
                 event: WindowEvent::ScaleFactorChanged { scale_factor, .. },
                 ..
             } => {
-                self.handle_scale_factor_update(scale_factor);
+                self.handle_scale_factor_update(*scale_factor);
             }
             Event::WindowEvent {
                 event: WindowEvent::DroppedFile(path),
                 ..
             } => {
-                let file_path = path.into_os_string().into_string().unwrap();
+                let file_path = path.clone().into_os_string().into_string().unwrap();
                 EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::FileDrop(file_path)));
             }
             Event::WindowEvent {
                 event: WindowEvent::Focused(focus),
                 ..
             } => {
-                if focus {
+                if *focus {
                     self.handle_focus_gained();
                 } else {
                     self.handle_focus_lost();
                 }
             }
             Event::RedrawRequested(..) | Event::WindowEvent { .. } => {
-                REDRAW_SCHEDULER.queue_next_frame()
+                REDRAW_SCHEDULER.redraw()
             }
             _ => {}
         }
     }
 
     pub fn draw_frame(&mut self, dt: f32) {
-        let window = self.windowed_context.window();
-        let mut font_changed = false;
-
-        if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
-            font_changed = self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
-            self.skia_renderer.gr_context.flush(None);
-            self.windowed_context.swap_buffers().unwrap();
-        }
+        let mut font_changed = self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
+        self.skia_renderer.skia_context.flush(None);
+        self.gl_context.swap_buffers().unwrap();
 
         // Wait until fonts are loaded, so we can set proper window size.
         if !self.renderer.grid_renderer.is_ready {
             return;
         }
 
-        let new_size = window.inner_size();
+        let new_size = self.window.inner_size();
         let settings = SETTINGS.get::<CmdLineSettings>();
         // Resize at startup happens when window is maximized or when using tiling WM
         // which already resized window.
         let resized_at_startup = settings.maximized || is_already_resized(new_size);
 
         if self.saved_grid_size.is_none() && !resized_at_startup {
-            window.set_inner_size(
+            self.window.set_inner_size(
                 self.renderer
                     .grid_renderer
                     .convert_grid_to_physical(settings.geometry),
@@ -218,7 +217,7 @@ impl GlutinWindowWrapper {
         if self.saved_inner_size != new_size || font_changed {
             self.saved_inner_size = new_size;
             self.handle_new_grid_size(new_size);
-            self.skia_renderer.resize(&self.windowed_context);
+            self.skia_renderer.resize(&self.gl_context, &self.window);
         }
     }
 
@@ -328,9 +327,11 @@ pub fn create_window() {
         .with_srgb(cmd_line_settings.srgb)
         .build_windowed(winit_window_builder, &event_loop)
         .unwrap();
-    let windowed_context = unsafe { windowed_context.make_current().unwrap() };
-
-    let window = windowed_context.window();
+    let (gl_context, window) = unsafe { 
+        windowed_context.make_current().unwrap().split()
+    };
+    let window = Arc::new(window);
+    REDRAW_SCHEDULER.register_window(window.clone());
 
     // Check that window is visible in some monitor, and reposition it if not.
     if let Some(current_monitor) = window.current_monitor() {
@@ -355,11 +356,11 @@ pub fn create_window() {
         }
     }
 
-    let scale_factor = windowed_context.window().scale_factor();
+    let scale_factor = window.scale_factor();
     let renderer = Renderer::new(scale_factor);
     let saved_inner_size = window.inner_size();
 
-    let skia_renderer = SkiaRenderer::new(&windowed_context);
+    let skia_renderer = SkiaRenderer::new(&gl_context, &window);
 
     let window_command_receiver = EVENT_AGGREGATOR.register_event::<WindowCommand>();
 
@@ -370,7 +371,8 @@ pub fn create_window() {
     );
 
     let mut window_wrapper = GlutinWindowWrapper {
-        windowed_context,
+        gl_context,
+        window,
         skia_renderer,
         renderer,
         keyboard_manager: KeyboardManager::new(),
@@ -386,11 +388,10 @@ pub fn create_window() {
 
     event_loop.run(move |e, _window_target, control_flow| {
         if !RUNNING_TRACKER.is_running() {
-            let window = window_wrapper.windowed_context.window();
             save_window_geometry(
-                window.is_maximized(),
+                window_wrapper.window.is_maximized(),
                 window_wrapper.saved_grid_size,
-                window.outer_position().ok(),
+                window_wrapper.window.outer_position().ok(),
             );
 
             std::process::exit(RUNNING_TRACKER.exit_code());
@@ -400,19 +401,27 @@ pub fn create_window() {
 
         window_wrapper.handle_window_commands();
         window_wrapper.synchronize_settings();
-        window_wrapper.handle_event(e);
+        window_wrapper.handle_event(&e);
 
-        let refresh_rate = { SETTINGS.get::<WindowSettings>().refresh_rate as f32 };
-        let expected_frame_length_seconds = 1.0 / refresh_rate;
-        let frame_duration = Duration::from_secs_f32(expected_frame_length_seconds);
+        if let Event::MainEventsCleared = e {
+            let frame_time = frame_start.duration_since(previous_frame_start).as_secs_f32();
+            // Set the rendered refresh rate to 1.1 * the configured rate.
+            // This is to avoid being too close to the frame length which would cause skipped
+            // frames.
+            let refresh_rate = SETTINGS.get::<WindowSettings>().refresh_rate as f32 * 1.1; 
 
-        if frame_start - previous_frame_start > frame_duration {
-            let dt = previous_frame_start.elapsed().as_secs_f32();
-            window_wrapper.draw_frame(dt);
-            previous_frame_start = frame_start;
+            if frame_time > 1.0 / refresh_rate {
+                let dt = previous_frame_start.elapsed().as_secs_f32();
+                window_wrapper.draw_frame(dt);
+                previous_frame_start = frame_start;
+            }
+
+            if REDRAW_SCHEDULER.should_draw_again() {
+                *control_flow = ControlFlow::Poll;
+            } else {
+                *control_flow = ControlFlow::Wait;
+            }
         }
-
-        *control_flow = ControlFlow::WaitUntil(previous_frame_start + frame_duration)
     });
 }
 

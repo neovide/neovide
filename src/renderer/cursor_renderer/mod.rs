@@ -336,7 +336,7 @@ impl CursorRenderer {
         }
 
         if animating {
-            REDRAW_SCHEDULER.queue_next_frame();
+            REDRAW_SCHEDULER.redraw();
         } else {
             self.previous_editor_mode = current_mode.clone();
         }

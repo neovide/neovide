@@ -70,7 +70,7 @@ impl BlinkStatus {
         .map(|delay| self.last_transition + Duration::from_millis(delay));
 
         if let Some(scheduled_frame) = scheduled_frame {
-            REDRAW_SCHEDULER.schedule(scheduled_frame);
+            REDRAW_SCHEDULER.schedule_redraw(scheduled_frame);
         }
 
         match self.state {

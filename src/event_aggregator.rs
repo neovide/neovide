@@ -1,5 +1,6 @@
 use std::{
     any::{type_name, Any, TypeId},
+    cell::RefCell,
     collections::{hash_map::Entry, HashMap},
     fmt::Debug,
 };
@@ -14,7 +15,7 @@ lazy_static! {
 }
 
 thread_local! {
-    static THREAD_SENDERS: RwLock<HashMap<TypeId, Box<dyn Any + Send>>> = RwLock::new(HashMap::new());
+    static THREAD_SENDERS: RefCell<HashMap<TypeId, Box<dyn Any + Send>>> = RefCell::new(HashMap::new());
 }
 
 pub struct EventAggregator {
@@ -32,7 +33,7 @@ impl Default for EventAggregator {
 }
 
 impl EventAggregator {
-    fn get_sender<T: Any + Clone + Debug + Send>(&self) -> LoggingTx<T> {
+    fn get_or_create_sender<T: Any + Clone + Debug + Send>(&self) -> LoggingTx<T> {
         match self.parent_senders.write().entry(TypeId::of::<T>()) {
             Entry::Occupied(entry) => {
                 let sender = entry.get().lock();
@@ -51,8 +52,21 @@ impl EventAggregator {
     }
 
     pub fn send<T: Any + Clone + Debug + Send>(&self, event: T) {
-        let sender = self.get_sender::<T>();
-        sender.send(event).unwrap();
+        // Get the thread local sender which doesn't require locking
+        THREAD_SENDERS.with(|thread_senders| {
+            let mut thread_senders = thread_senders.borrow_mut();
+            match thread_senders.entry(TypeId::of::<T>()) {
+                Entry::Occupied(entry) => {
+                    let sender = entry.get().downcast_ref::<LoggingTx<T>>().unwrap();
+                    sender.send(event).unwrap();
+                }
+                Entry::Vacant(entry) => {
+                    let sender = self.get_or_create_sender::<T>();
+                    sender.send(event).unwrap();
+                    entry.insert(Box::new(sender));
+                }
+            };
+        });
     }
 
     pub fn register_event<T: Any + Clone + Debug + Send>(&self) -> UnboundedReceiver<T> {

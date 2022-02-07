@@ -1,65 +1,107 @@
 use std::{
+    cmp::Reverse,
+    collections::BinaryHeap,
     sync::{
-        atomic::{AtomicBool, Ordering},
-        Mutex,
+        atomic::{AtomicU32, Ordering},
+        mpsc::{channel, Sender},
+        Arc,
     },
     time::Instant,
+    thread,
 };
 
+use glutin::window::Window;
 use log::trace;
+use parking_lot::{Mutex, RwLock, RwLockUpgradableReadGuard};
+
+use crate::running_tracker::RUNNING_TRACKER;
 
 lazy_static! {
     pub static ref REDRAW_SCHEDULER: RedrawScheduler = RedrawScheduler::new();
 }
 
+thread_local! {
+    static THREAD_SENDER: RwLock<Option<Sender<Instant>>> = RwLock::new(None);
+}
+const EXTRA_FRAMES: u32 = 100;
+
 pub struct RedrawScheduler {
-    scheduled_frame: Mutex<Option<Instant>>,
-    frame_queued: AtomicBool,
+    frame_buffer: AtomicU32,
+    schedule_sender: Mutex<Sender<Instant>>,
+    window_reference: RwLock<Option<Arc<Window>>>,
 }
 
 impl RedrawScheduler {
     pub fn new() -> RedrawScheduler {
-        RedrawScheduler {
-            scheduled_frame: Mutex::new(None),
-            frame_queued: AtomicBool::new(true),
-        }
-    }
+        let (schedule_sender, schedule_receiver) = channel();
+        let scheduler = RedrawScheduler {
+            frame_buffer: AtomicU32::new(0),
+            schedule_sender: Mutex::new(schedule_sender),
+            window_reference: RwLock::new(None),
+        };
 
-    pub fn schedule(&self, new_scheduled: Instant) {
-        trace!("Redraw scheduled for {:?}", new_scheduled);
-        let mut scheduled_frame = self.scheduled_frame.lock().unwrap();
+        thread::spawn(move || {
+            let mut scheduled_instants: BinaryHeap<Reverse<Instant>> = BinaryHeap::new();
 
-        if let Some(previous_scheduled) = *scheduled_frame {
-            if new_scheduled < previous_scheduled {
-                *scheduled_frame = Some(new_scheduled);
+            while RUNNING_TRACKER.is_running() {
+                while let Some(Reverse(next_scheduled_instant)) = scheduled_instants.peek() {
+                    if Instant::now() >= *next_scheduled_instant {
+                        let _ = scheduled_instants.pop();
+                        REDRAW_SCHEDULER.redraw();
+                    } else {
+                        break;
+                    }
+                }
+
+                if let Some(Reverse(next_scheduled_instant)) = scheduled_instants.peek() {
+                    if let Ok(new_schedule) = schedule_receiver.recv_timeout(*next_scheduled_instant - Instant::now()) {
+                        scheduled_instants.push(Reverse(new_schedule));
+                    }
+                } else if let Ok(new_schedule) = schedule_receiver.recv() {
+                    scheduled_instants.push(Reverse(new_schedule));
+                }
             }
-        } else {
-            *scheduled_frame = Some(new_scheduled);
+        });
+
+        scheduler
+    }
+
+    pub fn schedule_redraw(&self, redraw_at: Instant) {
+        trace!("Redraw scheduled for {:?}", redraw_at);
+        THREAD_SENDER.with(|sender_option| {
+            let sender_option = sender_option.upgradable_read();
+            if let Some(sender) = sender_option.as_ref() {
+                sender.send(redraw_at).unwrap();
+            } else {
+                let sender = {
+                    self.schedule_sender.lock().clone()
+                };
+
+                let mut empty_sender_option = RwLockUpgradableReadGuard::upgrade(sender_option);
+                sender.send(redraw_at).unwrap();
+                empty_sender_option.replace(sender);
+            }
+        });
+    }
+
+    pub fn register_window(&self, window: Arc<Window>) {
+        self.window_reference.write().replace(window);
+    }
+
+    pub fn redraw(&self) {
+        if let Some(window) = self.window_reference.read().as_ref() {
+            window.request_redraw();
+            self.frame_buffer.store(EXTRA_FRAMES, Ordering::Relaxed);
         }
     }
 
-    pub fn queue_next_frame(&self) {
-        trace!("Next frame queued");
-        self.frame_queued.store(true, Ordering::Relaxed);
-    }
-
-    pub fn should_draw(&self) -> bool {
-        if self.frame_queued.load(Ordering::Relaxed) {
-            self.frame_queued.store(false, Ordering::Relaxed);
+    pub fn should_draw_again(&self) -> bool {
+        let remaining_frames = self.frame_buffer.load(Ordering::Relaxed);
+        if remaining_frames > 0 {
+            self.frame_buffer.store(remaining_frames - 1, Ordering::Relaxed);
             true
         } else {
-            let mut next_scheduled_frame = self.scheduled_frame.lock().unwrap();
-
-            if let Some(scheduled_frame) = *next_scheduled_frame {
-                if scheduled_frame < Instant::now() {
-                    *next_scheduled_frame = None;
-                    true
-                } else {
-                    false
-                }
-            } else {
-                false
-            }
+            false
         }
     }
 }

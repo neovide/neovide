@@ -242,7 +242,7 @@ impl RenderedWindow {
         dt: f32,
     ) -> WindowDrawDetails {
         if self.update(settings, dt) {
-            REDRAW_SCHEDULER.queue_next_frame();
+            REDRAW_SCHEDULER.redraw();
         }
 
         let pixel_region = self.pixel_region(font_dimensions);
