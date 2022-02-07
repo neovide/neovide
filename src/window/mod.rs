@@ -3,10 +3,7 @@ mod mouse_manager;
 mod renderer;
 mod settings;
 
-use std::{
-    sync::Arc,
-    time::Instant,
-};
+use std::{sync::Arc, time::Instant};
 
 use glutin::{
     self,
