@@ -2,12 +2,11 @@ use std::{
     cmp::Reverse,
     collections::BinaryHeap,
     sync::{
-        atomic::{AtomicU32, Ordering},
         mpsc::{channel, Sender},
         Arc,
     },
     thread,
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use glutin::window::Window;
@@ -23,10 +22,9 @@ lazy_static! {
 thread_local! {
     static THREAD_SENDER: RwLock<Option<Sender<Instant>>> = RwLock::new(None);
 }
-const EXTRA_FRAMES: u32 = 100;
 
 pub struct RedrawScheduler {
-    frame_buffer: AtomicU32,
+    redraw_until: RwLock<Instant>,
     schedule_sender: Mutex<Sender<Instant>>,
     window_reference: RwLock<Option<Arc<Window>>>,
 }
@@ -35,7 +33,7 @@ impl RedrawScheduler {
     pub fn new() -> RedrawScheduler {
         let (schedule_sender, schedule_receiver) = channel();
         let scheduler = RedrawScheduler {
-            frame_buffer: AtomicU32::new(0),
+            redraw_until: RwLock::new(Instant::now()),
             schedule_sender: Mutex::new(schedule_sender),
             window_reference: RwLock::new(None),
         };
@@ -91,18 +89,13 @@ impl RedrawScheduler {
     pub fn redraw(&self) {
         if let Some(window) = self.window_reference.read().as_ref() {
             window.request_redraw();
-            self.frame_buffer.store(EXTRA_FRAMES, Ordering::Relaxed);
+            let mut redraw_until = self.redraw_until.write();
+            *redraw_until = Instant::now() + Duration::from_secs(1);
         }
     }
 
     pub fn should_draw_again(&self) -> bool {
-        let remaining_frames = self.frame_buffer.load(Ordering::Relaxed);
-        if remaining_frames > 0 {
-            self.frame_buffer
-                .store(remaining_frames - 1, Ordering::Relaxed);
-            true
-        } else {
-            false
-        }
+        let redraw_until = self.redraw_until.read();
+        Instant::now() < *redraw_until
     }
 }
