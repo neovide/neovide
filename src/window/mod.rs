@@ -333,6 +333,12 @@ pub fn create_window() {
     let window = Arc::new(window);
     REDRAW_SCHEDULER.register_window(window.clone());
 
+    let max_monitor_frame_rate = window.available_monitors()
+        .flat_map(|monitor| monitor.video_modes())
+        .map(|mode| mode.refresh_rate())
+        .max()
+        .unwrap_or(60) as u64;
+
     // Check that window is visible in some monitor, and reposition it if not.
     if let Some(current_monitor) = window.current_monitor() {
         let monitor_position = current_monitor.position();
@@ -405,10 +411,16 @@ pub fn create_window() {
 
         if let Event::MainEventsCleared = e {
             let frame_time = frame_start.duration_since(previous_frame_start).as_secs_f32();
+            let configured_refresh_rate = SETTINGS.get::<WindowSettings>().refresh_rate;
+
+            let refresh_rate = if configured_refresh_rate != 0 {
+                configured_refresh_rate
+            } else {
+                max_monitor_frame_rate
+            } as f32 * 1.1;
             // Set the rendered refresh rate to 1.1 * the configured rate.
             // This is to avoid being too close to the frame length which would cause skipped
             // frames.
-            let refresh_rate = SETTINGS.get::<WindowSettings>().refresh_rate as f32 * 1.1; 
 
             if frame_time > 1.0 / refresh_rate {
                 let dt = previous_frame_start.elapsed().as_secs_f32();

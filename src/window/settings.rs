@@ -20,7 +20,7 @@ impl Default for WindowSettings {
             transparency: 1.0,
             fullscreen: false,
             iso_layout: false,
-            refresh_rate: 60,
+            refresh_rate: 0,
             no_idle: SETTINGS.get::<CmdLineSettings>().no_idle,
             remember_window_size: true,
             remember_window_position: true,
