@@ -1,7 +1,8 @@
 pub mod animation_utils;
 pub mod cursor_renderer;
-mod fonts;
+pub mod fonts;
 pub mod grid_renderer;
+pub mod profiler;
 mod rendered_window;
 
 use std::{
@@ -34,6 +35,7 @@ pub struct RendererSettings {
     floating_opacity: f32,
     floating_blur: bool,
     debug_renderer: bool,
+    profiler: bool,
 }
 
 impl Default for RendererSettings {
@@ -44,6 +46,7 @@ impl Default for RendererSettings {
             floating_opacity: 0.7,
             floating_blur: true,
             debug_renderer: false,
+            profiler: false,
         }
     }
 }
@@ -70,6 +73,7 @@ pub struct Renderer {
     pub window_regions: Vec<WindowDrawDetails>,
 
     pub batched_draw_command_receiver: UnboundedReceiver<Vec<DrawCommand>>,
+    profiler: profiler::Profiler,
 }
 
 impl Renderer {
@@ -82,6 +86,7 @@ impl Renderer {
         let window_regions = Vec::new();
 
         let batched_draw_command_receiver = EVENT_AGGREGATOR.register_event::<Vec<DrawCommand>>();
+        let profiler = profiler::Profiler::new(12.0);
 
         Renderer {
             rendered_windows,
@@ -90,6 +95,7 @@ impl Renderer {
             current_mode,
             window_regions,
             batched_draw_command_receiver,
+            profiler,
         }
     }
 
@@ -171,6 +177,8 @@ impl Renderer {
 
         self.cursor_renderer
             .draw(&mut self.grid_renderer, &self.current_mode, root_canvas, dt);
+
+        self.profiler.draw(root_canvas, dt);
 
         root_canvas.restore();
 
