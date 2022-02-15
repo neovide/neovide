@@ -51,9 +51,8 @@ fn build_nvim_cmd() -> TokioCommand {
 fn create_platform_shell_command(command: &str, args: Vec<&str>) -> Option<StdCommand> {
     if cfg!(target_os = "windows") && SETTINGS.get::<CmdLineSettings>().wsl {
         let mut result = StdCommand::new("wsl");
-        result.args(&["$SHELL", "-lic"]);
-        result.arg(command);
-        result.args(&args);
+        result.args(&["$SHELL", "-lc"]);
+        result.arg(format!("{} {}", command, args.join(" ")));
 
         Some(result)
     } else if cfg!(target_os = "macos") {
