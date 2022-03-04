@@ -87,18 +87,18 @@ parts:
     stage-packages:
       - libxkbcommon0
       - libxkbcommon-x11-0
-      - libegl1-mesa-dev
-      - libgl1-mesa-dev
+      - libegl1-mesa
+      - libgl1-mesa-glx
       - fontconfig
       - fonts-noto
       - libfontconfig1
       - libibus-1.0-5
       - libpng16-16
-      - libx11-dev
+      - libx11-6
       - libx11-xcb1
       - libxcursor1
-      - libxi-dev
-      - libxrandr-dev
+      - libxi6
+      - libxrandr2
       - locales-all
       - xdg-user-dirs
 
