@@ -4,7 +4,7 @@ use std::{
     process::{Command as StdCommand, Stdio},
 };
 
-use log::{error, info, warn};
+use log::{debug, error, warn};
 use tokio::process::Command as TokioCommand;
 
 use crate::{cmd_line::CmdLineSettings, settings::*};
@@ -12,7 +12,7 @@ use crate::{cmd_line::CmdLineSettings, settings::*};
 pub fn create_nvim_command() -> TokioCommand {
     let mut cmd = build_nvim_cmd();
 
-    info!("Starting neovim with: {:?}", cmd);
+    debug!("Starting neovim with: {:?}", cmd);
 
     #[cfg(not(debug_assertions))]
     cmd.stderr(Stdio::piped());
@@ -48,18 +48,17 @@ fn build_nvim_cmd() -> TokioCommand {
 }
 
 // Creates a shell command if needed on this platform (wsl or macos)
-fn create_platform_shell_command(command: String) -> Option<StdCommand> {
+fn create_platform_shell_command(command: &str, args: &[&str]) -> Option<StdCommand> {
     if cfg!(target_os = "windows") && SETTINGS.get::<CmdLineSettings>().wsl {
         let mut result = StdCommand::new("wsl");
-        result.args(&["$SHELL", "-lic"]);
-        result.arg(command);
+        result.args(&["$SHELL", "-lc"]);
+        result.arg(format!("{} {}", command, args.join(" ")));
 
         Some(result)
     } else if cfg!(target_os = "macos") {
-        let shell = env::var("SHELL").unwrap();
-        let mut result = StdCommand::new(shell);
-        result.args(&["-lic"]);
-        result.arg(command);
+        let mut result = StdCommand::new(command);
+        result.args(args);
+
         Some(result)
     } else {
         None
@@ -67,7 +66,7 @@ fn create_platform_shell_command(command: String) -> Option<StdCommand> {
 }
 
 fn platform_exists(bin: &str) -> bool {
-    if let Some(mut exists_command) = create_platform_shell_command(format!("exists -x {}", bin)) {
+    if let Some(mut exists_command) = create_platform_shell_command("exists", &["-x", bin]) {
         if let Ok(output) = exists_command.output() {
             output.status.success()
         } else {
@@ -80,7 +79,8 @@ fn platform_exists(bin: &str) -> bool {
 }
 
 fn platform_which(bin: &str) -> Option<String> {
-    if let Some(mut which_command) = create_platform_shell_command(format!("which {}", bin)) {
+    if let Some(mut which_command) = create_platform_shell_command("which", &[bin]) {
+        debug!("Running which command: {:?}", which_command);
         if let Ok(output) = which_command.output() {
             if output.status.success() {
                 let nvim_path = String::from_utf8(output.stdout).unwrap();
