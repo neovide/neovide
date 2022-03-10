@@ -58,6 +58,8 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> Option<StdComm
     } else if cfg!(target_os = "macos") {
         let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
         let mut result = StdCommand::new(&shell);
+        result.env("PATH", "/opt/homebrew/bin");
+
         result.args(&["-lc"]);
         result.arg(format!("{} {}", command, args.join(" ")));
 
