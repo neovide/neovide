@@ -127,7 +127,7 @@ impl ParallelCommand {
     async fn execute(self, nvim: &Neovim<TxWrapper>) {
         match self {
             ParallelCommand::Quit => {
-                nvim.command("if exists('g:neovide_confirm_quit') && g:neovide_confirm_quit == 1 | confirm qa | else | qa! | endif")
+                nvim.command("if get(g:, 'neovide_confirm_quit', 0) == 1 | confirm qa | else | qa! | endif")
                     .await
                     .ok();
             }
