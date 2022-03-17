@@ -127,7 +127,9 @@ impl ParallelCommand {
     async fn execute(self, nvim: &Neovim<TxWrapper>) {
         match self {
             ParallelCommand::Quit => {
-                nvim.command("qa!").await.ok();
+                nvim.command("if exists('g:neovide_confirm_quit') && g:neovide_confirm_quit == 1 | confirm qa | else | qa! | endif")
+                    .await
+                    .ok();
             }
             ParallelCommand::Resize { width, height } => nvim
                 .ui_try_resize(width.max(10) as i64, height.max(3) as i64)
