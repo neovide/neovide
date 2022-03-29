@@ -430,13 +430,12 @@ impl CursorRenderer {
         subtract.line_to(self.corners[3].current_position + offsets[3]);
         subtract.close();
 
-        match op(&rectangle, &subtract, skia_safe::PathOp::Difference) {
-            Some(path) => {
-                canvas.draw_path(&path, &paint);
-                path
-            }
-            // TODO: How to handle the failure case?
-            None => self.draw_rectangle(canvas, paint),
-        }
+        // We have two "rectangles"; create an outline path by subtracting the smaller rectangle
+        // from the larger one. This can fail in which case we return a full "rectangle".
+        // TODO: Is this the best way to handle the failure case? Would unwrap be ok?
+        let path = op(&rectangle, &subtract, skia_safe::PathOp::Difference).unwrap_or(rectangle);
+
+        canvas.draw_path(&path, &paint);
+        path
     }
 }
