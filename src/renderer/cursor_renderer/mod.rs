@@ -3,7 +3,7 @@ mod cursor_vfx;
 
 use std::collections::HashMap;
 
-use skia_safe::{Canvas, Paint, Path, Point};
+use skia_safe::{op, Canvas, Paint, Path, Point};
 
 use crate::{
     bridge::EditorMode,
@@ -285,6 +285,7 @@ impl CursorRenderer {
             grid_renderer.font_dimensions.height as f32,
         )
             .into();
+        let outline_width = grid_renderer.font_dimensions.width as f32 * 0.2;
 
         let in_insert_mode = matches!(current_mode, EditorMode::Insert);
 
@@ -350,18 +351,8 @@ impl CursorRenderer {
             .to_color()
             .with_a(self.cursor.alpha());
         paint.set_color(background_color);
-
-        // The cursor is made up of four points, so I create a path with each of the four
-        // corners.
-        let mut path = Path::new();
-
-        path.move_to(self.corners[0].current_position);
-        path.line_to(self.corners[1].current_position);
-        path.line_to(self.corners[2].current_position);
-        path.line_to(self.corners[3].current_position);
-        path.close();
-
-        canvas.draw_path(&path, &paint);
+        //let path = self.draw_rectangle(canvas, &paint);
+        let path = self.draw_rectangular_outline(canvas, &paint, outline_width);
 
         // Draw foreground
         let foreground_color = self
@@ -394,6 +385,58 @@ impl CursorRenderer {
 
         if let Some(vfx) = self.cursor_vfx.as_ref() {
             vfx.render(&settings, canvas, grid_renderer, &self.cursor);
+        }
+    }
+
+    fn draw_rectangle(&self, canvas: &mut Canvas, paint: &Paint) -> Path {
+        // The cursor is made up of four points, so I create a path with each of the four
+        // corners.
+        let mut path = Path::new();
+
+        path.move_to(self.corners[0].current_position);
+        path.line_to(self.corners[1].current_position);
+        path.line_to(self.corners[2].current_position);
+        path.line_to(self.corners[3].current_position);
+        path.close();
+
+        canvas.draw_path(&path, &paint);
+        path
+    }
+
+    fn draw_rectangular_outline(
+        &self,
+        canvas: &mut Canvas,
+        paint: &Paint,
+        outline_width: f32,
+    ) -> Path {
+        let mut rectangle = Path::new();
+        rectangle.move_to(self.corners[0].current_position);
+        rectangle.line_to(self.corners[1].current_position);
+        rectangle.line_to(self.corners[2].current_position);
+        rectangle.line_to(self.corners[3].current_position);
+        rectangle.close();
+
+        let offsets: [Point; 4] = [
+            (outline_width, outline_width).into(),
+            (-outline_width, outline_width).into(),
+            (-outline_width, -outline_width).into(),
+            (outline_width, -outline_width).into(),
+        ];
+
+        let mut subtract = Path::new();
+        subtract.move_to(self.corners[0].current_position + offsets[0]);
+        subtract.line_to(self.corners[1].current_position + offsets[1]);
+        subtract.line_to(self.corners[2].current_position + offsets[2]);
+        subtract.line_to(self.corners[3].current_position + offsets[3]);
+        subtract.close();
+
+        match op(&rectangle, &subtract, skia_safe::PathOp::Difference) {
+            Some(path) => {
+                canvas.draw_path(&path, &paint);
+                path
+            }
+            // TODO: How to handle the failure case?
+            None => self.draw_rectangle(canvas, paint),
         }
     }
 }
