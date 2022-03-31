@@ -3,6 +3,7 @@ mod cursor_vfx;
 
 use std::collections::HashMap;
 
+use glutin::event::{Event, WindowEvent};
 use skia_safe::{op, Canvas, Paint, Path, Point};
 
 use crate::{
@@ -174,6 +175,7 @@ pub struct CursorRenderer {
     previous_editor_mode: EditorMode,
     cursor_vfx: Option<Box<dyn cursor_vfx::CursorVfx>>,
     previous_vfx_mode: cursor_vfx::VfxMode,
+    window_has_focus: bool,
 }
 
 impl CursorRenderer {
@@ -187,9 +189,20 @@ impl CursorRenderer {
             previous_editor_mode: EditorMode::Normal,
             cursor_vfx: None,
             previous_vfx_mode: cursor_vfx::VfxMode::Disabled,
+            window_has_focus: true,
         };
         renderer.set_cursor_shape(&CursorShape::Block, DEFAULT_CELL_PERCENTAGE);
         renderer
+    }
+
+    pub fn handle_event(&mut self, event: &Event<()>) {
+        match event {
+            Event::WindowEvent {
+                event: WindowEvent::Focused(is_focused),
+                ..
+            } => self.window_has_focus = *is_focused,
+            _ => {}
+        }
     }
 
     pub fn update_cursor(&mut self, new_cursor: Cursor) {
@@ -285,7 +298,10 @@ impl CursorRenderer {
             grid_renderer.font_dimensions.height as f32,
         )
             .into();
-        let outline_width = grid_renderer.font_dimensions.width as f32 * 0.2;
+
+        // The width for the outline of a block cursor should be the same as the width of
+        // a vertical cursor.
+        let outline_width = cursor_dimensions.x * DEFAULT_CELL_PERCENTAGE * 2.0;
 
         let in_insert_mode = matches!(current_mode, EditorMode::Insert);
 
@@ -351,8 +367,12 @@ impl CursorRenderer {
             .to_color()
             .with_a(self.cursor.alpha());
         paint.set_color(background_color);
-        //let path = self.draw_rectangle(canvas, &paint);
-        let path = self.draw_rectangular_outline(canvas, &paint, outline_width);
+
+        let path = if self.window_has_focus || self.cursor.shape != CursorShape::Block {
+            self.draw_rectangle(canvas, &paint)
+        } else {
+            self.draw_rectangular_outline(canvas, &paint, outline_width)
+        };
 
         // Draw foreground
         let foreground_color = self
@@ -432,7 +452,6 @@ impl CursorRenderer {
 
         // We have two "rectangles"; create an outline path by subtracting the smaller rectangle
         // from the larger one. This can fail in which case we return a full "rectangle".
-        // TODO: Is this the best way to handle the failure case? Would unwrap be ok?
         let path = op(&rectangle, &subtract, skia_safe::PathOp::Difference).unwrap_or(rectangle);
 
         canvas.draw_path(&path, &paint);
