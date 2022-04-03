@@ -31,6 +31,13 @@ pub struct CursorSettings {
     animate_in_insert_mode: bool,
     animate_command_line: bool,
     trail_size: f32,
+
+    /// Specify cursor outline width in ems. You probably want this to be a positive value less
+    /// than 0.5. If the value is <=0 then the cursor will be invisible. This setting takes effect
+    /// when the editor window is unfocused, at which time a block cursor will be rendered as an
+    /// outline instead of as a full rectangle.
+    unfocused_outline_width: f32,
+
     vfx_mode: cursor_vfx::VfxMode,
     vfx_opacity: f32,
     vfx_particle_lifetime: f32,
@@ -49,6 +56,7 @@ impl Default for CursorSettings {
             animate_in_insert_mode: true,
             animate_command_line: true,
             trail_size: 0.7,
+            unfocused_outline_width: 1.0 / 8.0,
             vfx_mode: cursor_vfx::VfxMode::Disabled,
             vfx_opacity: 200.0,
             vfx_particle_lifetime: 1.2,
@@ -299,10 +307,6 @@ impl CursorRenderer {
         )
             .into();
 
-        // The width for the outline of a block cursor should be the same as the width of
-        // a vertical cursor.
-        let outline_width = cursor_dimensions.x * DEFAULT_CELL_PERCENTAGE * 2.0;
-
         let in_insert_mode = matches!(current_mode, EditorMode::Insert);
 
         let changed_to_from_cmdline = !matches!(self.previous_editor_mode, EditorMode::CmdLine)
@@ -371,6 +375,7 @@ impl CursorRenderer {
         let path = if self.window_has_focus || self.cursor.shape != CursorShape::Block {
             self.draw_rectangle(canvas, &paint)
         } else {
+            let outline_width = settings.unfocused_outline_width * grid_renderer.em_size;
             self.draw_rectangular_outline(canvas, &paint, outline_width)
         };
 
