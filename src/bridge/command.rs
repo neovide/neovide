@@ -56,8 +56,11 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> Option<StdComm
 
         Some(result)
     } else if cfg!(target_os = "macos") {
-        let mut result = StdCommand::new(command);
-        result.args(args);
+        let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
+        let mut result = StdCommand::new(&shell);
+
+        result.args(&["-lc"]);
+        result.arg(format!("{} {}", command, args.join(" ")));
 
         Some(result)
     } else {
