@@ -3,7 +3,8 @@ mod cursor_vfx;
 
 use std::collections::HashMap;
 
-use skia_safe::{Canvas, Paint, Path, Point};
+use glutin::event::{Event, WindowEvent};
+use skia_safe::{op, Canvas, Paint, Path, Point};
 
 use crate::{
     bridge::EditorMode,
@@ -30,6 +31,13 @@ pub struct CursorSettings {
     animate_in_insert_mode: bool,
     animate_command_line: bool,
     trail_size: f32,
+
+    /// Specify cursor outline width in ems. You probably want this to be a positive value less
+    /// than 0.5. If the value is <=0 then the cursor will be invisible. This setting takes effect
+    /// when the editor window is unfocused, at which time a block cursor will be rendered as an
+    /// outline instead of as a full rectangle.
+    unfocused_outline_width: f32,
+
     vfx_mode: cursor_vfx::VfxMode,
     vfx_opacity: f32,
     vfx_particle_lifetime: f32,
@@ -48,6 +56,7 @@ impl Default for CursorSettings {
             animate_in_insert_mode: true,
             animate_command_line: true,
             trail_size: 0.7,
+            unfocused_outline_width: 1.0 / 8.0,
             vfx_mode: cursor_vfx::VfxMode::Disabled,
             vfx_opacity: 200.0,
             vfx_particle_lifetime: 1.2,
@@ -174,6 +183,7 @@ pub struct CursorRenderer {
     previous_editor_mode: EditorMode,
     cursor_vfx: Option<Box<dyn cursor_vfx::CursorVfx>>,
     previous_vfx_mode: cursor_vfx::VfxMode,
+    window_has_focus: bool,
 }
 
 impl CursorRenderer {
@@ -187,9 +197,20 @@ impl CursorRenderer {
             previous_editor_mode: EditorMode::Normal,
             cursor_vfx: None,
             previous_vfx_mode: cursor_vfx::VfxMode::Disabled,
+            window_has_focus: true,
         };
         renderer.set_cursor_shape(&CursorShape::Block, DEFAULT_CELL_PERCENTAGE);
         renderer
+    }
+
+    pub fn handle_event(&mut self, event: &Event<()>) {
+        match event {
+            Event::WindowEvent {
+                event: WindowEvent::Focused(is_focused),
+                ..
+            } => self.window_has_focus = *is_focused,
+            _ => {}
+        }
     }
 
     pub fn update_cursor(&mut self, new_cursor: Cursor) {
@@ -351,17 +372,12 @@ impl CursorRenderer {
             .with_a(self.cursor.alpha());
         paint.set_color(background_color);
 
-        // The cursor is made up of four points, so I create a path with each of the four
-        // corners.
-        let mut path = Path::new();
-
-        path.move_to(self.corners[0].current_position);
-        path.line_to(self.corners[1].current_position);
-        path.line_to(self.corners[2].current_position);
-        path.line_to(self.corners[3].current_position);
-        path.close();
-
-        canvas.draw_path(&path, &paint);
+        let path = if self.window_has_focus || self.cursor.shape != CursorShape::Block {
+            self.draw_rectangle(canvas, &paint)
+        } else {
+            let outline_width = settings.unfocused_outline_width * grid_renderer.em_size;
+            self.draw_rectangular_outline(canvas, &paint, outline_width)
+        };
 
         // Draw foreground
         let foreground_color = self
@@ -395,5 +411,55 @@ impl CursorRenderer {
         if let Some(vfx) = self.cursor_vfx.as_ref() {
             vfx.render(&settings, canvas, grid_renderer, &self.cursor);
         }
+    }
+
+    fn draw_rectangle(&self, canvas: &mut Canvas, paint: &Paint) -> Path {
+        // The cursor is made up of four points, so I create a path with each of the four
+        // corners.
+        let mut path = Path::new();
+
+        path.move_to(self.corners[0].current_position);
+        path.line_to(self.corners[1].current_position);
+        path.line_to(self.corners[2].current_position);
+        path.line_to(self.corners[3].current_position);
+        path.close();
+
+        canvas.draw_path(&path, &paint);
+        path
+    }
+
+    fn draw_rectangular_outline(
+        &self,
+        canvas: &mut Canvas,
+        paint: &Paint,
+        outline_width: f32,
+    ) -> Path {
+        let mut rectangle = Path::new();
+        rectangle.move_to(self.corners[0].current_position);
+        rectangle.line_to(self.corners[1].current_position);
+        rectangle.line_to(self.corners[2].current_position);
+        rectangle.line_to(self.corners[3].current_position);
+        rectangle.close();
+
+        let offsets: [Point; 4] = [
+            (outline_width, outline_width).into(),
+            (-outline_width, outline_width).into(),
+            (-outline_width, -outline_width).into(),
+            (outline_width, -outline_width).into(),
+        ];
+
+        let mut subtract = Path::new();
+        subtract.move_to(self.corners[0].current_position + offsets[0]);
+        subtract.line_to(self.corners[1].current_position + offsets[1]);
+        subtract.line_to(self.corners[2].current_position + offsets[2]);
+        subtract.line_to(self.corners[3].current_position + offsets[3]);
+        subtract.close();
+
+        // We have two "rectangles"; create an outline path by subtracting the smaller rectangle
+        // from the larger one. This can fail in which case we return a full "rectangle".
+        let path = op(&rectangle, &subtract, skia_safe::PathOp::Difference).unwrap_or(rectangle);
+
+        canvas.draw_path(&path, &paint);
+        path
     }
 }

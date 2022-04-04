@@ -16,6 +16,7 @@ pub struct GridRenderer {
     pub shaper: CachingShaper,
     pub paint: Paint,
     pub default_style: Arc<Style>,
+    pub em_size: f32,
     pub font_dimensions: Dimensions,
     pub scale_factor: f64,
     pub is_ready: bool,
@@ -31,12 +32,14 @@ impl GridRenderer {
             Some(colors::BLACK),
             Some(colors::GREY),
         )));
+        let em_size = shaper.current_size();
         let font_dimensions: Dimensions = shaper.font_base_dimensions().into();
 
         GridRenderer {
             shaper,
             paint,
             default_style,
+            em_size,
             font_dimensions,
             scale_factor,
             is_ready: false,
@@ -68,6 +71,7 @@ impl GridRenderer {
     }
 
     fn update_font_dimensions(&mut self) {
+        self.em_size = self.shaper.current_size();
         self.font_dimensions = self.shaper.font_base_dimensions().into();
         self.is_ready = true;
         trace!("Updated font dimensions: {:?}", self.font_dimensions,);

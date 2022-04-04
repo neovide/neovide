@@ -11,6 +11,7 @@ use std::{
     sync::Arc,
 };
 
+use glutin::event::Event;
 use log::error;
 use skia_safe::Canvas;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -97,6 +98,10 @@ impl Renderer {
             batched_draw_command_receiver,
             profiler,
         }
+    }
+
+    pub fn handle_event(&mut self, event: &Event<()>) {
+        self.cursor_renderer.handle_event(event);
     }
 
     pub fn font_names(&self) -> Vec<String> {

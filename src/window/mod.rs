@@ -139,6 +139,7 @@ impl GlutinWindowWrapper {
             &self.renderer,
             &self.windowed_context,
         );
+        self.renderer.handle_event(&event);
         match event {
             Event::LoopDestroyed => {
                 self.handle_quit();
