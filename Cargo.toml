@@ -1,6 +1,6 @@
 [package]
 name = "neovide"
-version = "0.8.0"
+version = "0.9.0"
 authors = ["keith <keith@the-simmons.net>"]
 edition = "2018"
 build = "build.rs"
@@ -73,7 +73,7 @@ incremental = true
 name = "Neovide"
 identifier = "com.neovide.neovide"
 icon = ["assets/neovide.ico"]
-version = "0.8.0"
+version = "0.9.0"
 resources = []
 copyright = "Copyright (c) Keith 2021. All rights reserved."
 category = "Productivity"
