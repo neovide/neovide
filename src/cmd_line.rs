@@ -23,7 +23,7 @@ pub struct CmdLineSettings {
     pub wayland_app_id: String,
     pub x11_wm_class: String,
     // Command-line arguments with multiple files
-    pub files: Vec<String>,
+    pub target_files: Vec<String>,
 }
 
 impl Default for CmdLineSettings {
@@ -48,7 +48,7 @@ impl Default for CmdLineSettings {
             wayland_app_id: String::new(),
             x11_wm_class: String::new(),
             // Command-line arguments with multiple files
-            files: vec![],
+            target_files: vec![],
         }
     }
 }
@@ -201,8 +201,7 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
             .map(|v| v.to_owned())
             .or_else(|| std::env::var("NEOVIDE_X11_WM_CLASS").ok())
             .unwrap_or_else(|| "neovide".to_owned()),
-        // Command-line arguments with multiple files
-        files: matches
+        target_files: matches
             .values_of("files_to_open")
             .map(|opt| opt.map(|v| v.to_owned()).collect())
             .unwrap_or_default(),
