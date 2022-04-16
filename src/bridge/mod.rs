@@ -85,6 +85,17 @@ async fn start_neovim_runtime() {
     let nvim = Arc::new(nvim);
 
     start_ui_command_handler(nvim.clone());
+    
+    // Verify if the files to open is more than one
+    if settings.files.len() > 1 {
+        // Open the first file into a first window
+        let first_file = settings.files.first().unwrap();
+        nvim.command(format!("e {}", first_file).as_str()).await.unwrap_or_explained_panic("Could not create new tab");
+        // Open the rest of the files into new tabs
+        for file in settings.files.iter().skip(1) {
+            nvim.command(format!("tabnew {}", file).as_str()).await.unwrap_or_explained_panic("Could not create new tab");
+        }
+    }
     SETTINGS.read_initial_values(&nvim).await;
     SETTINGS.setup_changed_listeners(&nvim).await;
 
