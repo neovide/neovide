@@ -143,7 +143,6 @@ impl Settings {
 mod tests {
     use async_trait::async_trait;
     use nvim_rs::{Handler, Neovim};
-    
 
     use super::*;
     use crate::{
