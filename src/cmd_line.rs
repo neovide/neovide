@@ -310,7 +310,7 @@ mod tests {
 
         let _accessing_settings = ACCESSING_SETTINGS.lock().unwrap();
         handle_command_line_arguments(args).expect("Could not parse arguments");
-        assert_eq!(SETTINGS.get::<CmdLineSettings>().log_to_file, true);
+        assert!(SETTINGS.get::<CmdLineSettings>().log_to_file);
     }
 
     #[test]

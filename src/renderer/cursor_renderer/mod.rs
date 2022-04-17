@@ -204,12 +204,12 @@ impl CursorRenderer {
     }
 
     pub fn handle_event(&mut self, event: &Event<()>) {
-        match event {
-            Event::WindowEvent {
-                event: WindowEvent::Focused(is_focused),
-                ..
-            } => self.window_has_focus = *is_focused,
-            _ => {}
+        if let Event::WindowEvent {
+            event: WindowEvent::Focused(is_focused),
+            ..
+        } = event
+        {
+            self.window_has_focus = *is_focused
         }
     }
 
@@ -424,7 +424,7 @@ impl CursorRenderer {
         path.line_to(self.corners[3].current_position);
         path.close();
 
-        canvas.draw_path(&path, &paint);
+        canvas.draw_path(&path, paint);
         path
     }
 
@@ -459,7 +459,7 @@ impl CursorRenderer {
         // from the larger one. This can fail in which case we return a full "rectangle".
         let path = op(&rectangle, &subtract, skia_safe::PathOp::Difference).unwrap_or(rectangle);
 
-        canvas.draw_path(&path, &paint);
+        canvas.draw_path(&path, paint);
         path
     }
 }
