@@ -1,6 +1,6 @@
 use crate::{dimensions::Dimensions, frame::Frame, settings::*};
 
-use clap::{App, Arg};
+use clap::{Arg, Command};
 
 #[derive(Clone, Debug)]
 pub struct CmdLineSettings {
@@ -50,94 +50,94 @@ impl Default for CmdLineSettings {
 }
 
 pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
-    let clapp = App::new("Neovide")
+    let clapp = Command::new("Neovide")
         .version(crate_version!())
         .author(crate_authors!())
         .about(crate_description!())
         // Pass through arguments
         .arg(
-            Arg::with_name("files_to_open")
-                .multiple(true)
+            Arg::new("files_to_open")
+                .multiple_values(true)
                 .takes_value(true)
                 .help("Files to open"),
         )
         .arg(
-            Arg::with_name("neovim_args")
-                .multiple(true)
+            Arg::new("neovim_args")
+                .multiple_values(true)
                 .takes_value(true)
                 .last(true)
                 .help("Specify Arguments to pass down to neovim"),
         )
         // Command-line arguments only
         .arg(
-            Arg::with_name("geometry")
+            Arg::new("geometry")
                 .long("geometry")
                 .takes_value(true)
                 .help("Specify the Geometry of the window"),
         )
         .arg(
-            Arg::with_name("log_to_file")
+            Arg::new("log_to_file")
                 .long("log")
                 .help("Log to a file"),
         )
         .arg(
-            Arg::with_name("nofork")
+            Arg::new("nofork")
                 .long("nofork")
                 .help("Do not detach process from terminal"),
         )
         .arg(
-            Arg::with_name("remote_tcp")
+            Arg::new("remote_tcp")
                 .long("remote-tcp")
                 .takes_value(true)
                 .help("Connect to Remote TCP"),
         )
         .arg(
-            Arg::with_name("wsl")
+            Arg::new("wsl")
                 .long("wsl")
                 .help("Run in WSL")
         )
         // Command-line flags with environment variable fallback
         .arg(
-            Arg::with_name("frame")
+            Arg::new("frame")
             .long("frame")
             .takes_value(true)
             .help("Configure the window frame. NOTE: Window might not be resizable if setting is None.")
         )
         .arg(
-            Arg::with_name("maximized")
+            Arg::new("maximized")
                 .long("maximized")
                 .help("Maximize the window"),
         )
         .arg(
-            Arg::with_name("multi_grid")
+            Arg::new("multi_grid")
                 .long("multigrid")
                 .help("Enable Multigrid"),
         )
         .arg(
-            Arg::with_name("noidle")
+            Arg::new("noidle")
                 .long("noidle")
                 .help("Render every frame. Takes more power and cpu time but possibly fixes animation issues"),
         )
         .arg(
-            Arg::with_name("nosrgb")
+            Arg::new("nosrgb")
                 .long("nosrgb")
                 .help("Do not use standard color space to initialize the window. Swapping this variable sometimes fixes issues on startup"),
         )
         // Command-line arguments with environment variable fallback
         .arg(
-            Arg::with_name("neovim_bin")
+            Arg::new("neovim_bin")
                 .long("neovim-bin")
                 .takes_value(true)
                 .help("Specify path to neovim"),
         )
         .arg(
-            Arg::with_name("wayland_app_id")
+            Arg::new("wayland_app_id")
                 .long("wayland-app-id")
                 .takes_value(true)
                 .help("Specify an App ID for Wayland"),
         )
         .arg(
-            Arg::with_name("x11_wm_class")
+            Arg::new("x11_wm_class")
                 .long("x11-wm-class")
                 .takes_value(true)
                 .help("Specify an X11 WM class"),

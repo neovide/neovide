@@ -34,7 +34,7 @@ extern crate lazy_static;
 use std::env::args;
 
 #[cfg(not(test))]
-use flexi_logger::{Cleanup, Criterion, Duplicate, Logger, Naming};
+use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
 use log::trace;
 
 use bridge::start_bridge;
@@ -150,8 +150,9 @@ pub fn init_logger() {
     let settings = SETTINGS.get::<CmdLineSettings>();
 
     let logger = if settings.log_to_file {
-        Logger::with_env_or_str("neovide")
-            .log_to_file()
+        Logger::try_with_env_or_str("neovide")
+            .expect("Could not init logger")
+            .log_to_file(FileSpec::default())
             .rotate(
                 Criterion::Size(10_000_000),
                 Naming::Timestamps,
@@ -159,7 +160,7 @@ pub fn init_logger() {
             )
             .duplicate_to_stderr(Duplicate::Error)
     } else {
-        Logger::with_env_or_str("neovide = error")
+        Logger::try_with_env_or_str("neovide = error").expect("Cloud not init logger")
     };
 
     logger.start().expect("Could not start logger");
