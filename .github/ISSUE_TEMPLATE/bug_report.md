@@ -29,7 +29,7 @@ If applicable, add screenshots to help explain your problem.
  - Neovide Version [e.g. 0.6.0]
  - Neovim Version [e.g. 0.5.0]
 
-**Please run `neovide --log` and paste the contents of the `.log` file here:**
+**Please run `neovide --log` and paste the contents of the `.log` file created in the current directory here:**
 
 **Additional context**
 Add any other context about the problem here.
