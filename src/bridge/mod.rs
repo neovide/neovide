@@ -86,12 +86,6 @@ async fn start_neovim_runtime() {
 
     start_ui_command_handler(nvim.clone());
 
-    // Open the files into new tabs
-    for file in settings.target_files.iter().skip(1) {
-        nvim.command(format!("tabnew {}", file).as_str())
-            .await
-            .unwrap_or_explained_panic("Could not create new tab");
-    }
     SETTINGS.read_initial_values(&nvim).await;
     SETTINGS.setup_changed_listeners(&nvim).await;
 

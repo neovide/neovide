@@ -22,8 +22,8 @@ pub struct CmdLineSettings {
     pub neovim_bin: Option<String>,
     pub wayland_app_id: String,
     pub x11_wm_class: String,
-    // Command-line arguments with multiple files
-    pub target_files: Vec<String>,
+    // Disable open multiple files as tabs
+    pub no_tabs: bool,
 }
 
 impl Default for CmdLineSettings {
@@ -47,8 +47,8 @@ impl Default for CmdLineSettings {
             neovim_bin: None,
             wayland_app_id: String::new(),
             x11_wm_class: String::new(),
-            // Command-line arguments with multiple files
-            target_files: vec![],
+            // Disable open multiple files as tabs
+            no_tabs: false,
         }
     }
 }
@@ -88,6 +88,11 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
             Arg::with_name("nofork")
                 .long("nofork")
                 .help("Do not detach process from terminal"),
+        )
+        .arg(
+            Arg::with_name("no_tabs")
+                .long("notabs")
+                .help("Disable open multiple files as tabs"),
         )
         .arg(
             Arg::with_name("remote_tcp")
@@ -152,12 +157,20 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
         .values_of("neovim_args")
         .map(|opt| opt.map(|v| v.to_owned()).collect())
         .unwrap_or_default();
-    neovim_args.extend::<Vec<String>>(
-        matches
-            .values_of("files_to_open")
-            .map(|opt| opt.map(|v| v.to_owned()).collect())
-            .unwrap_or_default(),
-    );
+
+    let files_to_open: Vec<String> = matches
+        .values_of("files_to_open")
+        .map(|opt| opt.map(|v| v.to_owned()).collect())
+        .unwrap_or_default();
+
+    if files_to_open.len() > 1
+        && !files_to_open.contains(&String::from("-p"))
+        && !matches.is_present("no_tabs")
+    {
+        neovim_args.push("-p".to_owned());
+    }
+
+    neovim_args.extend::<Vec<String>>(files_to_open);
 
     /*
      * Integrate Environment Variables as Defaults to the command-line ones.
@@ -201,10 +214,8 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
             .map(|v| v.to_owned())
             .or_else(|| std::env::var("NEOVIDE_X11_WM_CLASS").ok())
             .unwrap_or_else(|| "neovide".to_owned()),
-        target_files: matches
-            .values_of("files_to_open")
-            .map(|opt| opt.map(|v| v.to_owned()).collect())
-            .unwrap_or_default(),
+        // Disable open multiple files as tabs
+        no_tabs: matches.is_present("no_tabs") || std::env::var("NEOVIDE_NO_TABS").is_ok(),
     });
     Ok(())
 }
