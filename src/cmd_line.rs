@@ -164,7 +164,7 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
         .unwrap_or_default();
 
     if files_to_open.len() > 1
-        && !files_to_open.contains(&String::from("-p"))
+        && !neovim_args.contains(&String::from("-p"))
         && !matches.is_present("no_tabs")
     {
         neovim_args.push("-p".to_owned());
