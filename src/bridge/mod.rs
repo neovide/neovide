@@ -85,7 +85,6 @@ async fn start_neovim_runtime() {
     let nvim = Arc::new(nvim);
 
     start_ui_command_handler(nvim.clone());
-
     SETTINGS.read_initial_values(&nvim).await;
     SETTINGS.setup_changed_listeners(&nvim).await;
 
