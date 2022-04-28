@@ -154,7 +154,16 @@ $ scoop install neovide
 
 6. Copy `./target/release/neovide.exe` to a known location and enjoy.
 
-### Mac (from source)
+### Mac
+
+####  Package manager
+
+Neovide is available as Cask in [Homebrew](https://brew.sh). It can be installed from the command line:
+```sh
+brew install --cask neovide
+```
+
+#### From source
 
 1. Install the latest version of Rust. Using homebrew: `brew install rustup-init`
 2. Configure rust by running `rustup-init`
