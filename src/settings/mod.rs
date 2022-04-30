@@ -194,20 +194,25 @@ mod tests {
         let vt2 = TypeId::of::<f32>();
         let v3: u32 = 2;
 
-        settings.set(&v1);
-        let values = settings.settings.read();
-        let r1 = values.get(&vt1).unwrap().downcast_ref::<u32>().unwrap();
-        assert_eq!(v1, *r1);
+        {
+            settings.set(&v1);
 
-        settings.set(&v2);
+            let values = settings.settings.read();
+            let r1 = values.get(&vt1).unwrap().downcast_ref::<u32>().unwrap();
+            assert_eq!(v1, *r1);
+        }
 
-        settings.set(&v3);
+        {
+            settings.set(&v2);
+            settings.set(&v3);
 
-        let r2 = values.get(&vt1).unwrap().downcast_ref::<u32>().unwrap();
-        let r3 = values.get(&vt2).unwrap().downcast_ref::<f32>().unwrap();
+            let values = settings.settings.read();
+            let r2 = values.get(&vt1).unwrap().downcast_ref::<u32>().unwrap();
+            let r3 = values.get(&vt2).unwrap().downcast_ref::<f32>().unwrap();
 
-        assert_eq!(v3, *r2);
-        assert_eq!(v2, *r3);
+            assert_eq!(v3, *r2);
+            assert_eq!(v2, *r3);
+        }
     }
 
     #[test]
