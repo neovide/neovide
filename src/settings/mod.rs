@@ -69,9 +69,6 @@ impl Settings {
     pub fn set<T: Clone + Send + Sync + 'static>(&self, t: &T) {
         let type_id: TypeId = TypeId::of::<T>();
         let t: T = (*t).clone();
-        unsafe {
-            self.settings.force_unlock_write();
-        }
         let mut write_lock = self.settings.write();
         write_lock.insert(type_id, Box::new(t));
     }
