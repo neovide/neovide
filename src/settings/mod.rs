@@ -140,7 +140,6 @@ impl Settings {
 mod tests {
     use async_trait::async_trait;
     use nvim_rs::{Handler, Neovim};
-    use tokio;
 
     use super::*;
     use crate::{
@@ -221,8 +220,8 @@ mod tests {
         let vt2 = TypeId::of::<f32>();
 
         let mut values = settings.settings.write();
-        values.insert(vt1, Box::new(v1.clone()));
-        values.insert(vt2, Box::new(v2.clone()));
+        values.insert(vt1, Box::new(v1));
+        values.insert(vt2, Box::new(v2));
 
         unsafe {
             settings.settings.force_unlock_write();

@@ -199,10 +199,7 @@ mod tests {
 
         // RUN FUNCTION
         character_grid.set_all_characters(grid_cell.clone());
-        assert_eq!(
-            character_grid.characters,
-            vec![grid_cell.clone(); context.area]
-        );
+        assert_eq!(character_grid.characters, vec![grid_cell; context.area]);
     }
 
     #[test]
@@ -214,7 +211,7 @@ mod tests {
             "foo".to_string(),
             Some(Arc::new(Style::new(context.none_colors))),
         );
-        character_grid.characters = vec![grid_cell.clone(); context.area];
+        character_grid.characters = vec![grid_cell; context.area];
 
         // RUN FUNCTION
         character_grid.clear();

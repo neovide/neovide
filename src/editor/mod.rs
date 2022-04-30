@@ -83,7 +83,7 @@ impl Editor {
                 }
                 RedrawEvent::ModeInfoSet { cursor_modes } => {
                     self.mode_list = cursor_modes;
-                    if let Some(current_mode_i) = self.current_mode_index.clone() {
+                    if let Some(current_mode_i) = self.current_mode_index {
                         if let Some(current_mode) = self.mode_list.get(current_mode_i as usize) {
                             self.cursor.change_mode(current_mode, &self.defined_styles)
                         }

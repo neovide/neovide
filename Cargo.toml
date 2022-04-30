@@ -16,53 +16,53 @@ default = []
 embed-fonts = []
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-neovide-derive = { path = "neovide-derive" }
-euclid = "0.20.7"
-lru = "0.4.3"
-derive-new = "0.5"
-rmpv = "1.0.0"
-image = { version = "0.22.3", default-features = false, features = ["ico"] }
-nvim-rs = { git = "https://github.com/KillTheMule/nvim-rs", branch = "master", features = ["use_tokio"] }
-tokio = { version = "1.1.1", features = ["full"] }
-tokio-util = "0.6.7"
-async-trait = "0.1.18"
-lazy_static = "1.4.0"
-unicode-segmentation = "1.6.0"
-log = "0.4.8"
-flexi_logger = { version = "0.17.1", default-features = false }
-parking_lot = "0.10.0"
-cfg-if = "0.1.10"
-which = "4"
-dirs = "2"
-rand = "0.7"
-pin-project = "0.4.27"
-futures = "0.3.12"
-glutin = { git = "https://github.com/neovide/glutin", branch = "new-keyboard-all", features=["serde"] }
-winit = { git = "https://github.com/neovide/winit", branch = "new-keyboard-all" }
+async-trait = "0.1.53"
+cfg-if = "1.0.0"
+clap = { version = "3.1.9", features = ["cargo"] }
+clipboard = "0.5.0"
+derive-new = "0.5.9"
+dirs = "4.0.0"
+euclid = "0.22.7"
+flexi_logger = { version = "0.22.3", default-features = false }
+futures = "0.3.21"
 gl = "0.14.0"
+glutin = { git = "https://github.com/neovide/glutin", branch = "new-keyboard-all", features = ["serde"] }
+image = { version = "0.24.1", default-features = false, features = ["ico"] }
+lazy_static = "1.4.0"
+log = "0.4.16"
+lru = "0.7.5"
+neovide-derive = { path = "neovide-derive" }
+nvim-rs = { git = "https://github.com/KillTheMule/nvim-rs", branch = "master", features = ["use_tokio"] }
+parking_lot = "0.12.0"
+pin-project = "1.0.10"
+rand = "0.8.5"
+rmpv = "1.0.0"
+serde = { version = "1.0.136", features = ["derive"] }
+serde_json = "1.0.79"
 swash = "0.1.4"
-clap="2.33.3"
-xdg="2.4.0"
-clipboard="0.5.0"
+tokio = { version = "1.17.0", features = ["full"] }
+tokio-util = { version = "0.7.1", features = ["compat"] }
+unicode-segmentation = "1.9.0"
+which = "4.2.5"
+winit = { git = "https://github.com/neovide/winit", branch = "new-keyboard-all" }
+xdg = "2.4.1"
 
 [dev-dependencies]
-mockall = "0.7.0"
+mockall = "0.11.0"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.9", features = ["winuser"] }
 
 [target.'cfg(windows)'.build-dependencies]
-winres = "0.1.11"
+winres = "0.1.12"
 
 [target.'cfg(linux)'.dependencies.skia-safe]
 features = ["gl", "egl"]
-version = "^0.42.1"
+version = "0.49.1"
 
 [target.'cfg(not(linux))'.dependencies.skia-safe]
 features = ["gl"]
-version = "^0.42.1"
+version = "0.49.1"
 
 [profile.release]
 debug = true
