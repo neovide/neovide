@@ -199,10 +199,26 @@ impl GlutinWindowWrapper {
         }
 
         let new_size = window.inner_size();
+        // The size needs to be scaled, otherwise any flag or setting related
+        // to the geometry or window size will be ignored because of the boolean
+        // value of `resized_at_startup`
+        let scale_factor = window.scale_factor() as u32;
+        let new_size_scaled = PhysicalSize {
+            width: new_size.width / scale_factor,
+            height: new_size.height / scale_factor,
+        };
+
         let settings = SETTINGS.get::<CmdLineSettings>();
         // Resize at startup happens when window is maximized or when using tiling WM
         // which already resized window.
-        let resized_at_startup = settings.maximized || is_already_resized(new_size);
+        let resized_at_startup = settings.maximized || is_already_resized(new_size_scaled);
+
+        log::trace!(
+            "Settings geometry {:?}",
+            PhysicalSize::from(settings.geometry)
+        );
+        log::trace!("Inner size: {:?}", new_size);
+        log::trace!("Inner size scaled: {:?}", new_size_scaled);
 
         if self.saved_grid_size.is_none() && !resized_at_startup {
             window.set_inner_size(
@@ -418,5 +434,6 @@ pub fn create_window() {
 }
 
 fn is_already_resized(size: PhysicalSize<u32>) -> bool {
+    // TODO: Use a constant instead.
     size != PhysicalSize::from((800, 600))
 }

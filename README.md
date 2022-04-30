@@ -116,7 +116,7 @@ Configuration is done almost completely via global neovide variables in your vim
 **Note**: Building instructions are somewhat limited at the moment. All the libraries I use are cross platform and should have
 support for Windows, Mac, and Linux. On Windows this should be enabled by default if you have a relatively recent system.
 
-**Note**: Neovide requires neovim version 0.6 or greater if built from main, or 0.4 if downloaded from releases.
+**Note**: Neovide requires neovim version 0.6 or greater. See previous releases such as `0.5.0` if your distro is too slow with updating.
 
 ### From binary
 

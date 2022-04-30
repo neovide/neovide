@@ -367,6 +367,6 @@ mod tests {
         let sent_commands = draw_command_receiver
             .try_recv()
             .expect("Could not receive commands");
-        assert!(sent_commands.len() != 0);
+        assert!(!sent_commands.is_empty());
     }
 }

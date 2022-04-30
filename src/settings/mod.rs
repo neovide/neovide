@@ -69,9 +69,6 @@ impl Settings {
     pub fn set<T: Clone + Send + Sync + 'static>(&self, t: &T) {
         let type_id: TypeId = TypeId::of::<T>();
         let t: T = (*t).clone();
-        unsafe {
-            self.settings.force_unlock_write();
-        }
         let mut write_lock = self.settings.write();
         write_lock.insert(type_id, Box::new(t));
     }
@@ -143,7 +140,6 @@ impl Settings {
 mod tests {
     use async_trait::async_trait;
     use nvim_rs::{Handler, Neovim};
-    use tokio;
 
     use super::*;
     use crate::{
@@ -224,8 +220,8 @@ mod tests {
         let vt2 = TypeId::of::<f32>();
 
         let mut values = settings.settings.write();
-        values.insert(vt1, Box::new(v1.clone()));
-        values.insert(vt2, Box::new(v2.clone()));
+        values.insert(vt1, Box::new(v1));
+        values.insert(vt2, Box::new(v2));
 
         unsafe {
             settings.settings.force_unlock_write();
