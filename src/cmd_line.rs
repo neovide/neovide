@@ -160,7 +160,7 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
 
     let files_to_open: Vec<String> = matches
         .values_of("files_to_open")
-        .map(|opt| opt.map(|v| v.to_owned()).collect())
+        .map(|opt| opt.map(String::from).collect())
         .unwrap_or_default();
 
     if files_to_open.len() > 1
@@ -260,16 +260,23 @@ mod tests {
         handle_command_line_arguments(args).expect("Could not parse arguments");
         assert_eq!(
             SETTINGS.get::<CmdLineSettings>().neovim_args,
-            vec!["./foo.txt", "./bar.md"]
+            vec!["-p", "./foo.txt", "./bar.md"]
         );
     }
 
     #[test]
     fn test_files_to_open_with_passthrough() {
-        let args: Vec<String> = vec!["neovide", "./foo.txt", "./bar.md", "--", "--clean"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
+        let args: Vec<String> = vec![
+            "neovide",
+            "--notabs",
+            "./foo.txt",
+            "./bar.md",
+            "--",
+            "--clean",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
 
         let _accessing_settings = ACCESSING_SETTINGS.lock().unwrap();
         handle_command_line_arguments(args).expect("Could not parse arguments");
@@ -281,10 +288,16 @@ mod tests {
 
     #[test]
     fn test_files_to_open_with_flag() {
-        let args: Vec<String> = vec!["neovide", "./foo.txt", "./bar.md", "--geometry=42x24"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
+        let args: Vec<String> = vec![
+            "neovide",
+            "--notabs",
+            "./foo.txt",
+            "./bar.md",
+            "--geometry=42x24",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
 
         let _accessing_settings = ACCESSING_SETTINGS.lock().unwrap();
         handle_command_line_arguments(args).expect("Could not parse arguments");
