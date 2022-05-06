@@ -255,7 +255,13 @@ impl RenderedWindow {
         }
 
         if self.floating_order.is_some() && settings.floating_blur {
-            let blur = blur((2.0, 2.0), None, None, None).unwrap();
+            let blur = blur(
+                (settings.floating_blur_amount, settings.floating_blur_amount),
+                None,
+                None,
+                None,
+            )
+            .unwrap();
             let save_layer_rec = SaveLayerRec::default()
                 .backdrop(&blur)
                 .bounds(&pixel_region);
