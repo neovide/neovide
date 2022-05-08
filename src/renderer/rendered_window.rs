@@ -256,7 +256,10 @@ impl RenderedWindow {
 
         if self.floating_order.is_some() && settings.floating_blur {
             let blur = blur(
-                (settings.floating_blur_amount, settings.floating_blur_amount),
+                (
+                    settings.floating_blur_amount_x,
+                    settings.floating_blur_amount_y,
+                ),
                 None,
                 None,
                 None,

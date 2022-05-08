@@ -35,7 +35,8 @@ pub struct RendererSettings {
     scroll_animation_length: f32,
     floating_opacity: f32,
     floating_blur: bool,
-    floating_blur_amount: f32,
+    floating_blur_amount_x: f32,
+    floating_blur_amount_y: f32,
     debug_renderer: bool,
     profiler: bool,
 }
@@ -47,7 +48,8 @@ impl Default for RendererSettings {
             scroll_animation_length: 0.3,
             floating_opacity: 0.7,
             floating_blur: true,
-            floating_blur_amount: 2.0,
+            floating_blur_amount_x: 2.0,
+            floating_blur_amount_y: 2.0,
             debug_renderer: false,
             profiler: false,
         }
