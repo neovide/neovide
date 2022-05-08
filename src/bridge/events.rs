@@ -380,7 +380,10 @@ fn parse_map(map_value: Value) -> Result<Vec<(Value, Value)>> {
 }
 
 fn parse_string(string_value: Value) -> Result<String> {
-    string_value.try_into().map_err(ParseError::String)
+    match string_value {
+        Value::String(s) => Ok(s.into_str().unwrap_or_else(|| String::from("?"))),
+        _ => Err(ParseError::String(string_value))
+    }
 }
 
 fn parse_u64(u64_value: Value) -> Result<u64> {
