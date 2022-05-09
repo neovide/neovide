@@ -381,8 +381,8 @@ fn parse_map(map_value: Value) -> Result<Vec<(Value, Value)>> {
 
 fn parse_string(string_value: Value) -> Result<String> {
     match string_value {
-        Value::String(s) => Ok(s.into_str().unwrap_or_else(|| String::from("?"))),
-        _ => Err(ParseError::String(string_value))
+        Value::String(s) => Ok(s.into_str().unwrap_or_else(|| String::from("\u{FFFD}"))),
+        _ => Err(ParseError::String(string_value)),
     }
 }
 
