@@ -116,7 +116,7 @@ Configuration is done almost completely via global neovide variables in your vim
 **Note**: Building instructions are somewhat limited at the moment. All the libraries I use are cross platform and should have
 support for Windows, Mac, and Linux. On Windows this should be enabled by default if you have a relatively recent system.
 
-**Note**: Neovide requires neovim version 0.6 or greater if built from main, or 0.4 if downloaded from releases.
+**Note**: Neovide requires neovim version 0.6 or greater. See previous releases such as `0.5.0` if your distro is too slow with updating.
 
 ### From binary
 
@@ -253,6 +253,7 @@ snap install neovide
 
 ## Troubleshooting
 - Neovide requires that a font be set in `init.vim` otherwise errors might be encountered. This can be fixed by adding `set guifont=Your\ Font\ Name:h15` in init.vim file. Reference issue [#527](https://github.com/neovide/neovide/issues/527).
+- If you installed `neovim` via Apple Silicon (M1)-based `brew`, you have to add the `brew prefix` to `$PATH` to run `Neovide.app` in GUI. Please see the [homebrew documentation](https://docs.brew.sh/FAQ#my-mac-apps-dont-find-homebrew-utilities). Reference issue [#1242](https://github.com/neovide/neovide/pull/1242)
 
 ### Linux-specific
 - If you recieve errors complaining about DRI3 settings, please reference issue [#44](https://github.com/neovide/neovide/issues/44#issuecomment-578618052).

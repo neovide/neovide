@@ -23,7 +23,7 @@ impl FontOptions {
             let parsed_font_list: Vec<String> = parts
                 .split(',')
                 .filter(|fallback| !fallback.is_empty())
-                .map(|fallback| fallback.to_string())
+                .map(|fallback| fallback.replace('_', " "))
                 .collect();
 
             if !parsed_font_list.is_empty() {

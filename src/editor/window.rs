@@ -324,31 +324,30 @@ impl Window {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::collections::HashMap;
-    use std::sync::mpsc::*;
 
-    fn build_test_channels() -> (Receiver<Vec<DrawCommand>>, Arc<DrawCommandBatcher>) {
-        let (_batched_draw_command_sender, batched_draw_command_receiver) = channel();
-
-        let draw_command_batcher = Arc::new(DrawCommandBatcher::new());
-
-        (batched_draw_command_receiver, draw_command_batcher)
-    }
+    use super::*;
+    use crate::event_aggregator::EVENT_AGGREGATOR;
 
     #[test]
     fn window_separator_modifies_grid_and_sends_draw_command() {
-        let (batched_receiver, batched_sender) = build_test_channels();
+        let mut draw_command_receiver = EVENT_AGGREGATOR.register_event::<Vec<DrawCommand>>();
+        let draw_command_batcher = Arc::new(DrawCommandBatcher::new());
+
         let mut window = Window::new(
             1,
             WindowType::Editor,
             None,
             (0.0, 0.0),
             (114, 64),
-            batched_sender.clone(),
+            draw_command_batcher.clone(),
         );
-        batched_sender.send_batch();
-        batched_receiver.recv().expect("Could not receive commands");
+
+        draw_command_batcher.send_batch();
+
+        draw_command_receiver
+            .try_recv()
+            .expect("Could not receive commands");
 
         window.draw_grid_line(
             1,
@@ -363,9 +362,11 @@ mod tests {
 
         assert_eq!(window.grid.get_cell(70, 1), Some(&("|".to_owned(), None)));
 
-        batched_sender.send_batch();
+        draw_command_batcher.send_batch();
 
-        let sent_commands = batched_receiver.recv().expect("Could not receive commands");
-        assert!(sent_commands.len() != 0);
+        let sent_commands = draw_command_receiver
+            .try_recv()
+            .expect("Could not receive commands");
+        assert!(!sent_commands.is_empty());
     }
 }

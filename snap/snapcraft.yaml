@@ -1,6 +1,6 @@
 name: neovide # you probably want to 'snapcraft register <name>'
 base: core20 # the base snap is the execution environment for this snap
-version: "0.8.0+git"
+version: "0.9.0+git"
 summary: The snappiest vim editor you are likely to find.
 description: |
   This is a simple graphical user interface for Neovim. Where possible there are some graphical improvements,
@@ -23,26 +23,14 @@ parts:
     source: https://github.com/neovim/neovim.git
     override-pull: |
       snapcraftctl pull
-      latest_tag="$(git tag -l --sort=refname|head -1)"
-      git checkout "${latest_tag}"
+      branch="$(git tag -l --sort=refname | awk '/v[0-9\.]/{print $0}' | tail -1)"
+      git checkout tags/${branch} -b ${branch}
       major="$(awk '/NVIM_VERSION_MAJOR/{gsub(")","",$2); print $2}' CMakeLists.txt)"
       minor="$(awk '/NVIM_VERSION_MINOR/{gsub(")","",$2); print $2}' CMakeLists.txt)"
       patch="$(awk '/NVIM_VERSION_PATCH/{gsub(")","",$2); print $2}' CMakeLists.txt)"
-      version_prefix="v$major.$minor.$patch"
-      git_described="$(git describe --first-parent --dirty 2> /dev/null | perl -lpe 's/v\d.\d.\d-//g')"
-      git_described="${git_described:-$(git describe --first-parent --tags --always --dirty)}"
-      if [ "${version_prefix}" != "${git_described}" ]; then
-        VERSION="${version_prefix}-${git_described}-${latest_tag}"
-      else
-        VERSION="${version_prefix}-${latest_tag}"
-      fi
+      VERSION="v$major.$minor.$patch"
       snapcraftctl set-version "${VERSION}"
     plugin: make
-    make-parameters:
-      - CMAKE_BUILD_TYPE=RelWithDebInfo
-      - CMAKE_INSTALL_PREFIX=/usr
-      - CMAKE_FLAGS=-DPREFER_LUA=ON
-      - DEPS_CMAKE_FLAGS="-DUSE_BUNDLED_LUA=ON -DUSE_BUNDLED_LUAJIT=OFF"
     override-build: |
       echo "Building on $SNAP_ARCH"
       set -x
@@ -62,19 +50,24 @@ parts:
       esac
       make DESTDIR="$SNAPCRAFT_PART_INSTALL" install
       # Fix Desktop file
-      sed -i 's|^Exec=nvim|Exec=/snap/bin/nvim.nvim|' ${SNAPCRAFT_PART_INSTALL}/usr/share/applications/nvim.desktop
-      sed -i 's|^TryExec=nvim|TryExec=/snap/bin/nvim.nvim|' ${SNAPCRAFT_PART_INSTALL}/usr/share/applications/nvim.desktop
-      sed -i 's|^Icon=.*|Icon=${SNAP}/usr/share/pixmaps/nvim.png|' ${SNAPCRAFT_PART_INSTALL}/usr/share/applications/nvim.desktop
+      sed -i 's|^Exec=nvim|Exec=/snap/bin/nvim.nvim|' \
+        ${SNAPCRAFT_PART_INSTALL}/usr/share/applications/nvim.desktop
+      sed -i 's|^TryExec=nvim|TryExec=/snap/bin/nvim.nvim|' \
+        ${SNAPCRAFT_PART_INSTALL}/usr/share/applications/nvim.desktop
+      sed -i 's|^Icon=.*|Icon=${SNAP}/usr/share/icons/hicolor/128x128/apps/nvim.png|' \
+        ${SNAPCRAFT_PART_INSTALL}/usr/share/applications/nvim.desktop
     build-packages:
       - ninja-build
       - libtool
       - libtool-bin
       - autoconf
       - automake
+      - cmake
       - gawk
       - g++
       - git
       - gettext
+      - pkg-config
       - unzip
       - wget
     prime:
@@ -90,21 +83,22 @@ parts:
       - fontconfig
       - libfontconfig1-dev
       - libfreetype6-dev
+      - libxcb-composite0-dev
     stage-packages:
       - libxkbcommon0
       - libxkbcommon-x11-0
-      - libegl1-mesa-dev
-      - libgl1-mesa-dev
+      - libegl1-mesa
+      - libgl1-mesa-glx
       - fontconfig
       - fonts-noto
       - libfontconfig1
       - libibus-1.0-5
       - libpng16-16
-      - libx11-dev
+      - libx11-6
       - libx11-xcb1
       - libxcursor1
-      - libxi-dev
-      - libxrandr-dev
+      - libxi6
+      - libxrandr2
       - locales-all
       - xdg-user-dirs
 
@@ -116,6 +110,7 @@ apps:
       - desktop-legacy
       - wayland
       - unity7
+      - opengl
       - x11
     command-chain:
       - bin/desktop-launch

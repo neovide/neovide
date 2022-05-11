@@ -60,6 +60,7 @@ pub struct Editor {
     pub defined_styles: HashMap<u64, Arc<Style>>,
     pub mode_list: Vec<CursorMode>,
     pub draw_command_batcher: Arc<DrawCommandBatcher>,
+    pub current_mode_index: Option<u64>,
 }
 
 impl Editor {
@@ -70,6 +71,7 @@ impl Editor {
             defined_styles: HashMap::new(),
             mode_list: Vec::new(),
             draw_command_batcher: Arc::new(DrawCommandBatcher::new()),
+            current_mode_index: None,
         }
     }
 
@@ -79,11 +81,21 @@ impl Editor {
                 RedrawEvent::SetTitle { title } => {
                     EVENT_AGGREGATOR.send(WindowCommand::TitleChanged(title));
                 }
-                RedrawEvent::ModeInfoSet { cursor_modes } => self.mode_list = cursor_modes,
+                RedrawEvent::ModeInfoSet { cursor_modes } => {
+                    self.mode_list = cursor_modes;
+                    if let Some(current_mode_i) = self.current_mode_index {
+                        if let Some(current_mode) = self.mode_list.get(current_mode_i as usize) {
+                            self.cursor.change_mode(current_mode, &self.defined_styles)
+                        }
+                    }
+                }
                 RedrawEvent::OptionSet { gui_option } => self.set_option(gui_option),
                 RedrawEvent::ModeChange { mode, mode_index } => {
                     if let Some(cursor_mode) = self.mode_list.get(mode_index as usize) {
                         self.cursor.change_mode(cursor_mode, &self.defined_styles);
+                        self.current_mode_index = Some(mode_index)
+                    } else {
+                        self.current_mode_index = None
                     }
                     self.draw_command_batcher
                         .queue(DrawCommand::ModeChanged(mode))

@@ -1,7 +1,8 @@
 pub mod animation_utils;
 pub mod cursor_renderer;
-mod fonts;
+pub mod fonts;
 pub mod grid_renderer;
+pub mod profiler;
 mod rendered_window;
 
 use std::{
@@ -10,6 +11,7 @@ use std::{
     sync::Arc,
 };
 
+use glutin::event::Event;
 use log::error;
 use skia_safe::Canvas;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -33,7 +35,10 @@ pub struct RendererSettings {
     scroll_animation_length: f32,
     floating_opacity: f32,
     floating_blur: bool,
+    floating_blur_amount_x: f32,
+    floating_blur_amount_y: f32,
     debug_renderer: bool,
+    profiler: bool,
 }
 
 impl Default for RendererSettings {
@@ -43,7 +48,10 @@ impl Default for RendererSettings {
             scroll_animation_length: 0.3,
             floating_opacity: 0.7,
             floating_blur: true,
+            floating_blur_amount_x: 2.0,
+            floating_blur_amount_y: 2.0,
             debug_renderer: false,
+            profiler: false,
         }
     }
 }
@@ -70,6 +78,7 @@ pub struct Renderer {
     pub window_regions: Vec<WindowDrawDetails>,
 
     pub batched_draw_command_receiver: UnboundedReceiver<Vec<DrawCommand>>,
+    profiler: profiler::Profiler,
 }
 
 impl Renderer {
@@ -82,6 +91,7 @@ impl Renderer {
         let window_regions = Vec::new();
 
         let batched_draw_command_receiver = EVENT_AGGREGATOR.register_event::<Vec<DrawCommand>>();
+        let profiler = profiler::Profiler::new(12.0);
 
         Renderer {
             rendered_windows,
@@ -90,7 +100,12 @@ impl Renderer {
             current_mode,
             window_regions,
             batched_draw_command_receiver,
+            profiler,
         }
+    }
+
+    pub fn handle_event(&mut self, event: &Event<()>) {
+        self.cursor_renderer.handle_event(event);
     }
 
     pub fn font_names(&self) -> Vec<String> {
@@ -171,6 +186,8 @@ impl Renderer {
 
         self.cursor_renderer
             .draw(&mut self.grid_renderer, &self.current_mode, root_canvas, dt);
+
+        self.profiler.draw(root_canvas, dt);
 
         root_canvas.restore();
 

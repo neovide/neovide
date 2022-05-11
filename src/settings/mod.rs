@@ -69,9 +69,6 @@ impl Settings {
     pub fn set<T: Clone + Send + Sync + 'static>(&self, t: &T) {
         let type_id: TypeId = TypeId::of::<T>();
         let t: T = (*t).clone();
-        unsafe {
-            self.settings.force_unlock_write();
-        }
         let mut write_lock = self.settings.write();
         write_lock.insert(type_id, Box::new(t));
     }
@@ -143,7 +140,6 @@ impl Settings {
 mod tests {
     use async_trait::async_trait;
     use nvim_rs::{Handler, Neovim};
-    use tokio;
 
     use super::*;
     use crate::{
@@ -198,20 +194,25 @@ mod tests {
         let vt2 = TypeId::of::<f32>();
         let v3: u32 = 2;
 
-        settings.set(&v1);
-        let values = settings.settings.read();
-        let r1 = values.get(&vt1).unwrap().downcast_ref::<u32>().unwrap();
-        assert_eq!(v1, *r1);
+        {
+            settings.set(&v1);
 
-        settings.set(&v2);
+            let values = settings.settings.read();
+            let r1 = values.get(&vt1).unwrap().downcast_ref::<u32>().unwrap();
+            assert_eq!(v1, *r1);
+        }
 
-        settings.set(&v3);
+        {
+            settings.set(&v2);
+            settings.set(&v3);
 
-        let r2 = values.get(&vt1).unwrap().downcast_ref::<u32>().unwrap();
-        let r3 = values.get(&vt2).unwrap().downcast_ref::<f32>().unwrap();
+            let values = settings.settings.read();
+            let r2 = values.get(&vt1).unwrap().downcast_ref::<u32>().unwrap();
+            let r3 = values.get(&vt2).unwrap().downcast_ref::<f32>().unwrap();
 
-        assert_eq!(v3, *r2);
-        assert_eq!(v2, *r3);
+            assert_eq!(v3, *r2);
+            assert_eq!(v2, *r3);
+        }
     }
 
     #[test]
@@ -224,8 +225,8 @@ mod tests {
         let vt2 = TypeId::of::<f32>();
 
         let mut values = settings.settings.write();
-        values.insert(vt1, Box::new(v1.clone()));
-        values.insert(vt2, Box::new(v2.clone()));
+        values.insert(vt1, Box::new(v1));
+        values.insert(vt2, Box::new(v2));
 
         unsafe {
             settings.settings.force_unlock_write();

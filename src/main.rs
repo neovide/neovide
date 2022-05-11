@@ -1,8 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
 // Test naming occasionally uses camelCase with underscores to separate sections of
 // the test name.
-#[cfg_attr(test, allow(non_snake_case))]
+#![cfg_attr(test, allow(non_snake_case))]
 #[macro_use]
 extern crate neovide_derive;
 
@@ -34,7 +33,7 @@ extern crate lazy_static;
 use std::env::args;
 
 #[cfg(not(test))]
-use flexi_logger::{Cleanup, Criterion, Duplicate, Logger, Naming};
+use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
 use log::trace;
 
 use bridge::start_bridge;
@@ -150,8 +149,9 @@ pub fn init_logger() {
     let settings = SETTINGS.get::<CmdLineSettings>();
 
     let logger = if settings.log_to_file {
-        Logger::with_env_or_str("neovide")
-            .log_to_file()
+        Logger::try_with_env_or_str("neovide")
+            .expect("Could not init logger")
+            .log_to_file(FileSpec::default())
             .rotate(
                 Criterion::Size(10_000_000),
                 Naming::Timestamps,
@@ -159,7 +159,7 @@ pub fn init_logger() {
             )
             .duplicate_to_stderr(Duplicate::Error)
     } else {
-        Logger::with_env_or_str("neovide = error")
+        Logger::try_with_env_or_str("neovide = error").expect("Cloud not init logger")
     };
 
     logger.start().expect("Could not start logger");

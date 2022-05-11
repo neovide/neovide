@@ -80,6 +80,14 @@ impl Cursor {
             .unwrap_or_else(|| default_colors.foreground.unwrap())
     }
 
+    pub fn alpha(&self) -> u8 {
+        return self
+            .style
+            .as_ref()
+            .map(|s| (255_f32 * ((100 - s.blend) as f32 / 100.0_f32)) as u8)
+            .unwrap_or(255);
+    }
+
     pub fn change_mode(&mut self, cursor_mode: &CursorMode, styles: &HashMap<u64, Arc<Style>>) {
         let CursorMode {
             shape,
@@ -152,7 +160,7 @@ mod tests {
             cursor.foreground(&DEFAULT_COLORS),
             DEFAULT_COLORS.background.unwrap()
         );
-        cursor.style = style.clone();
+        cursor.style = style;
         assert_eq!(
             cursor.foreground(&DEFAULT_COLORS),
             COLORS.foreground.unwrap()
@@ -174,7 +182,7 @@ mod tests {
             cursor.background(&DEFAULT_COLORS),
             DEFAULT_COLORS.foreground.unwrap()
         );
-        cursor.style = style.clone();
+        cursor.style = style;
         assert_eq!(
             cursor.background(&DEFAULT_COLORS),
             COLORS.background.unwrap()
