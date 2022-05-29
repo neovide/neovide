@@ -50,6 +50,14 @@ pub enum WindowDrawCommand {
     },
 }
 
+#[derive(Copy, Clone, Debug)]
+pub struct WindowPadding {
+    pub top: u32,
+    pub left: u32,
+    pub right: u32,
+    pub bottom: u32,
+}
+
 fn build_window_surface(parent_canvas: &mut Canvas, pixel_size: (i32, i32)) -> Surface {
     let mut context = parent_canvas.recording_context().unwrap();
     let budgeted = Budgeted::Yes;
@@ -147,6 +155,8 @@ pub struct RenderedWindow {
     pub current_scroll: f32,
     scroll_destination: f32,
     scroll_t: f32,
+
+    pub padding: WindowPadding,
 }
 
 #[derive(Clone, Debug)]
@@ -163,6 +173,7 @@ impl RenderedWindow {
         id: u64,
         grid_position: Point,
         grid_size: Dimensions,
+        padding: WindowPadding,
     ) -> RenderedWindow {
         let current_surface = LocatedSurface::new(parent_canvas, grid_renderer, grid_size, 0);
 
@@ -185,6 +196,7 @@ impl RenderedWindow {
             current_scroll: 0.0,
             scroll_destination: 0.0,
             scroll_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation.
+            padding,
         }
     }
 
@@ -355,9 +367,17 @@ impl RenderedWindow {
                 grid_size,
                 floating_order,
             } => {
+                let Dimensions {
+                    width: font_width,
+                    height: font_height
+                } = grid_renderer.font_dimensions;
+
+                let top_offset = self.padding.top as f32 / font_height as f32;
+                let left_offset = self.padding.left as f32 / font_width as f32;
+
                 let grid_left = grid_left.max(0.0);
                 let grid_top = grid_top.max(0.0);
-                let new_destination: Point = (grid_left as f32, grid_top as f32).into();
+                let new_destination: Point = (grid_left as f32 + left_offset, grid_top as f32 + top_offset).into();
                 let new_grid_size: Dimensions = grid_size.into();
 
                 if self.grid_destination != new_destination {

@@ -27,7 +27,7 @@ use crate::{
 use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
-pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails};
+pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails, WindowPadding};
 
 #[derive(SettingGroup, Clone)]
 pub struct RendererSettings {
@@ -83,10 +83,11 @@ pub struct Renderer {
     profiler: profiler::Profiler,
     os_scale_factor: f64,
     user_scale_factor: f64,
+    window_padding: WindowPadding,
 }
 
 impl Renderer {
-    pub fn new(os_scale_factor: f64) -> Self {
+    pub fn new(os_scale_factor: f64, window_padding: WindowPadding) -> Self {
         let user_scale_factor = SETTINGS.get::<WindowSettings>().scale_factor.into();
         let scale_factor = user_scale_factor * os_scale_factor;
         let cursor_renderer = CursorRenderer::new();
@@ -109,6 +110,7 @@ impl Renderer {
             profiler,
             os_scale_factor,
             user_scale_factor,
+            window_padding,
         }
     }
 
@@ -244,6 +246,7 @@ impl Renderer {
                                 grid_id,
                                 (grid_left as f32, grid_top as f32).into(),
                                 (width, height).into(),
+                                self.window_padding,
                             );
                             vacant_entry.insert(new_window);
                         } else {
