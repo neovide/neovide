@@ -2,12 +2,11 @@ use std::error::Error;
 
 use rmpv::Value;
 
-use clipboard::ClipboardContext;
-use clipboard::ClipboardProvider;
+use arboard::Clipboard;
 
 pub fn get_remote_clipboard(format: Option<&str>) -> Result<Value, Box<dyn Error>> {
-    let mut ctx: ClipboardContext = ClipboardProvider::new()?;
-    let clipboard_raw = ctx.get_contents()?.replace('\r', "");
+    let mut clipboard_ctx = Clipboard::new()?;
+    let clipboard_raw = clipboard_ctx.get_text()?.replace('\r', "");
 
     let lines = if let Some("dos") = format {
         // add \r to lines of current file format is dos
@@ -51,6 +50,7 @@ pub fn set_remote_clipboard(arguments: Vec<Value>) -> Result<(), Box<dyn Error>>
         })
         .ok_or("can't build string from provided text")?;
 
-    let mut ctx: ClipboardContext = ClipboardProvider::new()?;
-    ctx.set_contents(lines)
+    let mut clipboard_ctx = Clipboard::new()?;
+    clipboard_ctx.set_text(lines)?;
+    Ok(())
 }

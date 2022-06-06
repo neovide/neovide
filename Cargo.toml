@@ -16,10 +16,10 @@ default = []
 embed-fonts = []
 
 [dependencies]
+arboard = "2.1.1"
 async-trait = "0.1.53"
 cfg-if = "1.0.0"
 clap = { version = "3.1.9", features = ["cargo"] }
-clipboard = "0.5.0"
 derive-new = "0.5.9"
 dirs = "4.0.0"
 euclid = "0.22.7"
