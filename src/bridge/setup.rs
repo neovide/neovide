@@ -3,7 +3,7 @@ use nvim_rs::Neovim;
 use rmpv::Value;
 
 use crate::{
-    bridge::{events::*, TxWrapper},
+    bridge::TxWrapper,
     error_handling::ResultPanicExplanation,
 };
 
@@ -84,20 +84,10 @@ pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>, is_remote: b
 
     // Retrieve the channel number for communicating with neovide
     let neovide_channel: Option<u64> = nvim
-        .list_chans()
+        .get_api_info()
         .await
         .ok()
-        .and_then(|channel_values| parse_channel_list(channel_values).ok())
-        .and_then(|channel_list| {
-            channel_list.iter().find_map(|channel| match channel {
-                ChannelInfo {
-                    id,
-                    client: Some(ClientInfo { name, .. }),
-                    ..
-                } if name == "neovide" => Some(*id),
-                _ => None,
-            })
-        });
+        .and_then(|info| info[0].as_u64());
 
     if let Some(neovide_channel) = neovide_channel {
         // Record the channel to the log
