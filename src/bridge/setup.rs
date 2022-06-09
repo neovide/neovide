@@ -2,10 +2,7 @@ use log::{info, warn};
 use nvim_rs::Neovim;
 use rmpv::Value;
 
-use crate::{
-    bridge::TxWrapper,
-    error_handling::ResultPanicExplanation,
-};
+use crate::{bridge::TxWrapper, error_handling::ResultPanicExplanation};
 
 pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<TxWrapper>, neovide_channel: u64) {
     // users can opt-out with
