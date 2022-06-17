@@ -39,10 +39,10 @@ jobs:
           # Pay attention not to break BUILD stage of a test,
           # when tests are failing at BUILD stage, everything after -- is ignored,
           # and no json output will be generated.
-          # Becouse those arguments is passed to compiled test binary. And it is failed to compile.
+          # Because those arguments is passed to compiled test binary. And it is failed to compile.
           cargo test -- -Z unstable-options --format json > results.json
           # This and `set -eo pipefail` for MacOS/Linux
-          # is added, becouse without it pipe will eat exit status.
+          # is added, because without it pipe will eat exit status.
           # Docs are stating that it should work by default, but it does not.
           # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#exit-codes-and-error-action-preference
           # Oh, it still does not fail on Windows. ¯\_(ツ)_/¯

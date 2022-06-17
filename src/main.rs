@@ -75,7 +75,7 @@ fn main() {
     //   The editor is responsible for processing and transforming redraw events into something
     //   more readily renderable. Ligature support and multi window management requires some
     //   significant preprocessing of the redraw events in order to capture what exactly should get
-    //   drawn where. Futher this step takes a bit of processing power to accomplish, so it is done
+    //   drawn where. Further this step takes a bit of processing power to accomplish, so it is done
     //   on it's own thread. Ideally heavily computationally expensive tasks should be done in the
     //   editor.
     //

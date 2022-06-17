@@ -70,7 +70,7 @@ impl KeyboardManager {
                 event: WindowEvent::ModifiersChanged(modifiers),
                 ..
             } => {
-                // Record the modifer states so that we can properly add them to the keybinding
+                // Record the modifier states so that we can properly add them to the keybinding
                 // text
                 self.shift = modifiers.shift_key();
                 self.ctrl = modifiers.control_key();
