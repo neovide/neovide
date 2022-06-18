@@ -6,13 +6,15 @@ use crate::{
 };
 use glutin::{
     event::{ElementState, Event, KeyEvent, WindowEvent},
-    keyboard::{Key, Key::Dead},
+    keyboard::{Key, Key::Dead, ModifiersState},
     platform::modifier_supplement::KeyEventExtModifierSupplement,
 };
 
+#[derive(Debug)]
 enum InputEvent {
     KeyEvent(KeyEvent),
     ImeInput(String),
+    ModifiersChanged(ModifiersState),
 }
 pub struct KeyboardManager {
     shift: bool,
@@ -70,12 +72,8 @@ impl KeyboardManager {
                 event: WindowEvent::ModifiersChanged(modifiers),
                 ..
             } => {
-                // Record the modifer states so that we can properly add them to the keybinding
-                // text
-                self.shift = modifiers.shift_key();
-                self.ctrl = modifiers.control_key();
-                self.alt = modifiers.alt_key();
-                self.logo = modifiers.super_key();
+                self.queued_input_events
+                    .push(InputEvent::ModifiersChanged(*modifiers));
             }
             Event::MainEventsCleared => {
                 // If the window wasn't just focused.
@@ -107,6 +105,14 @@ impl KeyboardManager {
                                         SerialCommand::Keyboard(raw_input.to_string()),
                                     ));
                                 }
+                            }
+                            InputEvent::ModifiersChanged(modifiers) => {
+                                // Record the modifer states so that we can properly add them to
+                                // the keybinding text
+                                self.shift = modifiers.shift_key();
+                                self.ctrl = modifiers.control_key();
+                                self.alt = modifiers.alt_key();
+                                self.logo = modifiers.super_key();
                             }
                         }
                         self.prev_dead_key = next_dead_key;
