@@ -1,13 +1,16 @@
 name: Build-and-Test
 
-on: [push]
+on:
+  push:
+  pull_request:
+    branches: [ main ]
 
 jobs:
   build-windows:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Install Nightly Toolchain
         uses: actions-rs/toolchain@v1
@@ -58,7 +61,7 @@ jobs:
         run: |
           cargo build --release
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: neovide-windows
           path: ./target/release/neovide.exe
@@ -67,7 +70,7 @@ jobs:
     runs-on: macos-11
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Install Nightly Toolchain
         uses: actions-rs/toolchain@v1
@@ -149,7 +152,7 @@ jobs:
           hdiutil create Neovide-uncompressed.dmg -volname "Neovide" -srcfolder target/release/bundle/osx
           hdiutil convert Neovide-uncompressed.dmg -format UDZO -o Neovide.dmg
 
-      - uses: actions/upload-artifact@v1
+      - uses: actions/upload-artifact@v3
         with:
           name: Neovide.dmg
           path: ./Neovide.dmg
@@ -158,7 +161,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Install Nightly Toolchain
         uses: actions-rs/toolchain@v1
@@ -206,8 +209,7 @@ jobs:
         run: |
           tar czvf ./target/release/neovide.tar.gz ./target/release/neovide
 
-      - uses: actions/upload-artifact@v1
+      - uses: actions/upload-artifact@v3
         with:
           name: neovide-linux.tar.gz
           path: ./target/release/neovide.tar.gz
-
