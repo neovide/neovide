@@ -147,7 +147,7 @@ impl KeyboardManager {
             if let Some(original_key_text) = key_text {
                 let mut key_text = original_key_text;
                 if self.alt {
-                    if let Some(modify) = key_event.text_with_all_modifiers() {
+                    if let Some(modify) = key_event_text(key_event) {
                         key_text = modify;
                     }
                 }
@@ -194,8 +194,24 @@ fn use_alt(alt: bool) -> bool {
 // The option or alt key is used on Macos for character set changes
 // and does not operate the same as other systems.
 #[cfg(target_os = "macos")]
-fn use_alt(_: bool) -> bool {
-    false
+fn use_alt(alt: bool) -> bool {
+    let settings = SETTINGS.get::<KeyboardSettings>();
+    settings.macos_alt_is_meta && alt
+}
+
+#[cfg(not(target_os = "macos"))]
+fn key_event_text(key_event: &KeyEvent) -> Option<&str> {
+    key_event.text_with_all_modifiers()
+}
+
+#[cfg(target_os = "macos")]
+fn key_event_text(key_event: &KeyEvent) -> Option<&str> {
+    let settings = SETTINGS.get::<KeyboardSettings>();
+    if settings.macos_alt_is_meta {
+        key_event.text
+    } else {
+        key_event.text_with_all_modifiers()
+    }
 }
 
 fn or_empty(condition: bool, text: &str) -> &str {
