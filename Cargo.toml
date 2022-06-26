@@ -16,7 +16,7 @@ default = []
 embed-fonts = []
 
 [dependencies]
-arboard = "2.1.1"
+copypasta = "0.8.1"
 async-trait = "0.1.53"
 cfg-if = "1.0.0"
 clap = { version = "3.1.9", features = ["cargo"] }

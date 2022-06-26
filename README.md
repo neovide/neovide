@@ -257,4 +257,3 @@ snap install neovide
 
 ### Linux-specific
 - If you recieve errors complaining about DRI3 settings, please reference issue [#44](https://github.com/neovide/neovide/issues/44#issuecomment-578618052).
-- Wayland clipboard support requires Xwayland to be running (to be solved if [the egui contributors come back to arboard](https://github.com/emilk/egui/pull/1613#issuecomment-1130634147))
