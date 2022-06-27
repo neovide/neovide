@@ -31,7 +31,7 @@ const REGISTER_CLIPBOARD_PROVIDER_LUA: &str = r"
     }";
 
 pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<TxWrapper>, neovide_channel: u64) {
-    // users can opt-out with
+    // Users can opt-out with
     // vim: `let g:neovide_no_custom_clipboard = v:true`
     // lua: `vim.g.neovide_no_custom_clipboard = true`
     let no_custom_clipboard = nvim
@@ -53,7 +53,7 @@ pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<TxWrapper>, neovide_ch
 }
 
 pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>, is_remote: bool) {
-    // Set variable indicating to user config that neovide is being used
+    // Set variable indicating to user config that neovide is being used.
     nvim.set_var("neovide", Value::Boolean(true))
         .await
         .unwrap_or_explained_panic("Could not communicate with neovim process");
@@ -67,7 +67,7 @@ pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>, is_remote: b
         .ok();
     }
 
-    // Set details about the neovide version
+    // Set details about the neovide version.
     nvim.set_client_info(
         "neovide",
         vec![
@@ -87,7 +87,7 @@ pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>, is_remote: b
     .await
     .ok();
 
-    // Retrieve the channel number for communicating with neovide
+    // Retrieve the channel number for communicating with neovide.
     let neovide_channel: Option<u64> = nvim
         .get_api_info()
         .await
@@ -95,13 +95,13 @@ pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>, is_remote: b
         .and_then(|info| info[0].as_u64());
 
     if let Some(neovide_channel) = neovide_channel {
-        // Record the channel to the log
+        // Record the channel to the log.
         info!(
             "Neovide registered to nvim with channel id {}",
             neovide_channel
         );
 
-        // Create a command for registering right click context hooking
+        // Create a command for registering right click context hooking.
         #[cfg(windows)]
         nvim.command(&build_neovide_command(
             neovide_channel,
@@ -112,7 +112,7 @@ pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>, is_remote: b
         .await
         .ok();
 
-        // Create a command for unregistering the right click context hooking
+        // Create a command for unregistering the right click context hooking.
         #[cfg(windows)]
         nvim.command(&build_neovide_command(
             neovide_channel,
@@ -130,7 +130,7 @@ pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>, is_remote: b
         warn!("Neovide could not find the correct channel id. Some functionality may be disabled.");
     }
 
-    // Set some basic rendering options
+    // Set some basic rendering options.
     nvim.set_option("lazyredraw", Value::Boolean(false))
         .await
         .ok();
@@ -138,7 +138,7 @@ pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>, is_remote: b
         .await
         .ok();
 
-    // Create auto command for retrieving exit code from neovim on quit
+    // Create auto command for retrieving exit code from neovim on quit.
     nvim.command("autocmd VimLeave * call rpcnotify(1, 'neovide.quit', v:exiting)")
         .await
         .ok();

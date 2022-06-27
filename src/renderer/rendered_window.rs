@@ -61,7 +61,7 @@ fn build_window_surface(parent_canvas: &mut Canvas, pixel_size: (i32, i32)) -> S
         parent_image_info.color_space(),
     );
     let surface_origin = SurfaceOrigin::TopLeft;
-    // subpixel layout (should be configurable/obtained from fontconfig)
+    // Subpixel layout (should be configurable/obtained from fontconfig).
     let props = SurfaceProps::new(SurfacePropsFlags::default(), skia_safe::PixelGeometry::RGBH);
     Surface::new_render_target(
         &mut context,
@@ -179,12 +179,12 @@ impl RenderedWindow {
             grid_start_position: grid_position,
             grid_current_position: grid_position,
             grid_destination: grid_position,
-            position_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation
+            position_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation.
 
             start_scroll: 0.0,
             current_scroll: 0.0,
             scroll_destination: 0.0,
-            scroll_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation
+            scroll_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation.
         }
     }
 
@@ -204,7 +204,7 @@ impl RenderedWindow {
 
         {
             if 1.0 - self.position_t < std::f32::EPSILON {
-                // We are at destination, move t out of 0-1 range to stop the animation
+                // We are at destination, move t out of 0-1 range to stop the animation.
                 self.position_t = 2.0;
             } else {
                 animating = true;
@@ -222,7 +222,7 @@ impl RenderedWindow {
 
         {
             if 1.0 - self.scroll_t < std::f32::EPSILON {
-                // We are at destination, move t out of 0-1 range to stop the animation
+                // We are at destination, move t out of 0-1 range to stop the animation.
                 self.scroll_t = 2.0;
                 self.snapshots.clear();
             } else {
@@ -282,11 +282,11 @@ impl RenderedWindow {
 
         let mut paint = Paint::default();
         // We want each surface to overwrite the one underneath and will use layers to ensure
-        // only lower priority surfaces will get clobbered and not the underlying windows
+        // only lower priority surfaces will get clobbered and not the underlying windows.
         paint.set_blend_mode(BlendMode::Src);
         paint.set_anti_alias(false);
 
-        // Save layer so that setting the blend mode doesn't effect the blur
+        // Save layer so that setting the blend mode doesn't effect the blur.
         root_canvas.save_layer(&SaveLayerRec::default());
         let mut a = 255;
         if self.floating_order.is_some() {
@@ -300,7 +300,7 @@ impl RenderedWindow {
 
         let font_height = font_dimensions.height;
 
-        // Draw scrolling snapshots
+        // Draw scrolling snapshots.
         for snapshot in self.snapshots.iter_mut().rev() {
             let scroll_offset = (snapshot.top_line * font_height) as f32
                 - (self.current_scroll * font_height as f32);
@@ -320,7 +320,7 @@ impl RenderedWindow {
             .unwrap_or((self.current_surface.top_line, self.current_scroll));
         let scroll_offset = (top_line * font_height) as f32 - (current_scroll * font_height as f32);
 
-        // Draw current surface
+        // Draw current surface.
         let snapshot = self.current_surface.surface.image_snapshot();
         root_canvas.draw_image_rect(
             snapshot,
@@ -396,7 +396,8 @@ impl RenderedWindow {
 
                 if self.hidden {
                     self.hidden = false;
-                    self.position_t = 2.0; // We don't want to animate since the window is becoming visible, so we set t to 2.0 to stop animations.
+                    self.position_t = 2.0; // We don't want to animate since the window is becoming visible,
+                                           // so we set t to 2.0 to stop animations.
                     self.grid_start_position = new_destination;
                     self.grid_destination = new_destination;
                 }
@@ -492,7 +493,8 @@ impl RenderedWindow {
             WindowDrawCommand::Show => {
                 if self.hidden {
                     self.hidden = false;
-                    self.position_t = 2.0; // We don't want to animate since the window is becoming visible, so we set t to 2.0 to stop animations.
+                    self.position_t = 2.0; // We don't want to animate since the window is becoming visible,
+                                           // so we set t to 2.0 to stop animations.
                     self.grid_start_position = self.grid_destination;
                 }
             }
@@ -515,7 +517,7 @@ impl RenderedWindow {
 
                     self.current_surface.top_line = top_line as u64;
 
-                    // Set new target viewport position and initialize animation timer
+                    // Set new target viewport position and initialize animation timer.
                     self.start_scroll = self.current_scroll;
                     self.scroll_destination = top_line as f32;
                     self.scroll_t = 0.0;

@@ -278,14 +278,14 @@ fn floating_sort(window_a: &&mut RenderedWindow, window_b: &&mut RenderedWindow)
         .partial_cmp(&window_b.floating_order.unwrap())
         .unwrap();
     if ord == Ordering::Equal {
-        // If equal, compare grid pos x
+        // if equal, compare grid pos x
         ord = window_a
             .grid_current_position
             .x
             .partial_cmp(&window_b.grid_current_position.x)
             .unwrap();
         if ord == Ordering::Equal {
-            // If equal, compare grid pos z
+            // if equal, compare grid pos z
             ord = window_a
                 .grid_current_position
                 .y

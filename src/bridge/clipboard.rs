@@ -8,10 +8,10 @@ pub fn get_clipboard_contents(format: Option<&str>) -> Result<Value, Box<dyn Err
     let clipboard_raw = clipboard::get_contents()?.replace('\r', "");
 
     let lines = if let Some("dos") = format {
-        // add \r to lines of current file format is dos
+        // Add \r to lines if current file format is dos.
         clipboard_raw.replace('\n', "\r\n")
     } else {
-        // else, \r is stripped, leaving only \n
+        // Else, \r is stripped, leaving only \n.
         clipboard_raw
     }
     .split('\n')
@@ -21,10 +21,10 @@ pub fn get_clipboard_contents(format: Option<&str>) -> Result<Value, Box<dyn Err
     let lines = Value::from(lines);
     // v paste is normal paste (everything in lines is pasted)
     // V paste is paste with extra endline (line paste)
-    // If you want V paste, copy text with extra endline
+    // If you want V paste, copy text with extra endline.
     let paste_mode = Value::from("v");
 
-    // returns [content: [String], paste_mode: v or V]
+    // Return [content: [String], paste_mode: v or V]
     Ok(Value::from(vec![lines, paste_mode]))
 }
 

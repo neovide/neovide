@@ -125,7 +125,7 @@ pub enum EditorMode {
     // instance more sub-modes and temporary states might be represented as
     // separate modes. (however we can safely do this as these are the main modes)
     // for instance if we are in Terminal mode and even though status-line shows Terminal,
-    // we still get one of these as the _editor_ mode
+    // we still get one of these as the _editor_ mode.
     Normal,
     Insert,
     Visual,

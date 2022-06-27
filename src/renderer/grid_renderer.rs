@@ -52,12 +52,12 @@ impl GridRenderer {
         self.shaper.font_names()
     }
 
-    /// Convert PhysicalSize to grid size
+    /// Convert PhysicalSize to grid size.
     pub fn convert_physical_to_grid(&self, physical: PhysicalSize<u32>) -> Dimensions {
         Dimensions::from(physical) / self.font_dimensions
     }
 
-    /// Convert grid size to PhysicalSize
+    /// Convert grid size to PhysicalSize.
     pub fn convert_grid_to_physical(&self, grid: Dimensions) -> PhysicalSize<u32> {
         (grid * self.font_dimensions).into()
     }
@@ -138,7 +138,7 @@ impl GridRenderer {
         let style = style.as_ref().unwrap_or(&self.default_style);
 
         // We don't want to clip text in the x position, only the y so we add a buffer of 1
-        // character on either side of the region so that we clip vertically but not horizontally
+        // character on either side of the region so that we clip vertically but not horizontally.
         let (grid_x, grid_y) = grid_position;
         let clip_position = (grid_x.saturating_sub(1), grid_y);
         let region = self.compute_text_region(clip_position, cell_width + 2);
