@@ -94,10 +94,6 @@ jobs:
         run: |
           cargo fmt --all -- --check
 
-      - name: Uninstall Conflicting LLVM
-        run: |
-          brew uninstall llvm
-
       - name: Install Neovim
         run: |
           brew install neovim
