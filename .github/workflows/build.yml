@@ -20,20 +20,20 @@ jobs:
       - name: Install Utilities
         run: |
           cargo install cargo2junit
-
       - uses: Swatinem/rust-cache@v1
 
       - name: Check Formatting
         run: |
           cargo fmt --all -- --check
-
       - name: Install Neovim
         run: |
           choco install -y neovim
+      - name: Add Neovim to PATH
+        run: echo "C:\tools\neovim\nvim-win64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Test
         env:
-          NEOVIM_BIN: "C:/tools/neovim/Neovim/bin/nvim.exe"
+          NEOVIM_BIN: "C:/tools/neovim/nvim-win64/bin/nvim.exe"
           RUST_BACKTRACE: full
         run: |
           # Pay attention not to break BUILD stage of a test,
@@ -47,7 +47,6 @@ jobs:
           # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#exit-codes-and-error-action-preference
           # Oh, it still does not fail on Windows. ¯\_(ツ)_/¯
           cat results.json | cargo2junit > results.xml
-
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action/composite@v1
         if: always()
@@ -57,7 +56,6 @@ jobs:
       - name: Build Release
         run: |
           cargo build --release
-
       - uses: actions/upload-artifact@v2
         with:
           name: neovide-windows
