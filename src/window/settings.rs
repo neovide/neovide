@@ -35,4 +35,5 @@ impl Default for WindowSettings {
 #[setting_prefix = "input"]
 pub struct KeyboardSettings {
     pub use_logo: bool,
+    pub macos_alt_is_meta: bool,
 }
