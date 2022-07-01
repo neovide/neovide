@@ -111,6 +111,9 @@ I've got more ideas for simple unobtrusive improvements. More to come.
 
 Configuration is done almost completely via global neovide variables in your vim config and can be manipulated live at runtime. Details can be found [here](https://github.com/neovide/neovide/wiki/Configuration).
 
+Note: Neovide requires that a font be set in `init.vim` otherwise errors might be encountered.
+See [#527](https://github.com/neovide/neovide/issues/527)
+
 ## Install
 
 **Note**: Building instructions are somewhat limited at the moment. All the libraries I use are cross platform and should have
@@ -198,9 +201,6 @@ nvim PKGBUILD
 makepkg -si
 ```
 
-Note: Neovide requires that a font be set in `init.vim` otherwise errors might be encountered.
-See [#527](https://github.com/neovide/neovide/issues/527)
-
 ##### With non-default branch
 
 ```sh
@@ -211,6 +211,7 @@ sed "$REGEX" PKGBUILD
 makepkg -si
 ```
 #### With Snap
+
 Neovide is also available in the Snap Store. You can install it
 using the command below.
 
@@ -221,6 +222,7 @@ snap install neovide
 
 
 #### From source
+
 1. Install necessary dependencies (adjust for your preferred package manager)
 
     ```sh
