@@ -174,42 +174,16 @@ $ scoop install neovide
 
 #### Arch Linux
 
-There is an [AUR package for neovide](https://aur.archlinux.org/packages/neovide-git/).
-
-##### With Paru (or your preferred AUR helper)
+Stable releases are [packaged in the community repository](https://archlinux.org/packages/community/x86_64/neovide).
 
 ```sh
-paru -S neovide-git
+pacman -S neovide
 ```
 
-##### Without helper
+To run a development version you can build from [the VCS package in the AUR](https://aur.archlinux.org/packages/neovide-git).
+This can be built and installed using an AUR helper or [by hand in the usual way](https://wiki.archlinux.org/title/Arch_User_Repository#Installing_and_upgrading_packages).
+To build from a non-default branch you can edit the PKGBUILD and add `#branch-name` to the end of the source URL.
 
-```sh
-git clone https://aur.archlinux.org/neovide-git.git
-cd neovide-git
-makepkg -si
-```
-
-To install a non-default branch:
-
-```sh
-git clone https://aur.archlinux.org/neovide-git.git
-cd neovide-git
-nvim PKGBUILD
-:%s/l}/l}#branch=branch-name-here/
-:wq
-makepkg -si
-```
-
-##### With non-default branch
-
-```sh
-git clone https://aur.archlinux.org/neovide-git.git
-cd neovide-git
-REGEX=$(printf 's/{url}/&\#branch=%s/g' '<YOUR-BRANCH-HERE>')
-sed "$REGEX" PKGBUILD
-makepkg -si
-```
 #### With Snap
 
 Neovide is also available in the Snap Store. You can install it
