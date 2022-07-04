@@ -223,14 +223,6 @@ pub enum RedrawEvent {
         scrolled: bool,
         separator_character: String,
     },
-    WindowViewport {
-        grid: u64,
-        top_line: f64,
-        bottom_line: f64,
-        current_line: f64,
-        current_column: f64,
-        line_count: Option<f64>,
-    },
     CommandLineShow {
         content: StyledContent,
         position: u64,
@@ -679,26 +671,6 @@ fn parse_msg_set_pos(msg_set_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
     })
 }
 
-fn parse_win_viewport(win_viewport_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let ([grid, _window, top_line, bottom_line, current_line, current_column], [line_count]) =
-        extract_values_with_optional(win_viewport_arguments)?;
-
-    let line_count = if let Some(line_count) = line_count {
-        Some(parse_f64(line_count)?)
-    } else {
-        None
-    };
-
-    Ok(RedrawEvent::WindowViewport {
-        grid: parse_u64(grid)?,
-        top_line: parse_f64(top_line)?,
-        bottom_line: parse_f64(bottom_line)?,
-        current_line: parse_f64(current_line)?,
-        current_column: parse_f64(current_column)?,
-        line_count,
-    })
-}
-
 fn parse_styled_content(line: Value) -> Result<StyledContent> {
     parse_array(line)?
         .into_iter()
@@ -853,7 +825,6 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
             "win_hide" => Some(parse_win_hide(event_parameters)?),
             "win_close" => Some(parse_win_close(event_parameters)?),
             "msg_set_pos" => Some(parse_msg_set_pos(event_parameters)?),
-            "win_viewport" => Some(parse_win_viewport(event_parameters)?),
             "cmdline_show" => Some(parse_cmdline_show(event_parameters)?),
             "cmdline_pos" => Some(parse_cmdline_pos(event_parameters)?),
             "cmdline_special_char" => Some(parse_cmdline_special_char(event_parameters)?),

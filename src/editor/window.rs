@@ -313,13 +313,6 @@ impl Window {
     pub fn close(&self) {
         self.send_command(WindowDrawCommand::Close);
     }
-
-    pub fn update_viewport(&self, top_line: f64, bottom_line: f64) {
-        self.send_command(WindowDrawCommand::Viewport {
-            top_line,
-            bottom_line,
-        });
-    }
 }
 
 #[cfg(test)]

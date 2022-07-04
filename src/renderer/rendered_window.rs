@@ -44,10 +44,6 @@ pub enum WindowDrawCommand {
     Show,
     Hide,
     Close,
-    Viewport {
-        top_line: f64,
-        bottom_line: f64,
-    },
 }
 
 fn build_window_surface(parent_canvas: &mut Canvas, pixel_size: (i32, i32)) -> Surface {
@@ -90,40 +86,9 @@ fn build_window_surface_with_grid_size(
     surface
 }
 
-pub struct LocatedSnapshot {
-    image: Image,
-    top_line: u64,
-}
-
-pub struct LocatedSurface {
-    surface: Surface,
-    pub top_line: u64,
-}
-
-impl LocatedSurface {
-    fn new(
-        parent_canvas: &mut Canvas,
-        grid_renderer: &GridRenderer,
-        grid_size: Dimensions,
-        top_line: u64,
-    ) -> LocatedSurface {
-        let surface = build_window_surface_with_grid_size(parent_canvas, grid_renderer, grid_size);
-
-        LocatedSurface { surface, top_line }
-    }
-
-    fn snapshot(&mut self) -> LocatedSnapshot {
-        let image = self.surface.image_snapshot();
-        LocatedSnapshot {
-            image,
-            top_line: self.top_line,
-        }
-    }
-}
-
 pub struct RenderedWindow {
-    snapshots: VecDeque<LocatedSnapshot>,
-    pub current_surface: LocatedSurface,
+    snapshots: VecDeque<Image>,
+    pub current_surface: Surface,
 
     pub id: u64,
     pub hidden: bool,
@@ -138,7 +103,6 @@ pub struct RenderedWindow {
 
     start_scroll: f32,
     pub current_scroll: f32,
-    scroll_destination: f32,
     scroll_t: f32,
 }
 
@@ -157,7 +121,8 @@ impl RenderedWindow {
         grid_position: Point,
         grid_size: Dimensions,
     ) -> RenderedWindow {
-        let current_surface = LocatedSurface::new(parent_canvas, grid_renderer, grid_size, 0);
+        let current_surface =
+            build_window_surface_with_grid_size(parent_canvas, grid_renderer, grid_size);
 
         RenderedWindow {
             snapshots: VecDeque::new(),
@@ -175,7 +140,6 @@ impl RenderedWindow {
 
             start_scroll: 0.0,
             current_scroll: 0.0,
-            scroll_destination: 0.0,
             scroll_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation
         }
     }
@@ -225,7 +189,7 @@ impl RenderedWindow {
             self.current_scroll = ease(
                 ease_out_expo,
                 self.start_scroll,
-                self.scroll_destination,
+                0.0,
                 self.scroll_t,
             );
         }
@@ -294,20 +258,17 @@ impl RenderedWindow {
 
         // Draw scrolling snapshots
         for snapshot in self.snapshots.iter_mut().rev() {
-            let scroll_offset = (snapshot.top_line * font_height) as f32
-                - (self.current_scroll * font_height as f32);
-            let image = &mut snapshot.image;
+            let scroll_offset = -self.current_scroll * font_height as f32;
             root_canvas.draw_image_rect(
-                image,
+                snapshot,
                 None,
                 pixel_region.with_offset((0.0, scroll_offset as f32)),
                 &paint,
             );
         }
         // Draw current surface
-        let scroll_offset = (self.current_surface.top_line * font_height) as f32
-            - (self.current_scroll * font_height as f32);
-        let snapshot = self.current_surface.surface.image_snapshot();
+        let scroll_offset = -self.current_scroll * font_height as f32;
+        let snapshot = self.current_surface.image_snapshot();
         root_canvas.draw_image_rect(
             snapshot,
             None,
@@ -363,18 +324,18 @@ impl RenderedWindow {
 
                 if self.grid_size != new_grid_size {
                     let mut new_surface = build_window_surface_with_grid_size(
-                        self.current_surface.surface.canvas(),
+                        self.current_surface.canvas(),
                         grid_renderer,
                         new_grid_size,
                     );
-                    self.current_surface.surface.draw(
+                    self.current_surface.draw(
                         new_surface.canvas(),
                         (0.0, 0.0),
                         SamplingOptions::default(),
                         None,
                     );
 
-                    self.current_surface.surface = new_surface;
+                    self.current_surface = new_surface;
                     self.grid_size = new_grid_size;
                 }
 
@@ -388,7 +349,7 @@ impl RenderedWindow {
                 }
             }
             WindowDrawCommand::DrawLine(line_fragments) => {
-                let canvas = self.current_surface.surface.canvas();
+                let canvas = self.current_surface.canvas();
 
                 canvas.save();
                 for line_fragment in line_fragments.iter() {
@@ -447,8 +408,8 @@ impl RenderedWindow {
                     -rows as f32 * font_height as f32,
                 ));
 
-                let snapshot = self.current_surface.surface.image_snapshot();
-                let canvas = self.current_surface.surface.canvas();
+                let snapshot = self.current_surface.image_snapshot();
+                let canvas = self.current_surface.canvas();
 
                 canvas.save();
 
@@ -461,10 +422,21 @@ impl RenderedWindow {
                 );
 
                 canvas.restore();
+
+                let new_snapshot = self.current_surface.image_snapshot();
+                self.snapshots.push_back(new_snapshot);
+
+                if self.snapshots.len() > 5 {
+                    self.snapshots.pop_front();
+                }
+
+                // Set new target viewport position and initialize animation timer
+                self.start_scroll = self.current_scroll - rows as f32;
+                self.scroll_t = 0.0;
             }
             WindowDrawCommand::Clear => {
-                self.current_surface.surface = build_window_surface_with_grid_size(
-                    self.current_surface.surface.canvas(),
+                self.current_surface = build_window_surface_with_grid_size(
+                    self.current_surface.canvas(),
                     grid_renderer,
                     self.grid_size,
                 );
@@ -479,23 +451,6 @@ impl RenderedWindow {
                 }
             }
             WindowDrawCommand::Hide => self.hidden = true,
-            WindowDrawCommand::Viewport { top_line, .. } => {
-                if self.current_surface.top_line != top_line as u64 {
-                    let new_snapshot = self.current_surface.snapshot();
-                    self.snapshots.push_back(new_snapshot);
-
-                    if self.snapshots.len() > 5 {
-                        self.snapshots.pop_front();
-                    }
-
-                    self.current_surface.top_line = top_line as u64;
-
-                    // Set new target viewport position and initialize animation timer
-                    self.start_scroll = self.current_scroll;
-                    self.scroll_destination = top_line as f32;
-                    self.scroll_t = 0.0;
-                }
-            }
             _ => {}
         };
     }
