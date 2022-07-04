@@ -186,12 +186,7 @@ impl RenderedWindow {
                 self.scroll_t = (self.scroll_t + dt / settings.scroll_animation_length).min(1.0);
             }
 
-            self.current_scroll = ease(
-                ease_out_expo,
-                self.start_scroll,
-                0.0,
-                self.scroll_t,
-            );
+            self.current_scroll = ease(ease_out_expo, self.start_scroll, 0.0, self.scroll_t);
         }
 
         animating
