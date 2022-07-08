@@ -22,6 +22,8 @@ pub use grid::CharacterGrid;
 pub use style::{Colors, Style};
 pub use window::*;
 
+const MODE_CMDLINE: u64 = 4;
+
 #[derive(Clone, Debug)]
 pub struct AnchorInfo {
     pub anchor_grid_id: u64,
@@ -383,8 +385,14 @@ impl Editor {
             let intentional = grid_left == 1;
             // If the cursor was already in this message, we can still move within it.
             let already_there = self.cursor.parent_window_id == grid;
+            // This ^ check alone is a bit buggy though, since it fails when the cursor is
+            // technically still in the edit window but "temporarily" at the cmdline. (#1207)
+            let using_cmdline = self
+                .current_mode_index
+                .map(|current| current == MODE_CMDLINE)
+                .unwrap_or(false);
 
-            if !intentional && !already_there {
+            if !intentional && !already_there && !using_cmdline {
                 trace!(
                     "Cursor unexpectedly sent to message buffer {} ({}, {})",
                     grid,
