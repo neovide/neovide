@@ -461,7 +461,7 @@ fn parse_option_set(option_set_arguments: Vec<Value>) -> Result<RedrawEvent> {
             "guifontset" => GuiOption::GuiFontSet(parse_string(value)?),
             "guifontwide" => GuiOption::GuiFontWide(parse_string(value)?),
             "linespace" => GuiOption::LineSpace(parse_u64(value)?),
-            "pumblend" => GuiOption::Pumblend(parse_i64(value)?.clamp(0, 100) as u64),
+            "pumblend" => GuiOption::Pumblend(parse_u64(value)?),
             "showtabline" => GuiOption::ShowTabLine(parse_u64(value)?),
             "termguicolors" => GuiOption::TermGuiColors(parse_bool(value)?),
             _ => GuiOption::Unknown(name, value),
@@ -534,9 +534,7 @@ fn parse_style(style_map: Value) -> Result<Style> {
                 }
                 ("underline", Value::Boolean(underline)) => style.underline = underline,
                 ("undercurl", Value::Boolean(undercurl)) => style.undercurl = undercurl,
-                ("blend", Value::Integer(blend)) => {
-                    style.blend = blend.as_i64().unwrap().clamp(0, 100) as u8
-                }
+                ("blend", Value::Integer(blend)) => style.blend = blend.as_u64().unwrap() as u8,
                 _ => debug!("Ignored style attribute: {}", name),
             }
         } else {
