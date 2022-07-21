@@ -171,13 +171,14 @@ brew install --cask neovide
 1. Install the latest version of Rust. Using homebrew: `brew install rustup-init`
 2. Configure rust by running `rustup-init`
 3. Install CMake. Using homebrew: `brew install cmake`
-4. `git clone https://github.com/neovide/neovide`
-5. `cd neovide`
-6. `cargo build --release`
-7. Copy `./target/release/neovide` to a known location and enjoy.
-8. `cargo install cargo-bundle`
-9. `cargo bundle --release`
-10. Copy `./target/release/bundle/osx/neovide.app` to `~/Applications` and enjoy.
+4. (>= 12.3) [Install python2](https://stackoverflow.com/questions/60298514/how-to-reinstall-python2-from-homebrew) (required for skia-rust)
+5. `git clone https://github.com/neovide/neovide`
+6. `cd neovide`
+7. `cargo build --release`
+8. Copy `./target/release/neovide` to a known location and enjoy.
+9. `cargo install cargo-bundle`
+10. `cargo bundle --release`
+11. Copy `./target/release/bundle/osx/neovide.app` to `~/Applications` and enjoy.
 
 ### Linux
 
