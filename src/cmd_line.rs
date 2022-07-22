@@ -172,11 +172,10 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
 
     if cfg!(target_os = "macos") {
         // escape filepath which contain spaces
-        neovim_args.extend::<Vec<String>>(
+        neovim_args.extend(
             files_to_open
                 .iter()
-                .map(|file| file.replace(" ", "\\ "))
-                .collect(),
+                .map(|file| shlex::quote(file).into_owned()),
         );
     } else {
         neovim_args.extend::<Vec<String>>(files_to_open);
