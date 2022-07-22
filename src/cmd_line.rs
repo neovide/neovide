@@ -170,7 +170,12 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
         neovim_args.push("-p".to_owned());
     }
 
-    neovim_args.extend::<Vec<String>>(files_to_open);
+    neovim_args.extend::<Vec<String>>(
+        files_to_open
+            .iter()
+            .map(|file| file.replace(" ", "\\ "))
+            .collect(),
+    );
 
     /*
      * Integrate Environment Variables as Defaults to the command-line ones.
