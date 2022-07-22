@@ -39,6 +39,7 @@ rand = "0.8.5"
 rmpv = "1.0.0"
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.79"
+shlex = "1.1.0"
 swash = "0.1.4"
 tokio = { version = "1.17.0", features = ["full"] }
 tokio-util = { version = "0.7.1", features = ["compat"] }
