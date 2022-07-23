@@ -59,11 +59,11 @@ winres = "0.1.12"
 
 [target.'cfg(linux)'.dependencies.skia-safe]
 features = ["gl", "egl"]
-version = "0.49.1"
+version = "0.52.0"
 
 [target.'cfg(not(linux))'.dependencies.skia-safe]
 features = ["gl"]
-version = "0.49.1"
+version = "0.52.0"
 
 [profile.release]
 lto = true
