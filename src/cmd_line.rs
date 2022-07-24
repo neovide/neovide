@@ -87,7 +87,7 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
         .arg(
             Arg::new("nofork")
                 .long("nofork")
-                .help("Do not detach process from terminal"),
+                .help(r#"Instead of spawning a child process and leaking it, be "blocking" and have the shell directly as parent process"#),
         )
         .arg(
             Arg::new("no_tabs")
