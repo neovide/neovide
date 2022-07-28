@@ -192,6 +192,7 @@ jobs:
       - name: Archive Linux artifact
         run: |
           cd ./target/release/
+          strip neovide
           tar czvf neovide.tar.gz neovide
 
       - uses: actions/upload-artifact@v1
