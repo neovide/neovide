@@ -18,9 +18,9 @@ additional-js = [
 ]
 default-theme = "ayu"
 preferred-dark-theme = "ayu"
-git-repository-url = "https://github.com/neovide/docs"
+git-repository-url = "https://github.com/neovide/neovide"
 git-repository-icon = "fa-github"
-edit-url-template = "https://github.com/neovide/docs/edit/main/{path}"
+edit-url-template = "https://github.com/neovide/neovide/edit/main/website/{path}"
 cname = "neovide.dev"
 
 [output.linkcheck]
