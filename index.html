@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    
+    <link rel="icon" type="image/png" href="/favicon.ico">
+    
+    <style>
+    :root {
+        /* Primary theme color */
+        --primary-color: #FED43F;
+        /* Primary theme text color */
+        --primary-text-color: #543631;
+        /* Primary theme link color */
+        --primary-link-color: #F9BB2D;
+        /* Secondary color: the background body color */
+        --secondary-color: #fcfaf6;
+        --secondary-text-color: #303030;
+        /* Highlight text color of table of content */
+        --toc-highlight-text-color: #d46e13;
+    }
+</style>
+
+    <link href="https://fonts.googleapis.com/css?family=Alfa+Slab+One&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Fira+Sans:400,500,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/normalize.css">
+    <link rel="stylesheet" href="https://neovide.dev/juice.css">
+    
+    
+</head>
+
+<body>
+    
+
+    <header class="pos-absolute" style="background-color: transparent">
+        
+
+<a href="https:&#x2F;&#x2F;neovide.dev&#x2F;">
+    <div class="logo">
+        <img src="https://neovide.dev/assets/neovide.svg" alt="logo">
+        Neovide
+    </div>
+</a>
+
+<nav>
+    
+    
+        
+        <a class="nav-item subtitle-text" href="https:&#x2F;&#x2F;github.com&#x2F;neovide&#x2F;neovide">Github</a>
+        
+    
+</nav>
+
+    </header>
+
+    <div class="hero">
+        
+        <section class="text-center">
+            <h1 class="heading-text" style="font-size: 50px">
+No Nonsense Neovim Client in Rust
+            </h1>
+            <div>
+    <img src="https://badgen.net/badge/icon/discord?icon=discord&amp;label" alt="Discord"></a> <a href="https://matrix.to/#/#neovide_community:gitter.im"><img src="https://matrix.to/img/matrix-badge.svg" alt="Chat on Matrix"></a> <a href="https://github.com/neovide/neovide/discussions"><img src="https://img.shields.io/badge/GitHub-Discussions-green?logo=github" alt="Discussions"></a>
+            </div>
+        </section>
+        <img class="hero-image" style="width: 50%" src="https://neovide.dev/assets/neovide.svg">
+
+        <div class="explore-more text"
+            onclick="document.getElementById('features').scrollIntoView({behavior: 'smooth'})">
+            Explore More ⇩
+        </div>
+        <style>
+            .hero section {
+                padding: 0 5rem;
+            }
+            @media screen and (max-width: 768px) {
+                .hero section {
+                    padding: 0 2rem;
+                }
+
+                .hero-image {
+                    display: none
+                }
+            }
+        </style>
+
+    </div>
+
+    
+
+    <main>
+        
+        
+        
+        
+        
+        <div class="toc">
+            <div class="toc-sticky">
+                
+                <div class="toc-item">
+                    <a class="subtext" href="https://neovide.dev/#features">Features</a>
+                </div>
+                
+                
+                <div class="toc-item-child">
+                    <a class="subtext" href="https://neovide.dev/#ligatures"><small>- Ligatures</small></a>
+                </div>
+                
+                <div class="toc-item-child">
+                    <a class="subtext" href="https://neovide.dev/#animated-cursor"><small>- Animated Cursor</small></a>
+                </div>
+                
+                <div class="toc-item-child">
+                    <a class="subtext" href="https://neovide.dev/#smooth-scrolling"><small>- Smooth Scrolling</small></a>
+                </div>
+                
+                <div class="toc-item-child">
+                    <a class="subtext" href="https://neovide.dev/#animated-windows"><small>- Animated Windows</small></a>
+                </div>
+                
+                <div class="toc-item-child">
+                    <a class="subtext" href="https://neovide.dev/#blurred-floating-windows"><small>- Blurred Floating Windows</small></a>
+                </div>
+                
+                <div class="toc-item-child">
+                    <a class="subtext" href="https://neovide.dev/#emoji-support"><small>- Emoji Support</small></a>
+                </div>
+                
+                <div class="toc-item-child">
+                    <a class="subtext" href="https://neovide.dev/#wsl-support"><small>- WSL Support</small></a>
+                </div>
+                
+                <div class="toc-item-child">
+                    <a class="subtext" href="https://neovide.dev/#remote-tcp-support"><small>- Remote TCP Support</small></a>
+                </div>
+                
+                <div class="toc-item-child">
+                    <a class="subtext" href="https://neovide.dev/#some-nonsense"><small>- Some Nonsense ;)</small></a>
+                </div>
+                
+                <div class="toc-item-child">
+                    <a class="subtext" href="https://neovide.dev/#more-to-come"><small>- More to Come</small></a>
+                </div>
+                
+                
+                
+                <div class="toc-item">
+                    <a class="subtext" href="https://neovide.dev/#configuration">Configuration</a>
+                </div>
+                
+                
+                <div class="toc-item">
+                    <a class="subtext" href="https://neovide.dev/#install">Install</a>
+                </div>
+                
+                
+                <div class="toc-item-child">
+                    <a class="subtext" href="https://neovide.dev/#from-binary"><small>- From binary</small></a>
+                </div>
+                
+                <div class="toc-item-child">
+                    <a class="subtext" href="https://neovide.dev/#windows"><small>- Windows</small></a>
+                </div>
+                
+                <div class="toc-item-child">
+                    <a class="subtext" href="https://neovide.dev/#mac"><small>- Mac</small></a>
+                </div>
+                
+                <div class="toc-item-child">
+                    <a class="subtext" href="https://neovide.dev/#linux"><small>- Linux</small></a>
+                </div>
+                
+                
+                
+                <div class="toc-item">
+                    <a class="subtext" href="https://neovide.dev/#troubleshooting">Troubleshooting</a>
+                </div>
+                
+                
+                <div class="toc-item-child">
+                    <a class="subtext" href="https://neovide.dev/#linux-specific"><small>- Linux-specific</small></a>
+                </div>
+                
+                
+                
+            </div>
+        </div>
+        
+        
+
+        <div class="content text">
+            
+            <div id="features" class="heading-text">Overview</div>
+            <!-- Powered by https://cj.rs/riss -->
+<p>This is a simple graphical user interface for <a href="https://github.com/neovim/neovim">Neovim</a> (an aggressively refactored and updated
+Vim editor). Where possible there are some graphical improvements, but functionally it should act like the terminal UI.</p>
+<p><img src="https://neovide.dev/./assets/BasicScreenCap.png" alt="Basic Screen Cap" /></p>
+<p>I've been using this as my daily driver since November 2019. It should be relatively stable, but I'm still working out some kinks
+and ironing out some cross platform issues. In general it should be usable at this point, and if it isn't I consider that a bug and
+appreciate a report in the issues! Any help and ideas are also greatly appreciated.</p>
+<p>I'm also very interested in suggestions code quality/style wise when it comes to Rust. I'm pretty new to the language and appreciate
+any critiques that you might have to offer. I won't take all of them, but I promise to consider anything you might have to offer.</p>
+<h2 id="features">Features</h2>
+<p>Should be a standard fully featured Neovim GUI. Beyond that there are some visual niceties:</p>
+<h3 id="ligatures">Ligatures</h3>
+<p>Supports ligatures and font shaping.</p>
+<p><img src="https://neovide.dev/./assets/Ligatures.png" alt="Ligatures" /></p>
+<h3 id="animated-cursor">Animated Cursor</h3>
+<p>Cursor animates into position with a smear effect to improve tracking of cursor position.</p>
+<p><img src="https://neovide.dev/./assets/AnimatedCursor.gif" alt="Animated Cursor" /></p>
+<h3 id="smooth-scrolling">Smooth Scrolling</h3>
+<p>Scroll operations on buffers in neovim will be animated smoothly pixel wise rather than line by line at a time. Note, multigrid must be
+enabled for this to work.
+https://github.com/neovide/neovide/wiki/Configuration#multigrid</p>
+<p><img src="https://neovide.dev/./assets/SmoothScrolling.gif" alt="Smooth Scrolling" /></p>
+<h3 id="animated-windows">Animated Windows</h3>
+<p>Windows animate into position when they are moved making it easier to see how layout changes happen. Note, multigrid must be enabled for
+this to work.
+https://github.com/neovide/neovide/wiki/Configuration#multigrid</p>
+<p><img src="https://neovide.dev/./assets/AnimatedWindows.gif" alt="Animated Windows" /></p>
+<h3 id="blurred-floating-windows">Blurred Floating Windows</h3>
+<p>The backgrounds of floating windows are blurred improving the visual separation between foreground and background from
+built in window transparency. Note, multigrid must be enabled for this to work.
+https://github.com/neovide/neovide/wiki/Configuration#multigrid</p>
+<p><img src="https://neovide.dev/./assets/BlurredFloatingWindows.png" alt="Blurred Floating Windows" /></p>
+<h3 id="emoji-support">Emoji Support</h3>
+<p>Font fallback supports rendering of emoji not contained in the configured font.</p>
+<p><img src="https://neovide.dev/./assets/Emoji.png" alt="Emoji" /></p>
+<h3 id="wsl-support">WSL Support</h3>
+<p>Neovide supports displaying a full gui window from inside wsl via the <code>--wsl</code> command argument. Communication is passed via standard io into the wsl copy of neovim providing identical experience similar to visual studio code's remote editing https://code.visualstudio.com/docs/remote/remote-overview.</p>
+<h3 id="remote-tcp-support">Remote TCP Support</h3>
+<p>Neovide supports connecting to a remote instance of Neovim over a TCP socket via the <code>--remote-tcp</code> command argument. This would allow you to run Neovim on a remote machine and use the GUI on your local machine, connecting over the network.</p>
+<p>Launch Neovim as a TCP server (on port 6666) by running:</p>
+<pre data-lang="sh" style="background-color:#2b303b;color:#c0c5ce;" class="language-sh "><code class="language-sh" data-lang="sh"><span style="color:#bf616a;">nvim --headless --listen</span><span> localhost:6666
+</span></code></pre>
+<p>And then connect to it using:</p>
+<pre data-lang="sh" style="background-color:#2b303b;color:#c0c5ce;" class="language-sh "><code class="language-sh" data-lang="sh"><span style="color:#bf616a;">/path/to/neovide --remote-tcp</span><span>=localhost:6666
+</span></code></pre>
+<p>By specifying to listen on localhost, you only allow connections from your local computer. If you are actually doing this over a network you will want to use SSH port forwarding for security, and then connect as before.</p>
+<pre data-lang="sh" style="background-color:#2b303b;color:#c0c5ce;" class="language-sh "><code class="language-sh" data-lang="sh"><span style="color:#bf616a;">ssh -L</span><span> 6666:localhost:6666 ip.of.other.machine nvim</span><span style="color:#bf616a;"> --headless --listen</span><span> localhost:6666
+</span></code></pre>
+<p>Finally, if you would like to leave the neovim server running, close the neovide application window instead of issuing a <code>:q</code> command.</p>
+<h3 id="some-nonsense">Some Nonsense ;)</h3>
+<pre data-lang="vim" style="background-color:#2b303b;color:#c0c5ce;" class="language-vim "><code class="language-vim" data-lang="vim"><span style="color:#96b5b4;">let </span><span style="color:#bf616a;">g:neovide_cursor_vfx_mode</span><span> = </span><span style="color:#a3be8c;">&quot;railgun&quot;
+</span></code></pre>
+<p><img src="https://neovide.dev/./assets/Railgun.gif" alt="Railgun" /></p>
+<h3 id="more-to-come">More to Come</h3>
+<p>I've got more ideas for simple unobtrusive improvements. More to come.</p>
+<h2 id="configuration">Configuration</h2>
+<p>Configuration is done almost completely via global neovide variables in your vim config and can be manipulated live at runtime. Details can be found <a href="https://github.com/neovide/neovide/wiki/Configuration">here</a>.</p>
+<p>Note: Neovide requires that a font be set in <code>init.vim</code> otherwise errors might be encountered.
+See <a href="https://github.com/neovide/neovide/issues/527">#527</a></p>
+<h2 id="install">Install</h2>
+<p><strong>Note</strong>: Building instructions are somewhat limited at the moment. All the libraries I use are cross platform and should have
+support for Windows, Mac, and Linux. On Windows this should be enabled by default if you have a relatively recent system.</p>
+<p><strong>Note</strong>: Neovide requires neovim version 0.6 or greater. See previous releases such as <code>0.5.0</code> if your distro is too slow with updating.</p>
+<h3 id="from-binary">From binary</h3>
+<p>Building instructions are somewhat limited at the moment. All the libraries I use are cross platform and should have support for Windows, Mac, and Linux. The rendering is based on opengl, so a good gpu driver will be
+necessary. On Windows this should be enabled by default if you have a relatively recent system.</p>
+<p>Installing should be as simple as downloading the binary, making sure <code>nvim.exe</code> with version 0.4 or greater is on your path, and running it. Everything should be self contained.</p>
+<h3 id="windows">Windows</h3>
+<h4 id="package-manager">Package manager</h4>
+<p><a href="https://scoop.sh/">Scoop</a> has Neovide in the <code>extras</code> bucket. Ensure you have the <code>extras</code> bucket, and install:</p>
+<pre style="background-color:#2b303b;color:#c0c5ce;"><code><span>$ scoop bucket list
+</span><span>main
+</span><span>extras
+</span><span>$ scoop install neovide
+</span></code></pre>
+<h4 id="from-source">From source</h4>
+<ol>
+<li>
+<p>Install the latest version of Rust. I recommend <a href="https://rustup.rs/">https://rustup.rs/</a></p>
+</li>
+<li>
+<p>Install CMake. I use chocolatey: <code>choco install cmake --installargs '&quot;ADD_CMAKE_TO_PATH=System&quot;' -y</code></p>
+</li>
+<li>
+<p>Install LLVM. I use chocolatey: <code>choco install llvm -y</code></p>
+</li>
+<li>
+<p>Ensure graphics libraries are up to date.</p>
+</li>
+<li>
+<p>Build and install Neovide:</p>
+<pre data-lang="sh" style="background-color:#2b303b;color:#c0c5ce;" class="language-sh "><code class="language-sh" data-lang="sh"><span style="color:#bf616a;">git</span><span> clone https://github.com/neovide/neovide
+</span><span style="color:#96b5b4;">cd</span><span> neovide
+</span><span style="color:#bf616a;">cargo</span><span> build</span><span style="color:#bf616a;"> --release
+</span></code></pre>
+</li>
+<li>
+<p>Copy <code>./target/release/neovide.exe</code> to a known location and enjoy.</p>
+</li>
+</ol>
+<h3 id="mac">Mac</h3>
+<h4 id="package-manager-1">Package manager</h4>
+<p>Neovide is available as Cask in <a href="https://brew.sh">Homebrew</a>. It can be installed from the command line:</p>
+<pre data-lang="sh" style="background-color:#2b303b;color:#c0c5ce;" class="language-sh "><code class="language-sh" data-lang="sh"><span style="color:#bf616a;">brew</span><span> install</span><span style="color:#bf616a;"> --cask</span><span> neovide
+</span></code></pre>
+<h4 id="from-source-1">From source</h4>
+<ol>
+<li>Install the latest version of Rust. Using homebrew: <code>brew install rustup-init</code></li>
+<li>Configure rust by running <code>rustup-init</code></li>
+<li>Install CMake. Using homebrew: <code>brew install cmake</code></li>
+<li><code>git clone https://github.com/neovide/neovide</code></li>
+<li><code>cd neovide</code></li>
+<li><code>cargo build --release</code></li>
+<li>Copy <code>./target/release/neovide</code> to a known location and enjoy.</li>
+<li><code>cargo install cargo-bundle</code></li>
+<li><code>cargo bundle --release</code></li>
+<li>Copy <code>./target/release/bundle/osx/neovide.app</code> to <code>~/Applications</code> and enjoy.</li>
+</ol>
+<h3 id="linux">Linux</h3>
+<h4 id="arch-linux">Arch Linux</h4>
+<p>Stable releases are <a href="https://archlinux.org/packages/community/x86_64/neovide">packaged in the community repository</a>.</p>
+<pre data-lang="sh" style="background-color:#2b303b;color:#c0c5ce;" class="language-sh "><code class="language-sh" data-lang="sh"><span style="color:#bf616a;">pacman -S</span><span> neovide
+</span></code></pre>
+<p>To run a development version you can build from <a href="https://aur.archlinux.org/packages/neovide-git">the VCS package in the AUR</a>.
+This can be built and installed using an AUR helper or <a href="https://wiki.archlinux.org/title/Arch_User_Repository#Installing_and_upgrading_packages">by hand in the usual way</a>.
+To build from a non-default branch you can edit the PKGBUILD and add <code>#branch-name</code> to the end of the source URL.</p>
+<h4 id="with-snap">With Snap</h4>
+<p>Neovide is also available in the Snap Store. You can install it
+using the command below.</p>
+<pre style="background-color:#2b303b;color:#c0c5ce;"><code><span>snap install neovide
+</span></code></pre>
+<p><a href="https://snapcraft.io/neovide"><img src="https://snapcraft.io/static/images/badges/en/snap-store-white.svg" alt="Get it from the Snap Store" /></a></p>
+<h4 id="from-source-2">From source</h4>
+<ol>
+<li>
+<p>Install necessary dependencies (adjust for your preferred package manager)</p>
+<pre data-lang="sh" style="background-color:#2b303b;color:#c0c5ce;" class="language-sh "><code class="language-sh" data-lang="sh"><span style="color:#bf616a;">sudo</span><span> apt install</span><span style="color:#bf616a;"> -y</span><span> curl \
+</span><span>    gnupg ca-certificates git \
+</span><span>    gcc-multilib g++-multilib cmake libssl-dev pkg-config \
+</span><span>    libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev \
+</span><span>    libbz2-dev libsndio-dev freeglut3-dev libxmu-dev libxi-dev libfontconfig1-dev
+</span></code></pre>
+</li>
+<li>
+<p>Install Rust</p>
+<pre data-lang="sh" style="background-color:#2b303b;color:#c0c5ce;" class="language-sh "><code class="language-sh" data-lang="sh"><span style="color:#bf616a;">curl --proto </span><span>&#39;</span><span style="color:#a3be8c;">=https</span><span>&#39;</span><span style="color:#bf616a;"> --tlsv1</span><span>.2</span><span style="color:#bf616a;"> -sSf </span><span>&quot;</span><span style="color:#a3be8c;">https://sh.rustup.rs</span><span>&quot; | </span><span style="color:#bf616a;">sh
+</span></code></pre>
+</li>
+<li>
+<p>Clone the repository</p>
+<pre data-lang="sh" style="background-color:#2b303b;color:#c0c5ce;" class="language-sh "><code class="language-sh" data-lang="sh"><span style="color:#bf616a;">git</span><span> clone &quot;</span><span style="color:#a3be8c;">https://github.com/neovide/neovide</span><span>&quot;
+</span></code></pre>
+</li>
+<li>
+<p>Build</p>
+<pre data-lang="sh" style="background-color:#2b303b;color:#c0c5ce;" class="language-sh "><code class="language-sh" data-lang="sh"><span style="color:#96b5b4;">cd</span><span> neovide &amp;&amp; </span><span style="color:#bf616a;">~/.cargo/bin/cargo</span><span> build</span><span style="color:#bf616a;"> --release
+</span></code></pre>
+</li>
+<li>
+<p>Copy <code>./target/release/neovide</code> to a known location and enjoy.</p>
+</li>
+</ol>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<ul>
+<li>Neovide requires that a font be set in <code>init.vim</code> otherwise errors might be encountered. This can be fixed by adding <code>set guifont=Your\ Font\ Name:h15</code> in init.vim file. Reference issue <a href="https://github.com/neovide/neovide/issues/527">#527</a>.</li>
+<li>If you installed <code>neovim</code> via Apple Silicon (M1)-based <code>brew</code>, you have to add the <code>brew prefix</code> to <code>$PATH</code> to run <code>Neovide.app</code> in GUI. Please see the <a href="https://docs.brew.sh/FAQ#my-mac-apps-dont-find-homebrew-utilities">homebrew documentation</a>. Reference issue <a href="https://github.com/neovide/neovide/pull/1242">#1242</a></li>
+</ul>
+<h3 id="linux-specific">Linux-specific</h3>
+<ul>
+<li>If you recieve errors complaining about DRI3 settings, please reference issue <a href="https://github.com/neovide/neovide/issues/44#issuecomment-578618052">#44</a>.</li>
+</ul>
+
+            
+        </div>
+
+        
+        
+    </main>
+
+    
+    <footer>
+        <small class="subtext">
+            <a href="https://huhu.io">Huhu.io</a> © 2021
+        </small>
+    </footer>
+    
+</body>
+<script>
+    function highlightNav(heading) {
+        let pathname = location.pathname;
+        document.querySelectorAll(".toc a").forEach((item) => {
+            item.classList.remove("active");
+        });
+        document.querySelector(".toc a[href$='" + pathname + "#" + heading + "']").classList.add("active");
+    }
+
+    let currentHeading = "";
+    window.onscroll = function () {
+        let h = document.querySelectorAll("h1,h2,h3,h4,h5,h6");
+        let elementArr = [];
+
+        h.forEach(item => {
+            if (item.id !== "") {
+                elementArr[item.id] = item.getBoundingClientRect().top;
+            }
+        });
+        elementArr.sort();
+        for (let key in elementArr) {
+            if (!elementArr.hasOwnProperty(key)) {
+                continue;
+            }
+            if (elementArr[key] > 0 && elementArr[key] < 300) {
+                if (currentHeading !== key) {
+                    highlightNav(key);
+                    currentHeading = key;
+                }
+                break;
+            }
+        }
+    }
+</script>
+
+</html>
