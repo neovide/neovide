@@ -14,8 +14,8 @@ discouraged and try to document it ourselves:
   _then_ all options, the options apply "globally".
 - Use `:set guifont=*` to open up a window showing what fonts are accessible by Neovide, hit `Enter`
   on one to apply it **temporarily**.
-- Spaces in the font name are a bit difficult to write, either use underscores
-  (`_`) or escape them (`\`).
+- Spaces in the font name are a bit difficult to write, either use underscores (`_`) or escape them
+  (`\`).
 - The font options Neovide supports at the moment are:
   - `hXX` — Set the font size to `XX`, can be any (even non-two-digit) number or even a floating
     point number.
@@ -59,7 +59,3 @@ vim.keymap.set({'n', 'i'}, "<C-->", function() ResizeGuiFont(-1) end, opts)
 ```
 
 Credits to [0x0013 here](https://github.com/neovide/neovide/issues/1301#issuecomment-1119370546).
-
-<!--
-  vim: et ts=2 sts=0
--->

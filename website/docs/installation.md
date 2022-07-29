@@ -36,14 +36,14 @@ $ scoop install neovide
 
 1. Install the latest version of Rust. I recommend <https://rustup.rs/>
 
-1. Install CMake. I use chocolatey:
+2. Install CMake. I use chocolatey:
    `choco install cmake --installargs '"ADD_CMAKE_TO_PATH=System"' -y`
 
-1. Install LLVM. I use chocolatey: `choco install llvm -y`
+3. Install LLVM. I use chocolatey: `choco install llvm -y`
 
-1. Ensure graphics libraries are up to date.
+4. Ensure graphics libraries are up to date.
 
-1. Build and install Neovide:
+5. Build and install Neovide:
 
    ```sh
    cargo install --git https://github.com/neovide/neovide.git
@@ -66,24 +66,24 @@ brew install --cask neovide
 
 1. Install the latest version of Rust. Using homebrew: `brew install rustup-init`
 
-1. Configure rust by running `rustup-init`
+2. Configure rust by running `rustup-init`
 
-1. Install CMake. Using homebrew: `brew install cmake`
+3. Install CMake. Using homebrew: `brew install cmake`
 
-1. `git clone https://github.com/neovide/neovide`
+4. `git clone https://github.com/neovide/neovide`
 
-1. `cd neovide`
+5. `cd neovide`
 
-1. `cargo install --path .`
+6. `cargo install --path .`
 
    The resulting binary is to be found under `~/.cargo/bin`. In case you want a nice application
    bundle:
 
-1. `cargo install cargo-bundle`
+7. `cargo install cargo-bundle`
 
-1. `cargo bundle --release`
+8. `cargo bundle --release`
 
-1. Copy `./target/release/bundle/osx/neovide.app` to `~/Applications` and enjoy.
+9. Copy `./target/release/bundle/osx/neovide.app` to `~/Applications` and enjoy.
 
 ## Linux
 
@@ -126,13 +126,13 @@ snap install neovide
        libbz2-dev libsndio-dev freeglut3-dev libxmu-dev libxi-dev libfontconfig1-dev
    ```
 
-1. Install Rust
+2. Install Rust
 
    ```sh
    curl --proto '=https' --tlsv1.2 -sSf "https://sh.rustup.rs" | sh
    ```
 
-1. Fetch and build
+3. Fetch and build
 
    ```sh
    cargo install --git https://github.com/neovide/neovide
