@@ -88,7 +88,7 @@ jobs:
       STATIC-SITEMAP-CLI-VERSION: 2.1.2
     
     steps:
-      - name: Download HTMl
+      - name: Download HTML
         uses: actions/download-artifact@v3
         with:
           name: book
