@@ -3,6 +3,10 @@ name: Snap
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'website/**'
+      - '.vscode/**'
+      - '**.md'
 
 jobs:
   snap:
