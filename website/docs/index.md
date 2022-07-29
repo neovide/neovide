@@ -32,5 +32,7 @@ Want to see a list of all the available features? [here you go!](features.md)
 
 Looking to configure your neovide? [we've got you covered!](configuration.md)
 
-<img class="center-screenshot" src="assets/BasicScreenCap.png" alt="Screenshot of Neovide">
-<p class="center-text"><em>Screenshot of Neovide running on Windows<em></p>
+<div class="center">
+    <img src="assets/BasicScreenCap.png" alt="Screenshot of Neovide">
+    <p><em>Screenshot of Neovide running on Windows<em></p>
+</div>

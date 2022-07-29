@@ -1,4 +1,4 @@
-.center-screenshot {
+div.center img {
     display: block;
     margin-top: 5px;
     margin-left: auto;
@@ -8,7 +8,7 @@
     border-radius: 10px;
 }
 
-.center-text {
+div.center p {
     text-align: center
 }
 
