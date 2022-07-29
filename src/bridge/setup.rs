@@ -53,7 +53,7 @@ pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<TxWrapper>, neovide_ch
     nvim.set_var("neovide_channel_id", Value::from(neovide_channel))
         .await
         .ok();
-    nvim.execute_lua(&REGISTER_CLIPBOARD_PROVIDER_LUA, vec![])
+    nvim.execute_lua(REGISTER_CLIPBOARD_PROVIDER_LUA, vec![])
         .await
         .ok();
 }

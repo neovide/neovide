@@ -1,6 +1,11 @@
 name: Build-and-Test
 
-on: [push]
+on:
+  push:
+    paths-ignore:
+      - 'website/**'
+      - '.vscode/**'
+      - '**.md'
 
 env:
   CARGO_TERM_COLOR: always
@@ -192,6 +197,7 @@ jobs:
       - name: Archive Linux artifact
         run: |
           cd ./target/release/
+          strip neovide
           tar czvf neovide.tar.gz neovide
 
       - uses: actions/upload-artifact@v1
