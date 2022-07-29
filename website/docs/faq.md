@@ -15,7 +15,8 @@ discouraged and try to document it ourselves:
 - Use `:set guifont=*` to open up a window showing what fonts are accessible by Neovide, hit `Enter`
   on one to apply it **temporarily**.
 - Spaces
-  (````  ```) in the font name are a bit difficult to write, either use underscores ( ````\_`) or escape them (`\`).
+  (````  ```) in the font name are a bit difficult to write, either use underscores ( ````\_`) or
+  escape them (`\`).
 - The font options Neovide supports at the moment are:
   - `hXX` — Set the font size to `XX`, can be any (even non-two-digit) number or even a floating
     point number.
