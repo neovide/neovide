@@ -4,6 +4,38 @@ use rmpv::Value;
 
 use crate::{bridge::TxWrapper, error_handling::ResultPanicExplanation};
 
+const REGISTER_CLIPBOARD_PROVIDER_LUA: &str = r"
+    local function set_clipboard(register)
+        return function(lines, regtype)
+            vim.rpcnotify(
+                vim.g.neovide_channel_id,
+                'neovide.set_clipboard',
+                lines,
+                regtype,
+                register
+            )
+        end
+    end
+
+    local function get_clipboard(register)
+        return function()
+            return vim.rpcrequest(vim.g.neovide_channel_id, 'neovide.get_clipboard', register)
+        end
+    end
+
+    vim.g.clipboard = {
+        name = 'neovide',
+        copy = {
+            ['+'] = set_clipboard('+'),
+            ['*'] = set_clipboard('*'),
+        },
+        paste = {
+            ['+'] = get_clipboard('+'),
+            ['*'] = get_clipboard('*'),
+        },
+        cache_enabled = 0
+    }";
+
 pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<TxWrapper>, neovide_channel: u64) {
     // users can opt-out with
     // vim: `let g:neovide_no_custom_clipboard = v:true`
@@ -18,30 +50,12 @@ pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<TxWrapper>, neovide_ch
         return;
     }
 
-    // don't know how to setup lambdas with Value, so use string as command
-    let custom_clipboard = r#"
-        let g:clipboard = {
-          'name': 'custom',
-          'copy': {
-            '+': {
-              lines,
-              regtype -> rpcnotify(neovide_channel, 'neovide.set_clipboard', lines, regtype, '+')
-            },
-            '*': {
-              lines,
-              regtype -> rpcnotify(neovide_channel, 'neovide.set_clipboard', lines, regtype, '*')
-            },
-          },
-          'paste': {
-            '+': {-> rpcrequest(neovide_channel, 'neovide.get_clipboard', '+')},
-            '*': {-> rpcrequest(neovide_channel, 'neovide.get_clipboard', '*')},
-          },
-          'cache_enabled': 0
-        }
-        "#
-    .replace('\n', "") // make one-liner, because multiline is not accepted (?)
-    .replace("neovide_channel", &neovide_channel.to_string());
-    nvim.command(&custom_clipboard).await.ok();
+    nvim.set_var("neovide_channel_id", Value::from(neovide_channel))
+        .await
+        .ok();
+    nvim.execute_lua(REGISTER_CLIPBOARD_PROVIDER_LUA, vec![])
+        .await
+        .ok();
 }
 
 pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>, is_remote: bool) {

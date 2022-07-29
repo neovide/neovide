@@ -1,6 +1,14 @@
 name: Build-and-Test
 
-on: [push]
+on:
+  push:
+    paths-ignore:
+      - 'website/**'
+      - '.vscode/**'
+      - '**.md'
+
+env:
+  CARGO_TERM_COLOR: always
 
 jobs:
   build-windows:
@@ -17,9 +25,9 @@ jobs:
           components: rustfmt
           override: true
 
-      - name: Install Utilities
-        run: |
-          cargo install cargo2junit
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
       - uses: Swatinem/rust-cache@v1
 
       - name: Check Formatting
@@ -36,22 +44,13 @@ jobs:
           NEOVIM_BIN: "C:/tools/neovim/nvim-win64/bin/nvim.exe"
           RUST_BACKTRACE: full
         run: |
-          # Pay attention not to break BUILD stage of a test,
-          # when tests are failing at BUILD stage, everything after -- is ignored,
-          # and no json output will be generated.
-          # Because those arguments is passed to compiled test binary. And it is failed to compile.
-          cargo test -- -Z unstable-options --format json > results.json
-          # This and `set -eo pipefail` for MacOS/Linux
-          # is added, because without it pipe will eat exit status.
-          # Docs are stating that it should work by default, but it does not.
-          # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#exit-codes-and-error-action-preference
-          # Oh, it still does not fail on Windows. ¯\_(ツ)_/¯
-          cat results.json | cargo2junit > results.xml
+          cargo nextest run --profile ci 
+
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action/composite@v1
         if: always()
         with:
-          files: results.xml
+          files: target/nextest/ci/results.xml
 
       - name: Build Release
         run: |
@@ -83,9 +82,11 @@ jobs:
         run: |
           rustup target add aarch64-apple-darwin
 
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
+
       - name: Install Utilities
         run: |
-          cargo install cargo2junit
           cargo install cargo-bundle
 
       - uses: Swatinem/rust-cache@v1
@@ -102,14 +103,13 @@ jobs:
         env:
           RUST_BACKTRACE: full
         run: |
-          set -eo pipefail
-          cargo test -- -Z unstable-options --format json | cargo2junit > results.xml
+          cargo nextest run --profile ci
 
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action/composite@v1
         if: always()
         with:
-          files: results.xml
+          files: target/nextest/ci/results.xml
 
       - name: Build x86 app
         env:
@@ -162,9 +162,8 @@ jobs:
           components: rustfmt
           override: true
 
-      - name: Install Utilities
-        run: |
-          cargo install cargo2junit
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
 
       - uses: Swatinem/rust-cache@v1
 
@@ -183,14 +182,13 @@ jobs:
         env:
           RUST_BACKTRACE: full
         run: |
-          set -eo pipefail
-          cargo test -- -Z unstable-options --format json | cargo2junit > results.xml
+          cargo nextest run --profile ci
 
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v1
         if: always()
         with:
-          files: results.xml
+          files: target/nextest/ci/results.xml
 
       - name: Build Release
         run: |
@@ -199,6 +197,7 @@ jobs:
       - name: Archive Linux artifact
         run: |
           cd ./target/release/
+          strip neovide
           tar czvf neovide.tar.gz neovide
 
       - uses: actions/upload-artifact@v1
