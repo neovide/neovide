@@ -11,7 +11,7 @@ _Note: If you're looking for the Neovide source code, that can be found
 
 <div align="center">
     <img src="assets/landing-page.png" alt="Neovide Landing Page">
-    _Screenshot of Landing Page_
+    <em>Screenshot of Landing Page</em>
 </div>
 
 ## Description
@@ -29,7 +29,7 @@ _Note: If you're looking for the Neovide source code, that can be found
 1. Install the latest version of rust on your preferred choice of operating system, we recommend
    using [rustup](https://rustup.rs/)
 
-1. Install required cargo packages to build successfully
+2. Install required cargo packages to build successfully
 
    ```sh
    cargo install mdbook --version 0.4.21
@@ -37,19 +37,19 @@ _Note: If you're looking for the Neovide source code, that can be found
    cargo install mdbook-linkcheck --version 0.7.6      # Check Links Aren't Broken
    ```
 
-1. Clone the repository
+3. Clone the repository
 
    ```shell
-   git clone https://github.com/neovide/docs neovide-docs
+   git clone https://github.com/neovide/neovide
    ```
 
-1. Navigate to root directory
+4. Navigate to root directory
 
    ```shell
-   cd neovide-docs/
+   cd neovide/website/
    ```
 
-1. Build the book and open in default browser
+5. Build the book and open in default browser
 
    ```shell
    mdbook build --open
