@@ -6,7 +6,7 @@ use skia_safe::{font::Edging, Data, Font, FontHinting, FontMgr, FontStyle, Typef
 
 use crate::renderer::fonts::swash_font::SwashFont;
 
-static DEFAULT_FONT: &[u8] = include_bytes!("../../../assets/fonts/FiraCode-Regular.ttf");
+static DEFAULT_FONT: &[u8] = include_bytes!("../../../assets/fonts/FiraCodeNerdFont-Regular.ttf");
 static LAST_RESORT_FONT: &[u8] = include_bytes!("../../../assets/fonts/LastResort-Regular.ttf");
 
 pub struct FontPair {
