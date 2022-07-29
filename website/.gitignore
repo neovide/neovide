@@ -1,6 +1,0 @@
-# Zola output
-public
-# Will be copied during the build process
-static/assets
-# Most md files are created by RISS on the fly, updated during the build process
-content/*.md

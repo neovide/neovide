@@ -1,0 +1,27 @@
+[book]
+title = "Neovide"
+description = "A Simple, No Nonsense, Cross-Platform, Graphical User Interface for Neovim"
+authors = ["sgoudham"]
+language = "en"
+multilingual = false
+src = "docs"
+
+[output.html]
+additional-css = [
+    "theme/pagetoc.css",
+    "theme/custom.css"
+]
+additional-js = [
+    "theme/pagetoc.js",
+    "theme/custom.js"
+]
+default-theme = "ayu"
+preferred-dark-theme = "ayu"
+git-repository-url = "https://github.com/neovide/docs"
+git-repository-icon = "fa-github"
+edit-url-template = "https://github.com/neovide/docs/edit/main/{path}"
+cname = "neovide.dev"
+
+[output.linkcheck]
+
+[preprocessor.pagetoc]

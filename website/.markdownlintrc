@@ -1,0 +1,4 @@
+{
+    /* Allow inline-html */
+    "MD033": false
+}
