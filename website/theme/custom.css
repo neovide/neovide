@@ -1,4 +1,5 @@
-div.center img {
+/* Center Elements */
+div.center .screenshot {
     display: block;
     margin-top: 5px;
     margin-left: auto;
@@ -8,7 +9,7 @@ div.center img {
     border-radius: 10px;
 }
 
-div.center p {
+div.center .text {
     text-align: center
 }
 
@@ -19,12 +20,7 @@ div.center p {
     box-sizing: border-box;
 }
 
-.buttons {
-    margin: 5%;
-    text-align: center;
-}
-
-.btn-hover {
+.button-hover {
     width: 190px;
     font-size: 13px;
     font-family: inherit;
@@ -44,7 +40,7 @@ div.center p {
     transition: all .4s ease-in-out;
 }
 
-.btn-hover:hover {
+.button-hover:hover {
     background-position: 100% 0;
     moz-transition: all .4s ease-in-out;
     -o-transition: all .4s ease-in-out;
@@ -53,10 +49,10 @@ div.center p {
     text-decoration: underline;
 }
 
-.btn-hover:focus {
+.button-hover:focus {
     outline: none;
 }
 
-.btn-hover.color {
+.button-hover.color {
     background-image: linear-gradient(to right, #fc6076, #ff9a44, #ef9d43, #e75516);
 }

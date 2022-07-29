@@ -9,7 +9,8 @@ src = "docs"
 [output.html]
 additional-css = [
     "theme/pagetoc.css",
-    "theme/custom.css"
+    "theme/custom.css",
+    "theme/breakpoints.css"
 ]
 additional-js = [
     "theme/pagetoc.js",

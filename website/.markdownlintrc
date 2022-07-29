@@ -5,5 +5,8 @@
     },
 
     /* Allow inline-html */
-    "MD033": false
+    "MD033": false,
+
+    /* Allow non-headings at the top of files */
+    "MD041": false
 }
