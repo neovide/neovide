@@ -303,8 +303,11 @@ Sets the speed of particle movement.
 let g:neovide_cursor_vfx_particle_phase=1.5
 ```
 
-Sets ... the phase? I'm not sure. Go poke [@jonvaldes](https://github.com/jonvaldes) to figure out
-what it does.
+Only for the `railgun` vfx mode.
+
+Sets the mass movement of particles, or how individual each one acts. The
+higher the value, the less particles rotate in accordance to each other, the
+lower, the more line-wise all particles become.
 
 #### Particle Curl
 
@@ -312,5 +315,7 @@ what it does.
 let g:neovide_cursor_vfx_particle_curl=1.0
 ```
 
-Sets the ... I guess curl. I believe it has something to do with how the particles rotate in the
-Railgun trail. Again, go bug [@jonvaldes](https://github.com/jonvaldes).
+Only for the `railgun` vfx mode.
+
+Sets the velocity rotation speed of particles. The higher, the less particles
+actually move and look more "nervous", the lower, the more it looks like a collapsing sine wave.
