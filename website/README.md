@@ -65,10 +65,22 @@ can be done by pressing <kbd>Ctrl</kbd>-<kbd>F5</kbd>_
 
 ## Contributing
 
-This repository makes use of [mdbook](https://rust-lang.github.io/mdBook/index.html), it is _highly_
-recommended to read up on mdbook's documentation before contributing. Feel free to ask questions by
-joining our [discord](https://discord.gg/SjFpZdQys6) or raising a GitHub issue.
+First of all, thank you for your interest in wanting to contribute to the website! The documentation
+is very much community-driven so your changes are very much appreciated!
 
-## License
+A few things to note:
 
-Licensed under the [MIT License](./LICENSE)
+- This repository makes use of [mdbook](https://rust-lang.github.io/mdBook/index.html), it is
+  _highly_ recommended to read up on mdbook's documentation before contributing. This will save you
+  a lot of time debugging if you're messing around with the file structure!
+- The markdown is linted to ensure that the style stays consistent, while we are _not_ going to
+  outright reject any contributions if our CI fails, we very much encourage you to lint before
+  raising a pull request as this will increase of your chances of getting the changes merged. The
+  linter we use is [markdownlint](https://github.com/DavidAnson/markdownlint) and any custom rules
+  that we have defined live in a [.markdownlintrc](.markdownlintrc). To save yourself the trouble of
+  manually line wrapping, we recommend the usage of
+  [mdformat](https://github.com/executablebooks/mdformat), the command
+  `mdformat --wrap 100 --number` will ensure that you are in line with our CI.
+
+Always feel free to ask questions by either joining our [discord](https://discord.gg/SjFpZdQys6) or
+raising a GitHub issue!
