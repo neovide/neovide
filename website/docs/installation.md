@@ -46,12 +46,10 @@ $ scoop install neovide
 1. Build and install Neovide:
 
    ```sh
-   git clone https://github.com/neovide/neovide
-   cd neovide
-   cargo build --release
+   cargo install --git https://github.com/neovide/neovide.git
    ```
 
-1. Copy `./target/release/neovide.exe` to a known location and enjoy.
+   The resulting binary can be found inside of `~/.cargo/bin` afterwards (99% of the time).
 
 ## Mac
 
