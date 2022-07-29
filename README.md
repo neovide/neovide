@@ -9,7 +9,7 @@ To checkout all the **cool features**, **installation instructions**, **configur
 
 <div align="center">
     <img src="website/docs/assets/BasicScreenCap.png" alt="Screenshot of Neovide">
-    <em>Screenshot of Neovide running on Windows<em>
+    <em>Screenshot of Neovide running on Windows</em>
 </div>
 
 ## Author Notes
