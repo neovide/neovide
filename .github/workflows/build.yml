@@ -1,6 +1,9 @@
 name: Build-and-Test
 
-on: [push]
+on:
+  push:
+    paths-ignore:
+      - 'website/**'
 
 env:
   CARGO_TERM_COLOR: always
