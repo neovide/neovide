@@ -1,0 +1,368 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js ayu">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Configuration - Neovide</title>
+        <!-- Custom HTML head -->
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="A Simple, No Nonsense, Cross-Platform, Graphical User Interface for Neovim">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="theme/pagetoc.css">
+        <link rel="stylesheet" href="theme/custom.css">
+        <link rel="stylesheet" href="theme/breakpoints.css">
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "ayu" : "ayu";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('ayu')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Neovide</a></li><li class="spacer"></li><li class="chapter-item expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="configuration.html" class="active"><strong aria-hidden="true">3.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="command-line-reference.html"><strong aria-hidden="true">4.</strong> Command Line Reference</a></li><li class="chapter-item expanded "><a href="editing-with-external-tools.html"><strong aria-hidden="true">5.</strong> Editing w/ External Tools</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">6.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">7.</strong> FAQ</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu (default)</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Neovide</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/neovide/neovide" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        <a href="https://github.com/neovide/neovide/edit/main/website/docs/configuration.md" title="Suggest an edit" aria-label="Suggest an edit">
+                            <i id="git-edit-button" class="fa fa-edit"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main><div class="sidetoc"><nav class="pagetoc"></nav></div>
+                        <h1 id="configuration"><a class="header" href="#configuration">Configuration</a></h1>
+<h2 id="global-vim-settings"><a class="header" href="#global-vim-settings">Global Vim Settings</a></h2>
+<p>Neovide supports settings via global variables with a neovide prefix. They enable configuring many
+parts of the editor and support dynamically changing them at runtime.</p>
+<h3 id="functionality"><a class="header" href="#functionality">Functionality</a></h3>
+<h4 id="hello-is-this-neovide"><a class="header" href="#hello-is-this-neovide">Hello, is this Neovide?</a></h4>
+<p>Not really a configuration option, but <code>g:neovide</code> only exists and is set to <code>v:true</code> if this Neovim
+is in Neovide. It's not set else. Useful for configuring things only for Neovide in your <code>init.vim</code>:</p>
+<pre><code class="language-lua">if exists(&quot;g:neovide&quot;)
+    &quot; Put anything you want to happen only in Neovide here
+endif
+</code></pre>
+<h4 id="refresh-rate"><a class="header" href="#refresh-rate">Refresh Rate</a></h4>
+<pre><code class="language-vim">let g:neovide_refresh_rate=140
+</code></pre>
+<p>Setting <code>g:neovide_refresh_rate</code> to a positive integer will set the refresh rate of the app. This is
+limited by the refresh rate of your physical hardware, but can be lowered to increase battery life.</p>
+<h4 id="transparency"><a class="header" href="#transparency">Transparency</a></h4>
+<pre><code class="language-vim">let g:neovide_transparency=0.8
+</code></pre>
+<p><img src="assets/Transparency.png" alt="Transparency" /></p>
+<p>Setting <code>g:neovide_transparency</code> to a value between 0.0 and 1.0 will set the opacity of the window
+to that value.</p>
+<h4 id="floating-blur-amount"><a class="header" href="#floating-blur-amount">Floating Blur Amount</a></h4>
+<pre><code class="language-vim">let g:neovide_floating_blur_amount_x = 2.0
+let g:neovide_floating_blur_amount_y = 2.0
+</code></pre>
+<p><strong>Available since 0.9.</strong></p>
+<p>Setting <code>g:neovide_floating_blur_amount_x</code> and <code>g:neovide_floating_blur_amount_y</code> controls the blur
+radius on the respective axis for floating windows.</p>
+<h4 id="scroll-animation-length"><a class="header" href="#scroll-animation-length">Scroll Animation Length</a></h4>
+<pre><code class="language-vim">let g:neovide_scroll_animation_length = 0.3
+</code></pre>
+<p>Sets how long the scroll animation takes to complete, measured in seconds.</p>
+<h4 id="no-idle"><a class="header" href="#no-idle">No Idle</a></h4>
+<pre><code class="language-vim">let g:neovide_no_idle=v:true
+</code></pre>
+<p>Setting <code>g:neovide_no_idle</code> to a boolean value will force neovide to redraw all the time. This can
+be a quick hack if animations appear to stop too early.</p>
+<h4 id="fullscreen"><a class="header" href="#fullscreen">Fullscreen</a></h4>
+<pre><code class="language-vim">let g:neovide_fullscreen=v:true
+</code></pre>
+<p>Setting <code>g:neovide_fullscreen</code> to a boolean value will set whether the app should take up the entire
+screen. This uses the so called &quot;windowed fullscreen&quot; mode that is sometimes used in games which
+want quick window switching.</p>
+<h4 id="remember-previous-window-size"><a class="header" href="#remember-previous-window-size">Remember Previous Window Size</a></h4>
+<pre><code class="language-vim">let g:neovide_remember_window_size = v:true
+</code></pre>
+<p>Setting <code>g:neovide_remember_window_size</code> to a boolean value will determine whether the window size
+from the previous session or the default size will be used on startup. The commandline option
+<code>--geometry</code> will take priority over this value.</p>
+<h4 id="profiler"><a class="header" href="#profiler">Profiler</a></h4>
+<pre><code class="language-vim">let g:neovide_profiler = v:false
+</code></pre>
+<p>Setting this to <code>v:true</code> enables the profiler, which shows a frametime graph in the upper left
+corner.</p>
+<h3 id="input-settings"><a class="header" href="#input-settings">Input Settings</a></h3>
+<h4 id="use-logo-key"><a class="header" href="#use-logo-key">Use Logo Key</a></h4>
+<pre><code class="language-vim">let g:neovide_input_use_logo=v:true
+</code></pre>
+<p>Setting <code>g:neovide_input_use_logo</code> to a boolean value will change how logo key (also known as
+<a href="https://en.wikipedia.org/wiki/Super_key_(keyboard_button)">super key</a>,
+<a href="https://en.wikipedia.org/wiki/Command_key">command key</a> or
+<a href="https://en.wikipedia.org/wiki/Windows_key">windows key</a>) is handled, allowing all key combinations
+containing logo to be forwarded to neovim.</p>
+<h4 id="macos-alt-is-meta"><a class="header" href="#macos-alt-is-meta">macOS Alt is Meta</a></h4>
+<pre><code class="language-vim">let g:neovide_input_macos_alt_is_meta=v:false
+</code></pre>
+<p><strong>Unreleased yet.</strong></p>
+<p>Interprets <kbd>Alt</kbd> + <kbd>whatever</kbd> actually as <code>&lt;M-whatever&gt;</code>, instead of sending the
+actual special character to Neovim.</p>
+<h4 id="touch-deadzone"><a class="header" href="#touch-deadzone">Touch Deadzone</a></h4>
+<pre><code class="language-vim">let g:neovide_touch_deadzone=6.0
+</code></pre>
+<p>Setting <code>g:neovide_touch_deadzone</code> to a value equal or higher than 0.0 will set how many pixels the
+finger must move away from the start position when tapping on the screen for the touch to be
+interpreted as a scroll gesture.</p>
+<p>If the finger stayed in that area once lifted or the drag timeout happened, however, the touch will
+be interpreted as tap gesture and the cursor will move there.</p>
+<p>A value lower than 0.0 will cause this feature to be disabled and <em>all</em> touch events will be
+interpreted as scroll gesture.</p>
+<h4 id="touch-drag-timeout"><a class="header" href="#touch-drag-timeout">Touch Drag Timeout</a></h4>
+<pre><code class="language-vim">let g:neovide_touch_drag_timeout=0.17
+</code></pre>
+<p>Setting <code>g:neovide_touch_drag_timeout</code> will affect how many seconds the cursor has to stay inside
+<code>g:neovide_touch_deadzone</code> in order to begin &quot;dragging&quot;</p>
+<p>Once started, the finger can be moved to another position in order to form a visual selection. If
+this happens too often accidentally to you, set this to a higher value like <code>0.3</code> or <code>0.7</code>.</p>
+<h3 id="cursor-settings"><a class="header" href="#cursor-settings">Cursor Settings</a></h3>
+<h4 id="animation-length"><a class="header" href="#animation-length">Animation Length</a></h4>
+<p align="center">
+  <img alt="Short Cursor Animation Length", src="./assets/ShortCursorAnimationLength.gif" width="47%">
+&nbsp; &nbsp;
+  <img alt="Long Cursor Animation Length", src="./assets/LongCursorAnimationLength.gif" width="47%">
+</p>
+<pre><code class="language-vim">let g:neovide_cursor_animation_length=0.13
+</code></pre>
+<p>Setting <code>g:neovide_cursor_animation_length</code> determines the time it takes for the cursor to complete
+it's animation in seconds. Set to <code>0</code> to disable.</p>
+<h4 id="animation-trail-length"><a class="header" href="#animation-trail-length">Animation Trail Length</a></h4>
+<p align="center">
+  <img alt="Short Cursor Trail Length", src="./assets/ShortCursorTrailLength.gif" width="47%">
+&nbsp; &nbsp;
+  <img alt="Long Cursor Trail Length", src="./assets/LongCursorTrailLength.gif" width="47%">
+</p>
+<pre><code class="language-vim">let g:neovide_cursor_trail_length=0.8
+</code></pre>
+<p>Setting <code>g:neovide_cursor_trail_length</code> determines how much the trail of the cursor lags behind the
+front edge.</p>
+<h4 id="antialiasing"><a class="header" href="#antialiasing">Antialiasing</a></h4>
+<pre><code class="language-vim">let g:neovide_cursor_antialiasing=v:true
+</code></pre>
+<p>Enables or disables antialiasing of the cursor quad. Disabling may fix some cursor visual issues.</p>
+<h4 id="unfocused-outline-width"><a class="header" href="#unfocused-outline-width">Unfocused Outline Width</a></h4>
+<pre><code class="language-vim">let g:neovide_cursor_unfocused_outline_width=0.125
+</code></pre>
+<p>Specify cursor outline width in <code>em</code>s. You probably want this to be a positive value less than 0.5.
+If the value is &lt;=0 then the cursor will be invisible. This setting takes effect when the editor
+window is unfocused, at which time a block cursor will be rendered as an outline instead of as a
+full rectangle.</p>
+<h3 id="cursor-particles"><a class="header" href="#cursor-particles">Cursor Particles</a></h3>
+<p>There are a number of vfx modes you can enable which produce particles behind the cursor. These are
+enabled by setting <code>g:neovide_cursor_vfx_mode</code> to one of the following constants.</p>
+<h4 id="none-at-all"><a class="header" href="#none-at-all">None at all</a></h4>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;&quot;
+</code></pre>
+<p>The default, no particles at all.</p>
+<h4 id="railgun"><a class="header" href="#railgun">Railgun</a></h4>
+<img src="./assets/Railgun.gif" alt="Railgun" width=550>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;railgun&quot;
+</code></pre>
+<h4 id="torpedo"><a class="header" href="#torpedo">Torpedo</a></h4>
+<img src="./assets/Torpedo.gif" alt="Torpedo" width=550>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;torpedo&quot;
+</code></pre>
+<h4 id="pixiedust"><a class="header" href="#pixiedust">Pixiedust</a></h4>
+<img src="./assets/Pixiedust.gif" alt="Pixiedust" width=550>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;pixiedust&quot;
+</code></pre>
+<h4 id="sonic-boom"><a class="header" href="#sonic-boom">Sonic Boom</a></h4>
+<img src="./assets/Sonicboom.gif" alt="Sonicboom" width=550>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;sonicboom&quot;
+</code></pre>
+<h4 id="ripple"><a class="header" href="#ripple">Ripple</a></h4>
+<img src="./assets/Ripple.gif" alt="Ripple" width=550>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;ripple&quot;
+</code></pre>
+<h4 id="wireframe"><a class="header" href="#wireframe">Wireframe</a></h4>
+<img src="./assets/Wireframe.gif" alt="Wireframe" width=550>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;wireframe&quot;
+</code></pre>
+<h3 id="particle-settings"><a class="header" href="#particle-settings">Particle Settings</a></h3>
+<p>Options for configuring the particle generation and behavior.</p>
+<h4 id="particle-opacity"><a class="header" href="#particle-opacity">Particle Opacity</a></h4>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_opacity=200.0
+</code></pre>
+<p>Sets the transparency of the generated particles.</p>
+<h4 id="particle-lifetime"><a class="header" href="#particle-lifetime">Particle Lifetime</a></h4>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_lifetime=1.2
+</code></pre>
+<p>Sets the amount of time the generated particles should survive.</p>
+<h4 id="particle-density"><a class="header" href="#particle-density">Particle Density</a></h4>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_density=7.0
+</code></pre>
+<p>Sets the number of generated particles.</p>
+<h4 id="particle-speed"><a class="header" href="#particle-speed">Particle Speed</a></h4>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_speed=10.0
+</code></pre>
+<p>Sets the speed of particle movement.</p>
+<h4 id="particle-phase"><a class="header" href="#particle-phase">Particle Phase</a></h4>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_phase=1.5
+</code></pre>
+<p>Only for the <code>railgun</code> vfx mode.</p>
+<p>Sets the mass movement of particles, or how individual each one acts. The higher the value, the less
+particles rotate in accordance to each other, the lower, the more line-wise all particles become.</p>
+<h4 id="particle-curl"><a class="header" href="#particle-curl">Particle Curl</a></h4>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_curl=1.0
+</code></pre>
+<p>Only for the <code>railgun</code> vfx mode.</p>
+<p>Sets the velocity rotation speed of particles. The higher, the less particles actually move and look
+more &quot;nervous&quot;, the lower, the more it looks like a collapsing sine wave.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="installation.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                            <a rel="next" href="command-line-reference.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="installation.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                    <a rel="next" href="command-line-reference.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        <script type="text/javascript" src="theme/pagetoc.js"></script>
+        <script type="text/javascript" src="theme/custom.js"></script>
+    </body>
+</html>

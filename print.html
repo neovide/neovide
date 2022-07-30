@@ -1,0 +1,748 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js ayu">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Neovide</title>
+        <meta name="robots" content="noindex" />
+        <!-- Custom HTML head -->
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="A Simple, No Nonsense, Cross-Platform, Graphical User Interface for Neovim">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="icon" href="favicon.svg">
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="fonts/fonts.css">
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        <link rel="stylesheet" href="theme/pagetoc.css">
+        <link rel="stylesheet" href="theme/custom.css">
+        <link rel="stylesheet" href="theme/breakpoints.css">
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "ayu" : "ayu";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('ayu')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Neovide</a></li><li class="spacer"></li><li class="chapter-item expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">3.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="command-line-reference.html"><strong aria-hidden="true">4.</strong> Command Line Reference</a></li><li class="chapter-item expanded "><a href="editing-with-external-tools.html"><strong aria-hidden="true">5.</strong> Editing w/ External Tools</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">6.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">7.</strong> FAQ</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu (default)</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Neovide</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        <a href="https://github.com/neovide/neovide" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main><div class="sidetoc"><nav class="pagetoc"></nav></div>
+                        <div class="show-mobile">
+    <h1>
+        <img class="logo" src="assets/neovide-128x128.png" alt="Neovide Logo">
+        Neovide
+    </h1>
+    <a href="https://discord.gg/SjFpZdQys6">
+        <img src="https://badgen.net/badge/icon/discord?icon=discord&label" alt="Discord">
+    </a>
+    <a href="https://matrix.to/#/#neovide_community:gitter.im">
+        <img src="https://matrix.to/img/matrix-badge.svg" alt="Chat On Matrix">
+    </a>
+    <a href="https://github.com/neovide/neovide/discussions">
+        <img src="https://img.shields.io/badge/GitHub-Discussions-green?logo=github" alt="Discussions">
+    </a>
+</div>
+<div class="hide-mobile">
+    <h1>Neovide
+        <a href="https://discord.gg/SjFpZdQys6">
+            <img src="https://badgen.net/badge/icon/discord?icon=discord&label" alt="Discord">
+        </a>
+        <a href="https://matrix.to/#/#neovide_community:gitter.im">
+            <img src="https://matrix.to/img/matrix-badge.svg" alt="Chat On Matrix">
+        </a>
+        <a href="https://github.com/neovide/neovide/discussions">
+            <img src="https://img.shields.io/badge/GitHub-Discussions-green?logo=github" alt="Discussions">
+        </a>
+    </h1>
+</div>
+<div class="hide-mobile">
+    <img class="logo" src="assets/neovide-128x128.png" alt="Neovide Logo">
+</div>
+<p>This is a simple, no-nonsense, cross-platform graphical user interface for
+<a href="https://github.com/neovim/neovim">Neovim</a> (an aggressively refactored and updated Vim editor).
+Where possible there are some graphical improvements, but functionally it should act like the
+terminal UI.</p>
+<div class="hide-mobile">
+    <a href="https://github.com/neovide/neovide/releases/latest/download/Neovide.dmg.zip">
+        <button class="button-hover color">Download for macOS</button>
+    </a>
+    <a href="https://github.com/neovide/neovide/releases/latest/download/neovide-windows.zip">
+        <button class="button-hover color">Download for Windows</button>
+    </a>
+    <a href="https://github.com/neovide/neovide/releases/latest/download/neovide.tar.gz">
+        <button class="button-hover color">Download for Linux</button>
+    </a>
+</div>
+<p>If you're looking for the Neovide source code, that can be found
+<a href="https://github.com/neovide/neovide">here</a>. To search within the docs, you can simply press <code>s</code> or
+click the magnifying glass icon in the top left to bring up the search bar.</p>
+<p>Installing through a package manager or building from source? <a href="installation.html">no problem!</a></p>
+<p>Want to see a list of all the available features? <a href="features.html">here you go!</a></p>
+<p>Looking to configure your neovide? <a href="configuration.html">we've got you covered!</a></p>
+<div class="center">
+    <img class="screenshot" src="assets/BasicScreenCap.png" alt="Screenshot of Neovide">
+    <p class="text" ><em>Screenshot of Neovide running on Windows<em></p>
+</div>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="features"><a class="header" href="#features">Features</a></h1>
+<p>This should be a standard, fully-featured Neovim GUI. Beyond that there are some visual niceties
+listed below :)</p>
+<h2 id="ligatures"><a class="header" href="#ligatures">Ligatures</a></h2>
+<p>Supports ligatures and font shaping.</p>
+<img src="./assets/Ligatures.png" alt="Ligatures" width=550>
+<h2 id="animated-cursor"><a class="header" href="#animated-cursor">Animated Cursor</a></h2>
+<p>Cursor animates into position with a smear effect to improve tracking of cursor position.</p>
+<img src="./assets/AnimatedCursor.gif" alt="Animated Cursor" width=550>
+<h2 id="smooth-scrolling"><a class="header" href="#smooth-scrolling">Smooth Scrolling</a></h2>
+<p>Scroll operations on buffers in neovim will be animated smoothly pixel wise rather than line by line
+at a time.</p>
+<p>Note: <a href="command-line-reference.html#multigrid">multigrid</a> must be enabled for this to work.</p>
+<img src="./assets/SmoothScrolling.gif" alt="Smooth Scrolling" width=550>
+<h2 id="animated-windows"><a class="header" href="#animated-windows">Animated Windows</a></h2>
+<p>Windows animate into position when they are moved making it easier to see how layout changes happen.</p>
+<p>Note: <a href="command-line-reference.html#multigrid">multigrid</a> must be enabled for this to work.</p>
+<img src="./assets/AnimatedWindows.gif" alt="Animated Windows" width=550>
+<h2 id="blurred-floating-windows"><a class="header" href="#blurred-floating-windows">Blurred Floating Windows</a></h2>
+<p>The backgrounds of floating windows are blurred improving the visual separation between foreground
+and background from built in window transparency.</p>
+<p>Note: <a href="command-line-reference.html#multigrid">multigrid</a> must be enabled for this to work.</p>
+<img src="./assets/BlurredFloatingWindows.png" alt="Blurred Floating Windows" width=550>
+<h2 id="emoji-support"><a class="header" href="#emoji-support">Emoji Support</a></h2>
+<p>Font fallback supports rendering of emoji not contained in the configured font.</p>
+<img src="./assets/Emoji.png" alt="Emojis" width=550>
+<h2 id="wsl-support"><a class="header" href="#wsl-support">WSL Support</a></h2>
+<p>Neovide supports displaying a full gui window from inside wsl via the <code>--wsl</code> command argument.
+Communication is passed via standard io into the wsl copy of neovim providing identical experience
+similar to Visual Studio Code's
+<a href="https://code.visualstudio.com/docs/remote/remote-overview">Remote Editing</a>.</p>
+<h2 id="remote-tcp-support"><a class="header" href="#remote-tcp-support">Remote TCP Support</a></h2>
+<p>Neovide supports connecting to a remote instance of Neovim over a TCP socket via the <code>--remote-tcp</code>
+command argument. This would allow you to run Neovim on a remote machine and use the GUI on your
+local machine, connecting over the network.</p>
+<p>Launch Neovim as a TCP server (on port 6666) by running:</p>
+<pre><code class="language-sh">nvim --headless --listen localhost:6666
+</code></pre>
+<p>And then connect to it using:</p>
+<pre><code class="language-sh">/path/to/neovide --remote-tcp=localhost:6666
+</code></pre>
+<p>By specifying to listen on localhost, you only allow connections from your local computer. If you
+are actually doing this over a network you will want to use SSH port forwarding for security, and
+then connect as before.</p>
+<pre><code class="language-sh">ssh -L 6666:localhost:6666 ip.of.other.machine nvim --headless --listen localhost:6666
+</code></pre>
+<p>Finally, if you would like to leave the neovim server running, close the neovide application window
+instead of issuing a <code>:q</code> command.</p>
+<h2 id="some-nonsense-"><a class="header" href="#some-nonsense-">Some Nonsense ;)</a></h2>
+<p>To learn how to configure the following, head on over to the
+<a href="./configuration.html#cursor-particles">configuration</a> section!</p>
+<h3 id="railgun"><a class="header" href="#railgun">Railgun</a></h3>
+<img src="./assets/Railgun.gif" alt="Railgun" width=550>
+<h3 id="torpedo"><a class="header" href="#torpedo">Torpedo</a></h3>
+<img src="./assets/Torpedo.gif" alt="Torpedo" width=550>
+<h3 id="pixiedust"><a class="header" href="#pixiedust">Pixiedust</a></h3>
+<img src="./assets/Pixiedust.gif" alt="Pixiedust" width=550>
+<h3 id="sonic-boom"><a class="header" href="#sonic-boom">Sonic Boom</a></h3>
+<img src="./assets/Sonicboom.gif" alt="Sonicboom" width=550>
+<h3 id="ripple"><a class="header" href="#ripple">Ripple</a></h3>
+<img src="./assets/Ripple.gif" alt="Ripple" width=550>
+<h3 id="wireframe"><a class="header" href="#wireframe">Wireframe</a></h3>
+<img src="./assets/Wireframe.gif" alt="Wireframe" width=550>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
+<p><strong>Note</strong>: Neovide requires neovim version <code>0.6</code> <em>or greater</em>. See previous releases such as <code>0.5.0</code>
+if your distro is too slow with updating or you need to rely on older neovim versions.</p>
+<p>Building instructions are somewhat limited at the moment. All the libraries Neovide uses are cross
+platform and should have support for Windows, Mac, and Linux. The rendering is based on OpenGL, so a
+good GPU driver will be necessary, the default drivers provided by virtual machines might not be
+enough. On Windows this should be enabled by default if you have a relatively recent system.</p>
+<h2 id="binaries"><a class="header" href="#binaries">Binaries</a></h2>
+<p>Installing should be as simple as downloading the binary, making sure the <code>nvim</code> executable with
+version 0.6 or greater is on your <code>PATH</code> environment variable, and running it. Everything should be
+self contained.</p>
+<p>The binaries are to be found on
+<a href="https://github.com/neovide/neovide/releases/latest">the release page</a>.</p>
+<h2 id="windows"><a class="header" href="#windows">Windows</a></h2>
+<h3 id="scoop"><a class="header" href="#scoop">Scoop</a></h3>
+<p><a href="https://scoop.sh/">Scoop</a> has Neovide in the <code>extras</code> bucket. Ensure you have the <code>extras</code> bucket,
+and install:</p>
+<pre><code class="language-sh">$ scoop bucket list
+main
+extras
+
+$ scoop install neovide
+</code></pre>
+<h3 id="windows-source"><a class="header" href="#windows-source">Windows Source</a></h3>
+<ol>
+<li>
+<p>Install the latest version of Rust. I recommend <a href="https://rustup.rs/">https://rustup.rs/</a></p>
+</li>
+<li>
+<p>Install CMake. I use chocolatey:
+<code>choco install cmake --installargs '&quot;ADD_CMAKE_TO_PATH=System&quot;' -y</code></p>
+</li>
+<li>
+<p>Install LLVM. I use chocolatey: <code>choco install llvm -y</code></p>
+</li>
+<li>
+<p>Ensure graphics libraries are up to date.</p>
+</li>
+<li>
+<p>Build and install Neovide:</p>
+<pre><code class="language-sh">cargo install --git https://github.com/neovide/neovide.git
+</code></pre>
+<p>The resulting binary can be found inside of <code>~/.cargo/bin</code> afterwards (99% of the time).</p>
+</li>
+</ol>
+<h2 id="mac"><a class="header" href="#mac">Mac</a></h2>
+<h3 id="homebrew"><a class="header" href="#homebrew">Homebrew</a></h3>
+<p>Neovide is available as Cask in <a href="https://brew.sh">Homebrew</a>. It can be installed from the command
+line:</p>
+<pre><code class="language-sh">brew install --cask neovide
+</code></pre>
+<h3 id="mac-source"><a class="header" href="#mac-source">Mac Source</a></h3>
+<ol>
+<li>
+<p>Install the latest version of Rust. Using homebrew: <code>brew install rustup-init</code></p>
+</li>
+<li>
+<p>Configure rust by running <code>rustup-init</code></p>
+</li>
+<li>
+<p>Install CMake. Using homebrew: <code>brew install cmake</code></p>
+</li>
+<li>
+<p><code>git clone https://github.com/neovide/neovide</code></p>
+</li>
+<li>
+<p><code>cd neovide</code></p>
+</li>
+<li>
+<p><code>cargo install --path .</code></p>
+<p>The resulting binary is to be found under <code>~/.cargo/bin</code>. In case you want a nice application
+bundle:</p>
+</li>
+<li>
+<p><code>cargo install cargo-bundle</code></p>
+</li>
+<li>
+<p><code>cargo bundle --release</code></p>
+</li>
+<li>
+<p>Copy <code>./target/release/bundle/osx/neovide.app</code> to <code>~/Applications</code> and enjoy.</p>
+</li>
+</ol>
+<h2 id="linux"><a class="header" href="#linux">Linux</a></h2>
+<h3 id="arch-linux"><a class="header" href="#arch-linux">Arch Linux</a></h3>
+<p>Stable releases are
+<a href="https://archlinux.org/packages/community/x86_64/neovide">packaged in the community repository</a>.</p>
+<pre><code class="language-sh">pacman -S neovide
+</code></pre>
+<p>To run a development version you can build from
+<a href="https://aur.archlinux.org/packages/neovide-git">the VCS package in the AUR</a>. This can be built and
+installed using an AUR helper or
+<a href="https://wiki.archlinux.org/title/Arch_User_Repository#Installing_and_upgrading_packages">by hand in the usual way</a>.
+To build from a non-default branch you can edit the PKGBUILD and add <code>#branch-name</code> to the end of
+the source URL.</p>
+<h3 id="snap"><a class="header" href="#snap">Snap</a></h3>
+<p>Neovide is also available in the Snap Store. You can install it using the command below.</p>
+<pre><code class="language-sh">snap install neovide
+</code></pre>
+<p><a href="https://snapcraft.io/neovide"><img src="https://snapcraft.io/static/images/badges/en/snap-store-white.svg" alt="Get it from the Snap Store" /></a></p>
+<h3 id="linux-source"><a class="header" href="#linux-source">Linux Source</a></h3>
+<ol>
+<li>
+<p>Install necessary dependencies (adjust for your preferred package manager, probably most of this
+stuff is already installed, just try building and see)</p>
+<pre><code class="language-sh">sudo apt install -y curl \
+    gnupg ca-certificates git \
+    gcc-multilib g++-multilib cmake libssl-dev pkg-config \
+    libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev \
+    libbz2-dev libsndio-dev freeglut3-dev libxmu-dev libxi-dev libfontconfig1-dev
+</code></pre>
+</li>
+<li>
+<p>Install Rust</p>
+<pre><code class="language-sh">curl --proto '=https' --tlsv1.2 -sSf &quot;https://sh.rustup.rs&quot; | sh
+</code></pre>
+</li>
+<li>
+<p>Fetch and build</p>
+<pre><code class="language-sh">cargo install --git https://github.com/neovide/neovide
+</code></pre>
+<p>The resulting binary can be found inside of <code>~/.cargo/bin</code> afterwards, you might want to add this
+to your <code>PATH</code> environment variable.</p>
+</li>
+</ol>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="configuration"><a class="header" href="#configuration">Configuration</a></h1>
+<h2 id="global-vim-settings"><a class="header" href="#global-vim-settings">Global Vim Settings</a></h2>
+<p>Neovide supports settings via global variables with a neovide prefix. They enable configuring many
+parts of the editor and support dynamically changing them at runtime.</p>
+<h3 id="functionality"><a class="header" href="#functionality">Functionality</a></h3>
+<h4 id="hello-is-this-neovide"><a class="header" href="#hello-is-this-neovide">Hello, is this Neovide?</a></h4>
+<p>Not really a configuration option, but <code>g:neovide</code> only exists and is set to <code>v:true</code> if this Neovim
+is in Neovide. It's not set else. Useful for configuring things only for Neovide in your <code>init.vim</code>:</p>
+<pre><code class="language-lua">if exists(&quot;g:neovide&quot;)
+    &quot; Put anything you want to happen only in Neovide here
+endif
+</code></pre>
+<h4 id="refresh-rate"><a class="header" href="#refresh-rate">Refresh Rate</a></h4>
+<pre><code class="language-vim">let g:neovide_refresh_rate=140
+</code></pre>
+<p>Setting <code>g:neovide_refresh_rate</code> to a positive integer will set the refresh rate of the app. This is
+limited by the refresh rate of your physical hardware, but can be lowered to increase battery life.</p>
+<h4 id="transparency"><a class="header" href="#transparency">Transparency</a></h4>
+<pre><code class="language-vim">let g:neovide_transparency=0.8
+</code></pre>
+<p><img src="assets/Transparency.png" alt="Transparency" /></p>
+<p>Setting <code>g:neovide_transparency</code> to a value between 0.0 and 1.0 will set the opacity of the window
+to that value.</p>
+<h4 id="floating-blur-amount"><a class="header" href="#floating-blur-amount">Floating Blur Amount</a></h4>
+<pre><code class="language-vim">let g:neovide_floating_blur_amount_x = 2.0
+let g:neovide_floating_blur_amount_y = 2.0
+</code></pre>
+<p><strong>Available since 0.9.</strong></p>
+<p>Setting <code>g:neovide_floating_blur_amount_x</code> and <code>g:neovide_floating_blur_amount_y</code> controls the blur
+radius on the respective axis for floating windows.</p>
+<h4 id="scroll-animation-length"><a class="header" href="#scroll-animation-length">Scroll Animation Length</a></h4>
+<pre><code class="language-vim">let g:neovide_scroll_animation_length = 0.3
+</code></pre>
+<p>Sets how long the scroll animation takes to complete, measured in seconds.</p>
+<h4 id="no-idle"><a class="header" href="#no-idle">No Idle</a></h4>
+<pre><code class="language-vim">let g:neovide_no_idle=v:true
+</code></pre>
+<p>Setting <code>g:neovide_no_idle</code> to a boolean value will force neovide to redraw all the time. This can
+be a quick hack if animations appear to stop too early.</p>
+<h4 id="fullscreen"><a class="header" href="#fullscreen">Fullscreen</a></h4>
+<pre><code class="language-vim">let g:neovide_fullscreen=v:true
+</code></pre>
+<p>Setting <code>g:neovide_fullscreen</code> to a boolean value will set whether the app should take up the entire
+screen. This uses the so called &quot;windowed fullscreen&quot; mode that is sometimes used in games which
+want quick window switching.</p>
+<h4 id="remember-previous-window-size"><a class="header" href="#remember-previous-window-size">Remember Previous Window Size</a></h4>
+<pre><code class="language-vim">let g:neovide_remember_window_size = v:true
+</code></pre>
+<p>Setting <code>g:neovide_remember_window_size</code> to a boolean value will determine whether the window size
+from the previous session or the default size will be used on startup. The commandline option
+<code>--geometry</code> will take priority over this value.</p>
+<h4 id="profiler"><a class="header" href="#profiler">Profiler</a></h4>
+<pre><code class="language-vim">let g:neovide_profiler = v:false
+</code></pre>
+<p>Setting this to <code>v:true</code> enables the profiler, which shows a frametime graph in the upper left
+corner.</p>
+<h3 id="input-settings"><a class="header" href="#input-settings">Input Settings</a></h3>
+<h4 id="use-logo-key"><a class="header" href="#use-logo-key">Use Logo Key</a></h4>
+<pre><code class="language-vim">let g:neovide_input_use_logo=v:true
+</code></pre>
+<p>Setting <code>g:neovide_input_use_logo</code> to a boolean value will change how logo key (also known as
+<a href="https://en.wikipedia.org/wiki/Super_key_(keyboard_button)">super key</a>,
+<a href="https://en.wikipedia.org/wiki/Command_key">command key</a> or
+<a href="https://en.wikipedia.org/wiki/Windows_key">windows key</a>) is handled, allowing all key combinations
+containing logo to be forwarded to neovim.</p>
+<h4 id="macos-alt-is-meta"><a class="header" href="#macos-alt-is-meta">macOS Alt is Meta</a></h4>
+<pre><code class="language-vim">let g:neovide_input_macos_alt_is_meta=v:false
+</code></pre>
+<p><strong>Unreleased yet.</strong></p>
+<p>Interprets <kbd>Alt</kbd> + <kbd>whatever</kbd> actually as <code>&lt;M-whatever&gt;</code>, instead of sending the
+actual special character to Neovim.</p>
+<h4 id="touch-deadzone"><a class="header" href="#touch-deadzone">Touch Deadzone</a></h4>
+<pre><code class="language-vim">let g:neovide_touch_deadzone=6.0
+</code></pre>
+<p>Setting <code>g:neovide_touch_deadzone</code> to a value equal or higher than 0.0 will set how many pixels the
+finger must move away from the start position when tapping on the screen for the touch to be
+interpreted as a scroll gesture.</p>
+<p>If the finger stayed in that area once lifted or the drag timeout happened, however, the touch will
+be interpreted as tap gesture and the cursor will move there.</p>
+<p>A value lower than 0.0 will cause this feature to be disabled and <em>all</em> touch events will be
+interpreted as scroll gesture.</p>
+<h4 id="touch-drag-timeout"><a class="header" href="#touch-drag-timeout">Touch Drag Timeout</a></h4>
+<pre><code class="language-vim">let g:neovide_touch_drag_timeout=0.17
+</code></pre>
+<p>Setting <code>g:neovide_touch_drag_timeout</code> will affect how many seconds the cursor has to stay inside
+<code>g:neovide_touch_deadzone</code> in order to begin &quot;dragging&quot;</p>
+<p>Once started, the finger can be moved to another position in order to form a visual selection. If
+this happens too often accidentally to you, set this to a higher value like <code>0.3</code> or <code>0.7</code>.</p>
+<h3 id="cursor-settings"><a class="header" href="#cursor-settings">Cursor Settings</a></h3>
+<h4 id="animation-length"><a class="header" href="#animation-length">Animation Length</a></h4>
+<p align="center">
+  <img alt="Short Cursor Animation Length", src="./assets/ShortCursorAnimationLength.gif" width="47%">
+&nbsp; &nbsp;
+  <img alt="Long Cursor Animation Length", src="./assets/LongCursorAnimationLength.gif" width="47%">
+</p>
+<pre><code class="language-vim">let g:neovide_cursor_animation_length=0.13
+</code></pre>
+<p>Setting <code>g:neovide_cursor_animation_length</code> determines the time it takes for the cursor to complete
+it's animation in seconds. Set to <code>0</code> to disable.</p>
+<h4 id="animation-trail-length"><a class="header" href="#animation-trail-length">Animation Trail Length</a></h4>
+<p align="center">
+  <img alt="Short Cursor Trail Length", src="./assets/ShortCursorTrailLength.gif" width="47%">
+&nbsp; &nbsp;
+  <img alt="Long Cursor Trail Length", src="./assets/LongCursorTrailLength.gif" width="47%">
+</p>
+<pre><code class="language-vim">let g:neovide_cursor_trail_length=0.8
+</code></pre>
+<p>Setting <code>g:neovide_cursor_trail_length</code> determines how much the trail of the cursor lags behind the
+front edge.</p>
+<h4 id="antialiasing"><a class="header" href="#antialiasing">Antialiasing</a></h4>
+<pre><code class="language-vim">let g:neovide_cursor_antialiasing=v:true
+</code></pre>
+<p>Enables or disables antialiasing of the cursor quad. Disabling may fix some cursor visual issues.</p>
+<h4 id="unfocused-outline-width"><a class="header" href="#unfocused-outline-width">Unfocused Outline Width</a></h4>
+<pre><code class="language-vim">let g:neovide_cursor_unfocused_outline_width=0.125
+</code></pre>
+<p>Specify cursor outline width in <code>em</code>s. You probably want this to be a positive value less than 0.5.
+If the value is &lt;=0 then the cursor will be invisible. This setting takes effect when the editor
+window is unfocused, at which time a block cursor will be rendered as an outline instead of as a
+full rectangle.</p>
+<h3 id="cursor-particles"><a class="header" href="#cursor-particles">Cursor Particles</a></h3>
+<p>There are a number of vfx modes you can enable which produce particles behind the cursor. These are
+enabled by setting <code>g:neovide_cursor_vfx_mode</code> to one of the following constants.</p>
+<h4 id="none-at-all"><a class="header" href="#none-at-all">None at all</a></h4>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;&quot;
+</code></pre>
+<p>The default, no particles at all.</p>
+<h4 id="railgun-1"><a class="header" href="#railgun-1">Railgun</a></h4>
+<img src="./assets/Railgun.gif" alt="Railgun" width=550>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;railgun&quot;
+</code></pre>
+<h4 id="torpedo-1"><a class="header" href="#torpedo-1">Torpedo</a></h4>
+<img src="./assets/Torpedo.gif" alt="Torpedo" width=550>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;torpedo&quot;
+</code></pre>
+<h4 id="pixiedust-1"><a class="header" href="#pixiedust-1">Pixiedust</a></h4>
+<img src="./assets/Pixiedust.gif" alt="Pixiedust" width=550>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;pixiedust&quot;
+</code></pre>
+<h4 id="sonic-boom-1"><a class="header" href="#sonic-boom-1">Sonic Boom</a></h4>
+<img src="./assets/Sonicboom.gif" alt="Sonicboom" width=550>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;sonicboom&quot;
+</code></pre>
+<h4 id="ripple-1"><a class="header" href="#ripple-1">Ripple</a></h4>
+<img src="./assets/Ripple.gif" alt="Ripple" width=550>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;ripple&quot;
+</code></pre>
+<h4 id="wireframe-1"><a class="header" href="#wireframe-1">Wireframe</a></h4>
+<img src="./assets/Wireframe.gif" alt="Wireframe" width=550>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;wireframe&quot;
+</code></pre>
+<h3 id="particle-settings"><a class="header" href="#particle-settings">Particle Settings</a></h3>
+<p>Options for configuring the particle generation and behavior.</p>
+<h4 id="particle-opacity"><a class="header" href="#particle-opacity">Particle Opacity</a></h4>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_opacity=200.0
+</code></pre>
+<p>Sets the transparency of the generated particles.</p>
+<h4 id="particle-lifetime"><a class="header" href="#particle-lifetime">Particle Lifetime</a></h4>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_lifetime=1.2
+</code></pre>
+<p>Sets the amount of time the generated particles should survive.</p>
+<h4 id="particle-density"><a class="header" href="#particle-density">Particle Density</a></h4>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_density=7.0
+</code></pre>
+<p>Sets the number of generated particles.</p>
+<h4 id="particle-speed"><a class="header" href="#particle-speed">Particle Speed</a></h4>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_speed=10.0
+</code></pre>
+<p>Sets the speed of particle movement.</p>
+<h4 id="particle-phase"><a class="header" href="#particle-phase">Particle Phase</a></h4>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_phase=1.5
+</code></pre>
+<p>Only for the <code>railgun</code> vfx mode.</p>
+<p>Sets the mass movement of particles, or how individual each one acts. The higher the value, the less
+particles rotate in accordance to each other, the lower, the more line-wise all particles become.</p>
+<h4 id="particle-curl"><a class="header" href="#particle-curl">Particle Curl</a></h4>
+<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_curl=1.0
+</code></pre>
+<p>Only for the <code>railgun</code> vfx mode.</p>
+<p>Sets the velocity rotation speed of particles. The higher, the less particles actually move and look
+more &quot;nervous&quot;, the lower, the more it looks like a collapsing sine wave.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="command-line-reference"><a class="header" href="#command-line-reference">Command Line Reference</a></h1>
+<p>Neovide supports a few command line arguments for effecting things which couldn't be set using
+normal vim variables.</p>
+<h2 id="information"><a class="header" href="#information">Information</a></h2>
+<h3 id="version"><a class="header" href="#version">Version</a></h3>
+<pre><code class="language-sh">--version or -V
+</code></pre>
+<p>Prints the current version of neovide.</p>
+<h3 id="help"><a class="header" href="#help">Help</a></h3>
+<pre><code class="language-sh">--help or -h
+</code></pre>
+<p>Prints details about neovide. This will be a help page eventually.</p>
+<h2 id="functionality-1"><a class="header" href="#functionality-1">Functionality</a></h2>
+<h3 id="multigrid"><a class="header" href="#multigrid">Multigrid</a></h3>
+<pre><code class="language-sh">--multigrid or an environment variable declared named &quot;NEOVIDE_MULTIGRID&quot;
+</code></pre>
+<p>This enables neovim's multigrid functionality which will also enable floating window blurred
+backgrounds and window animations. For now this is disabled due to some mouse input bugs upstream
+(<a href="https://github.com/neovim/neovim/pull/12667">neovim/neovim/pull/12667</a>,
+<a href="https://github.com/neovim/neovim/issues/15075">neovim/neovim/issues/15075</a>) and some
+<a href="https://github.com/neovide/neovide/issues/720">floating window transparency issues</a>.</p>
+<h3 id="frameless"><a class="header" href="#frameless">Frameless</a></h3>
+<pre><code class="language-sh">--frameless or an environment variable named NEOVIDE_FRAMELESS
+</code></pre>
+<p>Neovide without decorations. NOTE: Window cannot be moved nor resized after this.</p>
+<h3 id="geometry"><a class="header" href="#geometry">Geometry</a></h3>
+<pre><code class="language-sh">--geometry=&lt;width&gt;x&lt;height&gt;
+</code></pre>
+<p>Sets the initial neovide window size in characters.</p>
+<h3 id="no-fork"><a class="header" href="#no-fork">No Fork</a></h3>
+<pre><code class="language-sh">--nofork
+</code></pre>
+<p>By default, neovide detaches itself from the terminal. Instead of spawning a child process and
+leaking it, be &quot;blocking&quot; and have the shell directly as parent process.</p>
+<h3 id="no-tabs"><a class="header" href="#no-tabs">No Tabs</a></h3>
+<pre><code class="language-sh">--notabs
+</code></pre>
+<p>By default, Neovide opens files given directly to Neovide (not NeoVim through <code>--</code>!) in multiple
+tabs to avoid confusing new users. The option disables that and makes multiple given files to normal
+buffers.</p>
+<p>Note: Even if files are opened in tabs, they're buffers anyways. It's just about them being visible
+or not.</p>
+<h3 id="wsl"><a class="header" href="#wsl">WSL</a></h3>
+<pre><code class="language-sh">--wsl
+</code></pre>
+<p>Runs neovim from inside wsl rather than as a normal executable.</p>
+<h3 id="neovim-binary"><a class="header" href="#neovim-binary">Neovim Binary</a></h3>
+<pre><code class="language-sh">--neovim-bin
+</code></pre>
+<p>Sets where to find neovim's executable. If unset, neovide will try to find <code>nvim</code> on the <code>PATH</code>
+environment variable instead. If you're running a Unix-alike, be sure that binary has the executable
+permission bit set.</p>
+<h3 id="log-file"><a class="header" href="#log-file">Log File</a></h3>
+<pre><code class="language-sh">--log
+</code></pre>
+<p>Enables the log file for debugging purposes. This will write a file next to the executable
+containing trace events which may help debug an issue.</p>
+<h3 id="wayland--x11"><a class="header" href="#wayland--x11">Wayland / X11</a></h3>
+<pre><code class="language-sh">--wayland-app-id &lt;wayland_app_id&gt; or an environment variable called NEOVIDE_APP_ID
+--x11-wm-class &lt;x11_wm_class&gt; or an environment variable called NEOVIDE_WM_CLASS
+</code></pre>
+<p>On Linux/Unix, this alters the identification of the window to either X11 or the more modern
+Wayland, depending on what you are running on.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="editing-w-external-tools"><a class="header" href="#editing-w-external-tools">Editing w/ External Tools</a></h1>
+<p>You can use Neovide in other programs as editor, this page aims to document some quirks. Support for
+that, however, is only possible as far as reasonably debuggable.</p>
+<p><em>Note: We do not endorse nor disrecommend usage of all programs listed here. All usage happens on
+your own responsibility.</em></p>
+<h2 id="jrnl"><a class="header" href="#jrnl"><a href="https://github.com/jrnl-org/jrnl">jrnl</a></a></h2>
+<p>In your configuration file:</p>
+<pre><code class="language-yaml">editor: &quot;neovide --nofork&quot;
+</code></pre>
+<p>...as <code>jrnl</code> saves &amp; removes the temporary file as soon as the main process exits, which happens
+before startup by <a href="https://en.wikipedia.org/wiki/Fork_(system_call)">forking</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h1>
+<ul>
+<li>Neovide requires that a font be set in <code>init.vim</code> otherwise errors might be encountered. This can
+be fixed by adding <code>set guifont=Your\ Font\ Name:h15</code> in init.vim file. Reference issue
+<a href="https://github.com/neovide/neovide/issues/527">#527</a>.</li>
+<li>If you installed <code>neovim</code> via Apple Silicon (M1)-based <code>brew</code>, you have to add the <code>brew prefix</code>
+to <code>$PATH</code> to run <code>Neovide.app</code> in GUI. Please see the
+<a href="https://docs.brew.sh/FAQ#my-mac-apps-dont-find-homebrew-utilities">homebrew documentation</a>.
+Reference issue <a href="https://github.com/neovide/neovide/pull/1242">#1242</a></li>
+</ul>
+<h2 id="linux-1"><a class="header" href="#linux-1">Linux</a></h2>
+<ul>
+<li>If you recieve errors complaining about DRI3 settings, please reference issue
+<a href="https://github.com/neovide/neovide/issues/44#issuecomment-578618052">#44</a>.</li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="frequently-asked-questions"><a class="header" href="#frequently-asked-questions">Frequently Asked Questions</a></h1>
+<p>Commonly asked questions, or just explanations/elaborations on stuff.</p>
+<h2 id="how-can-i-set-the-fontscale-the-ui-size"><a class="header" href="#how-can-i-set-the-fontscale-the-ui-size">How Can I Set The Font/Scale The UI Size?</a></h2>
+<p>This is handled through the <code>guifont</code> option, settable through Neovim. It's technically documented
+in <code>:h guifont</code> (type this in Neovim), though some things are misleading there, so here we do what's
+discouraged and try to document it ourselves:</p>
+<ul>
+<li>The basic format is <code>IBM_Plex_Mono,Hack,Noto_Color_Emoji:option1:option2</code>. You can use arbitrarily
+many &quot;font fallbacks&quot; (<code>Hack</code> and <code>Noto_Color_Emoji</code> &quot;help out&quot; if <code>IBM_Plex_Mono</code> doesn't define
+a character), and arbitrarily many options. Though please note that <em>first</em> all fonts are defined,
+<em>then</em> all options, the options apply &quot;globally&quot;.</li>
+<li>Use <code>:set guifont=*</code> to open up a window showing what fonts are accessible by Neovide, hit <code>Enter</code>
+on one to apply it <strong>temporarily</strong>.</li>
+<li>Spaces in the font name are a bit difficult to write, either use underscores (<code>_</code>) or escape them
+(<code>\</code>).</li>
+<li>The font options Neovide supports at the moment are:
+<ul>
+<li><code>hXX</code> — Set the font size to <code>XX</code>, can be any (even non-two-digit) number or even a floating
+point number.</li>
+<li><code>b</code> — Sets the font <strong>bold</strong>.</li>
+<li><code>i</code> — Sets the font <em>italic</em>.</li>
+</ul>
+</li>
+</ul>
+<p>By the way, the default font used is Fira Code at size 14.</p>
+<h2 id="how-can-i-dynamically-change-the-font-size-at-runtime"><a class="header" href="#how-can-i-dynamically-change-the-font-size-at-runtime">How Can I Dynamically Change The Font Size At Runtime?</a></h2>
+<p>Not directly in Neovide, but configurable if you want so. A way to accomplish that in Lua would be:</p>
+<pre><code class="language-lua">vim.g.gui_font_default_size = 12
+vim.g.gui_font_size = vim.g.gui_font_default_size
+vim.g.gui_font_face = &quot;Fira Code Retina&quot;
+
+RefreshGuiFont = function()
+  vim.opt.guifont = string.format(&quot;%s:h%s&quot;,vim.g.gui_font_face, vim.g.gui_font_size)
+end
+
+ResizeGuiFont = function(delta)
+  vim.g.gui_font_size = vim.g.gui_font_size + delta
+  RefreshGuiFont()
+end
+
+ResetGuiFont = function()
+  vim.g.gui_font_size = vim.g.gui_font_default_size
+  RefreshGuiFont()
+end
+
+-- Call function on startup to set default value
+ResetGuiFont()
+
+-- Keymaps
+
+local opts = { noremap = true, silent = true }
+
+vim.keymap.set({'n', 'i'}, &quot;&lt;C-+&gt;&quot;, function() ResizeGuiFont(1)  end, opts)
+vim.keymap.set({'n', 'i'}, &quot;&lt;C--&gt;&quot;, function() ResizeGuiFont(-1) end, opts)
+</code></pre>
+<p>Credits to <a href="https://github.com/neovide/neovide/issues/1301#issuecomment-1119370546">0x0013 here</a>.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+            </nav>
+
+        </div>
+
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        <script type="text/javascript" src="theme/pagetoc.js"></script>
+        <script type="text/javascript" src="theme/custom.js"></script>
+        <script type="text/javascript">
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+    </body>
+</html>
