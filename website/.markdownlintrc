@@ -1,0 +1,12 @@
+{
+    /* Wrap lines at 100 chars */
+    "MD013": {
+        "line_length": 100
+    },
+
+    /* Allow inline-html */
+    "MD033": false,
+
+    /* Allow non-headings at the top of files */
+    "MD041": false
+}

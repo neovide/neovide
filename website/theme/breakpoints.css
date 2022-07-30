@@ -1,0 +1,67 @@
+/* Mobile Devices: Extremely Small Screen Devices (480px & Below) */
+@media only screen and (max-width: 480px) {
+    .show-mobile {
+        display: block;
+    }
+    .show-mobile .logo {
+        width: 23px;
+    }
+    .hide-mobile {
+        display: none;
+    }
+}
+ 
+/* iPads, Tablets: Small Screen Devices (Between 481px & 768px) */
+@media only screen and (min-width: 480px) and (max-width: 768px) {
+    .show-mobile {
+        display: block;
+    }
+    .show-mobile .logo {
+        width: 23px;
+    }
+    .hide-mobile {
+        display: none;
+    }
+}
+ 
+/* Laptops: Medium Screens (Between 769px & 1024px) */
+@media only screen and (min-width: 769px) and (max-width: 1024px) {
+    .show-mobile {
+        display: none;
+    }
+    .hide-mobile {
+        display: block;
+    }
+    .hide-mobile .logo {
+        float: left;
+        padding-right: 15px
+    }
+}
+ 
+/* Desktops: Large Screens (Between 1025px & 1200px) */
+@media only screen and (min-width: 1025px) and (max-width: 1200px) {
+    .show-mobile {
+        display: none;
+    }
+    .hide-mobile {
+        display: block;
+    }
+    .hide-mobile .logo {
+        float: left;
+        padding-right: 15px
+    }
+}
+ 
+/* Extra big screen devices (1201px & Above) */
+@media only screen and (min-width: 1201px) {
+    .show-mobile {
+        display: none;
+    }
+    .hide-mobile {
+        display: block;
+    }
+    .hide-mobile .logo {
+        float: left;
+        padding-right: 15px
+    }
+}
