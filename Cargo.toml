@@ -69,6 +69,7 @@ version = "0.52.0"
 lto = true
 incremental = true
 strip = true
+opt-level = "z"  # Optimize for size.
 
 [package.metadata.bundle]
 name = "Neovide"
