@@ -68,6 +68,7 @@ version = "0.52.0"
 [profile.release]
 lto = true
 incremental = true
+strip = true
 
 [package.metadata.bundle]
 name = "Neovide"
