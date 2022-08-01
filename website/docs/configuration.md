@@ -104,8 +104,8 @@ let g:neovide_confirm_quit=v:false
 let g:neovide_confirm_quit=0
 ```
 
-When buffer having unsaved changes, setting `g:neovide_confirm_quit` to a boolean value will confirm quit
-before closing neovide window. Enabled by default.
+If set to `true`, quitting while having unsaved changes will require confirmation.
+Enabled by default.
 
 
 #### Remember Previous Window Size
