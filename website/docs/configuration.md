@@ -27,6 +27,17 @@ let g:neovide_refresh_rate=140
 Setting `g:neovide_refresh_rate` to a positive integer will set the refresh rate of the app. This is
 limited by the refresh rate of your physical hardware, but can be lowered to increase battery life.
 
+#### Idle Refresh Rate
+
+```vim
+let g:neovide_refresh_rate_idle=10
+```
+
+Setting `g:neovide_refresh_rate_idle` to a positive integer will set the refresh rate of the app when
+it is not in focus.
+
+This might not have an effect on every platform (e.g. Wayland).
+
 #### Transparency
 
 ```vim
