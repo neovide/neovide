@@ -12,6 +12,7 @@ pub struct WindowSettings {
     pub hide_mouse_when_typing: bool,
     pub touch_deadzone: f32,
     pub touch_drag_timeout: f32,
+    pub background_color: String,
 }
 
 impl Default for WindowSettings {
@@ -27,6 +28,7 @@ impl Default for WindowSettings {
             hide_mouse_when_typing: false,
             touch_deadzone: 6.0,
             touch_drag_timeout: 0.17,
+            background_color: "".to_string(),
         }
     }
 }

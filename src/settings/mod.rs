@@ -1,5 +1,6 @@
 mod from_value;
 mod window_geometry;
+mod draw_background;
 
 use log::trace;
 use nvim_rs::Neovim;
@@ -17,6 +18,7 @@ pub use window_geometry::{
     load_last_window_settings, parse_window_geometry, save_window_geometry,
     PersistentWindowSettings, DEFAULT_WINDOW_GEOMETRY,
 };
+pub use draw_background::draw_background;
 
 lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new();
