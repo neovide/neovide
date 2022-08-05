@@ -31,9 +31,19 @@ impl Default for WindowSettings {
     }
 }
 
-#[derive(Clone, Default, SettingGroup)]
+#[derive(Clone, SettingGroup)]
 #[setting_prefix = "input"]
 pub struct KeyboardSettings {
     pub use_logo: bool,
     pub macos_alt_is_meta: bool,
+}
+
+impl Default for KeyboardSettings {
+    fn default() -> Self {
+        if cfg!(target_os = "macos") {
+            Self { use_logo: true, macos_alt_is_meta: false }
+        } else {
+            Self { use_logo: false, macos_alt_is_meta: false }
+        }
+    }
 }
