@@ -38,6 +38,24 @@ let g:neovide_transparency=0.8
 Setting `g:neovide_transparency` to a value between 0.0 and 1.0 will set the opacity of the window
 to that value.
 
+#### Background Color (Currently macOS only)
+
+```vim
+" Set transparency and background color (title bar color)
+let g:neovide_transparency=0.8
+let g:neovide_title_bar_color = '#0f1117'.printf('%x', float2nr(255 * g:neovide_transparency))
+
+" Add keybinds to change transparency
+function! ChangeTransparency(delta)
+  let g:neovide_transparency = g:neovide_transparency + a:delta
+  let g:neovide_title_bar_color = '#0f1117'.printf('%x', float2nr(255 * g:neovide_transparency))
+endfunction
+noremap <expr><D-]> ChangeTransparency(0.01)
+noremap <expr><D-[> ChangeTransparency(-0.01)
+```
+
+![BackgroundColor](assets/BackgroundColor.png)
+
 #### Floating Blur Amount
 
 ```vim
