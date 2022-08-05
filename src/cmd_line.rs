@@ -22,6 +22,7 @@ pub struct CmdLineSettings {
     pub neovim_bin: Option<String>,
     pub wayland_app_id: String,
     pub x11_wm_class: String,
+    pub x11_wm_class_instance: String,
     // Disable open multiple files as tabs
     pub no_tabs: bool,
 }
@@ -46,6 +47,7 @@ impl Default for CmdLineSettings {
             // Command-line arguments with environment variable fallback
             neovim_bin: None,
             wayland_app_id: String::new(),
+            x11_wm_class_instance: String::new(),
             x11_wm_class: String::new(),
             // Disable open multiple files as tabs
             no_tabs: false,
@@ -146,10 +148,16 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
                 .help("Specify an App ID for Wayland"),
         )
         .arg(
+            Arg::new("x11_wm_class_instance")
+                .long("x11-wm-class-instance")
+                .takes_value(true)
+                .help("Specify the instance part of the X11 WM_CLASS property"),
+        )
+        .arg(
             Arg::new("x11_wm_class")
                 .long("x11-wm-class")
                 .takes_value(true)
-                .help("Specify an X11 WM class"),
+                .help("Specify the class part of the X11 WM_CLASS property"),
         );
 
     let matches = clapp.get_matches_from(args);
@@ -217,6 +225,11 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
             .value_of("wayland_app_id")
             .map(|v| v.to_owned())
             .or_else(|| std::env::var("NEOVIDE_APP_ID").ok())
+            .unwrap_or_else(|| "neovide".to_owned()),
+        x11_wm_class_instance: matches
+            .value_of("x11_wm_class_instance")
+            .map(|v| v.to_owned())
+            .or_else(|| std::env::var("NEOVIDE_X11_WM_CLASS_INSTANCE").ok())
             .unwrap_or_else(|| "neovide".to_owned()),
         x11_wm_class: matches
             .value_of("x11_wm_class")
