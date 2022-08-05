@@ -104,6 +104,7 @@ containing trace events which may help debug an issue.
 
 ```sh
 --wayland-app-id <wayland_app_id> or an environment variable called NEOVIDE_APP_ID
+--x11-wm-class-instance <x11_wm_class_instance> or an environment variable called NEOVIDE_WM_CLASS_INSTANCE
 --x11-wm-class <x11_wm_class> or an environment variable called NEOVIDE_WM_CLASS
 ```
 
