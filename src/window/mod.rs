@@ -65,6 +65,7 @@ pub struct GlutinWindowWrapper {
     fullscreen: bool,
     saved_inner_size: PhysicalSize<u32>,
     saved_grid_size: Option<Dimensions>,
+    size_at_startup: PhysicalSize<u32>,
     window_command_receiver: UnboundedReceiver<WindowCommand>,
 }
 
@@ -199,26 +200,17 @@ impl GlutinWindowWrapper {
         }
 
         let new_size = window.inner_size();
-        // The size needs to be scaled, otherwise any flag or setting related
-        // to the geometry or window size will be ignored because of the boolean
-        // value of `resized_at_startup`
-        let scale_factor = window.scale_factor() as u32;
-        let new_size_scaled = PhysicalSize {
-            width: new_size.width / scale_factor,
-            height: new_size.height / scale_factor,
-        };
 
         let settings = SETTINGS.get::<CmdLineSettings>();
         // Resize at startup happens when window is maximized or when using tiling WM
         // which already resized window.
-        let resized_at_startup = settings.maximized || is_already_resized(new_size_scaled);
+        let resized_at_startup = settings.maximized || self.has_been_resized();
 
         log::trace!(
             "Settings geometry {:?}",
             PhysicalSize::from(settings.geometry)
         );
         log::trace!("Inner size: {:?}", new_size);
-        log::trace!("Inner size scaled: {:?}", new_size_scaled);
 
         if self.saved_grid_size.is_none() && !resized_at_startup {
             window.set_inner_size(
@@ -266,6 +258,10 @@ impl GlutinWindowWrapper {
             .grid_renderer
             .handle_scale_factor_update(scale_factor);
         EVENT_AGGREGATOR.send(EditorCommand::RedrawScreen);
+    }
+
+    fn has_been_resized(&self) -> bool {
+        self.windowed_context.window().inner_size() != self.size_at_startup
     }
 }
 
@@ -348,6 +344,7 @@ pub fn create_window() {
     let windowed_context = unsafe { windowed_context.make_current().unwrap() };
 
     let window = windowed_context.window();
+    let initial_size = window.inner_size();
 
     // Check that window is visible in some monitor, and reposition it if not.
     let did_reposition = window
@@ -399,6 +396,7 @@ pub fn create_window() {
         mouse_manager: MouseManager::new(),
         title: String::from("Neovide"),
         fullscreen: false,
+        size_at_startup: initial_size,
         saved_inner_size,
         saved_grid_size: None,
         window_command_receiver,
@@ -436,9 +434,4 @@ pub fn create_window() {
 
         *control_flow = ControlFlow::WaitUntil(previous_frame_start + frame_duration)
     });
-}
-
-fn is_already_resized(size: PhysicalSize<u32>) -> bool {
-    // TODO: Use a constant instead.
-    size != PhysicalSize::from((800, 600))
 }
