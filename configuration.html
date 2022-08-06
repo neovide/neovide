@@ -173,8 +173,11 @@ let g:transparency = 0.8
 let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:transparency))
 </code></pre>
 <p><img src="assets/BackgroundColor.png" alt="BackgroundColor" /></p>
-<p>Setting <code>g:neovide_background_color</code> to a value that can be parsed by <a href="https://github.com/mazznoer/csscolorparser-rs">csscolorparser-rs</a> will set the color of the whole window to that value.</p>
-<p>Note that <code>g:neovide_transparency</code> should be 0 if you want to unify transparency of content and title bar.</p>
+<p>Setting <code>g:neovide_background_color</code> to a value that can be parsed by
+<a href="https://github.com/mazznoer/csscolorparser-rs">csscolorparser-rs</a> will set the color of the whole
+window to that value.</p>
+<p>Note that <code>g:neovide_transparency</code> should be 0 if you want to unify transparency of content and
+title bar.</p>
 <h4 id="floating-blur-amount"><a class="header" href="#floating-blur-amount">Floating Blur Amount</a></h4>
 <pre><code class="language-vim">let g:neovide_floating_blur_amount_x = 2.0
 let g:neovide_floating_blur_amount_y = 2.0
@@ -216,8 +219,9 @@ corner.</p>
 <a href="https://en.wikipedia.org/wiki/Super_key_(keyboard_button)">super key</a>,
 <a href="https://en.wikipedia.org/wiki/Command_key">command key</a> or
 <a href="https://en.wikipedia.org/wiki/Windows_key">windows key</a>) is handled, allowing all key combinations
-containing logo to be forwarded to neovim.
-On MacOS, this defaults to <code>true</code> (so that e.g. <code>cmd+v</code> works for pasting with respective setup of <code>init.vim</code>), and to <code>false</code> for other platforms (that typically use e.g. <code>ctrl+v</code> for pasting).</p>
+containing logo to be forwarded to neovim. On MacOS, this defaults to <code>true</code> (so that e.g. <code>cmd+v</code>
+works for pasting with respective setup of <code>init.vim</code>), and to <code>false</code> for other platforms (that
+typically use e.g. <code>ctrl+v</code> for pasting).</p>
 <h4 id="macos-alt-is-meta"><a class="header" href="#macos-alt-is-meta">macOS Alt is Meta</a></h4>
 <pre><code class="language-vim">let g:neovide_input_macos_alt_is_meta=v:false
 </code></pre>
