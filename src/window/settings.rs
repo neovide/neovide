@@ -40,10 +40,9 @@ pub struct KeyboardSettings {
 
 impl Default for KeyboardSettings {
     fn default() -> Self {
-        if cfg!(target_os = "macos") {
-            Self { use_logo: true, macos_alt_is_meta: false }
-        } else {
-            Self { use_logo: false, macos_alt_is_meta: false }
+        Self {
+            use_logo: cfg!(target_os = "macos"),
+            macos_alt_is_meta: false,
         }
     }
 }
