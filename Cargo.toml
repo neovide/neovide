@@ -20,6 +20,7 @@ copypasta = "0.8.1"
 async-trait = "0.1.53"
 cfg-if = "1.0.0"
 clap = { version = "3.1.9", features = ["cargo"] }
+csscolorparser = "0.6.2"
 derive-new = "0.5.9"
 dirs = "4.0.0"
 euclid = "0.22.7"
@@ -47,9 +48,6 @@ unicode-segmentation = "1.9.0"
 which = "4.2.5"
 winit = { git = "https://github.com/neovide/winit", branch = "new-keyboard-all" }
 xdg = "2.4.1"
-csscolorparser = "0.6.2"
-cocoa = "0.24.0"
-objc = "0.2.7"
 
 [dev-dependencies]
 mockall = "0.11.0"
@@ -67,6 +65,10 @@ version = "0.52.0"
 [target.'cfg(not(linux))'.dependencies.skia-safe]
 features = ["gl"]
 version = "0.52.0"
+
+[target.'cfg(macos)'.dependencies]
+cocoa = "0.24.0"
+objc = "0.2.7"
 
 [profile.release]
 lto = true
