@@ -199,6 +199,20 @@ vim.keymap.set({'n', 'i'}, &quot;&lt;C-+&gt;&quot;, function() ResizeGuiFont(1) 
 vim.keymap.set({'n', 'i'}, &quot;&lt;C--&gt;&quot;, function() ResizeGuiFont(-1) end, opts)
 </code></pre>
 <p>Credits to <a href="https://github.com/neovide/neovide/issues/1301#issuecomment-1119370546">0x0013 here</a>.</p>
+<h2 id="hou-can-i-dynamically-change-the-transparency-at-runtime-macos"><a class="header" href="#hou-can-i-dynamically-change-the-transparency-at-runtime-macos">Hou can I Dynamically Change The Transparency At Runtime? (macOS)</a></h2>
+<pre><code class="language-vim">&quot; Set transparency and background color (title bar color)
+let g:neovide_transparency=0.0
+let g:neovide_transparency_point=0.8
+let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:neovide_transparency_point))
+
+&quot; Add keybinds to change transparency
+function! ChangeTransparency(delta)
+  let g:neovide_transparency_point = g:neovide_transparency_point + a:delta
+  let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:neovide_transparency_point))
+endfunction
+noremap &lt;expr&gt;&lt;D-]&gt; ChangeTransparency(0.01)
+noremap &lt;expr&gt;&lt;D-[&gt; ChangeTransparency(-0.01)
+</code></pre>
 
                     </main>
 

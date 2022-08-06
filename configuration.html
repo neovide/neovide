@@ -166,6 +166,15 @@ limited by the refresh rate of your physical hardware, but can be lowered to inc
 <p><img src="assets/Transparency.png" alt="Transparency" /></p>
 <p>Setting <code>g:neovide_transparency</code> to a value between 0.0 and 1.0 will set the opacity of the window
 to that value.</p>
+<h4 id="background-color-currently-macos-only"><a class="header" href="#background-color-currently-macos-only">Background Color (Currently macOS only)</a></h4>
+<pre><code class="language-vim">&quot; g:neovide_transparency should be 0 if you want to unify transparency of content and title bar.
+let g:neovide_transparency=0.0
+let g:transparency = 0.8
+let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:transparency))
+</code></pre>
+<p><img src="assets/BackgroundColor.png" alt="BackgroundColor" /></p>
+<p>Setting <code>g:neovide_background_color</code> to a value that can be parsed by <a href="https://github.com/mazznoer/csscolorparser-rs">csscolorparser-rs</a> will set the color of the whole window to that value.</p>
+<p>Note that <code>g:neovide_transparency</code> should be 0 if you want to unify transparency of content and title bar.</p>
 <h4 id="floating-blur-amount"><a class="header" href="#floating-blur-amount">Floating Blur Amount</a></h4>
 <pre><code class="language-vim">let g:neovide_floating_blur_amount_x = 2.0
 let g:neovide_floating_blur_amount_y = 2.0
