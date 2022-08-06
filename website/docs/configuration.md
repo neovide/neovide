@@ -41,21 +41,17 @@ to that value.
 #### Background Color (Currently macOS only)
 
 ```vim
-" Set transparency and background color (title bar color)
+" g:neovide_transparency should be 0 if you want to unify transparency of content and title bar.
 let g:neovide_transparency=0.0
-let g:neovide_transparency_point=0.8
-let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:neovide_transparency_point))
-
-" Add keybinds to change transparency
-function! ChangeTransparency(delta)
-  let g:neovide_transparency_point = g:neovide_transparency_point + a:delta
-  let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:neovide_transparency_point))
-endfunction
-noremap <expr><D-]> ChangeTransparency(0.01)
-noremap <expr><D-[> ChangeTransparency(-0.01)
+let g:transparency = 0.8
+let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:transparency))
 ```
 
 ![BackgroundColor](assets/BackgroundColor.png)
+
+Setting `g:neovide_background_color` to a value that can be parsed by [csscolorparser-rs](https://github.com/mazznoer/csscolorparser-rs) will set the color of the whole window to that value.
+
+Note that `g:neovide_transparency` should be 0 if you want to unify transparency of content and title bar.
 
 #### Floating Blur Amount
 
