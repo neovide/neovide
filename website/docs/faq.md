@@ -59,3 +59,20 @@ vim.keymap.set({'n', 'i'}, "<C-->", function() ResizeGuiFont(-1) end, opts)
 ```
 
 Credits to [0x0013 here](https://github.com/neovide/neovide/issues/1301#issuecomment-1119370546).
+
+## Hou can I Dynamically Change The Transparency At Runtime? (macOS)
+
+```vim
+" Set transparency and background color (title bar color)
+let g:neovide_transparency=0.0
+let g:neovide_transparency_point=0.8
+let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:neovide_transparency_point))
+
+" Add keybinds to change transparency
+function! ChangeTransparency(delta)
+  let g:neovide_transparency_point = g:neovide_transparency_point + a:delta
+  let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:neovide_transparency_point))
+endfunction
+noremap <expr><D-]> ChangeTransparency(0.01)
+noremap <expr><D-[> ChangeTransparency(-0.01)
+```

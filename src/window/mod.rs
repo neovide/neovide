@@ -3,6 +3,9 @@ mod mouse_manager;
 mod renderer;
 mod settings;
 
+#[cfg(target_os = "macos")]
+mod draw_background;
+
 use std::time::{Duration, Instant};
 
 use glutin::{
@@ -18,6 +21,9 @@ use tokio::sync::mpsc::UnboundedReceiver;
 
 #[cfg(target_os = "macos")]
 use glutin::platform::macos::WindowBuilderExtMacOS;
+
+#[cfg(target_os = "macos")]
+use draw_background::draw_background;
 
 #[cfg(target_os = "linux")]
 use glutin::platform::unix::WindowBuilderExtUnix;
@@ -430,6 +436,8 @@ pub fn create_window() {
             let dt = previous_frame_start.elapsed().as_secs_f32();
             window_wrapper.draw_frame(dt);
             previous_frame_start = frame_start;
+            #[cfg(target_os = "macos")]
+            draw_background(&window_wrapper.windowed_context);
         }
 
         *control_flow = ControlFlow::WaitUntil(previous_frame_start + frame_duration)
