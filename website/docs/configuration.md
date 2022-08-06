@@ -49,9 +49,12 @@ let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:transpa
 
 ![BackgroundColor](assets/BackgroundColor.png)
 
-Setting `g:neovide_background_color` to a value that can be parsed by [csscolorparser-rs](https://github.com/mazznoer/csscolorparser-rs) will set the color of the whole window to that value.
+Setting `g:neovide_background_color` to a value that can be parsed by
+[csscolorparser-rs](https://github.com/mazznoer/csscolorparser-rs) will set the color of the whole
+window to that value.
 
-Note that `g:neovide_transparency` should be 0 if you want to unify transparency of content and title bar.
+Note that `g:neovide_transparency` should be 0 if you want to unify transparency of content and
+title bar.
 
 #### Floating Blur Amount
 
@@ -123,8 +126,9 @@ Setting `g:neovide_input_use_logo` to a boolean value will change how logo key (
 [super key](<https://en.wikipedia.org/wiki/Super_key_(keyboard_button)>),
 [command key](https://en.wikipedia.org/wiki/Command_key) or
 [windows key](https://en.wikipedia.org/wiki/Windows_key)) is handled, allowing all key combinations
-containing logo to be forwarded to neovim.
-On MacOS, this defaults to `true` (so that e.g. `cmd+v` works for pasting with respective setup of `init.vim`), and to `false` for other platforms (that typically use e.g. `ctrl+v` for pasting).
+containing logo to be forwarded to neovim. On MacOS, this defaults to `true` (so that e.g. `cmd+v`
+works for pasting with respective setup of `init.vim`), and to `false` for other platforms (that
+typically use e.g. `ctrl+v` for pasting).
 
 #### macOS Alt is Meta
 
