@@ -18,7 +18,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
-      - name: Install clippy and runstfmt
+      - name: Install clippy and rustfmt
         run: rustup component add clippy rustfmt
 
       - name: Run clippy
