@@ -3,6 +3,9 @@ mod mouse_manager;
 mod renderer;
 mod settings;
 
+#[cfg(target_os = "macos")]
+mod draw_background;
+
 use std::time::{Duration, Instant};
 
 use glutin::{
@@ -18,7 +21,9 @@ use tokio::sync::mpsc::UnboundedReceiver;
 
 #[cfg(target_os = "macos")]
 use glutin::platform::macos::WindowBuilderExtMacOS;
-use crate::settings::draw_background;
+
+#[cfg(target_os = "macos")]
+use draw_background::draw_background;
 
 #[cfg(target_os = "linux")]
 use glutin::platform::unix::WindowBuilderExtUnix;
