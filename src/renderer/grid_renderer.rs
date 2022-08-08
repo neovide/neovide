@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use glutin::dpi::PhysicalSize;
 use log::trace;
-use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect, HSV};
+use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Rect, HSV, Path, Point};
 
 use crate::{
     dimensions::Dimensions,
-    editor::{Colors, Style},
+    editor::{Colors, Style, UnderlineStyle},
     renderer::{CachingShaper, RendererSettings},
     settings::*,
     window::WindowSettings,
@@ -134,7 +134,6 @@ impl GridRenderer {
         let width = cell_width * self.font_dimensions.width;
 
         let style = style.as_ref().unwrap_or(&self.default_style);
-
         canvas.save();
 
         // We don't want to clip text in the x position, only the y so we add a buffer of 1
@@ -145,35 +144,12 @@ impl GridRenderer {
 
         canvas.clip_rect(region, None, Some(false));
 
-        if style.underline || style.undercurl {
-            let mut underline_paint = self.paint.clone();
-
+        if let Some(underline_style) = style.underline {
             let line_position = self.shaper.underline_position();
-            let stroke_width = self.shaper.current_size() / 10.0;
+            let p1 = (x as f32, (y - line_position + self.font_dimensions.height) as f32);
+            let p2 = ((x + width) as f32, (y - line_position + self.font_dimensions.height) as f32);
 
-            underline_paint.set_color(style.special(&self.default_style.colors).to_color());
-            underline_paint.set_stroke_width(stroke_width);
-
-            if style.undercurl {
-                underline_paint.set_path_effect(dash_path_effect::new(
-                    &[stroke_width * 2.0, stroke_width * 2.0],
-                    0.0,
-                ));
-            } else {
-                underline_paint.set_path_effect(None);
-            }
-
-            canvas.draw_line(
-                (
-                    x as f32,
-                    (y - line_position + self.font_dimensions.height) as f32,
-                ),
-                (
-                    (x + width) as f32,
-                    (y - line_position + self.font_dimensions.height) as f32,
-                ),
-                &underline_paint,
-            );
+            self.draw_underline(canvas, &style, underline_style, p1.into(), p2.into())
         }
 
         let y_adjustment = self.shaper.y_adjustment();
@@ -208,5 +184,57 @@ impl GridRenderer {
         }
 
         canvas.restore();
+    }
+
+    fn draw_underline(&self, canvas: &mut Canvas, style: &Arc<Style>, underline_style: UnderlineStyle, p1: Point, p2: Point) {
+        let mut underline_paint = self.paint.clone();
+
+        underline_paint.set_color(style.special(&self.default_style.colors).to_color());
+        underline_paint.set_stroke_width(1.);
+
+        match underline_style {
+            UnderlineStyle::Underline => {
+                underline_paint.set_path_effect(None);
+                canvas.draw_line(p1, p2, &underline_paint);
+            },
+            UnderlineStyle::UnderDouble => {
+                underline_paint.set_path_effect(None);
+                canvas.draw_line(p1, p2, &underline_paint);
+                let p1 = (p1.x, p1.y - 2 as f32);
+                let p2 = (p2.x, p2.y - 2 as f32);
+                canvas.draw_line(p1, p2, &underline_paint);
+            },
+            UnderlineStyle::UnderCurl => {
+                let p1 = (p1.x, p1.y - 2.);
+                let p2 = (p2.x, p2.y - 2.);
+                underline_paint.set_path_effect(None)
+                    .set_anti_alias(true)
+                    .set_style(skia_safe::paint::Style::Stroke);
+                let mut path = Path::default();
+                path.move_to(p1);
+                let mut i = p1.0;
+                let mut sin = -2.;
+                while i <= p2.0 {
+                    sin *= -1.;
+                    i += 4.;
+                    path.quad_to((i - 2., p1.1 + sin), (i, p1.1));
+                }
+                canvas.draw_path(&path, &underline_paint);
+            },
+            UnderlineStyle::UnderDash => {
+                underline_paint.set_path_effect(dash_path_effect::new(
+                    &[6.0, 2.0],
+                    0.0,
+                ));
+                canvas.draw_line(p1, p2, &underline_paint);
+            },
+            UnderlineStyle::UnderDot => {
+                underline_paint.set_path_effect(dash_path_effect::new(
+                    &[1.0, 1.0],
+                    0.0,
+                ));
+                canvas.draw_line(p1, p2, &underline_paint);
+            },
+        }
     }
 }
