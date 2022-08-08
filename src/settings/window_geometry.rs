@@ -86,14 +86,14 @@ pub fn save_window_geometry(
                 size: {
                     window_settings
                         .remember_window_size
-                        .then_some(grid_size)
+                        .then(|| grid_size)
                         .flatten()
                         .unwrap_or(DEFAULT_WINDOW_GEOMETRY)
                 },
                 position: {
                     window_settings
                         .remember_window_position
-                        .then_some(position)
+                        .then(|| position)
                         .flatten()
                         .unwrap_or_default()
                 },
