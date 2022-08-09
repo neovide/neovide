@@ -87,5 +87,3 @@ shell doesn't read its resource file (`~/.bashrc`/`~/.zshrc`/whatever the
 equivalent for your shell is). But depending on your shell there are other
 options for doing so, for example for zsh you can just put your relevant content
 into `~/.zprofile`.
-
-
