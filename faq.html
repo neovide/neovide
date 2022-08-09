@@ -199,7 +199,7 @@ vim.keymap.set({'n', 'i'}, &quot;&lt;C-+&gt;&quot;, function() ResizeGuiFont(1) 
 vim.keymap.set({'n', 'i'}, &quot;&lt;C--&gt;&quot;, function() ResizeGuiFont(-1) end, opts)
 </code></pre>
 <p>Credits to <a href="https://github.com/neovide/neovide/issues/1301#issuecomment-1119370546">0x0013 here</a>.</p>
-<h2 id="hou-can-i-dynamically-change-the-transparency-at-runtime-macos"><a class="header" href="#hou-can-i-dynamically-change-the-transparency-at-runtime-macos">Hou can I Dynamically Change The Transparency At Runtime? (macOS)</a></h2>
+<h2 id="how-can-i-dynamically-change-the-transparency-at-runtime-macos"><a class="header" href="#how-can-i-dynamically-change-the-transparency-at-runtime-macos">How can I Dynamically Change The Transparency At Runtime? (macOS)</a></h2>
 <pre><code class="language-vim">&quot; Set transparency and background color (title bar color)
 let g:neovide_transparency=0.0
 let g:neovide_transparency_point=0.8
@@ -213,6 +213,14 @@ endfunction
 noremap &lt;expr&gt;&lt;D-]&gt; ChangeTransparency(0.01)
 noremap &lt;expr&gt;&lt;D-[&gt; ChangeTransparency(-0.01)
 </code></pre>
+<h2 id="neovide-is-not-picking-up-some-shell-configured-information"><a class="header" href="#neovide-is-not-picking-up-some-shell-configured-information">Neovide Is Not Picking Up Some Shell-configured Information</a></h2>
+<p>...aka <code>nvm use</code> doesn't work, aka anything configured in <code>~/.bashrc</code>/<code>~/.zshrc</code>
+is ignored by Neovide.</p>
+<p>Neovide doesn't start the embedded neovim instance in a login shell, so your
+shell doesn't read its resource file (<code>~/.bashrc</code>/<code>~/.zshrc</code>/whatever the
+equivalent for your shell is). But depending on your shell there are other
+options for doing so, for example for zsh you can just put your relevant content
+into <code>~/.zprofile</code>.</p>
 
                     </main>
 
