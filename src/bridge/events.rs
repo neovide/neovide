@@ -4,7 +4,7 @@ use std::{
     fmt::{self, Debug},
 };
 
-use log::{debug};
+use log::debug;
 use rmpv::Value;
 use skia_safe::Color4f;
 
@@ -496,11 +496,21 @@ fn parse_style(style_map: Value) -> Result<Style> {
                 ("blend", Value::Integer(blend)) => style.blend = blend.as_u64().unwrap() as u8,
 
                 // TODO: handle correct precedence?
-                ("underline", Value::Boolean(true)) => style.underline = Some(UnderlineStyle::Underline),
-                ("undercurl", Value::Boolean(true)) => style.underline = Some(UnderlineStyle::UnderCurl),
-                ("underdotted", Value::Boolean(true)) => style.underline = Some(UnderlineStyle::UnderDot),
-                ("underdashed", Value::Boolean(true)) => style.underline = Some(UnderlineStyle::UnderDash),
-                ("underdouble", Value::Boolean(true)) => style.underline = Some(UnderlineStyle::UnderDouble),
+                ("underline", Value::Boolean(true)) => {
+                    style.underline = Some(UnderlineStyle::Underline)
+                }
+                ("undercurl", Value::Boolean(true)) => {
+                    style.underline = Some(UnderlineStyle::UnderCurl)
+                }
+                ("underdotted", Value::Boolean(true)) => {
+                    style.underline = Some(UnderlineStyle::UnderDot)
+                }
+                ("underdashed", Value::Boolean(true)) => {
+                    style.underline = Some(UnderlineStyle::UnderDash)
+                }
+                ("underdouble", Value::Boolean(true)) => {
+                    style.underline = Some(UnderlineStyle::UnderDouble)
+                }
 
                 _ => debug!("Ignored style attribute: {}", name),
             }
