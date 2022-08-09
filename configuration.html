@@ -200,6 +200,13 @@ be a quick hack if animations appear to stop too early.</p>
 <p>Setting <code>g:neovide_fullscreen</code> to a boolean value will set whether the app should take up the entire
 screen. This uses the so called &quot;windowed fullscreen&quot; mode that is sometimes used in games which
 want quick window switching.</p>
+<h4 id="confirm-quit"><a class="header" href="#confirm-quit">Confirm Quit</a></h4>
+<pre><code class="language-vim">let g:neovide_confirm_quit=v:false
+&quot; or
+let g:neovide_confirm_quit=0
+</code></pre>
+<p>If set to <code>true</code>, quitting while having unsaved changes will require confirmation.
+Enabled by default.</p>
 <h4 id="remember-previous-window-size"><a class="header" href="#remember-previous-window-size">Remember Previous Window Size</a></h4>
 <pre><code class="language-vim">let g:neovide_remember_window_size = v:true
 </code></pre>
