@@ -502,13 +502,13 @@ fn parse_style(style_map: Value) -> Result<Style> {
                 ("undercurl", Value::Boolean(true)) => {
                     style.underline = Some(UnderlineStyle::UnderCurl)
                 }
-                ("underdotted", Value::Boolean(true)) => {
+                ("underdotted" | "underdot", Value::Boolean(true)) => {
                     style.underline = Some(UnderlineStyle::UnderDot)
                 }
-                ("underdashed", Value::Boolean(true)) => {
+                ("underdashed" | "underdash", Value::Boolean(true)) => {
                     style.underline = Some(UnderlineStyle::UnderDash)
                 }
-                ("underdouble", Value::Boolean(true)) => {
+                ("underdouble" | "underlineline", Value::Boolean(true)) => {
                     style.underline = Some(UnderlineStyle::UnderDouble)
                 }
 
