@@ -60,7 +60,7 @@ vim.keymap.set({'n', 'i'}, "<C-->", function() ResizeGuiFont(-1) end, opts)
 
 Credits to [0x0013 here](https://github.com/neovide/neovide/issues/1301#issuecomment-1119370546).
 
-## Hou can I Dynamically Change The Transparency At Runtime? (macOS)
+## How can I Dynamically Change The Transparency At Runtime? (macOS)
 
 ```vim
 " Set transparency and background color (title bar color)
@@ -76,3 +76,16 @@ endfunction
 noremap <expr><D-]> ChangeTransparency(0.01)
 noremap <expr><D-[> ChangeTransparency(-0.01)
 ```
+
+## Neovide Is Not Picking Up Some Shell-configured Information
+
+...aka `nvm use` doesn't work, aka anything configured in `~/.bashrc`/`~/.zshrc`
+is ignored by Neovide.
+
+Neovide doesn't start the embedded neovim instance in a login shell, so your
+shell doesn't read its resource file (`~/.bashrc`/`~/.zshrc`/whatever the
+equivalent for your shell is). But depending on your shell there are other
+options for doing so, for example for zsh you can just put your relevant content
+into `~/.zprofile`.
+
+
