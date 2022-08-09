@@ -73,6 +73,7 @@ objc = "0.2.7"
 [profile.release]
 lto = true
 incremental = true
+strip = true
 
 [package.metadata.bundle]
 name = "Neovide"
