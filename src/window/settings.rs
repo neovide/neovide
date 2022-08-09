@@ -13,6 +13,7 @@ pub struct WindowSettings {
     pub touch_deadzone: f32,
     pub touch_drag_timeout: f32,
     pub background_color: String,
+    pub confirm_quit: bool,
 }
 
 impl Default for WindowSettings {
@@ -29,6 +30,7 @@ impl Default for WindowSettings {
             touch_deadzone: 6.0,
             touch_drag_timeout: 0.17,
             background_color: "".to_string(),
+            confirm_quit: true,
         }
     }
 }
