@@ -151,7 +151,7 @@ parts of the editor and support dynamically changing them at runtime.</p>
 <h4 id="hello-is-this-neovide"><a class="header" href="#hello-is-this-neovide">Hello, is this Neovide?</a></h4>
 <p>Not really a configuration option, but <code>g:neovide</code> only exists and is set to <code>v:true</code> if this Neovim
 is in Neovide. It's not set else. Useful for configuring things only for Neovide in your <code>init.vim</code>:</p>
-<pre><code class="language-lua">if exists(&quot;g:neovide&quot;)
+<pre><code class="language-vim">if exists(&quot;g:neovide&quot;)
     &quot; Put anything you want to happen only in Neovide here
 endif
 </code></pre>
