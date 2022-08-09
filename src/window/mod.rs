@@ -337,7 +337,10 @@ pub fn create_window() {
     #[cfg(target_os = "linux")]
     let winit_window_builder = winit_window_builder
         .with_app_id(cmd_line_settings.wayland_app_id)
-        .with_class("neovide".to_string(), cmd_line_settings.x11_wm_class);
+        .with_class(
+            cmd_line_settings.x11_wm_class_instance,
+            cmd_line_settings.x11_wm_class,
+        );
 
     let windowed_context = ContextBuilder::new()
         .with_pixel_format(24, 8)
