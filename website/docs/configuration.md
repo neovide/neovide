@@ -12,7 +12,7 @@ parts of the editor and support dynamically changing them at runtime.
 Not really a configuration option, but `g:neovide` only exists and is set to `v:true` if this Neovim
 is in Neovide. It's not set else. Useful for configuring things only for Neovide in your `init.vim`:
 
-```lua
+```vim
 if exists("g:neovide")
     " Put anything you want to happen only in Neovide here
 endif
