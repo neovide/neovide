@@ -21,7 +21,7 @@ endif
 #### Refresh Rate
 
 ```vim
-let g:neovide_refresh_rate=140
+let g:neovide_refresh_rate=60
 ```
 
 Setting `g:neovide_refresh_rate` to a positive integer will set the refresh rate of the app. This is
@@ -30,7 +30,7 @@ limited by the refresh rate of your physical hardware, but can be lowered to inc
 #### Idle Refresh Rate
 
 ```vim
-let g:neovide_refresh_rate_idle=10
+let g:neovide_refresh_rate_idle=5
 ```
 
 Setting `g:neovide_refresh_rate_idle` to a positive integer will set the refresh rate of the app when
