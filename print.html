@@ -398,10 +398,16 @@ is in Neovide. It's not set else. Useful for configuring things only for Neovide
 endif
 </code></pre>
 <h4 id="refresh-rate"><a class="header" href="#refresh-rate">Refresh Rate</a></h4>
-<pre><code class="language-vim">let g:neovide_refresh_rate=140
+<pre><code class="language-vim">let g:neovide_refresh_rate=60
 </code></pre>
 <p>Setting <code>g:neovide_refresh_rate</code> to a positive integer will set the refresh rate of the app. This is
 limited by the refresh rate of your physical hardware, but can be lowered to increase battery life.</p>
+<h4 id="idle-refresh-rate"><a class="header" href="#idle-refresh-rate">Idle Refresh Rate</a></h4>
+<pre><code class="language-vim">let g:neovide_refresh_rate_idle=5
+</code></pre>
+<p>Setting <code>g:neovide_refresh_rate_idle</code> to a positive integer will set the refresh rate of the app when
+it is not in focus.</p>
+<p>This might not have an effect on every platform (e.g. Wayland).</p>
 <h4 id="transparency"><a class="header" href="#transparency">Transparency</a></h4>
 <pre><code class="language-vim">let g:neovide_transparency=0.8
 </code></pre>
