@@ -95,7 +95,6 @@ Setting `g:neovide_fullscreen` to a boolean value will set whether the app shoul
 screen. This uses the so called "windowed fullscreen" mode that is sometimes used in games which
 want quick window switching.
 
-
 #### Confirm Quit
 
 ```vim
@@ -106,7 +105,6 @@ let g:neovide_confirm_quit=0
 
 If set to `true`, quitting while having unsaved changes will require confirmation.
 Enabled by default.
-
 
 #### Remember Previous Window Size
 
