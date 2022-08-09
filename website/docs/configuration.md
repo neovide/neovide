@@ -141,7 +141,7 @@ corner.
 #### Use Logo Key
 
 ```vim
-let g:neovide_input_use_logo=v:true
+let g:neovide_input_use_logo=v:false  " v:true on macOS
 ```
 
 Setting `g:neovide_input_use_logo` to a boolean value will change how logo key (also known as
