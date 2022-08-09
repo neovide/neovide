@@ -413,7 +413,18 @@ pub fn create_window() {
 
     let mut previous_frame_start = Instant::now();
 
+    let mut focused = true;
+
     event_loop.run(move |e, _window_target, control_flow| {
+        // Window focus changed
+        if let Event::WindowEvent {
+            event: WindowEvent::Focused(focused_event),
+            ..
+        } = e
+        {
+            focused = focused_event;
+        }
+
         if !RUNNING_TRACKER.is_running() {
             let window = window_wrapper.windowed_context.window();
             save_window_geometry(
@@ -431,7 +442,13 @@ pub fn create_window() {
         window_wrapper.synchronize_settings();
         window_wrapper.handle_event(e);
 
-        let refresh_rate = { SETTINGS.get::<WindowSettings>().refresh_rate as f32 };
+        let refresh_rate = if focused {
+            SETTINGS.get::<WindowSettings>().refresh_rate as f32
+        } else {
+            SETTINGS.get::<WindowSettings>().refresh_rate_idle as f32
+        }
+        .max(1.0);
+
         let expected_frame_length_seconds = 1.0 / refresh_rate;
         let frame_duration = Duration::from_secs_f32(expected_frame_length_seconds);
 
