@@ -495,7 +495,6 @@ fn parse_style(style_map: Value) -> Result<Style> {
                 }
                 ("blend", Value::Integer(blend)) => style.blend = blend.as_u64().unwrap() as u8,
 
-                // TODO: handle correct precedence?
                 ("underline", Value::Boolean(true)) => {
                     style.underline = Some(UnderlineStyle::Underline)
                 }
