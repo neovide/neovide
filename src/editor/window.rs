@@ -309,7 +309,7 @@ impl Window {
         self.send_command(WindowDrawCommand::Clear);
         // Draw the lines from the bottom up so that underlines don't get overwritten by the line
         // below.
-        for row in self.grid.height..0 {
+        for row in (0..self.grid.height).rev() {
             self.redraw_line(row);
         }
     }
