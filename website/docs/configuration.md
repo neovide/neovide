@@ -114,6 +114,19 @@ let g:neovide_profiler = v:false
 Setting this to `v:true` enables the profiler, which shows a frametime graph in the upper left
 corner.
 
+#### Underline automatic scaling
+
+```vim
+let g:neovide_underline_automatic_scaling = v:true
+```
+
+Setting `g:neovide_underline_automatic_scaling` to a boolean value determines whether automatic
+scaling of text underlines (including undercurl, underdash, etc.) is enabled. Noticeable for font
+sizes above 15.
+
+**Note**: This is currently glitchy, and leads to some underlines being clipped by the line of text
+below.
+
 ### Input Settings
 
 #### Use Logo Key
