@@ -205,7 +205,9 @@ impl GridRenderer {
         canvas.save();
 
         let mut underline_paint = self.paint.clone();
-        let auto_scaling = SETTINGS.get::<RendererSettings>().underline_automatic_scaling;
+        let auto_scaling = SETTINGS
+            .get::<RendererSettings>()
+            .underline_automatic_scaling;
         // Arbitrary value under which we simply round the line thickness to 1. Anything else
         // results in ugly aliasing artifacts.
         let stroke_width = if self.shaper.current_size() < 15. || auto_scaling == false {
