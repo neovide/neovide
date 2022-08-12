@@ -136,15 +136,12 @@ impl GridRenderer {
         let width = cell_width * self.font_dimensions.width;
 
         let style = style.as_ref().unwrap_or(&self.default_style);
-        canvas.save();
 
         // We don't want to clip text in the x position, only the y so we add a buffer of 1
         // character on either side of the region so that we clip vertically but not horizontally
         let (grid_x, grid_y) = grid_position;
         let clip_position = (grid_x.saturating_sub(1), grid_y);
         let region = self.compute_text_region(clip_position, cell_width + 2);
-
-        canvas.clip_rect(region, None, Some(false));
 
         if let Some(underline_style) = style.underline {
             let line_position = self.shaper.underline_position();
@@ -159,6 +156,9 @@ impl GridRenderer {
 
             self.draw_underline(canvas, &style, underline_style, p1.into(), p2.into())
         }
+
+        canvas.save();
+        canvas.clip_rect(region, None, Some(false));
 
         let y_adjustment = self.shaper.y_adjustment();
 
@@ -202,10 +202,23 @@ impl GridRenderer {
         p1: Point,
         p2: Point,
     ) {
-        let mut underline_paint = self.paint.clone();
+        canvas.save();
 
-        underline_paint.set_color(style.special(&self.default_style.colors).to_color());
-        underline_paint.set_stroke_width(1.);
+        let mut underline_paint = self.paint.clone();
+        let auto_scaling = SETTINGS.get::<RendererSettings>().underline_automatic_scaling;
+        // Arbitrary value under which we simply round the line thickness to 1. Anything else
+        // results in ugly aliasing artifacts.
+        let stroke_width = if self.shaper.current_size() < 15. || auto_scaling == false {
+            underline_paint.set_anti_alias(false);
+            1.0
+        } else {
+            underline_paint.set_anti_alias(true);
+            self.shaper.current_size() / 10.
+        };
+
+        underline_paint
+            .set_color(style.special(&self.default_style.colors).to_color())
+            .set_stroke_width(stroke_width);
 
         match underline_style {
             UnderlineStyle::Underline => {
@@ -229,22 +242,30 @@ impl GridRenderer {
                 let mut path = Path::default();
                 path.move_to(p1);
                 let mut i = p1.0;
-                let mut sin = -2.;
+                let mut sin = -2. * stroke_width;
                 while i <= p2.0 {
                     sin *= -1.;
-                    i += 4.;
-                    path.quad_to((i - 2., p1.1 + sin), (i, p1.1));
+                    i += 4. * stroke_width;
+                    path.quad_to((i - 2. * stroke_width, p1.1 + sin), (i, p1.1));
                 }
                 canvas.draw_path(&path, &underline_paint);
             }
             UnderlineStyle::UnderDash => {
-                underline_paint.set_path_effect(dash_path_effect::new(&[6.0, 2.0], 0.0));
+                underline_paint.set_path_effect(dash_path_effect::new(
+                    &[6.0 * stroke_width, 2.0 * stroke_width],
+                    0.0,
+                ));
                 canvas.draw_line(p1, p2, &underline_paint);
             }
             UnderlineStyle::UnderDot => {
-                underline_paint.set_path_effect(dash_path_effect::new(&[1.0, 1.0], 0.0));
+                underline_paint.set_path_effect(dash_path_effect::new(
+                    &[1.0 * stroke_width, 1.0 * stroke_width],
+                    0.0,
+                ));
                 canvas.draw_line(p1, p2, &underline_paint);
             }
         }
+
+        canvas.restore();
     }
 }
