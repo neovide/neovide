@@ -235,8 +235,8 @@ impl GridRenderer {
                 canvas.draw_line(p1, p2, &underline_paint);
             }
             UnderlineStyle::UnderCurl => {
-                let p1 = (p1.x, p1.y - 2.);
-                let p2 = (p2.x, p2.y - 2.);
+                let p1 = (p1.x, p1.y - 3. + stroke_width);
+                let p2 = (p2.x, p2.y - 3. + stroke_width);
                 underline_paint
                     .set_path_effect(None)
                     .set_anti_alias(true)
@@ -245,10 +245,11 @@ impl GridRenderer {
                 path.move_to(p1);
                 let mut i = p1.0;
                 let mut sin = -2. * stroke_width;
-                while i <= p2.0 {
+                let increment = self.font_dimensions.width as f32 / 2.;
+                while i < p2.0 {
                     sin *= -1.;
-                    i += 4. * stroke_width;
-                    path.quad_to((i - 2. * stroke_width, p1.1 + sin), (i, p1.1));
+                    i += increment;
+                    path.quad_to((i - (increment / 2.), p1.1 + sin), (i, p1.1));
                 }
                 canvas.draw_path(&path, &underline_paint);
             }
