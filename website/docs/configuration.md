@@ -33,6 +33,8 @@ limited by the refresh rate of your physical hardware, but can be lowered to inc
 let g:neovide_refresh_rate_idle=5
 ```
 
+**Available since 0.10.**
+
 Setting `g:neovide_refresh_rate_idle` to a positive integer will set the refresh rate of the app when
 it is not in focus.
 
@@ -57,6 +59,8 @@ let g:neovide_transparency=0.0
 let g:transparency = 0.8
 let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:transparency))
 ```
+
+**Available since 0.10.**
 
 ![BackgroundColor](assets/BackgroundColor.png)
 
@@ -142,6 +146,8 @@ corner.
 let g:neovide_underline_automatic_scaling = v:false
 ```
 
+**Available since 0.10.**
+
 Setting `g:neovide_underline_automatic_scaling` to a boolean value determines whether automatic
 scaling of text underlines (including undercurl, underdash, etc.) is enabled. Noticeable for font
 sizes above 15.
@@ -171,7 +177,7 @@ typically use e.g. `ctrl+v` for pasting).
 let g:neovide_input_macos_alt_is_meta=v:false
 ```
 
-**Unreleased yet.**
+**Available since 0.10.**
 
 Interprets <kbd>Alt</kbd> + <kbd>whatever</kbd> actually as `<M-whatever>`, instead of sending the
 actual special character to Neovim.
