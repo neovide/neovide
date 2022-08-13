@@ -405,6 +405,7 @@ limited by the refresh rate of your physical hardware, but can be lowered to inc
 <h4 id="idle-refresh-rate"><a class="header" href="#idle-refresh-rate">Idle Refresh Rate</a></h4>
 <pre><code class="language-vim">let g:neovide_refresh_rate_idle=5
 </code></pre>
+<p><strong>Available since 0.10.</strong></p>
 <p>Setting <code>g:neovide_refresh_rate_idle</code> to a positive integer will set the refresh rate of the app when
 it is not in focus.</p>
 <p>This might not have an effect on every platform (e.g. Wayland).</p>
@@ -420,6 +421,7 @@ let g:neovide_transparency=0.0
 let g:transparency = 0.8
 let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:transparency))
 </code></pre>
+<p><strong>Available since 0.10.</strong></p>
 <p><img src="assets/BackgroundColor.png" alt="BackgroundColor" /></p>
 <p>Setting <code>g:neovide_background_color</code> to a value that can be parsed by
 <a href="https://github.com/mazznoer/csscolorparser-rs">csscolorparser-rs</a> will set the color of the whole
@@ -469,6 +471,7 @@ corner.</p>
 <h4 id="underline-automatic-scaling"><a class="header" href="#underline-automatic-scaling">Underline automatic scaling</a></h4>
 <pre><code class="language-vim">let g:neovide_underline_automatic_scaling = v:false
 </code></pre>
+<p><strong>Available since 0.10.</strong></p>
 <p>Setting <code>g:neovide_underline_automatic_scaling</code> to a boolean value determines whether automatic
 scaling of text underlines (including undercurl, underdash, etc.) is enabled. Noticeable for font
 sizes above 15.</p>
@@ -488,7 +491,7 @@ typically use e.g. <code>ctrl+v</code> for pasting).</p>
 <h4 id="macos-alt-is-meta"><a class="header" href="#macos-alt-is-meta">macOS Alt is Meta</a></h4>
 <pre><code class="language-vim">let g:neovide_input_macos_alt_is_meta=v:false
 </code></pre>
-<p><strong>Unreleased yet.</strong></p>
+<p><strong>Available since 0.10.</strong></p>
 <p>Interprets <kbd>Alt</kbd> + <kbd>whatever</kbd> actually as <code>&lt;M-whatever&gt;</code>, instead of sending the
 actual special character to Neovim.</p>
 <h4 id="touch-deadzone"><a class="header" href="#touch-deadzone">Touch Deadzone</a></h4>
