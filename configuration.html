@@ -224,6 +224,14 @@ from the previous session or the default size will be used on startup. The comma
 </code></pre>
 <p>Setting this to <code>v:true</code> enables the profiler, which shows a frametime graph in the upper left
 corner.</p>
+<h4 id="underline-automatic-scaling"><a class="header" href="#underline-automatic-scaling">Underline automatic scaling</a></h4>
+<pre><code class="language-vim">let g:neovide_underline_automatic_scaling = v:false
+</code></pre>
+<p>Setting <code>g:neovide_underline_automatic_scaling</code> to a boolean value determines whether automatic
+scaling of text underlines (including undercurl, underdash, etc.) is enabled. Noticeable for font
+sizes above 15.</p>
+<p><strong>Note</strong>: This is currently glitchy, and leads to some underlines being clipped by the line of text
+below.</p>
 <h3 id="input-settings"><a class="header" href="#input-settings">Input Settings</a></h3>
 <h4 id="use-logo-key"><a class="header" href="#use-logo-key">Use Logo Key</a></h4>
 <pre><code class="language-vim">let g:neovide_input_use_logo=v:false  &quot; v:true on macOS
