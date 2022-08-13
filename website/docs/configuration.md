@@ -117,7 +117,7 @@ corner.
 #### Underline automatic scaling
 
 ```vim
-let g:neovide_underline_automatic_scaling = v:true
+let g:neovide_underline_automatic_scaling = v:false
 ```
 
 Setting `g:neovide_underline_automatic_scaling` to a boolean value determines whether automatic
