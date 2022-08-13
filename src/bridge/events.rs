@@ -8,7 +8,7 @@ use log::debug;
 use rmpv::Value;
 use skia_safe::Color4f;
 
-use crate::editor::{Colors, CursorMode, CursorShape, Style};
+use crate::editor::{Colors, CursorMode, CursorShape, Style, UnderlineStyle};
 
 #[derive(Clone, Debug)]
 pub enum ParseError {
@@ -493,9 +493,24 @@ fn parse_style(style_map: Value) -> Result<Style> {
                 ("strikethrough", Value::Boolean(strikethrough)) => {
                     style.strikethrough = strikethrough
                 }
-                ("underline", Value::Boolean(underline)) => style.underline = underline,
-                ("undercurl", Value::Boolean(undercurl)) => style.undercurl = undercurl,
                 ("blend", Value::Integer(blend)) => style.blend = blend.as_u64().unwrap() as u8,
+
+                ("underline", Value::Boolean(true)) => {
+                    style.underline = Some(UnderlineStyle::Underline)
+                }
+                ("undercurl", Value::Boolean(true)) => {
+                    style.underline = Some(UnderlineStyle::UnderCurl)
+                }
+                ("underdotted" | "underdot", Value::Boolean(true)) => {
+                    style.underline = Some(UnderlineStyle::UnderDot)
+                }
+                ("underdashed" | "underdash", Value::Boolean(true)) => {
+                    style.underline = Some(UnderlineStyle::UnderDash)
+                }
+                ("underdouble" | "underlineline", Value::Boolean(true)) => {
+                    style.underline = Some(UnderlineStyle::UnderDouble)
+                }
+
                 _ => debug!("Ignored style attribute: {}", name),
             }
         } else {

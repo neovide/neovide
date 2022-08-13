@@ -7,6 +7,15 @@ pub struct Colors {
     pub special: Option<Color4f>,
 }
 
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum UnderlineStyle {
+    Underline,
+    UnderDouble,
+    UnderDash,
+    UnderDot,
+    UnderCurl,
+}
+
 #[derive(new, Debug, Clone, PartialEq)]
 pub struct Style {
     pub colors: Colors,
@@ -19,11 +28,9 @@ pub struct Style {
     #[new(default)]
     pub strikethrough: bool,
     #[new(default)]
-    pub underline: bool,
-    #[new(default)]
-    pub undercurl: bool,
-    #[new(default)]
     pub blend: u8,
+    #[new(default)]
+    pub underline: Option<UnderlineStyle>,
 }
 
 impl Style {
