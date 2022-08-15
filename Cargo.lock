@@ -1319,7 +1319,7 @@ checksum = "e1bcdd74c20ad5d95aacd60ef9ba40fdf77f767051040541df557b7a9b2a2121"
 
 [[package]]
 name = "neovide"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "async-trait",
  "cfg-if 1.0.0",
