@@ -40,8 +40,8 @@ General notes about collaborating/doing maintenance work on Neovide.
   person reporting the issue has some Rust or general programming knowledge and
   could help with debugging/tracing down the original cause for an issue. Some
   people state so if they want to do that (usually by "I'd be happy for any
-  pointers or hints" or "I'm interested in contributing"), though that requires
-  some flair. Even if the original reporter can't seem to solve the issue,
+  pointers or hints" or "I'm interested in contributing"), but this is more art
+  than science. Even if the original reporter can't seem to solve the issue,
   someone else interested in contributing might lurk around and find exactly
   those pointers.
 
