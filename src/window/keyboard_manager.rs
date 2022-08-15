@@ -170,7 +170,7 @@ impl KeyboardManager {
         let special = special || self.ctrl || use_alt(self.alt) || self.logo;
 
         let open = or_empty(special, "<");
-        let modifiers = self.format_modifier_string(use_shift);
+        let modifiers = self.format_modifier_string(special || use_shift);
         let close = or_empty(special, ">");
 
         open.to_owned() + &modifiers + text + close
