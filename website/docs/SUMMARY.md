@@ -11,3 +11,4 @@ ______________________________________________________________________
 - [Editing w/ External Tools](editing-with-external-tools.md)
 - [Troubleshooting](troubleshooting.md)
 - [FAQ](faq.md)
+- [Maintainer Cookbook](maintainer-cookbook.md)
