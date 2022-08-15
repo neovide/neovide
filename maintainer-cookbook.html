@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Editing w/ External Tools - Neovide</title>
+        <title>Maintainer Cookbook - Neovide</title>
         <!-- Custom HTML head -->
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="A Simple, No Nonsense, Cross-Platform, Graphical User Interface for Neovim">
@@ -78,7 +78,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Neovide</a></li><li class="spacer"></li><li class="chapter-item expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">3.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="command-line-reference.html"><strong aria-hidden="true">4.</strong> Command Line Reference</a></li><li class="chapter-item expanded "><a href="editing-with-external-tools.html" class="active"><strong aria-hidden="true">5.</strong> Editing w/ External Tools</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">6.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">7.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="maintainer-cookbook.html"><strong aria-hidden="true">8.</strong> Maintainer Cookbook</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Neovide</a></li><li class="spacer"></li><li class="chapter-item expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">3.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="command-line-reference.html"><strong aria-hidden="true">4.</strong> Command Line Reference</a></li><li class="chapter-item expanded "><a href="editing-with-external-tools.html"><strong aria-hidden="true">5.</strong> Editing w/ External Tools</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">6.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">7.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="maintainer-cookbook.html" class="active"><strong aria-hidden="true">8.</strong> Maintainer Cookbook</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -116,7 +116,7 @@
                         <a href="https://github.com/neovide/neovide" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/neovide/neovide/edit/main/website/docs/editing-with-external-tools.md" title="Suggest an edit" aria-label="Suggest an edit">
+                        <a href="https://github.com/neovide/neovide/edit/main/website/docs/maintainer-cookbook.md" title="Suggest an edit" aria-label="Suggest an edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
                     </div>
@@ -143,27 +143,143 @@
 
                 <div id="content" class="content">
                     <main><div class="sidetoc"><nav class="pagetoc"></nav></div>
-                        <h1 id="editing-w-external-tools"><a class="header" href="#editing-w-external-tools">Editing w/ External Tools</a></h1>
-<p>You can use Neovide in other programs as editor, this page aims to document some quirks. Support for
-that, however, is only possible as far as reasonably debuggable.</p>
-<p><em>Note: We do not endorse nor disrecommend usage of all programs listed here. All usage happens on
-your own responsibility.</em></p>
-<h2 id="jrnl"><a class="header" href="#jrnl"><a href="https://github.com/jrnl-org/jrnl">jrnl</a></a></h2>
-<p>In your configuration file:</p>
-<pre><code class="language-yaml">editor: &quot;neovide --nofork&quot;
-</code></pre>
-<p>...as <code>jrnl</code> saves &amp; removes the temporary file as soon as the main process exits, which happens
-before startup by <a href="https://en.wikipedia.org/wiki/Fork_(system_call)">forking</a>.</p>
+                        <h1 id="maintainer-cookbook"><a class="header" href="#maintainer-cookbook">Maintainer Cookbook</a></h1>
+<p>General notes about collaborating/doing maintenance work on Neovide.</p>
+<h2 id="how-to-keep-your-sanity"><a class="header" href="#how-to-keep-your-sanity">How to keep your sanity</a></h2>
+<ul>
+<li>
+<p>Don't think you need to solve, participate in or even notice everything
+happening.</p>
+<p>Work on such a project where most things are already done and the things left
+aren't that fun anymore can be very gruesome, even if that might not be
+directly noticeable. Just do whatever is fun, feels doable and is inspiring
+you. This is not a full-time job, it's not even a job at all. You're not
+required to answer if you don't feel like doing so or would be forcing
+yourself.</p>
+<p>In short: Do whatever you seriously want.</p>
+</li>
+<li>
+<p>Always assume the best. There's no reason to be rude.</p>
+<p>Communication is hard. Even if it might seem like someone seriously didn't
+take any look at the docs before opening the issue, it's very possible that
+they did and found it not to be matching their case, misinterpreted what's
+written, or weren't sure if they were looking at the right section. What might
+feel obvious to you could feel obscure to another person.</p>
+<p>Re-state the essential docs contents, link to the relevant section and ask how
+it could be worded better/could be found better.</p>
+</li>
+<li>
+<p>Ask for more information if you require so. Some investigation can be done by
+the user.</p>
+<p>If some case requires some special environmental information which isn't given
+in the original report, ask for it. Or if you aren't sure what you're looking
+for, state what you believe is the case and add some potentially useful
+queries. It's also completely okay to state afterwards that you still don't
+have a clue.</p>
+<p>Neovide is a frontend for an arcane text editor, it's very possible that the
+person reporting the issue has some Rust or general programming knowledge and
+could help with debugging/tracing down the original cause for an issue. Some
+people state so if they want to do that (usually by &quot;I'd be happy for any
+pointers or hints&quot; or &quot;I'm interested in contributing&quot;), though that requires
+some flair. Even if the original reporter can't seem to solve the issue,
+someone else interested in contributing might lurk around and find exactly
+those pointers.</p>
+</li>
+</ul>
+<h2 id="how-to-release"><a class="header" href="#how-to-release">How to release</a></h2>
+<h3 id="preparing"><a class="header" href="#preparing">Preparing</a></h3>
+<ul>
+<li>
+<p>Head over to <a href="https://github.com/neovide/neovide/releases">the releases page</a> and hit the <code>Draft a new release</code> button.</p>
+</li>
+<li>
+<p>Keep the resulting page somewhere safe open, you'll need to work with it the
+next half an hour and GitHub doesn't automatically save its contents.</p>
+</li>
+<li>
+<p>Create a new tag with an appropiate version number.</p>
+<p>We're not fully following <a href="https://semver.org/">SemVer</a> here, but as of 0.10.1 larger
+changes should be an increase in the MINOR part, while fixups should be an
+increase in the PATCH part.</p>
+</li>
+<li>
+<p>Hit the <code>Generate release notes</code> button.</p>
+</li>
+<li>
+<p>Reformat to be similar to previous releases</p>
+<ul>
+<li>Rename the <code>What's Changed</code> section to <code>Changes</code></li>
+<li>Rewrite each line in the <code>Changes</code> section to reflect what this change means
+for the end user, linking to the relevant PR/commit</li>
+<li>Group all bug fix PRs/commits under a point named <code>Bug fixes</code></li>
+<li>Have each line reflect what platform it applies to if not irrelevant</li>
+</ul>
+</li>
+<li>
+<p>Hit the <code>Save draft</code> button</p>
+</li>
+</ul>
+<p>You can make several rounds of preparing such releases through editing the
+current draft over time, to make sure every contributor is mentioned and every
+change is included.</p>
+<h3 id="actually-releasing"><a class="header" href="#actually-releasing">Actually releasing</a></h3>
+<ul>
+<li>Announce a short period of time where last changes to be done or fixup work
+can flow in (can be anything you imagine, though 24 hours to one week might
+be enough depending on the blocker)</li>
+<li>Wait for that period to pass</li>
+<li>Have a last look over the draft to make sure every new contributor and change has
+been mentioned</li>
+</ul>
+<p>Now here's where the order becomes important:</p>
+<ul>
+<li>
+<p>Make sure the working directory is clean</p>
+</li>
+<li>
+<p>Run <code>cargo update</code> and <code>cargo build</code>, make sure both succeed</p>
+</li>
+<li>
+<p>Create a commit named <code>Run cargo update</code> or similar</p>
+</li>
+<li>
+<p>Bump the version to match the tag name everywhere</p>
+<ul>
+<li><code>Cargo.toml</code></li>
+<li><code>snap/snapcraft.yaml</code></li>
+<li><code>website/docs/*.md</code> and update <code>Unreleased yet</code> to <code>Available since $tag</code>
+(where <code>$tag</code> is the tag name)</li>
+</ul>
+</li>
+<li>
+<p>Run <code>cargo build</code> and make sure it succeeds</p>
+</li>
+<li>
+<p>Create a commit called <code>Bump version to $tag</code></p>
+</li>
+<li>
+<p>Push and wait for CI to complete (will take around 25 minutes)</p>
+</li>
+</ul>
+<p>In the meantime, you can look through the previous commits to see if you missed
+anything.</p>
+<ul>
+<li>From the <code>Bump version to $tag</code> commit, download all the artifacts</li>
+<li>Unzip <code>neovide-linux.tar.gz.zip</code> to get <code>neovide.tar.gz</code></li>
+<li>Head to the release draft, edit it and upload the produced artifacts (using
+the unzipped <code>neovide.tar.gz</code> for Linux)</li>
+<li>Hit <code>Publish release</code></li>
+<li>profit</li>
+</ul>
+<p>Phew. Now, announce the new release anywhere you think is appropiate (like
+Reddit, Discord, whatever) <del>and go create a PR in nixpkgs</del>.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="command-line-reference.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="faq.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
-                            </a>
-                            <a rel="next" href="troubleshooting.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
                             </a>
                         <div style="clear: both"></div>
                     </nav>
@@ -171,11 +287,8 @@ before startup by <a href="https://en.wikipedia.org/wiki/Fork_(system_call)">for
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="command-line-reference.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="faq.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
-                    </a>
-                    <a rel="next" href="troubleshooting.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
 
