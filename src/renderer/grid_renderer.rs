@@ -114,7 +114,7 @@ impl GridRenderer {
 
         if is_floating {
             self.paint
-                .set_alpha((255.0 * SETTINGS.get::<RendererSettings>().floating_opacity) as u8);
+                .set_alpha((255.0 * ((100 - style.blend) as f32 / 100.0)) as u8);
         } else if (SETTINGS.get::<WindowSettings>().transparency - 1.0).abs() > f32::EPSILON
             // Only make background color transparent
             && self.paint.color() == self.get_default_background()
