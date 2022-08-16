@@ -24,6 +24,13 @@ discouraged and try to document it ourselves:
 
 By the way, the default font used is Fira Code at size 14.
 
+## How To Enable Floating And Popupmenu Transparency?
+
+Those are controlled through the `winblend` and `pumblend` options. See their help pages for more,
+but for short: Both options can be values between `0` (opaque) and `100` (fully transparent),
+inclusively on both ends. `winblend` controls the background for floating windows, `pumblend` the
+one for the popup menu.
+
 ## How Can I Dynamically Change The Font Size At Runtime?
 
 Not directly in Neovide, but configurable if you want so. A way to accomplish that in Lua would be:
