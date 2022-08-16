@@ -124,6 +124,7 @@ impl LocatedSurface {
 pub struct RenderedWindow {
     snapshots: VecDeque<LocatedSnapshot>,
     pub current_surface: LocatedSurface,
+    predraw_top_line: Option<u64>,
 
     pub id: u64,
     pub hidden: bool,
@@ -162,6 +163,7 @@ impl RenderedWindow {
         RenderedWindow {
             snapshots: VecDeque::new(),
             current_surface,
+            predraw_top_line: None,
             id,
             hidden: false,
             floating_order: None,
@@ -304,9 +306,15 @@ impl RenderedWindow {
                 &paint,
             );
         }
+
+        let top_line = match &self.predraw_top_line {
+            Some(top_line) => *top_line,
+            None => self.current_surface.top_line,
+        };
+        let scroll_offset =
+            (top_line * font_height) as f32 - (self.current_scroll * font_height as f32);
+
         // Draw current surface
-        let scroll_offset = (self.current_surface.top_line * font_height) as f32
-            - (self.current_scroll * font_height as f32);
         let snapshot = self.current_surface.surface.image_snapshot();
         root_canvas.draw_image_rect(
             snapshot,
@@ -421,6 +429,8 @@ impl RenderedWindow {
                     grid_renderer.draw_foreground(canvas, text, grid_position, width, &style);
                 }
                 canvas.restore();
+
+                self.predraw_top_line = None;
             }
             WindowDrawCommand::Scroll {
                 top,
@@ -488,6 +498,7 @@ impl RenderedWindow {
                         self.snapshots.pop_front();
                     }
 
+                    self.predraw_top_line = Some(self.current_surface.top_line);
                     self.current_surface.top_line = top_line as u64;
 
                     // Set new target viewport position and initialize animation timer
