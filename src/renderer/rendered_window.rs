@@ -121,10 +121,16 @@ impl LocatedSurface {
     }
 }
 
+enum ScrollPredraw {
+    None,
+    Scrolling,
+    Ready(u64),
+}
+
 pub struct RenderedWindow {
     snapshots: VecDeque<LocatedSnapshot>,
     pub current_surface: LocatedSurface,
-    predraw_top_line: Option<u64>,
+    scroll_predraw: ScrollPredraw,
 
     pub id: u64,
     pub hidden: bool,
@@ -163,7 +169,7 @@ impl RenderedWindow {
         RenderedWindow {
             snapshots: VecDeque::new(),
             current_surface,
-            predraw_top_line: None,
+            scroll_predraw: ScrollPredraw::None,
             id,
             hidden: false,
             floating_order: None,
@@ -307,9 +313,9 @@ impl RenderedWindow {
             );
         }
 
-        let top_line = match &self.predraw_top_line {
-            Some(top_line) => *top_line,
-            None => self.current_surface.top_line,
+        let top_line = match &self.scroll_predraw {
+            ScrollPredraw::Ready(top_line) => *top_line,
+            _ => self.current_surface.top_line,
         };
         let scroll_offset =
             (top_line * font_height) as f32 - (self.current_scroll * font_height as f32);
@@ -430,7 +436,9 @@ impl RenderedWindow {
                 }
                 canvas.restore();
 
-                self.predraw_top_line = None;
+                if let ScrollPredraw::Ready(_) = self.scroll_predraw {
+                    self.scroll_predraw = ScrollPredraw::None;
+                }
             }
             WindowDrawCommand::Scroll {
                 top,
@@ -471,6 +479,8 @@ impl RenderedWindow {
                 );
 
                 canvas.restore();
+
+                self.scroll_predraw = ScrollPredraw::Scrolling;
             }
             WindowDrawCommand::Clear => {
                 self.current_surface.surface = build_window_surface_with_grid_size(
@@ -498,7 +508,9 @@ impl RenderedWindow {
                         self.snapshots.pop_front();
                     }
 
-                    self.predraw_top_line = Some(self.current_surface.top_line);
+                    if let ScrollPredraw::Scrolling = self.scroll_predraw {
+                        self.scroll_predraw = ScrollPredraw::Ready(self.current_surface.top_line);
+                    }
                     self.current_surface.top_line = top_line as u64;
 
                     // Set new target viewport position and initialize animation timer
