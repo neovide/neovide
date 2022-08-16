@@ -168,6 +168,11 @@ point number.</li>
 </li>
 </ul>
 <p>By the way, the default font used is Fira Code at size 14.</p>
+<h2 id="how-to-enable-floating-and-popupmenu-transparency"><a class="header" href="#how-to-enable-floating-and-popupmenu-transparency">How To Enable Floating And Popupmenu Transparency?</a></h2>
+<p>Those are controlled through the <code>winblend</code> and <code>pumblend</code> options. See their help pages for more,
+but for short: Both options can be values between <code>0</code> (opaque) and <code>100</code> (fully transparent),
+inclusively on both ends. <code>winblend</code> controls the background for floating windows, <code>pumblend</code> the
+one for the popup menu.</p>
 <h2 id="how-can-i-dynamically-change-the-font-size-at-runtime"><a class="header" href="#how-can-i-dynamically-change-the-font-size-at-runtime">How Can I Dynamically Change The Font Size At Runtime?</a></h2>
 <p>Not directly in Neovide, but configurable if you want so. A way to accomplish that in Lua would be:</p>
 <pre><code class="language-lua">vim.g.gui_font_default_size = 12
