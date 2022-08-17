@@ -413,7 +413,12 @@ pub fn create_window() {
 
     let mut previous_frame_start = Instant::now();
 
-    let mut focused = true;
+    enum FocusedState {
+        Focused,
+        UnfocusedNotDrawn,
+        Unfocused,
+    }
+    let mut focused = FocusedState::Focused;
 
     event_loop.run(move |e, _window_target, control_flow| {
         // Window focus changed
@@ -422,7 +427,11 @@ pub fn create_window() {
             ..
         } = e
         {
-            focused = focused_event;
+            focused = if focused_event {
+                FocusedState::Focused
+            } else {
+                FocusedState::UnfocusedNotDrawn
+            };
         }
 
         if !RUNNING_TRACKER.is_running() {
@@ -442,10 +451,11 @@ pub fn create_window() {
         window_wrapper.synchronize_settings();
         window_wrapper.handle_event(e);
 
-        let refresh_rate = if focused {
-            SETTINGS.get::<WindowSettings>().refresh_rate as f32
-        } else {
-            SETTINGS.get::<WindowSettings>().refresh_rate_idle as f32
+        let refresh_rate = match focused {
+            FocusedState::Focused | FocusedState::UnfocusedNotDrawn => {
+                SETTINGS.get::<WindowSettings>().refresh_rate as f32
+            }
+            FocusedState::Unfocused => SETTINGS.get::<WindowSettings>().refresh_rate_idle as f32,
         }
         .max(1.0);
 
@@ -455,6 +465,9 @@ pub fn create_window() {
         if frame_start - previous_frame_start > frame_duration {
             let dt = previous_frame_start.elapsed().as_secs_f32();
             window_wrapper.draw_frame(dt);
+            if let FocusedState::UnfocusedNotDrawn = focused {
+                focused = FocusedState::Unfocused;
+            }
             previous_frame_start = frame_start;
             #[cfg(target_os = "macos")]
             draw_background(&window_wrapper.windowed_context);
