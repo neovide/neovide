@@ -121,16 +121,15 @@ impl LocatedSurface {
     }
 }
 
-enum ScrollPredraw {
+enum PositionOverride {
     None,
-    Scrolling,
-    Ready(u64),
+    Override { top_line: u64, current_scroll: f32 },
 }
 
 pub struct RenderedWindow {
     snapshots: VecDeque<LocatedSnapshot>,
     pub current_surface: LocatedSurface,
-    scroll_predraw: ScrollPredraw,
+    position_override: PositionOverride,
 
     pub id: u64,
     pub hidden: bool,
@@ -169,7 +168,7 @@ impl RenderedWindow {
         RenderedWindow {
             snapshots: VecDeque::new(),
             current_surface,
-            scroll_predraw: ScrollPredraw::None,
+            position_override: PositionOverride::None,
             id,
             hidden: false,
             floating_order: None,
@@ -313,12 +312,14 @@ impl RenderedWindow {
             );
         }
 
-        let top_line = match &self.scroll_predraw {
-            ScrollPredraw::Ready(top_line) => *top_line,
-            _ => self.current_surface.top_line,
+        let (top_line, current_scroll) = match &self.position_override {
+            PositionOverride::Override {
+                top_line,
+                current_scroll,
+            } => (*top_line, *current_scroll),
+            _ => (self.current_surface.top_line, self.current_scroll),
         };
-        let scroll_offset =
-            (top_line * font_height) as f32 - (self.current_scroll * font_height as f32);
+        let scroll_offset = (top_line * font_height) as f32 - (current_scroll * font_height as f32);
 
         // Draw current surface
         let snapshot = self.current_surface.surface.image_snapshot();
@@ -436,8 +437,8 @@ impl RenderedWindow {
                 }
                 canvas.restore();
 
-                if let ScrollPredraw::Ready(_) = self.scroll_predraw {
-                    self.scroll_predraw = ScrollPredraw::None;
+                if let PositionOverride::Override { .. } = self.position_override {
+                    self.position_override = PositionOverride::None;
                 }
             }
             WindowDrawCommand::Scroll {
@@ -479,8 +480,6 @@ impl RenderedWindow {
                 );
 
                 canvas.restore();
-
-                self.scroll_predraw = ScrollPredraw::Scrolling;
             }
             WindowDrawCommand::Clear => {
                 self.current_surface.surface = build_window_surface_with_grid_size(
@@ -508,9 +507,13 @@ impl RenderedWindow {
                         self.snapshots.pop_front();
                     }
 
-                    if let ScrollPredraw::Scrolling = self.scroll_predraw {
-                        self.scroll_predraw = ScrollPredraw::Ready(self.current_surface.top_line);
+                    if let PositionOverride::None = self.position_override {
+                        self.position_override = PositionOverride::Override {
+                            top_line: self.current_surface.top_line,
+                            current_scroll: self.current_scroll,
+                        };
                     }
+
                     self.current_surface.top_line = top_line as u64;
 
                     // Set new target viewport position and initialize animation timer
