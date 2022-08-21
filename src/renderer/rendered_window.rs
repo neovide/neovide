@@ -121,15 +121,16 @@ impl LocatedSurface {
     }
 }
 
-enum PositionOverride {
-    None,
-    Override { top_line: u64, current_scroll: f32 },
+#[derive(Copy, Clone)]
+struct PositionOverride {
+    top_line: u64,
+    current_scroll: f32,
 }
 
 pub struct RenderedWindow {
     snapshots: VecDeque<LocatedSnapshot>,
     pub current_surface: LocatedSurface,
-    position_override: PositionOverride,
+    position_override: Option<PositionOverride>,
 
     pub id: u64,
     pub hidden: bool,
@@ -168,7 +169,7 @@ impl RenderedWindow {
         RenderedWindow {
             snapshots: VecDeque::new(),
             current_surface,
-            position_override: PositionOverride::None,
+            position_override: None,
             id,
             hidden: false,
             floating_order: None,
@@ -312,13 +313,11 @@ impl RenderedWindow {
             );
         }
 
-        let (top_line, current_scroll) = match &self.position_override {
-            PositionOverride::Override {
-                top_line,
-                current_scroll,
-            } => (*top_line, *current_scroll),
-            _ => (self.current_surface.top_line, self.current_scroll),
-        };
+        let (top_line, current_scroll) = self
+            .position_override
+            .as_ref()
+            .map(|&pos| (pos.top_line, pos.current_scroll))
+            .unwrap_or((self.current_surface.top_line, self.current_scroll));
         let scroll_offset = (top_line * font_height) as f32 - (current_scroll * font_height as f32);
 
         // Draw current surface
@@ -437,8 +436,8 @@ impl RenderedWindow {
                 }
                 canvas.restore();
 
-                if let PositionOverride::Override { .. } = self.position_override {
-                    self.position_override = PositionOverride::None;
+                if self.position_override.is_some() {
+                    self.position_override = None;
                 }
             }
             WindowDrawCommand::Scroll {
@@ -507,11 +506,11 @@ impl RenderedWindow {
                         self.snapshots.pop_front();
                     }
 
-                    if let PositionOverride::None = self.position_override {
-                        self.position_override = PositionOverride::Override {
+                    if self.position_override.is_none() {
+                        self.position_override = Some(PositionOverride {
                             top_line: self.current_surface.top_line,
                             current_scroll: self.current_scroll,
-                        };
+                        });
                     }
 
                     self.current_surface.top_line = top_line as u64;
