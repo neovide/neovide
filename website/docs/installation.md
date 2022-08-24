@@ -118,13 +118,22 @@ snap install neovide
 1. Install necessary dependencies (adjust for your preferred package manager, probably most of this
    stuff is already installed, just try building and see)
 
-   ```sh
-   sudo apt install -y curl \
-       gnupg ca-certificates git \
-       gcc-multilib g++-multilib cmake libssl-dev pkg-config \
-       libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev \
-       libbz2-dev libsndio-dev freeglut3-dev libxmu-dev libxi-dev libfontconfig1-dev
-   ```
+   - Ubuntu/Debian
+
+      ```sh
+      sudo apt install -y curl \
+          gnupg ca-certificates git \
+          gcc-multilib g++-multilib cmake libssl-dev pkg-config \
+          libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev \
+          libbz2-dev libsndio-dev freeglut3-dev libxmu-dev libxi-dev libfontconfig1-dev
+      ```
+
+   - Fedora
+    
+     ```sh
+     sudo dnf install fontconfig-devel freetype-devel libX11-xcb libX11-devel
+     sudo dnf groupinstall "Development Tools" "Development Libraries"
+     ```
 
 2. Install Rust
 
