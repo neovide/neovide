@@ -129,11 +129,11 @@ snap install neovide
       ```
 
    - Fedora
-    
-     ```sh
-     sudo dnf install fontconfig-devel freetype-devel libX11-xcb libX11-devel
-     sudo dnf groupinstall "Development Tools" "Development Libraries"
-     ```
+
+      ```sh
+      sudo dnf install fontconfig-devel freetype-devel libX11-xcb libX11-devel
+      sudo dnf groupinstall "Development Tools" "Development Libraries"
+      ```
 
 2. Install Rust
 
