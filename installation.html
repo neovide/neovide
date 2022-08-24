@@ -248,12 +248,23 @@ the source URL.</p>
 <li>
 <p>Install necessary dependencies (adjust for your preferred package manager, probably most of this
 stuff is already installed, just try building and see)</p>
+<ul>
+<li>
+<p>Ubuntu/Debian</p>
 <pre><code class="language-sh">sudo apt install -y curl \
     gnupg ca-certificates git \
     gcc-multilib g++-multilib cmake libssl-dev pkg-config \
     libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev \
     libbz2-dev libsndio-dev freeglut3-dev libxmu-dev libxi-dev libfontconfig1-dev
 </code></pre>
+</li>
+<li>
+<p>Fedora</p>
+<pre><code class="language-sh">sudo dnf install fontconfig-devel freetype-devel libX11-xcb libX11-devel
+sudo dnf groupinstall &quot;Development Tools&quot; &quot;Development Libraries&quot;
+</code></pre>
+</li>
+</ul>
 </li>
 <li>
 <p>Install Rust</p>
