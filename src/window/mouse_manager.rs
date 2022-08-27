@@ -76,8 +76,6 @@ pub struct MouseManager {
     position: PhysicalPosition<u32>,
     relative_position: PhysicalPosition<u32>,
 
-    scroll_position: PhysicalPosition<f32>,
-
     // the tuple allows to keep track of different fingers per device
     touch_position: HashMap<(DeviceId, u64), TouchTrace>,
 
@@ -95,7 +93,6 @@ impl MouseManager {
             position: PhysicalPosition::new(0, 0),
             relative_position: PhysicalPosition::new(0, 0),
             drag_position: PhysicalPosition::new(0, 0),
-            scroll_position: PhysicalPosition::new(0.0, 0.0),
             touch_position: HashMap::new(),
             window_details_under_mouse: None,
             mouse_hidden: false,
@@ -241,17 +238,22 @@ impl MouseManager {
             return;
         }
 
-        let previous_y = self.scroll_position.y as i64;
-        self.scroll_position.y += y;
-        let new_y = self.scroll_position.y as i64;
-
-        let vertical_input_type = match new_y.partial_cmp(&previous_y) {
-            Some(Ordering::Greater) => Some("up"),
-            Some(Ordering::Less) => Some("down"),
-            _ => None,
+        let input_type = if y.abs() >= x.abs() {
+            match y.partial_cmp(&0.) {
+                Some(Ordering::Greater) => (y.ceil() as i32, Some("up")),
+                Some(Ordering::Less) => (y.floor() as i32, Some("down")),
+                _ => (0, None),
+            }
+        } else {
+            match x.partial_cmp(&0.) {
+                Some(Ordering::Greater) => (x.ceil() as i32, Some("right")),
+                Some(Ordering::Less) => (x.floor() as i32, Some("left")),
+                _ => (0, None),
+            }
         };
 
-        if let Some(input_type) = vertical_input_type {
+        if let (num_lines, Some(input_type)) = input_type {
+            println!("lines: {}, x: {}, y{}", num_lines, x, y);
             let scroll_command: UiCommand = SerialCommand::Scroll {
                 direction: input_type.to_string(),
                 grid_id: self
@@ -263,34 +265,7 @@ impl MouseManager {
                 modifier_string: keyboard_manager.format_modifier_string(true),
             }
             .into();
-            for _ in 0..(new_y - previous_y).abs() {
-                EVENT_AGGREGATOR.send(scroll_command.clone());
-            }
-        }
-
-        let previous_x = self.scroll_position.x as i64;
-        self.scroll_position.x += x;
-        let new_x = self.scroll_position.x as i64;
-
-        let horizontal_input_type = match new_x.partial_cmp(&previous_x) {
-            Some(Ordering::Greater) => Some("right"),
-            Some(Ordering::Less) => Some("left"),
-            _ => None,
-        };
-
-        if let Some(input_type) = horizontal_input_type {
-            let scroll_command: UiCommand = SerialCommand::Scroll {
-                direction: input_type.to_string(),
-                grid_id: self
-                    .window_details_under_mouse
-                    .as_ref()
-                    .map(|details| details.id)
-                    .unwrap_or(0),
-                position: self.drag_position.into(),
-                modifier_string: keyboard_manager.format_modifier_string(true),
-            }
-            .into();
-            for _ in 0..(new_x - previous_x).abs() {
+            for _ in 0..num_lines.abs() {
                 EVENT_AGGREGATOR.send(scroll_command.clone());
             }
         }
