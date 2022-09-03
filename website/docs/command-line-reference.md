@@ -119,6 +119,14 @@ buffers.
 Note: Even if files are opened in tabs, they're buffers anyways. It's just about them being visible
 or not.
 
+## No VSync
+
+```
+--novsync
+```
+
+By default, Neovide requests to use VSync on the created window. This option disables this behavior.
+
 ### Remote TCP
 
 ```sh
