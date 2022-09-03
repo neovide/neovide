@@ -121,7 +121,7 @@ or not.
 
 ## No VSync
 
-```
+```sh
 --novsync
 ```
 
