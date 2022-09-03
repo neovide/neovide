@@ -272,7 +272,12 @@ impl GlutinWindowWrapper {
     }
 }
 
-pub fn create_window() {
+pub enum VSync {
+    Enabled,
+    Disabled,
+}
+
+pub fn create_window(vsync: VSync) {
     let icon = {
         let icon = load_from_memory(ICON).expect("Failed to parse icon data");
         let (width, height) = icon.dimensions();
@@ -350,7 +355,10 @@ pub fn create_window() {
         .with_pixel_format(24, 8)
         .with_stencil_buffer(8)
         .with_gl_profile(GlProfile::Core)
-        .with_vsync(false)
+        .with_vsync(match vsync {
+            VSync::Enabled => true,
+            VSync::Disabled => false,
+        })
         .with_srgb(cmd_line_settings.srgb)
         .build_windowed(winit_window_builder, &event_loop)
         .unwrap();
