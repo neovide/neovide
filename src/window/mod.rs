@@ -346,14 +346,31 @@ pub fn create_window() {
     #[cfg(target_os = "macos")]
     let winit_window_builder = winit_window_builder.with_accepts_first_mouse(false);
 
-    let windowed_context = ContextBuilder::new()
+    let builder = ContextBuilder::new()
         .with_pixel_format(24, 8)
         .with_stencil_buffer(8)
         .with_gl_profile(GlProfile::Core)
+        .with_srgb(cmd_line_settings.srgb);
+
+    let windowed_context = match builder
+        .clone()
         .with_vsync(cmd_line_settings.vsync)
-        .with_srgb(cmd_line_settings.srgb)
-        .build_windowed(winit_window_builder, &event_loop)
-        .unwrap();
+        .build_windowed(winit_window_builder.clone(), &event_loop)
+    {
+        Ok(ctx) => ctx,
+        Err(err) => {
+            // haven't found any sane way to actually match on the pattern rabbithole CreationError
+            // provides, so here goes nothing
+            if err.to_string().contains("vsync") {
+                builder
+                    .with_vsync(false)
+                    .build_windowed(winit_window_builder, &event_loop)
+                    .unwrap()
+            } else {
+                panic!("{}", err);
+            }
+        }
+    };
     let windowed_context = unsafe { windowed_context.make_current().unwrap() };
 
     let window = windowed_context.window();
