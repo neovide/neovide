@@ -227,7 +227,7 @@ let g:neovide_cursor_animation_length=0.13
 Setting `g:neovide_cursor_animation_length` determines the time it takes for the cursor to complete
 it's animation in seconds. Set to `0` to disable.
 
-#### Animation Trail Length
+#### Animation Trail Size
 
 <p align="center">
   <img alt="Short Cursor Trail Length", src="./assets/ShortCursorTrailLength.gif" width="47%">
@@ -236,10 +236,10 @@ it's animation in seconds. Set to `0` to disable.
 </p>
 
 ```vim
-let g:neovide_cursor_trail_length=0.8
+let g:neovide_cursor_trail_size=0.8
 ```
 
-Setting `g:neovide_cursor_trail_length` determines how much the trail of the cursor lags behind the
+Setting `g:neovide_cursor_trail_size` determines how much the trail of the cursor lags behind the
 front edge.
 
 #### Antialiasing
