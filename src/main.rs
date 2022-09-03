@@ -42,7 +42,7 @@ use cmd_line::CmdLineSettings;
 use editor::start_editor;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 use settings::SETTINGS;
-use window::{create_window, KeyboardSettings, VSync, WindowSettings};
+use window::{create_window, KeyboardSettings, WindowSettings};
 
 pub use channel_utils::*;
 pub use event_aggregator::*;
@@ -142,7 +142,7 @@ fn main() {
 
     start_bridge();
     start_editor();
-    create_window(VSync::Disabled);
+    create_window();
 }
 
 #[cfg(not(test))]
