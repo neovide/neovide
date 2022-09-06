@@ -201,7 +201,7 @@ fn use_alt(alt: bool) -> bool {
 
 #[cfg(not(target_os = "macos"))]
 fn key_event_text(key_event: &KeyEvent) -> Option<&str> {
-    key_event.text_with_all_modifiers()
+    key_event.key_without_modifiers().to_text()
 }
 
 #[cfg(target_os = "macos")]
