@@ -226,6 +226,13 @@ shell doesn't read its resource file (<code>~/.bashrc</code>/<code>~/.zshrc</cod
 equivalent for your shell is). But depending on your shell there are other
 options for doing so, for example for zsh you can just put your relevant content
 into <code>~/.zprofile</code>.</p>
+<h2 id="the-terminal-displays-fallback-colorsterminal-does-not-show-my-colors"><a class="header" href="#the-terminal-displays-fallback-colorsterminal-does-not-show-my-colors">The Terminal Displays Fallback Colors/:terminal Does Not Show My Colors</a></h2>
+<p>Your colorscheme has to define <code>g:terminal_color_0</code> through
+<code>g:terminal_color_15</code> in order to have any effect on the terminal. Just setting
+any random highlights which have <code>Term</code> in name won't help.</p>
+<p>Some colorschemes think of this, some don't. Search in the documentation of
+yours, if it's your own, add it, and if you can't seem to find anything, open an
+issue in the colorscheme's repo.</p>
 
                     </main>
 
