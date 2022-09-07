@@ -618,6 +618,8 @@ more &quot;nervous&quot;, the lower, the more it looks like a collapsing sine wa
 <div style="break-before: page; page-break-before: always;"></div><h1 id="command-line-reference"><a class="header" href="#command-line-reference">Command Line Reference</a></h1>
 <p>Neovide supports a few command line arguments for effecting things which couldn't be set using
 normal vim variables.</p>
+<p><code>$</code> in front of a word refers to it being an &quot;environment variable&quot; which is checked for, some
+settings only require it to be set in some way, some settings also use the contents.</p>
 <h2 id="information"><a class="header" href="#information">Information</a></h2>
 <h3 id="version"><a class="header" href="#version">Version</a></h3>
 <pre><code class="language-sh">--version or -V
@@ -628,27 +630,54 @@ normal vim variables.</p>
 </code></pre>
 <p>Prints details about neovide. This will be a help page eventually.</p>
 <h2 id="functionality-1"><a class="header" href="#functionality-1">Functionality</a></h2>
+<h3 id="frame"><a class="header" href="#frame">Frame</a></h3>
+<pre><code class="language-sh">--frame or $NEOVIDE_FRAME
+</code></pre>
+<p>Can be set to:</p>
+<ul>
+<li><code>full</code>: The default, all decorations.</li>
+<li><code>none</code>: No decorations at all. NOTE: Window cannot be moved nor resized after this.</li>
+<li>(macOS only) <code>transparent</code>: Transparent decorations including a transparent bar.</li>
+<li>(macOS only) <code>buttonless</code>: All decorations, but without quit, minimize or fullscreen buttons.</li>
+</ul>
+<h3 id="geometry"><a class="header" href="#geometry">Geometry</a></h3>
+<pre><code class="language-sh">--geometry=&lt;width&gt;x&lt;height&gt;
+</code></pre>
+<p>Sets the initial neovide window size in characters.</p>
+<h3 id="log-file"><a class="header" href="#log-file">Log File</a></h3>
+<pre><code class="language-sh">--log
+</code></pre>
+<p>Enables the log file for debugging purposes. This will write a file next to the executable
+containing trace events which may help debug an issue.</p>
+<h3 id="maximized"><a class="header" href="#maximized">Maximized</a></h3>
+<pre><code class="language-sh">--maximized
+</code></pre>
+<p>Maximize the window on startup, while still having decorations and the status bar of your OS
+visible.</p>
+<p>This is not the same as <code>g:neovide_fullscreen</code>, which runs Neovide in &quot;exclusive fullscreen&quot;,
+covering up the entire screen.</p>
 <h3 id="multigrid"><a class="header" href="#multigrid">Multigrid</a></h3>
-<pre><code class="language-sh">--multigrid or an environment variable declared named &quot;NEOVIDE_MULTIGRID&quot;
+<pre><code class="language-sh">--multigrid or $NEOVIDE_MULTIGRID
 </code></pre>
 <p>This enables neovim's multigrid functionality which will also enable floating window blurred
 backgrounds and window animations. For now this is disabled due to some mouse input bugs upstream
 (<a href="https://github.com/neovim/neovim/pull/12667">neovim/neovim/pull/12667</a>,
 <a href="https://github.com/neovim/neovim/issues/15075">neovim/neovim/issues/15075</a>) and some
 <a href="https://github.com/neovide/neovide/issues/720">floating window transparency issues</a>.</p>
-<h3 id="frameless"><a class="header" href="#frameless">Frameless</a></h3>
-<pre><code class="language-sh">--frameless or an environment variable named NEOVIDE_FRAMELESS
-</code></pre>
-<p>Neovide without decorations. NOTE: Window cannot be moved nor resized after this.</p>
-<h3 id="geometry"><a class="header" href="#geometry">Geometry</a></h3>
-<pre><code class="language-sh">--geometry=&lt;width&gt;x&lt;height&gt;
-</code></pre>
-<p>Sets the initial neovide window size in characters.</p>
 <h3 id="no-fork"><a class="header" href="#no-fork">No Fork</a></h3>
 <pre><code class="language-sh">--nofork
 </code></pre>
 <p>By default, neovide detaches itself from the terminal. Instead of spawning a child process and
 leaking it, be &quot;blocking&quot; and have the shell directly as parent process.</p>
+<h3 id="no-idle-1"><a class="header" href="#no-idle-1">No Idle</a></h3>
+<pre><code class="language-sh">--noidle
+</code></pre>
+<p>Instead of skipping some frames in order to match <code>g:neovide_refresh_rate</code>, render every possible
+one.</p>
+<h3 id="no-srgb"><a class="header" href="#no-srgb">No sRGB</a></h3>
+<pre><code class="language-sh">--nosrgb
+</code></pre>
+<p>Don't request sRGB on the window. Swapping sometimes fixes startup issues.</p>
 <h3 id="no-tabs"><a class="header" href="#no-tabs">No Tabs</a></h3>
 <pre><code class="language-sh">--notabs
 </code></pre>
@@ -657,6 +686,10 @@ tabs to avoid confusing new users. The option disables that and makes multiple g
 buffers.</p>
 <p>Note: Even if files are opened in tabs, they're buffers anyways. It's just about them being visible
 or not.</p>
+<h3 id="remote-tcp"><a class="header" href="#remote-tcp">Remote TCP</a></h3>
+<pre><code class="language-sh">--remote-tcp &lt;remote_tcp&gt;
+</code></pre>
+<p>What IP and port to use when connecting to neovim.</p>
 <h3 id="wsl"><a class="header" href="#wsl">WSL</a></h3>
 <pre><code class="language-sh">--wsl
 </code></pre>
@@ -667,15 +700,10 @@ or not.</p>
 <p>Sets where to find neovim's executable. If unset, neovide will try to find <code>nvim</code> on the <code>PATH</code>
 environment variable instead. If you're running a Unix-alike, be sure that binary has the executable
 permission bit set.</p>
-<h3 id="log-file"><a class="header" href="#log-file">Log File</a></h3>
-<pre><code class="language-sh">--log
-</code></pre>
-<p>Enables the log file for debugging purposes. This will write a file next to the executable
-containing trace events which may help debug an issue.</p>
 <h3 id="wayland--x11"><a class="header" href="#wayland--x11">Wayland / X11</a></h3>
-<pre><code class="language-sh">--wayland-app-id &lt;wayland_app_id&gt; or an environment variable called NEOVIDE_APP_ID
---x11-wm-class-instance &lt;x11_wm_class_instance&gt; or an environment variable called NEOVIDE_WM_CLASS_INSTANCE
---x11-wm-class &lt;x11_wm_class&gt; or an environment variable called NEOVIDE_WM_CLASS
+<pre><code class="language-sh">--wayland-app-id &lt;wayland_app_id&gt; or $NEOVIDE_APP_ID
+--x11-wm-class-instance &lt;x11_wm_class_instance&gt; or $NEOVIDE_WM_CLASS_INSTANCE
+--x11-wm-class &lt;x11_wm_class&gt; or $NEOVIDE_WM_CLASS
 </code></pre>
 <p>On Linux/Unix, this alters the identification of the window to either X11 or the more modern
 Wayland, depending on what you are running on.</p>
@@ -730,6 +758,9 @@ point number.</li>
 </li>
 </ul>
 <p>By the way, the default font used is Fira Code at size 14.</p>
+<h2 id="how-to-enable-scrolling-animations-and-transparency"><a class="header" href="#how-to-enable-scrolling-animations-and-transparency">How To Enable Scrolling Animations and Transparency?</a></h2>
+<p>First, <a href="command-line-reference.html#multigrid">enable multigrid</a>, it's not enabled by default.</p>
+<p>Then, scrolling animations should work, for transparency see the section below.</p>
 <h2 id="how-to-enable-floating-and-popupmenu-transparency"><a class="header" href="#how-to-enable-floating-and-popupmenu-transparency">How To Enable Floating And Popupmenu Transparency?</a></h2>
 <p>Those are controlled through the <code>winblend</code> and <code>pumblend</code> options. See their help pages for more,
 but for short: Both options can be values between <code>0</code> (opaque) and <code>100</code> (fully transparent),
