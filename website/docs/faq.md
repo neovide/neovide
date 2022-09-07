@@ -24,6 +24,12 @@ discouraged and try to document it ourselves:
 
 By the way, the default font used is Fira Code at size 14.
 
+## How To Enable Scrolling Animations and Transparency?
+
+First, [enable multigrid](command-line-reference.md#multigrid), it's not enabled by default.
+
+Then, scrolling animations should work, for transparency see the section below.
+
 ## How To Enable Floating And Popupmenu Transparency?
 
 Those are controlled through the `winblend` and `pumblend` options. See their help pages for more,
