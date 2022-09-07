@@ -3,6 +3,9 @@
 Neovide supports a few command line arguments for effecting things which couldn't be set using
 normal vim variables.
 
+`$` in front of a word refers to it being an "environment variable" which is checked for, some
+settings only require it to be set in some way, some settings also use the contents.
+
 ## Information
 
 ### Version
@@ -26,7 +29,7 @@ Prints details about neovide. This will be a help page eventually.
 ### Multigrid
 
 ```sh
---multigrid or an environment variable declared named "NEOVIDE_MULTIGRID"
+--multigrid or $NEOVIDE_MULTIGRID
 ```
 
 This enables neovim's multigrid functionality which will also enable floating window blurred
@@ -35,13 +38,18 @@ backgrounds and window animations. For now this is disabled due to some mouse in
 [neovim/neovim/issues/15075](https://github.com/neovim/neovim/issues/15075)) and some
 [floating window transparency issues](https://github.com/neovide/neovide/issues/720).
 
-### Frameless
+### Frame
 
 ```sh
---frameless or an environment variable named NEOVIDE_FRAMELESS
+--frame or $NEOVIDE_FRAME
 ```
 
-Neovide without decorations. NOTE: Window cannot be moved nor resized after this.
+Can be set to:
+
+- `full`: The default, all decorations.
+- `none`: No decorations at all. NOTE: Window cannot be moved nor resized after this.
+- (macOS only) `transparent`: Transparent decorations including a transparent bar.
+- (macOS only) `buttonless`: All decorations, but without quit, minimize or fullscreen buttons.
 
 ### Geometry
 
@@ -50,6 +58,23 @@ Neovide without decorations. NOTE: Window cannot be moved nor resized after this
 ```
 
 Sets the initial neovide window size in characters.
+
+### No sRGB
+
+```sh
+--nosrgb
+```
+
+Don't request sRGB on the window. Swapping sometimes fixes startup issues.
+
+### No Idle
+
+```sh
+--noidle
+```
+
+Instead of skipping some frames in order to match `g:neovide_refresh_rate`, render every possible
+one.
 
 ### No Fork
 
@@ -81,6 +106,14 @@ or not.
 
 Runs neovim from inside wsl rather than as a normal executable.
 
+### Remote TCP
+
+```sh
+--remote-tcp <remote_tcp>
+```
+
+What IP and port to use when connecting to neovim.
+
 ### Neovim Binary
 
 ```sh
@@ -103,9 +136,9 @@ containing trace events which may help debug an issue.
 ### Wayland / X11
 
 ```sh
---wayland-app-id <wayland_app_id> or an environment variable called NEOVIDE_APP_ID
---x11-wm-class-instance <x11_wm_class_instance> or an environment variable called NEOVIDE_WM_CLASS_INSTANCE
---x11-wm-class <x11_wm_class> or an environment variable called NEOVIDE_WM_CLASS
+--wayland-app-id <wayland_app_id> or $NEOVIDE_APP_ID
+--x11-wm-class-instance <x11_wm_class_instance> or $NEOVIDE_WM_CLASS_INSTANCE
+--x11-wm-class <x11_wm_class> or $NEOVIDE_WM_CLASS
 ```
 
 On Linux/Unix, this alters the identification of the window to either X11 or the more modern
