@@ -26,18 +26,6 @@ Prints details about neovide. This will be a help page eventually.
 
 ## Functionality
 
-### Multigrid
-
-```sh
---multigrid or $NEOVIDE_MULTIGRID
-```
-
-This enables neovim's multigrid functionality which will also enable floating window blurred
-backgrounds and window animations. For now this is disabled due to some mouse input bugs upstream
-([neovim/neovim/pull/12667](https://github.com/neovim/neovim/pull/12667),
-[neovim/neovim/issues/15075](https://github.com/neovim/neovim/issues/15075)) and some
-[floating window transparency issues](https://github.com/neovide/neovide/issues/720).
-
 ### Frame
 
 ```sh
@@ -59,13 +47,47 @@ Can be set to:
 
 Sets the initial neovide window size in characters.
 
-### No sRGB
+### Log File
 
 ```sh
---nosrgb
+--log
 ```
 
-Don't request sRGB on the window. Swapping sometimes fixes startup issues.
+Enables the log file for debugging purposes. This will write a file next to the executable
+containing trace events which may help debug an issue.
+
+### Maximized
+
+```sh
+--maximized
+```
+
+Maximize the window on startup, while still having decorations and the status bar of your OS
+visible.
+
+This is not the same as `g:neovide_fullscreen`, which runs Neovide in "exclusive fullscreen",
+covering up the entire screen.
+
+### Multigrid
+
+```sh
+--multigrid or $NEOVIDE_MULTIGRID
+```
+
+This enables neovim's multigrid functionality which will also enable floating window blurred
+backgrounds and window animations. For now this is disabled due to some mouse input bugs upstream
+([neovim/neovim/pull/12667](https://github.com/neovim/neovim/pull/12667),
+[neovim/neovim/issues/15075](https://github.com/neovim/neovim/issues/15075)) and some
+[floating window transparency issues](https://github.com/neovide/neovide/issues/720).
+
+### No Fork
+
+```sh
+--nofork
+```
+
+By default, neovide detaches itself from the terminal. Instead of spawning a child process and
+leaking it, be "blocking" and have the shell directly as parent process.
 
 ### No Idle
 
@@ -76,14 +98,13 @@ Don't request sRGB on the window. Swapping sometimes fixes startup issues.
 Instead of skipping some frames in order to match `g:neovide_refresh_rate`, render every possible
 one.
 
-### No Fork
+### No sRGB
 
 ```sh
---nofork
+--nosrgb
 ```
 
-By default, neovide detaches itself from the terminal. Instead of spawning a child process and
-leaking it, be "blocking" and have the shell directly as parent process.
+Don't request sRGB on the window. Swapping sometimes fixes startup issues.
 
 ### No Tabs
 
@@ -98,14 +119,6 @@ buffers.
 Note: Even if files are opened in tabs, they're buffers anyways. It's just about them being visible
 or not.
 
-### WSL
-
-```sh
---wsl
-```
-
-Runs neovim from inside wsl rather than as a normal executable.
-
 ### Remote TCP
 
 ```sh
@@ -113,6 +126,14 @@ Runs neovim from inside wsl rather than as a normal executable.
 ```
 
 What IP and port to use when connecting to neovim.
+
+### WSL
+
+```sh
+--wsl
+```
+
+Runs neovim from inside wsl rather than as a normal executable.
 
 ### Neovim Binary
 
@@ -123,15 +144,6 @@ What IP and port to use when connecting to neovim.
 Sets where to find neovim's executable. If unset, neovide will try to find `nvim` on the `PATH`
 environment variable instead. If you're running a Unix-alike, be sure that binary has the executable
 permission bit set.
-
-### Log File
-
-```sh
---log
-```
-
-Enables the log file for debugging purposes. This will write a file next to the executable
-containing trace events which may help debug an issue.
 
 ### Wayland / X11
 
