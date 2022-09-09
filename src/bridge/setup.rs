@@ -136,11 +136,21 @@ pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>, is_remote: b
         warn!("Neovide could not find the correct channel id. Some functionality may be disabled.");
     }
 
-    // Set some basic rendering options
+    // Set some basic rendering options and neovide defaults
+    // NOTE:
+    //      The only types that are accepted for options by the nvim api as of 0.8.0 are:-
+    //      rmpv::Value::Boolean -- This is for boolean options, eg: `:set number`
+    //      rmpv::Value::Integer -- This is for options that take a number, eg: `:set laststatus=3`
+    //      rmpv::Value::String  -- This is for everything else that isn't the above two
     nvim.set_option("lazyredraw", Value::Boolean(false))
         .await
         .ok();
     nvim.set_option("termguicolors", Value::Boolean(true))
+        .await
+        .ok();
+
+    // Required for so that a single api command results in only one line scrolled
+    nvim.set_option("mousescroll", Value::from("ver:1,hor:1"))
         .await
         .ok();
 
