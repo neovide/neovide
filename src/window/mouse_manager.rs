@@ -68,6 +68,25 @@ struct TouchTrace {
     left_deadzone_once: bool,
 }
 
+struct ScrolledLines {
+    x: f32,
+    y: f32,
+}
+
+impl ScrolledLines {
+    fn new() -> ScrolledLines {
+        ScrolledLines { x: 0., y: 0. }
+    }
+
+    fn reset(&mut self) {
+        self.x = 0.;
+        self.y = 0.;
+    }
+
+    fn line_scrolled(&self, font_width: f32, font_height: f32) -> bool {
+        self.x.abs().floor() > font_width || self.y.abs().floor() > font_height
+    }
+}
 pub struct MouseManager {
     dragging: Option<String>,
     drag_position: PhysicalPosition<u32>,
@@ -78,7 +97,7 @@ pub struct MouseManager {
 
     // the tuple allows to keep track of different fingers per device
     touch_position: HashMap<(DeviceId, u64), TouchTrace>,
-
+    pixels_scrolled: ScrolledLines,
     window_details_under_mouse: Option<WindowDrawDetails>,
 
     mouse_hidden: bool,
@@ -94,6 +113,7 @@ impl MouseManager {
             relative_position: PhysicalPosition::new(0, 0),
             drag_position: PhysicalPosition::new(0, 0),
             touch_position: HashMap::new(),
+            pixels_scrolled: ScrolledLines::new(),
             window_details_under_mouse: None,
             mouse_hidden: false,
             enabled: true,
@@ -253,7 +273,6 @@ impl MouseManager {
         };
 
         if let (num_lines, Some(input_type)) = input_type {
-            println!("lines: {}, x: {}, y{}", num_lines, x, y);
             let scroll_command: UiCommand = SerialCommand::Scroll {
                 direction: input_type.to_string(),
                 grid_id: self
@@ -277,11 +296,20 @@ impl MouseManager {
         (pixel_x, pixel_y): (f32, f32),
         keyboard_manager: &KeyboardManager,
     ) {
-        self.handle_line_scroll(
-            pixel_x / font_width as f32,
-            pixel_y / font_height as f32,
-            keyboard_manager,
-        );
+        let font_height = font_height as f32;
+        let font_width = font_width as f32;
+
+        self.pixels_scrolled.x += pixel_x;
+        self.pixels_scrolled.y += pixel_y;
+
+        if self.pixels_scrolled.line_scrolled(font_width, font_height) {
+            self.handle_line_scroll(
+                self.pixels_scrolled.x / font_width,
+                self.pixels_scrolled.y / font_height,
+                keyboard_manager,
+            );
+            self.pixels_scrolled.reset();
+        }
     }
 
     fn handle_touch(
