@@ -87,6 +87,7 @@ impl ScrolledLines {
         self.x.abs().floor() > font_width || self.y.abs().floor() > font_height
     }
 }
+
 pub struct MouseManager {
     dragging: Option<String>,
     drag_position: PhysicalPosition<u32>,
@@ -304,8 +305,8 @@ impl MouseManager {
 
         if self.pixels_scrolled.line_scrolled(font_width, font_height) {
             self.handle_line_scroll(
-                self.pixels_scrolled.x / font_width,
-                self.pixels_scrolled.y / font_height,
+                (self.pixels_scrolled.x / font_width).fract(),
+                (self.pixels_scrolled.y / font_height).fract(),
                 keyboard_manager,
             );
             self.pixels_scrolled.reset();
