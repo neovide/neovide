@@ -10,6 +10,7 @@ extern crate clap;
 
 mod bridge;
 mod channel_utils;
+mod clipboard;
 mod cmd_line;
 mod dimensions;
 mod editor;
@@ -37,6 +38,7 @@ use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
 use log::trace;
 
 use bridge::start_bridge;
+use clipboard::start_clipboard_command_handler;
 use cmd_line::CmdLineSettings;
 use editor::start_editor;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
@@ -140,6 +142,7 @@ fn main() {
     KeyboardSettings::register();
 
     start_bridge();
+    start_clipboard_command_handler();
     start_editor();
     create_window();
 }

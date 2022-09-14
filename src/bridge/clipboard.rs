@@ -2,11 +2,14 @@ use std::error::Error;
 
 use rmpv::Value;
 
-use copypasta::{ClipboardContext, ClipboardProvider};
+use crate::{
+    clipboard::{Clipboard, ClipboardCommand},
+    event_aggregator::EVENT_AGGREGATOR,
+};
 
 pub fn get_clipboard_contents(format: Option<&str>) -> Result<Value, Box<dyn Error + Send + Sync>> {
-    let mut clipboard_ctx: ClipboardContext = ClipboardContext::new()?;
-    let clipboard_raw = clipboard_ctx.get_contents()?.replace('\r', "");
+    let mut clipboard: Clipboard = Clipboard::new()?;
+    let clipboard_raw = clipboard.get_contents()?.replace('\r', "");
 
     let lines = if let Some("dos") = format {
         // add \r to lines of current file format is dos
@@ -46,8 +49,10 @@ pub fn set_clipboard_contents(value: &Value) -> Result<Value, Box<dyn Error + Se
         })
         .ok_or("can't build string from provided text")?;
 
-    let mut clipboard_ctx: ClipboardContext = ClipboardContext::new()?;
-    clipboard_ctx.set_contents(lines)?;
+    // The X11 clipboard doesn't work correctly if we set the clipboard directly here, presumably
+    // because the thread handling this request is rather short-lived. Instead, we delegate this
+    // task to the clipboard command handler, which is run by a long-running thread.
+    EVENT_AGGREGATOR.send(ClipboardCommand::SetContents(lines));
 
     Ok(Value::Nil)
 }
