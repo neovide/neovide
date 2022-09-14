@@ -29,7 +29,7 @@ pub fn get_remote_clipboard(format: Option<&str>) -> Result<Value, Box<dyn Error
     Ok(Value::from(vec![lines, paste_mode]))
 }
 
-pub fn set_remote_clipboard(arguments: Vec<Value>) -> Result<(), Box<dyn Error + Send + Sync>> {
+pub fn set_remote_clipboard(arguments: Vec<Value>) -> Result<Value, Box<dyn Error + Send + Sync>> {
     if arguments.len() != 3 {
         return Err("expected exactly 3 arguments to set_remote_clipboard".into());
     }
@@ -52,5 +52,6 @@ pub fn set_remote_clipboard(arguments: Vec<Value>) -> Result<(), Box<dyn Error +
 
     let mut clipboard_ctx: ClipboardContext = ClipboardContext::new()?;
     clipboard_ctx.set_contents(lines)?;
-    Ok(())
+
+    Ok(Value::Nil)
 }
