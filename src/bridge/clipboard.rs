@@ -4,7 +4,7 @@ use rmpv::Value;
 
 use copypasta::{ClipboardContext, ClipboardProvider};
 
-pub fn get_remote_clipboard(format: Option<&str>) -> Result<Value, Box<dyn Error + Send + Sync>> {
+pub fn get_clipboard_contents(format: Option<&str>) -> Result<Value, Box<dyn Error + Send + Sync>> {
     let mut clipboard_ctx: ClipboardContext = ClipboardContext::new()?;
     let clipboard_raw = clipboard_ctx.get_contents()?.replace('\r', "");
 
@@ -29,7 +29,7 @@ pub fn get_remote_clipboard(format: Option<&str>) -> Result<Value, Box<dyn Error
     Ok(Value::from(vec![lines, paste_mode]))
 }
 
-pub fn set_remote_clipboard(arguments: Vec<Value>) -> Result<Value, Box<dyn Error + Send + Sync>> {
+pub fn set_clipboard_contents(arguments: Vec<Value>) -> Result<Value, Box<dyn Error + Send + Sync>> {
     if arguments.len() != 3 {
         return Err("expected exactly 3 arguments to set_remote_clipboard".into());
     }
