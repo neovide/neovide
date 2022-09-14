@@ -51,10 +51,8 @@ impl Handler for NeovimHandler {
                 get_clipboard_contents(endline_type.as_deref())
                     .map_err(|_| Value::from("cannot get clipboard contents"))
             }
-            "neovide.set_clipboard" => {
-                set_clipboard_contents(arguments)
-                    .map_err(|_| Value::from("cannot set clipboard contents"))
-            }
+            "neovide.set_clipboard" => set_clipboard_contents(&arguments[0])
+                .map_err(|_| Value::from("cannot set clipboard contents")),
             _ => Ok(Value::from("rpcrequest not handled")),
         }
     }

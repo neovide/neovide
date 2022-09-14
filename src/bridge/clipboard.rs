@@ -29,17 +29,13 @@ pub fn get_clipboard_contents(format: Option<&str>) -> Result<Value, Box<dyn Err
     Ok(Value::from(vec![lines, paste_mode]))
 }
 
-pub fn set_clipboard_contents(arguments: Vec<Value>) -> Result<Value, Box<dyn Error + Send + Sync>> {
-    if arguments.len() != 3 {
-        return Err("expected exactly 3 arguments to set_remote_clipboard".into());
-    }
-
+pub fn set_clipboard_contents(value: &Value) -> Result<Value, Box<dyn Error + Send + Sync>> {
     #[cfg(not(windows))]
     let endline = "\n";
     #[cfg(windows)]
     let endline = "\r\n";
 
-    let lines = arguments[0]
+    let lines = value
         .as_array()
         .map(|arr| {
             arr.iter()
