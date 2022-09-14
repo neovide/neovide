@@ -155,6 +155,18 @@ sizes above 15.
 **Note**: This is currently glitchy, and leads to some underlines being clipped by the line of text
 below.
 
+
+#### Hiding the mouse when typing
+
+```vim
+let g:neovide_hide_mouse_when_typing = v:false
+```
+
+By setting this to `v:true`, the mouse will be hidden as soon as you start typing. This setting
+only affects the mouse if it is currently within the bounds of the neovide window. Moving the
+mouse makes it visible again.
+
+
 ### Input Settings
 
 #### Use Logo Key
