@@ -72,6 +72,7 @@ pub struct GlutinWindowWrapper {
     saved_inner_size: PhysicalSize<u32>,
     saved_grid_size: Option<Dimensions>,
     size_at_startup: PhysicalSize<u32>,
+    maximized_at_startup: bool,
     window_command_receiver: UnboundedReceiver<WindowCommand>,
 }
 
@@ -210,7 +211,7 @@ impl GlutinWindowWrapper {
         let settings = SETTINGS.get::<CmdLineSettings>();
         // Resize at startup happens when window is maximized or when using tiling WM
         // which already resized window.
-        let resized_at_startup = settings.maximized || self.has_been_resized();
+        let resized_at_startup = self.maximized_at_startup || self.has_been_resized();
 
         log::trace!(
             "Settings geometry {:?}",
@@ -406,6 +407,7 @@ pub fn create_window() {
         title: String::from("Neovide"),
         fullscreen: false,
         size_at_startup: initial_size,
+        maximized_at_startup: maximized,
         saved_inner_size,
         saved_grid_size: None,
         window_command_receiver,
