@@ -2,11 +2,10 @@ use std::error::Error;
 
 use rmpv::Value;
 
-use copypasta::{ClipboardContext, ClipboardProvider};
+use crate::clipboard;
 
-pub fn get_remote_clipboard(format: Option<&str>) -> Result<Value, Box<dyn Error + Send + Sync>> {
-    let mut clipboard_ctx: ClipboardContext = ClipboardContext::new()?;
-    let clipboard_raw = clipboard_ctx.get_contents()?.replace('\r', "");
+pub fn get_clipboard_contents(format: Option<&str>) -> Result<Value, Box<dyn Error + Send + Sync>> {
+    let clipboard_raw = clipboard::get_contents()?.replace('\r', "");
 
     let lines = if let Some("dos") = format {
         // add \r to lines of current file format is dos
@@ -29,17 +28,13 @@ pub fn get_remote_clipboard(format: Option<&str>) -> Result<Value, Box<dyn Error
     Ok(Value::from(vec![lines, paste_mode]))
 }
 
-pub fn set_remote_clipboard(arguments: Vec<Value>) -> Result<(), Box<dyn Error + Send + Sync>> {
-    if arguments.len() != 3 {
-        return Err("expected exactly 3 arguments to set_remote_clipboard".into());
-    }
-
+pub fn set_clipboard_contents(value: &Value) -> Result<Value, Box<dyn Error + Send + Sync>> {
     #[cfg(not(windows))]
     let endline = "\n";
     #[cfg(windows)]
     let endline = "\r\n";
 
-    let lines = arguments[0]
+    let lines = value
         .as_array()
         .map(|arr| {
             arr.iter()
@@ -50,7 +45,7 @@ pub fn set_remote_clipboard(arguments: Vec<Value>) -> Result<(), Box<dyn Error +
         })
         .ok_or("can't build string from provided text")?;
 
-    let mut clipboard_ctx: ClipboardContext = ClipboardContext::new()?;
-    clipboard_ctx.set_contents(lines)?;
-    Ok(())
+    clipboard::set_contents(lines)?;
+
+    Ok(Value::Nil)
 }

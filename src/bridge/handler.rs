@@ -3,7 +3,7 @@ use log::trace;
 use nvim_rs::{Handler, Neovim};
 use rmpv::Value;
 
-use crate::bridge::clipboard::{get_remote_clipboard, set_remote_clipboard};
+use crate::bridge::clipboard::{get_clipboard_contents, set_clipboard_contents};
 #[cfg(windows)]
 use crate::bridge::ui_commands::{ParallelCommand, UiCommand};
 use crate::{
@@ -31,7 +31,7 @@ impl Handler for NeovimHandler {
     async fn handle_request(
         &self,
         event_name: String,
-        _arguments: Vec<Value>,
+        arguments: Vec<Value>,
         neovim: Neovim<TxWrapper>,
     ) -> Result<Value, Value> {
         trace!("Neovim request: {:?}", &event_name);
@@ -48,9 +48,11 @@ impl Handler for NeovimHandler {
                         s.next().map(String::from)
                     });
 
-                get_remote_clipboard(endline_type.as_deref())
-                    .map_err(|_| Value::from("cannot get remote clipboard content"))
+                get_clipboard_contents(endline_type.as_deref())
+                    .map_err(|_| Value::from("cannot get clipboard contents"))
             }
+            "neovide.set_clipboard" => set_clipboard_contents(&arguments[0])
+                .map_err(|_| Value::from("cannot set clipboard contents")),
             _ => Ok(Value::from("rpcrequest not handled")),
         }
     }
@@ -90,9 +92,6 @@ impl Handler for NeovimHandler {
             #[cfg(windows)]
             "neovide.unregister_right_click" => {
                 EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::UnregisterRightClick));
-            }
-            "neovide.set_clipboard" => {
-                set_remote_clipboard(arguments).ok();
             }
             _ => {}
         }

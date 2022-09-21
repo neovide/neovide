@@ -7,13 +7,7 @@ use crate::{bridge::TxWrapper, error_handling::ResultPanicExplanation};
 const REGISTER_CLIPBOARD_PROVIDER_LUA: &str = r"
     local function set_clipboard(register)
         return function(lines, regtype)
-            vim.rpcnotify(
-                vim.g.neovide_channel_id,
-                'neovide.set_clipboard',
-                lines,
-                regtype,
-                register
-            )
+            vim.rpcrequest(vim.g.neovide_channel_id, 'neovide.set_clipboard', lines)
         end
     end
 

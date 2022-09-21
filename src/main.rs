@@ -10,6 +10,7 @@ extern crate clap;
 
 mod bridge;
 mod channel_utils;
+mod clipboard;
 mod cmd_line;
 mod dimensions;
 mod editor;
