@@ -3,9 +3,9 @@ name: Build-and-Test
 on:
   push:
     paths-ignore:
-      - 'website/**'
-      - '.vscode/**'
-      - '**.md'
+      - "website/**"
+      - ".vscode/**"
+      - "**.md"
 
 env:
   CARGO_TERM_COLOR: always
@@ -28,6 +28,10 @@ jobs:
       - name: Install cargo-nextest
         uses: taiki-e/install-action@nextest
 
+      - name: Install cargo-wix
+        run: |
+          cargo install cargo-wix
+
       - uses: Swatinem/rust-cache@v1
 
       - name: Check Formatting
@@ -44,7 +48,7 @@ jobs:
           NEOVIM_BIN: "C:/tools/neovim/nvim-win64/bin/nvim.exe"
           RUST_BACKTRACE: full
         run: |
-          cargo nextest run --profile ci 
+          cargo nextest run --profile ci
 
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action/composite@v1
@@ -55,10 +59,20 @@ jobs:
       - name: Build Release
         run: |
           cargo build --release
+
+      - name: Build MSI
+        run: |
+          cargo wix --no-build --output target/wix/neovide.msi --package neovide
+
       - uses: actions/upload-artifact@v2
         with:
           name: neovide-windows
           path: ./target/release/neovide.exe
+
+      - uses: actions/upload-artifact@v2
+        with:
+          name: neovide-windows-installer
+          path: ./target/wix/neovide.msi
 
   build-mac:
     runs-on: macos-11
@@ -204,4 +218,3 @@ jobs:
         with:
           name: neovide-linux.tar.gz
           path: ./target/release/neovide.tar.gz
-
