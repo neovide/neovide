@@ -1,0 +1,138 @@
+<?xml version="1.0"?>
+<!--
+  Wix [0] is a toolset that builds Windows Installer [1] packages. It uses a
+  declarative approach, which is well defined by an XML schema [2]. Also, see
+  the default template provided by the `cargo-wix` project [3].
+
+  [0] https://wixtoolset.org/documentation/manual/v3/main/
+  [1] https://learn.microsoft.com/en-us/windows/win32/msi/windows-installer-portal
+  [2] https://wixtoolset.org/documentation/manual/v3/xsd/wix/
+  [3] https://github.com/volks73/cargo-wix/blob/main/src/templates/main.wxs.mustache
+-->
+
+<?if $(sys.BUILDARCH) = x64 or $(sys.BUILDARCH) = arm64?>
+<?define PlatformProgramFilesFolder = "ProgramFiles64Folder"?>
+<?else ?>
+<?define PlatformProgramFilesFolder = "ProgramFilesFolder"?>
+<?endif ?>
+
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product
+    Codepage="1252"
+    Id="*"
+    Language="1033"
+    Manufacturer="Neovide"
+    Name="Neovide"
+    UpgradeCode="22816C0C-92F8-46F9-BA8D-B2F5F8C8C743"
+    Version="$(var.Version)"
+  >
+    <Package
+      Compressed="yes"
+      Description="A no nonsense Neovim GUI written in Rust"
+      Id="*"
+      InstallScope="perMachine"
+      InstallerVersion="450"
+      Keywords="Installer"
+      Languages="1033"
+      Manufacturer="Neovide"
+      SummaryCodepage="1252"
+    />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." Schedule="afterInstallInitialize" />
+
+    <Media Cabinet="neovide.cab" EmbedCab="yes" Id="1" />
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="DesktopFolder" />
+      <Directory Id="ProgramMenuFolder" />
+      <Directory Id="$(var.PlatformProgramFilesFolder)">
+        <Directory Id="INSTALLDIR" Name="Neovide">
+          <Directory Id="BinaryFolder" Name="bin"></Directory>
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <DirectoryRef Id="BinaryFolder">
+      <Component Guid="8F0CDDE4-C807-46B4-949C-A96508B04DB2" Id="PathComponent" KeyPath="yes">
+        <Environment
+          Action="set"
+          Id="PathEnvironment"
+          Name="PATH"
+          Part="last"
+          Permanent="no"
+          System="yes"
+          Value="[BinaryFolder]"
+        />
+      </Component>
+
+      <Component Guid="*" Id="NeovideComponent">
+        <File
+          DiskId="1"
+          Id="NeovideExecutable"
+          KeyPath="yes"
+          Name="neovide.exe"
+          Source="$(var.CargoTargetBinDir)\neovide.exe"
+        >
+          <Shortcut
+            Advertise="yes"
+            Directory="DesktopFolder"
+            Icon="neovide.ico"
+            Id="DesktopShortcut"
+            Name="Neovide"
+            WorkingDirectory="INSTALLDIR"
+          />
+
+          <Shortcut
+            Advertise="yes"
+            Directory="ProgramMenuFolder"
+            Icon="neovide.ico"
+            Id="StartMenuShortcut"
+            Name="Neovide"
+            WorkingDirectory="INSTALLDIR"
+          />
+        </File>
+      </Component>
+    </DirectoryRef>
+
+    <Feature
+      Absent="disallow"
+      AllowAdvertise="no"
+      ConfigurableDirectory="INSTALLDIR"
+      Description="Install the executable of [ProductName]."
+      Display="expand"
+      Id="BinaryFeature"
+      Level="1"
+      Title="Executable"
+    >
+      <ComponentRef Id="NeovideComponent" />
+
+      <Feature
+        Absent="allow"
+        Description="Add the executable of [ProductName] to the system path."
+        Id="PathFeature"
+        Level="1"
+        Title="Path"
+      >
+        <ComponentRef Id="PathComponent" />
+      </Feature>
+    </Feature>
+
+    <Icon Id="neovide.ico" SourceFile="assets\neovide.ico" />
+
+    <Property Id="ARPHELPLINK" Value="https://github.com/neovide/neovide" />
+    <Property Id="ARPNOMODIFY" Secure="yes" Value="yes" />
+    <Property Id="ARPNOREPAIR" Secure="yes" Value="yes" />
+    <Property Id="ARPPRODUCTICON" Value="neovide.ico" />
+
+    <SetProperty Id="ARPINSTALLLOCATION" Value="[INSTALLDIR]" After="CostFinalize" />
+
+    <UI>
+      <UIRef Id="WixUI_FeatureTree" />
+    </UI>
+
+    <WixVariable Id="WixUIBannerBmp" Value="wix/banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="wix/dialog.bmp" />
+    <WixVariable Id="WixUILicenseRtf" Value="wix/license.rtf" />
+  </Product>
+</Wix>
+                
