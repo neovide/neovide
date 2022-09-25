@@ -175,9 +175,11 @@ impl KeyboardManager {
 
     fn format_normal_key(&self, text: &str) -> String {
         let has_modifier = self.ctrl || use_alt(self.alt) || self.logo;
+        // use shift only if `text` is alphabetic
+        let is_alphabetic = text.chars().all(char::is_alphabetic);
 
         if has_modifier {
-            self.format_special_key(true, text)
+            self.format_special_key(is_alphabetic, text)
         } else {
             text.to_string()
         }
