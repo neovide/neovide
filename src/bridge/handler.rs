@@ -7,7 +7,7 @@ use crate::bridge::clipboard::{get_clipboard_contents, set_clipboard_contents};
 #[cfg(windows)]
 use crate::bridge::ui_commands::{ParallelCommand, UiCommand};
 use crate::{
-    bridge::{events::parse_redraw_event, TxWrapper},
+    bridge::{events::parse_redraw_event, NeovimWriter},
     editor::EditorCommand,
     error_handling::ResultPanicExplanation,
     event_aggregator::EVENT_AGGREGATOR,
@@ -26,7 +26,7 @@ impl NeovimHandler {
 
 #[async_trait]
 impl Handler for NeovimHandler {
-    type Writer = TxWrapper;
+    type Writer = NeovimWriter;
 
     async fn handle_request(
         &self,

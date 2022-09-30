@@ -12,7 +12,7 @@ use crate::windows_utils::{
     register_rightclick_directory, register_rightclick_file, unregister_rightclick,
 };
 use crate::{
-    bridge::TxWrapper, event_aggregator::EVENT_AGGREGATOR, running_tracker::RUNNING_TRACKER,
+    bridge::NeovimWriter, event_aggregator::EVENT_AGGREGATOR, running_tracker::RUNNING_TRACKER,
 };
 
 // Serial commands are any commands which must complete before the next value is sent. This
@@ -44,7 +44,7 @@ pub enum SerialCommand {
 }
 
 impl SerialCommand {
-    async fn execute(self, nvim: &Neovim<TxWrapper>) {
+    async fn execute(self, nvim: &Neovim<NeovimWriter>) {
         match self {
             SerialCommand::Keyboard(input_command) => {
                 trace!("Keyboard Input Sent: {}", input_command);
@@ -124,7 +124,7 @@ pub enum ParallelCommand {
 }
 
 impl ParallelCommand {
-    async fn execute(self, nvim: &Neovim<TxWrapper>) {
+    async fn execute(self, nvim: &Neovim<NeovimWriter>) {
         match self {
             ParallelCommand::Quit => {
                 nvim.command(
@@ -241,7 +241,7 @@ impl From<ParallelCommand> for UiCommand {
     }
 }
 
-pub fn start_ui_command_handler(nvim: Arc<Neovim<TxWrapper>>) {
+pub fn start_ui_command_handler(nvim: Arc<Neovim<NeovimWriter>>) {
     let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
     let ui_command_nvim = nvim.clone();
     tokio::spawn(async move {

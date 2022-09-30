@@ -11,7 +11,7 @@ use std::{
     convert::TryInto,
 };
 
-use crate::{bridge::TxWrapper, error_handling::ResultPanicExplanation};
+use crate::{bridge::NeovimWriter, error_handling::ResultPanicExplanation};
 pub use from_value::ParseFromValue;
 pub use window_geometry::{
     load_last_window_settings, parse_window_geometry, save_window_geometry,
@@ -84,7 +84,7 @@ impl Settings {
         (*value).clone()
     }
 
-    pub async fn read_initial_values(&self, nvim: &Neovim<TxWrapper>) {
+    pub async fn read_initial_values(&self, nvim: &Neovim<NeovimWriter>) {
         let keys: Vec<String> = self.listeners.read().keys().cloned().collect();
 
         for name in keys {
@@ -102,7 +102,7 @@ impl Settings {
         }
     }
 
-    pub async fn setup_changed_listeners(&self, nvim: &Neovim<TxWrapper>) {
+    pub async fn setup_changed_listeners(&self, nvim: &Neovim<NeovimWriter>) {
         let keys: Vec<String> = self.listeners.read().keys().cloned().collect();
 
         for name in keys {
@@ -152,13 +152,13 @@ mod tests {
 
     #[async_trait]
     impl Handler for NeovimHandler {
-        type Writer = TxWrapper;
+        type Writer = NeovimWriter;
 
         async fn handle_notify(
             &self,
             _event_name: String,
             _arguments: Vec<Value>,
-            _neovim: Neovim<TxWrapper>,
+            _neovim: Neovim<NeovimWriter>,
         ) {
         }
     }
