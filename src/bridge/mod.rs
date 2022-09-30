@@ -1,6 +1,6 @@
 mod clipboard;
 mod command;
-pub mod create;
+pub mod connection;
 mod events;
 mod handler;
 mod setup;
@@ -17,22 +17,22 @@ use crate::{
 };
 
 pub use command::create_nvim_command;
-pub use create::NeovimWriter;
+pub use connection::NeovimWriter;
 pub use events::*;
 use handler::NeovimHandler;
 use setup::setup_neovide_specific_state;
 pub use ui_commands::{start_ui_command_handler, ParallelCommand, SerialCommand, UiCommand};
 
 enum ConnectionMode {
-    Child,
-    RemoteTcp(String),
+    Embedded,
+    Server(String),
 }
 
 fn connection_mode() -> ConnectionMode {
-    if let Some(arg) = SETTINGS.get::<CmdLineSettings>().remote_tcp {
-        ConnectionMode::RemoteTcp(arg)
+    if let Some(arg) = SETTINGS.get::<CmdLineSettings>().server {
+        ConnectionMode::Server(arg)
     } else {
-        ConnectionMode::Child
+        ConnectionMode::Embedded
     }
 }
 
@@ -46,8 +46,8 @@ pub fn start_bridge() {
 async fn start_neovim_runtime() {
     let handler = NeovimHandler::new();
     let (nvim, io_handler) = match connection_mode() {
-        ConnectionMode::Child => create::new_child_cmd(&mut create_nvim_command(), handler).await,
-        ConnectionMode::RemoteTcp(address) => create::new_tcp(address, handler).await,
+        ConnectionMode::Embedded => connection::embed(&mut create_nvim_command(), handler).await,
+        ConnectionMode::Server(address) => connection::connect(address, handler).await,
     }
     .unwrap_or_explained_panic("Could not locate or start neovim process");
 
@@ -62,11 +62,8 @@ async fn start_neovim_runtime() {
 
     let settings = SETTINGS.get::<CmdLineSettings>();
 
-    let mut is_remote = settings.wsl;
-    if let ConnectionMode::RemoteTcp(_) = connection_mode() {
-        is_remote = true;
-    }
-    setup_neovide_specific_state(&nvim, is_remote).await;
+    let should_handle_clipboard = settings.wsl || settings.server.is_some();
+    setup_neovide_specific_state(&nvim, should_handle_clipboard).await;
 
     let geometry = settings.geometry;
     let mut options = UiAttachOptions::new();

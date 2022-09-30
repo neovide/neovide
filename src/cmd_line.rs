@@ -31,9 +31,9 @@ pub struct CmdLineSettings {
     #[arg(long = "log")]
     pub log_to_file: bool,
 
-    /// Connect to NeoVim through this remote TCP
-    #[arg(long = "remote-tcp")]
-    pub remote_tcp: Option<String>,
+    /// Connect to the named pipe or socket at ADDRESS
+    #[arg(long, alias = "remote-tcp", value_name = "ADDRESS")]
+    pub server: Option<String>,
 
     /// Run NeoVim in WSL rather than on the host
     #[arg(long)]
