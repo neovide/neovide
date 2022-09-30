@@ -4,7 +4,6 @@ pub mod create;
 mod events;
 mod handler;
 mod setup;
-mod tx_wrapper;
 mod ui_commands;
 
 use std::{process::exit, sync::Arc, thread};
@@ -18,10 +17,10 @@ use crate::{
 };
 
 pub use command::create_nvim_command;
+pub use create::NeovimWriter;
 pub use events::*;
 use handler::NeovimHandler;
 use setup::setup_neovide_specific_state;
-pub use tx_wrapper::TxWrapper;
 pub use ui_commands::{start_ui_command_handler, ParallelCommand, SerialCommand, UiCommand};
 
 enum ConnectionMode {

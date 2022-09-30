@@ -16,7 +16,7 @@ use tokio::{
 };
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
-use crate::bridge::TxWrapper;
+pub type NeovimWriter = Box<dyn futures::AsyncWrite + Send + Unpin + 'static>;
 
 /// Connect to a neovim instance
 async fn connect<H, R, W>(
@@ -27,7 +27,7 @@ async fn connect<H, R, W>(
 where
     R: AsyncRead + Send + Unpin + 'static,
     W: AsyncWrite + Send + Unpin + 'static,
-    H: Handler<Writer = TxWrapper>,
+    H: Handler<Writer = NeovimWriter>,
 {
     let (neovim, io) =
         Neovim::<H::Writer>::new(reader.compat(), Box::new(writer.compat_write()), handler);
@@ -43,7 +43,7 @@ pub async fn new_tcp<A, H>(
 ) -> io::Result<(Neovim<H::Writer>, JoinHandle<Result<(), Box<LoopError>>>)>
 where
     A: ToSocketAddrs,
-    H: Handler<Writer = TxWrapper>,
+    H: Handler<Writer = NeovimWriter>,
 {
     let stream = TcpStream::connect(addr).await?;
     let (reader, writer) = split(stream);
@@ -59,7 +59,7 @@ pub async fn new_child_cmd<H>(
     handler: H,
 ) -> io::Result<(Neovim<H::Writer>, JoinHandle<Result<(), Box<LoopError>>>)>
 where
-    H: Handler<Writer = TxWrapper>,
+    H: Handler<Writer = NeovimWriter>,
 {
     let mut child = cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).spawn()?;
     let reader = child
