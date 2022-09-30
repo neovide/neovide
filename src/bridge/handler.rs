@@ -32,7 +32,7 @@ impl Handler for NeovimHandler {
         &self,
         event_name: String,
         arguments: Vec<Value>,
-        neovim: Neovim<TxWrapper>,
+        neovim: Neovim<Self::Writer>,
     ) -> Result<Value, Value> {
         trace!("Neovim request: {:?}", &event_name);
 
@@ -61,7 +61,7 @@ impl Handler for NeovimHandler {
         &self,
         event_name: String,
         arguments: Vec<Value>,
-        _neovim: Neovim<TxWrapper>,
+        _neovim: Neovim<Self::Writer>,
     ) {
         trace!("Neovim notification: {:?}", &event_name);
 
