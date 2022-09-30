@@ -52,7 +52,10 @@ pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<NeovimWriter>, neovide
         .ok();
 }
 
-pub async fn setup_neovide_specific_state(nvim: &Neovim<NeovimWriter>, is_remote: bool) {
+pub async fn setup_neovide_specific_state(
+    nvim: &Neovim<NeovimWriter>,
+    should_handle_clipboard: bool,
+) {
     // Set variable indicating to user config that neovide is being used.
     nvim.set_var("neovide", Value::Boolean(true))
         .await
@@ -122,7 +125,7 @@ pub async fn setup_neovide_specific_state(nvim: &Neovim<NeovimWriter>, is_remote
         .await
         .ok();
 
-        if is_remote {
+        if should_handle_clipboard {
             setup_neovide_remote_clipboard(nvim, neovide_channel).await;
         }
     } else {
