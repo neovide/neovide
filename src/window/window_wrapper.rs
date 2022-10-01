@@ -285,19 +285,17 @@ impl WinitWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         tracy_zone!("draw_frame");
-        if REDRAW_SCHEDULER.should_draw() || !SETTINGS.get::<WindowSettings>().idle {
-            self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
-            {
-                tracy_gpu_zone!("skia flush");
-                self.skia_renderer.gr_context.flush(None);
-            }
-            {
-                tracy_gpu_zone!("swap buffers");
-                self.windowed_context.swap_buffers().unwrap();
-            }
-            emit_frame_mark();
-            tracy_gpu_collect();
+        self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
+        {
+            tracy_gpu_zone!("skia flush");
+            self.skia_renderer.gr_context.flush(None);
         }
+        {
+            tracy_gpu_zone!("swap buffers");
+            self.windowed_context.swap_buffers().unwrap();
+        }
+        emit_frame_mark();
+        tracy_gpu_collect();
     }
 
     pub fn animate_frame(&mut self, dt: f32) -> bool {
