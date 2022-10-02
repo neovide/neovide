@@ -189,7 +189,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get -qq install -y \
-            curl gnupg ca-certificates git gcc-multilib g++-multilib cmake libssl-dev pkg-config libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev libxi-dev\
+            curl gnupg ca-certificates git gcc-multilib g++-multilib cmake \
+            libssl-dev pkg-config libfreetype6-dev libasound2-dev \
+            libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev \
+            libxi-dev appstream \
             neovim
 
       - name: Test
@@ -225,9 +228,11 @@ jobs:
             --icon-file=assets/neovide.svg \
             --output=appimage
 
-      - uses: actions/upload-artifact@v1
+      - uses: actions/upload-artifact@v3
         with:
-          name: neovide-linux.tar.gz
+          name: neovide-linux
           path: |
-            ./target/release/neovide.tar.gz
-            ./Neovide_(nvim)-*.AppImage
+            target/release/neovide.tar.gz
+            Neovide_(nvim)-*.AppImage
+
+>>>>>>> f9f2eb4 (Use newer upload artifact to upload binary and appimage.)
