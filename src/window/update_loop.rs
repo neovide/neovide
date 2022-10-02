@@ -20,6 +20,8 @@ enum FocusedState {
     Unfocused,
 }
 
+const MAX_ANIMATION_DT: f32 = 1.0 / 120.0;
+
 pub struct UpdateLoop {
     idle: bool,
     previous_frame_start: Instant,
@@ -83,7 +85,11 @@ impl UpdateLoop {
             }
             Event::MainEventsCleared => {
                 self.should_render |= window_wrapper.prepare_frame();
-                self.should_render |= window_wrapper.animate_frame(self.dt);
+                let num_steps = (self.dt / MAX_ANIMATION_DT).ceil();
+                let step = self.dt / num_steps;
+                for _ in 0..num_steps as usize {
+                    self.should_render |= window_wrapper.animate_frame(step);
+                }
                 if self.should_render || !self.idle {
                     window_wrapper.draw_frame(self.dt);
                     self.should_render = false;

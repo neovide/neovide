@@ -159,17 +159,11 @@ impl RenderedWindow {
             self.position_t,
         );
 
-        let timestep = 0.01;
-        let mut dt = dt;
-        let mut scrolling = false;
-        while dt > 0.0 {
-            scrolling = self
-                .scroll_animation
-                .update(dt, settings.scroll_animation_length);
-            dt -= timestep;
-        }
+        animating |= self
+            .scroll_animation
+            .update(dt, settings.scroll_animation_length);
 
-        animating | scrolling
+        animating
     }
 
     pub fn draw_surface(
