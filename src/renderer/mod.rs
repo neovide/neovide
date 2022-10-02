@@ -143,24 +143,8 @@ impl Renderer {
     /// # Returns
     /// `bool` indicating whether or not font was changed during this frame.
     #[allow(clippy::needless_collect)]
-    pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32) -> bool {
+    pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32) {
         tracy_zone!("renderer_draw_frame");
-        let mut draw_commands = Vec::new();
-        while let Ok(draw_command) = self.batched_draw_command_receiver.try_recv() {
-            draw_commands.extend(draw_command);
-        }
-
-        let mut font_changed = false;
-
-        let settings = SETTINGS.get::<RendererSettings>();
-
-        for draw_command in draw_commands.into_iter() {
-            if let DrawCommand::FontChanged(_) | DrawCommand::LineSpaceChanged(_) = draw_command {
-                font_changed = true;
-            }
-            self.handle_draw_command(draw_command, &settings);
-        }
-
         let default_background = self.grid_renderer.get_default_background();
         let font_dimensions = self.grid_renderer.font_dimensions;
 
@@ -168,14 +152,6 @@ impl Renderer {
         root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
         root_canvas.save();
         root_canvas.reset_matrix();
-
-        let user_scale_factor = SETTINGS.get::<WindowSettings>().scale_factor.into();
-        if user_scale_factor != self.user_scale_factor {
-            self.user_scale_factor = user_scale_factor;
-            self.grid_renderer
-                .handle_scale_factor_update(self.os_scale_factor * self.user_scale_factor);
-            font_changed = true;
-        }
 
         if let Some(root_window) = self.rendered_windows.get(&1) {
             let clip_rect = root_window.pixel_region(font_dimensions);
@@ -203,6 +179,8 @@ impl Renderer {
                 .collect()
         };
 
+        let settings = SETTINGS.get::<RendererSettings>();
+
         self.window_regions = windows
             .into_iter()
             .map(|window| {
@@ -215,21 +193,81 @@ impl Renderer {
                     &settings,
                     default_background.with_a((255.0 * transparency) as u8),
                     font_dimensions,
-                    dt,
                 )
             })
             .collect();
 
-        let windows = &self.rendered_windows;
         self.cursor_renderer
-            .update_cursor_destination(font_dimensions.into(), windows);
-
-        self.cursor_renderer
-            .draw(&mut self.grid_renderer, &self.current_mode, root_canvas, dt);
+            .draw(&mut self.grid_renderer, root_canvas);
 
         self.profiler.draw(root_canvas, dt);
 
         root_canvas.restore();
+    }
+
+    pub fn animate_frame(&mut self, dt: f32) -> bool {
+        let windows: Vec<&mut RenderedWindow> = {
+            let (mut root_windows, mut floating_windows): (
+                Vec<&mut RenderedWindow>,
+                Vec<&mut RenderedWindow>,
+            ) = self
+                .rendered_windows
+                .values_mut()
+                .filter(|window| !window.hidden)
+                .partition(|window| window.floating_order.is_none());
+
+            root_windows
+                .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
+
+            floating_windows.sort_by(floating_sort);
+
+            root_windows
+                .into_iter()
+                .chain(floating_windows.into_iter())
+                .collect()
+        };
+
+        let settings = SETTINGS.get::<RendererSettings>();
+        let animating = windows
+            .into_iter()
+            .map(|window| window.animate(&settings, dt))
+            .any(|a| a);
+
+        let windows = &self.rendered_windows;
+        let font_dimensions = self.grid_renderer.font_dimensions;
+        self.cursor_renderer
+            .update_cursor_destination(font_dimensions.into(), windows);
+
+        self.cursor_renderer
+            .animate(&self.current_mode, &self.grid_renderer, dt);
+
+        animating
+    }
+
+    pub fn handle_draw_commands(&mut self) -> bool {
+        let mut draw_commands = Vec::new();
+        while let Ok(draw_command) = self.batched_draw_command_receiver.try_recv() {
+            draw_commands.extend(draw_command);
+        }
+
+        let mut font_changed = false;
+
+        let settings = SETTINGS.get::<RendererSettings>();
+
+        for draw_command in draw_commands.into_iter() {
+            if let DrawCommand::FontChanged(_) | DrawCommand::LineSpaceChanged(_) = draw_command {
+                font_changed = true;
+            }
+            self.handle_draw_command(draw_command, &settings);
+        }
+
+        let user_scale_factor = SETTINGS.get::<WindowSettings>().scale_factor.into();
+        if user_scale_factor != self.user_scale_factor {
+            self.user_scale_factor = user_scale_factor;
+            self.grid_renderer
+                .handle_scale_factor_update(self.os_scale_factor * self.user_scale_factor);
+            font_changed = true;
+        }
 
         font_changed
     }

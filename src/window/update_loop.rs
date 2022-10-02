@@ -103,6 +103,8 @@ impl UpdateLoop {
 
         if frame_start - self.previous_frame_start > frame_duration {
             let dt = self.previous_frame_start.elapsed().as_secs_f32();
+            window_wrapper.prepare_frame();
+            window_wrapper.animate_frame(dt);
             window_wrapper.draw_frame(dt);
             if let FocusedState::UnfocusedNotDrawn = self.focused {
                 self.focused = FocusedState::Unfocused;

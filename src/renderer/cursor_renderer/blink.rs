@@ -1,6 +1,4 @@
-use std::time::{Duration, Instant};
-
-use crate::{editor::Cursor, redraw_scheduler::REDRAW_SCHEDULER};
+use crate::editor::Cursor;
 
 #[derive(Debug)]
 pub enum BlinkState {
@@ -11,68 +9,74 @@ pub enum BlinkState {
 
 pub struct BlinkStatus {
     state: BlinkState,
-    last_transition: Instant,
-    previous_cursor: Option<Cursor>,
+    transition_left: f32,
+    current_cursor: Option<Cursor>,
+}
+
+fn is_static(cursor: &Cursor) -> bool {
+    // The documentations says that if any state is zero there's no blinking
+    cursor.blinkwait == Some(0)
+        || cursor.blinkwait.is_none()
+        || cursor.blinkoff == Some(0)
+        || cursor.blinkoff.is_none()
+        || cursor.blinkon == Some(0)
+        || cursor.blinkon.is_none()
 }
 
 impl BlinkStatus {
     pub fn new() -> BlinkStatus {
         BlinkStatus {
             state: BlinkState::Waiting,
-            last_transition: Instant::now(),
-            previous_cursor: None,
+            transition_left: 0.0,
+            current_cursor: None,
         }
     }
 
-    pub fn update_status(&mut self, new_cursor: &Cursor) -> bool {
-        if self.previous_cursor.is_none() || new_cursor != self.previous_cursor.as_ref().unwrap() {
-            self.previous_cursor = Some(new_cursor.clone());
-            self.last_transition = Instant::now();
+    fn get_delay(&self) -> f32 {
+        let delay_ms = if let Some(c) = &self.current_cursor {
+            match self.state {
+                BlinkState::Waiting => c.blinkwait.unwrap_or(0),
+                BlinkState::Off => c.blinkoff.unwrap_or(0),
+                BlinkState::On => c.blinkon.unwrap_or(0),
+            }
+        } else {
+            0
+        };
+        (delay_ms as f32) / 1000.0
+    }
+
+    pub fn update_status(&mut self, new_cursor: &Cursor, dt: f32) {
+        if self.current_cursor.is_none() || new_cursor != self.current_cursor.as_ref().unwrap() {
+            self.current_cursor = Some(new_cursor.clone());
             if new_cursor.blinkwait.is_some() && new_cursor.blinkwait != Some(0) {
                 self.state = BlinkState::Waiting;
             } else {
                 self.state = BlinkState::On;
             }
+            // Note we decrement by dt below, so add dt here to ensure that we wait long enough
+            self.transition_left = self.get_delay() + dt;
         }
 
-        if new_cursor.blinkwait == Some(0)
-            || new_cursor.blinkoff == Some(0)
-            || new_cursor.blinkon == Some(0)
-        {
-            return true;
+        let current_cursor = self.current_cursor.as_ref().unwrap();
+
+        if is_static(current_cursor) {
+            self.state = BlinkState::On;
+            self.transition_left = 0.0;
+        } else {
+            self.transition_left -= dt;
+
+            if self.transition_left <= 0.0 {
+                self.state = match self.state {
+                    BlinkState::Waiting => BlinkState::On,
+                    BlinkState::On => BlinkState::Off,
+                    BlinkState::Off => BlinkState::On,
+                };
+                self.transition_left = self.get_delay();
+            }
         }
+    }
 
-        let delay = match self.state {
-            BlinkState::Waiting => new_cursor.blinkwait,
-            BlinkState::Off => new_cursor.blinkoff,
-            BlinkState::On => new_cursor.blinkon,
-        }
-        .filter(|millis| *millis > 0)
-        .map(Duration::from_millis);
-
-        if delay
-            .map(|delay| self.last_transition + delay < Instant::now())
-            .unwrap_or(false)
-        {
-            self.state = match self.state {
-                BlinkState::Waiting => BlinkState::On,
-                BlinkState::On => BlinkState::Off,
-                BlinkState::Off => BlinkState::On,
-            };
-            self.last_transition = Instant::now();
-        }
-
-        let scheduled_frame = (match self.state {
-            BlinkState::Waiting => new_cursor.blinkwait,
-            BlinkState::Off => new_cursor.blinkoff,
-            BlinkState::On => new_cursor.blinkon,
-        })
-        .map(|delay| self.last_transition + Duration::from_millis(delay));
-
-        if let Some(scheduled_frame) = scheduled_frame {
-            REDRAW_SCHEDULER.schedule(scheduled_frame);
-        }
-
+    pub fn should_render(&self) -> bool {
         match self.state {
             BlinkState::Off => false,
             BlinkState::On | BlinkState::Waiting => true,
