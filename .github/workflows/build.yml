@@ -9,6 +9,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  VERSION: 0.10.1
 
 jobs:
   build-windows:
@@ -189,7 +190,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get -qq install -y \
-            curl gnupg ca-certificates git gcc-multilib g++-multilib cmake libssl-dev pkg-config libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev libxi-dev\
+            curl gnupg ca-certificates git gcc-multilib g++-multilib cmake \
+            libssl-dev pkg-config libfreetype6-dev libasound2-dev \
+            libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev \
+            libxi-dev appstream \
             neovim
 
       - name: Test
@@ -214,7 +218,21 @@ jobs:
           strip neovide
           tar czvf neovide.tar.gz neovide
 
-      - uses: actions/upload-artifact@v1
+      - name: Create AppImage
+        run: |
+          curl -Lo linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20220822-1/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy
+          ./linuxdeploy \
+            --executable=target/release/neovide \
+            --desktop-file=assets/neovide.desktop \
+            --appdir=target/release/AppDir \
+            --icon-file=assets/neovide.svg \
+            --output=appimage
+
+      - uses: actions/upload-artifact@v3
         with:
-          name: neovide-linux.tar.gz
-          path: ./target/release/neovide.tar.gz
+          name: neovide-linux
+          path: |
+            target/release/neovide.tar.gz
+            Neovide_(nvim)-*.AppImage
+
