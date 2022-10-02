@@ -12,7 +12,6 @@ use crate::{
     dimensions::Dimensions,
     editor::Style,
     profiling::tracy_zone,
-    redraw_scheduler::REDRAW_SCHEDULER,
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
 };
 
@@ -208,7 +207,7 @@ impl RenderedWindow {
         Rect::from_point_and_size(current_pixel_position, image_size)
     }
 
-    pub fn update(&mut self, settings: &RendererSettings, dt: f32) -> bool {
+    pub fn animate(&mut self, settings: &RendererSettings, dt: f32) -> bool {
         let mut animating = false;
 
         {
@@ -310,12 +309,7 @@ impl RenderedWindow {
         settings: &RendererSettings,
         default_background: Color,
         font_dimensions: Dimensions,
-        dt: f32,
     ) -> WindowDrawDetails {
-        if self.update(settings, dt) {
-            REDRAW_SCHEDULER.queue_next_frame();
-        }
-
         let has_transparency = self.draw_surface(font_dimensions, default_background);
 
         let pixel_region = self.pixel_region(font_dimensions);

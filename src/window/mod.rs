@@ -201,6 +201,29 @@ impl WinitWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         tracy_zone!("draw_frame");
+        if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
+            self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
+            {
+                tracy_gpu_zone!("skia flush");
+                self.skia_renderer.gr_context.flush(None);
+            }
+            {
+                tracy_gpu_zone!("swap buffers");
+                self.windowed_context.swap_buffers().unwrap();
+            }
+            emit_frame_mark();
+            tracy_gpu_collect();
+        }
+    }
+
+    pub fn animate_frame(&mut self, dt: f32) -> bool {
+        tracy_zone!("animate_frame", 0);
+        self.renderer.animate_frame(dt)
+    }
+
+    pub fn prepare_frame(&mut self) {
+        tracy_zone!("prepare_frame", 0);
+
         let window = self.windowed_context.window();
 
         let window_settings = SETTINGS.get::<WindowSettings>();
@@ -225,20 +248,9 @@ impl WinitWindowWrapper {
             self.skia_renderer.resize(&self.windowed_context);
         }
 
-        if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
-            self.font_changed_last_frame =
-                self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
-            {
-                tracy_gpu_zone!("skia flush");
-                self.skia_renderer.gr_context.flush(None);
-            }
-            {
-                tracy_gpu_zone!("swap buffers");
-                self.windowed_context.swap_buffers().unwrap();
-            }
-            emit_frame_mark();
-            tracy_gpu_collect();
-        }
+        self.font_changed_last_frame = self
+            .renderer
+            .handle_draw_commands(self.skia_renderer.canvas());
 
         // Wait until fonts are loaded, so we can set proper window size.
         if !self.renderer.grid_renderer.is_ready {
@@ -497,6 +509,8 @@ pub fn create_window() {
                 //let frame_duration = Duration::from_secs_f32(expected_frame_length_seconds);
 
                 let dt = previous_frame_start.elapsed().as_secs_f32();
+                window_wrapper.prepare_frame();
+                window_wrapper.animate_frame(dt);
                 window_wrapper.draw_frame(dt);
                 if let FocusedState::UnfocusedNotDrawn = focused {
                     focused = FocusedState::Unfocused;

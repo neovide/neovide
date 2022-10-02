@@ -10,7 +10,6 @@ use crate::{
     bridge::EditorMode,
     editor::{Cursor, CursorShape},
     profiling::tracy_zone,
-    redraw_scheduler::REDRAW_SCHEDULER,
     renderer::animation_utils::*,
     renderer::{GridRenderer, RenderedWindow},
     settings::{ParseFromValue, SETTINGS},
@@ -272,26 +271,82 @@ impl CursorRenderer {
         }
     }
 
-    pub fn draw(
-        &mut self,
-        grid_renderer: &mut GridRenderer,
-        current_mode: &EditorMode,
-        canvas: &mut Canvas,
-        dt: f32,
-    ) {
+    pub fn draw(&mut self, grid_renderer: &mut GridRenderer, canvas: &mut Canvas) {
         tracy_zone!("cursor_draw");
-        let render = self.blink_status.update_status(&self.cursor);
+        let render = self.blink_status.should_render();
+        let settings = SETTINGS.get::<CursorSettings>();
+
+        let mut paint = Paint::new(skia_safe::colors::WHITE, None);
+        paint.set_anti_alias(settings.antialiasing);
+
+        let character = self.cursor.grid_cell.0.clone();
+
+        if !(self.cursor.enabled && render) {
+            return;
+        }
+        // Draw Background
+        let background_color = self
+            .cursor
+            .background(&grid_renderer.default_style.colors)
+            .to_color()
+            .with_a(self.cursor.alpha());
+        paint.set_color(background_color);
+
+        let path = if self.window_has_focus || self.cursor.shape != CursorShape::Block {
+            self.draw_rectangle(canvas, &paint)
+        } else {
+            let outline_width = settings.unfocused_outline_width * grid_renderer.em_size;
+            self.draw_rectangular_outline(canvas, &paint, outline_width)
+        };
+
+        // Draw foreground
+        let foreground_color = self
+            .cursor
+            .foreground(&grid_renderer.default_style.colors)
+            .to_color()
+            .with_a(self.cursor.alpha());
+        paint.set_color(foreground_color);
+
+        canvas.save();
+        canvas.clip_path(&path, None, Some(false));
+
+        let y_adjustment = grid_renderer.shaper.y_adjustment();
+        let style = &self.cursor.grid_cell.1;
+
+        let bold = style.as_ref().map(|x| x.bold).unwrap_or(false);
+        let italic = style.as_ref().map(|x| x.italic).unwrap_or(false);
+
+        let blobs = &grid_renderer.shaper.shape_cached(character, bold, italic);
+
+        for blob in blobs.iter() {
+            canvas.draw_text_blob(
+                blob,
+                (self.destination.x, self.destination.y + y_adjustment as f32),
+                &paint,
+            );
+        }
+
+        canvas.restore();
+
+        if let Some(vfx) = self.cursor_vfx.as_ref() {
+            vfx.render(&settings, canvas, grid_renderer, &self.cursor);
+        }
+    }
+
+    pub fn animate(
+        &mut self,
+        current_mode: &EditorMode,
+        grid_renderer: &GridRenderer,
+        dt: f32,
+    ) -> bool {
+        tracy_zone!("cursor_animate");
+        self.blink_status.update_status(&self.cursor, dt);
         let settings = SETTINGS.get::<CursorSettings>();
 
         if settings.vfx_mode != self.previous_vfx_mode {
             self.cursor_vfx = cursor_vfx::new_cursor_vfx(&settings.vfx_mode);
             self.previous_vfx_mode = settings.vfx_mode.clone();
         }
-
-        let mut paint = Paint::new(skia_safe::colors::WHITE, None);
-        paint.set_anti_alias(settings.antialiasing);
-
-        let character = self.cursor.grid_cell.0.clone();
 
         let mut cursor_width = grid_renderer.font_dimensions.width;
         if self.cursor.double_width && self.cursor.shape == CursorShape::Block {
@@ -353,61 +408,10 @@ impl CursorRenderer {
             animating |= vfx_animating;
         }
 
-        if animating {
-            REDRAW_SCHEDULER.queue_next_frame();
-        } else {
+        if !animating {
             self.previous_editor_mode = current_mode.clone();
         }
-        if !(self.cursor.enabled && render) {
-            return;
-        }
-        // Draw Background
-        let background_color = self
-            .cursor
-            .background(&grid_renderer.default_style.colors)
-            .to_color()
-            .with_a(self.cursor.alpha());
-        paint.set_color(background_color);
-
-        let path = if self.window_has_focus || self.cursor.shape != CursorShape::Block {
-            self.draw_rectangle(canvas, &paint)
-        } else {
-            let outline_width = settings.unfocused_outline_width * grid_renderer.em_size;
-            self.draw_rectangular_outline(canvas, &paint, outline_width)
-        };
-
-        // Draw foreground
-        let foreground_color = self
-            .cursor
-            .foreground(&grid_renderer.default_style.colors)
-            .to_color()
-            .with_a(self.cursor.alpha());
-        paint.set_color(foreground_color);
-
-        canvas.save();
-        canvas.clip_path(&path, None, Some(false));
-
-        let y_adjustment = grid_renderer.shaper.y_adjustment();
-        let style = &self.cursor.grid_cell.1;
-
-        let bold = style.as_ref().map(|x| x.bold).unwrap_or(false);
-        let italic = style.as_ref().map(|x| x.italic).unwrap_or(false);
-
-        let blobs = &grid_renderer.shaper.shape_cached(character, bold, italic);
-
-        for blob in blobs.iter() {
-            canvas.draw_text_blob(
-                blob,
-                (self.destination.x, self.destination.y + y_adjustment as f32),
-                &paint,
-            );
-        }
-
-        canvas.restore();
-
-        if let Some(vfx) = self.cursor_vfx.as_ref() {
-            vfx.render(&settings, canvas, grid_renderer, &self.cursor);
-        }
+        animating
     }
 
     fn draw_rectangle(&self, canvas: &mut Canvas, paint: &Paint) -> Path {

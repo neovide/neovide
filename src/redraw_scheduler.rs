@@ -25,19 +25,6 @@ impl RedrawScheduler {
         }
     }
 
-    pub fn schedule(&self, new_scheduled: Instant) {
-        trace!("Redraw scheduled for {:?}", new_scheduled);
-        let mut scheduled_frame = self.scheduled_frame.lock().unwrap();
-
-        if let Some(previous_scheduled) = *scheduled_frame {
-            if new_scheduled < previous_scheduled {
-                *scheduled_frame = Some(new_scheduled);
-            }
-        } else {
-            *scheduled_frame = Some(new_scheduled);
-        }
-    }
-
     pub fn queue_next_frame(&self) {
         trace!("Next frame queued");
         self.frame_queued.store(true, Ordering::Relaxed);
