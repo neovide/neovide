@@ -214,7 +214,20 @@ jobs:
           strip neovide
           tar czvf neovide.tar.gz neovide
 
+      - name: Create AppImage
+        run: |
+          curl -Lo linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20220822-1/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy
+          ./linuxdeploy \
+            --executable=target/release/neovide \
+            --desktop-file=assets/neovide.desktop \
+            --appdir=target/release/AppDir \
+            --icon-file=assets/neovide.svg \
+            --output=appimage
+
       - uses: actions/upload-artifact@v1
         with:
           name: neovide-linux.tar.gz
-          path: ./target/release/neovide.tar.gz
+          path: |
+            ./target/release/neovide.tar.gz
+            ./Neovide_(nvim)-*.AppImage
