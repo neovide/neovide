@@ -496,6 +496,7 @@ pub fn create_window() {
 
         tracy_create_gpu_context("main render context");
 
+        let max_animation_dt = 1.0 / 120.0;
         let mut focused = FocusedState::Focused;
         let mut prev_frame_start = Instant::now();
 
@@ -528,13 +529,19 @@ pub fn create_window() {
                 window_wrapper.synchronize_settings();
             } else {
                 let frame_start = Instant::now();
-                let dt = prev_frame_start.elapsed().as_secs_f32();
+                let frame_dt = prev_frame_start.elapsed().as_secs_f64();
+                let mut dt = frame_dt;
                 should_render |= window_wrapper.prepare_frame();
-                window_wrapper.animate_frame(dt);
+                while dt > 0.0 {
+                    let step = dt.min(max_animation_dt);
+
+                    window_wrapper.animate_frame(step as f32);
+                    dt -= step;
+                }
                 // Always render for now
                 #[allow(clippy::overly_complex_bool_expr)]
                 if should_render || true {
-                    window_wrapper.draw_frame(dt);
+                    window_wrapper.draw_frame(frame_dt as f32);
                 }
                 if let FocusedState::UnfocusedNotDrawn = focused {
                     focused = FocusedState::Unfocused;

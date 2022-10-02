@@ -234,14 +234,9 @@ impl RenderedWindow {
             let omega = 4.0 / (zeta * settings.scroll_animation_length);
             let k_p = omega * omega;
             let k_d = -2.0 * zeta * omega;
-            let timestep = 0.01;
-            let mut dt = dt;
-            while dt > 0.0 {
-                let acc = k_p * (scroll_destination - self.current_scroll) + k_d * self.scroll_v;
-                self.scroll_v += acc * timestep;
-                self.current_scroll += self.scroll_v * timestep;
-                dt -= timestep;
-            }
+            let acc = k_p * (scroll_destination - self.current_scroll) + k_d * self.scroll_v;
+            self.scroll_v += acc * dt;
+            self.current_scroll += self.scroll_v * dt;
 
             if (self.current_scroll - scroll_destination).abs() < 0.01 {
                 self.reset_scroll();
