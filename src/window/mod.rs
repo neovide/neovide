@@ -344,8 +344,7 @@ pub fn create_window() {
         );
 
     #[cfg(target_os = "macos")]
-    let winit_window_builder = winit_window_builder
-        .with_accepts_first_mouse(false);
+    let winit_window_builder = winit_window_builder.with_accepts_first_mouse(false);
 
     let windowed_context = ContextBuilder::new()
         .with_pixel_format(24, 8)
