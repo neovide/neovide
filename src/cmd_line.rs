@@ -86,7 +86,7 @@ pub struct CmdLineSettings {
     /// The class part of the X11 WM_CLASS property (X only, useful for setting WM rules)
     #[arg(
         long = "x11-wm-class",
-        env = "NEOVIDE_X11_WM_CLASS",
+        env = "NEOVIDE_WM_CLASS",
         default_value = "neovide"
     )]
     pub x11_wm_class: String,
@@ -94,7 +94,7 @@ pub struct CmdLineSettings {
     /// The instance part of the X11 WM_CLASS property (X only, useful for setting WM rules)
     #[arg(
         long = "x11-wm-class-instance",
-        env = "NEOVIDE_X11_WM_CLASS_INSTANCE",
+        env = "NEOVIDE_WM_CLASS_INSTANCE",
         default_value = "neovide"
     )]
     pub x11_wm_class_instance: String,
