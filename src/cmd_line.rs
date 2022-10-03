@@ -39,7 +39,7 @@ pub struct CmdLineSettings {
     #[arg(long)]
     pub wsl: bool,
 
-    /// Which window decorations ("frame") to use (do note that the window might not be resizable
+    /// Which window decorations to use (do note that the window might not be resizable
     /// if this is "none")
     #[arg(long, env = "NEOVIDE_FRAME", default_value_t = Frame::default())]
     pub frame: Frame,
@@ -71,7 +71,7 @@ pub struct CmdLineSettings {
     #[arg(long = "nosrgb", env = "NEOVIDE_NO_SRGB", action = ArgAction::SetFalse)]
     pub srgb: bool,
 
-    // Command-line arguments with environment variable fallback
+    /// Which NeoVim binary to invoke headlessly instead of `nvim` found on $PATH
     #[arg(long = "neovim-bin", env = "NEOVIM_BIN")]
     pub neovim_bin: Option<String>,
 
