@@ -343,6 +343,10 @@ pub fn create_window() {
             cmd_line_settings.x11_wm_class,
         );
 
+    #[cfg(target_os = "macos")]
+    let winit_window_builder = winit_window_builder
+        .with_accepts_first_mouse(false);
+
     let windowed_context = ContextBuilder::new()
         .with_pixel_format(24, 8)
         .with_stencil_buffer(8)
