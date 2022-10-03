@@ -12,7 +12,7 @@ pub struct CmdLineSettings {
         num_args = ..,
         action = ArgAction::Append,
     )]
-    pub files_to_open: Vec<String>, // TODO(multisn8): I want this to be a PathBuf
+    pub files_to_open: Vec<String>, // Can't be a PathBuf since shlex can't operate on bytes
 
     /// Arguments to pass down to NeoVim without interpreting them
     #[arg(
