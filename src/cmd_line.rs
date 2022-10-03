@@ -79,7 +79,7 @@ pub struct CmdLineSettings {
     #[arg(
         long = "wayland_app_id",
         env = "NEOVIDE_APP_ID",
-        default_value_t = String::new(),
+        default_value = "neovide"
     )]
     pub wayland_app_id: String,
 
@@ -87,7 +87,7 @@ pub struct CmdLineSettings {
     #[arg(
         long = "x11-wm-class",
         env = "NEOVIDE_X11_WM_CLASS",
-        default_value_t = String::new(),
+        default_value = "neovide"
     )]
     pub x11_wm_class: String,
 
@@ -95,7 +95,7 @@ pub struct CmdLineSettings {
     #[arg(
         long = "x11-wm-class-instance",
         env = "NEOVIDE_X11_WM_CLASS_INSTANCE",
-        default_value_t = String::new(),
+        default_value = "neovide"
     )]
     pub x11_wm_class_instance: String,
 }
