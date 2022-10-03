@@ -1,13 +1,32 @@
-use std::ops::{Div, Mul};
+use std::{
+    fmt::Display,
+    ops::{Div, Mul},
+    str::FromStr,
+};
 
 use glutin::dpi::PhysicalSize;
 use serde::{Deserialize, Serialize};
+
+use crate::settings;
 
 // Maybe this should be independent from serialization?
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Dimensions {
     pub width: u64,
     pub height: u64,
+}
+
+impl FromStr for Dimensions {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        settings::parse_window_geometry(Some(s.to_string()))
+    }
+}
+
+impl Display for Dimensions {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}x{}", self.width, self.height)
+    }
 }
 
 macro_rules! impl_from_tuple_to_dimensions {
