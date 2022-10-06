@@ -261,9 +261,7 @@ impl GlutinWindowWrapper {
     }
 
     fn handle_scale_factor_update(&mut self, scale_factor: f64) {
-        self.renderer
-            .grid_renderer
-            .handle_scale_factor_update(scale_factor);
+        self.renderer.handle_os_scale_factor_change(scale_factor);
         EVENT_AGGREGATOR.send(EditorCommand::RedrawScreen);
     }
 
