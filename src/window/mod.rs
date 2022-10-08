@@ -350,11 +350,11 @@ pub fn create_window() {
         .with_pixel_format(24, 8)
         .with_stencil_buffer(8)
         .with_gl_profile(GlProfile::Core)
-        .with_srgb(cmd_line_settings.srgb);
+        .with_srgb(cmd_line_settings.srgb)
+        .with_vsync(cmd_line_settings.vsync);
 
     let windowed_context = match builder
         .clone()
-        .with_vsync(cmd_line_settings.vsync)
         .build_windowed(winit_window_builder.clone(), &event_loop)
     {
         Ok(ctx) => ctx,
