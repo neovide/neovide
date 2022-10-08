@@ -400,6 +400,7 @@ to your <code>PATH</code> environment variable.</p>
 <h2 id="global-vim-settings"><a class="header" href="#global-vim-settings">Global Vim Settings</a></h2>
 <p>Neovide supports settings via global variables with a neovide prefix. They enable configuring many
 parts of the editor and support dynamically changing them at runtime.</p>
+<h3 id="initvim-helpers"><a class="header" href="#initvim-helpers"><code>init.vim</code> helpers</a></h3>
 <h4 id="hello-is-this-neovide"><a class="header" href="#hello-is-this-neovide">Hello, is this Neovide?</a></h4>
 <p>Not really a configuration option, but <code>g:neovide</code> only exists and is set to <code>v:true</code> if this Neovim
 is in Neovide. It's not set else. Useful for configuring things only for Neovide in your <code>init.vim</code>:</p>
@@ -510,10 +511,6 @@ not mean better FPS.</p>
 <p>Setting <code>g:neovide_refresh_rate_idle</code> to a positive integer will set the refresh rate of the app when
 it is not in focus.</p>
 <p>This might not have an effect on every platform (e.g. Wayland).</p>
-<h4 id="scroll-animation-length-1"><a class="header" href="#scroll-animation-length-1">Scroll Animation Length</a></h4>
-<pre><code class="language-vim">let g:neovide_scroll_animation_length = 0.3
-</code></pre>
-<p>Sets how long the scroll animation takes to complete, measured in seconds.</p>
 <h4 id="no-idle"><a class="header" href="#no-idle">No Idle</a></h4>
 <pre><code class="language-vim">let g:neovide_no_idle = v:true
 </code></pre>
