@@ -81,10 +81,14 @@ pub struct Renderer {
 
     pub batched_draw_command_receiver: UnboundedReceiver<Vec<DrawCommand>>,
     profiler: profiler::Profiler,
+    os_scale_factor: f64,
+    user_scale_factor: f64,
 }
 
 impl Renderer {
-    pub fn new(scale_factor: f64) -> Self {
+    pub fn new(os_scale_factor: f64) -> Self {
+        let user_scale_factor = SETTINGS.get::<WindowSettings>().scale_factor.into();
+        let scale_factor = user_scale_factor * os_scale_factor;
         let cursor_renderer = CursorRenderer::new();
         let grid_renderer = GridRenderer::new(scale_factor);
         let current_mode = EditorMode::Unknown(String::from(""));
@@ -103,6 +107,8 @@ impl Renderer {
             window_regions,
             batched_draw_command_receiver,
             profiler,
+            os_scale_factor,
+            user_scale_factor,
         }
     }
 
@@ -141,6 +147,14 @@ impl Renderer {
         root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
         root_canvas.save();
         root_canvas.reset_matrix();
+
+        let user_scale_factor = SETTINGS.get::<WindowSettings>().scale_factor.into();
+        if user_scale_factor != self.user_scale_factor {
+            self.user_scale_factor = user_scale_factor;
+            self.grid_renderer
+                .handle_scale_factor_update(self.os_scale_factor * self.user_scale_factor);
+            font_changed = true;
+        }
 
         if let Some(root_window) = self.rendered_windows.get(&1) {
             let clip_rect = root_window.pixel_region(font_dimensions);
@@ -194,6 +208,12 @@ impl Renderer {
         root_canvas.restore();
 
         font_changed
+    }
+
+    pub fn handle_os_scale_factor_change(&mut self, os_scale_factor: f64) {
+        self.os_scale_factor = os_scale_factor;
+        self.grid_renderer
+            .handle_scale_factor_update(self.os_scale_factor * self.user_scale_factor);
     }
 
     fn handle_draw_command(&mut self, root_canvas: &mut Canvas, draw_command: DrawCommand) {

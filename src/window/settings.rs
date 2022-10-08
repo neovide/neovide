@@ -6,6 +6,7 @@ pub struct WindowSettings {
     pub refresh_rate_idle: u64,
     pub no_idle: bool,
     pub transparency: f32,
+    pub scale_factor: f32,
     pub fullscreen: bool,
     pub iso_layout: bool,
     pub remember_window_size: bool,
@@ -21,6 +22,7 @@ impl Default for WindowSettings {
     fn default() -> Self {
         Self {
             transparency: 1.0,
+            scale_factor: 1.0,
             fullscreen: false,
             iso_layout: false,
             refresh_rate: 60,
