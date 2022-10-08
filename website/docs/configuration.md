@@ -5,6 +5,8 @@
 Neovide supports settings via global variables with a neovide prefix. They enable configuring many
 parts of the editor and support dynamically changing them at runtime.
 
+### `init.vim` helpers
+
 #### Hello, is this Neovide?
 
 Not really a configuration option, but `g:neovide` only exists and is set to `v:true` if this Neovim
@@ -159,14 +161,6 @@ Setting `g:neovide_refresh_rate_idle` to a positive integer will set the refresh
 it is not in focus.
 
 This might not have an effect on every platform (e.g. Wayland).
-
-#### Scroll Animation Length
-
-```vim
-let g:neovide_scroll_animation_length = 0.3
-```
-
-Sets how long the scroll animation takes to complete, measured in seconds.
 
 #### No Idle
 
