@@ -400,7 +400,6 @@ to your <code>PATH</code> environment variable.</p>
 <h2 id="global-vim-settings"><a class="header" href="#global-vim-settings">Global Vim Settings</a></h2>
 <p>Neovide supports settings via global variables with a neovide prefix. They enable configuring many
 parts of the editor and support dynamically changing them at runtime.</p>
-<h3 id="functionality"><a class="header" href="#functionality">Functionality</a></h3>
 <h4 id="hello-is-this-neovide"><a class="header" href="#hello-is-this-neovide">Hello, is this Neovide?</a></h4>
 <p>Not really a configuration option, but <code>g:neovide</code> only exists and is set to <code>v:true</code> if this Neovim
 is in Neovide. It's not set else. Useful for configuring things only for Neovide in your <code>init.vim</code>:</p>
@@ -408,27 +407,52 @@ is in Neovide. It's not set else. Useful for configuring things only for Neovide
     &quot; Put anything you want to happen only in Neovide here
 endif
 </code></pre>
-<h4 id="refresh-rate"><a class="header" href="#refresh-rate">Refresh Rate</a></h4>
-<pre><code class="language-vim">let g:neovide_refresh_rate=60
+<h3 id="display"><a class="header" href="#display">Display</a></h3>
+<h4 id="font"><a class="header" href="#font">Font</a></h4>
+<pre><code class="language-vim">set guifont=Fira\ Code\ Nerd\ Font:h14
 </code></pre>
-<p>Setting <code>g:neovide_refresh_rate</code> to a positive integer will set the refresh rate of the app. This is
-limited by the refresh rate of your physical hardware, but can be lowered to increase battery life.</p>
-<h4 id="idle-refresh-rate"><a class="header" href="#idle-refresh-rate">Idle Refresh Rate</a></h4>
-<pre><code class="language-vim">let g:neovide_refresh_rate_idle=5
+<p>Controls the font used by Neovide. Only setting which is actually controlled through an option, and
+as such it's also documented in <code>:h guifont</code>. But to sum it up and also add Neovide's extension:</p>
+<ul>
+<li>The basic format is <code>Primary\ Font,Fallback\ Font\ 1,Fallback\ Font\ 2:option1:option2:option3</code>,
+while you can have as many fallback fonts as you want (even 0) and as many options as you want
+(also even 0).</li>
+<li>Fonts
+<ul>
+<li>are separated with <code>,</code> (commas).</li>
+<li>can contain spaces by either escaping them or using <code>_</code> (underscores).</li>
+</ul>
+</li>
+<li>Options
+<ul>
+<li>apply to all fonts at once.</li>
+<li>are separated from the fonts and themselves through <code>:</code> (colons).</li>
+<li>can be one of the following:
+<ul>
+<li><code>hX</code> — Sets the font size to <code>X</code> points, while <code>X</code> can be any (even floating-point) number.</li>
+<li><code>b</code> — Sets the font <strong>bold</strong>.</li>
+<li><code>i</code> — Sets the font <em>italic</em>.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>Some examples:
+<ul>
+<li><code>Hack,Noto_Color_Emoji:h12:b</code> — Hack at size 12 in bold, with Noto Color Emoji as fallback
+should Hack fail to contain any glyph.</li>
+<li><code>Roboto_Mono_Light:h10</code> — Roboto Mono Light at size 10.</li>
+</ul>
+</li>
+</ul>
+<h4 id="scale"><a class="header" href="#scale">Scale</a></h4>
+<pre><code class="language-vim">let g:neovide_scale_factor = 1.0
 </code></pre>
-<p><strong>Available since 0.10.</strong></p>
-<p>Setting <code>g:neovide_refresh_rate_idle</code> to a positive integer will set the refresh rate of the app when
-it is not in focus.</p>
-<p>This might not have an effect on every platform (e.g. Wayland).</p>
-<h4 id="transparency"><a class="header" href="#transparency">Transparency</a></h4>
-<pre><code class="language-vim">let g:neovide_transparency=0.8
-</code></pre>
-<p><img src="assets/Transparency.png" alt="Transparency" /></p>
-<p>Setting <code>g:neovide_transparency</code> to a value between 0.0 and 1.0 will set the opacity of the window
-to that value.</p>
+<p>In addition to setting the font itself, this setting allows to change the scale without changing the
+whole font definition. Very useful for presentations. See <a href="faq.html#how-can-i-dynamically-change-the-scale-at-runtime">the FAQ section about
+this</a> for a nice recipe to bind this to a hotkey.</p>
 <h4 id="background-color-currently-macos-only"><a class="header" href="#background-color-currently-macos-only">Background Color (Currently macOS only)</a></h4>
 <pre><code class="language-vim">&quot; g:neovide_transparency should be 0 if you want to unify transparency of content and title bar.
-let g:neovide_transparency=0.0
+let g:neovide_transparency = 0.0
 let g:transparency = 0.8
 let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:transparency))
 </code></pre>
@@ -446,28 +470,66 @@ let g:neovide_floating_blur_amount_y = 2.0
 <p><strong>Available since 0.9.</strong></p>
 <p>Setting <code>g:neovide_floating_blur_amount_x</code> and <code>g:neovide_floating_blur_amount_y</code> controls the blur
 radius on the respective axis for floating windows.</p>
+<h4 id="transparency"><a class="header" href="#transparency">Transparency</a></h4>
+<pre><code class="language-vim">let g:neovide_transparency = 0.8
+</code></pre>
+<p><img src="assets/Transparency.png" alt="Transparency" /></p>
+<p>Setting <code>g:neovide_transparency</code> to a value between 0.0 and 1.0 will set the opacity of the window
+to that value.</p>
 <h4 id="scroll-animation-length"><a class="header" href="#scroll-animation-length">Scroll Animation Length</a></h4>
 <pre><code class="language-vim">let g:neovide_scroll_animation_length = 0.3
 </code></pre>
 <p>Sets how long the scroll animation takes to complete, measured in seconds.</p>
+<h4 id="hiding-the-mouse-when-typing"><a class="header" href="#hiding-the-mouse-when-typing">Hiding the mouse when typing</a></h4>
+<pre><code class="language-vim">let g:neovide_hide_mouse_when_typing = v:false
+</code></pre>
+<p>By setting this to <code>v:true</code>, the mouse will be hidden as soon as you start typing. This setting
+only affects the mouse if it is currently within the bounds of the neovide window. Moving the
+mouse makes it visible again.</p>
+<h4 id="underline-automatic-scaling"><a class="header" href="#underline-automatic-scaling">Underline automatic scaling</a></h4>
+<pre><code class="language-vim">let g:neovide_underline_automatic_scaling = v:false
+</code></pre>
+<p><strong>Available since 0.10.</strong></p>
+<p>Setting <code>g:neovide_underline_automatic_scaling</code> to a boolean value determines whether automatic
+scaling of text underlines (including undercurl, underdash, etc.) is enabled. Noticeable for font
+sizes above 15.</p>
+<p><strong>Note</strong>: This is currently glitchy, and leads to some underlines being clipped by the line of text
+below.</p>
+<h3 id="functionality"><a class="header" href="#functionality">Functionality</a></h3>
+<h4 id="refresh-rate"><a class="header" href="#refresh-rate">Refresh Rate</a></h4>
+<pre><code class="language-vim">let g:neovide_refresh_rate = 60
+</code></pre>
+<p>Setting <code>g:neovide_refresh_rate</code> to a positive integer will set the refresh rate of the app. This is
+limited by the refresh rate of your physical hardware, but can be lowered to increase battery life.</p>
+<p>Also do note that Neovide's frame pacing is far from optimal at the moment, so better hardware might
+not mean better FPS.</p>
+<h4 id="idle-refresh-rate"><a class="header" href="#idle-refresh-rate">Idle Refresh Rate</a></h4>
+<pre><code class="language-vim">let g:neovide_refresh_rate_idle = 5
+</code></pre>
+<p><strong>Available since 0.10.</strong></p>
+<p>Setting <code>g:neovide_refresh_rate_idle</code> to a positive integer will set the refresh rate of the app when
+it is not in focus.</p>
+<p>This might not have an effect on every platform (e.g. Wayland).</p>
+<h4 id="scroll-animation-length-1"><a class="header" href="#scroll-animation-length-1">Scroll Animation Length</a></h4>
+<pre><code class="language-vim">let g:neovide_scroll_animation_length = 0.3
+</code></pre>
+<p>Sets how long the scroll animation takes to complete, measured in seconds.</p>
 <h4 id="no-idle"><a class="header" href="#no-idle">No Idle</a></h4>
-<pre><code class="language-vim">let g:neovide_no_idle=v:true
+<pre><code class="language-vim">let g:neovide_no_idle = v:true
 </code></pre>
 <p>Setting <code>g:neovide_no_idle</code> to a boolean value will force neovide to redraw all the time. This can
 be a quick hack if animations appear to stop too early.</p>
+<h4 id="confirm-quit"><a class="header" href="#confirm-quit">Confirm Quit</a></h4>
+<pre><code class="language-vim">let g:neovide_confirm_quit = v:true
+</code></pre>
+<p>If set to <code>true</code>, quitting while having unsaved changes will require confirmation. Enabled by
+default.</p>
 <h4 id="fullscreen"><a class="header" href="#fullscreen">Fullscreen</a></h4>
-<pre><code class="language-vim">let g:neovide_fullscreen=v:true
+<pre><code class="language-vim">let g:neovide_fullscreen = v:true
 </code></pre>
 <p>Setting <code>g:neovide_fullscreen</code> to a boolean value will set whether the app should take up the entire
 screen. This uses the so called &quot;windowed fullscreen&quot; mode that is sometimes used in games which
 want quick window switching.</p>
-<h4 id="confirm-quit"><a class="header" href="#confirm-quit">Confirm Quit</a></h4>
-<pre><code class="language-vim">let g:neovide_confirm_quit=v:false
-&quot; or
-let g:neovide_confirm_quit=0
-</code></pre>
-<p>If set to <code>true</code>, quitting while having unsaved changes will require confirmation.
-Enabled by default.</p>
 <h4 id="remember-previous-window-size"><a class="header" href="#remember-previous-window-size">Remember Previous Window Size</a></h4>
 <pre><code class="language-vim">let g:neovide_remember_window_size = v:true
 </code></pre>
@@ -479,24 +541,9 @@ from the previous session or the default size will be used on startup. The comma
 </code></pre>
 <p>Setting this to <code>v:true</code> enables the profiler, which shows a frametime graph in the upper left
 corner.</p>
-<h4 id="underline-automatic-scaling"><a class="header" href="#underline-automatic-scaling">Underline automatic scaling</a></h4>
-<pre><code class="language-vim">let g:neovide_underline_automatic_scaling = v:false
-</code></pre>
-<p><strong>Available since 0.10.</strong></p>
-<p>Setting <code>g:neovide_underline_automatic_scaling</code> to a boolean value determines whether automatic
-scaling of text underlines (including undercurl, underdash, etc.) is enabled. Noticeable for font
-sizes above 15.</p>
-<p><strong>Note</strong>: This is currently glitchy, and leads to some underlines being clipped by the line of text
-below.</p>
-<h4 id="hiding-the-mouse-when-typing"><a class="header" href="#hiding-the-mouse-when-typing">Hiding the mouse when typing</a></h4>
-<pre><code class="language-vim">let g:neovide_hide_mouse_when_typing = v:false
-</code></pre>
-<p>By setting this to <code>v:true</code>, the mouse will be hidden as soon as you start typing. This setting
-only affects the mouse if it is currently within the bounds of the neovide window. Moving the
-mouse makes it visible again.</p>
 <h3 id="input-settings"><a class="header" href="#input-settings">Input Settings</a></h3>
 <h4 id="use-logo-key"><a class="header" href="#use-logo-key">Use Logo Key</a></h4>
-<pre><code class="language-vim">let g:neovide_input_use_logo=v:false  &quot; v:true on macOS
+<pre><code class="language-vim">let g:neovide_input_use_logo = v:false  &quot; v:true on macOS
 </code></pre>
 <p>Setting <code>g:neovide_input_use_logo</code> to a boolean value will change how logo key (also known as
 <a href="https://en.wikipedia.org/wiki/Super_key_(keyboard_button)">super key</a>,
@@ -506,13 +553,13 @@ containing logo to be forwarded to neovim. On MacOS, this defaults to <code>true
 works for pasting with respective setup of <code>init.vim</code>), and to <code>false</code> for other platforms (that
 typically use e.g. <code>ctrl+v</code> for pasting).</p>
 <h4 id="macos-alt-is-meta"><a class="header" href="#macos-alt-is-meta">macOS Alt is Meta</a></h4>
-<pre><code class="language-vim">let g:neovide_input_macos_alt_is_meta=v:false
+<pre><code class="language-vim">let g:neovide_input_macos_alt_is_meta = v:false
 </code></pre>
 <p><strong>Available since 0.10.</strong></p>
 <p>Interprets <kbd>Alt</kbd> + <kbd>whatever</kbd> actually as <code>&lt;M-whatever&gt;</code>, instead of sending the
 actual special character to Neovim.</p>
 <h4 id="touch-deadzone"><a class="header" href="#touch-deadzone">Touch Deadzone</a></h4>
-<pre><code class="language-vim">let g:neovide_touch_deadzone=6.0
+<pre><code class="language-vim">let g:neovide_touch_deadzone = 6.0
 </code></pre>
 <p>Setting <code>g:neovide_touch_deadzone</code> to a value equal or higher than 0.0 will set how many pixels the
 finger must move away from the start position when tapping on the screen for the touch to be
@@ -522,7 +569,7 @@ be interpreted as tap gesture and the cursor will move there.</p>
 <p>A value lower than 0.0 will cause this feature to be disabled and <em>all</em> touch events will be
 interpreted as scroll gesture.</p>
 <h4 id="touch-drag-timeout"><a class="header" href="#touch-drag-timeout">Touch Drag Timeout</a></h4>
-<pre><code class="language-vim">let g:neovide_touch_drag_timeout=0.17
+<pre><code class="language-vim">let g:neovide_touch_drag_timeout = 0.17
 </code></pre>
 <p>Setting <code>g:neovide_touch_drag_timeout</code> will affect how many seconds the cursor has to stay inside
 <code>g:neovide_touch_deadzone</code> in order to begin &quot;dragging&quot;</p>
@@ -545,16 +592,16 @@ it's animation in seconds. Set to <code>0</code> to disable.</p>
 &nbsp; &nbsp;
   <img alt="Long Cursor Trail Length", src="./assets/LongCursorTrailLength.gif" width="47%">
 </p>
-<pre><code class="language-vim">let g:neovide_cursor_trail_size=0.8
+<pre><code class="language-vim">let g:neovide_cursor_trail_size = 0.8
 </code></pre>
 <p>Setting <code>g:neovide_cursor_trail_size</code> determines how much the trail of the cursor lags behind the
 front edge.</p>
 <h4 id="antialiasing"><a class="header" href="#antialiasing">Antialiasing</a></h4>
-<pre><code class="language-vim">let g:neovide_cursor_antialiasing=v:true
+<pre><code class="language-vim">let g:neovide_cursor_antialiasing = v:true
 </code></pre>
 <p>Enables or disables antialiasing of the cursor quad. Disabling may fix some cursor visual issues.</p>
 <h4 id="unfocused-outline-width"><a class="header" href="#unfocused-outline-width">Unfocused Outline Width</a></h4>
-<pre><code class="language-vim">let g:neovide_cursor_unfocused_outline_width=0.125
+<pre><code class="language-vim">let g:neovide_cursor_unfocused_outline_width = 0.125
 </code></pre>
 <p>Specify cursor outline width in <code>em</code>s. You probably want this to be a positive value less than 0.5.
 If the value is &lt;=0 then the cursor will be invisible. This setting takes effect when the editor
@@ -594,29 +641,29 @@ enabled by setting <code>g:neovide_cursor_vfx_mode</code> to one of the followin
 <h3 id="particle-settings"><a class="header" href="#particle-settings">Particle Settings</a></h3>
 <p>Options for configuring the particle generation and behavior.</p>
 <h4 id="particle-opacity"><a class="header" href="#particle-opacity">Particle Opacity</a></h4>
-<pre><code class="language-vim">let g:neovide_cursor_vfx_opacity=200.0
+<pre><code class="language-vim">let g:neovide_cursor_vfx_opacity = 200.0
 </code></pre>
 <p>Sets the transparency of the generated particles.</p>
 <h4 id="particle-lifetime"><a class="header" href="#particle-lifetime">Particle Lifetime</a></h4>
-<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_lifetime=1.2
+<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_lifetime = 1.2
 </code></pre>
 <p>Sets the amount of time the generated particles should survive.</p>
 <h4 id="particle-density"><a class="header" href="#particle-density">Particle Density</a></h4>
-<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_density=7.0
+<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_density = 7.0
 </code></pre>
 <p>Sets the number of generated particles.</p>
 <h4 id="particle-speed"><a class="header" href="#particle-speed">Particle Speed</a></h4>
-<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_speed=10.0
+<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_speed = 10.0
 </code></pre>
 <p>Sets the speed of particle movement.</p>
 <h4 id="particle-phase"><a class="header" href="#particle-phase">Particle Phase</a></h4>
-<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_phase=1.5
+<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_phase = 1.5
 </code></pre>
 <p>Only for the <code>railgun</code> vfx mode.</p>
 <p>Sets the mass movement of particles, or how individual each one acts. The higher the value, the less
 particles rotate in accordance to each other, the lower, the more line-wise all particles become.</p>
 <h4 id="particle-curl"><a class="header" href="#particle-curl">Particle Curl</a></h4>
-<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_curl=1.0
+<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_curl = 1.0
 </code></pre>
 <p>Only for the <code>railgun</code> vfx mode.</p>
 <p>Sets the velocity rotation speed of particles. The higher, the less particles actually move and look
@@ -730,13 +777,32 @@ your own responsibility.</em></p>
 before startup by <a href="https://en.wikipedia.org/wiki/Fork_(system_call)">forking</a>.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h1>
 <ul>
-<li>Neovide requires that a font be set in <code>init.vim</code> otherwise errors might be encountered. This can
+<li>
+<p>Should Neovide happen not to start at all, check the following:</p>
+<ul>
+<li>
+<p>if you're using zsh <code>~/.zshenv</code>, <code>~/.zprofile</code> and  <code>~/.zlogin</code>, or whatever the equivalent for
+your shell is if anything emits output during shell startup, since Neovide uses your shell to
+find <code>nvim</code>. You can instead use <code>~/.zshrc</code>.</p>
+</li>
+<li>
+<p>whether you can reproduce this by running from the latest git main commit.
+This can be done by running from source or just grabbing the binary from the <a href="https://github.com/neovide/neovide/actions/workflows/build.yml"><code>Actions</code> tab on
+GitHub</a>.</p>
+</li>
+</ul>
+</li>
+<li>
+<p>Neovide requires that a font be set in <code>init.vim</code> otherwise errors might be encountered. This can
 be fixed by adding <code>set guifont=Your\ Font\ Name:h15</code> in init.vim file. Reference issue
-<a href="https://github.com/neovide/neovide/issues/527">#527</a>.</li>
-<li>If you installed <code>neovim</code> via Apple Silicon (M1)-based <code>brew</code>, you have to add the <code>brew prefix</code>
+<a href="https://github.com/neovide/neovide/issues/527">#527</a>.</p>
+</li>
+<li>
+<p>If you installed <code>neovim</code> via Apple Silicon (M1)-based <code>brew</code>, you have to add the <code>brew prefix</code>
 to <code>$PATH</code> to run <code>Neovide.app</code> in GUI. Please see the
 <a href="https://docs.brew.sh/FAQ#my-mac-apps-dont-find-homebrew-utilities">homebrew documentation</a>.
-Reference issue <a href="https://github.com/neovide/neovide/pull/1242">#1242</a></li>
+Reference issue <a href="https://github.com/neovide/neovide/pull/1242">#1242</a></p>
+</li>
 </ul>
 <h2 id="linux-1"><a class="header" href="#linux-1">Linux</a></h2>
 <ul>
@@ -745,29 +811,6 @@ Reference issue <a href="https://github.com/neovide/neovide/pull/1242">#1242</a>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="frequently-asked-questions"><a class="header" href="#frequently-asked-questions">Frequently Asked Questions</a></h1>
 <p>Commonly asked questions, or just explanations/elaborations on stuff.</p>
-<h2 id="how-can-i-set-the-fontscale-the-ui-size"><a class="header" href="#how-can-i-set-the-fontscale-the-ui-size">How Can I Set The Font/Scale The UI Size?</a></h2>
-<p>This is handled through the <code>guifont</code> option, settable through Neovim. It's technically documented
-in <code>:h guifont</code> (type this in Neovim), though some things are misleading there, so here we do what's
-discouraged and try to document it ourselves:</p>
-<ul>
-<li>The basic format is <code>IBM_Plex_Mono,Hack,Noto_Color_Emoji:option1:option2</code>. You can use arbitrarily
-many &quot;font fallbacks&quot; (<code>Hack</code> and <code>Noto_Color_Emoji</code> &quot;help out&quot; if <code>IBM_Plex_Mono</code> doesn't define
-a character), and arbitrarily many options. Though please note that <em>first</em> all fonts are defined,
-<em>then</em> all options, the options apply &quot;globally&quot;.</li>
-<li>Use <code>:set guifont=*</code> to open up a window showing what fonts are accessible by Neovide, hit <code>Enter</code>
-on one to apply it <strong>temporarily</strong>.</li>
-<li>Spaces in the font name are a bit difficult to write, either use underscores (<code>_</code>) or escape them
-(<code>\</code>).</li>
-<li>The font options Neovide supports at the moment are:
-<ul>
-<li><code>hXX</code> — Set the font size to <code>XX</code>, can be any (even non-two-digit) number or even a floating
-point number.</li>
-<li><code>b</code> — Sets the font <strong>bold</strong>.</li>
-<li><code>i</code> — Sets the font <em>italic</em>.</li>
-</ul>
-</li>
-</ul>
-<p>By the way, the default font used is Fira Code at size 14.</p>
 <h2 id="how-to-enable-scrolling-animations-and-transparency"><a class="header" href="#how-to-enable-scrolling-animations-and-transparency">How To Enable Scrolling Animations and Transparency?</a></h2>
 <p>First, <a href="command-line-reference.html#multigrid">enable multigrid</a>, it's not enabled by default.</p>
 <p>Then, scrolling animations should work, for transparency see the section below.</p>
@@ -776,35 +819,15 @@ point number.</li>
 but for short: Both options can be values between <code>0</code> (opaque) and <code>100</code> (fully transparent),
 inclusively on both ends. <code>winblend</code> controls the background for floating windows, <code>pumblend</code> the
 one for the popup menu.</p>
-<h2 id="how-can-i-dynamically-change-the-font-size-at-runtime"><a class="header" href="#how-can-i-dynamically-change-the-font-size-at-runtime">How Can I Dynamically Change The Font Size At Runtime?</a></h2>
-<p>Not directly in Neovide, but configurable if you want so. A way to accomplish that in Lua would be:</p>
-<pre><code class="language-lua">vim.g.gui_font_default_size = 12
-vim.g.gui_font_size = vim.g.gui_font_default_size
-vim.g.gui_font_face = &quot;Fira Code Retina&quot;
-
-RefreshGuiFont = function()
-  vim.opt.guifont = string.format(&quot;%s:h%s&quot;,vim.g.gui_font_face, vim.g.gui_font_size)
-end
-
-ResizeGuiFont = function(delta)
-  vim.g.gui_font_size = vim.g.gui_font_size + delta
-  RefreshGuiFont()
-end
-
-ResetGuiFont = function()
-  vim.g.gui_font_size = vim.g.gui_font_default_size
-  RefreshGuiFont()
-end
-
--- Call function on startup to set default value
-ResetGuiFont()
-
--- Keymaps
-
-local opts = { noremap = true, silent = true }
-
-vim.keymap.set({'n', 'i'}, &quot;&lt;C-+&gt;&quot;, function() ResizeGuiFont(1)  end, opts)
-vim.keymap.set({'n', 'i'}, &quot;&lt;C--&gt;&quot;, function() ResizeGuiFont(-1) end, opts)
+<h2 id="how-can-i-dynamically-change-the-scale-at-runtime"><a class="header" href="#how-can-i-dynamically-change-the-scale-at-runtime">How Can I Dynamically Change The Scale At Runtime?</a></h2>
+<p>Neovide offers the setting <code>g:neovide_scale_factor</code>, which is multiplied with
+the OS scale factor and the font size. So using this could look like</p>
+<pre><code class="language-vim">let g:neovide_scale_factor=1.0
+function! ChangeScaleFactor(delta)
+    let g:neovide_scale_factor = g:neovide_scale_factor * a:delta
+endfunction
+nnoremap &lt;expr&gt;&lt;C-=&gt; ChangeScaleFactor(1.25)
+nnoremap &lt;expr&gt;&lt;C--&gt; ChangeScaleFactor(1/1.25)
 </code></pre>
 <p>Credits to <a href="https://github.com/neovide/neovide/issues/1301#issuecomment-1119370546">0x0013 here</a>.</p>
 <h2 id="how-can-i-dynamically-change-the-transparency-at-runtime-macos"><a class="header" href="#how-can-i-dynamically-change-the-transparency-at-runtime-macos">How can I Dynamically Change The Transparency At Runtime? (macOS)</a></h2>
@@ -828,7 +851,7 @@ is ignored by Neovide.</p>
 shell doesn't read its resource file (<code>~/.bashrc</code>/<code>~/.zshrc</code>/whatever the
 equivalent for your shell is). But depending on your shell there are other
 options for doing so, for example for zsh you can just put your relevant content
-into <code>~/.zprofile</code>.</p>
+into <code>~/.zprofile</code> or <code>~/.zlogin</code>.</p>
 <h2 id="the-terminal-displays-fallback-colorsterminal-does-not-show-my-colors"><a class="header" href="#the-terminal-displays-fallback-colorsterminal-does-not-show-my-colors">The Terminal Displays Fallback Colors/:terminal Does Not Show My Colors</a></h2>
 <p>Your colorscheme has to define <code>g:terminal_color_0</code> through
 <code>g:terminal_color_15</code> in order to have any effect on the terminal. Just setting

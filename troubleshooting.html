@@ -145,13 +145,32 @@
                     <main><div class="sidetoc"><nav class="pagetoc"></nav></div>
                         <h1 id="troubleshooting"><a class="header" href="#troubleshooting">Troubleshooting</a></h1>
 <ul>
-<li>Neovide requires that a font be set in <code>init.vim</code> otherwise errors might be encountered. This can
+<li>
+<p>Should Neovide happen not to start at all, check the following:</p>
+<ul>
+<li>
+<p>if you're using zsh <code>~/.zshenv</code>, <code>~/.zprofile</code> and  <code>~/.zlogin</code>, or whatever the equivalent for
+your shell is if anything emits output during shell startup, since Neovide uses your shell to
+find <code>nvim</code>. You can instead use <code>~/.zshrc</code>.</p>
+</li>
+<li>
+<p>whether you can reproduce this by running from the latest git main commit.
+This can be done by running from source or just grabbing the binary from the <a href="https://github.com/neovide/neovide/actions/workflows/build.yml"><code>Actions</code> tab on
+GitHub</a>.</p>
+</li>
+</ul>
+</li>
+<li>
+<p>Neovide requires that a font be set in <code>init.vim</code> otherwise errors might be encountered. This can
 be fixed by adding <code>set guifont=Your\ Font\ Name:h15</code> in init.vim file. Reference issue
-<a href="https://github.com/neovide/neovide/issues/527">#527</a>.</li>
-<li>If you installed <code>neovim</code> via Apple Silicon (M1)-based <code>brew</code>, you have to add the <code>brew prefix</code>
+<a href="https://github.com/neovide/neovide/issues/527">#527</a>.</p>
+</li>
+<li>
+<p>If you installed <code>neovim</code> via Apple Silicon (M1)-based <code>brew</code>, you have to add the <code>brew prefix</code>
 to <code>$PATH</code> to run <code>Neovide.app</code> in GUI. Please see the
 <a href="https://docs.brew.sh/FAQ#my-mac-apps-dont-find-homebrew-utilities">homebrew documentation</a>.
-Reference issue <a href="https://github.com/neovide/neovide/pull/1242">#1242</a></li>
+Reference issue <a href="https://github.com/neovide/neovide/pull/1242">#1242</a></p>
+</li>
 </ul>
 <h2 id="linux"><a class="header" href="#linux">Linux</a></h2>
 <ul>

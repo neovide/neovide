@@ -145,29 +145,6 @@
                     <main><div class="sidetoc"><nav class="pagetoc"></nav></div>
                         <h1 id="frequently-asked-questions"><a class="header" href="#frequently-asked-questions">Frequently Asked Questions</a></h1>
 <p>Commonly asked questions, or just explanations/elaborations on stuff.</p>
-<h2 id="how-can-i-set-the-fontscale-the-ui-size"><a class="header" href="#how-can-i-set-the-fontscale-the-ui-size">How Can I Set The Font/Scale The UI Size?</a></h2>
-<p>This is handled through the <code>guifont</code> option, settable through Neovim. It's technically documented
-in <code>:h guifont</code> (type this in Neovim), though some things are misleading there, so here we do what's
-discouraged and try to document it ourselves:</p>
-<ul>
-<li>The basic format is <code>IBM_Plex_Mono,Hack,Noto_Color_Emoji:option1:option2</code>. You can use arbitrarily
-many &quot;font fallbacks&quot; (<code>Hack</code> and <code>Noto_Color_Emoji</code> &quot;help out&quot; if <code>IBM_Plex_Mono</code> doesn't define
-a character), and arbitrarily many options. Though please note that <em>first</em> all fonts are defined,
-<em>then</em> all options, the options apply &quot;globally&quot;.</li>
-<li>Use <code>:set guifont=*</code> to open up a window showing what fonts are accessible by Neovide, hit <code>Enter</code>
-on one to apply it <strong>temporarily</strong>.</li>
-<li>Spaces in the font name are a bit difficult to write, either use underscores (<code>_</code>) or escape them
-(<code>\</code>).</li>
-<li>The font options Neovide supports at the moment are:
-<ul>
-<li><code>hXX</code> — Set the font size to <code>XX</code>, can be any (even non-two-digit) number or even a floating
-point number.</li>
-<li><code>b</code> — Sets the font <strong>bold</strong>.</li>
-<li><code>i</code> — Sets the font <em>italic</em>.</li>
-</ul>
-</li>
-</ul>
-<p>By the way, the default font used is Fira Code at size 14.</p>
 <h2 id="how-to-enable-scrolling-animations-and-transparency"><a class="header" href="#how-to-enable-scrolling-animations-and-transparency">How To Enable Scrolling Animations and Transparency?</a></h2>
 <p>First, <a href="command-line-reference.html#multigrid">enable multigrid</a>, it's not enabled by default.</p>
 <p>Then, scrolling animations should work, for transparency see the section below.</p>
@@ -176,35 +153,15 @@ point number.</li>
 but for short: Both options can be values between <code>0</code> (opaque) and <code>100</code> (fully transparent),
 inclusively on both ends. <code>winblend</code> controls the background for floating windows, <code>pumblend</code> the
 one for the popup menu.</p>
-<h2 id="how-can-i-dynamically-change-the-font-size-at-runtime"><a class="header" href="#how-can-i-dynamically-change-the-font-size-at-runtime">How Can I Dynamically Change The Font Size At Runtime?</a></h2>
-<p>Not directly in Neovide, but configurable if you want so. A way to accomplish that in Lua would be:</p>
-<pre><code class="language-lua">vim.g.gui_font_default_size = 12
-vim.g.gui_font_size = vim.g.gui_font_default_size
-vim.g.gui_font_face = &quot;Fira Code Retina&quot;
-
-RefreshGuiFont = function()
-  vim.opt.guifont = string.format(&quot;%s:h%s&quot;,vim.g.gui_font_face, vim.g.gui_font_size)
-end
-
-ResizeGuiFont = function(delta)
-  vim.g.gui_font_size = vim.g.gui_font_size + delta
-  RefreshGuiFont()
-end
-
-ResetGuiFont = function()
-  vim.g.gui_font_size = vim.g.gui_font_default_size
-  RefreshGuiFont()
-end
-
--- Call function on startup to set default value
-ResetGuiFont()
-
--- Keymaps
-
-local opts = { noremap = true, silent = true }
-
-vim.keymap.set({'n', 'i'}, &quot;&lt;C-+&gt;&quot;, function() ResizeGuiFont(1)  end, opts)
-vim.keymap.set({'n', 'i'}, &quot;&lt;C--&gt;&quot;, function() ResizeGuiFont(-1) end, opts)
+<h2 id="how-can-i-dynamically-change-the-scale-at-runtime"><a class="header" href="#how-can-i-dynamically-change-the-scale-at-runtime">How Can I Dynamically Change The Scale At Runtime?</a></h2>
+<p>Neovide offers the setting <code>g:neovide_scale_factor</code>, which is multiplied with
+the OS scale factor and the font size. So using this could look like</p>
+<pre><code class="language-vim">let g:neovide_scale_factor=1.0
+function! ChangeScaleFactor(delta)
+    let g:neovide_scale_factor = g:neovide_scale_factor * a:delta
+endfunction
+nnoremap &lt;expr&gt;&lt;C-=&gt; ChangeScaleFactor(1.25)
+nnoremap &lt;expr&gt;&lt;C--&gt; ChangeScaleFactor(1/1.25)
 </code></pre>
 <p>Credits to <a href="https://github.com/neovide/neovide/issues/1301#issuecomment-1119370546">0x0013 here</a>.</p>
 <h2 id="how-can-i-dynamically-change-the-transparency-at-runtime-macos"><a class="header" href="#how-can-i-dynamically-change-the-transparency-at-runtime-macos">How can I Dynamically Change The Transparency At Runtime? (macOS)</a></h2>
@@ -228,7 +185,7 @@ is ignored by Neovide.</p>
 shell doesn't read its resource file (<code>~/.bashrc</code>/<code>~/.zshrc</code>/whatever the
 equivalent for your shell is). But depending on your shell there are other
 options for doing so, for example for zsh you can just put your relevant content
-into <code>~/.zprofile</code>.</p>
+into <code>~/.zprofile</code> or <code>~/.zlogin</code>.</p>
 <h2 id="the-terminal-displays-fallback-colorsterminal-does-not-show-my-colors"><a class="header" href="#the-terminal-displays-fallback-colorsterminal-does-not-show-my-colors">The Terminal Displays Fallback Colors/:terminal Does Not Show My Colors</a></h2>
 <p>Your colorscheme has to define <code>g:terminal_color_0</code> through
 <code>g:terminal_color_15</code> in order to have any effect on the terminal. Just setting
