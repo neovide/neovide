@@ -5,8 +5,6 @@
 Neovide supports settings via global variables with a neovide prefix. They enable configuring many
 parts of the editor and support dynamically changing them at runtime.
 
-### Functionality
-
 #### Hello, is this Neovide?
 
 Not really a configuration option, but `g:neovide` only exists and is set to `v:true` if this Neovim
@@ -18,44 +16,52 @@ if exists("g:neovide")
 endif
 ```
 
-#### Refresh Rate
+### Display
+
+#### Font
 
 ```vim
-let g:neovide_refresh_rate=60
+set guifont=Fira\ Code\ Nerd\ Font:h14
 ```
 
-Setting `g:neovide_refresh_rate` to a positive integer will set the refresh rate of the app. This is
-limited by the refresh rate of your physical hardware, but can be lowered to increase battery life.
+Controls the font used by Neovide. Only setting which is actually controlled through an option, and
+as such it's also documented in `:h guifont`. But to sum it up and also add Neovide's extension:
 
-#### Idle Refresh Rate
+- The basic format is `Primary\ Font,Fallback\ Font\ 1,Fallback\ Font\ 2:option1:option2:option3`,
+  while you can have as many fallback fonts as you want (even 0) and as many options as you want
+  (also even 0).
+- Fonts
+  - are separated with `,` (commas).
+  - can contain spaces by either escaping them or using `_` (underscores).
+- Options
+  - apply to all fonts at once.
+  - are separated from the fonts and themselves through `:` (colons).
+  - can be one of the following:
+    - `hX` — Sets the font size to `X` points, while `X` can be any (even floating-point) number.
+    - `b` — Sets the font **bold**.
+    - `i` — Sets the font _italic_.
+- Some examples:
+  - `Hack,Noto_Color_Emoji:h12:b` — Hack at size 12 in bold, with Noto Color Emoji as fallback
+      should Hack fail to contain any glyph.
+  - `Roboto_Mono_Light:h10` — Roboto Mono Light at size 10.
+
+#### Scale
 
 ```vim
-let g:neovide_refresh_rate_idle=5
+let g:neovide_scale_factor = 1.0
 ```
 
-**Available since 0.10.**
+In addition to setting the font itself, this setting allows to change the scale without changing the
+whole font definition. Very useful for presentations. See [the FAQ section about
+this][scale-runtime] for a nice recipe to bind this to a hotkey.
 
-Setting `g:neovide_refresh_rate_idle` to a positive integer will set the refresh rate of the app when
-it is not in focus.
-
-This might not have an effect on every platform (e.g. Wayland).
-
-#### Transparency
-
-```vim
-let g:neovide_transparency=0.8
-```
-
-![Transparency](assets/Transparency.png)
-
-Setting `g:neovide_transparency` to a value between 0.0 and 1.0 will set the opacity of the window
-to that value.
+[scale-runtime]: faq.md#how-can-i-dynamically-change-the-scale-at-runtime
 
 #### Background Color (Currently macOS only)
 
 ```vim
 " g:neovide_transparency should be 0 if you want to unify transparency of content and title bar.
-let g:neovide_transparency=0.0
+let g:neovide_transparency = 0.0
 let g:transparency = 0.8
 let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:transparency))
 ```
@@ -83,6 +89,77 @@ let g:neovide_floating_blur_amount_y = 2.0
 Setting `g:neovide_floating_blur_amount_x` and `g:neovide_floating_blur_amount_y` controls the blur
 radius on the respective axis for floating windows.
 
+#### Transparency
+
+```vim
+let g:neovide_transparency = 0.8
+```
+
+![Transparency](assets/Transparency.png)
+
+Setting `g:neovide_transparency` to a value between 0.0 and 1.0 will set the opacity of the window
+to that value.
+
+#### Scroll Animation Length
+
+```vim
+let g:neovide_scroll_animation_length = 0.3
+```
+
+Sets how long the scroll animation takes to complete, measured in seconds.
+
+#### Hiding the mouse when typing
+
+```vim
+let g:neovide_hide_mouse_when_typing = v:false
+```
+
+By setting this to `v:true`, the mouse will be hidden as soon as you start typing. This setting
+only affects the mouse if it is currently within the bounds of the neovide window. Moving the
+mouse makes it visible again.
+
+#### Underline automatic scaling
+
+```vim
+let g:neovide_underline_automatic_scaling = v:false
+```
+
+**Available since 0.10.**
+
+Setting `g:neovide_underline_automatic_scaling` to a boolean value determines whether automatic
+scaling of text underlines (including undercurl, underdash, etc.) is enabled. Noticeable for font
+sizes above 15.
+
+**Note**: This is currently glitchy, and leads to some underlines being clipped by the line of text
+below.
+
+### Functionality
+
+#### Refresh Rate
+
+```vim
+let g:neovide_refresh_rate = 60
+```
+
+Setting `g:neovide_refresh_rate` to a positive integer will set the refresh rate of the app. This is
+limited by the refresh rate of your physical hardware, but can be lowered to increase battery life.
+
+Also do note that Neovide's frame pacing is far from optimal at the moment, so better hardware might
+not mean better FPS.
+
+#### Idle Refresh Rate
+
+```vim
+let g:neovide_refresh_rate_idle = 5
+```
+
+**Available since 0.10.**
+
+Setting `g:neovide_refresh_rate_idle` to a positive integer will set the refresh rate of the app when
+it is not in focus.
+
+This might not have an effect on every platform (e.g. Wayland).
+
 #### Scroll Animation Length
 
 ```vim
@@ -94,32 +171,30 @@ Sets how long the scroll animation takes to complete, measured in seconds.
 #### No Idle
 
 ```vim
-let g:neovide_no_idle=v:true
+let g:neovide_no_idle = v:true
 ```
 
 Setting `g:neovide_no_idle` to a boolean value will force neovide to redraw all the time. This can
 be a quick hack if animations appear to stop too early.
 
+#### Confirm Quit
+
+```vim
+let g:neovide_confirm_quit = v:true
+```
+
+If set to `true`, quitting while having unsaved changes will require confirmation. Enabled by
+default.
+
 #### Fullscreen
 
 ```vim
-let g:neovide_fullscreen=v:true
+let g:neovide_fullscreen = v:true
 ```
 
 Setting `g:neovide_fullscreen` to a boolean value will set whether the app should take up the entire
 screen. This uses the so called "windowed fullscreen" mode that is sometimes used in games which
 want quick window switching.
-
-#### Confirm Quit
-
-```vim
-let g:neovide_confirm_quit=v:false
-" or
-let g:neovide_confirm_quit=0
-```
-
-If set to `true`, quitting while having unsaved changes will require confirmation.
-Enabled by default.
 
 #### Remember Previous Window Size
 
@@ -140,37 +215,12 @@ let g:neovide_profiler = v:false
 Setting this to `v:true` enables the profiler, which shows a frametime graph in the upper left
 corner.
 
-#### Underline automatic scaling
-
-```vim
-let g:neovide_underline_automatic_scaling = v:false
-```
-
-**Available since 0.10.**
-
-Setting `g:neovide_underline_automatic_scaling` to a boolean value determines whether automatic
-scaling of text underlines (including undercurl, underdash, etc.) is enabled. Noticeable for font
-sizes above 15.
-
-**Note**: This is currently glitchy, and leads to some underlines being clipped by the line of text
-below.
-
-#### Hiding the mouse when typing
-
-```vim
-let g:neovide_hide_mouse_when_typing = v:false
-```
-
-By setting this to `v:true`, the mouse will be hidden as soon as you start typing. This setting
-only affects the mouse if it is currently within the bounds of the neovide window. Moving the
-mouse makes it visible again.
-
 ### Input Settings
 
 #### Use Logo Key
 
 ```vim
-let g:neovide_input_use_logo=v:false  " v:true on macOS
+let g:neovide_input_use_logo = v:false  " v:true on macOS
 ```
 
 Setting `g:neovide_input_use_logo` to a boolean value will change how logo key (also known as
@@ -184,7 +234,7 @@ typically use e.g. `ctrl+v` for pasting).
 #### macOS Alt is Meta
 
 ```vim
-let g:neovide_input_macos_alt_is_meta=v:false
+let g:neovide_input_macos_alt_is_meta = v:false
 ```
 
 **Available since 0.10.**
@@ -195,7 +245,7 @@ actual special character to Neovim.
 #### Touch Deadzone
 
 ```vim
-let g:neovide_touch_deadzone=6.0
+let g:neovide_touch_deadzone = 6.0
 ```
 
 Setting `g:neovide_touch_deadzone` to a value equal or higher than 0.0 will set how many pixels the
@@ -211,7 +261,7 @@ interpreted as scroll gesture.
 #### Touch Drag Timeout
 
 ```vim
-let g:neovide_touch_drag_timeout=0.17
+let g:neovide_touch_drag_timeout = 0.17
 ```
 
 Setting `g:neovide_touch_drag_timeout` will affect how many seconds the cursor has to stay inside
@@ -246,7 +296,7 @@ it's animation in seconds. Set to `0` to disable.
 </p>
 
 ```vim
-let g:neovide_cursor_trail_size=0.8
+let g:neovide_cursor_trail_size = 0.8
 ```
 
 Setting `g:neovide_cursor_trail_size` determines how much the trail of the cursor lags behind the
@@ -255,7 +305,7 @@ front edge.
 #### Antialiasing
 
 ```vim
-let g:neovide_cursor_antialiasing=v:true
+let g:neovide_cursor_antialiasing = v:true
 ```
 
 Enables or disables antialiasing of the cursor quad. Disabling may fix some cursor visual issues.
@@ -263,7 +313,7 @@ Enables or disables antialiasing of the cursor quad. Disabling may fix some curs
 #### Unfocused Outline Width
 
 ```vim
-let g:neovide_cursor_unfocused_outline_width=0.125
+let g:neovide_cursor_unfocused_outline_width = 0.125
 ```
 
 Specify cursor outline width in `em`s. You probably want this to be a positive value less than 0.5.
@@ -339,7 +389,7 @@ Options for configuring the particle generation and behavior.
 #### Particle Opacity
 
 ```vim
-let g:neovide_cursor_vfx_opacity=200.0
+let g:neovide_cursor_vfx_opacity = 200.0
 ```
 
 Sets the transparency of the generated particles.
@@ -347,7 +397,7 @@ Sets the transparency of the generated particles.
 #### Particle Lifetime
 
 ```vim
-let g:neovide_cursor_vfx_particle_lifetime=1.2
+let g:neovide_cursor_vfx_particle_lifetime = 1.2
 ```
 
 Sets the amount of time the generated particles should survive.
@@ -355,7 +405,7 @@ Sets the amount of time the generated particles should survive.
 #### Particle Density
 
 ```vim
-let g:neovide_cursor_vfx_particle_density=7.0
+let g:neovide_cursor_vfx_particle_density = 7.0
 ```
 
 Sets the number of generated particles.
@@ -363,7 +413,7 @@ Sets the number of generated particles.
 #### Particle Speed
 
 ```vim
-let g:neovide_cursor_vfx_particle_speed=10.0
+let g:neovide_cursor_vfx_particle_speed = 10.0
 ```
 
 Sets the speed of particle movement.
@@ -371,7 +421,7 @@ Sets the speed of particle movement.
 #### Particle Phase
 
 ```vim
-let g:neovide_cursor_vfx_particle_phase=1.5
+let g:neovide_cursor_vfx_particle_phase = 1.5
 ```
 
 Only for the `railgun` vfx mode.
@@ -382,7 +432,7 @@ particles rotate in accordance to each other, the lower, the more line-wise all 
 #### Particle Curl
 
 ```vim
-let g:neovide_cursor_vfx_particle_curl=1.0
+let g:neovide_cursor_vfx_particle_curl = 1.0
 ```
 
 Only for the `railgun` vfx mode.
