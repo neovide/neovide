@@ -212,7 +212,8 @@ impl Renderer {
 
     pub fn handle_os_scale_factor_change(&mut self, os_scale_factor: f64) {
         self.os_scale_factor = os_scale_factor;
-        self.grid_renderer.handle_scale_factor_update(self.os_scale_factor * self.user_scale_factor);
+        self.grid_renderer
+            .handle_scale_factor_update(self.os_scale_factor * self.user_scale_factor);
     }
 
     fn handle_draw_command(&mut self, root_canvas: &mut Canvas, draw_command: DrawCommand) {
