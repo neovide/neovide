@@ -71,6 +71,10 @@ pub struct CmdLineSettings {
     #[arg(long = "nosrgb", env = "NEOVIDE_NO_SRGB", action = ArgAction::SetFalse)]
     pub srgb: bool,
 
+    /// Do not try to request VSync on the window
+    #[arg(long = "novsync", env = "NEOVIDE_NO_VSYNC", action = ArgAction::SetFalse)]
+    pub vsync: bool,
+
     /// Which NeoVim binary to invoke headlessly instead of `nvim` found on $PATH
     #[arg(long = "neovim-bin", env = "NEOVIM_BIN")]
     pub neovim_bin: Option<String>,
