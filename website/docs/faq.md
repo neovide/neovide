@@ -29,7 +29,7 @@ nnoremap <expr><C-=> ChangeScaleFactor(1.25)
 nnoremap <expr><C--> ChangeScaleFactor(1/1.25)
 ```
 
-Credits to [0x0013 here](https://github.com/neovide/neovide/issues/1301#issuecomment-1119370546).
+Credits to [BHatGuy here](https://github.com/neovide/neovide/pull/1589).
 
 ## How can I Dynamically Change The Transparency At Runtime? (macOS)
 
