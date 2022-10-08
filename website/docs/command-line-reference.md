@@ -127,13 +127,13 @@ or not.
 
 By default, Neovide requests to use VSync on the created window. This option disables this behavior.
 
-### Remote TCP
+### Neovim Server
 
 ```sh
---remote-tcp <remote_tcp>
+--server <ADDRESS>
 ```
 
-What IP and port to use when connecting to neovim.
+Connects to the named pipe or socket at ADDRESS.
 
 ### WSL
 
