@@ -5,6 +5,9 @@ use skia_safe::{
     gpu::{gl::FramebufferInfo, BackendRenderTarget, DirectContext, SurfaceOrigin},
     Canvas, ColorType, Surface,
 };
+use crate::{
+    redraw_scheduler::REDRAW_SCHEDULER,
+};
 
 type WindowedContext = glutin::ContextWrapper<glutin::PossiblyCurrent, glutin::window::Window>;
 
@@ -86,5 +89,6 @@ impl SkiaRenderer {
 
     pub fn resize(&mut self, windowed_context: &WindowedContext) {
         self.surface = create_surface(windowed_context, &mut self.gr_context, self.fb_info);
+        REDRAW_SCHEDULER.queue_next_frame();
     }
 }
