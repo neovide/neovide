@@ -134,9 +134,9 @@ impl KeyboardManager {
             if self.prev_dead_key.is_some() {
                 //recover dead key to normal character
                 let real_char = String::from(self.prev_dead_key.unwrap());
-                Some(real_char + &self.format_keybinding_string(true, true, key_text))
+                Some(real_char + &self.format_special_key(true, key_text))
             } else {
-                Some(self.format_keybinding_string(true, true, key_text))
+                Some(self.format_special_key(true, key_text))
             }
         } else {
             let key_text = if self.prev_dead_key.is_none() {
@@ -153,11 +153,12 @@ impl KeyboardManager {
                 }
                 // This is not a control key, so we rely upon winit to determine if
                 // this is a deadkey or not.
-                let keybinding_string = if let Some(escaped_text) = is_special(key_text) {
-                    self.format_keybinding_string(true, false, escaped_text)
-                } else {
-                    self.format_keybinding_string(false, false, key_text)
-                };
+                let keybinding_string =
+                    if let Some((escaped_text, use_shift)) = is_special(key_text) {
+                        self.format_special_key(use_shift, escaped_text)
+                    } else {
+                        self.format_normal_key(key_text)
+                    };
 
                 Some(keybinding_string)
             } else {
@@ -166,14 +167,22 @@ impl KeyboardManager {
         }
     }
 
-    fn format_keybinding_string(&self, special: bool, use_shift: bool, text: &str) -> String {
-        let special = special || self.ctrl || use_alt(self.alt) || self.logo;
+    fn format_special_key(&self, use_shift: bool, text: &str) -> String {
+        let modifiers = self.format_modifier_string(use_shift);
 
-        let open = or_empty(special, "<");
-        let modifiers = self.format_modifier_string(special || use_shift);
-        let close = or_empty(special, ">");
+        format!("<{modifiers}{text}>")
+    }
 
-        open.to_owned() + &modifiers + text + close
+    fn format_normal_key(&self, text: &str) -> String {
+        let has_modifier = self.ctrl || use_alt(self.alt) || self.logo;
+        // use shift only if `text` is alphabetic
+        let is_alphabetic = text.chars().all(char::is_alphabetic);
+
+        if has_modifier {
+            self.format_special_key(is_alphabetic, text)
+        } else {
+            text.to_string()
+        }
     }
 
     pub fn format_modifier_string(&self, use_shift: bool) -> String {
@@ -253,14 +262,15 @@ fn is_control_key(key: Key<'static>) -> Option<&str> {
     }
 }
 
-fn is_special(text: &str) -> Option<&str> {
+// returns (`escaped_text`, `use_shift`)
+fn is_special(text: &str) -> Option<(&str, bool)> {
     match text {
-        " " => Some("Space"),
-        "<" => Some("lt"),
-        "\\" => Some("Bslash"),
-        "|" => Some("Bar"),
-        "\t" => Some("Tab"),
-        "\n" => Some("CR"),
+        " " => Some(("Space", true)),
+        "<" => Some(("lt", false)),
+        "\\" => Some(("Bslash", false)),
+        "|" => Some(("Bar", false)),
+        "\t" => Some(("Tab", true)),
+        "\n" => Some(("CR", true)),
         _ => None,
     }
 }
