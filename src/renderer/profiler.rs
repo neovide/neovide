@@ -74,7 +74,7 @@ impl Profiler {
         let color = Color::from_argb(255, 0, 100, 200);
         paint.set_color(color);
 
-        // Get min and max and avg
+        // Get min and max and avg.
         let mut min_ft = f32::MAX;
         let mut max_ft = f32::MIN;
         let mut sum = 0.0;
@@ -112,7 +112,7 @@ impl Profiler {
         paint.set_color(color);
         paint.set_anti_alias(false);
 
-        // Show min, max, avg
+        // Show min, max, avg (average).
         root_canvas.draw_str(
             format!("min: {:.1}ms", min_ft),
             (rect.left, rect.bottom),

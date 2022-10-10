@@ -18,7 +18,7 @@ use tokio_util::compat::TokioAsyncReadCompatExt;
 
 use crate::bridge::{TxWrapper, WrapTx};
 
-/// Connect to a neovim instance via tcp
+/// Connect to a neovim instance via tcp.
 pub async fn new_tcp<A, H>(
     addr: A,
     handler: H,

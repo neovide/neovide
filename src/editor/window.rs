@@ -120,14 +120,14 @@ impl Window {
         defined_styles: &HashMap<u64, Arc<Style>>,
         previous_style: &mut Option<Arc<Style>>,
     ) {
-        // Get the defined style from the style list
+        // Get the defined style from the style list.
         let style = match cell.highlight_id {
             Some(0) => None,
             Some(style_id) => defined_styles.get(&style_id).cloned(),
             None => previous_style.clone(),
         };
 
-        // Compute text
+        // Compute text.
         let mut text = cell.text;
         if let Some(times) = cell.repeat {
             text = text.repeat(times as usize);
@@ -163,18 +163,18 @@ impl Window {
         for possible_end_index in start..self.grid.width {
             let (character, possible_end_style) = &row[possible_end_index as usize];
 
-            // Style doesn't match. Draw what we've got
+            // Style doesn't match. Draw what we've got.
             if style != possible_end_style {
                 break;
             }
 
             width += 1;
-            // The previous character is double width, so send this as its own draw command
+            // The previous character is double width, so send this as its own draw command.
             if character.is_empty() {
                 break;
             }
 
-            // Add the grid cell to the cells to render
+            // Add the grid cell to the cells to render.
             text.push_str(character);
         }
 
@@ -191,10 +191,8 @@ impl Window {
 
     // Redraw line by calling build_line_fragment starting at 0
     // until current_start is greater than the grid width and sending the resulting
-    // fragments as a batch
+    // fragments as a batch.
     fn redraw_line(&self, row: u64) {
-        // until current_start is greater than the grid width and sending the resulting
-        // fragments as a batch
         let mut current_start = 0;
         let mut line_fragments = Vec::new();
         while current_start < self.grid.width {
