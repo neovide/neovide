@@ -1,5 +1,6 @@
 use std::convert::TryInto;
 
+use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use gl::types::*;
 use skia_safe::{
     gpu::{gl::FramebufferInfo, BackendRenderTarget, DirectContext, SurfaceOrigin},
@@ -86,5 +87,6 @@ impl SkiaRenderer {
 
     pub fn resize(&mut self, windowed_context: &WindowedContext) {
         self.surface = create_surface(windowed_context, &mut self.gr_context, self.fb_info);
+        REDRAW_SCHEDULER.queue_next_frame();
     }
 }
