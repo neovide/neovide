@@ -270,7 +270,7 @@ fn is_special(text: &str) -> Option<(&str, bool)> {
         "\\" => Some(("Bslash", false)),
         "|" => Some(("Bar", false)),
         "\t" => Some(("Tab", true)),
-        "\n" => Some(("CR", true)),
+        "\n" | "\r" => Some(("CR", true)),
         _ => None,
     }
 }
