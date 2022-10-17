@@ -40,6 +40,8 @@ pub struct RendererSettings {
     debug_renderer: bool,
     profiler: bool,
     underline_automatic_scaling: bool,
+    font_edging: String,
+    font_hinting: String
 }
 
 impl Default for RendererSettings {
@@ -54,6 +56,8 @@ impl Default for RendererSettings {
             debug_renderer: false,
             profiler: false,
             underline_automatic_scaling: false,
+            font_edging: "AntiAlias".to_string(),
+            font_hinting: "Full".to_string()
         }
     }
 }

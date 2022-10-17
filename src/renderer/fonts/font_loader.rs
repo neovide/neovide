@@ -4,7 +4,7 @@ use log::trace;
 use lru::LruCache;
 use skia_safe::{font::Edging, Data, Font, FontHinting, FontMgr, FontStyle, Typeface};
 
-use crate::renderer::fonts::swash_font::SwashFont;
+use crate::{renderer::{fonts::swash_font::SwashFont, RendererSettings}, settings::SETTINGS};
 
 static DEFAULT_FONT: &[u8] = include_bytes!("../../../assets/fonts/FiraCodeNerdFont-Regular.ttf");
 static LAST_RESORT_FONT: &[u8] = include_bytes!("../../../assets/fonts/LastResort-Regular.ttf");
@@ -18,9 +18,16 @@ pub struct FontPair {
 impl FontPair {
     fn new(key: FontKey, mut skia_font: Font) -> Option<FontPair> {
         skia_font.set_subpixel(true);
-        skia_font.set_hinting(FontHinting::Full);
-        skia_font.set_edging(Edging::AntiAlias);
 
+        let settings = SETTINGS.get::<RendererSettings>();
+        skia_font.set_hinting(
+            font_hinting(&settings.font_hinting)
+        );
+            
+        if let Some(edging) = font_edging(&settings.font_edging) {
+            skia_font.set_edging(edging);
+        }
+        
         let typeface = skia_font.typeface().unwrap();
         let (font_data, index) = typeface.to_font_data().unwrap();
         let swash_font = SwashFont::from_data(font_data, index)?;
@@ -156,5 +163,25 @@ fn font_style(bold: bool, italic: bool) -> FontStyle {
         (false, true) => FontStyle::italic(),
         (true, false) => FontStyle::bold(),
         (false, false) => FontStyle::normal(),
+    }
+}
+
+fn font_hinting(hinting: &str) -> FontHinting {
+    let hinting = hinting.to_lowercase();
+    match hinting.as_str() {
+        "full" => FontHinting::Full,
+        "normal" => FontHinting::Normal,
+        "slight" => FontHinting::Slight,
+        _ => FontHinting::None
+    }
+}
+
+fn font_edging(edging: &str) -> Option<Edging> {
+    let edging = edging.to_lowercase();
+    match edging.as_str() {
+        "alias" => Some(Edging::Alias),
+        "antialias" => Some(Edging::AntiAlias),
+        "subpixelantialias" => Some(Edging::SubpixelAntiAlias),
+        _ => None
     }
 }
