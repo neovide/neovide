@@ -47,6 +47,30 @@ as such it's also documented in `:h guifont`. But to sum it up and also add Neov
       should Hack fail to contain any glyph.
   - `Roboto_Mono_Light:h10` — Roboto Mono Light at size 10.
 
+##### Font Hinting
+Sets level of glyph outline adjustment.
+
+```vim
+let g:neovide_font_hinting = 'Full'
+```
+
+Options
+- Full
+- Normal
+- Slight
+- None
+
+##### Font Edging
+Requests, but does not require, that edge pixels draw opaque or with partial transparency.
+
+```vim
+let g:neovide_font_edging = 'AntiAlias'
+```
+
+Options
+- SubpixelAntiAlias
+- AntiAlias
+- Alias
 #### Scale
 
 ```vim

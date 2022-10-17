@@ -4,7 +4,7 @@ use log::trace;
 use lru::LruCache;
 use skia_safe::{font::Edging, Data, Font, FontHinting, FontMgr, FontStyle, Typeface};
 
-use crate::{renderer::{fonts::swash_font::SwashFont, RendererSettings}, settings::SETTINGS};
+use crate::{renderer::{fonts::swash_font::SwashFont}, settings::SETTINGS, WindowSettings};
 
 static DEFAULT_FONT: &[u8] = include_bytes!("../../../assets/fonts/FiraCodeNerdFont-Regular.ttf");
 static LAST_RESORT_FONT: &[u8] = include_bytes!("../../../assets/fonts/LastResort-Regular.ttf");
@@ -19,7 +19,7 @@ impl FontPair {
     fn new(key: FontKey, mut skia_font: Font) -> Option<FontPair> {
         skia_font.set_subpixel(true);
 
-        let settings = SETTINGS.get::<RendererSettings>();
+        let settings = SETTINGS.get::<WindowSettings>();
         skia_font.set_hinting(
             font_hinting(&settings.font_hinting)
         );
