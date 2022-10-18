@@ -16,7 +16,8 @@ use tokio::{
 };
 use tokio_util::compat::{TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt};
 
-pub type ConnectionResult<W> = io::Result<(Neovim<W>, JoinHandle<Result<(), Box<LoopError>>>)>;
+pub type ConnectionResult =
+    io::Result<(Neovim<NeovimWriter>, JoinHandle<Result<(), Box<LoopError>>>)>;
 pub type NeovimWriter = Box<dyn futures::AsyncWrite + Send + Unpin + 'static>;
 
 /// Connects to an existing Neovim instance.
@@ -24,10 +25,10 @@ pub type NeovimWriter = Box<dyn futures::AsyncWrite + Send + Unpin + 'static>;
 /// Interprets `address` in the same way as `:help --server`: If it contains a `:` it's interpreted
 /// as a TCP/IPv4/IPv6 address. Otherwise it's interpreted as a named pipe or Unix domain socket
 /// path.
-pub async fn connect<H: Handler<Writer = NeovimWriter>>(
+pub async fn connect(
     address: String,
-    handler: H,
-) -> io::Result<(Neovim<H::Writer>, JoinHandle<Result<(), Box<LoopError>>>)> {
+    handler: impl Handler<Writer = NeovimWriter>,
+) -> ConnectionResult {
     if address.contains(":") {
         connect_stream(TcpStream::connect(address).await?, handler).await
     } else {
@@ -37,11 +38,11 @@ pub async fn connect<H: Handler<Writer = NeovimWriter>>(
 
 /// Spawns and connects to an embedded Neovim instance.
 ///
-/// stdin/stdout will be rewritten to `Stdio::piped()`
-pub async fn embed<H: Handler<Writer = NeovimWriter>>(
+/// stdin/stdout will be rewritten to `Stdio::piped()`.
+pub async fn embed(
     cmd: &mut Command,
-    handler: H,
-) -> ConnectionResult<H::Writer> {
+    handler: impl Handler<Writer = NeovimWriter>,
+) -> ConnectionResult {
     let mut child = cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).spawn()?;
     let reader = child
         .stdout
@@ -55,33 +56,31 @@ pub async fn embed<H: Handler<Writer = NeovimWriter>>(
     connect_neovim(reader, writer, handler).await
 }
 
-async fn connect_stream<H, S>(stream: S, handler: H) -> ConnectionResult<H::Writer>
-where
-    S: AsyncRead + AsyncWrite + Send + Unpin + 'static,
-    H: Handler<Writer = NeovimWriter>,
-{
+async fn connect_stream(
+    stream: impl AsyncRead + AsyncWrite + Send + Unpin + 'static,
+    handler: impl Handler<Writer = NeovimWriter>,
+) -> ConnectionResult {
     let (reader, writer) = split(stream);
     connect_neovim(reader, writer, handler).await
 }
 
-async fn connect_neovim<H, R, W>(reader: R, writer: W, handler: H) -> ConnectionResult<H::Writer>
-where
-    R: AsyncRead + Send + Unpin + 'static,
-    W: AsyncWrite + Send + Unpin + 'static,
-    H: Handler<Writer = NeovimWriter>,
-{
+async fn connect_neovim(
+    reader: impl AsyncRead + Send + Unpin + 'static,
+    writer: impl AsyncWrite + Send + Unpin + 'static,
+    handler: impl Handler<Writer = NeovimWriter>,
+) -> ConnectionResult {
     let (neovim, io) =
-        Neovim::<H::Writer>::new(reader.compat(), Box::new(writer.compat_write()), handler);
+        Neovim::<NeovimWriter>::new(reader.compat(), Box::new(writer.compat_write()), handler);
     let io_handle = spawn(io);
 
     Ok((neovim, io_handle))
 }
 
 #[cfg(windows)]
-async fn connect_ipc_socket<H: Handler<Writer = NeovimWriter>>(
+async fn connect_ipc_socket(
     address: String,
-    handler: H,
-) -> ConnectionResult<H::Writer> {
+    handler: impl Handler<Writer = NeovimWriter>,
+) -> ConnectionResult {
     connect_stream(
         net::windows::named_pipe::ClientOptions::new().open(address)?,
         handler,
@@ -90,18 +89,18 @@ async fn connect_ipc_socket<H: Handler<Writer = NeovimWriter>>(
 }
 
 #[cfg(unix)]
-async fn connect_ipc_socket<H: Handler<Writer = NeovimWriter>>(
+async fn connect_ipc_socket(
     address: String,
-    handler: H,
-) -> ConnectionResult<H::Writer> {
+    handler: impl Handler<Writer = NeovimWriter>,
+) -> ConnectionResult {
     connect_stream(net::UnixStream::connect(address).await?, handler).await
 }
 
 #[cfg(not(any(unix, windows)))]
-async fn connect_ipc_socket<H: Handler<Writer = NeovimWriter>>(
+async fn connect_ipc_socket(
     _address: String,
-    _handler: H,
-) -> ConnectionResult<H::Writer> {
+    _handler: impl Handler<Writer = NeovimWriter>,
+) -> ConnectionResult {
     Err(Error::new(
         ErrorKind::Unsupported,
         "IPC sockets are not supported on this platform",
