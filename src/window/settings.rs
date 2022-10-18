@@ -1,4 +1,8 @@
-use crate::{cmd_line::CmdLineSettings, settings::*};
+use crate::{
+    cmd_line::CmdLineSettings,
+    renderer::fonts::font_loader::{Edging, Hinting},
+    settings::*,
+};
 
 #[derive(Clone, SettingGroup)]
 pub struct WindowSettings {
@@ -16,8 +20,8 @@ pub struct WindowSettings {
     pub touch_drag_timeout: f32,
     pub background_color: String,
     pub confirm_quit: bool,
-    pub font_edging: String,
-    pub font_hinting: String,
+    pub font_edging: Edging,
+    pub font_hinting: Hinting,
 }
 
 impl Default for WindowSettings {
@@ -37,8 +41,8 @@ impl Default for WindowSettings {
             touch_drag_timeout: 0.17,
             background_color: "".to_string(),
             confirm_quit: true,
-            font_edging: "antialias".to_string(),
-            font_hinting: "full".to_string(),
+            font_edging: Edging::default(),
+            font_hinting: Hinting::default(),
         }
     }
 }

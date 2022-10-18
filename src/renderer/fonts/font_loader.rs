@@ -3,7 +3,10 @@ use std::sync::Arc;
 use log::{error, trace};
 use lru::LruCache;
 use nvim_rs::Value;
-use skia_safe::{font::Edging, Data, Font, FontHinting, FontMgr, FontStyle, Typeface};
+use skia_safe::{
+    font::Edging as SkiaEdging, Data, Font, FontHinting as SkiaHinting, FontMgr, FontStyle,
+    Typeface,
+};
 
 use crate::{
     renderer::fonts::swash_font::SwashFont,
@@ -25,15 +28,8 @@ impl FontPair {
         skia_font.set_subpixel(true);
 
         let settings = SETTINGS.get::<WindowSettings>();
-        let mut font_hinting = FontHinting::Full;
-        font_hinting.parse_from_value(Value::from(settings.font_hinting));
-        skia_font.set_hinting(font_hinting);
-
-        let mut font_edging: Option<Edging> = Some(Edging::AntiAlias);
-        font_edging.parse_from_value(Value::from(settings.font_edging));
-        if let Some(edging) = font_edging {
-            skia_font.set_edging(edging);
-        }
+        skia_font.set_hinting(settings.font_hinting.0);
+        skia_font.set_edging(settings.font_edging.0);
 
         let typeface = skia_font.typeface().unwrap();
         let (font_data, index) = typeface.to_font_data().unwrap();
@@ -173,32 +169,74 @@ fn font_style(bold: bool, italic: bool) -> FontStyle {
     }
 }
 
-impl ParseFromValue for FontHinting {
+#[derive(Clone, Debug)]
+pub struct Hinting(SkiaHinting);
+
+impl Default for Hinting {
+    fn default() -> Self {
+        Self(SkiaHinting::Full)
+    }
+}
+
+impl ParseFromValue for Hinting {
     fn parse_from_value(&mut self, value: Value) {
         if value.is_str() {
-            *self = match value.as_str().unwrap() {
-                "full" => FontHinting::Full,
-                "normal" => FontHinting::Normal,
-                "slight" => FontHinting::Slight,
-                _ => FontHinting::None,
+            let hinting = match value.as_str().unwrap() {
+                "full" => SkiaHinting::Full,
+                "normal" => SkiaHinting::Normal,
+                "slight" => SkiaHinting::Slight,
+                _ => SkiaHinting::None,
             };
+            *self = Self(hinting)
         } else {
             error!("Expected a Font Edging string, but received {:?}", value);
         }
     }
 }
 
-impl ParseFromValue for Option<Edging> {
+impl From<Hinting> for Value {
+    fn from(value: Hinting) -> Value {
+        let repr = match value.0 {
+            SkiaHinting::Full => "full",
+            SkiaHinting::Normal => "normal",
+            SkiaHinting::Slight => "slight",
+            SkiaHinting::None => "none",
+        };
+        Value::from(repr)
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Edging(SkiaEdging);
+
+impl Default for Edging {
+    fn default() -> Self {
+        Self(SkiaEdging::AntiAlias)
+    }
+}
+
+impl ParseFromValue for Edging {
     fn parse_from_value(&mut self, value: Value) {
         if value.is_str() {
-            *self = match value.as_str().unwrap() {
-                "alias" => Some(Edging::Alias),
-                "antialias" => Some(Edging::AntiAlias),
-                "subpixelantialias" => Some(Edging::SubpixelAntiAlias),
-                _ => None,
+            let edging = match value.as_str().unwrap() {
+                "alias" => SkiaEdging::Alias,
+                "subpixelantialias" | "subpixel" => SkiaEdging::SubpixelAntiAlias,
+                "antialias" | _ => SkiaEdging::AntiAlias,
             };
+            *self = Self(edging);
         } else {
             error!("Expected a Font Edging string, but received {:?}", value);
         }
+    }
+}
+
+impl From<Edging> for Value {
+    fn from(value: Edging) -> Value {
+        let repr = match value.0 {
+            SkiaEdging::AntiAlias => "antialias",
+            SkiaEdging::SubpixelAntiAlias => "subpixel",
+            SkiaEdging::Alias => "alias",
+        };
+        Value::from(repr)
     }
 }
