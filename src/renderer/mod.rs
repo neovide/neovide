@@ -39,7 +39,7 @@ pub struct RendererSettings {
     floating_blur_amount_y: f32,
     debug_renderer: bool,
     profiler: bool,
-    underline_automatic_scaling: bool
+    underline_automatic_scaling: bool,
 }
 
 impl Default for RendererSettings {
@@ -53,7 +53,7 @@ impl Default for RendererSettings {
             floating_blur_amount_y: 2.0,
             debug_renderer: false,
             profiler: false,
-            underline_automatic_scaling: false
+            underline_automatic_scaling: false,
         }
     }
 }

@@ -17,7 +17,7 @@ pub struct WindowSettings {
     pub background_color: String,
     pub confirm_quit: bool,
     pub font_edging: String,
-    pub font_hinting: String
+    pub font_hinting: String,
 }
 
 impl Default for WindowSettings {
@@ -37,8 +37,8 @@ impl Default for WindowSettings {
             touch_drag_timeout: 0.17,
             background_color: "".to_string(),
             confirm_quit: true,
-            font_edging: "AntiAlias".to_string(),
-            font_hinting: "Full".to_string()
+            font_edging: "antialias".to_string(),
+            font_hinting: "full".to_string(),
         }
     }
 }

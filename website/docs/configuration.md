@@ -48,29 +48,34 @@ as such it's also documented in `:h guifont`. But to sum it up and also add Neov
   - `Roboto_Mono_Light:h10` — Roboto Mono Light at size 10.
 
 ##### Font Hinting
+
 Sets level of glyph outline adjustment.
 
 ```vim
-let g:neovide_font_hinting = 'Full'
+let g:neovide_font_hinting = 'full'
 ```
 
 Options
-- Full
-- Normal
-- Slight
-- None
+
+- full
+- normal
+- slight
+- none
 
 ##### Font Edging
+
 Requests, but does not require, that edge pixels draw opaque or with partial transparency.
 
 ```vim
-let g:neovide_font_edging = 'AntiAlias'
+let g:neovide_font_edging = 'antialias'
 ```
 
 Options
-- SubpixelAntiAlias
-- AntiAlias
-- Alias
+
+- subpixelantialias
+- antialias
+- alias
+
 #### Scale
 
 ```vim

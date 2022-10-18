@@ -1,10 +1,15 @@
 use std::sync::Arc;
 
-use log::trace;
+use log::{error, trace};
 use lru::LruCache;
+use nvim_rs::Value;
 use skia_safe::{font::Edging, Data, Font, FontHinting, FontMgr, FontStyle, Typeface};
 
-use crate::{renderer::{fonts::swash_font::SwashFont}, settings::SETTINGS, WindowSettings};
+use crate::{
+    renderer::fonts::swash_font::SwashFont,
+    settings::{ParseFromValue, SETTINGS},
+    WindowSettings,
+};
 
 static DEFAULT_FONT: &[u8] = include_bytes!("../../../assets/fonts/FiraCodeNerdFont-Regular.ttf");
 static LAST_RESORT_FONT: &[u8] = include_bytes!("../../../assets/fonts/LastResort-Regular.ttf");
@@ -20,14 +25,16 @@ impl FontPair {
         skia_font.set_subpixel(true);
 
         let settings = SETTINGS.get::<WindowSettings>();
-        skia_font.set_hinting(
-            font_hinting(&settings.font_hinting)
-        );
-            
-        if let Some(edging) = font_edging(&settings.font_edging) {
+        let mut font_hinting = FontHinting::Full;
+        font_hinting.parse_from_value(Value::from(settings.font_hinting));
+        skia_font.set_hinting(font_hinting);
+
+        let mut font_edging: Option<Edging> = Some(Edging::AntiAlias);
+        font_edging.parse_from_value(Value::from(settings.font_edging));
+        if let Some(edging) = font_edging {
             skia_font.set_edging(edging);
         }
-        
+
         let typeface = skia_font.typeface().unwrap();
         let (font_data, index) = typeface.to_font_data().unwrap();
         let swash_font = SwashFont::from_data(font_data, index)?;
@@ -166,22 +173,32 @@ fn font_style(bold: bool, italic: bool) -> FontStyle {
     }
 }
 
-fn font_hinting(hinting: &str) -> FontHinting {
-    let hinting = hinting.to_lowercase();
-    match hinting.as_str() {
-        "full" => FontHinting::Full,
-        "normal" => FontHinting::Normal,
-        "slight" => FontHinting::Slight,
-        _ => FontHinting::None
+impl ParseFromValue for FontHinting {
+    fn parse_from_value(&mut self, value: Value) {
+        if value.is_str() {
+            *self = match value.as_str().unwrap() {
+                "full" => FontHinting::Full,
+                "normal" => FontHinting::Normal,
+                "slight" => FontHinting::Slight,
+                _ => FontHinting::None,
+            };
+        } else {
+            error!("Expected a Font Edging string, but received {:?}", value);
+        }
     }
 }
 
-fn font_edging(edging: &str) -> Option<Edging> {
-    let edging = edging.to_lowercase();
-    match edging.as_str() {
-        "alias" => Some(Edging::Alias),
-        "antialias" => Some(Edging::AntiAlias),
-        "subpixelantialias" => Some(Edging::SubpixelAntiAlias),
-        _ => None
+impl ParseFromValue for Option<Edging> {
+    fn parse_from_value(&mut self, value: Value) {
+        if value.is_str() {
+            *self = match value.as_str().unwrap() {
+                "alias" => Some(Edging::Alias),
+                "antialias" => Some(Edging::AntiAlias),
+                "subpixelantialias" => Some(Edging::SubpixelAntiAlias),
+                _ => None,
+            };
+        } else {
+            error!("Expected a Font Edging string, but received {:?}", value);
+        }
     }
 }
