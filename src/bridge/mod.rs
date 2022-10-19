@@ -18,21 +18,17 @@ use crate::{
 
 pub use command::create_nvim_command;
 pub use connection::NeovimWriter;
+use connection::{NeovimInstance, NeovimSession};
 pub use events::*;
 use handler::NeovimHandler;
 use setup::setup_neovide_specific_state;
 pub use ui_commands::{start_ui_command_handler, ParallelCommand, SerialCommand, UiCommand};
 
-enum ConnectionMode {
-    Embedded,
-    Server(String),
-}
-
-fn connection_mode() -> ConnectionMode {
-    if let Some(arg) = SETTINGS.get::<CmdLineSettings>().server {
-        ConnectionMode::Server(arg)
+fn neovim_instance() -> NeovimInstance {
+    if let Some(address) = SETTINGS.get::<CmdLineSettings>().server {
+        NeovimInstance::Server { address }
     } else {
-        ConnectionMode::Embedded
+        NeovimInstance::Embedded(create_nvim_command())
     }
 }
 
@@ -45,11 +41,11 @@ pub fn start_bridge() {
 #[tokio::main]
 async fn start_neovim_runtime() {
     let handler = NeovimHandler::new();
-    let (nvim, io_handler) = match connection_mode() {
-        ConnectionMode::Embedded => connection::embed(&mut create_nvim_command(), handler).await,
-        ConnectionMode::Server(address) => connection::connect(address, handler).await,
-    }
-    .unwrap_or_explained_panic("Could not locate or start neovim process");
+    let session = NeovimSession::new(neovim_instance(), handler)
+        .await
+        .unwrap_or_explained_panic("Could not locate or start neovim process");
+
+    let nvim = Arc::new(session.neovim);
 
     // Check the neovim version to ensure its high enough
     match nvim.command_output("echo has('nvim-0.4')").await.as_deref() {
@@ -78,13 +74,11 @@ async fn start_neovim_runtime() {
 
     info!("Neovim process attached");
 
-    let nvim = Arc::new(nvim);
-
     start_ui_command_handler(nvim.clone());
     SETTINGS.read_initial_values(&nvim).await;
     SETTINGS.setup_changed_listeners(&nvim).await;
 
-    match io_handler.await {
+    match session.io_handle.await {
         Err(join_error) => error!("Error joining IO loop: '{}'", join_error),
         Ok(Err(error)) => {
             if !error.is_channel_closed() {
