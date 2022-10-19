@@ -1,8 +1,8 @@
 mod clipboard;
 mod command;
-pub mod connection;
 mod events;
 mod handler;
+pub mod session;
 mod setup;
 mod ui_commands;
 
@@ -17,10 +17,10 @@ use crate::{
 };
 
 pub use command::create_nvim_command;
-pub use connection::NeovimWriter;
-use connection::{NeovimInstance, NeovimSession};
 pub use events::*;
 use handler::NeovimHandler;
+pub use session::NeovimWriter;
+use session::{NeovimInstance, NeovimSession};
 use setup::setup_neovide_specific_state;
 pub use ui_commands::{start_ui_command_handler, ParallelCommand, SerialCommand, UiCommand};
 
