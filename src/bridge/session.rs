@@ -1,7 +1,6 @@
 //! This module contains adaptations of the functions found in
 //! https://github.com/KillTheMule/nvim-rs/blob/master/src/create/tokio.rs
 
-use core::result::Result as CoreResult;
 use std::{
     io::{Error, ErrorKind, Result},
     process::Stdio,
@@ -24,7 +23,7 @@ type BoxedWriter = Box<dyn AsyncWrite + Send + Unpin + 'static>;
 
 pub struct NeovimSession {
     pub neovim: Neovim<NeovimWriter>,
-    pub io_handle: JoinHandle<CoreResult<(), Box<LoopError>>>,
+    pub io_handle: JoinHandle<std::result::Result<(), Box<LoopError>>>,
 }
 
 impl NeovimSession {
