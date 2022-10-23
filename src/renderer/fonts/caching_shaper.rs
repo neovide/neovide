@@ -52,13 +52,13 @@ impl CachingShaper {
 
     fn current_font_pair(&mut self) -> Arc<FontPair> {
         self.font_loader
-            .get_or_load(&FontKey::new(
-                false,
-                false,
-                self.options.primary_font(),
-                self.options.hinting.clone(),
-                self.options.edging.clone(),
-            ))
+            .get_or_load(&FontKey {
+                italic: false,
+                bold: false,
+                family_name: self.options.primary_font(),
+                hinting: self.options.hinting.clone(),
+                edging: self.options.edging.clone(),
+            })
             .unwrap_or_else(|| {
                 self.font_loader
                     .get_or_load(&FontKey::default())
@@ -80,13 +80,13 @@ impl CachingShaper {
         debug!("Updating font: {}", guifont_setting);
 
         let options = FontOptions::parse(guifont_setting);
-        let font_key = FontKey::new(
-            false,
-            false,
-            options.primary_font(),
-            options.hinting.clone(),
-            options.edging.clone(),
-        );
+        let font_key = FontKey {
+            italic: false,
+            bold: false,
+            family_name: options.primary_font(),
+            hinting: options.hinting.clone(),
+            edging: options.edging.clone(),
+        };
 
         if self.font_loader.get_or_load(&font_key).is_some() {
             debug!("Font updated to: {}", guifont_setting);
@@ -205,24 +205,22 @@ impl CachingShaper {
             let mut font_fallback_keys = Vec::new();
 
             // Add parsed fonts from guifont
-            font_fallback_keys.extend(self.options.font_list.iter().map(|font_name| {
-                FontKey::new(
-                    self.options.bold || bold,
-                    self.options.italic || italic,
-                    Some(font_name.clone()),
-                    self.options.hinting.clone(),
-                    self.options.edging.clone(),
-                )
+            font_fallback_keys.extend(self.options.font_list.iter().map(|font_name| FontKey {
+                italic: self.options.italic || italic,
+                bold: self.options.bold || bold,
+                family_name: Some(font_name.clone()),
+                hinting: self.options.hinting.clone(),
+                edging: self.options.edging.clone(),
             }));
 
             // Add default font
-            font_fallback_keys.push(FontKey::new(
-                self.options.bold || bold,
-                self.options.italic || italic,
-                None,
-                self.options.hinting.clone(),
-                self.options.edging.clone(),
-            ));
+            font_fallback_keys.push(FontKey {
+                italic: self.options.italic || italic,
+                bold: self.options.bold || bold,
+                family_name: None,
+                hinting: self.options.hinting.clone(),
+                edging: self.options.edging.clone(),
+            });
 
             // Use the cluster.map function to select a viable font from the fallback list and loaded fonts
 

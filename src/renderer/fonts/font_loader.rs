@@ -1,8 +1,7 @@
 use std::sync::Arc;
 
-use log::{error, trace};
+use log::trace;
 use lru::LruCache;
-use nvim_rs::Value;
 use skia_safe::{
     font::Edging as SkiaEdging, Data, Font, FontHinting as SkiaHinting, FontMgr, FontStyle,
     Typeface,
@@ -23,8 +22,8 @@ pub struct FontPair {
 impl FontPair {
     fn new(key: FontKey, mut skia_font: Font) -> Option<FontPair> {
         skia_font.set_subpixel(true);
-        skia_font.set_hinting(font_hinting(key.hinting()));
-        skia_font.set_edging(font_edging(key.edging()));
+        skia_font.set_hinting(font_hinting(&key.hinting));
+        skia_font.set_edging(font_edging(&key.edging));
 
         let typeface = skia_font.typeface().unwrap();
         let (font_data, index) = typeface.to_font_data().unwrap();
@@ -46,36 +45,13 @@ impl PartialEq for FontPair {
 
 #[derive(Debug, Default, Hash, PartialEq, Eq, Clone)]
 pub struct FontKey {
-    bold: bool,
-    italic: bool,
-    family_name: Option<String>,
-    hinting: FontHinting,
-    edging: FontEdging,
-}
-
-impl FontKey {
-    pub fn new(
-        bold: bool,
-        italic: bool,
-        family_name: Option<String>,
-        hinting: FontHinting,
-        edging: FontEdging,
-    ) -> Self {
-        Self {
-            bold,
-            italic,
-            family_name,
-            hinting,
-            edging,
-        }
-    }
-
-    pub fn hinting(&self) -> FontHinting {
-        self.hinting.clone()
-    }
-    pub fn edging(&self) -> FontEdging {
-        self.edging.clone()
-    }
+    // TODO(smolck): Could make these private and add constructor method(s)?
+    // Would theoretically make things safer I guess, but not sure . . .
+    pub bold: bool,
+    pub italic: bool,
+    pub family_name: Option<String>,
+    pub hinting: FontHinting,
+    pub edging: FontEdging,
 }
 
 pub struct FontLoader {
@@ -134,13 +110,13 @@ impl FontLoader {
             self.font_mgr
                 .match_family_style_character("", font_style, &[], character as i32)?;
 
-        let font_key = FontKey::new(
+        let font_key = FontKey {
             bold,
             italic,
-            Some(typeface.family_name()),
-            FontHinting::default(),
-            FontEdging::default(),
-        );
+            family_name: Some(typeface.family_name()),
+            hinting: FontHinting::default(),
+            edging: FontEdging::default(),
+        };
 
         let font_pair = Arc::new(FontPair::new(
             font_key.clone(),
@@ -191,7 +167,7 @@ fn font_style(bold: bool, italic: bool) -> FontStyle {
     }
 }
 
-fn font_hinting(hinting: FontHinting) -> SkiaHinting {
+fn font_hinting(hinting: &FontHinting) -> SkiaHinting {
     match hinting {
         FontHinting::Full => SkiaHinting::Full,
         FontHinting::Slight => SkiaHinting::Slight,
@@ -200,7 +176,7 @@ fn font_hinting(hinting: FontHinting) -> SkiaHinting {
     }
 }
 
-fn font_edging(edging: FontEdging) -> SkiaEdging {
+fn font_edging(edging: &FontEdging) -> SkiaEdging {
     match edging {
         FontEdging::AntiAlias => SkiaEdging::AntiAlias,
         FontEdging::Alias => SkiaEdging::Alias,
