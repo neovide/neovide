@@ -42,7 +42,8 @@ as such it's also documented in `:h guifont`. But to sum it up and also add Neov
     - `hX` — Sets the font size to `X` points, while `X` can be any (even floating-point) number.
     - `b` — Sets the font **bold**.
     - `i` — Sets the font _italic_.
-    - `#e-X` — Sets edge pixels to be drawn opaquely or with partial transparency, while `X` is a type of edging:
+    - `#e-X` — Sets edge pixels to be drawn opaquely or with partial transparency, 
+       while `X` is a type of edging:
       - antialias (default)
       - subpixelantialias
       - alias
