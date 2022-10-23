@@ -8,11 +8,8 @@ use skia_safe::{
     Typeface,
 };
 
-use crate::{
-    renderer::fonts::swash_font::SwashFont,
-    settings::{ParseFromValue, SETTINGS},
-    WindowSettings,
-};
+use crate::renderer::fonts::font_options::{FontEdging, FontHinting};
+use crate::renderer::fonts::swash_font::SwashFont;
 
 static DEFAULT_FONT: &[u8] = include_bytes!("../../../assets/fonts/FiraCodeNerdFont-Regular.ttf");
 static LAST_RESORT_FONT: &[u8] = include_bytes!("../../../assets/fonts/LastResort-Regular.ttf");
@@ -26,10 +23,8 @@ pub struct FontPair {
 impl FontPair {
     fn new(key: FontKey, mut skia_font: Font) -> Option<FontPair> {
         skia_font.set_subpixel(true);
-
-        let settings = SETTINGS.get::<WindowSettings>();
-        skia_font.set_hinting(settings.font_hinting.0);
-        skia_font.set_edging(settings.font_edging.0);
+        skia_font.set_hinting(font_hinting(key.hinting()));
+        skia_font.set_edging(font_edging(key.edging()));
 
         let typeface = skia_font.typeface().unwrap();
         let (font_data, index) = typeface.to_font_data().unwrap();
@@ -51,11 +46,36 @@ impl PartialEq for FontPair {
 
 #[derive(Debug, Default, Hash, PartialEq, Eq, Clone)]
 pub struct FontKey {
-    // TODO(smolck): Could make these private and add constructor method(s)?
-    // Would theoretically make things safer I guess, but not sure . . .
-    pub bold: bool,
-    pub italic: bool,
-    pub family_name: Option<String>,
+    bold: bool,
+    italic: bool,
+    family_name: Option<String>,
+    hinting: FontHinting,
+    edging: FontEdging,
+}
+
+impl FontKey {
+    pub fn new(
+        bold: bool,
+        italic: bool,
+        family_name: Option<String>,
+        hinting: FontHinting,
+        edging: FontEdging,
+    ) -> Self {
+        Self {
+            bold,
+            italic,
+            family_name,
+            hinting,
+            edging,
+        }
+    }
+
+    pub fn hinting(&self) -> FontHinting {
+        self.hinting.clone()
+    }
+    pub fn edging(&self) -> FontEdging {
+        self.edging.clone()
+    }
 }
 
 pub struct FontLoader {
@@ -114,11 +134,13 @@ impl FontLoader {
             self.font_mgr
                 .match_family_style_character("", font_style, &[], character as i32)?;
 
-        let font_key = FontKey {
+        let font_key = FontKey::new(
             bold,
             italic,
-            family_name: Some(typeface.family_name()),
-        };
+            Some(typeface.family_name()),
+            FontHinting::default(),
+            FontEdging::default(),
+        );
 
         let font_pair = Arc::new(FontPair::new(
             font_key.clone(),
@@ -169,74 +191,19 @@ fn font_style(bold: bool, italic: bool) -> FontStyle {
     }
 }
 
-#[derive(Clone, Debug)]
-pub struct Hinting(SkiaHinting);
-
-impl Default for Hinting {
-    fn default() -> Self {
-        Self(SkiaHinting::Full)
+fn font_hinting(hinting: FontHinting) -> SkiaHinting {
+    match hinting {
+        FontHinting::Full => SkiaHinting::Full,
+        FontHinting::Slight => SkiaHinting::Slight,
+        FontHinting::Normal => SkiaHinting::Normal,
+        FontHinting::None => SkiaHinting::None,
     }
 }
 
-impl ParseFromValue for Hinting {
-    fn parse_from_value(&mut self, value: Value) {
-        if value.is_str() {
-            let hinting = match value.as_str().unwrap() {
-                "full" => SkiaHinting::Full,
-                "normal" => SkiaHinting::Normal,
-                "slight" => SkiaHinting::Slight,
-                _ => SkiaHinting::None,
-            };
-            *self = Self(hinting)
-        } else {
-            error!("Expected a Font Edging string, but received {:?}", value);
-        }
-    }
-}
-
-impl From<Hinting> for Value {
-    fn from(value: Hinting) -> Value {
-        let repr = match value.0 {
-            SkiaHinting::Full => "full",
-            SkiaHinting::Normal => "normal",
-            SkiaHinting::Slight => "slight",
-            SkiaHinting::None => "none",
-        };
-        Value::from(repr)
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct Edging(SkiaEdging);
-
-impl Default for Edging {
-    fn default() -> Self {
-        Self(SkiaEdging::AntiAlias)
-    }
-}
-
-impl ParseFromValue for Edging {
-    fn parse_from_value(&mut self, value: Value) {
-        if value.is_str() {
-            let edging = match value.as_str().unwrap() {
-                "alias" => SkiaEdging::Alias,
-                "subpixelantialias" | "subpixel" => SkiaEdging::SubpixelAntiAlias,
-                "antialias" | _ => SkiaEdging::AntiAlias,
-            };
-            *self = Self(edging);
-        } else {
-            error!("Expected a Font Edging string, but received {:?}", value);
-        }
-    }
-}
-
-impl From<Edging> for Value {
-    fn from(value: Edging) -> Value {
-        let repr = match value.0 {
-            SkiaEdging::AntiAlias => "antialias",
-            SkiaEdging::SubpixelAntiAlias => "subpixel",
-            SkiaEdging::Alias => "alias",
-        };
-        Value::from(repr)
+fn font_edging(edging: FontEdging) -> SkiaEdging {
+    match edging {
+        FontEdging::AntiAlias => SkiaEdging::AntiAlias,
+        FontEdging::Alias => SkiaEdging::Alias,
+        FontEdging::SubpixelAntiAlias => SkiaEdging::SubpixelAntiAlias,
     }
 }

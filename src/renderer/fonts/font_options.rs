@@ -7,6 +7,8 @@ pub struct FontOptions {
     pub bold: bool,
     pub italic: bool,
     pub allow_float_size: bool,
+    pub hinting: FontHinting,
+    pub edging: FontEdging,
 }
 
 impl FontOptions {
@@ -16,6 +18,8 @@ impl FontOptions {
         let mut bold = false;
         let mut italic = false;
         let mut allow_float_size = false;
+        let mut hinting = FontHinting::default();
+        let mut edging = FontEdging::default();
 
         let mut parts = guifont_setting.split(':').filter(|part| !part.is_empty());
 
@@ -32,7 +36,11 @@ impl FontOptions {
         }
 
         for part in parts {
-            if part.starts_with('h') && part.len() > 1 {
+            if let Some(hinting_string) = part.strip_prefix("#h-") {
+                hinting = FontHinting::parse(hinting_string);
+            } else if let Some(edging_string) = part.strip_prefix("#e-") {
+                edging = FontEdging::parse(edging_string);
+            } else if part.starts_with('h') && part.len() > 1 {
                 if part.contains('.') {
                     allow_float_size = true;
                 }
@@ -51,6 +59,8 @@ impl FontOptions {
             bold,
             italic,
             allow_float_size,
+            hinting,
+            edging,
             size: points_to_pixels(size),
         }
     }
@@ -68,6 +78,8 @@ impl Default for FontOptions {
             italic: false,
             allow_float_size: false,
             size: points_to_pixels(DEFAULT_FONT_SIZE),
+            hinting: FontHinting::default(),
+            edging: FontEdging::default(),
         }
     }
 }
@@ -78,6 +90,56 @@ impl PartialEq for FontOptions {
             && (self.size - other.size).abs() < std::f32::EPSILON
             && self.bold == other.bold
             && self.italic == other.italic
+            && self.edging == other.edging
+            && self.hinting == other.hinting
+    }
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum FontEdging {
+    AntiAlias,
+    SubpixelAntiAlias,
+    Alias,
+}
+
+impl FontEdging {
+    pub fn parse(value: &str) -> Self {
+        match value {
+            "antialias" => FontEdging::AntiAlias,
+            "subpixelantialias" => FontEdging::SubpixelAntiAlias,
+            _ => FontEdging::Alias,
+        }
+    }
+}
+
+impl Default for FontEdging {
+    fn default() -> Self {
+        FontEdging::AntiAlias
+    }
+}
+
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum FontHinting {
+    Full,
+    Normal,
+    Slight,
+    None,
+}
+
+impl FontHinting {
+    pub fn parse(value: &str) -> Self {
+        match value {
+            "full" => FontHinting::Full,
+            "normal" => FontHinting::Normal,
+            "slight" => FontHinting::Slight,
+            _ => FontHinting::None,
+        }
+    }
+}
+
+impl Default for FontHinting {
+    fn default() -> Self {
+        FontHinting::Full
     }
 }
 
@@ -99,5 +161,119 @@ fn points_to_pixels(value: f32) -> f32 {
         let pixels_per_inch = 96.0;
         let points_per_inch = 72.0;
         value * (pixels_per_inch / points_per_inch)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_one_font_from_guifont_setting() {
+        let guifont_setting = "Fira Code Mono";
+        let font_options = FontOptions::parse(guifont_setting);
+
+        assert_eq!(
+            font_options.font_list.len(),
+            1,
+            "font list length should equal {}, but {}",
+            font_options.font_list.len(),
+            1
+        );
+    }
+
+    #[test]
+    fn test_parse_many_fonts_from_guifont_setting() {
+        let guifont_setting = "Fira Code Mono,Console";
+        let font_options = FontOptions::parse(guifont_setting);
+
+        assert_eq!(
+            font_options.font_list.len(),
+            2,
+            "font list length should equal {}, but {}",
+            font_options.font_list.len(),
+            1
+        );
+    }
+
+    #[test]
+    fn test_parse_edging_from_guifont_setting() {
+        let guifont_setting = "Fira Code Mono:#e-subpixelantialias";
+        let font_options = FontOptions::parse(guifont_setting);
+
+        assert_eq!(
+            font_options.edging,
+            FontEdging::SubpixelAntiAlias,
+            "font edging should equal {:?}, but {:?}",
+            font_options.edging,
+            FontEdging::SubpixelAntiAlias,
+        );
+    }
+
+    #[test]
+    fn test_parse_hinting_from_guifont_setting() {
+        let guifont_setting = "Fira Code Mono:#h-slight";
+        let font_options = FontOptions::parse(guifont_setting);
+
+        assert_eq!(
+            font_options.hinting,
+            FontHinting::Slight,
+            "font hinting should equal {:?}, but {:?}",
+            font_options.hinting,
+            FontHinting::Slight,
+        );
+    }
+    #[test]
+    fn test_parse_font_size_float_from_guifont_setting() {
+        let guifont_setting = "Fira Code Mono:h15.5";
+        let font_options = FontOptions::parse(guifont_setting);
+
+        let font_size_pixels = points_to_pixels(15.5);
+        assert_eq!(
+            font_options.size, font_size_pixels,
+            "font size should equal {}, but {}",
+            font_size_pixels, font_options.size,
+        );
+    }
+
+    #[test]
+    fn test_parse_all_params_together_from_guifont_setting() {
+        let guifont_setting = "Fira Code Mono:h15:b:i:#h-slight:#e-alias";
+        let font_options = FontOptions::parse(guifont_setting);
+
+        let font_size_pixels = points_to_pixels(15.0);
+        assert_eq!(
+            font_options.size, font_size_pixels,
+            "font size should equal {}, but {}",
+            font_size_pixels, font_options.size,
+        );
+
+        assert_eq!(
+            font_options.bold, true,
+            "bold should equal {}, but {}",
+            font_options.bold, true,
+        );
+
+        assert_eq!(
+            font_options.italic, true,
+            "italic should equal {}, but {}",
+            font_options.italic, true,
+        );
+
+        assert_eq!(
+            font_options.edging,
+            FontEdging::Alias,
+            "font hinting should equal {:?}, but {:?}",
+            font_options.hinting,
+            FontEdging::Alias,
+        );
+
+        assert_eq!(
+            font_options.hinting,
+            FontHinting::Slight,
+            "font hinting should equal {:?}, but {:?}",
+            font_options.hinting,
+            FontHinting::Slight,
+        );
     }
 }
