@@ -53,9 +53,11 @@ impl CachingShaper {
     fn current_font_pair(&mut self) -> Arc<FontPair> {
         self.font_loader
             .get_or_load(&FontKey {
-                bold: false,
                 italic: false,
+                bold: false,
                 family_name: self.options.primary_font(),
+                hinting: self.options.hinting.clone(),
+                edging: self.options.edging.clone(),
             })
             .unwrap_or_else(|| {
                 self.font_loader
@@ -79,9 +81,11 @@ impl CachingShaper {
 
         let options = FontOptions::parse(guifont_setting);
         let font_key = FontKey {
-            bold: false,
             italic: false,
+            bold: false,
             family_name: options.primary_font(),
+            hinting: options.hinting.clone(),
+            edging: options.edging.clone(),
         };
 
         if self.font_loader.get_or_load(&font_key).is_some() {
@@ -205,6 +209,8 @@ impl CachingShaper {
                 italic: self.options.italic || italic,
                 bold: self.options.bold || bold,
                 family_name: Some(font_name.clone()),
+                hinting: self.options.hinting.clone(),
+                edging: self.options.edging.clone(),
             }));
 
             // Add default font
@@ -212,6 +218,8 @@ impl CachingShaper {
                 italic: self.options.italic || italic,
                 bold: self.options.bold || bold,
                 family_name: None,
+                hinting: self.options.hinting.clone(),
+                edging: self.options.edging.clone(),
             });
 
             // Use the cluster.map function to select a viable font from the fallback list and loaded fonts

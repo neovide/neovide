@@ -42,10 +42,21 @@ as such it's also documented in `:h guifont`. But to sum it up and also add Neov
     - `hX` — Sets the font size to `X` points, while `X` can be any (even floating-point) number.
     - `b` — Sets the font **bold**.
     - `i` — Sets the font _italic_.
+    - `#e-X` — Sets edge pixels to be drawn opaquely or with partial transparency,
+       while `X` is a type of edging:
+      - antialias (default)
+      - subpixelantialias
+      - alias
+    - `#h-X` - Sets level of glyph outline adjustment, while `X` is a type of hinting:
+      - full (default)
+      - normal
+      - slight
+      - none
 - Some examples:
   - `Hack,Noto_Color_Emoji:h12:b` — Hack at size 12 in bold, with Noto Color Emoji as fallback
       should Hack fail to contain any glyph.
   - `Roboto_Mono_Light:h10` — Roboto Mono Light at size 10.
+  - `Hack:h14:i:#e-subpixelantialias:#h-none`
 
 #### Scale
 

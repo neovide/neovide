@@ -2,8 +2,12 @@ use std::sync::Arc;
 
 use log::trace;
 use lru::LruCache;
-use skia_safe::{font::Edging, Data, Font, FontHinting, FontMgr, FontStyle, Typeface};
+use skia_safe::{
+    font::Edging as SkiaEdging, Data, Font, FontHinting as SkiaHinting, FontMgr, FontStyle,
+    Typeface,
+};
 
+use crate::renderer::fonts::font_options::{FontEdging, FontHinting};
 use crate::renderer::fonts::swash_font::SwashFont;
 
 static DEFAULT_FONT: &[u8] = include_bytes!("../../../assets/fonts/FiraCodeNerdFont-Regular.ttf");
@@ -18,8 +22,8 @@ pub struct FontPair {
 impl FontPair {
     fn new(key: FontKey, mut skia_font: Font) -> Option<FontPair> {
         skia_font.set_subpixel(true);
-        skia_font.set_hinting(FontHinting::Full);
-        skia_font.set_edging(Edging::AntiAlias);
+        skia_font.set_hinting(font_hinting(&key.hinting));
+        skia_font.set_edging(font_edging(&key.edging));
 
         let typeface = skia_font.typeface().unwrap();
         let (font_data, index) = typeface.to_font_data().unwrap();
@@ -46,6 +50,8 @@ pub struct FontKey {
     pub bold: bool,
     pub italic: bool,
     pub family_name: Option<String>,
+    pub hinting: FontHinting,
+    pub edging: FontEdging,
 }
 
 pub struct FontLoader {
@@ -108,6 +114,8 @@ impl FontLoader {
             bold,
             italic,
             family_name: Some(typeface.family_name()),
+            hinting: FontHinting::default(),
+            edging: FontEdging::default(),
         };
 
         let font_pair = Arc::new(FontPair::new(
@@ -156,5 +164,22 @@ fn font_style(bold: bool, italic: bool) -> FontStyle {
         (false, true) => FontStyle::italic(),
         (true, false) => FontStyle::bold(),
         (false, false) => FontStyle::normal(),
+    }
+}
+
+fn font_hinting(hinting: &FontHinting) -> SkiaHinting {
+    match hinting {
+        FontHinting::Full => SkiaHinting::Full,
+        FontHinting::Slight => SkiaHinting::Slight,
+        FontHinting::Normal => SkiaHinting::Normal,
+        FontHinting::None => SkiaHinting::None,
+    }
+}
+
+fn font_edging(edging: &FontEdging) -> SkiaEdging {
+    match edging {
+        FontEdging::AntiAlias => SkiaEdging::AntiAlias,
+        FontEdging::Alias => SkiaEdging::Alias,
+        FontEdging::SubpixelAntiAlias => SkiaEdging::SubpixelAntiAlias,
     }
 }
