@@ -433,6 +433,22 @@ while you can have as many fallback fonts as you want (even 0) and as many optio
 <li><code>hX</code> — Sets the font size to <code>X</code> points, while <code>X</code> can be any (even floating-point) number.</li>
 <li><code>b</code> — Sets the font <strong>bold</strong>.</li>
 <li><code>i</code> — Sets the font <em>italic</em>.</li>
+<li><code>#e-X</code> — Sets edge pixels to be drawn opaquely or with partial transparency,
+while <code>X</code> is a type of edging:
+<ul>
+<li>antialias (default)</li>
+<li>subpixelantialias</li>
+<li>alias</li>
+</ul>
+</li>
+<li><code>#h-X</code> - Sets level of glyph outline adjustment, while <code>X</code> is a type of hinting:
+<ul>
+<li>full (default)</li>
+<li>normal</li>
+<li>slight</li>
+<li>none</li>
+</ul>
+</li>
 </ul>
 </li>
 </ul>
@@ -442,6 +458,7 @@ while you can have as many fallback fonts as you want (even 0) and as many optio
 <li><code>Hack,Noto_Color_Emoji:h12:b</code> — Hack at size 12 in bold, with Noto Color Emoji as fallback
 should Hack fail to contain any glyph.</li>
 <li><code>Roboto_Mono_Light:h10</code> — Roboto Mono Light at size 10.</li>
+<li><code>Hack:h14:i:#e-subpixelantialias:#h-none</code></li>
 </ul>
 </li>
 </ul>
