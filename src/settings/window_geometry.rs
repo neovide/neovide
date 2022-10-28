@@ -18,13 +18,9 @@ pub enum PersistentWindowSettings {
     Windowed {
         #[serde(default)]
         position: PhysicalPosition<i32>,
-        #[serde(default = "default_size")]
+        #[serde(default)]
         size: Dimensions,
     },
-}
-
-fn default_size() -> Dimensions {
-    DEFAULT_WINDOW_GEOMETRY
 }
 
 #[derive(Serialize, Deserialize)]
@@ -71,6 +67,18 @@ pub fn load_last_window_settings() -> Result<PersistentWindowSettings, String> {
     Ok(loaded_settings)
 }
 
+pub fn last_window_geometry() -> Dimensions {
+    load_last_window_settings()
+        .and_then(|window_settings| {
+            if let PersistentWindowSettings::Windowed { size, .. } = window_settings {
+                Ok(size)
+            } else {
+                Err(String::from("Window was maximized"))
+            }
+        })
+        .unwrap_or(DEFAULT_WINDOW_GEOMETRY)
+}
+
 pub fn save_window_geometry(
     maximized: bool,
     grid_size: Option<Dimensions>,
@@ -108,45 +116,33 @@ pub fn save_window_geometry(
     std::fs::write(settings_path, json).unwrap();
 }
 
-pub fn parse_window_geometry(geometry: Option<String>) -> Result<Dimensions, String> {
-    let saved_window_size = load_last_window_settings()
-        .and_then(|window_settings| {
-            if let PersistentWindowSettings::Windowed { size, .. } = window_settings {
-                Ok(size)
+pub fn parse_window_geometry(input: &str) -> Result<Dimensions, String> {
+    let invalid_parse_err = format!(
+        "Invalid geometry: {}\nValid format: <width>x<height>",
+        input
+    );
+
+    input
+        .split('x')
+        .map(|dimension| {
+            dimension
+                .parse::<u64>()
+                .map_err(|_| invalid_parse_err.as_str())
+                .and_then(|dimension| {
+                    if dimension > 0 {
+                        Ok(dimension)
+                    } else {
+                        Err("Invalid geometry: Window dimensions should be greater than 0.")
+                    }
+                })
+        })
+        .collect::<Result<Vec<_>, &str>>()
+        .and_then(|dimensions| {
+            if let [width, height] = dimensions[..] {
+                Ok(Dimensions { width, height })
             } else {
-                Err(String::from("Window was maximized"))
+                Err(invalid_parse_err.as_str())
             }
         })
-        .or::<String>(Ok(DEFAULT_WINDOW_GEOMETRY));
-
-    geometry.map_or(saved_window_size, |input| {
-        let invalid_parse_err = format!(
-            "Invalid geometry: {}\nValid format: <width>x<height>",
-            input
-        );
-
-        input
-            .split('x')
-            .map(|dimension| {
-                dimension
-                    .parse::<u64>()
-                    .map_err(|_| invalid_parse_err.as_str())
-                    .and_then(|dimension| {
-                        if dimension > 0 {
-                            Ok(dimension)
-                        } else {
-                            Err("Invalid geometry: Window dimensions should be greater than 0.")
-                        }
-                    })
-            })
-            .collect::<Result<Vec<_>, &str>>()
-            .and_then(|dimensions| {
-                if let [width, height] = dimensions[..] {
-                    Ok(Dimensions { width, height })
-                } else {
-                    Err(invalid_parse_err.as_str())
-                }
-            })
-            .map_err(|msg| msg.to_owned())
-    })
+        .map_err(|msg| msg.to_owned())
 }

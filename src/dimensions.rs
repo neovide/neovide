@@ -16,10 +16,16 @@ pub struct Dimensions {
     pub height: u64,
 }
 
+impl Default for Dimensions {
+    fn default() -> Self {
+        settings::DEFAULT_WINDOW_GEOMETRY
+    }
+}
+
 impl FromStr for Dimensions {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        settings::parse_window_geometry(Some(s.to_string()))
+        settings::parse_window_geometry(s)
     }
 }
 

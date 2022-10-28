@@ -24,7 +24,7 @@ pub struct CmdLineSettings {
     pub neovim_args: Vec<String>,
 
     /// The geometry of the window
-    #[arg(long, default_value_t = DEFAULT_WINDOW_GEOMETRY)]
+    #[arg(long, default_value_t = last_window_geometry())]
     pub geometry: Dimensions,
 
     /// If to enable logging to a file in the current directory
@@ -41,7 +41,7 @@ pub struct CmdLineSettings {
 
     /// Which window decorations to use (do note that the window might not be resizable
     /// if this is "none")
-    #[arg(long, env = "NEOVIDE_FRAME", default_value_t = Frame::default())]
+    #[arg(long, env = "NEOVIDE_FRAME", default_value_t) ]
     pub frame: Frame,
 
     /// Maximize the window on startup (not equivalent to fullscreen)
