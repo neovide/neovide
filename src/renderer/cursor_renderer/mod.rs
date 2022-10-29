@@ -252,8 +252,8 @@ impl CursorRenderer {
 
         if let Some(window) = windows.get(&self.cursor.parent_window_id) {
             let grid_x = cursor_grid_x as f32 + window.grid_current_position.x;
-            let mut grid_y =
-                cursor_grid_y as f32 + window.grid_current_position.y - window.current_scroll;
+            let mut grid_y = cursor_grid_y as f32 + window.grid_current_position.y
+                - window.scroll_animation.position;
 
             // Prevent the cursor from targeting a position outside its current window. Since only
             // the vertical direction is effected by scrolling, we only have to clamp the vertical

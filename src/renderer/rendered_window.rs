@@ -142,9 +142,7 @@ pub struct RenderedWindow {
     grid_destination: Point,
     position_t: f32,
 
-    start_scroll: f32,
-    pub current_scroll: f32,
-    scroll_t: f32,
+    pub scroll_animation: CriticallyDampedSpringAnimation,
 
     pub padding: WindowPadding,
 }
@@ -183,9 +181,8 @@ impl RenderedWindow {
             grid_destination: grid_position,
             position_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation.
 
-            start_scroll: 0.0,
-            current_scroll: 0.0,
-            scroll_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation.
+            scroll_animation: CriticallyDampedSpringAnimation::new(),
+
             padding,
         }
     }
@@ -204,45 +201,40 @@ impl RenderedWindow {
     pub fn update(&mut self, settings: &RendererSettings, dt: f32) -> bool {
         let mut animating = false;
 
-        {
-            if 1.0 - self.position_t < std::f32::EPSILON {
-                // We are at destination, move t out of 0-1 range to stop the animation.
-                self.position_t = 2.0;
-            } else {
-                animating = true;
-                self.position_t =
-                    (self.position_t + dt / settings.position_animation_length).min(1.0);
-            }
-
-            self.grid_current_position = ease_point(
-                ease_out_expo,
-                self.grid_start_position,
-                self.grid_destination,
-                self.position_t,
-            );
+        if 1.0 - self.position_t < std::f32::EPSILON {
+            // We are at destination, move t out of 0-1 range to stop the animation.
+            self.position_t = 2.0;
+        } else {
+            animating = true;
+            self.position_t = (self.position_t + dt / settings.position_animation_length).min(1.0);
         }
 
-        {
-            if 1.0 - self.scroll_t < std::f32::EPSILON {
-                // We are at destination, move t out of 0-1 range to stop the animation.
-                self.scroll_t = 2.0;
-            } else {
-                animating = true;
-                self.scroll_t = (self.scroll_t + dt / settings.scroll_animation_length).min(1.0);
-            }
+        self.grid_current_position = ease_point(
+            ease_out_expo,
+            self.grid_start_position,
+            self.grid_destination,
+            self.position_t,
+        );
 
-            self.current_scroll = ease(ease_out_expo, self.start_scroll, 0.0, self.scroll_t);
+        let timestep = 0.01;
+        let mut dt = dt;
+        let mut scrolling = false;
+        while dt > 0.0 {
+            scrolling = self
+                .scroll_animation
+                .update(dt, settings.scroll_animation_length);
+            dt -= timestep;
         }
 
-        animating
+        animating | scrolling
     }
 
     fn draw_surface(&mut self, font_dimensions: Dimensions) {
         let canvas = self.current_surface.surface.canvas();
         let mut matrix = Matrix::new_identity();
 
-        let scroll_offset_lines = self.current_scroll.floor();
-        let scroll_offset = scroll_offset_lines - self.current_scroll;
+        let scroll_offset_lines = self.scroll_animation.position.floor();
+        let scroll_offset = scroll_offset_lines - self.scroll_animation.position;
 
         for i in 0..self.grid_size.height + 1 {
             matrix.set_translate((
@@ -335,11 +327,6 @@ impl RenderedWindow {
         }
     }
 
-    fn reset_scroll(&mut self) {
-        self.start_scroll = 0.0;
-        self.scroll_t = 2.0;
-    }
-
     pub fn handle_window_draw_command(
         &mut self,
         grid_renderer: &mut GridRenderer,
@@ -405,7 +392,7 @@ impl RenderedWindow {
                     self.grid_start_position = new_destination;
                     self.grid_destination = new_destination;
                 }
-                self.reset_scroll();
+                self.scroll_animation.reset();
             }
             WindowDrawCommand::DrawLine {
                 row,
@@ -468,7 +455,7 @@ impl RenderedWindow {
                     && right == self.grid_size.width
                     && cols == 0
                 {
-                    let mut scroll_offset = self.current_scroll;
+                    let mut scroll_offset = self.scroll_animation.position;
                     self.top_index += rows as isize;
                     let minmax = self.lines.len() - self.grid_size.height as usize;
                     if rows.unsigned_abs() as usize > minmax {
@@ -480,14 +467,13 @@ impl RenderedWindow {
                         // buffer size is limited
                         scroll_offset = scroll_offset.clamp(-(minmax as f32), minmax as f32);
                     }
-                    self.start_scroll = scroll_offset;
-                    self.scroll_t = 0.0;
+                    self.scroll_animation.position = scroll_offset;
                 }
             }
             WindowDrawCommand::Clear => {
                 tracy_zone!("clear_cmd", 0);
                 self.top_index = 0;
-                self.reset_scroll();
+                self.scroll_animation.reset();
                 self.current_surface.surface = build_window_surface_with_grid_size(
                     self.current_surface.surface.canvas(),
                     grid_renderer,
@@ -501,7 +487,7 @@ impl RenderedWindow {
                     self.position_t = 2.0; // We don't want to animate since the window is becoming visible,
                                            // so we set t to 2.0 to stop animations.
                     self.grid_start_position = self.grid_destination;
-                    self.reset_scroll();
+                    self.scroll_animation.reset();
                 }
             }
             WindowDrawCommand::Hide => {
