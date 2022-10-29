@@ -163,8 +163,6 @@ fn protected_main() {
 
     trace!("Neovide version: {}", crate_version!());
 
-    maybe_disown();
-
     #[cfg(target_os = "windows")]
     windows_fix_dpi();
 
@@ -176,6 +174,8 @@ fn protected_main() {
     start_bridge();
     start_editor();
     create_window();
+
+    maybe_disown();
 }
 
 #[cfg(not(test))]
