@@ -136,9 +136,8 @@ pub struct RenderedWindow {
     grid_destination: Point,
     position_t: f32,
 
-    start_scroll: f32,
     pub current_scroll: f32,
-    scroll_t: f32,
+    scroll_v: f32,
 
     pub padding: WindowPadding,
 }
@@ -177,9 +176,8 @@ impl RenderedWindow {
             grid_destination: grid_position,
             position_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation.
 
-            start_scroll: 0.0,
             current_scroll: 0.0,
-            scroll_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation.
+            scroll_v: 0.0,
             padding,
         }
     }
@@ -217,15 +215,25 @@ impl RenderedWindow {
         }
 
         {
-            if 1.0 - self.scroll_t < std::f32::EPSILON {
-                // We are at destination, move t out of 0-1 range to stop the animation.
-                self.scroll_t = 2.0;
-            } else {
-                animating = true;
-                self.scroll_t = (self.scroll_t + dt / settings.scroll_animation_length).min(1.0);
+            let scroll_destination = 0.0;
+            let zeta = 1.0;
+            let omega = 4.0 / (zeta * settings.scroll_animation_length);
+            let k_p = omega * omega;
+            let k_d = -2.0 * zeta * omega;
+            let timestep = 0.01;
+            let mut dt = dt;
+            while dt > 0.0 {
+                let acc = k_p * (scroll_destination - self.current_scroll) + k_d * self.scroll_v;
+                self.scroll_v += acc * timestep;
+                self.current_scroll += self.scroll_v * timestep;
+                dt -= timestep;
             }
 
-            self.current_scroll = ease(ease_out_expo, self.start_scroll, 0.0, self.scroll_t);
+            if (self.current_scroll - scroll_destination).abs() < 0.01 {
+                self.reset_scroll();
+            } else {
+                animating = true;
+            }
         }
 
         animating
@@ -330,8 +338,8 @@ impl RenderedWindow {
     }
 
     fn reset_scroll(&mut self) {
-        self.start_scroll = 0.0;
-        self.scroll_t = 2.0;
+        self.current_scroll = 0.0;
+        self.scroll_v = 0.0;
     }
 
     pub fn handle_window_draw_command(
@@ -473,8 +481,7 @@ impl RenderedWindow {
                         // buffer size is limited
                         scroll_offset = scroll_offset.clamp(-(minmax as f32), minmax as f32);
                     }
-                    self.start_scroll = scroll_offset;
-                    self.scroll_t = 0.0;
+                    self.current_scroll = scroll_offset;
                 }
             }
             WindowDrawCommand::Clear => {
