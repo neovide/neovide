@@ -286,7 +286,7 @@ impl WinitWindowWrapper {
         self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
         {
             tracy_gpu_zone!("skia flush");
-            self.skia_renderer.gr_context.flush(None);
+            self.skia_renderer.gr_context.flush_and_submit();
         }
         {
             tracy_gpu_zone!("swap buffers");
