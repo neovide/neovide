@@ -499,6 +499,7 @@ pub fn create_window() {
         let max_animation_dt = 1.0 / 120.0;
         let mut focused = FocusedState::Focused;
         let mut prev_frame_start = Instant::now();
+        let mut frame_dt: f32 = 0.0;
 
         #[allow(unused_assignments)]
         loop {
@@ -528,25 +529,24 @@ pub fn create_window() {
                 window_wrapper.handle_window_commands();
                 window_wrapper.synchronize_settings();
             } else {
-                let frame_start = Instant::now();
-                let frame_dt = prev_frame_start.elapsed().as_secs_f64();
                 let mut dt = frame_dt;
                 should_render |= window_wrapper.prepare_frame();
                 while dt > 0.0 {
                     let step = dt.min(max_animation_dt);
 
-                    window_wrapper.animate_frame(step as f32);
+                    window_wrapper.animate_frame(step);
                     dt -= step;
                 }
                 // Always render for now
                 #[allow(clippy::overly_complex_bool_expr)]
                 if should_render || true {
-                    window_wrapper.draw_frame(frame_dt as f32);
+                    window_wrapper.draw_frame(frame_dt);
+                    frame_dt = prev_frame_start.elapsed().as_secs_f32();
+                    prev_frame_start = Instant::now();
                 }
                 if let FocusedState::UnfocusedNotDrawn = focused {
                     focused = FocusedState::Unfocused;
                 }
-                prev_frame_start = frame_start;
                 #[cfg(target_os = "macos")]
                 draw_background(&window_wrapper.window);
             }
