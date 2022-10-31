@@ -11,6 +11,7 @@ use std::thread;
 use std::time::Instant;
 
 use log::trace;
+use simple_moving_average::{NoSumSMA, SMA};
 use tokio::sync::mpsc::UnboundedReceiver;
 use winit::{
     dpi::PhysicalSize,
@@ -499,7 +500,7 @@ pub fn create_window() {
         let max_animation_dt = 1.0 / 120.0;
         let mut focused = FocusedState::Focused;
         let mut prev_frame_start = Instant::now();
-        let mut frame_dt: f32 = 0.0;
+        let mut frame_dt_avg = NoSumSMA::<f64, f64, 10>::new();
 
         #[allow(unused_assignments)]
         loop {
@@ -529,21 +530,23 @@ pub fn create_window() {
                 window_wrapper.handle_window_commands();
                 window_wrapper.synchronize_settings();
             } else {
-                let mut dt = frame_dt;
+                let mut dt = frame_dt_avg.get_average();
                 should_render |= window_wrapper.prepare_frame();
                 while dt > 0.0 {
                     let step = dt.min(max_animation_dt);
 
-                    window_wrapper.animate_frame(step);
+                    window_wrapper.animate_frame(step as f32);
                     dt -= step;
                 }
                 // Always render for now
                 #[allow(clippy::overly_complex_bool_expr)]
                 if should_render || true {
-                    window_wrapper.draw_frame(frame_dt);
-                    frame_dt = prev_frame_start.elapsed().as_secs_f32();
+                    window_wrapper
+                        .draw_frame(frame_dt_avg.get_most_recent_sample().unwrap_or(0.0) as f32);
+                    frame_dt_avg.add_sample(prev_frame_start.elapsed().as_secs_f64());
                     prev_frame_start = Instant::now();
                 }
+
                 if let FocusedState::UnfocusedNotDrawn = focused {
                     focused = FocusedState::Unfocused;
                 }
