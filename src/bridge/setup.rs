@@ -152,14 +152,14 @@ pub fn build_neovide_command(channel: u64, num_args: u64, command: &str, event: 
         num_args.to_string()
     };
     if num_args == 0 {
-        return format!(
+        format!(
             "command! -nargs={} {} call rpcnotify({}, 'neovide.{}')",
             nargs, command, channel, event
-        );
+        )
     } else {
-        return format!(
+        format!(
             "command! -nargs={} -complete=expression {} call rpcnotify({}, 'neovide.{}', <args>)",
             nargs, command, channel, event
-        );
-    };
+        )
+    }
 }
