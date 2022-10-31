@@ -41,7 +41,7 @@ pub struct CmdLineSettings {
 
     /// Which window decorations to use (do note that the window might not be resizable
     /// if this is "none")
-    #[arg(long, env = "NEOVIDE_FRAME", default_value_t) ]
+    #[arg(long, env = "NEOVIDE_FRAME", default_value_t)]
     pub frame: Frame,
 
     /// Maximize the window on startup (not equivalent to fullscreen)
