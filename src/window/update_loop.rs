@@ -1,3 +1,4 @@
+use simple_moving_average::{NoSumSMA, SMA};
 use std::time::{Duration, Instant};
 
 use winit::{
@@ -25,7 +26,8 @@ const MAX_ANIMATION_DT: f32 = 1.0 / 120.0;
 pub struct UpdateLoop {
     idle: bool,
     previous_frame_start: Instant,
-    dt: f32,
+    last_dt: f32,
+    frame_dt_avg: NoSumSMA<f64, f64, 10>,
     should_render: bool,
     num_consecutive_rendered: u32,
     focused: FocusedState,
@@ -36,7 +38,8 @@ impl UpdateLoop {
         tracy_create_gpu_context("main_render_context");
 
         let previous_frame_start = Instant::now();
-        let dt = 0.0;
+        let last_dt = 0.0;
+        let frame_dt_avg = NoSumSMA::new();
         let should_render = true;
         let num_consecutive_rendered = 0;
         let focused = FocusedState::Focused;
@@ -44,7 +47,8 @@ impl UpdateLoop {
         Self {
             idle,
             previous_frame_start,
-            dt,
+            last_dt,
+            frame_dt_avg,
             should_render,
             num_consecutive_rendered,
             focused,
@@ -84,20 +88,33 @@ impl UpdateLoop {
                 };
             }
             Event::MainEventsCleared => {
+                let dt = if self.num_consecutive_rendered > 0
+                    && self.frame_dt_avg.get_num_samples() > 0
+                {
+                    self.frame_dt_avg.get_average() as f32
+                } else {
+                    self.last_dt
+                }
+                .min(1.0);
                 self.should_render |= window_wrapper.prepare_frame();
-                let num_steps = (self.dt / MAX_ANIMATION_DT).ceil();
-                let step = self.dt / num_steps;
+                let num_steps = (dt / MAX_ANIMATION_DT).ceil();
+                let step = dt / num_steps;
                 for _ in 0..num_steps as usize {
                     self.should_render |= window_wrapper.animate_frame(step);
                 }
                 if self.should_render || !self.idle {
-                    window_wrapper.draw_frame(self.dt);
+                    window_wrapper.draw_frame(self.last_dt);
+
+                    if self.num_consecutive_rendered > 2 {
+                        self.frame_dt_avg
+                            .add_sample(self.previous_frame_start.elapsed().as_secs_f64());
+                    }
                     self.should_render = false;
                     self.num_consecutive_rendered += 1;
                 } else {
                     self.num_consecutive_rendered = 0;
                 }
-                self.dt = self.previous_frame_start.elapsed().as_secs_f32();
+                self.last_dt = self.previous_frame_start.elapsed().as_secs_f32();
                 self.previous_frame_start = Instant::now();
                 if let FocusedState::UnfocusedNotDrawn = self.focused {
                     self.focused = FocusedState::Unfocused;
