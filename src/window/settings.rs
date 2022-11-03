@@ -46,6 +46,7 @@ pub struct KeyboardSettings {
     pub macos_alt_is_meta: bool,
 }
 
+#[allow(clippy::derivable_impls)]
 impl Default for KeyboardSettings {
     fn default() -> Self {
         Self {

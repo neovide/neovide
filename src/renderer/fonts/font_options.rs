@@ -237,6 +237,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::bool_assert_comparison)]
     fn test_parse_all_params_together_from_guifont_setting() {
         let guifont_setting = "Fira Code Mono:h15:b:i:#h-slight:#e-alias";
         let font_options = FontOptions::parse(guifont_setting);

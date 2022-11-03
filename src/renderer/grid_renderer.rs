@@ -154,7 +154,7 @@ impl GridRenderer {
                 (y - line_position + self.font_dimensions.height) as f32,
             );
 
-            self.draw_underline(canvas, &style, underline_style, p1.into(), p2.into())
+            self.draw_underline(canvas, style, underline_style, p1.into(), p2.into())
         }
 
         canvas.save();
@@ -210,7 +210,7 @@ impl GridRenderer {
             .underline_automatic_scaling;
         // Arbitrary value under which we simply round the line thickness to 1. Anything else
         // results in ugly aliasing artifacts.
-        let stroke_width = if self.shaper.current_size() < 15. || auto_scaling == false {
+        let stroke_width = if self.shaper.current_size() < 15. || !auto_scaling {
             underline_paint.set_anti_alias(false);
             1.0
         } else {
@@ -230,8 +230,8 @@ impl GridRenderer {
             UnderlineStyle::UnderDouble => {
                 underline_paint.set_path_effect(None);
                 canvas.draw_line(p1, p2, &underline_paint);
-                let p1 = (p1.x, p1.y - 2 as f32);
-                let p2 = (p2.x, p2.y - 2 as f32);
+                let p1 = (p1.x, p1.y - 2.);
+                let p2 = (p2.x, p2.y - 2.);
                 canvas.draw_line(p1, p2, &underline_paint);
             }
             UnderlineStyle::UnderCurl => {

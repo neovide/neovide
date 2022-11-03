@@ -13,9 +13,9 @@ pub enum Frame {
     None,
 }
 
-impl Frame {
-    fn to_static_str(&self) -> &'static str {
-        match self {
+impl From<&'_ Frame> for &'static str {
+    fn from(frame: &'_ Frame) -> Self {
+        match frame {
             Frame::Full => "full",
 
             #[cfg(target_os = "macos")]
@@ -37,22 +37,18 @@ impl Default for Frame {
 impl ValueEnum for Frame {
     fn value_variants<'a>() -> &'a [Self] {
         #[cfg(target_os = "macos")]
-        let variants = { &[Self::Full, Self::Transparent, Self::Buttonless, Self::None] };
+        return &[Self::Full, Self::Transparent, Self::Buttonless, Self::None];
         #[cfg(not(target_os = "macos"))]
-        let variants = { &[Self::Full, Self::None] };
-
-        variants
+        return &[Self::Full, Self::None];
     }
 
     fn to_possible_value(&self) -> Option<PossibleValue> {
-        let value = self.to_static_str();
-
-        Some(PossibleValue::new(value))
+        Some(PossibleValue::new(<&str>::from(self)))
     }
 }
 
 impl fmt::Display for Frame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_static_str())
+        write!(f, "{}", <&str>::from(self))
     }
 }

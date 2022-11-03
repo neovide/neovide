@@ -160,7 +160,7 @@ pub fn init_logger() {
             )
             .duplicate_to_stderr(Duplicate::Error)
     } else {
-        Logger::try_with_env_or_str("neovide = error").expect("Cloud not init logger")
+        Logger::try_with_env_or_str("neovide = error").expect("Could not init logger")
     };
 
     logger.start().expect("Could not start logger");
