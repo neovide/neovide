@@ -14,7 +14,7 @@ use std::{
 use crate::{bridge::TxWrapper, error_handling::ResultPanicExplanation};
 pub use from_value::ParseFromValue;
 pub use window_geometry::{
-    load_last_window_settings, parse_window_geometry, save_window_geometry,
+    last_window_geometry, load_last_window_settings, parse_window_geometry, save_window_geometry,
     PersistentWindowSettings, DEFAULT_WINDOW_GEOMETRY,
 };
 
