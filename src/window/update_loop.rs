@@ -8,11 +8,10 @@ use winit::{
 
 #[cfg(target_os = "macos")]
 use super::draw_background;
-use super::{WindowSettings, WinitWindowWrapper};
+use super::{UserEvent, WindowSettings, WinitWindowWrapper};
 use crate::{
     profiling::{tracy_create_gpu_context, tracy_zone},
-    running_tracker::*,
-    settings::{save_window_size, SETTINGS},
+    settings::SETTINGS,
 };
 
 enum FocusedState {
@@ -55,7 +54,7 @@ impl UpdateLoop {
         }
     }
 
-    fn get_event_deadline(&self) -> Instant {
+    pub fn get_event_wait_time(&self) -> (Duration, Instant) {
         let refresh_rate = match self.focused {
             FocusedState::Focused | FocusedState::UnfocusedNotDrawn => {
                 SETTINGS.get::<WindowSettings>().refresh_rate as f32
@@ -65,29 +64,38 @@ impl UpdateLoop {
         .max(1.0);
 
         let expected_frame_duration = Duration::from_secs_f32(1.0 / refresh_rate);
-        self.previous_frame_start + expected_frame_duration
+        if self.num_consecutive_rendered > 0 {
+            (Duration::from_nanos(0), Instant::now())
+        } else {
+            let deadline = self.previous_frame_start + expected_frame_duration;
+            (deadline.saturating_duration_since(Instant::now()), deadline)
+        }
     }
 
     pub fn step(
         &mut self,
         window_wrapper: &mut WinitWindowWrapper,
-        event: Event<()>,
-    ) -> ControlFlow {
+        event: Result<Event<UserEvent>, bool>,
+    ) -> Result<ControlFlow, ()> {
         tracy_zone!("render loop", 0);
 
         match event {
             // Window focus changed
-            Event::WindowEvent {
+            Ok(Event::WindowEvent {
                 event: WindowEvent::Focused(focused_event),
                 ..
-            } => {
+            }) => {
                 self.focused = if focused_event {
                     FocusedState::Focused
                 } else {
                     FocusedState::UnfocusedNotDrawn
                 };
             }
-            Event::MainEventsCleared => {
+            Err(true) => {
+                // Disconnected
+                return Err(());
+            }
+            Err(false) | Ok(Event::MainEventsCleared) => {
                 let dt = if self.num_consecutive_rendered > 0
                     && self.frame_dt_avg.get_num_samples() > 0
                 {
@@ -123,28 +131,21 @@ impl UpdateLoop {
                 #[cfg(target_os = "macos")]
                 draw_background(window_wrapper.windowed_context.window());
             }
-            _ => (),
+            _ => {}
         }
-
-        if !RUNNING_TRACKER.is_running() {
-            let window = window_wrapper.windowed_context.window();
-            save_window_size(
-                window.is_maximized(),
-                window.inner_size(),
-                window.outer_position().ok(),
-            );
-
-            std::process::exit(RUNNING_TRACKER.exit_code());
-        }
-
         window_wrapper.handle_window_commands();
         window_wrapper.synchronize_settings();
-        self.should_render |= window_wrapper.handle_event(event);
+
+        if let Ok(event) = event {
+            self.should_render |= window_wrapper.handle_event(event);
+        }
+
+        let (_, deadline) = self.get_event_wait_time();
 
         if self.num_consecutive_rendered > 0 {
-            ControlFlow::Poll
+            Ok(ControlFlow::Poll)
         } else {
-            ControlFlow::WaitUntil(self.get_event_deadline())
+            Ok(ControlFlow::WaitUntil(deadline))
         }
     }
 }

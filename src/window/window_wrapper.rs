@@ -1,5 +1,6 @@
 use super::{
-    KeyboardManager, KeyboardSettings, MouseManager, SkiaRenderer, WindowCommand, WindowSettings,
+    KeyboardManager, KeyboardSettings, MouseManager, SkiaRenderer, UserEvent, WindowCommand,
+    WindowSettings,
 };
 
 use crate::{
@@ -28,6 +29,12 @@ use winit::{
 const MIN_WINDOW_WIDTH: u64 = 20;
 const MIN_WINDOW_HEIGHT: u64 = 6;
 
+pub fn set_background(background: &str) {
+    EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::SetBackground(
+        background.to_string(),
+    )));
+}
+
 pub struct WinitWindowWrapper {
     pub windowed_context: WindowedContext,
     skia_renderer: SkiaRenderer,
@@ -43,12 +50,6 @@ pub struct WinitWindowWrapper {
     maximized_at_startup: bool,
     window_command_receiver: UnboundedReceiver<WindowCommand>,
     ime_enabled: bool,
-}
-
-pub fn set_background(background: &str) {
-    EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::SetBackground(
-        background.to_string(),
-    )));
 }
 
 impl WinitWindowWrapper {
@@ -121,7 +122,7 @@ impl WinitWindowWrapper {
             _ => {}
         }
 
-        let mut window_wrapper = WinitWindowWrapper {
+        let mut wrapper = WinitWindowWrapper {
             windowed_context,
             skia_renderer,
             renderer,
@@ -138,8 +139,8 @@ impl WinitWindowWrapper {
             ime_enabled,
         };
 
-        window_wrapper.set_ime(ime_enabled);
-        window_wrapper
+        wrapper.set_ime(ime_enabled);
+        wrapper
     }
 
     pub fn toggle_fullscreen(&mut self) {
@@ -215,7 +216,7 @@ impl WinitWindowWrapper {
         EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::FocusGained));
     }
 
-    pub fn handle_event(&mut self, event: Event<()>) -> bool {
+    pub fn handle_event(&mut self, event: Event<UserEvent>) -> bool {
         tracy_zone!("handle_event", 0);
         let mut should_render = false;
         self.keyboard_manager.handle_event(&event);
@@ -242,7 +243,8 @@ impl WinitWindowWrapper {
             Event::WindowEvent {
                 event: WindowEvent::ScaleFactorChanged { scale_factor, .. },
                 ..
-            } => {
+            }
+            | Event::UserEvent(UserEvent::ScaleFactorChanged(scale_factor)) => {
                 self.handle_scale_factor_update(scale_factor);
             }
             Event::WindowEvent {

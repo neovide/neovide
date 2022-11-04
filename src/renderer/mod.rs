@@ -23,6 +23,7 @@ use crate::{
     event_aggregator::EVENT_AGGREGATOR,
     profiling::tracy_zone,
     settings::*,
+    window::UserEvent,
     WindowSettings,
 };
 
@@ -130,7 +131,7 @@ impl Renderer {
         }
     }
 
-    pub fn handle_event(&mut self, event: &Event<()>) {
+    pub fn handle_event(&mut self, event: &Event<UserEvent>) {
         self.cursor_renderer.handle_event(event);
     }
 

@@ -2,6 +2,8 @@ use crate::{
     bridge::{SerialCommand, UiCommand},
     event_aggregator::EVENT_AGGREGATOR,
 };
+
+use crate::window::UserEvent;
 #[cfg(target_os = "macos")]
 use crate::{settings::SETTINGS, window::KeyboardSettings};
 #[allow(unused_imports)]
@@ -24,7 +26,7 @@ impl KeyboardManager {
         }
     }
 
-    pub fn handle_event(&mut self, event: &Event<()>) {
+    pub fn handle_event(&mut self, event: &Event<UserEvent>) {
         match event {
             Event::WindowEvent {
                 event:
