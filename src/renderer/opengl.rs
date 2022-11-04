@@ -1,6 +1,6 @@
 use crate::cmd_line::CmdLineSettings;
 
-use glutin::{ContextBuilder, GlProfile, PossiblyCurrent, WindowedContext};
+use glutin::{ContextBuilder, GlProfile, NotCurrent, WindowedContext};
 
 use winit::{event_loop::EventLoop, window::WindowBuilder};
 
@@ -10,7 +10,7 @@ pub fn build_context<TE>(
     cmd_line_settings: &CmdLineSettings,
     winit_window_builder: WindowBuilder,
     event_loop: &EventLoop<TE>,
-) -> WindowedContext<PossiblyCurrent> {
+) -> WindowedContext<NotCurrent> {
     let builder = ContextBuilder::new()
         .with_pixel_format(24, 8)
         .with_stencil_buffer(8)
@@ -18,7 +18,7 @@ pub fn build_context<TE>(
         .with_srgb(cmd_line_settings.srgb)
         .with_vsync(cmd_line_settings.vsync);
 
-    let ctx = match builder
+    match builder
         .clone()
         .build_windowed(winit_window_builder.clone(), event_loop)
     {
@@ -35,6 +35,5 @@ pub fn build_context<TE>(
                 panic!("{}", err);
             }
         }
-    };
-    unsafe { ctx.make_current().unwrap() }
+    }
 }
