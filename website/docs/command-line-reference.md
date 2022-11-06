@@ -125,6 +125,8 @@ or not.
 --novsync
 ```
 
+**Available since 0.10.2.**
+
 By default, Neovide requests to use VSync on the created window. This option disables this behavior.
 
 ### Remote TCP

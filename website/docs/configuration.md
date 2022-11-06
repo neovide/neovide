@@ -42,12 +42,13 @@ as such it's also documented in `:h guifont`. But to sum it up and also add Neov
     - `hX` — Sets the font size to `X` points, while `X` can be any (even floating-point) number.
     - `b` — Sets the font **bold**.
     - `i` — Sets the font _italic_.
-    - `#e-X` — Sets edge pixels to be drawn opaquely or with partial transparency,
-       while `X` is a type of edging:
+    - `#e-X` (available since 0.10.2) — Sets edge pixels to be drawn opaquely or
+       with partial transparency, while `X` is a type of edging:
       - antialias (default)
       - subpixelantialias
       - alias
-    - `#h-X` - Sets level of glyph outline adjustment, while `X` is a type of hinting:
+    - `#h-X` (available since 0.10.2) - Sets level of glyph outline adjustment, while `X` is
+       a type of hinting:
       - full (default)
       - normal
       - slight
@@ -63,6 +64,8 @@ as such it's also documented in `:h guifont`. But to sum it up and also add Neov
 ```vim
 let g:neovide_scale_factor = 1.0
 ```
+
+**Available since 0.10.2.**
 
 In addition to setting the font itself, this setting allows to change the scale without changing the
 whole font definition. Very useful for presentations. See [the FAQ section about
