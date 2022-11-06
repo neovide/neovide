@@ -180,15 +180,16 @@ while you can have as many fallback fonts as you want (even 0) and as many optio
 <li><code>hX</code> — Sets the font size to <code>X</code> points, while <code>X</code> can be any (even floating-point) number.</li>
 <li><code>b</code> — Sets the font <strong>bold</strong>.</li>
 <li><code>i</code> — Sets the font <em>italic</em>.</li>
-<li><code>#e-X</code> — Sets edge pixels to be drawn opaquely or with partial transparency,
-while <code>X</code> is a type of edging:
+<li><code>#e-X</code> (available since 0.10.2) — Sets edge pixels to be drawn opaquely or
+with partial transparency, while <code>X</code> is a type of edging:
 <ul>
 <li>antialias (default)</li>
 <li>subpixelantialias</li>
 <li>alias</li>
 </ul>
 </li>
-<li><code>#h-X</code> - Sets level of glyph outline adjustment, while <code>X</code> is a type of hinting:
+<li><code>#h-X</code> (available since 0.10.2) - Sets level of glyph outline adjustment, while <code>X</code> is
+a type of hinting:
 <ul>
 <li>full (default)</li>
 <li>normal</li>
@@ -212,6 +213,7 @@ should Hack fail to contain any glyph.</li>
 <h4 id="scale"><a class="header" href="#scale">Scale</a></h4>
 <pre><code class="language-vim">let g:neovide_scale_factor = 1.0
 </code></pre>
+<p><strong>Available since 0.10.2.</strong></p>
 <p>In addition to setting the font itself, this setting allows to change the scale without changing the
 whole font definition. Very useful for presentations. See <a href="faq.html#how-can-i-dynamically-change-the-scale-at-runtime">the FAQ section about
 this</a> for a nice recipe to bind this to a hotkey.</p>
