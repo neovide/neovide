@@ -252,13 +252,18 @@ been mentioned</li>
 </ul>
 </li>
 <li>
-<p>Run <code>cargo build</code> and make sure it succeeds</p>
+<p>Run <code>cargo build</code> and make sure it succeeds, <strong>remember to <code>git add Cargo.lock</code> to make sure releases stay reproducable
+(<a href="https://github.com/neovide/neovide/issues/1628">#1628</a>,
+<a href="https://github.com/neovide/neovide/issues/1482">#1482</a>)</strong></p>
 </li>
 <li>
 <p>Create a commit called <code>Bump version to $tag</code></p>
 </li>
 <li>
 <p>Push and wait for CI to complete (will take around 25 minutes)</p>
+</li>
+<li>
+<p>Run <code>cargo build --frozen</code></p>
 </li>
 </ul>
 <p>In the meantime, you can look through the previous commits to see if you missed
