@@ -1,6 +1,6 @@
 [package]
 name = "neovide"
-version = "0.10.2"
+version = "0.10.3"
 edition = "2021"
 build = "build.rs"
 description = "Neovide: No Nonsense Neovim Gui"
