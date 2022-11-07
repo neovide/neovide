@@ -98,9 +98,13 @@ Now here's where the order becomes important:
   - `website/docs/*.md` and update `Unreleased yet` to `Available since $tag`
       (where `$tag` is the tag name)
 
-- Run `cargo build` and make sure it succeeds
+- Run `cargo build` and make sure it succeeds, **remember to `git add
+  Cargo.lock` to make sure releases stay reproducable
+  ([#1628](https://github.com/neovide/neovide/issues/1628),
+  [#1482](https://github.com/neovide/neovide/issues/1482))**
 - Create a commit called `Bump version to $tag`
 - Push and wait for CI to complete (will take around 25 minutes)
+- Run `cargo build --frozen`
 
 In the meantime, you can look through the previous commits to see if you missed
 anything.
