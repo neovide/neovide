@@ -41,7 +41,7 @@ use crate::{
     event_aggregator::EVENT_AGGREGATOR,
     frame::Frame,
     redraw_scheduler::REDRAW_SCHEDULER,
-    renderer::{Renderer, WindowPadding},
+    renderer::Renderer,
     running_tracker::*,
     settings::{
         load_last_window_settings, save_window_geometry, PersistentWindowSettings, SETTINGS,
@@ -74,7 +74,6 @@ pub struct GlutinWindowWrapper {
     size_at_startup: PhysicalSize<u32>,
     maximized_at_startup: bool,
     window_command_receiver: UnboundedReceiver<WindowCommand>,
-    window_padding: WindowPadding,
 }
 
 impl GlutinWindowWrapper {
@@ -240,8 +239,9 @@ impl GlutinWindowWrapper {
     }
 
     fn handle_new_grid_size(&mut self, new_size: PhysicalSize<u32>) {
-        let window_padding_width = self.window_padding.left + self.window_padding.right;
-        let window_padding_height = self.window_padding.top + self.window_padding.bottom;
+        let window_padding = self.renderer.window_padding;
+        let window_padding_width = window_padding.left + window_padding.right;
+        let window_padding_height = window_padding.top + window_padding.bottom;
 
         let content_size = PhysicalSize {
             width: new_size.width - window_padding_width,
@@ -411,16 +411,8 @@ pub fn create_window() {
 
     log::trace!("repositioned window: {}", did_reposition);
 
-    let settings = SETTINGS.get::<WindowSettings>();
-    let window_padding = WindowPadding {
-        top: settings.top_padding,
-        left: settings.left_padding,
-        right: settings.right_padding,
-        bottom: settings.bottom_padding,
-    };
-
     let scale_factor = windowed_context.window().scale_factor();
-    let renderer = Renderer::new(scale_factor, window_padding);
+    let renderer = Renderer::new(scale_factor);
     let saved_inner_size = window.inner_size();
 
     let skia_renderer = SkiaRenderer::new(&windowed_context);
@@ -446,7 +438,6 @@ pub fn create_window() {
         saved_inner_size,
         saved_grid_size: None,
         window_command_receiver,
-        window_padding,
     };
 
     let mut previous_frame_start = Instant::now();

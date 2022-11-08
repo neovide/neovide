@@ -85,12 +85,14 @@ pub struct Renderer {
     profiler: profiler::Profiler,
     os_scale_factor: f64,
     user_scale_factor: f64,
-    window_padding: WindowPadding,
+    pub window_padding: WindowPadding,
 }
 
 impl Renderer {
-    pub fn new(os_scale_factor: f64, window_padding: WindowPadding) -> Self {
-        let user_scale_factor = SETTINGS.get::<WindowSettings>().scale_factor.into();
+    pub fn new(os_scale_factor: f64) -> Self {
+        let window_settings = SETTINGS.get::<WindowSettings>();
+
+        let user_scale_factor = window_settings.scale_factor.into();
         let scale_factor = user_scale_factor * os_scale_factor;
         let cursor_renderer = CursorRenderer::new();
         let grid_renderer = GridRenderer::new(scale_factor);
@@ -101,6 +103,13 @@ impl Renderer {
 
         let batched_draw_command_receiver = EVENT_AGGREGATOR.register_event::<Vec<DrawCommand>>();
         let profiler = profiler::Profiler::new(12.0);
+
+        let window_padding = WindowPadding {
+            top: window_settings.top_padding,
+            left: window_settings.left_padding,
+            right: window_settings.right_padding,
+            bottom: window_settings.bottom_padding,
+        };
 
         Renderer {
             rendered_windows,
