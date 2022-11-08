@@ -369,7 +369,7 @@ impl RenderedWindow {
             } => {
                 let Dimensions {
                     width: font_width,
-                    height: font_height
+                    height: font_height,
                 } = grid_renderer.font_dimensions;
 
                 let top_offset = self.padding.top as f32 / font_height as f32;
@@ -377,7 +377,8 @@ impl RenderedWindow {
 
                 let grid_left = grid_left.max(0.0);
                 let grid_top = grid_top.max(0.0);
-                let new_destination: Point = (grid_left as f32 + left_offset, grid_top as f32 + top_offset).into();
+                let new_destination: Point =
+                    (grid_left as f32 + left_offset, grid_top as f32 + top_offset).into();
                 let new_grid_size: Dimensions = grid_size.into();
 
                 if self.grid_destination != new_destination {

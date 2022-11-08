@@ -27,7 +27,9 @@ use crate::{
 use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
-pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails, WindowPadding};
+pub use rendered_window::{
+    LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails, WindowPadding,
+};
 
 #[derive(SettingGroup, Clone)]
 pub struct RendererSettings {
