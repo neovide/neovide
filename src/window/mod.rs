@@ -38,6 +38,7 @@ use crate::{
     editor::EditorCommand,
     event_aggregator::EVENT_AGGREGATOR,
     frame::Frame,
+    profiling::{emit_frame_mark, tracy_gpu_collect, tracy_gpu_zone},
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::Renderer,
     renderer::WindowPadding,
@@ -221,8 +222,16 @@ impl WinitWindowWrapper {
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
             self.font_changed_last_frame =
                 self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
-            self.skia_renderer.gr_context.flush(None);
-            self.windowed_context.swap_buffers().unwrap();
+            {
+                tracy_gpu_zone!("skia flush");
+                self.skia_renderer.gr_context.flush(None);
+            }
+            {
+                tracy_gpu_zone!("swap buffers");
+                self.windowed_context.swap_buffers().unwrap();
+            }
+            emit_frame_mark();
+            tracy_gpu_collect();
         }
 
         // Wait until fonts are loaded, so we can set proper window size.
