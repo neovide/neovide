@@ -13,6 +13,8 @@ members = ["neovide-derive"]
 [features]
 default = []
 embed-fonts = []
+profiling = ["dep:tracy-client-sys"]
+gpu_profiling = ["profiling"]
 
 [dependencies]
 copypasta = "0.8.1"
@@ -49,6 +51,7 @@ unicode-segmentation = "1.9.0"
 which = "4.2.5"
 winit = { git = "https://github.com/neovide/winit", branch = "new-keyboard-all" }
 xdg = "2.4.1"
+tracy-client-sys = { version = "0.19.0", optional = true }
 
 [dev-dependencies]
 mockall = "0.11.0"
