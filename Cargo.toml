@@ -80,6 +80,11 @@ lto = true
 incremental = true
 strip = true
 
+[profile.profiling]
+inherits = "release"
+strip = false
+debug = true
+
 [package.metadata.bundle]
 name = "Neovide"
 identifier = "com.neovide.neovide"
