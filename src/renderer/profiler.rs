@@ -4,7 +4,10 @@ use std::collections::VecDeque;
 use std::sync::Arc;
 use std::time::Instant;
 
-use crate::renderer::{fonts::font_loader::*, RendererSettings};
+use crate::{
+    profiling::tracy_zone,
+    renderer::{fonts::font_loader::*, RendererSettings},
+};
 use skia_safe::{Canvas, Color, Paint, Point, Rect, Size};
 
 const FRAMETIMES_COUNT: usize = 48;
@@ -32,6 +35,7 @@ impl Profiler {
     }
 
     pub fn draw(&mut self, root_canvas: &mut Canvas, dt: f32) {
+        tracy_zone!("profiler_draw");
         if !SETTINGS.get::<RendererSettings>().profiler {
             return;
         }
