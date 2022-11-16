@@ -11,6 +11,7 @@ use skia_safe::{
 use crate::{
     dimensions::Dimensions,
     editor::Style,
+    profiling::tracy_zone,
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
 };
@@ -356,6 +357,7 @@ impl RenderedWindow {
                 grid_size,
                 floating_order,
             } => {
+                tracy_zone!("position_cmd", 0);
                 let Dimensions {
                     width: font_width,
                     height: font_height,
@@ -413,6 +415,7 @@ impl RenderedWindow {
                 }
             }
             WindowDrawCommand::DrawLine(line_fragments) => {
+                tracy_zone!("draw_line_cmd", 0);
                 let canvas = self.current_surface.surface.canvas();
 
                 canvas.save();
@@ -455,6 +458,7 @@ impl RenderedWindow {
                 rows,
                 cols,
             } => {
+                tracy_zone!("scroll_cmd", 0);
                 let Dimensions {
                     width: font_width,
                     height: font_height,
@@ -488,6 +492,7 @@ impl RenderedWindow {
                 canvas.restore();
             }
             WindowDrawCommand::Clear => {
+                tracy_zone!("clear_cmd", 0);
                 self.current_surface.surface = build_window_surface_with_grid_size(
                     self.current_surface.surface.canvas(),
                     grid_renderer,
@@ -497,6 +502,7 @@ impl RenderedWindow {
                 self.snapshots.clear();
             }
             WindowDrawCommand::Show => {
+                tracy_zone!("show_cmd", 0);
                 if self.hidden {
                     self.hidden = false;
                     self.position_t = 2.0; // We don't want to animate since the window is becoming visible,
@@ -504,8 +510,12 @@ impl RenderedWindow {
                     self.grid_start_position = self.grid_destination;
                 }
             }
-            WindowDrawCommand::Hide => self.hidden = true,
+            WindowDrawCommand::Hide => {
+                tracy_zone!("hide_cmd", 0);
+                self.hidden = true;
+            }
             WindowDrawCommand::Viewport { scroll_delta, .. } => {
+                tracy_zone!("viewport_cmd", 0);
                 if scroll_delta.abs() > f64::EPSILON {
                     let new_snapshot = self.current_surface.snapshot();
                     self.snapshots.push_back(new_snapshot);

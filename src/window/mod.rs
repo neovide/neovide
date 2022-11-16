@@ -26,6 +26,10 @@ use draw_background::draw_background;
 #[cfg(target_os = "linux")]
 use winit::platform::unix::WindowBuilderExtUnix;
 
+use crate::profiling::{
+    emit_frame_mark, tracy_create_gpu_context, tracy_gpu_collect, tracy_gpu_zone, tracy_zone,
+};
+
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
 use mouse_manager::MouseManager;
@@ -101,6 +105,7 @@ impl WinitWindowWrapper {
 
     #[allow(clippy::needless_collect)]
     pub fn handle_window_commands(&mut self) {
+        tracy_zone!("handle_window_commands", 0);
         while let Ok(window_command) = self.window_command_receiver.try_recv() {
             match window_command {
                 WindowCommand::TitleChanged(new_title) => self.handle_title_changed(new_title),
@@ -142,6 +147,7 @@ impl WinitWindowWrapper {
     }
 
     pub fn handle_event(&mut self, event: Event<()>) {
+        tracy_zone!("handle_event", 0);
         self.keyboard_manager.handle_event(&event);
         self.mouse_manager.handle_event(
             &event,
@@ -194,6 +200,7 @@ impl WinitWindowWrapper {
     }
 
     pub fn draw_frame(&mut self, dt: f32) {
+        tracy_zone!("draw_frame");
         let window = self.windowed_context.window();
 
         let window_settings = SETTINGS.get::<WindowSettings>();
@@ -458,6 +465,8 @@ pub fn create_window() {
         saved_grid_size: None,
         window_command_receiver,
     };
+
+    tracy_create_gpu_context("main_render_context");
 
     let mut previous_frame_start = Instant::now();
 

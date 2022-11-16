@@ -9,6 +9,7 @@ use winit::event::{Event, WindowEvent};
 use crate::{
     bridge::EditorMode,
     editor::{Cursor, CursorShape},
+    profiling::tracy_zone,
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::animation_utils::*,
     renderer::{GridRenderer, RenderedWindow},
@@ -278,6 +279,7 @@ impl CursorRenderer {
         canvas: &mut Canvas,
         dt: f32,
     ) {
+        tracy_zone!("cursor_draw");
         let render = self.blink_status.update_status(&self.cursor);
         let settings = SETTINGS.get::<CursorSettings>();
 
