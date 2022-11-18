@@ -203,5 +203,5 @@ jobs:
       - uses: actions/upload-artifact@v1
         with:
           name: neovide-linux-x86_64.tar.gz
-          path: ./target/release/neovide.tar.gz
+          path: ./target/release/neovide-linux-x86_64.tar.gz
 
