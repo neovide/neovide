@@ -198,10 +198,10 @@ jobs:
 
       - name: Archive Linux artifact
         run: |
-          tar czvf ./target/release/neovide.tar.gz ./target/release/neovide
+          tar czvf ./target/release/neovide-linux-x86_64.tar.gz ./target/release/neovide
 
       - uses: actions/upload-artifact@v1
         with:
-          name: neovide-linux.tar.gz
+          name: neovide-linux-x86_64.tar.gz
           path: ./target/release/neovide.tar.gz
 
