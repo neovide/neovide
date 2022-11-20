@@ -4,3 +4,4 @@
 *.log
 .DS_Store
 website/book
+*.AppImage
