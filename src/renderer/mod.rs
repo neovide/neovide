@@ -105,10 +105,10 @@ impl Renderer {
         let profiler = profiler::Profiler::new(12.0);
 
         let window_padding = WindowPadding {
-            top: window_settings.top_padding,
-            left: window_settings.left_padding,
-            right: window_settings.right_padding,
-            bottom: window_settings.bottom_padding,
+            top: window_settings.padding_top,
+            left: window_settings.padding_left,
+            right: window_settings.padding_right,
+            bottom: window_settings.padding_bottom,
         };
 
         Renderer {

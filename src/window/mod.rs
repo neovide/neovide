@@ -198,10 +198,10 @@ impl GlutinWindowWrapper {
         let mut font_changed = false;
 
         let window_padding = WindowPadding {
-            top: window_settings.top_padding,
-            left: window_settings.left_padding,
-            right: window_settings.right_padding,
-            bottom: window_settings.bottom_padding,
+            top: window_settings.padding_top,
+            left: window_settings.padding_left,
+            right: window_settings.padding_right,
+            bottom: window_settings.padding_bottom,
         };
 
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
