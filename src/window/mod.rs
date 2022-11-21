@@ -42,6 +42,7 @@ use crate::{
     frame::Frame,
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::Renderer,
+    renderer::WindowPadding,
     running_tracker::*,
     settings::{
         load_last_window_settings, save_window_geometry, PersistentWindowSettings, SETTINGS,
@@ -192,8 +193,16 @@ impl GlutinWindowWrapper {
     }
 
     pub fn draw_frame(&mut self, dt: f32) {
+        let window_settings = SETTINGS.get::<WindowSettings>();
         let window = self.windowed_context.window();
         let mut font_changed = false;
+
+        let window_padding = WindowPadding {
+            top: window_settings.top_padding,
+            left: window_settings.left_padding,
+            right: window_settings.right_padding,
+            bottom: window_settings.bottom_padding,
+        };
 
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
             font_changed = self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
@@ -231,7 +240,12 @@ impl GlutinWindowWrapper {
             font_changed = false;
         }
 
-        if self.saved_inner_size != new_size || font_changed {
+        let padding_changed = window_padding != self.renderer.window_padding;
+        if padding_changed {
+            self.renderer.handle_window_padding_update(window_padding);
+        }
+
+        if self.saved_inner_size != new_size || font_changed || padding_changed {
             self.saved_inner_size = new_size;
             self.handle_new_grid_size(new_size);
             self.skia_renderer.resize(&self.windowed_context);

@@ -50,7 +50,7 @@ pub enum WindowDrawCommand {
     },
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub struct WindowPadding {
     pub top: u32,
     pub left: u32,
@@ -354,6 +354,10 @@ impl RenderedWindow {
             region: pixel_region,
             floating_order: self.floating_order,
         }
+    }
+
+    pub fn update_padding(&mut self, window_padding: WindowPadding) {
+        self.padding = window_padding;
     }
 
     pub fn handle_window_draw_command(

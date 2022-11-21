@@ -133,6 +133,10 @@ impl Renderer {
         self.grid_renderer.font_names()
     }
 
+    pub fn handle_window_padding_update(&mut self, new_padding: WindowPadding) {
+        self.window_padding = new_padding;
+    }
+
     /// Draws frame
     ///
     /// # Returns
@@ -199,6 +203,10 @@ impl Renderer {
         self.window_regions = windows
             .into_iter()
             .map(|window| {
+                if window.padding != self.window_padding {
+                    window.update_padding(self.window_padding);
+                }
+
                 window.draw(
                     root_canvas,
                     &settings,
