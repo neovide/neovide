@@ -51,7 +51,7 @@ fn build_nvim_cmd() -> TokioCommand {
 fn create_platform_shell_command(command: &str, args: &[&str]) -> Option<StdCommand> {
     if cfg!(target_os = "windows") && SETTINGS.get::<CmdLineSettings>().wsl {
         let mut result = StdCommand::new("wsl");
-        result.args(["$SHELL", "-lc"]);
+        result.args(&["$SHELL", "-lc"]);
         result.arg(format!("{} {}", command, args.join(" ")));
 
         Some(result)
@@ -59,7 +59,7 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> Option<StdComm
         let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
         let mut result = StdCommand::new(&shell);
 
-        result.args(["-lc"]);
+        result.args(&["-lc"]);
         result.arg(format!("{} {}", command, args.join(" ")));
 
         Some(result)
@@ -102,34 +102,23 @@ fn platform_which(bin: &str) -> Option<String> {
     }
 }
 
-#[cfg(target_os = "macos")]
-fn nvim_cmd_impl(bin: &str, args: &[&str]) -> TokioCommand {
-    let shell = env::var("SHELL").unwrap();
-    let mut cmd = TokioCommand::new(shell);
-    let args_str = args
-        .iter()
-        .map(|arg| shlex::quote(arg))
-        .collect::<Vec<_>>()
-        .join(" ");
-    cmd.args(&["-lc", &format!("{} {}", bin, args_str)]);
-    cmd
-}
+fn build_nvim_cmd_with_args(bin: &str) -> TokioCommand {
+    let mut args = vec!["--embed".to_string()];
+    args.extend(SETTINGS.get::<CmdLineSettings>().neovim_args);
+    let args_str = args.join(" ");
 
-#[cfg(not(target_os = "macos"))]
-fn nvim_cmd_impl(bin: &str, args: &[String]) -> TokioCommand {
     if cfg!(target_os = "windows") && SETTINGS.get::<CmdLineSettings>().wsl {
         let mut cmd = TokioCommand::new("wsl");
-        cmd.args(&["$SHELL", "-lc", &format!("{} {}", bin, args.join(" "))]);
+        cmd.args(&["$SHELL", "-lc", &format!("{} {}", bin, args_str)]);
+        cmd
+    } else if cfg!(target_os = "macos") {
+        let shell = env::var("SHELL").unwrap();
+        let mut cmd = TokioCommand::new(shell);
+        cmd.args(&["-lc", &format!("{} {}", bin, args_str)]);
         cmd
     } else {
         let mut cmd = TokioCommand::new(bin);
         cmd.args(args);
         cmd
     }
-}
-
-fn build_nvim_cmd_with_args(bin: &str) -> TokioCommand {
-    let mut args = vec!["--embed".to_string()];
-    args.extend(SETTINGS.get::<CmdLineSettings>().neovim_args);
-    nvim_cmd_impl(bin, &args)
 }
