@@ -23,3 +23,15 @@
 
 - If you recieve errors complaining about DRI3 settings, please reference issue
   [#44](https://github.com/neovide/neovide/issues/44#issuecomment-578618052).
+
+- If your scroling is very stutter
+
+    - Add flag "--novsync" before startup as a quickfix.
+    - Check if the value of `g:neovide_refresh_rate` and the refresh rate of your monitor are matched.
+
+    If your `g:neovide_refresh_rate` is correct, then check if you are using dual monitors with mixed refresh rate, say `144` and `60`, if so, that's because [PSA: X11 does support mixed refresh rate monitors!](https://www.reddit.com/r/linux/comments/yaatyo/psa_x11_does_support_mixed_refresh_rate_monitors/) and X11 force it to the lower one, you can set
+    ```
+    export __GL_SYNC_DISPLAY_DEVICE=DP-0
+    ```
+    before starting neovide, where `DP-0` is the monitor with high refresh rate.
+
