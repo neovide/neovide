@@ -12,7 +12,7 @@ pub struct CmdLineSettings {
         num_args = ..,
         action = ArgAction::Append,
     )]
-    pub files_to_open: Vec<String>,
+    pub files_to_open: Vec<String>, // Can't be a PathBuf since shlex can't operate on bytes
 
     /// Arguments to pass down to NeoVim without interpreting them
     #[arg(
@@ -116,11 +116,17 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
     // The neovim_args in cmdline are unprocessed, actually add options to it
     let maybe_tab_flag = (!cmdline.no_tabs).then(|| "-p".to_string());
 
-    cmdline.neovim_args = maybe_tab_flag
+    let neovim_args = maybe_tab_flag
         .into_iter()
         .chain(mem::take(&mut cmdline.files_to_open))
-        .chain(cmdline.neovim_args)
-        .collect();
+        .chain(cmdline.neovim_args);
+    cmdline.neovim_args = if cfg!(windows) {
+        neovim_args.collect()
+    } else {
+        neovim_args
+            .map(|arg| shlex::quote(&arg).into_owned())
+            .collect()
+    };
 
     SETTINGS.set::<CmdLineSettings>(&cmdline);
     Ok(())
