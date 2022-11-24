@@ -2,7 +2,7 @@ use std::{iter, mem};
 
 use crate::{dimensions::Dimensions, frame::Frame, settings::*};
 
-use clap::{ArgAction, Parser};
+use clap::{builder::FalseyValueParser, ArgAction, Parser};
 
 #[derive(Clone, Debug, Parser)]
 #[command(version, about, long_about = None)]
@@ -45,11 +45,11 @@ pub struct CmdLineSettings {
     pub frame: Frame,
 
     /// Maximize the window on startup (not equivalent to fullscreen)
-    #[arg(long, env = "NEOVIDE_MAXIMIZED")]
+    #[arg(long, env = "NEOVIDE_MAXIMIZED", value_parser = FalseyValueParser::new())]
     pub maximized: bool,
 
     /// Enable the Multigrid extension (enables smooth scrolling and floating blur)
-    #[arg(long = "multigrid", env = "NEOVIDE_MULTIGRID")]
+    #[arg(long = "multigrid", env = "NEOVIDE_MULTIGRID", value_parser = FalseyValueParser::new())]
     pub multi_grid: bool,
 
     /// Instead of spawning a child process and leaking it, be "blocking" and let the shell persist
@@ -59,7 +59,7 @@ pub struct CmdLineSettings {
 
     /// Render every frame, takes more power and CPU time but possibly helps with frame timing
     /// issues
-    #[arg(long = "noidle", env = "NEOVIDE_NO_IDLE")]
+    #[arg(long = "noidle", env = "NEOVIDE_NO_IDLE", value_parser = FalseyValueParser::new())]
     pub no_idle: bool,
 
     /// Disable opening multiple files supplied in tabs (they're still buffers)
@@ -68,11 +68,11 @@ pub struct CmdLineSettings {
 
     /// Do not request sRGB when initializing the window, may help with GPUs with weird pixel
     /// formats
-    #[arg(long = "nosrgb", env = "NEOVIDE_NO_SRGB", action = ArgAction::SetFalse)]
+    #[arg(long = "nosrgb", env = "NEOVIDE_NO_SRGB", action = ArgAction::SetFalse, value_parser = FalseyValueParser::new())]
     pub srgb: bool,
 
     /// Do not try to request VSync on the window
-    #[arg(long = "novsync", env = "NEOVIDE_NO_VSYNC", action = ArgAction::SetFalse)]
+    #[arg(long = "novsync", env = "NEOVIDE_NO_VSYNC", action = ArgAction::SetFalse, value_parser = FalseyValueParser::new())]
     pub vsync: bool,
 
     /// Which NeoVim binary to invoke headlessly instead of `nvim` found on $PATH
