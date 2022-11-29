@@ -356,10 +356,6 @@ impl RenderedWindow {
         }
     }
 
-    pub fn update_padding(&mut self, window_padding: WindowPadding) {
-        self.padding = window_padding;
-    }
-
     pub fn handle_window_draw_command(
         &mut self,
         grid_renderer: &mut GridRenderer,

@@ -242,7 +242,7 @@ impl GlutinWindowWrapper {
 
         let padding_changed = window_padding != self.renderer.window_padding;
         if padding_changed {
-            self.renderer.handle_window_padding_update(window_padding);
+            self.renderer.window_padding = window_padding;
         }
 
         if self.saved_inner_size != new_size || font_changed || padding_changed {
