@@ -42,6 +42,7 @@ use crate::{
     frame::Frame,
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::Renderer,
+    renderer::WindowPadding,
     running_tracker::*,
     settings::{
         load_last_window_settings, save_window_geometry, PersistentWindowSettings, SETTINGS,
@@ -69,6 +70,7 @@ pub struct GlutinWindowWrapper {
     mouse_manager: MouseManager,
     title: String,
     fullscreen: bool,
+    font_changed_last_frame: bool,
     saved_inner_size: PhysicalSize<u32>,
     saved_grid_size: Option<Dimensions>,
     size_at_startup: PhysicalSize<u32>,
@@ -193,10 +195,32 @@ impl GlutinWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         let window = self.windowed_context.window();
-        let mut font_changed = false;
+        let new_size = window.inner_size();
+
+        let window_settings = SETTINGS.get::<WindowSettings>();
+        let window_padding = WindowPadding {
+            top: window_settings.padding_top,
+            left: window_settings.padding_left,
+            right: window_settings.padding_right,
+            bottom: window_settings.padding_bottom,
+        };
+
+        let padding_changed = window_padding != self.renderer.window_padding;
+        if padding_changed {
+            self.renderer.window_padding = window_padding;
+        }
+
+        if self.saved_inner_size != new_size || self.font_changed_last_frame || padding_changed {
+            self.font_changed_last_frame = false;
+            self.saved_inner_size = new_size;
+
+            self.handle_new_grid_size(new_size);
+            self.skia_renderer.resize(&self.windowed_context);
+        }
 
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
-            font_changed = self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
+            self.font_changed_last_frame =
+                self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
             self.skia_renderer.gr_context.flush(None);
             self.windowed_context.swap_buffers().unwrap();
         }
@@ -205,8 +229,6 @@ impl GlutinWindowWrapper {
         if !self.renderer.grid_renderer.is_ready {
             return;
         }
-
-        let new_size = window.inner_size();
 
         let settings = SETTINGS.get::<CmdLineSettings>();
         // Resize at startup happens when window is maximized or when using tiling WM
@@ -220,6 +242,7 @@ impl GlutinWindowWrapper {
         log::trace!("Inner size: {:?}", new_size);
 
         if self.saved_grid_size.is_none() && !resized_at_startup {
+            let window = self.windowed_context.window();
             window.set_inner_size(
                 self.renderer
                     .grid_renderer
@@ -228,21 +251,24 @@ impl GlutinWindowWrapper {
             self.saved_grid_size = Some(settings.geometry);
             // Font change at startup is ignored, so grid size (and startup screen) could be preserved.
             // But only when not resized yet. With maximized or resized window we should redraw grid.
-            font_changed = false;
-        }
-
-        if self.saved_inner_size != new_size || font_changed {
-            self.saved_inner_size = new_size;
-            self.handle_new_grid_size(new_size);
-            self.skia_renderer.resize(&self.windowed_context);
+            self.font_changed_last_frame = false;
         }
     }
 
     fn handle_new_grid_size(&mut self, new_size: PhysicalSize<u32>) {
+        let window_padding = self.renderer.window_padding;
+        let window_padding_width = window_padding.left + window_padding.right;
+        let window_padding_height = window_padding.top + window_padding.bottom;
+
+        let content_size = PhysicalSize {
+            width: new_size.width - window_padding_width,
+            height: new_size.height - window_padding_height,
+        };
+
         let grid_size = self
             .renderer
             .grid_renderer
-            .convert_physical_to_grid(new_size);
+            .convert_physical_to_grid(content_size);
 
         // Have a minimum size
         if grid_size.width < MIN_WINDOW_WIDTH || grid_size.height < MIN_WINDOW_HEIGHT {
@@ -424,6 +450,7 @@ pub fn create_window() {
         mouse_manager: MouseManager::new(),
         title: String::from("Neovide"),
         fullscreen: false,
+        font_changed_last_frame: false,
         size_at_startup: initial_size,
         maximized_at_startup: maximized,
         saved_inner_size,

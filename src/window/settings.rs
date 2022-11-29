@@ -16,6 +16,10 @@ pub struct WindowSettings {
     pub touch_drag_timeout: f32,
     pub background_color: String,
     pub confirm_quit: bool,
+    pub padding_top: u32,
+    pub padding_left: u32,
+    pub padding_right: u32,
+    pub padding_bottom: u32,
 }
 
 impl Default for WindowSettings {
@@ -35,6 +39,10 @@ impl Default for WindowSettings {
             touch_drag_timeout: 0.17,
             background_color: "".to_string(),
             confirm_quit: true,
+            padding_top: 0,
+            padding_left: 0,
+            padding_right: 0,
+            padding_bottom: 0,
         }
     }
 }

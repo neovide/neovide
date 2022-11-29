@@ -27,7 +27,9 @@ use crate::{
 use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
-pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails};
+pub use rendered_window::{
+    LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails, WindowPadding,
+};
 
 #[derive(SettingGroup, Clone)]
 pub struct RendererSettings {
@@ -83,11 +85,14 @@ pub struct Renderer {
     profiler: profiler::Profiler,
     os_scale_factor: f64,
     user_scale_factor: f64,
+    pub window_padding: WindowPadding,
 }
 
 impl Renderer {
     pub fn new(os_scale_factor: f64) -> Self {
-        let user_scale_factor = SETTINGS.get::<WindowSettings>().scale_factor.into();
+        let window_settings = SETTINGS.get::<WindowSettings>();
+
+        let user_scale_factor = window_settings.scale_factor.into();
         let scale_factor = user_scale_factor * os_scale_factor;
         let cursor_renderer = CursorRenderer::new();
         let grid_renderer = GridRenderer::new(scale_factor);
@@ -99,6 +104,13 @@ impl Renderer {
         let batched_draw_command_receiver = EVENT_AGGREGATOR.register_event::<Vec<DrawCommand>>();
         let profiler = profiler::Profiler::new(12.0);
 
+        let window_padding = WindowPadding {
+            top: window_settings.padding_top,
+            left: window_settings.padding_left,
+            right: window_settings.padding_right,
+            bottom: window_settings.padding_bottom,
+        };
+
         Renderer {
             rendered_windows,
             cursor_renderer,
@@ -109,6 +121,7 @@ impl Renderer {
             profiler,
             os_scale_factor,
             user_scale_factor,
+            window_padding,
         }
     }
 
@@ -186,6 +199,10 @@ impl Renderer {
         self.window_regions = windows
             .into_iter()
             .map(|window| {
+                if window.padding != self.window_padding {
+                    window.padding = self.window_padding;
+                }
+
                 window.draw(
                     root_canvas,
                     &settings,
@@ -244,6 +261,7 @@ impl Renderer {
                                 grid_id,
                                 (grid_left as f32, grid_top as f32).into(),
                                 (width, height).into(),
+                                self.window_padding,
                             );
                             vacant_entry.insert(new_window);
                         } else {
