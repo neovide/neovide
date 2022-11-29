@@ -70,6 +70,7 @@ pub struct GlutinWindowWrapper {
     mouse_manager: MouseManager,
     title: String,
     fullscreen: bool,
+    font_changed_last_frame: bool,
     saved_inner_size: PhysicalSize<u32>,
     saved_grid_size: Option<Dimensions>,
     size_at_startup: PhysicalSize<u32>,
@@ -194,43 +195,7 @@ impl GlutinWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         let window = self.windowed_context.window();
-        let mut font_changed = false;
-
-        if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
-            font_changed = self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
-            self.skia_renderer.gr_context.flush(None);
-            self.windowed_context.swap_buffers().unwrap();
-        }
-
-        // Wait until fonts are loaded, so we can set proper window size.
-        if !self.renderer.grid_renderer.is_ready {
-            return;
-        }
-
         let new_size = window.inner_size();
-
-        let settings = SETTINGS.get::<CmdLineSettings>();
-        // Resize at startup happens when window is maximized or when using tiling WM
-        // which already resized window.
-        let resized_at_startup = self.maximized_at_startup || self.has_been_resized();
-
-        log::trace!(
-            "Settings geometry {:?}",
-            PhysicalSize::from(settings.geometry)
-        );
-        log::trace!("Inner size: {:?}", new_size);
-
-        if self.saved_grid_size.is_none() && !resized_at_startup {
-            window.set_inner_size(
-                self.renderer
-                    .grid_renderer
-                    .convert_grid_to_physical(settings.geometry),
-            );
-            self.saved_grid_size = Some(settings.geometry);
-            // Font change at startup is ignored, so grid size (and startup screen) could be preserved.
-            // But only when not resized yet. With maximized or resized window we should redraw grid.
-            font_changed = false;
-        }
 
         let window_settings = SETTINGS.get::<WindowSettings>();
         let window_padding = WindowPadding {
@@ -245,10 +210,48 @@ impl GlutinWindowWrapper {
             self.renderer.window_padding = window_padding;
         }
 
-        if self.saved_inner_size != new_size || font_changed || padding_changed {
+        if self.saved_inner_size != new_size || self.font_changed_last_frame || padding_changed {
+            self.font_changed_last_frame = false;
             self.saved_inner_size = new_size;
+
             self.handle_new_grid_size(new_size);
             self.skia_renderer.resize(&self.windowed_context);
+        }
+
+        if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
+            self.font_changed_last_frame =
+                self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
+            self.skia_renderer.gr_context.flush(None);
+            self.windowed_context.swap_buffers().unwrap();
+        }
+
+        // Wait until fonts are loaded, so we can set proper window size.
+        if !self.renderer.grid_renderer.is_ready {
+            return;
+        }
+
+        let settings = SETTINGS.get::<CmdLineSettings>();
+        // Resize at startup happens when window is maximized or when using tiling WM
+        // which already resized window.
+        let resized_at_startup = self.maximized_at_startup || self.has_been_resized();
+
+        log::trace!(
+            "Settings geometry {:?}",
+            PhysicalSize::from(settings.geometry)
+        );
+        log::trace!("Inner size: {:?}", new_size);
+
+        if self.saved_grid_size.is_none() && !resized_at_startup {
+            let window = self.windowed_context.window();
+            window.set_inner_size(
+                self.renderer
+                    .grid_renderer
+                    .convert_grid_to_physical(settings.geometry),
+            );
+            self.saved_grid_size = Some(settings.geometry);
+            // Font change at startup is ignored, so grid size (and startup screen) could be preserved.
+            // But only when not resized yet. With maximized or resized window we should redraw grid.
+            self.font_changed_last_frame = false;
         }
     }
 
@@ -447,6 +450,7 @@ pub fn create_window() {
         mouse_manager: MouseManager::new(),
         title: String::from("Neovide"),
         fullscreen: false,
+        font_changed_last_frame: false,
         size_at_startup: initial_size,
         maximized_at_startup: maximized,
         saved_inner_size,
