@@ -193,16 +193,8 @@ impl GlutinWindowWrapper {
     }
 
     pub fn draw_frame(&mut self, dt: f32) {
-        let window_settings = SETTINGS.get::<WindowSettings>();
         let window = self.windowed_context.window();
         let mut font_changed = false;
-
-        let window_padding = WindowPadding {
-            top: window_settings.padding_top,
-            left: window_settings.padding_left,
-            right: window_settings.padding_right,
-            bottom: window_settings.padding_bottom,
-        };
 
         if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
             font_changed = self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
@@ -239,6 +231,14 @@ impl GlutinWindowWrapper {
             // But only when not resized yet. With maximized or resized window we should redraw grid.
             font_changed = false;
         }
+
+        let window_settings = SETTINGS.get::<WindowSettings>();
+        let window_padding = WindowPadding {
+            top: window_settings.padding_top,
+            left: window_settings.padding_left,
+            right: window_settings.padding_right,
+            bottom: window_settings.padding_bottom,
+        };
 
         let padding_changed = window_padding != self.renderer.window_padding;
         if padding_changed {
