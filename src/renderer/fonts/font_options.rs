@@ -97,10 +97,9 @@ impl PartialEq for FontOptions {
     }
 }
 
-fn parse_font_name(font_name: impl Into<String>) -> String {
-    let font_name: String = font_name.into();
-
+fn parse_font_name(font_name: impl AsRef<str>) -> String {
     let parsed_font_name = font_name
+        .as_ref()
         .chars()
         .batching(|iter| {
             let ch = iter.next();
