@@ -28,6 +28,7 @@ futures = "0.3.21"
 gl = "0.14.0"
 glutin = { git = "https://github.com/neovide/glutin", branch = "new-keyboard-all", features = ["serde"] }
 image = { version = "0.24.1", default-features = false, features = ["ico"] }
+itertools = "0.10.5"
 lazy_static = "1.4.0"
 log = "0.4.16"
 lru = "0.7.5"

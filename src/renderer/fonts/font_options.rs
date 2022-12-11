@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 const DEFAULT_FONT_SIZE: f32 = 14.0;
 
 #[derive(Clone, Debug)]
@@ -97,23 +99,18 @@ impl PartialEq for FontOptions {
 
 fn parse_font_name(font_name: impl Into<String>) -> String {
     let font_name: String = font_name.into();
-    let mut char_iter = font_name.chars().into_iter();
 
-    let mut parsed_font_name = String::with_capacity(font_name.len());
-
-    while let Some(current_char) = char_iter.next() {
-        let result_char = match current_char {
-            '\\' => char_iter.next(),
-            '_' => Some(' '),
-            _ => Some(current_char),
-        };
-
-        if let Some(result_char) = result_char {
-            parsed_font_name.push(result_char);
-        } else {
-            break;
-        }
-    }
+    let parsed_font_name = font_name
+        .chars()
+        .batching(|iter| {
+            let ch = iter.next();
+            match ch? {
+                '\\' => iter.next(),
+                '_' => Some(' '),
+                _ => ch,
+            }
+        })
+        .collect();
 
     parsed_font_name
 }
@@ -305,9 +302,9 @@ mod tests {
     fn test_parse_font_name_with_escapes() {
         let without_escapes_or_specials_chars = parse_font_name("Fira Code Mono");
         let without_escapes = parse_font_name("Fira_Code_Mono");
-        let with_escapes = parse_font_name("Fira\\_Code\\_Mono");
-        let with_too_many_escapes = parse_font_name("Fira\\\\_Code\\\\_Mono");
-        let ignored_escape_at_the_end = parse_font_name("Fira_Code_Mono\\");
+        let with_escapes = parse_font_name(r"Fira\_Code\_Mono");
+        let with_too_many_escapes = parse_font_name(r"Fira\\_Code\\_Mono");
+        let ignored_escape_at_the_end = parse_font_name(r"Fira_Code_Mono\");
 
         assert_eq!(
             without_escapes_or_specials_chars, "Fira Code Mono",
