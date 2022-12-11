@@ -115,8 +115,6 @@ fn parse_font_name(font_name: impl Into<String>) -> String {
         }
     }
 
-    println!("{}", parsed_font_name);
-
     parsed_font_name
 }
 
