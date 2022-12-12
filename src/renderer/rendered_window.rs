@@ -5,7 +5,7 @@ use skia_safe::{
     gpu::SurfaceOrigin,
     image_filters::blur,
     BlendMode, Budgeted, Canvas, Color, Image, ImageInfo, Paint, Point, Rect, SamplingOptions,
-    Surface, SurfaceProps, SurfacePropsFlags,
+    Surface, SurfaceProps, SurfacePropsFlags, FilterMode, runtime_effect::{ChildPtr, Uniform, uniform}, Data,
 };
 
 use crate::{
@@ -334,12 +334,86 @@ impl RenderedWindow {
 
         // Draw current surface.
         let snapshot = self.current_surface.surface.image_snapshot();
-        root_canvas.draw_image_rect(
-            snapshot,
-            None,
-            pixel_region.with_offset((0.0, scroll_offset as f32)),
-            &paint,
+        
+        // JUST HACKING IN A SHADER TO SEE IF THIS WORKS
+
+        // in vec4 v_colour;
+        // in vec2 tex_coord;
+        // out vec4 pixel;
+        // uniform sampler2D t0;
+        // uniform float bloom_spread = 1;
+        // uniform float bloom_intensity = 2;
+        // void main() {
+        // 	ivec2 size = textureSize(t0, 0);
+        //     float uv_x = tex_coord.x * size.x;
+        //     float uv_y = tex_coord.y * size.y;
+        //     vec4 sum = vec4(0.0);
+        //     for (int n = 0; n < 9; ++n) {
+        //         uv_y = (tex_coord.y * size.y) + (bloom_spread * float(n - 4));
+        //         vec4 h_sum = vec4(0.0);
+        //         h_sum += texelFetch(t0, ivec2(uv_x - (4.0 * bloom_spread), uv_y), 0);
+        //         h_sum += texelFetch(t0, ivec2(uv_x - (3.0 * bloom_spread), uv_y), 0);
+        //         h_sum += texelFetch(t0, ivec2(uv_x - (2.0 * bloom_spread), uv_y), 0);
+        //         h_sum += texelFetch(t0, ivec2(uv_x - bloom_spread, uv_y), 0);
+        //         h_sum += texelFetch(t0, ivec2(uv_x, uv_y), 0);
+        //         h_sum += texelFetch(t0, ivec2(uv_x + bloom_spread, uv_y), 0);
+        //         h_sum += texelFetch(t0, ivec2(uv_x + (2.0 * bloom_spread), uv_y), 0);
+        //         h_sum += texelFetch(t0, ivec2(uv_x + (3.0 * bloom_spread), uv_y), 0);
+        //         h_sum += texelFetch(t0, ivec2(uv_x + (4.0 * bloom_spread), uv_y), 0);
+        //         sum += h_sum / 9.0;
+        //     }
+        //     pixel = texture(t0, tex_coord) - ((sum / 9.0) * bloom_intensity);
+        // }
+
+
+let sksl ="
+    uniform shader image;
+
+    half4 main(float2 tex_coord) {
+        float bloom_spread = 1.5;
+        float bloom_intensity = 1;
+        float uv_x = tex_coord.x;
+        float uv_y = tex_coord.y;
+        float4 sum = float4(0.0);
+        for (int n = 0; n < 9; ++n) {
+            float uv_y = (tex_coord.y) + (bloom_spread * float(n - 4));
+            float4 h_sum = vec4(0.0);
+            h_sum += image.eval(float2(uv_x - (4.0 * bloom_spread), uv_y));
+            h_sum += image.eval(float2(uv_x - (3.0 * bloom_spread), uv_y));
+            h_sum += image.eval(float2(uv_x - (2.0 * bloom_spread), uv_y));
+            h_sum += image.eval(float2(uv_x - bloom_spread, uv_y));
+            h_sum += image.eval(float2(uv_x, uv_y));
+            h_sum += image.eval(float2(uv_x + bloom_spread, uv_y));
+            h_sum += image.eval(float2(uv_x + (2.0 * bloom_spread), uv_y));
+            h_sum += image.eval(float2(uv_x + (3.0 * bloom_spread), uv_y));
+            h_sum += image.eval(float2(uv_x + (4.0 * bloom_spread), uv_y));
+            sum += h_sum / 9.0;
+        }
+        return image.eval(tex_coord) + ((sum / 9.0) * bloom_intensity);
+    }
+";
+        let shader_image = snapshot.to_shader(None, SamplingOptions::from(FilterMode::Linear), None).unwrap();
+        let runtime_effect = skia_safe::runtime_effect::RuntimeEffect::make_for_shader(sksl, None).unwrap();
+
+        let children: [ChildPtr; 1] = [
+            ChildPtr::Shader(shader_image)
+        ];
+        
+        let full_shader = runtime_effect.make_shader(
+            Data::new_empty(),
+            &children,
+            None
         );
+        paint.set_shader(full_shader);
+        
+        root_canvas.draw_paint(&paint);
+
+        //root_canvas.draw_image_rect(
+        //     snapshot,
+        //     None,
+        //     pixel_region.with_offset((0.0, scroll_offset as f32)),
+        //     &paint,
+        // );
 
         root_canvas.restore();
 
