@@ -218,7 +218,7 @@ fn generate_stderr_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) ->
     #[cfg(debug_assertions)]
     {
         let print_backtrace = match env::var("RUST_BACKTRACE") {
-            Ok(x) => x == "full" && x == "1",
+            Ok(x) => x == "full" || x == "1",
             Err(_) => false,
         };
 
