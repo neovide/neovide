@@ -39,7 +39,6 @@ use log::trace;
 
 use backtrace::Backtrace;
 use bridge::start_bridge;
-use chrono::Local;
 use cmd_line::CmdLineSettings;
 use editor::start_editor;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
@@ -47,6 +46,9 @@ use settings::SETTINGS;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::panic::{set_hook, PanicInfo};
+use std::time::SystemTime;
+use time::macros::format_description;
+use time::OffsetDateTime;
 use window::{create_window, KeyboardSettings, WindowSettings};
 
 pub use channel_utils::*;
@@ -263,7 +265,13 @@ fn log_panic_to_file(panic_info: &PanicInfo, backtrace: &Backtrace) {
 }
 
 fn generate_panic_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) -> String {
-    let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S");
+    let system_time: OffsetDateTime = SystemTime::now().into();
+
+    let timestamp = system_time
+        .format(format_description!(
+            "[year]-[month]-[day] [hour]:[minute]:[second]"
+        ))
+        .expect("Failed to parse current time");
 
     let partial_panic_msg = generate_panic_message(panic_info);
     let full_panic_msg = format!("{timestamp} - {partial_panic_msg}");
