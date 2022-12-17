@@ -224,7 +224,7 @@ fn generate_stderr_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) ->
         };
 
         let backtrace_msg = match print_backtrace {
-            true => format!("{:?}", backtrace),
+            true => format!("{backtrace:?}"),
             false => {
                 "note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace"
                     .to_owned()
@@ -243,15 +243,16 @@ fn generate_stderr_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) ->
 fn log_panic_to_file(panic_info: &PanicInfo, backtrace: &Backtrace) {
     let log_msg = generate_panic_log_message(panic_info, backtrace);
 
-    let mut file = match OpenOptions::new().append(true).open(BACKTRACES_FILE) {
+    let mut file = match OpenOptions::new()
+        .append(true)
+        .open(BACKTRACES_FILE)
+        .or_else(|_| File::create(BACKTRACES_FILE))
+    {
         Ok(x) => x,
-        Err(_) => match File::create(BACKTRACES_FILE) {
-            Ok(x) => x,
-            Err(e) => {
-                eprintln!("Could not create backtraces file. ({})", e);
-                return;
-            }
-        },
+        Err(e) => {
+            eprintln!("Could not create backtraces file. ({e})");
+            return;
+        }
     };
 
     match file.write_all(log_msg.as_bytes()) {
@@ -272,7 +273,7 @@ fn generate_panic_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) -> 
     let partial_panic_msg = generate_panic_message(panic_info);
     let full_panic_msg = format!("{timestamp} - {partial_panic_msg}");
 
-    format!("{full_panic_msg}\n{:?}\n", backtrace)
+    format!("{full_panic_msg}\n{backtrace:?}\n")
 }
 
 fn generate_panic_message(panic_info: &PanicInfo) -> String {
@@ -285,13 +286,14 @@ fn generate_panic_message(panic_info: &PanicInfo) -> String {
 
     let raw_payload = panic_info.payload();
 
-    let payload = match raw_payload.downcast_ref::<&str>() {
+    let payload = match raw_payload
+        .downcast_ref::<&str>()
+        .map(ToOwned::to_owned)
+        // Some panic messages are &str, some are String, try both to see which it is
+        .or_else(|| raw_payload.downcast_ref().map(String::as_str))
+    {
         Some(msg) => msg.to_owned(),
-        // If downcasting to a `&str` doesn't work, we try downcasting to a `String` before giving up.
-        None => match raw_payload.downcast_ref::<String>() {
-            Some(msg) => msg,
-            None => return "Could not parse panic payload to a string. This is a bug.".to_owned(),
-        },
+        None => return "Could not parse panic payload to a string. This is a bug.".to_owned(),
     };
 
     format!("Neovide panicked with the message '{payload}'. (File: {file}; Line: {line}, Column: {column})")
