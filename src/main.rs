@@ -68,10 +68,10 @@ fn main() {
         log_panic_to_file(panic_info, &backtrace);
     }));
 
-    failproof_main()
+    protected_main()
 }
 
-fn failproof_main() {
+fn protected_main() {
     //  --------------
     // | Architecture |
     //  --------------
