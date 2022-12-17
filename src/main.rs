@@ -31,17 +31,22 @@ extern crate derive_new;
 #[macro_use]
 extern crate lazy_static;
 
-use std::env::args;
+use std::env::{self, args};
 
 #[cfg(not(test))]
 use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
 use log::trace;
 
+use backtrace::Backtrace;
 use bridge::start_bridge;
+use chrono::Local;
 use cmd_line::CmdLineSettings;
 use editor::start_editor;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 use settings::SETTINGS;
+use std::fs::{File, OpenOptions};
+use std::io::Write;
+use std::panic::{set_hook, PanicInfo};
 use window::{create_window, KeyboardSettings, WindowSettings};
 
 pub use channel_utils::*;
@@ -50,7 +55,23 @@ pub use running_tracker::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
+const BACKTRACES_FILE: &str = "neovide_backtraces.log";
+const REQUEST_MESSAGE: &str = "This is a bug and we would love for it to be reported to https://github.com/neovide/neovide/issues";
+
 fn main() {
+    set_hook(Box::new(|panic_info| {
+        let backtrace = Backtrace::new();
+
+        let stderr_msg = generate_stderr_log_message(panic_info, &backtrace);
+        eprintln!("{stderr_msg}");
+
+        log_panic_to_file(panic_info, &backtrace);
+    }));
+
+    failproof_main()
+}
+
+fn failproof_main() {
     //  --------------
     // | Architecture |
     //  --------------
@@ -191,4 +212,77 @@ fn maybe_disown() {
     } else {
         eprintln!("error in disowning process, cannot obtain the path for the current executable, continuing without disowning...");
     }
+}
+
+fn generate_stderr_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) -> String {
+    #[cfg(debug_assertions)]
+    {
+        let print_backtrace = match env::var("RUST_BACKTRACE") {
+            Ok(x) => x == "full" && x == "1",
+            Err(_) => false,
+        };
+
+        let backtrace_msg = match print_backtrace {
+            true => format!("{:?}", backtrace),
+            false => {
+                "note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace"
+                    .to_owned()
+            }
+        };
+
+        let panic_msg = generate_panic_message(panic_info);
+
+        format!("{panic_msg}\n{REQUEST_MESSAGE}\n{backtrace_msg}")
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+        let panic_msg = generate_panic_message(panic_info);
+        format!("{panic_msg}\n{REQUEST_MESSAGE}")
+    }
+}
+
+fn log_panic_to_file(panic_info: &PanicInfo, backtrace: &Backtrace) {
+    let log_msg = generate_panic_log_message(panic_info, backtrace);
+
+    let mut file = match OpenOptions::new().append(true).open(BACKTRACES_FILE) {
+        Ok(x) => x,
+        Err(_) => match File::create(BACKTRACES_FILE) {
+            Ok(x) => x,
+            Err(e) => {
+                eprintln!("Could not create backtraces file. ({})", e);
+                return;
+            }
+        },
+    };
+
+    file.write_all(log_msg.as_bytes())
+        .unwrap_or_else(|_| eprintln!("Failed writing panic to {BACKTRACES_FILE}"));
+
+    eprintln!("\nBacktrace saved to {BACKTRACES_FILE}!");
+}
+
+fn generate_panic_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) -> String {
+    let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S");
+
+    let partial_panic_msg = generate_panic_message(panic_info);
+    let full_panic_msg = format!("{timestamp} - {partial_panic_msg}");
+
+    format!("{full_panic_msg}\n{:?}\n", backtrace)
+}
+
+fn generate_panic_message(panic_info: &PanicInfo) -> String {
+    // As per the documentation for `.location()`(https://doc.rust-lang.org/std/panic/struct.PanicInfo.html#method.location)
+    // the call to location cannot currently return `None`, so we unwrap.
+    let location_info = panic_info.location().unwrap();
+    let file = location_info.file();
+    let line = location_info.line();
+    let column = location_info.column();
+
+    let payload = match panic_info.payload().downcast_ref::<&str>() {
+        Some(msg) => msg,
+        None => return "Could not parse panic payload to string. This is a bug.".to_owned(),
+    };
+
+    format!("Neovide panicked with the message '{payload}'. (File: {file}; Line: {line}, Column: {column})")
 }

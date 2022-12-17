@@ -47,6 +47,8 @@ unicode-segmentation = "1.9.0"
 which = "4.2.5"
 winit = { git = "https://github.com/neovide/winit", branch = "new-keyboard-all" }
 xdg = "2.4.1"
+chrono = "0.4.23"
+backtrace = "0.3.67"
 
 [dev-dependencies]
 mockall = "0.11.0"
