@@ -17,7 +17,9 @@ embed-fonts = []
 [dependencies]
 copypasta = "0.8.1"
 async-trait = "0.1.53"
+backtrace = "0.3.67"
 cfg-if = "1.0.0"
+chrono = "0.4.23"
 clap = { version = "4.0.8", features = ["cargo", "derive", "env"] }
 csscolorparser = "0.6.2"
 derive-new = "0.5.9"
@@ -47,8 +49,6 @@ unicode-segmentation = "1.9.0"
 which = "4.2.5"
 winit = { git = "https://github.com/neovide/winit", branch = "new-keyboard-all" }
 xdg = "2.4.1"
-chrono = "0.4.23"
-backtrace = "0.3.67"
 
 [dev-dependencies]
 mockall = "0.11.0"
