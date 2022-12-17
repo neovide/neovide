@@ -287,9 +287,15 @@ fn generate_panic_message(panic_info: &PanicInfo) -> String {
     let line = location_info.line();
     let column = location_info.column();
 
-    let payload = match panic_info.payload().downcast_ref::<&str>() {
-        Some(msg) => msg,
-        None => return "Could not parse panic payload to string. This is a bug.".to_owned(),
+    let raw_payload = panic_info.payload();
+
+    let payload = match raw_payload.downcast_ref::<&str>() {
+        Some(msg) => msg.to_owned(),
+        // If downcasting to a `&str` doesn't work, we try downcasting to a `String` before giving up.
+        None => match raw_payload.downcast_ref::<String>() {
+            Some(msg) => msg,
+            None => return "Could not parse panic payload to a string. This is a bug.".to_owned(),
+        },
     };
 
     format!("Neovide panicked with the message '{payload}'. (File: {file}; Line: {line}, Column: {column})")
