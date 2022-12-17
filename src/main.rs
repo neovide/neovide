@@ -188,7 +188,7 @@ pub fn init_logger() {
 }
 
 fn maybe_disown() {
-    use std::{env, process};
+    use std::process;
 
     let settings = SETTINGS.get::<CmdLineSettings>();
 
