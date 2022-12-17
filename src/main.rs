@@ -217,8 +217,7 @@ fn maybe_disown() {
 }
 
 fn generate_stderr_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) -> String {
-    #[cfg(debug_assertions)]
-    {
+    if cfg!(debug_assertions) {
         let print_backtrace = match env::var("RUST_BACKTRACE") {
             Ok(x) => x == "full" || x == "1",
             Err(_) => false,
@@ -235,10 +234,7 @@ fn generate_stderr_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) ->
         let panic_msg = generate_panic_message(panic_info);
 
         format!("{panic_msg}\n{REQUEST_MESSAGE}\n{backtrace_msg}")
-    }
-
-    #[cfg(not(debug_assertions))]
-    {
+    } else {
         let panic_msg = generate_panic_message(panic_info);
         format!("{panic_msg}\n{REQUEST_MESSAGE}")
     }
