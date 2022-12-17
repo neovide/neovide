@@ -258,9 +258,9 @@ fn log_panic_to_file(panic_info: &PanicInfo, backtrace: &Backtrace) {
         },
     };
 
-    match file.write_all(log_msg.as_bytes()).is_ok() {
-        true => eprintln!("\nBacktrace saved to {BACKTRACES_FILE}!"),
-        false => eprintln!("\nFailed writing panic to {BACKTRACES_FILE}"),
+    match file.write_all(log_msg.as_bytes()) {
+        Ok(()) => eprintln!("\nBacktrace saved to {BACKTRACES_FILE}!"),
+        Err(e) => eprintln!("Failed writing panic to {BACKTRACES_FILE}: {e}"),
     }
 }
 
