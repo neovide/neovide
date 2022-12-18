@@ -17,6 +17,7 @@ embed-fonts = []
 [dependencies]
 copypasta = "0.8.1"
 async-trait = "0.1.53"
+backtrace = "0.3.67"
 cfg-if = "1.0.0"
 clap = { version = "4.0.8", features = ["cargo", "derive", "env"] }
 csscolorparser = "0.6.2"
@@ -41,6 +42,7 @@ serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.79"
 shlex = "1.1.0"
 swash = "0.1.4"
+time = "0.3.9"
 tokio = { version = "1.17.0", features = ["full"] }
 tokio-util = { version = "0.7.1", features = ["compat"] }
 unicode-segmentation = "1.9.0"

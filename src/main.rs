@@ -31,17 +31,24 @@ extern crate derive_new;
 #[macro_use]
 extern crate lazy_static;
 
-use std::env::args;
+use std::env::{self, args};
 
 #[cfg(not(test))]
 use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
 use log::trace;
 
+use backtrace::Backtrace;
 use bridge::start_bridge;
 use cmd_line::CmdLineSettings;
 use editor::start_editor;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 use settings::SETTINGS;
+use std::fs::{File, OpenOptions};
+use std::io::Write;
+use std::panic::{set_hook, PanicInfo};
+use std::time::SystemTime;
+use time::macros::format_description;
+use time::OffsetDateTime;
 use window::{create_window, KeyboardSettings, WindowSettings};
 
 pub use channel_utils::*;
@@ -50,7 +57,23 @@ pub use running_tracker::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
+const BACKTRACES_FILE: &str = "neovide_backtraces.log";
+const REQUEST_MESSAGE: &str = "This is a bug and we would love for it to be reported to https://github.com/neovide/neovide/issues";
+
 fn main() {
+    set_hook(Box::new(|panic_info| {
+        let backtrace = Backtrace::new();
+
+        let stderr_msg = generate_stderr_log_message(panic_info, &backtrace);
+        eprintln!("{stderr_msg}");
+
+        log_panic_to_file(panic_info, &backtrace);
+    }));
+
+    protected_main()
+}
+
+fn protected_main() {
     //  --------------
     // | Architecture |
     //  --------------
@@ -167,7 +190,7 @@ pub fn init_logger() {
 }
 
 fn maybe_disown() {
-    use std::{env, process};
+    use std::process;
 
     let settings = SETTINGS.get::<CmdLineSettings>();
 
@@ -191,4 +214,87 @@ fn maybe_disown() {
     } else {
         eprintln!("error in disowning process, cannot obtain the path for the current executable, continuing without disowning...");
     }
+}
+
+fn generate_stderr_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) -> String {
+    if cfg!(debug_assertions) {
+        let print_backtrace = match env::var("RUST_BACKTRACE") {
+            Ok(x) => x == "full" || x == "1",
+            Err(_) => false,
+        };
+
+        let backtrace_msg = match print_backtrace {
+            true => format!("{backtrace:?}"),
+            false => {
+                "note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace"
+                    .to_owned()
+            }
+        };
+
+        let panic_msg = generate_panic_message(panic_info);
+
+        format!("{panic_msg}\n{REQUEST_MESSAGE}\n{backtrace_msg}")
+    } else {
+        let panic_msg = generate_panic_message(panic_info);
+        format!("{panic_msg}\n{REQUEST_MESSAGE}")
+    }
+}
+
+fn log_panic_to_file(panic_info: &PanicInfo, backtrace: &Backtrace) {
+    let log_msg = generate_panic_log_message(panic_info, backtrace);
+
+    let mut file = match OpenOptions::new()
+        .append(true)
+        .open(BACKTRACES_FILE)
+        .or_else(|_| File::create(BACKTRACES_FILE))
+    {
+        Ok(x) => x,
+        Err(e) => {
+            eprintln!("Could not create backtraces file. ({e})");
+            return;
+        }
+    };
+
+    match file.write_all(log_msg.as_bytes()) {
+        Ok(()) => eprintln!("\nBacktrace saved to {BACKTRACES_FILE}!"),
+        Err(e) => eprintln!("Failed writing panic to {BACKTRACES_FILE}: {e}"),
+    }
+}
+
+fn generate_panic_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) -> String {
+    let system_time: OffsetDateTime = SystemTime::now().into();
+
+    let timestamp = system_time
+        .format(format_description!(
+            "[year]-[month]-[day] [hour]:[minute]:[second]"
+        ))
+        .expect("Failed to parse current time");
+
+    let partial_panic_msg = generate_panic_message(panic_info);
+    let full_panic_msg = format!("{timestamp} - {partial_panic_msg}");
+
+    format!("{full_panic_msg}\n{backtrace:?}\n")
+}
+
+fn generate_panic_message(panic_info: &PanicInfo) -> String {
+    // As per the documentation for `.location()`(https://doc.rust-lang.org/std/panic/struct.PanicInfo.html#method.location)
+    // the call to location cannot currently return `None`, so we unwrap.
+    let location_info = panic_info.location().unwrap();
+    let file = location_info.file();
+    let line = location_info.line();
+    let column = location_info.column();
+
+    let raw_payload = panic_info.payload();
+
+    let payload = match raw_payload
+        .downcast_ref::<&str>()
+        .map(ToOwned::to_owned)
+        // Some panic messages are &str, some are String, try both to see which it is
+        .or_else(|| raw_payload.downcast_ref().map(String::as_str))
+    {
+        Some(msg) => msg.to_owned(),
+        None => return "Could not parse panic payload to a string. This is a bug.".to_owned(),
+    };
+
+    format!("Neovide panicked with the message '{payload}'. (File: {file}; Line: {line}, Column: {column})")
 }
