@@ -1386,6 +1386,7 @@ dependencies = [
  "gl",
  "glutin",
  "image",
+ "itertools",
  "lazy_static",
  "log",
  "lru",

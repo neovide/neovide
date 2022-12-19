@@ -1,3 +1,5 @@
+use itertools::Itertools;
+
 const DEFAULT_FONT_SIZE: f32 = 14.0;
 
 #[derive(Clone, Debug)]
@@ -27,7 +29,7 @@ impl FontOptions {
             let parsed_font_list: Vec<String> = parts
                 .split(',')
                 .filter(|fallback| !fallback.is_empty())
-                .map(|fallback| fallback.replace('_', " "))
+                .map(parse_font_name)
                 .collect();
 
             if !parsed_font_list.is_empty() {
@@ -93,6 +95,23 @@ impl PartialEq for FontOptions {
             && self.edging == other.edging
             && self.hinting == other.hinting
     }
+}
+
+fn parse_font_name(font_name: impl AsRef<str>) -> String {
+    let parsed_font_name = font_name
+        .as_ref()
+        .chars()
+        .batching(|iter| {
+            let ch = iter.next();
+            match ch? {
+                '\\' => iter.next(),
+                '_' => Some(' '),
+                _ => ch,
+            }
+        })
+        .collect();
+
+    parsed_font_name
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -276,5 +295,44 @@ mod tests {
             font_options.hinting,
             FontHinting::Slight,
         );
+    }
+
+    #[test]
+    fn test_parse_font_name_with_escapes() {
+        let without_escapes_or_specials_chars = parse_font_name("Fira Code Mono");
+        let without_escapes = parse_font_name("Fira_Code_Mono");
+        let with_escapes = parse_font_name(r"Fira\_Code\_Mono");
+        let with_too_many_escapes = parse_font_name(r"Fira\\_Code\\_Mono");
+        let ignored_escape_at_the_end = parse_font_name(r"Fira_Code_Mono\");
+
+        assert_eq!(
+            without_escapes_or_specials_chars, "Fira Code Mono",
+            "font name should equal {}, but {}",
+            without_escapes_or_specials_chars, "Fira Code Mono"
+        );
+
+        assert_eq!(
+            without_escapes, "Fira Code Mono",
+            "font name should equal {}, but {}",
+            without_escapes, "Fira Code Mono"
+        );
+
+        assert_eq!(
+            with_escapes, "Fira_Code_Mono",
+            "font name should equal {}, but {}",
+            with_escapes, "Fira_Code_Mono"
+        );
+
+        assert_eq!(
+            with_too_many_escapes, "Fira\\ Code\\ Mono",
+            "font name should equal {}, but {}",
+            with_too_many_escapes, "Fira\\ Code\\ Mono"
+        );
+
+        assert_eq!(
+            ignored_escape_at_the_end, "Fira Code Mono",
+            "font name should equal {}, but {}",
+            ignored_escape_at_the_end, "Fira Code Mono"
+        )
     }
 }
