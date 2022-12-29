@@ -140,7 +140,10 @@ impl KeyboardManager {
             }
         } else {
             let key_text = if self.prev_dead_key.is_none() {
-                key_event.text
+                key_event.text.or_else(|| match key_event.key_without_modifiers() {
+                    Key::Character(ch) => Some(ch),
+                    _ => None,
+                })
             } else {
                 key_event.text_with_all_modifiers()
             };
