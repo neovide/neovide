@@ -27,6 +27,10 @@ pub struct CmdLineSettings {
     #[arg(long, default_value_t = last_window_geometry())]
     pub geometry: Dimensions,
 
+    /// The size of the window in pixel
+    #[arg(long)]
+    pub size: Option<Dimensions>,
+
     /// If to enable logging to a file in the current directory
     #[arg(long = "log")]
     pub log_to_file: bool,
@@ -230,6 +234,24 @@ mod tests {
                 width: 42,
                 height: 24
             }
+        );
+    }
+
+    #[test]
+    fn test_size() {
+        let args: Vec<String> = vec!["neovide", "--size=420x240"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        let _accessing_settings = ACCESSING_SETTINGS.lock().unwrap();
+        handle_command_line_arguments(args).expect("Could not parse arguments");
+        assert_eq!(
+            SETTINGS.get::<CmdLineSettings>().size,
+            Some(Dimensions {
+                width: 420,
+                height: 240,
+            }),
         );
     }
 

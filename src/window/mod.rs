@@ -239,16 +239,21 @@ impl GlutinWindowWrapper {
             "Settings geometry {:?}",
             PhysicalSize::from(settings.geometry)
         );
+        log::trace!("Settings size {:?}", settings.size);
         log::trace!("Inner size: {:?}", new_size);
 
         if self.saved_grid_size.is_none() && !resized_at_startup {
             let window = self.windowed_context.window();
-            window.set_inner_size(
+            let inner_size = if let Some(size) = settings.size {
+                // --size override geometry
+                size.into()
+            } else {
                 self.renderer
                     .grid_renderer
-                    .convert_grid_to_physical(settings.geometry),
-            );
-            self.saved_grid_size = Some(settings.geometry);
+                    .convert_grid_to_physical(settings.geometry)
+            };
+            window.set_inner_size(inner_size);
+            self.handle_new_grid_size(inner_size);
             // Font change at startup is ignored, so grid size (and startup screen) could be preserved.
             // But only when not resized yet. With maximized or resized window we should redraw grid.
             self.font_changed_last_frame = false;
