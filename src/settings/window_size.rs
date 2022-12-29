@@ -67,7 +67,7 @@ pub fn load_last_window_settings() -> Result<PersistentWindowSettings, String> {
     Ok(loaded_settings)
 }
 
-pub fn last_window_geometry() -> Dimensions {
+pub fn last_window_size() -> Dimensions {
     load_last_window_settings()
         .and_then(|window_settings| {
             if let PersistentWindowSettings::Windowed { size, .. } = window_settings {
@@ -79,7 +79,7 @@ pub fn last_window_geometry() -> Dimensions {
         .unwrap_or(DEFAULT_WINDOW_GEOMETRY)
 }
 
-pub fn save_window_geometry(
+pub fn save_window_size(
     maximized: bool,
     grid_size: Option<Dimensions>,
     position: Option<PhysicalPosition<i32>>,
@@ -114,35 +114,4 @@ pub fn save_window_geometry(
     let json = serde_json::to_string(&settings).unwrap();
     log::debug!("Saved Window Settings: {}", json);
     std::fs::write(settings_path, json).unwrap();
-}
-
-pub fn parse_window_geometry(input: &str) -> Result<Dimensions, String> {
-    let invalid_parse_err = format!(
-        "Invalid geometry: {}\nValid format: <width>x<height>",
-        input
-    );
-
-    input
-        .split('x')
-        .map(|dimension| {
-            dimension
-                .parse::<u64>()
-                .map_err(|_| invalid_parse_err.as_str())
-                .and_then(|dimension| {
-                    if dimension > 0 {
-                        Ok(dimension)
-                    } else {
-                        Err("Invalid geometry: Window dimensions should be greater than 0.")
-                    }
-                })
-        })
-        .collect::<Result<Vec<_>, &str>>()
-        .and_then(|dimensions| {
-            if let [width, height] = dimensions[..] {
-                Ok(Dimensions { width, height })
-            } else {
-                Err(invalid_parse_err.as_str())
-            }
-        })
-        .map_err(|msg| msg.to_owned())
 }

@@ -45,7 +45,7 @@ use crate::{
     renderer::WindowPadding,
     running_tracker::*,
     settings::{
-        load_last_window_settings, save_window_geometry, PersistentWindowSettings,
+        load_last_window_settings, save_window_size, PersistentWindowSettings,
         DEFAULT_WINDOW_GEOMETRY, SETTINGS,
     },
 };
@@ -484,7 +484,7 @@ pub fn create_window() {
 
         if !RUNNING_TRACKER.is_running() {
             let window = window_wrapper.windowed_context.window();
-            save_window_geometry(
+            save_window_size(
                 window.is_maximized(),
                 window_wrapper.saved_grid_size,
                 window.outer_position().ok(),

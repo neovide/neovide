@@ -25,7 +25,31 @@ impl Default for Dimensions {
 impl FromStr for Dimensions {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        settings::parse_window_geometry(s)
+        let invalid_parse_err =
+            format!("Invalid Dimensions: {}\nValid format: <width>x<height>", s);
+
+        s.split('x')
+            .map(|dimension| {
+                dimension
+                    .parse::<u64>()
+                    .map_err(|_| invalid_parse_err.as_str())
+                    .and_then(|dimension| {
+                        if dimension > 0 {
+                            Ok(dimension)
+                        } else {
+                            Err("Invalid Dimensions: Window dimensions should be greater than 0.")
+                        }
+                    })
+            })
+            .collect::<Result<Vec<_>, &str>>()
+            .and_then(|dimensions| {
+                if let [width, height] = dimensions[..] {
+                    Ok(Dimensions { width, height })
+                } else {
+                    Err(invalid_parse_err.as_str())
+                }
+            })
+            .map_err(|msg| msg.to_owned())
     }
 }
 
