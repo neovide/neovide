@@ -24,8 +24,8 @@ pub struct CmdLineSettings {
     pub neovim_args: Vec<String>,
 
     /// The geometry of the window
-    #[arg(long, default_value_t = last_window_geometry())]
-    pub geometry: Dimensions,
+    #[arg(long)]
+    pub geometry: Option<Dimensions>,
 
     /// The size of the window in pixel
     #[arg(long)]
@@ -212,10 +212,10 @@ mod tests {
 
         assert_eq!(
             SETTINGS.get::<CmdLineSettings>().geometry,
-            Dimensions {
+            Some(Dimensions {
                 width: 42,
                 height: 24
-            }
+            }),
         );
     }
 
@@ -230,10 +230,10 @@ mod tests {
         handle_command_line_arguments(args).expect("Could not parse arguments");
         assert_eq!(
             SETTINGS.get::<CmdLineSettings>().geometry,
-            Dimensions {
+            Some(Dimensions {
                 width: 42,
                 height: 24
-            }
+            }),
         );
     }
 

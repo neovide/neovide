@@ -45,7 +45,8 @@ use crate::{
     renderer::WindowPadding,
     running_tracker::*,
     settings::{
-        load_last_window_settings, save_window_geometry, PersistentWindowSettings, SETTINGS,
+        load_last_window_settings, save_window_geometry, PersistentWindowSettings,
+        DEFAULT_WINDOW_GEOMETRY, SETTINGS,
     },
 };
 pub use settings::{KeyboardSettings, WindowSettings};
@@ -195,7 +196,6 @@ impl GlutinWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         let window = self.windowed_context.window();
-        let new_size = window.inner_size();
 
         let window_settings = SETTINGS.get::<WindowSettings>();
         let window_padding = WindowPadding {
@@ -210,6 +210,7 @@ impl GlutinWindowWrapper {
             self.renderer.window_padding = window_padding;
         }
 
+        let new_size = window.inner_size();
         if self.saved_inner_size != new_size || self.font_changed_last_frame || padding_changed {
             self.font_changed_last_frame = false;
             self.saved_inner_size = new_size;
@@ -235,10 +236,7 @@ impl GlutinWindowWrapper {
         // which already resized window.
         let resized_at_startup = self.maximized_at_startup || self.has_been_resized();
 
-        log::trace!(
-            "Settings geometry {:?}",
-            PhysicalSize::from(settings.geometry)
-        );
+        log::trace!("Settings geometry {:?}", settings.geometry,);
         log::trace!("Settings size {:?}", settings.size);
         log::trace!("Inner size: {:?}", new_size);
 
@@ -250,13 +248,11 @@ impl GlutinWindowWrapper {
             } else {
                 self.renderer
                     .grid_renderer
-                    .convert_grid_to_physical(settings.geometry)
+                    .convert_grid_to_physical(settings.geometry.unwrap_or(DEFAULT_WINDOW_GEOMETRY))
             };
             window.set_inner_size(inner_size);
-            self.handle_new_grid_size(inner_size);
-            // Font change at startup is ignored, so grid size (and startup screen) could be preserved.
-            // But only when not resized yet. With maximized or resized window we should redraw grid.
-            self.font_changed_last_frame = false;
+            // next frame will detect change in window.inner_size() and hence will
+            // handle_new_grid_size automatically
         }
     }
 
