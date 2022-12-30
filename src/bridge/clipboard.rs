@@ -6,7 +6,7 @@ use crate::clipboard;
 
 pub fn get_clipboard_contents(format: Option<&str>) -> Result<Value, Box<dyn Error + Send + Sync>> {
     let clipboard_raw = clipboard::get_contents()?.replace('\r', "");
-    let is_line_paste = clipboard_raw.ends_with('\n'); 
+    let is_line_paste = clipboard_raw.ends_with('\n');
 
     let lines = if let Some("dos") = format {
         // Add \r to lines if current file format is dos.
