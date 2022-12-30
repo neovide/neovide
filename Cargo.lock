@@ -1556,7 +1556,8 @@ dependencies = [
 [[package]]
 name = "nvim-rs"
 version = "0.5.0"
-source = "git+https://github.com/KillTheMule/nvim-rs?branch=master#d701c2790dcb2579f8f4d7003ba30e2100a7d25b"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e98dcbd3b0ece3cf2b76ebc1e33e6511777ea7322884f4b7150cbc253afa37e"
 dependencies = [
  "async-trait",
  "futures 0.3.25",
