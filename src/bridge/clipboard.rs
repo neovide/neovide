@@ -6,6 +6,7 @@ use crate::clipboard;
 
 pub fn get_clipboard_contents(format: Option<&str>) -> Result<Value, Box<dyn Error + Send + Sync>> {
     let clipboard_raw = clipboard::get_contents()?.replace('\r', "");
+    let is_line_paste = clipboard_raw.ends_with('\n'); 
 
     let lines = if let Some("dos") = format {
         // Add \r to lines if current file format is dos.
@@ -22,7 +23,7 @@ pub fn get_clipboard_contents(format: Option<&str>) -> Result<Value, Box<dyn Err
     // v paste is normal paste (everything in lines is pasted)
     // V paste is paste with extra endline (line paste)
     // If you want V paste, copy text with extra endline.
-    let paste_mode = Value::from("v");
+    let paste_mode = Value::from(if is_line_paste { "V" } else { "v" });
 
     // Return [content: [String], paste_mode: v or V]
     Ok(Value::from(vec![lines, paste_mode]))
