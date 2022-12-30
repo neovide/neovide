@@ -275,7 +275,7 @@ impl RenderedWindow {
         }
 
         if self.floating_order.is_some() && settings.floating_blur {
-            let blur = blur(
+            if let Some(blur) = blur(
                 (
                     settings.floating_blur_amount_x,
                     settings.floating_blur_amount_y,
@@ -283,13 +283,13 @@ impl RenderedWindow {
                 None,
                 None,
                 None,
-            )
-            .unwrap();
-            let save_layer_rec = SaveLayerRec::default()
-                .backdrop(&blur)
-                .bounds(&pixel_region);
+            ) {
+                let save_layer_rec = SaveLayerRec::default()
+                    .backdrop(&blur)
+                    .bounds(&pixel_region);
 
-            root_canvas.save_layer(&save_layer_rec);
+                root_canvas.save_layer(&save_layer_rec);
+            }
         }
 
         let mut paint = Paint::default();
