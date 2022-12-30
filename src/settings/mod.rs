@@ -14,8 +14,7 @@ use std::{
 use crate::{bridge::TxWrapper, error_handling::ResultPanicExplanation};
 pub use from_value::ParseFromValue;
 pub use window_size::{
-    last_window_size, load_last_window_settings, save_window_size,
-    PersistentWindowSettings, DEFAULT_WINDOW_GEOMETRY,
+    load_last_window_settings, save_window_size, PersistentWindowSettings, DEFAULT_WINDOW_GEOMETRY,
 };
 
 lazy_static! {

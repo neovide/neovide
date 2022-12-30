@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use glutin::dpi::PhysicalPosition;
+use glutin::dpi::{PhysicalPosition, PhysicalSize};
 use serde::{Deserialize, Serialize};
 
 use crate::{dimensions::Dimensions, settings::SETTINGS, window::WindowSettings};
@@ -19,7 +19,7 @@ pub enum PersistentWindowSettings {
         #[serde(default)]
         position: PhysicalPosition<i32>,
         #[serde(default)]
-        size: Dimensions,
+        size: Option<PhysicalSize<u32>>,
     },
 }
 
@@ -55,33 +55,15 @@ fn load_settings() -> Result<PersistentSettings, String> {
 
 pub fn load_last_window_settings() -> Result<PersistentWindowSettings, String> {
     let settings = load_settings()?;
-    let mut loaded_settings = settings.window;
+    let loaded_settings = settings.window;
     log::debug!("Loaded window settings: {:?}", loaded_settings);
-
-    if let PersistentWindowSettings::Windowed { size, .. } = &mut loaded_settings {
-        if size.width == 0 || size.height == 0 {
-            *size = DEFAULT_WINDOW_GEOMETRY;
-        }
-    }
 
     Ok(loaded_settings)
 }
 
-pub fn last_window_size() -> Dimensions {
-    load_last_window_settings()
-        .and_then(|window_settings| {
-            if let PersistentWindowSettings::Windowed { size, .. } = window_settings {
-                Ok(size)
-            } else {
-                Err(String::from("Window was maximized"))
-            }
-        })
-        .unwrap_or(DEFAULT_WINDOW_GEOMETRY)
-}
-
 pub fn save_window_size(
     maximized: bool,
-    grid_size: Option<Dimensions>,
+    size: PhysicalSize<u32>,
     position: Option<PhysicalPosition<i32>>,
 ) {
     let window_settings = SETTINGS.get::<WindowSettings>();
@@ -91,13 +73,7 @@ pub fn save_window_size(
             PersistentWindowSettings::Maximized
         } else {
             PersistentWindowSettings::Windowed {
-                size: {
-                    window_settings
-                        .remember_window_size
-                        .then_some(grid_size)
-                        .flatten()
-                        .unwrap_or(DEFAULT_WINDOW_GEOMETRY)
-                },
+                size: { window_settings.remember_window_size.then_some(size) },
                 position: {
                     window_settings
                         .remember_window_position

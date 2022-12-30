@@ -231,29 +231,46 @@ impl GlutinWindowWrapper {
             return;
         }
 
-        let settings = SETTINGS.get::<CmdLineSettings>();
         // Resize at startup happens when window is maximized or when using tiling WM
         // which already resized window.
         let resized_at_startup = self.maximized_at_startup || self.has_been_resized();
 
-        log::trace!("Settings geometry {:?}", settings.geometry,);
-        log::trace!("Settings size {:?}", settings.size);
         log::trace!("Inner size: {:?}", new_size);
 
         if self.saved_grid_size.is_none() && !resized_at_startup {
-            let window = self.windowed_context.window();
-            let inner_size = if let Some(size) = settings.size {
-                // --size override geometry
-                size.into()
-            } else {
-                self.renderer
-                    .grid_renderer
-                    .convert_grid_to_physical(settings.geometry.unwrap_or(DEFAULT_WINDOW_GEOMETRY))
-            };
-            window.set_inner_size(inner_size);
-            // next frame will detect change in window.inner_size() and hence will
-            // handle_new_grid_size automatically
+            self.init_window_size();
         }
+    }
+
+    fn init_window_size(&self) {
+        let settings = SETTINGS.get::<CmdLineSettings>();
+        log::trace!("Settings geometry {:?}", settings.geometry,);
+        log::trace!("Settings size {:?}", settings.size);
+
+        let window = self.windowed_context.window();
+        let inner_size = if let Some(size) = settings.size {
+            // --size
+            size.into()
+        } else if let Some(geometry) = settings.geometry {
+            // --geometry
+            self.renderer
+                .grid_renderer
+                .convert_grid_to_physical(geometry)
+        } else if let Ok(PersistentWindowSettings::Windowed {
+            size: Some(size), ..
+        }) = load_last_window_settings()
+        {
+            // remembered size
+            size
+        } else {
+            // default geometry
+            self.renderer
+                .grid_renderer
+                .convert_grid_to_physical(DEFAULT_WINDOW_GEOMETRY)
+        };
+        window.set_inner_size(inner_size);
+        // next frame will detect change in window.inner_size() and hence will
+        // handle_new_grid_size automatically
     }
 
     fn handle_new_grid_size(&mut self, new_size: PhysicalSize<u32>) {
@@ -486,7 +503,7 @@ pub fn create_window() {
             let window = window_wrapper.windowed_context.window();
             save_window_size(
                 window.is_maximized(),
-                window_wrapper.saved_grid_size,
+                window.inner_size(),
                 window.outer_position().ok(),
             );
 
