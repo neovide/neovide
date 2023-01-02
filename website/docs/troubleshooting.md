@@ -24,7 +24,7 @@
 - If you recieve errors complaining about DRI3 settings, please reference issue
   [#44](https://github.com/neovide/neovide/issues/44#issuecomment-578618052).
 
-- If your scroling is very stutter
+- If your scrolling is very stutter
 
     - Add flag `--novsync` before startup as a quickfix.
     - Check if the value of `g:neovide_refresh_rate` and the refresh rate of your monitor are matched.
