@@ -20,7 +20,7 @@ one for the popup menu.
 Neovide offers the setting `g:neovide_scale_factor`, which is multiplied with
 the OS scale factor and the font size. So using this could look like
 
-VimScipt:
+VimScript:
 
 ```vim
 let g:neovide_scale_factor=1.0
@@ -50,7 +50,7 @@ Credits to [BHatGuy here](https://github.com/neovide/neovide/pull/1589).
 
 ## How can I Dynamically Change The Transparency At Runtime? (macOS)
 
-VimScipt:
+VimScript:
 
 ```vim
 " Set transparency and background color (title bar color)
@@ -83,10 +83,10 @@ local change_transparency = function(delta)
   vim.g.neovide_transparency_point = vim.g.neovide_transparency_point + delta
   vim.g.neovide_background_color = "#0f1117" .. alpha()
 end
-vim.keymap.set("n", "<D-]>", function()
+vim.keymap.set({ "n", "v", "o" }, "<D-]>", function()
   change_transparency(0.01)
 end)
-vim.keymap.set("n", "<D-[>", function()
+vim.keymap.set({ "n", "v", "o" }, "<D-[>", function()
   change_transparency(-0.01)
 end)
 ```
