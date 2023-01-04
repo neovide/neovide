@@ -9,6 +9,11 @@
   - whether you can reproduce this by running from the latest git main commit.
     This can be done by running from source or just grabbing the binary from the [`Actions` tab on
     GitHub](https://github.com/neovide/neovide/actions/workflows/build.yml).
+    
+  - if you're calling the `os.execute()` lua function in your startup configuration, due to an
+    [upstream neovim bug](https://github.com/neovide/neovide/issues/1376#issuecomment-1170849510).
+    As of neovim v0.8.2, this crash still occurs; try using
+    [`io.popen()`](http://www.lua.org/manual/5.1/manual.html#pdf-io.popen) instead.
 
 - Neovide requires that a font be set in `init.vim` otherwise errors might be encountered. This can
   be fixed by adding `set guifont=Your\ Font\ Name:h15` in init.vim file. Reference issue
