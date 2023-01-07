@@ -36,7 +36,7 @@ impl Window {
     ) -> Window {
         let window = Window {
             grid_id,
-            grid: CharacterGrid::new(grid_size),
+            grid: CharacterGrid::new((grid_size.0 as usize, grid_size.1 as usize)),
             window_type,
             anchor_info,
             grid_position,
@@ -58,7 +58,7 @@ impl Window {
     fn send_updated_position(&self) {
         self.send_command(WindowDrawCommand::Position {
             grid_position: self.grid_position,
-            grid_size: (self.grid.width, self.grid.height),
+            grid_size: (self.grid.width as u64, self.grid.height as u64),
             floating_order: self.anchor_info.clone().map(|anchor| anchor.sort_order),
         });
     }
@@ -68,12 +68,18 @@ impl Window {
         window_left: u64,
         window_top: u64,
     ) -> (String, Option<Arc<Style>>, bool) {
-        let grid_cell = match self.grid.get_cell(window_left, window_top) {
+        let grid_cell = match self
+            .grid
+            .get_cell(window_left as usize, window_top as usize)
+        {
             Some((character, style)) => (character.clone(), style.clone()),
             _ => (' '.to_string(), None),
         };
 
-        let double_width = match self.grid.get_cell(window_left + 1, window_top) {
+        let double_width = match self
+            .grid
+            .get_cell(window_left as usize + 1, window_top as usize)
+        {
             Some((character, _)) => character.is_empty(),
             _ => false,
         };
@@ -82,11 +88,11 @@ impl Window {
     }
 
     pub fn get_width(&self) -> u64 {
-        self.grid.width
+        self.grid.width as u64
     }
 
     pub fn get_height(&self) -> u64 {
-        self.grid.height
+        self.grid.height as u64
     }
 
     pub fn get_grid_position(&self) -> (f64, f64) {
@@ -99,7 +105,8 @@ impl Window {
         grid_size: (u64, u64),
         grid_position: (f64, f64),
     ) {
-        self.grid.resize(grid_size);
+        self.grid
+            .resize((grid_size.0 as usize, grid_size.1 as usize));
         self.anchor_info = anchor_info;
         self.grid_position = grid_position;
         self.send_updated_position();
@@ -107,15 +114,15 @@ impl Window {
     }
 
     pub fn resize(&mut self, new_size: (u64, u64)) {
-        self.grid.resize(new_size);
+        self.grid.resize((new_size.0 as usize, new_size.1 as usize));
         self.send_updated_position();
         self.redraw();
     }
 
     fn modify_grid(
         &mut self,
-        row_index: u64,
-        column_pos: &mut u64,
+        row_index: usize,
+        column_pos: &mut usize,
         cell: GridLineCell,
         defined_styles: &HashMap<u64, Arc<Style>>,
         previous_style: &mut Option<Arc<Style>>,
@@ -153,16 +160,15 @@ impl Window {
 
     // Build a line fragment for the given row starting from current_start up until the next style
     // change or double width character.
-    fn build_line_fragment(&self, row_index: u64, start: u64) -> (u64, LineFragment) {
+    fn build_line_fragment(&self, row_index: usize, start: usize) -> (usize, LineFragment) {
         let row = self.grid.row(row_index).unwrap();
 
-        let (_, style) = &row[start as usize];
+        let (_, style) = &row[start];
 
         let mut text = String::new();
         let mut width = 0;
-        for possible_end_index in start..self.grid.width {
-            let (character, possible_end_style) = &row[possible_end_index as usize];
 
+        for (character, possible_end_style) in row.iter().take(self.grid.width).skip(start) {
             // Style doesn't match. Draw what we've got.
             if style != possible_end_style {
                 break;
@@ -180,9 +186,9 @@ impl Window {
 
         let line_fragment = LineFragment {
             text,
-            window_left: start,
-            window_top: row_index,
-            width,
+            window_left: start as u64,
+            window_top: row_index as u64,
+            width: width as u64,
             style: style.clone(),
         };
 
@@ -192,7 +198,7 @@ impl Window {
     // Redraw line by calling build_line_fragment starting at 0
     // until current_start is greater than the grid width and sending the resulting
     // fragments as a batch.
-    fn redraw_line(&self, row: u64) {
+    fn redraw_line(&self, row: usize) {
         let mut current_start = 0;
         let mut line_fragments = Vec::new();
         while current_start < self.grid.width {
@@ -211,8 +217,9 @@ impl Window {
         defined_styles: &HashMap<u64, Arc<Style>>,
     ) {
         let mut previous_style = None;
+        let row = row as usize;
         if row < self.grid.height {
-            let mut column_pos = column_start;
+            let mut column_pos = column_start as usize;
             for cell in cells {
                 self.modify_grid(
                     row,
@@ -284,11 +291,11 @@ impl Window {
 
                 for x in x_iter {
                     let dest_x = x - cols;
-                    let cell_data = self.grid.get_cell(x as u64, y as u64).cloned();
+                    let cell_data = self.grid.get_cell(x as usize, y as usize).cloned();
 
                     if let Some(cell_data) = cell_data {
                         if let Some(dest_cell) =
-                            self.grid.get_cell_mut(dest_x as u64, dest_y as u64)
+                            self.grid.get_cell_mut(dest_x as usize, dest_y as usize)
                         {
                             *dest_cell = cell_data;
                         }
