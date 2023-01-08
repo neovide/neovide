@@ -176,12 +176,41 @@ mod tests {
         }
     }
 
+    fn set_grid_line_to_chars(grid: &mut CharacterGrid, row: usize, value: &str) {
+        assert_eq!(value.len(), grid.width);
+        for (col_nr, chr) in value.chars().enumerate() {
+            *grid.get_cell_mut(col_nr, row).unwrap() = (chr.to_string(), None);
+        }
+    }
+
     fn assert_all_cells_equal_to(context: &Context, grid: &CharacterGrid, cell: &GridCell) {
         for x in 0..context.size.0 {
             for y in 0..context.size.1 {
                 assert_eq!(grid.get_cell(x, y), Some(cell));
             }
         }
+    }
+
+    fn assert_grid_cell_equal_to_char(grid: &CharacterGrid, x: usize, y: usize, chr: &str) {
+        let chr = chr.to_string();
+        let value = (chr, None);
+        let cell = Some(&value);
+        assert_eq!(grid.get_cell(x, y), cell);
+    }
+
+    fn create_initialized_grid(lines: &Vec<&str>) -> CharacterGrid {
+        let num_lines = lines.len();
+        assert_ne!(num_lines, 0);
+        let line_lengths: Vec<usize> = lines.iter().map(|s| s.len()).collect();
+        let num_columns = line_lengths[0];
+        assert_eq!(line_lengths, vec![num_columns; num_lines]);
+        let mut grid = CharacterGrid::new((num_columns, num_lines));
+        for (row_nr, line) in lines.iter().enumerate() {
+            for (col_nr, chr) in line.chars().enumerate() {
+                *grid.get_cell_mut(col_nr, row_nr).unwrap() = (chr.to_string(), None);
+            }
+        }
+        grid
     }
 
     #[test]
@@ -309,5 +338,139 @@ mod tests {
                 assert_eq!(character_grid.get_cell(x, y).unwrap(), &default_cell!());
             }
         }
+    }
+
+    #[test]
+    fn scroll_down_moves_the_grid_correctly() {
+        let mut grid = create_initialized_grid(&["abcd", "efgh", "ijkl", "mnop"].to_vec());
+
+        grid.scroll_region(0, 4, 0, 4, 2, 0);
+        assert_grid_cell_equal_to_char(&grid, 0, 0, "i");
+        assert_grid_cell_equal_to_char(&grid, 3, 0, "l");
+        assert_grid_cell_equal_to_char(&grid, 0, 1, "m");
+    }
+
+    #[test]
+    fn scroll_up_moves_the_grid_correctly() {
+        let mut grid = create_initialized_grid(&["abcd", "efgh", "ijkl", "mnop"].to_vec());
+
+        grid.scroll_region(0, 4, 0, 4, -2, 0);
+        assert_grid_cell_equal_to_char(&grid, 0, 2, "a");
+        assert_grid_cell_equal_to_char(&grid, 0, 3, "e");
+        assert_grid_cell_equal_to_char(&grid, 3, 3, "h");
+    }
+
+    #[test]
+    fn partial_scroll_lines_down_moves_the_grid_correctly() {
+        let mut grid = create_initialized_grid(&["abcd", "efgh", "ijkl", "mnop"].to_vec());
+
+        grid.scroll_region(1, 3, 0, 4, 1, 0);
+        // The initial line is not touched
+        assert_grid_cell_equal_to_char(&grid, 0, 0, "a");
+
+        assert_grid_cell_equal_to_char(&grid, 0, 1, "i");
+        assert_grid_cell_equal_to_char(&grid, 3, 1, "l");
+
+        // The last line is not touched either
+        assert_grid_cell_equal_to_char(&grid, 0, 3, "m");
+    }
+
+    #[test]
+    fn partial_scroll_lines_up_moves_the_grid_correctly() {
+        let mut grid = create_initialized_grid(&["abcd", "efgh", "ijkl", "mnop"].to_vec());
+
+        grid.scroll_region(1, 3, 0, 4, -1, 0);
+        // The initial line is not touched
+        assert_grid_cell_equal_to_char(&grid, 0, 0, "a");
+
+        assert_grid_cell_equal_to_char(&grid, 0, 2, "e");
+        assert_grid_cell_equal_to_char(&grid, 3, 2, "h");
+
+        // The last line is not touched either
+        assert_grid_cell_equal_to_char(&grid, 0, 3, "m");
+    }
+
+    #[test]
+    fn scroll_left_moves_the_grid_correctly() {
+        let mut grid = create_initialized_grid(&["abcd", "efgh", "ijkl", "mnop"].to_vec());
+
+        grid.scroll_region(0, 4, 0, 4, 0, 1);
+        assert_grid_cell_equal_to_char(&grid, 0, 0, "b");
+        assert_grid_cell_equal_to_char(&grid, 2, 2, "l");
+    }
+
+    #[test]
+    fn scroll_right_moves_the_grid_correctly() {
+        let mut grid = create_initialized_grid(&["abcd", "efgh", "ijkl", "mnop"].to_vec());
+
+        grid.scroll_region(0, 4, 0, 4, 0, -3);
+        assert_grid_cell_equal_to_char(&grid, 3, 0, "a");
+        assert_grid_cell_equal_to_char(&grid, 3, 3, "m");
+    }
+
+    #[test]
+    fn scroll_inner_box_diagonally_moves_the_grid_correctly() {
+        let mut grid = create_initialized_grid(&["abcd", "efgh", "ijkl", "mnop"].to_vec());
+
+        grid.scroll_region(1, 3, 1, 3, 1, 1);
+        // The first row is preserved
+        assert_grid_cell_equal_to_char(&grid, 0, 0, "a");
+        assert_grid_cell_equal_to_char(&grid, 1, 0, "b");
+
+        // The first character is not touched
+        assert_grid_cell_equal_to_char(&grid, 0, 1, "e");
+
+        // Only k is part of the box now
+        assert_grid_cell_equal_to_char(&grid, 1, 1, "k");
+
+        // The last character is not touched
+        assert_grid_cell_equal_to_char(&grid, 3, 1, "h");
+
+        // The last row is preserved
+        assert_grid_cell_equal_to_char(&grid, 0, 3, "m");
+    }
+
+    #[test]
+    fn scrolling_one_screen_down_works() {
+        let mut grid = create_initialized_grid(&["1", "2", "3", "4"].to_vec());
+        // Scroll down one screen
+        grid.scroll_region(0, 4, 0, 1, 4, 0);
+        set_grid_line_to_chars(&mut grid, 0, "5");
+        set_grid_line_to_chars(&mut grid, 1, "6");
+        set_grid_line_to_chars(&mut grid, 2, "7");
+        set_grid_line_to_chars(&mut grid, 3, "8");
+    }
+
+    #[test]
+    fn scrolling_more_than_one_screen_down_works_makes_a_small_jump() {
+        let mut grid = create_initialized_grid(&["1", "2", "3", "4"].to_vec());
+        // Scroll down one screen
+        grid.scroll_region(0, 4, 0, 1, 4, 0);
+        set_grid_line_to_chars(&mut grid, 0, "5");
+        set_grid_line_to_chars(&mut grid, 1, "6");
+        set_grid_line_to_chars(&mut grid, 2, "7");
+        set_grid_line_to_chars(&mut grid, 3, "8");
+    }
+
+    #[test]
+    fn scrolling_one_screen_up_works() {
+        let mut grid = create_initialized_grid(&["5", "6", "7", "8"].to_vec());
+        // Scroll up one screen
+        grid.scroll_region(0, 4, 0, 1, -4, 0);
+        set_grid_line_to_chars(&mut grid, 0, "1");
+        set_grid_line_to_chars(&mut grid, 1, "2");
+        set_grid_line_to_chars(&mut grid, 2, "3");
+        set_grid_line_to_chars(&mut grid, 3, "4");
+    }
+
+    #[test]
+    fn scrolling_more_than_one_screen_up_works_makes_a_small_jump() {
+        let mut grid = create_initialized_grid(&["5", "6", "7", "8"].to_vec());
+        // Scroll up one screen
+        grid.scroll_region(0, 4, 0, 1, -4, 0);
+        set_grid_line_to_chars(&mut grid, 0, "1");
+        set_grid_line_to_chars(&mut grid, 1, "2");
+        set_grid_line_to_chars(&mut grid, 2, "3");
+        set_grid_line_to_chars(&mut grid, 3, "4");
     }
 }
