@@ -91,6 +91,52 @@ impl CharacterGrid {
             None
         }
     }
+
+    pub fn scroll_region(
+        &mut self,
+        top: usize,
+        bottom: usize,
+        left: usize,
+        right: usize,
+        rows: isize,
+        cols: isize,
+    ) {
+        let mut top_to_bottom;
+        let mut bottom_to_top;
+        let y_iter: &mut dyn Iterator<Item = usize> = if rows > 0 {
+            top_to_bottom = (top as isize + rows) as usize..bottom;
+            &mut top_to_bottom
+        } else {
+            bottom_to_top = (top..(bottom as isize + rows) as usize).rev();
+            &mut bottom_to_top
+        };
+
+        for y in y_iter {
+            let dest_y = y as isize - rows;
+            let mut cols_left;
+            let mut cols_right;
+            if dest_y >= 0 && dest_y < self.height as isize {
+                let x_iter: &mut dyn Iterator<Item = usize> = if cols > 0 {
+                    cols_left = (left as isize + cols) as usize..right;
+                    &mut cols_left
+                } else {
+                    cols_right = (left..(right as isize + cols) as usize).rev();
+                    &mut cols_right
+                };
+
+                for x in x_iter {
+                    let dest_x = ((x as isize) - cols) as usize;
+                    let cell_data = self.get_cell(x, y).cloned();
+
+                    if let Some(cell_data) = cell_data {
+                        if let Some(dest_cell) = self.get_cell_mut(dest_x, dest_y as usize) {
+                            *dest_cell = cell_data;
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[cfg(test)]
