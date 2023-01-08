@@ -255,16 +255,17 @@ impl Window {
         rows: i64,
         cols: i64,
     ) {
-        let mut top_to_bottom;
-        let mut bottom_to_top;
-        let y_iter: &mut dyn Iterator<Item = i64> = if rows > 0 {
-            top_to_bottom = (top as i64 + rows)..bottom as i64;
-            &mut top_to_bottom
-        } else {
-            bottom_to_top = (top as i64..(bottom as i64 + rows)).rev();
-            &mut bottom_to_top
-        };
+        self.grid.scroll_region(
+            top as usize,
+            bottom as usize,
+            left as usize,
+            right as usize,
+            rows as isize,
+            cols as isize,
+        );
 
+        // Scrolls must not only translate the rendered texture, but also must move the grid data
+        // accordingly so that future renders work correctly.
         self.send_command(WindowDrawCommand::Scroll {
             top,
             bottom,
@@ -273,36 +274,6 @@ impl Window {
             rows,
             cols,
         });
-
-        // Scrolls must not only translate the rendered texture, but also must move the grid data
-        // accordingly so that future renders work correctly.
-        for y in y_iter {
-            let dest_y = y - rows;
-            let mut cols_left;
-            let mut cols_right;
-            if dest_y >= 0 && dest_y < self.grid.height as i64 {
-                let x_iter: &mut dyn Iterator<Item = i64> = if cols > 0 {
-                    cols_left = (left as i64 + cols)..right as i64;
-                    &mut cols_left
-                } else {
-                    cols_right = (left as i64..(right as i64 + cols)).rev();
-                    &mut cols_right
-                };
-
-                for x in x_iter {
-                    let dest_x = x - cols;
-                    let cell_data = self.grid.get_cell(x as usize, y as usize).cloned();
-
-                    if let Some(cell_data) = cell_data {
-                        if let Some(dest_cell) =
-                            self.grid.get_cell_mut(dest_x as usize, dest_y as usize)
-                        {
-                            *dest_cell = cell_data;
-                        }
-                    }
-                }
-            }
-        }
     }
 
     pub fn clear(&mut self) {
