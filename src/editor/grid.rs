@@ -29,6 +29,7 @@ pub struct CharacterGrid {
     pub height: usize,
 
     lines: Vec<GridLine>,
+    top_index: isize,
 }
 
 impl CharacterGrid {
@@ -36,6 +37,7 @@ impl CharacterGrid {
         CharacterGrid {
             width,
             height,
+            top_index: 0,
             lines: vec![GridLine::new(width); height],
         }
     }
@@ -58,21 +60,25 @@ impl CharacterGrid {
         self.width = width;
         self.height = height;
         self.lines = new_lines;
+        self.top_index = 0;
     }
 
     pub fn clear(&mut self) {
         self.set_all_characters(default_cell!());
+        self.top_index = 0;
     }
 
     pub fn get_cell(&self, x: usize, y: usize) -> Option<&GridCell> {
+        let index = self.get_row_array_index(y as isize);
         self.lines
-            .get(y)
+            .get(index)
             .and_then(|line| line.characters.get(x))
     }
 
     pub fn get_cell_mut(&mut self, x: usize, y: usize) -> Option<&mut GridCell> {
+        let index = self.get_row_array_index(y as isize);
         self.lines
-            .get_mut(y)
+            .get_mut(index)
             .and_then(|line| line.characters.get_mut(x))
     }
 
@@ -86,7 +92,7 @@ impl CharacterGrid {
 
     pub fn row(&self, row_index: usize) -> Option<&[GridCell]> {
         if row_index < self.height {
-            Some(&self.lines[row_index].characters[..])
+            Some(&self.lines[self.get_row_array_index(row_index as isize)].characters[..])
         } else {
             None
         }
@@ -101,41 +107,52 @@ impl CharacterGrid {
         rows: isize,
         cols: isize,
     ) {
-        let mut top_to_bottom;
-        let mut bottom_to_top;
-        let y_iter: &mut dyn Iterator<Item = usize> = if rows > 0 {
-            top_to_bottom = (top as isize + rows) as usize..bottom;
-            &mut top_to_bottom
+        if top == 0 && bottom == self.height && left == 0 && right == self.width && cols == 0 {
+            // Pure up/down scrolling is optimized, and furthermore does not destroy the region
+            // that has been scrolled out
+            self.top_index += rows;
         } else {
-            bottom_to_top = (top..(bottom as isize + rows) as usize).rev();
-            &mut bottom_to_top
-        };
+            let mut top_to_bottom;
+            let mut bottom_to_top;
+            let y_iter: &mut dyn Iterator<Item = usize> = if rows > 0 {
+                top_to_bottom = (top as isize + rows) as usize..bottom;
+                &mut top_to_bottom
+            } else {
+                bottom_to_top = (top..(bottom as isize + rows) as usize).rev();
+                &mut bottom_to_top
+            };
 
-        for y in y_iter {
-            let dest_y = y as isize - rows;
-            let mut cols_left;
-            let mut cols_right;
-            if dest_y >= 0 && dest_y < self.height as isize {
-                let x_iter: &mut dyn Iterator<Item = usize> = if cols > 0 {
-                    cols_left = (left as isize + cols) as usize..right;
-                    &mut cols_left
-                } else {
-                    cols_right = (left..(right as isize + cols) as usize).rev();
-                    &mut cols_right
-                };
+            for y in y_iter {
+                let dest_y = y as isize - rows;
+                let mut cols_left;
+                let mut cols_right;
+                if dest_y >= 0 && dest_y < self.height as isize {
+                    let x_iter: &mut dyn Iterator<Item = usize> = if cols > 0 {
+                        cols_left = (left as isize + cols) as usize..right;
+                        &mut cols_left
+                    } else {
+                        cols_right = (left..(right as isize + cols) as usize).rev();
+                        &mut cols_right
+                    };
 
-                for x in x_iter {
-                    let dest_x = ((x as isize) - cols) as usize;
-                    let cell_data = self.get_cell(x, y).cloned();
+                    for x in x_iter {
+                        let dest_x = ((x as isize) - cols) as usize;
+                        let cell_data = self.get_cell(x, y).cloned();
 
-                    if let Some(cell_data) = cell_data {
-                        if let Some(dest_cell) = self.get_cell_mut(dest_x, dest_y as usize) {
-                            *dest_cell = cell_data;
+                        if let Some(cell_data) = cell_data {
+                            if let Some(dest_cell) = self.get_cell_mut(dest_x, dest_y as usize) {
+                                *dest_cell = cell_data;
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    fn get_row_array_index(&self, index: isize) -> usize {
+        let rows = self.lines.len() as isize;
+        (self.top_index + index).rem_euclid(rows) as usize
     }
 }
 
