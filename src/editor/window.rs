@@ -105,6 +105,10 @@ impl Window {
         grid_size: (u64, u64),
         grid_position: (f64, f64),
     ) {
+        // This could perhaps be optimized, setting the position does not necessarily need to
+        // resize and reset everything. See
+        // renderer::rendered_window::RenderedWindow::handle_draw_commands for the corresponding
+        // code on the rendering side.
         self.grid
             .resize((grid_size.0 as usize, grid_size.1 as usize));
         self.anchor_info = anchor_info;
@@ -187,7 +191,6 @@ impl Window {
         let line_fragment = LineFragment {
             text,
             window_left: start as u64,
-            window_top: row_index as u64,
             width: width as u64,
             style: style.clone(),
         };
@@ -206,7 +209,10 @@ impl Window {
             current_start = next_start;
             line_fragments.push(line_fragment);
         }
-        self.send_command(WindowDrawCommand::DrawLine(line_fragments));
+        self.send_command(WindowDrawCommand::DrawLine {
+            row,
+            line_fragments,
+        });
     }
 
     pub fn draw_grid_line(
@@ -255,7 +261,7 @@ impl Window {
         rows: i64,
         cols: i64,
     ) {
-        self.grid.scroll_region(
+        let is_pure_updown = self.grid.scroll_region(
             top as usize,
             bottom as usize,
             left as usize,
@@ -274,6 +280,24 @@ impl Window {
             rows,
             cols,
         });
+
+        // There's no need to send any updates for pure up/down scrolling, the actual new lines
+        // will be sent later
+        if !is_pure_updown {
+            let mut top = top as isize;
+            let mut bottom = bottom as isize;
+            // Send only the scrolled lines
+            // neovim will send the rest later
+            if rows > 0 {
+                bottom -= rows as isize;
+            } else {
+                top -= rows as isize;
+            }
+
+            for row in top..bottom {
+                self.redraw_line(row as usize);
+            }
+        }
     }
 
     pub fn clear(&mut self) {
