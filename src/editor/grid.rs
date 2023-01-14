@@ -98,6 +98,7 @@ impl CharacterGrid {
         }
     }
 
+    // Returns true if it's a pure up/down scroll
     pub fn scroll_region(
         &mut self,
         top: usize,
@@ -106,11 +107,12 @@ impl CharacterGrid {
         right: usize,
         rows: isize,
         cols: isize,
-    ) {
+    ) -> bool {
         if top == 0 && bottom == self.height && left == 0 && right == self.width && cols == 0 {
             // Pure up/down scrolling is optimized, and furthermore does not destroy the region
             // that has been scrolled out
             self.top_index += rows;
+            true
         } else {
             let mut top_to_bottom;
             let mut bottom_to_top;
@@ -147,10 +149,11 @@ impl CharacterGrid {
                     }
                 }
             }
+            false
         }
     }
 
-    fn get_row_array_index(&self, index: isize) -> usize {
+    pub fn get_row_array_index(&self, index: isize) -> usize {
         let rows = self.lines.len() as isize;
         (self.top_index + index).rem_euclid(rows) as usize
     }
