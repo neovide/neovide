@@ -146,7 +146,7 @@ impl WinitWindowWrapper {
             &event,
             &self.keyboard_manager,
             &self.renderer,
-            &self.windowed_context,
+            self.windowed_context.window(),
         );
         self.renderer.handle_event(&event);
         match event {
@@ -491,7 +491,7 @@ pub fn create_window() {
             }
             previous_frame_start = frame_start;
             #[cfg(target_os = "macos")]
-            draw_background(&window_wrapper.windowed_context);
+            draw_background(window_wrapper.windowed_context.window());
         }
 
         *control_flow = ControlFlow::WaitUntil(previous_frame_start + frame_duration)
