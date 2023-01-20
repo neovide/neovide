@@ -64,21 +64,28 @@ serial_test = "2.0.0"
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.9", features = ["winuser", "wincon"] }
 
-[target.'cfg(windows)'.build-dependencies]
-winres = "0.1.12"
-
-[target.'cfg(linux)'.dependencies.skia-safe]
-features = ["gl", "egl"]
-version = "0.52.0"
-
-[target.'cfg(not(linux))'.dependencies.skia-safe]
-features = ["gl"]
-version = "0.52.0"
-
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.24.0"
 objc = "0.2.7"
 shlex = "1.1.0"
+
+[target.'cfg(not(windows))'.dependencies]
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1.12"
+
+[target.'cfg(windows)'.dependencies.skia-safe]
+# NOTE: Including textlayout for pre-built binaries
+features = ["gl", "textlayout"]
+version = "0.62.0"
+
+[target.'cfg(linux)'.dependencies.skia-safe]
+features = ["egl", "gl", "textlayout", "wayland", "x11"]
+version = "0.62.0"
+
+[target.'cfg(not(linux))'.dependencies.skia-safe]
+features = ["gl"]
+version = "0.62.0"
 
 [profile.release]
 lto = true
