@@ -8,25 +8,23 @@ mod draw_background;
 
 use std::time::{Duration, Instant};
 
-use glutin::{
-    self,
+use log::trace;
+use tokio::sync::mpsc::UnboundedReceiver;
+use winit::{
     dpi::PhysicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{self, Fullscreen, Icon},
-    ContextBuilder, GlProfile, WindowedContext,
 };
-use log::trace;
-use tokio::sync::mpsc::UnboundedReceiver;
 
 #[cfg(target_os = "macos")]
-use glutin::platform::macos::WindowBuilderExtMacOS;
+use winit::platform::macos::WindowBuilderExtMacOS;
 
 #[cfg(target_os = "macos")]
 use draw_background::draw_background;
 
 #[cfg(target_os = "linux")]
-use glutin::platform::unix::WindowBuilderExtUnix;
+use winit::platform::unix::WindowBuilderExtUnix;
 
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
@@ -43,6 +41,7 @@ use crate::{
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::Renderer,
     renderer::WindowPadding,
+    renderer::{build_context, Context},
     running_tracker::*,
     settings::{
         load_last_window_settings, save_window_geometry, PersistentWindowSettings, SETTINGS,
@@ -62,8 +61,8 @@ pub enum WindowCommand {
     ListAvailableFonts,
 }
 
-pub struct GlutinWindowWrapper {
-    windowed_context: WindowedContext<glutin::PossiblyCurrent>,
+pub struct WinitWindowWrapper {
+    windowed_context: Context,
     skia_renderer: SkiaRenderer,
     renderer: Renderer,
     keyboard_manager: KeyboardManager,
@@ -78,7 +77,7 @@ pub struct GlutinWindowWrapper {
     window_command_receiver: UnboundedReceiver<WindowCommand>,
 }
 
-impl GlutinWindowWrapper {
+impl WinitWindowWrapper {
     pub fn toggle_fullscreen(&mut self) {
         let window = self.windowed_context.window();
         if self.fullscreen {
@@ -361,41 +360,16 @@ pub fn create_window() {
 
     #[cfg(target_os = "linux")]
     let winit_window_builder = winit_window_builder
-        .with_app_id(cmd_line_settings.wayland_app_id)
+        .with_app_id(cmd_line_settings.wayland_app_id.clone())
         .with_class(
-            cmd_line_settings.x11_wm_class_instance,
-            cmd_line_settings.x11_wm_class,
+            cmd_line_settings.x11_wm_class_instance.clone(),
+            cmd_line_settings.x11_wm_class.clone(),
         );
 
     #[cfg(target_os = "macos")]
     let winit_window_builder = winit_window_builder.with_accepts_first_mouse(false);
 
-    let builder = ContextBuilder::new()
-        .with_pixel_format(24, 8)
-        .with_stencil_buffer(8)
-        .with_gl_profile(GlProfile::Core)
-        .with_srgb(cmd_line_settings.srgb)
-        .with_vsync(cmd_line_settings.vsync);
-
-    let windowed_context = match builder
-        .clone()
-        .build_windowed(winit_window_builder.clone(), &event_loop)
-    {
-        Ok(ctx) => ctx,
-        Err(err) => {
-            // haven't found any sane way to actually match on the pattern rabbithole CreationError
-            // provides, so here goes nothing
-            if err.to_string().contains("vsync") {
-                builder
-                    .with_vsync(false)
-                    .build_windowed(winit_window_builder, &event_loop)
-                    .unwrap()
-            } else {
-                panic!("{}", err);
-            }
-        }
-    };
-    let windowed_context = unsafe { windowed_context.make_current().unwrap() };
+    let windowed_context = build_context(&cmd_line_settings, winit_window_builder, &event_loop);
 
     let window = windowed_context.window();
     let initial_size = window.inner_size();
@@ -442,7 +416,7 @@ pub fn create_window() {
         renderer.grid_renderer.font_dimensions,
     );
 
-    let mut window_wrapper = GlutinWindowWrapper {
+    let mut window_wrapper = WinitWindowWrapper {
         windowed_context,
         skia_renderer,
         renderer,
