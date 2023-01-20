@@ -41,7 +41,7 @@ use crate::{
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::Renderer,
     renderer::WindowPadding,
-    renderer::{build_context, Context},
+    renderer::{build_context, WindowedContext},
     running_tracker::*,
     settings::{
         load_last_window_settings, save_window_geometry, PersistentWindowSettings, SETTINGS,
@@ -62,7 +62,7 @@ pub enum WindowCommand {
 }
 
 pub struct WinitWindowWrapper {
-    windowed_context: Context,
+    windowed_context: WindowedContext,
     skia_renderer: SkiaRenderer,
     renderer: Renderer,
     keyboard_manager: KeyboardManager,

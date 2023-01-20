@@ -4,21 +4,19 @@ use std::{
     time::{Duration, Instant},
 };
 
-use glutin::{
-    self,
+use skia_safe::Rect;
+use winit::{
     dpi::PhysicalPosition,
     event::{
         DeviceId, ElementState, Event, MouseButton, MouseScrollDelta, Touch, TouchPhase,
         WindowEvent,
     },
-    PossiblyCurrent, WindowedContext,
 };
-use skia_safe::Rect;
 
 use crate::{
     bridge::{SerialCommand, UiCommand},
     event_aggregator::EVENT_AGGREGATOR,
-    renderer::{Renderer, WindowDrawDetails},
+    renderer::{Renderer, WindowDrawDetails, WindowedContext},
     settings::SETTINGS,
     window::keyboard_manager::KeyboardManager,
     window::WindowSettings,
@@ -109,7 +107,7 @@ impl MouseManager {
         y: i32,
         keyboard_manager: &KeyboardManager,
         renderer: &Renderer,
-        windowed_context: &WindowedContext<PossiblyCurrent>,
+        windowed_context: &WindowedContext,
     ) {
         let size = windowed_context.window().inner_size();
         if x < 0 || x as u32 >= size.width || y < 0 || y as u32 >= size.height {
@@ -313,7 +311,7 @@ impl MouseManager {
         &mut self,
         keyboard_manager: &KeyboardManager,
         renderer: &Renderer,
-        windowed_context: &WindowedContext<PossiblyCurrent>,
+        windowed_context: &WindowedContext,
         finger_id: (DeviceId, u64),
         location: PhysicalPosition<f32>,
         phase: &TouchPhase,
@@ -416,7 +414,7 @@ impl MouseManager {
         event: &Event<()>,
         keyboard_manager: &KeyboardManager,
         renderer: &Renderer,
-        windowed_context: &WindowedContext<PossiblyCurrent>,
+        windowed_context: &WindowedContext,
     ) {
         match event {
             Event::WindowEvent {

@@ -1,13 +1,12 @@
-use crate::{settings::SETTINGS, window::WindowSettings};
-use glutin::{PossiblyCurrent, WindowedContext};
+use crate::{renderer::WindowedContext, settings::SETTINGS, window::WindowSettings};
 
 use cocoa::appkit::{NSColor, NSWindow};
 use cocoa::base::{id, nil};
 use csscolorparser::Color;
-use glutin::platform::macos::WindowExtMacOS;
 use objc::{rc::autoreleasepool, runtime::YES};
+use winit::platform::macos::WindowExtMacOS;
 
-pub fn draw_background(window: &WindowedContext<PossiblyCurrent>) {
+pub fn draw_background(window: &WindowedContext) {
     if let Ok(color) = &SETTINGS
         .get::<WindowSettings>()
         .background_color

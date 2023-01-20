@@ -1,13 +1,12 @@
 use std::convert::TryInto;
 
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
+use crate::renderer::WindowedContext;
 use gl::types::*;
 use skia_safe::{
     gpu::{gl::FramebufferInfo, BackendRenderTarget, DirectContext, SurfaceOrigin},
     Canvas, ColorType, Surface,
 };
-
-type WindowedContext = glutin::ContextWrapper<glutin::PossiblyCurrent, glutin::window::Window>;
 
 fn create_surface(
     windowed_context: &WindowedContext,
