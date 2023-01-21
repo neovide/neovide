@@ -216,7 +216,7 @@ jobs:
         run: |
           cd ./target/release/
           strip neovide
-          tar czvf neovide.tar.gz neovide
+          tar czvf neovide.tar.gz neovide ../../assets/neovide.desktop ../../assets/neovide.svg
 
       - name: Create AppImage
         run: |
