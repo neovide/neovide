@@ -134,6 +134,11 @@ pub struct CmdLineSettings {
 
     #[command(flatten)]
     pub geometry: GeometryArgs,
+
+    /// Force opengl on Windows
+    #[cfg(target_os = "windows")]
+    #[arg(long = "opengl", env = "NEOVIDE_OPENGL", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
+    pub opengl: bool,
 }
 
 // geometry, size and maximized are mutually exclusive
