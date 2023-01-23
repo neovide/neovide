@@ -60,7 +60,7 @@ use crate::{
 
 const D3D_FEATUREL_LEVEL: D3D_FEATURE_LEVEL = D3D_FEATURE_LEVEL_11_0;
 
-fn call_com_fn<T0, T1, F>(fun: F) -> Result<ComPtr<T1>, ()>
+pub fn call_com_fn<T0, T1, F>(fun: F) -> Result<ComPtr<T1>, ()>
 where
     T1: Interface,
     F: FnOnce(&mut *mut T0, REFIID) -> HRESULT,
@@ -146,7 +146,7 @@ pub struct D3DSkiaRenderer {
     swap_chain: ComPtr<IDXGISwapChain3>,
     swap_chain_desc: DXGI_SWAP_CHAIN_DESC1,
     swap_chain_waitable: HANDLE,
-    command_queue: ComPtr<ID3D12CommandQueue>,
+    pub command_queue: ComPtr<ID3D12CommandQueue>,
     buffers: Vec<ComPtr<ID3D12Resource>>,
     surfaces: Vec<Surface>,
     fence_values: Vec<u64>,
@@ -156,7 +156,7 @@ pub struct D3DSkiaRenderer {
     frame_index: usize,
     _backend_context: BackendContext,
     _adapter: ComPtr<IDXGIAdapter1>,
-    _device: ComPtr<ID3D12Device>,
+    pub device: ComPtr<ID3D12Device>,
 }
 
 impl D3DSkiaRenderer {
@@ -267,7 +267,7 @@ impl D3DSkiaRenderer {
 
         let mut ret = Self {
             _adapter: adapter,
-            _device: device,
+            device,
             command_queue,
             swap_chain,
             swap_chain_desc,
@@ -452,6 +452,11 @@ impl SkiaRenderer for D3DSkiaRenderer {
 
     fn create_vsync(&self, _proxy: EventLoopProxy<UserEvent>) -> VSync {
         unimplemented!()
+    }
+
+    #[cfg(feature = "gpu_profiling")]
+    fn tracy_create_gpu_context(&self, name: &str) -> Box<dyn GpuCtx> {
+        create_d3d_gpu_context(name, &self)
     }
 }
 
