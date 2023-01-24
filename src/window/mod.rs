@@ -207,6 +207,20 @@ impl WinitWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         tracy_zone!("draw_frame");
+
+        {
+            tracy_gpu_zone!("draw window surfaces");
+            self.renderer.draw_window_surfaces();
+            self.skia_renderer.gr_context.flush_and_submit();
+        }
+
+        {
+            tracy_gpu_zone!("skia clear");
+            let default_background = self.renderer.grid_renderer.get_default_background();
+            self.skia_renderer.canvas().clear(default_background);
+            self.skia_renderer.gr_context.flush_and_submit();
+        }
+
         self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
         {
             tracy_gpu_zone!("skia flush");
