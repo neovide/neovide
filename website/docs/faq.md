@@ -53,8 +53,8 @@ noremap <expr><D-[> ChangeTransparency(-0.01)
 ...aka `nvm use` doesn't work, aka anything configured in `~/.bashrc`/`~/.zshrc`
 is ignored by Neovide.
 
-Neovide doesn't start the embedded neovim instance in a login shell, so your
-shell doesn't read its resource file (`~/.bashrc`/`~/.zshrc`/whatever the
+Neovide doesn't start the embedded neovim instance in an interactive shell, so your
+shell doesn't read part of its startup file (`~/.bashrc`/`~/.zshrc`/whatever the
 equivalent for your shell is). But depending on your shell there are other
 options for doing so, for example for zsh you can just put your relevant content
 into `~/.zprofile` or `~/.zlogin`.
