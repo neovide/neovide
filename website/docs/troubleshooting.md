@@ -21,5 +21,5 @@
 
 ## Linux
 
-- If you recieve errors complaining about DRI3 settings, please reference issue
+- If you receive errors complaining about DRI3 settings, please reference issue
   [#44](https://github.com/neovide/neovide/issues/44#issuecomment-578618052).
