@@ -865,8 +865,8 @@ noremap &lt;expr&gt;&lt;D-[&gt; ChangeTransparency(-0.01)
 <h2 id="neovide-is-not-picking-up-some-shell-configured-information"><a class="header" href="#neovide-is-not-picking-up-some-shell-configured-information">Neovide Is Not Picking Up Some Shell-configured Information</a></h2>
 <p>...aka <code>nvm use</code> doesn't work, aka anything configured in <code>~/.bashrc</code>/<code>~/.zshrc</code>
 is ignored by Neovide.</p>
-<p>Neovide doesn't start the embedded neovim instance in a login shell, so your
-shell doesn't read its resource file (<code>~/.bashrc</code>/<code>~/.zshrc</code>/whatever the
+<p>Neovide doesn't start the embedded neovim instance in an interactive shell, so your
+shell doesn't read part of its startup file (<code>~/.bashrc</code>/<code>~/.zshrc</code>/whatever the
 equivalent for your shell is). But depending on your shell there are other
 options for doing so, for example for zsh you can just put your relevant content
 into <code>~/.zprofile</code> or <code>~/.zlogin</code>.</p>
