@@ -147,17 +147,27 @@
 <h2 id="global-vim-settings"><a class="header" href="#global-vim-settings">Global Vim Settings</a></h2>
 <p>Neovide supports settings via global variables with a neovide prefix. They enable configuring many
 parts of the editor and support dynamically changing them at runtime.</p>
-<h3 id="initvim-helpers"><a class="header" href="#initvim-helpers"><code>init.vim</code> helpers</a></h3>
+<h3 id="initvim-and-initlua-helpers"><a class="header" href="#initvim-and-initlua-helpers"><code>init.vim</code> and <code>init.lua</code> helpers</a></h3>
 <h4 id="hello-is-this-neovide"><a class="header" href="#hello-is-this-neovide">Hello, is this Neovide?</a></h4>
 <p>Not really a configuration option, but <code>g:neovide</code> only exists and is set to <code>v:true</code> if this Neovim
-is in Neovide. It's not set else. Useful for configuring things only for Neovide in your <code>init.vim</code>:</p>
+is in Neovide. Useful for configuring things only for Neovide in your <code>init.vim</code>/<code>init.lua</code>:</p>
+<p>VimScript:</p>
 <pre><code class="language-vim">if exists(&quot;g:neovide&quot;)
     &quot; Put anything you want to happen only in Neovide here
 endif
 </code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">if vim.g.neovide then
+    -- Put anything you want to happen only in Neovide here
+end
+</code></pre>
 <h3 id="display"><a class="header" href="#display">Display</a></h3>
 <h4 id="font"><a class="header" href="#font">Font</a></h4>
-<pre><code class="language-vim">set guifont=Fira\ Code\ Nerd\ Font:h14
+<p>VimScript:</p>
+<pre><code class="language-vim">set guifont=Source\ Code\ Pro:h14
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.opt.guifont = { &quot;Source Code Pro&quot;, &quot;h14&quot; } -- text below applies for VimScript
 </code></pre>
 <p>Controls the font used by Neovide. Only setting which is actually controlled through an option, and
 as such it's also documented in <code>:h guifont</code>. But to sum it up and also add Neovide's extension:</p>
@@ -211,17 +221,32 @@ should Hack fail to contain any glyph.</li>
 </li>
 </ul>
 <h4 id="scale"><a class="header" href="#scale">Scale</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_scale_factor = 1.0
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_scale_factor = 1.0
 </code></pre>
 <p><strong>Available since 0.10.2.</strong></p>
 <p>In addition to setting the font itself, this setting allows to change the scale without changing the
 whole font definition. Very useful for presentations. See <a href="faq.html#how-can-i-dynamically-change-the-scale-at-runtime">the FAQ section about
 this</a> for a nice recipe to bind this to a hotkey.</p>
 <h4 id="background-color-currently-macos-only"><a class="header" href="#background-color-currently-macos-only">Background Color (Currently macOS only)</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">&quot; g:neovide_transparency should be 0 if you want to unify transparency of content and title bar.
 let g:neovide_transparency = 0.0
 let g:transparency = 0.8
 let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:transparency))
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">-- Helper function for transparency formatting
+local alpha = function()
+  return string.format(&quot;%x&quot;, math.floor(255 * vim.g.neovide_transparency_point or 0.8))
+end
+-- g:neovide_transparency should be 0 if you want to unify transparency of content and title bar.
+vim.g.neovide_transparency = 0.0
+vim.g.transparency = 0.8
+vim.g.neovide_background_color = &quot;#0f1117&quot; .. alpha()
 </code></pre>
 <p><strong>Available since 0.10.</strong></p>
 <p><img src="assets/BackgroundColor.png" alt="BackgroundColor" /></p>
@@ -231,30 +256,51 @@ window to that value.</p>
 <p>Note that <code>g:neovide_transparency</code> should be 0 if you want to unify transparency of content and
 title bar.</p>
 <h4 id="floating-blur-amount"><a class="header" href="#floating-blur-amount">Floating Blur Amount</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_floating_blur_amount_x = 2.0
 let g:neovide_floating_blur_amount_y = 2.0
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_floating_blur_amount_x = 2.0
+vim.g.neovide_floating_blur_amount_y = 2.0
 </code></pre>
 <p><strong>Available since 0.9.</strong></p>
 <p>Setting <code>g:neovide_floating_blur_amount_x</code> and <code>g:neovide_floating_blur_amount_y</code> controls the blur
 radius on the respective axis for floating windows.</p>
 <h4 id="transparency"><a class="header" href="#transparency">Transparency</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_transparency = 0.8
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_transparency = 0.8
 </code></pre>
 <p><img src="assets/Transparency.png" alt="Transparency" /></p>
 <p>Setting <code>g:neovide_transparency</code> to a value between 0.0 and 1.0 will set the opacity of the window
 to that value.</p>
 <h4 id="scroll-animation-length"><a class="header" href="#scroll-animation-length">Scroll Animation Length</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_scroll_animation_length = 0.3
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_scroll_animation_length = 0.3
 </code></pre>
 <p>Sets how long the scroll animation takes to complete, measured in seconds.</p>
 <h4 id="hiding-the-mouse-when-typing"><a class="header" href="#hiding-the-mouse-when-typing">Hiding the mouse when typing</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_hide_mouse_when_typing = v:false
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_hide_mouse_when_typing = false
 </code></pre>
 <p>By setting this to <code>v:true</code>, the mouse will be hidden as soon as you start typing. This setting
 only affects the mouse if it is currently within the bounds of the neovide window. Moving the
 mouse makes it visible again.</p>
 <h4 id="underline-automatic-scaling"><a class="header" href="#underline-automatic-scaling">Underline automatic scaling</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_underline_automatic_scaling = v:false
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_underline_automatic_scaling = false
 </code></pre>
 <p><strong>Available since 0.10.</strong></p>
 <p>Setting <code>g:neovide_underline_automatic_scaling</code> to a boolean value determines whether automatic
@@ -264,49 +310,81 @@ sizes above 15.</p>
 below.</p>
 <h3 id="functionality"><a class="header" href="#functionality">Functionality</a></h3>
 <h4 id="refresh-rate"><a class="header" href="#refresh-rate">Refresh Rate</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_refresh_rate = 60
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_refresh_rate = 60
 </code></pre>
 <p>Setting <code>g:neovide_refresh_rate</code> to a positive integer will set the refresh rate of the app. This is
 limited by the refresh rate of your physical hardware, but can be lowered to increase battery life.</p>
 <p>Also do note that Neovide's frame pacing is far from optimal at the moment, so better hardware might
 not mean better FPS.</p>
 <h4 id="idle-refresh-rate"><a class="header" href="#idle-refresh-rate">Idle Refresh Rate</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_refresh_rate_idle = 5
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_refresh_rate_idle = 5
 </code></pre>
 <p><strong>Available since 0.10.</strong></p>
 <p>Setting <code>g:neovide_refresh_rate_idle</code> to a positive integer will set the refresh rate of the app when
 it is not in focus.</p>
 <p>This might not have an effect on every platform (e.g. Wayland).</p>
 <h4 id="no-idle"><a class="header" href="#no-idle">No Idle</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_no_idle = v:true
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_no_idle = true
 </code></pre>
 <p>Setting <code>g:neovide_no_idle</code> to a boolean value will force neovide to redraw all the time. This can
 be a quick hack if animations appear to stop too early.</p>
 <h4 id="confirm-quit"><a class="header" href="#confirm-quit">Confirm Quit</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_confirm_quit = v:true
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_confirm_quit = true
 </code></pre>
 <p>If set to <code>true</code>, quitting while having unsaved changes will require confirmation. Enabled by
 default.</p>
 <h4 id="fullscreen"><a class="header" href="#fullscreen">Fullscreen</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_fullscreen = v:true
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_fullscreen = true
 </code></pre>
 <p>Setting <code>g:neovide_fullscreen</code> to a boolean value will set whether the app should take up the entire
 screen. This uses the so called &quot;windowed fullscreen&quot; mode that is sometimes used in games which
 want quick window switching.</p>
 <h4 id="remember-previous-window-size"><a class="header" href="#remember-previous-window-size">Remember Previous Window Size</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_remember_window_size = v:true
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_remember_window_size = true
 </code></pre>
 <p>Setting <code>g:neovide_remember_window_size</code> to a boolean value will determine whether the window size
 from the previous session or the default size will be used on startup. The commandline option
 <code>--geometry</code> will take priority over this value.</p>
 <h4 id="profiler"><a class="header" href="#profiler">Profiler</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_profiler = v:false
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_profiler = false
 </code></pre>
 <p>Setting this to <code>v:true</code> enables the profiler, which shows a frametime graph in the upper left
 corner.</p>
 <h3 id="input-settings"><a class="header" href="#input-settings">Input Settings</a></h3>
 <h4 id="use-logo-key"><a class="header" href="#use-logo-key">Use Logo Key</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_input_use_logo = v:false  &quot; v:true on macOS
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_input_use_logo = false    -- true on macOS
 </code></pre>
 <p>Setting <code>g:neovide_input_use_logo</code> to a boolean value will change how logo key (also known as
 <a href="https://en.wikipedia.org/wiki/Super_key_(keyboard_button)">super key</a>,
@@ -316,13 +394,21 @@ containing logo to be forwarded to neovim. On MacOS, this defaults to <code>true
 works for pasting with respective setup of <code>init.vim</code>), and to <code>false</code> for other platforms (that
 typically use e.g. <code>ctrl+v</code> for pasting).</p>
 <h4 id="macos-alt-is-meta"><a class="header" href="#macos-alt-is-meta">macOS Alt is Meta</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_input_macos_alt_is_meta = v:false
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_input_macos_alt_is_meta = false
 </code></pre>
 <p><strong>Available since 0.10.</strong></p>
 <p>Interprets <kbd>Alt</kbd> + <kbd>whatever</kbd> actually as <code>&lt;M-whatever&gt;</code>, instead of sending the
 actual special character to Neovim.</p>
 <h4 id="touch-deadzone"><a class="header" href="#touch-deadzone">Touch Deadzone</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_touch_deadzone = 6.0
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_touch_deadzone = 6.0
 </code></pre>
 <p>Setting <code>g:neovide_touch_deadzone</code> to a value equal or higher than 0.0 will set how many pixels the
 finger must move away from the start position when tapping on the screen for the touch to be
@@ -332,7 +418,11 @@ be interpreted as tap gesture and the cursor will move there.</p>
 <p>A value lower than 0.0 will cause this feature to be disabled and <em>all</em> touch events will be
 interpreted as scroll gesture.</p>
 <h4 id="touch-drag-timeout"><a class="header" href="#touch-drag-timeout">Touch Drag Timeout</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_touch_drag_timeout = 0.17
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_touch_drag_timeout = 0.17
 </code></pre>
 <p>Setting <code>g:neovide_touch_drag_timeout</code> will affect how many seconds the cursor has to stay inside
 <code>g:neovide_touch_deadzone</code> in order to begin &quot;dragging&quot;</p>
@@ -345,7 +435,11 @@ this happens too often accidentally to you, set this to a higher value like <cod
 &nbsp; &nbsp;
   <img alt="Long Cursor Animation Length", src="./assets/LongCursorAnimationLength.gif" width="47%">
 </p>
-<pre><code class="language-vim">let g:neovide_cursor_animation_length=0.13
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_cursor_animation_length = 0.13
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_cursor_animation_length = 0.13
 </code></pre>
 <p>Setting <code>g:neovide_cursor_animation_length</code> determines the time it takes for the cursor to complete
 it's animation in seconds. Set to <code>0</code> to disable.</p>
@@ -355,16 +449,28 @@ it's animation in seconds. Set to <code>0</code> to disable.</p>
 &nbsp; &nbsp;
   <img alt="Long Cursor Trail Length", src="./assets/LongCursorTrailLength.gif" width="47%">
 </p>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_cursor_trail_size = 0.8
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_cursor_trail_size = 0.8
 </code></pre>
 <p>Setting <code>g:neovide_cursor_trail_size</code> determines how much the trail of the cursor lags behind the
 front edge.</p>
 <h4 id="antialiasing"><a class="header" href="#antialiasing">Antialiasing</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_cursor_antialiasing = v:true
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_cursor_antialiasing = true
 </code></pre>
 <p>Enables or disables antialiasing of the cursor quad. Disabling may fix some cursor visual issues.</p>
 <h4 id="unfocused-outline-width"><a class="header" href="#unfocused-outline-width">Unfocused Outline Width</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_cursor_unfocused_outline_width = 0.125
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_cursor_unfocused_outline_width = 0.125
 </code></pre>
 <p>Specify cursor outline width in <code>em</code>s. You probably want this to be a positive value less than 0.5.
 If the value is &lt;=0 then the cursor will be invisible. This setting takes effect when the editor
@@ -374,59 +480,111 @@ full rectangle.</p>
 <p>There are a number of vfx modes you can enable which produce particles behind the cursor. These are
 enabled by setting <code>g:neovide_cursor_vfx_mode</code> to one of the following constants.</p>
 <h4 id="none-at-all"><a class="header" href="#none-at-all">None at all</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;&quot;
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_cursor_vfx_mode = &quot;&quot;
 </code></pre>
 <p>The default, no particles at all.</p>
 <h4 id="railgun"><a class="header" href="#railgun">Railgun</a></h4>
 <img src="./assets/Railgun.gif" alt="Railgun" width=550>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;railgun&quot;
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_cursor_vfx_mode = &quot;railgun&quot;
 </code></pre>
 <h4 id="torpedo"><a class="header" href="#torpedo">Torpedo</a></h4>
 <img src="./assets/Torpedo.gif" alt="Torpedo" width=550>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;torpedo&quot;
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_cursor_vfx_mode = &quot;torpedo&quot;
 </code></pre>
 <h4 id="pixiedust"><a class="header" href="#pixiedust">Pixiedust</a></h4>
 <img src="./assets/Pixiedust.gif" alt="Pixiedust" width=550>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;pixiedust&quot;
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_cursor_vfx_mode = &quot;pixiedust&quot;
 </code></pre>
 <h4 id="sonic-boom"><a class="header" href="#sonic-boom">Sonic Boom</a></h4>
 <img src="./assets/Sonicboom.gif" alt="Sonicboom" width=550>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;sonicboom&quot;
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_cursor_vfx_mode = &quot;sonicboom&quot;
 </code></pre>
 <h4 id="ripple"><a class="header" href="#ripple">Ripple</a></h4>
 <img src="./assets/Ripple.gif" alt="Ripple" width=550>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;ripple&quot;
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_cursor_vfx_mode = &quot;ripple&quot;
 </code></pre>
 <h4 id="wireframe"><a class="header" href="#wireframe">Wireframe</a></h4>
 <img src="./assets/Wireframe.gif" alt="Wireframe" width=550>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;wireframe&quot;
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_cursor_vfx_mode = &quot;wireframe&quot;
 </code></pre>
 <h3 id="particle-settings"><a class="header" href="#particle-settings">Particle Settings</a></h3>
 <p>Options for configuring the particle generation and behavior.</p>
 <h4 id="particle-opacity"><a class="header" href="#particle-opacity">Particle Opacity</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_cursor_vfx_opacity = 200.0
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_cursor_vfx_opacity = 200.0
 </code></pre>
 <p>Sets the transparency of the generated particles.</p>
 <h4 id="particle-lifetime"><a class="header" href="#particle-lifetime">Particle Lifetime</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_cursor_vfx_particle_lifetime = 1.2
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_cursor_vfx_particle_lifetime = 1.2
 </code></pre>
 <p>Sets the amount of time the generated particles should survive.</p>
 <h4 id="particle-density"><a class="header" href="#particle-density">Particle Density</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_cursor_vfx_particle_density = 7.0
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_cursor_vfx_particle_density = 7.0
 </code></pre>
 <p>Sets the number of generated particles.</p>
 <h4 id="particle-speed"><a class="header" href="#particle-speed">Particle Speed</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_cursor_vfx_particle_speed = 10.0
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_cursor_vfx_particle_speed = 10.0
 </code></pre>
 <p>Sets the speed of particle movement.</p>
 <h4 id="particle-phase"><a class="header" href="#particle-phase">Particle Phase</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_cursor_vfx_particle_phase = 1.5
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_cursor_vfx_particle_phase = 1.5
 </code></pre>
 <p>Only for the <code>railgun</code> vfx mode.</p>
 <p>Sets the mass movement of particles, or how individual each one acts. The higher the value, the less
 particles rotate in accordance to each other, the lower, the more line-wise all particles become.</p>
 <h4 id="particle-curl"><a class="header" href="#particle-curl">Particle Curl</a></h4>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_cursor_vfx_particle_curl = 1.0
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_cursor_vfx_particle_curl = 1.0
 </code></pre>
 <p>Only for the <code>railgun</code> vfx mode.</p>
 <p>Sets the velocity rotation speed of particles. The higher, the less particles actually move and look

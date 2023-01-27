@@ -156,15 +156,29 @@ one for the popup menu.</p>
 <h2 id="how-can-i-dynamically-change-the-scale-at-runtime"><a class="header" href="#how-can-i-dynamically-change-the-scale-at-runtime">How Can I Dynamically Change The Scale At Runtime?</a></h2>
 <p>Neovide offers the setting <code>g:neovide_scale_factor</code>, which is multiplied with
 the OS scale factor and the font size. So using this could look like</p>
+<p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_scale_factor=1.0
 function! ChangeScaleFactor(delta)
-    let g:neovide_scale_factor = g:neovide_scale_factor * a:delta
+  let g:neovide_scale_factor = g:neovide_scale_factor * a:delta
 endfunction
 nnoremap &lt;expr&gt;&lt;C-=&gt; ChangeScaleFactor(1.25)
 nnoremap &lt;expr&gt;&lt;C--&gt; ChangeScaleFactor(1/1.25)
 </code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_scale_factor = 1.0
+local change_scale_factor = function(delta)
+  vim.g.neovide_scale_factor = vim.g.neovide_scale_factor * delta
+end
+vim.keymap.set(&quot;n&quot;, &quot;&lt;C-=&gt;&quot;, function()
+  change_scale_factor(1.25)
+end)
+vim.keymap.set(&quot;n&quot;, &quot;&lt;C--&gt;&quot;, function()
+  change_scale_factor(1/1.25)
+end)
+</code></pre>
 <p>Credits to <a href="https://github.com/neovide/neovide/pull/1589">BHatGuy here</a>.</p>
 <h2 id="how-can-i-dynamically-change-the-transparency-at-runtime-macos"><a class="header" href="#how-can-i-dynamically-change-the-transparency-at-runtime-macos">How can I Dynamically Change The Transparency At Runtime? (macOS)</a></h2>
+<p>VimScript:</p>
 <pre><code class="language-vim">&quot; Set transparency and background color (title bar color)
 let g:neovide_transparency=0.0
 let g:neovide_transparency_point=0.8
@@ -177,6 +191,27 @@ function! ChangeTransparency(delta)
 endfunction
 noremap &lt;expr&gt;&lt;D-]&gt; ChangeTransparency(0.01)
 noremap &lt;expr&gt;&lt;D-[&gt; ChangeTransparency(-0.01)
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">-- Helper function for transparency formatting
+local alpha = function()
+  return string.format(&quot;%x&quot;, math.floor(255 * vim.g.neovide_transparency_point or 0.8))
+end
+-- Set transparency and background color (title bar color)
+vim.g.neovide_transparency = 0.0
+vim.g.neovide_transparency_point = 0.8
+vim.g.neovide_background_color = &quot;#0f1117&quot; .. alpha()
+-- Add keybinds to change transparency
+local change_transparency = function(delta)
+  vim.g.neovide_transparency_point = vim.g.neovide_transparency_point + delta
+  vim.g.neovide_background_color = &quot;#0f1117&quot; .. alpha()
+end
+vim.keymap.set({ &quot;n&quot;, &quot;v&quot;, &quot;o&quot; }, &quot;&lt;D-]&gt;&quot;, function()
+  change_transparency(0.01)
+end)
+vim.keymap.set({ &quot;n&quot;, &quot;v&quot;, &quot;o&quot; }, &quot;&lt;D-[&gt;&quot;, function()
+  change_transparency(-0.01)
+end)
 </code></pre>
 <h2 id="neovide-is-not-picking-up-some-shell-configured-information"><a class="header" href="#neovide-is-not-picking-up-some-shell-configured-information">Neovide Is Not Picking Up Some Shell-configured Information</a></h2>
 <p>...aka <code>nvm use</code> doesn't work, aka anything configured in <code>~/.bashrc</code>/<code>~/.zshrc</code>
