@@ -9,230 +9,169 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  VERSION: 0.10.1
+
+defaults:
+  run:
+    shell: bash # necessary for windows
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macOS-11, ubuntu-latest]
+        toolchain: [stable, nightly]
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.rust == 'nightly' }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
-      - name: Install Nightly Toolchain
-        uses: actions-rs/toolchain@v1
+      - name: Setup Toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: nightly
+          toolchain: ${{ matrix.toolchain }}
           components: rustfmt
-          override: true
 
-      - name: Install cargo-nextest
-        uses: taiki-e/install-action@nextest
-
-      - name: Install cargo-wix
+      - name: Show Toolchain Info
         run: |
-          cargo install cargo-wix
+          cargo --version --verbose
+          rustc --version
+          cargo fmt --version
 
-      - uses: Swatinem/rust-cache@v1
+      - uses: Swatinem/rust-cache@v2
 
       - name: Check Formatting
         run: |
           cargo fmt --all -- --check
-      - name: Install Neovim
+
+      - name: Install Dependencies and Neovim
         run: |
-          choco install -y neovim
-      - name: Add Neovim to PATH
-        run: echo "C:\tools\neovim\nvim-win64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          if [[ $RUNNER_OS == "Windows" ]]; then
+            cargo install cargo-wix
+            choco install -y neovim
+            echo "NEOVIM_BIN=C:/tools/neovim/nvim-win64/bin/nvim.exe" >> $GITHUB_ENV
+
+          elif [[ $RUNNER_OS == "macOS" ]]; then
+            rustup target add x86_64-apple-darwin
+            rustup target add aarch64-apple-darwin
+            cargo install cargo-bundle
+            brew install neovim
+
+          elif [[ $RUNNER_OS == "Linux" ]]; then
+            sudo apt-get update
+            sudo apt-get -qq install -y \
+              curl gnupg ca-certificates git gcc-multilib g++-multilib cmake \
+              libssl-dev pkg-config libfreetype6-dev libasound2-dev \
+              libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev \
+              libxi-dev libfuse2 appstream \
+              neovim
+          fi
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@nextest
 
       - name: Test
         env:
-          NEOVIM_BIN: "C:/tools/neovim/nvim-win64/bin/nvim.exe"
           RUST_BACKTRACE: full
         run: |
           cargo nextest run --profile ci
 
-      - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action/composite@v1
-        if: always()
+      - name: Publish Windows|macOS Test Results
+        uses: EnricoMi/publish-unit-test-result-action/composite@v2
+        if: ${{ matrix.os == 'windows-latest' || matrix.os == 'macOS-11' }}
         with:
-          files: target/nextest/ci/results.xml
+          junit_files: target/nextest/ci/results.xml
 
-      - name: Build Release
+      - name: Publish Linux Test Results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+        with:
+          junit_files: target/nextest/ci/results.xml
+
+      - name: Build
         run: |
-          cargo build --release
+          if [[ $RUNNER_OS == "Windows" ]]; then
+            cargo wix --output target/wix/neovide.msi --package neovide
 
-      - name: Build MSI
+          elif [[ $RUNNER_OS == "macOS" ]]; then
+            echo "MACOSX_DEPLOYMENT_TARGET=10.11" >> $GITHUB_ENV
+            # x86
+            cargo build --release --target=x86_64-apple-darwin
+            cargo bundle --release --target=x86_64-apple-darwin
+            # arch 
+            cargo build --release --target=aarch64-apple-darwin
+            cargo bundle --release --target=aarch64-apple-darwin
+
+          elif [[ $RUNNER_OS == "Linux" ]]; then
+            cargo build --release
+          fi
+
+      - name: Prepare Artifacts
+        if: ${{ matrix.toolchain == 'stable' }}
         run: |
-          cargo wix --no-build --output target/wix/neovide.msi --package neovide
+          if [[ $RUNNER_OS == "macOS" ]]; then
+            # merge builds
+            mkdir -p target/release/bundle/osx
+            rm -rf target/release/bundle/osx/Neovide.app || true
+            cp -R target/x86_64-apple-darwin/release/bundle/osx/Neovide.app \
+              target/release/bundle/osx/Neovide.app
+            rm target/release/bundle/osx/Neovide.app/Contents/MacOS/neovide
+            lipo target/x86_64-apple-darwin/release/bundle/osx/Neovide.app/Contents/MacOS/neovide \
+              target/aarch64-apple-darwin/release/bundle/osx/Neovide.app/Contents/MacOS/neovide \
+              -create -output \
+              target/release/bundle/osx/Neovide.app/Contents/MacOS/neovide
+            codesign --force --deep -s - target/release/bundle/osx/Neovide.app
+            # create .dmg
+            hdiutil create Neovide-uncompressed.dmg -volname "Neovide" -srcfolder target/release/bundle/osx
+            hdiutil convert Neovide-uncompressed.dmg -format UDZO -o Neovide.dmg
 
-      - uses: actions/upload-artifact@v2
+          elif [[ $RUNNER_OS == "Linux" ]]; then
+            # archive artifact
+            strip ./target/release/neovide
+            tar czvf ./target/release/neovide.tar.gz ./target/release/neovide
+            # create appimage
+            curl -Lo linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/latest/download/linuxdeploy-x86_64.AppImage
+            chmod +x linuxdeploy
+            ./linuxdeploy \
+              --executable=target/release/neovide \
+              --desktop-file=assets/neovide.desktop \
+              --appdir=target/release/AppDir \
+              --icon-file=assets/neovide.svg \
+              --output=appimage
+          fi
+
+      - name: Upload neovide-windows
+        uses: actions/upload-artifact@v3
+        if: ${{ matrix.os == 'windows-latest' && matrix.toolchain == 'stable' }}
         with:
           name: neovide-windows
           path: ./target/release/neovide.exe
 
-      - uses: actions/upload-artifact@v2
+      - name: Upload neovide.msi
+        uses: actions/upload-artifact@v3
+        if: ${{ matrix.os == 'windows-latest' && matrix.toolchain == 'stable' }}
         with:
           name: neovide-windows-installer
           path: ./target/wix/neovide.msi
 
-  build-mac:
-    runs-on: macos-11
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Install Nightly Toolchain
-        uses: actions-rs/toolchain@v1
+      - name: Upload neovide.dmg
+        uses: actions/upload-artifact@v3
+        if: ${{ matrix.os == 'macOS-11' && matrix.toolchain == 'stable' }}
         with:
-          profile: minimal
-          toolchain: nightly
-          components: rustfmt
-          override: true
-
-      - name: Add x86_64 target
-        run: |
-          rustup target add x86_64-apple-darwin
-
-      - name: Add aarch64 target
-        run: |
-          rustup target add aarch64-apple-darwin
-
-      - name: Install cargo-nextest
-        uses: taiki-e/install-action@nextest
-
-      - name: Install Utilities
-        run: |
-          cargo install cargo-bundle
-
-      - uses: Swatinem/rust-cache@v1
-
-      - name: Check Formatting
-        run: |
-          cargo fmt --all -- --check
-
-      - name: Install Neovim
-        run: |
-          brew install neovim
-
-      - name: Test
-        env:
-          RUST_BACKTRACE: full
-        run: |
-          cargo nextest run --profile ci
-
-      - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action/composite@v1
-        if: always()
-        with:
-          files: target/nextest/ci/results.xml
-
-      - name: Build x86 app
-        env:
-          MACOSX_DEPLOYMENT_TARGET: "10.11"
-        run: |
-          cargo build --release --target=x86_64-apple-darwin
-          cargo bundle --release --target=x86_64-apple-darwin
-
-      - name: Build aarch64 app
-        env:
-          MACOSX_DEPLOYMENT_TARGET: "10.11"
-        run: |
-          cargo build --release --target=aarch64-apple-darwin
-          cargo bundle --release --target=aarch64-apple-darwin
-
-      - name: Merge into a universal app
-        run: |
-          mkdir -p target/release/bundle/osx
-          rm -rf target/release/bundle/osx/Neovide.app || true
-          cp -R target/x86_64-apple-darwin/release/bundle/osx/Neovide.app \
-            target/release/bundle/osx/Neovide.app
-          rm target/release/bundle/osx/Neovide.app/Contents/MacOS/neovide
-          lipo target/x86_64-apple-darwin/release/bundle/osx/Neovide.app/Contents/MacOS/neovide \
-            target/aarch64-apple-darwin/release/bundle/osx/Neovide.app/Contents/MacOS/neovide \
-            -create -output \
-            target/release/bundle/osx/Neovide.app/Contents/MacOS/neovide
-          codesign --force --deep -s - target/release/bundle/osx/Neovide.app
-
-      - name: Create .dmg file
-        run: |
-          hdiutil create Neovide-uncompressed.dmg -volname "Neovide" -srcfolder target/release/bundle/osx
-          hdiutil convert Neovide-uncompressed.dmg -format UDZO -o Neovide.dmg
-
-      - uses: actions/upload-artifact@v1
-        with:
-          name: Neovide.dmg
+          name: neovide.dmg
           path: ./Neovide.dmg
 
-  build-linux:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v2
-
-      - name: Install Nightly Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          components: rustfmt
-          override: true
-
-      - name: Install cargo-nextest
-        uses: taiki-e/install-action@nextest
-
-      - uses: Swatinem/rust-cache@v1
-
-      - name: Check Formatting
-        run: |
-          cargo fmt --all -- --check
-
-      - name: Install dependencies and neovim
-        run: |
-          sudo apt-get update
-          sudo apt-get -qq install -y \
-            curl gnupg ca-certificates git gcc-multilib g++-multilib cmake \
-            libssl-dev pkg-config libfreetype6-dev libasound2-dev \
-            libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev \
-            libxi-dev libfuse2 appstream \
-            neovim
-
-      - name: Test
-        env:
-          RUST_BACKTRACE: full
-        run: |
-          cargo nextest run --profile ci
-
-      - name: Publish Test Results
-        uses: EnricoMi/publish-unit-test-result-action@v1
-        if: always()
-        with:
-          files: target/nextest/ci/results.xml
-
-      - name: Build Release
-        run: |
-          cargo build --release
-
-      - name: Archive Linux artifact
-        run: |
-          cd ./target/release/
-          strip neovide
-          tar czvf neovide.tar.gz neovide ../../assets/neovide.desktop ../../assets/neovide.svg
-
-      - name: Create AppImage
-        run: |
-          curl -Lo linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/download/1-alpha-20220822-1/linuxdeploy-x86_64.AppImage
-          chmod +x linuxdeploy
-          ./linuxdeploy \
-            --executable=target/release/neovide \
-            --desktop-file=assets/neovide.desktop \
-            --appdir=target/release/AppDir \
-            --icon-file=assets/neovide.svg \
-            --output=appimage
-
-      - uses: actions/upload-artifact@v3
+      - name: Upload neovide-linux
+        uses: actions/upload-artifact@v3
+        if: ${{ matrix.os == 'ubuntu-latest' && matrix.toolchain == 'stable' }}
         with:
           name: neovide-linux
-          path: |
-            target/release/neovide.tar.gz
-            Neovide_(nvim)-*.AppImage
+          path: target/release/neovide.tar.gz
 
+      - name: Upload neovide.AppImage
+        uses: actions/upload-artifact@v3
+        if: ${{ matrix.os == 'ubuntu-latest' && matrix.toolchain == 'stable' }}
+        with:
+          name: neovide.AppImage
+          path: Neovide_(nvim)-*.AppImage

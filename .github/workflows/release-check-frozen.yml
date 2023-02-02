@@ -11,11 +11,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install Nightly Toolchain
-        uses: actions-rs/toolchain@v1
+      - name: Setup Toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          profile: minimal
-          toolchain: nightly
-          override: true
+          toolchain: stable
+          components: rustfmt
 
       - run: cargo build --frozen
