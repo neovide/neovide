@@ -145,6 +145,27 @@
                     <main><div class="sidetoc"><nav class="pagetoc"></nav></div>
                         <h1 id="frequently-asked-questions"><a class="header" href="#frequently-asked-questions">Frequently Asked Questions</a></h1>
 <p>Commonly asked questions, or just explanations/elaborations on stuff.</p>
+<h2 id="how-can-i-use-cmd-ccmd-v-to-copy-and-paste"><a class="header" href="#how-can-i-use-cmd-ccmd-v-to-copy-and-paste">How can I use cmd-c/cmd-v to copy and paste?</a></h2>
+<p>Neovide doesn't add or remove any keybindings to neovim, it only forwards keys. Its likely that 
+your terminal adds these keybindings, as neovim doesn't have them by default. We can replicate
+this behavior by adding keybindings in neovim.</p>
+<pre><code class="language-lua">if vim.g.neovide then
+  vim.g.neovide_input_use_logo = 1 -- enable use of the logo (cmd) key
+  vim.keymap.set.map('n', '&lt;D-s&gt;', ':w&lt;CR&gt;') -- Save
+  vim.keymap.set.map('v', '&lt;D-c&gt;', '&quot;+y') -- Copy
+  vim.keymap.set.map('n', '&lt;D-v&gt;', '&quot;+P') -- Paste normal mode
+  vim.keymap.set.map('v', '&lt;D-v&gt;', '&quot;+P') -- Paste visual mode
+  vim.keymap.set.map('c', '&lt;D-v&gt;', '&lt;C-R&gt;+') -- Paste command mode
+  vim.keymap.set.map('i', '&lt;D-v&gt;', '&lt;ESC&gt;l&quot;+Pli') -- Paste insert mode
+end
+
+-- Allow clipboard copy paste in neovim
+vim.g.neovide_input_use_logo = 1
+vim.api.nvim_set_keymap('', '&lt;D-v&gt;', '+p&lt;CR&gt;', { noremap = true, silent = true})
+vim.api.nvim_set_keymap('!', '&lt;D-v&gt;', '&lt;C-R&gt;+', { noremap = true, silent = true})
+vim.api.nvim_set_keymap('t', '&lt;D-v&gt;', '&lt;C-R&gt;+', { noremap = true, silent = true})
+vim.api.nvim_set_keymap('v', '&lt;D-v&gt;', '&lt;C-R&gt;+', { noremap = true, silent = true})
+</code></pre>
 <h2 id="how-to-enable-scrolling-animations-and-transparency"><a class="header" href="#how-to-enable-scrolling-animations-and-transparency">How To Enable Scrolling Animations and Transparency?</a></h2>
 <p>First, <a href="command-line-reference.html#multigrid">enable multigrid</a>, it's not enabled by default.</p>
 <p>Then, scrolling animations should work, for transparency see the section below.</p>
