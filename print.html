@@ -999,8 +999,8 @@ Reference issue <a href="https://github.com/neovide/neovide/pull/1242">#1242</a>
 <p>If your <code>g:neovide_refresh_rate</code> is correct, then check if you are using dual monitors with
 mixed refresh rate, say <code>144</code> and <code>60</code>, by checking output of <code>xrandr</code> (wayland should support
 mixed refresh rate out of the box), if so,that's because X11 does not support mixed refresh
-rate well and that's not a problem of Neovide. You can find solutions for your setups
-<a href="https://www.reddit.com/r/linux/comments/yaatyo/psa_x11_does_support_mixed_refresh_rate_monitors/">here</a>, or just set <code>g:neovide_refresh_rate</code> to the lower value.</p>
+rate well. You may be able to fix this through your compositor or by switching to wayland.
+As a temporary work around, you may set <code>g:neovide_refresh_rate</code> to the lower value.</p>
 </li>
 </ul>
 </li>
