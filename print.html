@@ -987,22 +987,28 @@ Reference issue <a href="https://github.com/neovide/neovide/pull/1242">#1242</a>
 <a href="https://github.com/neovide/neovide/issues/44#issuecomment-578618052">#44</a>.</p>
 </li>
 <li>
-<p>If your scrolling is very stutter</p>
+<p>If your scrolling is suttering</p>
 <ul>
-<li>Add flag <code>--novsync</code> before startup as a quickfix.</li>
-<li>Check if the value of <code>g:neovide_refresh_rate</code> and the refresh rate of your monitor are matched.</li>
+<li>
+<p>Add flag <code>--novsync</code> before startup as a quickfix.</p>
+</li>
+<li>
+<p>Check if the value of <code>g:neovide_refresh_rate</code> and the refresh rate of your monitor are matched.</p>
+</li>
+<li>
+<p>If your <code>g:neovide_refresh_rate</code> is correct, then check if you are using dual monitors with
+mixed refresh rate, say <code>144</code> and <code>60</code>, by checking output of <code>xrandr</code> (wayland should support
+mixed refresh rate out of the box), if so,that's because X11 does not support mixed refresh
+rate well and that's not a problem of Neovide. You can find solutions for your setups
+<a href="https://www.reddit.com/r/linux/comments/yaatyo/psa_x11_does_support_mixed_refresh_rate_monitors/">here</a>, or just set <code>g:neovide_refresh_rate</code> to the lower value.</p>
+</li>
 </ul>
-<p>If your <code>g:neovide_refresh_rate</code> is correct, then check if you are using dual monitors with mixed refresh rate, say <code>144</code> and <code>60</code>, by checking output of <code>xrandr</code> (wayland should support mixed refresh rate out of the box), if so,that's because X11 does not support mixed refresh rate well and that's not a problem of Neovide. You can find solutions for your setups <a href="https://www.reddit.com/r/linux/comments/yaatyo/psa_x11_does_support_mixed_refresh_rate_monitors/">here</a>, or just set <code>g:neovide_refresh_rate</code> to  the lower value.</p>
-<p>As a minimal example, for a window manager without doing any compositing(like dwm) and NVIDIA GPU,</p>
-<pre><code class="language-sh">export __GL_SYNC_DISPLAY_DEVICE=DP-0
-</code></pre>
-<p>before startup should do the trick, where <code>DP-0</code> is the monitor with higher refresh rate.</p>
 </li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="frequently-asked-questions"><a class="header" href="#frequently-asked-questions">Frequently Asked Questions</a></h1>
 <p>Commonly asked questions, or just explanations/elaborations on stuff.</p>
 <h2 id="how-can-i-use-cmd-ccmd-v-to-copy-and-paste"><a class="header" href="#how-can-i-use-cmd-ccmd-v-to-copy-and-paste">How can I use cmd-c/cmd-v to copy and paste?</a></h2>
-<p>Neovide doesn't add or remove any keybindings to neovim, it only forwards keys. Its likely that 
+<p>Neovide doesn't add or remove any keybindings to neovim, it only forwards keys. Its likely that
 your terminal adds these keybindings, as neovim doesn't have them by default. We can replicate
 this behavior by adding keybindings in neovim.</p>
 <pre><code class="language-lua">if vim.g.neovide then
