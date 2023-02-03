@@ -26,12 +26,12 @@
 
 - If your scrolling is suttering
 
-    - Add flag `--novsync` before startup as a quickfix.
+  - Add flag `--novsync` before startup as a quickfix.
 
-    - Check if the value of `g:neovide_refresh_rate` and the refresh rate of your monitor are matched.
+  - Check if the value of `g:neovide_refresh_rate` and the refresh rate of your monitor are matched.
 
-    - If your `g:neovide_refresh_rate` is correct, then check if you are using dual monitors with
-      mixed refresh rate, say `144` and `60`, by checking output of `xrandr` (wayland should support
-      mixed refresh rate out of the box), if so,that's because X11 does not support mixed refresh
-      rate well and that's not a problem of Neovide. You can find solutions for your setups
-      [here](https://www.reddit.com/r/linux/comments/yaatyo/psa_x11_does_support_mixed_refresh_rate_monitors/), or just set `g:neovide_refresh_rate` to the lower value.
+  - If your `g:neovide_refresh_rate` is correct, then check if you are using dual monitors with
+    mixed refresh rate, say `144` and `60`, by checking output of `xrandr` (wayland should support
+    mixed refresh rate out of the box), if so,that's because X11 does not support mixed refresh
+    rate well. You may be able to fix this through your compositor or by switching to wayland.
+    As a temporary work around, you may set `g:neovide_refresh_rate` to the lower value.
