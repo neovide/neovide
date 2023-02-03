@@ -4,7 +4,7 @@ Commonly asked questions, or just explanations/elaborations on stuff.
 
 ## How can I use cmd-c/cmd-v to copy and paste?
 
-Neovide doesn't add or remove any keybindings to neovim, it only forwards keys. Its likely that 
+Neovide doesn't add or remove any keybindings to neovim, it only forwards keys. Its likely that
 your terminal adds these keybindings, as neovim doesn't have them by default. We can replicate
 this behavior by adding keybindings in neovim.
 
