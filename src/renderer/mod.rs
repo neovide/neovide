@@ -171,7 +171,7 @@ impl Renderer {
 
         if let Some(root_window) = self.rendered_windows.get(&1) {
             let clip_rect = root_window.pixel_region(font_dimensions);
-            root_canvas.clip_rect(&clip_rect, None, Some(false));
+            root_canvas.clip_rect(clip_rect, None, Some(false));
         }
 
         let windows: Vec<&mut RenderedWindow> = {

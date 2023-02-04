@@ -6,7 +6,7 @@ use crate::editor::style::{Colors, Style};
 
 use super::grid::GridCell;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum CursorShape {
     Block,
     Horizontal,
