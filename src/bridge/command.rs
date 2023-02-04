@@ -51,7 +51,7 @@ fn build_nvim_cmd() -> TokioCommand {
 fn create_platform_shell_command(command: &str, args: &[&str]) -> Option<StdCommand> {
     if cfg!(target_os = "windows") && SETTINGS.get::<CmdLineSettings>().wsl {
         let mut result = StdCommand::new("wsl");
-        result.args(["$SHELL", "-c"]);
+        result.args(["$SHELL", "-lc"]);
         result.arg(format!("{} {}", command, args.join(" ")));
 
         Some(result)
@@ -59,7 +59,10 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> Option<StdComm
         let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
         let mut result = StdCommand::new(&shell);
 
-        result.args(["-c"]);
+        result.arg("-c");
+        if env::var_os("TERM").is_none() {
+            result.arg("-l");
+        }
         result.arg(format!("{} {}", command, args.join(" ")));
 
         Some(result)
@@ -111,7 +114,11 @@ fn nvim_cmd_impl(bin: &str, args: &[String]) -> TokioCommand {
         .map(|arg| shlex::quote(arg))
         .collect::<Vec<_>>()
         .join(" ");
-    cmd.args(&["-c", &format!("{} {}", bin, args_str)]);
+    cmd.arg("-c");
+    if env::var_os("TERM").is_none() {
+        cmd.arg("-l");
+    }
+    cmd.arg(&format!("{} {}", bin, args_str));
     cmd
 }
 
@@ -119,7 +126,7 @@ fn nvim_cmd_impl(bin: &str, args: &[String]) -> TokioCommand {
 fn nvim_cmd_impl(bin: &str, args: &[String]) -> TokioCommand {
     if cfg!(target_os = "windows") && SETTINGS.get::<CmdLineSettings>().wsl {
         let mut cmd = TokioCommand::new("wsl");
-        cmd.args(&["$SHELL", "-c", &format!("{} {}", bin, args.join(" "))]);
+        cmd.args(&["$SHELL", "-lc", &format!("{} {}", bin, args.join(" "))]);
         cmd
     } else {
         let mut cmd = TokioCommand::new(bin);
