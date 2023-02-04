@@ -1,0 +1,25 @@
+name: Lint Website
+
+on:
+  push:
+    paths:
+      - ".github/workflows/lint.yml"
+      - "website/**/*.md"
+  pull_request:
+    paths:
+      - ".github/workflows/lint.yml"
+      - "website/**/*.md"
+
+jobs:
+  lint:
+    name: Lint website
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Lint markdown
+        uses: nosborn/github-action-markdown-cli@v3.1.0
+        with:
+          files: ./website
+          config_file: ./website/.markdownlintrc

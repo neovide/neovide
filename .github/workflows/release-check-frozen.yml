@@ -1,4 +1,4 @@
-name: Check for successful frozen builds on release
+name: Check Frozen Release Builds
 
 on:
   release:
@@ -11,10 +11,5 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup Toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-          components: rustfmt
-
-      - run: cargo build --frozen
+      - name: Build
+        run: cargo build --frozen
