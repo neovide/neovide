@@ -15,13 +15,15 @@ pub struct FontOptions {
 
 impl FontOptions {
     pub fn parse(guifont_setting: &str) -> FontOptions {
-        let mut font_list = Vec::new();
-        let mut size = DEFAULT_FONT_SIZE;
-        let mut bold = false;
-        let mut italic = false;
-        let mut allow_float_size = false;
-        let mut hinting = FontHinting::default();
-        let mut edging = FontEdging::default();
+        let FontOptions {
+            mut font_list,
+            mut size,
+            mut bold,
+            mut italic,
+            mut allow_float_size,
+            mut edging,
+            mut hinting,
+        } = FontOptions::default();
 
         let mut parts = guifont_setting.split(':').filter(|part| !part.is_empty());
 
@@ -47,7 +49,7 @@ impl FontOptions {
                     allow_float_size = true;
                 }
                 if let Ok(parsed_size) = part[1..].parse::<f32>() {
-                    size = parsed_size
+                    size = points_to_pixels(parsed_size)
                 }
             } else if part == "b" {
                 bold = true;
@@ -63,7 +65,7 @@ impl FontOptions {
             allow_float_size,
             hinting,
             edging,
-            size: points_to_pixels(size),
+            size,
         }
     }
 
