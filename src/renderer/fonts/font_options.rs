@@ -15,15 +15,7 @@ pub struct FontOptions {
 
 impl FontOptions {
     pub fn parse(guifont_setting: &str) -> FontOptions {
-        let FontOptions {
-            mut font_list,
-            mut size,
-            mut bold,
-            mut italic,
-            mut allow_float_size,
-            mut edging,
-            mut hinting,
-        } = FontOptions::default();
+        let mut font_options = FontOptions::default();
 
         let mut parts = guifont_setting.split(':').filter(|part| !part.is_empty());
 
@@ -35,38 +27,30 @@ impl FontOptions {
                 .collect();
 
             if !parsed_font_list.is_empty() {
-                font_list = parsed_font_list;
+                font_options.font_list = parsed_font_list;
             }
         }
 
         for part in parts {
             if let Some(hinting_string) = part.strip_prefix("#h-") {
-                hinting = FontHinting::parse(hinting_string);
+                font_options.hinting = FontHinting::parse(hinting_string);
             } else if let Some(edging_string) = part.strip_prefix("#e-") {
-                edging = FontEdging::parse(edging_string);
+                font_options.edging = FontEdging::parse(edging_string);
             } else if part.starts_with('h') && part.len() > 1 {
                 if part.contains('.') {
-                    allow_float_size = true;
+                    font_options.allow_float_size = true;
                 }
                 if let Ok(parsed_size) = part[1..].parse::<f32>() {
-                    size = points_to_pixels(parsed_size)
+                    font_options.size = points_to_pixels(parsed_size)
                 }
             } else if part == "b" {
-                bold = true;
+                font_options.bold = true;
             } else if part == "i" {
-                italic = true;
+                font_options.italic = true;
             }
         }
 
-        FontOptions {
-            font_list,
-            bold,
-            italic,
-            allow_float_size,
-            hinting,
-            edging,
-            size,
-        }
+        font_options
     }
 
     pub fn primary_font(&self) -> Option<String> {
