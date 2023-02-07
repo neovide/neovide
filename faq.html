@@ -151,12 +151,12 @@ your terminal adds these keybindings, as neovim doesn't have them by default. We
 this behavior by adding keybindings in neovim.</p>
 <pre><code class="language-lua">if vim.g.neovide then
   vim.g.neovide_input_use_logo = 1 -- enable use of the logo (cmd) key
-  vim.keymap.set.map('n', '&lt;D-s&gt;', ':w&lt;CR&gt;') -- Save
-  vim.keymap.set.map('v', '&lt;D-c&gt;', '&quot;+y') -- Copy
-  vim.keymap.set.map('n', '&lt;D-v&gt;', '&quot;+P') -- Paste normal mode
-  vim.keymap.set.map('v', '&lt;D-v&gt;', '&quot;+P') -- Paste visual mode
-  vim.keymap.set.map('c', '&lt;D-v&gt;', '&lt;C-R&gt;+') -- Paste command mode
-  vim.keymap.set.map('i', '&lt;D-v&gt;', '&lt;ESC&gt;l&quot;+Pli') -- Paste insert mode
+  vim.keymap.set('n', '&lt;D-s&gt;', ':w&lt;CR&gt;') -- Save
+  vim.keymap.set('v', '&lt;D-c&gt;', '&quot;+y') -- Copy
+  vim.keymap.set('n', '&lt;D-v&gt;', '&quot;+P') -- Paste normal mode
+  vim.keymap.set('v', '&lt;D-v&gt;', '&quot;+P') -- Paste visual mode
+  vim.keymap.set('c', '&lt;D-v&gt;', '&lt;C-R&gt;+') -- Paste command mode
+  vim.keymap.set('i', '&lt;D-v&gt;', '&lt;ESC&gt;l&quot;+Pli') -- Paste insert mode
 end
 
 -- Allow clipboard copy paste in neovim
