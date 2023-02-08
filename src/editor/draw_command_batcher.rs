@@ -17,8 +17,10 @@ impl DrawCommandBatcher {
         }
     }
 
-    pub fn queue(&self, draw_command: DrawCommand) -> Result<(), SendError<DrawCommand>> {
-        self.window_draw_command_sender.send(draw_command)
+    pub fn queue(&self, draw_command: DrawCommand) -> Result<(), Box<SendError<DrawCommand>>> {
+        self.window_draw_command_sender
+            .send(draw_command)
+            .map_err(Box::new)
     }
 
     pub fn send_batch(&self) {

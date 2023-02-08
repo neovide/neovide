@@ -3,7 +3,7 @@ use core::fmt;
 use clap::{builder::PossibleValue, ValueEnum};
 
 // Options for the frame decorations
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Frame {
     Full,
     #[cfg(target_os = "macos")]

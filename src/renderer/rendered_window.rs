@@ -50,7 +50,7 @@ pub enum WindowDrawCommand {
     },
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct WindowPadding {
     pub top: u32,
     pub left: u32,
@@ -268,7 +268,7 @@ impl RenderedWindow {
         let pixel_region = self.pixel_region(font_dimensions);
 
         root_canvas.save();
-        root_canvas.clip_rect(&pixel_region, None, Some(false));
+        root_canvas.clip_rect(pixel_region, None, Some(false));
 
         if self.floating_order.is_none() {
             root_canvas.clear(default_background);

@@ -119,7 +119,7 @@ fn nvim_cmd_impl(bin: &str, args: &[String]) -> TokioCommand {
 fn nvim_cmd_impl(bin: &str, args: &[String]) -> TokioCommand {
     if cfg!(target_os = "windows") && SETTINGS.get::<CmdLineSettings>().wsl {
         let mut cmd = TokioCommand::new("wsl");
-        cmd.args(&["$SHELL", "-lc", &format!("{} {}", bin, args.join(" "))]);
+        cmd.args(["$SHELL", "-lc", &format!("{} {}", bin, args.join(" "))]);
         cmd
     } else {
         let mut cmd = TokioCommand::new(bin);
