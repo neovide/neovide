@@ -129,16 +129,9 @@ impl LocatedSurface {
     }
 }
 
-#[derive(Copy, Clone)]
-struct PositionOverride {
-    top_line: u64,
-    current_scroll: f32,
-}
-
 pub struct RenderedWindow {
     snapshots: VecDeque<LocatedSnapshot>,
     pub current_surface: LocatedSurface,
-    position_override: Option<PositionOverride>,
 
     pub id: u64,
     pub hidden: bool,
@@ -180,7 +173,6 @@ impl RenderedWindow {
         RenderedWindow {
             snapshots: VecDeque::new(),
             current_surface,
-            position_override: None,
             id,
             hidden: false,
             floating_order: None,
@@ -325,14 +317,9 @@ impl RenderedWindow {
             );
         }
 
-        let (top_line, current_scroll) = self
-            .position_override
-            .as_ref()
-            .map(|&pos| (pos.top_line, pos.current_scroll))
-            .unwrap_or((self.current_surface.top_line, self.current_scroll));
-        let scroll_offset = (top_line * font_height) as f32 - (current_scroll * font_height as f32);
-
         // Draw current surface.
+        let scroll_offset = (self.current_surface.top_line * font_height) as f32
+            - (self.current_scroll * font_height as f32);
         let snapshot = self.current_surface.surface.image_snapshot();
         root_canvas.draw_image_rect(
             snapshot,
@@ -457,10 +444,6 @@ impl RenderedWindow {
                     grid_renderer.draw_foreground(canvas, text, grid_position, width, &style);
                 }
                 canvas.restore();
-
-                if self.position_override.is_some() {
-                    self.position_override = None;
-                }
             }
             WindowDrawCommand::Scroll {
                 top,
@@ -527,13 +510,6 @@ impl RenderedWindow {
 
                     if self.snapshots.len() > 5 {
                         self.snapshots.pop_front();
-                    }
-
-                    if self.position_override.is_none() {
-                        self.position_override = Some(PositionOverride {
-                            top_line: self.current_surface.top_line,
-                            current_scroll: self.current_scroll,
-                        });
                     }
 
                     self.current_surface.top_line = top_line as u64;
