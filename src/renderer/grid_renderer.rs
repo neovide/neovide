@@ -72,7 +72,7 @@ impl GridRenderer {
         self.update_font_dimensions();
     }
 
-    pub fn update_linespace(&mut self, linespace_setting: &i64) {
+    pub fn update_linespace(&mut self, linespace_setting: i64) {
         self.shaper.update_linespace(linespace_setting);
         self.update_font_dimensions();
     }
