@@ -69,6 +69,7 @@ pub enum DrawCommand {
     },
     UpdateCursor(Cursor),
     FontChanged(String),
+    LineSpaceChanged(u64),
     DefaultStyleChanged(Style),
     ModeChanged(EditorMode),
 }
@@ -275,6 +276,9 @@ impl Renderer {
             }
             DrawCommand::FontChanged(new_font) => {
                 self.grid_renderer.update_font(&new_font);
+            }
+            DrawCommand::LineSpaceChanged(new_linespace) => {
+                self.grid_renderer.update_linespace(&new_linespace);
             }
             DrawCommand::DefaultStyleChanged(new_style) => {
                 self.grid_renderer.default_style = Arc::new(new_style);

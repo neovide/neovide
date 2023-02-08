@@ -424,16 +424,27 @@ impl Editor {
 
     fn set_option(&mut self, gui_option: GuiOption) {
         trace!("Option set {:?}", &gui_option);
-        if let GuiOption::GuiFont(guifont) = gui_option {
-            if guifont == *"*" {
-                EVENT_AGGREGATOR.send(WindowCommand::ListAvailableFonts);
+
+        match gui_option {
+            GuiOption::GuiFont(guifont) => {
+                if guifont == *"*" {
+                    EVENT_AGGREGATOR.send(WindowCommand::ListAvailableFonts);
+                }
+
+                self.draw_command_batcher
+                    .queue(DrawCommand::FontChanged(guifont))
+                    .ok();
+
+                self.redraw_screen();
             }
+            GuiOption::LineSpace(linespace) => {
+                self.draw_command_batcher
+                    .queue(DrawCommand::LineSpaceChanged(linespace))
+                    .ok();
 
-            self.draw_command_batcher
-                .queue(DrawCommand::FontChanged(guifont))
-                .ok();
-
-            self.redraw_screen();
+                self.redraw_screen();
+            }
+            _ => (),
         }
     }
 

@@ -32,6 +32,7 @@ pub struct CachingShaper {
     shape_context: ShapeContext,
     scale_factor: f32,
     fudge_factor: f32,
+    linespace: u64,
 }
 
 impl CachingShaper {
@@ -45,6 +46,7 @@ impl CachingShaper {
             shape_context: ShapeContext::new(),
             scale_factor,
             fudge_factor: 1.0,
+            linespace: 0,
         };
         shaper.reset_font_loader();
         shaper
@@ -94,6 +96,26 @@ impl CachingShaper {
             self.reset_font_loader();
         } else {
             debug!("Font can't be updated to: {}", guifont_setting);
+        }
+    }
+
+    pub fn update_linespace(&mut self, linespace: &u64) {
+        debug!("Updating linespace: {}", linespace);
+
+        let font_key = FontKey {
+            italic: false,
+            bold: false,
+            family_name: self.options.primary_font(),
+            hinting: self.options.hinting.clone(),
+            edging: self.options.edging.clone(),
+        };
+
+        if self.font_loader.get_or_load(&font_key).is_some() {
+            debug!("Linespace updated to: {}", linespace);
+            self.linespace = *linespace;
+            self.reset_font_loader();
+        } else {
+            debug!("Linespace can't be updated to: {}", linespace);
         }
     }
 
@@ -153,7 +175,8 @@ impl CachingShaper {
 
     pub fn font_base_dimensions(&mut self) -> (u64, u64) {
         let (metrics, glyph_advance) = self.info();
-        let font_height = (metrics.ascent + metrics.descent + metrics.leading).ceil() as u64;
+        let font_height =
+            (metrics.ascent + metrics.descent + metrics.leading).ceil() as u64 + self.linespace;
         let font_width = (glyph_advance + 0.5).floor() as u64;
 
         (font_width, font_height)
