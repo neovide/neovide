@@ -3,11 +3,11 @@ name: Lint Website
 on:
   push:
     paths:
-      - ".github/workflows/lint.yml"
+      - ".github/workflows/lint-website.yml"
       - "website/**/*.md"
   pull_request:
     paths:
-      - ".github/workflows/lint.yml"
+      - ".github/workflows/lint-website.yml"
       - "website/**/*.md"
 
 jobs:
