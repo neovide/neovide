@@ -179,7 +179,7 @@ impl CachingShaper {
         let mut font_height = (metrics.ascent + metrics.descent + metrics.leading).ceil() as i64;
 
         let font_height_threshold = 10;
-        if self.linespace < 0 && font_height < -self.linespace {
+        if self.linespace < 0 && font_height - font_height_threshold < -self.linespace {
             font_height = font_height_threshold
         } else {
             font_height += self.linespace
