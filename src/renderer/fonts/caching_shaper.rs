@@ -32,7 +32,7 @@ pub struct CachingShaper {
     shape_context: ShapeContext,
     scale_factor: f32,
     fudge_factor: f32,
-    linespace: u64,
+    linespace: i64,
 }
 
 impl CachingShaper {
@@ -99,7 +99,7 @@ impl CachingShaper {
         }
     }
 
-    pub fn update_linespace(&mut self, linespace: &u64) {
+    pub fn update_linespace(&mut self, linespace: &i64) {
         debug!("Updating linespace: {}", linespace);
 
         let font_key = FontKey {
@@ -175,11 +175,26 @@ impl CachingShaper {
 
     pub fn font_base_dimensions(&mut self) -> (u64, u64) {
         let (metrics, glyph_advance) = self.info();
-        let font_height =
-            (metrics.ascent + metrics.descent + metrics.leading).ceil() as u64 + self.linespace;
         let font_width = (glyph_advance + 0.5).floor() as u64;
+        let mut font_height = (metrics.ascent + metrics.descent + metrics.leading).ceil() as i64;
 
-        (font_width, font_height)
+        let font_height_threshold = 10;
+        if self.linespace < 0 {
+            if font_height < -self.linespace {
+                font_height = font_height_threshold
+            } else {
+                font_height += self.linespace
+            }
+        } else {
+            font_height += self.linespace
+        }
+
+        (
+            font_width,
+            font_height
+                .try_into()
+                .unwrap_or_else(|_| font_height_threshold.try_into().unwrap()),
+        )
     }
 
     pub fn underline_position(&mut self) -> u64 {

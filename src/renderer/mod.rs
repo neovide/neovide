@@ -69,7 +69,7 @@ pub enum DrawCommand {
     },
     UpdateCursor(Cursor),
     FontChanged(String),
-    LineSpaceChanged(u64),
+    LineSpaceChanged(i64),
     DefaultStyleChanged(Style),
     ModeChanged(EditorMode),
 }
