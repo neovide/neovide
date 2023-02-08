@@ -25,7 +25,7 @@ jobs:
         run: cargo fmt --all --check
 
       - name: Run clippy
-        run: cargo clippy
+        run: cargo clippy -- -D warnings
 
   test:
     needs: lint
