@@ -117,9 +117,7 @@ pub fn save_window_geometry(
 }
 
 pub fn parse_window_geometry(input: &str) -> Result<Dimensions, String> {
-    let invalid_parse_err = format!(
-        "Invalid geometry: {input}\nValid format: <width>x<height>"
-    );
+    let invalid_parse_err = format!("Invalid geometry: {input}\nValid format: <width>x<height>");
 
     input
         .split('x')

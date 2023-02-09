@@ -100,8 +100,7 @@ fn parse_font_name(font_name: impl AsRef<str>) -> String {
     parsed_font_name
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Default)]
 pub enum FontEdging {
     #[default]
     AntiAlias,
@@ -119,10 +118,7 @@ impl FontEdging {
     }
 }
 
-
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Default)]
 pub enum FontHinting {
     #[default]
     Full,
@@ -141,8 +137,6 @@ impl FontHinting {
         }
     }
 }
-
-
 
 fn points_to_pixels(value: f32) -> f32 {
     // Fonts in neovim are using points, not pixels.

@@ -3,8 +3,7 @@ use core::fmt;
 use clap::{builder::PossibleValue, ValueEnum};
 
 // Options for the frame decorations
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[derive(Default)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
 pub enum Frame {
     #[default]
     Full,
@@ -29,8 +28,6 @@ impl From<&'_ Frame> for &'static str {
         }
     }
 }
-
-
 
 impl ValueEnum for Frame {
     fn value_variants<'a>() -> &'a [Self] {

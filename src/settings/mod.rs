@@ -118,9 +118,7 @@ impl Settings {
             );
             nvim.command(&vimscript)
                 .await
-                .unwrap_or_explained_panic(&format!(
-                    "Could not setup setting notifier for {name}"
-                ));
+                .unwrap_or_explained_panic(&format!("Could not setup setting notifier for {name}"));
         }
     }
 
