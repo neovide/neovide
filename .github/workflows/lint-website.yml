@@ -16,7 +16,7 @@ on:
 jobs:
   lint:
     name: Lint website
-    runs-on: ubuntu-la
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v3
