@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use log::{debug, trace, warn};
+use log::{debug, error, trace, warn};
 use lru::LruCache;
 use skia_safe::{
     graphics::{font_cache_limit, font_cache_used, set_font_cache_limit},
@@ -32,6 +32,7 @@ pub struct CachingShaper {
     shape_context: ShapeContext,
     scale_factor: f32,
     fudge_factor: f32,
+    linespace: i64,
 }
 
 impl CachingShaper {
@@ -45,6 +46,7 @@ impl CachingShaper {
             shape_context: ShapeContext::new(),
             scale_factor,
             fudge_factor: 1.0,
+            linespace: 0,
         };
         shaper.reset_font_loader();
         shaper
@@ -93,7 +95,27 @@ impl CachingShaper {
             self.options = options;
             self.reset_font_loader();
         } else {
-            debug!("Font can't be updated to: {}", guifont_setting);
+            error!("Font can't be updated to: {}", guifont_setting);
+        }
+    }
+
+    pub fn update_linespace(&mut self, linespace: i64) {
+        debug!("Updating linespace: {}", linespace);
+
+        let font_height = self.font_base_dimensions().1;
+        let impossible_linespace = font_height as i64 + linespace <= 0;
+
+        if !impossible_linespace {
+            debug!("Linespace updated to: {linespace}");
+            self.linespace = linespace;
+            self.reset_font_loader();
+        } else {
+            let reason = if impossible_linespace {
+                "Linespace too negative, would make font invisible"
+            } else {
+                "Font not found"
+            };
+            error!("Linespace can't be updated to {linespace} due to: {reason}");
         }
     }
 
@@ -153,10 +175,16 @@ impl CachingShaper {
 
     pub fn font_base_dimensions(&mut self) -> (u64, u64) {
         let (metrics, glyph_advance) = self.info();
-        let font_height = (metrics.ascent + metrics.descent + metrics.leading).ceil() as u64;
         let font_width = (glyph_advance + 0.5).floor() as u64;
 
-        (font_width, font_height)
+        let bare_font_height = (metrics.ascent + metrics.descent + metrics.leading).ceil();
+        let font_height = bare_font_height as i64 + self.linespace;
+
+        (
+            font_width,
+            font_height as u64, // assuming that linespace is checked on receive for
+                                // validity
+        )
     }
 
     pub fn underline_position(&mut self) -> u64 {
