@@ -102,20 +102,10 @@ impl CachingShaper {
     pub fn update_linespace(&mut self, linespace: i64) {
         debug!("Updating linespace: {}", linespace);
 
-        let font_key = FontKey {
-            italic: false,
-            bold: false,
-            family_name: self.options.primary_font(),
-            hinting: self.options.hinting.clone(),
-            edging: self.options.edging.clone(),
-        };
-
-        let font_present = self.font_loader.get_or_load(&font_key).is_some();
-
         let font_height = self.font_base_dimensions().1;
         let impossible_linespace = font_height as i64 + linespace <= 0;
 
-        if font_present && !impossible_linespace {
+        if !impossible_linespace {
             debug!("Linespace updated to: {linespace}");
             self.linespace = linespace;
             self.reset_font_loader();
