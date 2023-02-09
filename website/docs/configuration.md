@@ -77,6 +77,22 @@ as such it's also documented in `:h guifont`. But to sum it up and also add Neov
   - `Roboto_Mono_Light:h10` — Roboto Mono Light at size 10.
   - `Hack:h14:i:#e-subpixelantialias:#h-none`
 
+#### Line spacing
+
+VimScript:
+
+```vim
+set linespace=0
+```
+
+Lua:
+
+```lua
+vim.opt.linespace = 0
+```
+
+Controls spacing between lines, may also be negative.
+
 #### Scale
 
 VimScript:
