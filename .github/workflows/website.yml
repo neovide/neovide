@@ -1,10 +1,5 @@
 name: Build and Publish Website
 
-permissions:
-  contents: read
-  deployments: read|write
-  pages: read|write
-
 on:
   push:
     paths:
