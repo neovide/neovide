@@ -285,8 +285,8 @@ vim.g.neovide_refresh_rate_idle = 5
 
 **Available since 0.10.**
 
-Setting `g:neovide_refresh_rate_idle` to a positive integer will set the refresh rate of the app when
-it is not in focus.
+Setting `g:neovide_refresh_rate_idle` to a positive integer will set the refresh rate of the app
+when it is not in focus.
 
 This might not have an effect on every platform (e.g. Wayland).
 
