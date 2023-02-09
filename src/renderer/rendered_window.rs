@@ -312,7 +312,7 @@ impl RenderedWindow {
             root_canvas.draw_image_rect(
                 image,
                 None,
-                pixel_region.with_offset((0.0, scroll_offset as f32)),
+                pixel_region.with_offset((0.0, scroll_offset)),
                 &paint,
             );
         }
@@ -324,7 +324,7 @@ impl RenderedWindow {
         root_canvas.draw_image_rect(
             snapshot,
             None,
-            pixel_region.with_offset((0.0, scroll_offset as f32)),
+            pixel_region.with_offset((0.0, scroll_offset)),
             &paint,
         );
 

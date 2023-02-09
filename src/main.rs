@@ -144,7 +144,7 @@ fn protected_main() {
 
     //Will exit if -h or -v
     if let Err(err) = cmd_line::handle_command_line_arguments(args().collect()) {
-        eprintln!("{}", err);
+        eprintln!("{err}");
         return;
     }
 

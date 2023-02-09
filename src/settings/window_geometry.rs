@@ -49,7 +49,7 @@ fn settings_path() -> PathBuf {
 
 fn load_settings() -> Result<PersistentSettings, String> {
     let settings_path = settings_path();
-    let json = std::fs::read_to_string(&settings_path).map_err(|e| e.to_string())?;
+    let json = std::fs::read_to_string(settings_path).map_err(|e| e.to_string())?;
     serde_json::from_str(&json).map_err(|e| e.to_string())
 }
 
@@ -118,8 +118,7 @@ pub fn save_window_geometry(
 
 pub fn parse_window_geometry(input: &str) -> Result<Dimensions, String> {
     let invalid_parse_err = format!(
-        "Invalid geometry: {}\nValid format: <width>x<height>",
-        input
+        "Invalid geometry: {input}\nValid format: <width>x<height>"
     );
 
     input

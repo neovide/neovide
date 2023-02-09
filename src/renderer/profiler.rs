@@ -114,19 +114,19 @@ impl Profiler {
 
         // Show min, max, avg (average).
         root_canvas.draw_str(
-            format!("min: {:.1}ms", min_ft),
+            format!("min: {min_ft:.1}ms"),
             (rect.left, rect.bottom),
             &self.font.skia_font,
             &paint,
         );
         root_canvas.draw_str(
-            format!("avg: {:.1}ms", avg),
+            format!("avg: {avg:.1}ms"),
             (rect.left, rect.bottom - graph_height * 0.5),
             &self.font.skia_font,
             &paint,
         );
         root_canvas.draw_str(
-            format!("max: {:.1}ms", max_ft),
+            format!("max: {max_ft:.1}ms"),
             (rect.left, rect.bottom - graph_height),
             &self.font.skia_font,
             &paint,

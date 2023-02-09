@@ -6,7 +6,7 @@ use syn::{parse_macro_input, Attribute, Data, DataStruct, DeriveInput, Error, Id
 pub fn setting_group(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
     let prefix = setting_prefix(input.attrs.as_ref())
-        .map(|p| format!("{}_", p))
+        .map(|p| format!("{p}_"))
         .unwrap_or_else(|| "".to_string());
     stream(input, prefix)
 }
@@ -27,7 +27,7 @@ fn stream(input: DeriveInput, prefix: String) -> TokenStream {
 fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream {
     let fragments = data.fields.iter().map(|field| match field.ident {
         Some(ref ident) => {
-            let vim_setting_name = format!("{}{}", prefix, ident);
+            let vim_setting_name = format!("{prefix}{ident}");
             quote! {{
                 fn update_func(value: rmpv::Value) {
                     let mut s = crate::settings::SETTINGS.get::<#name>();

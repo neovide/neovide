@@ -4,7 +4,9 @@ use clap::{builder::PossibleValue, ValueEnum};
 
 // Options for the frame decorations
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Default)]
 pub enum Frame {
+    #[default]
     Full,
     #[cfg(target_os = "macos")]
     Transparent,
@@ -28,11 +30,7 @@ impl From<&'_ Frame> for &'static str {
     }
 }
 
-impl Default for Frame {
-    fn default() -> Frame {
-        Frame::Full
-    }
-}
+
 
 impl ValueEnum for Frame {
     fn value_variants<'a>() -> &'a [Self] {

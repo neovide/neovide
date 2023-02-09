@@ -60,8 +60,7 @@ pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>, is_remote: b
 
     if let Err(command_error) = nvim.command("runtime! ginit.vim").await {
         nvim.command(&format!(
-            "echomsg \"error encountered in ginit.vim {:?}\"",
-            command_error
+            "echomsg \"error encountered in ginit.vim {command_error:?}\""
         ))
         .await
         .ok();

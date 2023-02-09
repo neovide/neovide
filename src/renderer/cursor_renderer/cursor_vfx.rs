@@ -249,7 +249,7 @@ impl CursorVfx for ParticleTrail {
             let travel_distance = travel.length();
 
             // Increase amount of particles when cursor travels further
-            let particle_count = ((travel_distance / cursor_dimensions.y as f32).powf(1.5)
+            let particle_count = ((travel_distance / cursor_dimensions.y).powf(1.5)
                 * settings.vfx_particle_density
                 * 0.01) as usize;
 
@@ -262,7 +262,7 @@ impl CursorVfx for ParticleTrail {
                     TrailMode::Railgun => {
                         let phase = t / std::f32::consts::PI
                             * settings.vfx_particle_phase
-                            * (travel_distance / cursor_dimensions.y as f32);
+                            * (travel_distance / cursor_dimensions.y);
                         Point::new(phase.sin(), phase.cos()) * 2.0 * settings.vfx_particle_speed
                     }
                     TrailMode::Torpedo => {
@@ -285,7 +285,7 @@ impl CursorVfx for ParticleTrail {
                     TrailMode::PixieDust | TrailMode::Torpedo => {
                         prev_p
                             + travel * self.rng.next_f32()
-                            + Point::new(0.0, cursor_dimensions.y as f32 * 0.5)
+                            + Point::new(0.0, cursor_dimensions.y * 0.5)
                     }
                 };
 
