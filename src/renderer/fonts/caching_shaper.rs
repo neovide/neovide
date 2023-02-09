@@ -193,7 +193,7 @@ impl CachingShaper {
         (
             font_width,
             font_height as u64, // assuming that linespace is checked on receive for
-                                // invalidity
+                                // validity
         )
     }
 
