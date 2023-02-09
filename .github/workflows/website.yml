@@ -2,8 +2,8 @@ name: Build and Publish Website
 
 permissions:
   contents: read
-  deployments: write
-  pages: write
+  deployments: read|write
+  pages: read|write
 
 on:
   push:
