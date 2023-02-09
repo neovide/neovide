@@ -1,4 +1,7 @@
-name: Check for successful frozen builds on release
+name: Check Frozen Release Builds
+
+permissions:
+  contents: read
 
 on:
   release:
@@ -11,11 +14,5 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Install Nightly Toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
-
-      - run: cargo build --frozen
+      - name: Build
+        run: cargo build --frozen
