@@ -181,7 +181,7 @@ jobs:
           elif [[ $RUNNER_OS == "Linux" ]]; then
             # archive artifact
             strip neovide
-            tar czvf neovide-linux.tar.gz neovide
+            tar czvf neovide-linux-x86_64.tar.gz neovide
             # create appimage
             curl -Lo linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/latest/download/linuxdeploy-x86_64.AppImage
             chmod +x linuxdeploy
@@ -194,7 +194,7 @@ jobs:
 
             find . -type f -name 'Neovide_(nvim)-*.AppImage' -exec mv {} neovide.AppImage \;
 
-            echo "ARTIFACT=neovide-linux.tar.gz" >> $GITHUB_ENV
+            echo "ARTIFACT=neovide-linux-x86_64.tar.gz" >> $GITHUB_ENV
             echo "ARTIFACT2=neovide.AppImage" >> $GITHUB_ENV
           fi
 
