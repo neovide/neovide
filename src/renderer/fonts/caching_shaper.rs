@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use log::{debug, trace, warn};
+use log::{debug, error, trace, warn};
 use lru::LruCache;
 use skia_safe::{
     graphics::{font_cache_limit, font_cache_used, set_font_cache_limit},
@@ -110,12 +110,22 @@ impl CachingShaper {
             edging: self.options.edging.clone(),
         };
 
-        if self.font_loader.get_or_load(&font_key).is_some() {
-            debug!("Linespace updated to: {}", linespace);
+        let font_present = self.font_loader.get_or_load(&font_key).is_some();
+
+        let font_height = self.font_base_dimensions().1;
+        let impossible_linespace = font_height as i64 + linespace <= 0;
+
+        if font_present && !impossible_linespace {
+            debug!("Linespace updated to: {linespace}");
             self.linespace = linespace;
             self.reset_font_loader();
         } else {
-            debug!("Linespace can't be updated to: {}", linespace);
+            let reason = if impossible_linespace {
+                "Linespace too negative, would make font invisible"
+            } else {
+                "Font not found"
+            };
+            error!("Linespace can't be updated to {linespace} due to: {reason}");
         }
     }
 
@@ -176,20 +186,14 @@ impl CachingShaper {
     pub fn font_base_dimensions(&mut self) -> (u64, u64) {
         let (metrics, glyph_advance) = self.info();
         let font_width = (glyph_advance + 0.5).floor() as u64;
-        let mut font_height = (metrics.ascent + metrics.descent + metrics.leading).ceil() as i64;
 
-        let font_height_threshold = 10;
-        if self.linespace < 0 && font_height - font_height_threshold < -self.linespace {
-            font_height = font_height_threshold
-        } else {
-            font_height += self.linespace
-        }
+        let bare_font_height = (metrics.ascent + metrics.descent + metrics.leading).ceil();
+        let font_height = bare_font_height as i64 + self.linespace;
 
         (
             font_width,
-            font_height
-                .try_into()
-                .unwrap_or_else(|_| font_height_threshold.try_into().unwrap()),
+            font_height as u64, // assuming that linespace is checked on receive for
+                                // invalidity
         )
     }
 
