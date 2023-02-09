@@ -95,7 +95,7 @@ impl CachingShaper {
             self.options = options;
             self.reset_font_loader();
         } else {
-            debug!("Font can't be updated to: {}", guifont_setting);
+            error!("Font can't be updated to: {}", guifont_setting);
         }
     }
 
