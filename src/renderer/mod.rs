@@ -148,7 +148,7 @@ impl Renderer {
         let mut font_changed = false;
 
         for draw_command in draw_commands.into_iter() {
-            if let DrawCommand::FontChanged(_) = draw_command {
+            if let DrawCommand::FontChanged(_) | DrawCommand::LineSpaceChanged(_) = draw_command {
                 font_changed = true;
             }
             self.handle_draw_command(root_canvas, draw_command);
