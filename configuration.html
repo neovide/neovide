@@ -220,6 +220,14 @@ should Hack fail to contain any glyph.</li>
 </ul>
 </li>
 </ul>
+<h4 id="line-spacing"><a class="header" href="#line-spacing">Line spacing</a></h4>
+<p>VimScript:</p>
+<pre><code class="language-vim">set linespace=0
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.opt.linespace = 0
+</code></pre>
+<p>Controls spacing between lines, may also be negative.</p>
 <h4 id="scale"><a class="header" href="#scale">Scale</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_scale_factor = 1.0
@@ -328,8 +336,8 @@ not mean better FPS.</p>
 <pre><code class="language-lua">vim.g.neovide_refresh_rate_idle = 5
 </code></pre>
 <p><strong>Available since 0.10.</strong></p>
-<p>Setting <code>g:neovide_refresh_rate_idle</code> to a positive integer will set the refresh rate of the app when
-it is not in focus.</p>
+<p>Setting <code>g:neovide_refresh_rate_idle</code> to a positive integer will set the refresh rate of the app
+when it is not in focus.</p>
 <p>This might not have an effect on every platform (e.g. Wayland).</p>
 <h4 id="no-idle"><a class="header" href="#no-idle">No Idle</a></h4>
 <p>VimScript:</p>
