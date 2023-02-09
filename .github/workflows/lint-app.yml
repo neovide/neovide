@@ -1,5 +1,9 @@
 name: Lint App
 
+permissions:
+  checks: write
+  contents: read
+
 on:
   push:
     branches: [main]

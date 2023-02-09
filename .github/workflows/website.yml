@@ -1,5 +1,9 @@
 name: Build and Publish Website
 
+permissions:
+  contents: read
+  deployments: write
+
 on:
   push:
     paths:

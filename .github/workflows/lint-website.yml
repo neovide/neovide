@@ -1,5 +1,8 @@
 name: Lint Website
 
+permissions:
+  contents: read
+
 on:
   push:
     paths:
@@ -13,7 +16,7 @@ on:
 jobs:
   lint:
     name: Lint website
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-la
 
     steps:
       - uses: actions/checkout@v3
