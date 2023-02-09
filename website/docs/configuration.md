@@ -526,7 +526,8 @@ Lua:
 vim.g.neovide_cursor_animate_in_insert_mode = true
 ```
 
-If disabled, when in insert mode (mostly through `i` or `a`), the cursor will move like in other programs and immediately jump to its new position.
+If disabled, when in insert mode (mostly through `i` or `a`), the cursor will move like in other
+programs and immediately jump to its new position.
 
 #### Animate switch to command line
 
@@ -542,7 +543,9 @@ Lua:
 vim.g.neovide_cursor_animate_command_line = true
 ```
 
-If disabled, the switch from editor window to command line is non-animated, and the cursor jumps between command line and editor window immediately. Does **not** influence animation inside of the command line.
+If disabled, the switch from editor window to command line is non-animated, and the cursor jumps
+between command line and editor window immediately. Does **not** influence animation inside of the
+command line.
 
 #### Unfocused Outline Width
 
