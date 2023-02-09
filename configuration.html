@@ -465,6 +465,22 @@ front edge.</p>
 <pre><code class="language-lua">vim.g.neovide_cursor_antialiasing = true
 </code></pre>
 <p>Enables or disables antialiasing of the cursor quad. Disabling may fix some cursor visual issues.</p>
+<h4 id="animate-in-insert-mode"><a class="header" href="#animate-in-insert-mode">Animate in insert mode</a></h4>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_cursor_animate_in_insert_mode = v:true
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_cursor_animate_in_insert_mode = true
+</code></pre>
+<p>If disabled, when in insert mode (mostly through <code>i</code> or <code>a</code>), the cursor will move like in other programs and immediately jump to its new position.</p>
+<h4 id="animate-switch-to-command-line"><a class="header" href="#animate-switch-to-command-line">Animate switch to command line</a></h4>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_cursor_animate_command_line = v:true
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_cursor_animate_command_line = true
+</code></pre>
+<p>If disabled, the switch from editor window to command line is non-animated, and the cursor jumps between command line and editor window immediately. Does <strong>not</strong> influence animation inside of the command line.</p>
 <h4 id="unfocused-outline-width"><a class="header" href="#unfocused-outline-width">Unfocused Outline Width</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_cursor_unfocused_outline_width = 0.125
