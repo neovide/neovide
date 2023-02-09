@@ -31,11 +31,6 @@ pub struct CursorSettings {
     animate_in_insert_mode: bool,
     animate_command_line: bool,
     trail_size: f32,
-
-    /// Specify cursor outline width in ems. You probably want this to be a positive value less
-    /// than 0.5. If the value is <=0 then the cursor will be invisible. This setting takes effect
-    /// when the editor window is unfocused, at which time a block cursor will be rendered as an
-    /// outline instead of as a full rectangle.
     unfocused_outline_width: f32,
 
     vfx_mode: cursor_vfx::VfxMode,

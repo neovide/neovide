@@ -512,6 +512,38 @@ vim.g.neovide_cursor_antialiasing = true
 
 Enables or disables antialiasing of the cursor quad. Disabling may fix some cursor visual issues.
 
+#### Animate in insert mode
+
+VimScript:
+
+```vim
+let g:neovide_cursor_animate_in_insert_mode = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_cursor_animate_in_insert_mode = true
+```
+
+If disabled, when in insert mode (mostly through `i` or `a`), the cursor will move like in other programs and immediately jump to its new position.
+
+#### Animate switch to command line
+
+VimScript:
+
+```vim
+let g:neovide_cursor_animate_command_line = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_cursor_animate_command_line = true
+```
+
+If disabled, the switch from editor window to command line is non-animated, and the cursor jumps between command line and editor window immediately. Does **not** influence animation inside of the command line.
+
 #### Unfocused Outline Width
 
 VimScript:
