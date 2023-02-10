@@ -184,6 +184,13 @@ impl MouseManager {
             } else {
                 // otherwise, update the window_id_under_mouse to match the one selected
                 self.window_details_under_mouse = Some(relevant_window_details.clone());
+                EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::MouseButton {
+                    button: "move".into(),
+                    action: "dummy".into(), // this is ignored by nvim
+                    grid_id: relevant_window_details.id,
+                    position: self.relative_position.into(),
+                    modifier_string: keyboard_manager.format_modifier_string(true),
+                }))
             }
 
             self.has_moved = self.dragging.is_some() && (self.has_moved || has_moved);
