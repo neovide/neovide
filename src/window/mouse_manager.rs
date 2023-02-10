@@ -181,9 +181,12 @@ impl MouseManager {
                     position: self.drag_position.into(),
                     modifier_string: keyboard_manager.format_modifier_string(true),
                 }));
-            } else if has_moved {
+            } else {
                 // otherwise, update the window_id_under_mouse to match the one selected
                 self.window_details_under_mouse = Some(relevant_window_details.clone());
+            }
+            if has_moved {
+                // Send a mouse move command
                 EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::MouseButton {
                     button: "move".into(),
                     action: "dummy".into(), // this is ignored by nvim
