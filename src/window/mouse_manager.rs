@@ -181,7 +181,7 @@ impl MouseManager {
                     position: self.drag_position.into(),
                     modifier_string: keyboard_manager.format_modifier_string(true),
                 }));
-            } else {
+            } else if has_moved {
                 // otherwise, update the window_id_under_mouse to match the one selected
                 self.window_details_under_mouse = Some(relevant_window_details.clone());
                 EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::MouseButton {
