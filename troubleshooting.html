@@ -149,12 +149,13 @@
 <p>Should Neovide happen not to start at all, check the following:</p>
 <ul>
 <li>
-<p>if you're using zsh <code>~/.zshenv</code>, <code>~/.zprofile</code> and  <code>~/.zlogin</code>, or whatever the equivalent for
-your shell is if anything emits output during shell startup, since Neovide uses your shell to
-find <code>nvim</code>. You can instead use <code>~/.zshrc</code>.</p>
+<p>Shell startup files if they output anything during startup, like <code>neofetch</code> or <code>echo</code>.
+Neovide uses your shell to find <code>nvim</code> and can't know the difference bewteen output and
+<code>nvim</code>'s path. You can use your resource file (in the case of zsh <code>~/.zshrc</code>) instead for
+such commands.</p>
 </li>
 <li>
-<p>whether you can reproduce this by running from the latest git main commit.
+<p>Whether or not you can reproduce this by running from the latest git main commit.
 This can be done by running from source or just grabbing the binary from the <a href="https://github.com/neovide/neovide/actions/workflows/build.yml"><code>Actions</code> tab on
 GitHub</a>.</p>
 </li>
