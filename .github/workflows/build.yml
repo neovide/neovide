@@ -20,16 +20,7 @@ defaults:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Run rustfmt
-        run: cargo fmt --all --check
-
-      - name: Run clippy
-        run: cargo clippy -- -D warnings
+    uses: ./.github/workflows/lint-app.yml
 
   test:
     needs: lint
@@ -77,16 +68,21 @@ jobs:
           cargo nextest run --profile ci
 
       - if: runner.os != 'Linux'
-        name: Publish test results for Windows and macOS
+        name: Publish test results for ${{ runner.os }}
         uses: EnricoMi/publish-unit-test-result-action/composite@v2
         with:
           junit_files: target/nextest/ci/results.xml
+          check_name: test results (${{ matrix.os }})
+          comment_title: Test Results
+          comment_mode: off
 
       - if: runner.os == 'Linux'
         name: Publish test results for Linux
         uses: EnricoMi/publish-unit-test-result-action@v2
         with:
           junit_files: target/nextest/ci/results.xml
+          check_name: test results (${{ matrix.os }})
+          comment_title: Test Results
 
   build-deploy:
     needs: test
@@ -99,8 +95,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Cargo cache
-        uses: actions/cache@v3
+      - uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/bin/
@@ -203,7 +198,7 @@ jobs:
           name: ${{ env.ARTIFACT }}
           path: target/release/${{ env.ARTIFACT }}
 
-      - if: runner.os != 'macOS'
+      - if: env.ARTIFACT2
         uses: actions/upload-artifact@v3
         with:
           name: ${{ env.ARTIFACT2 }}
