@@ -30,7 +30,7 @@ jobs:
         os: [windows-latest, macOS-11, ubuntu-latest]
         toolchain: [stable, nightly]
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.rust == 'nightly' }}
+    continue-on-error: ${{ matrix.toolchain == 'nightly' }}
 
     steps:
       - uses: actions/checkout@v3
@@ -72,7 +72,7 @@ jobs:
         uses: EnricoMi/publish-unit-test-result-action/composite@v2
         with:
           junit_files: target/nextest/ci/results.xml
-          check_name: test results (${{ matrix.os }})
+          check_name: test results (${{ matrix.os }}, ${{ matrix.toolchain }})
           comment_title: Test Results
           comment_mode: off
 
@@ -81,7 +81,7 @@ jobs:
         uses: EnricoMi/publish-unit-test-result-action@v2
         with:
           junit_files: target/nextest/ci/results.xml
-          check_name: test results (${{ matrix.os }})
+          check_name: test results (${{ matrix.os }}, ${{ matrix.toolchain }})
           comment_title: Test Results
 
   build-deploy:
