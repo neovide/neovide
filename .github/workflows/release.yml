@@ -1,5 +1,9 @@
 name: Releases
 
+permissions:
+  contents: read
+  secrets: read
+
 on:
   workflow_dispatch:
     inputs:
@@ -14,14 +18,14 @@ jobs:
 
     steps:
       - name: Check out Git repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - uses: snapcore/action-build@v1
         env:
           SNAPCRAFT_BUILD_ENVIRONMENT_MEMORY: 6G
         id: snapcraft
 
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v3
         with:
           name: snap
           path: ${{ steps.snapcraft.outputs.snap }}

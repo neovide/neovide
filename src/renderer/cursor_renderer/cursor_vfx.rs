@@ -27,21 +27,21 @@ pub trait CursorVfx {
     );
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub enum HighlightMode {
     SonicBoom,
     Ripple,
     Wireframe,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub enum TrailMode {
     Railgun,
     Torpedo,
     PixieDust,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub enum VfxMode {
     Highlight(HighlightMode),
     Trail(TrailMode),
@@ -159,17 +159,17 @@ impl CursorVfx for PointHighlight {
 
         match self.mode {
             HighlightMode::SonicBoom => {
-                canvas.draw_oval(&rect, &paint);
+                canvas.draw_oval(rect, &paint);
             }
             HighlightMode::Ripple => {
                 paint.set_style(Style::Stroke);
                 paint.set_stroke_width(cursor_height as f32 * 0.2);
-                canvas.draw_oval(&rect, &paint);
+                canvas.draw_oval(rect, &paint);
             }
             HighlightMode::Wireframe => {
                 paint.set_style(Style::Stroke);
                 paint.set_stroke_width(cursor_height as f32 * 0.2);
-                canvas.draw_rect(&rect, &paint);
+                canvas.draw_rect(rect, &paint);
             }
         }
     }
@@ -249,7 +249,7 @@ impl CursorVfx for ParticleTrail {
             let travel_distance = travel.length();
 
             // Increase amount of particles when cursor travels further
-            let particle_count = ((travel_distance / cursor_dimensions.y as f32).powf(1.5)
+            let particle_count = ((travel_distance / cursor_dimensions.y).powf(1.5)
                 * settings.vfx_particle_density
                 * 0.01) as usize;
 
@@ -262,7 +262,7 @@ impl CursorVfx for ParticleTrail {
                     TrailMode::Railgun => {
                         let phase = t / std::f32::consts::PI
                             * settings.vfx_particle_phase
-                            * (travel_distance / cursor_dimensions.y as f32);
+                            * (travel_distance / cursor_dimensions.y);
                         Point::new(phase.sin(), phase.cos()) * 2.0 * settings.vfx_particle_speed
                     }
                     TrailMode::Torpedo => {
@@ -285,7 +285,7 @@ impl CursorVfx for ParticleTrail {
                     TrailMode::PixieDust | TrailMode::Torpedo => {
                         prev_p
                             + travel * self.rng.next_f32()
-                            + Point::new(0.0, cursor_dimensions.y as f32 * 0.5)
+                            + Point::new(0.0, cursor_dimensions.y * 0.5)
                     }
                 };
 
@@ -355,10 +355,10 @@ impl CursorVfx for ParticleTrail {
 
             match self.trail_mode {
                 TrailMode::Torpedo | TrailMode::Railgun => {
-                    canvas.draw_oval(&rect, &paint);
+                    canvas.draw_oval(rect, &paint);
                 }
                 TrailMode::PixieDust => {
-                    canvas.draw_rect(&rect, &paint);
+                    canvas.draw_rect(rect, &paint);
                 }
             }
         });

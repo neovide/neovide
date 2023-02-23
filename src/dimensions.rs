@@ -25,8 +25,7 @@ impl Default for Dimensions {
 impl FromStr for Dimensions {
     type Err = String;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let invalid_parse_err =
-            format!("Invalid Dimensions: {}\nValid format: <width>x<height>", s);
+        let invalid_parse_err = format!("Invalid geometry: {s}\nValid format: <width>x<height>");
 
         s.split('x')
             .map(|dimension| {

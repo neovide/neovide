@@ -146,7 +146,7 @@ impl ParallelCommand {
                 .await
                 .expect("Focus Gained Failed"),
             ParallelCommand::FileDrop(path) => {
-                nvim.command(format!("e {}", path).as_str()).await.ok();
+                nvim.command(format!("e {path}").as_str()).await.ok();
             }
             ParallelCommand::DisplayAvailableFonts(fonts) => {
                 let mut content: Vec<String> = vec![

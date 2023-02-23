@@ -49,7 +49,7 @@ fn settings_path() -> PathBuf {
 
 fn load_settings() -> Result<PersistentSettings, String> {
     let settings_path = settings_path();
-    let json = std::fs::read_to_string(&settings_path).map_err(|e| e.to_string())?;
+    let json = std::fs::read_to_string(settings_path).map_err(|e| e.to_string())?;
     serde_json::from_str(&json).map_err(|e| e.to_string())
 }
 

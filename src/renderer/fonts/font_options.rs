@@ -15,13 +15,7 @@ pub struct FontOptions {
 
 impl FontOptions {
     pub fn parse(guifont_setting: &str) -> FontOptions {
-        let mut font_list = Vec::new();
-        let mut size = DEFAULT_FONT_SIZE;
-        let mut bold = false;
-        let mut italic = false;
-        let mut allow_float_size = false;
-        let mut hinting = FontHinting::default();
-        let mut edging = FontEdging::default();
+        let mut font_options = FontOptions::default();
 
         let mut parts = guifont_setting.split(':').filter(|part| !part.is_empty());
 
@@ -33,38 +27,30 @@ impl FontOptions {
                 .collect();
 
             if !parsed_font_list.is_empty() {
-                font_list = parsed_font_list;
+                font_options.font_list = parsed_font_list;
             }
         }
 
         for part in parts {
             if let Some(hinting_string) = part.strip_prefix("#h-") {
-                hinting = FontHinting::parse(hinting_string);
+                font_options.hinting = FontHinting::parse(hinting_string);
             } else if let Some(edging_string) = part.strip_prefix("#e-") {
-                edging = FontEdging::parse(edging_string);
+                font_options.edging = FontEdging::parse(edging_string);
             } else if part.starts_with('h') && part.len() > 1 {
                 if part.contains('.') {
-                    allow_float_size = true;
+                    font_options.allow_float_size = true;
                 }
                 if let Ok(parsed_size) = part[1..].parse::<f32>() {
-                    size = parsed_size
+                    font_options.size = points_to_pixels(parsed_size)
                 }
             } else if part == "b" {
-                bold = true;
+                font_options.bold = true;
             } else if part == "i" {
-                italic = true;
+                font_options.italic = true;
             }
         }
 
-        FontOptions {
-            font_list,
-            bold,
-            italic,
-            allow_float_size,
-            hinting,
-            edging,
-            size: points_to_pixels(size),
-        }
+        font_options
     }
 
     pub fn primary_font(&self) -> Option<String> {
@@ -114,8 +100,9 @@ fn parse_font_name(font_name: impl AsRef<str>) -> String {
     parsed_font_name
 }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Default)]
 pub enum FontEdging {
+    #[default]
     AntiAlias,
     SubpixelAntiAlias,
     Alias,
@@ -131,14 +118,9 @@ impl FontEdging {
     }
 }
 
-impl Default for FontEdging {
-    fn default() -> Self {
-        FontEdging::AntiAlias
-    }
-}
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Default)]
 pub enum FontHinting {
+    #[default]
     Full,
     Normal,
     Slight,
@@ -153,12 +135,6 @@ impl FontHinting {
             "slight" => FontHinting::Slight,
             _ => FontHinting::None,
         }
-    }
-}
-
-impl Default for FontHinting {
-    fn default() -> Self {
-        FontHinting::Full
     }
 }
 

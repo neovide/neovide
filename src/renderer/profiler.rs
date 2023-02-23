@@ -50,11 +50,11 @@ impl Profiler {
         // Draw FPS
         let color = Color::from_argb(255, 0, 255, 0);
         paint.set_color(color);
-        let mut text_postion = self.position;
-        text_postion.y += self.font.skia_font.size();
+        let mut text_position = self.position;
+        text_position.y += self.font.skia_font.size();
         root_canvas.draw_str(
             format!("{:.0}FPS", 1.0 / dt.max(f32::EPSILON)),
-            text_postion,
+            text_position,
             &self.font.skia_font,
             &paint,
         );
@@ -114,19 +114,19 @@ impl Profiler {
 
         // Show min, max, avg (average).
         root_canvas.draw_str(
-            format!("min: {:.1}ms", min_ft),
+            format!("min: {min_ft:.1}ms"),
             (rect.left, rect.bottom),
             &self.font.skia_font,
             &paint,
         );
         root_canvas.draw_str(
-            format!("avg: {:.1}ms", avg),
+            format!("avg: {avg:.1}ms"),
             (rect.left, rect.bottom - graph_height * 0.5),
             &self.font.skia_font,
             &paint,
         );
         root_canvas.draw_str(
-            format!("max: {:.1}ms", max_ft),
+            format!("max: {max_ft:.1}ms"),
             (rect.left, rect.bottom - graph_height),
             &self.font.skia_font,
             &paint,

@@ -87,7 +87,7 @@ impl Settings {
         let keys: Vec<String> = self.listeners.read().keys().cloned().collect();
 
         for name in keys {
-            let variable_name = format!("neovide_{}", name);
+            let variable_name = format!("neovide_{name}");
             match nvim.get_var(&variable_name).await {
                 Ok(value) => {
                     self.listeners.read().get(&name).unwrap()(value);
@@ -117,10 +117,7 @@ impl Settings {
             );
             nvim.command(&vimscript)
                 .await
-                .unwrap_or_explained_panic(&format!(
-                    "Could not setup setting notifier for {}",
-                    name
-                ));
+                .unwrap_or_explained_panic(&format!("Could not setup setting notifier for {name}"));
         }
     }
 
@@ -245,8 +242,8 @@ mod tests {
         let v1: String = "foo".to_string();
         let v2: String = "bar".to_string();
         let v3: String = "baz".to_string();
-        let v4: String = format!("neovide_{}", v1);
-        let v5: String = format!("neovide_{}", v2);
+        let v4: String = format!("neovide_{v1}");
+        let v5: String = format!("neovide_{v2}");
 
         //create_nvim_command tries to read from CmdLineSettings.neovim_args
         //TODO: this sets a static variable. Can this have side effects on other tests?

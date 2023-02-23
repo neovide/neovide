@@ -27,18 +27,18 @@ type Result<T> = std::result::Result<T, ParseError>;
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            ParseError::Array(value) => write!(f, "invalid array format {}", value),
-            ParseError::Map(value) => write!(f, "invalid map format {}", value),
-            ParseError::String(value) => write!(f, "invalid string format {}", value),
-            ParseError::U64(value) => write!(f, "invalid u64 format {}", value),
-            ParseError::I64(value) => write!(f, "invalid i64 format {}", value),
-            ParseError::F64(value) => write!(f, "invalid f64 format {}", value),
-            ParseError::Bool(value) => write!(f, "invalid bool format {}", value),
+            ParseError::Array(value) => write!(f, "invalid array format {value}"),
+            ParseError::Map(value) => write!(f, "invalid map format {value}"),
+            ParseError::String(value) => write!(f, "invalid string format {value}"),
+            ParseError::U64(value) => write!(f, "invalid u64 format {value}"),
+            ParseError::I64(value) => write!(f, "invalid i64 format {value}"),
+            ParseError::F64(value) => write!(f, "invalid f64 format {value}"),
+            ParseError::Bool(value) => write!(f, "invalid bool format {value}"),
             ParseError::WindowAnchor(value) => {
-                write!(f, "invalid window anchor format {}", value)
+                write!(f, "invalid window anchor format {value}")
             }
             ParseError::Format(debug_text) => {
-                write!(f, "invalid event format {}", debug_text)
+                write!(f, "invalid event format {debug_text}")
             }
         }
     }
@@ -104,7 +104,7 @@ pub enum GuiOption {
     GuiFont(String),
     GuiFontSet(String),
     GuiFontWide(String),
-    LineSpace(u64),
+    LineSpace(i64),
     Pumblend(u64),
     ShowTabLine(u64),
     TermGuiColors(bool),
@@ -291,7 +291,7 @@ fn unpack_color(packed_color: u64) -> Color4f {
 
 fn extract_values<const REQ: usize>(values: Vec<Value>) -> Result<[Value; REQ]> {
     if REQ > values.len() {
-        Err(ParseError::Format(format!("{:?}", values)))
+        Err(ParseError::Format(format!("{values:?}")))
     } else {
         let mut required_values = vec![Value::Nil; REQ];
 
@@ -309,7 +309,7 @@ fn extract_values_with_optional<const REQ: usize, const OPT: usize>(
     values: Vec<Value>,
 ) -> Result<([Value; REQ], [Option<Value>; OPT])> {
     if REQ > values.len() {
-        Err(ParseError::Format(format!("{:?}", values)))
+        Err(ParseError::Format(format!("{values:?}")))
     } else {
         let mut required_values = vec![Value::Nil; REQ];
         let mut optional_values = vec![None; OPT];
@@ -421,7 +421,7 @@ fn parse_option_set(option_set_arguments: Vec<Value>) -> Result<RedrawEvent> {
             "guifont" => GuiOption::GuiFont(parse_string(value)?),
             "guifontset" => GuiOption::GuiFontSet(parse_string(value)?),
             "guifontwide" => GuiOption::GuiFontWide(parse_string(value)?),
-            "linespace" => GuiOption::LineSpace(parse_u64(value)?),
+            "linespace" => GuiOption::LineSpace(parse_i64(value)?),
             "pumblend" => GuiOption::Pumblend(parse_u64(value)?),
             "showtabline" => GuiOption::ShowTabLine(parse_u64(value)?),
             "termguicolors" => GuiOption::TermGuiColors(parse_bool(value)?),
@@ -541,7 +541,7 @@ fn parse_grid_line_cell(grid_line_cell: Value) -> Result<GridLineCell> {
     let text_value = cell_contents
         .first_mut()
         .map(take_value)
-        .ok_or_else(|| ParseError::Format(format!("{:?}", cell_contents)))?;
+        .ok_or_else(|| ParseError::Format(format!("{cell_contents:?}")))?;
 
     let highlight_id = cell_contents
         .get_mut(1)
@@ -835,7 +835,7 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
     let mut event_contents = parse_array(event_value)?.into_iter();
     let event_name = event_contents
         .next()
-        .ok_or_else(|| ParseError::Format(format!("{:?}", event_contents)))
+        .ok_or_else(|| ParseError::Format(format!("{event_contents:?}")))
         .and_then(parse_string)?;
 
     let events = event_contents;

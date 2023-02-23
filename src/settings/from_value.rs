@@ -91,15 +91,15 @@ mod tests {
         let v3p = std::u64::MAX as f32;
 
         v0.parse_from_value(v1);
-        assert_eq!(v0, v1p, "v0 should equal {} but is actually {}", v1p, v0);
+        assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
         v0.parse_from_value(v2);
-        assert_eq!(v0, v2p, "v0 should equal {} but is actually {}", v2p, v0);
+        assert_eq!(v0, v2p, "v0 should equal {v2p} but is actually {v0}");
         v0.parse_from_value(v3);
-        assert_eq!(v0, v3p, "v0 should equal {} but is actually {}", v3p, v0);
+        assert_eq!(v0, v3p, "v0 should equal {v3p} but is actually {v0}");
 
         // This is a noop and prints an error
         v0.parse_from_value(Value::from("asd"));
-        assert_eq!(v0, v3p, "v0 should equal {} but is actually {}", v3p, v0);
+        assert_eq!(v0, v3p, "v0 should equal {v3p} but is actually {v0}");
     }
 
     #[test]
@@ -109,11 +109,11 @@ mod tests {
         let v1p = std::u64::MAX;
 
         v0.parse_from_value(v1);
-        assert_eq!(v0, v1p, "v0 should equal {} but is actually {}", v1p, v0);
+        assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
 
         // This is a noop and prints an error
         v0.parse_from_value(Value::from(-1));
-        assert_eq!(v0, v1p, "v0 should equal {} but is actually {}", v1p, v0);
+        assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
     }
 
     #[test]
@@ -123,11 +123,11 @@ mod tests {
         let v1p = std::u64::MAX as u32;
 
         v0.parse_from_value(v1);
-        assert_eq!(v0, v1p, "v0 should equal {} but is actually {}", v1p, v0);
+        assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
 
         // This is a noop and prints an error
         v0.parse_from_value(Value::from(-1));
-        assert_eq!(v0, v1p, "v0 should equal {} but is actually {}", v1p, v0);
+        assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
     }
 
     #[test]
@@ -137,11 +137,11 @@ mod tests {
         let v1p = std::i64::MAX as i32;
 
         v0.parse_from_value(v1);
-        assert_eq!(v0, v1p, "v0 should equal {} but is actually {}", v1p, v0);
+        assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
 
         // This is a noop and prints an error
         v0.parse_from_value(Value::from(-1));
-        assert_eq!(v0, v1p, "v0 should equal {} but is actually {}", v1p, v0);
+        assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
     }
 
     #[test]
@@ -151,11 +151,11 @@ mod tests {
         let v1p = "bar";
 
         v0.parse_from_value(v1);
-        assert_eq!(v0, v1p, "v0 should equal {} but is actually {}", v1p, v0);
+        assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
 
         // This is a noop and prints an error
         v0.parse_from_value(Value::from(-1));
-        assert_eq!(v0, v1p, "v0 should equal {} but is actually {}", v1p, v0);
+        assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
     }
 
     #[test]
@@ -169,14 +169,14 @@ mod tests {
         let v3p = true;
 
         v0.parse_from_value(v1);
-        assert_eq!(v0, v1p, "v0 should equal {} but is actually {}", v1p, v0);
+        assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
         v0.parse_from_value(v2);
-        assert_eq!(v0, v2p, "v0 should equal {} but is actually {}", v2p, v0);
+        assert_eq!(v0, v2p, "v0 should equal {v2p} but is actually {v0}");
         v0.parse_from_value(v3);
-        assert_eq!(v0, v3p, "v0 should equal {} but is actually {}", v3p, v0);
+        assert_eq!(v0, v3p, "v0 should equal {v3p} but is actually {v0}");
 
         // This is a noop and prints an error
         v0.parse_from_value(Value::from(-1));
-        assert_eq!(v0, v3p, "v0 should equal {} but is actually {}", v3p, v0);
+        assert_eq!(v0, v3p, "v0 should equal {v3p} but is actually {v0}");
     }
 }

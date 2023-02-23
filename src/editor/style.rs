@@ -1,13 +1,13 @@
 use skia_safe::Color4f;
 
-#[derive(new, PartialEq, Debug, Clone)]
+#[derive(new, Debug, Clone, PartialEq)]
 pub struct Colors {
     pub foreground: Option<Color4f>,
     pub background: Option<Color4f>,
     pub special: Option<Color4f>,
 }
 
-#[derive(PartialEq, Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum UnderlineStyle {
     Underline,
     UnderDouble,

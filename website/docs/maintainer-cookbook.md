@@ -53,7 +53,7 @@ General notes about collaborating/doing maintenance work on Neovide.
     release` button.
 - Keep the resulting page somewhere safe open, you'll need to work with it the
     next half an hour and GitHub doesn't automatically save its contents.
-- Create a new tag with an appropiate version number.
+- Create a new tag with an appropriate version number.
 
   We're not fully following [SemVer][semver] here, but as of 0.10.1 larger
   changes should be an increase in the MINOR part, while fixups should be an
@@ -116,5 +116,5 @@ anything.
 - Hit `Publish release`
 - profit
 
-Phew. Now, announce the new release anywhere you think is appropiate (like
+Phew. Now, announce the new release anywhere you think is appropriate (like
 Reddit, Discord, whatever) ~~and go create a PR in nixpkgs~~.

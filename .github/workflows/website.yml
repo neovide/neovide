@@ -1,11 +1,11 @@
-name: Build-Publish-Website
+name: Build and Publish Website
 
 on:
   push:
-    paths: 
-        - ".github/workflows/website.yml"
-        - "website/**"
-        - "!website/README.md"
+    paths:
+      - ".github/workflows/website.yml"
+      - "website/**"
+      - "!website/README.md"
 
 jobs:
   build:
@@ -20,40 +20,40 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
-      
+
       - name: Restore mdBook Cache
         id: cache-mdbook
         uses: actions/cache@v3
         with:
           path: ./mdbook
           key: mdbook-${{ env.MDBOOK-VERSION }}
-          
+
       - name: Install mdbook
         if: steps.cache-mdbook.outputs.cache-hit != 'true'
         run: |
           mkdir mdbook
           curl -sSL https://github.com/rust-lang/mdBook/releases/download/${{ env.MDBOOK-VERSION }}/mdbook-${{ env.MDBOOK-VERSION }}-x86_64-unknown-linux-gnu.tar.gz | tar -xz --directory=./mdbook
-        
+
       - name: Restore mdbook-pagetoc Cache
         id: cache-mdbook-pagetoc
         uses: actions/cache@v3
         with:
           path: ./mdbook-pagetoc
           key: mdbook-pagetoc-${{ env.MDBOOK-PAGETOC-VERSION }}
-          
+
       - name: Install mdbook-pagetoc
         if: steps.cache-mdbook-pagetoc.outputs.cache-hit != 'true'
         run: |
           mkdir mdbook-pagetoc
           curl -sSL https://github.com/slowsage/mdbook-pagetoc/releases/download/${{ env.MDBOOK-PAGETOC-VERSION }}/mdbook-pagetoc-${{ env.MDBOOK-PAGETOC-VERSION }}-x86_64-unknown-linux-gnu.tar.gz | tar -xz --directory=./mdbook-pagetoc
-      
+
       - name: Restore mdbook-linkcheck Cache
         id: cache-mdbook-linkcheck
         uses: actions/cache@v3
         with:
           path: ./mdbook-linkcheck
           key: mdbook-linkcheck-${{ env.MDBOOK-LINKCHECK-VERSION }}
-          
+
       - name: Install mdbook-linkcheck
         if: steps.cache-mdbook-linkcheck.outputs.cache-hit != 'true'
         run: |
@@ -61,24 +61,24 @@ jobs:
           curl -sSL https://github.com/Michael-F-Bryan/mdbook-linkcheck/releases/download/${{ env.MDBOOK-LINKCHECK-VERSION }}/mdbook-linkcheck.x86_64-unknown-linux-gnu.zip -o mdbook-linkcheck.zip
           unzip mdbook-linkcheck.zip
           chmod +x mdbook-linkcheck
-        
+
       - name: Update PATH
         run: |
           echo `pwd`/mdbook >> $GITHUB_PATH
           echo `pwd`/mdbook-pagetoc >> $GITHUB_PATH
           echo `pwd`/mdbook-linkcheck >> $GITHUB_PATH
-      
+
       - name: Build Book
         run: mdbook build
         working-directory: ./website
-      
+
       - name: Store HTML
         if: ${{ github.ref == 'refs/heads/main' }}
         uses: actions/upload-artifact@v3
         with:
           name: book
           path: ./website/book
-          
+
   sitemap:
     if: ${{ github.ref == 'refs/heads/main' }}
     name: Generate Sitemap
@@ -86,45 +86,44 @@ jobs:
     runs-on: ubuntu-latest
     env:
       STATIC-SITEMAP-CLI-VERSION: 2.1.2
-    
+
     steps:
       - name: Download HTML
         uses: actions/download-artifact@v3
         with:
           name: book
           path: ./book
-      
+
       # Unsure how to cache NPM
-      - name: Install Static Sitemap CLI                      
+      - name: Install Static Sitemap CLI
         run: |
           npm install npx
           npm install static-sitemap-cli@${{ env.STATIC-SITEMAP-CLI-VERSION }}
-      
+
       - name: Generate Sitemap
         run: |
           cd ./book/html
           npx sscli --base https://neovide.dev
-        
+
       - name: Store Sitemap
         uses: actions/upload-artifact@v3
         with:
           name: sitemap
           path: ./book/html/sitemap.xml
-        
 
   publish:
     if: ${{ github.ref == 'refs/heads/main' }}
     name: Publish Website
     needs: sitemap
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Download HTML & Sitemap
         uses: actions/download-artifact@v3
-      
+
       - name: Move Sitemap Into HTML
         run: mv ./sitemap/sitemap.xml ./book/html
-      
+
       - name: Publish to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
