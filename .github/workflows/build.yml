@@ -71,17 +71,17 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: test-results-${{ matrix.os }}
+          name: test-results-${{ matrix.os }}-${{ matrix.toolchain }}
           path: target/nextest/ci/results.xml
 
   event-upload:
     needs: test
-    name: Upload Event
+    name: Upload Test Event
     runs-on: ubuntu-latest
     steps:
       - uses: actions/upload-artifact@v3
         with:
-          name: event-artifact
+          name: test-event
           path: ${{ github.event_path }}
 
   build-deploy:
