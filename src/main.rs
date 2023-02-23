@@ -58,7 +58,8 @@ pub use running_tracker::*;
 pub use windows_utils::*;
 
 const BACKTRACES_FILE: &str = "neovide_backtraces.log";
-const REQUEST_MESSAGE: &str = "This is a bug and we would love for it to be reported to https://github.com/neovide/neovide/issues";
+const REQUEST_MESSAGE: &str =
+	"This is a bug and we would love for it to be reported to https://github.com/neovide/neovide/issues";
 
 fn main() {
     set_hook(Box::new(|panic_info| {
@@ -298,3 +299,5 @@ fn generate_panic_message(panic_info: &PanicInfo) -> String {
 
     format!("Neovide panicked with the message '{payload}'. (File: {file}; Line: {line}, Column: {column})")
 }
+
+// alibi change
