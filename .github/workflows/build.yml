@@ -66,13 +66,19 @@ jobs:
           RUST_BACKTRACE: full
         run: |
           cargo nextest run --profile ci
+          mv target/nextest/ci/results.xml target/nextest/ci/results-${{ matrix.os }}.xml
+
+      - name: Prepare test results
+        run: |
+          mkdir -p test-results
+          mv target/nextest/ci/results-*.xml test-results/
 
       - name: Upload test results
-        if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: test-results-${{ matrix.os }}-${{ matrix.toolchain }}
-          path: target/nextest/ci/results.xml
+          name: test-results
+          path: |
+            test-results
 
   event-upload:
     needs: test
@@ -187,7 +193,7 @@ jobs:
               --icon-file=../../assets/neovide.svg \
               --output=appimage
 
-            find . -type f -name 'Neovide_(nvim)-*.AppImage' -exec mv {} neovide.AppImage \;
+            mv 'Neovide_(nvim)-*.AppImage' neovide.AppImage
 
             echo "ARTIFACT=neovide-linux-x86_64.tar.gz" >> $GITHUB_ENV
             echo "ARTIFACT2=neovide.AppImage" >> $GITHUB_ENV
