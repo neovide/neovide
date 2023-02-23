@@ -193,7 +193,7 @@ jobs:
               --icon-file=../../assets/neovide.svg \
               --output=appimage
 
-            mv 'Neovide_(nvim)-*.AppImage' neovide.AppImage
+            mv Neovide_\(nvim\)-*.AppImage neovide.AppImage
 
             echo "ARTIFACT=neovide-linux-x86_64.tar.gz" >> $GITHUB_ENV
             echo "ARTIFACT2=neovide.AppImage" >> $GITHUB_ENV
