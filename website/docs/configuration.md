@@ -41,7 +41,7 @@ set guifont=Source\ Code\ Pro:h14
 Lua:
 
 ```lua
-vim.opt.guifont = { "Source Code Pro", "h14" } -- text below applies for VimScript
+vim.o.guifont = "Source Code Pro:h14" -- text below applies for VimScript
 ```
 
 Controls the font used by Neovide. Only setting which is actually controlled through an option, and
