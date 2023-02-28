@@ -20,16 +20,7 @@ defaults:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Run rustfmt
-        run: cargo fmt --all --check
-
-      - name: Run clippy
-        run: cargo clippy -- -D warnings
+    uses: ./.github/workflows/lint-app.yml
 
   test:
     needs: lint
@@ -39,7 +30,7 @@ jobs:
         os: [windows-latest, macOS-11, ubuntu-latest]
         toolchain: [stable, nightly]
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.rust == 'nightly' }}
+    continue-on-error: ${{ matrix.toolchain == 'nightly' }}
 
     steps:
       - uses: actions/checkout@v3
@@ -75,18 +66,29 @@ jobs:
           RUST_BACKTRACE: full
         run: |
           cargo nextest run --profile ci
+          mv target/nextest/ci/results.xml target/nextest/ci/results-${{ matrix.os }}.xml
 
-      - if: runner.os != 'Linux'
-        name: Publish test results for Windows and macOS
-        uses: EnricoMi/publish-unit-test-result-action/composite@v2
-        with:
-          junit_files: target/nextest/ci/results.xml
+      - name: Prepare test results
+        run: |
+          mkdir -p test-results
+          mv target/nextest/ci/results-*.xml test-results/
 
-      - if: runner.os == 'Linux'
-        name: Publish test results for Linux
-        uses: EnricoMi/publish-unit-test-result-action@v2
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
         with:
-          junit_files: target/nextest/ci/results.xml
+          name: test-results
+          path: |
+            test-results
+
+  event-upload:
+    needs: test
+    name: Upload Test Event
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/upload-artifact@v3
+        with:
+          name: test-event
+          path: ${{ github.event_path }}
 
   build-deploy:
     needs: test
@@ -99,8 +101,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Cargo cache
-        uses: actions/cache@v3
+      - uses: actions/cache@v3
         with:
           path: |
             ~/.cargo/bin/
@@ -192,7 +193,7 @@ jobs:
               --icon-file=../../assets/neovide.svg \
               --output=appimage
 
-            find . -type f -name 'Neovide_(nvim)-*.AppImage' -exec mv {} neovide.AppImage \;
+            mv Neovide_\(nvim\)-*.AppImage neovide.AppImage
 
             echo "ARTIFACT=neovide-linux-x86_64.tar.gz" >> $GITHUB_ENV
             echo "ARTIFACT2=neovide.AppImage" >> $GITHUB_ENV
@@ -203,7 +204,7 @@ jobs:
           name: ${{ env.ARTIFACT }}
           path: target/release/${{ env.ARTIFACT }}
 
-      - if: runner.os != 'macOS'
+      - if: env.ARTIFACT2
         uses: actions/upload-artifact@v3
         with:
           name: ${{ env.ARTIFACT2 }}

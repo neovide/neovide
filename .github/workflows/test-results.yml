@@ -1,0 +1,41 @@
+name: Test Results
+
+on:
+  workflow_run:
+    workflows: [Build and Test]
+    types: [completed]
+permissions: {}
+
+jobs:
+  Publish:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion != 'skipped'
+
+    permissions:
+      checks: write
+      pull-requests: write
+      actions: read
+
+    steps:
+      - name: Download and extract artifacts
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        run: |
+          mkdir -p artifacts && cd artifacts
+
+          artifacts_url=${{ github.event.workflow_run.artifacts_url }}
+
+          gh api --paginate "$artifacts_url" -q '.artifacts[] | [.name, .archive_download_url] | @tsv' | while read artifact
+          do
+            IFS=$'\t' read name url <<< "$artifact"
+            gh api $url > "$name.zip"
+            unzip -d "$name" "$name.zip"
+          done
+
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          commit: ${{ github.event.workflow_run.head_sha }}
+          event_file: artifacts/test-event/event.json
+          event_name: ${{ github.event.workflow_run.event }}
+          files: "artifacts/**/*.xml"

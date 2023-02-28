@@ -5,8 +5,6 @@ permissions:
   contents: read
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
   workflow_call:
@@ -28,6 +26,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - uses: giraffate/clippy-action@v1
         with:
