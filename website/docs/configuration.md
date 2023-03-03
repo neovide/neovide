@@ -115,6 +115,31 @@ this][scale-runtime] for a nice recipe to bind this to a hotkey.
 
 [scale-runtime]: faq.md#how-can-i-dynamically-change-the-scale-at-runtime
 
+#### Padding
+
+VimScript:
+
+```vim
+let g:neovide_padding_top = 0
+let g:neovide_padding_bottom = 0
+let g:neovide_padding_right = 0
+let g:neovide_padding_left = 0
+```
+
+Lua:
+
+```lua
+vim.g.neovide_padding_top = 0
+vim.g.neovide_padding_bottom = 0
+vim.g.neovide_padding_right = 0
+vim.g.neovide_padding_left = 0
+```
+
+**Unreleased yet.**
+
+Controls the space between the window border and the actual Neovim, which is filled with the
+background color instead.
+
 #### Background Color (Currently macOS only)
 
 VimScript:
