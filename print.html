@@ -493,6 +493,22 @@ should Hack fail to contain any glyph.</li>
 <p>In addition to setting the font itself, this setting allows to change the scale without changing the
 whole font definition. Very useful for presentations. See <a href="faq.html#how-can-i-dynamically-change-the-scale-at-runtime">the FAQ section about
 this</a> for a nice recipe to bind this to a hotkey.</p>
+<h4 id="padding"><a class="header" href="#padding">Padding</a></h4>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_padding_top = 0
+let g:neovide_padding_bottom = 0
+let g:neovide_padding_right = 0
+let g:neovide_padding_left = 0
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_padding_top = 0
+vim.g.neovide_padding_bottom = 0
+vim.g.neovide_padding_right = 0
+vim.g.neovide_padding_left = 0
+</code></pre>
+<p><strong>Unreleased yet.</strong></p>
+<p>Controls the space between the window border and the actual Neovim, which is filled with the
+background color instead.</p>
 <h4 id="background-color-currently-macos-only"><a class="header" href="#background-color-currently-macos-only">Background Color (Currently macOS only)</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">&quot; g:neovide_transparency should be 0 if you want to unify transparency of content and title bar.
