@@ -82,7 +82,7 @@ fn platform_exists(bin: &str) -> bool {
             std::process::exit(1);
         }
     } else {
-        None
+        Path::new(&bin).exists()
     }
 }
 
