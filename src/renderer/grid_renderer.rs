@@ -12,7 +12,6 @@ use crate::{
     profiling::tracy_zone,
     renderer::{CachingShaper, RendererSettings},
     settings::*,
-    window::WindowSettings,
 };
 
 pub struct GridRenderer {
@@ -96,21 +95,30 @@ impl GridRenderer {
         self.default_style.colors.background.unwrap().to_color()
     }
 
+    /// Draws a single background cell with the same style
+    ///
+    /// Returns a boolean tuple that describes the cell:
+    ///     The first element is true if the cell has a custom background color
+    ///     The second element is true if the cell has transparency
     pub fn draw_background(
         &mut self,
         canvas: &mut Canvas,
         grid_position: (u64, u64),
         cell_width: u64,
         style: &Option<Arc<Style>>,
-        is_floating: bool,
-    ) {
+    ) -> (bool, bool) {
         tracy_zone!("draw_background");
-        self.paint.set_blend_mode(BlendMode::Src);
+        let debug = SETTINGS.get::<RendererSettings>().debug_renderer;
+        if style.is_none() && !debug {
+            return (false, false);
+        }
 
         let region = self.compute_text_region(grid_position, cell_width);
         let style = style.as_ref().unwrap_or(&self.default_style);
 
-        if SETTINGS.get::<RendererSettings>().debug_renderer {
+        self.paint.set_blend_mode(BlendMode::Src);
+
+        if debug {
             let random_hsv: HSV = (rand::random::<f32>() * 360.0, 0.3, 0.3).into();
             let random_color = random_hsv.to_color(255);
             self.paint.set_color(random_color);
@@ -118,17 +126,18 @@ impl GridRenderer {
             self.paint
                 .set_color(style.background(&self.default_style.colors).to_color());
         }
-
-        if is_floating {
-            self.paint
-                .set_alpha((255.0 * ((100 - style.blend) as f32 / 100.0)) as u8);
-        } else if (SETTINGS.get::<WindowSettings>().transparency - 1.0).abs() > f32::EPSILON
-            // Only make background color transparent
-            && self.paint.color() == self.get_default_background()
-        {
-            self.paint.set_alpha(0);
+        if style.blend > 0 {
+            self.paint.set_alpha_f((100 - style.blend) as f32 / 100.0);
+        } else {
+            self.paint.set_alpha_f(1.0);
         }
-        canvas.draw_rect(region, &self.paint);
+
+        if self.paint.color4f() == self.default_style.colors.background.unwrap() {
+            (false, style.blend > 0)
+        } else {
+            canvas.draw_rect(region, &self.paint);
+            (true, style.blend > 0)
+        }
     }
 
     pub fn draw_foreground(
