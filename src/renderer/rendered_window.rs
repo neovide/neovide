@@ -119,6 +119,13 @@ impl LocatedSurface {
     }
 }
 
+#[derive(Clone)]
+struct Line {
+    background_picture: Option<Picture>,
+    foreground_picture: Picture,
+    has_transparency: bool,
+}
+
 pub struct RenderedWindow {
     pub current_surface: LocatedSurface,
 
@@ -128,7 +135,7 @@ pub struct RenderedWindow {
 
     pub grid_size: Dimensions,
 
-    lines: Vec<Option<Picture>>,
+    lines: Vec<Option<Line>>,
     pub top_index: isize,
 
     grid_start_position: Point,
@@ -239,24 +246,55 @@ impl RenderedWindow {
         animating
     }
 
-    fn draw_surface(&mut self, font_dimensions: Dimensions) {
+    fn draw_surface(&mut self, font_dimensions: Dimensions, default_background: Color) -> bool {
+        let image_size: (i32, i32) = (self.grid_size * font_dimensions).into();
+        let pixel_region = Rect::from_size(image_size);
         let canvas = self.current_surface.surface.canvas();
-        let mut matrix = Matrix::new_identity();
+        canvas.clip_rect(pixel_region, None, Some(false));
+        canvas.clear(default_background);
 
         let scroll_offset_lines = self.current_scroll.floor();
         let scroll_offset = scroll_offset_lines - self.current_scroll;
+        let mut has_transparency = false;
 
-        for i in 0..self.grid_size.height + 1 {
-            matrix.set_translate((
-                0.0,
-                (scroll_offset + i as f32) * font_dimensions.height as f32,
-            ));
-            let line_index = (self.top_index + scroll_offset_lines as isize + i as isize)
-                .rem_euclid(self.lines.len() as isize) as usize;
-            if let Some(picture) = &self.lines[line_index] {
-                canvas.draw_picture(picture, Some(&matrix), None);
+        let mut background_paint = Paint::default();
+        background_paint.set_blend_mode(BlendMode::Src);
+        background_paint.set_alpha(default_background.a());
+
+        let lines: Vec<(Matrix, &Line)> = (0..self.grid_size.height + 1)
+            .filter_map(|i| {
+                let line_index = (self.top_index + scroll_offset_lines as isize + i as isize)
+                    .rem_euclid(self.lines.len() as isize)
+                    as usize;
+                if let Some(line) = &self.lines[line_index] {
+                    let mut m = Matrix::new_identity();
+                    m.set_translate((
+                        0.0,
+                        (scroll_offset + i as f32) * font_dimensions.height as f32,
+                    ));
+                    Some((m, line))
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        for (matrix, line) in &lines {
+            if let Some(background_picture) = &line.background_picture {
+                has_transparency |= line.has_transparency;
+                canvas.draw_picture(background_picture, Some(matrix), Some(&background_paint));
             }
         }
+        let mut foreground_paint = Paint::default();
+        foreground_paint.set_blend_mode(BlendMode::SrcOver);
+        for (matrix, line) in &lines {
+            canvas.draw_picture(
+                &line.foreground_picture,
+                Some(matrix),
+                Some(&foreground_paint),
+            );
+        }
+        has_transparency
     }
 
     pub fn draw(
@@ -271,18 +309,16 @@ impl RenderedWindow {
             REDRAW_SCHEDULER.queue_next_frame();
         }
 
-        self.draw_surface(font_dimensions);
+        let has_transparency = self.draw_surface(font_dimensions, default_background);
 
         let pixel_region = self.pixel_region(font_dimensions);
+        let transparent_floating = self.floating_order.is_some() && has_transparency;
 
         root_canvas.save();
         root_canvas.clip_rect(pixel_region, None, Some(false));
+        let need_blur = transparent_floating && settings.floating_blur;
 
-        if self.floating_order.is_none() {
-            root_canvas.clear(default_background);
-        }
-
-        if self.floating_order.is_some() && settings.floating_blur {
+        if need_blur {
             if let Some(blur) = blur(
                 (
                     settings.floating_blur_amount_x,
@@ -292,41 +328,32 @@ impl RenderedWindow {
                 None,
                 None,
             ) {
+                let paint = Paint::default()
+                    .set_anti_alias(false)
+                    .set_blend_mode(BlendMode::Src)
+                    .to_owned();
                 let save_layer_rec = SaveLayerRec::default()
                     .backdrop(&blur)
-                    .bounds(&pixel_region);
-
+                    .bounds(&pixel_region)
+                    .paint(&paint);
                 root_canvas.save_layer(&save_layer_rec);
+                root_canvas.restore();
             }
         }
 
-        let mut paint = Paint::default();
-        // We want each surface to overwrite the one underneath and will use layers to ensure
-        // only lower priority surfaces will get clobbered and not the underlying windows.
-        paint.set_blend_mode(BlendMode::Src);
-        paint.set_anti_alias(false);
-
-        // Save layer so that setting the blend mode doesn't effect the blur.
-        root_canvas.save_layer(&SaveLayerRec::default());
-        let mut a = 255;
-        if self.floating_order.is_some() {
-            a = (settings.floating_opacity.min(1.0).max(0.0) * 255.0) as u8;
-        }
-
-        paint.set_color(default_background.with_a(a));
-        root_canvas.draw_rect(pixel_region, &paint);
-
-        paint.set_color(Color::from_argb(255, 255, 255, 255));
+        let paint = Paint::default()
+            .set_anti_alias(false)
+            .set_color(Color::from_argb(255, 255, 255, 255))
+            .set_blend_mode(if self.floating_order.is_some() {
+                BlendMode::SrcOver
+            } else {
+                BlendMode::Src
+            })
+            .to_owned();
 
         // Draw current surface.
         let snapshot = self.current_surface.surface.image_snapshot();
         root_canvas.draw_image_rect(snapshot, None, pixel_region, &paint);
-
-        root_canvas.restore();
-
-        if self.floating_order.is_some() {
-            root_canvas.restore();
-        }
 
         root_canvas.restore();
 
@@ -422,6 +449,13 @@ impl RenderedWindow {
                 );
                 let canvas = recorder.begin_recording(grid_rect, None);
 
+                let line_index =
+                    (self.top_index + row as isize).rem_euclid(self.lines.len() as isize) as usize;
+
+                canvas.clear(grid_renderer.get_default_background());
+                let mut has_transparency = false;
+                let mut custom_background = false;
+
                 for line_fragment in line_fragments.iter() {
                     let LineFragment {
                         window_left,
@@ -430,15 +464,16 @@ impl RenderedWindow {
                         ..
                     } = line_fragment;
                     let grid_position = (*window_left, 0);
-                    grid_renderer.draw_background(
-                        canvas,
-                        grid_position,
-                        *width,
-                        style,
-                        self.floating_order.is_some(),
-                    );
+                    let (custom, transparent) =
+                        grid_renderer.draw_background(canvas, grid_position, *width, style);
+                    custom_background |= custom;
+                    has_transparency |= transparent;
                 }
+                let background_picture = custom_background
+                    .then_some(recorder.finish_recording_as_picture(None).unwrap());
 
+                let canvas = recorder.begin_recording(grid_rect, None);
+                canvas.clear(Color::from_argb(0, 255, 255, 255));
                 for line_fragment in line_fragments.into_iter() {
                     let LineFragment {
                         text,
@@ -447,12 +482,16 @@ impl RenderedWindow {
                         style,
                     } = line_fragment;
                     let grid_position = (window_left, 0);
+
                     grid_renderer.draw_foreground(canvas, text, grid_position, width, &style);
                 }
+                let foreground_picture = recorder.finish_recording_as_picture(None).unwrap();
 
-                let line_index =
-                    (self.top_index + row as isize).rem_euclid(self.lines.len() as isize) as usize;
-                self.lines[line_index] = recorder.finish_recording_as_picture(None);
+                self.lines[line_index] = Some(Line {
+                    background_picture,
+                    foreground_picture,
+                    has_transparency,
+                });
             }
             WindowDrawCommand::Scroll {
                 top,
