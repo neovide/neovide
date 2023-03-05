@@ -236,6 +236,21 @@ impl Editor {
     fn resize_window(&mut self, grid: u64, width: u64, height: u64) {
         if let Some(window) = self.windows.get_mut(&grid) {
             window.resize((width, height));
+            if let Some(anchor_info) = &window.anchor_info {
+                let anchor_grid_id = anchor_info.anchor_grid_id;
+                let anchor_type = anchor_info.anchor_type.clone();
+                let anchor_left = anchor_info.anchor_left;
+                let anchor_top = anchor_info.anchor_top;
+                let sort_order = Some(anchor_info.sort_order);
+                self.set_window_float_position(
+                    grid,
+                    anchor_grid_id,
+                    anchor_type,
+                    anchor_left,
+                    anchor_top,
+                    sort_order,
+                )
+            }
         } else {
             let window = Window::new(
                 grid,
