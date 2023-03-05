@@ -5,7 +5,7 @@ use crate::{
     window::KeyboardSettings,
 };
 use winit::{
-    event::{ElementState, Event, KeyEvent, WindowEvent},
+    event::{ElementState, Event, Ime, KeyEvent, WindowEvent},
     keyboard::{Key, Key::Dead},
     platform::modifier_supplement::KeyEventExtModifierSupplement,
 };
@@ -60,7 +60,7 @@ impl KeyboardManager {
                     .push(InputEvent::KeyEvent(key_event.clone()));
             }
             Event::WindowEvent {
-                event: WindowEvent::ReceivedImeText(string),
+                event: WindowEvent::Ime(Ime::Commit(string)),
                 ..
             } => {
                 self.queued_input_events
@@ -130,7 +130,7 @@ impl KeyboardManager {
     fn maybe_get_keybinding(&self, key_event: &KeyEvent) -> Option<String> {
         // Determine if this key event represents a key which won't ever
         // present text.
-        if let Some(key_text) = is_control_key(key_event.logical_key) {
+        if let Some(key_text) = is_control_key(&key_event.logical_key) {
             if self.prev_dead_key.is_some() {
                 //recover dead key to normal character
                 let real_char = String::from(self.prev_dead_key.unwrap());
@@ -231,7 +231,7 @@ fn or_empty(condition: bool, text: &str) -> &str {
     }
 }
 
-fn is_control_key(key: Key<'static>) -> Option<&str> {
+fn is_control_key(key: &Key<'static>) -> Option<&'static str> {
     match key {
         Key::Backspace => Some("BS"),
         Key::Escape => Some("Esc"),
