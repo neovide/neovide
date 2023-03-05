@@ -122,7 +122,7 @@ impl LocatedSurface {
 #[derive(Clone)]
 struct Line {
     background_picture: Option<Picture>,
-    foreground_picture: Picture,
+    foreground_picture: Option<Picture>,
     has_transparency: bool,
 }
 
@@ -288,11 +288,9 @@ impl RenderedWindow {
         let mut foreground_paint = Paint::default();
         foreground_paint.set_blend_mode(BlendMode::SrcOver);
         for (matrix, line) in &lines {
-            canvas.draw_picture(
-                &line.foreground_picture,
-                Some(matrix),
-                Some(&foreground_paint),
-            );
+            if let Some(foreground_picture) = &line.foreground_picture {
+                canvas.draw_picture(foreground_picture, Some(matrix), Some(&foreground_paint));
+            }
         }
         has_transparency
     }
@@ -474,6 +472,7 @@ impl RenderedWindow {
 
                 let canvas = recorder.begin_recording(grid_rect, None);
                 canvas.clear(Color::from_argb(0, 255, 255, 255));
+                let mut foreground_drawn = false;
                 for line_fragment in line_fragments.into_iter() {
                     let LineFragment {
                         text,
@@ -483,9 +482,11 @@ impl RenderedWindow {
                     } = line_fragment;
                     let grid_position = (window_left, 0);
 
-                    grid_renderer.draw_foreground(canvas, text, grid_position, width, &style);
+                    foreground_drawn |=
+                        grid_renderer.draw_foreground(canvas, text, grid_position, width, &style);
                 }
-                let foreground_picture = recorder.finish_recording_as_picture(None).unwrap();
+                let foreground_picture =
+                    foreground_drawn.then_some(recorder.finish_recording_as_picture(None).unwrap());
 
                 self.lines[line_index] = Some(Line {
                     background_picture,
