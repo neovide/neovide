@@ -21,8 +21,7 @@ mod redraw_scheduler;
 mod renderer;
 mod running_tracker;
 mod settings;
-mod window;  
-
+mod window;
 
 #[cfg(target_os = "windows")]
 mod windows_utils;

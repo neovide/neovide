@@ -5,7 +5,7 @@ use crate::{
     window::KeyboardSettings,
 };
 use glutin::{
-    event::{Ime, ElementState, Event, KeyEvent, WindowEvent},
+    event::{ElementState, Event, Ime, KeyEvent, WindowEvent},
     keyboard::{Key, Key::Dead},
     platform::modifier_supplement::KeyEventExtModifierSupplement,
 };
