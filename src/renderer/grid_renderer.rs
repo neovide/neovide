@@ -147,12 +147,13 @@ impl GridRenderer {
         grid_position: (u64, u64),
         cell_width: u64,
         style: &Option<Arc<Style>>,
-    ) {
+    ) -> bool {
         tracy_zone!("draw_foreground");
         let (x, y) = grid_position * self.font_dimensions;
         let width = cell_width * self.font_dimensions.width;
 
         let style = style.as_ref().unwrap_or(&self.default_style);
+        let mut drawn = false;
 
         // We don't want to clip text in the x position, only the y so we add a buffer of 1
         // character on either side of the region so that we clip vertically but not horizontally.
@@ -171,7 +172,8 @@ impl GridRenderer {
                 (y - line_position + self.font_dimensions.height) as f32,
             );
 
-            self.draw_underline(canvas, style, underline_style, p1.into(), p2.into())
+            self.draw_underline(canvas, style, underline_style, p1.into(), p2.into());
+            drawn = true;
         }
 
         canvas.save();
@@ -189,12 +191,26 @@ impl GridRenderer {
         }
         self.paint.set_anti_alias(false);
 
-        for blob in self
-            .shaper
-            .shape_cached(text, style.bold, style.italic)
-            .iter()
-        {
-            canvas.draw_text_blob(blob, (x as f32, (y + y_adjustment) as f32), &self.paint);
+        // There's a lot of overhead for empty blobs in Skia, for some reason they never hit the
+        // cache, so trim all the spaces
+        let trimmed = text.trim_start();
+        let leading_spaces = text.len() - trimmed.len();
+        let trimmed = trimmed.trim_end();
+        let x_adjustment = leading_spaces as u64 * self.font_dimensions.width;
+
+        if !trimmed.is_empty() {
+            for blob in self
+                .shaper
+                .shape_cached(trimmed.to_string(), style.bold, style.italic)
+                .iter()
+            {
+                canvas.draw_text_blob(
+                    blob,
+                    ((x + x_adjustment) as f32, (y + y_adjustment) as f32),
+                    &self.paint,
+                );
+                drawn = true;
+            }
         }
 
         if style.strikethrough {
@@ -206,9 +222,11 @@ impl GridRenderer {
                 ((x + width) as f32, line_position),
                 &self.paint,
             );
+            drawn = true;
         }
 
         canvas.restore();
+        drawn
     }
 
     fn draw_underline(
