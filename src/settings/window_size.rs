@@ -19,7 +19,7 @@ pub enum PersistentWindowSettings {
         #[serde(default)]
         position: PhysicalPosition<i32>,
         #[serde(default)]
-        size: Option<PhysicalSize<u32>>,
+        pixel_size: Option<PhysicalSize<u32>>,
     },
 }
 
@@ -73,7 +73,7 @@ pub fn save_window_size(
             PersistentWindowSettings::Maximized
         } else {
             PersistentWindowSettings::Windowed {
-                size: { window_settings.remember_window_size.then_some(size) },
+                pixel_size: { window_settings.remember_window_size.then_some(size) },
                 position: {
                     window_settings
                         .remember_window_position

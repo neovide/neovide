@@ -257,7 +257,8 @@ impl GlutinWindowWrapper {
                 .grid_renderer
                 .convert_grid_to_physical(geometry)
         } else if let Ok(PersistentWindowSettings::Windowed {
-            size: Some(size), ..
+            pixel_size: Some(size),
+            ..
         }) = load_last_window_settings()
         {
             // remembered size
