@@ -245,22 +245,23 @@ impl RenderedWindow {
 
         let scroll_offset_lines = self.scroll_animation.position.floor();
         let scroll_offset = scroll_offset_lines - self.scroll_animation.position;
+        let scroll_offset_pixels = (scroll_offset * font_dimensions.height as f32).round() as isize;
         let mut has_transparency = false;
 
         let mut background_paint = Paint::default();
         background_paint.set_blend_mode(BlendMode::Src);
         background_paint.set_alpha(default_background.a());
 
-        let lines: Vec<(Matrix, &Line)> = (0..self.grid_size.height + 1)
+        let lines: Vec<(Matrix, &Line)> = (0..self.grid_size.height as isize + 1)
             .filter_map(|i| {
-                let line_index = (self.top_index + scroll_offset_lines as isize + i as isize)
+                let line_index = (self.top_index + scroll_offset_lines as isize + i)
                     .rem_euclid(self.lines.len() as isize)
                     as usize;
                 if let Some(line) = &self.lines[line_index] {
                     let mut m = Matrix::new_identity();
                     m.set_translate((
                         0.0,
-                        (scroll_offset + i as f32) * font_dimensions.height as f32,
+                        (scroll_offset_pixels + (i * font_dimensions.height as isize)) as f32,
                     ));
                     Some((m, line))
                 } else {
