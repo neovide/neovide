@@ -12,7 +12,6 @@ use crate::{
     bridge::{GuiOption, RedrawEvent, WindowAnchor},
     event_aggregator::EVENT_AGGREGATOR,
     profiling::tracy_zone,
-    redraw_scheduler::REDRAW_SCHEDULER,
     renderer::DrawCommand,
     window::WindowCommand,
 };
@@ -136,10 +135,6 @@ impl Editor {
                         trace!("send_batch");
                         self.draw_command_batcher.send_batch();
                     }
-                    {
-                        trace!("queue_next_frame");
-                        REDRAW_SCHEDULER.queue_next_frame();
-                    }
                 }
                 RedrawEvent::DefaultColorsSet { colors } => {
                     tracy_zone!("EditorDefaultColorsSet");
@@ -148,7 +143,6 @@ impl Editor {
                         .ok();
                     self.redraw_screen();
                     self.draw_command_batcher.send_batch();
-                    REDRAW_SCHEDULER.queue_next_frame();
                 }
                 RedrawEvent::HighlightAttributesDefine { id, style } => {
                     tracy_zone!("EditorHighlightAttributesDefine");

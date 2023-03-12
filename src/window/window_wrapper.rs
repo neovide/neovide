@@ -8,7 +8,6 @@ use crate::{
     editor::EditorCommand,
     event_aggregator::EVENT_AGGREGATOR,
     profiling::{emit_frame_mark, tracy_gpu_collect, tracy_gpu_zone, tracy_zone},
-    redraw_scheduler::REDRAW_SCHEDULER,
     renderer::{build_context, Renderer, WindowPadding, WindowedContext},
     running_tracker::RUNNING_TRACKER,
     settings::{
@@ -214,11 +213,11 @@ impl WinitWindowWrapper {
 
     pub fn handle_focus_gained(&mut self) {
         EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::FocusGained));
-        REDRAW_SCHEDULER.queue_next_frame();
     }
 
-    pub fn handle_event(&mut self, event: Event<()>) {
+    pub fn handle_event(&mut self, event: Event<()>) -> bool {
         tracy_zone!("handle_event", 0);
+        let mut should_render = false;
         self.keyboard_manager.handle_event(&event);
         self.mouse_manager.handle_event(
             &event,
@@ -259,6 +258,7 @@ impl WinitWindowWrapper {
             } => {
                 if focus {
                     self.handle_focus_gained();
+                    should_render = true;
                 } else {
                     self.handle_focus_lost();
                 }
@@ -276,11 +276,9 @@ impl WinitWindowWrapper {
                     set_background(background);
                 }
             }
-            Event::RedrawRequested(..) | Event::WindowEvent { .. } => {
-                REDRAW_SCHEDULER.queue_next_frame()
-            }
             _ => {}
         }
+        should_render
     }
 
     pub fn draw_frame(&mut self, dt: f32) {
@@ -303,8 +301,9 @@ impl WinitWindowWrapper {
         self.renderer.animate_frame(dt)
     }
 
-    pub fn prepare_frame(&mut self) {
+    pub fn prepare_frame(&mut self) -> bool {
         tracy_zone!("prepare_frame", 0);
+        let mut should_render = false;
 
         let window = self.windowed_context.window();
 
@@ -328,10 +327,14 @@ impl WinitWindowWrapper {
 
             self.handle_new_grid_size(new_size);
             self.skia_renderer.resize(&self.windowed_context);
+            should_render = true;
         }
 
         let prev_cursor_position = self.renderer.get_cursor_position();
-        self.font_changed_last_frame = self.renderer.handle_draw_commands();
+
+        let handle_draw_commands_result = self.renderer.handle_draw_commands();
+        self.font_changed_last_frame |= handle_draw_commands_result.0;
+        should_render |= handle_draw_commands_result.1;
 
         let current_cursor_position = self.renderer.get_cursor_position();
         if current_cursor_position != prev_cursor_position {
@@ -348,7 +351,7 @@ impl WinitWindowWrapper {
 
         // Wait until fonts are loaded, so we can set proper window size.
         if !self.renderer.grid_renderer.is_ready {
-            return;
+            return false;
         }
 
         // Resize at startup happens when window is maximized or when using tiling WM
@@ -359,7 +362,9 @@ impl WinitWindowWrapper {
 
         if self.saved_grid_size.is_none() && !resized_at_startup {
             self.init_window_size();
+            should_render |= true;
         }
+        should_render
     }
 
     fn init_window_size(&self) {

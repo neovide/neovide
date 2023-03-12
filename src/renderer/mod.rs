@@ -228,7 +228,7 @@ impl Renderer {
         };
 
         let settings = SETTINGS.get::<RendererSettings>();
-        let animating = windows
+        let mut animating = windows
             .into_iter()
             .map(|window| window.animate(&settings, dt))
             .any(|a| a);
@@ -238,18 +238,20 @@ impl Renderer {
         self.cursor_renderer
             .update_cursor_destination(font_dimensions.into(), windows);
 
-        self.cursor_renderer
+        animating |= self
+            .cursor_renderer
             .animate(&self.current_mode, &self.grid_renderer, dt);
 
         animating
     }
 
-    pub fn handle_draw_commands(&mut self) -> bool {
+    pub fn handle_draw_commands(&mut self) -> (bool, bool) {
         let mut draw_commands = Vec::new();
         while let Ok(draw_command) = self.batched_draw_command_receiver.try_recv() {
             draw_commands.extend(draw_command);
         }
 
+        let should_render = !draw_commands.is_empty();
         let mut font_changed = false;
 
         let settings = SETTINGS.get::<RendererSettings>();
@@ -269,7 +271,8 @@ impl Renderer {
             font_changed = true;
         }
 
-        font_changed
+        // Always render when the font change too
+        (font_changed, should_render | font_changed)
     }
 
     pub fn handle_os_scale_factor_change(&mut self, os_scale_factor: f64) {

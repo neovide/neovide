@@ -10,7 +10,6 @@ use super::draw_background;
 use super::{WindowSettings, WinitWindowWrapper};
 use crate::{
     profiling::{tracy_create_gpu_context, tracy_zone},
-    redraw_scheduler::REDRAW_SCHEDULER,
     running_tracker::*,
     settings::{save_window_size, SETTINGS},
 };
@@ -22,22 +21,30 @@ enum FocusedState {
 }
 
 pub struct UpdateLoop {
+    idle: bool,
     previous_frame_start: Instant,
     dt: f32,
+    should_render: bool,
+    num_consecutive_rendered: u32,
     focused: FocusedState,
 }
 
 impl UpdateLoop {
-    pub fn new() -> Self {
+    pub fn new(idle: bool) -> Self {
         tracy_create_gpu_context("main_render_context");
 
         let previous_frame_start = Instant::now();
         let dt = 0.0;
+        let should_render = true;
+        let num_consecutive_rendered = 0;
         let focused = FocusedState::Focused;
 
         Self {
+            idle,
             previous_frame_start,
             dt,
+            should_render,
+            num_consecutive_rendered,
             focused,
         }
     }
@@ -62,9 +69,6 @@ impl UpdateLoop {
     ) -> ControlFlow {
         tracy_zone!("render loop", 0);
 
-        let mut skipped_rendering = false;
-        let deadline = self.get_event_deadline();
-
         match event {
             // Window focus changed
             Event::WindowEvent {
@@ -78,16 +82,17 @@ impl UpdateLoop {
                 };
             }
             Event::MainEventsCleared => {
-                window_wrapper.prepare_frame();
-                window_wrapper.animate_frame(self.dt);
-                if REDRAW_SCHEDULER.should_draw() || !SETTINGS.get::<WindowSettings>().idle {
-                    window_wrapper.draw_frame(self.dt)
+                self.should_render |= window_wrapper.prepare_frame();
+                self.should_render |= window_wrapper.animate_frame(self.dt);
+                if self.should_render || !self.idle {
+                    window_wrapper.draw_frame(self.dt);
+                    self.should_render = false;
+                    self.num_consecutive_rendered += 1;
                 } else {
-                    skipped_rendering = true;
+                    self.num_consecutive_rendered = 0;
                 }
                 self.dt = self.previous_frame_start.elapsed().as_secs_f32();
                 self.previous_frame_start = Instant::now();
-
                 if let FocusedState::UnfocusedNotDrawn = self.focused {
                     self.focused = FocusedState::Unfocused;
                 }
@@ -111,12 +116,12 @@ impl UpdateLoop {
 
         window_wrapper.handle_window_commands();
         window_wrapper.synchronize_settings();
-        window_wrapper.handle_event(event);
+        self.should_render |= window_wrapper.handle_event(event);
 
-        if !skipped_rendering {
+        if self.num_consecutive_rendered > 0 {
             ControlFlow::Poll
         } else {
-            ControlFlow::WaitUntil(deadline)
+            ControlFlow::WaitUntil(self.get_event_deadline())
         }
     }
 }

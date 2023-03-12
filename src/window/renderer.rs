@@ -1,7 +1,6 @@
 use std::num::NonZeroU32;
 use std::{convert::TryInto, ffi::CString};
 
-use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::renderer::WindowedContext;
 use gl::types::*;
 use glutin::prelude::GlConfig;
@@ -85,6 +84,5 @@ impl SkiaRenderer {
 
     pub fn resize(&mut self, windowed_context: &WindowedContext) {
         self.surface = create_surface(windowed_context, &mut self.gr_context, self.fb_info);
-        REDRAW_SCHEDULER.queue_next_frame();
     }
 }

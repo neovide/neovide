@@ -18,7 +18,6 @@ mod error_handling;
 mod event_aggregator;
 mod frame;
 mod profiling;
-mod redraw_scheduler;
 mod renderer;
 mod running_tracker;
 mod settings;
