@@ -695,8 +695,10 @@ fn parse_msg_set_pos(msg_set_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
 }
 
 fn parse_win_viewport(win_viewport_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let ([grid, _window, top_line, bottom_line, current_line, current_column], [line_count]) =
-        extract_values_with_optional(win_viewport_arguments)?;
+    let (
+        [grid, _window, top_line, bottom_line, current_line, current_column],
+        [line_count, _scroll_delta],
+    ) = extract_values_with_optional(win_viewport_arguments)?;
 
     let line_count = if let Some(line_count) = line_count {
         Some(parse_f64(line_count)?)
