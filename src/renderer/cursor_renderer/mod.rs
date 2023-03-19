@@ -13,6 +13,7 @@ use crate::{
     renderer::animation_utils::*,
     renderer::{GridRenderer, RenderedWindow},
     settings::{ParseFromValue, SETTINGS},
+    window::UserEvent,
 };
 
 use blink::*;
@@ -198,7 +199,7 @@ impl CursorRenderer {
         renderer
     }
 
-    pub fn handle_event(&mut self, event: &Event<()>) {
+    pub fn handle_event(&mut self, event: &Event<UserEvent>) {
         if let Event::WindowEvent {
             event: WindowEvent::Focused(is_focused),
             ..

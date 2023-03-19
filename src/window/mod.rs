@@ -68,6 +68,11 @@ pub enum WindowCommand {
     ListAvailableFonts,
 }
 
+#[derive(Clone, Debug)]
+pub enum UserEvent {
+    ScaleFactorChanged(f64),
+}
+
 pub struct WinitWindowWrapper {
     windowed_context: WindowedContext,
     skia_renderer: SkiaRenderer,
@@ -148,7 +153,7 @@ impl WinitWindowWrapper {
         REDRAW_SCHEDULER.queue_next_frame();
     }
 
-    pub fn handle_event(&mut self, event: Event<()>) {
+    pub fn handle_event(&mut self, event: Event<UserEvent>) {
         tracy_zone!("handle_event", 0);
         self.keyboard_manager.handle_event(&event);
         self.mouse_manager.handle_event(
@@ -171,10 +176,7 @@ impl WinitWindowWrapper {
             } => {
                 self.handle_quit();
             }
-            Event::WindowEvent {
-                event: WindowEvent::ScaleFactorChanged { scale_factor, .. },
-                ..
-            } => {
+            Event::UserEvent(UserEvent::ScaleFactorChanged(scale_factor)) => {
                 self.handle_scale_factor_update(scale_factor);
             }
             Event::WindowEvent {
@@ -354,7 +356,7 @@ pub fn create_window() {
         Icon::from_rgba(rgba, width, height).expect("Failed to create icon object")
     };
 
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::<UserEvent>::with_user_event();
 
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
 
@@ -425,7 +427,7 @@ pub fn create_window() {
         Unfocused,
     }
 
-    let (txtemp, rx) = mpsc::channel::<Event<()>>();
+    let (txtemp, rx) = mpsc::channel::<Event<UserEvent>>();
     let mut tx = Some(txtemp);
     let mut render_thread_handle = Some(thread::spawn(move || {
         let windowed_context = unsafe { windowed_context.make_current().unwrap() };
@@ -544,10 +546,22 @@ pub fn create_window() {
     }));
 
     event_loop.run(move |e, _window_target, control_flow| {
-        if let Some(event) = e.to_static() {
-            if let Some(tx) = &tx {
-                tx.send(event).unwrap();
+        let e = match e {
+            Event::WindowEvent {
+                event: WindowEvent::ScaleFactorChanged { scale_factor, .. },
+                ..
+            } => {
+                // It's really unfortunate that we have to do this, but
+                // https://github.com/rust-windowing/winit/issues/1387
+                Event::UserEvent(UserEvent::ScaleFactorChanged(scale_factor))
             }
+            _ => {
+                // With the current Winit version, all events, except ScaleFactorChanged are static
+                e.to_static().expect("Unexpected event received")
+            }
+        };
+        if let Some(tx) = &tx {
+            tx.send(e).unwrap();
         }
 
         if !RUNNING_TRACKER.is_running() {

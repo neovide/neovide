@@ -20,7 +20,7 @@ use crate::{
     renderer::{Renderer, WindowDrawDetails},
     settings::SETTINGS,
     window::keyboard_manager::KeyboardManager,
-    window::WindowSettings,
+    window::{UserEvent, WindowSettings},
 };
 
 fn clamp_position(
@@ -422,7 +422,7 @@ impl MouseManager {
 
     pub fn handle_event(
         &mut self,
-        event: &Event<()>,
+        event: &Event<UserEvent>,
         keyboard_manager: &KeyboardManager,
         renderer: &Renderer,
         window: &Window,

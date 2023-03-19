@@ -2,7 +2,7 @@ use crate::{
     bridge::{SerialCommand, UiCommand},
     event_aggregator::EVENT_AGGREGATOR,
     settings::SETTINGS,
-    window::KeyboardSettings,
+    window::{KeyboardSettings, UserEvent},
 };
 use winit::{
     event::{ElementState, Event, KeyEvent, WindowEvent},
@@ -37,7 +37,7 @@ impl KeyboardManager {
         }
     }
 
-    pub fn handle_event(&mut self, event: &Event<()>) {
+    pub fn handle_event(&mut self, event: &Event<UserEvent>) {
         match event {
             Event::WindowEvent {
                 event: WindowEvent::Focused(_focused),
