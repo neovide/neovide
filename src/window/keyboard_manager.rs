@@ -4,7 +4,7 @@ use crate::{
     settings::SETTINGS,
     window::KeyboardSettings,
 };
-use glutin::{
+use winit::{
     event::{ElementState, Event, KeyEvent, WindowEvent},
     keyboard::{Key, Key::Dead},
     platform::modifier_supplement::KeyEventExtModifierSupplement,

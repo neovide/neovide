@@ -3,8 +3,8 @@ mod cursor_vfx;
 
 use std::collections::HashMap;
 
-use glutin::event::{Event, WindowEvent};
 use skia_safe::{op, Canvas, Paint, Path, Point};
+use winit::event::{Event, WindowEvent};
 
 use crate::{
     bridge::EditorMode,
