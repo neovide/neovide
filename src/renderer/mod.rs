@@ -2,6 +2,7 @@ pub mod animation_utils;
 pub mod cursor_renderer;
 pub mod fonts;
 pub mod grid_renderer;
+mod opengl;
 pub mod profiler;
 mod rendered_window;
 
@@ -11,10 +12,10 @@ use std::{
     sync::Arc,
 };
 
-use glutin::event::Event;
 use log::error;
 use skia_safe::Canvas;
 use tokio::sync::mpsc::UnboundedReceiver;
+use winit::event::Event;
 
 use crate::{
     bridge::EditorMode,
@@ -30,6 +31,8 @@ pub use grid_renderer::GridRenderer;
 pub use rendered_window::{
     LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails, WindowPadding,
 };
+
+pub use opengl::{build_context, Context as WindowedContext};
 
 #[derive(SettingGroup, Clone)]
 pub struct RendererSettings {

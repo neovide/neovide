@@ -71,7 +71,9 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> Option<StdComm
     }
 }
 
+#[cfg(target_os = "windows")]
 fn platform_exists(bin: &str) -> bool {
+    // exists command is only on windows
     if let Some(mut exists_command) = create_platform_shell_command("exists", &["-x", bin]) {
         if let Ok(output) = exists_command.output() {
             output.status.success()
@@ -82,6 +84,11 @@ fn platform_exists(bin: &str) -> bool {
     } else {
         Path::new(&bin).exists()
     }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn platform_exists(bin: &str) -> bool {
+    Path::new(&bin).exists()
 }
 
 fn platform_which(bin: &str) -> Option<String> {
@@ -107,7 +114,7 @@ fn platform_which(bin: &str) -> Option<String> {
 
 #[cfg(target_os = "macos")]
 fn nvim_cmd_impl(bin: &str, args: &[String]) -> TokioCommand {
-    let shell = env::var("SHELL").unwrap();
+    let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
     let mut cmd = TokioCommand::new(shell);
     let args_str = args
         .iter()

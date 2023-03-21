@@ -83,7 +83,7 @@ brew install --cask neovide
 
 8. `cargo bundle --release`
 
-9. Copy `./target/release/bundle/osx/neovide.app` to `~/Applications` and enjoy.
+9. `cp -r ./target/release/bundle/osx/Neovide.app /Applications/Neovide.app` and enjoy.
 
 ## Linux
 

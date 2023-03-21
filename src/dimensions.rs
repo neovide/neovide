@@ -4,8 +4,8 @@ use std::{
     str::FromStr,
 };
 
-use glutin::dpi::PhysicalSize;
 use serde::{Deserialize, Serialize};
+use winit::dpi::PhysicalSize;
 
 use crate::settings;
 
