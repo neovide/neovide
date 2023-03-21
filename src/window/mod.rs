@@ -23,9 +23,6 @@ use winit::platform::macos::WindowBuilderExtMacOS;
 #[cfg(target_os = "macos")]
 use draw_background::draw_background;
 
-#[cfg(target_os = "linux")]
-use winit::platform::unix::WindowBuilderExtUnix;
-
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
 use mouse_manager::MouseManager;
@@ -359,12 +356,22 @@ pub fn create_window() {
     }
 
     #[cfg(target_os = "linux")]
-    let winit_window_builder = winit_window_builder
-        .with_app_id(cmd_line_settings.wayland_app_id.clone())
-        .with_class(
+    let winit_window_builder = {
+        use winit::platform::wayland::WindowBuilderExtWayland;
+        use winit::platform::x11::WindowBuilderExtX11;
+
+        let winit_window_builder = WindowBuilderExtWayland::with_name(
+            winit_window_builder,
+            &cmd_line_settings.wayland_app_id,
+            "",
+        );
+
+        WindowBuilderExtX11::with_name(
+            winit_window_builder,
             cmd_line_settings.x11_wm_class_instance.clone(),
             cmd_line_settings.x11_wm_class.clone(),
-        );
+        )
+    };
 
     #[cfg(target_os = "macos")]
     let winit_window_builder = winit_window_builder.with_accepts_first_mouse(false);
