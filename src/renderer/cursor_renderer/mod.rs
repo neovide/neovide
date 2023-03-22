@@ -9,10 +9,12 @@ use winit::event::{Event, WindowEvent};
 use crate::{
     bridge::EditorMode,
     editor::{Cursor, CursorShape},
+    event_aggregator::EVENT_AGGREGATOR,
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::animation_utils::*,
     renderer::{GridRenderer, RenderedWindow},
     settings::{ParseFromValue, SETTINGS},
+    window::{WindowCommand, WindowSettings},
 };
 
 use blink::*;
@@ -269,6 +271,22 @@ impl CursorRenderer {
             )
                 .into();
         }
+
+        let display_ime_at_bottom = SETTINGS.get::<WindowSettings>().ime_at_bottom;
+        EVENT_AGGREGATOR.send(WindowCommand::UpdateIMEPosition(
+            self.destination.x
+                + if display_ime_at_bottom {
+                    0f32
+                } else {
+                    font_width as f32
+                },
+            self.destination.y
+                + if display_ime_at_bottom {
+                    font_height as f32
+                } else {
+                    0f32
+                },
+        ));
     }
 
     pub fn draw(

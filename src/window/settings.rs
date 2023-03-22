@@ -20,6 +20,8 @@ pub struct WindowSettings {
     pub padding_left: u32,
     pub padding_right: u32,
     pub padding_bottom: u32,
+    pub ime_enabled: bool,
+    pub ime_at_bottom: bool,
 }
 
 impl Default for WindowSettings {
@@ -43,6 +45,8 @@ impl Default for WindowSettings {
             padding_left: 0,
             padding_right: 0,
             padding_bottom: 0,
+            ime_enabled: true,
+            ime_at_bottom: true,
         }
     }
 }

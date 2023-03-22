@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 use log::trace;
 use tokio::sync::mpsc::UnboundedReceiver;
 use winit::{
-    dpi::PhysicalSize,
+    dpi::{PhysicalPosition, PhysicalSize},
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{self, Fullscreen, Icon},
@@ -56,6 +56,7 @@ pub enum WindowCommand {
     TitleChanged(String),
     SetMouseEnabled(bool),
     ListAvailableFonts,
+    UpdateIMEPosition(f32, f32),
 }
 
 pub struct WinitWindowWrapper {
@@ -104,6 +105,10 @@ impl WinitWindowWrapper {
                     self.mouse_manager.enabled = mouse_enabled
                 }
                 WindowCommand::ListAvailableFonts => self.send_font_names(),
+                WindowCommand::UpdateIMEPosition(x, y) => {
+                    let window = self.windowed_context.window();
+                    window.set_ime_position(PhysicalPosition::new(x, y));
+                }
             }
         }
     }
@@ -200,6 +205,7 @@ impl WinitWindowWrapper {
             right: window_settings.padding_right,
             bottom: window_settings.padding_bottom,
         };
+        window.set_ime_allowed(window_settings.ime_enabled);
 
         let padding_changed = window_padding != self.renderer.window_padding;
         if padding_changed {
