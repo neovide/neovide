@@ -35,6 +35,10 @@ pub struct CmdLineSettings {
     #[arg(long = "remote-tcp")]
     pub remote_tcp: Option<String>,
 
+    /// Run NeoVim in remote machine than on the host
+    #[arg(long)]
+    pub ssh: Option<String>,
+
     /// Run NeoVim in WSL rather than on the host
     #[arg(long)]
     pub wsl: bool,

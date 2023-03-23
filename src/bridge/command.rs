@@ -4,7 +4,7 @@ use std::{
     process::{Command as StdCommand, Stdio},
 };
 
-use log::{debug, error, warn};
+use log::{debug, error, warn, info};
 use tokio::process::Command as TokioCommand;
 
 use crate::{cmd_line::CmdLineSettings, settings::*};
@@ -32,6 +32,9 @@ fn set_windows_creation_flags(cmd: &mut TokioCommand) {
 }
 
 fn build_nvim_cmd() -> TokioCommand {
+    if let Some(host) = SETTINGS.get::<CmdLineSettings>().ssh {
+        return build_remote_nvim_cmd(&host);
+    }
     if let Some(path) = SETTINGS.get::<CmdLineSettings>().neovim_bin {
         if platform_exists(&path) {
             return build_nvim_cmd_with_args(&path);
@@ -45,6 +48,16 @@ fn build_nvim_cmd() -> TokioCommand {
         error!("nvim not found!");
         std::process::exit(1);
     }
+}
+
+fn build_remote_nvim_cmd(host: &str) -> TokioCommand {
+    let cmd = create_platform_shell_command("ssh", &[host, "\"$SHELL --login -c 'nvim --embed -p'\""])
+        .unwrap_or_else(|| {
+            error!("Failed to create ssh command");
+            std::process::exit(1);
+        });
+    info!("Starting neovim on remote host: {:?}", cmd);
+    cmd.into()
 }
 
 // Creates a shell command if needed on this platform (wsl or macos)
