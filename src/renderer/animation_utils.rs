@@ -1,4 +1,4 @@
-use skia_safe::Point;
+use euclid::default::Point2D;
 
 #[allow(dead_code)]
 pub fn ease_linear(t: f32) -> f32 {
@@ -73,11 +73,16 @@ pub fn ease(ease_func: fn(f32) -> f32, start: f32, end: f32, t: f32) -> f32 {
     lerp(start, end, ease_func(t))
 }
 
-pub fn ease_point(ease_func: fn(f32) -> f32, start: Point, end: Point, t: f32) -> Point {
-    Point {
-        x: ease(ease_func, start.x, end.x, t),
-        y: ease(ease_func, start.y, end.y, t),
-    }
+pub fn ease_point(
+    ease_func: fn(f32) -> f32,
+    start: Point2D<f32>,
+    end: Point2D<f32>,
+    t: f32,
+) -> Point2D<f32> {
+    Point2D::new(
+        ease(ease_func, start.x, end.x, t),
+        ease(ease_func, start.y, end.y, t),
+    )
 }
 
 #[cfg(test)]

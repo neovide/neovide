@@ -1,9 +1,13 @@
 mod blink;
-mod cursor_vfx;
+//mod cursor_vfx;
 
 use std::collections::HashMap;
 
-use skia_safe::{op, Canvas, Paint, Path, Point};
+//use skia_safe::{op, Canvas, Paint, Path, Point};
+use euclid::{
+    approxeq::ApproxEq,
+    default::{Point2D, Vector2D},
+};
 use winit::event::{Event, WindowEvent};
 
 use crate::{
@@ -34,7 +38,7 @@ pub struct CursorSettings {
     trail_size: f32,
     unfocused_outline_width: f32,
 
-    vfx_mode: cursor_vfx::VfxMode,
+    //vfx_mode: cursor_vfx::VfxMode,
     vfx_opacity: f32,
     vfx_particle_lifetime: f32,
     vfx_particle_density: f32,
@@ -53,7 +57,7 @@ impl Default for CursorSettings {
             animate_command_line: true,
             trail_size: 0.7,
             unfocused_outline_width: 1.0 / 8.0,
-            vfx_mode: cursor_vfx::VfxMode::Disabled,
+            //vfx_mode: cursor_vfx::VfxMode::Disabled,
             vfx_opacity: 200.0,
             vfx_particle_lifetime: 1.2,
             vfx_particle_density: 7.0,
@@ -66,10 +70,10 @@ impl Default for CursorSettings {
 
 #[derive(Debug, Clone)]
 pub struct Corner {
-    start_position: Point,
-    current_position: Point,
-    relative_position: Point,
-    previous_destination: Point,
+    start_position: Point2D<f32>,
+    current_position: Point2D<f32>,
+    relative_position: Point2D<f32>,
+    previous_destination: Point2D<f32>,
     length_multiplier: f32,
     t: f32,
 }
@@ -77,10 +81,10 @@ pub struct Corner {
 impl Corner {
     pub fn new() -> Corner {
         Corner {
-            start_position: Point::new(0.0, 0.0),
-            current_position: Point::new(0.0, 0.0),
-            relative_position: Point::new(0.0, 0.0),
-            previous_destination: Point::new(-1000.0, -1000.0),
+            start_position: Point2D::new(0.0, 0.0),
+            current_position: Point2D::new(0.0, 0.0),
+            relative_position: Point2D::new(0.0, 0.0),
+            previous_destination: Point2D::new(-1000.0, -1000.0),
             length_multiplier: 1.0,
             t: 0.0,
         }
@@ -89,8 +93,8 @@ impl Corner {
     pub fn update(
         &mut self,
         settings: &CursorSettings,
-        font_dimensions: Point,
-        destination: Point,
+        font_dimensions: Point2D<f32>,
+        destination: Point2D<f32>,
         dt: f32,
         immediate_movement: bool,
     ) -> bool {
@@ -114,7 +118,7 @@ impl Corner {
         }
 
         // Calculate window-space destination for corner
-        let relative_scaled_position: Point = (
+        let relative_scaled_position: Vector2D<f32> = (
             self.relative_position.x * font_dimensions.x,
             self.relative_position.y * font_dimensions.y,
         )
@@ -131,17 +135,9 @@ impl Corner {
         // Calculate how much a corner will be lagging behind based on how much it's aligned
         // with the direction of motion. Corners in front will move faster than corners in the
         // back
-        let travel_direction = {
-            let mut d = destination - self.current_position;
-            d.normalize();
-            d
-        };
+        let travel_direction = { (destination - self.current_position).normalize() };
 
-        let corner_direction = {
-            let mut d = self.relative_position;
-            d.normalize();
-            d
-        };
+        let corner_direction = { self.relative_position.to_vector().normalize() };
 
         let direction_alignment = travel_direction.dot(corner_direction);
 
@@ -173,12 +169,12 @@ impl Corner {
 pub struct CursorRenderer {
     pub corners: Vec<Corner>,
     cursor: Cursor,
-    destination: Point,
+    destination: Point2D<f32>,
     blink_status: BlinkStatus,
     previous_cursor_shape: Option<CursorShape>,
     previous_editor_mode: EditorMode,
-    cursor_vfx: Option<Box<dyn cursor_vfx::CursorVfx>>,
-    previous_vfx_mode: cursor_vfx::VfxMode,
+    //cursor_vfx: Option<Box<dyn cursor_vfx::CursorVfx>>,
+    //previous_vfx_mode: cursor_vfx::VfxMode,
     window_has_focus: bool,
 }
 
@@ -191,8 +187,8 @@ impl CursorRenderer {
             blink_status: BlinkStatus::new(),
             previous_cursor_shape: None,
             previous_editor_mode: EditorMode::Normal,
-            cursor_vfx: None,
-            previous_vfx_mode: cursor_vfx::VfxMode::Disabled,
+            //cursor_vfx: None,
+            //previous_vfx_mode: cursor_vfx::VfxMode::Disabled,
             window_has_focus: true,
         };
         renderer.set_cursor_shape(&CursorShape::Block, DEFAULT_CELL_PERCENTAGE);
@@ -272,6 +268,7 @@ impl CursorRenderer {
         }
     }
 
+    /*
     pub fn draw(&mut self, grid_renderer: &mut GridRenderer, canvas: &mut Canvas) {
         tracy_zone!("cursor_draw");
         let render = self.blink_status.should_render();
@@ -332,7 +329,7 @@ impl CursorRenderer {
         if let Some(vfx) = self.cursor_vfx.as_ref() {
             vfx.render(&settings, canvas, grid_renderer, &self.cursor);
         }
-    }
+    }*/
 
     pub fn animate(
         &mut self,
@@ -344,21 +341,22 @@ impl CursorRenderer {
         self.blink_status.update_status(&self.cursor, dt);
         let settings = SETTINGS.get::<CursorSettings>();
 
+        /*
         if settings.vfx_mode != self.previous_vfx_mode {
             self.cursor_vfx = cursor_vfx::new_cursor_vfx(&settings.vfx_mode);
             self.previous_vfx_mode = settings.vfx_mode.clone();
         }
+        */
 
         let mut cursor_width = grid_renderer.font_dimensions.width;
         if self.cursor.double_width && self.cursor.shape == CursorShape::Block {
             cursor_width *= 2;
         }
 
-        let cursor_dimensions: Point = (
+        let cursor_dimensions = Vector2D::new(
             cursor_width as f32,
             grid_renderer.font_dimensions.height as f32,
-        )
-            .into();
+        );
 
         let in_insert_mode = matches!(current_mode, EditorMode::Insert);
 
@@ -377,21 +375,23 @@ impl CursorRenderer {
                     .unwrap_or(DEFAULT_CELL_PERCENTAGE),
             );
 
+            /*
             if let Some(vfx) = self.cursor_vfx.as_mut() {
                 vfx.restart(center_destination);
             }
+            */
         }
 
         let mut animating = false;
 
-        if !center_destination.is_zero() {
+        if !center_destination.approx_eq(&Point2D::origin()) {
             for corner in self.corners.iter_mut() {
                 let immediate_movement = !settings.animate_in_insert_mode && in_insert_mode
                     || !settings.animate_command_line && !changed_to_from_cmdline;
 
                 let corner_animating = corner.update(
                     &settings,
-                    cursor_dimensions,
+                    cursor_dimensions.to_point(),
                     center_destination,
                     dt,
                     immediate_movement,
@@ -400,6 +400,7 @@ impl CursorRenderer {
                 animating |= corner_animating;
             }
 
+            /*
             let vfx_animating = if let Some(vfx) = self.cursor_vfx.as_mut() {
                 vfx.update(&settings, center_destination, cursor_dimensions, dt)
             } else {
@@ -407,6 +408,7 @@ impl CursorRenderer {
             };
 
             animating |= vfx_animating;
+            */
         }
 
         if !animating {
@@ -414,7 +416,7 @@ impl CursorRenderer {
         }
         animating
     }
-
+    /*
     fn draw_rectangle(&self, canvas: &mut Canvas, paint: &Paint) -> Path {
         // The cursor is made up of four points, so I create a path with each of the four
         // corners.
@@ -464,4 +466,5 @@ impl CursorRenderer {
         canvas.draw_path(&path, paint);
         path
     }
+    */
 }

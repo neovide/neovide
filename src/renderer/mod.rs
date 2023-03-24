@@ -2,8 +2,8 @@ pub mod animation_utils;
 pub mod cursor_renderer;
 pub mod fonts;
 pub mod grid_renderer;
-mod opengl;
-pub mod profiler;
+//mod opengl;
+//pub mod profiler;
 mod rendered_window;
 
 use std::{
@@ -13,7 +13,7 @@ use std::{
 };
 
 use log::error;
-use skia_safe::Canvas;
+//use skia_safe::Canvas;
 use tokio::sync::mpsc::UnboundedReceiver;
 use winit::event::Event;
 
@@ -33,8 +33,6 @@ pub use grid_renderer::GridRenderer;
 pub use rendered_window::{
     LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails, WindowPadding,
 };
-
-pub use opengl::{build_context, Context as WindowedContext};
 
 #[derive(SettingGroup, Clone)]
 pub struct RendererSettings {
@@ -90,7 +88,7 @@ pub struct Renderer {
     pub window_regions: Vec<WindowDrawDetails>,
 
     pub batched_draw_command_receiver: UnboundedReceiver<Vec<DrawCommand>>,
-    profiler: profiler::Profiler,
+    //profiler: profiler::Profiler,
     os_scale_factor: f64,
     user_scale_factor: f64,
     pub window_padding: WindowPadding,
@@ -110,7 +108,7 @@ impl Renderer {
         let window_regions = Vec::new();
 
         let batched_draw_command_receiver = EVENT_AGGREGATOR.register_event::<Vec<DrawCommand>>();
-        let profiler = profiler::Profiler::new(12.0);
+        //let profiler = profiler::Profiler::new(12.0);
 
         let window_padding = WindowPadding {
             top: window_settings.padding_top,
@@ -126,7 +124,7 @@ impl Renderer {
             current_mode,
             window_regions,
             batched_draw_command_receiver,
-            profiler,
+            //profiler,
             os_scale_factor,
             user_scale_factor,
             window_padding,
@@ -141,6 +139,7 @@ impl Renderer {
         self.grid_renderer.font_names()
     }
 
+    /*
     fn get_sorted_windows(&mut self) -> Vec<&mut RenderedWindow> {
         let windows: Vec<&mut RenderedWindow> = {
             let (mut root_windows, mut floating_windows): (
@@ -223,6 +222,7 @@ impl Renderer {
 
         root_canvas.restore();
     }
+    */
 
     pub fn animate_frame(&mut self, dt: f32) -> bool {
         let windows: Vec<&mut RenderedWindow> = {
@@ -263,7 +263,7 @@ impl Renderer {
         animating
     }
 
-    pub fn handle_draw_commands(&mut self, root_canvas: &mut Canvas) -> bool {
+    pub fn handle_draw_commands(&mut self) -> bool {
         let mut draw_commands = Vec::new();
         while let Ok(draw_command) = self.batched_draw_command_receiver.try_recv() {
             draw_commands.extend(draw_command);
@@ -277,7 +277,7 @@ impl Renderer {
             if let DrawCommand::FontChanged(_) | DrawCommand::LineSpaceChanged(_) = draw_command {
                 font_changed = true;
             }
-            self.handle_draw_command(root_canvas, draw_command, &settings);
+            self.handle_draw_command(draw_command, &settings);
         }
 
         let user_scale_factor = SETTINGS.get::<WindowSettings>().scale_factor.into();
@@ -299,7 +299,6 @@ impl Renderer {
 
     fn handle_draw_command(
         &mut self,
-        root_canvas: &mut Canvas,
         draw_command: DrawCommand,
         renderer_settings: &RendererSettings,
     ) {
@@ -328,7 +327,6 @@ impl Renderer {
                         } = command
                         {
                             let new_window = RenderedWindow::new(
-                                root_canvas,
                                 &self.grid_renderer,
                                 grid_id,
                                 (grid_left as f32, grid_top as f32).into(),

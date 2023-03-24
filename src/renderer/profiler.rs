@@ -6,7 +6,7 @@ use std::time::Instant;
 
 use crate::{
     profiling::tracy_zone,
-    renderer::{fonts::font_loader::*, RendererSettings},
+    renderer::{/*fonts::font_loader::*,*/ RendererSettings},
 };
 use skia_safe::{Canvas, Color, Paint, Point, Rect, Size};
 

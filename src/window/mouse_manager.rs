@@ -4,7 +4,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use skia_safe::Rect;
+use euclid::default::{Rect, Size2D};
 use winit::{
     dpi::PhysicalPosition,
     event::{
@@ -25,18 +25,18 @@ use crate::{
 
 fn clamp_position(
     position: PhysicalPosition<f32>,
-    region: Rect,
+    region: Rect<f32>,
     (font_width, font_height): (u64, u64),
 ) -> PhysicalPosition<f32> {
     PhysicalPosition::new(
         position
             .x
-            .min(region.right - font_width as f32)
-            .max(region.left),
+            .min(region.max_x() - font_width as f32)
+            .max(region.min_x()),
         position
             .y
-            .min(region.bottom - font_height as f32)
-            .max(region.top),
+            .min(region.max_y() - font_height as f32)
+            .max(region.min_y()),
     )
 }
 
@@ -135,17 +135,17 @@ impl MouseManager {
                 .window_regions
                 .iter()
                 .filter(|details| {
-                    position.x >= details.region.left
-                        && position.x < details.region.right
-                        && position.y >= details.region.top
-                        && position.y < details.region.bottom
+                    position.x >= details.region.min_x()
+                        && position.x < details.region.max_x()
+                        && position.y >= details.region.min_y()
+                        && position.y < details.region.max_y()
                 })
                 .last()
         };
 
         let global_bounds = relevant_window_details
             .map(|details| details.region)
-            .unwrap_or_else(|| Rect::from_wh(size.width as f32, size.height as f32));
+            .unwrap_or_else(|| Rect::from_size(Size2D::new(size.width as f32, size.height as f32)));
         let clamped_position = clamp_position(
             position,
             global_bounds,
@@ -159,8 +159,8 @@ impl MouseManager {
 
         if let Some(relevant_window_details) = relevant_window_details {
             let relative_position = PhysicalPosition::new(
-                clamped_position.x - relevant_window_details.region.left,
-                clamped_position.y - relevant_window_details.region.top,
+                clamped_position.x - relevant_window_details.region.min_x(),
+                clamped_position.y - relevant_window_details.region.min_y(),
             );
             self.relative_position = to_grid_coords(
                 relative_position,

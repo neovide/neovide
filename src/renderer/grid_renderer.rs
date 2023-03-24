@@ -1,9 +1,13 @@
 use std::sync::Arc;
 
 use log::trace;
+/*
 use skia_safe::{
     colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Path, Point, Rect, HSV,
 };
+*/
+use csscolorparser::Color;
+use euclid::{default::Rect, rect};
 use winit::dpi::PhysicalSize;
 
 use crate::{
@@ -16,7 +20,7 @@ use crate::{
 
 pub struct GridRenderer {
     pub shaper: CachingShaper,
-    pub paint: Paint,
+    //pub paint: Paint,
     pub default_style: Arc<Style>,
     pub em_size: f32,
     pub font_dimensions: Dimensions,
@@ -27,19 +31,19 @@ pub struct GridRenderer {
 impl GridRenderer {
     pub fn new(scale_factor: f64) -> Self {
         let mut shaper = CachingShaper::new(scale_factor as f32);
-        let mut paint = Paint::new(colors::WHITE, None);
-        paint.set_anti_alias(false);
+        //let mut paint = Paint::new(colors::WHITE, None);
+        //paint.set_anti_alias(false);
         let default_style = Arc::new(Style::new(Colors::new(
-            Some(colors::WHITE),
-            Some(colors::BLACK),
-            Some(colors::GREY),
+            Some(Color::from_rgba8(255, 255, 255, 255)),
+            Some(Color::from_rgba8(0, 0, 0, 255)),
+            Some(Color::from_rgba8(128, 128, 128, 255)),
         )));
         let em_size = shaper.current_size();
         let font_dimensions: Dimensions = shaper.font_base_dimensions().into();
 
         GridRenderer {
             shaper,
-            paint,
+            //paint,
             default_style,
             em_size,
             font_dimensions,
@@ -84,16 +88,17 @@ impl GridRenderer {
         trace!("Updated font dimensions: {:?}", self.font_dimensions,);
     }
 
-    fn compute_text_region(&self, grid_position: (u64, u64), cell_width: u64) -> Rect {
+    fn compute_text_region(&self, grid_position: (u64, u64), cell_width: u64) -> Rect<f32> {
         let (x, y) = grid_position * self.font_dimensions;
         let width = cell_width * self.font_dimensions.width;
         let height = self.font_dimensions.height;
-        Rect::new(x as f32, y as f32, (x + width) as f32, (y + height) as f32)
+        rect(x as f32, y as f32, width as f32, height as f32)
     }
 
     pub fn get_default_background(&self) -> Color {
-        self.default_style.colors.background.unwrap().to_color()
+        self.default_style.colors.background.clone().unwrap()
     }
+    /*
 
     // Returns a boolean with
     // The cell uses the default background color
@@ -304,4 +309,5 @@ impl GridRenderer {
 
         canvas.restore();
     }
+    */
 }

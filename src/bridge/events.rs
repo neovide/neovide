@@ -4,9 +4,9 @@ use std::{
     fmt::{self, Debug},
 };
 
+use csscolorparser::Color;
 use log::debug;
 use rmpv::Value;
-use skia_safe::Color4f;
 
 use crate::editor::{Colors, CursorMode, CursorShape, Style, UnderlineStyle};
 
@@ -277,17 +277,12 @@ pub enum RedrawEvent {
     },
 }
 
-fn unpack_color(packed_color: u64) -> Color4f {
+fn unpack_color(packed_color: u64) -> Color {
     let packed_color = packed_color as u32;
     let r = ((packed_color & 0x00ff_0000) >> 16) as f32;
     let g = ((packed_color & 0xff00) >> 8) as f32;
     let b = (packed_color & 0xff) as f32;
-    Color4f {
-        r: r / 255.0,
-        g: g / 255.0,
-        b: b / 255.0,
-        a: 1.0,
-    }
+    Color::from([r, g, b])
 }
 
 fn extract_values<const REQ: usize>(values: Vec<Value>) -> Result<[Value; REQ]> {

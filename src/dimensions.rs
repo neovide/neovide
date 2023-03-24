@@ -9,6 +9,8 @@ use winit::dpi::PhysicalSize;
 
 use crate::settings;
 
+use euclid::default::Size2D;
+
 // Maybe this should be independent from serialization?
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Dimensions {
@@ -105,6 +107,22 @@ impl From<Dimensions> for PhysicalSize<u32> {
         }
     }
 }
+
+macro_rules! impl_from_dimensions_to_size2d {
+    ($type:ty) => {
+        impl From<Dimensions> for Size2D<$type> {
+            fn from(dimensions: Dimensions) -> Size2D<$type> {
+                Size2D::new(dimensions.width as $type, dimensions.height as $type)
+            }
+        }
+    };
+}
+
+impl_from_dimensions_to_size2d!(u64);
+impl_from_dimensions_to_size2d!(u32);
+impl_from_dimensions_to_size2d!(i32);
+impl_from_dimensions_to_size2d!(f32);
+impl_from_dimensions_to_size2d!(f64);
 
 impl Mul for Dimensions {
     type Output = Self;

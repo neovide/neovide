@@ -1,10 +1,10 @@
-use skia_safe::Color4f;
+use csscolorparser::Color;
 
 #[derive(new, Debug, Clone, PartialEq)]
 pub struct Colors {
-    pub foreground: Option<Color4f>,
-    pub background: Option<Color4f>,
-    pub special: Option<Color4f>,
+    pub foreground: Option<Color>,
+    pub background: Option<Color>,
+    pub special: Option<Color>,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -34,33 +34,38 @@ pub struct Style {
 }
 
 impl Style {
-    pub fn foreground(&self, default_colors: &Colors) -> Color4f {
+    pub fn foreground(&self, default_colors: &Colors) -> Color {
         if self.reverse {
             self.colors
                 .background
-                .unwrap_or_else(|| default_colors.background.unwrap())
+                .clone()
+                .unwrap_or_else(|| default_colors.background.clone().unwrap())
         } else {
             self.colors
                 .foreground
-                .unwrap_or_else(|| default_colors.foreground.unwrap())
+                .clone()
+                .unwrap_or_else(|| default_colors.foreground.clone().unwrap())
         }
     }
 
-    pub fn background(&self, default_colors: &Colors) -> Color4f {
+    pub fn background(&self, default_colors: &Colors) -> Color {
         if self.reverse {
             self.colors
                 .foreground
-                .unwrap_or_else(|| default_colors.foreground.unwrap())
+                .clone()
+                .unwrap_or_else(|| default_colors.foreground.clone().unwrap())
         } else {
             self.colors
                 .background
-                .unwrap_or_else(|| default_colors.background.unwrap())
+                .clone()
+                .unwrap_or_else(|| default_colors.background.clone().unwrap())
         }
     }
 
-    pub fn special(&self, default_colors: &Colors) -> Color4f {
+    pub fn special(&self, default_colors: &Colors) -> Color {
         self.colors
             .special
+            .clone()
             .unwrap_or_else(|| self.foreground(default_colors))
     }
 }

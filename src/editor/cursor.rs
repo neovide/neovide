@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use skia_safe::Color4f;
+use csscolorparser::Color;
 
 use crate::editor::style::{Colors, Style};
 
@@ -66,18 +66,18 @@ impl Cursor {
         }
     }
 
-    pub fn foreground(&self, default_colors: &Colors) -> Color4f {
+    pub fn foreground(&self, default_colors: &Colors) -> Color {
         self.style
             .as_ref()
-            .and_then(|s| s.colors.foreground)
-            .unwrap_or_else(|| default_colors.background.unwrap())
+            .and_then(|s| s.colors.foreground.clone())
+            .unwrap_or_else(|| default_colors.background.clone().unwrap())
     }
 
-    pub fn background(&self, default_colors: &Colors) -> Color4f {
+    pub fn background(&self, default_colors: &Colors) -> Color {
         self.style
             .as_ref()
-            .and_then(|s| s.colors.background)
-            .unwrap_or_else(|| default_colors.foreground.unwrap())
+            .and_then(|s| s.colors.background.clone())
+            .unwrap_or_else(|| default_colors.foreground.clone().unwrap())
     }
 
     pub fn alpha(&self) -> u8 {
@@ -118,15 +118,15 @@ mod tests {
     use super::*;
 
     const COLORS: Colors = Colors {
-        foreground: Some(Color4f::new(0.1, 0.1, 0.1, 0.1)),
-        background: Some(Color4f::new(0.2, 0.1, 0.1, 0.1)),
-        special: Some(Color4f::new(0.3, 0.1, 0.1, 0.1)),
+        foreground: Some(Color::new(0.1, 0.1, 0.1, 0.1)),
+        background: Some(Color::new(0.2, 0.1, 0.1, 0.1)),
+        special: Some(Color::new(0.3, 0.1, 0.1, 0.1)),
     };
 
     const DEFAULT_COLORS: Colors = Colors {
-        foreground: Some(Color4f::new(0.1, 0.2, 0.1, 0.1)),
-        background: Some(Color4f::new(0.2, 0.2, 0.1, 0.1)),
-        special: Some(Color4f::new(0.3, 0.2, 0.1, 0.1)),
+        foreground: Some(Color::new(0.1, 0.2, 0.1, 0.1)),
+        background: Some(Color::new(0.2, 0.2, 0.1, 0.1)),
+        special: Some(Color::new(0.3, 0.2, 0.1, 0.1)),
     };
 
     const NONE_COLORS: Colors = Colors {
