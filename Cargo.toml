@@ -29,7 +29,6 @@ euclid = "0.22.7"
 flexi_logger = { version = "0.22.3", default-features = false }
 futures = "0.3.21"
 gl = "0.14.0"
-glutin = { git = "https://github.com/neovide/glutin", branch = "new-keyboard-v3", features = ["serde"] }
 image = { version = "0.24.1", default-features = false, features = ["ico"] }
 itertools = "0.10.5"
 lazy_static = "1.4.0"
@@ -53,6 +52,8 @@ unicode-segmentation = "1.9.0"
 which = "4.2.5"
 winit = { git = "https://github.com/neovide/winit", branch = "new-keyboard-v3" }
 xdg = "2.4.1"
+wgpu = "0.14.2"
+skia-safe = "0.60.0"
 
 [dev-dependencies]
 mockall = "0.11.0"
@@ -69,19 +70,6 @@ shlex = "1.1.0"
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.12"
-
-[target.'cfg(windows)'.dependencies.skia-safe]
-# NOTE: Including textlayout for pre-built binaries
-features = ["d3d", "gl", "textlayout"]
-version = "0.60.0"
-
-[target.'cfg(linux)'.dependencies.skia-safe]
-features = ["gl", "egl"]
-version = "0.60.0"
-
-[target.'cfg(not(linux))'.dependencies.skia-safe]
-features = ["gl"]
-version = "0.60.0"
 
 [profile.release]
 lto = true
