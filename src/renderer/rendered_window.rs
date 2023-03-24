@@ -109,7 +109,11 @@ pub struct LocatedSurface {
 }
 
 impl LocatedSurface {
-    fn new(grid_renderer: &GridRenderer, grid_size: Dimensions, vertical_position: f32) -> LocatedSurface {
+    fn new(
+        grid_renderer: &GridRenderer,
+        grid_size: Dimensions,
+        vertical_position: f32,
+    ) -> LocatedSurface {
         LocatedSurface { vertical_position }
     }
 }
