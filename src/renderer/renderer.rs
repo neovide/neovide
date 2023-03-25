@@ -1,6 +1,7 @@
-use std::convert::TryInto;
-use winit::window::Window;
 use pollster::FutureExt as _;
+use std::convert::TryInto;
+use wgpu::SurfaceTexture;
+use winit::window::Window;
 
 /*
 fn create_surface(
@@ -40,8 +41,8 @@ fn create_surface(
 
 pub struct WGpuRenderer {
     surface: wgpu::Surface,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
+    pub device: wgpu::Device,
+    pub queue: wgpu::Queue,
     config: wgpu::SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
 }
@@ -91,7 +92,7 @@ impl WGpuRenderer {
             let alpha_modes = surface.get_supported_alpha_modes(&adapter);
             let formats = surface.get_supported_formats(&adapter);
 
-            let surface_format = formats 
+            let surface_format = formats
                 .iter()
                 .copied()
                 .filter(|f| f.describe().srgb)
@@ -113,7 +114,8 @@ impl WGpuRenderer {
                 config,
                 size,
             }
-        }.block_on()
+        }
+        .block_on()
     }
     /*
     pub fn new(windowed_context: &WindowedContext) -> SkiaRenderer {
@@ -153,6 +155,9 @@ impl WGpuRenderer {
         self.surface.canvas()
     }
     */
+    pub fn surface_texture(&mut self) -> Result<SurfaceTexture, wgpu::SurfaceError> {
+        self.surface.get_current_texture()
+    }
 
     pub fn resize(&mut self, window: &Window) {
         let new_size = window.inner_size();

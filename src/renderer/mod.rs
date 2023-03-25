@@ -5,6 +5,7 @@ pub mod grid_renderer;
 //mod opengl;
 //pub mod profiler;
 mod rendered_window;
+mod renderer;
 
 use std::{
     cmp::Ordering,
@@ -33,6 +34,8 @@ pub use grid_renderer::GridRenderer;
 pub use rendered_window::{
     LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails, WindowPadding,
 };
+
+pub use renderer::WGpuRenderer;
 
 #[derive(SettingGroup, Clone)]
 pub struct RendererSettings {
@@ -139,7 +142,6 @@ impl Renderer {
         self.grid_renderer.font_names()
     }
 
-    /*
     fn get_sorted_windows(&mut self) -> Vec<&mut RenderedWindow> {
         let windows: Vec<&mut RenderedWindow> = {
             let (mut root_windows, mut floating_windows): (
@@ -165,6 +167,7 @@ impl Renderer {
     }
 
     pub fn draw_window_surfaces(&mut self) {
+        /*
         let font_dimensions = self.grid_renderer.font_dimensions;
         let default_background = self.grid_renderer.get_default_background();
         let windows = self.get_sorted_windows();
@@ -172,27 +175,48 @@ impl Renderer {
         for window in windows {
             window.draw_surface(font_dimensions, default_background);
         }
+        */
     }
 
-    /// Draws frame
-    ///
-    /// # Returns
-    /// `bool` indicating whether or not font was changed during this frame.
-    #[allow(clippy::needless_collect)]
-    pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32) {
+    pub fn draw_frame(&mut self, renderer: &mut WGpuRenderer, dt: f32) {
         tracy_zone!("renderer_draw_frame");
         let default_background = self.grid_renderer.get_default_background();
         let font_dimensions = self.grid_renderer.font_dimensions;
 
         let transparency = { SETTINGS.get::<WindowSettings>().transparency };
-        root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
-        root_canvas.save();
-        root_canvas.reset_matrix();
 
-        if let Some(root_window) = self.rendered_windows.get(&1) {
-            let clip_rect = root_window.pixel_region(font_dimensions);
-            root_canvas.clip_rect(clip_rect, None, Some(false));
+        // TODO: Deal with errors
+        let output = renderer.surface_texture().unwrap();
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
+        let mut encoder = renderer
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Render Encoder"),
+            });
+        {
+            let _render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: default_background.r,
+                            g: default_background.g,
+                            b: default_background.b,
+                            a: default_background.a,
+                        }),
+                        store: true,
+                    },
+                })],
+                depth_stencil_attachment: None,
+            });
         }
+        /*
+        renderer.queue.submit(std::iter::once(encoder.finish()));
+        output.present();
 
         let self_window_padding = self.window_padding;
         let windows = self.get_sorted_windows();
@@ -221,8 +245,8 @@ impl Renderer {
         self.profiler.draw(root_canvas, dt);
 
         root_canvas.restore();
+        */
     }
-    */
 
     pub fn animate_frame(&mut self, dt: f32) -> bool {
         let windows: Vec<&mut RenderedWindow> = {
