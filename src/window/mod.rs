@@ -1,6 +1,6 @@
 mod keyboard_manager;
 mod mouse_manager;
-//mod renderer;
+mod renderer;
 mod settings;
 
 #[cfg(target_os = "macos")]
@@ -36,7 +36,7 @@ use crate::profiling::{
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
 use mouse_manager::MouseManager;
-//use renderer::SkiaRenderer;
+use renderer::WGpuRenderer;
 
 use crate::{
     bridge::{ParallelCommand, UiCommand},
@@ -75,7 +75,7 @@ pub enum UserEvent {
 
 pub struct WinitWindowWrapper {
     //windowed_context: WindowedContext,
-    //skia_renderer: SkiaRenderer,
+    wgpu_renderer: WGpuRenderer,
     window: Window,
     renderer: Renderer,
     keyboard_manager: KeyboardManager,
@@ -267,7 +267,7 @@ impl WinitWindowWrapper {
             self.saved_inner_size = new_size;
 
             self.handle_new_grid_size(new_size);
-            //self.skia_renderer.resize(&self.windowed_context);
+            self.wgpu_renderer.resize(&self.window);
             should_render = true;
         }
 
@@ -490,9 +490,10 @@ pub fn create_window() {
             renderer.grid_renderer.font_dimensions,
         );
 
-        //let skia_renderer = SkiaRenderer::new(&windowed_context);
+        let wgpu_renderer = WGpuRenderer::new(&window);
 
         let mut window_wrapper = WinitWindowWrapper {
+            wgpu_renderer,
             window,
             renderer,
             keyboard_manager: KeyboardManager::new(),
