@@ -55,6 +55,7 @@ xdg = "2.4.1"
 wgpu = "0.14.2"
 skia-safe = "0.60.0"
 pollster = "0.3.0"
+bytemuck = { version = "1.12", features = [ "derive" ] }
 
 [dev-dependencies]
 mockall = "0.11.0"

@@ -14,7 +14,7 @@ use crate::{
     dimensions::Dimensions,
     editor::{Colors, Style, UnderlineStyle},
     profiling::tracy_zone,
-    renderer::{CachingShaper, RendererSettings},
+    renderer::{BackgroundFragment, CachingShaper, RendererSettings},
     settings::*,
 };
 
@@ -98,51 +98,49 @@ impl GridRenderer {
     pub fn get_default_background(&self) -> Color {
         self.default_style.colors.background.clone().unwrap()
     }
-    /*
 
-    // Returns a boolean with
-    // The cell uses the default background color
-    // The cell has transparency
     pub fn draw_background(
         &mut self,
-        canvas: &mut Canvas,
         grid_position: (u64, u64),
         cell_width: u64,
         style: &Option<Arc<Style>>,
-    ) -> (bool, bool) {
+    ) -> BackgroundFragment {
         tracy_zone!("draw_background");
         let debug = SETTINGS.get::<RendererSettings>().debug_renderer;
-        if style.is_none() && !debug {
-            return (false, false);
-        }
 
         let region = self.compute_text_region(grid_position, cell_width);
         let style = style.as_ref().unwrap_or(&self.default_style);
 
-        self.paint.set_blend_mode(BlendMode::Src);
+        let mut color = if debug {
+            let random_hsv = (rand::random::<f64>() * 360.0, 0.3, 0.3);
+            Color::from_hsva(random_hsv.0, random_hsv.1, random_hsv.2, 1.0)
+        } else {
+            style.background(&self.default_style.colors)
+        };
 
-        if debug {
-            let random_hsv: HSV = (rand::random::<f32>() * 360.0, 0.3, 0.3).into();
-            let random_color = random_hsv.to_color(255);
-            self.paint.set_color(random_color);
+        color.a = if style.blend > 0 {
+            (100 - style.blend) as f64 / 100.0
         } else {
-            self.paint
-                .set_color(style.background(&self.default_style.colors).to_color());
-        }
-        if style.blend > 0 {
-            self.paint.set_alpha_f((100 - style.blend) as f32 / 100.0);
-        } else {
-            self.paint.set_alpha_f(1.0);
-        }
+            1.0
+        };
+        let color = [
+            color.a as f32,
+            color.r as f32,
+            color.g as f32,
+            color.b as f32,
+        ];
 
-        if self.paint.color4f() == self.default_style.colors.background.unwrap() {
-            (false, style.blend > 0)
-        } else {
-            canvas.draw_rect(region, &self.paint);
-            (true, style.blend > 0)
+        let position = [region.origin.x, 0.0];
+        let width = region.width();
+
+        BackgroundFragment {
+            color,
+            position,
+            width,
         }
     }
 
+    /*
     pub fn draw_foreground(
         &mut self,
         canvas: &mut Canvas,

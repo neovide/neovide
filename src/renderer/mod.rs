@@ -15,6 +15,7 @@ use std::{
 
 use log::error;
 //use skia_safe::Canvas;
+use csscolorparser::Color;
 use tokio::sync::mpsc::UnboundedReceiver;
 use winit::event::Event;
 
@@ -35,7 +36,7 @@ pub use rendered_window::{
     LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails, WindowPadding,
 };
 
-pub use renderer::WGpuRenderer;
+pub use renderer::*;
 
 #[derive(SettingGroup, Clone)]
 pub struct RendererSettings {
@@ -185,44 +186,16 @@ impl Renderer {
 
         let transparency = { SETTINGS.get::<WindowSettings>().transparency };
 
-        // TODO: Deal with errors
-        let output = renderer.surface_texture().unwrap();
-        let view = output
-            .texture
-            .create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder = renderer
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
-        {
-            let _render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Render Pass"),
-                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: default_background.r,
-                            g: default_background.g,
-                            b: default_background.b,
-                            a: default_background.a,
-                        }),
-                        store: true,
-                    },
-                })],
-                depth_stencil_attachment: None,
-            });
-        }
-        /*
-        renderer.queue.submit(std::iter::once(encoder.finish()));
-        output.present();
+        renderer.begin_frame(&default_background);
 
         let self_window_padding = self.window_padding;
         let windows = self.get_sorted_windows();
 
         let settings = SETTINGS.get::<RendererSettings>();
-
+        let background = Color {
+            a: transparency.into(),
+            ..default_background
+        };
         self.window_regions = windows
             .into_iter()
             .map(|window| {
@@ -230,15 +203,11 @@ impl Renderer {
                     window.padding = self_window_padding;
                 }
 
-                window.draw(
-                    root_canvas,
-                    &settings,
-                    default_background.with_a((255.0 * transparency) as u8),
-                    font_dimensions,
-                )
+                window.draw(renderer, &settings, &background, &font_dimensions)
             })
             .collect();
 
+        /*
         self.cursor_renderer
             .draw(&mut self.grid_renderer, root_canvas);
 
@@ -246,6 +215,8 @@ impl Renderer {
 
         root_canvas.restore();
         */
+
+        renderer.end_frame();
     }
 
     pub fn animate_frame(&mut self, dt: f32) -> bool {
