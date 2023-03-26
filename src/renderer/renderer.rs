@@ -6,9 +6,12 @@ use std::mem::size_of;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     vertex_attr_array, Buffer, BufferAddress, BufferDescriptor, BufferUsages, CommandEncoder,
-    CommandEncoderDescriptor, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor,
-    SurfaceTexture, TextureViewDescriptor, VertexAttribute, VertexBufferLayout, VertexStepMode,
-    COPY_BUFFER_ALIGNMENT,
+    CommandEncoderDescriptor, Device, Face, FrontFace, IndexFormat, LoadOp, MaintainBase,
+    MultisampleState, Operations, PipelineLayoutDescriptor, PolygonMode, PrimitiveState,
+    PrimitiveTopology, Queue, RenderPass, RenderPassColorAttachment, RenderPassDescriptor,
+    RenderPipeline, RenderPipelineDescriptor, ShaderModuleDescriptor, ShaderSource, SurfaceTexture,
+    TextureView, TextureViewDescriptor, VertexAttribute, VertexBufferLayout, VertexState,
+    VertexStepMode, COPY_BUFFER_ALIGNMENT,
 };
 use winit::window::Window;
 
@@ -112,8 +115,16 @@ pub struct WGpuRenderer {
     size: winit::dpi::PhysicalSize<u32>,
     quad_vertex_buffer: Buffer,
     quad_index_buffer: Buffer,
-    surface_texture: Option<SurfaceTexture>,
-    encoder: Option<CommandEncoder>,
+    pub background_pipeline: RenderPipeline,
+}
+
+pub struct MainRenderPass<'a> {
+    render_pass: RenderPass<'a>,
+    background_pipeline: &'a RenderPipeline,
+    queue: &'a Queue,
+    device: &'a Device,
+    quad_vertex_buffer: &'a Buffer,
+    quad_index_buffer: &'a Buffer,
 }
 
 impl WGpuRenderer {
@@ -188,6 +199,57 @@ impl WGpuRenderer {
                 usage: BufferUsages::INDEX,
             });
 
+            let background_shader = device.create_shader_module(ShaderModuleDescriptor {
+                label: Some("Background Shader"),
+                source: ShaderSource::Wgsl(include_str!("shaders/background.wgsl").into()),
+            });
+
+            let background_pipeline_layout =
+                device.create_pipeline_layout(&PipelineLayoutDescriptor {
+                    label: Some("Background Pipeline Layout"),
+                    bind_group_layouts: &[],
+                    push_constant_ranges: &[],
+                });
+
+            let background_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
+                label: Some("Background Pipeline"),
+                layout: Some(&background_pipeline_layout),
+                vertex: VertexState {
+                    module: &background_shader,
+                    entry_point: "vs_main",
+                    buffers: &[QuadVertex::desc()],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &background_shader,
+                    entry_point: "fs_main",
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: config.format,
+                        blend: Some(wgpu::BlendState::REPLACE),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                primitive: PrimitiveState {
+                    topology: PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: FrontFace::Cw, // NOTE: Should be ccw, but leave it like this until
+                    // the camera is set
+                    cull_mode: Some(Face::Back),
+                    // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
+                    polygon_mode: PolygonMode::Fill,
+                    // Requires Features::DEPTH_CLIP_CONTROL
+                    unclipped_depth: false,
+                    // Requires Features::CONSERVATIVE_RASTERIZATION
+                    conservative: false,
+                },
+                depth_stencil: None,
+                multisample: MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                multiview: None,
+            });
+
             Self {
                 surface,
                 device,
@@ -196,8 +258,7 @@ impl WGpuRenderer {
                 size,
                 quad_vertex_buffer,
                 quad_index_buffer,
-                surface_texture: None,
-                encoder: None,
+                background_pipeline,
             }
         }
         .block_on()
@@ -235,16 +296,13 @@ impl WGpuRenderer {
     }
     */
 
-    /*
-    pub fn canvas(&mut self) -> &mut Canvas {
-        self.surface.canvas()
-    }
-    */
-
-    pub fn begin_frame(&mut self, background: &Color) {
+    pub fn render<F>(&mut self, background: &Color, callback: F)
+    where
+        F: FnOnce(MainRenderPass),
+    {
         // TODO: Deal with errors
         let output = self.surface.get_current_texture().unwrap();
-        let view = output
+        let mut view = output
             .texture
             .create_view(&TextureViewDescriptor::default());
         let mut encoder = self
@@ -252,8 +310,9 @@ impl WGpuRenderer {
             .create_command_encoder(&CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
             });
+
         {
-            let _render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
+            let render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(RenderPassColorAttachment {
                     view: &view,
@@ -270,14 +329,20 @@ impl WGpuRenderer {
                 })],
                 depth_stencil_attachment: None,
             });
+            let background_pipeline = &self.background_pipeline;
+            let queue = &self.queue;
+            let device = &self.device;
+            let quad_vertex_buffer = &self.quad_vertex_buffer;
+            let quad_index_buffer = &self.quad_index_buffer;
+            callback(MainRenderPass {
+                render_pass,
+                background_pipeline,
+                queue,
+                device,
+                quad_vertex_buffer,
+                quad_index_buffer,
+            });
         }
-        self.surface_texture = Some(output);
-        self.encoder = Some(encoder);
-    }
-
-    pub fn end_frame(&mut self) {
-        let encoder = self.encoder.take().unwrap();
-        let output = self.surface_texture.take().unwrap();
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
     }
@@ -292,7 +357,9 @@ impl WGpuRenderer {
             self.surface.configure(&self.device, &self.config);
         }
     }
+}
 
+impl<'a> MainRenderPass<'a> {
     pub fn draw_background(
         &mut self,
         fragments: Vec<BackgroundFragment>,
@@ -317,6 +384,12 @@ impl WGpuRenderer {
             })
         };
         self.queue.write_buffer(&buffer, 0, contents);
+        self.render_pass.set_pipeline(&self.background_pipeline);
+        self.render_pass
+            .set_vertex_buffer(0, self.quad_vertex_buffer.slice(..));
+        self.render_pass
+            .set_index_buffer(self.quad_index_buffer.slice(..), IndexFormat::Uint16);
+        self.render_pass.draw_indexed(0..6, 0, 0..1);
         buffer
     }
 }

@@ -186,37 +186,35 @@ impl Renderer {
 
         let transparency = { SETTINGS.get::<WindowSettings>().transparency };
 
-        renderer.begin_frame(&default_background);
+        renderer.render(&default_background, |mut render_pass| {
+            let self_window_padding = self.window_padding;
+            let windows = self.get_sorted_windows();
 
-        let self_window_padding = self.window_padding;
-        let windows = self.get_sorted_windows();
+            let settings = SETTINGS.get::<RendererSettings>();
+            let background = Color {
+                a: transparency.into(),
+                ..default_background
+            };
+            self.window_regions = windows
+                .into_iter()
+                .map(|window| {
+                    if window.padding != self_window_padding {
+                        window.padding = self_window_padding;
+                    }
 
-        let settings = SETTINGS.get::<RendererSettings>();
-        let background = Color {
-            a: transparency.into(),
-            ..default_background
-        };
-        self.window_regions = windows
-            .into_iter()
-            .map(|window| {
-                if window.padding != self_window_padding {
-                    window.padding = self_window_padding;
-                }
+                    window.draw(&mut render_pass, &settings, &background, &font_dimensions)
+                })
+                .collect();
 
-                window.draw(renderer, &settings, &background, &font_dimensions)
-            })
-            .collect();
+            /*
+            self.cursor_renderer
+                .draw(&mut self.grid_renderer, root_canvas);
 
-        /*
-        self.cursor_renderer
-            .draw(&mut self.grid_renderer, root_canvas);
+            self.profiler.draw(root_canvas, dt);
 
-        self.profiler.draw(root_canvas, dt);
-
-        root_canvas.restore();
-        */
-
-        renderer.end_frame();
+            root_canvas.restore();
+            */
+        });
     }
 
     pub fn animate_frame(&mut self, dt: f32) -> bool {
