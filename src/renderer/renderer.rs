@@ -1,17 +1,19 @@
 use bytemuck::{cast_slice, Pod, Zeroable};
 use csscolorparser::Color;
+use euclid::default::{Size2D, Transform3D};
 use pollster::FutureExt as _;
 use std::convert::TryInto;
 use std::mem::size_of;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
-    vertex_attr_array, Buffer, BufferAddress, BufferDescriptor, BufferUsages, CommandEncoder,
-    CommandEncoderDescriptor, Device, Face, FrontFace, IndexFormat, LoadOp, MaintainBase,
-    MultisampleState, Operations, PipelineLayoutDescriptor, PolygonMode, PrimitiveState,
-    PrimitiveTopology, Queue, RenderPass, RenderPassColorAttachment, RenderPassDescriptor,
-    RenderPipeline, RenderPipelineDescriptor, ShaderModuleDescriptor, ShaderSource, SurfaceTexture,
-    TextureView, TextureViewDescriptor, VertexAttribute, VertexBufferLayout, VertexState,
-    VertexStepMode, COPY_BUFFER_ALIGNMENT,
+    vertex_attr_array, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BindingType, Buffer, BufferAddress, BufferBindingType, BufferDescriptor,
+    BufferUsages, CommandEncoder, CommandEncoderDescriptor, Device, Face, FrontFace, IndexFormat,
+    LoadOp, MaintainBase, MultisampleState, Operations, PipelineLayoutDescriptor, PolygonMode,
+    PrimitiveState, PrimitiveTopology, Queue, RenderPass, RenderPassColorAttachment,
+    RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, ShaderModuleDescriptor,
+    ShaderSource, ShaderStages, SurfaceTexture, TextureView, TextureViewDescriptor,
+    VertexAttribute, VertexBufferLayout, VertexState, VertexStepMode, COPY_BUFFER_ALIGNMENT,
 };
 use winit::window::Window;
 
@@ -106,6 +108,25 @@ impl BackgroundFragment {
         }
     }
 }
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct CameraUniform {
+    view_proj: [[f32; 4]; 4],
+}
+
+impl CameraUniform {
+    fn new() -> Self {
+        Self {
+            view_proj: Transform3D::identity().to_arrays().into(),
+        }
+    }
+
+    fn update_view_proj(&mut self, size: Size2D<f32>) {
+        self.view_proj = Transform3D::ortho(0.0, size.width, size.height, 0.0, -1.0, 1.0)
+            .to_arrays()
+            .into();
+    }
+}
 
 pub struct WGpuRenderer {
     surface: wgpu::Surface,
@@ -115,6 +136,9 @@ pub struct WGpuRenderer {
     size: winit::dpi::PhysicalSize<u32>,
     quad_vertex_buffer: Buffer,
     quad_index_buffer: Buffer,
+    camera_uniform: CameraUniform,
+    camera_buffer: Buffer,
+    camera_bind_group: BindGroup,
     pub background_pipeline: RenderPipeline,
 }
 
@@ -204,10 +228,42 @@ impl WGpuRenderer {
                 source: ShaderSource::Wgsl(include_str!("shaders/background.wgsl").into()),
             });
 
+            let camera_uniform = CameraUniform::new();
+
+            let camera_buffer = device.create_buffer_init(&BufferInitDescriptor {
+                label: Some("Camera Buffer"),
+                contents: cast_slice(&[camera_uniform]),
+                usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+            });
+
+            let camera_bind_group_layout =
+                device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                    entries: &[BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: ShaderStages::VERTEX,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }],
+                    label: Some("Camera Bind Group Layout"),
+                });
+
+            let camera_bind_group = device.create_bind_group(&BindGroupDescriptor {
+                layout: &camera_bind_group_layout,
+                entries: &[BindGroupEntry {
+                    binding: 0,
+                    resource: camera_buffer.as_entire_binding(),
+                }],
+                label: Some("Camera Bind Group"),
+            });
+
             let background_pipeline_layout =
                 device.create_pipeline_layout(&PipelineLayoutDescriptor {
                     label: Some("Background Pipeline Layout"),
-                    bind_group_layouts: &[],
+                    bind_group_layouts: &[&camera_bind_group_layout],
                     push_constant_ranges: &[],
                 });
 
@@ -231,8 +287,7 @@ impl WGpuRenderer {
                 primitive: PrimitiveState {
                     topology: PrimitiveTopology::TriangleList,
                     strip_index_format: None,
-                    front_face: FrontFace::Cw, // NOTE: Should be ccw, but leave it like this until
-                    // the camera is set
+                    front_face: FrontFace::Ccw,
                     cull_mode: Some(Face::Back),
                     // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
                     polygon_mode: PolygonMode::Fill,
@@ -258,6 +313,9 @@ impl WGpuRenderer {
                 size,
                 quad_vertex_buffer,
                 quad_index_buffer,
+                camera_uniform,
+                camera_buffer,
+                camera_bind_group,
                 background_pipeline,
             }
         }
@@ -296,7 +354,7 @@ impl WGpuRenderer {
     }
     */
 
-    pub fn render<F>(&mut self, background: &Color, callback: F)
+    pub fn render<F>(&mut self, background: &Color, size: Size2D<f32>, callback: F)
     where
         F: FnOnce(MainRenderPass),
     {
@@ -312,7 +370,7 @@ impl WGpuRenderer {
             });
 
         {
-            let render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
+            let mut render_pass = encoder.begin_render_pass(&RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(RenderPassColorAttachment {
                     view: &view,
@@ -329,6 +387,10 @@ impl WGpuRenderer {
                 })],
                 depth_stencil_attachment: None,
             });
+            self.camera_uniform.update_view_proj(size);
+            self.queue
+                .write_buffer(&self.camera_buffer, 0, cast_slice(&[self.camera_uniform]));
+            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
             let background_pipeline = &self.background_pipeline;
             let queue = &self.queue;
             let device = &self.device;
