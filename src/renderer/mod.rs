@@ -167,46 +167,33 @@ impl Renderer {
         windows
     }
 
-    pub fn draw_window_surfaces(&mut self) {
-        /*
-        let font_dimensions = self.grid_renderer.font_dimensions;
-        let default_background = self.grid_renderer.get_default_background();
-        let windows = self.get_sorted_windows();
-
-        for window in windows {
-            window.draw_surface(font_dimensions, default_background);
-        }
-        */
-    }
-
     pub fn draw_frame(&mut self, renderer: &mut WGpuRenderer, dt: f32) {
         tracy_zone!("renderer_draw_frame");
         let default_background = self.grid_renderer.get_default_background();
         let font_dimensions = self.grid_renderer.font_dimensions;
+        let self_window_padding = self.window_padding;
+        let mut windows = self.get_sorted_windows();
+
+        let mut background_fragments = Vec::default();
+        for window in windows.iter_mut() {
+            window.draw_surface(&font_dimensions, &default_background, &mut background_fragments);
+        }
+        renderer.update_background_fragments(background_fragments);
 
         let transparency = { SETTINGS.get::<WindowSettings>().transparency };
 
-        if let Some(root_window) = self.rendered_windows.get(&1) {
+        if let Some(root_window) = windows.first() {
             let window_size = root_window.pixel_region(&font_dimensions).size;
-            renderer.render(&default_background, window_size, |mut render_pass| {
-                let self_window_padding = self.window_padding;
-                let windows = self.get_sorted_windows();
-
+            renderer.render(&default_background, window_size, font_dimensions.height as f32, |mut render_pass| {
                 let settings = SETTINGS.get::<RendererSettings>();
                 let background = Color {
                     a: transparency.into(),
                     ..default_background
                 };
-                self.window_regions = windows
-                    .into_iter()
-                    .map(|window| {
-                        if window.padding != self_window_padding {
-                            window.padding = self_window_padding;
-                        }
 
-                        window.draw(&mut render_pass, &settings, &background, &font_dimensions)
-                    })
-                    .collect();
+                for window in windows.iter_mut() {
+                    window.draw(&mut render_pass, &settings, &default_background, &font_dimensions);
+                }
 
                 /*
                 self.cursor_renderer

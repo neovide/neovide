@@ -124,19 +124,19 @@ impl GridRenderer {
             1.0
         };
         let color = [
-            color.a as f32,
             color.r as f32,
             color.g as f32,
             color.b as f32,
+            color.a as f32,
         ];
 
         let position = [region.origin.x, 0.0];
         let width = region.width();
 
         BackgroundFragment {
-            color,
             position,
             width,
+            color,
         }
     }
 

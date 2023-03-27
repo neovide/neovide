@@ -207,7 +207,6 @@ impl WinitWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         tracy_zone!("draw_frame");
-        self.renderer.draw_window_surfaces();
         self.renderer.draw_frame(&mut self.wgpu_renderer, dt);
         emit_frame_mark();
         tracy_gpu_collect();

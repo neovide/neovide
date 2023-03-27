@@ -2,7 +2,7 @@ use bytemuck::{cast_slice, Pod, Zeroable};
 use csscolorparser::Color;
 use euclid::default::{Size2D, Transform3D};
 use pollster::FutureExt as _;
-use std::convert::TryInto;
+use std::ops::Range;
 use std::mem::size_of;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
@@ -98,12 +98,12 @@ pub struct BackgroundFragment {
 
 impl BackgroundFragment {
     const ATTRIBS: [VertexAttribute; 3] =
-        vertex_attr_array![0 => Float32x2, 1 => Float32, 2=> Float32x4];
+        vertex_attr_array![1 => Float32x2, 2 => Float32, 3 => Float32x4];
 
     fn desc<'a>() -> VertexBufferLayout<'a> {
         VertexBufferLayout {
             array_stride: size_of::<Self>() as BufferAddress,
-            step_mode: VertexStepMode::Vertex,
+            step_mode: VertexStepMode::Instance,
             attributes: &Self::ATTRIBS,
         }
     }
@@ -112,12 +112,16 @@ impl BackgroundFragment {
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct CameraUniform {
     view_proj: [[f32; 4]; 4],
+    pub row_height: f32,
+    padding: [u32; 3],
 }
 
 impl CameraUniform {
     fn new() -> Self {
         Self {
             view_proj: Transform3D::identity().to_arrays().into(),
+            row_height: 0.0,
+            padding: [0; 3], 
         }
     }
 
@@ -136,6 +140,7 @@ pub struct WGpuRenderer {
     size: winit::dpi::PhysicalSize<u32>,
     quad_vertex_buffer: Buffer,
     quad_index_buffer: Buffer,
+    background_fragment_buffer: Buffer,
     camera_uniform: CameraUniform,
     camera_buffer: Buffer,
     camera_bind_group: BindGroup,
@@ -149,7 +154,18 @@ pub struct MainRenderPass<'a> {
     device: &'a Device,
     quad_vertex_buffer: &'a Buffer,
     quad_index_buffer: &'a Buffer,
+    background_fragment_buffer: &'a Buffer,
 }
+
+pub fn create_background_fragment_buffer(device: &Device, size: BufferAddress) -> Buffer {
+    device.create_buffer(&BufferDescriptor {
+        label: Some("Background Instance Buffer"),
+        size,
+        usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    })
+}
+
 
 impl WGpuRenderer {
     pub fn new(window: &Window) -> Self {
@@ -199,7 +215,7 @@ impl WGpuRenderer {
             let surface_format = formats
                 .iter()
                 .copied()
-                .filter(|f| f.describe().srgb)
+                .filter(|f| f.describe().srgb == false)
                 .next()
                 .unwrap_or(formats[0]);
             let config = wgpu::SurfaceConfiguration {
@@ -222,6 +238,13 @@ impl WGpuRenderer {
                 contents: cast_slice(QUAD_INDICES),
                 usage: BufferUsages::INDEX,
             });
+            let quad_vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
+                label: Some("Quad Vertex Buffer"),
+                contents: cast_slice(QUAD_VERTICES),
+                usage: BufferUsages::VERTEX,
+            });
+
+            let background_fragment_buffer = create_background_fragment_buffer(&device, 16*1024);
 
             let background_shader = device.create_shader_module(ShaderModuleDescriptor {
                 label: Some("Background Shader"),
@@ -273,7 +296,9 @@ impl WGpuRenderer {
                 vertex: VertexState {
                     module: &background_shader,
                     entry_point: "vs_main",
-                    buffers: &[QuadVertex::desc()],
+                    buffers: &[QuadVertex::desc(),
+                    BackgroundFragment::desc()
+                    ],
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &background_shader,
@@ -313,6 +338,7 @@ impl WGpuRenderer {
                 size,
                 quad_vertex_buffer,
                 quad_index_buffer,
+                background_fragment_buffer,
                 camera_uniform,
                 camera_buffer,
                 camera_bind_group,
@@ -321,6 +347,21 @@ impl WGpuRenderer {
         }
         .block_on()
     }
+
+    pub fn update_background_fragments(&mut self, fragments: Vec<BackgroundFragment>) {
+        let contents = cast_slice(&fragments);
+
+        let size = contents
+            .len()
+            .min(16 * 1024)
+            .checked_next_power_of_two()
+            .unwrap() as BufferAddress;
+        if self.background_fragment_buffer.size() < size {
+            self.background_fragment_buffer = create_background_fragment_buffer(&self.device, size);
+        }
+        self.queue.write_buffer(&self.background_fragment_buffer, 0, contents);
+    }
+
     /*
     pub fn new(windowed_context: &WindowedContext) -> SkiaRenderer {
         gl::load_with(|s| windowed_context.get_proc_address(s));
@@ -354,7 +395,7 @@ impl WGpuRenderer {
     }
     */
 
-    pub fn render<F>(&mut self, background: &Color, size: Size2D<f32>, callback: F)
+    pub fn render<F>(&mut self, background: &Color, size: Size2D<f32>, row_height: f32, callback: F)
     where
         F: FnOnce(MainRenderPass),
     {
@@ -388,6 +429,7 @@ impl WGpuRenderer {
                 depth_stencil_attachment: None,
             });
             self.camera_uniform.update_view_proj(size);
+            self.camera_uniform.row_height = row_height;
             self.queue
                 .write_buffer(&self.camera_buffer, 0, cast_slice(&[self.camera_uniform]));
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
@@ -396,6 +438,7 @@ impl WGpuRenderer {
             let device = &self.device;
             let quad_vertex_buffer = &self.quad_vertex_buffer;
             let quad_index_buffer = &self.quad_index_buffer;
+            let background_fragment_buffer = &self.background_fragment_buffer;
             callback(MainRenderPass {
                 render_pass,
                 background_pipeline,
@@ -403,6 +446,7 @@ impl WGpuRenderer {
                 device,
                 quad_vertex_buffer,
                 quad_index_buffer,
+                background_fragment_buffer,
             });
         }
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -424,9 +468,12 @@ impl WGpuRenderer {
 impl<'a> MainRenderPass<'a> {
     pub fn draw_background(
         &mut self,
-        fragments: Vec<BackgroundFragment>,
-        buffer: Option<Buffer>,
-    ) -> Buffer {
+        range: &Range<u64>,
+    ) {
+        if range.is_empty() {
+            return;
+        }
+        /*
         let contents = cast_slice(&fragments);
 
         let size = contents
@@ -445,13 +492,15 @@ impl<'a> MainRenderPass<'a> {
                 mapped_at_creation: false,
             })
         };
-        self.queue.write_buffer(&buffer, 0, contents);
+        */
+        let stride = BackgroundFragment::desc().array_stride;
+        //let buffer_range = range.start * stride..range.end *stride;
         self.render_pass.set_pipeline(&self.background_pipeline);
         self.render_pass
             .set_vertex_buffer(0, self.quad_vertex_buffer.slice(..));
+        self.render_pass.set_vertex_buffer(1, self.background_fragment_buffer.slice(..));
         self.render_pass
             .set_index_buffer(self.quad_index_buffer.slice(..), IndexFormat::Uint16);
-        self.render_pass.draw_indexed(0..6, 0, 0..1);
-        buffer
+        self.render_pass.draw_indexed(0..6, 0, range.start as u32..range.end as u32);
     }
 }

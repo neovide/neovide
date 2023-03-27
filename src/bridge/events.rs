@@ -279,10 +279,10 @@ pub enum RedrawEvent {
 
 fn unpack_color(packed_color: u64) -> Color {
     let packed_color = packed_color as u32;
-    let r = ((packed_color & 0x00ff_0000) >> 16) as f32;
-    let g = ((packed_color & 0xff00) >> 8) as f32;
-    let b = (packed_color & 0xff) as f32;
-    Color::from([r, g, b])
+    let r = ((packed_color & 0x00ff_0000) >> 16) as u8;
+    let g = ((packed_color & 0xff00) >> 8) as u8;
+    let b = (packed_color & 0xff) as u8;
+    Color::from_rgba8(r, g, b, 255)
 }
 
 fn extract_values<const REQ: usize>(values: Vec<Value>) -> Result<[Value; REQ]> {
