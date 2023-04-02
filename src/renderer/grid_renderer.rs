@@ -7,7 +7,8 @@ use skia_safe::{
 };
 */
 use csscolorparser::Color;
-use euclid::{default::Rect, rect};
+use euclid::{default::Rect, rect, Point2D, Vector2D};
+use swash::shape::cluster::Glyph;
 use winit::dpi::PhysicalSize;
 
 use crate::{
@@ -17,6 +18,8 @@ use crate::{
     renderer::{BackgroundFragment, CachingShaper, RendererSettings},
     settings::*,
 };
+
+use super::GlyphFragment;
 
 pub struct GridRenderer {
     pub shaper: CachingShaper,
@@ -140,16 +143,16 @@ impl GridRenderer {
         }
     }
 
-    /*
     pub fn draw_foreground(
         &mut self,
-        canvas: &mut Canvas,
-        text: String,
+        text: &String,
         grid_position: (u64, u64),
         cell_width: u64,
         style: &Option<Arc<Style>>,
-    ) -> bool {
+        glyph_fragments: &mut Vec<GlyphFragment>,
+    ) {
         tracy_zone!("draw_foreground");
+        let debug = SETTINGS.get::<RendererSettings>().debug_renderer;
         let (x, y) = grid_position * self.font_dimensions;
         let width = cell_width * self.font_dimensions.width;
 
@@ -162,6 +165,7 @@ impl GridRenderer {
         let clip_position = (grid_x.saturating_sub(1), grid_y);
         let region = self.compute_text_region(clip_position, cell_width + 2);
 
+        /*
         if let Some(underline_style) = style.underline {
             let line_position = self.shaper.underline_position();
             let p1 = (
@@ -176,21 +180,23 @@ impl GridRenderer {
             self.draw_underline(canvas, style, underline_style, p1.into(), p2.into());
             drawn = true;
         }
-
-        canvas.save();
-        canvas.clip_rect(region, None, Some(false));
+        */
 
         let y_adjustment = self.shaper.y_adjustment();
 
-        if SETTINGS.get::<RendererSettings>().debug_renderer {
-            let random_hsv: HSV = (rand::random::<f32>() * 360.0, 1.0, 1.0).into();
-            let random_color = random_hsv.to_color(255);
-            self.paint.set_color(random_color);
+        let color = if debug {
+            let random_hsv = (rand::random::<f64>() * 360.0, 1.0, 1.0);
+            Color::from_hsva(random_hsv.0, random_hsv.1, random_hsv.2, 1.0)
         } else {
-            self.paint
-                .set_color(style.foreground(&self.default_style.colors).to_color());
-        }
-        self.paint.set_anti_alias(false);
+            style.foreground(&self.default_style.colors)
+        };
+
+        let color = [
+            color.r as f32,
+            color.g as f32,
+            color.b as f32,
+            color.a as f32,
+        ];
 
         // There's a lot of overhead for empty blobs in Skia, for some reason they never hit the
         // cache, so trim all the spaces
@@ -199,21 +205,31 @@ impl GridRenderer {
         let trimmed = trimmed.trim_end();
         let x_adjustment = leading_spaces as u64 * self.font_dimensions.width;
 
+        let base_position = Vector2D::new((x + x_adjustment) as f32, (y + y_adjustment) as f32);
+
         if !trimmed.is_empty() {
-            for blob in self
+            for glyph in self
                 .shaper
                 .shape_cached(trimmed.to_string(), style.bold, style.italic)
                 .iter()
             {
+                let position = base_position + glyph.position.to_vector();
+                glyph_fragments.push(GlyphFragment {
+                    position: [position.x, position.y],
+                    width: self.font_dimensions.width as f32,
+                    color,
+                });
+                /*
                 canvas.draw_text_blob(
                     blob,
                     ((x + x_adjustment) as f32, (y + y_adjustment) as f32),
                     &self.paint,
                 );
-                drawn = true;
+                */
             }
         }
 
+        /*
         if style.strikethrough {
             let line_position = region.center_y();
             self.paint
@@ -223,13 +239,11 @@ impl GridRenderer {
                 ((x + width) as f32, line_position),
                 &self.paint,
             );
-            drawn = true;
         }
-
-        canvas.restore();
-        drawn
+        */
     }
 
+    /*
     fn draw_underline(
         &self,
         canvas: &mut Canvas,

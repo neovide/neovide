@@ -2,8 +2,8 @@ use bytemuck::{cast_slice, Pod, Zeroable};
 use csscolorparser::Color;
 use euclid::default::{Size2D, Transform3D};
 use pollster::FutureExt as _;
-use std::ops::Range;
 use std::mem::size_of;
+use std::ops::Range;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     vertex_attr_array, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
@@ -108,6 +108,28 @@ impl BackgroundFragment {
         }
     }
 }
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug, Pod, Zeroable)]
+pub struct GlyphFragment {
+    pub position: [f32; 2],
+    pub width: f32,
+    pub color: [f32; 4],
+}
+
+impl GlyphFragment {
+    const ATTRIBS: [VertexAttribute; 3] =
+        vertex_attr_array![1 => Float32x2, 2 => Float32, 3 => Float32x4];
+
+    fn desc<'a>() -> VertexBufferLayout<'a> {
+        VertexBufferLayout {
+            array_stride: size_of::<Self>() as BufferAddress,
+            step_mode: VertexStepMode::Instance,
+            attributes: &Self::ATTRIBS,
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct CameraUniform {
@@ -121,7 +143,7 @@ impl CameraUniform {
         Self {
             view_proj: Transform3D::identity().to_arrays().into(),
             row_height: 0.0,
-            padding: [0; 3], 
+            padding: [0; 3],
         }
     }
 
@@ -141,20 +163,24 @@ pub struct WGpuRenderer {
     quad_vertex_buffer: Buffer,
     quad_index_buffer: Buffer,
     background_fragment_buffer: Buffer,
+    glyph_fragment_buffer: Buffer,
     camera_uniform: CameraUniform,
     camera_buffer: Buffer,
     camera_bind_group: BindGroup,
-    pub background_pipeline: RenderPipeline,
+    background_pipeline: RenderPipeline,
+    glyph_pipeline: RenderPipeline,
 }
 
 pub struct MainRenderPass<'a> {
     render_pass: RenderPass<'a>,
     background_pipeline: &'a RenderPipeline,
+    glyph_pipeline: &'a RenderPipeline,
+    background_fragment_buffer: &'a Buffer,
+    glyph_fragment_buffer: &'a Buffer,
     queue: &'a Queue,
     device: &'a Device,
     quad_vertex_buffer: &'a Buffer,
     quad_index_buffer: &'a Buffer,
-    background_fragment_buffer: &'a Buffer,
 }
 
 pub fn create_background_fragment_buffer(device: &Device, size: BufferAddress) -> Buffer {
@@ -166,6 +192,14 @@ pub fn create_background_fragment_buffer(device: &Device, size: BufferAddress) -
     })
 }
 
+pub fn create_glyph_fragment_buffer(device: &Device, size: BufferAddress) -> Buffer {
+    device.create_buffer(&BufferDescriptor {
+        label: Some("Glyph Instance Buffer"),
+        size,
+        usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
+        mapped_at_creation: false,
+    })
+}
 
 impl WGpuRenderer {
     pub fn new(window: &Window) -> Self {
@@ -244,11 +278,18 @@ impl WGpuRenderer {
                 usage: BufferUsages::VERTEX,
             });
 
-            let background_fragment_buffer = create_background_fragment_buffer(&device, 16*1024);
+            let background_fragment_buffer = create_background_fragment_buffer(&device, 16 * 1024);
 
             let background_shader = device.create_shader_module(ShaderModuleDescriptor {
                 label: Some("Background Shader"),
                 source: ShaderSource::Wgsl(include_str!("shaders/background.wgsl").into()),
+            });
+
+            let glyph_fragment_buffer = create_glyph_fragment_buffer(&device, 16 * 1024);
+
+            let glyph_shader = device.create_shader_module(ShaderModuleDescriptor {
+                label: Some("Glyph Shader"),
+                source: ShaderSource::Wgsl(include_str!("shaders/glyph.wgsl").into()),
             });
 
             let camera_uniform = CameraUniform::new();
@@ -296,9 +337,51 @@ impl WGpuRenderer {
                 vertex: VertexState {
                     module: &background_shader,
                     entry_point: "vs_main",
-                    buffers: &[QuadVertex::desc(),
-                    BackgroundFragment::desc()
-                    ],
+                    buffers: &[QuadVertex::desc(), BackgroundFragment::desc()],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &background_shader,
+                    entry_point: "fs_main",
+                    targets: &[Some(wgpu::ColorTargetState {
+                        format: config.format,
+                        blend: Some(wgpu::BlendState::REPLACE),
+                        write_mask: wgpu::ColorWrites::ALL,
+                    })],
+                }),
+                primitive: PrimitiveState {
+                    topology: PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: FrontFace::Ccw,
+                    cull_mode: Some(Face::Back),
+                    // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
+                    polygon_mode: PolygonMode::Fill,
+                    // Requires Features::DEPTH_CLIP_CONTROL
+                    unclipped_depth: false,
+                    // Requires Features::CONSERVATIVE_RASTERIZATION
+                    conservative: false,
+                },
+                depth_stencil: None,
+                multisample: MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                multiview: None,
+            });
+
+            let glyph_pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
+                label: Some("Glyph Pipeline Layout"),
+                bind_group_layouts: &[&camera_bind_group_layout],
+                push_constant_ranges: &[],
+            });
+
+            let glyph_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
+                label: Some("Glyph Pipeline"),
+                layout: Some(&glyph_pipeline_layout),
+                vertex: VertexState {
+                    module: &background_shader,
+                    entry_point: "vs_main",
+                    buffers: &[QuadVertex::desc(), BackgroundFragment::desc()],
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &background_shader,
@@ -338,11 +421,13 @@ impl WGpuRenderer {
                 size,
                 quad_vertex_buffer,
                 quad_index_buffer,
-                background_fragment_buffer,
                 camera_uniform,
                 camera_buffer,
                 camera_bind_group,
                 background_pipeline,
+                background_fragment_buffer,
+                glyph_pipeline,
+                glyph_fragment_buffer,
             }
         }
         .block_on()
@@ -353,13 +438,29 @@ impl WGpuRenderer {
 
         let size = contents
             .len()
-            .min(16 * 1024)
+            .max(16 * 1024)
             .checked_next_power_of_two()
             .unwrap() as BufferAddress;
         if self.background_fragment_buffer.size() < size {
             self.background_fragment_buffer = create_background_fragment_buffer(&self.device, size);
         }
-        self.queue.write_buffer(&self.background_fragment_buffer, 0, contents);
+        self.queue
+            .write_buffer(&self.background_fragment_buffer, 0, contents);
+    }
+
+    pub fn update_glyph_fragments(&mut self, fragments: Vec<GlyphFragment>) {
+        let contents = cast_slice(&fragments);
+
+        let size = contents
+            .len()
+            .max(16 * 1024)
+            .checked_next_power_of_two()
+            .unwrap() as BufferAddress;
+        if self.glyph_fragment_buffer.size() < size {
+            self.glyph_fragment_buffer = create_glyph_fragment_buffer(&self.device, size);
+        }
+        self.queue
+            .write_buffer(&self.glyph_fragment_buffer, 0, contents);
     }
 
     /*
@@ -434,19 +535,23 @@ impl WGpuRenderer {
                 .write_buffer(&self.camera_buffer, 0, cast_slice(&[self.camera_uniform]));
             render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
             let background_pipeline = &self.background_pipeline;
+            let background_fragment_buffer = &self.background_fragment_buffer;
+            let glyph_pipeline = &self.glyph_pipeline;
+            let glyph_fragment_buffer = &self.glyph_fragment_buffer;
             let queue = &self.queue;
             let device = &self.device;
             let quad_vertex_buffer = &self.quad_vertex_buffer;
             let quad_index_buffer = &self.quad_index_buffer;
-            let background_fragment_buffer = &self.background_fragment_buffer;
             callback(MainRenderPass {
                 render_pass,
                 background_pipeline,
+                background_fragment_buffer,
+                glyph_pipeline,
+                glyph_fragment_buffer,
                 queue,
                 device,
                 quad_vertex_buffer,
                 quad_index_buffer,
-                background_fragment_buffer,
             });
         }
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -466,41 +571,35 @@ impl WGpuRenderer {
 }
 
 impl<'a> MainRenderPass<'a> {
-    pub fn draw_background(
-        &mut self,
-        range: &Range<u64>,
-    ) {
-        if range.is_empty() {
+    pub fn draw_window(&mut self, background_range: &Range<u64>, glyph_range: &Range<u64>) {
+        if background_range.is_empty() {
             return;
         }
-        /*
-        let contents = cast_slice(&fragments);
-
-        let size = contents
-            .len()
-            .min(16 * 1024)
-            .checked_next_power_of_two()
-            .unwrap() as BufferAddress;
-
-        let buffer = if buffer.is_some() && buffer.as_ref().unwrap().size() >= size {
-            buffer.unwrap()
-        } else {
-            self.device.create_buffer(&BufferDescriptor {
-                label: Some("Background Instance Buffer"),
-                size,
-                usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            })
-        };
-        */
-        let stride = BackgroundFragment::desc().array_stride;
-        //let buffer_range = range.start * stride..range.end *stride;
-        self.render_pass.set_pipeline(&self.background_pipeline);
         self.render_pass
             .set_vertex_buffer(0, self.quad_vertex_buffer.slice(..));
-        self.render_pass.set_vertex_buffer(1, self.background_fragment_buffer.slice(..));
         self.render_pass
             .set_index_buffer(self.quad_index_buffer.slice(..), IndexFormat::Uint16);
-        self.render_pass.draw_indexed(0..6, 0, range.start as u32..range.end as u32);
+
+        let stride = BackgroundFragment::desc().array_stride;
+        self.render_pass.set_pipeline(&self.background_pipeline);
+        self.render_pass
+            .set_vertex_buffer(1, self.background_fragment_buffer.slice(..));
+        self.render_pass.draw_indexed(
+            0..6,
+            0,
+            background_range.start as u32..background_range.end as u32,
+        );
+
+        if !glyph_range.is_empty() {
+            let stride = GlyphFragment::desc().array_stride;
+            self.render_pass.set_pipeline(&self.glyph_pipeline);
+            self.render_pass
+                .set_vertex_buffer(1, self.glyph_fragment_buffer.slice(..));
+            self.render_pass.draw_indexed(
+                0..6,
+                0,
+                glyph_range.start as u32..glyph_range.end as u32,
+            );
+        }
     }
 }

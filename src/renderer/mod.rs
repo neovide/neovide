@@ -175,35 +175,52 @@ impl Renderer {
         let mut windows = self.get_sorted_windows();
 
         let mut background_fragments = Vec::default();
+        let mut glyph_fragments = Vec::default();
         for window in windows.iter_mut() {
-            window.draw_surface(&font_dimensions, &default_background, &mut background_fragments);
+            window.draw_surface(
+                &font_dimensions,
+                &default_background,
+                &mut background_fragments,
+                &mut glyph_fragments,
+            );
         }
         renderer.update_background_fragments(background_fragments);
+        renderer.update_glyph_fragments(glyph_fragments);
 
         let transparency = { SETTINGS.get::<WindowSettings>().transparency };
 
         if let Some(root_window) = windows.first() {
             let window_size = root_window.pixel_region(&font_dimensions).size;
-            renderer.render(&default_background, window_size, font_dimensions.height as f32, |mut render_pass| {
-                let settings = SETTINGS.get::<RendererSettings>();
-                let background = Color {
-                    a: transparency.into(),
-                    ..default_background
-                };
+            renderer.render(
+                &default_background,
+                window_size,
+                font_dimensions.height as f32,
+                |mut render_pass| {
+                    let settings = SETTINGS.get::<RendererSettings>();
+                    let background = Color {
+                        a: transparency.into(),
+                        ..default_background
+                    };
 
-                for window in windows.iter_mut() {
-                    window.draw(&mut render_pass, &settings, &default_background, &font_dimensions);
-                }
+                    for window in windows.iter_mut() {
+                        window.draw(
+                            &mut render_pass,
+                            &settings,
+                            &default_background,
+                            &font_dimensions,
+                        );
+                    }
 
-                /*
-                self.cursor_renderer
-                    .draw(&mut self.grid_renderer, root_canvas);
+                    /*
+                    self.cursor_renderer
+                        .draw(&mut self.grid_renderer, root_canvas);
 
-                self.profiler.draw(root_canvas, dt);
+                    self.profiler.draw(root_canvas, dt);
 
-                root_canvas.restore();
-                */
-            });
+                    root_canvas.restore();
+                    */
+                },
+            );
         }
     }
 
