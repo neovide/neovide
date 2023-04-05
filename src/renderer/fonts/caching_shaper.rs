@@ -13,9 +13,11 @@ use swash::{
     GlyphId, Metrics,
 };
 use unicode_segmentation::UnicodeSegmentation;
+use webrender_api::units::DevicePoint;
+use wr_glyph_rasterizer::{GlyphKey, SubpixelDirection};
 
 use crate::profiling::tracy_zone;
-use crate::renderer::fonts::{font_loader::*, font_options::*};
+use crate::renderer::fonts::{font_loader::*, font_options::*, glyph_cache::*};
 
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {
@@ -25,7 +27,7 @@ struct ShapeKey {
 }
 
 pub struct ShapeResult {
-    pub glyph_id: GlyphId,
+    pub glyph_id: u32,
     pub position: Point2D<f32>,
 }
 
@@ -37,6 +39,7 @@ pub struct CachingShaper {
     scale_factor: f32,
     fudge_factor: f32,
     linespace: i64,
+    glyph_cache: GlyphCache,
 }
 
 impl CachingShaper {
@@ -51,6 +54,7 @@ impl CachingShaper {
             scale_factor,
             fudge_factor: 1.0,
             linespace: 0,
+            glyph_cache: GlyphCache::new(),
         };
         shaper.reset_font_loader();
         shaper
@@ -368,10 +372,16 @@ impl CachingShaper {
             shaper.shape_with(|glyph_cluster| {
                 for glyph in glyph_cluster.glyphs {
                     let position = Point2D::new((glyph.data as u64 * glyph_width) as f32, glyph.y);
-                    result.push(ShapeResult {
-                        glyph_id: glyph.id,
-                        position,
-                    });
+                    let glyph_key = GlyphKey::new(
+                        glyph.id.into(),
+                        DevicePoint::new(0.0, 0.0),
+                        SubpixelDirection::None,
+                    );
+                    let glyph_id = self
+                        .font_loader
+                        .glyph_cache
+                        .get_glyph(&font_pair, glyph_key);
+                    result.push(ShapeResult { glyph_id, position });
                 }
             });
         }
@@ -391,5 +401,9 @@ impl CachingShaper {
         }
 
         self.blob_cache.get(&key).unwrap()
+    }
+
+    pub fn process(&mut self) {
+        self.font_loader.glyph_cache.process();
     }
 }

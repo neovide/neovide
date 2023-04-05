@@ -185,7 +185,12 @@ impl Renderer {
             );
         }
         renderer.update_background_fragments(background_fragments);
+        self.grid_renderer.shaper.process();
         renderer.update_glyph_fragments(glyph_fragments);
+
+        // TODO: We should not need to get this a second time.. but the borrow checker complains
+        // otherwise
+        let mut windows = self.get_sorted_windows();
 
         let transparency = { SETTINGS.get::<WindowSettings>().transparency };
 
