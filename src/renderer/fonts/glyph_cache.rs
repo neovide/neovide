@@ -1,3 +1,4 @@
+use super::atlas::Atlas;
 use super::font_loader::FontPair;
 use log::trace;
 use rayon::ThreadPoolBuilder;
@@ -15,6 +16,7 @@ pub struct GlyphCache {
     glyphs: HashMap<CachedGlyphKey, u32>,
     next_glyph_id: u32,
     pending_rasterize: Vec<u32>,
+    atlas: Atlas,
 }
 
 struct Profiler;
@@ -39,11 +41,13 @@ impl GlyphCache {
             Arc::new(worker.unwrap())
         };
         let rasterizer = GlyphRasterizer::new(workers, true);
+        let atlas = Atlas::new();
         Self {
             rasterizer,
             glyphs: HashMap::new(),
             next_glyph_id: 0,
             pending_rasterize: Vec::new(),
+            atlas,
         }
     }
 
@@ -65,6 +69,7 @@ impl GlyphCache {
             |job, _| {
                 if let Ok(glyph) = job.result {
                     trace!("Glyph width {}, height {}", glyph.width, glyph.height);
+                    self.atlas.add_glyph(&glyph)
                 }
             },
             &mut Profiler,
