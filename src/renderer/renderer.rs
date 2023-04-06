@@ -208,7 +208,7 @@ impl WGpuRenderer {
 
             // The instance is a handle to our GPU
             // Backends::all => Vulkan + Metal + DX12 + Browser WebGPU
-            let instance = wgpu::Instance::new(wgpu::Backends::all());
+            let instance = wgpu::Instance::new(wgpu::Backends::DX12);
 
             // # Safety
             // The surface needs to live as long as the window that created it.
