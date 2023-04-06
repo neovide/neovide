@@ -5,6 +5,7 @@ use rayon::ThreadPoolBuilder;
 use std::collections::HashMap;
 use std::sync::Arc;
 use webrender_api::FontKey;
+use wgpu::{Device, Queue};
 use wr_glyph_rasterizer::{
     profiler::GlyphRasterizeProfiler, FontInstance, GlyphKey, GlyphRasterizer,
 };
@@ -64,16 +65,17 @@ impl GlyphCache {
         })
     }
 
-    pub fn process(&mut self) {
+    pub fn process(&mut self, device: &Device, queue: &Queue) {
         self.rasterizer.resolve_glyphs(
             |job, _| {
                 if let Ok(glyph) = job.result {
                     trace!("Glyph width {}, height {}", glyph.width, glyph.height);
-                    self.atlas.add_glyph(&glyph)
+                    self.atlas.add_glyph(device, &glyph)
                 }
             },
             &mut Profiler,
         );
+        self.atlas.upload(queue);
         self.pending_rasterize.clear();
     }
 }

@@ -14,6 +14,7 @@ use swash::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 use webrender_api::units::DevicePoint;
+use wgpu::{Device, Queue};
 use wr_glyph_rasterizer::{GlyphKey, SubpixelDirection};
 
 use crate::profiling::tracy_zone;
@@ -403,7 +404,7 @@ impl CachingShaper {
         self.blob_cache.get(&key).unwrap()
     }
 
-    pub fn process(&mut self) {
-        self.font_loader.glyph_cache.process();
+    pub fn process(&mut self, device: &Device, queue: &Queue) {
+        self.font_loader.glyph_cache.process(device, queue);
     }
 }

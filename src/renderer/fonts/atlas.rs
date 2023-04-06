@@ -1,6 +1,10 @@
 use enum_map::{enum_map, Enum, EnumMap};
+use std::num::NonZeroU32;
 use webrender_api::ImageFormat;
-use wgpu::{Device, Extent3d, Texture, TextureDescriptor, TextureDimension, TextureUsages};
+use wgpu::{
+    BufferAddress, Device, Extent3d, Origin3d, Queue, Texture, TextureDescriptor, TextureDimension,
+    TextureUsages,
+};
 use wr_glyph_rasterizer::RasterizedGlyph;
 
 #[derive(Debug, Copy, Clone, Enum)]
@@ -47,20 +51,35 @@ impl TextureFormat {
             TextureFormat::RGBA8 => ImageFormat::RGBA8,
         }
     }
+
+    fn to_wgpu(&self) -> wgpu::TextureFormat {
+        match self {
+            TextureFormat::R8 => wgpu::TextureFormat::R8Unorm,
+            TextureFormat::R16 => wgpu::TextureFormat::R16Unorm,
+            TextureFormat::BGRA8 => wgpu::TextureFormat::Bgra8Unorm,
+            TextureFormat::RGBAF32 => wgpu::TextureFormat::Rgba32Float,
+            TextureFormat::RG8 => wgpu::TextureFormat::Rg8Unorm,
+            TextureFormat::RG16 => wgpu::TextureFormat::Rg16Unorm,
+            TextureFormat::RGBAI32 => wgpu::TextureFormat::Rgba32Sint,
+            TextureFormat::RGBA8 => wgpu::TextureFormat::Rgba8Unorm,
+        }
+    }
 }
 
 struct AtlasTexture {
-    //texture: Texture,
+    texture: Texture,
     texture_size: Extent3d,
     cpu_buffer: Vec<u8>,
     bytes_per_pixel: usize,
     current_xpos: usize,
     current_ypos: usize,
     current_row_height: usize,
+    upload_pos: Origin3d,
+    dirty: bool,
 }
 
 impl AtlasTexture {
-    pub fn new(texture_format: TextureFormat) -> Self {
+    pub fn new(device: &Device, texture_format: TextureFormat) -> Self {
         let width = 1024;
         let height = 1024;
         let texture_size = Extent3d {
@@ -68,17 +87,15 @@ impl AtlasTexture {
             height,
             depth_or_array_layers: 1,
         };
-        /*
         let texture = device.create_texture(&TextureDescriptor {
             size: texture_size,
             mip_level_count: 1,
             sample_count: 1,
             dimension: TextureDimension::D2,
-            format: TextureFormat::Rgba8Unorm,
+            format: texture_format.to_wgpu(),
             usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
             label: Some("Glyph Atlas"),
         });
-        */
         let bytes_per_pixel = texture_format.bytes_per_pixel();
         let buffer_size = (width * height) as usize * bytes_per_pixel;
         let mut cpu_buffer = Vec::with_capacity(buffer_size);
@@ -87,13 +104,15 @@ impl AtlasTexture {
         }
 
         Self {
-            //texture
+            texture,
             texture_size,
             cpu_buffer,
             bytes_per_pixel,
             current_xpos: 0,
             current_ypos: 0,
             current_row_height: 0,
+            upload_pos: Origin3d::ZERO,
+            dirty: false,
         }
     }
 
@@ -116,6 +135,42 @@ impl AtlasTexture {
         }
         self.current_xpos += width;
         self.current_row_height = self.current_row_height.max(height);
+        self.dirty = true;
+    }
+
+    fn upload(&mut self, queue: &Queue) {
+        if !self.dirty {
+            return;
+        }
+
+        let start_byte = self.upload_pos.y * self.bytes_per_pixel as u32;
+        let copy_extent = Extent3d {
+            width: self.texture_size.width,
+            height: (self.current_ypos + self.current_row_height) as u32 - self.upload_pos.y,
+            depth_or_array_layers: 1,
+        };
+
+        queue.write_texture(
+            wgpu::ImageCopyTexture {
+                texture: &self.texture,
+                mip_level: 0,
+                origin: self.upload_pos,
+                aspect: wgpu::TextureAspect::All,
+            },
+            &self.cpu_buffer
+                [0..(copy_extent.height * copy_extent.width) as usize * self.bytes_per_pixel],
+            wgpu::ImageDataLayout {
+                offset: (self.upload_pos.y as usize * self.bytes_per_pixel) as BufferAddress,
+                bytes_per_row: NonZeroU32::new(
+                    self.bytes_per_pixel as u32 * self.texture_size.width,
+                ),
+                rows_per_image: None,
+            },
+            copy_extent,
+        );
+        // Always make sure that we re-upload the current row
+        self.upload_pos.y += copy_extent.height - self.current_row_height as u32;
+        self.dirty = false;
     }
 }
 
@@ -129,14 +184,20 @@ impl Atlas {
         Self { textures }
     }
 
-    pub fn add_glyph(&mut self, glyph: &RasterizedGlyph) {
+    pub fn add_glyph(&mut self, device: &Device, glyph: &RasterizedGlyph) {
         let can_use_rgb8 = true;
         let texture_format = glyph.format.image_format(can_use_rgb8).into();
         let textures = &mut self.textures[texture_format];
         if textures.is_empty() {
-            textures.push(AtlasTexture::new(texture_format));
+            textures.push(AtlasTexture::new(device, texture_format));
         }
         let mut texture = textures.last_mut().unwrap();
         texture.add_glyph(glyph);
+    }
+
+    pub fn upload(&mut self, queue: &Queue) {
+        for texture in self.textures.values_mut().flat_map(|v| v.iter_mut()) {
+            texture.upload(queue)
+        }
     }
 }
