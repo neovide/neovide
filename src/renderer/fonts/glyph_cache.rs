@@ -15,8 +15,6 @@ type CachedGlyphKey = (FontKey, GlyphKey);
 pub struct GlyphCache {
     pub rasterizer: GlyphRasterizer,
     glyphs: HashMap<CachedGlyphKey, u32>,
-    next_glyph_id: u32,
-    pending_rasterize: Vec<u32>,
     glyph_coordinates: Vec<Option<AtlasCoordinate>>,
     pub atlas: Atlas,
 }
@@ -47,8 +45,6 @@ impl GlyphCache {
         Self {
             rasterizer,
             glyphs: HashMap::new(),
-            next_glyph_id: 0,
-            pending_rasterize: Vec::new(),
             atlas,
             glyph_coordinates: Vec::new(),
         }
@@ -60,29 +56,28 @@ impl GlyphCache {
             let font_instance = FontInstance::from_base(font.base_instance.clone());
             self.rasterizer
                 .request_glyphs(font_instance, &[id], |_| true);
-            let glyph_id = self.next_glyph_id;
-            self.pending_rasterize.push(glyph_id);
-            self.next_glyph_id += 1;
-            glyph_id
+            let glyph_id = self.glyph_coordinates.len();
+            self.glyph_coordinates.push(None);
+            glyph_id as u32
         })
     }
 
     pub fn process(&mut self, device: &Device, queue: &Queue) {
         self.rasterizer.resolve_glyphs(
             |job, _| {
+                let key = (job.font.base.font_key, job.key);
+                let glyph_id = self.glyphs.get(&key).unwrap();
                 let glyph_coordinate = if let Ok(glyph) = job.result {
                     trace!("Glyph width {}, height {}", glyph.width, glyph.height);
                     Some(self.atlas.add_glyph(device, &glyph))
                 } else {
                     None
                 };
-                // NOTE: The glyphs are processed in order so we can just add it to the end
-                self.glyph_coordinates.push(glyph_coordinate);
+                self.glyph_coordinates[*glyph_id as usize] = glyph_coordinate;
             },
             &mut Profiler,
         );
         self.atlas.upload(queue);
-        self.pending_rasterize.clear();
     }
 
     pub fn get_glyph_coordinate(&self, glyph: u32) -> &Option<AtlasCoordinate> {
