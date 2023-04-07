@@ -81,7 +81,7 @@ impl NeovimInstance {
     }
 
     async fn connect_to_server(address: String) -> Result<(BoxedReader, BoxedWriter)> {
-        if address.contains(":") {
+        if address.contains(':') {
             Ok(Self::split(TcpStream::connect(address).await?))
         } else {
             #[cfg(unix)]
