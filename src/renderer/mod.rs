@@ -4,6 +4,7 @@ pub mod fonts;
 pub mod grid_renderer;
 //mod opengl;
 //pub mod profiler;
+pub mod pipeline;
 mod rendered_window;
 mod renderer;
 

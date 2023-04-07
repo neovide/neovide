@@ -15,7 +15,7 @@ use crate::{
     dimensions::Dimensions,
     editor::{Colors, Style, UnderlineStyle},
     profiling::tracy_zone,
-    renderer::{BackgroundFragment, CachingShaper, RendererSettings},
+    renderer::{pipeline::BackgroundFragment, CachingShaper, RendererSettings},
     settings::*,
 };
 

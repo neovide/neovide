@@ -1,68 +1,26 @@
+use super::pipeline::{Background, BackgroundFragment, Camera, GlyphFragment, Glyphs};
 use bytemuck::{cast_slice, Pod, Zeroable};
 use csscolorparser::Color;
-use euclid::default::{Size2D, Transform3D};
+use euclid::default::Size2D;
 use pollster::FutureExt as _;
 use std::mem::size_of;
 use std::ops::Range;
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
-    vertex_attr_array, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
-    BindGroupLayoutEntry, BindingType, Buffer, BufferAddress, BufferBindingType, BufferDescriptor,
-    BufferUsages, CommandEncoder, CommandEncoderDescriptor, Device, Face, FrontFace, IndexFormat,
-    LoadOp, MaintainBase, MultisampleState, Operations, PipelineLayoutDescriptor, PolygonMode,
-    PrimitiveState, PrimitiveTopology, Queue, RenderPass, RenderPassColorAttachment,
-    RenderPassDescriptor, RenderPipeline, RenderPipelineDescriptor, ShaderModuleDescriptor,
-    ShaderSource, ShaderStages, SurfaceTexture, TextureView, TextureViewDescriptor,
-    VertexAttribute, VertexBufferLayout, VertexState, VertexStepMode, COPY_BUFFER_ALIGNMENT,
+    *,
 };
 use winit::window::Window;
 
-/*
-fn create_surface(
-    windowed_context: &WindowedContext,
-    gr_context: &mut DirectContext,
-    fb_info: FramebufferInfo,
-) -> Surface {
-    let pixel_format = windowed_context.get_pixel_format();
-    let size = windowed_context.window().inner_size();
-    let size = (
-        size.width.try_into().expect("Could not convert width"),
-        size.height.try_into().expect("Could not convert height"),
-    );
-    let backend_render_target = BackendRenderTarget::new_gl(
-        size,
-        pixel_format
-            .multisampling
-            .map(|s| s.try_into().expect("Could not convert multisampling")),
-        pixel_format
-            .stencil_bits
-            .try_into()
-            .expect("Could not convert stencil"),
-        fb_info,
-    );
-    windowed_context.resize(size.into());
-    Surface::from_backend_render_target(
-        gr_context,
-        &backend_render_target,
-        SurfaceOrigin::BottomLeft,
-        ColorType::RGBA8888,
-        None,
-        None,
-    )
-    .expect("Could not create skia surface")
-}
-*/
-
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
-struct QuadVertex {
+pub struct QuadVertex {
     position: [f32; 2],
 }
 
 impl QuadVertex {
     const ATTRIBS: [VertexAttribute; 1] = vertex_attr_array![0 => Float32x2];
 
-    fn desc<'a>() -> VertexBufferLayout<'a> {
+    pub fn desc<'a>() -> VertexBufferLayout<'a> {
         VertexBufferLayout {
             array_stride: size_of::<Self>() as BufferAddress,
             step_mode: VertexStepMode::Vertex,
@@ -88,118 +46,27 @@ const QUAD_VERTICES: &[QuadVertex] = &[
 
 const QUAD_INDICES: &[u16] = &[0, 3, 1, 3, 2, 1];
 
-#[repr(C)]
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
-pub struct BackgroundFragment {
-    pub position: [f32; 2],
-    pub width: f32,
-    pub color: [f32; 4],
-}
-
-impl BackgroundFragment {
-    const ATTRIBS: [VertexAttribute; 3] =
-        vertex_attr_array![1 => Float32x2, 2 => Float32, 3 => Float32x4];
-
-    fn desc<'a>() -> VertexBufferLayout<'a> {
-        VertexBufferLayout {
-            array_stride: size_of::<Self>() as BufferAddress,
-            step_mode: VertexStepMode::Instance,
-            attributes: &Self::ATTRIBS,
-        }
-    }
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug, Pod, Zeroable)]
-pub struct GlyphFragment {
-    pub position: [f32; 2],
-    pub width: f32,
-    pub color: [f32; 4],
-    pub uv: [f32; 4],
-    pub texture: u32,
-}
-
-impl GlyphFragment {
-    const ATTRIBS: [VertexAttribute; 5] = vertex_attr_array![1 => Float32x2, 2 => Float32, 3 => Float32x4, 4 => Float32x4, 5 => Uint32];
-
-    fn desc<'a>() -> VertexBufferLayout<'a> {
-        VertexBufferLayout {
-            array_stride: size_of::<Self>() as BufferAddress,
-            step_mode: VertexStepMode::Instance,
-            attributes: &Self::ATTRIBS,
-        }
-    }
-}
-
-#[repr(C)]
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct CameraUniform {
-    view_proj: [[f32; 4]; 4],
-    pub row_height: f32,
-    padding: [u32; 3],
-}
-
-impl CameraUniform {
-    fn new() -> Self {
-        Self {
-            view_proj: Transform3D::identity().to_arrays().into(),
-            row_height: 0.0,
-            padding: [0; 3],
-        }
-    }
-
-    fn update_view_proj(&mut self, size: Size2D<f32>) {
-        self.view_proj = Transform3D::ortho(0.0, size.width, size.height, 0.0, -1.0, 1.0)
-            .to_arrays()
-            .into();
-    }
-}
-
 pub struct WGpuRenderer {
-    surface: wgpu::Surface,
-    pub device: wgpu::Device,
-    pub queue: wgpu::Queue,
-    config: wgpu::SurfaceConfiguration,
+    surface: Surface,
+    pub device: Device,
+    pub queue: Queue,
+    config: SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     quad_vertex_buffer: Buffer,
     quad_index_buffer: Buffer,
-    background_fragment_buffer: Buffer,
-    glyph_fragment_buffer: Buffer,
-    camera_uniform: CameraUniform,
-    camera_buffer: Buffer,
-    camera_bind_group: BindGroup,
-    background_pipeline: RenderPipeline,
-    glyph_pipeline: RenderPipeline,
+    camera: Camera,
+    background: Background,
+    glyphs: Glyphs,
 }
 
 pub struct MainRenderPass<'a> {
     render_pass: RenderPass<'a>,
-    background_pipeline: &'a RenderPipeline,
-    glyph_pipeline: &'a RenderPipeline,
-    background_fragment_buffer: &'a Buffer,
-    glyph_fragment_buffer: &'a Buffer,
+    background: &'a Background,
+    glyphs: &'a Glyphs,
     queue: &'a Queue,
     device: &'a Device,
     quad_vertex_buffer: &'a Buffer,
     quad_index_buffer: &'a Buffer,
-}
-
-pub fn create_background_fragment_buffer(device: &Device, size: BufferAddress) -> Buffer {
-    device.create_buffer(&BufferDescriptor {
-        label: Some("Background Instance Buffer"),
-        size,
-        usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    })
-}
-
-pub fn create_glyph_fragment_buffer(device: &Device, size: BufferAddress) -> Buffer {
-    device.create_buffer(&BufferDescriptor {
-        label: Some("Glyph Instance Buffer"),
-        size,
-        usage: BufferUsages::VERTEX | BufferUsages::COPY_DST,
-        mapped_at_creation: false,
-    })
 }
 
 impl WGpuRenderer {
@@ -209,7 +76,7 @@ impl WGpuRenderer {
 
             // The instance is a handle to our GPU
             // Backends::all => Vulkan + Metal + DX12 + Browser WebGPU
-            let instance = wgpu::Instance::new(wgpu::Backends::DX12);
+            let instance = Instance::new(Backends::DX12);
 
             // # Safety
             // The surface needs to live as long as the window that created it.
@@ -217,8 +84,8 @@ impl WGpuRenderer {
             let surface = unsafe { instance.create_surface(&window) };
 
             let adapter = instance
-                .request_adapter(&wgpu::RequestAdapterOptions {
-                    power_preference: wgpu::PowerPreference::default(),
+                .request_adapter(&RequestAdapterOptions {
+                    power_preference: PowerPreference::default(),
                     compatible_surface: Some(&surface),
                     force_fallback_adapter: false,
                 })
@@ -228,13 +95,13 @@ impl WGpuRenderer {
             let (device, queue) = adapter
                 .request_device(
                     &wgpu::DeviceDescriptor {
-                        features: wgpu::Features::empty(),
+                        features: Features::empty(),
                         // WebGL doesn't support all of wgpu's features, so if
                         // we're building for the web we'll have to disable some.
                         limits: if cfg!(target_arch = "wasm32") {
-                            wgpu::Limits::downlevel_webgl2_defaults()
+                            Limits::downlevel_webgl2_defaults()
                         } else {
-                            wgpu::Limits::default()
+                            Limits::default()
                         },
                         label: None,
                     },
@@ -253,8 +120,8 @@ impl WGpuRenderer {
                 .filter(|f| f.describe().srgb == false)
                 .next()
                 .unwrap_or(formats[0]);
-            let config = wgpu::SurfaceConfiguration {
-                usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            let config = SurfaceConfiguration {
+                usage: TextureUsages::RENDER_ATTACHMENT,
                 format: surface_format,
                 width: size.width,
                 height: size.height,
@@ -279,140 +146,9 @@ impl WGpuRenderer {
                 usage: BufferUsages::VERTEX,
             });
 
-            let background_fragment_buffer = create_background_fragment_buffer(&device, 16 * 1024);
-
-            let background_shader = device.create_shader_module(ShaderModuleDescriptor {
-                label: Some("Background Shader"),
-                source: ShaderSource::Wgsl(include_str!("shaders/background.wgsl").into()),
-            });
-
-            let glyph_fragment_buffer = create_glyph_fragment_buffer(&device, 16 * 1024);
-
-            let glyph_shader = device.create_shader_module(ShaderModuleDescriptor {
-                label: Some("Glyph Shader"),
-                source: ShaderSource::Wgsl(include_str!("shaders/glyph.wgsl").into()),
-            });
-
-            let camera_uniform = CameraUniform::new();
-
-            let camera_buffer = device.create_buffer_init(&BufferInitDescriptor {
-                label: Some("Camera Buffer"),
-                contents: cast_slice(&[camera_uniform]),
-                usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-            });
-
-            let camera_bind_group_layout =
-                device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                    entries: &[BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::VERTEX,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: false,
-                            min_binding_size: None,
-                        },
-                        count: None,
-                    }],
-                    label: Some("Camera Bind Group Layout"),
-                });
-
-            let camera_bind_group = device.create_bind_group(&BindGroupDescriptor {
-                layout: &camera_bind_group_layout,
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: camera_buffer.as_entire_binding(),
-                }],
-                label: Some("Camera Bind Group"),
-            });
-
-            let background_pipeline_layout =
-                device.create_pipeline_layout(&PipelineLayoutDescriptor {
-                    label: Some("Background Pipeline Layout"),
-                    bind_group_layouts: &[&camera_bind_group_layout],
-                    push_constant_ranges: &[],
-                });
-
-            let background_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
-                label: Some("Background Pipeline"),
-                layout: Some(&background_pipeline_layout),
-                vertex: VertexState {
-                    module: &background_shader,
-                    entry_point: "vs_main",
-                    buffers: &[QuadVertex::desc(), BackgroundFragment::desc()],
-                },
-                fragment: Some(wgpu::FragmentState {
-                    module: &background_shader,
-                    entry_point: "fs_main",
-                    targets: &[Some(wgpu::ColorTargetState {
-                        format: config.format,
-                        blend: Some(wgpu::BlendState::REPLACE),
-                        write_mask: wgpu::ColorWrites::ALL,
-                    })],
-                }),
-                primitive: PrimitiveState {
-                    topology: PrimitiveTopology::TriangleList,
-                    strip_index_format: None,
-                    front_face: FrontFace::Ccw,
-                    cull_mode: Some(Face::Back),
-                    // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
-                    polygon_mode: PolygonMode::Fill,
-                    // Requires Features::DEPTH_CLIP_CONTROL
-                    unclipped_depth: false,
-                    // Requires Features::CONSERVATIVE_RASTERIZATION
-                    conservative: false,
-                },
-                depth_stencil: None,
-                multisample: MultisampleState {
-                    count: 1,
-                    mask: !0,
-                    alpha_to_coverage_enabled: false,
-                },
-                multiview: None,
-            });
-
-            let glyph_pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
-                label: Some("Glyph Pipeline Layout"),
-                bind_group_layouts: &[&camera_bind_group_layout],
-                push_constant_ranges: &[],
-            });
-
-            let glyph_pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
-                label: Some("Glyph Pipeline"),
-                layout: Some(&glyph_pipeline_layout),
-                vertex: VertexState {
-                    module: &glyph_shader,
-                    entry_point: "vs_main",
-                    buffers: &[QuadVertex::desc(), GlyphFragment::desc()],
-                },
-                fragment: Some(wgpu::FragmentState {
-                    module: &glyph_shader,
-                    entry_point: "fs_main",
-                    targets: &[Some(wgpu::ColorTargetState {
-                        format: config.format,
-                        blend: Some(wgpu::BlendState::REPLACE),
-                        write_mask: wgpu::ColorWrites::ALL,
-                    })],
-                }),
-                primitive: PrimitiveState {
-                    topology: PrimitiveTopology::TriangleList,
-                    strip_index_format: None,
-                    front_face: FrontFace::Ccw,
-                    cull_mode: Some(Face::Back),
-                    // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
-                    polygon_mode: PolygonMode::Fill,
-                    // Requires Features::DEPTH_CLIP_CONTROL
-                    unclipped_depth: false,
-                    // Requires Features::CONSERVATIVE_RASTERIZATION
-                    conservative: false,
-                },
-                depth_stencil: None,
-                multisample: MultisampleState {
-                    count: 1,
-                    mask: !0,
-                    alpha_to_coverage_enabled: false,
-                },
-                multiview: None,
-            });
+            let camera = Camera::new(&device);
+            let background = Background::new(&device, &config, &camera);
+            let glyphs = Glyphs::new(&device, &config, &camera);
 
             Self {
                 surface,
@@ -422,80 +158,21 @@ impl WGpuRenderer {
                 size,
                 quad_vertex_buffer,
                 quad_index_buffer,
-                camera_uniform,
-                camera_buffer,
-                camera_bind_group,
-                background_pipeline,
-                background_fragment_buffer,
-                glyph_pipeline,
-                glyph_fragment_buffer,
+                camera,
+                background,
+                glyphs,
             }
         }
         .block_on()
     }
 
     pub fn update_background_fragments(&mut self, fragments: Vec<BackgroundFragment>) {
-        let contents = cast_slice(&fragments);
-
-        let size = contents
-            .len()
-            .max(16 * 1024)
-            .checked_next_power_of_two()
-            .unwrap() as BufferAddress;
-        if self.background_fragment_buffer.size() < size {
-            self.background_fragment_buffer = create_background_fragment_buffer(&self.device, size);
-        }
-        self.queue
-            .write_buffer(&self.background_fragment_buffer, 0, contents);
+        self.background.update(&self.device, &self.queue, fragments);
     }
 
     pub fn update_glyph_fragments(&mut self, fragments: Vec<GlyphFragment>) {
-        let contents = cast_slice(&fragments);
-
-        let size = contents
-            .len()
-            .max(16 * 1024)
-            .checked_next_power_of_two()
-            .unwrap() as BufferAddress;
-        if self.glyph_fragment_buffer.size() < size {
-            self.glyph_fragment_buffer = create_glyph_fragment_buffer(&self.device, size);
-        }
-        self.queue
-            .write_buffer(&self.glyph_fragment_buffer, 0, contents);
+        self.glyphs.update(&self.device, &self.queue, fragments);
     }
-
-    /*
-    pub fn new(windowed_context: &WindowedContext) -> SkiaRenderer {
-        gl::load_with(|s| windowed_context.get_proc_address(s));
-
-        let interface = skia_safe::gpu::gl::Interface::new_load_with(|name| {
-            if name == "eglGetCurrentDisplay" {
-                return std::ptr::null();
-            }
-            windowed_context.get_proc_address(name)
-        })
-        .expect("Could not create interface");
-
-        let mut gr_context = skia_safe::gpu::DirectContext::new_gl(Some(interface), None)
-            .expect("Could not create direct context");
-        let fb_info = {
-            let mut fboid: GLint = 0;
-            unsafe { gl::GetIntegerv(gl::FRAMEBUFFER_BINDING, &mut fboid) };
-
-            FramebufferInfo {
-                fboid: fboid.try_into().expect("Could not create frame buffer id"),
-                format: skia_safe::gpu::gl::Format::RGBA8.into(),
-            }
-        };
-        let surface = create_surface(windowed_context, &mut gr_context, fb_info);
-
-        SkiaRenderer {
-            gr_context,
-            fb_info,
-            surface,
-        }
-    }
-    */
 
     pub fn render<F>(&mut self, background: &Color, size: Size2D<f32>, row_height: f32, callback: F)
     where
@@ -530,25 +207,18 @@ impl WGpuRenderer {
                 })],
                 depth_stencil_attachment: None,
             });
-            self.camera_uniform.update_view_proj(size);
-            self.camera_uniform.row_height = row_height;
-            self.queue
-                .write_buffer(&self.camera_buffer, 0, cast_slice(&[self.camera_uniform]));
-            render_pass.set_bind_group(0, &self.camera_bind_group, &[]);
-            let background_pipeline = &self.background_pipeline;
-            let background_fragment_buffer = &self.background_fragment_buffer;
-            let glyph_pipeline = &self.glyph_pipeline;
-            let glyph_fragment_buffer = &self.glyph_fragment_buffer;
+            self.camera.update(&self.queue, size, row_height);
+            render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
+            let background = &self.background;
+            let glyphs = &self.glyphs;
             let queue = &self.queue;
             let device = &self.device;
             let quad_vertex_buffer = &self.quad_vertex_buffer;
             let quad_index_buffer = &self.quad_index_buffer;
             callback(MainRenderPass {
                 render_pass,
-                background_pipeline,
-                background_fragment_buffer,
-                glyph_pipeline,
-                glyph_fragment_buffer,
+                background,
+                glyphs,
                 queue,
                 device,
                 quad_vertex_buffer,
@@ -581,26 +251,11 @@ impl<'a> MainRenderPass<'a> {
         self.render_pass
             .set_index_buffer(self.quad_index_buffer.slice(..), IndexFormat::Uint16);
 
-        let stride = BackgroundFragment::desc().array_stride;
-        self.render_pass.set_pipeline(&self.background_pipeline);
-        self.render_pass
-            .set_vertex_buffer(1, self.background_fragment_buffer.slice(..));
-        self.render_pass.draw_indexed(
-            0..6,
-            0,
-            background_range.start as u32..background_range.end as u32,
-        );
+        self.background
+            .draw(&mut self.render_pass, background_range);
 
         if !glyph_range.is_empty() {
-            let stride = GlyphFragment::desc().array_stride;
-            self.render_pass.set_pipeline(&self.glyph_pipeline);
-            self.render_pass
-                .set_vertex_buffer(1, self.glyph_fragment_buffer.slice(..));
-            self.render_pass.draw_indexed(
-                0..6,
-                0,
-                glyph_range.start as u32..glyph_range.end as u32,
-            );
+            self.glyphs.draw(&mut self.render_pass, glyph_range);
         }
     }
 }
