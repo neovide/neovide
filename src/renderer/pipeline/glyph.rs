@@ -74,13 +74,13 @@ fn create_pipeline(
             entry_point: "vs_main",
             buffers: &[QuadVertex::desc(), GlyphFragment::desc()],
         },
-        fragment: Some(wgpu::FragmentState {
+        fragment: Some(FragmentState {
             module: &shader,
             entry_point: "fs_main",
-            targets: &[Some(wgpu::ColorTargetState {
+            targets: &[Some(ColorTargetState {
                 format: surface_config.format,
-                blend: Some(wgpu::BlendState::REPLACE),
-                write_mask: wgpu::ColorWrites::ALL,
+                blend: Some(BlendState::ALPHA_BLENDING),
+                write_mask: ColorWrites::ALL,
             })],
         }),
         primitive: PrimitiveState {
@@ -127,14 +127,14 @@ impl Glyphs {
                     ty: BindingType::Texture {
                         multisampled: false,
                         view_dimension: TextureViewDimension::D2,
-                        sample_type: TextureSampleType::Float { filterable: true },
+                        sample_type: TextureSampleType::Float { filterable: false },
                     },
                     count: None,
                 },
                 BindGroupLayoutEntry {
                     binding: 1,
                     visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
                     count: None,
                 },
             ],
@@ -212,7 +212,7 @@ impl Glyphs {
                 address_mode_u: AddressMode::ClampToEdge,
                 address_mode_v: AddressMode::ClampToEdge,
                 address_mode_w: AddressMode::ClampToEdge,
-                mag_filter: FilterMode::Linear,
+                mag_filter: FilterMode::Nearest,
                 min_filter: FilterMode::Nearest,
                 mipmap_filter: FilterMode::Nearest,
                 ..Default::default()

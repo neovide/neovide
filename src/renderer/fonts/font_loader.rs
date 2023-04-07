@@ -44,7 +44,7 @@ impl FontPair {
         let instance_key = FontInstanceKey(api_key.0, api_key.1);
         let size = skia_font.size().into();
         let options = FontInstanceOptions {
-            render_mode: FontRenderMode::Mono, // TODO: Enable other render modes
+            render_mode: FontRenderMode::Alpha, // TODO: Enable other render modes
             ..Default::default()
         };
         let platform_options = Some(FontInstancePlatformOptions::default()); //TODO: Set the correct
