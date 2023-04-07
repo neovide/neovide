@@ -230,6 +230,7 @@ pub enum RedrawEvent {
         current_line: f64,
         current_column: f64,
         line_count: Option<f64>,
+        scroll_delta: Option<f64>,
     },
     CommandLineShow {
         content: StyledContent,
@@ -642,12 +643,6 @@ fn parse_win_float_pos(win_float_pos_arguments: Vec<Value>) -> Result<RedrawEven
     let ([grid, _window, anchor, anchor_grid, anchor_row, anchor_column, focusable], [sort_order]) =
         extract_values_with_optional(win_float_pos_arguments)?;
 
-    let sort_order = if let Some(sort_order) = sort_order {
-        Some(parse_u64(sort_order)?)
-    } else {
-        None
-    };
-
     Ok(RedrawEvent::WindowFloatPosition {
         grid: parse_u64(grid)?,
         anchor: parse_window_anchor(anchor)?,
@@ -655,7 +650,7 @@ fn parse_win_float_pos(win_float_pos_arguments: Vec<Value>) -> Result<RedrawEven
         anchor_row: parse_f64(anchor_row)?,
         anchor_column: parse_f64(anchor_column)?,
         focusable: parse_bool(focusable)?,
-        sort_order,
+        sort_order: sort_order.map(parse_u64).transpose()?,
     })
 }
 
@@ -697,14 +692,8 @@ fn parse_msg_set_pos(msg_set_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
 fn parse_win_viewport(win_viewport_arguments: Vec<Value>) -> Result<RedrawEvent> {
     let (
         [grid, _window, top_line, bottom_line, current_line, current_column],
-        [line_count, _scroll_delta],
+        [line_count, scroll_delta],
     ) = extract_values_with_optional(win_viewport_arguments)?;
-
-    let line_count = if let Some(line_count) = line_count {
-        Some(parse_f64(line_count)?)
-    } else {
-        None
-    };
 
     Ok(RedrawEvent::WindowViewport {
         grid: parse_u64(grid)?,
@@ -712,7 +701,8 @@ fn parse_win_viewport(win_viewport_arguments: Vec<Value>) -> Result<RedrawEvent>
         bottom_line: parse_f64(bottom_line)?,
         current_line: parse_f64(current_line)?,
         current_column: parse_f64(current_column)?,
-        line_count,
+        line_count: line_count.map(parse_f64).transpose()?,
+        scroll_delta: scroll_delta.map(parse_f64).transpose()?,
     })
 }
 
