@@ -518,7 +518,7 @@ impl RenderedWindow {
 
                     // Set new target viewport position and initialize animation timer.
                     self.start_scroll = self.current_scroll;
-                    self.scroll_destination = self.current_surface.vertical_position as f32;
+                    self.scroll_destination = self.current_surface.vertical_position;
                     self.scroll_t = 0.0;
                 }
             }
