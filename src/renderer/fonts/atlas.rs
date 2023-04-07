@@ -1,6 +1,6 @@
 use crate::renderer::pipeline::Glyphs;
 use enum_map::{enum_map, Enum, EnumMap};
-use euclid::default::{Point2D, Rect, Size2D};
+use euclid::default::{Point2D, Rect, Size2D, Vector2D};
 use std::num::NonZeroU32;
 use webrender_api::ImageFormat;
 use wgpu::{
@@ -129,8 +129,9 @@ impl AtlasTexture {
             self.current_pos.y += self.current_row_height;
             self.current_row_height = 0;
         };
-        let rect = Rect::new(self.current_pos, Size2D::new(width, height));
-        let rect = rect.to_f32().scale(
+        let mut rect = Rect::new(self.current_pos, Size2D::new(width - 1, height - 1)).to_f32();
+        rect = rect.translate(Vector2D::new(0.5, 0.5));
+        rect = rect.scale(
             1.0 / self.texture_size.width as f32,
             1.0 / self.texture_size.height as f32,
         );
