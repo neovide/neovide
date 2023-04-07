@@ -4,9 +4,10 @@ use std::num::NonZeroU32;
 use webrender_api::ImageFormat;
 use wgpu::{
     BufferAddress, Device, Extent3d, Origin3d, Queue, Texture, TextureDescriptor, TextureDimension,
-    TextureUsages,
+    TextureUsages, TextureViewDescriptor, SamplerDescriptor, AddressMode, FilterMode, BindGroupDescriptor, BindGroupEntry, BindingResource,
 };
 use wr_glyph_rasterizer::RasterizedGlyph;
+use crate::renderer::pipeline::Glyphs;
 
 #[derive(Debug, Copy, Clone, Enum)]
 pub enum TextureFormat {
@@ -72,8 +73,8 @@ pub struct AtlasCoordinate {
     pub texture_id: u32,
 }
 
-struct AtlasTexture {
-    texture: Texture,
+pub struct AtlasTexture {
+    pub texture: Texture,
     texture_size: Extent3d,
     cpu_buffer: Vec<u8>,
     bytes_per_pixel: u32,
@@ -190,7 +191,7 @@ impl AtlasTexture {
 }
 
 pub struct Atlas {
-    textures: EnumMap<TextureFormat, Vec<AtlasTexture>>,
+    pub textures: EnumMap<TextureFormat, Vec<AtlasTexture>>,
 }
 
 impl Atlas {

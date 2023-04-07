@@ -19,7 +19,7 @@ use wr_glyph_rasterizer::{GlyphKey, SubpixelDirection};
 
 use super::atlas::AtlasCoordinate;
 use crate::profiling::tracy_zone;
-use crate::renderer::fonts::{font_loader::*, font_options::*, glyph_cache::*};
+use crate::renderer::fonts::{font_loader::*, font_options::*, glyph_cache::*, atlas::Atlas};
 
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {
@@ -409,5 +409,9 @@ impl CachingShaper {
 
     pub fn get_glyph_coordinate(&self, glyph: u32) -> &Option<AtlasCoordinate> {
         &self.font_loader.glyph_cache.get_glyph_coordinate(glyph)
+    }
+
+    pub fn get_atlas(&self) -> &Atlas {
+        &self.font_loader.glyph_cache.atlas
     }
 }

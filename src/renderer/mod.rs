@@ -206,6 +206,7 @@ impl Renderer {
                 &default_background,
                 window_size,
                 font_dimensions.height as f32,
+                self.grid_renderer.shaper.get_atlas(),
                 |mut render_pass| {
                     let settings = SETTINGS.get::<RendererSettings>();
                     let background = Color {

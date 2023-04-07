@@ -18,7 +18,7 @@ pub struct GlyphCache {
     next_glyph_id: u32,
     pending_rasterize: Vec<u32>,
     glyph_coordinates: Vec<Option<AtlasCoordinate>>,
-    atlas: Atlas,
+    pub atlas: Atlas,
 }
 
 struct Profiler;

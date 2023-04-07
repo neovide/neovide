@@ -10,6 +10,7 @@ use wgpu::{
     *,
 };
 use winit::window::Window;
+use super::fonts::atlas::Atlas;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -174,7 +175,7 @@ impl WGpuRenderer {
         self.glyphs.update(&self.device, &self.queue, fragments);
     }
 
-    pub fn render<F>(&mut self, background: &Color, size: Size2D<f32>, row_height: f32, callback: F)
+    pub fn render<F>(&mut self, background: &Color, size: Size2D<f32>, row_height: f32, glyph_atlas: &Atlas, callback: F)
     where
         F: FnOnce(MainRenderPass),
     {
@@ -208,6 +209,7 @@ impl WGpuRenderer {
                 depth_stencil_attachment: None,
             });
             self.camera.update(&self.queue, size, row_height);
+            self.glyphs.update_bind_group(glyph_atlas, &self.device);
             render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
             let background = &self.background;
             let glyphs = &self.glyphs;
