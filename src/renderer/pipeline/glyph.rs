@@ -1,10 +1,18 @@
 use super::Camera;
+use crate::renderer::fonts::atlas::{Atlas, TextureFormat};
 use crate::renderer::QuadVertex;
 use bytemuck::{cast_slice, Pod, Zeroable};
+use hotwatch::{Event, Hotwatch};
+use nvim_rs::create;
+use std::borrow::Cow;
+use std::fs::read_to_string;
 use std::mem::size_of;
 use std::ops::Range;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use wgpu::*;
-use crate::renderer::fonts::atlas::{Atlas, TextureFormat};
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -43,9 +51,13 @@ fn create_pipeline(
     camera: &Camera,
     glyph_bind_group_layout: &BindGroupLayout,
 ) -> RenderPipeline {
+    let file_path = "src/renderer/shaders/glyph.wgsl";
+    let contents = read_to_string(file_path).expect("Should have been able to read the file");
+
     let shader = device.create_shader_module(ShaderModuleDescriptor {
         label: Some("Glyph Shader"),
-        source: ShaderSource::Wgsl(include_str!("../shaders/glyph.wgsl").into()),
+        //source: ShaderSource::Wgsl(include_str!("../shaders/glyph.wgsl").into()),
+        source: ShaderSource::Wgsl(Cow::from(contents)),
     });
 
     let pipeline_layout = device.create_pipeline_layout(&PipelineLayoutDescriptor {
@@ -54,7 +66,7 @@ fn create_pipeline(
         push_constant_ranges: &[],
     });
 
-    device.create_render_pipeline(&RenderPipelineDescriptor {
+    let pipeline = device.create_render_pipeline(&RenderPipelineDescriptor {
         label: Some("Glyph Pipeline"),
         layout: Some(&pipeline_layout),
         vertex: VertexState {
@@ -87,7 +99,8 @@ fn create_pipeline(
             alpha_to_coverage_enabled: false,
         },
         multiview: None,
-    })
+    });
+    pipeline
 }
 
 pub struct Glyphs {
@@ -95,41 +108,58 @@ pub struct Glyphs {
     pipeline: RenderPipeline,
     pub bind_group_layout: BindGroupLayout,
     bind_group: Option<BindGroup>,
+    shader_changed: Arc<AtomicBool>,
 }
 
 impl Glyphs {
-    pub fn new(device: &Device, surface_config: &SurfaceConfiguration, camera: &Camera) -> Self {
+    pub fn new(
+        device: &Device,
+        surface_config: &SurfaceConfiguration,
+        camera: &Camera,
+        hotwatch: &mut Hotwatch,
+    ) -> Self {
         let fragment_buffer = create_fragment_buffer(&device, 16 * 1024);
-        let bind_group_layout =
-            device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                entries: &[
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            multisampled: false,
-                            view_dimension: TextureViewDimension::D2,
-                            sample_type: TextureSampleType::Float { filterable: true },
-                        },
-                        count: None,
+        let bind_group_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        multisampled: false,
+                        view_dimension: TextureViewDimension::D2,
+                        sample_type: TextureSampleType::Float { filterable: true },
                     },
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                        count: None,
-                    },
-                ],
-                label: Some("Glyph bind group layout"),
-            });
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::Filtering),
+                    count: None,
+                },
+            ],
+            label: Some("Glyph bind group layout"),
+        });
         let pipeline = create_pipeline(&device, &surface_config, &camera, &bind_group_layout);
 
+        let shader_changed = Arc::new(AtomicBool::new(false));
+        {
+            let shader_changed = shader_changed.clone();
+            hotwatch
+                .watch("src/renderer/shaders/glyph.wgsl", move |event: Event| {
+                    if let Event::Write(path) | Event::Create(path) = event {
+                        shader_changed.store(true, Ordering::SeqCst)
+                    }
+                })
+                .expect("failed to watch file!");
+        }
 
         Self {
             fragment_buffer,
             pipeline,
             bind_group_layout,
-            bind_group: None
+            bind_group: None,
+            shader_changed,
         }
     }
 
@@ -155,10 +185,28 @@ impl Glyphs {
         render_pass.draw_indexed(0..6, 0, range.start as u32..range.end as u32);
     }
 
+    pub fn reload_pipeline(
+        &mut self,
+        device: &Device,
+        surface_config: &SurfaceConfiguration,
+        camera: &Camera,
+    ) -> bool {
+        if self.shader_changed.load(Ordering::SeqCst) {
+            self.shader_changed.store(false, Ordering::SeqCst);
+            self.pipeline =
+                create_pipeline(device, surface_config, camera, &self.bind_group_layout);
+            true
+        } else {
+            false
+        }
+    }
+
     pub fn update_bind_group(&mut self, atlas: &Atlas, device: &Device) {
         let r8_textuers = &atlas.textures[TextureFormat::R8];
         if let Some(texture) = r8_textuers.first() {
-            let texture_view = texture.texture.create_view(&TextureViewDescriptor::default());
+            let texture_view = texture
+                .texture
+                .create_view(&TextureViewDescriptor::default());
 
             let sampler = device.create_sampler(&SamplerDescriptor {
                 address_mode_u: AddressMode::ClampToEdge,
@@ -170,22 +218,20 @@ impl Glyphs {
                 ..Default::default()
             });
 
-            let bind_group = device.create_bind_group(
-                &BindGroupDescriptor {
-                    layout: &self.bind_group_layout,
-                    entries: &[
-                        BindGroupEntry {
-                            binding: 0,
-                            resource: BindingResource::TextureView(&texture_view),
-                        },
-                        BindGroupEntry {
-                            binding: 1,
-                            resource: BindingResource::Sampler(&sampler),
-                        }
-                    ],
-                    label: Some("Glyph bind group"),
-                }
-            );
+            let bind_group = device.create_bind_group(&BindGroupDescriptor {
+                layout: &self.bind_group_layout,
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: BindingResource::TextureView(&texture_view),
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: BindingResource::Sampler(&sampler),
+                    },
+                ],
+                label: Some("Glyph bind group"),
+            });
             self.bind_group = Some(bind_group);
         } else {
             self.bind_group = None;

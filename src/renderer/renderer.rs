@@ -1,16 +1,21 @@
+use super::fonts::atlas::Atlas;
 use super::pipeline::{Background, BackgroundFragment, Camera, GlyphFragment, Glyphs};
 use bytemuck::{cast_slice, Pod, Zeroable};
 use csscolorparser::Color;
 use euclid::default::Size2D;
+use hotwatch::Hotwatch;
 use pollster::FutureExt as _;
 use std::mem::size_of;
 use std::ops::Range;
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
     *,
 };
 use winit::window::Window;
-use super::fonts::atlas::Atlas;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
@@ -51,13 +56,15 @@ pub struct WGpuRenderer {
     surface: Surface,
     pub device: Device,
     pub queue: Queue,
-    config: SurfaceConfiguration,
+    surface_config: SurfaceConfiguration,
     size: winit::dpi::PhysicalSize<u32>,
     quad_vertex_buffer: Buffer,
     quad_index_buffer: Buffer,
     camera: Camera,
     background: Background,
     glyphs: Glyphs,
+    validation_errors_shown: Arc<AtomicBool>,
+    hotwatcher: Hotwatch,
 }
 
 pub struct MainRenderPass<'a> {
@@ -121,7 +128,7 @@ impl WGpuRenderer {
                 .filter(|f| f.describe().srgb == false)
                 .next()
                 .unwrap_or(formats[0]);
-            let config = SurfaceConfiguration {
+            let surface_config = SurfaceConfiguration {
                 usage: TextureUsages::RENDER_ATTACHMENT,
                 format: surface_format,
                 width: size.width,
@@ -129,7 +136,7 @@ impl WGpuRenderer {
                 present_mode: present_modes[0],
                 alpha_mode: alpha_modes[0],
             };
-            surface.configure(&device, &config);
+            surface.configure(&device, &surface_config);
 
             let quad_vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
                 label: Some("Quad Vertex Buffer"),
@@ -147,21 +154,53 @@ impl WGpuRenderer {
                 usage: BufferUsages::VERTEX,
             });
 
+            let validation_errors_shown = Arc::new(AtomicBool::new(false));
+            // Disable validation errors for now
+            // TODO: Only when hot reloading
+            {
+                let validation_errors_shown = validation_errors_shown.clone();
+                device.on_uncaptured_error(move |error: Error| {
+                    match error {
+                        Error::OutOfMemory { source } => {
+                            panic!("Out of memory {source}")
+                        }
+                        Error::Validation {
+                            source,
+                            description,
+                        } => {
+                            if !validation_errors_shown.load(Ordering::SeqCst) {
+                                validation_errors_shown.store(true, Ordering::SeqCst);
+                                for line in description.lines() {
+                                    #[cfg(target_os = "windows")]
+                                    print!("{}\r\n", line);
+                                    #[cfg(not(target_os = "windows"))]
+                                    println!("{}", line);
+                                }
+                            }
+                        }
+                    };
+                });
+            }
+
+            let mut hotwatcher = Hotwatch::new().expect("The hotwatcher failed to initialze");
+
             let camera = Camera::new(&device);
-            let background = Background::new(&device, &config, &camera);
-            let glyphs = Glyphs::new(&device, &config, &camera);
+            let background = Background::new(&device, &surface_config, &camera);
+            let glyphs = Glyphs::new(&device, &surface_config, &camera, &mut hotwatcher);
 
             Self {
                 surface,
                 device,
                 queue,
-                config,
+                surface_config,
                 size,
                 quad_vertex_buffer,
                 quad_index_buffer,
                 camera,
                 background,
                 glyphs,
+                validation_errors_shown,
+                hotwatcher,
             }
         }
         .block_on()
@@ -175,8 +214,14 @@ impl WGpuRenderer {
         self.glyphs.update(&self.device, &self.queue, fragments);
     }
 
-    pub fn render<F>(&mut self, background: &Color, size: Size2D<f32>, row_height: f32, glyph_atlas: &Atlas, callback: F)
-    where
+    pub fn render<F>(
+        &mut self,
+        background: &Color,
+        size: Size2D<f32>,
+        row_height: f32,
+        glyph_atlas: &Atlas,
+        callback: F,
+    ) where
         F: FnOnce(MainRenderPass),
     {
         // TODO: Deal with errors
@@ -211,6 +256,12 @@ impl WGpuRenderer {
             self.camera.update(&self.queue, size, row_height);
             self.glyphs.update_bind_group(glyph_atlas, &self.device);
             render_pass.set_bind_group(0, &self.camera.bind_group, &[]);
+            let reloaded =
+                self.glyphs
+                    .reload_pipeline(&self.device, &self.surface_config, &self.camera);
+            if reloaded {
+                self.validation_errors_shown.store(false, Ordering::SeqCst);
+            }
             let background = &self.background;
             let glyphs = &self.glyphs;
             let queue = &self.queue;
@@ -236,9 +287,9 @@ impl WGpuRenderer {
 
         if new_size.width > 0 && new_size.height > 0 {
             self.size = new_size;
-            self.config.width = new_size.width;
-            self.config.height = new_size.height;
-            self.surface.configure(&self.device, &self.config);
+            self.surface_config.width = new_size.width;
+            self.surface_config.height = new_size.height;
+            self.surface.configure(&self.device, &self.surface_config);
         }
     }
 }

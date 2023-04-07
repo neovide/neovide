@@ -61,6 +61,7 @@ webrender_api = { git = "https://github.com/servo/webrender", version = "0.62.0"
 rayon = "1.7.0"
 num_cpus = "1.15.0"
 enum-map = "2.5.0"
+hotwatch = "0.4.6"
 
 [dev-dependencies]
 mockall = "0.11.0"

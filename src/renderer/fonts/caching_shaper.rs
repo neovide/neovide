@@ -19,7 +19,7 @@ use wr_glyph_rasterizer::{GlyphKey, SubpixelDirection};
 
 use super::atlas::AtlasCoordinate;
 use crate::profiling::tracy_zone;
-use crate::renderer::fonts::{font_loader::*, font_options::*, glyph_cache::*, atlas::Atlas};
+use crate::renderer::fonts::{atlas::Atlas, font_loader::*, font_options::*, glyph_cache::*};
 
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {

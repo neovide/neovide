@@ -1,13 +1,14 @@
+use crate::renderer::pipeline::Glyphs;
 use enum_map::{enum_map, Enum, EnumMap};
 use euclid::default::{Point2D, Rect, Size2D};
 use std::num::NonZeroU32;
 use webrender_api::ImageFormat;
 use wgpu::{
-    BufferAddress, Device, Extent3d, Origin3d, Queue, Texture, TextureDescriptor, TextureDimension,
-    TextureUsages, TextureViewDescriptor, SamplerDescriptor, AddressMode, FilterMode, BindGroupDescriptor, BindGroupEntry, BindingResource,
+    AddressMode, BindGroupDescriptor, BindGroupEntry, BindingResource, BufferAddress, Device,
+    Extent3d, FilterMode, Origin3d, Queue, SamplerDescriptor, Texture, TextureDescriptor,
+    TextureDimension, TextureUsages, TextureViewDescriptor,
 };
 use wr_glyph_rasterizer::RasterizedGlyph;
-use crate::renderer::pipeline::Glyphs;
 
 #[derive(Debug, Copy, Clone, Enum)]
 pub enum TextureFormat {
