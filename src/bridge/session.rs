@@ -89,9 +89,7 @@ impl NeovimInstance {
 
             #[cfg(windows)]
             return Ok(Self::split(
-                tokio::net::windows::named_pipe::ClientOptions::new()
-                    .open(address)?
-                    .await,
+                tokio::net::windows::named_pipe::ClientOptions::new().open(address)?,
             ));
 
             #[cfg(not(any(unix, windows)))]
