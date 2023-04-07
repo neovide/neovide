@@ -127,6 +127,23 @@ Then connect with:
 /path/to/neovide --server=/path/to/local/socket
 ```
 
+### Windows Named Pipes Example
+
+Launch a Neovim instances listening on a Named Pipe:
+
+```cmd
+nvim --headless --listen //./pipe/some-known-pipe-name/with-optional-path
+```
+
+And then connect to it using:
+
+```cmd
+/path/to/neovide --server=some-known-pipe-name/with-optional-path
+```
+
+Note: the pipe name passed to nvim must be prefixed with `//./pipe/` but the server argument to
+Neovide will add it if it is missing.
+
 ## Some Nonsense ;)
 
 To learn how to configure the following, head on over to the

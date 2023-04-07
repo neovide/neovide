@@ -88,9 +88,17 @@ impl NeovimInstance {
             return Ok(Self::split(tokio::net::UnixStream::connect(address).await?));
 
             #[cfg(windows)]
-            return Ok(Self::split(
-                tokio::net::windows::named_pipe::ClientOptions::new().open(address)?,
-            ));
+            {
+                // Fixup the address if the pipe on windows does not start with \\.\pipe\.
+                let address = if address.starts_with("\\\\.\\pipe\\") {
+                    address
+                } else {
+                    format!("\\\\.\\pipe\\{}", address)
+                };
+                return Ok(Self::split(
+                    tokio::net::windows::named_pipe::ClientOptions::new().open(address)?,
+                ));
+            }
 
             #[cfg(not(any(unix, windows)))]
             Err(Error::new(
