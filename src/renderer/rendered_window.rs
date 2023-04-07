@@ -13,13 +13,14 @@ use skia_safe::{
 use csscolorparser::Color;
 use euclid::default::{Point2D, Rect, Size2D};
 
+use super::fonts::caching_shaper::CachingShaper;
 use crate::{
     dimensions::Dimensions,
     editor::Style,
     profiling::tracy_zone,
     renderer::{
-        animation_utils::*, BackgroundFragment, GlyphFragment, GridRenderer, MainRenderPass,
-        RendererSettings, WGpuRenderer,
+        animation_utils::*, BackgroundFragment, GlyphFragment, GlyphPlaceholder, GridRenderer,
+        MainRenderPass, RendererSettings, WGpuRenderer,
     },
 };
 
@@ -128,8 +129,9 @@ impl LocatedSurface {
 #[derive(Clone)]
 struct Line {
     background: Vec<BackgroundFragment>,
-    glyphs: Vec<GlyphFragment>,
+    glyphs: Vec<GlyphPlaceholder>,
     has_transparency: bool,
+    line_fragments: Vec<LineFragment>,
 }
 
 pub struct RenderedWindow {
@@ -265,6 +267,7 @@ impl RenderedWindow {
         default_background: &Color,
         background_fragments: &mut Vec<BackgroundFragment>,
         glyph_fragments: &mut Vec<GlyphFragment>,
+        shaper: &CachingShaper,
     ) {
         let image_size: (i32, i32) = (self.grid_size * *font_dimensions).into();
         //let pixel_region = Rect::from_size(image_size);
@@ -309,12 +312,26 @@ impl RenderedWindow {
         self.background_range = start_index as u64..background_fragments.len() as u64;
 
         let new_fragments = lines.iter().flat_map(|(y, line)| {
-            line.glyphs.iter().map(|fragment| GlyphFragment {
-                position: [
-                    fragment.position[0] + pixel_region.min_x(),
-                    *y + pixel_region.min_y(),
-                ],
-                ..*fragment
+            line.glyphs.iter().filter_map(|placeholder| {
+                if let Some(coord) = shaper.get_glyph_coordinate(placeholder.id) {
+                    Some(GlyphFragment {
+                        position: [
+                            placeholder.position[0] + pixel_region.min_x(),
+                            *y + pixel_region.min_y(),
+                        ],
+                        width: placeholder.width,
+                        color: placeholder.color,
+                        texture: coord.texture_id,
+                        uv: [
+                            coord.rect.origin.x,
+                            coord.rect.origin.y,
+                            coord.rect.size.width,
+                            coord.rect.size.height,
+                        ],
+                    })
+                } else {
+                    None
+                }
             })
         });
         let start_index = glyph_fragments.len();
@@ -533,6 +550,7 @@ impl RenderedWindow {
                     glyphs,
                     background,
                     has_transparency,
+                    line_fragments,
                 });
                 // Also update the scrollback buffer if there's no scroll in progress
                 if self.scroll_delta == 0 {
@@ -647,5 +665,32 @@ impl RenderedWindow {
             }
             _ => {}
         };
+    }
+
+    pub fn redraw_foreground(&mut self, grid_renderer: &mut GridRenderer) {
+        let mut draw_line = |line: &mut Option<Line>| {
+            if let Some(line) = line.as_mut() {
+                let line_fragments = &line.line_fragments;
+                let mut glyphs = &mut line.glyphs;
+                glyphs.clear();
+                for line_fragment in line_fragments.iter() {
+                    let LineFragment {
+                        text,
+                        window_left,
+                        width,
+                        style,
+                        ..
+                    } = line_fragment;
+                    let grid_position = (*window_left, 0);
+                    grid_renderer.draw_foreground(text, grid_position, *width, style, &mut glyphs);
+                }
+            }
+        };
+        for line in &mut self.scrollback_lines {
+            draw_line(line);
+        }
+        for line in &mut self.actual_lines {
+            draw_line(line);
+        }
     }
 }

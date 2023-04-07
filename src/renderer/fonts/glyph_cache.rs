@@ -1,4 +1,4 @@
-use super::atlas::Atlas;
+use super::atlas::{Atlas, AtlasCoordinate};
 use super::font_loader::FontPair;
 use log::trace;
 use rayon::ThreadPoolBuilder;
@@ -17,6 +17,7 @@ pub struct GlyphCache {
     glyphs: HashMap<CachedGlyphKey, u32>,
     next_glyph_id: u32,
     pending_rasterize: Vec<u32>,
+    glyph_coordinates: Vec<Option<AtlasCoordinate>>,
     atlas: Atlas,
 }
 
@@ -49,6 +50,7 @@ impl GlyphCache {
             next_glyph_id: 0,
             pending_rasterize: Vec::new(),
             atlas,
+            glyph_coordinates: Vec::new(),
         }
     }
 
@@ -68,14 +70,22 @@ impl GlyphCache {
     pub fn process(&mut self, device: &Device, queue: &Queue) {
         self.rasterizer.resolve_glyphs(
             |job, _| {
-                if let Ok(glyph) = job.result {
+                let glyph_coordinate = if let Ok(glyph) = job.result {
                     trace!("Glyph width {}, height {}", glyph.width, glyph.height);
-                    self.atlas.add_glyph(device, &glyph)
-                }
+                    Some(self.atlas.add_glyph(device, &glyph))
+                } else {
+                    None
+                };
+                // NOTE: The glyphs are processed in order so we can just add it to the end
+                self.glyph_coordinates.push(glyph_coordinate);
             },
             &mut Profiler,
         );
         self.atlas.upload(queue);
         self.pending_rasterize.clear();
+    }
+
+    pub fn get_glyph_coordinate(&self, glyph: u32) -> &Option<AtlasCoordinate> {
+        &self.glyph_coordinates[glyph as usize]
     }
 }

@@ -19,7 +19,13 @@ use crate::{
     settings::*,
 };
 
-use super::GlyphFragment;
+#[derive(Clone)]
+pub struct GlyphPlaceholder {
+    pub position: [f32; 2],
+    pub width: f32,
+    pub color: [f32; 4],
+    pub id: u32,
+}
 
 pub struct GridRenderer {
     pub shaper: CachingShaper,
@@ -149,7 +155,7 @@ impl GridRenderer {
         grid_position: (u64, u64),
         cell_width: u64,
         style: &Option<Arc<Style>>,
-        glyph_fragments: &mut Vec<GlyphFragment>,
+        glyph_fragments: &mut Vec<GlyphPlaceholder>,
     ) {
         tracy_zone!("draw_foreground");
         let debug = SETTINGS.get::<RendererSettings>().debug_renderer;
@@ -214,10 +220,11 @@ impl GridRenderer {
                 .iter()
             {
                 let position = base_position + glyph.position.to_vector();
-                glyph_fragments.push(GlyphFragment {
+                glyph_fragments.push(GlyphPlaceholder {
                     position: [position.x, position.y],
                     width: self.font_dimensions.width as f32,
                     color,
+                    id: glyph.glyph_id,
                 });
                 /*
                 canvas.draw_text_blob(

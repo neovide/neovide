@@ -8,6 +8,7 @@ mod rendered_window;
 mod renderer;
 
 use std::{
+    cell::RefCell,
     cmp::Ordering,
     collections::{hash_map::Entry, HashMap},
     sync::Arc,
@@ -31,7 +32,7 @@ use crate::{
 
 use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
-pub use grid_renderer::GridRenderer;
+pub use grid_renderer::{GlyphPlaceholder, GridRenderer};
 pub use rendered_window::{
     LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails, WindowPadding,
 };
@@ -88,7 +89,7 @@ pub struct Renderer {
     pub grid_renderer: GridRenderer,
     current_mode: EditorMode,
 
-    rendered_windows: HashMap<u64, RenderedWindow>,
+    rendered_windows: RefCell<HashMap<u64, RenderedWindow>>,
     pub window_regions: Vec<WindowDrawDetails>,
 
     pub batched_draw_command_receiver: UnboundedReceiver<Vec<DrawCommand>>,
@@ -96,6 +97,30 @@ pub struct Renderer {
     os_scale_factor: f64,
     user_scale_factor: f64,
     pub window_padding: WindowPadding,
+}
+
+fn get_sorted_windows(
+    rendered_windows: &mut HashMap<u64, RenderedWindow>,
+) -> Vec<&mut RenderedWindow> {
+    let windows: Vec<&mut RenderedWindow> = {
+        let (mut root_windows, mut floating_windows): (
+            Vec<&mut RenderedWindow>,
+            Vec<&mut RenderedWindow>,
+        ) = rendered_windows
+            .values_mut()
+            .filter(|window| !window.hidden)
+            .partition(|window| window.floating_order.is_none());
+
+        root_windows.sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
+
+        floating_windows.sort_by(floating_sort);
+
+        root_windows
+            .into_iter()
+            .chain(floating_windows.into_iter())
+            .collect()
+    };
+    windows
 }
 
 impl Renderer {
@@ -108,7 +133,7 @@ impl Renderer {
         let grid_renderer = GridRenderer::new(scale_factor);
         let current_mode = EditorMode::Unknown(String::from(""));
 
-        let rendered_windows = HashMap::new();
+        let rendered_windows = RefCell::new(HashMap::new());
         let window_regions = Vec::new();
 
         let batched_draw_command_receiver = EVENT_AGGREGATOR.register_event::<Vec<DrawCommand>>();
@@ -143,56 +168,34 @@ impl Renderer {
         self.grid_renderer.font_names()
     }
 
-    fn get_sorted_windows(&mut self) -> Vec<&mut RenderedWindow> {
-        let windows: Vec<&mut RenderedWindow> = {
-            let (mut root_windows, mut floating_windows): (
-                Vec<&mut RenderedWindow>,
-                Vec<&mut RenderedWindow>,
-            ) = self
-                .rendered_windows
-                .values_mut()
-                .filter(|window| !window.hidden)
-                .partition(|window| window.floating_order.is_none());
-
-            root_windows
-                .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
-
-            floating_windows.sort_by(floating_sort);
-
-            root_windows
-                .into_iter()
-                .chain(floating_windows.into_iter())
-                .collect()
-        };
-        windows
-    }
-
     pub fn draw_frame(&mut self, renderer: &mut WGpuRenderer, dt: f32) {
         tracy_zone!("renderer_draw_frame");
         let default_background = self.grid_renderer.get_default_background();
         let font_dimensions = self.grid_renderer.font_dimensions;
         let self_window_padding = self.window_padding;
-        let mut windows = self.get_sorted_windows();
 
         let mut background_fragments = Vec::default();
         let mut glyph_fragments = Vec::default();
+        // TODO: We could do the backgrounds completely first, and then process
+        // for a slightly longer time to rasterize
+        self.grid_renderer
+            .shaper
+            .process(&renderer.device, &renderer.queue);
+
+        let mut rendered_windows = self.rendered_windows.borrow_mut();
+        let mut windows = get_sorted_windows(&mut rendered_windows);
+        let shaper = &self.grid_renderer.shaper;
         for window in windows.iter_mut() {
             window.draw_surface(
                 &font_dimensions,
                 &default_background,
                 &mut background_fragments,
                 &mut glyph_fragments,
+                shaper,
             );
         }
         renderer.update_background_fragments(background_fragments);
-        self.grid_renderer
-            .shaper
-            .process(&renderer.device, &renderer.queue);
         renderer.update_glyph_fragments(glyph_fragments);
-
-        // TODO: We should not need to get this a second time.. but the borrow checker complains
-        // otherwise
-        let mut windows = self.get_sorted_windows();
 
         let transparency = { SETTINGS.get::<WindowSettings>().transparency };
 
@@ -232,37 +235,21 @@ impl Renderer {
     }
 
     pub fn animate_frame(&mut self, dt: f32) -> bool {
-        let windows: Vec<&mut RenderedWindow> = {
-            let (mut root_windows, mut floating_windows): (
-                Vec<&mut RenderedWindow>,
-                Vec<&mut RenderedWindow>,
-            ) = self
-                .rendered_windows
-                .values_mut()
-                .filter(|window| !window.hidden)
-                .partition(|window| window.floating_order.is_none());
+        let animating = {
+            let mut rendered_windows = self.rendered_windows.borrow_mut();
+            let mut windows = get_sorted_windows(&mut rendered_windows);
 
-            root_windows
-                .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
-
-            floating_windows.sort_by(floating_sort);
-
-            root_windows
+            let settings = SETTINGS.get::<RendererSettings>();
+            windows
                 .into_iter()
-                .chain(floating_windows.into_iter())
-                .collect()
+                .map(|window| window.animate(&settings, dt))
+                .any(|a| a)
         };
-
-        let settings = SETTINGS.get::<RendererSettings>();
-        let animating = windows
-            .into_iter()
-            .map(|window| window.animate(&settings, dt))
-            .any(|a| a);
 
         let windows = &self.rendered_windows;
         let font_dimensions = self.grid_renderer.font_dimensions;
         self.cursor_renderer
-            .update_cursor_destination(font_dimensions.into(), windows);
+            .update_cursor_destination(font_dimensions.into(), &windows.borrow());
 
         self.cursor_renderer
             .animate(&self.current_mode, &self.grid_renderer, dt);
@@ -295,6 +282,12 @@ impl Renderer {
             font_changed = true;
         }
 
+        if font_changed {
+            for (_, window) in self.rendered_windows.borrow_mut().iter_mut() {
+                window.redraw_foreground(&mut self.grid_renderer);
+            }
+        }
+
         font_changed
     }
 
@@ -314,10 +307,10 @@ impl Renderer {
                 grid_id,
                 command: WindowDrawCommand::Close,
             } => {
-                self.rendered_windows.remove(&grid_id);
+                self.rendered_windows.borrow_mut().remove(&grid_id);
             }
             DrawCommand::Window { grid_id, command } => {
-                match self.rendered_windows.entry(grid_id) {
+                match self.rendered_windows.borrow_mut().entry(grid_id) {
                     Entry::Occupied(mut occupied_entry) => {
                         let rendered_window = occupied_entry.get_mut();
                         rendered_window.handle_window_draw_command(

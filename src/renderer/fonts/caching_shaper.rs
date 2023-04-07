@@ -17,6 +17,7 @@ use webrender_api::units::DevicePoint;
 use wgpu::{Device, Queue};
 use wr_glyph_rasterizer::{GlyphKey, SubpixelDirection};
 
+use super::atlas::AtlasCoordinate;
 use crate::profiling::tracy_zone;
 use crate::renderer::fonts::{font_loader::*, font_options::*, glyph_cache::*};
 
@@ -40,7 +41,6 @@ pub struct CachingShaper {
     scale_factor: f32,
     fudge_factor: f32,
     linespace: i64,
-    glyph_cache: GlyphCache,
 }
 
 impl CachingShaper {
@@ -55,7 +55,6 @@ impl CachingShaper {
             scale_factor,
             fudge_factor: 1.0,
             linespace: 0,
-            glyph_cache: GlyphCache::new(),
         };
         shaper.reset_font_loader();
         shaper
@@ -406,5 +405,9 @@ impl CachingShaper {
 
     pub fn process(&mut self, device: &Device, queue: &Queue) {
         self.font_loader.glyph_cache.process(device, queue);
+    }
+
+    pub fn get_glyph_coordinate(&self, glyph: u32) -> &Option<AtlasCoordinate> {
+        &self.font_loader.glyph_cache.get_glyph_coordinate(glyph)
     }
 }

@@ -115,11 +115,12 @@ pub struct GlyphFragment {
     pub position: [f32; 2],
     pub width: f32,
     pub color: [f32; 4],
+    pub uv: [f32; 4],
+    pub texture: u32,
 }
 
 impl GlyphFragment {
-    const ATTRIBS: [VertexAttribute; 3] =
-        vertex_attr_array![1 => Float32x2, 2 => Float32, 3 => Float32x4];
+    const ATTRIBS: [VertexAttribute; 5] = vertex_attr_array![1 => Float32x2, 2 => Float32, 3 => Float32x4, 4 => Float32x4, 5 => Uint32];
 
     fn desc<'a>() -> VertexBufferLayout<'a> {
         VertexBufferLayout {
@@ -379,12 +380,12 @@ impl WGpuRenderer {
                 label: Some("Glyph Pipeline"),
                 layout: Some(&glyph_pipeline_layout),
                 vertex: VertexState {
-                    module: &background_shader,
+                    module: &glyph_shader,
                     entry_point: "vs_main",
-                    buffers: &[QuadVertex::desc(), BackgroundFragment::desc()],
+                    buffers: &[QuadVertex::desc(), GlyphFragment::desc()],
                 },
                 fragment: Some(wgpu::FragmentState {
-                    module: &background_shader,
+                    module: &glyph_shader,
                     entry_point: "fs_main",
                     targets: &[Some(wgpu::ColorTargetState {
                         format: config.format,

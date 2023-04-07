@@ -15,6 +15,8 @@ struct InstanceInput {
     @location(1) position: vec2<f32>,
     @location(2) width: f32,
     @location(3) color: vec4<f32>,
+    @location(4) uv: vec4<f32>,
+    @location(5) texture: u32,
 };
 
 struct VertexOutput {

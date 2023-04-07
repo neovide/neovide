@@ -1,4 +1,5 @@
 use enum_map::{enum_map, Enum, EnumMap};
+use euclid::default::{Point2D, Rect, Size2D};
 use std::num::NonZeroU32;
 use webrender_api::ImageFormat;
 use wgpu::{
@@ -35,8 +36,8 @@ impl From<ImageFormat> for TextureFormat {
 }
 
 impl TextureFormat {
-    fn bytes_per_pixel(&self) -> usize {
-        self.to_image_format().bytes_per_pixel() as usize
+    fn bytes_per_pixel(&self) -> u32 {
+        self.to_image_format().bytes_per_pixel() as u32
     }
 
     fn to_image_format(&self) -> ImageFormat {
@@ -66,14 +67,18 @@ impl TextureFormat {
     }
 }
 
+pub struct AtlasCoordinate {
+    pub rect: Rect<f32>,
+    pub texture_id: u32,
+}
+
 struct AtlasTexture {
     texture: Texture,
     texture_size: Extent3d,
     cpu_buffer: Vec<u8>,
-    bytes_per_pixel: usize,
-    current_xpos: usize,
-    current_ypos: usize,
-    current_row_height: usize,
+    bytes_per_pixel: u32,
+    current_pos: Point2D<u32>,
+    current_row_height: u32,
     upload_pos: Origin3d,
     dirty: bool,
 }
@@ -97,10 +102,10 @@ impl AtlasTexture {
             label: Some("Glyph Atlas"),
         });
         let bytes_per_pixel = texture_format.bytes_per_pixel();
-        let buffer_size = (width * height) as usize * bytes_per_pixel;
-        let mut cpu_buffer = Vec::with_capacity(buffer_size);
+        let buffer_size = (width * height) * bytes_per_pixel;
+        let mut cpu_buffer = Vec::with_capacity(buffer_size as usize);
         unsafe {
-            cpu_buffer.set_len(buffer_size);
+            cpu_buffer.set_len(buffer_size as usize);
         }
 
         Self {
@@ -108,34 +113,44 @@ impl AtlasTexture {
             texture_size,
             cpu_buffer,
             bytes_per_pixel,
-            current_xpos: 0,
-            current_ypos: 0,
+            current_pos: Point2D::zero(),
             current_row_height: 0,
             upload_pos: Origin3d::ZERO,
             dirty: false,
         }
     }
 
-    fn add_glyph(&mut self, glyph: &RasterizedGlyph) {
-        let width = glyph.width as usize;
-        let height = glyph.height as usize;
-        if self.current_xpos + width > self.texture_size.width as usize {
-            self.current_ypos += self.current_row_height;
+    fn add_glyph(&mut self, glyph: &RasterizedGlyph) -> AtlasCoordinate {
+        let width = glyph.width as u32;
+        let height = glyph.height as u32;
+        if self.current_pos.x + width > self.texture_size.width {
+            self.current_pos.y += self.current_row_height;
             self.current_row_height = 0;
-        }
-        let row_start_byte = self.current_xpos * self.bytes_per_pixel;
-        let row_end_byte = (self.current_xpos + width) * self.bytes_per_pixel;
+        };
+        let rect = Rect::new(self.current_pos, Size2D::new(width, height));
+        let rect = rect.to_f32().scale(
+            1.0 / self.texture_size.width as f32,
+            1.0 / self.texture_size.height as f32,
+        );
+
+        let row_start_byte = (self.current_pos.x * self.bytes_per_pixel) as usize;
+        let row_end_byte = ((self.current_pos.x + width) * self.bytes_per_pixel) as usize;
         let dst_rows = self
             .cpu_buffer
-            .chunks_mut(self.texture_size.width as usize * self.bytes_per_pixel)
+            .chunks_mut((self.texture_size.width * self.bytes_per_pixel) as usize)
             .map(|row| &mut row[row_start_byte..row_end_byte]);
-        let src_rows = glyph.bytes.chunks(width * self.bytes_per_pixel);
+        let src_rows = glyph.bytes.chunks((width * self.bytes_per_pixel) as usize);
         for (src_row, dst_row) in src_rows.zip(dst_rows) {
             dst_row.copy_from_slice(src_row);
         }
-        self.current_xpos += width;
+        self.current_pos.x += width;
         self.current_row_height = self.current_row_height.max(height);
         self.dirty = true;
+
+        AtlasCoordinate {
+            rect,
+            texture_id: 0,
+        }
     }
 
     fn upload(&mut self, queue: &Queue) {
@@ -146,7 +161,7 @@ impl AtlasTexture {
         let start_byte = self.upload_pos.y * self.bytes_per_pixel as u32;
         let copy_extent = Extent3d {
             width: self.texture_size.width,
-            height: (self.current_ypos + self.current_row_height) as u32 - self.upload_pos.y,
+            height: (self.current_pos.y + self.current_row_height) as u32 - self.upload_pos.y,
             depth_or_array_layers: 1,
         };
 
@@ -158,9 +173,9 @@ impl AtlasTexture {
                 aspect: wgpu::TextureAspect::All,
             },
             &self.cpu_buffer
-                [0..(copy_extent.height * copy_extent.width) as usize * self.bytes_per_pixel],
+                [0..(copy_extent.height * copy_extent.width * self.bytes_per_pixel) as usize],
             wgpu::ImageDataLayout {
-                offset: (self.upload_pos.y as usize * self.bytes_per_pixel) as BufferAddress,
+                offset: (self.upload_pos.y * self.bytes_per_pixel) as BufferAddress,
                 bytes_per_row: NonZeroU32::new(
                     self.bytes_per_pixel as u32 * self.texture_size.width,
                 ),
@@ -184,7 +199,7 @@ impl Atlas {
         Self { textures }
     }
 
-    pub fn add_glyph(&mut self, device: &Device, glyph: &RasterizedGlyph) {
+    pub fn add_glyph(&mut self, device: &Device, glyph: &RasterizedGlyph) -> AtlasCoordinate {
         let can_use_rgb8 = true;
         let texture_format = glyph.format.image_format(can_use_rgb8).into();
         let textures = &mut self.textures[texture_format];
@@ -192,7 +207,7 @@ impl Atlas {
             textures.push(AtlasTexture::new(device, texture_format));
         }
         let mut texture = textures.last_mut().unwrap();
-        texture.add_glyph(glyph);
+        texture.add_glyph(glyph)
     }
 
     pub fn upload(&mut self, queue: &Queue) {
