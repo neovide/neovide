@@ -140,7 +140,10 @@ mod tests {
 
     use super::*;
     use crate::{
-        bridge::{connection, create_nvim_command},
+        bridge::{
+            create_nvim_command,
+            session::{NeovimInstance, NeovimSession},
+        },
         cmd_line::CmdLineSettings,
     };
 
@@ -250,7 +253,8 @@ mod tests {
         //TODO: this sets a static variable. Can this have side effects on other tests?
         SETTINGS.set::<CmdLineSettings>(&CmdLineSettings::default());
 
-        let (nvim, _) = connection::embed(&mut create_nvim_command(), NeovimHandler())
+        let instance = NeovimInstance::Embedded(create_nvim_command());
+        let NeovimSession { neovim: nvim, .. } = NeovimSession::new(instance, NeovimHandler())
             .await
             .unwrap_or_explained_panic("Could not locate or start the neovim process");
         nvim.set_var(&v4, Value::from(v2.clone())).await.ok();
