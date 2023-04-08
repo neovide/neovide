@@ -189,7 +189,7 @@ impl MouseManager {
                 // Send a mouse move command
                 EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::MouseButton {
                     button: "move".into(),
-                    action: "dummy".into(), // this is ignored by nvim
+                    action: "".into(), // this is ignored by nvim
                     grid_id: relevant_window_details.id,
                     position: self.relative_position.into(),
                     modifier_string: keyboard_manager.format_modifier_string(true),
