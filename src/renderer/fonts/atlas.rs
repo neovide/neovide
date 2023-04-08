@@ -87,8 +87,8 @@ pub struct AtlasTexture {
 
 impl AtlasTexture {
     pub fn new(device: &Device, texture_format: TextureFormat) -> Self {
-        let width = 1024;
-        let height = 1024;
+        let width = 4096;
+        let height = 4096;
         let texture_size = Extent3d {
             width,
             height,
