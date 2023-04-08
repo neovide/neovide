@@ -45,8 +45,7 @@ pub enum WindowDrawCommand {
     Hide,
     Close,
     Viewport {
-        top_line: f64,
-        bottom_line: f64,
+        scroll_delta: f64,
     },
 }
 
@@ -100,12 +99,12 @@ fn build_window_surface_with_grid_size(
 
 pub struct LocatedSnapshot {
     image: Image,
-    top_line: u64,
+    vertical_position: f32,
 }
 
 pub struct LocatedSurface {
     surface: Surface,
-    pub top_line: u64,
+    pub vertical_position: f32,
 }
 
 impl LocatedSurface {
@@ -113,18 +112,21 @@ impl LocatedSurface {
         parent_canvas: &mut Canvas,
         grid_renderer: &GridRenderer,
         grid_size: Dimensions,
-        top_line: u64,
+        vertical_position: f32,
     ) -> LocatedSurface {
         let surface = build_window_surface_with_grid_size(parent_canvas, grid_renderer, grid_size);
 
-        LocatedSurface { surface, top_line }
+        LocatedSurface {
+            surface,
+            vertical_position,
+        }
     }
 
     fn snapshot(&mut self) -> LocatedSnapshot {
         let image = self.surface.image_snapshot();
         LocatedSnapshot {
             image,
-            top_line: self.top_line,
+            vertical_position: self.vertical_position,
         }
     }
 }
@@ -168,7 +170,7 @@ impl RenderedWindow {
         grid_size: Dimensions,
         padding: WindowPadding,
     ) -> RenderedWindow {
-        let current_surface = LocatedSurface::new(parent_canvas, grid_renderer, grid_size, 0);
+        let current_surface = LocatedSurface::new(parent_canvas, grid_renderer, grid_size, 0.);
 
         RenderedWindow {
             snapshots: VecDeque::new(),
@@ -306,8 +308,8 @@ impl RenderedWindow {
 
         // Draw scrolling snapshots.
         for snapshot in self.snapshots.iter_mut().rev() {
-            let scroll_offset = (snapshot.top_line * font_height) as f32
-                - (self.current_scroll * font_height as f32);
+            let scroll_offset =
+                (snapshot.vertical_position - self.current_scroll) * font_height as f32;
             let image = &mut snapshot.image;
             root_canvas.draw_image_rect(
                 image,
@@ -318,8 +320,8 @@ impl RenderedWindow {
         }
 
         // Draw current surface.
-        let scroll_offset = (self.current_surface.top_line * font_height) as f32
-            - (self.current_scroll * font_height as f32);
+        let scroll_offset =
+            (self.current_surface.vertical_position - self.current_scroll) * font_height as f32;
         let snapshot = self.current_surface.surface.image_snapshot();
         root_canvas.draw_image_rect(
             snapshot,
@@ -503,8 +505,8 @@ impl RenderedWindow {
                 }
             }
             WindowDrawCommand::Hide => self.hidden = true,
-            WindowDrawCommand::Viewport { top_line, .. } => {
-                if self.current_surface.top_line != top_line as u64 {
+            WindowDrawCommand::Viewport { scroll_delta, .. } => {
+                if scroll_delta.abs() > f64::EPSILON {
                     let new_snapshot = self.current_surface.snapshot();
                     self.snapshots.push_back(new_snapshot);
 
@@ -512,11 +514,11 @@ impl RenderedWindow {
                         self.snapshots.pop_front();
                     }
 
-                    self.current_surface.top_line = top_line as u64;
+                    self.current_surface.vertical_position += scroll_delta as f32;
 
                     // Set new target viewport position and initialize animation timer.
                     self.start_scroll = self.current_scroll;
-                    self.scroll_destination = top_line as f32;
+                    self.scroll_destination = self.current_surface.vertical_position;
                     self.scroll_t = 0.0;
                 }
             }
