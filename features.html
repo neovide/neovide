@@ -174,23 +174,60 @@ and background from built in window transparency.</p>
 Communication is passed via standard io into the wsl copy of neovim providing identical experience
 similar to Visual Studio Code's
 <a href="https://code.visualstudio.com/docs/remote/remote-overview">Remote Editing</a>.</p>
-<h2 id="remote-tcp-support"><a class="header" href="#remote-tcp-support">Remote TCP Support</a></h2>
-<p>Neovide supports connecting to a remote instance of Neovim over a TCP socket via the <code>--remote-tcp</code>
-command argument. This would allow you to run Neovim on a remote machine and use the GUI on your
-local machine, connecting over the network.</p>
+<h2 id="connecting-to-an-existing-neovim-instance"><a class="header" href="#connecting-to-an-existing-neovim-instance">Connecting to an existing Neovim instance</a></h2>
+<p>Neovide supports connecting to an already running instance of Neovim through the following
+communication channels:</p>
+<ul>
+<li>TCP</li>
+<li>Unix domain sockets (Unix-like platforms only)</li>
+<li>Named pipes (Windows only)</li>
+</ul>
+<p>This is enabled by specifying the <code>--server &lt;address&gt;</code> command line argument. The <code>address</code> is
+interpreted as a TCP/IPv4/IPv6 address if it contains a colon <code>:</code>. Otherwise, it's
+interpreted as a Unix domain socket path on Unix-like systems and as the name of a pipe on
+Windows systems.</p>
+<p>It's possible to quit the GUI while leaving the Neovim instance running by closing the Neovide
+application window instead of issuing a <code>:q</code> command.</p>
+<p>One use case is to attach a GUI running on a local machine to a Neovim instance on a remote machine
+over the network.</p>
+<h3 id="tcp-example"><a class="header" href="#tcp-example">TCP Example</a></h3>
+<p>Note that exposing Neovim over TCP, even on localhost, is inherently less secure than using Unix
+Domain Sockets.</p>
 <p>Launch Neovim as a TCP server (on port 6666) by running:</p>
 <pre><code class="language-sh">nvim --headless --listen localhost:6666
 </code></pre>
 <p>And then connect to it using:</p>
-<pre><code class="language-sh">/path/to/neovide --remote-tcp=localhost:6666
+<pre><code class="language-sh">/path/to/neovide --server=localhost:6666
 </code></pre>
 <p>By specifying to listen on localhost, you only allow connections from your local computer. If you
 are actually doing this over a network you will want to use SSH port forwarding for security, and
 then connect as before.</p>
 <pre><code class="language-sh">ssh -L 6666:localhost:6666 ip.of.other.machine nvim --headless --listen localhost:6666
 </code></pre>
-<p>Finally, if you would like to leave the neovim server running, close the neovide application window
-instead of issuing a <code>:q</code> command.</p>
+<h3 id="unix-domain-socket-example"><a class="header" href="#unix-domain-socket-example">Unix Domain Socket Example</a></h3>
+<p>Launch a Neovim instance listening on a Unix Domain Socket:</p>
+<pre><code class="language-sh">nvim --headless --listen some-existing-dir/my-nvim-instance.sock
+</code></pre>
+<p>And then connect to it using:</p>
+<pre><code class="language-sh">/path/to/neovide --server=some-existing-dir/my-nvim-instance.sock
+</code></pre>
+<p>Like TCP sockets, Unix Domain Sockets can be forwarded over SSH. Start a Neovim instance on another
+host with:</p>
+<pre><code class="language-sh">ssh -L /path/to/local/socket:/path/to/remote/socket ip.of.other.machine \
+    nvim --headless --listen /path/to/remote/socket
+</code></pre>
+<p>Then connect with:</p>
+<pre><code class="language-sh">/path/to/neovide --server=/path/to/local/socket
+</code></pre>
+<h3 id="windows-named-pipes-example"><a class="header" href="#windows-named-pipes-example">Windows Named Pipes Example</a></h3>
+<p>Launch a Neovim instances listening on a Named Pipe:</p>
+<pre><code class="language-cmd">nvim --headless --listen //./pipe/some-known-pipe-name/with-optional-path
+</code></pre>
+<p>And then connect to it using:</p>
+<pre><code class="language-cmd">/path/to/neovide --server=some-known-pipe-name/with-optional-path
+</code></pre>
+<p>Note: the pipe name passed to nvim must be prefixed with <code>//./pipe/</code> but the server argument to
+Neovide will add it if it is missing.</p>
 <h2 id="some-nonsense-"><a class="header" href="#some-nonsense-">Some Nonsense ;)</a></h2>
 <p>To learn how to configure the following, head on over to the
 <a href="./configuration.html#cursor-particles">configuration</a> section!</p>
