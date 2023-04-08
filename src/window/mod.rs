@@ -124,7 +124,7 @@ impl WinitWindowWrapper {
     }
 
     pub fn handle_quit(&mut self) {
-        if SETTINGS.get::<CmdLineSettings>().remote_tcp.is_none() {
+        if SETTINGS.get::<CmdLineSettings>().server.is_none() {
             EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::Quit));
         } else {
             RUNNING_TRACKER.quit("window closed");

@@ -54,11 +54,30 @@ Communication is passed via standard io into the wsl copy of neovim providing id
 similar to Visual Studio Code's
 [Remote Editing](https://code.visualstudio.com/docs/remote/remote-overview).
 
-## Remote TCP Support
+## Connecting to an existing Neovim instance
 
-Neovide supports connecting to a remote instance of Neovim over a TCP socket via the `--remote-tcp`
-command argument. This would allow you to run Neovim on a remote machine and use the GUI on your
-local machine, connecting over the network.
+Neovide supports connecting to an already running instance of Neovim through the following
+communication channels:
+
+* TCP
+* Unix domain sockets (Unix-like platforms only)
+* Named pipes (Windows only)
+
+This is enabled by specifying the `--server <address>` command line argument. The `address` is
+interpreted as a TCP/IPv4/IPv6 address if it contains a colon `:`. Otherwise, it's
+interpreted as a Unix domain socket path on Unix-like systems and as the name of a pipe on
+Windows systems.
+
+It's possible to quit the GUI while leaving the Neovim instance running by closing the Neovide
+application window instead of issuing a `:q` command.
+
+One use case is to attach a GUI running on a local machine to a Neovim instance on a remote machine
+over the network.
+
+### TCP Example
+
+Note that exposing Neovim over TCP, even on localhost, is inherently less secure than using Unix
+Domain Sockets.
 
 Launch Neovim as a TCP server (on port 6666) by running:
 
@@ -69,7 +88,7 @@ nvim --headless --listen localhost:6666
 And then connect to it using:
 
 ```sh
-/path/to/neovide --remote-tcp=localhost:6666
+/path/to/neovide --server=localhost:6666
 ```
 
 By specifying to listen on localhost, you only allow connections from your local computer. If you
@@ -80,8 +99,50 @@ then connect as before.
 ssh -L 6666:localhost:6666 ip.of.other.machine nvim --headless --listen localhost:6666
 ```
 
-Finally, if you would like to leave the neovim server running, close the neovide application window
-instead of issuing a `:q` command.
+### Unix Domain Socket Example
+
+Launch a Neovim instance listening on a Unix Domain Socket:
+
+```sh
+nvim --headless --listen some-existing-dir/my-nvim-instance.sock
+```
+
+And then connect to it using:
+
+```sh
+/path/to/neovide --server=some-existing-dir/my-nvim-instance.sock
+```
+
+Like TCP sockets, Unix Domain Sockets can be forwarded over SSH. Start a Neovim instance on another
+host with:
+
+```sh
+ssh -L /path/to/local/socket:/path/to/remote/socket ip.of.other.machine \
+    nvim --headless --listen /path/to/remote/socket
+```
+
+Then connect with:
+
+```sh
+/path/to/neovide --server=/path/to/local/socket
+```
+
+### Windows Named Pipes Example
+
+Launch a Neovim instances listening on a Named Pipe:
+
+```cmd
+nvim --headless --listen //./pipe/some-known-pipe-name/with-optional-path
+```
+
+And then connect to it using:
+
+```cmd
+/path/to/neovide --server=some-known-pipe-name/with-optional-path
+```
+
+Note: the pipe name passed to nvim must be prefixed with `//./pipe/` but the server argument to
+Neovide will add it if it is missing.
 
 ## Some Nonsense ;)
 

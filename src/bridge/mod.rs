@@ -1,10 +1,9 @@
 mod clipboard;
 mod command;
-pub mod create;
 mod events;
 mod handler;
+pub mod session;
 mod setup;
-mod tx_wrapper;
 mod ui_commands;
 
 use std::{process::exit, sync::Arc, thread};
@@ -20,20 +19,16 @@ use crate::{
 pub use command::create_nvim_command;
 pub use events::*;
 use handler::NeovimHandler;
+pub use session::NeovimWriter;
+use session::{NeovimInstance, NeovimSession};
 use setup::setup_neovide_specific_state;
-pub use tx_wrapper::{TxWrapper, WrapTx};
 pub use ui_commands::{start_ui_command_handler, ParallelCommand, SerialCommand, UiCommand};
 
-enum ConnectionMode {
-    Child,
-    RemoteTcp(String),
-}
-
-fn connection_mode() -> ConnectionMode {
-    if let Some(arg) = SETTINGS.get::<CmdLineSettings>().remote_tcp {
-        ConnectionMode::RemoteTcp(arg)
+fn neovim_instance() -> NeovimInstance {
+    if let Some(address) = SETTINGS.get::<CmdLineSettings>().server {
+        NeovimInstance::Server { address }
     } else {
-        ConnectionMode::Child
+        NeovimInstance::Embedded(create_nvim_command())
     }
 }
 
@@ -46,11 +41,11 @@ pub fn start_bridge() {
 #[tokio::main]
 async fn start_neovim_runtime() {
     let handler = NeovimHandler::new();
-    let (nvim, io_handler) = match connection_mode() {
-        ConnectionMode::Child => create::new_child_cmd(&mut create_nvim_command(), handler).await,
-        ConnectionMode::RemoteTcp(address) => create::new_tcp(address, handler).await,
-    }
-    .unwrap_or_explained_panic("Could not locate or start neovim process");
+    let session = NeovimSession::new(neovim_instance(), handler)
+        .await
+        .unwrap_or_explained_panic("Could not locate or start neovim process");
+
+    let nvim = Arc::new(session.neovim);
 
     // Check the neovim version to ensure its high enough
     match nvim.command_output("echo has('nvim-0.4')").await.as_deref() {
@@ -63,11 +58,8 @@ async fn start_neovim_runtime() {
 
     let settings = SETTINGS.get::<CmdLineSettings>();
 
-    let mut is_remote = settings.wsl;
-    if let ConnectionMode::RemoteTcp(_) = connection_mode() {
-        is_remote = true;
-    }
-    setup_neovide_specific_state(&nvim, is_remote).await;
+    let should_handle_clipboard = settings.wsl || settings.server.is_some();
+    setup_neovide_specific_state(&nvim, should_handle_clipboard).await;
 
     let geometry = settings.geometry;
     let mut options = UiAttachOptions::new();
@@ -82,13 +74,11 @@ async fn start_neovim_runtime() {
 
     info!("Neovim process attached");
 
-    let nvim = Arc::new(nvim);
-
     start_ui_command_handler(nvim.clone());
     SETTINGS.read_initial_values(&nvim).await;
     SETTINGS.setup_changed_listeners(&nvim).await;
 
-    match io_handler.await {
+    match session.io_handle.await {
         Err(join_error) => error!("Error joining IO loop: '{}'", join_error),
         Ok(Err(error)) => {
             if !error.is_channel_closed() {

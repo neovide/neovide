@@ -11,7 +11,7 @@ use std::{
     convert::TryInto,
 };
 
-use crate::{bridge::TxWrapper, error_handling::ResultPanicExplanation};
+use crate::{bridge::NeovimWriter, error_handling::ResultPanicExplanation};
 pub use from_value::ParseFromValue;
 pub use window_geometry::{
     last_window_geometry, load_last_window_settings, parse_window_geometry, save_window_geometry,
@@ -84,7 +84,7 @@ impl Settings {
         (*value).clone()
     }
 
-    pub async fn read_initial_values(&self, nvim: &Neovim<TxWrapper>) {
+    pub async fn read_initial_values(&self, nvim: &Neovim<NeovimWriter>) {
         let keys: Vec<String> = self.listeners.read().keys().cloned().collect();
 
         for name in keys {
@@ -102,7 +102,7 @@ impl Settings {
         }
     }
 
-    pub async fn setup_changed_listeners(&self, nvim: &Neovim<TxWrapper>) {
+    pub async fn setup_changed_listeners(&self, nvim: &Neovim<NeovimWriter>) {
         let keys: Vec<String> = self.listeners.read().keys().cloned().collect();
 
         for name in keys {
@@ -140,7 +140,10 @@ mod tests {
 
     use super::*;
     use crate::{
-        bridge::{create, create_nvim_command},
+        bridge::{
+            create_nvim_command,
+            session::{NeovimInstance, NeovimSession},
+        },
         cmd_line::CmdLineSettings,
     };
 
@@ -149,13 +152,13 @@ mod tests {
 
     #[async_trait]
     impl Handler for NeovimHandler {
-        type Writer = TxWrapper;
+        type Writer = NeovimWriter;
 
         async fn handle_notify(
             &self,
             _event_name: String,
             _arguments: Vec<Value>,
-            _neovim: Neovim<TxWrapper>,
+            _neovim: Neovim<NeovimWriter>,
         ) {
         }
     }
@@ -250,7 +253,8 @@ mod tests {
         //TODO: this sets a static variable. Can this have side effects on other tests?
         SETTINGS.set::<CmdLineSettings>(&CmdLineSettings::default());
 
-        let (nvim, _) = create::new_child_cmd(&mut create_nvim_command(), NeovimHandler())
+        let instance = NeovimInstance::Embedded(create_nvim_command());
+        let NeovimSession { neovim: nvim, .. } = NeovimSession::new(instance, NeovimHandler())
             .await
             .unwrap_or_explained_panic("Could not locate or start the neovim process");
         nvim.set_var(&v4, Value::from(v2.clone())).await.ok();

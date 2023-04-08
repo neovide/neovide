@@ -2,7 +2,7 @@ use log::{info, warn};
 use nvim_rs::Neovim;
 use rmpv::Value;
 
-use crate::{bridge::TxWrapper, error_handling::ResultPanicExplanation};
+use crate::{bridge::NeovimWriter, error_handling::ResultPanicExplanation};
 
 const REGISTER_CLIPBOARD_PROVIDER_LUA: &str = r"
     local function set_clipboard(register)
@@ -30,7 +30,7 @@ const REGISTER_CLIPBOARD_PROVIDER_LUA: &str = r"
         cache_enabled = 0
     }";
 
-pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<TxWrapper>, neovide_channel: u64) {
+pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<NeovimWriter>, neovide_channel: u64) {
     // Users can opt-out with
     // vim: `let g:neovide_no_custom_clipboard = v:true`
     // lua: `vim.g.neovide_no_custom_clipboard = true`
@@ -52,7 +52,10 @@ pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<TxWrapper>, neovide_ch
         .ok();
 }
 
-pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>, is_remote: bool) {
+pub async fn setup_neovide_specific_state(
+    nvim: &Neovim<NeovimWriter>,
+    should_handle_clipboard: bool,
+) {
     // Set variable indicating to user config that neovide is being used.
     nvim.set_var("neovide", Value::Boolean(true))
         .await
@@ -122,7 +125,7 @@ pub async fn setup_neovide_specific_state(nvim: &Neovim<TxWrapper>, is_remote: b
         .await
         .ok();
 
-        if is_remote {
+        if should_handle_clipboard {
             setup_neovide_remote_clipboard(nvim, neovide_channel).await;
         }
     } else {
