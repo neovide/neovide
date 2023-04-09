@@ -10,14 +10,14 @@ use std::path::{Path, PathBuf};
 
 const CONFIG_FILE: &str = "config.toml";
 
-fn neovide_config_path() -> PathBuf {
+fn neovide_config_dir() -> PathBuf {
     let mut path = dirs::config_dir().unwrap();
     path.push("neovide");
     path
 }
 
 pub fn config_path() -> PathBuf {
-    let mut config_path = neovide_config_path();
+    let mut config_path = neovide_config_dir();
     config_path.push(CONFIG_FILE);
     config_path
 }
