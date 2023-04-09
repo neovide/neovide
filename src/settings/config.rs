@@ -14,6 +14,20 @@ use super::DEFAULT_WINDOW_GEOMETRY;
 
 use std::path::{Path, PathBuf};
 
+const CONFIG_FILE: &str = "config.toml";
+
+fn neovide_config_path() -> PathBuf {
+    let mut path = dirs::config_dir().unwrap();
+    path.push("neovide");
+    path
+}
+
+pub fn config_path() -> PathBuf {
+    let mut config_path = neovide_config_path();
+    config_path.push(CONFIG_FILE);
+    config_path
+}
+
 #[derive(Debug, Deserialize, Serialize, Default)]
 pub struct ConfigFile {
     // pub font_antialias: FontAntialias,
@@ -112,29 +126,6 @@ impl From<FontAntialias> for Edging {
             FontAntialias::Subpixel => Edging::SubpixelAntiAlias,
         }
     }
-}
-
-const CONFIG_FILE: &str = "config.toml";
-
-#[cfg(unix)]
-fn neovide_config_path() -> PathBuf {
-    let xdg_dirs = xdg::BaseDirectories::with_prefix("neovide").unwrap();
-    xdg_dirs.get_config_home()
-}
-
-#[cfg(windows)]
-fn neovide_config_path() -> PathBuf {
-    let mut data_path = dirs::home_dir().unwrap();
-    // I have no idea where this should be
-    todo!("I have no idea where this should be");
-    data_path.push("Documents/Neovide/");
-    data_path
-}
-
-pub fn config_path() -> PathBuf {
-    let mut config_path = neovide_config_path();
-    config_path.push(CONFIG_FILE);
-    config_path
 }
 
 pub fn save_default_config() {
