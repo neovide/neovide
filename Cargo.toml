@@ -15,43 +15,47 @@ default = []
 embed-fonts = []
 
 [dependencies]
-copypasta = "0.8.1"
-async-trait = "0.1.53"
+copypasta = "0.8.2"
+async-trait = "0.1.68"
 backtrace = "0.3.67"
 cfg-if = "1.0.0"
-clap = { version = "4.0.8", features = ["cargo", "derive", "env"] }
+clap = { version = "4.2.1", features = ["cargo", "derive", "env"] }
 csscolorparser = "0.6.2"
 derive-new = "0.5.9"
-dirs = "4.0.0"
-euclid = "0.22.7"
-flexi_logger = { version = "0.22.3", default-features = false }
-futures = "0.3.21"
+dirs = "5.0.0"
+euclid = "0.22.9"
+flexi_logger = { version = "0.25.3", default-features = false }
+futures = "0.3.28"
 gl = "0.14.0"
-glutin = { git = "https://github.com/neovide/glutin", branch = "new-keyboard-all", features = ["serde"] }
-image = { version = "0.24.1", default-features = false, features = ["ico"] }
+glutin = "0.30.7"
+glutin-winit = { path = "glutin-winit" }
+image = { version = "0.24.6", default-features = false, features = ["ico"] }
 itertools = "0.10.5"
 lazy_static = "1.4.0"
-log = "0.4.16"
-lru = "0.7.5"
+log = "0.4.17"
+lru = "0.10.0"
 neovide-derive = { path = "neovide-derive" }
 nvim-rs = { version = "0.5.0", features = ["use_tokio"] }
-parking_lot = "0.12.0"
-pin-project = "1.0.10"
+parking_lot = "0.12.1"
+pin-project = "1.0.12"
 rand = "0.8.5"
+raw-window-handle = "0.5"
 rmpv = "1.0.0"
-serde = { version = "1.0.136", features = ["derive"] }
-serde_json = "1.0.79"
-swash = "0.1.4"
-time = "0.3.9"
-tokio = { version = "1.25.0", features = ["full"] }
-tokio-util = { version = "0.7.4", features = ["compat"] }
-unicode-segmentation = "1.9.0"
-which = "4.2.5"
-winit = { git = "https://github.com/neovide/winit", branch = "new-keyboard-all" }
+serde = { version = "1.0.159", features = ["derive"] }
+serde_json = "1.0.95"
+swash = "0.1.6"
+time = { version = "0.3.20", features = ["macros", "formatting"] }
+tokio = { version = "1.27.0", features = ["full"] }
+tokio-util = { version = "0.7.7", features = ["compat"] }
+unicode-segmentation = "1.10.1"
+which = "4.4.0"
+winit = { git = "https://github.com/Yesterday17/winit", branch = "new-keyboard-v3", features = [
+  "serde",
+] }
 xdg = "2.4.1"
 
 [dev-dependencies]
-mockall = "0.11.0"
+mockall = "0.11.4"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.9", features = ["winuser", "wincon"] }
@@ -61,14 +65,14 @@ winres = "0.1.12"
 
 [target.'cfg(linux)'.dependencies.skia-safe]
 features = ["gl", "egl"]
-version = "0.52.0"
+version = "0.60.0"
 
 [target.'cfg(not(linux))'.dependencies.skia-safe]
 features = ["gl"]
-version = "0.52.0"
+version = "0.60.0"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-cocoa = "0.24.0"
+cocoa = "0.24.1"
 objc = "0.2.7"
 shlex = "1.1.0"
 

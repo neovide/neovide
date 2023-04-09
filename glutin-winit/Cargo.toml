@@ -1,0 +1,26 @@
+[package]
+name = "glutin-winit"
+version = "0.3.0"
+authors = ["Kirill Chibisov <contact@kchibisov.com>"]
+description = "Glutin bootstrapping helpers with winit"
+keywords = ["windowing", "opengl", "winit"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/rust-windowing/glutin"
+edition = "2021"
+
+[features]
+default = ["egl", "glx", "x11", "wayland", "wgl"]
+egl = ["glutin/egl"]
+glx = ["glutin/glx", "glutin/x11", "winit/x11", "x11"]
+wgl = ["glutin/wgl"]
+x11 = ["glutin/x11", "winit/x11"]
+wayland = ["glutin/wayland", "winit/wayland"]
+
+[dependencies]
+winit = { git = "https://github.com/Yesterday17/winit", branch = "new-keyboard-v3" }
+glutin = { version = "0.30.7", default-features = false }
+raw-window-handle = "0.5.2"
+
+[build-dependencies]
+cfg_aliases = "0.1.1"
