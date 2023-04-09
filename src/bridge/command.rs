@@ -59,10 +59,10 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> Option<StdComm
         let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
         let mut result = StdCommand::new(shell);
 
-        result.arg("-c");
         if env::var_os("TERM").is_none() {
             result.arg("-l");
         }
+        result.arg("-c");
         result.arg(format!("{} {}", command, args.join(" ")));
 
         Some(result)
@@ -121,10 +121,10 @@ fn nvim_cmd_impl(bin: &str, args: &[String]) -> TokioCommand {
         .map(|arg| shlex::quote(arg))
         .collect::<Vec<_>>()
         .join(" ");
-    cmd.arg("-c");
     if env::var_os("TERM").is_none() {
         cmd.arg("-l");
     }
+    cmd.arg("-c");
     cmd.arg(&format!("{} {}", bin, args_str));
     cmd
 }
