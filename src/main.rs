@@ -35,6 +35,7 @@ use std::env::{self, args};
 
 #[cfg(not(test))]
 use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
+use log::error;
 use log::trace;
 
 use backtrace::Backtrace;
@@ -56,6 +57,8 @@ pub use event_aggregator::*;
 pub use running_tracker::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
+
+use crate::settings::{config_path, load_config, ConfigFile};
 
 const BACKTRACES_FILE: &str = "neovide_backtraces.log";
 const REQUEST_MESSAGE: &str = "This is a bug and we would love for it to be reported to https://github.com/neovide/neovide/issues";
@@ -141,6 +144,14 @@ fn protected_main() {
 
     #[cfg(target_os = "windows")]
     windows_attach_to_console();
+
+    match ConfigFile::load_from_path(&config_path()) {
+        Ok(config) => config.write_to_env(),
+        Err(err) => {
+            eprintln!("{err}");
+            error!("{err}");
+        }
+    };
 
     //Will exit if -h or -v
     if let Err(err) = cmd_line::handle_command_line_arguments(args().collect()) {

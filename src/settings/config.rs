@@ -1,23 +1,58 @@
 // Config file handling
 
+use std::env;
+
 use serde::{Deserialize, Serialize};
 use skia_safe::font::Edging;
 
 use glutin::dpi::PhysicalPosition;
 
+use crate::dimensions::Dimensions;
 use crate::settings::SETTINGS;
-use crate::utils::Dimensions;
 
 use super::DEFAULT_WINDOW_GEOMETRY;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Deserialize, Serialize, Default)]
 pub struct ConfigFile {
-    pub font_antialias: FontAntialias,
-    pub multigrid: bool,
-    pub maximized: bool,
+    // pub font_antialias: FontAntialias,
+    pub multi_grid: Option<bool>,
+    pub maximized: Option<bool>,
+    pub vsync: Option<bool>,
     //pub window: ConfigWindowSettings,
+}
+
+impl ConfigFile {
+    pub fn load_from_path(path: &Path) -> Result<Self, String> {
+        let toml = std::fs::read_to_string(path).map_err(|e| {
+            format!(
+                "Error while trying to open config file {}:\n{}\nContinuing with default config.",
+                path.to_string_lossy(),
+                e
+            )
+        })?;
+        let config = toml::from_str(&toml).map_err(|e| {
+            format!(
+                "Error while parsing config file {}:\n{}\nContinuing with default config.",
+                path.to_string_lossy(),
+                e
+            )
+        })?;
+        Ok(config)
+    }
+
+    pub fn write_to_env(&self) {
+        if let Some(multi_grid) = self.multi_grid {
+            env::set_var("NEOVIDE_MULTIGRID", multi_grid.to_string());
+        }
+        if let Some(maximized) = self.maximized {
+            env::set_var("NEOVIDE_MAXIMIZED", maximized.to_string());
+        }
+        if let Some(vsync) = self.vsync {
+            env::set_var("NEOVIDE_VSYNC", (vsync).to_string());
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Default, Clone, Copy)]
@@ -96,7 +131,7 @@ fn neovide_config_path() -> PathBuf {
     data_path
 }
 
-fn config_path() -> PathBuf {
+pub fn config_path() -> PathBuf {
     let mut config_path = neovide_config_path();
     config_path.push(CONFIG_FILE);
     config_path
@@ -108,7 +143,7 @@ pub fn save_default_config() {
     std::fs::create_dir_all(neovide_config_path()).unwrap();
 
     let toml = toml::to_string(&ConfigFile::default()).unwrap();
-    std::fs::write(config_path, &toml).unwrap();
+    std::fs::write(config_path, toml).unwrap();
 }
 
 pub fn load_config() -> ConfigFile {
@@ -122,14 +157,16 @@ pub fn load_config() -> ConfigFile {
         save_default_config();
         ConfigFile::default()
     };
-
-    // I wanted to set font_alias in RendererSettings
-    // but it's not something that should be changeable from nvim,
-    // so I had to make another setting struct
-    let config_settings = ConfigSettings {
-        font_antialias: config.font_antialias,
-    };
-    // and use SETTINGS for global access
-    SETTINGS.set::<ConfigSettings>(&config_settings);
     config
+
+    // TODO: maybe leave aliasing for now?
+    //     // I wanted to set font_alias in RendererSettings
+    //     // but it's not something that should be changeable from nvim,
+    //     // so I had to make another setting struct
+    //     let config_settings = ConfigSettings {
+    //         font_antialias: config.font_antialias,
+    //     };
+    //     // and use SETTINGS for global access
+    //     SETTINGS.set::<ConfigSettings>(&config_settings);
+    //     config
 }

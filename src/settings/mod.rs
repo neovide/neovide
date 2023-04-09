@@ -18,6 +18,9 @@ pub use window_geometry::{
     PersistentWindowSettings, DEFAULT_WINDOW_GEOMETRY,
 };
 
+mod config;
+pub use config::{config_path, load_config, ConfigFile};
+
 lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new();
 }
