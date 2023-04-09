@@ -135,7 +135,7 @@ vim.g.neovide_padding_right = 0
 vim.g.neovide_padding_left = 0
 ```
 
-**Unreleased yet.**
+**Available since 0.10.4.**
 
 Controls the space between the window border and the actual Neovim, which is filled with the
 background color instead.

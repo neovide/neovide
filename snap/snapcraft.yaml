@@ -1,6 +1,6 @@
 name: neovide # you probably want to 'snapcraft register <name>'
 base: core20 # the base snap is the execution environment for this snap
-version: "0.10.3+git"
+version: "0.10.4+git"
 summary: The snappiest vim editor you are likely to find.
 description: |
   This is a simple graphical user interface for Neovim. Where possible there are some graphical improvements,
