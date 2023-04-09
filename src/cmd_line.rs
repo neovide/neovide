@@ -72,7 +72,7 @@ pub struct CmdLineSettings {
     pub srgb: bool,
 
     /// Do not try to request VSync on the window
-    #[arg(long = "novsync", env = "NEOVIDE_NO_VSYNC", action = ArgAction::SetFalse, value_parser = FalseyValueParser::new())]
+    #[arg(long = "novsync", env = "NEOVIDE_VSYNC", action = ArgAction::SetFalse, value_parser = FalseyValueParser::new())]
     pub vsync: bool,
 
     /// Which NeoVim binary to invoke headlessly instead of `nvim` found on $PATH
