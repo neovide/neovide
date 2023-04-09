@@ -19,7 +19,7 @@ pub use window_geometry::{
 };
 
 mod config;
-pub use config::{config_path, load_config, ConfigFile};
+pub use config::{config_path, Config};
 
 lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new();

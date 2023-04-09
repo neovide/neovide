@@ -24,7 +24,7 @@ pub struct CmdLineSettings {
     pub neovim_args: Vec<String>,
 
     /// The geometry of the window
-    #[arg(long, default_value_t = last_window_geometry())]
+    #[arg(long, default_value_t = last_window_geometry(), env = "NEOVIDE_GEOMETRY")]
     pub geometry: Dimensions,
 
     /// If to enable logging to a file in the current directory

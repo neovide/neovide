@@ -58,7 +58,7 @@ pub use running_tracker::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
-use crate::settings::{config_path, load_config, ConfigFile};
+use crate::settings::{config_path, Config};
 
 const BACKTRACES_FILE: &str = "neovide_backtraces.log";
 const REQUEST_MESSAGE: &str = "This is a bug and we would love for it to be reported to https://github.com/neovide/neovide/issues";
@@ -145,7 +145,7 @@ fn protected_main() {
     #[cfg(target_os = "windows")]
     windows_attach_to_console();
 
-    match ConfigFile::load_from_path(&config_path()) {
+    match Config::load_from_path(&config_path()) {
         Ok(config) => config.write_to_env(),
         Err(err) => {
             eprintln!("{err}");
