@@ -24,7 +24,7 @@ pub fn config_path() -> PathBuf {
 
 #[derive(Debug, Deserialize, Serialize, Default)]
 pub struct Config {
-    pub multi_grid: Option<bool>,
+    pub multigrid: Option<bool>,
     pub maximized: Option<bool>,
     pub vsync: Option<bool>,
     pub srgb: Option<bool>,
@@ -33,8 +33,8 @@ pub struct Config {
 
 impl Config {
     pub fn write_to_env(&self) {
-        if let Some(multi_grid) = self.multi_grid {
-            env::set_var("NEOVIDE_MULTIGRID", multi_grid.to_string());
+        if let Some(multigrid) = self.multigrid {
+            env::set_var("NEOVIDE_MULTIGRID", multigrid.to_string());
         }
         if let Some(maximized) = self.maximized {
             env::set_var("NEOVIDE_MAXIMIZED", maximized.to_string());
