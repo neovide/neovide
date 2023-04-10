@@ -2,9 +2,9 @@
 
 use std::env;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
-use crate::dimensions::Dimensions;
+use crate::{dimensions::Dimensions, frame::Frame};
 
 use std::path::{Path, PathBuf};
 
@@ -22,7 +22,7 @@ pub fn config_path() -> PathBuf {
     config_path
 }
 
-#[derive(Debug, Deserialize, Serialize, Default)]
+#[derive(Debug, Deserialize, Default)]
 pub struct Config {
     pub multigrid: Option<bool>,
     pub maximized: Option<bool>,
@@ -30,6 +30,7 @@ pub struct Config {
     pub srgb: Option<bool>,
     pub no_idle: Option<bool>,
     pub neovim_bin: Option<PathBuf>,
+    pub frame: Option<Frame>,
     pub geometry: Option<Dimensions>,
 }
 
@@ -49,6 +50,9 @@ impl Config {
         }
         if let Some(no_idle) = self.no_idle {
             env::set_var("NEOVIDE_NO_IDLE", no_idle.to_string());
+        }
+        if let Some(frame) = self.frame {
+            env::set_var("NEOVIDE_FRAME", frame.to_string());
         }
         if let Some(neovim_bin) = &self.neovim_bin {
             env::set_var("NEOVIM_BIN", neovim_bin.to_string_lossy().to_string());
