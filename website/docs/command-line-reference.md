@@ -42,7 +42,7 @@ Can be set to:
 ### Geometry
 
 ```sh
---geometry=<width>x<height>
+--geometry=<width>x<height> or $NEOVIDE_GEOMETRY=<width>x<height>
 ```
 
 Sets the initial neovide window size in characters.
@@ -101,7 +101,7 @@ one.
 ### No sRGB
 
 ```sh
---nosrgb or $NEOVIDE_NO_SRGB
+--nosrgb or $NEOVIDE_SRGB=false
 ```
 
 Don't request sRGB on the window. Swapping sometimes fixes startup issues.
@@ -119,10 +119,10 @@ buffers.
 Note: Even if files are opened in tabs, they're buffers anyways. It's just about them being visible
 or not.
 
-## No VSync
+### No VSync
 
 ```sh
---novsync
+--novsync or $NEOVIDE_VSYNC=false
 ```
 
 **Available since 0.10.2.**
