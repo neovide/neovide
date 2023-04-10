@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
-use glutin::dpi::PhysicalSize;
 use serde::{Deserialize, Serialize};
-use winit::dpi::PhysicalPosition;
+use winit::dpi::{PhysicalPosition, PhysicalSize};
 
 use crate::{dimensions::Dimensions, settings::SETTINGS, window::WindowSettings};
 
