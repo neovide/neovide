@@ -29,6 +29,7 @@ pub struct Config {
     pub vsync: Option<bool>,
     pub srgb: Option<bool>,
     pub no_idle: Option<bool>,
+    pub neovim_bin: Option<PathBuf>,
     pub geometry: Option<Dimensions>,
 }
 
@@ -48,6 +49,9 @@ impl Config {
         }
         if let Some(no_idle) = self.no_idle {
             env::set_var("NEOVIDE_NO_IDLE", (no_idle).to_string());
+        }
+        if let Some(neovim_bin) = &self.neovim_bin {
+            env::set_var("NEOVIM_BIN", neovim_bin.to_string_lossy().to_string());
         }
         if let Some(geometry) = self.geometry {
             env::set_var("NEOVIDE_GEOMETRY", (geometry).to_string());
