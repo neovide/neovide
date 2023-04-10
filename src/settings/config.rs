@@ -27,6 +27,7 @@ pub struct Config {
     pub multi_grid: Option<bool>,
     pub maximized: Option<bool>,
     pub vsync: Option<bool>,
+    pub srgb: Option<bool>,
     pub geometry: Option<Dimensions>,
 }
 
@@ -40,6 +41,9 @@ impl Config {
         }
         if let Some(vsync) = self.vsync {
             env::set_var("NEOVIDE_VSYNC", (vsync).to_string());
+        }
+        if let Some(srgb) = self.srgb {
+            env::set_var("NEOVIDE_SRGB", (srgb).to_string());
         }
         if let Some(geometry) = self.geometry {
             env::set_var("NEOVIDE_GEOMETRY", (geometry).to_string());

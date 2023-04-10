@@ -68,7 +68,7 @@ pub struct CmdLineSettings {
 
     /// Do not request sRGB when initializing the window, may help with GPUs with weird pixel
     /// formats
-    #[arg(long = "nosrgb", env = "NEOVIDE_NO_SRGB", action = ArgAction::SetFalse, value_parser = FalseyValueParser::new())]
+    #[arg(long = "nosrgb", env = "NEOVIDE_SRGB", action = ArgAction::SetFalse, value_parser = FalseyValueParser::new())]
     pub srgb: bool,
 
     /// Do not try to request VSync on the window
