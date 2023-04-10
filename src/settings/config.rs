@@ -28,6 +28,7 @@ pub struct Config {
     pub maximized: Option<bool>,
     pub vsync: Option<bool>,
     pub srgb: Option<bool>,
+    pub no_idle: Option<bool>,
     pub geometry: Option<Dimensions>,
 }
 
@@ -44,6 +45,9 @@ impl Config {
         }
         if let Some(srgb) = self.srgb {
             env::set_var("NEOVIDE_SRGB", (srgb).to_string());
+        }
+        if let Some(no_idle) = self.no_idle {
+            env::set_var("NEOVIDE_NO_IDLE", (no_idle).to_string());
         }
         if let Some(geometry) = self.geometry {
             env::set_var("NEOVIDE_GEOMETRY", (geometry).to_string());
