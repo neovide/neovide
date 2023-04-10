@@ -42,19 +42,19 @@ impl Config {
             env::set_var("NEOVIDE_MAXIMIZED", maximized.to_string());
         }
         if let Some(vsync) = self.vsync {
-            env::set_var("NEOVIDE_VSYNC", (vsync).to_string());
+            env::set_var("NEOVIDE_VSYNC", vsync.to_string());
         }
         if let Some(srgb) = self.srgb {
-            env::set_var("NEOVIDE_SRGB", (srgb).to_string());
+            env::set_var("NEOVIDE_SRGB", srgb.to_string());
         }
         if let Some(no_idle) = self.no_idle {
-            env::set_var("NEOVIDE_NO_IDLE", (no_idle).to_string());
+            env::set_var("NEOVIDE_NO_IDLE", no_idle.to_string());
         }
         if let Some(neovim_bin) = &self.neovim_bin {
             env::set_var("NEOVIM_BIN", neovim_bin.to_string_lossy().to_string());
         }
         if let Some(geometry) = self.geometry {
-            env::set_var("NEOVIDE_GEOMETRY", (geometry).to_string());
+            env::set_var("NEOVIDE_GEOMETRY", geometry.to_string());
         }
     }
 
