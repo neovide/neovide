@@ -1,7 +1,6 @@
 use std::{
     cell::RefCell,
     ffi::CString,
-    mem,
     ptr::null,
     sync::atomic::{AtomicU8, Ordering},
 };
@@ -146,12 +145,29 @@ static CONTEXT_ID: AtomicU8 = AtomicU8::new(0);
 
 struct GpuCtx {
     id: u8,
-    query: [u32; 64 * 1024],
+    query: Vec<u32>,
     head: usize,
     tail: usize,
 }
 
 impl GpuCtx {
+    fn new() -> Self {
+        let len = 64 * 1024;
+        let mut query = Vec::with_capacity(len);
+        let remaining = query.spare_capacity_mut();
+        unsafe {
+            GenQueries(remaining.len() as i32, remaining.as_mut_ptr() as *mut u32);
+            query.set_len(len);
+        }
+
+        Self {
+            id: CONTEXT_ID.fetch_add(1, Ordering::Relaxed),
+            query,
+            head: 0,
+            tail: 0,
+        }
+    }
+
     fn next_query_id(&mut self) -> usize {
         let query = self.head;
         self.head = (self.head + 1) % self.query.len();
@@ -161,12 +177,7 @@ impl GpuCtx {
 }
 
 thread_local! {
-    static GPUCTX: RefCell<GpuCtx> = RefCell::new(GpuCtx {
-        id: CONTEXT_ID.fetch_add(1, Ordering::Relaxed),
-        query: unsafe {mem::MaybeUninit::zeroed().assume_init()},
-        head: 0,
-        tail: 0,
-    });
+    static GPUCTX: RefCell<GpuCtx> = RefCell::new(GpuCtx::new());
 }
 
 pub fn startup_profiler() {
@@ -195,11 +206,7 @@ pub fn tracy_create_gpu_context(name: &str) {
     }
 
     let id = GPUCTX.with(|ctx| {
-        let mut ctx = ctx.borrow_mut();
-        unsafe {
-            GenQueries(ctx.query.len() as i32, ctx.query.as_mut_ptr());
-        }
-
+        let ctx = ctx.borrow();
         ctx.id
     });
 
