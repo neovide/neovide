@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
-use winit::dpi::PhysicalPosition;
+use winit::dpi::{PhysicalPosition, PhysicalSize};
 
 use crate::{dimensions::Dimensions, settings::SETTINGS, window::WindowSettings};
 
@@ -19,7 +19,7 @@ pub enum PersistentWindowSettings {
         #[serde(default)]
         position: PhysicalPosition<i32>,
         #[serde(default)]
-        size: Dimensions,
+        pixel_size: Option<PhysicalSize<u32>>,
     },
 }
 
@@ -55,33 +55,15 @@ fn load_settings() -> Result<PersistentSettings, String> {
 
 pub fn load_last_window_settings() -> Result<PersistentWindowSettings, String> {
     let settings = load_settings()?;
-    let mut loaded_settings = settings.window;
+    let loaded_settings = settings.window;
     log::debug!("Loaded window settings: {:?}", loaded_settings);
-
-    if let PersistentWindowSettings::Windowed { size, .. } = &mut loaded_settings {
-        if size.width == 0 || size.height == 0 {
-            *size = DEFAULT_WINDOW_GEOMETRY;
-        }
-    }
 
     Ok(loaded_settings)
 }
 
-pub fn last_window_geometry() -> Dimensions {
-    load_last_window_settings()
-        .and_then(|window_settings| {
-            if let PersistentWindowSettings::Windowed { size, .. } = window_settings {
-                Ok(size)
-            } else {
-                Err(String::from("Window was maximized"))
-            }
-        })
-        .unwrap_or(DEFAULT_WINDOW_GEOMETRY)
-}
-
-pub fn save_window_geometry(
+pub fn save_window_size(
     maximized: bool,
-    grid_size: Option<Dimensions>,
+    size: PhysicalSize<u32>,
     position: Option<PhysicalPosition<i32>>,
 ) {
     let window_settings = SETTINGS.get::<WindowSettings>();
@@ -91,13 +73,7 @@ pub fn save_window_geometry(
             PersistentWindowSettings::Maximized
         } else {
             PersistentWindowSettings::Windowed {
-                size: {
-                    window_settings
-                        .remember_window_size
-                        .then_some(grid_size)
-                        .flatten()
-                        .unwrap_or(DEFAULT_WINDOW_GEOMETRY)
-                },
+                pixel_size: { window_settings.remember_window_size.then_some(size) },
                 position: {
                     window_settings
                         .remember_window_position
@@ -114,32 +90,4 @@ pub fn save_window_geometry(
     let json = serde_json::to_string(&settings).unwrap();
     log::debug!("Saved Window Settings: {}", json);
     std::fs::write(settings_path, json).unwrap();
-}
-
-pub fn parse_window_geometry(input: &str) -> Result<Dimensions, String> {
-    let invalid_parse_err = format!("Invalid geometry: {input}\nValid format: <width>x<height>");
-
-    input
-        .split('x')
-        .map(|dimension| {
-            dimension
-                .parse::<u64>()
-                .map_err(|_| invalid_parse_err.as_str())
-                .and_then(|dimension| {
-                    if dimension > 0 {
-                        Ok(dimension)
-                    } else {
-                        Err("Invalid geometry: Window dimensions should be greater than 0.")
-                    }
-                })
-        })
-        .collect::<Result<Vec<_>, &str>>()
-        .and_then(|dimensions| {
-            if let [width, height] = dimensions[..] {
-                Ok(Dimensions { width, height })
-            } else {
-                Err(invalid_parse_err.as_str())
-            }
-        })
-        .map_err(|msg| msg.to_owned())
 }

@@ -49,7 +49,8 @@ use crate::{
     renderer::{build_context, WindowedContext},
     running_tracker::*,
     settings::{
-        load_last_window_settings, save_window_geometry, PersistentWindowSettings, SETTINGS,
+        load_last_window_settings, save_window_size, PersistentWindowSettings,
+        DEFAULT_WINDOW_GEOMETRY, SETTINGS,
     },
 };
 pub use settings::{KeyboardSettings, WindowSettings};
@@ -199,7 +200,6 @@ impl WinitWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         let window = self.windowed_context.window();
-        let new_size = window.inner_size();
 
         let window_settings = SETTINGS.get::<WindowSettings>();
         let window_padding = WindowPadding {
@@ -214,6 +214,7 @@ impl WinitWindowWrapper {
             self.renderer.window_padding = window_padding;
         }
 
+        let new_size = window.inner_size();
         if self.saved_inner_size != new_size || self.font_changed_last_frame || padding_changed {
             self.font_changed_last_frame = false;
             self.saved_inner_size = new_size;
@@ -234,29 +235,47 @@ impl WinitWindowWrapper {
             return;
         }
 
-        let settings = SETTINGS.get::<CmdLineSettings>();
         // Resize at startup happens when window is maximized or when using tiling WM
         // which already resized window.
         let resized_at_startup = self.maximized_at_startup || self.has_been_resized();
 
-        log::trace!(
-            "Settings geometry {:?}",
-            PhysicalSize::from(settings.geometry)
-        );
         log::trace!("Inner size: {:?}", new_size);
 
         if self.saved_grid_size.is_none() && !resized_at_startup {
-            let window = self.windowed_context.window();
-            window.set_inner_size(
-                self.renderer
-                    .grid_renderer
-                    .convert_grid_to_physical(settings.geometry),
-            );
-            self.saved_grid_size = Some(settings.geometry);
-            // Font change at startup is ignored, so grid size (and startup screen) could be preserved.
-            // But only when not resized yet. With maximized or resized window we should redraw grid.
-            self.font_changed_last_frame = false;
+            self.init_window_size();
         }
+    }
+
+    fn init_window_size(&self) {
+        let settings = SETTINGS.get::<CmdLineSettings>();
+        log::trace!("Settings geometry {:?}", settings.geometry,);
+        log::trace!("Settings size {:?}", settings.size);
+
+        let window = self.windowed_context.window();
+        let inner_size = if let Some(size) = settings.size {
+            // --size
+            size.into()
+        } else if let Some(geometry) = settings.geometry {
+            // --geometry
+            self.renderer
+                .grid_renderer
+                .convert_grid_to_physical(geometry)
+        } else if let Ok(PersistentWindowSettings::Windowed {
+            pixel_size: Some(size),
+            ..
+        }) = load_last_window_settings()
+        {
+            // remembered size
+            size
+        } else {
+            // default geometry
+            self.renderer
+                .grid_renderer
+                .convert_grid_to_physical(DEFAULT_WINDOW_GEOMETRY)
+        };
+        window.set_inner_size(inner_size);
+        // next frame will detect change in window.inner_size() and hence will
+        // handle_new_grid_size automatically
     }
 
     fn handle_new_grid_size(&mut self, new_size: PhysicalSize<u32>) {
@@ -466,9 +485,9 @@ pub fn create_window() {
 
         if !RUNNING_TRACKER.is_running() {
             let window = window_wrapper.windowed_context.window();
-            save_window_geometry(
+            save_window_size(
                 window.is_maximized(),
-                window_wrapper.saved_grid_size,
+                window.inner_size(),
                 window.outer_position().ok(),
             );
 
