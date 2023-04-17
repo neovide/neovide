@@ -24,4 +24,3 @@ fn main() {
         cgl_backend: { all(macos_platform, not(wasm_platform)) },
     }
 }
-
