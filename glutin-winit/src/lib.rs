@@ -211,7 +211,7 @@ pub fn finalize_window<T>(
 /// To learn about platform differences the [`DisplayApiPreference`] variants.
 ///
 /// [`DisplayApiPreference`]: glutin::display::DisplayApiPreference
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ApiPreference {
     /// Prefer `EGL` over system provider like `GLX` and `WGL`.
     PreferEgl,
@@ -220,11 +220,6 @@ pub enum ApiPreference {
     ///
     /// This behavior is used by default. However consider using
     /// [`Self::PreferEgl`] if you don't care about missing EGL features.
+    #[default]
     FallbackEgl,
-}
-
-impl Default for ApiPreference {
-    fn default() -> Self {
-        Self::FallbackEgl
-    }
 }

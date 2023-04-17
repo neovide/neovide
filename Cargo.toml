@@ -19,7 +19,7 @@ copypasta = "0.8.2"
 async-trait = "0.1.68"
 backtrace = "0.3.67"
 cfg-if = "1.0.0"
-clap = { version = "4.2.1", features = ["cargo", "derive", "env"] }
+clap = { version = "4.2.2", features = ["cargo", "derive", "env"] }
 csscolorparser = "0.6.2"
 derive-new = "0.5.9"
 dirs = "5.0.0"
@@ -41,9 +41,9 @@ pin-project = "1.0.12"
 rand = "0.8.5"
 raw-window-handle = "0.5"
 rmpv = "1.0.0"
-serde = { version = "1.0.159", features = ["derive"] }
-serde_json = "1.0.95"
-swash = "0.1.6"
+serde = { version = "1.0.160", features = ["derive"] }
+serde_json = "1.0.96"
+swash = "0.1.7"
 time = { version = "0.3.20", features = ["macros", "formatting"] }
 tokio = { version = "1.27.0", features = ["full"] }
 tokio-util = { version = "0.7.7", features = ["compat"] }

@@ -249,7 +249,7 @@ mod tests {
         let v5: String = format!("neovide_{v2}");
 
         //create_nvim_command tries to read from CmdLineSettings.neovim_args
-        //TODO: this sets a static variable. Can this have side effects on other tests?
+        // TODO: this sets a static variable. Can this have side effects on other tests?
         SETTINGS.set::<CmdLineSettings>(&CmdLineSettings::default());
 
         let instance = NeovimInstance::Embedded(create_nvim_command());

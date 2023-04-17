@@ -1,5 +1,7 @@
-use std::ffi::{c_void, CStr};
-use std::num::NonZeroU32;
+use std::{
+    ffi::{c_void, CStr},
+    num::NonZeroU32,
+};
 
 use crate::cmd_line::CmdLineSettings;
 
@@ -62,12 +64,14 @@ pub fn build_context<TE>(
     let gl_display = config.display();
     let raw_window_handle = window.as_ref().map(|window| window.raw_window_handle());
 
+    let dimensions = cmd_line_settings.geometry.unwrap_or_default();
+
     let surface_attributes = SurfaceAttributesBuilder::<WindowSurface>::new()
         .with_srgb(Some(cmd_line_settings.srgb))
         .build(
             raw_window_handle.unwrap(),
-            NonZeroU32::new(cmd_line_settings.geometry.width as u32).unwrap(),
-            NonZeroU32::new(cmd_line_settings.geometry.height as u32).unwrap(),
+            NonZeroU32::new(dimensions.width as u32).unwrap(),
+            NonZeroU32::new(dimensions.height as u32).unwrap(),
         );
     let surface =
         unsafe { gl_display.create_window_surface(&config, &surface_attributes) }.unwrap();
