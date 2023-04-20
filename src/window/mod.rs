@@ -402,11 +402,10 @@ pub fn create_window() {
             let monitor_width = monitor_size.width as i32;
             let monitor_height = monitor_size.height as i32;
 
-            let window_position = if previous_position.is_none() || maximized {
-                window.outer_position().ok()?
-            } else {
-                previous_position.unwrap()
-            };
+            let window_position = previous_position
+                .filter(|_| !maximized)
+                .or_else(|| window.outer_position().ok())?;
+
             let window_size = window.outer_size();
             let window_width = window_size.width as i32;
             let window_height = window_size.height as i32;
