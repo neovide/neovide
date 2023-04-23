@@ -17,15 +17,15 @@ use wgpu::*;
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Pod, Zeroable)]
 pub struct GlyphFragment {
-    pub position: [f32; 2],
-    pub width: f32,
+    pub rect: [f32; 4],
     pub color: [f32; 4],
     pub uv: [f32; 4],
     pub texture: u32,
 }
 
 impl GlyphFragment {
-    const ATTRIBS: [VertexAttribute; 5] = vertex_attr_array![1 => Float32x2, 2 => Float32, 3 => Float32x4, 4 => Float32x4, 5 => Uint32];
+    const ATTRIBS: [VertexAttribute; 4] =
+        vertex_attr_array![1 => Float32x4, 2 => Float32x4, 3 => Float32x4, 4 => Uint32];
 
     fn desc<'a>() -> VertexBufferLayout<'a> {
         VertexBufferLayout {

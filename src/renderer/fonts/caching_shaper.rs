@@ -199,9 +199,9 @@ impl CachingShaper {
         self.metrics().underline_offset as u64
     }
 
-    pub fn y_adjustment(&mut self) -> u64 {
+    pub fn y_adjustment(&mut self) -> f32 {
         let metrics = self.metrics();
-        (metrics.ascent + metrics.leading).ceil() as u64
+        metrics.ascent + metrics.leading
     }
 
     fn build_clusters(

@@ -11,7 +11,7 @@ use skia_safe::{
 };
 */
 use csscolorparser::Color;
-use euclid::default::{Point2D, Rect, Size2D};
+use euclid::default::{Point2D, Rect, Size2D, Vector2D};
 
 use super::fonts::caching_shaper::CachingShaper;
 use crate::{
@@ -315,12 +315,14 @@ impl RenderedWindow {
         let new_fragments = lines.iter().flat_map(|(y, line)| {
             line.glyphs.iter().filter_map(|placeholder| {
                 if let Some(coord) = shaper.get_glyph_coordinate(placeholder.id) {
+                    let translate = Vector2D::new(
+                        pixel_region.min_x() + placeholder.position[0],
+                        *y + pixel_region.min_y() + placeholder.position[1],
+                    );
+                    let rect = coord.dst_rect.translate(translate);
+
                     Some(GlyphFragment {
-                        position: [
-                            placeholder.position[0] + pixel_region.min_x(),
-                            *y + pixel_region.min_y(),
-                        ],
-                        width: placeholder.width,
+                        rect: [rect.min_x(), rect.min_y(), rect.width(), rect.height()],
                         color: placeholder.color,
                         texture: coord.texture_id,
                         uv: [

@@ -71,6 +71,7 @@ impl TextureFormat {
 
 pub struct AtlasCoordinate {
     pub rect: Rect<f32>,
+    pub dst_rect: Rect<f32>,
     pub texture_id: u32,
 }
 
@@ -129,12 +130,12 @@ impl AtlasTexture {
             self.current_pos.y += self.current_row_height;
             self.current_row_height = 0;
         };
-        let mut rect = Rect::new(self.current_pos, Size2D::new(width - 1, height - 1)).to_f32();
-        rect = rect.translate(Vector2D::new(0.5, 0.5));
-        rect = rect.scale(
-            1.0 / self.texture_size.width as f32,
-            1.0 / self.texture_size.height as f32,
-        );
+        let rect = Rect::new(self.current_pos, Size2D::new(width, height))
+            .to_f32()
+            .scale(
+                1.0 / self.texture_size.width as f32,
+                1.0 / self.texture_size.height as f32,
+            );
 
         let row_start_byte = (self.current_pos.x * self.bytes_per_pixel) as usize;
         let row_end_byte = ((self.current_pos.x + width) * self.bytes_per_pixel) as usize;
@@ -150,8 +151,15 @@ impl AtlasTexture {
         self.current_row_height = self.current_row_height.max(height);
         self.dirty = true;
 
+        // TODO: Take the scale into account, check if it applies to bot the position and size, or just the size
+        let dst_rect = Rect::new(
+            Point2D::new(glyph.left, -glyph.top),
+            Size2D::new(glyph.width as f32, glyph.height as f32),
+        );
+
         AtlasCoordinate {
             rect,
+            dst_rect,
             texture_id: 0,
         }
     }

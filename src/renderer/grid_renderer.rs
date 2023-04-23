@@ -160,6 +160,7 @@ impl GridRenderer {
         tracy_zone!("draw_foreground");
         let debug = SETTINGS.get::<RendererSettings>().debug_renderer;
         let (x, y) = grid_position * self.font_dimensions;
+        let (x, y) = (x as f32, y as f32);
         let width = cell_width * self.font_dimensions.width;
 
         let style = style.as_ref().unwrap_or(&self.default_style);
@@ -209,9 +210,9 @@ impl GridRenderer {
         let trimmed = text.trim_start();
         let leading_spaces = text.len() - trimmed.len();
         let trimmed = trimmed.trim_end();
-        let x_adjustment = leading_spaces as u64 * self.font_dimensions.width;
+        let x_adjustment = (leading_spaces as u64 * self.font_dimensions.width) as f32;
 
-        let base_position = Vector2D::new((x + x_adjustment) as f32, (y + y_adjustment) as f32);
+        let base_position = Vector2D::new(x + x_adjustment, y + y_adjustment);
 
         if !trimmed.is_empty() {
             for glyph in self

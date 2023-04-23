@@ -17,11 +17,10 @@ struct VertexInput {
     @location(0) position: vec2<f32>,
 };
 struct InstanceInput {
-    @location(1) position: vec2<f32>,
-    @location(2) width: f32,
-    @location(3) color: vec4<f32>,
-    @location(4) uv: vec4<f32>,
-    @location(5) texture: u32,
+    @location(1) rect: vec4<f32>,
+    @location(2) color: vec4<f32>,
+    @location(3) uv: vec4<f32>,
+    @location(4) texture: u32,
 };
 
 struct VertexOutput {
@@ -36,16 +35,18 @@ fn vs_main(
     instance: InstanceInput,
 ) -> VertexOutput {
     var out: VertexOutput;
-    let box = vec2<f32>(model.position.x * instance.width, model.position.y * camera.row_height) + instance.position;
 
-    let position = vec4<f32>(box, 0.0, 1.0);
+    let instance_origin = instance.rect.xy;
+    let instance_size = instance.rect.zw;
+    let pos = instance_origin + instance_size * model.position;
+    out.clip_position = camera.view_proj * vec4(pos, 0.0, 1.0);
 
     let uv_origin = instance.uv.xy;
     let uv_size = instance.uv.zw;
-
-    out.clip_position = camera.view_proj * position;
-    out.color = instance.color;
     out.uv = uv_origin + uv_size * model.position;
+
+    out.color = instance.color;
+
     return out;
 }
 
