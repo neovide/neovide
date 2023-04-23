@@ -39,6 +39,7 @@ pub use opengl::{build_context, build_window, Context as WindowedContext};
 pub struct RendererSettings {
     position_animation_length: f32,
     scroll_animation_length: f32,
+    scroll_animation_far_scroll_lines: u32,
     floating_opacity: f32,
     floating_blur: bool,
     floating_blur_amount_x: f32,
@@ -53,6 +54,7 @@ impl Default for RendererSettings {
         Self {
             position_animation_length: 0.15,
             scroll_animation_length: 0.3,
+            scroll_animation_far_scroll_lines: 1,
             floating_opacity: 0.7,
             floating_blur: true,
             floating_blur_amount_x: 2.0,
@@ -152,11 +154,13 @@ impl Renderer {
 
         let mut font_changed = false;
 
+        let settings = SETTINGS.get::<RendererSettings>();
+
         for draw_command in draw_commands.into_iter() {
             if let DrawCommand::FontChanged(_) | DrawCommand::LineSpaceChanged(_) = draw_command {
                 font_changed = true;
             }
-            self.handle_draw_command(root_canvas, draw_command);
+            self.handle_draw_command(root_canvas, draw_command, &settings);
         }
 
         let default_background = self.grid_renderer.get_default_background();
@@ -201,7 +205,6 @@ impl Renderer {
                 .collect()
         };
 
-        let settings = SETTINGS.get::<RendererSettings>();
         self.window_regions = windows
             .into_iter()
             .map(|window| {
@@ -239,7 +242,12 @@ impl Renderer {
             .handle_scale_factor_update(self.os_scale_factor * self.user_scale_factor);
     }
 
-    fn handle_draw_command(&mut self, root_canvas: &mut Canvas, draw_command: DrawCommand) {
+    fn handle_draw_command(
+        &mut self,
+        root_canvas: &mut Canvas,
+        draw_command: DrawCommand,
+        renderer_settings: &RendererSettings,
+    ) {
         match draw_command {
             DrawCommand::Window {
                 grid_id,
@@ -251,8 +259,11 @@ impl Renderer {
                 match self.rendered_windows.entry(grid_id) {
                     Entry::Occupied(mut occupied_entry) => {
                         let rendered_window = occupied_entry.get_mut();
-                        rendered_window
-                            .handle_window_draw_command(&mut self.grid_renderer, command);
+                        rendered_window.handle_window_draw_command(
+                            &mut self.grid_renderer,
+                            command,
+                            renderer_settings,
+                        );
                     }
                     Entry::Vacant(vacant_entry) => {
                         if let WindowDrawCommand::Position {
