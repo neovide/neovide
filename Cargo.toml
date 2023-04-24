@@ -46,6 +46,7 @@ rmpv = "1.0.0"
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.79"
 simple_moving_average = "0.1.2"
+spin_sleep = "1.1.1"
 swash = "0.1.8"
 time = "0.3.9"
 tokio = { version = "1.25.0", features = ["full"] }
@@ -64,14 +65,18 @@ serial_test = "2.0.0"
 
 [target.'cfg(windows)'.dependencies]
 # NOTE: winerror is only needed because the indirect dependency parity-tokio-ipc does not set it even if it uses it
-winapi = { version = "0.3.9", features = ["winuser", "wincon", "winerror"] }
+winapi = { version = "0.3.9", features = ["winuser", "wincon", "winerror", "dwmapi"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.24.0"
 objc = "0.2.7"
 shlex = "1.1.0"
 
-[target.'cfg(not(windows))'.dependencies]
+[target.'cfg(target_os = "linux")'.dependencies]
+nix = { version = "0.26.2", features = ["poll"] }
+wayland-client = "0.30.2"
+wayland-sys = "0.30.1"
+wayland-backend = "0.1.2"
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.12"

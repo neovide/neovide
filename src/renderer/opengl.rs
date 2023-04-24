@@ -1,5 +1,9 @@
-use std::ffi::{c_void, CStr};
-use std::num::NonZeroU32;
+use std::{
+    env,
+    env::consts::OS,
+    ffi::{c_void, CStr},
+    num::NonZeroU32,
+};
 
 use crate::cmd_line::CmdLineSettings;
 
@@ -38,21 +42,33 @@ impl Context {
     pub fn window(&self) -> &Window {
         &self.window
     }
+
     pub fn resize(&self, width: NonZeroU32, height: NonZeroU32) {
         GlSurface::resize(&self.surface, &self.context, width, height)
     }
+
     pub fn swap_buffers(&self) -> glutin::error::Result<()> {
         GlSurface::swap_buffers(&self.surface, &self.context)
     }
+
     pub fn get_proc_address(&self, addr: &CStr) -> *const c_void {
         GlDisplay::get_proc_address(&self.surface.display(), addr)
     }
+
     pub fn get_config(&self) -> &Config {
         &self.config
     }
 
     pub fn get_render_target_size(&self) -> PhysicalSize<u32> {
         clamp_render_buffer_size(self.window.inner_size())
+    }
+
+    #[allow(dead_code)]
+    pub fn set_swap_interval(&self, interval: u32) {
+        let _ = self.surface.set_swap_interval(
+            &self.context,
+            SwapInterval::Wait(NonZeroU32::new(interval).unwrap()),
+        );
     }
 }
 
@@ -103,11 +119,14 @@ pub fn build_context(
         .unwrap();
 
     // NOTE: We don't care if these fails, the driver can override the SwapInterval in any case, so it needs to work in all cases
-    let _ = if cmd_line_settings.vsync {
+    // The OpenGL VSync is always disabled on Wayland and Windows, since they have their won
+    // implementation
+    let _ = if cmd_line_settings.vsync && env::var("WAYLAND_DISPLAY").is_err() && OS != "windows" {
         surface.set_swap_interval(&context, SwapInterval::Wait(NonZeroU32::new(1).unwrap()))
     } else {
         surface.set_swap_interval(&context, SwapInterval::DontWait)
     };
+    let _ = surface.set_swap_interval(&context, SwapInterval::DontWait);
 
     Context {
         surface,

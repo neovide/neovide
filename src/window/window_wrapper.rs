@@ -9,7 +9,7 @@ use crate::{
     editor::EditorCommand,
     event_aggregator::EVENT_AGGREGATOR,
     profiling::{emit_frame_mark, tracy_gpu_collect, tracy_gpu_zone, tracy_zone},
-    renderer::{build_context, Renderer, WindowPadding, WindowedContext},
+    renderer::{build_context, Renderer, VSync, WindowPadding, WindowedContext},
     running_tracker::RUNNING_TRACKER,
     settings::{
         load_last_window_settings, PersistentWindowSettings, DEFAULT_WINDOW_GEOMETRY, SETTINGS,
@@ -283,12 +283,16 @@ impl WinitWindowWrapper {
         should_render
     }
 
-    pub fn draw_frame(&mut self, dt: f32) {
+    pub fn draw_frame(&mut self, vsync: &mut VSync, dt: f32) {
         tracy_zone!("draw_frame");
         self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
         {
             tracy_gpu_zone!("skia flush");
             self.skia_renderer.gr_context.flush_and_submit();
+        }
+        {
+            tracy_gpu_zone!("wait for vsync");
+            vsync.wait_for_vsync();
         }
         {
             tracy_gpu_zone!("swap buffers");

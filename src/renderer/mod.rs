@@ -5,6 +5,7 @@ pub mod grid_renderer;
 mod opengl;
 pub mod profiler;
 mod rendered_window;
+mod vsync;
 
 use std::{
     cmp::Ordering,
@@ -35,6 +36,7 @@ pub use rendered_window::{
 };
 
 pub use opengl::{build_context, build_window, Context as WindowedContext};
+pub use vsync::VSync;
 
 #[derive(SettingGroup, Clone)]
 pub struct RendererSettings {

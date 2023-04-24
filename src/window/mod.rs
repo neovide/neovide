@@ -63,7 +63,6 @@ pub enum WindowCommand {
     ListAvailableFonts,
 }
 
-
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum UserEvent {
@@ -164,7 +163,11 @@ pub fn create_window() {
                 previous_position,
                 maximized,
             );
-            let mut update_loop = UpdateLoop::new(cmd_line_settings.idle);
+            let mut update_loop = UpdateLoop::new(
+                cmd_line_settings.vsync,
+                cmd_line_settings.idle,
+                &window_wrapper.windowed_context,
+            );
             #[allow(unused_assignments)]
             loop {
                 let (wait_duration, _) = update_loop.get_event_wait_time();
@@ -234,7 +237,11 @@ pub fn create_window() {
             maximized,
         );
 
-        let mut update_loop = UpdateLoop::new(cmd_line_settings.idle);
+        let mut update_loop = UpdateLoop::new(
+            cmd_line_settings.vsync,
+            cmd_line_settings.idle,
+            &window_wrapper.windowed_context,
+        );
 
         event_loop.run(move |e, _window_target, control_flow| {
             *control_flow = update_loop.step(&mut window_wrapper, Ok(e)).unwrap();
@@ -249,7 +256,6 @@ pub fn create_window() {
 
                 std::process::exit(RUNNING_TRACKER.exit_code());
             }
-
         });
     }
 }
