@@ -160,7 +160,7 @@ impl Renderer {
             if let DrawCommand::FontChanged(_) | DrawCommand::LineSpaceChanged(_) = draw_command {
                 font_changed = true;
             }
-            self.handle_draw_command(root_canvas, draw_command, &settings);
+            self.handle_draw_command(draw_command, &settings);
         }
 
         let default_background = self.grid_renderer.get_default_background();
@@ -244,7 +244,6 @@ impl Renderer {
 
     fn handle_draw_command(
         &mut self,
-        root_canvas: &mut Canvas,
         draw_command: DrawCommand,
         renderer_settings: &RendererSettings,
     ) {
@@ -273,8 +272,6 @@ impl Renderer {
                         } = command
                         {
                             let new_window = RenderedWindow::new(
-                                root_canvas,
-                                &self.grid_renderer,
                                 grid_id,
                                 (grid_left as f32, grid_top as f32).into(),
                                 (width, height).into(),

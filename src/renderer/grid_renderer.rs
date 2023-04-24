@@ -16,7 +16,6 @@ use crate::{
 
 pub struct GridRenderer {
     pub shaper: CachingShaper,
-    pub paint: Paint,
     pub default_style: Arc<Style>,
     pub em_size: f32,
     pub font_dimensions: Dimensions,
@@ -27,8 +26,6 @@ pub struct GridRenderer {
 impl GridRenderer {
     pub fn new(scale_factor: f64) -> Self {
         let mut shaper = CachingShaper::new(scale_factor as f32);
-        let mut paint = Paint::new(colors::WHITE, None);
-        paint.set_anti_alias(false);
         let default_style = Arc::new(Style::new(Colors::new(
             Some(colors::WHITE),
             Some(colors::BLACK),
@@ -39,7 +36,6 @@ impl GridRenderer {
 
         GridRenderer {
             shaper,
-            paint,
             default_style,
             em_size,
             font_dimensions,
@@ -116,26 +112,27 @@ impl GridRenderer {
         let region = self.compute_text_region(grid_position, cell_width);
         let style = style.as_ref().unwrap_or(&self.default_style);
 
-        self.paint.set_blend_mode(BlendMode::Src);
+        let mut paint = Paint::default();
+        paint.set_anti_alias(false);
+        paint.set_blend_mode(BlendMode::Src);
 
         if debug {
             let random_hsv: HSV = (rand::random::<f32>() * 360.0, 0.3, 0.3).into();
             let random_color = random_hsv.to_color(255);
-            self.paint.set_color(random_color);
+            paint.set_color(random_color);
         } else {
-            self.paint
-                .set_color(style.background(&self.default_style.colors).to_color());
+            paint.set_color(style.background(&self.default_style.colors).to_color());
         }
         if style.blend > 0 {
-            self.paint.set_alpha_f((100 - style.blend) as f32 / 100.0);
+            paint.set_alpha_f((100 - style.blend) as f32 / 100.0);
         } else {
-            self.paint.set_alpha_f(1.0);
+            paint.set_alpha_f(1.0);
         }
 
-        if self.paint.color4f() == self.default_style.colors.background.unwrap() {
+        if paint.color4f() == self.default_style.colors.background.unwrap() {
             (false, style.blend > 0)
         } else {
-            canvas.draw_rect(region, &self.paint);
+            canvas.draw_rect(region, &paint);
             (true, style.blend > 0)
         }
     }
@@ -181,15 +178,18 @@ impl GridRenderer {
 
         let y_adjustment = self.shaper.y_adjustment();
 
+        let mut paint = Paint::default();
+        paint.set_anti_alias(false);
+        paint.set_blend_mode(BlendMode::SrcOver);
+
         if SETTINGS.get::<RendererSettings>().debug_renderer {
             let random_hsv: HSV = (rand::random::<f32>() * 360.0, 1.0, 1.0).into();
             let random_color = random_hsv.to_color(255);
-            self.paint.set_color(random_color);
+            paint.set_color(random_color);
         } else {
-            self.paint
-                .set_color(style.foreground(&self.default_style.colors).to_color());
+            paint.set_color(style.foreground(&self.default_style.colors).to_color());
         }
-        self.paint.set_anti_alias(false);
+        paint.set_anti_alias(false);
 
         // There's a lot of overhead for empty blobs in Skia, for some reason they never hit the
         // cache, so trim all the spaces
@@ -207,7 +207,7 @@ impl GridRenderer {
                 canvas.draw_text_blob(
                     blob,
                     ((x + x_adjustment) as f32, (y + y_adjustment) as f32),
-                    &self.paint,
+                    &paint,
                 );
                 drawn = true;
             }
@@ -215,12 +215,11 @@ impl GridRenderer {
 
         if style.strikethrough {
             let line_position = region.center_y();
-            self.paint
-                .set_color(style.special(&self.default_style.colors).to_color());
+            paint.set_color(style.special(&self.default_style.colors).to_color());
             canvas.draw_line(
                 (x as f32, line_position),
                 ((x + width) as f32, line_position),
-                &self.paint,
+                &paint,
             );
             drawn = true;
         }
@@ -239,7 +238,9 @@ impl GridRenderer {
     ) {
         canvas.save();
 
-        let mut underline_paint = self.paint.clone();
+        let mut underline_paint = Paint::default();
+        underline_paint.set_anti_alias(false);
+        underline_paint.set_blend_mode(BlendMode::SrcOver);
         let auto_scaling = SETTINGS
             .get::<RendererSettings>()
             .underline_automatic_scaling;

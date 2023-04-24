@@ -1,11 +1,8 @@
 use std::sync::Arc;
 
 use skia_safe::{
-    canvas::SaveLayerRec,
-    gpu::{Budgeted, SurfaceOrigin},
-    image_filters::blur,
-    BlendMode, Canvas, Color, ImageInfo, Matrix, Paint, Picture, PictureRecorder, Point, Rect,
-    Surface, SurfaceProps, SurfacePropsFlags,
+    canvas::SaveLayerRec, image_filters::blur, BlendMode, Canvas, Color, Matrix, Paint, Picture,
+    PictureRecorder, Point, Rect,
 };
 
 use crate::{
@@ -15,9 +12,6 @@ use crate::{
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
 };
-use winit::dpi::PhysicalSize;
-
-use super::opengl::clamp_render_buffer_size;
 
 #[derive(Clone, Debug)]
 pub struct LineFragment {
@@ -63,68 +57,6 @@ pub struct WindowPadding {
     pub bottom: u32,
 }
 
-fn build_window_surface(parent_canvas: &mut Canvas, pixel_size: PhysicalSize<u32>) -> Surface {
-    let pixel_size = clamp_render_buffer_size(pixel_size);
-    let mut context = parent_canvas.recording_context().unwrap();
-    let budgeted = Budgeted::Yes;
-    let parent_image_info = parent_canvas.image_info();
-    let image_info = ImageInfo::new(
-        (pixel_size.width as i32, pixel_size.height as i32),
-        parent_image_info.color_type(),
-        parent_image_info.alpha_type(),
-        parent_image_info.color_space(),
-    );
-    let surface_origin = SurfaceOrigin::TopLeft;
-    // Subpixel layout (should be configurable/obtained from fontconfig).
-    let props = SurfaceProps::new(SurfacePropsFlags::default(), skia_safe::PixelGeometry::RGBH);
-    Surface::new_render_target(
-        &mut context,
-        budgeted,
-        &image_info,
-        None,
-        surface_origin,
-        Some(&props),
-        None,
-    )
-    .expect("Could not create surface")
-}
-
-fn build_window_surface_with_grid_size(
-    parent_canvas: &mut Canvas,
-    grid_renderer: &GridRenderer,
-    grid_size: Dimensions,
-) -> Surface {
-    let mut surface = build_window_surface(
-        parent_canvas,
-        (grid_size * grid_renderer.font_dimensions).into(),
-    );
-
-    let canvas = surface.canvas();
-    canvas.clear(grid_renderer.get_default_background());
-    surface
-}
-
-pub struct LocatedSurface {
-    surface: Surface,
-    pub vertical_position: f32,
-}
-
-impl LocatedSurface {
-    fn new(
-        parent_canvas: &mut Canvas,
-        grid_renderer: &GridRenderer,
-        grid_size: Dimensions,
-        vertical_position: f32,
-    ) -> LocatedSurface {
-        let surface = build_window_surface_with_grid_size(parent_canvas, grid_renderer, grid_size);
-
-        LocatedSurface {
-            surface,
-            vertical_position,
-        }
-    }
-}
-
 #[derive(Clone)]
 struct Line {
     background_picture: Option<Picture>,
@@ -133,7 +65,7 @@ struct Line {
 }
 
 pub struct RenderedWindow {
-    pub current_surface: LocatedSurface,
+    pub vertical_position: f32,
 
     pub id: u64,
     pub hidden: bool,
@@ -155,6 +87,8 @@ pub struct RenderedWindow {
     scroll_delta: isize,
 
     pub padding: WindowPadding,
+
+    has_transparency: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -166,17 +100,13 @@ pub struct WindowDrawDetails {
 
 impl RenderedWindow {
     pub fn new(
-        parent_canvas: &mut Canvas,
-        grid_renderer: &GridRenderer,
         id: u64,
         grid_position: Point,
         grid_size: Dimensions,
         padding: WindowPadding,
     ) -> RenderedWindow {
-        let current_surface = LocatedSurface::new(parent_canvas, grid_renderer, grid_size, 0.);
-
         RenderedWindow {
-            current_surface,
+            vertical_position: 0.0,
             id,
             hidden: false,
             floating_order: None,
@@ -197,6 +127,7 @@ impl RenderedWindow {
             scroll_delta: 0,
 
             padding,
+            has_transparency: false,
         }
     }
 
@@ -242,21 +173,17 @@ impl RenderedWindow {
         animating | scrolling
     }
 
-    fn draw_surface(&mut self, font_dimensions: Dimensions, default_background: Color) -> bool {
-        let image_size: (i32, i32) = (self.grid_size * font_dimensions).into();
-        let pixel_region = Rect::from_size(image_size);
-        let canvas = self.current_surface.surface.canvas();
-        canvas.clip_rect(pixel_region, None, Some(false));
-        canvas.clear(default_background);
-
+    pub fn draw_surface(
+        &mut self,
+        canvas: &mut Canvas,
+        pixel_region: &Rect,
+        font_dimensions: Dimensions,
+        default_background: Color,
+    ) {
         let scroll_offset_lines = self.scroll_animation.position.floor();
         let scroll_offset = scroll_offset_lines - self.scroll_animation.position;
         let scroll_offset_pixels = (scroll_offset * font_dimensions.height as f32).round() as isize;
         let mut has_transparency = false;
-
-        let mut background_paint = Paint::default();
-        background_paint.set_blend_mode(BlendMode::Src);
-        background_paint.set_alpha(default_background.a());
 
         let lines: Vec<(Matrix, &Line)> = (0..self.grid_size.height as isize + 1)
             .filter_map(|i| {
@@ -266,8 +193,9 @@ impl RenderedWindow {
                 if let Some(line) = &self.scrollback_lines[line_index] {
                     let mut m = Matrix::new_identity();
                     m.set_translate((
-                        0.0,
-                        (scroll_offset_pixels + (i * font_dimensions.height as isize)) as f32,
+                        pixel_region.left(),
+                        pixel_region.top()
+                            + (scroll_offset_pixels + (i * font_dimensions.height as isize)) as f32,
                     ));
                     Some((m, line))
                 } else {
@@ -276,20 +204,43 @@ impl RenderedWindow {
             })
             .collect();
 
+        let mut background_paint = Paint::default();
+        background_paint.set_blend_mode(BlendMode::Src);
+        background_paint.set_alpha(default_background.a());
+
+        let save_layer_rec = SaveLayerRec::default()
+            .bounds(pixel_region)
+            .paint(&background_paint);
+        canvas.save_layer(&save_layer_rec);
+        canvas.clear(default_background.with_a(255));
         for (matrix, line) in &lines {
             if let Some(background_picture) = &line.background_picture {
                 has_transparency |= line.has_transparency;
-                canvas.draw_picture(background_picture, Some(matrix), Some(&background_paint));
+                canvas.draw_picture(background_picture, Some(matrix), None);
             }
         }
-        let mut foreground_paint = Paint::default();
-        foreground_paint.set_blend_mode(BlendMode::SrcOver);
+        canvas.restore();
+
         for (matrix, line) in &lines {
             if let Some(foreground_picture) = &line.foreground_picture {
-                canvas.draw_picture(foreground_picture, Some(matrix), Some(&foreground_paint));
+                canvas.draw_picture(foreground_picture, Some(matrix), None);
             }
         }
-        has_transparency
+        self.has_transparency = has_transparency;
+    }
+
+    fn has_transparency(&self) -> bool {
+        let scroll_offset_lines = self.scroll_animation.position.floor();
+        (0..self.grid_size.height as isize + 1).any(|i| {
+            let line_index = (self.scrollback_top_index + scroll_offset_lines as isize + i)
+                .rem_euclid(self.scrollback_lines.len() as isize)
+                as usize;
+            if let Some(line) = &self.scrollback_lines[line_index] {
+                line.has_transparency
+            } else {
+                false
+            }
+        })
     }
 
     pub fn draw(
@@ -304,7 +255,7 @@ impl RenderedWindow {
             REDRAW_SCHEDULER.queue_next_frame();
         }
 
-        let has_transparency = self.draw_surface(font_dimensions, default_background);
+        let has_transparency = default_background.a() != 255 || self.has_transparency();
 
         let pixel_region = self.pixel_region(font_dimensions);
         let transparent_floating = self.floating_order.is_some() && has_transparency;
@@ -338,7 +289,7 @@ impl RenderedWindow {
 
         let paint = Paint::default()
             .set_anti_alias(false)
-            .set_color(Color::from_argb(255, 255, 255, 255))
+            .set_color(Color::from_argb(255, 255, 255, default_background.a()))
             .set_blend_mode(if self.floating_order.is_some() {
                 BlendMode::SrcOver
             } else {
@@ -346,9 +297,16 @@ impl RenderedWindow {
             })
             .to_owned();
 
-        // Draw current surface.
-        let snapshot = self.current_surface.surface.image_snapshot();
-        root_canvas.draw_image_rect(snapshot, None, pixel_region, &paint);
+        let save_layer_rec = SaveLayerRec::default().bounds(&pixel_region).paint(&paint);
+
+        root_canvas.save_layer(&save_layer_rec);
+        self.draw_surface(
+            root_canvas,
+            &pixel_region,
+            font_dimensions,
+            default_background,
+        );
+        root_canvas.restore();
 
         root_canvas.restore();
 
@@ -401,14 +359,7 @@ impl RenderedWindow {
                     self.grid_destination = new_destination;
                 }
 
-                if self.grid_size != new_grid_size {
-                    self.current_surface.surface = build_window_surface_with_grid_size(
-                        self.current_surface.surface.canvas(),
-                        grid_renderer,
-                        new_grid_size,
-                    );
-                    self.grid_size = new_grid_size;
-                }
+                self.grid_size = new_grid_size;
 
                 // This could perhaps be optimized, setting the position does not necessarily need
                 // to resize and reset everything. See editor::window::Window::position for the
@@ -447,7 +398,6 @@ impl RenderedWindow {
                     .rem_euclid(self.actual_lines.len() as isize)
                     as usize;
 
-                canvas.clear(grid_renderer.get_default_background());
                 let mut has_transparency = false;
                 let mut custom_background = false;
 
@@ -468,7 +418,6 @@ impl RenderedWindow {
                     .then_some(recorder.finish_recording_as_picture(None).unwrap());
 
                 let canvas = recorder.begin_recording(grid_rect, None);
-                canvas.clear(Color::from_argb(0, 255, 255, 255));
                 let mut foreground_drawn = false;
                 for line_fragment in line_fragments.into_iter() {
                     let LineFragment {
@@ -524,11 +473,6 @@ impl RenderedWindow {
                     .iter_mut()
                     .for_each(|line| *line = None);
                 self.scroll_animation.reset();
-                self.current_surface.surface = build_window_surface_with_grid_size(
-                    self.current_surface.surface.canvas(),
-                    grid_renderer,
-                    self.grid_size,
-                );
             }
             WindowDrawCommand::Show => {
                 tracy_zone!("show_cmd", 0);
