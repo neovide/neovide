@@ -250,6 +250,43 @@ any random highlights which have <code>Term</code> in name won't help.</p>
 yours, if it's your own, add it, and if you can't seem to find anything, open an
 issue in the colorscheme's repo.</p>
 
+<h2 id="the-terminal-displays-fallback-colorsterminal-does-not-show-my-colors"><a class="header" href="#the-terminal-displays-fallback-colorsterminal-does-not-show-my-colors">Add Quake mode accessibility like other terminals</a></h2>
+<p>This feature is quite popular in many terminals aka iTerm2, Kitty and Warp.</p>
+<p>At the moment you can achieve the same mode using <a href="http://www.hammerspoon.org">Hammerspoon</a> just creating key bindings to increase the accessibility and productivity as the same as them.</p>
+<p>
+ to open Neovide on the current space (with your preferred key-binding) add the following code at <code>~/.hammerspoon/init.lua</code>:</p>
+
+<pre><code class="language-vim">-- Neovide configuration
+hs.hotkey.bind({"ctrl", "shift"}, "z", function()
+  -- Get current space 
+  local currentSpace = hs.spaces.focusedSpace()
+  -- Get neovide app
+  local app = hs.application.get("neovide")
+  -- If app already open:
+  if app then
+    -- If no main window, then open a new window
+    if not app:mainWindow() then
+      app:selectMenuItem("New OS Window", true)
+      -- If app is already in front, then hide it
+    elseif app:isFrontmost() then
+      app:hide()
+      -- If there is a main window somewhere, bring it to current space and to front
+    else
+      -- First move the main window to the current space
+      hs.spaces.moveWindowToSpace(app:mainWindow(), currentSpace)
+      -- Activate the app
+      app:activate()
+      -- Raise the main window and position correctly
+      app:mainWindow():raise()
+    end
+    -- If app not open, open it
+  else
+    hs.application.launchOrFocus("neovide")
+    app = hs.application.get("neovide")
+  end
+  -- hs.spaces.gotoSpace(currentSpace)
+end)
+ </code></pre>
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
