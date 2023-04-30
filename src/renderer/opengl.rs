@@ -70,7 +70,7 @@ pub fn build_context<TE>(
     let (window, config) = DisplayBuilder::new()
         .with_window_builder(Some(winit_window_builder))
         .build(event_loop, template_builder, gen_config)
-        .unwrap();
+        .expect("Failed to create Window");
     let window = window.expect("Could not create Window");
 
     let gl_display = config.display();
@@ -85,18 +85,15 @@ pub fn build_context<TE>(
             NonZeroU32::new(size.width).unwrap(),
             NonZeroU32::new(size.height).unwrap(),
         );
-    let surface =
-        unsafe { gl_display.create_window_surface(&config, &surface_attributes) }.unwrap();
+    let surface = unsafe { gl_display.create_window_surface(&config, &surface_attributes) }
+        .expect("Failed to create Windows Surface");
     let context_attributes = ContextAttributesBuilder::new()
         .with_profile(GlProfile::Core)
         .build(Some(raw_window_handle));
-    let context = unsafe {
-        gl_display
-            .create_context(&config, &context_attributes)
-            .unwrap()
-    }
-    .make_current(&surface)
-    .unwrap();
+    let context = unsafe { gl_display.create_context(&config, &context_attributes) }
+        .expect("Failed to create OpenGL context")
+        .make_current(&surface)
+        .unwrap();
 
     Context {
         surface,
