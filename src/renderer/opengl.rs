@@ -4,6 +4,7 @@ use std::num::NonZeroU32;
 use crate::cmd_line::CmdLineSettings;
 
 use gl::MAX_RENDERBUFFER_SIZE;
+use glutin::surface::SwapInterval;
 use glutin::{
     config::{Config, ConfigTemplateBuilder},
     context::{ContextAttributesBuilder, GlProfile, PossiblyCurrentContext},
@@ -87,6 +88,7 @@ pub fn build_context<TE>(
         );
     let surface = unsafe { gl_display.create_window_surface(&config, &surface_attributes) }
         .expect("Failed to create Windows Surface");
+
     let context_attributes = ContextAttributesBuilder::new()
         .with_profile(GlProfile::Core)
         .build(Some(raw_window_handle));
@@ -94,6 +96,13 @@ pub fn build_context<TE>(
         .expect("Failed to create OpenGL context")
         .make_current(&surface)
         .unwrap();
+
+    // NOTE: We don't care if these fails, the driver can override the SwapInterval in any case, so it needs to work in all cases
+    let _ = if cmd_line_settings.vsync {
+        surface.set_swap_interval(&context, SwapInterval::Wait(NonZeroU32::new(1).unwrap()))
+    } else {
+        surface.set_swap_interval(&context, SwapInterval::DontWait)
+    };
 
     Context {
         surface,
