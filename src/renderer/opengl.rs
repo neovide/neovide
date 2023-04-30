@@ -3,6 +3,7 @@ use std::num::NonZeroU32;
 
 use crate::cmd_line::CmdLineSettings;
 
+use gl::MAX_RENDERBUFFER_SIZE;
 use glutin::{
     config::{Config, ConfigTemplateBuilder},
     context::{ContextAttributesBuilder, GlProfile, PossiblyCurrentContext},
@@ -12,6 +13,7 @@ use glutin::{
 };
 use glutin_winit::DisplayBuilder;
 use raw_window_handle::HasRawWindowHandle;
+use winit::dpi::PhysicalSize;
 use winit::{
     event_loop::EventLoop,
     window::{Window, WindowBuilder},
@@ -22,6 +24,13 @@ pub struct Context {
     context: PossiblyCurrentContext,
     window: Window,
     config: Config,
+}
+
+pub fn clamp_render_buffer_size(size: PhysicalSize<u32>) -> PhysicalSize<u32> {
+    PhysicalSize::new(
+        size.width.clamp(1, MAX_RENDERBUFFER_SIZE),
+        size.height.clamp(1, MAX_RENDERBUFFER_SIZE),
+    )
 }
 
 impl Context {
@@ -39,6 +48,10 @@ impl Context {
     }
     pub fn get_config(&self) -> &Config {
         &self.config
+    }
+
+    pub fn get_render_target_size(&self) -> PhysicalSize<u32> {
+        clamp_render_buffer_size(self.window.inner_size())
     }
 }
 
@@ -63,14 +76,14 @@ pub fn build_context<TE>(
     let gl_display = config.display();
     let raw_window_handle = window.raw_window_handle();
 
-    let size = window.inner_size();
+    let size = clamp_render_buffer_size(window.inner_size());
 
     let surface_attributes = SurfaceAttributesBuilder::<WindowSurface>::new()
         .with_srgb(Some(cmd_line_settings.srgb))
         .build(
             raw_window_handle,
-            NonZeroU32::new(size.width.max(1)).unwrap(),
-            NonZeroU32::new(size.height.max(1)).unwrap(),
+            NonZeroU32::new(size.width).unwrap(),
+            NonZeroU32::new(size.height).unwrap(),
         );
     let surface =
         unsafe { gl_display.create_window_surface(&config, &surface_attributes) }.unwrap();

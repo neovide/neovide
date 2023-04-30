@@ -16,13 +16,9 @@ fn create_surface(
     fb_info: FramebufferInfo,
 ) -> Surface {
     let pixel_format = windowed_context.get_config();
-    let size = windowed_context.window().inner_size();
-    let size = (
-        size.width.try_into().expect("Could not convert width"),
-        size.height.try_into().expect("Could not convert height"),
-    );
+    let size = windowed_context.get_render_target_size();
     let backend_render_target = BackendRenderTarget::new_gl(
-        size,
+        size.into(),
         Some(pixel_format.num_samples() as usize),
         pixel_format
             .stencil_size()
@@ -31,8 +27,8 @@ fn create_surface(
         fb_info,
     );
     windowed_context.resize(
-        NonZeroU32::new(size.0 as u32).unwrap(),
-        NonZeroU32::new(size.1 as u32).unwrap(),
+        NonZeroU32::new(size.width).unwrap(),
+        NonZeroU32::new(size.height).unwrap(),
     );
     Surface::from_backend_render_target(
         gr_context,
