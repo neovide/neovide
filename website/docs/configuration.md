@@ -383,7 +383,7 @@ vim.g.neovide_remember_window_size = true
 
 Setting `g:neovide_remember_window_size` to a boolean value will determine whether the window size
 from the previous session or the default size will be used on startup. The commandline option
-`--geometry` will take priority over this value.
+`--size` will take priority over this value.
 
 #### Profiler
 

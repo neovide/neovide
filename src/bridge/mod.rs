@@ -61,13 +61,14 @@ async fn start_neovim_runtime() {
     let should_handle_clipboard = settings.wsl || settings.server.is_some();
     setup_neovide_specific_state(&nvim, should_handle_clipboard).await;
 
-    let geometry = settings.geometry;
     let mut options = UiAttachOptions::new();
     options.set_linegrid_external(true);
     options.set_multigrid_external(settings.multi_grid);
     options.set_rgb(true);
 
     // Triggers loading the user's config
+    // Set to DEFAULT_WINDOW_GEOMETRY first, draw_frame will resize it later
+    let geometry = DEFAULT_WINDOW_GEOMETRY;
     nvim.ui_attach(geometry.width as i64, geometry.height as i64, &options)
         .await
         .unwrap_or_explained_panic("Could not attach ui to neovim process");

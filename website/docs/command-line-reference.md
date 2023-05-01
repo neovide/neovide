@@ -39,13 +39,13 @@ Can be set to:
 - (macOS only) `transparent`: Transparent decorations including a transparent bar.
 - (macOS only) `buttonless`: All decorations, but without quit, minimize or fullscreen buttons.
 
-### Geometry
+### Window Size
 
 ```sh
---geometry=<width>x<height> or $NEOVIDE_GEOMETRY=<width>x<height>
+--size=<width>x<height>
 ```
 
-Sets the initial neovide window size in characters.
+Sets the initial neovide window size in pixels.
 
 ### Log File
 

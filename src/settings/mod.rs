@@ -1,5 +1,5 @@
 mod from_value;
-mod window_geometry;
+mod window_size;
 
 use log::trace;
 use nvim_rs::Neovim;
@@ -13,9 +13,8 @@ use std::{
 
 use crate::{bridge::NeovimWriter, error_handling::ResultPanicExplanation};
 pub use from_value::ParseFromValue;
-pub use window_geometry::{
-    last_window_geometry, load_last_window_settings, parse_window_geometry, save_window_geometry,
-    PersistentWindowSettings, DEFAULT_WINDOW_GEOMETRY,
+pub use window_size::{
+    load_last_window_settings, save_window_size, PersistentWindowSettings, DEFAULT_WINDOW_GEOMETRY,
 };
 
 mod config;
