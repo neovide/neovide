@@ -10,6 +10,13 @@ use std::path::{Path, PathBuf};
 
 const CONFIG_FILE: &str = "config.toml";
 
+#[cfg(unix)]
+fn neovide_config_dir() -> PathBuf {
+    let xdg_dirs = xdg::BaseDirectories::with_prefix("neovide").unwrap();
+    xdg_dirs.get_config_home()
+}
+
+#[cfg(windows)]
 fn neovide_config_dir() -> PathBuf {
     let mut path = dirs::config_dir().unwrap();
     path.push("neovide");
