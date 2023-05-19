@@ -231,10 +231,12 @@ impl Renderer {
         };
 
         let settings = SETTINGS.get::<RendererSettings>();
+
+        // Clippy recommends short-circuiting with any which is not what we want
+        #[allow(clippy::unnecessary_fold)]
         let mut animating = windows
             .into_iter()
-            .map(|window| window.animate(&settings, dt))
-            .any(|a| a);
+            .fold(false, |acc, window| window.animate(&settings, dt) || acc);
 
         let windows = &self.rendered_windows;
         let font_dimensions = self.grid_renderer.font_dimensions;
