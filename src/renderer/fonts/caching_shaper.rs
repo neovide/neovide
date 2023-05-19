@@ -171,6 +171,7 @@ impl CachingShaper {
     }
 
     fn metrics(&mut self) -> Metrics {
+        tracy_zone!("font_metrics");
         self.info().0
     }
 

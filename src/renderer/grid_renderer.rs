@@ -204,6 +204,7 @@ impl GridRenderer {
                 .shape_cached(trimmed.to_string(), style.bold, style.italic)
                 .iter()
             {
+                tracy_zone!("draw_text_blob");
                 canvas.draw_text_blob(
                     blob,
                     ((x + x_adjustment) as f32, (y + y_adjustment) as f32),
@@ -236,6 +237,7 @@ impl GridRenderer {
         p1: Point,
         p2: Point,
     ) {
+        tracy_zone!("draw_underline");
         canvas.save();
 
         let mut underline_paint = Paint::default();
