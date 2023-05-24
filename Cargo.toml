@@ -49,7 +49,7 @@ tokio = { version = "1.25.0", features = ["full"] }
 tokio-util = { version = "0.7.4", features = ["compat"] }
 unicode-segmentation = "1.9.0"
 which = "4.2.5"
-winit = { version = "=0.28.1", features = ["serde"] }
+winit = { version = "=0.28.6", features = ["serde"] }
 xdg = "2.4.1"
 
 [dev-dependencies]
@@ -96,4 +96,5 @@ This is a simple graphical user interface for Neovim. Where possible there are s
 osx_minimum_system_version = "10.11"
 
 [patch.crates-io]
-winit = { git = "https://github.com/neovide/winit", branch = "new-keyboard-v3", version = "0.28.1" }
+# Use a specific commit rather than the branch new-keyboard-v3, since the branch might get rebased or even disappear completely due to a merge
+winit = { git = "https://github.com/rust-windowing/winit", rev = "765e5596b441bdabd2c7f54ac9ac0c7b93fa34df", version = "0.28.6" }
