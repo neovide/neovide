@@ -72,10 +72,11 @@ impl KeyboardManager {
             } => {
                 // Record the modifier states so that we can properly add them to the keybinding
                 // text
-                self.shift = modifiers.shift_key();
-                self.ctrl = modifiers.control_key();
-                self.alt = modifiers.alt_key();
-                self.logo = modifiers.super_key();
+                let state = modifiers.state();
+                self.shift = state.shift_key();
+                self.ctrl = state.control_key();
+                self.alt = state.alt_key();
+                self.logo = state.super_key();
             }
             Event::MainEventsCleared => {
                 // If the window wasn't just focused.

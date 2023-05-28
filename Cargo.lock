@@ -3066,7 +3066,7 @@ checksum = "1a515f5799fe4961cb532f983ce2b23082366b898e52ffbce459c86f67c8378a"
 [[package]]
 name = "winit"
 version = "0.28.6"
-source = "git+https://github.com/rust-windowing/winit?rev=765e5596b441bdabd2c7f54ac9ac0c7b93fa34df#765e5596b441bdabd2c7f54ac9ac0c7b93fa34df"
+source = "git+https://github.com/rust-windowing/winit?branch=master#918430979f8219648daade44796c00893e42fdd8"
 dependencies = [
  "android-activity",
  "bitflags",

@@ -96,5 +96,4 @@ This is a simple graphical user interface for Neovim. Where possible there are s
 osx_minimum_system_version = "10.11"
 
 [patch.crates-io]
-# Use a specific commit rather than the branch new-keyboard-v3, since the branch might get rebased or even disappear completely due to a merge
-winit = { git = "https://github.com/rust-windowing/winit", rev = "765e5596b441bdabd2c7f54ac9ac0c7b93fa34df", version = "0.28.6" }
+winit = { git = "https://github.com/rust-windowing/winit", branch= "master", version = "0.28.6" }
