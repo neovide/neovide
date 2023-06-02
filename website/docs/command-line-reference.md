@@ -98,13 +98,15 @@ leaking it, be "blocking" and have the shell directly as parent process.
 Instead of skipping some frames in order to match `g:neovide_refresh_rate`, render every possible
 one.
 
-### No sRGB
+### sRGB
 
 ```sh
---nosrgb or $NEOVIDE_NO_SRGB
+--nosrgb, --srgb or $NEOVIDE_SRGB=0|1
 ```
 
-Don't request sRGB on the window. Swapping sometimes fixes startup issues.
+Request sRGB on the window. Swapping sometimes fixes startup issues. Defaults
+to enabled. The command line parameter takes priority over the environment
+variable.
 
 ### No Tabs
 
@@ -122,12 +124,14 @@ or not.
 ## No VSync
 
 ```sh
---novsync
+--novsync, --vsync or $NEOVIDE_VSYNC=0|1
 ```
 
 **Available since 0.10.2.**
 
-By default, Neovide requests to use VSync on the created window. This option disables this behavior.
+By default, Neovide requests to use VSync on the created window. This
+`--novsync` disables this behavior. The command line parameter takes priority
+over the environment variable.
 
 ### Neovim Server
 

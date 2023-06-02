@@ -63,21 +63,30 @@ pub struct CmdLineSettings {
 
     /// Render every frame, takes more power and CPU time but possibly helps with frame timing
     /// issues
-    #[arg(long = "noidle", env = "NEOVIDE_NO_IDLE", value_parser = FalseyValueParser::new())]
+    #[arg(long = "noidle", env = "NEOVIDE_IDLE", action = ArgAction::SetFalse, value_parser = FalseyValueParser::new())]
     pub no_idle: bool,
 
     /// Disable opening multiple files supplied in tabs (they're still buffers)
     #[arg(long = "notabs")]
     pub no_tabs: bool,
 
-    /// Do not request sRGB when initializing the window, may help with GPUs with weird pixel
-    /// formats
-    #[arg(long = "nosrgb", env = "NEOVIDE_NO_SRGB", action = ArgAction::SetFalse, value_parser = FalseyValueParser::new())]
+    /// Request sRGB when initializing the window, may help with GPUs with weird pixel
+    /// formats [DEFAULT]
+    #[arg(long = "srgb", env = "NEOVIDE_SRGB", action = ArgAction::SetTrue, default_value = "1", value_parser = FalseyValueParser::new())]
     pub srgb: bool,
 
-    /// Do not try to request VSync on the window
-    #[arg(long = "novsync", env = "NEOVIDE_NO_VSYNC", action = ArgAction::SetFalse, value_parser = FalseyValueParser::new())]
+    /// Do not request sRGB when initializing the window, may help with GPUs with weird pixel
+    /// formats
+    #[arg(long = "nosrgb", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
+    pub _nosrgb: bool,
+
+    /// Request VSync on the window [DEFAULT]
+    #[arg(long = "vsync", env = "NEOVIDE_VSYNC", action = ArgAction::SetTrue, default_value = "1", value_parser = FalseyValueParser::new())]
     pub vsync: bool,
+
+    /// Do not try to request VSync on the window
+    #[arg(long = "novsync", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
+    pub _novsync: bool,
 
     /// Which NeoVim binary to invoke headlessly instead of `nvim` found on $PATH
     #[arg(long = "neovim-bin", env = "NEOVIM_BIN")]
@@ -125,6 +134,14 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
         .chain(mem::take(&mut cmdline.files_to_open))
         .chain(cmdline.neovim_args)
         .collect();
+
+    if cmdline._novsync {
+        cmdline.vsync = false;
+    }
+
+    if cmdline._nosrgb {
+        cmdline.srgb = false;
+    }
 
     SETTINGS.set::<CmdLineSettings>(&cmdline);
     Ok(())
@@ -308,5 +325,143 @@ mod tests {
             SETTINGS.get::<CmdLineSettings>().neovim_bin,
             Some("foo".to_owned())
         );
+    }
+
+    #[test]
+    #[serial]
+    fn test_srgb_default() {
+        let args: Vec<String> = vec!["neovide"].iter().map(|s| s.to_string()).collect();
+
+        handle_command_line_arguments(args).expect("Could not parse arguments");
+        assert_eq!(SETTINGS.get::<CmdLineSettings>().srgb, true);
+    }
+
+    #[test]
+    #[serial]
+    fn test_srgb() {
+        let args: Vec<String> = vec!["neovide", "--srgb"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        handle_command_line_arguments(args).expect("Could not parse arguments");
+        assert_eq!(SETTINGS.get::<CmdLineSettings>().srgb, true);
+    }
+
+    #[test]
+    #[serial]
+    fn test_nosrgb() {
+        let args: Vec<String> = vec!["neovide", "--nosrgb"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        handle_command_line_arguments(args).expect("Could not parse arguments");
+        assert_eq!(SETTINGS.get::<CmdLineSettings>().srgb, false);
+    }
+
+    #[test]
+    #[serial]
+    fn test_no_srgb_enviornment() {
+        let args: Vec<String> = vec!["neovide"].iter().map(|s| s.to_string()).collect();
+
+        let _env = ScopedEnv::set("NEOVIDE_SRGB", "0");
+        handle_command_line_arguments(args).expect("Could not parse arguments");
+        assert_eq!(SETTINGS.get::<CmdLineSettings>().srgb, false);
+    }
+
+    #[test]
+    #[serial]
+    fn test_override_srgb_environment() {
+        let args: Vec<String> = vec!["neovide", "--nosrgb"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        let _env = ScopedEnv::set("NEOVIDE_SRGB", "1");
+        handle_command_line_arguments(args).expect("Could not parse arguments");
+        assert_eq!(SETTINGS.get::<CmdLineSettings>().srgb, false);
+    }
+
+    #[test]
+    #[serial]
+    fn test_override_nosrgb_enviornment() {
+        let args: Vec<String> = vec!["neovide", "--srgb"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        let _env = ScopedEnv::set("NEOVIDE_SRGB", "0");
+        handle_command_line_arguments(args).expect("Could not parse arguments");
+        assert_eq!(SETTINGS.get::<CmdLineSettings>().srgb, true,);
+    }
+
+    #[test]
+    #[serial]
+    fn test_vsync_default() {
+        let args: Vec<String> = vec!["neovide"].iter().map(|s| s.to_string()).collect();
+
+        handle_command_line_arguments(args).expect("Could not parse arguments");
+        assert_eq!(SETTINGS.get::<CmdLineSettings>().vsync, true);
+    }
+
+    #[test]
+    #[serial]
+    fn test_vsync() {
+        let args: Vec<String> = vec!["neovide", "--vsync"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        handle_command_line_arguments(args).expect("Could not parse arguments");
+        assert_eq!(SETTINGS.get::<CmdLineSettings>().vsync, true);
+    }
+
+    #[test]
+    #[serial]
+    fn test_novsync() {
+        let args: Vec<String> = vec!["neovide", "--novsync"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        handle_command_line_arguments(args).expect("Could not parse arguments");
+        assert_eq!(SETTINGS.get::<CmdLineSettings>().vsync, false);
+    }
+
+    #[test]
+    #[serial]
+    fn test_no_vsync_enviornment() {
+        let args: Vec<String> = vec!["neovide"].iter().map(|s| s.to_string()).collect();
+
+        let _env = ScopedEnv::set("NEOVIDE_VSYNC", "0");
+        handle_command_line_arguments(args).expect("Could not parse arguments");
+        assert_eq!(SETTINGS.get::<CmdLineSettings>().vsync, false);
+    }
+
+    #[test]
+    #[serial]
+    fn test_override_vsync_enviornment() {
+        let args: Vec<String> = vec!["neovide", "--novsync"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        let _env = ScopedEnv::set("NEOVIDE_VSYNC", "1");
+        handle_command_line_arguments(args).expect("Could not parse arguments");
+        assert_eq!(SETTINGS.get::<CmdLineSettings>().vsync, false);
+    }
+
+    #[test]
+    #[serial]
+    fn test_override_novsync_enviornment() {
+        let args: Vec<String> = vec!["neovide", "--vsync"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        let _env = ScopedEnv::set("NEOVIDE_VSYNC", "0");
+        handle_command_line_arguments(args).expect("Could not parse arguments");
+        assert_eq!(SETTINGS.get::<CmdLineSettings>().vsync, true,);
     }
 }
