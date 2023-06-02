@@ -132,26 +132,19 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use std::env::set_var;
-    use std::sync::Mutex;
-
-    use lazy_static::lazy_static;
+    use scoped_env::ScopedEnv;
 
     use super::*;
-
-    // Use a mutex to ensure that the settings are initialized and accessed in series
-    lazy_static! {
-        static ref ACCESSING_SETTINGS: Mutex<bool> = Mutex::new(false);
-    }
+    use serial_test::serial;
 
     #[test]
+    #[serial]
     fn test_neovim_passthrough() {
         let args: Vec<String> = vec!["neovide", "--notabs", "--", "--clean"]
             .iter()
             .map(|s| s.to_string())
             .collect();
 
-        let _accessing_settings = ACCESSING_SETTINGS.lock().unwrap();
         handle_command_line_arguments(args).expect("Could not parse arguments");
         assert_eq!(
             SETTINGS.get::<CmdLineSettings>().neovim_args,
@@ -160,13 +153,13 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_files_to_open() {
         let args: Vec<String> = vec!["neovide", "./foo.txt", "--notabs", "./bar.md"]
             .iter()
             .map(|s| s.to_string())
             .collect();
 
-        let _accessing_settings = ACCESSING_SETTINGS.lock().unwrap();
         handle_command_line_arguments(args).expect("Could not parse arguments");
         assert_eq!(
             SETTINGS.get::<CmdLineSettings>().neovim_args,
@@ -175,6 +168,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_files_to_open_with_passthrough() {
         let args: Vec<String> = vec![
             "neovide",
@@ -188,7 +182,6 @@ mod tests {
         .map(|s| s.to_string())
         .collect();
 
-        let _accessing_settings = ACCESSING_SETTINGS.lock().unwrap();
         handle_command_line_arguments(args).expect("Could not parse arguments");
         assert_eq!(
             SETTINGS.get::<CmdLineSettings>().neovim_args,
@@ -197,13 +190,13 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_files_to_open_with_flag() {
         let args: Vec<String> = vec!["neovide", "./foo.txt", "./bar.md", "--geometry=42x24"]
             .iter()
             .map(|s| s.to_string())
             .collect();
 
-        let _accessing_settings = ACCESSING_SETTINGS.lock().unwrap();
         handle_command_line_arguments(args).expect("Could not parse arguments");
         assert_eq!(
             SETTINGS.get::<CmdLineSettings>().neovim_args,
@@ -220,13 +213,13 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_geometry() {
         let args: Vec<String> = vec!["neovide", "--geometry=42x24"]
             .iter()
             .map(|s| s.to_string())
             .collect();
 
-        let _accessing_settings = ACCESSING_SETTINGS.lock().unwrap();
         handle_command_line_arguments(args).expect("Could not parse arguments");
         assert_eq!(
             SETTINGS.get::<CmdLineSettings>().geometry,
@@ -238,13 +231,13 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_size() {
         let args: Vec<String> = vec!["neovide", "--size=420x240"]
             .iter()
             .map(|s| s.to_string())
             .collect();
 
-        let _accessing_settings = ACCESSING_SETTINGS.lock().unwrap();
         handle_command_line_arguments(args).expect("Could not parse arguments");
         assert_eq!(
             SETTINGS.get::<CmdLineSettings>().size,
@@ -256,47 +249,47 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_log_to_file() {
         let args: Vec<String> = vec!["neovide", "--log"]
             .iter()
             .map(|s| s.to_string())
             .collect();
 
-        let _accessing_settings = ACCESSING_SETTINGS.lock().unwrap();
         handle_command_line_arguments(args).expect("Could not parse arguments");
         assert!(SETTINGS.get::<CmdLineSettings>().log_to_file);
     }
 
     #[test]
+    #[serial]
     fn test_frameless_flag() {
         let args: Vec<String> = vec!["neovide", "--frame=full"]
             .iter()
             .map(|s| s.to_string())
             .collect();
 
-        let _accessing_settings = ACCESSING_SETTINGS.lock().unwrap();
         handle_command_line_arguments(args).expect("Could not parse arguments");
         assert_eq!(SETTINGS.get::<CmdLineSettings>().frame, Frame::Full);
     }
 
     #[test]
+    #[serial]
     fn test_frameless_environment_variable() {
         let args: Vec<String> = vec!["neovide"].iter().map(|s| s.to_string()).collect();
 
-        let _accessing_settings = ACCESSING_SETTINGS.lock().unwrap();
-        set_var("NEOVIDE_FRAME", "none");
+        let _env = ScopedEnv::set("NEOVIDE_FRAME", "none");
         handle_command_line_arguments(args).expect("Could not parse arguments");
         assert_eq!(SETTINGS.get::<CmdLineSettings>().frame, Frame::None);
     }
 
     #[test]
+    #[serial]
     fn test_neovim_bin_arg() {
         let args: Vec<String> = vec!["neovide", "--neovim-bin", "foo"]
             .iter()
             .map(|s| s.to_string())
             .collect();
 
-        let _accessing_settings = ACCESSING_SETTINGS.lock().unwrap();
         handle_command_line_arguments(args).expect("Could not parse arguments");
         assert_eq!(
             SETTINGS.get::<CmdLineSettings>().neovim_bin,
@@ -305,11 +298,11 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_neovim_bin_environment_variable() {
         let args: Vec<String> = vec!["neovide"].iter().map(|s| s.to_string()).collect();
 
-        let _accessing_settings = ACCESSING_SETTINGS.lock().unwrap();
-        set_var("NEOVIM_BIN", "foo");
+        let _env = ScopedEnv::set("NEOVIM_BIN", "foo");
         handle_command_line_arguments(args).expect("Could not parse arguments");
         assert_eq!(
             SETTINGS.get::<CmdLineSettings>().neovim_bin,
