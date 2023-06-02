@@ -4,6 +4,11 @@ use crate::{dimensions::Dimensions, frame::Frame, settings::*};
 
 use clap::{builder::FalseyValueParser, ArgAction, Parser};
 
+#[cfg(target_os = "windows")]
+const SRGB_DEFAULT: &str = "1";
+#[cfg(not(target_os = "windows"))]
+const SRGB_DEFAULT: &str = "0";
+
 #[derive(Clone, Debug, Parser)]
 #[command(version, about, long_about = None)]
 pub struct CmdLineSettings {
@@ -71,12 +76,12 @@ pub struct CmdLineSettings {
     pub no_tabs: bool,
 
     /// Request sRGB when initializing the window, may help with GPUs with weird pixel
-    /// formats [DEFAULT]
-    #[arg(long = "srgb", env = "NEOVIDE_SRGB", action = ArgAction::SetTrue, default_value = "1", value_parser = FalseyValueParser::new())]
+    /// formats. Default on Windows.
+    #[arg(long = "srgb", env = "NEOVIDE_SRGB", action = ArgAction::SetTrue, default_value = SRGB_DEFAULT, value_parser = FalseyValueParser::new())]
     pub srgb: bool,
 
     /// Do not request sRGB when initializing the window, may help with GPUs with weird pixel
-    /// formats
+    /// formats. Default on Linux and macOs.
     #[arg(long = "nosrgb", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
     pub _nosrgb: bool,
 
@@ -333,7 +338,11 @@ mod tests {
         let args: Vec<String> = vec!["neovide"].iter().map(|s| s.to_string()).collect();
 
         handle_command_line_arguments(args).expect("Could not parse arguments");
-        assert_eq!(SETTINGS.get::<CmdLineSettings>().srgb, true);
+        #[cfg(target_os = "windows")]
+        let default_value = true;
+        #[cfg(not(target_os = "windows"))]
+        let default_value = false;
+        assert_eq!(SETTINGS.get::<CmdLineSettings>().srgb, default_value);
     }
 
     #[test]

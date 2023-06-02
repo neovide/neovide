@@ -104,9 +104,12 @@ one.
 --nosrgb, --srgb or $NEOVIDE_SRGB=0|1
 ```
 
-Request sRGB on the window. Swapping sometimes fixes startup issues. Defaults
-to enabled. The command line parameter takes priority over the environment
-variable.
+Request sRGB support on the window. Neovide does not actually render with sRGB,
+but it's still enabled by default on Windows to work around
+[neovim/neovim/issues/907](https://github.com/neovim/neovim/issues/907). Other
+platforms should not need it, but if you encounter either startup crashes or
+wrong colors, you can try to swap the option. The command line parameter takes
+priority over the environment variable.
 
 ### No Tabs
 
