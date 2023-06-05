@@ -4,7 +4,7 @@ use std::{
     fmt::Debug,
 };
 
-use parking_lot::{Mutex, RwLock};
+use parking_lot::RwLock;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
 use crate::channel_utils::*;
@@ -13,12 +13,8 @@ lazy_static! {
     pub static ref EVENT_AGGREGATOR: EventAggregator = EventAggregator::default();
 }
 
-thread_local! {
-    static THREAD_SENDERS: RwLock<HashMap<TypeId, Box<dyn Any + Send>>> = RwLock::new(HashMap::new());
-}
-
 pub struct EventAggregator {
-    parent_senders: RwLock<HashMap<TypeId, Mutex<Box<dyn Any + Send>>>>,
+    parent_senders: RwLock<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
     unclaimed_receivers: RwLock<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
 }
 
@@ -35,13 +31,13 @@ impl EventAggregator {
     fn get_sender<T: Any + Clone + Debug + Send>(&self) -> LoggingTx<T> {
         match self.parent_senders.write().entry(TypeId::of::<T>()) {
             Entry::Occupied(entry) => {
-                let sender = entry.get().lock();
+                let sender = entry.get();
                 sender.downcast_ref::<LoggingTx<T>>().unwrap().clone()
             }
             Entry::Vacant(entry) => {
                 let (sender, receiver) = unbounded_channel();
                 let logging_tx = LoggingTx::attach(sender, type_name::<T>().to_owned());
-                entry.insert(Mutex::new(Box::new(logging_tx.clone())));
+                entry.insert(Box::new(logging_tx.clone()));
                 self.unclaimed_receivers
                     .write()
                     .insert(TypeId::of::<T>(), Box::new(receiver));
@@ -67,7 +63,7 @@ impl EventAggregator {
             match self.parent_senders.write().entry(type_id) {
                 Entry::Occupied(_) => panic!("EventAggregator: type already registered"),
                 Entry::Vacant(entry) => {
-                    entry.insert(Mutex::new(Box::new(logging_sender)));
+                    entry.insert(Box::new(logging_sender));
                 }
             }
 

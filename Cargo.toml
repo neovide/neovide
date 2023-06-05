@@ -15,11 +15,11 @@ default = []
 embed-fonts = []
 
 [dependencies]
-copypasta = "0.8.1"
 async-trait = "0.1.53"
 backtrace = "0.3.67"
 cfg-if = "1.0.0"
 clap = { version = "4.0.8", features = ["cargo", "derive", "env"] }
+copypasta = "0.8.1"
 csscolorparser = "0.6.2"
 derive-new = "0.5.9"
 dirs = "5.0.0"
@@ -41,7 +41,7 @@ rand = "0.8.5"
 rmpv = "1.0.0"
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.79"
-swash = "0.1.4"
+swash = "0.1.8"
 time = "0.3.9"
 tokio = { version = "1.25.0", features = ["full"] }
 tokio-util = { version = "0.7.4", features = ["compat"] }
@@ -53,6 +53,8 @@ xdg = "2.4.1"
 
 [dev-dependencies]
 mockall = "0.11.0"
+scoped-env = "2.1.0"
+serial_test = "2.0.0"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.9", features = ["winuser", "wincon"] }

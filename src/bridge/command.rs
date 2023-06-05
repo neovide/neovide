@@ -53,6 +53,11 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> Option<StdComm
         let mut result = StdCommand::new("wsl");
         result.args(["$SHELL", "-lc"]);
         result.arg(format!("{} {}", command, args.join(" ")));
+        #[cfg(windows)]
+        std::os::windows::process::CommandExt::creation_flags(
+            &mut result,
+            winapi::um::winbase::CREATE_NO_WINDOW,
+        );
 
         Some(result)
     } else if cfg!(target_os = "macos") {
