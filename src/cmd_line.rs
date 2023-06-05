@@ -83,7 +83,7 @@ pub struct CmdLineSettings {
     /// Do not request sRGB when initializing the window, may help with GPUs with weird pixel
     /// formats. Default on Linux and macOs.
     #[arg(long = "nosrgb", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
-    pub _nosrgb: bool,
+    _nosrgb: bool,
 
     /// Request VSync on the window [DEFAULT]
     #[arg(long = "vsync", env = "NEOVIDE_VSYNC", action = ArgAction::SetTrue, default_value = "1", value_parser = FalseyValueParser::new())]
@@ -91,7 +91,7 @@ pub struct CmdLineSettings {
 
     /// Do not try to request VSync on the window
     #[arg(long = "novsync", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
-    pub _novsync: bool,
+    _novsync: bool,
 
     /// Which NeoVim binary to invoke headlessly instead of `nvim` found on $PATH
     #[arg(long = "neovim-bin", env = "NEOVIM_BIN")]
