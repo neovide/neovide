@@ -12,10 +12,8 @@ overridden by command line arguments.
 |Platform|Location|
 |--------|-----|
 |Linux|`$XDG_CONFIG_HOME/neovide/config.toml` or `$HOME/.config/neovide/config.toml`|
-|macOS|`$HOME/Library/Application Support/neovide/config.toml`|
+|macOS|`$XDG_CONFIG_HOME/neovide/config.toml` or `$HOME/.config/neovide/config.toml`|
 |Windows|`{FOLDERID_RoamingAppData}/neovide/config.toml`|
-
-[*source*](https://docs.rs/dirs/5.0.0/dirs/fn.config_dir.html)
 
 ## Available settings
 
@@ -31,9 +29,6 @@ Settings currently available in the config file are:
 - `geometry`
 
 See [Command Line Reference](command-line-reference.md) for details on what those settings do.
-
-*Note:* `srgb` and `vsync` are negations in command line arguments, but booleans in the config file.
-So `--novsync` is equivalent to `vsync = false`.
 
 ## Example
 
