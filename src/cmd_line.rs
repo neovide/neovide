@@ -29,7 +29,7 @@ pub struct CmdLineSettings {
     pub neovim_args: Vec<String>,
 
     /// The geometry of the window
-    #[arg(long, env = "NEOVIDE_GEOMETRY")]
+    #[arg(long)]
     pub geometry: Option<Dimensions>,
 
     /// The size of the window in pixel
