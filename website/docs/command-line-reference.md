@@ -92,7 +92,7 @@ leaking it, be "blocking" and have the shell directly as parent process.
 ### No Idle
 
 ```sh
---noidle or $NEOVIDE_NO_IDLE
+--noidle or $NEOVIDE_IDLE=0|1
 ```
 
 Instead of skipping some frames in order to match `g:neovide_refresh_rate`, render every possible
