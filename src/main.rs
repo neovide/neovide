@@ -149,7 +149,6 @@ fn protected_main() {
         Ok(config) => config.write_to_env(),
         Err(err) => {
             eprintln!("{err}");
-            error!("{err}");
         }
     };
 
