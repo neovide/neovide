@@ -69,7 +69,7 @@ pub struct CmdLineSettings {
     /// Render every frame, takes more power and CPU time but possibly helps with frame timing
     /// issues
     #[arg(long = "noidle", env = "NEOVIDE_IDLE", action = ArgAction::SetFalse, value_parser = FalseyValueParser::new())]
-    pub no_idle: bool,
+    pub idle: bool,
 
     /// Disable opening multiple files supplied in tabs (they're still buffers)
     #[arg(long = "notabs")]
