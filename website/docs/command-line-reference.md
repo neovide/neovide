@@ -92,11 +92,14 @@ leaking it, be "blocking" and have the shell directly as parent process.
 ### No Idle
 
 ```sh
---noidle or $NEOVIDE_NO_IDLE
+--noidle or $NEOVIDE_IDLE=0|1
 ```
 
-Instead of skipping some frames in order to match `g:neovide_refresh_rate`, render every possible
-one.
+With idle `on` (default), neovide won't render new frames when nothing is happening.
+
+With idle `off` (e.g. with `--noidle` flag), neovide will constantly render new frames,
+even when nothing changed. This takes more power and CPU time, but can possibly help
+with frame timing issues.
 
 ### sRGB
 
