@@ -35,7 +35,7 @@ pub struct Config {
     pub maximized: Option<bool>,
     pub vsync: Option<bool>,
     pub srgb: Option<bool>,
-    pub no_idle: Option<bool>,
+    pub idle: Option<bool>,
     pub neovim_bin: Option<PathBuf>,
     pub frame: Option<Frame>,
 }
@@ -54,8 +54,8 @@ impl Config {
         if let Some(srgb) = self.srgb {
             env::set_var("NEOVIDE_SRGB", srgb.to_string());
         }
-        if let Some(no_idle) = self.no_idle {
-            env::set_var("NEOVIDE_NO_IDLE", no_idle.to_string());
+        if let Some(idle) = self.idle {
+            env::set_var("NEOVIDE_IDLE", idle.to_string());
         }
         if let Some(frame) = self.frame {
             env::set_var("NEOVIDE_FRAME", frame.to_string());
