@@ -4,7 +4,7 @@ use std::env;
 
 use serde::Deserialize;
 
-use crate::{dimensions::Dimensions, frame::Frame};
+use crate::frame::Frame;
 
 use std::path::{Path, PathBuf};
 

@@ -36,7 +36,7 @@ use std::env::{self, args};
 
 #[cfg(not(test))]
 use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
-use log::error;
+
 use log::trace;
 
 use backtrace::Backtrace;
