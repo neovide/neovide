@@ -21,6 +21,7 @@ use crate::{
     bridge::EditorMode,
     editor::{Cursor, Style},
     event_aggregator::EVENT_AGGREGATOR,
+    profiling::tracy_zone,
     settings::*,
     WindowSettings,
 };
@@ -143,6 +144,7 @@ impl Renderer {
     /// `bool` indicating whether or not font was changed during this frame.
     #[allow(clippy::needless_collect)]
     pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32) -> bool {
+        tracy_zone!("renderer_draw_frame");
         let mut draw_commands = Vec::new();
         while let Ok(draw_command) = self.batched_draw_command_receiver.try_recv() {
             draw_commands.extend(draw_command);

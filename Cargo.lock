@@ -1551,6 +1551,7 @@ dependencies = [
  "time",
  "tokio",
  "tokio-util",
+ "tracy-client-sys",
  "unicode-segmentation",
  "which",
  "winapi",
@@ -2689,6 +2690,15 @@ dependencies = [
  "indexmap",
  "toml_datetime",
  "winnow",
+]
+
+[[package]]
+name = "tracy-client-sys"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7fcbdba03a3cfc5f757469fd5b6d795fc461484c97e47e94b0fc7db93261d9c5"
+dependencies = [
+ "cc",
 ]
 
 [[package]]

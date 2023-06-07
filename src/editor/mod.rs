@@ -11,6 +11,7 @@ use log::{error, trace};
 use crate::{
     bridge::{GuiOption, RedrawEvent, WindowAnchor},
     event_aggregator::EVENT_AGGREGATOR,
+    profiling::tracy_zone,
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::DrawCommand,
     window::WindowCommand,
@@ -81,9 +82,11 @@ impl Editor {
         match command {
             EditorCommand::NeovimRedrawEvent(event) => match event {
                 RedrawEvent::SetTitle { title } => {
+                    tracy_zone!("EditorSetTitle");
                     EVENT_AGGREGATOR.send(WindowCommand::TitleChanged(title));
                 }
                 RedrawEvent::ModeInfoSet { cursor_modes } => {
+                    tracy_zone!("EditorModeInfoSet");
                     self.mode_list = cursor_modes;
                     if let Some(current_mode_i) = self.current_mode_index {
                         if let Some(current_mode) = self.mode_list.get(current_mode_i as usize) {
@@ -91,8 +94,12 @@ impl Editor {
                         }
                     }
                 }
-                RedrawEvent::OptionSet { gui_option } => self.set_option(gui_option),
+                RedrawEvent::OptionSet { gui_option } => {
+                    tracy_zone!("EditorOptionSet");
+                    self.set_option(gui_option);
+                }
                 RedrawEvent::ModeChange { mode, mode_index } => {
+                    tracy_zone!("ModeChange");
                     if let Some(cursor_mode) = self.mode_list.get(mode_index as usize) {
                         self.cursor.change_mode(cursor_mode, &self.defined_styles);
                         self.current_mode_index = Some(mode_index)
@@ -104,26 +111,38 @@ impl Editor {
                         .ok();
                 }
                 RedrawEvent::MouseOn => {
+                    tracy_zone!("EditorMouseOn");
                     EVENT_AGGREGATOR.send(WindowCommand::SetMouseEnabled(true));
                 }
                 RedrawEvent::MouseOff => {
+                    tracy_zone!("EditorMouseOff");
                     EVENT_AGGREGATOR.send(WindowCommand::SetMouseEnabled(false));
                 }
                 RedrawEvent::BusyStart => {
+                    tracy_zone!("EditorBusyStart");
                     trace!("Cursor off");
                     self.cursor.enabled = false;
                 }
                 RedrawEvent::BusyStop => {
+                    tracy_zone!("EditorBusyStop");
                     trace!("Cursor on");
                     self.cursor.enabled = true;
                 }
                 RedrawEvent::Flush => {
+                    tracy_zone!("EditorFlush");
                     trace!("Image flushed");
                     self.send_cursor_info();
-                    self.draw_command_batcher.send_batch();
-                    REDRAW_SCHEDULER.queue_next_frame();
+                    {
+                        trace!("send_batch");
+                        self.draw_command_batcher.send_batch();
+                    }
+                    {
+                        trace!("queue_next_frame");
+                        REDRAW_SCHEDULER.queue_next_frame();
+                    }
                 }
                 RedrawEvent::DefaultColorsSet { colors } => {
+                    tracy_zone!("EditorDefaultColorsSet");
                     self.draw_command_batcher
                         .queue(DrawCommand::DefaultStyleChanged(Style::new(colors)))
                         .ok();
@@ -132,18 +151,23 @@ impl Editor {
                     REDRAW_SCHEDULER.queue_next_frame();
                 }
                 RedrawEvent::HighlightAttributesDefine { id, style } => {
+                    tracy_zone!("EditorHighlightAttributesDefine");
                     self.defined_styles.insert(id, Arc::new(style));
                 }
                 RedrawEvent::CursorGoto {
                     grid,
                     column: left,
                     row: top,
-                } => self.set_cursor_position(grid, left, top),
+                } => {
+                    tracy_zone!("EditorCursorGoto");
+                    self.set_cursor_position(grid, left, top);
+                }
                 RedrawEvent::Resize {
                     grid,
                     width,
                     height,
                 } => {
+                    tracy_zone!("EditorResize");
                     self.resize_window(grid, width, height);
                 }
                 RedrawEvent::GridLine {
@@ -152,6 +176,7 @@ impl Editor {
                     column_start,
                     cells,
                 } => {
+                    tracy_zone!("EditorGridLine");
                     let defined_styles = &self.defined_styles;
                     let window = self.windows.get_mut(&grid);
                     if let Some(window) = window {
@@ -159,12 +184,16 @@ impl Editor {
                     }
                 }
                 RedrawEvent::Clear { grid } => {
+                    tracy_zone!("EditorClear");
                     let window = self.windows.get_mut(&grid);
                     if let Some(window) = window {
                         window.clear();
                     }
                 }
-                RedrawEvent::Destroy { grid } => self.close_window(grid),
+                RedrawEvent::Destroy { grid } => {
+                    tracy_zone!("EditorDestroy");
+                    self.close_window(grid)
+                }
                 RedrawEvent::Scroll {
                     grid,
                     top,
@@ -174,6 +203,7 @@ impl Editor {
                     rows,
                     columns,
                 } => {
+                    tracy_zone!("EditorScroll");
                     let window = self.windows.get_mut(&grid);
                     if let Some(window) = window {
                         window.scroll_region(top, bottom, left, right, rows, columns);
@@ -185,7 +215,10 @@ impl Editor {
                     start_column,
                     width,
                     height,
-                } => self.set_window_position(grid, start_column, start_row, width, height),
+                } => {
+                    tracy_zone!("EditorWindowPosition");
+                    self.set_window_position(grid, start_column, start_row, width, height)
+                }
                 RedrawEvent::WindowFloatPosition {
                     grid,
                     anchor,
@@ -194,22 +227,30 @@ impl Editor {
                     anchor_row: anchor_top,
                     sort_order,
                     ..
-                } => self.set_window_float_position(
-                    grid,
-                    anchor_grid,
-                    anchor,
-                    anchor_left,
-                    anchor_top,
-                    sort_order,
-                ),
+                } => {
+                    tracy_zone!("EditorWindowFloatPosition");
+                    self.set_window_float_position(
+                        grid,
+                        anchor_grid,
+                        anchor,
+                        anchor_left,
+                        anchor_top,
+                        sort_order,
+                    )
+                }
                 RedrawEvent::WindowHide { grid } => {
+                    tracy_zone!("EditorWindowHide");
                     let window = self.windows.get(&grid);
                     if let Some(window) = window {
                         window.hide();
                     }
                 }
-                RedrawEvent::WindowClose { grid } => self.close_window(grid),
+                RedrawEvent::WindowClose { grid } => {
+                    tracy_zone!("EditorWindowClose");
+                    self.close_window(grid)
+                }
                 RedrawEvent::MessageSetPosition { grid, row, .. } => {
+                    tracy_zone!("EditorMessageSetPosition");
                     self.set_message_position(grid, row)
                 }
                 RedrawEvent::WindowViewport {
@@ -217,10 +258,16 @@ impl Editor {
                     // Don't send viewport events if they don't have a scroll delta
                     scroll_delta: Some(scroll_delta),
                     ..
-                } => self.send_updated_viewport(grid, scroll_delta),
+                } => {
+                    tracy_zone!("EditorWindowViewport");
+                    self.send_updated_viewport(grid, scroll_delta)
+                }
                 _ => {}
             },
-            EditorCommand::RedrawScreen => self.redraw_screen(),
+            EditorCommand::RedrawScreen => {
+                tracy_zone!("EditorRedrawScreen");
+                self.redraw_screen();
+            }
         };
     }
 
@@ -423,6 +470,7 @@ impl Editor {
     }
 
     fn send_cursor_info(&mut self) {
+        tracy_zone!("send_cursor_info");
         let (grid_left, grid_top) = self.cursor.grid_position;
         if let Some(window) = self.windows.get(&self.cursor.parent_window_id) {
             let (character, style, double_width) = window.get_cursor_grid_cell(grid_left, grid_top);
