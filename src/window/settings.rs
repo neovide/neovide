@@ -4,7 +4,7 @@ use crate::{cmd_line::CmdLineSettings, settings::*};
 pub struct WindowSettings {
     pub refresh_rate: u64,
     pub refresh_rate_idle: u64,
-    pub no_idle: bool,
+    pub idle: bool,
     pub transparency: f32,
     pub scale_factor: f32,
     pub fullscreen: bool,
@@ -31,7 +31,7 @@ impl Default for WindowSettings {
             iso_layout: false,
             refresh_rate: 60,
             refresh_rate_idle: 5,
-            no_idle: SETTINGS.get::<CmdLineSettings>().no_idle,
+            idle: SETTINGS.get::<CmdLineSettings>().idle,
             remember_window_size: true,
             remember_window_position: true,
             hide_mouse_when_typing: false,

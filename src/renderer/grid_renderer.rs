@@ -9,6 +9,7 @@ use winit::dpi::PhysicalSize;
 use crate::{
     dimensions::Dimensions,
     editor::{Colors, Style, UnderlineStyle},
+    profiling::tracy_zone,
     renderer::{CachingShaper, RendererSettings},
     settings::*,
     window::WindowSettings,
@@ -103,6 +104,7 @@ impl GridRenderer {
         style: &Option<Arc<Style>>,
         is_floating: bool,
     ) {
+        tracy_zone!("draw_background");
         self.paint.set_blend_mode(BlendMode::Src);
 
         let region = self.compute_text_region(grid_position, cell_width);
@@ -137,6 +139,7 @@ impl GridRenderer {
         cell_width: u64,
         style: &Option<Arc<Style>>,
     ) {
+        tracy_zone!("draw_foreground");
         let (x, y) = grid_position * self.font_dimensions;
         let width = cell_width * self.font_dimensions.width;
 

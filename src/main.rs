@@ -17,6 +17,7 @@ mod editor;
 mod error_handling;
 mod event_aggregator;
 mod frame;
+mod profiling;
 mod redraw_scheduler;
 mod renderer;
 mod running_tracker;
@@ -59,6 +60,8 @@ pub use running_tracker::*;
 pub use windows_utils::*;
 
 use crate::settings::{config_path, Config};
+
+pub use profiling::startup_profiler;
 
 const BACKTRACES_FILE: &str = "neovide_backtraces.log";
 const REQUEST_MESSAGE: &str = "This is a bug and we would love for it to be reported to https://github.com/neovide/neovide/issues";
@@ -141,6 +144,8 @@ fn protected_main() {
     //   another frame next frame, or if it can safely skip drawing to save battery and cpu power.
     //   Multiple other parts of the app "queue_next_frame" function to ensure animations continue
     //   properly or updates to the graphics are pushed to the screen.
+
+    startup_profiler();
 
     #[cfg(target_os = "windows")]
     windows_attach_to_console();

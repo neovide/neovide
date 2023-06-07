@@ -38,6 +38,9 @@ use crate::{
     editor::EditorCommand,
     event_aggregator::EVENT_AGGREGATOR,
     frame::Frame,
+    profiling::{
+        emit_frame_mark, tracy_create_gpu_context, tracy_gpu_collect, tracy_gpu_zone, tracy_zone,
+    },
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::Renderer,
     renderer::WindowPadding,
@@ -101,6 +104,7 @@ impl WinitWindowWrapper {
 
     #[allow(clippy::needless_collect)]
     pub fn handle_window_commands(&mut self) {
+        tracy_zone!("handle_window_commands", 0);
         while let Ok(window_command) = self.window_command_receiver.try_recv() {
             match window_command {
                 WindowCommand::TitleChanged(new_title) => self.handle_title_changed(new_title),
@@ -142,6 +146,7 @@ impl WinitWindowWrapper {
     }
 
     pub fn handle_event(&mut self, event: Event<()>) {
+        tracy_zone!("handle_event", 0);
         self.keyboard_manager.handle_event(&event);
         self.mouse_manager.handle_event(
             &event,
@@ -194,6 +199,7 @@ impl WinitWindowWrapper {
     }
 
     pub fn draw_frame(&mut self, dt: f32) {
+        tracy_zone!("draw_frame");
         let window = self.windowed_context.window();
 
         let window_settings = SETTINGS.get::<WindowSettings>();
@@ -218,11 +224,19 @@ impl WinitWindowWrapper {
             self.skia_renderer.resize(&self.windowed_context);
         }
 
-        if REDRAW_SCHEDULER.should_draw() || SETTINGS.get::<WindowSettings>().no_idle {
+        if REDRAW_SCHEDULER.should_draw() || !SETTINGS.get::<WindowSettings>().idle {
             self.font_changed_last_frame =
                 self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
-            self.skia_renderer.gr_context.flush(None);
-            self.windowed_context.swap_buffers().unwrap();
+            {
+                tracy_gpu_zone!("skia flush");
+                self.skia_renderer.gr_context.flush(None);
+            }
+            {
+                tracy_gpu_zone!("swap buffers");
+                self.windowed_context.swap_buffers().unwrap();
+            }
+            emit_frame_mark();
+            tracy_gpu_collect();
         }
 
         // Wait until fonts are loaded, so we can set proper window size.
@@ -453,6 +467,8 @@ pub fn create_window() {
         saved_grid_size: None,
         window_command_receiver,
     };
+
+    tracy_create_gpu_context("main_render_context");
 
     let mut previous_frame_start = Instant::now();
 

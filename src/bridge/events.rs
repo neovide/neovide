@@ -835,50 +835,59 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
 
     for event in events {
         let event_parameters = parse_array(event)?;
+        let event_parameters_copy = event_parameters.clone();
         let possible_parsed_event = match event_name.as_str() {
-            "set_title" => Some(parse_set_title(event_parameters)?),
+            "set_title" => Some(parse_set_title(event_parameters)),
             "set_icon" => None, // Ignore set icon for now
-            "mode_info_set" => Some(parse_mode_info_set(event_parameters)?),
-            "option_set" => Some(parse_option_set(event_parameters)?),
-            "mode_change" => Some(parse_mode_change(event_parameters)?),
-            "mouse_on" => Some(RedrawEvent::MouseOn),
-            "mouse_off" => Some(RedrawEvent::MouseOff),
-            "busy_start" => Some(RedrawEvent::BusyStart),
-            "busy_stop" => Some(RedrawEvent::BusyStop),
-            "flush" => Some(RedrawEvent::Flush),
-            "grid_resize" => Some(parse_grid_resize(event_parameters)?),
-            "default_colors_set" => Some(parse_default_colors(event_parameters)?),
-            "hl_attr_define" => Some(parse_hl_attr_define(event_parameters)?),
-            "grid_line" => Some(parse_grid_line(event_parameters)?),
-            "grid_clear" => Some(parse_grid_clear(event_parameters)?),
-            "grid_destroy" => Some(parse_grid_destroy(event_parameters)?),
-            "grid_cursor_goto" => Some(parse_grid_cursor_goto(event_parameters)?),
-            "grid_scroll" => Some(parse_grid_scroll(event_parameters)?),
-            "win_pos" => Some(parse_win_pos(event_parameters)?),
-            "win_float_pos" => Some(parse_win_float_pos(event_parameters)?),
-            "win_external_pos" => Some(parse_win_external_pos(event_parameters)?),
-            "win_hide" => Some(parse_win_hide(event_parameters)?),
-            "win_close" => Some(parse_win_close(event_parameters)?),
-            "msg_set_pos" => Some(parse_msg_set_pos(event_parameters)?),
-            "win_viewport" => Some(parse_win_viewport(event_parameters)?),
-            "cmdline_show" => Some(parse_cmdline_show(event_parameters)?),
-            "cmdline_pos" => Some(parse_cmdline_pos(event_parameters)?),
-            "cmdline_special_char" => Some(parse_cmdline_special_char(event_parameters)?),
-            "cmdline_hide" => Some(RedrawEvent::CommandLineHide),
-            "cmdline_block_show" => Some(parse_cmdline_block_show(event_parameters)?),
-            "cmdline_block_append" => Some(parse_cmdline_block_append(event_parameters)?),
-            "cmdline_block_hide" => Some(RedrawEvent::CommandLineBlockHide),
-            "msg_show" => Some(parse_msg_show(event_parameters)?),
-            "msg_clear" => Some(RedrawEvent::MessageClear),
-            "msg_showmode" => Some(parse_msg_showmode(event_parameters)?),
-            "msg_showcmd" => Some(parse_msg_showcmd(event_parameters)?),
-            "msg_ruler" => Some(parse_msg_ruler(event_parameters)?),
-            "msg_history_show" => Some(parse_msg_history_show(event_parameters)?),
+            "mode_info_set" => Some(parse_mode_info_set(event_parameters)),
+            "option_set" => Some(parse_option_set(event_parameters)),
+            "mode_change" => Some(parse_mode_change(event_parameters)),
+            "mouse_on" => Some(Ok(RedrawEvent::MouseOn)),
+            "mouse_off" => Some(Ok(RedrawEvent::MouseOff)),
+            "busy_start" => Some(Ok(RedrawEvent::BusyStart)),
+            "busy_stop" => Some(Ok(RedrawEvent::BusyStop)),
+            "flush" => Some(Ok(RedrawEvent::Flush)),
+            "grid_resize" => Some(parse_grid_resize(event_parameters)),
+            "default_colors_set" => Some(parse_default_colors(event_parameters)),
+            "hl_attr_define" => Some(parse_hl_attr_define(event_parameters)),
+            "grid_line" => Some(parse_grid_line(event_parameters)),
+            "grid_clear" => Some(parse_grid_clear(event_parameters)),
+            "grid_destroy" => Some(parse_grid_destroy(event_parameters)),
+            "grid_cursor_goto" => Some(parse_grid_cursor_goto(event_parameters)),
+            "grid_scroll" => Some(parse_grid_scroll(event_parameters)),
+            "win_pos" => Some(parse_win_pos(event_parameters)),
+            "win_float_pos" => Some(parse_win_float_pos(event_parameters)),
+            "win_external_pos" => Some(parse_win_external_pos(event_parameters)),
+            "win_hide" => Some(parse_win_hide(event_parameters)),
+            "win_close" => Some(parse_win_close(event_parameters)),
+            "msg_set_pos" => Some(parse_msg_set_pos(event_parameters)),
+            "win_viewport" => Some(parse_win_viewport(event_parameters)),
+            "cmdline_show" => Some(parse_cmdline_show(event_parameters)),
+            "cmdline_pos" => Some(parse_cmdline_pos(event_parameters)),
+            "cmdline_special_char" => Some(parse_cmdline_special_char(event_parameters)),
+            "cmdline_hide" => Some(Ok(RedrawEvent::CommandLineHide)),
+            "cmdline_block_show" => Some(parse_cmdline_block_show(event_parameters)),
+            "cmdline_block_append" => Some(parse_cmdline_block_append(event_parameters)),
+            "cmdline_block_hide" => Some(Ok(RedrawEvent::CommandLineBlockHide)),
+            "msg_show" => Some(parse_msg_show(event_parameters)),
+            "msg_clear" => Some(Ok(RedrawEvent::MessageClear)),
+            "msg_showmode" => Some(parse_msg_showmode(event_parameters)),
+            "msg_showcmd" => Some(parse_msg_showcmd(event_parameters)),
+            "msg_ruler" => Some(parse_msg_ruler(event_parameters)),
+            "msg_history_show" => Some(parse_msg_history_show(event_parameters)),
             _ => None,
         };
 
         if let Some(parsed_event) = possible_parsed_event {
-            parsed_events.push(parsed_event);
+            if let Ok(parsed_event) = parsed_event {
+                parsed_events.push(parsed_event);
+            } else {
+                let parser_error = parsed_event.unwrap_err();
+                let error = ParseError::Format(format!(
+                    "for event '{event_name}' - {event_parameters_copy:?} - {parser_error}"
+                ));
+                return Err(error);
+            }
         }
     }
 
