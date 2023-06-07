@@ -59,7 +59,7 @@ pub use running_tracker::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
-use crate::settings::{config_path, Config};
+use crate::settings::Config;
 
 pub use profiling::startup_profiler;
 
@@ -150,12 +150,7 @@ fn protected_main() {
     #[cfg(target_os = "windows")]
     windows_attach_to_console();
 
-    match Config::load_from_path(&config_path()) {
-        Ok(config) => config.write_to_env(),
-        Err(err) => {
-            eprintln!("{err}");
-        }
-    };
+    Config::init();
 
     //Will exit if -h or -v
     if let Err(err) = cmd_line::handle_command_line_arguments(args().collect()) {

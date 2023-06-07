@@ -41,7 +41,17 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn write_to_env(&self) {
+    /// Loads config from `config_path()` and writes it to env variables.
+    pub fn init() {
+        match Config::load_from_path(&config_path()) {
+            Ok(config) => config.write_to_env(),
+            Err(err) => {
+                eprintln!("{err}");
+            }
+        };
+    }
+
+    fn write_to_env(&self) {
         if let Some(multigrid) = self.multigrid {
             env::set_var("NEOVIDE_MULTIGRID", multigrid.to_string());
         }
@@ -65,7 +75,7 @@ impl Config {
         }
     }
 
-    pub fn load_from_path(path: &Path) -> Result<Self, String> {
+    fn load_from_path(path: &Path) -> Result<Self, String> {
         let toml = std::fs::read_to_string(path).map_err(|e| {
             format!(
                 "Error while trying to open config file {}:\n{}\nContinuing with default config.",
