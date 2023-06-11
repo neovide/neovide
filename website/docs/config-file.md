@@ -17,30 +17,16 @@ overridden by command line arguments.
 
 ## Available settings
 
-Settings currently available in the config file are:
-
-- `multigrid`
-- `maximized`
-- `vsync`
-- `srgb`
-- `no_idle`
-- `neovim_bin`
-- `frame`
-- `geometry`
-
-See [Command Line Reference](command-line-reference.md) for details on what those settings do.
-
-## Example
-
-This config changes all settings from their default values.
+Settings currently available in the config file with default values:
 
 ```toml
-multigrid = true
-vsync = false
-maximized = true
+multigrid = false
+vsync = true
+maximized = false
 srgb = false
-no_idle = true
-neovim_bin = "/bin/nvim"
-frame = "None"
-geometry = {width = 128, height = 72}
+idle = true
+neovim_bin = "/usr/bin/nvim"
+frame = "Full"
 ```
+
+See [Command Line Reference](command-line-reference.md) for details on what those settings do.
