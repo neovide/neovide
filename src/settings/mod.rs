@@ -17,6 +17,9 @@ pub use window_size::{
     load_last_window_settings, save_window_size, PersistentWindowSettings, DEFAULT_WINDOW_GEOMETRY,
 };
 
+mod config;
+pub use config::{config_path, Config};
+
 lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new();
 }

@@ -1,9 +1,11 @@
 use core::fmt;
 
+use serde::Deserialize;
+
 use clap::{builder::PossibleValue, ValueEnum};
 
 // Options for the frame decorations
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Default)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Default, Deserialize)]
 pub enum Frame {
     #[default]
     Full,

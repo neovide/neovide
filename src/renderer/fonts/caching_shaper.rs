@@ -16,6 +16,7 @@ use swash::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 
+use crate::profiling::tracy_zone;
 use crate::renderer::fonts::{font_loader::*, font_options::*};
 
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
@@ -392,6 +393,7 @@ impl CachingShaper {
     }
 
     pub fn shape_cached(&mut self, text: String, bold: bool, italic: bool) -> &Vec<TextBlob> {
+        tracy_zone!("shape_cached");
         let key = ShapeKey::new(text.clone(), bold, italic);
 
         if !self.blob_cache.contains(&key) {
