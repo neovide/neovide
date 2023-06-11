@@ -36,6 +36,7 @@ use std::env::{self, args};
 
 #[cfg(not(test))]
 use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
+
 use log::trace;
 
 use backtrace::Backtrace;
@@ -57,6 +58,8 @@ pub use event_aggregator::*;
 pub use running_tracker::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
+
+use crate::settings::Config;
 
 pub use profiling::startup_profiler;
 
@@ -146,6 +149,8 @@ fn protected_main() {
 
     #[cfg(target_os = "windows")]
     windows_attach_to_console();
+
+    Config::init();
 
     //Will exit if -h or -v
     if let Err(err) = cmd_line::handle_command_line_arguments(args().collect()) {

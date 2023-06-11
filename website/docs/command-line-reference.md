@@ -127,7 +127,7 @@ buffers.
 Note: Even if files are opened in tabs, they're buffers anyways. It's just about them being visible
 or not.
 
-## No VSync
+### No VSync
 
 ```sh
 --novsync, --vsync or $NEOVIDE_VSYNC=0|1
