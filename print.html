@@ -79,7 +79,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Neovide</a></li><li class="spacer"></li><li class="chapter-item expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">3.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="command-line-reference.html"><strong aria-hidden="true">4.</strong> Command Line Reference</a></li><li class="chapter-item expanded "><a href="editing-with-external-tools.html"><strong aria-hidden="true">5.</strong> Editing w/ External Tools</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">6.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">7.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="maintainer-cookbook.html"><strong aria-hidden="true">8.</strong> Maintainer Cookbook</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Neovide</a></li><li class="spacer"></li><li class="chapter-item expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">3.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="command-line-reference.html"><strong aria-hidden="true">4.</strong> Command Line Reference</a></li><li class="chapter-item expanded "><a href="config-file.html"><strong aria-hidden="true">5.</strong> Config File</a></li><li class="chapter-item expanded "><a href="editing-with-external-tools.html"><strong aria-hidden="true">6.</strong> Editing w/ External Tools</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">7.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">8.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="maintainer-cookbook.html"><strong aria-hidden="true">9.</strong> Maintainer Cookbook</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -1004,7 +1004,7 @@ tabs to avoid confusing new users. The option disables that and makes multiple g
 buffers.</p>
 <p>Note: Even if files are opened in tabs, they're buffers anyways. It's just about them being visible
 or not.</p>
-<h2 id="no-vsync"><a class="header" href="#no-vsync">No VSync</a></h2>
+<h3 id="no-vsync"><a class="header" href="#no-vsync">No VSync</a></h3>
 <pre><code class="language-sh">--novsync, --vsync or $NEOVIDE_VSYNC=0|1
 </code></pre>
 <p><strong>Available since 0.10.2.</strong></p>
@@ -1032,6 +1032,29 @@ permission bit set.</p>
 </code></pre>
 <p>On Linux/Unix, this alters the identification of the window to either X11 or the more modern
 Wayland, depending on what you are running on.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="config-file"><a class="header" href="#config-file">Config File</a></h1>
+<p>Neovide also support configuration through a config file in <a href="https://toml.io">the toml format</a>.</p>
+<h2 id="settings-priority"><a class="header" href="#settings-priority">Settings priority</a></h2>
+<p>Settings specified in the config file override settings from the environment variables, but are
+overridden by command line arguments.</p>
+<h2 id="location"><a class="header" href="#location">Location</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Platform</th><th>Location</th></tr></thead><tbody>
+<tr><td>Linux</td><td><code>$XDG_CONFIG_HOME/neovide/config.toml</code> or <code>$HOME/.config/neovide/config.toml</code></td></tr>
+<tr><td>macOS</td><td><code>$XDG_CONFIG_HOME/neovide/config.toml</code> or <code>$HOME/.config/neovide/config.toml</code></td></tr>
+<tr><td>Windows</td><td><code>{FOLDERID_RoamingAppData}/neovide/config.toml</code></td></tr>
+</tbody></table>
+</div>
+<h2 id="available-settings"><a class="header" href="#available-settings">Available settings</a></h2>
+<p>Settings currently available in the config file with default values:</p>
+<pre><code class="language-toml">multigrid = false
+vsync = true
+maximized = false
+srgb = false
+idle = true
+neovim_bin = &quot;/usr/bin/nvim&quot;
+frame = &quot;Full&quot;
+</code></pre>
+<p>See <a href="command-line-reference.html">Command Line Reference</a> for details on what those settings do.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="editing-w-external-tools"><a class="header" href="#editing-w-external-tools">Editing w/ External Tools</a></h1>
 <p>You can use Neovide in other programs as editor, this page aims to document some quirks. Support for
 that, however, is only possible as far as reasonably debuggable.</p>

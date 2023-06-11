@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Installation - Neovide</title>
+        <title>Config File - Neovide</title>
         <!-- Custom HTML head -->
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="A Simple, No Nonsense, Cross-Platform, Graphical User Interface for Neovim">
@@ -78,7 +78,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Neovide</a></li><li class="spacer"></li><li class="chapter-item expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features</a></li><li class="chapter-item expanded "><a href="installation.html" class="active"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">3.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="command-line-reference.html"><strong aria-hidden="true">4.</strong> Command Line Reference</a></li><li class="chapter-item expanded "><a href="config-file.html"><strong aria-hidden="true">5.</strong> Config File</a></li><li class="chapter-item expanded "><a href="editing-with-external-tools.html"><strong aria-hidden="true">6.</strong> Editing w/ External Tools</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">7.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">8.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="maintainer-cookbook.html"><strong aria-hidden="true">9.</strong> Maintainer Cookbook</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Neovide</a></li><li class="spacer"></li><li class="chapter-item expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">3.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="command-line-reference.html"><strong aria-hidden="true">4.</strong> Command Line Reference</a></li><li class="chapter-item expanded "><a href="config-file.html" class="active"><strong aria-hidden="true">5.</strong> Config File</a></li><li class="chapter-item expanded "><a href="editing-with-external-tools.html"><strong aria-hidden="true">6.</strong> Editing w/ External Tools</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">7.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">8.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="maintainer-cookbook.html"><strong aria-hidden="true">9.</strong> Maintainer Cookbook</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -116,7 +116,7 @@
                         <a href="https://github.com/neovide/neovide" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/neovide/neovide/edit/main/website/docs/installation.md" title="Suggest an edit" aria-label="Suggest an edit">
+                        <a href="https://github.com/neovide/neovide/edit/main/website/docs/config-file.md" title="Suggest an edit" aria-label="Suggest an edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
                     </div>
@@ -143,152 +143,38 @@
 
                 <div id="content" class="content">
                     <main><div class="sidetoc"><nav class="pagetoc"></nav></div>
-                        <h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
-<p><strong>Note</strong>: Neovide requires neovim version <code>0.6</code> <em>or greater</em>. See previous releases such as <code>0.5.0</code>
-if your distro is too slow with updating or you need to rely on older neovim versions.</p>
-<p>Building instructions are somewhat limited at the moment. All the libraries Neovide uses are cross
-platform and should have support for Windows, Mac, and Linux. The rendering is based on OpenGL, so a
-good GPU driver will be necessary, the default drivers provided by virtual machines might not be
-enough. On Windows this should be enabled by default if you have a relatively recent system.</p>
-<h2 id="binaries"><a class="header" href="#binaries">Binaries</a></h2>
-<p>Installing should be as simple as downloading the binary, making sure the <code>nvim</code> executable with
-version 0.6 or greater is on your <code>PATH</code> environment variable, and running it. Everything should be
-self contained.</p>
-<p>The binaries are to be found on
-<a href="https://github.com/neovide/neovide/releases/latest">the release page</a>.</p>
-<h2 id="windows"><a class="header" href="#windows">Windows</a></h2>
-<h3 id="scoop"><a class="header" href="#scoop">Scoop</a></h3>
-<p><a href="https://scoop.sh/">Scoop</a> has Neovide in the <code>extras</code> bucket. Ensure you have the <code>extras</code> bucket,
-and install:</p>
-<pre><code class="language-sh">$ scoop bucket list
-main
-extras
-
-$ scoop install neovide
+                        <h1 id="config-file"><a class="header" href="#config-file">Config File</a></h1>
+<p>Neovide also support configuration through a config file in <a href="https://toml.io">the toml format</a>.</p>
+<h2 id="settings-priority"><a class="header" href="#settings-priority">Settings priority</a></h2>
+<p>Settings specified in the config file override settings from the environment variables, but are
+overridden by command line arguments.</p>
+<h2 id="location"><a class="header" href="#location">Location</a></h2>
+<div class="table-wrapper"><table><thead><tr><th>Platform</th><th>Location</th></tr></thead><tbody>
+<tr><td>Linux</td><td><code>$XDG_CONFIG_HOME/neovide/config.toml</code> or <code>$HOME/.config/neovide/config.toml</code></td></tr>
+<tr><td>macOS</td><td><code>$XDG_CONFIG_HOME/neovide/config.toml</code> or <code>$HOME/.config/neovide/config.toml</code></td></tr>
+<tr><td>Windows</td><td><code>{FOLDERID_RoamingAppData}/neovide/config.toml</code></td></tr>
+</tbody></table>
+</div>
+<h2 id="available-settings"><a class="header" href="#available-settings">Available settings</a></h2>
+<p>Settings currently available in the config file with default values:</p>
+<pre><code class="language-toml">multigrid = false
+vsync = true
+maximized = false
+srgb = false
+idle = true
+neovim_bin = &quot;/usr/bin/nvim&quot;
+frame = &quot;Full&quot;
 </code></pre>
-<h3 id="windows-source"><a class="header" href="#windows-source">Windows Source</a></h3>
-<ol>
-<li>
-<p>Install the latest version of Rust. I recommend <a href="https://rustup.rs/">https://rustup.rs/</a></p>
-</li>
-<li>
-<p>Install CMake. I use chocolatey:
-<code>choco install cmake --installargs '&quot;ADD_CMAKE_TO_PATH=System&quot;' -y</code></p>
-</li>
-<li>
-<p>Install LLVM. I use chocolatey: <code>choco install llvm -y</code></p>
-</li>
-<li>
-<p>Ensure graphics libraries are up to date.</p>
-</li>
-<li>
-<p>Build and install Neovide:</p>
-<pre><code class="language-sh">cargo install --git https://github.com/neovide/neovide.git
-</code></pre>
-<p>The resulting binary can be found inside of <code>~/.cargo/bin</code> afterwards (99% of the time).</p>
-</li>
-</ol>
-<h2 id="mac"><a class="header" href="#mac">Mac</a></h2>
-<h3 id="homebrew"><a class="header" href="#homebrew">Homebrew</a></h3>
-<p>Neovide is available as Cask in <a href="https://brew.sh">Homebrew</a>. It can be installed from the command
-line:</p>
-<pre><code class="language-sh">brew install --cask neovide
-</code></pre>
-<h3 id="mac-source"><a class="header" href="#mac-source">Mac Source</a></h3>
-<ol>
-<li>
-<p>Install the latest version of Rust. Using homebrew: <code>brew install rustup-init</code></p>
-</li>
-<li>
-<p>Configure rust by running <code>rustup-init</code></p>
-</li>
-<li>
-<p>Install CMake. Using homebrew: <code>brew install cmake</code></p>
-</li>
-<li>
-<p><code>git clone https://github.com/neovide/neovide</code></p>
-</li>
-<li>
-<p><code>cd neovide</code></p>
-</li>
-<li>
-<p><code>cargo install --path .</code></p>
-<p>The resulting binary is to be found under <code>~/.cargo/bin</code>. In case you want a nice application
-bundle:</p>
-</li>
-<li>
-<p><code>cargo install cargo-bundle</code></p>
-</li>
-<li>
-<p><code>cargo bundle --release</code></p>
-</li>
-<li>
-<p><code>cp -r ./target/release/bundle/osx/Neovide.app /Applications/Neovide.app</code> and enjoy.</p>
-</li>
-</ol>
-<h2 id="linux"><a class="header" href="#linux">Linux</a></h2>
-<h3 id="arch-linux"><a class="header" href="#arch-linux">Arch Linux</a></h3>
-<p>Stable releases are
-<a href="https://archlinux.org/packages/community/x86_64/neovide">packaged in the community repository</a>.</p>
-<pre><code class="language-sh">pacman -S neovide
-</code></pre>
-<p>To run a development version you can build from
-<a href="https://aur.archlinux.org/packages/neovide-git">the VCS package in the AUR</a>. This can be built and
-installed using an AUR helper or
-<a href="https://wiki.archlinux.org/title/Arch_User_Repository#Installing_and_upgrading_packages">by hand in the usual way</a>.
-To build from a non-default branch you can edit the PKGBUILD and add <code>#branch-name</code> to the end of
-the source URL.</p>
-<h3 id="snap"><a class="header" href="#snap">Snap</a></h3>
-<p>Neovide is also available in the Snap Store. You can install it using the command below.</p>
-<pre><code class="language-sh">snap install neovide
-</code></pre>
-<p><a href="https://snapcraft.io/neovide"><img src="https://snapcraft.io/static/images/badges/en/snap-store-white.svg" alt="Get it from the Snap Store" /></a></p>
-<h3 id="linux-source"><a class="header" href="#linux-source">Linux Source</a></h3>
-<ol>
-<li>
-<p>Install necessary dependencies (adjust for your preferred package manager, probably most of this
-stuff is already installed, just try building and see)</p>
-<ul>
-<li>
-<p>Ubuntu/Debian</p>
-<pre><code class="language-sh">sudo apt install -y curl \
-    gnupg ca-certificates git \
-    gcc-multilib g++-multilib cmake libssl-dev pkg-config \
-    libfreetype6-dev libasound2-dev libexpat1-dev libxcb-composite0-dev \
-    libbz2-dev libsndio-dev freeglut3-dev libxmu-dev libxi-dev libfontconfig1-dev \
-    libxcursor-dev
-</code></pre>
-</li>
-<li>
-<p>Fedora</p>
-<pre><code class="language-sh">sudo dnf install fontconfig-devel freetype-devel libX11-xcb libX11-devel libstdc++-static libstdc++-devel
-sudo dnf groupinstall &quot;Development Tools&quot; &quot;Development Libraries&quot;
-</code></pre>
-</li>
-</ul>
-</li>
-<li>
-<p>Install Rust</p>
-<pre><code class="language-sh">curl --proto '=https' --tlsv1.2 -sSf &quot;https://sh.rustup.rs&quot; | sh
-</code></pre>
-</li>
-<li>
-<p>Fetch and build</p>
-<pre><code class="language-sh">cargo install --git https://github.com/neovide/neovide
-</code></pre>
-<p>The resulting binary can be found inside of <code>~/.cargo/bin</code> afterwards, you might want to add this
-to your <code>PATH</code> environment variable.</p>
-</li>
-</ol>
+<p>See <a href="command-line-reference.html">Command Line Reference</a> for details on what those settings do.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="features.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="command-line-reference.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
-                            <a rel="next" href="configuration.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="editing-with-external-tools.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         <div style="clear: both"></div>
@@ -297,10 +183,10 @@ to your <code>PATH</code> environment variable.</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="features.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="command-line-reference.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
-                    <a rel="next" href="configuration.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="editing-with-external-tools.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
