@@ -45,9 +45,8 @@ impl Config {
     pub fn init() {
         match Config::load_from_path(&config_path()) {
             Ok(config) => config.write_to_env(),
-            Err(err) => {
-                eprintln!("{err}");
-            }
+            Err(Some(err)) => eprintln!("{err}"),
+            Err(None) => {}
         };
     }
 
@@ -75,7 +74,10 @@ impl Config {
         }
     }
 
-    fn load_from_path(path: &Path) -> Result<Self, String> {
+    fn load_from_path(path: &Path) -> Result<Self, Option<String>> {
+        if !path.exists() {
+            return Err(None);
+        }
         let toml = std::fs::read_to_string(path).map_err(|e| {
             format!(
                 "Error while trying to open config file {}:\n{}\nContinuing with default config.",
