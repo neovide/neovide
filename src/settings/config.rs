@@ -75,13 +75,15 @@ impl Config {
     }
 
     fn load_from_path(path: &Path) -> Result<Self, Option<String>> {
+        if !path.exists() {
+            return Err(None)
+        }
         let toml = std::fs::read_to_string(path).map_err(|e| {
-            log::debug!(
+            format!(
                 "Error while trying to open config file {}:\n{}\nContinuing with default config.",
                 path.to_string_lossy(),
                 e
-            );
-            None
+            )
         })?;
         let config = toml::from_str(&toml).map_err(|e| {
             format!(
