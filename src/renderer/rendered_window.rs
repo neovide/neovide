@@ -15,6 +15,9 @@ use crate::{
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
 };
+use winit::dpi::PhysicalSize;
+
+use super::opengl::clamp_render_buffer_size;
 
 #[derive(Clone, Debug)]
 pub struct LineFragment {
@@ -58,12 +61,13 @@ pub struct WindowPadding {
     pub bottom: u32,
 }
 
-fn build_window_surface(parent_canvas: &mut Canvas, pixel_size: (i32, i32)) -> Surface {
+fn build_window_surface(parent_canvas: &mut Canvas, pixel_size: PhysicalSize<u32>) -> Surface {
+    let pixel_size = clamp_render_buffer_size(pixel_size);
     let mut context = parent_canvas.recording_context().unwrap();
     let budgeted = Budgeted::Yes;
     let parent_image_info = parent_canvas.image_info();
     let image_info = ImageInfo::new(
-        pixel_size,
+        (pixel_size.width as i32, pixel_size.height as i32),
         parent_image_info.color_type(),
         parent_image_info.alpha_type(),
         parent_image_info.color_space(),

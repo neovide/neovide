@@ -1,8 +1,10 @@
-use std::convert::TryInto;
+use std::num::NonZeroU32;
+use std::{convert::TryInto, ffi::CString};
 
 use crate::redraw_scheduler::REDRAW_SCHEDULER;
 use crate::renderer::WindowedContext;
 use gl::types::*;
+use glutin::prelude::GlConfig;
 use skia_safe::{
     gpu::{gl::FramebufferInfo, BackendRenderTarget, DirectContext, SurfaceOrigin},
     Canvas, ColorType, Surface,
@@ -13,24 +15,21 @@ fn create_surface(
     gr_context: &mut DirectContext,
     fb_info: FramebufferInfo,
 ) -> Surface {
-    let pixel_format = windowed_context.get_pixel_format();
-    let size = windowed_context.window().inner_size();
-    let size = (
-        size.width.try_into().expect("Could not convert width"),
-        size.height.try_into().expect("Could not convert height"),
-    );
+    let pixel_format = windowed_context.get_config();
+    let size = windowed_context.get_render_target_size();
     let backend_render_target = BackendRenderTarget::new_gl(
-        size,
+        size.into(),
+        Some(pixel_format.num_samples() as usize),
         pixel_format
-            .multisampling
-            .map(|s| s.try_into().expect("Could not convert multisampling")),
-        pixel_format
-            .stencil_bits
+            .stencil_size()
             .try_into()
             .expect("Could not convert stencil"),
         fb_info,
     );
-    windowed_context.resize(size.into());
+    windowed_context.resize(
+        NonZeroU32::new(size.width).unwrap(),
+        NonZeroU32::new(size.height).unwrap(),
+    );
     Surface::from_backend_render_target(
         gr_context,
         &backend_render_target,
@@ -50,13 +49,13 @@ pub struct SkiaRenderer {
 
 impl SkiaRenderer {
     pub fn new(windowed_context: &WindowedContext) -> SkiaRenderer {
-        gl::load_with(|s| windowed_context.get_proc_address(s));
+        gl::load_with(|s| windowed_context.get_proc_address(CString::new(s).unwrap().as_c_str()));
 
         let interface = skia_safe::gpu::gl::Interface::new_load_with(|name| {
             if name == "eglGetCurrentDisplay" {
                 return std::ptr::null();
             }
-            windowed_context.get_proc_address(name)
+            windowed_context.get_proc_address(CString::new(name).unwrap().as_c_str())
         })
         .expect("Could not create interface");
 
