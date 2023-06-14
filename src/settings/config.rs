@@ -76,7 +76,7 @@ impl Config {
 
     fn load_from_path(path: &Path) -> Result<Self, Option<String>> {
         if !path.exists() {
-            return Err(None)
+            return Err(None);
         }
         let toml = std::fs::read_to_string(path).map_err(|e| {
             format!(
