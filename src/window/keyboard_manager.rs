@@ -1,52 +1,26 @@
 use crate::{
     bridge::{SerialCommand, UiCommand},
     event_aggregator::EVENT_AGGREGATOR,
-    settings::SETTINGS,
-    window::KeyboardSettings,
 };
 use winit::{
-    event::{ElementState, Event, Ime, KeyEvent, WindowEvent},
-    keyboard::{Key, Key::Dead},
+    event::{ElementState, Event, Ime, Modifiers, WindowEvent},
+    keyboard::Key,
     platform::modifier_supplement::KeyEventExtModifierSupplement,
 };
 
-enum InputEvent {
-    KeyEvent(KeyEvent),
-    ImeInput(String),
-}
 pub struct KeyboardManager {
-    shift: bool,
-    ctrl: bool,
-    alt: bool,
-    prev_dead_key: Option<char>,
-    logo: bool,
-    ignore_input_this_frame: bool,
-    queued_input_events: Vec<InputEvent>,
+    modifiers: Modifiers,
 }
 
 impl KeyboardManager {
     pub fn new() -> KeyboardManager {
         KeyboardManager {
-            shift: false,
-            ctrl: false,
-            alt: false,
-            prev_dead_key: None,
-            logo: false,
-            ignore_input_this_frame: false,
-            queued_input_events: Vec::new(),
+            modifiers: Modifiers::default(),
         }
     }
 
     pub fn handle_event(&mut self, event: &Event<()>) {
         match event {
-            Event::WindowEvent {
-                event: WindowEvent::Focused(_focused),
-                ..
-            } => {
-                // When window is just focused or lost it's focus, ignore keyboard events
-                // that were submitted this frame
-                self.ignore_input_this_frame = true;
-            }
             Event::WindowEvent {
                 event:
                     WindowEvent::KeyboardInput {
@@ -54,178 +28,51 @@ impl KeyboardManager {
                     },
                 ..
             } => {
-                // Store the event so that we can ignore it properly if the window was just
-                // focused.
-                self.queued_input_events
-                    .push(InputEvent::KeyEvent(key_event.clone()));
+                if key_event.state == ElementState::Pressed {
+                    if let Some(text) = get_control_key(&key_event.logical_key).or(key_event
+                        .text_with_all_modifiers()
+                        .map(|text| text.to_string()))
+                    {
+                        log::trace!("Key pressed {} {:?}", text, self.modifiers.state());
+
+                        EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Keyboard(
+                            self.format_special_key(&text),
+                        )));
+                    }
+                }
             }
             Event::WindowEvent {
-                event: WindowEvent::Ime(Ime::Commit(string)),
+                event: WindowEvent::Ime(Ime::Commit(_string)),
                 ..
-            } => {
-                self.queued_input_events
-                    .push(InputEvent::ImeInput(string.to_string()));
-            }
+            } => {}
             Event::WindowEvent {
                 event: WindowEvent::ModifiersChanged(modifiers),
                 ..
             } => {
                 // Record the modifier states so that we can properly add them to the keybinding
                 // text
-                let state = modifiers.state();
-                self.shift = state.shift_key();
-                self.ctrl = state.control_key();
-                self.alt = state.alt_key();
-                self.logo = state.super_key();
-            }
-            Event::MainEventsCleared => {
-                // If the window wasn't just focused.
-                if !self.should_ignore_input() {
-                    // And we have a keyboard event this frame
-                    for input_event in self.queued_input_events.iter() {
-                        let mut next_dead_key = self.prev_dead_key;
-                        match input_event {
-                            InputEvent::KeyEvent(key_event) => {
-                                // And a key was pressed
-                                if key_event.state == ElementState::Pressed {
-                                    if let Some(keybinding) = self.maybe_get_keybinding(key_event) {
-                                        EVENT_AGGREGATOR.send(UiCommand::Serial(
-                                            SerialCommand::Keyboard(keybinding),
-                                        ));
-                                    }
-                                    next_dead_key = None;
-                                } else if key_event.state == ElementState::Released {
-                                    // dead key detect here
-                                    if let Dead(dead_key) = key_event.logical_key {
-                                        // should wait for the next input text_with_all_modifiers, and ignore the next ime.
-                                        next_dead_key = dead_key;
-                                    }
-                                }
-                            }
-                            InputEvent::ImeInput(raw_input) => {
-                                if self.prev_dead_key.is_none() {
-                                    EVENT_AGGREGATOR.send(UiCommand::Serial(
-                                        SerialCommand::Keyboard(raw_input.to_string()),
-                                    ));
-                                }
-                            }
-                        }
-                        self.prev_dead_key = next_dead_key;
-                    }
-                }
-
-                // Regardless of whether this was a valid keyboard input or not, rest ignoring and
-                // whatever event was queued.
-                self.ignore_input_this_frame = false;
-                self.queued_input_events.clear();
+                self.modifiers = *modifiers;
             }
             _ => {}
         }
     }
 
-    fn should_ignore_input(&self) -> bool {
-        let settings = SETTINGS.get::<KeyboardSettings>();
-        self.ignore_input_this_frame || (self.logo && !settings.use_logo)
-    }
-
-    fn maybe_get_keybinding(&self, key_event: &KeyEvent) -> Option<String> {
-        // Determine if this key event represents a key which won't ever
-        // present text.
-        if let Some(key_text) = is_control_key(&key_event.logical_key) {
-            if self.prev_dead_key.is_some() {
-                //recover dead key to normal character
-                let real_char = String::from(self.prev_dead_key.unwrap());
-                Some(real_char + &self.format_special_key(true, key_text))
-            } else {
-                Some(self.format_special_key(true, key_text))
-            }
-        } else {
-            let key_text = if self.prev_dead_key.is_none() {
-                key_event.text.as_ref().map(|text| text.as_str())
-            } else {
-                key_event.text_with_all_modifiers()
-            };
-            if let Some(original_key_text) = key_text {
-                let mut key_text = original_key_text.to_string();
-                if self.alt {
-                    if let Some(modify) = key_event_text(key_event) {
-                        key_text = modify;
-                    }
-                }
-                // This is not a control key, so we rely upon winit to determine if
-                // this is a deadkey or not.
-                let keybinding_string =
-                    if let Some((escaped_text, use_shift)) = is_special(&key_text) {
-                        self.format_special_key(use_shift, escaped_text)
-                    } else {
-                        self.format_normal_key(&key_text)
-                    };
-
-                Some(keybinding_string)
-            } else {
-                None
-            }
-        }
-    }
-
-    fn format_special_key(&self, use_shift: bool, text: &str) -> String {
-        let modifiers = self.format_modifier_string(use_shift);
-
-        format!("<{modifiers}{text}>")
-    }
-
-    fn format_normal_key(&self, text: &str) -> String {
-        let has_modifier = self.ctrl || use_alt(self.alt) || self.logo;
-        // use shift only if `text` is alphabetic
-        let is_alphabetic = text.chars().all(char::is_alphabetic);
-
-        if has_modifier {
-            self.format_special_key(is_alphabetic, text)
-        } else {
+    fn format_special_key(&self, text: &str) -> String {
+        let modifiers = self.format_modifier_string(false);
+        if modifiers.is_empty() {
             text.to_string()
+        } else {
+            format!("<{modifiers}{text}>")
         }
     }
 
     pub fn format_modifier_string(&self, use_shift: bool) -> String {
-        let shift = or_empty(self.shift && use_shift, "S-");
-        let ctrl = or_empty(self.ctrl, "C-");
-        let alt = or_empty(use_alt(self.alt), "M-");
-        let logo = or_empty(self.logo, "D-");
+        let shift = or_empty(self.modifiers.state().shift_key() && use_shift, "S-");
+        let ctrl = or_empty(self.modifiers.state().control_key(), "C-");
+        let alt = or_empty(self.modifiers.state().alt_key(), "M-");
+        let logo = or_empty(self.modifiers.state().super_key(), "D-");
 
         shift.to_owned() + ctrl + alt + logo
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-fn use_alt(alt: bool) -> bool {
-    alt
-}
-
-// The option or alt key is used on Macos for character set changes
-// and does not operate the same as other systems.
-#[cfg(target_os = "macos")]
-fn use_alt(alt: bool) -> bool {
-    let settings = SETTINGS.get::<KeyboardSettings>();
-    settings.macos_alt_is_meta && alt
-}
-
-#[cfg(not(target_os = "macos"))]
-fn key_event_text(key_event: &KeyEvent) -> Option<String> {
-    key_event
-        .key_without_modifiers()
-        .to_text()
-        .map(|text| text.to_string())
-}
-
-#[cfg(target_os = "macos")]
-fn key_event_text(key_event: &KeyEvent) -> Option<String> {
-    let settings = SETTINGS.get::<KeyboardSettings>();
-    if settings.macos_alt_is_meta {
-        key_event.text.as_ref().map(|text| text.to_string())
-    } else {
-        key_event
-            .text_with_all_modifiers()
-            .map(|text| text.to_string())
     }
 }
 
@@ -237,7 +84,7 @@ fn or_empty(condition: bool, text: &str) -> &str {
     }
 }
 
-fn is_control_key(key: &Key) -> Option<&'static str> {
+fn get_control_key(key: &Key) -> Option<String> {
     match key {
         Key::Backspace => Some("BS"),
         Key::Escape => Some("Esc"),
@@ -266,17 +113,5 @@ fn is_control_key(key: &Key) -> Option<&'static str> {
         Key::Tab => Some("Tab"),
         _ => None,
     }
-}
-
-// returns (`escaped_text`, `use_shift`)
-fn is_special(text: &str) -> Option<(&str, bool)> {
-    match text {
-        " " => Some(("Space", true)),
-        "<" => Some(("lt", false)),
-        "\\" => Some(("Bslash", false)),
-        "|" => Some(("Bar", false)),
-        "\t" => Some(("Tab", true)),
-        "\n" | "\r" => Some(("CR", true)),
-        _ => None,
-    }
+    .map(|text| format!("<{}>", text))
 }
