@@ -29,15 +29,15 @@ impl KeyboardManager {
                 ..
             } => {
                 if key_event.state == ElementState::Pressed {
-                    if let Some(text) = get_control_key(&key_event.logical_key).or(key_event
-                        .text_with_all_modifiers()
-                        .map(|text| text.to_string()))
+                    if let Some(text) = get_special_key(&key_event.logical_key)
+                        .map(|text| self.format_key(text, true))
+                        .or(key_event
+                            .text_with_all_modifiers()
+                            .map(|text| self.format_key(text, false)))
                     {
                         log::trace!("Key pressed {} {:?}", text, self.modifiers.state());
 
-                        EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Keyboard(
-                            self.format_special_key(&text),
-                        )));
+                        EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Keyboard(text)));
                     }
                 }
             }
@@ -57,11 +57,15 @@ impl KeyboardManager {
         }
     }
 
-    fn format_special_key(&self, text: &str) -> String {
+    fn format_key(&self, text: &str, is_special: bool) -> String {
         let text = if text == "<" { "<lt>" } else { text };
-        let modifiers = self.format_modifier_string(false);
+        let modifiers = self.format_modifier_string(is_special);
         if modifiers.is_empty() {
-            text.to_string()
+            if is_special {
+                format!("<{text}>")
+            } else {
+                text.to_string()
+            }
         } else {
             format!("<{modifiers}{text}>")
         }
@@ -85,7 +89,7 @@ fn or_empty(condition: bool, text: &str) -> &str {
     }
 }
 
-fn get_control_key(key: &Key) -> Option<String> {
+fn get_special_key(key: &Key) -> Option<&str> {
     match key {
         Key::Backspace => Some("BS"),
         Key::Escape => Some("Esc"),
@@ -137,5 +141,4 @@ fn get_control_key(key: &Key) -> Option<String> {
         Key::Tab => Some("Tab"),
         _ => None,
     }
-    .map(|text| format!("<{}>", text))
 }
