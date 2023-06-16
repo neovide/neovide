@@ -58,6 +58,7 @@ impl KeyboardManager {
     }
 
     fn format_special_key(&self, text: &str) -> String {
+        let text = if text == "<" { "<lt>" } else { text };
         let modifiers = self.format_modifier_string(false);
         if modifiers.is_empty() {
             text.to_string()
