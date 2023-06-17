@@ -12,12 +12,14 @@ use winit::{
 
 pub struct KeyboardManager {
     modifiers: Modifiers,
+    ime_preedit: (String, Option<(usize, usize)>),
 }
 
 impl KeyboardManager {
     pub fn new() -> KeyboardManager {
         KeyboardManager {
             modifiers: Modifiers::default(),
+            ime_preedit: ("".to_string(), None),
         }
     }
 
@@ -30,7 +32,7 @@ impl KeyboardManager {
                     },
                 ..
             } => {
-                if key_event.state == ElementState::Pressed {
+                if key_event.state == ElementState::Pressed && self.ime_preedit.0.is_empty() {
                     if let Some(text) = get_special_key(&key_event.logical_key)
                         .map(|text| self.format_key(text, true))
                         .or(key_event
@@ -38,15 +40,21 @@ impl KeyboardManager {
                             .map(|text| self.format_key(text, false)))
                     {
                         log::trace!("Key pressed {} {:?}", text, self.modifiers.state());
-
                         EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Keyboard(text)));
                     }
                 }
             }
             Event::WindowEvent {
-                event: WindowEvent::Ime(Ime::Commit(_string)),
+                event: WindowEvent::Ime(Ime::Commit(text)),
                 ..
-            } => {}
+            } => {
+                log::trace!("Ime commit {text}");
+                EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Keyboard(text.to_string())));
+            }
+            Event::WindowEvent {
+                event: WindowEvent::Ime(Ime::Preedit(text, cursor_offset)),
+                ..
+            } => self.ime_preedit = (text.to_string(), *cursor_offset),
             Event::WindowEvent {
                 event: WindowEvent::ModifiersChanged(modifiers),
                 ..
