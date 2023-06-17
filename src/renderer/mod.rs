@@ -13,7 +13,7 @@ use std::{
 };
 
 use log::error;
-use skia_safe::Canvas;
+use skia_safe::{Canvas, Point};
 use tokio::sync::mpsc::UnboundedReceiver;
 use winit::event::Event;
 
@@ -293,6 +293,10 @@ impl Renderer {
             }
             _ => {}
         }
+    }
+
+    pub fn get_cursor_position(&self) -> Point {
+        self.cursor_renderer.get_current_position()
     }
 }
 

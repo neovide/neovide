@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 use log::trace;
 use tokio::sync::mpsc::UnboundedReceiver;
 use winit::{
-    dpi::PhysicalSize,
+    dpi::{PhysicalPosition, PhysicalSize, Position},
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{self, Fullscreen, Icon, Theme},
@@ -248,6 +248,7 @@ impl WinitWindowWrapper {
         }
 
         if REDRAW_SCHEDULER.should_draw() || !SETTINGS.get::<WindowSettings>().idle {
+            let prev_cursor_position = self.renderer.get_cursor_position();
             self.font_changed_last_frame =
                 self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
             {
@@ -260,6 +261,17 @@ impl WinitWindowWrapper {
             }
             emit_frame_mark();
             tracy_gpu_collect();
+            let current_cursor_position = self.renderer.get_cursor_position();
+            if current_cursor_position != prev_cursor_position {
+                let font_dimensions = self.renderer.grid_renderer.font_dimensions;
+                let position = PhysicalPosition::new(
+                    current_cursor_position.x.round() as i32,
+                    current_cursor_position.y.round() as i32 + font_dimensions.height as i32,
+                );
+                self.windowed_context
+                    .window()
+                    .set_ime_position(Position::Physical(position));
+            }
         }
 
         // Wait until fonts are loaded, so we can set proper window size.
