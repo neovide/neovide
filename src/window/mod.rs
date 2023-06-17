@@ -434,6 +434,8 @@ pub fn create_window() {
     let window = windowed_context.window();
     let initial_size = window.inner_size();
 
+    window.set_ime_allowed(true);
+
     // Check that window is visible in some monitor, and reposition it if not.
     let did_reposition = window
         .current_monitor()
