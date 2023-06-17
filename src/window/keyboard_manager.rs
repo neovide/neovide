@@ -2,6 +2,8 @@ use crate::{
     bridge::{SerialCommand, UiCommand},
     event_aggregator::EVENT_AGGREGATOR,
 };
+#[cfg(target_os = "macos")]
+use crate::{settings::SETTINGS, window::KeyboardSettings};
 use winit::{
     event::{ElementState, Event, Ime, Modifiers, WindowEvent},
     keyboard::Key,
@@ -71,10 +73,13 @@ impl KeyboardManager {
         }
     }
 
-    pub fn format_modifier_string(&self, use_shift: bool) -> String {
-        let shift = or_empty(self.modifiers.state().shift_key() && use_shift, "S-");
+    pub fn format_modifier_string(&self, is_special: bool) -> String {
+        let shift = or_empty(self.modifiers.state().shift_key() && is_special, "S-");
         let ctrl = or_empty(self.modifiers.state().control_key(), "C-");
-        let alt = or_empty(self.modifiers.state().alt_key(), "M-");
+        let alt = or_empty(
+            self.modifiers.state().alt_key() && (use_alt() || is_special),
+            "M-",
+        );
         let logo = or_empty(self.modifiers.state().super_key(), "D-");
 
         shift.to_owned() + ctrl + alt + logo
@@ -87,6 +92,19 @@ fn or_empty(condition: bool, text: &str) -> &str {
     } else {
         ""
     }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn use_alt() -> bool {
+    true
+}
+
+// The option or alt key is used on Macos for character set changes
+// and does not operate the same as other systems.
+#[cfg(target_os = "macos")]
+fn use_alt() -> bool {
+    let settings = SETTINGS.get::<KeyboardSettings>();
+    settings.macos_alt_is_meta
 }
 
 fn get_special_key(key: &Key) -> Option<&str> {
