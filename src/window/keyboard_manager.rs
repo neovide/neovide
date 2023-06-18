@@ -5,7 +5,7 @@ use crate::{
 #[cfg(target_os = "macos")]
 use crate::{settings::SETTINGS, window::KeyboardSettings};
 use winit::{
-    event::{ElementState, Event, Ime, Modifiers, WindowEvent},
+    event::{ElementState, Event, Ime, KeyEvent, Modifiers, WindowEvent},
     keyboard::Key,
     platform::modifier_supplement::KeyEventExtModifierSupplement,
 };
@@ -33,12 +33,7 @@ impl KeyboardManager {
                 ..
             } => {
                 if key_event.state == ElementState::Pressed && self.ime_preedit.0.is_empty() {
-                    if let Some(text) = get_special_key(&key_event.logical_key)
-                        .map(|text| self.format_key(text, true))
-                        .or(key_event
-                            .text_with_all_modifiers()
-                            .map(|text| self.format_key(text, false)))
-                    {
+                    if let Some(text) = self.format_key(key_event) {
                         log::trace!("Key pressed {} {:?}", text, self.modifiers.state());
                         EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Keyboard(text)));
                     }
@@ -67,7 +62,39 @@ impl KeyboardManager {
         }
     }
 
-    fn format_key(&self, text: &str, is_special: bool) -> String {
+    fn format_key(&self, key_event: &KeyEvent) -> Option<String> {
+        if let Some(text) = get_special_key(&key_event.logical_key) {
+            Some(self.format_key_text(text, true))
+        } else {
+            self.format_normal_key(key_event)
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    fn format_normal_key(&self, key_event: &KeyEvent) -> Option<String> {
+        key_event
+            .text_with_all_modifiers()
+            .map(|text| self.format_key_text(text, false))
+    }
+
+    #[cfg(target_os = "macos")]
+    fn format_normal_key(&self, key_event: &KeyEvent) -> Option<String> {
+        // On macOs, when alt is held and alt_is_meta is set to true, then send the base key plus
+        // the whole modifier state. Otherwise send the resulting character with "S-" and "M-"
+        // removed.
+        if self.modifiers.state().alt_key() && use_alt() {
+            key_event
+                .key_without_modifiers()
+                .to_text()
+                .map(|text| self.format_key_text(text, true))
+        } else {
+            key_event
+                .text_with_all_modifiers()
+                .map(|text| self.format_key_text(text, false))
+        }
+    }
+
+    fn format_key_text(&self, text: &str, is_special: bool) -> String {
         let text = if text == "<" { "<lt>" } else { text };
         let modifiers = self.format_modifier_string(is_special);
         if modifiers.is_empty() {
@@ -82,6 +109,10 @@ impl KeyboardManager {
     }
 
     pub fn format_modifier_string(&self, is_special: bool) -> String {
+        // Is special is used for special keys so that all modifiers are always included
+        // It's also true with alt_is_meta is set to true.
+        // When the key is not special, shift is removed, since the base character is already
+        // shifted. Furthermore on macOS, meta is additionally removed when alt_is_meta is set to false
         let shift = or_empty(self.modifiers.state().shift_key() && is_special, "S-");
         let ctrl = or_empty(self.modifiers.state().control_key(), "C-");
         let alt = or_empty(
