@@ -10,7 +10,6 @@ this behavior by adding keybindings in neovim.
 
 ```lua
 if vim.g.neovide then
-  vim.g.neovide_input_use_logo = 1 -- enable use of the logo (cmd) key
   vim.keymap.set('n', '<D-s>', ':w<CR>') -- Save
   vim.keymap.set('v', '<D-c>', '"+y') -- Copy
   vim.keymap.set('n', '<D-v>', '"+P') -- Paste normal mode
@@ -20,7 +19,6 @@ if vim.g.neovide then
 end
 
 -- Allow clipboard copy paste in neovim
-vim.g.neovide_input_use_logo = 1
 vim.api.nvim_set_keymap('', '<D-v>', '+p<CR>', { noremap = true, silent = true})
 vim.api.nvim_set_keymap('!', '<D-v>', '<C-R>+', { noremap = true, silent = true})
 vim.api.nvim_set_keymap('t', '<D-v>', '<C-R>+', { noremap = true, silent = true})

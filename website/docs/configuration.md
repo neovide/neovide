@@ -424,28 +424,6 @@ corner.
 
 ### Input Settings
 
-#### Use Logo Key
-
-VimScript:
-
-```vim
-let g:neovide_input_use_logo = v:false  " v:true on macOS
-```
-
-Lua:
-
-```lua
-vim.g.neovide_input_use_logo = false    -- true on macOS
-```
-
-Setting `g:neovide_input_use_logo` to a boolean value will change how logo key (also known as
-[super key](<https://en.wikipedia.org/wiki/Super_key_(keyboard_button)>),
-[command key](https://en.wikipedia.org/wiki/Command_key) or
-[windows key](https://en.wikipedia.org/wiki/Windows_key)) is handled, allowing all key combinations
-containing logo to be forwarded to neovim. On MacOS, this defaults to `true` (so that e.g. `cmd+v`
-works for pasting with respective setup of `init.vim`), and to `false` for other platforms (that
-typically use e.g. `ctrl+v` for pasting).
-
 #### macOS Alt is Meta
 
 VimScript:
