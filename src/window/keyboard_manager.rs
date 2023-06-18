@@ -149,6 +149,7 @@ fn use_alt() -> bool {
 fn get_special_key(key: &Key) -> Option<&str> {
     match key {
         Key::Backspace => Some("BS"),
+        Key::Space => Some("Space"),
         Key::Escape => Some("Esc"),
         Key::Delete => Some("Del"),
         Key::ArrowUp => Some("Up"),
