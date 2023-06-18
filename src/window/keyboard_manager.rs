@@ -4,10 +4,11 @@ use crate::{
 };
 #[cfg(target_os = "macos")]
 use crate::{settings::SETTINGS, window::KeyboardSettings};
+#[allow(unused_imports)]
+use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use winit::{
     event::{ElementState, Event, Ime, KeyEvent, Modifiers, WindowEvent},
     keyboard::Key,
-    platform::modifier_supplement::KeyEventExtModifierSupplement,
 };
 
 pub struct KeyboardManager {
@@ -73,8 +74,9 @@ impl KeyboardManager {
     #[cfg(not(target_os = "macos"))]
     fn format_normal_key(&self, key_event: &KeyEvent) -> Option<String> {
         key_event
-            .text_with_all_modifiers()
-            .map(|text| self.format_key_text(text, false))
+            .text
+            .as_ref()
+            .map(|text| self.format_key_text(text.as_str(), false))
     }
 
     #[cfg(target_os = "macos")]
@@ -89,8 +91,9 @@ impl KeyboardManager {
                 .map(|text| self.format_key_text(text, true))
         } else {
             key_event
-                .text_with_all_modifiers()
-                .map(|text| self.format_key_text(text, false))
+                .text
+                .as_ref()
+                .map(|text| self.format_key_text(text.as_str(), false))
         }
     }
 
