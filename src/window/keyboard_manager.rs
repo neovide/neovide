@@ -101,8 +101,14 @@ impl KeyboardManager {
     }
 
     fn format_key_text(&self, text: &str, is_special: bool) -> String {
-        let text = if text == "<" { "<lt>" } else { text };
         let modifiers = self.format_modifier_string(is_special);
+        // < needs to be formatted as a special character, but note that it's not threated as a
+        // special key for the modifier formatting, so S- and -M are still potentially stripped
+        let (text, is_special) = if text == "<" {
+            ("lt", true)
+        } else {
+            (text, is_special)
+        };
         if modifiers.is_empty() {
             if is_special {
                 format!("<{text}>")
