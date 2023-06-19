@@ -29,15 +29,18 @@ impl KeyboardManager {
             Event::WindowEvent {
                 event:
                     WindowEvent::KeyboardInput {
-                        event: key_event, ..
+                        event: key_event,
+                        is_synthetic,
+                        ..
                     },
                 ..
-            } => {
-                if key_event.state == ElementState::Pressed && self.ime_preedit.0.is_empty() {
-                    if let Some(text) = self.format_key(key_event) {
-                        log::trace!("Key pressed {} {:?}", text, self.modifiers.state());
-                        EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Keyboard(text)));
-                    }
+            } if key_event.state == ElementState::Pressed
+                && self.ime_preedit.0.is_empty()
+                && !is_synthetic =>
+            {
+                if let Some(text) = self.format_key(key_event) {
+                    log::trace!("Key pressed {} {:?}", text, self.modifiers.state());
+                    EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Keyboard(text)));
                 }
             }
             Event::WindowEvent {
