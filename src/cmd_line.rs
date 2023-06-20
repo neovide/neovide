@@ -97,6 +97,14 @@ pub struct CmdLineSettings {
     #[arg(long = "neovim-bin", env = "NEOVIM_BIN")]
     pub neovim_bin: Option<String>,
 
+    /// Window title
+    #[arg(
+        long = "window-title",
+        env = "NEOVIDE_WINDOW_TITLE",
+        default_value = "Neovide"
+    )]
+    pub window_title: String,
+
     /// The app ID to show to the compositor (Wayland only, useful for setting WM rules)
     #[arg(
         long = "wayland_app_id",

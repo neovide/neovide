@@ -361,7 +361,7 @@ pub fn create_window() {
     }
 
     let winit_window_builder = window::WindowBuilder::new()
-        .with_title("Neovide")
+        .with_title(&cmd_line_settings.window_title)
         .with_window_icon(Some(icon))
         .with_maximized(maximized)
         .with_transparent(true);

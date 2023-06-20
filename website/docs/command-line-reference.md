@@ -165,6 +165,12 @@ Sets where to find neovim's executable. If unset, neovide will try to find `nvim
 environment variable instead. If you're running a Unix-alike, be sure that binary has the executable
 permission bit set.
 
+### Window Title
+
+```sh
+--window-title <window_title> or $NEOVIDE_WINDOW_TITLE
+```
+
 ### Wayland / X11
 
 ```sh
