@@ -231,6 +231,24 @@ vim.g.neovide_scroll_animation_length = 0.3
 
 Sets how long the scroll animation takes to complete, measured in seconds.
 
+#### Far scroll lines
+
+VimScript:
+
+```vim
+let g:neovide_far_scroll_lines = 1
+```
+
+Lua:
+
+```lua
+vim.g.neovide_far_scroll_lines = 1
+```
+
+When scrolling more than one screen at a time, only this many lines at the end of the scroll action
+will be animated. Set it to 0 to snap to the final position without any animation, or to something
+big like 9999 to always scroll the whole screen, much like Neovide <= 0.10.4 did.
+
 #### Hiding the mouse when typing
 
 VimScript:
