@@ -229,7 +229,9 @@ Lua:
 vim.g.neovide_scroll_animation_length = 0.3
 ```
 
-Sets how long the scroll animation takes to complete, measured in seconds.
+Sets how long the scroll animation takes to complete, measured in seconds. Note that the timing is
+not completely accurate and might depend slightly on have far you scroll, so experimenting is
+encouraged in order to tune it to your liking.
 
 #### Far scroll lines
 
