@@ -47,7 +47,8 @@ General notes about collaborating/doing maintenance work on Neovide.
 
 ## How to release
 
-Note: These are not a strict rulebook, but rather one _possible_ way for releasing. Adjust as you see fit (and then update here with your findings).
+Note: These are not a strict rulebook, but rather one _possible_ way for releasing. Adjust as you
+see fit (and then update here with your findings).
 
 ### Preparing
 
@@ -61,8 +62,8 @@ Note: These are not a strict rulebook, but rather one _possible_ way for releasi
   changes should be an increase in the MINOR part, while fixups should be an
   increase in the PATCH part.
 
-4. Hit the `Generate release notes` button.
-5. Reformat to be similar to previous releases
+1. Hit the `Generate release notes` button.
+2. Reformat to be similar to previous releases
 
   - Rename the `What's Changed` section to `Changes`
   - Rewrite each line in the `Changes` section to reflect what this change means
@@ -70,7 +71,7 @@ Note: These are not a strict rulebook, but rather one _possible_ way for releasi
   - Group all bug fix PRs/commits under a point named `Bug fixes`
   - Have each line reflect what platform it applies to if not irrelevant
 
-- Hit the `Save draft` button
+3. Hit the `Save draft` button
 
 You can make several rounds of preparing such releases through editing the
 current draft over time, to make sure every contributor is mentioned and every
@@ -90,23 +91,23 @@ change is included.
 
 Now here's where the order becomes important:
 
-4. Make sure the working directory is clean
-5. Run `cargo update` and `cargo build`, make sure both succeed
-6. Create a commit named `Run cargo update` or similar
-7. Bump the version to match the tag name everywhere
+1. Make sure the working directory is clean
+2. Run `cargo update` and `cargo build`, make sure both succeed
+3. Create a commit named `Run cargo update` or similar
+4. Bump the version to match the tag name everywhere
 
   - `Cargo.toml`
   - `snap/snapcraft.yaml`
   - `website/docs/*.md` and update `Unreleased yet` to `Available since $tag`
       (where `$tag` is the tag name)
 
-8. Run `cargo build` and make sure it succeeds, **remember to `git add
+5. Run `cargo build` and make sure it succeeds, **remember to `git add
   Cargo.lock` to make sure releases stay reproducable
   ([#1628](https://github.com/neovide/neovide/issues/1628),
   [#1482](https://github.com/neovide/neovide/issues/1482))**
-9. Create a commit called `Bump version to $tag`
-10. Push and wait for CI to complete (will take around 25 minutes)
-11. Run `cargo build --frozen`
+6. Create a commit called `Bump version to $tag`
+7. Push and wait for CI to complete (will take around 25 minutes)
+8. Run `cargo build --frozen`
 
 In the meantime, you can look through the previous commits to see if you missed
 anything.
