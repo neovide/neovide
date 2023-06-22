@@ -200,9 +200,11 @@ next half an hour and GitHub doesn't automatically save its contents.</li>
 changes should be an increase in the MINOR part, while fixups should be an
 increase in the PATCH part.</p>
 <ol>
-<li>Hit the <code>Generate release notes</code> button.</li>
-<li>Reformat to be similar to previous releases</li>
-</ol>
+<li>
+<p>Hit the <code>Generate release notes</code> button.</p>
+</li>
+<li>
+<p>Reformat to be similar to previous releases</p>
 <ul>
 <li>Rename the <code>What's Changed</code> section to <code>Changes</code></li>
 <li>Rewrite each line in the <code>Changes</code> section to reflect what this change means
@@ -210,8 +212,10 @@ for the end user, linking to the relevant PR/commit</li>
 <li>Group all bug fix PRs/commits under a point named <code>Bug fixes</code></li>
 <li>Have each line reflect what platform it applies to if not irrelevant</li>
 </ul>
-<ol start="3">
-<li>Hit the <code>Save draft</code> button</li>
+</li>
+<li>
+<p>Hit the <code>Save draft</code> button</p>
+</li>
 </ol>
 <p>You can make several rounds of preparing such releases through editing the
 current draft over time, to make sure every contributor is mentioned and every
@@ -227,24 +231,38 @@ been mentioned</li>
 </ol>
 <p>Now here's where the order becomes important:</p>
 <ol>
-<li>Make sure the working directory is clean</li>
-<li>Run <code>cargo update</code> and <code>cargo build</code>, make sure both succeed</li>
-<li>Create a commit named <code>Run cargo update</code> or similar</li>
-<li>Bump the version to match the tag name everywhere</li>
-</ol>
+<li>
+<p>Make sure the working directory is clean</p>
+</li>
+<li>
+<p>Run <code>cargo update</code> and <code>cargo build</code>, make sure both succeed</p>
+</li>
+<li>
+<p>Create a commit named <code>Run cargo update</code> or similar</p>
+</li>
+<li>
+<p>Bump the version to match the tag name everywhere</p>
 <ul>
 <li><code>Cargo.toml</code></li>
 <li><code>snap/snapcraft.yaml</code></li>
 <li><code>website/docs/*.md</code> and update <code>Unreleased yet</code> to <code>Available since $tag</code>
 (where <code>$tag</code> is the tag name)</li>
 </ul>
-<ol start="5">
-<li>Run <code>cargo build</code> and make sure it succeeds, <strong>remember to <code>git add Cargo.lock</code> to make sure releases stay reproducable
+</li>
+<li>
+<p>Run <code>cargo build</code> and make sure it succeeds, <strong>remember to <code>git add Cargo.lock</code> to make sure releases stay reproducable
 (<a href="https://github.com/neovide/neovide/issues/1628">#1628</a>,
-<a href="https://github.com/neovide/neovide/issues/1482">#1482</a>)</strong></li>
-<li>Create a commit called <code>Bump version to $tag</code></li>
-<li>Push and wait for CI to complete (will take around 25 minutes)</li>
-<li>Run <code>cargo build --frozen</code></li>
+<a href="https://github.com/neovide/neovide/issues/1482">#1482</a>)</strong></p>
+</li>
+<li>
+<p>Create a commit called <code>Bump version to $tag</code></p>
+</li>
+<li>
+<p>Push and wait for CI to complete (will take around 25 minutes)</p>
+</li>
+<li>
+<p>Run <code>cargo build --frozen</code></p>
+</li>
 </ol>
 <p>In the meantime, you can look through the previous commits to see if you missed
 anything.</p>
