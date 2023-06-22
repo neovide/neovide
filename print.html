@@ -1033,6 +1033,7 @@ permission bit set.</p>
 <p>On Linux/Unix, this alters the identification of the window to either X11 or the more modern
 Wayland, depending on what you are running on.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="config-file"><a class="header" href="#config-file">Config File</a></h1>
+<p><strong>Unreleased yet. Build from git main in order to get this before the next release.</strong></p>
 <p>Neovide also support configuration through a config file in <a href="https://toml.io">the toml format</a>.</p>
 <h2 id="settings-priority"><a class="header" href="#settings-priority">Settings priority</a></h2>
 <p>Settings specified in the config file override settings from the environment variables, but are
@@ -1271,33 +1272,34 @@ those pointers.</p>
 </li>
 </ul>
 <h2 id="how-to-release"><a class="header" href="#how-to-release">How to release</a></h2>
+<p>Note: These are not a strict rulebook, but rather one <em>possible</em> way for releasing. Adjust as you see fit (and then update here with your findings).</p>
 <h3 id="preparing"><a class="header" href="#preparing">Preparing</a></h3>
-<ul>
-<li>
-<p>Head over to <a href="https://github.com/neovide/neovide/releases">the releases page</a> and hit the <code>Draft a new release</code> button.</p>
-</li>
-<li>
-<p>Keep the resulting page somewhere safe open, you'll need to work with it the
-next half an hour and GitHub doesn't automatically save its contents.</p>
-</li>
-<li>
-<p>Create a new tag with an appropriate version number.</p>
+<ol>
+<li>Head over to <a href="https://github.com/neovide/neovide/releases">the releases page</a> and hit the <code>Draft a new release</code> button.</li>
+<li>Keep the resulting page somewhere safe open, you'll need to work with it the
+next half an hour and GitHub doesn't automatically save its contents.</li>
+<li>Create a new tag with an appropriate version number.</li>
+</ol>
 <p>We're not fully following <a href="https://semver.org/">SemVer</a> here, but as of 0.10.1 larger
 changes should be an increase in the MINOR part, while fixups should be an
 increase in the PATCH part.</p>
-</li>
-<li>
-<p>Hit the <code>Generate release notes</code> button.</p>
-</li>
-<li>
-<p>Reformat to be similar to previous releases</p>
+<ol start="4">
+<li>Hit the <code>Generate release notes</code> button.</li>
+<li>Reformat to be similar to previous releases</li>
+</ol>
 <ul>
-<li>Rename the <code>What's Changed</code> section to <code>Changes</code></li>
-<li>Rewrite each line in the <code>Changes</code> section to reflect what this change means
-for the end user, linking to the relevant PR/commit</li>
-<li>Group all bug fix PRs/commits under a point named <code>Bug fixes</code></li>
-<li>Have each line reflect what platform it applies to if not irrelevant</li>
-</ul>
+<li>
+<p>Rename the <code>What's Changed</code> section to <code>Changes</code></p>
+</li>
+<li>
+<p>Rewrite each line in the <code>Changes</code> section to reflect what this change means
+for the end user, linking to the relevant PR/commit</p>
+</li>
+<li>
+<p>Group all bug fix PRs/commits under a point named <code>Bug fixes</code></p>
+</li>
+<li>
+<p>Have each line reflect what platform it applies to if not irrelevant</p>
 </li>
 <li>
 <p>Hit the <code>Save draft</code> button</p>
@@ -1307,59 +1309,45 @@ for the end user, linking to the relevant PR/commit</li>
 current draft over time, to make sure every contributor is mentioned and every
 change is included.</p>
 <h3 id="actually-releasing"><a class="header" href="#actually-releasing">Actually releasing</a></h3>
-<ul>
+<ol>
 <li>Announce a short period of time where last changes to be done or fixup work
 can flow in (can be anything you imagine, though 24 hours to one week might
 be enough depending on the blocker)</li>
 <li>Wait for that period to pass</li>
 <li>Have a last look over the draft to make sure every new contributor and change has
 been mentioned</li>
-</ul>
+</ol>
 <p>Now here's where the order becomes important:</p>
-<ul>
-<li>
-<p>Make sure the working directory is clean</p>
-</li>
-<li>
-<p>Run <code>cargo update</code> and <code>cargo build</code>, make sure both succeed</p>
-</li>
-<li>
-<p>Create a commit named <code>Run cargo update</code> or similar</p>
-</li>
-<li>
-<p>Bump the version to match the tag name everywhere</p>
+<ol start="4">
+<li>Make sure the working directory is clean</li>
+<li>Run <code>cargo update</code> and <code>cargo build</code>, make sure both succeed</li>
+<li>Create a commit named <code>Run cargo update</code> or similar</li>
+<li>Bump the version to match the tag name everywhere</li>
+</ol>
 <ul>
 <li><code>Cargo.toml</code></li>
 <li><code>snap/snapcraft.yaml</code></li>
 <li><code>website/docs/*.md</code> and update <code>Unreleased yet</code> to <code>Available since $tag</code>
 (where <code>$tag</code> is the tag name)</li>
 </ul>
-</li>
-<li>
-<p>Run <code>cargo build</code> and make sure it succeeds, <strong>remember to <code>git add Cargo.lock</code> to make sure releases stay reproducable
+<ol start="8">
+<li>Run <code>cargo build</code> and make sure it succeeds, <strong>remember to <code>git add Cargo.lock</code> to make sure releases stay reproducable
 (<a href="https://github.com/neovide/neovide/issues/1628">#1628</a>,
-<a href="https://github.com/neovide/neovide/issues/1482">#1482</a>)</strong></p>
-</li>
-<li>
-<p>Create a commit called <code>Bump version to $tag</code></p>
-</li>
-<li>
-<p>Push and wait for CI to complete (will take around 25 minutes)</p>
-</li>
-<li>
-<p>Run <code>cargo build --frozen</code></p>
-</li>
-</ul>
+<a href="https://github.com/neovide/neovide/issues/1482">#1482</a>)</strong></li>
+<li>Create a commit called <code>Bump version to $tag</code></li>
+<li>Push and wait for CI to complete (will take around 25 minutes)</li>
+<li>Run <code>cargo build --frozen</code></li>
+</ol>
 <p>In the meantime, you can look through the previous commits to see if you missed
 anything.</p>
-<ul>
+<ol>
 <li>From the <code>Bump version to $tag</code> commit, download all the artifacts</li>
 <li>Unzip <code>neovide-linux.tar.gz.zip</code> to get <code>neovide.tar.gz</code></li>
 <li>Head to the release draft, edit it and upload the produced artifacts (using
 the unzipped <code>neovide.tar.gz</code> for Linux)</li>
 <li>Hit <code>Publish release</code></li>
 <li>profit</li>
-</ul>
+</ol>
 <p>Phew. Now, announce the new release anywhere you think is appropriate (like
 Reddit, Discord, whatever) <del>and go create a PR in nixpkgs</del>.</p>
 
