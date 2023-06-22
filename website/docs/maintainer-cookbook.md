@@ -47,20 +47,22 @@ General notes about collaborating/doing maintenance work on Neovide.
 
 ## How to release
 
+Note: These are not a strict rulebook, but rather one _possible_ way for releasing. Adjust as you see fit (and then update here with your findings).
+
 ### Preparing
 
-- Head over to [the releases page][releases-page] and hit the `Draft a new
+1. Head over to [the releases page][releases-page] and hit the `Draft a new
     release` button.
-- Keep the resulting page somewhere safe open, you'll need to work with it the
+2. Keep the resulting page somewhere safe open, you'll need to work with it the
     next half an hour and GitHub doesn't automatically save its contents.
-- Create a new tag with an appropriate version number.
+3. Create a new tag with an appropriate version number.
 
   We're not fully following [SemVer][semver] here, but as of 0.10.1 larger
   changes should be an increase in the MINOR part, while fixups should be an
   increase in the PATCH part.
 
-- Hit the `Generate release notes` button.
-- Reformat to be similar to previous releases
+4. Hit the `Generate release notes` button.
+5. Reformat to be similar to previous releases
 
   - Rename the `What's Changed` section to `Changes`
   - Rewrite each line in the `Changes` section to reflect what this change means
@@ -79,42 +81,42 @@ change is included.
 
 ### Actually releasing
 
-- Announce a short period of time where last changes to be done or fixup work
+1. Announce a short period of time where last changes to be done or fixup work
     can flow in (can be anything you imagine, though 24 hours to one week might
     be enough depending on the blocker)
-- Wait for that period to pass
-- Have a last look over the draft to make sure every new contributor and change has
+2. Wait for that period to pass
+3. Have a last look over the draft to make sure every new contributor and change has
     been mentioned
 
 Now here's where the order becomes important:
 
-- Make sure the working directory is clean
-- Run `cargo update` and `cargo build`, make sure both succeed
-- Create a commit named `Run cargo update` or similar
-- Bump the version to match the tag name everywhere
+4. Make sure the working directory is clean
+5. Run `cargo update` and `cargo build`, make sure both succeed
+6. Create a commit named `Run cargo update` or similar
+7. Bump the version to match the tag name everywhere
 
   - `Cargo.toml`
   - `snap/snapcraft.yaml`
   - `website/docs/*.md` and update `Unreleased yet` to `Available since $tag`
       (where `$tag` is the tag name)
 
-- Run `cargo build` and make sure it succeeds, **remember to `git add
+8. Run `cargo build` and make sure it succeeds, **remember to `git add
   Cargo.lock` to make sure releases stay reproducable
   ([#1628](https://github.com/neovide/neovide/issues/1628),
   [#1482](https://github.com/neovide/neovide/issues/1482))**
-- Create a commit called `Bump version to $tag`
-- Push and wait for CI to complete (will take around 25 minutes)
-- Run `cargo build --frozen`
+9. Create a commit called `Bump version to $tag`
+10. Push and wait for CI to complete (will take around 25 minutes)
+11. Run `cargo build --frozen`
 
 In the meantime, you can look through the previous commits to see if you missed
 anything.
 
-- From the `Bump version to $tag` commit, download all the artifacts
-- Unzip `neovide-linux.tar.gz.zip` to get `neovide.tar.gz`
-- Head to the release draft, edit it and upload the produced artifacts (using
+1. From the `Bump version to $tag` commit, download all the artifacts
+2. Unzip `neovide-linux.tar.gz.zip` to get `neovide.tar.gz`
+3. Head to the release draft, edit it and upload the produced artifacts (using
     the unzipped `neovide.tar.gz` for Linux)
-- Hit `Publish release`
-- profit
+4. Hit `Publish release`
+5. profit
 
 Phew. Now, announce the new release anywhere you think is appropriate (like
 Reddit, Discord, whatever) ~~and go create a PR in nixpkgs~~.

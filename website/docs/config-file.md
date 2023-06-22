@@ -1,5 +1,7 @@
 # Config File
 
+**Unreleased yet. Build from git main in order to get this before the next release.**
+
 Neovide also support configuration through a config file in [the toml format](https://toml.io).
 
 ## Settings priority
