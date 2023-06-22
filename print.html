@@ -1272,7 +1272,8 @@ those pointers.</p>
 </li>
 </ul>
 <h2 id="how-to-release"><a class="header" href="#how-to-release">How to release</a></h2>
-<p>Note: These are not a strict rulebook, but rather one <em>possible</em> way for releasing. Adjust as you see fit (and then update here with your findings).</p>
+<p>Note: These are not a strict rulebook, but rather one <em>possible</em> way for releasing. Adjust as you
+see fit (and then update here with your findings).</p>
 <h3 id="preparing"><a class="header" href="#preparing">Preparing</a></h3>
 <ol>
 <li>Head over to <a href="https://github.com/neovide/neovide/releases">the releases page</a> and hit the <code>Draft a new release</code> button.</li>
@@ -1283,28 +1284,20 @@ next half an hour and GitHub doesn't automatically save its contents.</li>
 <p>We're not fully following <a href="https://semver.org/">SemVer</a> here, but as of 0.10.1 larger
 changes should be an increase in the MINOR part, while fixups should be an
 increase in the PATCH part.</p>
-<ol start="4">
+<ol>
 <li>Hit the <code>Generate release notes</code> button.</li>
 <li>Reformat to be similar to previous releases</li>
 </ol>
 <ul>
-<li>
-<p>Rename the <code>What's Changed</code> section to <code>Changes</code></p>
-</li>
-<li>
-<p>Rewrite each line in the <code>Changes</code> section to reflect what this change means
-for the end user, linking to the relevant PR/commit</p>
-</li>
-<li>
-<p>Group all bug fix PRs/commits under a point named <code>Bug fixes</code></p>
-</li>
-<li>
-<p>Have each line reflect what platform it applies to if not irrelevant</p>
-</li>
-<li>
-<p>Hit the <code>Save draft</code> button</p>
-</li>
+<li>Rename the <code>What's Changed</code> section to <code>Changes</code></li>
+<li>Rewrite each line in the <code>Changes</code> section to reflect what this change means
+for the end user, linking to the relevant PR/commit</li>
+<li>Group all bug fix PRs/commits under a point named <code>Bug fixes</code></li>
+<li>Have each line reflect what platform it applies to if not irrelevant</li>
 </ul>
+<ol start="3">
+<li>Hit the <code>Save draft</code> button</li>
+</ol>
 <p>You can make several rounds of preparing such releases through editing the
 current draft over time, to make sure every contributor is mentioned and every
 change is included.</p>
@@ -1318,7 +1311,7 @@ be enough depending on the blocker)</li>
 been mentioned</li>
 </ol>
 <p>Now here's where the order becomes important:</p>
-<ol start="4">
+<ol>
 <li>Make sure the working directory is clean</li>
 <li>Run <code>cargo update</code> and <code>cargo build</code>, make sure both succeed</li>
 <li>Create a commit named <code>Run cargo update</code> or similar</li>
@@ -1330,7 +1323,7 @@ been mentioned</li>
 <li><code>website/docs/*.md</code> and update <code>Unreleased yet</code> to <code>Available since $tag</code>
 (where <code>$tag</code> is the tag name)</li>
 </ul>
-<ol start="8">
+<ol start="5">
 <li>Run <code>cargo build</code> and make sure it succeeds, <strong>remember to <code>git add Cargo.lock</code> to make sure releases stay reproducable
 (<a href="https://github.com/neovide/neovide/issues/1628">#1628</a>,
 <a href="https://github.com/neovide/neovide/issues/1482">#1482</a>)</strong></li>
