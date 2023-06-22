@@ -64,11 +64,13 @@ see fit (and then update here with your findings).
 
 1. Hit the `Generate release notes` button.
 2. Reformat to be similar to previous releases
-  - Rename the `What's Changed` section to `Changes`
-  - Rewrite each line in the `Changes` section to reflect what this change means
+
+    - Rename the `What's Changed` section to `Changes`
+    - Rewrite each line in the `Changes` section to reflect what this change means
       for the end user, linking to the relevant PR/commit
-  - Group all bug fix PRs/commits under a point named `Bug fixes`
-  - Have each line reflect what platform it applies to if not irrelevant
+    - Group all bug fix PRs/commits under a point named `Bug fixes`
+    - Have each line reflect what platform it applies to if not irrelevant
+
 3. Hit the `Save draft` button
 
 You can make several rounds of preparing such releases through editing the
@@ -93,10 +95,12 @@ Now here's where the order becomes important:
 2. Run `cargo update` and `cargo build`, make sure both succeed
 3. Create a commit named `Run cargo update` or similar
 4. Bump the version to match the tag name everywhere
-  - `Cargo.toml`
-  - `snap/snapcraft.yaml`
-  - `website/docs/*.md` and update `Unreleased yet` to `Available since $tag`
+
+    - `Cargo.toml`
+    - `snap/snapcraft.yaml`
+    - `website/docs/*.md` and update `Unreleased yet` to `Available since $tag`
       (where `$tag` is the tag name)
+
 5. Run `cargo build` and make sure it succeeds, **remember to `git add
   Cargo.lock` to make sure releases stay reproducable
   ([#1628](https://github.com/neovide/neovide/issues/1628),
