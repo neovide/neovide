@@ -268,9 +268,10 @@ impl WinitWindowWrapper {
                     current_cursor_position.x.round() as i32,
                     current_cursor_position.y.round() as i32 + font_dimensions.height as i32,
                 );
-                self.windowed_context
-                    .window()
-                    .set_ime_position(Position::Physical(position));
+                self.windowed_context.window().set_ime_cursor_area(
+                    Position::Physical(position),
+                    PhysicalSize::new(100, font_dimensions.height as u32),
+                );
             }
         }
 
