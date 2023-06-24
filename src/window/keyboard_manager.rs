@@ -74,30 +74,26 @@ impl KeyboardManager {
         }
     }
 
-    #[cfg(not(target_os = "macos"))]
-    fn format_normal_key(&self, key_event: &KeyEvent) -> Option<String> {
-        key_event
-            .text
-            .as_ref()
-            .map(|text| self.format_key_text(text.as_str(), false))
-    }
-
-    #[cfg(target_os = "macos")]
     fn format_normal_key(&self, key_event: &KeyEvent) -> Option<String> {
         // On macOs, when alt is held and alt_is_meta is set to true, then send the base key plus
         // the whole modifier state. Otherwise send the resulting character with "S-" and "M-"
         // removed.
+        #[cfg(target_os = "macos")]
         if self.modifiers.state().alt_key() && use_alt() {
-            key_event
+            return key_event
                 .key_without_modifiers()
                 .to_text()
-                .map(|text| self.format_key_text(text, true))
-        } else {
-            key_event
-                .text
-                .as_ref()
-                .map(|text| self.format_key_text(text.as_str(), false))
+                .map(|text| self.format_key_text(text, true));
         }
+
+        key_event
+            .text
+            .as_ref()
+            .or(match &key_event.logical_key {
+                Key::Character(text) => Some(text),
+                _ => None,
+            })
+            .map(|text| self.format_key_text(text.as_str(), false))
     }
 
     fn format_key_text(&self, text: &str, is_special: bool) -> String {
