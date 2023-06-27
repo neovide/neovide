@@ -73,6 +73,7 @@ pub struct RenderedWindow {
 
     pub grid_size: Dimensions,
 
+    has_viewport: bool,
     scrollback_lines: Vec<Option<Line>>,
     actual_lines: Vec<Option<Line>>,
     actual_top_index: isize,
@@ -84,7 +85,6 @@ pub struct RenderedWindow {
     position_t: f32,
 
     pub scroll_animation: CriticallyDampedSpringAnimation,
-    scroll_delta: isize,
 
     pub padding: WindowPadding,
 
@@ -113,6 +113,7 @@ impl RenderedWindow {
 
             grid_size,
 
+            has_viewport: false,
             actual_lines: vec![None; grid_size.height as usize],
             scrollback_lines: vec![None; 2 * grid_size.height as usize],
             actual_top_index: 0,
@@ -124,7 +125,6 @@ impl RenderedWindow {
             position_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation.
 
             scroll_animation: CriticallyDampedSpringAnimation::new(),
-            scroll_delta: 0,
 
             padding,
             has_transparency: false,
@@ -359,13 +359,21 @@ impl RenderedWindow {
                     self.grid_destination = new_destination;
                 }
 
+                let mut new_actual_lines = vec![None; new_grid_size.height as usize];
+
+                for row in 0..self.grid_size.height.min(new_grid_size.height) {
+                    let line_index = (self.actual_top_index + row as isize)
+                        .rem_euclid(self.actual_lines.len() as isize)
+                        as usize;
+                    new_actual_lines[row as usize] = self.actual_lines[line_index].clone();
+                }
+                self.actual_lines = new_actual_lines;
                 self.grid_size = new_grid_size;
 
-                // This could perhaps be optimized, setting the position does not necessarily need
-                // to resize and reset everything. See editor::window::Window::position for the
-                // corresponding code on the logic side.
-                self.scrollback_lines = vec![None; 2 * new_grid_size.height as usize];
-                self.actual_lines = vec![None; new_grid_size.height as usize];
+                self.scrollback_lines
+                    .resize(2 * new_grid_size.height as usize, None);
+                self.scrollback_lines[..new_grid_size.height as usize]
+                    .clone_from_slice(&self.actual_lines);
                 self.actual_top_index = 0;
                 self.scrollback_top_index = 0;
 
@@ -384,6 +392,7 @@ impl RenderedWindow {
                 row,
                 line_fragments,
             } => {
+                log::trace!("Handling DrawLine {}", self.id);
                 tracy_zone!("draw_line_cmd", 0);
                 let font_dimensions = grid_renderer.font_dimensions;
                 let mut recorder = PictureRecorder::new();
@@ -440,7 +449,7 @@ impl RenderedWindow {
                     has_transparency,
                 });
                 // Also update the scrollback buffer if there's no scroll in progress
-                if self.scroll_delta == 0 {
+                if !self.has_viewport {
                     let scrollback_index = (self.scrollback_top_index + row as isize)
                         .rem_euclid(self.scrollback_lines.len() as isize)
                         as usize;
@@ -489,59 +498,54 @@ impl RenderedWindow {
                 self.hidden = true;
             }
             WindowDrawCommand::Viewport { scroll_delta } => {
-                // The scroll delta is unfortunately buggy in the current version of Neovim. For more details see:
-                // So just store the delta, and commit the actual scrolling when receiving a Viewport command without a delta
-                // https://github.com/neovide/neovide/pull/1790
+                log::trace!("Handling Viewport {}", self.id);
+                self.has_viewport = true;
                 let scroll_delta = scroll_delta.round() as isize;
-                if scroll_delta.unsigned_abs() > 0 {
-                    self.scroll_delta = scroll_delta;
-                } else {
-                    let scroll_delta = self.scroll_delta;
-                    self.scroll_delta = 0;
-                    self.scrollback_top_index += scroll_delta;
+                self.scrollback_top_index += scroll_delta;
 
-                    for i in 0..self.actual_lines.len() {
-                        let scrollback_index = (self.scrollback_top_index + i as isize)
+                for i in 0..self.actual_lines.len() {
+                    let scrollback_index = (self.scrollback_top_index + i as isize)
+                        .rem_euclid(self.scrollback_lines.len() as isize)
+                        as usize;
+                    let actual_index = (self.actual_top_index + i as isize)
+                        .rem_euclid(self.actual_lines.len() as isize)
+                        as usize;
+                    self.scrollback_lines[scrollback_index] =
+                        self.actual_lines[actual_index].clone();
+                }
+
+                let mut scroll_offset = self.scroll_animation.position;
+
+                let minmax = self.scrollback_lines.len() - self.grid_size.height as usize;
+                log::trace!("Scroll offset {scroll_offset}, delta {scroll_delta}, minmax {minmax}");
+                // Do a limited scroll with empty lines when scrolling far
+                if scroll_delta.unsigned_abs() > minmax {
+                    let far_lines = renderer_settings
+                        .scroll_animation_far_scroll_lines
+                        .min(self.actual_lines.len() as u32)
+                        as isize;
+
+                    scroll_offset = (far_lines * scroll_delta.signum()) as f32;
+                    let empty_lines = if scroll_delta > 0 {
+                        self.actual_lines.len() as isize
+                            ..self.actual_lines.len() as isize + far_lines
+                    } else {
+                        -far_lines..0
+                    };
+                    for i in empty_lines {
+                        let i = (self.scrollback_top_index + i)
                             .rem_euclid(self.scrollback_lines.len() as isize)
                             as usize;
-                        let actual_index = (self.actual_top_index + i as isize)
-                            .rem_euclid(self.actual_lines.len() as isize)
-                            as usize;
-                        self.scrollback_lines[scrollback_index] =
-                            self.actual_lines[actual_index].clone();
+                        self.scrollback_lines[i] = None;
                     }
-
-                    let mut scroll_offset = self.scroll_animation.position;
-
-                    let minmax = self.scrollback_lines.len() - self.grid_size.height as usize;
-                    // Do a limited scroll with empty lines when scrolling far
-                    if scroll_delta.unsigned_abs() > minmax {
-                        let far_lines = renderer_settings
-                            .scroll_animation_far_scroll_lines
-                            .min(self.actual_lines.len() as u32)
-                            as isize;
-
-                        scroll_offset = (far_lines * scroll_delta.signum()) as f32;
-                        let empty_lines = if scroll_delta > 0 {
-                            self.actual_lines.len() as isize
-                                ..self.actual_lines.len() as isize + far_lines
-                        } else {
-                            -far_lines..0
-                        };
-                        for i in empty_lines {
-                            let i = (self.scrollback_top_index + i)
-                                .rem_euclid(self.scrollback_lines.len() as isize)
-                                as usize;
-                            self.scrollback_lines[i] = None;
-                        }
-                    // And even when scrolling in steps, we can't let it drift too far, since the
-                    // buffer size is limited
-                    } else {
-                        scroll_offset -= scroll_delta as f32;
-                        scroll_offset = scroll_offset.clamp(-(minmax as f32), minmax as f32);
-                    }
-                    self.scroll_animation.position = scroll_offset;
+                // And even when scrolling in steps, we can't let it drift too far, since the
+                // buffer size is limited
+                } else {
+                    scroll_offset -= scroll_delta as f32;
+                    scroll_offset = scroll_offset.clamp(-(minmax as f32), minmax as f32);
                 }
+                self.scroll_animation.position = scroll_offset;
+                log::trace!("Current scroll {scroll_offset}")
             }
             _ => {}
         };

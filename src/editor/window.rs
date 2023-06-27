@@ -105,22 +105,16 @@ impl Window {
         grid_size: (u64, u64),
         grid_position: (f64, f64),
     ) {
-        // This could perhaps be optimized, setting the position does not necessarily need to
-        // resize and reset everything. See
-        // renderer::rendered_window::RenderedWindow::handle_draw_commands for the corresponding
-        // code on the rendering side.
         self.grid
             .resize((grid_size.0 as usize, grid_size.1 as usize));
         self.anchor_info = anchor_info;
         self.grid_position = grid_position;
         self.send_updated_position();
-        self.redraw();
     }
 
     pub fn resize(&mut self, new_size: (u64, u64)) {
         self.grid.resize((new_size.0 as usize, new_size.1 as usize));
         self.send_updated_position();
-        self.redraw();
     }
 
     fn modify_grid(
