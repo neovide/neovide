@@ -105,12 +105,14 @@ impl GridRenderer {
         is_floating: bool,
     ) {
         tracy_zone!("draw_background");
-        self.paint.set_blend_mode(BlendMode::Src);
+        let debug = SETTINGS.get::<RendererSettings>().debug_renderer;
 
         let region = self.compute_text_region(grid_position, cell_width);
         let style = style.as_ref().unwrap_or(&self.default_style);
 
-        if SETTINGS.get::<RendererSettings>().debug_renderer {
+        self.paint.set_blend_mode(BlendMode::Src);
+
+        if debug {
             let random_hsv: HSV = (rand::random::<f32>() * 360.0, 0.3, 0.3).into();
             let random_color = random_hsv.to_color(255);
             self.paint.set_color(random_color);
@@ -143,6 +145,7 @@ impl GridRenderer {
         {
             self.paint.set_alpha(0);
         }
+
         canvas.draw_rect(region, &self.paint);
     }
 
