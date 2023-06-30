@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use log::trace;
 use skia_safe::{
-    colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Path, Point, Rect, HSV, ClipOp,
+    colors, dash_path_effect, BlendMode, Canvas, ClipOp, Color, Paint, Path, Point, Rect, HSV,
 };
 use winit::dpi::PhysicalSize;
 
@@ -118,6 +118,7 @@ impl GridRenderer {
             self.paint
                 .set_color(style.background(&self.default_style.colors).to_color());
         }
+
         let window_transparency = &SETTINGS.get::<WindowSettings>().transparency;
         if is_floating {
             if self.paint.color() != self.get_default_background() {
@@ -132,7 +133,8 @@ impl GridRenderer {
                 {
                     self.paint.set_argb(*a, *r, *g, *b);
                 } else {
-                    self.paint.set_argb(( window_transparency * 255.0 ) as u8, 0, 0, 0);
+                    self.paint
+                        .set_argb((window_transparency * 255.0) as u8, 0, 0, 0);
                 }
             }
         } else if (window_transparency - 1.0).abs() > f32::EPSILON
