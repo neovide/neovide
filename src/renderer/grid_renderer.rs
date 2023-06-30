@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use log::trace;
 use skia_safe::{
-    colors, dash_path_effect, BlendMode, Canvas, ClipOp, Color, Paint, Path, Point, Rect, HSV,
+    colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Path, Point, Rect, HSV,
 };
 use winit::dpi::PhysicalSize;
 
