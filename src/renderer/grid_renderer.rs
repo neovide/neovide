@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use log::trace;
 use skia_safe::{
-    colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Path, Point, Rect, HSV,
+    colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Path, Point, Rect, HSV, ClipOp,
 };
 use winit::dpi::PhysicalSize;
 
@@ -118,11 +118,24 @@ impl GridRenderer {
             self.paint
                 .set_color(style.background(&self.default_style.colors).to_color());
         }
-
+        let window_transparency = &SETTINGS.get::<WindowSettings>().transparency;
         if is_floating {
-            self.paint
-                .set_alpha((255.0 * ((100 - style.blend) as f32 / 100.0)) as u8);
-        } else if (SETTINGS.get::<WindowSettings>().transparency - 1.0).abs() > f32::EPSILON
+            if self.paint.color() != self.get_default_background() {
+                self.paint
+                    .set_alpha((255.0 * ((100 - style.blend) as f32 / 100.0)) as u8);
+            } else {
+                if let Ok([r, g, b, a]) = &SETTINGS
+                    .get::<WindowSettings>()
+                    .background_color
+                    .parse::<csscolorparser::Color>()
+                    .map(|c| c.to_rgba8())
+                {
+                    self.paint.set_argb(*a, *r, *g, *b);
+                } else {
+                    self.paint.set_argb(( window_transparency * 255.0 ) as u8, 0, 0, 0);
+                }
+            }
+        } else if (window_transparency - 1.0).abs() > f32::EPSILON
             // Only make background color transparent
             && self.paint.color() == self.get_default_background()
         {
