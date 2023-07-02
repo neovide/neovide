@@ -136,3 +136,11 @@ any random highlights which have `Term` in name won't help.
 Some colorschemes think of this, some don't. Search in the documentation of
 yours, if it's your own, add it, and if you can't seem to find anything, open an
 issue in the colorscheme's repo.
+
+## Compose key sequences do not work
+
+One possible cause might be inconsistent capitalization of your locale
+settings, see [#1896]. Possibly you're also running an outdated version of
+Neovide.
+
+[#1896]: https://github.com/neovide/neovide/issues/1896#issuecomment-1616421167.
