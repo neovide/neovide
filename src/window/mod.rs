@@ -83,6 +83,7 @@ pub struct WinitWindowWrapper {
     size_at_startup: PhysicalSize<u32>,
     maximized_at_startup: bool,
     window_command_receiver: UnboundedReceiver<WindowCommand>,
+    ime_enabled: bool,
 }
 
 pub fn set_background(background: &str) {
@@ -104,11 +105,22 @@ impl WinitWindowWrapper {
         self.fullscreen = !self.fullscreen;
     }
 
+    pub fn set_ime(&mut self, ime_enabled: bool) {
+        self.ime_enabled = ime_enabled;
+        self.windowed_context.window().set_ime_allowed(ime_enabled);
+    }
+
     pub fn synchronize_settings(&mut self) {
         let fullscreen = { SETTINGS.get::<WindowSettings>().fullscreen };
 
         if self.fullscreen != fullscreen {
             self.toggle_fullscreen();
+        }
+
+        let ime_enabled = { SETTINGS.get::<KeyboardSettings>().ime };
+
+        if self.ime_enabled != ime_enabled {
+            self.set_ime(ime_enabled);
         }
     }
 
@@ -447,8 +459,6 @@ pub fn create_window() {
     let window = windowed_context.window();
     let initial_size = window.inner_size();
 
-    window.set_ime_allowed(true);
-
     // Check that window is visible in some monitor, and reposition it if not.
     let did_reposition = window
         .current_monitor()
@@ -494,6 +504,8 @@ pub fn create_window() {
         renderer.grid_renderer.font_dimensions,
     );
 
+    let ime_enabled = { SETTINGS.get::<KeyboardSettings>().ime };
+
     match SETTINGS.get::<WindowSettings>().theme.as_str() {
         "light" => set_background("light"),
         "dark" => set_background("dark"),
@@ -519,7 +531,10 @@ pub fn create_window() {
         saved_inner_size,
         saved_grid_size: None,
         window_command_receiver,
+        ime_enabled,
     };
+
+    window_wrapper.set_ime(ime_enabled);
 
     tracy_create_gpu_context("main_render_context");
 

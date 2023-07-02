@@ -53,6 +53,7 @@ impl Default for WindowSettings {
 #[setting_prefix = "input"]
 pub struct KeyboardSettings {
     pub macos_alt_is_meta: bool,
+    pub ime: bool,
 }
 
 #[allow(clippy::derivable_impls)]
@@ -60,6 +61,7 @@ impl Default for KeyboardSettings {
     fn default() -> Self {
         Self {
             macos_alt_is_meta: false,
+            ime: true,
         }
     }
 }
