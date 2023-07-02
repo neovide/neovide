@@ -194,7 +194,7 @@ impl CachingShaper {
 
     pub fn y_adjustment(&mut self) -> u64 {
         let metrics = self.metrics();
-        (metrics.ascent + metrics.leading).ceil() as u64
+        (metrics.ascent + metrics.leading + self.linespace as f32 / 2.).ceil() as u64
     }
 
     fn build_clusters(
