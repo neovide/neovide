@@ -175,3 +175,13 @@ permission bit set.
 
 On Linux/Unix, this alters the identification of the window to either X11 or the more modern
 Wayland, depending on what you are running on.
+
+### Theme
+
+```sh
+--theme=<light|dark|auto> or $NEOVIDE_THEME
+```
+
+Set the [`background`](https://neovim.io/doc/user/options.html#'background') option when Neovide
+starts. On systems that support it, _auto_ will mirror the system theme setting, and will update
+`background` when the system setting changes.
