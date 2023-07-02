@@ -37,7 +37,7 @@ use renderer::SkiaRenderer;
 
 use crate::{
     bridge::{ParallelCommand, UiCommand},
-    cmd_line::CmdLineSettings,
+    cmd_line::{CmdLineSettings, ThemeChoice},
     dimensions::Dimensions,
     editor::EditorCommand,
     event_aggregator::EVENT_AGGREGATOR,
@@ -413,6 +413,25 @@ pub fn create_window() {
     let windowed_context = build_context(&cmd_line_settings, winit_window_builder, &event_loop);
 
     let window = windowed_context.window();
+
+    let background = match cmd_line_settings.theme {
+        ThemeChoice::Unset => None,
+        ThemeChoice::Light => Some("light"),
+        ThemeChoice::Dark => Some("dark"),
+        ThemeChoice::Auto => match window.theme() {
+            Some(winit::window::Theme::Light) => Some("light"),
+            Some(winit::window::Theme::Dark) => Some("dark"),
+            None => None,
+        },
+    };
+
+    match background {
+        Some(background) => EVENT_AGGREGATOR.send(UiCommand::Parallel(
+            ParallelCommand::SetBackground(background.to_string()),
+        )),
+        None => {}
+    }
+
     let initial_size = window.inner_size();
 
     // Check that window is visible in some monitor, and reposition it if not.
