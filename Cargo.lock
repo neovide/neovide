@@ -960,9 +960,9 @@ dependencies = [
 
 [[package]]
 name = "glutin-winit"
-version = "0.3.0"
+version = "0.4.0-beta.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "629a873fc04062830bfe8f97c03773bcd7b371e23bcc465d0a61448cd1588fa4"
+checksum = "aba4aa95ae069a1f3641e49ba34d4c6977e1d2df8005e674fd88252655d272bb"
 dependencies = [
  "cfg_aliases",
  "glutin",
@@ -1791,18 +1791,18 @@ dependencies = [
 
 [[package]]
 name = "pin-project"
-version = "1.1.1"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e138fdd8263907a2b0e1b4e80b7e58c721126479b6e6eedfb1b402acea7b9bd"
+checksum = "030ad2bc4db10a8944cb0d837f158bdfec4d4a4873ab701a95046770d11f8842"
 dependencies = [
  "pin-project-internal",
 ]
 
 [[package]]
 name = "pin-project-internal"
-version = "1.1.1"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d1fef411b303e3e12d534fb6e7852de82da56edd937d895125821fb7c09436c7"
+checksum = "ec2e072ecce94ec471b13398d5402c188e76ac03cf74dd1a975161b23a3f6d9c"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1811,9 +1811,9 @@ dependencies = [
 
 [[package]]
 name = "pin-project-lite"
-version = "0.2.9"
+version = "0.2.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e0a7ae3ac2f1173085d398531c705756c94a4c56843785df85a60c1a0afac116"
+checksum = "4c40d25201921e5ff0c862a505c6557ea88568a4e3ace775ab55e93f2f4f9d57"
 
 [[package]]
 name = "pin-utils"
@@ -3196,8 +3196,9 @@ checksum = "1a515f5799fe4961cb532f983ce2b23082366b898e52ffbce459c86f67c8378a"
 
 [[package]]
 name = "winit"
-version = "0.28.6"
-source = "git+https://github.com/rust-windowing/winit?branch=master#a320702a71fb3b1ec0aaa07f611a6bb233e860b1"
+version = "0.29.0-beta.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f1afaf8490cc3f1309520ebb53a4cd3fc3642c7df8064a4b074bb9867998d44"
 dependencies = [
  "android-activity",
  "atomic-waker",
