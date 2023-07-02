@@ -150,7 +150,7 @@ impl ParallelCommand {
                 nvim.command(format!("e {path}").as_str()).await.ok();
             }
             ParallelCommand::SetBackground(background) => {
-                nvim.command(&format!("set background={}", background))
+                nvim.command(&format!("set background={}", background).as_str())
                     .await
                     .ok();
             }
