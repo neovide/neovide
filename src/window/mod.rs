@@ -195,6 +195,21 @@ impl WinitWindowWrapper {
                     self.handle_focus_lost();
                 }
             }
+            Event::WindowEvent {
+                event: WindowEvent::ThemeChanged(theme),
+                ..
+            } => {
+                let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
+                if cmd_line_settings.theme == ThemeChoice::Auto {
+                    let background = match theme {
+                        winit::window::Theme::Light => "light",
+                        winit::window::Theme::Dark => "dark",
+                    };
+                    EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::SetBackground(
+                        background.to_string(),
+                    )));
+                }
+            }
             Event::RedrawRequested(..) | Event::WindowEvent { .. } => {
                 REDRAW_SCHEDULER.queue_next_frame()
             }
