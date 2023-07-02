@@ -443,6 +443,60 @@ vim.g.neovide_input_macos_alt_is_meta = false
 Interprets <kbd>Alt</kbd> + <kbd>whatever</kbd> actually as `<M-whatever>`, instead of sending the
 actual special character to Neovim.
 
+#### IME
+
+VimScript:
+
+```vim
+let g:neovide_input_ime = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_input_ime = true
+```
+
+**Unreleased yet.**
+
+This lets you disable the IME input. For example, to only enables IME in input mode and when
+searching, so that you can navigate normally, when typing some East Asian languages, you can add
+a few auto commands:
+
+```vim
+augroup ime_input
+    autocmd!
+    autocmd InsertLeave * execute "let g:neovide_input_ime=v:false"
+    autocmd InsertEnter * execute "let g:neovide_input_ime=v:true"
+    autocmd CmdlineEnter [/\?] execute "let g:neovide_input_ime=v:false"
+    autocmd CmdlineLeave [/\?] execute "let g:neovide_input_ime=v:true"
+augroup END
+```
+
+```lua
+local function set_ime(args)
+    if args.event:match("Enter$") then
+        vim.g.neovide_input_ime = true
+    else
+        vim.g.neovide_input_ime = false
+    end
+end
+
+local ime_input = vim.api.nvim_create_augroup("ime_input", { clear = true })
+
+vim.api.nvim_create_autocmd({ "InsertEnter", "InsertLeave" }, {
+    group = ime_input,
+    pattern = "*",
+    callback = set_ime
+})
+
+vim.api.nvim_create_autocmd({ "CmdlineEnter", "CmdlineLeave" }, {
+    group = ime_input,
+    pattern = "[/\\?]",
+    callback = set_ime
+})
+```
+
 #### Touch Deadzone
 
 VimScript:

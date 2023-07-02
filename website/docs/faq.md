@@ -142,3 +142,8 @@ settings, see [#1896]. Possibly you're also running an outdated version of
 Neovide.
 
 [#1896]: https://github.com/neovide/neovide/issues/1896#issuecomment-1616421167.
+
+Another possible cause is that you are using IME on X11. Dead keys with IME is
+not yet supported, but you can work around that either by disabling IME or
+configuring it to only be enabled in insert mode. See
+[Configuration](configuration.md).
