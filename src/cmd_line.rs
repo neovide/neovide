@@ -151,7 +151,6 @@ pub struct CmdLineSettings {
         long = "theme",
         env = "NEOVIDE_THEME",
         value_parser = EnumValueParser::<ThemeChoice>::new(),
-        required = false
     )]
     pub theme: Option<ThemeChoice>,
 }
