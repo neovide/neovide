@@ -286,6 +286,8 @@ Lua:
 vim.g.neovide_theme = 'auto'
 ```
 
+**Unreleased yet.**
+
 Set the [`background`](https://neovim.io/doc/user/options.html#'background') option when Neovide
 starts. Possible values: _light_, _dark_, _auto_. On systems that support it, _auto_ will mirror the
 system theme, and will update `background` when the system theme changes.
