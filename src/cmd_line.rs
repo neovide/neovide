@@ -2,37 +2,12 @@ use std::{iter, mem};
 
 use crate::{dimensions::Dimensions, frame::Frame, settings::*};
 
-use clap::{
-    builder::FalseyValueParser,
-    builder::{EnumValueParser, PossibleValue},
-    ArgAction, Parser, ValueEnum,
-};
+use clap::{builder::FalseyValueParser, ArgAction, Parser};
 
 #[cfg(target_os = "windows")]
 const SRGB_DEFAULT: &str = "1";
 #[cfg(not(target_os = "windows"))]
 const SRGB_DEFAULT: &str = "0";
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum ThemeChoice {
-    Light,
-    Dark,
-    Auto,
-}
-
-impl ValueEnum for ThemeChoice {
-    fn value_variants<'a>() -> &'a [Self] {
-        &[Self::Light, Self::Dark, Self::Auto]
-    }
-
-    fn to_possible_value(&self) -> Option<PossibleValue> {
-        Some(match self {
-            Self::Light => PossibleValue::new("light"),
-            Self::Dark => PossibleValue::new("dark"),
-            Self::Auto => PossibleValue::new("auto"),
-        })
-    }
-}
 
 #[derive(Clone, Debug, Parser)]
 #[command(version, about, long_about = None)]
@@ -145,14 +120,6 @@ pub struct CmdLineSettings {
         default_value = "neovide"
     )]
     pub x11_wm_class_instance: String,
-
-    /// Set background to light, dark, or match system setting with "auto"
-    #[arg(
-        long = "theme",
-        env = "NEOVIDE_THEME",
-        value_parser = EnumValueParser::<ThemeChoice>::new(),
-    )]
-    pub theme: Option<ThemeChoice>,
 }
 
 impl Default for CmdLineSettings {

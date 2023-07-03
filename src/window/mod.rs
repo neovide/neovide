@@ -37,7 +37,7 @@ use renderer::SkiaRenderer;
 
 use crate::{
     bridge::{ParallelCommand, UiCommand},
-    cmd_line::{CmdLineSettings, ThemeChoice},
+    cmd_line::CmdLineSettings,
     dimensions::Dimensions,
     editor::EditorCommand,
     event_aggregator::EVENT_AGGREGATOR,
@@ -205,8 +205,8 @@ impl WinitWindowWrapper {
                 event: WindowEvent::ThemeChanged(theme),
                 ..
             } => {
-                let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
-                if cmd_line_settings.theme == Some(ThemeChoice::Auto) {
+                let settings = SETTINGS.get::<WindowSettings>();
+                if settings.theme.as_str() == "auto" {
                     let background = match theme {
                         Theme::Light => "light",
                         Theme::Dark => "dark",
@@ -479,16 +479,18 @@ pub fn create_window() {
         renderer.grid_renderer.font_dimensions,
     );
 
-    match cmd_line_settings.theme {
-        None => {}
-        Some(ThemeChoice::Light) => set_background("light"),
-        Some(ThemeChoice::Dark) => set_background("dark"),
-        Some(ThemeChoice::Auto) => match window.theme() {
+    println!("theme: {}", SETTINGS.get::<WindowSettings>().theme);
+
+    match SETTINGS.get::<WindowSettings>().theme.as_str() {
+        "light" => set_background("light"),
+        "dark" => set_background("dark"),
+        "auto" => match window.theme() {
             Some(Theme::Light) => set_background("light"),
             Some(Theme::Dark) => set_background("dark"),
             None => {}
         },
-    };
+        _ => {}
+    }
 
     let mut window_wrapper = WinitWindowWrapper {
         windowed_context,

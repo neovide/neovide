@@ -20,6 +20,7 @@ pub struct WindowSettings {
     pub padding_left: u32,
     pub padding_right: u32,
     pub padding_bottom: u32,
+    pub theme: String,
 }
 
 impl Default for WindowSettings {
@@ -43,6 +44,7 @@ impl Default for WindowSettings {
             padding_left: 0,
             padding_right: 0,
             padding_bottom: 0,
+            theme: "".to_string(),
         }
     }
 }
