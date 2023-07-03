@@ -479,8 +479,6 @@ pub fn create_window() {
         renderer.grid_renderer.font_dimensions,
     );
 
-    println!("theme: {}", SETTINGS.get::<WindowSettings>().theme);
-
     match SETTINGS.get::<WindowSettings>().theme.as_str() {
         "light" => set_background("light"),
         "dark" => set_background("dark"),
