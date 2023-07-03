@@ -16,7 +16,7 @@ use winit::{
     dpi::PhysicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{self, Fullscreen, Icon},
+    window::{self, Fullscreen, Icon, Theme},
 };
 
 #[cfg(target_os = "macos")]
@@ -83,6 +83,12 @@ pub struct WinitWindowWrapper {
     size_at_startup: PhysicalSize<u32>,
     maximized_at_startup: bool,
     window_command_receiver: UnboundedReceiver<WindowCommand>,
+}
+
+pub fn set_background(background: &str) {
+    EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::SetBackground(
+        background.to_string(),
+    )));
 }
 
 impl WinitWindowWrapper {
@@ -201,13 +207,10 @@ impl WinitWindowWrapper {
             } => {
                 let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
                 if cmd_line_settings.theme == ThemeChoice::Auto {
-                    let background = match theme {
-                        winit::window::Theme::Light => "light",
-                        winit::window::Theme::Dark => "dark",
+                    match theme {
+                        Theme::Light => set_background("light"),
+                        Theme::Dark => set_background("dark"),
                     };
-                    EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::SetBackground(
-                        background.to_string(),
-                    )));
                 }
             }
             Event::RedrawRequested(..) | Event::WindowEvent { .. } => {
@@ -428,25 +431,6 @@ pub fn create_window() {
     let windowed_context = build_context(&cmd_line_settings, winit_window_builder, &event_loop);
 
     let window = windowed_context.window();
-
-    let background = match cmd_line_settings.theme {
-        ThemeChoice::Unset => None,
-        ThemeChoice::Light => Some("light"),
-        ThemeChoice::Dark => Some("dark"),
-        ThemeChoice::Auto => match window.theme() {
-            Some(winit::window::Theme::Light) => Some("light"),
-            Some(winit::window::Theme::Dark) => Some("dark"),
-            None => None,
-        },
-    };
-
-    match background {
-        Some(background) => EVENT_AGGREGATOR.send(UiCommand::Parallel(
-            ParallelCommand::SetBackground(background.to_string()),
-        )),
-        None => {}
-    }
-
     let initial_size = window.inner_size();
 
     // Check that window is visible in some monitor, and reposition it if not.
@@ -493,6 +477,17 @@ pub fn create_window() {
         scale_factor,
         renderer.grid_renderer.font_dimensions,
     );
+
+    match cmd_line_settings.theme {
+        ThemeChoice::Unset => {}
+        ThemeChoice::Light => set_background("light"),
+        ThemeChoice::Dark => set_background("dark"),
+        ThemeChoice::Auto => match window.theme() {
+            Some(Theme::Light) => set_background("light"),
+            Some(Theme::Dark) => set_background("dark"),
+            None => {}
+        },
+    };
 
     let mut window_wrapper = WinitWindowWrapper {
         windowed_context,
