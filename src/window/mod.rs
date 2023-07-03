@@ -207,10 +207,11 @@ impl WinitWindowWrapper {
             } => {
                 let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
                 if cmd_line_settings.theme == Some(ThemeChoice::Auto) {
-                    match theme {
-                        Theme::Light => set_background("light"),
-                        Theme::Dark => set_background("dark"),
+                    let background = match theme {
+                        Theme::Light => "light",
+                        Theme::Dark => "dark",
                     };
+                    set_background(background);
                 }
             }
             Event::RedrawRequested(..) | Event::WindowEvent { .. } => {
