@@ -206,7 +206,7 @@ impl WinitWindowWrapper {
                 ..
             } => {
                 let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
-                if cmd_line_settings.theme == ThemeChoice::Auto {
+                if cmd_line_settings.theme == Some(ThemeChoice::Auto) {
                     match theme {
                         Theme::Light => set_background("light"),
                         Theme::Dark => set_background("dark"),
@@ -479,10 +479,10 @@ pub fn create_window() {
     );
 
     match cmd_line_settings.theme {
-        ThemeChoice::Unset => {}
-        ThemeChoice::Light => set_background("light"),
-        ThemeChoice::Dark => set_background("dark"),
-        ThemeChoice::Auto => match window.theme() {
+        None => {}
+        Some(ThemeChoice::Light) => set_background("light"),
+        Some(ThemeChoice::Dark) => set_background("dark"),
+        Some(ThemeChoice::Auto) => match window.theme() {
             Some(Theme::Light) => set_background("light"),
             Some(Theme::Dark) => set_background("dark"),
             None => {}

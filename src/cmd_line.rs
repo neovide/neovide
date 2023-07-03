@@ -15,7 +15,6 @@ const SRGB_DEFAULT: &str = "0";
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ThemeChoice {
-    Unset,
     Light,
     Dark,
     Auto,
@@ -23,12 +22,11 @@ pub enum ThemeChoice {
 
 impl ValueEnum for ThemeChoice {
     fn value_variants<'a>() -> &'a [Self] {
-        &[Self::Unset, Self::Light, Self::Dark, Self::Auto]
+        &[Self::Light, Self::Dark, Self::Auto]
     }
 
     fn to_possible_value(&self) -> Option<PossibleValue> {
         Some(match self {
-            Self::Unset => PossibleValue::new(""),
             Self::Light => PossibleValue::new("light"),
             Self::Dark => PossibleValue::new("dark"),
             Self::Auto => PossibleValue::new("auto"),
@@ -152,9 +150,10 @@ pub struct CmdLineSettings {
     #[arg(
         long = "theme",
         env = "NEOVIDE_THEME",
-        value_parser = EnumValueParser::<ThemeChoice>::new())
-    ]
-    pub theme: ThemeChoice,
+        value_parser = EnumValueParser::<ThemeChoice>::new(),
+        required = false
+    )]
+    pub theme: Option<ThemeChoice>,
 }
 
 impl Default for CmdLineSettings {
