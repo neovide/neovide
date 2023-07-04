@@ -16,7 +16,7 @@ use winit::{
     dpi::PhysicalSize,
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
-    window::{self, Fullscreen, Icon},
+    window::{self, Fullscreen, Icon, Theme},
 };
 
 #[cfg(target_os = "macos")]
@@ -83,6 +83,12 @@ pub struct WinitWindowWrapper {
     size_at_startup: PhysicalSize<u32>,
     maximized_at_startup: bool,
     window_command_receiver: UnboundedReceiver<WindowCommand>,
+}
+
+pub fn set_background(background: &str) {
+    EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::SetBackground(
+        background.to_string(),
+    )));
 }
 
 impl WinitWindowWrapper {
@@ -193,6 +199,19 @@ impl WinitWindowWrapper {
                     self.handle_focus_gained();
                 } else {
                     self.handle_focus_lost();
+                }
+            }
+            Event::WindowEvent {
+                event: WindowEvent::ThemeChanged(theme),
+                ..
+            } => {
+                let settings = SETTINGS.get::<WindowSettings>();
+                if settings.theme.as_str() == "auto" {
+                    let background = match theme {
+                        Theme::Light => "light",
+                        Theme::Dark => "dark",
+                    };
+                    set_background(background);
                 }
             }
             Event::RedrawRequested(..) | Event::WindowEvent { .. } => {
@@ -459,6 +478,17 @@ pub fn create_window() {
         scale_factor,
         renderer.grid_renderer.font_dimensions,
     );
+
+    match SETTINGS.get::<WindowSettings>().theme.as_str() {
+        "light" => set_background("light"),
+        "dark" => set_background("dark"),
+        "auto" => match window.theme() {
+            Some(Theme::Light) => set_background("light"),
+            Some(Theme::Dark) => set_background("dark"),
+            None => {}
+        },
+        _ => {}
+    }
 
     let mut window_wrapper = WinitWindowWrapper {
         windowed_context,

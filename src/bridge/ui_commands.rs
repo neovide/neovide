@@ -117,6 +117,7 @@ pub enum ParallelCommand {
     FocusLost,
     FocusGained,
     DisplayAvailableFonts(Vec<String>),
+    SetBackground(String),
     #[cfg(windows)]
     RegisterRightClick,
     #[cfg(windows)]
@@ -147,6 +148,11 @@ impl ParallelCommand {
                 .expect("Focus Gained Failed"),
             ParallelCommand::FileDrop(path) => {
                 nvim.command(format!("e {path}").as_str()).await.ok();
+            }
+            ParallelCommand::SetBackground(background) => {
+                nvim.command(format!("set background={}", background).as_str())
+                    .await
+                    .ok();
             }
             ParallelCommand::DisplayAvailableFonts(fonts) => {
                 let mut content: Vec<String> = vec![

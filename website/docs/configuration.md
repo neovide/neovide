@@ -272,6 +272,26 @@ sizes above 15.
 **Note**: This is currently glitchy, and leads to some underlines being clipped by the line of text
 below.
 
+#### Theme
+
+VimScript:
+
+```vim
+let g:neovide_theme = 'auto'
+```
+
+Lua:
+
+```lua
+vim.g.neovide_theme = 'auto'
+```
+
+**Unreleased yet.**
+
+Set the [`background`](https://neovim.io/doc/user/options.html#'background') option when Neovide
+starts. Possible values: _light_, _dark_, _auto_. On systems that support it, _auto_ will mirror the
+system theme, and will update `background` when the system theme changes.
+
 ### Functionality
 
 #### Refresh Rate

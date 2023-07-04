@@ -38,6 +38,7 @@ pub struct Config {
     pub idle: Option<bool>,
     pub neovim_bin: Option<PathBuf>,
     pub frame: Option<Frame>,
+    pub theme: Option<String>,
 }
 
 impl Config {
@@ -71,6 +72,9 @@ impl Config {
         }
         if let Some(neovim_bin) = &self.neovim_bin {
             env::set_var("NEOVIM_BIN", neovim_bin.to_string_lossy().to_string());
+        }
+        if let Some(theme) = &self.theme {
+            env::set_var("NEOVIDE_THEME", theme);
         }
     }
 
