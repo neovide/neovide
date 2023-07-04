@@ -623,6 +623,17 @@ scaling of text underlines (including undercurl, underdash, etc.) is enabled. No
 sizes above 15.</p>
 <p><strong>Note</strong>: This is currently glitchy, and leads to some underlines being clipped by the line of text
 below.</p>
+<h4 id="theme"><a class="header" href="#theme">Theme</a></h4>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_theme = 'auto'
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_theme = 'auto'
+</code></pre>
+<p><strong>Unreleased yet.</strong></p>
+<p>Set the <a href="https://neovim.io/doc/user/options.html#&#x27;background&#x27;"><code>background</code></a> option when Neovide
+starts. Possible values: <em>light</em>, <em>dark</em>, <em>auto</em>. On systems that support it, <em>auto</em> will mirror the
+system theme, and will update <code>background</code> when the system theme changes.</p>
 <h3 id="functionality"><a class="header" href="#functionality">Functionality</a></h3>
 <h4 id="refresh-rate"><a class="header" href="#refresh-rate">Refresh Rate</a></h4>
 <p>VimScript:</p>
