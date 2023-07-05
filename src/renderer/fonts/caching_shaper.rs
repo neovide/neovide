@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use log::{debug, error, trace, warn};
 use lru::LruCache;
@@ -34,6 +34,7 @@ pub struct CachingShaper {
     scale_factor: f32,
     fudge_factor: f32,
     linespace: i64,
+    font_features: HashMap<String, Vec<(String, u16)>>,
 }
 
 impl CachingShaper {
@@ -48,6 +49,7 @@ impl CachingShaper {
             scale_factor,
             fudge_factor: 1.0,
             linespace: 0,
+            font_features: HashMap::new(),
         };
         shaper.reset_font_loader();
         shaper
@@ -93,6 +95,7 @@ impl CachingShaper {
 
         if self.font_loader.get_or_load(&font_key).is_some() {
             debug!("Font updated to: {}", guifont_setting);
+            self.font_features = options.font_features();
             self.options = options;
             self.reset_font_loader();
         } else {
@@ -197,6 +200,22 @@ impl CachingShaper {
         (metrics.ascent + metrics.leading + self.linespace as f32 / 2.).ceil() as u64
     }
 
+    fn get_font_features(&self, name: &Option<String>) -> Vec<(String, u16)> {
+        if let Some(name) = &name {
+            self.font_features
+                .get(name)
+                .map(|features| {
+                    features
+                        .iter()
+                        .map(|(name, value)| (name.clone(), *value))
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        } else {
+            vec![]
+        }
+    }
+
     fn build_clusters(
         &mut self,
         text: &str,
@@ -237,7 +256,7 @@ impl CachingShaper {
             font_fallback_keys.extend(self.options.font_list.iter().map(|font_name| FontKey {
                 italic: self.options.italic || italic,
                 bold: self.options.bold || bold,
-                family_name: Some(font_name.clone()),
+                family_name: Some(font_name.name.clone()),
                 hinting: self.options.hinting.clone(),
                 edging: self.options.edging.clone(),
             }));
@@ -350,9 +369,12 @@ impl CachingShaper {
         trace!("Shaping text: {}", text);
 
         for (cluster_group, font_pair) in self.build_clusters(&text, bold, italic) {
+            let features = self.get_font_features(&font_pair.key.family_name);
+
             let mut shaper = self
                 .shape_context
                 .builder(font_pair.swash_font.as_ref())
+                .features(features.iter().map(|(name, value)| (name.as_ref(), *value)))
                 .size(current_size)
                 .build();
 

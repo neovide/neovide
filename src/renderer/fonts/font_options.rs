@@ -1,16 +1,53 @@
+use std::collections::HashMap;
+
 use itertools::Itertools;
 
 const DEFAULT_FONT_SIZE: f32 = 14.0;
 
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct FontWithFeatures {
+    pub name: String,
+    pub features: Vec<(String, u16)>,
+}
+
 #[derive(Clone, Debug)]
 pub struct FontOptions {
-    pub font_list: Vec<String>,
+    pub font_list: Vec<FontWithFeatures>,
     pub size: f32,
     pub bold: bool,
     pub italic: bool,
     pub allow_float_size: bool,
     pub hinting: FontHinting,
     pub edging: FontEdging,
+}
+
+impl FontWithFeatures {
+    pub fn parse_family_desc(desc: impl AsRef<str>) -> FontWithFeatures {
+        let mut features = vec![];
+        let mut name = None;
+        // reverse string at first, then split_inclusive at '+' or '-', then
+        // reverse each item in the result
+        desc.as_ref()
+            .chars()
+            .rev()
+            .collect::<String>()
+            .split_inclusive(|c| c == '+' || c == '-')
+            .map(|s| s.chars().rev().collect::<String>())
+            .for_each(|s| {
+                if let Some(name) = s.strip_prefix('+') {
+                    features.push((name.to_string(), 1u16));
+                } else if let Some(name) = s.strip_prefix('-') {
+                    features.push((name.to_string(), 0u16));
+                } else {
+                    name = Some(s);
+                }
+            });
+
+        FontWithFeatures {
+            name: name.unwrap(),
+            features,
+        }
+    }
 }
 
 impl FontOptions {
@@ -20,10 +57,11 @@ impl FontOptions {
         let mut parts = guifont_setting.split(':').filter(|part| !part.is_empty());
 
         if let Some(parts) = parts.next() {
-            let parsed_font_list: Vec<String> = parts
+            let parsed_font_list: Vec<_> = parts
                 .split(',')
                 .filter(|fallback| !fallback.is_empty())
                 .map(parse_font_name)
+                .map(FontWithFeatures::parse_family_desc)
                 .collect();
 
             if !parsed_font_list.is_empty() {
@@ -53,8 +91,15 @@ impl FontOptions {
         font_options
     }
 
+    pub fn font_features(&self) -> HashMap<String, Vec<(String, u16)>> {
+        self.font_list
+            .iter()
+            .map(|font| (font.name.clone(), font.features.clone()))
+            .collect()
+    }
+
     pub fn primary_font(&self) -> Option<String> {
-        self.font_list.first().cloned()
+        self.font_list.first().map(|font| font.name.clone())
     }
 }
 
