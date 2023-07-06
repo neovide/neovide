@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 use log::trace;
 use tokio::sync::mpsc::UnboundedReceiver;
 use winit::{
-    dpi::PhysicalSize,
+    dpi::{PhysicalPosition, PhysicalSize, Position},
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
     window::{self, Fullscreen, Icon, Theme},
@@ -83,6 +83,7 @@ pub struct WinitWindowWrapper {
     size_at_startup: PhysicalSize<u32>,
     maximized_at_startup: bool,
     window_command_receiver: UnboundedReceiver<WindowCommand>,
+    ime_enabled: bool,
 }
 
 pub fn set_background(background: &str) {
@@ -104,11 +105,22 @@ impl WinitWindowWrapper {
         self.fullscreen = !self.fullscreen;
     }
 
+    pub fn set_ime(&mut self, ime_enabled: bool) {
+        self.ime_enabled = ime_enabled;
+        self.windowed_context.window().set_ime_allowed(ime_enabled);
+    }
+
     pub fn synchronize_settings(&mut self) {
         let fullscreen = { SETTINGS.get::<WindowSettings>().fullscreen };
 
         if self.fullscreen != fullscreen {
             self.toggle_fullscreen();
+        }
+
+        let ime_enabled = { SETTINGS.get::<KeyboardSettings>().ime };
+
+        if self.ime_enabled != ime_enabled {
+            self.set_ime(ime_enabled);
         }
     }
 
@@ -248,6 +260,7 @@ impl WinitWindowWrapper {
         }
 
         if REDRAW_SCHEDULER.should_draw() || !SETTINGS.get::<WindowSettings>().idle {
+            let prev_cursor_position = self.renderer.get_cursor_position();
             self.font_changed_last_frame =
                 self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
             {
@@ -260,6 +273,18 @@ impl WinitWindowWrapper {
             }
             emit_frame_mark();
             tracy_gpu_collect();
+            let current_cursor_position = self.renderer.get_cursor_position();
+            if current_cursor_position != prev_cursor_position {
+                let font_dimensions = self.renderer.grid_renderer.font_dimensions;
+                let position = PhysicalPosition::new(
+                    current_cursor_position.x.round() as i32,
+                    current_cursor_position.y.round() as i32 + font_dimensions.height as i32,
+                );
+                self.windowed_context.window().set_ime_cursor_area(
+                    Position::Physical(position),
+                    PhysicalSize::new(100, font_dimensions.height as u32),
+                );
+            }
         }
 
         // Wait until fonts are loaded, so we can set proper window size.
@@ -479,6 +504,8 @@ pub fn create_window() {
         renderer.grid_renderer.font_dimensions,
     );
 
+    let ime_enabled = { SETTINGS.get::<KeyboardSettings>().ime };
+
     match SETTINGS.get::<WindowSettings>().theme.as_str() {
         "light" => set_background("light"),
         "dark" => set_background("dark"),
@@ -504,7 +531,10 @@ pub fn create_window() {
         saved_inner_size,
         saved_grid_size: None,
         window_command_receiver,
+        ime_enabled,
     };
+
+    window_wrapper.set_ime(ime_enabled);
 
     tracy_create_gpu_context("main_render_context");
 

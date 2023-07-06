@@ -30,7 +30,7 @@ flexi_logger = { version = "0.22.3", default-features = false }
 futures = "0.3.21"
 gl = "0.14.0"
 glutin = "0.30.7"
-glutin-winit = "0.3.0"
+glutin-winit = "0.4.0-beta.0"
 image = { version = "0.24.1", default-features = false, features = ["ico"] }
 itertools = "0.10.5"
 lazy_static = "1.4.0"
@@ -53,7 +53,7 @@ toml = "0.7.3"
 tracy-client-sys = { version = "0.19.0", optional = true }
 unicode-segmentation = "1.9.0"
 which = "4.2.5"
-winit = { version = "=0.28.6", features = ["serde"] }
+winit = { version = "=0.29.0-beta.0", features = ["serde"] }
 xdg = "2.4.1"
 
 [dev-dependencies]
@@ -103,6 +103,3 @@ long_description = """
 This is a simple graphical user interface for Neovim. Where possible there are some graphical improvements, but it should act functionally like the terminal UI.
 """
 osx_minimum_system_version = "10.11"
-
-[patch.crates-io]
-winit = { git = "https://github.com/rust-windowing/winit", branch= "master", version = "0.28.6" }

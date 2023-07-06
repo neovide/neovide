@@ -1,231 +1,135 @@
 use crate::{
     bridge::{SerialCommand, UiCommand},
     event_aggregator::EVENT_AGGREGATOR,
-    settings::SETTINGS,
-    window::KeyboardSettings,
 };
+#[cfg(target_os = "macos")]
+use crate::{settings::SETTINGS, window::KeyboardSettings};
+#[allow(unused_imports)]
+use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use winit::{
-    event::{ElementState, Event, Ime, KeyEvent, WindowEvent},
-    keyboard::{Key, Key::Dead},
-    platform::modifier_supplement::KeyEventExtModifierSupplement,
+    event::{ElementState, Event, Ime, KeyEvent, Modifiers, WindowEvent},
+    keyboard::Key,
 };
 
-enum InputEvent {
-    KeyEvent(KeyEvent),
-    ImeInput(String),
-}
 pub struct KeyboardManager {
-    shift: bool,
-    ctrl: bool,
-    alt: bool,
-    prev_dead_key: Option<char>,
-    logo: bool,
-    ignore_input_this_frame: bool,
-    queued_input_events: Vec<InputEvent>,
+    modifiers: Modifiers,
+    ime_preedit: (String, Option<(usize, usize)>),
 }
 
 impl KeyboardManager {
     pub fn new() -> KeyboardManager {
         KeyboardManager {
-            shift: false,
-            ctrl: false,
-            alt: false,
-            prev_dead_key: None,
-            logo: false,
-            ignore_input_this_frame: false,
-            queued_input_events: Vec::new(),
+            modifiers: Modifiers::default(),
+            ime_preedit: ("".to_string(), None),
         }
     }
 
     pub fn handle_event(&mut self, event: &Event<()>) {
         match event {
             Event::WindowEvent {
-                event: WindowEvent::Focused(_focused),
-                ..
-            } => {
-                // When window is just focused or lost it's focus, ignore keyboard events
-                // that were submitted this frame
-                self.ignore_input_this_frame = true;
-            }
-            Event::WindowEvent {
                 event:
                     WindowEvent::KeyboardInput {
-                        event: key_event, ..
+                        event: key_event,
+                        is_synthetic,
+                        ..
                     },
                 ..
-            } => {
-                // Store the event so that we can ignore it properly if the window was just
-                // focused.
-                self.queued_input_events
-                    .push(InputEvent::KeyEvent(key_event.clone()));
+            } if key_event.state == ElementState::Pressed
+                && self.ime_preedit.0.is_empty()
+                && !is_synthetic =>
+            {
+                if let Some(text) = self.format_key(key_event) {
+                    log::trace!("Key pressed {} {:?}", text, self.modifiers.state());
+                    EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Keyboard(text)));
+                }
             }
             Event::WindowEvent {
-                event: WindowEvent::Ime(Ime::Commit(string)),
+                event: WindowEvent::Ime(Ime::Commit(text)),
                 ..
             } => {
-                self.queued_input_events
-                    .push(InputEvent::ImeInput(string.to_string()));
+                log::trace!("Ime commit {text}");
+                EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Keyboard(text.to_string())));
             }
+            Event::WindowEvent {
+                event: WindowEvent::Ime(Ime::Preedit(text, cursor_offset)),
+                ..
+            } => self.ime_preedit = (text.to_string(), *cursor_offset),
             Event::WindowEvent {
                 event: WindowEvent::ModifiersChanged(modifiers),
                 ..
             } => {
                 // Record the modifier states so that we can properly add them to the keybinding
                 // text
-                let state = modifiers.state();
-                self.shift = state.shift_key();
-                self.ctrl = state.control_key();
-                self.alt = state.alt_key();
-                self.logo = state.super_key();
-            }
-            Event::MainEventsCleared => {
-                // If the window wasn't just focused.
-                if !self.should_ignore_input() {
-                    // And we have a keyboard event this frame
-                    for input_event in self.queued_input_events.iter() {
-                        let mut next_dead_key = self.prev_dead_key;
-                        match input_event {
-                            InputEvent::KeyEvent(key_event) => {
-                                // And a key was pressed
-                                if key_event.state == ElementState::Pressed {
-                                    if let Some(keybinding) = self.maybe_get_keybinding(key_event) {
-                                        EVENT_AGGREGATOR.send(UiCommand::Serial(
-                                            SerialCommand::Keyboard(keybinding),
-                                        ));
-                                    }
-                                    next_dead_key = None;
-                                } else if key_event.state == ElementState::Released {
-                                    // dead key detect here
-                                    if let Dead(dead_key) = key_event.logical_key {
-                                        // should wait for the next input text_with_all_modifiers, and ignore the next ime.
-                                        next_dead_key = dead_key;
-                                    }
-                                }
-                            }
-                            InputEvent::ImeInput(raw_input) => {
-                                if self.prev_dead_key.is_none() {
-                                    EVENT_AGGREGATOR.send(UiCommand::Serial(
-                                        SerialCommand::Keyboard(raw_input.to_string()),
-                                    ));
-                                }
-                            }
-                        }
-                        self.prev_dead_key = next_dead_key;
-                    }
-                }
-
-                // Regardless of whether this was a valid keyboard input or not, rest ignoring and
-                // whatever event was queued.
-                self.ignore_input_this_frame = false;
-                self.queued_input_events.clear();
+                self.modifiers = *modifiers;
             }
             _ => {}
         }
     }
 
-    fn should_ignore_input(&self) -> bool {
-        let settings = SETTINGS.get::<KeyboardSettings>();
-        self.ignore_input_this_frame || (self.logo && !settings.use_logo)
-    }
-
-    fn maybe_get_keybinding(&self, key_event: &KeyEvent) -> Option<String> {
-        // Determine if this key event represents a key which won't ever
-        // present text.
-        if let Some(key_text) = is_control_key(&key_event.logical_key) {
-            if self.prev_dead_key.is_some() {
-                //recover dead key to normal character
-                let real_char = String::from(self.prev_dead_key.unwrap());
-                Some(real_char + &self.format_special_key(true, key_text))
-            } else {
-                Some(self.format_special_key(true, key_text))
-            }
+    fn format_key(&self, key_event: &KeyEvent) -> Option<String> {
+        if let Some(text) = get_special_key(&key_event.logical_key) {
+            Some(self.format_key_text(text, true))
         } else {
-            let key_text = if self.prev_dead_key.is_none() {
-                key_event.text.as_ref().map(|text| text.as_str())
-            } else {
-                key_event.text_with_all_modifiers()
-            };
-            if let Some(original_key_text) = key_text {
-                let mut key_text = original_key_text.to_string();
-                if self.alt {
-                    if let Some(modify) = key_event_text(key_event) {
-                        key_text = modify;
-                    }
-                }
-                // This is not a control key, so we rely upon winit to determine if
-                // this is a deadkey or not.
-                let keybinding_string =
-                    if let Some((escaped_text, use_shift)) = is_special(&key_text) {
-                        self.format_special_key(use_shift, escaped_text)
-                    } else {
-                        self.format_normal_key(&key_text)
-                    };
-
-                Some(keybinding_string)
-            } else {
-                None
-            }
+            self.format_normal_key(key_event)
         }
     }
 
-    fn format_special_key(&self, use_shift: bool, text: &str) -> String {
-        let modifiers = self.format_modifier_string(use_shift);
+    fn format_normal_key(&self, key_event: &KeyEvent) -> Option<String> {
+        // On macOs, when alt is held and alt_is_meta is set to true, then send the base key plus
+        // the whole modifier state. Otherwise send the resulting character with "S-" and "M-"
+        // removed.
+        #[cfg(target_os = "macos")]
+        if self.modifiers.state().alt_key() && use_alt() {
+            return key_event
+                .key_without_modifiers()
+                .to_text()
+                .map(|text| self.format_key_text(text, true));
+        }
 
-        format!("<{modifiers}{text}>")
+        key_event
+            .text
+            .as_ref()
+            .or(match &key_event.logical_key {
+                Key::Character(text) => Some(text),
+                _ => None,
+            })
+            .map(|text| self.format_key_text(text.as_str(), false))
     }
 
-    fn format_normal_key(&self, text: &str) -> String {
-        let has_modifier = self.ctrl || use_alt(self.alt) || self.logo;
-        // use shift only if `text` is alphabetic
-        let is_alphabetic = text.chars().all(char::is_alphabetic);
-
-        if has_modifier {
-            self.format_special_key(is_alphabetic, text)
+    fn format_key_text(&self, text: &str, is_special: bool) -> String {
+        let modifiers = self.format_modifier_string(is_special);
+        // < needs to be formatted as a special character, but note that it's not threated as a
+        // special key for the modifier formatting, so S- and -M are still potentially stripped
+        let (text, is_special) = if text == "<" {
+            ("lt", true)
         } else {
-            text.to_string()
+            (text, is_special)
+        };
+        if modifiers.is_empty() {
+            if is_special {
+                format!("<{text}>")
+            } else {
+                text.to_string()
+            }
+        } else {
+            format!("<{modifiers}{text}>")
         }
     }
 
-    pub fn format_modifier_string(&self, use_shift: bool) -> String {
-        let shift = or_empty(self.shift && use_shift, "S-");
-        let ctrl = or_empty(self.ctrl, "C-");
-        let alt = or_empty(use_alt(self.alt), "M-");
-        let logo = or_empty(self.logo, "D-");
+    pub fn format_modifier_string(&self, is_special: bool) -> String {
+        // Is special is used for special keys so that all modifiers are always included
+        // It's also true with alt_is_meta is set to true.
+        // When the key is not special, shift is removed, since the base character is already
+        // shifted. Furthermore on macOS, meta is additionally removed when alt_is_meta is set to false
+        let shift = or_empty(self.modifiers.state().shift_key() && is_special, "S-");
+        let ctrl = or_empty(self.modifiers.state().control_key(), "C-");
+        let alt = or_empty(
+            self.modifiers.state().alt_key() && (use_alt() || is_special),
+            "M-",
+        );
+        let logo = or_empty(self.modifiers.state().super_key(), "D-");
 
         shift.to_owned() + ctrl + alt + logo
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-fn use_alt(alt: bool) -> bool {
-    alt
-}
-
-// The option or alt key is used on Macos for character set changes
-// and does not operate the same as other systems.
-#[cfg(target_os = "macos")]
-fn use_alt(alt: bool) -> bool {
-    let settings = SETTINGS.get::<KeyboardSettings>();
-    settings.macos_alt_is_meta && alt
-}
-
-#[cfg(not(target_os = "macos"))]
-fn key_event_text(key_event: &KeyEvent) -> Option<String> {
-    key_event
-        .key_without_modifiers()
-        .to_text()
-        .map(|text| text.to_string())
-}
-
-#[cfg(target_os = "macos")]
-fn key_event_text(key_event: &KeyEvent) -> Option<String> {
-    let settings = SETTINGS.get::<KeyboardSettings>();
-    if settings.macos_alt_is_meta {
-        key_event.text.as_ref().map(|text| text.to_string())
-    } else {
-        key_event
-            .text_with_all_modifiers()
-            .map(|text| text.to_string())
     }
 }
 
@@ -237,9 +141,23 @@ fn or_empty(condition: bool, text: &str) -> &str {
     }
 }
 
-fn is_control_key(key: &Key) -> Option<&'static str> {
+#[cfg(not(target_os = "macos"))]
+fn use_alt() -> bool {
+    true
+}
+
+// The option or alt key is used on Macos for character set changes
+// and does not operate the same as other systems.
+#[cfg(target_os = "macos")]
+fn use_alt() -> bool {
+    let settings = SETTINGS.get::<KeyboardSettings>();
+    settings.macos_alt_is_meta
+}
+
+fn get_special_key(key: &Key) -> Option<&str> {
     match key {
         Key::Backspace => Some("BS"),
+        Key::Space => Some("Space"),
         Key::Escape => Some("Esc"),
         Key::Delete => Some("Del"),
         Key::ArrowUp => Some("Up"),
@@ -258,25 +176,35 @@ fn is_control_key(key: &Key) -> Option<&'static str> {
         Key::F10 => Some("F10"),
         Key::F11 => Some("F11"),
         Key::F12 => Some("F12"),
+        Key::F13 => Some("F13"),
+        Key::F14 => Some("F14"),
+        Key::F15 => Some("F15"),
+        Key::F16 => Some("F16"),
+        Key::F17 => Some("F17"),
+        Key::F18 => Some("F18"),
+        Key::F19 => Some("F19"),
+        Key::F20 => Some("F20"),
+        Key::F21 => Some("F21"),
+        Key::F22 => Some("F22"),
+        Key::F23 => Some("F23"),
+        Key::F24 => Some("F24"),
+        Key::F25 => Some("F25"),
+        Key::F26 => Some("F26"),
+        Key::F27 => Some("F27"),
+        Key::F28 => Some("F28"),
+        Key::F29 => Some("F29"),
+        Key::F30 => Some("F30"),
+        Key::F31 => Some("F31"),
+        Key::F32 => Some("F32"),
+        Key::F33 => Some("F33"),
+        Key::F34 => Some("F34"),
+        Key::F35 => Some("F35"),
         Key::Insert => Some("Insert"),
         Key::Home => Some("Home"),
         Key::End => Some("End"),
         Key::PageUp => Some("PageUp"),
         Key::PageDown => Some("PageDown"),
         Key::Tab => Some("Tab"),
-        _ => None,
-    }
-}
-
-// returns (`escaped_text`, `use_shift`)
-fn is_special(text: &str) -> Option<(&str, bool)> {
-    match text {
-        " " => Some(("Space", true)),
-        "<" => Some(("lt", false)),
-        "\\" => Some(("Bslash", false)),
-        "|" => Some(("Bar", false)),
-        "\t" => Some(("Tab", true)),
-        "\n" | "\r" => Some(("CR", true)),
         _ => None,
     }
 }
