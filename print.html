@@ -705,20 +705,6 @@ from the previous session or the default size will be used on startup. The comma
 <p>Setting this to <code>v:true</code> enables the profiler, which shows a frametime graph in the upper left
 corner.</p>
 <h3 id="input-settings"><a class="header" href="#input-settings">Input Settings</a></h3>
-<h4 id="use-logo-key"><a class="header" href="#use-logo-key">Use Logo Key</a></h4>
-<p>VimScript:</p>
-<pre><code class="language-vim">let g:neovide_input_use_logo = v:false  &quot; v:true on macOS
-</code></pre>
-<p>Lua:</p>
-<pre><code class="language-lua">vim.g.neovide_input_use_logo = false    -- true on macOS
-</code></pre>
-<p>Setting <code>g:neovide_input_use_logo</code> to a boolean value will change how logo key (also known as
-<a href="https://en.wikipedia.org/wiki/Super_key_(keyboard_button)">super key</a>,
-<a href="https://en.wikipedia.org/wiki/Command_key">command key</a> or
-<a href="https://en.wikipedia.org/wiki/Windows_key">windows key</a>) is handled, allowing all key combinations
-containing logo to be forwarded to neovim. On MacOS, this defaults to <code>true</code> (so that e.g. <code>cmd+v</code>
-works for pasting with respective setup of <code>init.vim</code>), and to <code>false</code> for other platforms (that
-typically use e.g. <code>ctrl+v</code> for pasting).</p>
 <h4 id="macos-alt-is-meta"><a class="header" href="#macos-alt-is-meta">macOS Alt is Meta</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_input_macos_alt_is_meta = v:false
@@ -729,6 +715,47 @@ typically use e.g. <code>ctrl+v</code> for pasting).</p>
 <p><strong>Available since 0.10.</strong></p>
 <p>Interprets <kbd>Alt</kbd> + <kbd>whatever</kbd> actually as <code>&lt;M-whatever&gt;</code>, instead of sending the
 actual special character to Neovim.</p>
+<h4 id="ime"><a class="header" href="#ime">IME</a></h4>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_input_ime = v:true
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_input_ime = true
+</code></pre>
+<p><strong>Unreleased yet.</strong></p>
+<p>This lets you disable the IME input. For example, to only enables IME in input mode and when
+searching, so that you can navigate normally, when typing some East Asian languages, you can add
+a few auto commands:</p>
+<pre><code class="language-vim">augroup ime_input
+    autocmd!
+    autocmd InsertLeave * execute &quot;let g:neovide_input_ime=v:false&quot;
+    autocmd InsertEnter * execute &quot;let g:neovide_input_ime=v:true&quot;
+    autocmd CmdlineEnter [/\?] execute &quot;let g:neovide_input_ime=v:false&quot;
+    autocmd CmdlineLeave [/\?] execute &quot;let g:neovide_input_ime=v:true&quot;
+augroup END
+</code></pre>
+<pre><code class="language-lua">local function set_ime(args)
+    if args.event:match(&quot;Enter$&quot;) then
+        vim.g.neovide_input_ime = true
+    else
+        vim.g.neovide_input_ime = false
+    end
+end
+
+local ime_input = vim.api.nvim_create_augroup(&quot;ime_input&quot;, { clear = true })
+
+vim.api.nvim_create_autocmd({ &quot;InsertEnter&quot;, &quot;InsertLeave&quot; }, {
+    group = ime_input,
+    pattern = &quot;*&quot;,
+    callback = set_ime
+})
+
+vim.api.nvim_create_autocmd({ &quot;CmdlineEnter&quot;, &quot;CmdlineLeave&quot; }, {
+    group = ime_input,
+    pattern = &quot;[/\\?]&quot;,
+    callback = set_ime
+})
+</code></pre>
 <h4 id="touch-deadzone"><a class="header" href="#touch-deadzone">Touch Deadzone</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_touch_deadzone = 6.0
@@ -1140,7 +1167,6 @@ As a temporary work around, you may set <code>g:neovide_refresh_rate</code> to t
 your terminal adds these keybindings, as neovim doesn't have them by default. We can replicate
 this behavior by adding keybindings in neovim.</p>
 <pre><code class="language-lua">if vim.g.neovide then
-  vim.g.neovide_input_use_logo = 1 -- enable use of the logo (cmd) key
   vim.keymap.set('n', '&lt;D-s&gt;', ':w&lt;CR&gt;') -- Save
   vim.keymap.set('v', '&lt;D-c&gt;', '&quot;+y') -- Copy
   vim.keymap.set('n', '&lt;D-v&gt;', '&quot;+P') -- Paste normal mode
@@ -1150,7 +1176,6 @@ this behavior by adding keybindings in neovim.</p>
 end
 
 -- Allow clipboard copy paste in neovim
-vim.g.neovide_input_use_logo = 1
 vim.api.nvim_set_keymap('', '&lt;D-v&gt;', '+p&lt;CR&gt;', { noremap = true, silent = true})
 vim.api.nvim_set_keymap('!', '&lt;D-v&gt;', '&lt;C-R&gt;+', { noremap = true, silent = true})
 vim.api.nvim_set_keymap('t', '&lt;D-v&gt;', '&lt;C-R&gt;+', { noremap = true, silent = true})
@@ -1243,6 +1268,10 @@ issue in the colorscheme's repo.</p>
 <p>One possible cause might be inconsistent capitalization of your locale
 settings, see <a href="https://github.com/neovide/neovide/issues/1896#issuecomment-1616421167.">#1896</a>. Possibly you're also running an outdated version of
 Neovide.</p>
+<p>Another possible cause is that you are using IME on X11. Dead keys with IME is
+not yet supported, but you can work around that either by disabling IME or
+configuring it to only be enabled in insert mode. See
+<a href="configuration.html">Configuration</a>.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="maintainer-cookbook"><a class="header" href="#maintainer-cookbook">Maintainer Cookbook</a></h1>
 <p>General notes about collaborating/doing maintenance work on Neovide.</p>
 <h2 id="how-to-keep-your-sanity"><a class="header" href="#how-to-keep-your-sanity">How to keep your sanity</a></h2>

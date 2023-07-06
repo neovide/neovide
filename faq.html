@@ -150,7 +150,6 @@
 your terminal adds these keybindings, as neovim doesn't have them by default. We can replicate
 this behavior by adding keybindings in neovim.</p>
 <pre><code class="language-lua">if vim.g.neovide then
-  vim.g.neovide_input_use_logo = 1 -- enable use of the logo (cmd) key
   vim.keymap.set('n', '&lt;D-s&gt;', ':w&lt;CR&gt;') -- Save
   vim.keymap.set('v', '&lt;D-c&gt;', '&quot;+y') -- Copy
   vim.keymap.set('n', '&lt;D-v&gt;', '&quot;+P') -- Paste normal mode
@@ -160,7 +159,6 @@ this behavior by adding keybindings in neovim.</p>
 end
 
 -- Allow clipboard copy paste in neovim
-vim.g.neovide_input_use_logo = 1
 vim.api.nvim_set_keymap('', '&lt;D-v&gt;', '+p&lt;CR&gt;', { noremap = true, silent = true})
 vim.api.nvim_set_keymap('!', '&lt;D-v&gt;', '&lt;C-R&gt;+', { noremap = true, silent = true})
 vim.api.nvim_set_keymap('t', '&lt;D-v&gt;', '&lt;C-R&gt;+', { noremap = true, silent = true})
@@ -253,6 +251,10 @@ issue in the colorscheme's repo.</p>
 <p>One possible cause might be inconsistent capitalization of your locale
 settings, see <a href="https://github.com/neovide/neovide/issues/1896#issuecomment-1616421167.">#1896</a>. Possibly you're also running an outdated version of
 Neovide.</p>
+<p>Another possible cause is that you are using IME on X11. Dead keys with IME is
+not yet supported, but you can work around that either by disabling IME or
+configuring it to only be enabled in insert mode. See
+<a href="configuration.html">Configuration</a>.</p>
 
                     </main>
 

@@ -414,20 +414,6 @@ from the previous session or the default size will be used on startup. The comma
 <p>Setting this to <code>v:true</code> enables the profiler, which shows a frametime graph in the upper left
 corner.</p>
 <h3 id="input-settings"><a class="header" href="#input-settings">Input Settings</a></h3>
-<h4 id="use-logo-key"><a class="header" href="#use-logo-key">Use Logo Key</a></h4>
-<p>VimScript:</p>
-<pre><code class="language-vim">let g:neovide_input_use_logo = v:false  &quot; v:true on macOS
-</code></pre>
-<p>Lua:</p>
-<pre><code class="language-lua">vim.g.neovide_input_use_logo = false    -- true on macOS
-</code></pre>
-<p>Setting <code>g:neovide_input_use_logo</code> to a boolean value will change how logo key (also known as
-<a href="https://en.wikipedia.org/wiki/Super_key_(keyboard_button)">super key</a>,
-<a href="https://en.wikipedia.org/wiki/Command_key">command key</a> or
-<a href="https://en.wikipedia.org/wiki/Windows_key">windows key</a>) is handled, allowing all key combinations
-containing logo to be forwarded to neovim. On MacOS, this defaults to <code>true</code> (so that e.g. <code>cmd+v</code>
-works for pasting with respective setup of <code>init.vim</code>), and to <code>false</code> for other platforms (that
-typically use e.g. <code>ctrl+v</code> for pasting).</p>
 <h4 id="macos-alt-is-meta"><a class="header" href="#macos-alt-is-meta">macOS Alt is Meta</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_input_macos_alt_is_meta = v:false
@@ -438,6 +424,47 @@ typically use e.g. <code>ctrl+v</code> for pasting).</p>
 <p><strong>Available since 0.10.</strong></p>
 <p>Interprets <kbd>Alt</kbd> + <kbd>whatever</kbd> actually as <code>&lt;M-whatever&gt;</code>, instead of sending the
 actual special character to Neovim.</p>
+<h4 id="ime"><a class="header" href="#ime">IME</a></h4>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_input_ime = v:true
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_input_ime = true
+</code></pre>
+<p><strong>Unreleased yet.</strong></p>
+<p>This lets you disable the IME input. For example, to only enables IME in input mode and when
+searching, so that you can navigate normally, when typing some East Asian languages, you can add
+a few auto commands:</p>
+<pre><code class="language-vim">augroup ime_input
+    autocmd!
+    autocmd InsertLeave * execute &quot;let g:neovide_input_ime=v:false&quot;
+    autocmd InsertEnter * execute &quot;let g:neovide_input_ime=v:true&quot;
+    autocmd CmdlineEnter [/\?] execute &quot;let g:neovide_input_ime=v:false&quot;
+    autocmd CmdlineLeave [/\?] execute &quot;let g:neovide_input_ime=v:true&quot;
+augroup END
+</code></pre>
+<pre><code class="language-lua">local function set_ime(args)
+    if args.event:match(&quot;Enter$&quot;) then
+        vim.g.neovide_input_ime = true
+    else
+        vim.g.neovide_input_ime = false
+    end
+end
+
+local ime_input = vim.api.nvim_create_augroup(&quot;ime_input&quot;, { clear = true })
+
+vim.api.nvim_create_autocmd({ &quot;InsertEnter&quot;, &quot;InsertLeave&quot; }, {
+    group = ime_input,
+    pattern = &quot;*&quot;,
+    callback = set_ime
+})
+
+vim.api.nvim_create_autocmd({ &quot;CmdlineEnter&quot;, &quot;CmdlineLeave&quot; }, {
+    group = ime_input,
+    pattern = &quot;[/\\?]&quot;,
+    callback = set_ime
+})
+</code></pre>
 <h4 id="touch-deadzone"><a class="header" href="#touch-deadzone">Touch Deadzone</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_touch_deadzone = 6.0
