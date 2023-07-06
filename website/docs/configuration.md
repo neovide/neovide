@@ -53,6 +53,7 @@ as such it's also documented in `:h guifont`. But to sum it up and also add Neov
 - Fonts
   - are separated with `,` (commas).
   - can contain spaces by either escaping them or using `_` (underscores).
+  - can contain font features. using `+` to enable, `-` to disable.
 - Options
   - apply to all fonts at once.
   - are separated from the fonts and themselves through `:` (colons).
@@ -76,6 +77,7 @@ as such it's also documented in `:h guifont`. But to sum it up and also add Neov
     should Hack fail to contain any glyph.
   - `Roboto_Mono_Light:h10` — Roboto Mono Light at size 10.
   - `Hack:h14:i:#e-subpixelantialias:#h-none`
+  - `Iosevka+ss10,Symbols_Nerd_Font:h22` — Iosevka at size 22, and enable stylistic sets `ss10`.
 
 #### Line spacing
 
