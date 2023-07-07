@@ -25,8 +25,9 @@ impl FontWithFeatures {
     pub fn parse_family_desc(desc: impl AsRef<str>) -> FontWithFeatures {
         let mut features = vec![];
         let mut name = None;
-        // reverse string at first, then split_inclusive at '+' or '-', then
-        // reverse each item in the result
+        // `split_inclusive` leaves the separator at the end of the substring,
+        // but we want it at the beginning of the next substring.
+        // So we reverse the string, split it, and then reverse each substring.
         desc.as_ref()
             .chars()
             .rev()
@@ -35,17 +36,17 @@ impl FontWithFeatures {
             .map(|s| s.chars().rev().collect::<String>())
             .for_each(|s| {
                 if let Some(name) = s.strip_prefix('+') {
-                    features.push((name.to_string(), 1u16));
+                    features.push((name.trim().to_string(), 1u16));
                 } else if let Some(name) = s.strip_prefix('-') {
-                    features.push((name.to_string(), 0u16));
+                    features.push((name.trim().to_string(), 0u16));
                 } else {
-                    name = Some(s);
+                    name = Some(s.trim().to_string());
                 }
             });
 
         FontWithFeatures {
             name: name.unwrap(),
-            features,
+            features: features.into_iter().rev().collect(),
         }
     }
 }
@@ -355,5 +356,86 @@ mod tests {
             "font name should equal {}, but {}",
             ignored_escape_at_the_end, "Fira Code Mono"
         )
+    }
+
+    #[test]
+    fn test_parse_font_desc() {
+        let without_features = FontWithFeatures::parse_family_desc("Fira Code Mono");
+        let with_one_enabled_feature = FontWithFeatures::parse_family_desc("Fira Code Mono+ss10");
+        let with_one_disabled_feature = FontWithFeatures::parse_family_desc("Fira Code Mono-ss10");
+        let with_multiple_features =
+            FontWithFeatures::parse_family_desc("Fira Code Mono+ss10-ss20");
+        let with_multiple_features_and_spaces =
+            FontWithFeatures::parse_family_desc("Fira Code Mono +ss10 -ss20");
+
+        assert_eq!(
+            without_features,
+            FontWithFeatures {
+                name: "Fira Code Mono".to_string(),
+                features: vec![]
+            },
+            "font with features should equal {:?}, but {:?}",
+            without_features,
+            FontWithFeatures {
+                name: "Fira Code Mono".to_string(),
+                features: vec![]
+            },
+        );
+
+        assert_eq!(
+            with_one_enabled_feature,
+            FontWithFeatures {
+                name: "Fira Code Mono".to_string(),
+                features: vec![("ss10".to_string(), 1u16)]
+            },
+            "font with features should equal {:?}, but {:?}",
+            with_one_enabled_feature,
+            FontWithFeatures {
+                name: "Fira Code Mono".to_string(),
+                features: vec![("ss10".to_string(), 1u16)]
+            },
+        );
+
+        assert_eq!(
+            with_one_disabled_feature,
+            FontWithFeatures {
+                name: "Fira Code Mono".to_string(),
+                features: vec![("ss10".to_string(), 0u16)]
+            },
+            "font with features should equal {:?}, but {:?}",
+            with_one_disabled_feature,
+            FontWithFeatures {
+                name: "Fira Code Mono".to_string(),
+                features: vec![("ss10".to_string(), 0u16)]
+            },
+        );
+
+        assert_eq!(
+            with_multiple_features,
+            FontWithFeatures {
+                name: "Fira Code Mono".to_string(),
+                features: vec![("ss10".to_string(), 1u16), ("ss20".to_string(), 0u16)]
+            },
+            "font with features should equal {:?}, but {:?}",
+            with_multiple_features,
+            FontWithFeatures {
+                name: "Fira Code Mono".to_string(),
+                features: vec![("ss10".to_string(), 1u16), ("ss20".to_string(), 0u16)]
+            },
+        );
+
+        assert_eq!(
+            with_multiple_features_and_spaces,
+            FontWithFeatures {
+                name: "Fira Code Mono".to_string(),
+                features: vec![("ss10".to_string(), 1u16), ("ss20".to_string(), 0u16)]
+            },
+            "font with features should equal {:?}, but {:?}",
+            with_multiple_features_and_spaces,
+            FontWithFeatures {
+                name: "Fira Code Mono".to_string(),
+                features: vec![("ss10".to_string(), 1u16), ("ss20".to_string(), 0u16)]
+            },
+        );
     }
 }
