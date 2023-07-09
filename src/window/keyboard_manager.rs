@@ -67,7 +67,7 @@ impl KeyboardManager {
     }
 
     fn format_key(&self, key_event: &KeyEvent) -> Option<String> {
-        if let Some(text) = get_special_key(&key_event.logical_key) {
+        if let Some(text) = get_special_key(key_event) {
             Some(self.format_key_text(text, true))
         } else {
             self.format_normal_key(key_event)
@@ -154,10 +154,19 @@ fn use_alt() -> bool {
     settings.macos_alt_is_meta
 }
 
-fn get_special_key(key: &Key) -> Option<&str> {
+fn get_special_key(key_event: &KeyEvent) -> Option<&str> {
+    let key = &key_event.logical_key;
     match key {
         Key::Backspace => Some("BS"),
-        Key::Space => Some("Space"),
+        Key::Space => {
+            // Space can finish a dead key sequence, so only threat space as a special key when
+            // that doesn't happen.
+            if key_event.text == Some(" ".into()) {
+                Some("Space")
+            } else {
+                None
+            }
+        }
         Key::Escape => Some("Esc"),
         Key::Delete => Some("Del"),
         Key::ArrowUp => Some("Up"),
