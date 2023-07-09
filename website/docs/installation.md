@@ -103,6 +103,23 @@ installed using an AUR helper or
 To build from a non-default branch you can edit the PKGBUILD and add `#branch-name` to the end of
 the source URL.
 
+### Nix
+
+Stable releases are packaged in nixpkgs in the `neovide` package, there's no flake. As such, if you
+just want to try it out in a transient shell, you can use this command.
+
+```sh
+nix-shell -p neovide
+```
+
+#### NixOS
+
+Just add `neovide` from nixpkgs to your `environment.systemPackages` in `configuration.nix`.
+
+```nix
+environment.systemPackages = with pkgs; [neovide];
+```
+
 ### Snap
 
 Neovide is also available in the Snap Store. You can install it using the command below.
