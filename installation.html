@@ -238,6 +238,15 @@ installed using an AUR helper or
 <a href="https://wiki.archlinux.org/title/Arch_User_Repository#Installing_and_upgrading_packages">by hand in the usual way</a>.
 To build from a non-default branch you can edit the PKGBUILD and add <code>#branch-name</code> to the end of
 the source URL.</p>
+<h3 id="nix"><a class="header" href="#nix">Nix</a></h3>
+<p>Stable releases are packaged in nixpkgs in the <code>neovide</code> package, there's no flake. As such, if you
+just want to try it out in a transient shell, you can use this command.</p>
+<pre><code class="language-sh">nix-shell -p neovide
+</code></pre>
+<h4 id="nixos"><a class="header" href="#nixos">NixOS</a></h4>
+<p>Just add <code>neovide</code> from nixpkgs to your <code>environment.systemPackages</code> in <code>configuration.nix</code>.</p>
+<pre><code class="language-nix">environment.systemPackages = with pkgs; [neovide];
+</code></pre>
 <h3 id="snap"><a class="header" href="#snap">Snap</a></h3>
 <p>Neovide is also available in the Snap Store. You can install it using the command below.</p>
 <pre><code class="language-sh">snap install neovide
