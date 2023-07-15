@@ -90,7 +90,7 @@ brew install --cask neovide
 ### Arch Linux
 
 Stable releases are
-[packaged in the community repository](https://archlinux.org/packages/community/x86_64/neovide).
+[packaged in the extra repository](https://archlinux.org/packages/extra/x86_64/neovide).
 
 ```sh
 pacman -S neovide
