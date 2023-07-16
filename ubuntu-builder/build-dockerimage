@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+podman build -t ubuntu-builder-neovide ubuntu-builder

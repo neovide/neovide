@@ -1,4 +1,5 @@
 /target
+/target-ubuntu
 /.vs
 **/*.rs.bk
 *.log
