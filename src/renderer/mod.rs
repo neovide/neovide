@@ -79,6 +79,7 @@ pub enum DrawCommand {
     LineSpaceChanged(i64),
     DefaultStyleChanged(Style),
     ModeChanged(EditorMode),
+    Flush,
 }
 
 pub struct Renderer {
@@ -308,11 +309,8 @@ impl Renderer {
                 match self.rendered_windows.entry(grid_id) {
                     Entry::Occupied(mut occupied_entry) => {
                         let rendered_window = occupied_entry.get_mut();
-                        rendered_window.handle_window_draw_command(
-                            &mut self.grid_renderer,
-                            command,
-                            renderer_settings,
-                        );
+                        rendered_window
+                            .handle_window_draw_command(&mut self.grid_renderer, command);
                     }
                     Entry::Vacant(vacant_entry) => {
                         if let WindowDrawCommand::Position {
@@ -348,6 +346,11 @@ impl Renderer {
             }
             DrawCommand::ModeChanged(new_mode) => {
                 self.current_mode = new_mode;
+            }
+            DrawCommand::Flush => {
+                self.rendered_windows
+                    .iter_mut()
+                    .for_each(|(_, w)| w.flush(renderer_settings));
             }
             _ => {}
         }
