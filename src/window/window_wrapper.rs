@@ -285,6 +285,7 @@ impl WinitWindowWrapper {
 
     pub fn draw_frame(&mut self, vsync: &mut VSync, dt: f32) {
         tracy_zone!("draw_frame");
+        self.renderer.prepare_lines();
         self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
         {
             tracy_gpu_zone!("skia flush");
@@ -370,6 +371,7 @@ impl WinitWindowWrapper {
             self.init_window_size();
             should_render |= true;
         }
+
         should_render
     }
 

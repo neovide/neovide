@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use skia_safe::{
     canvas::SaveLayerRec, image_filters::blur, BlendMode, Canvas, Color, Matrix, Paint, Picture,
@@ -58,9 +58,11 @@ pub struct WindowPadding {
 
 #[derive(Clone)]
 struct Line {
+    line_fragments: Vec<LineFragment>,
     background_picture: Option<Picture>,
     foreground_picture: Option<Picture>,
     has_transparency: bool,
+    is_valid: bool,
 }
 
 pub struct RenderedWindow {
@@ -73,8 +75,8 @@ pub struct RenderedWindow {
     pub grid_size: Dimensions,
 
     has_viewport: bool,
-    scrollback_lines: Vec<Option<Line>>,
-    actual_lines: Vec<Option<Line>>,
+    scrollback_lines: Vec<Option<Arc<Mutex<Line>>>>,
+    actual_lines: Vec<Option<Arc<Mutex<Line>>>>,
     actual_top_index: isize,
     scrollback_top_index: isize,
 
@@ -178,7 +180,7 @@ impl RenderedWindow {
         let scroll_offset_pixels = (scroll_offset * font_dimensions.height as f32).round() as isize;
         let mut has_transparency = false;
 
-        let lines: Vec<(Matrix, &Line)> = (0..self.grid_size.height as isize + 1)
+        let lines: Vec<(Matrix, &Arc<Mutex<Line>>)> = (0..self.grid_size.height as isize + 1)
             .filter_map(|i| {
                 let line_index = (self.scrollback_top_index + scroll_offset_lines as isize + i)
                     .rem_euclid(self.scrollback_lines.len() as isize)
@@ -207,6 +209,7 @@ impl RenderedWindow {
         canvas.save_layer(&save_layer_rec);
         canvas.clear(default_background.with_a(255));
         for (matrix, line) in &lines {
+            let line = line.lock().unwrap();
             if let Some(background_picture) = &line.background_picture {
                 has_transparency |= line.has_transparency;
                 canvas.draw_picture(background_picture, Some(matrix), None);
@@ -215,6 +218,7 @@ impl RenderedWindow {
         canvas.restore();
 
         for (matrix, line) in &lines {
+            let line = line.lock().unwrap();
             if let Some(foreground_picture) = &line.foreground_picture {
                 canvas.draw_picture(foreground_picture, Some(matrix), None);
             }
@@ -229,6 +233,7 @@ impl RenderedWindow {
                 .rem_euclid(self.scrollback_lines.len() as isize)
                 as usize;
             if let Some(line) = &self.scrollback_lines[line_index] {
+                let line = line.lock().unwrap();
                 line.has_transparency
             } else {
                 false
@@ -382,60 +387,18 @@ impl RenderedWindow {
             } => {
                 log::trace!("Handling DrawLine {}", self.id);
                 tracy_zone!("draw_line_cmd", 0);
-                let font_dimensions = grid_renderer.font_dimensions;
-                let mut recorder = PictureRecorder::new();
-
-                let grid_rect = Rect::from_wh(
-                    (self.grid_size.width * font_dimensions.width) as f32,
-                    font_dimensions.height as f32,
-                );
-                let canvas = recorder.begin_recording(grid_rect, None);
-
                 let line_index = (self.actual_top_index + row as isize)
                     .rem_euclid(self.actual_lines.len() as isize)
                     as usize;
 
-                let mut has_transparency = false;
-                let mut custom_background = false;
+                self.actual_lines[line_index] = Some(Arc::new(Mutex::new(Line {
+                    line_fragments,
+                    background_picture: None,
+                    foreground_picture: None,
+                    has_transparency: false,
+                    is_valid: false,
+                })));
 
-                for line_fragment in line_fragments.iter() {
-                    let LineFragment {
-                        window_left,
-                        width,
-                        style,
-                        ..
-                    } = line_fragment;
-                    let grid_position = (*window_left, 0);
-                    let (custom, transparent) =
-                        grid_renderer.draw_background(canvas, grid_position, *width, style);
-                    custom_background |= custom;
-                    has_transparency |= transparent;
-                }
-                let background_picture = custom_background
-                    .then_some(recorder.finish_recording_as_picture(None).unwrap());
-
-                let canvas = recorder.begin_recording(grid_rect, None);
-                let mut foreground_drawn = false;
-                for line_fragment in line_fragments.into_iter() {
-                    let LineFragment {
-                        text,
-                        window_left,
-                        width,
-                        style,
-                    } = line_fragment;
-                    let grid_position = (window_left, 0);
-
-                    foreground_drawn |=
-                        grid_renderer.draw_foreground(canvas, text, grid_position, width, &style);
-                }
-                let foreground_picture =
-                    foreground_drawn.then_some(recorder.finish_recording_as_picture(None).unwrap());
-
-                self.actual_lines[line_index] = Some(Line {
-                    background_picture,
-                    foreground_picture,
-                    has_transparency,
-                });
                 // Also update the scrollback buffer if there's no scroll in progress
                 if !self.has_viewport {
                     let scrollback_index = (self.scrollback_top_index + row as isize)
@@ -537,5 +500,82 @@ impl RenderedWindow {
             }
             _ => {}
         };
+    }
+
+    pub fn prepare_lines(&mut self, grid_renderer: &mut GridRenderer) {
+        let scroll_offset_lines = self.scroll_animation.position.floor();
+        let top_index = self.scrollback_top_index;
+        let height = self.grid_size.height as isize;
+        let len = self.scrollback_lines.len() as isize;
+        let dirty_lines: Vec<usize> = (0..height + 1)
+            .flat_map(|i| {
+                let line_index =
+                    (top_index + scroll_offset_lines as isize + i).rem_euclid(len) as usize;
+
+                let line = &self.scrollback_lines[line_index];
+                line.as_ref().map(|line| {
+                    let is_valid = line.lock().unwrap().is_valid;
+                    (!is_valid).then_some(line_index)
+                })
+            })
+            .flatten()
+            .collect();
+
+        for line in dirty_lines {
+            let line = &mut self.scrollback_lines[line]
+                .as_mut()
+                .unwrap()
+                .lock()
+                .unwrap();
+            let font_dimensions = grid_renderer.font_dimensions;
+            let mut recorder = PictureRecorder::new();
+
+            let grid_rect = Rect::from_wh(
+                (self.grid_size.width * font_dimensions.width) as f32,
+                font_dimensions.height as f32,
+            );
+            let canvas = recorder.begin_recording(grid_rect, None);
+
+            let mut has_transparency = false;
+            let mut custom_background = false;
+
+            for line_fragment in line.line_fragments.iter() {
+                let LineFragment {
+                    window_left,
+                    width,
+                    style,
+                    ..
+                } = line_fragment;
+                let grid_position = (*window_left, 0);
+                let (custom, transparent) =
+                    grid_renderer.draw_background(canvas, grid_position, *width, style);
+                custom_background |= custom;
+                has_transparency |= transparent;
+            }
+            let background_picture =
+                custom_background.then_some(recorder.finish_recording_as_picture(None).unwrap());
+
+            let canvas = recorder.begin_recording(grid_rect, None);
+            let mut foreground_drawn = false;
+            for line_fragment in &line.line_fragments {
+                let LineFragment {
+                    text,
+                    window_left,
+                    width,
+                    style,
+                } = line_fragment;
+                let grid_position = (*window_left, 0);
+
+                foreground_drawn |=
+                    grid_renderer.draw_foreground(canvas, text, grid_position, *width, style);
+            }
+            let foreground_picture =
+                foreground_drawn.then_some(recorder.finish_recording_as_picture(None).unwrap());
+
+            line.background_picture = background_picture;
+            line.foreground_picture = foreground_picture;
+            line.has_transparency = has_transparency;
+            line.is_valid = true;
+        }
     }
 }

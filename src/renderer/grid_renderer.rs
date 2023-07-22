@@ -140,7 +140,7 @@ impl GridRenderer {
     pub fn draw_foreground(
         &mut self,
         canvas: &mut Canvas,
-        text: String,
+        text: &String,
         grid_position: (u64, u64),
         cell_width: u64,
         style: &Option<Arc<Style>>,
