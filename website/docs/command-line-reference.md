@@ -135,9 +135,10 @@ or not.
 
 **Available since 0.10.2.**
 
-By default, Neovide requests to use VSync on the created window. This
-`--novsync` disables this behavior. The command line parameter takes priority
-over the environment variable.
+By default, Neovide requests to use VSync on the created window. `--novsync`
+disables this behavior. The command line parameter takes priority over the
+environment variable. If you don't enable vsync, then `g:neovide_refresh_rate`
+will be used.
 
 ### Neovim Server
 

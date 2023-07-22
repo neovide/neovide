@@ -331,8 +331,8 @@ vim.g.neovide_refresh_rate = 60
 Setting `g:neovide_refresh_rate` to a positive integer will set the refresh rate of the app. This is
 limited by the refresh rate of your physical hardware, but can be lowered to increase battery life.
 
-Also do note that Neovide's frame pacing is far from optimal at the moment, so better hardware might
-not mean better FPS.
+This setting is only effective when not using vsync, for example by passing `--novsync` on the
+commandline.
 
 #### Idle Refresh Rate
 
