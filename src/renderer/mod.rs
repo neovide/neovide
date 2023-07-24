@@ -33,7 +33,7 @@ pub use rendered_window::{
     LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails, WindowPadding,
 };
 
-pub use opengl::{build_context, Context as WindowedContext};
+pub use opengl::{build_context, build_window, Context as WindowedContext};
 
 #[derive(SettingGroup, Clone)]
 pub struct RendererSettings {
