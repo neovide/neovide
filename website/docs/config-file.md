@@ -22,6 +22,7 @@ overridden by command line arguments.
 Settings currently available in the config file with default values:
 
 ```toml
+wsl = false
 multigrid = false
 vsync = true
 maximized = false
