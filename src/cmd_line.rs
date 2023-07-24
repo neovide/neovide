@@ -45,7 +45,7 @@ pub struct CmdLineSettings {
     pub server: Option<String>,
 
     /// Run NeoVim in WSL rather than on the host
-    #[arg(long)]
+    #[arg(long, env = "NEOVIDE_WSL")]
     pub wsl: bool,
 
     /// Which window decorations to use (do note that the window might not be resizable
