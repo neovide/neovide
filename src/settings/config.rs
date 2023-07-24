@@ -31,6 +31,7 @@ pub fn config_path() -> PathBuf {
 
 #[derive(Debug, Deserialize, Default)]
 pub struct Config {
+    pub wsl: Option<bool>,
     pub multigrid: Option<bool>,
     pub maximized: Option<bool>,
     pub vsync: Option<bool>,
@@ -52,6 +53,9 @@ impl Config {
     }
 
     fn write_to_env(&self) {
+        if let Some(wsl) = self.wsl {
+            env::set_var("NEOVIDE_WSL", wsl.to_string());
+        }
         if let Some(multigrid) = self.multigrid {
             env::set_var("NEOVIDE_MULTIGRID", multigrid.to_string());
         }
