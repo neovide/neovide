@@ -238,13 +238,13 @@ encouraged in order to tune it to your liking.
 VimScript:
 
 ```vim
-let g:neovide_far_scroll_lines = 1
+let g:neovide_scroll_animation_far_lines = 1
 ```
 
 Lua:
 
 ```lua
-vim.g.neovide_far_scroll_lines = 1
+vim.g.neovide_scroll_animation_far_lines = 1
 ```
 
 When scrolling more than one screen at a time, only this many lines at the end of the scroll action

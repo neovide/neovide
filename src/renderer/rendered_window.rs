@@ -471,7 +471,7 @@ impl RenderedWindow {
             // Do a limited scroll with empty lines when scrolling far
             if scroll_delta.unsigned_abs() > minmax {
                 let far_lines = renderer_settings
-                    .scroll_animation_far_scroll_lines
+                    .scroll_animation_far_lines
                     .min(self.actual_lines.len() as u32) as isize;
 
                 scroll_offset = (far_lines * scroll_delta.signum()) as f32;

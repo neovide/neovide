@@ -42,7 +42,7 @@ pub use vsync::VSync;
 pub struct RendererSettings {
     position_animation_length: f32,
     scroll_animation_length: f32,
-    scroll_animation_far_scroll_lines: u32,
+    scroll_animation_far_lines: u32,
     floating_blur: bool,
     floating_blur_amount_x: f32,
     floating_blur_amount_y: f32,
@@ -56,7 +56,7 @@ impl Default for RendererSettings {
         Self {
             position_animation_length: 0.15,
             scroll_animation_length: 0.3,
-            scroll_animation_far_scroll_lines: 1,
+            scroll_animation_far_lines: 1,
             floating_blur: true,
             floating_blur_amount_x: 2.0,
             floating_blur_amount_y: 2.0,
