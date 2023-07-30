@@ -2,7 +2,7 @@
 Type=Application
 Exec=neovide %F
 Icon=neovide
-Name=Neovide (nvim)
+Name=Neovide
 Keywords=Text;Editor;
 Categories=Utility;TextEditor;
 Comment=No Nonsense Neovim Client in Rust
