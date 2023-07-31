@@ -98,7 +98,7 @@ impl KeyboardManager {
 
     fn format_key_text(&self, text: &str, is_special: bool) -> String {
         let modifiers = self.format_modifier_string(is_special);
-        // < needs to be formatted as a special character, but note that it's not threated as a
+        // < needs to be formatted as a special character, but note that it's not treated as a
         // special key for the modifier formatting, so S- and -M are still potentially stripped
         let (text, is_special) = if text == "<" {
             ("lt", true)
@@ -159,7 +159,7 @@ fn get_special_key(key_event: &KeyEvent) -> Option<&str> {
     match key {
         Key::Backspace => Some("BS"),
         Key::Space => {
-            // Space can finish a dead key sequence, so only threat space as a special key when
+            // Space can finish a dead key sequence, so treat space as a special key only when
             // that doesn't happen.
             if key_event.text == Some(" ".into()) {
                 Some("Space")
