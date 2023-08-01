@@ -20,7 +20,7 @@ gpu_profiling = ["profiling"]
 async-trait = "0.1.53"
 backtrace = "0.3.67"
 cfg-if = "1.0.0"
-clap = { version = "4.0.8", features = ["cargo", "derive", "env"] }
+clap = { version = "4.3.19", features = ["cargo", "derive", "env"] }
 copypasta = "0.8.1"
 csscolorparser = "0.6.2"
 derive-new = "0.5.9"
