@@ -4,7 +4,7 @@ use skia_safe::{
     canvas::{SaveLayerRec, SrcRectConstraint},
     gpu::SurfaceOrigin,
     image_filters::blur,
-    BlendMode, Budgeted, Canvas, Color, Image, ImageInfo, Paint, Point, Rect, SamplingOptions,
+    BlendMode, gpu::Budgeted, Canvas, Color, Image, ImageInfo, Paint, Point, Rect, SamplingOptions,
     Surface, SurfaceProps, SurfacePropsFlags,
 };
 
