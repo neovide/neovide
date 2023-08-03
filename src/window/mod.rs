@@ -50,6 +50,7 @@ pub enum WindowCommand {
     TitleChanged(String),
     SetMouseEnabled(bool),
     ListAvailableFonts,
+    UpdateIMEPosition(f32, f32),
 }
 
 pub fn create_window() {

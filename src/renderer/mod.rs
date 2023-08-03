@@ -76,6 +76,7 @@ pub enum DrawCommand {
     LineSpaceChanged(i64),
     DefaultStyleChanged(Style),
     ModeChanged(EditorMode),
+    IMEPreeditChanged(String, Option<(usize, usize)>),
 }
 
 pub struct Renderer {
@@ -278,6 +279,9 @@ impl Renderer {
             }
             DrawCommand::UpdateCursor(new_cursor) => {
                 self.cursor_renderer.update_cursor(new_cursor);
+            }
+            DrawCommand::IMEPreeditChanged(text, size) => {
+                self.cursor_renderer.update_ime_preedit(text, size);
             }
             DrawCommand::FontChanged(new_font) => {
                 self.grid_renderer.update_font(&new_font);

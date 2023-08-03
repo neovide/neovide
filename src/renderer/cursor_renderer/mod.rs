@@ -14,6 +14,8 @@ use crate::{
     renderer::animation_utils::*,
     renderer::{GridRenderer, RenderedWindow},
     settings::{ParseFromValue, SETTINGS},
+    window::WindowCommand,
+    EVENT_AGGREGATOR,
 };
 
 use blink::*;
@@ -180,6 +182,7 @@ pub struct CursorRenderer {
     cursor_vfx: Option<Box<dyn cursor_vfx::CursorVfx>>,
     previous_vfx_mode: cursor_vfx::VfxMode,
     window_has_focus: bool,
+    ime_preedit: Option<(String, Option<(usize, usize)>)>,
 }
 
 impl CursorRenderer {
@@ -194,6 +197,7 @@ impl CursorRenderer {
             cursor_vfx: None,
             previous_vfx_mode: cursor_vfx::VfxMode::Disabled,
             window_has_focus: true,
+            ime_preedit: None,
         };
         renderer.set_cursor_shape(&CursorShape::Block, DEFAULT_CELL_PERCENTAGE);
         renderer
@@ -211,6 +215,10 @@ impl CursorRenderer {
 
     pub fn update_cursor(&mut self, new_cursor: Cursor) {
         self.cursor = new_cursor;
+    }
+
+    pub fn update_ime_preedit(&mut self, text: String, size: Option<(usize, usize)>) {
+        self.ime_preedit = Some((text, size));
     }
 
     fn set_cursor_shape(&mut self, cursor_shape: &CursorShape, cell_percentage: f32) {
@@ -270,6 +278,11 @@ impl CursorRenderer {
             )
                 .into();
         }
+
+        EVENT_AGGREGATOR.send(WindowCommand::UpdateIMEPosition(
+            self.destination.x,
+            self.destination.y + font_height as f32,
+        ))
     }
 
     pub fn draw(
@@ -404,6 +417,21 @@ impl CursorRenderer {
         }
 
         canvas.restore();
+
+        if let Some(ime_preedit) = &self.ime_preedit {
+            paint.set_color(background_color);
+            let blobs = &grid_renderer
+                .shaper
+                .shape_cached(ime_preedit.0.clone(), bold, italic);
+
+            for blob in blobs.iter() {
+                canvas.draw_text_blob(
+                    blob,
+                    (self.destination.x, self.destination.y + y_adjustment as f32),
+                    &paint,
+                );
+            }
+        }
 
         if let Some(vfx) = self.cursor_vfx.as_ref() {
             vfx.render(&settings, canvas, grid_renderer, &self.cursor);

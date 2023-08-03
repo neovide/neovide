@@ -184,6 +184,13 @@ impl WinitWindowWrapper {
                     self.mouse_manager.enabled = mouse_enabled
                 }
                 WindowCommand::ListAvailableFonts => self.send_font_names(),
+                WindowCommand::UpdateIMEPosition(x, y) => {
+                    let window = self.windowed_context.window();
+                    window.set_ime_cursor_area(
+                        PhysicalPosition::new(x, y),
+                        PhysicalSize::new(100, 100),
+                    );
+                }
             }
         }
     }

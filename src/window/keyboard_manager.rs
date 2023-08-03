@@ -1,6 +1,7 @@
 use crate::{
     bridge::{SerialCommand, UiCommand},
     event_aggregator::EVENT_AGGREGATOR,
+    renderer::DrawCommand,
 };
 #[cfg(target_os = "macos")]
 use crate::{settings::SETTINGS, window::KeyboardSettings};
@@ -53,7 +54,14 @@ impl KeyboardManager {
             Event::WindowEvent {
                 event: WindowEvent::Ime(Ime::Preedit(text, cursor_offset)),
                 ..
-            } => self.ime_preedit = (text.to_string(), *cursor_offset),
+            } => {
+                self.ime_preedit = (text.to_string(), *cursor_offset);
+                log::trace!("Ime preedit {text}");
+                EVENT_AGGREGATOR.send(vec![DrawCommand::IMEPreeditChanged(
+                    text.to_string(),
+                    *cursor_offset,
+                )]);
+            }
             Event::WindowEvent {
                 event: WindowEvent::ModifiersChanged(modifiers),
                 ..
