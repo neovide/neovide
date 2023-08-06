@@ -113,9 +113,14 @@ In the meantime, you can look through the previous commits to see if you missed
 anything.
 
 1. From the `Bump version to $tag` commit, download all the artifacts
-2. Unzip `neovide-linux.tar.gz.zip` to get `neovide.tar.gz`
+2. Unzip
+
+    - `neovide.AppImage.zip`
+    - `neovide.msi.zip`
+    - `neovide-linux-x86_64.tar.gz.zip`
+
 3. Head to the release draft, edit it and upload the produced artifacts (using
-    the unzipped `neovide.tar.gz` for Linux)
+    the unzipped versions if listed above)
 4. Hit `Publish release`
 5. profit
 
