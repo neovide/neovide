@@ -286,7 +286,7 @@ Lua:
 vim.g.neovide_theme = 'auto'
 ```
 
-**Unreleased yet.**
+**Available since 0.11.0.**
 
 Set the [`background`](https://neovim.io/doc/user/options.html#'background') option when Neovide
 starts. Possible values: _light_, _dark_, _auto_. On systems that support it, _auto_ will mirror the
@@ -457,7 +457,7 @@ Lua:
 vim.g.neovide_input_ime = true
 ```
 
-**Unreleased yet.**
+**Available since 0.11.0.**
 
 This lets you disable the IME input. For example, to only enables IME in input mode and when
 searching, so that you can navigate normally, when typing some East Asian languages, you can add
