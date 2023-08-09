@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{cmd_line::CmdLineSettings, settings::*};
 
 #[derive(Clone, SettingGroup)]
@@ -21,6 +23,7 @@ pub struct WindowSettings {
     pub padding_right: u32,
     pub padding_bottom: u32,
     pub theme: String,
+    pub font_features: HashMap<String, Vec<String>>,
 }
 
 impl Default for WindowSettings {
@@ -45,6 +48,7 @@ impl Default for WindowSettings {
             padding_right: 0,
             padding_bottom: 0,
             theme: "".to_string(),
+            font_features: HashMap::new(),
         }
     }
 }

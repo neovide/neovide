@@ -49,7 +49,7 @@ pub enum VfxMode {
 }
 
 impl ParseFromValue for VfxMode {
-    fn parse_from_value(&mut self, value: Value) {
+    fn parse_from_value(&mut self, value: &Value) -> bool {
         if value.is_str() {
             *self = match value.as_str().unwrap() {
                 "sonicboom" => VfxMode::Highlight(HighlightMode::SonicBoom),
@@ -61,11 +61,13 @@ impl ParseFromValue for VfxMode {
                 "" => VfxMode::Disabled,
                 value => {
                     error!("Expected a VfxMode name, but received {:?}", value);
-                    return;
+                    return false;
                 }
             };
+            true
         } else {
             error!("Expected a VfxMode string, but received {:?}", value);
+            false
         }
     }
 }
@@ -81,6 +83,12 @@ impl From<VfxMode> for Value {
             VfxMode::Trail(TrailMode::PixieDust) => Value::from("pixiedust"),
             VfxMode::Disabled => Value::from(""),
         }
+    }
+}
+
+impl ConvertIntoValue for VfxMode {
+    fn convert_into_value(self) -> Value {
+        self.into()
     }
 }
 

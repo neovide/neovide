@@ -1,4 +1,5 @@
 mod from_value;
+mod into_value;
 mod window_size;
 
 use log::trace;
@@ -13,6 +14,7 @@ use std::{
 
 use crate::{bridge::NeovimWriter, error_handling::ResultPanicExplanation};
 pub use from_value::ParseFromValue;
+pub use into_value::ConvertIntoValue;
 pub use window_size::{
     load_last_window_settings, save_window_size, PersistentWindowSettings, DEFAULT_WINDOW_GEOMETRY,
 };

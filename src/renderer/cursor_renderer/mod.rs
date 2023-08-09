@@ -13,7 +13,7 @@ use crate::{
     redraw_scheduler::REDRAW_SCHEDULER,
     renderer::animation_utils::*,
     renderer::{GridRenderer, RenderedWindow},
-    settings::{ParseFromValue, SETTINGS},
+    settings::{ConvertIntoValue, ParseFromValue, SETTINGS},
 };
 
 use blink::*;
