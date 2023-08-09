@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use log::trace;
 use skia_safe::{
@@ -70,6 +70,11 @@ impl GridRenderer {
 
     pub fn update_font(&mut self, guifont_setting: &str) {
         self.shaper.update_font(guifont_setting);
+        self.update_font_dimensions();
+    }
+
+    pub fn update_font_features(&mut self, font_features: &HashMap<String, Vec<String>>) {
+        self.shaper.update_font_features(font_features);
         self.update_font_dimensions();
     }
 

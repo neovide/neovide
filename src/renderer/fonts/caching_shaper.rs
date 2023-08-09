@@ -81,6 +81,25 @@ impl CachingShaper {
         self.reset_font_loader();
     }
 
+    pub fn update_font_features(&mut self, font_features: &HashMap<String, Vec<String>>) {
+        debug!("Update font_features: {:?}", font_features);
+        let mut new_font_features = HashMap::new();
+        for (key, value) in font_features {
+            let mut features = Vec::new();
+            for feature in value {
+                if let Some(name) = feature.strip_prefix('+') {
+                    features.push((name.trim().to_string(), 1u16));
+                } else if let Some(name) = feature.strip_prefix('-') {
+                    features.push((name.trim().to_string(), 0u16));
+                } else {
+                    warn!("Wrong feature format: {}", feature);
+                }
+            }
+            new_font_features.insert(key.clone(), features);
+        }
+        self.font_features = new_font_features;
+    }
+
     pub fn update_font(&mut self, guifont_setting: &str) {
         debug!("Updating font: {}", guifont_setting);
 
@@ -95,7 +114,6 @@ impl CachingShaper {
 
         if self.font_loader.get_or_load(&font_key).is_some() {
             debug!("Font updated to: {}", guifont_setting);
-            self.font_features = options.font_features();
             self.options = options;
             self.reset_font_loader();
         } else {
@@ -256,7 +274,7 @@ impl CachingShaper {
             font_fallback_keys.extend(self.options.font_list.iter().map(|font_name| FontKey {
                 italic: self.options.italic || italic,
                 bold: self.options.bold || bold,
-                family_name: Some(font_name.name.clone()),
+                family_name: Some(font_name.clone()),
                 hinting: self.options.hinting.clone(),
                 edging: self.options.edging.clone(),
             }));
