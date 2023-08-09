@@ -280,6 +280,8 @@ impl Renderer {
                 self.cursor_renderer.update_cursor(new_cursor);
             }
             DrawCommand::FontChanged(new_font) => {
+                self.grid_renderer
+                    .update_font_features(&SETTINGS.get::<WindowSettings>().font_features);
                 self.grid_renderer.update_font(&new_font);
             }
             DrawCommand::LineSpaceChanged(new_linespace) => {

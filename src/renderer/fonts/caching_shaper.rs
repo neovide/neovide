@@ -91,6 +91,13 @@ impl CachingShaper {
                     features.push((name.trim().to_string(), 1u16));
                 } else if let Some(name) = feature.strip_prefix('-') {
                     features.push((name.trim().to_string(), 0u16));
+                } else if let Some((name, value)) = feature.split_once('=') {
+                    let value = value.parse();
+                    if let Ok(value) = value {
+                        features.push((name.to_string(), value));
+                    } else {
+                        warn!("Wrong feature format: {}", feature);
+                    }
                 } else {
                     warn!("Wrong feature format: {}", feature);
                 }
