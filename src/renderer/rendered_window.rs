@@ -2,10 +2,10 @@ use std::{collections::VecDeque, sync::Arc};
 
 use skia_safe::{
     canvas::{SaveLayerRec, SrcRectConstraint},
-    gpu::SurfaceOrigin,
+    gpu::{Budgeted, SurfaceOrigin},
     image_filters::blur,
-    BlendMode, Budgeted, Canvas, Color, Image, ImageInfo, Paint, Point, Rect, SamplingOptions,
-    Surface, SurfaceProps, SurfacePropsFlags,
+    BlendMode, Canvas, Color, Image, ImageInfo, Paint, Point, Rect, SamplingOptions, Surface,
+    SurfaceProps, SurfacePropsFlags,
 };
 
 use crate::{

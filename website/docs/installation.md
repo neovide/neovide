@@ -90,7 +90,7 @@ brew install --cask neovide
 ### Arch Linux
 
 Stable releases are
-[packaged in the community repository](https://archlinux.org/packages/community/x86_64/neovide).
+[packaged in the extra repository](https://archlinux.org/packages/extra/x86_64/neovide).
 
 ```sh
 pacman -S neovide
@@ -102,6 +102,23 @@ installed using an AUR helper or
 [by hand in the usual way](https://wiki.archlinux.org/title/Arch_User_Repository#Installing_and_upgrading_packages).
 To build from a non-default branch you can edit the PKGBUILD and add `#branch-name` to the end of
 the source URL.
+
+### Nix
+
+Stable releases are packaged in nixpkgs in the `neovide` package, there's no flake. As such, if you
+just want to try it out in a transient shell, you can use this command.
+
+```sh
+nix-shell -p neovide
+```
+
+#### NixOS
+
+Just add `neovide` from nixpkgs to your `environment.systemPackages` in `configuration.nix`.
+
+```nix
+environment.systemPackages = with pkgs; [neovide];
+```
 
 ### Snap
 

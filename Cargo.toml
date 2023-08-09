@@ -1,6 +1,6 @@
 [package]
 name = "neovide"
-version = "0.10.4"
+version = "0.11.0"
 edition = "2021"
 build = "build.rs"
 description = "Neovide: No Nonsense Neovim Gui"
@@ -20,7 +20,7 @@ gpu_profiling = ["profiling"]
 async-trait = "0.1.53"
 backtrace = "0.3.67"
 cfg-if = "1.0.0"
-clap = { version = "4.0.8", features = ["cargo", "derive", "env"] }
+clap = { version = "4.3.19", features = ["cargo", "derive", "env"] }
 copypasta = "0.8.1"
 csscolorparser = "0.6.2"
 derive-new = "0.5.9"
@@ -30,7 +30,7 @@ flexi_logger = { version = "0.22.3", default-features = false }
 futures = "0.3.21"
 gl = "0.14.0"
 glutin = "0.30.7"
-glutin-winit = "0.3.0"
+glutin-winit = "0.4.0-beta.0"
 image = { version = "0.24.1", default-features = false, features = ["ico"] }
 itertools = "0.10.5"
 lazy_static = "1.4.0"
@@ -53,7 +53,7 @@ toml = "0.7.3"
 tracy-client-sys = { version = "0.19.0", optional = true }
 unicode-segmentation = "1.9.0"
 which = "4.2.5"
-winit = { version = "=0.28.6", features = ["serde"] }
+winit = { version = "=0.29.0-beta.0", features = ["serde"] }
 xdg = "2.4.1"
 
 [dev-dependencies]
@@ -64,21 +64,28 @@ serial_test = "2.0.0"
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3.9", features = ["winuser", "wincon"] }
 
-[target.'cfg(windows)'.build-dependencies]
-winres = "0.1.12"
-
-[target.'cfg(linux)'.dependencies.skia-safe]
-features = ["gl", "egl"]
-version = "0.52.0"
-
-[target.'cfg(not(linux))'.dependencies.skia-safe]
-features = ["gl"]
-version = "0.52.0"
-
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.24.0"
 objc = "0.2.7"
 shlex = "1.1.0"
+
+[target.'cfg(not(windows))'.dependencies]
+
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1.12"
+
+[target.'cfg(windows)'.dependencies.skia-safe]
+# NOTE: Including textlayout for pre-built binaries
+features = ["gl", "textlayout"]
+version = "0.62.0"
+
+[target.'cfg(linux)'.dependencies.skia-safe]
+features = ["egl", "gl", "textlayout", "wayland", "x11"]
+version = "0.62.0"
+
+[target.'cfg(not(linux))'.dependencies.skia-safe]
+features = ["gl"]
+version = "0.62.0"
 
 [profile.release]
 lto = true
@@ -94,7 +101,7 @@ debug = true
 name = "Neovide"
 identifier = "com.neovide.neovide"
 icon = ["assets/neovide.ico"]
-version = "0.10.4"
+version = "0.11.0"
 resources = []
 copyright = "Copyright (c) Neovide Contributors 2023. All rights reserved."
 category = "Productivity"
@@ -103,6 +110,3 @@ long_description = """
 This is a simple graphical user interface for Neovim. Where possible there are some graphical improvements, but it should act functionally like the terminal UI.
 """
 osx_minimum_system_version = "10.11"
-
-[patch.crates-io]
-winit = { git = "https://github.com/rust-windowing/winit", branch= "master", version = "0.28.6" }

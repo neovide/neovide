@@ -60,11 +60,10 @@ fn gen_config(mut config_iterator: Box<dyn Iterator<Item = Config> + '_>) -> Con
     config_iterator.next().unwrap()
 }
 
-pub fn build_context<TE>(
-    cmd_line_settings: &CmdLineSettings,
+pub fn build_window<TE>(
     winit_window_builder: WindowBuilder,
     event_loop: &EventLoop<TE>,
-) -> Context {
+) -> (Window, Config) {
     let template_builder = ConfigTemplateBuilder::new()
         .with_stencil_size(8)
         .with_transparency(true);
@@ -72,8 +71,14 @@ pub fn build_context<TE>(
         .with_window_builder(Some(winit_window_builder))
         .build(event_loop, template_builder, gen_config)
         .expect("Failed to create Window");
-    let window = window.expect("Could not create Window");
+    (window.expect("Could not create Window"), config)
+}
 
+pub fn build_context(
+    window: Window,
+    config: Config,
+    cmd_line_settings: &CmdLineSettings,
+) -> Context {
     let gl_display = config.display();
     let raw_window_handle = window.raw_window_handle();
 

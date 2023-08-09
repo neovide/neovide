@@ -459,4 +459,8 @@ impl CursorRenderer {
         canvas.draw_path(&path, paint);
         path
     }
+
+    pub fn get_current_position(&self) -> Point {
+        self.destination
+    }
 }

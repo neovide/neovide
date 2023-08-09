@@ -288,7 +288,7 @@ Lua:
 vim.g.neovide_theme = 'auto'
 ```
 
-**Unreleased yet.**
+**Available since 0.11.0.**
 
 Set the [`background`](https://neovim.io/doc/user/options.html#'background') option when Neovide
 starts. Possible values: _light_, _dark_, _auto_. On systems that support it, _auto_ will mirror the
@@ -426,28 +426,6 @@ corner.
 
 ### Input Settings
 
-#### Use Logo Key
-
-VimScript:
-
-```vim
-let g:neovide_input_use_logo = v:false  " v:true on macOS
-```
-
-Lua:
-
-```lua
-vim.g.neovide_input_use_logo = false    -- true on macOS
-```
-
-Setting `g:neovide_input_use_logo` to a boolean value will change how logo key (also known as
-[super key](<https://en.wikipedia.org/wiki/Super_key_(keyboard_button)>),
-[command key](https://en.wikipedia.org/wiki/Command_key) or
-[windows key](https://en.wikipedia.org/wiki/Windows_key)) is handled, allowing all key combinations
-containing logo to be forwarded to neovim. On MacOS, this defaults to `true` (so that e.g. `cmd+v`
-works for pasting with respective setup of `init.vim`), and to `false` for other platforms (that
-typically use e.g. `ctrl+v` for pasting).
-
 #### macOS Alt is Meta
 
 VimScript:
@@ -466,6 +444,60 @@ vim.g.neovide_input_macos_alt_is_meta = false
 
 Interprets <kbd>Alt</kbd> + <kbd>whatever</kbd> actually as `<M-whatever>`, instead of sending the
 actual special character to Neovim.
+
+#### IME
+
+VimScript:
+
+```vim
+let g:neovide_input_ime = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_input_ime = true
+```
+
+**Available since 0.11.0.**
+
+This lets you disable the IME input. For example, to only enables IME in input mode and when
+searching, so that you can navigate normally, when typing some East Asian languages, you can add
+a few auto commands:
+
+```vim
+augroup ime_input
+    autocmd!
+    autocmd InsertLeave * execute "let g:neovide_input_ime=v:false"
+    autocmd InsertEnter * execute "let g:neovide_input_ime=v:true"
+    autocmd CmdlineEnter [/\?] execute "let g:neovide_input_ime=v:false"
+    autocmd CmdlineLeave [/\?] execute "let g:neovide_input_ime=v:true"
+augroup END
+```
+
+```lua
+local function set_ime(args)
+    if args.event:match("Enter$") then
+        vim.g.neovide_input_ime = true
+    else
+        vim.g.neovide_input_ime = false
+    end
+end
+
+local ime_input = vim.api.nvim_create_augroup("ime_input", { clear = true })
+
+vim.api.nvim_create_autocmd({ "InsertEnter", "InsertLeave" }, {
+    group = ime_input,
+    pattern = "*",
+    callback = set_ime
+})
+
+vim.api.nvim_create_autocmd({ "CmdlineEnter", "CmdlineLeave" }, {
+    group = ime_input,
+    pattern = "[/\\?]",
+    callback = set_ime
+})
+```
 
 #### Touch Deadzone
 

@@ -13,7 +13,7 @@ use std::{
 };
 
 use log::error;
-use skia_safe::Canvas;
+use skia_safe::{Canvas, Point};
 use tokio::sync::mpsc::UnboundedReceiver;
 use winit::event::Event;
 
@@ -33,7 +33,7 @@ pub use rendered_window::{
     LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails, WindowPadding,
 };
 
-pub use opengl::{build_context, Context as WindowedContext};
+pub use opengl::{build_context, build_window, Context as WindowedContext};
 
 #[derive(SettingGroup, Clone)]
 pub struct RendererSettings {
@@ -293,6 +293,10 @@ impl Renderer {
             }
             _ => {}
         }
+    }
+
+    pub fn get_cursor_position(&self) -> Point {
+        self.cursor_renderer.get_current_position()
     }
 }
 
