@@ -138,6 +138,16 @@ pub async fn setup_neovide_specific_state(
         .await
         .ok();
 
+        // Create a command to allow minimizing the window
+        nvim.command(&build_neovide_command(
+            neovide_channel,
+            0,
+            "NeovideMinimize",
+            "minimize",
+        ))
+        .await
+        .ok();
+
         if should_handle_clipboard {
             setup_neovide_remote_clipboard(nvim).await;
         }
@@ -163,7 +173,6 @@ pub async fn setup_neovide_specific_state(
     setup_intro_message_autocommand(nvim).await.ok();
 }
 
-#[cfg(windows)]
 pub fn build_neovide_command(channel: u64, num_args: u64, command: &str, event: &str) -> String {
     let nargs: String = if num_args > 1 {
         "+".to_string()

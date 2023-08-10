@@ -155,6 +155,12 @@ impl WinitWindowWrapper {
         self.fullscreen = !self.fullscreen;
     }
 
+    pub fn minimize_window(&mut self) {
+        let window = self.windowed_context.window();
+
+        window.set_minimized(true);
+    }
+
     pub fn set_ime(&mut self, ime_enabled: bool) {
         self.ime_enabled = ime_enabled;
         self.windowed_context.window().set_ime_allowed(ime_enabled);
@@ -187,6 +193,7 @@ impl WinitWindowWrapper {
                 WindowCommand::FocusWindow => {
                     self.windowed_context.window().focus_window();
                 }
+                WindowCommand::Minimize => self.minimize_window(),
             }
         }
     }

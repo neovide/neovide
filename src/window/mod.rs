@@ -51,6 +51,7 @@ pub enum WindowCommand {
     SetMouseEnabled(bool),
     ListAvailableFonts,
     FocusWindow,
+    Minimize,
 }
 
 pub fn create_window() {

@@ -99,6 +99,9 @@ impl Handler for NeovimHandler {
             "neovide.focus_window" => {
                 EVENT_AGGREGATOR.send(WindowCommand::FocusWindow);
             }
+            "neovide.minimize" => {
+                EVENT_AGGREGATOR.send(WindowCommand::Minimize);
+            }
             _ => {}
         }
     }
