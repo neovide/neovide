@@ -49,26 +49,26 @@ pub enum VfxMode {
 }
 
 impl ParseFromValue for VfxMode {
-    fn parse_from_value(&mut self, value: &Value) -> bool {
-        if value.is_str() {
-            *self = match value.as_str().unwrap() {
-                "sonicboom" => VfxMode::Highlight(HighlightMode::SonicBoom),
-                "ripple" => VfxMode::Highlight(HighlightMode::Ripple),
-                "wireframe" => VfxMode::Highlight(HighlightMode::Wireframe),
-                "railgun" => VfxMode::Trail(TrailMode::Railgun),
-                "torpedo" => VfxMode::Trail(TrailMode::Torpedo),
-                "pixiedust" => VfxMode::Trail(TrailMode::PixieDust),
-                "" => VfxMode::Disabled,
-                value => {
-                    error!("Expected a VfxMode name, but received {:?}", value);
-                    return false;
-                }
-            };
-            true
-        } else {
-            error!("Expected a VfxMode string, but received {:?}", value);
-            false
-        }
+    fn parse_from_value(value: &Value) -> Result<VfxMode, ParseValueError> {
+        Ok(value
+            .as_str()
+            .map(|s| match s {
+                "sonicboom" => Ok(VfxMode::Highlight(HighlightMode::SonicBoom)),
+                "ripple" => Ok(VfxMode::Highlight(HighlightMode::Ripple)),
+                "wireframe" => Ok(VfxMode::Highlight(HighlightMode::Wireframe)),
+                "railgun" => Ok(VfxMode::Trail(TrailMode::Railgun)),
+                "torpedo" => Ok(VfxMode::Trail(TrailMode::Torpedo)),
+                "pixiedust" => Ok(VfxMode::Trail(TrailMode::PixieDust)),
+                "" => Ok(VfxMode::Disabled),
+                value => Err(ParseValueError::EnumParseFailed {
+                    ty: "VfxMode",
+                    value: s.to_string(),
+                }),
+            })
+            .ok_or_else(|| ParseValueError::TypeMismatch {
+                expect: "VfxMode(aka. str)",
+                actual: value_type_name(value),
+            })??)
     }
 }
 

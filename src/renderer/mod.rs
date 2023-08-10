@@ -12,7 +12,7 @@ use std::{
     sync::Arc,
 };
 
-use log::error;
+use log::{error, warn};
 use skia_safe::{Canvas, Point};
 use tokio::sync::mpsc::UnboundedReceiver;
 use winit::event::Event;

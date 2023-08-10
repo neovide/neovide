@@ -24,15 +24,39 @@ fn stream(input: DeriveInput, prefix: String) -> TokenStream {
     }
 }
 
+fn first_part_of_path(ty: &syn::Type) -> quote::__private::TokenStream {
+    if let syn::Type::Path(p) = ty {
+        let ident = &p.path.segments.first().unwrap().ident;
+        quote! {
+            #ident
+        }
+    } else {
+        quote! {
+            #ty
+        }
+    }
+}
+
 fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream {
     let fragments = data.fields.iter().map(|field| match field.ident {
         Some(ref ident) => {
             let vim_setting_name = format!("{prefix}{ident}");
+            let raw_type = &field.ty;
+            let first = first_part_of_path(&field.ty);
+
             quote! {{
                 fn update_func(value: rmpv::Value) {
                     let mut s = crate::settings::SETTINGS.get::<#name>();
-                    s.#ident.parse_from_value(&value);
-                    crate::settings::SETTINGS.set(&s);
+                    let new_value: Result<#raw_type, _> = #first::parse_from_value(&value);
+                    match new_value {
+                        Ok(new_value) => {
+                            s.#ident = new_value;
+                            crate::settings::SETTINGS.set(&s);
+                        }
+                        Err(e) => {
+                            warn!("Failed to parse setting value for {}", e);
+                        }
+                    }
                 }
 
                 fn reader_func() -> rmpv::Value {

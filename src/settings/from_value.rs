@@ -8,6 +8,10 @@ pub enum ParseValueError {
         expect: &'static str,
         actual: &'static str,
     },
+    EnumParseFailed {
+        ty: &'static str,
+        value: String,
+    },
 }
 
 impl std::fmt::Display for ParseValueError {
@@ -15,6 +19,9 @@ impl std::fmt::Display for ParseValueError {
         match self {
             ParseValueError::TypeMismatch { expect, actual } => {
                 write!(f, "Type mismatch: expect {}, actual {}", expect, actual)
+            }
+            ParseValueError::EnumParseFailed { ty, value } => {
+                write!(f, "Expected enum {}, but got {}", ty, value)
             }
         }
     }
@@ -66,7 +73,7 @@ impl ParseFromValue for u32 {
 impl ParseFromValue for i32 {
     fn parse_from_value(value: &Value) -> Result<i32, ParseValueError> {
         value
-            .as_u64()
+            .as_i64()
             .ok_or_else(|| ParseValueError::TypeMismatch {
                 expect: "i32",
                 actual: value_type_name(value),
@@ -79,7 +86,7 @@ impl ParseFromValue for String {
     fn parse_from_value(value: &Value) -> Result<String, ParseValueError> {
         value
             .as_str()
-            .map(|v| String::from(v))
+            .map(String::from)
             .ok_or_else(|| ParseValueError::TypeMismatch {
                 expect: "String",
                 actual: value_type_name(value),
@@ -105,14 +112,13 @@ where
     U: ParseFromValue,
 {
     fn parse_from_value(value: &Value) -> Result<Self, ParseValueError> {
-        Ok(value
+        value
             .as_map()
             .map(|kvs| {
                 let mut new_map = HashMap::<T, U>::new();
-                let kvs = value.as_map().unwrap();
                 for (k, v) in kvs {
-                    let key = T::parse_from_value(value)?;
-                    let value = U::parse_from_value(value)?;
+                    let key = T::parse_from_value(k)?;
+                    let value = U::parse_from_value(v)?;
                     new_map.insert(key, value);
                 }
                 Ok(new_map)
@@ -120,7 +126,7 @@ where
             .ok_or_else(|| ParseValueError::TypeMismatch {
                 expect: "map",
                 actual: value_type_name(value),
-            })??)
+            })?
     }
 }
 
@@ -129,24 +135,23 @@ where
     T: ParseFromValue,
 {
     fn parse_from_value(value: &Value) -> Result<Self, ParseValueError> {
-        Ok(value
+        value
             .as_array()
             .map(|arr| {
                 let mut new_vec = Vec::<T>::new();
-                let arr = value.as_array().unwrap();
                 for v in arr {
-                    new_vec.push(T::parse_from_value(value)?);
+                    new_vec.push(T::parse_from_value(v)?);
                 }
                 Ok(new_vec)
             })
             .ok_or_else(|| ParseValueError::TypeMismatch {
                 expect: "array",
                 actual: value_type_name(value),
-            })??)
+            })?
     }
 }
 
-fn value_type_name(value: &Value) -> &'static str {
+pub fn value_type_name(value: &Value) -> &'static str {
     if value.is_nil() {
         "nil"
     } else if value.is_bool() {
@@ -180,7 +185,7 @@ mod tests {
     macro_rules! assert_parse {
         ($tp:ty, $value:expr, $exp:expr) => {{
             let v0 = <$tp>::parse_from_value($value);
-            let expect_value: Result<_, ParseValueError> = ($exp).clone();
+            let expect_value: Result<$tp, ParseValueError> = ($exp).clone();
             assert_eq!(
                 v0, $exp,
                 "v0 should equal {expect_value:?} but is actually {v0:?}"
@@ -190,7 +195,6 @@ mod tests {
 
     #[test]
     fn test_parse_from_value_f32() {
-        let mut v0: f32 = 0.0;
         let v1 = Value::from(1.0);
         let v2 = Value::from(-1);
         let v3 = Value::from(std::u64::MAX);
@@ -201,77 +205,76 @@ mod tests {
         assert_parse!(f32, &v1, Ok(v1p));
         assert_parse!(f32, &v2, Ok(v2p));
         assert_parse!(f32, &v3, Ok(v3p));
-
-        // This is a noop and prints an error
-        assert_eq!(
-            f32::parse_from_value(&Value::from("asd")),
+        assert_parse!(
+            f32,
+            &Value::from("asd"),
             Err(ParseValueError::TypeMismatch {
                 expect: "f32",
                 actual: "str",
-            }),
-            "parse should report error but not"
+            })
         );
     }
 
     #[test]
     fn test_parse_from_value_u64() {
-        let mut v0: u64 = 0;
         let v1 = Value::from(std::u64::MAX);
         let v1p = std::u64::MAX;
 
-        v0.parse_from_value(&v1);
-        assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
+        assert_parse!(u64, &v1, Ok(v1p));
 
-        // This is a noop and prints an error
-        v0.parse_from_value(&Value::from(-1));
-        assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
+        assert_parse!(
+            u64,
+            &Value::from(-1),
+            Err(ParseValueError::TypeMismatch {
+                expect: "u64",
+                actual: "i64",
+            })
+        );
     }
 
     #[test]
     fn test_parse_from_value_u32() {
-        let mut v0: u32 = 0;
         let v1 = Value::from(std::u64::MAX);
         let v1p = std::u64::MAX as u32;
 
-        v0.parse_from_value(&v1);
-        assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
-
-        // This is a noop and prints an error
-        v0.parse_from_value(&Value::from(-1));
-        assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
+        assert_parse!(u32, &v1, Ok(v1p));
+        assert_parse!(
+            u32,
+            &Value::from(-1),
+            Err(ParseValueError::TypeMismatch {
+                expect: "u32",
+                actual: "i64",
+            })
+        );
     }
 
     #[test]
     fn test_parse_from_value_i32() {
-        let mut v0: i32 = 0;
         let v1 = Value::from(std::i64::MAX);
         let v1p = std::i64::MAX as i32;
 
-        v0.parse_from_value(&v1);
-        assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
-
-        // This is a noop and prints an error
-        v0.parse_from_value(&Value::from(-1));
-        assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
+        assert_parse!(i32, &v1, Ok(v1p));
+        assert_parse!(i32, &Value::from(-1), Ok(-1));
     }
 
     #[test]
     fn test_parse_from_value_string() {
-        let mut v0: String = "foo".to_string();
         let v1 = Value::from("bar");
         let v1p = "bar";
 
-        v0.parse_from_value(&v1);
-        assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
-
-        // This is a noop and prints an error
-        v0.parse_from_value(&Value::from(-1));
-        assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
+        assert_parse!(String, &v1, Ok(v1p.to_string()));
+        assert_parse!(
+            String,
+            &Value::from(-1),
+            Err(ParseValueError::TypeMismatch {
+                expect: "str",
+                actual: "i64",
+            })
+        );
     }
 
     #[test]
     fn test_parse_from_value_bool() {
-        let mut v0: bool = false;
         let v1 = Value::from(true);
         let v1p = true;
         let v2 = Value::from(0);
@@ -279,15 +282,52 @@ mod tests {
         let v3 = Value::from(1);
         let v3p = true;
 
-        v0.parse_from_value(&v1);
-        assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
-        v0.parse_from_value(&v2);
-        assert_eq!(v0, v2p, "v0 should equal {v2p} but is actually {v0}");
-        v0.parse_from_value(&v3);
-        assert_eq!(v0, v3p, "v0 should equal {v3p} but is actually {v0}");
+        assert_parse!(bool, &v1, Ok(v1p));
+        assert_parse!(bool, &v2, Ok(v2p));
+        assert_parse!(bool, &v3, Ok(v3p));
+        assert_parse!(
+            bool,
+            &Value::from("asd"),
+            Err(ParseValueError::TypeMismatch {
+                expect: "bool",
+                actual: "str",
+            })
+        );
+    }
 
-        // This is a noop and prints an error
-        v0.parse_from_value(&Value::from(-1));
-        assert_eq!(v0, v3p, "v0 should equal {v3p} but is actually {v0}");
+    #[test]
+    fn test_parse_from_value_array() {
+        let v1 = Value::from(vec![1, 2, 3]);
+        let v1p = vec![1, 2, 3];
+
+        assert_parse!(Vec<i32>, &v1, Ok(v1p.clone()));
+        assert_parse!(
+            Vec<i32>,
+            &Value::from("str"),
+            Err(ParseValueError::TypeMismatch {
+                expect: "array",
+                actual: "str",
+            })
+        );
+    }
+
+    #[test]
+    fn test_parse_from_value_map() {
+        let v1 = Value::from(vec![
+            (Value::from("a"), Value::from(1)),
+            (Value::from("b"), Value::from(2)),
+        ]);
+        let v1p: HashMap<String, i32> =
+            HashMap::from_iter(vec![("a".to_string(), 1), ("b".to_string(), 2)]);
+
+        assert_parse!(HashMap<String, i32>, &v1, Ok(v1p.clone()));
+        assert_parse!(
+            HashMap<String, i32>,
+            &Value::from("str"),
+            Err(ParseValueError::TypeMismatch {
+                expect: "map",
+                actual: "str",
+            })
+        );
     }
 }

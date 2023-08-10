@@ -13,7 +13,7 @@ use std::{
 };
 
 use crate::{bridge::NeovimWriter, error_handling::ResultPanicExplanation};
-pub use from_value::ParseFromValue;
+pub use from_value::{value_type_name, ParseFromValue, ParseValueError};
 pub use into_value::ConvertIntoValue;
 pub use window_size::{
     load_last_window_settings, save_window_size, PersistentWindowSettings, DEFAULT_WINDOW_GEOMETRY,

@@ -17,6 +17,9 @@ use crate::{
 };
 
 use blink::*;
+use log::warn;
+
+use self::cursor_vfx::VfxMode;
 
 const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
 
@@ -34,7 +37,7 @@ pub struct CursorSettings {
     trail_size: f32,
     unfocused_outline_width: f32,
 
-    vfx_mode: cursor_vfx::VfxMode,
+    vfx_mode: VfxMode,
     vfx_opacity: f32,
     vfx_particle_lifetime: f32,
     vfx_particle_density: f32,
