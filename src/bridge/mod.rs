@@ -24,7 +24,7 @@ use session::{NeovimInstance, NeovimSession};
 use setup::setup_neovide_specific_state;
 pub use ui_commands::{start_ui_command_handler, ParallelCommand, SerialCommand, UiCommand};
 
-const NEOVIM_REQUIRED_VERSION: &'static str = "0.9.2";
+const NEOVIM_REQUIRED_VERSION: &str = "0.9.2";
 
 fn neovim_instance() -> NeovimInstance {
     if let Some(address) = SETTINGS.get::<CmdLineSettings>().server {
