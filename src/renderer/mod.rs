@@ -97,6 +97,12 @@ pub struct Renderer {
     pub window_padding: WindowPadding,
 }
 
+/// Results of processing the draw commands from the command channel.
+pub struct DrawCommandResult {
+    pub font_changed: bool,
+    pub any_handled: bool,
+}
+
 impl Renderer {
     pub fn new(os_scale_factor: f64) -> Self {
         let window_settings = SETTINGS.get::<WindowSettings>();
@@ -251,13 +257,13 @@ impl Renderer {
         animating
     }
 
-    pub fn handle_draw_commands(&mut self) -> (bool, bool) {
+    pub fn handle_draw_commands(&mut self) -> DrawCommandResult {
         let mut draw_commands = Vec::new();
         while let Ok(draw_command) = self.batched_draw_command_receiver.try_recv() {
             draw_commands.extend(draw_command);
         }
 
-        let should_render = !draw_commands.is_empty();
+        let any_handled = !draw_commands.is_empty();
         let mut font_changed = false;
 
         for draw_command in draw_commands.into_iter() {
@@ -275,8 +281,10 @@ impl Renderer {
             font_changed = true;
         }
 
-        // Always render when the font change too
-        (font_changed, should_render | font_changed)
+        DrawCommandResult {
+            font_changed,
+            any_handled,
+        }
     }
 
     pub fn handle_os_scale_factor_change(&mut self, os_scale_factor: f64) {

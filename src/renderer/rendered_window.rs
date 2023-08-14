@@ -524,10 +524,10 @@ impl RenderedWindow {
                     ..
                 } = line_fragment;
                 let grid_position = (*window_left, 0);
-                let (custom, transparent) =
+                let background_info =
                     grid_renderer.draw_background(canvas, grid_position, *width, style);
-                custom_background |= custom;
-                has_transparency |= transparent;
+                custom_background |= background_info.custom_color;
+                has_transparency |= background_info.transparent;
             }
             let background_picture =
                 custom_background.then_some(recorder.finish_recording_as_picture(None).unwrap());

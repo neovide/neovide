@@ -28,6 +28,8 @@ pub struct CharacterGrid {
     pub width: usize,
     pub height: usize,
 
+    /// List of lines where the top line is indicated by top_index. This makes CharacterGrid a ring
+    /// buffer which improves the performance of scrolling.
     lines: Vec<GridLine>,
     top_index: isize,
 }
@@ -98,7 +100,9 @@ impl CharacterGrid {
         }
     }
 
-    // Returns true if it's a pure up/down scroll
+    /// Scroll the region defined by top, bottom, left, and right by rows and columns.
+    /// More details found here: https://neovim.io/doc/user/ui.html#ui-linegrid
+    /// Returns true if it's a pure up/down scroll
     pub fn scroll_region(
         &mut self,
         top: usize,
@@ -211,9 +215,9 @@ mod tests {
         }
     }
 
-    fn assert_grid_cell_equal_to_char(grid: &CharacterGrid, x: usize, y: usize, chr: &str) {
-        let chr = chr.to_string();
-        let value = (chr, None);
+    fn assert_grid_cell_contents(grid: &CharacterGrid, x: usize, y: usize, char: &str) {
+        let char = char.to_string();
+        let value = (char, None);
         let cell = Some(&value);
         assert_eq!(grid.get_cell(x, y), cell);
     }
@@ -365,9 +369,9 @@ mod tests {
         let mut grid = create_initialized_grid(&["abcd", "efgh", "ijkl", "mnop"].to_vec());
 
         grid.scroll_region(0, 4, 0, 4, 2, 0);
-        assert_grid_cell_equal_to_char(&grid, 0, 0, "i");
-        assert_grid_cell_equal_to_char(&grid, 3, 0, "l");
-        assert_grid_cell_equal_to_char(&grid, 0, 1, "m");
+        assert_grid_cell_contents(&grid, 0, 0, "i");
+        assert_grid_cell_contents(&grid, 3, 0, "l");
+        assert_grid_cell_contents(&grid, 0, 1, "m");
     }
 
     #[test]
@@ -375,9 +379,9 @@ mod tests {
         let mut grid = create_initialized_grid(&["abcd", "efgh", "ijkl", "mnop"].to_vec());
 
         grid.scroll_region(0, 4, 0, 4, -2, 0);
-        assert_grid_cell_equal_to_char(&grid, 0, 2, "a");
-        assert_grid_cell_equal_to_char(&grid, 0, 3, "e");
-        assert_grid_cell_equal_to_char(&grid, 3, 3, "h");
+        assert_grid_cell_contents(&grid, 0, 2, "a");
+        assert_grid_cell_contents(&grid, 0, 3, "e");
+        assert_grid_cell_contents(&grid, 3, 3, "h");
     }
 
     #[test]
@@ -386,13 +390,13 @@ mod tests {
 
         grid.scroll_region(1, 3, 0, 4, 1, 0);
         // The initial line is not touched
-        assert_grid_cell_equal_to_char(&grid, 0, 0, "a");
+        assert_grid_cell_contents(&grid, 0, 0, "a");
 
-        assert_grid_cell_equal_to_char(&grid, 0, 1, "i");
-        assert_grid_cell_equal_to_char(&grid, 3, 1, "l");
+        assert_grid_cell_contents(&grid, 0, 1, "i");
+        assert_grid_cell_contents(&grid, 3, 1, "l");
 
         // The last line is not touched either
-        assert_grid_cell_equal_to_char(&grid, 0, 3, "m");
+        assert_grid_cell_contents(&grid, 0, 3, "m");
     }
 
     #[test]
@@ -401,13 +405,13 @@ mod tests {
 
         grid.scroll_region(1, 3, 0, 4, -1, 0);
         // The initial line is not touched
-        assert_grid_cell_equal_to_char(&grid, 0, 0, "a");
+        assert_grid_cell_contents(&grid, 0, 0, "a");
 
-        assert_grid_cell_equal_to_char(&grid, 0, 2, "e");
-        assert_grid_cell_equal_to_char(&grid, 3, 2, "h");
+        assert_grid_cell_contents(&grid, 0, 2, "e");
+        assert_grid_cell_contents(&grid, 3, 2, "h");
 
         // The last line is not touched either
-        assert_grid_cell_equal_to_char(&grid, 0, 3, "m");
+        assert_grid_cell_contents(&grid, 0, 3, "m");
     }
 
     #[test]
@@ -415,8 +419,8 @@ mod tests {
         let mut grid = create_initialized_grid(&["abcd", "efgh", "ijkl", "mnop"].to_vec());
 
         grid.scroll_region(0, 4, 0, 4, 0, 1);
-        assert_grid_cell_equal_to_char(&grid, 0, 0, "b");
-        assert_grid_cell_equal_to_char(&grid, 2, 2, "l");
+        assert_grid_cell_contents(&grid, 0, 0, "b");
+        assert_grid_cell_contents(&grid, 2, 2, "l");
     }
 
     #[test]
@@ -424,8 +428,8 @@ mod tests {
         let mut grid = create_initialized_grid(&["abcd", "efgh", "ijkl", "mnop"].to_vec());
 
         grid.scroll_region(0, 4, 0, 4, 0, -3);
-        assert_grid_cell_equal_to_char(&grid, 3, 0, "a");
-        assert_grid_cell_equal_to_char(&grid, 3, 3, "m");
+        assert_grid_cell_contents(&grid, 3, 0, "a");
+        assert_grid_cell_contents(&grid, 3, 3, "m");
     }
 
     #[test]
@@ -434,20 +438,20 @@ mod tests {
 
         grid.scroll_region(1, 3, 1, 3, 1, 1);
         // The first row is preserved
-        assert_grid_cell_equal_to_char(&grid, 0, 0, "a");
-        assert_grid_cell_equal_to_char(&grid, 1, 0, "b");
+        assert_grid_cell_contents(&grid, 0, 0, "a");
+        assert_grid_cell_contents(&grid, 1, 0, "b");
 
         // The first character is not touched
-        assert_grid_cell_equal_to_char(&grid, 0, 1, "e");
+        assert_grid_cell_contents(&grid, 0, 1, "e");
 
         // Only k is part of the box now
-        assert_grid_cell_equal_to_char(&grid, 1, 1, "k");
+        assert_grid_cell_contents(&grid, 1, 1, "k");
 
         // The last character is not touched
-        assert_grid_cell_equal_to_char(&grid, 3, 1, "h");
+        assert_grid_cell_contents(&grid, 3, 1, "h");
 
         // The last row is preserved
-        assert_grid_cell_equal_to_char(&grid, 0, 3, "m");
+        assert_grid_cell_contents(&grid, 0, 3, "m");
     }
 
     #[test]

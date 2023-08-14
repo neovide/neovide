@@ -23,6 +23,12 @@ pub struct GridRenderer {
     pub is_ready: bool,
 }
 
+/// Struct with named fields to be returned from draw_background
+pub struct BackgroundInfo {
+    pub custom_color: bool,
+    pub transparent: bool,
+}
+
 impl GridRenderer {
     pub fn new(scale_factor: f64) -> Self {
         let mut shaper = CachingShaper::new(scale_factor as f32);
@@ -102,11 +108,14 @@ impl GridRenderer {
         grid_position: (u64, u64),
         cell_width: u64,
         style: &Option<Arc<Style>>,
-    ) -> (bool, bool) {
+    ) -> BackgroundInfo {
         tracy_zone!("draw_background");
         let debug = SETTINGS.get::<RendererSettings>().debug_renderer;
         if style.is_none() && !debug {
-            return (false, false);
+            return BackgroundInfo {
+                custom_color: false,
+                transparent: false,
+            };
         }
 
         let region = self.compute_text_region(grid_position, cell_width);
@@ -129,14 +138,21 @@ impl GridRenderer {
             paint.set_alpha_f(1.0);
         }
 
-        if paint.color4f() == self.default_style.colors.background.unwrap() {
-            (false, style.blend > 0)
+        let custom_color = if paint.color4f() == self.default_style.colors.background.unwrap() {
+            true
         } else {
             canvas.draw_rect(region, &paint);
-            (true, style.blend > 0)
+            false
+        };
+
+        BackgroundInfo {
+            custom_color,
+            transparent: style.blend > 0,
         }
     }
 
+    /// Draws some foreground text.
+    /// Returns true if any text was actually drawn.
     pub fn draw_foreground(
         &mut self,
         canvas: &mut Canvas,

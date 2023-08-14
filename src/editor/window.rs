@@ -68,21 +68,18 @@ impl Window {
         window_left: u64,
         window_top: u64,
     ) -> (String, Option<Arc<Style>>, bool) {
-        let grid_cell = match self
+        let grid_cell = self
             .grid
             .get_cell(window_left as usize, window_top as usize)
-        {
-            Some((character, style)) => (character.clone(), style.clone()),
-            _ => (' '.to_string(), None),
-        };
+            .map_or((" ".to_string(), None), |(character, style)| {
+                (character.clone(), style.clone())
+            });
 
-        let double_width = match self
+        let double_width = self
             .grid
             .get_cell(window_left as usize + 1, window_top as usize)
-        {
-            Some((character, _)) => character.is_empty(),
-            _ => false,
-        };
+            .map(|(character, _)| character.is_empty())
+            .unwrap_or_default();
 
         (grid_cell.0, grid_cell.1, double_width)
     }
@@ -255,6 +252,8 @@ impl Window {
         rows: i64,
         cols: i64,
     ) {
+        // Scrolls must move the data and send a WindowDrawCommand to move the rendered texture so
+        // that future renders draw correctly
         let is_pure_updown = self.grid.scroll_region(
             top as usize,
             bottom as usize,
@@ -264,8 +263,6 @@ impl Window {
             cols as isize,
         );
 
-        // Scrolls must not only translate the rendered texture, but also must move the grid data
-        // accordingly so that future renders work correctly.
         self.send_command(WindowDrawCommand::Scroll {
             top,
             bottom,

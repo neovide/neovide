@@ -216,6 +216,8 @@ impl WinitWindowWrapper {
         EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::FocusGained));
     }
 
+    /// Handles an event from winit and returns an boolean indicating if
+    /// the window should be rendered.
     pub fn handle_event(&mut self, event: Event<UserEvent>) -> bool {
         tracy_zone!("handle_event", 0);
         let mut should_render = false;
@@ -308,6 +310,9 @@ impl WinitWindowWrapper {
         self.renderer.animate_frame(dt)
     }
 
+    /// Prepares a frame to render.
+    /// Returns a boolean indicating whether the frame should get
+    /// drawn to the screen.
     pub fn prepare_frame(&mut self) -> bool {
         tracy_zone!("prepare_frame", 0);
         let mut should_render = false;
@@ -340,8 +345,8 @@ impl WinitWindowWrapper {
         let prev_cursor_position = self.renderer.get_cursor_position();
 
         let handle_draw_commands_result = self.renderer.handle_draw_commands();
-        self.font_changed_last_frame |= handle_draw_commands_result.0;
-        should_render |= handle_draw_commands_result.1;
+        self.font_changed_last_frame |= handle_draw_commands_result.font_changed;
+        should_render |= handle_draw_commands_result.any_handled;
 
         let current_cursor_position = self.renderer.get_cursor_position();
         if current_cursor_position != prev_cursor_position {

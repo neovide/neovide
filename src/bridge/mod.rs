@@ -24,6 +24,8 @@ use session::{NeovimInstance, NeovimSession};
 use setup::setup_neovide_specific_state;
 pub use ui_commands::{start_ui_command_handler, ParallelCommand, SerialCommand, UiCommand};
 
+const NEOVIM_REQUIRED_VERSION: &'static str = "0.9.2";
+
 fn neovim_instance() -> NeovimInstance {
     if let Some(address) = SETTINGS.get::<CmdLineSettings>().server {
         NeovimInstance::Server { address }
@@ -49,13 +51,13 @@ async fn start_neovim_runtime() {
 
     // Check the neovim version to ensure its high enough
     match nvim
-        .command_output("echo has('nvim-0.9.2')")
+        .command_output(&format!("echo has('nvim-{NEOVIM_REQUIRED_VERSION}')"))
         .await
         .as_deref()
     {
         Ok("1") => {} // This is just a guard
         _ => {
-            error!("Neovide requires nvim version 0.9.2 or higher. Download the latest version here https://github.com/neovim/neovim/wiki/Installing-Neovim");
+            error!("Neovide requires nvim version {NEOVIM_REQUIRED_VERSION} or higher. Download the latest version here https://github.com/neovim/neovim/wiki/Installing-Neovim");
             exit(0);
         }
     }
