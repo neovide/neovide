@@ -260,13 +260,11 @@ impl Renderer {
         let should_render = !draw_commands.is_empty();
         let mut font_changed = false;
 
-        let settings = SETTINGS.get::<RendererSettings>();
-
         for draw_command in draw_commands.into_iter() {
             if let DrawCommand::FontChanged(_) | DrawCommand::LineSpaceChanged(_) = draw_command {
                 font_changed = true;
             }
-            self.handle_draw_command(draw_command, &settings);
+            self.handle_draw_command(draw_command);
         }
 
         let user_scale_factor = SETTINGS.get::<WindowSettings>().scale_factor.into();
@@ -293,11 +291,7 @@ impl Renderer {
             .for_each(|(_, w)| w.prepare_lines(&mut self.grid_renderer));
     }
 
-    fn handle_draw_command(
-        &mut self,
-        draw_command: DrawCommand,
-        renderer_settings: &RendererSettings,
-    ) {
+    fn handle_draw_command(&mut self, draw_command: DrawCommand) {
         match draw_command {
             DrawCommand::Window {
                 grid_id,
@@ -350,7 +344,7 @@ impl Renderer {
             DrawCommand::Flush => {
                 self.rendered_windows
                     .iter_mut()
-                    .for_each(|(_, w)| w.flush(renderer_settings));
+                    .for_each(|(_, w)| w.flush());
             }
             _ => {}
         }
