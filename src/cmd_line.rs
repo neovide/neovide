@@ -57,9 +57,9 @@ pub struct CmdLineSettings {
     #[arg(long, env = "NEOVIDE_MAXIMIZED", value_parser = FalseyValueParser::new())]
     pub maximized: bool,
 
-    /// Enable the Multigrid extension (enables smooth scrolling and floating blur)
-    #[arg(long = "multigrid", env = "NEOVIDE_MULTIGRID", value_parser = FalseyValueParser::new())]
-    pub multi_grid: bool,
+    /// Disable the Multigrid extension (disables smooth scrolling, window animations, and floating blur)
+    #[arg(long = "no_multigrid", env = "NEOVIDE_NO_MULTIGRID", value_parser = FalseyValueParser::new())]
+    pub no_multi_grid: bool,
 
     /// Instead of spawning a child process and leaking it, be "blocking" and let the shell persist
     /// as parent process

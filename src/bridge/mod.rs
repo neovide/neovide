@@ -67,7 +67,7 @@ async fn start_neovim_runtime() {
 
     let mut options = UiAttachOptions::new();
     options.set_linegrid_external(true);
-    options.set_multigrid_external(settings.multi_grid);
+    options.set_multigrid_external(!settings.no_multi_grid);
     options.set_rgb(true);
 
     // Triggers loading the user's config
