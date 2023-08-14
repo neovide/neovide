@@ -71,14 +71,12 @@ covering up the entire screen.
 ### Multigrid
 
 ```sh
---multigrid or $NEOVIDE_MULTIGRID
+--no_multigrid or $NEOVIDE_NO_MULTIGRID
 ```
 
-This enables neovim's multigrid functionality which will also enable floating window blurred
-backgrounds and window animations. For now this is disabled due to some mouse input bugs upstream
-([neovim/neovim/pull/12667](https://github.com/neovim/neovim/pull/12667),
-[neovim/neovim/issues/15075](https://github.com/neovim/neovim/issues/15075)) and some
-[floating window transparency issues](https://github.com/neovide/neovide/issues/720).
+This disables neovim's multigrid functionality which will also disable floating window blurred
+backgrounds, smooth scrolling, and window animations. This can solve some issues where neovide
+acts differently from terminal neovim.
 
 ### No Fork
 

@@ -24,13 +24,6 @@ vim.api.nvim_set_keymap('!', '<D-v>', '<C-R>+', { noremap = true, silent = true}
 vim.api.nvim_set_keymap('t', '<D-v>', '<C-R>+', { noremap = true, silent = true})
 vim.api.nvim_set_keymap('v', '<D-v>', '<C-R>+', { noremap = true, silent = true})
 ```
-
-## How To Enable Scrolling Animations and Transparency?
-
-First, [enable multigrid](command-line-reference.md#multigrid), it's not enabled by default.
-
-Then, scrolling animations should work, for transparency see the section below.
-
 ## How To Enable Floating And Popupmenu Transparency?
 
 Those are controlled through the `winblend` and `pumblend` options. See their help pages for more,
