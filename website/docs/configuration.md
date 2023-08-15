@@ -438,6 +438,30 @@ Lua:
 vim.g.neovide_input_macos_alt_is_meta = false
 ```
 
+It is also possible to only use the left or right alt key as meta:
+
+VimScript:
+
+```vim
+" macos_alt_is_meta must be set to false for this to work
+let g:neovide_input_macos_alt_is_meta = v:false
+
+let g:neovide_input_macos_left_alt_is_meta = v:true
+" or
+let g:neovide_input_macos_right_alt_is_meta = v:true
+```
+
+Lua:
+
+```lua
+-- macos_alt_is_meta must be set to false for this to work
+vim.g.neovide_input_macos_alt_is_meta = false
+
+vim.g.neovide_input_macos_left_alt_is_meta = true
+-- or
+vim.g.neovide_input_macos_right_alt_is_meta = true
+```
+
 **Available since 0.10.**
 
 Interprets <kbd>Alt</kbd> + <kbd>whatever</kbd> actually as `<M-whatever>`, instead of sending the

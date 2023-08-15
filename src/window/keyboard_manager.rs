@@ -79,7 +79,7 @@ impl KeyboardManager {
         // the whole modifier state. Otherwise send the resulting character with "S-" and "M-"
         // removed.
         #[cfg(target_os = "macos")]
-        if self.modifiers.state().alt_key() && use_alt() {
+        if modifier_meta_pressed(&self.modifiers) {
             return key_event
                 .key_without_modifiers()
                 .to_text()
@@ -124,7 +124,7 @@ impl KeyboardManager {
         let shift = or_empty(self.modifiers.state().shift_key() && is_special, "S-");
         let ctrl = or_empty(self.modifiers.state().control_key(), "C-");
         let alt = or_empty(
-            self.modifiers.state().alt_key() && (use_alt() || is_special),
+            modifier_meta_pressed(&self.modifiers) && (use_alt() || is_special),
             "M-",
         );
         let logo = or_empty(self.modifiers.state().super_key(), "D-");
@@ -141,6 +141,22 @@ fn or_empty(condition: bool, text: &str) -> &str {
     }
 }
 
+fn modifier_meta_pressed(modifiers: &Modifiers) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        let settings = SETTINGS.get::<KeyboardSettings>();
+        (settings.macos_alt_is_meta && modifiers.state().alt_key())
+            || (settings.macos_left_alt_is_meta
+                && modifiers.lalt_state() == winit::keyboard::ModifiersKeyState::Pressed)
+            || (settings.macos_right_alt_is_meta
+                && modifiers.ralt_state() == winit::keyboard::ModifiersKeyState::Pressed)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        modifiers.state().alt_key()
+    }
+}
+
 #[cfg(not(target_os = "macos"))]
 fn use_alt() -> bool {
     true
@@ -152,6 +168,8 @@ fn use_alt() -> bool {
 fn use_alt() -> bool {
     let settings = SETTINGS.get::<KeyboardSettings>();
     settings.macos_alt_is_meta
+        || settings.macos_left_alt_is_meta
+        || settings.macos_right_alt_is_meta
 }
 
 fn get_special_key(key_event: &KeyEvent) -> Option<&str> {

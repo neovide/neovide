@@ -53,6 +53,8 @@ impl Default for WindowSettings {
 #[setting_prefix = "input"]
 pub struct KeyboardSettings {
     pub macos_alt_is_meta: bool,
+    pub macos_left_alt_is_meta: bool,
+    pub macos_right_alt_is_meta: bool,
     pub ime: bool,
 }
 
@@ -61,6 +63,8 @@ impl Default for KeyboardSettings {
     fn default() -> Self {
         Self {
             macos_alt_is_meta: false,
+            macos_left_alt_is_meta: false,
+            macos_right_alt_is_meta: false,
             ime: true,
         }
     }
