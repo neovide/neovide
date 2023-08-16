@@ -43,6 +43,7 @@ local function show_intro()
 
     -- Show the sponsor and register message one out of four times, the Uganda
     -- message two out of four times.
+    math.randomseed(os.time())
     local help_type = math.random(4)
     if help_type <= 2 then
         vim.list_extend(lines, help_messages[help_type])
