@@ -71,7 +71,7 @@ covering up the entire screen.
 ### Multigrid
 
 ```sh
---no_multigrid or $NEOVIDE_NO_MULTIGRID
+--nomultigrid or $NEOVIDE_NO_MULTIGRID
 ```
 
 This disables neovim's multigrid functionality which will also disable floating window blurred
