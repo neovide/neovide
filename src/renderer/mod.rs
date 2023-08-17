@@ -253,6 +253,7 @@ impl Renderer {
     }
 
     pub fn handle_draw_commands(&mut self) -> DrawCommandResult {
+        let settings = SETTINGS.get::<RendererSettings>();
         let mut any_handled = false;
         let mut font_changed = false;
 
@@ -264,7 +265,7 @@ impl Renderer {
                 {
                     font_changed = true;
                 }
-                self.handle_draw_command(draw_command);
+                self.handle_draw_command(draw_command, &settings);
             }
         }
 
@@ -294,7 +295,11 @@ impl Renderer {
             .for_each(|(_, w)| w.prepare_lines(&mut self.grid_renderer));
     }
 
-    fn handle_draw_command(&mut self, draw_command: DrawCommand) {
+    fn handle_draw_command(
+        &mut self,
+        draw_command: DrawCommand,
+        renderer_settings: &RendererSettings,
+    ) {
         match draw_command {
             DrawCommand::Window {
                 grid_id,
@@ -347,7 +352,7 @@ impl Renderer {
             DrawCommand::Flush => {
                 self.rendered_windows
                     .iter_mut()
-                    .for_each(|(_, w)| w.flush());
+                    .for_each(|(_, w)| w.flush(renderer_settings));
             }
             _ => {}
         }
