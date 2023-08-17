@@ -469,19 +469,21 @@ impl RenderedWindow {
         if scroll_delta != 0 {
             let mut scroll_offset = self.scroll_animation.position;
 
-            let minmax = self.scrollback_lines.len() - self.grid_size.height as usize;
-            log::trace!("Scroll offset {scroll_offset}, delta {scroll_delta}, minmax {minmax}");
+            let max_delta = self.scrollback_lines.len() - self.grid_size.height as usize;
+            log::trace!(
+                "Scroll offset {scroll_offset}, delta {scroll_delta}, max_delta {max_delta}"
+            );
             // Do a limited scroll with empty lines when scrolling far
-            if scroll_delta.unsigned_abs() > minmax {
+            if scroll_delta.unsigned_abs() > max_delta {
                 let far_lines = renderer_settings
                     .scroll_animation_far_lines
                     .min(self.actual_lines.len() as u32) as isize;
 
-                scroll_offset = (far_lines * scroll_delta.signum()) as f32;
+                scroll_offset = -(far_lines * scroll_delta.signum()) as f32;
                 let empty_lines = if scroll_delta > 0 {
-                    self.actual_lines.len() as isize..self.actual_lines.len() as isize + far_lines
-                } else {
                     -far_lines..0
+                } else {
+                    self.actual_lines.len() as isize..self.actual_lines.len() as isize + far_lines
                 };
                 for i in empty_lines {
                     let i = (self.scrollback_top_index + i)
@@ -493,7 +495,7 @@ impl RenderedWindow {
             // buffer size is limited
             } else {
                 scroll_offset -= scroll_delta as f32;
-                scroll_offset = scroll_offset.clamp(-(minmax as f32), minmax as f32);
+                scroll_offset = scroll_offset.clamp(-(max_delta as f32), max_delta as f32);
             }
             self.scroll_animation.position = scroll_offset;
             log::trace!("Current scroll {scroll_offset}");
