@@ -139,10 +139,10 @@ impl GridRenderer {
         }
 
         let custom_color = if paint.color4f() == self.default_style.colors.background.unwrap() {
-            true
+            false
         } else {
             canvas.draw_rect(region, &paint);
-            false
+            true
         };
 
         BackgroundInfo {
