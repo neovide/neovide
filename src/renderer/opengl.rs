@@ -126,8 +126,6 @@ pub fn build_context(
     } else {
         surface.set_swap_interval(&context, SwapInterval::DontWait)
     };
-    // TODO: not exactly sure if this v overrides the if check?
-    let _ = surface.set_swap_interval(&context, SwapInterval::DontWait);
 
     Context {
         surface,
