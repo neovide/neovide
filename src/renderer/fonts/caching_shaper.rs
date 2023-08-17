@@ -155,27 +155,27 @@ impl CachingShaper {
 
     fn info(&mut self) -> (Metrics, f32) {
         if let Some(info) = self.font_info {
-            info
-        } else {
-            let font_pair = self.current_font_pair();
-            let size = self.current_size();
-            let mut shaper = self
-                .shape_context
-                .builder(font_pair.swash_font.as_ref())
-                .size(size)
-                .build();
-            shaper.add_str("M");
-            let metrics = shaper.metrics();
-            let mut advance = metrics.average_width;
-            shaper.shape_with(|cluster| {
-                advance = cluster
-                    .glyphs
-                    .first()
-                    .map_or(metrics.average_width, |g| g.advance);
-            });
-            self.font_info = Some((metrics, advance));
-            (metrics, advance)
+            return info;
         }
+
+        let font_pair = self.current_font_pair();
+        let size = self.current_size();
+        let mut shaper = self
+            .shape_context
+            .builder(font_pair.swash_font.as_ref())
+            .size(size)
+            .build();
+        shaper.add_str("M");
+        let metrics = shaper.metrics();
+        let mut advance = metrics.average_width;
+        shaper.shape_with(|cluster| {
+            advance = cluster
+                .glyphs
+                .first()
+                .map_or(metrics.average_width, |g| g.advance);
+        });
+        self.font_info = Some((metrics, advance));
+        (metrics, advance)
     }
 
     fn metrics(&mut self) -> Metrics {

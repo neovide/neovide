@@ -216,7 +216,7 @@ impl Renderer {
     }
 
     pub fn animate_frame(&mut self, dt: f32) -> bool {
-        let windows: Vec<&mut RenderedWindow> = {
+        let windows = {
             let (mut root_windows, mut floating_windows): (
                 Vec<&mut RenderedWindow>,
                 Vec<&mut RenderedWindow>,
@@ -231,19 +231,14 @@ impl Renderer {
 
             floating_windows.sort_by(floating_sort);
 
-            root_windows
-                .into_iter()
-                .chain(floating_windows.into_iter())
-                .collect()
+            root_windows.into_iter().chain(floating_windows.into_iter())
         };
 
         let settings = SETTINGS.get::<RendererSettings>();
 
         // Clippy recommends short-circuiting with any which is not what we want
         #[allow(clippy::unnecessary_fold)]
-        let mut animating = windows
-            .into_iter()
-            .fold(false, |acc, window| window.animate(&settings, dt) || acc);
+        let mut animating = windows.fold(false, |acc, window| acc | window.animate(&settings, dt));
 
         let windows = &self.rendered_windows;
         let font_dimensions = self.grid_renderer.font_dimensions;
@@ -258,19 +253,19 @@ impl Renderer {
     }
 
     pub fn handle_draw_commands(&mut self) -> DrawCommandResult {
-        let mut draw_commands = Vec::new();
-        while let Ok(draw_command) = self.batched_draw_command_receiver.try_recv() {
-            draw_commands.extend(draw_command);
-        }
-
-        let any_handled = !draw_commands.is_empty();
+        let mut any_handled = false;
         let mut font_changed = false;
 
-        for draw_command in draw_commands.into_iter() {
-            if let DrawCommand::FontChanged(_) | DrawCommand::LineSpaceChanged(_) = draw_command {
-                font_changed = true;
+        while let Ok(batch) = self.batched_draw_command_receiver.try_recv() {
+            any_handled = true;
+
+            for draw_command in batch {
+                if let DrawCommand::FontChanged(_) | DrawCommand::LineSpaceChanged(_) = draw_command
+                {
+                    font_changed = true;
+                }
+                self.handle_draw_command(draw_command);
             }
-            self.handle_draw_command(draw_command);
         }
 
         let user_scale_factor = SETTINGS.get::<WindowSettings>().scale_factor.into();

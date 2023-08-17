@@ -143,6 +143,7 @@ impl RenderedWindow {
         Rect::from_point_and_size(current_pixel_position, image_size)
     }
 
+    /// Returns `true` if the window has been animated in this step.
     pub fn animate(&mut self, settings: &RendererSettings, dt: f32) -> bool {
         let mut animating = false;
 
@@ -185,17 +186,17 @@ impl RenderedWindow {
                 let line_index = (self.scrollback_top_index + scroll_offset_lines as isize + i)
                     .rem_euclid(self.scrollback_lines.len() as isize)
                     as usize;
-                if let Some(line) = &self.scrollback_lines[line_index] {
-                    let mut m = Matrix::new_identity();
-                    m.set_translate((
-                        pixel_region.left(),
-                        pixel_region.top()
-                            + (scroll_offset_pixels + (i * font_dimensions.height as isize)) as f32,
-                    ));
-                    Some((m, line))
-                } else {
-                    None
-                }
+
+                self.scrollback_lines[line_index].as_ref().map(|line| (i, line))
+            })
+            .map(|(i, line)| {
+                let mut matrix = Matrix::new_identity();
+                matrix.set_translate((
+                    pixel_region.left(),
+                    pixel_region.top()
+                        + (scroll_offset_pixels + (i * font_dimensions.height as isize)) as f32,
+                ));
+                (matrix, line)
             })
             .collect();
 
@@ -485,17 +486,16 @@ impl RenderedWindow {
         let height = self.grid_size.height as isize;
         let len = self.scrollback_lines.len() as isize;
         let dirty_lines: Vec<usize> = (0..height + 1)
-            .flat_map(|i| {
+            .filter_map(|i| {
                 let line_index =
                     (top_index + scroll_offset_lines as isize + i).rem_euclid(len) as usize;
 
-                let line = &self.scrollback_lines[line_index];
-                line.as_ref().map(|line| {
-                    let is_valid = line.lock().unwrap().is_valid;
-                    (!is_valid).then_some(line_index)
-                })
+                self.scrollback_lines[line_index].as_ref().map(|line| (line_index, line))
             })
-            .flatten()
+            .filter_map(|(line_index, line)| {
+                let is_valid = line.lock().unwrap().is_valid;
+                (!is_valid).then_some(line_index)
+            })
             .collect();
 
         for line in dirty_lines {

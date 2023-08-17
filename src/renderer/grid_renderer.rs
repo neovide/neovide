@@ -138,12 +138,10 @@ impl GridRenderer {
             paint.set_alpha_f(1.0);
         }
 
-        let custom_color = if paint.color4f() == self.default_style.colors.background.unwrap() {
-            false
-        } else {
+        let custom_color = paint.color4f() != self.default_style.colors.background.unwrap();
+        if custom_color {
             canvas.draw_rect(region, &paint);
-            true
-        };
+        }
 
         BackgroundInfo {
             custom_color,
