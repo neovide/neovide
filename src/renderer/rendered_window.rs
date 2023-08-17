@@ -187,7 +187,9 @@ impl RenderedWindow {
                     .rem_euclid(self.scrollback_lines.len() as isize)
                     as usize;
 
-                self.scrollback_lines[line_index].as_ref().map(|line| (i, line))
+                self.scrollback_lines[line_index]
+                    .as_ref()
+                    .map(|line| (i, line))
             })
             .map(|(i, line)| {
                 let mut matrix = Matrix::new_identity();
@@ -490,11 +492,11 @@ impl RenderedWindow {
                 let line_index =
                     (top_index + scroll_offset_lines as isize + i).rem_euclid(len) as usize;
 
-                self.scrollback_lines[line_index].as_ref().map(|line| (line_index, line))
-            })
-            .filter_map(|(line_index, line)| {
-                let is_valid = line.lock().unwrap().is_valid;
-                (!is_valid).then_some(line_index)
+                let line = &self.scrollback_lines[line_index];
+                line.as_ref().and_then(|line| {
+                    let is_valid = line.lock().unwrap().is_valid;
+                    (!is_valid).then_some(line_index)
+                })
             })
             .collect();
 
