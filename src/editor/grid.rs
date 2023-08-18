@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::editor::style::Style;
+use crate::{editor::style::Style, utils::RingBuffer};
 
 pub type GridCell = (String, Option<Arc<Style>>);
 
@@ -28,10 +28,8 @@ pub struct CharacterGrid {
     pub width: usize,
     pub height: usize,
 
-    /// List of lines where the top line is indicated by top_index. This makes CharacterGrid a ring
-    /// buffer which improves the performance of scrolling.
-    lines: Vec<GridLine>,
-    top_index: isize,
+    /// The CharacterGrid a ring buffer which improves the performance of scrolling.
+    lines: RingBuffer<GridLine>,
 }
 
 impl CharacterGrid {
@@ -39,49 +37,31 @@ impl CharacterGrid {
         CharacterGrid {
             width,
             height,
-            top_index: 0,
-            lines: vec![GridLine::new(width); height],
+            lines: RingBuffer::new(height, GridLine::new(width)),
         }
     }
 
     pub fn resize(&mut self, (width, height): (usize, usize)) {
-        let mut new_lines = vec![GridLine::new(width); height];
+        self.lines.resize(height, GridLine::new(width));
 
-        for x in 0..self.width.min(width) {
-            for (y, new_line) in new_lines
-                .iter_mut()
-                .enumerate()
-                .take(self.height.min(height))
-            {
-                if let Some(existing_cell) = self.get_cell(x, y) {
-                    new_line.characters[x] = existing_cell.clone();
-                }
-            }
+        for line in &mut self.lines {
+            line.characters.resize(width, default_cell!());
         }
 
         self.width = width;
         self.height = height;
-        self.lines = new_lines;
-        self.top_index = 0;
     }
 
     pub fn clear(&mut self) {
         self.set_all_characters(default_cell!());
-        self.top_index = 0;
     }
 
     pub fn get_cell(&self, x: usize, y: usize) -> Option<&GridCell> {
-        let index = self.get_row_array_index(y as isize);
-        self.lines
-            .get(index)
-            .and_then(|line| line.characters.get(x))
+        self.lines[y].characters.get(x)
     }
 
     pub fn get_cell_mut(&mut self, x: usize, y: usize) -> Option<&mut GridCell> {
-        let index = self.get_row_array_index(y as isize);
-        self.lines
-            .get_mut(index)
-            .and_then(|line| line.characters.get_mut(x))
+        self.lines[y].characters.get_mut(x)
     }
 
     pub fn set_all_characters(&mut self, value: GridCell) {
@@ -94,7 +74,7 @@ impl CharacterGrid {
 
     pub fn row(&self, row_index: usize) -> Option<&[GridCell]> {
         if row_index < self.height {
-            Some(&self.lines[self.get_row_array_index(row_index as isize)].characters[..])
+            Some(&self.lines[row_index].characters[..])
         } else {
             None
         }
@@ -115,7 +95,7 @@ impl CharacterGrid {
         if top == 0 && bottom == self.height && left == 0 && right == self.width && cols == 0 {
             // Pure up/down scrolling is optimized, and furthermore does not destroy the region
             // that has been scrolled out
-            self.top_index += rows;
+            self.lines.rotate(rows);
             return true;
         }
 
@@ -156,11 +136,6 @@ impl CharacterGrid {
         }
 
         false
-    }
-
-    pub fn get_row_array_index(&self, index: isize) -> usize {
-        let rows = self.lines.len() as isize;
-        (self.top_index + index).rem_euclid(rows) as usize
     }
 }
 
