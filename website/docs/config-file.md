@@ -29,7 +29,7 @@ maximized = false
 srgb = false
 idle = true
 neovim-bin = "/usr/bin/nvim" # in reality found dynamically on $PATH if unset
-frame = "Full"
+frame = "full"
 ```
 
 See [Command Line Reference](command-line-reference.md) for details on what those settings do.
