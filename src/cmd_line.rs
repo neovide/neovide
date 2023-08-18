@@ -153,6 +153,7 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
 }
 
 #[cfg(test)]
+#[allow(clippy::bool_assert_comparison)] // useful here since the explicit true/false comparison matters
 mod tests {
     use scoped_env::ScopedEnv;
 
