@@ -116,6 +116,7 @@ anything.
 2. Unzip
 
     - `neovide.AppImage.zip`
+    - `neovide.AppImage.zsync.zip`
     - `neovide.msi.zip`
     - `neovide-linux-x86_64.tar.gz.zip`
 
