@@ -62,7 +62,8 @@ scoped-env = "2.1.0"
 serial_test = "2.0.0"
 
 [target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3.9", features = ["winuser", "wincon"] }
+# NOTE: winerror is only needed because the indirect dependency parity-tokio-ipc does not set it even if it uses it
+winapi = { version = "0.3.9", features = ["winuser", "wincon", "winerror"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.24.0"
