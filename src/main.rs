@@ -21,6 +21,7 @@ mod profiling;
 mod renderer;
 mod running_tracker;
 mod settings;
+mod utils;
 mod window;
 
 #[cfg(target_os = "windows")]
