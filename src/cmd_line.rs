@@ -371,7 +371,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_no_srgb_enviornment() {
+    fn test_no_srgb_environment() {
         let args: Vec<String> = vec!["neovide"].iter().map(|s| s.to_string()).collect();
 
         let _env = ScopedEnv::set("NEOVIDE_SRGB", "0");
@@ -394,7 +394,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_override_nosrgb_enviornment() {
+    fn test_override_nosrgb_environment() {
         let args: Vec<String> = vec!["neovide", "--srgb"]
             .iter()
             .map(|s| s.to_string())
@@ -440,7 +440,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_no_vsync_enviornment() {
+    fn test_no_vsync_environment() {
         let args: Vec<String> = vec!["neovide"].iter().map(|s| s.to_string()).collect();
 
         let _env = ScopedEnv::set("NEOVIDE_VSYNC", "0");
@@ -450,7 +450,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_override_vsync_enviornment() {
+    fn test_override_vsync_environment() {
         let args: Vec<String> = vec!["neovide", "--no-vsync"]
             .iter()
             .map(|s| s.to_string())
@@ -463,7 +463,7 @@ mod tests {
 
     #[test]
     #[serial]
-    fn test_override_novsync_enviornment() {
+    fn test_override_novsync_environment() {
         let args: Vec<String> = vec!["neovide", "--vsync"]
             .iter()
             .map(|s| s.to_string())
