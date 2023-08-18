@@ -79,7 +79,6 @@ pub enum DrawCommand {
     LineSpaceChanged(i64),
     DefaultStyleChanged(Style),
     ModeChanged(EditorMode),
-    Flush,
 }
 
 pub struct Renderer {
@@ -265,8 +264,9 @@ impl Renderer {
                 {
                     font_changed = true;
                 }
-                self.handle_draw_command(draw_command, &settings);
+                self.handle_draw_command(draw_command);
             }
+            self.flush(&settings);
         }
 
         let user_scale_factor = SETTINGS.get::<WindowSettings>().scale_factor.into();
@@ -295,11 +295,7 @@ impl Renderer {
             .for_each(|(_, w)| w.prepare_lines(&mut self.grid_renderer));
     }
 
-    fn handle_draw_command(
-        &mut self,
-        draw_command: DrawCommand,
-        renderer_settings: &RendererSettings,
-    ) {
+    fn handle_draw_command(&mut self, draw_command: DrawCommand) {
         match draw_command {
             DrawCommand::Window {
                 grid_id,
@@ -349,13 +345,14 @@ impl Renderer {
             DrawCommand::ModeChanged(new_mode) => {
                 self.current_mode = new_mode;
             }
-            DrawCommand::Flush => {
-                self.rendered_windows
-                    .iter_mut()
-                    .for_each(|(_, w)| w.flush(renderer_settings));
-            }
             _ => {}
         }
+    }
+
+    pub fn flush(&mut self, renderer_settings: &RendererSettings) {
+        self.rendered_windows
+            .iter_mut()
+            .for_each(|(_, w)| w.flush(renderer_settings));
     }
 
     pub fn get_cursor_position(&self) -> Point {

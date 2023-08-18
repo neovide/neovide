@@ -24,8 +24,7 @@ impl DrawCommandBatcher {
     }
 
     pub fn send_batch(&self) {
-        let mut batch: Vec<DrawCommand> = self.window_draw_command_receiver.try_iter().collect();
-        batch.push(DrawCommand::Flush);
+        let batch: Vec<DrawCommand> = self.window_draw_command_receiver.try_iter().collect();
         EVENT_AGGREGATOR.send(batch);
     }
 }
