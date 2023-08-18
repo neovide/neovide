@@ -30,6 +30,8 @@ const REGISTER_CLIPBOARD_PROVIDER_LUA: &str = r"
         cache_enabled = 0
     }";
 
+const INTRO_MESSAGE_LUA: &str = include_str!("../../lua/intro.lua");
+
 pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<NeovimWriter>, neovide_channel: u64) {
     // Users can opt-out with
     // vim: `let g:neovide_no_custom_clipboard = v:true`
@@ -144,6 +146,8 @@ pub async fn setup_neovide_specific_state(
     nvim.command("autocmd VimLeave * call rpcnotify(1, 'neovide.quit', v:exiting)")
         .await
         .ok();
+
+    nvim.exec_lua(INTRO_MESSAGE_LUA, Vec::new()).await.ok();
 }
 
 #[cfg(windows)]
