@@ -30,6 +30,7 @@ pub fn config_path() -> PathBuf {
 }
 
 #[derive(Debug, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
 pub struct Config {
     pub wsl: Option<bool>,
     pub no_multigrid: Option<bool>,

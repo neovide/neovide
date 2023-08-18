@@ -215,7 +215,7 @@ fn maybe_disown() {
             .stdin(process::Stdio::null())
             .stdout(process::Stdio::null())
             .stderr(process::Stdio::null())
-            .arg("--nofork")
+            .arg("--no-fork")
             .args(env::args().skip(1))
             .spawn()
             .is_ok());

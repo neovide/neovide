@@ -71,7 +71,7 @@ covering up the entire screen.
 ### Multigrid
 
 ```sh
---nomultigrid or $NEOVIDE_NO_MULTIGRID
+--no-multigrid or $NEOVIDE_NO_MULTIGRID
 ```
 
 This disables neovim's multigrid functionality which will also disable floating window blurred
@@ -81,7 +81,7 @@ acts differently from terminal neovim.
 ### No Fork
 
 ```sh
---nofork
+--no-fork
 ```
 
 By default, neovide detaches itself from the terminal. Instead of spawning a child process and
@@ -90,19 +90,19 @@ leaking it, be "blocking" and have the shell directly as parent process.
 ### No Idle
 
 ```sh
---noidle or $NEOVIDE_IDLE=0|1
+--no-idle or $NEOVIDE_IDLE=0|1
 ```
 
 With idle `on` (default), neovide won't render new frames when nothing is happening.
 
-With idle `off` (e.g. with `--noidle` flag), neovide will constantly render new frames,
+With idle `off` (e.g. with `--no-idle` flag), neovide will constantly render new frames,
 even when nothing changed. This takes more power and CPU time, but can possibly help
 with frame timing issues.
 
 ### sRGB
 
 ```sh
---nosrgb, --srgb or $NEOVIDE_SRGB=0|1
+--no-srgb, --srgb or $NEOVIDE_SRGB=0|1
 ```
 
 Request sRGB support on the window. Neovide does not actually render with sRGB,
@@ -115,7 +115,7 @@ priority over the environment variable.
 ### No Tabs
 
 ```sh
---notabs
+--no-tabs
 ```
 
 By default, Neovide opens files given directly to Neovide (not NeoVim through `--`!) in multiple
@@ -128,12 +128,12 @@ or not.
 ### No VSync
 
 ```sh
---novsync, --vsync or $NEOVIDE_VSYNC=0|1
+--no-vsync, --vsync or $NEOVIDE_VSYNC=0|1
 ```
 
 **Available since 0.10.2.**
 
-By default, Neovide requests to use VSync on the created window. `--novsync`
+By default, Neovide requests to use VSync on the created window. `--no-vsync`
 disables this behavior. The command line parameter takes priority over the
 environment variable. If you don't enable vsync, then `g:neovide_refresh_rate`
 will be used.

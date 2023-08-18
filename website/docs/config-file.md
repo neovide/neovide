@@ -23,12 +23,12 @@ Settings currently available in the config file with default values:
 
 ```toml
 wsl = false
-no_multigrid = false
+no-multigrid = false
 vsync = true
 maximized = false
 srgb = false
 idle = true
-neovim_bin = "/usr/bin/nvim"
+neovim-bin = "/usr/bin/nvim" # in reality found dynamically on $PATH if unset
 frame = "Full"
 ```
 

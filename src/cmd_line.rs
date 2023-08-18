@@ -58,21 +58,21 @@ pub struct CmdLineSettings {
     pub maximized: bool,
 
     /// Disable the Multigrid extension (disables smooth scrolling, window animations, and floating blur)
-    #[arg(long = "nomultigrid", env = "NEOVIDE_NO_MULTIGRID", value_parser = FalseyValueParser::new())]
+    #[arg(long = "no-multigrid", env = "NEOVIDE_NO_MULTIGRID", value_parser = FalseyValueParser::new())]
     pub no_multi_grid: bool,
 
     /// Instead of spawning a child process and leaking it, be "blocking" and let the shell persist
     /// as parent process
-    #[arg(long = "nofork")]
+    #[arg(long = "no-fork")]
     pub no_fork: bool,
 
     /// Render every frame, takes more power and CPU time but possibly helps with frame timing
     /// issues
-    #[arg(long = "noidle", env = "NEOVIDE_IDLE", action = ArgAction::SetFalse, value_parser = FalseyValueParser::new())]
+    #[arg(long = "no-idle", env = "NEOVIDE_IDLE", action = ArgAction::SetFalse, value_parser = FalseyValueParser::new())]
     pub idle: bool,
 
     /// Disable opening multiple files supplied in tabs (they're still buffers)
-    #[arg(long = "notabs")]
+    #[arg(long = "no-tabs")]
     pub no_tabs: bool,
 
     /// Request sRGB when initializing the window, may help with GPUs with weird pixel
@@ -82,16 +82,16 @@ pub struct CmdLineSettings {
 
     /// Do not request sRGB when initializing the window, may help with GPUs with weird pixel
     /// formats. Default on Linux and macOs.
-    #[arg(long = "nosrgb", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
-    _nosrgb: bool,
+    #[arg(long = "no-srgb", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
+    _no_srgb: bool,
 
     /// Request VSync on the window [DEFAULT]
     #[arg(long = "vsync", env = "NEOVIDE_VSYNC", action = ArgAction::SetTrue, default_value = "1", value_parser = FalseyValueParser::new())]
     pub vsync: bool,
 
     /// Do not try to request VSync on the window
-    #[arg(long = "novsync", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
-    _novsync: bool,
+    #[arg(long = "no-vsync", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
+    _no_vsync: bool,
 
     /// Which NeoVim binary to invoke headlessly instead of `nvim` found on $PATH
     #[arg(long = "neovim-bin", env = "NEOVIM_BIN")]
@@ -140,11 +140,11 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
         .chain(cmdline.neovim_args)
         .collect();
 
-    if cmdline._novsync {
+    if cmdline._no_vsync {
         cmdline.vsync = false;
     }
 
-    if cmdline._nosrgb {
+    if cmdline._no_srgb {
         cmdline.srgb = false;
     }
 
@@ -162,7 +162,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_neovim_passthrough() {
-        let args: Vec<String> = vec!["neovide", "--notabs", "--", "--clean"]
+        let args: Vec<String> = vec!["neovide", "--no-tabs", "--", "--clean"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -177,7 +177,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_files_to_open() {
-        let args: Vec<String> = vec!["neovide", "./foo.txt", "--notabs", "./bar.md"]
+        let args: Vec<String> = vec!["neovide", "./foo.txt", "--no-tabs", "./bar.md"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -194,7 +194,7 @@ mod tests {
     fn test_files_to_open_with_passthrough() {
         let args: Vec<String> = vec![
             "neovide",
-            "--notabs",
+            "--no-tabs",
             "./foo.txt",
             "./bar.md",
             "--",
@@ -360,7 +360,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_nosrgb() {
-        let args: Vec<String> = vec!["neovide", "--nosrgb"]
+        let args: Vec<String> = vec!["neovide", "--no-srgb"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -382,7 +382,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_override_srgb_environment() {
-        let args: Vec<String> = vec!["neovide", "--nosrgb"]
+        let args: Vec<String> = vec!["neovide", "--no-srgb"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -429,7 +429,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_novsync() {
-        let args: Vec<String> = vec!["neovide", "--novsync"]
+        let args: Vec<String> = vec!["neovide", "--no-vsync"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -451,7 +451,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_override_vsync_enviornment() {
-        let args: Vec<String> = vec!["neovide", "--novsync"]
+        let args: Vec<String> = vec!["neovide", "--no-vsync"]
             .iter()
             .map(|s| s.to_string())
             .collect();
