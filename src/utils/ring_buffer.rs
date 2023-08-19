@@ -32,6 +32,13 @@ impl<T: Clone> RingBuffer<T> {
         }
     }
 
+    pub fn clone_from_iter<'a, I>(&'a mut self, iter: I)
+    where
+        I: IntoIterator<Item = &'a T>,
+    {
+        self.iter_mut().zip(iter).for_each(|(a, b)| *a = b.clone());
+    }
+
     pub fn is_empty(&self) -> bool {
         self.elements.is_empty()
     }
@@ -157,7 +164,7 @@ mod tests {
         buffer[0] = 3;
         assert_eq!(buffer[0], 3);
         assert_eq!(buffer.iter().eq([3].iter()), true);
-        buffer.iter_mut().zip(&[7]).for_each(|(a, b)| *a = *b);
+        buffer.clone_from_iter(&[7]);
         assert_eq!(buffer.iter().eq([7].iter()), true);
     }
 
@@ -167,7 +174,7 @@ mod tests {
         assert_eq!(buffer.len(), 3);
         assert_eq!(buffer[0], 0);
         assert_eq!(buffer[2], 0);
-        buffer.iter_mut().zip(&[1, 2, 3]).for_each(|(a, b)| *a = *b);
+        buffer.clone_from_iter(&[1, 2, 3]);
         assert_eq!(buffer.iter().eq([1, 2, 3].iter()), true);
         assert_eq!(buffer[0], 1);
         assert_eq!(buffer[2], 3);
@@ -176,19 +183,13 @@ mod tests {
     #[test]
     fn rotate_forwards() {
         let mut buffer = RingBuffer::<i32>::new(5, 0);
-        buffer
-            .iter_mut()
-            .zip(&[1, 2, 3, 4, 5])
-            .for_each(|(a, b)| *a = *b);
+        buffer.clone_from_iter(&[1, 2, 3, 4, 5]);
         buffer.rotate(2);
         assert_eq!(buffer[0], 3);
         assert_eq!(buffer[4], 2);
         assert_eq!(buffer.iter().eq([3, 4, 5, 1, 2].iter()), true);
         assert_eq!(buffer[-2], 1);
-        buffer
-            .iter_mut()
-            .zip(&[5, 6, 7, 8, 9])
-            .for_each(|(a, b)| *a = *b);
+        buffer.clone_from_iter(&[5, 6, 7, 8, 9]);
         assert_eq!(buffer.iter().eq([5, 6, 7, 8, 9].iter()), true);
     }
 
@@ -202,7 +203,7 @@ mod tests {
         buffer.rotate(-1);
         assert_eq!(buffer.iter().eq([5, 0, 2].iter()), true);
         assert_eq!(buffer[-1], 2);
-        buffer.iter_mut().zip(&[5, 6, 7]).for_each(|(a, b)| *a = *b);
+        buffer.clone_from_iter(&[5, 6, 7]);
         assert_eq!(buffer.iter().eq([5, 6, 7].iter()), true);
     }
 
