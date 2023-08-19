@@ -3,12 +3,9 @@ use log::trace;
 use nvim_rs::{Handler, Neovim};
 use rmpv::Value;
 
+use crate::{bridge::clipboard::{get_clipboard_contents, set_clipboard_contents}, window::WindowCommand};
 #[cfg(windows)]
 use crate::bridge::ui_commands::{ParallelCommand, UiCommand};
-use crate::{
-    bridge::clipboard::{get_clipboard_contents, set_clipboard_contents},
-    window::WindowCommand,
-};
 use crate::{
     bridge::{events::parse_redraw_event, NeovimWriter},
     editor::EditorCommand,
@@ -98,9 +95,6 @@ impl Handler for NeovimHandler {
             }
             "neovide.focus_window" => {
                 EVENT_AGGREGATOR.send(WindowCommand::FocusWindow);
-            }
-            "neovide.minimize" => {
-                EVENT_AGGREGATOR.send(WindowCommand::Minimize);
             }
             _ => {}
         }
