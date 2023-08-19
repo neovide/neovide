@@ -76,8 +76,7 @@ pub struct RenderedWindow {
     pub grid_size: Dimensions,
 
     scrollback_lines: RingBuffer<Option<Arc<Mutex<Line>>>>,
-    actual_lines: Vec<Option<Arc<Mutex<Line>>>>,
-    actual_top_index: isize,
+    actual_lines: RingBuffer<Option<Arc<Mutex<Line>>>>,
     scroll_delta: isize,
 
     grid_start_position: Point,
@@ -114,9 +113,8 @@ impl RenderedWindow {
 
             grid_size,
 
-            actual_lines: vec![None; grid_size.height as usize],
+            actual_lines: RingBuffer::new(grid_size.height as usize, None),
             scrollback_lines: RingBuffer::new(2 * grid_size.height as usize, None),
-            actual_top_index: 0,
             scroll_delta: 0,
 
             grid_start_position: grid_position,
@@ -347,20 +345,12 @@ impl RenderedWindow {
                     self.grid_destination = new_destination;
                 }
 
-                let mut new_actual_lines = vec![None; new_grid_size.height as usize];
-
-                for row in 0..self.grid_size.height.min(new_grid_size.height) {
-                    let line_index = (self.actual_top_index + row as isize)
-                        .rem_euclid(self.actual_lines.len() as isize)
-                        as usize;
-                    new_actual_lines[row as usize] = self.actual_lines[line_index].clone();
-                }
-                self.actual_lines = new_actual_lines;
+                let height = new_grid_size.height as usize;
+                self.actual_lines.resize(height, None);
                 self.grid_size = new_grid_size;
 
-                self.scrollback_lines.resize(2 * new_grid_size.height as usize, None);
+                self.scrollback_lines.resize(2 * height, None);
                 self.scrollback_lines.clone_from_iter(&self.actual_lines);
-                self.actual_top_index = 0;
                 self.scroll_delta = 0;
 
                 self.floating_order = floating_order;
@@ -380,11 +370,8 @@ impl RenderedWindow {
             } => {
                 log::trace!("Handling DrawLine {}", self.id);
                 tracy_zone!("draw_line_cmd", 0);
-                let line_index = (self.actual_top_index + row as isize)
-                    .rem_euclid(self.actual_lines.len() as isize)
-                    as usize;
 
-                self.actual_lines[line_index] = Some(Arc::new(Mutex::new(Line {
+                self.actual_lines[row] = Some(Arc::new(Mutex::new(Line {
                     line_fragments,
                     background_picture: None,
                     foreground_picture: None,
@@ -407,12 +394,11 @@ impl RenderedWindow {
                     && right == self.grid_size.width
                     && cols == 0
                 {
-                    self.actual_top_index += rows as isize;
+                    self.actual_lines.rotate(rows as isize);
                 }
             }
             WindowDrawCommand::Clear => {
                 tracy_zone!("clear_cmd", 0);
-                self.actual_top_index = 0;
                 self.scroll_delta = 0;
                 self.scrollback_lines
                     .iter_mut()
@@ -445,12 +431,7 @@ impl RenderedWindow {
         let scroll_delta = self.scroll_delta;
         self.scrollback_lines.rotate(scroll_delta);
 
-        for i in 0..self.actual_lines.len() {
-            let actual_index = (self.actual_top_index + i as isize)
-                .rem_euclid(self.actual_lines.len() as isize)
-                as usize;
-            self.scrollback_lines[i] = self.actual_lines[actual_index].clone();
-        }
+        self.scrollback_lines.clone_from_iter(&self.actual_lines);
 
         if scroll_delta != 0 {
             let mut scroll_offset = self.scroll_animation.position;
