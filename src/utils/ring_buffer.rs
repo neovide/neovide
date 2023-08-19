@@ -1,7 +1,7 @@
 use num::{cast::AsPrimitive, Integer};
 use std::{
     clone::Clone,
-    ops::{Index, IndexMut},
+    ops::{Bound, Index, IndexMut, Range, RangeBounds},
 };
 
 /// A simple ring buffer data structure
@@ -14,12 +14,12 @@ pub struct RingBuffer<T> {
 
 pub struct RingBufferIter<'a, T> {
     ring_buffer: &'a RingBuffer<T>,
-    index: usize,
+    range: Range<isize>,
 }
 
 pub struct RingBufferIterMut<'a, T> {
     ring_buffer: &'a mut RingBuffer<T>,
-    index: usize,
+    range: Range<isize>,
 }
 
 impl<T: Clone> RingBuffer<T> {
@@ -44,16 +44,26 @@ impl<T: Clone> RingBuffer<T> {
     }
 
     pub fn iter(&self) -> RingBufferIter<'_, T> {
-        RingBufferIter {
-            ring_buffer: self,
-            index: 0,
-        }
+        self.iter_range(..)
     }
 
     pub fn iter_mut(&mut self) -> RingBufferIterMut<'_, T> {
+        self.iter_range_mut(..)
+    }
+
+    pub fn iter_range<R: RangeBounds<isize>>(&self, range: R) -> RingBufferIter<'_, T> {
+        let range = self.get_bounds(range);
+        RingBufferIter {
+            ring_buffer: self,
+            range,
+        }
+    }
+
+    pub fn iter_range_mut<R: RangeBounds<isize>>(&mut self, range: R) -> RingBufferIterMut<'_, T> {
+        let range = self.get_bounds(range);
         RingBufferIterMut {
             ring_buffer: self,
-            index: 0,
+            range,
         }
     }
 
@@ -75,6 +85,20 @@ impl<T: Clone> RingBuffer<T> {
     fn get_array_index(&self, index: isize) -> usize {
         let num = self.elements.len() as isize;
         (self.current_index + index).rem_euclid(num) as usize
+    }
+
+    fn get_bounds<R: RangeBounds<isize>>(&self, range: R) -> Range<isize> {
+        let start = match range.start_bound() {
+            Bound::Included(start) => *start,
+            Bound::Excluded(start) => *start + 1,
+            Bound::Unbounded => 0,
+        };
+        let end = match range.end_bound() {
+            Bound::Included(end) => *end + 1,
+            Bound::Excluded(end) => *end,
+            Bound::Unbounded => self.len() as isize,
+        };
+        start..end
     }
 }
 
@@ -98,12 +122,12 @@ impl<'a, T: Clone> Iterator for RingBufferIter<'a, T> {
     type Item = &'a T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.ring_buffer.elements.len() {
+        if self.range.is_empty() {
             return None;
         }
 
-        let ret = &self.ring_buffer[self.index];
-        self.index += 1;
+        let ret = &self.ring_buffer[self.range.start];
+        self.range.start += 1;
         Some(ret)
     }
 }
@@ -112,14 +136,13 @@ impl<'a, T: Clone> Iterator for RingBufferIterMut<'a, T> {
     type Item = &'a mut T;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.index >= self.ring_buffer.elements.len() {
+        if self.range.is_empty() {
             return None;
         }
-
         let elements = self.ring_buffer.elements.as_mut_ptr();
-        let array_index = self.ring_buffer.get_array_index(self.index as isize);
+        let array_index = self.ring_buffer.get_array_index(self.range.start);
         let ret = unsafe { &mut *elements.add(array_index) };
-        self.index += 1;
+        self.range.start += 1;
         Some(ret)
     }
 }
@@ -229,5 +252,13 @@ mod tests {
         buffer.rotate(1);
         buffer.resize(2, 7);
         assert_eq!(buffer.iter().eq([2, 5].iter()), true);
+    }
+
+    #[test]
+    fn iter_range() {
+        let mut buffer = RingBuffer::<i32>::new(5, 0);
+        buffer.clone_from_iter(&[1, 2, 3, 4, 5]);
+        assert_eq!(buffer.iter_range(1..3).eq([2, 3].iter()), true);
+        assert_eq!(buffer.iter_range(-1..1).eq([5, 1].iter()), true);
     }
 }
