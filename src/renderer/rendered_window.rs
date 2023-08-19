@@ -10,6 +10,7 @@ use crate::{
     editor::Style,
     profiling::tracy_zone,
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
+    utils::RingBuffer,
 };
 
 #[derive(Clone, Debug)]
@@ -74,10 +75,9 @@ pub struct RenderedWindow {
 
     pub grid_size: Dimensions,
 
-    scrollback_lines: Vec<Option<Arc<Mutex<Line>>>>,
+    scrollback_lines: RingBuffer<Option<Arc<Mutex<Line>>>>,
     actual_lines: Vec<Option<Arc<Mutex<Line>>>>,
     actual_top_index: isize,
-    scrollback_top_index: isize,
     scroll_delta: isize,
 
     grid_start_position: Point,
@@ -115,9 +115,8 @@ impl RenderedWindow {
             grid_size,
 
             actual_lines: vec![None; grid_size.height as usize],
-            scrollback_lines: vec![None; 2 * grid_size.height as usize],
+            scrollback_lines: RingBuffer::new(2 * grid_size.height as usize, None),
             actual_top_index: 0,
-            scrollback_top_index: 0,
             scroll_delta: 0,
 
             grid_start_position: grid_position,
@@ -178,16 +177,13 @@ impl RenderedWindow {
     ) {
         let scroll_offset_lines = self.scroll_animation.position.floor();
         let scroll_offset = scroll_offset_lines - self.scroll_animation.position;
+        let scroll_offset_lines = scroll_offset_lines as isize;
         let scroll_offset_pixels = (scroll_offset * font_dimensions.height as f32).round() as isize;
         let mut has_transparency = false;
 
         let lines: Vec<(Matrix, &Arc<Mutex<Line>>)> = (0..self.grid_size.height as isize + 1)
             .filter_map(|i| {
-                let line_index = (self.scrollback_top_index + scroll_offset_lines as isize + i)
-                    .rem_euclid(self.scrollback_lines.len() as isize)
-                    as usize;
-
-                self.scrollback_lines[line_index]
+                self.scrollback_lines[scroll_offset_lines + i]
                     .as_ref()
                     .map(|line| (i, line))
             })
@@ -230,12 +226,9 @@ impl RenderedWindow {
     }
 
     fn has_transparency(&self) -> bool {
-        let scroll_offset_lines = self.scroll_animation.position.floor();
+        let scroll_offset_lines = self.scroll_animation.position.floor() as isize;
         (0..self.grid_size.height as isize + 1).any(|i| {
-            let line_index = (self.scrollback_top_index + scroll_offset_lines as isize + i)
-                .rem_euclid(self.scrollback_lines.len() as isize)
-                as usize;
-            if let Some(line) = &self.scrollback_lines[line_index] {
+            if let Some(line) = &self.scrollback_lines[scroll_offset_lines + i] {
                 let line = line.lock().unwrap();
                 line.has_transparency
             } else {
@@ -365,12 +358,9 @@ impl RenderedWindow {
                 self.actual_lines = new_actual_lines;
                 self.grid_size = new_grid_size;
 
-                self.scrollback_lines
-                    .resize(2 * new_grid_size.height as usize, None);
-                self.scrollback_lines[..new_grid_size.height as usize]
-                    .clone_from_slice(&self.actual_lines);
+                self.scrollback_lines.resize(2 * new_grid_size.height as usize, None);
+                self.scrollback_lines.clone_from_iter(&self.actual_lines);
                 self.actual_top_index = 0;
-                self.scrollback_top_index = 0;
                 self.scroll_delta = 0;
 
                 self.floating_order = floating_order;
@@ -423,7 +413,6 @@ impl RenderedWindow {
             WindowDrawCommand::Clear => {
                 tracy_zone!("clear_cmd", 0);
                 self.actual_top_index = 0;
-                self.scrollback_top_index = 0;
                 self.scroll_delta = 0;
                 self.scrollback_lines
                     .iter_mut()
@@ -454,16 +443,13 @@ impl RenderedWindow {
 
     pub fn flush(&mut self, renderer_settings: &RendererSettings) {
         let scroll_delta = self.scroll_delta;
-        self.scrollback_top_index += scroll_delta;
+        self.scrollback_lines.rotate(scroll_delta);
 
         for i in 0..self.actual_lines.len() {
-            let scrollback_index = (self.scrollback_top_index + i as isize)
-                .rem_euclid(self.scrollback_lines.len() as isize)
-                as usize;
             let actual_index = (self.actual_top_index + i as isize)
                 .rem_euclid(self.actual_lines.len() as isize)
                 as usize;
-            self.scrollback_lines[scrollback_index] = self.actual_lines[actual_index].clone();
+            self.scrollback_lines[i] = self.actual_lines[actual_index].clone();
         }
 
         if scroll_delta != 0 {
@@ -486,9 +472,6 @@ impl RenderedWindow {
                     self.actual_lines.len() as isize..self.actual_lines.len() as isize + far_lines
                 };
                 for i in empty_lines {
-                    let i = (self.scrollback_top_index + i)
-                        .rem_euclid(self.scrollback_lines.len() as isize)
-                        as usize;
                     self.scrollback_lines[i] = None;
                 }
             // And even when scrolling in steps, we can't let it drift too far, since the
@@ -505,14 +488,10 @@ impl RenderedWindow {
 
     pub fn prepare_lines(&mut self, grid_renderer: &mut GridRenderer) {
         let scroll_offset_lines = self.scroll_animation.position.floor();
-        let top_index = self.scrollback_top_index;
         let height = self.grid_size.height as isize;
-        let len = self.scrollback_lines.len() as isize;
-        let dirty_lines: Vec<usize> = (0..height + 1)
+        let dirty_lines: Vec<isize> = (0..height + 1)
             .filter_map(|i| {
-                let line_index =
-                    (top_index + scroll_offset_lines as isize + i).rem_euclid(len) as usize;
-
+                let line_index = scroll_offset_lines as isize + i;
                 let line = &self.scrollback_lines[line_index];
                 line.as_ref().and_then(|line| {
                     let is_valid = line.lock().unwrap().is_valid;
