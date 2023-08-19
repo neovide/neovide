@@ -225,14 +225,12 @@ impl RenderedWindow {
 
     fn has_transparency(&self) -> bool {
         let scroll_offset_lines = self.scroll_animation.position.floor() as isize;
-        (0..self.grid_size.height as isize + 1).any(|i| {
-            if let Some(line) = &self.scrollback_lines[scroll_offset_lines + i] {
-                let line = line.lock().unwrap();
-                line.has_transparency
-            } else {
-                false
-            }
-        })
+        self.scrollback_lines
+            .iter_range(
+                scroll_offset_lines..scroll_offset_lines + self.grid_size.height as isize + 1,
+            )
+            .flatten()
+            .any(|line| line.lock().unwrap().has_transparency)
     }
 
     pub fn draw(
@@ -468,25 +466,19 @@ impl RenderedWindow {
     }
 
     pub fn prepare_lines(&mut self, grid_renderer: &mut GridRenderer) {
-        let scroll_offset_lines = self.scroll_animation.position.floor();
+        let scroll_offset_lines = self.scroll_animation.position.floor() as isize;
         let height = self.grid_size.height as isize;
-        let dirty_lines: Vec<isize> = (0..height + 1)
-            .filter_map(|i| {
-                let line_index = scroll_offset_lines as isize + i;
-                let line = &self.scrollback_lines[line_index];
-                line.as_ref().and_then(|line| {
-                    let is_valid = line.lock().unwrap().is_valid;
-                    (!is_valid).then_some(line_index)
-                })
-            })
-            .collect();
 
-        for line in dirty_lines {
-            let line = &mut self.scrollback_lines[line]
-                .as_mut()
-                .unwrap()
-                .lock()
-                .unwrap();
+        for line in self
+            .scrollback_lines
+            .iter_range_mut(scroll_offset_lines..scroll_offset_lines + height + 1)
+            .flatten()
+        {
+            let mut line = line.lock().unwrap();
+            if line.is_valid {
+                continue;
+            }
+
             let font_dimensions = grid_renderer.font_dimensions;
             let mut recorder = PictureRecorder::new();
 
