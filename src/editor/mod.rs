@@ -266,6 +266,10 @@ impl Editor {
                     EVENT_AGGREGATOR
                         .send(UiCommand::Parallel(ParallelCommand::ShowIntro { message }));
                 }
+                // Interpreting suspend as a window minimize request
+                RedrawEvent::Suspend => {
+                    EVENT_AGGREGATOR.send(WindowCommand::Minimize);
+                }
                 _ => {}
             },
             EditorCommand::RedrawScreen => {
