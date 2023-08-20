@@ -173,9 +173,10 @@ fn protected_main() {
 
     start_bridge();
     start_editor();
-    create_window();
-
     maybe_disown();
+
+    // implicitly takes control over the thread
+    create_window();
 }
 
 #[cfg(not(test))]
