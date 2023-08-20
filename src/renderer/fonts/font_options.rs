@@ -32,8 +32,6 @@ impl FontOptions {
             }
         }
 
-        let mut width_set = false;
-
         for part in parts {
             if let Some(hinting_string) = part.strip_prefix("#h-") {
                 font_options.hinting = FontHinting::parse(hinting_string);
@@ -45,16 +43,10 @@ impl FontOptions {
                 }
                 if let Ok(parsed_size) = part[1..].parse::<f32>() {
                     font_options.size = points_to_pixels(parsed_size);
-
-                    // if the width has not been set via "w" operator set it to the font size
-                    if !width_set {
-                        font_options.width = font_options.size;
-                    }
                 }
             } else if part.starts_with('w') && part.len() > 1 {
                 if let Ok(parsed_size) = part[1..].parse::<f32>() {
                     font_options.width = points_to_pixels(parsed_size);
-                    width_set = true;
                 }
             } else if part == "b" {
                 font_options.bold = true;
@@ -79,7 +71,7 @@ impl Default for FontOptions {
             italic: false,
             allow_float_size: false,
             size: points_to_pixels(DEFAULT_FONT_SIZE),
-            width: points_to_pixels(DEFAULT_FONT_SIZE),
+            width: 0.0,
             hinting: FontHinting::default(),
             edging: FontEdging::default(),
         }
