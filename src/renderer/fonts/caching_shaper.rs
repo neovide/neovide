@@ -176,10 +176,10 @@ impl CachingShaper {
 
     pub fn font_base_dimensions(&mut self) -> (u64, u64) {
         let (metrics, glyph_advance) = self.info();
-        let font_width = (glyph_advance + 0.5).floor() as u64;
 
         let bare_font_height = (metrics.ascent + metrics.descent + metrics.leading).ceil();
         let font_height = bare_font_height as i64 + self.linespace;
+        let font_width = (glyph_advance + self.options.width + 0.5).floor() as u64;
 
         (
             font_width,

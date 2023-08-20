@@ -6,6 +6,7 @@ const DEFAULT_FONT_SIZE: f32 = 14.0;
 pub struct FontOptions {
     pub font_list: Vec<String>,
     pub size: f32,
+    pub width: f32,
     pub bold: bool,
     pub italic: bool,
     pub allow_float_size: bool,
@@ -41,7 +42,11 @@ impl FontOptions {
                     font_options.allow_float_size = true;
                 }
                 if let Ok(parsed_size) = part[1..].parse::<f32>() {
-                    font_options.size = points_to_pixels(parsed_size)
+                    font_options.size = points_to_pixels(parsed_size);
+                }
+            } else if part.starts_with('w') && part.len() > 1 {
+                if let Ok(parsed_size) = part[1..].parse::<f32>() {
+                    font_options.width = points_to_pixels(parsed_size);
                 }
             } else if part == "b" {
                 font_options.bold = true;
@@ -66,6 +71,7 @@ impl Default for FontOptions {
             italic: false,
             allow_float_size: false,
             size: points_to_pixels(DEFAULT_FONT_SIZE),
+            width: 0.0,
             hinting: FontHinting::default(),
             edging: FontEdging::default(),
         }
