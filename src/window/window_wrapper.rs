@@ -3,7 +3,7 @@ use super::{
 };
 
 use crate::{
-    bridge::{ParallelCommand, UiCommand},
+    bridge::{ParallelCommand, UiCommand, SerialCommand},
     dimensions::Dimensions,
     editor::EditorCommand,
     event_aggregator::EVENT_AGGREGATOR,
@@ -44,6 +44,7 @@ pub struct WinitWindowWrapper {
     maximized_at_startup: bool,
     window_command_receiver: UnboundedReceiver<WindowCommand>,
     ime_enabled: bool,
+    is_minimized: bool,
 }
 
 pub fn set_background(background: &str) {
@@ -137,6 +138,7 @@ impl WinitWindowWrapper {
             saved_grid_size: None,
             window_command_receiver,
             ime_enabled,
+            is_minimized: false
         };
 
         window_wrapper.set_ime(ime_enabled);
@@ -193,7 +195,10 @@ impl WinitWindowWrapper {
                 WindowCommand::FocusWindow => {
                     self.windowed_context.window().focus_window();
                 }
-                WindowCommand::Minimize => self.minimize_window(),
+                WindowCommand::Minimize => {
+                    self.minimize_window();
+                    self.is_minimized = true;
+                }
             }
         }
     }
@@ -225,6 +230,12 @@ impl WinitWindowWrapper {
     pub fn handle_focus_gained(&mut self) {
         EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::FocusGained));
         REDRAW_SCHEDULER.queue_next_frame();
+
+        // Got focus back after being minimized previously
+        if self.is_minimized {
+            EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Keyboard("<NOP>".into())));
+            self.is_minimized = false;
+        }
     }
 
     pub fn handle_event(&mut self, event: Event<()>) {
