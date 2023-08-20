@@ -130,6 +130,10 @@ impl<'a, T: Clone> Iterator for RingBufferIter<'a, T> {
         self.range.start += 1;
         Some(ret)
     }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.range.size_hint()
+    }
 }
 
 impl<'a, T: Clone> Iterator for RingBufferIterMut<'a, T> {
@@ -144,6 +148,10 @@ impl<'a, T: Clone> Iterator for RingBufferIterMut<'a, T> {
         let ret = unsafe { &mut *elements.add(array_index) };
         self.range.start += 1;
         Some(ret)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.range.size_hint()
     }
 }
 
@@ -173,9 +181,11 @@ mod tests {
 
     #[test]
     fn empty() {
-        let buffer = RingBuffer::<i32>::new(0, 5);
+        let mut buffer = RingBuffer::<i32>::new(0, 5);
         assert_eq!(buffer.len(), 0);
         assert_eq!(buffer.is_empty(), true);
+        assert_eq!(buffer.iter().size_hint(), (0, Some(0)));
+        assert_eq!(buffer.iter_mut().size_hint(), (0, Some(0)));
     }
 
     #[test]
@@ -189,6 +199,14 @@ mod tests {
         assert_eq!(buffer.iter().eq([3].iter()), true);
         buffer.clone_from_iter(&[7]);
         assert_eq!(buffer.iter().eq([7].iter()), true);
+        let mut iter = buffer.iter();
+        assert_eq!(iter.size_hint(), (1, Some(1)));
+        iter.next();
+        assert_eq!(iter.size_hint(), (0, Some(0)));
+        let mut iter = buffer.iter_mut();
+        assert_eq!(iter.size_hint(), (1, Some(1)));
+        iter.next();
+        assert_eq!(iter.size_hint(), (0, Some(0)));
     }
 
     #[test]
