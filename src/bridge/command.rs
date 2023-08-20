@@ -44,7 +44,7 @@ fn build_nvim_cmd() -> TokioCommand {
             }
         }
 
-        eprintln!("ERROR: NEOVIM_BIN='{}' is was not found.", path);
+        eprintln!("ERROR: NEOVIM_BIN='{}' was not found.", path);
         std::process::exit(1);
     } else if let Some(path) = platform_which("nvim") {
         if neovim_ok(&path) {
@@ -93,14 +93,21 @@ fn neovim_ok(bin: &str) -> bool {
     let mut cmd = create_platform_shell_command(bin, &["-v"]);
     if let Ok(output) = cmd.output() {
         if output.status.success() {
-            // The output is not utf8 on Windows and can contain special characters, but the
-            // encoding is not actually utf-8. But a lossy conversion is OK for our purposes
+            // The output is not utf8 on Windows and can contain special characters.
+            // But a lossy conversion is OK for our purposes
             let stdout = String::from_utf8_lossy(&output.stdout);
             if !(stdout.starts_with("NVIM v") && output.stderr.is_empty()) {
+                let error_message_prefix = format!(concat!(
+                    "ERROR: Unexpected output from neovim binary:\n",
+                    "\t{bin} -v\n",
+                    "Check that your shell doesn't output anything extra when running:",
+                    "\n\t"
+                ), bin=bin);
+
                 if is_wsl {
-                    eprintln!("ERROR: Unexpected output from:\n\t{bin} -v.\n\tCheck that your shell don't output anyhting extra when running:\n\twsl '$SHELL' -lc '{bin} -v'");
+                    eprintln!("{error_message_prefix}wsl '$SHELL' -lc '{bin} -v'");
                 } else {
-                    eprintln!("ERROR: Unexpected output from:\n\t{bin} -v.\n\tCheck that your shell don't output anyhting extra when running:\n\t$SHELL -lc '{bin} -v'");
+                    eprintln!("{error_message_prefix}$SHELL -lc '{bin} -v'");
                 }
                 std::process::exit(1);
             }
@@ -126,10 +133,9 @@ fn platform_which(bin: &str) -> Option<String> {
     debug!("Running which command: {:?}", which_command);
     if let Ok(output) = which_command.output() {
         if output.status.success() {
-            // The output is not utf8 on Windows and can contain special characters, but the
-            // encoding is not actually utf-8. This might fail with special characters in the path,
-            // but that probably does not matter, since which::which should handle almost all
-            // cases.
+            // The output is not utf8 on Windows and can contain special characters.
+            // This might fail with special characters in the path, but that probably does
+            // not matter, since which::which should handle almost all cases.
             let nvim_path = String::from_utf8_lossy(&output.stdout);
             return Some(nvim_path.trim().to_owned());
         }
