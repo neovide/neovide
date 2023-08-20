@@ -97,12 +97,15 @@ fn neovim_ok(bin: &str) -> bool {
             // But a lossy conversion is OK for our purposes
             let stdout = String::from_utf8_lossy(&output.stdout);
             if !(stdout.starts_with("NVIM v") && output.stderr.is_empty()) {
-                let error_message_prefix = format!(concat!(
-                    "ERROR: Unexpected output from neovim binary:\n",
-                    "\t{bin} -v\n",
-                    "Check that your shell doesn't output anything extra when running:",
-                    "\n\t"
-                ), bin=bin);
+                let error_message_prefix = format!(
+                    concat!(
+                        "ERROR: Unexpected output from neovim binary:\n",
+                        "\t{bin} -v\n",
+                        "Check that your shell doesn't output anything extra when running:",
+                        "\n\t"
+                    ),
+                    bin = bin
+                );
 
                 if is_wsl {
                     eprintln!("{error_message_prefix}wsl '$SHELL' -lc '{bin} -v'");
