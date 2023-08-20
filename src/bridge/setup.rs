@@ -2,6 +2,7 @@ use log::{info, warn};
 use nvim_rs::Neovim;
 use rmpv::Value;
 
+use super::setup_intro_message_autocommand;
 use crate::{bridge::NeovimWriter, error_handling::ResultPanicExplanation};
 
 const REGISTER_CLIPBOARD_PROVIDER_LUA: &str = r"
@@ -29,8 +30,6 @@ const REGISTER_CLIPBOARD_PROVIDER_LUA: &str = r"
         },
         cache_enabled = 0
     }";
-
-const INTRO_MESSAGE_LUA: &str = include_str!("../../lua/intro.lua");
 
 pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<NeovimWriter>, neovide_channel: u64) {
     // Users can opt-out with
@@ -147,7 +146,7 @@ pub async fn setup_neovide_specific_state(
         .await
         .ok();
 
-    nvim.exec_lua(INTRO_MESSAGE_LUA, Vec::new()).await.ok();
+    setup_intro_message_autocommand(nvim).await.ok();
 }
 
 #[cfg(windows)]

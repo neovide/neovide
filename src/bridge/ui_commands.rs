@@ -11,6 +11,8 @@ use tokio::sync::mpsc::unbounded_channel;
 use crate::windows_utils::{
     register_rightclick_directory, register_rightclick_file, unregister_rightclick,
 };
+
+use super::show_intro_message;
 use crate::{
     bridge::NeovimWriter, event_aggregator::EVENT_AGGREGATOR, running_tracker::RUNNING_TRACKER,
 };
@@ -122,6 +124,9 @@ pub enum ParallelCommand {
     RegisterRightClick,
     #[cfg(windows)]
     UnregisterRightClick,
+    ShowIntro {
+        message: Vec<String>,
+    },
 }
 
 impl ParallelCommand {
@@ -224,6 +229,9 @@ impl ParallelCommand {
                     nvim.err_writeln(msg).await.ok();
                     error!("{}", msg);
                 }
+            }
+            ParallelCommand::ShowIntro { message } => {
+                show_intro_message(nvim, &message).await.ok();
             }
         }
     }
