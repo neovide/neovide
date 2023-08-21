@@ -233,7 +233,9 @@ impl WinitWindowWrapper {
 
         // Got focus back after being minimized previously
         if self.is_minimized {
+            // Sending <NOP> after suspend triggers the `VimResume` AutoCmd
             EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Keyboard("<NOP>".into())));
+
             self.is_minimized = false;
         }
     }
