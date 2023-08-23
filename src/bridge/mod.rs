@@ -35,15 +35,17 @@ fn neovim_instance() -> NeovimInstance {
 }
 
 pub fn start_bridge() {
+    // hoisted out of the actual thread so error messages while trying to find nvim can be printed before forking
+    let instance = neovim_instance();
     thread::spawn(|| {
-        start_neovim_runtime();
+        start_neovim_runtime(instance);
     });
 }
 
 #[tokio::main]
-async fn start_neovim_runtime() {
+async fn start_neovim_runtime(instance: NeovimInstance) {
     let handler = NeovimHandler::new();
-    let session = NeovimSession::new(neovim_instance(), handler)
+    let session = NeovimSession::new(instance, handler)
         .await
         .unwrap_or_explained_panic("Could not locate or start neovim process");
 

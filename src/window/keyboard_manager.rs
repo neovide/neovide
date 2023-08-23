@@ -32,17 +32,17 @@ impl KeyboardManager {
                 event:
                     WindowEvent::KeyboardInput {
                         event: key_event,
-                        is_synthetic,
+                        is_synthetic: false,
                         ..
                     },
                 ..
-            } if key_event.state == ElementState::Pressed
-                && self.ime_preedit.0.is_empty()
-                && !is_synthetic =>
-            {
-                if let Some(text) = self.format_key(key_event) {
-                    log::trace!("Key pressed {} {:?}", text, self.modifiers.state());
-                    EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Keyboard(text)));
+            } if self.ime_preedit.0.is_empty() => {
+                log::trace!("{:#?}", key_event);
+                if key_event.state == ElementState::Pressed {
+                    if let Some(text) = self.format_key(key_event) {
+                        log::trace!("Key pressed {} {:?}", text, self.modifiers.state());
+                        EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Keyboard(text)));
+                    }
                 }
             }
             Event::WindowEvent {
@@ -62,6 +62,7 @@ impl KeyboardManager {
             } => {
                 // Record the modifier states so that we can properly add them to the keybinding
                 // text
+                log::trace!("{:?}", *modifiers);
                 self.modifiers = *modifiers;
             }
             _ => {}
