@@ -166,10 +166,12 @@ end
 
 
 local function entry(function_name, ...)
-    local nvim_version = vim.version()
-    local has_show_intro = vim.version.gt(nvim_version, vim.version.parse("0.9.1", nil))
+    local api_metadata = vim.fn.api_info()
+    local has_msg_intro = vim.tbl_contains(api_metadata.ui_events, function(v)
+        return v.name == "msg_intro"
+    end, { predicate = true })
 
-    if has_show_intro then
+    if has_msg_intro then
         if function_name == "show_intro" then
             show_intro({...})
         end
