@@ -147,6 +147,7 @@ local function setup_autocommand()
     vim.api.nvim_create_autocmd({ "VimEnter" }, {
         pattern = "*",
         group = autogroup,
+        once = true,
         callback = function()
             -- Don't show when disabled
             if vim.o.shortmess:find("I") then
