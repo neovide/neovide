@@ -9,7 +9,7 @@ mod ui_commands;
 use std::{process::exit, sync::Arc, thread};
 
 use log::{error, info};
-use nvim_rs::UiAttachOptions;
+use nvim_rs::{error::CallError, Neovim, UiAttachOptions, Value};
 
 use crate::{
     cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation, running_tracker::*,
@@ -23,6 +23,8 @@ pub use session::NeovimWriter;
 use session::{NeovimInstance, NeovimSession};
 use setup::setup_neovide_specific_state;
 pub use ui_commands::{start_ui_command_handler, ParallelCommand, SerialCommand, UiCommand};
+
+const INTRO_MESSAGE_LUA: &str = include_str!("../../lua/intro.lua");
 
 fn neovim_instance() -> NeovimInstance {
     if let Some(address) = SETTINGS.get::<CmdLineSettings>().server {
@@ -38,6 +40,23 @@ pub fn start_bridge() {
     thread::spawn(|| {
         start_neovim_runtime(instance);
     });
+}
+
+pub async fn setup_intro_message_autocommand(
+    nvim: &Neovim<NeovimWriter>,
+) -> Result<Value, Box<CallError>> {
+    let args = vec![Value::from("setup_autocommand")];
+    nvim.exec_lua(INTRO_MESSAGE_LUA, args).await
+}
+
+pub async fn show_intro_message(
+    nvim: &Neovim<NeovimWriter>,
+    message: &[String],
+) -> Result<Value, Box<CallError>> {
+    let mut args = vec![Value::from("show_intro")];
+    let lines = message.iter().map(|line| Value::from(line.as_str()));
+    args.extend(lines);
+    nvim.exec_lua(INTRO_MESSAGE_LUA, args).await
 }
 
 #[tokio::main]
