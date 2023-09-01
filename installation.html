@@ -232,6 +232,9 @@ bundle:</p>
 <a href="https://archlinux.org/packages/extra/x86_64/neovide">packaged in the extra repository</a>.</p>
 <pre><code class="language-sh">pacman -S neovide
 </code></pre>
+<p>If you want to run Neovide on X11, you'll also need <code>libxkbcommon-x11</code>.</p>
+<pre><code class="language-sh">pacman -S libxkbcommon-x11
+</code></pre>
 <p>To run a development version you can build from
 <a href="https://aur.archlinux.org/packages/neovide-git">the VCS package in the AUR</a>. This can be built and
 installed using an AUR helper or
@@ -272,6 +275,13 @@ stuff is already installed, just try building and see)</p>
 <p>Fedora</p>
 <pre><code class="language-sh">sudo dnf install fontconfig-devel freetype-devel libX11-xcb libX11-devel libstdc++-static libstdc++-devel
 sudo dnf groupinstall &quot;Development Tools&quot; &quot;Development Libraries&quot;
+</code></pre>
+</li>
+<li>
+<p>Arch</p>
+<p>Do note that an <a href="https://aur.archlinux.org/packages/neovide-git">AUR package</a> already exists.</p>
+<pre><code class="language-sh">sudo pacman -S base-devel fontconfig freetype2 libglvnd sndio cmake \
+    git gtk3 python sdl2 vulkan-intel libxkbcommon-x11
 </code></pre>
 </li>
 </ul>
