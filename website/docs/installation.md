@@ -96,6 +96,12 @@ Stable releases are
 pacman -S neovide
 ```
 
+If you want to run Neovide on X11, you'll also need `libxkbcommon-x11`.
+
+```sh
+pacman -S libxkbcommon-x11
+```
+
 To run a development version you can build from
 [the VCS package in the AUR](https://aur.archlinux.org/packages/neovide-git). This can be built and
 installed using an AUR helper or
@@ -151,6 +157,15 @@ snap install neovide
       ```sh
       sudo dnf install fontconfig-devel freetype-devel libX11-xcb libX11-devel libstdc++-static libstdc++-devel
       sudo dnf groupinstall "Development Tools" "Development Libraries"
+      ```
+
+   - Arch
+
+      Do note that an [AUR package](https://aur.archlinux.org/packages/neovide-git) already exists.
+
+      ```sh
+      sudo pacman -S base-devel fontconfig freetype2 libglvnd sndio cmake \
+          git gtk3 python sdl2 vulkan-intel libxkbcommon-x11
       ```
 
 2. Install Rust
