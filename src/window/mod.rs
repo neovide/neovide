@@ -34,10 +34,7 @@ use std::{
     thread,
 };
 #[cfg(target_os = "windows")]
-use winit::{
-    event::{Event, WindowEvent},
-    event_loop::ControlFlow,
-};
+use winit::{event::Event, event_loop::ControlFlow};
 
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
@@ -70,12 +67,12 @@ pub enum WindowCommand {
 
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
-pub enum UserEvent {
-    ScaleFactorChanged(f64),
-}
+pub enum UserEvent {}
 
 pub fn create_event_loop() -> EventLoop<UserEvent> {
-    EventLoopBuilder::<UserEvent>::with_user_event().build()
+    EventLoopBuilder::<UserEvent>::with_user_event()
+        .build()
+        .expect("Failed to create winit event loop")
 }
 
 pub fn create_window(event_loop: &EventLoop<UserEvent>) -> GlWindow {
@@ -237,25 +234,8 @@ pub fn main_loop(window: GlWindow, event_loop: EventLoop<UserEvent>) {
         std::process::exit(RUNNING_TRACKER.exit_code());
     }));
 
-    event_loop.run(move |e, _window_target, control_flow| {
-        let e = match e {
-            Event::WindowEvent {
-                event: WindowEvent::ScaleFactorChanged { scale_factor, .. },
-                ..
-            } => {
-                // It's really unfortunate that we have to do this, but
-                // https://github.com/rust-windowing/winit/issues/1387
-                Some(Event::UserEvent(UserEvent::ScaleFactorChanged(
-                    scale_factor,
-                )))
-            }
-            Event::MainEventsCleared => None,
-            _ => {
-                // With the current Winit version, all events, except ScaleFactorChanged are static
-                Some(e.to_static().expect("Unexpected event received"))
-            }
-        };
-        if let Some(e) = e {
+    let _ = event_loop.run(move |e, window_target| {
+        if !matches!(e, Event::AboutToWait) {
             let _ = tx.as_ref().unwrap().send(e);
         }
 
@@ -266,9 +246,9 @@ pub fn main_loop(window: GlWindow, event_loop: EventLoop<UserEvent>) {
             handle.join().unwrap();
         }
         // We need to wake up regularly to check the running tracker, so that we can exit
-        *control_flow = ControlFlow::WaitUntil(
+        window_target.set_control_flow(ControlFlow::WaitUntil(
             std::time::Instant::now() + std::time::Duration::from_millis(100),
-        );
+        ));
     });
 }
 
@@ -283,8 +263,8 @@ pub fn main_loop(window: GlWindow, event_loop: EventLoop<UserEvent>) {
         &window_wrapper.windowed_context,
     );
 
-    event_loop.run(move |e, _window_target, control_flow| {
-        *control_flow = update_loop.step(&mut window_wrapper, Ok(e)).unwrap();
+    let _ = event_loop.run(move |e, window_target| {
+        window_target.set_control_flow(update_loop.step(&mut window_wrapper, Ok(e)).unwrap());
 
         if !RUNNING_TRACKER.is_running() {
             let window = window_wrapper.windowed_context.window();

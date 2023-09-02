@@ -99,7 +99,7 @@ impl UpdateLoop {
                 // Disconnected
                 return Err(());
             }
-            Err(false) | Ok(Event::MainEventsCleared) => {
+            Err(false) | Ok(Event::AboutToWait) => {
                 let dt = if self.num_consecutive_rendered > 0
                     && self.frame_dt_avg.get_num_samples() > 0
                 {

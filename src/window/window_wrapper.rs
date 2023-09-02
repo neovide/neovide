@@ -233,7 +233,7 @@ impl WinitWindowWrapper {
         );
         self.renderer.handle_event(&event);
         match event {
-            Event::LoopDestroyed => {
+            Event::LoopExiting => {
                 self.handle_quit();
             }
             Event::Resumed => {
@@ -248,8 +248,7 @@ impl WinitWindowWrapper {
             Event::WindowEvent {
                 event: WindowEvent::ScaleFactorChanged { scale_factor, .. },
                 ..
-            }
-            | Event::UserEvent(UserEvent::ScaleFactorChanged(scale_factor)) => {
+            } => {
                 self.handle_scale_factor_update(scale_factor);
             }
             Event::WindowEvent {
@@ -420,7 +419,7 @@ impl WinitWindowWrapper {
             .convert_grid_to_physical(geometry);
         new_size.width += window_padding_width;
         new_size.height += window_padding_height;
-        window.set_inner_size(new_size);
+        let _ = window.request_inner_size(new_size);
     }
 
     fn get_grid_size_from_window(&self, min_width: u64, min_height: u64) -> Dimensions {
