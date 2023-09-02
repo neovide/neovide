@@ -63,7 +63,7 @@ pub fn create_window() {
         Icon::from_rgba(rgba, width, height).expect("Failed to create icon object")
     };
 
-    let event_loop = EventLoop::new();
+    let event_loop = EventLoop::new().expect("Failed to create winit event loop");
 
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
 
@@ -143,7 +143,7 @@ pub fn create_window() {
 
     let mut update_loop = UpdateLoop::new();
 
-    event_loop.run(move |e, _window_target, control_flow| {
+    let _ = event_loop.run(move |e, _window_target, control_flow| {
         *control_flow = update_loop.step(&mut window_wrapper, e);
     });
 }

@@ -228,7 +228,7 @@ impl WinitWindowWrapper {
         );
         self.renderer.handle_event(&event);
         match event {
-            Event::LoopDestroyed => {
+            Event::LoopExiting => {
                 self.handle_quit();
             }
             Event::Resumed => {
@@ -380,7 +380,7 @@ impl WinitWindowWrapper {
                 .grid_renderer
                 .convert_grid_to_physical(DEFAULT_WINDOW_GEOMETRY)
         };
-        window.set_inner_size(inner_size);
+        let _ = window.request_inner_size(inner_size);
         // next frame will detect change in window.inner_size() and hence will
         // handle_new_grid_size automatically
     }
