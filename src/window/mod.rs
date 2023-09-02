@@ -8,10 +8,14 @@ mod window_wrapper;
 #[cfg(target_os = "macos")]
 mod draw_background;
 
+use std::process::ExitCode;
+
 #[cfg(target_os = "linux")]
 use std::env;
 
 use winit::{
+    error::EventLoopError,
+    event::Event,
     event_loop::EventLoop,
     window::{Icon, WindowBuilder},
 };
@@ -52,7 +56,7 @@ pub enum WindowCommand {
     ListAvailableFonts,
 }
 
-pub fn create_window() {
+pub fn create_window() -> ExitCode {
     let icon = {
         let icon = load_from_memory(ICON).expect("Failed to parse icon data");
         let (width, height) = icon.dimensions();
@@ -143,7 +147,16 @@ pub fn create_window() {
 
     let mut update_loop = UpdateLoop::new();
 
-    let _ = event_loop.run(move |e, _window_target, control_flow| {
-        *control_flow = update_loop.step(&mut window_wrapper, e);
-    });
+    match event_loop.run(move |e, _window_target, control_flow| {
+        if e != Event::LoopExiting {
+            *control_flow = update_loop.step(&mut window_wrapper, e);
+        }
+    }) {
+        Ok(()) => 0,
+        // All error codes have to be u8, so just do a direct cast with wrap around, even if the value is negative,
+        // that's how it's normally done
+        Err(EventLoopError::ExitFailure(code)) => code as u8,
+        _ => 1,
+    }
+    .into()
 }

@@ -30,9 +30,11 @@ const MIN_WINDOW_WIDTH: u64 = 20;
 const MIN_WINDOW_HEIGHT: u64 = 6;
 
 pub struct WinitWindowWrapper {
-    pub windowed_context: WindowedContext,
-    skia_renderer: SkiaRenderer,
+    // Don't rearrange this, unless you have a good reason to do so
+    // The destruction order has to be correct
     renderer: Renderer,
+    skia_renderer: SkiaRenderer,
+    pub windowed_context: WindowedContext,
     keyboard_manager: KeyboardManager,
     mouse_manager: MouseManager,
     title: String,
@@ -228,9 +230,6 @@ impl WinitWindowWrapper {
         );
         self.renderer.handle_event(&event);
         match event {
-            Event::LoopExiting => {
-                self.handle_quit();
-            }
             Event::Resumed => {
                 EVENT_AGGREGATOR.send(EditorCommand::RedrawScreen);
             }

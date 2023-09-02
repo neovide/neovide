@@ -33,6 +33,7 @@ extern crate derive_new;
 extern crate lazy_static;
 
 use std::env::{self, args};
+use std::process::ExitCode;
 
 #[cfg(not(test))]
 use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
@@ -66,7 +67,7 @@ pub use profiling::startup_profiler;
 const BACKTRACES_FILE: &str = "neovide_backtraces.log";
 const REQUEST_MESSAGE: &str = "This is a bug and we would love for it to be reported to https://github.com/neovide/neovide/issues";
 
-fn main() {
+fn main() -> ExitCode {
     set_hook(Box::new(|panic_info| {
         let backtrace = Backtrace::new();
 
@@ -79,7 +80,7 @@ fn main() {
     protected_main()
 }
 
-fn protected_main() {
+fn protected_main() -> ExitCode {
     //  --------------
     // | Architecture |
     //  --------------
@@ -155,7 +156,7 @@ fn protected_main() {
     //Will exit if -h or -v
     if let Err(err) = cmd_line::handle_command_line_arguments(args().collect()) {
         eprintln!("{err}");
-        return;
+        return 1.into();
     }
 
     #[cfg(not(test))]
@@ -175,8 +176,7 @@ fn protected_main() {
     start_editor();
     maybe_disown();
 
-    // implicitly takes control over the thread
-    create_window();
+    create_window()
 }
 
 #[cfg(not(test))]
