@@ -175,7 +175,7 @@ pub async fn setup_neovide_specific_state(
 
     // Create auto command for retrieving exit code from neovim on quit.
     nvim.command(
-        "autocmd VimLeave * call rpcnotify(g:neovide_channel_id, 'neovide.quit', v:exiting)",
+        "autocmd VimLeavePre * call rpcnotify(g:neovide_channel_id, 'neovide.quit', v:exiting)",
     )
     .await
     .ok();
