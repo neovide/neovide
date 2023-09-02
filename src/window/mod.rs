@@ -13,6 +13,8 @@ use std::env;
 
 use winit::{
     dpi::PhysicalSize,
+    error::EventLoopError,
+    event::Event,
     event_loop::{EventLoop, EventLoopBuilder},
     window::{Icon, WindowBuilder},
 };
@@ -34,7 +36,7 @@ use std::{
     thread,
 };
 #[cfg(target_os = "windows")]
-use winit::{event::Event, event_loop::ControlFlow};
+use winit::event_loop::ControlFlow;
 
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
@@ -66,7 +68,7 @@ pub enum WindowCommand {
 }
 
 #[allow(dead_code)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum UserEvent {}
 
 pub fn create_event_loop() -> EventLoop<UserEvent> {
@@ -199,7 +201,7 @@ pub fn create_window(event_loop: &EventLoop<UserEvent>) -> GlWindow {
 // Use a render thread on Windows to work around performance issues with Winit
 // see: https://github.com/rust-windowing/winit/issues/2782
 #[cfg(target_os = "windows")]
-pub fn main_loop(window: GlWindow, event_loop: EventLoop<UserEvent>) {
+pub fn main_loop(window: GlWindow, event_loop: EventLoop<UserEvent>) -> Result<(), EventLoopError> {
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
     let (txtemp, rx) = channel::<Event<UserEvent>>();
     let mut tx = Some(txtemp);
@@ -234,9 +236,15 @@ pub fn main_loop(window: GlWindow, event_loop: EventLoop<UserEvent>) {
         std::process::exit(RUNNING_TRACKER.exit_code());
     }));
 
-    let _ = event_loop.run(move |e, window_target| {
-        if !matches!(e, Event::AboutToWait) {
-            let _ = tx.as_ref().unwrap().send(e);
+    event_loop.run(move |e, window_target| {
+        match e {
+            Event::LoopExiting => {
+                return;
+            }
+            Event::AboutToWait => {}
+            _ => {
+                let _ = tx.as_ref().unwrap().send(e);
+            }
         }
 
         if !RUNNING_TRACKER.is_running() {
@@ -244,16 +252,20 @@ pub fn main_loop(window: GlWindow, event_loop: EventLoop<UserEvent>) {
             drop(tx);
             let handle = render_thread_handle.take().unwrap();
             handle.join().unwrap();
+            window_target.exit();
+        } else {
+            // We need to wake up regularly to check the running tracker, so that we can exit
+            window_target.set_control_flow(ControlFlow::WaitUntil(
+                std::time::Instant::now() + std::time::Duration::from_millis(100),
+            ));
         }
-        // We need to wake up regularly to check the running tracker, so that we can exit
-        window_target.set_control_flow(ControlFlow::WaitUntil(
-            std::time::Instant::now() + std::time::Duration::from_millis(100),
-        ));
-    });
+    })
 }
 
 #[cfg(not(target_os = "windows"))]
-pub fn main_loop(window: GlWindow, event_loop: EventLoop<UserEvent>) {
+pub fn main_loop(window: GlWindow, event_loop: EventLoop<UserEvent>) -> Result<(), EventLoopError> {
+    use std::ops::ControlFlow;
+
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
     let mut window_wrapper = WinitWindowWrapper::new(window);
 
@@ -263,8 +275,10 @@ pub fn main_loop(window: GlWindow, event_loop: EventLoop<UserEvent>) {
         &window_wrapper.windowed_context,
     );
 
-    let _ = event_loop.run(move |e, window_target| {
-        window_target.set_control_flow(update_loop.step(&mut window_wrapper, Ok(e)).unwrap());
+    event_loop.run(move |e, window_target| {
+        if e == Event::LoopExiting {
+            return;
+        }
 
         if !RUNNING_TRACKER.is_running() {
             let window = window_wrapper.windowed_context.window();
@@ -273,8 +287,9 @@ pub fn main_loop(window: GlWindow, event_loop: EventLoop<UserEvent>) {
                 window.inner_size(),
                 window.outer_position().ok(),
             );
-
-            std::process::exit(RUNNING_TRACKER.exit_code());
+            window_target.exit();
+        } else {
+            window_target.set_control_flow(update_loop.step(&mut window_wrapper, Ok(e)).unwrap());
         }
-    });
+    })
 }

@@ -33,6 +33,7 @@ extern crate derive_new;
 extern crate lazy_static;
 
 use std::env::{self, args};
+use std::process::ExitCode;
 
 #[cfg(not(test))]
 use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
@@ -53,6 +54,8 @@ use time::macros::format_description;
 use time::OffsetDateTime;
 use window::{create_event_loop, create_window, main_loop, KeyboardSettings, WindowSettings};
 
+use winit::error::EventLoopError;
+
 pub use channel_utils::*;
 pub use event_aggregator::*;
 pub use running_tracker::*;
@@ -66,7 +69,7 @@ pub use profiling::startup_profiler;
 const BACKTRACES_FILE: &str = "neovide_backtraces.log";
 const REQUEST_MESSAGE: &str = "This is a bug and we would love for it to be reported to https://github.com/neovide/neovide/issues";
 
-fn main() {
+fn main() -> ExitCode {
     set_hook(Box::new(|panic_info| {
         let backtrace = Backtrace::new();
 
@@ -79,7 +82,7 @@ fn main() {
     protected_main()
 }
 
-fn protected_main() {
+fn protected_main() -> ExitCode {
     //  --------------
     // | Architecture |
     //  --------------
@@ -155,7 +158,7 @@ fn protected_main() {
     //Will exit if -h or -v
     if let Err(err) = cmd_line::handle_command_line_arguments(args().collect()) {
         eprintln!("{err}");
-        return;
+        return 1.into();
     }
 
     #[cfg(not(test))]
@@ -177,8 +180,14 @@ fn protected_main() {
 
     let event_loop = create_event_loop();
     let window = create_window(&event_loop);
-    // implicitly takes control over the thread
-    main_loop(window, event_loop);
+    match main_loop(window, event_loop) {
+        Ok(()) => 0,
+        // All error codes have to be u8, so just do a direct cast with wrap around, even if the value is negative,
+        // that's how it's normally done on operating systems that don't support negative return values.
+        Err(EventLoopError::ExitFailure(code)) => code as u8,
+        _ => 1,
+    }
+    .into()
 }
 
 #[cfg(not(test))]
