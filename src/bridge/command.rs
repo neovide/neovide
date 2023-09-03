@@ -1,10 +1,9 @@
 use std::{
-    env,
-    path::Path,
+    env, eprintln,
     process::{Command as StdCommand, Stdio},
 };
 
-use log::{debug, error, warn};
+use log::debug;
 use tokio::process::Command as TokioCommand;
 
 use crate::{cmd_line::CmdLineSettings, settings::*};
@@ -33,22 +32,31 @@ fn set_windows_creation_flags(cmd: &mut TokioCommand) {
 
 fn build_nvim_cmd() -> TokioCommand {
     if let Some(path) = SETTINGS.get::<CmdLineSettings>().neovim_bin {
-        if platform_exists(&path) {
+        // if neovim_bin contains a path separator, then try to launch it directly
+        // otherwise use which to find the fully path
+        if path.contains('/') || path.contains('\\') {
+            if neovim_ok(&path) {
+                return build_nvim_cmd_with_args(&path);
+            }
+        } else if let Some(path) = platform_which(&path) {
+            if neovim_ok(&path) {
+                return build_nvim_cmd_with_args(&path);
+            }
+        }
+
+        eprintln!("ERROR: NEOVIM_BIN='{}' was not found.", path);
+        std::process::exit(1);
+    } else if let Some(path) = platform_which("nvim") {
+        if neovim_ok(&path) {
             return build_nvim_cmd_with_args(&path);
-        } else {
-            warn!("NEOVIM_BIN is invalid falling back to first bin in PATH");
         }
     }
-    if let Some(path) = platform_which("nvim") {
-        build_nvim_cmd_with_args(&path)
-    } else {
-        error!("nvim not found!");
-        std::process::exit(1);
-    }
+    eprintln!("ERROR: nvim not found!");
+    std::process::exit(1);
 }
 
 // Creates a shell command if needed on this platform (wsl or macos)
-fn create_platform_shell_command(command: &str, args: &[&str]) -> Option<StdCommand> {
+fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
     if cfg!(target_os = "windows") && SETTINGS.get::<CmdLineSettings>().wsl {
         let mut result = StdCommand::new("wsl");
         result.args(["$SHELL", "-lc"]);
@@ -59,7 +67,7 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> Option<StdComm
             winapi::um::winbase::CREATE_NO_WINDOW,
         );
 
-        Some(result)
+        result
     } else if cfg!(target_os = "macos") {
         let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
         let mut result = StdCommand::new(shell);
@@ -70,51 +78,72 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> Option<StdComm
         result.arg("-c");
         result.arg(format!("{} {}", command, args.join(" ")));
 
-        Some(result)
+        result
     } else {
-        None
+        // On Linux, just run the command directly
+        let mut result = StdCommand::new(command);
+        result.args(args);
+        result
     }
 }
 
-#[cfg(target_os = "windows")]
-fn platform_exists(bin: &str) -> bool {
-    // exists command is only on windows
-    if let Some(mut exists_command) = create_platform_shell_command("exists", &["-x", bin]) {
-        if let Ok(output) = exists_command.output() {
-            output.status.success()
-        } else {
-            error!("Exists failed");
-            std::process::exit(1);
+fn neovim_ok(bin: &str) -> bool {
+    let is_wsl = SETTINGS.get::<CmdLineSettings>().wsl;
+
+    let mut cmd = create_platform_shell_command(bin, &["-v"]);
+    if let Ok(output) = cmd.output() {
+        if output.status.success() {
+            // The output is not utf8 on Windows and can contain special characters.
+            // But a lossy conversion is OK for our purposes
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            if !(stdout.starts_with("NVIM v") && output.stderr.is_empty()) {
+                let error_message_prefix = format!(
+                    concat!(
+                        "ERROR: Unexpected output from neovim binary:\n",
+                        "\t{bin} -v\n",
+                        "Check that your shell doesn't output anything extra when running:",
+                        "\n\t"
+                    ),
+                    bin = bin
+                );
+
+                if is_wsl {
+                    eprintln!("{error_message_prefix}wsl '$SHELL' -lc '{bin} -v'");
+                } else {
+                    eprintln!("{error_message_prefix}$SHELL -lc '{bin} -v'");
+                }
+                std::process::exit(1);
+            }
+            return true;
         }
-    } else {
-        Path::new(&bin).exists()
     }
-}
-
-#[cfg(not(target_os = "windows"))]
-fn platform_exists(bin: &str) -> bool {
-    Path::new(&bin).exists()
+    false
 }
 
 fn platform_which(bin: &str) -> Option<String> {
-    if let Some(mut which_command) = create_platform_shell_command("which", &[bin]) {
-        debug!("Running which command: {:?}", which_command);
-        if let Ok(output) = which_command.output() {
-            if output.status.success() {
-                let nvim_path = String::from_utf8(output.stdout).unwrap();
-                return Some(nvim_path.trim().to_owned());
-            } else {
-                return None;
-            }
+    let is_wsl = SETTINGS.get::<CmdLineSettings>().wsl;
+
+    // The which crate won't work in WSL, a shell always needs to be started
+    // In all other cases always try which::which first to avoid shell specific problems
+    if !is_wsl {
+        if let Ok(path) = which::which(bin) {
+            return path.into_os_string().into_string().ok();
         }
     }
 
-    // Platform command failed, fallback to which crate
-    if let Ok(path) = which::which(bin) {
-        path.into_os_string().into_string().ok()
-    } else {
-        None
+    // But if that does not work, try the shell anyway
+    let mut which_command = create_platform_shell_command("which", &[bin]);
+    debug!("Running which command: {:?}", which_command);
+    if let Ok(output) = which_command.output() {
+        if output.status.success() {
+            // The output is not utf8 on Windows and can contain special characters.
+            // This might fail with special characters in the path, but that probably does
+            // not matter, since which::which should handle almost all cases.
+            let nvim_path = String::from_utf8_lossy(&output.stdout);
+            return Some(nvim_path.trim().to_owned());
+        }
     }
+    None
 }
 
 #[cfg(target_os = "macos")]

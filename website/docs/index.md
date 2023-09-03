@@ -38,13 +38,13 @@ Where possible there are some graphical improvements, but functionally it should
 terminal UI.
 
 <div class="hide-mobile">
-    <a href="https://github.com/neovide/neovide/releases/latest/download/Neovide.dmg.zip">
+    <a href="https://github.com/neovide/neovide/releases/latest/download/neovide.dmg.zip">
         <button class="button-hover color">Download for macOS</button>
     </a>
-    <a href="https://github.com/neovide/neovide/releases/latest/download/neovide.msi.zip">
+    <a href="https://github.com/neovide/neovide/releases/latest/download/neovide.msi">
         <button class="button-hover color">Download for Windows</button>
     </a>
-    <a href="https://github.com/neovide/neovide/releases/latest/download/neovide.tar.gz">
+    <a href="https://github.com/neovide/neovide/releases/latest/download/neovide.AppImage">
         <button class="button-hover color">Download for Linux</button>
     </a>
 </div>

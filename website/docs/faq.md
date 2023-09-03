@@ -38,6 +38,11 @@ but for short: Both options can be values between `0` (opaque) and `100` (fully 
 inclusively on both ends. `winblend` controls the background for floating windows, `pumblend` the
 one for the popup menu.
 
+telescope.nvim is different here though. Instead of using the global `winblend` option, it has its
+own `telescope.defaults.winblend` configuration option, see [this comment in #1626].
+
+[this comment in #1626]: https://github.com/neovide/neovide/issues/1626#issuecomment-1701080545
+
 ## How Can I Dynamically Change The Scale At Runtime?
 
 Neovide offers the setting `g:neovide_scale_factor`, which is multiplied with

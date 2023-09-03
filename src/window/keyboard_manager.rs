@@ -30,17 +30,17 @@ impl KeyboardManager {
                 event:
                     WindowEvent::KeyboardInput {
                         event: key_event,
-                        is_synthetic,
+                        is_synthetic: false,
                         ..
                     },
                 ..
-            } if key_event.state == ElementState::Pressed
-                && self.ime_preedit.0.is_empty()
-                && !is_synthetic =>
-            {
-                if let Some(text) = self.format_key(key_event) {
-                    log::trace!("Key pressed {} {:?}", text, self.modifiers.state());
-                    EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Keyboard(text)));
+            } if self.ime_preedit.0.is_empty() => {
+                log::trace!("{:#?}", key_event);
+                if key_event.state == ElementState::Pressed {
+                    if let Some(text) = self.format_key(key_event) {
+                        log::trace!("Key pressed {} {:?}", text, self.modifiers.state());
+                        EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Keyboard(text)));
+                    }
                 }
             }
             Event::WindowEvent {
@@ -60,6 +60,7 @@ impl KeyboardManager {
             } => {
                 // Record the modifier states so that we can properly add them to the keybinding
                 // text
+                log::trace!("{:?}", *modifiers);
                 self.modifiers = *modifiers;
             }
             _ => {}
@@ -157,22 +158,15 @@ fn use_alt() -> bool {
 fn get_special_key(key_event: &KeyEvent) -> Option<&str> {
     let key = &key_event.logical_key;
     match key {
-        Key::Backspace => Some("BS"),
-        Key::Space => {
-            // Space can finish a dead key sequence, so treat space as a special key only when
-            // that doesn't happen.
-            if key_event.text == Some(" ".into()) {
-                Some("Space")
-            } else {
-                None
-            }
-        }
-        Key::Escape => Some("Esc"),
-        Key::Delete => Some("Del"),
-        Key::ArrowUp => Some("Up"),
         Key::ArrowDown => Some("Down"),
         Key::ArrowLeft => Some("Left"),
         Key::ArrowRight => Some("Right"),
+        Key::ArrowUp => Some("Up"),
+        Key::Backspace => Some("BS"),
+        Key::Delete => Some("Del"),
+        Key::End => Some("End"),
+        Key::Enter => Some("Enter"),
+        Key::Escape => Some("Esc"),
         Key::F1 => Some("F1"),
         Key::F2 => Some("F2"),
         Key::F3 => Some("F3"),
@@ -208,11 +202,19 @@ fn get_special_key(key_event: &KeyEvent) -> Option<&str> {
         Key::F33 => Some("F33"),
         Key::F34 => Some("F34"),
         Key::F35 => Some("F35"),
-        Key::Insert => Some("Insert"),
         Key::Home => Some("Home"),
-        Key::End => Some("End"),
-        Key::PageUp => Some("PageUp"),
+        Key::Insert => Some("Insert"),
         Key::PageDown => Some("PageDown"),
+        Key::PageUp => Some("PageUp"),
+        Key::Space => {
+            // Space can finish a dead key sequence, so treat space as a special key only when
+            // that doesn't happen.
+            if key_event.text == Some(" ".into()) {
+                Some("Space")
+            } else {
+                None
+            }
+        }
         Key::Tab => Some("Tab"),
         _ => None,
     }
