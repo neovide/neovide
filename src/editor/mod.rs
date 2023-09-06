@@ -9,7 +9,7 @@ use std::{collections::HashMap, sync::Arc, thread};
 use log::{error, trace};
 
 use crate::{
-    bridge::{GuiOption, RedrawEvent, WindowAnchor},
+    bridge::{GuiOption, ParallelCommand, RedrawEvent, UiCommand, WindowAnchor},
     event_aggregator::EVENT_AGGREGATOR,
     profiling::tracy_zone,
     renderer::DrawCommand,
@@ -255,6 +255,10 @@ impl Editor {
                 } => {
                     tracy_zone!("EditorWindowViewport");
                     self.send_updated_viewport(grid, scroll_delta)
+                }
+                RedrawEvent::ShowIntro { message } => {
+                    EVENT_AGGREGATOR
+                        .send(UiCommand::Parallel(ParallelCommand::ShowIntro { message }));
                 }
                 _ => {}
             },

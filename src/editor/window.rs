@@ -132,6 +132,11 @@ impl Window {
         // Compute text.
         let mut text = cell.text;
         if let Some(times) = cell.repeat {
+            // Repeats of zero times should be ignored, they are mostly useful for terminal Neovim
+            // to distinguish between empty lines and lines ending with spaces.
+            if times == 0 {
+                return;
+            }
             text = text.repeat(times as usize);
         }
 
