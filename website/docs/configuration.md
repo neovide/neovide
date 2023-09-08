@@ -58,7 +58,7 @@ as such it's also documented in `:h guifont`. But to sum it up and also add Neov
   - are separated from the fonts and themselves through `:` (colons).
   - can be one of the following:
     - `hX` — Sets the font size to `X` points, while `X` can be any (even floating-point) number.
-    - `wX` — Sets the width **relative offset** to be `X` points, while `X`
+    - `wX` (available since 0.11.2) — Sets the width **relative offset** to be `X` points, while `X`
         can be again any number. Negative values shift characters closer together, positive values
         shift them further apart.
     - `b` — Sets the font **bold**.
