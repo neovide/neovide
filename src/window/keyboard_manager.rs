@@ -11,6 +11,10 @@ use winit::{
     keyboard::Key,
 };
 
+fn is_ascii_alphabetic_char(text: &str) -> bool {
+    text.len() == 1 && text.chars().next().unwrap().is_ascii_alphabetic()
+}
+
 pub struct KeyboardManager {
     modifiers: Modifiers,
     ime_preedit: (String, Option<(usize, usize)>),
@@ -98,11 +102,19 @@ impl KeyboardManager {
     }
 
     fn format_key_text(&self, text: &str, is_special: bool) -> String {
-        let modifiers = self.format_modifier_string(text, is_special);
+        // Neovim always converts shifted ascii alpha characters to uppercase, so do it here already
+        // This fixes some bugs where winit does not report the uppercase text as it should
+        let text = if self.modifiers.state().shift_key() && is_ascii_alphabetic_char(text) {
+            text.to_uppercase()
+        } else {
+            text.to_string()
+        };
+
+        let modifiers = self.format_modifier_string(&text, is_special);
         // < needs to be formatted as a special character, but note that it's not treated as a
         // special key for the modifier formatting, so S- and -M are still potentially stripped
         let (text, is_special) = if text == "<" {
-            ("lt", true)
+            ("lt".to_string(), true)
         } else {
             (text, is_special)
         };
@@ -110,7 +122,7 @@ impl KeyboardManager {
             if is_special {
                 format!("<{text}>")
             } else {
-                text.to_string()
+                text
             }
         } else {
             format!("<{modifiers}{text}>")
@@ -129,10 +141,8 @@ impl KeyboardManager {
         // uppercase without shift, or <M-A> .
         // But in combination with ohter characters, such as <M-S-$> they are not,
         // so we don't want to send shift when that's the case.
-        let include_shift = is_special
-            || (text.len() == 1
-                && self.modifiers.state().control_key()
-                && text.chars().next().unwrap().is_ascii_alphabetic());
+        let include_shift =
+            is_special || (self.modifiers.state().control_key() && is_ascii_alphabetic_char(text));
 
         // Always send meta (alt) togehter with special keys, or when alt is meta on macOS
         let include_alt = use_alt() || is_special;
