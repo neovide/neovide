@@ -98,7 +98,7 @@ impl KeyboardManager {
     }
 
     fn format_key_text(&self, text: &str, is_special: bool) -> String {
-        let modifiers = self.format_modifier_string(is_special);
+        let modifiers = self.format_modifier_string(text, is_special);
         // < needs to be formatted as a special character, but note that it's not treated as a
         // special key for the modifier formatting, so S- and -M are still potentially stripped
         let (text, is_special) = if text == "<" {
@@ -117,28 +117,33 @@ impl KeyboardManager {
         }
     }
 
-    pub fn format_modifier_string(&self, is_special: bool) -> String {
-        // Is special is used for special keys so that all modifiers are always included
-        // It's also true with alt_is_meta is set to true.
-        // When the key is not special, shift is removed, since the base character is already
-        // shifted. Furthermore on macOS, meta is additionally removed when alt_is_meta is set to false
-        let shift = or_empty(self.modifiers.state().shift_key() && is_special, "S-");
-        let ctrl = or_empty(self.modifiers.state().control_key(), "C-");
-        let alt = or_empty(
-            self.modifiers.state().alt_key() && (use_alt() || is_special),
-            "M-",
-        );
-        let logo = or_empty(self.modifiers.state().super_key(), "D-");
+    pub fn format_modifier_string(&self, text: &str, is_special: bool) -> String {
+        // Shift should always be sent together with special keys (Enter, Space, F keys and so on).
+        // And as a special case togeter with CTRL and standard a-z characters.
+        // In all other cases the resulting character is enough.
+        // Note that, in Neovim <C-a> and <C-A> are the same, but <C-S-A> is different.
+        // Actually, <C-S-a> is the same as <C-S-A>, since Neovim converts all shifted
+        // lowercase alphas to uppercase internally in its mapppings.
+        // Also note that mappings that do not include CTRL work differently, they are always
+        // normalized in combination with ascii alphas. For example <M-S-a> is normalized to
+        // uppercase without shift, or <M-A> .
+        // But in combination with ohter characters, such as <M-S-$> they are not,
+        // so we don't want to send shift when that's the case.
+        let include_shift = is_special
+            || (text.len() == 1
+                && self.modifiers.state().control_key()
+                && text.chars().next().unwrap().is_ascii_alphabetic());
 
-        shift.to_owned() + ctrl + alt + logo
-    }
-}
+        // Always send meta (alt) togehter with special keys, or when alt is meta on macOS
+        let include_alt = use_alt() || is_special;
 
-fn or_empty(condition: bool, text: &str) -> &str {
-    if condition {
-        text
-    } else {
-        ""
+        let state = self.modifiers.state();
+        let mut ret = String::new();
+        (state.shift_key() && include_shift).then(|| ret += "S-");
+        state.control_key().then(|| ret += "C-");
+        (state.alt_key() && include_alt).then(|| ret += "M-");
+        state.super_key().then(|| ret += "D-");
+        ret
     }
 }
 
