@@ -12,6 +12,7 @@ mod draw_background;
 use std::env;
 
 use winit::{
+    dpi::PhysicalSize,
     event_loop::EventLoopBuilder,
     window::{Icon, WindowBuilder},
 };
@@ -99,9 +100,31 @@ pub fn create_window() {
         }
     }
 
+    log::trace!("Settings geometry {:?}", cmd_line_settings.geometry,);
+    log::trace!("Settings size {:?}", cmd_line_settings.size);
+
+    let default_size = PhysicalSize {
+        width: 500,
+        height: 500,
+    };
+    let inner_size = if let Some(size) = cmd_line_settings.size {
+        size.into()
+    } else if cmd_line_settings.geometry.is_some() {
+        default_size
+    } else if let Ok(PersistentWindowSettings::Windowed {
+        pixel_size: Some(size),
+        ..
+    }) = load_last_window_settings()
+    {
+        size
+    } else {
+        default_size
+    };
+
     let winit_window_builder = WindowBuilder::new()
         .with_title("Neovide")
         .with_window_icon(Some(icon))
+        .with_inner_size(inner_size)
         .with_maximized(maximized)
         .with_transparent(true);
 
@@ -189,8 +212,7 @@ pub fn create_window() {
         let (txtemp, rx) = channel::<Event<UserEvent>>();
         let mut tx = Some(txtemp);
         let mut render_thread_handle = Some(thread::spawn(move || {
-            let mut window_wrapper =
-                WinitWindowWrapper::new(window, config, &cmd_line_settings, maximized);
+            let mut window_wrapper = WinitWindowWrapper::new(window, config, &cmd_line_settings);
             let mut update_loop = UpdateLoop::new(
                 cmd_line_settings.vsync,
                 cmd_line_settings.idle,
@@ -257,8 +279,7 @@ pub fn create_window() {
 
     #[cfg(not(target_os = "windows"))]
     {
-        let mut window_wrapper =
-            WinitWindowWrapper::new(window, config, &cmd_line_settings, maximized);
+        let mut window_wrapper = WinitWindowWrapper::new(window, config, &cmd_line_settings);
 
         let mut update_loop = UpdateLoop::new(
             cmd_line_settings.vsync,

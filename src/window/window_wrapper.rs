@@ -11,9 +11,7 @@ use crate::{
     profiling::{emit_frame_mark, tracy_gpu_collect, tracy_gpu_zone, tracy_zone},
     renderer::{build_context, Renderer, VSync, WindowPadding, WindowedContext},
     running_tracker::RUNNING_TRACKER,
-    settings::{
-        load_last_window_settings, PersistentWindowSettings, DEFAULT_WINDOW_GEOMETRY, SETTINGS,
-    },
+    settings::{DEFAULT_WINDOW_GEOMETRY, SETTINGS},
     CmdLineSettings,
 };
 
@@ -45,9 +43,7 @@ pub struct WinitWindowWrapper {
     fullscreen: bool,
     font_changed_last_frame: bool,
     saved_inner_size: PhysicalSize<u32>,
-    saved_grid_size: Option<Dimensions>,
-    size_at_startup: PhysicalSize<u32>,
-    maximized_at_startup: bool,
+    saved_grid_size: Dimensions,
     window_command_receiver: UnboundedReceiver<WindowCommand>,
     ime_enabled: bool,
     requested_columns: Option<u64>,
@@ -55,15 +51,9 @@ pub struct WinitWindowWrapper {
 }
 
 impl WinitWindowWrapper {
-    pub fn new(
-        window: Window,
-        config: Config,
-        cmd_line_settings: &CmdLineSettings,
-        maximized: bool,
-    ) -> Self {
+    pub fn new(window: Window, config: Config, cmd_line_settings: &CmdLineSettings) -> Self {
         let windowed_context = build_context(window, config, cmd_line_settings);
         let window = windowed_context.window();
-        let initial_size = window.inner_size();
 
         let scale_factor = windowed_context.window().scale_factor();
         let renderer = Renderer::new(scale_factor);
@@ -101,10 +91,8 @@ impl WinitWindowWrapper {
             title: String::from("Neovide"),
             fullscreen: false,
             font_changed_last_frame: false,
-            size_at_startup: initial_size,
-            maximized_at_startup: maximized,
             saved_inner_size,
-            saved_grid_size: None,
+            saved_grid_size: DEFAULT_WINDOW_GEOMETRY,
             window_command_receiver,
             ime_enabled,
             requested_columns: None,
@@ -304,18 +292,15 @@ impl WinitWindowWrapper {
             right: window_settings.padding_right,
             bottom: window_settings.padding_bottom,
         };
+        let padding_changed = window_padding != self.renderer.window_padding;
 
         if self.requested_columns.is_some() || self.requested_lines.is_some() {
-            self.update_window_size_from_grid();
+            self.update_window_size_from_grid(&window_padding);
         } else {
-            let padding_changed = window_padding != self.renderer.window_padding;
-            if padding_changed {
-                self.renderer.window_padding = window_padding;
-            }
-
             let new_size = window.inner_size();
             if self.saved_inner_size != new_size || self.font_changed_last_frame || padding_changed
             {
+                self.renderer.window_padding = window_padding;
                 self.font_changed_last_frame = false;
                 self.saved_inner_size = new_size;
 
@@ -349,73 +334,24 @@ impl WinitWindowWrapper {
             return false;
         }
 
-        // Resize at startup happens when window is maximized or when using tiling WM
-        // which already resized window.
-        let resized_at_startup = self.maximized_at_startup || self.has_been_resized();
-
-        if self.saved_grid_size.is_none() && !resized_at_startup {
-            self.init_window_size();
-            should_render |= true;
-        }
-
         should_render
     }
 
-    fn init_window_size(&self) {
-        let settings = SETTINGS.get::<CmdLineSettings>();
-        log::trace!("Settings geometry {:?}", settings.geometry,);
-        log::trace!("Settings size {:?}", settings.size);
-
+    fn update_window_size_from_grid(&mut self, window_padding: &WindowPadding) {
         let window = self.windowed_context.window();
-        let inner_size = if let Some(size) = settings.size {
-            // --size
-            size.into()
-        } else if let Some(geometry) = settings.geometry {
-            // --geometry
-            self.renderer
-                .grid_renderer
-                .convert_grid_to_physical(geometry)
-        } else if let Ok(PersistentWindowSettings::Windowed {
-            pixel_size: Some(size),
-            ..
-        }) = load_last_window_settings()
-        {
-            // remembered size
-            size
-        } else {
-            // default geometry
-            self.renderer
-                .grid_renderer
-                .convert_grid_to_physical(DEFAULT_WINDOW_GEOMETRY)
-        };
-        window.set_inner_size(inner_size);
-        // next frame will detect change in window.inner_size() and hence will
-        // handle_new_grid_size automatically
-    }
 
-    fn update_window_size_from_grid(&mut self) {
-        let window = self.windowed_context.window();
-        let old_window_size = window.inner_size();
-
-        let window_padding = self.renderer.window_padding;
         let window_padding_width = window_padding.left + window_padding.right;
         let window_padding_height = window_padding.top + window_padding.bottom;
 
-        let content_size = PhysicalSize {
-            width: old_window_size.width - window_padding_width,
-            height: old_window_size.height - window_padding_height,
-        };
-
-        // TODO: Use saved grid size instead of calculating it
-        // It should not be an option
-        let old_grid_size = self
-            .renderer
-            .grid_renderer
-            .convert_physical_to_grid(content_size);
-
         let geometry = Dimensions {
-            width: self.requested_columns.take().unwrap_or(old_grid_size.width),
-            height: self.requested_lines.take().unwrap_or(old_grid_size.height),
+            width: self
+                .requested_columns
+                .take()
+                .unwrap_or(self.saved_grid_size.width),
+            height: self
+                .requested_lines
+                .take()
+                .unwrap_or(self.saved_grid_size.height),
         };
 
         let mut new_size = self
@@ -447,11 +383,11 @@ impl WinitWindowWrapper {
             return;
         }
 
-        if self.saved_grid_size == Some(grid_size) {
+        if self.saved_grid_size == grid_size {
             trace!("Grid matched saved size, skip update.");
             return;
         }
-        self.saved_grid_size = Some(grid_size);
+        self.saved_grid_size = grid_size;
         EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::Resize {
             width: grid_size.width,
             height: grid_size.height,
@@ -461,9 +397,5 @@ impl WinitWindowWrapper {
     fn handle_scale_factor_update(&mut self, scale_factor: f64) {
         self.renderer.handle_os_scale_factor_change(scale_factor);
         EVENT_AGGREGATOR.send(EditorCommand::RedrawScreen);
-    }
-
-    fn has_been_resized(&self) -> bool {
-        self.windowed_context.window().inner_size() != self.size_at_startup
     }
 }
