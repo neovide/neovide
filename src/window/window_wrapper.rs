@@ -57,43 +57,11 @@ impl WinitWindowWrapper {
         window: Window,
         config: Config,
         cmd_line_settings: &CmdLineSettings,
-        previous_position: Option<PhysicalPosition<i32>>,
         maximized: bool,
     ) -> Self {
         let windowed_context = build_context(window, config, cmd_line_settings);
         let window = windowed_context.window();
         let initial_size = window.inner_size();
-
-        // Check that window is visible in some monitor, and reposition it if not.
-        let did_reposition = window
-            .current_monitor()
-            .and_then(|current_monitor| {
-                let monitor_position = current_monitor.position();
-                let monitor_size = current_monitor.size();
-                let monitor_width = monitor_size.width as i32;
-                let monitor_height = monitor_size.height as i32;
-
-                let window_position = previous_position
-                    .filter(|_| !maximized)
-                    .or_else(|| window.outer_position().ok())?;
-
-                let window_size = window.outer_size();
-                let window_width = window_size.width as i32;
-                let window_height = window_size.height as i32;
-
-                if window_position.x + window_width < monitor_position.x
-                    || window_position.y + window_height < monitor_position.y
-                    || window_position.x > monitor_position.x + monitor_width
-                    || window_position.y > monitor_position.y + monitor_height
-                {
-                    window.set_outer_position(monitor_position);
-                }
-
-                Some(())
-            })
-            .is_some();
-
-        log::trace!("repositioned window: {}", did_reposition);
 
         let scale_factor = windowed_context.window().scale_factor();
         let renderer = Renderer::new(scale_factor);
