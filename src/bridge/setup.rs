@@ -146,6 +146,17 @@ pub async fn setup_neovide_specific_state(
         .await
         .ok();
 
+    nvim.command(
+        "autocmd OptionSet columns call rpcnotify(1, 'neovide.columns', str2nr(v:option_new))",
+    )
+    .await
+    .ok();
+    nvim.command(
+        "autocmd OptionSet lines call rpcnotify(1, 'neovide.lines', str2nr(v:option_new))",
+    )
+    .await
+    .ok();
+
     setup_intro_message_autocommand(nvim).await.ok();
 }
 

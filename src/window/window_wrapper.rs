@@ -50,6 +50,8 @@ pub struct WinitWindowWrapper {
     maximized_at_startup: bool,
     window_command_receiver: UnboundedReceiver<WindowCommand>,
     ime_enabled: bool,
+    requested_columns: Option<u64>,
+    requested_lines: Option<u64>,
 }
 
 impl WinitWindowWrapper {
@@ -105,6 +107,8 @@ impl WinitWindowWrapper {
             saved_grid_size: None,
             window_command_receiver,
             ime_enabled,
+            requested_columns: None,
+            requested_lines: None,
         };
 
         wrapper.set_ime(ime_enabled);
@@ -152,6 +156,12 @@ impl WinitWindowWrapper {
                     self.mouse_manager.enabled = mouse_enabled
                 }
                 WindowCommand::ListAvailableFonts => self.send_font_names(),
+                WindowCommand::Columns(columns) => {
+                    self.requested_columns = Some(columns);
+                }
+                WindowCommand::Lines(lines) => {
+                    self.requested_lines = Some(lines);
+                }
             }
         }
     }
@@ -295,19 +305,24 @@ impl WinitWindowWrapper {
             bottom: window_settings.padding_bottom,
         };
 
-        let padding_changed = window_padding != self.renderer.window_padding;
-        if padding_changed {
-            self.renderer.window_padding = window_padding;
-        }
+        if self.requested_columns.is_some() || self.requested_lines.is_some() {
+            self.update_window_size_from_grid();
+        } else {
+            let padding_changed = window_padding != self.renderer.window_padding;
+            if padding_changed {
+                self.renderer.window_padding = window_padding;
+            }
 
-        let new_size = window.inner_size();
-        if self.saved_inner_size != new_size || self.font_changed_last_frame || padding_changed {
-            self.font_changed_last_frame = false;
-            self.saved_inner_size = new_size;
+            let new_size = window.inner_size();
+            if self.saved_inner_size != new_size || self.font_changed_last_frame || padding_changed
+            {
+                self.font_changed_last_frame = false;
+                self.saved_inner_size = new_size;
 
-            self.handle_new_grid_size(new_size);
-            self.skia_renderer.resize(&self.windowed_context);
-            should_render = true;
+                self.update_grid_size_from_window(new_size);
+                self.skia_renderer.resize(&self.windowed_context);
+                should_render = true;
+            }
         }
 
         let prev_cursor_position = self.renderer.get_cursor_position();
@@ -337,8 +352,6 @@ impl WinitWindowWrapper {
         // Resize at startup happens when window is maximized or when using tiling WM
         // which already resized window.
         let resized_at_startup = self.maximized_at_startup || self.has_been_resized();
-
-        log::trace!("Inner size: {:?}", new_size);
 
         if self.saved_grid_size.is_none() && !resized_at_startup {
             self.init_window_size();
@@ -380,7 +393,41 @@ impl WinitWindowWrapper {
         // handle_new_grid_size automatically
     }
 
-    fn handle_new_grid_size(&mut self, new_size: PhysicalSize<u32>) {
+    fn update_window_size_from_grid(&mut self) {
+        let window = self.windowed_context.window();
+        let old_window_size = window.inner_size();
+
+        let window_padding = self.renderer.window_padding;
+        let window_padding_width = window_padding.left + window_padding.right;
+        let window_padding_height = window_padding.top + window_padding.bottom;
+
+        let content_size = PhysicalSize {
+            width: old_window_size.width - window_padding_width,
+            height: old_window_size.height - window_padding_height,
+        };
+
+        // TODO: Use saved grid size instead of calculating it
+        // It should not be an option
+        let old_grid_size = self
+            .renderer
+            .grid_renderer
+            .convert_physical_to_grid(content_size);
+
+        let geometry = Dimensions {
+            width: self.requested_columns.take().unwrap_or(old_grid_size.width),
+            height: self.requested_lines.take().unwrap_or(old_grid_size.height),
+        };
+
+        let mut new_size = self
+            .renderer
+            .grid_renderer
+            .convert_grid_to_physical(geometry);
+        new_size.width += window_padding_width;
+        new_size.height += window_padding_height;
+        window.set_inner_size(new_size);
+    }
+
+    fn update_grid_size_from_window(&mut self, new_size: PhysicalSize<u32>) {
         let window_padding = self.renderer.window_padding;
         let window_padding_width = window_padding.left + window_padding.right;
         let window_padding_height = window_padding.top + window_padding.bottom;

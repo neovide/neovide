@@ -61,6 +61,8 @@ pub enum WindowCommand {
     TitleChanged(String),
     SetMouseEnabled(bool),
     ListAvailableFonts,
+    Columns(u64),
+    Lines(u64),
 }
 
 #[allow(dead_code)]
@@ -187,12 +189,8 @@ pub fn create_window() {
         let (txtemp, rx) = channel::<Event<UserEvent>>();
         let mut tx = Some(txtemp);
         let mut render_thread_handle = Some(thread::spawn(move || {
-            let mut window_wrapper = WinitWindowWrapper::new(
-                window,
-                config,
-                &cmd_line_settings,
-                maximized,
-            );
+            let mut window_wrapper =
+                WinitWindowWrapper::new(window, config, &cmd_line_settings, maximized);
             let mut update_loop = UpdateLoop::new(
                 cmd_line_settings.vsync,
                 cmd_line_settings.idle,
@@ -259,12 +257,8 @@ pub fn create_window() {
 
     #[cfg(not(target_os = "windows"))]
     {
-        let mut window_wrapper = WinitWindowWrapper::new(
-            window,
-            config,
-            &cmd_line_settings,
-            maximized,
-        );
+        let mut window_wrapper =
+            WinitWindowWrapper::new(window, config, &cmd_line_settings, maximized);
 
         let mut update_loop = UpdateLoop::new(
             cmd_line_settings.vsync,
