@@ -4,7 +4,9 @@ use rmpv::Value;
 
 use super::setup_intro_message_autocommand;
 use crate::{
-    bridge::NeovimWriter, error_handling::ResultPanicExplanation, settings::SETTINGS,
+    bridge::NeovimWriter,
+    error_handling::ResultPanicExplanation,
+    settings::{DEFAULT_WINDOW_GEOMETRY, SETTINGS},
     CmdLineSettings,
 };
 
@@ -33,6 +35,21 @@ const REGISTER_CLIPBOARD_PROVIDER_LUA: &str = r"
         },
         cache_enabled = 0
     }";
+
+const SET_INITIAL_GRID_LUA: &str = r"
+    local initial_columns, initial_lines = ...
+    vim.api.nvim_create_autocmd({ 'VimEnter' }, {
+        pattern = '*',
+        once = true,
+        callback = function()
+            if vim.o.columns ~= initial_columns then
+                vim.rpcnotify(vim.g.neovide_channel_id, 'neovide.columns', vim.o.columns)
+            end
+            if vim.o.lines~= initial_lines then
+                vim.rpcnotify(vim.g.neovide_channel_id, 'neovide.lines', vim.o.lines)
+            end
+        end
+    })";
 
 pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<NeovimWriter>, neovide_channel: u64) {
     // Users can opt-out with
@@ -166,6 +183,18 @@ pub async fn setup_neovide_specific_state(
         nvim.command(&format!(
             "autocmd VimEnter * ++once ++nested set lines={lines} | set columns={columns}"
         ))
+        .await
+        .ok();
+    } else {
+        // The autocommands for OptionSet are unfortunately not called during init
+        // So set the grid here if it's changed from the default
+        nvim.execute_lua(
+            SET_INITIAL_GRID_LUA,
+            vec![
+                DEFAULT_WINDOW_GEOMETRY.width.into(),
+                DEFAULT_WINDOW_GEOMETRY.height.into(),
+            ],
+        )
         .await
         .ok();
     }
