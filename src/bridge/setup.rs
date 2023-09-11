@@ -162,17 +162,19 @@ pub async fn setup_neovide_specific_state(
         .ok();
 
     // Create auto command for retrieving exit code from neovim on quit.
-    nvim.command("autocmd VimLeave * call rpcnotify(1, 'neovide.quit', v:exiting)")
-        .await
-        .ok();
+    nvim.command(
+        "autocmd VimLeave * call rpcnotify(g:neovide_channel_id, 'neovide.quit', v:exiting)",
+    )
+    .await
+    .ok();
 
     nvim.command(
-        "autocmd OptionSet columns call rpcnotify(1, 'neovide.columns', str2nr(v:option_new))",
+        "autocmd OptionSet columns call rpcnotify(g:neovide_channel_id, 'neovide.columns', str2nr(v:option_new))",
     )
     .await
     .ok();
     nvim.command(
-        "autocmd OptionSet lines call rpcnotify(1, 'neovide.lines', str2nr(v:option_new))",
+        "autocmd OptionSet lines call rpcnotify(g:neovide_channel_id, 'neovide.lines', str2nr(v:option_new))",
     )
     .await
     .ok();
