@@ -145,9 +145,11 @@ impl WinitWindowWrapper {
                 }
                 WindowCommand::ListAvailableFonts => self.send_font_names(),
                 WindowCommand::Columns(columns) => {
+                    log::info!("Requested columns {columns}");
                     self.requested_columns = Some(columns);
                 }
                 WindowCommand::Lines(lines) => {
+                    log::info!("Requested lines {lines}");
                     self.requested_lines = Some(lines);
                 }
             }

@@ -3,7 +3,10 @@ use nvim_rs::Neovim;
 use rmpv::Value;
 
 use super::setup_intro_message_autocommand;
-use crate::{bridge::NeovimWriter, error_handling::ResultPanicExplanation};
+use crate::{
+    bridge::NeovimWriter, error_handling::ResultPanicExplanation, settings::SETTINGS,
+    CmdLineSettings,
+};
 
 const REGISTER_CLIPBOARD_PROVIDER_LUA: &str = r"
     local function set_clipboard(register)
@@ -156,6 +159,16 @@ pub async fn setup_neovide_specific_state(
     )
     .await
     .ok();
+
+    if let Some(geometry) = SETTINGS.get::<CmdLineSettings>().geometry {
+        let lines = geometry.height;
+        let columns = geometry.width;
+        nvim.command(&format!(
+            "autocmd VimEnter * ++once ++nested set lines={lines} | set columns={columns}"
+        ))
+        .await
+        .ok();
+    }
 
     setup_intro_message_autocommand(nvim).await.ok();
 }
