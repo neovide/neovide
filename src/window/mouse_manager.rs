@@ -282,8 +282,8 @@ impl MouseManager {
         let new_x = self.scroll_position.x as i64;
 
         let horizontal_input_type = match new_x.partial_cmp(&previous_x) {
-            Some(Ordering::Greater) => Some("right"),
-            Some(Ordering::Less) => Some("left"),
+            Some(Ordering::Greater) => Some("left"),
+            Some(Ordering::Less) => Some("right"),
             _ => None,
         };
 
