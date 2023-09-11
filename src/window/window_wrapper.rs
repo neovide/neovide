@@ -9,19 +9,18 @@ use crate::{
     editor::EditorCommand,
     event_aggregator::EVENT_AGGREGATOR,
     profiling::{emit_frame_mark, tracy_gpu_collect, tracy_gpu_zone, tracy_zone},
-    renderer::{build_context, Renderer, VSync, WindowPadding, WindowedContext},
+    renderer::{build_context, GlWindow, Renderer, VSync, WindowPadding, WindowedContext},
     running_tracker::RUNNING_TRACKER,
     settings::{DEFAULT_WINDOW_GEOMETRY, SETTINGS},
     CmdLineSettings,
 };
 
-use glutin::config::Config;
 use log::trace;
 use tokio::sync::mpsc::UnboundedReceiver;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize, Position},
     event::{Event, WindowEvent},
-    window::{Fullscreen, Theme, Window},
+    window::{Fullscreen, Theme},
 };
 
 const MIN_WINDOW_WIDTH: u64 = 20;
@@ -51,8 +50,9 @@ pub struct WinitWindowWrapper {
 }
 
 impl WinitWindowWrapper {
-    pub fn new(window: Window, config: Config, cmd_line_settings: &CmdLineSettings) -> Self {
-        let windowed_context = build_context(window, config, cmd_line_settings);
+    pub fn new(window: GlWindow) -> Self {
+        let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
+        let windowed_context = build_context(window, &cmd_line_settings);
         let window = windowed_context.window();
 
         let scale_factor = windowed_context.window().scale_factor();

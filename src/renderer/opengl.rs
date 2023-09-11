@@ -24,6 +24,11 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
+pub struct GlWindow {
+    pub window: Window,
+    config: Config,
+}
+
 pub struct Context {
     surface: Surface<WindowSurface>,
     context: PossiblyCurrentContext,
@@ -79,7 +84,7 @@ fn gen_config(mut config_iterator: Box<dyn Iterator<Item = Config> + '_>) -> Con
 pub fn build_window<TE>(
     winit_window_builder: WindowBuilder,
     event_loop: &EventLoop<TE>,
-) -> (Window, Config) {
+) -> GlWindow {
     let template_builder = ConfigTemplateBuilder::new()
         .with_stencil_size(8)
         .with_transparency(true);
@@ -87,14 +92,13 @@ pub fn build_window<TE>(
         .with_window_builder(Some(winit_window_builder))
         .build(event_loop, template_builder, gen_config)
         .expect("Failed to create Window");
-    (window.expect("Could not create Window"), config)
+    let window = window.expect("Could not create Window");
+    GlWindow { window, config }
 }
 
-pub fn build_context(
-    window: Window,
-    config: Config,
-    cmd_line_settings: &CmdLineSettings,
-) -> Context {
+pub fn build_context(window: GlWindow, cmd_line_settings: &CmdLineSettings) -> Context {
+    let config = window.config;
+    let window = window.window;
     let gl_display = config.display();
     let raw_window_handle = window.raw_window_handle();
 

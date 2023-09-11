@@ -51,7 +51,7 @@ use std::panic::{set_hook, PanicInfo};
 use std::time::SystemTime;
 use time::macros::format_description;
 use time::OffsetDateTime;
-use window::{create_window, KeyboardSettings, WindowSettings};
+use window::{create_event_loop, create_window, main_loop, KeyboardSettings, WindowSettings};
 
 pub use channel_utils::*;
 pub use event_aggregator::*;
@@ -175,8 +175,10 @@ fn protected_main() {
     start_editor();
     maybe_disown();
 
+    let event_loop = create_event_loop();
+    let window = create_window(&event_loop);
     // implicitly takes control over the thread
-    create_window();
+    main_loop(window, event_loop);
 }
 
 #[cfg(not(test))]
