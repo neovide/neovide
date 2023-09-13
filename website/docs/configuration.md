@@ -500,6 +500,20 @@ vim.api.nvim_create_autocmd({ "CmdlineEnter", "CmdlineLeave" }, {
 })
 ```
 
+## Touch
+
+Touchscreen input is supported for both scrolling and dragging the cursor to select text.
+A touch is interpreted as drag movement iff the finger upon touching the screen remains in the
+[deadzone] and does so long until the [drag timeout] is reached. Otherwise the touch is interpreted
+as scroll until the finger is released from the screen.
+
+Scrolling the screen with multiple fingers (or pressing down multiple buttons if the
+[mouse-as-touch interpretation] is enabled) **accelerates** scrolling speed.
+
+[deadzone]: #Touch Deadzone
+[drag timeout]: #Touch Drag Timeout
+[mouse-as-touch interpretation]: #Interpret mouse as touch
+
 ### Interpret mouse as touch
 
 **Unreleased yet.**
@@ -517,7 +531,7 @@ vim.g.neovide_mouse_as_touch = false
 ```
 
 Interprets mouse inputs like touch inputs when enabled. Pressing any mouse putton here acts like
-holding the finger down on a touchscreen, until one mouse button is released. Does **not**
+holding the finger down on a touchscreen, until all mouse buttons are released. Does **not**
 disable direct touchscreen input.
 
 Can be useful for VMs like QEMU, where the host device may have a touchscreen, but it can't be
@@ -542,8 +556,8 @@ Setting `g:neovide_touch_deadzone` to a value equal or higher than 0.0 will set 
 finger must move away from the start position when tapping on the screen for the touch to be
 interpreted as a scroll gesture.
 
-If the finger stayed in that area once lifted or the drag timeout happened, however, the touch will
-be interpreted as tap gesture and the cursor will move there.
+If the finger stayed in that area once lifted, however, the touch will be interpreted as tap
+gesture and the cursor will move there.
 
 A value lower than 0.0 will cause this feature to be disabled and _all_ touch events will be
 interpreted as scroll gesture.
@@ -563,7 +577,7 @@ vim.g.neovide_touch_drag_timeout = 0.17
 ```
 
 Setting `g:neovide_touch_drag_timeout` will affect how many seconds the cursor has to stay inside
-`g:neovide_touch_deadzone` in order to begin "dragging"
+`g:neovide_touch_deadzone` in order to begin "dragging".
 
 Once started, the finger can be moved to another position in order to form a visual selection. If
 this happens too often accidentally to you, set this to a higher value like `0.3` or `0.7`.

@@ -1,6 +1,7 @@
 use std::{
     cmp::Ordering,
     collections::HashMap,
+    num::NonZeroU32,
     time::{Duration, Instant},
 };
 
@@ -65,9 +66,10 @@ struct TouchTrace {
     start: PhysicalPosition<f32>,
     last: PhysicalPosition<f32>,
     left_deadzone_once: bool,
-    // TODO(multisn8): use `stacks` here in order to allow multiple mouse buttons to be
-    // pressed simultaneously, then multiplying those with the distance diff for speed
-    // don't forget to adjust docs
+    /// In the case of mouse-as-touch interpretation, stores how many mouse buttons are
+    /// currently "stacked" on this trace. Each time a mouse button is pressed, this count
+    /// increases, each time a mouse button is released, this count drops.
+    stacks: NonZeroU32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -336,20 +338,20 @@ impl MouseManager {
                 let settings = SETTINGS.get::<WindowSettings>();
                 let enable_deadzone = settings.touch_deadzone >= 0.0;
 
-                self.touch_position.insert(
-                    finger_id,
-                    TouchTrace {
+                self.touch_position
+                    .entry(finger_id)
+                    .and_modify(|trace| trace.stacks = trace.stacks.saturating_add(1))
+                    .or_insert(TouchTrace {
                         start_time: Instant::now(),
                         start: location,
                         last: location,
                         left_deadzone_once: !enable_deadzone,
-                    },
-                );
+                        stacks: NonZeroU32::new(1).unwrap(),
+                    });
             }
             TouchPhase::Moved => {
                 let mut dragging_just_now = false;
 
-                // TODO(multisn8): can be made into an early return
                 let trace = if let Some(trace) = self.touch_position.get_mut(&finger_id) {
                     trace
                 } else {
@@ -366,11 +368,9 @@ impl MouseManager {
                         trace.left_deadzone_once = true;
                     }
 
-                    let timeout_setting = Duration::from_micros(
-                        (settings.touch_drag_timeout * 1_000_000.) as u64,
-                    );
-                    if self.dragging.is_none() && trace.start_time.elapsed() >= timeout_setting
-                    {
+                    let timeout_setting =
+                        Duration::from_micros((settings.touch_drag_timeout * 1_000_000.) as u64);
+                    if self.dragging.is_none() && trace.start_time.elapsed() >= timeout_setting {
                         dragging_just_now = true;
                     }
                 }
@@ -387,7 +387,10 @@ impl MouseManager {
                 // the double check might seem useless, but the if branch above might set
                 // trace.left_deadzone_once - which urges to check again
                 else if trace.left_deadzone_once {
-                    let delta = (trace.last.x - location.x, location.y - trace.last.y);
+                    let delta = (
+                        (trace.last.x - location.x) * trace.stacks.get() as f32,
+                        (location.y - trace.last.y) * trace.stacks.get() as f32,
+                    );
 
                     // not updating the position would cause the movement to "escalate" from the
                     // starting point
@@ -409,21 +412,33 @@ impl MouseManager {
                 }
             }
             TouchPhase::Ended | TouchPhase::Cancelled => {
-                if let Some(trace) = self.touch_position.remove(&finger_id) {
-                    if self.dragging.is_some() {
-                        self.handle_pointer_transition(&MouseButton::Left, false, keyboard_manager);
+                if let Some(trace) = self.touch_position.get_mut(&finger_id) {
+                    let stacks_afterwards = NonZeroU32::new(trace.stacks.get() - 1);
+
+                    if let Some(new_stacks) = stacks_afterwards {
+                        // everything alright, still at least one stack left
+                        trace.stacks = new_stacks;
+                        return;
                     }
-                    if !trace.left_deadzone_once {
-                        self.handle_pointer_motion(
-                            trace.start.x.round() as i32,
-                            trace.start.y.round() as i32,
-                            keyboard_manager,
-                            renderer,
-                            window,
-                        );
-                        self.handle_pointer_transition(&MouseButton::Left, true, keyboard_manager);
-                        self.handle_pointer_transition(&MouseButton::Left, false, keyboard_manager);
-                    }
+                }
+
+                // no stacks left :( let's finish the touch trace
+                let trace = self.touch_position.remove(&finger_id).unwrap();
+
+                if self.dragging.is_some() {
+                    self.handle_pointer_transition(&MouseButton::Left, false, keyboard_manager);
+                }
+
+                if !trace.left_deadzone_once {
+                    self.handle_pointer_motion(
+                        trace.start.x.round() as i32,
+                        trace.start.y.round() as i32,
+                        keyboard_manager,
+                        renderer,
+                        window,
+                    );
+                    self.handle_pointer_transition(&MouseButton::Left, true, keyboard_manager);
+                    self.handle_pointer_transition(&MouseButton::Left, false, keyboard_manager);
                 }
             }
         }
