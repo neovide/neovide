@@ -500,6 +500,29 @@ vim.api.nvim_create_autocmd({ "CmdlineEnter", "CmdlineLeave" }, {
 })
 ```
 
+### Interpret mouse as touch
+
+**Unreleased yet.**
+
+VimScript:
+
+```vim
+let g:neovide_mouse_as_touch = v:false
+```
+
+Lua:
+
+```lua
+vim.g.neovide_mouse_as_touch = false
+```
+
+Interprets mouse inputs like touch inputs when enabled. Pressing any mouse putton here acts like
+holding the finger down on a touchscreen. Does **not** disable direct touchscreen input.
+
+Can be useful for VMs like QEMU, where the host device may have a touchscreen, but it can't be
+meaningfully passed through to the guest other than through mouse input. In effect, this option
+"reverses" the touch translation done by QEMU in that case back into touch events.
+
 #### Touch Deadzone
 
 VimScript:
