@@ -163,6 +163,7 @@ pub async fn setup_neovide_specific_state(
     setup_intro_message_autocommand(nvim).await.ok();
 }
 
+#[cfg(windows)]
 pub fn build_neovide_command(channel: u64, num_args: u64, command: &str, event: &str) -> String {
     let nargs: String = if num_args > 1 {
         "+".to_string()
