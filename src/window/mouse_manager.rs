@@ -461,7 +461,10 @@ impl MouseManager {
                 }
             }
             Event::WindowEvent {
-                event: WindowEvent::MouseInput { state, device_id, .. },
+                event:
+                    WindowEvent::MouseInput {
+                        state, device_id, ..
+                    },
                 ..
             } if mouse_as_touch => self.handle_touch(
                 keyboard_manager,
