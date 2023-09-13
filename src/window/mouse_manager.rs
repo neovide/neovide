@@ -350,47 +350,51 @@ impl MouseManager {
                 let mut dragging_just_now = false;
 
                 // TODO(multisn8): can be made into an early return
-                if let Some(trace) = self.touch_position.get_mut(&finger_id) {
-                    if !trace.left_deadzone_once {
-                        let distance_to_start = ((trace.start.x - location.x).powi(2)
-                            + (trace.start.y - location.y).powi(2))
-                        .sqrt();
+                let trace = if let Some(trace) = self.touch_position.get_mut(&finger_id) {
+                    trace
+                } else {
+                    return;
+                };
 
-                        let settings = SETTINGS.get::<WindowSettings>();
-                        if distance_to_start >= settings.touch_deadzone {
-                            trace.left_deadzone_once = true;
-                        }
+                if !trace.left_deadzone_once {
+                    let distance_to_start = ((trace.start.x - location.x).powi(2)
+                        + (trace.start.y - location.y).powi(2))
+                    .sqrt();
 
-                        let timeout_setting = Duration::from_micros(
-                            (settings.touch_drag_timeout * 1_000_000.) as u64,
-                        );
-                        if self.dragging.is_none() && trace.start_time.elapsed() >= timeout_setting
-                        {
-                            dragging_just_now = true;
-                        }
+                    let settings = SETTINGS.get::<WindowSettings>();
+                    if distance_to_start >= settings.touch_deadzone {
+                        trace.left_deadzone_once = true;
                     }
 
-                    if self.dragging.is_some() || dragging_just_now {
-                        self.handle_pointer_motion(
-                            location.x.round() as i32,
-                            location.y.round() as i32,
-                            keyboard_manager,
-                            renderer,
-                            window,
-                        );
+                    let timeout_setting = Duration::from_micros(
+                        (settings.touch_drag_timeout * 1_000_000.) as u64,
+                    );
+                    if self.dragging.is_none() && trace.start_time.elapsed() >= timeout_setting
+                    {
+                        dragging_just_now = true;
                     }
-                    // the double check might seem useless, but the if branch above might set
-                    // trace.left_deadzone_once - which urges to check again
-                    else if trace.left_deadzone_once {
-                        let delta = (trace.last.x - location.x, location.y - trace.last.y);
+                }
 
-                        // not updating the position would cause the movement to "escalate" from the
-                        // starting point
-                        trace.last = location;
+                if self.dragging.is_some() || dragging_just_now {
+                    self.handle_pointer_motion(
+                        location.x.round() as i32,
+                        location.y.round() as i32,
+                        keyboard_manager,
+                        renderer,
+                        window,
+                    );
+                }
+                // the double check might seem useless, but the if branch above might set
+                // trace.left_deadzone_once - which urges to check again
+                else if trace.left_deadzone_once {
+                    let delta = (trace.last.x - location.x, location.y - trace.last.y);
 
-                        let font_size = renderer.grid_renderer.font_dimensions.into();
-                        self.handle_pixel_scroll(font_size, delta, keyboard_manager);
-                    }
+                    // not updating the position would cause the movement to "escalate" from the
+                    // starting point
+                    trace.last = location;
+
+                    let font_size = renderer.grid_renderer.font_dimensions.into();
+                    self.handle_pixel_scroll(font_size, delta, keyboard_manager);
                 }
 
                 if dragging_just_now {
@@ -514,7 +518,14 @@ impl MouseManager {
                 (delta.x as f32, delta.y as f32),
                 keyboard_manager,
             ),
-            // TODO(multisn8): should be one below/at the top?
+            Event::WindowEvent {
+                event: WindowEvent::MouseInput { button, state, .. },
+                ..
+            } => self.handle_pointer_transition(
+                button,
+                state == &ElementState::Pressed,
+                keyboard_manager,
+            ),
             Event::WindowEvent {
                 event:
                     WindowEvent::Touch(Touch {
@@ -532,14 +543,6 @@ impl MouseManager {
                 FingerId::Touch(*device_id, *id),
                 location.cast(),
                 phase,
-            ),
-            Event::WindowEvent {
-                event: WindowEvent::MouseInput { button, state, .. },
-                ..
-            } => self.handle_pointer_transition(
-                button,
-                state == &ElementState::Pressed,
-                keyboard_manager,
             ),
             Event::WindowEvent {
                 event:
