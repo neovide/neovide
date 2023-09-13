@@ -517,7 +517,8 @@ vim.g.neovide_mouse_as_touch = false
 ```
 
 Interprets mouse inputs like touch inputs when enabled. Pressing any mouse putton here acts like
-holding the finger down on a touchscreen. Does **not** disable direct touchscreen input.
+holding the finger down on a touchscreen, until one mouse button is released. Does **not**
+disable direct touchscreen input.
 
 Can be useful for VMs like QEMU, where the host device may have a touchscreen, but it can't be
 meaningfully passed through to the guest other than through mouse input. In effect, this option

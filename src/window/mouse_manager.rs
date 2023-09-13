@@ -65,6 +65,16 @@ struct TouchTrace {
     start: PhysicalPosition<f32>,
     last: PhysicalPosition<f32>,
     left_deadzone_once: bool,
+    // TODO(multisn8): use `stacks` here in order to allow multiple mouse buttons to be
+    // pressed simultaneously, then multiplying those with the distance diff for speed
+    // don't forget to adjust docs
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+enum FingerId {
+    /// The second tuple item allows to keep track of different fingers per device.
+    Touch(DeviceId, u64),
+    MouseEmulated(DeviceId),
 }
 
 pub struct MouseManager {
@@ -72,13 +82,12 @@ pub struct MouseManager {
     drag_position: PhysicalPosition<u32>,
 
     has_moved: bool,
-    position: PhysicalPosition<u32>,
+    position: PhysicalPosition<f64>,
     relative_position: PhysicalPosition<u32>,
 
     scroll_position: PhysicalPosition<f32>,
 
-    // the tuple allows to keep track of different fingers per device
-    touch_position: HashMap<(DeviceId, u64), TouchTrace>,
+    touch_position: HashMap<FingerId, TouchTrace>,
 
     window_details_under_mouse: Option<WindowDrawDetails>,
 
@@ -91,7 +100,7 @@ impl MouseManager {
         MouseManager {
             dragging: None,
             has_moved: false,
-            position: PhysicalPosition::new(0, 0),
+            position: PhysicalPosition::new(0.0, 0.0),
             relative_position: PhysicalPosition::new(0, 0),
             drag_position: PhysicalPosition::new(0, 0),
             scroll_position: PhysicalPosition::new(0.0, 0.0),
@@ -149,11 +158,6 @@ impl MouseManager {
         let clamped_position = clamp_position(
             position,
             global_bounds,
-            renderer.grid_renderer.font_dimensions.into(),
-        );
-
-        self.position = to_grid_coords(
-            clamped_position,
             renderer.grid_renderer.font_dimensions.into(),
         );
 
@@ -323,7 +327,7 @@ impl MouseManager {
         keyboard_manager: &KeyboardManager,
         renderer: &Renderer,
         window: &Window,
-        finger_id: (DeviceId, u64),
+        finger_id: FingerId,
         location: PhysicalPosition<f32>,
         phase: &TouchPhase,
     ) {
@@ -345,6 +349,7 @@ impl MouseManager {
             TouchPhase::Moved => {
                 let mut dragging_just_now = false;
 
+                // TODO(multisn8): can be made into an early return
                 if let Some(trace) = self.touch_position.get_mut(&finger_id) {
                     if !trace.left_deadzone_once {
                         let distance_to_start = ((trace.start.x - location.x).powi(2)
@@ -427,7 +432,49 @@ impl MouseManager {
         renderer: &Renderer,
         window: &Window,
     ) {
+        let mouse_as_touch = SETTINGS.get::<WindowSettings>().mouse_as_touch;
         match event {
+            // overrides if mouse_as_touch is active
+            // TODO(multisn8): what if `mouse_as_touch` switches to false
+            // mid-emulation?
+            Event::WindowEvent {
+                event:
+                    WindowEvent::CursorMoved {
+                        position,
+                        device_id,
+                        ..
+                    },
+                ..
+            } if mouse_as_touch => {
+                self.position = *position;
+                self.handle_touch(
+                    keyboard_manager,
+                    renderer,
+                    window,
+                    FingerId::MouseEmulated(*device_id),
+                    position.cast(),
+                    &TouchPhase::Moved,
+                );
+                if self.mouse_hidden {
+                    window.set_cursor_visible(true);
+                    self.mouse_hidden = false;
+                }
+            }
+            Event::WindowEvent {
+                event: WindowEvent::MouseInput { state, device_id, .. },
+                ..
+            } if mouse_as_touch => self.handle_touch(
+                keyboard_manager,
+                renderer,
+                window,
+                FingerId::MouseEmulated(*device_id),
+                self.position.cast(),
+                match state {
+                    ElementState::Pressed => &TouchPhase::Started,
+                    ElementState::Released => &TouchPhase::Ended,
+                },
+            ),
+            // "normal" procedure otherwise
             Event::WindowEvent {
                 event: WindowEvent::CursorMoved { position, .. },
                 ..
@@ -464,6 +511,7 @@ impl MouseManager {
                 (delta.x as f32, delta.y as f32),
                 keyboard_manager,
             ),
+            // TODO(multisn8): should be one below/at the top?
             Event::WindowEvent {
                 event:
                     WindowEvent::Touch(Touch {
@@ -478,7 +526,7 @@ impl MouseManager {
                 keyboard_manager,
                 renderer,
                 window,
-                (*device_id, *id),
+                FingerId::Touch(*device_id, *id),
                 location.cast(),
                 phase,
             ),
