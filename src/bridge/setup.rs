@@ -36,18 +36,29 @@ const REGISTER_CLIPBOARD_PROVIDER_LUA: &str = r"
         cache_enabled = 0
     }";
 
-const SET_INITIAL_GRID_LUA: &str = r"
-    local initial_columns, initial_lines = ...
+const SETUP_GEOMETRY_LUA: &str = r"
+    local initial_columns, initial_lines, force = ...
+    -- We want to set the geometry in VimEnter, since after that the UI takes control over the size
+    -- So UIEnter is too late
     vim.api.nvim_create_autocmd({ 'VimEnter' }, {
         pattern = '*',
         once = true,
+        nested = true,
         callback = function()
-            if vim.o.columns ~= initial_columns then
-                vim.rpcnotify(vim.g.neovide_channel_id, 'neovide.columns', vim.o.columns)
+            if force then
+                vim.o.columns = initial_columns
+                vim.o.lines = initial_lines
+            else
+                -- Just set the values again to trigger the OptionSet callback
+                -- It's not automatically run when running init.vim/lua
+                if vim.o.columns ~= initial_columns then
+                    vim.o.columns = vim.o.columns
+                end
+                if vim.o.lines ~= initial_lines then
+                    vim.o.lines = vim.o.lines
+                end
             end
-            if vim.o.lines~= initial_lines then
-                vim.rpcnotify(vim.g.neovide_channel_id, 'neovide.lines', vim.o.lines)
-            end
+            vim.rpcnotify(vim.g.neovide_channel_id, 'neovide.ui_ready')
         end
     })";
 
@@ -179,27 +190,16 @@ pub async fn setup_neovide_specific_state(
     .await
     .ok();
 
-    if let Some(geometry) = SETTINGS.get::<CmdLineSettings>().geometry {
-        let lines = geometry.height;
-        let columns = geometry.width;
-        nvim.command(&format!(
-            "autocmd VimEnter * ++once ++nested set lines={lines} | set columns={columns}"
-        ))
-        .await
-        .ok();
-    } else {
-        // The autocommands for OptionSet are unfortunately not called during init
-        // So set the grid here if it's changed from the default
-        nvim.execute_lua(
-            SET_INITIAL_GRID_LUA,
-            vec![
-                DEFAULT_WINDOW_GEOMETRY.width.into(),
-                DEFAULT_WINDOW_GEOMETRY.height.into(),
-            ],
-        )
-        .await
-        .ok();
-    }
+    let (geometry, force) = SETTINGS
+        .get::<CmdLineSettings>()
+        .geometry
+        .map_or_else(|| (DEFAULT_WINDOW_GEOMETRY, false), |v| (v, true));
+    nvim.execute_lua(
+        SETUP_GEOMETRY_LUA,
+        vec![geometry.width.into(), geometry.height.into(), force.into()],
+    )
+    .await
+    .ok();
 
     setup_intro_message_autocommand(nvim).await.ok();
 }

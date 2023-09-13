@@ -64,6 +64,8 @@ pub enum WindowCommand {
     ListAvailableFonts,
     Columns(u64),
     Lines(u64),
+    UIEnter,
+    UIReady,
 }
 
 #[allow(dead_code)]
@@ -89,18 +91,10 @@ pub fn create_window(event_loop: &EventLoop<UserEvent>) -> GlWindow {
 
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
 
-    let mut maximized = cmd_line_settings.maximized;
-    let mut previous_position = None;
-    if let Ok(last_window_settings) = load_last_window_settings() {
-        match last_window_settings {
-            PersistentWindowSettings::Maximized => {
-                maximized = true;
-            }
-            PersistentWindowSettings::Windowed { position, .. } => {
-                previous_position = Some(position);
-            }
-        }
-    }
+    let previous_position = match load_last_window_settings() {
+        Ok(PersistentWindowSettings::Windowed { position, .. }) => Some(position),
+        _ => None,
+    };
 
     log::trace!("Settings geometry {:?}", cmd_line_settings.geometry,);
     log::trace!("Settings size {:?}", cmd_line_settings.size);
@@ -127,8 +121,9 @@ pub fn create_window(event_loop: &EventLoop<UserEvent>) -> GlWindow {
         .with_title("Neovide")
         .with_window_icon(Some(icon))
         .with_inner_size(inner_size)
-        .with_maximized(maximized)
-        .with_transparent(true);
+        .with_maximized(false)
+        .with_transparent(true)
+        .with_visible(false);
 
     let frame_decoration = cmd_line_settings.frame;
 
@@ -154,9 +149,7 @@ pub fn create_window(event_loop: &EventLoop<UserEvent>) -> GlWindow {
     };
 
     if let Some(previous_position) = previous_position {
-        if !maximized {
-            winit_window_builder = winit_window_builder.with_position(previous_position);
-        }
+        winit_window_builder = winit_window_builder.with_position(previous_position);
     }
 
     #[cfg(target_os = "linux")]
@@ -186,9 +179,7 @@ pub fn create_window(event_loop: &EventLoop<UserEvent>) -> GlWindow {
             let monitor_width = monitor_size.width as i32;
             let monitor_height = monitor_size.height as i32;
 
-            let window_position = previous_position
-                .filter(|_| !maximized)
-                .or_else(|| window.outer_position().ok())?;
+            let window_position = previous_position.or_else(|| window.outer_position().ok())?;
 
             let window_size = window.outer_size();
             let window_width = window_size.width as i32;

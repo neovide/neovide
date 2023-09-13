@@ -12,6 +12,7 @@ use crate::{
     renderer::{build_context, GlWindow, Renderer, VSync, WindowPadding, WindowedContext},
     running_tracker::RUNNING_TRACKER,
     settings::{DEFAULT_WINDOW_GEOMETRY, SETTINGS},
+    window::{load_last_window_settings, PersistentWindowSettings},
     CmdLineSettings,
 };
 
@@ -32,6 +33,14 @@ pub fn set_background(background: &str) {
     )));
 }
 
+#[derive(PartialEq)]
+enum UIState {
+    Initing,    // Running init.vim/lua
+    Entered,    // UIEnter called
+    ShouldShow, // The UI should show when there are no pending resizes
+    Ready,      // No pending resizes
+}
+
 pub struct WinitWindowWrapper {
     pub windowed_context: WindowedContext,
     skia_renderer: SkiaRenderer,
@@ -47,6 +56,7 @@ pub struct WinitWindowWrapper {
     ime_enabled: bool,
     requested_columns: Option<u64>,
     requested_lines: Option<u64>,
+    ui_state: UIState,
 }
 
 impl WinitWindowWrapper {
@@ -97,6 +107,7 @@ impl WinitWindowWrapper {
             ime_enabled,
             requested_columns: None,
             requested_lines: None,
+            ui_state: UIState::Initing,
         };
 
         wrapper.set_ime(ime_enabled);
@@ -151,6 +162,12 @@ impl WinitWindowWrapper {
                 WindowCommand::Lines(lines) => {
                     log::info!("Requested lines {lines}");
                     self.requested_lines = Some(lines);
+                }
+                WindowCommand::UIEnter => {
+                    self.ui_state = UIState::Entered;
+                }
+                WindowCommand::UIReady => {
+                    self.ui_state = UIState::ShouldShow;
                 }
             }
         }
@@ -296,7 +313,26 @@ impl WinitWindowWrapper {
         };
         let padding_changed = window_padding != self.renderer.window_padding;
 
-        if self.requested_columns.is_some() || self.requested_lines.is_some() {
+        let resize_requested = self.requested_columns.is_some() || self.requested_lines.is_some();
+        log::info!("Resize requested: {resize_requested}");
+
+        if self.ui_state == UIState::ShouldShow && !resize_requested {
+            log::info!("UI Ready");
+            self.ui_state = UIState::Ready;
+            should_render = true;
+
+            self.windowed_context.window().set_visible(true);
+            if SETTINGS.get::<CmdLineSettings>().maximized
+                || matches!(
+                    load_last_window_settings().ok(),
+                    Some(PersistentWindowSettings::Maximized)
+                )
+            {
+                self.windowed_context.window().set_maximized(true);
+            }
+        }
+
+        if resize_requested {
             self.update_window_size_from_grid(&window_padding);
         } else {
             let new_size = window.inner_size();
@@ -331,8 +367,8 @@ impl WinitWindowWrapper {
             );
         }
 
-        // Wait until fonts are loaded, so we can set proper window size.
-        if !self.renderer.grid_renderer.is_ready {
+        // Don't render until the the UI is fully entered and the window is shown
+        if self.ui_state != UIState::Ready {
             return false;
         }
 

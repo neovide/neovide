@@ -96,6 +96,9 @@ impl Handler for NeovimHandler {
                     EVENT_AGGREGATOR.send(WindowCommand::Lines(lines));
                 }
             }
+            "neovide.ui_ready" => {
+                EVENT_AGGREGATOR.send(WindowCommand::UIReady);
+            }
             #[cfg(windows)]
             "neovide.register_right_click" => {
                 EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::RegisterRightClick));
