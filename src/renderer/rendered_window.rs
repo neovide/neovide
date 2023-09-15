@@ -1,8 +1,12 @@
 use std::sync::{Arc, Mutex};
 
 use skia_safe::{
-    canvas::SaveLayerRec, image_filters::blur, scalar, BlendMode, Canvas, Color, Matrix, Paint,
-    Picture, PictureRecorder, Point, Rect,
+    canvas::SaveLayerRec,
+    image_filters::blur,
+    scalar,
+    utils::shadow_utils::{draw_shadow, ShadowFlags},
+    BlendMode, Canvas, ClipOp, Color, Matrix, Paint, Path, Picture, PictureRecorder, Point, Point3,
+    Rect,
 };
 
 use crate::{
@@ -204,7 +208,7 @@ impl RenderedWindow {
 
     pub fn draw_surface(
         &mut self,
-        canvas: &mut Canvas,
+        canvas: &Canvas,
         pixel_region: &Rect,
         font_dimensions: Dimensions,
         default_background: Color,
@@ -271,7 +275,7 @@ impl RenderedWindow {
 
     pub fn draw(
         &mut self,
-        root_canvas: &mut Canvas,
+        root_canvas: &Canvas,
         settings: &RendererSettings,
         default_background: Color,
         font_dimensions: Dimensions,
@@ -280,6 +284,23 @@ impl RenderedWindow {
 
         let pixel_region = self.pixel_region(font_dimensions);
         let transparent_floating = self.anchor_info.is_some() && has_transparency;
+
+        if self.anchor_info.is_some() {
+            root_canvas.save();
+            let shadow_path = Path::rect(pixel_region, None);
+            root_canvas.clip_path(&shadow_path, Some(ClipOp::Difference), None);
+            draw_shadow(
+                root_canvas,
+                &shadow_path,
+                Point3::new(0., 0., 10.),
+                Point3::new(0., -2., 1.),
+                5.,
+                Color::from_argb((0.03 * 255.) as u8, 0, 0, 0),
+                Color::from_argb((0.35 * 255.) as u8, 0, 0, 0),
+                Some(ShadowFlags::DIRECTIONAL_LIGHT),
+            );
+            root_canvas.restore();
+        }
 
         root_canvas.save();
         root_canvas.clip_rect(pixel_region, None, Some(false));

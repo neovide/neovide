@@ -34,7 +34,7 @@ impl Profiler {
         }
     }
 
-    pub fn draw(&mut self, root_canvas: &mut Canvas, dt: f32) {
+    pub fn draw(&mut self, root_canvas: &Canvas, dt: f32) {
         tracy_zone!("profiler_draw");
         if !SETTINGS.get::<RendererSettings>().profiler {
             return;
@@ -73,7 +73,7 @@ impl Profiler {
         root_canvas.restore();
     }
 
-    fn draw_graph(&self, root_canvas: &mut Canvas) {
+    fn draw_graph(&self, root_canvas: &Canvas) {
         let mut paint = Paint::default();
         let color = Color::from_argb(255, 0, 100, 200);
         paint.set_color(color);
