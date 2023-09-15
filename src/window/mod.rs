@@ -171,33 +171,29 @@ pub fn create_window(event_loop: &EventLoop<UserEvent>) -> GlWindow {
     let window = &gl_window.window;
 
     // Check that window is visible in some monitor, and reposition it if not.
-    let did_reposition = window
-        .current_monitor()
-        .and_then(|current_monitor| {
-            let monitor_position = current_monitor.position();
-            let monitor_size = current_monitor.size();
-            let monitor_width = monitor_size.width as i32;
-            let monitor_height = monitor_size.height as i32;
+    window.current_monitor().and_then(|current_monitor| {
+        let monitor_position = current_monitor.position();
+        let monitor_size = current_monitor.size();
+        let monitor_width = monitor_size.width as i32;
+        let monitor_height = monitor_size.height as i32;
 
-            let window_position = previous_position.or_else(|| window.outer_position().ok())?;
+        let window_position = previous_position.or_else(|| window.outer_position().ok())?;
 
-            let window_size = window.outer_size();
-            let window_width = window_size.width as i32;
-            let window_height = window_size.height as i32;
+        let window_size = window.outer_size();
+        let window_width = window_size.width as i32;
+        let window_height = window_size.height as i32;
 
-            if window_position.x + window_width < monitor_position.x
-                || window_position.y + window_height < monitor_position.y
-                || window_position.x > monitor_position.x + monitor_width
-                || window_position.y > monitor_position.y + monitor_height
-            {
-                window.set_outer_position(monitor_position);
-            }
+        if window_position.x + window_width < monitor_position.x
+            || window_position.y + window_height < monitor_position.y
+            || window_position.x > monitor_position.x + monitor_width
+            || window_position.y > monitor_position.y + monitor_height
+        {
+            window.set_outer_position(monitor_position);
+        }
 
-            Some(())
-        })
-        .is_some();
+        Some(())
+    });
 
-    log::trace!("repositioned window: {}", did_reposition);
     gl_window
 }
 

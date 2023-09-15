@@ -366,7 +366,6 @@ impl RenderedWindow {
                 row,
                 line_fragments,
             } => {
-                log::trace!("Handling DrawLine {}", self.id);
                 tracy_zone!("draw_line_cmd", 0);
 
                 self.actual_lines[row] = Some(Arc::new(Mutex::new(Line {

@@ -164,9 +164,11 @@ impl WinitWindowWrapper {
                     self.requested_lines = Some(lines);
                 }
                 WindowCommand::UIEnter => {
+                    log::info!("UIEnter");
                     self.ui_state = UIState::Entered;
                 }
                 WindowCommand::UIReady => {
+                    log::info!("UIReady");
                     self.ui_state = UIState::ShouldShow;
                 }
             }
@@ -314,10 +316,8 @@ impl WinitWindowWrapper {
         let padding_changed = window_padding != self.renderer.window_padding;
 
         let resize_requested = self.requested_columns.is_some() || self.requested_lines.is_some();
-        log::info!("Resize requested: {resize_requested}");
 
         if self.ui_state == UIState::ShouldShow && !resize_requested {
-            log::info!("UI Ready");
             self.ui_state = UIState::Ready;
             should_render = true;
 
