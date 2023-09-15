@@ -91,7 +91,9 @@ pub fn create_window(event_loop: &EventLoop<UserEvent>) -> GlWindow {
 
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
 
-    let previous_position = match load_last_window_settings() {
+    let window_settings = load_last_window_settings();
+
+    let previous_position = match window_settings {
         Ok(PersistentWindowSettings::Windowed { position, .. }) => Some(position),
         _ => None,
     };
@@ -107,14 +109,14 @@ pub fn create_window(event_loop: &EventLoop<UserEvent>) -> GlWindow {
         size.into()
     } else if cmd_line_settings.geometry.is_some() {
         default_size
-    } else if let Ok(PersistentWindowSettings::Windowed {
-        pixel_size: Some(size),
-        ..
-    }) = load_last_window_settings()
-    {
-        size
     } else {
-        default_size
+        match window_settings {
+            Ok(PersistentWindowSettings::Windowed {
+                pixel_size: Some(size),
+                ..
+            }) => size,
+            _ => default_size,
+        }
     };
 
     let winit_window_builder = WindowBuilder::new()
