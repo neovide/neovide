@@ -3,7 +3,7 @@
 - Should Neovide happen not to start at all, check the following:
 
   - Shell startup files if they output anything during startup, like `neofetch` or `echo`.
-    Neovide uses your shell to find `nvim` and can't know the difference bewteen output and
+    Neovide uses your shell to find `nvim` and can't know the difference between output and
     `nvim`'s path. You can use your resource file (in the case of zsh `~/.zshrc`) instead for
     such commands.
 
@@ -25,7 +25,7 @@
 - If you receive errors complaining about DRI3 settings, please reference issue
   [#44](https://github.com/neovide/neovide/issues/44#issuecomment-578618052).
 
-- If your scrolling is suttering
+- If your scrolling is stuttering
 
   - Add flag `--novsync` before startup as a quickfix.
 
