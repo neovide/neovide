@@ -62,7 +62,7 @@ const SETUP_GEOMETRY_LUA: &str = r"
         end
     })";
 
-pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<NeovimWriter>, neovide_channel: u64) {
+pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<NeovimWriter>) {
     // Users can opt-out with
     // vim: `let g:neovide_no_custom_clipboard = v:true`
     // lua: `vim.g.neovide_no_custom_clipboard = true`
@@ -76,9 +76,6 @@ pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<NeovimWriter>, neovide
         return;
     }
 
-    nvim.set_var("neovide_channel_id", Value::from(neovide_channel))
-        .await
-        .ok();
     nvim.execute_lua(REGISTER_CLIPBOARD_PROVIDER_LUA, vec![])
         .await
         .ok();
@@ -135,6 +132,10 @@ pub async fn setup_neovide_specific_state(
             neovide_channel
         );
 
+        nvim.set_var("neovide_channel_id", Value::from(neovide_channel))
+            .await
+            .ok();
+
         // Create a command for registering right click context hooking.
         #[cfg(windows)]
         nvim.command(&build_neovide_command(
@@ -158,7 +159,7 @@ pub async fn setup_neovide_specific_state(
         .ok();
 
         if should_handle_clipboard {
-            setup_neovide_remote_clipboard(nvim, neovide_channel).await;
+            setup_neovide_remote_clipboard(nvim).await;
         }
     } else {
         warn!("Neovide could not find the correct channel id. Some functionality may be disabled.");
