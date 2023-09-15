@@ -135,16 +135,16 @@ impl KeyboardManager {
         // In all other cases the resulting character is enough.
         // Note that, in Neovim <C-a> and <C-A> are the same, but <C-S-A> is different.
         // Actually, <C-S-a> is the same as <C-S-A>, since Neovim converts all shifted
-        // lowercase alphas to uppercase internally in its mapppings.
+        // lowercase alphas to uppercase internally in its mappings.
         // Also note that mappings that do not include CTRL work differently, they are always
         // normalized in combination with ascii alphas. For example <M-S-a> is normalized to
         // uppercase without shift, or <M-A> .
-        // But in combination with ohter characters, such as <M-S-$> they are not,
+        // But in combination with other characters, such as <M-S-$> they are not,
         // so we don't want to send shift when that's the case.
         let include_shift =
             is_special || (self.modifiers.state().control_key() && is_ascii_alphabetic_char(text));
 
-        // Always send meta (alt) togehter with special keys, or when alt is meta on macOS
+        // Always send meta (alt) together with special keys, or when alt is meta on macOS
         let include_alt = use_alt() || is_special;
 
         let state = self.modifiers.state();
