@@ -184,12 +184,14 @@ impl RenderedWindow {
             self.position_t = (self.position_t + dt / settings.position_animation_length).min(1.0);
         }
 
+        let prev_positon = self.grid_current_position;
         self.grid_current_position = ease_point(
             ease_out_expo,
             self.grid_start_position,
             self.get_target_position(outer_size),
             self.position_t,
         );
+        animating |= self.grid_current_position != prev_positon;
 
         animating |= self
             .scroll_animation
