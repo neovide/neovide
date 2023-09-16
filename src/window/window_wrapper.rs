@@ -342,7 +342,7 @@ impl WinitWindowWrapper {
                 self.font_changed_last_frame = false;
                 self.saved_inner_size = new_size;
 
-                self.update_grid_size_from_window(new_size);
+                self.update_grid_size_from_window();
                 self.skia_renderer.resize(&self.windowed_context);
                 should_render = true;
             }
@@ -401,14 +401,14 @@ impl WinitWindowWrapper {
         window.set_inner_size(new_size);
     }
 
-    fn update_grid_size_from_window(&mut self, new_size: PhysicalSize<u32>) {
+    fn get_grid_size_from_window(&self) -> Dimensions {
         let window_padding = self.renderer.window_padding;
         let window_padding_width = window_padding.left + window_padding.right;
         let window_padding_height = window_padding.top + window_padding.bottom;
 
         let content_size = PhysicalSize {
-            width: new_size.width - window_padding_width,
-            height: new_size.height - window_padding_height,
+            width: self.saved_inner_size.width - window_padding_width,
+            height: self.saved_inner_size.height - window_padding_height,
         };
 
         let grid_size = self
@@ -416,10 +416,14 @@ impl WinitWindowWrapper {
             .grid_renderer
             .convert_physical_to_grid(content_size);
 
-        // Have a minimum size
-        if grid_size.width < MIN_WINDOW_WIDTH || grid_size.height < MIN_WINDOW_HEIGHT {
-            return;
+        Dimensions {
+            width: grid_size.width.max(MIN_WINDOW_WIDTH),
+            height: grid_size.height.max(MIN_WINDOW_HEIGHT),
         }
+    }
+
+    fn update_grid_size_from_window(&mut self) {
+        let grid_size = self.get_grid_size_from_window();
 
         if self.saved_grid_size == grid_size {
             trace!("Grid matched saved size, skip update.");
