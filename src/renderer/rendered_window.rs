@@ -144,17 +144,27 @@ impl RenderedWindow {
     }
 
     fn get_target_position(&self, outer_size: &Dimensions) -> Point {
-        if self.window_type == WindowType::Message || self.anchor_info.is_none() {
+        if self.anchor_info.is_none() {
             return self.grid_destination;
         }
-
         let outer_size = Point::new(outer_size.width as f32, outer_size.height as f32);
-        let grid_size = Point::new(self.grid_size.width as f32, self.grid_size.height as f32);
-        let max_pos = outer_size - grid_size;
-        Point {
-            x: self.grid_destination.x.min(max_pos.x).max(0.0),
-            y: self.grid_destination.y.min(max_pos.y).max(0.0),
+
+        let mut grid_size = Point::new(self.grid_size.width as f32, self.grid_size.height as f32);
+        if self.window_type == WindowType::Message {
+            // The message grid size is always the full window size, so use the relative position to
+            // calculate the actual grid size
+            grid_size.y -= self.grid_destination.y;
         }
+
+        let max_pos = outer_size - grid_size;
+        let x = self.grid_destination.x.min(max_pos.x).max(0.0);
+        // For messages the last line is most important, (it shows press enter), so let the position go negative
+        // Otherwise ensure that the window start row is within the screen
+        let mut y = self.grid_destination.y.min(max_pos.y);
+        if self.window_type != WindowType::Message {
+            y = y.max(0.0)
+        }
+        Point { x, y }
     }
 
     /// Returns `true` if the window has been animated in this step.

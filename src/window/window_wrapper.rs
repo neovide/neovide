@@ -294,7 +294,8 @@ impl WinitWindowWrapper {
 
     pub fn animate_frame(&mut self, dt: f32) -> bool {
         tracy_zone!("animate_frame", 0);
-        self.renderer.animate_frame(&self.saved_grid_size, dt)
+        self.renderer
+            .animate_frame(&self.get_grid_size_from_window(0, 0), dt)
     }
 
     /// Prepares a frame to render.
@@ -401,7 +402,7 @@ impl WinitWindowWrapper {
         window.set_inner_size(new_size);
     }
 
-    fn get_grid_size_from_window(&self) -> Dimensions {
+    fn get_grid_size_from_window(&self, min_width: u64, min_height: u64) -> Dimensions {
         let window_padding = self.renderer.window_padding;
         let window_padding_width = window_padding.left + window_padding.right;
         let window_padding_height = window_padding.top + window_padding.bottom;
@@ -417,13 +418,13 @@ impl WinitWindowWrapper {
             .convert_physical_to_grid(content_size);
 
         Dimensions {
-            width: grid_size.width.max(MIN_WINDOW_WIDTH),
-            height: grid_size.height.max(MIN_WINDOW_HEIGHT),
+            width: grid_size.width.max(min_width),
+            height: grid_size.height.max(min_height),
         }
     }
 
     fn update_grid_size_from_window(&mut self) {
-        let grid_size = self.get_grid_size_from_window();
+        let grid_size = self.get_grid_size_from_window(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT);
 
         if self.saved_grid_size == grid_size {
             trace!("Grid matched saved size, skip update.");
