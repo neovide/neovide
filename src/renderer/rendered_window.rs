@@ -7,7 +7,7 @@ use skia_safe::{
 
 use crate::{
     dimensions::Dimensions,
-    editor::Style,
+    editor::{AnchorInfo, Style, WindowType},
     profiling::tracy_zone,
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
     utils::RingBuffer,
@@ -26,7 +26,8 @@ pub enum WindowDrawCommand {
     Position {
         grid_position: (f64, f64),
         grid_size: (u64, u64),
-        floating_order: Option<u64>,
+        anchor_info: Option<AnchorInfo>,
+        window_type: WindowType,
     },
     DrawLine {
         row: usize,
@@ -71,7 +72,8 @@ pub struct RenderedWindow {
 
     pub id: u64,
     pub hidden: bool,
-    pub floating_order: Option<u64>,
+    pub anchor_info: Option<AnchorInfo>,
+    window_type: WindowType,
 
     pub grid_size: Dimensions,
 
@@ -109,7 +111,8 @@ impl RenderedWindow {
             vertical_position: 0.0,
             id,
             hidden: false,
-            floating_order: None,
+            anchor_info: None,
+            window_type: WindowType::Editor,
 
             grid_size,
 
@@ -140,8 +143,27 @@ impl RenderedWindow {
         Rect::from_point_and_size(current_pixel_position, image_size)
     }
 
+    fn get_target_position(&self, outer_size: &Dimensions) -> Point {
+        if self.window_type == WindowType::Message || self.anchor_info.is_none() {
+            return self.grid_destination;
+        }
+
+        let outer_size = Point::new(outer_size.width as f32, outer_size.height as f32);
+        let grid_size = Point::new(self.grid_size.width as f32, self.grid_size.height as f32);
+        let max_pos = outer_size - grid_size;
+        Point {
+            x: self.grid_destination.x.min(max_pos.x).max(0.0),
+            y: self.grid_destination.y.min(max_pos.y).max(0.0),
+        }
+    }
+
     /// Returns `true` if the window has been animated in this step.
-    pub fn animate(&mut self, settings: &RendererSettings, dt: f32) -> bool {
+    pub fn animate(
+        &mut self,
+        settings: &RendererSettings,
+        outer_size: &Dimensions,
+        dt: f32,
+    ) -> bool {
         let mut animating = false;
 
         if 1.0 - self.position_t < std::f32::EPSILON {
@@ -155,7 +177,7 @@ impl RenderedWindow {
         self.grid_current_position = ease_point(
             ease_out_expo,
             self.grid_start_position,
-            self.grid_destination,
+            self.get_target_position(outer_size),
             self.position_t,
         );
 
@@ -243,7 +265,7 @@ impl RenderedWindow {
         let has_transparency = default_background.a() != 255 || self.has_transparency();
 
         let pixel_region = self.pixel_region(font_dimensions);
-        let transparent_floating = self.floating_order.is_some() && has_transparency;
+        let transparent_floating = self.anchor_info.is_some() && has_transparency;
 
         root_canvas.save();
         root_canvas.clip_rect(pixel_region, None, Some(false));
@@ -275,7 +297,7 @@ impl RenderedWindow {
         let paint = Paint::default()
             .set_anti_alias(false)
             .set_color(Color::from_argb(255, 255, 255, default_background.a()))
-            .set_blend_mode(if self.floating_order.is_some() {
+            .set_blend_mode(if self.anchor_info.is_some() {
                 BlendMode::SrcOver
             } else {
                 BlendMode::Src
@@ -298,7 +320,7 @@ impl RenderedWindow {
         WindowDrawDetails {
             id: self.id,
             region: pixel_region,
-            floating_order: self.floating_order,
+            floating_order: self.anchor_info.as_ref().map(|v| v.sort_order),
         }
     }
 
@@ -311,7 +333,8 @@ impl RenderedWindow {
             WindowDrawCommand::Position {
                 grid_position: (grid_left, grid_top),
                 grid_size,
-                floating_order,
+                anchor_info,
+                window_type,
             } => {
                 tracy_zone!("position_cmd", 0);
                 let Dimensions {
@@ -351,7 +374,8 @@ impl RenderedWindow {
                 self.scrollback_lines.clone_from_iter(&self.actual_lines);
                 self.scroll_delta = 0;
 
-                self.floating_order = floating_order;
+                self.anchor_info = anchor_info;
+                self.window_type = window_type;
 
                 if self.hidden {
                     self.hidden = false;

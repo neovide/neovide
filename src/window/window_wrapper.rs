@@ -294,7 +294,7 @@ impl WinitWindowWrapper {
 
     pub fn animate_frame(&mut self, dt: f32) -> bool {
         tracy_zone!("animate_frame", 0);
-        self.renderer.animate_frame(dt)
+        self.renderer.animate_frame(&self.saved_grid_size, dt)
     }
 
     /// Prepares a frame to render.

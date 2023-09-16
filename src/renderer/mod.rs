@@ -20,6 +20,7 @@ use winit::event::Event;
 
 use crate::{
     bridge::EditorMode,
+    dimensions::Dimensions,
     editor::{Cursor, Style},
     event_aggregator::EVENT_AGGREGATOR,
     profiling::tracy_zone,
@@ -175,7 +176,7 @@ impl Renderer {
                 .rendered_windows
                 .values_mut()
                 .filter(|window| !window.hidden)
-                .partition(|window| window.floating_order.is_none());
+                .partition(|window| window.anchor_info.is_none());
 
             root_windows
                 .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
@@ -211,7 +212,7 @@ impl Renderer {
         root_canvas.restore();
     }
 
-    pub fn animate_frame(&mut self, dt: f32) -> bool {
+    pub fn animate_frame(&mut self, window_size: &Dimensions, dt: f32) -> bool {
         let windows = {
             let (mut root_windows, mut floating_windows): (
                 Vec<&mut RenderedWindow>,
@@ -220,7 +221,7 @@ impl Renderer {
                 .rendered_windows
                 .values_mut()
                 .filter(|window| !window.hidden)
-                .partition(|window| window.floating_order.is_none());
+                .partition(|window| window.anchor_info.is_none());
 
             root_windows
                 .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
@@ -234,7 +235,9 @@ impl Renderer {
 
         // Clippy recommends short-circuiting with any which is not what we want
         #[allow(clippy::unnecessary_fold)]
-        let mut animating = windows.fold(false, |acc, window| acc | window.animate(&settings, dt));
+        let mut animating = windows.fold(false, |acc, window| {
+            acc | window.animate(&settings, window_size, dt)
+        });
 
         let windows = &self.rendered_windows;
         let font_dimensions = self.grid_renderer.font_dimensions;
@@ -361,9 +364,11 @@ impl Renderer {
 fn floating_sort(window_a: &&mut RenderedWindow, window_b: &&mut RenderedWindow) -> Ordering {
     // First, compare floating order
     let mut ord = window_a
-        .floating_order
+        .anchor_info
+        .as_ref()
         .unwrap()
-        .partial_cmp(&window_b.floating_order.unwrap())
+        .sort_order
+        .partial_cmp(&window_b.anchor_info.as_ref().unwrap().sort_order)
         .unwrap();
     if ord == Ordering::Equal {
         // if equal, compare grid pos x

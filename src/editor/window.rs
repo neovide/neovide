@@ -9,6 +9,7 @@ use crate::{
     renderer::{LineFragment, WindowDrawCommand},
 };
 
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum WindowType {
     Editor,
     Message,
@@ -59,7 +60,8 @@ impl Window {
         self.send_command(WindowDrawCommand::Position {
             grid_position: self.grid_position,
             grid_size: (self.grid.width as u64, self.grid.height as u64),
-            floating_order: self.anchor_info.clone().map(|anchor| anchor.sort_order),
+            anchor_info: self.anchor_info.clone(),
+            window_type: self.window_type,
         });
     }
 
