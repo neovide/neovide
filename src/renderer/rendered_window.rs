@@ -288,15 +288,25 @@ impl RenderedWindow {
         if self.anchor_info.is_some() {
             root_canvas.save();
             let shadow_path = Path::rect(pixel_region, None);
+            // We clip using the Difference op to make sure that the shadow isn't rendered inside
+            // the window itself.
             root_canvas.clip_path(&shadow_path, Some(ClipOp::Difference), None);
             draw_shadow(
                 root_canvas,
                 &shadow_path,
+                // Specifies how far from the root canvas the shadow casting rect is. We just use
+                // the z component here to set it a constant distance away.
                 Point3::new(0., 0., 10.),
+                // Because we use the DIRECTIONAL_LIGHT shadow flag, this specifies the angle that
+                // the light is coming from.
                 Point3::new(0., -2., 1.),
+                // This is roughly equal to the apparent radius of the light .
                 5.,
                 Color::from_argb((0.03 * 255.) as u8, 0, 0, 0),
                 Color::from_argb((0.35 * 255.) as u8, 0, 0, 0),
+                // Directional Light flag is necessary to make the shadow render consistently
+                // across varius sizes of floating windows. It effects how the light direction is
+                // processed.
                 Some(ShadowFlags::DIRECTIONAL_LIGHT),
             );
             root_canvas.restore();
