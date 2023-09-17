@@ -143,14 +143,12 @@ impl ParallelCommand {
                 .ui_try_resize(width.max(10) as i64, height.max(3) as i64)
                 .await
                 .expect("Resize failed"),
-            ParallelCommand::FocusLost => nvim
-                .ui_set_focus(false)
-                .await
-                .expect("Focus Lost Failed"),
-            ParallelCommand::FocusGained => nvim
-                .ui_set_focus(true)
-                .await
-                .expect("Focus Gained Failed"),
+            ParallelCommand::FocusLost => {
+                nvim.ui_set_focus(false).await.expect("Focus Lost Failed")
+            }
+            ParallelCommand::FocusGained => {
+                nvim.ui_set_focus(true).await.expect("Focus Gained Failed")
+            }
             ParallelCommand::FileDrop(path) => {
                 nvim.command(format!("e {path}").as_str()).await.ok();
             }
