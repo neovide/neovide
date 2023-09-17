@@ -9,21 +9,19 @@ use crate::{
     editor::EditorCommand,
     event_aggregator::EVENT_AGGREGATOR,
     profiling::{emit_frame_mark, tracy_gpu_collect, tracy_gpu_zone, tracy_zone},
-    renderer::{build_context, Renderer, VSync, WindowPadding, WindowedContext},
+    renderer::{build_context, GlWindow, Renderer, VSync, WindowPadding, WindowedContext},
     running_tracker::RUNNING_TRACKER,
-    settings::{
-        load_last_window_settings, PersistentWindowSettings, DEFAULT_WINDOW_GEOMETRY, SETTINGS,
-    },
+    settings::{DEFAULT_WINDOW_GEOMETRY, SETTINGS},
+    window::{load_last_window_settings, PersistentWindowSettings},
     CmdLineSettings,
 };
 
-use glutin::config::Config;
 use log::trace;
 use tokio::sync::mpsc::UnboundedReceiver;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize, Position},
     event::{Event, WindowEvent},
-    window::{Fullscreen, Theme, Window},
+    window::{Fullscreen, Theme},
 };
 
 const MIN_WINDOW_WIDTH: u64 = 20;
@@ -33,6 +31,14 @@ pub fn set_background(background: &str) {
     EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::SetBackground(
         background.to_string(),
     )));
+}
+
+#[derive(PartialEq)]
+enum UIState {
+    Initing,    // Running init.vim/lua
+    Entered,    // UIEnter called
+    ShouldShow, // The UI should show when there are no pending resizes
+    Ready,      // No pending resizes
 }
 
 pub struct WinitWindowWrapper {
@@ -45,55 +51,19 @@ pub struct WinitWindowWrapper {
     fullscreen: bool,
     font_changed_last_frame: bool,
     saved_inner_size: PhysicalSize<u32>,
-    saved_grid_size: Option<Dimensions>,
-    size_at_startup: PhysicalSize<u32>,
-    maximized_at_startup: bool,
+    saved_grid_size: Dimensions,
     window_command_receiver: UnboundedReceiver<WindowCommand>,
     ime_enabled: bool,
+    requested_columns: Option<u64>,
+    requested_lines: Option<u64>,
+    ui_state: UIState,
 }
 
 impl WinitWindowWrapper {
-    pub fn new(
-        window: Window,
-        config: Config,
-        cmd_line_settings: &CmdLineSettings,
-        previous_position: Option<PhysicalPosition<i32>>,
-        maximized: bool,
-    ) -> Self {
-        let windowed_context = build_context(window, config, cmd_line_settings);
+    pub fn new(window: GlWindow) -> Self {
+        let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
+        let windowed_context = build_context(window, &cmd_line_settings);
         let window = windowed_context.window();
-        let initial_size = window.inner_size();
-
-        // Check that window is visible in some monitor, and reposition it if not.
-        let did_reposition = window
-            .current_monitor()
-            .and_then(|current_monitor| {
-                let monitor_position = current_monitor.position();
-                let monitor_size = current_monitor.size();
-                let monitor_width = monitor_size.width as i32;
-                let monitor_height = monitor_size.height as i32;
-
-                let window_position = previous_position
-                    .filter(|_| !maximized)
-                    .or_else(|| window.outer_position().ok())?;
-
-                let window_size = window.outer_size();
-                let window_width = window_size.width as i32;
-                let window_height = window_size.height as i32;
-
-                if window_position.x + window_width < monitor_position.x
-                    || window_position.y + window_height < monitor_position.y
-                    || window_position.x > monitor_position.x + monitor_width
-                    || window_position.y > monitor_position.y + monitor_height
-                {
-                    window.set_outer_position(monitor_position);
-                }
-
-                Some(())
-            })
-            .is_some();
-
-        log::trace!("repositioned window: {}", did_reposition);
 
         let scale_factor = windowed_context.window().scale_factor();
         let renderer = Renderer::new(scale_factor);
@@ -131,12 +101,13 @@ impl WinitWindowWrapper {
             title: String::from("Neovide"),
             fullscreen: false,
             font_changed_last_frame: false,
-            size_at_startup: initial_size,
-            maximized_at_startup: maximized,
             saved_inner_size,
-            saved_grid_size: None,
+            saved_grid_size: DEFAULT_WINDOW_GEOMETRY,
             window_command_receiver,
             ime_enabled,
+            requested_columns: None,
+            requested_lines: None,
+            ui_state: UIState::Initing,
         };
 
         wrapper.set_ime(ime_enabled);
@@ -184,6 +155,22 @@ impl WinitWindowWrapper {
                     self.mouse_manager.enabled = mouse_enabled
                 }
                 WindowCommand::ListAvailableFonts => self.send_font_names(),
+                WindowCommand::Columns(columns) => {
+                    log::info!("Requested columns {columns}");
+                    self.requested_columns = Some(columns);
+                }
+                WindowCommand::Lines(lines) => {
+                    log::info!("Requested lines {lines}");
+                    self.requested_lines = Some(lines);
+                }
+                WindowCommand::UIEnter => {
+                    log::info!("UIEnter");
+                    self.ui_state = UIState::Entered;
+                }
+                WindowCommand::UIReady => {
+                    log::info!("UIReady");
+                    self.ui_state = UIState::ShouldShow;
+                }
             }
         }
     }
@@ -326,20 +313,39 @@ impl WinitWindowWrapper {
             right: window_settings.padding_right,
             bottom: window_settings.padding_bottom,
         };
-
         let padding_changed = window_padding != self.renderer.window_padding;
-        if padding_changed {
-            self.renderer.window_padding = window_padding;
+
+        let resize_requested = self.requested_columns.is_some() || self.requested_lines.is_some();
+
+        if self.ui_state == UIState::ShouldShow && !resize_requested {
+            self.ui_state = UIState::Ready;
+            should_render = true;
+
+            self.windowed_context.window().set_visible(true);
+            if SETTINGS.get::<CmdLineSettings>().maximized
+                || matches!(
+                    load_last_window_settings().ok(),
+                    Some(PersistentWindowSettings::Maximized)
+                )
+            {
+                self.windowed_context.window().set_maximized(true);
+            }
         }
 
-        let new_size = window.inner_size();
-        if self.saved_inner_size != new_size || self.font_changed_last_frame || padding_changed {
-            self.font_changed_last_frame = false;
-            self.saved_inner_size = new_size;
+        if resize_requested {
+            self.update_window_size_from_grid(&window_padding);
+        } else {
+            let new_size = window.inner_size();
+            if self.saved_inner_size != new_size || self.font_changed_last_frame || padding_changed
+            {
+                self.renderer.window_padding = window_padding;
+                self.font_changed_last_frame = false;
+                self.saved_inner_size = new_size;
 
-            self.handle_new_grid_size(new_size);
-            self.skia_renderer.resize(&self.windowed_context);
-            should_render = true;
+                self.update_grid_size_from_window();
+                self.skia_renderer.resize(&self.windowed_context);
+                should_render = true;
+            }
         }
 
         let prev_cursor_position = self.renderer.get_cursor_position();
@@ -361,65 +367,48 @@ impl WinitWindowWrapper {
             );
         }
 
-        // Wait until fonts are loaded, so we can set proper window size.
-        if !self.renderer.grid_renderer.is_ready {
+        // Don't render until the the UI is fully entered and the window is shown
+        if self.ui_state != UIState::Ready {
             return false;
-        }
-
-        // Resize at startup happens when window is maximized or when using tiling WM
-        // which already resized window.
-        let resized_at_startup = self.maximized_at_startup || self.has_been_resized();
-
-        log::trace!("Inner size: {:?}", new_size);
-
-        if self.saved_grid_size.is_none() && !resized_at_startup {
-            self.init_window_size();
-            should_render |= true;
         }
 
         should_render
     }
 
-    fn init_window_size(&self) {
-        let settings = SETTINGS.get::<CmdLineSettings>();
-        log::trace!("Settings geometry {:?}", settings.geometry,);
-        log::trace!("Settings size {:?}", settings.size);
-
+    fn update_window_size_from_grid(&mut self, window_padding: &WindowPadding) {
         let window = self.windowed_context.window();
-        let inner_size = if let Some(size) = settings.size {
-            // --size
-            size.into()
-        } else if let Some(geometry) = settings.geometry {
-            // --geometry
-            self.renderer
-                .grid_renderer
-                .convert_grid_to_physical(geometry)
-        } else if let Ok(PersistentWindowSettings::Windowed {
-            pixel_size: Some(size),
-            ..
-        }) = load_last_window_settings()
-        {
-            // remembered size
-            size
-        } else {
-            // default geometry
-            self.renderer
-                .grid_renderer
-                .convert_grid_to_physical(DEFAULT_WINDOW_GEOMETRY)
+
+        let window_padding_width = window_padding.left + window_padding.right;
+        let window_padding_height = window_padding.top + window_padding.bottom;
+
+        let geometry = Dimensions {
+            width: self
+                .requested_columns
+                .take()
+                .unwrap_or(self.saved_grid_size.width),
+            height: self
+                .requested_lines
+                .take()
+                .unwrap_or(self.saved_grid_size.height),
         };
-        window.set_inner_size(inner_size);
-        // next frame will detect change in window.inner_size() and hence will
-        // handle_new_grid_size automatically
+
+        let mut new_size = self
+            .renderer
+            .grid_renderer
+            .convert_grid_to_physical(geometry);
+        new_size.width += window_padding_width;
+        new_size.height += window_padding_height;
+        window.set_inner_size(new_size);
     }
 
-    fn handle_new_grid_size(&mut self, new_size: PhysicalSize<u32>) {
+    fn get_grid_size_from_window(&self) -> Dimensions {
         let window_padding = self.renderer.window_padding;
         let window_padding_width = window_padding.left + window_padding.right;
         let window_padding_height = window_padding.top + window_padding.bottom;
 
         let content_size = PhysicalSize {
-            width: new_size.width - window_padding_width,
-            height: new_size.height - window_padding_height,
+            width: self.saved_inner_size.width - window_padding_width,
+            height: self.saved_inner_size.height - window_padding_height,
         };
 
         let grid_size = self
@@ -427,16 +416,20 @@ impl WinitWindowWrapper {
             .grid_renderer
             .convert_physical_to_grid(content_size);
 
-        // Have a minimum size
-        if grid_size.width < MIN_WINDOW_WIDTH || grid_size.height < MIN_WINDOW_HEIGHT {
-            return;
+        Dimensions {
+            width: grid_size.width.max(MIN_WINDOW_WIDTH),
+            height: grid_size.height.max(MIN_WINDOW_HEIGHT),
         }
+    }
 
-        if self.saved_grid_size == Some(grid_size) {
+    fn update_grid_size_from_window(&mut self) {
+        let grid_size = self.get_grid_size_from_window();
+
+        if self.saved_grid_size == grid_size {
             trace!("Grid matched saved size, skip update.");
             return;
         }
-        self.saved_grid_size = Some(grid_size);
+        self.saved_grid_size = grid_size;
         EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::Resize {
             width: grid_size.width,
             height: grid_size.height,
@@ -446,9 +439,5 @@ impl WinitWindowWrapper {
     fn handle_scale_factor_update(&mut self, scale_factor: f64) {
         self.renderer.handle_os_scale_factor_change(scale_factor);
         EVENT_AGGREGATOR.send(EditorCommand::RedrawScreen);
-    }
-
-    fn has_been_resized(&self) -> bool {
-        self.windowed_context.window().inner_size() != self.size_at_startup
     }
 }

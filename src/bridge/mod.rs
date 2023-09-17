@@ -12,8 +12,8 @@ use log::{error, info};
 use nvim_rs::{error::CallError, Neovim, UiAttachOptions, Value};
 
 use crate::{
-    cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation, running_tracker::*,
-    settings::*,
+    cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation,
+    event_aggregator::EVENT_AGGREGATOR, running_tracker::*, settings::*, window::WindowCommand,
 };
 
 pub use command::create_nvim_command;
@@ -100,6 +100,7 @@ async fn start_neovim_runtime(instance: NeovimInstance) {
         .unwrap_or_explained_panic("Could not attach ui to neovim process");
 
     info!("Neovim process attached");
+    EVENT_AGGREGATOR.send(WindowCommand::UIEnter);
 
     start_ui_command_handler(nvim.clone());
     SETTINGS.read_initial_values(&nvim).await;

@@ -3,7 +3,12 @@ use nvim_rs::Neovim;
 use rmpv::Value;
 
 use super::setup_intro_message_autocommand;
-use crate::{bridge::NeovimWriter, error_handling::ResultPanicExplanation};
+use crate::{
+    bridge::NeovimWriter,
+    error_handling::ResultPanicExplanation,
+    settings::{DEFAULT_WINDOW_GEOMETRY, SETTINGS},
+    CmdLineSettings,
+};
 
 const REGISTER_CLIPBOARD_PROVIDER_LUA: &str = r"
     local function set_clipboard(register)
@@ -31,7 +36,33 @@ const REGISTER_CLIPBOARD_PROVIDER_LUA: &str = r"
         cache_enabled = 0
     }";
 
-pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<NeovimWriter>, neovide_channel: u64) {
+const SETUP_GEOMETRY_LUA: &str = r"
+    local initial_columns, initial_lines, force = ...
+    -- We want to set the geometry in VimEnter, since after that the UI takes control over the size
+    -- So UIEnter is too late
+    vim.api.nvim_create_autocmd({ 'VimEnter' }, {
+        pattern = '*',
+        once = true,
+        nested = true,
+        callback = function()
+            if force then
+                vim.o.columns = initial_columns
+                vim.o.lines = initial_lines
+            else
+                -- Just set the values again to trigger the OptionSet callback
+                -- It's not automatically run when running init.vim/lua
+                if vim.o.columns ~= initial_columns then
+                    vim.o.columns = vim.o.columns
+                end
+                if vim.o.lines ~= initial_lines then
+                    vim.o.lines = vim.o.lines
+                end
+            end
+            vim.rpcnotify(vim.g.neovide_channel_id, 'neovide.ui_ready')
+        end
+    })";
+
+pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<NeovimWriter>) {
     // Users can opt-out with
     // vim: `let g:neovide_no_custom_clipboard = v:true`
     // lua: `vim.g.neovide_no_custom_clipboard = true`
@@ -45,9 +76,6 @@ pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<NeovimWriter>, neovide
         return;
     }
 
-    nvim.set_var("neovide_channel_id", Value::from(neovide_channel))
-        .await
-        .ok();
     nvim.execute_lua(REGISTER_CLIPBOARD_PROVIDER_LUA, vec![])
         .await
         .ok();
@@ -104,6 +132,10 @@ pub async fn setup_neovide_specific_state(
             neovide_channel
         );
 
+        nvim.set_var("neovide_channel_id", Value::from(neovide_channel))
+            .await
+            .ok();
+
         // Create a command for registering right click context hooking.
         #[cfg(windows)]
         nvim.command(&build_neovide_command(
@@ -127,7 +159,7 @@ pub async fn setup_neovide_specific_state(
         .ok();
 
         if should_handle_clipboard {
-            setup_neovide_remote_clipboard(nvim, neovide_channel).await;
+            setup_neovide_remote_clipboard(nvim).await;
         }
     } else {
         warn!("Neovide could not find the correct channel id. Some functionality may be disabled.");
@@ -142,9 +174,33 @@ pub async fn setup_neovide_specific_state(
         .ok();
 
     // Create auto command for retrieving exit code from neovim on quit.
-    nvim.command("autocmd VimLeave * call rpcnotify(1, 'neovide.quit', v:exiting)")
-        .await
-        .ok();
+    nvim.command(
+        "autocmd VimLeave * call rpcnotify(g:neovide_channel_id, 'neovide.quit', v:exiting)",
+    )
+    .await
+    .ok();
+
+    nvim.command(
+        "autocmd OptionSet columns call rpcnotify(g:neovide_channel_id, 'neovide.columns', str2nr(v:option_new))",
+    )
+    .await
+    .ok();
+    nvim.command(
+        "autocmd OptionSet lines call rpcnotify(g:neovide_channel_id, 'neovide.lines', str2nr(v:option_new))",
+    )
+    .await
+    .ok();
+
+    let (geometry, force) = SETTINGS
+        .get::<CmdLineSettings>()
+        .geometry
+        .map_or_else(|| (DEFAULT_WINDOW_GEOMETRY, false), |v| (v, true));
+    nvim.execute_lua(
+        SETUP_GEOMETRY_LUA,
+        vec![geometry.width.into(), geometry.height.into(), force.into()],
+    )
+    .await
+    .ok();
 
     setup_intro_message_autocommand(nvim).await.ok();
 }

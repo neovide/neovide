@@ -35,7 +35,7 @@ pub use rendered_window::{
     LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails, WindowPadding,
 };
 
-pub use opengl::{build_context, build_window, Context as WindowedContext};
+pub use opengl::{build_context, build_window, Context as WindowedContext, GlWindow};
 pub use vsync::VSync;
 
 #[derive(SettingGroup, Clone)]
