@@ -8,7 +8,7 @@ use crate::{settings::SETTINGS, window::KeyboardSettings};
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use winit::{
     event::{ElementState, Event, Ime, KeyEvent, Modifiers, WindowEvent},
-    keyboard::Key,
+    keyboard::{Key, KeyCode, KeyLocation},
 };
 
 pub struct KeyboardManager {
@@ -67,8 +67,57 @@ impl KeyboardManager {
         }
     }
 
+    fn my_some(s: &str) -> Option<String>{
+        Some(s.to_string())
+    }
+
+    fn handle_numpad_numkey(&self, is_numlock_enabled: bool,
+                            numlock_str: &str, non_numlock_str: &str)
+        -> Option<String> {
+        if is_numlock_enabled {
+            return KeyboardManager::my_some(numlock_str);
+        }
+        return KeyboardManager::my_some(non_numlock_str);
+    }
+
+    fn handle_numpad_key(&self, key_event: &KeyEvent) -> Option<String> {
+        let is_numlock_key = key_event.text.is_some();
+        match key_event.physical_key {
+            KeyCode::NumpadDivide   => KeyboardManager::my_some("<kDivide>"),
+            KeyCode::NumpadStar     => KeyboardManager::my_some("<kMultiply>"),
+            KeyCode::NumpadSubtract => KeyboardManager::my_some("<kMinus>"),
+            KeyCode::NumpadAdd      => KeyboardManager::my_some("<kPlus>"),
+            KeyCode::NumpadEnter    => KeyboardManager::my_some("<kEnter>"),
+            KeyCode::NumpadDecimal  => KeyboardManager::my_some("<kDel>"),
+            KeyCode::Numpad9 => self.handle_numpad_numkey(is_numlock_key,
+                                                          "<k9>", "<kPageUp>"),
+            KeyCode::Numpad8 => self.handle_numpad_numkey(is_numlock_key,
+                                                          "<k8>", "<kUp>"),
+            KeyCode::Numpad7 => self.handle_numpad_numkey(is_numlock_key,
+                                                          "<k7>", "<kHome>"),
+            KeyCode::Numpad6 => self.handle_numpad_numkey(is_numlock_key,
+                                                          "<k6>", "<kRight>"),
+            KeyCode::Numpad5 => self.handle_numpad_numkey(is_numlock_key,
+                                                          "<k5>", "<kOrigin>"),
+            KeyCode::Numpad4 => self.handle_numpad_numkey(is_numlock_key,
+                                                          "<k4>", "<kLeft>"),
+            KeyCode::Numpad3 => self.handle_numpad_numkey(is_numlock_key,
+                                                          "<k3>",
+                                                          "<kPageDown>"),
+            KeyCode::Numpad2 => self.handle_numpad_numkey(is_numlock_key,
+                                                          "<k2>", "<kDown>"),
+            KeyCode::Numpad1 => self.handle_numpad_numkey(is_numlock_key,
+                                                          "<k1>", "<kEnd>"),
+            KeyCode::Numpad0 => self.handle_numpad_numkey(is_numlock_key,
+                                                          "<k0>", "<Insert>"),
+            _ => None
+        }
+    }
+
     fn format_key(&self, key_event: &KeyEvent) -> Option<String> {
-        if let Some(text) = get_special_key(key_event) {
+        if key_event.location == KeyLocation::Numpad {
+            self.handle_numpad_key(key_event)
+        } else if let Some(text) = get_special_key(key_event) {
             Some(self.format_key_text(text, true))
         } else {
             self.format_normal_key(key_event)
