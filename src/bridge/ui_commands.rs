@@ -144,11 +144,11 @@ impl ParallelCommand {
                 .await
                 .expect("Resize failed"),
             ParallelCommand::FocusLost => nvim
-                .command("if exists('#FocusLost') | doautocmd <nomodeline> FocusLost | endif")
+                .ui_set_focus(false)
                 .await
                 .expect("Focus Lost Failed"),
             ParallelCommand::FocusGained => nvim
-                .command("if exists('#FocusGained') | doautocmd <nomodeline> FocusGained | endif")
+                .ui_set_focus(true)
                 .await
                 .expect("Focus Gained Failed"),
             ParallelCommand::FileDrop(path) => {
