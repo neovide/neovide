@@ -81,41 +81,41 @@ impl KeyboardManager {
     fn handle_numpad_key(key_event: &KeyEvent) -> Option<&str> {
         let is_numlock_key = key_event.text.is_some();
         match key_event.physical_key {
-            KeyCode::NumpadDivide => Some("<kDivide>"),
-            KeyCode::NumpadStar => Some("<kMultiply>"),
-            KeyCode::NumpadSubtract => Some("<kMinus>"),
-            KeyCode::NumpadAdd => Some("<kPlus>"),
-            KeyCode::NumpadEnter => Some("<kEnter>"),
-            KeyCode::NumpadDecimal => Some("<kDel>"),
+            KeyCode::NumpadDivide => Some("kDivide"),
+            KeyCode::NumpadStar => Some("kMultiply"),
+            KeyCode::NumpadSubtract => Some("kMinus"),
+            KeyCode::NumpadAdd => Some("kPlus"),
+            KeyCode::NumpadEnter => Some("kEnter"),
+            KeyCode::NumpadDecimal => Some("kDel"),
             KeyCode::Numpad9 => {
-                KeyboardManager::handle_numpad_numkey(is_numlock_key, "<k9>", "<kPageUp>")
+                KeyboardManager::handle_numpad_numkey(is_numlock_key, "k9", "kPageUp")
             }
             KeyCode::Numpad8 => {
-                KeyboardManager::handle_numpad_numkey(is_numlock_key, "<k8>", "<kUp>")
+                KeyboardManager::handle_numpad_numkey(is_numlock_key, "k8", "kUp")
             }
             KeyCode::Numpad7 => {
-                KeyboardManager::handle_numpad_numkey(is_numlock_key, "<k7>", "<kHome>")
+                KeyboardManager::handle_numpad_numkey(is_numlock_key, "k7", "kHome")
             }
             KeyCode::Numpad6 => {
-                KeyboardManager::handle_numpad_numkey(is_numlock_key, "<k6>", "<kRight>")
+                KeyboardManager::handle_numpad_numkey(is_numlock_key, "k6", "kRight")
             }
             KeyCode::Numpad5 => {
-                KeyboardManager::handle_numpad_numkey(is_numlock_key, "<k5>", "<kOrigin>")
+                KeyboardManager::handle_numpad_numkey(is_numlock_key, "k5", "kOrigin")
             }
             KeyCode::Numpad4 => {
-                KeyboardManager::handle_numpad_numkey(is_numlock_key, "<k4>", "<kLeft>")
+                KeyboardManager::handle_numpad_numkey(is_numlock_key, "k4", "kLeft")
             }
             KeyCode::Numpad3 => {
-                KeyboardManager::handle_numpad_numkey(is_numlock_key, "<k3>", "<kPageDown>")
+                KeyboardManager::handle_numpad_numkey(is_numlock_key, "k3", "kPageDown")
             }
             KeyCode::Numpad2 => {
-                KeyboardManager::handle_numpad_numkey(is_numlock_key, "<k2>", "<kDown>")
+                KeyboardManager::handle_numpad_numkey(is_numlock_key, "k2", "kDown")
             }
             KeyCode::Numpad1 => {
-                KeyboardManager::handle_numpad_numkey(is_numlock_key, "<k1>", "<kEnd>")
+                KeyboardManager::handle_numpad_numkey(is_numlock_key, "k1", "kEnd")
             }
             KeyCode::Numpad0 => {
-                KeyboardManager::handle_numpad_numkey(is_numlock_key, "<k0>", "<Insert>")
+                KeyboardManager::handle_numpad_numkey(is_numlock_key, "k0", "Insert")
             }
             _ => None,
         }
