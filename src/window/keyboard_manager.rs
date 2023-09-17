@@ -67,29 +67,25 @@ impl KeyboardManager {
         }
     }
 
-    fn my_some(s: &str) -> Option<&str>{
-        Some(s)
-    }
-
     fn handle_numpad_numkey<'a>(
         is_numlock_enabled: bool, numlock_str: &'a str,
         non_numlock_str: &'a str)
         -> Option<&'a str> {
         if is_numlock_enabled {
-            return KeyboardManager::my_some(numlock_str);
+            return Some(numlock_str);
         }
-        return KeyboardManager::my_some(non_numlock_str);
+        return Some(non_numlock_str);
     }
 
     fn handle_numpad_key(key_event: &KeyEvent) -> Option<&str> {
         let is_numlock_key = key_event.text.is_some();
         match key_event.physical_key {
-            KeyCode::NumpadDivide   => KeyboardManager::my_some("<kDivide>"),
-            KeyCode::NumpadStar     => KeyboardManager::my_some("<kMultiply>"),
-            KeyCode::NumpadSubtract => KeyboardManager::my_some("<kMinus>"),
-            KeyCode::NumpadAdd      => KeyboardManager::my_some("<kPlus>"),
-            KeyCode::NumpadEnter    => KeyboardManager::my_some("<kEnter>"),
-            KeyCode::NumpadDecimal  => KeyboardManager::my_some("<kDel>"),
+            KeyCode::NumpadDivide   => Some("<kDivide>"),
+            KeyCode::NumpadStar     => Some("<kMultiply>"),
+            KeyCode::NumpadSubtract => Some("<kMinus>"),
+            KeyCode::NumpadAdd      => Some("<kPlus>"),
+            KeyCode::NumpadEnter    => Some("<kEnter>"),
+            KeyCode::NumpadDecimal  => Some("<kDel>"),
             KeyCode::Numpad9 => KeyboardManager::handle_numpad_numkey(
                 is_numlock_key, "<k9>", "<kPageUp>"),
             KeyCode::Numpad8 => KeyboardManager::handle_numpad_numkey(
