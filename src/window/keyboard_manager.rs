@@ -90,9 +90,7 @@ impl KeyboardManager {
             KeyCode::Numpad9 => {
                 KeyboardManager::handle_numpad_numkey(is_numlock_key, "k9", "kPageUp")
             }
-            KeyCode::Numpad8 => {
-                KeyboardManager::handle_numpad_numkey(is_numlock_key, "k8", "kUp")
-            }
+            KeyCode::Numpad8 => KeyboardManager::handle_numpad_numkey(is_numlock_key, "k8", "kUp"),
             KeyCode::Numpad7 => {
                 KeyboardManager::handle_numpad_numkey(is_numlock_key, "k7", "kHome")
             }
@@ -111,9 +109,7 @@ impl KeyboardManager {
             KeyCode::Numpad2 => {
                 KeyboardManager::handle_numpad_numkey(is_numlock_key, "k2", "kDown")
             }
-            KeyCode::Numpad1 => {
-                KeyboardManager::handle_numpad_numkey(is_numlock_key, "k1", "kEnd")
-            }
+            KeyCode::Numpad1 => KeyboardManager::handle_numpad_numkey(is_numlock_key, "k1", "kEnd"),
             KeyCode::Numpad0 => {
                 KeyboardManager::handle_numpad_numkey(is_numlock_key, "k0", "Insert")
             }
