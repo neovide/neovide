@@ -238,6 +238,8 @@ encouraged in order to tune it to your liking.
 
 #### Far scroll lines
 
+**Unreleased yet.**
+
 VimScript:
 
 ```vim
