@@ -75,7 +75,7 @@ impl KeyboardManager {
         if is_numlock_enabled {
             return Some(numlock_str);
         }
-        return Some(non_numlock_str);
+        Some(non_numlock_str)
     }
 
     fn handle_numpad_key(key_event: &KeyEvent) -> Option<&str> {
