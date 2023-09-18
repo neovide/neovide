@@ -300,6 +300,7 @@ impl WinitWindowWrapper {
         }
         {
             tracy_gpu_zone!("swap buffers");
+            self.windowed_context.window().pre_present_notify();
             self.windowed_context.swap_buffers().unwrap();
         }
         emit_frame_mark();

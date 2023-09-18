@@ -264,8 +264,6 @@ pub fn main_loop(window: GlWindow, event_loop: EventLoop<UserEvent>) -> Result<(
 
 #[cfg(not(target_os = "windows"))]
 pub fn main_loop(window: GlWindow, event_loop: EventLoop<UserEvent>) -> Result<(), EventLoopError> {
-    use std::ops::ControlFlow;
-
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
     let mut window_wrapper = WinitWindowWrapper::new(window);
 

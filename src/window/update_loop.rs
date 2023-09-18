@@ -76,13 +76,44 @@ impl UpdateLoop {
         }
     }
 
+    pub fn render(&mut self, window_wrapper: &mut WinitWindowWrapper) {
+        let dt = if self.num_consecutive_rendered > 0 && self.frame_dt_avg.get_num_samples() > 0 {
+            self.frame_dt_avg.get_average() as f32
+        } else {
+            self.last_dt
+        }
+        .min(1.0);
+        self.should_render = window_wrapper.prepare_frame();
+        let num_steps = (dt / MAX_ANIMATION_DT).ceil();
+        let step = dt / num_steps;
+        for _ in 0..num_steps as usize {
+            self.should_render |= window_wrapper.animate_frame(step);
+        }
+        window_wrapper.draw_frame(&mut self.vsync, self.last_dt);
+
+        if self.num_consecutive_rendered > 2 {
+            self.frame_dt_avg
+                .add_sample(self.previous_frame_start.elapsed().as_secs_f64());
+        }
+
+        if let FocusedState::UnfocusedNotDrawn = self.focused {
+            self.focused = FocusedState::Unfocused;
+        }
+
+        #[cfg(target_os = "macos")]
+        draw_background(window_wrapper.windowed_context.window());
+
+        self.num_consecutive_rendered += 1;
+        self.last_dt = self.previous_frame_start.elapsed().as_secs_f32();
+        self.previous_frame_start = Instant::now();
+    }
+
     pub fn step(
         &mut self,
         window_wrapper: &mut WinitWindowWrapper,
         event: Result<Event<UserEvent>, bool>,
     ) -> Result<ControlFlow, ()> {
         tracy_zone!("render loop", 0);
-
         match event {
             // Window focus changed
             Ok(Event::WindowEvent {
@@ -99,41 +130,25 @@ impl UpdateLoop {
                 // Disconnected
                 return Err(());
             }
-            Err(false) | Ok(Event::AboutToWait) => {
-                let dt = if self.num_consecutive_rendered > 0
-                    && self.frame_dt_avg.get_num_samples() > 0
-                {
-                    self.frame_dt_avg.get_average() as f32
-                } else {
-                    self.last_dt
-                }
-                .min(1.0);
+            Ok(Event::AboutToWait) | Err(false) => {
                 self.should_render |= window_wrapper.prepare_frame();
-                let num_steps = (dt / MAX_ANIMATION_DT).ceil();
-                let step = dt / num_steps;
-                for _ in 0..num_steps as usize {
-                    self.should_render |= window_wrapper.animate_frame(step);
-                }
                 if self.should_render || !self.idle {
-                    window_wrapper.draw_frame(&mut self.vsync, self.last_dt);
-
-                    if self.num_consecutive_rendered > 2 {
-                        self.frame_dt_avg
-                            .add_sample(self.previous_frame_start.elapsed().as_secs_f64());
+                    if self.vsync.uses_winit_throttling() {
+                        window_wrapper.windowed_context.window().request_redraw();
+                    } else {
+                        self.render(window_wrapper);
                     }
-                    self.should_render = false;
-                    self.num_consecutive_rendered += 1;
                 } else {
                     self.num_consecutive_rendered = 0;
+                    self.last_dt = self.previous_frame_start.elapsed().as_secs_f32();
+                    self.previous_frame_start = Instant::now();
                 }
-                self.last_dt = self.previous_frame_start.elapsed().as_secs_f32();
-                self.previous_frame_start = Instant::now();
-                if let FocusedState::UnfocusedNotDrawn = self.focused {
-                    self.focused = FocusedState::Unfocused;
-                }
-
-                #[cfg(target_os = "macos")]
-                draw_background(window_wrapper.windowed_context.window());
+            }
+            Ok(Event::WindowEvent {
+                event: WindowEvent::RedrawRequested,
+                ..
+            }) => {
+                self.render(window_wrapper);
             }
             _ => {}
         }
