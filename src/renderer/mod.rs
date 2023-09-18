@@ -195,10 +195,7 @@ impl Renderer {
 
             floating_windows.sort_by(floating_sort);
 
-            root_windows
-                .into_iter()
-                .chain(floating_windows.into_iter())
-                .collect()
+            root_windows.into_iter().chain(floating_windows).collect()
         };
 
         let settings = SETTINGS.get::<RendererSettings>();

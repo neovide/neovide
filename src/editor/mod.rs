@@ -4,7 +4,7 @@ mod grid;
 mod style;
 mod window;
 
-use std::{collections::HashMap, sync::Arc, thread};
+use std::{collections::HashMap, rc::Rc, sync::Arc, thread};
 
 use log::{error, trace};
 
@@ -62,7 +62,7 @@ pub struct Editor {
     pub cursor: Cursor,
     pub defined_styles: HashMap<u64, Arc<Style>>,
     pub mode_list: Vec<CursorMode>,
-    pub draw_command_batcher: Arc<DrawCommandBatcher>,
+    pub draw_command_batcher: Rc<DrawCommandBatcher>,
     pub current_mode_index: Option<u64>,
 }
 
@@ -73,7 +73,7 @@ impl Editor {
             cursor: Cursor::new(),
             defined_styles: HashMap::new(),
             mode_list: Vec::new(),
-            draw_command_batcher: Arc::new(DrawCommandBatcher::new()),
+            draw_command_batcher: Rc::new(DrawCommandBatcher::new()),
             current_mode_index: None,
         }
     }
