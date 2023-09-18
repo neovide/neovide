@@ -54,9 +54,6 @@ impl VSync {
     }
 
     pub fn uses_winit_throttling(&self) -> bool {
-        match self {
-            VSync::WinitThrottling() => true,
-            _ => false,
-        }
+        matches!(self, VSync::WinitThrottling())
     }
 }
