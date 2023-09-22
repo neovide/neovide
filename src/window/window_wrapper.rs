@@ -26,6 +26,9 @@ use winit::{
     window::{Fullscreen, Theme, Window},
 };
 
+#[cfg(target_os = "macos")]
+use winit::platform::macos::{OptionAsAlt, WindowExtMacOS};
+
 const MIN_WINDOW_WIDTH: u64 = 20;
 const MIN_WINDOW_HEIGHT: u64 = 6;
 
@@ -45,6 +48,8 @@ pub struct WinitWindowWrapper {
     window_command_receiver: UnboundedReceiver<WindowCommand>,
     ime_enabled: bool,
     is_minimized: bool,
+    #[cfg(target_os = "macos")]
+    macos_option_is_meta: OptionAsAlt,
 }
 
 pub fn set_background(background: &str) {
@@ -112,6 +117,40 @@ impl WinitWindowWrapper {
 
         let ime_enabled = { SETTINGS.get::<KeyboardSettings>().ime };
 
+        #[cfg(target_os = "macos")]
+        let mut ks = SETTINGS.get::<KeyboardSettings>();
+        #[cfg(target_os = "macos")]
+        {
+            let window = windowed_context.window();
+            if ks.macos_option_key_is_meta.0 == OptionAsAlt::None && ks.macos_alt_is_meta {
+                // default values are 'OptionAsAlt::None' and 'false', respectively, so if we
+                // arrive here it's most likely because the user set only the legacy setting
+                // (alt_is_meta) and not the new one (option_key_is_meta), so:
+                ks.macos_option_key_is_meta.0 = OptionAsAlt::Both;
+                SETTINGS.set::<KeyboardSettings>(&ks);
+                // This is probably not the best way to do this, because by the time we call
+                // SETTINGS.get() above, we've lost the ability to be affected by the order in
+                // which settings arrive from nvim (so we don't really know whether
+                // 'alt_is_meta' is overriding 'option_key_is_meta' or vice-versa).
+                //
+                // Ideally, we would have a custom entry for each of
+                // "neovide_input_macos_alt_is_meta" and
+                // "neovide_input_macos_option_key_is_meta" in SETTINGS.listeners, and those
+                // update functions would directly call winit's window.set_option_as_alt() as
+                // we do here (since, after receiving the update from nvim and updating winit,
+                // window.option_as_alt() is arguably the source of truth for this setting).
+                // Repeat this for 'ime', and then we wouldn't need the KeyboardSettings
+                // struct at all, and we wouldn't need the duplicate values stored in
+                // WinitWindowWrapper::{macos_option_is_meta, ime_enabled}.
+                //
+                // Come to think of it... do we really need to synchronize all settings once
+                // per video frame? It seems like we'd generally only need a synchronization
+                // once per "setting_changed" notification from nvim (and then only for one
+                // setting, not all of them)...?
+            }
+            window.set_option_as_alt(ks.macos_option_key_is_meta.0);
+        }
+
         match SETTINGS.get::<WindowSettings>().theme.as_str() {
             "light" => set_background("light"),
             "dark" => set_background("dark"),
@@ -139,6 +178,8 @@ impl WinitWindowWrapper {
             window_command_receiver,
             ime_enabled,
             is_minimized: false,
+            #[cfg(target_os = "macos")]
+            macos_option_is_meta: ks.macos_option_key_is_meta.0,
         };
 
         window_wrapper.set_ime(ime_enabled);
@@ -179,6 +220,16 @@ impl WinitWindowWrapper {
 
         if self.ime_enabled != ime_enabled {
             self.set_ime(ime_enabled);
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            let ks = SETTINGS.get::<KeyboardSettings>();
+            let window = self.windowed_context.window();
+            if self.macos_option_is_meta != ks.macos_option_key_is_meta.0 {
+                self.macos_option_is_meta = ks.macos_option_key_is_meta.0;
+                window.set_option_as_alt(self.macos_option_is_meta);
+            }
         }
     }
 
