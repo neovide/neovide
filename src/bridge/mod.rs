@@ -15,8 +15,8 @@ use tokio::{
 };
 
 use crate::{
-    cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation,
-    event_aggregator::EVENT_AGGREGATOR, running_tracker::*, settings::*, window::WindowCommand,
+    cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation, running_tracker::*,
+    settings::*,
 };
 use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
@@ -115,7 +115,6 @@ async fn run(session: NeovimSession) {
         .unwrap_or_explained_panic("Could not attach ui to neovim process");
 
     info!("Neovim process attached");
-    EVENT_AGGREGATOR.send(WindowCommand::UIEnter);
 
     match session.io_handle.await {
         Err(join_error) => error!("Error joining IO loop: '{}'", join_error),

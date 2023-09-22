@@ -45,8 +45,6 @@ pub fn set_background(background: &str) {
 #[derive(PartialEq)]
 enum UIState {
     Initing,    // Running init.vim/lua
-    Entered,    // UIEnter called
-    ShouldShow, // The UI should show when there are no pending resizes
     Ready,      // No pending resizes
 }
 
@@ -181,13 +179,11 @@ impl WinitWindowWrapper {
                     log::info!("Requested lines {lines}");
                     self.requested_lines = Some(lines);
                 }
-                WindowCommand::UIEnter => {
-                    log::info!("UIEnter");
-                    self.ui_state = UIState::Entered;
-                }
                 WindowCommand::UIReady => {
                     log::info!("UIReady");
-                    self.ui_state = UIState::ShouldShow;
+                    if self.ui_state == UIState::Initing {
+                        self.ui_state = UIState::ShouldShow;
+                    }
                 }
             }
         }
@@ -336,8 +332,14 @@ impl WinitWindowWrapper {
         let padding_changed = window_padding != self.window_padding;
 
         let resize_requested = self.requested_columns.is_some() || self.requested_lines.is_some();
+        let prev_cursor_position = self.renderer.get_cursor_position();
 
-        if self.ui_state == UIState::ShouldShow && !resize_requested {
+        let handle_draw_commands_result = self.renderer.handle_draw_commands();
+
+        self.font_changed_last_frame |= handle_draw_commands_result.font_changed;
+        should_render |= handle_draw_commands_result.any_handled;
+
+        if self.ui_state == UIState::Initing && handle_draw_commands_result.should_show {
             self.ui_state = UIState::Ready;
             should_render = true;
 
@@ -352,7 +354,15 @@ impl WinitWindowWrapper {
             }
         }
 
+        // Don't render until the the UI is fully entered and the window is shown
+        if self.ui_state != UIState::Ready {
+            return false;
+        }
+
         if resize_requested {
+            // Resize requests (columns/lines) have priority over normal window sizing.
+            // So, deal with them first and resize the window programmatically.
+            // The new window size will then be processed in the following frame.
             self.update_window_size_from_grid(&window_padding);
         } else {
             let new_size = window.inner_size();
@@ -368,13 +378,6 @@ impl WinitWindowWrapper {
             }
         }
 
-        let prev_cursor_position = self.renderer.get_cursor_position();
-
-        let handle_draw_commands_result = self.renderer.handle_draw_commands();
-
-        self.font_changed_last_frame |= handle_draw_commands_result.font_changed;
-        should_render |= handle_draw_commands_result.any_handled;
-
         let current_cursor_position = self.renderer.get_cursor_position();
         if current_cursor_position != prev_cursor_position {
             let font_dimensions = self.renderer.grid_renderer.font_dimensions;
@@ -386,11 +389,7 @@ impl WinitWindowWrapper {
                 Position::Physical(position),
                 PhysicalSize::new(100, font_dimensions.height as u32),
             );
-        }
-
-        // Don't render until the the UI is fully entered and the window is shown
-        if self.ui_state != UIState::Ready {
-            return false;
+            should_render = true;
         }
 
         should_render

@@ -12,7 +12,7 @@ use crate::{
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum WindowType {
     Editor,
-    Message,
+    Message { scrolled: bool },
 }
 
 pub struct Window {
