@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, rc::Rc, sync::Arc};
 
 use log::warn;
 use unicode_segmentation::UnicodeSegmentation;
@@ -22,7 +22,7 @@ pub struct Window {
     pub anchor_info: Option<AnchorInfo>,
     grid_position: (f64, f64),
 
-    draw_command_batcher: Arc<DrawCommandBatcher>,
+    draw_command_batcher: Rc<DrawCommandBatcher>,
 }
 
 impl Window {
@@ -32,7 +32,7 @@ impl Window {
         anchor_info: Option<AnchorInfo>,
         grid_position: (f64, f64),
         grid_size: (u64, u64),
-        draw_command_batcher: Arc<DrawCommandBatcher>,
+        draw_command_batcher: Rc<DrawCommandBatcher>,
     ) -> Window {
         let window = Window {
             grid_id,
@@ -337,7 +337,7 @@ mod tests {
     #[test]
     fn window_separator_modifies_grid_and_sends_draw_command() {
         let mut draw_command_receiver = EVENT_AGGREGATOR.register_event::<Vec<DrawCommand>>();
-        let draw_command_batcher = Arc::new(DrawCommandBatcher::new());
+        let draw_command_batcher = Rc::new(DrawCommandBatcher::new());
 
         let mut window = Window::new(
             1,
