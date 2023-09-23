@@ -8,7 +8,7 @@ use crate::{settings::SETTINGS, window::KeyboardSettings};
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use winit::{
     event::{ElementState, Event, Ime, KeyEvent, Modifiers, WindowEvent},
-    keyboard::Key,
+    keyboard::{Key, KeyCode, KeyLocation},
 };
 
 pub struct KeyboardManager {
@@ -64,6 +64,56 @@ impl KeyboardManager {
                 self.modifiers = *modifiers;
             }
             _ => {}
+        }
+    }
+
+    fn handle_numpad_numkey<'a>(
+        is_numlock_enabled: bool,
+        numlock_str: &'a str,
+        non_numlock_str: &'a str,
+    ) -> Option<&'a str> {
+        if is_numlock_enabled {
+            return Some(numlock_str);
+        }
+        Some(non_numlock_str)
+    }
+
+    fn handle_numpad_key(key_event: &KeyEvent) -> Option<&str> {
+        let is_numlock_key = key_event.text.is_some();
+        match key_event.physical_key {
+            KeyCode::NumpadDivide => Some("kDivide"),
+            KeyCode::NumpadStar => Some("kMultiply"),
+            KeyCode::NumpadSubtract => Some("kMinus"),
+            KeyCode::NumpadAdd => Some("kPlus"),
+            KeyCode::NumpadEnter => Some("kEnter"),
+            KeyCode::NumpadDecimal => Some("kDel"),
+            KeyCode::Numpad9 => {
+                KeyboardManager::handle_numpad_numkey(is_numlock_key, "k9", "kPageUp")
+            }
+            KeyCode::Numpad8 => KeyboardManager::handle_numpad_numkey(is_numlock_key, "k8", "kUp"),
+            KeyCode::Numpad7 => {
+                KeyboardManager::handle_numpad_numkey(is_numlock_key, "k7", "kHome")
+            }
+            KeyCode::Numpad6 => {
+                KeyboardManager::handle_numpad_numkey(is_numlock_key, "k6", "kRight")
+            }
+            KeyCode::Numpad5 => {
+                KeyboardManager::handle_numpad_numkey(is_numlock_key, "k5", "kOrigin")
+            }
+            KeyCode::Numpad4 => {
+                KeyboardManager::handle_numpad_numkey(is_numlock_key, "k4", "kLeft")
+            }
+            KeyCode::Numpad3 => {
+                KeyboardManager::handle_numpad_numkey(is_numlock_key, "k3", "kPageDown")
+            }
+            KeyCode::Numpad2 => {
+                KeyboardManager::handle_numpad_numkey(is_numlock_key, "k2", "kDown")
+            }
+            KeyCode::Numpad1 => KeyboardManager::handle_numpad_numkey(is_numlock_key, "k1", "kEnd"),
+            KeyCode::Numpad0 => {
+                KeyboardManager::handle_numpad_numkey(is_numlock_key, "k0", "Insert")
+            }
+            _ => None,
         }
     }
 
@@ -156,6 +206,9 @@ fn use_alt() -> bool {
 }
 
 fn get_special_key(key_event: &KeyEvent) -> Option<&str> {
+    if key_event.location == KeyLocation::Numpad {
+        return KeyboardManager::handle_numpad_key(key_event);
+    }
     let key = &key_event.logical_key;
     match key {
         Key::ArrowDown => Some("Down"),
