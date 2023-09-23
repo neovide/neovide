@@ -240,7 +240,7 @@ impl Renderer {
         animating
     }
 
-    pub fn handle_draw_commands(&mut self, padding_as_grid: &Rect) -> DrawCommandResult {
+    pub fn handle_draw_commands(&mut self) -> DrawCommandResult {
         let settings = SETTINGS.get::<RendererSettings>();
         let mut any_handled = false;
         let mut font_changed = false;
@@ -253,7 +253,7 @@ impl Renderer {
                 {
                     font_changed = true;
                 }
-                self.handle_draw_command(draw_command, padding_as_grid);
+                self.handle_draw_command(draw_command);
             }
             self.flush(&settings);
         }
@@ -284,7 +284,7 @@ impl Renderer {
             .for_each(|(_, w)| w.prepare_lines(&mut self.grid_renderer));
     }
 
-    fn handle_draw_command(&mut self, draw_command: DrawCommand, padding_as_grid: &Rect) {
+    fn handle_draw_command(&mut self, draw_command: DrawCommand) {
         match draw_command {
             DrawCommand::Window {
                 grid_id,
@@ -296,7 +296,7 @@ impl Renderer {
                 match self.rendered_windows.entry(grid_id) {
                     Entry::Occupied(mut occupied_entry) => {
                         let rendered_window = occupied_entry.get_mut();
-                        rendered_window.handle_window_draw_command(command, padding_as_grid);
+                        rendered_window.handle_window_draw_command(command);
                     }
                     Entry::Vacant(vacant_entry) => {
                         if let WindowDrawCommand::Position {

@@ -371,8 +371,8 @@ impl WinitWindowWrapper {
 
         let prev_cursor_position = self.renderer.get_cursor_position();
 
-        let handle_draw_commands_result =
-            self.renderer.handle_draw_commands(&self.padding_as_grid());
+        let handle_draw_commands_result = self.renderer.handle_draw_commands();
+
         self.font_changed_last_frame |= handle_draw_commands_result.font_changed;
         should_render |= handle_draw_commands_result.any_handled;
 

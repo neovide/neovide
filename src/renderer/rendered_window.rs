@@ -128,15 +128,23 @@ impl RenderedWindow {
     }
 
     fn get_target_position(&self, outer_size: &Dimensions, padding_as_grid: &Rect) -> Point {
+        let destination = Point {
+            x: self.grid_destination.x + padding_as_grid.left,
+            y: self.grid_destination.y + padding_as_grid.top,
+        };
+
         if self.anchor_info.is_none() {
-            return self.grid_destination;
+            return destination;
         }
 
+        // Note the rect is always as far top/left as possible, which means that the right and
+        // bottom paddings might be bigger than requested. This is done in order to avoid the text
+        // moving around when the window is resized.
         let valid_rect = Rect {
             left: padding_as_grid.left,
-            right: outer_size.width as scalar - padding_as_grid.right,
+            right: padding_as_grid.left + outer_size.width as scalar,
             top: padding_as_grid.top,
-            bottom: outer_size.height as scalar - padding_as_grid.bottom,
+            bottom: padding_as_grid.top + outer_size.height as scalar,
         };
 
         let mut grid_size = Point::new(self.grid_size.width as f32, self.grid_size.height as f32);
@@ -146,14 +154,14 @@ impl RenderedWindow {
             grid_size.y -= self.grid_destination.y;
         }
 
-        let x = self
-            .grid_destination
+        let x = destination
             .x
             .min(valid_rect.right - grid_size.x)
             .max(valid_rect.left);
+
         // For messages the last line is most important, (it shows press enter), so let the position go negative
         // Otherwise ensure that the window start row is within the screen
-        let mut y = self.grid_destination.y.min(valid_rect.bottom - grid_size.y);
+        let mut y = destination.y.min(valid_rect.bottom - grid_size.y);
         if self.window_type != WindowType::Message {
             y = y.max(valid_rect.top)
         }
@@ -330,11 +338,7 @@ impl RenderedWindow {
         }
     }
 
-    pub fn handle_window_draw_command(
-        &mut self,
-        draw_command: WindowDrawCommand,
-        padding_as_grid: &Rect,
-    ) {
+    pub fn handle_window_draw_command(&mut self, draw_command: WindowDrawCommand) {
         match draw_command {
             WindowDrawCommand::Position {
                 grid_position: (grid_left, grid_top),
@@ -343,13 +347,10 @@ impl RenderedWindow {
                 window_type,
             } => {
                 tracy_zone!("position_cmd", 0);
-                let top_offset = padding_as_grid.top;
-                let left_offset = padding_as_grid.left;
 
-                let grid_left = grid_left.max(0.0);
-                let grid_top = grid_top.max(0.0);
-                let new_destination: Point =
-                    (grid_left as f32 + left_offset, grid_top as f32 + top_offset).into();
+                let grid_left = grid_left.max(0.0) as f32;
+                let grid_top = grid_top.max(0.0) as f32;
+                let new_destination: Point = (grid_left, grid_top).into();
                 let new_grid_size: Dimensions = grid_size.into();
 
                 if self.grid_destination != new_destination {
