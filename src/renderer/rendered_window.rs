@@ -1,8 +1,8 @@
 use std::sync::{Arc, Mutex};
 
 use skia_safe::{
-    canvas::SaveLayerRec, image_filters::blur, BlendMode, Canvas, Color, Matrix, Paint, Picture,
-    PictureRecorder, Point, Rect,
+    canvas::SaveLayerRec, image_filters::blur, scalar, BlendMode, Canvas, Color, Matrix, Paint,
+    Picture, PictureRecorder, Point, Rect,
 };
 
 use crate::{
@@ -143,11 +143,23 @@ impl RenderedWindow {
         Rect::from_point_and_size(current_pixel_position, image_size)
     }
 
-    fn get_target_position(&self, outer_size: &Dimensions) -> Point {
+    fn get_target_position(&self, outer_size: &Dimensions, font_dimensions: &Dimensions) -> Point {
         if self.anchor_info.is_none() {
             return self.grid_destination;
         }
-        let outer_size = Point::new(outer_size.width as f32, outer_size.height as f32);
+        let padding_as_grid = Rect {
+            left: self.padding.left as scalar / font_dimensions.width as scalar,
+            right: self.padding.right as scalar / font_dimensions.width as scalar,
+            top: self.padding.top as scalar / font_dimensions.height as scalar,
+            bottom: self.padding.bottom as scalar / font_dimensions.height as scalar,
+        };
+
+        let valid_rect = Rect {
+            left: padding_as_grid.left,
+            right: outer_size.width as scalar - padding_as_grid.right,
+            top: padding_as_grid.top,
+            bottom: outer_size.height as scalar - padding_as_grid.bottom,
+        };
 
         let mut grid_size = Point::new(self.grid_size.width as f32, self.grid_size.height as f32);
         if self.window_type == WindowType::Message {
@@ -156,13 +168,16 @@ impl RenderedWindow {
             grid_size.y -= self.grid_destination.y;
         }
 
-        let max_pos = outer_size - grid_size;
-        let x = self.grid_destination.x.min(max_pos.x).max(0.0);
+        let x = self
+            .grid_destination
+            .x
+            .min(valid_rect.right - grid_size.x)
+            .max(valid_rect.left);
         // For messages the last line is most important, (it shows press enter), so let the position go negative
         // Otherwise ensure that the window start row is within the screen
-        let mut y = self.grid_destination.y.min(max_pos.y);
+        let mut y = self.grid_destination.y.min(valid_rect.bottom - grid_size.y);
         if self.window_type != WindowType::Message {
-            y = y.max(0.0)
+            y = y.max(valid_rect.top)
         }
         Point { x, y }
     }
@@ -172,6 +187,7 @@ impl RenderedWindow {
         &mut self,
         settings: &RendererSettings,
         outer_size: &Dimensions,
+        font_dimensions: &Dimensions,
         dt: f32,
     ) -> bool {
         let mut animating = false;
@@ -188,7 +204,7 @@ impl RenderedWindow {
         self.grid_current_position = ease_point(
             ease_out_expo,
             self.grid_start_position,
-            self.get_target_position(outer_size),
+            self.get_target_position(outer_size, font_dimensions),
             self.position_t,
         );
         animating |= self.grid_current_position != prev_positon;
