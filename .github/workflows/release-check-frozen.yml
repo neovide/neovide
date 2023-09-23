@@ -14,5 +14,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      - name: Fetch dependencies
+        run: cargo fetch
+
       - name: Build
         run: cargo build --frozen

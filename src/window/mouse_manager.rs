@@ -178,7 +178,7 @@ impl MouseManager {
                     button: self.dragging.as_ref().unwrap().to_owned(),
                     grid_id: relevant_window_details.id,
                     position: self.drag_position.into(),
-                    modifier_string: keyboard_manager.format_modifier_string(true),
+                    modifier_string: keyboard_manager.format_modifier_string("", true),
                 }));
             } else {
                 // otherwise, update the window_id_under_mouse to match the one selected
@@ -191,7 +191,7 @@ impl MouseManager {
                     action: "".into(), // this is ignored by nvim
                     grid_id: relevant_window_details.id,
                     position: self.relative_position.into(),
-                    modifier_string: keyboard_manager.format_modifier_string(true),
+                    modifier_string: keyboard_manager.format_modifier_string("", true),
                 }))
             }
 
@@ -228,7 +228,7 @@ impl MouseManager {
                         action,
                         grid_id: details.id,
                         position: position.into(),
-                        modifier_string: keyboard_manager.format_modifier_string(true),
+                        modifier_string: keyboard_manager.format_modifier_string("", true),
                     }));
                 }
 
@@ -269,7 +269,7 @@ impl MouseManager {
                     .map(|details| details.id)
                     .unwrap_or(0),
                 position: self.drag_position.into(),
-                modifier_string: keyboard_manager.format_modifier_string(true),
+                modifier_string: keyboard_manager.format_modifier_string("", true),
             }
             .into();
             for _ in 0..(new_y - previous_y).abs() {
@@ -282,8 +282,8 @@ impl MouseManager {
         let new_x = self.scroll_position.x as i64;
 
         let horizontal_input_type = match new_x.partial_cmp(&previous_x) {
-            Some(Ordering::Greater) => Some("right"),
-            Some(Ordering::Less) => Some("left"),
+            Some(Ordering::Greater) => Some("left"),
+            Some(Ordering::Less) => Some("right"),
             _ => None,
         };
 
@@ -296,7 +296,7 @@ impl MouseManager {
                     .map(|details| details.id)
                     .unwrap_or(0),
                 position: self.drag_position.into(),
-                modifier_string: keyboard_manager.format_modifier_string(true),
+                modifier_string: keyboard_manager.format_modifier_string("", true),
             }
             .into();
             for _ in 0..(new_x - previous_x).abs() {

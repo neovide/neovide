@@ -96,7 +96,8 @@ Now here's where the order becomes important:
 3. Create a commit named `Run cargo update` or similar
 4. Bump the version to match the tag name everywhere
 
-    - `Cargo.toml`
+    - `Cargo.toml` (do note it contains the version _twice_, one time in the
+        top, one time at the bottom in the bundling section)
     - `snap/snapcraft.yaml`
     - `website/docs/*.md` and update `Unreleased yet` to `Available since $tag`
       (where `$tag` is the tag name)
