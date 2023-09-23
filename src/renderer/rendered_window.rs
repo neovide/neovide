@@ -50,14 +50,6 @@ pub enum WindowDrawCommand {
     },
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct WindowPadding {
-    pub top: u32,
-    pub left: u32,
-    pub right: u32,
-    pub bottom: u32,
-}
-
 #[derive(Clone)]
 struct Line {
     line_fragments: Vec<LineFragment>,
@@ -88,8 +80,6 @@ pub struct RenderedWindow {
 
     pub scroll_animation: CriticallyDampedSpringAnimation,
 
-    pub padding: WindowPadding,
-
     has_transparency: bool,
 }
 
@@ -101,12 +91,7 @@ pub struct WindowDrawDetails {
 }
 
 impl RenderedWindow {
-    pub fn new(
-        id: u64,
-        grid_position: Point,
-        grid_size: Dimensions,
-        padding: WindowPadding,
-    ) -> RenderedWindow {
+    pub fn new(id: u64, grid_position: Point, grid_size: Dimensions) -> RenderedWindow {
         RenderedWindow {
             vertical_position: 0.0,
             id,
@@ -127,7 +112,6 @@ impl RenderedWindow {
 
             scroll_animation: CriticallyDampedSpringAnimation::new(),
 
-            padding,
             has_transparency: false,
         }
     }
@@ -143,16 +127,10 @@ impl RenderedWindow {
         Rect::from_point_and_size(current_pixel_position, image_size)
     }
 
-    fn get_target_position(&self, outer_size: &Dimensions, font_dimensions: &Dimensions) -> Point {
+    fn get_target_position(&self, outer_size: &Dimensions, padding_as_grid: &Rect) -> Point {
         if self.anchor_info.is_none() {
             return self.grid_destination;
         }
-        let padding_as_grid = Rect {
-            left: self.padding.left as scalar / font_dimensions.width as scalar,
-            right: self.padding.right as scalar / font_dimensions.width as scalar,
-            top: self.padding.top as scalar / font_dimensions.height as scalar,
-            bottom: self.padding.bottom as scalar / font_dimensions.height as scalar,
-        };
 
         let valid_rect = Rect {
             left: padding_as_grid.left,
@@ -187,7 +165,7 @@ impl RenderedWindow {
         &mut self,
         settings: &RendererSettings,
         outer_size: &Dimensions,
-        font_dimensions: &Dimensions,
+        padding_as_grid: &Rect,
         dt: f32,
     ) -> bool {
         let mut animating = false;
@@ -204,7 +182,7 @@ impl RenderedWindow {
         self.grid_current_position = ease_point(
             ease_out_expo,
             self.grid_start_position,
-            self.get_target_position(outer_size, font_dimensions),
+            self.get_target_position(outer_size, padding_as_grid),
             self.position_t,
         );
         animating |= self.grid_current_position != prev_positon;
@@ -354,8 +332,8 @@ impl RenderedWindow {
 
     pub fn handle_window_draw_command(
         &mut self,
-        grid_renderer: &mut GridRenderer,
         draw_command: WindowDrawCommand,
+        padding_as_grid: &Rect,
     ) {
         match draw_command {
             WindowDrawCommand::Position {
@@ -365,13 +343,8 @@ impl RenderedWindow {
                 window_type,
             } => {
                 tracy_zone!("position_cmd", 0);
-                let Dimensions {
-                    width: font_width,
-                    height: font_height,
-                } = grid_renderer.font_dimensions;
-
-                let top_offset = self.padding.top as f32 / font_height as f32;
-                let left_offset = self.padding.left as f32 / font_width as f32;
+                let top_offset = padding_as_grid.top;
+                let left_offset = padding_as_grid.left;
 
                 let grid_left = grid_left.max(0.0);
                 let grid_top = grid_top.max(0.0);
