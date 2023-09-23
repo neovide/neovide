@@ -310,12 +310,11 @@ impl CursorRenderer {
             ^ matches!(current_mode, EditorMode::CmdLine);
 
         let center_destination = self.destination + cursor_dimensions * 0.5;
-        let new_cursor = Some(self.cursor.shape.clone());
 
-        if self.previous_cursor_shape != new_cursor {
-            self.previous_cursor_shape = new_cursor.clone();
+        if self.previous_cursor_shape.as_ref() != Some(&self.cursor.shape) {
+            self.previous_cursor_shape = Some(self.cursor.shape.clone());
             self.set_cursor_shape(
-                &new_cursor.unwrap(),
+                &self.cursor.shape.clone(),
                 self.cursor
                     .cell_percentage
                     .unwrap_or(DEFAULT_CELL_PERCENTAGE),
