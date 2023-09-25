@@ -18,8 +18,9 @@ use winit::{
 };
 
 #[cfg(target_os = "macos")]
+use winit::platform::macos::EventLoopBuilderExtMacOS;
+#[cfg(target_os = "macos")]
 use winit::platform::macos::WindowBuilderExtMacOS;
-
 #[cfg(target_os = "macos")]
 use draw_background::draw_background;
 
@@ -75,7 +76,12 @@ pub enum UserEvent {
 }
 
 pub fn create_event_loop() -> EventLoop<UserEvent> {
-    EventLoopBuilder::<UserEvent>::with_user_event().build()
+    let mut winit_event_loop_builder = EventLoopBuilder::<UserEvent>::with_user_event();
+
+    #[cfg(target_os = "macos")]
+    winit_event_loop_builder.with_default_menu(false);
+
+    winit_event_loop_builder.build()
 }
 
 pub fn create_window(event_loop: &EventLoop<UserEvent>) -> GlWindow {
