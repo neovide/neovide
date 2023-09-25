@@ -36,6 +36,7 @@ itertools = "0.10.5"
 lazy_static = "1.4.0"
 log = "0.4.16"
 lru = "0.7.5"
+menubar = { git = "https://github.com/madsmtm/menubar", rev = "4690f2a193e387b32273f4c3f31e4a3ae203c41e" }
 neovide-derive = { path = "neovide-derive" }
 num = "0.4.1"
 nvim-rs = { version = "0.6.0", features = ["use_tokio"] }
