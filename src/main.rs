@@ -41,7 +41,7 @@ use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
 use log::trace;
 
 use backtrace::Backtrace;
-use bridge::start_bridge;
+use bridge::NeovimRuntime;
 use cmd_line::CmdLineSettings;
 use editor::start_editor;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
@@ -174,12 +174,15 @@ fn protected_main() -> ExitCode {
     CursorSettings::register();
     KeyboardSettings::register();
 
-    start_bridge();
-    start_editor();
-    maybe_disown();
-
+    let mut runtime = NeovimRuntime::new().unwrap();
+    runtime.launch();
     let event_loop = create_event_loop();
     let window = create_window(&event_loop);
+    runtime.attach();
+
+    maybe_disown();
+    start_editor();
+
     match main_loop(window, event_loop) {
         Ok(()) => 0,
         // All error codes have to be u8, so just do a direct cast with wrap around, even if the value is negative,
