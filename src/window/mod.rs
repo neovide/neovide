@@ -18,11 +18,15 @@ use winit::{
 };
 
 #[cfg(target_os = "macos")]
+use draw_background::draw_background;
+#[cfg(target_os = "macos")]
+use menubar::appkit::{
+    InitializedApplication, MainThreadMarker, MenuBar, MenuItemWrapper, MenuWrapper,
+};
+#[cfg(target_os = "macos")]
 use winit::platform::macos::EventLoopBuilderExtMacOS;
 #[cfg(target_os = "macos")]
 use winit::platform::macos::WindowBuilderExtMacOS;
-#[cfg(target_os = "macos")]
-use draw_background::draw_background;
 
 #[cfg(target_os = "linux")]
 use winit::platform::wayland::WindowBuilderExtWayland;
@@ -175,6 +179,8 @@ pub fn create_window(event_loop: &EventLoop<UserEvent>) -> GlWindow {
     #[cfg(target_os = "macos")]
     let winit_window_builder = winit_window_builder.with_accepts_first_mouse(false);
 
+    create_menu();
+
     let gl_window = build_window(winit_window_builder, event_loop);
     let window = &gl_window.window;
 
@@ -303,4 +309,58 @@ pub fn main_loop(window: GlWindow, event_loop: EventLoop<UserEvent>) {
             std::process::exit(RUNNING_TRACKER.exit_code());
         }
     });
+}
+
+#[cfg(target_os = "macos")]
+fn create_menu() {
+    let (menubar, window_menu, services_menu, help_menu) = {
+        let mtm = MainThreadMarker::new().unwrap();
+        let mut services_menu = None;
+
+        let mut menubar = MenuBar::new(mtm, |menu| {
+            menu.add(MenuItemWrapper::new("item 1", "a", None));
+            menu.add(MenuItemWrapper::new_separator());
+            menu.add({
+                let item = MenuItemWrapper::new("Services", "", None);
+                services_menu = item.set_submenu({
+                    let submenu = MenuWrapper::new(mtm);
+                    submenu.add(MenuItemWrapper::new(
+                        "will get removed or disappear?",
+                        "",
+                        None,
+                    ));
+                    Some(submenu)
+                });
+                item
+            });
+            menu.add(MenuItemWrapper::new_separator());
+        });
+
+        let window_menu = menubar.add("Window", |_menu| {});
+
+        let help_menu = menubar.add("Help", |menu| {
+            menu.add(MenuItemWrapper::new("Neovide website", "", None));
+        });
+
+        (menubar, window_menu, services_menu.unwrap(), help_menu)
+    };
+    let mtm = MainThreadMarker::new().unwrap();
+    let app = unsafe { InitializedApplication::new(mtm) };
+    let menubar = std::cell::Cell::new(Some(menubar));
+
+    app.set_window_menu(&window_menu);
+    app.set_services_menu(&services_menu);
+    app.set_help_menu(Some(&help_menu));
+    let menubar = app.set_menubar(menubar.take().unwrap());
+    assert_eq!(menubar, app.menubar().unwrap());
+}
+
+#[cfg(target_os = "windows")]
+fn create_menu() {
+    // do stuff
+}
+
+#[cfg(target_os = "linux")]
+fn create_menu() {
+    // do stuff
 }
