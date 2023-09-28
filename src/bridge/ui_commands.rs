@@ -150,30 +150,25 @@ impl ParallelCommand {
                 nvim.ui_set_focus(true).await.expect("Focus Gained Failed")
             }
             ParallelCommand::FileDrop(path) => {
-                nvim.call_function(
-                    "nvim_cmd",
-                    call_args![
-                        Value::Map(vec![
-                            (
-                                Value::String("cmd".to_owned().into()),
-                                Value::String("edit".to_owned().into()),
-                            ),
-                            (
-                                Value::String("magic".to_owned().into()),
-                                Value::Map(vec![
-                                    (
-                                        Value::String("file".to_owned().into()),
-                                        Value::Boolean(false),
-                                    ),
-                                ]),
-                            ),
-                            (
-                                Value::String("args".to_owned().into()),
-                                Value::Array(vec![Value::String(path.to_owned().into())]),
-                            ),
-                        ]),
-                        Value::Map(vec![]),
+                nvim.cmd(
+                    vec![
+                        (
+                            Value::String("cmd".to_owned().into()),
+                            Value::String("edit".to_owned().into()),
+                        ),
+                        (
+                            Value::String("magic".to_owned().into()),
+                            Value::Map(vec![(
+                                Value::String("file".to_owned().into()),
+                                Value::Boolean(false),
+                            )]),
+                        ),
+                        (
+                            Value::String("args".to_owned().into()),
+                            Value::Array(vec![Value::String(path.to_owned().into())]),
+                        ),
                     ],
+                    vec![],
                 )
                 .await
                 .ok();
