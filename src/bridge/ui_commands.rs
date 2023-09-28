@@ -4,7 +4,7 @@ use std::sync::Arc;
 use log::error;
 use log::trace;
 
-use nvim_rs::{call_args, rpc::model::IntoVal, Neovim};
+use nvim_rs::{call_args, rpc::model::IntoVal, Neovim, Value};
 use tokio::sync::mpsc::unbounded_channel;
 
 #[cfg(windows)]
@@ -150,7 +150,33 @@ impl ParallelCommand {
                 nvim.ui_set_focus(true).await.expect("Focus Gained Failed")
             }
             ParallelCommand::FileDrop(path) => {
-                nvim.command(format!("e {path}").as_str()).await.ok();
+                nvim.call_function(
+                    "nvim_cmd",
+                    call_args![
+                        Value::Map(vec![
+                            (
+                                Value::String("cmd".to_owned().into()),
+                                Value::String("edit".to_owned().into()),
+                            ),
+                            (
+                                Value::String("magic".to_owned().into()),
+                                Value::Map(vec![
+                                    (
+                                        Value::String("file".to_owned().into()),
+                                        Value::Boolean(false),
+                                    ),
+                                ]),
+                            ),
+                            (
+                                Value::String("args".to_owned().into()),
+                                Value::Array(vec![Value::String(path.to_owned().into())]),
+                            ),
+                        ]),
+                        Value::Map(vec![]),
+                    ],
+                )
+                .await
+                .ok();
             }
             ParallelCommand::SetBackground(background) => {
                 nvim.command(format!("set background={}", background).as_str())
