@@ -318,22 +318,20 @@ fn create_menu() {
         let mut services_menu = None;
 
         let mut menubar = MenuBar::new(mtm, |menu| {
-            menu.add(MenuItemWrapper::new("item 1", "a", None));
+            menu.add(MenuItemWrapper::new("About Neovide", "", None));
             menu.add(MenuItemWrapper::new_separator());
             menu.add({
                 let item = MenuItemWrapper::new("Services", "", None);
                 services_menu = item.set_submenu({
                     let submenu = MenuWrapper::new(mtm);
-                    submenu.add(MenuItemWrapper::new(
-                        "will get removed or disappear?",
-                        "",
-                        None,
-                    ));
                     Some(submenu)
                 });
                 item
             });
             menu.add(MenuItemWrapper::new_separator());
+            menu.add(MenuItemWrapper::new("Hide Neovide", "h", None));
+            menu.add(MenuItemWrapper::new_separator());
+            menu.add(MenuItemWrapper::new("Quit Neovide", "q", None));
         });
 
         let window_menu = menubar.add("Window", |_menu| {});
