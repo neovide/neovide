@@ -50,6 +50,7 @@ pub enum WindowCommand {
     TitleChanged(String),
     SetMouseEnabled(bool),
     ListAvailableFonts,
+    FocusWindow,
 }
 
 pub fn create_window() {

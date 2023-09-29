@@ -184,6 +184,9 @@ impl WinitWindowWrapper {
                     self.mouse_manager.enabled = mouse_enabled
                 }
                 WindowCommand::ListAvailableFonts => self.send_font_names(),
+                WindowCommand::FocusWindow => {
+                    self.windowed_context.window().focus_window();
+                }
             }
         }
     }
