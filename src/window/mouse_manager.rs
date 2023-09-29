@@ -67,6 +67,29 @@ struct TouchTrace {
     left_deadzone_once: bool,
 }
 
+struct ScrolledPixels {
+    x: f32,
+    y: f32,
+}
+
+impl ScrolledPixels {
+    fn new() -> ScrolledPixels {
+        ScrolledPixels { x: 0., y: 0. }
+    }
+
+    fn reset(&mut self) {
+        self.x = 0.;
+        self.y = 0.;
+    }
+
+    fn to_lines(&self, font_width: u64, font_height: u64) -> (f32, f32) {
+        (
+            self.x.round() / font_width as f32,
+            self.y.round() / font_height as f32,
+        )
+    }
+}
+
 pub struct MouseManager {
     dragging: Option<String>,
     drag_position: PhysicalPosition<u32>,
@@ -75,10 +98,9 @@ pub struct MouseManager {
     position: PhysicalPosition<u32>,
     relative_position: PhysicalPosition<u32>,
 
-    scroll_position: PhysicalPosition<f32>,
-
     // the tuple allows to keep track of different fingers per device
     touch_position: HashMap<(DeviceId, u64), TouchTrace>,
+    pending_pixels: ScrolledPixels,
 
     window_details_under_mouse: Option<WindowDrawDetails>,
 
@@ -94,8 +116,8 @@ impl MouseManager {
             position: PhysicalPosition::new(0, 0),
             relative_position: PhysicalPosition::new(0, 0),
             drag_position: PhysicalPosition::new(0, 0),
-            scroll_position: PhysicalPosition::new(0.0, 0.0),
             touch_position: HashMap::new(),
+            pending_pixels: ScrolledPixels::new(),
             window_details_under_mouse: None,
             mouse_hidden: false,
             enabled: true,
@@ -245,16 +267,12 @@ impl MouseManager {
         }
     }
 
-    fn handle_line_scroll(&mut self, x: f32, y: f32, keyboard_manager: &KeyboardManager) {
+    fn handle_line_scroll(&self, x: f32, y: f32, keyboard_manager: &KeyboardManager) {
         if !self.enabled {
             return;
         }
 
-        let previous_y = self.scroll_position.y as i64;
-        self.scroll_position.y += y;
-        let new_y = self.scroll_position.y as i64;
-
-        let vertical_input_type = match new_y.partial_cmp(&previous_y) {
+        let vertical_input_type = match y.partial_cmp(&0.) {
             Some(Ordering::Greater) => Some("up"),
             Some(Ordering::Less) => Some("down"),
             _ => None,
@@ -272,16 +290,12 @@ impl MouseManager {
                 modifier_string: keyboard_manager.format_modifier_string("", true),
             }
             .into();
-            for _ in 0..(new_y - previous_y).abs() {
+            for _ in 0..y.abs().max(1.) as i32 {
                 EVENT_AGGREGATOR.send(scroll_command.clone());
             }
         }
 
-        let previous_x = self.scroll_position.x as i64;
-        self.scroll_position.x += x;
-        let new_x = self.scroll_position.x as i64;
-
-        let horizontal_input_type = match new_x.partial_cmp(&previous_x) {
+        let horizontal_input_type = match x.partial_cmp(&0.) {
             Some(Ordering::Greater) => Some("left"),
             Some(Ordering::Less) => Some("right"),
             _ => None,
@@ -299,7 +313,7 @@ impl MouseManager {
                 modifier_string: keyboard_manager.format_modifier_string("", true),
             }
             .into();
-            for _ in 0..(new_x - previous_x).abs() {
+            for _ in 0..x.abs().max(1.) as i32 {
                 EVENT_AGGREGATOR.send(scroll_command.clone());
             }
         }
@@ -311,11 +325,15 @@ impl MouseManager {
         (pixel_x, pixel_y): (f32, f32),
         keyboard_manager: &KeyboardManager,
     ) {
-        self.handle_line_scroll(
-            pixel_x / font_width as f32,
-            pixel_y / font_height as f32,
-            keyboard_manager,
-        );
+        self.pending_pixels.x += pixel_x;
+        self.pending_pixels.y += pixel_y;
+
+        let (lines_x, lines_y) = self.pending_pixels.to_lines(font_width, font_height);
+
+        if lines_x.abs() > 0. || lines_y.abs() > 0. {
+            self.handle_line_scroll(lines_x, lines_y, keyboard_manager);
+            self.pending_pixels.reset();
+        }
     }
 
     fn handle_touch(

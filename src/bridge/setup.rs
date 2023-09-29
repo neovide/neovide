@@ -140,6 +140,9 @@ pub async fn setup_neovide_specific_state(
     nvim.set_option("termguicolors", Value::Boolean(true))
         .await
         .ok();
+    nvim.set_option("mousescroll", Value::from("ver:1,hor:1"))
+        .await
+        .ok();
 
     // Create auto command for retrieving exit code from neovim on quit.
     nvim.command("autocmd VimLeave * call rpcnotify(1, 'neovide.quit', v:exiting)")
