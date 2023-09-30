@@ -44,8 +44,8 @@ pub fn set_background(background: &str) {
 
 #[derive(PartialEq)]
 enum UIState {
-    Initing,    // Running init.vim/lua
-    Ready,      // No pending resizes
+    Initing, // Running init.vim/lua
+    Ready,   // No pending resizes
 }
 
 pub struct WinitWindowWrapper {
@@ -337,7 +337,7 @@ impl WinitWindowWrapper {
             should_render = true;
 
             self.windowed_context.window().set_visible(true);
-            if SETTINGS.get::<CmdLineSettings>().maximized
+            if SETTINGS.get::<CmdLineSettings>().geometry.maximized
                 || matches!(
                     load_last_window_settings().ok(),
                     Some(PersistentWindowSettings::Maximized)

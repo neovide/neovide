@@ -95,16 +95,19 @@ pub fn create_window(event_loop: &EventLoop<UserEvent>) -> GlWindow {
         _ => None,
     };
 
-    log::trace!("Settings geometry {:?}", cmd_line_settings.geometry,);
-    log::trace!("Settings size {:?}", cmd_line_settings.size);
+    log::trace!(
+        "Settings geometry {:?}",
+        cmd_line_settings.geometry.geometry,
+    );
+    log::trace!("Settings size {:?}", cmd_line_settings.geometry.size);
 
     let default_size = PhysicalSize {
         width: 500,
         height: 500,
     };
-    let inner_size = if let Some(size) = cmd_line_settings.size {
+    let inner_size = if let Some(size) = cmd_line_settings.geometry.size {
         size.into()
-    } else if cmd_line_settings.geometry.is_some() {
+    } else if cmd_line_settings.geometry.geometry.is_some() {
         default_size
     } else {
         match window_settings {
