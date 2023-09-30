@@ -179,12 +179,6 @@ impl WinitWindowWrapper {
                     log::info!("Requested lines {lines}");
                     self.requested_lines = Some(lines);
                 }
-                WindowCommand::UIReady => {
-                    log::info!("UIReady");
-                    if self.ui_state == UIState::Initing {
-                        self.ui_state = UIState::ShouldShow;
-                    }
-                }
             }
         }
     }

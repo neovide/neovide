@@ -31,17 +31,6 @@ const REGISTER_CLIPBOARD_PROVIDER_LUA: &str = r"
         cache_enabled = 0
     }";
 
-const UI_ENTER_LUA: &str = r"
-    local initial_columns, initial_lines, force = ...
-    vim.api.nvim_create_autocmd({ 'UIEnter' }, {
-        pattern = '*',
-        once = true,
-        nested = true,
-        callback = function()
-            vim.rpcnotify(vim.g.neovide_channel_id, 'neovide.ui_ready')
-        end
-    })";
-
 pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<NeovimWriter>) {
     // Users can opt-out with
     // vim: `let g:neovide_no_custom_clipboard = v:true`
@@ -170,8 +159,6 @@ pub async fn setup_neovide_specific_state(
     )
     .await
     .ok();
-
-    nvim.execute_lua(UI_ENTER_LUA, vec![]).await.ok();
 
     setup_intro_message_autocommand(nvim).await.ok();
 }

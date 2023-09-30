@@ -63,7 +63,6 @@ pub enum WindowCommand {
     ListAvailableFonts,
     Columns(u64),
     Lines(u64),
-    UIReady,
 }
 
 #[allow(dead_code)]
