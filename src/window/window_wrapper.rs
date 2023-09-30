@@ -63,6 +63,7 @@ pub struct WinitWindowWrapper {
     saved_grid_size: Dimensions,
     window_command_receiver: UnboundedReceiver<WindowCommand>,
     ime_enabled: bool,
+    ime_position: PhysicalPosition<i32>,
     requested_columns: Option<u64>,
     requested_lines: Option<u64>,
     ui_state: UIState,
@@ -115,6 +116,7 @@ impl WinitWindowWrapper {
             saved_grid_size: DEFAULT_WINDOW_GEOMETRY,
             window_command_receiver,
             ime_enabled,
+            ime_position: PhysicalPosition::new(-1, -1),
             requested_columns: None,
             requested_lines: None,
             ui_state: UIState::Initing,
@@ -314,8 +316,6 @@ impl WinitWindowWrapper {
         tracy_zone!("prepare_frame", 0);
         let mut should_render = false;
 
-        let window = self.windowed_context.window();
-
         let window_settings = SETTINGS.get::<WindowSettings>();
         let window_padding = WindowPadding {
             top: window_settings.padding_top,
@@ -326,7 +326,6 @@ impl WinitWindowWrapper {
         let padding_changed = window_padding != self.window_padding;
 
         let resize_requested = self.requested_columns.is_some() || self.requested_lines.is_some();
-        let prev_cursor_position = self.renderer.get_cursor_position();
 
         let handle_draw_commands_result = self.renderer.handle_draw_commands();
 
@@ -346,6 +345,8 @@ impl WinitWindowWrapper {
             {
                 self.windowed_context.window().set_maximized(true);
             }
+            // Ensure that the window has the correct IME state
+            self.set_ime(self.ime_enabled);
         }
 
         // Don't render until the the UI is fully entered and the window is shown
@@ -359,7 +360,7 @@ impl WinitWindowWrapper {
             // The new window size will then be processed in the following frame.
             self.update_window_size_from_grid(&window_padding);
         } else {
-            let new_size = window.inner_size();
+            let new_size = self.windowed_context.window().inner_size();
             if self.saved_inner_size != new_size || self.font_changed_last_frame || padding_changed
             {
                 self.window_padding = window_padding;
@@ -372,19 +373,7 @@ impl WinitWindowWrapper {
             }
         }
 
-        let current_cursor_position = self.renderer.get_cursor_position();
-        if current_cursor_position != prev_cursor_position {
-            let font_dimensions = self.renderer.grid_renderer.font_dimensions;
-            let position = PhysicalPosition::new(
-                current_cursor_position.x.round() as i32,
-                current_cursor_position.y.round() as i32 + font_dimensions.height as i32,
-            );
-            self.windowed_context.window().set_ime_cursor_area(
-                Position::Physical(position),
-                PhysicalSize::new(100, font_dimensions.height as u32),
-            );
-            should_render = true;
-        }
+        self.update_ime_position();
 
         should_render
     }
@@ -448,6 +437,22 @@ impl WinitWindowWrapper {
             width: grid_size.width,
             height: grid_size.height,
         }));
+    }
+
+    fn update_ime_position(&mut self) {
+        let font_dimensions = self.renderer.grid_renderer.font_dimensions;
+        let cursor_position = self.renderer.get_cursor_position();
+        let position = PhysicalPosition::new(
+            cursor_position.x.round() as i32,
+            cursor_position.y.round() as i32 + font_dimensions.height as i32,
+        );
+        if position != self.ime_position {
+            self.ime_position = position;
+            self.windowed_context.window().set_ime_cursor_area(
+                Position::Physical(position),
+                PhysicalSize::new(100, font_dimensions.height as u32),
+            );
+        }
     }
 
     fn handle_scale_factor_update(&mut self, scale_factor: f64) {
