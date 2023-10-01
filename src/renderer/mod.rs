@@ -14,12 +14,13 @@ use std::{
 };
 
 use log::error;
-use skia_safe::{Canvas, Point};
+use skia_safe::{Canvas, Point, Rect};
 use tokio::sync::mpsc::UnboundedReceiver;
 use winit::event::Event;
 
 use crate::{
     bridge::EditorMode,
+    dimensions::Dimensions,
     editor::{Cursor, Style},
     event_aggregator::EVENT_AGGREGATOR,
     profiling::tracy_zone,
@@ -31,9 +32,7 @@ use crate::{
 use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
-pub use rendered_window::{
-    LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails, WindowPadding,
-};
+pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails};
 
 pub use opengl::{build_context, build_window, Context as WindowedContext, GlWindow};
 pub use vsync::VSync;
@@ -93,7 +92,6 @@ pub struct Renderer {
     profiler: profiler::Profiler,
     os_scale_factor: f64,
     user_scale_factor: f64,
-    pub window_padding: WindowPadding,
 }
 
 /// Results of processing the draw commands from the command channel.
@@ -118,13 +116,6 @@ impl Renderer {
         let batched_draw_command_receiver = EVENT_AGGREGATOR.register_event::<Vec<DrawCommand>>();
         let profiler = profiler::Profiler::new(12.0);
 
-        let window_padding = WindowPadding {
-            top: window_settings.padding_top,
-            left: window_settings.padding_left,
-            right: window_settings.padding_right,
-            bottom: window_settings.padding_bottom,
-        };
-
         Renderer {
             rendered_windows,
             cursor_renderer,
@@ -135,7 +126,6 @@ impl Renderer {
             profiler,
             os_scale_factor,
             user_scale_factor,
-            window_padding,
         }
     }
 
@@ -175,7 +165,7 @@ impl Renderer {
                 .rendered_windows
                 .values_mut()
                 .filter(|window| !window.hidden)
-                .partition(|window| window.floating_order.is_none());
+                .partition(|window| window.anchor_info.is_none());
 
             root_windows
                 .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
@@ -190,10 +180,6 @@ impl Renderer {
         self.window_regions = windows
             .into_iter()
             .map(|window| {
-                if window.padding != self.window_padding {
-                    window.padding = self.window_padding;
-                }
-
                 window.draw(
                     root_canvas,
                     &settings,
@@ -211,7 +197,12 @@ impl Renderer {
         root_canvas.restore();
     }
 
-    pub fn animate_frame(&mut self, dt: f32) -> bool {
+    pub fn animate_frame(
+        &mut self,
+        window_size: &Dimensions,
+        padding_as_grid: &Rect,
+        dt: f32,
+    ) -> bool {
         let windows = {
             let (mut root_windows, mut floating_windows): (
                 Vec<&mut RenderedWindow>,
@@ -220,7 +211,7 @@ impl Renderer {
                 .rendered_windows
                 .values_mut()
                 .filter(|window| !window.hidden)
-                .partition(|window| window.floating_order.is_none());
+                .partition(|window| window.anchor_info.is_none());
 
             root_windows
                 .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
@@ -231,10 +222,11 @@ impl Renderer {
         };
 
         let settings = SETTINGS.get::<RendererSettings>();
-
         // Clippy recommends short-circuiting with any which is not what we want
         #[allow(clippy::unnecessary_fold)]
-        let mut animating = windows.fold(false, |acc, window| acc | window.animate(&settings, dt));
+        let mut animating = windows.fold(false, |acc, window| {
+            acc | window.animate(&settings, window_size, padding_as_grid, dt)
+        });
 
         let windows = &self.rendered_windows;
         let font_dimensions = self.grid_renderer.font_dimensions;
@@ -304,8 +296,7 @@ impl Renderer {
                 match self.rendered_windows.entry(grid_id) {
                     Entry::Occupied(mut occupied_entry) => {
                         let rendered_window = occupied_entry.get_mut();
-                        rendered_window
-                            .handle_window_draw_command(&mut self.grid_renderer, command);
+                        rendered_window.handle_window_draw_command(command);
                     }
                     Entry::Vacant(vacant_entry) => {
                         if let WindowDrawCommand::Position {
@@ -318,7 +309,6 @@ impl Renderer {
                                 grid_id,
                                 (grid_left as f32, grid_top as f32).into(),
                                 (width, height).into(),
-                                self.window_padding,
                             );
                             vacant_entry.insert(new_window);
                         } else {
@@ -361,9 +351,11 @@ impl Renderer {
 fn floating_sort(window_a: &&mut RenderedWindow, window_b: &&mut RenderedWindow) -> Ordering {
     // First, compare floating order
     let mut ord = window_a
-        .floating_order
+        .anchor_info
+        .as_ref()
         .unwrap()
-        .partial_cmp(&window_b.floating_order.unwrap())
+        .sort_order
+        .partial_cmp(&window_b.anchor_info.as_ref().unwrap().sort_order)
         .unwrap();
     if ord == Ordering::Equal {
         // if equal, compare grid pos x

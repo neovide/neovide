@@ -1,13 +1,13 @@
 use std::sync::{Arc, Mutex};
 
 use skia_safe::{
-    canvas::SaveLayerRec, image_filters::blur, BlendMode, Canvas, Color, Matrix, Paint, Picture,
-    PictureRecorder, Point, Rect,
+    canvas::SaveLayerRec, image_filters::blur, scalar, BlendMode, Canvas, Color, Matrix, Paint,
+    Picture, PictureRecorder, Point, Rect,
 };
 
 use crate::{
     dimensions::Dimensions,
-    editor::Style,
+    editor::{AnchorInfo, Style, WindowType},
     profiling::tracy_zone,
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
     utils::RingBuffer,
@@ -26,7 +26,8 @@ pub enum WindowDrawCommand {
     Position {
         grid_position: (f64, f64),
         grid_size: (u64, u64),
-        floating_order: Option<u64>,
+        anchor_info: Option<AnchorInfo>,
+        window_type: WindowType,
     },
     DrawLine {
         row: usize,
@@ -49,14 +50,6 @@ pub enum WindowDrawCommand {
     },
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct WindowPadding {
-    pub top: u32,
-    pub left: u32,
-    pub right: u32,
-    pub bottom: u32,
-}
-
 #[derive(Clone)]
 struct Line {
     line_fragments: Vec<LineFragment>,
@@ -71,7 +64,8 @@ pub struct RenderedWindow {
 
     pub id: u64,
     pub hidden: bool,
-    pub floating_order: Option<u64>,
+    pub anchor_info: Option<AnchorInfo>,
+    window_type: WindowType,
 
     pub grid_size: Dimensions,
 
@@ -86,8 +80,6 @@ pub struct RenderedWindow {
 
     pub scroll_animation: CriticallyDampedSpringAnimation,
 
-    pub padding: WindowPadding,
-
     has_transparency: bool,
 }
 
@@ -99,17 +91,13 @@ pub struct WindowDrawDetails {
 }
 
 impl RenderedWindow {
-    pub fn new(
-        id: u64,
-        grid_position: Point,
-        grid_size: Dimensions,
-        padding: WindowPadding,
-    ) -> RenderedWindow {
+    pub fn new(id: u64, grid_position: Point, grid_size: Dimensions) -> RenderedWindow {
         RenderedWindow {
             vertical_position: 0.0,
             id,
             hidden: false,
-            floating_order: None,
+            anchor_info: None,
+            window_type: WindowType::Editor,
 
             grid_size,
 
@@ -124,7 +112,6 @@ impl RenderedWindow {
 
             scroll_animation: CriticallyDampedSpringAnimation::new(),
 
-            padding,
             has_transparency: false,
         }
     }
@@ -140,8 +127,55 @@ impl RenderedWindow {
         Rect::from_point_and_size(current_pixel_position, image_size)
     }
 
+    fn get_target_position(&self, outer_size: &Dimensions, padding_as_grid: &Rect) -> Point {
+        let destination = Point {
+            x: self.grid_destination.x + padding_as_grid.left,
+            y: self.grid_destination.y + padding_as_grid.top,
+        };
+
+        if self.anchor_info.is_none() {
+            return destination;
+        }
+
+        // Note the rect is always as far top/left as possible, which means that the right and
+        // bottom paddings might be bigger than requested. This is done in order to avoid the text
+        // moving around when the window is resized.
+        let valid_rect = Rect {
+            left: padding_as_grid.left,
+            right: padding_as_grid.left + outer_size.width as scalar,
+            top: padding_as_grid.top,
+            bottom: padding_as_grid.top + outer_size.height as scalar,
+        };
+
+        let mut grid_size = Point::new(self.grid_size.width as f32, self.grid_size.height as f32);
+        if self.window_type == WindowType::Message {
+            // The message grid size is always the full window size, so use the relative position to
+            // calculate the actual grid size
+            grid_size.y -= self.grid_destination.y;
+        }
+
+        let x = destination
+            .x
+            .min(valid_rect.right - grid_size.x)
+            .max(valid_rect.left);
+
+        // For messages the last line is most important, (it shows press enter), so let the position go negative
+        // Otherwise ensure that the window start row is within the screen
+        let mut y = destination.y.min(valid_rect.bottom - grid_size.y);
+        if self.window_type != WindowType::Message {
+            y = y.max(valid_rect.top)
+        }
+        Point { x, y }
+    }
+
     /// Returns `true` if the window has been animated in this step.
-    pub fn animate(&mut self, settings: &RendererSettings, dt: f32) -> bool {
+    pub fn animate(
+        &mut self,
+        settings: &RendererSettings,
+        outer_size: &Dimensions,
+        padding_as_grid: &Rect,
+        dt: f32,
+    ) -> bool {
         let mut animating = false;
 
         if 1.0 - self.position_t < std::f32::EPSILON {
@@ -152,12 +186,14 @@ impl RenderedWindow {
             self.position_t = (self.position_t + dt / settings.position_animation_length).min(1.0);
         }
 
+        let prev_positon = self.grid_current_position;
         self.grid_current_position = ease_point(
             ease_out_expo,
             self.grid_start_position,
-            self.grid_destination,
+            self.get_target_position(outer_size, padding_as_grid),
             self.position_t,
         );
+        animating |= self.grid_current_position != prev_positon;
 
         animating |= self
             .scroll_animation
@@ -243,7 +279,7 @@ impl RenderedWindow {
         let has_transparency = default_background.a() != 255 || self.has_transparency();
 
         let pixel_region = self.pixel_region(font_dimensions);
-        let transparent_floating = self.floating_order.is_some() && has_transparency;
+        let transparent_floating = self.anchor_info.is_some() && has_transparency;
 
         root_canvas.save();
         root_canvas.clip_rect(pixel_region, None, Some(false));
@@ -275,7 +311,7 @@ impl RenderedWindow {
         let paint = Paint::default()
             .set_anti_alias(false)
             .set_color(Color::from_argb(255, 255, 255, default_background.a()))
-            .set_blend_mode(if self.floating_order.is_some() {
+            .set_blend_mode(if self.anchor_info.is_some() {
                 BlendMode::SrcOver
             } else {
                 BlendMode::Src
@@ -298,34 +334,23 @@ impl RenderedWindow {
         WindowDrawDetails {
             id: self.id,
             region: pixel_region,
-            floating_order: self.floating_order,
+            floating_order: self.anchor_info.as_ref().map(|v| v.sort_order),
         }
     }
 
-    pub fn handle_window_draw_command(
-        &mut self,
-        grid_renderer: &mut GridRenderer,
-        draw_command: WindowDrawCommand,
-    ) {
+    pub fn handle_window_draw_command(&mut self, draw_command: WindowDrawCommand) {
         match draw_command {
             WindowDrawCommand::Position {
                 grid_position: (grid_left, grid_top),
                 grid_size,
-                floating_order,
+                anchor_info,
+                window_type,
             } => {
                 tracy_zone!("position_cmd", 0);
-                let Dimensions {
-                    width: font_width,
-                    height: font_height,
-                } = grid_renderer.font_dimensions;
 
-                let top_offset = self.padding.top as f32 / font_height as f32;
-                let left_offset = self.padding.left as f32 / font_width as f32;
-
-                let grid_left = grid_left.max(0.0);
-                let grid_top = grid_top.max(0.0);
-                let new_destination: Point =
-                    (grid_left as f32 + left_offset, grid_top as f32 + top_offset).into();
+                let grid_left = grid_left.max(0.0) as f32;
+                let grid_top = grid_top.max(0.0) as f32;
+                let new_destination: Point = (grid_left, grid_top).into();
                 let new_grid_size: Dimensions = grid_size.into();
 
                 if self.grid_destination != new_destination {
@@ -351,7 +376,8 @@ impl RenderedWindow {
                 self.scrollback_lines.clone_from_iter(&self.actual_lines);
                 self.scroll_delta = 0;
 
-                self.floating_order = floating_order;
+                self.anchor_info = anchor_info;
+                self.window_type = window_type;
 
                 if self.hidden {
                     self.hidden = false;

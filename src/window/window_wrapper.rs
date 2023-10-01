@@ -9,7 +9,7 @@ use crate::{
     editor::EditorCommand,
     event_aggregator::EVENT_AGGREGATOR,
     profiling::{emit_frame_mark, tracy_gpu_collect, tracy_gpu_zone, tracy_zone},
-    renderer::{build_context, GlWindow, Renderer, VSync, WindowPadding, WindowedContext},
+    renderer::{build_context, GlWindow, Renderer, VSync, WindowedContext},
     running_tracker::RUNNING_TRACKER,
     settings::{DEFAULT_WINDOW_GEOMETRY, SETTINGS},
     window::{load_last_window_settings, PersistentWindowSettings},
@@ -17,6 +17,7 @@ use crate::{
 };
 
 use log::trace;
+use skia_safe::{scalar, Rect};
 use tokio::sync::mpsc::UnboundedReceiver;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize, Position},
@@ -26,6 +27,14 @@ use winit::{
 
 const MIN_WINDOW_WIDTH: u64 = 20;
 const MIN_WINDOW_HEIGHT: u64 = 6;
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct WindowPadding {
+    pub top: u32,
+    pub left: u32,
+    pub right: u32,
+    pub bottom: u32,
+}
 
 pub fn set_background(background: &str) {
     EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::SetBackground(
@@ -57,6 +66,7 @@ pub struct WinitWindowWrapper {
     requested_columns: Option<u64>,
     requested_lines: Option<u64>,
     ui_state: UIState,
+    window_padding: WindowPadding,
 }
 
 impl WinitWindowWrapper {
@@ -108,6 +118,12 @@ impl WinitWindowWrapper {
             requested_columns: None,
             requested_lines: None,
             ui_state: UIState::Initing,
+            window_padding: WindowPadding {
+                left: 0,
+                right: 0,
+                top: 0,
+                bottom: 0,
+            },
         };
 
         wrapper.set_ime(ime_enabled);
@@ -294,7 +310,12 @@ impl WinitWindowWrapper {
 
     pub fn animate_frame(&mut self, dt: f32) -> bool {
         tracy_zone!("animate_frame", 0);
-        self.renderer.animate_frame(dt)
+
+        self.renderer.animate_frame(
+            &self.get_grid_size_from_window(0, 0),
+            &self.padding_as_grid(),
+            dt,
+        )
     }
 
     /// Prepares a frame to render.
@@ -313,7 +334,7 @@ impl WinitWindowWrapper {
             right: window_settings.padding_right,
             bottom: window_settings.padding_bottom,
         };
-        let padding_changed = window_padding != self.renderer.window_padding;
+        let padding_changed = window_padding != self.window_padding;
 
         let resize_requested = self.requested_columns.is_some() || self.requested_lines.is_some();
 
@@ -338,7 +359,7 @@ impl WinitWindowWrapper {
             let new_size = window.inner_size();
             if self.saved_inner_size != new_size || self.font_changed_last_frame || padding_changed
             {
-                self.renderer.window_padding = window_padding;
+                self.window_padding = window_padding;
                 self.font_changed_last_frame = false;
                 self.saved_inner_size = new_size;
 
@@ -351,6 +372,7 @@ impl WinitWindowWrapper {
         let prev_cursor_position = self.renderer.get_cursor_position();
 
         let handle_draw_commands_result = self.renderer.handle_draw_commands();
+
         self.font_changed_last_frame |= handle_draw_commands_result.font_changed;
         should_render |= handle_draw_commands_result.any_handled;
 
@@ -401,8 +423,8 @@ impl WinitWindowWrapper {
         window.set_inner_size(new_size);
     }
 
-    fn get_grid_size_from_window(&self) -> Dimensions {
-        let window_padding = self.renderer.window_padding;
+    fn get_grid_size_from_window(&self, min_width: u64, min_height: u64) -> Dimensions {
+        let window_padding = self.window_padding;
         let window_padding_width = window_padding.left + window_padding.right;
         let window_padding_height = window_padding.top + window_padding.bottom;
 
@@ -417,13 +439,13 @@ impl WinitWindowWrapper {
             .convert_physical_to_grid(content_size);
 
         Dimensions {
-            width: grid_size.width.max(MIN_WINDOW_WIDTH),
-            height: grid_size.height.max(MIN_WINDOW_HEIGHT),
+            width: grid_size.width.max(min_width),
+            height: grid_size.height.max(min_height),
         }
     }
 
     fn update_grid_size_from_window(&mut self) {
-        let grid_size = self.get_grid_size_from_window();
+        let grid_size = self.get_grid_size_from_window(MIN_WINDOW_WIDTH, MIN_WINDOW_HEIGHT);
 
         if self.saved_grid_size == grid_size {
             trace!("Grid matched saved size, skip update.");
@@ -439,5 +461,15 @@ impl WinitWindowWrapper {
     fn handle_scale_factor_update(&mut self, scale_factor: f64) {
         self.renderer.handle_os_scale_factor_change(scale_factor);
         EVENT_AGGREGATOR.send(EditorCommand::RedrawScreen);
+    }
+
+    fn padding_as_grid(&self) -> Rect {
+        let font_dimensions = self.renderer.grid_renderer.font_dimensions;
+        Rect {
+            left: self.window_padding.left as scalar / font_dimensions.width as scalar,
+            right: self.window_padding.right as scalar / font_dimensions.width as scalar,
+            top: self.window_padding.top as scalar / font_dimensions.height as scalar,
+            bottom: self.window_padding.bottom as scalar / font_dimensions.height as scalar,
+        }
     }
 }
