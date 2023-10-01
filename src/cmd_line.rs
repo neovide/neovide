@@ -224,7 +224,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_files_to_open_with_flag() {
-        let args: Vec<String> = vec!["neovide", "./foo.txt", "./bar.md", "--geometry=42x24"]
+        let args: Vec<String> = vec!["neovide", "./foo.txt", "./bar.md", "--grid=42x24"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -236,29 +236,29 @@ mod tests {
         );
 
         assert_eq!(
-            SETTINGS.get::<CmdLineSettings>().geometry,
-            Some(Dimensions {
+            SETTINGS.get::<CmdLineSettings>().geometry.grid,
+            Some(Some(Dimensions {
                 width: 42,
                 height: 24
-            }),
+            })),
         );
     }
 
     #[test]
     #[serial]
-    fn test_geometry() {
-        let args: Vec<String> = vec!["neovide", "--geometry=42x24"]
+    fn test_grid() {
+        let args: Vec<String> = vec!["neovide", "--grid=42x24"]
             .iter()
             .map(|s| s.to_string())
             .collect();
 
         handle_command_line_arguments(args).expect("Could not parse arguments");
         assert_eq!(
-            SETTINGS.get::<CmdLineSettings>().geometry,
-            Some(Dimensions {
+            SETTINGS.get::<CmdLineSettings>().geometry.grid,
+            Some(Some(Dimensions {
                 width: 42,
                 height: 24
-            }),
+            })),
         );
     }
 
@@ -272,7 +272,7 @@ mod tests {
 
         handle_command_line_arguments(args).expect("Could not parse arguments");
         assert_eq!(
-            SETTINGS.get::<CmdLineSettings>().size,
+            SETTINGS.get::<CmdLineSettings>().geometry.size,
             Some(Dimensions {
                 width: 420,
                 height: 240,
