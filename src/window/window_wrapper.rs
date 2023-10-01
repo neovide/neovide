@@ -51,9 +51,11 @@ enum UIState {
 }
 
 pub struct WinitWindowWrapper {
-    pub windowed_context: WindowedContext,
-    skia_renderer: SkiaRenderer,
+    // Don't rearrange this, unless you have a good reason to do so
+    // The destruction order has to be correct
     renderer: Renderer,
+    skia_renderer: SkiaRenderer,
+    pub windowed_context: WindowedContext,
     keyboard_manager: KeyboardManager,
     mouse_manager: MouseManager,
     title: String,
@@ -233,9 +235,6 @@ impl WinitWindowWrapper {
         );
         self.renderer.handle_event(&event);
         match event {
-            Event::LoopDestroyed => {
-                self.handle_quit();
-            }
             Event::Resumed => {
                 EVENT_AGGREGATOR.send(EditorCommand::RedrawScreen);
             }
@@ -248,8 +247,7 @@ impl WinitWindowWrapper {
             Event::WindowEvent {
                 event: WindowEvent::ScaleFactorChanged { scale_factor, .. },
                 ..
-            }
-            | Event::UserEvent(UserEvent::ScaleFactorChanged(scale_factor)) => {
+            } => {
                 self.handle_scale_factor_update(scale_factor);
             }
             Event::WindowEvent {
@@ -302,6 +300,7 @@ impl WinitWindowWrapper {
         }
         {
             tracy_gpu_zone!("swap buffers");
+            self.windowed_context.window().pre_present_notify();
             self.windowed_context.swap_buffers().unwrap();
         }
         emit_frame_mark();
@@ -420,7 +419,7 @@ impl WinitWindowWrapper {
             .convert_grid_to_physical(geometry);
         new_size.width += window_padding_width;
         new_size.height += window_padding_height;
-        window.set_inner_size(new_size);
+        let _ = window.request_inner_size(new_size);
     }
 
     fn get_grid_size_from_window(&self, min_width: u64, min_height: u64) -> Dimensions {
