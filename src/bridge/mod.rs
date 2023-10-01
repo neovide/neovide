@@ -8,7 +8,7 @@ mod ui_commands;
 
 use log::{error, info};
 use nvim_rs::{error::CallError, Neovim, UiAttachOptions, Value};
-use std::{io::Error, process::exit};
+use std::{io::Error, process::exit, sync::Arc};
 use tokio::{
     runtime::{Builder, Runtime},
     task::JoinHandle,
@@ -92,7 +92,7 @@ async fn launch() -> NeovimSession {
     let should_handle_clipboard = settings.wsl || settings.server.is_some();
     setup_neovide_specific_state(&session.neovim, should_handle_clipboard).await;
 
-    start_ui_command_handler(session.neovim.clone());
+    start_ui_command_handler(Arc::clone(&session.neovim));
     SETTINGS.read_initial_values(&session.neovim).await;
     SETTINGS.setup_changed_listeners(&session.neovim).await;
     session
