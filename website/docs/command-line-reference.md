@@ -47,7 +47,7 @@ Can be set to:
 
 Sets the initial neovide window size in pixels.
 
-Can not be used together with `--maximized`, or `--geometry`.
+Can not be used together with `--maximized`, or `--grid`.
 
 ### Maximized
 
@@ -61,22 +61,23 @@ visible.
 This is not the same as `g:neovide_fullscreen`, which runs Neovide in "exclusive fullscreen",
 covering up the entire screen.
 
-Can not be used together with `--size`, or `--geometry`.
+Can not be used together with `--size`, or `--grid`.
 
-### Geometry
-**Unreleased-yet**
+### Grid Size
 
 ```sh
---geometry [<columns>x<lines>]
+--grid [<columns>x<lines>]
 
 ```
+
+**Unreleased-yet.**
 
 Sets the initial grid size of the window. If no value is given, it defaults to
 columns/lines from `init.vim/lua`, see
 [columns](https://neovim.io/doc/user/options.html#'columns') and
-[lines](https://neovim.io/doc/user/options.html#'lines'). 
+[lines](https://neovim.io/doc/user/options.html#'lines').
 
-If the `--geometry` argument is not set then the geometry is inferred from the
+If the `--grid` argument is not set then the grid size is inferred from the
 window size.
 
 Note: After the initial size has been determined and `init.vim/lua` processed,

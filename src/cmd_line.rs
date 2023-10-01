@@ -118,9 +118,9 @@ pub struct CmdLineSettings {
 #[group(required = false, multiple = false)]
 pub struct GeometryArgs {
     /// The initial grid size of the window [<columns>x<lines>]. Defaults to columns/lines from init.vim/lua if no value is given.
-    /// If --geometry is not set then it's inferred from the window size
+    /// If --grid is not set then it's inferred from the window size
     #[arg(long)]
-    pub geometry: Option<Option<Dimensions>>,
+    pub grid: Option<Option<Dimensions>>,
 
     /// The size of the window in pixels.
     #[arg(long)]

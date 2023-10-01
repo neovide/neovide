@@ -182,11 +182,11 @@ fn protected_main() -> ExitCode {
     runtime.launch();
     let event_loop = create_event_loop();
     let window = create_window(&event_loop, &window_size);
-    let geometry = match window_size {
-        WindowSize::Geometry(geometry) => Some(geometry),
+    let grid_size = match window_size {
+        WindowSize::Grid(grid_size) => Some(grid_size),
         _ => None,
     };
-    runtime.attach(geometry);
+    runtime.attach(grid_size);
 
     maybe_disown();
     start_editor();

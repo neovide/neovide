@@ -339,13 +339,13 @@ impl WinitWindowWrapper {
                     self.windowed_context.window().set_visible(true);
                     self.windowed_context.window().set_maximized(true);
                 }
-                WindowSize::Geometry(Dimensions { width, height }) => {
+                WindowSize::Grid(Dimensions { width, height }) => {
                     self.requested_columns = Some(width);
                     self.requested_lines = Some(height);
                     log::info!("Showing window {width}, {height}");
                     // The visibility is changed after the size is adjusted
                 }
-                WindowSize::NeovimGeometry => {
+                WindowSize::NeovimGrid => {
                     let grid_size = self.renderer.get_grid_size();
                     self.requested_columns = Some(grid_size.width);
                     self.requested_lines = Some(grid_size.height);

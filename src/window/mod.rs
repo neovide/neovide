@@ -199,8 +199,8 @@ pub fn create_window(
 pub enum WindowSize {
     Size(PhysicalSize<u32>),
     Maximized,
-    Geometry(Dimensions),
-    NeovimGeometry, // The geometry is read from init.vim/lua
+    Grid(Dimensions),
+    NeovimGrid, // The geometry is read from init.vim/lua
 }
 
 pub fn determine_window_size() -> WindowSize {
@@ -209,13 +209,12 @@ pub fn determine_window_size() -> WindowSize {
 
     match cmd_line.geometry {
         GeometryArgs {
-            geometry: Some(Some(dimensions)),
+            grid: Some(Some(dimensions)),
             ..
-        } => WindowSize::Geometry(dimensions.clamped_grid_size()),
+        } => WindowSize::Grid(dimensions.clamped_grid_size()),
         GeometryArgs {
-            geometry: Some(None),
-            ..
-        } => WindowSize::NeovimGeometry,
+            grid: Some(None), ..
+        } => WindowSize::NeovimGrid,
         GeometryArgs {
             size: Some(dimensions),
             ..

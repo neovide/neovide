@@ -98,7 +98,7 @@ async fn launch() -> NeovimSession {
     session
 }
 
-async fn run(session: NeovimSession, geometry: Option<Dimensions>) {
+async fn run(session: NeovimSession, grid_size: Option<Dimensions>) {
     let settings = SETTINGS.get::<CmdLineSettings>();
     let mut options = UiAttachOptions::new();
     options.set_linegrid_external(true);
@@ -107,10 +107,10 @@ async fn run(session: NeovimSession, geometry: Option<Dimensions>) {
 
     // Triggers loading the user config
 
-    let geometry = geometry.map_or(DEFAULT_GRID_SIZE, |v| v.clamped_grid_size());
+    let grid_size = grid_size.map_or(DEFAULT_GRID_SIZE, |v| v.clamped_grid_size());
     session
         .neovim
-        .ui_attach(geometry.width as i64, geometry.height as i64, &options)
+        .ui_attach(grid_size.width as i64, grid_size.height as i64, &options)
         .await
         .unwrap_or_explained_panic("Could not attach ui to neovim process");
 
@@ -143,12 +143,12 @@ impl NeovimRuntime {
         self.state = RuntimeState::Launched(self.runtime.block_on(launch()));
     }
 
-    pub fn attach(&mut self, geometry: Option<Dimensions>) {
+    pub fn attach(&mut self, grid_size: Option<Dimensions>) {
         assert!(matches!(self.state, RuntimeState::Launched(..)));
         if let RuntimeState::Launched(session) =
             std::mem::replace(&mut self.state, RuntimeState::Invalid)
         {
-            self.state = RuntimeState::Attached(self.runtime.spawn(run(session, geometry)));
+            self.state = RuntimeState::Attached(self.runtime.spawn(run(session, grid_size)));
         }
     }
 }
