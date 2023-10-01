@@ -15,8 +15,8 @@ use tokio::{
 };
 
 use crate::{
-    cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation, running_tracker::*,
-    settings::*,
+    cmd_line::CmdLineSettings, dimensions::Dimensions, error_handling::ResultPanicExplanation,
+    running_tracker::*, settings::*,
 };
 use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
@@ -98,16 +98,16 @@ async fn launch() -> NeovimSession {
     session
 }
 
-async fn run(session: NeovimSession) {
+async fn run(session: NeovimSession, geometry: Option<Dimensions>) {
     let settings = SETTINGS.get::<CmdLineSettings>();
     let mut options = UiAttachOptions::new();
     options.set_linegrid_external(true);
     options.set_multigrid_external(!settings.no_multi_grid);
     options.set_rgb(true);
 
-    // Triggers loading the user's config
-    // Set to DEFAULT_WINDOW_GEOMETRY first, draw_frame will resize it later
-    let geometry = DEFAULT_WINDOW_GEOMETRY;
+    // Triggers loading the user config
+
+    let geometry = geometry.map_or(DEFAULT_GRID_SIZE, |v| v.clamped_grid_size());
     session
         .neovim
         .ui_attach(geometry.width as i64, geometry.height as i64, &options)
@@ -143,12 +143,12 @@ impl NeovimRuntime {
         self.state = RuntimeState::Launched(self.runtime.block_on(launch()));
     }
 
-    pub fn attach(&mut self) {
+    pub fn attach(&mut self, geometry: Option<Dimensions>) {
         assert!(matches!(self.state, RuntimeState::Launched(..)));
         if let RuntimeState::Launched(session) =
             std::mem::replace(&mut self.state, RuntimeState::Invalid)
         {
-            self.state = RuntimeState::Attached(self.runtime.spawn(run(session)));
+            self.state = RuntimeState::Attached(self.runtime.spawn(run(session, geometry)));
         }
     }
 }

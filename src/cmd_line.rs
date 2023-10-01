@@ -110,13 +110,13 @@ pub struct CmdLineSettings {
     pub x11_wm_class_instance: String,
 
     #[command(flatten)]
-    pub geometry: Geometry,
+    pub geometry: GeometryArgs,
 }
 
 // geometry, size and maximized are mutually exclusive
 #[derive(Clone, Debug, Args, PartialEq)]
 #[group(required = false, multiple = false)]
-pub struct Geometry {
+pub struct GeometryArgs {
     /// The initial grid size of the window [<columns>x<lines>]. Defaults to columns/lines from init.vim/lua if no value is given.
     /// If --geometry is not set then it's inferred from the window size
     #[arg(long)]

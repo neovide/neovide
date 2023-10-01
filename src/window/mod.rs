@@ -46,7 +46,8 @@ use update_loop::UpdateLoop;
 use window_wrapper::WinitWindowWrapper;
 
 use crate::{
-    cmd_line::CmdLineSettings,
+    cmd_line::{CmdLineSettings, GeometryArgs},
+    dimensions::Dimensions,
     frame::Frame,
     renderer::{build_window, GlWindow},
     running_tracker::*,
@@ -55,6 +56,11 @@ use crate::{
 pub use settings::{KeyboardSettings, WindowSettings};
 
 static ICON: &[u8] = include_bytes!("../../assets/neovide.ico");
+
+const DEFAULT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
+    width: 500,
+    height: 500,
+};
 
 #[derive(Clone, Debug)]
 pub enum WindowCommand {
@@ -75,7 +81,10 @@ pub fn create_event_loop() -> EventLoop<UserEvent> {
         .expect("Failed to create winit event loop")
 }
 
-pub fn create_window(event_loop: &EventLoop<UserEvent>) -> GlWindow {
+pub fn create_window(
+    event_loop: &EventLoop<UserEvent>,
+    initial_window_size: &WindowSize,
+) -> GlWindow {
     let icon = {
         let icon = load_from_memory(ICON).expect("Failed to parse icon data");
         let (width, height) = icon.dimensions();
@@ -88,41 +97,28 @@ pub fn create_window(event_loop: &EventLoop<UserEvent>) -> GlWindow {
 
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
 
-    let window_settings = load_last_window_settings();
+    let window_settings = load_last_window_settings().ok();
 
     let previous_position = match window_settings {
-        Ok(PersistentWindowSettings::Windowed { position, .. }) => Some(position),
+        Some(PersistentWindowSettings::Windowed { position, .. }) => Some(position),
         _ => None,
     };
 
-    log::trace!(
-        "Settings geometry {:?}",
-        cmd_line_settings.geometry.geometry,
-    );
-    log::trace!("Settings size {:?}", cmd_line_settings.geometry.size);
+    log::trace!("Settings initial_window_size {:?}", initial_window_size);
 
-    let default_size = PhysicalSize {
-        width: 500,
-        height: 500,
-    };
-    let inner_size = if let Some(size) = cmd_line_settings.geometry.size {
-        size.into()
-    } else if cmd_line_settings.geometry.geometry.is_some() {
-        default_size
-    } else {
-        match window_settings {
-            Ok(PersistentWindowSettings::Windowed {
-                pixel_size: Some(size),
-                ..
-            }) => size,
-            _ => default_size,
-        }
+    // NOTE: For Geometry, the window is resized when it's shown based on the font and other
+    // settings.
+    let inner_size = match *initial_window_size {
+        WindowSize::Size(size) => size,
+        _ => DEFAULT_WINDOW_SIZE,
     };
 
     let winit_window_builder = WindowBuilder::new()
         .with_title("Neovide")
         .with_window_icon(Some(icon))
         .with_inner_size(inner_size)
+        // Unfortunately we can't maximize here, because winit shows the window momentarily causing
+        // flickering
         .with_maximized(false)
         .with_transparent(true)
         .with_visible(false);
@@ -199,15 +195,58 @@ pub fn create_window(event_loop: &EventLoop<UserEvent>) -> GlWindow {
     gl_window
 }
 
+#[derive(Clone, Debug)]
+pub enum WindowSize {
+    Size(PhysicalSize<u32>),
+    Maximized,
+    Geometry(Dimensions),
+    NeovimGeometry, // The geometry is read from init.vim/lua
+}
+
+pub fn determine_window_size() -> WindowSize {
+    let cmd_line = SETTINGS.get::<CmdLineSettings>();
+    let window_settings = load_last_window_settings().ok();
+
+    match cmd_line.geometry {
+        GeometryArgs {
+            geometry: Some(Some(dimensions)),
+            ..
+        } => WindowSize::Geometry(dimensions.clamped_grid_size()),
+        GeometryArgs {
+            geometry: Some(None),
+            ..
+        } => WindowSize::NeovimGeometry,
+        GeometryArgs {
+            size: Some(dimensions),
+            ..
+        } => WindowSize::Size(dimensions.into()),
+        GeometryArgs {
+            maximized: true, ..
+        } => WindowSize::Maximized,
+        _ => match window_settings {
+            Some(PersistentWindowSettings::Maximized) => WindowSize::Maximized,
+            Some(PersistentWindowSettings::Windowed {
+                pixel_size: Some(pixel_size),
+                ..
+            }) => WindowSize::Size(pixel_size),
+            _ => WindowSize::Size(DEFAULT_WINDOW_SIZE),
+        },
+    }
+}
+
 // Use a render thread on Windows to work around performance issues with Winit
 // see: https://github.com/rust-windowing/winit/issues/2782
 #[cfg(target_os = "windows")]
-pub fn main_loop(window: GlWindow, event_loop: EventLoop<UserEvent>) -> Result<(), EventLoopError> {
+pub fn main_loop(
+    window: GlWindow,
+    initial_window_size: WindowSize,
+    event_loop: EventLoop<UserEvent>,
+) -> Result<(), EventLoopError> {
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
     let (txtemp, rx) = channel::<Event<UserEvent>>();
     let mut tx = Some(txtemp);
     let mut render_thread_handle = Some(thread::spawn(move || {
-        let mut window_wrapper = WinitWindowWrapper::new(window);
+        let mut window_wrapper = WinitWindowWrapper::new(window, initial_window_size);
         let mut update_loop = UpdateLoop::new(
             cmd_line_settings.vsync,
             cmd_line_settings.idle,
@@ -264,9 +303,13 @@ pub fn main_loop(window: GlWindow, event_loop: EventLoop<UserEvent>) -> Result<(
 }
 
 #[cfg(not(target_os = "windows"))]
-pub fn main_loop(window: GlWindow, event_loop: EventLoop<UserEvent>) -> Result<(), EventLoopError> {
+pub fn main_loop(
+    window: GlWindow,
+    initial_window_size: WindowSize,
+    event_loop: EventLoop<UserEvent>,
+) -> Result<(), EventLoopError> {
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
-    let mut window_wrapper = WinitWindowWrapper::new(window);
+    let mut window_wrapper = WinitWindowWrapper::new(window, initial_window_size);
 
     let mut update_loop = UpdateLoop::new(
         cmd_line_settings.vsync,

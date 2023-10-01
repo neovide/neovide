@@ -52,7 +52,10 @@ use std::panic::{set_hook, PanicInfo};
 use std::time::SystemTime;
 use time::macros::format_description;
 use time::OffsetDateTime;
-use window::{create_event_loop, create_window, main_loop, KeyboardSettings, WindowSettings};
+use window::{
+    create_event_loop, create_window, determine_window_size, main_loop, KeyboardSettings,
+    WindowSettings, WindowSize,
+};
 
 use winit::error::EventLoopError;
 
@@ -173,17 +176,22 @@ fn protected_main() -> ExitCode {
     RendererSettings::register();
     CursorSettings::register();
     KeyboardSettings::register();
+    let window_size = determine_window_size();
 
     let mut runtime = NeovimRuntime::new().unwrap();
     runtime.launch();
     let event_loop = create_event_loop();
-    let window = create_window(&event_loop);
-    runtime.attach();
+    let window = create_window(&event_loop, &window_size);
+    let geometry = match window_size {
+        WindowSize::Geometry(geometry) => Some(geometry),
+        _ => None,
+    };
+    runtime.attach(geometry);
 
     maybe_disown();
     start_editor();
 
-    match main_loop(window, event_loop) {
+    match main_loop(window, window_size, event_loop) {
         Ok(()) => 0,
         // All error codes have to be u8, so just do a direct cast with wrap around, even if the value is negative,
         // that's how it's normally done on operating systems that don't support negative return values.

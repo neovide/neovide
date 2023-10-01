@@ -348,6 +348,14 @@ impl Renderer {
     pub fn get_cursor_position(&self) -> Point {
         self.cursor_renderer.get_current_position()
     }
+
+    pub fn get_grid_size(&self) -> Dimensions {
+        if let Some(main_grid) = self.rendered_windows.get(&1) {
+            main_grid.grid_size
+        } else {
+            DEFAULT_GRID_SIZE
+        }
+    }
 }
 
 /// Defines how floating windows are sorted.
