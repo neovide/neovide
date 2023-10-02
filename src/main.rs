@@ -32,32 +32,31 @@ extern crate derive_new;
 #[macro_use]
 extern crate lazy_static;
 
+use anyhow::Result;
+use log::trace;
 use std::env::{self, args};
+use std::fs::{File, OpenOptions};
+use std::io::Write;
+use std::panic::{set_hook, PanicInfo};
 use std::process::ExitCode;
+use std::time::SystemTime;
+use time::macros::format_description;
+use time::OffsetDateTime;
+use winit::{error::EventLoopError, event_loop::EventLoop};
 
 #[cfg(not(test))]
 use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
-
-use log::trace;
 
 use backtrace::Backtrace;
 use bridge::NeovimRuntime;
 use cmd_line::CmdLineSettings;
 use editor::start_editor;
-use renderer::{cursor_renderer::CursorSettings, RendererSettings};
+use renderer::{cursor_renderer::CursorSettings, GlWindow, RendererSettings};
 use settings::SETTINGS;
-use std::fs::{File, OpenOptions};
-use std::io::Write;
-use std::panic::{set_hook, PanicInfo};
-use std::time::SystemTime;
-use time::macros::format_description;
-use time::OffsetDateTime;
 use window::{
     create_event_loop, create_window, determine_window_size, main_loop, KeyboardSettings,
-    WindowSettings, WindowSize,
+    UserEvent, WindowSettings, WindowSize,
 };
-
-use winit::error::EventLoopError;
 
 pub use channel_utils::*;
 pub use event_aggregator::*;
@@ -82,10 +81,28 @@ fn main() -> ExitCode {
         log_panic_to_file(panic_info, &backtrace);
     }));
 
-    protected_main()
+    match setup() {
+        Err(err) => {
+            eprintln!("ERROR: {}", err);
+            1
+        }
+        Ok((window, window_size, event_loop)) => {
+            maybe_disown();
+            start_editor();
+
+            match main_loop(window, window_size, event_loop) {
+                Ok(()) => 0,
+                // All error codes have to be u8, so just do a direct cast with wrap around, even if the value is negative,
+                // that's how it's normally done on operating systems that don't support negative return values.
+                Err(EventLoopError::ExitFailure(code)) => code as u8,
+                _ => 1,
+            }
+        }
+    }
+    .into()
 }
 
-fn protected_main() -> ExitCode {
+fn setup() -> Result<(GlWindow, WindowSize, EventLoop<UserEvent>)> {
     //  --------------
     // | Architecture |
     //  --------------
@@ -159,10 +176,7 @@ fn protected_main() -> ExitCode {
     Config::init();
 
     //Will exit if -h or -v
-    if let Err(err) = cmd_line::handle_command_line_arguments(args().collect()) {
-        eprintln!("{err}");
-        return 1.into();
-    }
+    cmd_line::handle_command_line_arguments(args().collect())?;
 
     #[cfg(not(test))]
     init_logger();
@@ -178,7 +192,7 @@ fn protected_main() -> ExitCode {
     KeyboardSettings::register();
     let window_size = determine_window_size();
 
-    let mut runtime = NeovimRuntime::new().unwrap();
+    let mut runtime = NeovimRuntime::new()?;
     runtime.launch();
     let event_loop = create_event_loop();
     let window = create_window(&event_loop, &window_size);
@@ -187,18 +201,7 @@ fn protected_main() -> ExitCode {
         _ => None,
     };
     runtime.attach(grid_size);
-
-    maybe_disown();
-    start_editor();
-
-    match main_loop(window, window_size, event_loop) {
-        Ok(()) => 0,
-        // All error codes have to be u8, so just do a direct cast with wrap around, even if the value is negative,
-        // that's how it's normally done on operating systems that don't support negative return values.
-        Err(EventLoopError::ExitFailure(code)) => code as u8,
-        _ => 1,
-    }
-    .into()
+    Ok((window, window_size, event_loop))
 }
 
 #[cfg(not(test))]

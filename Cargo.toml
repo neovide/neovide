@@ -17,6 +17,7 @@ profiling = ["dep:tracy-client-sys"]
 gpu_profiling = ["profiling"]
 
 [dependencies]
+anyhow = "1.0.75"
 async-trait = "0.1.53"
 backtrace = "0.3.67"
 cfg-if = "1.0.0"
