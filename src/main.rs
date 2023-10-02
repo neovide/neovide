@@ -33,6 +33,7 @@ extern crate derive_new;
 extern crate lazy_static;
 
 use anyhow::Result;
+use clap::error::Error as ClapError;
 use log::trace;
 use std::env::{self, args};
 use std::fs::{File, OpenOptions};
@@ -83,8 +84,13 @@ fn main() -> ExitCode {
 
     match setup() {
         Err(err) => {
-            eprintln!("ERROR: {}", err);
-            1
+            if let Some(clap_error) = err.downcast_ref::<ClapError>() {
+                let _ = clap_error.print();
+                clap_error.exit_code() as u8
+            } else {
+                eprintln!("ERROR: {}", err);
+                1
+            }
         }
         Ok((window, window_size, event_loop)) => {
             maybe_disown();
