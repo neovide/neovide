@@ -47,14 +47,7 @@ Can be set to:
 
 Sets the initial neovide window size in pixels.
 
-### Log File
-
-```sh
---log
-```
-
-Enables the log file for debugging purposes. This will write a file next to the executable
-containing trace events which may help debug an issue.
+Can not be used together with `--maximized`, or `--grid`.
 
 ### Maximized
 
@@ -67,6 +60,44 @@ visible.
 
 This is not the same as `g:neovide_fullscreen`, which runs Neovide in "exclusive fullscreen",
 covering up the entire screen.
+
+Can not be used together with `--size`, or `--grid`.
+
+### Grid Size
+
+```sh
+--grid [<columns>x<lines>]
+
+```
+
+**Unreleased-yet.**
+
+Sets the initial grid size of the window. If no value is given, it defaults to
+columns/lines from `init.vim/lua`, see
+[columns](https://neovim.io/doc/user/options.html#'columns') and
+[lines](https://neovim.io/doc/user/options.html#'lines').
+
+If the `--grid` argument is not set then the grid size is inferred from the
+window size.
+
+Note: After the initial size has been determined and `init.vim/lua` processed,
+you can set [columns](https://neovim.io/doc/user/options.html#'columns') and
+[lines](https://neovim.io/doc/user/options.html#'lines') inside neovim
+regardless of the command line arguments used. This has to be done before any
+redraws are made, so it's recommended to put it at the start of the
+`init.vim/lua` along with `guifont` and other related settings that can affect
+the geometry.
+
+Can not be used together with `--size`, or `--maximized`.
+
+### Log File
+
+```sh
+--log
+```
+
+Enables the log file for debugging purposes. This will write a file next to the executable
+containing trace events which may help debug an issue.
 
 ### Multigrid
 

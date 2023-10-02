@@ -14,7 +14,8 @@ use std::{
 use crate::{bridge::NeovimWriter, error_handling::ResultPanicExplanation};
 pub use from_value::ParseFromValue;
 pub use window_size::{
-    load_last_window_settings, save_window_size, PersistentWindowSettings, DEFAULT_WINDOW_GEOMETRY,
+    load_last_window_settings, save_window_size, PersistentWindowSettings, DEFAULT_GRID_SIZE,
+    MAX_GRID_SIZE, MIN_GRID_SIZE,
 };
 
 mod config;

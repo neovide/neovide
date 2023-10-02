@@ -78,6 +78,7 @@ pub enum DrawCommand {
     LineSpaceChanged(i64),
     DefaultStyleChanged(Style),
     ModeChanged(EditorMode),
+    UIReady,
 }
 
 pub struct Renderer {
@@ -98,6 +99,7 @@ pub struct Renderer {
 pub struct DrawCommandResult {
     pub font_changed: bool,
     pub any_handled: bool,
+    pub should_show: bool,
 }
 
 impl Renderer {
@@ -242,18 +244,17 @@ impl Renderer {
 
     pub fn handle_draw_commands(&mut self) -> DrawCommandResult {
         let settings = SETTINGS.get::<RendererSettings>();
-        let mut any_handled = false;
-        let mut font_changed = false;
+        let mut result = DrawCommandResult {
+            any_handled: false,
+            font_changed: false,
+            should_show: false,
+        };
 
         while let Ok(batch) = self.batched_draw_command_receiver.try_recv() {
-            any_handled = true;
+            result.any_handled = true;
 
             for draw_command in batch {
-                if let DrawCommand::FontChanged(_) | DrawCommand::LineSpaceChanged(_) = draw_command
-                {
-                    font_changed = true;
-                }
-                self.handle_draw_command(draw_command);
+                self.handle_draw_command(draw_command, &mut result);
             }
             self.flush(&settings);
         }
@@ -263,13 +264,10 @@ impl Renderer {
             self.user_scale_factor = user_scale_factor;
             self.grid_renderer
                 .handle_scale_factor_update(self.os_scale_factor * self.user_scale_factor);
-            font_changed = true;
+            result.font_changed = true;
         }
 
-        DrawCommandResult {
-            font_changed,
-            any_handled,
-        }
+        result
     }
 
     pub fn handle_os_scale_factor_change(&mut self, os_scale_factor: f64) {
@@ -284,7 +282,7 @@ impl Renderer {
             .for_each(|(_, w)| w.prepare_lines(&mut self.grid_renderer));
     }
 
-    fn handle_draw_command(&mut self, draw_command: DrawCommand) {
+    fn handle_draw_command(&mut self, draw_command: DrawCommand, result: &mut DrawCommandResult) {
         match draw_command {
             DrawCommand::Window {
                 grid_id,
@@ -322,15 +320,20 @@ impl Renderer {
             }
             DrawCommand::FontChanged(new_font) => {
                 self.grid_renderer.update_font(&new_font);
+                result.font_changed = true;
             }
             DrawCommand::LineSpaceChanged(new_linespace) => {
                 self.grid_renderer.update_linespace(new_linespace);
+                result.font_changed = true;
             }
             DrawCommand::DefaultStyleChanged(new_style) => {
                 self.grid_renderer.default_style = Arc::new(new_style);
             }
             DrawCommand::ModeChanged(new_mode) => {
                 self.current_mode = new_mode;
+            }
+            DrawCommand::UIReady => {
+                result.should_show = true;
             }
             _ => {}
         }
@@ -344,6 +347,14 @@ impl Renderer {
 
     pub fn get_cursor_position(&self) -> Point {
         self.cursor_renderer.get_current_position()
+    }
+
+    pub fn get_grid_size(&self) -> Dimensions {
+        if let Some(main_grid) = self.rendered_windows.get(&1) {
+            main_grid.grid_size
+        } else {
+            DEFAULT_GRID_SIZE
+        }
     }
 }
 

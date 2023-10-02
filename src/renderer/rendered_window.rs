@@ -148,7 +148,7 @@ impl RenderedWindow {
         };
 
         let mut grid_size = Point::new(self.grid_size.width as f32, self.grid_size.height as f32);
-        if self.window_type == WindowType::Message {
+        if matches!(self.window_type, WindowType::Message { .. }) {
             // The message grid size is always the full window size, so use the relative position to
             // calculate the actual grid size
             grid_size.y -= self.grid_destination.y;
@@ -162,7 +162,7 @@ impl RenderedWindow {
         // For messages the last line is most important, (it shows press enter), so let the position go negative
         // Otherwise ensure that the window start row is within the screen
         let mut y = destination.y.min(valid_rect.bottom - grid_size.y);
-        if self.window_type != WindowType::Message {
+        if matches!(self.window_type, WindowType::Message { .. }) {
             y = y.max(valid_rect.top)
         }
         Point { x, y }

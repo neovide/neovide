@@ -3,12 +3,7 @@ use nvim_rs::Neovim;
 use rmpv::Value;
 
 use super::setup_intro_message_autocommand;
-use crate::{
-    bridge::NeovimWriter,
-    error_handling::ResultPanicExplanation,
-    settings::{DEFAULT_WINDOW_GEOMETRY, SETTINGS},
-    CmdLineSettings,
-};
+use crate::{bridge::NeovimWriter, error_handling::ResultPanicExplanation};
 
 const REGISTER_CLIPBOARD_PROVIDER_LUA: &str = r"
     local function set_clipboard(register)
@@ -35,32 +30,6 @@ const REGISTER_CLIPBOARD_PROVIDER_LUA: &str = r"
         },
         cache_enabled = 0
     }";
-
-const SETUP_GEOMETRY_LUA: &str = r"
-    local initial_columns, initial_lines, force = ...
-    -- We want to set the geometry in VimEnter, since after that the UI takes control over the size
-    -- So UIEnter is too late
-    vim.api.nvim_create_autocmd({ 'VimEnter' }, {
-        pattern = '*',
-        once = true,
-        nested = true,
-        callback = function()
-            if force then
-                vim.o.columns = initial_columns
-                vim.o.lines = initial_lines
-            else
-                -- Just set the values again to trigger the OptionSet callback
-                -- It's not automatically run when running init.vim/lua
-                if vim.o.columns ~= initial_columns then
-                    vim.o.columns = vim.o.columns
-                end
-                if vim.o.lines ~= initial_lines then
-                    vim.o.lines = vim.o.lines
-                end
-            end
-            vim.rpcnotify(vim.g.neovide_channel_id, 'neovide.ui_ready')
-        end
-    })";
 
 pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<NeovimWriter>) {
     // Users can opt-out with
@@ -187,17 +156,6 @@ pub async fn setup_neovide_specific_state(
     .ok();
     nvim.command(
         "autocmd OptionSet lines call rpcnotify(g:neovide_channel_id, 'neovide.lines', str2nr(v:option_new))",
-    )
-    .await
-    .ok();
-
-    let (geometry, force) = SETTINGS
-        .get::<CmdLineSettings>()
-        .geometry
-        .map_or_else(|| (DEFAULT_WINDOW_GEOMETRY, false), |v| (v, true));
-    nvim.execute_lua(
-        SETUP_GEOMETRY_LUA,
-        vec![geometry.width.into(), geometry.height.into(), force.into()],
     )
     .await
     .ok();

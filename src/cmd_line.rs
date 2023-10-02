@@ -28,14 +28,6 @@ pub struct CmdLineSettings {
     )]
     pub neovim_args: Vec<String>,
 
-    /// The geometry of the window
-    #[arg(long)]
-    pub geometry: Option<Dimensions>,
-
-    /// The size of the window in pixel
-    #[arg(long)]
-    pub size: Option<Dimensions>,
-
     /// If to enable logging to a file in the current directory
     #[arg(long = "log")]
     pub log_to_file: bool,
@@ -52,10 +44,6 @@ pub struct CmdLineSettings {
     /// if this is "none")
     #[arg(long, env = "NEOVIDE_FRAME", default_value_t)]
     pub frame: Frame,
-
-    /// Maximize the window on startup (not equivalent to fullscreen)
-    #[arg(long, env = "NEOVIDE_MAXIMIZED", value_parser = FalseyValueParser::new())]
-    pub maximized: bool,
 
     /// Disable the Multigrid extension (disables smooth scrolling, window animations, and floating blur)
     #[arg(long = "no-multigrid", env = "NEOVIDE_NO_MULTIGRID", value_parser = FalseyValueParser::new())]
@@ -120,6 +108,27 @@ pub struct CmdLineSettings {
         default_value = "neovide"
     )]
     pub x11_wm_class_instance: String,
+
+    #[command(flatten)]
+    pub geometry: GeometryArgs,
+}
+
+// geometry, size and maximized are mutually exclusive
+#[derive(Clone, Debug, Args, PartialEq)]
+#[group(required = false, multiple = false)]
+pub struct GeometryArgs {
+    /// The initial grid size of the window [<columns>x<lines>]. Defaults to columns/lines from init.vim/lua if no value is given.
+    /// If --grid is not set then it's inferred from the window size
+    #[arg(long)]
+    pub grid: Option<Option<Dimensions>>,
+
+    /// The size of the window in pixels.
+    #[arg(long)]
+    pub size: Option<Dimensions>,
+
+    /// Maximize the window on startup (not equivalent to fullscreen)
+    #[arg(long, env = "NEOVIDE_MAXIMIZED", value_parser = FalseyValueParser::new())]
+    pub maximized: bool,
 }
 
 impl Default for CmdLineSettings {
@@ -215,7 +224,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_files_to_open_with_flag() {
-        let args: Vec<String> = vec!["neovide", "./foo.txt", "./bar.md", "--geometry=42x24"]
+        let args: Vec<String> = vec!["neovide", "./foo.txt", "./bar.md", "--grid=42x24"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -227,29 +236,29 @@ mod tests {
         );
 
         assert_eq!(
-            SETTINGS.get::<CmdLineSettings>().geometry,
-            Some(Dimensions {
+            SETTINGS.get::<CmdLineSettings>().geometry.grid,
+            Some(Some(Dimensions {
                 width: 42,
                 height: 24
-            }),
+            })),
         );
     }
 
     #[test]
     #[serial]
-    fn test_geometry() {
-        let args: Vec<String> = vec!["neovide", "--geometry=42x24"]
+    fn test_grid() {
+        let args: Vec<String> = vec!["neovide", "--grid=42x24"]
             .iter()
             .map(|s| s.to_string())
             .collect();
 
         handle_command_line_arguments(args).expect("Could not parse arguments");
         assert_eq!(
-            SETTINGS.get::<CmdLineSettings>().geometry,
-            Some(Dimensions {
+            SETTINGS.get::<CmdLineSettings>().geometry.grid,
+            Some(Some(Dimensions {
                 width: 42,
                 height: 24
-            }),
+            })),
         );
     }
 
@@ -263,7 +272,7 @@ mod tests {
 
         handle_command_line_arguments(args).expect("Could not parse arguments");
         assert_eq!(
-            SETTINGS.get::<CmdLineSettings>().size,
+            SETTINGS.get::<CmdLineSettings>().geometry.size,
             Some(Dimensions {
                 width: 420,
                 height: 240,
