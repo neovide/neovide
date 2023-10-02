@@ -71,7 +71,9 @@ pub struct WinitWindowWrapper {
 impl WinitWindowWrapper {
     pub fn new(window: GlWindow, initial_window_size: WindowSize) -> Self {
         let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
-        let windowed_context = build_context(window, &cmd_line_settings);
+        let srgb = cmd_line_settings.srgb;
+        let vsync = cmd_line_settings.vsync;
+        let windowed_context = build_context(window, srgb, vsync);
         let window = windowed_context.window();
 
         let scale_factor = windowed_context.window().scale_factor();

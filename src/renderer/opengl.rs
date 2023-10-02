@@ -5,8 +5,6 @@ use std::{
     num::NonZeroU32,
 };
 
-use crate::cmd_line::CmdLineSettings;
-
 use gl::MAX_RENDERBUFFER_SIZE;
 use glutin::surface::SwapInterval;
 use glutin::{
@@ -96,7 +94,7 @@ pub fn build_window<TE>(
     GlWindow { window, config }
 }
 
-pub fn build_context(window: GlWindow, cmd_line_settings: &CmdLineSettings) -> Context {
+pub fn build_context(window: GlWindow, srgb: bool, vsync: bool) -> Context {
     let config = window.config;
     let window = window.window;
     let gl_display = config.display();
@@ -105,7 +103,7 @@ pub fn build_context(window: GlWindow, cmd_line_settings: &CmdLineSettings) -> C
     let size = clamp_render_buffer_size(window.inner_size());
 
     let surface_attributes = SurfaceAttributesBuilder::<WindowSurface>::new()
-        .with_srgb(Some(cmd_line_settings.srgb))
+        .with_srgb(Some(srgb))
         .build(
             raw_window_handle,
             NonZeroU32::new(size.width).unwrap(),
@@ -125,7 +123,7 @@ pub fn build_context(window: GlWindow, cmd_line_settings: &CmdLineSettings) -> C
     // NOTE: We don't care if these fails, the driver can override the SwapInterval in any case, so it needs to work in all cases
     // The OpenGL VSync is always disabled on Wayland and Windows, since they have their own
     // implementation
-    let _ = if cmd_line_settings.vsync && env::var("WAYLAND_DISPLAY").is_err() && OS != "windows" {
+    let _ = if vsync && env::var("WAYLAND_DISPLAY").is_err() && OS != "windows" {
         surface.set_swap_interval(&context, SwapInterval::Wait(NonZeroU32::new(1).unwrap()))
     } else {
         surface.set_swap_interval(&context, SwapInterval::DontWait)

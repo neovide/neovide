@@ -6,9 +6,9 @@ use anyhow::Result;
 use clap::{builder::FalseyValueParser, ArgAction, Parser};
 
 #[cfg(target_os = "windows")]
-const SRGB_DEFAULT: &str = "1";
+pub const SRGB_DEFAULT: &str = "1";
 #[cfg(not(target_os = "windows"))]
-const SRGB_DEFAULT: &str = "0";
+pub const SRGB_DEFAULT: &str = "0";
 
 #[derive(Clone, Debug, Parser)]
 #[command(version, about, long_about = None)]

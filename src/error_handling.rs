@@ -1,6 +1,10 @@
 use anyhow::Error;
 use clap::error::Error as ClapError;
 use log::error;
+use std::io::{stdout, IsTerminal};
+use winit::event_loop::EventLoop;
+
+use crate::window::{show_error_window, UserEvent};
 
 fn show_error(explanation: &str) -> ! {
     error!("{}", explanation);
@@ -38,12 +42,25 @@ impl<T> OptionPanicExplanation<T> for Option<T> {
     }
 }
 
-pub fn handle_startup_errors(err: Error) -> i32 {
+fn handle_terminal_startup_errors(err: Error) -> i32 {
     if let Some(clap_error) = err.downcast_ref::<ClapError>() {
         let _ = clap_error.print();
         clap_error.exit_code()
     } else {
         eprintln!("ERROR: {}", err);
         1
+    }
+}
+
+fn handle_gui_startup_errors(_err: Error, event_loop: EventLoop<UserEvent>) -> i32 {
+    show_error_window("Hello World", event_loop);
+    1
+}
+
+pub fn handle_startup_errors(err: Error, event_loop: EventLoop<UserEvent>) -> i32 {
+    if stdout().is_terminal() {
+        handle_terminal_startup_errors(err)
+    } else {
+        handle_gui_startup_errors(err, event_loop)
     }
 }

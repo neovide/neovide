@@ -1,3 +1,4 @@
+mod error_window;
 mod keyboard_manager;
 mod mouse_manager;
 mod renderer;
@@ -53,6 +54,7 @@ use crate::{
     running_tracker::*,
     settings::{load_last_window_settings, save_window_size, PersistentWindowSettings, SETTINGS},
 };
+pub use error_window::show_error_window;
 pub use settings::{KeyboardSettings, WindowSettings};
 
 static ICON: &[u8] = include_bytes!("../../assets/neovide.ico");
@@ -86,15 +88,7 @@ pub fn create_window(
     event_loop: &EventLoop<UserEvent>,
     initial_window_size: &WindowSize,
 ) -> GlWindow {
-    let icon = {
-        let icon = load_from_memory(ICON).expect("Failed to parse icon data");
-        let (width, height) = icon.dimensions();
-        let mut rgba = Vec::with_capacity((width * height) as usize * 4);
-        for (_, _, pixel) in icon.pixels() {
-            rgba.extend_from_slice(&pixel.to_rgba().0);
-        }
-        Icon::from_rgba(rgba, width, height).expect("Failed to create icon object")
-    };
+    let icon = load_icon();
 
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
 
@@ -334,4 +328,14 @@ pub fn main_loop(
             window_target.set_control_flow(update_loop.step(&mut window_wrapper, Ok(e)).unwrap());
         }
     })
+}
+
+pub fn load_icon() -> Icon {
+    let icon = load_from_memory(ICON).expect("Failed to parse icon data");
+    let (width, height) = icon.dimensions();
+    let mut rgba = Vec::with_capacity((width * height) as usize * 4);
+    for (_, _, pixel) in icon.pixels() {
+        rgba.extend_from_slice(&pixel.to_rgba().0);
+    }
+    Icon::from_rgba(rgba, width, height).expect("Failed to create icon object")
 }

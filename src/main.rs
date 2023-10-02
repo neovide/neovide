@@ -92,7 +92,7 @@ fn main() -> ExitCode {
     let event_loop = create_event_loop();
 
     match setup() {
-        Err(err) => handle_startup_errors(err) as u8,
+        Err(err) => handle_startup_errors(err, event_loop) as u8,
         Ok((window_size, _runtime)) => {
             maybe_disown();
             start_editor();
