@@ -69,6 +69,7 @@ pub enum WindowCommand {
     ListAvailableFonts,
     Columns(u64),
     Lines(u64),
+    FocusWindow,
 }
 
 #[allow(dead_code)]

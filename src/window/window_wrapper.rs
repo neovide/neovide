@@ -180,6 +180,9 @@ impl WinitWindowWrapper {
                     log::info!("Requested lines {lines}");
                     self.requested_lines = Some(lines);
                 }
+                WindowCommand::FocusWindow => {
+                    self.windowed_context.window().focus_window();
+                }
             }
         }
     }

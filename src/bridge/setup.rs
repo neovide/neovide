@@ -127,6 +127,17 @@ pub async fn setup_neovide_specific_state(
         .await
         .ok();
 
+        // Create a command for focusing the platform window.
+        #[cfg(windows)]
+        nvim.command(&build_neovide_command(
+            neovide_channel,
+            0,
+            "NeovideFocus",
+            "focus_window",
+        ))
+        .await
+        .ok();
+
         if should_handle_clipboard {
             setup_neovide_remote_clipboard(nvim).await;
         }
