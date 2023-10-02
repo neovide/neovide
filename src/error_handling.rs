@@ -52,9 +52,15 @@ fn handle_terminal_startup_errors(err: Error) -> i32 {
     }
 }
 
-fn handle_gui_startup_errors(_err: Error, event_loop: EventLoop<UserEvent>) -> i32 {
-    show_error_window("Hello World", event_loop);
-    1
+fn handle_gui_startup_errors(err: Error, event_loop: EventLoop<UserEvent>) -> i32 {
+    if let Some(clap_error) = err.downcast_ref::<ClapError>() {
+        let text = clap_error.render().to_string();
+        show_error_window(&text, event_loop);
+        clap_error.exit_code()
+    } else {
+        eprintln!("ERROR: {}", err);
+        1
+    }
 }
 
 pub fn handle_startup_errors(err: Error, event_loop: EventLoop<UserEvent>) -> i32 {
