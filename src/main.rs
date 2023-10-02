@@ -40,6 +40,7 @@ use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::panic::{set_hook, PanicInfo};
 use std::process::ExitCode;
+use std::sync::Arc;
 use std::time::SystemTime;
 use time::macros::format_description;
 use time::OffsetDateTime;
@@ -81,6 +82,15 @@ fn main() -> ExitCode {
 
         log_panic_to_file(panic_info, &backtrace);
     }));
+    startup_profiler();
+
+    #[cfg(target_os = "windows")]
+    {
+        windows_fix_dpi();
+        windows_attach_to_console();
+    }
+
+    let event_loop = create_event_loop();
 
     match setup() {
         Err(err) => {
@@ -92,9 +102,10 @@ fn main() -> ExitCode {
                 1
             }
         }
-        Ok((window, window_size, event_loop)) => {
+        Ok((window_size, _runtime)) => {
             maybe_disown();
             start_editor();
+            let window = create_window(&event_loop, &window_size);
 
             match main_loop(window, window_size, event_loop) {
                 Ok(()) => 0,
@@ -108,7 +119,7 @@ fn main() -> ExitCode {
     .into()
 }
 
-fn setup() -> Result<(GlWindow, WindowSize, EventLoop<UserEvent>)> {
+fn setup() -> Result<(WindowSize, NeovimRuntime)> {
     //  --------------
     // | Architecture |
     //  --------------
@@ -173,12 +184,6 @@ fn setup() -> Result<(GlWindow, WindowSize, EventLoop<UserEvent>)> {
     //   another frame next frame, or if it can safely skip drawing to save battery and cpu power.
     //   Multiple other parts of the app "queue_next_frame" function to ensure animations continue
     //   properly or updates to the graphics are pushed to the screen.
-
-    startup_profiler();
-
-    #[cfg(target_os = "windows")]
-    windows_attach_to_console();
-
     Config::init();
 
     //Will exit if -h or -v
@@ -189,9 +194,6 @@ fn setup() -> Result<(GlWindow, WindowSize, EventLoop<UserEvent>)> {
 
     trace!("Neovide version: {}", crate_version!());
 
-    #[cfg(target_os = "windows")]
-    windows_fix_dpi();
-
     WindowSettings::register();
     RendererSettings::register();
     CursorSettings::register();
@@ -200,14 +202,13 @@ fn setup() -> Result<(GlWindow, WindowSize, EventLoop<UserEvent>)> {
 
     let mut runtime = NeovimRuntime::new()?;
     runtime.launch();
-    let event_loop = create_event_loop();
-    let window = create_window(&event_loop, &window_size);
     let grid_size = match window_size {
         WindowSize::Grid(grid_size) => Some(grid_size),
         _ => None,
     };
+
     runtime.attach(grid_size);
-    Ok((window, window_size, event_loop))
+    Ok((window_size, runtime))
 }
 
 #[cfg(not(test))]
