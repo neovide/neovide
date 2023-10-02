@@ -70,7 +70,7 @@ Can not be used together with `--size`, or `--grid`.
 
 ```
 
-**Unreleased-yet.**
+**Unreleased yet.**
 
 Sets the initial grid size of the window. If no value is given, it defaults to
 columns/lines from `init.vim/lua`, see
