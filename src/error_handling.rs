@@ -1,3 +1,5 @@
+use anyhow::Error;
+use clap::error::Error as ClapError;
 use log::error;
 
 fn show_error(explanation: &str) -> ! {
@@ -33,5 +35,15 @@ impl<T> OptionPanicExplanation<T> for Option<T> {
             }
             Some(content) => content,
         }
+    }
+}
+
+pub fn handle_startup_errors(err: Error) -> i32 {
+    if let Some(clap_error) = err.downcast_ref::<ClapError>() {
+        let _ = clap_error.print();
+        clap_error.exit_code()
+    } else {
+        eprintln!("ERROR: {}", err);
+        1
     }
 }

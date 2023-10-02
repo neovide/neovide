@@ -33,18 +33,16 @@ extern crate derive_new;
 extern crate lazy_static;
 
 use anyhow::Result;
-use clap::error::Error as ClapError;
 use log::trace;
 use std::env::{self, args};
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::panic::{set_hook, PanicInfo};
 use std::process::ExitCode;
-use std::sync::Arc;
 use std::time::SystemTime;
 use time::macros::format_description;
 use time::OffsetDateTime;
-use winit::{error::EventLoopError, event_loop::EventLoop};
+use winit::error::EventLoopError;
 
 #[cfg(not(test))]
 use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
@@ -53,11 +51,12 @@ use backtrace::Backtrace;
 use bridge::NeovimRuntime;
 use cmd_line::CmdLineSettings;
 use editor::start_editor;
-use renderer::{cursor_renderer::CursorSettings, GlWindow, RendererSettings};
+use error_handling::handle_startup_errors;
+use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 use settings::SETTINGS;
 use window::{
     create_event_loop, create_window, determine_window_size, main_loop, KeyboardSettings,
-    UserEvent, WindowSettings, WindowSize,
+    WindowSettings, WindowSize,
 };
 
 pub use channel_utils::*;
@@ -93,15 +92,7 @@ fn main() -> ExitCode {
     let event_loop = create_event_loop();
 
     match setup() {
-        Err(err) => {
-            if let Some(clap_error) = err.downcast_ref::<ClapError>() {
-                let _ = clap_error.print();
-                clap_error.exit_code() as u8
-            } else {
-                eprintln!("ERROR: {}", err);
-                1
-            }
-        }
+        Err(err) => handle_startup_errors(err) as u8,
         Ok((window_size, _runtime)) => {
             maybe_disown();
             start_editor();
