@@ -7,10 +7,6 @@ use skia_safe::{
     },
     Color4f, FontMgr, Paint, Point, Rect, Size,
 };
-#[cfg(target_os = "linux")]
-use std::env;
-#[cfg(target_os = "macos")]
-use winit::platform::macos::WindowBuilderExtMacOS;
 use winit::{
     dpi::PhysicalSize,
     event::{ElementState, Event, KeyEvent, Modifiers, WindowEvent},
@@ -23,6 +19,7 @@ use crate::{
     cmd_line::SRGB_DEFAULT,
     renderer::{build_context, build_window, GlWindow, WindowedContext},
     window::{load_icon, SkiaRenderer, UserEvent},
+    clipboard,
 };
 
 const TEXT_COLOR: Color4f = WHITE;
@@ -172,6 +169,7 @@ impl<'a> ErrorWindow<'a> {
         }
         let handled = if self.modifiers.state().control_key() {
             // Ctrl is pressed
+            // Require e and y to be combined with ctrl, since y is copy
             match &event.logical_key {
                 Key::Character(c) => match c.as_str() {
                     "e" => self.scroll_line(1),
@@ -198,7 +196,10 @@ impl<'a> ErrorWindow<'a> {
                         window_target.exit();
                         true
                     }
-
+                    "y" => {
+                        let _ = clipboard::set_contents(self.message.to_string());
+                        true
+                    }
                     _ => false,
                 },
                 Key::ArrowDown => self.scroll_line(1),
