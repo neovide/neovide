@@ -32,23 +32,27 @@ fn set_windows_creation_flags(cmd: &mut TokioCommand) {
 
 fn build_nvim_cmd() -> TokioCommand {
     if let Some(path) = SETTINGS.get::<CmdLineSettings>().neovim_bin {
-        // if neovim_bin contains a path separator, then try to launch it directly
-        // otherwise use which to find the fully path
-        if path.contains('/') || path.contains('\\') {
-            if neovim_ok(&path) {
-                return build_nvim_cmd_with_args(&path);
-            }
-        } else if let Some(path) = platform_which(&path) {
-            if neovim_ok(&path) {
-                return build_nvim_cmd_with_args(&path);
+        if let Some(path) = shlex::split(&path) {
+            if let Some((bin, args)) = path.split_first() {
+                // if neovim_bin contains a path separator, then try to launch it directly
+                // otherwise use which to find the fully path
+                if bin.contains('/') || bin.contains('\\') {
+                    if neovim_ok(bin, args) {
+                        return build_nvim_cmd_with_args(bin, args);
+                    }
+                } else if let Some(bin) = platform_which(bin) {
+                    if neovim_ok(&bin, args) {
+                        return build_nvim_cmd_with_args(&bin, args);
+                    }
+                }
             }
         }
 
         eprintln!("ERROR: NEOVIM_BIN='{}' was not found.", path);
         std::process::exit(1);
     } else if let Some(path) = platform_which("nvim") {
-        if neovim_ok(&path) {
-            return build_nvim_cmd_with_args(&path);
+        if neovim_ok(&path, &[]) {
+            return build_nvim_cmd_with_args(&path, &[]);
         }
     }
     eprintln!("ERROR: nvim not found!");
@@ -87,10 +91,12 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
     }
 }
 
-fn neovim_ok(bin: &str) -> bool {
+fn neovim_ok(bin: &str, args: &[String]) -> bool {
     let is_wsl = SETTINGS.get::<CmdLineSettings>().wsl;
+    let mut args = args.iter().map(String::as_str).collect::<Vec<_>>();
+    args.push("-v");
 
-    let mut cmd = create_platform_shell_command(bin, &["-v"]);
+    let mut cmd = create_platform_shell_command(bin, &args);
     if let Ok(output) = cmd.output() {
         if output.status.success() {
             // The output is not utf8 on Windows and can contain special characters.
@@ -176,8 +182,9 @@ fn nvim_cmd_impl(bin: &str, args: &[String]) -> TokioCommand {
     }
 }
 
-fn build_nvim_cmd_with_args(bin: &str) -> TokioCommand {
-    let mut args = vec!["--embed".to_string()];
+fn build_nvim_cmd_with_args(bin: &str, args: &[String]) -> TokioCommand {
+    let mut args = args.to_vec();
+    args.push("--embed".to_string());
     args.extend(SETTINGS.get::<CmdLineSettings>().neovim_args);
     nvim_cmd_impl(bin, &args)
 }
