@@ -32,21 +32,8 @@ fn set_windows_creation_flags(cmd: &mut TokioCommand) {
 
 fn build_nvim_cmd() -> TokioCommand {
     if let Some(cmdline) = SETTINGS.get::<CmdLineSettings>().neovim_bin {
-        if let Some((bin, args)) = shlex::split(&cmdline)
-            .filter(|tokens| !tokens.is_empty())
-            .map(|mut tokens| (tokens.remove(0), tokens))
-        {
-            // if neovim_bin contains a path separator, then try to launch it directly
-            // otherwise use which to find the fully path
-            if bin.contains('/') || bin.contains('\\') {
-                if neovim_ok(&bin, &args) {
-                    return build_nvim_cmd_with_args(bin, args);
-                }
-            } else if let Some(bin) = platform_which(&bin) {
-                if neovim_ok(&bin, &args) {
-                    return build_nvim_cmd_with_args(bin, args);
-                }
-            }
+        if let Some((bin, args)) = lex_nvim_cmdline(&cmdline) {
+            return build_nvim_cmd_with_args(bin, args);
         }
 
         eprintln!("ERROR: NEOVIM_BIN='{}' was not found.", cmdline);
@@ -125,6 +112,19 @@ fn neovim_ok(bin: &str, args: &[String]) -> bool {
         }
     }
     false
+}
+
+fn lex_nvim_cmdline(cmdline: &str) -> Option<(String, Vec<String>)> {
+    let mut tokens = shlex::split(cmdline).filter(|t| !t.is_empty())?;
+    let (mut bin, args) = (tokens.remove(0), tokens);
+
+    // if neovim_bin contains a path separator, then try to launch it directly
+    // otherwise use which to find the fully path
+    if !bin.contains('/') && !bin.contains('\\') {
+        bin = platform_which(&bin)?;
+    }
+
+    neovim_ok(&bin, &args).then_some((bin, args))
 }
 
 fn platform_which(bin: &str) -> Option<String> {
