@@ -16,10 +16,10 @@ use winit::{
 };
 
 use crate::{
+    clipboard,
     cmd_line::SRGB_DEFAULT,
     renderer::{build_context, build_window, GlWindow, WindowedContext},
     window::{load_icon, SkiaRenderer, UserEvent},
-    clipboard,
 };
 
 const TEXT_COLOR: Color4f = WHITE;
@@ -42,21 +42,39 @@ enum Scroll {
     End,
 }
 
+enum PossibleScrollDirection {
+    None,
+    Up,
+    Down,
+    Both,
+}
+
+struct Paragraphs {
+    message: Paragraph,
+    no_scroll: Paragraph,
+    scroll_down: Paragraph,
+    scroll_up: Paragraph,
+    scroll_up_down: Paragraph,
+}
+
 struct ErrorWindow<'a> {
     skia_renderer: SkiaRenderer,
     context: WindowedContext,
     font_collection: FontCollection,
     size: PhysicalSize<u32>,
     scale_factor: f64,
-    paragraph: Paragraph,
+    paragraphs: Paragraphs,
     message: &'a str,
     scroll: Scroll,
     current_position: TextIndex,
     modifiers: Modifiers,
+    visible: bool,
 }
 
 impl<'a> ErrorWindow<'a> {
     fn new(message: &'a str, event_loop: &EventLoop<UserEvent>) -> Self {
+        let message = message.trim_end();
+
         let font_manager = FontMgr::new();
         let mut font_collection = FontCollection::new();
         font_collection.set_default_font_manager(Some(font_manager), None);
@@ -68,10 +86,11 @@ impl<'a> ErrorWindow<'a> {
         let scale_factor = context.window().scale_factor();
         let size = context.window().inner_size();
         let skia_renderer = SkiaRenderer::new(&context);
-        let paragraph = create_paragraph(message, scale_factor as f32, &font_collection);
+        let paragraphs = create_paragraphs(message, scale_factor as f32, &font_collection);
         let scroll = Scroll::None;
         let current_position = 0;
         let modifiers = Modifiers::default();
+        let visible = false;
 
         Self {
             skia_renderer,
@@ -79,19 +98,29 @@ impl<'a> ErrorWindow<'a> {
             font_collection,
             size,
             scale_factor,
-            paragraph,
+            paragraphs,
             message,
             scroll,
             current_position,
             modifiers,
+            visible,
         }
     }
 
     fn run_event_loop(&mut self, event_loop: EventLoop<UserEvent>) {
-        let _ = event_loop.run(move |e, window_target| {
-            if let Event::WindowEvent { event, .. } = e {
+        let _ = event_loop.run(move |e, window_target| match e {
+            Event::WindowEvent { event, .. } => {
                 self.handle_window_event(event, window_target);
             }
+            Event::AboutToWait => {
+                if !self.visible {
+                    self.visible = true;
+                    let _ = self.layout_messages();
+                    self.context.window().set_visible(true);
+                    self.context.window().request_redraw();
+                }
+            }
+            _ => {}
         });
     }
 
@@ -113,8 +142,8 @@ impl<'a> ErrorWindow<'a> {
             }
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 self.scale_factor = scale_factor;
-                self.paragraph =
-                    create_paragraph(self.message, scale_factor as f32, &self.font_collection);
+                self.paragraphs =
+                    create_paragraphs(self.message, scale_factor as f32, &self.font_collection);
             }
             WindowEvent::KeyboardInput {
                 event,
@@ -132,14 +161,26 @@ impl<'a> ErrorWindow<'a> {
 
     fn render(&mut self) {
         let size = Size::new(self.size.width as f32, self.size.height as f32);
+        let message_width = self.layout_messages();
+
+        let bottom_message_height = self
+            .paragraphs
+            .no_scroll
+            .height()
+            .max(self.paragraphs.scroll_up.height())
+            .max(self.paragraphs.scroll_down.height());
+
         let padding_top_left = Point::new(PADDING, PADDING);
         let rect = Rect::from_point_and_size(
             padding_top_left,
-            Size::new(size.width - 2.0 * PADDING, size.height - 2.0 * PADDING),
+            Size::new(
+                size.width - 2.0 * PADDING,
+                size.height - 3.0 * PADDING - bottom_message_height,
+            ),
         );
 
-        self.paragraph.layout(size.width - 2.0 * PADDING);
-        let offset = self.handle_scrolling(rect.height() as f64);
+        self.paragraphs.message.layout(size.width - 2.0 * PADDING);
+        let (offset, possible_scroll_direction) = self.handle_scrolling(rect.height() as f64);
 
         let canvas = self.skia_renderer.canvas();
         canvas.save();
@@ -147,9 +188,26 @@ impl<'a> ErrorWindow<'a> {
 
         let save_layer_rec = SaveLayerRec::default().bounds(&rect);
         canvas.save_layer(&save_layer_rec);
-        self.paragraph
+        self.paragraphs
+            .message
             .paint(canvas, Point::new(PADDING, PADDING - offset as f32));
         canvas.restore();
+
+        let bottom_message_point =
+            Point::new(PADDING, size.height - PADDING - bottom_message_height);
+        let bottom_message_rect = Rect::from_point_and_size(
+            bottom_message_point,
+            Size::new(message_width, bottom_message_height),
+        );
+        let message_background_paint = Paint::new(TEXT_COLOR, None);
+        canvas.draw_rect(&bottom_message_rect, &message_background_paint);
+        let message = match possible_scroll_direction {
+            PossibleScrollDirection::None => &self.paragraphs.no_scroll,
+            PossibleScrollDirection::Up => &self.paragraphs.scroll_up,
+            PossibleScrollDirection::Down => &self.paragraphs.scroll_down,
+            PossibleScrollDirection::Both => &self.paragraphs.scroll_up_down,
+        };
+        message.paint(canvas, bottom_message_point);
 
         canvas.restore();
 
@@ -255,8 +313,8 @@ impl<'a> ErrorWindow<'a> {
         true
     }
 
-    fn handle_scrolling(&mut self, allowed_height: f64) -> f64 {
-        let metrics = self.paragraph.get_line_metrics();
+    fn handle_scrolling(&mut self, allowed_height: f64) -> (f64, PossibleScrollDirection) {
+        let metrics = self.paragraphs.message.get_line_metrics();
         let mut current_line =
             metrics.partition_point(|v| v.start_index <= self.current_position) - 1;
 
@@ -287,40 +345,81 @@ impl<'a> ErrorWindow<'a> {
 
         let last_line_metrix = metrics.last().unwrap();
         let last_line_pos = last_line_metrix.baseline + last_line_metrix.descent;
-        while current_line > 0 && allowed_height > last_line_pos - offset {
+        while current_line > 0
+            && (allowed_height - current_line_metrics.height) > last_line_pos - offset
+        {
             current_line -= 1;
             current_line_metrics = &metrics[current_line];
             offset = current_line_metrics.baseline - current_line_metrics.ascent;
         }
 
         self.current_position = current_line_metrics.start_index;
-        current_line_metrics.baseline - current_line_metrics.ascent
+
+        let can_scroll_up = current_line > 0;
+        let can_scroll_down = last_line_pos - offset > allowed_height;
+
+        let possible_scroll_direction = match (can_scroll_up, can_scroll_down) {
+            (true, true) => PossibleScrollDirection::Both,
+            (true, false) => PossibleScrollDirection::Up,
+            (false, true) => PossibleScrollDirection::Down,
+            (false, false) => PossibleScrollDirection::None,
+        };
+
+        (
+            current_line_metrics.baseline - current_line_metrics.ascent,
+            possible_scroll_direction,
+        )
+    }
+
+    fn layout_messages(&mut self) -> f32 {
+        let size = Size::new(self.size.width as f32, self.size.height as f32);
+
+        let message_width = size.width - 2.0 * PADDING;
+        self.paragraphs.message.layout(message_width);
+        self.paragraphs.no_scroll.layout(message_width);
+        self.paragraphs.scroll_up.layout(message_width);
+        self.paragraphs.scroll_down.layout(message_width);
+        self.paragraphs.scroll_up_down.layout(message_width);
+        message_width
     }
 }
 
-fn create_paragraph(
+fn create_paragraphs(
     message: &str,
     scale_factor: f32,
     font_collection: &FontCollection,
-) -> Paragraph {
-    let text_paint = Paint::new(TEXT_COLOR, None);
+) -> Paragraphs {
+    let mut normal_text = TextStyle::new();
+    normal_text.set_font_families(&["monospace"]);
+    normal_text.set_foreground_color(&Paint::new(TEXT_COLOR, None));
+    normal_text.set_font_size(FONT_SIZE * scale_factor);
 
-    let mut text_style = TextStyle::new();
-    text_style.set_font_families(&["monospace"]);
-    text_style.set_foreground_color(&text_paint);
-    text_style.set_font_size(FONT_SIZE * scale_factor);
+    let mut inverted_text = normal_text.clone();
+    inverted_text.set_foreground_color(&Paint::new(BACKGROUND_COLOR, None));
 
     let mut paragraph_style = ParagraphStyle::new();
-    paragraph_style.set_text_style(&text_style);
+    paragraph_style.set_text_style(&normal_text);
     paragraph_style.set_max_lines(MAX_LINES as usize);
     paragraph_style.set_text_height_behavior(TextHeightBehavior::DisableAll);
 
-    let mut paragraph_builder = ParagraphBuilder::new(&paragraph_style, font_collection);
-    paragraph_builder.push_style(&text_style);
-    paragraph_builder.add_text(message);
-    paragraph_builder.pop();
+    let create_message = |message, style| {
+        let mut paragraph_builder = ParagraphBuilder::new(&paragraph_style, font_collection);
+        paragraph_builder.push_style(style);
+        paragraph_builder.add_text(message);
+        paragraph_builder.pop();
 
-    paragraph_builder.build()
+        paragraph_builder.build()
+    };
+
+    let message_line = "quit (q), copy (y)";
+
+    Paragraphs {
+        message: create_message(message, &normal_text),
+        no_scroll: create_message(&message_line, &inverted_text),
+        scroll_down: create_message(&(message_line.to_owned() + " ↓"), &inverted_text),
+        scroll_up: create_message(&(message_line.to_owned() + " ↑"), &inverted_text),
+        scroll_up_down: create_message(&(message_line.to_owned() + " ↑↓"), &inverted_text),
+    }
 }
 
 fn create_window(event_loop: &EventLoop<UserEvent>) -> GlWindow {
@@ -330,11 +429,8 @@ fn create_window(event_loop: &EventLoop<UserEvent>) -> GlWindow {
         .with_title("Neovide")
         .with_window_icon(Some(icon))
         .with_transparent(false)
-        .with_visible(true)
+        .with_visible(false)
         .with_decorations(true);
-
-    #[cfg(target_os = "macos")]
-    let winit_window_builder = winit_window_builder.with_accepts_first_mouse(false);
 
     build_window(winit_window_builder, event_loop)
 }
