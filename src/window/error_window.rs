@@ -11,7 +11,7 @@ use strum::IntoEnumIterator;
 use strum::{EnumCount, EnumIter};
 use winit::{
     dpi::PhysicalSize,
-    event::{ElementState, Event, KeyEvent, Modifiers, WindowEvent},
+    event::{ElementState, Event, KeyEvent, Modifiers, MouseScrollDelta, WindowEvent},
     event_loop::{EventLoop, EventLoopWindowTarget},
     keyboard::Key,
     window::WindowBuilder,
@@ -69,6 +69,7 @@ struct ErrorWindow<'a> {
     current_position: TextIndex,
     modifiers: Modifiers,
     visible: bool,
+    mouse_scroll_accumulator: f32,
 }
 
 impl<'a> ErrorWindow<'a> {
@@ -91,6 +92,7 @@ impl<'a> ErrorWindow<'a> {
         let current_position = 0;
         let modifiers = Modifiers::default();
         let visible = false;
+        let mouse_scroll_accumulator = 0.0;
 
         Self {
             skia_renderer,
@@ -104,6 +106,7 @@ impl<'a> ErrorWindow<'a> {
             current_position,
             modifiers,
             visible,
+            mouse_scroll_accumulator,
         }
     }
 
@@ -152,6 +155,23 @@ impl<'a> ErrorWindow<'a> {
             } => {
                 if self.handle_keyboard_input(event, window_target) {
                     self.context.window().request_redraw();
+                }
+            }
+            WindowEvent::MouseWheel {
+                delta: MouseScrollDelta::LineDelta(_, y),
+                ..
+            } => {
+                self.mouse_scroll_accumulator += y * 3.0;
+                self.handle_mouse_scroll();
+            }
+            WindowEvent::MouseWheel {
+                delta: MouseScrollDelta::PixelDelta(delta),
+                ..
+            } => {
+                if let Some(line_metrics) = self.paragraphs.message.get_line_metrics_at(0) {
+                    let line_height = line_metrics.height;
+                    self.mouse_scroll_accumulator += (delta.y / line_height) as f32;
+                    self.handle_mouse_scroll();
                 }
             }
             WindowEvent::ModifiersChanged(modifiers) => self.modifiers = modifiers,
@@ -262,6 +282,21 @@ impl<'a> ErrorWindow<'a> {
                 _ => false,
             },
             _ => false,
+        }
+    }
+
+    fn handle_mouse_scroll(&mut self) {
+        let tolerance: f32 = 1.0 / 1000000.0;
+        let lines = (self.mouse_scroll_accumulator
+            + self.mouse_scroll_accumulator.signum() * tolerance)
+            .trunc() as i32;
+        if lines != 0 {
+            self.scroll_line(-lines);
+            self.mouse_scroll_accumulator -= lines as f32;
+            if self.mouse_scroll_accumulator.abs() < tolerance {
+                self.mouse_scroll_accumulator = 0.0
+            }
+            self.context.window().request_redraw();
         }
     }
 
@@ -422,8 +457,8 @@ fn create_paragraphs(
     let help_messages = PossibleScrollDirection::iter()
         .map(|dir| match dir {
             PossibleScrollDirection::None => message_line.to_owned(),
-            PossibleScrollDirection::Up => message_line.to_owned() + " ↓",
-            PossibleScrollDirection::Down => message_line.to_owned() + " ↑",
+            PossibleScrollDirection::Down => message_line.to_owned() + " ↓",
+            PossibleScrollDirection::Up => message_line.to_owned() + " ↑",
             PossibleScrollDirection::Both => message_line.to_owned() + " ↑↓",
         })
         .map(|msg| create_message(&msg, &inverted_text))
