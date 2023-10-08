@@ -2,11 +2,13 @@ use skia_safe::{
     canvas::SaveLayerRec,
     colors::{BLACK, WHITE},
     textlayout::{
-        FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextHeightBehavior, TextIndex,
-        TextStyle,
+        FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle,
+        TextHeightBehavior, TextIndex, TextStyle,
     },
     Color4f, FontMgr, Paint, Point, Rect, Size,
 };
+use strum::IntoEnumIterator;
+use strum::{EnumCount, EnumIter};
 use winit::{
     dpi::PhysicalSize,
     event::{ElementState, Event, KeyEvent, Modifiers, WindowEvent},
@@ -42,6 +44,7 @@ enum Scroll {
     End,
 }
 
+#[derive(EnumCount, EnumIter)]
 enum PossibleScrollDirection {
     None,
     Up,
@@ -51,10 +54,7 @@ enum PossibleScrollDirection {
 
 struct Paragraphs {
     message: Paragraph,
-    no_scroll: Paragraph,
-    scroll_down: Paragraph,
-    scroll_up: Paragraph,
-    scroll_up_down: Paragraph,
+    help_messages: [Paragraph; PossibleScrollDirection::COUNT],
 }
 
 struct ErrorWindow<'a> {
@@ -161,21 +161,14 @@ impl<'a> ErrorWindow<'a> {
 
     fn render(&mut self) {
         let size = Size::new(self.size.width as f32, self.size.height as f32);
-        let message_width = self.layout_messages();
-
-        let bottom_message_height = self
-            .paragraphs
-            .no_scroll
-            .height()
-            .max(self.paragraphs.scroll_up.height())
-            .max(self.paragraphs.scroll_down.height());
+        let help_message_height = self.layout_messages();
 
         let padding_top_left = Point::new(PADDING, PADDING);
         let rect = Rect::from_point_and_size(
             padding_top_left,
             Size::new(
                 size.width - 2.0 * PADDING,
-                size.height - 3.0 * PADDING - bottom_message_height,
+                size.height - 3.0 * PADDING - help_message_height,
             ),
         );
 
@@ -193,21 +186,16 @@ impl<'a> ErrorWindow<'a> {
             .paint(canvas, Point::new(PADDING, PADDING - offset as f32));
         canvas.restore();
 
-        let bottom_message_point =
-            Point::new(PADDING, size.height - PADDING - bottom_message_height);
-        let bottom_message_rect = Rect::from_point_and_size(
-            bottom_message_point,
-            Size::new(message_width, bottom_message_height),
+        let help_message_point = Point::new(0.0, size.height - PADDING - help_message_height);
+        let help_message_text_point = help_message_point + Point::new(PADDING, 0.0);
+        let help_message_rect = Rect::from_point_and_size(
+            help_message_point,
+            Size::new(size.width, help_message_height + PADDING),
         );
         let message_background_paint = Paint::new(TEXT_COLOR, None);
-        canvas.draw_rect(&bottom_message_rect, &message_background_paint);
-        let message = match possible_scroll_direction {
-            PossibleScrollDirection::None => &self.paragraphs.no_scroll,
-            PossibleScrollDirection::Up => &self.paragraphs.scroll_up,
-            PossibleScrollDirection::Down => &self.paragraphs.scroll_down,
-            PossibleScrollDirection::Both => &self.paragraphs.scroll_up_down,
-        };
-        message.paint(canvas, bottom_message_point);
+        canvas.draw_rect(help_message_rect, &message_background_paint);
+        let message = &self.paragraphs.help_messages[possible_scroll_direction as usize];
+        message.paint(canvas, help_message_text_point);
 
         canvas.restore();
 
@@ -376,11 +364,19 @@ impl<'a> ErrorWindow<'a> {
 
         let message_width = size.width - 2.0 * PADDING;
         self.paragraphs.message.layout(message_width);
-        self.paragraphs.no_scroll.layout(message_width);
-        self.paragraphs.scroll_up.layout(message_width);
-        self.paragraphs.scroll_down.layout(message_width);
-        self.paragraphs.scroll_up_down.layout(message_width);
-        message_width
+        for p in &mut self.paragraphs.help_messages {
+            p.layout(message_width);
+        }
+
+        let help_message_height = self
+            .paragraphs
+            .help_messages
+            .iter()
+            .map(|p| p.height())
+            .reduce(f32::max)
+            .unwrap();
+
+        help_message_height
     }
 }
 
@@ -402,7 +398,7 @@ fn create_paragraphs(
     paragraph_style.set_max_lines(MAX_LINES as usize);
     paragraph_style.set_text_height_behavior(TextHeightBehavior::DisableAll);
 
-    let create_message = |message, style| {
+    let create_message = |message: &str, style| {
         let mut paragraph_builder = ParagraphBuilder::new(&paragraph_style, font_collection);
         paragraph_builder.push_style(style);
         paragraph_builder.add_text(message);
@@ -413,12 +409,21 @@ fn create_paragraphs(
 
     let message_line = "quit (q), copy (y)";
 
+    let help_messages = PossibleScrollDirection::iter()
+        .map(|dir| match dir {
+            PossibleScrollDirection::None => message_line.to_owned(),
+            PossibleScrollDirection::Up => message_line.to_owned() + " ↓",
+            PossibleScrollDirection::Down => message_line.to_owned() + " ↑",
+            PossibleScrollDirection::Both => message_line.to_owned() + " ↑↓",
+        })
+        .map(|msg| create_message(&msg, &inverted_text))
+        .collect::<Vec<Paragraph>>()
+        .try_into()
+        .unwrap();
+
     Paragraphs {
         message: create_message(message, &normal_text),
-        no_scroll: create_message(&message_line, &inverted_text),
-        scroll_down: create_message(&(message_line.to_owned() + " ↓"), &inverted_text),
-        scroll_up: create_message(&(message_line.to_owned() + " ↑"), &inverted_text),
-        scroll_up_down: create_message(&(message_line.to_owned() + " ↑↓"), &inverted_text),
+        help_messages,
     }
 }
 
