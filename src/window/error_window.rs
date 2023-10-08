@@ -1,9 +1,9 @@
 use skia_safe::{
-    canvas::SaveLayerRec,
+    canvas::{Canvas, SaveLayerRec},
     colors::{BLACK, WHITE},
     textlayout::{
-        FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle,
-        TextHeightBehavior, TextIndex, TextStyle,
+        FontCollection, Paragraph, ParagraphBuilder, ParagraphStyle, TextHeightBehavior, TextIndex,
+        TextStyle,
     },
     Color4f, FontMgr, Paint, Point, Rect, Size,
 };
@@ -115,7 +115,7 @@ impl<'a> ErrorWindow<'a> {
             Event::AboutToWait => {
                 if !self.visible {
                     self.visible = true;
-                    let _ = self.layout_messages();
+                    let _ = self.layout();
                     self.context.window().set_visible(true);
                     self.context.window().request_redraw();
                 }
@@ -161,41 +161,21 @@ impl<'a> ErrorWindow<'a> {
 
     fn render(&mut self) {
         let size = Size::new(self.size.width as f32, self.size.height as f32);
-        let help_message_height = self.layout_messages();
-
-        let padding_top_left = Point::new(PADDING, PADDING);
-        let rect = Rect::from_point_and_size(
-            padding_top_left,
-            Size::new(
-                size.width - 2.0 * PADDING,
-                size.height - 3.0 * PADDING - help_message_height,
-            ),
-        );
+        let (message_rect, help_message_rect) = self.layout();
 
         self.paragraphs.message.layout(size.width - 2.0 * PADDING);
-        let (offset, possible_scroll_direction) = self.handle_scrolling(rect.height() as f64);
+        let (offset, possible_scroll_direction) =
+            self.handle_scrolling(message_rect.height() as f64);
 
         let canvas = self.skia_renderer.canvas();
         canvas.save();
-        canvas.clear(BACKGROUND_COLOR);
 
-        let save_layer_rec = SaveLayerRec::default().bounds(&rect);
-        canvas.save_layer(&save_layer_rec);
-        self.paragraphs
-            .message
-            .paint(canvas, Point::new(PADDING, PADDING - offset as f32));
-        canvas.restore();
-
-        let help_message_point = Point::new(0.0, size.height - PADDING - help_message_height);
-        let help_message_text_point = help_message_point + Point::new(PADDING, 0.0);
-        let help_message_rect = Rect::from_point_and_size(
-            help_message_point,
-            Size::new(size.width, help_message_height + PADDING),
+        render_main_message(&self.paragraphs.message, canvas, &message_rect, offset);
+        render_help_message(
+            &self.paragraphs.help_messages[possible_scroll_direction as usize],
+            canvas,
+            &help_message_rect,
         );
-        let message_background_paint = Paint::new(TEXT_COLOR, None);
-        canvas.draw_rect(help_message_rect, &message_background_paint);
-        let message = &self.paragraphs.help_messages[possible_scroll_direction as usize];
-        message.paint(canvas, help_message_text_point);
 
         canvas.restore();
 
@@ -359,10 +339,10 @@ impl<'a> ErrorWindow<'a> {
         )
     }
 
-    fn layout_messages(&mut self) -> f32 {
-        let size = Size::new(self.size.width as f32, self.size.height as f32);
+    fn layout(&mut self) -> (Rect, Rect) {
+        let window_size = Size::new(self.size.width as f32, self.size.height as f32);
 
-        let message_width = size.width - 2.0 * PADDING;
+        let message_width = window_size.width - 2.0 * PADDING;
         self.paragraphs.message.layout(message_width);
         for p in &mut self.paragraphs.help_messages {
             p.layout(message_width);
@@ -374,10 +354,40 @@ impl<'a> ErrorWindow<'a> {
             .iter()
             .map(|p| p.height())
             .reduce(f32::max)
-            .unwrap();
+            .unwrap()
+            + PADDING;
 
-        help_message_height
+        let message_rect = Rect::from_point_and_size(
+            Point::new(PADDING, PADDING),
+            Size::new(
+                window_size.width - 2.0 * PADDING,
+                window_size.height - 2.0 * PADDING - help_message_height,
+            ),
+        );
+
+        let help_message_rect = Rect::from_point_and_size(
+            Point::new(0.0, message_rect.bottom + PADDING),
+            Size::new(window_size.width, help_message_height),
+        );
+
+        (message_rect, help_message_rect)
     }
+}
+
+fn render_main_message(message: &Paragraph, canvas: &mut Canvas, rect: &Rect, offset: f64) {
+    canvas.clear(BACKGROUND_COLOR);
+
+    let save_layer_rec = SaveLayerRec::default().bounds(rect);
+    canvas.save_layer(&save_layer_rec);
+    message.paint(canvas, Point::new(PADDING, PADDING - offset as f32));
+    canvas.restore();
+}
+
+fn render_help_message(message: &Paragraph, canvas: &mut Canvas, help_message_rect: &Rect) {
+    let help_message_text_point =
+        Point::new(help_message_rect.left + PADDING, help_message_rect.top);
+    canvas.draw_rect(help_message_rect, &Paint::new(TEXT_COLOR, None));
+    message.paint(canvas, help_message_text_point);
 }
 
 fn create_paragraphs(
