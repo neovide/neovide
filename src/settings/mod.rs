@@ -113,7 +113,7 @@ impl Settings {
                 concat!(
                     "exe \"",
                     "fun! NeovideNotify{0}Changed(d, k, z)\n",
-                    "call rpcnotify(1, 'setting_changed', '{0}', g:neovide_{0})\n",
+                    "call rpcnotify(g:neovide_channel_id, 'setting_changed', '{0}', g:neovide_{0})\n",
                     "endf\n",
                     "call dictwatcheradd(g:, 'neovide_{0}', 'NeovideNotify{0}Changed')\"",
                 ),
