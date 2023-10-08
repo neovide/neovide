@@ -45,6 +45,7 @@ raw-window-handle = "0.5.0"
 rmpv = "1.0.0"
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.79"
+shlex = "1.1.0"
 swash = "0.1.8"
 time = "0.3.9"
 tokio = { version = "1.25.0", features = ["full"] }
@@ -68,7 +69,6 @@ winapi = { version = "0.3.9", features = ["winuser", "wincon", "winerror"] }
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.24.0"
 objc = "0.2.7"
-shlex = "1.1.0"
 
 [target.'cfg(not(windows))'.dependencies]
 
