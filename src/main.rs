@@ -190,15 +190,12 @@ fn setup() -> Result<(WindowSize, NeovimRuntime)> {
     CursorSettings::register();
     KeyboardSettings::register();
     let window_size = determine_window_size();
-
-    let mut runtime = NeovimRuntime::new()?;
-    runtime.launch()?;
     let grid_size = match window_size {
         WindowSize::Grid(grid_size) => Some(grid_size),
         _ => None,
     };
-
-    runtime.attach(grid_size);
+    let mut runtime = NeovimRuntime::new()?;
+    runtime.launch(grid_size)?;
     Ok((window_size, runtime))
 }
 

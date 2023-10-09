@@ -9,16 +9,13 @@ mod ui_commands;
 use anyhow::{bail, Context, Result};
 use log::{error, info};
 use nvim_rs::{error::CallError, Neovim, UiAttachOptions, Value};
-use std::{io::Error, process::exit, sync::Arc};
+use std::{io::Error, sync::Arc};
 use tokio::{
     runtime::{Builder, Runtime},
     task::JoinHandle,
 };
 
-use crate::{
-    cmd_line::CmdLineSettings, dimensions::Dimensions, error_handling::ResultPanicExplanation,
-    running_tracker::*, settings::*,
-};
+use crate::{cmd_line::CmdLineSettings, dimensions::Dimensions, running_tracker::*, settings::*};
 use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
 use setup::setup_neovide_specific_state;
@@ -33,8 +30,6 @@ const NEOVIM_REQUIRED_VERSION: &str = "0.9.2";
 
 enum RuntimeState {
     Idle,
-    Invalid,
-    Launched(NeovimSession),
     Attached(JoinHandle<()>),
 }
 
@@ -69,7 +64,7 @@ pub async fn show_intro_message(
     nvim.exec_lua(INTRO_MESSAGE_LUA, args).await
 }
 
-async fn launch() -> Result<NeovimSession> {
+async fn launch(grid_size: Option<Dimensions>) -> Result<NeovimSession> {
     let neovim_instance = neovim_instance()?;
     let handler = NeovimHandler::new();
     let session = NeovimSession::new(neovim_instance, handler)
@@ -96,11 +91,7 @@ async fn launch() -> Result<NeovimSession> {
     start_ui_command_handler(Arc::clone(&session.neovim));
     SETTINGS.read_initial_values(&session.neovim).await;
     SETTINGS.setup_changed_listeners(&session.neovim).await;
-    Ok(session)
-}
 
-async fn run(session: NeovimSession, grid_size: Option<Dimensions>) {
-    let settings = SETTINGS.get::<CmdLineSettings>();
     let mut options = UiAttachOptions::new();
     options.set_linegrid_external(true);
     options.set_multigrid_external(!settings.no_multi_grid);
@@ -109,14 +100,17 @@ async fn run(session: NeovimSession, grid_size: Option<Dimensions>) {
     // Triggers loading the user config
 
     let grid_size = grid_size.map_or(DEFAULT_GRID_SIZE, |v| v.clamped_grid_size());
-    session
+    let res = session
         .neovim
         .ui_attach(grid_size.width as i64, grid_size.height as i64, &options)
         .await
-        .unwrap_or_explained_panic("Could not attach ui to neovim process");
+        .context("Could not attach ui to neovim process");
 
     info!("Neovim process attached");
+    res.map(|()| session)
+}
 
+async fn run(session: NeovimSession) {
     match session.io_handle.await {
         Err(join_error) => error!("Error joining IO loop: '{}'", join_error),
         Ok(Err(error)) => {
@@ -139,20 +133,11 @@ impl NeovimRuntime {
         })
     }
 
-    pub fn launch(&mut self) -> Result<()> {
+    pub fn launch(&mut self, grid_size: Option<Dimensions>) -> Result<()> {
         assert!(matches!(self.state, RuntimeState::Idle));
-        let res = self.runtime.block_on(launch())?;
-        self.state = RuntimeState::Launched(res);
+        let session = self.runtime.block_on(launch(grid_size))?;
+        self.state = RuntimeState::Attached(self.runtime.spawn(run(session)));
         Ok(())
-    }
-
-    pub fn attach(&mut self, grid_size: Option<Dimensions>) {
-        assert!(matches!(self.state, RuntimeState::Launched(..)));
-        if let RuntimeState::Launched(session) =
-            std::mem::replace(&mut self.state, RuntimeState::Invalid)
-        {
-            self.state = RuntimeState::Attached(self.runtime.spawn(run(session, grid_size)));
-        }
     }
 }
 
