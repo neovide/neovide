@@ -58,7 +58,8 @@ fn handle_gui_startup_errors(err: Error, event_loop: EventLoop<UserEvent>) -> i3
         show_error_window(&text, event_loop);
         clap_error.exit_code()
     } else {
-        show_error_window(&err.to_string(), event_loop);
+        let msg = format!("{:?}", err);
+        show_error_window(&msg, event_loop);
         1
     }
 }
