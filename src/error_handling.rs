@@ -42,12 +42,18 @@ impl<T> OptionPanicExplanation<T> for Option<T> {
     }
 }
 
+fn format_and_log_error_message(err: Error) -> String {
+    let msg = format!("{:?}", err);
+    log::error!("{}", msg);
+    msg
+}
+
 fn handle_terminal_startup_errors(err: Error) -> i32 {
     if let Some(clap_error) = err.downcast_ref::<ClapError>() {
         let _ = clap_error.print();
         clap_error.exit_code()
     } else {
-        eprintln!("ERROR: {}", err);
+        eprintln!("{}", &format_and_log_error_message(err));
         1
     }
 }
@@ -58,8 +64,7 @@ fn handle_gui_startup_errors(err: Error, event_loop: EventLoop<UserEvent>) -> i3
         show_error_window(&text, event_loop);
         clap_error.exit_code()
     } else {
-        let msg = format!("{:?}", err);
-        show_error_window(&msg, event_loop);
+        show_error_window(&format_and_log_error_message(err), event_loop);
         1
     }
 }
