@@ -1,28 +1,25 @@
-use log::{info, warn};
+use anyhow::{Context, Result};
+use log::info;
 use nvim_rs::Neovim;
 use rmpv::Value;
 
 use super::setup_intro_message_autocommand;
-use crate::{bridge::NeovimWriter, error_handling::ResultPanicExplanation};
+use crate::bridge::NeovimWriter;
 
 const INIT_LUA: &str = include_str!("../../lua/init.lua");
 
 pub async fn setup_neovide_specific_state(
     nvim: &Neovim<NeovimWriter>,
     should_handle_clipboard: bool,
-) {
+) -> Result<()> {
     // Set variable indicating to user config that neovide is being used.
     nvim.set_var("neovide", Value::Boolean(true))
         .await
-        .unwrap_or_explained_panic("Could not communicate with neovim process");
+        .context("Could not communicate with neovim process")?;
 
-    if let Err(command_error) = nvim.command("runtime! ginit.vim").await {
-        nvim.command(&format!(
-            "echomsg \"error encountered in ginit.vim {command_error:?}\""
-        ))
+    nvim.command("runtime! ginit.vim")
         .await
-        .ok();
-    }
+        .context("Error encountered in ginit.vim ")?;
 
     // Set details about the neovide version.
     nvim.set_client_info(
@@ -42,27 +39,23 @@ pub async fn setup_neovide_specific_state(
         vec![],
     )
     .await
-    .ok();
+    .context("Error setting client info")?;
 
     // Retrieve the channel number for communicating with neovide.
-    let neovide_channel: Option<u64> = nvim
+    let api_info = nvim
         .get_api_info()
         .await
-        .ok()
-        .and_then(|info| info[0].as_u64());
+        .context("Error getting API info")?;
 
-    let neovide_channel = if let Some(neovide_channel) = neovide_channel {
-        // Record the channel to the log.
-        info!(
-            "Neovide registered to nvim with channel id {}",
-            neovide_channel
-        );
+    let neovide_channel = api_info[0]
+        .as_u64()
+        .context("Neovide could not find the correct channel id")?;
 
-        Value::from(neovide_channel)
-    } else {
-        warn!("Neovide could not find the correct channel id. Some functionality may be disabled.");
-        Value::Nil
-    };
+    info!(
+        "Neovide registered to nvim with channel id {}",
+        neovide_channel
+    );
+    let neovide_channel = Value::from(neovide_channel);
 
     let register_clipboard = should_handle_clipboard;
     let register_right_click = cfg!(target_os = "windows");
@@ -81,9 +74,11 @@ pub async fn setup_neovide_specific_state(
 
     nvim.execute_lua(INIT_LUA, vec![args])
         .await
-        .unwrap_or_explained_panic("Error when running Neovide init.lua");
+        .context("Error when running Neovide init.lua")?;
 
     setup_intro_message_autocommand(nvim)
         .await
-        .unwrap_or_explained_panic("Error setting up intro message");
+        .context("Error setting up intro message")?;
+
+    Ok(())
 }

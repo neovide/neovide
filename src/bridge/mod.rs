@@ -86,7 +86,7 @@ async fn launch(grid_size: Option<Dimensions>) -> Result<NeovimSession> {
     let settings = SETTINGS.get::<CmdLineSettings>();
 
     let should_handle_clipboard = settings.wsl || settings.server.is_some();
-    setup_neovide_specific_state(&session.neovim, should_handle_clipboard).await;
+    setup_neovide_specific_state(&session.neovim, should_handle_clipboard).await?;
 
     start_ui_command_handler(Arc::clone(&session.neovim));
     SETTINGS.read_initial_values(&session.neovim).await;
