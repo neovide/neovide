@@ -192,7 +192,7 @@ fn setup() -> Result<(WindowSize, NeovimRuntime)> {
     let window_size = determine_window_size();
 
     let mut runtime = NeovimRuntime::new()?;
-    runtime.launch();
+    runtime.launch()?;
     let grid_size = match window_size {
         WindowSize::Grid(grid_size) => Some(grid_size),
         _ => None,

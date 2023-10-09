@@ -6,6 +6,7 @@ pub mod session;
 mod setup;
 mod ui_commands;
 
+use anyhow::Result;
 use log::{error, info};
 use nvim_rs::{error::CallError, Neovim, UiAttachOptions, Value};
 use std::{io::Error, process::exit, sync::Arc};
@@ -42,11 +43,12 @@ pub struct NeovimRuntime {
     state: RuntimeState,
 }
 
-fn neovim_instance() -> NeovimInstance {
+fn neovim_instance() -> Result<NeovimInstance> {
     if let Some(address) = SETTINGS.get::<CmdLineSettings>().server {
-        NeovimInstance::Server { address }
+        Ok(NeovimInstance::Server { address })
     } else {
-        NeovimInstance::Embedded(create_nvim_command())
+        let cmd = create_nvim_command()?;
+        Ok(NeovimInstance::Embedded(cmd))
     }
 }
 
@@ -67,8 +69,8 @@ pub async fn show_intro_message(
     nvim.exec_lua(INTRO_MESSAGE_LUA, args).await
 }
 
-async fn launch() -> NeovimSession {
-    let neovim_instance = neovim_instance();
+async fn launch() -> Result<NeovimSession> {
+    let neovim_instance = neovim_instance()?;
     let handler = NeovimHandler::new();
     let session = NeovimSession::new(neovim_instance, handler)
         .await
@@ -95,7 +97,7 @@ async fn launch() -> NeovimSession {
     start_ui_command_handler(Arc::clone(&session.neovim));
     SETTINGS.read_initial_values(&session.neovim).await;
     SETTINGS.setup_changed_listeners(&session.neovim).await;
-    session
+    Ok(session)
 }
 
 async fn run(session: NeovimSession, grid_size: Option<Dimensions>) {
@@ -138,9 +140,11 @@ impl NeovimRuntime {
         })
     }
 
-    pub fn launch(&mut self) {
+    pub fn launch(&mut self) -> Result<()> {
         assert!(matches!(self.state, RuntimeState::Idle));
-        self.state = RuntimeState::Launched(self.runtime.block_on(launch()));
+        let res = self.runtime.block_on(launch())?;
+        self.state = RuntimeState::Launched(res);
+        Ok(())
     }
 
     pub fn attach(&mut self, grid_size: Option<Dimensions>) {

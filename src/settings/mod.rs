@@ -256,7 +256,7 @@ mod tests {
         //TODO: this sets a static variable. Can this have side effects on other tests?
         SETTINGS.set::<CmdLineSettings>(&CmdLineSettings::default());
 
-        let instance = NeovimInstance::Embedded(create_nvim_command());
+        let instance = NeovimInstance::Embedded(create_nvim_command()?);
         let NeovimSession { neovim: nvim, .. } = NeovimSession::new(instance, NeovimHandler())
             .await
             .unwrap_or_explained_panic("Could not locate or start the neovim process");
