@@ -1,6 +1,7 @@
 mod from_value;
 mod window_size;
 
+use anyhow::{Context, Result};
 use log::trace;
 use nvim_rs::Neovim;
 use parking_lot::RwLock;
@@ -11,7 +12,7 @@ use std::{
     convert::TryInto,
 };
 
-use crate::{bridge::NeovimWriter, error_handling::ResultPanicExplanation};
+use crate::bridge::NeovimWriter;
 pub use from_value::ParseFromValue;
 pub use window_size::{
     load_last_window_settings, save_window_size, PersistentWindowSettings, DEFAULT_GRID_SIZE,
@@ -87,7 +88,7 @@ impl Settings {
         (*value).clone()
     }
 
-    pub async fn read_initial_values(&self, nvim: &Neovim<NeovimWriter>) {
+    pub async fn read_initial_values(&self, nvim: &Neovim<NeovimWriter>) -> Result<()> {
         let keys: Vec<String> = self.listeners.read().keys().cloned().collect();
 
         for name in keys {
@@ -99,13 +100,16 @@ impl Settings {
                 Err(error) => {
                     trace!("Initial value load failed for {}: {}", name, error);
                     let setting = self.readers.read().get(&name).unwrap()();
-                    nvim.set_var(&variable_name, setting).await.ok();
+                    nvim.set_var(&variable_name, setting)
+                        .await
+                        .context("Failed to set initial value")?;
                 }
             }
         }
+        Ok(())
     }
 
-    pub async fn setup_changed_listeners(&self, nvim: &Neovim<NeovimWriter>) {
+    pub async fn setup_changed_listeners(&self, nvim: &Neovim<NeovimWriter>) -> Result<()> {
         let keys: Vec<String> = self.listeners.read().keys().cloned().collect();
 
         for name in keys {
@@ -121,8 +125,9 @@ impl Settings {
             );
             nvim.command(&vimscript)
                 .await
-                .unwrap_or_explained_panic(&format!("Could not setup setting notifier for {name}"));
+                .with_context(|| format!("Could not setup setting notifier for {name}"))?;
         }
+        Ok(())
     }
 
     pub fn handle_changed_notification(&self, arguments: Vec<Value>) {
