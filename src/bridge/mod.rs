@@ -6,7 +6,7 @@ pub mod session;
 mod setup;
 mod ui_commands;
 
-use anyhow::Result;
+use anyhow::{bail, Context, Result};
 use log::{error, info};
 use nvim_rs::{error::CallError, Neovim, UiAttachOptions, Value};
 use std::{io::Error, process::exit, sync::Arc};
@@ -74,7 +74,7 @@ async fn launch() -> Result<NeovimSession> {
     let handler = NeovimHandler::new();
     let session = NeovimSession::new(neovim_instance, handler)
         .await
-        .unwrap_or_explained_panic("Could not locate or start neovim process");
+        .context("Could not locate or start neovim process")?;
 
     // Check the neovim version to ensure its high enough
     match session
@@ -85,8 +85,7 @@ async fn launch() -> Result<NeovimSession> {
     {
         Ok("1") => {} // This is just a guard
         _ => {
-            error!("Neovide requires nvim version {NEOVIM_REQUIRED_VERSION} or higher. Download the latest version here https://github.com/neovim/neovim/wiki/Installing-Neovim");
-            exit(0);
+            bail!("Neovide requires nvim version {NEOVIM_REQUIRED_VERSION} or higher. Download the latest version here https://github.com/neovim/neovim/wiki/Installing-Neovim");
         }
     }
     let settings = SETTINGS.get::<CmdLineSettings>();
