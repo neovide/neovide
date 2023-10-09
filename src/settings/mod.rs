@@ -153,6 +153,7 @@ mod tests {
             session::{NeovimInstance, NeovimSession},
         },
         cmd_line::CmdLineSettings,
+        error_handling::ResultPanicExplanation,
     };
 
     #[derive(Clone)]
@@ -261,7 +262,9 @@ mod tests {
         //TODO: this sets a static variable. Can this have side effects on other tests?
         SETTINGS.set::<CmdLineSettings>(&CmdLineSettings::default());
 
-        let instance = NeovimInstance::Embedded(create_nvim_command()?);
+        let command =
+            create_nvim_command().unwrap_or_explained_panic("Could not create nvim command");
+        let instance = NeovimInstance::Embedded(command);
         let NeovimSession { neovim: nvim, .. } = NeovimSession::new(instance, NeovimHandler())
             .await
             .unwrap_or_explained_panic("Could not locate or start the neovim process");
@@ -289,7 +292,10 @@ mod tests {
             settings.readers.force_unlock_write();
         }
 
-        settings.read_initial_values(&nvim).await;
+        settings
+            .read_initial_values(&nvim)
+            .await
+            .unwrap_or_explained_panic("Could not read initial values");
 
         let rt1 = nvim.get_var(&v4).await.unwrap();
         let rt2 = nvim.get_var(&v5).await.unwrap();
