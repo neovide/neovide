@@ -2421,11 +2421,9 @@ version = "0.62.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c6fb5ab010b9e90ab2d639650ddb2cba6bfad6d8742f93131968de865abc2c4a"
 dependencies = [
- "base64",
  "bitflags 2.4.0",
  "lazy_static",
  "skia-bindings",
- "ureq",
 ]
 
 [[package]]

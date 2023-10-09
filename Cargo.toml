@@ -49,6 +49,7 @@ serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.79"
 shlex = "1.1.0"
 simple_moving_average = "0.1.2"
+skia-safe = { version = "0.62.0", features = ["gl", "textlayout"] }
 spin_sleep = "1.1.1"
 strum = { version = "0.25.0", features = ["derive"] }
 swash = "0.1.8"
@@ -70,19 +71,16 @@ serial_test = "2.0.0"
 [target.'cfg(target_os = "windows")'.dependencies]
 # NOTE: winerror is only needed because the indirect dependency parity-tokio-ipc does not set it even if it uses it
 winapi = { version = "0.3.9", features = ["winuser", "wincon", "winerror", "dwmapi"] }
-skia-safe = { version = "0.62.0", features = ["gl", "textlayout"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.24.0"
 objc = "0.2.7"
-skia-safe = { version = "0.62.0", features = ["gl", "textlayout"] }
 
 [target.'cfg(target_os = "linux")'.dependencies]
 nix = { version = "0.26.2", features = ["poll"] }
 wayland-client = "0.30.2"
 wayland-sys = "0.30.1"
 wayland-backend = "0.1.2"
-skia-safe = { version = "0.62.0", features = ["egl", "gl", "svg", "textlayout", "wayland", "x11"] }
 
 [target.'cfg(target_os = "windows")'.build-dependencies]
 winres = "0.1.12"
