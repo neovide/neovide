@@ -1,10 +1,17 @@
-use anyhow::Error;
+use std::{
+    io::{stdout, IsTerminal},
+    process::{ExitCode, Termination},
+};
+
+use anyhow::{Error, Result};
 use clap::error::Error as ClapError;
 use log::error;
-use std::io::{stdout, IsTerminal};
-use winit::event_loop::EventLoop;
+use winit::{error::EventLoopError, event_loop::EventLoop};
 
-use crate::window::{show_error_window, UserEvent};
+use crate::{
+    running_tracker::RUNNING_TRACKER,
+    window::{show_error_window, UserEvent},
+};
 
 fn show_error(explanation: &str) -> ! {
     error!("{}", explanation);
@@ -74,5 +81,31 @@ pub fn handle_startup_errors(err: Error, event_loop: EventLoop<UserEvent>) -> i3
         handle_terminal_startup_errors(err)
     } else {
         handle_gui_startup_errors(err, event_loop)
+    }
+}
+
+pub struct NeovideExitCode(ExitCode);
+
+impl From<Result<(), EventLoopError>> for NeovideExitCode {
+    fn from(res: Result<(), EventLoopError>) -> Self {
+        match res {
+            Ok(_) => RUNNING_TRACKER.exit_code().into(),
+            Err(EventLoopError::ExitFailure(code)) => code.into(),
+            _ => Self(ExitCode::FAILURE),
+        }
+    }
+}
+
+impl From<i32> for NeovideExitCode {
+    fn from(res: i32) -> Self {
+        // All error codes have to be u8, so just do a direct cast with wrap around, even if the value is negative,
+        // that's how it's normally done on operating systems that don't support negative return values.
+        Self((res as u8).into())
+    }
+}
+
+impl Termination for NeovideExitCode {
+    fn report(self) -> ExitCode {
+        self.0
     }
 }

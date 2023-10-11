@@ -267,7 +267,6 @@ pub fn main_loop(
             window.inner_size(),
             window.outer_position().ok(),
         );
-        std::process::exit(RUNNING_TRACKER.exit_code());
     }));
 
     event_loop.run(move |e, window_target| {
