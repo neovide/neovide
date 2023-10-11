@@ -182,10 +182,8 @@ impl<'a> ErrorWindow<'a> {
     }
 
     fn render(&mut self) {
-        let size = Size::new(self.size.width as f32, self.size.height as f32);
         let (message_rect, help_message_rect) = self.layout();
 
-        self.paragraphs.message.layout(size.width - 2.0 * PADDING);
         let (offset, possible_scroll_direction) =
             self.handle_scrolling(message_rect.height() as f64);
 
