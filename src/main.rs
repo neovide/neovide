@@ -79,7 +79,6 @@ fn main() -> NeovideExitCode {
 
         log_panic_to_file(panic_info, &backtrace);
     }));
-    startup_profiler();
 
     #[cfg(target_os = "windows")]
     {
@@ -92,7 +91,6 @@ fn main() -> NeovideExitCode {
     match setup() {
         Err(err) => handle_startup_errors(err, event_loop).into(),
         Ok((window_size, _runtime)) => {
-            maybe_disown();
             start_editor();
             let window = create_window(&event_loop, &window_size);
             main_loop(window, window_size, event_loop).into()
@@ -169,6 +167,8 @@ fn setup() -> Result<(WindowSize, NeovimRuntime)> {
 
     //Will exit if -h or -v
     cmd_line::handle_command_line_arguments(args().collect())?;
+    maybe_disown();
+    startup_profiler();
 
     #[cfg(not(test))]
     init_logger();
