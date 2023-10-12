@@ -48,10 +48,17 @@ pub enum SerialCommand {
 
 impl SerialCommand {
     async fn execute(self, nvim: &Neovim<NeovimWriter>) {
-        match self {
+        // Don't panic here unless there's absolutely no chance of continuing the program, Instead
+        // just log the error and hope that it's something temporary or recoverable A normal reason
+        // for failure is when neovim has already quit, and a command, for example mouse move is
+        // being sent
+        let result = match self {
             SerialCommand::Keyboard(input_command) => {
                 trace!("Keyboard Input Sent: {}", input_command);
-                nvim.input(&input_command).await.expect("Input failed");
+                nvim.input(&input_command)
+                    .await
+                    .map(|_| ())
+                    .context("Input failed")
             }
             SerialCommand::MouseButton {
                 button,
@@ -59,8 +66,8 @@ impl SerialCommand {
                 grid_id,
                 position: (grid_x, grid_y),
                 modifier_string,
-            } => {
-                nvim.input_mouse(
+            } => nvim
+                .input_mouse(
                     &button,
                     &action,
                     &modifier_string,
@@ -69,15 +76,14 @@ impl SerialCommand {
                     grid_x as i64,
                 )
                 .await
-                .expect("Mouse Input Failed");
-            }
+                .context("Mouse Input Failed"),
             SerialCommand::Scroll {
                 direction,
                 grid_id,
                 position: (grid_x, grid_y),
                 modifier_string,
-            } => {
-                nvim.input_mouse(
+            } => nvim
+                .input_mouse(
                     "wheel",
                     &direction,
                     &modifier_string,
@@ -86,15 +92,14 @@ impl SerialCommand {
                     grid_x as i64,
                 )
                 .await
-                .expect("Mouse Scroll Failed");
-            }
+                .context("Mouse Scroll Failed"),
             SerialCommand::Drag {
                 button,
                 grid_id,
                 position: (grid_x, grid_y),
                 modifier_string,
-            } => {
-                nvim.input_mouse(
+            } => nvim
+                .input_mouse(
                     &button,
                     "drag",
                     &modifier_string,
@@ -103,8 +108,11 @@ impl SerialCommand {
                     grid_x as i64,
                 )
                 .await
-                .expect("Mouse Drag Failed");
-            }
+                .context("Mouse Drag Failed"),
+        };
+
+        if let Err(error) = result {
+            log::error!("{:?}", error);
         }
     }
 }
@@ -207,6 +215,10 @@ async fn unregister_right_click(nvim: &Neovim<NeovimWriter>) -> Result<(), Box<C
 
 impl ParallelCommand {
     async fn execute(self, nvim: &Neovim<NeovimWriter>) {
+        // Don't panic here unless there's absolutely no chance of continuing the program, Instead
+        // just log the error and hope that it's something temporary or recoverable A normal reason
+        // for failure is when neovim has already quit, and a command, for example mouse move is
+        // being sent
         let result = match self {
             ParallelCommand::Quit => nvim
                 .command(
