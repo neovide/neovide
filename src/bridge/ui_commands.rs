@@ -279,9 +279,10 @@ pub fn start_ui_command_handler(nvim: Arc<Neovim<NeovimWriter>>) {
         let mut ui_command_receiver = EVENT_AGGREGATOR.register_event::<UiCommand>();
         while RUNNING_TRACKER.is_running() {
             match ui_command_receiver.recv().await {
-                Some(UiCommand::Serial(serial_command)) => serial_tx
-                    .send(serial_command)
-                    .expect("Could not send serial ui command"),
+                Some(UiCommand::Serial(serial_command)) => {
+                    // This can fail if the serial_rx loop exits before this one, so ignore the errors
+                    let _ = serial_tx.send(serial_command);
+                }
                 Some(UiCommand::Parallel(parallel_command)) => {
                     let ui_command_nvim = ui_command_nvim.clone();
                     tokio::spawn(async move {
