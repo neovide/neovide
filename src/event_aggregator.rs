@@ -48,7 +48,9 @@ impl EventAggregator {
 
     pub fn send<T: Any + Clone + Debug + Send>(&self, event: T) {
         let sender = self.get_sender::<T>();
-        sender.send(event).unwrap();
+        // Ignore errors due to the channel being closed (those are the only ones that can be generated)
+        // That can happen during the shutdown process, or when some thread crashes
+        let _ = sender.send(event);
     }
 
     pub fn register_event<T: Any + Clone + Debug + Send>(&self) -> UnboundedReceiver<T> {
