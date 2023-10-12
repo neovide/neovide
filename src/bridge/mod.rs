@@ -57,11 +57,11 @@ pub async fn setup_intro_message_autocommand(
 pub async fn show_intro_message(
     nvim: &Neovim<NeovimWriter>,
     message: &[String],
-) -> Result<Value, Box<CallError>> {
+) -> Result<(), Box<CallError>> {
     let mut args = vec![Value::from("show_intro")];
     let lines = message.iter().map(|line| Value::from(line.as_str()));
     args.extend(lines);
-    nvim.exec_lua(INTRO_MESSAGE_LUA, args).await
+    nvim.exec_lua(INTRO_MESSAGE_LUA, args).await.map(|_| ())
 }
 
 async fn launch(grid_size: Option<Dimensions>) -> Result<NeovimSession> {
