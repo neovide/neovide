@@ -278,6 +278,7 @@ pub enum RedrawEvent {
     ShowIntro {
         message: Vec<String>,
     },
+    Suspend,
 }
 
 fn unpack_color(packed_color: u64) -> Color4f {
@@ -890,6 +891,7 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
             "msg_ruler" => Some(parse_msg_ruler(event_parameters)),
             "msg_history_show" => Some(parse_msg_history_show(event_parameters)),
             "msg_intro" => Some(parse_msg_intro(event_parameters)),
+            "suspend" => Some(Ok(RedrawEvent::Suspend)),
             _ => None,
         };
 
