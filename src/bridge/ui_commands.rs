@@ -153,19 +153,19 @@ impl ParallelCommand {
                 nvim.cmd(
                     vec![
                         (
-                            Value::String("cmd".to_owned().into()),
-                            Value::String("edit".to_owned().into()),
+                            "cmd".into(),
+                            "edit".into(),
                         ),
                         (
-                            Value::String("magic".to_owned().into()),
-                            Value::Map(vec![(
-                                Value::String("file".to_owned().into()),
-                                Value::Boolean(false),
-                            )]),
+                            "magic".into(),
+                            vec![(
+                                "file".into(),
+                                false.into(),
+                            )].into(),
                         ),
                         (
-                            Value::String("args".to_owned().into()),
-                            Value::Array(vec![Value::String(path.to_owned().into())]),
+                            "args".into(),
+                            vec![Value::from(path)].into(),
                         ),
                     ],
                     vec![],
