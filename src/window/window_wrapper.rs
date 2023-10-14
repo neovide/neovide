@@ -3,7 +3,7 @@ use super::{
 };
 
 use crate::{
-    bridge::{ParallelCommand, UiCommand, SerialCommand},
+    bridge::{ParallelCommand, SerialCommand, UiCommand},
     dimensions::Dimensions,
     editor::EditorCommand,
     event_aggregator::EVENT_AGGREGATOR,
@@ -138,7 +138,7 @@ impl WinitWindowWrapper {
             saved_grid_size: None,
             window_command_receiver,
             ime_enabled,
-            is_minimized: false
+            is_minimized: false,
         };
 
         window_wrapper.set_ime(ime_enabled);
