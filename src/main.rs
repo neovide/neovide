@@ -51,6 +51,7 @@ use cmd_line::CmdLineSettings;
 use editor::start_editor;
 use error_handling::{handle_startup_errors, NeovideExitCode};
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
+#[cfg_attr(target_os = "windows", allow(unused_imports))]
 use settings::SETTINGS;
 use window::{
     create_event_loop, create_window, determine_window_size, main_loop, WindowSettings, WindowSize,

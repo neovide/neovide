@@ -238,11 +238,7 @@ pub fn main_loop(
 
     let render_thread_handle = thread::spawn(move || {
         let mut window_wrapper = WinitWindowWrapper::new(window, initial_window_size);
-        let mut update_loop = UpdateLoop::new(
-            cmd_line_settings.vsync,
-            cmd_line_settings.idle,
-            &window_wrapper.windowed_context,
-        );
+        let mut update_loop = UpdateLoop::new(cmd_line_settings.idle);
 
         loop {
             if !RUNNING_TRACKER.is_running() {
@@ -307,11 +303,7 @@ pub fn main_loop(
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
     let mut window_wrapper = WinitWindowWrapper::new(window, initial_window_size);
 
-    let mut update_loop = UpdateLoop::new(
-        cmd_line_settings.vsync,
-        cmd_line_settings.idle,
-        &window_wrapper.windowed_context,
-    );
+    let mut update_loop = UpdateLoop::new(cmd_line_settings.idle);
 
     event_loop.run(move |e, window_target| {
         if e == Event::LoopExiting {
