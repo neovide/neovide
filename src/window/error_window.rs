@@ -29,8 +29,8 @@ const BACKGROUND_COLOR: Color4f = BLACK;
 const FONT_SIZE: f32 = 12.0 * 96.0 / 72.0;
 const PADDING: f32 = 10.0;
 const MAX_LINES: i32 = 9999;
-const MIN_SIZE: PhysicalSize<u32> = PhysicalSize::new(800, 600);
-const DEFAULT_SIZE: PhysicalSize<u32> = PhysicalSize::new(500, 500);
+const MIN_SIZE: PhysicalSize<u32> = PhysicalSize::new(500, 500);
+const DEFAULT_SIZE: PhysicalSize<u32> = PhysicalSize::new(800, 600);
 
 pub fn show_error_window(message: &str, event_loop: EventLoop<UserEvent>) {
     let mut error_window = ErrorWindow::new(message, &event_loop);
@@ -481,8 +481,8 @@ fn create_window(event_loop: &EventLoop<UserEvent>) -> GlWindow {
         .with_transparent(false)
         .with_visible(false)
         .with_decorations(true)
-        .with_inner_size(MIN_SIZE)
-        .with_min_inner_size(DEFAULT_SIZE);
+        .with_inner_size(DEFAULT_SIZE)
+        .with_min_inner_size(MIN_SIZE);
 
     build_window(winit_window_builder, event_loop)
 }
