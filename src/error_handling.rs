@@ -50,7 +50,13 @@ impl<T> OptionPanicExplanation<T> for Option<T> {
 }
 
 fn format_and_log_error_message(err: Error) -> String {
-    let msg = format!("{:?}", err);
+    let msg = format!("\
+Neovide just crashed :(
+This is the error that caused the crash. In case you don't know what to do with this, please feel free to report this on https://github.com/neovide/neovide/issues!
+
+{:?}",
+        err
+    );
     log::error!("{}", msg);
     msg
 }
