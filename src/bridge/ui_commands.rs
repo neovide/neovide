@@ -225,7 +225,9 @@ impl ParallelCommand {
                     "if get(g:, 'neovide_confirm_quit', 0) == 1 | confirm qa | else | qa! | endif",
                 )
                 .await
-                .context("ConfirmQuit failed"),
+                // Ignore all errors, since neovim exits immediately before the response is sent.
+                // We could an RPC notify instead of request, but nvim-rs does currently not support it.
+                .or(Ok(())),
             ParallelCommand::Resize { width, height } => nvim
                 .ui_try_resize(width.max(10) as i64, height.max(3) as i64)
                 .await
