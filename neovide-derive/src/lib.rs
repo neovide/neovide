@@ -7,7 +7,7 @@ pub fn setting_group(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
     let prefix = setting_prefix(input.attrs.as_ref())
         .map(|p| format!("{p}_"))
-        .unwrap_or_else(|| "".to_string());
+        .unwrap_or_default();
     stream(input, prefix)
 }
 

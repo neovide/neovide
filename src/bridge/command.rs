@@ -95,10 +95,14 @@ fn neovim_ok(bin: &str, args: &[String]) -> bool {
                     concat!(
                         "ERROR: Unexpected output from neovim binary:\n",
                         "\t{bin} -v\n",
+                        "stdout: {stdout}\n",
+                        "stderr: {stderr}\n",
                         "Check that your shell doesn't output anything extra when running:",
                         "\n\t"
                     ),
-                    bin = bin
+                    bin = bin,
+                    stdout = stdout,
+                    stderr = String::from_utf8_lossy(&output.stderr),
                 );
 
                 if is_wsl {
