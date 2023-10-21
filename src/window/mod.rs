@@ -276,11 +276,17 @@ pub fn main_loop(
             }
             Event::AboutToWait => {}
             _ => {
-                let _ = tx.as_ref().unwrap().send(e);
+                if let Some(tx) = tx.as_ref() {
+                    let _ = tx.send(e);
+                }
             }
         }
 
         if !RUNNING_TRACKER.is_running() {
+            window_target.set_control_flow(ControlFlow::Wait);
+            if tx.is_none() {
+                return;
+            }
             let tx = tx.take().unwrap();
             drop(tx);
             let handle = render_thread_handle.take().unwrap();
