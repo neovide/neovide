@@ -2,12 +2,13 @@ use std::{iter, mem};
 
 use crate::{dimensions::Dimensions, frame::Frame, settings::*};
 
+use anyhow::Result;
 use clap::{builder::FalseyValueParser, ArgAction, Parser};
 
 #[cfg(target_os = "windows")]
-const SRGB_DEFAULT: &str = "1";
+pub const SRGB_DEFAULT: &str = "1";
 #[cfg(not(target_os = "windows"))]
-const SRGB_DEFAULT: &str = "0";
+pub const SRGB_DEFAULT: &str = "0";
 
 #[derive(Clone, Debug, Parser)]
 #[command(version, about, long_about = None)]
@@ -137,8 +138,8 @@ impl Default for CmdLineSettings {
     }
 }
 
-pub fn handle_command_line_arguments(args: Vec<String>) -> Result<(), String> {
-    let mut cmdline = CmdLineSettings::parse_from(args);
+pub fn handle_command_line_arguments(args: Vec<String>) -> Result<()> {
+    let mut cmdline = CmdLineSettings::try_parse_from(args)?;
 
     // The neovim_args in cmdline are unprocessed, actually add options to it
     let maybe_tab_flag = (!cmdline.no_tabs).then(|| "-p".to_string());

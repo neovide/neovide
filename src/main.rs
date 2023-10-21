@@ -1,4 +1,4 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(not(test), windows_subsystem = "windows")]
 // Test naming occasionally uses camelCase with underscores to separate sections of
 // the test name.
 #![cfg_attr(test, allow(non_snake_case))]
@@ -32,32 +32,30 @@ extern crate derive_new;
 #[macro_use]
 extern crate lazy_static;
 
-use std::env::{self, args};
-use std::process::ExitCode;
-
-#[cfg(not(test))]
-use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
-
+use anyhow::Result;
 use log::trace;
-
-use backtrace::Backtrace;
-use bridge::NeovimRuntime;
-use cmd_line::CmdLineSettings;
-use editor::start_editor;
-use renderer::{cursor_renderer::CursorSettings, RendererSettings};
-use settings::SETTINGS;
+use std::env::{self, args};
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::panic::{set_hook, PanicInfo};
 use std::time::SystemTime;
 use time::macros::format_description;
 use time::OffsetDateTime;
+
+#[cfg(not(test))]
+use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
+
+use backtrace::Backtrace;
+use bridge::NeovimRuntime;
+use cmd_line::CmdLineSettings;
+use editor::start_editor;
+use error_handling::{handle_startup_errors, NeovideExitCode};
+use renderer::{cursor_renderer::CursorSettings, RendererSettings};
+use settings::SETTINGS;
 use window::{
     create_event_loop, create_window, determine_window_size, main_loop, KeyboardSettings,
     WindowSettings, WindowSize,
 };
-
-use winit::error::EventLoopError;
 
 pub use channel_utils::*;
 pub use event_aggregator::*;
@@ -72,7 +70,7 @@ pub use profiling::startup_profiler;
 const BACKTRACES_FILE: &str = "neovide_backtraces.log";
 const REQUEST_MESSAGE: &str = "This is a bug and we would love for it to be reported to https://github.com/neovide/neovide/issues";
 
-fn main() -> ExitCode {
+fn main() -> NeovideExitCode {
     set_hook(Box::new(|panic_info| {
         let backtrace = Backtrace::new();
 
@@ -82,10 +80,24 @@ fn main() -> ExitCode {
         log_panic_to_file(panic_info, &backtrace);
     }));
 
-    protected_main()
+    #[cfg(target_os = "windows")]
+    {
+        windows_fix_dpi();
+    }
+
+    let event_loop = create_event_loop();
+
+    match setup() {
+        Err(err) => handle_startup_errors(err, event_loop).into(),
+        Ok((window_size, _runtime)) => {
+            start_editor();
+            let window = create_window(&event_loop, &window_size);
+            main_loop(window, window_size, event_loop).into()
+        }
+    }
 }
 
-fn protected_main() -> ExitCode {
+fn setup() -> Result<(WindowSize, NeovimRuntime)> {
     //  --------------
     // | Architecture |
     //  --------------
@@ -150,55 +162,31 @@ fn protected_main() -> ExitCode {
     //   another frame next frame, or if it can safely skip drawing to save battery and cpu power.
     //   Multiple other parts of the app "queue_next_frame" function to ensure animations continue
     //   properly or updates to the graphics are pushed to the screen.
-
-    startup_profiler();
-
-    #[cfg(target_os = "windows")]
-    windows_attach_to_console();
-
     Config::init();
 
     //Will exit if -h or -v
-    if let Err(err) = cmd_line::handle_command_line_arguments(args().collect()) {
-        eprintln!("{err}");
-        return 1.into();
-    }
+    cmd_line::handle_command_line_arguments(args().collect())?;
+    #[cfg(not(target_os = "windows"))]
+    maybe_disown();
+    startup_profiler();
 
     #[cfg(not(test))]
     init_logger();
 
     trace!("Neovide version: {}", crate_version!());
 
-    #[cfg(target_os = "windows")]
-    windows_fix_dpi();
-
     WindowSettings::register();
     RendererSettings::register();
     CursorSettings::register();
     KeyboardSettings::register();
     let window_size = determine_window_size();
-
-    let mut runtime = NeovimRuntime::new().unwrap();
-    runtime.launch();
-    let event_loop = create_event_loop();
-    let window = create_window(&event_loop, &window_size);
     let grid_size = match window_size {
         WindowSize::Grid(grid_size) => Some(grid_size),
         _ => None,
     };
-    runtime.attach(grid_size);
-
-    maybe_disown();
-    start_editor();
-
-    match main_loop(window, window_size, event_loop) {
-        Ok(()) => 0,
-        // All error codes have to be u8, so just do a direct cast with wrap around, even if the value is negative,
-        // that's how it's normally done on operating systems that don't support negative return values.
-        Err(EventLoopError::ExitFailure(code)) => code as u8,
-        _ => 1,
-    }
-    .into()
+    let mut runtime = NeovimRuntime::new()?;
+    runtime.launch(grid_size)?;
+    Ok((window_size, runtime))
 }
 
 #[cfg(not(test))]
@@ -222,8 +210,10 @@ pub fn init_logger() {
     logger.start().expect("Could not start logger");
 }
 
+#[cfg(not(target_os = "windows"))]
 fn maybe_disown() {
-    use std::process;
+    use fork::{daemon, Fork};
+    use std::process::exit;
 
     let settings = SETTINGS.get::<CmdLineSettings>();
 
@@ -231,21 +221,16 @@ fn maybe_disown() {
         return;
     }
 
-    #[cfg(target_os = "windows")]
-    windows_detach_from_console();
-
-    if let Ok(current_exe) = env::current_exe() {
-        assert!(process::Command::new(current_exe)
-            .stdin(process::Stdio::null())
-            .stdout(process::Stdio::null())
-            .stderr(process::Stdio::null())
-            .arg("--no-fork")
-            .args(env::args().skip(1))
-            .spawn()
-            .is_ok());
-        process::exit(0);
-    } else {
-        eprintln!("error in disowning process, cannot obtain the path for the current executable, continuing without disowning...");
+    let nochdir = true;
+    let noclose = false;
+    match daemon(nochdir, noclose) {
+        Ok(Fork::Child) => {}
+        Ok(Fork::Parent(_)) => {
+            exit(0);
+        }
+        Err(_) => {
+            eprintln!("error in disowning process, cannot obtain the path for the current executable, continuing without disowning...");
+        }
     }
 }
 
