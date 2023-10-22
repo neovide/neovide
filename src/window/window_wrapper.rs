@@ -4,7 +4,7 @@ use super::{
 };
 
 use crate::{
-    bridge::{ParallelCommand, UiCommand},
+    bridge::{ParallelCommand, SerialCommand, UiCommand},
     dimensions::Dimensions,
     editor::EditorCommand,
     event_aggregator::EVENT_AGGREGATOR,
@@ -66,6 +66,7 @@ pub struct WinitWindowWrapper {
     ui_state: UIState,
     window_padding: WindowPadding,
     initial_window_size: WindowSize,
+    is_minimized: bool,
 }
 
 impl WinitWindowWrapper {
@@ -127,6 +128,7 @@ impl WinitWindowWrapper {
                 bottom: 0,
             },
             initial_window_size,
+            is_minimized: false,
         };
 
         wrapper.set_ime(ime_enabled);
@@ -143,6 +145,12 @@ impl WinitWindowWrapper {
         }
 
         self.fullscreen = !self.fullscreen;
+    }
+
+    pub fn minimize_window(&mut self) {
+        let window = self.windowed_context.window();
+
+        window.set_minimized(true);
     }
 
     pub fn set_ime(&mut self, ime_enabled: bool) {
@@ -185,6 +193,10 @@ impl WinitWindowWrapper {
                 WindowCommand::FocusWindow => {
                     self.windowed_context.window().focus_window();
                 }
+                WindowCommand::Minimize => {
+                    self.minimize_window();
+                    self.is_minimized = true;
+                }
             }
         }
     }
@@ -215,6 +227,13 @@ impl WinitWindowWrapper {
 
     pub fn handle_focus_gained(&mut self) {
         EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::FocusGained));
+        // Got focus back after being minimized previously
+        if self.is_minimized {
+            // Sending <NOP> after suspend triggers the `VimResume` AutoCmd
+            EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Keyboard("<NOP>".into())));
+
+            self.is_minimized = false;
+        }
     }
 
     /// Handles an event from winit and returns an boolean indicating if

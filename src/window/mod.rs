@@ -72,6 +72,7 @@ pub enum WindowCommand {
     Columns(u64),
     Lines(u64),
     FocusWindow,
+    Minimize,
 }
 
 #[allow(dead_code)]

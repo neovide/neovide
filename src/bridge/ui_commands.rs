@@ -5,7 +5,7 @@ use log::error;
 use log::trace;
 
 use anyhow::{Context, Result};
-use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim};
+use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim, Value};
 use tokio::sync::mpsc::unbounded_channel;
 
 #[cfg(windows)]
@@ -239,8 +239,16 @@ impl ParallelCommand {
                 nvim.ui_set_focus(true).await.context("FocusGained failed")
             }
             ParallelCommand::FileDrop(path) => nvim
-                .command(format!("e {path}").as_str())
+                .cmd(
+                    vec![
+                        ("cmd".into(), "edit".into()),
+                        ("magic".into(), vec![("file".into(), false.into())].into()),
+                        ("args".into(), vec![Value::from(path)].into()),
+                    ],
+                    vec![],
+                )
                 .await
+                .map(|_| ()) // We don't care about the result
                 .context("FileDrop failed"),
             ParallelCommand::SetBackground(background) => nvim
                 .command(format!("set background={}", background).as_str())
