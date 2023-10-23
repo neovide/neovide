@@ -16,8 +16,11 @@ use swash::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::profiling::tracy_zone;
-use crate::renderer::fonts::{font_loader::*, font_options::*};
+use crate::{bridge::ParallelCommand, profiling::tracy_zone, EVENT_AGGREGATOR};
+use crate::{
+    bridge::UiCommand,
+    renderer::fonts::{font_loader::*, font_options::*},
+};
 
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {
@@ -96,7 +99,11 @@ impl CachingShaper {
             self.options = options;
             self.reset_font_loader();
         } else {
-            error!("Font can't be updated to: {}", guifont_setting);
+            let msg = format!("Font can't be updated to:: {}", guifont_setting);
+            error!("{}", msg);
+            EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::ShowError {
+                message: msg,
+            }));
         }
     }
 
