@@ -59,6 +59,13 @@ pub async fn show_intro_message(
     nvim.exec_lua(INTRO_MESSAGE_LUA, args).await
 }
 
+pub async fn show_error_message(
+    nvim: &Neovim<NeovimWriter>,
+    message: &String,
+) -> Result<(), Box<CallError>> {
+    nvim.command(&format!("echomsg \"{message:?}\"")).await
+}
+
 #[tokio::main]
 async fn start_neovim_runtime(instance: NeovimInstance) {
     let handler = NeovimHandler::new();
