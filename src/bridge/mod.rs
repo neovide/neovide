@@ -6,8 +6,9 @@ pub mod session;
 mod setup;
 mod ui_commands;
 
-use std::{process::exit, sync::Arc, thread};
+use std::{process::exit, sync::Arc, thread, ops::Add};
 
+use itertools::Itertools;
 use log::{error, info};
 use nvim_rs::{error::CallError, Neovim, UiAttachOptions, Value};
 
@@ -61,9 +62,22 @@ pub async fn show_intro_message(
 
 pub async fn show_error_message(
     nvim: &Neovim<NeovimWriter>,
-    message: &String,
+    lines: &[String],
 ) -> Result<(), Box<CallError>> {
-    nvim.err_writeln(message).await
+    nvim.echo(
+        lines
+            .iter()
+            .map(|l| {
+                Value::Array(vec![
+                    Value::String(l.clone().add("\n").into()),
+                    Value::String("ErrorMsg".into()),
+                ])
+            })
+            .collect_vec(),
+        true,
+        vec![],
+    )
+    .await
 }
 
 #[tokio::main]

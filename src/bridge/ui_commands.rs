@@ -128,7 +128,7 @@ pub enum ParallelCommand {
         message: Vec<String>,
     },
     ShowError {
-        message: String,
+        lines: Vec<String>,
     },
 }
 
@@ -243,8 +243,12 @@ impl ParallelCommand {
             ParallelCommand::ShowIntro { message } => {
                 show_intro_message(nvim, &message).await.ok();
             }
-            ParallelCommand::ShowError { message } => {
-                show_error_message(nvim, &message).await.ok();
+            ParallelCommand::ShowError { lines } => {
+                // nvim.err_write(&message).await.ok();
+                // NOTE: https://github.com/neovim/neovim/issues/5067
+                // nvim_err_write[ln] is broken for multiline messages
+                // We should go back to it whenever that bug gets fixed.
+                show_error_message(nvim, &lines).await.ok();
             }
         }
     }

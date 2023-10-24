@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use itertools::Itertools;
 use log::{debug, error, trace, warn};
 use lru::LruCache;
 use skia_safe::{
@@ -86,24 +87,37 @@ impl CachingShaper {
         debug!("Updating font: {}", guifont_setting);
 
         let options = FontOptions::parse(guifont_setting);
-        let font_key = FontKey {
-            italic: false,
-            bold: false,
-            family_name: options.primary_font(),
-            hinting: options.hinting.clone(),
-            edging: options.edging.clone(),
-        };
 
-        if self.font_loader.get_or_load(&font_key).is_some() {
+        let failed_fonts = options
+            .font_list
+            .iter()
+            .filter(|font| {
+                let key = FontKey {
+                    italic: false,
+                    bold: false,
+                    family_name: Some((*font).clone()),
+                    hinting: options.hinting.clone(),
+                    edging: options.edging.clone(),
+                };
+                self.font_loader.get_or_load(&key).is_none()
+            })
+            .collect_vec();
+
+        if !failed_fonts.is_empty() {
+            let msg = vec![
+                format!("Font can't be updated to: {}", guifont_setting),
+                format!("Following fonts couldn't be loaded: {:?}", failed_fonts),
+            ];
+            msg.iter().for_each(|m| error!("{}", m));
+            EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::ShowError {
+                lines: msg,
+            }));
+        }
+
+        if failed_fonts.len() != options.font_list.len() {
             debug!("Font updated to: {}", guifont_setting);
             self.options = options;
             self.reset_font_loader();
-        } else {
-            let msg = format!("Font can't be updated to: {}", guifont_setting);
-            error!("{}", msg);
-            EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::ShowError {
-                message: msg,
-            }));
         }
     }
 
