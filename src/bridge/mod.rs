@@ -63,7 +63,7 @@ pub async fn show_error_message(
     nvim: &Neovim<NeovimWriter>,
     message: &String,
 ) -> Result<(), Box<CallError>> {
-    nvim.command(&format!("echomsg \"{message:?}\"")).await
+    nvim.err_writeln(message).await
 }
 
 #[tokio::main]

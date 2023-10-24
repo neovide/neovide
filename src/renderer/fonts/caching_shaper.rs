@@ -99,7 +99,7 @@ impl CachingShaper {
             self.options = options;
             self.reset_font_loader();
         } else {
-            let msg = format!("Font can't be updated to:: {}", guifont_setting);
+            let msg = format!("Font can't be updated to: {}", guifont_setting);
             error!("{}", msg);
             EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::ShowError {
                 message: msg,
