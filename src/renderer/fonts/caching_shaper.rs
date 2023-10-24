@@ -106,7 +106,10 @@ impl CachingShaper {
         if !failed_fonts.is_empty() {
             let msg = vec![
                 format!("Font can't be updated to: {}", guifont_setting),
-                format!("Following fonts couldn't be loaded: {:?}", failed_fonts),
+                format!(
+                    "Following fonts couldn't be loaded: {}",
+                    failed_fonts.iter().join(", ")
+                ),
             ];
             msg.iter().for_each(|m| error!("{}", m));
             EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::ShowError {
