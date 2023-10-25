@@ -13,7 +13,7 @@ use winit::{
     dpi::PhysicalSize,
     event::{ElementState, Event, KeyEvent, Modifiers, MouseScrollDelta, WindowEvent},
     event_loop::{EventLoop, EventLoopWindowTarget},
-    keyboard::Key,
+    keyboard::{Key, NamedKey},
     window::WindowBuilder,
 };
 
@@ -248,22 +248,25 @@ impl<'a> ErrorWindow<'a> {
                     }
                     _ => false,
                 },
-                Key::ArrowDown => self.scroll_line(1),
-                Key::ArrowUp => self.scroll_line(-1),
-                Key::Space => self.scroll_page(1.0),
-                Key::Enter => self.scroll_line(1),
-                Key::Home => {
-                    self.scroll = Scroll::Start;
-                    true
-                }
-                Key::End => {
-                    self.scroll = Scroll::End;
-                    true
-                }
-                Key::Escape => {
-                    window_target.exit();
-                    true
-                }
+                Key::Named(named_key) => match named_key {
+                    NamedKey::ArrowDown => self.scroll_line(1),
+                    NamedKey::ArrowUp => self.scroll_line(-1),
+                    NamedKey::Space => self.scroll_page(1.0),
+                    NamedKey::Enter => self.scroll_line(1),
+                    NamedKey::Home => {
+                        self.scroll = Scroll::Start;
+                        true
+                    }
+                    NamedKey::End => {
+                        self.scroll = Scroll::End;
+                        true
+                    }
+                    NamedKey::Escape => {
+                        window_target.exit();
+                        true
+                    }
+                    _ => false,
+                },
                 _ => false,
             }
         };

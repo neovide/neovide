@@ -10,7 +10,7 @@ use crate::{settings::SETTINGS, window::KeyboardSettings};
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use winit::{
     event::{ElementState, Event, Ime, KeyEvent, Modifiers, WindowEvent},
-    keyboard::{Key, KeyCode, KeyLocation},
+    keyboard::{Key, KeyCode, KeyLocation, NamedKey, PhysicalKey},
 };
 
 fn is_ascii_alphabetic_char(text: &str) -> bool {
@@ -85,8 +85,11 @@ impl KeyboardManager {
     }
 
     fn handle_numpad_key(key_event: &KeyEvent) -> Option<&str> {
+        let PhysicalKey::Code(physical_key_code) = key_event.physical_key else {
+            return None;
+        };
         let is_numlock_key = key_event.text.is_some();
-        match key_event.physical_key {
+        match physical_key_code {
             KeyCode::NumpadDivide => Some("kDivide"),
             KeyCode::NumpadStar => Some("kMultiply"),
             KeyCode::NumpadSubtract => Some("kMinus"),
@@ -226,57 +229,59 @@ fn get_special_key(key_event: &KeyEvent) -> Option<&str> {
     if key_event.location == KeyLocation::Numpad {
         return KeyboardManager::handle_numpad_key(key_event);
     }
-    let key = &key_event.logical_key;
+    let Key::Named(key) = &key_event.logical_key else {
+        return None;
+    };
     match key {
-        Key::ArrowDown => Some("Down"),
-        Key::ArrowLeft => Some("Left"),
-        Key::ArrowRight => Some("Right"),
-        Key::ArrowUp => Some("Up"),
-        Key::Backspace => Some("BS"),
-        Key::Delete => Some("Del"),
-        Key::End => Some("End"),
-        Key::Enter => Some("Enter"),
-        Key::Escape => Some("Esc"),
-        Key::F1 => Some("F1"),
-        Key::F2 => Some("F2"),
-        Key::F3 => Some("F3"),
-        Key::F4 => Some("F4"),
-        Key::F5 => Some("F5"),
-        Key::F6 => Some("F6"),
-        Key::F7 => Some("F7"),
-        Key::F8 => Some("F8"),
-        Key::F9 => Some("F9"),
-        Key::F10 => Some("F10"),
-        Key::F11 => Some("F11"),
-        Key::F12 => Some("F12"),
-        Key::F13 => Some("F13"),
-        Key::F14 => Some("F14"),
-        Key::F15 => Some("F15"),
-        Key::F16 => Some("F16"),
-        Key::F17 => Some("F17"),
-        Key::F18 => Some("F18"),
-        Key::F19 => Some("F19"),
-        Key::F20 => Some("F20"),
-        Key::F21 => Some("F21"),
-        Key::F22 => Some("F22"),
-        Key::F23 => Some("F23"),
-        Key::F24 => Some("F24"),
-        Key::F25 => Some("F25"),
-        Key::F26 => Some("F26"),
-        Key::F27 => Some("F27"),
-        Key::F28 => Some("F28"),
-        Key::F29 => Some("F29"),
-        Key::F30 => Some("F30"),
-        Key::F31 => Some("F31"),
-        Key::F32 => Some("F32"),
-        Key::F33 => Some("F33"),
-        Key::F34 => Some("F34"),
-        Key::F35 => Some("F35"),
-        Key::Home => Some("Home"),
-        Key::Insert => Some("Insert"),
-        Key::PageDown => Some("PageDown"),
-        Key::PageUp => Some("PageUp"),
-        Key::Space => {
+        NamedKey::ArrowDown => Some("Down"),
+        NamedKey::ArrowLeft => Some("Left"),
+        NamedKey::ArrowRight => Some("Right"),
+        NamedKey::ArrowUp => Some("Up"),
+        NamedKey::Backspace => Some("BS"),
+        NamedKey::Delete => Some("Del"),
+        NamedKey::End => Some("End"),
+        NamedKey::Enter => Some("Enter"),
+        NamedKey::Escape => Some("Esc"),
+        NamedKey::F1 => Some("F1"),
+        NamedKey::F2 => Some("F2"),
+        NamedKey::F3 => Some("F3"),
+        NamedKey::F4 => Some("F4"),
+        NamedKey::F5 => Some("F5"),
+        NamedKey::F6 => Some("F6"),
+        NamedKey::F7 => Some("F7"),
+        NamedKey::F8 => Some("F8"),
+        NamedKey::F9 => Some("F9"),
+        NamedKey::F10 => Some("F10"),
+        NamedKey::F11 => Some("F11"),
+        NamedKey::F12 => Some("F12"),
+        NamedKey::F13 => Some("F13"),
+        NamedKey::F14 => Some("F14"),
+        NamedKey::F15 => Some("F15"),
+        NamedKey::F16 => Some("F16"),
+        NamedKey::F17 => Some("F17"),
+        NamedKey::F18 => Some("F18"),
+        NamedKey::F19 => Some("F19"),
+        NamedKey::F20 => Some("F20"),
+        NamedKey::F21 => Some("F21"),
+        NamedKey::F22 => Some("F22"),
+        NamedKey::F23 => Some("F23"),
+        NamedKey::F24 => Some("F24"),
+        NamedKey::F25 => Some("F25"),
+        NamedKey::F26 => Some("F26"),
+        NamedKey::F27 => Some("F27"),
+        NamedKey::F28 => Some("F28"),
+        NamedKey::F29 => Some("F29"),
+        NamedKey::F30 => Some("F30"),
+        NamedKey::F31 => Some("F31"),
+        NamedKey::F32 => Some("F32"),
+        NamedKey::F33 => Some("F33"),
+        NamedKey::F34 => Some("F34"),
+        NamedKey::F35 => Some("F35"),
+        NamedKey::Home => Some("Home"),
+        NamedKey::Insert => Some("Insert"),
+        NamedKey::PageDown => Some("PageDown"),
+        NamedKey::PageUp => Some("PageUp"),
+        NamedKey::Space => {
             // Space can finish a dead key sequence, so treat space as a special key only when
             // that doesn't happen.
             if key_event.text == Some(" ".into()) {
@@ -285,7 +290,7 @@ fn get_special_key(key_event: &KeyEvent) -> Option<&str> {
                 None
             }
         }
-        Key::Tab => Some("Tab"),
+        NamedKey::Tab => Some("Tab"),
         _ => None,
     }
 }
