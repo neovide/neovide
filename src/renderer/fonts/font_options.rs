@@ -8,9 +8,13 @@ const FONT_LIST_SEPARATOR: char = ',';
 const FONT_HINTING_PREFIX: &str = "#h-";
 const FONT_EDGING_PREFIX: &str = "#e-";
 const FONT_HEIGHT_PREFIX: char = 'h';
+const ALLOW_FLOAT_SIZE_OPT: char = '.';
 const FONT_WIDTH_PREFIX: char = 'w';
 const FONT_BOLD_OPT: &str = "b";
 const FONT_ITALIC_OPT: &str = "i";
+
+const INVALID_SIZE_ERR: &str = "Invalid size";
+const INVALID_WIDTH_ERR: &str = "Invalid width";
 
 #[derive(Clone, Debug)]
 pub struct FontOptions {
@@ -50,10 +54,11 @@ impl FontOptions {
             } else if let Some(edging_string) = part.strip_prefix(FONT_EDGING_PREFIX) {
                 font_options.edging = FontEdging::parse(edging_string)?;
             } else if part.starts_with(FONT_HEIGHT_PREFIX) && part.len() > 1 {
-                font_options.allow_float_size = part[1..].contains('.');
-                font_options.size = parse_pixels(part).map_err(|_| "Invalid size")?;
+                font_options.allow_float_size |= part[1..].contains(ALLOW_FLOAT_SIZE_OPT);
+                font_options.size = parse_pixels(part).map_err(|_| INVALID_SIZE_ERR)?;
             } else if part.starts_with(FONT_WIDTH_PREFIX) && part.len() > 1 {
-                font_options.width = parse_pixels(part).map_err(|_| "Invalid width")?;
+                font_options.allow_float_size |= part[1..].contains(ALLOW_FLOAT_SIZE_OPT);
+                font_options.width = parse_pixels(part).map_err(|_| INVALID_WIDTH_ERR)?;
             } else if part == FONT_BOLD_OPT {
                 font_options.bold = true;
             } else if part == FONT_ITALIC_OPT {
@@ -125,12 +130,13 @@ pub enum FontEdging {
 }
 
 impl FontEdging {
+    const INVALID_ERR: &str = "Invalid edging";
     pub fn parse(value: &str) -> Result<Self, &str> {
         match value {
-            "antialias" => Ok(FontEdging::AntiAlias),
-            "subpixelantialias" => Ok(FontEdging::SubpixelAntiAlias),
-            "alias" => Ok(FontEdging::Alias),
-            _ => Err("Invalid edging"),
+            "antialias" => Ok(Self::AntiAlias),
+            "subpixelantialias" => Ok(Self::SubpixelAntiAlias),
+            "alias" => Ok(Self::Alias),
+            _ => Err(Self::INVALID_ERR),
         }
     }
 }
@@ -145,13 +151,14 @@ pub enum FontHinting {
 }
 
 impl FontHinting {
+    const INVALID_ERR: &str = "Invalid hinting";
     pub fn parse(value: &str) -> Result<Self, &str> {
         match value {
-            "full" => Ok(FontHinting::Full),
-            "normal" => Ok(FontHinting::Normal),
-            "slight" => Ok(FontHinting::Slight),
-            "none" => Ok(FontHinting::None),
-            _ => Err("Invalid hinting"),
+            "full" => Ok(Self::Full),
+            "normal" => Ok(Self::Normal),
+            "slight" => Ok(Self::Slight),
+            "none" => Ok(Self::None),
+            _ => Err(Self::INVALID_ERR),
         }
     }
 }
@@ -190,8 +197,8 @@ mod tests {
             font_options.font_list.len(),
             1,
             "font list length should equal {}, but {}",
+            1,
             font_options.font_list.len(),
-            1
         );
     }
 
@@ -204,8 +211,8 @@ mod tests {
             font_options.font_list.len(),
             2,
             "font list length should equal {}, but {}",
+            2,
             font_options.font_list.len(),
-            1
         );
     }
 
@@ -218,8 +225,22 @@ mod tests {
             font_options.edging,
             FontEdging::SubpixelAntiAlias,
             "font edging should equal {:?}, but {:?}",
-            font_options.edging,
             FontEdging::SubpixelAntiAlias,
+            font_options.edging,
+        );
+    }
+
+    #[test]
+    fn test_parse_invalid_edging_from_guifont_setting() {
+        let guifont_setting = "Fira Code Mono:#e-aliens";
+        let err = FontOptions::parse(guifont_setting).unwrap_err();
+
+        assert_eq!(
+            err,
+            FontEdging::INVALID_ERR,
+            "parse error should equal {:?}, but {:?}",
+            FontEdging::INVALID_ERR,
+            err,
         );
     }
 
@@ -232,10 +253,25 @@ mod tests {
             font_options.hinting,
             FontHinting::Slight,
             "font hinting should equal {:?}, but {:?}",
-            font_options.hinting,
             FontHinting::Slight,
+            font_options.hinting,
         );
     }
+
+    #[test]
+    fn test_parse_invalid_hinting_from_guifont_setting() {
+        let guifont_setting = "Fira Code Mono:#h-fool";
+        let err = FontOptions::parse(guifont_setting).unwrap_err();
+
+        assert_eq!(
+            err,
+            FontHinting::INVALID_ERR,
+            "parse error should equal {:?}, but {:?}",
+            FontHinting::INVALID_ERR,
+            err,
+        );
+    }
+
     #[test]
     fn test_parse_font_size_float_from_guifont_setting() {
         let guifont_setting = "Fira Code Mono:h15.5";
@@ -250,12 +286,36 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_invalid_font_size_float_from_guifont_setting() {
+        let guifont_setting = "Fira Code Mono:h15.a";
+        let err = FontOptions::parse(guifont_setting).unwrap_err();
+
+        assert_eq!(
+            err, INVALID_SIZE_ERR,
+            "parse err should equal {}, but {}",
+            INVALID_SIZE_ERR, err,
+        );
+    }
+
+    #[test]
+    fn test_parse_invalid_font_width_float_from_guifont_setting() {
+        let guifont_setting = "Fira Code Mono:w1.b";
+        let err = FontOptions::parse(guifont_setting).unwrap_err();
+
+        assert_eq!(
+            err, INVALID_WIDTH_ERR,
+            "parse err should equal {}, but {}",
+            INVALID_WIDTH_ERR, err,
+        );
+    }
+
+    #[test]
     #[allow(clippy::bool_assert_comparison)]
     fn test_parse_all_params_together_from_guifont_setting() {
-        let guifont_setting = "Fira Code Mono:h15:b:i:#h-slight:#e-alias";
+        let guifont_setting = "Fira Code Mono:h15.5:b:i:#h-slight:#e-alias";
         let font_options = FontOptions::parse(guifont_setting).unwrap();
 
-        let font_size_pixels = points_to_pixels(15.0);
+        let font_size_pixels = points_to_pixels(15.5);
         assert_eq!(
             font_options.size, font_size_pixels,
             "font size should equal {}, but {}",
@@ -263,31 +323,37 @@ mod tests {
         );
 
         assert_eq!(
+            font_options.allow_float_size, true,
+            "allow float size should equal {}, but {}",
+            true, font_options.allow_float_size,
+        );
+
+        assert_eq!(
             font_options.bold, true,
             "bold should equal {}, but {}",
-            font_options.bold, true,
+            true, font_options.bold,
         );
 
         assert_eq!(
             font_options.italic, true,
             "italic should equal {}, but {}",
-            font_options.italic, true,
+            true, font_options.italic,
         );
 
         assert_eq!(
             font_options.edging,
             FontEdging::Alias,
             "font hinting should equal {:?}, but {:?}",
-            font_options.hinting,
             FontEdging::Alias,
+            font_options.edging,
         );
 
         assert_eq!(
             font_options.hinting,
             FontHinting::Slight,
             "font hinting should equal {:?}, but {:?}",
-            font_options.hinting,
             FontHinting::Slight,
+            font_options.hinting,
         );
     }
 
