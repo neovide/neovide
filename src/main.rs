@@ -1,4 +1,4 @@
-#![cfg_attr(not(test), windows_subsystem = "windows")]
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 // Test naming occasionally uses camelCase with underscores to separate sections of
 // the test name.
 #![cfg_attr(test, allow(non_snake_case))]
@@ -83,6 +83,7 @@ fn main() -> NeovideExitCode {
     #[cfg(target_os = "windows")]
     {
         windows_fix_dpi();
+        windows_attach_to_console();
     }
 
     let event_loop = create_event_loop();
@@ -166,7 +167,6 @@ fn setup() -> Result<(WindowSize, NeovimRuntime)> {
 
     //Will exit if -h or -v
     cmd_line::handle_command_line_arguments(args().collect())?;
-    #[cfg(not(target_os = "windows"))]
     maybe_disown();
     startup_profiler();
 
@@ -210,10 +210,8 @@ pub fn init_logger() {
     logger.start().expect("Could not start logger");
 }
 
-#[cfg(not(target_os = "windows"))]
 fn maybe_disown() {
-    use fork::{daemon, Fork};
-    use std::process::exit;
+    use std::process;
 
     let settings = SETTINGS.get::<CmdLineSettings>();
 
@@ -221,16 +219,21 @@ fn maybe_disown() {
         return;
     }
 
-    let nochdir = true;
-    let noclose = false;
-    match daemon(nochdir, noclose) {
-        Ok(Fork::Child) => {}
-        Ok(Fork::Parent(_)) => {
-            exit(0);
-        }
-        Err(_) => {
-            eprintln!("error in disowning process, cannot obtain the path for the current executable, continuing without disowning...");
-        }
+    #[cfg(target_os = "windows")]
+    windows_detach_from_console();
+
+    if let Ok(current_exe) = env::current_exe() {
+        assert!(process::Command::new(current_exe)
+            .stdin(process::Stdio::null())
+            .stdout(process::Stdio::null())
+            .stderr(process::Stdio::null())
+            .arg("--no-fork")
+            .args(env::args().skip(1))
+            .spawn()
+            .is_ok());
+        process::exit(0);
+    } else {
+        eprintln!("error in disowning process, cannot obtain the path for the current executable, continuing without disowning...");
     }
 }
 

@@ -10,6 +10,7 @@ use winapi::{
     },
     um::{
         libloaderapi::GetModuleFileNameA,
+        wincon::{AttachConsole, FreeConsole, ATTACH_PARENT_PROCESS},
         winnt::{KEY_WRITE, REG_OPTION_NON_VOLATILE, REG_SZ},
         winreg::{RegCloseKey, RegCreateKeyExA, RegDeleteTreeA, RegSetValueExA, HKEY_CURRENT_USER},
         winuser::SetProcessDpiAwarenessContext,
@@ -221,5 +222,18 @@ pub fn register_rightclick_file() -> bool {
 pub fn windows_fix_dpi() {
     unsafe {
         SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    }
+}
+
+pub fn windows_attach_to_console() {
+    // Attach to parent console tip found here: https://github.com/rust-lang/rust/issues/67159#issuecomment-987882771
+    unsafe {
+        AttachConsole(ATTACH_PARENT_PROCESS);
+    }
+}
+
+pub fn windows_detach_from_console() {
+    unsafe {
+        FreeConsole();
     }
 }
