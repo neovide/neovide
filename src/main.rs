@@ -1,4 +1,4 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![cfg_attr(not(test), windows_subsystem = "windows")]
 // Test naming occasionally uses camelCase with underscores to separate sections of
 // the test name.
 #![cfg_attr(test, allow(non_snake_case))]
@@ -83,7 +83,6 @@ fn main() -> NeovideExitCode {
     #[cfg(target_os = "windows")]
     {
         windows_fix_dpi();
-        windows_attach_to_console();
     }
 
     let event_loop = create_event_loop();
@@ -167,6 +166,7 @@ fn setup() -> Result<(WindowSize, NeovimRuntime)> {
 
     //Will exit if -h or -v
     cmd_line::handle_command_line_arguments(args().collect())?;
+    #[cfg(not(target_os = "windows"))]
     maybe_disown();
     startup_profiler();
 
@@ -210,6 +210,7 @@ pub fn init_logger() {
     logger.start().expect("Could not start logger");
 }
 
+#[cfg(not(target_os = "windows"))]
 fn maybe_disown() {
     use std::process;
 
@@ -218,9 +219,6 @@ fn maybe_disown() {
     if cfg!(debug_assertions) || settings.no_fork {
         return;
     }
-
-    #[cfg(target_os = "windows")]
-    windows_detach_from_console();
 
     if let Ok(current_exe) = env::current_exe() {
         assert!(process::Command::new(current_exe)
