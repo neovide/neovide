@@ -5,6 +5,18 @@ fn show_error(explanation: &str) -> ! {
     panic!("{}", explanation.to_string());
 }
 
+/// Formats, logs and displays the given message.
+#[macro_export]
+macro_rules! error_msg {
+    ($($arg:tt)+) => {
+        let msg = format!($($arg)+);
+        log::error!("{}", msg);
+        EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::ShowError {
+            lines: msg.split('\n').map(|s| s.to_string()).collect_vec(),
+        }));
+    }
+}
+
 pub trait ResultPanicExplanation<T, E: ToString> {
     fn unwrap_or_explained_panic(self, explanation: &str) -> T;
 }

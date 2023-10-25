@@ -17,7 +17,7 @@ use swash::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{bridge::ParallelCommand, profiling::tracy_zone, EVENT_AGGREGATOR};
+use crate::{bridge::ParallelCommand, error_msg, profiling::tracy_zone, EVENT_AGGREGATOR};
 use crate::{
     bridge::UiCommand,
     renderer::fonts::{font_loader::*, font_options::*},
@@ -86,7 +86,13 @@ impl CachingShaper {
     pub fn update_font(&mut self, guifont_setting: &str) {
         debug!("Updating font: {}", guifont_setting);
 
-        let options = FontOptions::parse(guifont_setting);
+        let options = match FontOptions::parse(guifont_setting) {
+            Ok(opt) => opt,
+            Err(msg) => {
+                error_msg!("Failed to parse guifont: {}", msg);
+                return;
+            }
+        };
 
         let failed_fonts = options
             .font_list
@@ -104,17 +110,12 @@ impl CachingShaper {
             .collect_vec();
 
         if !failed_fonts.is_empty() {
-            let msg = vec![
-                format!("Font can't be updated to: {}", guifont_setting),
-                format!(
-                    "Following fonts couldn't be loaded: {}",
-                    failed_fonts.iter().join(", ")
-                ),
-            ];
-            msg.iter().for_each(|m| error!("{}", m));
-            EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::ShowError {
-                lines: msg,
-            }));
+            error_msg!(
+                "Font can't be updated to: {}\n\
+                Following fonts couldn't be loaded: {}",
+                guifont_setting,
+                failed_fonts.iter().join(", "),
+            );
         }
 
         if failed_fonts.len() != options.font_list.len() {
