@@ -3,7 +3,11 @@ use crate::{
     event_aggregator::EVENT_AGGREGATOR,
 };
 #[cfg(target_os = "macos")]
-use crate::{settings::SETTINGS, window::KeyboardSettings};
+use {
+    crate::{settings::SETTINGS, window::KeyboardSettings},
+    winit::{keyboard::ModifiersKeyState, platform::macos::OptionAsAlt},
+};
+
 #[allow(unused_imports)]
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use winit::{
@@ -18,6 +22,7 @@ fn is_ascii_alphabetic_char(text: &str) -> bool {
 pub struct KeyboardManager {
     modifiers: Modifiers,
     ime_preedit: (String, Option<(usize, usize)>),
+    meta_is_pressed: bool, // see N.B. on 'meta' below
 }
 
 impl KeyboardManager {
@@ -25,6 +30,7 @@ impl KeyboardManager {
         KeyboardManager {
             modifiers: Modifiers::default(),
             ime_preedit: ("".to_string(), None),
+            meta_is_pressed: false,
         }
     }
 
@@ -66,6 +72,25 @@ impl KeyboardManager {
                 // text
                 log::trace!("{:?}", *modifiers);
                 self.modifiers = *modifiers;
+
+                #[cfg(target_os = "macos")]
+                {
+                    let ks = SETTINGS.get::<KeyboardSettings>();
+                    self.meta_is_pressed = match ks.macos_option_key_is_meta.0 {
+                        OptionAsAlt::Both => self.modifiers.state().alt_key(),
+                        OptionAsAlt::OnlyLeft => {
+                            self.modifiers.lalt_state() == ModifiersKeyState::Pressed
+                        }
+                        OptionAsAlt::OnlyRight => {
+                            self.modifiers.ralt_state() == ModifiersKeyState::Pressed
+                        }
+                        OptionAsAlt::None => false,
+                    };
+                }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    self.meta_is_pressed = self.modifiers.state().alt_key();
+                }
             }
             _ => {}
         }
@@ -134,11 +159,11 @@ impl KeyboardManager {
         // the whole modifier state. Otherwise send the resulting character with "S-" and "M-"
         // removed.
         #[cfg(target_os = "macos")]
-        if self.modifiers.state().alt_key() && use_alt() {
+        if self.meta_is_pressed {
             return key_event
                 .key_without_modifiers()
                 .to_text()
-                .map(|text| self.format_key_text(text, true));
+                .map(|text| self.format_key_text(text, false));
         }
 
         key_event
@@ -191,33 +216,22 @@ impl KeyboardManager {
         // uppercase without shift, or <M-A> .
         // But in combination with other characters, such as <M-S-$> they are not,
         // so we don't want to send shift when that's the case.
-        let include_shift =
-            is_special || (self.modifiers.state().control_key() && is_ascii_alphabetic_char(text));
-
-        // Always send meta (alt) together with special keys, or when alt is meta on macOS
-        let include_alt = use_alt() || is_special;
-
         let state = self.modifiers.state();
+        let include_shift = is_special || (state.control_key() && is_ascii_alphabetic_char(text));
+
+        #[cfg(target_os = "macos")]
+        let have_meta = self.meta_is_pressed || is_special && state.alt_key(); // e.g. non-meta 'option' with <F1> yeilds <M-F1>
+
+        #[cfg(not(target_os = "macos"))]
+        let have_meta = self.meta_is_pressed;
+
         let mut ret = String::new();
         (state.shift_key() && include_shift).then(|| ret += "S-");
         state.control_key().then(|| ret += "C-");
-        (state.alt_key() && include_alt).then(|| ret += "M-");
+        (have_meta).then(|| ret += "M-");
         state.super_key().then(|| ret += "D-");
         ret
     }
-}
-
-#[cfg(not(target_os = "macos"))]
-fn use_alt() -> bool {
-    true
-}
-
-// The option or alt key is used on Macos for character set changes
-// and does not operate the same as other systems.
-#[cfg(target_os = "macos")]
-fn use_alt() -> bool {
-    let settings = SETTINGS.get::<KeyboardSettings>();
-    settings.macos_alt_is_meta
 }
 
 fn get_special_key(key_event: &KeyEvent) -> Option<&str> {
@@ -287,3 +301,57 @@ fn get_special_key(key_event: &KeyEvent) -> Option<&str> {
         _ => None,
     }
 }
+
+// N.B. on 'meta', and on the macintosh key 'option':
+//
+// 'Meta' can be thought of as a virtual key. On a macintosh, either or both of
+// the physical keys labeled 'option' (⌥) may be configured to map to the
+// virtual key 'meta' by using the neovide setting:
+//         vim.g.neovide_input_macos_option_key_is_meta
+// ..where possible values (defined by the 'winit' crate) are:
+//
+//    "Both"
+//    "OnlyLeft"
+//    "OnlyRight"
+//    "None"
+//
+// (On a Windows PC, or on non-mac POSIX platforms with a Windows PC keyboard,
+// the physical key labeled 'alt' always maps to the virtual key 'meta'.)
+//
+// When an 'option' key is:
+//
+//     - not mapped to meta, and
+//
+//     - used with a printable character (like "y")
+//
+// ...the option key behaves like a second kind of 'shift' key in the sense that
+// it transforms the printable character into a different printable character;
+// for example, just as shift+y transforms 'y' into 'Y', option+y (on a u.s.
+// english layout) transforms 'y' into '¥' (U+00A5 YEN SIGN), and shift+option+y
+// transforms 'y' into 'Á' (U+00C1 LATIN CAPITAL LETTER A WITH ACUTE). See also:
+//
+// https://en.wikipedia.org/wiki/Option_key
+//
+// And like the 'shift' key, the non-meta 'option' key is not represented in the
+// string returned by format_modifier_string() (because it would be redundant
+// next to the transformed printable character).
+//
+// But when a non-meta 'option' key is used with a special key (see
+// get_special_key() above), we may as well treat it as 'meta' because:
+//
+//    - This is how we behaved before the behavior was documented (so a user
+//      could have had alt_is_meta=false and still have used <M-CR>, <M-F1>,
+//      etc.); and
+//
+//    - There is no secondary layer of special keys.
+//
+// Note on 'option' vs 'alt':
+// On macintosh keyboards made until 2018, the 'option' key additionally bears
+// the label 'alt'. But from 2018 on, 'alt' no longer appears on this key; it is
+// labeled only with the word 'option' and the symbol '⌥' (U+2325 OPTION KEY).
+//
+// Both before and after 2018, this key has been consistently labeled 'option'
+// (at least as far back as the earliest macintosh that neovide supports). So to
+// avoid confusing users who have a post-2017 keyboard and are not aware of this
+// history, it is probably best to refer to this physical key as the 'option'
+// key, and not as the 'alt' key.
