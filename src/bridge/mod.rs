@@ -7,9 +7,11 @@ mod setup;
 mod ui_commands;
 
 use anyhow::{bail, Context, Result};
+use itertools::Itertools;
 use log::{error, info};
 use nvim_rs::{error::CallError, Neovim, UiAttachOptions, Value};
-use std::{io::Error, sync::Arc};
+use rmpv::Utf8String;
+use std::{io::Error, ops::Add, sync::Arc};
 use tokio::{
     runtime::{Builder, Runtime},
     task::JoinHandle,
@@ -64,8 +66,33 @@ pub async fn show_intro_message(
     nvim.exec_lua(INTRO_MESSAGE_LUA, args).await.map(|_| ())
 }
 
+pub async fn show_error_message(
+    nvim: &Neovim<NeovimWriter>,
+    lines: &[String],
+) -> Result<(), Box<CallError>> {
+    let error_msg_highlight: Utf8String = "ErrorMsg".into();
+    let mut prepared_lines = lines
+        .iter()
+        .map(|l| {
+            Value::Array(vec![
+                Value::String(l.clone().add("\n").into()),
+                Value::String(error_msg_highlight.clone()),
+            ])
+        })
+        .collect_vec();
+    prepared_lines.insert(
+        0,
+        Value::Array(vec![
+            Value::String("Error: ".into()),
+            Value::String(error_msg_highlight.clone()),
+        ]),
+    );
+    nvim.echo(prepared_lines, true, vec![]).await
+}
+
 async fn launch(grid_size: Option<Dimensions>) -> Result<NeovimSession> {
     let neovim_instance = neovim_instance()?;
+
     let handler = NeovimHandler::new();
     let session = NeovimSession::new(neovim_instance, handler)
         .await

@@ -13,7 +13,7 @@ use crate::windows_utils::{
     register_rightclick_directory, register_rightclick_file, unregister_rightclick,
 };
 
-use super::show_intro_message;
+use super::{show_error_message, show_intro_message};
 use crate::{
     bridge::NeovimWriter, event_aggregator::EVENT_AGGREGATOR, running_tracker::RUNNING_TRACKER,
 };
@@ -135,6 +135,9 @@ pub enum ParallelCommand {
     UnregisterRightClick,
     ShowIntro {
         message: Vec<String>,
+    },
+    ShowError {
+        lines: Vec<String>,
     },
 }
 
@@ -268,6 +271,16 @@ impl ParallelCommand {
             ParallelCommand::ShowIntro { message } => show_intro_message(nvim, &message)
                 .await
                 .context("ShowIntro failed"),
+
+            ParallelCommand::ShowError { lines } => {
+                // nvim.err_write(&message).await.ok();
+                // NOTE: https://github.com/neovim/neovim/issues/5067
+                // nvim_err_write[ln] is broken for multiline messages
+                // We should go back to it whenever that bug gets fixed.
+                show_error_message(nvim, &lines)
+                    .await
+                    .context("ShowError failed")
+            }
         };
 
         if let Err(error) = result {
