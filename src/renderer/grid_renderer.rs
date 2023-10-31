@@ -105,12 +105,14 @@ impl GridRenderer {
         is_floating: bool,
     ) {
         tracy_zone!("draw_background");
-        self.paint.set_blend_mode(BlendMode::Src);
+        let debug = SETTINGS.get::<RendererSettings>().debug_renderer;
 
         let region = self.compute_text_region(grid_position, cell_width);
         let style = style.as_ref().unwrap_or(&self.default_style);
 
-        if SETTINGS.get::<RendererSettings>().debug_renderer {
+        self.paint.set_blend_mode(BlendMode::Src);
+
+        if debug {
             let random_hsv: HSV = (rand::random::<f32>() * 360.0, 0.3, 0.3).into();
             let random_color = random_hsv.to_color(255);
             self.paint.set_color(random_color);
@@ -119,15 +121,31 @@ impl GridRenderer {
                 .set_color(style.background(&self.default_style.colors).to_color());
         }
 
+        let window_transparency = &SETTINGS.get::<WindowSettings>().transparency;
         if is_floating {
-            self.paint
-                .set_alpha((255.0 * ((100 - style.blend) as f32 / 100.0)) as u8);
-        } else if (SETTINGS.get::<WindowSettings>().transparency - 1.0).abs() > f32::EPSILON
+            if self.paint.color() != self.get_default_background() {
+                self.paint
+                    .set_alpha((255.0 * ((100 - style.blend) as f32 / 100.0)) as u8);
+            } else {
+                if let Ok([r, g, b, a]) = &SETTINGS
+                    .get::<WindowSettings>()
+                    .background_color
+                    .parse::<csscolorparser::Color>()
+                    .map(|c| c.to_rgba8())
+                {
+                    self.paint.set_argb(*a, *r, *g, *b);
+                } else {
+                    self.paint
+                        .set_argb((window_transparency * 255.0) as u8, 0, 0, 0);
+                }
+            }
+        } else if (window_transparency - 1.0).abs() > f32::EPSILON
             // Only make background color transparent
             && self.paint.color() == self.get_default_background()
         {
             self.paint.set_alpha(0);
         }
+
         canvas.draw_rect(region, &self.paint);
     }
 
