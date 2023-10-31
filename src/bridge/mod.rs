@@ -6,10 +6,12 @@ pub mod session;
 mod setup;
 mod ui_commands;
 
-use std::{process::exit, sync::Arc, thread};
+use std::{ops::Add, process::exit, sync::Arc, thread};
 
+use itertools::Itertools;
 use log::{error, info};
 use nvim_rs::{error::CallError, Neovim, UiAttachOptions, Value};
+use rmpv::Utf8String;
 
 use crate::{
     cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation, running_tracker::*,
@@ -57,6 +59,30 @@ pub async fn show_intro_message(
     let lines = message.iter().map(|line| Value::from(line.as_str()));
     args.extend(lines);
     nvim.exec_lua(INTRO_MESSAGE_LUA, args).await
+}
+
+pub async fn show_error_message(
+    nvim: &Neovim<NeovimWriter>,
+    lines: &[String],
+) -> Result<(), Box<CallError>> {
+    let error_msg_highlight: Utf8String = "ErrorMsg".into();
+    let mut prepared_lines = lines
+        .iter()
+        .map(|l| {
+            Value::Array(vec![
+                Value::String(l.clone().add("\n").into()),
+                Value::String(error_msg_highlight.clone()),
+            ])
+        })
+        .collect_vec();
+    prepared_lines.insert(
+        0,
+        Value::Array(vec![
+            Value::String("Error: ".into()),
+            Value::String(error_msg_highlight.clone()),
+        ]),
+    );
+    nvim.echo(prepared_lines, true, vec![]).await
 }
 
 #[tokio::main]

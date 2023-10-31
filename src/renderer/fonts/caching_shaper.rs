@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use itertools::Itertools;
 use log::{debug, error, trace, warn};
 use lru::LruCache;
 use skia_safe::{
@@ -16,8 +17,11 @@ use swash::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::profiling::tracy_zone;
-use crate::renderer::fonts::{font_loader::*, font_options::*};
+use crate::{bridge::ParallelCommand, error_msg, profiling::tracy_zone, EVENT_AGGREGATOR};
+use crate::{
+    bridge::UiCommand,
+    renderer::fonts::{font_loader::*, font_options::*},
+};
 
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {
@@ -82,21 +86,42 @@ impl CachingShaper {
     pub fn update_font(&mut self, guifont_setting: &str) {
         debug!("Updating font: {}", guifont_setting);
 
-        let options = FontOptions::parse(guifont_setting);
-        let font_key = FontKey {
-            italic: false,
-            bold: false,
-            family_name: options.primary_font(),
-            hinting: options.hinting.clone(),
-            edging: options.edging.clone(),
+        let options = match FontOptions::parse(guifont_setting) {
+            Ok(opt) => opt,
+            Err(msg) => {
+                error_msg!("Failed to parse guifont: {}", msg);
+                return;
+            }
         };
 
-        if self.font_loader.get_or_load(&font_key).is_some() {
+        let failed_fonts = options
+            .font_list
+            .iter()
+            .filter(|font| {
+                let key = FontKey {
+                    italic: false,
+                    bold: false,
+                    family_name: Some((*font).clone()),
+                    hinting: options.hinting.clone(),
+                    edging: options.edging.clone(),
+                };
+                self.font_loader.get_or_load(&key).is_none()
+            })
+            .collect_vec();
+
+        if !failed_fonts.is_empty() {
+            error_msg!(
+                "Font can't be updated to: {}\n\
+                Following fonts couldn't be loaded: {}",
+                guifont_setting,
+                failed_fonts.iter().join(", "),
+            );
+        }
+
+        if failed_fonts.len() != options.font_list.len() {
             debug!("Font updated to: {}", guifont_setting);
             self.options = options;
             self.reset_font_loader();
-        } else {
-            error!("Font can't be updated to: {}", guifont_setting);
         }
     }
 
