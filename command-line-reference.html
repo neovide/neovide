@@ -172,11 +172,7 @@ settings only require it to be set in some way, some settings also use the conte
 <pre><code class="language-sh">--size=&lt;width&gt;x&lt;height&gt;
 </code></pre>
 <p>Sets the initial neovide window size in pixels.</p>
-<h3 id="log-file"><a class="header" href="#log-file">Log File</a></h3>
-<pre><code class="language-sh">--log
-</code></pre>
-<p>Enables the log file for debugging purposes. This will write a file next to the executable
-containing trace events which may help debug an issue.</p>
+<p>Can not be used together with <code>--maximized</code>, or <code>--grid</code>.</p>
 <h3 id="maximized"><a class="header" href="#maximized">Maximized</a></h3>
 <pre><code class="language-sh">--maximized or $NEOVIDE_MAXIMIZED
 </code></pre>
@@ -184,28 +180,51 @@ containing trace events which may help debug an issue.</p>
 visible.</p>
 <p>This is not the same as <code>g:neovide_fullscreen</code>, which runs Neovide in &quot;exclusive fullscreen&quot;,
 covering up the entire screen.</p>
-<h3 id="multigrid"><a class="header" href="#multigrid">Multigrid</a></h3>
-<pre><code class="language-sh">--multigrid or $NEOVIDE_MULTIGRID
+<p>Can not be used together with <code>--size</code>, or <code>--grid</code>.</p>
+<h3 id="grid-size"><a class="header" href="#grid-size">Grid Size</a></h3>
+<pre><code class="language-sh">--grid [&lt;columns&gt;x&lt;lines&gt;]
+
 </code></pre>
-<p>This enables neovim's multigrid functionality which will also enable floating window blurred
-backgrounds and window animations. For now this is disabled due to some mouse input bugs upstream
-(<a href="https://github.com/neovim/neovim/pull/12667">neovim/neovim/pull/12667</a>,
-<a href="https://github.com/neovim/neovim/issues/15075">neovim/neovim/issues/15075</a>) and some
-<a href="https://github.com/neovide/neovide/issues/720">floating window transparency issues</a>.</p>
+<p><strong>Unreleased yet.</strong></p>
+<p>Sets the initial grid size of the window. If no value is given, it defaults to
+columns/lines from <code>init.vim/lua</code>, see
+<a href="https://neovim.io/doc/user/options.html#&#x27;columns&#x27;">columns</a> and
+<a href="https://neovim.io/doc/user/options.html#&#x27;lines&#x27;">lines</a>.</p>
+<p>If the <code>--grid</code> argument is not set then the grid size is inferred from the
+window size.</p>
+<p>Note: After the initial size has been determined and <code>init.vim/lua</code> processed,
+you can set <a href="https://neovim.io/doc/user/options.html#&#x27;columns&#x27;">columns</a> and
+<a href="https://neovim.io/doc/user/options.html#&#x27;lines&#x27;">lines</a> inside neovim
+regardless of the command line arguments used. This has to be done before any
+redraws are made, so it's recommended to put it at the start of the
+<code>init.vim/lua</code> along with <code>guifont</code> and other related settings that can affect
+the geometry.</p>
+<p>Can not be used together with <code>--size</code>, or <code>--maximized</code>.</p>
+<h3 id="log-file"><a class="header" href="#log-file">Log File</a></h3>
+<pre><code class="language-sh">--log
+</code></pre>
+<p>Enables the log file for debugging purposes. This will write a file next to the executable
+containing trace events which may help debug an issue.</p>
+<h3 id="multigrid"><a class="header" href="#multigrid">Multigrid</a></h3>
+<pre><code class="language-sh">--no-multigrid or $NEOVIDE_NO_MULTIGRID
+</code></pre>
+<p>This disables neovim's multigrid functionality which will also disable floating window blurred
+backgrounds, smooth scrolling, and window animations. This can solve some issues where neovide
+acts differently from terminal neovim.</p>
 <h3 id="no-fork"><a class="header" href="#no-fork">No Fork</a></h3>
-<pre><code class="language-sh">--nofork
+<pre><code class="language-sh">--no-fork
 </code></pre>
 <p>By default, neovide detaches itself from the terminal. Instead of spawning a child process and
 leaking it, be &quot;blocking&quot; and have the shell directly as parent process.</p>
 <h3 id="no-idle"><a class="header" href="#no-idle">No Idle</a></h3>
-<pre><code class="language-sh">--noidle or $NEOVIDE_IDLE=0|1
+<pre><code class="language-sh">--no-idle or $NEOVIDE_IDLE=0|1
 </code></pre>
 <p>With idle <code>on</code> (default), neovide won't render new frames when nothing is happening.</p>
-<p>With idle <code>off</code> (e.g. with <code>--noidle</code> flag), neovide will constantly render new frames,
+<p>With idle <code>off</code> (e.g. with <code>--no-idle</code> flag), neovide will constantly render new frames,
 even when nothing changed. This takes more power and CPU time, but can possibly help
 with frame timing issues.</p>
 <h3 id="srgb"><a class="header" href="#srgb">sRGB</a></h3>
-<pre><code class="language-sh">--nosrgb, --srgb or $NEOVIDE_SRGB=0|1
+<pre><code class="language-sh">--no-srgb, --srgb or $NEOVIDE_SRGB=0|1
 </code></pre>
 <p>Request sRGB support on the window. Neovide does not actually render with sRGB,
 but it's still enabled by default on Windows to work around
@@ -214,7 +233,7 @@ platforms should not need it, but if you encounter either startup crashes or
 wrong colors, you can try to swap the option. The command line parameter takes
 priority over the environment variable.</p>
 <h3 id="no-tabs"><a class="header" href="#no-tabs">No Tabs</a></h3>
-<pre><code class="language-sh">--notabs
+<pre><code class="language-sh">--no-tabs
 </code></pre>
 <p>By default, Neovide opens files given directly to Neovide (not NeoVim through <code>--</code>!) in multiple
 tabs to avoid confusing new users. The option disables that and makes multiple given files to normal
@@ -222,12 +241,13 @@ buffers.</p>
 <p>Note: Even if files are opened in tabs, they're buffers anyways. It's just about them being visible
 or not.</p>
 <h3 id="no-vsync"><a class="header" href="#no-vsync">No VSync</a></h3>
-<pre><code class="language-sh">--novsync, --vsync or $NEOVIDE_VSYNC=0|1
+<pre><code class="language-sh">--no-vsync, --vsync or $NEOVIDE_VSYNC=0|1
 </code></pre>
 <p><strong>Available since 0.10.2.</strong></p>
-<p>By default, Neovide requests to use VSync on the created window. This
-<code>--novsync</code> disables this behavior. The command line parameter takes priority
-over the environment variable.</p>
+<p>By default, Neovide requests to use VSync on the created window. <code>--no-vsync</code>
+disables this behavior. The command line parameter takes priority over the
+environment variable. If you don't enable vsync, then <code>g:neovide_refresh_rate</code>
+will be used.</p>
 <h3 id="neovim-server"><a class="header" href="#neovim-server">Neovim Server</a></h3>
 <pre><code class="language-sh">--server &lt;ADDRESS&gt;
 </code></pre>

@@ -159,13 +159,13 @@ overridden by command line arguments.</p>
 <h2 id="available-settings"><a class="header" href="#available-settings">Available settings</a></h2>
 <p>Settings currently available in the config file with default values:</p>
 <pre><code class="language-toml">wsl = false
-multigrid = false
+no-multigrid = false
 vsync = true
 maximized = false
 srgb = false
 idle = true
-neovim_bin = &quot;/usr/bin/nvim&quot;
-frame = &quot;Full&quot;
+neovim-bin = &quot;/usr/bin/nvim&quot; # in reality found dynamically on $PATH if unset
+frame = &quot;full&quot;
 </code></pre>
 <p>See <a href="command-line-reference.html">Command Line Reference</a> for details on what those settings do.</p>
 

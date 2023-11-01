@@ -311,7 +311,20 @@ to that value.</p>
 <p>Lua:</p>
 <pre><code class="language-lua">vim.g.neovide_scroll_animation_length = 0.3
 </code></pre>
-<p>Sets how long the scroll animation takes to complete, measured in seconds.</p>
+<p>Sets how long the scroll animation takes to complete, measured in seconds. Note that the timing is
+not completely accurate and might depend slightly on have far you scroll, so experimenting is
+encouraged in order to tune it to your liking.</p>
+<h4 id="far-scroll-lines"><a class="header" href="#far-scroll-lines">Far scroll lines</a></h4>
+<p><strong>Unreleased yet.</strong></p>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_scroll_animation_far_lines = 1
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_scroll_animation_far_lines = 1
+</code></pre>
+<p>When scrolling more than one screen at a time, only this many lines at the end of the scroll action
+will be animated. Set it to 0 to snap to the final position without any animation, or to something
+big like 9999 to always scroll the whole screen, much like Neovide &lt;= 0.10.4 did.</p>
 <h4 id="hiding-the-mouse-when-typing"><a class="header" href="#hiding-the-mouse-when-typing">Hiding the mouse when typing</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_hide_mouse_when_typing = v:false
@@ -356,8 +369,8 @@ system theme, and will update <code>background</code> when the system theme chan
 </code></pre>
 <p>Setting <code>g:neovide_refresh_rate</code> to a positive integer will set the refresh rate of the app. This is
 limited by the refresh rate of your physical hardware, but can be lowered to increase battery life.</p>
-<p>Also do note that Neovide's frame pacing is far from optimal at the moment, so better hardware might
-not mean better FPS.</p>
+<p>This setting is only effective when not using vsync, for example by passing <code>--no-vsync</code> on the
+commandline.</p>
 <h4 id="idle-refresh-rate"><a class="header" href="#idle-refresh-rate">Idle Refresh Rate</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_refresh_rate_idle = 5

@@ -209,16 +209,13 @@ listed below :)</p>
 <h2 id="smooth-scrolling"><a class="header" href="#smooth-scrolling">Smooth Scrolling</a></h2>
 <p>Scroll operations on buffers in neovim will be animated smoothly pixel wise rather than line by line
 at a time.</p>
-<p>Note: <a href="command-line-reference.html#multigrid">multigrid</a> must be enabled for this to work.</p>
 <img src="./assets/SmoothScrolling.gif" alt="Smooth Scrolling" width=550>
 <h2 id="animated-windows"><a class="header" href="#animated-windows">Animated Windows</a></h2>
 <p>Windows animate into position when they are moved making it easier to see how layout changes happen.</p>
-<p>Note: <a href="command-line-reference.html#multigrid">multigrid</a> must be enabled for this to work.</p>
 <img src="./assets/AnimatedWindows.gif" alt="Animated Windows" width=550>
 <h2 id="blurred-floating-windows"><a class="header" href="#blurred-floating-windows">Blurred Floating Windows</a></h2>
 <p>The backgrounds of floating windows are blurred improving the visual separation between foreground
 and background from built in window transparency.</p>
-<p>Note: <a href="command-line-reference.html#multigrid">multigrid</a> must be enabled for this to work.</p>
 <img src="./assets/BlurredFloatingWindows.png" alt="Blurred Floating Windows" width=550>
 <h2 id="emoji-support"><a class="header" href="#emoji-support">Emoji Support</a></h2>
 <p>Font fallback supports rendering of emoji not contained in the configured font.</p>
@@ -621,7 +618,20 @@ to that value.</p>
 <p>Lua:</p>
 <pre><code class="language-lua">vim.g.neovide_scroll_animation_length = 0.3
 </code></pre>
-<p>Sets how long the scroll animation takes to complete, measured in seconds.</p>
+<p>Sets how long the scroll animation takes to complete, measured in seconds. Note that the timing is
+not completely accurate and might depend slightly on have far you scroll, so experimenting is
+encouraged in order to tune it to your liking.</p>
+<h4 id="far-scroll-lines"><a class="header" href="#far-scroll-lines">Far scroll lines</a></h4>
+<p><strong>Unreleased yet.</strong></p>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_scroll_animation_far_lines = 1
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_scroll_animation_far_lines = 1
+</code></pre>
+<p>When scrolling more than one screen at a time, only this many lines at the end of the scroll action
+will be animated. Set it to 0 to snap to the final position without any animation, or to something
+big like 9999 to always scroll the whole screen, much like Neovide &lt;= 0.10.4 did.</p>
 <h4 id="hiding-the-mouse-when-typing"><a class="header" href="#hiding-the-mouse-when-typing">Hiding the mouse when typing</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_hide_mouse_when_typing = v:false
@@ -666,8 +676,8 @@ system theme, and will update <code>background</code> when the system theme chan
 </code></pre>
 <p>Setting <code>g:neovide_refresh_rate</code> to a positive integer will set the refresh rate of the app. This is
 limited by the refresh rate of your physical hardware, but can be lowered to increase battery life.</p>
-<p>Also do note that Neovide's frame pacing is far from optimal at the moment, so better hardware might
-not mean better FPS.</p>
+<p>This setting is only effective when not using vsync, for example by passing <code>--no-vsync</code> on the
+commandline.</p>
 <h4 id="idle-refresh-rate"><a class="header" href="#idle-refresh-rate">Idle Refresh Rate</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_refresh_rate_idle = 5
@@ -1015,11 +1025,7 @@ settings only require it to be set in some way, some settings also use the conte
 <pre><code class="language-sh">--size=&lt;width&gt;x&lt;height&gt;
 </code></pre>
 <p>Sets the initial neovide window size in pixels.</p>
-<h3 id="log-file"><a class="header" href="#log-file">Log File</a></h3>
-<pre><code class="language-sh">--log
-</code></pre>
-<p>Enables the log file for debugging purposes. This will write a file next to the executable
-containing trace events which may help debug an issue.</p>
+<p>Can not be used together with <code>--maximized</code>, or <code>--grid</code>.</p>
 <h3 id="maximized"><a class="header" href="#maximized">Maximized</a></h3>
 <pre><code class="language-sh">--maximized or $NEOVIDE_MAXIMIZED
 </code></pre>
@@ -1027,28 +1033,51 @@ containing trace events which may help debug an issue.</p>
 visible.</p>
 <p>This is not the same as <code>g:neovide_fullscreen</code>, which runs Neovide in &quot;exclusive fullscreen&quot;,
 covering up the entire screen.</p>
-<h3 id="multigrid"><a class="header" href="#multigrid">Multigrid</a></h3>
-<pre><code class="language-sh">--multigrid or $NEOVIDE_MULTIGRID
+<p>Can not be used together with <code>--size</code>, or <code>--grid</code>.</p>
+<h3 id="grid-size"><a class="header" href="#grid-size">Grid Size</a></h3>
+<pre><code class="language-sh">--grid [&lt;columns&gt;x&lt;lines&gt;]
+
 </code></pre>
-<p>This enables neovim's multigrid functionality which will also enable floating window blurred
-backgrounds and window animations. For now this is disabled due to some mouse input bugs upstream
-(<a href="https://github.com/neovim/neovim/pull/12667">neovim/neovim/pull/12667</a>,
-<a href="https://github.com/neovim/neovim/issues/15075">neovim/neovim/issues/15075</a>) and some
-<a href="https://github.com/neovide/neovide/issues/720">floating window transparency issues</a>.</p>
+<p><strong>Unreleased yet.</strong></p>
+<p>Sets the initial grid size of the window. If no value is given, it defaults to
+columns/lines from <code>init.vim/lua</code>, see
+<a href="https://neovim.io/doc/user/options.html#&#x27;columns&#x27;">columns</a> and
+<a href="https://neovim.io/doc/user/options.html#&#x27;lines&#x27;">lines</a>.</p>
+<p>If the <code>--grid</code> argument is not set then the grid size is inferred from the
+window size.</p>
+<p>Note: After the initial size has been determined and <code>init.vim/lua</code> processed,
+you can set <a href="https://neovim.io/doc/user/options.html#&#x27;columns&#x27;">columns</a> and
+<a href="https://neovim.io/doc/user/options.html#&#x27;lines&#x27;">lines</a> inside neovim
+regardless of the command line arguments used. This has to be done before any
+redraws are made, so it's recommended to put it at the start of the
+<code>init.vim/lua</code> along with <code>guifont</code> and other related settings that can affect
+the geometry.</p>
+<p>Can not be used together with <code>--size</code>, or <code>--maximized</code>.</p>
+<h3 id="log-file"><a class="header" href="#log-file">Log File</a></h3>
+<pre><code class="language-sh">--log
+</code></pre>
+<p>Enables the log file for debugging purposes. This will write a file next to the executable
+containing trace events which may help debug an issue.</p>
+<h3 id="multigrid"><a class="header" href="#multigrid">Multigrid</a></h3>
+<pre><code class="language-sh">--no-multigrid or $NEOVIDE_NO_MULTIGRID
+</code></pre>
+<p>This disables neovim's multigrid functionality which will also disable floating window blurred
+backgrounds, smooth scrolling, and window animations. This can solve some issues where neovide
+acts differently from terminal neovim.</p>
 <h3 id="no-fork"><a class="header" href="#no-fork">No Fork</a></h3>
-<pre><code class="language-sh">--nofork
+<pre><code class="language-sh">--no-fork
 </code></pre>
 <p>By default, neovide detaches itself from the terminal. Instead of spawning a child process and
 leaking it, be &quot;blocking&quot; and have the shell directly as parent process.</p>
 <h3 id="no-idle-1"><a class="header" href="#no-idle-1">No Idle</a></h3>
-<pre><code class="language-sh">--noidle or $NEOVIDE_IDLE=0|1
+<pre><code class="language-sh">--no-idle or $NEOVIDE_IDLE=0|1
 </code></pre>
 <p>With idle <code>on</code> (default), neovide won't render new frames when nothing is happening.</p>
-<p>With idle <code>off</code> (e.g. with <code>--noidle</code> flag), neovide will constantly render new frames,
+<p>With idle <code>off</code> (e.g. with <code>--no-idle</code> flag), neovide will constantly render new frames,
 even when nothing changed. This takes more power and CPU time, but can possibly help
 with frame timing issues.</p>
 <h3 id="srgb"><a class="header" href="#srgb">sRGB</a></h3>
-<pre><code class="language-sh">--nosrgb, --srgb or $NEOVIDE_SRGB=0|1
+<pre><code class="language-sh">--no-srgb, --srgb or $NEOVIDE_SRGB=0|1
 </code></pre>
 <p>Request sRGB support on the window. Neovide does not actually render with sRGB,
 but it's still enabled by default on Windows to work around
@@ -1057,7 +1086,7 @@ platforms should not need it, but if you encounter either startup crashes or
 wrong colors, you can try to swap the option. The command line parameter takes
 priority over the environment variable.</p>
 <h3 id="no-tabs"><a class="header" href="#no-tabs">No Tabs</a></h3>
-<pre><code class="language-sh">--notabs
+<pre><code class="language-sh">--no-tabs
 </code></pre>
 <p>By default, Neovide opens files given directly to Neovide (not NeoVim through <code>--</code>!) in multiple
 tabs to avoid confusing new users. The option disables that and makes multiple given files to normal
@@ -1065,12 +1094,13 @@ buffers.</p>
 <p>Note: Even if files are opened in tabs, they're buffers anyways. It's just about them being visible
 or not.</p>
 <h3 id="no-vsync"><a class="header" href="#no-vsync">No VSync</a></h3>
-<pre><code class="language-sh">--novsync, --vsync or $NEOVIDE_VSYNC=0|1
+<pre><code class="language-sh">--no-vsync, --vsync or $NEOVIDE_VSYNC=0|1
 </code></pre>
 <p><strong>Available since 0.10.2.</strong></p>
-<p>By default, Neovide requests to use VSync on the created window. This
-<code>--novsync</code> disables this behavior. The command line parameter takes priority
-over the environment variable.</p>
+<p>By default, Neovide requests to use VSync on the created window. <code>--no-vsync</code>
+disables this behavior. The command line parameter takes priority over the
+environment variable. If you don't enable vsync, then <code>g:neovide_refresh_rate</code>
+will be used.</p>
 <h3 id="neovim-server"><a class="header" href="#neovim-server">Neovim Server</a></h3>
 <pre><code class="language-sh">--server &lt;ADDRESS&gt;
 </code></pre>
@@ -1108,13 +1138,13 @@ overridden by command line arguments.</p>
 <h2 id="available-settings"><a class="header" href="#available-settings">Available settings</a></h2>
 <p>Settings currently available in the config file with default values:</p>
 <pre><code class="language-toml">wsl = false
-multigrid = false
+no-multigrid = false
 vsync = true
 maximized = false
 srgb = false
 idle = true
-neovim_bin = &quot;/usr/bin/nvim&quot;
-frame = &quot;Full&quot;
+neovim-bin = &quot;/usr/bin/nvim&quot; # in reality found dynamically on $PATH if unset
+frame = &quot;full&quot;
 </code></pre>
 <p>See <a href="command-line-reference.html">Command Line Reference</a> for details on what those settings do.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="editing-w-external-tools"><a class="header" href="#editing-w-external-tools">Editing w/ External Tools</a></h1>
@@ -1124,7 +1154,7 @@ that, however, is only possible as far as reasonably debuggable.</p>
 your own responsibility.</em></p>
 <h2 id="jrnl"><a class="header" href="#jrnl"><a href="https://github.com/jrnl-org/jrnl">jrnl</a></a></h2>
 <p>In your configuration file:</p>
-<pre><code class="language-yaml">editor: &quot;neovide --nofork&quot;
+<pre><code class="language-yaml">editor: &quot;neovide --no-fork&quot;
 </code></pre>
 <p>...as <code>jrnl</code> saves &amp; removes the temporary file as soon as the main process exits, which happens
 before startup by <a href="https://en.wikipedia.org/wiki/Fork_(system_call)">forking</a>.</p>
@@ -1168,7 +1198,7 @@ Reference issue <a href="https://github.com/neovide/neovide/pull/1242">#1242</a>
 <p>If your scrolling is stuttering</p>
 <ul>
 <li>
-<p>Add flag <code>--novsync</code> before startup as a quickfix.</p>
+<p>Add flags <code>--no-vsync</code> and <code>--no-idle</code> before startup as a quickfix.</p>
 </li>
 <li>
 <p>Check if the value of <code>g:neovide_refresh_rate</code> and the refresh rate of your monitor are matched.</p>
@@ -1204,9 +1234,6 @@ vim.api.nvim_set_keymap('!', '&lt;D-v&gt;', '&lt;C-R&gt;+', { noremap = true, si
 vim.api.nvim_set_keymap('t', '&lt;D-v&gt;', '&lt;C-R&gt;+', { noremap = true, silent = true})
 vim.api.nvim_set_keymap('v', '&lt;D-v&gt;', '&lt;C-R&gt;+', { noremap = true, silent = true})
 </code></pre>
-<h2 id="how-to-enable-scrolling-animations-and-transparency"><a class="header" href="#how-to-enable-scrolling-animations-and-transparency">How To Enable Scrolling Animations and Transparency?</a></h2>
-<p>First, <a href="command-line-reference.html#multigrid">enable multigrid</a>, it's not enabled by default.</p>
-<p>Then, scrolling animations should work, for transparency see the section below.</p>
 <h2 id="how-to-enable-floating-and-popupmenu-transparency"><a class="header" href="#how-to-enable-floating-and-popupmenu-transparency">How To Enable Floating And Popupmenu Transparency?</a></h2>
 <p>Those are controlled through the <code>winblend</code> and <code>pumblend</code> options. See their help pages for more,
 but for short: Both options can be values between <code>0</code> (opaque) and <code>100</code> (fully transparent),
