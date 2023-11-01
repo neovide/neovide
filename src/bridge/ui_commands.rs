@@ -4,7 +4,8 @@ use std::sync::Arc;
 use log::error;
 use log::trace;
 
-use nvim_rs::{call_args, rpc::model::IntoVal, Neovim, Value};
+use anyhow::{Context, Result};
+use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim, Value};
 use tokio::sync::mpsc::unbounded_channel;
 
 #[cfg(windows)]
@@ -47,10 +48,17 @@ pub enum SerialCommand {
 
 impl SerialCommand {
     async fn execute(self, nvim: &Neovim<NeovimWriter>) {
-        match self {
+        // Don't panic here unless there's absolutely no chance of continuing the program, Instead
+        // just log the error and hope that it's something temporary or recoverable A normal reason
+        // for failure is when neovim has already quit, and a command, for example mouse move is
+        // being sent
+        let result = match self {
             SerialCommand::Keyboard(input_command) => {
                 trace!("Keyboard Input Sent: {}", input_command);
-                nvim.input(&input_command).await.expect("Input failed");
+                nvim.input(&input_command)
+                    .await
+                    .map(|_| ())
+                    .context("Input failed")
             }
             SerialCommand::MouseButton {
                 button,
@@ -58,8 +66,8 @@ impl SerialCommand {
                 grid_id,
                 position: (grid_x, grid_y),
                 modifier_string,
-            } => {
-                nvim.input_mouse(
+            } => nvim
+                .input_mouse(
                     &button,
                     &action,
                     &modifier_string,
@@ -68,15 +76,14 @@ impl SerialCommand {
                     grid_x as i64,
                 )
                 .await
-                .expect("Mouse Input Failed");
-            }
+                .context("Mouse Input Failed"),
             SerialCommand::Scroll {
                 direction,
                 grid_id,
                 position: (grid_x, grid_y),
                 modifier_string,
-            } => {
-                nvim.input_mouse(
+            } => nvim
+                .input_mouse(
                     "wheel",
                     &direction,
                     &modifier_string,
@@ -85,15 +92,14 @@ impl SerialCommand {
                     grid_x as i64,
                 )
                 .await
-                .expect("Mouse Scroll Failed");
-            }
+                .context("Mouse Scroll Failed"),
             SerialCommand::Drag {
                 button,
                 grid_id,
                 position: (grid_x, grid_y),
                 modifier_string,
-            } => {
-                nvim.input_mouse(
+            } => nvim
+                .input_mouse(
                     &button,
                     "drag",
                     &modifier_string,
@@ -102,8 +108,11 @@ impl SerialCommand {
                     grid_x as i64,
                 )
                 .await
-                .expect("Mouse Drag Failed");
-            }
+                .context("Mouse Drag Failed"),
+        };
+
+        if let Err(error) = result {
+            log::error!("{:?}", error);
         }
     }
 }
@@ -132,28 +141,108 @@ pub enum ParallelCommand {
     },
 }
 
+async fn display_available_fonts(
+    nvim: &Neovim<NeovimWriter>,
+    fonts: Vec<String>,
+) -> Result<(), Box<CallError>> {
+    let mut content: Vec<String> = vec![
+        "What follows are the font names available for guifont. You can try any of them with <CR> in normal mode.",
+        "",
+        "To switch to one of them, use one of them, type:",
+        "",
+        "    :set guifont=<font name>:h<font size>",
+        "",
+        "where <font name> is one of the following with spaces escaped",
+        "and <font size> is the desired font size. As an example:",
+        "",
+        "    :set guifont=Cascadia\\ Code\\ PL:h12",
+        "",
+        "You may specify multiple fonts for fallback purposes separated by commas like so:",
+        "",
+        "    :set guifont=Cascadia\\ Code\\ PL,Delugia\\ Nerd\\ Font:h12",
+        "",
+        "Make sure to add the above command when you're happy with it to your .vimrc file or similar config to make it permanent.",
+        "------------------------------",
+        "Available Fonts on this System",
+        "------------------------------",
+    ].into_iter().map(|text| text.to_owned()).collect();
+    content.extend(fonts);
+
+    nvim.command("split").await?;
+    nvim.command("noswapfile hide enew").await?;
+    nvim.command("setlocal buftype=nofile").await?;
+    nvim.command("setlocal bufhidden=hide").await?;
+    nvim.command("\"setlocal nobuflisted").await?;
+    nvim.command("\"lcd ~").await?;
+    nvim.command("file scratch").await?;
+    let _ = nvim
+        .call(
+            "nvim_buf_set_lines",
+            call_args![0i64, 0i64, -1i64, false, content],
+        )
+        .await?;
+    nvim.command("nnoremap <buffer> <CR> <cmd>lua vim.opt.guifont=vim.fn.getline('.')<CR>")
+        .await?;
+    Ok(())
+}
+
+#[cfg(windows)]
+async fn register_right_click(nvim: &Neovim<NeovimWriter>) -> Result<(), Box<CallError>> {
+    if unregister_rightclick() {
+        let msg = "Could not unregister previous menu item. Possibly already registered.";
+        nvim.err_writeln(msg).await?;
+        error!("{}", msg);
+    }
+    if !register_rightclick_directory() {
+        let msg = "Could not register directory context menu item. Possibly already registered.";
+        nvim.err_writeln(msg).await?;
+        error!("{}", msg);
+    }
+    if !register_rightclick_file() {
+        let msg = "Could not register file context menu item. Possibly already registered.";
+        nvim.err_writeln(msg).await?;
+        error!("{}", msg);
+    }
+    Ok(())
+}
+
+#[cfg(windows)]
+async fn unregister_right_click(nvim: &Neovim<NeovimWriter>) -> Result<(), Box<CallError>> {
+    if !unregister_rightclick() {
+        let msg = "Could not remove context menu items. Possibly already removed.";
+        nvim.err_writeln(msg).await?;
+        error!("{}", msg);
+    }
+    Ok(())
+}
+
 impl ParallelCommand {
     async fn execute(self, nvim: &Neovim<NeovimWriter>) {
-        match self {
-            ParallelCommand::Quit => {
-                nvim.command(
+        // Don't panic here unless there's absolutely no chance of continuing the program, Instead
+        // just log the error and hope that it's something temporary or recoverable A normal reason
+        // for failure is when neovim has already quit, and a command, for example mouse move is
+        // being sent
+        let result = match self {
+            ParallelCommand::Quit => nvim
+                .command(
                     "if get(g:, 'neovide_confirm_quit', 0) == 1 | confirm qa | else | qa! | endif",
                 )
                 .await
-                .ok();
-            }
+                // Ignore all errors, since neovim exits immediately before the response is sent.
+                // We could an RPC notify instead of request, but nvim-rs does currently not support it.
+                .or(Ok(())),
             ParallelCommand::Resize { width, height } => nvim
                 .ui_try_resize(width.max(10) as i64, height.max(3) as i64)
                 .await
-                .expect("Resize failed"),
+                .context("Resize failed"),
             ParallelCommand::FocusLost => {
-                nvim.ui_set_focus(false).await.expect("Focus Lost Failed")
+                nvim.ui_set_focus(false).await.context("FocusLost failed")
             }
             ParallelCommand::FocusGained => {
-                nvim.ui_set_focus(true).await.expect("Focus Gained Failed")
+                nvim.ui_set_focus(true).await.context("FocusGained failed")
             }
-            ParallelCommand::FileDrop(path) => {
-                nvim.cmd(
+            ParallelCommand::FileDrop(path) => nvim
+                .cmd(
                     vec![
                         ("cmd".into(), "edit".into()),
                         ("magic".into(), vec![("file".into(), false.into())].into()),
@@ -162,94 +251,40 @@ impl ParallelCommand {
                     vec![],
                 )
                 .await
-                .ok();
-            }
-            ParallelCommand::SetBackground(background) => {
-                nvim.command(format!("set background={}", background).as_str())
-                    .await
-                    .ok();
-            }
-            ParallelCommand::DisplayAvailableFonts(fonts) => {
-                let mut content: Vec<String> = vec![
-                    "What follows are the font names available for guifont. You can try any of them with <CR> in normal mode.",
-                    "",
-                    "To switch to one of them, use one of them, type:",
-                    "",
-                    "    :set guifont=<font name>:h<font size>",
-                    "",
-                    "where <font name> is one of the following with spaces escaped",
-                    "and <font size> is the desired font size. As an example:",
-                    "",
-                    "    :set guifont=Cascadia\\ Code\\ PL:h12",
-                    "",
-                    "You may specify multiple fonts for fallback purposes separated by commas like so:",
-                    "",
-                    "    :set guifont=Cascadia\\ Code\\ PL,Delugia\\ Nerd\\ Font:h12",
-                    "",
-                    "Make sure to add the above command when you're happy with it to your .vimrc file or similar config to make it permanent.",
-                    "------------------------------",
-                    "Available Fonts on this System",
-                    "------------------------------",
-                ].into_iter().map(|text| text.to_owned()).collect();
-                content.extend(fonts);
+                .map(|_| ()) // We don't care about the result
+                .context("FileDrop failed"),
+            ParallelCommand::SetBackground(background) => nvim
+                .command(format!("set background={}", background).as_str())
+                .await
+                .context("SetBackground failed"),
+            ParallelCommand::DisplayAvailableFonts(fonts) => display_available_fonts(nvim, fonts)
+                .await
+                .context("DisplayAvailableFonts failed"),
+            #[cfg(windows)]
+            ParallelCommand::RegisterRightClick => register_right_click(nvim)
+                .await
+                .context("RegisterRightClick failed"),
+            #[cfg(windows)]
+            ParallelCommand::UnregisterRightClick => unregister_right_click(nvim)
+                .await
+                .context("UnregisterRightClick failed"),
+            ParallelCommand::ShowIntro { message } => show_intro_message(nvim, &message)
+                .await
+                .context("ShowIntro failed"),
 
-                nvim.command("split").await.ok();
-                nvim.command("noswapfile hide enew").await.ok();
-                nvim.command("setlocal buftype=nofile").await.ok();
-                nvim.command("setlocal bufhidden=hide").await.ok();
-                nvim.command("\"setlocal nobuflisted").await.ok();
-                nvim.command("\"lcd ~").await.ok();
-                nvim.command("file scratch").await.ok();
-                nvim.call(
-                    "nvim_buf_set_lines",
-                    call_args![0i64, 0i64, -1i64, false, content],
-                )
-                .await
-                .ok();
-                nvim.command(
-                    "nnoremap <buffer> <CR> <cmd>lua vim.opt.guifont=vim.fn.getline('.')<CR>",
-                )
-                .await
-                .ok();
-            }
-            #[cfg(windows)]
-            ParallelCommand::RegisterRightClick => {
-                if unregister_rightclick() {
-                    let msg =
-                        "Could not unregister previous menu item. Possibly already registered.";
-                    nvim.err_writeln(msg).await.ok();
-                    error!("{}", msg);
-                }
-                if !register_rightclick_directory() {
-                    let msg = "Could not register directory context menu item. Possibly already registered.";
-                    nvim.err_writeln(msg).await.ok();
-                    error!("{}", msg);
-                }
-                if !register_rightclick_file() {
-                    let msg =
-                        "Could not register file context menu item. Possibly already registered.";
-                    nvim.err_writeln(msg).await.ok();
-                    error!("{}", msg);
-                }
-            }
-            #[cfg(windows)]
-            ParallelCommand::UnregisterRightClick => {
-                if !unregister_rightclick() {
-                    let msg = "Could not remove context menu items. Possibly already removed.";
-                    nvim.err_writeln(msg).await.ok();
-                    error!("{}", msg);
-                }
-            }
-            ParallelCommand::ShowIntro { message } => {
-                show_intro_message(nvim, &message).await.ok();
-            }
             ParallelCommand::ShowError { lines } => {
                 // nvim.err_write(&message).await.ok();
                 // NOTE: https://github.com/neovim/neovim/issues/5067
                 // nvim_err_write[ln] is broken for multiline messages
                 // We should go back to it whenever that bug gets fixed.
-                show_error_message(nvim, &lines).await.ok();
+                show_error_message(nvim, &lines)
+                    .await
+                    .context("ShowError failed")
             }
+        };
+
+        if let Err(error) = result {
+            log::error!("{:?}", error);
         }
     }
 }
@@ -279,9 +314,10 @@ pub fn start_ui_command_handler(nvim: Arc<Neovim<NeovimWriter>>) {
         let mut ui_command_receiver = EVENT_AGGREGATOR.register_event::<UiCommand>();
         while RUNNING_TRACKER.is_running() {
             match ui_command_receiver.recv().await {
-                Some(UiCommand::Serial(serial_command)) => serial_tx
-                    .send(serial_command)
-                    .expect("Could not send serial ui command"),
+                Some(UiCommand::Serial(serial_command)) => {
+                    // This can fail if the serial_rx loop exits before this one, so ignore the errors
+                    let _ = serial_tx.send(serial_command);
+                }
                 Some(UiCommand::Parallel(parallel_command)) => {
                     let ui_command_nvim = ui_command_nvim.clone();
                     tokio::spawn(async move {

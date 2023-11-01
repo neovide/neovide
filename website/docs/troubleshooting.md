@@ -27,7 +27,7 @@
 
 - If your scrolling is stuttering
 
-  - Add flag `--novsync` before startup as a quickfix.
+  - Add flags `--no-vsync` and `--no-idle` before startup as a quickfix.
 
   - Check if the value of `g:neovide_refresh_rate` and the refresh rate of your monitor are matched.
 

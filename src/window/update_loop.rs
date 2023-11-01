@@ -1,3 +1,4 @@
+use simple_moving_average::{NoSumSMA, SMA};
 use std::time::{Duration, Instant};
 
 use winit::{
@@ -7,11 +8,11 @@ use winit::{
 
 #[cfg(target_os = "macos")]
 use super::draw_background;
-use super::{WindowSettings, WinitWindowWrapper};
+use super::{UserEvent, WindowSettings, WinitWindowWrapper};
 use crate::{
     profiling::{tracy_create_gpu_context, tracy_zone},
-    running_tracker::*,
-    settings::{save_window_size, SETTINGS},
+    renderer::{VSync, WindowedContext},
+    settings::SETTINGS,
 };
 
 enum FocusedState {
@@ -20,25 +21,44 @@ enum FocusedState {
     Unfocused,
 }
 
+const MAX_ANIMATION_DT: f32 = 1.0 / 120.0;
+
 pub struct UpdateLoop {
+    idle: bool,
     previous_frame_start: Instant,
+    last_dt: f32,
+    frame_dt_avg: NoSumSMA<f64, f64, 10>,
+    should_render: bool,
+    num_consecutive_rendered: u32,
     focused: FocusedState,
+    vsync: VSync,
 }
 
 impl UpdateLoop {
-    pub fn new() -> Self {
+    pub fn new(vsync_enabled: bool, idle: bool, context: &WindowedContext) -> Self {
         tracy_create_gpu_context("main_render_context");
 
         let previous_frame_start = Instant::now();
+        let last_dt = 0.0;
+        let frame_dt_avg = NoSumSMA::new();
+        let should_render = true;
+        let num_consecutive_rendered = 0;
         let focused = FocusedState::Focused;
+        let vsync = VSync::new(vsync_enabled, context);
 
         Self {
+            idle,
             previous_frame_start,
+            last_dt,
+            frame_dt_avg,
+            should_render,
+            num_consecutive_rendered,
             focused,
+            vsync,
         }
     }
 
-    fn get_event_deadline(&self) -> Instant {
+    pub fn get_event_wait_time(&self) -> (Duration, Instant) {
         let refresh_rate = match self.focused {
             FocusedState::Focused | FocusedState::UnfocusedNotDrawn => {
                 SETTINGS.get::<WindowSettings>().refresh_rate as f32
@@ -48,70 +68,103 @@ impl UpdateLoop {
         .max(1.0);
 
         let expected_frame_duration = Duration::from_secs_f32(1.0 / refresh_rate);
-        self.previous_frame_start + expected_frame_duration
+        if self.num_consecutive_rendered > 0 {
+            (Duration::from_nanos(0), Instant::now())
+        } else {
+            let deadline = self.previous_frame_start + expected_frame_duration;
+            (deadline.saturating_duration_since(Instant::now()), deadline)
+        }
+    }
+
+    pub fn render(&mut self, window_wrapper: &mut WinitWindowWrapper) {
+        let dt = if self.num_consecutive_rendered > 0 && self.frame_dt_avg.get_num_samples() > 0 {
+            self.frame_dt_avg.get_average() as f32
+        } else {
+            self.last_dt
+        }
+        .min(1.0);
+        self.should_render = window_wrapper.prepare_frame();
+        let num_steps = (dt / MAX_ANIMATION_DT).ceil();
+        let step = dt / num_steps;
+        for _ in 0..num_steps as usize {
+            self.should_render |= window_wrapper.animate_frame(step);
+        }
+        window_wrapper.draw_frame(&mut self.vsync, self.last_dt);
+
+        if self.num_consecutive_rendered > 2 {
+            self.frame_dt_avg
+                .add_sample(self.previous_frame_start.elapsed().as_secs_f64());
+        }
+
+        if let FocusedState::UnfocusedNotDrawn = self.focused {
+            self.focused = FocusedState::Unfocused;
+        }
+
+        #[cfg(target_os = "macos")]
+        draw_background(window_wrapper.windowed_context.window());
+
+        self.num_consecutive_rendered += 1;
+        self.last_dt = self.previous_frame_start.elapsed().as_secs_f32();
+        self.previous_frame_start = Instant::now();
     }
 
     pub fn step(
         &mut self,
         window_wrapper: &mut WinitWindowWrapper,
-        event: Event<()>,
-    ) -> ControlFlow {
+        event: Result<Event<UserEvent>, bool>,
+    ) -> Result<ControlFlow, ()> {
         tracy_zone!("render loop", 0);
-
-        // Window focus changed
-        if let Event::WindowEvent {
-            event: WindowEvent::Focused(focused_event),
-            ..
-        } = event
-        {
-            self.focused = if focused_event {
-                FocusedState::Focused
-            } else {
-                FocusedState::UnfocusedNotDrawn
-            };
+        match event {
+            // Window focus changed
+            Ok(Event::WindowEvent {
+                event: WindowEvent::Focused(focused_event),
+                ..
+            }) => {
+                self.focused = if focused_event {
+                    FocusedState::Focused
+                } else {
+                    FocusedState::UnfocusedNotDrawn
+                };
+            }
+            Err(true) => {
+                // Disconnected
+                return Err(());
+            }
+            Ok(Event::AboutToWait) | Err(false) => {
+                self.should_render |= window_wrapper.prepare_frame();
+                if self.should_render || !self.idle {
+                    if self.vsync.uses_winit_throttling() {
+                        window_wrapper.windowed_context.window().request_redraw();
+                    } else {
+                        self.render(window_wrapper);
+                    }
+                } else {
+                    self.num_consecutive_rendered = 0;
+                    self.last_dt = self.previous_frame_start.elapsed().as_secs_f32();
+                    self.previous_frame_start = Instant::now();
+                }
+            }
+            Ok(Event::WindowEvent {
+                event: WindowEvent::RedrawRequested,
+                ..
+            }) => {
+                self.render(window_wrapper);
+            }
+            _ => {}
         }
-
-        let deadline = self.get_event_deadline();
-
-        if !RUNNING_TRACKER.is_running() {
-            let window = window_wrapper.windowed_context.window();
-            save_window_size(
-                window.is_maximized(),
-                window.inner_size(),
-                window.outer_position().ok(),
-            );
-
-            std::process::exit(RUNNING_TRACKER.exit_code());
-        }
-
-        let frame_start = Instant::now();
-
         window_wrapper.handle_window_commands();
         window_wrapper.synchronize_settings();
-        window_wrapper.handle_event(event);
 
-        let refresh_rate = match self.focused {
-            FocusedState::Focused | FocusedState::UnfocusedNotDrawn => {
-                SETTINGS.get::<WindowSettings>().refresh_rate as f32
-            }
-            FocusedState::Unfocused => SETTINGS.get::<WindowSettings>().refresh_rate_idle as f32,
-        }
-        .max(0.0);
-
-        let expected_frame_length_seconds = 1.0 / refresh_rate;
-        let frame_duration = Duration::from_secs_f32(expected_frame_length_seconds);
-
-        if frame_start - self.previous_frame_start > frame_duration {
-            let dt = self.previous_frame_start.elapsed().as_secs_f32();
-            window_wrapper.draw_frame(dt);
-            if let FocusedState::UnfocusedNotDrawn = self.focused {
-                self.focused = FocusedState::Unfocused;
-            }
-            self.previous_frame_start = frame_start;
-            #[cfg(target_os = "macos")]
-            draw_background(window_wrapper.windowed_context.window());
+        if let Ok(event) = event {
+            self.should_render |= window_wrapper.handle_event(event);
         }
 
-        ControlFlow::WaitUntil(deadline)
+        let (_, deadline) = self.get_event_wait_time();
+
+        if self.num_consecutive_rendered > 0 {
+            Ok(ControlFlow::Poll)
+        } else {
+            Ok(ControlFlow::WaitUntil(deadline))
+        }
     }
 }

@@ -17,6 +17,7 @@ profiling = ["dep:tracy-client-sys"]
 gpu_profiling = ["profiling"]
 
 [dependencies]
+anyhow = { version = "1.0.75", features = ["backtrace"] }
 async-trait = "0.1.53"
 backtrace = "0.3.67"
 cfg-if = "1.0.0"
@@ -29,14 +30,15 @@ euclid = "0.22.7"
 flexi_logger = { version = "0.22.3", default-features = false }
 futures = "0.3.21"
 gl = "0.14.0"
-glutin = "0.30.7"
-glutin-winit = "0.4.0-beta.0"
+glutin = "0.31.0"
+glutin-winit = "0.4.2"
 image = { version = "0.24.1", default-features = false, features = ["ico"] }
 itertools = "0.10.5"
 lazy_static = "1.4.0"
 log = "0.4.16"
 lru = "0.7.5"
 neovide-derive = { path = "neovide-derive" }
+num = "0.4.1"
 nvim-rs = { version = "0.6.0", features = ["use_tokio"] }
 parking_lot = "0.12.0"
 pin-project = "1.0.10"
@@ -46,6 +48,10 @@ rmpv = "1.0.0"
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.79"
 shlex = "1.1.0"
+simple_moving_average = "0.1.2"
+skia-safe = { version = "0.62.0", features = ["gl", "textlayout"] }
+spin_sleep = "1.1.1"
+strum = { version = "0.25.0", features = ["derive"] }
 swash = "0.1.8"
 time = "0.3.9"
 tokio = { version = "1.25.0", features = ["full"] }
@@ -54,7 +60,7 @@ toml = "0.7.3"
 tracy-client-sys = { version = "0.19.0", optional = true }
 unicode-segmentation = "1.9.0"
 which = "4.2.5"
-winit = { version = "=0.29.0-beta.0", features = ["serde"] }
+winit = { version = "=0.29.2", features = ["serde"] }
 xdg = "2.4.1"
 
 [dev-dependencies]
@@ -62,31 +68,22 @@ mockall = "0.11.0"
 scoped-env = "2.1.0"
 serial_test = "2.0.0"
 
-[target.'cfg(windows)'.dependencies]
+[target.'cfg(target_os = "windows")'.dependencies]
 # NOTE: winerror is only needed because the indirect dependency parity-tokio-ipc does not set it even if it uses it
-winapi = { version = "0.3.9", features = ["winuser", "wincon", "winerror"] }
+winapi = { version = "0.3.9", features = ["winuser", "wincon", "winerror", "dwmapi"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 cocoa = "0.24.0"
 objc = "0.2.7"
 
-[target.'cfg(not(windows))'.dependencies]
+[target.'cfg(target_os = "linux")'.dependencies]
+nix = { version = "0.26.2", features = ["poll"] }
+wayland-client = "0.30.2"
+wayland-sys = "0.30.1"
+wayland-backend = "0.1.2"
 
-[target.'cfg(windows)'.build-dependencies]
+[target.'cfg(target_os = "windows")'.build-dependencies]
 winres = "0.1.12"
-
-[target.'cfg(windows)'.dependencies.skia-safe]
-# NOTE: Including textlayout for pre-built binaries
-features = ["gl", "textlayout"]
-version = "0.62.0"
-
-[target.'cfg(linux)'.dependencies.skia-safe]
-features = ["egl", "gl", "textlayout", "wayland", "x11"]
-version = "0.62.0"
-
-[target.'cfg(not(linux))'.dependencies.skia-safe]
-features = ["gl"]
-version = "0.62.0"
 
 [profile.release]
 lto = true
@@ -111,3 +108,4 @@ long_description = """
 This is a simple graphical user interface for Neovim. Where possible there are some graphical improvements, but it should act functionally like the terminal UI.
 """
 osx_minimum_system_version = "10.11"
+

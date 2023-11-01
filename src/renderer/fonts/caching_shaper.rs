@@ -38,6 +38,7 @@ pub struct CachingShaper {
     scale_factor: f32,
     fudge_factor: f32,
     linespace: i64,
+    font_info: Option<(Metrics, f32)>,
 }
 
 impl CachingShaper {
@@ -52,6 +53,7 @@ impl CachingShaper {
             scale_factor,
             fudge_factor: 1.0,
             linespace: 0,
+            font_info: None,
         };
         shaper.reset_font_loader();
         shaper
@@ -147,6 +149,7 @@ impl CachingShaper {
 
     fn reset_font_loader(&mut self) {
         self.fudge_factor = 1.0;
+        self.font_info = None;
         let mut font_size = self.current_size();
         debug!("Original font_size: {:.2}px", font_size);
 
@@ -176,6 +179,10 @@ impl CachingShaper {
     }
 
     fn info(&mut self) -> (Metrics, f32) {
+        if let Some(info) = self.font_info {
+            return info;
+        }
+
         let font_pair = self.current_font_pair();
         let size = self.current_size();
         let mut shaper = self
@@ -192,10 +199,12 @@ impl CachingShaper {
                 .first()
                 .map_or(metrics.average_width, |g| g.advance);
         });
+        self.font_info = Some((metrics, advance));
         (metrics, advance)
     }
 
     fn metrics(&mut self) -> Metrics {
+        tracy_zone!("font_metrics");
         self.info().0
     }
 

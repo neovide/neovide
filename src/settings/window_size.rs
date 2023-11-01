@@ -7,9 +7,19 @@ use crate::{dimensions::Dimensions, settings::SETTINGS, window::WindowSettings};
 
 const SETTINGS_FILE: &str = "neovide-settings.json";
 
-pub const DEFAULT_WINDOW_GEOMETRY: Dimensions = Dimensions {
+pub const DEFAULT_GRID_SIZE: Dimensions = Dimensions {
     width: 100,
     height: 50,
+};
+
+pub const MIN_GRID_SIZE: Dimensions = Dimensions {
+    width: 20,
+    height: 6,
+};
+
+pub const MAX_GRID_SIZE: Dimensions = Dimensions {
+    width: 10000,
+    height: 1000,
 };
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -12,12 +12,10 @@ use crate::{
     profiling::tracy_zone,
     renderer::{CachingShaper, RendererSettings},
     settings::*,
-    window::WindowSettings,
 };
 
 pub struct GridRenderer {
     pub shaper: CachingShaper,
-    pub paint: Paint,
     pub default_style: Arc<Style>,
     pub em_size: f32,
     pub font_dimensions: Dimensions,
@@ -25,11 +23,15 @@ pub struct GridRenderer {
     pub is_ready: bool,
 }
 
+/// Struct with named fields to be returned from draw_background
+pub struct BackgroundInfo {
+    pub custom_color: bool,
+    pub transparent: bool,
+}
+
 impl GridRenderer {
     pub fn new(scale_factor: f64) -> Self {
         let mut shaper = CachingShaper::new(scale_factor as f32);
-        let mut paint = Paint::new(colors::WHITE, None);
-        paint.set_anti_alias(false);
         let default_style = Arc::new(Style::new(Colors::new(
             Some(colors::WHITE),
             Some(colors::BLACK),
@@ -40,7 +42,6 @@ impl GridRenderer {
 
         GridRenderer {
             shaper,
-            paint,
             default_style,
             em_size,
             font_dimensions,
@@ -96,54 +97,74 @@ impl GridRenderer {
         self.default_style.colors.background.unwrap().to_color()
     }
 
+    /// Draws a single background cell with the same style
+    ///
+    /// Returns a boolean tuple that describes the cell:
+    ///     The first element is true if the cell has a custom background color
+    ///     The second element is true if the cell has transparency
     pub fn draw_background(
         &mut self,
         canvas: &mut Canvas,
         grid_position: (u64, u64),
         cell_width: u64,
         style: &Option<Arc<Style>>,
-        is_floating: bool,
-    ) {
+    ) -> BackgroundInfo {
         tracy_zone!("draw_background");
-        self.paint.set_blend_mode(BlendMode::Src);
+        let debug = SETTINGS.get::<RendererSettings>().debug_renderer;
+        if style.is_none() && !debug {
+            return BackgroundInfo {
+                custom_color: false,
+                transparent: false,
+            };
+        }
 
         let region = self.compute_text_region(grid_position, cell_width);
         let style = style.as_ref().unwrap_or(&self.default_style);
 
-        if SETTINGS.get::<RendererSettings>().debug_renderer {
+        let mut paint = Paint::default();
+        paint.set_anti_alias(false);
+        paint.set_blend_mode(BlendMode::Src);
+
+        if debug {
             let random_hsv: HSV = (rand::random::<f32>() * 360.0, 0.3, 0.3).into();
             let random_color = random_hsv.to_color(255);
-            self.paint.set_color(random_color);
+            paint.set_color(random_color);
         } else {
-            self.paint
-                .set_color(style.background(&self.default_style.colors).to_color());
+            paint.set_color(style.background(&self.default_style.colors).to_color());
+        }
+        if style.blend > 0 {
+            paint.set_alpha_f((100 - style.blend) as f32 / 100.0);
+        } else {
+            paint.set_alpha_f(1.0);
         }
 
-        if is_floating {
-            self.paint
-                .set_alpha((255.0 * ((100 - style.blend) as f32 / 100.0)) as u8);
-        } else if (SETTINGS.get::<WindowSettings>().transparency - 1.0).abs() > f32::EPSILON
-            // Only make background color transparent
-            && self.paint.color() == self.get_default_background()
-        {
-            self.paint.set_alpha(0);
+        let custom_color = paint.color4f() != self.default_style.colors.background.unwrap();
+        if custom_color {
+            canvas.draw_rect(region, &paint);
         }
-        canvas.draw_rect(region, &self.paint);
+
+        BackgroundInfo {
+            custom_color,
+            transparent: style.blend > 0,
+        }
     }
 
+    /// Draws some foreground text.
+    /// Returns true if any text was actually drawn.
     pub fn draw_foreground(
         &mut self,
         canvas: &mut Canvas,
-        text: String,
+        text: &String,
         grid_position: (u64, u64),
         cell_width: u64,
         style: &Option<Arc<Style>>,
-    ) {
+    ) -> bool {
         tracy_zone!("draw_foreground");
         let (x, y) = grid_position * self.font_dimensions;
         let width = cell_width * self.font_dimensions.width;
 
         let style = style.as_ref().unwrap_or(&self.default_style);
+        let mut drawn = false;
 
         // We don't want to clip text in the x position, only the y so we add a buffer of 1
         // character on either side of the region so that we clip vertically but not horizontally.
@@ -162,7 +183,8 @@ impl GridRenderer {
                 (y - line_position + self.font_dimensions.height) as f32,
             );
 
-            self.draw_underline(canvas, style, underline_style, p1.into(), p2.into())
+            self.draw_underline(canvas, style, underline_style, p1.into(), p2.into());
+            drawn = true;
         }
 
         canvas.save();
@@ -170,36 +192,55 @@ impl GridRenderer {
 
         let y_adjustment = self.shaper.y_adjustment();
 
+        let mut paint = Paint::default();
+        paint.set_anti_alias(false);
+        paint.set_blend_mode(BlendMode::SrcOver);
+
         if SETTINGS.get::<RendererSettings>().debug_renderer {
             let random_hsv: HSV = (rand::random::<f32>() * 360.0, 1.0, 1.0).into();
             let random_color = random_hsv.to_color(255);
-            self.paint.set_color(random_color);
+            paint.set_color(random_color);
         } else {
-            self.paint
-                .set_color(style.foreground(&self.default_style.colors).to_color());
+            paint.set_color(style.foreground(&self.default_style.colors).to_color());
         }
-        self.paint.set_anti_alias(false);
+        paint.set_anti_alias(false);
 
-        for blob in self
-            .shaper
-            .shape_cached(text, style.bold, style.italic)
-            .iter()
-        {
-            canvas.draw_text_blob(blob, (x as f32, (y + y_adjustment) as f32), &self.paint);
+        // There's a lot of overhead for empty blobs in Skia, for some reason they never hit the
+        // cache, so trim all the spaces
+        let trimmed = text.trim_start();
+        let leading_spaces = text.len() - trimmed.len();
+        let trimmed = trimmed.trim_end();
+        let x_adjustment = leading_spaces as u64 * self.font_dimensions.width;
+
+        if !trimmed.is_empty() {
+            for blob in self
+                .shaper
+                .shape_cached(trimmed.to_string(), style.bold, style.italic)
+                .iter()
+            {
+                tracy_zone!("draw_text_blob");
+                canvas.draw_text_blob(
+                    blob,
+                    ((x + x_adjustment) as f32, (y + y_adjustment) as f32),
+                    &paint,
+                );
+                drawn = true;
+            }
         }
 
         if style.strikethrough {
             let line_position = region.center_y();
-            self.paint
-                .set_color(style.special(&self.default_style.colors).to_color());
+            paint.set_color(style.special(&self.default_style.colors).to_color());
             canvas.draw_line(
                 (x as f32, line_position),
                 ((x + width) as f32, line_position),
-                &self.paint,
+                &paint,
             );
+            drawn = true;
         }
 
         canvas.restore();
+        drawn
     }
 
     fn draw_underline(
@@ -210,9 +251,12 @@ impl GridRenderer {
         p1: Point,
         p2: Point,
     ) {
+        tracy_zone!("draw_underline");
         canvas.save();
 
-        let mut underline_paint = self.paint.clone();
+        let mut underline_paint = Paint::default();
+        underline_paint.set_anti_alias(false);
+        underline_paint.set_blend_mode(BlendMode::SrcOver);
         let auto_scaling = SETTINGS
             .get::<RendererSettings>()
             .underline_automatic_scaling;

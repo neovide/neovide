@@ -12,7 +12,6 @@ use crate::{
     bridge::{GuiOption, ParallelCommand, RedrawEvent, UiCommand, WindowAnchor},
     event_aggregator::EVENT_AGGREGATOR,
     profiling::tracy_zone,
-    redraw_scheduler::REDRAW_SCHEDULER,
     renderer::DrawCommand,
     window::WindowCommand,
 };
@@ -64,6 +63,7 @@ pub struct Editor {
     pub mode_list: Vec<CursorMode>,
     pub draw_command_batcher: Rc<DrawCommandBatcher>,
     pub current_mode_index: Option<u64>,
+    pub ui_ready: bool,
 }
 
 impl Editor {
@@ -75,6 +75,7 @@ impl Editor {
             mode_list: Vec::new(),
             draw_command_batcher: Rc::new(DrawCommandBatcher::new()),
             current_mode_index: None,
+            ui_ready: false,
         }
     }
 
@@ -136,10 +137,6 @@ impl Editor {
                         trace!("send_batch");
                         self.draw_command_batcher.send_batch();
                     }
-                    {
-                        trace!("queue_next_frame");
-                        REDRAW_SCHEDULER.queue_next_frame();
-                    }
                 }
                 RedrawEvent::DefaultColorsSet { colors } => {
                     tracy_zone!("EditorDefaultColorsSet");
@@ -148,7 +145,6 @@ impl Editor {
                         .ok();
                     self.redraw_screen();
                     self.draw_command_batcher.send_batch();
-                    REDRAW_SCHEDULER.queue_next_frame();
                 }
                 RedrawEvent::HighlightAttributesDefine { id, style } => {
                     tracy_zone!("EditorHighlightAttributesDefine");
@@ -177,6 +173,7 @@ impl Editor {
                     cells,
                 } => {
                     tracy_zone!("EditorGridLine");
+                    self.set_ui_ready();
                     let defined_styles = &self.defined_styles;
                     let window = self.windows.get_mut(&grid);
                     if let Some(window) = window {
@@ -249,9 +246,14 @@ impl Editor {
                     tracy_zone!("EditorWindowClose");
                     self.close_window(grid)
                 }
-                RedrawEvent::MessageSetPosition { grid, row, .. } => {
+                RedrawEvent::MessageSetPosition {
+                    grid,
+                    row,
+                    scrolled,
+                    ..
+                } => {
                     tracy_zone!("EditorMessageSetPosition");
-                    self.set_message_position(grid, row)
+                    self.set_message_position(grid, row, scrolled)
                 }
                 RedrawEvent::WindowViewport {
                     grid,
@@ -260,6 +262,7 @@ impl Editor {
                     ..
                 } => {
                     tracy_zone!("EditorWindowViewport");
+                    self.set_ui_ready();
                     self.send_updated_viewport(grid, scroll_delta)
                 }
                 RedrawEvent::ShowIntro { message } => {
@@ -381,7 +384,7 @@ impl Editor {
         }
     }
 
-    fn set_message_position(&mut self, grid: u64, grid_top: u64) {
+    fn set_message_position(&mut self, grid: u64, grid_top: u64, scrolled: bool) {
         let parent_width = self
             .windows
             .get(&1)
@@ -397,7 +400,7 @@ impl Editor {
         };
 
         if let Some(window) = self.windows.get_mut(&grid) {
-            window.window_type = WindowType::Message;
+            window.window_type = WindowType::Message { scrolled };
             window.position(
                 Some(anchor_info),
                 (parent_width, window.get_height()),
@@ -407,7 +410,7 @@ impl Editor {
         } else {
             let new_window = Window::new(
                 grid,
-                WindowType::Message,
+                WindowType::Message { scrolled },
                 Some(anchor_info),
                 (0.0, grid_top as f64),
                 (parent_width, 1),
@@ -445,7 +448,7 @@ impl Editor {
 
     fn set_cursor_position(&mut self, grid: u64, grid_left: u64, grid_top: u64) {
         if let Some(Window {
-            window_type: WindowType::Message,
+            window_type: WindowType::Message { .. },
             ..
         }) = self.windows.get(&grid)
         {
@@ -530,6 +533,13 @@ impl Editor {
     fn redraw_screen(&mut self) {
         for window in self.windows.values() {
             window.redraw();
+        }
+    }
+
+    fn set_ui_ready(&mut self) {
+        if !self.ui_ready {
+            self.ui_ready = true;
+            self.draw_command_batcher.queue(DrawCommand::UIReady).ok();
         }
     }
 }

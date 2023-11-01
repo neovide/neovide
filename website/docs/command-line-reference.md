@@ -47,14 +47,7 @@ Can be set to:
 
 Sets the initial neovide window size in pixels.
 
-### Log File
-
-```sh
---log
-```
-
-Enables the log file for debugging purposes. This will write a file next to the executable
-containing trace events which may help debug an issue.
+Can not be used together with `--maximized`, or `--grid`.
 
 ### Maximized
 
@@ -68,22 +61,58 @@ visible.
 This is not the same as `g:neovide_fullscreen`, which runs Neovide in "exclusive fullscreen",
 covering up the entire screen.
 
+Can not be used together with `--size`, or `--grid`.
+
+### Grid Size
+
+```sh
+--grid [<columns>x<lines>]
+
+```
+
+**Unreleased yet.**
+
+Sets the initial grid size of the window. If no value is given, it defaults to
+columns/lines from `init.vim/lua`, see
+[columns](https://neovim.io/doc/user/options.html#'columns') and
+[lines](https://neovim.io/doc/user/options.html#'lines').
+
+If the `--grid` argument is not set then the grid size is inferred from the
+window size.
+
+Note: After the initial size has been determined and `init.vim/lua` processed,
+you can set [columns](https://neovim.io/doc/user/options.html#'columns') and
+[lines](https://neovim.io/doc/user/options.html#'lines') inside neovim
+regardless of the command line arguments used. This has to be done before any
+redraws are made, so it's recommended to put it at the start of the
+`init.vim/lua` along with `guifont` and other related settings that can affect
+the geometry.
+
+Can not be used together with `--size`, or `--maximized`.
+
+### Log File
+
+```sh
+--log
+```
+
+Enables the log file for debugging purposes. This will write a file next to the executable
+containing trace events which may help debug an issue.
+
 ### Multigrid
 
 ```sh
---multigrid or $NEOVIDE_MULTIGRID
+--no-multigrid or $NEOVIDE_NO_MULTIGRID
 ```
 
-This enables neovim's multigrid functionality which will also enable floating window blurred
-backgrounds and window animations. For now this is disabled due to some mouse input bugs upstream
-([neovim/neovim/pull/12667](https://github.com/neovim/neovim/pull/12667),
-[neovim/neovim/issues/15075](https://github.com/neovim/neovim/issues/15075)) and some
-[floating window transparency issues](https://github.com/neovide/neovide/issues/720).
+This disables neovim's multigrid functionality which will also disable floating window blurred
+backgrounds, smooth scrolling, and window animations. This can solve some issues where neovide
+acts differently from terminal neovim.
 
 ### No Fork
 
 ```sh
---nofork
+--no-fork
 ```
 
 By default, neovide detaches itself from the terminal. Instead of spawning a child process and
@@ -92,19 +121,19 @@ leaking it, be "blocking" and have the shell directly as parent process.
 ### No Idle
 
 ```sh
---noidle or $NEOVIDE_IDLE=0|1
+--no-idle or $NEOVIDE_IDLE=0|1
 ```
 
 With idle `on` (default), neovide won't render new frames when nothing is happening.
 
-With idle `off` (e.g. with `--noidle` flag), neovide will constantly render new frames,
+With idle `off` (e.g. with `--no-idle` flag), neovide will constantly render new frames,
 even when nothing changed. This takes more power and CPU time, but can possibly help
 with frame timing issues.
 
 ### sRGB
 
 ```sh
---nosrgb, --srgb or $NEOVIDE_SRGB=0|1
+--no-srgb, --srgb or $NEOVIDE_SRGB=0|1
 ```
 
 Request sRGB support on the window. Neovide does not actually render with sRGB,
@@ -117,7 +146,7 @@ priority over the environment variable.
 ### No Tabs
 
 ```sh
---notabs
+--no-tabs
 ```
 
 By default, Neovide opens files given directly to Neovide (not NeoVim through `--`!) in multiple
@@ -130,14 +159,15 @@ or not.
 ### No VSync
 
 ```sh
---novsync, --vsync or $NEOVIDE_VSYNC=0|1
+--no-vsync, --vsync or $NEOVIDE_VSYNC=0|1
 ```
 
 **Available since 0.10.2.**
 
-By default, Neovide requests to use VSync on the created window. This
-`--novsync` disables this behavior. The command line parameter takes priority
-over the environment variable.
+By default, Neovide requests to use VSync on the created window. `--no-vsync`
+disables this behavior. The command line parameter takes priority over the
+environment variable. If you don't enable vsync, then `g:neovide_refresh_rate`
+will be used.
 
 ### Neovim Server
 

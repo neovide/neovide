@@ -6,6 +6,7 @@ use clap::{builder::PossibleValue, ValueEnum};
 
 // Options for the frame decorations
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
 pub enum Frame {
     #[default]
     Full,

@@ -232,7 +232,29 @@ Lua:
 vim.g.neovide_scroll_animation_length = 0.3
 ```
 
-Sets how long the scroll animation takes to complete, measured in seconds.
+Sets how long the scroll animation takes to complete, measured in seconds. Note that the timing is
+not completely accurate and might depend slightly on have far you scroll, so experimenting is
+encouraged in order to tune it to your liking.
+
+#### Far scroll lines
+
+**Unreleased yet.**
+
+VimScript:
+
+```vim
+let g:neovide_scroll_animation_far_lines = 1
+```
+
+Lua:
+
+```lua
+vim.g.neovide_scroll_animation_far_lines = 1
+```
+
+When scrolling more than one screen at a time, only this many lines at the end of the scroll action
+will be animated. Set it to 0 to snap to the final position without any animation, or to something
+big like 9999 to always scroll the whole screen, much like Neovide <= 0.10.4 did.
 
 #### Hiding the mouse when typing
 
@@ -314,8 +336,8 @@ vim.g.neovide_refresh_rate = 60
 Setting `g:neovide_refresh_rate` to a positive integer will set the refresh rate of the app. This is
 limited by the refresh rate of your physical hardware, but can be lowered to increase battery life.
 
-Also do note that Neovide's frame pacing is far from optimal at the moment, so better hardware might
-not mean better FPS.
+This setting is only effective when not using vsync, for example by passing `--no-vsync` on the
+commandline.
 
 #### Idle Refresh Rate
 

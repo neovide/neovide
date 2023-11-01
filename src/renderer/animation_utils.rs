@@ -80,6 +80,71 @@ pub fn ease_point(ease_func: fn(f32) -> f32, start: Point, end: Point, t: f32) -
     }
 }
 
+pub struct CriticallyDampedSpringAnimation {
+    pub position: f32,
+    start_position: f32,
+    velocity: f32,
+    scroll_t: f32,
+}
+
+impl CriticallyDampedSpringAnimation {
+    pub fn new() -> Self {
+        Self {
+            position: 0.0,
+            start_position: 0.0,
+            velocity: 0.0,
+            scroll_t: 2.0,
+        }
+    }
+
+    pub fn update(&mut self, dt: f32, animation_length: f32) -> bool {
+        if self.scroll_t == 2.0 && self.position != 0.0 {
+            self.start_position = self.position;
+            self.scroll_t = 0.0;
+        }
+
+        if 1.0 - self.scroll_t < std::f32::EPSILON {
+            // We are at destination, move t out of 0-1 range to stop the animation.
+            self.scroll_t = 2.0;
+        } else {
+            self.scroll_t = (self.scroll_t + dt / animation_length).min(1.0);
+        }
+
+        // For short animations use a standard ease function
+        // This prevents precision errors, and division by zero
+        if animation_length < 0.05 {
+            self.position = ease(ease_out_expo, self.start_position, 0.0, self.scroll_t);
+        } else {
+            // Simulate critically damped spring, also known as a PD controller.
+            // For more details of why this was chosen, see this:
+            // https://gdcvault.com/play/1027059/Math-In-Game-Development-Summit
+            // < 1 underdamped,  1 critically damped, > 1 overdamped
+            let zeta = 1.0;
+            // The omega is calculated so that the destination is reached with a 2% tolerance in
+            // animation_length time.
+            let omega = 4.0 / (zeta * animation_length);
+            let k_p = omega * omega;
+            let k_d = -2.0 * zeta * omega;
+            let acc = -k_p * self.position + k_d * self.velocity;
+            self.velocity += acc * dt;
+            self.position += self.velocity * dt;
+        }
+
+        if self.position.abs() < 0.01 {
+            self.reset();
+            false
+        } else {
+            true
+        }
+    }
+
+    pub fn reset(&mut self) {
+        self.position = 0.0;
+        self.velocity = 0.0;
+        self.scroll_t = 2.0
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;

@@ -30,9 +30,10 @@ pub fn config_path() -> PathBuf {
 }
 
 #[derive(Debug, Deserialize, Default)]
+#[serde(rename_all = "kebab-case")]
 pub struct Config {
     pub wsl: Option<bool>,
-    pub multigrid: Option<bool>,
+    pub no_multigrid: Option<bool>,
     pub maximized: Option<bool>,
     pub vsync: Option<bool>,
     pub srgb: Option<bool>,
@@ -56,8 +57,8 @@ impl Config {
         if let Some(wsl) = self.wsl {
             env::set_var("NEOVIDE_WSL", wsl.to_string());
         }
-        if let Some(multigrid) = self.multigrid {
-            env::set_var("NEOVIDE_MULTIGRID", multigrid.to_string());
+        if let Some(no_multigrid) = self.no_multigrid {
+            env::set_var("NEOVIDE_NO_MULTIGRID", no_multigrid.to_string());
         }
         if let Some(maximized) = self.maximized {
             env::set_var("NEOVIDE_MAXIMIZED", maximized.to_string());

@@ -7,15 +7,13 @@ use rmpv::Value;
 use crate::bridge::ui_commands::{ParallelCommand, UiCommand};
 use crate::{
     bridge::clipboard::{get_clipboard_contents, set_clipboard_contents},
-    window::WindowCommand,
-};
-use crate::{
     bridge::{events::parse_redraw_event, NeovimWriter},
     editor::EditorCommand,
     error_handling::ResultPanicExplanation,
     event_aggregator::EVENT_AGGREGATOR,
     running_tracker::*,
     settings::SETTINGS,
+    window::WindowCommand,
 };
 
 #[derive(Clone)]
@@ -87,6 +85,16 @@ impl Handler for NeovimHandler {
                     .as_i64()
                     .expect("Could not parse error code from neovim");
                 RUNNING_TRACKER.quit_with_code(error_code as i32, "Quit from neovim");
+            }
+            "neovide.columns" => {
+                if let Some(columns) = arguments[0].as_u64() {
+                    EVENT_AGGREGATOR.send(WindowCommand::Columns(columns));
+                }
+            }
+            "neovide.lines" => {
+                if let Some(lines) = arguments[0].as_u64() {
+                    EVENT_AGGREGATOR.send(WindowCommand::Lines(lines));
+                }
             }
             #[cfg(windows)]
             "neovide.register_right_click" => {

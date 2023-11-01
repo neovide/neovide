@@ -1,15 +1,16 @@
 use std::{
-    env, eprintln,
+    env,
     process::{Command as StdCommand, Stdio},
 };
 
+use anyhow::{bail, Result};
 use log::debug;
 use tokio::process::Command as TokioCommand;
 
 use crate::{cmd_line::CmdLineSettings, settings::*};
 
-pub fn create_nvim_command() -> TokioCommand {
-    let mut cmd = build_nvim_cmd();
+pub fn create_nvim_command() -> Result<TokioCommand> {
+    let mut cmd = build_nvim_cmd()?;
 
     debug!("Starting neovim with: {:?}", cmd);
 
@@ -22,7 +23,7 @@ pub fn create_nvim_command() -> TokioCommand {
     #[cfg(windows)]
     set_windows_creation_flags(&mut cmd);
 
-    cmd
+    Ok(cmd)
 }
 
 #[cfg(target_os = "windows")]
@@ -30,21 +31,19 @@ fn set_windows_creation_flags(cmd: &mut TokioCommand) {
     cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
 }
 
-fn build_nvim_cmd() -> TokioCommand {
+fn build_nvim_cmd() -> Result<TokioCommand> {
     if let Some(cmdline) = SETTINGS.get::<CmdLineSettings>().neovim_bin {
-        if let Some((bin, args)) = lex_nvim_cmdline(&cmdline) {
-            return build_nvim_cmd_with_args(bin, args);
+        if let Some((bin, args)) = lex_nvim_cmdline(&cmdline)? {
+            return Ok(build_nvim_cmd_with_args(bin, args));
         }
 
-        eprintln!("ERROR: NEOVIM_BIN='{}' was not found.", cmdline);
-        std::process::exit(1);
+        bail!("ERROR: NEOVIM_BIN='{}' was not found.", cmdline);
     } else if let Some(path) = platform_which("nvim") {
-        if neovim_ok(&path, &[]) {
-            return build_nvim_cmd_with_args(path, vec![]);
+        if neovim_ok(&path, &[])? {
+            return Ok(build_nvim_cmd_with_args(path, vec![]));
         }
     }
-    eprintln!("ERROR: nvim not found!");
-    std::process::exit(1);
+    bail!("ERROR: nvim not found!")
 }
 
 // Creates a shell command if needed on this platform (wsl or macos)
@@ -79,7 +78,7 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
     }
 }
 
-fn neovim_ok(bin: &str, args: &[String]) -> bool {
+fn neovim_ok(bin: &str, args: &[String]) -> Result<bool> {
     let is_wsl = SETTINGS.get::<CmdLineSettings>().wsl;
     let mut args = args.iter().map(String::as_str).collect::<Vec<_>>();
     args.push("-v");
@@ -106,29 +105,33 @@ fn neovim_ok(bin: &str, args: &[String]) -> bool {
                 );
 
                 if is_wsl {
-                    eprintln!("{error_message_prefix}wsl '$SHELL' -lc '{bin} -v'");
+                    bail!("{error_message_prefix}wsl '$SHELL' -lc '{bin} -v'");
                 } else {
-                    eprintln!("{error_message_prefix}$SHELL -lc '{bin} -v'");
+                    bail!("{error_message_prefix}$SHELL -lc '{bin} -v'");
                 }
-                std::process::exit(1);
             }
-            return true;
+            return Ok(true);
         }
     }
-    false
+    Ok(false)
 }
 
-fn lex_nvim_cmdline(cmdline: &str) -> Option<(String, Vec<String>)> {
-    let mut tokens = shlex::split(cmdline).filter(|t| !t.is_empty())?;
-    let (mut bin, args) = (tokens.remove(0), tokens);
-
-    // if neovim_bin contains a path separator, then try to launch it directly
-    // otherwise use which to find the fully path
-    if !bin.contains('/') && !bin.contains('\\') {
-        bin = platform_which(&bin)?;
-    }
-
-    neovim_ok(&bin, &args).then_some((bin, args))
+fn lex_nvim_cmdline(cmdline: &str) -> Result<Option<(String, Vec<String>)>> {
+    shlex::split(cmdline)
+        .filter(|t| !t.is_empty())
+        .map(|mut tokens| (tokens.remove(0), tokens))
+        .and_then(|(bin, args)| {
+            // if neovim_bin contains a path separator, then try to launch it directly
+            // otherwise use which to find the full path
+            if !bin.contains('/') && !bin.contains('\\') {
+                platform_which(&bin).map(|bin| (bin, args))
+            } else {
+                Some((bin, args))
+            }
+        })
+        .map_or(Ok(None), |(bin, args)| {
+            neovim_ok(&bin, &args).map(|res| res.then_some((bin, args)))
+        })
 }
 
 fn platform_which(bin: &str) -> Option<String> {
