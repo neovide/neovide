@@ -89,19 +89,6 @@ wayland-backend = "0.1.2"
 [target.'cfg(target_os = "windows")'.build-dependencies]
 winres = "0.1.12"
 
-[target.'cfg(windows)'.dependencies.skia-safe]
-# NOTE: Including textlayout for pre-built binaries
-features = ["gl", "textlayout"]
-version = "0.68.0"
-
-[target.'cfg(linux)'.dependencies.skia-safe]
-features = ["egl", "gl", "textlayout", "wayland", "x11"]
-version = "0.68.0"
-
-[target.'cfg(not(linux))'.dependencies.skia-safe]
-features = ["gl"]
-version = "0.68.0"
-
 [profile.release]
 lto = true
 incremental = true
