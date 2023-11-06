@@ -2,6 +2,12 @@
 name = "neovide-derive"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+description = "Derive macros for the Neovide gui"
+homepage = "https://neovide.dev/"
+repository = "https://github.com/neovide/neovide"
+readme = "README.md"
+keywords = ["neovide", "neovim", "nvim", "gui", "macros"]
 
 [lib]
 proc-macro = true
