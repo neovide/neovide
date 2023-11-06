@@ -384,10 +384,9 @@ impl CursorRenderer {
         let mut animating = false;
 
         if !center_destination.is_zero() {
+            let immediate_movement = !settings.animate_in_insert_mode && in_insert_mode
+                || !settings.animate_command_line && !changed_to_from_cmdline;
             for corner in self.corners.iter_mut() {
-                let immediate_movement = !settings.animate_in_insert_mode && in_insert_mode
-                    || !settings.animate_command_line && !changed_to_from_cmdline;
-
                 let corner_animating = corner.update(
                     &settings,
                     cursor_dimensions,
@@ -400,7 +399,13 @@ impl CursorRenderer {
             }
 
             let vfx_animating = if let Some(vfx) = self.cursor_vfx.as_mut() {
-                vfx.update(&settings, center_destination, cursor_dimensions, dt)
+                vfx.update(
+                    &settings,
+                    center_destination,
+                    cursor_dimensions,
+                    immediate_movement,
+                    dt,
+                )
             } else {
                 false
             };

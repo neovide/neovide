@@ -15,6 +15,7 @@ pub trait CursorVfx {
         settings: &CursorSettings,
         current_cursor_destination: Point,
         cursor_dimensions: Point,
+        immediate_movement: bool,
         dt: f32,
     ) -> bool;
     fn restart(&mut self, position: Point);
@@ -114,6 +115,7 @@ impl CursorVfx for PointHighlight {
         _settings: &CursorSettings,
         _current_cursor_destination: Point,
         _cursor_dimensions: Point,
+        _immediate_movement: bool,
         dt: f32,
     ) -> bool {
         self.t = (self.t + dt * 5.0).min(1.0); // TODO - speed config
@@ -222,6 +224,7 @@ impl CursorVfx for ParticleTrail {
         settings: &CursorSettings,
         current_cursor_dest: Point,
         cursor_dimensions: Point,
+        immediate_movement: bool,
         dt: f32,
     ) -> bool {
         // Update lifetimes and remove dead particles
@@ -245,65 +248,68 @@ impl CursorVfx for ParticleTrail {
 
         // Spawn new particles
         if current_cursor_dest != self.previous_cursor_dest {
-            let travel = current_cursor_dest - self.previous_cursor_dest;
-            let travel_distance = travel.length();
+            if !immediate_movement {
+                let travel = current_cursor_dest - self.previous_cursor_dest;
+                let travel_distance = travel.length();
 
-            // Increase amount of particles when cursor travels further
-            let particle_count = ((travel_distance / cursor_dimensions.y).powf(1.5)
-                * settings.vfx_particle_density
-                * 0.01) as usize;
+                // Increase amount of particles when cursor travels further
+                let particle_count = ((travel_distance / cursor_dimensions.y).powf(1.5)
+                    * settings.vfx_particle_density
+                    * 0.01) as usize;
 
-            let prev_p = self.previous_cursor_dest;
+                let prev_p = self.previous_cursor_dest;
 
-            for i in 0..particle_count {
-                let t = i as f32 / (particle_count as f32);
+                for i in 0..particle_count {
+                    let t = i as f32 / (particle_count as f32);
 
-                let speed = match self.trail_mode {
-                    TrailMode::Railgun => {
-                        let phase = t / std::f32::consts::PI
-                            * settings.vfx_particle_phase
-                            * (travel_distance / cursor_dimensions.y);
-                        Point::new(phase.sin(), phase.cos()) * 2.0 * settings.vfx_particle_speed
-                    }
-                    TrailMode::Torpedo => {
-                        let mut travel_dir = travel;
-                        travel_dir.normalize();
-                        let mut particle_dir = self.rng.rand_dir_normalized() - travel_dir * 1.5;
-                        particle_dir.normalize();
-                        particle_dir * settings.vfx_particle_speed
-                    }
-                    TrailMode::PixieDust => {
-                        let base_dir = self.rng.rand_dir_normalized();
-                        let dir = Point::new(base_dir.x * 0.5, 0.4 + base_dir.y.abs());
-                        dir * 3.0 * settings.vfx_particle_speed
-                    }
-                };
+                    let speed = match self.trail_mode {
+                        TrailMode::Railgun => {
+                            let phase = t / std::f32::consts::PI
+                                * settings.vfx_particle_phase
+                                * (travel_distance / cursor_dimensions.y);
+                            Point::new(phase.sin(), phase.cos()) * 2.0 * settings.vfx_particle_speed
+                        }
+                        TrailMode::Torpedo => {
+                            let mut travel_dir = travel;
+                            travel_dir.normalize();
+                            let mut particle_dir =
+                                self.rng.rand_dir_normalized() - travel_dir * 1.5;
+                            particle_dir.normalize();
+                            particle_dir * settings.vfx_particle_speed
+                        }
+                        TrailMode::PixieDust => {
+                            let base_dir = self.rng.rand_dir_normalized();
+                            let dir = Point::new(base_dir.x * 0.5, 0.4 + base_dir.y.abs());
+                            dir * 3.0 * settings.vfx_particle_speed
+                        }
+                    };
 
-                // Distribute particles along the travel distance
-                let pos = match self.trail_mode {
-                    TrailMode::Railgun => prev_p + travel * t,
-                    TrailMode::PixieDust | TrailMode::Torpedo => {
-                        prev_p
-                            + travel * self.rng.next_f32()
-                            + Point::new(0.0, cursor_dimensions.y * 0.5)
-                    }
-                };
+                    // Distribute particles along the travel distance
+                    let pos = match self.trail_mode {
+                        TrailMode::Railgun => prev_p + travel * t,
+                        TrailMode::PixieDust | TrailMode::Torpedo => {
+                            prev_p
+                                + travel * self.rng.next_f32()
+                                + Point::new(0.0, cursor_dimensions.y * 0.5)
+                        }
+                    };
 
-                let rotation_speed = match self.trail_mode {
-                    TrailMode::Railgun => std::f32::consts::PI * settings.vfx_particle_curl,
-                    TrailMode::PixieDust | TrailMode::Torpedo => {
-                        (self.rng.next_f32() - 0.5)
-                            * std::f32::consts::FRAC_PI_2
-                            * settings.vfx_particle_curl
-                    }
-                };
+                    let rotation_speed = match self.trail_mode {
+                        TrailMode::Railgun => std::f32::consts::PI * settings.vfx_particle_curl,
+                        TrailMode::PixieDust | TrailMode::Torpedo => {
+                            (self.rng.next_f32() - 0.5)
+                                * std::f32::consts::FRAC_PI_2
+                                * settings.vfx_particle_curl
+                        }
+                    };
 
-                self.add_particle(
-                    pos,
-                    speed,
-                    rotation_speed,
-                    t * settings.vfx_particle_lifetime,
-                );
+                    self.add_particle(
+                        pos,
+                        speed,
+                        rotation_speed,
+                        t * settings.vfx_particle_lifetime,
+                    );
+                }
             }
 
             self.previous_cursor_dest = current_cursor_dest;
