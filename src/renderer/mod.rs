@@ -14,7 +14,7 @@ use std::{
 };
 
 use log::error;
-use skia_safe::{Canvas, Point, Rect};
+use skia_safe::{Canvas, Color, Point, Rect};
 use tokio::sync::mpsc::UnboundedReceiver;
 use winit::event::Event;
 
@@ -139,6 +139,10 @@ impl Renderer {
         self.grid_renderer.font_names()
     }
 
+    pub fn default_background(&self) -> Color {
+        self.grid_renderer.default_background()
+    }
+
     /// Draws frame
     ///
     /// # Returns
@@ -146,7 +150,7 @@ impl Renderer {
     #[allow(clippy::needless_collect)]
     pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32) {
         tracy_zone!("renderer_draw_frame");
-        let default_background = self.grid_renderer.get_default_background();
+        let default_background = self.default_background();
         let font_dimensions = self.grid_renderer.font_dimensions;
 
         let transparency = { SETTINGS.get::<WindowSettings>().transparency };
