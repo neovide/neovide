@@ -1,10 +1,10 @@
 use std::{
     any::{type_name, Any, TypeId},
-    collections::{hash_map::Entry, HashMap},
+    collections::HashMap,
     fmt::Debug,
+    sync::Mutex,
 };
 
-use parking_lot::RwLock;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
 use crate::channel_utils::*;
@@ -13,37 +13,41 @@ lazy_static! {
     pub static ref EVENT_AGGREGATOR: EventAggregator = EventAggregator::default();
 }
 
+type Receiver = dyn Any + Send + Sync;
+type Sender = dyn Any + Send + Sync;
+type ChannelHashMap = HashMap<TypeId, (Box<Sender>, Option<Box<Receiver>>)>;
+
 pub struct EventAggregator {
-    parent_senders: RwLock<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
-    unclaimed_receivers: RwLock<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
+    senders: Mutex<ChannelHashMap>,
 }
 
 impl Default for EventAggregator {
     fn default() -> Self {
         EventAggregator {
-            parent_senders: RwLock::new(HashMap::new()),
-            unclaimed_receivers: RwLock::new(HashMap::new()),
+            senders: Mutex::new(HashMap::new()),
         }
     }
 }
 
 impl EventAggregator {
+    fn with_entry<T: Any + Clone + Debug + Send, F, Ret>(&self, f: F) -> Ret
+    where
+        F: FnOnce(&mut (Box<Sender>, Option<Box<Receiver>>)) -> Ret,
+    {
+        let mut hash_map = self.senders.lock().unwrap();
+        let entry = hash_map.entry(TypeId::of::<T>()).or_insert_with(|| {
+            let (sender, receiver) = unbounded_channel::<T>();
+            let logging_tx = LoggingTx::attach(sender, type_name::<T>().to_owned());
+            (Box::new(logging_tx), Some(Box::new(receiver)))
+        });
+        f(entry)
+    }
+
     fn get_sender<T: Any + Clone + Debug + Send>(&self) -> LoggingTx<T> {
-        match self.parent_senders.write().entry(TypeId::of::<T>()) {
-            Entry::Occupied(entry) => {
-                let sender = entry.get();
-                sender.downcast_ref::<LoggingTx<T>>().unwrap().clone()
-            }
-            Entry::Vacant(entry) => {
-                let (sender, receiver) = unbounded_channel();
-                let logging_tx = LoggingTx::attach(sender, type_name::<T>().to_owned());
-                entry.insert(Box::new(logging_tx.clone()));
-                self.unclaimed_receivers
-                    .write()
-                    .insert(TypeId::of::<T>(), Box::new(receiver));
-                logging_tx
-            }
-        }
+        self.with_entry::<T, _, _>(|entry| {
+            let sender = &entry.0;
+            sender.downcast_ref::<LoggingTx<T>>().unwrap().clone()
+        })
     }
 
     pub fn send<T: Any + Clone + Debug + Send>(&self, event: T) {
@@ -54,22 +58,9 @@ impl EventAggregator {
     }
 
     pub fn register_event<T: Any + Clone + Debug + Send>(&self) -> UnboundedReceiver<T> {
-        let type_id = TypeId::of::<T>();
-
-        if let Some(receiver) = self.unclaimed_receivers.write().remove(&type_id) {
+        self.with_entry::<T, _, _>(|entry| {
+            let receiver = entry.1.take().unwrap();
             *receiver.downcast::<UnboundedReceiver<T>>().unwrap()
-        } else {
-            let (sender, receiver) = unbounded_channel();
-            let logging_sender = LoggingTx::attach(sender, type_name::<T>().to_owned());
-
-            match self.parent_senders.write().entry(type_id) {
-                Entry::Occupied(_) => panic!("EventAggregator: type already registered"),
-                Entry::Vacant(entry) => {
-                    entry.insert(Box::new(logging_sender));
-                }
-            }
-
-            receiver
-        }
+        })
     }
 }
