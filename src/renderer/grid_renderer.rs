@@ -93,7 +93,7 @@ impl GridRenderer {
         Rect::new(x as f32, y as f32, (x + width) as f32, (y + height) as f32)
     }
 
-    pub fn get_default_background(&self) -> Color {
+    pub fn default_background(&self) -> Color {
         self.default_style.colors.background.unwrap().to_color()
     }
 

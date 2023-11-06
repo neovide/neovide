@@ -7,6 +7,7 @@ use crate::{
     bridge::{ParallelCommand, SerialCommand, UiCommand},
     dimensions::Dimensions,
     editor::EditorCommand,
+    error_msg,
     event_aggregator::EVENT_AGGREGATOR,
     profiling::{emit_frame_mark, tracy_gpu_collect, tracy_gpu_zone, tracy_zone},
     renderer::{build_context, GlWindow, Renderer, VSync, WindowedContext},
@@ -17,7 +18,7 @@ use crate::{
 };
 
 use log::trace;
-use skia_safe::{scalar, Rect};
+use skia_safe::{scalar, Color, Rect};
 use tokio::sync::mpsc::UnboundedReceiver;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize, Position},
@@ -55,6 +56,7 @@ pub struct WinitWindowWrapper {
     mouse_manager: MouseManager,
     title: String,
     fullscreen: bool,
+    os_blur: Option<Color>,
     font_changed_last_frame: bool,
     saved_inner_size: PhysicalSize<u32>,
     saved_grid_size: Option<Dimensions>,
@@ -112,6 +114,7 @@ impl WinitWindowWrapper {
             mouse_manager: MouseManager::new(),
             title: String::from("Neovide"),
             fullscreen: false,
+            os_blur: None,
             font_changed_last_frame: false,
             saved_inner_size,
             saved_grid_size: None,
@@ -158,17 +161,43 @@ impl WinitWindowWrapper {
         self.windowed_context.window().set_ime_allowed(ime_enabled);
     }
 
+    pub fn set_os_blur(&mut self, os_blur: Option<Color>) {
+        let window = self.windowed_context.window();
+        self.os_blur = os_blur;
+        let result = if let Some(blur_color) = self.os_blur {
+            let blur_color = (
+                blur_color.r(),
+                blur_color.g(),
+                blur_color.b(),
+                blur_color.a(),
+            );
+            #[cfg(target_os = "windows")]
+            window_vibrancy::apply_acrylic(window, Some(blur_color))
+        } else {
+            #[cfg(target_os = "windows")]
+            window_vibrancy::clear_acrylic(window)
+        };
+
+        if let Err(e) = result {
+            error_msg!("Failed to set OS blur: {}", e);
+        }
+    }
+
     pub fn synchronize_settings(&mut self) {
         let fullscreen = { SETTINGS.get::<WindowSettings>().fullscreen };
-
         if self.fullscreen != fullscreen {
             self.toggle_fullscreen();
         }
 
         let ime_enabled = { SETTINGS.get::<KeyboardSettings>().ime };
-
         if self.ime_enabled != ime_enabled {
             self.set_ime(ime_enabled);
+        }
+
+        let os_blur = { SETTINGS.get::<WindowSettings>().os_blur }
+            .then_some(self.renderer.default_background());
+        if self.os_blur != os_blur {
+            self.set_os_blur(os_blur);
         }
     }
 

@@ -25,7 +25,7 @@ macro_rules! error_msg {
         let msg = format!($($arg)+);
         log::error!("{}", msg);
         EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::ShowError {
-            lines: msg.split('\n').map(|s| s.to_string()).collect_vec(),
+            lines: itertools::Itertools::collect_vec(msg.split('\n').map(|s| s.to_string())),
         }));
     }
 }

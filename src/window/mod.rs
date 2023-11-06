@@ -93,9 +93,9 @@ pub fn create_window(
 
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
 
-    let window_settings = load_last_window_settings().ok();
+    let persistent_window_settings = load_last_window_settings().ok();
 
-    let previous_position = match window_settings {
+    let previous_position = match persistent_window_settings {
         Some(PersistentWindowSettings::Windowed { position, .. }) => Some(position),
         _ => None,
     };
@@ -201,7 +201,7 @@ pub enum WindowSize {
 
 pub fn determine_window_size() -> WindowSize {
     let cmd_line = SETTINGS.get::<CmdLineSettings>();
-    let window_settings = load_last_window_settings().ok();
+    let persistent_window_settings = load_last_window_settings().ok();
 
     match cmd_line.geometry {
         GeometryArgs {
@@ -218,7 +218,7 @@ pub fn determine_window_size() -> WindowSize {
         GeometryArgs {
             maximized: true, ..
         } => WindowSize::Maximized,
-        _ => match window_settings {
+        _ => match persistent_window_settings {
             Some(PersistentWindowSettings::Maximized) => WindowSize::Maximized,
             Some(PersistentWindowSettings::Windowed {
                 pixel_size: Some(pixel_size),
