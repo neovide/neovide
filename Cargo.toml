@@ -41,7 +41,7 @@ itertools = "0.10.5"
 lazy_static = "1.4.0"
 log = "0.4.16"
 lru = "0.7.5"
-neovide-derive = { path = "neovide-derive" }
+neovide-derive = { path = "neovide-derive", version = "0.1.0" }
 num = "0.4.1"
 nvim-rs = { version = "0.6.0", features = ["use_tokio"] }
 parking_lot = "0.12.0"
