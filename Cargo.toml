@@ -3,9 +3,13 @@ name = "neovide"
 version = "0.11.2"
 edition = "2021"
 build = "build.rs"
-description = "Neovide: No Nonsense Neovim Gui"
-repository = "https://github.com/neovide/neovide"
 resolver = "2"
+license-file = "LICENSE"
+description = "Neovide: No Nonsense Neovim Gui"
+homepage = "https://neovide.dev/"
+repository = "https://github.com/neovide/neovide"
+readme = "README.md"
+keywords = ["neovim", "nvim", "gui"]
 
 [workspace]
 members = ["neovide-derive"]
