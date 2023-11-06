@@ -152,4 +152,3 @@ configuring it to only be enabled in insert mode. See
 Winit looks in multiple locations for the configured dpi.
 Make sure its set in at least one of them. More details
 here: [#2010](https://github.com/neovide/neovide/issues/2010#issuecomment-1704416685).
-
