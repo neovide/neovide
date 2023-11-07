@@ -305,8 +305,8 @@ impl RenderedWindow {
                 Point3::new(0., -light_angle_radians.sin(), light_angle_radians.cos()),
                 // This is roughly equal to the apparent radius of the light .
                 5.,
-                Color::from_argb((settings.shadow_ambient * 255.) as u8, 0, 0, 0),
-                Color::from_argb((settings.shadow_spot * 255.) as u8, 0, 0, 0),
+                Color::from_argb((0.03 * 255.) as u8, 0, 0, 0),
+                Color::from_argb((0.35 * 255.) as u8, 0, 0, 0),
                 // Directional Light flag is necessary to make the shadow render consistently
                 // across varius sizes of floating windows. It effects how the light direction is
                 // processed.
