@@ -223,6 +223,7 @@ vim.g.neovide_light_radius = 5
 
 Setting `g:neovide_floating_shadow` to false will disable the shadow borders for floating windows.
 The other variables configure the shadow in various ways:
+
 - `g:neovide_floating_z_height` sets the virtual height of the floating window from the ground plane
 - `g:neovide_light_angle_degrees` sets the angle from the screen normal of the casting light
 - `g:neovide_light_radius` sets the radius of the casting light
