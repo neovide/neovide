@@ -293,7 +293,7 @@ impl RenderedWindow {
             root_canvas.clip_path(&shadow_path, Some(ClipOp::Difference), None);
             // The light angle is specified in degrees from the vertical, so we first convert them
             // to radians and then use sin/cos to get the y and z components of the light
-            let light_angle_radians = settings.light_angle_degrees * std::f32::consts::PI / 180.;
+            let light_angle_radians = settings.light_angle_degrees.to_radians();
             draw_shadow(
                 root_canvas,
                 &shadow_path,
