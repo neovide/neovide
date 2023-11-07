@@ -704,15 +704,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "euclid"
-version = "0.22.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87f253bc5c813ca05792837a0ff4b3a580336b224512d48f7eda1d7dd9210787"
-dependencies = [
- "num-traits",
-]
-
-[[package]]
 name = "fdeflate"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1439,14 +1430,12 @@ dependencies = [
  "anyhow",
  "async-trait",
  "backtrace",
- "cfg-if",
  "clap",
  "cocoa",
  "copypasta",
  "csscolorparser",
  "derive-new",
  "dirs",
- "euclid",
  "flexi_logger",
  "futures 0.3.28",
  "gl",
@@ -1464,7 +1453,6 @@ dependencies = [
  "nvim-rs",
  "objc",
  "parking_lot",
- "pin-project",
  "rand 0.8.5",
  "raw-window-handle 0.5.2",
  "rmpv",
@@ -1860,26 +1848,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "90fcb95eef784c2ac79119d1dd819e162b5da872ce6f3c3abe1e8ca1c082f72b"
 dependencies = [
  "siphasher",
-]
-
-[[package]]
-name = "pin-project"
-version = "1.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fda4ed1c6c173e3fc7a83629421152e01d7b1f9b7f65fb301e490e8cfc656422"
-dependencies = [
- "pin-project-internal",
-]
-
-[[package]]
-name = "pin-project-internal"
-version = "1.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4359fd9c9171ec6e8c62926d6faaf553a8dc3f64e1507e76da7911b4f6a04405"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.38",
 ]
 
 [[package]]
