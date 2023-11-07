@@ -294,6 +294,27 @@ vim.g.neovide_floating_blur_amount_y = 2.0
 <p><strong>Available since 0.9.</strong></p>
 <p>Setting <code>g:neovide_floating_blur_amount_x</code> and <code>g:neovide_floating_blur_amount_y</code> controls the blur
 radius on the respective axis for floating windows.</p>
+<h4 id="floating-shadow"><a class="header" href="#floating-shadow">Floating Shadow</a></h4>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_floating_shadow = v:true
+let g:neovide_floating_z_height = 10
+let g:neovide_light_angle_degrees = 45
+let g:neovide_light_radius = 5
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_floating_shadow = v:true
+vim.g.neovide_floating_z_height = 10
+vim.g.neovide_light_angle_degrees = 45
+vim.g.neovide_light_radius = 5
+</code></pre>
+<p><strong>Available since 0.12.</strong></p>
+<p>Setting <code>g:neovide_floating_shadow</code> to false will disable the shadow borders for floating windows.
+The other variables configure the shadow in various ways:</p>
+<ul>
+<li><code>g:neovide_floating_z_height</code> sets the virtual height of the floating window from the ground plane</li>
+<li><code>g:neovide_light_angle_degrees</code> sets the angle from the screen normal of the casting light</li>
+<li><code>g:neovide_light_radius</code> sets the radius of the casting light</li>
+</ul>
 <h4 id="transparency"><a class="header" href="#transparency">Transparency</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_transparency = 0.8
