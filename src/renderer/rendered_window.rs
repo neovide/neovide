@@ -1,8 +1,12 @@
 use std::sync::{Arc, Mutex};
 
 use skia_safe::{
-    canvas::SaveLayerRec, image_filters::blur, scalar, BlendMode, Canvas, Color, Matrix, Paint,
-    Picture, PictureRecorder, Point, Rect,
+    canvas::SaveLayerRec,
+    image_filters::blur,
+    scalar,
+    utils::shadow_utils::{draw_shadow, ShadowFlags},
+    BlendMode, Canvas, ClipOp, Color, Matrix, Paint, Path, Picture, PictureRecorder, Point, Point3,
+    Rect,
 };
 
 use crate::{
@@ -204,7 +208,7 @@ impl RenderedWindow {
 
     pub fn draw_surface(
         &mut self,
-        canvas: &mut Canvas,
+        canvas: &Canvas,
         pixel_region: &Rect,
         font_dimensions: Dimensions,
         default_background: Color,
@@ -271,7 +275,7 @@ impl RenderedWindow {
 
     pub fn draw(
         &mut self,
-        root_canvas: &mut Canvas,
+        root_canvas: &Canvas,
         settings: &RendererSettings,
         default_background: Color,
         font_dimensions: Dimensions,
@@ -280,6 +284,36 @@ impl RenderedWindow {
 
         let pixel_region = self.pixel_region(font_dimensions);
         let transparent_floating = self.anchor_info.is_some() && has_transparency;
+
+        if self.anchor_info.is_some() && settings.floating_shadow {
+            root_canvas.save();
+            let shadow_path = Path::rect(pixel_region, None);
+            // We clip using the Difference op to make sure that the shadow isn't rendered inside
+            // the window itself.
+            root_canvas.clip_path(&shadow_path, Some(ClipOp::Difference), None);
+            // The light angle is specified in degrees from the vertical, so we first convert them
+            // to radians and then use sin/cos to get the y and z components of the light
+            let light_angle_radians = settings.light_angle_degrees.to_radians();
+            draw_shadow(
+                root_canvas,
+                &shadow_path,
+                // Specifies how far from the root canvas the shadow casting rect is. We just use
+                // the z component here to set it a constant distance away.
+                Point3::new(0., 0., settings.floating_z_height),
+                // Because we use the DIRECTIONAL_LIGHT shadow flag, this specifies the angle that
+                // the light is coming from.
+                Point3::new(0., -light_angle_radians.sin(), light_angle_radians.cos()),
+                // This is roughly equal to the apparent radius of the light .
+                5.,
+                Color::from_argb((0.03 * 255.) as u8, 0, 0, 0),
+                Color::from_argb((0.35 * 255.) as u8, 0, 0, 0),
+                // Directional Light flag is necessary to make the shadow render consistently
+                // across varius sizes of floating windows. It effects how the light direction is
+                // processed.
+                Some(ShadowFlags::DIRECTIONAL_LIGHT),
+            );
+            root_canvas.restore();
+        }
 
         root_canvas.save();
         root_canvas.clip_rect(pixel_region, None, Some(false));

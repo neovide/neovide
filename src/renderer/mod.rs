@@ -45,6 +45,10 @@ pub struct RendererSettings {
     floating_blur: bool,
     floating_blur_amount_x: f32,
     floating_blur_amount_y: f32,
+    floating_shadow: bool,
+    floating_z_height: f32,
+    light_angle_degrees: f32,
+    light_radius: f32,
     debug_renderer: bool,
     profiler: bool,
     underline_automatic_scaling: bool,
@@ -59,6 +63,10 @@ impl Default for RendererSettings {
             floating_blur: true,
             floating_blur_amount_x: 2.0,
             floating_blur_amount_y: 2.0,
+            floating_shadow: true,
+            floating_z_height: 10.,
+            light_angle_degrees: 45.,
+            light_radius: 5.,
             debug_renderer: false,
             profiler: false,
             underline_automatic_scaling: false,
@@ -139,12 +147,8 @@ impl Renderer {
         self.grid_renderer.font_names()
     }
 
-    /// Draws frame
-    ///
-    /// # Returns
-    /// `bool` indicating whether or not font was changed during this frame.
     #[allow(clippy::needless_collect)]
-    pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32) {
+    pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32) {
         tracy_zone!("renderer_draw_frame");
         let default_background = self.grid_renderer.get_default_background();
         let font_dimensions = self.grid_renderer.font_dimensions;
