@@ -219,7 +219,7 @@ vim.g.neovide_light_angle_degrees = 45
 vim.g.neovide_light_radius = 5
 ```
 
-**Available since 0.12.**
+**Unreleased yet.**
 
 Setting `g:neovide_floating_shadow` to false will disable the shadow borders for floating windows.
 The other variables configure the shadow in various ways:
