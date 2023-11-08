@@ -308,23 +308,23 @@ mouse makes it visible again.
 VimScript:
 
 ```vim
-let g:neovide_underline_automatic_scaling = v:false
+let g:neovide_underline_stroke_scale = 1.0
 ```
 
 Lua:
 
 ```lua
-vim.g.neovide_underline_automatic_scaling = false
+vim.g.neovide_underline_stroke_scale = 1.0
 ```
 
-**Available since 0.10.**
+**Unrelease yet.**
 
-Setting `g:neovide_underline_automatic_scaling` to a boolean value determines whether automatic
-scaling of text underlines (including undercurl, underdash, etc.) is enabled. Noticeable for font
-sizes above 15.
+Setting `g:neovide_underline_stroke_scale` to a floating point will increase or decrease the stroke
+width of the underlines (including undercurl, underdash, etc.). If the scaled stroke width is less
+than 1, it is clamped to 1 to prevent strange aliasing.
 
-**Note**: This is currently glitchy, and leads to some underlines being clipped by the line of text
-below.
+**Note**: This is currently glitchy if the scale is too large, and leads to some underlines being 
+clipped by the line of text below.
 
 #### Theme
 
