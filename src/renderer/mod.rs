@@ -51,7 +51,7 @@ pub struct RendererSettings {
     light_radius: f32,
     debug_renderer: bool,
     profiler: bool,
-    underline_automatic_scaling: bool,
+    underline_stroke_scale: f32,
 }
 
 impl Default for RendererSettings {
@@ -69,7 +69,7 @@ impl Default for RendererSettings {
             light_radius: 5.,
             debug_renderer: false,
             profiler: false,
-            underline_automatic_scaling: false,
+            underline_stroke_scale: 1.,
         }
     }
 }

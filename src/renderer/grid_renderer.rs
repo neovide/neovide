@@ -257,18 +257,10 @@ impl GridRenderer {
         let mut underline_paint = Paint::default();
         underline_paint.set_anti_alias(false);
         underline_paint.set_blend_mode(BlendMode::SrcOver);
-        let auto_scaling = SETTINGS
-            .get::<RendererSettings>()
-            .underline_automatic_scaling;
-        // Arbitrary value under which we simply round the line thickness to 1. Anything else
-        // results in ugly aliasing artifacts.
-        let stroke_width = if self.shaper.current_size() < 15. || !auto_scaling {
-            underline_paint.set_anti_alias(false);
-            1.0
-        } else {
-            underline_paint.set_anti_alias(true);
-            self.shaper.current_size() / 10.
-        };
+        let underline_stroke_scale = SETTINGS.get::<RendererSettings>().underline_stroke_scale;
+        // If the stroke width is less than one, clamp it to one otherwise we get nasty aliasing
+        // issues
+        let stroke_width = (self.shaper.current_size() * underline_stroke_scale / 10.).max(1.);
 
         underline_paint
             .set_color(style.special(&self.default_style.colors).to_color())
