@@ -1,6 +1,12 @@
+//! Derive macro for setting groups.
+//!
+//! This macro will generate a `SettingGroup` implementation for the struct it is applied to.
+//! It will also generate an enum with the name `{StructName}Changed` that contains a variant for
+//! each field in the struct. The enum will be used to send events when a setting is changed.
+
 use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
-use quote::{quote, format_ident};
+use quote::{format_ident, quote};
 use syn::{
     parse_macro_input, Attribute, Data, DataStruct, DeriveInput, Error, Field, Ident, Lit, Meta,
 };
