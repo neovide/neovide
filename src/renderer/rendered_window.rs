@@ -319,7 +319,7 @@ impl RenderedWindow {
                 Some(ShadowFlags::DIRECTIONAL_LIGHT),
             );
             root_canvas.restore();
-            previous_floating_rects.push(pixel_region.clone());
+            previous_floating_rects.push(pixel_region);
         }
 
         root_canvas.save();
