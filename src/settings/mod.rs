@@ -100,7 +100,7 @@ impl Settings {
                     let variable_name = format!("neovide_{name}");
                     match nvim.get_var(&variable_name).await {
                         Ok(value) => {
-                            self.listeners.read().get(&location).unwrap()(&self, value);
+                            self.listeners.read().get(&location).unwrap()(self, value);
                         }
                         Err(error) => {
                             trace!("Initial value load failed for {}: {}", name, error);
@@ -109,7 +109,7 @@ impl Settings {
                 }
                 SettingLocation::NeovimOption(name) => match nvim.get_option(name).await {
                     Ok(value) => {
-                        self.listeners.read().get(&location).unwrap()(&self, value);
+                        self.listeners.read().get(&location).unwrap()(self, value);
                     }
                     Err(error) => {
                         trace!("Initial value load failed for {}: {}", name, error);
@@ -168,7 +168,7 @@ impl Settings {
         self.listeners
             .read()
             .get(&SettingLocation::NeovideGlobal(name))
-            .unwrap()(&self, value);
+            .unwrap()(self, value);
     }
 
     pub fn handle_option_changed_notification(&self, arguments: Vec<Value>) {
@@ -181,7 +181,7 @@ impl Settings {
         self.listeners
             .read()
             .get(&SettingLocation::NeovimOption(name))
-            .unwrap()(&self, value);
+            .unwrap()(self, value);
     }
 
     pub fn register<T: SettingGroup>(&self) {
