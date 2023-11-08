@@ -32,7 +32,7 @@ dirs = "5.0.0"
 flexi_logger = { version = "0.22.3", default-features = false }
 futures = "0.3.21"
 gl = "0.14.0"
-glutin = "0.31.0"
+glutin = "0.31.1"
 glutin-winit = "0.4.2"
 image = { version = "0.24.1", default-features = false, features = ["ico"] }
 itertools = "0.10.5"
