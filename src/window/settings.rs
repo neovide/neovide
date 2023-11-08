@@ -21,6 +21,15 @@ pub struct WindowSettings {
     pub padding_right: u32,
     pub padding_bottom: u32,
     pub theme: String,
+    pub input_macos_alt_is_meta: bool,
+    pub input_ime: bool,
+
+    #[option = "mousemoveevent"]
+    pub mouse_move_event: bool,
+    #[option = "lines"]
+    pub observed_lines: Option<u64>,
+    #[option = "columns"]
+    pub observed_columns: Option<u64>,
 }
 
 impl Default for WindowSettings {
@@ -45,23 +54,11 @@ impl Default for WindowSettings {
             padding_right: 0,
             padding_bottom: 0,
             theme: "".to_string(),
-        }
-    }
-}
-
-#[derive(Clone, SettingGroup)]
-#[setting_prefix = "input"]
-pub struct KeyboardSettings {
-    pub macos_alt_is_meta: bool,
-    pub ime: bool,
-}
-
-#[allow(clippy::derivable_impls)]
-impl Default for KeyboardSettings {
-    fn default() -> Self {
-        Self {
-            macos_alt_is_meta: false,
-            ime: true,
+            input_macos_alt_is_meta: false,
+            input_ime: false,
+            mouse_move_event: false,
+            observed_lines: None,
+            observed_columns: None,
         }
     }
 }

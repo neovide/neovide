@@ -1,8 +1,10 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Attribute, Data, DataStruct, DeriveInput, Error, Ident, Lit, Meta};
+use syn::{
+    parse_macro_input, Attribute, Data, DataStruct, DeriveInput, Error, Field, Ident, Lit, Meta,
+};
 
-#[proc_macro_derive(SettingGroup, attributes(setting_prefix))]
+#[proc_macro_derive(SettingGroup, attributes(setting_prefix, option))]
 pub fn setting_group(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
     let prefix = setting_prefix(input.attrs.as_ref())
@@ -28,22 +30,31 @@ fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream 
     let fragments = data.fields.iter().map(|field| match field.ident {
         Some(ref ident) => {
             let vim_setting_name = format!("{prefix}{ident}");
+            let field_name = format!("{ident}");
+
+            let location = match option(&field) {
+                Ok(option) => match option {
+                    Some(option_name) => quote! {{ crate::settings::SettingLocation::NeovimOption(#option_name.to_owned()) }},
+                    None => quote! {{ crate::settings::SettingLocation::NeovideGlobal(#vim_setting_name.to_owned()) }},
+                },
+                Err(error) => {
+                    return error.to_compile_error();
+                }
+            };
+
             quote! {{
-                fn update_func(value: rmpv::Value) {
+                fn update(value: rmpv::Value) {
                     let mut s = crate::settings::SETTINGS.get::<#name>();
                     s.#ident.parse_from_value(value);
                     crate::settings::SETTINGS.set(&s);
-                }
-
-                fn reader_func() -> rmpv::Value {
-                    let s = crate::settings::SETTINGS.get::<#name>();
-                    s.#ident.into()
+                    crate::event_aggregator::EVENT_AGGREGATOR.send(
+                        crate::settings::SettingChanged::<#name>::new(#field_name)
+                    );
                 }
 
                 crate::settings::SETTINGS.set_setting_handlers(
-                    #vim_setting_name,
-                    update_func,
-                    reader_func
+                    #location,
+                    update,
                 );
             }}
         }
@@ -74,4 +85,24 @@ fn setting_prefix(attrs: &[Attribute]) -> Option<String> {
         }
     }
     None
+}
+
+fn option(field: &Field) -> Result<Option<String>, Error> {
+    for attr in field.attrs.iter() {
+        if !attr.path.is_ident("option") {
+            continue;
+        }
+
+        if let Ok(Meta::NameValue(name_value)) = attr.parse_meta() {
+            if let Lit::Str(literal) = name_value.lit {
+                return Ok(Some(literal.value()));
+            }
+        }
+        return Err(Error::new_spanned(
+            attr,
+            "Expected a string literal for option attribute",
+        ));
+    }
+
+    Ok(None)
 }

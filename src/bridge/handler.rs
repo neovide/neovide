@@ -78,23 +78,16 @@ impl Handler for NeovimHandler {
                 }
             }
             "setting_changed" => {
-                SETTINGS.handle_changed_notification(arguments);
+                SETTINGS.handle_setting_changed_notification(arguments);
+            }
+            "option_changed" => {
+                SETTINGS.handle_option_changed_notification(arguments);
             }
             "neovide.quit" => {
                 let error_code = arguments[0]
                     .as_i64()
                     .expect("Could not parse error code from neovim");
                 RUNNING_TRACKER.quit_with_code(error_code as i32, "Quit from neovim");
-            }
-            "neovide.columns" => {
-                if let Some(columns) = arguments[0].as_u64() {
-                    EVENT_AGGREGATOR.send(WindowCommand::Columns(columns));
-                }
-            }
-            "neovide.lines" => {
-                if let Some(lines) = arguments[0].as_u64() {
-                    EVENT_AGGREGATOR.send(WindowCommand::Lines(lines));
-                }
             }
             #[cfg(windows)]
             "neovide.register_right_click" => {

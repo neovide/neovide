@@ -1,6 +1,5 @@
 use super::{
-    KeyboardManager, KeyboardSettings, MouseManager, SkiaRenderer, UserEvent, WindowCommand,
-    WindowSettings,
+    KeyboardManager, MouseManager, SkiaRenderer, UserEvent, WindowCommand, WindowSettings,
 };
 
 use crate::{
@@ -11,7 +10,7 @@ use crate::{
     profiling::{emit_frame_mark, tracy_gpu_collect, tracy_gpu_zone, tracy_zone},
     renderer::{build_context, GlWindow, Renderer, VSync, WindowedContext},
     running_tracker::RUNNING_TRACKER,
-    settings::{DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS},
+    settings::{SettingChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS},
     window::WindowSize,
     CmdLineSettings,
 };
@@ -59,6 +58,7 @@ pub struct WinitWindowWrapper {
     saved_inner_size: PhysicalSize<u32>,
     saved_grid_size: Option<Dimensions>,
     window_command_receiver: UnboundedReceiver<WindowCommand>,
+    window_setting_changed_receiver: UnboundedReceiver<SettingChanged<WindowSettings>>,
     ime_enabled: bool,
     ime_position: PhysicalPosition<i32>,
     requested_columns: Option<u64>,
@@ -83,17 +83,16 @@ impl WinitWindowWrapper {
 
         let skia_renderer = SkiaRenderer::new(&windowed_context);
 
-        let window_command_receiver = EVENT_AGGREGATOR.register_event::<WindowCommand>();
-
         log::info!(
             "window created (scale_factor: {:.4}, font_dimensions: {:?})",
             scale_factor,
             renderer.grid_renderer.font_dimensions,
         );
 
-        let ime_enabled = { SETTINGS.get::<KeyboardSettings>().ime };
+        let settings = SETTINGS.get::<WindowSettings>();
+        let ime_enabled = settings.input_ime;
 
-        match SETTINGS.get::<WindowSettings>().theme.as_str() {
+        match settings.theme.as_str() {
             "light" => set_background("light"),
             "dark" => set_background("dark"),
             "auto" => match window.theme() {
@@ -115,7 +114,8 @@ impl WinitWindowWrapper {
             font_changed_last_frame: false,
             saved_inner_size,
             saved_grid_size: None,
-            window_command_receiver,
+            window_command_receiver: EVENT_AGGREGATOR.register_event(),
+            window_setting_changed_receiver: EVENT_AGGREGATOR.register_event(),
             ime_enabled,
             ime_position: PhysicalPosition::new(-1, -1),
             requested_columns: None,
@@ -158,20 +158,6 @@ impl WinitWindowWrapper {
         self.windowed_context.window().set_ime_allowed(ime_enabled);
     }
 
-    pub fn synchronize_settings(&mut self) {
-        let fullscreen = { SETTINGS.get::<WindowSettings>().fullscreen };
-
-        if self.fullscreen != fullscreen {
-            self.toggle_fullscreen();
-        }
-
-        let ime_enabled = { SETTINGS.get::<KeyboardSettings>().ime };
-
-        if self.ime_enabled != ime_enabled {
-            self.set_ime(ime_enabled);
-        }
-    }
-
     #[allow(clippy::needless_collect)]
     pub fn handle_window_commands(&mut self) {
         tracy_zone!("handle_window_commands", 0);
@@ -182,20 +168,35 @@ impl WinitWindowWrapper {
                     self.mouse_manager.enabled = mouse_enabled
                 }
                 WindowCommand::ListAvailableFonts => self.send_font_names(),
-                WindowCommand::Columns(columns) => {
-                    log::info!("Requested columns {columns}");
-                    self.requested_columns = Some(columns);
-                }
-                WindowCommand::Lines(lines) => {
-                    log::info!("Requested lines {lines}");
-                    self.requested_lines = Some(lines);
-                }
                 WindowCommand::FocusWindow => {
                     self.windowed_context.window().focus_window();
                 }
                 WindowCommand::Minimize => {
                     self.minimize_window();
                     self.is_minimized = true;
+                }
+            }
+        }
+    }
+
+    pub fn handle_window_setting_change_events(&mut self) {
+        while let Ok(setting_changed) = self.window_setting_changed_receiver.try_recv() {
+            if setting_changed.field == "observed_columns"
+                || setting_changed.field == "observed_lines"
+            {
+                log::info!("Observed columns/lines changed");
+                let settings = SETTINGS.get::<WindowSettings>();
+                self.requested_lines = settings.observed_lines;
+                self.requested_columns = settings.observed_columns;
+            } else if setting_changed.field == "fullscreen" {
+                let settings = SETTINGS.get::<WindowSettings>();
+                if self.fullscreen != settings.fullscreen {
+                    self.toggle_fullscreen();
+                }
+            } else if setting_changed.field == "input_ime" {
+                let settings = SETTINGS.get::<WindowSettings>();
+                if self.ime_enabled != settings.input_ime {
+                    self.set_ime(settings.input_ime);
                 }
             }
         }

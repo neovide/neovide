@@ -5,7 +5,7 @@ use crate::{
 
 use crate::window::UserEvent;
 #[cfg(target_os = "macos")]
-use crate::{settings::SETTINGS, window::KeyboardSettings};
+use crate::{settings::SETTINGS, window::WindowSettings};
 #[allow(unused_imports)]
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use winit::{
@@ -221,8 +221,8 @@ fn use_alt() -> bool {
 // and does not operate the same as other systems.
 #[cfg(target_os = "macos")]
 fn use_alt() -> bool {
-    let settings = SETTINGS.get::<KeyboardSettings>();
-    settings.macos_alt_is_meta
+    let settings = SETTINGS.get::<WindowSettings>();
+    settings.input_macos_alt_is_meta
 }
 
 fn get_special_key(key_event: &KeyEvent) -> Option<&str> {

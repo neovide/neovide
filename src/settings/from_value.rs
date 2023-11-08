@@ -3,7 +3,6 @@ use log::error;
 
 // Trait to allow for conversion from rmpv::Value to any other data type.
 // Note: Feel free to implement this trait for custom types in each subsystem.
-// The reverse conversion (MyType->Value) can be performed by implementing `From<MyType> for Value`
 pub trait ParseFromValue {
     fn parse_from_value(&mut self, value: Value);
 }
@@ -71,6 +70,19 @@ impl ParseFromValue for bool {
             *self = value.as_u64().unwrap() != 0;
         } else {
             error!("Setting expected a bool or 0/1, but received {:?}", value);
+        }
+    }
+}
+
+impl<T: ParseFromValue + Default> ParseFromValue for Option<T> {
+    fn parse_from_value(&mut self, value: Value) {
+        match self.as_mut() {
+            Some(inner) => inner.parse_from_value(value),
+            None => {
+                let mut inner = T::default();
+                inner.parse_from_value(value);
+                *self = Some(inner);
+            }
         }
     }
 }

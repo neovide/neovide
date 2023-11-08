@@ -55,7 +55,7 @@ use crate::{
     settings::{load_last_window_settings, save_window_size, PersistentWindowSettings, SETTINGS},
 };
 pub use error_window::show_error_window;
-pub use settings::{KeyboardSettings, WindowSettings};
+pub use settings::WindowSettings;
 
 static ICON: &[u8] = include_bytes!("../../assets/neovide.ico");
 
@@ -69,8 +69,6 @@ pub enum WindowCommand {
     TitleChanged(String),
     SetMouseEnabled(bool),
     ListAvailableFonts,
-    Columns(u64),
-    Lines(u64),
     FocusWindow,
     Minimize,
 }

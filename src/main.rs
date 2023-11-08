@@ -53,8 +53,7 @@ use error_handling::{handle_startup_errors, NeovideExitCode};
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 use settings::SETTINGS;
 use window::{
-    create_event_loop, create_window, determine_window_size, main_loop, KeyboardSettings,
-    WindowSettings, WindowSize,
+    create_event_loop, create_window, determine_window_size, main_loop, WindowSettings, WindowSize,
 };
 
 pub use channel_utils::*;
@@ -178,7 +177,6 @@ fn setup() -> Result<(WindowSize, NeovimRuntime)> {
     WindowSettings::register();
     RendererSettings::register();
     CursorSettings::register();
-    KeyboardSettings::register();
     let window_size = determine_window_size();
     let grid_size = match window_size {
         WindowSize::Grid(grid_size) => Some(grid_size),

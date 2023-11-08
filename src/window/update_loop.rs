@@ -153,7 +153,7 @@ impl UpdateLoop {
             _ => {}
         }
         window_wrapper.handle_window_commands();
-        window_wrapper.synchronize_settings();
+        window_wrapper.handle_window_setting_change_events();
 
         if let Ok(event) = event {
             self.should_render |= window_wrapper.handle_event(event);
