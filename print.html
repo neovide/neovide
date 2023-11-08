@@ -665,17 +665,17 @@ only affects the mouse if it is currently within the bounds of the neovide windo
 mouse makes it visible again.</p>
 <h4 id="underline-automatic-scaling"><a class="header" href="#underline-automatic-scaling">Underline automatic scaling</a></h4>
 <p>VimScript:</p>
-<pre><code class="language-vim">let g:neovide_underline_automatic_scaling = v:false
+<pre><code class="language-vim">let g:neovide_underline_stroke_scale = 1.0
 </code></pre>
 <p>Lua:</p>
-<pre><code class="language-lua">vim.g.neovide_underline_automatic_scaling = false
+<pre><code class="language-lua">vim.g.neovide_underline_stroke_scale = 1.0
 </code></pre>
-<p><strong>Available since 0.10.</strong></p>
-<p>Setting <code>g:neovide_underline_automatic_scaling</code> to a boolean value determines whether automatic
-scaling of text underlines (including undercurl, underdash, etc.) is enabled. Noticeable for font
-sizes above 15.</p>
-<p><strong>Note</strong>: This is currently glitchy, and leads to some underlines being clipped by the line of text
-below.</p>
+<p><strong>Unrelease yet.</strong></p>
+<p>Setting <code>g:neovide_underline_stroke_scale</code> to a floating point will increase or decrease the stroke
+width of the underlines (including undercurl, underdash, etc.). If the scaled stroke width is less
+than 1, it is clamped to 1 to prevent strange aliasing.</p>
+<p><strong>Note</strong>: This is currently glitchy if the scale is too large, and leads to some underlines being
+clipped by the line of text below.</p>
 <h4 id="theme"><a class="header" href="#theme">Theme</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_theme = 'auto'
