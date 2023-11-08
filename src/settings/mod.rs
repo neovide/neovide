@@ -200,6 +200,7 @@ mod tests {
             create_nvim_command,
             session::{NeovimInstance, NeovimSession},
         },
+        cmd_line::CmdLineSettings,
         error_handling::ResultPanicExplanation,
     };
 
@@ -312,6 +313,10 @@ mod tests {
 
         let settings = Settings::new();
         settings.register::<TestSettings>();
+
+        //create_nvim_command tries to read from CmdLineSettings.neovim_args
+        //TODO: this sets a static variable. Can this have side effects on other tests?
+        SETTINGS.set::<CmdLineSettings>(&CmdLineSettings::default());
 
         let command =
             create_nvim_command().unwrap_or_explained_panic("Could not create nvim command");
