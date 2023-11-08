@@ -323,7 +323,7 @@ Setting `g:neovide_underline_stroke_scale` to a floating point will increase or 
 width of the underlines (including undercurl, underdash, etc.). If the scaled stroke width is less
 than 1, it is clamped to 1 to prevent strange aliasing.
 
-**Note**: This is currently glitchy if the scale is too large, and leads to some underlines being 
+**Note**: This is currently glitchy if the scale is too large, and leads to some underlines being
 clipped by the line of text below.
 
 #### Theme
