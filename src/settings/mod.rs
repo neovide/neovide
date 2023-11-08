@@ -28,11 +28,12 @@ lazy_static! {
 }
 
 pub trait SettingGroup {
-    fn register(&self);
+    type ChangedEvent: Debug + Clone + Send + Sync + Any;
+    fn register(settings: &Settings);
 }
 
 // Function types to handle settings updates
-type UpdateHandlerFunc = fn(Value);
+type UpdateHandlerFunc = fn(&Settings, Value);
 
 // The Settings struct acts as a global container where each of Neovide's subsystems can store
 // their own settings. It will also coordinate updates between Neovide and nvim to make sure the
@@ -52,41 +53,6 @@ pub enum SettingLocation {
     NeovideGlobal(String),
     // Setting from global neovim option
     NeovimOption(String),
-}
-
-impl SettingLocation {
-    #[cfg(test)]
-    fn name(&self) -> &str {
-        match self {
-            SettingLocation::NeovideGlobal(name) => name,
-            SettingLocation::NeovimOption(name) => name,
-        }
-    }
-}
-
-// Event published when a setting is updated.
-#[derive(Clone)]
-pub struct SettingChanged<T: Any + Send + Sync> {
-    pub field: String,
-    _type: std::marker::PhantomData<T>,
-}
-
-impl<T: Any + Send + Sync> Debug for SettingChanged<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("SettingChanged")
-            .field("field", &self.field)
-            .field("_type", &self._type)
-            .finish()
-    }
-}
-
-impl<T: Any + Send + Sync> SettingChanged<T> {
-    pub fn new(field: &str) -> Self {
-        Self {
-            field: String::from(field),
-            _type: std::marker::PhantomData,
-        }
-    }
 }
 
 impl Settings {
@@ -134,7 +100,7 @@ impl Settings {
                     let variable_name = format!("neovide_{name}");
                     match nvim.get_var(&variable_name).await {
                         Ok(value) => {
-                            self.listeners.read().get(&location).unwrap()(value);
+                            self.listeners.read().get(&location).unwrap()(&self, value);
                         }
                         Err(error) => {
                             trace!("Initial value load failed for {}: {}", name, error);
@@ -143,7 +109,7 @@ impl Settings {
                 }
                 SettingLocation::NeovimOption(name) => match nvim.get_option(name).await {
                     Ok(value) => {
-                        self.listeners.read().get(&location).unwrap()(value);
+                        self.listeners.read().get(&location).unwrap()(&self, value);
                     }
                     Err(error) => {
                         trace!("Initial value load failed for {}: {}", name, error);
@@ -202,7 +168,7 @@ impl Settings {
         self.listeners
             .read()
             .get(&SettingLocation::NeovideGlobal(name))
-            .unwrap()(value);
+            .unwrap()(&self, value);
     }
 
     pub fn handle_option_changed_notification(&self, arguments: Vec<Value>) {
@@ -215,7 +181,11 @@ impl Settings {
         self.listeners
             .read()
             .get(&SettingLocation::NeovimOption(name))
-            .unwrap()(value);
+            .unwrap()(&self, value);
+    }
+
+    pub fn register<T: SettingGroup>(&self) {
+        T::register(self);
     }
 }
 
@@ -255,7 +225,7 @@ mod tests {
 
         let location = SettingLocation::NeovideGlobal("foo".to_owned());
 
-        fn noop_update(_v: Value) {}
+        fn noop_update(_settings: &Settings, _v: Value) {}
 
         settings.set_setting_handlers(location.clone(), noop_update);
         let listeners = settings.listeners.read();
@@ -320,13 +290,28 @@ mod tests {
 
     #[tokio::test]
     async fn test_read_initial_values() {
-        let settings = Settings::new();
+        #[derive(Clone, SettingGroup)]
+        struct TestSettings {
+            foo: String,
+            bar: String,
+            baz: String,
+            #[option = "mousemoveevent"]
+            mousemoveevent_option: Option<bool>,
+        }
 
-        let v1: SettingLocation = SettingLocation::NeovideGlobal("foo".to_string());
-        let v2: SettingLocation = SettingLocation::NeovideGlobal("bar".to_string());
-        let v3: SettingLocation = SettingLocation::NeovideGlobal("baz".to_string());
-        let v4: SettingLocation = SettingLocation::NeovideGlobal(format!("neovide_{}", v1.name()));
-        let v5: SettingLocation = SettingLocation::NeovideGlobal(format!("neovide_{}", v2.name()));
+        impl Default for TestSettings {
+            fn default() -> Self {
+                Self {
+                    foo: "foo".to_string(),
+                    bar: "bar".to_string(),
+                    baz: "baz".to_string(),
+                    mousemoveevent_option: None,
+                }
+            }
+        }
+
+        let settings = Settings::new();
+        settings.register::<TestSettings>();
 
         let command =
             create_nvim_command().unwrap_or_explained_panic("Could not create nvim command");
@@ -334,32 +319,22 @@ mod tests {
         let NeovimSession { neovim: nvim, .. } = NeovimSession::new(instance, NeovimHandler())
             .await
             .unwrap_or_explained_panic("Could not locate or start the neovim process");
-        nvim.set_var(v4.name(), Value::from(v2.name().to_owned()))
+        nvim.set_var("neovide_bar", Value::from("bar_set".to_owned()))
             .await
-            .ok();
-
-        fn noop_update(_v: Value) {}
-
-        let mut listeners = settings.listeners.write();
-        listeners.insert(v1.clone(), noop_update);
-        listeners.insert(v2.clone(), noop_update);
-
-        unsafe {
-            settings.listeners.force_unlock_write();
-        }
+            .expect("Could not set neovide_bar variable");
+        nvim.set_option("mousemoveevent", Value::from(true))
+            .await
+            .expect("Could not set mousemoveevent option");
 
         settings
             .read_initial_values(&nvim)
             .await
-            .unwrap_or_explained_panic("Could not read initial values");
+            .expect("Read initial values failed");
 
-        let rt1 = nvim.get_var(v4.name()).await.unwrap();
-        let rt2 = nvim.get_var(v5.name()).await.unwrap();
-
-        let r1 = rt1.as_str().unwrap();
-        let r2 = rt2.as_str().unwrap();
-
-        assert_eq!(r1, v2.name());
-        assert_eq!(r2, v3.name());
+        let test_settings = settings.get::<TestSettings>();
+        assert_eq!(test_settings.foo, "foo");
+        assert_eq!(test_settings.bar, "bar_set");
+        assert_eq!(test_settings.baz, "baz");
+        assert_eq!(test_settings.mousemoveevent_option, Some(true));
     }
 }

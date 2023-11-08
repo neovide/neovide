@@ -28,21 +28,21 @@ pub trait CursorVfx {
     );
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum HighlightMode {
     SonicBoom,
     Ripple,
     Wireframe,
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum TrailMode {
     Railgun,
     Torpedo,
     PixieDust,
 }
 
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum VfxMode {
     Highlight(HighlightMode),
     Trail(TrailMode),

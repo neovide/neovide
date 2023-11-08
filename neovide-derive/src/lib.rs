@@ -1,5 +1,6 @@
+use convert_case::{Case, Casing};
 use proc_macro::TokenStream;
-use quote::quote;
+use quote::{quote, format_ident};
 use syn::{
     parse_macro_input, Attribute, Data, DataStruct, DeriveInput, Error, Field, Ident, Lit, Meta,
 };
@@ -27,12 +28,13 @@ fn stream(input: DeriveInput, prefix: String) -> TokenStream {
 }
 
 fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream {
-    let fragments = data.fields.iter().map(|field| match field.ident {
+    let event_name = format_ident!("{}Changed", name);
+
+    let listener_fragments = data.fields.iter().map(|field| match field.ident {
         Some(ref ident) => {
             let vim_setting_name = format!("{prefix}{ident}");
-            let field_name = format!("{ident}");
 
-            let location = match option(&field) {
+            let location = match option(field) {
                 Ok(option) => match option {
                     Some(option_name) => quote! {{ crate::settings::SettingLocation::NeovimOption(#option_name.to_owned()) }},
                     None => quote! {{ crate::settings::SettingLocation::NeovideGlobal(#vim_setting_name.to_owned()) }},
@@ -42,17 +44,21 @@ fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream 
                 }
             };
 
+            let field_ident = field.ident.as_ref().unwrap();
+            let case_name = field_ident.to_string().to_case(Case::Pascal);
+            let case_ident = Ident::new(&case_name, field_ident.span());
+
             quote! {{
-                fn update(value: rmpv::Value) {
-                    let mut s = crate::settings::SETTINGS.get::<#name>();
+                fn update(settings: &crate::settings::Settings, value: rmpv::Value) {
+                    let mut s = settings.get::<#name>();
                     s.#ident.parse_from_value(value);
-                    crate::settings::SETTINGS.set(&s);
+                    settings.set(&s);
                     crate::event_aggregator::EVENT_AGGREGATOR.send(
-                        crate::settings::SettingChanged::<#name>::new(#field_name)
+                        #event_name::#case_ident(s.#ident.clone()),
                     );
                 }
 
-                crate::settings::SETTINGS.set_setting_handlers(
+                settings.set_setting_handlers(
                     #location,
                     update,
                 );
@@ -62,12 +68,28 @@ fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream 
             Error::new_spanned(field.colon_token, "Expected named struct fields").to_compile_error()
         }
     });
+
+    let updated_case_fragments = data.fields.iter().map(|field| {
+        let field_ident = field.ident.as_ref().unwrap();
+        let case_name = field_ident.to_string().to_case(Case::Pascal);
+        let case_ident = Ident::new(&case_name, field_ident.span());
+        let ty = field.ty.clone();
+        quote! {
+            #case_ident(#ty),
+        }
+    });
     let expanded = quote! {
-        impl #name {
-            pub fn register() {
+        #[derive(Debug, Clone)]
+        pub enum #event_name {
+            #(#updated_case_fragments)*
+        }
+
+        impl crate::settings::SettingGroup for #name {
+            type ChangedEvent = #event_name;
+            fn register(settings: &crate::settings::Settings) {
                 let s: Self = Default::default();
-                crate::settings::SETTINGS.set(&s);
-                #(#fragments)*
+                settings.set(&s);
+                #(#listener_fragments)*
             }
         }
     };

@@ -1,5 +1,6 @@
 use super::{
     KeyboardManager, MouseManager, SkiaRenderer, UserEvent, WindowCommand, WindowSettings,
+    WindowSettingsChanged,
 };
 
 use crate::{
@@ -10,7 +11,7 @@ use crate::{
     profiling::{emit_frame_mark, tracy_gpu_collect, tracy_gpu_zone, tracy_zone},
     renderer::{build_context, GlWindow, Renderer, VSync, WindowedContext},
     running_tracker::RUNNING_TRACKER,
-    settings::{SettingChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS},
+    settings::{DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS},
     window::WindowSize,
     CmdLineSettings,
 };
@@ -58,7 +59,7 @@ pub struct WinitWindowWrapper {
     saved_inner_size: PhysicalSize<u32>,
     saved_grid_size: Option<Dimensions>,
     window_command_receiver: UnboundedReceiver<WindowCommand>,
-    window_setting_changed_receiver: UnboundedReceiver<SettingChanged<WindowSettings>>,
+    window_settings_changed_receiver: UnboundedReceiver<WindowSettingsChanged>,
     ime_enabled: bool,
     ime_position: PhysicalPosition<i32>,
     requested_columns: Option<u64>,
@@ -115,7 +116,7 @@ impl WinitWindowWrapper {
             saved_inner_size,
             saved_grid_size: None,
             window_command_receiver: EVENT_AGGREGATOR.register_event(),
-            window_setting_changed_receiver: EVENT_AGGREGATOR.register_event(),
+            window_settings_changed_receiver: EVENT_AGGREGATOR.register_event(),
             ime_enabled,
             ime_position: PhysicalPosition::new(-1, -1),
             requested_columns: None,
@@ -179,25 +180,28 @@ impl WinitWindowWrapper {
         }
     }
 
-    pub fn handle_window_setting_change_events(&mut self) {
-        while let Ok(setting_changed) = self.window_setting_changed_receiver.try_recv() {
-            if setting_changed.field == "observed_columns"
-                || setting_changed.field == "observed_lines"
-            {
-                log::info!("Observed columns/lines changed");
-                let settings = SETTINGS.get::<WindowSettings>();
-                self.requested_lines = settings.observed_lines;
-                self.requested_columns = settings.observed_columns;
-            } else if setting_changed.field == "fullscreen" {
-                let settings = SETTINGS.get::<WindowSettings>();
-                if self.fullscreen != settings.fullscreen {
-                    self.toggle_fullscreen();
+    pub fn handle_window_settings_changed_events(&mut self) {
+        while let Ok(changed_setting) = self.window_settings_changed_receiver.try_recv() {
+            match changed_setting {
+                WindowSettingsChanged::ObservedColumns(columns) => {
+                    log::info!("columns changed");
+                    self.requested_columns = columns;
                 }
-            } else if setting_changed.field == "input_ime" {
-                let settings = SETTINGS.get::<WindowSettings>();
-                if self.ime_enabled != settings.input_ime {
-                    self.set_ime(settings.input_ime);
+                WindowSettingsChanged::ObservedLines(lines) => {
+                    log::info!("lines changed");
+                    self.requested_lines = lines;
                 }
+                WindowSettingsChanged::Fullscreen(fullscreen) => {
+                    if self.fullscreen != fullscreen {
+                        self.toggle_fullscreen();
+                    }
+                }
+                WindowSettingsChanged::InputIme(ime_enabled) => {
+                    if self.ime_enabled != ime_enabled {
+                        self.set_ime(ime_enabled);
+                    }
+                }
+                _ => {}
             }
         }
     }

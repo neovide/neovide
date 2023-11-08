@@ -174,9 +174,9 @@ fn setup() -> Result<(WindowSize, NeovimRuntime)> {
 
     trace!("Neovide version: {}", crate_version!());
 
-    WindowSettings::register();
-    RendererSettings::register();
-    CursorSettings::register();
+    SETTINGS.register::<WindowSettings>();
+    SETTINGS.register::<RendererSettings>();
+    SETTINGS.register::<CursorSettings>();
     let window_size = determine_window_size();
     let grid_size = match window_size {
         WindowSize::Grid(grid_size) => Some(grid_size),
