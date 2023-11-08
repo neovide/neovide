@@ -412,7 +412,7 @@ impl<'a> ErrorWindow<'a> {
     }
 }
 
-fn render_main_message(message: &Paragraph, canvas: &mut Canvas, rect: &Rect, offset: f64) {
+fn render_main_message(message: &Paragraph, canvas: &Canvas, rect: &Rect, offset: f64) {
     canvas.clear(BACKGROUND_COLOR);
 
     let save_layer_rec = SaveLayerRec::default().bounds(rect);
@@ -421,7 +421,7 @@ fn render_main_message(message: &Paragraph, canvas: &mut Canvas, rect: &Rect, of
     canvas.restore();
 }
 
-fn render_help_message(message: &Paragraph, canvas: &mut Canvas, help_message_rect: &Rect) {
+fn render_help_message(message: &Paragraph, canvas: &Canvas, help_message_rect: &Rect) {
     let help_message_text_point =
         Point::new(help_message_rect.left + PADDING, help_message_rect.top);
     canvas.draw_rect(help_message_rect, &Paint::new(TEXT_COLOR, None));
@@ -435,11 +435,11 @@ fn create_paragraphs(
 ) -> Paragraphs {
     let mut normal_text = TextStyle::new();
     normal_text.set_font_families(&["monospace"]);
-    normal_text.set_foreground_color(&Paint::new(TEXT_COLOR, None));
+    normal_text.set_foreground_paint(&Paint::new(TEXT_COLOR, None));
     normal_text.set_font_size(FONT_SIZE * scale_factor);
 
     let mut inverted_text = normal_text.clone();
-    inverted_text.set_foreground_color(&Paint::new(BACKGROUND_COLOR, None));
+    inverted_text.set_foreground_paint(&Paint::new(BACKGROUND_COLOR, None));
 
     let mut paragraph_style = ParagraphStyle::new();
     paragraph_style.set_text_style(&normal_text);

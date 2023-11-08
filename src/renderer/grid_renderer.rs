@@ -104,7 +104,7 @@ impl GridRenderer {
     ///     The second element is true if the cell has transparency
     pub fn draw_background(
         &mut self,
-        canvas: &mut Canvas,
+        canvas: &Canvas,
         grid_position: (u64, u64),
         cell_width: u64,
         style: &Option<Arc<Style>>,
@@ -153,8 +153,8 @@ impl GridRenderer {
     /// Returns true if any text was actually drawn.
     pub fn draw_foreground(
         &mut self,
-        canvas: &mut Canvas,
-        text: &String,
+        canvas: &Canvas,
+        text: &str,
         grid_position: (u64, u64),
         cell_width: u64,
         style: &Option<Arc<Style>>,
@@ -245,7 +245,7 @@ impl GridRenderer {
 
     fn draw_underline(
         &self,
-        canvas: &mut Canvas,
+        canvas: &Canvas,
         style: &Arc<Style>,
         underline_style: UnderlineStyle,
         p1: Point,

@@ -272,7 +272,7 @@ impl CursorRenderer {
         }
     }
 
-    pub fn draw(&mut self, grid_renderer: &mut GridRenderer, canvas: &mut Canvas) {
+    pub fn draw(&mut self, grid_renderer: &mut GridRenderer, canvas: &Canvas) {
         tracy_zone!("cursor_draw");
         let render = self.blink_status.should_render();
         let settings = SETTINGS.get::<CursorSettings>();
@@ -384,10 +384,9 @@ impl CursorRenderer {
         let mut animating = false;
 
         if !center_destination.is_zero() {
+            let immediate_movement = !settings.animate_in_insert_mode && in_insert_mode
+                || !settings.animate_command_line && !changed_to_from_cmdline;
             for corner in self.corners.iter_mut() {
-                let immediate_movement = !settings.animate_in_insert_mode && in_insert_mode
-                    || !settings.animate_command_line && !changed_to_from_cmdline;
-
                 let corner_animating = corner.update(
                     &settings,
                     cursor_dimensions,
@@ -400,7 +399,13 @@ impl CursorRenderer {
             }
 
             let vfx_animating = if let Some(vfx) = self.cursor_vfx.as_mut() {
-                vfx.update(&settings, center_destination, cursor_dimensions, dt)
+                vfx.update(
+                    &settings,
+                    center_destination,
+                    cursor_dimensions,
+                    immediate_movement,
+                    dt,
+                )
             } else {
                 false
             };
@@ -414,7 +419,7 @@ impl CursorRenderer {
         animating
     }
 
-    fn draw_rectangle(&self, canvas: &mut Canvas, paint: &Paint) -> Path {
+    fn draw_rectangle(&self, canvas: &Canvas, paint: &Paint) -> Path {
         // The cursor is made up of four points, so I create a path with each of the four
         // corners.
         let mut path = Path::new();
@@ -429,12 +434,7 @@ impl CursorRenderer {
         path
     }
 
-    fn draw_rectangular_outline(
-        &self,
-        canvas: &mut Canvas,
-        paint: &Paint,
-        outline_width: f32,
-    ) -> Path {
+    fn draw_rectangular_outline(&self, canvas: &Canvas, paint: &Paint, outline_width: f32) -> Path {
         let mut rectangle = Path::new();
         rectangle.move_to(self.corners[0].current_position);
         rectangle.line_to(self.corners[1].current_position);
