@@ -176,7 +176,7 @@ impl MouseManager {
             if self.dragging.is_some() && has_moved {
                 EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Drag {
                     button: self.dragging.as_ref().unwrap().to_owned(),
-                    grid_id: relevant_window_details.id,
+                    grid_id: relevant_window_details.event_grid_id(),
                     position: self.drag_position.into(),
                     modifier_string: keyboard_manager.format_modifier_string("", true),
                 }));
@@ -189,7 +189,7 @@ impl MouseManager {
                     EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::MouseButton {
                         button: "move".into(),
                         action: "".into(), // this is ignored by nvim
-                        grid_id: relevant_window_details.id,
+                        grid_id: relevant_window_details.event_grid_id(),
                         position: self.relative_position.into(),
                         modifier_string: keyboard_manager.format_modifier_string("", true),
                     }))
@@ -227,7 +227,7 @@ impl MouseManager {
                     EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::MouseButton {
                         button: button_text.clone(),
                         action,
-                        grid_id: details.id,
+                        grid_id: details.event_grid_id(),
                         position: position.into(),
                         modifier_string: keyboard_manager.format_modifier_string("", true),
                     }));
