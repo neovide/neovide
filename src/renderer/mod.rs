@@ -182,6 +182,7 @@ impl Renderer {
         };
 
         let settings = SETTINGS.get::<RendererSettings>();
+        let mut floating_rects = Vec::new();
 
         self.window_regions = windows
             .into_iter()
@@ -191,6 +192,7 @@ impl Renderer {
                     &settings,
                     default_background.with_a((255.0 * transparency) as u8),
                     font_dimensions,
+                    &mut floating_rects,
                 )
             })
             .collect();

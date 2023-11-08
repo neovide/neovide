@@ -5,8 +5,8 @@ use skia_safe::{
     image_filters::blur,
     scalar,
     utils::shadow_utils::{draw_shadow, ShadowFlags},
-    BlendMode, Canvas, ClipOp, Color, Matrix, Paint, Path, Picture, PictureRecorder, Point, Point3,
-    Rect,
+    BlendMode, Canvas, ClipOp, Color, Contains, Matrix, Paint, Path, Picture, PictureRecorder,
+    Point, Point3, Rect,
 };
 
 use crate::{
@@ -279,13 +279,19 @@ impl RenderedWindow {
         settings: &RendererSettings,
         default_background: Color,
         font_dimensions: Dimensions,
+        previous_floating_rects: &mut Vec<Rect>,
     ) -> WindowDrawDetails {
         let has_transparency = default_background.a() != 255 || self.has_transparency();
 
         let pixel_region = self.pixel_region(font_dimensions);
         let transparent_floating = self.anchor_info.is_some() && has_transparency;
 
-        if self.anchor_info.is_some() && settings.floating_shadow {
+        if self.anchor_info.is_some()
+            && settings.floating_shadow
+            && !previous_floating_rects
+                .iter()
+                .any(|rect| rect.contains(pixel_region))
+        {
             root_canvas.save();
             let shadow_path = Path::rect(pixel_region, None);
             // We clip using the Difference op to make sure that the shadow isn't rendered inside
@@ -313,6 +319,7 @@ impl RenderedWindow {
                 Some(ShadowFlags::DIRECTIONAL_LIGHT),
             );
             root_canvas.restore();
+            previous_floating_rects.push(pixel_region.clone());
         }
 
         root_canvas.save();
