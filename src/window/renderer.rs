@@ -20,11 +20,8 @@ fn create_surface(
     let size = windowed_context.get_render_target_size();
     let backend_render_target = make_gl(
         size.into(),
-        Some(pixel_format.num_samples() as usize),
-        pixel_format
-            .stencil_size()
-            .try_into()
-            .expect("Could not convert stencil"),
+        Some(pixel_format.num_samples().into()),
+        pixel_format.stencil_size().into(),
         fb_info,
     );
     windowed_context.resize(

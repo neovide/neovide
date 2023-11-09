@@ -130,7 +130,7 @@ pub enum FontEdging {
 }
 
 impl FontEdging {
-    const INVALID_ERR: &str = "Invalid edging";
+    const INVALID_ERR: &'static str = "Invalid edging";
     pub fn parse(value: &str) -> Result<Self, &str> {
         match value {
             "antialias" => Ok(Self::AntiAlias),
@@ -151,7 +151,7 @@ pub enum FontHinting {
 }
 
 impl FontHinting {
-    const INVALID_ERR: &str = "Invalid hinting";
+    const INVALID_ERR: &'static str = "Invalid hinting";
     pub fn parse(value: &str) -> Result<Self, &str> {
         match value {
             "full" => Ok(Self::Full),

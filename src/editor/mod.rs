@@ -18,7 +18,6 @@ use crate::{
 
 pub use cursor::{Cursor, CursorMode, CursorShape};
 pub use draw_command_batcher::DrawCommandBatcher;
-pub use grid::CharacterGrid;
 pub use style::{Colors, Style, UnderlineStyle};
 pub use window::*;
 
