@@ -21,7 +21,7 @@ pub use window_size::{
 };
 
 mod config;
-pub use config::{config_path, Config};
+pub use config::Config;
 
 lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new();
