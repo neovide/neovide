@@ -62,12 +62,11 @@ impl FontOptions {
             } else if part.starts_with(FONT_WIDTH_PREFIX) && part.len() > 1 {
                 font_options.allow_float_size |= part[1..].contains(ALLOW_FLOAT_SIZE_OPT);
                 font_options.width = parse_pixels(part).map_err(|_| INVALID_WIDTH_ERR)?;
-            } else if part.starts_with(FONT_WEIGHT_PREFIX) {
-                if part.len() == 1 {
+            } else if let Some(weight) = part.strip_prefix(FONT_WEIGHT_PREFIX) {
+                if weight.is_empty() {
                     font_options.weight = SETTINGS.get::<RendererSettings>().bold_weight;
                 } else {
-                    font_options.weight =
-                        part[1..].parse::<u32>().map_err(|_| INVALID_WEIGHT_ERR)?;
+                    font_options.weight = weight.parse::<u32>().map_err(|_| INVALID_WEIGHT_ERR)?;
                 }
             } else if part == FONT_ITALIC_OPT {
                 font_options.italic = true;
