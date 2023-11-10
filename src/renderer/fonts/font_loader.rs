@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use log::trace;
 use lru::LruCache;
+use skia_safe::font_style::{Slant, Weight, Width};
 use skia_safe::{
     font::Edging as SkiaEdging, Data, Font, FontHinting as SkiaHinting, FontMgr, FontStyle,
     Typeface,
@@ -47,7 +48,7 @@ impl PartialEq for FontPair {
 pub struct FontKey {
     // TODO(smolck): Could make these private and add constructor method(s)?
     // Would theoretically make things safer I guess, but not sure . . .
-    pub bold: bool,
+    pub weight: u32,
     pub italic: bool,
     pub family_name: Option<String>,
     pub hinting: FontHinting,
@@ -72,7 +73,7 @@ impl FontLoader {
     }
 
     fn load(&mut self, font_key: FontKey) -> Option<FontPair> {
-        let font_style = font_style(font_key.bold, font_key.italic);
+        let font_style = font_style(font_key.weight, font_key.italic);
 
         trace!("Loading font {:?}", font_key);
         if let Some(family_name) = &font_key.family_name {
@@ -101,17 +102,17 @@ impl FontLoader {
 
     pub fn load_font_for_character(
         &mut self,
-        bold: bool,
+        weight: u32,
         italic: bool,
         character: char,
     ) -> Option<Arc<FontPair>> {
-        let font_style = font_style(bold, italic);
+        let font_style = font_style(weight, italic);
         let typeface =
             self.font_mgr
                 .match_family_style_character("", font_style, &[], character as i32)?;
 
         let font_key = FontKey {
-            bold,
+            weight,
             italic,
             family_name: Some(typeface.family_name()),
             hinting: FontHinting::default(),
@@ -158,13 +159,13 @@ impl FontLoader {
     }
 }
 
-fn font_style(bold: bool, italic: bool) -> FontStyle {
-    match (bold, italic) {
-        (true, true) => FontStyle::bold_italic(),
-        (false, true) => FontStyle::italic(),
-        (true, false) => FontStyle::bold(),
-        (false, false) => FontStyle::normal(),
-    }
+fn font_style(weight: u32, italic: bool) -> FontStyle {
+    let weight = Weight::from(weight as i32);
+    let slant = match italic {
+        true => Slant::Italic,
+        false => Slant::Upright,
+    };
+    FontStyle::new(weight, Width::NORMAL, slant)
 }
 
 fn font_hinting(hinting: &FontHinting) -> SkiaHinting {

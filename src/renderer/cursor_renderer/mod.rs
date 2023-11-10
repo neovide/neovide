@@ -10,7 +10,7 @@ use crate::{
     bridge::EditorMode,
     editor::{Cursor, CursorShape},
     profiling::tracy_zone,
-    renderer::animation_utils::*,
+    renderer::{animation_utils::*, RendererSettings},
     renderer::{GridRenderer, RenderedWindow},
     settings::{ParseFromValue, SETTINGS},
     window::UserEvent,
@@ -317,7 +317,11 @@ impl CursorRenderer {
         let bold = style.as_ref().map(|x| x.bold).unwrap_or(false);
         let italic = style.as_ref().map(|x| x.italic).unwrap_or(false);
 
-        let blobs = &grid_renderer.shaper.shape_cached(character, bold, italic);
+        let blobs = &grid_renderer.shaper.shape_cached(
+            character,
+            bold.then_some(SETTINGS.get::<RendererSettings>().bold_weight),
+            italic,
+        );
 
         for blob in blobs.iter() {
             canvas.draw_text_blob(

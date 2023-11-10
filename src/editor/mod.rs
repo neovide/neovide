@@ -277,6 +277,7 @@ impl Editor {
             EditorCommand::RedrawScreen => {
                 tracy_zone!("EditorRedrawScreen");
                 self.redraw_screen();
+                self.draw_command_batcher.send_batch();
             }
         };
     }

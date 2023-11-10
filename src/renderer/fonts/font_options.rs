@@ -2,6 +2,8 @@ use std::num::ParseFloatError;
 
 use itertools::Itertools;
 
+use crate::{renderer::RendererSettings, settings::SETTINGS};
+
 const DEFAULT_FONT_SIZE: f32 = 14.0;
 const FONT_OPTS_SEPARATOR: char = ':';
 const FONT_LIST_SEPARATOR: char = ',';
@@ -10,18 +12,19 @@ const FONT_EDGING_PREFIX: &str = "#e-";
 const FONT_HEIGHT_PREFIX: char = 'h';
 const ALLOW_FLOAT_SIZE_OPT: char = '.';
 const FONT_WIDTH_PREFIX: char = 'w';
-const FONT_BOLD_OPT: &str = "b";
+const FONT_WEIGHT_PREFIX: &str = "b";
 const FONT_ITALIC_OPT: &str = "i";
 
 const INVALID_SIZE_ERR: &str = "Invalid size";
 const INVALID_WIDTH_ERR: &str = "Invalid width";
+const INVALID_WEIGHT_ERR: &str = "Invalid weight";
 
 #[derive(Clone, Debug)]
 pub struct FontOptions {
     pub font_list: Vec<String>,
     pub size: f32,
     pub width: f32,
-    pub bold: bool,
+    pub weight: u32,
     pub italic: bool,
     pub allow_float_size: bool,
     pub hinting: FontHinting,
@@ -59,8 +62,13 @@ impl FontOptions {
             } else if part.starts_with(FONT_WIDTH_PREFIX) && part.len() > 1 {
                 font_options.allow_float_size |= part[1..].contains(ALLOW_FLOAT_SIZE_OPT);
                 font_options.width = parse_pixels(part).map_err(|_| INVALID_WIDTH_ERR)?;
-            } else if part == FONT_BOLD_OPT {
-                font_options.bold = true;
+            } else if part.starts_with(FONT_WEIGHT_PREFIX) {
+                if part.len() == 1 {
+                    font_options.weight = SETTINGS.get::<RendererSettings>().bold_weight;
+                } else {
+                    font_options.weight =
+                        part[1..].parse::<u32>().map_err(|_| INVALID_WEIGHT_ERR)?;
+                }
             } else if part == FONT_ITALIC_OPT {
                 font_options.italic = true;
             }
@@ -78,7 +86,7 @@ impl Default for FontOptions {
     fn default() -> Self {
         FontOptions {
             font_list: Vec::new(),
-            bold: false,
+            weight: 300,
             italic: false,
             allow_float_size: false,
             size: points_to_pixels(DEFAULT_FONT_SIZE),
@@ -93,7 +101,7 @@ impl PartialEq for FontOptions {
     fn eq(&self, other: &Self) -> bool {
         self.font_list == other.font_list
             && (self.size - other.size).abs() < std::f32::EPSILON
-            && self.bold == other.bold
+            && self.weight == other.weight
             && self.italic == other.italic
             && self.edging == other.edging
             && self.hinting == other.hinting
@@ -329,9 +337,9 @@ mod tests {
         );
 
         assert_eq!(
-            font_options.bold, true,
+            font_options.weight, 300,
             "bold should equal {}, but {}",
-            true, font_options.bold,
+            300, font_options.weight,
         );
 
         assert_eq!(

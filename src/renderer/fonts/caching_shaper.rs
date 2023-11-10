@@ -26,7 +26,7 @@ use crate::{
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {
     pub text: String,
-    pub bold: bool,
+    pub weight: Option<u32>,
     pub italic: bool,
 }
 
@@ -62,8 +62,8 @@ impl CachingShaper {
     fn current_font_pair(&mut self) -> Arc<FontPair> {
         self.font_loader
             .get_or_load(&FontKey {
-                italic: false,
-                bold: false,
+                italic: self.options.italic,
+                weight: self.options.weight,
                 family_name: self.options.primary_font(),
                 hinting: self.options.hinting.clone(),
                 edging: self.options.edging.clone(),
@@ -101,8 +101,8 @@ impl CachingShaper {
             .iter()
             .filter(|font| {
                 let key = FontKey {
-                    italic: false,
-                    bold: false,
+                    italic: options.italic,
+                    weight: options.weight,
                     family_name: Some((*font).clone()),
                     hinting: options.hinting.clone(),
                     edging: options.edging.clone(),
@@ -234,10 +234,12 @@ impl CachingShaper {
     fn build_clusters(
         &mut self,
         text: &str,
-        bold: bool,
+        weight: Option<u32>,
         italic: bool,
     ) -> Vec<(Vec<CharCluster>, Arc<FontPair>)> {
         let mut cluster = CharCluster::new();
+        let weight = weight.unwrap_or(self.options.weight);
+        let italic = italic || self.options.italic;
 
         // Enumerate the characters storing the glyph index in the user data so that we can position
         // glyphs according to Neovim's grid rules
@@ -269,8 +271,8 @@ impl CachingShaper {
 
             // Add parsed fonts from guifont
             font_fallback_keys.extend(self.options.font_list.iter().map(|font_name| FontKey {
-                italic: self.options.italic || italic,
-                bold: self.options.bold || bold,
+                italic,
+                weight,
                 family_name: Some(font_name.clone()),
                 hinting: self.options.hinting.clone(),
                 edging: self.options.edging.clone(),
@@ -278,8 +280,8 @@ impl CachingShaper {
 
             // Add default font
             font_fallback_keys.push(FontKey {
-                italic: self.options.italic || italic,
-                bold: self.options.bold || bold,
+                italic,
+                weight,
                 family_name: None,
                 hinting: self.options.hinting.clone(),
                 edging: self.options.edging.clone(),
@@ -323,7 +325,7 @@ impl CachingShaper {
                 let fallback_character = cluster.chars()[0].ch;
                 if let Some(fallback_font) =
                     self.font_loader
-                        .load_font_for_character(bold, italic, fallback_character)
+                        .load_font_for_character(weight, italic, fallback_character)
                 {
                     results.push((cluster.to_owned(), fallback_font));
                 } else {
@@ -375,7 +377,7 @@ impl CachingShaper {
         }
     }
 
-    pub fn shape(&mut self, text: String, bold: bool, italic: bool) -> Vec<TextBlob> {
+    pub fn shape(&mut self, text: String, weight: Option<u32>, italic: bool) -> Vec<TextBlob> {
         let current_size = self.current_size();
         let (glyph_width, ..) = self.font_base_dimensions();
 
@@ -383,7 +385,7 @@ impl CachingShaper {
 
         trace!("Shaping text: {}", text);
 
-        for (cluster_group, font_pair) in self.build_clusters(&text, bold, italic) {
+        for (cluster_group, font_pair) in self.build_clusters(&text, weight, italic) {
             let mut shaper = self
                 .shape_context
                 .builder(font_pair.swash_font.as_ref())
@@ -426,12 +428,17 @@ impl CachingShaper {
         resulting_blobs
     }
 
-    pub fn shape_cached(&mut self, text: String, bold: bool, italic: bool) -> &Vec<TextBlob> {
+    pub fn shape_cached(
+        &mut self,
+        text: String,
+        weight: Option<u32>,
+        italic: bool,
+    ) -> &Vec<TextBlob> {
         tracy_zone!("shape_cached");
-        let key = ShapeKey::new(text.clone(), bold, italic);
+        let key = ShapeKey::new(text.clone(), weight, italic);
 
         if !self.blob_cache.contains(&key) {
-            let blobs = self.shape(text, bold, italic);
+            let blobs = self.shape(text, weight, italic);
             self.blob_cache.put(key.clone(), blobs);
         }
 

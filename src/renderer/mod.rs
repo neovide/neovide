@@ -21,7 +21,7 @@ use winit::event::Event;
 use crate::{
     bridge::EditorMode,
     dimensions::Dimensions,
-    editor::{Cursor, Style},
+    editor::{Cursor, EditorCommand, Style},
     event_aggregator::EVENT_AGGREGATOR,
     profiling::tracy_zone,
     settings::*,
@@ -52,6 +52,7 @@ pub struct RendererSettings {
     debug_renderer: bool,
     profiler: bool,
     underline_stroke_scale: f32,
+    bold_weight: u32,
 }
 
 impl Default for RendererSettings {
@@ -70,6 +71,7 @@ impl Default for RendererSettings {
             debug_renderer: false,
             profiler: false,
             underline_stroke_scale: 1.,
+            bold_weight: 700,
         }
     }
 }
@@ -98,6 +100,8 @@ pub struct Renderer {
     pub window_regions: Vec<WindowDrawDetails>,
 
     pub batched_draw_command_receiver: UnboundedReceiver<Vec<DrawCommand>>,
+    settings_changed_receiver: UnboundedReceiver<RendererSettingsChanged>,
+
     profiler: profiler::Profiler,
     os_scale_factor: f64,
     user_scale_factor: f64,
@@ -124,6 +128,8 @@ impl Renderer {
         let window_regions = Vec::new();
 
         let batched_draw_command_receiver = EVENT_AGGREGATOR.register_event::<Vec<DrawCommand>>();
+        let settings_changed_receiver =
+            EVENT_AGGREGATOR.register_event::<RendererSettingsChanged>();
         let profiler = profiler::Profiler::new(12.0);
 
         Renderer {
@@ -133,6 +139,7 @@ impl Renderer {
             current_mode,
             window_regions,
             batched_draw_command_receiver,
+            settings_changed_receiver,
             profiler,
             os_scale_factor,
             user_scale_factor,
@@ -255,6 +262,12 @@ impl Renderer {
             font_changed: false,
             should_show: false,
         };
+
+        while let Ok(setting_changed) = self.settings_changed_receiver.try_recv() {
+            if let RendererSettingsChanged::BoldWeight(_) = setting_changed {
+                EVENT_AGGREGATOR.send(EditorCommand::RedrawScreen);
+            }
+        }
 
         while let Ok(batch) = self.batched_draw_command_receiver.try_recv() {
             result.any_handled = true;

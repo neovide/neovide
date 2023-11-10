@@ -196,7 +196,8 @@ impl GridRenderer {
         paint.set_anti_alias(false);
         paint.set_blend_mode(BlendMode::SrcOver);
 
-        if SETTINGS.get::<RendererSettings>().debug_renderer {
+        let settings = SETTINGS.get::<RendererSettings>();
+        if settings.debug_renderer {
             let random_hsv: HSV = (rand::random::<f32>() * 360.0, 1.0, 1.0).into();
             let random_color = random_hsv.to_color(255);
             paint.set_color(random_color);
@@ -215,7 +216,11 @@ impl GridRenderer {
         if !trimmed.is_empty() {
             for blob in self
                 .shaper
-                .shape_cached(trimmed.to_string(), style.bold, style.italic)
+                .shape_cached(
+                    trimmed.to_string(),
+                    style.bold.then_some(settings.bold_weight),
+                    style.italic,
+                )
                 .iter()
             {
                 tracy_zone!("draw_text_blob");
