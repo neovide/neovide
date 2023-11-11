@@ -3,6 +3,8 @@
 ---@field register_clipboard boolean
 ---@field register_right_click boolean
 ---@field enable_focus_command boolean
+---@field global_variable_settings string[]
+---@field option_settings string[]
 
 ---@type Args
 local args = ...
@@ -62,23 +64,29 @@ vim.api.nvim_create_user_command("NeovideFocus", function()
     rpcnotify("neovide.focus_window")
 end, {})
 
-vim.api.nvim_create_autocmd({ "OptionSet" }, {
-    pattern = "columns",
-    once = false,
-    nested = true,
-    callback = function()
-        rpcnotify("neovide.columns", tonumber(vim.v.option_new))
-    end
-})
+vim.api.nvim_exec([[
+function! WatchGlobal(variable, callback)
+    call dictwatcheradd(g:, a:variable, a:callback)
+endfunction
+]], false)
 
-vim.api.nvim_create_autocmd({ "OptionSet" }, {
-    pattern = "lines",
-    once = false,
-    nested = true,
-    callback = function()
-        rpcnotify("neovide.lines", tonumber(vim.v.option_new))
+for _,global_variable_setting in ipairs(args.global_variable_settings) do
+    local callback = function()
+        rpcnotify("setting_changed", global_variable_setting, vim.g["neovide_" .. global_variable_setting])
     end
-})
+    vim.fn.WatchGlobal("neovide_" .. global_variable_setting, callback)
+end
+
+for _,option_setting in ipairs(args.option_settings) do
+    vim.api.nvim_create_autocmd({ "OptionSet" }, {
+        pattern = option_setting,
+        once = false,
+        nested = true,
+        callback = function()
+            rpcnotify("option_changed", option_setting, vim.o[option_setting])
+        end
+    })
+end
 
 -- Create auto command for retrieving exit code from neovim on quit.
 vim.api.nvim_create_autocmd({ "VimLeavePre" }, {

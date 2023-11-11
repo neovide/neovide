@@ -33,7 +33,8 @@ pub trait SettingGroup {
 }
 
 // Function types to handle settings updates
-type UpdateHandlerFunc = fn(&Settings, Value);
+type UpdateHandlerFunc = fn(&Settings, Value, bool);
+type ReaderHandlerFunc = fn(&Settings) -> Option<Value>;
 
 // The Settings struct acts as a global container where each of Neovide's subsystems can store
 // their own settings. It will also coordinate updates between Neovide and nvim to make sure the
@@ -44,7 +45,8 @@ type UpdateHandlerFunc = fn(&Settings, Value);
 // nvim will get out of sync.
 pub struct Settings {
     settings: RwLock<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
-    listeners: RwLock<HashMap<SettingLocation, UpdateHandlerFunc>>,
+    updaters: RwLock<HashMap<SettingLocation, UpdateHandlerFunc>>,
+    readers: RwLock<HashMap<SettingLocation, ReaderHandlerFunc>>,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
@@ -59,7 +61,8 @@ impl Settings {
     fn new() -> Self {
         Self {
             settings: RwLock::new(HashMap::new()),
-            listeners: RwLock::new(HashMap::new()),
+            updaters: RwLock::new(HashMap::new()),
+            readers: RwLock::new(HashMap::new()),
         }
     }
 
@@ -67,10 +70,15 @@ impl Settings {
         &self,
         setting_location: SettingLocation,
         update_func: UpdateHandlerFunc,
+        reader_func: ReaderHandlerFunc,
     ) {
-        self.listeners
+        self.updaters
             .write()
             .insert(setting_location.clone(), update_func);
+
+        self.readers
+            .write()
+            .insert(setting_location.clone(), reader_func);
     }
 
     pub fn set<T: Clone + Send + Sync + 'static>(&self, t: &T) {
@@ -91,8 +99,12 @@ impl Settings {
         (*value).clone()
     }
 
+    pub fn setting_locations(&self) -> Vec<SettingLocation> {
+        self.updaters.read().keys().cloned().collect()
+    }
+
     pub async fn read_initial_values(&self, nvim: &Neovim<NeovimWriter>) -> Result<()> {
-        let keys: Vec<SettingLocation> = self.listeners.read().keys().cloned().collect();
+        let keys: Vec<SettingLocation> = self.updaters.read().keys().cloned().collect();
 
         for location in keys {
             match &location {
@@ -100,59 +112,27 @@ impl Settings {
                     let variable_name = format!("neovide_{name}");
                     match nvim.get_var(&variable_name).await {
                         Ok(value) => {
-                            self.listeners.read().get(&location).unwrap()(self, value);
+                            self.updaters.read().get(&location).unwrap()(self, value, false);
                         }
                         Err(error) => {
                             trace!("Initial value load failed for {}: {}", name, error);
+                            let value = self.readers.read().get(&location).unwrap()(self);
+                            if let Some(value) = value {
+                                nvim.set_var(&variable_name, value).await.with_context(|| {
+                                    format!("Could not set initial value for {name}")
+                                })?;
+                            }
                         }
                     }
                 }
                 SettingLocation::NeovimOption(name) => match nvim.get_option(name).await {
                     Ok(value) => {
-                        self.listeners.read().get(&location).unwrap()(self, value);
+                        self.updaters.read().get(&location).unwrap()(self, value, false);
                     }
                     Err(error) => {
                         trace!("Initial value load failed for {}: {}", name, error);
                     }
                 },
-            }
-        }
-        Ok(())
-    }
-
-    pub async fn setup_changed_listeners(&self, nvim: &Neovim<NeovimWriter>) -> Result<()> {
-        let keys: Vec<SettingLocation> = self.listeners.read().keys().cloned().collect();
-
-        for location in keys {
-            match &location {
-                SettingLocation::NeovideGlobal(name) => {
-                    let vimscript = format!(
-                        concat!(
-                            "exe \"",
-                            "fun! NeovideNotify{0}Changed(d, k, z)\n",
-                            "call rpcnotify(g:neovide_channel_id, 'setting_changed', '{0}', g:neovide_{0})\n",
-                            "endf\n",
-                            "call dictwatcheradd(g:, 'neovide_{0}', 'NeovideNotify{0}Changed')\"",
-                        ),
-                        name
-                    );
-                    nvim.command(&vimscript)
-                        .await
-                        .with_context(|| format!("Could not setup setting notifier for {name}"))?;
-                }
-                SettingLocation::NeovimOption(name) => {
-                    let vimscript = format!(
-                        concat!(
-                            "exe \"",
-                            "autocmd OptionSet {0} call rpcnotify(g:neovide_channel_id, 'option_changed', '{0}', &{0})\n",
-                            "\"",
-                        ),
-                        name
-                    );
-                    nvim.command(&vimscript)
-                        .await
-                        .with_context(|| format!("Could not setup setting notifier for {name}"))?;
-                }
             }
         }
         Ok(())
@@ -165,10 +145,10 @@ impl Settings {
         let name: Result<String, _> = name.try_into();
         let name = name.unwrap();
 
-        self.listeners
+        self.updaters
             .read()
             .get(&SettingLocation::NeovideGlobal(name))
-            .unwrap()(self, value);
+            .unwrap()(self, value, true);
     }
 
     pub fn handle_option_changed_notification(&self, arguments: Vec<Value>) {
@@ -178,10 +158,10 @@ impl Settings {
         let name: Result<String, _> = name.try_into();
         let name = name.unwrap();
 
-        self.listeners
+        self.updaters
             .read()
             .get(&SettingLocation::NeovimOption(name))
-            .unwrap()(self, value);
+            .unwrap()(self, value, true);
     }
 
     pub fn register<T: SettingGroup>(&self) {
@@ -226,10 +206,13 @@ mod tests {
 
         let location = SettingLocation::NeovideGlobal("foo".to_owned());
 
-        fn noop_update(_settings: &Settings, _v: Value) {}
+        fn noop_update(_settings: &Settings, _value: Value, _send_changed_event: bool) {}
+        fn noop_read(_settings: &Settings) -> Option<Value> {
+            None
+        }
 
-        settings.set_setting_handlers(location.clone(), noop_update);
-        let listeners = settings.listeners.read();
+        settings.set_setting_handlers(location.clone(), noop_update, noop_read);
+        let listeners = settings.updaters.read();
         let listener = listeners.get(&location).unwrap();
         assert_eq!(&(noop_update as UpdateHandlerFunc), listener);
     }

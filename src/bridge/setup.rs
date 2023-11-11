@@ -4,7 +4,10 @@ use nvim_rs::Neovim;
 use rmpv::Value;
 
 use super::setup_intro_message_autocommand;
-use crate::bridge::NeovimWriter;
+use crate::{
+    bridge::NeovimWriter,
+    settings::{SettingLocation, SETTINGS},
+};
 
 const INIT_LUA: &str = include_str!("../../lua/init.lua");
 
@@ -60,6 +63,22 @@ pub async fn setup_neovide_specific_state(
     let register_clipboard = should_handle_clipboard;
     let register_right_click = cfg!(target_os = "windows");
 
+    let settings = SETTINGS.setting_locations();
+    let global_variable_settings = settings
+        .iter()
+        .filter_map(|s| match s {
+            SettingLocation::NeovideGlobal(setting) => Some(Value::from(setting.to_owned())),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let option_settings = settings
+        .iter()
+        .filter_map(|s| match s {
+            SettingLocation::NeovimOption(setting) => Some(Value::from(setting.to_owned())),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
     let args = Value::from(vec![
         (Value::from("neovide_channel_id"), neovide_channel),
         (
@@ -70,6 +89,11 @@ pub async fn setup_neovide_specific_state(
             Value::from("register_right_click"),
             Value::from(register_right_click),
         ),
+        (
+            Value::from("global_variable_settings"),
+            Value::from(global_variable_settings),
+        ),
+        (Value::from("option_settings"), Value::from(option_settings)),
     ]);
 
     nvim.execute_lua(INIT_LUA, vec![args])
