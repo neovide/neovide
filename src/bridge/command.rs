@@ -1,3 +1,4 @@
+use std::os::windows::process::CommandExt;
 use std::{
     env,
     process::{Command as StdCommand, Stdio},
@@ -21,14 +22,9 @@ pub fn create_nvim_command() -> Result<TokioCommand> {
     cmd.stderr(Stdio::inherit());
 
     #[cfg(windows)]
-    set_windows_creation_flags(&mut cmd);
+    cmd.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
 
     Ok(cmd)
-}
-
-#[cfg(target_os = "windows")]
-fn set_windows_creation_flags(cmd: &mut TokioCommand) {
-    cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
 }
 
 fn build_nvim_cmd() -> Result<TokioCommand> {
@@ -52,11 +48,9 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
         let mut result = StdCommand::new("wsl");
         result.args(["$SHELL", "-lc"]);
         result.arg(format!("{} {}", command, args.join(" ")));
+
         #[cfg(windows)]
-        std::os::windows::process::CommandExt::creation_flags(
-            &mut result,
-            winapi::um::winbase::CREATE_NO_WINDOW,
-        );
+        result.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
 
         result
     } else if cfg!(target_os = "macos") {
@@ -71,9 +65,12 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
 
         result
     } else {
-        // On Linux, just run the command directly
         let mut result = StdCommand::new(command);
         result.args(args);
+
+        #[cfg(windows)]
+        result.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
+
         result
     }
 }
