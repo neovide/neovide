@@ -40,19 +40,37 @@ fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream 
         Some(ref ident) => {
             let vim_setting_name = format!("{prefix}{ident}");
 
-            let location = match option(field) {
-                Ok(option) => match option {
-                    Some(option_name) => quote! {{ crate::settings::SettingLocation::NeovimOption(#option_name.to_owned()) }},
-                    None => quote! {{ crate::settings::SettingLocation::NeovideGlobal(#vim_setting_name.to_owned()) }},
-                },
+            let option_name = match option(field) {
+                Ok(option_name) => option_name,
                 Err(error) => {
                     return error.to_compile_error();
                 }
             };
 
+            let location = match &option_name {
+                Some(option_name) => quote! {{ crate::settings::SettingLocation::NeovimOption(#option_name.to_owned()) }},
+                None => quote! {{ crate::settings::SettingLocation::NeovideGlobal(#vim_setting_name.to_owned()) }},
+            };
+
             let field_ident = field.ident.as_ref().unwrap();
             let case_name = field_ident.to_string().to_case(Case::Pascal);
             let case_ident = Ident::new(&case_name, field_ident.span());
+
+            // Only create a reader function for global neovide variables
+            let reader = if option_name.is_none() {
+                quote! {
+                    fn reader(settings: &crate::settings::Settings) -> Option<rmpv::Value> {
+                        let s = settings.get::<#name>();
+                        Some(s.#ident.into())
+                    }
+                }
+            } else {
+                quote! {
+                    fn reader(_settings: &crate::settings::Settings) -> Option<rmpv::Value> {
+                        None
+                    }
+                }
+            };
 
             quote! {{
                 fn update(settings: &crate::settings::Settings, value: rmpv::Value) {
@@ -64,9 +82,12 @@ fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream 
                     );
                 }
 
+                #reader
+
                 settings.set_setting_handlers(
                     #location,
                     update,
+                    reader,
                 );
             }}
         }
