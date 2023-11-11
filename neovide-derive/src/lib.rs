@@ -73,13 +73,15 @@ fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream 
             };
 
             quote! {{
-                fn update(settings: &crate::settings::Settings, value: rmpv::Value) {
+                fn update(settings: &crate::settings::Settings, value: rmpv::Value, send_changed_event: bool) {
                     let mut s = settings.get::<#name>();
                     s.#ident.parse_from_value(value);
                     settings.set(&s);
-                    crate::event_aggregator::EVENT_AGGREGATOR.send(
-                        #event_name::#case_ident(s.#ident.clone()),
-                    );
+                    if send_changed_event {
+                        crate::event_aggregator::EVENT_AGGREGATOR.send(
+                            #event_name::#case_ident(s.#ident.clone()),
+                        );
+                    }
                 }
 
                 #reader

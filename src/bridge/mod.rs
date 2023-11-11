@@ -117,7 +117,6 @@ async fn launch(grid_size: Option<Dimensions>) -> Result<NeovimSession> {
 
     start_ui_command_handler(Arc::clone(&session.neovim));
     SETTINGS.read_initial_values(&session.neovim).await?;
-    SETTINGS.setup_changed_listeners(&session.neovim).await?;
 
     let mut options = UiAttachOptions::new();
     options.set_linegrid_external(true);
