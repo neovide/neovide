@@ -81,8 +81,11 @@ impl Editor {
     pub fn handle_editor_command(&mut self, command: EditorCommand) {
         match command {
             EditorCommand::NeovimRedrawEvent(event) => match event {
-                RedrawEvent::SetTitle { title } => {
+                RedrawEvent::SetTitle { mut title } => {
                     tracy_zone!("EditorSetTitle");
+                    if title.is_empty() {
+                        title = "Neovide".to_string()
+                    }
                     EVENT_AGGREGATOR.send(WindowCommand::TitleChanged(title));
                 }
                 RedrawEvent::ModeInfoSet { cursor_modes } => {
