@@ -1,4 +1,6 @@
+#[cfg(windows)]
 use std::os::windows::process::CommandExt;
+
 use std::{
     env,
     process::{Command as StdCommand, Stdio},
@@ -65,6 +67,7 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
 
         result
     } else {
+        // On Linux and non-WSL Windows, just run the command directly
         let mut result = StdCommand::new(command);
         result.args(args);
 
