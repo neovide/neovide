@@ -325,6 +325,7 @@ pub fn main_loop(
             save_window_size(
                 window.is_maximized(),
                 window.inner_size(),
+                window_wrapper.get_grid_size(),
                 window.outer_position().ok(),
             );
             window_target.exit();
