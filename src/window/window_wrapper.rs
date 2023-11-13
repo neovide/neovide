@@ -423,6 +423,10 @@ impl WinitWindowWrapper {
         should_render
     }
 
+    pub fn get_grid_size(&self) -> Dimensions {
+        self.renderer.get_grid_size()
+    }
+
     fn update_window_size_from_grid(&mut self, window_padding: &WindowPadding) {
         let window = self.windowed_context.window();
 
