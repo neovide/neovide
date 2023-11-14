@@ -21,7 +21,7 @@ local function rpcnotify(method, ...)
 end
 
 local function rpcrequest(method, ...)
-    vim.rpcrequest(vim.g.neovide_channel_id, method, ...)
+    return vim.rpcrequest(vim.g.neovide_channel_id, method, ...)
 end
 
 local function set_clipboard(register)
