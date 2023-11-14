@@ -30,6 +30,8 @@ pub enum PersistentWindowSettings {
         position: PhysicalPosition<i32>,
         #[serde(default)]
         pixel_size: Option<PhysicalSize<u32>>,
+        #[serde(default)]
+        grid_size: Option<Dimensions>,
     },
 }
 
@@ -73,7 +75,8 @@ pub fn load_last_window_settings() -> Result<PersistentWindowSettings, String> {
 
 pub fn save_window_size(
     maximized: bool,
-    size: PhysicalSize<u32>,
+    pixel_size: PhysicalSize<u32>,
+    grid_size: Dimensions,
     position: Option<PhysicalPosition<i32>>,
 ) {
     let window_settings = SETTINGS.get::<WindowSettings>();
@@ -83,7 +86,8 @@ pub fn save_window_size(
             PersistentWindowSettings::Maximized
         } else {
             PersistentWindowSettings::Windowed {
-                pixel_size: { window_settings.remember_window_size.then_some(size) },
+                pixel_size: { window_settings.remember_window_size.then_some(pixel_size) },
+                grid_size: { window_settings.remember_window_size.then_some(grid_size) },
                 position: {
                     window_settings
                         .remember_window_position

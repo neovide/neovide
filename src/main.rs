@@ -62,7 +62,7 @@ pub use running_tracker::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
-use crate::settings::Config;
+use crate::settings::{load_last_window_settings, Config, PersistentWindowSettings};
 
 pub use profiling::startup_profiler;
 
@@ -177,10 +177,14 @@ fn setup() -> Result<(WindowSize, NeovimRuntime)> {
     SETTINGS.register::<WindowSettings>();
     SETTINGS.register::<RendererSettings>();
     SETTINGS.register::<CursorSettings>();
-    let window_size = determine_window_size();
+    let window_settings = load_last_window_settings().ok();
+    let window_size = determine_window_size(window_settings.as_ref());
     let grid_size = match window_size {
         WindowSize::Grid(grid_size) => Some(grid_size),
-        _ => None,
+        _ => match window_settings {
+            Some(PersistentWindowSettings::Windowed { grid_size, .. }) => grid_size,
+            _ => None,
+        },
     };
     let mut runtime = NeovimRuntime::new()?;
     runtime.launch(grid_size)?;

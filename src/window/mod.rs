@@ -197,9 +197,8 @@ pub enum WindowSize {
     NeovimGrid, // The geometry is read from init.vim/lua
 }
 
-pub fn determine_window_size() -> WindowSize {
+pub fn determine_window_size(window_settings: Option<&PersistentWindowSettings>) -> WindowSize {
     let cmd_line = SETTINGS.get::<CmdLineSettings>();
-    let window_settings = load_last_window_settings().ok();
 
     match cmd_line.geometry {
         GeometryArgs {
@@ -221,7 +220,7 @@ pub fn determine_window_size() -> WindowSize {
             Some(PersistentWindowSettings::Windowed {
                 pixel_size: Some(pixel_size),
                 ..
-            }) => WindowSize::Size(pixel_size),
+            }) => WindowSize::Size(*pixel_size),
             _ => WindowSize::Size(DEFAULT_WINDOW_SIZE),
         },
     }
@@ -264,6 +263,7 @@ pub fn main_loop(
         save_window_size(
             window.is_maximized(),
             window.inner_size(),
+            window_wrapper.get_grid_size(),
             window.outer_position().ok(),
         );
     }));
@@ -325,6 +325,7 @@ pub fn main_loop(
             save_window_size(
                 window.is_maximized(),
                 window.inner_size(),
+                window_wrapper.get_grid_size(),
                 window.outer_position().ok(),
             );
             window_target.exit();
