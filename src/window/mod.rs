@@ -33,7 +33,9 @@ use winit::platform::x11::WindowBuilderExtX11;
 
 #[cfg(target_os = "windows")]
 use std::{
+    sync::atomic::{AtomicBool, Ordering},
     sync::mpsc::{channel, RecvTimeoutError, TryRecvError},
+    sync::Arc,
     thread,
 };
 #[cfg(target_os = "windows")]
@@ -235,9 +237,12 @@ pub fn main_loop(
     event_loop: EventLoop<UserEvent>,
 ) -> Result<(), EventLoopError> {
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
+    let render_thread_done = Arc::<AtomicBool>::new(AtomicBool::new(false));
+    let render_thread_done2 = render_thread_done.clone();
     let (txtemp, rx) = channel::<Event<UserEvent>>();
     let mut tx = Some(txtemp);
-    let mut render_thread_handle = Some(thread::spawn(move || {
+
+    let render_thread_handle = thread::spawn(move || {
         let mut window_wrapper = WinitWindowWrapper::new(window, initial_window_size);
         let mut update_loop = UpdateLoop::new(
             cmd_line_settings.vsync,
@@ -266,9 +271,15 @@ pub fn main_loop(
             window_wrapper.get_grid_size(),
             window.outer_position().ok(),
         );
-    }));
+        render_thread_done.store(true, Ordering::Relaxed);
+    });
 
-    event_loop.run(move |e, window_target| {
+    let result = event_loop.run(move |e, window_target| {
+        // We need to wake up regularly to check the running tracker, so that we can exit
+        window_target.set_control_flow(ControlFlow::WaitUntil(
+            std::time::Instant::now() + std::time::Duration::from_millis(100),
+        ));
+
         match e {
             Event::LoopExiting => {
                 return;
@@ -282,22 +293,18 @@ pub fn main_loop(
         }
 
         if !RUNNING_TRACKER.is_running() {
-            window_target.set_control_flow(ControlFlow::Wait);
-            if tx.is_none() {
-                return;
+            if let Some(tx) = tx.take() {
+                drop(tx);
             }
-            let tx = tx.take().unwrap();
-            drop(tx);
-            let handle = render_thread_handle.take().unwrap();
-            handle.join().unwrap();
-            window_target.exit();
-        } else {
-            // We need to wake up regularly to check the running tracker, so that we can exit
-            window_target.set_control_flow(ControlFlow::WaitUntil(
-                std::time::Instant::now() + std::time::Duration::from_millis(100),
-            ));
         }
-    })
+
+        if render_thread_done2.load(Ordering::Relaxed) {
+            window_target.exit();
+        }
+    });
+
+    render_thread_handle.join().unwrap();
+    result
 }
 
 #[cfg(not(target_os = "windows"))]
