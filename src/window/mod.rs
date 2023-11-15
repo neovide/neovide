@@ -237,44 +237,48 @@ pub fn main_loop(
     event_loop: EventLoop<UserEvent>,
 ) -> Result<(), EventLoopError> {
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
-    let render_thread_done = Arc::<AtomicBool>::new(AtomicBool::new(false));
-    let render_thread_done2 = render_thread_done.clone();
+    let render_thread_done = Arc::new(AtomicBool::default());
     let (txtemp, rx) = channel::<Event<UserEvent>>();
     let mut tx = Some(txtemp);
 
-    let render_thread_handle = thread::spawn(move || {
-        let mut window_wrapper = WinitWindowWrapper::new(window, initial_window_size);
-        let mut update_loop = UpdateLoop::new(
-            cmd_line_settings.vsync,
-            cmd_line_settings.idle,
-            &window_wrapper.windowed_context,
-        );
-        #[allow(unused_assignments)]
-        loop {
-            let (wait_duration, _) = update_loop.get_event_wait_time();
-            let event = if wait_duration.as_nanos() == 0 {
-                rx.try_recv()
-                    .map_err(|e| matches!(e, TryRecvError::Disconnected))
-            } else {
-                rx.recv_timeout(wait_duration)
-                    .map_err(|e| matches!(e, RecvTimeoutError::Disconnected))
-            };
+    let render_thread_handle = thread::spawn({
+        let render_thread_done = Arc::clone(&render_thread_done);
+        move || {
+            let mut window_wrapper = WinitWindowWrapper::new(window, initial_window_size);
+            let mut update_loop = UpdateLoop::new(
+                cmd_line_settings.vsync,
+                cmd_line_settings.idle,
+                &window_wrapper.windowed_context,
+            );
 
-            if update_loop.step(&mut window_wrapper, event).is_err() {
-                break;
+            #[allow(unused_assignments)]
+            loop {
+                let (wait_duration, _) = update_loop.get_event_wait_time();
+                let event = if wait_duration.as_nanos() == 0 {
+                    rx.try_recv()
+                        .map_err(|e| matches!(e, TryRecvError::Disconnected))
+                } else {
+                    rx.recv_timeout(wait_duration)
+                        .map_err(|e| matches!(e, RecvTimeoutError::Disconnected))
+                };
+
+                if update_loop.step(&mut window_wrapper, event).is_err() {
+                    break;
+                }
             }
+
+            let window = window_wrapper.windowed_context.window();
+            save_window_size(
+                window.is_maximized(),
+                window.inner_size(),
+                window_wrapper.get_grid_size(),
+                window.outer_position().ok(),
+            );
+            render_thread_done.store(true, Ordering::Relaxed);
         }
-        let window = window_wrapper.windowed_context.window();
-        save_window_size(
-            window.is_maximized(),
-            window.inner_size(),
-            window_wrapper.get_grid_size(),
-            window.outer_position().ok(),
-        );
-        render_thread_done.store(true, Ordering::Relaxed);
     });
 
-    let result = event_loop.run(move |e, window_target| {
+    let result = event_loop.run(|e, window_target| {
         // We need to wake up regularly to check the running tracker, so that we can exit
         window_target.set_control_flow(ControlFlow::WaitUntil(
             std::time::Instant::now() + std::time::Duration::from_millis(100),
@@ -298,7 +302,7 @@ pub fn main_loop(
             }
         }
 
-        if render_thread_done2.load(Ordering::Relaxed) {
+        if render_thread_done.load(Ordering::Relaxed) {
             window_target.exit();
         }
     });
