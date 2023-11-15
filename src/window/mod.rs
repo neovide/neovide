@@ -33,9 +33,7 @@ use winit::platform::x11::WindowBuilderExtX11;
 
 #[cfg(target_os = "windows")]
 use std::{
-    sync::atomic::{AtomicBool, Ordering},
-    sync::mpsc::{channel, RecvTimeoutError, TryRecvError},
-    sync::Arc,
+    sync::mpsc::{channel, RecvTimeoutError},
     thread,
 };
 #[cfg(target_os = "windows")]
@@ -75,7 +73,6 @@ pub enum WindowCommand {
     Minimize,
 }
 
-#[allow(dead_code)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum UserEvent {}
 
@@ -237,75 +234,65 @@ pub fn main_loop(
     event_loop: EventLoop<UserEvent>,
 ) -> Result<(), EventLoopError> {
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
-    let render_thread_done = Arc::new(AtomicBool::default());
-    let (txtemp, rx) = channel::<Event<UserEvent>>();
-    let mut tx = Some(txtemp);
+    let (tx, rx) = channel::<Event<UserEvent>>();
 
-    let render_thread_handle = thread::spawn({
-        let render_thread_done = Arc::clone(&render_thread_done);
-        move || {
-            let mut window_wrapper = WinitWindowWrapper::new(window, initial_window_size);
-            let mut update_loop = UpdateLoop::new(
-                cmd_line_settings.vsync,
-                cmd_line_settings.idle,
-                &window_wrapper.windowed_context,
-            );
+    let render_thread_handle = thread::spawn(move || {
+        let mut window_wrapper = WinitWindowWrapper::new(window, initial_window_size);
+        let mut update_loop = UpdateLoop::new(
+            cmd_line_settings.vsync,
+            cmd_line_settings.idle,
+            &window_wrapper.windowed_context,
+        );
 
-            #[allow(unused_assignments)]
-            loop {
-                let (wait_duration, _) = update_loop.get_event_wait_time();
-                let event = if wait_duration.as_nanos() == 0 {
-                    rx.try_recv()
-                        .map_err(|e| matches!(e, TryRecvError::Disconnected))
-                } else {
-                    rx.recv_timeout(wait_duration)
-                        .map_err(|e| matches!(e, RecvTimeoutError::Disconnected))
-                };
-
-                if update_loop.step(&mut window_wrapper, event).is_err() {
-                    break;
-                }
+        loop {
+            if !RUNNING_TRACKER.is_running() {
+                break;
             }
 
-            let window = window_wrapper.windowed_context.window();
-            save_window_size(
-                window.is_maximized(),
-                window.inner_size(),
-                window_wrapper.get_grid_size(),
-                window.outer_position().ok(),
-            );
-            render_thread_done.store(true, Ordering::Relaxed);
+            let (wait_duration, _) = update_loop.get_event_wait_time();
+            let event = rx
+                .recv_timeout(wait_duration)
+                .map_err(|e| matches!(e, RecvTimeoutError::Disconnected));
+
+            if update_loop.step(&mut window_wrapper, event).is_err() {
+                break;
+            }
         }
+
+        let window = window_wrapper.windowed_context.window();
+        save_window_size(
+            window.is_maximized(),
+            window.inner_size(),
+            window_wrapper.get_grid_size(),
+            window.outer_position().ok(),
+        );
     });
 
     let result = event_loop.run(|e, window_target| {
-        // We need to wake up regularly to check the running tracker, so that we can exit
-        window_target.set_control_flow(ControlFlow::WaitUntil(
-            std::time::Instant::now() + std::time::Duration::from_millis(100),
-        ));
-
         match e {
             Event::LoopExiting => {
                 return;
             }
             Event::AboutToWait => {}
             _ => {
-                if let Some(tx) = tx.as_ref() {
-                    let _ = tx.send(e);
-                }
+                let _ = tx.send(e);
             }
         }
 
-        if !RUNNING_TRACKER.is_running() {
-            if let Some(tx) = tx.take() {
-                drop(tx);
-            }
-        }
-
-        if render_thread_done.load(Ordering::Relaxed) {
+        if render_thread_handle.is_finished() {
             window_target.exit();
         }
+
+        // We need to wake up regularly to check if the render thread has exited.
+        // We can't exit until the render thread has dropped the window wrapper.
+        window_target.set_control_flow(ControlFlow::WaitUntil(
+            std::time::Instant::now() + std::time::Duration::from_millis(100),
+        ));
     });
+
+    // Manually drop in case the event loop ended prematurely because of a winit or other error.
+    // This will unblock the render thread before the join.
+    drop(tx);
 
     render_thread_handle.join().unwrap();
     result
