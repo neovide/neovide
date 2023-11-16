@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 
-use crate::{dimensions::Dimensions, error_msg, settings::SETTINGS, window::WindowSettings};
+use crate::{dimensions::Dimensions, settings::SETTINGS, window::WindowSettings};
 
 const SETTINGS_FILE: &str = "neovide-settings.json";
 
@@ -103,5 +103,5 @@ pub fn save_window_size(
     std::fs::create_dir_all(neovim_std_datapath()).unwrap();
     let json = serde_json::to_string(&settings).unwrap();
     log::debug!("Saved Window Settings: {}", json);
-    std::fs::write(&settings_path, json).expect(&format!("Can't write to {settings_path:?}"));
+    std::fs::write(&settings_path, json).unwrap_or_else(|_| panic!("Can't write to {settings_path:?}"));
 }
