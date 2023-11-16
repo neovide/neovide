@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 
-use crate::{dimensions::Dimensions, settings::SETTINGS, window::WindowSettings, error_msg};
+use crate::{dimensions::Dimensions, error_msg, settings::SETTINGS, window::WindowSettings};
 
 const SETTINGS_FILE: &str = "neovide-settings.json";
 
