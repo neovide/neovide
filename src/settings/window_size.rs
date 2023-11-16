@@ -40,21 +40,12 @@ struct PersistentSettings {
     window: PersistentWindowSettings,
 }
 
-#[cfg(windows)]
-fn neovim_std_datapath() -> PathBuf {
-    let mut data_path = dirs::home_dir().unwrap();
-    data_path.push("AppData/local/nvim-data");
-    data_path
-}
-
-#[cfg(unix)]
-fn neovim_std_datapath() -> PathBuf {
-    let xdg_dirs = xdg::BaseDirectories::with_prefix("nvim").unwrap();
-    xdg_dirs.get_data_home()
+fn neovide_std_datapath() -> PathBuf {
+    dirs::data_local_dir().unwrap().join("neovide")
 }
 
 fn settings_path() -> PathBuf {
-    let mut settings_path = neovim_std_datapath();
+    let mut settings_path = neovide_std_datapath();
     settings_path.push(SETTINGS_FILE);
     settings_path
 }
@@ -100,7 +91,7 @@ pub fn save_window_size(
     };
 
     let settings_path = settings_path();
-    std::fs::create_dir_all(neovim_std_datapath()).unwrap();
+    std::fs::create_dir_all(neovide_std_datapath()).unwrap();
     let json = serde_json::to_string(&settings).unwrap();
     log::debug!("Saved Window Settings: {}", json);
     std::fs::write(settings_path, json).unwrap();
