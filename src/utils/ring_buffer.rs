@@ -183,7 +183,7 @@ mod tests {
     fn empty() {
         let mut buffer = RingBuffer::<i32>::new(0, 5);
         assert_eq!(buffer.len(), 0);
-        assert_eq!(buffer.is_empty(), true);
+        assert!(buffer.is_empty());
         assert_eq!(buffer.iter().size_hint(), (0, Some(0)));
         assert_eq!(buffer.iter_mut().size_hint(), (0, Some(0)));
     }
@@ -192,13 +192,13 @@ mod tests {
     fn single_element() {
         let mut buffer = RingBuffer::<i32>::new(1, 5);
         assert_eq!(buffer.len(), 1);
-        assert_eq!(buffer.is_empty(), false);
+        assert!(!buffer.is_empty());
         assert_eq!(buffer[0], 5);
         buffer[0] = 3;
         assert_eq!(buffer[0], 3);
-        assert_eq!(buffer.iter().eq([3].iter()), true);
+        assert!(buffer.iter().eq([3].iter()));
         buffer.clone_from_iter(&[7]);
-        assert_eq!(buffer.iter().eq([7].iter()), true);
+        assert!(buffer.iter().eq([7].iter()));
         let mut iter = buffer.iter();
         assert_eq!(iter.size_hint(), (1, Some(1)));
         iter.next();
@@ -216,7 +216,7 @@ mod tests {
         assert_eq!(buffer[0], 0);
         assert_eq!(buffer[2], 0);
         buffer.clone_from_iter(&[1, 2, 3]);
-        assert_eq!(buffer.iter().eq([1, 2, 3].iter()), true);
+        assert!(buffer.iter().eq([1, 2, 3].iter()));
         assert_eq!(buffer[0], 1);
         assert_eq!(buffer[2], 3);
     }
@@ -228,55 +228,55 @@ mod tests {
         buffer.rotate(2);
         assert_eq!(buffer[0], 3);
         assert_eq!(buffer[4], 2);
-        assert_eq!(buffer.iter().eq([3, 4, 5, 1, 2].iter()), true);
+        assert!(buffer.iter().eq([3, 4, 5, 1, 2].iter()));
         assert_eq!(buffer[-2], 1);
         buffer.clone_from_iter(&[5, 6, 7, 8, 9]);
-        assert_eq!(buffer.iter().eq([5, 6, 7, 8, 9].iter()), true);
+        assert!(buffer.iter().eq([5, 6, 7, 8, 9].iter()));
     }
 
     #[test]
     fn rotate_backwards() {
         let mut buffer = RingBuffer::<i32>::new(3, 0);
-        assert_eq!(buffer.iter().eq([0, 0, 0].iter()), true);
+        assert!(buffer.iter().eq([0, 0, 0].iter()));
         buffer[0] = 0;
         buffer[1] = 2;
         buffer[2] = 5;
         buffer.rotate(-1);
-        assert_eq!(buffer.iter().eq([5, 0, 2].iter()), true);
+        assert!(buffer.iter().eq([5, 0, 2].iter()));
         assert_eq!(buffer[-1], 2);
         buffer.clone_from_iter(&[5, 6, 7]);
-        assert_eq!(buffer.iter().eq([5, 6, 7].iter()), true);
+        assert!(buffer.iter().eq([5, 6, 7].iter()));
     }
 
     #[test]
     fn resize_bigger() {
         let mut buffer = RingBuffer::<i32>::new(3, 0);
-        assert_eq!(buffer.iter().eq([0, 0, 0].iter()), true);
+        assert!(buffer.iter().eq([0, 0, 0].iter()));
         buffer[0] = 0;
         buffer[1] = 2;
         buffer[2] = 5;
         buffer.rotate(-1);
         buffer.resize(5, 7);
-        assert_eq!(buffer.iter().eq([5, 0, 2, 7, 7].iter()), true);
+        assert!(buffer.iter().eq([5, 0, 2, 7, 7].iter()));
     }
 
     #[test]
     fn resize_smaller() {
         let mut buffer = RingBuffer::<i32>::new(3, 0);
-        assert_eq!(buffer.iter().eq([0, 0, 0].iter()), true);
+        assert!(buffer.iter().eq([0, 0, 0].iter()));
         buffer[0] = 0;
         buffer[1] = 2;
         buffer[2] = 5;
         buffer.rotate(1);
         buffer.resize(2, 7);
-        assert_eq!(buffer.iter().eq([2, 5].iter()), true);
+        assert!(buffer.iter().eq([2, 5].iter()));
     }
 
     #[test]
     fn iter_range() {
         let mut buffer = RingBuffer::<i32>::new(5, 0);
         buffer.clone_from_iter(&[1, 2, 3, 4, 5]);
-        assert_eq!(buffer.iter_range(1..3).eq([2, 3].iter()), true);
-        assert_eq!(buffer.iter_range(-1..1).eq([5, 1].iter()), true);
+        assert!(buffer.iter_range(1..3).eq([2, 3].iter()));
+        assert!(buffer.iter_range(-1..1).eq([5, 1].iter()));
     }
 }

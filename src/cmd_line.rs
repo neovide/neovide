@@ -173,7 +173,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_neovim_passthrough() {
-        let args: Vec<String> = vec!["neovide", "--no-tabs", "--", "--clean"]
+        let args: Vec<String> = ["neovide", "--no-tabs", "--", "--clean"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -188,7 +188,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_files_to_open() {
-        let args: Vec<String> = vec!["neovide", "./foo.txt", "--no-tabs", "./bar.md"]
+        let args: Vec<String> = ["neovide", "./foo.txt", "--no-tabs", "./bar.md"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -203,7 +203,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_files_to_open_with_passthrough() {
-        let args: Vec<String> = vec![
+        let args: Vec<String> = [
             "neovide",
             "--no-tabs",
             "./foo.txt",
@@ -225,7 +225,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_files_to_open_with_flag() {
-        let args: Vec<String> = vec!["neovide", "./foo.txt", "./bar.md", "--grid=42x24"]
+        let args: Vec<String> = ["neovide", "./foo.txt", "./bar.md", "--grid=42x24"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -248,7 +248,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_grid() {
-        let args: Vec<String> = vec!["neovide", "--grid=42x24"]
+        let args: Vec<String> = ["neovide", "--grid=42x24"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -266,7 +266,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_size() {
-        let args: Vec<String> = vec!["neovide", "--size=420x240"]
+        let args: Vec<String> = ["neovide", "--size=420x240"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -284,10 +284,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_log_to_file() {
-        let args: Vec<String> = vec!["neovide", "--log"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
+        let args: Vec<String> = ["neovide", "--log"].iter().map(|s| s.to_string()).collect();
 
         handle_command_line_arguments(args).expect("Could not parse arguments");
         assert!(SETTINGS.get::<CmdLineSettings>().log_to_file);
@@ -296,7 +293,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_frameless_flag() {
-        let args: Vec<String> = vec!["neovide", "--frame=full"]
+        let args: Vec<String> = ["neovide", "--frame=full"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -308,7 +305,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_frameless_environment_variable() {
-        let args: Vec<String> = vec!["neovide"].iter().map(|s| s.to_string()).collect();
+        let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
         let _env = ScopedEnv::set("NEOVIDE_FRAME", "none");
         handle_command_line_arguments(args).expect("Could not parse arguments");
@@ -318,7 +315,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_neovim_bin_arg() {
-        let args: Vec<String> = vec!["neovide", "--neovim-bin", "foo"]
+        let args: Vec<String> = ["neovide", "--neovim-bin", "foo"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -333,7 +330,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_neovim_bin_environment_variable() {
-        let args: Vec<String> = vec!["neovide"].iter().map(|s| s.to_string()).collect();
+        let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
         let _env = ScopedEnv::set("NEOVIM_BIN", "foo");
         handle_command_line_arguments(args).expect("Could not parse arguments");
@@ -346,7 +343,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_srgb_default() {
-        let args: Vec<String> = vec!["neovide"].iter().map(|s| s.to_string()).collect();
+        let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
         handle_command_line_arguments(args).expect("Could not parse arguments");
         #[cfg(target_os = "windows")]
@@ -359,7 +356,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_srgb() {
-        let args: Vec<String> = vec!["neovide", "--srgb"]
+        let args: Vec<String> = ["neovide", "--srgb"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -371,7 +368,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_nosrgb() {
-        let args: Vec<String> = vec!["neovide", "--no-srgb"]
+        let args: Vec<String> = ["neovide", "--no-srgb"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -383,7 +380,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_no_srgb_environment() {
-        let args: Vec<String> = vec!["neovide"].iter().map(|s| s.to_string()).collect();
+        let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
         let _env = ScopedEnv::set("NEOVIDE_SRGB", "0");
         handle_command_line_arguments(args).expect("Could not parse arguments");
@@ -393,7 +390,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_override_srgb_environment() {
-        let args: Vec<String> = vec!["neovide", "--no-srgb"]
+        let args: Vec<String> = ["neovide", "--no-srgb"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -406,7 +403,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_override_nosrgb_environment() {
-        let args: Vec<String> = vec!["neovide", "--srgb"]
+        let args: Vec<String> = ["neovide", "--srgb"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -419,7 +416,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_vsync_default() {
-        let args: Vec<String> = vec!["neovide"].iter().map(|s| s.to_string()).collect();
+        let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
         handle_command_line_arguments(args).expect("Could not parse arguments");
         assert_eq!(SETTINGS.get::<CmdLineSettings>().vsync, true);
@@ -428,7 +425,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_vsync() {
-        let args: Vec<String> = vec!["neovide", "--vsync"]
+        let args: Vec<String> = ["neovide", "--vsync"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -440,7 +437,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_novsync() {
-        let args: Vec<String> = vec!["neovide", "--no-vsync"]
+        let args: Vec<String> = ["neovide", "--no-vsync"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -452,7 +449,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_no_vsync_environment() {
-        let args: Vec<String> = vec!["neovide"].iter().map(|s| s.to_string()).collect();
+        let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
         let _env = ScopedEnv::set("NEOVIDE_VSYNC", "0");
         handle_command_line_arguments(args).expect("Could not parse arguments");
@@ -462,7 +459,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_override_vsync_environment() {
-        let args: Vec<String> = vec!["neovide", "--no-vsync"]
+        let args: Vec<String> = ["neovide", "--no-vsync"]
             .iter()
             .map(|s| s.to_string())
             .collect();
@@ -475,7 +472,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_override_novsync_environment() {
-        let args: Vec<String> = vec!["neovide", "--vsync"]
+        let args: Vec<String> = ["neovide", "--vsync"]
             .iter()
             .map(|s| s.to_string())
             .collect();
