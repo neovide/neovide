@@ -203,12 +203,14 @@ mod tests {
     #[test]
     #[serial]
     fn test_files_to_open_with_passthrough() {
-        let args: Vec<String> = ["neovide",
+        let args: Vec<String> = [
+            "neovide",
             "--no-tabs",
             "./foo.txt",
             "./bar.md",
             "--",
-            "--clean"]
+            "--clean",
+        ]
         .iter()
         .map(|s| s.to_string())
         .collect();
@@ -282,10 +284,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_log_to_file() {
-        let args: Vec<String> = ["neovide", "--log"]
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
+        let args: Vec<String> = ["neovide", "--log"].iter().map(|s| s.to_string()).collect();
 
         handle_command_line_arguments(args).expect("Could not parse arguments");
         assert!(SETTINGS.get::<CmdLineSettings>().log_to_file);
