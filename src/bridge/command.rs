@@ -10,7 +10,7 @@ use anyhow::{bail, Result};
 use log::debug;
 use tokio::process::Command as TokioCommand;
 
-use crate::{cmd_line::CmdLineSettings, settings::*};
+use crate::settings::*;
 
 pub fn create_nvim_command() -> Result<TokioCommand> {
     let mut cmd = build_nvim_cmd()?;

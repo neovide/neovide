@@ -10,12 +10,11 @@ use skia_safe::{
 };
 
 use crate::{
-    cmd_line::CmdLineSettings,
     dimensions::Dimensions,
     editor::{AnchorInfo, Style, WindowType},
     profiling::tracy_zone,
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
-    settings::SETTINGS,
+    settings::{CmdLineSettings, SETTINGS},
     utils::RingBuffer,
 };
 

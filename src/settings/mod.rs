@@ -1,3 +1,5 @@
+mod cmd_line;
+mod config;
 mod from_value;
 mod window_size;
 
@@ -14,14 +16,13 @@ use std::{
 };
 
 use crate::bridge::NeovimWriter;
+pub use cmd_line::*;
+pub use config::Config;
 pub use from_value::ParseFromValue;
 pub use window_size::{
     load_last_window_settings, save_window_size, PersistentWindowSettings, DEFAULT_GRID_SIZE,
     MAX_GRID_SIZE, MIN_GRID_SIZE,
 };
-
-mod config;
-pub use config::Config;
 
 lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new();

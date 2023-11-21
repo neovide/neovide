@@ -19,8 +19,8 @@ use winit::{
 
 use crate::{
     clipboard,
-    cmd_line::SRGB_DEFAULT,
     renderer::{build_context, build_window, GlWindow, WindowedContext},
+    settings::SRGB_DEFAULT,
     window::{load_icon, SkiaRenderer, UserEvent},
 };
 

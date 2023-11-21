@@ -1,4 +1,4 @@
-use crate::{cmd_line::CmdLineSettings, settings::*};
+use crate::settings::*;
 
 #[derive(Clone, SettingGroup)]
 pub struct WindowSettings {

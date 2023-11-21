@@ -47,12 +47,14 @@ use update_loop::UpdateLoop;
 use window_wrapper::WinitWindowWrapper;
 
 use crate::{
-    cmd_line::{CmdLineSettings, GeometryArgs},
     dimensions::Dimensions,
     frame::Frame,
     renderer::{build_window, GlWindow},
     running_tracker::*,
-    settings::{load_last_window_settings, save_window_size, PersistentWindowSettings, SETTINGS},
+    settings::{
+        load_last_window_settings, save_window_size, CmdLineSettings, GeometryArgs,
+        PersistentWindowSettings, SETTINGS,
+    },
 };
 pub use error_window::show_error_window;
 pub use settings::{WindowSettings, WindowSettingsChanged};

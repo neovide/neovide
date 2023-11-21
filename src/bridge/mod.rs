@@ -17,7 +17,7 @@ use tokio::{
     task::JoinHandle,
 };
 
-use crate::{cmd_line::CmdLineSettings, dimensions::Dimensions, running_tracker::*, settings::*};
+use crate::{dimensions::Dimensions, running_tracker::*, settings::*};
 use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
 use setup::setup_neovide_specific_state;

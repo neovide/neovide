@@ -11,7 +11,6 @@ extern crate clap;
 mod bridge;
 mod channel_utils;
 mod clipboard;
-mod cmd_line;
 mod dimensions;
 mod editor;
 mod error_handling;
@@ -47,11 +46,10 @@ use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
 
 use backtrace::Backtrace;
 use bridge::NeovimRuntime;
-use cmd_line::CmdLineSettings;
 use editor::start_editor;
 use error_handling::{handle_startup_errors, NeovideExitCode};
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
-use settings::SETTINGS;
+use settings::{CmdLineSettings, SETTINGS};
 use window::{
     create_event_loop, create_window, determine_window_size, main_loop, WindowSettings, WindowSize,
 };
@@ -165,7 +163,7 @@ fn setup() -> Result<(WindowSize, NeovimRuntime)> {
     Config::init();
 
     //Will exit if -h or -v
-    cmd_line::handle_command_line_arguments(args().collect())?;
+    settings::handle_command_line_arguments(args().collect())?;
     #[cfg(not(target_os = "windows"))]
     maybe_disown();
     startup_profiler();
