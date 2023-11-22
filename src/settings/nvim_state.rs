@@ -14,7 +14,7 @@ use super::SettingsManager;
 type UpdateHandlerFunc = fn(&SettingsManager, Value, bool);
 type ReaderHandlerFunc = fn(&SettingsManager) -> Option<Value>;
 
-pub trait SettingGroup {
+pub trait SettingGroup: Send + Sync + Clone + 'static {
     type ChangedEvent: Debug + Clone + Send + Sync + Any;
     fn register(nvim_state: &NvimStateManager) -> Self;
 }
@@ -132,7 +132,8 @@ impl NvimStateManager {
     }
 
     pub fn register<T: SettingGroup>(&self) {
-        T::register(self);
+        let settings = T::register(self);
+        self.settings.set(&settings);
     }
 }
 

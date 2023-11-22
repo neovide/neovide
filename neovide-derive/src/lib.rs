@@ -75,7 +75,8 @@ fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream 
             quote! {{
                 fn update(settings: &crate::settings::SettingsManager, value: rmpv::Value, send_changed_event: bool) {
                     let mut s = settings.get::<#name>();
-                    s.#ident.parse_from_value(value);
+
+                    crate::settings::ParseFromValue::parse_from_value(&mut s.#ident, value);
                     settings.set(&s);
                     if send_changed_event {
                         crate::event_aggregator::EVENT_AGGREGATOR.send(

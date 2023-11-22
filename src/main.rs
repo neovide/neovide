@@ -33,7 +33,7 @@ extern crate lazy_static;
 
 use anyhow::Result;
 use log::trace;
-use std::env::{self, args};
+use std::env;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::panic::{set_hook, PanicInfo};
@@ -62,12 +62,77 @@ pub use running_tracker::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
-use crate::settings::{load_last_window_settings, Config, PersistentWindowSettings, NVIM_STATE};
+use crate::settings::{load_last_window_settings, PersistentWindowSettings, NVIM_STATE};
 
 pub use profiling::startup_profiler;
 
 const BACKTRACES_FILE: &str = "neovide_backtraces.log";
 const REQUEST_MESSAGE: &str = "This is a bug and we would love for it to be reported to https://github.com/neovide/neovide/issues";
+
+//  --------------
+// | Architecture |
+//  --------------
+//
+// BRIDGE:
+//   The bridge is responsible for the connection to the neovim process itself. It is in charge
+//   of starting and communicating to and from the process. The bridge is async and has a
+//   couple of sub components:
+//
+//     NEOVIM HANDLER:
+//       This component handles events from neovim sent specifically to the gui. This includes
+//       redraw events responsible for updating the gui state, and custom neovide specific
+//       events which are registered on startup and handle syncing of settings or features from
+//       the neovim process.
+//
+//     UI COMMAND HANDLER:
+//       This component handles communication from other components to the neovim process. The
+//       commands are split into Serial and Parallel commands. Serial commands must be
+//       processed in order while parallel commands can be processed in any order and in
+//       parallel.
+//
+// EDITOR:
+//   The editor is responsible for processing and transforming redraw events into something
+//   more readily renderable. Ligature support and multi window management requires some
+//   significant preprocessing of the redraw events in order to capture what exactly should get
+//   drawn where. Further this step takes a bit of processing power to accomplish, so it is done
+//   on it's own thread. Ideally heavily computationally expensive tasks should be done in the
+//   editor.
+//
+// RENDERER:
+//   The renderer is responsible for drawing the editor's output to the screen. It uses skia
+//   for drawing and is responsible for maintaining the various draw surfaces which are stored
+//   to prevent unnecessary redraws.
+//
+// WINDOW:
+//   The window is responsible for rendering and gathering input events from the user. This
+//   inncludes taking the draw commands from the editor and turning them into pixels on the
+//   screen. The ui commands are then forwarded back to the BRIDGE to convert them into
+//   commands for neovim to handle properly.
+//
+//  ------------------
+// | Other Components |
+//  ------------------
+//
+// Neovide also includes some other systems which are globally available via lazy static
+// instantiations.
+//
+// EVENT AGGREGATOR:
+//   Central system which distributes events to each of the other components. This is done
+//   using TypeIds and channels. Any component can publish any Clone + Debug + Send + Sync type
+//   to the aggregator, but only one component can subscribe to any type. The system takes
+//   pains to ensure that channels are shared by thread in order to keep things performant.
+//   Also tokio channels are used so that the async components can properly await for events.
+//
+// SETTINGS:
+//   The settings system is live updated from global variables in neovim with the prefix
+//   "neovide". They allow us to configure and manage the functionality of neovide from neovim
+//   init scripts and variables.
+//
+// REDRAW SCHEDULER:
+//   The redraw scheduler is a simple system in charge of deciding if the renderer should draw
+//   another frame next frame, or if it can safely skip drawing to save battery and cpu power.
+//   Multiple other parts of the app "queue_next_frame" function to ensure animations continue
+//   properly or updates to the graphics are pushed to the screen.
 
 fn main() -> NeovideExitCode {
     set_hook(Box::new(|panic_info| {
@@ -78,11 +143,6 @@ fn main() -> NeovideExitCode {
 
         log_panic_to_file(panic_info, &backtrace);
     }));
-
-    #[cfg(target_os = "windows")]
-    {
-        windows_fix_dpi();
-    }
 
     let event_loop = create_event_loop();
 
@@ -98,86 +158,19 @@ fn main() -> NeovideExitCode {
 }
 
 fn setup() -> Result<(WindowSize, NeovimRuntime)> {
-    //  --------------
-    // | Architecture |
-    //  --------------
-    //
-    // BRIDGE:
-    //   The bridge is responsible for the connection to the neovim process itself. It is in charge
-    //   of starting and communicating to and from the process. The bridge is async and has a
-    //   couple of sub components:
-    //
-    //     NEOVIM HANDLER:
-    //       This component handles events from neovim sent specifically to the gui. This includes
-    //       redraw events responsible for updating the gui state, and custom neovide specific
-    //       events which are registered on startup and handle syncing of settings or features from
-    //       the neovim process.
-    //
-    //     UI COMMAND HANDLER:
-    //       This component handles communication from other components to the neovim process. The
-    //       commands are split into Serial and Parallel commands. Serial commands must be
-    //       processed in order while parallel commands can be processed in any order and in
-    //       parallel.
-    //
-    // EDITOR:
-    //   The editor is responsible for processing and transforming redraw events into something
-    //   more readily renderable. Ligature support and multi window management requires some
-    //   significant preprocessing of the redraw events in order to capture what exactly should get
-    //   drawn where. Further this step takes a bit of processing power to accomplish, so it is done
-    //   on it's own thread. Ideally heavily computationally expensive tasks should be done in the
-    //   editor.
-    //
-    // RENDERER:
-    //   The renderer is responsible for drawing the editor's output to the screen. It uses skia
-    //   for drawing and is responsible for maintaining the various draw surfaces which are stored
-    //   to prevent unnecessary redraws.
-    //
-    // WINDOW:
-    //   The window is responsible for rendering and gathering input events from the user. This
-    //   inncludes taking the draw commands from the editor and turning them into pixels on the
-    //   screen. The ui commands are then forwarded back to the BRIDGE to convert them into
-    //   commands for neovim to handle properly.
-    //
-    //  ------------------
-    // | Other Components |
-    //  ------------------
-    //
-    // Neovide also includes some other systems which are globally available via lazy static
-    // instantiations.
-    //
-    // EVENT AGGREGATOR:
-    //   Central system which distributes events to each of the other components. This is done
-    //   using TypeIds and channels. Any component can publish any Clone + Debug + Send + Sync type
-    //   to the aggregator, but only one component can subscribe to any type. The system takes
-    //   pains to ensure that channels are shared by thread in order to keep things performant.
-    //   Also tokio channels are used so that the async components can properly await for events.
-    //
-    // SETTINGS:
-    //   The settings system is live updated from global variables in neovim with the prefix
-    //   "neovide". They allow us to configure and manage the functionality of neovide from neovim
-    //   init scripts and variables.
-    //
-    // REDRAW SCHEDULER:
-    //   The redraw scheduler is a simple system in charge of deciding if the renderer should draw
-    //   another frame next frame, or if it can safely skip drawing to save battery and cpu power.
-    //   Multiple other parts of the app "queue_next_frame" function to ensure animations continue
-    //   properly or updates to the graphics are pushed to the screen.
-    Config::init();
-
-    //Will exit if -h or -v
-    settings::handle_command_line_arguments(args().collect())?;
+    settings::initialize_settings()?;
     #[cfg(not(target_os = "windows"))]
     maybe_disown();
     startup_profiler();
 
     #[cfg(not(test))]
     init_logger();
-
     trace!("Neovide version: {}", crate_version!());
 
     NVIM_STATE.register::<WindowSettings>();
     NVIM_STATE.register::<RendererSettings>();
     NVIM_STATE.register::<CursorSettings>();
+
     let window_settings = load_last_window_settings().ok();
     let window_size = determine_window_size(window_settings.as_ref());
     let grid_size = match window_size {

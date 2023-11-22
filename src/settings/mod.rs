@@ -23,11 +23,13 @@ mod from_value;
 mod nvim_state;
 mod window_size;
 
+use anyhow::Result;
 use parking_lot::RwLock;
 use rmpv::Value;
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
+    env::args,
     fmt::Debug,
     sync::Arc,
 };
@@ -44,6 +46,15 @@ pub use window_size::{
 lazy_static! {
     pub static ref SETTINGS: Arc<SettingsManager> = Arc::new(SettingsManager::new());
     pub static ref NVIM_STATE: NvimStateManager = NvimStateManager::new(&SETTINGS);
+}
+
+// Initializes the settings structs by reading the cmdline arguments and config file.
+// This will also exit if the command line parsing requires it (e.g. --help or --version)
+pub fn initialize_settings() -> Result<()> {
+    Config::init();
+    handle_command_line_arguments(args().collect())?;
+
+    Ok(())
 }
 
 // The Settings struct acts as a global container where each of Neovide's subsystems can store
