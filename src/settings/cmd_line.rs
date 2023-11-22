@@ -29,7 +29,7 @@ pub struct CmdLineSettings {
     )]
     pub neovim_args: Vec<String>,
 
-    /// If to enable logging to a file in the current directory
+    /// Write logs out to a file in the current directory
     #[arg(long = "log")]
     pub log_to_file: bool,
 

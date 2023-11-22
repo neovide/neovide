@@ -35,7 +35,7 @@ use std::{
 };
 
 pub use cmd_line::*;
-pub use config_file::Config;
+pub use config_file::ConfigFile;
 pub use from_value::ParseFromValue;
 pub use nvim_state::{NvimStateManager, SettingGroup, SettingLocation};
 pub use window_size::{
@@ -51,7 +51,7 @@ lazy_static! {
 // Initializes the settings structs by reading the cmdline arguments and config file.
 // This will also exit if the command line parsing requires it (e.g. --help or --version)
 pub fn initialize_settings() -> Result<()> {
-    Config::init();
+    ConfigFile::init();
     handle_command_line_arguments(args().collect())?;
 
     Ok(())

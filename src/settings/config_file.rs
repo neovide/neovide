@@ -1,4 +1,4 @@
-// Config file handling
+//! Config file handling
 
 use std::env;
 
@@ -31,7 +31,7 @@ pub fn config_path() -> PathBuf {
 
 #[derive(Debug, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
-pub struct Config {
+pub struct ConfigFile {
     pub wsl: Option<bool>,
     pub no_multigrid: Option<bool>,
     pub maximized: Option<bool>,
@@ -43,10 +43,10 @@ pub struct Config {
     pub theme: Option<String>,
 }
 
-impl Config {
+impl ConfigFile {
     /// Loads config from `config_path()` and writes it to env variables.
     pub fn init() {
-        match Config::load_from_path(&config_path()) {
+        match ConfigFile::load_from_path(&config_path()) {
             Ok(config) => config.write_to_env(),
             Err(Some(err)) => eprintln!("{err}"),
             Err(None) => {}
