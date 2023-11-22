@@ -6,7 +6,7 @@ use rmpv::Value;
 use super::setup_intro_message_autocommand;
 use crate::{
     bridge::NeovimWriter,
-    settings::{SettingLocation, SETTINGS},
+    settings::{SettingLocation, NVIM_STATE},
 };
 
 const INIT_LUA: &str = include_str!("../../lua/init.lua");
@@ -63,7 +63,7 @@ pub async fn setup_neovide_specific_state(
     let register_clipboard = should_handle_clipboard;
     let register_right_click = cfg!(target_os = "windows");
 
-    let settings = SETTINGS.setting_locations();
+    let settings = NVIM_STATE.setting_locations();
     let global_variable_settings = settings
         .iter()
         .filter_map(|s| match s {

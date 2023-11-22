@@ -10,12 +10,11 @@ use skia_safe::{
 };
 
 use crate::{
-    cmd_line::CmdLineSettings,
     dimensions::Dimensions,
     editor::{AnchorInfo, Style, WindowType},
     profiling::tracy_zone,
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
-    settings::SETTINGS,
+    settings::{CmdLineSettings, SETTINGS},
     utils::RingBuffer,
 };
 
@@ -98,7 +97,7 @@ pub struct WindowDrawDetails {
 
 impl WindowDrawDetails {
     pub fn event_grid_id(&self) -> u64 {
-        if SETTINGS.get::<CmdLineSettings>().no_multi_grid {
+        if SETTINGS.get::<CmdLineSettings>().no_multigrid {
             0
         } else {
             self.id

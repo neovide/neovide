@@ -12,7 +12,7 @@ use crate::{
     profiling::tracy_zone,
     renderer::animation_utils::*,
     renderer::{GridRenderer, RenderedWindow},
-    settings::{ParseFromValue, SETTINGS},
+    settings::SETTINGS,
     window::UserEvent,
 };
 
