@@ -49,7 +49,9 @@ use bridge::NeovimRuntime;
 use editor::start_editor;
 use error_handling::{handle_startup_errors, NeovideExitCode};
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
-use settings::{CmdLineSettings, SETTINGS};
+use settings::CmdLineSettings;
+#[cfg(not(test))]
+use settings::SETTINGS;
 use window::{
     create_event_loop, create_window, determine_window_size, main_loop, WindowSettings, WindowSize,
 };
@@ -60,7 +62,7 @@ pub use running_tracker::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
-use crate::settings::{load_last_window_settings, Config, PersistentWindowSettings};
+use crate::settings::{load_last_window_settings, Config, PersistentWindowSettings, NVIM_STATE};
 
 pub use profiling::startup_profiler;
 
@@ -173,9 +175,9 @@ fn setup() -> Result<(WindowSize, NeovimRuntime)> {
 
     trace!("Neovide version: {}", crate_version!());
 
-    SETTINGS.register::<WindowSettings>();
-    SETTINGS.register::<RendererSettings>();
-    SETTINGS.register::<CursorSettings>();
+    NVIM_STATE.register::<WindowSettings>();
+    NVIM_STATE.register::<RendererSettings>();
+    NVIM_STATE.register::<CursorSettings>();
     let window_settings = load_last_window_settings().ok();
     let window_size = determine_window_size(window_settings.as_ref());
     let grid_size = match window_size {

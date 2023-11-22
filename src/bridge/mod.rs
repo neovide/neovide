@@ -116,11 +116,11 @@ async fn launch(grid_size: Option<Dimensions>) -> Result<NeovimSession> {
     setup_neovide_specific_state(&session.neovim, should_handle_clipboard).await?;
 
     start_ui_command_handler(Arc::clone(&session.neovim));
-    SETTINGS.read_initial_values(&session.neovim).await?;
+    NVIM_STATE.read_initial_values(&session.neovim).await?;
 
     let mut options = UiAttachOptions::new();
     options.set_linegrid_external(true);
-    options.set_multigrid_external(!settings.no_multi_grid);
+    options.set_multigrid_external(!settings.no_multigrid);
     options.set_rgb(true);
 
     // Triggers loading the user config

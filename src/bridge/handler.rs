@@ -12,7 +12,7 @@ use crate::{
     error_handling::ResultPanicExplanation,
     event_aggregator::EVENT_AGGREGATOR,
     running_tracker::*,
-    settings::SETTINGS,
+    settings::NVIM_STATE,
     window::WindowCommand,
 };
 
@@ -78,10 +78,10 @@ impl Handler for NeovimHandler {
                 }
             }
             "setting_changed" => {
-                SETTINGS.handle_setting_changed_notification(arguments);
+                NVIM_STATE.handle_setting_changed_notification(arguments);
             }
             "option_changed" => {
-                SETTINGS.handle_option_changed_notification(arguments);
+                NVIM_STATE.handle_option_changed_notification(arguments);
             }
             "neovide.quit" => {
                 let error_code = arguments[0]

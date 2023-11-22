@@ -59,21 +59,21 @@ fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream 
             // Only create a reader function for global neovide variables
             let reader = if option_name.is_none() {
                 quote! {
-                    fn reader(settings: &crate::settings::Settings) -> Option<rmpv::Value> {
+                    fn reader(settings: &crate::settings::SettingsManager) -> Option<rmpv::Value> {
                         let s = settings.get::<#name>();
                         Some(s.#ident.into())
                     }
                 }
             } else {
                 quote! {
-                    fn reader(_settings: &crate::settings::Settings) -> Option<rmpv::Value> {
+                    fn reader(_settings: &crate::settings::SettingsManager) -> Option<rmpv::Value> {
                         None
                     }
                 }
             };
 
             quote! {{
-                fn update(settings: &crate::settings::Settings, value: rmpv::Value, send_changed_event: bool) {
+                fn update(settings: &crate::settings::SettingsManager, value: rmpv::Value, send_changed_event: bool) {
                     let mut s = settings.get::<#name>();
                     s.#ident.parse_from_value(value);
                     settings.set(&s);
@@ -86,7 +86,7 @@ fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream 
 
                 #reader
 
-                settings.set_setting_handlers(
+                nvim_state.set_setting_handlers(
                     #location,
                     update,
                     reader,
@@ -115,10 +115,10 @@ fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream 
 
         impl crate::settings::SettingGroup for #name {
             type ChangedEvent = #event_name;
-            fn register(settings: &crate::settings::Settings) {
+            fn register(nvim_state: &crate::settings::NvimStateManager) -> Self {
                 let s: Self = Default::default();
-                settings.set(&s);
                 #(#listener_fragments)*
+                s
             }
         }
     };

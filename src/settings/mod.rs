@@ -1,41 +1,50 @@
+//! Neovide's settings are stored in a central lazy_static variable called SETTINGS. It contains
+//! a hashmap of sub-settings structs that are indexed by their type.
+//!
+//! The value of each setting are sourced from 4 different places and overwrite each other in this
+//! order:
+//! 1. Config File
+//! 2. Environment Variables
+//! 3. Command Line Arguments
+//! 4. Neovim Variables and Options
+//!
+//! This order was selected such that settings methods that change more infrequently are overwritten by
+//! settings that change more frequently. A command line argument is more effermable than an environment
+//! variable. Similarly a user's config may define commands which increment or decrement a global
+//! neovide variable which they wouldn't want to be overwritten by the value in the file.
+//!
+//! Lastly, some settings are not changeable after startup. These settings are required to be set
+//! either before window creation or before the neovim process is started and so cannot be sourced
+//! easily from neovim global state.
+
 mod cmd_line;
-mod config;
+mod config_file;
 mod from_value;
+mod nvim_state;
 mod window_size;
 
-use anyhow::{Context, Result};
-use log::trace;
-use nvim_rs::Neovim;
 use parking_lot::RwLock;
 use rmpv::Value;
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
-    convert::TryInto,
     fmt::Debug,
+    sync::Arc,
 };
 
-use crate::bridge::NeovimWriter;
 pub use cmd_line::*;
-pub use config::Config;
+pub use config_file::Config;
 pub use from_value::ParseFromValue;
+pub use nvim_state::{NvimStateManager, SettingGroup, SettingLocation};
 pub use window_size::{
     load_last_window_settings, save_window_size, PersistentWindowSettings, DEFAULT_GRID_SIZE,
     MAX_GRID_SIZE, MIN_GRID_SIZE,
 };
 
 lazy_static! {
-    pub static ref SETTINGS: Settings = Settings::new();
+    pub static ref SETTINGS: Arc<SettingsManager> = Arc::new(SettingsManager::new());
+    pub static ref NVIM_STATE: NvimStateManager = NvimStateManager::new(&SETTINGS);
 }
-
-pub trait SettingGroup {
-    type ChangedEvent: Debug + Clone + Send + Sync + Any;
-    fn register(settings: &Settings);
-}
-
-// Function types to handle settings updates
-type UpdateHandlerFunc = fn(&Settings, Value, bool);
-type ReaderHandlerFunc = fn(&Settings) -> Option<Value>;
 
 // The Settings struct acts as a global container where each of Neovide's subsystems can store
 // their own settings. It will also coordinate updates between Neovide and nvim to make sure the
@@ -44,42 +53,15 @@ type ReaderHandlerFunc = fn(&Settings) -> Option<Value>;
 // read_initial_values call, after that point we should not modify the contents of the Settings
 // struct except when prompted by an update event from nvim. Otherwise, the settings in Neovide and
 // nvim will get out of sync.
-pub struct Settings {
+pub struct SettingsManager {
     settings: RwLock<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
-    updaters: RwLock<HashMap<SettingLocation, UpdateHandlerFunc>>,
-    readers: RwLock<HashMap<SettingLocation, ReaderHandlerFunc>>,
 }
 
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub enum SettingLocation {
-    // Setting from global variable with neovide prefix
-    NeovideGlobal(String),
-    // Setting from global neovim option
-    NeovimOption(String),
-}
-
-impl Settings {
+impl SettingsManager {
     fn new() -> Self {
         Self {
             settings: RwLock::new(HashMap::new()),
-            updaters: RwLock::new(HashMap::new()),
-            readers: RwLock::new(HashMap::new()),
         }
-    }
-
-    pub fn set_setting_handlers(
-        &self,
-        setting_location: SettingLocation,
-        update_func: UpdateHandlerFunc,
-        reader_func: ReaderHandlerFunc,
-    ) {
-        self.updaters
-            .write()
-            .insert(setting_location.clone(), update_func);
-
-        self.readers
-            .write()
-            .insert(setting_location.clone(), reader_func);
     }
 
     pub fn set<T: Clone + Send + Sync + 'static>(&self, t: &T) {
@@ -98,232 +80,5 @@ impl Settings {
             .downcast_ref::<T>()
             .expect("Attempted to extract a settings object of the wrong type");
         (*value).clone()
-    }
-
-    pub fn setting_locations(&self) -> Vec<SettingLocation> {
-        self.updaters.read().keys().cloned().collect()
-    }
-
-    pub async fn read_initial_values(&self, nvim: &Neovim<NeovimWriter>) -> Result<()> {
-        let keys: Vec<SettingLocation> = self.updaters.read().keys().cloned().collect();
-
-        for location in keys {
-            match &location {
-                SettingLocation::NeovideGlobal(name) => {
-                    let variable_name = format!("neovide_{name}");
-                    match nvim.get_var(&variable_name).await {
-                        Ok(value) => {
-                            self.updaters.read().get(&location).unwrap()(self, value, false);
-                        }
-                        Err(error) => {
-                            trace!("Initial value load failed for {}: {}", name, error);
-                            let value = self.readers.read().get(&location).unwrap()(self);
-                            if let Some(value) = value {
-                                nvim.set_var(&variable_name, value).await.with_context(|| {
-                                    format!("Could not set initial value for {name}")
-                                })?;
-                            }
-                        }
-                    }
-                }
-                SettingLocation::NeovimOption(name) => match nvim.get_option(name).await {
-                    Ok(value) => {
-                        self.updaters.read().get(&location).unwrap()(self, value, false);
-                    }
-                    Err(error) => {
-                        trace!("Initial value load failed for {}: {}", name, error);
-                    }
-                },
-            }
-        }
-        Ok(())
-    }
-
-    pub fn handle_setting_changed_notification(&self, arguments: Vec<Value>) {
-        let mut arguments = arguments.into_iter();
-        let (name, value) = (arguments.next().unwrap(), arguments.next().unwrap());
-
-        let name: Result<String, _> = name.try_into();
-        let name = name.unwrap();
-
-        self.updaters
-            .read()
-            .get(&SettingLocation::NeovideGlobal(name))
-            .unwrap()(self, value, true);
-    }
-
-    pub fn handle_option_changed_notification(&self, arguments: Vec<Value>) {
-        let mut arguments = arguments.into_iter();
-        let (name, value) = (arguments.next().unwrap(), arguments.next().unwrap());
-
-        let name: Result<String, _> = name.try_into();
-        let name = name.unwrap();
-
-        self.updaters
-            .read()
-            .get(&SettingLocation::NeovimOption(name))
-            .unwrap()(self, value, true);
-    }
-
-    pub fn register<T: SettingGroup>(&self) {
-        T::register(self);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use async_trait::async_trait;
-    use nvim_rs::{Handler, Neovim};
-
-    use super::*;
-    use crate::{
-        bridge::{
-            create_nvim_command,
-            session::{NeovimInstance, NeovimSession},
-        },
-        cmd_line::CmdLineSettings,
-        error_handling::ResultPanicExplanation,
-    };
-
-    #[derive(Clone)]
-    pub struct NeovimHandler();
-
-    #[async_trait]
-    impl Handler for NeovimHandler {
-        type Writer = NeovimWriter;
-
-        async fn handle_notify(
-            &self,
-            _event_name: String,
-            _arguments: Vec<Value>,
-            _neovim: Neovim<NeovimWriter>,
-        ) {
-        }
-    }
-
-    #[test]
-    fn test_set_setting_handlers() {
-        let settings = Settings::new();
-
-        let location = SettingLocation::NeovideGlobal("foo".to_owned());
-
-        fn noop_update(_settings: &Settings, _value: Value, _send_changed_event: bool) {}
-        fn noop_read(_settings: &Settings) -> Option<Value> {
-            None
-        }
-
-        settings.set_setting_handlers(location.clone(), noop_update, noop_read);
-        let listeners = settings.updaters.read();
-        let listener = listeners.get(&location).unwrap();
-        assert_eq!(&(noop_update as UpdateHandlerFunc), listener);
-    }
-
-    #[test]
-    fn test_set() {
-        let settings = Settings::new();
-
-        let v1: u32 = 1;
-        let v2: f32 = 1.0;
-        let vt1 = TypeId::of::<u32>();
-        let vt2 = TypeId::of::<f32>();
-        let v3: u32 = 2;
-
-        {
-            settings.set(&v1);
-
-            let values = settings.settings.read();
-            let r1 = values.get(&vt1).unwrap().downcast_ref::<u32>().unwrap();
-            assert_eq!(v1, *r1);
-        }
-
-        {
-            settings.set(&v2);
-            settings.set(&v3);
-
-            let values = settings.settings.read();
-            let r2 = values.get(&vt1).unwrap().downcast_ref::<u32>().unwrap();
-            let r3 = values.get(&vt2).unwrap().downcast_ref::<f32>().unwrap();
-
-            assert_eq!(v3, *r2);
-            assert_eq!(v2, *r3);
-        }
-    }
-
-    #[test]
-    fn test_get() {
-        let settings = Settings::new();
-
-        let v1: u32 = 1;
-        let v2: f32 = 1.0;
-        let vt1 = TypeId::of::<u32>();
-        let vt2 = TypeId::of::<f32>();
-
-        let mut values = settings.settings.write();
-        values.insert(vt1, Box::new(v1));
-        values.insert(vt2, Box::new(v2));
-
-        unsafe {
-            settings.settings.force_unlock_write();
-        }
-
-        let r1 = settings.get::<u32>();
-        let r2 = settings.get::<f32>();
-
-        assert_eq!(v1, r1);
-        assert_eq!(v2, r2);
-    }
-
-    #[tokio::test]
-    async fn test_read_initial_values() {
-        #[derive(Clone, SettingGroup)]
-        struct TestSettings {
-            foo: String,
-            bar: String,
-            baz: String,
-            #[option = "mousemoveevent"]
-            mousemoveevent_option: Option<bool>,
-        }
-
-        impl Default for TestSettings {
-            fn default() -> Self {
-                Self {
-                    foo: "foo".to_string(),
-                    bar: "bar".to_string(),
-                    baz: "baz".to_string(),
-                    mousemoveevent_option: None,
-                }
-            }
-        }
-
-        let settings = Settings::new();
-        settings.register::<TestSettings>();
-
-        //create_nvim_command tries to read from CmdLineSettings.neovim_args
-        //TODO: this sets a static variable. Can this have side effects on other tests?
-        SETTINGS.set::<CmdLineSettings>(&CmdLineSettings::default());
-
-        let command =
-            create_nvim_command().unwrap_or_explained_panic("Could not create nvim command");
-        let instance = NeovimInstance::Embedded(command);
-        let NeovimSession { neovim: nvim, .. } = NeovimSession::new(instance, NeovimHandler())
-            .await
-            .unwrap_or_explained_panic("Could not locate or start the neovim process");
-        nvim.set_var("neovide_bar", Value::from("bar_set".to_owned()))
-            .await
-            .expect("Could not set neovide_bar variable");
-        nvim.set_option("mousemoveevent", Value::from(true))
-            .await
-            .expect("Could not set mousemoveevent option");
-
-        settings
-            .read_initial_values(&nvim)
-            .await
-            .expect("Read initial values failed");
-
-        let test_settings = settings.get::<TestSettings>();
-        assert_eq!(test_settings.foo, "foo");
-        assert_eq!(test_settings.bar, "bar_set");
-        assert_eq!(test_settings.baz, "baz");
-        assert_eq!(test_settings.mousemoveevent_option, Some(true));
     }
 }
