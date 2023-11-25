@@ -123,7 +123,7 @@ pub fn build_context(window: GlWindow, srgb: bool, vsync: bool) -> Context {
     // NOTE: We don't care if these fails, the driver can override the SwapInterval in any case, so it needs to work in all cases
     // The OpenGL VSync is always disabled on Wayland and Windows, since they have their own
     // implementation
-    let _ = if vsync && env::var("WAYLAND_DISPLAY").is_err() && OS != "windows" {
+    let _ = if vsync && env::var("WAYLAND_DISPLAY").is_err() && OS != "windows" && OS != "macos" {
         surface.set_swap_interval(&context, SwapInterval::Wait(NonZeroU32::new(1).unwrap()))
     } else {
         surface.set_swap_interval(&context, SwapInterval::DontWait)
