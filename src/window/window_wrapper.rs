@@ -68,14 +68,15 @@ pub struct WinitWindowWrapper {
     window_padding: WindowPadding,
     initial_window_size: WindowSize,
     is_minimized: bool,
+    pub vsync: VSync,
 }
 
 impl WinitWindowWrapper {
     pub fn new(window: GlWindow, initial_window_size: WindowSize) -> Self {
         let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
         let srgb = cmd_line_settings.srgb;
-        let vsync = cmd_line_settings.vsync;
-        let windowed_context = build_context(window, srgb, vsync);
+        let vsync_enabled = cmd_line_settings.vsync;
+        let windowed_context = build_context(window, srgb, vsync_enabled);
         let window = windowed_context.window();
 
         let scale_factor = windowed_context.window().scale_factor();
@@ -104,6 +105,8 @@ impl WinitWindowWrapper {
             _ => {}
         }
 
+        let vsync = VSync::new(vsync_enabled, &windowed_context);
+
         let mut wrapper = WinitWindowWrapper {
             windowed_context,
             skia_renderer,
@@ -130,6 +133,7 @@ impl WinitWindowWrapper {
             },
             initial_window_size,
             is_minimized: false,
+            vsync,
         };
 
         wrapper.set_ime(ime_enabled);
@@ -301,12 +305,18 @@ impl WinitWindowWrapper {
                     set_background(background);
                 }
             }
+            Event::WindowEvent {
+                event: WindowEvent::Moved(_),
+                ..
+            } => {
+                self.vsync.update(&self.windowed_context);
+            }
             _ => {}
         }
         should_render
     }
 
-    pub fn draw_frame(&mut self, vsync: &mut VSync, dt: f32) {
+    pub fn draw_frame(&mut self, dt: f32) {
         tracy_zone!("draw_frame");
         self.renderer.prepare_lines();
         self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
@@ -316,7 +326,7 @@ impl WinitWindowWrapper {
         }
         {
             tracy_gpu_zone!("wait for vsync");
-            vsync.wait_for_vsync();
+            self.vsync.wait_for_vsync();
         }
         {
             tracy_gpu_zone!("swap buffers");

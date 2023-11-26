@@ -11,7 +11,6 @@ use super::draw_background;
 use super::{UserEvent, WindowSettings, WinitWindowWrapper};
 use crate::{
     profiling::{tracy_create_gpu_context, tracy_zone},
-    renderer::{VSync, WindowedContext},
     settings::SETTINGS,
 };
 
@@ -31,11 +30,10 @@ pub struct UpdateLoop {
     should_render: bool,
     num_consecutive_rendered: u32,
     focused: FocusedState,
-    vsync: VSync,
 }
 
 impl UpdateLoop {
-    pub fn new(vsync_enabled: bool, idle: bool, context: &WindowedContext) -> Self {
+    pub fn new(idle: bool) -> Self {
         tracy_create_gpu_context("main_render_context");
 
         let previous_frame_start = Instant::now();
@@ -44,7 +42,6 @@ impl UpdateLoop {
         let should_render = true;
         let num_consecutive_rendered = 0;
         let focused = FocusedState::Focused;
-        let vsync = VSync::new(vsync_enabled, context);
 
         Self {
             idle,
@@ -54,7 +51,6 @@ impl UpdateLoop {
             should_render,
             num_consecutive_rendered,
             focused,
-            vsync,
         }
     }
 
@@ -89,7 +85,7 @@ impl UpdateLoop {
         for _ in 0..num_steps as usize {
             self.should_render |= window_wrapper.animate_frame(step);
         }
-        window_wrapper.draw_frame(&mut self.vsync, self.last_dt);
+        window_wrapper.draw_frame(self.last_dt);
 
         if self.num_consecutive_rendered > 2 {
             self.frame_dt_avg
@@ -133,7 +129,7 @@ impl UpdateLoop {
             Ok(Event::AboutToWait) | Err(false) => {
                 self.should_render |= window_wrapper.prepare_frame();
                 if self.should_render || !self.idle {
-                    if self.vsync.uses_winit_throttling() {
+                    if window_wrapper.vsync.uses_winit_throttling() {
                         window_wrapper.windowed_context.window().request_redraw();
                     } else {
                         self.render(window_wrapper);
