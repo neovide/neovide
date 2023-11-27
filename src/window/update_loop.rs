@@ -22,6 +22,7 @@ enum FocusedState {
 }
 
 const MAX_ANIMATION_DT: f32 = 1.0 / 120.0;
+const MIN_ANIMATION_LENGTH: f32 = 0.1;
 
 pub struct UpdateLoop {
     idle: bool,
@@ -29,7 +30,9 @@ pub struct UpdateLoop {
     last_dt: f32,
     frame_dt_avg: NoSumSMA<f64, f64, 10>,
     should_render: bool,
+    new_updates: bool,
     num_consecutive_rendered: u32,
+    num_frames_since_update: u32,
     focused: FocusedState,
 }
 
@@ -41,7 +44,9 @@ impl UpdateLoop {
         let last_dt = 0.0;
         let frame_dt_avg = NoSumSMA::new();
         let should_render = true;
+        let new_updates = true;
         let num_consecutive_rendered = 0;
+        let num_frames_since_update = 0;
         let focused = FocusedState::Focused;
 
         Self {
@@ -50,7 +55,9 @@ impl UpdateLoop {
             last_dt,
             frame_dt_avg,
             should_render,
+            new_updates,
             num_consecutive_rendered,
+            num_frames_since_update,
             focused,
         }
     }
@@ -85,7 +92,15 @@ impl UpdateLoop {
             self.last_dt
         }
         .min(1.0);
-        self.should_render = window_wrapper.prepare_frame();
+        if self.new_updates {
+            self.num_frames_since_update = 0;
+        } else {
+            self.num_frames_since_update += 1;
+        }
+        self.new_updates = window_wrapper.prepare_frame();
+        self.should_render = self.new_updates;
+        let required_animation_frames = (MIN_ANIMATION_LENGTH / dt) as u32;
+        self.should_render |= self.num_frames_since_update < required_animation_frames;
         let num_steps = (dt / MAX_ANIMATION_DT).ceil();
         let step = dt / num_steps;
         for _ in 0..num_steps as usize {
@@ -133,7 +148,8 @@ impl UpdateLoop {
                 return Err(());
             }
             Ok(Event::AboutToWait) | Err(false) => {
-                self.should_render |= window_wrapper.prepare_frame();
+                self.new_updates |= window_wrapper.prepare_frame();
+                self.should_render |= self.new_updates;
                 if self.should_render || !self.idle {
                     if window_wrapper.vsync.uses_winit_throttling() {
                         window_wrapper.windowed_context.window().request_redraw();
@@ -158,7 +174,7 @@ impl UpdateLoop {
         window_wrapper.handle_window_settings_changed_events();
 
         if let Ok(event) = event {
-            self.should_render |= window_wrapper.handle_event(event);
+            self.new_updates |= window_wrapper.handle_event(event);
         }
 
         let (_, deadline) = self.get_event_wait_time(&window_wrapper.vsync);
