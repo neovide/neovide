@@ -11,6 +11,7 @@ use super::draw_background;
 use super::{UserEvent, WindowSettings, WinitWindowWrapper};
 use crate::{
     profiling::{tracy_create_gpu_context, tracy_zone},
+    renderer::VSync,
     settings::SETTINGS,
 };
 
@@ -54,17 +55,22 @@ impl UpdateLoop {
         }
     }
 
-    pub fn get_event_wait_time(&self) -> (Duration, Instant) {
+    pub fn get_event_wait_time(&self, vsync: &VSync) -> (Duration, Instant) {
         let refresh_rate = match self.focused {
-            FocusedState::Focused | FocusedState::UnfocusedNotDrawn => {
+            // NOTE: Always wait for the idle refresh rate when winit throttling is used to avoid waking up too early
+            // The winit redraw request will likely happen much before that and wake it up anyway
+            FocusedState::Focused | FocusedState::UnfocusedNotDrawn
+                if !vsync.uses_winit_throttling() =>
+            {
                 SETTINGS.get::<WindowSettings>().refresh_rate as f32
             }
-            FocusedState::Unfocused => SETTINGS.get::<WindowSettings>().refresh_rate_idle as f32,
+            _ => SETTINGS.get::<WindowSettings>().refresh_rate_idle as f32,
         }
         .max(1.0);
 
         let expected_frame_duration = Duration::from_secs_f32(1.0 / refresh_rate);
-        if self.num_consecutive_rendered > 0 {
+        if self.num_consecutive_rendered > 0 && !vsync.uses_winit_throttling() {
+            // Only poll when using native vsync
             (Duration::from_nanos(0), Instant::now())
         } else {
             let deadline = self.previous_frame_start + expected_frame_duration;
@@ -155,12 +161,7 @@ impl UpdateLoop {
             self.should_render |= window_wrapper.handle_event(event);
         }
 
-        let (_, deadline) = self.get_event_wait_time();
-
-        if self.num_consecutive_rendered > 0 {
-            Ok(ControlFlow::Poll)
-        } else {
-            Ok(ControlFlow::WaitUntil(deadline))
-        }
+        let (_, deadline) = self.get_event_wait_time(&window_wrapper.vsync);
+        Ok(ControlFlow::WaitUntil(deadline))
     }
 }
