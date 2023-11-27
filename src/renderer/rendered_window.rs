@@ -231,22 +231,26 @@ impl RenderedWindow {
         let scroll_offset_pixels = (scroll_offset * font_dimensions.height as f32).round() as isize;
         let mut has_transparency = false;
 
-        let lines: Vec<(Matrix, &Arc<Mutex<Line>>)> = (0..self.grid_size.height as isize + 1)
-            .filter_map(|i| {
-                self.scrollback_lines[scroll_offset_lines + i]
-                    .as_ref()
-                    .map(|line| (i, line))
-            })
-            .map(|(i, line)| {
-                let mut matrix = Matrix::new_identity();
-                matrix.set_translate((
-                    pixel_region.left(),
-                    pixel_region.top()
-                        + (scroll_offset_pixels + (i * font_dimensions.height as isize)) as f32,
-                ));
-                (matrix, line)
-            })
-            .collect();
+        let lines: Vec<(Matrix, &Arc<Mutex<Line>>)> = if self.grid_size.height > 0 {
+            (0..self.grid_size.height as isize + 1)
+                .filter_map(|i| {
+                    self.scrollback_lines[scroll_offset_lines + i]
+                        .as_ref()
+                        .map(|line| (i, line))
+                })
+                .map(|(i, line)| {
+                    let mut matrix = Matrix::new_identity();
+                    matrix.set_translate((
+                        pixel_region.left(),
+                        pixel_region.top()
+                            + (scroll_offset_pixels + (i * font_dimensions.height as isize)) as f32,
+                    ));
+                    (matrix, line)
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
 
         let mut background_paint = Paint::default();
         background_paint.set_blend_mode(BlendMode::Src);
@@ -277,6 +281,9 @@ impl RenderedWindow {
 
     fn has_transparency(&self) -> bool {
         let scroll_offset_lines = self.scroll_animation.position.floor() as isize;
+        if self.scrollback_lines.is_empty() {
+            return false;
+        }
         self.scrollback_lines
             .iter_range(
                 scroll_offset_lines..scroll_offset_lines + self.grid_size.height as isize + 1,
@@ -546,6 +553,9 @@ impl RenderedWindow {
     pub fn prepare_lines(&mut self, grid_renderer: &mut GridRenderer) {
         let scroll_offset_lines = self.scroll_animation.position.floor() as isize;
         let height = self.grid_size.height as isize;
+        if height == 0 {
+            return;
+        }
 
         for line in self
             .scrollback_lines
