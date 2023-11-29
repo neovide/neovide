@@ -44,7 +44,6 @@ use keyboard_manager::KeyboardManager;
 use mouse_manager::MouseManager;
 use renderer::SkiaRenderer;
 use update_loop::UpdateLoop;
-use window_wrapper::WinitWindowWrapper;
 
 use crate::{
     cmd_line::{CmdLineSettings, GeometryArgs},
@@ -56,6 +55,7 @@ use crate::{
 };
 pub use error_window::show_error_window;
 pub use settings::{WindowSettings, WindowSettingsChanged};
+pub use window_wrapper::WinitWindowWrapper;
 
 static ICON: &[u8] = include_bytes!("../../assets/neovide.ico");
 
@@ -275,13 +275,7 @@ pub fn main_loop(
             }
         }
 
-        let window = window_wrapper.windowed_context.window();
-        save_window_size(
-            window.is_maximized(),
-            window.inner_size(),
-            window_wrapper.get_grid_size(),
-            window.outer_position().ok(),
-        );
+        save_window_size(&window_wrapper);
     });
 
     let result = event_loop.run(|e, window_target| {
@@ -331,13 +325,7 @@ pub fn main_loop(
         }
 
         if !RUNNING_TRACKER.is_running() {
-            let window = window_wrapper.windowed_context.window();
-            save_window_size(
-                window.is_maximized(),
-                window.inner_size(),
-                window_wrapper.get_grid_size(),
-                window.outer_position().ok(),
-            );
+            save_window_size(&window_wrapper);
             window_target.exit();
         } else {
             window_target.set_control_flow(update_loop.step(&mut window_wrapper, Ok(e)).unwrap());
