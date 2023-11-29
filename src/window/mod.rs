@@ -13,7 +13,7 @@ mod draw_background;
 use std::env;
 
 use winit::{
-    dpi::PhysicalSize,
+    dpi::{PhysicalSize, Size},
     error::EventLoopError,
     event::Event,
     event_loop::{EventLoop, EventLoopBuilder},
@@ -62,6 +62,14 @@ static ICON: &[u8] = include_bytes!("../../assets/neovide.ico");
 const DEFAULT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
     width: 500,
     height: 500,
+};
+const MIN_PERSISTEN_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
+    width: 300,
+    height: 150,
+};
+const MAX_PERSISTENT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
+    width: 8192,
+    height: 8192,
 };
 
 #[derive(Clone, Debug)]
@@ -219,7 +227,19 @@ pub fn determine_window_size(window_settings: Option<&PersistentWindowSettings>)
             Some(PersistentWindowSettings::Windowed {
                 pixel_size: Some(pixel_size),
                 ..
-            }) => WindowSize::Size(*pixel_size),
+            }) => {
+                let size = Size::new(*pixel_size);
+                let scale = 1.0;
+                WindowSize::Size(
+                    Size::clamp(
+                        size,
+                        MIN_PERSISTEN_WINDOW_SIZE.into(),
+                        MAX_PERSISTENT_WINDOW_SIZE.into(),
+                        scale,
+                    )
+                    .to_physical(scale),
+                )
+            }
             _ => WindowSize::Size(DEFAULT_WINDOW_SIZE),
         },
     }
