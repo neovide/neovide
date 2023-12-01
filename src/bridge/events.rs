@@ -4,7 +4,7 @@ use std::{
     fmt::{self, Debug},
 };
 
-use log::debug;
+use log::{debug, warn};
 use rmpv::Value;
 use skia_safe::Color4f;
 
@@ -598,12 +598,19 @@ fn parse_grid_destroy(grid_destroy_arguments: Vec<Value>) -> Result<RedrawEvent>
 
 fn parse_grid_cursor_goto(cursor_goto_arguments: Vec<Value>) -> Result<RedrawEvent> {
     let [grid_id, row, column] = extract_values(cursor_goto_arguments)?;
+    let validate = |v, field| {
+        (if v < 0 {
+            warn!("Negative cursor {field} received from Neovim {v}");
+            0
+        } else {
+            v
+        }) as u64
+    };
+    let grid = parse_u64(grid_id)?;
+    let row = validate(parse_i64(row)?, "row");
+    let column = validate(parse_i64(column)?, "column");
 
-    Ok(RedrawEvent::CursorGoto {
-        grid: parse_u64(grid_id)?,
-        row: parse_u64(row)?,
-        column: parse_u64(column)?,
-    })
+    Ok(RedrawEvent::CursorGoto { grid, row, column })
 }
 
 fn parse_grid_scroll(grid_scroll_arguments: Vec<Value>) -> Result<RedrawEvent> {
