@@ -63,7 +63,7 @@ const DEFAULT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
     width: 500,
     height: 500,
 };
-const MIN_PERSISTEN_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
+const MIN_PERSISTENT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
     width: 300,
     height: 150,
 };
@@ -233,7 +233,7 @@ pub fn determine_window_size(window_settings: Option<&PersistentWindowSettings>)
                 WindowSize::Size(
                     Size::clamp(
                         size,
-                        MIN_PERSISTEN_WINDOW_SIZE.into(),
+                        MIN_PERSISTENT_WINDOW_SIZE.into(),
                         MAX_PERSISTENT_WINDOW_SIZE.into(),
                         scale,
                     )

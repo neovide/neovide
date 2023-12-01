@@ -130,7 +130,7 @@ local function get_intro_lines()
 
     -- Show the sponsor and register message one out of four times, the Uganda
     -- message two out of four times.
-    -- Use Vim rather tha lua  for rand to avoid polluting the random seed
+    -- Use Vim rather than lua for rand to avoid polluting the random seed
     local seed = vim.fn.srand()
     local help_type = (vim.fn.rand(seed) % 4) + 1
     if help_type <= 2 then
