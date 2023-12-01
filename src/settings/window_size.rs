@@ -3,7 +3,9 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 
-use crate::{dimensions::Dimensions, settings::SETTINGS, window::WindowSettings};
+use crate::{
+    dimensions::Dimensions, settings::SETTINGS, window::WindowSettings, window::WinitWindowWrapper,
+};
 
 const SETTINGS_FILE: &str = "neovide-settings.json";
 
@@ -64,12 +66,17 @@ pub fn load_last_window_settings() -> Result<PersistentWindowSettings, String> {
     Ok(loaded_settings)
 }
 
-pub fn save_window_size(
-    maximized: bool,
-    pixel_size: PhysicalSize<u32>,
-    grid_size: Dimensions,
-    position: Option<PhysicalPosition<i32>>,
-) {
+pub fn save_window_size(window_wrapper: &WinitWindowWrapper) {
+    let window = window_wrapper.windowed_context.window();
+    // Don't save the window size when the window is minimized, since the size can be 0
+    // Note wayland can't determine this
+    if window.is_minimized() == Some(true) {
+        return;
+    }
+    let maximized = window.is_maximized();
+    let pixel_size = window.inner_size();
+    let grid_size = window_wrapper.get_grid_size();
+    let position = window.outer_position().ok();
     let window_settings = SETTINGS.get::<WindowSettings>();
 
     let settings = PersistentSettings {

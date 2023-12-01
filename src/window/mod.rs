@@ -13,7 +13,7 @@ mod draw_background;
 use std::env;
 
 use winit::{
-    dpi::PhysicalSize,
+    dpi::{PhysicalSize, Size},
     error::EventLoopError,
     event::Event,
     event_loop::{EventLoop, EventLoopBuilder},
@@ -44,7 +44,6 @@ use keyboard_manager::KeyboardManager;
 use mouse_manager::MouseManager;
 use renderer::SkiaRenderer;
 use update_loop::UpdateLoop;
-use window_wrapper::WinitWindowWrapper;
 
 use crate::{
     cmd_line::{CmdLineSettings, GeometryArgs},
@@ -56,12 +55,21 @@ use crate::{
 };
 pub use error_window::show_error_window;
 pub use settings::{WindowSettings, WindowSettingsChanged};
+pub use window_wrapper::WinitWindowWrapper;
 
 static ICON: &[u8] = include_bytes!("../../assets/neovide.ico");
 
 const DEFAULT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
     width: 500,
     height: 500,
+};
+const MIN_PERSISTEN_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
+    width: 300,
+    height: 150,
+};
+const MAX_PERSISTENT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
+    width: 8192,
+    height: 8192,
 };
 
 #[derive(Clone, Debug)]
@@ -219,7 +227,19 @@ pub fn determine_window_size(window_settings: Option<&PersistentWindowSettings>)
             Some(PersistentWindowSettings::Windowed {
                 pixel_size: Some(pixel_size),
                 ..
-            }) => WindowSize::Size(*pixel_size),
+            }) => {
+                let size = Size::new(*pixel_size);
+                let scale = 1.0;
+                WindowSize::Size(
+                    Size::clamp(
+                        size,
+                        MIN_PERSISTEN_WINDOW_SIZE.into(),
+                        MAX_PERSISTENT_WINDOW_SIZE.into(),
+                        scale,
+                    )
+                    .to_physical(scale),
+                )
+            }
             _ => WindowSize::Size(DEFAULT_WINDOW_SIZE),
         },
     }
@@ -255,13 +275,7 @@ pub fn main_loop(
             }
         }
 
-        let window = window_wrapper.windowed_context.window();
-        save_window_size(
-            window.is_maximized(),
-            window.inner_size(),
-            window_wrapper.get_grid_size(),
-            window.outer_position().ok(),
-        );
+        save_window_size(&window_wrapper);
     });
 
     let result = event_loop.run(|e, window_target| {
@@ -311,13 +325,7 @@ pub fn main_loop(
         }
 
         if !RUNNING_TRACKER.is_running() {
-            let window = window_wrapper.windowed_context.window();
-            save_window_size(
-                window.is_maximized(),
-                window.inner_size(),
-                window_wrapper.get_grid_size(),
-                window.outer_position().ok(),
-            );
+            save_window_size(&window_wrapper);
             window_target.exit();
         } else {
             window_target.set_control_flow(update_loop.step(&mut window_wrapper, Ok(e)).unwrap());
