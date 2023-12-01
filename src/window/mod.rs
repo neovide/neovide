@@ -245,7 +245,7 @@ pub fn main_loop(
                 break;
             }
 
-            let (wait_duration, _) = update_loop.get_event_wait_time();
+            let (wait_duration, _) = update_loop.get_event_wait_time(&window_wrapper.vsync);
             let event = rx
                 .recv_timeout(wait_duration)
                 .map_err(|e| matches!(e, RecvTimeoutError::Disconnected));
