@@ -55,7 +55,7 @@ impl Default for WindowSettings {
             padding_bottom: 0,
             theme: "".to_string(),
             input_macos_alt_is_meta: false,
-            input_ime: false,
+            input_ime: true,
             mouse_move_event: false,
             observed_lines: None,
             observed_columns: None,
