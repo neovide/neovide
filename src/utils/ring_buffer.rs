@@ -72,8 +72,10 @@ impl<T: Clone> RingBuffer<T> {
     }
 
     pub fn resize(&mut self, new_size: usize, default_value: T) {
-        let index = self.get_array_index(0);
-        self.elements.rotate_left(index);
+        if new_size > 0 && !self.elements.is_empty() {
+            let index = self.get_array_index(0);
+            self.elements.rotate_left(index);
+        }
         self.elements.resize(new_size, default_value);
         self.current_index = 0;
     }
