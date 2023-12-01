@@ -414,7 +414,7 @@ impl WinitWindowWrapper {
 
             // Make the window Visible only after the size is adjusted
             self.windowed_context.window().set_visible(true);
-        } else if !matches!(self.windowed_context.window().is_minimized(), Some(true)) {
+        } else if self.windowed_context.window().is_minimized() != Some(true) {
             // NOTE: Only actually resize the grid when the window is not minimized
             // Some platforms return a zero size when that is the case, so we should not try to resize to that.
             let new_size = self.windowed_context.window().inner_size();

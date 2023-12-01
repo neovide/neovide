@@ -70,7 +70,7 @@ pub fn save_window_size(window_wrapper: &WinitWindowWrapper) {
     let window = window_wrapper.windowed_context.window();
     // Don't save the window size when the window is minimized, since the size can be 0
     // Note wayland can't determine this
-    if matches!(window.is_minimized(), Some(true)) {
+    if window.is_minimized() == Some(true) {
         return;
     }
     let maximized = window.is_maximized();
