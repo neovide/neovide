@@ -1,4 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    ops::Range,
+    sync::{Arc, Mutex},
+};
 
 use skia_safe::{
     canvas::SaveLayerRec,
@@ -62,6 +65,7 @@ struct Line {
     background_picture: Option<Picture>,
     foreground_picture: Option<Picture>,
     has_transparency: bool,
+    is_border: bool,
     is_valid: bool,
 }
 
@@ -78,6 +82,8 @@ pub struct RenderedWindow {
     scrollback_lines: RingBuffer<Option<Arc<Mutex<Line>>>>,
     actual_lines: RingBuffer<Option<Arc<Mutex<Line>>>>,
     scroll_delta: isize,
+    top_border: Range<isize>,
+    bottom_border: Range<isize>,
 
     grid_start_position: Point,
     pub grid_current_position: Point,
@@ -120,6 +126,8 @@ impl RenderedWindow {
             actual_lines: RingBuffer::new(grid_size.height as usize, None),
             scrollback_lines: RingBuffer::new(2 * grid_size.height as usize, None),
             scroll_delta: 0,
+            top_border: 0..0,
+            bottom_border: 0..0,
 
             grid_start_position: grid_position,
             grid_current_position: grid_position,
@@ -229,6 +237,7 @@ impl RenderedWindow {
         let scroll_offset = scroll_offset_lines - self.scroll_animation.position;
         let scroll_offset_lines = scroll_offset_lines as isize;
         let scroll_offset_pixels = (scroll_offset * font_dimensions.height as f32).round() as isize;
+        let line_height = font_dimensions.height as f32;
         let mut has_transparency = false;
 
         let lines: Vec<(Matrix, &Arc<Mutex<Line>>)> = if self.grid_size.height > 0 {
@@ -243,7 +252,10 @@ impl RenderedWindow {
                     matrix.set_translate((
                         pixel_region.left(),
                         pixel_region.top()
-                            + (scroll_offset_pixels + (i * font_dimensions.height as isize)) as f32,
+                            + (scroll_offset_pixels
+                                + ((i + self.top_border.len() as isize)
+                                    * font_dimensions.height as isize))
+                                as f32,
                     ));
                     (matrix, line)
                 })
@@ -251,6 +263,36 @@ impl RenderedWindow {
         } else {
             Vec::new()
         };
+
+        let border_lines: Vec<(Matrix, &Arc<Mutex<Line>>)> = if self.grid_size.height > 0 {
+            self.top_border
+                .clone()
+                .chain(self.bottom_border.clone())
+                .filter_map(|i| {
+                    self.actual_lines[i]
+                        .as_ref()
+                        .and_then(|line| line.lock().unwrap().is_border.then_some((i, line)))
+                })
+                .map(|(i, line)| {
+                    let mut matrix = Matrix::new_identity();
+                    matrix.set_translate((
+                        pixel_region.left(),
+                        pixel_region.top() + (i * font_dimensions.height as isize) as f32,
+                    ));
+                    (matrix, line)
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+
+        let inner_region = Rect::from_xywh(
+            pixel_region.x(),
+            pixel_region.y() + self.top_border.len() as f32 * line_height,
+            pixel_region.width(),
+            pixel_region.height()
+                - (self.top_border.len() + self.bottom_border.len()) as f32 * line_height,
+        );
 
         let mut background_paint = Paint::default();
         background_paint.set_blend_mode(BlendMode::Src);
@@ -261,6 +303,15 @@ impl RenderedWindow {
             .paint(&background_paint);
         canvas.save_layer(&save_layer_rec);
         canvas.clear(default_background.with_a(255));
+        for (matrix, line) in &border_lines {
+            let line = line.lock().unwrap();
+            if let Some(background_picture) = &line.background_picture {
+                has_transparency |= line.has_transparency;
+                canvas.draw_picture(background_picture, Some(matrix), None);
+            }
+        }
+        canvas.save();
+        canvas.clip_rect(inner_region, None, false);
         for (matrix, line) in &lines {
             let line = line.lock().unwrap();
             if let Some(background_picture) = &line.background_picture {
@@ -269,13 +320,23 @@ impl RenderedWindow {
             }
         }
         canvas.restore();
+        canvas.restore();
 
+        for (matrix, line) in &border_lines {
+            let line = line.lock().unwrap();
+            if let Some(foreground_picture) = &line.foreground_picture {
+                canvas.draw_picture(foreground_picture, Some(matrix), None);
+            }
+        }
+        canvas.save();
+        canvas.clip_rect(inner_region, None, false);
         for (matrix, line) in &lines {
             let line = line.lock().unwrap();
             if let Some(foreground_picture) = &line.foreground_picture {
                 canvas.draw_picture(foreground_picture, Some(matrix), None);
             }
         }
+        canvas.restore();
         self.has_transparency = has_transparency;
     }
 
@@ -379,7 +440,6 @@ impl RenderedWindow {
             .to_owned();
 
         let save_layer_rec = SaveLayerRec::default().bounds(&pixel_region).paint(&paint);
-
         root_canvas.save_layer(&save_layer_rec);
         self.draw_surface(
             root_canvas,
@@ -453,12 +513,35 @@ impl RenderedWindow {
                 line_fragments,
             } => {
                 tracy_zone!("draw_line_cmd", 0);
-
+                let is_border = line_fragments
+                    .iter()
+                    .map(|fragment| {
+                        fragment.style.as_ref().map_or(false, |style| {
+                            style.infos.last().map_or(false, |info| {
+                                [
+                                    "FloatBorder",
+                                    "FloatTitle",
+                                    "FloatFooter",
+                                    "WinBar",
+                                    "WinBarNC",
+                                ]
+                                .iter()
+                                // The specification seems to indicate that kind should be UI and
+                                // then we only need to test ui_name. But at least for FloatTitle,
+                                // that is not the case, the kind is set to syntax and hi_name is
+                                // set.
+                                .map(|v| info.ui_name == *v || info.hi_name == *v)
+                                .any(|v| v)
+                            })
+                        })
+                    })
+                    .all(|v| v);
                 self.actual_lines[row] = Some(Arc::new(Mutex::new(Line {
                     line_fragments,
                     background_picture: None,
                     foreground_picture: None,
                     has_transparency: false,
+                    is_border,
                     is_valid: false,
                 })));
             }
@@ -510,11 +593,53 @@ impl RenderedWindow {
         };
     }
 
+    fn calculate_borders(&mut self) {
+        let top_border = self
+            .actual_lines
+            .iter()
+            .take_while(|line| {
+                if let Some(line) = line {
+                    line.lock().unwrap().is_border
+                } else {
+                    false
+                }
+            })
+            .count();
+        let bottom_border = (top_border..self.actual_lines.len())
+            .rev()
+            .map(|i| self.actual_lines[i].as_ref())
+            .take_while(|line| {
+                if let Some(line) = line {
+                    line.lock().unwrap().is_border
+                } else {
+                    false
+                }
+            })
+            .count();
+        self.top_border = 0..top_border as isize;
+        self.bottom_border =
+            (self.actual_lines.len() - bottom_border) as isize..self.actual_lines.len() as isize
+    }
+
     pub fn flush(&mut self, renderer_settings: &RendererSettings) {
+        self.calculate_borders();
+
+        // If the borders are changed, reset the scrollback to only fit the inner view
+        let inner_range = self.top_border.end..self.bottom_border.start;
+        let inner_size = inner_range.len();
+        let inner_view = self.actual_lines.iter_range(inner_range);
+        if inner_size != self.scrollback_lines.len() / 2 {
+            self.scrollback_lines.resize(2 * inner_size, None);
+            self.scrollback_lines.clone_from_iter(inner_view);
+            self.scroll_delta = 0;
+            self.scroll_animation.reset();
+            return;
+        }
+
         let scroll_delta = self.scroll_delta;
         self.scrollback_lines.rotate(scroll_delta);
 
-        self.scrollback_lines.clone_from_iter(&self.actual_lines);
+        self.scrollback_lines.clone_from_iter(inner_view);
 
         if scroll_delta != 0 {
             let mut scroll_offset = self.scroll_animation.position;
@@ -556,18 +681,14 @@ impl RenderedWindow {
         if height == 0 {
             return;
         }
+        let font_dimensions = grid_renderer.font_dimensions;
 
-        for line in self
-            .scrollback_lines
-            .iter_range_mut(scroll_offset_lines..scroll_offset_lines + height + 1)
-            .flatten()
-        {
+        let mut prepare_line = |line: &Arc<Mutex<Line>>| {
             let mut line = line.lock().unwrap();
             if line.is_valid {
-                continue;
+                return;
             }
 
-            let font_dimensions = grid_renderer.font_dimensions;
             let mut recorder = PictureRecorder::new();
 
             let grid_rect = Rect::from_wh(
@@ -616,6 +737,29 @@ impl RenderedWindow {
             line.foreground_picture = foreground_picture;
             line.has_transparency = has_transparency;
             line.is_valid = true;
+        };
+
+        for line in self
+            .scrollback_lines
+            .iter_range_mut(scroll_offset_lines..scroll_offset_lines + height + 1)
+            .flatten()
+        {
+            prepare_line(line)
+        }
+
+        for line in self
+            .actual_lines
+            .iter_range_mut(self.top_border.clone())
+            .flatten()
+        {
+            prepare_line(line)
+        }
+        for line in self
+            .actual_lines
+            .iter_range_mut(self.bottom_border.clone())
+            .flatten()
+        {
+            prepare_line(line)
         }
     }
 }
