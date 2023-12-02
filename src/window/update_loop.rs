@@ -5,8 +5,6 @@ use winit::{
     event_loop::ControlFlow,
 };
 
-#[cfg(target_os = "macos")]
-use super::draw_background;
 use super::{UserEvent, WindowSettings, WinitWindowWrapper};
 use crate::{
     profiling::{tracy_create_gpu_context, tracy_plot, tracy_zone},
@@ -175,9 +173,6 @@ impl UpdateLoop {
         if let FocusedState::UnfocusedNotDrawn = self.focused {
             self.focused = FocusedState::Unfocused;
         }
-
-        #[cfg(target_os = "macos")]
-        draw_background(window_wrapper.windowed_context.window());
 
         self.num_consecutive_rendered += 1;
         self.last_dt = self.previous_frame_start.elapsed().as_secs_f32();

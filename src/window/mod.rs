@@ -7,7 +7,7 @@ mod update_loop;
 mod window_wrapper;
 
 #[cfg(target_os = "macos")]
-mod draw_background;
+mod macos;
 
 #[cfg(target_os = "macos")]
 use cocoa::base::id;
@@ -34,9 +34,6 @@ use objc::{msg_send, sel, sel_impl};
 
 #[cfg(target_os = "macos")]
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-
-#[cfg(target_os = "macos")]
-use draw_background::draw_background;
 
 #[cfg(target_os = "linux")]
 use winit::platform::wayland::WindowBuilderExtWayland;
@@ -216,7 +213,6 @@ pub fn create_window(
             .with_titlebar_transparent(true)
             .with_fullsize_content_view(true),
         Frame::Transparent => winit_window_builder
-            .with_title_hidden(true)
             .with_titlebar_transparent(true)
             .with_fullsize_content_view(true),
     };
