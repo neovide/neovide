@@ -237,7 +237,7 @@ impl RenderedWindow {
         let line_height = font_dimensions.height as f32;
         let mut has_transparency = false;
 
-        let lines: Vec<(Matrix, &Rc<RefCell<Line>>)> = if self.grid_size.height > 0 {
+        let lines: Vec<(Matrix, &Rc<RefCell<Line>>)> = if !self.scrollback_lines.is_empty() {
             (0..self.grid_size.height as isize + 1)
                 .filter_map(|i| {
                     self.scrollback_lines[scroll_offset_lines + i]
@@ -261,27 +261,24 @@ impl RenderedWindow {
             Vec::new()
         };
 
-        let border_lines: Vec<(Matrix, &Rc<RefCell<Line>>)> = if self.grid_size.height > 0 {
-            self.top_border
-                .clone()
-                .chain(self.bottom_border.clone())
-                .filter_map(|i| {
-                    self.actual_lines[i]
-                        .as_ref()
-                        .and_then(|line| line.borrow().is_border.then_some((i, line)))
-                })
-                .map(|(i, line)| {
-                    let mut matrix = Matrix::new_identity();
-                    matrix.set_translate((
-                        pixel_region.left(),
-                        pixel_region.top() + (i * font_dimensions.height as isize) as f32,
-                    ));
-                    (matrix, line)
-                })
-                .collect()
-        } else {
-            Vec::new()
-        };
+        let border_lines: Vec<(Matrix, &Rc<RefCell<Line>>)> = self
+            .top_border
+            .clone()
+            .chain(self.bottom_border.clone())
+            .filter_map(|i| {
+                self.actual_lines[i]
+                    .as_ref()
+                    .and_then(|line| line.borrow().is_border.then_some((i, line)))
+            })
+            .map(|(i, line)| {
+                let mut matrix = Matrix::new_identity();
+                matrix.set_translate((
+                    pixel_region.left(),
+                    pixel_region.top() + (i * font_dimensions.height as isize) as f32,
+                ));
+                (matrix, line)
+            })
+            .collect();
 
         let inner_region = Rect::from_xywh(
             pixel_region.x(),
