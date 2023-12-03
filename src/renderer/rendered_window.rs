@@ -510,6 +510,8 @@ impl RenderedWindow {
                 line_fragments,
             } => {
                 tracy_zone!("draw_line_cmd", 0);
+                // At the moment we only consider top and bottom borders, and winbar is also one type of border
+                // So, lines with purly border highlight groups are considered borders.
                 let is_border = line_fragments
                     .iter()
                     .map(|fragment| {
