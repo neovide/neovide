@@ -202,14 +202,14 @@ impl RenderedWindow {
             self.position_t = (self.position_t + dt / settings.position_animation_length).min(1.0);
         }
 
-        let prev_positon = self.grid_current_position;
+        let prev_position = self.grid_current_position;
         self.grid_current_position = ease_point(
             ease_out_expo,
             self.grid_start_position,
             self.get_target_position(outer_size, padding_as_grid),
             self.position_t,
         );
-        animating |= self.grid_current_position != prev_positon;
+        animating |= self.grid_current_position != prev_position;
 
         animating |= self
             .scroll_animation
@@ -333,7 +333,7 @@ impl RenderedWindow {
                 Color::from_argb((0.03 * 255.) as u8, 0, 0, 0),
                 Color::from_argb((0.35 * 255.) as u8, 0, 0, 0),
                 // Directional Light flag is necessary to make the shadow render consistently
-                // across varius sizes of floating windows. It effects how the light direction is
+                // across various sizes of floating windows. It effects how the light direction is
                 // processed.
                 Some(ShadowFlags::DIRECTIONAL_LIGHT),
             );

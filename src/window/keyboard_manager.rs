@@ -186,7 +186,7 @@ impl KeyboardManager {
 
     pub fn format_modifier_string(&self, text: &str, is_special: bool) -> String {
         // Shift should always be sent together with special keys (Enter, Space, F keys and so on).
-        // And as a special case togeter with CTRL and standard a-z characters.
+        // And as a special case together with CTRL and standard a-z characters.
         // In all other cases the resulting character is enough.
         // Note that, in Neovim <C-a> and <C-A> are the same, but <C-S-A> is different.
         // Actually, <C-S-a> is the same as <C-S-A>, since Neovim converts all shifted

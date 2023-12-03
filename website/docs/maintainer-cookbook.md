@@ -103,7 +103,7 @@ Now here's where the order becomes important:
       (where `$tag` is the tag name)
 
 5. Run `cargo build` and make sure it succeeds, **remember to `git add
-  Cargo.lock` to make sure releases stay reproducable
+  Cargo.lock` to make sure releases stay reproducible
   ([#1628](https://github.com/neovide/neovide/issues/1628),
   [#1482](https://github.com/neovide/neovide/issues/1482))**
 6. Create a commit called `Bump version to $tag`
