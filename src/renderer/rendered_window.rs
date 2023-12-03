@@ -82,8 +82,8 @@ pub struct RenderedWindow {
     scrollback_lines: RingBuffer<Option<Arc<Mutex<Line>>>>,
     actual_lines: RingBuffer<Option<Arc<Mutex<Line>>>>,
     scroll_delta: isize,
-    top_border: Range<isize>,
-    bottom_border: Range<isize>,
+    pub top_border: Range<isize>,
+    pub bottom_border: Range<isize>,
 
     grid_start_position: Point,
     pub grid_current_position: Point,
