@@ -1,7 +1,4 @@
-use std::{
-    ops::Range,
-    sync::{Arc, Mutex},
-};
+use std::{cell::RefCell, ops::Range, rc::Rc, sync::Arc};
 
 use skia_safe::{
     canvas::SaveLayerRec,
@@ -79,8 +76,8 @@ pub struct RenderedWindow {
 
     pub grid_size: Dimensions,
 
-    scrollback_lines: RingBuffer<Option<Arc<Mutex<Line>>>>,
-    actual_lines: RingBuffer<Option<Arc<Mutex<Line>>>>,
+    scrollback_lines: RingBuffer<Option<Rc<RefCell<Line>>>>,
+    actual_lines: RingBuffer<Option<Rc<RefCell<Line>>>>,
     scroll_delta: isize,
     pub top_border: Range<isize>,
     pub bottom_border: Range<isize>,
@@ -240,7 +237,7 @@ impl RenderedWindow {
         let line_height = font_dimensions.height as f32;
         let mut has_transparency = false;
 
-        let lines: Vec<(Matrix, &Arc<Mutex<Line>>)> = if self.grid_size.height > 0 {
+        let lines: Vec<(Matrix, &Rc<RefCell<Line>>)> = if self.grid_size.height > 0 {
             (0..self.grid_size.height as isize + 1)
                 .filter_map(|i| {
                     self.scrollback_lines[scroll_offset_lines + i]
@@ -264,14 +261,14 @@ impl RenderedWindow {
             Vec::new()
         };
 
-        let border_lines: Vec<(Matrix, &Arc<Mutex<Line>>)> = if self.grid_size.height > 0 {
+        let border_lines: Vec<(Matrix, &Rc<RefCell<Line>>)> = if self.grid_size.height > 0 {
             self.top_border
                 .clone()
                 .chain(self.bottom_border.clone())
                 .filter_map(|i| {
                     self.actual_lines[i]
                         .as_ref()
-                        .and_then(|line| line.lock().unwrap().is_border.then_some((i, line)))
+                        .and_then(|line| line.borrow().is_border.then_some((i, line)))
                 })
                 .map(|(i, line)| {
                     let mut matrix = Matrix::new_identity();
@@ -304,7 +301,7 @@ impl RenderedWindow {
         canvas.save_layer(&save_layer_rec);
         canvas.clear(default_background.with_a(255));
         for (matrix, line) in &border_lines {
-            let line = line.lock().unwrap();
+            let line = line.borrow();
             if let Some(background_picture) = &line.background_picture {
                 has_transparency |= line.has_transparency;
                 canvas.draw_picture(background_picture, Some(matrix), None);
@@ -313,7 +310,7 @@ impl RenderedWindow {
         canvas.save();
         canvas.clip_rect(inner_region, None, false);
         for (matrix, line) in &lines {
-            let line = line.lock().unwrap();
+            let line = line.borrow();
             if let Some(background_picture) = &line.background_picture {
                 has_transparency |= line.has_transparency;
                 canvas.draw_picture(background_picture, Some(matrix), None);
@@ -323,7 +320,7 @@ impl RenderedWindow {
         canvas.restore();
 
         for (matrix, line) in &border_lines {
-            let line = line.lock().unwrap();
+            let line = line.borrow();
             if let Some(foreground_picture) = &line.foreground_picture {
                 canvas.draw_picture(foreground_picture, Some(matrix), None);
             }
@@ -331,7 +328,7 @@ impl RenderedWindow {
         canvas.save();
         canvas.clip_rect(inner_region, None, false);
         for (matrix, line) in &lines {
-            let line = line.lock().unwrap();
+            let line = line.borrow();
             if let Some(foreground_picture) = &line.foreground_picture {
                 canvas.draw_picture(foreground_picture, Some(matrix), None);
             }
@@ -350,7 +347,7 @@ impl RenderedWindow {
                 scroll_offset_lines..scroll_offset_lines + self.grid_size.height as isize + 1,
             )
             .flatten()
-            .any(|line| line.lock().unwrap().has_transparency)
+            .any(|line| line.borrow().has_transparency)
     }
 
     pub fn draw(
@@ -536,7 +533,7 @@ impl RenderedWindow {
                         })
                     })
                     .all(|v| v);
-                self.actual_lines[row] = Some(Arc::new(Mutex::new(Line {
+                self.actual_lines[row] = Some(Rc::new(RefCell::new(Line {
                     line_fragments,
                     background_picture: None,
                     foreground_picture: None,
@@ -599,7 +596,7 @@ impl RenderedWindow {
             .iter()
             .take_while(|line| {
                 if let Some(line) = line {
-                    line.lock().unwrap().is_border
+                    line.borrow().is_border
                 } else {
                     false
                 }
@@ -610,7 +607,7 @@ impl RenderedWindow {
             .map(|i| self.actual_lines[i].as_ref())
             .take_while(|line| {
                 if let Some(line) = line {
-                    line.lock().unwrap().is_border
+                    line.borrow().is_border
                 } else {
                     false
                 }
@@ -683,8 +680,8 @@ impl RenderedWindow {
         }
         let font_dimensions = grid_renderer.font_dimensions;
 
-        let mut prepare_line = |line: &Arc<Mutex<Line>>| {
-            let mut line = line.lock().unwrap();
+        let mut prepare_line = |line: &Rc<RefCell<Line>>| {
+            let mut line = line.borrow_mut();
             if line.is_valid {
                 return;
             }
