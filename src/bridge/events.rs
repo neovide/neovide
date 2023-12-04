@@ -550,7 +550,8 @@ fn parse_highlight_info(info_map: Value) -> Result<HighlightInfo> {
                     match kind_str.as_str() {
                         "ui" => kind = Some(HighlightKind::Ui),
                         "syntax" => kind = Some(HighlightKind::Syntax),
-                        "terminal" => kind = Some(HighlightKind::Terminal),
+                        // The documentation says terminal but Neovim 0.9.4 sends term...
+                        "terminal" | "term" => kind = Some(HighlightKind::Terminal),
                         _ => return Err(ParseError::Format("Invalid highlight kind".to_string())),
                     }
                 }
@@ -575,11 +576,8 @@ fn parse_highlight_info(info_map: Value) -> Result<HighlightInfo> {
     } else {
         String::default()
     };
-    let hi_name = hi_name
-        .ok_or(ParseError::Format(
-            "hi_name field not found in highlight info".to_string(),
-        ))?
-        .to_string();
+    // hi_name can actually be absent for terminal, even though the documentation indicates otherwise
+    let hi_name = hi_name.unwrap_or_default();
     let id = id.ok_or(ParseError::Format(
         "id field not found in highlight info".to_string(),
     ))?;
