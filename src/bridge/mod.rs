@@ -16,8 +16,12 @@ use tokio::{
     runtime::{Builder, Runtime},
     task::JoinHandle,
 };
+use winit::event_loop::EventLoopProxy;
 
-use crate::{cmd_line::CmdLineSettings, dimensions::Dimensions, running_tracker::*, settings::*};
+use crate::{
+    cmd_line::CmdLineSettings, dimensions::Dimensions, running_tracker::*, settings::*,
+    window::UserEvent,
+};
 use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
 use setup::setup_neovide_specific_state;
@@ -90,10 +94,13 @@ pub async fn show_error_message(
     nvim.echo(prepared_lines, true, vec![]).await
 }
 
-async fn launch(grid_size: Option<Dimensions>) -> Result<NeovimSession> {
+async fn launch(
+    event_loop_proxy: EventLoopProxy<UserEvent>,
+    grid_size: Option<Dimensions>,
+) -> Result<NeovimSession> {
     let neovim_instance = neovim_instance()?;
 
-    let handler = NeovimHandler::new();
+    let handler = NeovimHandler::new(event_loop_proxy);
     let session = NeovimSession::new(neovim_instance, handler)
         .await
         .context("Could not locate or start neovim process")?;
@@ -159,9 +166,13 @@ impl NeovimRuntime {
         })
     }
 
-    pub fn launch(&mut self, grid_size: Option<Dimensions>) -> Result<()> {
+    pub fn launch(
+        &mut self,
+        event_loop_proxy: EventLoopProxy<UserEvent>,
+        grid_size: Option<Dimensions>,
+    ) -> Result<()> {
         assert!(matches!(self.state, RuntimeState::Idle));
-        let session = self.runtime.block_on(launch(grid_size))?;
+        let session = self.runtime.block_on(launch(event_loop_proxy, grid_size))?;
         self.state = RuntimeState::Attached(self.runtime.spawn(run(session)));
         Ok(())
     }

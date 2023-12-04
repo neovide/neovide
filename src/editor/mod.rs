@@ -65,6 +65,7 @@ pub struct Editor {
     pub draw_command_batcher: Rc<DrawCommandBatcher>,
     pub current_mode_index: Option<u64>,
     pub ui_ready: bool,
+    event_loop_proxy: EventLoopProxy<UserEvent>,
 }
 
 impl Editor {
@@ -74,9 +75,10 @@ impl Editor {
             cursor: Cursor::new(),
             defined_styles: HashMap::new(),
             mode_list: Vec::new(),
-            draw_command_batcher: Rc::new(DrawCommandBatcher::new(event_loop_proxy)),
+            draw_command_batcher: Rc::new(DrawCommandBatcher::new(event_loop_proxy.clone())),
             current_mode_index: None,
             ui_ready: false,
+            event_loop_proxy,
         }
     }
 
@@ -88,7 +90,9 @@ impl Editor {
                     if title.is_empty() {
                         title = "Neovide".to_string()
                     }
-                    EVENT_AGGREGATOR.send(WindowCommand::TitleChanged(title));
+                    let _ = self
+                        .event_loop_proxy
+                        .send_event(UserEvent::WindowCommand(WindowCommand::TitleChanged(title)));
                 }
                 RedrawEvent::ModeInfoSet { cursor_modes } => {
                     tracy_zone!("EditorModeInfoSet");
@@ -117,11 +121,15 @@ impl Editor {
                 }
                 RedrawEvent::MouseOn => {
                     tracy_zone!("EditorMouseOn");
-                    EVENT_AGGREGATOR.send(WindowCommand::SetMouseEnabled(true));
+                    let _ = self.event_loop_proxy.send_event(UserEvent::WindowCommand(
+                        WindowCommand::SetMouseEnabled(true),
+                    ));
                 }
                 RedrawEvent::MouseOff => {
                     tracy_zone!("EditorMouseOff");
-                    EVENT_AGGREGATOR.send(WindowCommand::SetMouseEnabled(false));
+                    let _ = self.event_loop_proxy.send_event(UserEvent::WindowCommand(
+                        WindowCommand::SetMouseEnabled(false),
+                    ));
                 }
                 RedrawEvent::BusyStart => {
                     tracy_zone!("EditorBusyStart");
@@ -275,7 +283,9 @@ impl Editor {
                 }
                 // Interpreting suspend as a window minimize request
                 RedrawEvent::Suspend => {
-                    EVENT_AGGREGATOR.send(WindowCommand::Minimize);
+                    let _ = self
+                        .event_loop_proxy
+                        .send_event(UserEvent::WindowCommand(WindowCommand::Minimize));
                 }
                 _ => {}
             },
@@ -506,7 +516,9 @@ impl Editor {
         match gui_option {
             GuiOption::GuiFont(guifont) => {
                 if guifont == *"*" {
-                    EVENT_AGGREGATOR.send(WindowCommand::ListAvailableFonts);
+                    let _ = self
+                        .event_loop_proxy
+                        .send_event(UserEvent::WindowCommand(WindowCommand::ListAvailableFonts));
                 }
 
                 self.draw_command_batcher

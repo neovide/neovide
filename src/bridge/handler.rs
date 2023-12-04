@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use log::trace;
 use nvim_rs::{Handler, Neovim};
 use rmpv::Value;
+use winit::event_loop::EventLoopProxy;
 
 #[cfg(windows)]
 use crate::bridge::ui_commands::{ParallelCommand, UiCommand};
@@ -13,15 +14,17 @@ use crate::{
     event_aggregator::EVENT_AGGREGATOR,
     running_tracker::*,
     settings::SETTINGS,
-    window::WindowCommand,
+    window::{UserEvent, WindowCommand},
 };
 
 #[derive(Clone)]
-pub struct NeovimHandler {}
+pub struct NeovimHandler {
+    proxy: EventLoopProxy<UserEvent>,
+}
 
 impl NeovimHandler {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(proxy: EventLoopProxy<UserEvent>) -> Self {
+        Self { proxy }
     }
 }
 
@@ -98,7 +101,9 @@ impl Handler for NeovimHandler {
                 EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::UnregisterRightClick));
             }
             "neovide.focus_window" => {
-                EVENT_AGGREGATOR.send(WindowCommand::FocusWindow);
+                let _ = self
+                    .proxy
+                    .send_event(UserEvent::WindowCommand(WindowCommand::FocusWindow));
             }
             _ => {}
         }

@@ -41,6 +41,7 @@ use std::panic::{set_hook, PanicInfo};
 use std::time::SystemTime;
 use time::macros::format_description;
 use time::OffsetDateTime;
+use winit::event_loop::EventLoopProxy;
 
 #[cfg(not(test))]
 use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
@@ -54,7 +55,8 @@ use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 #[cfg_attr(target_os = "windows", allow(unused_imports))]
 use settings::SETTINGS;
 use window::{
-    create_event_loop, create_window, determine_window_size, main_loop, WindowSettings, WindowSize,
+    create_event_loop, create_window, determine_window_size, main_loop, UserEvent, WindowSettings,
+    WindowSize,
 };
 
 pub use channel_utils::*;
@@ -86,11 +88,12 @@ fn main() -> NeovideExitCode {
     }
 
     let event_loop = create_event_loop();
+    let proxy = event_loop.create_proxy();
 
-    match setup() {
+    match setup(proxy.clone()) {
         Err(err) => handle_startup_errors(err, event_loop).into(),
         Ok((window_size, _runtime)) => {
-            start_editor(event_loop.create_proxy());
+            start_editor(proxy);
             clipboard::init(&event_loop);
             let window = create_window(&event_loop, &window_size);
             main_loop(window, window_size, event_loop).into()
@@ -98,7 +101,7 @@ fn main() -> NeovideExitCode {
     }
 }
 
-fn setup() -> Result<(WindowSize, NeovimRuntime)> {
+fn setup(proxy: EventLoopProxy<UserEvent>) -> Result<(WindowSize, NeovimRuntime)> {
     //  --------------
     // | Architecture |
     //  --------------
@@ -189,7 +192,7 @@ fn setup() -> Result<(WindowSize, NeovimRuntime)> {
         },
     };
     let mut runtime = NeovimRuntime::new()?;
-    runtime.launch(grid_size)?;
+    runtime.launch(proxy, grid_size)?;
     Ok((window_size, runtime))
 }
 

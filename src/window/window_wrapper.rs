@@ -59,7 +59,6 @@ pub struct WinitWindowWrapper {
     font_changed_last_frame: bool,
     saved_inner_size: PhysicalSize<u32>,
     saved_grid_size: Option<Dimensions>,
-    window_command_receiver: UnboundedReceiver<WindowCommand>,
     window_settings_changed_receiver: UnboundedReceiver<WindowSettingsChanged>,
     ime_enabled: bool,
     ime_position: PhysicalPosition<i32>,
@@ -119,7 +118,6 @@ impl WinitWindowWrapper {
             font_changed_last_frame: false,
             saved_inner_size,
             saved_grid_size: None,
-            window_command_receiver: EVENT_AGGREGATOR.register_event(),
             window_settings_changed_receiver: EVENT_AGGREGATOR.register_event(),
             ime_enabled,
             ime_position: PhysicalPosition::new(-1, -1),
@@ -164,23 +162,20 @@ impl WinitWindowWrapper {
         self.windowed_context.window().set_ime_allowed(ime_enabled);
     }
 
-    #[allow(clippy::needless_collect)]
-    pub fn handle_window_commands(&mut self) {
+    pub fn handle_window_command(&mut self, command: WindowCommand) {
         tracy_zone!("handle_window_commands", 0);
-        while let Ok(window_command) = self.window_command_receiver.try_recv() {
-            match window_command {
-                WindowCommand::TitleChanged(new_title) => self.handle_title_changed(new_title),
-                WindowCommand::SetMouseEnabled(mouse_enabled) => {
-                    self.mouse_manager.enabled = mouse_enabled
-                }
-                WindowCommand::ListAvailableFonts => self.send_font_names(),
-                WindowCommand::FocusWindow => {
-                    self.windowed_context.window().focus_window();
-                }
-                WindowCommand::Minimize => {
-                    self.minimize_window();
-                    self.is_minimized = true;
-                }
+        match command {
+            WindowCommand::TitleChanged(new_title) => self.handle_title_changed(new_title),
+            WindowCommand::SetMouseEnabled(mouse_enabled) => {
+                self.mouse_manager.enabled = mouse_enabled
+            }
+            WindowCommand::ListAvailableFonts => self.send_font_names(),
+            WindowCommand::FocusWindow => {
+                self.windowed_context.window().focus_window();
+            }
+            WindowCommand::Minimize => {
+                self.minimize_window();
+                self.is_minimized = true;
             }
         }
     }
@@ -317,6 +312,9 @@ impl WinitWindowWrapper {
                 if self.ui_state != UIState::Initing {
                     should_render = true;
                 }
+            }
+            Event::UserEvent(UserEvent::WindowCommand(e)) => {
+                self.handle_window_command(e);
             }
             _ => {}
         }

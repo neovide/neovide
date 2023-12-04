@@ -154,7 +154,6 @@ impl UpdateLoop {
             }
             _ => {}
         }
-        window_wrapper.handle_window_commands();
         window_wrapper.handle_window_settings_changed_events();
 
         if let Ok(event) = event {
