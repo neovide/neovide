@@ -2,6 +2,8 @@ use async_trait::async_trait;
 use log::trace;
 use nvim_rs::{Handler, Neovim};
 use rmpv::Value;
+use std::sync::Arc;
+use std::sync::Mutex;
 use winit::event_loop::EventLoopProxy;
 
 #[cfg(windows)]
@@ -19,12 +21,15 @@ use crate::{
 
 #[derive(Clone)]
 pub struct NeovimHandler {
-    proxy: EventLoopProxy<UserEvent>,
+    // The EventLoopProxy is not sync on all platforms, so wrap it in mutex
+    proxy: Arc<Mutex<EventLoopProxy<UserEvent>>>,
 }
 
 impl NeovimHandler {
     pub fn new(proxy: EventLoopProxy<UserEvent>) -> Self {
-        Self { proxy }
+        Self {
+            proxy: Arc::new(Mutex::new(proxy)),
+        }
     }
 }
 
@@ -103,6 +108,8 @@ impl Handler for NeovimHandler {
             "neovide.focus_window" => {
                 let _ = self
                     .proxy
+                    .lock()
+                    .unwrap()
                     .send_event(UserEvent::WindowCommand(WindowCommand::FocusWindow));
             }
             _ => {}
