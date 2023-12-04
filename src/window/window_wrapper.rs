@@ -9,7 +9,7 @@ use crate::{
     editor::EditorCommand,
     event_aggregator::EVENT_AGGREGATOR,
     profiling::{emit_frame_mark, tracy_gpu_collect, tracy_gpu_zone, tracy_zone},
-    renderer::{build_context, GlWindow, Renderer, VSync, WindowedContext},
+    renderer::{build_context, DrawCommand, GlWindow, Renderer, VSync, WindowedContext},
     running_tracker::RUNNING_TRACKER,
     settings::{DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS},
     window::WindowSize,
@@ -42,7 +42,8 @@ pub fn set_background(background: &str) {
 #[derive(PartialEq)]
 enum UIState {
     Initing, // Running init.vim/lua
-    Ready,   // No pending resizes
+    FirstFrame,
+    Showing, // No pending resizes
 }
 
 pub struct WinitWindowWrapper {
@@ -311,6 +312,12 @@ impl WinitWindowWrapper {
             } => {
                 self.vsync.update(&self.windowed_context);
             }
+            Event::UserEvent(UserEvent::DrawCommandBatch(batch)) => {
+                self.handle_draw_commands(batch);
+                if self.ui_state != UIState::Initing {
+                    should_render = true;
+                }
+            }
             _ => {}
         }
         should_render
@@ -347,31 +354,14 @@ impl WinitWindowWrapper {
         )
     }
 
-    /// Prepares a frame to render.
-    /// Returns a boolean indicating whether the frame should get
-    /// drawn to the screen.
-    pub fn prepare_frame(&mut self) -> bool {
-        tracy_zone!("prepare_frame", 0);
-        let mut should_render = false;
-
-        let window_settings = SETTINGS.get::<WindowSettings>();
-        let window_padding = WindowPadding {
-            top: window_settings.padding_top,
-            left: window_settings.padding_left,
-            right: window_settings.padding_right,
-            bottom: window_settings.padding_bottom,
-        };
-        let padding_changed = window_padding != self.window_padding;
-
-        let handle_draw_commands_result = self.renderer.handle_draw_commands();
+    fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
+        let handle_draw_commands_result = self.renderer.handle_draw_commands(batch);
 
         self.font_changed_last_frame |= handle_draw_commands_result.font_changed;
-        should_render |= handle_draw_commands_result.any_handled;
 
         if self.ui_state == UIState::Initing && handle_draw_commands_result.should_show {
             log::info!("Showing the Window");
-            self.ui_state = UIState::Ready;
-            should_render = true;
+            self.ui_state = UIState::FirstFrame;
 
             match self.initial_window_size {
                 WindowSize::Maximized => {
@@ -399,10 +389,30 @@ impl WinitWindowWrapper {
             // Ensure that the window has the correct IME state
             self.set_ime(self.ime_enabled);
         };
+    }
+
+    /// Prepares a frame to render.
+    /// Returns a boolean indicating whether the frame should get
+    /// drawn to the screen.
+    pub fn prepare_frame(&mut self) -> bool {
+        tracy_zone!("prepare_frame", 0);
+        let mut should_render = false;
+
+        let window_settings = SETTINGS.get::<WindowSettings>();
+        let window_padding = WindowPadding {
+            top: window_settings.padding_top,
+            left: window_settings.padding_left,
+            right: window_settings.padding_right,
+            bottom: window_settings.padding_bottom,
+        };
+        let padding_changed = window_padding != self.window_padding;
 
         // Don't render until the UI is fully entered and the window is shown
-        if self.ui_state != UIState::Ready {
+        if self.ui_state == UIState::Initing {
             return false;
+        } else if self.ui_state == UIState::FirstFrame {
+            should_render = true;
+            self.ui_state = UIState::Showing;
         }
 
         let resize_requested = self.requested_columns.is_some() || self.requested_lines.is_some();

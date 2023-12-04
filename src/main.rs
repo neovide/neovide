@@ -90,7 +90,7 @@ fn main() -> NeovideExitCode {
     match setup() {
         Err(err) => handle_startup_errors(err, event_loop).into(),
         Ok((window_size, _runtime)) => {
-            start_editor();
+            start_editor(event_loop.create_proxy());
             clipboard::init(&event_loop);
             let window = create_window(&event_loop, &window_size);
             main_loop(window, window_size, event_loop).into()

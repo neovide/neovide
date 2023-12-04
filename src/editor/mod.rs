@@ -8,12 +8,14 @@ use std::{collections::HashMap, rc::Rc, sync::Arc, thread};
 
 use log::{error, trace};
 
+use winit::event_loop::EventLoopProxy;
+
 use crate::{
     bridge::{GuiOption, ParallelCommand, RedrawEvent, UiCommand, WindowAnchor},
     event_aggregator::EVENT_AGGREGATOR,
     profiling::tracy_zone,
     renderer::DrawCommand,
-    window::WindowCommand,
+    window::{UserEvent, WindowCommand},
 };
 
 pub use cursor::{Cursor, CursorMode, CursorShape};
@@ -23,7 +25,7 @@ pub use window::*;
 
 const MODE_CMDLINE: u64 = 4;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct AnchorInfo {
     pub anchor_grid_id: u64,
     pub anchor_type: WindowAnchor,
@@ -66,13 +68,13 @@ pub struct Editor {
 }
 
 impl Editor {
-    pub fn new() -> Editor {
+    pub fn new(event_loop_proxy: EventLoopProxy<UserEvent>) -> Editor {
         Editor {
             windows: HashMap::new(),
             cursor: Cursor::new(),
             defined_styles: HashMap::new(),
             mode_list: Vec::new(),
-            draw_command_batcher: Rc::new(DrawCommandBatcher::new()),
+            draw_command_batcher: Rc::new(DrawCommandBatcher::new(event_loop_proxy)),
             current_mode_index: None,
             ui_ready: false,
         }
@@ -546,9 +548,9 @@ impl Editor {
     }
 }
 
-pub fn start_editor() {
+pub fn start_editor(event_loop_proxy: EventLoopProxy<UserEvent>) {
     thread::spawn(move || {
-        let mut editor = Editor::new();
+        let mut editor = Editor::new(event_loop_proxy);
 
         let mut editor_command_receiver = EVENT_AGGREGATOR.register_event::<EditorCommand>();
         while let Some(editor_command) = editor_command_receiver.blocking_recv() {

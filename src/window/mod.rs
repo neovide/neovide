@@ -49,7 +49,7 @@ use crate::{
     cmd_line::{CmdLineSettings, GeometryArgs},
     dimensions::Dimensions,
     frame::Frame,
-    renderer::{build_window, GlWindow},
+    renderer::{build_window, DrawCommand, GlWindow},
     running_tracker::*,
     settings::{load_last_window_settings, save_window_size, PersistentWindowSettings, SETTINGS},
 };
@@ -82,7 +82,9 @@ pub enum WindowCommand {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum UserEvent {}
+pub enum UserEvent {
+    DrawCommandBatch(Vec<DrawCommand>),
+}
 
 pub fn create_event_loop() -> EventLoop<UserEvent> {
     EventLoopBuilder::<UserEvent>::with_user_event()

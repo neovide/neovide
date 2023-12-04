@@ -1,19 +1,23 @@
 use std::sync::mpsc::{channel, Receiver, SendError, Sender};
 
-use crate::{editor::DrawCommand, event_aggregator::EVENT_AGGREGATOR};
+use crate::{editor::DrawCommand, window::UserEvent};
+
+use winit::event_loop::EventLoopProxy;
 
 pub struct DrawCommandBatcher {
     window_draw_command_sender: Sender<DrawCommand>,
     window_draw_command_receiver: Receiver<DrawCommand>,
+    proxy: EventLoopProxy<UserEvent>,
 }
 
 impl DrawCommandBatcher {
-    pub fn new() -> DrawCommandBatcher {
+    pub fn new(proxy: EventLoopProxy<UserEvent>) -> DrawCommandBatcher {
         let (sender, receiver) = channel();
 
         DrawCommandBatcher {
             window_draw_command_sender: sender,
             window_draw_command_receiver: receiver,
+            proxy,
         }
     }
 
@@ -25,6 +29,6 @@ impl DrawCommandBatcher {
 
     pub fn send_batch(&self) {
         let batch: Vec<DrawCommand> = self.window_draw_command_receiver.try_iter().collect();
-        EVENT_AGGREGATOR.send(batch);
+        let _ = self.proxy.send_event(UserEvent::DrawCommandBatch(batch));
     }
 }

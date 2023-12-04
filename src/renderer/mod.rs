@@ -15,14 +15,12 @@ use std::{
 
 use log::error;
 use skia_safe::{Canvas, Point, Rect};
-use tokio::sync::mpsc::UnboundedReceiver;
 use winit::event::Event;
 
 use crate::{
     bridge::EditorMode,
     dimensions::Dimensions,
     editor::{Cursor, Style},
-    event_aggregator::EVENT_AGGREGATOR,
     profiling::tracy_zone,
     settings::*,
     window::UserEvent,
@@ -74,7 +72,7 @@ impl Default for RendererSettings {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum DrawCommand {
     CloseWindow(u64),
     Window {
@@ -97,7 +95,6 @@ pub struct Renderer {
     rendered_windows: HashMap<u64, RenderedWindow>,
     pub window_regions: Vec<WindowDrawDetails>,
 
-    pub batched_draw_command_receiver: UnboundedReceiver<Vec<DrawCommand>>,
     profiler: profiler::Profiler,
     os_scale_factor: f64,
     user_scale_factor: f64,
@@ -106,7 +103,6 @@ pub struct Renderer {
 /// Results of processing the draw commands from the command channel.
 pub struct DrawCommandResult {
     pub font_changed: bool,
-    pub any_handled: bool,
     pub should_show: bool,
 }
 
@@ -123,7 +119,6 @@ impl Renderer {
         let rendered_windows = HashMap::new();
         let window_regions = Vec::new();
 
-        let batched_draw_command_receiver = EVENT_AGGREGATOR.register_event::<Vec<DrawCommand>>();
         let profiler = profiler::Profiler::new(12.0);
 
         Renderer {
@@ -132,7 +127,6 @@ impl Renderer {
             grid_renderer,
             current_mode,
             window_regions,
-            batched_draw_command_receiver,
             profiler,
             os_scale_factor,
             user_scale_factor,
@@ -248,22 +242,17 @@ impl Renderer {
         animating
     }
 
-    pub fn handle_draw_commands(&mut self) -> DrawCommandResult {
+    pub fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) -> DrawCommandResult {
         let settings = SETTINGS.get::<RendererSettings>();
         let mut result = DrawCommandResult {
-            any_handled: false,
             font_changed: false,
             should_show: false,
         };
 
-        while let Ok(batch) = self.batched_draw_command_receiver.try_recv() {
-            result.any_handled = true;
-
-            for draw_command in batch {
-                self.handle_draw_command(draw_command, &mut result);
-            }
-            self.flush(&settings);
+        for draw_command in batch {
+            self.handle_draw_command(draw_command, &mut result);
         }
+        self.flush(&settings);
 
         let user_scale_factor = SETTINGS.get::<WindowSettings>().scale_factor.into();
         if user_scale_factor != self.user_scale_factor {
