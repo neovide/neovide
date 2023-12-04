@@ -12,7 +12,7 @@ use crate::{
     renderer::{build_context, DrawCommand, GlWindow, Renderer, VSync, WindowedContext},
     running_tracker::RUNNING_TRACKER,
     settings::{DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS},
-    window::WindowSize,
+    window::{ShouldRender, WindowSize},
     CmdLineSettings,
 };
 
@@ -388,9 +388,9 @@ impl WinitWindowWrapper {
     /// Prepares a frame to render.
     /// Returns a boolean indicating whether the frame should get
     /// drawn to the screen.
-    pub fn prepare_frame(&mut self) -> bool {
+    pub fn prepare_frame(&mut self) -> ShouldRender {
         tracy_zone!("prepare_frame", 0);
-        let mut should_render = false;
+        let mut should_render = ShouldRender::Wait;
 
         let window_settings = SETTINGS.get::<WindowSettings>();
         let window_padding = WindowPadding {
@@ -403,9 +403,9 @@ impl WinitWindowWrapper {
 
         // Don't render until the UI is fully entered and the window is shown
         if self.ui_state == UIState::Initing {
-            return false;
+            return ShouldRender::Wait;
         } else if self.ui_state == UIState::FirstFrame {
-            should_render = true;
+            should_render = ShouldRender::Immediately;
             self.ui_state = UIState::Showing;
         }
 
@@ -430,11 +430,13 @@ impl WinitWindowWrapper {
 
                 self.update_grid_size_from_window();
                 self.skia_renderer.resize(&self.windowed_context);
-                should_render = true;
+                should_render = ShouldRender::Immediately;
             }
         }
 
         self.update_ime_position();
+
+        should_render.update(self.renderer.prepare_frame());
 
         should_render
     }

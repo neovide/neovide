@@ -13,7 +13,7 @@ use crate::{
     renderer::animation_utils::*,
     renderer::{GridRenderer, RenderedWindow},
     settings::{ParseFromValue, SETTINGS},
-    window::UserEvent,
+    window::{ShouldRender, UserEvent},
 };
 
 use blink::*;
@@ -275,6 +275,10 @@ impl CursorRenderer {
         }
     }
 
+    pub fn prepare_frame(&mut self) -> ShouldRender {
+        self.blink_status.update_status(&self.cursor)
+    }
+
     pub fn draw(&mut self, grid_renderer: &mut GridRenderer, canvas: &Canvas) {
         tracy_zone!("cursor_draw");
         let render = self.blink_status.should_render();
@@ -344,7 +348,6 @@ impl CursorRenderer {
         dt: f32,
     ) -> bool {
         tracy_zone!("cursor_animate");
-        self.blink_status.update_status(&self.cursor, dt);
         let settings = SETTINGS.get::<CursorSettings>();
 
         if settings.vfx_mode != self.previous_vfx_mode {

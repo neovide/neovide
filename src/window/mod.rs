@@ -55,6 +55,7 @@ use crate::{
 };
 pub use error_window::show_error_window;
 pub use settings::{create_settings_listener, WindowSettings, WindowSettingsChanged};
+pub use update_loop::ShouldRender;
 pub use window_wrapper::WinitWindowWrapper;
 
 static ICON: &[u8] = include_bytes!("../../assets/neovide.ico");

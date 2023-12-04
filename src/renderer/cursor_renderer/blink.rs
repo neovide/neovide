@@ -1,6 +1,8 @@
-use crate::editor::Cursor;
+use std::time::{Duration, Instant};
 
-#[derive(Debug)]
+use crate::{editor::Cursor, window::ShouldRender};
+
+#[derive(Debug, PartialEq)]
 pub enum BlinkState {
     Waiting,
     On,
@@ -9,7 +11,7 @@ pub enum BlinkState {
 
 pub struct BlinkStatus {
     state: BlinkState,
-    transition_left: f32,
+    transition_time: Instant,
     current_cursor: Option<Cursor>,
 }
 
@@ -27,12 +29,12 @@ impl BlinkStatus {
     pub fn new() -> BlinkStatus {
         BlinkStatus {
             state: BlinkState::Waiting,
-            transition_left: 0.0,
+            transition_time: Instant::now(),
             current_cursor: None,
         }
     }
 
-    fn get_delay(&self) -> f32 {
+    fn get_delay(&self) -> Duration {
         let delay_ms = if let Some(c) = &self.current_cursor {
             match self.state {
                 BlinkState::Waiting => c.blinkwait.unwrap_or(0),
@@ -42,10 +44,11 @@ impl BlinkStatus {
         } else {
             0
         };
-        (delay_ms as f32) / 1000.0
+        Duration::from_millis(delay_ms)
     }
 
-    pub fn update_status(&mut self, new_cursor: &Cursor, dt: f32) {
+    pub fn update_status(&mut self, new_cursor: &Cursor) -> ShouldRender {
+        let now = Instant::now();
         if self.current_cursor.is_none() || new_cursor != self.current_cursor.as_ref().unwrap() {
             self.current_cursor = Some(new_cursor.clone());
             if new_cursor.blinkwait.is_some() && new_cursor.blinkwait != Some(0) {
@@ -53,26 +56,29 @@ impl BlinkStatus {
             } else {
                 self.state = BlinkState::On;
             }
-            // Note we decrement by dt below, so add dt here to ensure that we wait long enough
-            self.transition_left = self.get_delay() + dt;
+            self.transition_time = now + self.get_delay();
         }
 
         let current_cursor = self.current_cursor.as_ref().unwrap();
 
         if is_static(current_cursor) {
             self.state = BlinkState::On;
-            self.transition_left = 0.0;
+            ShouldRender::Wait
         } else {
-            self.transition_left -= dt;
-
-            if self.transition_left <= 0.0 {
+            if self.transition_time <= now {
                 self.state = match self.state {
                     BlinkState::Waiting => BlinkState::On,
                     BlinkState::On => BlinkState::Off,
                     BlinkState::Off => BlinkState::On,
                 };
-                self.transition_left = self.get_delay();
+                self.transition_time += self.get_delay();
+                // In case we are lagging badly...
+                if self.transition_time <= now {
+                    self.transition_time = now + self.get_delay();
+                }
+                return ShouldRender::Immediately;
             }
+            ShouldRender::Deadline(self.transition_time)
         }
     }
 

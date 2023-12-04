@@ -23,7 +23,7 @@ use crate::{
     editor::{Cursor, Style},
     profiling::tracy_zone,
     settings::*,
-    window::UserEvent,
+    window::{ShouldRender, UserEvent},
     WindowSettings,
 };
 
@@ -141,7 +141,10 @@ impl Renderer {
         self.grid_renderer.font_names()
     }
 
-    #[allow(clippy::needless_collect)]
+    pub fn prepare_frame(&mut self) -> ShouldRender {
+        self.cursor_renderer.prepare_frame()
+    }
+
     pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32) {
         tracy_zone!("renderer_draw_frame");
         let default_background = self.grid_renderer.get_default_background();
