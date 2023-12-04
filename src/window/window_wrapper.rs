@@ -385,9 +385,6 @@ impl WinitWindowWrapper {
         };
     }
 
-    /// Prepares a frame to render.
-    /// Returns a boolean indicating whether the frame should get
-    /// drawn to the screen.
     pub fn prepare_frame(&mut self) -> ShouldRender {
         tracy_zone!("prepare_frame", 0);
         let mut should_render = ShouldRender::Wait;
