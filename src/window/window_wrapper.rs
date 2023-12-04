@@ -18,7 +18,6 @@ use crate::{
 
 use log::trace;
 use skia_safe::{scalar, Rect};
-use tokio::sync::mpsc::UnboundedReceiver;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize, Position},
     event::{Event, WindowEvent},
@@ -59,7 +58,6 @@ pub struct WinitWindowWrapper {
     font_changed_last_frame: bool,
     saved_inner_size: PhysicalSize<u32>,
     saved_grid_size: Option<Dimensions>,
-    window_settings_changed_receiver: UnboundedReceiver<WindowSettingsChanged>,
     ime_enabled: bool,
     ime_position: PhysicalPosition<i32>,
     requested_columns: Option<u64>,
@@ -118,7 +116,6 @@ impl WinitWindowWrapper {
             font_changed_last_frame: false,
             saved_inner_size,
             saved_grid_size: None,
-            window_settings_changed_receiver: EVENT_AGGREGATOR.register_event(),
             ime_enabled,
             ime_position: PhysicalPosition::new(-1, -1),
             requested_columns: None,
@@ -180,29 +177,27 @@ impl WinitWindowWrapper {
         }
     }
 
-    pub fn handle_window_settings_changed_events(&mut self) {
-        while let Ok(changed_setting) = self.window_settings_changed_receiver.try_recv() {
-            match changed_setting {
-                WindowSettingsChanged::ObservedColumns(columns) => {
-                    log::info!("columns changed");
-                    self.requested_columns = columns;
-                }
-                WindowSettingsChanged::ObservedLines(lines) => {
-                    log::info!("lines changed");
-                    self.requested_lines = lines;
-                }
-                WindowSettingsChanged::Fullscreen(fullscreen) => {
-                    if self.fullscreen != fullscreen {
-                        self.toggle_fullscreen();
-                    }
-                }
-                WindowSettingsChanged::InputIme(ime_enabled) => {
-                    if self.ime_enabled != ime_enabled {
-                        self.set_ime(ime_enabled);
-                    }
-                }
-                _ => {}
+    pub fn handle_window_settings_changed(&mut self, changed_setting: WindowSettingsChanged) {
+        match changed_setting {
+            WindowSettingsChanged::ObservedColumns(columns) => {
+                log::info!("columns changed");
+                self.requested_columns = columns;
             }
+            WindowSettingsChanged::ObservedLines(lines) => {
+                log::info!("lines changed");
+                self.requested_lines = lines;
+            }
+            WindowSettingsChanged::Fullscreen(fullscreen) => {
+                if self.fullscreen != fullscreen {
+                    self.toggle_fullscreen();
+                }
+            }
+            WindowSettingsChanged::InputIme(ime_enabled) => {
+                if self.ime_enabled != ime_enabled {
+                    self.set_ime(ime_enabled);
+                }
+            }
+            _ => {}
         }
     }
 
@@ -315,6 +310,9 @@ impl WinitWindowWrapper {
             }
             Event::UserEvent(UserEvent::WindowCommand(e)) => {
                 self.handle_window_command(e);
+            }
+            Event::UserEvent(UserEvent::WinddowSettingsChanged(e)) => {
+                self.handle_window_settings_changed(e);
             }
             _ => {}
         }

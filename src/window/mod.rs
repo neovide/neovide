@@ -54,7 +54,7 @@ use crate::{
     settings::{load_last_window_settings, save_window_size, PersistentWindowSettings, SETTINGS},
 };
 pub use error_window::show_error_window;
-pub use settings::{WindowSettings, WindowSettingsChanged};
+pub use settings::{create_settings_listener, WindowSettings, WindowSettingsChanged};
 pub use window_wrapper::WinitWindowWrapper;
 
 static ICON: &[u8] = include_bytes!("../../assets/neovide.ico");
@@ -85,6 +85,7 @@ pub enum WindowCommand {
 pub enum UserEvent {
     DrawCommandBatch(Vec<DrawCommand>),
     WindowCommand(WindowCommand),
+    WinddowSettingsChanged(WindowSettingsChanged),
 }
 
 pub fn create_event_loop() -> EventLoop<UserEvent> {

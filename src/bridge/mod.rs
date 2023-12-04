@@ -19,8 +19,11 @@ use tokio::{
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
-    cmd_line::CmdLineSettings, dimensions::Dimensions, running_tracker::*, settings::*,
-    window::UserEvent,
+    cmd_line::CmdLineSettings,
+    dimensions::Dimensions,
+    running_tracker::*,
+    settings::*,
+    window::{create_settings_listener, UserEvent},
 };
 use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
@@ -98,6 +101,8 @@ async fn launch(
     event_loop_proxy: EventLoopProxy<UserEvent>,
     grid_size: Option<Dimensions>,
 ) -> Result<NeovimSession> {
+    create_settings_listener(event_loop_proxy.clone());
+
     let neovim_instance = neovim_instance()?;
 
     let handler = NeovimHandler::new(event_loop_proxy);
