@@ -199,13 +199,16 @@ impl CursorRenderer {
         renderer
     }
 
-    pub fn handle_event(&mut self, event: &Event<UserEvent>) {
+    pub fn handle_event(&mut self, event: &Event<UserEvent>) -> bool {
         if let Event::WindowEvent {
             event: WindowEvent::Focused(is_focused),
             ..
         } = event
         {
-            self.window_has_focus = *is_focused
+            self.window_has_focus = *is_focused;
+            true
+        } else {
+            false
         }
     }
 

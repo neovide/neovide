@@ -133,8 +133,8 @@ impl Renderer {
         }
     }
 
-    pub fn handle_event(&mut self, event: &Event<UserEvent>) {
-        self.cursor_renderer.handle_event(event);
+    pub fn handle_event(&mut self, event: &Event<UserEvent>) -> bool {
+        self.cursor_renderer.handle_event(event)
     }
 
     pub fn font_names(&self) -> Vec<String> {

@@ -240,7 +240,6 @@ impl WinitWindowWrapper {
     /// the window should be rendered.
     pub fn handle_event(&mut self, event: Event<UserEvent>) -> bool {
         tracy_zone!("handle_event", 0);
-        let mut should_render = false;
         self.keyboard_manager.handle_event(&event);
         self.mouse_manager.handle_event(
             &event,
@@ -248,7 +247,8 @@ impl WinitWindowWrapper {
             &self.renderer,
             self.windowed_context.window(),
         );
-        self.renderer.handle_event(&event);
+        let renderer_asks_to_be_rendered = self.renderer.handle_event(&event);
+        let mut should_render = true;
         match event {
             Event::Resumed => {
                 EVENT_AGGREGATOR.send(EditorCommand::RedrawScreen);
@@ -278,7 +278,6 @@ impl WinitWindowWrapper {
             } => {
                 if focus {
                     self.handle_focus_gained();
-                    should_render = true;
                 } else {
                     self.handle_focus_lost();
                 }
@@ -304,9 +303,6 @@ impl WinitWindowWrapper {
             }
             Event::UserEvent(UserEvent::DrawCommandBatch(batch)) => {
                 self.handle_draw_commands(batch);
-                if self.ui_state != UIState::Initing {
-                    should_render = true;
-                }
             }
             Event::UserEvent(UserEvent::WindowCommand(e)) => {
                 self.handle_window_command(e);
@@ -314,9 +310,11 @@ impl WinitWindowWrapper {
             Event::UserEvent(UserEvent::WinddowSettingsChanged(e)) => {
                 self.handle_window_settings_changed(e);
             }
-            _ => {}
+            _ => {
+                should_render = renderer_asks_to_be_rendered;
+            }
         }
-        should_render
+        self.ui_state != UIState::Initing && should_render
     }
 
     pub fn draw_frame(&mut self, dt: f32) {
