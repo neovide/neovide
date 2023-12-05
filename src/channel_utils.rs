@@ -6,6 +6,8 @@ use std::{
 use log::trace;
 use tokio::sync::mpsc::{error::SendError as TokioSendError, UnboundedSender};
 
+use crate::profiling::tracy_dynamic_zone;
+
 #[derive(Clone)]
 pub struct LoggingSender<T>
 where
@@ -35,7 +37,7 @@ where
 #[derive(Clone)]
 pub struct LoggingTx<T>
 where
-    T: Debug,
+    T: Debug + AsRef<str>,
 {
     tx: UnboundedSender<T>,
     channel_name: String,
@@ -43,13 +45,14 @@ where
 
 impl<T> LoggingTx<T>
 where
-    T: Debug,
+    T: Debug + AsRef<str>,
 {
     pub fn attach(tx: UnboundedSender<T>, channel_name: String) -> Self {
         Self { tx, channel_name }
     }
 
     pub fn send(&self, message: T) -> Result<(), TokioSendError<T>> {
+        tracy_dynamic_zone!(message.as_ref());
         trace!("{} {:?}", self.channel_name, &message);
         self.tx.send(message)
     }

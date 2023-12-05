@@ -30,7 +30,7 @@ impl Default for EventAggregator {
 }
 
 impl EventAggregator {
-    fn with_entry<T: Any + Clone + Debug + Send, F, Ret>(&self, f: F) -> Ret
+    fn with_entry<T: Any + Clone + Debug + Send + AsRef<str>, F, Ret>(&self, f: F) -> Ret
     where
         F: FnOnce(&mut (Box<Sender>, Option<Box<Receiver>>)) -> Ret,
     {
@@ -43,21 +43,23 @@ impl EventAggregator {
         f(entry)
     }
 
-    fn get_sender<T: Any + Clone + Debug + Send>(&self) -> LoggingTx<T> {
+    fn get_sender<T: Any + Clone + Debug + Send + AsRef<str>>(&self) -> LoggingTx<T> {
         self.with_entry::<T, _, _>(|entry| {
             let sender = &entry.0;
             sender.downcast_ref::<LoggingTx<T>>().unwrap().clone()
         })
     }
 
-    pub fn send<T: Any + Clone + Debug + Send>(&self, event: T) {
+    pub fn send<T: Any + Clone + Debug + Send + AsRef<str>>(&self, event: T) {
         let sender = self.get_sender::<T>();
         // Ignore errors due to the channel being closed (those are the only ones that can be generated)
         // That can happen during the shutdown process, or when some thread crashes
         let _ = sender.send(event);
     }
 
-    pub fn register_event<T: Any + Clone + Debug + Send>(&self) -> UnboundedReceiver<T> {
+    pub fn register_event<T: Any + Clone + Debug + Send + AsRef<str>>(
+        &self,
+    ) -> UnboundedReceiver<T> {
         self.with_entry::<T, _, _>(|entry| {
             let receiver = entry.1.take().unwrap();
             *receiver.downcast::<UnboundedReceiver<T>>().unwrap()

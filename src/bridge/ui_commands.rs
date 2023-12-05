@@ -6,6 +6,7 @@ use log::trace;
 
 use anyhow::{Context, Result};
 use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim, Value};
+use strum::AsRefStr;
 use tokio::sync::mpsc::unbounded_channel;
 
 #[cfg(windows)]
@@ -15,14 +16,15 @@ use crate::windows_utils::{
 
 use super::{show_error_message, show_intro_message};
 use crate::{
-    bridge::NeovimWriter, event_aggregator::EVENT_AGGREGATOR, running_tracker::RUNNING_TRACKER,
+    bridge::NeovimWriter, event_aggregator::EVENT_AGGREGATOR, profiling::tracy_dynamic_zone,
+    running_tracker::RUNNING_TRACKER,
 };
 
 // Serial commands are any commands which must complete before the next value is sent. This
 // includes keyboard and mouse input which would cause problems if sent out of order.
 //
 // When in doubt, use Parallel Commands.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, AsRefStr)]
 pub enum SerialCommand {
     Keyboard(String),
     MouseButton {
@@ -117,7 +119,7 @@ impl SerialCommand {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, AsRefStr)]
 pub enum ParallelCommand {
     Quit,
     Resize {
@@ -307,6 +309,15 @@ impl From<ParallelCommand> for UiCommand {
     }
 }
 
+impl AsRef<str> for UiCommand {
+    fn as_ref(&self) -> &str {
+        match self {
+            UiCommand::Serial(cmd) => cmd.as_ref(),
+            UiCommand::Parallel(cmd) => cmd.as_ref(),
+        }
+    }
+}
+
 pub fn start_ui_command_handler(nvim: Arc<Neovim<NeovimWriter>>) {
     let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
     let ui_command_nvim = nvim.clone();
@@ -315,10 +326,12 @@ pub fn start_ui_command_handler(nvim: Arc<Neovim<NeovimWriter>>) {
         while RUNNING_TRACKER.is_running() {
             match ui_command_receiver.recv().await {
                 Some(UiCommand::Serial(serial_command)) => {
+                    tracy_dynamic_zone!(serial_command.as_ref());
                     // This can fail if the serial_rx loop exits before this one, so ignore the errors
                     let _ = serial_tx.send(serial_command);
                 }
                 Some(UiCommand::Parallel(parallel_command)) => {
+                    tracy_dynamic_zone!(parallel_command.as_ref());
                     let ui_command_nvim = ui_command_nvim.clone();
                     tokio::spawn(async move {
                         parallel_command.execute(&ui_command_nvim).await;

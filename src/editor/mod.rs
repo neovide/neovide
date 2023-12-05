@@ -8,6 +8,7 @@ use std::{collections::HashMap, rc::Rc, sync::Arc, thread};
 
 use log::{error, trace};
 
+use strum::AsRefStr;
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
@@ -51,7 +52,7 @@ impl WindowAnchor {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, AsRefStr)]
 pub enum EditorCommand {
     NeovimRedrawEvent(RedrawEvent),
     RedrawScreen,

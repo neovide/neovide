@@ -108,7 +108,7 @@ fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream 
         }
     });
     let expanded = quote! {
-        #[derive(Debug, Clone, PartialEq)]
+        #[derive(Debug, Clone, PartialEq, strum::AsRefStr)]
         pub enum #event_name {
             #(#updated_case_fragments)*
         }
