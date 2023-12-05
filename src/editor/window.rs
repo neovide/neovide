@@ -48,12 +48,10 @@ impl Window {
     }
 
     fn send_command(&self, command: WindowDrawCommand) {
-        self.draw_command_batcher
-            .queue(DrawCommand::Window {
-                grid_id: self.grid_id,
-                command,
-            })
-            .ok();
+        self.draw_command_batcher.queue(DrawCommand::Window {
+            grid_id: self.grid_id,
+            command,
+        });
     }
 
     fn send_updated_position(&self) {

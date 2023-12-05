@@ -75,7 +75,7 @@ impl Editor {
             cursor: Cursor::new(),
             defined_styles: HashMap::new(),
             mode_list: Vec::new(),
-            draw_command_batcher: Rc::new(DrawCommandBatcher::new(event_loop_proxy.clone())),
+            draw_command_batcher: Rc::new(DrawCommandBatcher::new()),
             current_mode_index: None,
             ui_ready: false,
             event_loop_proxy,
@@ -116,8 +116,7 @@ impl Editor {
                         self.current_mode_index = None
                     }
                     self.draw_command_batcher
-                        .queue(DrawCommand::ModeChanged(mode))
-                        .ok();
+                        .queue(DrawCommand::ModeChanged(mode));
                 }
                 RedrawEvent::MouseOn => {
                     tracy_zone!("EditorMouseOn");
@@ -147,16 +146,15 @@ impl Editor {
                     self.send_cursor_info();
                     {
                         trace!("send_batch");
-                        self.draw_command_batcher.send_batch();
+                        self.draw_command_batcher.send_batch(&self.event_loop_proxy);
                     }
                 }
                 RedrawEvent::DefaultColorsSet { colors } => {
                     tracy_zone!("EditorDefaultColorsSet");
                     self.draw_command_batcher
-                        .queue(DrawCommand::DefaultStyleChanged(Style::new(colors)))
-                        .ok();
+                        .queue(DrawCommand::DefaultStyleChanged(Style::new(colors)));
                     self.redraw_screen();
-                    self.draw_command_batcher.send_batch();
+                    self.draw_command_batcher.send_batch(&self.event_loop_proxy);
                 }
                 RedrawEvent::HighlightAttributesDefine { id, style } => {
                     tracy_zone!("EditorHighlightAttributesDefine");
@@ -300,8 +298,7 @@ impl Editor {
         if let Some(window) = self.windows.remove(&grid) {
             window.close();
             self.draw_command_batcher
-                .queue(DrawCommand::CloseWindow(grid))
-                .ok();
+                .queue(DrawCommand::CloseWindow(grid));
         }
     }
 
@@ -506,8 +503,7 @@ impl Editor {
             self.cursor.grid_cell = (" ".to_string(), None);
         }
         self.draw_command_batcher
-            .queue(DrawCommand::UpdateCursor(self.cursor.clone()))
-            .ok();
+            .queue(DrawCommand::UpdateCursor(self.cursor.clone()));
     }
 
     fn set_option(&mut self, gui_option: GuiOption) {
@@ -522,15 +518,13 @@ impl Editor {
                 }
 
                 self.draw_command_batcher
-                    .queue(DrawCommand::FontChanged(guifont))
-                    .ok();
+                    .queue(DrawCommand::FontChanged(guifont));
 
                 self.redraw_screen();
             }
             GuiOption::LineSpace(linespace) => {
                 self.draw_command_batcher
-                    .queue(DrawCommand::LineSpaceChanged(linespace))
-                    .ok();
+                    .queue(DrawCommand::LineSpaceChanged(linespace));
 
                 self.redraw_screen();
             }
@@ -555,7 +549,7 @@ impl Editor {
     fn set_ui_ready(&mut self) {
         if !self.ui_ready {
             self.ui_ready = true;
-            self.draw_command_batcher.queue(DrawCommand::UIReady).ok();
+            self.draw_command_batcher.queue(DrawCommand::UIReady);
         }
     }
 }
