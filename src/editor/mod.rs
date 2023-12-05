@@ -5,14 +5,14 @@ mod style;
 mod window;
 
 use std::{collections::HashMap, rc::Rc, sync::Arc, thread};
+use tokio::sync::mpsc::unbounded_channel;
 
 use log::{error, trace};
 
-use strum::AsRefStr;
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
-    bridge::{GuiOption, ParallelCommand, RedrawEvent, UiCommand, WindowAnchor},
+    bridge::{GuiOption, NeovimHandler, ParallelCommand, RedrawEvent, UiCommand, WindowAnchor},
     event_aggregator::EVENT_AGGREGATOR,
     profiling::tracy_zone,
     renderer::DrawCommand,
@@ -52,12 +52,6 @@ impl WindowAnchor {
     }
 }
 
-#[derive(Clone, Debug, AsRefStr)]
-pub enum EditorCommand {
-    NeovimRedrawEvent(RedrawEvent),
-    RedrawScreen,
-}
-
 pub struct Editor {
     pub windows: HashMap<u64, Window>,
     pub cursor: Cursor,
@@ -83,215 +77,208 @@ impl Editor {
         }
     }
 
-    pub fn handle_editor_command(&mut self, command: EditorCommand) {
-        match command {
-            EditorCommand::NeovimRedrawEvent(event) => match event {
-                RedrawEvent::SetTitle { mut title } => {
-                    tracy_zone!("EditorSetTitle");
-                    if title.is_empty() {
-                        title = "Neovide".to_string()
-                    }
-                    let _ = self
-                        .event_loop_proxy
-                        .send_event(UserEvent::WindowCommand(WindowCommand::TitleChanged(title)));
+    pub fn handle_redraw_event(&mut self, event: RedrawEvent) {
+        match event {
+            RedrawEvent::SetTitle { mut title } => {
+                tracy_zone!("EditorSetTitle");
+                if title.is_empty() {
+                    title = "Neovide".to_string()
                 }
-                RedrawEvent::ModeInfoSet { cursor_modes } => {
-                    tracy_zone!("EditorModeInfoSet");
-                    self.mode_list = cursor_modes;
-                    if let Some(current_mode_i) = self.current_mode_index {
-                        if let Some(current_mode) = self.mode_list.get(current_mode_i as usize) {
-                            self.cursor.change_mode(current_mode, &self.defined_styles)
-                        }
+                let _ = self
+                    .event_loop_proxy
+                    .send_event(UserEvent::WindowCommand(WindowCommand::TitleChanged(title)));
+            }
+            RedrawEvent::ModeInfoSet { cursor_modes } => {
+                tracy_zone!("EditorModeInfoSet");
+                self.mode_list = cursor_modes;
+                if let Some(current_mode_i) = self.current_mode_index {
+                    if let Some(current_mode) = self.mode_list.get(current_mode_i as usize) {
+                        self.cursor.change_mode(current_mode, &self.defined_styles)
                     }
                 }
-                RedrawEvent::OptionSet { gui_option } => {
-                    tracy_zone!("EditorOptionSet");
-                    self.set_option(gui_option);
+            }
+            RedrawEvent::OptionSet { gui_option } => {
+                tracy_zone!("EditorOptionSet");
+                self.set_option(gui_option);
+            }
+            RedrawEvent::ModeChange { mode, mode_index } => {
+                tracy_zone!("ModeChange");
+                if let Some(cursor_mode) = self.mode_list.get(mode_index as usize) {
+                    self.cursor.change_mode(cursor_mode, &self.defined_styles);
+                    self.current_mode_index = Some(mode_index)
+                } else {
+                    self.current_mode_index = None
                 }
-                RedrawEvent::ModeChange { mode, mode_index } => {
-                    tracy_zone!("ModeChange");
-                    if let Some(cursor_mode) = self.mode_list.get(mode_index as usize) {
-                        self.cursor.change_mode(cursor_mode, &self.defined_styles);
-                        self.current_mode_index = Some(mode_index)
-                    } else {
-                        self.current_mode_index = None
-                    }
-                    self.draw_command_batcher
-                        .queue(DrawCommand::ModeChanged(mode));
-                }
-                RedrawEvent::MouseOn => {
-                    tracy_zone!("EditorMouseOn");
-                    let _ = self.event_loop_proxy.send_event(UserEvent::WindowCommand(
-                        WindowCommand::SetMouseEnabled(true),
-                    ));
-                }
-                RedrawEvent::MouseOff => {
-                    tracy_zone!("EditorMouseOff");
-                    let _ = self.event_loop_proxy.send_event(UserEvent::WindowCommand(
-                        WindowCommand::SetMouseEnabled(false),
-                    ));
-                }
-                RedrawEvent::BusyStart => {
-                    tracy_zone!("EditorBusyStart");
-                    trace!("Cursor off");
-                    self.cursor.enabled = false;
-                }
-                RedrawEvent::BusyStop => {
-                    tracy_zone!("EditorBusyStop");
-                    trace!("Cursor on");
-                    self.cursor.enabled = true;
-                }
-                RedrawEvent::Flush => {
-                    tracy_zone!("EditorFlush");
-                    trace!("Image flushed");
-                    self.send_cursor_info();
-                    {
-                        trace!("send_batch");
-                        self.draw_command_batcher.send_batch(&self.event_loop_proxy);
-                    }
-                }
-                RedrawEvent::DefaultColorsSet { colors } => {
-                    tracy_zone!("EditorDefaultColorsSet");
-                    self.draw_command_batcher
-                        .queue(DrawCommand::DefaultStyleChanged(Style::new(colors)));
-                    self.redraw_screen();
+                self.draw_command_batcher
+                    .queue(DrawCommand::ModeChanged(mode));
+            }
+            RedrawEvent::MouseOn => {
+                tracy_zone!("EditorMouseOn");
+                let _ = self.event_loop_proxy.send_event(UserEvent::WindowCommand(
+                    WindowCommand::SetMouseEnabled(true),
+                ));
+            }
+            RedrawEvent::MouseOff => {
+                tracy_zone!("EditorMouseOff");
+                let _ = self.event_loop_proxy.send_event(UserEvent::WindowCommand(
+                    WindowCommand::SetMouseEnabled(false),
+                ));
+            }
+            RedrawEvent::BusyStart => {
+                tracy_zone!("EditorBusyStart");
+                trace!("Cursor off");
+                self.cursor.enabled = false;
+            }
+            RedrawEvent::BusyStop => {
+                tracy_zone!("EditorBusyStop");
+                trace!("Cursor on");
+                self.cursor.enabled = true;
+            }
+            RedrawEvent::Flush => {
+                tracy_zone!("EditorFlush");
+                trace!("Image flushed");
+                self.send_cursor_info();
+                {
+                    trace!("send_batch");
                     self.draw_command_batcher.send_batch(&self.event_loop_proxy);
                 }
-                RedrawEvent::HighlightAttributesDefine { id, style } => {
-                    tracy_zone!("EditorHighlightAttributesDefine");
-                    self.defined_styles.insert(id, Arc::new(style));
-                }
-                RedrawEvent::CursorGoto {
-                    grid,
-                    column: left,
-                    row: top,
-                } => {
-                    tracy_zone!("EditorCursorGoto");
-                    self.set_cursor_position(grid, left, top);
-                }
-                RedrawEvent::Resize {
-                    grid,
-                    width,
-                    height,
-                } => {
-                    tracy_zone!("EditorResize");
-                    self.resize_window(grid, width, height);
-                }
-                RedrawEvent::GridLine {
-                    grid,
-                    row,
-                    column_start,
-                    cells,
-                } => {
-                    tracy_zone!("EditorGridLine");
-                    self.set_ui_ready();
-                    let defined_styles = &self.defined_styles;
-                    let window = self.windows.get_mut(&grid);
-                    if let Some(window) = window {
-                        window.draw_grid_line(row, column_start, cells, defined_styles);
-                    }
-                }
-                RedrawEvent::Clear { grid } => {
-                    tracy_zone!("EditorClear");
-                    let window = self.windows.get_mut(&grid);
-                    if let Some(window) = window {
-                        window.clear();
-                    }
-                }
-                RedrawEvent::Destroy { grid } => {
-                    tracy_zone!("EditorDestroy");
-                    self.close_window(grid)
-                }
-                RedrawEvent::Scroll {
-                    grid,
-                    top,
-                    bottom,
-                    left,
-                    right,
-                    rows,
-                    columns,
-                } => {
-                    tracy_zone!("EditorScroll");
-                    let window = self.windows.get_mut(&grid);
-                    if let Some(window) = window {
-                        window.scroll_region(top, bottom, left, right, rows, columns);
-                    }
-                }
-                RedrawEvent::WindowPosition {
-                    grid,
-                    start_row,
-                    start_column,
-                    width,
-                    height,
-                } => {
-                    tracy_zone!("EditorWindowPosition");
-                    self.set_window_position(grid, start_column, start_row, width, height)
-                }
-                RedrawEvent::WindowFloatPosition {
-                    grid,
-                    anchor,
-                    anchor_grid,
-                    anchor_column: anchor_left,
-                    anchor_row: anchor_top,
-                    sort_order,
-                    ..
-                } => {
-                    tracy_zone!("EditorWindowFloatPosition");
-                    self.set_window_float_position(
-                        grid,
-                        anchor_grid,
-                        anchor,
-                        anchor_left,
-                        anchor_top,
-                        sort_order,
-                    )
-                }
-                RedrawEvent::WindowHide { grid } => {
-                    tracy_zone!("EditorWindowHide");
-                    let window = self.windows.get(&grid);
-                    if let Some(window) = window {
-                        window.hide();
-                    }
-                }
-                RedrawEvent::WindowClose { grid } => {
-                    tracy_zone!("EditorWindowClose");
-                    self.close_window(grid)
-                }
-                RedrawEvent::MessageSetPosition {
-                    grid,
-                    row,
-                    scrolled,
-                    ..
-                } => {
-                    tracy_zone!("EditorMessageSetPosition");
-                    self.set_message_position(grid, row, scrolled)
-                }
-                RedrawEvent::WindowViewport {
-                    grid,
-                    // Don't send viewport events if they don't have a scroll delta
-                    scroll_delta: Some(scroll_delta),
-                    ..
-                } => {
-                    tracy_zone!("EditorWindowViewport");
-                    self.set_ui_ready();
-                    self.send_updated_viewport(grid, scroll_delta)
-                }
-                RedrawEvent::ShowIntro { message } => {
-                    EVENT_AGGREGATOR
-                        .send(UiCommand::Parallel(ParallelCommand::ShowIntro { message }));
-                }
-                // Interpreting suspend as a window minimize request
-                RedrawEvent::Suspend => {
-                    let _ = self
-                        .event_loop_proxy
-                        .send_event(UserEvent::WindowCommand(WindowCommand::Minimize));
-                }
-                _ => {}
-            },
-            EditorCommand::RedrawScreen => {
-                tracy_zone!("EditorRedrawScreen");
-                self.redraw_screen();
             }
+            RedrawEvent::DefaultColorsSet { colors } => {
+                tracy_zone!("EditorDefaultColorsSet");
+                self.draw_command_batcher
+                    .queue(DrawCommand::DefaultStyleChanged(Style::new(colors)));
+                self.redraw_screen();
+                self.draw_command_batcher.send_batch(&self.event_loop_proxy);
+            }
+            RedrawEvent::HighlightAttributesDefine { id, style } => {
+                tracy_zone!("EditorHighlightAttributesDefine");
+                self.defined_styles.insert(id, Arc::new(style));
+            }
+            RedrawEvent::CursorGoto {
+                grid,
+                column: left,
+                row: top,
+            } => {
+                tracy_zone!("EditorCursorGoto");
+                self.set_cursor_position(grid, left, top);
+            }
+            RedrawEvent::Resize {
+                grid,
+                width,
+                height,
+            } => {
+                tracy_zone!("EditorResize");
+                self.resize_window(grid, width, height);
+            }
+            RedrawEvent::GridLine {
+                grid,
+                row,
+                column_start,
+                cells,
+            } => {
+                tracy_zone!("EditorGridLine");
+                self.set_ui_ready();
+                let defined_styles = &self.defined_styles;
+                let window = self.windows.get_mut(&grid);
+                if let Some(window) = window {
+                    window.draw_grid_line(row, column_start, cells, defined_styles);
+                }
+            }
+            RedrawEvent::Clear { grid } => {
+                tracy_zone!("EditorClear");
+                let window = self.windows.get_mut(&grid);
+                if let Some(window) = window {
+                    window.clear();
+                }
+            }
+            RedrawEvent::Destroy { grid } => {
+                tracy_zone!("EditorDestroy");
+                self.close_window(grid)
+            }
+            RedrawEvent::Scroll {
+                grid,
+                top,
+                bottom,
+                left,
+                right,
+                rows,
+                columns,
+            } => {
+                tracy_zone!("EditorScroll");
+                let window = self.windows.get_mut(&grid);
+                if let Some(window) = window {
+                    window.scroll_region(top, bottom, left, right, rows, columns);
+                }
+            }
+            RedrawEvent::WindowPosition {
+                grid,
+                start_row,
+                start_column,
+                width,
+                height,
+            } => {
+                tracy_zone!("EditorWindowPosition");
+                self.set_window_position(grid, start_column, start_row, width, height)
+            }
+            RedrawEvent::WindowFloatPosition {
+                grid,
+                anchor,
+                anchor_grid,
+                anchor_column: anchor_left,
+                anchor_row: anchor_top,
+                sort_order,
+                ..
+            } => {
+                tracy_zone!("EditorWindowFloatPosition");
+                self.set_window_float_position(
+                    grid,
+                    anchor_grid,
+                    anchor,
+                    anchor_left,
+                    anchor_top,
+                    sort_order,
+                )
+            }
+            RedrawEvent::WindowHide { grid } => {
+                tracy_zone!("EditorWindowHide");
+                let window = self.windows.get(&grid);
+                if let Some(window) = window {
+                    window.hide();
+                }
+            }
+            RedrawEvent::WindowClose { grid } => {
+                tracy_zone!("EditorWindowClose");
+                self.close_window(grid)
+            }
+            RedrawEvent::MessageSetPosition {
+                grid,
+                row,
+                scrolled,
+                ..
+            } => {
+                tracy_zone!("EditorMessageSetPosition");
+                self.set_message_position(grid, row, scrolled)
+            }
+            RedrawEvent::WindowViewport {
+                grid,
+                // Don't send viewport events if they don't have a scroll delta
+                scroll_delta: Some(scroll_delta),
+                ..
+            } => {
+                tracy_zone!("EditorWindowViewport");
+                self.set_ui_ready();
+                self.send_updated_viewport(grid, scroll_delta)
+            }
+            RedrawEvent::ShowIntro { message } => {
+                EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::ShowIntro { message }));
+            }
+            // Interpreting suspend as a window minimize request
+            RedrawEvent::Suspend => {
+                let _ = self
+                    .event_loop_proxy
+                    .send_event(UserEvent::WindowCommand(WindowCommand::Minimize));
+            }
+            _ => {}
         };
     }
 
@@ -555,13 +542,15 @@ impl Editor {
     }
 }
 
-pub fn start_editor(event_loop_proxy: EventLoopProxy<UserEvent>) {
+pub fn start_editor(event_loop_proxy: EventLoopProxy<UserEvent>) -> NeovimHandler {
+    let (sender, mut receiver) = unbounded_channel();
+    let handler = NeovimHandler::new(sender, event_loop_proxy.clone());
     thread::spawn(move || {
         let mut editor = Editor::new(event_loop_proxy);
 
-        let mut editor_command_receiver = EVENT_AGGREGATOR.register_event::<EditorCommand>();
-        while let Some(editor_command) = editor_command_receiver.blocking_recv() {
-            editor.handle_editor_command(editor_command);
+        while let Some(editor_command) = receiver.blocking_recv() {
+            editor.handle_redraw_event(editor_command);
         }
     });
+    handler
 }

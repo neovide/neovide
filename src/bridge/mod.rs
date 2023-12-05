@@ -21,11 +21,12 @@ use winit::event_loop::EventLoopProxy;
 use crate::{
     cmd_line::CmdLineSettings,
     dimensions::Dimensions,
+    editor::start_editor,
     running_tracker::*,
     settings::*,
     window::{create_settings_listener, UserEvent},
 };
-use handler::NeovimHandler;
+pub use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
 use setup::setup_neovide_specific_state;
 
@@ -98,14 +99,14 @@ pub async fn show_error_message(
 }
 
 async fn launch(
+    handler: NeovimHandler,
     event_loop_proxy: EventLoopProxy<UserEvent>,
     grid_size: Option<Dimensions>,
 ) -> Result<NeovimSession> {
-    create_settings_listener(event_loop_proxy.clone());
+    create_settings_listener(event_loop_proxy);
 
     let neovim_instance = neovim_instance()?;
 
-    let handler = NeovimHandler::new(event_loop_proxy);
     let session = NeovimSession::new(neovim_instance, handler)
         .await
         .context("Could not locate or start neovim process")?;
@@ -177,7 +178,10 @@ impl NeovimRuntime {
         grid_size: Option<Dimensions>,
     ) -> Result<()> {
         assert!(matches!(self.state, RuntimeState::Idle));
-        let session = self.runtime.block_on(launch(event_loop_proxy, grid_size))?;
+        let handler = start_editor(event_loop_proxy.clone());
+        let session = self
+            .runtime
+            .block_on(launch(handler, event_loop_proxy, grid_size))?;
         self.state = RuntimeState::Attached(self.runtime.spawn(run(session)));
         Ok(())
     }

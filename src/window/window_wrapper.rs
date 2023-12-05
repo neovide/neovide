@@ -6,7 +6,6 @@ use super::{
 use crate::{
     bridge::{ParallelCommand, SerialCommand, UiCommand},
     dimensions::Dimensions,
-    editor::EditorCommand,
     event_aggregator::EVENT_AGGREGATOR,
     profiling::{emit_frame_mark, tracy_gpu_collect, tracy_gpu_zone, tracy_zone},
     renderer::{build_context, DrawCommand, GlWindow, Renderer, VSync, WindowedContext},
@@ -251,7 +250,7 @@ impl WinitWindowWrapper {
         let mut should_render = true;
         match event {
             Event::Resumed => {
-                EVENT_AGGREGATOR.send(EditorCommand::RedrawScreen);
+                // No need to do anything, but handle the event so that should_render gets set
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
@@ -533,7 +532,6 @@ impl WinitWindowWrapper {
 
     fn handle_scale_factor_update(&mut self, scale_factor: f64) {
         self.renderer.handle_os_scale_factor_change(scale_factor);
-        EVENT_AGGREGATOR.send(EditorCommand::RedrawScreen);
     }
 
     fn padding_as_grid(&self) -> Rect {

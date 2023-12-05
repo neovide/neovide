@@ -49,7 +49,6 @@ use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
 use backtrace::Backtrace;
 use bridge::NeovimRuntime;
 use cmd_line::CmdLineSettings;
-use editor::start_editor;
 use error_handling::{handle_startup_errors, NeovideExitCode};
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 #[cfg_attr(target_os = "windows", allow(unused_imports))]
@@ -88,12 +87,10 @@ fn main() -> NeovideExitCode {
     }
 
     let event_loop = create_event_loop();
-    let proxy = event_loop.create_proxy();
 
-    match setup(proxy.clone()) {
+    match setup(event_loop.create_proxy()) {
         Err(err) => handle_startup_errors(err, event_loop).into(),
         Ok((window_size, _runtime)) => {
-            start_editor(proxy);
             clipboard::init(&event_loop);
             let window = create_window(&event_loop, &window_size);
             main_loop(window, window_size, event_loop).into()
@@ -191,6 +188,7 @@ fn setup(proxy: EventLoopProxy<UserEvent>) -> Result<(WindowSize, NeovimRuntime)
             _ => None,
         },
     };
+
     let mut runtime = NeovimRuntime::new()?;
     runtime.launch(proxy, grid_size)?;
     Ok((window_size, runtime))

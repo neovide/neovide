@@ -4,16 +4,15 @@ use nvim_rs::{Handler, Neovim};
 use rmpv::Value;
 use std::sync::Arc;
 use std::sync::Mutex;
+use tokio::sync::mpsc::UnboundedSender;
 use winit::event_loop::EventLoopProxy;
 
 #[cfg(windows)]
 use crate::bridge::ui_commands::{ParallelCommand, UiCommand};
 use crate::{
     bridge::clipboard::{get_clipboard_contents, set_clipboard_contents},
-    bridge::{events::parse_redraw_event, NeovimWriter},
-    editor::EditorCommand,
+    bridge::{events::parse_redraw_event, NeovimWriter, RedrawEvent},
     error_handling::ResultPanicExplanation,
-    event_aggregator::EVENT_AGGREGATOR,
     running_tracker::*,
     settings::SETTINGS,
     window::{UserEvent, WindowCommand},
@@ -23,12 +22,14 @@ use crate::{
 pub struct NeovimHandler {
     // The EventLoopProxy is not sync on all platforms, so wrap it in a mutex
     proxy: Arc<Mutex<EventLoopProxy<UserEvent>>>,
+    sender: UnboundedSender<RedrawEvent>,
 }
 
 impl NeovimHandler {
-    pub fn new(proxy: EventLoopProxy<UserEvent>) -> Self {
+    pub fn new(sender: UnboundedSender<RedrawEvent>, proxy: EventLoopProxy<UserEvent>) -> Self {
         Self {
             proxy: Arc::new(Mutex::new(proxy)),
+            sender,
         }
     }
 }
@@ -81,7 +82,7 @@ impl Handler for NeovimHandler {
                         .unwrap_or_explained_panic("Could not parse event from neovim");
 
                     for parsed_event in parsed_events {
-                        EVENT_AGGREGATOR.send(EditorCommand::NeovimRedrawEvent(parsed_event));
+                        let _ = self.sender.send(parsed_event);
                     }
                 }
             }
