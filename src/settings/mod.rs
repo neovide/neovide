@@ -155,7 +155,7 @@ impl Settings {
             .read()
             .get(&SettingLocation::NeovideGlobal(name))
             .unwrap()(self, value);
-        let _ = event_loop_proxy.send_event(UserEvent::SettingsChanged(event));
+        let _ = event_loop_proxy.send_event(event.into());
     }
 
     pub fn handle_option_changed_notification(
@@ -175,14 +175,13 @@ impl Settings {
             .get(&SettingLocation::NeovimOption(name))
             .unwrap()(self, value);
 
-        let _ = event_loop_proxy.send_event(UserEvent::SettingsChanged(event));
+        let _ = event_loop_proxy.send_event(event.into());
     }
 
     pub fn register<T: SettingGroup>(&self) {
         T::register(self);
     }
 }
-
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum SettingsChanged {
@@ -251,7 +250,9 @@ mod tests {
 
         let location = SettingLocation::NeovideGlobal("foo".to_owned());
 
-        fn noop_update(_settings: &Settings, _value: Value) -> SettingsChanged {SettingsChanged::Test(TestSettingsChanged::Foo("hello".to_string()))}
+        fn noop_update(_settings: &Settings, _value: Value) -> SettingsChanged {
+            SettingsChanged::Test(TestSettingsChanged::Foo("hello".to_string()))
+        }
         fn noop_read(_settings: &Settings) -> Option<Value> {
             None
         }

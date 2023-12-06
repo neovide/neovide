@@ -92,6 +92,24 @@ pub enum UserEvent {
     SettingsChanged(SettingsChanged),
 }
 
+impl From<Vec<DrawCommand>> for UserEvent {
+    fn from(value: Vec<DrawCommand>) -> Self {
+        UserEvent::DrawCommandBatch(value)
+    }
+}
+
+impl From<WindowCommand> for UserEvent {
+    fn from(value: WindowCommand) -> Self {
+        UserEvent::WindowCommand(value)
+    }
+}
+
+impl From<SettingsChanged> for UserEvent {
+    fn from(value: SettingsChanged) -> Self {
+        UserEvent::SettingsChanged(value)
+    }
+}
+
 pub fn create_event_loop() -> EventLoop<UserEvent> {
     EventLoopBuilder::<UserEvent>::with_user_event()
         .build()

@@ -86,7 +86,7 @@ impl Editor {
                 }
                 let _ = self
                     .event_loop_proxy
-                    .send_event(UserEvent::WindowCommand(WindowCommand::TitleChanged(title)));
+                    .send_event(WindowCommand::TitleChanged(title).into());
             }
             RedrawEvent::ModeInfoSet { cursor_modes } => {
                 tracy_zone!("EditorModeInfoSet");
@@ -114,15 +114,15 @@ impl Editor {
             }
             RedrawEvent::MouseOn => {
                 tracy_zone!("EditorMouseOn");
-                let _ = self.event_loop_proxy.send_event(UserEvent::WindowCommand(
-                    WindowCommand::SetMouseEnabled(true),
-                ));
+                let _ = self
+                    .event_loop_proxy
+                    .send_event(WindowCommand::SetMouseEnabled(true).into());
             }
             RedrawEvent::MouseOff => {
                 tracy_zone!("EditorMouseOff");
-                let _ = self.event_loop_proxy.send_event(UserEvent::WindowCommand(
-                    WindowCommand::SetMouseEnabled(false),
-                ));
+                let _ = self
+                    .event_loop_proxy
+                    .send_event(WindowCommand::SetMouseEnabled(false).into());
             }
             RedrawEvent::BusyStart => {
                 tracy_zone!("EditorBusyStart");
@@ -276,7 +276,7 @@ impl Editor {
             RedrawEvent::Suspend => {
                 let _ = self
                     .event_loop_proxy
-                    .send_event(UserEvent::WindowCommand(WindowCommand::Minimize));
+                    .send_event(WindowCommand::Minimize.into());
             }
             _ => {}
         };
@@ -502,7 +502,7 @@ impl Editor {
                 if guifont == *"*" {
                     let _ = self
                         .event_loop_proxy
-                        .send_event(UserEvent::WindowCommand(WindowCommand::ListAvailableFonts));
+                        .send_event(WindowCommand::ListAvailableFonts.into());
                 }
 
                 self.draw_command_batcher

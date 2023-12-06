@@ -112,7 +112,7 @@ impl Handler for NeovimHandler {
                     .proxy
                     .lock()
                     .unwrap()
-                    .send_event(UserEvent::WindowCommand(WindowCommand::FocusWindow));
+                    .send_event(WindowCommand::FocusWindow.into());
             }
             _ => {}
         }

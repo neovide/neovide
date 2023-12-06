@@ -20,8 +20,6 @@ impl DrawCommandBatcher {
     }
 
     pub fn send_batch(&self, proxy: &EventLoopProxy<UserEvent>) {
-        let _ = proxy.send_event(UserEvent::DrawCommandBatch(
-            self.batch.borrow_mut().split_off(0),
-        ));
+        let _ = proxy.send_event(self.batch.borrow_mut().split_off(0).into());
     }
 }
