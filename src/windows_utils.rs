@@ -16,6 +16,8 @@ use winapi::{
     },
 };
 
+use crate::error_msg;
+
 fn get_binary_path() -> String {
     let mut buffer = vec![0u8; MAX_PATH];
     unsafe {
@@ -32,7 +34,7 @@ fn get_binary_path() -> String {
     }
 }
 
-pub fn unregister_rightclick() -> bool {
+fn unregister_rightclick() -> bool {
     let str_registry_path_1 =
         CString::new("Software\\Classes\\Directory\\Background\\shell\\Neovide").unwrap();
     let str_registry_path_2 = CString::new("Software\\Classes\\*\\shell\\Neovide").unwrap();
@@ -43,7 +45,7 @@ pub fn unregister_rightclick() -> bool {
     }
 }
 
-pub fn register_rightclick_directory() -> bool {
+fn register_rightclick_directory() -> bool {
     let neovide_path = get_binary_path();
     let mut registry_key: HKEY = null_mut();
     let str_registry_path =
@@ -131,7 +133,7 @@ pub fn register_rightclick_directory() -> bool {
     true
 }
 
-pub fn register_rightclick_file() -> bool {
+fn register_rightclick_file() -> bool {
     let neovide_path = get_binary_path();
     let mut registry_key: HKEY = null_mut();
     let str_registry_path = CString::new("Software\\Classes\\*\\shell\\Neovide").unwrap();
@@ -216,6 +218,24 @@ pub fn register_rightclick_file() -> bool {
         RegCloseKey(registry_key);
     }
     true
+}
+
+pub fn register_right_click() {
+    if unregister_rightclick() {
+        error_msg!("Could not unregister previous menu item. Possibly already registered.");
+    }
+    if !register_rightclick_directory() {
+        error_msg!("Could not register directory context menu item. Possibly already registered.");
+    }
+    if !register_rightclick_file() {
+        error_msg!("Could not register file context menu item. Possibly already registered.");
+    }
+}
+
+pub fn unregister_right_click() {
+    if !unregister_rightclick() {
+        error_msg!("Could not remove context menu items. Possibly already removed.");
+    }
 }
 
 pub fn windows_fix_dpi() {

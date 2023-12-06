@@ -1,18 +1,11 @@
 use std::sync::Arc;
 
-#[cfg(windows)]
-use log::error;
 use log::trace;
 
 use anyhow::{Context, Result};
 use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim, Value};
 use strum::AsRefStr;
 use tokio::sync::mpsc::unbounded_channel;
-
-#[cfg(windows)]
-use crate::windows_utils::{
-    register_rightclick_directory, register_rightclick_file, unregister_rightclick,
-};
 
 use super::{show_error_message, show_intro_message};
 use crate::{
@@ -122,25 +115,14 @@ impl SerialCommand {
 #[derive(Debug, Clone, AsRefStr)]
 pub enum ParallelCommand {
     Quit,
-    Resize {
-        width: u64,
-        height: u64,
-    },
+    Resize { width: u64, height: u64 },
     FileDrop(String),
     FocusLost,
     FocusGained,
     DisplayAvailableFonts(Vec<String>),
     SetBackground(String),
-    #[cfg(windows)]
-    RegisterRightClick,
-    #[cfg(windows)]
-    UnregisterRightClick,
-    ShowIntro {
-        message: Vec<String>,
-    },
-    ShowError {
-        lines: Vec<String>,
-    },
+    ShowIntro { message: Vec<String> },
+    ShowError { lines: Vec<String> },
 }
 
 async fn display_available_fonts(
@@ -188,36 +170,6 @@ async fn display_available_fonts(
     Ok(())
 }
 
-#[cfg(windows)]
-async fn register_right_click(nvim: &Neovim<NeovimWriter>) -> Result<(), Box<CallError>> {
-    if unregister_rightclick() {
-        let msg = "Could not unregister previous menu item. Possibly already registered.";
-        nvim.err_writeln(msg).await?;
-        error!("{}", msg);
-    }
-    if !register_rightclick_directory() {
-        let msg = "Could not register directory context menu item. Possibly already registered.";
-        nvim.err_writeln(msg).await?;
-        error!("{}", msg);
-    }
-    if !register_rightclick_file() {
-        let msg = "Could not register file context menu item. Possibly already registered.";
-        nvim.err_writeln(msg).await?;
-        error!("{}", msg);
-    }
-    Ok(())
-}
-
-#[cfg(windows)]
-async fn unregister_right_click(nvim: &Neovim<NeovimWriter>) -> Result<(), Box<CallError>> {
-    if !unregister_rightclick() {
-        let msg = "Could not remove context menu items. Possibly already removed.";
-        nvim.err_writeln(msg).await?;
-        error!("{}", msg);
-    }
-    Ok(())
-}
-
 impl ParallelCommand {
     async fn execute(self, nvim: &Neovim<NeovimWriter>) {
         // Don't panic here unless there's absolutely no chance of continuing the program, Instead
@@ -262,14 +214,6 @@ impl ParallelCommand {
             ParallelCommand::DisplayAvailableFonts(fonts) => display_available_fonts(nvim, fonts)
                 .await
                 .context("DisplayAvailableFonts failed"),
-            #[cfg(windows)]
-            ParallelCommand::RegisterRightClick => register_right_click(nvim)
-                .await
-                .context("RegisterRightClick failed"),
-            #[cfg(windows)]
-            ParallelCommand::UnregisterRightClick => unregister_right_click(nvim)
-                .await
-                .context("UnregisterRightClick failed"),
             ParallelCommand::ShowIntro { message } => show_intro_message(nvim, &message)
                 .await
                 .context("ShowIntro failed"),

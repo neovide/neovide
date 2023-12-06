@@ -7,8 +7,6 @@ use std::sync::Mutex;
 use tokio::sync::mpsc::UnboundedSender;
 use winit::event_loop::EventLoopProxy;
 
-#[cfg(windows)]
-use crate::bridge::ui_commands::{ParallelCommand, UiCommand};
 use crate::{
     bridge::clipboard::{get_clipboard_contents, set_clipboard_contents},
     bridge::{events::parse_redraw_event, NeovimWriter, RedrawEvent},
@@ -101,11 +99,19 @@ impl Handler for NeovimHandler {
             }
             #[cfg(windows)]
             "neovide.register_right_click" => {
-                EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::RegisterRightClick));
+                let _ = self
+                    .proxy
+                    .lock()
+                    .unwrap()
+                    .send_event(WindowCommand::RegisterRightClick.into());
             }
             #[cfg(windows)]
             "neovide.unregister_right_click" => {
-                EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::UnregisterRightClick));
+                let _ = self
+                    .proxy
+                    .lock()
+                    .unwrap()
+                    .send_event(WindowCommand::UnregisterRightClick.into());
             }
             "neovide.focus_window" => {
                 let _ = self

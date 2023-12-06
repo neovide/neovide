@@ -17,9 +17,9 @@ use swash::{
 };
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::{bridge::ParallelCommand, error_msg, profiling::tracy_zone, EVENT_AGGREGATOR};
 use crate::{
-    bridge::UiCommand,
+    error_msg,
+    profiling::tracy_zone,
     renderer::fonts::{font_loader::*, font_options::*},
 };
 

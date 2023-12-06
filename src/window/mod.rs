@@ -84,6 +84,10 @@ pub enum WindowCommand {
     FocusWindow,
     Minimize,
     ShowIntro(Vec<String>),
+    #[cfg(windows)]
+    RegisterRightClick,
+    #[cfg(windows)]
+    UnregisterRightClick,
 }
 
 #[derive(Clone, Debug, PartialEq)]

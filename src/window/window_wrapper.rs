@@ -3,6 +3,8 @@ use super::{
     WindowSettingsChanged,
 };
 
+#[cfg(windows)]
+use crate::windows_utils::{register_right_click, unregister_right_click};
 use crate::{
     bridge::{ParallelCommand, SerialCommand, UiCommand},
     dimensions::Dimensions,
@@ -176,6 +178,10 @@ impl WinitWindowWrapper {
             WindowCommand::ShowIntro(message) => {
                 EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::ShowIntro { message }));
             }
+            #[cfg(windows)]
+            WindowCommand::RegisterRightClick => register_right_click(),
+            #[cfg(windows)]
+            WindowCommand::UnregisterRightClick => unregister_right_click(),
         }
     }
 
