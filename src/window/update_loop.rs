@@ -114,12 +114,14 @@ impl UpdateLoop {
     }
 
     pub fn render(&mut self, window_wrapper: &mut WinitWindowWrapper) {
-        let dt = if self.num_consecutive_rendered > 0 && self.frame_dt_avg.get_num_samples() > 0 {
+        let dt = if self.frame_dt_avg.get_num_samples() > 0 {
             self.frame_dt_avg.get_average() as f32
         } else {
-            self.last_dt
+            // Assume default rate when we don't have an average yet
+            MAX_ANIMATION_DT
         }
-        .min(1.0);
+        // We don't really want to support less than 10 FPS
+        .min(0.1);
         self.should_render = window_wrapper.prepare_frame();
         let num_steps = (dt / MAX_ANIMATION_DT).ceil();
         let step = dt / num_steps;
