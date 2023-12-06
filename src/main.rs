@@ -116,7 +116,7 @@ fn setup(proxy: EventLoopProxy<UserEvent>) -> Result<(WindowSize, NeovimRuntime)
     //       This component handles communication from other components to the neovim process. The
     //       commands are split into Serial and Parallel commands. Serial commands must be
     //       processed in order while parallel commands can be processed in any order and in
-    //       parallel.
+    //       parallel. `send_ui` is used to send those commands from the window code.
     //
     // EDITOR:
     //   The editor is responsible for processing and transforming redraw events into something
@@ -144,23 +144,23 @@ fn setup(proxy: EventLoopProxy<UserEvent>) -> Result<(WindowSize, NeovimRuntime)
     // Neovide also includes some other systems which are globally available via lazy static
     // instantiations.
     //
-    // EVENT AGGREGATOR:
-    //   Central system which distributes events to each of the other components. This is done
-    //   using TypeIds and channels. Any component can publish any Clone + Debug + Send + Sync type
-    //   to the aggregator, but only one component can subscribe to any type. The system takes
-    //   pains to ensure that channels are shared by thread in order to keep things performant.
-    //   Also tokio channels are used so that the async components can properly await for events.
-    //
     // SETTINGS:
     //   The settings system is live updated from global variables in neovim with the prefix
     //   "neovide". They allow us to configure and manage the functionality of neovide from neovim
     //   init scripts and variables.
     //
-    // REDRAW SCHEDULER:
-    //   The redraw scheduler is a simple system in charge of deciding if the renderer should draw
-    //   another frame next frame, or if it can safely skip drawing to save battery and cpu power.
-    //   Multiple other parts of the app "queue_next_frame" function to ensure animations continue
-    //   properly or updates to the graphics are pushed to the screen.
+    //  ------------------
+    // | Communication flow |
+    //  ------------------
+    //
+    // The bridge reads from Neovim, and sends `RedrawEvent` to the editor. Some events are also
+    // sent directly to the window event loop using `WindowCommand`. Finally changed settings are
+    // parsed, which are sent as a window event through `SettingChanged`.
+    //
+    // The editor reads `RedrawEvent` and sends `DrawCommand` to the Window.
+    //
+    // The Window event loop sends UICommand to the bridge, which forwards them to Neovim. It also
+    // reads `DrawCommand`, `SettingChanged`, and `WindowCommand` from the other components.
     Config::init();
 
     //Will exit if -h or -v
