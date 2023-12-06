@@ -87,10 +87,11 @@ impl Handler for NeovimHandler {
                 }
             }
             "setting_changed" => {
-                SETTINGS.handle_setting_changed_notification(arguments);
+                SETTINGS
+                    .handle_setting_changed_notification(arguments, &self.proxy.lock().unwrap());
             }
             "option_changed" => {
-                SETTINGS.handle_option_changed_notification(arguments);
+                SETTINGS.handle_option_changed_notification(arguments, &self.proxy.lock().unwrap());
             }
             "neovide.quit" => {
                 let error_code = arguments[0]

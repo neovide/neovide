@@ -35,6 +35,7 @@ fn stream(input: DeriveInput, prefix: String) -> TokenStream {
 
 fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream {
     let event_name = format_ident!("{}Changed", name);
+    let name_without_settings = Ident::new(&name.to_string().replace("Settings", ""), name.span());
 
     let listener_fragments = data.fields.iter().map(|field| match field.ident {
         Some(ref ident) => {
@@ -73,15 +74,11 @@ fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream 
             };
 
             quote! {{
-                fn update(settings: &crate::settings::Settings, value: rmpv::Value, send_changed_event: bool) {
+                fn update(settings: &crate::settings::Settings, value: rmpv::Value) -> crate::settings::SettingsChanged {
                     let mut s = settings.get::<#name>();
                     s.#ident.parse_from_value(value);
                     settings.set(&s);
-                    if send_changed_event {
-                        crate::event_aggregator::EVENT_AGGREGATOR.send(
-                            #event_name::#case_ident(s.#ident.clone()),
-                        );
-                    }
+                    #event_name::#case_ident(s.#ident.clone()).into()
                 }
 
                 #reader
@@ -119,6 +116,12 @@ fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream 
                 let s: Self = Default::default();
                 settings.set(&s);
                 #(#listener_fragments)*
+            }
+        }
+
+        impl From<#event_name> for crate::settings::SettingsChanged {
+            fn from(value: #event_name) -> Self {
+                crate::settings::SettingsChanged::#name_without_settings(value)
             }
         }
     };

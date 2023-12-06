@@ -51,10 +51,13 @@ use crate::{
     frame::Frame,
     renderer::{build_window, DrawCommand, GlWindow},
     running_tracker::*,
-    settings::{load_last_window_settings, save_window_size, PersistentWindowSettings, SETTINGS},
+    settings::{
+        load_last_window_settings, save_window_size, PersistentWindowSettings, SettingsChanged,
+        SETTINGS,
+    },
 };
 pub use error_window::show_error_window;
-pub use settings::{create_settings_listener, WindowSettings, WindowSettingsChanged};
+pub use settings::{WindowSettings, WindowSettingsChanged};
 pub use update_loop::ShouldRender;
 pub use window_wrapper::WinitWindowWrapper;
 
@@ -86,7 +89,7 @@ pub enum WindowCommand {
 pub enum UserEvent {
     DrawCommandBatch(Vec<DrawCommand>),
     WindowCommand(WindowCommand),
-    WinddowSettingsChanged(WindowSettingsChanged),
+    SettingsChanged(SettingsChanged),
 }
 
 pub fn create_event_loop() -> EventLoop<UserEvent> {

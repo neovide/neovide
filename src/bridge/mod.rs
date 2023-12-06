@@ -19,12 +19,8 @@ use tokio::{
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
-    cmd_line::CmdLineSettings,
-    dimensions::Dimensions,
-    editor::start_editor,
-    running_tracker::*,
-    settings::*,
-    window::{create_settings_listener, UserEvent},
+    cmd_line::CmdLineSettings, dimensions::Dimensions, editor::start_editor, running_tracker::*,
+    settings::*, window::UserEvent,
 };
 pub use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
@@ -98,13 +94,7 @@ pub async fn show_error_message(
     nvim.echo(prepared_lines, true, vec![]).await
 }
 
-async fn launch(
-    handler: NeovimHandler,
-    event_loop_proxy: EventLoopProxy<UserEvent>,
-    grid_size: Option<Dimensions>,
-) -> Result<NeovimSession> {
-    create_settings_listener(event_loop_proxy);
-
+async fn launch(handler: NeovimHandler, grid_size: Option<Dimensions>) -> Result<NeovimSession> {
     let neovim_instance = neovim_instance()?;
 
     let session = NeovimSession::new(neovim_instance, handler)
@@ -178,10 +168,8 @@ impl NeovimRuntime {
         grid_size: Option<Dimensions>,
     ) -> Result<()> {
         assert!(matches!(self.state, RuntimeState::Idle));
-        let handler = start_editor(event_loop_proxy.clone());
-        let session = self
-            .runtime
-            .block_on(launch(handler, event_loop_proxy, grid_size))?;
+        let handler = start_editor(event_loop_proxy);
+        let session = self.runtime.block_on(launch(handler, grid_size))?;
         self.state = RuntimeState::Attached(self.runtime.spawn(run(session)));
         Ok(())
     }

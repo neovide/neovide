@@ -1,7 +1,4 @@
-use super::{UserEvent, RUNNING_TRACKER};
-use crate::{cmd_line::CmdLineSettings, settings::*, EVENT_AGGREGATOR};
-use tokio::sync::mpsc::UnboundedReceiver;
-use winit::event_loop::EventLoopProxy;
+use crate::{cmd_line::CmdLineSettings, settings::*};
 
 #[derive(Clone, SettingGroup, PartialEq)]
 pub struct WindowSettings {
@@ -64,16 +61,4 @@ impl Default for WindowSettings {
             observed_columns: None,
         }
     }
-}
-
-pub fn create_settings_listener(proxy: EventLoopProxy<UserEvent>) {
-    tokio::spawn(async move {
-        let mut receiver: UnboundedReceiver<WindowSettingsChanged> =
-            EVENT_AGGREGATOR.register_event();
-        while RUNNING_TRACKER.is_running() {
-            if let Some(changed_setting) = receiver.recv().await {
-                let _ = proxy.send_event(UserEvent::WinddowSettingsChanged(changed_setting));
-            }
-        }
-    });
 }

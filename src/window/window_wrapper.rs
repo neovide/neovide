@@ -10,7 +10,7 @@ use crate::{
     profiling::{emit_frame_mark, tracy_gpu_collect, tracy_gpu_zone, tracy_zone},
     renderer::{build_context, DrawCommand, GlWindow, Renderer, VSync, WindowedContext},
     running_tracker::RUNNING_TRACKER,
-    settings::{DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS},
+    settings::{SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS},
     window::{ShouldRender, WindowSize},
     CmdLineSettings,
 };
@@ -306,7 +306,7 @@ impl WinitWindowWrapper {
             Event::UserEvent(UserEvent::WindowCommand(e)) => {
                 self.handle_window_command(e);
             }
-            Event::UserEvent(UserEvent::WinddowSettingsChanged(e)) => {
+            Event::UserEvent(UserEvent::SettingsChanged(SettingsChanged::Window(e))) => {
                 self.handle_window_settings_changed(e);
             }
             _ => {
