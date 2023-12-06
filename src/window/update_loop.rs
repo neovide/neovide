@@ -172,7 +172,10 @@ impl UpdateLoop {
             Ok(Event::AboutToWait) | Err(false) => {
                 self.should_render.update(window_wrapper.prepare_frame());
                 if self.should_render == ShouldRender::Immediately || !self.idle {
-                    if window_wrapper.vsync.uses_winit_throttling() {
+                    // Always draw immediately for reduced latency if we have been idling
+                    if self.num_consecutive_rendered > 0
+                        && window_wrapper.vsync.uses_winit_throttling()
+                    {
                         window_wrapper.windowed_context.window().request_redraw();
                     } else {
                         self.render(window_wrapper);
