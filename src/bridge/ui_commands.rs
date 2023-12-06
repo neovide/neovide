@@ -301,3 +301,11 @@ pub fn start_ui_command_handler(nvim: Arc<Neovim<NeovimWriter>>) {
         }
     });
 }
+
+pub fn send_ui<T>(command: T)
+where
+    T: Into<UiCommand>,
+{
+    let command: UiCommand = command.into();
+    EVENT_AGGREGATOR.send(command);
+}

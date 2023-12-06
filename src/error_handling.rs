@@ -10,8 +10,7 @@ use log::error;
 use winit::{error::EventLoopError, event_loop::EventLoop};
 
 use crate::{
-    bridge::{ParallelCommand, UiCommand},
-    event_aggregator::EVENT_AGGREGATOR,
+    bridge::{send_ui, ParallelCommand},
     running_tracker::RUNNING_TRACKER,
     window::{show_error_window, UserEvent},
 };
@@ -22,9 +21,9 @@ fn show_error(explanation: &str) -> ! {
 }
 
 pub fn show_nvim_error(msg: &str) {
-    EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::ShowError {
+    send_ui(ParallelCommand::ShowError {
         lines: msg.split('\n').map(|s| s.to_string()).collect_vec(),
-    }));
+    });
 }
 
 /// Formats, logs and displays the given message.
@@ -33,7 +32,7 @@ macro_rules! error_msg {
     ($($arg:tt)+) => {
         let msg = format!($($arg)+);
         log::error!("{}", msg);
-        crate::error_handling::show_nvim_error(&msg);
+        $crate::error_handling::show_nvim_error(&msg);
     }
 }
 

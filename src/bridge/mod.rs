@@ -29,7 +29,9 @@ use setup::setup_neovide_specific_state;
 pub use command::create_nvim_command;
 pub use events::*;
 pub use session::NeovimWriter;
-pub use ui_commands::{start_ui_command_handler, ParallelCommand, SerialCommand, UiCommand};
+pub use ui_commands::{
+    send_ui, start_ui_command_handler, ParallelCommand, SerialCommand, UiCommand,
+};
 
 const INTRO_MESSAGE_LUA: &str = include_str!("../../lua/intro.lua");
 const NEOVIM_REQUIRED_VERSION: &str = "0.9.2";

@@ -6,9 +6,8 @@ use super::{
 #[cfg(windows)]
 use crate::windows_utils::{register_right_click, unregister_right_click};
 use crate::{
-    bridge::{ParallelCommand, SerialCommand, UiCommand},
+    bridge::{send_ui, ParallelCommand, SerialCommand},
     dimensions::Dimensions,
-    event_aggregator::EVENT_AGGREGATOR,
     profiling::{emit_frame_mark, tracy_gpu_collect, tracy_gpu_zone, tracy_zone},
     renderer::{build_context, DrawCommand, GlWindow, Renderer, VSync, WindowedContext},
     running_tracker::RUNNING_TRACKER,
@@ -34,9 +33,7 @@ pub struct WindowPadding {
 }
 
 pub fn set_background(background: &str) {
-    EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::SetBackground(
-        background.to_string(),
-    )));
+    send_ui(ParallelCommand::SetBackground(background.to_string()));
 }
 
 #[derive(PartialEq)]
@@ -176,7 +173,7 @@ impl WinitWindowWrapper {
                 self.is_minimized = true;
             }
             WindowCommand::ShowIntro(message) => {
-                EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::ShowIntro { message }));
+                send_ui(ParallelCommand::ShowIntro { message });
             }
             #[cfg(windows)]
             WindowCommand::RegisterRightClick => register_right_click(),
@@ -216,29 +213,27 @@ impl WinitWindowWrapper {
 
     pub fn send_font_names(&self) {
         let font_names = self.renderer.font_names();
-        EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::DisplayAvailableFonts(
-            font_names,
-        )));
+        send_ui(ParallelCommand::DisplayAvailableFonts(font_names));
     }
 
     pub fn handle_quit(&mut self) {
         if SETTINGS.get::<CmdLineSettings>().server.is_none() {
-            EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::Quit));
+            send_ui(ParallelCommand::Quit);
         } else {
             RUNNING_TRACKER.quit("window closed");
         }
     }
 
     pub fn handle_focus_lost(&mut self) {
-        EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::FocusLost));
+        send_ui(ParallelCommand::FocusLost);
     }
 
     pub fn handle_focus_gained(&mut self) {
-        EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::FocusGained));
+        send_ui(ParallelCommand::FocusGained);
         // Got focus back after being minimized previously
         if self.is_minimized {
             // Sending <NOP> after suspend triggers the `VimResume` AutoCmd
-            EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Keyboard("<NOP>".into())));
+            send_ui(SerialCommand::Keyboard("<NOP>".into()));
 
             self.is_minimized = false;
         }
@@ -278,7 +273,7 @@ impl WinitWindowWrapper {
                 ..
             } => {
                 let file_path = path.into_os_string().into_string().unwrap();
-                EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::FileDrop(file_path)));
+                send_ui(ParallelCommand::FileDrop(file_path));
             }
             Event::WindowEvent {
                 event: WindowEvent::Focused(focus),
@@ -517,10 +512,10 @@ impl WinitWindowWrapper {
             grid_size,
             self.saved_inner_size
         );
-        EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::Resize {
+        send_ui(ParallelCommand::Resize {
             width: grid_size.width,
             height: grid_size.height,
-        }));
+        });
     }
 
     fn update_ime_position(&mut self) {
