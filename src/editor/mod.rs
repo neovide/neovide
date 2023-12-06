@@ -315,7 +315,7 @@ impl Editor {
                 None,
                 (0.0, 0.0),
                 (width, height),
-                self.draw_command_batcher.clone(),
+                Rc::clone(&self.draw_command_batcher),
             );
             self.windows.insert(grid, window);
         }
@@ -339,7 +339,7 @@ impl Editor {
                 None,
                 (start_left as f64, start_top as f64),
                 (width, height),
-                self.draw_command_batcher.clone(),
+                Rc::clone(&self.draw_command_batcher),
             );
             self.windows.insert(grid, new_window);
         }
@@ -413,7 +413,7 @@ impl Editor {
                 Some(anchor_info),
                 (0.0, grid_top as f64),
                 (parent_width, 1),
-                self.draw_command_batcher.clone(),
+                Rc::clone(&self.draw_command_batcher),
             );
             self.windows.insert(grid, new_window);
         }
