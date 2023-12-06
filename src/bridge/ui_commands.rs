@@ -1,16 +1,15 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use log::trace;
 
 use anyhow::{Context, Result};
 use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim, Value};
 use strum::AsRefStr;
-use tokio::sync::mpsc::unbounded_channel;
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
 
 use super::{show_error_message, show_intro_message};
 use crate::{
-    bridge::NeovimWriter, event_aggregator::EVENT_AGGREGATOR, profiling::tracy_dynamic_zone,
-    running_tracker::RUNNING_TRACKER,
+    bridge::NeovimWriter, profiling::tracy_dynamic_zone, running_tracker::RUNNING_TRACKER,
 };
 
 // Serial commands are any commands which must complete before the next value is sent. This
@@ -262,11 +261,30 @@ impl AsRef<str> for UiCommand {
     }
 }
 
+struct UIChannels {
+    sender: UnboundedSender<UiCommand>,
+    receiver: Mutex<Option<UnboundedReceiver<UiCommand>>>,
+}
+
+impl UIChannels {
+    fn new() -> Self {
+        let (sender, receiver) = unbounded_channel();
+        Self {
+            sender,
+            receiver: Mutex::new(Some(receiver)),
+        }
+    }
+}
+
+lazy_static! {
+    static ref UI_CHANNELS: UIChannels = UIChannels::new();
+}
+
 pub fn start_ui_command_handler(nvim: Arc<Neovim<NeovimWriter>>) {
     let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
     let ui_command_nvim = nvim.clone();
     tokio::spawn(async move {
-        let mut ui_command_receiver = EVENT_AGGREGATOR.register_event::<UiCommand>();
+        let mut ui_command_receiver = UI_CHANNELS.receiver.lock().unwrap().take().unwrap();
         while RUNNING_TRACKER.is_running() {
             match ui_command_receiver.recv().await {
                 Some(UiCommand::Serial(serial_command)) => {
@@ -307,5 +325,5 @@ where
     T: Into<UiCommand>,
 {
     let command: UiCommand = command.into();
-    EVENT_AGGREGATOR.send(command);
+    let _ = UI_CHANNELS.sender.send(command);
 }

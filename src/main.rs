@@ -15,7 +15,6 @@ mod cmd_line;
 mod dimensions;
 mod editor;
 mod error_handling;
-mod event_aggregator;
 mod frame;
 mod profiling;
 mod renderer;
@@ -59,7 +58,6 @@ use window::{
 };
 
 pub use channel_utils::*;
-pub use event_aggregator::*;
 pub use running_tracker::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
