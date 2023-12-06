@@ -5,11 +5,12 @@ use log::trace;
 use anyhow::{Context, Result};
 use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim, Value};
 use strum::AsRefStr;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
 use super::{show_error_message, show_intro_message};
 use crate::{
     bridge::NeovimWriter, profiling::tracy_dynamic_zone, running_tracker::RUNNING_TRACKER,
+    LoggingSender,
 };
 
 // Serial commands are any commands which must complete before the next value is sent. This
@@ -262,7 +263,7 @@ impl AsRef<str> for UiCommand {
 }
 
 struct UIChannels {
-    sender: UnboundedSender<UiCommand>,
+    sender: LoggingSender<UiCommand>,
     receiver: Mutex<Option<UnboundedReceiver<UiCommand>>>,
 }
 
@@ -270,7 +271,7 @@ impl UIChannels {
     fn new() -> Self {
         let (sender, receiver) = unbounded_channel();
         Self {
-            sender,
+            sender: LoggingSender::attach(sender, "UICommand"),
             receiver: Mutex::new(Some(receiver)),
         }
     }

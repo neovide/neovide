@@ -7,6 +7,7 @@ use std::{
 use log::{debug, warn};
 use rmpv::Value;
 use skia_safe::Color4f;
+use strum::AsRefStr;
 
 use crate::editor::{Colors, CursorMode, CursorShape, Style, UnderlineStyle};
 
@@ -134,7 +135,7 @@ pub enum EditorMode {
     Unknown(String),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, AsRefStr)]
 pub enum RedrawEvent {
     SetTitle {
         title: String,
