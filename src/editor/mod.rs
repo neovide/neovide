@@ -12,8 +12,7 @@ use log::{error, trace};
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
-    bridge::{GuiOption, NeovimHandler, ParallelCommand, RedrawEvent, UiCommand, WindowAnchor},
-    event_aggregator::EVENT_AGGREGATOR,
+    bridge::{GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
     profiling::tracy_zone,
     renderer::DrawCommand,
     window::{UserEvent, WindowCommand},
@@ -270,7 +269,11 @@ impl Editor {
                 self.send_updated_viewport(grid, scroll_delta)
             }
             RedrawEvent::ShowIntro { message } => {
-                EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::ShowIntro { message }));
+                // Support the yet unmerged intro message support
+                // This could probably be handled completely on the lua side
+                let _ = self
+                    .event_loop_proxy
+                    .send_event(WindowCommand::ShowIntro(message).into());
             }
             // Interpreting suspend as a window minimize request
             RedrawEvent::Suspend => {

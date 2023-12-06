@@ -83,6 +83,7 @@ pub enum WindowCommand {
     ListAvailableFonts,
     FocusWindow,
     Minimize,
+    ShowIntro(Vec<String>),
 }
 
 #[derive(Clone, Debug, PartialEq)]

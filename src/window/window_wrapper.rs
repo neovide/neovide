@@ -173,6 +173,9 @@ impl WinitWindowWrapper {
                 self.minimize_window();
                 self.is_minimized = true;
             }
+            WindowCommand::ShowIntro(message) => {
+                EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::ShowIntro { message }));
+            }
         }
     }
 
