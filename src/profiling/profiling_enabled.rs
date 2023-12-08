@@ -225,9 +225,16 @@ pub fn startup_profiler() {
 }
 
 #[inline(always)]
-pub fn emit_frame_mark() {
+pub fn tracy_emit_frame_mark() {
     unsafe {
         ___tracy_emit_frame_mark(null());
+    }
+}
+
+#[inline(always)]
+pub fn _tracy_emit_named_frame_mark(name: &std::ffi::CStr) {
+    unsafe {
+        ___tracy_emit_frame_mark(name.as_ptr());
     }
 }
 
@@ -358,9 +365,17 @@ macro_rules! tracy_gpu_zone {
     };
 }
 
+#[macro_export]
+macro_rules! tracy_emit_named_frame_mark {
+    ($name: expr) => {
+        $crate::profiling::_tracy_emit_named_frame_mark($crate::profiling::cstr!($name))
+    };
+}
+
 pub(crate) use cstr;
 pub(crate) use file_cstr;
 pub(crate) use location_data;
 pub(crate) use tracy_dynamic_zone;
+pub(crate) use tracy_emit_named_frame_mark;
 pub(crate) use tracy_gpu_zone;
 pub(crate) use tracy_zone;

@@ -2,7 +2,7 @@
 pub fn startup_profiler() {}
 
 #[inline(always)]
-pub fn emit_frame_mark() {}
+pub fn tracy_emit_frame_mark() {}
 
 #[inline(always)]
 pub fn tracy_create_gpu_context(_name: &str) {}
@@ -22,7 +22,11 @@ macro_rules! tracy_gpu_zone {
     ($name: expr, $color: expr) => {};
     ($name: expr) => {};
 }
+macro_rules! tracy_emit_named_frame_mark {
+    ($name: expr) => {};
+}
 
 pub(crate) use tracy_dynamic_zone;
+pub(crate) use tracy_emit_named_frame_mark;
 pub(crate) use tracy_gpu_zone;
 pub(crate) use tracy_zone;
