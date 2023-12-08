@@ -26,7 +26,13 @@ macro_rules! tracy_named_frame {
     ($name: expr) => {};
 }
 
+#[macro_export]
+macro_rules! tracy_plot {
+    ($name: expr, $dt: expr) => {};
+}
+
 pub(crate) use tracy_dynamic_zone;
 pub(crate) use tracy_gpu_zone;
 pub(crate) use tracy_named_frame;
+pub(crate) use tracy_plot;
 pub(crate) use tracy_zone;

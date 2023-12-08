@@ -10,7 +10,7 @@ use winit::{
 use super::draw_background;
 use super::{UserEvent, WindowSettings, WinitWindowWrapper};
 use crate::{
-    profiling::{tracy_create_gpu_context, tracy_zone},
+    profiling::{tracy_create_gpu_context, tracy_plot, tracy_zone},
     renderer::VSync,
     settings::SETTINGS,
 };
@@ -125,6 +125,7 @@ impl UpdateLoop {
         }
         // We don't really want to support less than 10 FPS
         .min(0.1);
+        tracy_plot!("Average dt", dt.into());
         self.should_render = window_wrapper.prepare_frame();
         let num_steps = (dt / MAX_ANIMATION_DT).ceil();
         let step = dt / num_steps;
