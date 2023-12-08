@@ -261,7 +261,7 @@ impl RenderedWindow {
             Vec::new()
         };
 
-        let border_lines: Vec<(Matrix, &Rc<RefCell<Line>>)> = self
+        let border_lines: Vec<_> = self
             .top_border
             .clone()
             .chain(self.bottom_border.clone())
