@@ -13,7 +13,7 @@ use winit::event_loop::EventLoopProxy;
 
 use crate::{
     bridge::{GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
-    profiling::tracy_zone,
+    profiling::{tracy_named_frame, tracy_zone},
     renderer::DrawCommand,
     window::{UserEvent, WindowCommand},
 };
@@ -136,6 +136,7 @@ impl Editor {
             RedrawEvent::Flush => {
                 tracy_zone!("EditorFlush");
                 trace!("Image flushed");
+                tracy_named_frame!("neovim draw command flush");
                 self.send_cursor_info();
                 {
                     trace!("send_batch");

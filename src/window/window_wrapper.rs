@@ -8,7 +8,7 @@ use crate::windows_utils::{register_right_click, unregister_right_click};
 use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
     dimensions::Dimensions,
-    profiling::{emit_frame_mark, tracy_gpu_collect, tracy_gpu_zone, tracy_zone},
+    profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_zone},
     renderer::{build_context, DrawCommand, GlWindow, Renderer, VSync, WindowedContext},
     running_tracker::RUNNING_TRACKER,
     settings::{SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS},
@@ -337,7 +337,7 @@ impl WinitWindowWrapper {
             tracy_gpu_zone!("wait for vsync");
             self.vsync.wait_for_vsync();
         }
-        emit_frame_mark();
+        tracy_frame();
         tracy_gpu_collect();
     }
 

@@ -10,6 +10,8 @@ use winit::{
     keyboard::{Key, KeyCode, KeyLocation, NamedKey, PhysicalKey},
 };
 
+use crate::profiling::tracy_named_frame;
+
 fn is_ascii_alphabetic_char(text: &str) -> bool {
     text.len() == 1 && text.chars().next().unwrap().is_ascii_alphabetic()
 }
@@ -42,6 +44,7 @@ impl KeyboardManager {
                 if key_event.state == ElementState::Pressed {
                     if let Some(text) = self.format_key(key_event) {
                         log::trace!("Key pressed {} {:?}", text, self.modifiers.state());
+                        tracy_named_frame!("keyboard input");
                         send_ui(SerialCommand::Keyboard(text));
                     }
                 }

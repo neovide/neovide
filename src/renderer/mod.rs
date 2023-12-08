@@ -21,7 +21,7 @@ use crate::{
     bridge::EditorMode,
     dimensions::Dimensions,
     editor::{Cursor, Style},
-    profiling::tracy_zone,
+    profiling::{tracy_named_frame, tracy_zone},
     settings::*,
     window::{ShouldRender, UserEvent},
     WindowSettings,
@@ -254,6 +254,7 @@ impl Renderer {
 
         for draw_command in batch {
             self.handle_draw_command(draw_command, &mut result);
+            tracy_named_frame!("neovim draw batch processed");
         }
         self.flush(&settings);
 
