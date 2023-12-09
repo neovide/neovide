@@ -11,9 +11,10 @@ use tracy_client_sys::{
     ___tracy_emit_frame_mark, ___tracy_emit_gpu_context_name, ___tracy_emit_gpu_new_context,
     ___tracy_emit_gpu_time_serial, ___tracy_emit_gpu_zone_begin_serial,
     ___tracy_emit_gpu_zone_end_serial, ___tracy_emit_plot, ___tracy_emit_zone_begin,
-    ___tracy_emit_zone_begin_alloc, ___tracy_emit_zone_end, ___tracy_gpu_context_name_data,
-    ___tracy_gpu_new_context_data, ___tracy_gpu_time_data, ___tracy_gpu_zone_begin_data,
-    ___tracy_gpu_zone_end_data, ___tracy_source_location_data, ___tracy_startup_profiler,
+    ___tracy_emit_zone_begin_alloc, ___tracy_emit_zone_end, ___tracy_fiber_enter,
+    ___tracy_fiber_leave, ___tracy_gpu_context_name_data, ___tracy_gpu_new_context_data,
+    ___tracy_gpu_time_data, ___tracy_gpu_zone_begin_data, ___tracy_gpu_zone_end_data,
+    ___tracy_source_location_data, ___tracy_startup_profiler,
 };
 
 use gl::{
@@ -245,6 +246,20 @@ pub fn _tracy_plot(name: &std::ffi::CStr, value: f64) {
     }
 }
 
+#[inline(always)]
+pub fn _tracy_fiber_enter(name: &std::ffi::CStr) {
+    unsafe {
+        ___tracy_fiber_enter(name.as_ptr());
+    }
+}
+
+#[inline(always)]
+pub fn tracy_fiber_leave() {
+    unsafe {
+        ___tracy_fiber_leave();
+    }
+}
+
 pub fn tracy_create_gpu_context(name: &str) {
     // Don't change order, only add new entries at the end, this is also used on trace dumps!
     #[allow(dead_code)]
@@ -386,10 +401,18 @@ macro_rules! tracy_plot {
     };
 }
 
+#[macro_export]
+macro_rules! tracy_fiber_enter {
+    ($name: expr) => {
+        $crate::profiling::_tracy_fiber_enter($crate::profiling::cstr!($name))
+    };
+}
+
 pub(crate) use cstr;
 pub(crate) use file_cstr;
 pub(crate) use location_data;
 pub(crate) use tracy_dynamic_zone;
+pub(crate) use tracy_fiber_enter;
 pub(crate) use tracy_gpu_zone;
 pub(crate) use tracy_named_frame;
 pub(crate) use tracy_plot;

@@ -31,7 +31,16 @@ macro_rules! tracy_plot {
     ($name: expr, $dt: expr) => {};
 }
 
+#[macro_export]
+macro_rules! tracy_fiber_enter {
+    ($name: expr) => {};
+}
+
+#[inline(always)]
+pub fn tracy_fiber_leave() {}
+
 pub(crate) use tracy_dynamic_zone;
+pub(crate) use tracy_fiber_enter;
 pub(crate) use tracy_gpu_zone;
 pub(crate) use tracy_named_frame;
 pub(crate) use tracy_plot;
