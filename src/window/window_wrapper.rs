@@ -347,7 +347,6 @@ impl WinitWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         tracy_zone!("draw_frame");
-        self.renderer.prepare_lines();
         self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
         {
             tracy_gpu_zone!("skia flush");
@@ -375,6 +374,7 @@ impl WinitWindowWrapper {
             dt,
         );
         tracy_plot!("animate_frame", res as u8 as f64);
+        self.renderer.prepare_lines();
         #[allow(clippy::let_and_return)]
         res
     }

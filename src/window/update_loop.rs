@@ -80,6 +80,8 @@ pub struct UpdateLoop {
     should_render: ShouldRender,
     num_consecutive_rendered: u32,
     focused: FocusedState,
+    pending_render: bool,
+    pending_draw_commands: Vec<Event<UserEvent>>,
 }
 
 impl UpdateLoop {
@@ -92,6 +94,8 @@ impl UpdateLoop {
         let should_render = ShouldRender::Immediately;
         let num_consecutive_rendered = 0;
         let focused = FocusedState::Focused;
+        let pending_render = false;
+        let pending_draw_commands = Vec::new();
 
         Self {
             idle,
@@ -101,6 +105,8 @@ impl UpdateLoop {
             should_render,
             num_consecutive_rendered,
             focused,
+            pending_render,
+            pending_draw_commands,
         }
     }
 
@@ -132,7 +138,7 @@ impl UpdateLoop {
         }
     }
 
-    pub fn render(&mut self, window_wrapper: &mut WinitWindowWrapper) {
+    pub fn animate(&mut self, window_wrapper: &mut WinitWindowWrapper) {
         let dt = if self.frame_dt_avg.get_num_samples() > 0 {
             self.frame_dt_avg.get_average() as f32
         } else {
@@ -142,7 +148,6 @@ impl UpdateLoop {
         // We don't really want to support less than 10 FPS
         .min(0.1);
         tracy_plot!("Average dt", dt.into());
-        self.should_render = window_wrapper.prepare_frame();
         let num_steps = (dt / MAX_ANIMATION_DT).ceil();
         let step = dt / num_steps;
         for _ in 0..num_steps as usize {
@@ -150,6 +155,10 @@ impl UpdateLoop {
                 self.should_render = ShouldRender::Immediately;
             }
         }
+    }
+
+    pub fn render(&mut self, window_wrapper: &mut WinitWindowWrapper) {
+        self.pending_render = false;
         window_wrapper.draw_frame(self.last_dt);
 
         if self.num_consecutive_rendered > 2 {
@@ -192,20 +201,25 @@ impl UpdateLoop {
                 return Err(());
             }
             Ok(Event::AboutToWait) | Err(false) => {
-                self.should_render.update(window_wrapper.prepare_frame());
-                if self.should_render == ShouldRender::Immediately || !self.idle {
-                    // Always draw immediately for reduced latency if we have been idling
-                    if self.num_consecutive_rendered > 0
-                        && window_wrapper.vsync.uses_winit_throttling()
-                    {
-                        window_wrapper.windowed_context.window().request_redraw();
+                if !self.pending_render {
+                    self.should_render.update(window_wrapper.prepare_frame());
+                    if self.should_render == ShouldRender::Immediately || !self.idle {
+                        self.should_render = ShouldRender::Wait;
+                        self.animate(window_wrapper);
+                        // Always draw immediately for reduced latency if we have been idling
+                        if self.num_consecutive_rendered > 0
+                            && window_wrapper.vsync.uses_winit_throttling()
+                        {
+                            window_wrapper.windowed_context.window().request_redraw();
+                            self.pending_render = true;
+                        } else {
+                            self.render(window_wrapper);
+                        }
                     } else {
-                        self.render(window_wrapper);
+                        self.num_consecutive_rendered = 0;
+                        self.last_dt = self.previous_frame_start.elapsed().as_secs_f32();
+                        self.previous_frame_start = Instant::now();
                     }
-                } else {
-                    self.num_consecutive_rendered = 0;
-                    self.last_dt = self.previous_frame_start.elapsed().as_secs_f32();
-                    self.previous_frame_start = Instant::now();
                 }
             }
             Ok(Event::WindowEvent {
@@ -218,8 +232,20 @@ impl UpdateLoop {
             _ => {}
         }
 
+        if !self.pending_render {
+            for e in self.pending_draw_commands.drain(..) {
+                if window_wrapper.handle_event(e) {
+                    self.should_render = ShouldRender::Immediately;
+                }
+            }
+        }
+
         if let Ok(event) = event {
-            if window_wrapper.handle_event(event) {
+            if self.pending_render
+                && matches!(&event, Event::UserEvent(UserEvent::DrawCommandBatch(_)))
+            {
+                self.pending_draw_commands.push(event);
+            } else if window_wrapper.handle_event(event) {
                 self.should_render = ShouldRender::Immediately;
             }
         }
