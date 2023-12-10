@@ -139,14 +139,10 @@ impl UpdateLoop {
     }
 
     pub fn animate(&mut self, window_wrapper: &mut WinitWindowWrapper) {
-        let dt = if self.frame_dt_avg.get_num_samples() > 0 {
-            self.frame_dt_avg.get_average() as f32
-        } else {
-            // Assume default rate when we don't have an average yet
-            MAX_ANIMATION_DT
-        }
-        // We don't really want to support less than 10 FPS
-        .min(0.1);
+        let dt = window_wrapper
+            .vsync
+            .get_refresh_rate(&window_wrapper.windowed_context);
+
         tracy_plot!("Average dt", dt.into());
         let num_steps = (dt / MAX_ANIMATION_DT).ceil();
         let step = dt / num_steps;

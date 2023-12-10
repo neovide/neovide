@@ -8,7 +8,7 @@ mod vsync_win;
 
 use vsync_timer::VSyncTimer;
 
-use crate::renderer::WindowedContext;
+use crate::{renderer::WindowedContext, settings::SETTINGS, window::WindowSettings};
 #[cfg(target_os = "linux")]
 use std::env;
 
@@ -73,6 +73,23 @@ impl VSync {
             #[cfg(target_os = "macos")]
             VSync::Macos(vsync) => vsync.update(context),
             _ => {}
+        }
+    }
+
+    pub fn get_refresh_rate(&self, context: &WindowedContext) -> f32 {
+        let settings_refresh_rate = 1.0 / SETTINGS.get::<WindowSettings>().refresh_rate as f32;
+
+        match self {
+            VSync::Timer(_) => settings_refresh_rate,
+            _ => {
+                let monitor = context.window().current_monitor();
+                monitor
+                    .and_then(|monitor| monitor.refresh_rate_millihertz())
+                    .map(|rate| 1000.0 / rate as f32)
+                    .unwrap_or_else(|| settings_refresh_rate)
+                    // We don't really want to support less than 10 FPS
+                    .min(0.1)
+            }
         }
     }
 }
