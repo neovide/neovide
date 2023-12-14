@@ -321,11 +321,21 @@ impl WinitWindowWrapper {
             Event::UserEvent(UserEvent::SettingsChanged(SettingsChanged::Window(e))) => {
                 self.handle_window_settings_changed(e);
             }
-            Event::WindowEvent { .. } => {
-                tracy_zone!("Unknown WindowEvent");
-            }
             _ => {
-                tracy_zone!("Unknown");
+                match event {
+                    Event::WindowEvent { .. } => {
+                        tracy_zone!("Unknown WindowEvent");
+                    }
+                    Event::AboutToWait { .. } => {
+                        tracy_zone!("AboutToWait");
+                    }
+                    Event::DeviceEvent { .. } => {
+                        tracy_zone!("DeviceEvent");
+                    }
+                    _ => {
+                        tracy_zone!("Unknown");
+                    }
+                }
                 should_render = renderer_asks_to_be_rendered;
             }
         }
