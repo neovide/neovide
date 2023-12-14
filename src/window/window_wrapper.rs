@@ -183,6 +183,7 @@ impl WinitWindowWrapper {
     }
 
     pub fn handle_window_settings_changed(&mut self, changed_setting: WindowSettingsChanged) {
+        tracy_zone!("handle_window_settings_changed");
         match changed_setting {
             WindowSettingsChanged::ObservedColumns(columns) => {
                 log::info!("columns changed");
@@ -254,24 +255,28 @@ impl WinitWindowWrapper {
         let mut should_render = true;
         match event {
             Event::Resumed => {
+                tracy_zone!("Resumed");
                 // No need to do anything, but handle the event so that should_render gets set
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
             } => {
+                tracy_zone!("CloseRequested");
                 self.handle_quit();
             }
             Event::WindowEvent {
                 event: WindowEvent::ScaleFactorChanged { scale_factor, .. },
                 ..
             } => {
+                tracy_zone!("ScaleFactorChanged");
                 self.handle_scale_factor_update(scale_factor);
             }
             Event::WindowEvent {
                 event: WindowEvent::DroppedFile(path),
                 ..
             } => {
+                tracy_zone!("DroppedFile");
                 let file_path = path.into_os_string().into_string().unwrap();
                 send_ui(ParallelCommand::FileDrop(file_path));
             }
@@ -279,6 +284,7 @@ impl WinitWindowWrapper {
                 event: WindowEvent::Focused(focus),
                 ..
             } => {
+                tracy_zone!("Focused");
                 if focus {
                     self.handle_focus_gained();
                 } else {
@@ -289,6 +295,7 @@ impl WinitWindowWrapper {
                 event: WindowEvent::ThemeChanged(theme),
                 ..
             } => {
+                tracy_zone!("ThemeChanged");
                 let settings = SETTINGS.get::<WindowSettings>();
                 if settings.theme.as_str() == "auto" {
                     let background = match theme {
@@ -302,6 +309,7 @@ impl WinitWindowWrapper {
                 event: WindowEvent::Moved(_),
                 ..
             } => {
+                tracy_zone!("Moved");
                 self.vsync.update(&self.windowed_context);
             }
             Event::UserEvent(UserEvent::DrawCommandBatch(batch)) => {
@@ -313,7 +321,11 @@ impl WinitWindowWrapper {
             Event::UserEvent(UserEvent::SettingsChanged(SettingsChanged::Window(e))) => {
                 self.handle_window_settings_changed(e);
             }
+            Event::WindowEvent { .. } => {
+                tracy_zone!("Unknown WindowEvent");
+            }
             _ => {
+                tracy_zone!("Unknown");
                 should_render = renderer_asks_to_be_rendered;
             }
         }
@@ -352,6 +364,7 @@ impl WinitWindowWrapper {
     }
 
     fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
+        tracy_zone!("handle_draw_commands");
         let handle_draw_commands_result = self.renderer.handle_draw_commands(batch);
 
         self.font_changed_last_frame |= handle_draw_commands_result.font_changed;
