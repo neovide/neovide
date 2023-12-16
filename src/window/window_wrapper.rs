@@ -332,6 +332,9 @@ impl WinitWindowWrapper {
                     Event::DeviceEvent { .. } => {
                         tracy_zone!("DeviceEvent");
                     }
+                    Event::NewEvents(..) => {
+                        tracy_zone!("NewEvents");
+                    }
                     _ => {
                         tracy_zone!("Unknown");
                     }

@@ -196,6 +196,7 @@ impl UpdateLoop {
                 event: WindowEvent::RedrawRequested,
                 ..
             }) => {
+                tracy_zone!("render (redraw requested)");
                 self.render(window_wrapper);
             }
             _ => {}
