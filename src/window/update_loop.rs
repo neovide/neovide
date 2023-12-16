@@ -118,11 +118,7 @@ impl UpdateLoop {
         .max(1.0);
 
         let expected_frame_duration = Duration::from_secs_f32(1.0 / refresh_rate);
-        if self.should_render == ShouldRender::Immediately
-            && (!vsync.uses_winit_throttling() || self.num_consecutive_rendered == 1)
-        {
-            // Only poll when using native vsync
-            // NOTE: Also after the first frame after an idle period has been rendered
+        if self.should_render == ShouldRender::Immediately && !self.pending_render {
             (Duration::from_nanos(0), Instant::now())
         } else {
             let mut deadline = self.previous_frame_start + expected_frame_duration;
