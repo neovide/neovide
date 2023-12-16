@@ -9,7 +9,7 @@ use winit::event::{Event, WindowEvent};
 use crate::{
     bridge::EditorMode,
     editor::{Cursor, CursorShape},
-    profiling::tracy_zone,
+    profiling::{tracy_plot, tracy_zone},
     renderer::animation_utils::*,
     renderer::{GridRenderer, RenderedWindow},
     settings::{ParseFromValue, SETTINGS},
@@ -422,6 +422,7 @@ impl CursorRenderer {
         if !animating {
             self.previous_editor_mode = current_mode.clone();
         }
+        tracy_plot!("cursor animating", animating as u8 as f64);
         animating
     }
 

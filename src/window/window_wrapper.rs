@@ -8,7 +8,7 @@ use crate::windows_utils::{register_right_click, unregister_right_click};
 use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
     dimensions::Dimensions,
-    profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_zone},
+    profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
     renderer::{build_context, DrawCommand, GlWindow, Renderer, VSync, WindowedContext},
     running_tracker::RUNNING_TRACKER,
     settings::{SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS},
@@ -369,11 +369,14 @@ impl WinitWindowWrapper {
     pub fn animate_frame(&mut self, dt: f32) -> bool {
         tracy_zone!("animate_frame", 0);
 
-        self.renderer.animate_frame(
+        let res = self.renderer.animate_frame(
             &self.get_grid_size_from_window(0, 0),
             &self.padding_as_grid(),
             dt,
-        )
+        );
+        tracy_plot!("animate_frame", res as u8 as f64);
+        #[allow(clippy::let_and_return)]
+        res
     }
 
     fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {

@@ -48,6 +48,26 @@ impl ShouldRender {
             (ShouldRender::Wait, ShouldRender::Wait) => {}
         }
     }
+
+    #[cfg(feature = "profiling")]
+    fn plot_tracy(&self) {
+        match &self {
+            ShouldRender::Immediately => {
+                tracy_plot!("should_render", 0.0);
+            }
+            ShouldRender::Wait => {
+                tracy_plot!("should_render", -1.0);
+            }
+            ShouldRender::Deadline(instant) => {
+                tracy_plot!(
+                    "should_render",
+                    instant
+                        .saturating_duration_since(Instant::now())
+                        .as_secs_f64()
+                );
+            }
+        }
+    }
 }
 
 const MAX_ANIMATION_DT: f32 = 1.0 / 120.0;
@@ -207,6 +227,8 @@ impl UpdateLoop {
                 self.should_render = ShouldRender::Immediately;
             }
         }
+        #[cfg(feature = "profiling")]
+        self.should_render.plot_tracy();
 
         let (_, deadline) = self.get_event_wait_time(&window_wrapper.vsync);
         Ok(ControlFlow::WaitUntil(deadline))
