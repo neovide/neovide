@@ -11,7 +11,6 @@ use super::draw_background;
 use super::{UserEvent, WindowSettings, WinitWindowWrapper};
 use crate::{
     profiling::{tracy_create_gpu_context, tracy_plot, tracy_zone},
-    renderer::VSync,
     settings::SETTINGS,
 };
 
@@ -110,13 +109,11 @@ impl UpdateLoop {
         }
     }
 
-    pub fn get_event_wait_time(&self, vsync: &VSync) -> (Duration, Instant) {
+    pub fn get_event_wait_time(&self) -> (Duration, Instant) {
         let refresh_rate = match self.focused {
             // NOTE: Always wait for the idle refresh rate when winit throttling is used to avoid waking up too early
             // The winit redraw request will likely happen much before that and wake it up anyway
-            FocusedState::Focused | FocusedState::UnfocusedNotDrawn
-                if !vsync.uses_winit_throttling() =>
-            {
+            FocusedState::Focused | FocusedState::UnfocusedNotDrawn => {
                 SETTINGS.get::<WindowSettings>().refresh_rate as f32
             }
             _ => SETTINGS.get::<WindowSettings>().refresh_rate_idle as f32,
@@ -126,6 +123,9 @@ impl UpdateLoop {
         let expected_frame_duration = Duration::from_secs_f32(1.0 / refresh_rate);
         if self.should_render == ShouldRender::Immediately && !self.pending_render {
             (Duration::from_nanos(0), Instant::now())
+        } else if self.pending_render {
+            let deadline = self.animation_start + self.simulation_time;
+            (deadline.saturating_duration_since(Instant::now()), deadline)
         } else {
             let mut deadline = self.previous_frame_start + expected_frame_duration;
             deadline = match self.should_render {
@@ -201,19 +201,31 @@ impl UpdateLoop {
                 return Err(());
             }
             Ok(Event::AboutToWait) | Err(false) => {
-                if !self.pending_render {
+                // We will also animate, but not render when frames are skipped(or very late) to reduce visual artifacts
+                let skipped_frame = self.pending_render
+                    && Instant::now() > (self.animation_start + self.simulation_time);
+                let should_prepare = !self.pending_render || skipped_frame;
+                if should_prepare {
                     self.should_render.update(window_wrapper.prepare_frame());
-                    if self.should_render == ShouldRender::Immediately || !self.idle {
+                    if self.should_render == ShouldRender::Immediately
+                        || !self.idle
+                        || skipped_frame
+                    {
                         self.should_render = ShouldRender::Wait;
                         self.animate(window_wrapper);
-                        // Always draw immediately for reduced latency if we have been idling
-                        if self.num_consecutive_rendered > 0
-                            && window_wrapper.vsync.uses_winit_throttling()
-                        {
-                            window_wrapper.windowed_context.window().request_redraw();
-                            self.pending_render = true;
-                        } else {
-                            self.render(window_wrapper);
+                        // There's really no point in trying to render if the frame is skipped
+                        // (most likely due to the compositor being busy). The animated frame will
+                        // be rendered at an approprate time anyway.
+                        if !skipped_frame {
+                            // Always draw immediately for reduced latency if we have been idling
+                            if self.num_consecutive_rendered > 0
+                                && window_wrapper.vsync.uses_winit_throttling()
+                            {
+                                window_wrapper.windowed_context.window().request_redraw();
+                                self.pending_render = true;
+                            } else {
+                                self.render(window_wrapper);
+                            }
                         }
                     } else {
                         self.num_consecutive_rendered = 0;
@@ -252,7 +264,7 @@ impl UpdateLoop {
         #[cfg(feature = "profiling")]
         self.should_render.plot_tracy();
 
-        let (_, deadline) = self.get_event_wait_time(&window_wrapper.vsync);
+        let (_, deadline) = self.get_event_wait_time();
         Ok(ControlFlow::WaitUntil(deadline))
     }
 }
