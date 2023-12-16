@@ -81,6 +81,8 @@ pub struct UpdateLoop {
     focused: FocusedState,
     pending_render: bool,
     pending_draw_commands: Vec<Event<UserEvent>>,
+    animation_start: Instant,
+    simulation_time: Duration,
 }
 
 impl UpdateLoop {
@@ -95,6 +97,8 @@ impl UpdateLoop {
         let focused = FocusedState::Focused;
         let pending_render = false;
         let pending_draw_commands = Vec::new();
+        let animation_start = Instant::now();
+        let simulation_time = Duration::from_millis(0);
 
         Self {
             idle,
@@ -106,6 +110,8 @@ impl UpdateLoop {
             focused,
             pending_render,
             pending_draw_commands,
+            animation_start,
+            simulation_time,
         }
     }
 
@@ -143,7 +149,20 @@ impl UpdateLoop {
             .vsync
             .get_refresh_rate(&window_wrapper.windowed_context);
 
-        tracy_plot!("Average dt", dt.into());
+        let now = Instant::now();
+        let animation_time = (now - self.animation_start).as_secs_f64();
+        let delta = animation_time - self.simulation_time.as_secs_f64();
+        // Catchup immediately if the delta is more than one frame, otherwise smooth it over 10 frames
+        let catchup = if delta >= dt as f64 {
+            delta
+        } else {
+            delta / 10.0
+        };
+
+        let dt = (dt + catchup as f32).max(0.0);
+        tracy_plot!("Simulation dt", dt as f64);
+        self.simulation_time += Duration::from_secs_f32(dt);
+
         let num_steps = (dt / MAX_ANIMATION_DT).ceil();
         let step = dt / num_steps;
         for _ in 0..num_steps as usize {
@@ -208,6 +227,10 @@ impl UpdateLoop {
                         || skipped_frame
                     {
                         self.should_render = ShouldRender::Wait;
+                        if self.num_consecutive_rendered == 0 {
+                            self.animation_start = Instant::now();
+                            self.simulation_time = Duration::from_millis(0);
+                        }
                         self.animate(window_wrapper);
                         // There's really no point in trying to render if the frame is skipped
                         // (most likely due to the compositor being busy). The animated frame will
