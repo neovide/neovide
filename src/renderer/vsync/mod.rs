@@ -8,7 +8,11 @@ mod vsync_win;
 
 use vsync_timer::VSyncTimer;
 
-use crate::{renderer::WindowedContext, settings::SETTINGS, window::WindowSettings};
+use crate::{
+    renderer::WindowedContext, settings::SETTINGS, window::UserEvent, window::WindowSettings,
+};
+use winit::event_loop::EventLoopProxy;
+
 #[cfg(target_os = "linux")]
 use std::env;
 
@@ -30,7 +34,12 @@ pub enum VSync {
 }
 
 impl VSync {
-    pub fn new(vsync_enabled: bool, #[allow(unused_variables)] context: &WindowedContext) -> Self {
+    #[allow(unused_variables)]
+    pub fn new(
+        vsync_enabled: bool,
+        context: &WindowedContext,
+        proxy: EventLoopProxy<UserEvent>,
+    ) -> Self {
         if vsync_enabled {
             #[cfg(target_os = "linux")]
             if env::var("WAYLAND_DISPLAY").is_ok() {
@@ -41,7 +50,7 @@ impl VSync {
 
             #[cfg(target_os = "windows")]
             {
-                VSync::Windows(VSyncWin::new())
+                VSync::Windows(VSyncWin::new(proxy))
             }
 
             #[cfg(target_os = "macos")]
@@ -65,7 +74,11 @@ impl VSync {
     }
 
     pub fn uses_winit_throttling(&self) -> bool {
-        matches!(self, VSync::WinitThrottling())
+        #[cfg(target_os = "windows")]
+        return matches!(self, VSync::WinitThrottling() | VSync::Windows(..));
+
+        #[cfg(not(target_os = "windows"))]
+        return matches!(self, VSync::WinitThrottling());
     }
 
     pub fn update(&mut self, #[allow(unused_variables)] context: &WindowedContext) {
@@ -90,6 +103,12 @@ impl VSync {
                     // We don't really want to support less than 10 FPS
                     .min(0.1)
             }
+        }
+    }
+
+    pub fn request_redraw(&self, context: &WindowedContext) {
+        if let VSync::WinitThrottling(..) = self {
+            context.window().request_redraw();
         }
     }
 }

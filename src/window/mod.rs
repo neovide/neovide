@@ -95,6 +95,8 @@ pub enum UserEvent {
     DrawCommandBatch(Vec<DrawCommand>),
     WindowCommand(WindowCommand),
     SettingsChanged(SettingsChanged),
+    #[allow(dead_code)]
+    RedrawRequested,
 }
 
 impl From<Vec<DrawCommand>> for UserEvent {
@@ -286,9 +288,10 @@ pub fn main_loop(
 ) -> Result<(), EventLoopError> {
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
     let (tx, rx) = channel::<Event<UserEvent>>();
+    let proxy = event_loop.create_proxy();
 
     let render_thread_handle = thread::spawn(move || {
-        let mut window_wrapper = WinitWindowWrapper::new(window, initial_window_size);
+        let mut window_wrapper = WinitWindowWrapper::new(window, initial_window_size, proxy);
         let mut update_loop = UpdateLoop::new(cmd_line_settings.idle);
 
         loop {
@@ -296,7 +299,7 @@ pub fn main_loop(
                 break;
             }
 
-            let (wait_duration, _) = update_loop.get_event_wait_time(&window_wrapper.vsync);
+            let (wait_duration, _) = update_loop.get_event_wait_time();
             let event = rx
                 .recv_timeout(wait_duration)
                 .map_err(|e| matches!(e, RecvTimeoutError::Disconnected));
@@ -346,7 +349,8 @@ pub fn main_loop(
     event_loop: EventLoop<UserEvent>,
 ) -> Result<(), EventLoopError> {
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
-    let mut window_wrapper = WinitWindowWrapper::new(window, initial_window_size);
+    let mut window_wrapper =
+        WinitWindowWrapper::new(window, initial_window_size, event_loop.create_proxy());
 
     let mut update_loop = UpdateLoop::new(cmd_line_settings.idle);
 

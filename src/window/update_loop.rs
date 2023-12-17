@@ -231,7 +231,9 @@ impl UpdateLoop {
                             if self.num_consecutive_rendered > 0
                                 && window_wrapper.vsync.uses_winit_throttling()
                             {
-                                window_wrapper.windowed_context.window().request_redraw();
+                                window_wrapper
+                                    .vsync
+                                    .request_redraw(&window_wrapper.windowed_context);
                                 self.pending_render = true;
                             } else {
                                 self.render(window_wrapper);
@@ -247,7 +249,8 @@ impl UpdateLoop {
             Ok(Event::WindowEvent {
                 event: WindowEvent::RedrawRequested,
                 ..
-            }) => {
+            })
+            | Ok(Event::UserEvent(UserEvent::RedrawRequested)) => {
                 tracy_zone!("render (redraw requested)");
                 self.render(window_wrapper);
             }

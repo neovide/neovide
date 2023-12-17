@@ -1,65 +1,51 @@
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Condvar, Mutex,
+        Arc,
     },
     thread::{spawn, JoinHandle},
 };
 use winapi::um::dwmapi::DwmFlush;
+use winit::event_loop::EventLoopProxy;
 
-use crate::profiling::tracy_zone;
+use crate::{profiling::tracy_zone, window::UserEvent};
 
 pub struct VSyncWin {
     should_exit: Arc<AtomicBool>,
     vsync_thread: Option<JoinHandle<()>>,
-    vsync_count: Arc<(Mutex<usize>, Condvar)>,
-    last_vsync: usize,
 }
 
 impl VSyncWin {
     // On Windows the fake vsync is always enabled
     // Everything else is very jerky
-    pub fn new() -> Self {
+    pub fn new(proxy: EventLoopProxy<UserEvent>) -> Self {
         let should_exit = Arc::new(AtomicBool::new(false));
-        let should_exit2 = should_exit.clone();
-        let vsync_count = Arc::new((Mutex::new(0), Condvar::new()));
-        let vsync_count2 = vsync_count.clone();
 
         // When using OpenGL on Windows in windowed mode, swap_buffers does not seem to be
         // synchronized with the Desktop Window Manager. So work around that by waiting until the
         // DWM is flushed before swapping the buffers. Using a separate thread simplifies things,
         // since it avoids race conditions when the starting the wait just before the next flush is
         // starting to happen.
-        let vsync_thread = Some(spawn(move || {
-            let (lock, cvar) = &*vsync_count2;
-            while !should_exit2.load(Ordering::SeqCst) {
-                unsafe {
-                    tracy_zone!("VSyncThread");
-                    DwmFlush();
-                    {
-                        let mut count = lock.lock().unwrap();
-                        *count += 1;
-                        cvar.notify_one();
+        let vsync_thread = {
+            let should_exit = should_exit.clone();
+            Some(spawn(move || {
+                while !should_exit.load(Ordering::SeqCst) {
+                    unsafe {
+                        tracy_zone!("VSyncThread");
+                        DwmFlush();
+                        let _ = proxy.send_event(UserEvent::RedrawRequested);
                     }
                 }
-            }
-        }));
+            }))
+        };
 
         Self {
             should_exit,
             vsync_thread,
-            vsync_count,
-            last_vsync: 0,
         }
     }
 
-    pub fn wait_for_vsync(&mut self) {
-        let (lock, cvar) = &*self.vsync_count;
-        let count = cvar
-            .wait_while(lock.lock().unwrap(), |count| *count < self.last_vsync + 1)
-            .unwrap();
-        self.last_vsync = *count;
-    }
+    pub fn wait_for_vsync(&mut self) {}
 }
 
 impl Drop for VSyncWin {
