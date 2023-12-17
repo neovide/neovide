@@ -149,6 +149,11 @@ fn setup(proxy: EventLoopProxy<UserEvent>) -> Result<(WindowSize, NeovimRuntime)
     //   "neovide". They allow us to configure and manage the functionality of neovide from neovim
     //   init scripts and variables.
     //
+    // RUNNING_TRACKER:
+    //   The running tracker responds to quit requests, allowing other systems to check if they
+    //   should terminate for a graceful exit. It also records the exit code (if provided) and
+    //   returns it upon neovide's termination.
+    //
     //  ------------------
     // | Communication flow |
     //  ------------------
