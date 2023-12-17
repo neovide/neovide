@@ -31,14 +31,6 @@ use winit::platform::wayland::WindowBuilderExtWayland;
 #[cfg(target_os = "linux")]
 use winit::platform::x11::WindowBuilderExtX11;
 
-#[cfg(target_os = "windows")]
-use std::{
-    sync::mpsc::{channel, RecvTimeoutError},
-    thread,
-};
-#[cfg(target_os = "windows")]
-use winit::event_loop::ControlFlow;
-
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
 use mouse_manager::MouseManager;
@@ -278,71 +270,6 @@ pub fn determine_window_size(window_settings: Option<&PersistentWindowSettings>)
     }
 }
 
-// Use a render thread on Windows to work around performance issues with Winit
-// see: https://github.com/rust-windowing/winit/issues/2782
-#[cfg(target_os = "windows")]
-pub fn main_loop(
-    window: GlWindow,
-    initial_window_size: WindowSize,
-    event_loop: EventLoop<UserEvent>,
-) -> Result<(), EventLoopError> {
-    let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
-    let (tx, rx) = channel::<Event<UserEvent>>();
-    let proxy = event_loop.create_proxy();
-
-    let render_thread_handle = thread::spawn(move || {
-        let mut window_wrapper = WinitWindowWrapper::new(window, initial_window_size, proxy);
-        let mut update_loop = UpdateLoop::new(cmd_line_settings.idle);
-
-        loop {
-            if !RUNNING_TRACKER.is_running() {
-                break;
-            }
-
-            let (wait_duration, _) = update_loop.get_event_wait_time();
-            let event = rx
-                .recv_timeout(wait_duration)
-                .map_err(|e| matches!(e, RecvTimeoutError::Disconnected));
-
-            if update_loop.step(&mut window_wrapper, event).is_err() {
-                break;
-            }
-        }
-
-        save_window_size(&window_wrapper);
-    });
-
-    let result = event_loop.run(|e, window_target| {
-        match e {
-            Event::LoopExiting => {
-                return;
-            }
-            Event::AboutToWait => {}
-            _ => {
-                let _ = tx.send(e);
-            }
-        }
-
-        if render_thread_handle.is_finished() {
-            window_target.exit();
-        }
-
-        // We need to wake up regularly to check if the render thread has exited.
-        // We can't exit until the render thread has dropped the window wrapper.
-        window_target.set_control_flow(ControlFlow::WaitUntil(
-            std::time::Instant::now() + std::time::Duration::from_millis(100),
-        ));
-    });
-
-    // Manually drop in case the event loop ended prematurely because of a winit or other error.
-    // This will unblock the render thread before the join.
-    drop(tx);
-
-    render_thread_handle.join().unwrap();
-    result
-}
-
-#[cfg(not(target_os = "windows"))]
 pub fn main_loop(
     window: GlWindow,
     initial_window_size: WindowSize,
