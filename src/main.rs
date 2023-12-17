@@ -5,6 +5,10 @@
 #[macro_use]
 extern crate neovide_derive;
 
+#[cfg(test)]
+#[macro_use]
+extern crate approx;
+
 #[macro_use]
 extern crate clap;
 
