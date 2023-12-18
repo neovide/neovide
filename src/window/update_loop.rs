@@ -1,4 +1,3 @@
-use simple_moving_average::{NoSumSMA, SMA};
 use std::time::{Duration, Instant};
 
 use winit::{
@@ -75,7 +74,6 @@ pub struct UpdateLoop {
     idle: bool,
     previous_frame_start: Instant,
     last_dt: f32,
-    frame_dt_avg: NoSumSMA<f64, f64, 10>,
     should_render: ShouldRender,
     num_consecutive_rendered: u32,
     focused: FocusedState,
@@ -91,7 +89,6 @@ impl UpdateLoop {
 
         let previous_frame_start = Instant::now();
         let last_dt = 0.0;
-        let frame_dt_avg = NoSumSMA::new();
         let should_render = ShouldRender::Immediately;
         let num_consecutive_rendered = 0;
         let focused = FocusedState::Focused;
@@ -104,7 +101,6 @@ impl UpdateLoop {
             idle,
             previous_frame_start,
             last_dt,
-            frame_dt_avg,
             should_render,
             num_consecutive_rendered,
             focused,
@@ -175,11 +171,6 @@ impl UpdateLoop {
     pub fn render(&mut self, window_wrapper: &mut WinitWindowWrapper) {
         self.pending_render = false;
         window_wrapper.draw_frame(self.last_dt);
-
-        if self.num_consecutive_rendered > 2 {
-            self.frame_dt_avg
-                .add_sample(self.previous_frame_start.elapsed().as_secs_f64());
-        }
 
         if let FocusedState::UnfocusedNotDrawn = self.focused {
             self.focused = FocusedState::Unfocused;
