@@ -3,22 +3,21 @@ use super::{
     WindowSettingsChanged,
 };
 
+#[cfg(windows)]
+use crate::windows_utils::{register_right_click, unregister_right_click};
 use crate::{
-    bridge::{ParallelCommand, SerialCommand, UiCommand},
+    bridge::{send_ui, ParallelCommand, SerialCommand},
     dimensions::Dimensions,
-    editor::EditorCommand,
-    event_aggregator::EVENT_AGGREGATOR,
     profiling::{emit_frame_mark, tracy_gpu_collect, tracy_gpu_zone, tracy_zone},
-    renderer::{build_context, GlWindow, Renderer, VSync, WindowedContext},
+    renderer::{build_context, DrawCommand, GlWindow, Renderer, VSync, WindowedContext},
     running_tracker::RUNNING_TRACKER,
-    settings::{DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS},
-    window::WindowSize,
+    settings::{SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS},
+    window::{ShouldRender, WindowSize},
     CmdLineSettings,
 };
 
 use log::trace;
 use skia_safe::{scalar, Rect};
-use tokio::sync::mpsc::UnboundedReceiver;
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize, Position},
     event::{Event, WindowEvent},
@@ -34,15 +33,14 @@ pub struct WindowPadding {
 }
 
 pub fn set_background(background: &str) {
-    EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::SetBackground(
-        background.to_string(),
-    )));
+    send_ui(ParallelCommand::SetBackground(background.to_string()));
 }
 
 #[derive(PartialEq)]
 enum UIState {
     Initing, // Running init.vim/lua
-    Ready,   // No pending resizes
+    FirstFrame,
+    Showing, // No pending resizes
 }
 
 pub struct WinitWindowWrapper {
@@ -58,8 +56,6 @@ pub struct WinitWindowWrapper {
     font_changed_last_frame: bool,
     saved_inner_size: PhysicalSize<u32>,
     saved_grid_size: Option<Dimensions>,
-    window_command_receiver: UnboundedReceiver<WindowCommand>,
-    window_settings_changed_receiver: UnboundedReceiver<WindowSettingsChanged>,
     ime_enabled: bool,
     ime_position: PhysicalPosition<i32>,
     requested_columns: Option<u64>,
@@ -118,8 +114,6 @@ impl WinitWindowWrapper {
             font_changed_last_frame: false,
             saved_inner_size,
             saved_grid_size: None,
-            window_command_receiver: EVENT_AGGREGATOR.register_event(),
-            window_settings_changed_receiver: EVENT_AGGREGATOR.register_event(),
             ime_enabled,
             ime_position: PhysicalPosition::new(-1, -1),
             requested_columns: None,
@@ -163,50 +157,52 @@ impl WinitWindowWrapper {
         self.windowed_context.window().set_ime_allowed(ime_enabled);
     }
 
-    #[allow(clippy::needless_collect)]
-    pub fn handle_window_commands(&mut self) {
+    pub fn handle_window_command(&mut self, command: WindowCommand) {
         tracy_zone!("handle_window_commands", 0);
-        while let Ok(window_command) = self.window_command_receiver.try_recv() {
-            match window_command {
-                WindowCommand::TitleChanged(new_title) => self.handle_title_changed(new_title),
-                WindowCommand::SetMouseEnabled(mouse_enabled) => {
-                    self.mouse_manager.enabled = mouse_enabled
-                }
-                WindowCommand::ListAvailableFonts => self.send_font_names(),
-                WindowCommand::FocusWindow => {
-                    self.windowed_context.window().focus_window();
-                }
-                WindowCommand::Minimize => {
-                    self.minimize_window();
-                    self.is_minimized = true;
-                }
+        match command {
+            WindowCommand::TitleChanged(new_title) => self.handle_title_changed(new_title),
+            WindowCommand::SetMouseEnabled(mouse_enabled) => {
+                self.mouse_manager.enabled = mouse_enabled
             }
+            WindowCommand::ListAvailableFonts => self.send_font_names(),
+            WindowCommand::FocusWindow => {
+                self.windowed_context.window().focus_window();
+            }
+            WindowCommand::Minimize => {
+                self.minimize_window();
+                self.is_minimized = true;
+            }
+            WindowCommand::ShowIntro(message) => {
+                send_ui(ParallelCommand::ShowIntro { message });
+            }
+            #[cfg(windows)]
+            WindowCommand::RegisterRightClick => register_right_click(),
+            #[cfg(windows)]
+            WindowCommand::UnregisterRightClick => unregister_right_click(),
         }
     }
 
-    pub fn handle_window_settings_changed_events(&mut self) {
-        while let Ok(changed_setting) = self.window_settings_changed_receiver.try_recv() {
-            match changed_setting {
-                WindowSettingsChanged::ObservedColumns(columns) => {
-                    log::info!("columns changed");
-                    self.requested_columns = columns;
-                }
-                WindowSettingsChanged::ObservedLines(lines) => {
-                    log::info!("lines changed");
-                    self.requested_lines = lines;
-                }
-                WindowSettingsChanged::Fullscreen(fullscreen) => {
-                    if self.fullscreen != fullscreen {
-                        self.toggle_fullscreen();
-                    }
-                }
-                WindowSettingsChanged::InputIme(ime_enabled) => {
-                    if self.ime_enabled != ime_enabled {
-                        self.set_ime(ime_enabled);
-                    }
-                }
-                _ => {}
+    pub fn handle_window_settings_changed(&mut self, changed_setting: WindowSettingsChanged) {
+        match changed_setting {
+            WindowSettingsChanged::ObservedColumns(columns) => {
+                log::info!("columns changed");
+                self.requested_columns = columns;
             }
+            WindowSettingsChanged::ObservedLines(lines) => {
+                log::info!("lines changed");
+                self.requested_lines = lines;
+            }
+            WindowSettingsChanged::Fullscreen(fullscreen) => {
+                if self.fullscreen != fullscreen {
+                    self.toggle_fullscreen();
+                }
+            }
+            WindowSettingsChanged::InputIme(ime_enabled) => {
+                if self.ime_enabled != ime_enabled {
+                    self.set_ime(ime_enabled);
+                }
+            }
+            _ => {}
         }
     }
 
@@ -217,29 +213,27 @@ impl WinitWindowWrapper {
 
     pub fn send_font_names(&self) {
         let font_names = self.renderer.font_names();
-        EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::DisplayAvailableFonts(
-            font_names,
-        )));
+        send_ui(ParallelCommand::DisplayAvailableFonts(font_names));
     }
 
     pub fn handle_quit(&mut self) {
         if SETTINGS.get::<CmdLineSettings>().server.is_none() {
-            EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::Quit));
+            send_ui(ParallelCommand::Quit);
         } else {
             RUNNING_TRACKER.quit("window closed");
         }
     }
 
     pub fn handle_focus_lost(&mut self) {
-        EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::FocusLost));
+        send_ui(ParallelCommand::FocusLost);
     }
 
     pub fn handle_focus_gained(&mut self) {
-        EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::FocusGained));
+        send_ui(ParallelCommand::FocusGained);
         // Got focus back after being minimized previously
         if self.is_minimized {
             // Sending <NOP> after suspend triggers the `VimResume` AutoCmd
-            EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Keyboard("<NOP>".into())));
+            send_ui(SerialCommand::Keyboard("<NOP>".into()));
 
             self.is_minimized = false;
         }
@@ -249,7 +243,6 @@ impl WinitWindowWrapper {
     /// the window should be rendered.
     pub fn handle_event(&mut self, event: Event<UserEvent>) -> bool {
         tracy_zone!("handle_event", 0);
-        let mut should_render = false;
         self.keyboard_manager.handle_event(&event);
         self.mouse_manager.handle_event(
             &event,
@@ -257,10 +250,11 @@ impl WinitWindowWrapper {
             &self.renderer,
             self.windowed_context.window(),
         );
-        self.renderer.handle_event(&event);
+        let renderer_asks_to_be_rendered = self.renderer.handle_event(&event);
+        let mut should_render = true;
         match event {
             Event::Resumed => {
-                EVENT_AGGREGATOR.send(EditorCommand::RedrawScreen);
+                // No need to do anything, but handle the event so that should_render gets set
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
@@ -279,7 +273,7 @@ impl WinitWindowWrapper {
                 ..
             } => {
                 let file_path = path.into_os_string().into_string().unwrap();
-                EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::FileDrop(file_path)));
+                send_ui(ParallelCommand::FileDrop(file_path));
             }
             Event::WindowEvent {
                 event: WindowEvent::Focused(focus),
@@ -287,7 +281,6 @@ impl WinitWindowWrapper {
             } => {
                 if focus {
                     self.handle_focus_gained();
-                    should_render = true;
                 } else {
                     self.handle_focus_lost();
                 }
@@ -311,9 +304,20 @@ impl WinitWindowWrapper {
             } => {
                 self.vsync.update(&self.windowed_context);
             }
-            _ => {}
+            Event::UserEvent(UserEvent::DrawCommandBatch(batch)) => {
+                self.handle_draw_commands(batch);
+            }
+            Event::UserEvent(UserEvent::WindowCommand(e)) => {
+                self.handle_window_command(e);
+            }
+            Event::UserEvent(UserEvent::SettingsChanged(SettingsChanged::Window(e))) => {
+                self.handle_window_settings_changed(e);
+            }
+            _ => {
+                should_render = renderer_asks_to_be_rendered;
+            }
         }
-        should_render
+        self.ui_state != UIState::Initing && should_render
     }
 
     pub fn draw_frame(&mut self, dt: f32) {
@@ -347,31 +351,14 @@ impl WinitWindowWrapper {
         )
     }
 
-    /// Prepares a frame to render.
-    /// Returns a boolean indicating whether the frame should get
-    /// drawn to the screen.
-    pub fn prepare_frame(&mut self) -> bool {
-        tracy_zone!("prepare_frame", 0);
-        let mut should_render = false;
-
-        let window_settings = SETTINGS.get::<WindowSettings>();
-        let window_padding = WindowPadding {
-            top: window_settings.padding_top,
-            left: window_settings.padding_left,
-            right: window_settings.padding_right,
-            bottom: window_settings.padding_bottom,
-        };
-        let padding_changed = window_padding != self.window_padding;
-
-        let handle_draw_commands_result = self.renderer.handle_draw_commands();
+    fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
+        let handle_draw_commands_result = self.renderer.handle_draw_commands(batch);
 
         self.font_changed_last_frame |= handle_draw_commands_result.font_changed;
-        should_render |= handle_draw_commands_result.any_handled;
 
         if self.ui_state == UIState::Initing && handle_draw_commands_result.should_show {
             log::info!("Showing the Window");
-            self.ui_state = UIState::Ready;
-            should_render = true;
+            self.ui_state = UIState::FirstFrame;
 
             match self.initial_window_size {
                 WindowSize::Maximized => {
@@ -399,10 +386,27 @@ impl WinitWindowWrapper {
             // Ensure that the window has the correct IME state
             self.set_ime(self.ime_enabled);
         };
+    }
+
+    pub fn prepare_frame(&mut self) -> ShouldRender {
+        tracy_zone!("prepare_frame", 0);
+        let mut should_render = ShouldRender::Wait;
+
+        let window_settings = SETTINGS.get::<WindowSettings>();
+        let window_padding = WindowPadding {
+            top: window_settings.padding_top,
+            left: window_settings.padding_left,
+            right: window_settings.padding_right,
+            bottom: window_settings.padding_bottom,
+        };
+        let padding_changed = window_padding != self.window_padding;
 
         // Don't render until the UI is fully entered and the window is shown
-        if self.ui_state != UIState::Ready {
-            return false;
+        if self.ui_state == UIState::Initing {
+            return ShouldRender::Wait;
+        } else if self.ui_state == UIState::FirstFrame {
+            should_render = ShouldRender::Immediately;
+            self.ui_state = UIState::Showing;
         }
 
         let resize_requested = self.requested_columns.is_some() || self.requested_lines.is_some();
@@ -426,11 +430,13 @@ impl WinitWindowWrapper {
 
                 self.update_grid_size_from_window();
                 self.skia_renderer.resize(&self.windowed_context);
-                should_render = true;
+                should_render = ShouldRender::Immediately;
             }
         }
 
         self.update_ime_position();
+
+        should_render.update(self.renderer.prepare_frame());
 
         should_render
     }
@@ -506,10 +512,10 @@ impl WinitWindowWrapper {
             grid_size,
             self.saved_inner_size
         );
-        EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::Resize {
+        send_ui(ParallelCommand::Resize {
             width: grid_size.width,
             height: grid_size.height,
-        }));
+        });
     }
 
     fn update_ime_position(&mut self) {
@@ -530,7 +536,6 @@ impl WinitWindowWrapper {
 
     fn handle_scale_factor_update(&mut self, scale_factor: f64) {
         self.renderer.handle_os_scale_factor_change(scale_factor);
-        EVENT_AGGREGATOR.send(EditorCommand::RedrawScreen);
     }
 
     fn padding_as_grid(&self) -> Rect {

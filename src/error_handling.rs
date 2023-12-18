@@ -5,10 +5,12 @@ use std::{
 
 use anyhow::{Error, Result};
 use clap::error::Error as ClapError;
+use itertools::Itertools;
 use log::error;
 use winit::{error::EventLoopError, event_loop::EventLoop};
 
 use crate::{
+    bridge::{send_ui, ParallelCommand},
     running_tracker::RUNNING_TRACKER,
     window::{show_error_window, UserEvent},
 };
@@ -18,15 +20,19 @@ fn show_error(explanation: &str) -> ! {
     panic!("{}", explanation.to_string());
 }
 
+pub fn show_nvim_error(msg: &str) {
+    send_ui(ParallelCommand::ShowError {
+        lines: msg.split('\n').map(|s| s.to_string()).collect_vec(),
+    });
+}
+
 /// Formats, logs and displays the given message.
 #[macro_export]
 macro_rules! error_msg {
     ($($arg:tt)+) => {
         let msg = format!($($arg)+);
         log::error!("{}", msg);
-        EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::ShowError {
-            lines: msg.split('\n').map(|s| s.to_string()).collect_vec(),
-        }));
+        $crate::error_handling::show_nvim_error(&msg);
     }
 }
 

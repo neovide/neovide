@@ -1,6 +1,6 @@
 use crate::{cmd_line::CmdLineSettings, settings::*};
 
-#[derive(Clone, SettingGroup)]
+#[derive(Clone, SettingGroup, PartialEq)]
 pub struct WindowSettings {
     pub refresh_rate: u64,
     pub refresh_rate_idle: u64,

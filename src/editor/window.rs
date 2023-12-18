@@ -48,12 +48,10 @@ impl Window {
     }
 
     fn send_command(&self, command: WindowDrawCommand) {
-        self.draw_command_batcher
-            .queue(DrawCommand::Window {
-                grid_id: self.grid_id,
-                command,
-            })
-            .ok();
+        self.draw_command_batcher.queue(DrawCommand::Window {
+            grid_id: self.grid_id,
+            command,
+        });
     }
 
     fn send_updated_position(&self) {
@@ -326,54 +324,5 @@ impl Window {
 
     pub fn update_viewport(&self, scroll_delta: f64) {
         self.send_command(WindowDrawCommand::Viewport { scroll_delta });
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::collections::HashMap;
-
-    use super::*;
-    use crate::event_aggregator::EVENT_AGGREGATOR;
-
-    #[test]
-    fn window_separator_modifies_grid_and_sends_draw_command() {
-        let mut draw_command_receiver = EVENT_AGGREGATOR.register_event::<Vec<DrawCommand>>();
-        let draw_command_batcher = Rc::new(DrawCommandBatcher::new());
-
-        let mut window = Window::new(
-            1,
-            WindowType::Editor,
-            None,
-            (0.0, 0.0),
-            (114, 64),
-            draw_command_batcher.clone(),
-        );
-
-        draw_command_batcher.send_batch();
-
-        draw_command_receiver
-            .try_recv()
-            .expect("Could not receive commands");
-
-        window.draw_grid_line(
-            1,
-            70,
-            vec![GridLineCell {
-                text: "|".to_owned(),
-                highlight_id: None,
-                repeat: None,
-            }],
-            &HashMap::new(),
-        );
-
-        assert_eq!(window.grid.get_cell(70, 1), Some(&("|".to_owned(), None)));
-
-        draw_command_batcher.send_batch();
-
-        let sent_commands = draw_command_receiver
-            .try_recv()
-            .expect("Could not receive commands");
-        assert!(!sent_commands.is_empty());
     }
 }

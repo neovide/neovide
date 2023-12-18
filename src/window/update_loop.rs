@@ -21,6 +21,35 @@ enum FocusedState {
     Unfocused,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum ShouldRender {
+    Immediately,
+    Wait,
+    Deadline(Instant),
+}
+
+impl ShouldRender {
+    pub fn update(&mut self, rhs: ShouldRender) {
+        let lhs = &self;
+        match (lhs, rhs) {
+            (ShouldRender::Immediately, _) => {}
+            (_, ShouldRender::Immediately) => {
+                *self = ShouldRender::Immediately;
+            }
+            (ShouldRender::Deadline(lhs), ShouldRender::Deadline(rhs)) => {
+                if rhs < *lhs {
+                    *self = ShouldRender::Deadline(rhs);
+                }
+            }
+            (ShouldRender::Deadline(_), ShouldRender::Wait) => {}
+            (ShouldRender::Wait, ShouldRender::Deadline(instant)) => {
+                *self = ShouldRender::Deadline(instant);
+            }
+            (ShouldRender::Wait, ShouldRender::Wait) => {}
+        }
+    }
+}
+
 const MAX_ANIMATION_DT: f32 = 1.0 / 120.0;
 
 pub struct UpdateLoop {
@@ -28,7 +57,7 @@ pub struct UpdateLoop {
     previous_frame_start: Instant,
     last_dt: f32,
     frame_dt_avg: NoSumSMA<f64, f64, 10>,
-    should_render: bool,
+    should_render: ShouldRender,
     num_consecutive_rendered: u32,
     focused: FocusedState,
 }
@@ -40,7 +69,7 @@ impl UpdateLoop {
         let previous_frame_start = Instant::now();
         let last_dt = 0.0;
         let frame_dt_avg = NoSumSMA::new();
-        let should_render = true;
+        let should_render = ShouldRender::Immediately;
         let num_consecutive_rendered = 0;
         let focused = FocusedState::Focused;
 
@@ -69,27 +98,40 @@ impl UpdateLoop {
         .max(1.0);
 
         let expected_frame_duration = Duration::from_secs_f32(1.0 / refresh_rate);
-        if self.num_consecutive_rendered > 0 && !vsync.uses_winit_throttling() {
+        if self.should_render == ShouldRender::Immediately
+            && (!vsync.uses_winit_throttling() || self.num_consecutive_rendered == 1)
+        {
             // Only poll when using native vsync
+            // NOTE: Also after the first frame after an idle period has been rendered
             (Duration::from_nanos(0), Instant::now())
         } else {
-            let deadline = self.previous_frame_start + expected_frame_duration;
+            let mut deadline = self.previous_frame_start + expected_frame_duration;
+            deadline = match self.should_render {
+                ShouldRender::Deadline(should_render_deadline) => {
+                    should_render_deadline.min(deadline)
+                }
+                _ => deadline,
+            };
             (deadline.saturating_duration_since(Instant::now()), deadline)
         }
     }
 
     pub fn render(&mut self, window_wrapper: &mut WinitWindowWrapper) {
-        let dt = if self.num_consecutive_rendered > 0 && self.frame_dt_avg.get_num_samples() > 0 {
+        let dt = if self.frame_dt_avg.get_num_samples() > 0 {
             self.frame_dt_avg.get_average() as f32
         } else {
-            self.last_dt
+            // Assume default rate when we don't have an average yet
+            MAX_ANIMATION_DT
         }
-        .min(1.0);
+        // We don't really want to support less than 10 FPS
+        .min(0.1);
         self.should_render = window_wrapper.prepare_frame();
         let num_steps = (dt / MAX_ANIMATION_DT).ceil();
         let step = dt / num_steps;
         for _ in 0..num_steps as usize {
-            self.should_render |= window_wrapper.animate_frame(step);
+            if window_wrapper.animate_frame(step) {
+                self.should_render = ShouldRender::Immediately;
+            }
         }
         window_wrapper.draw_frame(self.last_dt);
 
@@ -133,9 +175,12 @@ impl UpdateLoop {
                 return Err(());
             }
             Ok(Event::AboutToWait) | Err(false) => {
-                self.should_render |= window_wrapper.prepare_frame();
-                if self.should_render || !self.idle {
-                    if window_wrapper.vsync.uses_winit_throttling() {
+                self.should_render.update(window_wrapper.prepare_frame());
+                if self.should_render == ShouldRender::Immediately || !self.idle {
+                    // Always draw immediately for reduced latency if we have been idling
+                    if self.num_consecutive_rendered > 0
+                        && window_wrapper.vsync.uses_winit_throttling()
+                    {
                         window_wrapper.windowed_context.window().request_redraw();
                     } else {
                         self.render(window_wrapper);
@@ -154,11 +199,11 @@ impl UpdateLoop {
             }
             _ => {}
         }
-        window_wrapper.handle_window_commands();
-        window_wrapper.handle_window_settings_changed_events();
 
         if let Ok(event) = event {
-            self.should_render |= window_wrapper.handle_event(event);
+            if window_wrapper.handle_event(event) {
+                self.should_render = ShouldRender::Immediately;
+            }
         }
 
         let (_, deadline) = self.get_event_wait_time(&window_wrapper.vsync);

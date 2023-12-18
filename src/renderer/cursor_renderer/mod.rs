@@ -13,7 +13,7 @@ use crate::{
     renderer::animation_utils::*,
     renderer::{GridRenderer, RenderedWindow},
     settings::{ParseFromValue, SETTINGS},
-    window::UserEvent,
+    window::{ShouldRender, UserEvent},
 };
 
 use blink::*;
@@ -199,13 +199,16 @@ impl CursorRenderer {
         renderer
     }
 
-    pub fn handle_event(&mut self, event: &Event<UserEvent>) {
+    pub fn handle_event(&mut self, event: &Event<UserEvent>) -> bool {
         if let Event::WindowEvent {
             event: WindowEvent::Focused(is_focused),
             ..
         } = event
         {
-            self.window_has_focus = *is_focused
+            self.window_has_focus = *is_focused;
+            true
+        } else {
+            false
         }
     }
 
@@ -270,6 +273,10 @@ impl CursorRenderer {
             )
                 .into();
         }
+    }
+
+    pub fn prepare_frame(&mut self) -> ShouldRender {
+        self.blink_status.update_status(&self.cursor)
     }
 
     pub fn draw(&mut self, grid_renderer: &mut GridRenderer, canvas: &Canvas) {
@@ -341,7 +348,6 @@ impl CursorRenderer {
         dt: f32,
     ) -> bool {
         tracy_zone!("cursor_animate");
-        self.blink_status.update_status(&self.cursor, dt);
         let settings = SETTINGS.get::<CursorSettings>();
 
         if settings.vfx_mode != self.previous_vfx_mode {

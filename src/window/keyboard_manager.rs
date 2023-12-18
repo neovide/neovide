@@ -1,7 +1,4 @@
-use crate::{
-    bridge::{SerialCommand, UiCommand},
-    event_aggregator::EVENT_AGGREGATOR,
-};
+use crate::bridge::{send_ui, SerialCommand};
 
 use crate::window::UserEvent;
 #[cfg(target_os = "macos")]
@@ -45,7 +42,7 @@ impl KeyboardManager {
                 if key_event.state == ElementState::Pressed {
                     if let Some(text) = self.format_key(key_event) {
                         log::trace!("Key pressed {} {:?}", text, self.modifiers.state());
-                        EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Keyboard(text)));
+                        send_ui(SerialCommand::Keyboard(text));
                     }
                 }
             }
@@ -54,7 +51,7 @@ impl KeyboardManager {
                 ..
             } => {
                 log::trace!("Ime commit {text}");
-                EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Keyboard(text.to_string())));
+                send_ui(SerialCommand::Keyboard(text.to_string()));
             }
             Event::WindowEvent {
                 event: WindowEvent::Ime(Ime::Preedit(text, cursor_offset)),

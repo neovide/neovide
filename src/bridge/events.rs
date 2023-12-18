@@ -7,6 +7,7 @@ use std::{
 use log::{debug, warn};
 use rmpv::Value;
 use skia_safe::Color4f;
+use strum::AsRefStr;
 
 use crate::editor::{Colors, CursorMode, CursorShape, Style, UnderlineStyle};
 
@@ -111,7 +112,7 @@ pub enum GuiOption {
     Unknown(String, Value),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum WindowAnchor {
     NorthWest,
     NorthEast,
@@ -119,7 +120,7 @@ pub enum WindowAnchor {
     SouthEast,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum EditorMode {
     // The set of modes reported will change in new versions of Nvim, for
     // instance more sub-modes and temporary states might be represented as
@@ -134,7 +135,7 @@ pub enum EditorMode {
     Unknown(String),
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, AsRefStr)]
 pub enum RedrawEvent {
     SetTitle {
         title: String,

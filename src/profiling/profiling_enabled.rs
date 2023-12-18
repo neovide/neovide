@@ -1,17 +1,19 @@
 use std::{
     cell::RefCell,
     ffi::CString,
+    os::raw::c_char,
     ptr::null,
     sync::atomic::{AtomicU8, Ordering},
 };
 
 use tracy_client_sys::{
-    ___tracy_c_zone_context, ___tracy_connected, ___tracy_emit_frame_mark,
-    ___tracy_emit_gpu_context_name, ___tracy_emit_gpu_new_context, ___tracy_emit_gpu_time_serial,
-    ___tracy_emit_gpu_zone_begin_serial, ___tracy_emit_gpu_zone_end_serial,
-    ___tracy_emit_zone_begin, ___tracy_emit_zone_end, ___tracy_gpu_context_name_data,
-    ___tracy_gpu_new_context_data, ___tracy_gpu_time_data, ___tracy_gpu_zone_begin_data,
-    ___tracy_gpu_zone_end_data, ___tracy_source_location_data, ___tracy_startup_profiler,
+    ___tracy_alloc_srcloc_name, ___tracy_c_zone_context, ___tracy_connected,
+    ___tracy_emit_frame_mark, ___tracy_emit_gpu_context_name, ___tracy_emit_gpu_new_context,
+    ___tracy_emit_gpu_time_serial, ___tracy_emit_gpu_zone_begin_serial,
+    ___tracy_emit_gpu_zone_end_serial, ___tracy_emit_zone_begin, ___tracy_emit_zone_begin_alloc,
+    ___tracy_emit_zone_end, ___tracy_gpu_context_name_data, ___tracy_gpu_new_context_data,
+    ___tracy_gpu_time_data, ___tracy_gpu_zone_begin_data, ___tracy_gpu_zone_end_data,
+    ___tracy_source_location_data, ___tracy_startup_profiler,
 };
 
 use gl::{
@@ -106,6 +108,42 @@ impl _Zone {
 
             let gpu_data = ___tracy_gpu_zone_begin_data {
                 srcloc: (loc_data as *const ___tracy_source_location_data) as u64,
+                queryId: query as u16,
+                context,
+            };
+            unsafe {
+                QueryCounter(glquery, TIMESTAMP);
+                ___tracy_emit_gpu_zone_begin_serial(gpu_data);
+            }
+        }
+        _Zone { context, gpu }
+    }
+
+    pub fn new_dynamic(line: u32, source: &str, name: &str, gpu: bool) -> Self {
+        let function = "Unknown";
+
+        let srcloc = unsafe {
+            ___tracy_alloc_srcloc_name(
+                line,
+                source.as_ptr() as *const c_char,
+                source.len(),
+                function.as_ptr() as *const c_char,
+                function.len(),
+                name.as_ptr() as *const c_char,
+                name.len(),
+            )
+        };
+        let context = unsafe { ___tracy_emit_zone_begin_alloc(srcloc, 1) };
+        let gpu = gpu && gpu_enabled();
+        if gpu {
+            let (context, query, glquery) = GPUCTX.with(|ctx| {
+                let mut ctx = ctx.borrow_mut();
+                let query = ctx.next_query_id();
+                (ctx.id, query, ctx.query[query])
+            });
+
+            let gpu_data = ___tracy_gpu_zone_begin_data {
+                srcloc,
                 queryId: query as u16,
                 context,
             };
@@ -299,6 +337,17 @@ macro_rules! tracy_zone {
 }
 
 #[macro_export]
+macro_rules! tracy_dynamic_zone {
+    ($name: expr, $color: expr) => {
+        let _tracy_zone =
+            $crate::profiling::_Zone::new_dynamic(std::line!(), std::file!(), $name, false);
+    };
+    ($name: expr) => {
+        $crate::profiling::tracy_dynamic_zone!($name, 0)
+    };
+}
+
+#[macro_export]
 macro_rules! tracy_gpu_zone {
     ($name: expr, $color: expr) => {
         let _tracy_zone =
@@ -312,5 +361,6 @@ macro_rules! tracy_gpu_zone {
 pub(crate) use cstr;
 pub(crate) use file_cstr;
 pub(crate) use location_data;
+pub(crate) use tracy_dynamic_zone;
 pub(crate) use tracy_gpu_zone;
 pub(crate) use tracy_zone;

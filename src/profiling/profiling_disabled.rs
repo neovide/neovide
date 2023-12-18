@@ -14,10 +14,15 @@ macro_rules! tracy_zone {
     ($name: expr, $color: expr) => {};
     ($name: expr) => {};
 }
+macro_rules! tracy_dynamic_zone {
+    ($name: expr, $color: expr) => {};
+    ($name: expr) => {};
+}
 macro_rules! tracy_gpu_zone {
     ($name: expr, $color: expr) => {};
     ($name: expr) => {};
 }
 
+pub(crate) use tracy_dynamic_zone;
 pub(crate) use tracy_gpu_zone;
 pub(crate) use tracy_zone;

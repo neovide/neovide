@@ -15,7 +15,6 @@ mod cmd_line;
 mod dimensions;
 mod editor;
 mod error_handling;
-mod event_aggregator;
 mod frame;
 mod profiling;
 mod renderer;
@@ -41,6 +40,7 @@ use std::panic::{set_hook, PanicInfo};
 use std::time::SystemTime;
 use time::macros::format_description;
 use time::OffsetDateTime;
+use winit::event_loop::EventLoopProxy;
 
 #[cfg(not(test))]
 use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
@@ -48,17 +48,16 @@ use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
 use backtrace::Backtrace;
 use bridge::NeovimRuntime;
 use cmd_line::CmdLineSettings;
-use editor::start_editor;
 use error_handling::{handle_startup_errors, NeovideExitCode};
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 #[cfg_attr(target_os = "windows", allow(unused_imports))]
 use settings::SETTINGS;
 use window::{
-    create_event_loop, create_window, determine_window_size, main_loop, WindowSettings, WindowSize,
+    create_event_loop, create_window, determine_window_size, main_loop, UserEvent, WindowSettings,
+    WindowSize,
 };
 
 pub use channel_utils::*;
-pub use event_aggregator::*;
 pub use running_tracker::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
@@ -87,10 +86,9 @@ fn main() -> NeovideExitCode {
 
     let event_loop = create_event_loop();
 
-    match setup() {
+    match setup(event_loop.create_proxy()) {
         Err(err) => handle_startup_errors(err, event_loop).into(),
         Ok((window_size, _runtime)) => {
-            start_editor();
             clipboard::init(&event_loop);
             let window = create_window(&event_loop, &window_size);
             main_loop(window, window_size, event_loop).into()
@@ -98,7 +96,7 @@ fn main() -> NeovideExitCode {
     }
 }
 
-fn setup() -> Result<(WindowSize, NeovimRuntime)> {
+fn setup(proxy: EventLoopProxy<UserEvent>) -> Result<(WindowSize, NeovimRuntime)> {
     //  --------------
     // | Architecture |
     //  --------------
@@ -118,7 +116,7 @@ fn setup() -> Result<(WindowSize, NeovimRuntime)> {
     //       This component handles communication from other components to the neovim process. The
     //       commands are split into Serial and Parallel commands. Serial commands must be
     //       processed in order while parallel commands can be processed in any order and in
-    //       parallel.
+    //       parallel. `send_ui` is used to send those commands from the window code.
     //
     // EDITOR:
     //   The editor is responsible for processing and transforming redraw events into something
@@ -146,23 +144,28 @@ fn setup() -> Result<(WindowSize, NeovimRuntime)> {
     // Neovide also includes some other systems which are globally available via lazy static
     // instantiations.
     //
-    // EVENT AGGREGATOR:
-    //   Central system which distributes events to each of the other components. This is done
-    //   using TypeIds and channels. Any component can publish any Clone + Debug + Send + Sync type
-    //   to the aggregator, but only one component can subscribe to any type. The system takes
-    //   pains to ensure that channels are shared by thread in order to keep things performant.
-    //   Also tokio channels are used so that the async components can properly await for events.
-    //
     // SETTINGS:
     //   The settings system is live updated from global variables in neovim with the prefix
     //   "neovide". They allow us to configure and manage the functionality of neovide from neovim
     //   init scripts and variables.
     //
-    // REDRAW SCHEDULER:
-    //   The redraw scheduler is a simple system in charge of deciding if the renderer should draw
-    //   another frame next frame, or if it can safely skip drawing to save battery and cpu power.
-    //   Multiple other parts of the app "queue_next_frame" function to ensure animations continue
-    //   properly or updates to the graphics are pushed to the screen.
+    // RUNNING_TRACKER:
+    //   The running tracker responds to quit requests, allowing other systems to check if they
+    //   should terminate for a graceful exit. It also records the exit code (if provided) and
+    //   returns it upon neovide's termination.
+    //
+    //  ------------------
+    // | Communication flow |
+    //  ------------------
+    //
+    // The bridge reads from Neovim, and sends `RedrawEvent` to the editor. Some events are also
+    // sent directly to the window event loop using `WindowCommand`. Finally changed settings are
+    // parsed, which are sent as a window event through `SettingChanged`.
+    //
+    // The editor reads `RedrawEvent` and sends `DrawCommand` to the Window.
+    //
+    // The Window event loop sends UICommand to the bridge, which forwards them to Neovim. It also
+    // reads `DrawCommand`, `SettingChanged`, and `WindowCommand` from the other components.
     Config::init();
 
     //Will exit if -h or -v
@@ -188,8 +191,9 @@ fn setup() -> Result<(WindowSize, NeovimRuntime)> {
             _ => None,
         },
     };
+
     let mut runtime = NeovimRuntime::new()?;
-    runtime.launch(grid_size)?;
+    runtime.launch(proxy, grid_size)?;
     Ok((window_size, runtime))
 }
 

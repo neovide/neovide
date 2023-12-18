@@ -1,28 +1,23 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
-#[cfg(windows)]
-use log::error;
 use log::trace;
 
 use anyhow::{Context, Result};
 use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim, Value};
-use tokio::sync::mpsc::unbounded_channel;
-
-#[cfg(windows)]
-use crate::windows_utils::{
-    register_rightclick_directory, register_rightclick_file, unregister_rightclick,
-};
+use strum::AsRefStr;
+use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
 use super::{show_error_message, show_intro_message};
 use crate::{
-    bridge::NeovimWriter, event_aggregator::EVENT_AGGREGATOR, running_tracker::RUNNING_TRACKER,
+    bridge::NeovimWriter, profiling::tracy_dynamic_zone, running_tracker::RUNNING_TRACKER,
+    LoggingSender,
 };
 
 // Serial commands are any commands which must complete before the next value is sent. This
 // includes keyboard and mouse input which would cause problems if sent out of order.
 //
 // When in doubt, use Parallel Commands.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, AsRefStr)]
 pub enum SerialCommand {
     Keyboard(String),
     MouseButton {
@@ -117,28 +112,17 @@ impl SerialCommand {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, AsRefStr)]
 pub enum ParallelCommand {
     Quit,
-    Resize {
-        width: u64,
-        height: u64,
-    },
+    Resize { width: u64, height: u64 },
     FileDrop(String),
     FocusLost,
     FocusGained,
     DisplayAvailableFonts(Vec<String>),
     SetBackground(String),
-    #[cfg(windows)]
-    RegisterRightClick,
-    #[cfg(windows)]
-    UnregisterRightClick,
-    ShowIntro {
-        message: Vec<String>,
-    },
-    ShowError {
-        lines: Vec<String>,
-    },
+    ShowIntro { message: Vec<String> },
+    ShowError { lines: Vec<String> },
 }
 
 async fn display_available_fonts(
@@ -186,36 +170,6 @@ async fn display_available_fonts(
     Ok(())
 }
 
-#[cfg(windows)]
-async fn register_right_click(nvim: &Neovim<NeovimWriter>) -> Result<(), Box<CallError>> {
-    if unregister_rightclick() {
-        let msg = "Could not unregister previous menu item. Possibly already registered.";
-        nvim.err_writeln(msg).await?;
-        error!("{}", msg);
-    }
-    if !register_rightclick_directory() {
-        let msg = "Could not register directory context menu item. Possibly already registered.";
-        nvim.err_writeln(msg).await?;
-        error!("{}", msg);
-    }
-    if !register_rightclick_file() {
-        let msg = "Could not register file context menu item. Possibly already registered.";
-        nvim.err_writeln(msg).await?;
-        error!("{}", msg);
-    }
-    Ok(())
-}
-
-#[cfg(windows)]
-async fn unregister_right_click(nvim: &Neovim<NeovimWriter>) -> Result<(), Box<CallError>> {
-    if !unregister_rightclick() {
-        let msg = "Could not remove context menu items. Possibly already removed.";
-        nvim.err_writeln(msg).await?;
-        error!("{}", msg);
-    }
-    Ok(())
-}
-
 impl ParallelCommand {
     async fn execute(self, nvim: &Neovim<NeovimWriter>) {
         // Don't panic here unless there's absolutely no chance of continuing the program, Instead
@@ -260,14 +214,6 @@ impl ParallelCommand {
             ParallelCommand::DisplayAvailableFonts(fonts) => display_available_fonts(nvim, fonts)
                 .await
                 .context("DisplayAvailableFonts failed"),
-            #[cfg(windows)]
-            ParallelCommand::RegisterRightClick => register_right_click(nvim)
-                .await
-                .context("RegisterRightClick failed"),
-            #[cfg(windows)]
-            ParallelCommand::UnregisterRightClick => unregister_right_click(nvim)
-                .await
-                .context("UnregisterRightClick failed"),
             ParallelCommand::ShowIntro { message } => show_intro_message(nvim, &message)
                 .await
                 .context("ShowIntro failed"),
@@ -307,18 +253,48 @@ impl From<ParallelCommand> for UiCommand {
     }
 }
 
+impl AsRef<str> for UiCommand {
+    fn as_ref(&self) -> &str {
+        match self {
+            UiCommand::Serial(cmd) => cmd.as_ref(),
+            UiCommand::Parallel(cmd) => cmd.as_ref(),
+        }
+    }
+}
+
+struct UIChannels {
+    sender: LoggingSender<UiCommand>,
+    receiver: Mutex<Option<UnboundedReceiver<UiCommand>>>,
+}
+
+impl UIChannels {
+    fn new() -> Self {
+        let (sender, receiver) = unbounded_channel();
+        Self {
+            sender: LoggingSender::attach(sender, "UICommand"),
+            receiver: Mutex::new(Some(receiver)),
+        }
+    }
+}
+
+lazy_static! {
+    static ref UI_CHANNELS: UIChannels = UIChannels::new();
+}
+
 pub fn start_ui_command_handler(nvim: Arc<Neovim<NeovimWriter>>) {
     let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
     let ui_command_nvim = nvim.clone();
     tokio::spawn(async move {
-        let mut ui_command_receiver = EVENT_AGGREGATOR.register_event::<UiCommand>();
+        let mut ui_command_receiver = UI_CHANNELS.receiver.lock().unwrap().take().unwrap();
         while RUNNING_TRACKER.is_running() {
             match ui_command_receiver.recv().await {
                 Some(UiCommand::Serial(serial_command)) => {
+                    tracy_dynamic_zone!(serial_command.as_ref());
                     // This can fail if the serial_rx loop exits before this one, so ignore the errors
                     let _ = serial_tx.send(serial_command);
                 }
                 Some(UiCommand::Parallel(parallel_command)) => {
+                    tracy_dynamic_zone!(parallel_command.as_ref());
                     let ui_command_nvim = ui_command_nvim.clone();
                     tokio::spawn(async move {
                         parallel_command.execute(&ui_command_nvim).await;
@@ -343,4 +319,12 @@ pub fn start_ui_command_handler(nvim: Arc<Neovim<NeovimWriter>>) {
             }
         }
     });
+}
+
+pub fn send_ui<T>(command: T)
+where
+    T: Into<UiCommand>,
+{
+    let command: UiCommand = command.into();
+    let _ = UI_CHANNELS.sender.send(command);
 }

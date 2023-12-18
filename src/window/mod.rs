@@ -49,12 +49,16 @@ use crate::{
     cmd_line::{CmdLineSettings, GeometryArgs},
     dimensions::Dimensions,
     frame::Frame,
-    renderer::{build_window, GlWindow},
+    renderer::{build_window, DrawCommand, GlWindow},
     running_tracker::*,
-    settings::{load_last_window_settings, save_window_size, PersistentWindowSettings, SETTINGS},
+    settings::{
+        load_last_window_settings, save_window_size, PersistentWindowSettings, SettingsChanged,
+        SETTINGS,
+    },
 };
 pub use error_window::show_error_window;
 pub use settings::{WindowSettings, WindowSettingsChanged};
+pub use update_loop::ShouldRender;
 pub use window_wrapper::WinitWindowWrapper;
 
 static ICON: &[u8] = include_bytes!("../../assets/neovide.ico");
@@ -72,17 +76,44 @@ const MAX_PERSISTENT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
     height: 8192,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum WindowCommand {
     TitleChanged(String),
     SetMouseEnabled(bool),
     ListAvailableFonts,
     FocusWindow,
     Minimize,
+    ShowIntro(Vec<String>),
+    #[cfg(windows)]
+    RegisterRightClick,
+    #[cfg(windows)]
+    UnregisterRightClick,
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum UserEvent {}
+pub enum UserEvent {
+    DrawCommandBatch(Vec<DrawCommand>),
+    WindowCommand(WindowCommand),
+    SettingsChanged(SettingsChanged),
+}
+
+impl From<Vec<DrawCommand>> for UserEvent {
+    fn from(value: Vec<DrawCommand>) -> Self {
+        UserEvent::DrawCommandBatch(value)
+    }
+}
+
+impl From<WindowCommand> for UserEvent {
+    fn from(value: WindowCommand) -> Self {
+        UserEvent::WindowCommand(value)
+    }
+}
+
+impl From<SettingsChanged> for UserEvent {
+    fn from(value: SettingsChanged) -> Self {
+        UserEvent::SettingsChanged(value)
+    }
+}
 
 pub fn create_event_loop() -> EventLoop<UserEvent> {
     EventLoopBuilder::<UserEvent>::with_user_event()

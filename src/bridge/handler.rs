@@ -2,26 +2,34 @@ use async_trait::async_trait;
 use log::trace;
 use nvim_rs::{Handler, Neovim};
 use rmpv::Value;
+use std::sync::Arc;
+use std::sync::Mutex;
+use tokio::sync::mpsc::UnboundedSender;
+use winit::event_loop::EventLoopProxy;
 
-#[cfg(windows)]
-use crate::bridge::ui_commands::{ParallelCommand, UiCommand};
 use crate::{
     bridge::clipboard::{get_clipboard_contents, set_clipboard_contents},
-    bridge::{events::parse_redraw_event, NeovimWriter},
-    editor::EditorCommand,
+    bridge::{events::parse_redraw_event, NeovimWriter, RedrawEvent},
     error_handling::ResultPanicExplanation,
-    event_aggregator::EVENT_AGGREGATOR,
     running_tracker::*,
     settings::SETTINGS,
-    window::WindowCommand,
+    window::{UserEvent, WindowCommand},
+    LoggingSender,
 };
 
 #[derive(Clone)]
-pub struct NeovimHandler {}
+pub struct NeovimHandler {
+    // The EventLoopProxy is not sync on all platforms, so wrap it in a mutex
+    proxy: Arc<Mutex<EventLoopProxy<UserEvent>>>,
+    sender: LoggingSender<RedrawEvent>,
+}
 
 impl NeovimHandler {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(sender: UnboundedSender<RedrawEvent>, proxy: EventLoopProxy<UserEvent>) -> Self {
+        Self {
+            proxy: Arc::new(Mutex::new(proxy)),
+            sender: LoggingSender::attach(sender, "neovim_handler"),
+        }
     }
 }
 
@@ -73,15 +81,16 @@ impl Handler for NeovimHandler {
                         .unwrap_or_explained_panic("Could not parse event from neovim");
 
                     for parsed_event in parsed_events {
-                        EVENT_AGGREGATOR.send(EditorCommand::NeovimRedrawEvent(parsed_event));
+                        let _ = self.sender.send(parsed_event);
                     }
                 }
             }
             "setting_changed" => {
-                SETTINGS.handle_setting_changed_notification(arguments);
+                SETTINGS
+                    .handle_setting_changed_notification(arguments, &self.proxy.lock().unwrap());
             }
             "option_changed" => {
-                SETTINGS.handle_option_changed_notification(arguments);
+                SETTINGS.handle_option_changed_notification(arguments, &self.proxy.lock().unwrap());
             }
             "neovide.quit" => {
                 let error_code = arguments[0]
@@ -91,14 +100,26 @@ impl Handler for NeovimHandler {
             }
             #[cfg(windows)]
             "neovide.register_right_click" => {
-                EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::RegisterRightClick));
+                let _ = self
+                    .proxy
+                    .lock()
+                    .unwrap()
+                    .send_event(WindowCommand::RegisterRightClick.into());
             }
             #[cfg(windows)]
             "neovide.unregister_right_click" => {
-                EVENT_AGGREGATOR.send(UiCommand::Parallel(ParallelCommand::UnregisterRightClick));
+                let _ = self
+                    .proxy
+                    .lock()
+                    .unwrap()
+                    .send_event(WindowCommand::UnregisterRightClick.into());
             }
             "neovide.focus_window" => {
-                EVENT_AGGREGATOR.send(WindowCommand::FocusWindow);
+                let _ = self
+                    .proxy
+                    .lock()
+                    .unwrap()
+                    .send_event(WindowCommand::FocusWindow.into());
             }
             _ => {}
         }

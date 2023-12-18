@@ -19,7 +19,7 @@ use crate::{
     utils::RingBuffer,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct LineFragment {
     pub text: String,
     pub window_left: u64,
@@ -27,7 +27,7 @@ pub struct LineFragment {
     pub style: Option<Arc<Style>>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum WindowDrawCommand {
     Position {
         grid_position: (f64, f64),

@@ -16,16 +16,20 @@ use tokio::{
     runtime::{Builder, Runtime},
     task::JoinHandle,
 };
+use winit::event_loop::EventLoopProxy;
 
-use crate::{cmd_line::CmdLineSettings, dimensions::Dimensions, running_tracker::*, settings::*};
-use handler::NeovimHandler;
+use crate::{
+    cmd_line::CmdLineSettings, dimensions::Dimensions, editor::start_editor, running_tracker::*,
+    settings::*, window::UserEvent,
+};
+pub use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
 use setup::setup_neovide_specific_state;
 
 pub use command::create_nvim_command;
 pub use events::*;
 pub use session::NeovimWriter;
-pub use ui_commands::{start_ui_command_handler, ParallelCommand, SerialCommand, UiCommand};
+pub use ui_commands::{send_ui, start_ui_command_handler, ParallelCommand, SerialCommand};
 
 const INTRO_MESSAGE_LUA: &str = include_str!("../../lua/intro.lua");
 const NEOVIM_REQUIRED_VERSION: &str = "0.9.2";
@@ -90,10 +94,9 @@ pub async fn show_error_message(
     nvim.echo(prepared_lines, true, vec![]).await
 }
 
-async fn launch(grid_size: Option<Dimensions>) -> Result<NeovimSession> {
+async fn launch(handler: NeovimHandler, grid_size: Option<Dimensions>) -> Result<NeovimSession> {
     let neovim_instance = neovim_instance()?;
 
-    let handler = NeovimHandler::new();
     let session = NeovimSession::new(neovim_instance, handler)
         .await
         .context("Could not locate or start neovim process")?;
@@ -159,9 +162,14 @@ impl NeovimRuntime {
         })
     }
 
-    pub fn launch(&mut self, grid_size: Option<Dimensions>) -> Result<()> {
+    pub fn launch(
+        &mut self,
+        event_loop_proxy: EventLoopProxy<UserEvent>,
+        grid_size: Option<Dimensions>,
+    ) -> Result<()> {
         assert!(matches!(self.state, RuntimeState::Idle));
-        let session = self.runtime.block_on(launch(grid_size))?;
+        let handler = start_editor(event_loop_proxy);
+        let session = self.runtime.block_on(launch(handler, grid_size))?;
         self.state = RuntimeState::Attached(self.runtime.spawn(run(session)));
         Ok(())
     }
