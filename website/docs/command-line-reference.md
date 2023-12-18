@@ -117,8 +117,8 @@ acts differently from terminal neovim.
 
 With forking `on` (default) neovide detaches itself from the terminal.
 
-With forking `off` (e.g. with the `NEOVIDE_FORK=0` environment variable), neovide will be
-"blocking" and have the shell directly as parent process.
+With forking `off` (e.g. with the `--no-fork` flag), neovide operates in a "blocking" mode
+where the shell acts directly as the parent process.
 
 ### No Idle
 
