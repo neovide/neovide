@@ -55,7 +55,7 @@ impl VSync {
 
             #[cfg(target_os = "macos")]
             {
-                VSync::Macos(VSyncMacos::new(context))
+                VSync::Macos(VSyncMacos::new(context, proxy))
             }
         } else {
             VSync::Timer(VSyncTimer::new())
@@ -77,7 +77,10 @@ impl VSync {
         #[cfg(target_os = "windows")]
         return matches!(self, VSync::WinitThrottling() | VSync::Windows(..));
 
-        #[cfg(not(target_os = "windows"))]
+        #[cfg(target_os = "macos")]
+        return matches!(self, VSync::WinitThrottling() | VSync::Macos(..));
+
+        #[cfg(target_os = "linux")]
         return matches!(self, VSync::WinitThrottling());
     }
 
