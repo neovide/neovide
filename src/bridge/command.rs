@@ -44,7 +44,7 @@ fn build_nvim_cmd() -> Result<TokioCommand> {
     bail!("ERROR: nvim not found!")
 }
 
-// Creates a shell command if needed on this platform (wsl or macos)
+// Creates a shell command if needed on this platform (wsl or macOS)
 fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
     if cfg!(target_os = "windows") && SETTINGS.get::<CmdLineSettings>().wsl {
         let mut result = StdCommand::new("wsl");

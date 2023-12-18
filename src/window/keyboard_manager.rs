@@ -132,7 +132,7 @@ impl KeyboardManager {
     }
 
     fn format_normal_key(&self, key_event: &KeyEvent) -> Option<String> {
-        // On macOs, when alt is held and alt_is_meta is set to true, then send the base key plus
+        // On macOS, when alt is held and alt_is_meta is set to true, then send the base key plus
         // the whole modifier state. Otherwise send the resulting character with "S-" and "M-"
         // removed.
         #[cfg(target_os = "macos")]
@@ -214,7 +214,7 @@ fn use_alt() -> bool {
     true
 }
 
-// The option or alt key is used on Macos for character set changes
+// The option or alt key is used on macOS for character set changes
 // and does not operate the same as other systems.
 #[cfg(target_os = "macos")]
 fn use_alt() -> bool {

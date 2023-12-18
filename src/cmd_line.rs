@@ -70,7 +70,7 @@ pub struct CmdLineSettings {
     pub srgb: bool,
 
     /// Do not request sRGB when initializing the window, may help with GPUs with weird pixel
-    /// formats. Default on Linux and macOs.
+    /// formats. Default on Linux and macOS.
     #[arg(long = "no-srgb", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
     _no_srgb: bool,
 
