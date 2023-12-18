@@ -24,6 +24,7 @@ use crate::{
 pub struct VSyncWin {
     should_exit: Arc<AtomicBool>,
     vsync_thread: Option<JoinHandle<()>>,
+    redraw_requested: Arc<AtomicBool>,
 }
 
 /// Calculates the time until the vblank, taking into account that the vblank is cyclic, so this
@@ -48,13 +49,15 @@ impl VSyncWin {
     // Everything else is very jerky
     pub fn new(proxy: EventLoopProxy<UserEvent>) -> Self {
         let should_exit = Arc::new(AtomicBool::new(false));
+        let redraw_requested = Arc::new(AtomicBool::new(false));
 
         // When using OpenGL on Windows in windowed mode, swap_buffers does not seem to be
         // synchronized with the Desktop Window Manager. So work around that by manually waiting
         // for the middle of the vblank. Experimentally that seems to be optimal with the least
         // amount of stutter.
         let vsync_thread = {
-            let should_exit = should_exit.clone();
+            let should_exit = Arc::clone(&should_exit);
+            let redraw_requested = Arc::clone(&redraw_requested);
             Some(spawn(move || {
                 let performance_frequency = unsafe {
                     let mut performance_frequency: LARGE_INTEGER = std::mem::zeroed();
@@ -88,7 +91,10 @@ impl VSyncWin {
                     };
                     tracy_plot!("Vblank_delay", _vblank_delay);
                     tracy_plot!("sleep_time", _sleep_time);
-                    let _ = proxy.send_event(UserEvent::RedrawRequested);
+
+                    if redraw_requested.swap(false, Ordering::Relaxed) {
+                        let _ = proxy.send_event(UserEvent::RedrawRequested);
+                    }
                 }
             }))
         };
@@ -96,10 +102,15 @@ impl VSyncWin {
         Self {
             should_exit,
             vsync_thread,
+            redraw_requested,
         }
     }
 
     pub fn wait_for_vsync(&mut self) {}
+
+    pub fn request_redraw(&mut self) {
+        self.redraw_requested.store(true, Ordering::Relaxed);
+    }
 }
 
 impl Drop for VSyncWin {

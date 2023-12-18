@@ -1,4 +1,8 @@
 use log::{error, trace, warn};
+use std::sync::{
+    atomic::{AtomicBool, Ordering},
+    Arc,
+};
 
 use winit::event_loop::EventLoopProxy;
 
@@ -10,27 +14,33 @@ use super::macos_display_link::{
 
 struct VSyncMacosDisplayLinkUserData {
     proxy: EventLoopProxy<UserEvent>,
+    redraw_requested: Arc<AtomicBool>,
 }
 
 fn vsync_macos_display_link_callback(
     _args: &mut MacosDisplayLinkCallbackArgs,
     user_data: &mut VSyncMacosDisplayLinkUserData,
 ) {
-    let _ = user_data.proxy.send_event(UserEvent::RedrawRequested);
+    if user_data.redraw_requested.swap(false, Ordering::Relaxed) {
+        let _ = user_data.proxy.send_event(UserEvent::RedrawRequested);
+    }
 }
 
 pub struct VSyncMacos {
     old_display: core_video::CGDirectDisplayID,
     display_link: Option<MacosDisplayLink<VSyncMacosDisplayLinkUserData>>,
     proxy: EventLoopProxy<UserEvent>,
+    redraw_requested: Arc<AtomicBool>,
 }
 
 impl VSyncMacos {
     pub fn new(context: &WindowedContext, proxy: EventLoopProxy<UserEvent>) -> VSyncMacos {
+        let redraw_requested = AtomicBool::new(false).into();
         let mut vsync = VSyncMacos {
             old_display: 0,
             display_link: None,
             proxy,
+            redraw_requested,
         };
 
         vsync.create_display_link(context);
@@ -46,6 +56,7 @@ impl VSyncMacos {
             vsync_macos_display_link_callback,
             VSyncMacosDisplayLinkUserData {
                 proxy: self.proxy.clone(),
+                redraw_requested: Arc::clone(&self.redraw_requested),
             },
         ) {
             Ok(display_link) => {
@@ -74,6 +85,10 @@ impl VSyncMacos {
     }
 
     pub fn wait_for_vsync(&mut self) {}
+
+    pub fn request_redraw(&mut self) {
+        self.redraw_requested.store(true, Ordering::Relaxed);
+    }
 
     pub fn update(&mut self, context: &WindowedContext) {
         let new_display = get_display_id_of_window(context.window());

@@ -109,9 +109,14 @@ impl VSync {
         }
     }
 
-    pub fn request_redraw(&self, context: &WindowedContext) {
-        if let VSync::WinitThrottling(..) = self {
-            context.window().request_redraw();
+    pub fn request_redraw(&mut self, context: &WindowedContext) {
+        match self {
+            VSync::WinitThrottling(..) => context.window().request_redraw(),
+            #[cfg(target_os = "windows")]
+            VSync::Windows(vsync) => vsync.request_redraw(),
+            #[cfg(target_os = "macos")]
+            VSync::Macos(vsync) => vsync.request_redraw(),
+            _ => {}
         }
     }
 }

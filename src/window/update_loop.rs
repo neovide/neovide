@@ -251,10 +251,8 @@ impl UpdateLoop {
                 ..
             })
             | Ok(Event::UserEvent(UserEvent::RedrawRequested)) => {
-                if self.pending_render {
-                    tracy_zone!("render (redraw requested)");
-                    self.render(window_wrapper);
-                }
+                tracy_zone!("render (redraw requested)");
+                self.render(window_wrapper);
             }
             _ => {}
         }
