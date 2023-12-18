@@ -225,7 +225,7 @@ impl UpdateLoop {
                         self.animate(window_wrapper);
                         // There's really no point in trying to render if the frame is skipped
                         // (most likely due to the compositor being busy). The animated frame will
-                        // be rendered at an approprate time anyway.
+                        // be rendered at an appropriate time anyway.
                         if !skipped_frame {
                             // Always draw immediately for reduced latency if we have been idling
                             if self.num_consecutive_rendered > 0
