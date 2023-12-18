@@ -50,15 +50,13 @@ pub struct CmdLineSettings {
     #[arg(long = "no-multigrid", env = "NEOVIDE_NO_MULTIGRID", value_parser = FalseyValueParser::new())]
     pub no_multi_grid: bool,
 
-    /// Instead of spawning a child process and leaking it, be "blocking" and let the shell persist
-    /// as parent process
+    /// Spawn a child process and leak it
     #[arg(long = "fork", env = "NEOVIDE_FORK", action = ArgAction::SetTrue, default_value = "1", value_parser = FalseyValueParser::new())]
-    _fork: bool,
+    pub fork: bool,
 
-    /// Instead of spawning a child process and leaking it, be "blocking" and let the shell persist
-    /// as parent process
+    /// Be "blocking" and let the shell persist as parent process
     #[arg(long = "no-fork", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
-    pub no_fork: bool,
+    _no_fork: bool,
 
     /// Render every frame, takes more power and CPU time but possibly helps with frame timing
     /// issues
@@ -155,8 +153,8 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<()> {
         .chain(cmdline.neovim_args)
         .collect();
 
-    if !cmdline._fork {
-        cmdline.no_fork = true;
+    if cmdline._no_fork {
+        cmdline.fork = false;
     }
 
     if cmdline._no_srgb {

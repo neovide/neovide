@@ -37,7 +37,7 @@ pub struct Config {
     pub maximized: Option<bool>,
     pub vsync: Option<bool>,
     pub srgb: Option<bool>,
-    pub no_fork: Option<bool>,
+    pub fork: Option<bool>,
     pub idle: Option<bool>,
     pub neovim_bin: Option<PathBuf>,
     pub frame: Option<Frame>,
@@ -70,8 +70,8 @@ impl Config {
         if let Some(srgb) = self.srgb {
             env::set_var("NEOVIDE_SRGB", srgb.to_string());
         }
-        if let Some(no_fork) = self.no_fork {
-            env::set_var("NEOVIDE_FORK", no_fork.to_string());
+        if let Some(fork) = self.fork {
+            env::set_var("NEOVIDE_FORK", fork.to_string());
         }
         if let Some(idle) = self.idle {
             env::set_var("NEOVIDE_IDLE", idle.to_string());
