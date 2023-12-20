@@ -24,12 +24,16 @@
   <string>20230908.235224</string>
   <key>LSMinimumSystemVersion</key>
   <string>10.11</string>
+  <key>LSApplicationCategoryType</key>
+  <string>public.app-category.productivity</string>
+  <key>NSHumanReadableCopyright</key>
+  <string>Copyright (c) Neovide Contributors 2023. All rights reserved.</string>
   <key>LSRequiresCarbon</key>
   <true/>
   <key>NSHighResolutionCapable</key>
   <true/>
-  <key>NSHumanReadableCopyright</key>
-  <string>Copyright (c) Neovide Contributors 2023. All rights reserved.</string>
+  <key>CSResourcesFileMapped</key>
+  <true/>
   <key>CFBundleSupportedPlatforms</key>
   <array>
     <string>MacOSX</string>
