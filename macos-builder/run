@@ -20,7 +20,7 @@ DMG_VOLNAME="Neovide"
 DMG_FILESYSTEM="HFS+"
 DMG_FORMAT="UDZO"
 DMG_ICNS="${APP_EXTRAS_DIR}/Neovide.icns"
-DMG_BACKGROUND="${ASSETS_DIR}/neovide-dmg-background.png"
+DMG_BACKGROUND="${ASSETS_DIR}/neovide-dmg-background.tiff"
 
 # Make Neovide.app
 
