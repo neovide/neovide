@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleDevelopmentRegion</key>
+  <string>en</string>
+  <key>CFBundleDisplayName</key>
+  <string>Neovide</string>
+  <key>CFBundleExecutable</key>
+  <string>neovide</string>
+  <key>CFBundleIconFile</key>
+  <string>Neovide.icns</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.neovide.neovide</string>
+  <key>CFBundleInfoDictionaryVersion</key>
+  <string>6.0</string>
+  <key>CFBundleName</key>
+  <string>Neovide</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>0.11.2</string>
+  <key>CFBundleVersion</key>
+  <string>20230908.235224</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>10.11</string>
+  <key>LSRequiresCarbon</key>
+  <true/>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <key>NSHumanReadableCopyright</key>
+  <string>Copyright (c) Neovide Contributors 2023. All rights reserved.</string>
+  <key>CFBundleSupportedPlatforms</key>
+  <array>
+    <string>MacOSX</string>
+  </array>
+</dict>
+</plist>
