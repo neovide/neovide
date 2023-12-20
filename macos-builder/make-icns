@@ -7,6 +7,16 @@ ICONSET_DIR="extra/osx/Neovide.app/Contents/Resources/Neovide.iconset"
 
 mkdir -p "${ICONSET_DIR}"
 
+# make tiff (for dmg background to support retina)
+
+tiffutil \
+  -cathidpicheck \
+  "${ASSETS_DIR}/neovide-dmg-background.png" \
+  "${ASSETS_DIR}/neovide-dmg-background@2x.png" \
+  -out "${ASSETS_DIR}/neovide-dmg-background.tiff"
+
+# make icns
+
 sips -z 16 16   "${ASSETS_DIR}/neovide-1024.png" --out "${ICONSET_DIR}/icon_16x16.png"
 sips -z 32 32   "${ASSETS_DIR}/neovide-1024.png" --out "${ICONSET_DIR}/icon_16x16@2x.png"
 sips -z 32 32   "${ASSETS_DIR}/neovide-1024.png" --out "${ICONSET_DIR}/icon_32x32.png"
