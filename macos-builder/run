@@ -33,7 +33,7 @@ codesign --remove-signature "${APP_DIR}/${APP_NAME}"
 codesign --force --deep --sign - "${APP_DIR}/${APP_NAME}"
 echo "Created '${APP_NAME}' in '${APP_DIR}'"
 
-# Make DMG
+# Make Neovide.dmg
 
 create-dmg \
   --filesystem "${DMG_FILESYSTEM}" \
