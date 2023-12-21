@@ -507,20 +507,11 @@ impl RenderedWindow {
                 line_fragments,
             } => {
                 tracy_zone!("draw_line_cmd", 0);
-                // At the moment we only consider top and bottom borders, and winbar is also one type of border
-                // So, lines with purly border highlight groups are considered borders.
-                let is_border = line_fragments
-                    .iter()
-                    .map(|fragment| {
-                        fragment.style.as_ref().map_or(false, |style| {
-                            style.infos.last().map_or(false, |info| {
-                                [
-                                    "FloatBorder",
-                                    "FloatTitle",
-                                    "FloatFooter",
-                                    "WinBar",
-                                    "WinBarNC",
-                                ]
+
+                let check_border = |fragment: &LineFragment, styles: &[&str]| {
+                    fragment.style.as_ref().map_or(false, |style| {
+                        style.infos.last().map_or(false, |info| {
+                            styles
                                 .iter()
                                 // The specification seems to indicate that kind should be UI and
                                 // then we only need to test ui_name. But at least for FloatTitle,
@@ -528,10 +519,24 @@ impl RenderedWindow {
                                 // set.
                                 .map(|v| info.ui_name == *v || info.hi_name == *v)
                                 .any(|v| v)
-                            })
                         })
                     })
+                };
+
+                // Lines with purly border highlight groups are considered borders.
+                let mut is_border = line_fragments
+                    .iter()
+                    .map(|fragment| {
+                        check_border(fragment, &["FloatBorder", "FloatTitle", "FloatFooter"])
+                    })
                     .all(|v| v);
+
+                // And also lines with a winbar highlight anywhere
+                is_border |= line_fragments
+                    .iter()
+                    .map(|fragment| check_border(fragment, &["WinBar", "WinBarNC"]))
+                    .any(|v| v);
+
                 self.actual_lines[row] = Some(Rc::new(RefCell::new(Line {
                     line_fragments,
                     background_picture: None,
