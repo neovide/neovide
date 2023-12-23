@@ -33,9 +33,10 @@ fn time_until_vblank_forward(delay: f64, period: f64) -> f64 {
     delay.rem_euclid(period)
 }
 
-/// Calculates the time to wait to hit the vblank + offset given a period Note always tries to wait
-/// as close to 1 frame as possible, so the actual wait time lies between
-/// 0.5 * offset and 1.5 * offset
+/// Calculates the time to wait to hit the vblank + offset given a period
+///
+/// Note: always tries to wait as close to 1 frame as possible, so the actual wait time lies
+/// between 0.5 * offset and 1.5 * offset
 fn vblank_wait_time(delay: f64, period: f64, offset: f64) -> f64 {
     let time_until_vblank = time_until_vblank_forward(delay + offset, period);
     if time_until_vblank < 0.5 * period {
