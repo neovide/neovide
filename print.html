@@ -1086,7 +1086,7 @@ containing trace events which may help debug an issue.</p>
 backgrounds, smooth scrolling, and window animations. This can solve some issues where neovide
 acts differently from terminal neovim.</p>
 <h3 id="no-fork"><a class="header" href="#no-fork">No Fork</a></h3>
-<pre><code class="language-sh">--no-fork
+<pre><code class="language-sh">--no-fork or $NEOVIDE_FORK=0|1
 </code></pre>
 <p>By default, neovide detaches itself from the terminal. Instead of spawning a child process and
 leaking it, be &quot;blocking&quot; and have the shell directly as parent process.</p>
