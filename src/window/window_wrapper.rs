@@ -21,6 +21,7 @@ use skia_safe::{scalar, Rect};
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize, Position},
     event::{Event, WindowEvent},
+    event_loop::EventLoopProxy,
     window::{Fullscreen, Theme},
 };
 
@@ -68,7 +69,11 @@ pub struct WinitWindowWrapper {
 }
 
 impl WinitWindowWrapper {
-    pub fn new(window: GlWindow, initial_window_size: WindowSize) -> Self {
+    pub fn new(
+        window: GlWindow,
+        initial_window_size: WindowSize,
+        proxy: EventLoopProxy<UserEvent>,
+    ) -> Self {
         let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
         let srgb = cmd_line_settings.srgb;
         let vsync_enabled = cmd_line_settings.vsync;
@@ -101,7 +106,7 @@ impl WinitWindowWrapper {
             _ => {}
         }
 
-        let vsync = VSync::new(vsync_enabled, &windowed_context);
+        let vsync = VSync::new(vsync_enabled, &windowed_context, proxy);
 
         let mut wrapper = WinitWindowWrapper {
             windowed_context,
@@ -347,7 +352,6 @@ impl WinitWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         tracy_zone!("draw_frame");
-        self.renderer.prepare_lines();
         self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
         {
             tracy_gpu_zone!("skia flush");
@@ -375,6 +379,7 @@ impl WinitWindowWrapper {
             dt,
         );
         tracy_plot!("animate_frame", res as u8 as f64);
+        self.renderer.prepare_lines();
         #[allow(clippy::let_and_return)]
         res
     }

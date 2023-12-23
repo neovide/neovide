@@ -5,6 +5,10 @@
 #[macro_use]
 extern crate neovide_derive;
 
+#[cfg(test)]
+#[macro_use]
+extern crate approx;
+
 #[macro_use]
 extern crate clap;
 
@@ -172,6 +176,7 @@ fn setup(proxy: EventLoopProxy<UserEvent>) -> Result<(WindowSize, NeovimRuntime)
     cmd_line::handle_command_line_arguments(args().collect())?;
     #[cfg(not(target_os = "windows"))]
     maybe_disown();
+
     startup_profiler();
 
     #[cfg(not(test))]
