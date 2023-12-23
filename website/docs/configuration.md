@@ -317,7 +317,7 @@ Lua:
 vim.g.neovide_underline_stroke_scale = 1.0
 ```
 
-**Unrelease yet.**
+**Unreleased yet.**
 
 Setting `g:neovide_underline_stroke_scale` to a floating point will increase or decrease the stroke
 width of the underlines (including undercurl, underdash, etc.). If the scaled stroke width is less
@@ -345,6 +345,29 @@ vim.g.neovide_theme = 'auto'
 Set the [`background`](https://neovim.io/doc/user/options.html#'background') option when Neovide
 starts. Possible values: _light_, _dark_, _auto_. On systems that support it, _auto_ will mirror the
 system theme, and will update `background` when the system theme changes.
+
+#### Fix border and winbar scrolling glitches
+
+VimScript:
+
+```vim
+let g:neovide_unlink_border_highlights = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_unlink_border_highlights = true
+```
+
+**Unreleased yet.**
+
+Neovide uses some highlight groups for detecting the border of the windows, when scrolling. This
+detection is not perfect due to some limitations of Neovim, it only returns the final highlight
+groups for linked highlights. This option unlinks those highlight groups after the color scheme is
+loaded to make Neovide detect them properly.
+
+If this causes other problems, you can set this option to false.
 
 ### Functionality
 

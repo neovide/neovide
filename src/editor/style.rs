@@ -31,6 +31,23 @@ pub struct Style {
     pub blend: u8,
     #[new(default)]
     pub underline: Option<UnderlineStyle>,
+    #[new(default)]
+    pub infos: Vec<HighlightInfo>,
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum HighlightKind {
+    Ui,
+    Syntax,
+    Terminal,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct HighlightInfo {
+    pub kind: HighlightKind,
+    pub ui_name: String,
+    pub hi_name: String,
+    pub id: u64,
 }
 
 impl Style {

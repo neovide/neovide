@@ -123,6 +123,7 @@ async fn launch(handler: NeovimHandler, grid_size: Option<Dimensions>) -> Result
 
     let mut options = UiAttachOptions::new();
     options.set_linegrid_external(true);
+    options.set_hlstate_external(true);
     options.set_multigrid_external(!settings.no_multi_grid);
     options.set_rgb(true);
 
