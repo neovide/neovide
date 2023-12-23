@@ -50,11 +50,11 @@ pub struct CmdLineSettings {
     #[arg(long = "no-multigrid", env = "NEOVIDE_NO_MULTIGRID", value_parser = FalseyValueParser::new())]
     pub no_multi_grid: bool,
 
-    /// Spawn a child process and leak it
+    /// Spawn a child process and leak it [DEFAULT]
     #[arg(long = "fork", env = "NEOVIDE_FORK", action = ArgAction::SetTrue, default_value = "1", value_parser = FalseyValueParser::new())]
     pub fork: bool,
 
-    /// Be "blocking" and let the shell persist as parent process
+    /// Be "blocking" and let the shell persist as parent process. Takes precedence over `--fork`.
     #[arg(long = "no-fork", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
     _no_fork: bool,
 
