@@ -50,10 +50,13 @@ pub struct CmdLineSettings {
     #[arg(long = "no-multigrid", env = "NEOVIDE_NO_MULTIGRID", value_parser = FalseyValueParser::new())]
     pub no_multi_grid: bool,
 
-    /// Instead of spawning a child process and leaking it, be "blocking" and let the shell persist
-    /// as parent process
-    #[arg(long = "no-fork")]
-    pub no_fork: bool,
+    /// Spawn a child process and leak it [DEFAULT]
+    #[arg(long = "fork", env = "NEOVIDE_FORK", action = ArgAction::SetTrue, default_value = "1", value_parser = FalseyValueParser::new())]
+    pub fork: bool,
+
+    /// Be "blocking" and let the shell persist as parent process. Takes precedence over `--fork`.
+    #[arg(long = "no-fork", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
+    _no_fork: bool,
 
     /// Render every frame, takes more power and CPU time but possibly helps with frame timing
     /// issues
@@ -70,7 +73,7 @@ pub struct CmdLineSettings {
     pub srgb: bool,
 
     /// Do not request sRGB when initializing the window, may help with GPUs with weird pixel
-    /// formats. Default on Linux and macOs.
+    /// formats. Default on Linux and macOS.
     #[arg(long = "no-srgb", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
     _no_srgb: bool,
 
@@ -150,12 +153,16 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<()> {
         .chain(cmdline.neovim_args)
         .collect();
 
-    if cmdline._no_vsync {
-        cmdline.vsync = false;
+    if cmdline._no_fork {
+        cmdline.fork = false;
     }
 
     if cmdline._no_srgb {
         cmdline.srgb = false;
+    }
+
+    if cmdline._no_vsync {
+        cmdline.vsync = false;
     }
 
     SETTINGS.set::<CmdLineSettings>(&cmdline);

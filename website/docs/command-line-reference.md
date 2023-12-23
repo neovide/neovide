@@ -112,7 +112,7 @@ acts differently from terminal neovim.
 ### No Fork
 
 ```sh
---no-fork
+--no-fork or $NEOVIDE_FORK=0|1
 ```
 
 By default, neovide detaches itself from the terminal. Instead of spawning a child process and
