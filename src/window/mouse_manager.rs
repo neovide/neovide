@@ -54,6 +54,8 @@ fn mouse_button_to_button_text(mouse_button: &MouseButton) -> Option<String> {
         MouseButton::Left => Some("left".to_owned()),
         MouseButton::Right => Some("right".to_owned()),
         MouseButton::Middle => Some("middle".to_owned()),
+        MouseButton::Back => Some("x1".to_owned()),
+        MouseButton::Forward => Some("x2".to_owned()),
         _ => None,
     }
 }

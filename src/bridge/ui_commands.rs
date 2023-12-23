@@ -5,7 +5,10 @@ use log::trace;
 use anyhow::{Context, Result};
 use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim, Value};
 use strum::AsRefStr;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
+use tokio::sync::{
+    mpsc::{unbounded_channel, UnboundedReceiver},
+    OnceCell,
+};
 
 use super::{show_error_message, show_intro_message};
 use crate::{
@@ -49,6 +52,23 @@ impl SerialCommand {
         // just log the error and hope that it's something temporary or recoverable A normal reason
         // for failure is when neovim has already quit, and a command, for example mouse move is
         // being sent
+        static HAS_X: OnceCell<bool> = OnceCell::const_new();
+        let has_x = HAS_X
+            .get_or_init(|| async {
+                match nvim
+                    .command_output("echo has('nvim-0.10')")
+                    .await
+                    .as_deref()
+                {
+                    Ok("1") => true,
+                    Ok(_) => false,
+                    Err(e) => {
+                        log::warn!("Failed to get neovim version: {e}");
+                        false
+                    }
+                }
+            })
+            .await;
         let result = match self {
             SerialCommand::Keyboard(input_command) => {
                 trace!("Keyboard Input Sent: {}", input_command);
@@ -63,17 +83,24 @@ impl SerialCommand {
                 grid_id,
                 position: (grid_x, grid_y),
                 modifier_string,
-            } => nvim
-                .input_mouse(
-                    &button,
-                    &action,
-                    &modifier_string,
-                    grid_id as i64,
-                    grid_y as i64,
-                    grid_x as i64,
-                )
-                .await
-                .context("Mouse Input Failed"),
+            } => match &*button {
+                "x1" | "x2" if !has_x => {
+                    log::debug!("Ignoring unsupported {button} mouse event");
+                    Ok(())
+                }
+                _ => {
+                    nvim.input_mouse(
+                        &button,
+                        &action,
+                        &modifier_string,
+                        grid_id as i64,
+                        grid_y as i64,
+                        grid_x as i64,
+                    )
+                    .await
+                }
+            }
+            .context("Mouse input failed"),
             SerialCommand::Scroll {
                 direction,
                 grid_id,
@@ -95,17 +122,20 @@ impl SerialCommand {
                 grid_id,
                 position: (grid_x, grid_y),
                 modifier_string,
-            } => nvim
-                .input_mouse(
-                    &button,
-                    "drag",
-                    &modifier_string,
-                    grid_id as i64,
-                    grid_y as i64,
-                    grid_x as i64,
-                )
-                .await
-                .context("Mouse Drag Failed"),
+            } => match &*button {
+                "x1" | "x2" if !has_x => Ok(()),
+                _ => nvim
+                    .input_mouse(
+                        &button,
+                        "drag",
+                        &modifier_string,
+                        grid_id as i64,
+                        grid_y as i64,
+                        grid_x as i64,
+                    )
+                    .await
+                    .context("Mouse Drag Failed"),
+            },
         };
 
         if let Err(error) = result {
