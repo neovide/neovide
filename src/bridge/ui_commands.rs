@@ -9,7 +9,9 @@ use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
 use super::{show_error_message, show_intro_message};
 use crate::{
-    bridge::NeovimWriter, profiling::tracy_dynamic_zone, running_tracker::RUNNING_TRACKER,
+    bridge::NeovimWriter,
+    profiling::{tracy_dynamic_zone, tracy_fiber_enter, tracy_fiber_leave},
+    running_tracker::RUNNING_TRACKER,
     LoggingSender,
 };
 
@@ -308,10 +310,17 @@ pub fn start_ui_command_handler(nvim: Arc<Neovim<NeovimWriter>>) {
     });
 
     tokio::spawn(async move {
+        tracy_fiber_enter!("Serial command");
         while RUNNING_TRACKER.is_running() {
-            match serial_rx.recv().await {
+            tracy_fiber_leave();
+            let res = serial_rx.recv().await;
+            tracy_fiber_enter!("Serial command");
+            match res {
                 Some(serial_command) => {
+                    tracy_dynamic_zone!(serial_command.as_ref());
+                    tracy_fiber_leave();
                     serial_command.execute(&nvim).await;
+                    tracy_fiber_enter!("Serial command");
                 }
                 None => {
                     RUNNING_TRACKER.quit("serial ui command channel failed");

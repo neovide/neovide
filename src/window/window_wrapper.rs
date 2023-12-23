@@ -8,7 +8,7 @@ use crate::windows_utils::{register_right_click, unregister_right_click};
 use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
     dimensions::Dimensions,
-    profiling::{emit_frame_mark, tracy_gpu_collect, tracy_gpu_zone, tracy_zone},
+    profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
     renderer::{build_context, DrawCommand, GlWindow, Renderer, VSync, WindowedContext},
     running_tracker::RUNNING_TRACKER,
     settings::{SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS},
@@ -183,6 +183,7 @@ impl WinitWindowWrapper {
     }
 
     pub fn handle_window_settings_changed(&mut self, changed_setting: WindowSettingsChanged) {
+        tracy_zone!("handle_window_settings_changed");
         match changed_setting {
             WindowSettingsChanged::ObservedColumns(columns) => {
                 log::info!("columns changed");
@@ -254,24 +255,28 @@ impl WinitWindowWrapper {
         let mut should_render = true;
         match event {
             Event::Resumed => {
+                tracy_zone!("Resumed");
                 // No need to do anything, but handle the event so that should_render gets set
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
             } => {
+                tracy_zone!("CloseRequested");
                 self.handle_quit();
             }
             Event::WindowEvent {
                 event: WindowEvent::ScaleFactorChanged { scale_factor, .. },
                 ..
             } => {
+                tracy_zone!("ScaleFactorChanged");
                 self.handle_scale_factor_update(scale_factor);
             }
             Event::WindowEvent {
                 event: WindowEvent::DroppedFile(path),
                 ..
             } => {
+                tracy_zone!("DroppedFile");
                 let file_path = path.into_os_string().into_string().unwrap();
                 send_ui(ParallelCommand::FileDrop(file_path));
             }
@@ -279,6 +284,7 @@ impl WinitWindowWrapper {
                 event: WindowEvent::Focused(focus),
                 ..
             } => {
+                tracy_zone!("Focused");
                 if focus {
                     self.handle_focus_gained();
                 } else {
@@ -289,6 +295,7 @@ impl WinitWindowWrapper {
                 event: WindowEvent::ThemeChanged(theme),
                 ..
             } => {
+                tracy_zone!("ThemeChanged");
                 let settings = SETTINGS.get::<WindowSettings>();
                 if settings.theme.as_str() == "auto" {
                     let background = match theme {
@@ -302,6 +309,7 @@ impl WinitWindowWrapper {
                 event: WindowEvent::Moved(_),
                 ..
             } => {
+                tracy_zone!("Moved");
                 self.vsync.update(&self.windowed_context);
             }
             Event::UserEvent(UserEvent::DrawCommandBatch(batch)) => {
@@ -314,6 +322,23 @@ impl WinitWindowWrapper {
                 self.handle_window_settings_changed(e);
             }
             _ => {
+                match event {
+                    Event::WindowEvent { .. } => {
+                        tracy_zone!("Unknown WindowEvent");
+                    }
+                    Event::AboutToWait { .. } => {
+                        tracy_zone!("AboutToWait");
+                    }
+                    Event::DeviceEvent { .. } => {
+                        tracy_zone!("DeviceEvent");
+                    }
+                    Event::NewEvents(..) => {
+                        tracy_zone!("NewEvents");
+                    }
+                    _ => {
+                        tracy_zone!("Unknown");
+                    }
+                }
                 should_render = renderer_asks_to_be_rendered;
             }
         }
@@ -337,21 +362,25 @@ impl WinitWindowWrapper {
             tracy_gpu_zone!("wait for vsync");
             self.vsync.wait_for_vsync();
         }
-        emit_frame_mark();
+        tracy_frame();
         tracy_gpu_collect();
     }
 
     pub fn animate_frame(&mut self, dt: f32) -> bool {
         tracy_zone!("animate_frame", 0);
 
-        self.renderer.animate_frame(
+        let res = self.renderer.animate_frame(
             &self.get_grid_size_from_window(0, 0),
             &self.padding_as_grid(),
             dt,
-        )
+        );
+        tracy_plot!("animate_frame", res as u8 as f64);
+        #[allow(clippy::let_and_return)]
+        res
     }
 
     fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
+        tracy_zone!("handle_draw_commands");
         let handle_draw_commands_result = self.renderer.handle_draw_commands(batch);
 
         self.font_changed_last_frame |= handle_draw_commands_result.font_changed;

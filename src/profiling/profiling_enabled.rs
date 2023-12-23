@@ -10,8 +10,9 @@ use tracy_client_sys::{
     ___tracy_alloc_srcloc_name, ___tracy_c_zone_context, ___tracy_connected,
     ___tracy_emit_frame_mark, ___tracy_emit_gpu_context_name, ___tracy_emit_gpu_new_context,
     ___tracy_emit_gpu_time_serial, ___tracy_emit_gpu_zone_begin_serial,
-    ___tracy_emit_gpu_zone_end_serial, ___tracy_emit_zone_begin, ___tracy_emit_zone_begin_alloc,
-    ___tracy_emit_zone_end, ___tracy_gpu_context_name_data, ___tracy_gpu_new_context_data,
+    ___tracy_emit_gpu_zone_end_serial, ___tracy_emit_plot, ___tracy_emit_zone_begin,
+    ___tracy_emit_zone_begin_alloc, ___tracy_emit_zone_end, ___tracy_fiber_enter,
+    ___tracy_fiber_leave, ___tracy_gpu_context_name_data, ___tracy_gpu_new_context_data,
     ___tracy_gpu_time_data, ___tracy_gpu_zone_begin_data, ___tracy_gpu_zone_end_data,
     ___tracy_source_location_data, ___tracy_startup_profiler,
 };
@@ -225,9 +226,37 @@ pub fn startup_profiler() {
 }
 
 #[inline(always)]
-pub fn emit_frame_mark() {
+pub fn tracy_frame() {
     unsafe {
         ___tracy_emit_frame_mark(null());
+    }
+}
+
+#[inline(always)]
+pub fn _tracy_named_frame(name: &std::ffi::CStr) {
+    unsafe {
+        ___tracy_emit_frame_mark(name.as_ptr());
+    }
+}
+
+#[inline(always)]
+pub fn _tracy_plot(name: &std::ffi::CStr, value: f64) {
+    unsafe {
+        ___tracy_emit_plot(name.as_ptr(), value);
+    }
+}
+
+#[inline(always)]
+pub fn _tracy_fiber_enter(name: &std::ffi::CStr) {
+    unsafe {
+        ___tracy_fiber_enter(name.as_ptr());
+    }
+}
+
+#[inline(always)]
+pub fn tracy_fiber_leave() {
+    unsafe {
+        ___tracy_fiber_leave();
     }
 }
 
@@ -358,9 +387,33 @@ macro_rules! tracy_gpu_zone {
     };
 }
 
+#[macro_export]
+macro_rules! tracy_named_frame {
+    ($name: expr) => {
+        $crate::profiling::_tracy_named_frame($crate::profiling::cstr!($name))
+    };
+}
+
+#[macro_export]
+macro_rules! tracy_plot {
+    ($name: expr, $dt: expr) => {
+        $crate::profiling::_tracy_plot($crate::profiling::cstr!($name), $dt)
+    };
+}
+
+#[macro_export]
+macro_rules! tracy_fiber_enter {
+    ($name: expr) => {
+        $crate::profiling::_tracy_fiber_enter($crate::profiling::cstr!($name))
+    };
+}
+
 pub(crate) use cstr;
 pub(crate) use file_cstr;
 pub(crate) use location_data;
 pub(crate) use tracy_dynamic_zone;
+pub(crate) use tracy_fiber_enter;
 pub(crate) use tracy_gpu_zone;
+pub(crate) use tracy_named_frame;
+pub(crate) use tracy_plot;
 pub(crate) use tracy_zone;
