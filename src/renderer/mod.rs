@@ -147,7 +147,7 @@ impl Renderer {
         self.cursor_renderer.prepare_frame()
     }
 
-    pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32) {
+    pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32, ime: &Ime, w: f32) {
         tracy_zone!("renderer_draw_frame");
         let default_background = self.grid_renderer.get_default_background();
         let font_dimensions = self.grid_renderer.font_dimensions;
@@ -197,7 +197,7 @@ impl Renderer {
             .collect();
 
         self.cursor_renderer
-            .draw(&mut self.grid_renderer, root_canvas);
+            .draw(&mut self.grid_renderer, root_canvas, ime.preedit(), w);
 
         self.profiler.draw(root_canvas, dt);
 
