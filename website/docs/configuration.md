@@ -219,7 +219,7 @@ vim.g.neovide_light_angle_degrees = 45
 vim.g.neovide_light_radius = 5
 ```
 
-**Unreleased yet.**
+**Available since 0.12.0.**
 
 Setting `g:neovide_floating_shadow` to false will disable the shadow borders for floating windows.
 The other variables configure the shadow in various ways:
@@ -267,7 +267,7 @@ encouraged in order to tune it to your liking.
 
 #### Far scroll lines
 
-**Unreleased yet.**
+**Available since 0.12.0.**
 
 VimScript:
 
@@ -317,7 +317,7 @@ Lua:
 vim.g.neovide_underline_stroke_scale = 1.0
 ```
 
-**Unreleased yet.**
+**Available since 0.12.0.**
 
 Setting `g:neovide_underline_stroke_scale` to a floating point will increase or decrease the stroke
 width of the underlines (including undercurl, underdash, etc.). If the scaled stroke width is less
@@ -360,7 +360,7 @@ Lua:
 vim.g.neovide_unlink_border_highlights = true
 ```
 
-**Unreleased yet.**
+**Available since 0.12.0.**
 
 Neovide uses some highlight groups for detecting the border of the windows, when scrolling. This
 detection is not perfect due to some limitations of Neovim, it only returns the final highlight
