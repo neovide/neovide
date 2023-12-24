@@ -11,7 +11,7 @@ use crate::{
     editor::{Cursor, CursorShape},
     profiling::{tracy_plot, tracy_zone},
     renderer::animation_utils::*,
-    renderer::{GridRenderer, RenderedWindow},
+    renderer::{GridRenderer, Preedit, RenderedWindow},
     settings::{ParseFromValue, SETTINGS},
     window::{ShouldRender, UserEvent},
 };

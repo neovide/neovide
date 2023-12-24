@@ -2,6 +2,7 @@ pub mod animation_utils;
 pub mod cursor_renderer;
 pub mod fonts;
 pub mod grid_renderer;
+pub mod ime;
 mod opengl;
 pub mod profiler;
 mod rendered_window;
@@ -30,6 +31,7 @@ use crate::{
 use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
+pub use ime::{Ime, Preedit};
 pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails};
 
 pub use opengl::{build_context, build_window, Context as WindowedContext, GlWindow};
