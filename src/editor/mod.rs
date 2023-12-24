@@ -11,12 +11,21 @@ use log::{error, trace, warn};
 
 use winit::event_loop::EventLoopProxy;
 
+#[cfg(target_os = "macos")]
+use winit::window::Theme;
+
+#[cfg(target_os = "macos")]
+use skia_safe::Color4f;
+
 use crate::{
     bridge::{GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
     profiling::{tracy_named_frame, tracy_zone},
     renderer::DrawCommand,
     window::{UserEvent, WindowCommand},
 };
+
+#[cfg(target_os = "macos")]
+use crate::{cmd_line::CmdLineSettings, frame::Frame, settings::SETTINGS};
 
 pub use cursor::{Cursor, CursorMode, CursorShape};
 pub use draw_command_batcher::DrawCommandBatcher;
@@ -145,6 +154,16 @@ impl Editor {
             }
             RedrawEvent::DefaultColorsSet { colors } => {
                 tracy_zone!("EditorDefaultColorsSet");
+
+                // Set the dark/light theme of window, so the titlebar text gets correct color.
+                #[cfg(target_os = "macos")]
+                if SETTINGS.get::<CmdLineSettings>().frame == Frame::Transparent {
+                    let _ = self.event_loop_proxy.send_event(
+                        WindowCommand::ThemeChanged(window_theme_for_background(colors.background))
+                            .into(),
+                    );
+                }
+
                 self.draw_command_batcher
                     .queue(DrawCommand::DefaultStyleChanged(Style::new(colors)));
                 self.redraw_screen();
@@ -562,4 +581,22 @@ pub fn start_editor(event_loop_proxy: EventLoopProxy<UserEvent>) -> NeovimHandle
         }
     });
     handler
+}
+
+/// Based on formula in https://graphicdesign.stackexchange.com/questions/62368/automatically-select-a-foreground-color-based-on-a-background-color
+/// Check if the color is light or dark
+#[cfg(target_os = "macos")]
+fn is_light_color(color: &Color4f) -> bool {
+    0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b > 0.5
+}
+
+/// Get the proper dark/light theme for a background_color.
+#[cfg(target_os = "macos")]
+fn window_theme_for_background(background_color: Option<Color4f>) -> Option<Theme> {
+    background_color?;
+
+    match background_color.unwrap() {
+        color if is_light_color(&color) => Some(Theme::Light),
+        _ => Some(Theme::Dark),
+    }
 }

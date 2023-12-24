@@ -76,6 +76,7 @@ pub struct WinitWindowWrapper {
     window_padding: WindowPadding,
     initial_window_size: WindowSize,
     is_minimized: bool,
+    theme: Option<Theme>,
     pub vsync: VSync,
     #[cfg(target_os = "macos")]
     macos_feature: MacosWindowFeature,
@@ -152,6 +153,7 @@ impl WinitWindowWrapper {
             },
             initial_window_size,
             is_minimized: false,
+            theme: None,
             vsync,
             #[cfg(target_os = "macos")]
             macos_feature,
@@ -202,6 +204,9 @@ impl WinitWindowWrapper {
             WindowCommand::ShowIntro(message) => {
                 send_ui(ParallelCommand::ShowIntro { message });
             }
+            WindowCommand::ThemeChanged(new_theme) => {
+                self.handle_theme_changed(new_theme);
+            }
             #[cfg(windows)]
             WindowCommand::RegisterRightClick => register_right_click(),
             #[cfg(windows)]
@@ -249,6 +254,11 @@ impl WinitWindowWrapper {
     pub fn handle_title_changed(&mut self, new_title: String) {
         self.title = new_title;
         self.windowed_context.window().set_title(&self.title);
+    }
+
+    pub fn handle_theme_changed(&mut self, new_theme: Option<Theme>) {
+        self.theme = new_theme;
+        self.windowed_context.window().set_theme(self.theme);
     }
 
     pub fn send_font_names(&self) {

@@ -20,7 +20,7 @@ use winit::{
     error::EventLoopError,
     event::Event,
     event_loop::{EventLoop, EventLoopBuilder},
-    window::{Icon, WindowBuilder},
+    window::{Icon, Theme, WindowBuilder},
 };
 
 #[cfg(target_os = "macos")]
@@ -85,6 +85,7 @@ pub enum WindowCommand {
     FocusWindow,
     Minimize,
     ShowIntro(Vec<String>),
+    ThemeChanged(Option<Theme>),
     #[cfg(windows)]
     RegisterRightClick,
     #[cfg(windows)]
