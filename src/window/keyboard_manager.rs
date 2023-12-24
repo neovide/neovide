@@ -56,10 +56,13 @@ impl KeyboardManager {
                 log::trace!("Ime commit {text}");
                 send_ui(SerialCommand::Keyboard(text.to_string()));
             }
-            Event::WindowEvent {
-                event: WindowEvent::Ime(Ime::Preedit(text, cursor_offset)),
-                ..
-            } => self.ime_preedit = (text.to_string(), *cursor_offset),
+            // Event::WindowEvent {
+            //     event: WindowEvent::Ime(Ime::Preedit(text, cursor_offset)),
+            //     ..
+            // } => {
+            //     self.ime_preedit = (text.to_string(), *cursor_offset);
+            //     log::trace!("Ime preedit {text}");
+            // }
             Event::WindowEvent {
                 event: WindowEvent::ModifiersChanged(modifiers),
                 ..
