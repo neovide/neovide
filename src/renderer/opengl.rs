@@ -32,7 +32,7 @@ use winit::{
 };
 
 #[cfg(target_os = "windows")]
-pub use super::vsync::VSyncWin;
+pub use super::vsync::VSyncWinDwm;
 
 #[cfg(target_os = "macos")]
 pub use super::vsync::VSyncMacos;
@@ -200,7 +200,7 @@ impl SkiaRenderer for OpenGLSkiaRenderer {
 
         #[cfg(target_os = "windows")]
         {
-            VSync::Windows(VSyncWin::new(proxy))
+            VSync::WindowsDwm(VSyncWinDwm::new(proxy))
         }
 
         #[cfg(target_os = "macos")]

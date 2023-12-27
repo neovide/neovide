@@ -4,7 +4,7 @@ mod macos_display_link;
 mod vsync_macos;
 mod vsync_timer;
 #[cfg(target_os = "windows")]
-mod vsync_win;
+mod vsync_win_dwm;
 
 use vsync_timer::VSyncTimer;
 
@@ -14,7 +14,7 @@ use crate::{
 use winit::{event_loop::EventLoopProxy, window::Window};
 
 #[cfg(target_os = "windows")]
-pub use vsync_win::VSyncWin;
+pub use vsync_win_dwm::VSyncWinDwm;
 
 #[cfg(target_os = "macos")]
 pub use vsync_macos::VSyncMacos;
@@ -25,7 +25,7 @@ pub enum VSync {
     WinitThrottling(),
     Timer(VSyncTimer),
     #[cfg(target_os = "windows")]
-    Windows(VSyncWin),
+    WindowsDwm(VSyncWinDwm),
     #[cfg(target_os = "macos")]
     Macos(VSyncMacos),
 }
@@ -47,7 +47,7 @@ impl VSync {
         match self {
             VSync::Timer(vsync) => vsync.wait_for_vsync(),
             #[cfg(target_os = "windows")]
-            VSync::Windows(vsync) => vsync.wait_for_vsync(),
+            VSync::WindowsDwm(vsync) => vsync.wait_for_vsync(),
             #[cfg(target_os = "macos")]
             VSync::Macos(vsync) => vsync.wait_for_vsync(),
             _ => {}
@@ -56,7 +56,7 @@ impl VSync {
 
     pub fn uses_winit_throttling(&self) -> bool {
         #[cfg(target_os = "windows")]
-        return matches!(self, VSync::WinitThrottling() | VSync::Windows(..));
+        return matches!(self, VSync::WinitThrottling() | VSync::WindowsDwm(..));
 
         #[cfg(target_os = "macos")]
         return matches!(self, VSync::WinitThrottling() | VSync::Macos(..));
@@ -94,7 +94,7 @@ impl VSync {
         match self {
             VSync::WinitThrottling(..) => window.request_redraw(),
             #[cfg(target_os = "windows")]
-            VSync::Windows(vsync) => vsync.request_redraw(),
+            VSync::WindowsDwm(vsync) => vsync.request_redraw(),
             #[cfg(target_os = "macos")]
             VSync::Macos(vsync) => vsync.request_redraw(),
             _ => {}
