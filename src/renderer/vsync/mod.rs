@@ -8,10 +8,8 @@ mod vsync_win;
 
 use vsync_timer::VSyncTimer;
 
-use crate::{
-    renderer::WindowedContext, settings::SETTINGS, window::UserEvent, window::WindowSettings,
-};
-use winit::event_loop::EventLoopProxy;
+use crate::{settings::SETTINGS, window::UserEvent, window::WindowSettings};
+use winit::{event_loop::EventLoopProxy, window::Window};
 
 #[cfg(target_os = "linux")]
 use std::env;
@@ -35,11 +33,7 @@ pub enum VSync {
 
 impl VSync {
     #[allow(unused_variables)]
-    pub fn new(
-        vsync_enabled: bool,
-        context: &WindowedContext,
-        proxy: EventLoopProxy<UserEvent>,
-    ) -> Self {
+    pub fn new(vsync_enabled: bool, widnow: &Window, proxy: EventLoopProxy<UserEvent>) -> Self {
         if vsync_enabled {
             #[cfg(target_os = "linux")]
             if env::var("WAYLAND_DISPLAY").is_ok() {
@@ -55,7 +49,7 @@ impl VSync {
 
             #[cfg(target_os = "macos")]
             {
-                VSync::Macos(VSyncMacos::new(context, proxy))
+                VSync::Macos(VSyncMacos::new(window, proxy))
             }
         } else {
             VSync::Timer(VSyncTimer::new())
@@ -84,21 +78,21 @@ impl VSync {
         return matches!(self, VSync::WinitThrottling());
     }
 
-    pub fn update(&mut self, #[allow(unused_variables)] context: &WindowedContext) {
+    pub fn update(&mut self, #[allow(unused_variables)] window: &Window) {
         match self {
             #[cfg(target_os = "macos")]
-            VSync::Macos(vsync) => vsync.update(context),
+            VSync::Macos(vsync) => vsync.update(window),
             _ => {}
         }
     }
 
-    pub fn get_refresh_rate(&self, context: &WindowedContext) -> f32 {
+    pub fn get_refresh_rate(&self, window: &Window) -> f32 {
         let settings_refresh_rate = 1.0 / SETTINGS.get::<WindowSettings>().refresh_rate as f32;
 
         match self {
             VSync::Timer(_) => settings_refresh_rate,
             _ => {
-                let monitor = context.window().current_monitor();
+                let monitor = window.current_monitor();
                 monitor
                     .and_then(|monitor| monitor.refresh_rate_millihertz())
                     .map(|rate| 1000.0 / rate as f32)
@@ -109,9 +103,9 @@ impl VSync {
         }
     }
 
-    pub fn request_redraw(&mut self, context: &WindowedContext) {
+    pub fn request_redraw(&mut self, window: &Window) {
         match self {
-            VSync::WinitThrottling(..) => context.window().request_redraw(),
+            VSync::WinitThrottling(..) => window.request_redraw(),
             #[cfg(target_os = "windows")]
             VSync::Windows(vsync) => vsync.request_redraw(),
             #[cfg(target_os = "macos")]
