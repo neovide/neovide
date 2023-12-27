@@ -5,6 +5,8 @@ mod vsync_macos;
 mod vsync_timer;
 #[cfg(target_os = "windows")]
 mod vsync_win_dwm;
+#[cfg(target_os = "windows")]
+mod vsync_win_swap_chain;
 
 use vsync_timer::VSyncTimer;
 
@@ -15,6 +17,8 @@ use winit::{event_loop::EventLoopProxy, window::Window};
 
 #[cfg(target_os = "windows")]
 pub use vsync_win_dwm::VSyncWinDwm;
+#[cfg(target_os = "windows")]
+pub use vsync_win_swap_chain::VSyncWinSwapChain;
 
 #[cfg(target_os = "macos")]
 pub use vsync_macos::VSyncMacos;
@@ -26,6 +30,8 @@ pub enum VSync {
     Timer(VSyncTimer),
     #[cfg(target_os = "windows")]
     WindowsDwm(VSyncWinDwm),
+    #[cfg(target_os = "windows")]
+    WindowsSwapChain(VSyncWinSwapChain),
     #[cfg(target_os = "macos")]
     Macos(VSyncMacos),
 }
@@ -48,6 +54,8 @@ impl VSync {
             VSync::Timer(vsync) => vsync.wait_for_vsync(),
             #[cfg(target_os = "windows")]
             VSync::WindowsDwm(vsync) => vsync.wait_for_vsync(),
+            #[cfg(target_os = "windows")]
+            VSync::WindowsSwapChain(vsync) => vsync.wait_for_vsync(),
             #[cfg(target_os = "macos")]
             VSync::Macos(vsync) => vsync.wait_for_vsync(),
             _ => {}
@@ -56,7 +64,10 @@ impl VSync {
 
     pub fn uses_winit_throttling(&self) -> bool {
         #[cfg(target_os = "windows")]
-        return matches!(self, VSync::WinitThrottling() | VSync::WindowsDwm(..));
+        return matches!(
+            self,
+            VSync::WinitThrottling() | VSync::WindowsDwm(..) | VSync::WindowsSwapChain(..)
+        );
 
         #[cfg(target_os = "macos")]
         return matches!(self, VSync::WinitThrottling() | VSync::Macos(..));
@@ -95,6 +106,8 @@ impl VSync {
             VSync::WinitThrottling(..) => window.request_redraw(),
             #[cfg(target_os = "windows")]
             VSync::WindowsDwm(vsync) => vsync.request_redraw(),
+            #[cfg(target_os = "windows")]
+            VSync::WindowsSwapChain(vsync) => vsync.request_redraw(),
             #[cfg(target_os = "macos")]
             VSync::Macos(vsync) => vsync.request_redraw(),
             _ => {}

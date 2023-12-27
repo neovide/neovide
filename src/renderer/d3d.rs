@@ -48,15 +48,12 @@ use skia_safe::{
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winit::{event_loop::EventLoopProxy, window::Window};
 
-use super::{SkiaRenderer, VSync};
+use super::{vsync::VSyncWinSwapChain, SkiaRenderer, VSync};
 
 #[cfg(feature = "gpu_profiling")]
 use crate::profiling::{d3d::create_d3d_gpu_context, GpuCtx};
 
-use crate::{
-    profiling::{tracy_frame, tracy_gpu_zone, tracy_zone},
-    window::UserEvent,
-};
+use crate::{profiling::tracy_gpu_zone, window::UserEvent};
 
 const D3D_FEATUREL_LEVEL: D3D_FEATURE_LEVEL = D3D_FEATURE_LEVEL_11_0;
 
@@ -401,12 +398,6 @@ impl SkiaRenderer for D3DSkiaRenderer {
                 self.gr_context.submit(Some(SyncCpu::No));
             }
 
-            {
-                tracy_zone!("wait for vblank");
-                WaitForSingleObjectEx(self.swap_chain_waitable, 1000, true.into());
-                tracy_frame();
-            };
-
             let res = {
                 tracy_gpu_zone!("present");
                 self.swap_chain.Present(1, 0)
@@ -450,8 +441,8 @@ impl SkiaRenderer for D3DSkiaRenderer {
         self.setup_surfaces();
     }
 
-    fn create_vsync(&self, _proxy: EventLoopProxy<UserEvent>) -> VSync {
-        unimplemented!()
+    fn create_vsync(&self, proxy: EventLoopProxy<UserEvent>) -> VSync {
+        VSync::WindowsSwapChain(VSyncWinSwapChain::new(proxy, self.swap_chain_waitable))
     }
 
     #[cfg(feature = "gpu_profiling")]
