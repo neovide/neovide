@@ -2,11 +2,15 @@
 
 use std::env;
 
+use notify::Watcher;
 use serde::Deserialize;
+use winit::event_loop::EventLoopProxy;
 
-use crate::frame::Frame;
+use crate::{error_msg, frame::Frame, window::UserEvent};
 
 use std::path::{Path, PathBuf};
+
+use super::font::FontSettings;
 
 const CONFIG_FILE: &str = "config.toml";
 
@@ -42,16 +46,55 @@ pub struct Config {
     pub neovim_bin: Option<PathBuf>,
     pub frame: Option<Frame>,
     pub theme: Option<String>,
+    pub font: Option<FontSettings>,
 }
 
 impl Config {
     /// Loads config from `config_path()` and writes it to env variables.
-    pub fn init() {
-        match Config::load_from_path(&config_path()) {
+    pub fn init(event_loop_proxy: EventLoopProxy<UserEvent>) {
+        let config = Config::load_from_path(&config_path());
+        match &config {
             Ok(config) => config.write_to_env(),
             Err(Some(err)) => eprintln!("{err}"),
             Err(None) => {}
         };
+        Self::watch_config_file(config.unwrap_or_default(), event_loop_proxy);
+    }
+
+    pub fn watch_config_file(init_config: Config, event_loop_proxy: EventLoopProxy<UserEvent>) {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let mut watcher = notify::RecommendedWatcher::new(
+            tx,
+            notify::Config::default().with_compare_contents(true),
+        )
+        .unwrap();
+        watcher
+            .watch(&config_path(), notify::RecursiveMode::NonRecursive)
+            .unwrap();
+        std::thread::spawn(move || loop {
+            let previous_config = init_config;
+            match rx.recv() {
+                Ok(_) => {
+                    match Config::load_from_path(&config_path()) {
+                        Ok(config) => {
+                            // compare config and previous, notify if changed
+                            if config.font != previous_config.font {
+                                event_loop_proxy
+                                    .send_event(UserEvent::FontChanged(config.font))
+                                    .unwrap();
+                            }
+                        }
+                        Err(Some(err)) => {
+                            error_msg!("Reload config file error: {err}");
+                        }
+                        _ => {}
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Error while watching config file: {}", e);
+                }
+            }
+        });
     }
 
     fn write_to_env(&self) {

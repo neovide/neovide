@@ -170,7 +170,7 @@ fn setup(proxy: EventLoopProxy<UserEvent>) -> Result<(WindowSize, NeovimRuntime)
     //
     // The Window event loop sends UICommand to the bridge, which forwards them to Neovim. It also
     // reads `DrawCommand`, `SettingChanged`, and `WindowCommand` from the other components.
-    Config::init();
+    Config::init(proxy.clone());
 
     //Will exit if -h or -v
     cmd_line::handle_command_line_arguments(args().collect())?;

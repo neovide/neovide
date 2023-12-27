@@ -44,8 +44,8 @@ use crate::{
     renderer::{build_window, DrawCommand, GlWindow},
     running_tracker::*,
     settings::{
-        load_last_window_settings, save_window_size, PersistentWindowSettings, SettingsChanged,
-        SETTINGS,
+        load_last_window_settings, save_window_size, FontSettings, PersistentWindowSettings,
+        SettingsChanged, SETTINGS,
     },
 };
 pub use error_window::show_error_window;
@@ -87,6 +87,7 @@ pub enum UserEvent {
     DrawCommandBatch(Vec<DrawCommand>),
     WindowCommand(WindowCommand),
     SettingsChanged(SettingsChanged),
+    FontChanged(Option<FontSettings>),
     #[allow(dead_code)]
     RedrawRequested,
 }

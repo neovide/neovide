@@ -1,5 +1,6 @@
 mod from_value;
 mod window_size;
+mod font;
 
 use anyhow::{Context, Result};
 use log::trace;
@@ -23,6 +24,7 @@ pub use window_size::{
 
 mod config;
 pub use config::Config;
+pub use font::{FontSettings, FamilyAndStyle};
 
 lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new();
