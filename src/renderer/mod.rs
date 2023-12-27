@@ -32,7 +32,7 @@ pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
 pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails};
 
-pub use opengl::{build_context, build_window, Context as WindowedContext, GlWindow};
+pub use opengl::{build_window, GlWindow, SkiaRenderer};
 pub use vsync::VSync;
 
 use self::fonts::font_options::FontOptions;

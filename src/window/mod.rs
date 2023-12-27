@@ -1,7 +1,6 @@
 mod error_window;
 mod keyboard_manager;
 mod mouse_manager;
-mod renderer;
 mod settings;
 mod update_loop;
 mod window_wrapper;
@@ -43,7 +42,6 @@ use winit::platform::x11::WindowBuilderExtX11;
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
 use mouse_manager::MouseManager;
-use renderer::SkiaRenderer;
 use update_loop::UpdateLoop;
 
 use crate::{

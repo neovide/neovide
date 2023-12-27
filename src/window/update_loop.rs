@@ -141,7 +141,7 @@ impl UpdateLoop {
     pub fn animate(&mut self, window_wrapper: &mut WinitWindowWrapper) {
         let dt = window_wrapper
             .vsync
-            .get_refresh_rate(&window_wrapper.windowed_context);
+            .get_refresh_rate(window_wrapper.skia_renderer.window());
 
         let now = Instant::now();
         let animation_time = (now - self.animation_start).as_secs_f64();
@@ -228,7 +228,7 @@ impl UpdateLoop {
                             {
                                 window_wrapper
                                     .vsync
-                                    .request_redraw(&window_wrapper.windowed_context);
+                                    .request_redraw(window_wrapper.skia_renderer.window());
                                 self.pending_render = true;
                             } else {
                                 self.render(window_wrapper);

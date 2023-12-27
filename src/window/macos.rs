@@ -11,10 +11,7 @@ use csscolorparser::Color;
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
-use crate::{
-    cmd_line::CmdLineSettings, error_msg, frame::Frame, renderer::WindowedContext,
-    settings::SETTINGS,
-};
+use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame, settings::SETTINGS};
 
 use super::WindowSettings;
 
@@ -157,7 +154,7 @@ impl MacosWindowFeature {
         }
     }
 
-    pub fn handle_size_changed(&mut self, _windowed_context: &WindowedContext) {
+    pub fn handle_size_changed(&mut self) {
         let is_fullscreen =
             unsafe { self.ns_window.styleMask() } & NSWindowStyleMaskFullScreen != 0;
         if is_fullscreen != self.is_fullscreen {
