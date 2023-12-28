@@ -85,7 +85,7 @@ impl FontLoader {
     fn load(&mut self, font_key: FontKey) -> Option<FontPair> {
         trace!("Loading font {:?}", font_key);
         if let Some(desc) = &font_key.font_desc {
-            let (family, style) = desc.into_family_and_font_style();
+            let (family, style) = desc.as_family_and_font_style();
             let typeface = self.font_mgr.match_family_style(family, style)?;
             FontPair::new(font_key, Font::from_typeface(typeface, self.font_size))
         } else {

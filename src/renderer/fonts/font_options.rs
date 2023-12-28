@@ -1,6 +1,7 @@
 use std::{collections::HashMap, fmt::Display, num::ParseFloatError};
 
 use itertools::Itertools;
+use log::warn;
 use serde::Deserialize;
 use skia_safe::FontStyle;
 
@@ -32,18 +33,42 @@ pub struct SecondaryFontDescription {
     pub style: Option<String>,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct FontFeature(pub String, pub u16);
+
 #[derive(Clone, Debug)]
 pub struct FontOptions {
     pub normal: Vec<FontDescription>,
     pub italic: Option<Vec<SecondaryFontDescription>>,
     pub bold: Option<Vec<SecondaryFontDescription>>,
     pub bold_italic: Option<Vec<SecondaryFontDescription>>,
-    pub features: Option<HashMap<String /* family */, String /* features */>>,
+    pub features: HashMap<String /* family */, Vec<FontFeature> /* features */>,
     pub size: f32,
     pub width: f32,
     pub allow_float_size: bool,
     pub hinting: FontHinting,
     pub edging: FontEdging,
+}
+
+impl FontFeature {
+    pub fn parse(feature: &str) -> Result<Self, &str> {
+        if let Some(name) = feature.strip_prefix('+') {
+            Ok(FontFeature(name.trim().to_string(), 1u16))
+        } else if let Some(name) = feature.strip_prefix('-') {
+            Ok(FontFeature(name.trim().to_string(), 0u16))
+        } else if let Some((name, value)) = feature.split_once('=') {
+            let value = value.parse();
+            if let Ok(value) = value {
+                Ok(FontFeature(name.to_string(), value))
+            } else {
+                warn!("Wrong feature format: {}", feature);
+                Err(feature)
+            }
+        } else {
+            warn!("Wrong feature format: {}", feature);
+            Err(feature)
+        }
+    }
 }
 
 impl FontOptions {
@@ -132,7 +157,7 @@ impl Default for FontOptions {
             italic: None,
             bold: None,
             bold_italic: None,
-            features: None,
+            features: HashMap::new(),
             allow_float_size: false,
             size: points_to_pixels(DEFAULT_FONT_SIZE),
             width: 0.0,
@@ -240,7 +265,7 @@ fn points_to_pixels(value: f32) -> f32 {
 }
 
 impl FontDescription {
-    pub fn into_family_and_font_style(&self) -> (&str, FontStyle) {
+    pub fn as_family_and_font_style(&self) -> (&str, FontStyle) {
         let style = if let Some(style) = &self.style {
             match style.as_str() {
                 "Bold" => FontStyle::bold(),

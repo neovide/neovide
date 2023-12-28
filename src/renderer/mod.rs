@@ -35,6 +35,8 @@ pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, Windo
 pub use opengl::{build_context, build_window, Context as WindowedContext, GlWindow};
 pub use vsync::VSync;
 
+use self::fonts::font_options::FontOptions;
+
 #[derive(SettingGroup, Clone)]
 pub struct RendererSettings {
     position_animation_length: f32,
@@ -246,7 +248,17 @@ impl Renderer {
     }
 
     pub fn handle_config_changed(&mut self, config: HotReloadConfigs) {
-        todo!()
+        match config {
+            HotReloadConfigs::Font(font) => match font {
+                Some(font) => {
+                    self.grid_renderer.update_font_options(font.into());
+                }
+                None => {
+                    self.grid_renderer
+                        .update_font_options(FontOptions::default());
+                }
+            },
+        }
     }
 
     pub fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) -> DrawCommandResult {

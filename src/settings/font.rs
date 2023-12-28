@@ -2,20 +2,61 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-#[derive(Debug, Clone, Deserialize, Hash, PartialEq, Eq)]
-pub struct FamilyAndStyle {
-    pub family: String,
-    pub style: String,
-}
+use crate::renderer::fonts::font_options::{
+    FontDescription, FontEdging, FontFeature, FontHinting, FontOptions, SecondaryFontDescription,
+};
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct FontSettings {
     /// Font family to use for the normal font.
-    pub family: FamilyAndStyle,
-    pub bold: Option<FamilyAndStyle>,
-    pub italic: Option<FamilyAndStyle>,
-    pub bold_italic: Option<FamilyAndStyle>,
+    pub family: Vec<FontDescription>,
+    pub bold: Option<Vec<SecondaryFontDescription>>,
+    pub italic: Option<Vec<SecondaryFontDescription>>,
+    pub bold_italic: Option<Vec<SecondaryFontDescription>>,
     pub size: f32,
-    pub width: String,
-    pub features: Option<HashMap<String /* family */, String /* features */>>,
+    pub width: f32,
+    pub features: Option<HashMap<String /* family */, Vec<String> /* features */>>,
+    pub allow_float_size: Option<bool>,
+    pub hinting: Option<String>,
+    pub edging: Option<String>,
+}
+
+impl From<FontSettings> for FontOptions {
+    fn from(value: FontSettings) -> Self {
+        FontOptions {
+            normal: value.family,
+            italic: value.italic,
+            bold: value.bold,
+            bold_italic: value.bold_italic,
+            features: value
+                .features
+                .map(|features| {
+                    features
+                        .into_iter()
+                        .map(|(family, features)| {
+                            (
+                                family,
+                                features
+                                    .iter()
+                                    .map(|feature| FontFeature::parse(feature))
+                                    .filter_map(|x| x.ok())
+                                    .collect::<Vec<_>>(),
+                            )
+                        })
+                        .collect()
+                })
+                .unwrap_or_default(),
+            size: value.size,
+            width: value.width,
+            allow_float_size: value.allow_float_size.unwrap_or_default(),
+            hinting: value
+                .hinting
+                .map(|hinting| FontHinting::parse(&hinting).unwrap_or_default())
+                .unwrap_or_default(),
+            edging: value
+                .edging
+                .map(|edging| FontEdging::parse(&edging).unwrap_or_default())
+                .unwrap_or_default(),
+        }
+    }
 }

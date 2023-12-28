@@ -14,6 +14,8 @@ use crate::{
     settings::*,
 };
 
+use super::fonts::font_options::FontOptions;
+
 pub struct GridRenderer {
     pub shaper: CachingShaper,
     pub default_style: Arc<Style>,
@@ -71,6 +73,11 @@ impl GridRenderer {
 
     pub fn update_font(&mut self, guifont_setting: &str) {
         self.shaper.update_font(guifont_setting);
+        self.update_font_dimensions();
+    }
+
+    pub fn update_font_options(&mut self, options: FontOptions) {
+        self.shaper.update_font_options(options);
         self.update_font_dimensions();
     }
 
