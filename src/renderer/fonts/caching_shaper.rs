@@ -62,9 +62,7 @@ impl CachingShaper {
     fn current_font_pair(&mut self) -> Arc<FontPair> {
         self.font_loader
             .get_or_load(&FontKey {
-                italic: false,
-                bold: false,
-                family_name: self.options.primary_font(),
+                font_desc: self.options.primary_font(),
                 hinting: self.options.hinting.clone(),
                 edging: self.options.edging.clone(),
             })
@@ -96,32 +94,39 @@ impl CachingShaper {
             }
         };
 
-        let failed_fonts = options
-            .font_list
+        self.update_font_options(options);
+    }
+
+    pub fn update_font_options(&mut self, options: FontOptions) {
+        debug!("Updating font options: {:?}", options);
+
+        let keys = options
+            .font_list()
             .iter()
-            .filter(|font| {
-                let key = FontKey {
-                    italic: false,
-                    bold: false,
-                    family_name: Some((*font).clone()),
-                    hinting: options.hinting.clone(),
-                    edging: options.edging.clone(),
-                };
-                self.font_loader.get_or_load(&key).is_none()
+            .map(|desc| FontKey {
+                font_desc: Some(desc.clone()),
+                hinting: options.hinting.clone(),
+                edging: options.edging.clone(),
             })
+            .unique()
+            .collect::<Vec<_>>();
+
+        let failed_fonts = keys
+            .iter()
+            .filter(|key| self.font_loader.get_or_load(&key).is_none())
             .collect_vec();
 
         if !failed_fonts.is_empty() {
             error_msg!(
-                "Font can't be updated to: {}\n\
+                "Font can't be updated to: {:?}\n\
                 Following fonts couldn't be loaded: {}",
-                guifont_setting,
+                options,
                 failed_fonts.iter().join(", "),
             );
         }
 
-        if failed_fonts.len() != options.font_list.len() {
-            debug!("Font updated to: {}", guifont_setting);
+        if failed_fonts.len() != keys.len() {
+            debug!("Font updated to: {:?}", options);
             self.options = options;
             self.reset_font_loader();
         }
@@ -267,20 +272,22 @@ impl CachingShaper {
             // Create font fallback list
             let mut font_fallback_keys = Vec::new();
 
-            // Add parsed fonts from guifont
-            font_fallback_keys.extend(self.options.font_list.iter().map(|font_name| FontKey {
-                italic: self.options.italic || italic,
-                bold: self.options.bold || bold,
-                family_name: Some(font_name.clone()),
-                hinting: self.options.hinting.clone(),
-                edging: self.options.edging.clone(),
-            }));
+            // Add parsed fonts from guifont or config file
+            font_fallback_keys.extend(
+                self.options
+                    .font_list()
+                    .iter()
+                    .map(|font_desc| FontKey {
+                        font_desc: Some(font_desc.clone()),
+                        hinting: self.options.hinting.clone(),
+                        edging: self.options.edging.clone(),
+                    })
+                    .unique(),
+            );
 
             // Add default font
             font_fallback_keys.push(FontKey {
-                italic: self.options.italic || italic,
-                bold: self.options.bold || bold,
-                family_name: None,
+                font_desc: None,
                 hinting: self.options.hinting.clone(),
                 edging: self.options.edging.clone(),
             });

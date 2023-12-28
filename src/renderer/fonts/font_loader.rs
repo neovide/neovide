@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 use log::trace;
@@ -9,6 +10,8 @@ use skia_safe::{
 
 use crate::renderer::fonts::font_options::{FontEdging, FontHinting};
 use crate::renderer::fonts::swash_font::SwashFont;
+
+use super::font_options::FontDescription;
 
 static DEFAULT_FONT: &[u8] = include_bytes!("../../../assets/fonts/FiraCodeNerdFont-Regular.ttf");
 static LAST_RESORT_FONT: &[u8] = include_bytes!("../../../assets/fonts/LastResort-Regular.ttf");
@@ -47,9 +50,7 @@ impl PartialEq for FontPair {
 pub struct FontKey {
     // TODO(smolck): Could make these private and add constructor method(s)?
     // Would theoretically make things safer I guess, but not sure . . .
-    pub bold: bool,
-    pub italic: bool,
-    pub family_name: Option<String>,
+    pub font_desc: Option<FontDescription>,
     pub hinting: FontHinting,
     pub edging: FontEdging,
 }
@@ -59,6 +60,16 @@ pub struct FontLoader {
     cache: LruCache<FontKey, Arc<FontPair>>,
     font_size: f32,
     last_resort: Option<Arc<FontPair>>,
+}
+
+impl Display for FontKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "FontKey {{ font_desc: {:?}, hinting: {:?}, edging: {:?} }}",
+            self.font_desc, self.hinting, self.edging
+        )
+    }
 }
 
 impl FontLoader {
@@ -72,11 +83,10 @@ impl FontLoader {
     }
 
     fn load(&mut self, font_key: FontKey) -> Option<FontPair> {
-        let font_style = font_style(font_key.bold, font_key.italic);
-
         trace!("Loading font {:?}", font_key);
-        if let Some(family_name) = &font_key.family_name {
-            let typeface = self.font_mgr.match_family_style(family_name, font_style)?;
+        if let Some(desc) = &font_key.font_desc {
+            let (family, style) = desc.into_family_and_font_style();
+            let typeface = self.font_mgr.match_family_style(family, style)?;
             FontPair::new(font_key, Font::from_typeface(typeface, self.font_size))
         } else {
             let data = Data::new_copy(DEFAULT_FONT);
@@ -111,9 +121,10 @@ impl FontLoader {
                 .match_family_style_character("", font_style, &[], character as i32)?;
 
         let font_key = FontKey {
-            bold,
-            italic,
-            family_name: Some(typeface.family_name()),
+            font_desc: Some(FontDescription {
+                family: typeface.family_name(),
+                style: font_style_str(bold, italic).map(|s| s.to_string()),
+            }),
             hinting: FontHinting::default(),
             edging: FontEdging::default(),
         };
@@ -164,6 +175,15 @@ fn font_style(bold: bool, italic: bool) -> FontStyle {
         (false, true) => FontStyle::italic(),
         (true, false) => FontStyle::bold(),
         (false, false) => FontStyle::normal(),
+    }
+}
+
+fn font_style_str(bold: bool, italic: bool) -> Option<&'static str> {
+    match (bold, italic) {
+        (true, true) => Some("Bold Italic"),
+        (false, true) => Some("Italic"),
+        (true, false) => Some("Bold"),
+        (false, false) => None,
     }
 }
 

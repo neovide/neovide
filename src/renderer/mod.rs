@@ -245,6 +245,10 @@ impl Renderer {
         animating
     }
 
+    pub fn handle_config_changed(&mut self, config: HotReloadConfigs) {
+        todo!()
+    }
+
     pub fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) -> DrawCommandResult {
         let settings = SETTINGS.get::<RendererSettings>();
         let mut result = DrawCommandResult {

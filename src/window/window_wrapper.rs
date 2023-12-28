@@ -11,7 +11,7 @@ use crate::{
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
     renderer::{build_context, DrawCommand, GlWindow, Renderer, VSync, WindowedContext},
     running_tracker::RUNNING_TRACKER,
-    settings::{SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS},
+    settings::{HotReloadConfigs, SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS},
     window::{ShouldRender, WindowSize},
     CmdLineSettings,
 };
@@ -326,6 +326,9 @@ impl WinitWindowWrapper {
             Event::UserEvent(UserEvent::SettingsChanged(SettingsChanged::Window(e))) => {
                 self.handle_window_settings_changed(e);
             }
+            Event::UserEvent(UserEvent::ConfigsChanged(config)) => {
+                self.handle_config_changed(*config);
+            }
             _ => {
                 match event {
                     Event::WindowEvent { .. } => {
@@ -420,6 +423,11 @@ impl WinitWindowWrapper {
             // Ensure that the window has the correct IME state
             self.set_ime(self.ime_enabled);
         };
+    }
+
+    fn handle_config_changed(&mut self, config: HotReloadConfigs) {
+        tracy_zone!("handle_config_changed");
+        self.renderer.handle_config_changed(config);
     }
 
     pub fn prepare_frame(&mut self) -> ShouldRender {

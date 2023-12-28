@@ -1,6 +1,8 @@
-use std::num::ParseFloatError;
+use std::{collections::HashMap, fmt::Display, num::ParseFloatError};
 
 use itertools::Itertools;
+use serde::Deserialize;
+use skia_safe::FontStyle;
 
 const DEFAULT_FONT_SIZE: f32 = 14.0;
 const FONT_OPTS_SEPARATOR: char = ':';
@@ -16,13 +18,29 @@ const FONT_ITALIC_OPT: &str = "i";
 const INVALID_SIZE_ERR: &str = "Invalid size";
 const INVALID_WIDTH_ERR: &str = "Invalid width";
 
+/// Description of the normal font.
+#[derive(Clone, Debug, Deserialize, PartialEq, Hash, Eq, Default)]
+pub struct FontDescription {
+    pub family: String,
+    pub style: Option<String>,
+}
+
+/// Description of the italic and bold fonts.
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+pub struct SecondaryFontDescription {
+    pub family: Option<String>,
+    pub style: Option<String>,
+}
+
 #[derive(Clone, Debug)]
 pub struct FontOptions {
-    pub font_list: Vec<String>,
+    pub normal: Vec<FontDescription>,
+    pub italic: Option<Vec<SecondaryFontDescription>>,
+    pub bold: Option<Vec<SecondaryFontDescription>>,
+    pub bold_italic: Option<Vec<SecondaryFontDescription>>,
+    pub features: Option<HashMap<String /* family */, String /* features */>>,
     pub size: f32,
     pub width: f32,
-    pub bold: bool,
-    pub italic: bool,
     pub allow_float_size: bool,
     pub hinting: FontHinting,
     pub edging: FontEdging,
@@ -44,10 +62,17 @@ impl FontOptions {
                 .collect_vec();
 
             if !parsed_font_list.is_empty() {
-                font_options.font_list = parsed_font_list;
+                font_options.normal = parsed_font_list
+                    .into_iter()
+                    .map(|family| FontDescription {
+                        family,
+                        style: None,
+                    })
+                    .collect();
             }
         }
 
+        let mut style: Vec<String> = vec![];
         for part in parts {
             if let Some(hinting_string) = part.strip_prefix(FONT_HINTING_PREFIX) {
                 font_options.hinting = FontHinting::parse(hinting_string)?;
@@ -60,26 +85,54 @@ impl FontOptions {
                 font_options.allow_float_size |= part[1..].contains(ALLOW_FLOAT_SIZE_OPT);
                 font_options.width = parse_pixels(part).map_err(|_| INVALID_WIDTH_ERR)?;
             } else if part == FONT_BOLD_OPT {
-                font_options.bold = true;
+                style.push("Bold".to_string());
             } else if part == FONT_ITALIC_OPT {
-                font_options.italic = true;
+                style.push("Italic".to_string());
             }
+        }
+        let style = if style.is_empty() {
+            None
+        } else {
+            Some(style.into_iter().unique().sorted().join(" "))
+        };
+        for font in font_options.normal.iter_mut() {
+            font.style = style.clone();
         }
 
         Ok(font_options)
     }
 
-    pub fn primary_font(&self) -> Option<String> {
-        self.font_list.first().cloned()
+    pub fn primary_font(&self) -> Option<FontDescription> {
+        self.normal.first().cloned()
+    }
+
+    pub fn font_list(&self) -> Vec<FontDescription> {
+        let mut fonts = self.normal.clone();
+        if let Some(italic) = &self.italic {
+            fonts.extend(italic.iter().map(|font| font.fallback(&self.normal[0])));
+        }
+        if let Some(bold) = &self.bold {
+            fonts.extend(bold.iter().map(|font| font.fallback(&self.normal[0])));
+        }
+        if let Some(bold_italic) = &self.bold_italic {
+            fonts.extend(
+                bold_italic
+                    .iter()
+                    .map(|font| font.fallback(&self.normal[0])),
+            );
+        }
+        fonts
     }
 }
 
 impl Default for FontOptions {
     fn default() -> Self {
         FontOptions {
-            font_list: Vec::new(),
-            bold: false,
-            italic: false,
+            normal: Vec::new(),
+            italic: None,
+            bold: None,
+            bold_italic: None,
+            features: None,
             allow_float_size: false,
             size: points_to_pixels(DEFAULT_FONT_SIZE),
             width: 0.0,
@@ -91,11 +144,13 @@ impl Default for FontOptions {
 
 impl PartialEq for FontOptions {
     fn eq(&self, other: &Self) -> bool {
-        self.font_list == other.font_list
-            && (self.size - other.size).abs() < std::f32::EPSILON
+        self.normal == other.normal
             && self.bold == other.bold
             && self.italic == other.italic
+            && self.bold_italic == other.bold_italic
+            && self.features == other.features
             && self.edging == other.edging
+            && (self.size - other.size).abs() < std::f32::EPSILON
             && self.hinting == other.hinting
     }
 }
@@ -184,6 +239,44 @@ fn points_to_pixels(value: f32) -> f32 {
     }
 }
 
+impl FontDescription {
+    pub fn into_family_and_font_style(&self) -> (&str, FontStyle) {
+        let style = if let Some(style) = &self.style {
+            match style.as_str() {
+                "Bold" => FontStyle::bold(),
+                "Italic" => FontStyle::italic(),
+                "Bold Italic" => FontStyle::bold_italic(),
+                _ => FontStyle::default(),
+            }
+        } else {
+            FontStyle::default()
+        };
+        (self.family.as_str(), style)
+    }
+}
+
+impl SecondaryFontDescription {
+    pub fn fallback(&self, primary: &FontDescription) -> FontDescription {
+        FontDescription {
+            family: self
+                .family
+                .clone()
+                .unwrap_or_else(|| primary.family.clone()),
+            style: self.style.clone(),
+        }
+    }
+}
+
+impl Display for FontDescription {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.family)?;
+        if let Some(style) = &self.style {
+            write!(f, " {}", style)?;
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -194,11 +287,11 @@ mod tests {
         let font_options = FontOptions::parse(guifont_setting).unwrap();
 
         assert_eq!(
-            font_options.font_list.len(),
+            font_options.normal.len(),
             1,
             "font list length should equal {}, but {}",
             1,
-            font_options.font_list.len(),
+            font_options.normal.len(),
         );
     }
 
@@ -208,11 +301,11 @@ mod tests {
         let font_options = FontOptions::parse(guifont_setting).unwrap();
 
         assert_eq!(
-            font_options.font_list.len(),
+            font_options.normal.len(),
             2,
             "font list length should equal {}, but {}",
             2,
-            font_options.font_list.len(),
+            font_options.normal.len(),
         );
     }
 
@@ -328,17 +421,21 @@ mod tests {
             true, font_options.allow_float_size,
         );
 
-        assert_eq!(
-            font_options.bold, true,
-            "bold should equal {}, but {}",
-            true, font_options.bold,
-        );
+        for font in font_options.normal.iter() {
+            assert_eq!(
+                font.family, "Fira Code Mono",
+                "font family should equal {}, but {}",
+                "Fira Code Mono", font.family,
+            );
 
-        assert_eq!(
-            font_options.italic, true,
-            "italic should equal {}, but {}",
-            true, font_options.italic,
-        );
+            assert_eq!(
+                font.style,
+                Some("Bold Italic".to_string()),
+                "font style should equal {:?}, but {:?}",
+                Some("Bold Italic".to_string()),
+                font.style,
+            );
+        }
 
         assert_eq!(
             font_options.edging,

@@ -23,7 +23,7 @@ pub use window_size::{
 };
 
 mod config;
-pub use config::Config;
+pub use config::{Config, HotReloadConfigs};
 pub use font::{FontSettings, FamilyAndStyle};
 
 lazy_static! {

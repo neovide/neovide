@@ -49,6 +49,11 @@ pub struct Config {
     pub font: Option<FontSettings>,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum HotReloadConfigs {
+    Font(Option<FontSettings>),
+}
+
 impl Config {
     /// Loads config from `config_path()` and writes it to env variables.
     pub fn init(event_loop_proxy: EventLoopProxy<UserEvent>) {
@@ -71,27 +76,32 @@ impl Config {
         watcher
             .watch(&config_path(), notify::RecursiveMode::NonRecursive)
             .unwrap();
-        std::thread::spawn(move || loop {
-            let previous_config = init_config;
-            match rx.recv() {
-                Ok(_) => {
-                    match Config::load_from_path(&config_path()) {
-                        Ok(config) => {
-                            // compare config and previous, notify if changed
-                            if config.font != previous_config.font {
-                                event_loop_proxy
-                                    .send_event(UserEvent::FontChanged(config.font))
-                                    .unwrap();
+        std::thread::spawn(move || {
+            let mut previous_config = init_config;
+            loop {
+                match rx.recv() {
+                    Ok(_) => {
+                        match Config::load_from_path(&config_path()) {
+                            Ok(config) => {
+                                // compare config and previous, notify if changed
+                                if config.font != previous_config.font {
+                                    event_loop_proxy
+                                        .send_event(UserEvent::ConfigsChanged(Box::new(
+                                            HotReloadConfigs::Font(config.font.clone()),
+                                        )))
+                                        .unwrap();
+                                }
+                                previous_config = config;
                             }
+                            Err(Some(err)) => {
+                                error_msg!("Reload config file error: {err}");
+                            }
+                            _ => {}
                         }
-                        Err(Some(err)) => {
-                            error_msg!("Reload config file error: {err}");
-                        }
-                        _ => {}
                     }
-                }
-                Err(e) => {
-                    eprintln!("Error while watching config file: {}", e);
+                    Err(e) => {
+                        eprintln!("Error while watching config file: {}", e);
+                    }
                 }
             }
         });

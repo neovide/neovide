@@ -44,7 +44,7 @@ use crate::{
     renderer::{build_window, DrawCommand, GlWindow},
     running_tracker::*,
     settings::{
-        load_last_window_settings, save_window_size, FontSettings, PersistentWindowSettings,
+        load_last_window_settings, save_window_size, HotReloadConfigs, PersistentWindowSettings,
         SettingsChanged, SETTINGS,
     },
 };
@@ -87,7 +87,7 @@ pub enum UserEvent {
     DrawCommandBatch(Vec<DrawCommand>),
     WindowCommand(WindowCommand),
     SettingsChanged(SettingsChanged),
-    FontChanged(Option<FontSettings>),
+    ConfigsChanged(Box<HotReloadConfigs>),
     #[allow(dead_code)]
     RedrawRequested,
 }
@@ -107,6 +107,12 @@ impl From<WindowCommand> for UserEvent {
 impl From<SettingsChanged> for UserEvent {
     fn from(value: SettingsChanged) -> Self {
         UserEvent::SettingsChanged(value)
+    }
+}
+
+impl From<HotReloadConfigs> for UserEvent {
+    fn from(value: HotReloadConfigs) -> Self {
+        UserEvent::ConfigsChanged(Box::new(value))
     }
 }
 
