@@ -33,7 +33,7 @@ pub fn config_path() -> PathBuf {
     config_path
 }
 
-#[derive(Debug, Deserialize, Default)]
+#[derive(Debug, Deserialize, Default, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct Config {
     pub wsl: Option<bool>,
@@ -56,14 +56,16 @@ pub enum HotReloadConfigs {
 
 impl Config {
     /// Loads config from `config_path()` and writes it to env variables.
-    pub fn init(event_loop_proxy: EventLoopProxy<UserEvent>) {
+    pub fn init(event_loop_proxy: EventLoopProxy<UserEvent>) -> Config {
         let config = Config::load_from_path(&config_path());
         match &config {
             Ok(config) => config.write_to_env(),
             Err(Some(err)) => eprintln!("{err}"),
             Err(None) => {}
         };
-        Self::watch_config_file(config.unwrap_or_default(), event_loop_proxy);
+        let config = config.unwrap_or_default();
+        Self::watch_config_file(config.clone(), event_loop_proxy);
+        config
     }
 
     pub fn watch_config_file(init_config: Config, event_loop_proxy: EventLoopProxy<UserEvent>) {

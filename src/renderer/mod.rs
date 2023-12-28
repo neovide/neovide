@@ -109,13 +109,14 @@ pub struct DrawCommandResult {
 }
 
 impl Renderer {
-    pub fn new(os_scale_factor: f64) -> Self {
+    pub fn new(os_scale_factor: f64, init_font_settings: Option<FontSettings>) -> Self {
         let window_settings = SETTINGS.get::<WindowSettings>();
 
         let user_scale_factor = window_settings.scale_factor.into();
         let scale_factor = user_scale_factor * os_scale_factor;
         let cursor_renderer = CursorRenderer::new();
-        let grid_renderer = GridRenderer::new(scale_factor);
+        let mut grid_renderer = GridRenderer::new(scale_factor);
+        grid_renderer.update_font_options(init_font_settings.map(|x| x.into()).unwrap_or_default());
         let current_mode = EditorMode::Unknown(String::from(""));
 
         let rendered_windows = HashMap::new();

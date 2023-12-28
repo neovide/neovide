@@ -44,8 +44,8 @@ use crate::{
     renderer::{build_window, DrawCommand, GlWindow},
     running_tracker::*,
     settings::{
-        load_last_window_settings, save_window_size, HotReloadConfigs, PersistentWindowSettings,
-        SettingsChanged, SETTINGS,
+        load_last_window_settings, save_window_size, FontSettings, HotReloadConfigs,
+        PersistentWindowSettings, SettingsChanged, SETTINGS,
     },
 };
 pub use error_window::show_error_window;
@@ -280,11 +280,16 @@ pub fn determine_window_size(window_settings: Option<&PersistentWindowSettings>)
 pub fn main_loop(
     window: GlWindow,
     initial_window_size: WindowSize,
+    initial_font_settings: Option<FontSettings>,
     event_loop: EventLoop<UserEvent>,
 ) -> Result<(), EventLoopError> {
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
-    let mut window_wrapper =
-        WinitWindowWrapper::new(window, initial_window_size, event_loop.create_proxy());
+    let mut window_wrapper = WinitWindowWrapper::new(
+        window,
+        initial_window_size,
+        initial_font_settings,
+        event_loop.create_proxy(),
+    );
 
     let mut update_loop = UpdateLoop::new(cmd_line_settings.idle);
 
