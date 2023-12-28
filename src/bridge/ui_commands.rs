@@ -10,7 +10,7 @@ use tokio::sync::{
     OnceCell,
 };
 
-use super::{show_error_message, show_intro_message};
+use super::{show_error_message, show_intro_message, show_message};
 use crate::{
     bridge::NeovimWriter,
     profiling::{tracy_dynamic_zone, tracy_fiber_enter, tracy_fiber_leave},
@@ -155,6 +155,7 @@ pub enum ParallelCommand {
     SetBackground(String),
     ShowIntro { message: Vec<String> },
     ShowError { lines: Vec<String> },
+    ShowMessage { lines: Vec<String> },
 }
 
 async fn display_available_fonts(
@@ -259,6 +260,9 @@ impl ParallelCommand {
                     .await
                     .context("ShowError failed")
             }
+            ParallelCommand::ShowMessage { lines } => show_message(nvim, &lines)
+                .await
+                .context("ShowMessage failed"),
         };
 
         if let Err(error) = result {

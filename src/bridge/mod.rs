@@ -94,6 +94,19 @@ pub async fn show_error_message(
     nvim.echo(prepared_lines, true, vec![]).await
 }
 
+pub async fn show_message(
+    nvim: &Neovim<NeovimWriter>,
+    lines: &[String],
+) -> Result<(), Box<CallError>> {
+    let mut prepared_lines = lines
+        .iter()
+        .map(|l| Value::String(l.clone().add("\n").into()))
+        .collect_vec();
+    prepared_lines.insert(0, Value::String("Neovide: ".into()));
+    nvim.echo(prepared_lines, true, vec![]).await?;
+    Ok(())
+}
+
 async fn launch(handler: NeovimHandler, grid_size: Option<Dimensions>) -> Result<NeovimSession> {
     let neovim_instance = neovim_instance()?;
 

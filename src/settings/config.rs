@@ -6,7 +6,12 @@ use notify::Watcher;
 use serde::Deserialize;
 use winit::event_loop::EventLoopProxy;
 
-use crate::{error_msg, frame::Frame, window::UserEvent};
+use crate::{
+    bridge::{send_ui, ParallelCommand},
+    error_msg,
+    frame::Frame,
+    window::UserEvent,
+};
 
 use std::path::{Path, PathBuf};
 
@@ -56,16 +61,14 @@ pub enum HotReloadConfigs {
 
 impl Config {
     /// Loads config from `config_path()` and writes it to env variables.
-    pub fn init(event_loop_proxy: EventLoopProxy<UserEvent>) -> Config {
+    pub fn init() -> Config {
         let config = Config::load_from_path(&config_path());
         match &config {
             Ok(config) => config.write_to_env(),
             Err(Some(err)) => eprintln!("{err}"),
             Err(None) => {}
         };
-        let config = config.unwrap_or_default();
-        Self::watch_config_file(config.clone(), event_loop_proxy);
-        config
+        config.unwrap_or_default()
     }
 
     pub fn watch_config_file(init_config: Config, event_loop_proxy: EventLoopProxy<UserEvent>) {
@@ -78,6 +81,7 @@ impl Config {
         watcher
             .watch(&config_path(), notify::RecursiveMode::NonRecursive)
             .unwrap();
+        std::mem::forget(watcher);
         std::thread::spawn(move || {
             let mut previous_config = init_config;
             loop {
@@ -87,6 +91,9 @@ impl Config {
                             Ok(config) => {
                                 // compare config and previous, notify if changed
                                 if config.font != previous_config.font {
+                                    send_ui(ParallelCommand::ShowMessage {
+                                        lines: vec!["Config file reloaded.".to_string()],
+                                    });
                                     event_loop_proxy
                                         .send_event(UserEvent::ConfigsChanged(Box::new(
                                             HotReloadConfigs::Font(config.font.clone()),

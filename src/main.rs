@@ -172,7 +172,8 @@ fn setup(
     //
     // The Window event loop sends UICommand to the bridge, which forwards them to Neovim. It also
     // reads `DrawCommand`, `SettingChanged`, and `WindowCommand` from the other components.
-    let config = Config::init(proxy.clone());
+    let config = Config::init();
+    Config::watch_config_file(config.clone(), proxy.clone());
 
     //Will exit if -h or -v
     cmd_line::handle_command_line_arguments(args().collect())?;

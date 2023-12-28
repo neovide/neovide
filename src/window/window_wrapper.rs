@@ -431,6 +431,7 @@ impl WinitWindowWrapper {
     fn handle_config_changed(&mut self, config: HotReloadConfigs) {
         tracy_zone!("handle_config_changed");
         self.renderer.handle_config_changed(config);
+        self.font_changed_last_frame = true;
     }
 
     pub fn prepare_frame(&mut self) -> ShouldRender {

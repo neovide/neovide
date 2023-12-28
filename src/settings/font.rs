@@ -14,7 +14,7 @@ pub struct FontSettings {
     pub italic: Option<Vec<SecondaryFontDescription>>,
     pub bold_italic: Option<Vec<SecondaryFontDescription>>,
     pub size: f32,
-    pub width: f32,
+    pub width: Option<f32>,
     pub features: Option<HashMap<String /* family */, Vec<String> /* features */>>,
     pub allow_float_size: Option<bool>,
     pub hinting: Option<String>,
@@ -47,7 +47,7 @@ impl From<FontSettings> for FontOptions {
                 })
                 .unwrap_or_default(),
             size: value.size,
-            width: value.width,
+            width: 0.0,
             allow_float_size: value.allow_float_size.unwrap_or_default(),
             hinting: value
                 .hinting
