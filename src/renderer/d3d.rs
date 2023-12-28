@@ -138,7 +138,6 @@ fn get_hardware_adapter(factory: &ComPtr<IDXGIFactory4>) -> Result<ComPtr<IDXGIA
 }
 
 pub struct D3DSkiaRenderer {
-    window: Window,
     gr_context: DirectContext,
     swap_chain: ComPtr<IDXGISwapChain3>,
     swap_chain_desc: DXGI_SWAP_CHAIN_DESC1,
@@ -152,8 +151,9 @@ pub struct D3DSkiaRenderer {
     frame_swapped: bool,
     frame_index: usize,
     _backend_context: BackendContext,
-    _adapter: ComPtr<IDXGIAdapter1>,
     pub device: ComPtr<ID3D12Device>,
+    _adapter: ComPtr<IDXGIAdapter1>,
+    window: Window,
 }
 
 impl D3DSkiaRenderer {
@@ -454,6 +454,8 @@ impl SkiaRenderer for D3DSkiaRenderer {
 impl Drop for D3DSkiaRenderer {
     fn drop(&mut self) {
         unsafe {
+            self.gr_context.release_resources_and_abandon();
+            self.wait_for_gpu();
             CloseHandle(self.fence_event);
         }
     }
