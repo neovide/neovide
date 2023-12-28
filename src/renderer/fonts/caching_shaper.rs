@@ -36,6 +36,7 @@ pub struct CachingShaper {
     blob_cache: LruCache<ShapeKey, Vec<TextBlob>>,
     shape_context: ShapeContext,
     scale_factor: f32,
+    /// factor get pixel-perfect width
     fudge_factor: f32,
     linespace: i64,
     font_info: Option<(Metrics, f32)>,
@@ -164,12 +165,13 @@ impl CachingShaper {
                 "Font width: {:.2}px (avg: {:.2}px)",
                 font_width, metrics.average_width
             );
-            self.fudge_factor = font_width.round() / font_width;
+            self.fudge_factor = font_width.round() / font_width / self.scale_factor;
             debug!("Fudge factor: {:.2}", self.fudge_factor);
             font_size = self.current_size();
+            self.font_info = None;
+            self.font_loader = FontLoader::new(font_size);
             debug!("Fudged font size: {:.2}px", font_size);
             debug!("Fudged font width: {:.2}px", self.info().1);
-            self.font_loader = FontLoader::new(font_size);
         }
         self.blob_cache.clear();
     }
