@@ -220,10 +220,9 @@ impl UpdateLoop {
                         // (most likely due to the compositor being busy). The animated frame will
                         // be rendered at an appropriate time anyway.
                         if !skipped_frame {
-                            // Always draw immediately for reduced latency if we have been idling
-                            if self.num_consecutive_rendered > 0
-                                && window_wrapper.vsync.uses_winit_throttling()
-                            {
+                            // When winit throttling is used, request a redraw and wait for the render event
+                            // Otherwise render immediately
+                            if window_wrapper.vsync.uses_winit_throttling() {
                                 window_wrapper
                                     .vsync
                                     .request_redraw(window_wrapper.skia_renderer.window());
