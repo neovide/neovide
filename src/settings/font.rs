@@ -7,9 +7,16 @@ use crate::renderer::fonts::font_options::{
 };
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum SimpleFontDescription {
+    String(String),
+    Details(FontDescription),
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct FontSettings {
     /// Font family to use for the normal font.
-    pub family: Vec<FontDescription>,
+    pub family: Vec<SimpleFontDescription>,
     pub bold: Option<Vec<SecondaryFontDescription>>,
     pub italic: Option<Vec<SecondaryFontDescription>>,
     pub bold_italic: Option<Vec<SecondaryFontDescription>>,
@@ -21,10 +28,22 @@ pub struct FontSettings {
     pub edging: Option<String>,
 }
 
+impl From<SimpleFontDescription> for FontDescription {
+    fn from(value: SimpleFontDescription) -> Self {
+        match value {
+            SimpleFontDescription::String(value) => FontDescription {
+                family: value,
+                style: None,
+            },
+            SimpleFontDescription::Details(value) => value,
+        }
+    }
+}
+
 impl From<FontSettings> for FontOptions {
     fn from(value: FontSettings) -> Self {
         FontOptions {
-            normal: value.family,
+            normal: value.family.into_iter().map(|x| x.into()).collect(),
             italic: value.italic,
             bold: value.bold,
             bold_italic: value.bold_italic,
