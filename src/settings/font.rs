@@ -16,7 +16,7 @@ pub enum SimpleFontDescription {
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct FontSettings {
     /// Font family to use for the normal font.
-    pub family: Vec<SimpleFontDescription>,
+    pub normal: Vec<SimpleFontDescription>,
     pub bold: Option<Vec<SecondaryFontDescription>>,
     pub italic: Option<Vec<SecondaryFontDescription>>,
     pub bold_italic: Option<Vec<SecondaryFontDescription>>,
@@ -43,7 +43,7 @@ impl From<SimpleFontDescription> for FontDescription {
 impl From<FontSettings> for FontOptions {
     fn from(value: FontSettings) -> Self {
         FontOptions {
-            normal: value.family.into_iter().map(|x| x.into()).collect(),
+            normal: value.normal.into_iter().map(|x| x.into()).collect(),
             italic: value.italic,
             bold: value.bold,
             bold_italic: value.bold_italic,
