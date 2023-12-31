@@ -131,21 +131,71 @@ impl FontOptions {
         self.normal.first().cloned()
     }
 
-    pub fn font_list(&self) -> Vec<FontDescription> {
-        let mut fonts = self.normal.clone();
-        if let Some(italic) = &self.italic {
-            fonts.extend(italic.iter().map(|font| font.fallback(&self.normal[0])));
-        }
-        if let Some(bold) = &self.bold {
-            fonts.extend(bold.iter().map(|font| font.fallback(&self.normal[0])));
-        }
-        if let Some(bold_italic) = &self.bold_italic {
-            fonts.extend(
+    pub fn font_list(&self, bold: bool, italic: bool) -> Vec<FontDescription> {
+        if bold && italic {
+            let fonts = if let Some(bold_italic) = &self.bold_italic {
                 bold_italic
                     .iter()
-                    .map(|font| font.fallback(&self.normal[0])),
-            );
+                    .map(|font| font.fallback(&self.normal))
+                    .flatten()
+                    .collect()
+            } else {
+                self.normal.clone()
+            };
+
+            fonts
+                .into_iter()
+                .map(|font| FontDescription {
+                    family: font.family,
+                    style: font.style.or_else(|| Some("Bold Italic".to_string())),
+                })
+                .collect()
+        } else if bold {
+            let fonts = if let Some(bold) = &self.bold {
+                bold.iter()
+                    .map(|font| font.fallback(&self.normal))
+                    .flatten()
+                    .collect()
+            } else {
+                self.normal.clone()
+            };
+
+            fonts
+                .into_iter()
+                .map(|font| FontDescription {
+                    family: font.family,
+                    style: font.style.or_else(|| Some("Bold".to_string())),
+                })
+                .collect()
+        } else if italic {
+            let fonts = if let Some(italic) = &self.italic {
+                italic
+                    .iter()
+                    .map(|font| font.fallback(&self.normal))
+                    .flatten()
+                    .collect()
+            } else {
+                self.normal.clone()
+            };
+
+            fonts
+                .into_iter()
+                .map(|font| FontDescription {
+                    family: font.family,
+                    style: font.style.or_else(|| Some("Italic".to_string())),
+                })
+                .collect()
+        } else {
+            self.normal.clone()
         }
+    }
+
+    pub fn possible_fonts(&self) -> Vec<FontDescription> {
+        let mut fonts = vec![];
+        fonts.extend(self.font_list(false, false));
+        fonts.extend(self.font_list(false, true));
+        fonts.extend(self.font_list(true, false));
+        fonts.extend(self.font_list(true, true));
         fonts
     }
 }
@@ -281,13 +331,20 @@ impl FontDescription {
 }
 
 impl SecondaryFontDescription {
-    pub fn fallback(&self, primary: &FontDescription) -> FontDescription {
-        FontDescription {
-            family: self
-                .family
-                .clone()
-                .unwrap_or_else(|| primary.family.clone()),
-            style: self.style.clone(),
+    pub fn fallback(&self, primary: &[FontDescription]) -> Vec<FontDescription> {
+        if let Some(family) = &self.family {
+            vec![FontDescription {
+                family: family.clone(),
+                style: self.style.clone(),
+            }]
+        } else {
+            primary
+                .iter()
+                .map(|font| FontDescription {
+                    family: font.family.clone(),
+                    style: self.style.clone(),
+                })
+                .collect()
         }
     }
 }

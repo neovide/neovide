@@ -101,7 +101,7 @@ impl CachingShaper {
         debug!("Updating font options: {:?}", options);
 
         let keys = options
-            .font_list()
+            .possible_fonts()
             .iter()
             .map(|desc| FontKey {
                 font_desc: Some(desc.clone()),
@@ -275,7 +275,7 @@ impl CachingShaper {
             // Add parsed fonts from guifont or config file
             font_fallback_keys.extend(
                 self.options
-                    .font_list()
+                    .font_list(bold, italic)
                     .iter()
                     .map(|font_desc| FontKey {
                         font_desc: Some(font_desc.clone()),
