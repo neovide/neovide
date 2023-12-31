@@ -14,18 +14,59 @@ pub enum SimpleFontDescription {
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum FontDescriptionSettings {
+    Single(SimpleFontDescription),
+    Vec(Vec<SimpleFontDescription>),
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum SimpleSecondaryFontDescription {
+    String(String),
+    Details(SecondaryFontDescription),
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(untagged)]
+pub enum SecondaryFontDescriptionSettings {
+    Single(SimpleSecondaryFontDescription),
+    Vec(Vec<SimpleSecondaryFontDescription>),
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct FontSettings {
     /// Font family to use for the normal font.
-    pub normal: Vec<SimpleFontDescription>,
-    pub bold: Option<Vec<SecondaryFontDescription>>,
-    pub italic: Option<Vec<SecondaryFontDescription>>,
-    pub bold_italic: Option<Vec<SecondaryFontDescription>>,
+    pub normal: FontDescriptionSettings,
+    pub bold: Option<SecondaryFontDescriptionSettings>,
+    pub italic: Option<SecondaryFontDescriptionSettings>,
+    pub bold_italic: Option<SecondaryFontDescriptionSettings>,
     pub size: f32,
     pub width: Option<f32>,
     pub features: Option<HashMap<String /* family */, Vec<String> /* features */>>,
     pub allow_float_size: Option<bool>,
     pub hinting: Option<String>,
     pub edging: Option<String>,
+}
+
+impl From<FontDescriptionSettings> for Vec<FontDescription> {
+    fn from(value: FontDescriptionSettings) -> Self {
+        match value {
+            FontDescriptionSettings::Single(value) => vec![value.into()],
+            FontDescriptionSettings::Vec(value) => value.into_iter().map(|x| x.into()).collect(),
+        }
+    }
+}
+
+impl From<SecondaryFontDescriptionSettings> for Vec<SecondaryFontDescription> {
+    fn from(value: SecondaryFontDescriptionSettings) -> Self {
+        match value {
+            SecondaryFontDescriptionSettings::Single(value) => vec![value.into()],
+            SecondaryFontDescriptionSettings::Vec(value) => {
+                value.into_iter().map(|x| x.into()).collect()
+            }
+        }
+    }
 }
 
 impl From<SimpleFontDescription> for FontDescription {
@@ -40,13 +81,25 @@ impl From<SimpleFontDescription> for FontDescription {
     }
 }
 
+impl From<SimpleSecondaryFontDescription> for SecondaryFontDescription {
+    fn from(value: SimpleSecondaryFontDescription) -> Self {
+        match value {
+            SimpleSecondaryFontDescription::String(value) => SecondaryFontDescription {
+                family: Some(value),
+                style: None,
+            },
+            SimpleSecondaryFontDescription::Details(value) => value,
+        }
+    }
+}
+
 impl From<FontSettings> for FontOptions {
     fn from(value: FontSettings) -> Self {
         FontOptions {
-            normal: value.normal.into_iter().map(|x| x.into()).collect(),
-            italic: value.italic,
-            bold: value.bold,
-            bold_italic: value.bold_italic,
+            normal: value.normal.into(),
+            italic: value.italic.map(|value| value.into()),
+            bold: value.bold.map(|value| value.into()),
+            bold_italic: value.bold_italic.map(|value| value.into()),
             features: value
                 .features
                 .map(|features| {
