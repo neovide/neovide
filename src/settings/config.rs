@@ -67,17 +67,7 @@ impl Config {
     }
 
     pub fn watch_config_file(init_config: Config, event_loop_proxy: EventLoopProxy<UserEvent>) {
-        let (tx, rx) = mpsc::channel();
-        let mut watcher = notify::RecommendedWatcher::new(
-            tx,
-            notify::Config::default().with_compare_contents(true),
-        )
-        .unwrap();
-        watcher
-            .watch(&config_path(), notify::RecursiveMode::NonRecursive)
-            .unwrap();
-        std::mem::forget(watcher);
-        std::thread::spawn(move || watcher_thread(init_config, rx, event_loop_proxy));
+        std::thread::spawn(move || watcher_thread(init_config, event_loop_proxy));
     }
 
     fn write_to_env(&self) {
@@ -136,11 +126,23 @@ impl Config {
     }
 }
 
-fn watcher_thread(
-    init_config: Config,
-    rx: mpsc::Receiver<notify::Result<notify::Event>>,
-    event_loop_proxy: EventLoopProxy<UserEvent>,
-) -> ! {
+fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<UserEvent>) {
+    let (tx, rx) = mpsc::channel();
+    let mut watcher =
+        notify::RecommendedWatcher::new(tx, notify::Config::default().with_compare_contents(true))
+            .unwrap();
+
+    if let Err(e) = watcher.watch(
+        // watching the directory rather than the config file itself to also allow it to be deleted/created later on
+        &config_path()
+            .parent()
+            .expect("config path to point to a file which must be in some directory"),
+        notify::RecursiveMode::NonRecursive,
+    ) {
+        log::error!("Could not watch config file, chances are it just doesn't exist: {e}");
+        return;
+    }
+
     let mut previous_config = init_config;
     // XXX: compiler can't really know that the config_path() function result basically cannot change
     // if that turns out to be a problem for someone, please open an issue and describe why you're modifying
