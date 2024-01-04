@@ -10,7 +10,7 @@ use crate::{
     bridge::EditorMode,
     editor::{Cursor, CursorShape},
     profiling::{tracy_plot, tracy_zone},
-    renderer::{animation_utils::*, fonts::font_options::CoarseStyle},
+    renderer::animation_utils::*,
     renderer::{GridRenderer, RenderedWindow},
     settings::{ParseFromValue, SETTINGS},
     window::{ShouldRender, UserEvent},

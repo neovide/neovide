@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt, num::ParseFloatError, sync::Arc};
+use std::{collections::HashMap, fmt, iter, num::ParseFloatError, sync::Arc};
 
 use itertools::Itertools;
 use log::warn;
@@ -56,6 +56,17 @@ impl CoarseStyle {
             (false, false) => return None,
         };
         Some(name)
+    }
+
+    /// Iterates through all possible style permutations.
+    pub fn permutations() -> impl Iterator<Item = CoarseStyle> {
+        iter::repeat([true, false])
+            .take(2)
+            .multi_cartesian_product()
+            .map(|values| CoarseStyle {
+                bold: values[0],
+                italic: values[1],
+            })
     }
 }
 
@@ -209,24 +220,10 @@ impl FontOptions {
     }
 
     pub fn possible_fonts(&self) -> Vec<FontDescription> {
-        let mut fonts = vec![];
-        fonts.extend(self.font_list(CoarseStyle {
-            bold: false,
-            italic: false,
-        }));
-        fonts.extend(self.font_list(CoarseStyle {
-            bold: false,
-            italic: true,
-        }));
-        fonts.extend(self.font_list(CoarseStyle {
-            bold: true,
-            italic: false,
-        }));
-        fonts.extend(self.font_list(CoarseStyle {
-            bold: true,
-            italic: true,
-        }));
-        fonts
+        CoarseStyle::permutations()
+            // partial functions when /s
+            .flat_map(|style| self.font_list(style))
+            .collect()
     }
 }
 
