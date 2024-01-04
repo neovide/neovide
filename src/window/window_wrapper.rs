@@ -278,6 +278,12 @@ impl WinitWindowWrapper {
                 self.handle_scale_factor_update(scale_factor);
             }
             Event::WindowEvent {
+                event: WindowEvent::Resized { .. },
+                ..
+            } => {
+                self.skia_renderer.resize(&self.windowed_context);
+            }
+            Event::WindowEvent {
                 event: WindowEvent::DroppedFile(path),
                 ..
             } => {
@@ -463,7 +469,6 @@ impl WinitWindowWrapper {
                 self.saved_inner_size = new_size;
 
                 self.update_grid_size_from_window();
-                self.skia_renderer.resize(&self.windowed_context);
                 should_render = ShouldRender::Immediately;
             }
         }
@@ -570,6 +575,7 @@ impl WinitWindowWrapper {
 
     fn handle_scale_factor_update(&mut self, scale_factor: f64) {
         self.renderer.handle_os_scale_factor_change(scale_factor);
+        self.skia_renderer.resize(&self.windowed_context);
     }
 
     fn padding_as_grid(&self) -> Rect {
