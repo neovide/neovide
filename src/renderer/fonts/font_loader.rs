@@ -178,7 +178,7 @@ fn font_style(bold: bool, italic: bool) -> FontStyle {
     }
 }
 
-fn font_style_str(bold: bool, italic: bool) -> Option<&'static str> {
+pub fn font_style_str(bold: bool, italic: bool) -> Option<&'static str> {
     match (bold, italic) {
         (true, true) => Some("Bold Italic"),
         (false, true) => Some("Italic"),

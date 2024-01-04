@@ -132,62 +132,31 @@ impl FontOptions {
     }
 
     pub fn font_list(&self, bold: bool, italic: bool) -> Vec<FontDescription> {
-        if bold && italic {
-            let fonts = if let Some(bold_italic) = &self.bold_italic {
-                bold_italic
+        let fonts = match (bold, italic) {
+            (true, true) => &self.bold_italic,
+            (true, false) => &self.bold,
+            (false, true) => &self.italic,
+            (false, false) => &None,
+        };
+
+        let fonts = fonts
+            .as_ref()
+            .map(|fonts| {
+                fonts
                     .iter()
-                    .map(|font| font.fallback(&self.normal))
-                    .flatten()
+                    .flat_map(|font| font.fallback(&self.normal))
                     .collect()
-            } else {
-                self.normal.clone()
-            };
+            })
+            .unwrap_or_else(|| self.normal.clone());
 
-            fonts
-                .into_iter()
-                .map(|font| FontDescription {
-                    family: font.family,
-                    style: font.style.or_else(|| Some("Bold Italic".to_string())),
-                })
-                .collect()
-        } else if bold {
-            let fonts = if let Some(bold) = &self.bold {
-                bold.iter()
-                    .map(|font| font.fallback(&self.normal))
-                    .flatten()
-                    .collect()
-            } else {
-                self.normal.clone()
-            };
-
-            fonts
-                .into_iter()
-                .map(|font| FontDescription {
-                    family: font.family,
-                    style: font.style.or_else(|| Some("Bold".to_string())),
-                })
-                .collect()
-        } else if italic {
-            let fonts = if let Some(italic) = &self.italic {
-                italic
-                    .iter()
-                    .map(|font| font.fallback(&self.normal))
-                    .flatten()
-                    .collect()
-            } else {
-                self.normal.clone()
-            };
-
-            fonts
-                .into_iter()
-                .map(|font| FontDescription {
-                    family: font.family,
-                    style: font.style.or_else(|| Some("Italic".to_string())),
-                })
-                .collect()
-        } else {
-            self.normal.clone()
-        }
+        let mod_style = super::font_loader::font_style_str(bold, italic);
+        fonts
+            .into_iter()
+            .map(|font| FontDescription {
+                style: font.style.or_else(|| mod_style.map(str::to_string)),
+                ..font
+            })
+            .collect()
     }
 
     pub fn possible_fonts(&self) -> Vec<FontDescription> {
