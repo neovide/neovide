@@ -1,9 +1,11 @@
-use std::{collections::HashMap, fmt::Display, num::ParseFloatError};
+use std::{collections::HashMap, fmt, num::ParseFloatError, sync::Arc};
 
 use itertools::Itertools;
 use log::warn;
 use serde::Deserialize;
 use skia_safe::FontStyle;
+
+use crate::editor;
 
 const DEFAULT_FONT_SIZE: f32 = 14.0;
 const FONT_OPTS_SEPARATOR: char = ':';
@@ -35,6 +37,54 @@ pub struct SecondaryFontDescription {
 
 #[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct FontFeature(pub String, pub u16);
+
+/// What a specific font is about.
+// TODO: could be made a bitfield sometime?
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct CoarseStyle {
+    bold: bool,
+    italic: bool,
+}
+
+impl CoarseStyle {
+    /// Returns the textual name of this style.
+    pub fn name(&self) -> Option<&'static str> {
+        let name = match (self.bold, self.italic) {
+            (true, true) => "Bold Italic",
+            (true, false) => "Bold",
+            (false, true) => "Italic",
+            (false, false) => return None,
+        };
+        Some(name)
+    }
+}
+
+impl From<CoarseStyle> for FontStyle {
+    fn from(CoarseStyle { bold, italic }: CoarseStyle) -> Self {
+        match (bold, italic) {
+            (true, true) => FontStyle::bold_italic(),
+            (true, false) => FontStyle::bold(),
+            (false, true) => FontStyle::italic(),
+            (false, false) => FontStyle::normal(),
+        }
+    }
+}
+
+impl From<&editor::Style> for CoarseStyle {
+    fn from(fine_style: &editor::Style) -> Self {
+        Self {
+            bold: fine_style.bold,
+            italic: fine_style.italic,
+        }
+    }
+}
+
+// essentially just a convenience impl
+impl From<&Arc<editor::Style>> for CoarseStyle {
+    fn from(fine_style: &Arc<editor::Style>) -> Self {
+        Self::from(&**fine_style)
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct FontOptions {
@@ -131,8 +181,8 @@ impl FontOptions {
         self.normal.first().cloned()
     }
 
-    pub fn font_list(&self, bold: bool, italic: bool) -> Vec<FontDescription> {
-        let fonts = match (bold, italic) {
+    pub fn font_list(&self, style: CoarseStyle) -> Vec<FontDescription> {
+        let fonts = match (style.bold, style.italic) {
             (true, true) => &self.bold_italic,
             (true, false) => &self.bold,
             (false, true) => &self.italic,
@@ -149,11 +199,10 @@ impl FontOptions {
             })
             .unwrap_or_else(|| self.normal.clone());
 
-        let mod_style = super::font_loader::font_style_str(bold, italic);
         fonts
             .into_iter()
             .map(|font| FontDescription {
-                style: font.style.or_else(|| mod_style.map(str::to_string)),
+                style: font.style.or_else(|| style.name().map(str::to_string)),
                 ..font
             })
             .collect()
@@ -161,10 +210,22 @@ impl FontOptions {
 
     pub fn possible_fonts(&self) -> Vec<FontDescription> {
         let mut fonts = vec![];
-        fonts.extend(self.font_list(false, false));
-        fonts.extend(self.font_list(false, true));
-        fonts.extend(self.font_list(true, false));
-        fonts.extend(self.font_list(true, true));
+        fonts.extend(self.font_list(CoarseStyle {
+            bold: false,
+            italic: false,
+        }));
+        fonts.extend(self.font_list(CoarseStyle {
+            bold: false,
+            italic: true,
+        }));
+        fonts.extend(self.font_list(CoarseStyle {
+            bold: true,
+            italic: false,
+        }));
+        fonts.extend(self.font_list(CoarseStyle {
+            bold: true,
+            italic: true,
+        }));
         fonts
     }
 }
@@ -318,8 +379,8 @@ impl SecondaryFontDescription {
     }
 }
 
-impl Display for FontDescription {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for FontDescription {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.family)?;
         if let Some(style) = &self.style {
             write!(f, " {}", style)?;

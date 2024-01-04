@@ -222,7 +222,7 @@ impl GridRenderer {
         if !trimmed.is_empty() {
             for blob in self
                 .shaper
-                .shape_cached(trimmed.to_string(), style.bold, style.italic)
+                .shape_cached(trimmed.to_string(), style.into())
                 .iter()
             {
                 tracy_zone!("draw_text_blob");

@@ -26,8 +26,7 @@ use crate::{
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {
     pub text: String,
-    pub bold: bool,
-    pub italic: bool,
+    pub style: CoarseStyle,
 }
 
 pub struct CachingShaper {
@@ -239,8 +238,7 @@ impl CachingShaper {
     fn build_clusters(
         &mut self,
         text: &str,
-        bold: bool,
-        italic: bool,
+        style: CoarseStyle,
     ) -> Vec<(Vec<CharCluster>, Arc<FontPair>)> {
         let mut cluster = CharCluster::new();
 
@@ -275,7 +273,7 @@ impl CachingShaper {
             // Add parsed fonts from guifont or config file
             font_fallback_keys.extend(
                 self.options
-                    .font_list(bold, italic)
+                    .font_list(style)
                     .iter()
                     .map(|font_desc| FontKey {
                         font_desc: Some(font_desc.clone()),
@@ -328,9 +326,9 @@ impl CachingShaper {
                 results.push((cluster.to_owned(), best.clone()));
             } else {
                 let fallback_character = cluster.chars()[0].ch;
-                if let Some(fallback_font) =
-                    self.font_loader
-                        .load_font_for_character(bold, italic, fallback_character)
+                if let Some(fallback_font) = self
+                    .font_loader
+                    .load_font_for_character(style, fallback_character)
                 {
                     results.push((cluster.to_owned(), fallback_font));
                 } else {
@@ -382,7 +380,7 @@ impl CachingShaper {
         }
     }
 
-    pub fn shape(&mut self, text: String, bold: bool, italic: bool) -> Vec<TextBlob> {
+    pub fn shape(&mut self, text: String, style: CoarseStyle) -> Vec<TextBlob> {
         let current_size = self.current_size();
         let (glyph_width, ..) = self.font_base_dimensions();
 
@@ -390,7 +388,7 @@ impl CachingShaper {
 
         trace!("Shaping text: {}", text);
 
-        for (cluster_group, font_pair) in self.build_clusters(&text, bold, italic) {
+        for (cluster_group, font_pair) in self.build_clusters(&text, style) {
             let features = self.get_font_features(
                 font_pair
                     .as_ref()
@@ -443,12 +441,12 @@ impl CachingShaper {
         resulting_blobs
     }
 
-    pub fn shape_cached(&mut self, text: String, bold: bool, italic: bool) -> &Vec<TextBlob> {
+    pub fn shape_cached(&mut self, text: String, style: CoarseStyle) -> &Vec<TextBlob> {
         tracy_zone!("shape_cached");
-        let key = ShapeKey::new(text.clone(), bold, italic);
+        let key = ShapeKey::new(text.clone(), style);
 
         if !self.blob_cache.contains(&key) {
-            let blobs = self.shape(text, bold, italic);
+            let blobs = self.shape(text, style);
             self.blob_cache.put(key.clone(), blobs);
         }
 

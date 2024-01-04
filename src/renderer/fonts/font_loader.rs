@@ -4,14 +4,13 @@ use std::sync::Arc;
 use log::trace;
 use lru::LruCache;
 use skia_safe::{
-    font::Edging as SkiaEdging, Data, Font, FontHinting as SkiaHinting, FontMgr, FontStyle,
-    Typeface,
+    font::Edging as SkiaEdging, Data, Font, FontHinting as SkiaHinting, FontMgr, Typeface,
 };
 
 use crate::renderer::fonts::font_options::{FontEdging, FontHinting};
 use crate::renderer::fonts::swash_font::SwashFont;
 
-use super::font_options::FontDescription;
+use super::font_options::{CoarseStyle, FontDescription};
 
 static DEFAULT_FONT: &[u8] = include_bytes!("../../../assets/fonts/FiraCodeNerdFont-Regular.ttf");
 static LAST_RESORT_FONT: &[u8] = include_bytes!("../../../assets/fonts/LastResort-Regular.ttf");
@@ -111,11 +110,10 @@ impl FontLoader {
 
     pub fn load_font_for_character(
         &mut self,
-        bold: bool,
-        italic: bool,
+        coarse_style: CoarseStyle,
         character: char,
     ) -> Option<Arc<FontPair>> {
-        let font_style = font_style(bold, italic);
+        let font_style = coarse_style.into();
         let typeface =
             self.font_mgr
                 .match_family_style_character("", font_style, &[], character as i32)?;
@@ -123,7 +121,7 @@ impl FontLoader {
         let font_key = FontKey {
             font_desc: Some(FontDescription {
                 family: typeface.family_name(),
-                style: font_style_str(bold, italic).map(|s| s.to_string()),
+                style: coarse_style.name().map(str::to_string),
             }),
             hinting: FontHinting::default(),
             edging: FontEdging::default(),
@@ -166,24 +164,6 @@ impl FontLoader {
 
     pub fn font_names(&self) -> Vec<String> {
         self.font_mgr.family_names().collect()
-    }
-}
-
-fn font_style(bold: bool, italic: bool) -> FontStyle {
-    match (bold, italic) {
-        (true, true) => FontStyle::bold_italic(),
-        (false, true) => FontStyle::italic(),
-        (true, false) => FontStyle::bold(),
-        (false, false) => FontStyle::normal(),
-    }
-}
-
-pub fn font_style_str(bold: bool, italic: bool) -> Option<&'static str> {
-    match (bold, italic) {
-        (true, true) => Some("Bold Italic"),
-        (false, true) => Some("Italic"),
-        (true, false) => Some("Bold"),
-        (false, false) => None,
     }
 }
 
