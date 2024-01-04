@@ -117,10 +117,10 @@ impl CachingShaper {
 
         if !failed_fonts.is_empty() {
             error_msg!(
-                "Font can't be updated to: {:?}\n\
+                "Font can't be updated to: {:#?}\n\
                 Following fonts couldn't be loaded: {}",
                 options,
-                failed_fonts.iter().join(", "),
+                failed_fonts.iter().join(",\n"),
             );
         }
 
