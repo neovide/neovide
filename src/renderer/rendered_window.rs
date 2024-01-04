@@ -13,7 +13,7 @@ use crate::{
     cmd_line::CmdLineSettings,
     dimensions::Dimensions,
     editor::{AnchorInfo, Style, WindowType},
-    profiling::tracy_zone,
+    profiling::{tracy_plot, tracy_zone},
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
     settings::SETTINGS,
     utils::RingBuffer,
@@ -216,9 +216,15 @@ impl RenderedWindow {
         );
         animating |= self.grid_current_position != prev_position;
 
-        animating |= self
+        let scrolling = self
             .scroll_animation
             .update(dt, settings.scroll_animation_length);
+
+        animating |= scrolling;
+
+        if scrolling {
+            tracy_plot!("Scroll position {}", self.scroll_animation.position.into());
+        }
 
         animating
     }
@@ -483,12 +489,15 @@ impl RenderedWindow {
                 }
 
                 let height = new_grid_size.height as usize;
-                self.actual_lines.resize(height, None);
-                self.grid_size = new_grid_size;
+                if height != self.actual_lines.len() {
+                    self.actual_lines.resize(height, None);
+                    self.grid_size = new_grid_size;
 
-                self.scrollback_lines.resize(2 * height, None);
-                self.scrollback_lines.clone_from_iter(&self.actual_lines);
-                self.scroll_delta = 0;
+                    self.scrollback_lines.resize(2 * height, None);
+                    self.scrollback_lines.clone_from_iter(&self.actual_lines);
+                    self.scroll_delta = 0;
+                    self.scroll_animation.reset();
+                }
 
                 self.anchor_info = anchor_info;
                 self.window_type = window_type;
@@ -500,7 +509,6 @@ impl RenderedWindow {
                     self.grid_start_position = new_destination;
                     self.grid_destination = new_destination;
                 }
-                self.scroll_animation.reset();
             }
             WindowDrawCommand::DrawLine {
                 row,
