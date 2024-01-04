@@ -1,17 +1,12 @@
-// Config file handling
+//! Config file handling
 
-use std::env;
+use std::{env, fs, sync::mpsc};
 
 use notify::Watcher;
 use serde::Deserialize;
 use winit::event_loop::EventLoopProxy;
 
-use crate::{
-    bridge::{send_ui, ParallelCommand},
-    error_msg,
-    frame::Frame,
-    window::UserEvent,
-};
+use crate::{error_msg, frame::Frame, window::UserEvent};
 
 use std::path::{Path, PathBuf};
 
@@ -72,7 +67,7 @@ impl Config {
     }
 
     pub fn watch_config_file(init_config: Config, event_loop_proxy: EventLoopProxy<UserEvent>) {
-        let (tx, rx) = std::sync::mpsc::channel();
+        let (tx, rx) = mpsc::channel();
         let mut watcher = notify::RecommendedWatcher::new(
             tx,
             notify::Config::default().with_compare_contents(true),
@@ -82,38 +77,7 @@ impl Config {
             .watch(&config_path(), notify::RecursiveMode::NonRecursive)
             .unwrap();
         std::mem::forget(watcher);
-        std::thread::spawn(move || {
-            let mut previous_config = init_config;
-            loop {
-                match rx.recv() {
-                    Ok(_) => {
-                        match Config::load_from_path(&config_path()) {
-                            Ok(config) => {
-                                // compare config and previous, notify if changed
-                                if config.font != previous_config.font {
-                                    send_ui(ParallelCommand::ShowMessage {
-                                        lines: vec!["Config file reloaded.".to_string()],
-                                    });
-                                    event_loop_proxy
-                                        .send_event(UserEvent::ConfigsChanged(Box::new(
-                                            HotReloadConfigs::Font(config.font.clone()),
-                                        )))
-                                        .unwrap();
-                                }
-                                previous_config = config;
-                            }
-                            Err(Some(err)) => {
-                                error_msg!("Reload config file error: {err}");
-                            }
-                            _ => {}
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!("Error while watching config file: {}", e);
-                    }
-                }
-            }
-        });
+        std::thread::spawn(move || watcher_thread(init_config, rx, event_loop_proxy));
     }
 
     fn write_to_env(&self) {
@@ -149,11 +113,12 @@ impl Config {
         }
     }
 
+    // TODO: should maybe return well-typed error?
     fn load_from_path(path: &Path) -> Result<Self, Option<String>> {
         if !path.exists() {
             return Err(None);
         }
-        let toml = std::fs::read_to_string(path).map_err(|e| {
+        let toml = fs::read_to_string(path).map_err(|e| {
             format!(
                 "Error while trying to open config file {}:\n{}\nContinuing with default config.",
                 path.to_string_lossy(),
@@ -168,5 +133,49 @@ impl Config {
             )
         })?;
         Ok(config)
+    }
+}
+
+fn watcher_thread(
+    init_config: Config,
+    rx: mpsc::Receiver<notify::Result<notify::Event>>,
+    event_loop_proxy: EventLoopProxy<UserEvent>,
+) -> ! {
+    let mut previous_config = init_config;
+    // XXX: compiler can't really know that the config_path() function result basically cannot change
+    // if that turns out to be a problem for someone, please open an issue and describe why you're modifying
+    // the env variables of processes on the fly
+    let config_path = config_path();
+
+    loop {
+        match rx.recv() {
+            Ok(_) => (),
+            Err(e) => {
+                eprintln!("Error while watching config file: {}", e);
+                continue;
+            }
+        }
+
+        let config = match Config::load_from_path(&config_path) {
+            Ok(config) => config,
+            Err(Some(err)) => {
+                error_msg!("While reloading config file: {err}");
+                continue;
+            }
+            Err(None) => {
+                // no config file there to reload qwq
+                continue;
+            }
+        };
+
+        // notify if font changed
+        if config.font != previous_config.font {
+            event_loop_proxy
+                .send_event(UserEvent::ConfigsChanged(Box::new(HotReloadConfigs::Font(
+                    config.font.clone(),
+                ))))
+                .unwrap();
+        }
+        previous_config = config;
     }
 }
