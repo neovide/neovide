@@ -155,12 +155,10 @@ fn watcher_thread(
 
         let config = match Config::load_from_path(&config_path) {
             Ok(config) => config,
-            Err(Some(err)) => {
-                error_msg!("While reloading config file: {err}");
-                continue;
-            }
-            Err(None) => {
-                // no config file there to reload qwq
+            Err(maybe_err) => {
+                if let Some(err) = maybe_err {
+                    error_msg!("While reloading config file: {err}");
+                }
                 continue;
             }
         };
