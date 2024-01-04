@@ -117,21 +117,29 @@ fn neovim_ok(bin: &str, args: &[String]) -> Result<bool> {
 }
 
 fn lex_nvim_cmdline(cmdline: &str) -> Result<Option<(String, Vec<String>)>> {
-    shlex::split(cmdline)
-        .filter(|t| !t.is_empty())
-        .map(|mut tokens| (tokens.remove(0), tokens))
-        .and_then(|(bin, args)| {
-            // if neovim_bin contains a path separator, then try to launch it directly
-            // otherwise use which to find the full path
-            if !bin.contains('/') && !bin.contains('\\') {
-                platform_which(&bin).map(|bin| (bin, args))
-            } else {
-                Some((bin, args))
-            }
-        })
-        .map_or(Ok(None), |(bin, args)| {
-            neovim_ok(&bin, &args).map(|res| res.then_some((bin, args)))
-        })
+    let is_windows = cfg!(target_os = "windows") && !SETTINGS.get::<CmdLineSettings>().wsl;
+    // shlex::split does not work with windows path separators, so pass the cmdline as it is
+    // Note that on WSL we can still try to split it to support specifying neovim-bin as
+    // /usr/bin/env nvim for example
+    if is_windows {
+        Some((cmdline.to_owned(), Vec::new()))
+    } else {
+        shlex::split(cmdline)
+            .filter(|t| !t.is_empty())
+            .map(|mut tokens| (tokens.remove(0), tokens))
+    }
+    .and_then(|(bin, args)| {
+        // if neovim_bin contains a path separator, then try to launch it directly
+        // otherwise use which to find the full path
+        if !bin.contains('/') && !bin.contains('\\') {
+            platform_which(&bin).map(|bin| (bin, args))
+        } else {
+            Some((bin, args))
+        }
+    })
+    .map_or(Ok(None), |(bin, args)| {
+        neovim_ok(&bin, &args).map(|res| res.then_some((bin, args)))
+    })
 }
 
 fn platform_which(bin: &str) -> Option<String> {
