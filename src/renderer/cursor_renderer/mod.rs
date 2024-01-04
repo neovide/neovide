@@ -325,10 +325,7 @@ impl CursorRenderer {
 
         let y_adjustment = grid_renderer.shaper.y_adjustment();
         let style = &self.cursor.grid_cell.1;
-        let coarse_style = style
-            .as_ref()
-            .map(|style| style.into())
-            .unwrap_or(CoarseStyle::default());
+        let coarse_style = style.as_ref().map(|style| style.into()).unwrap_or_default();
 
         let blobs = &grid_renderer.shaper.shape_cached(character, coarse_style);
 
