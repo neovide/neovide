@@ -148,12 +148,9 @@ fn watcher_thread(
     let config_path = config_path();
 
     loop {
-        match rx.recv() {
-            Ok(_) => (),
-            Err(e) => {
-                eprintln!("Error while watching config file: {}", e);
-                continue;
-            }
+        if let Err(e) = rx.recv() {
+            eprintln!("Error while watching config file: {}", e);
+            continue;
         }
 
         let config = match Config::load_from_path(&config_path) {
