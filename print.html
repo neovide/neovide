@@ -476,7 +476,8 @@ end
 <p>Lua:</p>
 <pre><code class="language-lua">vim.o.guifont = &quot;Source Code Pro:h14&quot; -- text below applies for VimScript
 </code></pre>
-<p>Controls the font used by Neovide. Only setting which is actually controlled through an option, and
+<p>Controls the font used by Neovide. Also check <a href="./config-file.html">the config file</a> to see how to
+configure features. This is the only setting which is actually controlled through an option, and
 as such it's also documented in <code>:h guifont</code>. But to sum it up and also add Neovide's extension:</p>
 <ul>
 <li>The basic format is <code>Primary\ Font,Fallback\ Font\ 1,Fallback\ Font\ 2:option1:option2:option3</code>,
@@ -1188,6 +1189,7 @@ frame = &quot;full&quot;
 see that doc for details on what those settings do.</p>
 <h3 id="runtime-settings"><a class="header" href="#runtime-settings">Runtime settings</a></h3>
 <h4 id="font-1"><a class="header" href="#font-1"><code>Font</code></a></h4>
+<p><strong>Available since 0.12.1.</strong></p>
 <p><code>[font]</code> table in configuration file contains:</p>
 <ul>
 <li><code>normal</code>: <code>{ family = &quot;string&quot;, style = &quot;string&quot; }</code> | <code>string</code></li>
