@@ -42,6 +42,8 @@ see that doc for details on what those settings do.
 
 #### `Font`
 
+**Available since 0.12.1.**
+
 `[font]` table in configuration file contains:
 
 - `normal`: `{ family = "string", style = "string" }` | `string`

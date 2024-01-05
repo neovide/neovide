@@ -44,7 +44,8 @@ Lua:
 vim.o.guifont = "Source Code Pro:h14" -- text below applies for VimScript
 ```
 
-Controls the font used by Neovide. Only setting which is actually controlled through an option, and
+Controls the font used by Neovide. Also check [the config file](./config-file.md) to see how to
+configure features. This is the only setting which is actually controlled through an option, and
 as such it's also documented in `:h guifont`. But to sum it up and also add Neovide's extension:
 
 - The basic format is `Primary\ Font,Fallback\ Font\ 1,Fallback\ Font\ 2:option1:option2:option3`,
