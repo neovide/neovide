@@ -1160,8 +1160,12 @@ Wayland, depending on what you are running on.</p>
 <p><strong>Available since 0.11.0.</strong></p>
 <p>Neovide also support configuration through a config file in <a href="https://toml.io">the toml format</a>.</p>
 <h2 id="settings-priority"><a class="header" href="#settings-priority">Settings priority</a></h2>
-<p>Settings specified in the config file override settings from the environment variables, but are
-overridden by command line arguments.</p>
+<p>There are two types of settings:</p>
+<ol>
+<li>Settings override these settings from the environment variables, but they can be overridden
+by command line arguments.</li>
+<li>Runtime settings. These settings can be hot-reloaded in runtime.</li>
+</ol>
 <h2 id="location"><a class="header" href="#location">Location</a></h2>
 <div class="table-wrapper"><table><thead><tr><th>Platform</th><th>Location</th></tr></thead><tbody>
 <tr><td>Linux</td><td><code>$XDG_CONFIG_HOME/neovide/config.toml</code> or <code>$HOME/.config/neovide/config.toml</code></td></tr>
@@ -1180,7 +1184,33 @@ idle = true
 neovim-bin = &quot;/usr/bin/nvim&quot; # in reality found dynamically on $PATH if unset
 frame = &quot;full&quot;
 </code></pre>
-<p>See <a href="command-line-reference.html">Command Line Reference</a> for details on what those settings do.</p>
+<p>Settings from environment variables can be found in <a href="command-line-reference.html">Command Line Reference</a>,
+see that doc for details on what those settings do.</p>
+<h3 id="runtime-settings"><a class="header" href="#runtime-settings">Runtime settings</a></h3>
+<h4 id="font-1"><a class="header" href="#font-1"><code>Font</code></a></h4>
+<p><code>[font]</code> table in configuration file contains:</p>
+<ul>
+<li><code>normal</code>: <code>{ family = &quot;string&quot;, style = &quot;string&quot; }</code> | <code>string</code></li>
+<li><code>bold</code>: <code>{ family = &quot;string&quot;, style = &quot;string&quot; }</code> | <code>string</code></li>
+<li><code>italic</code>: <code>{ family = &quot;string&quot;, style = &quot;string&quot; }</code> | <code>string</code></li>
+<li><code>bold_italic</code>: <code>{ family = &quot;string&quot;, style = &quot;string&quot; }</code> | <code>string</code></li>
+<li><code>features</code>: <code>{ &quot;&lt;font&gt;&quot; = [&quot;&lt;string&gt;&quot;] }</code></li>
+<li><code>size</code></li>
+<li><code>width</code></li>
+<li><code>allow_float_size</code></li>
+<li><code>hinting</code></li>
+<li><code>edging</code></li>
+</ul>
+<p>Settings <code>size</code>, <code>width</code>, <code>allow_float_size</code>, <code>hinting</code> and <code>edging</code> can be found in
+<a href="configuration.html">Configuration</a></p>
+<p>Example:</p>
+<pre><code class="language-toml">[font]
+normal = [&quot;MonoLisa Nerd Font&quot;]
+size = 18
+
+[font.features]
+MonoLisa = [ &quot;+ss01&quot;, &quot;+ss07&quot;, &quot;+ss11&quot;, &quot;-calt&quot;, &quot;+ss09&quot;, &quot;+ss02&quot;, &quot;+ss14&quot;, &quot;+ss16&quot;, &quot;+ss17&quot; ]
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="editing-w-external-tools"><a class="header" href="#editing-w-external-tools">Editing w/ External Tools</a></h1>
 <p>You can use Neovide in other programs as editor, this page aims to document some quirks. Support for
 that, however, is only possible as far as reasonably debuggable.</p>
