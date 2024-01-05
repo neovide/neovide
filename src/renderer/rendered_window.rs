@@ -489,13 +489,14 @@ impl RenderedWindow {
                 }
 
                 let height = new_grid_size.height as usize;
-                if height != self.actual_lines.len() {
-                    self.actual_lines.resize(height, None);
-                    self.grid_size = new_grid_size;
+                self.actual_lines.resize(height, None);
+                self.grid_size = new_grid_size;
 
-                    self.scrollback_lines.resize(2 * height, None);
-                    self.scrollback_lines.clone_from_iter(&self.actual_lines);
-                    self.scroll_delta = 0;
+                self.scrollback_lines.resize(2 * height, None);
+                self.scrollback_lines.clone_from_iter(&self.actual_lines);
+                self.scroll_delta = 0;
+
+                if height != self.actual_lines.len() {
                     self.scroll_animation.reset();
                 }
 
