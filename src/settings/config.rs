@@ -134,7 +134,7 @@ fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<UserEven
 
     if let Err(e) = watcher.watch(
         // watching the directory rather than the config file itself to also allow it to be deleted/created later on
-        &config_path()
+        config_path()
             .parent()
             .expect("config path to point to a file which must be in some directory"),
         notify::RecursiveMode::NonRecursive,
