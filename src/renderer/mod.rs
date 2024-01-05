@@ -22,6 +22,7 @@ use crate::{
     dimensions::Dimensions,
     editor::{Cursor, Style},
     profiling::{tracy_named_frame, tracy_zone},
+    renderer::rendered_window::RenderedWindowDrawOptions,
     settings::*,
     window::{ShouldRender, UserEvent},
     WindowSettings,
@@ -152,6 +153,7 @@ impl Renderer {
         tracy_zone!("renderer_draw_frame");
         let default_background = self.grid_renderer.get_default_background();
         let font_dimensions = self.grid_renderer.font_dimensions;
+        let current_cursor_position = self.get_cursor_position();
 
         let (transparency, native_border_width) = {
             let settings = SETTINGS.get::<WindowSettings>();
@@ -163,7 +165,11 @@ impl Renderer {
         root_canvas.reset_matrix();
 
         if let Some(root_window) = self.rendered_windows.get(&1) {
-            let clip_rect = root_window.pixel_region(font_dimensions, native_border_width);
+            let clip_rect = root_window.pixel_region(
+                font_dimensions,
+                native_border_width,
+                &current_cursor_position,
+            );
             root_canvas.clip_rect(clip_rect, None, Some(false));
         }
 
@@ -194,10 +200,13 @@ impl Renderer {
                 window.draw(
                     root_canvas,
                     &settings,
-                    default_background.with_a((255.0 * transparency) as u8),
-                    font_dimensions,
-                    native_border_width,
-                    &mut floating_rects,
+                    RenderedWindowDrawOptions {
+                        default_background: default_background.with_a((255.0 * transparency) as u8),
+                        font_dimensions,
+                        native_border_width,
+                        current_cursor_position: &current_cursor_position,
+                        previous_floating_rects: &mut floating_rects,
+                    },
                 )
             })
             .collect();

@@ -109,6 +109,22 @@ impl WindowDrawDetails {
     }
 }
 
+#[derive(Clone, Debug)]
+enum NextToCursor {
+    None,
+    Top,
+    Bottom,
+}
+
+#[derive(Debug)]
+pub struct RenderedWindowDrawOptions<'a, 'b> {
+    pub default_background: Color,
+    pub font_dimensions: Dimensions,
+    pub native_border_width: f32,
+    pub current_cursor_position: &'a Point,
+    pub previous_floating_rects: &'b mut Vec<Rect>,
+}
+
 impl RenderedWindow {
     pub fn new(id: u64, grid_position: Point, grid_size: Dimensions) -> RenderedWindow {
         RenderedWindow {
@@ -150,7 +166,50 @@ impl RenderedWindow {
                 .any(|rect| rect.contains(region))
     }
 
-    pub fn pixel_region(&self, font_dimensions: Dimensions, native_border_width: f32) -> Rect {
+    fn is_cmdline_window(&self) -> bool {
+        // It's a hack to detect whether this is the cmdline window.
+        if let Some(anchor) = &self.anchor_info {
+            anchor.sort_order == u64::MAX
+        } else {
+            false
+        }
+    }
+
+    fn next_to_cursor(
+        &self,
+        current_cursor_position: &Point,
+        font_dimensions: Dimensions,
+    ) -> NextToCursor {
+        let grid_cursor_x = current_cursor_position.x / font_dimensions.width as f32;
+        let grid_cursor_y = current_cursor_position.y / font_dimensions.height as f32;
+        let x_range = (
+            (self.grid_current_position.x - 1.0),
+            (self.grid_current_position.x + 1.0),
+        );
+        if grid_cursor_x < x_range.0 && grid_cursor_x > x_range.1 {
+            return NextToCursor::None;
+        }
+        log::info!(
+            "Cursor x {:?} {:?}, my: {:?}",
+            grid_cursor_x,
+            grid_cursor_y,
+            self.grid_current_position
+        );
+        if grid_cursor_y == self.grid_current_position.y + self.grid_size.height as f32 + 1.0 {
+            NextToCursor::Bottom
+        } else if grid_cursor_y == self.grid_current_position.y - 1.0 {
+            NextToCursor::Top
+        } else {
+            NextToCursor::None
+        }
+    }
+
+    pub fn pixel_region(
+        &self,
+        font_dimensions: Dimensions,
+        native_border_width: f32,
+        current_cursor_position: &Point,
+    ) -> Rect {
         let mut current_pixel_position = Point::new(
             self.grid_current_position.x * font_dimensions.width as f32,
             self.grid_current_position.y * font_dimensions.height as f32,
@@ -158,9 +217,24 @@ impl RenderedWindow {
 
         let mut image_size: (i32, i32) = (self.grid_size * font_dimensions).into();
 
-        if native_border_width > 0.0 {
+        if self.anchor_info.is_some() && !self.is_cmdline_window() && native_border_width > 0.0 {
+            // Adjust the x position to make sure after rounding the border, the character is still
+            // aligned
             current_pixel_position.x -= native_border_width;
-            current_pixel_position.y -= native_border_width;
+            // If the floating window is next to the cursor, adjust the y position to avoid the
+            // border overlapping current cursor
+            let next_to_cursor = self.next_to_cursor(current_cursor_position, font_dimensions);
+            log::info!("Next to cursor {:?}", next_to_cursor);
+            match next_to_cursor {
+                NextToCursor::None => {}
+                NextToCursor::Top => {
+                    current_pixel_position.y += native_border_width;
+                }
+                NextToCursor::Bottom => {
+                    current_pixel_position.y -= native_border_width * 2.0;
+                }
+            }
+
             image_size.0 += native_border_width as i32 * 2;
             image_size.1 += native_border_width as i32 * 2;
         }
@@ -378,18 +452,26 @@ impl RenderedWindow {
         &mut self,
         root_canvas: &Canvas,
         settings: &RendererSettings,
-        default_background: Color,
-        font_dimensions: Dimensions,
-        native_border_width: f32,
-        previous_floating_rects: &mut Vec<Rect>,
+        options: RenderedWindowDrawOptions,
     ) -> WindowDrawDetails {
-        let has_transparency = default_background.a() != 255 || self.has_transparency();
+        let has_transparency = options.default_background.a() != 255 || self.has_transparency();
 
-        let region_without_border = self.pixel_region(font_dimensions, 0.0);
-        let pixel_region = self.pixel_region(font_dimensions, native_border_width);
+        let region_without_border = self.pixel_region(
+            options.font_dimensions,
+            0.0,
+            options.current_cursor_position,
+        );
+        let pixel_region = self.pixel_region(
+            options.font_dimensions,
+            options.native_border_width,
+            options.current_cursor_position,
+        );
         let transparent_floating = self.anchor_info.is_some() && has_transparency;
-        let is_bottommost_floating =
-            self.is_bottommost_floating(settings, previous_floating_rects, &region_without_border);
+        let is_bottommost_floating = self.is_bottommost_floating(
+            settings,
+            options.previous_floating_rects,
+            &region_without_border,
+        );
 
         if is_bottommost_floating {
             root_canvas.save();
@@ -419,17 +501,17 @@ impl RenderedWindow {
                 Some(ShadowFlags::DIRECTIONAL_LIGHT),
             );
             root_canvas.restore();
-            previous_floating_rects.push(pixel_region);
+            options.previous_floating_rects.push(pixel_region);
         }
 
         root_canvas.save();
         root_canvas.clip_rect(pixel_region, None, Some(false));
 
         let content_region = Rect::from_xywh(
-            pixel_region.x() + native_border_width,
-            pixel_region.y() + native_border_width,
-            pixel_region.width() - native_border_width * 2.0,
-            pixel_region.height() - native_border_width * 2.0,
+            pixel_region.x() + options.native_border_width,
+            pixel_region.y() + options.native_border_width,
+            pixel_region.width() - options.native_border_width * 2.0,
+            pixel_region.height() - options.native_border_width * 2.0,
         );
 
         root_canvas.save();
@@ -461,7 +543,12 @@ impl RenderedWindow {
 
         let paint = Paint::default()
             .set_anti_alias(false)
-            .set_color(Color::from_argb(255, 255, 255, default_background.a()))
+            .set_color(Color::from_argb(
+                255,
+                255,
+                255,
+                options.default_background.a(),
+            ))
             .set_blend_mode(if self.anchor_info.is_some() {
                 BlendMode::SrcOver
             } else {
@@ -476,20 +563,22 @@ impl RenderedWindow {
         self.draw_surface(
             root_canvas,
             &content_region,
-            font_dimensions,
-            default_background,
+            options.font_dimensions,
+            options.default_background,
         );
         root_canvas.restore();
 
         root_canvas.restore();
 
-        if is_bottommost_floating && native_border_width > 0.0 {
+        // The cmdline window is always floating, but it should not have a border.
+        if is_bottommost_floating && options.native_border_width > 0.0 && !self.is_cmdline_window()
+        {
             // draw a native window border around the floating window
             let mut border_paint = Paint::default();
             border_paint.set_stroke(true);
             // TODO(Hawtian Wang): detect if the window is active
             border_paint.set_color(Color::RED);
-            border_paint.set_stroke_width(native_border_width * 2.0);
+            border_paint.set_stroke_width(options.native_border_width * 2.0);
             root_canvas.draw_rect(pixel_region, &border_paint);
         }
 
