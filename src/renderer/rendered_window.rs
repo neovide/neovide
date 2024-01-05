@@ -123,6 +123,9 @@ pub struct RenderedWindowDrawOptions<'a, 'b> {
     pub native_border_width: f32,
     pub current_cursor_position: &'a Point,
     pub previous_floating_rects: &'b mut Vec<Rect>,
+    pub cursor_in_window: bool,
+    pub native_border_inactive_color: Color,
+    pub native_border_active_color: Color,
 }
 
 impl RenderedWindow {
@@ -218,7 +221,6 @@ impl RenderedWindow {
             // If the floating window is next to the cursor, adjust the y position to avoid the
             // border overlapping current cursor
             let next_to_cursor = self.next_to_cursor(current_cursor_position, font_dimensions);
-            log::info!("Next to cursor {:?}", next_to_cursor);
             match next_to_cursor {
                 NextToCursor::None => {}
                 NextToCursor::Top => {
@@ -570,8 +572,11 @@ impl RenderedWindow {
             // draw a native window border around the floating window
             let mut border_paint = Paint::default();
             border_paint.set_stroke(true);
-            // TODO(Hawtian Wang): detect if the window is active
-            border_paint.set_color(Color::RED);
+            if options.cursor_in_window {
+                border_paint.set_color(options.native_border_active_color);
+            } else {
+                border_paint.set_color(options.native_border_inactive_color);
+            }
             border_paint.set_stroke_width(options.native_border_width * 2.0);
             root_canvas.draw_rect(pixel_region, &border_paint);
         }

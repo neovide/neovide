@@ -14,7 +14,7 @@ use std::{
 };
 
 use log::error;
-use skia_safe::{Canvas, Point, Rect};
+use skia_safe::{Canvas, Color, Point, Rect};
 use winit::event::Event;
 
 use crate::{
@@ -154,11 +154,24 @@ impl Renderer {
         let default_background = self.grid_renderer.get_default_background();
         let font_dimensions = self.grid_renderer.font_dimensions;
         let current_cursor_position = self.get_cursor_position();
+        let current_cursor_window = self.get_cursor_window();
 
-        let (transparency, native_border_width) = {
+        let (
+            transparency,
+            native_border_width,
+            native_border_inactive_color,
+            native_border_active_color,
+        ) = {
             let settings = SETTINGS.get::<WindowSettings>();
-            (settings.transparency, settings.native_border_width)
+            (
+                settings.transparency,
+                settings.native_border_width,
+                settings.native_border_inactive_color,
+                settings.native_border_active_color,
+            )
         };
+        let native_border_inactive_color: Color = native_border_inactive_color.into();
+        let native_border_active_color: Color = native_border_active_color.into();
 
         root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
         root_canvas.save();
@@ -206,6 +219,9 @@ impl Renderer {
                         native_border_width,
                         current_cursor_position: &current_cursor_position,
                         previous_floating_rects: &mut floating_rects,
+                        cursor_in_window: window.id == current_cursor_window,
+                        native_border_active_color,
+                        native_border_inactive_color,
                     },
                 )
             })
@@ -377,6 +393,10 @@ impl Renderer {
 
     pub fn get_cursor_position(&self) -> Point {
         self.cursor_renderer.get_current_position()
+    }
+
+    pub fn get_cursor_window(&self) -> u64 {
+        self.cursor_renderer.get_cursor_window()
     }
 
     pub fn get_grid_size(&self) -> Dimensions {

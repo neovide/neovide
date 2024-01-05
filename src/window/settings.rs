@@ -25,6 +25,8 @@ pub struct WindowSettings {
     pub input_ime: bool,
     pub unlink_border_highlights: bool,
     pub native_border_width: f32,
+    pub native_border_inactive_color: u32,
+    pub native_border_active_color: u32,
 
     #[option = "mousemoveevent"]
     pub mouse_move_event: bool,
@@ -63,6 +65,8 @@ impl Default for WindowSettings {
             observed_columns: None,
             unlink_border_highlights: true,
             native_border_width: 0.0,
+            native_border_inactive_color: 0,
+            native_border_active_color: 0,
         }
     }
 }

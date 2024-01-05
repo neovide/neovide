@@ -477,4 +477,8 @@ impl CursorRenderer {
     pub fn get_current_position(&self) -> Point {
         self.destination
     }
+
+    pub fn get_cursor_window(&self) -> u64 {
+        self.cursor.parent_window_id
+    }
 }
