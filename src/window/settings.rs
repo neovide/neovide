@@ -24,6 +24,7 @@ pub struct WindowSettings {
     pub input_macos_alt_is_meta: bool,
     pub input_ime: bool,
     pub unlink_border_highlights: bool,
+    pub native_border_width: f32,
 
     #[option = "mousemoveevent"]
     pub mouse_move_event: bool,
@@ -61,6 +62,7 @@ impl Default for WindowSettings {
             observed_lines: None,
             observed_columns: None,
             unlink_border_highlights: true,
+            native_border_width: 0.0,
         }
     }
 }

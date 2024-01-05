@@ -137,13 +137,24 @@ impl RenderedWindow {
         }
     }
 
-    pub fn pixel_region(&self, font_dimensions: Dimensions) -> Rect {
-        let current_pixel_position = Point::new(
+    pub fn is_floating(&self) -> bool {
+        self.anchor_info.is_some()
+    }
+
+    pub fn pixel_region(&self, font_dimensions: Dimensions, native_border_width: f32) -> Rect {
+        let mut current_pixel_position = Point::new(
             self.grid_current_position.x * font_dimensions.width as f32,
             self.grid_current_position.y * font_dimensions.height as f32,
         );
 
-        let image_size: (i32, i32) = (self.grid_size * font_dimensions).into();
+        let mut image_size: (i32, i32) = (self.grid_size * font_dimensions).into();
+
+        if native_border_width > 0.0 {
+            current_pixel_position.x -= native_border_width;
+            current_pixel_position.y -= native_border_width;
+            image_size.0 += native_border_width as i32 * 2;
+            image_size.1 += native_border_width as i32 * 2;
+        }
 
         Rect::from_point_and_size(current_pixel_position, image_size)
     }
@@ -232,8 +243,9 @@ impl RenderedWindow {
     pub fn draw_surface(
         &mut self,
         canvas: &Canvas,
-        pixel_region: &Rect,
+        box_region: &Rect,
         font_dimensions: Dimensions,
+        native_border_width: f32,
         default_background: Color,
     ) {
         let scroll_offset_lines = self.scroll_animation.position.floor();
@@ -242,6 +254,14 @@ impl RenderedWindow {
         let scroll_offset_pixels = (scroll_offset * font_dimensions.height as f32).round() as isize;
         let line_height = font_dimensions.height as f32;
         let mut has_transparency = false;
+
+        let content_region = Rect::from_xywh(
+            box_region.x(),
+            box_region.y() + self.top_border.len() as f32 * line_height,
+            box_region.width(),
+            box_region.height()
+                - (self.top_border.len() + self.bottom_border.len()) as f32 * line_height,
+        );
 
         let lines: Vec<(Matrix, &Rc<RefCell<Line>>)> = if !self.scrollback_lines.is_empty() {
             (0..self.grid_size.height as isize + 1)
@@ -253,8 +273,8 @@ impl RenderedWindow {
                 .map(|(i, line)| {
                     let mut matrix = Matrix::new_identity();
                     matrix.set_translate((
-                        pixel_region.left(),
-                        pixel_region.top()
+                        content_region.left(),
+                        content_region.top()
                             + (scroll_offset_pixels
                                 + ((i + self.top_border.len() as isize)
                                     * font_dimensions.height as isize))
@@ -279,18 +299,18 @@ impl RenderedWindow {
             .map(|(i, line)| {
                 let mut matrix = Matrix::new_identity();
                 matrix.set_translate((
-                    pixel_region.left(),
-                    pixel_region.top() + (i * font_dimensions.height as isize) as f32,
+                    content_region.left(),
+                    content_region.top() + (i * font_dimensions.height as isize) as f32,
                 ));
                 (matrix, line)
             })
             .collect();
 
         let inner_region = Rect::from_xywh(
-            pixel_region.x(),
-            pixel_region.y() + self.top_border.len() as f32 * line_height,
-            pixel_region.width(),
-            pixel_region.height()
+            content_region.x(),
+            content_region.y() + self.top_border.len() as f32 * line_height,
+            content_region.width(),
+            content_region.height()
                 - (self.top_border.len() + self.bottom_border.len()) as f32 * line_height,
         );
 
@@ -299,7 +319,7 @@ impl RenderedWindow {
         background_paint.set_alpha(default_background.a());
 
         let save_layer_rec = SaveLayerRec::default()
-            .bounds(pixel_region)
+            .bounds(&content_region)
             .paint(&background_paint);
         canvas.save_layer(&save_layer_rec);
         canvas.clear(default_background.with_a(255));
@@ -336,6 +356,23 @@ impl RenderedWindow {
                 canvas.draw_picture(foreground_picture, Some(matrix), None);
             }
         }
+
+        if self.is_floating() {
+            // draw a native window border around the floating window
+            let mut border_paint = Paint::default();
+            border_paint.set_stroke(true);
+            // TODO(Hawtian Wang): detect if the window is active
+            border_paint.set_color(Color::GRAY);
+            border_paint.set_stroke_width(native_border_width);
+            let border_rect = Rect::from_xywh(
+                box_region.x() + native_border_width,
+                box_region.y() + native_border_width,
+                box_region.width() - native_border_width,
+                box_region.height() - native_border_width,
+            );
+            canvas.draw_rect(border_rect, &border_paint);
+        }
+
         canvas.restore();
         self.has_transparency = has_transparency;
     }
@@ -359,11 +396,12 @@ impl RenderedWindow {
         settings: &RendererSettings,
         default_background: Color,
         font_dimensions: Dimensions,
+        native_border_width: f32,
         previous_floating_rects: &mut Vec<Rect>,
     ) -> WindowDrawDetails {
         let has_transparency = default_background.a() != 255 || self.has_transparency();
 
-        let pixel_region = self.pixel_region(font_dimensions);
+        let pixel_region = self.pixel_region(font_dimensions, native_border_width);
         let transparent_floating = self.anchor_info.is_some() && has_transparency;
 
         if self.anchor_info.is_some()
@@ -445,6 +483,7 @@ impl RenderedWindow {
             root_canvas,
             &pixel_region,
             font_dimensions,
+            native_border_width,
             default_background,
         );
         root_canvas.restore();
