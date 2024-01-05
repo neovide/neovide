@@ -60,8 +60,8 @@ as such it's also documented in `:h guifont`. But to sum it up and also add Neov
   - can be one of the following:
     - `hX` — Sets the font size to `X` points, while `X` can be any (even floating-point) number.
     - `wX` (available since 0.11.2) — Sets the width **relative offset** to be `X` points, while `X`
-        can be again any number. Negative values shift characters closer together, positive values
-        shift them further apart.
+      can be again any number. Negative values shift characters closer together, positive values
+      shift them further apart.
     - `b` — Sets the font **bold**.
     - `i` — Sets the font _italic_.
     - `#e-X` (available since 0.10.2) — Sets edge pixels to be drawn opaquely or
@@ -228,6 +228,31 @@ The other variables configure the shadow in various ways:
 - `g:neovide_floating_z_height` sets the virtual height of the floating window from the ground plane
 - `g:neovide_light_angle_degrees` sets the angle from the screen normal of the casting light
 - `g:neovide_light_radius` sets the radius of the casting light
+
+#### Floating border
+
+VimScript:
+
+```vim
+let g:neovide_native_border_width = 2.0
+let g:neovide_native_border_inactive_color = 0xff22262c
+let g:neovide_native_border_active_color = 0xff477fef
+```
+
+Lua:
+
+```lua
+vim.g.neovide_native_border_width = 2.0
+vim.g.neovide_native_border_inactive_color = 0xff22262c
+vim.g.neovide_native_border_active_color = 0xff477fef
+```
+
+**Available since 0.12.x.**
+
+Setting `g:neovide_native_border_width` to a number greater than 0 will enable native window
+border. Only support rectangular border now. Default border colors are both `BLACK`. You can
+customize the border color by setting `g:neovide_native_border_inactive_color` and
+`g:neovide_native_border_active_color` to a `ARGB` color value.
 
 #### Transparency
 
