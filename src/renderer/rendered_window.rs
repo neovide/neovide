@@ -189,13 +189,7 @@ impl RenderedWindow {
         if grid_cursor_x < x_range.0 && grid_cursor_x > x_range.1 {
             return NextToCursor::None;
         }
-        log::info!(
-            "Cursor x {:?} {:?}, my: {:?}",
-            grid_cursor_x,
-            grid_cursor_y,
-            self.grid_current_position
-        );
-        if grid_cursor_y == self.grid_current_position.y + self.grid_size.height as f32 + 1.0 {
+        if grid_cursor_y == self.grid_current_position.y + self.grid_size.height as f32 {
             NextToCursor::Bottom
         } else if grid_cursor_y == self.grid_current_position.y - 1.0 {
             NextToCursor::Top
