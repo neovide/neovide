@@ -11,7 +11,9 @@ use crate::{
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
     renderer::{build_context, DrawCommand, GlWindow, Renderer, VSync, WindowedContext},
     running_tracker::RUNNING_TRACKER,
-    settings::{SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS},
+    settings::{
+        FontSettings, HotReloadConfigs, SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS,
+    },
     window::{ShouldRender, WindowSize},
     CmdLineSettings,
 };
@@ -72,6 +74,7 @@ impl WinitWindowWrapper {
     pub fn new(
         window: GlWindow,
         initial_window_size: WindowSize,
+        initial_font_settings: Option<FontSettings>,
         proxy: EventLoopProxy<UserEvent>,
     ) -> Self {
         let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
@@ -81,7 +84,7 @@ impl WinitWindowWrapper {
         let window = windowed_context.window();
 
         let scale_factor = windowed_context.window().scale_factor();
-        let renderer = Renderer::new(scale_factor);
+        let renderer = Renderer::new(scale_factor, initial_font_settings);
         let saved_inner_size = window.inner_size();
 
         let skia_renderer = SkiaRenderer::new(&windowed_context);
@@ -332,6 +335,9 @@ impl WinitWindowWrapper {
             Event::UserEvent(UserEvent::SettingsChanged(SettingsChanged::Window(e))) => {
                 self.handle_window_settings_changed(e);
             }
+            Event::UserEvent(UserEvent::ConfigsChanged(config)) => {
+                self.handle_config_changed(*config);
+            }
             _ => {
                 match event {
                     Event::WindowEvent { .. } => {
@@ -426,6 +432,12 @@ impl WinitWindowWrapper {
             // Ensure that the window has the correct IME state
             self.set_ime(self.ime_enabled);
         };
+    }
+
+    fn handle_config_changed(&mut self, config: HotReloadConfigs) {
+        tracy_zone!("handle_config_changed");
+        self.renderer.handle_config_changed(config);
+        self.font_changed_last_frame = true;
     }
 
     pub fn prepare_frame(&mut self) -> ShouldRender {

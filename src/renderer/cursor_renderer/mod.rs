@@ -325,11 +325,9 @@ impl CursorRenderer {
 
         let y_adjustment = grid_renderer.shaper.y_adjustment();
         let style = &self.cursor.grid_cell.1;
+        let coarse_style = style.as_ref().map(|style| style.into()).unwrap_or_default();
 
-        let bold = style.as_ref().map(|x| x.bold).unwrap_or(false);
-        let italic = style.as_ref().map(|x| x.italic).unwrap_or(false);
-
-        let blobs = &grid_renderer.shaper.shape_cached(character, bold, italic);
+        let blobs = &grid_renderer.shaper.shape_cached(character, coarse_style);
 
         for blob in blobs.iter() {
             canvas.draw_text_blob(

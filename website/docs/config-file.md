@@ -6,16 +6,19 @@ Neovide also support configuration through a config file in [the toml format](ht
 
 ## Settings priority
 
-Settings specified in the config file override settings from the environment variables, but are
-overridden by command line arguments.
+There are two types of settings:
+
+1. Settings override these settings from the environment variables, but they can be overridden
+   by command line arguments.
+2. Runtime settings. These settings can be hot-reloaded in runtime.
 
 ## Location
 
-|Platform|Location|
-|--------|-----|
-|Linux|`$XDG_CONFIG_HOME/neovide/config.toml` or `$HOME/.config/neovide/config.toml`|
-|macOS|`$XDG_CONFIG_HOME/neovide/config.toml` or `$HOME/.config/neovide/config.toml`|
-|Windows|`{FOLDERID_RoamingAppData}/neovide/config.toml`|
+| Platform | Location                                                                      |
+| -------- | ----------------------------------------------------------------------------- |
+| Linux    | `$XDG_CONFIG_HOME/neovide/config.toml` or `$HOME/.config/neovide/config.toml` |
+| macOS    | `$XDG_CONFIG_HOME/neovide/config.toml` or `$HOME/.config/neovide/config.toml` |
+| Windows  | `{FOLDERID_RoamingAppData}/neovide/config.toml`                               |
 
 ## Available settings
 
@@ -32,4 +35,36 @@ neovim-bin = "/usr/bin/nvim" # in reality found dynamically on $PATH if unset
 frame = "full"
 ```
 
-See [Command Line Reference](command-line-reference.md) for details on what those settings do.
+Settings from environment variables can be found in [Command Line Reference](command-line-reference.md),
+see that doc for details on what those settings do.
+
+### Runtime settings
+
+#### `Font`
+
+`[font]` table in configuration file contains:
+
+- `normal`: `{ family = "string", style = "string" }` | `string`
+- `bold`: `{ family = "string", style = "string" }` | `string`
+- `italic`: `{ family = "string", style = "string" }` | `string`
+- `bold_italic`: `{ family = "string", style = "string" }` | `string`
+- `features`: `{ "<font>" = ["<string>"] }`
+- `size`
+- `width`
+- `allow_float_size`
+- `hinting`
+- `edging`
+
+Settings `size`, `width`, `allow_float_size`, `hinting` and `edging` can be found in
+[Configuration](configuration.md)
+
+Example:
+
+```toml
+[font]
+normal = ["MonoLisa Nerd Font"]
+size = 18
+
+[font.features]
+MonoLisa = [ "+ss01", "+ss07", "+ss11", "-calt", "+ss09", "+ss02", "+ss14", "+ss16", "+ss17" ]
+```

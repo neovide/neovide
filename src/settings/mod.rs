@@ -1,3 +1,4 @@
+mod font;
 mod from_value;
 mod window_size;
 
@@ -22,7 +23,8 @@ pub use window_size::{
 };
 
 mod config;
-pub use config::Config;
+pub use config::{Config, HotReloadConfigs};
+pub use font::FontSettings;
 
 lazy_static! {
     pub static ref SETTINGS: Settings = Settings::new();
