@@ -137,8 +137,17 @@ impl RenderedWindow {
         }
     }
 
-    pub fn is_floating(&self) -> bool {
+    pub fn is_bottommost_floating(
+        &self,
+        settings: &RendererSettings,
+        previous_floating_rects: &[Rect],
+        region: &Rect,
+    ) -> bool {
         self.anchor_info.is_some()
+            && settings.floating_shadow
+            && !previous_floating_rects
+                .iter()
+                .any(|rect| rect.contains(region))
     }
 
     pub fn pixel_region(&self, font_dimensions: Dimensions, native_border_width: f32) -> Rect {
@@ -243,9 +252,8 @@ impl RenderedWindow {
     pub fn draw_surface(
         &mut self,
         canvas: &Canvas,
-        box_region: &Rect,
+        pixel_region: &Rect,
         font_dimensions: Dimensions,
-        native_border_width: f32,
         default_background: Color,
     ) {
         let scroll_offset_lines = self.scroll_animation.position.floor();
@@ -254,14 +262,6 @@ impl RenderedWindow {
         let scroll_offset_pixels = (scroll_offset * font_dimensions.height as f32).round() as isize;
         let line_height = font_dimensions.height as f32;
         let mut has_transparency = false;
-
-        let content_region = Rect::from_xywh(
-            box_region.x(),
-            box_region.y() + self.top_border.len() as f32 * line_height,
-            box_region.width(),
-            box_region.height()
-                - (self.top_border.len() + self.bottom_border.len()) as f32 * line_height,
-        );
 
         let lines: Vec<(Matrix, &Rc<RefCell<Line>>)> = if !self.scrollback_lines.is_empty() {
             (0..self.grid_size.height as isize + 1)
@@ -273,8 +273,8 @@ impl RenderedWindow {
                 .map(|(i, line)| {
                     let mut matrix = Matrix::new_identity();
                     matrix.set_translate((
-                        content_region.left(),
-                        content_region.top()
+                        pixel_region.left(),
+                        pixel_region.top()
                             + (scroll_offset_pixels
                                 + ((i + self.top_border.len() as isize)
                                     * font_dimensions.height as isize))
@@ -299,18 +299,18 @@ impl RenderedWindow {
             .map(|(i, line)| {
                 let mut matrix = Matrix::new_identity();
                 matrix.set_translate((
-                    content_region.left(),
-                    content_region.top() + (i * font_dimensions.height as isize) as f32,
+                    pixel_region.left(),
+                    pixel_region.top() + (i * font_dimensions.height as isize) as f32,
                 ));
                 (matrix, line)
             })
             .collect();
 
         let inner_region = Rect::from_xywh(
-            content_region.x(),
-            content_region.y() + self.top_border.len() as f32 * line_height,
-            content_region.width(),
-            content_region.height()
+            pixel_region.x(),
+            pixel_region.y() + self.top_border.len() as f32 * line_height,
+            pixel_region.width(),
+            pixel_region.height()
                 - (self.top_border.len() + self.bottom_border.len()) as f32 * line_height,
         );
 
@@ -319,7 +319,7 @@ impl RenderedWindow {
         background_paint.set_alpha(default_background.a());
 
         let save_layer_rec = SaveLayerRec::default()
-            .bounds(&content_region)
+            .bounds(pixel_region)
             .paint(&background_paint);
         canvas.save_layer(&save_layer_rec);
         canvas.clear(default_background.with_a(255));
@@ -357,22 +357,6 @@ impl RenderedWindow {
             }
         }
 
-        if self.is_floating() {
-            // draw a native window border around the floating window
-            let mut border_paint = Paint::default();
-            border_paint.set_stroke(true);
-            // TODO(Hawtian Wang): detect if the window is active
-            border_paint.set_color(Color::GRAY);
-            border_paint.set_stroke_width(native_border_width);
-            let border_rect = Rect::from_xywh(
-                box_region.x() + native_border_width,
-                box_region.y() + native_border_width,
-                box_region.width() - native_border_width,
-                box_region.height() - native_border_width,
-            );
-            canvas.draw_rect(border_rect, &border_paint);
-        }
-
         canvas.restore();
         self.has_transparency = has_transparency;
     }
@@ -401,15 +385,13 @@ impl RenderedWindow {
     ) -> WindowDrawDetails {
         let has_transparency = default_background.a() != 255 || self.has_transparency();
 
+        let region_without_border = self.pixel_region(font_dimensions, 0.0);
         let pixel_region = self.pixel_region(font_dimensions, native_border_width);
         let transparent_floating = self.anchor_info.is_some() && has_transparency;
+        let is_bottommost_floating =
+            self.is_bottommost_floating(settings, previous_floating_rects, &region_without_border);
 
-        if self.anchor_info.is_some()
-            && settings.floating_shadow
-            && !previous_floating_rects
-                .iter()
-                .any(|rect| rect.contains(pixel_region))
-        {
+        if is_bottommost_floating {
             root_canvas.save();
             let shadow_path = Path::rect(pixel_region, None);
             // We clip using the Difference op to make sure that the shadow isn't rendered inside
@@ -442,6 +424,16 @@ impl RenderedWindow {
 
         root_canvas.save();
         root_canvas.clip_rect(pixel_region, None, Some(false));
+
+        let content_region = Rect::from_xywh(
+            pixel_region.x() + native_border_width,
+            pixel_region.y() + native_border_width,
+            pixel_region.width() - native_border_width * 2.0,
+            pixel_region.height() - native_border_width * 2.0,
+        );
+
+        root_canvas.save();
+        root_canvas.clip_rect(content_region, None, Some(false));
         let need_blur = transparent_floating && settings.floating_blur;
 
         if need_blur {
@@ -460,7 +452,7 @@ impl RenderedWindow {
                     .to_owned();
                 let save_layer_rec = SaveLayerRec::default()
                     .backdrop(&blur)
-                    .bounds(&pixel_region)
+                    .bounds(&content_region)
                     .paint(&paint);
                 root_canvas.save_layer(&save_layer_rec);
                 root_canvas.restore();
@@ -477,16 +469,29 @@ impl RenderedWindow {
             })
             .to_owned();
 
-        let save_layer_rec = SaveLayerRec::default().bounds(&pixel_region).paint(&paint);
+        let save_layer_rec = SaveLayerRec::default()
+            .bounds(&content_region)
+            .paint(&paint);
         root_canvas.save_layer(&save_layer_rec);
         self.draw_surface(
             root_canvas,
-            &pixel_region,
+            &content_region,
             font_dimensions,
-            native_border_width,
             default_background,
         );
         root_canvas.restore();
+
+        root_canvas.restore();
+
+        if is_bottommost_floating && native_border_width > 0.0 {
+            // draw a native window border around the floating window
+            let mut border_paint = Paint::default();
+            border_paint.set_stroke(true);
+            // TODO(Hawtian Wang): detect if the window is active
+            border_paint.set_color(Color::RED);
+            border_paint.set_stroke_width(native_border_width * 2.0);
+            root_canvas.draw_rect(pixel_region, &border_paint);
+        }
 
         root_canvas.restore();
 

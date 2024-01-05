@@ -153,14 +153,17 @@ impl Renderer {
         let default_background = self.grid_renderer.get_default_background();
         let font_dimensions = self.grid_renderer.font_dimensions;
 
-        let transparency = { SETTINGS.get::<WindowSettings>().transparency };
-        let natvie_border_width = { SETTINGS.get::<WindowSettings>().native_border_width };
+        let (transparency, native_border_width) = {
+            let settings = SETTINGS.get::<WindowSettings>();
+            (settings.transparency, settings.native_border_width)
+        };
+
         root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
         root_canvas.save();
         root_canvas.reset_matrix();
 
         if let Some(root_window) = self.rendered_windows.get(&1) {
-            let clip_rect = root_window.pixel_region(font_dimensions, natvie_border_width);
+            let clip_rect = root_window.pixel_region(font_dimensions, native_border_width);
             root_canvas.clip_rect(clip_rect, None, Some(false));
         }
 
@@ -193,7 +196,7 @@ impl Renderer {
                     &settings,
                     default_background.with_a((255.0 * transparency) as u8),
                     font_dimensions,
-                    natvie_border_width,
+                    native_border_width,
                     &mut floating_rects,
                 )
             })
