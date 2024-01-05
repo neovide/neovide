@@ -171,10 +171,10 @@ impl RenderedWindow {
                 .any(|rect| rect.contains(region))
     }
 
-    fn is_cmdline_window(&self) -> bool {
-        // It's a hack to detect whether this is the cmdline window.
+    fn valid_sort_order(&self) -> bool {
         if let Some(anchor) = &self.anchor_info {
-            anchor.sort_order == u64::MAX
+            // It's a hack to detect whether this is the cmdline window.
+            anchor.sort_order >= 50 && anchor.sort_order != u64::MAX
         } else {
             false
         }
@@ -216,7 +216,7 @@ impl RenderedWindow {
 
         let mut image_size: (i32, i32) = (self.grid_size * font_dimensions).into();
 
-        if self.anchor_info.is_some() && !self.is_cmdline_window() && native_border_width > 0.0 {
+        if self.anchor_info.is_some() && self.valid_sort_order() && native_border_width > 0.0 {
             // Adjust the x position to make sure after rounding the border, the character is still
             // aligned
             current_pixel_position.x -= native_border_width;
@@ -470,9 +470,8 @@ impl RenderedWindow {
             options.previous_floating_rects,
             &region_without_border,
         );
-        let has_native_border = is_bottommost_floating
-            && options.native_border_width > 0.0
-            && !self.is_cmdline_window();
+        let has_native_border =
+            is_bottommost_floating && options.native_border_width > 0.0 && self.valid_sort_order();
 
         if is_bottommost_floating {
             root_canvas.save();
