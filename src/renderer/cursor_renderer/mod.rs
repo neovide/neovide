@@ -270,7 +270,15 @@ impl CursorRenderer {
                     - bottom_border,
             );
 
-            self.destination = (grid_x * font_width as f32, grid_y * font_height as f32).into();
+            if let Some(border_width) = window.has_native_border() {
+                self.destination = (
+                    grid_x * font_width as f32,
+                    grid_y * font_height as f32 + border_width,
+                )
+                    .into();
+            } else {
+                self.destination = (grid_x * font_width as f32, grid_y * font_height as f32).into();
+            }
         } else {
             self.destination = (
                 (cursor_grid_x * font_width) as f32,

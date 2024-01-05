@@ -90,6 +90,7 @@ pub struct RenderedWindow {
     pub scroll_animation: CriticallyDampedSpringAnimation,
 
     has_transparency: bool,
+    has_native_border: Option<f32>,
 }
 
 #[derive(Clone, Debug)]
@@ -153,6 +154,7 @@ impl RenderedWindow {
             scroll_animation: CriticallyDampedSpringAnimation::new(),
 
             has_transparency: false,
+            has_native_border: None,
         }
     }
 
@@ -468,6 +470,9 @@ impl RenderedWindow {
             options.previous_floating_rects,
             &region_without_border,
         );
+        let has_native_border = is_bottommost_floating
+            && options.native_border_width > 0.0
+            && !self.is_cmdline_window();
 
         if is_bottommost_floating {
             root_canvas.save();
@@ -503,12 +508,16 @@ impl RenderedWindow {
         root_canvas.save();
         root_canvas.clip_rect(pixel_region, None, Some(false));
 
-        let content_region = Rect::from_xywh(
-            pixel_region.x() + options.native_border_width,
-            pixel_region.y() + options.native_border_width,
-            pixel_region.width() - options.native_border_width * 2.0,
-            pixel_region.height() - options.native_border_width * 2.0,
-        );
+        let content_region = if has_native_border {
+            Rect::from_xywh(
+                pixel_region.x() + options.native_border_width,
+                pixel_region.y() + options.native_border_width,
+                pixel_region.width() - options.native_border_width * 2.0,
+                pixel_region.height() - options.native_border_width * 2.0,
+            )
+        } else {
+            pixel_region
+        };
 
         root_canvas.save();
         root_canvas.clip_rect(content_region, None, Some(false));
@@ -567,8 +576,7 @@ impl RenderedWindow {
         root_canvas.restore();
 
         // The cmdline window is always floating, but it should not have a border.
-        if is_bottommost_floating && options.native_border_width > 0.0 && !self.is_cmdline_window()
-        {
+        if has_native_border {
             // draw a native window border around the floating window
             let mut border_paint = Paint::default();
             border_paint.set_stroke(true);
@@ -583,11 +591,21 @@ impl RenderedWindow {
 
         root_canvas.restore();
 
+        self.has_native_border = if has_native_border {
+            Some(options.native_border_width)
+        } else {
+            None
+        };
+
         WindowDrawDetails {
             id: self.id,
             region: pixel_region,
             floating_order: self.anchor_info.as_ref().map(|v| v.sort_order),
         }
+    }
+
+    pub fn has_native_border(&self) -> Option<f32> {
+        self.has_native_border
     }
 
     pub fn handle_window_draw_command(&mut self, draw_command: WindowDrawCommand) {
