@@ -215,8 +215,13 @@ impl RenderedWindow {
         );
 
         let mut image_size: (i32, i32) = (self.grid_size * font_dimensions).into();
+        let has_native_border = self.anchor_info.is_some()
+            && self.valid_sort_order()
+            && native_border_width > 0.0
+            && self.top_border.is_empty()
+            && self.bottom_border.is_empty();
 
-        if self.anchor_info.is_some() && self.valid_sort_order() && native_border_width > 0.0 {
+        if has_native_border {
             // Adjust the x position to make sure after rounding the border, the character is still
             // aligned
             current_pixel_position.x -= native_border_width;
@@ -470,8 +475,11 @@ impl RenderedWindow {
             options.previous_floating_rects,
             &region_without_border,
         );
-        let has_native_border =
-            is_bottommost_floating && options.native_border_width > 0.0 && self.valid_sort_order();
+        let has_native_border = is_bottommost_floating
+            && options.native_border_width > 0.0
+            && self.valid_sort_order()
+            && self.top_border.is_empty()
+            && self.bottom_border.is_empty();
 
         if is_bottommost_floating {
             root_canvas.save();
@@ -501,7 +509,7 @@ impl RenderedWindow {
                 Some(ShadowFlags::DIRECTIONAL_LIGHT),
             );
             root_canvas.restore();
-            options.previous_floating_rects.push(pixel_region);
+            options.previous_floating_rects.push(region_without_border);
         }
 
         root_canvas.save();
