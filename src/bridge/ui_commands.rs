@@ -46,6 +46,32 @@ pub enum SerialCommand {
     },
 }
 
+fn has_nvim_version(metadata: &Value, major: i64, minor: i64) -> bool {
+    if let Some(map) = metadata.as_map() {
+        if let Some(Some(y)) = map
+            .iter()
+            .find(|&(k, _)| k.as_str() == Some("version"))
+            .map(|(_, value)| value.as_map())
+        {
+            let mut actual_major: i64 = -1;
+            let mut actual_minor: i64 = -1;
+            for (k, v) in y {
+                match (k.as_str(), v.as_i64()) {
+                    (Some("major"), Some(v)) => actual_major = v,
+                    (Some("minor"), Some(v)) => actual_minor = v,
+                    _ => {}
+                }
+            }
+            log::trace!("actual nvim version: {actual_major}.{actual_minor}");
+            log::trace!("expect nvim version: {major}.{minor}");
+            let ret = actual_major > major || (actual_major == major && actual_minor >= minor);
+            log::trace!("has desired nvim version: {ret}");
+            return ret;
+        }
+    }
+    false
+}
+
 impl SerialCommand {
     async fn execute(self, nvim: &Neovim<NeovimWriter>) {
         // Don't panic here unless there's absolutely no chance of continuing the program, Instead
@@ -53,17 +79,18 @@ impl SerialCommand {
         // for failure is when neovim has already quit, and a command, for example mouse move is
         // being sent
         static HAS_X: OnceCell<bool> = OnceCell::const_new();
+        log::trace!("In Serial Command");
         let has_x = HAS_X
             .get_or_init(|| async {
-                match nvim
-                    .command_output("echo has('nvim-0.10')")
-                    .await
-                    .as_deref()
-                {
-                    Ok("1") => true,
-                    Ok(_) => false,
+                log::trace!("Requesting nvim version");
+                match nvim.get_api_info().await.as_deref() {
+                    Ok([_, metadata]) if metadata.is_map() => has_nvim_version(metadata, 0, 10),
                     Err(e) => {
-                        log::warn!("Failed to get neovim version: {e}");
+                        log::warn!("Failed to get neovim api info: {e}");
+                        false
+                    }
+                    Ok(v) => {
+                        log::warn!("Unrecogonized API metadata format {:?}", v);
                         false
                     }
                 }
