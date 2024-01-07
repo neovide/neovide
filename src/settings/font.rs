@@ -16,8 +16,8 @@ pub enum SimpleFontDescription {
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum FontDescriptionSettings {
-    Single(SimpleFontDescription),
     Vec(Vec<SimpleFontDescription>),
+    Single(SimpleFontDescription),
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -129,6 +129,31 @@ impl From<FontSettings> for FontOptions {
                 .edging
                 .map(|edging| FontEdging::parse(&edging).unwrap_or_default())
                 .unwrap_or_default(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_font_settings() {
+        let settings = r#"
+        {
+            "normal": ["Consolas", "Noto Emoji"],
+            "size": 20
+        }
+        "#;
+
+        let settings: FontSettings = serde_json::from_str(settings).unwrap();
+        match settings.normal {
+            FontDescriptionSettings::Vec(fonts) => {
+                assert_eq!(fonts.len(), 2);
+                // assert_eq!(fonts[0].family, "Consolas");
+                // assert_eq!(fonts[1].family, "Noto Emoji");
+            }
+            _ => panic!("Unexpected value"),
         }
     }
 }
