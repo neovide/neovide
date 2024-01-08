@@ -348,6 +348,7 @@ impl FontDescription {
     pub fn as_family_and_font_style(&self) -> (&str, FontStyle) {
         // support font weights:
         // Thin, ExtraLight, Light, Normal, Medium, SemiBold, Bold, ExtraBold, Black, ExtraBlack
+        // W{weight}
         // support font slants:
         // Upright, Italic, Oblique
 
@@ -369,7 +370,13 @@ impl FontDescription {
                     "ExtraBlack" => weight = Weight::EXTRA_BLACK,
                     "Italic" => slant = Slant::Italic,
                     "Oblique" => slant = Slant::Oblique,
-                    _ => {}
+                    _ => {
+                        if let Some(rest) = part.strip_prefix('W') {
+                            if let Ok(weight_value) = rest.parse::<i32>() {
+                                weight = Weight::from(weight_value);
+                            }
+                        }
+                    }
                 }
             }
             FontStyle::new(weight, Width::NORMAL, slant)
@@ -660,6 +667,25 @@ mod tests {
         );
 
         assert_eq!(style.weight(), Weight::SEMI_BOLD);
+        assert_eq!(style.slant(), Slant::Upright);
+    }
+
+    #[test]
+    fn test_parse_font_style_variable_weight() {
+        let font_style = FontDescription {
+            family: "Fira Code Mono".to_string(),
+            style: Some("W100".to_string()),
+        };
+
+        let (family, style) = font_style.as_family_and_font_style();
+
+        assert_eq!(
+            family, "Fira Code Mono",
+            "font family should equal {}, but {}",
+            family, "Fira Code Mono"
+        );
+
+        assert_eq!(style.weight(), Weight::from(100));
         assert_eq!(style.slant(), Slant::Upright);
     }
 }
