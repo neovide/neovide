@@ -178,19 +178,56 @@ see that doc for details on what those settings do.</p>
 <p><strong>Available since 0.12.1.</strong></p>
 <p><code>[font]</code> table in configuration file contains:</p>
 <ul>
-<li><code>normal</code>: <code>{ family = &quot;string&quot;, style = &quot;string&quot; }</code> | <code>string</code></li>
-<li><code>bold</code>: <code>{ family = &quot;string&quot;, style = &quot;string&quot; }</code> | <code>string</code></li>
-<li><code>italic</code>: <code>{ family = &quot;string&quot;, style = &quot;string&quot; }</code> | <code>string</code></li>
-<li><code>bold_italic</code>: <code>{ family = &quot;string&quot;, style = &quot;string&quot; }</code> | <code>string</code></li>
-<li><code>features</code>: <code>{ &quot;&lt;font&gt;&quot; = [&quot;&lt;string&gt;&quot;] }</code></li>
-<li><code>size</code></li>
-<li><code>width</code></li>
-<li><code>allow_float_size</code></li>
-<li><code>hinting</code></li>
-<li><code>edging</code></li>
+<li><code>normal</code>: required, <code>FontDescription</code></li>
+<li><code>bold</code>: optional, <code>SecondaryFontDescription</code></li>
+<li><code>italic</code>: optional, <code>SecondaryFontDescription</code></li>
+<li><code>bold_italic</code>: optional, <code>SecondaryFontDescription</code></li>
+<li><code>features</code>: optional, <code>{ &quot;&lt;font&gt;&quot; = [&quot;&lt;string&gt;&quot;] }</code></li>
+<li><code>size</code>: required,</li>
+<li><code>width</code>: optional,</li>
+<li><code>allow_float_size</code>: optional,</li>
+<li><code>hinting</code>: optional,</li>
+<li><code>edging</code>: optional,</li>
 </ul>
 <p>Settings <code>size</code>, <code>width</code>, <code>allow_float_size</code>, <code>hinting</code> and <code>edging</code> can be found in
-<a href="configuration.html">Configuration</a></p>
+<a href="configuration.html">Configuration</a>.</p>
+<ul>
+<li><code>FontDescription</code> can be:
+<ul>
+<li>a table with two keys <code>family</code> and <code>style</code>, <code>family</code> is required, <code>style</code> is optional,</li>
+<li>a string, indicate the font family,</li>
+<li>an array of string or tables in previous two forms.</li>
+</ul>
+</li>
+<li><code>SecondaryFontDescription</code> can be:
+<ul>
+<li>a table with two keys <code>family</code> and <code>style</code>, both are optional,</li>
+<li>a string, indicate the font family,</li>
+<li>an array of string or tables in previous two forms.</li>
+</ul>
+</li>
+<li>Font styles consist of zero or more space separated parts, each parts can be:
+<ul>
+<li>pre-defined style name
+<ul>
+<li>weight: <code>Thin</code>, <code>ExtraLight</code>, <code>Light</code>, <code>Normal</code>, <code>Medium</code>, <code>SemiBold</code>, <code>Bold</code>,
+<code>ExtraBold</code>, <code>Black</code>, <code>ExtraBlack</code></li>
+<li>slant: <code>Italic</code>, <code>Oblique</code></li>
+</ul>
+</li>
+<li>variable font weight: <code>W&lt;weight&gt;</code>, e.g. <code>W100</code>, <code>W200</code>, <code>W300</code>, <code>W400</code>, <code>W500</code>, <code>W600</code>,
+<code>W700</code>, <code>W800</code>, <code>W900</code></li>
+</ul>
+</li>
+<li>Font features are a table with font family as key and an array of string as value, each
+string is a font feature.
+<ul>
+<li>Font feature is a string with format <code>+&lt;feature&gt;</code>, <code>-&lt;feature&gt;</code> or <code>&lt;feature&gt;=&lt;value&gt;</code>,
+e.g. <code>+ss01</code>, <code>-calt</code>, <code>ss02=2</code>. <code>+&lt;feature&gt;</code> is a shorthand for <code>&lt;feature&gt;=1</code>,
+<code>-&lt;feature&gt;</code> is a shorthand for <code>&lt;feature&gt;=0</code>.</li>
+</ul>
+</li>
+</ul>
 <p>Example:</p>
 <pre><code class="language-toml">[font]
 normal = [&quot;MonoLisa Nerd Font&quot;]
