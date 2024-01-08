@@ -748,12 +748,14 @@ impl RenderedWindow {
             line.is_valid = true;
         };
 
-        for line in self
-            .scrollback_lines
-            .iter_range_mut(scroll_offset_lines..scroll_offset_lines + height + 1)
-            .flatten()
-        {
-            prepare_line(line)
+        if !self.scrollback_lines.is_empty() {
+            for line in self
+                .scrollback_lines
+                .iter_range_mut(scroll_offset_lines..scroll_offset_lines + height + 1)
+                .flatten()
+            {
+                prepare_line(line)
+            }
         }
 
         for line in self
