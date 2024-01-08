@@ -3,7 +3,10 @@ use std::{collections::HashMap, fmt, iter, num::ParseFloatError, sync::Arc};
 use itertools::Itertools;
 use log::warn;
 use serde::Deserialize;
-use skia_safe::FontStyle;
+use skia_safe::{
+    font_style::{Slant, Weight, Width},
+    FontStyle,
+};
 
 use crate::editor;
 
@@ -343,13 +346,40 @@ fn points_to_pixels(value: f32) -> f32 {
 
 impl FontDescription {
     pub fn as_family_and_font_style(&self) -> (&str, FontStyle) {
+        // support font weights:
+        // Thin, ExtraLight, Light, Normal, Medium, SemiBold, Bold, ExtraBold, Black, ExtraBlack
+        // W{weight}
+        // support font slants:
+        // Upright, Italic, Oblique
+
         let style = if let Some(style) = &self.style {
-            match style.as_str() {
-                "Bold" => FontStyle::bold(),
-                "Italic" => FontStyle::italic(),
-                "Bold Italic" => FontStyle::bold_italic(),
-                _ => FontStyle::default(),
+            let mut weight = Weight::NORMAL;
+            let mut slant = Slant::Upright;
+
+            for part in style.split_whitespace() {
+                match part {
+                    "Thin" => weight = Weight::THIN,
+                    "ExtraLight" => weight = Weight::EXTRA_LIGHT,
+                    "Light" => weight = Weight::LIGHT,
+                    "Normal" => weight = Weight::NORMAL,
+                    "Medium" => weight = Weight::MEDIUM,
+                    "SemiBold" => weight = Weight::SEMI_BOLD,
+                    "Bold" => weight = Weight::BOLD,
+                    "ExtraBold" => weight = Weight::EXTRA_BOLD,
+                    "Black" => weight = Weight::BLACK,
+                    "ExtraBlack" => weight = Weight::EXTRA_BLACK,
+                    "Italic" => slant = Slant::Italic,
+                    "Oblique" => slant = Slant::Oblique,
+                    _ => {
+                        if let Some(rest) = part.strip_prefix('W') {
+                            if let Ok(weight_value) = rest.parse::<i32>() {
+                                weight = Weight::from(weight_value);
+                            }
+                        }
+                    }
+                }
             }
+            FontStyle::new(weight, Width::NORMAL, slant)
         } else {
             FontStyle::default()
         };
@@ -600,5 +630,62 @@ mod tests {
             "font name should equal {}, but {}",
             ignored_escape_at_the_end, "Fira Code Mono"
         )
+    }
+
+    #[test]
+    fn test_parse_font_style() {
+        let font_style = FontDescription {
+            family: "Fira Code Mono".to_string(),
+            style: Some("Bold Italic".to_string()),
+        };
+
+        let (family, style) = font_style.as_family_and_font_style();
+
+        assert_eq!(
+            family, "Fira Code Mono",
+            "font family should equal {}, but {}",
+            family, "Fira Code Mono"
+        );
+
+        assert_eq!(style.weight(), Weight::BOLD);
+        assert_eq!(style.slant(), Slant::Italic);
+    }
+
+    #[test]
+    fn test_parse_font_style_semibold() {
+        let font_style = FontDescription {
+            family: "Fira Code Mono".to_string(),
+            style: Some("SemiBold".to_string()),
+        };
+
+        let (family, style) = font_style.as_family_and_font_style();
+
+        assert_eq!(
+            family, "Fira Code Mono",
+            "font family should equal {}, but {}",
+            family, "Fira Code Mono"
+        );
+
+        assert_eq!(style.weight(), Weight::SEMI_BOLD);
+        assert_eq!(style.slant(), Slant::Upright);
+    }
+
+    #[test]
+    fn test_parse_font_style_variable_weight() {
+        let font_style = FontDescription {
+            family: "Fira Code Mono".to_string(),
+            style: Some("W100".to_string()),
+        };
+
+        let (family, style) = font_style.as_family_and_font_style();
+
+        assert_eq!(
+            family, "Fira Code Mono",
+            "font family should equal {}, but {}",
+            family, "Fira Code Mono"
+        );
+
+        assert_eq!(style.weight(), Weight::from(100));
+        assert_eq!(style.slant(), Slant::Upright);
     }
 }
