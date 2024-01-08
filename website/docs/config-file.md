@@ -70,11 +70,16 @@ Settings `size`, `width`, `allow_float_size`, `hinting` and `edging` can be foun
   - an array of string or tables in previous two forms.
 - Font styles consist of zero or more space separated parts, each parts can be:
   - pre-defined style name
-    - weight: `Thin`, `ExtraLight`, `Light`, `Normal`, `Medium`, `SemiBold`, `Bold`, `ExtraBold`, `Black`, `ExtraBlack`
+    - weight: `Thin`, `ExtraLight`, `Light`, `Normal`, `Medium`, `SemiBold`, `Bold`,
+      `ExtraBold`, `Black`, `ExtraBlack`
     - slant: `Italic`, `Oblique`
-  - variable font weight: `W<weight>`, e.g. `W100`, `W200`, `W300`, `W400`, `W500`, `W600`, `W700`, `W800`, `W900`
-- Font features are a table with font family as key and an array of string as value, each string is a font feature.
-  - Font feature is a string with format `+<feature>`, `-<feature>` or `<feature>=<value>`, e.g. `+ss01`, `-calt`, `ss02=2`. `+<feature>` is a shorthand for `<feature>=1`, `-<feature>` is a shorthand for `<feature>=0`.
+  - variable font weight: `W<weight>`, e.g. `W100`, `W200`, `W300`, `W400`, `W500`, `W600`,
+    `W700`, `W800`, `W900`
+- Font features are a table with font family as key and an array of string as value, each
+  string is a font feature.
+  - Font feature is a string with format `+<feature>`, `-<feature>` or `<feature>=<value>`,
+    e.g. `+ss01`, `-calt`, `ss02=2`. `+<feature>` is a shorthand for `<feature>=1`,
+    `-<feature>` is a shorthand for `<feature>=0`.
 
 Example:
 
