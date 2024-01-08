@@ -16,8 +16,8 @@ pub enum SimpleFontDescription {
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum FontDescriptionSettings {
-    Single(SimpleFontDescription),
     Vec(Vec<SimpleFontDescription>),
+    Single(SimpleFontDescription),
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -30,8 +30,8 @@ pub enum SimpleSecondaryFontDescription {
 #[derive(Debug, Clone, Deserialize, PartialEq)]
 #[serde(untagged)]
 pub enum SecondaryFontDescriptionSettings {
-    Single(SimpleSecondaryFontDescription),
     Vec(Vec<SimpleSecondaryFontDescription>),
+    Single(SimpleSecondaryFontDescription),
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -129,6 +129,95 @@ impl From<FontSettings> for FontOptions {
                 .edging
                 .map(|edging| FontEdging::parse(&edging).unwrap_or_default())
                 .unwrap_or_default(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_normal_font_single() {
+        let settings = r#"
+        {
+            "normal": "Consolas",
+            "size": 20
+        }
+        "#;
+
+        let settings: FontSettings = serde_json::from_str(settings).unwrap();
+        match settings.normal {
+            FontDescriptionSettings::Single(font) => {
+                let font: FontDescription = font.into();
+                assert_eq!(font.family, "Consolas");
+            }
+            _ => panic!("Unexpected value"),
+        }
+    }
+
+    #[test]
+    fn test_normal_font_vec() {
+        let settings = r#"
+        {
+            "normal": ["Consolas", "Noto Emoji"],
+            "size": 20
+        }
+        "#;
+
+        let settings: FontSettings = serde_json::from_str(settings).unwrap();
+        match settings.normal {
+            FontDescriptionSettings::Vec(fonts) => {
+                assert_eq!(fonts.len(), 2);
+                let font0: FontDescription = fonts[0].clone().into();
+                assert_eq!(font0.family, "Consolas");
+                let font1: FontDescription = fonts[1].clone().into();
+                assert_eq!(font1.family, "Noto Emoji");
+            }
+            _ => panic!("Unexpected value"),
+        }
+    }
+
+    #[test]
+    fn test_secondary_font_single() {
+        let settings = r#"
+        {
+            "normal": "Consolas",
+            "bold": "Consolas",
+            "size": 20
+        }
+        "#;
+
+        let settings: FontSettings = serde_json::from_str(settings).unwrap();
+        match settings.bold {
+            Some(SecondaryFontDescriptionSettings::Single(font)) => {
+                let font: SecondaryFontDescription = font.into();
+                assert_eq!(font.family.unwrap(), "Consolas");
+            }
+            _ => panic!("Unexpected value"),
+        }
+    }
+
+    #[test]
+    fn test_secondary_font_vec() {
+        let settings = r#"
+        {
+            "normal": "Consolas",
+            "bold": ["Consolas", "Noto Emoji"],
+            "size": 20
+        }
+        "#;
+
+        let settings: FontSettings = serde_json::from_str(settings).unwrap();
+        match settings.bold {
+            Some(SecondaryFontDescriptionSettings::Vec(fonts)) => {
+                assert_eq!(fonts.len(), 2);
+                let font0: SecondaryFontDescription = fonts[0].clone().into();
+                assert_eq!(font0.family.unwrap(), "Consolas");
+                let font1: SecondaryFontDescription = fonts[1].clone().into();
+                assert_eq!(font1.family.unwrap(), "Noto Emoji");
+            }
+            _ => panic!("Unexpected value"),
         }
     }
 }
