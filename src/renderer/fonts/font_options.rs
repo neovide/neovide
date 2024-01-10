@@ -187,6 +187,53 @@ impl FontOptions {
         for font in font_options.normal.iter_mut() {
             font.style = style.clone();
         }
+        for font in font_options.normal.iter_mut() {
+            match font.family.split_whitespace().last() {
+                Some("Thin") => {
+                    font.family = font.family[..font.family.len() - 5].to_string();
+                    font.style = Some("Thin".to_string());
+                }
+                Some("ExtraLight") => {
+                    font.family = font.family[..font.family.len() - 11].to_string();
+                    font.style = Some("ExtraLight".to_string());
+                }
+                Some("Light") => {
+                    font.family = font.family[..font.family.len() - 6].to_string();
+                    font.style = Some("Light".to_string());
+                }
+                Some("Normal") => {
+                    font.family = font.family[..font.family.len() - 7].to_string();
+                    font.style = Some("Normal".to_string());
+                }
+                Some("Medium") => {
+                    font.family = font.family[..font.family.len() - 7].to_string();
+                    font.style = Some("Medium".to_string());
+                }
+                Some("SemiBold") => {
+                    font.family = font.family[..font.family.len() - 9].to_string();
+                    font.style = Some("SemiBold".to_string());
+                }
+                Some("Bold") => {
+                    font.family = font.family[..font.family.len() - 5].to_string();
+                    font.style = Some("Bold".to_string());
+                }
+                Some("ExtraBold") => {
+                    font.family = font.family[..font.family.len() - 10].to_string();
+                    font.style = Some("ExtraBold".to_string());
+                }
+                Some("Black") => {
+                    font.family = font.family[..font.family.len() - 6].to_string();
+                    font.style = Some("Black".to_string());
+                }
+                Some("ExtraBlack") => {
+                    font.family = font.family[..font.family.len() - 11].to_string();
+                    font.style = Some("ExtraBlack".to_string());
+                }
+                _ => {
+                    warn!("last word of font family name {:?} does not equal to one of these weights (case sensitive) : Thin, ExtraLight, Light, Normal, Medium, SemiBold, Bold, ExtraBold, Black, ExtraBlack", font.family);
+                }
+            }
+        }
 
         Ok(font_options)
     }

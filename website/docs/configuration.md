@@ -35,13 +35,14 @@ end
 VimScript:
 
 ```vim
-set guifont=Source\ Code\ Pro:h14
+set guifont=Cascadia\ Code\ PL\ Light:h14
+set guifont=Cascadia_Code_PL_Light:h14
 ```
 
 Lua:
 
 ```lua
-vim.o.guifont = "Source Code Pro:h14" -- text below applies for VimScript
+vim.o.guifont = "Cascadia Code PL Light:h14" -- text below applies for VimScript
 ```
 
 Controls the font used by Neovide. Also check [the config file](./config-file.md) to see how to
@@ -54,6 +55,9 @@ as such it's also documented in `:h guifont`. But to sum it up and also add Neov
 - Fonts
   - are separated with `,` (commas).
   - can contain spaces by either escaping them or using `_` (underscores).
+  - the last word of a font name can contain below weight
+    - `Thin`, `ExtraLight`, `Light`, `Normal`, `Medium`, `SemiBold`, `Bold`,
+      `ExtraBold`, `Black`, `ExtraBlack`
 - Options
   - apply to all fonts at once.
   - are separated from the fonts and themselves through `:` (colons).
