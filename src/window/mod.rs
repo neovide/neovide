@@ -132,9 +132,12 @@ pub fn create_event_loop() -> EventLoop<UserEvent> {
 
 /// Force macOS to clear shadow of transparent windows.
 #[cfg(target_os = "macos")]
-pub fn invalidate_shadow(window: &GlWindow, has_shadows: bool) {
+pub fn invalidate_shadow(window: &GlWindow) {
     use cocoa::base::NO;
     use cocoa::base::YES;
+
+    let window_transparency = &SETTINGS.get::<WindowSettings>().transparency;
+    let opaque = *window_transparency >= 1.0;
 
     let raw_window = match window.window.raw_window_handle() {
         #[cfg(target_os = "macos")]
@@ -142,7 +145,7 @@ pub fn invalidate_shadow(window: &GlWindow, has_shadows: bool) {
         _ => return,
     };
 
-    let value = if has_shadows { YES } else { NO };
+    let value = if opaque { YES } else { NO };
     unsafe {
         let _: id = msg_send![raw_window, setHasShadow: value];
     }
@@ -252,7 +255,7 @@ pub fn create_window(
     });
 
     #[cfg(target_os = "macos")]
-    invalidate_shadow(&gl_window, frame_decoration == Frame::Transparent);
+    invalidate_shadow(&gl_window);
 
     gl_window
 }
