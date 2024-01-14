@@ -92,10 +92,6 @@ pub fn build_window<TE>(
         .expect("Failed to create Window");
     let window = window.expect("Could not create Window");
 
-    // Clear window shadows to prevent shadow artifacts on macOS.
-    #[cfg(target_os = "macos")]
-    window.raw_window_handle();
-
     GlWindow { window, config }
 }
 
