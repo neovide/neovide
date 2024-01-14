@@ -197,8 +197,7 @@ vim.g.neovide_window_blurred = true
 
 Setting `g:neovide_window_blurred` toggles the window blur state.
 
-The blurred level respects the `g:neovide_transparency`  value between 0.0 and 1.0. Remember that we
-consider 0.0 as fully transparent window.
+The blurred level respects the `g:neovide_transparency`  value between 0.0 and 1.0.
 
 #### Floating Blur Amount
 
