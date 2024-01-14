@@ -9,6 +9,9 @@ mod window_wrapper;
 #[cfg(target_os = "macos")]
 mod draw_background;
 
+#[cfg(target_os = "macos")]
+use cocoa::base::id;
+
 #[cfg(target_os = "linux")]
 use std::env;
 
@@ -21,7 +24,12 @@ use winit::{
 };
 
 #[cfg(target_os = "macos")]
-use winit::platform::macos::{WindowBuilderExtMacOS, WindowExtMacOS};
+use winit::platform::macos::WindowBuilderExtMacOS;
+
+#[cfg(target_os = "macos")]
+use objc::{msg_send, sel, sel_impl};
+
+use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 
 #[cfg(target_os = "macos")]
 use draw_background::draw_background;
@@ -120,6 +128,24 @@ pub fn create_event_loop() -> EventLoop<UserEvent> {
     EventLoopBuilder::<UserEvent>::with_user_event()
         .build()
         .expect("Failed to create winit event loop")
+}
+
+/// Force macOS to clear shadow of transparent windows.
+#[cfg(target_os = "macos")]
+pub fn invalidate_shadow(window: &GlWindow, has_shadows: bool) {
+    use cocoa::base::NO;
+    use cocoa::base::YES;
+
+    let raw_window = match window.window.raw_window_handle() {
+        #[cfg(target_os = "macos")]
+        RawWindowHandle::AppKit(handle) => handle.ns_window as id,
+        _ => return,
+    };
+
+    let value = if has_shadows { YES } else { NO };
+    unsafe {
+        let _: id = msg_send![raw_window, setHasShadow: value];
+    }
 }
 
 pub fn create_window(
@@ -226,7 +252,7 @@ pub fn create_window(
     });
 
     #[cfg(target_os = "macos")]
-    gl_window.window.set_has_shadow(false);
+    invalidate_shadow(&gl_window, frame_decoration == Frame::Transparent);
 
     gl_window
 }
