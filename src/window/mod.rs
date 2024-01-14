@@ -20,7 +20,7 @@ use winit::{
     error::EventLoopError,
     event::Event,
     event_loop::{EventLoop, EventLoopBuilder},
-    window::{Icon, WindowBuilder},
+    window::{Icon, Window, WindowBuilder},
 };
 
 #[cfg(target_os = "macos")]
@@ -132,14 +132,14 @@ pub fn create_event_loop() -> EventLoop<UserEvent> {
 
 /// Force macOS to clear shadow of transparent windows.
 #[cfg(target_os = "macos")]
-pub fn invalidate_shadow(window: &GlWindow) {
+pub fn invalidate_shadow(window: &Window) {
     use cocoa::base::NO;
     use cocoa::base::YES;
 
     let window_transparency = &SETTINGS.get::<WindowSettings>().transparency;
     let opaque = *window_transparency >= 1.0;
 
-    let raw_window = match window.window.raw_window_handle() {
+    let raw_window = match window.raw_window_handle() {
         #[cfg(target_os = "macos")]
         RawWindowHandle::AppKit(handle) => handle.ns_window as id,
         _ => return,
@@ -255,7 +255,7 @@ pub fn create_window(
     });
 
     #[cfg(target_os = "macos")]
-    invalidate_shadow(&gl_window);
+    invalidate_shadow(&gl_window.window);
 
     gl_window
 }
