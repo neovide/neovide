@@ -95,7 +95,6 @@ fn main() -> NeovideExitCode {
         Ok((window_size, font_settings, _runtime)) => {
             clipboard::init(&event_loop);
             let window = create_window(&event_loop, &window_size);
-
             main_loop(window, window_size, font_settings, event_loop).into()
         }
     }
