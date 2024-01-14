@@ -45,7 +45,6 @@ use std::time::SystemTime;
 use time::macros::format_description;
 use time::OffsetDateTime;
 use winit::event_loop::EventLoopProxy;
-use winit::platform::macos::WindowExtMacOS;
 
 #[cfg(not(test))]
 use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
@@ -96,9 +95,6 @@ fn main() -> NeovideExitCode {
         Ok((window_size, font_settings, _runtime)) => {
             clipboard::init(&event_loop);
             let window = create_window(&event_loop, &window_size);
-
-            #[cfg(target_os = "macos")]
-            window.window.set_has_shadow(false);
 
             main_loop(window, window_size, font_settings, event_loop).into()
         }

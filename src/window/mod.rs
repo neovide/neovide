@@ -21,7 +21,7 @@ use winit::{
 };
 
 #[cfg(target_os = "macos")]
-use winit::platform::macos::WindowBuilderExtMacOS;
+use winit::platform::macos::{WindowBuilderExtMacOS, WindowExtMacOS};
 
 #[cfg(target_os = "macos")]
 use draw_background::draw_background;
@@ -224,6 +224,9 @@ pub fn create_window(
 
         Some(())
     });
+
+    #[cfg(target_os = "macos")]
+    gl_window.window.set_has_shadow(false);
 
     gl_window
 }
