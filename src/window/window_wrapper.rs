@@ -14,7 +14,7 @@ use crate::{
     settings::{
         FontSettings, HotReloadConfigs, SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS,
     },
-    window::{invalidate_shadow, ShouldRender, WindowSize},
+    window::{invalidate_shadow, set_window_blurred, ShouldRender, WindowSize},
     CmdLineSettings,
 };
 
@@ -215,21 +215,12 @@ impl WinitWindowWrapper {
             WindowSettingsChanged::Transparency(opacity) => {
                 log::info!("transparency changed to {}", opacity);
                 invalidate_shadow(self.windowed_context.window());
-
-                let window_blurred = SETTINGS.get::<WindowSettings>().window_blurred;
-                let opaque = opacity >= 1.0;
-
-                self.windowed_context
-                    .window()
-                    .set_blur(window_blurred && !opaque);
+                set_window_blurred(self.windowed_context.window(), opacity);
             }
             WindowSettingsChanged::WindowBlurred(window_blurred) => {
                 println!("window_blurred changed to {}", window_blurred);
                 let transparency = SETTINGS.get::<WindowSettings>().transparency;
-                let opaque = transparency >= 1.0;
-                self.windowed_context
-                    .window()
-                    .set_blur(window_blurred && !opaque);
+                set_window_blurred(self.windowed_context.window(), transparency);
             }
             _ => {}
         }

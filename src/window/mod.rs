@@ -130,6 +130,15 @@ pub fn create_event_loop() -> EventLoop<UserEvent> {
         .expect("Failed to create winit event loop")
 }
 
+/// Set the window blurred or not.
+#[cfg(target_os = "macos")]
+pub fn set_window_blurred(window: &Window, opacity: f32) {
+    let window_blurred = SETTINGS.get::<WindowSettings>().window_blurred;
+    let opaque = opacity >= 1.0;
+
+    window.set_blur(window_blurred && !opaque);
+}
+
 /// Force macOS to clear shadow of transparent windows.
 #[cfg(target_os = "macos")]
 pub fn invalidate_shadow(window: &Window) {
