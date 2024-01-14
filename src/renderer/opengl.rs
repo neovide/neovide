@@ -91,7 +91,6 @@ pub fn build_window<TE>(
         .build(event_loop, template_builder, gen_config)
         .expect("Failed to create Window");
     let window = window.expect("Could not create Window");
-
     GlWindow { window, config }
 }
 
