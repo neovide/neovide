@@ -38,7 +38,7 @@ impl Default for WindowSettings {
     fn default() -> Self {
         Self {
             transparency: 1.0,
-            window_blurred: true,
+            window_blurred: false,
             scale_factor: 1.0,
             fullscreen: false,
             iso_layout: false,

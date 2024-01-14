@@ -179,6 +179,27 @@ window to that value.
 Note that `g:neovide_transparency` should be 0 if you want to unify transparency of content and
 title bar.
 
+#### Window Blur
+
+VimScript:
+
+```vim
+let g:neovide_window_blurred = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_window_blurred = true
+```
+
+**Available since 0.12.1**
+
+Setting `g:neovide_window_blurred` toggles the window blur state.
+
+The blurred level respects the `g:neovide_transparency`  value between 0.0 and 1.0. Remember that we
+consider 0.0 as fully transparent window.
+
 #### Floating Blur Amount
 
 VimScript:
