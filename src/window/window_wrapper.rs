@@ -211,6 +211,7 @@ impl WinitWindowWrapper {
                     self.set_ime(ime_enabled);
                 }
             }
+            #[cfg(target_os = "macos")]
             WindowSettingsChanged::Transparency(opacity) => {
                 log::info!("transparency changed to {}", opacity);
                 invalidate_shadow(self.windowed_context.window());
