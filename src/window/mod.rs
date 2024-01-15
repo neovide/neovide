@@ -255,7 +255,7 @@ pub fn create_window(
     });
 
     #[cfg(target_os = "macos")]
-    invalidate_shadow(&gl_window.window);
+    invalidate_shadow(window);
 
     gl_window
 }
