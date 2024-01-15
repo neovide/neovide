@@ -218,7 +218,7 @@ impl WinitWindowWrapper {
                 set_window_blurred(self.windowed_context.window(), opacity);
             }
             WindowSettingsChanged::WindowBlurred(window_blurred) => {
-                println!("window_blurred changed to {}", window_blurred);
+                log::info!("window_blurred changed to {}", window_blurred);
                 let transparency = SETTINGS.get::<WindowSettings>().transparency;
                 set_window_blurred(self.windowed_context.window(), transparency);
             }
