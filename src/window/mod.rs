@@ -264,9 +264,7 @@ pub fn create_window(
     });
 
     #[cfg(target_os = "macos")]
-    gl_window
-        .window
-        .set_blur(SETTINGS.get::<WindowSettings>().window_blurred);
+    window.set_blur(SETTINGS.get::<WindowSettings>().window_blurred);
 
     #[cfg(target_os = "macos")]
     invalidate_shadow(&gl_window.window);
