@@ -32,6 +32,7 @@ use winit::platform::macos::WindowBuilderExtMacOS;
 #[cfg(target_os = "macos")]
 use objc::{msg_send, sel, sel_impl};
 
+#[cfg(target_os = "macos")]
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 
 #[cfg(target_os = "macos")]
