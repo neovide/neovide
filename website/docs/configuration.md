@@ -179,7 +179,7 @@ window to that value.
 Note that `g:neovide_transparency` should be 0 if you want to unify transparency of content and
 title bar.
 
-#### Window Blur
+#### Window Blur (Currently macOS only)
 
 VimScript:
 
