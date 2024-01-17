@@ -14,9 +14,12 @@ use crate::{
     settings::{
         FontSettings, HotReloadConfigs, SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS,
     },
-    window::{invalidate_shadow, set_window_blurred, ShouldRender, WindowSize},
+    window::{ShouldRender, WindowSize},
     CmdLineSettings,
 };
+
+#[cfg(target_os = "macos")]
+use crate::window::{invalidate_shadow, set_window_blurred};
 
 use log::trace;
 use skia_safe::{scalar, Rect};
