@@ -14,7 +14,7 @@ use crate::{
     settings::{
         FontSettings, HotReloadConfigs, SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS,
     },
-    window::{ShouldRender, WindowSize},
+    window::{invalidate_shadow, ShouldRender, WindowSize},
     CmdLineSettings,
 };
 
@@ -210,6 +210,11 @@ impl WinitWindowWrapper {
                 if self.ime_enabled != ime_enabled {
                     self.set_ime(ime_enabled);
                 }
+            }
+            #[cfg(target_os = "macos")]
+            WindowSettingsChanged::Transparency(opacity) => {
+                log::info!("transparency changed to {}", opacity);
+                invalidate_shadow(self.windowed_context.window());
             }
             _ => {}
         }
