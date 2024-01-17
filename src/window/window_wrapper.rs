@@ -220,6 +220,7 @@ impl WinitWindowWrapper {
                 invalidate_shadow(self.windowed_context.window());
                 set_window_blurred(self.windowed_context.window(), opacity);
             }
+            #[cfg(target_os = "macos")]
             WindowSettingsChanged::WindowBlurred(window_blurred) => {
                 log::info!("window_blurred changed to {}", window_blurred);
                 let transparency = SETTINGS.get::<WindowSettings>().transparency;
