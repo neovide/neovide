@@ -193,7 +193,7 @@ Lua:
 vim.g.neovide_window_blurred = true
 ```
 
-**Available Since 0.12.1**
+**Available since 0.12.**
 
 Setting `g:neovide_window_blurred` toggles the window blur state.
 
