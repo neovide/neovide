@@ -20,8 +20,11 @@ use winit::{
     error::EventLoopError,
     event::Event,
     event_loop::{EventLoop, EventLoopBuilder},
-    window::{Icon, Window, WindowBuilder},
+    window::{Icon, WindowBuilder},
 };
+
+#[cfg(target_os = "macos")]
+use winit::window::Window;
 
 #[cfg(target_os = "macos")]
 use winit::platform::macos::WindowBuilderExtMacOS;
@@ -29,6 +32,7 @@ use winit::platform::macos::WindowBuilderExtMacOS;
 #[cfg(target_os = "macos")]
 use objc::{msg_send, sel, sel_impl};
 
+#[cfg(target_os = "macos")]
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 
 #[cfg(target_os = "macos")]
