@@ -14,9 +14,12 @@ use crate::{
     settings::{
         FontSettings, HotReloadConfigs, SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS,
     },
-    window::{invalidate_shadow, ShouldRender, WindowSize},
+    window::{ShouldRender, WindowSize},
     CmdLineSettings,
 };
+
+#[cfg(target_os = "macos")]
+use crate::window::{invalidate_shadow, set_window_blurred};
 
 use log::trace;
 use skia_safe::{scalar, Rect};
@@ -215,6 +218,13 @@ impl WinitWindowWrapper {
             WindowSettingsChanged::Transparency(opacity) => {
                 log::info!("transparency changed to {}", opacity);
                 invalidate_shadow(self.windowed_context.window());
+                set_window_blurred(self.windowed_context.window(), opacity);
+            }
+            #[cfg(target_os = "macos")]
+            WindowSettingsChanged::WindowBlurred(window_blurred) => {
+                log::info!("window_blurred changed to {}", window_blurred);
+                let transparency = SETTINGS.get::<WindowSettings>().transparency;
+                set_window_blurred(self.windowed_context.window(), transparency);
             }
             _ => {}
         }
