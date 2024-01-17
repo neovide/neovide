@@ -171,6 +171,7 @@ impl CachingShaper {
             self.fudge_factor = font_width.round() / font_width;
             debug!("Fudge factor: {:.2}", self.fudge_factor);
             font_size = self.current_size();
+            self.font_info = None;
             debug!("Fudged font size: {:.2}px", font_size);
             debug!("Fudged font width: {:.2}px", self.info().1);
             self.font_loader = FontLoader::new(font_size);
