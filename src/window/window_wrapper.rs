@@ -18,6 +18,9 @@ use crate::{
     CmdLineSettings,
 };
 
+#[cfg(target_os = "macos")]
+use crate::window::{invalidate_shadow, set_window_blurred};
+
 use log::trace;
 use skia_safe::{scalar, Rect};
 use winit::{
@@ -210,6 +213,18 @@ impl WinitWindowWrapper {
                 if self.ime_enabled != ime_enabled {
                     self.set_ime(ime_enabled);
                 }
+            }
+            #[cfg(target_os = "macos")]
+            WindowSettingsChanged::Transparency(opacity) => {
+                log::info!("transparency changed to {}", opacity);
+                invalidate_shadow(self.windowed_context.window());
+                set_window_blurred(self.windowed_context.window(), opacity);
+            }
+            #[cfg(target_os = "macos")]
+            WindowSettingsChanged::WindowBlurred(window_blurred) => {
+                log::info!("window_blurred changed to {}", window_blurred);
+                let transparency = SETTINGS.get::<WindowSettings>().transparency;
+                set_window_blurred(self.windowed_context.window(), transparency);
             }
             _ => {}
         }
