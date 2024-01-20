@@ -244,6 +244,8 @@ the source URL.</p>
 <h3 id="nix"><a class="header" href="#nix">Nix</a></h3>
 <p>Stable releases are packaged in nixpkgs in the <code>neovide</code> package, there's no flake. As such, if you
 just want to try it out in a transient shell, you can use this command.</p>
+<p><strong>Note</strong>: On non-NixOS systems, chances are you'll need to use
+<a href="https://github.com/nix-community/nixGL">nixGL</a> as wrapper for neovide.</p>
 <pre><code class="language-sh">nix-shell -p neovide
 </code></pre>
 <h4 id="nixos"><a class="header" href="#nixos">NixOS</a></h4>
