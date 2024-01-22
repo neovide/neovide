@@ -215,7 +215,8 @@ impl GridRenderer {
         // There's a lot of overhead for empty blobs in Skia, for some reason they never hit the
         // cache, so trim all the spaces
         let trimmed = text.trim_start();
-        let leading_spaces = text.len() - trimmed.len();
+        let leading_space_bytes = text.len() - trimmed.len();
+        let leading_spaces = text[..leading_space_bytes].chars().count();
         let trimmed = trimmed.trim_end();
         let x_adjustment = leading_spaces as u64 * self.font_dimensions.width;
 

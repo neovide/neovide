@@ -386,7 +386,7 @@ impl CachingShaper {
 
         let mut resulting_blobs = Vec::new();
 
-        trace!("Shaping text: {}", text);
+        trace!("Shaping text: {:?}", text);
 
         for (cluster_group, font_pair) in self.build_clusters(&text, style) {
             let features = self.get_font_features(
