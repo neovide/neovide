@@ -1,7 +1,7 @@
 use icrate::{
     AppKit::{
         NSColor, NSEvent, NSView, NSViewMinYMargin, NSViewWidthSizable, NSWindow,
-        NSWindowStyleMaskTitled,
+        NSWindowStyleMaskFullScreen, NSWindowStyleMaskTitled,
     },
     Foundation::{MainThreadMarker, NSPoint, NSRect, NSSize},
 };
@@ -11,7 +11,10 @@ use csscolorparser::Color;
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
-use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame, settings::SETTINGS};
+use crate::{
+    cmd_line::CmdLineSettings, error_msg, frame::Frame, renderer::WindowedContext,
+    settings::SETTINGS,
+};
 
 use super::WindowSettings;
 
@@ -47,8 +50,11 @@ lazy_static! {
 }
 
 pub struct MacosWindowFeature {
+    ns_window: Id<NSWindow>,
+    titlebar_click_handler: Option<Id<TitlebarClickHandler>>,
     // Extra titlebar height in --frame transparency. 0 in other cases.
     extra_titlebar_height_in_pixel: u32,
+    is_fullscreen: bool,
 }
 
 impl MacosWindowFeature {
@@ -82,8 +88,8 @@ impl MacosWindowFeature {
         let mut extra_titlebar_height_in_pixel: u32 = 0;
 
         let frame = SETTINGS.get::<CmdLineSettings>().frame;
-        if frame == Frame::Transparent {
-            unsafe {
+        let titlebar_click_handler: Option<Id<TitlebarClickHandler>> = match frame {
+            Frame::Transparent => unsafe {
                 let titlebar_click_handler = TitlebarClickHandler::new(mtm);
 
                 // Add the titlebar_click_handler into the view of window.
@@ -103,11 +109,19 @@ impl MacosWindowFeature {
 
                 extra_titlebar_height_in_pixel =
                     Self::titlebar_height_in_pixel(window.scale_factor());
-            }
-        }
+
+                Some(titlebar_click_handler)
+            },
+            _ => None,
+        };
+
+        let is_fullscreen = unsafe { ns_window.styleMask() } & NSWindowStyleMaskFullScreen != 0;
 
         MacosWindowFeature {
+            ns_window,
+            titlebar_click_handler,
             extra_titlebar_height_in_pixel,
+            is_fullscreen,
         }
     }
 
@@ -135,8 +149,29 @@ impl MacosWindowFeature {
         }
     }
 
+    fn set_titlebar_click_handler_visible(&self, visible: bool) {
+        if let Some(titlebar_click_handler) = &self.titlebar_click_handler {
+            unsafe {
+                titlebar_click_handler.setHidden(!visible);
+            }
+        }
+    }
+
+    pub fn handle_size_changed(&mut self, _windowed_context: &WindowedContext) {
+        let is_fullscreen =
+            unsafe { self.ns_window.styleMask() } & NSWindowStyleMaskFullScreen != 0;
+        if is_fullscreen != self.is_fullscreen {
+            self.is_fullscreen = is_fullscreen;
+            self.set_titlebar_click_handler_visible(!is_fullscreen);
+        }
+    }
+
     /// Get the extra titlebar height in pixels, so Neovide can do the correct top padding.
     pub fn extra_titlebar_height_in_pixels(&self) -> u32 {
-        self.extra_titlebar_height_in_pixel
+        if self.is_fullscreen {
+            0
+        } else {
+            self.extra_titlebar_height_in_pixel
+        }
     }
 }

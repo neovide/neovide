@@ -326,6 +326,9 @@ impl WinitWindowWrapper {
                 ..
             } => {
                 self.skia_renderer.resize(&self.windowed_context);
+                #[cfg(target_os = "macos")]
+                self.macos_feature
+                    .handle_size_changed(&self.windowed_context);
             }
             Event::WindowEvent {
                 event: WindowEvent::DroppedFile(path),
