@@ -172,7 +172,10 @@ fn platform_which(bin: &str) -> Option<String> {
 fn nvim_cmd_impl(bin: String, mut args: Vec<String>) -> TokioCommand {
     let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
     args.insert(0, bin);
-    let args = shlex::join(args.iter().map(String::as_str));
+    let args = match shlex::try_join(args.iter().map(String::as_str)) {
+        Ok(args) => args,
+        Err(_) => panic!("Failed to join arguments"),
+    };
     let mut cmd = TokioCommand::new(shell);
     if env::var_os("TERM").is_none() {
         cmd.arg("-l");
