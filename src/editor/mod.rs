@@ -7,7 +7,7 @@ mod window;
 use std::{collections::HashMap, rc::Rc, sync::Arc, thread};
 use tokio::sync::mpsc::unbounded_channel;
 
-use log::{error, trace};
+use log::{error, trace, warn};
 
 use winit::event_loop::EventLoopProxy;
 
@@ -358,6 +358,11 @@ impl Editor {
         anchor_top: f64,
         sort_order: Option<u64>,
     ) {
+        if anchor_grid == grid {
+            warn!("NeoVim requested a window to float relative to itself. This is not supported.");
+            return;
+        }
+
         let parent_position = self.get_window_top_left(anchor_grid);
         if let Some(window) = self.windows.get_mut(&grid) {
             let width = window.get_width();
