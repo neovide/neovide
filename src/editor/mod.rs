@@ -507,12 +507,12 @@ impl Editor {
                     let _ = self
                         .event_loop_proxy
                         .send_event(WindowCommand::ListAvailableFonts.into());
+                } else {
+                    self.draw_command_batcher
+                        .queue(DrawCommand::FontChanged(guifont));
+
+                    self.redraw_screen();
                 }
-
-                self.draw_command_batcher
-                    .queue(DrawCommand::FontChanged(guifont));
-
-                self.redraw_screen();
             }
             GuiOption::LineSpace(linespace) => {
                 self.draw_command_batcher
