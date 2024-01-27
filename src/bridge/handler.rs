@@ -62,6 +62,13 @@ impl Handler for NeovimHandler {
             }
             "neovide.set_clipboard" => set_clipboard_contents(&arguments[0])
                 .map_err(|_| Value::from("cannot set clipboard contents")),
+            "neovide.quit" => {
+                let error_code = arguments[0]
+                    .as_i64()
+                    .expect("Could not parse error code from neovim");
+                RUNNING_TRACKER.quit_with_code(error_code as i32, "Quit from neovim");
+                Ok(Value::Nil)
+            }
             _ => Ok(Value::from("rpcrequest not handled")),
         }
     }
@@ -91,12 +98,6 @@ impl Handler for NeovimHandler {
             }
             "option_changed" => {
                 SETTINGS.handle_option_changed_notification(arguments, &self.proxy.lock().unwrap());
-            }
-            "neovide.quit" => {
-                let error_code = arguments[0]
-                    .as_i64()
-                    .expect("Could not parse error code from neovim");
-                RUNNING_TRACKER.quit_with_code(error_code as i32, "Quit from neovim");
             }
             #[cfg(windows)]
             "neovide.register_right_click" => {

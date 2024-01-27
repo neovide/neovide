@@ -94,7 +94,7 @@ vim.api.nvim_create_autocmd({ "VimLeavePre" }, {
     once = true,
     nested = true,
     callback = function()
-        rpcnotify("neovide.quit", vim.v.exiting)
+        rpcrequest("neovide.quit", vim.v.exiting)
     end
 })
 
