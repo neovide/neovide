@@ -73,7 +73,8 @@ impl CachingShaper {
     }
 
     pub fn current_size(&self) -> f32 {
-        self.options.size * self.scale_factor * self.fudge_factor
+        let min_font_size = 1.0;
+        (self.options.size * self.scale_factor * self.fudge_factor).max(min_font_size)
     }
 
     pub fn update_scale_factor(&mut self, scale_factor: f32) {
@@ -168,7 +169,8 @@ impl CachingShaper {
                 "Font width: {:.2}px (avg: {:.2}px)",
                 font_width, metrics.average_width
             );
-            self.fudge_factor = font_width.round() / font_width;
+            let min_fudged_width = 1.0;
+            self.fudge_factor = font_width.round().max(min_fudged_width) / font_width;
             debug!("Fudge factor: {:.2}", self.fudge_factor);
             font_size = self.current_size();
             debug!("Fudged font size: {:.2}px", font_size);
