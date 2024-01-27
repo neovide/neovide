@@ -61,7 +61,7 @@ pub struct CmdLineSettings {
     #[arg(long = "no-multigrid", env = "NEOVIDE_NO_MULTIGRID", value_parser = FalseyValueParser::new())]
     pub no_multi_grid: bool,
 
-    /// Sets title hint for the window
+    /// Sets title hidden for the window
     #[arg(long = "title-hidden", env = "NEOVIDE_TITLE_HIDDEN", value_parser = FalseyValueParser::new())]
     pub title_hidden: bool,
 
