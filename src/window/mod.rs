@@ -198,6 +198,9 @@ pub fn create_window(
 
     let frame_decoration = cmd_line_settings.frame;
 
+    #[cfg(target_os = "macos")]
+    let title_hidden = cmd_line_settings.title_hidden;
+
     // There is only two options for windows & linux, no need to match more options.
     #[cfg(not(target_os = "macos"))]
     let mut winit_window_builder =
@@ -209,11 +212,12 @@ pub fn create_window(
         Frame::None => winit_window_builder.with_decorations(false),
         Frame::Buttonless => winit_window_builder
             .with_transparent(true)
-            .with_title_hidden(true)
+            .with_title_hidden(title_hidden)
             .with_titlebar_buttons_hidden(true)
             .with_titlebar_transparent(true)
             .with_fullsize_content_view(true),
         Frame::Transparent => winit_window_builder
+            .with_title_hidden(title_hidden)
             .with_titlebar_transparent(true)
             .with_fullsize_content_view(true),
     };
