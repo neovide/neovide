@@ -85,6 +85,7 @@ pub enum WindowCommand {
     FocusWindow,
     Minimize,
     ShowIntro(Vec<String>),
+    #[allow(dead_code)] // Theme change is only used on macOS right now
     ThemeChanged(Option<Theme>),
     #[cfg(windows)]
     RegisterRightClick,
