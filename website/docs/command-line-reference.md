@@ -136,6 +136,8 @@ with frame timing issues.
 --title-hidden or $NEOVIDE_TITLE_HIDDEN
 ```
 
+**Available since 0.12.2.**
+
 This sets the window title to be hidden on macOS.
 
 ### sRGB
