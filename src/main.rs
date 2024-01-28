@@ -5,6 +5,10 @@
 #[macro_use]
 extern crate neovide_derive;
 
+#[cfg(test)]
+#[macro_use]
+extern crate approx;
+
 #[macro_use]
 extern crate clap;
 
@@ -62,7 +66,7 @@ pub use running_tracker::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
-use crate::settings::{load_last_window_settings, Config, PersistentWindowSettings};
+use crate::settings::{load_last_window_settings, Config, FontSettings, PersistentWindowSettings};
 
 pub use profiling::startup_profiler;
 
@@ -88,15 +92,17 @@ fn main() -> NeovideExitCode {
 
     match setup(event_loop.create_proxy()) {
         Err(err) => handle_startup_errors(err, event_loop).into(),
-        Ok((window_size, _runtime)) => {
+        Ok((window_size, font_settings, _runtime)) => {
             clipboard::init(&event_loop);
             let window = create_window(&event_loop, &window_size);
-            main_loop(window, window_size, event_loop).into()
+            main_loop(window, window_size, font_settings, event_loop).into()
         }
     }
 }
 
-fn setup(proxy: EventLoopProxy<UserEvent>) -> Result<(WindowSize, NeovimRuntime)> {
+fn setup(
+    proxy: EventLoopProxy<UserEvent>,
+) -> Result<(WindowSize, Option<FontSettings>, NeovimRuntime)> {
     //  --------------
     // | Architecture |
     //  --------------
@@ -166,12 +172,14 @@ fn setup(proxy: EventLoopProxy<UserEvent>) -> Result<(WindowSize, NeovimRuntime)
     //
     // The Window event loop sends UICommand to the bridge, which forwards them to Neovim. It also
     // reads `DrawCommand`, `SettingChanged`, and `WindowCommand` from the other components.
-    Config::init();
+    let config = Config::init();
+    Config::watch_config_file(config.clone(), proxy.clone());
 
     //Will exit if -h or -v
     cmd_line::handle_command_line_arguments(args().collect())?;
     #[cfg(not(target_os = "windows"))]
     maybe_disown();
+
     startup_profiler();
 
     #[cfg(not(test))]
@@ -194,7 +202,7 @@ fn setup(proxy: EventLoopProxy<UserEvent>) -> Result<(WindowSize, NeovimRuntime)
 
     let mut runtime = NeovimRuntime::new()?;
     runtime.launch(proxy, grid_size)?;
-    Ok((window_size, runtime))
+    Ok((window_size, config.font, runtime))
 }
 
 #[cfg(not(test))]
@@ -224,7 +232,7 @@ fn maybe_disown() {
 
     let settings = SETTINGS.get::<CmdLineSettings>();
 
-    if cfg!(debug_assertions) || settings.no_fork {
+    if cfg!(debug_assertions) || !settings.fork {
         return;
     }
 

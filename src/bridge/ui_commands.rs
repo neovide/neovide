@@ -5,11 +5,16 @@ use log::trace;
 use anyhow::{Context, Result};
 use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim, Value};
 use strum::AsRefStr;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
+use tokio::sync::{
+    mpsc::{unbounded_channel, UnboundedReceiver},
+    OnceCell,
+};
 
 use super::{show_error_message, show_intro_message};
 use crate::{
-    bridge::NeovimWriter, profiling::tracy_dynamic_zone, running_tracker::RUNNING_TRACKER,
+    bridge::NeovimWriter,
+    profiling::{tracy_dynamic_zone, tracy_fiber_enter, tracy_fiber_leave},
+    running_tracker::RUNNING_TRACKER,
     LoggingSender,
 };
 
@@ -41,12 +46,56 @@ pub enum SerialCommand {
     },
 }
 
+fn has_nvim_version(metadata: &Value, major: i64, minor: i64) -> bool {
+    if let Some(map) = metadata.as_map() {
+        if let Some(Some(y)) = map
+            .iter()
+            .find(|&(k, _)| k.as_str() == Some("version"))
+            .map(|(_, value)| value.as_map())
+        {
+            let mut actual_major: i64 = -1;
+            let mut actual_minor: i64 = -1;
+            for (k, v) in y {
+                match (k.as_str(), v.as_i64()) {
+                    (Some("major"), Some(v)) => actual_major = v,
+                    (Some("minor"), Some(v)) => actual_minor = v,
+                    _ => {}
+                }
+            }
+            log::trace!("actual nvim version: {actual_major}.{actual_minor}");
+            log::trace!("expect nvim version: {major}.{minor}");
+            let ret = actual_major > major || (actual_major == major && actual_minor >= minor);
+            log::trace!("has desired nvim version: {ret}");
+            return ret;
+        }
+    }
+    false
+}
+
 impl SerialCommand {
     async fn execute(self, nvim: &Neovim<NeovimWriter>) {
         // Don't panic here unless there's absolutely no chance of continuing the program, Instead
         // just log the error and hope that it's something temporary or recoverable A normal reason
         // for failure is when neovim has already quit, and a command, for example mouse move is
         // being sent
+        static HAS_X: OnceCell<bool> = OnceCell::const_new();
+        log::trace!("In Serial Command");
+        let has_x = HAS_X
+            .get_or_init(|| async {
+                log::trace!("Requesting nvim version");
+                match nvim.get_api_info().await.as_deref() {
+                    Ok([_, metadata]) if metadata.is_map() => has_nvim_version(metadata, 0, 10),
+                    Err(e) => {
+                        log::warn!("Failed to get neovim api info: {e}");
+                        false
+                    }
+                    Ok(v) => {
+                        log::warn!("Unrecogonized API metadata format {:?}", v);
+                        false
+                    }
+                }
+            })
+            .await;
         let result = match self {
             SerialCommand::Keyboard(input_command) => {
                 trace!("Keyboard Input Sent: {}", input_command);
@@ -61,17 +110,24 @@ impl SerialCommand {
                 grid_id,
                 position: (grid_x, grid_y),
                 modifier_string,
-            } => nvim
-                .input_mouse(
-                    &button,
-                    &action,
-                    &modifier_string,
-                    grid_id as i64,
-                    grid_y as i64,
-                    grid_x as i64,
-                )
-                .await
-                .context("Mouse Input Failed"),
+            } => match &*button {
+                "x1" | "x2" if !has_x => {
+                    log::debug!("Ignoring unsupported {button} mouse event");
+                    Ok(())
+                }
+                _ => {
+                    nvim.input_mouse(
+                        &button,
+                        &action,
+                        &modifier_string,
+                        grid_id as i64,
+                        grid_y as i64,
+                        grid_x as i64,
+                    )
+                    .await
+                }
+            }
+            .context("Mouse input failed"),
             SerialCommand::Scroll {
                 direction,
                 grid_id,
@@ -93,17 +149,20 @@ impl SerialCommand {
                 grid_id,
                 position: (grid_x, grid_y),
                 modifier_string,
-            } => nvim
-                .input_mouse(
-                    &button,
-                    "drag",
-                    &modifier_string,
-                    grid_id as i64,
-                    grid_y as i64,
-                    grid_x as i64,
-                )
-                .await
-                .context("Mouse Drag Failed"),
+            } => match &*button {
+                "x1" | "x2" if !has_x => Ok(()),
+                _ => nvim
+                    .input_mouse(
+                        &button,
+                        "drag",
+                        &modifier_string,
+                        grid_id as i64,
+                        grid_y as i64,
+                        grid_x as i64,
+                    )
+                    .await
+                    .context("Mouse Drag Failed"),
+            },
         };
 
         if let Err(error) = result {
@@ -308,10 +367,17 @@ pub fn start_ui_command_handler(nvim: Arc<Neovim<NeovimWriter>>) {
     });
 
     tokio::spawn(async move {
+        tracy_fiber_enter!("Serial command");
         while RUNNING_TRACKER.is_running() {
-            match serial_rx.recv().await {
+            tracy_fiber_leave();
+            let res = serial_rx.recv().await;
+            tracy_fiber_enter!("Serial command");
+            match res {
                 Some(serial_command) => {
+                    tracy_dynamic_zone!(serial_command.as_ref());
+                    tracy_fiber_leave();
                     serial_command.execute(&nvim).await;
+                    tracy_fiber_enter!("Serial command");
                 }
                 None => {
                     RUNNING_TRACKER.quit("serial ui command channel failed");

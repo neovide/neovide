@@ -70,7 +70,7 @@ Can not be used together with `--size`, or `--grid`.
 
 ```
 
-**Unreleased yet.**
+**Available since 0.12.0.**
 
 Sets the initial grid size of the window. If no value is given, it defaults to
 columns/lines from `init.vim/lua`, see
@@ -112,7 +112,7 @@ acts differently from terminal neovim.
 ### No Fork
 
 ```sh
---no-fork
+--no-fork or $NEOVIDE_FORK=0|1
 ```
 
 By default, neovide detaches itself from the terminal. Instead of spawning a child process and
@@ -129,6 +129,14 @@ With idle `on` (default), neovide won't render new frames when nothing is happen
 With idle `off` (e.g. with `--no-idle` flag), neovide will constantly render new frames,
 even when nothing changed. This takes more power and CPU time, but can possibly help
 with frame timing issues.
+
+### Title (macOS Only)
+
+```sh
+--title-hidden or $NEOVIDE_TITLE_HIDDEN
+```
+
+This sets the window title to be hidden on macOS.
 
 ### sRGB
 

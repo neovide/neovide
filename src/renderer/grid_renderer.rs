@@ -14,6 +14,8 @@ use crate::{
     settings::*,
 };
 
+use super::fonts::font_options::FontOptions;
+
 pub struct GridRenderer {
     pub shaper: CachingShaper,
     pub default_style: Arc<Style>,
@@ -71,6 +73,11 @@ impl GridRenderer {
 
     pub fn update_font(&mut self, guifont_setting: &str) {
         self.shaper.update_font(guifont_setting);
+        self.update_font_dimensions();
+    }
+
+    pub fn update_font_options(&mut self, options: FontOptions) {
+        self.shaper.update_font_options(options);
         self.update_font_dimensions();
     }
 
@@ -208,14 +215,15 @@ impl GridRenderer {
         // There's a lot of overhead for empty blobs in Skia, for some reason they never hit the
         // cache, so trim all the spaces
         let trimmed = text.trim_start();
-        let leading_spaces = text.len() - trimmed.len();
+        let leading_space_bytes = text.len() - trimmed.len();
+        let leading_spaces = text[..leading_space_bytes].chars().count();
         let trimmed = trimmed.trim_end();
         let x_adjustment = leading_spaces as u64 * self.font_dimensions.width;
 
         if !trimmed.is_empty() {
             for blob in self
                 .shaper
-                .shape_cached(trimmed.to_string(), style.bold, style.italic)
+                .shape_cached(trimmed.to_string(), style.into())
                 .iter()
             {
                 tracy_zone!("draw_text_blob");

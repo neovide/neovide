@@ -26,8 +26,7 @@ use crate::{
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {
     pub text: String,
-    pub bold: bool,
-    pub italic: bool,
+    pub style: CoarseStyle,
 }
 
 pub struct CachingShaper {
@@ -62,9 +61,7 @@ impl CachingShaper {
     fn current_font_pair(&mut self) -> Arc<FontPair> {
         self.font_loader
             .get_or_load(&FontKey {
-                italic: false,
-                bold: false,
-                family_name: self.options.primary_font(),
+                font_desc: self.options.primary_font(),
                 hinting: self.options.hinting.clone(),
                 edging: self.options.edging.clone(),
             })
@@ -76,7 +73,8 @@ impl CachingShaper {
     }
 
     pub fn current_size(&self) -> f32 {
-        self.options.size * self.scale_factor * self.fudge_factor
+        let min_font_size = 1.0;
+        (self.options.size * self.scale_factor * self.fudge_factor).max(min_font_size)
     }
 
     pub fn update_scale_factor(&mut self, scale_factor: f32) {
@@ -96,32 +94,39 @@ impl CachingShaper {
             }
         };
 
-        let failed_fonts = options
-            .font_list
+        self.update_font_options(options);
+    }
+
+    pub fn update_font_options(&mut self, options: FontOptions) {
+        debug!("Updating font options: {:?}", options);
+
+        let keys = options
+            .possible_fonts()
             .iter()
-            .filter(|font| {
-                let key = FontKey {
-                    italic: false,
-                    bold: false,
-                    family_name: Some((*font).clone()),
-                    hinting: options.hinting.clone(),
-                    edging: options.edging.clone(),
-                };
-                self.font_loader.get_or_load(&key).is_none()
+            .map(|desc| FontKey {
+                font_desc: Some(desc.clone()),
+                hinting: options.hinting.clone(),
+                edging: options.edging.clone(),
             })
+            .unique()
+            .collect::<Vec<_>>();
+
+        let failed_fonts = keys
+            .iter()
+            .filter(|key| self.font_loader.get_or_load(key).is_none())
             .collect_vec();
 
         if !failed_fonts.is_empty() {
             error_msg!(
-                "Font can't be updated to: {}\n\
+                "Font can't be updated to: {:#?}\n\
                 Following fonts couldn't be loaded: {}",
-                guifont_setting,
-                failed_fonts.iter().join(", "),
+                options,
+                failed_fonts.iter().join(",\n"),
             );
         }
 
-        if failed_fonts.len() != options.font_list.len() {
-            debug!("Font updated to: {}", guifont_setting);
+        if failed_fonts.len() != keys.len() {
+            debug!("Font updated to: {:?}", options);
             self.options = options;
             self.reset_font_loader();
         }
@@ -164,12 +169,14 @@ impl CachingShaper {
                 "Font width: {:.2}px (avg: {:.2}px)",
                 font_width, metrics.average_width
             );
-            self.fudge_factor = font_width.round() / font_width;
+            let min_fudged_width = 1.0;
+            self.fudge_factor = font_width.round().max(min_fudged_width) / font_width;
             debug!("Fudge factor: {:.2}", self.fudge_factor);
             font_size = self.current_size();
+            self.font_info = None;
+            self.font_loader = FontLoader::new(font_size);
             debug!("Fudged font size: {:.2}px", font_size);
             debug!("Fudged font width: {:.2}px", self.info().1);
-            self.font_loader = FontLoader::new(font_size);
         }
         self.blob_cache.clear();
     }
@@ -234,8 +241,7 @@ impl CachingShaper {
     fn build_clusters(
         &mut self,
         text: &str,
-        bold: bool,
-        italic: bool,
+        style: CoarseStyle,
     ) -> Vec<(Vec<CharCluster>, Arc<FontPair>)> {
         let mut cluster = CharCluster::new();
 
@@ -267,20 +273,22 @@ impl CachingShaper {
             // Create font fallback list
             let mut font_fallback_keys = Vec::new();
 
-            // Add parsed fonts from guifont
-            font_fallback_keys.extend(self.options.font_list.iter().map(|font_name| FontKey {
-                italic: self.options.italic || italic,
-                bold: self.options.bold || bold,
-                family_name: Some(font_name.clone()),
-                hinting: self.options.hinting.clone(),
-                edging: self.options.edging.clone(),
-            }));
+            // Add parsed fonts from guifont or config file
+            font_fallback_keys.extend(
+                self.options
+                    .font_list(style)
+                    .iter()
+                    .map(|font_desc| FontKey {
+                        font_desc: Some(font_desc.clone()),
+                        hinting: self.options.hinting.clone(),
+                        edging: self.options.edging.clone(),
+                    })
+                    .unique(),
+            );
 
             // Add default font
             font_fallback_keys.push(FontKey {
-                italic: self.options.italic || italic,
-                bold: self.options.bold || bold,
-                family_name: None,
+                font_desc: None,
                 hinting: self.options.hinting.clone(),
                 edging: self.options.edging.clone(),
             });
@@ -321,9 +329,9 @@ impl CachingShaper {
                 results.push((cluster.to_owned(), best.clone()));
             } else {
                 let fallback_character = cluster.chars()[0].ch;
-                if let Some(fallback_font) =
-                    self.font_loader
-                        .load_font_for_character(bold, italic, fallback_character)
+                if let Some(fallback_font) = self
+                    .font_loader
+                    .load_font_for_character(style, fallback_character)
                 {
                     results.push((cluster.to_owned(), fallback_font));
                 } else {
@@ -375,18 +383,28 @@ impl CachingShaper {
         }
     }
 
-    pub fn shape(&mut self, text: String, bold: bool, italic: bool) -> Vec<TextBlob> {
+    pub fn shape(&mut self, text: String, style: CoarseStyle) -> Vec<TextBlob> {
         let current_size = self.current_size();
         let (glyph_width, ..) = self.font_base_dimensions();
 
         let mut resulting_blobs = Vec::new();
 
-        trace!("Shaping text: {}", text);
+        trace!("Shaping text: {:?}", text);
 
-        for (cluster_group, font_pair) in self.build_clusters(&text, bold, italic) {
+        for (cluster_group, font_pair) in self.build_clusters(&text, style) {
+            let features = self.get_font_features(
+                font_pair
+                    .as_ref()
+                    .key
+                    .font_desc
+                    .as_ref()
+                    .map(|desc| desc.family.as_str()),
+            );
+
             let mut shaper = self
                 .shape_context
                 .builder(font_pair.swash_font.as_ref())
+                .features(features.iter().map(|(name, value)| (name.as_ref(), *value)))
                 .size(current_size)
                 .build();
 
@@ -426,15 +444,32 @@ impl CachingShaper {
         resulting_blobs
     }
 
-    pub fn shape_cached(&mut self, text: String, bold: bool, italic: bool) -> &Vec<TextBlob> {
+    pub fn shape_cached(&mut self, text: String, style: CoarseStyle) -> &Vec<TextBlob> {
         tracy_zone!("shape_cached");
-        let key = ShapeKey::new(text.clone(), bold, italic);
+        let key = ShapeKey::new(text.clone(), style);
 
         if !self.blob_cache.contains(&key) {
-            let blobs = self.shape(text, bold, italic);
+            let blobs = self.shape(text, style);
             self.blob_cache.put(key.clone(), blobs);
         }
 
         self.blob_cache.get(&key).unwrap()
+    }
+
+    fn get_font_features(&self, name: Option<&str>) -> Vec<(String, u16)> {
+        if let Some(name) = name {
+            self.options
+                .features
+                .get(name)
+                .map(|features| {
+                    features
+                        .iter()
+                        .map(|feature| (feature.0.clone(), feature.1))
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default()
+        } else {
+            vec![]
+        }
     }
 }

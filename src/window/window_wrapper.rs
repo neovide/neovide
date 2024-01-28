@@ -8,19 +8,31 @@ use crate::windows_utils::{register_right_click, unregister_right_click};
 use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
     dimensions::Dimensions,
-    profiling::{emit_frame_mark, tracy_gpu_collect, tracy_gpu_zone, tracy_zone},
+    profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
     renderer::{build_context, DrawCommand, GlWindow, Renderer, VSync, WindowedContext},
     running_tracker::RUNNING_TRACKER,
-    settings::{SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS},
+    settings::{
+        FontSettings, HotReloadConfigs, SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS,
+    },
     window::{ShouldRender, WindowSize},
     CmdLineSettings,
 };
+
+#[cfg(target_os = "macos")]
+use crate::window::{invalidate_shadow, set_window_blurred};
+
+#[cfg(target_os = "macos")]
+use super::macos::MacosWindowFeature;
+
+#[cfg(target_os = "macos")]
+use icrate::Foundation::MainThreadMarker;
 
 use log::trace;
 use skia_safe::{scalar, Rect};
 use winit::{
     dpi::{PhysicalPosition, PhysicalSize, Position},
     event::{Event, WindowEvent},
+    event_loop::EventLoopProxy,
     window::{Fullscreen, Theme},
 };
 
@@ -64,11 +76,19 @@ pub struct WinitWindowWrapper {
     window_padding: WindowPadding,
     initial_window_size: WindowSize,
     is_minimized: bool,
+    theme: Option<Theme>,
     pub vsync: VSync,
+    #[cfg(target_os = "macos")]
+    macos_feature: MacosWindowFeature,
 }
 
 impl WinitWindowWrapper {
-    pub fn new(window: GlWindow, initial_window_size: WindowSize) -> Self {
+    pub fn new(
+        window: GlWindow,
+        initial_window_size: WindowSize,
+        initial_font_settings: Option<FontSettings>,
+        proxy: EventLoopProxy<UserEvent>,
+    ) -> Self {
         let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
         let srgb = cmd_line_settings.srgb;
         let vsync_enabled = cmd_line_settings.vsync;
@@ -76,7 +96,7 @@ impl WinitWindowWrapper {
         let window = windowed_context.window();
 
         let scale_factor = windowed_context.window().scale_factor();
-        let renderer = Renderer::new(scale_factor);
+        let renderer = Renderer::new(scale_factor, initial_font_settings);
         let saved_inner_size = window.inner_size();
 
         let skia_renderer = SkiaRenderer::new(&windowed_context);
@@ -101,7 +121,13 @@ impl WinitWindowWrapper {
             _ => {}
         }
 
-        let vsync = VSync::new(vsync_enabled, &windowed_context);
+        let vsync = VSync::new(vsync_enabled, &windowed_context, proxy);
+
+        #[cfg(target_os = "macos")]
+        let macos_feature = {
+            let mtm = MainThreadMarker::new().expect("must be on the main thread");
+            MacosWindowFeature::from_winit_window(window, mtm)
+        };
 
         let mut wrapper = WinitWindowWrapper {
             windowed_context,
@@ -127,7 +153,10 @@ impl WinitWindowWrapper {
             },
             initial_window_size,
             is_minimized: false,
+            theme: None,
             vsync,
+            #[cfg(target_os = "macos")]
+            macos_feature,
         };
 
         wrapper.set_ime(ime_enabled);
@@ -175,6 +204,9 @@ impl WinitWindowWrapper {
             WindowCommand::ShowIntro(message) => {
                 send_ui(ParallelCommand::ShowIntro { message });
             }
+            WindowCommand::ThemeChanged(new_theme) => {
+                self.handle_theme_changed(new_theme);
+            }
             #[cfg(windows)]
             WindowCommand::RegisterRightClick => register_right_click(),
             #[cfg(windows)]
@@ -183,6 +215,7 @@ impl WinitWindowWrapper {
     }
 
     pub fn handle_window_settings_changed(&mut self, changed_setting: WindowSettingsChanged) {
+        tracy_zone!("handle_window_settings_changed");
         match changed_setting {
             WindowSettingsChanged::ObservedColumns(columns) => {
                 log::info!("columns changed");
@@ -202,6 +235,18 @@ impl WinitWindowWrapper {
                     self.set_ime(ime_enabled);
                 }
             }
+            #[cfg(target_os = "macos")]
+            WindowSettingsChanged::Transparency(opacity) => {
+                log::info!("transparency changed to {}", opacity);
+                invalidate_shadow(self.windowed_context.window());
+                set_window_blurred(self.windowed_context.window(), opacity);
+            }
+            #[cfg(target_os = "macos")]
+            WindowSettingsChanged::WindowBlurred(window_blurred) => {
+                log::info!("window_blurred changed to {}", window_blurred);
+                let transparency = SETTINGS.get::<WindowSettings>().transparency;
+                set_window_blurred(self.windowed_context.window(), transparency);
+            }
             _ => {}
         }
     }
@@ -209,6 +254,11 @@ impl WinitWindowWrapper {
     pub fn handle_title_changed(&mut self, new_title: String) {
         self.title = new_title;
         self.windowed_context.window().set_title(&self.title);
+    }
+
+    pub fn handle_theme_changed(&mut self, new_theme: Option<Theme>) {
+        self.theme = new_theme;
+        self.windowed_context.window().set_theme(self.theme);
     }
 
     pub fn send_font_names(&self) {
@@ -254,24 +304,37 @@ impl WinitWindowWrapper {
         let mut should_render = true;
         match event {
             Event::Resumed => {
+                tracy_zone!("Resumed");
                 // No need to do anything, but handle the event so that should_render gets set
             }
             Event::WindowEvent {
                 event: WindowEvent::CloseRequested,
                 ..
             } => {
+                tracy_zone!("CloseRequested");
                 self.handle_quit();
             }
             Event::WindowEvent {
                 event: WindowEvent::ScaleFactorChanged { scale_factor, .. },
                 ..
             } => {
+                tracy_zone!("ScaleFactorChanged");
                 self.handle_scale_factor_update(scale_factor);
+            }
+            Event::WindowEvent {
+                event: WindowEvent::Resized { .. },
+                ..
+            } => {
+                self.skia_renderer.resize(&self.windowed_context);
+                #[cfg(target_os = "macos")]
+                self.macos_feature
+                    .handle_size_changed(&self.windowed_context);
             }
             Event::WindowEvent {
                 event: WindowEvent::DroppedFile(path),
                 ..
             } => {
+                tracy_zone!("DroppedFile");
                 let file_path = path.into_os_string().into_string().unwrap();
                 send_ui(ParallelCommand::FileDrop(file_path));
             }
@@ -279,6 +342,7 @@ impl WinitWindowWrapper {
                 event: WindowEvent::Focused(focus),
                 ..
             } => {
+                tracy_zone!("Focused");
                 if focus {
                     self.handle_focus_gained();
                 } else {
@@ -289,6 +353,7 @@ impl WinitWindowWrapper {
                 event: WindowEvent::ThemeChanged(theme),
                 ..
             } => {
+                tracy_zone!("ThemeChanged");
                 let settings = SETTINGS.get::<WindowSettings>();
                 if settings.theme.as_str() == "auto" {
                     let background = match theme {
@@ -302,6 +367,7 @@ impl WinitWindowWrapper {
                 event: WindowEvent::Moved(_),
                 ..
             } => {
+                tracy_zone!("Moved");
                 self.vsync.update(&self.windowed_context);
             }
             Event::UserEvent(UserEvent::DrawCommandBatch(batch)) => {
@@ -313,7 +379,27 @@ impl WinitWindowWrapper {
             Event::UserEvent(UserEvent::SettingsChanged(SettingsChanged::Window(e))) => {
                 self.handle_window_settings_changed(e);
             }
+            Event::UserEvent(UserEvent::ConfigsChanged(config)) => {
+                self.handle_config_changed(*config);
+            }
             _ => {
+                match event {
+                    Event::WindowEvent { .. } => {
+                        tracy_zone!("Unknown WindowEvent");
+                    }
+                    Event::AboutToWait { .. } => {
+                        tracy_zone!("AboutToWait");
+                    }
+                    Event::DeviceEvent { .. } => {
+                        tracy_zone!("DeviceEvent");
+                    }
+                    Event::NewEvents(..) => {
+                        tracy_zone!("NewEvents");
+                    }
+                    _ => {
+                        tracy_zone!("Unknown");
+                    }
+                }
                 should_render = renderer_asks_to_be_rendered;
             }
         }
@@ -322,7 +408,6 @@ impl WinitWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         tracy_zone!("draw_frame");
-        self.renderer.prepare_lines();
         self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
         {
             tracy_gpu_zone!("skia flush");
@@ -337,21 +422,26 @@ impl WinitWindowWrapper {
             tracy_gpu_zone!("wait for vsync");
             self.vsync.wait_for_vsync();
         }
-        emit_frame_mark();
+        tracy_frame();
         tracy_gpu_collect();
     }
 
     pub fn animate_frame(&mut self, dt: f32) -> bool {
         tracy_zone!("animate_frame", 0);
 
-        self.renderer.animate_frame(
+        let res = self.renderer.animate_frame(
             &self.get_grid_size_from_window(0, 0),
             &self.padding_as_grid(),
             dt,
-        )
+        );
+        tracy_plot!("animate_frame", res as u8 as f64);
+        self.renderer.prepare_lines();
+        #[allow(clippy::let_and_return)]
+        res
     }
 
     fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
+        tracy_zone!("handle_draw_commands");
         let handle_draw_commands_result = self.renderer.handle_draw_commands(batch);
 
         self.font_changed_last_frame |= handle_draw_commands_result.font_changed;
@@ -388,13 +478,24 @@ impl WinitWindowWrapper {
         };
     }
 
+    fn handle_config_changed(&mut self, config: HotReloadConfigs) {
+        tracy_zone!("handle_config_changed");
+        self.renderer.handle_config_changed(config);
+        self.font_changed_last_frame = true;
+    }
+
     pub fn prepare_frame(&mut self) -> ShouldRender {
         tracy_zone!("prepare_frame", 0);
         let mut should_render = ShouldRender::Wait;
 
         let window_settings = SETTINGS.get::<WindowSettings>();
+        #[cfg(not(target_os = "macos"))]
+        let window_padding_top = window_settings.padding_top;
+        #[cfg(target_os = "macos")]
+        let window_padding_top =
+            window_settings.padding_top + self.macos_feature.extra_titlebar_height_in_pixels();
         let window_padding = WindowPadding {
-            top: window_settings.padding_top,
+            top: window_padding_top,
             left: window_settings.padding_left,
             right: window_settings.padding_right,
             bottom: window_settings.padding_bottom,
@@ -429,7 +530,6 @@ impl WinitWindowWrapper {
                 self.saved_inner_size = new_size;
 
                 self.update_grid_size_from_window();
-                self.skia_renderer.resize(&self.windowed_context);
                 should_render = ShouldRender::Immediately;
             }
         }
@@ -535,7 +635,10 @@ impl WinitWindowWrapper {
     }
 
     fn handle_scale_factor_update(&mut self, scale_factor: f64) {
+        #[cfg(target_os = "macos")]
+        self.macos_feature.handle_scale_factor_update(scale_factor);
         self.renderer.handle_os_scale_factor_change(scale_factor);
+        self.skia_renderer.resize(&self.windowed_context);
     }
 
     fn padding_as_grid(&self) -> Rect {

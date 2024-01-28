@@ -44,7 +44,8 @@ Lua:
 vim.o.guifont = "Source Code Pro:h14" -- text below applies for VimScript
 ```
 
-Controls the font used by Neovide. Only setting which is actually controlled through an option, and
+Controls the font used by Neovide. Also check [the config file](./config-file.md) to see how to
+configure features. This is the only setting which is actually controlled through an option, and
 as such it's also documented in `:h guifont`. But to sum it up and also add Neovide's extension:
 
 - The basic format is `Primary\ Font,Fallback\ Font\ 1,Fallback\ Font\ 2:option1:option2:option3`,
@@ -143,7 +144,12 @@ vim.g.neovide_padding_left = 0
 Controls the space between the window border and the actual Neovim, which is filled with the
 background color instead.
 
-#### Background Color (Currently macOS only)
+#### Background Color (**Deprecated**, Currently macOS only)
+
+This configuration is deprecated now and might be removed in the future. In
+[#2168](https://github.com/neovide/neovide/issues/2168), we have made Neovide control the title bar
+color itself. The color of title bar now honors [`neovide_transparency`](#transparency). If you want
+a transparent title bar, setting `neovide_transparency` is sufficient.
 
 VimScript:
 
@@ -177,6 +183,26 @@ window to that value.
 
 Note that `g:neovide_transparency` should be 0 if you want to unify transparency of content and
 title bar.
+
+#### Window Blur (Currently macOS only)
+
+VimScript:
+
+```vim
+let g:neovide_window_blurred = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_window_blurred = true
+```
+
+**Available since 0.12.**
+
+Setting `g:neovide_window_blurred` toggles the window blur state.
+
+The blurred level respects the `g:neovide_transparency`  value between 0.0 and 1.0.
 
 #### Floating Blur Amount
 
@@ -219,7 +245,7 @@ vim.g.neovide_light_angle_degrees = 45
 vim.g.neovide_light_radius = 5
 ```
 
-**Unreleased yet.**
+**Available since 0.12.0.**
 
 Setting `g:neovide_floating_shadow` to false will disable the shadow borders for floating windows.
 The other variables configure the shadow in various ways:
@@ -267,7 +293,7 @@ encouraged in order to tune it to your liking.
 
 #### Far scroll lines
 
-**Unreleased yet.**
+**Available since 0.12.0.**
 
 VimScript:
 
@@ -317,7 +343,7 @@ Lua:
 vim.g.neovide_underline_stroke_scale = 1.0
 ```
 
-**Unrelease yet.**
+**Available since 0.12.0.**
 
 Setting `g:neovide_underline_stroke_scale` to a floating point will increase or decrease the stroke
 width of the underlines (including undercurl, underdash, etc.). If the scaled stroke width is less
@@ -345,6 +371,29 @@ vim.g.neovide_theme = 'auto'
 Set the [`background`](https://neovim.io/doc/user/options.html#'background') option when Neovide
 starts. Possible values: _light_, _dark_, _auto_. On systems that support it, _auto_ will mirror the
 system theme, and will update `background` when the system theme changes.
+
+#### Fix border and winbar scrolling glitches
+
+VimScript:
+
+```vim
+let g:neovide_unlink_border_highlights = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_unlink_border_highlights = true
+```
+
+**Available since 0.12.0.**
+
+Neovide uses some highlight groups for detecting the border of the windows, when scrolling. This
+detection is not perfect due to some limitations of Neovim, it only returns the final highlight
+groups for linked highlights. This option unlinks those highlight groups after the color scheme is
+loaded to make Neovide detect them properly.
+
+If this causes other problems, you can set this option to false.
 
 ### Functionality
 

@@ -3,15 +3,26 @@ use std::{iter, mem};
 use crate::{dimensions::Dimensions, frame::Frame, settings::*};
 
 use anyhow::Result;
-use clap::{builder::FalseyValueParser, ArgAction, Parser};
+use clap::{
+    builder::{styling, FalseyValueParser, Styles},
+    ArgAction, Parser,
+};
 
 #[cfg(target_os = "windows")]
 pub const SRGB_DEFAULT: &str = "1";
 #[cfg(not(target_os = "windows"))]
 pub const SRGB_DEFAULT: &str = "0";
 
+fn get_styles() -> Styles {
+    styling::Styles::styled()
+        .header(styling::AnsiColor::Green.on_default() | styling::Effects::BOLD)
+        .usage(styling::AnsiColor::Green.on_default() | styling::Effects::BOLD)
+        .literal(styling::AnsiColor::Blue.on_default() | styling::Effects::BOLD)
+        .placeholder(styling::AnsiColor::Cyan.on_default())
+}
+
 #[derive(Clone, Debug, Parser)]
-#[command(version, about, long_about = None)]
+#[command(version, about, long_about = None, styles = get_styles())]
 pub struct CmdLineSettings {
     /// Files to open (plainly appended to NeoVim args)
     #[arg(
@@ -50,10 +61,17 @@ pub struct CmdLineSettings {
     #[arg(long = "no-multigrid", env = "NEOVIDE_NO_MULTIGRID", value_parser = FalseyValueParser::new())]
     pub no_multi_grid: bool,
 
-    /// Instead of spawning a child process and leaking it, be "blocking" and let the shell persist
-    /// as parent process
-    #[arg(long = "no-fork")]
-    pub no_fork: bool,
+    /// Sets title hidden for the window
+    #[arg(long = "title-hidden", env = "NEOVIDE_TITLE_HIDDEN", value_parser = FalseyValueParser::new())]
+    pub title_hidden: bool,
+
+    /// Spawn a child process and leak it [DEFAULT]
+    #[arg(long = "fork", env = "NEOVIDE_FORK", action = ArgAction::SetTrue, default_value = "1", value_parser = FalseyValueParser::new())]
+    pub fork: bool,
+
+    /// Be "blocking" and let the shell persist as parent process. Takes precedence over `--fork`.
+    #[arg(long = "no-fork", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
+    _no_fork: bool,
 
     /// Render every frame, takes more power and CPU time but possibly helps with frame timing
     /// issues
@@ -70,7 +88,7 @@ pub struct CmdLineSettings {
     pub srgb: bool,
 
     /// Do not request sRGB when initializing the window, may help with GPUs with weird pixel
-    /// formats. Default on Linux and macOs.
+    /// formats. Default on Linux and macOS.
     #[arg(long = "no-srgb", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
     _no_srgb: bool,
 
@@ -150,12 +168,16 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<()> {
         .chain(cmdline.neovim_args)
         .collect();
 
-    if cmdline._no_vsync {
-        cmdline.vsync = false;
+    if cmdline._no_fork {
+        cmdline.fork = false;
     }
 
     if cmdline._no_srgb {
         cmdline.srgb = false;
+    }
+
+    if cmdline._no_vsync {
+        cmdline.vsync = false;
     }
 
     SETTINGS.set::<CmdLineSettings>(&cmdline);

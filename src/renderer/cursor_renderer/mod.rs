@@ -9,7 +9,7 @@ use winit::event::{Event, WindowEvent};
 use crate::{
     bridge::EditorMode,
     editor::{Cursor, CursorShape},
-    profiling::tracy_zone,
+    profiling::{tracy_plot, tracy_zone},
     renderer::animation_utils::*,
     renderer::{GridRenderer, RenderedWindow},
     settings::{ParseFromValue, SETTINGS},
@@ -258,12 +258,17 @@ impl CursorRenderer {
             let mut grid_y = cursor_grid_y as f32 + window.grid_current_position.y
                 - window.scroll_animation.position;
 
+            let top_border = (window.top_border.len() as u64) as f32;
+            let bottom_border = (window.bottom_border.len() as u64) as f32;
+
             // Prevent the cursor from targeting a position outside its current window. Since only
             // the vertical direction is effected by scrolling, we only have to clamp the vertical
             // grid position.
-            grid_y = grid_y
-                .max(window.grid_current_position.y)
-                .min(window.grid_current_position.y + window.grid_size.height as f32 - 1.0);
+            grid_y = grid_y.max(window.grid_current_position.y + top_border).min(
+                window.grid_current_position.y + window.grid_size.height as f32
+                    - 1.0
+                    - bottom_border,
+            );
 
             self.destination = (grid_x * font_width as f32, grid_y * font_height as f32).into();
         } else {
@@ -320,11 +325,9 @@ impl CursorRenderer {
 
         let y_adjustment = grid_renderer.shaper.y_adjustment();
         let style = &self.cursor.grid_cell.1;
+        let coarse_style = style.as_ref().map(|style| style.into()).unwrap_or_default();
 
-        let bold = style.as_ref().map(|x| x.bold).unwrap_or(false);
-        let italic = style.as_ref().map(|x| x.italic).unwrap_or(false);
-
-        let blobs = &grid_renderer.shaper.shape_cached(character, bold, italic);
+        let blobs = &grid_renderer.shaper.shape_cached(character, coarse_style);
 
         for blob in blobs.iter() {
             canvas.draw_text_blob(
@@ -422,6 +425,7 @@ impl CursorRenderer {
         if !animating {
             self.previous_editor_mode = current_mode.clone();
         }
+        tracy_plot!("cursor animating", animating as u8 as f64);
         animating
     }
 

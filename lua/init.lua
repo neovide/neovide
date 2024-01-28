@@ -88,12 +88,48 @@ for _,option_setting in ipairs(args.option_settings) do
     })
 end
 
+-- Ignore initial values of lines and columns because they are set by neovim directly.
+-- See https://github.com/neovide/neovide/issues/2300
+vim.api.nvim_create_autocmd({ "VimEnter" }, {
+    once = true,
+    nested = true,
+    callback = function()
+        for _,option_setting in ipairs(args.option_settings) do
+            if option_setting ~= "lines" and option_setting ~= "columns" then
+                rpcnotify("option_changed", option_setting, vim.o[option_setting])
+            end
+        end
+    end
+})
+
 -- Create auto command for retrieving exit code from neovim on quit.
 vim.api.nvim_create_autocmd({ "VimLeavePre" }, {
     pattern = "*",
     once = true,
     nested = true,
     callback = function()
-        rpcnotify("neovide.quit", vim.v.exiting)
+        rpcrequest("neovide.quit", vim.v.exiting)
+    end
+})
+
+local function unlink_highlight(name)
+    local highlight = vim.api.nvim_get_hl(0, {name=name, link=false})
+    vim.api.nvim_set_hl(0, name, highlight)
+end
+
+-- Neovim only reports the final highlight group in the ext_hlstate information
+-- So we need to unlink all the groups when the color scheme is changed
+-- This is quite hacky, so let the user disable it.
+vim.api.nvim_create_autocmd({ "ColorScheme" }, {
+    pattern = "*",
+    nested = false,
+    callback = function()
+        if vim.g.neovide_unlink_border_highlights then
+            unlink_highlight("FloatTitle")
+            unlink_highlight("FloatFooter")
+            unlink_highlight("FloatBorder")
+            unlink_highlight("WinBar")
+            unlink_highlight("WinBarNC")
+        end
     end
 })

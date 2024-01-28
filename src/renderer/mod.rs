@@ -21,7 +21,7 @@ use crate::{
     bridge::EditorMode,
     dimensions::Dimensions,
     editor::{Cursor, Style},
-    profiling::tracy_zone,
+    profiling::{tracy_named_frame, tracy_zone},
     settings::*,
     window::{ShouldRender, UserEvent},
     WindowSettings,
@@ -34,6 +34,8 @@ pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, Windo
 
 pub use opengl::{build_context, build_window, Context as WindowedContext, GlWindow};
 pub use vsync::VSync;
+
+use self::fonts::font_options::FontOptions;
 
 #[derive(SettingGroup, Clone)]
 pub struct RendererSettings {
@@ -107,13 +109,14 @@ pub struct DrawCommandResult {
 }
 
 impl Renderer {
-    pub fn new(os_scale_factor: f64) -> Self {
+    pub fn new(os_scale_factor: f64, init_font_settings: Option<FontSettings>) -> Self {
         let window_settings = SETTINGS.get::<WindowSettings>();
 
         let user_scale_factor = window_settings.scale_factor.into();
         let scale_factor = user_scale_factor * os_scale_factor;
         let cursor_renderer = CursorRenderer::new();
-        let grid_renderer = GridRenderer::new(scale_factor);
+        let mut grid_renderer = GridRenderer::new(scale_factor);
+        grid_renderer.update_font_options(init_font_settings.map(|x| x.into()).unwrap_or_default());
         let current_mode = EditorMode::Unknown(String::from(""));
 
         let rendered_windows = HashMap::new();
@@ -245,6 +248,20 @@ impl Renderer {
         animating
     }
 
+    pub fn handle_config_changed(&mut self, config: HotReloadConfigs) {
+        match config {
+            HotReloadConfigs::Font(font) => match font {
+                Some(font) => {
+                    self.grid_renderer.update_font_options(font.into());
+                }
+                None => {
+                    self.grid_renderer
+                        .update_font_options(FontOptions::default());
+                }
+            },
+        }
+    }
+
     pub fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) -> DrawCommandResult {
         let settings = SETTINGS.get::<RendererSettings>();
         let mut result = DrawCommandResult {
@@ -254,6 +271,7 @@ impl Renderer {
 
         for draw_command in batch {
             self.handle_draw_command(draw_command, &mut result);
+            tracy_named_frame!("neovim draw batch processed");
         }
         self.flush(&settings);
 
