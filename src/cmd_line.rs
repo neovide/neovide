@@ -61,6 +61,10 @@ pub struct CmdLineSettings {
     #[arg(long = "no-multigrid", env = "NEOVIDE_NO_MULTIGRID", value_parser = FalseyValueParser::new())]
     pub no_multi_grid: bool,
 
+    /// Sets title hidden for the window
+    #[arg(long = "title-hidden", env = "NEOVIDE_TITLE_HIDDEN", value_parser = FalseyValueParser::new())]
+    pub title_hidden: bool,
+
     /// Spawn a child process and leak it [DEFAULT]
     #[arg(long = "fork", env = "NEOVIDE_FORK", action = ArgAction::SetTrue, default_value = "1", value_parser = FalseyValueParser::new())]
     pub fork: bool,
