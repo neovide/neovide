@@ -3,15 +3,26 @@ use std::{iter, mem};
 use crate::{dimensions::Dimensions, frame::Frame, settings::*};
 
 use anyhow::Result;
-use clap::{builder::FalseyValueParser, ArgAction, Parser};
+use clap::{
+    builder::{styling, FalseyValueParser, Styles},
+    ArgAction, Parser,
+};
 
 #[cfg(target_os = "windows")]
 pub const SRGB_DEFAULT: &str = "1";
 #[cfg(not(target_os = "windows"))]
 pub const SRGB_DEFAULT: &str = "0";
 
+fn get_styles() -> Styles {
+    styling::Styles::styled()
+        .header(styling::AnsiColor::Green.on_default() | styling::Effects::BOLD)
+        .usage(styling::AnsiColor::Green.on_default() | styling::Effects::BOLD)
+        .literal(styling::AnsiColor::Blue.on_default() | styling::Effects::BOLD)
+        .placeholder(styling::AnsiColor::Cyan.on_default())
+}
+
 #[derive(Clone, Debug, Parser)]
-#[command(version, about, long_about = None)]
+#[command(version, about, long_about = None, styles = get_styles())]
 pub struct CmdLineSettings {
     /// Files to open (plainly appended to NeoVim args)
     #[arg(

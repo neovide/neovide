@@ -30,7 +30,7 @@ tracy-callstack-inlines = ["tracy-client-sys?/callstack-inlines"]
 anyhow = { version = "1.0.75", features = ["backtrace"] }
 async-trait = "0.1.53"
 backtrace = "0.3.67"
-clap = { version = "4.3.19", features = ["cargo", "derive", "env"] }
+clap = { version = "4.4.18", features = ["cargo", "derive", "env", "color"] }
 copypasta = "0.8.1"
 csscolorparser = "0.6.2"
 derive-new = "0.5.9"
