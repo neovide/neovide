@@ -21,6 +21,12 @@ use crate::{
 #[cfg(target_os = "macos")]
 use crate::window::{invalidate_shadow, set_window_blurred};
 
+#[cfg(target_os = "macos")]
+use super::macos::MacosWindowFeature;
+
+#[cfg(target_os = "macos")]
+use icrate::Foundation::MainThreadMarker;
+
 use log::trace;
 use skia_safe::{scalar, Rect};
 use winit::{
@@ -70,7 +76,10 @@ pub struct WinitWindowWrapper {
     window_padding: WindowPadding,
     initial_window_size: WindowSize,
     is_minimized: bool,
+    theme: Option<Theme>,
     pub vsync: VSync,
+    #[cfg(target_os = "macos")]
+    macos_feature: MacosWindowFeature,
 }
 
 impl WinitWindowWrapper {
@@ -114,6 +123,12 @@ impl WinitWindowWrapper {
 
         let vsync = VSync::new(vsync_enabled, &windowed_context, proxy);
 
+        #[cfg(target_os = "macos")]
+        let macos_feature = {
+            let mtm = MainThreadMarker::new().expect("must be on the main thread");
+            MacosWindowFeature::from_winit_window(window, mtm)
+        };
+
         let mut wrapper = WinitWindowWrapper {
             windowed_context,
             skia_renderer,
@@ -138,7 +153,10 @@ impl WinitWindowWrapper {
             },
             initial_window_size,
             is_minimized: false,
+            theme: None,
             vsync,
+            #[cfg(target_os = "macos")]
+            macos_feature,
         };
 
         wrapper.set_ime(ime_enabled);
@@ -185,6 +203,9 @@ impl WinitWindowWrapper {
             }
             WindowCommand::ShowIntro(message) => {
                 send_ui(ParallelCommand::ShowIntro { message });
+            }
+            WindowCommand::ThemeChanged(new_theme) => {
+                self.handle_theme_changed(new_theme);
             }
             #[cfg(windows)]
             WindowCommand::RegisterRightClick => register_right_click(),
@@ -233,6 +254,11 @@ impl WinitWindowWrapper {
     pub fn handle_title_changed(&mut self, new_title: String) {
         self.title = new_title;
         self.windowed_context.window().set_title(&self.title);
+    }
+
+    pub fn handle_theme_changed(&mut self, new_theme: Option<Theme>) {
+        self.theme = new_theme;
+        self.windowed_context.window().set_theme(self.theme);
     }
 
     pub fn send_font_names(&self) {
@@ -300,6 +326,9 @@ impl WinitWindowWrapper {
                 ..
             } => {
                 self.skia_renderer.resize(&self.windowed_context);
+                #[cfg(target_os = "macos")]
+                self.macos_feature
+                    .handle_size_changed(&self.windowed_context);
             }
             Event::WindowEvent {
                 event: WindowEvent::DroppedFile(path),
@@ -460,8 +489,13 @@ impl WinitWindowWrapper {
         let mut should_render = ShouldRender::Wait;
 
         let window_settings = SETTINGS.get::<WindowSettings>();
+        #[cfg(not(target_os = "macos"))]
+        let window_padding_top = window_settings.padding_top;
+        #[cfg(target_os = "macos")]
+        let window_padding_top =
+            window_settings.padding_top + self.macos_feature.extra_titlebar_height_in_pixels();
         let window_padding = WindowPadding {
-            top: window_settings.padding_top,
+            top: window_padding_top,
             left: window_settings.padding_left,
             right: window_settings.padding_right,
             bottom: window_settings.padding_bottom,
@@ -601,6 +635,8 @@ impl WinitWindowWrapper {
     }
 
     fn handle_scale_factor_update(&mut self, scale_factor: f64) {
+        #[cfg(target_os = "macos")]
+        self.macos_feature.handle_scale_factor_update(scale_factor);
         self.renderer.handle_os_scale_factor_change(scale_factor);
         self.skia_renderer.resize(&self.windowed_context);
     }
