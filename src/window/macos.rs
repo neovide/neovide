@@ -9,11 +9,12 @@ use objc2::{declare_class, msg_send_id, mutability::InteriorMutable, rc::Id, Cla
 
 use csscolorparser::Color;
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-use winit::window::Window;
+use winit::window::{Window};
+use winit::event::{Event, WindowEvent};
 
 use crate::{
     cmd_line::CmdLineSettings, error_msg, frame::Frame, renderer::WindowedContext,
-    settings::SETTINGS,
+    settings::SETTINGS, window::UserEvent
 };
 
 use super::WindowSettings;
@@ -172,6 +173,55 @@ impl MacosWindowFeature {
             0
         } else {
             self.extra_titlebar_height_in_pixel
+        }
+    }
+}
+
+pub struct Menu {
+    menu_added: bool,
+}
+
+impl Default for Menu {
+    fn default() -> Self {
+        Menu { menu_added: false }
+    }
+}
+
+impl Menu {
+    pub fn ensure_menu_added(&mut self, ev: &Event<UserEvent>) {
+        if let Event::WindowEvent { event: WindowEvent::Focused(_), .. } =  ev {
+            if !self.menu_added {
+                self.add_window_menu();
+                self.menu_added = true;
+            }
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn add_window_menu(&self) {
+        use cocoa::appkit::{NSApplication, NSMenu, NSMenuItem};
+        use cocoa::base::{nil, selector};
+        use cocoa::foundation::{NSAutoreleasePool, NSString};
+
+        unsafe {
+            let app = NSApplication::sharedApplication(nil);
+            let main_menu = app.mainMenu();
+            let win_menu_item = NSMenuItem::new(nil).autorelease();
+            main_menu.addItem_(win_menu_item);
+
+            let menu_title = NSString::alloc(nil).autorelease().init_str("Window");
+            let menu = NSMenu::new(nil).autorelease().initWithTitle_(menu_title);
+
+            let min_item = NSMenuItem::alloc(nil)
+                .autorelease()
+                .initWithTitle_action_keyEquivalent_(
+                    NSString::alloc(nil).autorelease().init_str("Minimize"),
+                    selector("performMiniaturize:"),
+                    NSString::alloc(nil).autorelease().init_str("m"),
+                );
+            menu.addItem_(min_item);
+            win_menu_item.setSubmenu_(menu);
+            app.setWindowsMenu_(menu);
         }
     }
 }

@@ -348,7 +348,11 @@ pub fn main_loop(
 
     let mut update_loop = UpdateLoop::new(cmd_line_settings.idle);
 
+    #[cfg(target_os = "macos")]
+    let mut menu = macos::Menu::default();
     event_loop.run(move |e, window_target| {
+        #[cfg(target_os = "macos")]
+        menu.ensure_menu_added(&e);
         if e == Event::LoopExiting {
             return;
         }
