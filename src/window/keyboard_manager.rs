@@ -95,7 +95,23 @@ impl KeyboardManager {
             KeyCode::NumpadSubtract => Some("kMinus"),
             KeyCode::NumpadAdd => Some("kPlus"),
             KeyCode::NumpadEnter => Some("kEnter"),
-            KeyCode::NumpadDecimal => Some("kDel"),
+            KeyCode::NumpadEqual => Some("kEqual"),
+            KeyCode::NumpadComma => match key_event.logical_key.as_ref() {
+                Key::Character(",") => Some("kComma"),
+                Key::Character(".") => Some("kPoint"),
+                _ => None,
+            },
+            KeyCode::NumpadDecimal => {
+                if is_numlock_key {
+                    match key_event.logical_key.as_ref() {
+                        Key::Character(",") => Some("kComma"),
+                        Key::Character(".") => Some("kPoint"),
+                        _ => None,
+                    }
+                } else {
+                    Some("kDel")
+                }
+            }
             KeyCode::Numpad9 => {
                 KeyboardManager::handle_numpad_numkey(is_numlock_key, "k9", "kPageUp")
             }
