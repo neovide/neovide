@@ -4,7 +4,6 @@
 use std::{
     io::{Error, ErrorKind, Result},
     process::Stdio,
-    sync::Arc,
 };
 
 use nvim_rs::{error::LoopError, neovim::Neovim, Handler};
@@ -23,7 +22,7 @@ type BoxedReader = Box<dyn AsyncRead + Send + Unpin + 'static>;
 type BoxedWriter = Box<dyn AsyncWrite + Send + Unpin + 'static>;
 
 pub struct NeovimSession {
-    pub neovim: Arc<Neovim<NeovimWriter>>,
+    pub neovim: Neovim<NeovimWriter>,
     pub io_handle: JoinHandle<std::result::Result<(), Box<LoopError>>>,
 }
 
@@ -38,7 +37,7 @@ impl NeovimSession {
         let io_handle = spawn(io);
 
         Ok(Self {
-            neovim: Arc::new(neovim),
+            neovim: neovim,
             io_handle,
         })
     }
