@@ -79,7 +79,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Neovide</a></li><li class="spacer"></li><li class="chapter-item expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">3.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="command-line-reference.html"><strong aria-hidden="true">4.</strong> Command Line Reference</a></li><li class="chapter-item expanded "><a href="config-file.html"><strong aria-hidden="true">5.</strong> Config File</a></li><li class="chapter-item expanded "><a href="editing-with-external-tools.html"><strong aria-hidden="true">6.</strong> Editing w/ External Tools</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">7.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">8.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="maintainer-cookbook.html"><strong aria-hidden="true">9.</strong> Maintainer Cookbook</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Neovide</a></li><li class="spacer"></li><li class="chapter-item expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">3.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="commands.html"><strong aria-hidden="true">4.</strong> Commands</a></li><li class="chapter-item expanded "><a href="command-line-reference.html"><strong aria-hidden="true">5.</strong> Command Line Reference</a></li><li class="chapter-item expanded "><a href="config-file.html"><strong aria-hidden="true">6.</strong> Config File</a></li><li class="chapter-item expanded "><a href="editing-with-external-tools.html"><strong aria-hidden="true">7.</strong> Editing w/ External Tools</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">8.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">9.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="maintainer-cookbook.html"><strong aria-hidden="true">10.</strong> Maintainer Cookbook</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -1048,6 +1048,21 @@ more &quot;nervous&quot;, the lower, the more it looks like a collapsing sine wa
 <!--
   vim: textwidth=100
 -->
+<div style="break-before: page; page-break-before: always;"></div><h1 id="commands"><a class="header" href="#commands">Commands</a></h1>
+<p>On startup, Neovide registers some commands for interacting
+with the os and platform window. These are neovim commands
+accessible via <code>:{command name}</code>.</p>
+<h2 id="registerunregister-right-click"><a class="header" href="#registerunregister-right-click">Register/Unregister Right Click</a></h2>
+<p>On windows you can register a right click context menu item
+to edit a given file with Neovide. This can be done at any
+time by running the <code>NeovideRegisterRightClick</code> command. This can
+be undone with the <code>NeovideUnregisterRightClick</code> command.</p>
+<h2 id="focus-window"><a class="header" href="#focus-window">Focus Window</a></h2>
+<p>Running the <code>NeovideFocus</code> command will bring the platform
+window containing Neovide to the front and activate it. This
+is useful for tools like neovim_remote which can manipulate
+neovim remotely or if long running tasks would like to
+activate the Neovide window after finishing.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="command-line-reference"><a class="header" href="#command-line-reference">Command Line Reference</a></h1>
 <p>Neovide supports a few command line arguments for effecting things which couldn't be set using
 normal vim variables.</p>
