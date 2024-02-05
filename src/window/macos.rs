@@ -1,20 +1,20 @@
 use icrate::{
     AppKit::{
-        NSColor, NSEvent, NSView, NSViewMinYMargin, NSViewWidthSizable, NSWindow,
-        NSWindowStyleMaskFullScreen, NSWindowStyleMaskTitled,
+        NSApplication, NSColor, NSEvent, NSMenu, NSMenuItem, NSView, NSViewMinYMargin,
+        NSViewWidthSizable, NSWindow, NSWindowStyleMaskFullScreen, NSWindowStyleMaskTitled,
     },
-    Foundation::{MainThreadMarker, NSPoint, NSRect, NSSize},
+    Foundation::{MainThreadMarker, NSPoint, NSRect, NSSize, NSString},
 };
-use objc2::{declare_class, msg_send_id, mutability::InteriorMutable, rc::Id, ClassType};
+use objc2::{declare_class, msg_send_id, mutability::InteriorMutable, rc::Id, sel, ClassType};
 
 use csscolorparser::Color;
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-use winit::window::{Window};
 use winit::event::{Event, WindowEvent};
+use winit::window::Window;
 
 use crate::{
     cmd_line::CmdLineSettings, error_msg, frame::Frame, renderer::WindowedContext,
-    settings::SETTINGS, window::UserEvent
+    settings::SETTINGS, window::UserEvent,
 };
 
 use super::WindowSettings;
@@ -189,39 +189,44 @@ impl Default for Menu {
 
 impl Menu {
     pub fn ensure_menu_added(&mut self, ev: &Event<UserEvent>) {
-        if let Event::WindowEvent { event: WindowEvent::Focused(_), .. } =  ev {
+        if let Event::WindowEvent {
+            event: WindowEvent::Focused(_),
+            ..
+        } = ev
+        {
             if !self.menu_added {
-                self.add_window_menu();
+                self.add_menus();
                 self.menu_added = true;
             }
         }
     }
 
-    #[cfg(target_os = "macos")]
-    fn add_window_menu(&self) {
-        use cocoa::appkit::{NSApplication, NSMenu, NSMenuItem};
-        use cocoa::base::{nil, selector};
-        use cocoa::foundation::{NSAutoreleasePool, NSString};
+    fn add_menus(&self) {
+        let app = unsafe { NSApplication::sharedApplication() };
 
         unsafe {
-            let app = NSApplication::sharedApplication(nil);
-            let main_menu = app.mainMenu();
-            let win_menu_item = NSMenuItem::new(nil).autorelease();
-            main_menu.addItem_(win_menu_item);
+            let main_menu = app.mainMenu().unwrap();
 
-            let menu_title = NSString::alloc(nil).autorelease().init_str("Window");
-            let menu = NSMenu::new(nil).autorelease().initWithTitle_(menu_title);
+            let win_menu = self.add_window_menu();
+            let win_menu_item = NSMenuItem::new();
+            win_menu_item.setSubmenu(Some(&win_menu));
+            main_menu.addItem(&win_menu_item);
+            app.setWindowsMenu(Some(&win_menu));
+        }
+    }
 
-            let min_item = NSMenuItem::alloc(nil)
-                .autorelease()
-                .initWithTitle_action_keyEquivalent_(
-                    NSString::alloc(nil).autorelease().init_str("Minimize"),
-                    selector("performMiniaturize:"),
-                    NSString::alloc(nil).autorelease().init_str("m"),
-                );
-            menu.addItem_(min_item);
-            win_menu_item.setSubmenu_(menu);
-            app.setWindowsMenu_(menu);
+    fn add_window_menu(&self) -> Id<NSMenu> {
+        let menu_title = NSString::from_str("Window");
+        unsafe {
+            let menu = NSMenu::new();
+            menu.setTitle(&menu_title);
+
+            let min_item = NSMenuItem::new();
+            min_item.setTitle(&NSString::from_str("Minimize"));
+            min_item.setKeyEquivalent(&NSString::from_str("m"));
+            min_item.setAction(Some(sel!(performMiniaturize:)));
+            menu.addItem(&min_item);
+            menu
         }
     }
 }
