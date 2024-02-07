@@ -37,7 +37,7 @@ impl NeovimSession {
         let io_handle = spawn(io);
 
         Ok(Self {
-            neovim: neovim,
+            neovim,
             io_handle,
         })
     }
