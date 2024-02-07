@@ -1,5 +1,8 @@
-use std::fmt::{Display, Formatter};
-use std::sync::Arc;
+use std::{
+    fmt::{Display, Formatter},
+    num::NonZeroUsize,
+    sync::Arc,
+};
 
 use log::trace;
 use lru::LruCache;
@@ -75,7 +78,7 @@ impl FontLoader {
     pub fn new(font_size: f32) -> FontLoader {
         FontLoader {
             font_mgr: FontMgr::new(),
-            cache: LruCache::new(20),
+            cache: LruCache::new(NonZeroUsize::new(20).unwrap()),
             font_size,
             last_resort: None,
         }

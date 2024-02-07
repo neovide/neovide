@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{num::NonZeroUsize, sync::Arc};
 
 use itertools::Itertools;
 use log::{debug, error, trace, warn};
@@ -47,7 +47,7 @@ impl CachingShaper {
         let mut shaper = CachingShaper {
             options,
             font_loader: FontLoader::new(font_size),
-            blob_cache: LruCache::new(10000),
+            blob_cache: LruCache::new(NonZeroUsize::new(10000).unwrap()),
             shape_context: ShapeContext::new(),
             scale_factor,
             fudge_factor: 1.0,

@@ -44,7 +44,7 @@ image = { version = "0.24.1", default-features = false, features = ["ico"] }
 itertools = "0.10.5"
 lazy_static = "1.4.0"
 log = "0.4.16"
-lru = "0.7.5"
+lru = "0.12.2"
 neovide-derive = { path = "neovide-derive", version = "0.1.0" }
 num = "0.4.1"
 nvim-rs = { version = "0.6.0", features = ["use_tokio"] }
