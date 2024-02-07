@@ -245,6 +245,11 @@ pub fn create_window(
     let gl_window = build_window(winit_window_builder, event_loop);
     let window = &gl_window.window;
 
+    #[cfg(target_os = "macos")]
+    if let Some(previous_position) = previous_position {
+        window.set_outer_position(previous_position);
+    }
+
     // Check that window is visible in some monitor, and reposition it if not.
     window.current_monitor().and_then(|current_monitor| {
         let monitor_position = current_monitor.position();
