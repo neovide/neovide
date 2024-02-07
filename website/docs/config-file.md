@@ -33,6 +33,7 @@ srgb = false
 idle = true
 neovim-bin = "/usr/bin/nvim" # in reality found dynamically on $PATH if unset
 frame = "full"
+title-hidden = true
 ```
 
 Settings from environment variables can be found in [Command Line Reference](command-line-reference.md),
