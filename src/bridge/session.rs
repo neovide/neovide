@@ -36,10 +36,7 @@ impl NeovimSession {
             Neovim::<NeovimWriter>::new(reader.compat(), Box::new(writer.compat_write()), handler);
         let io_handle = spawn(io);
 
-        Ok(Self {
-            neovim,
-            io_handle,
-        })
+        Ok(Self { neovim, io_handle })
     }
 }
 
