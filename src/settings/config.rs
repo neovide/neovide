@@ -47,6 +47,7 @@ pub struct Config {
     pub frame: Option<Frame>,
     pub theme: Option<String>,
     pub font: Option<FontSettings>,
+    pub title_hidden: Option<bool>,
     pub no_transparency: Option<bool>,
 }
 
@@ -101,6 +102,9 @@ impl Config {
         }
         if let Some(theme) = &self.theme {
             env::set_var("NEOVIDE_THEME", theme);
+        }
+        if let Some(title_hidden) = &self.title_hidden {
+            env::set_var("NEOVIDE_TITLE_HIDDEN", title_hidden.to_string());
         }
         if let Some(no_transparency) = &self.no_transparency {
             env::set_var("NEOVIDE_NO_TRANSPARENCY", no_transparency.to_string());
