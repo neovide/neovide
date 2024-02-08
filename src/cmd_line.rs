@@ -78,6 +78,10 @@ pub struct CmdLineSettings {
     #[arg(long = "no-idle", env = "NEOVIDE_IDLE", action = ArgAction::SetFalse, value_parser = FalseyValueParser::new())]
     pub idle: bool,
 
+    /// Disable transparent backgrounds. If enabled, ignores the `neovide_transparency` vim global
+    #[arg(long = "no-transparency", env = "NEOVIDE_NO_TRANSPARENCY", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
+    pub no_transparency: bool,
+
     /// Disable opening multiple files supplied in tabs (they're still buffers)
     #[arg(long = "no-tabs")]
     pub no_tabs: bool,

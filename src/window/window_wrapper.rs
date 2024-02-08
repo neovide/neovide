@@ -8,6 +8,7 @@ use crate::windows_utils::{register_right_click, unregister_right_click};
 use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
     dimensions::Dimensions,
+    error_msg,
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
     renderer::{build_context, DrawCommand, GlWindow, Renderer, VSync, WindowedContext},
     running_tracker::RUNNING_TRACKER,
@@ -238,6 +239,12 @@ impl WinitWindowWrapper {
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::Transparency(opacity) => {
                 log::info!("transparency changed to {}", opacity);
+                if opacity < 1.0 && SETTINGS.get::<CmdLineSettings>().no_transparency {
+                    error_msg!(
+                        "Transparency is disabled because the `no-transparency` option is set."
+                    );
+                    return;
+                }
                 invalidate_shadow(self.windowed_context.window());
                 set_window_blurred(self.windowed_context.window(), opacity);
             }

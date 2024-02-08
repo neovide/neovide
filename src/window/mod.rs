@@ -137,7 +137,7 @@ pub fn create_event_loop() -> EventLoop<UserEvent> {
 #[cfg(target_os = "macos")]
 pub fn set_window_blurred(window: &Window, opacity: f32) {
     let window_blurred = SETTINGS.get::<WindowSettings>().window_blurred;
-    let opaque = opacity >= 1.0;
+    let opaque = opacity >= 1.0 || SETTINGS.get::<CmdLineSettings>().no_transparency;
 
     window.set_blur(window_blurred && !opaque);
 }
@@ -149,7 +149,7 @@ pub fn invalidate_shadow(window: &Window) {
     use cocoa::base::YES;
 
     let window_transparency = &SETTINGS.get::<WindowSettings>().transparency;
-    let opaque = *window_transparency >= 1.0;
+    let opaque = *window_transparency >= 1.0 || SETTINGS.get::<CmdLineSettings>().no_transparency;
 
     let raw_window = match window.raw_window_handle() {
         #[cfg(target_os = "macos")]
@@ -187,6 +187,8 @@ pub fn create_window(
         _ => DEFAULT_WINDOW_SIZE,
     };
 
+    let transparent = !cmd_line_settings.no_transparency;
+
     let winit_window_builder = WindowBuilder::new()
         .with_title("Neovide")
         .with_window_icon(Some(icon))
@@ -194,7 +196,7 @@ pub fn create_window(
         // Unfortunately we can't maximize here, because winit shows the window momentarily causing
         // flickering
         .with_maximized(false)
-        .with_transparent(SETTINGS.get::<WindowSettings>().transparency < 1.0)
+        .with_transparent(transparent)
         .with_visible(false);
 
     let frame_decoration = cmd_line_settings.frame;

@@ -47,6 +47,7 @@ pub struct Config {
     pub frame: Option<Frame>,
     pub theme: Option<String>,
     pub font: Option<FontSettings>,
+    pub no_transparency: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -100,6 +101,9 @@ impl Config {
         }
         if let Some(theme) = &self.theme {
             env::set_var("NEOVIDE_THEME", theme);
+        }
+        if let Some(no_transparency) = &self.no_transparency {
+            env::set_var("NEOVIDE_NO_TRANSPARENCY", no_transparency.to_string());
         }
     }
 

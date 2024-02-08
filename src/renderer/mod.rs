@@ -19,6 +19,7 @@ use winit::event::Event;
 
 use crate::{
     bridge::EditorMode,
+    cmd_line::CmdLineSettings,
     dimensions::Dimensions,
     editor::{Cursor, Style},
     profiling::{tracy_named_frame, tracy_zone},
@@ -100,6 +101,8 @@ pub struct Renderer {
     profiler: profiler::Profiler,
     os_scale_factor: f64,
     user_scale_factor: f64,
+
+    no_transparency: bool,
 }
 
 /// Results of processing the draw commands from the command channel.
@@ -111,6 +114,7 @@ pub struct DrawCommandResult {
 impl Renderer {
     pub fn new(os_scale_factor: f64, init_font_settings: Option<FontSettings>) -> Self {
         let window_settings = SETTINGS.get::<WindowSettings>();
+        let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
 
         let user_scale_factor = window_settings.scale_factor.into();
         let scale_factor = user_scale_factor * os_scale_factor;
@@ -124,6 +128,8 @@ impl Renderer {
 
         let profiler = profiler::Profiler::new(12.0);
 
+        let no_transparency = cmd_line_settings.no_transparency;
+
         Renderer {
             rendered_windows,
             cursor_renderer,
@@ -133,6 +139,7 @@ impl Renderer {
             profiler,
             os_scale_factor,
             user_scale_factor,
+            no_transparency,
         }
     }
 
@@ -153,7 +160,10 @@ impl Renderer {
         let default_background = self.grid_renderer.get_default_background();
         let font_dimensions = self.grid_renderer.font_dimensions;
 
-        let transparency = { SETTINGS.get::<WindowSettings>().transparency };
+        let transparency = match self.no_transparency {
+            true => 1.0,
+            false => SETTINGS.get::<WindowSettings>().transparency,
+        };
         root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
         root_canvas.save();
         root_canvas.reset_matrix();
