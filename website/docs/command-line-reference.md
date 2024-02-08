@@ -166,6 +166,19 @@ buffers.
 Note: Even if files are opened in tabs, they're buffers anyways. It's just about them being visible
 or not.
 
+### No Transparency
+
+```sh
+--no-transparency or $NEOVIDE_NO_TRANSPARENCY
+```
+
+By default, Neovide creates a transparent window, even if `g:neovide_transparency` is set to `1` (opaque),
+to allow changing the transparency without having to restart Neovide.
+
+When this option is set, Neovide creates an opaque window and `g:neovide_transparency` is disabled.
+
+On macOS this slightly changes the appearance of the window.
+
 ### No VSync
 
 ```sh
