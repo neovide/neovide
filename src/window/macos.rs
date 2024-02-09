@@ -66,11 +66,9 @@ impl MacosWindowFeature {
             _ => panic!("Not an appkit window."),
         };
 
-        if let Ok(color) = &SETTINGS
-            .get::<WindowSettings>()
-            .background_color
-            .parse::<Color>()
-        {
+        let window_settings = SETTINGS.get::<WindowSettings>();
+
+        if let Ok(color) = &window_settings.background_color.parse::<Color>() {
             error_msg!(concat!(
                 "neovide_background_color has now been deprecated. ",
                 "Use neovide_transparency instead if you want to get a transparent window titlebar. ",
@@ -117,12 +115,16 @@ impl MacosWindowFeature {
 
         let is_fullscreen = unsafe { ns_window.styleMask() } & NSWindowStyleMaskFullScreen != 0;
 
-        MacosWindowFeature {
+        let macos_window_feature = MacosWindowFeature {
             ns_window,
             titlebar_click_handler,
             extra_titlebar_height_in_pixel,
             is_fullscreen,
-        }
+        };
+
+        macos_window_feature.update_transparency(window_settings.transparency);
+
+        macos_window_feature
     }
 
     // Used to calculate the value of TITLEBAR_HEIGHT, aka, titlebar height in dpi-independent length.
@@ -172,6 +174,22 @@ impl MacosWindowFeature {
             0
         } else {
             self.extra_titlebar_height_in_pixel
+        }
+    }
+
+    /// Updates window properties affected by transparency
+    /// (shadow, background color and opaqueness)
+    pub fn update_transparency(&self, transparency: f32) {
+        let opaque = transparency >= 1.0;
+
+        unsafe {
+            let background_color = match opaque {
+                true => NSColor::windowBackgroundColor(),
+                false => NSColor::clearColor(),
+            };
+            self.ns_window.setBackgroundColor(Some(&background_color));
+            self.ns_window.setHasShadow(opaque);
+            self.ns_window.setOpaque(opaque);
         }
     }
 }

@@ -19,7 +19,7 @@ use crate::{
 };
 
 #[cfg(target_os = "macos")]
-use crate::window::{invalidate_shadow, set_window_blurred};
+use crate::window::set_window_blurred;
 
 #[cfg(target_os = "macos")]
 use super::macos::MacosWindowFeature;
@@ -236,10 +236,11 @@ impl WinitWindowWrapper {
                 }
             }
             #[cfg(target_os = "macos")]
-            WindowSettingsChanged::Transparency(opacity) => {
-                log::info!("transparency changed to {}", opacity);
-                invalidate_shadow(self.windowed_context.window());
-                set_window_blurred(self.windowed_context.window(), opacity);
+            WindowSettingsChanged::Transparency(transparency) => {
+                log::info!("transparency changed to {}", transparency);
+                let window = self.windowed_context.window();
+                self.macos_feature.update_transparency(transparency);
+                set_window_blurred(window, transparency);
             }
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::WindowBlurred(window_blurred) => {
