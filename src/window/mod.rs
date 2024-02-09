@@ -182,7 +182,6 @@ pub fn create_window(
         Frame::Full => winit_window_builder,
         Frame::None => winit_window_builder.with_decorations(false),
         Frame::Buttonless => winit_window_builder
-            .with_transparent(true)
             .with_title_hidden(title_hidden)
             .with_titlebar_buttons_hidden(true)
             .with_titlebar_transparent(true)
