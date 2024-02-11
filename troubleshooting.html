@@ -198,6 +198,57 @@ As a temporary work around, you may set <code>g:neovide_refresh_rate</code> to t
 </ul>
 </li>
 </ul>
+<h2 id="performance-profiling"><a class="header" href="#performance-profiling">Performance Profiling</a></h2>
+<p>If you encounter a performance problem like frame rate stuttering, besides attaching a log file
+when reporting bugs, <a href="https://github.com/wolfpld/tracy">tracy</a> profiling data will also be very
+useful and can usually help developers to troubleshoot the bug much faster. Here is how you can
+collect tracy data.</p>
+<ol>
+<li>
+<p><em>Install tracy.</em> Windows users can download it at
+<a href="https://github.com/wolfpld/tracy/releases">its GitHub release page</a>. Linux and macOS users can
+install it with package manager. Otherwise, you may have to build it yourself following tracy
+docs.</p>
+</li>
+<li>
+<p><em>Build a profiling version of Neovide.</em> Follow
+<a href="https://neovide.dev/installation.html">the installation page</a> to install all required
+dependencies and Rust SDK. Download or clone
+<a href="https://github.com/neovide/neovide">source code of Neovide</a>. Build it with following commands.
+Note that you need to specify <strong>both</strong> <code>--profile profiling</code> and <code>--features profiling</code>, so that
+Neovide is built for a profiling version. Or, you can skip these commands, and let <code>cargo run</code>
+in step 5 build it automatically before running.</p>
+<pre><code class="language-sh">cd [neovide-source-dir]
+cargo build --profile profiling --features profiling
+</code></pre>
+</li>
+<li>
+<p><em>Prepare tracy for collecting data.</em> Start tracy with,</p>
+<pre><code class="language-sh">tracy-capture -o [log-file-path]
+</code></pre>
+<p>You will see output like this,</p>
+<pre><code class="language-plain">Connecting to 127.0.0.1:8086...
+</code></pre>
+<p>It means tracy begins to wait for Neovide and will capture profiling data once it starts.</p>
+</li>
+<li>
+<p><em>Running Neovide and reproduce the performance issue.</em> Start Neovide with following
+commands in another terminal. If you have built Neovide with commands in step 3, this should
+be very fast. If not, it will build Neovide first. You have to specify
+<code>--profile profiling</code> and <code>--features profiling</code> here, too.</p>
+<pre><code class="language-sh">cd [neovide-source-dir]
+cargo run --profile profiling --features profiling -- --no-fork [neovide-arguments...]
+</code></pre>
+<p>Now do whatever leads to performance issue in Neovide and exit.</p>
+</li>
+<li>
+<p><em>Get the tracy data and report bugs with it.</em> Turn to tracy, you will see output like,</p>
+<pre><code class="language-plain">Saving trace... done!
+</code></pre>
+<p>You will find tracy log file at the path you specified before. Attach it in your bug
+report! You can also view it yourself with <code>tracy [log-file-path]</code>.</p>
+</li>
+</ol>
 
                     </main>
 
