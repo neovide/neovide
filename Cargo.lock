@@ -1789,9 +1789,9 @@ dependencies = [
 
 [[package]]
 name = "nvim-rs"
-version = "0.6.0"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9156b04d79079937abae1eb912669c48c360fb5d86138052a9bbae9c5220a71e"
+checksum = "45fcd98ddbb0c866684dacec0d99a7c623c1784b0facfd44cfee17cc79aa81b2"
 dependencies = [
  "async-trait",
  "futures 0.3.30",
@@ -1801,6 +1801,7 @@ dependencies = [
  "rmpv",
  "tokio",
  "tokio-util",
+ "winapi",
 ]
 
 [[package]]

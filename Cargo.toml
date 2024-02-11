@@ -47,7 +47,7 @@ log = "0.4.16"
 lru = "0.12.2"
 neovide-derive = { path = "neovide-derive", version = "0.1.0" }
 num = "0.4.1"
-nvim-rs = { version = "0.6.0", features = ["use_tokio"] }
+nvim-rs = { version = "0.7.0", features = ["use_tokio"] }
 parking_lot = "0.12.0"
 rand = "0.8.5"
 raw-window-handle = "0.5.0"

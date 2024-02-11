@@ -11,7 +11,7 @@ use itertools::Itertools;
 use log::{error, info};
 use nvim_rs::{error::CallError, Neovim, UiAttachOptions, Value};
 use rmpv::Utf8String;
-use std::{io::Error, ops::Add, sync::Arc};
+use std::{io::Error, ops::Add};
 use tokio::runtime::{Builder, Runtime};
 use winit::event_loop::EventLoopProxy;
 
@@ -109,7 +109,7 @@ async fn launch(handler: NeovimHandler, grid_size: Option<Dimensions>) -> Result
     let should_handle_clipboard = settings.wsl || settings.server.is_some();
     setup_neovide_specific_state(&session.neovim, should_handle_clipboard).await?;
 
-    start_ui_command_handler(Arc::clone(&session.neovim));
+    start_ui_command_handler(session.neovim.clone());
     SETTINGS.read_initial_values(&session.neovim).await?;
 
     let mut options = UiAttachOptions::new();
