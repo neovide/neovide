@@ -115,16 +115,12 @@ impl MacosWindowFeature {
 
         let is_fullscreen = unsafe { ns_window.styleMask() } & NSWindowStyleMaskFullScreen != 0;
 
-        let macos_window_feature = MacosWindowFeature {
+        MacosWindowFeature {
             ns_window,
             titlebar_click_handler,
             extra_titlebar_height_in_pixel,
             is_fullscreen,
-        };
-
-        macos_window_feature.update_transparency(window_settings.transparency);
-
-        macos_window_feature
+        }
     }
 
     // Used to calculate the value of TITLEBAR_HEIGHT, aka, titlebar height in dpi-independent length.
@@ -177,19 +173,22 @@ impl MacosWindowFeature {
         }
     }
 
-    /// Updates window properties affected by transparency
-    /// (shadow, background color and opaqueness)
-    pub fn update_transparency(&self, transparency: f32) {
+    /// Set background color, shadow and transparency/opaqueness of the window
+    pub fn set_background(&self, transparency: f32, show_border: bool) {
         let opaque = transparency >= 1.0;
 
         unsafe {
-            let background_color = match opaque {
+            // Setting the background color to `NSColor::windowBackgroundColor()`
+            // makes the background opaque and draws a grey border around the window
+            let background_color = match opaque && show_border {
                 true => NSColor::windowBackgroundColor(),
                 false => NSColor::clearColor(),
             };
             self.ns_window.setBackgroundColor(Some(&background_color));
             self.ns_window.setHasShadow(opaque);
             self.ns_window.setOpaque(opaque);
+
+            self.ns_window.invalidateShadow();
         }
     }
 }

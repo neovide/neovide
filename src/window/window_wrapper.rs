@@ -79,7 +79,7 @@ pub struct WinitWindowWrapper {
     theme: Option<Theme>,
     pub vsync: VSync,
     #[cfg(target_os = "macos")]
-    macos_feature: MacosWindowFeature,
+    pub macos_feature: MacosWindowFeature,
 }
 
 impl WinitWindowWrapper {
@@ -236,11 +236,17 @@ impl WinitWindowWrapper {
                 }
             }
             #[cfg(target_os = "macos")]
+            WindowSettingsChanged::ShowBorder(show_border) => {
+                log::info!("show_border changed to {}", show_border);
+                let transparency = SETTINGS.get::<WindowSettings>().transparency;
+                self.macos_feature.set_background(transparency, show_border);
+            }
+            #[cfg(target_os = "macos")]
             WindowSettingsChanged::Transparency(transparency) => {
                 log::info!("transparency changed to {}", transparency);
-                let window = self.windowed_context.window();
-                self.macos_feature.update_transparency(transparency);
-                set_window_blurred(window, transparency);
+                let show_border = SETTINGS.get::<WindowSettings>().show_border;
+                self.macos_feature.set_background(transparency, show_border);
+                set_window_blurred(self.windowed_context.window(), transparency);
             }
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::WindowBlurred(window_blurred) => {
