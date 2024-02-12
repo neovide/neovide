@@ -90,6 +90,7 @@ pub struct RenderedWindow {
     pub scroll_animation: CriticallyDampedSpringAnimation,
 
     has_transparency: bool,
+    has_native_border: Option<f32>,
 }
 
 #[derive(Clone, Debug)]
@@ -107,6 +108,25 @@ impl WindowDrawDetails {
             self.id
         }
     }
+}
+
+#[derive(Clone, Debug)]
+enum NextToCursor {
+    None,
+    Top,
+    Bottom,
+}
+
+#[derive(Debug)]
+pub struct RenderedWindowDrawOptions<'a, 'b> {
+    pub default_background: Color,
+    pub font_dimensions: Dimensions,
+    pub native_border_width: f32,
+    pub current_cursor_position: &'a Point,
+    pub previous_floating_rects: &'b mut Vec<Rect>,
+    pub cursor_in_window: bool,
+    pub native_border_inactive_color: Color,
+    pub native_border_active_color: Color,
 }
 
 impl RenderedWindow {
@@ -134,16 +154,93 @@ impl RenderedWindow {
             scroll_animation: CriticallyDampedSpringAnimation::new(),
 
             has_transparency: false,
+            has_native_border: None,
         }
     }
 
-    pub fn pixel_region(&self, font_dimensions: Dimensions) -> Rect {
-        let current_pixel_position = Point::new(
+    pub fn is_bottommost_floating(
+        &self,
+        settings: &RendererSettings,
+        previous_floating_rects: &[Rect],
+        region: &Rect,
+    ) -> bool {
+        self.anchor_info.is_some()
+            && settings.floating_shadow
+            && !previous_floating_rects
+                .iter()
+                .any(|rect| rect.contains(region))
+    }
+
+    fn valid_sort_order(&self) -> bool {
+        if let Some(anchor) = &self.anchor_info {
+            // It's a hack to detect whether this is the cmdline window.
+            anchor.sort_order >= 50 && anchor.sort_order != u64::MAX
+        } else {
+            false
+        }
+    }
+
+    fn next_to_cursor(
+        &self,
+        current_cursor_position: &Point,
+        font_dimensions: Dimensions,
+    ) -> NextToCursor {
+        let grid_cursor_x = current_cursor_position.x / font_dimensions.width as f32;
+        let grid_cursor_y = current_cursor_position.y / font_dimensions.height as f32;
+        let x_range = (
+            (self.grid_current_position.x - 1.0),
+            (self.grid_current_position.x + 1.0),
+        );
+        if grid_cursor_x < x_range.0 && grid_cursor_x > x_range.1 {
+            return NextToCursor::None;
+        }
+        if grid_cursor_y == self.grid_current_position.y + self.grid_size.height as f32 {
+            NextToCursor::Bottom
+        } else if grid_cursor_y == self.grid_current_position.y - 1.0 {
+            NextToCursor::Top
+        } else {
+            NextToCursor::None
+        }
+    }
+
+    pub fn pixel_region(
+        &self,
+        font_dimensions: Dimensions,
+        native_border_width: f32,
+        current_cursor_position: &Point,
+    ) -> Rect {
+        let mut current_pixel_position = Point::new(
             self.grid_current_position.x * font_dimensions.width as f32,
             self.grid_current_position.y * font_dimensions.height as f32,
         );
 
-        let image_size: (i32, i32) = (self.grid_size * font_dimensions).into();
+        let mut image_size: (i32, i32) = (self.grid_size * font_dimensions).into();
+        let has_native_border = self.anchor_info.is_some()
+            && self.valid_sort_order()
+            && native_border_width > 0.0
+            && self.top_border.is_empty()
+            && self.bottom_border.is_empty();
+
+        if has_native_border {
+            // Adjust the x position to make sure after rounding the border, the character is still
+            // aligned
+            current_pixel_position.x -= native_border_width;
+            // If the floating window is next to the cursor, adjust the y position to avoid the
+            // border overlapping current cursor
+            let next_to_cursor = self.next_to_cursor(current_cursor_position, font_dimensions);
+            match next_to_cursor {
+                NextToCursor::None => {}
+                NextToCursor::Top => {
+                    current_pixel_position.y += native_border_width;
+                }
+                NextToCursor::Bottom => {
+                    current_pixel_position.y -= native_border_width * 2.0;
+                }
+            }
+
+            image_size.0 += native_border_width as i32 * 2;
+            image_size.1 += native_border_width as i32 * 2;
+        }
 
         Rect::from_point_and_size(current_pixel_position, image_size)
     }
@@ -336,6 +433,7 @@ impl RenderedWindow {
                 canvas.draw_picture(foreground_picture, Some(matrix), None);
             }
         }
+
         canvas.restore();
         self.has_transparency = has_transparency;
     }
@@ -357,21 +455,33 @@ impl RenderedWindow {
         &mut self,
         root_canvas: &Canvas,
         settings: &RendererSettings,
-        default_background: Color,
-        font_dimensions: Dimensions,
-        previous_floating_rects: &mut Vec<Rect>,
+        options: RenderedWindowDrawOptions,
     ) -> WindowDrawDetails {
-        let has_transparency = default_background.a() != 255 || self.has_transparency();
+        let has_transparency = options.default_background.a() != 255 || self.has_transparency();
 
-        let pixel_region = self.pixel_region(font_dimensions);
+        let region_without_border = self.pixel_region(
+            options.font_dimensions,
+            0.0,
+            options.current_cursor_position,
+        );
+        let pixel_region = self.pixel_region(
+            options.font_dimensions,
+            options.native_border_width,
+            options.current_cursor_position,
+        );
         let transparent_floating = self.anchor_info.is_some() && has_transparency;
+        let is_bottommost_floating = self.is_bottommost_floating(
+            settings,
+            options.previous_floating_rects,
+            &region_without_border,
+        );
+        let has_native_border = is_bottommost_floating
+            && options.native_border_width > 0.0
+            && self.valid_sort_order()
+            && self.top_border.is_empty()
+            && self.bottom_border.is_empty();
 
-        if self.anchor_info.is_some()
-            && settings.floating_shadow
-            && !previous_floating_rects
-                .iter()
-                .any(|rect| rect.contains(pixel_region))
-        {
+        if is_bottommost_floating {
             root_canvas.save();
             let shadow_path = Path::rect(pixel_region, None);
             // We clip using the Difference op to make sure that the shadow isn't rendered inside
@@ -399,11 +509,25 @@ impl RenderedWindow {
                 Some(ShadowFlags::DIRECTIONAL_LIGHT),
             );
             root_canvas.restore();
-            previous_floating_rects.push(pixel_region);
+            options.previous_floating_rects.push(region_without_border);
         }
 
         root_canvas.save();
         root_canvas.clip_rect(pixel_region, None, Some(false));
+
+        let content_region = if has_native_border {
+            Rect::from_xywh(
+                pixel_region.x() + options.native_border_width,
+                pixel_region.y() + options.native_border_width,
+                pixel_region.width() - options.native_border_width * 2.0,
+                pixel_region.height() - options.native_border_width * 2.0,
+            )
+        } else {
+            pixel_region
+        };
+
+        root_canvas.save();
+        root_canvas.clip_rect(content_region, None, Some(false));
         let need_blur = transparent_floating && settings.floating_blur;
 
         if need_blur {
@@ -422,7 +546,7 @@ impl RenderedWindow {
                     .to_owned();
                 let save_layer_rec = SaveLayerRec::default()
                     .backdrop(&blur)
-                    .bounds(&pixel_region)
+                    .bounds(&content_region)
                     .paint(&paint);
                 root_canvas.save_layer(&save_layer_rec);
                 root_canvas.restore();
@@ -431,7 +555,12 @@ impl RenderedWindow {
 
         let paint = Paint::default()
             .set_anti_alias(false)
-            .set_color(Color::from_argb(255, 255, 255, default_background.a()))
+            .set_color(Color::from_argb(
+                255,
+                255,
+                255,
+                options.default_background.a(),
+            ))
             .set_blend_mode(if self.anchor_info.is_some() {
                 BlendMode::SrcOver
             } else {
@@ -439,23 +568,51 @@ impl RenderedWindow {
             })
             .to_owned();
 
-        let save_layer_rec = SaveLayerRec::default().bounds(&pixel_region).paint(&paint);
+        let save_layer_rec = SaveLayerRec::default()
+            .bounds(&content_region)
+            .paint(&paint);
         root_canvas.save_layer(&save_layer_rec);
         self.draw_surface(
             root_canvas,
-            &pixel_region,
-            font_dimensions,
-            default_background,
+            &content_region,
+            options.font_dimensions,
+            options.default_background,
         );
         root_canvas.restore();
 
         root_canvas.restore();
+
+        // The cmdline window is always floating, but it should not have a border.
+        if has_native_border {
+            // draw a native window border around the floating window
+            let mut border_paint = Paint::default();
+            border_paint.set_stroke(true);
+            if options.cursor_in_window {
+                border_paint.set_color(options.native_border_active_color);
+            } else {
+                border_paint.set_color(options.native_border_inactive_color);
+            }
+            border_paint.set_stroke_width(options.native_border_width * 2.0);
+            root_canvas.draw_rect(pixel_region, &border_paint);
+        }
+
+        root_canvas.restore();
+
+        self.has_native_border = if has_native_border {
+            Some(options.native_border_width)
+        } else {
+            None
+        };
 
         WindowDrawDetails {
             id: self.id,
             region: pixel_region,
             floating_order: self.anchor_info.as_ref().map(|v| v.sort_order),
         }
+    }
+
+    pub fn has_native_border(&self) -> Option<f32> {
+        self.has_native_border
     }
 
     pub fn handle_window_draw_command(&mut self, draw_command: WindowDrawCommand) {
