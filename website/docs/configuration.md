@@ -269,6 +269,24 @@ Lua:
 vim.g.neovide_transparency = 0.8
 ```
 
+#### Show Border (Currently macOS only)
+
+VimScript:
+
+```vim
+let g:neovide_show_border = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_show_border = true
+```
+
+Draw a grey border around the window, as seen on most native macOS apps.
+
+Default: `false`
+
 ![Transparency](assets/Transparency.png)
 
 Setting `g:neovide_transparency` to a value between 0.0 and 1.0 will set the opacity of the window
