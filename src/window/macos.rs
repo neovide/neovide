@@ -16,6 +16,8 @@ use crate::{
     settings::SETTINGS,
 };
 
+use super::WindowSettings;
+
 declare_class!(
     // A view to simulate the double-click-to-zoom effect for `--frame transparency`.
     struct TitlebarClickHandler;
@@ -96,12 +98,22 @@ impl MacosWindowFeature {
 
         let is_fullscreen = unsafe { ns_window.styleMask() } & NSWindowStyleMaskFullScreen != 0;
 
-        MacosWindowFeature {
+        let macos_window_feature = MacosWindowFeature {
             ns_window,
             titlebar_click_handler,
             extra_titlebar_height_in_pixel,
             is_fullscreen,
-        }
+        };
+
+        let window_settings = SETTINGS.get::<WindowSettings>();
+        macos_window_feature.set_background(
+            window_settings.transparency,
+            window_settings.show_border,
+            window_settings.background_color,
+            false,
+        );
+
+        macos_window_feature
     }
 
     // Used to calculate the value of TITLEBAR_HEIGHT, aka, titlebar height in dpi-independent length.
@@ -162,8 +174,6 @@ impl MacosWindowFeature {
         background_color: String,
         no_error: bool,
     ) {
-        let opaque = transparency >= 1.0;
-
         // Handle `g:neovide_background_color` (deprecated since 0.12.2)
         if let Ok(color) = background_color.parse::<Color>() {
             if !no_error {
@@ -180,13 +190,14 @@ impl MacosWindowFeature {
                     NSColor::colorWithSRGBRed_green_blue_alpha(red, green, blue, alpha);
                 self.ns_window.setBackgroundColor(Some(&ns_background));
                 self.ns_window.setHasShadow(opaque);
-                self.ns_window.setOpaque(opaque);
+                self.ns_window.setOpaque(opaque && show_border);
                 self.ns_window.invalidateShadow();
             }
             return;
         }
 
         unsafe {
+            let opaque = transparency >= 1.0;
             // Setting the background color to `NSColor::windowBackgroundColor()`
             // makes the background opaque and draws a grey border around the window
             let ns_background = match opaque && show_border {
@@ -195,7 +206,9 @@ impl MacosWindowFeature {
             };
             self.ns_window.setBackgroundColor(Some(&ns_background));
             self.ns_window.setHasShadow(opaque);
-            self.ns_window.setOpaque(opaque);
+            // Setting the window to opaque upon window creation shows a
+            // permanent subtle grey border on the top edge of the window
+            self.ns_window.setOpaque(opaque && show_border);
             self.ns_window.invalidateShadow();
         }
     }
