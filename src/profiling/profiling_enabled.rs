@@ -1,3 +1,5 @@
+#[cfg(feature = "gpu_profiling")]
+use std::cell::{OnceCell, RefCell};
 use std::{os::raw::c_char, ptr::null};
 
 use tracy_client_sys::{
@@ -7,9 +9,7 @@ use tracy_client_sys::{
     ___tracy_fiber_leave, ___tracy_source_location_data, ___tracy_startup_profiler,
 };
 
-pub use crate::profiling::opengl::{
-    gpu_begin, gpu_end, tracy_create_gpu_context, tracy_gpu_collect,
-};
+use crate::renderer::SkiaRenderer;
 
 pub struct _LocationData {
     pub data: ___tracy_source_location_data,
@@ -66,7 +66,7 @@ pub const fn _create_location_data(
 }
 
 #[allow(dead_code)]
-fn is_connected() -> bool {
+pub fn is_connected() -> bool {
     unsafe { ___tracy_connected() > 0 }
 }
 
@@ -82,17 +82,20 @@ pub fn gpu_enabled() -> bool {
 
 pub struct _Zone {
     context: ___tracy_c_zone_context,
-    gpu: bool,
+    gpu_id: i64,
 }
 
 impl _Zone {
     pub fn new(loc_data: &___tracy_source_location_data, gpu: bool) -> Self {
         let context = unsafe { ___tracy_emit_zone_begin(loc_data, 1) };
-        let gpu = gpu && gpu_enabled();
-        if gpu {
-            gpu_begin(loc_data);
-        }
-        _Zone { context, gpu }
+        let gpu_id = {
+            if gpu && gpu_enabled() {
+                gpu_begin(loc_data)
+            } else {
+                -1
+            }
+        };
+        _Zone { context, gpu_id }
     }
 
     pub fn new_dynamic(line: u32, source: &str, name: &str, gpu: bool) -> Self {
@@ -111,24 +114,48 @@ impl _Zone {
         };
         let context = unsafe { ___tracy_emit_zone_begin_alloc(srcloc, 1) };
         let gpu = gpu && gpu_enabled();
-        if gpu {
-            unsafe {
-                gpu_begin(&*(srcloc as *const ___tracy_source_location_data));
-            }
-        }
-        _Zone { context, gpu }
+        let gpu_id = if gpu {
+            unsafe { gpu_begin(&*(srcloc as *const ___tracy_source_location_data)) }
+        } else {
+            -1
+        };
+        _Zone { context, gpu_id }
     }
 }
 
 impl Drop for _Zone {
     fn drop(&mut self) {
-        if self.gpu && gpu_enabled() {
-            gpu_end();
+        if self.gpu_id >= 0 && gpu_enabled() {
+            gpu_end(self.gpu_id);
         }
         unsafe {
             ___tracy_emit_zone_end(self.context);
         }
     }
+}
+
+// Don't change order, only add new entries at the end, this is also used on trace dumps!
+#[cfg(feature = "gpu_profiling")]
+#[allow(dead_code)]
+pub enum GpuContextType {
+    Invalid,
+    OpenGl,
+    Vulkan,
+    OpenCL,
+    Direct3D12,
+    Direct3D11,
+}
+
+#[cfg(feature = "gpu_profiling")]
+pub trait GpuCtx {
+    fn gpu_collect(&mut self);
+    fn gpu_begin(&mut self, loc_data: &___tracy_source_location_data) -> i64;
+    fn gpu_end(&mut self, query_id: i64);
+}
+
+#[cfg(feature = "gpu_profiling")]
+thread_local! {
+    static GPUCTX: OnceCell<RefCell<Box<dyn GpuCtx>>> = OnceCell::new();
 }
 
 pub fn startup_profiler() {
@@ -143,6 +170,62 @@ pub fn tracy_frame() {
         ___tracy_emit_frame_mark(null());
     }
 }
+
+#[cfg(not(feature = "gpu_profiling"))]
+pub fn tracy_create_gpu_context(_name: &str, _skia_renderer: &dyn SkiaRenderer) {}
+
+#[cfg(feature = "gpu_profiling")]
+pub fn tracy_create_gpu_context(name: &str, skia_renderer: &dyn SkiaRenderer) {
+    let context = skia_renderer.tracy_create_gpu_context(name);
+    GPUCTX.with(|ctx| {
+        ctx.set(RefCell::new(context)).unwrap_or_else(|_| {
+            panic!("tracy_create_gpu_context can only be called once per thread")
+        });
+    });
+}
+
+#[cfg(feature = "gpu_profiling")]
+pub fn tracy_gpu_collect() {
+    tracy_zone!("collect gpu info");
+    GPUCTX.with(|ctx| {
+        ctx.get()
+            .expect("Profiling context not initialized for current thread")
+            .borrow_mut()
+            .gpu_collect();
+    });
+}
+
+#[cfg(feature = "gpu_profiling")]
+fn gpu_begin(loc_data: &___tracy_source_location_data) -> i64 {
+    GPUCTX.with(|ctx| {
+        ctx.get()
+            .expect("Profiling context not initialized for current thread")
+            .borrow_mut()
+            .gpu_begin(loc_data)
+    })
+}
+
+#[cfg(feature = "gpu_profiling")]
+fn gpu_end(query_id: i64) {
+    GPUCTX.with(|ctx| {
+        ctx.get()
+            .expect("Profiling context not initialized for current thread")
+            .borrow_mut()
+            .gpu_end(query_id);
+    });
+}
+
+#[cfg(not(feature = "gpu_profiling"))]
+#[inline(always)]
+pub fn tracy_gpu_collect() {}
+#[cfg(not(feature = "gpu_profiling"))]
+#[inline(always)]
+fn gpu_begin(_loc_data: &___tracy_source_location_data) -> i64 {
+    0
+}
+#[cfg(not(feature = "gpu_profiling"))]
+#[inline(always)]
+fn gpu_end(_query_id: i64) {}
 
 #[inline(always)]
 pub fn _tracy_named_frame(name: &std::ffi::CStr) {

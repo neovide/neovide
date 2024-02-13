@@ -17,18 +17,34 @@ use glutin::{
 };
 use glutin_winit::DisplayBuilder;
 use raw_window_handle::HasRawWindowHandle;
-use winit::dpi::PhysicalSize;
+use skia_safe::{
+    canvas::Canvas,
+    gpu::{
+        backend_render_targets::make_gl, gl::FramebufferInfo, surfaces::wrap_backend_render_target,
+        DirectContext, SurfaceOrigin,
+    },
+    ColorType,
+};
 use winit::{
-    event_loop::EventLoop,
+    dpi::PhysicalSize,
+    event_loop::{EventLoop, EventLoopProxy},
     window::{Window, WindowBuilder},
 };
 
-pub struct GlWindow {
-    pub window: Window,
-    config: Config,
-}
+#[cfg(target_os = "windows")]
+pub use super::vsync::VSyncWin;
 
-pub struct SkiaRenderer {
+#[cfg(target_os = "macos")]
+pub use super::vsync::VSyncMacos;
+
+use super::{SkiaRenderer, VSync, WindowConfig, WindowConfigType};
+
+use crate::{profiling::tracy_gpu_zone, window::UserEvent};
+
+#[cfg(feature = "gpu_profiling")]
+use crate::profiling::{opengl::create_opengl_gpu_context, GpuCtx};
+
+pub struct OpenGLSkiaRenderer {
     // NOTE: The destruction order is important, so don't re-arrange
     // If possible keep it the reverse of the initialization order
     skia_surface: skia_safe::Surface,
@@ -39,14 +55,6 @@ pub struct SkiaRenderer {
     config: Config,
     window: Window,
 }
-
-use skia_safe::{
-    gpu::{
-        backend_render_targets::make_gl, gl::FramebufferInfo, surfaces::wrap_backend_render_target,
-        DirectContext, SurfaceOrigin,
-    },
-    Canvas, ColorType,
-};
 
 fn clamp_render_buffer_size(size: &PhysicalSize<u32>) -> PhysicalSize<u32> {
     PhysicalSize::new(
@@ -59,9 +67,14 @@ fn get_proc_address(surface: &Surface<WindowSurface>, addr: &CStr) -> *const c_v
     GlDisplay::get_proc_address(&surface.display(), addr)
 }
 
-impl SkiaRenderer {
-    pub fn new(window: GlWindow, srgb: bool, vsync: bool) -> Self {
-        let config = window.config;
+impl OpenGLSkiaRenderer {
+    pub fn new(window: WindowConfig, srgb: bool, vsync: bool) -> Self {
+        #[allow(irrefutable_let_patterns)] // This can only be something else than OpenGL on Windows
+        let config = if let WindowConfigType::OpenGL(config) = window.config {
+            config
+        } else {
+            panic!("Not an opengl window");
+        };
         let window = window.window;
         let gl_display = config.display();
         let raw_window_handle = window.raw_window_handle();
@@ -139,20 +152,33 @@ impl SkiaRenderer {
             skia_surface,
         }
     }
+}
 
-    pub fn window(&self) -> &Window {
+impl SkiaRenderer for OpenGLSkiaRenderer {
+    fn window(&self) -> &Window {
         &self.window
     }
 
-    pub fn swap_buffers(&self) {
-        let _ = GlSurface::swap_buffers(&self.window_surface, &self.context);
+    fn flush(&mut self) {
+        {
+            tracy_gpu_zone!("skia flush");
+            self.gr_context.flush_and_submit();
+        }
     }
 
-    pub fn canvas(&mut self) -> &Canvas {
+    fn swap_buffers(&mut self) {
+        {
+            tracy_gpu_zone!("swap buffers");
+            self.window().pre_present_notify();
+            let _ = self.window_surface.swap_buffers(&self.context);
+        }
+    }
+
+    fn canvas(&mut self) -> &Canvas {
         self.skia_surface.canvas()
     }
 
-    pub fn resize(&mut self) {
+    fn resize(&mut self) {
         self.skia_surface = create_surface(
             &self.config,
             &self.window.inner_size(),
@@ -161,6 +187,31 @@ impl SkiaRenderer {
             &mut self.gr_context,
             &self.fb_info,
         );
+    }
+
+    #[allow(unused_variables)]
+    fn create_vsync(&self, proxy: EventLoopProxy<UserEvent>) -> VSync {
+        #[cfg(target_os = "linux")]
+        if env::var("WAYLAND_DISPLAY").is_ok() {
+            VSync::WinitThrottling()
+        } else {
+            VSync::Opengl()
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            VSync::Windows(VSyncWin::new(proxy))
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            VSync::Macos(VSyncMacos::new(self.window(), proxy))
+        }
+    }
+
+    #[cfg(feature = "gpu_profiling")]
+    fn tracy_create_gpu_context(&self, name: &str) -> Box<dyn GpuCtx> {
+        create_opengl_gpu_context(name)
     }
 }
 
@@ -171,7 +222,7 @@ fn gen_config(mut config_iterator: Box<dyn Iterator<Item = Config> + '_>) -> Con
 pub fn build_window<TE>(
     winit_window_builder: WindowBuilder,
     event_loop: &EventLoop<TE>,
-) -> GlWindow {
+) -> WindowConfig {
     let template_builder = ConfigTemplateBuilder::new()
         .with_stencil_size(8)
         .with_transparency(true);
@@ -180,7 +231,8 @@ pub fn build_window<TE>(
         .build(event_loop, template_builder, gen_config)
         .expect("Failed to create Window");
     let window = window.expect("Could not create Window");
-    GlWindow { window, config }
+    let config = WindowConfigType::OpenGL(config);
+    WindowConfig { window, config }
 }
 
 fn create_surface(

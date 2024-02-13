@@ -20,7 +20,7 @@ use winit::{
 use crate::{
     clipboard,
     cmd_line::SRGB_DEFAULT,
-    renderer::{build_window, GlWindow, SkiaRenderer},
+    renderer::{build_window_config, create_skia_renderer, SkiaRenderer, WindowConfig},
     window::{load_icon, UserEvent},
 };
 
@@ -60,7 +60,7 @@ struct Paragraphs {
 }
 
 struct ErrorWindow<'a> {
-    skia_renderer: SkiaRenderer,
+    skia_renderer: Box<dyn SkiaRenderer>,
     font_collection: FontCollection,
     size: PhysicalSize<u32>,
     scale_factor: f64,
@@ -84,7 +84,7 @@ impl<'a> ErrorWindow<'a> {
         let srgb = SRGB_DEFAULT == "1";
         let vsync = true;
         let window = create_window(event_loop);
-        let skia_renderer = SkiaRenderer::new(window, srgb, vsync);
+        let skia_renderer = create_skia_renderer(window, srgb, vsync);
         let scale_factor = skia_renderer.window().scale_factor();
         let size = skia_renderer.window().inner_size();
         let paragraphs = create_paragraphs(message, scale_factor as f32, &font_collection);
@@ -196,8 +196,7 @@ impl<'a> ErrorWindow<'a> {
 
         canvas.restore();
 
-        self.skia_renderer.gr_context.flush_and_submit();
-        self.skia_renderer.window().pre_present_notify();
+        self.skia_renderer.flush();
         self.skia_renderer.swap_buffers();
     }
 
@@ -472,7 +471,7 @@ fn create_paragraphs(
     }
 }
 
-fn create_window(event_loop: &EventLoop<UserEvent>) -> GlWindow {
+fn create_window(event_loop: &EventLoop<UserEvent>) -> WindowConfig {
     let icon = load_icon();
 
     let winit_window_builder = WindowBuilder::new()
@@ -484,5 +483,5 @@ fn create_window(event_loop: &EventLoop<UserEvent>) -> GlWindow {
         .with_inner_size(DEFAULT_SIZE)
         .with_min_inner_size(MIN_SIZE);
 
-    build_window(winit_window_builder, event_loop)
+    build_window_config(winit_window_builder, event_loop)
 }

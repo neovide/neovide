@@ -26,9 +26,7 @@ use winit::{
 use winit::platform::macos::WindowBuilderExtMacOS;
 
 #[cfg(target_os = "linux")]
-use winit::platform::wayland::WindowBuilderExtWayland;
-#[cfg(target_os = "linux")]
-use winit::platform::x11::WindowBuilderExtX11;
+use winit::platform::{wayland::WindowBuilderExtWayland, x11::WindowBuilderExtX11};
 
 #[cfg(target_os = "macos")]
 use winit::platform::macos::EventLoopBuilderExtMacOS;
@@ -42,7 +40,7 @@ use crate::{
     cmd_line::{CmdLineSettings, GeometryArgs},
     dimensions::Dimensions,
     frame::Frame,
-    renderer::{build_window, DrawCommand, GlWindow},
+    renderer::{build_window_config, DrawCommand, WindowConfig},
     running_tracker::*,
     settings::{
         load_last_window_settings, save_window_size, FontSettings, HotReloadConfigs,
@@ -129,7 +127,7 @@ pub fn create_event_loop() -> EventLoop<UserEvent> {
 pub fn create_window(
     event_loop: &EventLoop<UserEvent>,
     initial_window_size: &WindowSize,
-) -> GlWindow {
+) -> WindowConfig {
     let icon = load_icon();
 
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
@@ -204,8 +202,8 @@ pub fn create_window(
     #[cfg(target_os = "macos")]
     let winit_window_builder = winit_window_builder.with_accepts_first_mouse(false);
 
-    let gl_window = build_window(winit_window_builder, event_loop);
-    let window = &gl_window.window;
+    let window_config = build_window_config(winit_window_builder, event_loop);
+    let window = &window_config.window;
 
     #[cfg(target_os = "macos")]
     if let Some(previous_position) = previous_position {
@@ -236,7 +234,7 @@ pub fn create_window(
         Some(())
     });
 
-    gl_window
+    window_config
 }
 
 #[derive(Clone, Debug)]
@@ -289,7 +287,7 @@ pub fn determine_window_size(window_settings: Option<&PersistentWindowSettings>)
 }
 
 pub fn main_loop(
-    window: GlWindow,
+    window: WindowConfig,
     initial_window_size: WindowSize,
     initial_font_settings: Option<FontSettings>,
     event_loop: EventLoop<UserEvent>,

@@ -8,7 +8,7 @@ use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
     dimensions::Dimensions,
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
-    renderer::{DrawCommand, GlWindow, Renderer, SkiaRenderer, VSync},
+    renderer::{create_skia_renderer, DrawCommand, Renderer, SkiaRenderer, VSync, WindowConfig},
     running_tracker::RUNNING_TRACKER,
     settings::{
         FontSettings, HotReloadConfigs, SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS,
@@ -54,7 +54,7 @@ enum UIState {
 pub struct WinitWindowWrapper {
     // Don't rearrange this, unless you have a good reason to do so
     // The destruction order has to be correct
-    pub skia_renderer: SkiaRenderer,
+    pub skia_renderer: Box<dyn SkiaRenderer>,
     renderer: Renderer,
     keyboard_manager: KeyboardManager,
     mouse_manager: MouseManager,
@@ -79,7 +79,7 @@ pub struct WinitWindowWrapper {
 
 impl WinitWindowWrapper {
     pub fn new(
-        window: GlWindow,
+        window: WindowConfig,
         initial_window_size: WindowSize,
         initial_font_settings: Option<FontSettings>,
         proxy: EventLoopProxy<UserEvent>,
@@ -87,7 +87,7 @@ impl WinitWindowWrapper {
         let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
         let srgb = cmd_line_settings.srgb;
         let vsync_enabled = cmd_line_settings.vsync;
-        let skia_renderer = SkiaRenderer::new(window, srgb, vsync_enabled);
+        let skia_renderer = create_skia_renderer(window, srgb, vsync_enabled);
         let window = skia_renderer.window();
 
         let scale_factor = skia_renderer.window().scale_factor();
@@ -114,7 +114,7 @@ impl WinitWindowWrapper {
             _ => {}
         }
 
-        let vsync = VSync::new(vsync_enabled, skia_renderer.window(), proxy);
+        let vsync = VSync::new(vsync_enabled, skia_renderer.as_ref(), proxy);
 
         #[cfg(target_os = "macos")]
         let macos_feature = {
@@ -391,19 +391,12 @@ impl WinitWindowWrapper {
     pub fn draw_frame(&mut self, dt: f32) {
         tracy_zone!("draw_frame");
         self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
-        {
-            tracy_gpu_zone!("skia flush");
-            self.skia_renderer.gr_context.flush_and_submit();
-        }
-        {
-            tracy_gpu_zone!("swap buffers");
-            self.skia_renderer.window().pre_present_notify();
-            self.skia_renderer.swap_buffers();
-        }
+        self.skia_renderer.flush();
         {
             tracy_gpu_zone!("wait for vsync");
             self.vsync.wait_for_vsync();
         }
+        self.skia_renderer.swap_buffers();
         tracy_frame();
         tracy_gpu_collect();
     }

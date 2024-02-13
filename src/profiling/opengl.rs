@@ -3,7 +3,6 @@ use gl::{
     QUERY_RESULT_AVAILABLE, TIMESTAMP,
 };
 use std::{
-    cell::RefCell,
     ffi::CString,
     sync::atomic::{AtomicU8, Ordering},
 };
@@ -15,18 +14,18 @@ use tracy_client_sys::{
     ___tracy_gpu_zone_begin_data, ___tracy_gpu_zone_end_data, ___tracy_source_location_data,
 };
 
-use crate::profiling::{gpu_enabled, tracy_zone};
+use crate::profiling::{GpuContextType, GpuCtx};
 
 static CONTEXT_ID: AtomicU8 = AtomicU8::new(0);
 
-struct GpuCtx {
+struct GpuCtxOpenGL {
     id: u8,
     query: Vec<u32>,
     head: usize,
     tail: usize,
 }
 
-impl GpuCtx {
+impl GpuCtxOpenGL {
     fn new() -> Self {
         let len = 64 * 1024;
         let mut query = Vec::with_capacity(len);
@@ -52,26 +51,8 @@ impl GpuCtx {
     }
 }
 
-thread_local! {
-    static GPUCTX: RefCell<GpuCtx> = RefCell::new(GpuCtx::new());
-}
-
-pub fn tracy_create_gpu_context(name: &str) {
-    // Don't change order, only add new entries at the end, this is also used on trace dumps!
-    #[allow(dead_code)]
-    enum GpuContextType {
-        Invalid,
-        OpenGl,
-        Vulkan,
-        OpenCL,
-        Direct3D12,
-        Direct3D11,
-    }
-
-    let id = GPUCTX.with(|ctx| {
-        let ctx = ctx.borrow();
-        ctx.id
-    });
+pub fn create_opengl_gpu_context(name: &str) -> Box<dyn GpuCtx> {
+    let ret = Box::new(GpuCtxOpenGL::new());
 
     let mut timestamp: i64 = 0;
     unsafe {
@@ -81,13 +62,13 @@ pub fn tracy_create_gpu_context(name: &str) {
     let ctxt_data = ___tracy_gpu_new_context_data {
         gpuTime: timestamp,
         period: 1.0,
-        context: id,
+        context: ret.id,
         flags: 0,
         type_: GpuContextType::OpenGl as u8,
     };
     let namestring = CString::new(name).unwrap();
     let name_data = ___tracy_gpu_context_name_data {
-        context: id,
+        context: ret.id,
         name: namestring.as_ptr(),
         len: name.len() as u16,
     };
@@ -95,21 +76,19 @@ pub fn tracy_create_gpu_context(name: &str) {
         ___tracy_emit_gpu_new_context(ctxt_data);
         ___tracy_emit_gpu_context_name(name_data);
     }
+    ret
 }
 
-pub fn tracy_gpu_collect() {
-    tracy_zone!("collect gpu info");
-    if !gpu_enabled() {
-        return;
-    }
-
-    GPUCTX.with(|ctx| {
-        let mut ctx = ctx.borrow_mut();
-
-        while ctx.tail != ctx.head {
+impl GpuCtx for GpuCtxOpenGL {
+    fn gpu_collect(&mut self) {
+        while self.tail != self.head {
             let mut available: i32 = 0;
             unsafe {
-                GetQueryObjectiv(ctx.query[ctx.tail], QUERY_RESULT_AVAILABLE, &mut available);
+                GetQueryObjectiv(
+                    self.query[self.tail],
+                    QUERY_RESULT_AVAILABLE,
+                    &mut available,
+                );
             }
             if available <= 0 {
                 break;
@@ -117,51 +96,50 @@ pub fn tracy_gpu_collect() {
 
             let mut time: u64 = 0;
             unsafe {
-                GetQueryObjectui64v(ctx.query[ctx.tail], QUERY_RESULT, &mut time);
+                GetQueryObjectui64v(self.query[self.tail], QUERY_RESULT, &mut time);
             }
             let time_data = ___tracy_gpu_time_data {
                 gpuTime: time as i64,
-                queryId: ctx.tail as u16,
-                context: ctx.id,
+                queryId: self.tail as u16,
+                context: self.id,
             };
             unsafe {
                 ___tracy_emit_gpu_time_serial(time_data);
             }
-            ctx.tail = (ctx.tail + 1) % ctx.query.len();
+            self.tail = (self.tail + 1) % self.query.len();
         }
-    });
-}
-
-pub fn gpu_begin(loc_data: &___tracy_source_location_data) {
-    let (context, query, glquery) = GPUCTX.with(|ctx| {
-        let mut ctx = ctx.borrow_mut();
-        let query = ctx.next_query_id();
-        (ctx.id, query, ctx.query[query])
-    });
-
-    let gpu_data = ___tracy_gpu_zone_begin_data {
-        srcloc: (loc_data as *const ___tracy_source_location_data) as u64,
-        queryId: query as u16,
-        context,
-    };
-    unsafe {
-        QueryCounter(glquery, TIMESTAMP);
-        ___tracy_emit_gpu_zone_begin_serial(gpu_data);
     }
-}
 
-pub fn gpu_end() {
-    let (context, query, glquery) = GPUCTX.with(|ctx| {
-        let mut ctx = ctx.borrow_mut();
-        let query = ctx.next_query_id();
-        (ctx.id, query, ctx.query[query])
-    });
-    let gpu_data = ___tracy_gpu_zone_end_data {
-        queryId: query as u16,
-        context,
-    };
-    unsafe {
-        QueryCounter(glquery, TIMESTAMP);
-        ___tracy_emit_gpu_zone_end_serial(gpu_data);
+    fn gpu_begin(&mut self, loc_data: &___tracy_source_location_data) -> i64 {
+        let query = self.next_query_id();
+        let glquery = self.query[query];
+        let context = self.id;
+
+        let gpu_data = ___tracy_gpu_zone_begin_data {
+            srcloc: (loc_data as *const ___tracy_source_location_data) as u64,
+            queryId: query as u16,
+            context,
+        };
+        unsafe {
+            QueryCounter(glquery, TIMESTAMP);
+            ___tracy_emit_gpu_zone_begin_serial(gpu_data);
+        }
+        // Any positive id is fine here, since the opengl implementation does not use it
+        1
+    }
+
+    fn gpu_end(&mut self, _query_id: i64) {
+        let query = self.next_query_id();
+        let glquery = self.query[query];
+        let context = self.id;
+
+        let gpu_data = ___tracy_gpu_zone_end_data {
+            queryId: query as u16,
+            context,
+        };
+        unsafe {
+            QueryCounter(glquery, TIMESTAMP);
+            ___tracy_emit_gpu_zone_end_serial(gpu_data);
+        }
     }
 }

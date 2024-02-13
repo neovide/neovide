@@ -2,7 +2,7 @@ pub mod animation_utils;
 pub mod cursor_renderer;
 pub mod fonts;
 pub mod grid_renderer;
-mod opengl;
+pub mod opengl;
 pub mod profiler;
 mod rendered_window;
 mod vsync;
@@ -15,24 +15,29 @@ use std::{
 
 use log::error;
 use skia_safe::{Canvas, Point, Rect};
-use winit::event::Event;
+use winit::{
+    event::Event,
+    event_loop::{EventLoop, EventLoopProxy},
+    window::{Window, WindowBuilder},
+};
 
 use crate::{
     bridge::EditorMode,
     dimensions::Dimensions,
     editor::{Cursor, Style},
-    profiling::{tracy_named_frame, tracy_zone},
+    profiling::{tracy_create_gpu_context, tracy_named_frame, tracy_zone},
     settings::*,
     window::{ShouldRender, UserEvent},
     WindowSettings,
 };
 
+#[cfg(feature = "gpu_profiling")]
+use crate::profiling::GpuCtx;
 use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
 pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails};
 
-pub use opengl::{build_window, GlWindow, SkiaRenderer};
 pub use vsync::VSync;
 
 use self::fonts::font_options::FontOptions;
@@ -401,4 +406,45 @@ fn floating_sort(window_a: &&mut RenderedWindow, window_b: &&mut RenderedWindow)
         }
     }
     ord
+}
+
+pub enum WindowConfigType {
+    OpenGL(glutin::config::Config),
+}
+
+pub struct WindowConfig {
+    pub window: Window,
+    pub config: WindowConfigType,
+}
+
+pub fn build_window_config<TE>(
+    winit_window_builder: WindowBuilder,
+    event_loop: &EventLoop<TE>,
+) -> WindowConfig {
+    opengl::build_window(winit_window_builder, event_loop)
+}
+
+pub trait SkiaRenderer {
+    fn window(&self) -> &Window;
+    fn flush(&mut self);
+    fn swap_buffers(&mut self);
+    fn canvas(&mut self) -> &Canvas;
+    fn resize(&mut self);
+    fn create_vsync(&self, proxy: EventLoopProxy<UserEvent>) -> VSync;
+    #[cfg(feature = "gpu_profiling")]
+    fn tracy_create_gpu_context(&self, name: &str) -> Box<dyn GpuCtx>;
+}
+
+pub fn create_skia_renderer(
+    window: WindowConfig,
+    srgb: bool,
+    vsync: bool,
+) -> Box<dyn SkiaRenderer> {
+    let renderer: Box<dyn SkiaRenderer> = match &window.config {
+        WindowConfigType::OpenGL(..) => {
+            Box::new(opengl::OpenGLSkiaRenderer::new(window, srgb, vsync))
+        }
+    };
+    tracy_create_gpu_context("main_render_context", renderer.as_ref());
+    renderer
 }
