@@ -110,7 +110,7 @@ impl MacosWindowFeature {
             window_settings.transparency,
             window_settings.show_border,
             window_settings.background_color,
-            false,
+            true,
         );
 
         macos_window_feature
@@ -189,7 +189,9 @@ impl MacosWindowFeature {
                 let ns_background =
                     NSColor::colorWithSRGBRed_green_blue_alpha(red, green, blue, alpha);
                 self.ns_window.setBackgroundColor(Some(&ns_background));
-                self.ns_window.setHasShadow(opaque);
+                // If the shadow is enabled and the background color is not transparent, the window will have a grey border
+                self.ns_window.setHasShadow(opaque && show_border);
+                // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
                 self.ns_window.setOpaque(opaque && show_border);
                 self.ns_window.invalidateShadow();
             }
