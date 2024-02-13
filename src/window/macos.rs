@@ -16,8 +16,6 @@ use crate::{
     settings::SETTINGS,
 };
 
-use super::WindowSettings;
-
 declare_class!(
     // A view to simulate the double-click-to-zoom effect for `--frame transparency`.
     struct TitlebarClickHandler;
@@ -64,23 +62,6 @@ impl MacosWindowFeature {
                 Id::retain(handle.ns_window as *mut NSWindow).unwrap()
             },
             _ => panic!("Not an appkit window."),
-        };
-
-        let window_settings = SETTINGS.get::<WindowSettings>();
-
-        if let Ok(color) = &window_settings.background_color.parse::<Color>() {
-            error_msg!(concat!(
-                "neovide_background_color has now been deprecated. ",
-                "Use neovide_transparency instead if you want to get a transparent window titlebar. ",
-                "Please check https://neovide.dev/configuration.html#background-color-deprecated-currently-macos-only for more information.",
-            ));
-
-            unsafe {
-                let [red, green, blue, alpha] = color.to_array();
-                let ns_background =
-                    NSColor::colorWithSRGBRed_green_blue_alpha(red, green, blue, alpha);
-                ns_window.setBackgroundColor(Some(&ns_background));
-            }
         };
 
         let mut extra_titlebar_height_in_pixel: u32 = 0;
@@ -174,20 +155,47 @@ impl MacosWindowFeature {
     }
 
     /// Set background color, shadow and transparency/opaqueness of the window
-    pub fn set_background(&self, transparency: f32, show_border: bool) {
+    pub fn set_background(
+        &self,
+        transparency: f32,
+        show_border: bool,
+        background_color: String,
+        no_error: bool,
+    ) {
         let opaque = transparency >= 1.0;
+
+        // Handle `g:neovide_background_color` (deprecated since 0.12.2)
+        if let Ok(color) = background_color.parse::<Color>() {
+            if !no_error {
+                error_msg!(concat!(
+                    "neovide_background_color has now been deprecated. ",
+                    "Use neovide_transparency instead if you want to get a transparent window titlebar. ",
+                    "Please check https://neovide.dev/configuration.html#background-color-deprecated-currently-macos-only for more information.",
+                ));
+            }
+            let [red, green, blue, alpha] = color.to_array();
+            unsafe {
+                let opaque = alpha >= 1.0;
+                let ns_background =
+                    NSColor::colorWithSRGBRed_green_blue_alpha(red, green, blue, alpha);
+                self.ns_window.setBackgroundColor(Some(&ns_background));
+                self.ns_window.setHasShadow(opaque);
+                self.ns_window.setOpaque(opaque);
+                self.ns_window.invalidateShadow();
+            }
+            return;
+        }
 
         unsafe {
             // Setting the background color to `NSColor::windowBackgroundColor()`
             // makes the background opaque and draws a grey border around the window
-            let background_color = match opaque && show_border {
+            let ns_background = match opaque && show_border {
                 true => NSColor::windowBackgroundColor(),
                 false => NSColor::clearColor(),
             };
-            self.ns_window.setBackgroundColor(Some(&background_color));
+            self.ns_window.setBackgroundColor(Some(&ns_background));
             self.ns_window.setHasShadow(opaque);
             self.ns_window.setOpaque(opaque);
-
             self.ns_window.invalidateShadow();
         }
     }

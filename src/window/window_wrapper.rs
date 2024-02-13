@@ -236,16 +236,43 @@ impl WinitWindowWrapper {
                 }
             }
             #[cfg(target_os = "macos")]
+            WindowSettingsChanged::BackgroundColor(background_color) => {
+                log::info!("background_color changed to {}", background_color);
+                let window_settings = SETTINGS.get::<WindowSettings>();
+                let transparency = window_settings.transparency;
+                let show_border = window_settings.show_border;
+                self.macos_feature.set_background(
+                    transparency,
+                    show_border,
+                    background_color,
+                    false,
+                );
+            }
+            #[cfg(target_os = "macos")]
             WindowSettingsChanged::ShowBorder(show_border) => {
                 log::info!("show_border changed to {}", show_border);
-                let transparency = SETTINGS.get::<WindowSettings>().transparency;
-                self.macos_feature.set_background(transparency, show_border);
+                let window_settings = SETTINGS.get::<WindowSettings>();
+                let transparency = window_settings.transparency;
+                let background_color = window_settings.background_color;
+                self.macos_feature.set_background(
+                    transparency,
+                    show_border,
+                    background_color,
+                    true,
+                );
             }
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::Transparency(transparency) => {
                 log::info!("transparency changed to {}", transparency);
-                let show_border = SETTINGS.get::<WindowSettings>().show_border;
-                self.macos_feature.set_background(transparency, show_border);
+                let window_settings = SETTINGS.get::<WindowSettings>();
+                let show_border = window_settings.show_border;
+                let background_color = window_settings.background_color;
+                self.macos_feature.set_background(
+                    transparency,
+                    show_border,
+                    background_color,
+                    true,
+                );
                 set_window_blurred(self.windowed_context.window(), transparency);
             }
             #[cfg(target_os = "macos")]
