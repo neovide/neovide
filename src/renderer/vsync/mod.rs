@@ -8,17 +8,16 @@ mod vsync_win;
 
 use vsync_timer::VSyncTimer;
 
-use crate::{settings::SETTINGS, window::UserEvent, window::WindowSettings};
+use crate::{
+    renderer::SkiaRenderer, settings::SETTINGS, window::UserEvent, window::WindowSettings,
+};
 use winit::{event_loop::EventLoopProxy, window::Window};
 
-#[cfg(target_os = "linux")]
-use std::env;
-
 #[cfg(target_os = "windows")]
-use vsync_win::VSyncWin;
+pub use vsync_win::VSyncWin;
 
 #[cfg(target_os = "macos")]
-use vsync_macos::VSyncMacos;
+pub use vsync_macos::VSyncMacos;
 
 #[allow(dead_code)]
 pub enum VSync {
@@ -32,25 +31,13 @@ pub enum VSync {
 }
 
 impl VSync {
-    #[allow(unused_variables)]
-    pub fn new(vsync_enabled: bool, widnow: &Window, proxy: EventLoopProxy<UserEvent>) -> Self {
+    pub fn new(
+        vsync_enabled: bool,
+        renderer: &dyn SkiaRenderer,
+        proxy: EventLoopProxy<UserEvent>,
+    ) -> Self {
         if vsync_enabled {
-            #[cfg(target_os = "linux")]
-            if env::var("WAYLAND_DISPLAY").is_ok() {
-                VSync::WinitThrottling()
-            } else {
-                VSync::Opengl()
-            }
-
-            #[cfg(target_os = "windows")]
-            {
-                VSync::Windows(VSyncWin::new(proxy))
-            }
-
-            #[cfg(target_os = "macos")]
-            {
-                VSync::Macos(VSyncMacos::new(window, proxy))
-            }
+            renderer.create_vsync(proxy)
         } else {
             VSync::Timer(VSyncTimer::new())
         }

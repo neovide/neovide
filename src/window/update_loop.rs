@@ -7,7 +7,7 @@ use winit::{
 
 use super::{UserEvent, WindowSettings, WinitWindowWrapper};
 use crate::{
-    profiling::{tracy_create_gpu_context, tracy_plot, tracy_zone},
+    profiling::{tracy_plot, tracy_zone},
     settings::SETTINGS,
 };
 
@@ -83,8 +83,6 @@ pub struct UpdateLoop {
 
 impl UpdateLoop {
     pub fn new(idle: bool) -> Self {
-        tracy_create_gpu_context("main_render_context");
-
         let previous_frame_start = Instant::now();
         let last_dt = 0.0;
         let should_render = ShouldRender::Immediately;
