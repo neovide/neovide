@@ -202,7 +202,6 @@ impl MacosWindowFeature {
         }
     }
 
-    /// Set background color, shadow and transparency/opaqueness of the window
     pub fn handle_background(&self, transparency: f32, show_border: bool) {
         unsafe {
             let opaque = transparency >= 1.0;
@@ -220,7 +219,14 @@ impl MacosWindowFeature {
         }
     }
 
-    /// Set background color, shadow and transparency/opaqueness of the window
+    /// Sets background color, opacity and shadow properties of a window.
+    ///
+    /// # Arguments
+    ///
+    /// * `transparency` - `g:neovide_transparency` value between 0.0 (transparent) and 1.0 (opaque)
+    /// * `show_border` - Only if `transparency >= 1.0`, this decides if a grey border should be shown
+    /// * `background_color` - Deprecated `g:neovide_background_color` value. Overrides `transparency` and `show_border` if present.
+    /// * `ignore_deprecation_warning` - Do not print deprecation warning if `background_color` is present
     pub fn set_background(
         &self,
         transparency: f32,
