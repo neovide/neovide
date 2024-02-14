@@ -283,7 +283,7 @@ Lua:
 vim.g.neovide_show_border = true
 ```
 
-Draw a grey border around the window, as seen on most native macOS apps.
+Draw a grey border around opaque windows only.
 
 Default: `false`
 
