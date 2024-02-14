@@ -179,7 +179,7 @@ impl MacosWindowFeature {
         since = "0.12.2",
         note = "This function will be removed in the future."
     )]
-    pub fn handle_legacy_background(
+    fn handle_legacy_background(
         &self,
         color: Color,
         show_border: bool,
@@ -202,7 +202,7 @@ impl MacosWindowFeature {
         }
     }
 
-    pub fn handle_background(&self, transparency: f32, show_border: bool) {
+    fn handle_background(&self, transparency: f32, show_border: bool) {
         unsafe {
             let opaque = transparency >= 1.0;
             // Setting the background color to `NSColor::windowBackgroundColor()`
