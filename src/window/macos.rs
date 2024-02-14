@@ -166,39 +166,44 @@ impl MacosWindowFeature {
         }
     }
 
-    /// Set background color, shadow and transparency/opaqueness of the window
-    pub fn set_background(
-        &self,
-        transparency: f32,
-        show_border: bool,
-        background_color: String,
-        no_error: bool,
-    ) {
-        // Handle `g:neovide_background_color` (deprecated since 0.12.2)
-        if let Ok(color) = background_color.parse::<Color>() {
-            if !no_error {
-                error_msg!(concat!(
-                    "neovide_background_color has now been deprecated. ",
-                    "Use neovide_transparency instead if you want to get a transparent window titlebar. ",
-                    "Please check https://neovide.dev/configuration.html#background-color-deprecated-currently-macos-only for more information.",
-                ));
-            }
-            let [red, green, blue, alpha] = color.to_array();
-            unsafe {
-                let opaque = alpha >= 1.0;
-                let ns_background =
-                    NSColor::colorWithSRGBRed_green_blue_alpha(red, green, blue, alpha);
-                self.ns_window.setBackgroundColor(Some(&ns_background));
-                // If the shadow is enabled and the background color is not transparent, the window will have a grey border
-                // Workaround: Disable shadow when the background color is not transparent
-                self.ns_window.setHasShadow(opaque && show_border);
-                // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
-                self.ns_window.setOpaque(opaque && show_border);
-                self.ns_window.invalidateShadow();
-            }
-            return;
-        }
+    /// Print a deprecation warning for `neovide_background_color`
+    pub fn display_deprecation_warning(&self) {
+        error_msg!(concat!(
+        "neovide_background_color has now been deprecated. ",
+        "Use neovide_transparency instead if you want to get a transparent window titlebar. ",
+        "Please check https://neovide.dev/configuration.html#background-color-deprecated-currently-macos-only for more information.",
+    ));
+    }
 
+    #[deprecated(
+        since = "0.12.2",
+        note = "This function will be removed in the future."
+    )]
+    pub fn handle_legacy_background(
+        &self,
+        color: Color,
+        show_border: bool,
+        ignore_deprecation_warning: bool,
+    ) {
+        if !ignore_deprecation_warning {
+            self.display_deprecation_warning();
+        }
+        let [red, green, blue, alpha] = color.to_array();
+        unsafe {
+            let opaque = alpha >= 1.0;
+            let ns_background = NSColor::colorWithSRGBRed_green_blue_alpha(red, green, blue, alpha);
+            self.ns_window.setBackgroundColor(Some(&ns_background));
+            // If the shadow is enabled and the background color is not transparent, the window will have a grey border
+            // Workaround: Disable shadow when the background color is not transparent
+            self.ns_window.setHasShadow(opaque && show_border);
+            // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
+            self.ns_window.setOpaque(opaque && show_border);
+            self.ns_window.invalidateShadow();
+        }
+    }
+
+    /// Set background color, shadow and transparency/opaqueness of the window
+    pub fn handle_background(&self, transparency: f32, show_border: bool) {
         unsafe {
             let opaque = transparency >= 1.0;
             // Setting the background color to `NSColor::windowBackgroundColor()`
@@ -212,6 +217,22 @@ impl MacosWindowFeature {
             // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
             self.ns_window.setOpaque(opaque && show_border);
             self.ns_window.invalidateShadow();
+        }
+    }
+
+    /// Set background color, shadow and transparency/opaqueness of the window
+    pub fn set_background(
+        &self,
+        transparency: f32,
+        show_border: bool,
+        background_color: String,
+        ignore_deprecation_warning: bool,
+    ) {
+        match background_color.parse::<Color>() {
+            Ok(color) => {
+                self.handle_legacy_background(color, show_border, ignore_deprecation_warning)
+            }
+            _ => self.handle_background(transparency, show_border),
         }
     }
 }
