@@ -1,9 +1,10 @@
 use icrate::{
     AppKit::{
-        NSApplication, NSColor, NSEvent, NSMenu, NSMenuItem, NSView, NSViewMinYMargin,
-        NSViewWidthSizable, NSWindow, NSWindowStyleMaskFullScreen, NSWindowStyleMaskTitled,
+        NSApplication, NSColor, NSEvent, NSEventModifierFlagCommand, NSEventModifierFlagOption,
+        NSMenu, NSMenuItem, NSView, NSViewMinYMargin, NSViewWidthSizable, NSWindow,
+        NSWindowStyleMaskFullScreen, NSWindowStyleMaskTitled,
     },
-    Foundation::{MainThreadMarker, NSPoint, NSRect, NSSize, NSString},
+    Foundation::{MainThreadMarker, NSObject, NSPoint, NSProcessInfo, NSRect, NSSize, NSString},
 };
 use objc2::{declare_class, msg_send_id, mutability::InteriorMutable, rc::Id, sel, ClassType};
 
@@ -12,6 +13,7 @@ use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winit::event::{Event, WindowEvent};
 use winit::window::Window;
 
+use crate::bridge::{send_ui, ParallelCommand};
 use crate::{
     cmd_line::CmdLineSettings, error_msg, frame::Frame, renderer::WindowedContext,
     settings::SETTINGS, window::UserEvent,
@@ -177,17 +179,41 @@ impl MacosWindowFeature {
     }
 }
 
-pub struct Menu {
-    menu_added: bool,
-}
+declare_class!(
+    struct QuitHandler;
 
-impl Default for Menu {
-    fn default() -> Self {
-        Menu { menu_added: false }
+    unsafe impl ClassType for QuitHandler {
+        type Super = NSObject;
+        type Mutability = InteriorMutable;
+        const NAME: &'static str = "QuitHandler";
+    }
+
+    unsafe impl QuitHandler {
+        #[method(quit:)]
+        unsafe fn quit(&self, _event: &NSEvent) {
+            send_ui(ParallelCommand::Quit);
+        }
+    }
+);
+
+impl QuitHandler {
+    pub fn new(_mtm: MainThreadMarker) -> Id<QuitHandler> {
+        unsafe { msg_send_id![Self::alloc(), init] }
     }
 }
 
+pub struct Menu {
+    menu_added: bool,
+    quit_handler: Id<QuitHandler>,
+}
+
 impl Menu {
+    pub fn new(mtm: MainThreadMarker) -> Self {
+        Menu {
+            menu_added: false,
+            quit_handler: QuitHandler::new(mtm),
+        }
+    }
     pub fn ensure_menu_added(&mut self, ev: &Event<UserEvent>) {
         if let Event::WindowEvent {
             event: WindowEvent::Focused(_),
@@ -201,11 +227,73 @@ impl Menu {
         }
     }
 
+    fn add_app_menu(&self) -> Id<NSMenu> {
+        unsafe {
+            let app_menu = NSMenu::new();
+            let process_name = NSProcessInfo::processInfo().processName();
+            let about_item = NSMenuItem::new();
+            about_item
+                .setTitle(&NSString::from_str("About ").stringByAppendingString(&process_name));
+            about_item.setAction(Some(sel!(orderFrontStandardAboutPanel:)));
+            app_menu.addItem(&about_item);
+
+            let services_item = NSMenuItem::new();
+            let services_menu = NSMenu::new();
+            services_item.setTitle(&NSString::from_str("Services"));
+            services_item.setSubmenu(Some(&services_menu));
+            app_menu.addItem(&services_item);
+
+            let sep = NSMenuItem::separatorItem();
+            app_menu.addItem(&sep);
+
+            // application window operations
+            let hide_item = NSMenuItem::new();
+            hide_item.setTitle(&NSString::from_str("Hide ").stringByAppendingString(&process_name));
+            hide_item.setKeyEquivalent(&NSString::from_str("h"));
+            hide_item.setAction(Some(sel!(hide:)));
+            app_menu.addItem(&hide_item);
+
+            let hide_others_item = NSMenuItem::new();
+            hide_others_item.setTitle(&NSString::from_str("Hide Others"));
+            hide_others_item.setKeyEquivalent(&NSString::from_str("h"));
+            hide_others_item.setKeyEquivalentModifierMask(
+                NSEventModifierFlagOption | NSEventModifierFlagCommand,
+            );
+            hide_others_item.setAction(Some(sel!(hideOtherApplications:)));
+            app_menu.addItem(&hide_others_item);
+
+            let show_all_item = NSMenuItem::new();
+            show_all_item.setTitle(&NSString::from_str("Show All"));
+            show_all_item.setAction(Some(sel!(unhideAllApplications:)));
+
+            // quit
+            let sep = NSMenuItem::separatorItem();
+            app_menu.addItem(&sep);
+
+            let quit_item = NSMenuItem::new();
+            quit_item.setTitle(&NSString::from_str("Quit ").stringByAppendingString(&process_name));
+            quit_item.setKeyEquivalent(&NSString::from_str("q"));
+            quit_item.setAction(Some(sel!(quit:)));
+            quit_item.setTarget(Some(&self.quit_handler));
+            app_menu.addItem(&quit_item);
+
+            app_menu
+        }
+    }
+
     fn add_menus(&self) {
         let app = unsafe { NSApplication::sharedApplication() };
 
+        let main_menu = unsafe { NSMenu::new() };
+
         unsafe {
-            let main_menu = app.mainMenu().unwrap();
+            let app_menu = self.add_app_menu();
+            let app_menu_item = NSMenuItem::new();
+            app_menu_item.setSubmenu(Some(&app_menu));
+            if let Some(services_menu) = app_menu.itemWithTitle(&NSString::from_str("Services")) {
+                app.setServicesMenu(services_menu.submenu().as_deref());
+            }
+            main_menu.addItem(&app_menu_item);
 
             let win_menu = self.add_window_menu();
             let win_menu_item = NSMenuItem::new();
@@ -213,6 +301,8 @@ impl Menu {
             main_menu.addItem(&win_menu_item);
             app.setWindowsMenu(Some(&win_menu));
         }
+
+        unsafe { app.setMainMenu(Some(&main_menu)) };
     }
 
     fn add_window_menu(&self) -> Id<NSMenu> {

@@ -15,6 +15,9 @@ use cocoa::base::id;
 #[cfg(target_os = "linux")]
 use std::env;
 
+#[cfg(target_os = "macos")]
+use icrate::Foundation::MainThreadMarker;
+
 use winit::{
     dpi::{PhysicalSize, Size},
     error::EventLoopError,
@@ -39,6 +42,9 @@ use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winit::platform::wayland::WindowBuilderExtWayland;
 #[cfg(target_os = "linux")]
 use winit::platform::x11::WindowBuilderExtX11;
+
+#[cfg(target_os = "macos")]
+use winit::platform::macos::EventLoopBuilderExtMacOS;
 
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
@@ -128,9 +134,10 @@ impl From<HotReloadConfigs> for UserEvent {
 }
 
 pub fn create_event_loop() -> EventLoop<UserEvent> {
-    EventLoopBuilder::<UserEvent>::with_user_event()
-        .build()
-        .expect("Failed to create winit event loop")
+    let mut builder = EventLoopBuilder::<UserEvent>::with_user_event();
+    #[cfg(target_os = "macos")]
+    builder.with_default_menu(false);
+    builder.build().expect("Failed to create winit event loop")
 }
 
 /// Set the window blurred or not.
@@ -349,7 +356,10 @@ pub fn main_loop(
     let mut update_loop = UpdateLoop::new(cmd_line_settings.idle);
 
     #[cfg(target_os = "macos")]
-    let mut menu = macos::Menu::default();
+    let mut menu = {
+        let mtm = MainThreadMarker::new().expect("must be on the main thread");
+        macos::Menu::new(mtm)
+    };
     event_loop.run(move |e, window_target| {
         #[cfg(target_os = "macos")]
         menu.ensure_menu_added(&e);
