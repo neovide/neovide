@@ -1,8 +1,8 @@
 use icrate::{
     AppKit::{
-        NSApplication, NSColor, NSEvent, NSEventModifierFlagCommand, NSEventModifierFlagOption,
-        NSMenu, NSMenuItem, NSView, NSViewMinYMargin, NSViewWidthSizable, NSWindow,
-        NSWindowStyleMaskFullScreen, NSWindowStyleMaskTitled,
+        NSApplication, NSColor, NSEvent, NSEventModifierFlagCommand, NSEventModifierFlagControl,
+        NSEventModifierFlagOption, NSMenu, NSMenuItem, NSView, NSViewMinYMargin,
+        NSViewWidthSizable, NSWindow, NSWindowStyleMaskFullScreen, NSWindowStyleMaskTitled,
     },
     Foundation::{MainThreadMarker, NSObject, NSPoint, NSProcessInfo, NSRect, NSSize, NSString},
 };
@@ -310,6 +310,15 @@ impl Menu {
         unsafe {
             let menu = NSMenu::new();
             menu.setTitle(&menu_title);
+
+            let full_screen_item = NSMenuItem::new();
+            full_screen_item.setTitle(&NSString::from_str("Enter Full Screen"));
+            full_screen_item.setKeyEquivalent(&NSString::from_str("f"));
+            full_screen_item.setAction(Some(sel!(toggleFullScreen:)));
+            full_screen_item.setKeyEquivalentModifierMask(
+                NSEventModifierFlagControl | NSEventModifierFlagCommand,
+            );
+            menu.addItem(&full_screen_item);
 
             let min_item = NSMenuItem::new();
             min_item.setTitle(&NSString::from_str("Minimize"));
