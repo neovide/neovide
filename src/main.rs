@@ -232,7 +232,7 @@ fn maybe_disown() {
 
     let settings = SETTINGS.get::<CmdLineSettings>();
 
-    if cfg!(debug_assertions) || !settings.fork {
+    if cfg!(debug_assertions) || !settings.fork || true {
         return;
     }
 
