@@ -107,13 +107,13 @@ fn neovim_ok(bin: &str, args: &[String]) -> Result<bool> {
                         "ERROR: Unexpected output from neovim binary:\n",
                         "\t{bin} -v\n",
                         "stdout: {stdout}\n",
-                        "stderr: {err}\n",
+                        "stderr: {stderr}\n",
                         "Check that your shell doesn't output anything extra when running:",
                         "\n\t"
                     ),
                     bin = bin,
                     stdout = stdout,
-                    err = non_matching_lines.join("\n"),
+                    stderr = non_matching_lines.join("\n"),
                 );
 
                 if is_wsl {
