@@ -8,6 +8,7 @@ use std::{
 
 use anyhow::{bail, Result};
 use log::debug;
+use regex::Regex;
 use tokio::process::Command as TokioCommand;
 
 use crate::{cmd_line::CmdLineSettings, settings::*};
@@ -89,7 +90,18 @@ fn neovim_ok(bin: &str, args: &[String]) -> Result<bool> {
             // The output is not utf8 on Windows and can contain special characters.
             // But a lossy conversion is OK for our purposes
             let stdout = String::from_utf8_lossy(&output.stdout);
+
             if !(stdout.starts_with("NVIM v") && output.stderr.is_empty()) {
+                let win_wsl_screen_size_error =
+                    Regex::new(r"your \d+x\d+ screen size is bogus. expect trouble").unwrap();
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let (matching_lines, non_matching_lines): (Vec<_>, Vec<_>) = stderr
+                    .lines()
+                    .partition(|line| win_wsl_screen_size_error.is_match(line));
+                if matching_lines.len() == stderr.lines().count() {
+                    return Ok(true);
+                }
+
                 let error_message_prefix = format!(
                     concat!(
                         "ERROR: Unexpected output from neovim binary:\n",
@@ -101,7 +113,7 @@ fn neovim_ok(bin: &str, args: &[String]) -> Result<bool> {
                     ),
                     bin = bin,
                     stdout = stdout,
-                    stderr = String::from_utf8_lossy(&output.stderr),
+                    stderr = non_matching_lines.join("\n"),
                 );
 
                 if is_wsl {
