@@ -95,8 +95,10 @@ fn neovim_ok(bin: &str, args: &[String]) -> Result<bool> {
                 let win_wsl_screen_size_error =
                     Regex::new(r"your \d+x\d+ screen size is bogus. expect trouble").unwrap();
                 let stderr = String::from_utf8_lossy(&output.stderr);
-                if win_wsl_screen_size_error.is_match(&stderr) {
-                    return Ok(true);
+                for line in stderr.lines() {
+                    if win_wsl_screen_size_error.is_match(line) {
+                        return Ok(true);
+                    }
                 }
 
                 let error_message_prefix = format!(
