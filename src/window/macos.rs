@@ -237,14 +237,16 @@ impl MacosWindowFeature {
         window: &Window,
         changed_setting: WindowSettingsChanged,
     ) {
+        // only show deprecation warning if `g:neovide_background_color` has changed
+        let ignore_deprecation_warning =
+            !matches!(changed_setting, WindowSettingsChanged::BackgroundColor(_));
+
         match changed_setting {
-            WindowSettingsChanged::BackgroundColor(_) => {
-                self.update_background(window, false);
-            }
-            WindowSettingsChanged::ShowBorder(_)
+            WindowSettingsChanged::BackgroundColor(_)
+            | WindowSettingsChanged::ShowBorder(_)
             | WindowSettingsChanged::Transparency(_)
             | WindowSettingsChanged::WindowBlurred(_) => {
-                self.update_background(window, true);
+                self.update_background(window, ignore_deprecation_warning);
             }
             _ => {}
         }
