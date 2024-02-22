@@ -2,10 +2,13 @@ pub mod animation_utils;
 pub mod cursor_renderer;
 pub mod fonts;
 pub mod grid_renderer;
-mod opengl;
+pub mod opengl;
 pub mod profiler;
 mod rendered_window;
 mod vsync;
+
+#[cfg(target_os = "windows")]
+pub mod d3d;
 
 use std::{
     cmp::Ordering,
@@ -15,24 +18,33 @@ use std::{
 
 use log::error;
 use skia_safe::{Canvas, Point, Rect};
-use winit::event::Event;
+use winit::{
+    event::Event,
+    event_loop::{EventLoop, EventLoopProxy},
+    window::{Window, WindowBuilder},
+};
 
 use crate::{
     bridge::EditorMode,
     dimensions::Dimensions,
     editor::{Cursor, Style},
-    profiling::{tracy_named_frame, tracy_zone},
+    profiling::{tracy_create_gpu_context, tracy_named_frame, tracy_zone},
     settings::*,
     window::{ShouldRender, UserEvent},
     WindowSettings,
 };
+
+#[cfg(feature = "gpu_profiling")]
+use crate::profiling::GpuCtx;
+
+#[cfg(target_os = "windows")]
+use crate::CmdLineSettings;
 
 use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
 pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails};
 
-pub use opengl::{build_context, build_window, Context as WindowedContext, GlWindow};
 pub use vsync::VSync;
 
 use self::fonts::font_options::FontOptions;
@@ -401,4 +413,64 @@ fn floating_sort(window_a: &&mut RenderedWindow, window_b: &&mut RenderedWindow)
         }
     }
     ord
+}
+
+pub enum WindowConfigType {
+    OpenGL(glutin::config::Config),
+    #[cfg(target_os = "windows")]
+    Direct3D,
+}
+
+pub struct WindowConfig {
+    pub window: Window,
+    pub config: WindowConfigType,
+}
+
+pub fn build_window_config<TE>(
+    winit_window_builder: WindowBuilder,
+    event_loop: &EventLoop<TE>,
+) -> WindowConfig {
+    #[cfg(target_os = "windows")]
+    {
+        let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
+        if cmd_line_settings.opengl {
+            opengl::build_window(winit_window_builder, event_loop)
+        } else {
+            let window = winit_window_builder.build(event_loop).unwrap();
+            let config = WindowConfigType::Direct3D;
+            WindowConfig { window, config }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        opengl::build_window(winit_window_builder, event_loop)
+    }
+}
+
+pub trait SkiaRenderer {
+    fn window(&self) -> &Window;
+    fn flush(&mut self);
+    fn swap_buffers(&mut self);
+    fn canvas(&mut self) -> &Canvas;
+    fn resize(&mut self);
+    fn create_vsync(&self, proxy: EventLoopProxy<UserEvent>) -> VSync;
+    #[cfg(feature = "gpu_profiling")]
+    fn tracy_create_gpu_context(&self, name: &str) -> Box<dyn GpuCtx>;
+}
+
+pub fn create_skia_renderer(
+    window: WindowConfig,
+    srgb: bool,
+    vsync: bool,
+) -> Box<dyn SkiaRenderer> {
+    let renderer: Box<dyn SkiaRenderer> = match &window.config {
+        WindowConfigType::OpenGL(..) => {
+            Box::new(opengl::OpenGLSkiaRenderer::new(window, srgb, vsync))
+        }
+        #[cfg(target_os = "windows")]
+        WindowConfigType::Direct3D => Box::new(d3d::D3DSkiaRenderer::new(window.window)),
+    };
+    tracy_create_gpu_context("main_render_context", renderer.as_ref());
+    renderer
 }
