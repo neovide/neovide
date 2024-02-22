@@ -21,9 +21,6 @@ use winit::{
 };
 
 #[cfg(target_os = "macos")]
-use winit::window::Window;
-
-#[cfg(target_os = "macos")]
 use winit::platform::macos::WindowBuilderExtMacOS;
 
 #[cfg(target_os = "linux")]
@@ -122,15 +119,6 @@ pub fn create_event_loop() -> EventLoop<UserEvent> {
     EventLoopBuilder::<UserEvent>::with_user_event()
         .build()
         .expect("Failed to create winit event loop")
-}
-
-/// Set the window blurred or not.
-#[cfg(target_os = "macos")]
-pub fn set_window_blurred(window: &Window, opacity: f32) {
-    let window_blurred = SETTINGS.get::<WindowSettings>().window_blurred;
-    let opaque = opacity >= 1.0;
-
-    window.set_blur(window_blurred && !opaque);
 }
 
 pub fn create_window(
@@ -242,9 +230,6 @@ pub fn create_window(
 
         Some(())
     });
-
-    #[cfg(target_os = "macos")]
-    set_window_blurred(window, SETTINGS.get::<WindowSettings>().transparency);
 
     gl_window
 }

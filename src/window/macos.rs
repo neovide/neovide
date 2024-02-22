@@ -16,7 +16,7 @@ use crate::{
     settings::SETTINGS,
 };
 
-use super::WindowSettings;
+use super::{WindowSettings, WindowSettingsChanged};
 
 declare_class!(
     // A view to simulate the double-click-to-zoom effect for `--frame transparency`.
@@ -105,13 +105,7 @@ impl MacosWindowFeature {
             is_fullscreen,
         };
 
-        let window_settings = SETTINGS.get::<WindowSettings>();
-        macos_window_feature.set_background(
-            window_settings.transparency,
-            window_settings.show_border,
-            window_settings.background_color,
-            true,
-        );
+        macos_window_feature.update_background(window, true);
 
         macos_window_feature
     }
@@ -179,7 +173,7 @@ impl MacosWindowFeature {
         since = "0.12.2",
         note = "This function will be removed in the future."
     )]
-    fn handle_legacy_background(
+    fn update_ns_background_legacy(
         &self,
         color: Color,
         show_border: bool,
@@ -202,7 +196,7 @@ impl MacosWindowFeature {
         }
     }
 
-    fn handle_background(&self, transparency: f32, show_border: bool) {
+    fn update_ns_background(&self, transparency: f32, show_border: bool) {
         unsafe {
             let opaque = transparency >= 1.0;
             // Setting the background color to `NSColor::windowBackgroundColor()`
@@ -219,26 +213,40 @@ impl MacosWindowFeature {
         }
     }
 
-    /// Sets background color, opacity and shadow properties of a window.
-    ///
-    /// # Arguments
-    ///
-    /// * `transparency` - `g:neovide_transparency` value between 0.0 (transparent) and 1.0 (opaque)
-    /// * `show_border` - Only if `transparency >= 1.0`, this decides if a grey border should be shown
-    /// * `background_color` - Deprecated `g:neovide_background_color` value. Overrides `transparency` and `show_border` if present.
-    /// * `ignore_deprecation_warning` - Do not print deprecation warning if `background_color` is present
-    pub fn set_background(
-        &self,
-        transparency: f32,
-        show_border: bool,
-        background_color: String,
-        ignore_deprecation_warning: bool,
-    ) {
+    /// Update background color, opacity, shadow and blur of a window.
+    fn update_background(&self, window: &Window, ignore_deprecation_warning: bool) {
+        let WindowSettings {
+            background_color,
+            show_border,
+            transparency,
+            window_blurred,
+            ..
+        } = SETTINGS.get::<WindowSettings>();
         match background_color.parse::<Color>() {
             Ok(color) => {
-                self.handle_legacy_background(color, show_border, ignore_deprecation_warning)
+                self.update_ns_background_legacy(color, show_border, ignore_deprecation_warning)
             }
-            _ => self.handle_background(transparency, show_border),
+            _ => self.update_ns_background(transparency, show_border),
+        }
+        let opaque = transparency >= 1.0;
+        window.set_blur(window_blurred && !opaque);
+    }
+
+    pub fn handle_window_settings_changed(
+        &self,
+        window: &Window,
+        changed_setting: WindowSettingsChanged,
+    ) {
+        match changed_setting {
+            WindowSettingsChanged::BackgroundColor(_) => {
+                self.update_background(window, false);
+            }
+            WindowSettingsChanged::ShowBorder(_)
+            | WindowSettingsChanged::Transparency(_)
+            | WindowSettingsChanged::WindowBlurred(_) => {
+                self.update_background(window, true);
+            }
+            _ => {}
         }
     }
 }
