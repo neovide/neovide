@@ -232,11 +232,32 @@ impl WinitWindowWrapper {
                     self.set_ime(ime_enabled);
                 }
             }
+            #[cfg(target_os = "macos")]
+            WindowSettingsChanged::BackgroundColor(background_color) => {
+                log::info!("background_color changed to {}", background_color);
+                self.macos_feature
+                    .update_background(self.windowed_context.window(), false);
+            }
+            #[cfg(target_os = "macos")]
+            WindowSettingsChanged::ShowBorder(show_border) => {
+                log::info!("show_border changed to {}", show_border);
+                self.macos_feature
+                    .update_background(self.windowed_context.window(), true);
+            }
+            #[cfg(target_os = "macos")]
+            WindowSettingsChanged::Transparency(transparency) => {
+                log::info!("transparency changed to {}", transparency);
+                self.macos_feature
+                    .update_background(self.windowed_context.window(), true);
+            }
+            #[cfg(target_os = "macos")]
+            WindowSettingsChanged::WindowBlurred(window_blurred) => {
+                log::info!("window_blurred changed to {}", window_blurred);
+                self.macos_feature
+                    .update_background(self.windowed_context.window(), true);
+            }
             _ => {}
         };
-        #[cfg(target_os = "macos")]
-        self.macos_feature
-            .handle_window_settings_changed(self.windowed_context.window(), changed_setting);
     }
 
     pub fn handle_title_changed(&mut self, new_title: String) {

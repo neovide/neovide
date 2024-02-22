@@ -214,7 +214,7 @@ impl MacosWindowFeature {
     }
 
     /// Update background color, opacity, shadow and blur of a window.
-    fn update_background(&self, window: &Window, ignore_deprecation_warning: bool) {
+    pub fn update_background(&self, window: &Window, ignore_deprecation_warning: bool) {
         let WindowSettings {
             background_color,
             show_border,
@@ -230,25 +230,5 @@ impl MacosWindowFeature {
         }
         let opaque = transparency >= 1.0;
         window.set_blur(window_blurred && !opaque);
-    }
-
-    pub fn handle_window_settings_changed(
-        &self,
-        window: &Window,
-        changed_setting: WindowSettingsChanged,
-    ) {
-        // only show deprecation warning if `g:neovide_background_color` has changed
-        let ignore_deprecation_warning =
-            !matches!(changed_setting, WindowSettingsChanged::BackgroundColor(_));
-
-        match changed_setting {
-            WindowSettingsChanged::BackgroundColor(_)
-            | WindowSettingsChanged::ShowBorder(_)
-            | WindowSettingsChanged::Transparency(_)
-            | WindowSettingsChanged::WindowBlurred(_) => {
-                self.update_background(window, ignore_deprecation_warning);
-            }
-            _ => {}
-        }
     }
 }
