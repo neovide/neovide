@@ -338,6 +338,15 @@ The other variables configure the shadow in various ways:</p>
 <p>Lua:</p>
 <pre><code class="language-lua">vim.g.neovide_transparency = 0.8
 </code></pre>
+<h4 id="show-border-currently-macos-only"><a class="header" href="#show-border-currently-macos-only">Show Border (Currently macOS only)</a></h4>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_show_border = v:true
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_show_border = true
+</code></pre>
+<p>Draw a grey border around opaque windows only.</p>
+<p>Default: <code>false</code></p>
 <p><img src="assets/Transparency.png" alt="Transparency" /></p>
 <p>Setting <code>g:neovide_transparency</code> to a value between 0.0 and 1.0 will set the opacity of the window
 to that value.</p>
