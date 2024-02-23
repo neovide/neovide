@@ -19,9 +19,6 @@ use crate::{
 };
 
 #[cfg(target_os = "macos")]
-use crate::window::{invalidate_shadow, set_window_blurred};
-
-#[cfg(target_os = "macos")]
 use super::macos::MacosWindowFeature;
 
 #[cfg(target_os = "macos")]
@@ -79,7 +76,7 @@ pub struct WinitWindowWrapper {
     theme: Option<Theme>,
     pub vsync: VSync,
     #[cfg(target_os = "macos")]
-    macos_feature: MacosWindowFeature,
+    pub macos_feature: MacosWindowFeature,
 }
 
 impl WinitWindowWrapper {
@@ -235,20 +232,11 @@ impl WinitWindowWrapper {
                     self.set_ime(ime_enabled);
                 }
             }
-            #[cfg(target_os = "macos")]
-            WindowSettingsChanged::Transparency(opacity) => {
-                log::info!("transparency changed to {}", opacity);
-                invalidate_shadow(self.windowed_context.window());
-                set_window_blurred(self.windowed_context.window(), opacity);
-            }
-            #[cfg(target_os = "macos")]
-            WindowSettingsChanged::WindowBlurred(window_blurred) => {
-                log::info!("window_blurred changed to {}", window_blurred);
-                let transparency = SETTINGS.get::<WindowSettings>().transparency;
-                set_window_blurred(self.windowed_context.window(), transparency);
-            }
             _ => {}
-        }
+        };
+        #[cfg(target_os = "macos")]
+        self.macos_feature
+            .handle_settings_changed(self.windowed_context.window(), changed_setting);
     }
 
     pub fn handle_title_changed(&mut self, new_title: String) {

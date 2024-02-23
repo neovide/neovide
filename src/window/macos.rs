@@ -16,7 +16,7 @@ use crate::{
     settings::SETTINGS,
 };
 
-use super::WindowSettings;
+use super::{WindowSettings, WindowSettingsChanged};
 
 declare_class!(
     // A view to simulate the double-click-to-zoom effect for `--frame transparency`.
@@ -66,25 +66,6 @@ impl MacosWindowFeature {
             _ => panic!("Not an appkit window."),
         };
 
-        if let Ok(color) = &SETTINGS
-            .get::<WindowSettings>()
-            .background_color
-            .parse::<Color>()
-        {
-            error_msg!(concat!(
-                "neovide_background_color has now been deprecated. ",
-                "Use neovide_transparency instead if you want to get a transparent window titlebar. ",
-                "Please check https://neovide.dev/configuration.html#background-color-deprecated-currently-macos-only for more information.",
-            ));
-
-            unsafe {
-                let [red, green, blue, alpha] = color.to_array();
-                let ns_background =
-                    NSColor::colorWithSRGBRed_green_blue_alpha(red, green, blue, alpha);
-                ns_window.setBackgroundColor(Some(&ns_background));
-            }
-        };
-
         let mut extra_titlebar_height_in_pixel: u32 = 0;
 
         let frame = SETTINGS.get::<CmdLineSettings>().frame;
@@ -117,12 +98,16 @@ impl MacosWindowFeature {
 
         let is_fullscreen = unsafe { ns_window.styleMask() } & NSWindowStyleMaskFullScreen != 0;
 
-        MacosWindowFeature {
+        let macos_window_feature = MacosWindowFeature {
             ns_window,
             titlebar_click_handler,
             extra_titlebar_height_in_pixel,
             is_fullscreen,
-        }
+        };
+
+        macos_window_feature.update_background(window, true);
+
+        macos_window_feature
     }
 
     // Used to calculate the value of TITLEBAR_HEIGHT, aka, titlebar height in dpi-independent length.
@@ -172,6 +157,103 @@ impl MacosWindowFeature {
             0
         } else {
             self.extra_titlebar_height_in_pixel
+        }
+    }
+
+    /// Print a deprecation warning for `neovide_background_color`
+    pub fn display_deprecation_warning(&self) {
+        error_msg!(concat!(
+        "neovide_background_color has now been deprecated. ",
+        "Use neovide_transparency instead if you want to get a transparent window titlebar. ",
+        "Please check https://neovide.dev/configuration.html#background-color-deprecated-currently-macos-only for more information.",
+    ));
+    }
+
+    #[deprecated(
+        since = "0.12.2",
+        note = "This function will be removed in the future."
+    )]
+    fn update_ns_background_legacy(
+        &self,
+        color: Color,
+        show_border: bool,
+        ignore_deprecation_warning: bool,
+    ) {
+        if !ignore_deprecation_warning {
+            self.display_deprecation_warning();
+        }
+        let [red, green, blue, alpha] = color.to_array();
+        unsafe {
+            let opaque = alpha >= 1.0;
+            let ns_background = NSColor::colorWithSRGBRed_green_blue_alpha(red, green, blue, alpha);
+            self.ns_window.setBackgroundColor(Some(&ns_background));
+            // If the shadow is enabled and the background color is not transparent, the window will have a grey border
+            // Workaround: Disable shadow when `show_border` is false
+            self.ns_window.setHasShadow(opaque && show_border);
+            // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
+            self.ns_window.setOpaque(opaque && show_border);
+            self.ns_window.invalidateShadow();
+        }
+    }
+
+    fn update_ns_background(&self, transparency: f32, show_border: bool) {
+        unsafe {
+            let opaque = transparency >= 1.0;
+            // Setting the background color to `NSColor::windowBackgroundColor()`
+            // makes the background opaque and draws a grey border around the window
+            let ns_background = match opaque && show_border {
+                true => NSColor::windowBackgroundColor(),
+                false => NSColor::clearColor(),
+            };
+            self.ns_window.setBackgroundColor(Some(&ns_background));
+            self.ns_window.setHasShadow(opaque);
+            // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
+            self.ns_window.setOpaque(opaque && show_border);
+            self.ns_window.invalidateShadow();
+        }
+    }
+
+    /// Update background color, opacity, shadow and blur of a window.
+    fn update_background(&self, window: &Window, ignore_deprecation_warning: bool) {
+        let WindowSettings {
+            background_color,
+            show_border,
+            transparency,
+            window_blurred,
+            ..
+        } = SETTINGS.get::<WindowSettings>();
+        match background_color.parse::<Color>() {
+            Ok(color) => {
+                self.update_ns_background_legacy(color, show_border, ignore_deprecation_warning)
+            }
+            _ => self.update_ns_background(transparency, show_border),
+        }
+        let opaque = transparency >= 1.0;
+        window.set_blur(window_blurred && !opaque);
+    }
+
+    pub fn handle_settings_changed(&self, window: &Window, changed_setting: WindowSettingsChanged) {
+        match changed_setting {
+            WindowSettingsChanged::BackgroundColor(background_color) => {
+                log::info!("background_color changed to {}", background_color);
+                self.update_background(window, false);
+            }
+            #[cfg(target_os = "macos")]
+            WindowSettingsChanged::ShowBorder(show_border) => {
+                log::info!("show_border changed to {}", show_border);
+                self.update_background(window, true);
+            }
+            #[cfg(target_os = "macos")]
+            WindowSettingsChanged::Transparency(transparency) => {
+                log::info!("transparency changed to {}", transparency);
+                self.update_background(window, true);
+            }
+            #[cfg(target_os = "macos")]
+            WindowSettingsChanged::WindowBlurred(window_blurred) => {
+                log::info!("window_blurred changed to {}", window_blurred);
+                self.update_background(window, true);
+            }
+            _ => {}
         }
     }
 }

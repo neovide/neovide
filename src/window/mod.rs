@@ -9,9 +9,6 @@ mod window_wrapper;
 #[cfg(target_os = "macos")]
 mod macos;
 
-#[cfg(target_os = "macos")]
-use cocoa::base::id;
-
 #[cfg(target_os = "linux")]
 use std::env;
 
@@ -24,16 +21,7 @@ use winit::{
 };
 
 #[cfg(target_os = "macos")]
-use winit::window::Window;
-
-#[cfg(target_os = "macos")]
 use winit::platform::macos::WindowBuilderExtMacOS;
-
-#[cfg(target_os = "macos")]
-use objc::{msg_send, sel, sel_impl};
-
-#[cfg(target_os = "macos")]
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 
 #[cfg(target_os = "linux")]
 use winit::platform::wayland::WindowBuilderExtWayland;
@@ -133,36 +121,6 @@ pub fn create_event_loop() -> EventLoop<UserEvent> {
         .expect("Failed to create winit event loop")
 }
 
-/// Set the window blurred or not.
-#[cfg(target_os = "macos")]
-pub fn set_window_blurred(window: &Window, opacity: f32) {
-    let window_blurred = SETTINGS.get::<WindowSettings>().window_blurred;
-    let opaque = opacity >= 1.0;
-
-    window.set_blur(window_blurred && !opaque);
-}
-
-/// Force macOS to clear shadow of transparent windows.
-#[cfg(target_os = "macos")]
-pub fn invalidate_shadow(window: &Window) {
-    use cocoa::base::NO;
-    use cocoa::base::YES;
-
-    let window_transparency = &SETTINGS.get::<WindowSettings>().transparency;
-    let opaque = *window_transparency >= 1.0;
-
-    let raw_window = match window.raw_window_handle() {
-        #[cfg(target_os = "macos")]
-        RawWindowHandle::AppKit(handle) => handle.ns_window as id,
-        _ => return,
-    };
-
-    let value = if opaque { YES } else { NO };
-    unsafe {
-        let _: id = msg_send![raw_window, setHasShadow: value];
-    }
-}
-
 pub fn create_window(
     event_loop: &EventLoop<UserEvent>,
     initial_window_size: &WindowSize,
@@ -212,7 +170,6 @@ pub fn create_window(
         Frame::Full => winit_window_builder,
         Frame::None => winit_window_builder.with_decorations(false),
         Frame::Buttonless => winit_window_builder
-            .with_transparent(true)
             .with_title_hidden(title_hidden)
             .with_titlebar_buttons_hidden(true)
             .with_titlebar_transparent(true)
@@ -273,12 +230,6 @@ pub fn create_window(
 
         Some(())
     });
-
-    #[cfg(target_os = "macos")]
-    set_window_blurred(window, SETTINGS.get::<WindowSettings>().transparency);
-
-    #[cfg(target_os = "macos")]
-    invalidate_shadow(window);
 
     gl_window
 }
