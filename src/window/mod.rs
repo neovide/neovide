@@ -7,7 +7,7 @@ mod update_loop;
 mod window_wrapper;
 
 #[cfg(target_os = "macos")]
-mod draw_background;
+mod macos;
 
 #[cfg(target_os = "macos")]
 use cocoa::base::id;
@@ -20,7 +20,7 @@ use winit::{
     error::EventLoopError,
     event::Event,
     event_loop::{EventLoop, EventLoopBuilder},
-    window::{Icon, WindowBuilder},
+    window::{Icon, Theme, WindowBuilder},
 };
 
 #[cfg(target_os = "macos")]
@@ -34,9 +34,6 @@ use objc::{msg_send, sel, sel_impl};
 
 #[cfg(target_os = "macos")]
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-
-#[cfg(target_os = "macos")]
-use draw_background::draw_background;
 
 #[cfg(target_os = "linux")]
 use winit::platform::wayland::WindowBuilderExtWayland;
@@ -88,6 +85,8 @@ pub enum WindowCommand {
     FocusWindow,
     Minimize,
     ShowIntro(Vec<String>),
+    #[allow(dead_code)] // Theme change is only used on macOS right now
+    ThemeChanged(Option<Theme>),
     #[cfg(windows)]
     RegisterRightClick,
     #[cfg(windows)]
@@ -200,6 +199,9 @@ pub fn create_window(
 
     let frame_decoration = cmd_line_settings.frame;
 
+    #[cfg(target_os = "macos")]
+    let title_hidden = cmd_line_settings.title_hidden;
+
     // There is only two options for windows & linux, no need to match more options.
     #[cfg(not(target_os = "macos"))]
     let mut winit_window_builder =
@@ -211,12 +213,12 @@ pub fn create_window(
         Frame::None => winit_window_builder.with_decorations(false),
         Frame::Buttonless => winit_window_builder
             .with_transparent(true)
-            .with_title_hidden(true)
+            .with_title_hidden(title_hidden)
             .with_titlebar_buttons_hidden(true)
             .with_titlebar_transparent(true)
             .with_fullsize_content_view(true),
         Frame::Transparent => winit_window_builder
-            .with_title_hidden(true)
+            .with_title_hidden(title_hidden)
             .with_titlebar_transparent(true)
             .with_fullsize_content_view(true),
     };
@@ -242,6 +244,11 @@ pub fn create_window(
 
     let gl_window = build_window(winit_window_builder, event_loop);
     let window = &gl_window.window;
+
+    #[cfg(target_os = "macos")]
+    if let Some(previous_position) = previous_position {
+        window.set_outer_position(previous_position);
+    }
 
     // Check that window is visible in some monitor, and reposition it if not.
     window.current_monitor().and_then(|current_monitor| {

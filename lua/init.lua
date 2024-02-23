@@ -88,13 +88,27 @@ for _,option_setting in ipairs(args.option_settings) do
     })
 end
 
+-- Ignore initial values of lines and columns because they are set by neovim directly.
+-- See https://github.com/neovide/neovide/issues/2300
+vim.api.nvim_create_autocmd({ "VimEnter" }, {
+    once = true,
+    nested = true,
+    callback = function()
+        for _,option_setting in ipairs(args.option_settings) do
+            if option_setting ~= "lines" and option_setting ~= "columns" then
+                rpcnotify("option_changed", option_setting, vim.o[option_setting])
+            end
+        end
+    end
+})
+
 -- Create auto command for retrieving exit code from neovim on quit.
 vim.api.nvim_create_autocmd({ "VimLeavePre" }, {
     pattern = "*",
     once = true,
     nested = true,
     callback = function()
-        rpcnotify("neovide.quit", vim.v.exiting)
+        rpcrequest("neovide.quit", vim.v.exiting)
     end
 })
 

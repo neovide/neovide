@@ -11,11 +11,8 @@ use itertools::Itertools;
 use log::{error, info};
 use nvim_rs::{error::CallError, Neovim, UiAttachOptions, Value};
 use rmpv::Utf8String;
-use std::{io::Error, ops::Add, sync::Arc};
-use tokio::{
-    runtime::{Builder, Runtime},
-    task::JoinHandle,
-};
+use std::{io::Error, ops::Add};
+use tokio::runtime::{Builder, Runtime};
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
@@ -34,14 +31,8 @@ pub use ui_commands::{send_ui, start_ui_command_handler, ParallelCommand, Serial
 const INTRO_MESSAGE_LUA: &str = include_str!("../../lua/intro.lua");
 const NEOVIM_REQUIRED_VERSION: &str = "0.9.2";
 
-enum RuntimeState {
-    Idle,
-    Attached(JoinHandle<()>),
-}
-
 pub struct NeovimRuntime {
-    runtime: Runtime,
-    state: RuntimeState,
+    runtime: Option<Runtime>,
 }
 
 fn neovim_instance() -> Result<NeovimInstance> {
@@ -118,7 +109,7 @@ async fn launch(handler: NeovimHandler, grid_size: Option<Dimensions>) -> Result
     let should_handle_clipboard = settings.wsl || settings.server.is_some();
     setup_neovide_specific_state(&session.neovim, should_handle_clipboard).await?;
 
-    start_ui_command_handler(Arc::clone(&session.neovim));
+    start_ui_command_handler(session.neovim.clone());
     SETTINGS.read_initial_values(&session.neovim).await?;
 
     let mut options = UiAttachOptions::new();
@@ -158,8 +149,7 @@ impl NeovimRuntime {
         let runtime = Builder::new_multi_thread().enable_all().build()?;
 
         Ok(Self {
-            runtime,
-            state: RuntimeState::Idle,
+            runtime: Some(runtime),
         })
     }
 
@@ -168,20 +158,16 @@ impl NeovimRuntime {
         event_loop_proxy: EventLoopProxy<UserEvent>,
         grid_size: Option<Dimensions>,
     ) -> Result<()> {
-        assert!(matches!(self.state, RuntimeState::Idle));
         let handler = start_editor(event_loop_proxy);
-        let session = self.runtime.block_on(launch(handler, grid_size))?;
-        self.state = RuntimeState::Attached(self.runtime.spawn(run(session)));
+        let runtime = self.runtime.as_ref().unwrap();
+        let session = runtime.block_on(launch(handler, grid_size))?;
+        runtime.spawn(run(session));
         Ok(())
     }
 }
 
 impl Drop for NeovimRuntime {
     fn drop(&mut self) {
-        if let RuntimeState::Attached(join_handle) =
-            std::mem::replace(&mut self.state, RuntimeState::Idle)
-        {
-            let _ = self.runtime.block_on(join_handle);
-        }
+        self.runtime.take().unwrap().shutdown_background();
     }
 }

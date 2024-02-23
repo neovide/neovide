@@ -130,6 +130,16 @@ With idle `off` (e.g. with `--no-idle` flag), neovide will constantly render new
 even when nothing changed. This takes more power and CPU time, but can possibly help
 with frame timing issues.
 
+### Title (macOS Only)
+
+```sh
+--title-hidden or $NEOVIDE_TITLE_HIDDEN
+```
+
+**Available since 0.12.2.**
+
+This sets the window title to be hidden on macOS.
+
 ### sRGB
 
 ```sh

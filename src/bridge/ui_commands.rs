@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use log::trace;
 
@@ -340,7 +340,7 @@ lazy_static! {
     static ref UI_CHANNELS: UIChannels = UIChannels::new();
 }
 
-pub fn start_ui_command_handler(nvim: Arc<Neovim<NeovimWriter>>) {
+pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>) {
     let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
     let ui_command_nvim = nvim.clone();
     tokio::spawn(async move {

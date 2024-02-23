@@ -114,6 +114,9 @@ the source URL.
 Stable releases are packaged in nixpkgs in the `neovide` package, there's no flake. As such, if you
 just want to try it out in a transient shell, you can use this command.
 
+**Note**: On non-NixOS systems, chances are you'll need to use
+[nixGL](https://github.com/nix-community/nixGL) as wrapper for neovide.
+
 ```sh
 nix-shell -p neovide
 ```

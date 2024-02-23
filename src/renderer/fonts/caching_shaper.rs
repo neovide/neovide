@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{num::NonZeroUsize, sync::Arc};
 
 use itertools::Itertools;
 use log::{debug, error, trace, warn};
@@ -47,7 +47,7 @@ impl CachingShaper {
         let mut shaper = CachingShaper {
             options,
             font_loader: FontLoader::new(font_size),
-            blob_cache: LruCache::new(10000),
+            blob_cache: LruCache::new(NonZeroUsize::new(10000).unwrap()),
             shape_context: ShapeContext::new(),
             scale_factor,
             fudge_factor: 1.0,
@@ -73,7 +73,8 @@ impl CachingShaper {
     }
 
     pub fn current_size(&self) -> f32 {
-        self.options.size * self.scale_factor * self.fudge_factor
+        let min_font_size = 1.0;
+        (self.options.size * self.scale_factor * self.fudge_factor).max(min_font_size)
     }
 
     pub fn update_scale_factor(&mut self, scale_factor: f32) {
@@ -168,12 +169,14 @@ impl CachingShaper {
                 "Font width: {:.2}px (avg: {:.2}px)",
                 font_width, metrics.average_width
             );
-            self.fudge_factor = font_width.round() / font_width;
+            let min_fudged_width = 1.0;
+            self.fudge_factor = font_width.round().max(min_fudged_width) / font_width;
             debug!("Fudge factor: {:.2}", self.fudge_factor);
             font_size = self.current_size();
+            self.font_info = None;
+            self.font_loader = FontLoader::new(font_size);
             debug!("Fudged font size: {:.2}px", font_size);
             debug!("Fudged font width: {:.2}px", self.info().1);
-            self.font_loader = FontLoader::new(font_size);
         }
         self.blob_cache.clear();
     }
@@ -386,7 +389,7 @@ impl CachingShaper {
 
         let mut resulting_blobs = Vec::new();
 
-        trace!("Shaping text: {}", text);
+        trace!("Shaping text: {:?}", text);
 
         for (cluster_group, font_pair) in self.build_clusters(&text, style) {
             let features = self.get_font_features(

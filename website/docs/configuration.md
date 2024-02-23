@@ -144,7 +144,12 @@ vim.g.neovide_padding_left = 0
 Controls the space between the window border and the actual Neovim, which is filled with the
 background color instead.
 
-#### Background Color (Currently macOS only)
+#### Background Color (**Deprecated**, Currently macOS only)
+
+This configuration is deprecated now and might be removed in the future. In
+[#2168](https://github.com/neovide/neovide/issues/2168), we have made Neovide control the title bar
+color itself. The color of title bar now honors [`neovide_transparency`](#transparency). If you want
+a transparent title bar, setting `neovide_transparency` is sufficient.
 
 VimScript:
 
@@ -169,6 +174,7 @@ vim.g.neovide_background_color = "#0f1117" .. alpha()
 ```
 
 **Available since 0.10.**
+**Deprecated in 0.12.2.**
 
 ![BackgroundColor](assets/BackgroundColor.png)
 

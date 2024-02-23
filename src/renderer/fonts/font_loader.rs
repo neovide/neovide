@@ -1,5 +1,8 @@
-use std::fmt::{Display, Formatter};
-use std::sync::Arc;
+use std::{
+    fmt::{Display, Formatter},
+    num::NonZeroUsize,
+    sync::Arc,
+};
 
 use log::trace;
 use lru::LruCache;
@@ -29,6 +32,9 @@ impl FontPair {
 
         let typeface = skia_font.typeface().unwrap();
         let (font_data, index) = typeface.to_font_data().unwrap();
+        // Only the lower 16 bits are part of the index, the rest indicates named instances. But we
+        // don't care about those here, since we are just loading the font, so ignore them
+        let index = index & 0xFFFF;
         let swash_font = SwashFont::from_data(font_data, index)?;
 
         Some(Self {
@@ -75,7 +81,7 @@ impl FontLoader {
     pub fn new(font_size: f32) -> FontLoader {
         FontLoader {
             font_mgr: FontMgr::new(),
-            cache: LruCache::new(20),
+            cache: LruCache::new(NonZeroUsize::new(20).unwrap()),
             font_size,
             last_resort: None,
         }
