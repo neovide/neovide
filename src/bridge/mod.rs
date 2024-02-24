@@ -1,3 +1,4 @@
+mod api_info;
 mod clipboard;
 mod command;
 mod events;
@@ -21,7 +22,7 @@ use crate::{
 };
 pub use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
-use setup::setup_neovide_specific_state;
+use setup::{get_api_information, setup_neovide_specific_state};
 
 pub use command::create_nvim_command;
 pub use events::*;
@@ -195,7 +196,15 @@ async fn launch(handler: NeovimHandler, grid_size: Option<Dimensions>) -> Result
     let settings = SETTINGS.get::<CmdLineSettings>();
 
     let should_handle_clipboard = settings.wsl || settings.server.is_some();
-    setup_neovide_specific_state(&session.neovim, should_handle_clipboard).await?;
+    let api_information = get_api_information(&session.neovim).await?;
+    info!(
+        "Neovide registered to nvim with channel id {}",
+        api_information.channel
+    );
+    // This is too verbose to keep enabled all the time
+    //log::info!("Api information {:#?}", api_information);
+    setup_neovide_specific_state(&session.neovim, should_handle_clipboard, &api_information)
+        .await?;
 
     start_ui_command_handler(session.neovim.clone());
     SETTINGS.read_initial_values(&session.neovim).await?;
