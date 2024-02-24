@@ -24,6 +24,7 @@ pub use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
 use setup::{get_api_information, setup_neovide_specific_state};
 
+pub use api_info::*;
 pub use command::create_nvim_command;
 pub use events::*;
 pub use session::NeovimWriter;
@@ -202,11 +203,11 @@ async fn launch(handler: NeovimHandler, grid_size: Option<Dimensions>) -> Result
         api_information.channel
     );
     // This is too verbose to keep enabled all the time
-    //log::info!("Api information {:#?}", api_information);
+    // log::info!("Api information {:#?}", api_information);
     setup_neovide_specific_state(&session.neovim, should_handle_clipboard, &api_information)
         .await?;
 
-    start_ui_command_handler(session.neovim.clone());
+    start_ui_command_handler(session.neovim.clone(), &api_information);
     SETTINGS.read_initial_values(&session.neovim).await?;
 
     let mut options = UiAttachOptions::new();
