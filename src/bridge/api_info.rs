@@ -142,7 +142,7 @@ pub struct ApiInformation {
     pub version: ApiVersion,
     pub functions: HashSet<ApiFunction>,
     pub ui_events: HashSet<ApiFunction>,
-    pub ui_options: Vec<String>,
+    pub ui_options: HashSet<String>,
     // types and error_error types are not implemented
 }
 
@@ -287,7 +287,7 @@ pub fn parse_api_info(value: &[Value]) -> std::result::Result<ApiInformation, Ap
             Some("version") => version = Some(parse_version(v)?),
             Some("functions") => functions = Some(parse_functions(v)?),
             Some("ui_events") => ui_events = Some(parse_functions(v)?),
-            Some("ui_options") => ui_options = Some(parse_string_vec(v)?),
+            Some("ui_options") => ui_options = Some(parse_string_vec(v)?.into_iter().collect()),
             _ => {}
         }
     }
