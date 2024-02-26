@@ -297,7 +297,7 @@ title bar.</p>
 </code></pre>
 <p><strong>Available since 0.12.</strong></p>
 <p>Setting <code>g:neovide_window_blurred</code> toggles the window blur state.</p>
-<p>The blurred level respects the <code>g:neovide_transparency</code>  value between 0.0 and 1.0.</p>
+<p>The blurred level respects the <code>g:neovide_transparency</code> value between 0.0 and 1.0.</p>
 <h4 id="floating-blur-amount"><a class="header" href="#floating-blur-amount">Floating Blur Amount</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_floating_blur_amount_x = 2.0
@@ -338,6 +338,9 @@ The other variables configure the shadow in various ways:</p>
 <p>Lua:</p>
 <pre><code class="language-lua">vim.g.neovide_transparency = 0.8
 </code></pre>
+<p><img src="assets/Transparency.png" alt="Transparency" /></p>
+<p>Setting <code>g:neovide_transparency</code> to a value between 0.0 and 1.0 will set the opacity of the window
+to that value.</p>
 <h4 id="show-border-currently-macos-only"><a class="header" href="#show-border-currently-macos-only">Show Border (Currently macOS only)</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_show_border = v:true
@@ -347,9 +350,6 @@ The other variables configure the shadow in various ways:</p>
 </code></pre>
 <p>Draw a grey border around opaque windows only.</p>
 <p>Default: <code>false</code></p>
-<p><img src="assets/Transparency.png" alt="Transparency" /></p>
-<p>Setting <code>g:neovide_transparency</code> to a value between 0.0 and 1.0 will set the opacity of the window
-to that value.</p>
 <h4 id="scroll-animation-length"><a class="header" href="#scroll-animation-length">Scroll Animation Length</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_scroll_animation_length = 0.3
