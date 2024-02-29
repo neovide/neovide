@@ -3,6 +3,7 @@ use icrate::{
         NSApplication, NSColor, NSEvent, NSEventModifierFlagCommand, NSEventModifierFlagControl,
         NSEventModifierFlagOption, NSMenu, NSMenuItem, NSView, NSViewMinYMargin,
         NSViewWidthSizable, NSWindow, NSWindowStyleMaskFullScreen, NSWindowStyleMaskTitled,
+        NSWindowTabbingModeDisallowed,
     },
     Foundation::{MainThreadMarker, NSObject, NSPoint, NSProcessInfo, NSRect, NSSize, NSString},
 };
@@ -68,6 +69,10 @@ impl MacosWindowFeature {
             },
             _ => panic!("Not an appkit window."),
         };
+        // Disallow tabbing mode to prevent the window from being tabbed.
+        unsafe {
+            ns_window.setTabbingMode(NSWindowTabbingModeDisallowed);
+        }
 
         if let Ok(color) = &SETTINGS
             .get::<WindowSettings>()
