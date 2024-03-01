@@ -145,6 +145,13 @@ pub fn create_window(
 
     log::trace!("Settings initial_window_size {:?}", initial_window_size);
 
+    let mut winit_window_builder = WindowBuilder::new()
+        .with_title("Neovide")
+        .with_window_icon(Some(icon))
+        .with_maximized(cmd_line_settings.geometry.maximized)
+        .with_transparent(true)
+        .with_visible(false);
+
     // NOTE: For Geometry, the window is resized when it's shown based on the font and other
     // settings.
     let inner_size = match *initial_window_size {
@@ -152,15 +159,10 @@ pub fn create_window(
         _ => DEFAULT_WINDOW_SIZE,
     };
 
-    let winit_window_builder = WindowBuilder::new()
-        .with_title("Neovide")
-        .with_window_icon(Some(icon))
-        .with_inner_size(inner_size)
-        // Unfortunately we can't maximize here, because winit shows the window momentarily causing
-        // flickering
-        .with_maximized(false)
-        .with_transparent(true)
-        .with_visible(false);
+    // NOTE: For --maximized windows, we shouldn't request a specific size.
+    if !cmd_line_settings.geometry.maximized {
+        winit_window_builder = winit_window_builder.with_inner_size(inner_size);
+    }
 
     let frame_decoration = cmd_line_settings.frame;
 
