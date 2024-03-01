@@ -4,12 +4,9 @@ use crate::profiling::tracy_zone;
 
 use self::core_video::CVReturn;
 
-use cocoa::{
-    appkit::{NSScreen, NSWindow},
-    base::{id, nil},
-    foundation::{NSAutoreleasePool, NSDictionary, NSString},
-};
-use objc::{rc::autoreleasepool, *};
+use icrate::{AppKit::NSWindow, Foundation::NSString};
+use objc2::msg_send;
+use objc2::rc::Id;
 
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winit::window::Window;
@@ -207,19 +204,19 @@ impl<UserData> Drop for MacosDisplayLink<UserData> {
 
 // Here is the doc about how to do this. https://developer.apple.com/documentation/appkit/nsscreen/1388360-devicedescription?language=objc
 pub fn get_display_id_of_window(window: &Window) -> core_video::CGDirectDisplayID {
-    let mut result = 0;
-    autoreleasepool(|| unsafe {
-        let key: id = NSString::alloc(nil)
-            .init_str("NSScreenNumber")
-            .autorelease();
+    unsafe fn get_display_id(window: &Window) -> Option<core_video::CGDirectDisplayID> {
+        let key: Id<NSString> = NSString::from_str("NSScreenNumber");
         if let RawWindowHandle::AppKit(handle) = window.raw_window_handle() {
-            let ns_window: id = handle.ns_window as id;
-            let display_id_ns_number = ns_window.screen().deviceDescription().valueForKey_(key);
-            result = msg_send![display_id_ns_number, unsignedIntValue];
+            let ns_window = Id::retain(handle.ns_window as *mut NSWindow)?;
+            let screen = ns_window.screen()?;
+            let descr = screen.deviceDescription();
+            let display_id_ns_number = descr.get(&key)?;
+            let res = msg_send![display_id_ns_number, unsignedIntValue];
+            Some(res)
         } else {
             // Should be impossible.
             panic!("Not an AppKitWindowHandle.")
         }
-    });
-    result
+    }
+    unsafe { get_display_id(window) }.unwrap_or(0)
 }
