@@ -21,6 +21,14 @@ fn get_styles() -> Styles {
         .placeholder(styling::AnsiColor::Cyan.on_default())
 }
 
+fn is_a_tty() -> &'static str {
+    if atty::is(atty::Stream::Stdout) {
+        "1"
+    } else {
+        "0"
+    }
+}
+
 #[derive(Clone, Debug, Parser)]
 #[command(version, about, long_about = None, styles = get_styles())]
 pub struct CmdLineSettings {
@@ -66,7 +74,7 @@ pub struct CmdLineSettings {
     pub title_hidden: bool,
 
     /// Spawn a child process and leak it [DEFAULT]
-    #[arg(long = "fork", env = "NEOVIDE_FORK", action = ArgAction::SetTrue, default_value = "1", value_parser = FalseyValueParser::new())]
+    #[arg(long = "fork", env = "NEOVIDE_FORK", action = ArgAction::SetTrue, default_value = is_a_tty(), value_parser = FalseyValueParser::new())]
     pub fork: bool,
 
     /// Be "blocking" and let the shell persist as parent process. Takes precedence over `--fork`.
