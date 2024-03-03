@@ -9,7 +9,8 @@ use crate::{
     settings::{SettingLocation, SETTINGS},
 };
 
-use crate::bridge::{command::is_tty, setup_tty_startup_directory};
+use crate::bridge::setup_tty_startup_directory;
+use crate::utils::is_tty;
 
 const INIT_LUA: &str = include_str!("../../lua/init.lua");
 
