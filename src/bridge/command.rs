@@ -31,18 +31,21 @@ pub fn create_nvim_command() -> Result<TokioCommand> {
 }
 
 fn build_nvim_cmd() -> Result<TokioCommand> {
-    if let Some(cmdline) = SETTINGS.get::<CmdLineSettings>().neovim_bin {
+    let neovim_bin = SETTINGS.get::<CmdLineSettings>().neovim_bin;
+    if let Some(cmdline) = neovim_bin {
         if let Some((bin, args)) = lex_nvim_cmdline(&cmdline)? {
             return Ok(build_nvim_cmd_with_args(bin, args));
         }
 
         bail!("ERROR: NEOVIM_BIN='{}' was not found.", cmdline);
-    } else if let Some(path) = platform_which("nvim") {
+    }
+
+    if let Some(path) = platform_which("nvim") {
         if neovim_ok(&path, &[])? {
             return Ok(build_nvim_cmd_with_args(path, vec![]));
         }
     }
-    bail!("ERROR: nvim not found!")
+    bail!("ERROR: nvim not found here!")
 }
 
 // Creates a shell command if needed on this platform (wsl or macOS)
@@ -58,13 +61,18 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
         result
     } else if cfg!(target_os = "macos") {
         let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
-        let mut result = StdCommand::new(shell);
+        // let mut result = StdCommand::new(shell);
 
-        if env::var_os("TERM").is_none() {
-            result.arg("-l");
-        }
+        let mut result = StdCommand::new("/usr/bin/login");
+
+        result.args(["-flp", "falcucci", "bash"]);
+
+        // if env::var_os("TERM").is_none() {
+        //     result.arg("-l");
+        // }
         result.arg("-c");
         result.arg(format!("{} {}", command, args.join(" ")));
+        println!("{:?}", result);
 
         result
     } else {
@@ -188,12 +196,17 @@ fn nvim_cmd_impl(bin: String, mut args: Vec<String>) -> TokioCommand {
         Ok(args) => args,
         Err(_) => panic!("Failed to join arguments"),
     };
-    let mut cmd = TokioCommand::new(shell);
-    if env::var_os("TERM").is_none() {
-        cmd.arg("-l");
-    }
-    cmd.arg("-c");
-    cmd.arg(&args);
+    // let mut cmd = TokioCommand::new(shell);
+
+    // On macOS, use the `login` command so the shell will appear as a tty session.
+    let mut cmd = TokioCommand::new("/usr/bin/login");
+    // if env::var_os("TERM").is_none() {
+    //     cmd.arg("-l");
+    // }
+    // cmd.arg("-c");
+    cmd.args(["-flp", "falcucci", "bash", "-c", &args]);
+    // cmd.arg(&args);
+    println!("{:?}", cmd);
     cmd
 }
 
