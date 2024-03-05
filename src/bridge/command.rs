@@ -70,7 +70,6 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
         result
     } else if cfg!(target_os = "macos") {
         let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
-
         let user = env::var("USER").unwrap_or_explained_panic("USER environment variable not set");
 
         let mut result = StdCommand::new("/usr/bin/login");
