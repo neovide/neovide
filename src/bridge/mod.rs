@@ -92,16 +92,6 @@ async fn launch(handler: NeovimHandler, grid_size: Option<Dimensions>) -> Result
         .await
         .context("Could not locate or start neovim process")?;
 
-    let command_output = session
-        .neovim
-        .command_output(&format!("echo has('nvim-{NEOVIM_REQUIRED_VERSION}')"))
-        .await
-        .map_err(|e| {
-            error!("Error checking neovim version: {}", e);
-            e
-        })?;
-    println!("command_output: {:?}", command_output);
-
     // Check the neovim version to ensure its high enough
     match session
         .neovim
