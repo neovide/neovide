@@ -3,6 +3,7 @@ use std::os::windows::process::CommandExt;
 
 use std::{
     env,
+    path::PathBuf,
     process::{Command as StdCommand, Stdio},
 };
 
@@ -11,7 +12,7 @@ use log::debug;
 use regex::Regex;
 use tokio::process::Command as TokioCommand;
 
-use crate::{cmd_line::CmdLineSettings, settings::*};
+use crate::{cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation, settings::*};
 
 pub fn create_nvim_command() -> Result<TokioCommand> {
     let mut cmd = build_nvim_cmd()?;
@@ -48,6 +49,14 @@ fn build_nvim_cmd() -> Result<TokioCommand> {
     bail!("ERROR: nvim not found here!")
 }
 
+/// Setup environment variables.
+pub fn setup_env() {
+    env::set_var("TERM", "xterm-256color");
+
+    // Advertise 24-bit color support.
+    env::set_var("COLORTERM", "truecolor");
+}
+
 // Creates a shell command if needed on this platform (wsl or macOS)
 fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
     if cfg!(target_os = "windows") && SETTINGS.get::<CmdLineSettings>().wsl {
@@ -61,18 +70,20 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
         result
     } else if cfg!(target_os = "macos") {
         let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
-        // let mut result = StdCommand::new(shell);
+
+        let user = env::var("USER").unwrap_or_explained_panic("USER environment variable not set");
 
         let mut result = StdCommand::new("/usr/bin/login");
 
-        result.args(["-flp", "falcucci", "bash"]);
+        result.args([
+            "-flp",
+            &user,
+            &shell,
+            "-c",
+            format!("{} {}", command, args.join(" ")).as_str(),
+        ]);
 
-        // if env::var_os("TERM").is_none() {
-        //     result.arg("-l");
-        // }
-        result.arg("-c");
-        result.arg(format!("{} {}", command, args.join(" ")));
-        println!("{:?}", result);
+        println!("result {:?}", result);
 
         result
     } else {
@@ -191,22 +202,17 @@ fn platform_which(bin: &str) -> Option<String> {
 #[cfg(target_os = "macos")]
 fn nvim_cmd_impl(bin: String, mut args: Vec<String>) -> TokioCommand {
     let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
+    let user = env::var("USER").unwrap_or_explained_panic("USER environment variable not set");
     args.insert(0, bin);
     let args = match shlex::try_join(args.iter().map(String::as_str)) {
         Ok(args) => args,
         Err(_) => panic!("Failed to join arguments"),
     };
-    // let mut cmd = TokioCommand::new(shell);
 
     // On macOS, use the `login` command so the shell will appear as a tty session.
     let mut cmd = TokioCommand::new("/usr/bin/login");
-    // if env::var_os("TERM").is_none() {
-    //     cmd.arg("-l");
-    // }
-    // cmd.arg("-c");
-    cmd.args(["-flp", "falcucci", "bash", "-c", &args]);
-    // cmd.arg(&args);
-    println!("{:?}", cmd);
+    cmd.args(["-flp", &user, &shell, "-c", &args]);
+    println!("cmd {:?}", cmd);
     cmd
 }
 

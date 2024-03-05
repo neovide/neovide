@@ -66,6 +66,7 @@ pub use running_tracker::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
+use crate::bridge::command::setup_env;
 use crate::settings::{load_last_window_settings, Config, FontSettings, PersistentWindowSettings};
 
 pub use profiling::startup_profiler;
@@ -181,6 +182,8 @@ fn setup(
     maybe_disown();
 
     startup_profiler();
+
+    setup_env();
 
     #[cfg(not(test))]
     init_logger();
