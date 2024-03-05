@@ -31,7 +31,6 @@ impl fmt::Debug for NeovimSession {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("NeovimSession")
             .field("io_handle", &self.io_handle)
-            // .field("neovim", &self.neovim) // omit or provide custom handling
             .finish()
     }
 }
