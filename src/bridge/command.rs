@@ -46,7 +46,7 @@ fn build_nvim_cmd() -> Result<TokioCommand> {
             return Ok(build_nvim_cmd_with_args(path, vec![]));
         }
     }
-    bail!("ERROR: nvim not found here!")
+    bail!("ERROR: nvim not found!")
 }
 
 /// Setup environment variables.
