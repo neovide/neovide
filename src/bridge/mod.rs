@@ -105,7 +105,7 @@ async fn launch(handler: NeovimHandler, grid_size: Option<Dimensions>) -> Result
     // Check the neovim version to ensure its high enough
     match session
         .neovim
-        .command_output(&format!("\necho has('nvim-{NEOVIM_REQUIRED_VERSION}')"))
+        .command_output(&format!("echo has('nvim-{NEOVIM_REQUIRED_VERSION}')"))
         .await
         .as_deref()
     {
