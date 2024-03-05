@@ -46,6 +46,7 @@ fn build_nvim_cmd() -> Result<TokioCommand> {
             return Ok(build_nvim_cmd_with_args(path, vec![]));
         }
     }
+
     bail!("ERROR: nvim not found!")
 }
 
@@ -208,7 +209,7 @@ fn nvim_cmd_impl(bin: String, mut args: Vec<String>) -> TokioCommand {
         Err(_) => panic!("Failed to join arguments"),
     };
 
-    // On macOS, use the `login` command so the shell will appear as a tty session.
+    // use the `login` command so the shell will appear as a tty session.
     let mut cmd = TokioCommand::new("/usr/bin/login");
     cmd.args(["-flp", &user, &shell, "-c", &args]);
     println!("cmd {:?}", cmd);
