@@ -27,6 +27,7 @@ pub struct NeovimSession {
     pub io_handle: JoinHandle<std::result::Result<(), Box<LoopError>>>,
 }
 
+#[cfg(debug_assertions)]
 impl fmt::Debug for NeovimSession {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("NeovimSession")
