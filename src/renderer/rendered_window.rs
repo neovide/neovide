@@ -433,7 +433,9 @@ impl RenderedWindow {
         let paint = Paint::default()
             .set_anti_alias(false)
             .set_color(Color::from_argb(255, 255, 255, default_background.a()))
-            .set_blend_mode(if self.anchor_info.is_some() {
+            .set_blend_mode(if self.anchor_info.is_some()
+                && self.anchor_info.as_ref().unwrap().sort_order != settings.no_multigrid_zindex
+            {
                 BlendMode::SrcOver
             } else {
                 BlendMode::Src
