@@ -70,7 +70,7 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
         let exec = format!("exec -a -{} {} {}", shell_name, command, args.join(" "));
 
         // See "man login". It sets up some important env vars like $PATH and $HOME.
-        // On macOS, use the `login` command so the it will appear as a tty session.
+        // On macOS, use the `login` command so it will appear as a tty session.
         let mut result = StdCommand::new("/usr/bin/login");
 
         // We use a special flag to tell login not to prompt us for a password, because we're
@@ -224,7 +224,7 @@ fn nvim_cmd_impl(bin: String, mut args: Vec<String>) -> TokioCommand {
     };
 
     // See "man login". It sets up some important env vars like $PATH and $HOME.
-    // On macOS, use the `login` command so the it will appear as a tty session.
+    // On macOS, use the `login` command so it will appear as a tty session.
     let mut cmd = TokioCommand::new("/usr/bin/login");
 
     // Exec the shell with argv[0] prepended by '-' so it becomes a login shell.
