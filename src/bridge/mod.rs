@@ -1,5 +1,5 @@
 mod clipboard;
-pub mod command;
+mod command;
 mod events;
 mod handler;
 pub mod session;
