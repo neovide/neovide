@@ -367,6 +367,7 @@ impl RenderedWindow {
         let transparent_floating = self.anchor_info.is_some() && has_transparency;
 
         if self.anchor_info.is_some()
+            && self.anchor_info.as_ref().unwrap().sort_order != settings.no_multigrid_zindex
             && settings.floating_shadow
             && !previous_floating_rects
                 .iter()
