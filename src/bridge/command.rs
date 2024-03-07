@@ -95,53 +95,66 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
     }
 }
 
+fn create_error_message(bin: &str, stdout: &str, stderr: Vec<&str>, is_wsl: bool) -> String {
+    let mut error_message = format!(
+        concat!(
+            "ERROR: Unexpected output from neovim binary:\n",
+            "\t{bin} -v\n",
+            "stdout: {stdout}\n",
+            "stderr: {stderr}\n",
+            "\t"
+        ),
+        bin = bin,
+        stdout = stdout,
+        stderr = stderr.join("\n")
+    );
+
+    if is_wsl {
+        error_message.push_str("\n\nPlease check your WSL configuration.\n");
+    } else {
+        error_message.push_str("\n\nPlease check your shell configuration.\n");
+    }
+
+    error_message
+}
+
 fn neovim_ok(bin: &str, args: &[String]) -> Result<bool> {
     let is_wsl = SETTINGS.get::<CmdLineSettings>().wsl;
     let mut args = args.iter().map(String::as_str).collect::<Vec<_>>();
     args.push("-v");
 
     let mut cmd = create_platform_shell_command(bin, &args);
-    if let Ok(output) = cmd.output() {
-        if output.status.success() {
-            // The output is not utf8 on Windows and can contain special characters.
-            // But a lossy conversion is OK for our purposes
-            let stdout = String::from_utf8_lossy(&output.stdout);
+    let output = cmd.output();
 
-            if !(stdout.starts_with("NVIM v") && output.stderr.is_empty()) {
-                let win_wsl_screen_size_error =
-                    Regex::new(r"your \d+x\d+ screen size is bogus. expect trouble").unwrap();
-                let stderr = String::from_utf8_lossy(&output.stderr);
-                let (matching_lines, non_matching_lines): (Vec<_>, Vec<_>) = stderr
-                    .lines()
-                    .partition(|line| win_wsl_screen_size_error.is_match(line));
-                if matching_lines.len() == stderr.lines().count() {
-                    return Ok(true);
-                }
-
-                let error_message_prefix = format!(
-                    concat!(
-                        "ERROR: Unexpected output from neovim binary:\n",
-                        "\t{bin} -v\n",
-                        "stdout: {stdout}\n",
-                        "stderr: {stderr}\n",
-                        "Check that your shell doesn't output anything extra when running:",
-                        "\n\t"
-                    ),
-                    bin = bin,
-                    stdout = stdout,
-                    stderr = non_matching_lines.join("\n"),
-                );
-
-                if is_wsl {
-                    bail!("{error_message_prefix}wsl '$SHELL' -lc '{bin} -v'");
-                } else {
-                    bail!("{error_message_prefix}$SHELL -lc '{bin} -v'");
-                }
-            }
-            return Ok(true);
-        }
+    if output.is_err() {
+        return Ok(false);
     }
-    Ok(false)
+
+    let output = output?;
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+
+    let error_regex = Regex::new(r"your \d+x\d+ screen size is bogus. expect trouble").unwrap();
+    let (_, non_matching_stderr_lines): (Vec<_>, Vec<_>) =
+        stderr.lines().partition(|line| error_regex.is_match(line));
+
+    let unexpeted_output = !output.status.success()
+        || stdout.is_empty()
+        || !(stdout.starts_with("NVIM v") && stderr.is_empty())
+        || non_matching_stderr_lines.len() != stderr.lines().count();
+
+    if unexpeted_output {
+        let error_message = create_error_message(bin, &stdout, non_matching_stderr_lines, is_wsl);
+        let command = if is_wsl {
+            "wsl '$SHELL' -lc '{bin} -v'"
+        } else {
+            "$SHELL -lc '{bin} -v'"
+        };
+
+        bail!("{error_message}{command}")
+    }
+
+    Ok(true)
 }
 
 fn lex_nvim_cmdline(cmdline: &str) -> Result<Option<(String, Vec<String>)>> {

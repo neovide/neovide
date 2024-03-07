@@ -104,6 +104,7 @@ async fn launch(handler: NeovimHandler, grid_size: Option<Dimensions>) -> Result
             bail!("Neovide requires nvim version {NEOVIM_REQUIRED_VERSION} or higher. Download the latest version here https://github.com/neovim/neovim/wiki/Installing-Neovim");
         }
     }
+
     let settings = SETTINGS.get::<CmdLineSettings>();
 
     let should_handle_clipboard = settings.wsl || settings.server.is_some();
