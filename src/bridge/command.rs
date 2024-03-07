@@ -70,13 +70,27 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
 
         result
     } else if cfg!(target_os = "macos") {
-        let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
-        let user = env::var("USER").unwrap_or_explained_panic("USER environment variable not set");
-        let command = format!("{} {}", command, args.join(" "));
+        let user =
+            env::var("USER").unwrap_or_explained_panic("USER environment variable not found");
+        let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+        let shell_name = shell.rsplit('/').next().unwrap();
 
+        // Exec the shell with argv[0] prepended by '-' so it becomes a login shell.
+        // `login` normally does this itself, but `-l` disables this.
+        let exec = format!("exec -a -{} {} {}", shell_name, command, args.join(" "));
+
+        // See "man login". It sets up some important env vars like $PATH and $HOME.
+        // On macOS, use the `login` command so the shell will appear as a tty session.
         let mut result = StdCommand::new("/usr/bin/login");
 
-        result.args(["-flp", &user, &shell, "-c", &command]);
+        // We use a special flag to tell login not to prompt us for a password, because we're
+        // going to spawn it as the current user anyway. The addition of "p",
+        // preserves the environment.
+        // -f: Bypasses authentication for the already-logged-in user.
+        // -l: Skips changing directory to $HOME and prepending '-' to argv[0].
+        // -p: Preserves the environment.
+        // -q: Forces quiet logins, as if a .hushlogin is present.
+        result.args(["-flpq", &user, &shell, "-lc", &exec]);
 
         result
     } else {
@@ -194,18 +208,33 @@ fn platform_which(bin: &str) -> Option<String> {
 
 #[cfg(target_os = "macos")]
 fn nvim_cmd_impl(bin: String, mut args: Vec<String>) -> TokioCommand {
-    let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
-    let user = env::var("USER").unwrap_or_explained_panic("USER environment variable not set");
+    let user = env::var("USER").unwrap_or_explained_panic("USER environment variable not found");
+    let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+    let shell_name = shell.rsplit('/').next().unwrap();
+
     args.insert(0, bin);
     let args = match shlex::try_join(args.iter().map(String::as_str)) {
         Ok(args) => args,
         Err(_) => panic!("Failed to join arguments"),
     };
 
-    // use the `login` command so the shell will appear as a tty session.
+    // See "man login". It sets up some important env vars like $PATH and $HOME.
+    // On macOS, use the `login` command so the shell will appear as a tty session.
     let mut cmd = TokioCommand::new("/usr/bin/login");
-    cmd.args(["-flp", &user, &shell, "-c", &args]);
-    println!("cmd {:?}", cmd);
+
+    // Exec the shell with argv[0] prepended by '-' so it becomes a login shell.
+    // `login` normally does this itself, but `-l` disables this.
+    let exec = format!("exec -a -{} {}", shell_name, args);
+
+    // We use a special flag to tell login not to prompt us for a password, because we're
+    // going to spawn it as the current user anyway. The addition of "p",
+    // preserves the environment.
+    // -f: Bypasses authentication for the already-logged-in user.
+    // -l: Skips changing directory to $HOME and prepending '-' to argv[0].
+    // -p: Preserves the environment.
+    // -q: Forces quiet logins, as if a .hushlogin is present.
+    cmd.args(["-flpq", &user, &shell, "-lc", &exec]);
+
     cmd
 }
 
