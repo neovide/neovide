@@ -130,6 +130,8 @@ fn neovim_ok(bin: &str, args: &[String]) -> Result<bool> {
         return Ok(false);
     }
 
+    // The output is not utf8 on Windows and can contain special characters.
+    // But a lossy conversion is OK for our purposes
     let output = output?;
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
