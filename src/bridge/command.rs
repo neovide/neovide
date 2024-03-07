@@ -3,7 +3,6 @@ use std::os::windows::process::CommandExt;
 
 use std::{
     env,
-    path::PathBuf,
     process::{Command as StdCommand, Stdio},
 };
 
