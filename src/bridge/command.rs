@@ -32,8 +32,7 @@ pub fn create_nvim_command() -> Result<TokioCommand> {
 }
 
 fn build_nvim_cmd() -> Result<TokioCommand> {
-    let neovim_bin = SETTINGS.get::<CmdLineSettings>().neovim_bin;
-    if let Some(cmdline) = neovim_bin {
+    if let Some(cmdline) = SETTINGS.get::<CmdLineSettings>().neovim_bin {
         if let Some((bin, args)) = lex_nvim_cmdline(&cmdline)? {
             return Ok(build_nvim_cmd_with_args(bin, args));
         }
