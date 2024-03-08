@@ -5,9 +5,12 @@ use rmpv::Value;
 
 use super::setup_intro_message_autocommand;
 use crate::{
-    bridge::{command::is_tty, setup_startup_directory, NeovimWriter},
+    bridge::NeovimWriter,
     settings::{SettingLocation, SETTINGS},
 };
+
+#[cfg(target_os = "macos")]
+use crate::bridge::{command::is_tty, setup_startup_directory};
 
 const INIT_LUA: &str = include_str!("../../lua/init.lua");
 
