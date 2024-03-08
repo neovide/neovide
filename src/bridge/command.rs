@@ -40,9 +40,7 @@ fn build_nvim_cmd() -> Result<TokioCommand> {
         }
 
         bail!("ERROR: NEOVIM_BIN='{}' was not found.", cmdline);
-    }
-
-    if let Some(path) = platform_which("nvim") {
+    } else if let Some(path) = platform_which("nvim") {
         if neovim_ok(&path, &[])? {
             return Ok(build_nvim_cmd_with_args(path, vec![]));
         }
