@@ -62,7 +62,7 @@ line:
 brew install --cask neovide
 ```
 
-Neovide register launched shells taking the users preferred shell into account.
+Neovide registers launched shells taking the user's preferred shell into account.
 
 If you are encountering issues with Neovide not being found by your shell, you can try to add the
 `brew` binary path to your `PATH` environment variable:
