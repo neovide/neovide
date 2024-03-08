@@ -140,8 +140,7 @@ fn neovim_ok(bin: &str, args: &[String]) -> Result<bool> {
         stderr.lines().partition(|line| error_regex.is_match(line));
 
     let unexpeted_output = !output.status.success()
-        || stdout.is_empty()
-        || !(stdout.starts_with("NVIM v") && stderr.is_empty())
+        || !stdout.starts_with("NVIM v")
         || non_matching_stderr_lines.len() != stderr.lines().count();
 
     if unexpeted_output {
