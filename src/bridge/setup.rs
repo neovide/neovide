@@ -23,13 +23,14 @@ pub async fn setup_neovide_specific_state(
         .await
         .context("Could not communicate with neovim process")?;
 
-    nvim.set_var("neovide_tty", Value::from(is_tty()))
-        .await
-        .context("Could not communicate with neovim process")?;
-
     nvim.command("runtime! ginit.vim")
         .await
         .context("Error encountered in ginit.vim ")?;
+
+    #[cfg(target_os = "macos")]
+    nvim.set_var("neovide_tty", Value::from(is_tty()))
+        .await
+        .context("Could not communicate with neovim process")?;
 
     // Set details about the neovide version.
     nvim.set_client_info(
