@@ -3,7 +3,6 @@ use std::os::windows::process::CommandExt;
 
 use std::{
     env,
-    io::IsTerminal,
     process::{Command as StdCommand, Stdio},
 };
 
@@ -13,6 +12,9 @@ use regex::Regex;
 use tokio::process::Command as TokioCommand;
 
 use crate::{cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation, settings::*};
+
+#[cfg(target_os = "macos")]
+use std::io::IsTerminal;
 
 pub fn create_nvim_command() -> Result<TokioCommand> {
     let mut cmd = build_nvim_cmd()?;
