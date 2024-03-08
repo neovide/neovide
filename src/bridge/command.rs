@@ -66,11 +66,9 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
         let user =
             env::var("USER").unwrap_or_explained_panic("USER environment variable not found");
         let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
-        let shell_name = shell.rsplit('/').next().unwrap();
 
-        // Exec the shell with argv[0] prepended by '-' so it becomes a login shell.
-        // `login` normally does this itself, but `-l` disables this.
-        let exec = format!("exec -a -{} {} {}", shell_name, command, args.join(" "));
+        // Executes neovim as a login shell, so it will source the user's startup files.
+        let exec = format!("{} {}", command, args.join(" "));
 
         // See "man login". It sets up some important env vars like $PATH and $HOME.
         // On macOS, use the `login` command so it will appear as a tty session.
@@ -223,7 +221,6 @@ pub fn is_tty() -> bool {
 fn nvim_cmd_impl(bin: String, mut args: Vec<String>) -> TokioCommand {
     let user = env::var("USER").unwrap_or_explained_panic("USER environment variable not found");
     let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
-    let shell_name = shell.rsplit('/').next().unwrap();
 
     args.insert(0, bin);
     let args = match shlex::try_join(args.iter().map(String::as_str)) {
@@ -231,13 +228,12 @@ fn nvim_cmd_impl(bin: String, mut args: Vec<String>) -> TokioCommand {
         Err(_) => panic!("Failed to join arguments"),
     };
 
+    // Executes neovim as a login shell, so it will source the user's startup files.
+    let exec = args.to_string();
+
     // See "man login". It sets up some important env vars like $PATH and $HOME.
     // On macOS, use the `login` command so it will appear as a tty session.
     let mut cmd = TokioCommand::new("/usr/bin/login");
-
-    // Exec the shell with argv[0] prepended by '-' so it becomes a login shell.
-    // `login` normally does this itself, but `-l` disables this.
-    let exec = format!("exec -a -{} {}", shell_name, args);
 
     // We use a special flag to tell login not to prompt us for a password, because we're
     // going to spawn it as the current user anyway. The addition of "p",
