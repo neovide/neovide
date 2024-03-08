@@ -5,7 +5,7 @@ use rmpv::Value;
 
 use super::setup_intro_message_autocommand;
 use crate::{
-    bridge::NeovimWriter,
+    bridge::{command::is_tty, setup_startup_directory, NeovimWriter},
     settings::{SettingLocation, SETTINGS},
 };
 
@@ -17,6 +17,10 @@ pub async fn setup_neovide_specific_state(
 ) -> Result<()> {
     // Set variable indicating to user config that neovide is being used.
     nvim.set_var("neovide", Value::Boolean(true))
+        .await
+        .context("Could not communicate with neovim process")?;
+
+    nvim.set_var("neovide_tty", Value::from(is_tty()))
         .await
         .context("Could not communicate with neovim process")?;
 
@@ -99,6 +103,11 @@ pub async fn setup_neovide_specific_state(
     nvim.execute_lua(INIT_LUA, vec![args])
         .await
         .context("Error when running Neovide init.lua")?;
+
+    #[cfg(target_os = "macos")]
+    setup_startup_directory(nvim)
+        .await
+        .context("Error setting startup directory")?;
 
     setup_intro_message_autocommand(nvim)
         .await

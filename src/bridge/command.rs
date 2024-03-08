@@ -3,6 +3,7 @@ use std::os::windows::process::CommandExt;
 
 use std::{
     env,
+    io::IsTerminal,
     process::{Command as StdCommand, Stdio},
 };
 
@@ -209,6 +210,11 @@ fn platform_which(bin: &str) -> Option<String> {
         }
     }
     None
+}
+
+#[cfg(target_os = "macos")]
+pub fn is_tty() -> bool {
+    !std::io::stdout().is_terminal()
 }
 
 #[cfg(target_os = "macos")]

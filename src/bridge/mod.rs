@@ -44,6 +44,11 @@ fn neovim_instance() -> Result<NeovimInstance> {
     }
 }
 
+#[cfg(target_os = "macos")]
+pub async fn setup_startup_directory(nvim: &Neovim<NeovimWriter>) -> Result<(), Box<CallError>> {
+    nvim.command("if g:neovide_tty | cd $HOME | endif").await
+}
+
 pub async fn setup_intro_message_autocommand(
     nvim: &Neovim<NeovimWriter>,
 ) -> Result<Value, Box<CallError>> {
