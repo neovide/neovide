@@ -91,7 +91,6 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
         let (cmd, cmd_args) = build_login_cmd_args(command, args);
 
         let mut result = StdCommand::new(cmd);
-
         result.args(cmd_args);
 
         result
@@ -233,8 +232,8 @@ fn nvim_cmd_impl(bin: String, args: Vec<String>) -> TokioCommand {
         &bin,
         &args.iter().map(|s| s.as_str()).collect::<Vec<&str>>(),
     );
-    let mut cmd = TokioCommand::new(cmd);
 
+    let mut cmd = TokioCommand::new(cmd);
     cmd.args(cmd_args);
 
     cmd
