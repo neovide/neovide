@@ -99,6 +99,7 @@ Now here's where the order becomes important:
     - `Cargo.toml` (do note it contains the version _twice_, one time in the
         top, one time at the bottom in the bundling section)
     - `snap/snapcraft.yaml`
+    - `flatpak/dev.neovide.neovide.metainfo.xml`
     - `website/docs/*.md` and update `Unreleased yet` to `Available since $tag`
       (where `$tag` is the tag name)
 
