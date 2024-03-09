@@ -73,6 +73,7 @@ pub async fn setup_tty_startup_directory(
 
     nvim.command(cmd.as_str()).await
 }
+
 #[cfg(target_os = "macos")]
 fn get_startup_directory(path: &str) -> String {
     use std::path::{Path, PathBuf};
