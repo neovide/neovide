@@ -49,6 +49,33 @@ fn build_nvim_cmd() -> Result<TokioCommand> {
     bail!("ERROR: nvim not found!")
 }
 
+#[cfg(target_os = "macos")]
+fn build_login_cmd_args(command: &str, args: &[&str]) -> (String, Vec<String>) {
+    let user = env::var("USER").unwrap_or_explained_panic("USER environment variable not found");
+    let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+
+    // Executes neovim as a login shell, so it will source the user's startup files.
+    let exec = format!("{} {}", command, args.join(" "));
+
+    // See "man login". It sets up some important env vars like $PATH and $HOME.
+    // On macOS, use the `login` command so it will appear as a tty session.
+    let cmd_path = "/usr/bin/login";
+
+    // We use a special flag to tell login not to prompt us for a password, because we're
+    // going to spawn it as the current user anyway. The addition of "p",
+    // preserves the environment.
+    // -f: Bypasses authentication for the already-logged-in user.
+    // -l: Skips changing directory to $HOME and prepending '-' to argv[0].
+    // -p: Preserves the environment.
+    // -q: Forces quiet logins, as if a .hushlogin is present.
+    let cmd_args = vec!["-flpq", &user, &shell, "-lc", &exec];
+
+    (
+        cmd_path.to_string(),
+        cmd_args.into_iter().map(|s| s.to_string()).collect(),
+    )
+}
+
 // Creates a shell command if needed on this platform (wsl or macOS)
 fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
     if cfg!(target_os = "windows") && SETTINGS.get::<CmdLineSettings>().wsl {
@@ -61,25 +88,11 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
 
         result
     } else if cfg!(target_os = "macos") {
-        let user =
-            env::var("USER").unwrap_or_explained_panic("USER environment variable not found");
-        let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+        let (cmd, cmd_args) = build_login_cmd_args(command, args);
 
-        // Executes neovim as a login shell, so it will source the user's startup files.
-        let exec = format!("{} {}", command, args.join(" "));
+        let mut result = StdCommand::new(cmd);
 
-        // See "man login". It sets up some important env vars like $PATH and $HOME.
-        // On macOS, use the `login` command so it will appear as a tty session.
-        let mut result = StdCommand::new("/usr/bin/login");
-
-        // We use a special flag to tell login not to prompt us for a password, because we're
-        // going to spawn it as the current user anyway. The addition of "p",
-        // preserves the environment.
-        // -f: Bypasses authentication for the already-logged-in user.
-        // -l: Skips changing directory to $HOME and prepending '-' to argv[0].
-        // -p: Preserves the environment.
-        // -q: Forces quiet logins, as if a .hushlogin is present.
-        result.args(["-flpq", &user, &shell, "-lc", &exec]);
+        result.args(cmd_args);
 
         result
     } else {
@@ -215,31 +228,14 @@ pub fn is_tty() -> bool {
 }
 
 #[cfg(target_os = "macos")]
-fn nvim_cmd_impl(bin: String, mut args: Vec<String>) -> TokioCommand {
-    let user = env::var("USER").unwrap_or_explained_panic("USER environment variable not found");
-    let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+fn nvim_cmd_impl(bin: String, args: Vec<String>) -> TokioCommand {
+    let (cmd, cmd_args) = build_login_cmd_args(
+        &bin,
+        &args.iter().map(|s| s.as_str()).collect::<Vec<&str>>(),
+    );
+    let mut cmd = TokioCommand::new(cmd);
 
-    args.insert(0, bin);
-    let args = match shlex::try_join(args.iter().map(String::as_str)) {
-        Ok(args) => args,
-        Err(_) => panic!("Failed to join arguments"),
-    };
-
-    // Executes neovim as a login shell, so it will source the user's startup files.
-    let exec = args.to_string();
-
-    // See "man login". It sets up some important env vars like $PATH and $HOME.
-    // On macOS, use the `login` command so it will appear as a tty session.
-    let mut cmd = TokioCommand::new("/usr/bin/login");
-
-    // We use a special flag to tell login not to prompt us for a password, because we're
-    // going to spawn it as the current user anyway. The addition of "p",
-    // preserves the environment.
-    // -f: Bypasses authentication for the already-logged-in user.
-    // -l: Skips changing directory to $HOME and prepending '-' to argv[0].
-    // -p: Preserves the environment.
-    // -q: Forces quiet logins, as if a .hushlogin is present.
-    cmd.args(["-flpq", &user, &shell, "-lc", &exec]);
+    cmd.args(cmd_args);
 
     cmd
 }
