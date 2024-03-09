@@ -89,6 +89,7 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
 
         result
     } else if cfg!(target_os = "macos") {
+        #[cfg(target_os = "macos")]
         let (cmd, cmd_args) = build_login_cmd_args(command, args);
 
         let mut result = StdCommand::new(cmd);
