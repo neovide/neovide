@@ -32,7 +32,7 @@ const INTRO_MESSAGE_LUA: &str = include_str!("../../lua/intro.lua");
 const NEOVIM_REQUIRED_VERSION: &str = "0.9.2";
 
 #[cfg(target_os = "macos")]
-const TTY_STARTUP_DIRECTORY: &str = "cd $HOME";
+const TTY_STARTUP_DIRECTORY: &str = "$HOME";
 
 pub struct NeovimRuntime {
     runtime: Option<Runtime>,
@@ -47,18 +47,52 @@ fn neovim_instance() -> Result<NeovimInstance> {
     }
 }
 
+/// The function `setup_tty_startup_directory` sets up the startup directory for
+/// a new TTY Neovim session on macOS platform, such as Finder, Dock, or even
+/// external programs like Neohub.
+///
+/// Any nvim command line arguments besides startup path are ignored and must be handled
+/// by the command line parser.
+///
+/// Conditions:
+///
+/// - Argument is a directory, it becomes the startup directory.
+/// - Argument is a file, its parent directory becomes the startup directory.
+/// - Neither directory nor file, $HOME is used.
 #[cfg(target_os = "macos")]
-pub fn cmd_tty_startup_directory() -> String {
-    let args = SETTINGS.get::<CmdLineSettings>().neovim_args;
-    let startup_directory = match args.last() {
-        Some(arg) if arg.starts_with("cd") => arg.to_string(),
-        _ => TTY_STARTUP_DIRECTORY.to_string(),
-    };
+pub async fn setup_tty_startup_directory(
+    nvim: &Neovim<NeovimWriter>,
+) -> Result<(), Box<CallError>> {
+    let mut args = SETTINGS.get::<CmdLineSettings>().neovim_args;
+    args.retain(|arg| is_valid_path(arg));
 
-    format!(
-        "if g:neovide_tty && len(v:argv) == 3 | {} | endif",
-        startup_directory
-    )
+    let path = args.first().cloned().unwrap_or_default();
+    let startup_directory = get_startup_directory(&path);
+
+    let cmd = format!("if g:neovide_tty | cd {} | endif", startup_directory);
+
+    nvim.command(cmd.as_str()).await
+}
+#[cfg(target_os = "macos")]
+fn get_startup_directory(path: &str) -> String {
+    use std::path::{Path, PathBuf};
+
+    match path {
+        arg if PathBuf::from(&arg).is_dir() => arg.to_string(),
+        arg if PathBuf::from(&arg).is_file() => Path::new(&arg)
+            .parent()
+            .unwrap_or_else(|| Path::new(TTY_STARTUP_DIRECTORY))
+            .to_string_lossy()
+            .to_string(),
+        _ => TTY_STARTUP_DIRECTORY.to_string(),
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn is_valid_path(path: &str) -> bool {
+    use std::path::PathBuf;
+
+    PathBuf::from(path).is_dir() || PathBuf::from(path).is_file()
 }
 
 pub async fn setup_intro_message_autocommand(
