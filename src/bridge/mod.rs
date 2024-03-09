@@ -49,12 +49,16 @@ fn neovim_instance() -> Result<NeovimInstance> {
 
 #[cfg(target_os = "macos")]
 pub fn cmd_tty_startup_directory() -> String {
-    let startup_directory = match std::env::args().last() {
-        Some(arg) if arg.starts_with("cd") => arg,
+    let args = SETTINGS.get::<CmdLineSettings>().neovim_args;
+    let startup_directory = match args.last() {
+        Some(arg) if arg.starts_with("cd") => arg.to_string(),
         _ => TTY_STARTUP_DIRECTORY.to_string(),
     };
 
-    format!("if g:neovide_tty | {} | endif", startup_directory)
+    format!(
+        "if g:neovide_tty && len(v:argv) == 3 | {} | endif",
+        startup_directory
+    )
 }
 
 pub async fn setup_intro_message_autocommand(
