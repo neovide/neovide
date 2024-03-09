@@ -69,7 +69,10 @@ pub async fn setup_tty_startup_directory(
     let path = args.first().cloned().unwrap_or_default();
     let startup_directory = get_startup_directory(&path);
 
-    let cmd = format!("if g:neovide_tty | cd {} | endif", startup_directory);
+    let cmd = format!(
+        "if g:neovide_tty == 'v:true' | cd {} | endif",
+        startup_directory
+    );
 
     nvim.command(cmd.as_str()).await
 }
