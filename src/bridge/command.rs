@@ -99,7 +99,6 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
 
         result
     } else if cfg!(target_os = "macos") {
-        #[cfg(target_os = "macos")]
         create_macos_shell_command(command, args)
     } else {
         // On Linux and non-WSL Windows, just run the command directly
