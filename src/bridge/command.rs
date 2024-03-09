@@ -77,35 +77,44 @@ fn build_login_cmd_args(command: &str, args: &[&str]) -> (String, Vec<String>) {
     )
 }
 
-fn create_macos_shell_command(command: &str, args: &[&str]) -> StdCommand {
-    let (cmd, cmd_args) = build_login_cmd_args(command, args);
-
-    let mut result = StdCommand::new(cmd);
-    result.args(cmd_args);
-
-    result
-}
-
 // Creates a shell command if needed on this platform (wsl or macOS)
 fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
-    if cfg!(target_os = "windows") && SETTINGS.get::<CmdLineSettings>().wsl {
-        let mut result = StdCommand::new("wsl");
-        result.args(["$SHELL", "-lc"]);
-        result.arg(format!("{} {}", command, args.join(" ")));
+    #[cfg(target_os = "windows")]
+    {
+        if SETTINGS.get::<CmdLineSettings>().wsl {
+            let mut result = StdCommand::new("wsl");
+            result.args(["$SHELL", "-lc"]);
+            result.arg(format!("{} {}", command, args.join(" ")));
 
-        #[cfg(windows)]
-        result.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
+            #[cfg(windows)]
+            result.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
+
+            result
+        } else {
+            let mut result = StdCommand::new(command);
+            result.args(args);
+
+            #[cfg(windows)]
+            result.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
+
+            result
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let (cmd, cmd_args) = build_login_cmd_args(command, args);
+
+        let mut result = StdCommand::new(cmd);
+        result.args(cmd_args);
 
         result
-    } else if cfg!(target_os = "macos") {
-        create_macos_shell_command(command, args)
-    } else {
-        // On Linux and non-WSL Windows, just run the command directly
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
         let mut result = StdCommand::new(command);
         result.args(args);
-
-        #[cfg(windows)]
-        result.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
 
         result
     }
