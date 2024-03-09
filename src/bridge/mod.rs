@@ -70,7 +70,7 @@ pub async fn setup_tty_startup_directory(
     let startup_directory = get_startup_directory(&path);
 
     let cmd = format!(
-        "if g:neovide_tty == 'v:true' | cd {} | endif",
+        "if g:neovide_tty == v:true | cd {} | endif",
         startup_directory
     );
 
