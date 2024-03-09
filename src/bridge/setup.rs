@@ -10,7 +10,7 @@ use crate::{
 };
 
 #[cfg(target_os = "macos")]
-use crate::bridge::{command::is_tty, setup_startup_directory};
+use crate::bridge::{cmd_tty_startup_directory, command::is_tty};
 
 const INIT_LUA: &str = include_str!("../../lua/init.lua");
 
@@ -109,7 +109,7 @@ pub async fn setup_neovide_specific_state(
         .context("Error when running Neovide init.lua")?;
 
     #[cfg(target_os = "macos")]
-    setup_startup_directory(nvim)
+    nvim.command(cmd_tty_startup_directory().as_str())
         .await
         .context("Error setting startup directory")?;
 

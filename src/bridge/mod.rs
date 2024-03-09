@@ -31,6 +31,9 @@ pub use ui_commands::{send_ui, start_ui_command_handler, ParallelCommand, Serial
 const INTRO_MESSAGE_LUA: &str = include_str!("../../lua/intro.lua");
 const NEOVIM_REQUIRED_VERSION: &str = "0.9.2";
 
+#[cfg(target_os = "macos")]
+const TTY_STARTUP_DIRECTORY: &str = "cd $HOME";
+
 pub struct NeovimRuntime {
     runtime: Option<Runtime>,
 }
@@ -45,8 +48,13 @@ fn neovim_instance() -> Result<NeovimInstance> {
 }
 
 #[cfg(target_os = "macos")]
-pub async fn setup_startup_directory(nvim: &Neovim<NeovimWriter>) -> Result<(), Box<CallError>> {
-    nvim.command("if g:neovide_tty | cd $HOME | endif").await
+pub fn cmd_tty_startup_directory() -> String {
+    let startup_directory = match std::env::args().last() {
+        Some(arg) if arg.starts_with("cd") => arg,
+        _ => TTY_STARTUP_DIRECTORY.to_string(),
+    };
+
+    format!("if g:neovide_tty | {} | endif", startup_directory)
 }
 
 pub async fn setup_intro_message_autocommand(
