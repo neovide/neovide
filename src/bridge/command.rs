@@ -1,17 +1,14 @@
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
-use std::{
-    env,
-    process::{Command as StdCommand, Stdio},
-};
+use std::process::{Command as StdCommand, Stdio};
 
 use anyhow::{bail, Result};
 use log::debug;
 use regex::Regex;
 use tokio::process::Command as TokioCommand;
 
-use crate::{cmd_line::CmdLineSettings, error_handling::ResultPanicExplanation, settings::*};
+use crate::{cmd_line::CmdLineSettings, settings::*};
 
 #[cfg(target_os = "macos")]
 use std::io::IsTerminal;
@@ -51,6 +48,10 @@ fn build_nvim_cmd() -> Result<TokioCommand> {
 
 #[cfg(target_os = "macos")]
 fn build_login_cmd_args(command: &str, args: &[&str]) -> (String, Vec<String>) {
+    use std::env;
+
+    use crate::error_handling::ResultPanicExplanation;
+
     let user = env::var("USER").unwrap_or_explained_panic("USER environment variable not found");
     let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
 
