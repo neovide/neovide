@@ -108,6 +108,7 @@ pub async fn setup_neovide_specific_state(
         .await
         .context("Error when running Neovide init.lua")?;
 
+    #[cfg(target_os = "macos")]
     setup_tty_startup_directory(nvim)
         .await
         .context("Error setting up TTY startup directory")?;
