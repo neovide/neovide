@@ -86,7 +86,6 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
             result.args(["$SHELL", "-lc"]);
             result.arg(format!("{} {}", command, args.join(" ")));
 
-            #[cfg(windows)]
             result.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
 
             result
@@ -94,7 +93,6 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
             let mut result = StdCommand::new(command);
             result.args(args);
 
-            #[cfg(windows)]
             result.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
 
             result
