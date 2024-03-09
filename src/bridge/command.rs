@@ -77,7 +77,6 @@ fn build_login_cmd_args(command: &str, args: &[&str]) -> (String, Vec<String>) {
     )
 }
 
-#[cfg(target_os = "macos")]
 fn create_macos_shell_command(command: &str, args: &[&str]) -> StdCommand {
     let (cmd, cmd_args) = build_login_cmd_args(command, args);
 
