@@ -18,6 +18,10 @@
       <li>Emoji support</li>
     </ul>
   </description>
+  <categories>
+    <category>Utility</category>
+    <category>TextEditor</category>
+  </categories>
   <launchable type="desktop-id">dev.neovide.Neovide.desktop</launchable>
   <icon type="stock">dev.neovide.Neovide</icon>
   <branding>
