@@ -56,7 +56,7 @@ fn handle_command_arg(position: usize, args: Vec<String>) -> String {
 
 /// Takes the valid path argument and returns the startup directory.
 #[cfg(target_os = "macos")]
-fn handle_arg_as_path_or_default(args: &mut Vec<String>) -> String {
+fn handle_command_arg_as_path_or_default(args: &mut Vec<String>) -> String {
     args.retain(|arg| is_valid_path(arg));
 
     let path = args.first().cloned().unwrap_or_default();
@@ -96,7 +96,7 @@ pub async fn setup_tty_startup_directory(
         .iter()
         .rposition(|arg| arg == "--cmd" || arg == "-c");
 
-    let mut cmd = handle_arg_as_path_or_default(&mut neovim_args.clone());
+    let mut cmd = handle_command_arg_as_path_or_default(&mut neovim_args.clone());
 
     if let Some(pos) = cmd_arg {
         cmd = format!("{} | {}", cmd, handle_command_arg(pos, neovim_args));
