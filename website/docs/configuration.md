@@ -203,7 +203,7 @@ vim.g.neovide_window_blurred = true
 
 Setting `g:neovide_window_blurred` toggles the window blur state.
 
-The blurred level respects the `g:neovide_transparency`  value between 0.0 and 1.0.
+The blurred level respects the `g:neovide_transparency` value between 0.0 and 1.0.
 
 #### Floating Blur Amount
 
@@ -269,6 +269,11 @@ Lua:
 vim.g.neovide_transparency = 0.8
 ```
 
+![Transparency](assets/Transparency.png)
+
+Setting `g:neovide_transparency` to a value between 0.0 and 1.0 will set the opacity of the window
+to that value.
+
 #### Show Border (Currently macOS only)
 
 VimScript:
@@ -286,11 +291,6 @@ vim.g.neovide_show_border = true
 Draw a grey border around opaque windows only.
 
 Default: `false`
-
-![Transparency](assets/Transparency.png)
-
-Setting `g:neovide_transparency` to a value between 0.0 and 1.0 will set the opacity of the window
-to that value.
 
 #### Scroll Animation Length
 
