@@ -49,11 +49,13 @@ fn neovim_instance() -> Result<NeovimInstance> {
 }
 
 /// Takes the --cmd or -c argument and returns the command to be executed.
+#[cfg(target_os = "macos")]
 fn handle_command_arg(position: usize, args: Vec<String>) -> String {
     args.get(position + 1).cloned().unwrap_or_default()
 }
 
 /// Takes the valid path argument and returns the startup directory.
+#[cfg(target_os = "macos")]
 fn handle_arg_as_path_or_default(args: &mut Vec<String>) -> String {
     args.retain(|arg| is_valid_path(arg));
 
