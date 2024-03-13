@@ -1,12 +1,12 @@
 use std::{cell::RefCell, ops::Range, rc::Rc, sync::Arc};
 
 use skia_safe::{
-    canvas::SaveLayerRec,
+    canvas::{SaveLayerRec, SrcRectConstraint},
     image_filters::blur,
     scalar,
     utils::shadow_utils::{draw_shadow, ShadowFlags},
-    BlendMode, Canvas, ClipOp, Color, Contains, Matrix, Paint, Path, Picture, PictureRecorder,
-    Point, Point3, Rect,
+    BlendMode, Canvas, ClipOp, Color, Contains, Image, Matrix, Paint, Path, Picture,
+    PictureRecorder, Point, Point3, Rect,
 };
 
 use crate::{
@@ -295,14 +295,14 @@ impl RenderedWindow {
         );
 
         let mut background_paint = Paint::default();
-        background_paint.set_blend_mode(BlendMode::Src);
-        background_paint.set_alpha(default_background.a());
+        background_paint.set_blend_mode(BlendMode::SrcOver);
+        // background_paint.set_alpha(default_background.a());
 
         let save_layer_rec = SaveLayerRec::default()
             .bounds(pixel_region)
             .paint(&background_paint);
         canvas.save_layer(&save_layer_rec);
-        canvas.clear(default_background.with_a(255));
+        canvas.clear(default_background);
         for (matrix, line) in &border_lines {
             let line = line.borrow();
             if let Some(background_picture) = &line.background_picture {
@@ -319,6 +319,7 @@ impl RenderedWindow {
                 canvas.draw_picture(background_picture, Some(matrix), None);
             }
         }
+
         canvas.restore();
         canvas.restore();
 
@@ -353,11 +354,43 @@ impl RenderedWindow {
             .any(|line| line.borrow().has_transparency)
     }
 
+    fn draw_window_background_image(
+        paint: &Paint,
+        canvas: &Canvas,
+        image: &Image,
+        window_rect: &Rect,
+        screen_rect: &Rect,
+    ) {
+        let image_width = image.width() as f32;
+        let image_height = image.height() as f32;
+
+        // Calculate the scaling factors based on the full screen size
+        let scale_x = image_width / screen_rect.width();
+        let scale_y = image_height / screen_rect.height();
+
+        // Calculate the portion of the image that corresponds to the window's position
+        let src_x = scale_x * (window_rect.left() - screen_rect.left());
+        let src_y = scale_y * (window_rect.top() - screen_rect.top());
+        let src_width = scale_x * window_rect.width();
+        let src_height = scale_y * window_rect.height();
+
+        let src_rect = Rect::from_xywh(src_x, src_y, src_width, src_height);
+
+        canvas.draw_image_rect(
+            image,
+            Some((&src_rect, SrcRectConstraint::Strict)),
+            &window_rect,
+            &paint,
+        );
+    }
+
     pub fn draw(
         &mut self,
         root_canvas: &Canvas,
         settings: &RendererSettings,
         default_background: Color,
+        background_image: Option<&Image>,
+        screen_rect: &Rect,
         font_dimensions: Dimensions,
         previous_floating_rects: &mut Vec<Rect>,
     ) -> WindowDrawDetails {
@@ -418,7 +451,7 @@ impl RenderedWindow {
             ) {
                 let paint = Paint::default()
                     .set_anti_alias(false)
-                    .set_blend_mode(BlendMode::Src)
+                    .set_blend_mode(BlendMode::Overlay)
                     .to_owned();
                 let save_layer_rec = SaveLayerRec::default()
                     .backdrop(&blur)
@@ -431,7 +464,7 @@ impl RenderedWindow {
 
         let paint = Paint::default()
             .set_anti_alias(false)
-            .set_color(Color::from_argb(255, 255, 255, default_background.a()))
+            .set_color(Color::from_argb(default_background.a(), 255, 255, 255))
             .set_blend_mode(if self.anchor_info.is_some() {
                 BlendMode::SrcOver
             } else {
@@ -441,6 +474,15 @@ impl RenderedWindow {
 
         let save_layer_rec = SaveLayerRec::default().bounds(&pixel_region).paint(&paint);
         root_canvas.save_layer(&save_layer_rec);
+        if let Some(background) = background_image {
+            Self::draw_window_background_image(
+                &paint,
+                &root_canvas,
+                &background,
+                &pixel_region,
+                &screen_rect,
+            );
+        }
         self.draw_surface(
             root_canvas,
             &pixel_region,
