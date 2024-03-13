@@ -296,13 +296,13 @@ impl RenderedWindow {
 
         let mut background_paint = Paint::default();
         background_paint.set_blend_mode(BlendMode::SrcOver);
-        // background_paint.set_alpha(default_background.a());
+        background_paint.set_alpha(default_background.a());
 
         let save_layer_rec = SaveLayerRec::default()
             .bounds(pixel_region)
             .paint(&background_paint);
         canvas.save_layer(&save_layer_rec);
-        canvas.clear(default_background);
+        canvas.clear(default_background.with_a(255));
         for (matrix, line) in &border_lines {
             let line = line.borrow();
             if let Some(background_picture) = &line.background_picture {
