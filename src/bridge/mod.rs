@@ -29,6 +29,7 @@ pub use session::NeovimWriter;
 pub use ui_commands::{send_ui, start_ui_command_handler, ParallelCommand, SerialCommand};
 
 const INTRO_MESSAGE_LUA: &str = include_str!("../../lua/intro.lua");
+const CMD_LUA: &str = include_str!("../../lua/cmd.lua");
 const NEOVIM_REQUIRED_VERSION: &str = "0.9.2";
 
 #[cfg(target_os = "macos")]
@@ -47,40 +48,66 @@ fn neovim_instance() -> Result<NeovimInstance> {
     }
 }
 
+/// Takes the --cmd or -c argument and returns the command to be executed.
+fn handle_command_arg(position: usize, args: Vec<String>) -> String {
+    args.get(position + 1).cloned().unwrap_or_default()
+}
+
+/// Takes the valid path argument and returns the startup directory.
+fn handle_arg_as_path_or_default(args: &mut Vec<String>) -> String {
+    args.retain(|arg| is_valid_path(arg));
+
+    let path = args.first().cloned().unwrap_or_default();
+    let startup_directory = get_startup_directory(&path);
+
+    format!(
+        "if g:neovide_tty == v:true | chdir {} | endif",
+        startup_directory
+    )
+}
+
 /// The function `setup_tty_startup_directory` sets up the startup directory for
 /// a new TTY Neovim session on macOS platform, such as Finder, Dock, or even
 /// external programs like Neohub.
 ///
-/// Any nvim command line arguments besides startup path are ignored and must be handled
-/// by the command line parser.
+/// Any nvim --cmd or -c argument is handled as a command to be executed.
 ///
 /// Conditions:
 ///
+/// - Is a TTY session.
 /// - Argument is a directory, it becomes the startup directory.
 /// - Argument is a file, its parent directory becomes the startup directory.
 /// - Neither directory nor file, $HOME is used.
 #[cfg(target_os = "macos")]
 pub async fn setup_tty_startup_directory(
     nvim: &Neovim<NeovimWriter>,
-) -> Result<(), Box<CallError>> {
-    let mut args = SETTINGS.get::<CmdLineSettings>().neovim_args;
-    args.retain(|arg| is_valid_path(arg));
+) -> Result<Value, Box<CallError>> {
+    use self::command::is_tty;
 
-    let path = args.first().cloned().unwrap_or_default();
-    let startup_directory = get_startup_directory(&path);
+    if !is_tty() {
+        return Ok(Value::Nil);
+    }
 
-    let cmd = format!(
-        "if g:neovide_tty == v:true | cd {} | endif",
-        startup_directory
-    );
+    let neovim_args = SETTINGS.get::<CmdLineSettings>().neovim_args;
 
-    nvim.command(cmd.as_str()).await
+    let cmd_arg = neovim_args
+        .iter()
+        .rposition(|arg| arg == "--cmd" || arg == "-c");
+
+    let mut cmd = handle_arg_as_path_or_default(&mut neovim_args.clone());
+
+    if let Some(pos) = cmd_arg {
+        cmd = format!("{} | {}", cmd, handle_command_arg(pos, neovim_args));
+    }
+
+    let args = Value::from(vec![(Value::from("cmd"), Value::from(cmd))]);
+
+    nvim.exec_lua(CMD_LUA, vec![args]).await
 }
 
 #[cfg(target_os = "macos")]
 fn get_startup_directory(path: &str) -> String {
     use std::path::{Path, PathBuf};
-
     match path {
         arg if PathBuf::from(&arg).is_dir() => arg.to_string(),
         arg if PathBuf::from(&arg).is_file() => Path::new(&arg)
