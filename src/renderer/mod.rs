@@ -14,7 +14,7 @@ use std::{
 };
 
 use log::error;
-use skia_safe::{BlendMode, Canvas, Data, Image, Paint, Point, Rect};
+use skia_safe::{Canvas, Data, Image, Point, Rect};
 use winit::event::Event;
 
 use crate::{
@@ -157,29 +157,6 @@ impl Renderer {
         self.cursor_renderer.prepare_frame()
     }
 
-    fn draw_background_image(canvas: &Canvas, image: &Image, width: f32, height: f32) {
-        let image_width = image.width() as f32;
-        let image_height = image.height() as f32;
-
-        let aspect_ratio = width / height;
-        let image_aspect_ratio = image_width / image_height;
-
-        let (scaled_width, scaled_height) = if image_aspect_ratio > aspect_ratio {
-            (height * image_aspect_ratio, height)
-        } else {
-            (width, width / image_aspect_ratio)
-        };
-
-        let x = (width - scaled_width) / 2.0;
-        let y = (height - scaled_height) / 2.0;
-
-        let dest_rect = Rect::from_xywh(x, y, scaled_width, scaled_height);
-        let mut paint = Paint::default();
-        paint.set_blend_mode(BlendMode::Src);
-
-        canvas.draw_image_rect(image, None, dest_rect, &paint);
-    }
-
     pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32, width: f32, height: f32) {
         tracy_zone!("renderer_draw_frame");
         let default_background = self.grid_renderer.get_default_background();
@@ -195,9 +172,6 @@ impl Renderer {
             root_canvas.clip_rect(clip_rect, None, Some(false));
         }
 
-        if let Some(background) = self.background_image.as_ref() {
-            Self::draw_background_image(&root_canvas, &background, width, height);
-        }
         let windows: Vec<&mut RenderedWindow> = {
             let (mut root_windows, mut floating_windows): (
                 Vec<&mut RenderedWindow>,
