@@ -388,6 +388,7 @@ impl RenderedWindow {
         &mut self,
         root_canvas: &Canvas,
         settings: &RendererSettings,
+        transparency: u8,
         default_background: Color,
         background_image: Option<&Image>,
         screen_rect: &Rect,
@@ -464,7 +465,7 @@ impl RenderedWindow {
 
         let paint = Paint::default()
             .set_anti_alias(false)
-            .set_color(Color::from_argb(default_background.a(), 255, 255, 255))
+            .set_color(Color::from_argb(transparency, 255, 255, 255))
             .set_blend_mode(if self.anchor_info.is_some() {
                 BlendMode::SrcOver
             } else {

@@ -163,6 +163,8 @@ impl Renderer {
         let font_dimensions = self.grid_renderer.font_dimensions;
 
         let transparency = { SETTINGS.get::<WindowSettings>().transparency };
+        let background_transparency =
+            { SETTINGS.get::<WindowSettings>().background_transparency } * transparency;
         root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
         root_canvas.save();
         root_canvas.reset_matrix();
@@ -200,7 +202,8 @@ impl Renderer {
                 window.draw(
                     root_canvas,
                     &settings,
-                    default_background.with_a((255.0 * transparency) as u8),
+                    (transparency * 255.0) as u8,
+                    default_background.with_a((255.0 * background_transparency) as u8),
                     self.background_image.as_ref(),
                     &screen_rect,
                     font_dimensions,
