@@ -29,7 +29,6 @@ pub use session::NeovimWriter;
 pub use ui_commands::{send_ui, start_ui_command_handler, ParallelCommand, SerialCommand};
 
 const INTRO_MESSAGE_LUA: &str = include_str!("../../lua/intro.lua");
-const CMD_LUA: &str = include_str!("../../lua/cmd.lua");
 const NEOVIM_REQUIRED_VERSION: &str = "0.9.2";
 
 #[cfg(target_os = "macos")]
@@ -83,11 +82,11 @@ fn handle_command_arg_as_path_or_default(args: &mut Vec<String>) -> String {
 #[cfg(target_os = "macos")]
 pub async fn setup_tty_startup_directory(
     nvim: &Neovim<NeovimWriter>,
-) -> Result<Value, Box<CallError>> {
+) -> Result<(), Box<CallError>> {
     use self::command::is_tty;
 
     if !is_tty() {
-        return Ok(Value::Nil);
+        return Ok(());
     }
 
     let neovim_args = SETTINGS.get::<CmdLineSettings>().neovim_args;
@@ -102,9 +101,7 @@ pub async fn setup_tty_startup_directory(
         cmd = format!("{} | {}", cmd, handle_command_arg(pos, neovim_args));
     }
 
-    let args = Value::from(vec![(Value::from("cmd"), Value::from(cmd))]);
-
-    nvim.exec_lua(CMD_LUA, vec![args]).await
+    nvim.command(cmd.as_str()).await
 }
 
 #[cfg(target_os = "macos")]
