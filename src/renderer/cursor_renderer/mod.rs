@@ -33,6 +33,7 @@ pub struct CursorSettings {
     animate_command_line: bool,
     trail_size: f32,
     unfocused_outline_width: f32,
+    smooth_blink: bool,
 
     vfx_mode: cursor_vfx::VfxMode,
     vfx_opacity: f32,
@@ -53,6 +54,7 @@ impl Default for CursorSettings {
             animate_command_line: true,
             trail_size: 0.7,
             unfocused_outline_width: 1.0 / 8.0,
+            smooth_blink: false,
             vfx_mode: cursor_vfx::VfxMode::Disabled,
             vfx_opacity: 200.0,
             vfx_particle_lifetime: 1.2,
@@ -286,8 +288,13 @@ impl CursorRenderer {
 
     pub fn draw(&mut self, grid_renderer: &mut GridRenderer, canvas: &Canvas) {
         tracy_zone!("cursor_draw");
-        let render = self.blink_status.should_render();
         let settings = SETTINGS.get::<CursorSettings>();
+        let render = self.blink_status.should_render() || settings.smooth_blink;
+        let opacity = match settings.smooth_blink {
+            true => self.blink_status.opacity(),
+            false => 1.0,
+        };
+        let alpha = self.cursor.alpha() as f32;
 
         let mut paint = Paint::new(skia_safe::colors::WHITE, None);
         paint.set_anti_alias(settings.antialiasing);
@@ -302,7 +309,7 @@ impl CursorRenderer {
             .cursor
             .background(&grid_renderer.default_style.colors)
             .to_color()
-            .with_a(self.cursor.alpha());
+            .with_a((opacity * alpha) as u8);
         paint.set_color(background_color);
 
         let path = if self.window_has_focus || self.cursor.shape != CursorShape::Block {
@@ -317,7 +324,7 @@ impl CursorRenderer {
             .cursor
             .foreground(&grid_renderer.default_style.colors)
             .to_color()
-            .with_a(self.cursor.alpha());
+            .with_a((opacity * alpha) as u8);
         paint.set_color(foreground_color);
 
         canvas.save();
@@ -421,6 +428,10 @@ impl CursorRenderer {
 
             animating |= vfx_animating;
         }
+
+        let blink_animating = settings.smooth_blink && self.blink_status.should_animate();
+
+        animating |= blink_animating;
 
         if !animating {
             self.previous_editor_mode = current_mode.clone();
