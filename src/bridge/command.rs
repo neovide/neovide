@@ -55,8 +55,13 @@ fn build_login_cmd_args(command: &str, args: &[&str]) -> (String, Vec<String>) {
     let user = env::var("USER").unwrap_or_explained_panic("USER environment variable not found");
     let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
 
+    let args = match shlex::try_join(args.iter().map(|s| (*s) as &str)) {
+        Ok(args) => args,
+        Err(_) => panic!("Failed to join arguments"),
+    };
+
     // Executes neovim as a login shell, so it will source the user's startup files.
-    let exec = format!("{} {}", command, args.join(" "));
+    let exec = format!("{} {}", command, args);
 
     // See "man login". It sets up some important env vars like $PATH and $HOME.
     // On macOS, use the `login` command so it will appear as a tty session.
