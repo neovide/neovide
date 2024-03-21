@@ -29,7 +29,10 @@ use crate::{
 use super::macos::MacosWindowFeature;
 
 #[cfg(target_os = "macos")]
-use icrate::Foundation::MainThreadMarker;
+use icrate::{AppKit::NSBeep, Foundation::MainThreadMarker};
+
+#[cfg(target_os = "windows")]
+use windows::Win32::{System::Diagnostics::Debug::MessageBeep, UI::WindowsAndMessaging::MB_OK};
 
 use log::trace;
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
@@ -175,6 +178,13 @@ impl WinitWindowWrapper {
                 self.mouse_manager.enabled = mouse_enabled
             }
             WindowCommand::ListAvailableFonts => self.send_font_names(),
+            WindowCommand::Bell => unsafe {
+                // TODO: How to bell on X11/Wayland?
+                #[cfg(target_os = "macos")]
+                NSBeep();
+                #[cfg(target_os = "windows")]
+                MessageBeep(MB_OK);
+            },
             WindowCommand::FocusWindow => {
                 if let Some(skia_renderer) = &self.skia_renderer {
                     skia_renderer.window().focus_window();

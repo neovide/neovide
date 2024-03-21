@@ -142,6 +142,14 @@ impl Editor {
                 trace!("Cursor on");
                 self.cursor.enabled = true;
             }
+            RedrawEvent::Bell => {
+                tracy_zone!("EditorBell");
+                let _ = self.event_loop_proxy.send_event(WindowCommand::Bell.into());
+            }
+            RedrawEvent::VisualBell => {
+                tracy_zone!("EditorVisualBell");
+                // TODO: Implement visual bell
+            }
             RedrawEvent::Flush => {
                 tracy_zone!("EditorFlush");
                 trace!("Image flushed");
