@@ -58,6 +58,10 @@ jobs:
         with:
           neovim: true
 
+      - name: Setup WSL
+        if: runner.os == 'Windows'
+        uses: Vampire/setup-wsl@v2.0.2
+
       - name: Install cargo-nextest
         uses: taiki-e/install-action@nextest
 

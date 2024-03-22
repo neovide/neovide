@@ -7,6 +7,8 @@ use clap::{
     builder::{styling, FalseyValueParser, Styles},
     ArgAction, Parser,
 };
+#[cfg(target_os = "windows")]
+use wslpath_rs::windows_to_wsl;
 
 #[cfg(target_os = "windows")]
 pub const SRGB_DEFAULT: &str = "1";
@@ -24,7 +26,7 @@ fn get_styles() -> Styles {
 #[derive(Clone, Debug, Parser)]
 #[command(version, about, long_about = None, styles = get_styles())]
 pub struct CmdLineSettings {
-    /// Files to open (plainly appended to NeoVim args)
+    /// Files to open (usually plainly appended to NeoVim args, except when --wsl is used)
     #[arg(
         num_args = ..,
         action = ArgAction::Append,
@@ -156,6 +158,26 @@ impl Default for CmdLineSettings {
     }
 }
 
+#[cfg(not(target_os = "windows"))]
+fn handle_wslpaths(paths: Vec<String>, _wsl: bool) -> Vec<String> {
+    paths
+}
+
+/// Convert a Vector of Windows path strings to a Vector of WSL paths if `wsl` is true.
+///
+/// If conversion of a path fails, the path is passed to neovim unchanged.
+#[cfg(target_os = "windows")]
+fn handle_wslpaths(paths: Vec<String>, wsl: bool) -> Vec<String> {
+    if !wsl {
+        return paths;
+    }
+
+    paths
+        .into_iter()
+        .map(|path| windows_to_wsl(&path).unwrap_or(path))
+        .collect()
+}
+
 pub fn handle_command_line_arguments(args: Vec<String>) -> Result<()> {
     let mut cmdline = CmdLineSettings::try_parse_from(args)?;
 
@@ -164,7 +186,10 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<()> {
 
     cmdline.neovim_args = maybe_tab_flag
         .into_iter()
-        .chain(mem::take(&mut cmdline.files_to_open))
+        .chain(handle_wslpaths(
+            mem::take(&mut cmdline.files_to_open),
+            cmdline.wsl,
+        ))
         .chain(cmdline.neovim_args)
         .collect();
 
@@ -219,6 +244,28 @@ mod tests {
         assert_eq!(
             SETTINGS.get::<CmdLineSettings>().neovim_args,
             vec!["./foo.txt", "./bar.md"]
+        );
+    }
+
+    #[test]
+    #[serial]
+    #[cfg(target_os = "windows")]
+    fn test_files_to_open_with_wsl() {
+        let args: Vec<String> = [
+            "neovide",
+            "--wsl",
+            "C:\\Users\\MyUser\\foo.txt",
+            "--no-tabs",
+            "C:\\bar.md",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+
+        handle_command_line_arguments(args).expect("Could not parse arguments");
+        assert_eq!(
+            SETTINGS.get::<CmdLineSettings>().neovim_args,
+            vec!["/mnt/c/Users/MyUser/foo.txt", "/mnt/c/bar.md"]
         );
     }
 
