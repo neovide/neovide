@@ -632,6 +632,16 @@ command line.</p>
 If the value is &lt;=0 then the cursor will be invisible. This setting takes effect when the editor
 window is unfocused, at which time a block cursor will be rendered as an outline instead of as a
 full rectangle.</p>
+<h4 id="animate-cursor-blink"><a class="header" href="#animate-cursor-blink">Animate cursor blink</a></h4>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_cursor_smooth_blink = v:false
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_cursor_smooth_blink = false
+</code></pre>
+<p>If enabled, the cursor will smoothly animate the transition between the cursor's on and off state.
+The built in <code>guicursor</code> neovim option needs to be configured to enable blinking by having a value
+set for both <code>blinkoff</code>, <code>blinkon</code> and <code>blinkwait</code> for this setting to apply.</p>
 <h3 id="cursor-particles"><a class="header" href="#cursor-particles">Cursor Particles</a></h3>
 <p>There are a number of vfx modes you can enable which produce particles behind the cursor. These are
 enabled by setting <code>g:neovide_cursor_vfx_mode</code> to one of the following constants.</p>
