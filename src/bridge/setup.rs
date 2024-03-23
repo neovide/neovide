@@ -28,7 +28,7 @@ pub async fn setup_neovide_specific_state(
         .context("Error encountered in ginit.vim ")?;
 
     #[cfg(target_os = "macos")]
-    nvim.set_var("neovide_tty", Value::from(is_tty()))
+    nvim.set_var("neovide_ntty", Value::from(!is_tty()))
         .await
         .context("Could not communicate with neovim process")?;
 

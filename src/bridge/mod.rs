@@ -62,7 +62,7 @@ fn handle_command_arg_as_path_or_default(args: &mut Vec<String>) -> String {
     let startup_directory = get_startup_directory(&path);
 
     format!(
-        "if g:neovide_tty == v:true | chdir {} | endif",
+        "if g:neovide_ntty == v:true | chdir {} | endif",
         startup_directory
     )
 }
@@ -75,7 +75,7 @@ fn handle_command_arg_as_path_or_default(args: &mut Vec<String>) -> String {
 ///
 /// Conditions:
 ///
-/// - Is a TTY session.
+/// - Is not a TTY session.
 /// - Argument is a directory, it becomes the startup directory.
 /// - Argument is a file, its parent directory becomes the startup directory.
 /// - Neither directory nor file, $HOME is used.
@@ -85,7 +85,7 @@ pub async fn setup_tty_startup_directory(
 ) -> Result<(), Box<CallError>> {
     use self::command::is_tty;
 
-    if !is_tty() {
+    if is_tty() {
         return Ok(());
     }
 

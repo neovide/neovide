@@ -240,7 +240,7 @@ fn platform_which(bin: &str) -> Option<String> {
 
 #[cfg(target_os = "macos")]
 pub fn is_tty() -> bool {
-    !std::io::stdout().is_terminal()
+    std::io::stdout().is_terminal()
 }
 
 #[cfg(target_os = "macos")]
