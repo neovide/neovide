@@ -168,11 +168,11 @@ fn neovim_ok(bin: &str, args: &[String]) -> Result<bool> {
     let (_, non_matching_stderr_lines): (Vec<_>, Vec<_>) =
         stderr.lines().partition(|line| error_regex.is_match(line));
 
-    let unexpeted_output = !output.status.success()
+    let unexpected_output = !output.status.success()
         || !stdout.starts_with("NVIM v")
         || non_matching_stderr_lines.len() != stderr.lines().count();
 
-    if unexpeted_output {
+    if unexpected_output {
         let error_message = create_error_message(bin, &stdout, non_matching_stderr_lines, is_wsl);
         let command = if is_wsl {
             "wsl '$SHELL' -lc '{bin} -v'"
