@@ -31,9 +31,6 @@ pub use ui_commands::{send_ui, start_ui_command_handler, ParallelCommand, Serial
 const INTRO_MESSAGE_LUA: &str = include_str!("../../lua/intro.lua");
 const NEOVIM_REQUIRED_VERSION: &str = "0.9.2";
 
-#[cfg(target_os = "macos")]
-const TTY_STARTUP_DIRECTORY: &str = "$HOME";
-
 pub struct NeovimRuntime {
     runtime: Option<Runtime>,
 }
@@ -68,7 +65,7 @@ fn handle_command_arg_as_path_or_default(args: &mut Vec<String>) -> String {
 }
 
 /// The function `setup_tty_startup_directory` sets up the startup directory for
-/// a new TTY Neovim session on macOS platform, such as Finder, Dock, or even
+/// a non TTY Neovim session on macOS platform, such as Finder, Dock, or even
 /// external programs like Neohub.
 ///
 /// Any nvim --cmd or -c argument is handled as a command to be executed.
@@ -107,14 +104,17 @@ pub async fn setup_tty_startup_directory(
 #[cfg(target_os = "macos")]
 fn get_startup_directory(path: &str) -> String {
     use std::path::{Path, PathBuf};
+
+    let home = dirs::home_dir().expect("Could not find home directory");
+
     match path {
         arg if PathBuf::from(&arg).is_dir() => arg.to_string(),
         arg if PathBuf::from(&arg).is_file() => Path::new(&arg)
             .parent()
-            .unwrap_or_else(|| Path::new(TTY_STARTUP_DIRECTORY))
+            .unwrap_or(home.as_path())
             .to_string_lossy()
             .to_string(),
-        _ => TTY_STARTUP_DIRECTORY.to_string(),
+        _ => home.to_string_lossy().to_string(),
     }
 }
 
