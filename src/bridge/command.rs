@@ -152,15 +152,12 @@ fn neovim_ok(bin: &str, args: &[String]) -> Result<bool> {
     args.push("-v");
 
     let mut cmd = create_platform_shell_command(bin, &args);
-    let output = cmd.output();
-
-    if output.is_err() {
+    let Ok(output) = cmd.output() else {
         return Ok(false);
-    }
+    };
 
     // The output is not utf8 on Windows and can contain special characters.
     // But a lossy conversion is OK for our purposes
-    let output = output?;
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
 
