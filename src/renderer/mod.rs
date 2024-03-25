@@ -4,6 +4,7 @@ pub mod fonts;
 pub mod grid_renderer;
 pub mod opengl;
 pub mod profiler;
+mod rendered_layer;
 mod rendered_window;
 mod vsync;
 
@@ -16,6 +17,7 @@ use std::{
     sync::Arc,
 };
 
+use itertools::Itertools;
 use log::error;
 use skia_safe::{Canvas, Point, Rect};
 use winit::{
@@ -29,6 +31,7 @@ use crate::{
     dimensions::Dimensions,
     editor::{Cursor, Style},
     profiling::{tracy_create_gpu_context, tracy_named_frame, tracy_zone},
+    renderer::rendered_layer::{group_windows, FloatingLayer},
     settings::*,
     window::{ShouldRender, UserEvent},
     WindowSettings,
@@ -64,6 +67,7 @@ pub struct RendererSettings {
     debug_renderer: bool,
     profiler: bool,
     underline_stroke_scale: f32,
+    group_zindex_step: u64,
 }
 
 impl Default for RendererSettings {
@@ -82,6 +86,7 @@ impl Default for RendererSettings {
             debug_renderer: false,
             profiler: false,
             underline_stroke_scale: 1.,
+            group_zindex_step: 5,
         }
     }
 }
@@ -175,7 +180,10 @@ impl Renderer {
             root_canvas.clip_rect(clip_rect, None, Some(false));
         }
 
-        let windows: Vec<&mut RenderedWindow> = {
+        let settings = SETTINGS.get::<RendererSettings>();
+        let zindex_step = settings.group_zindex_step;
+
+        let (root_windows, floating_layers) = {
             let (mut root_windows, mut floating_windows): (
                 Vec<&mut RenderedWindow>,
                 Vec<&mut RenderedWindow>,
@@ -187,28 +195,80 @@ impl Renderer {
 
             root_windows
                 .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
-
             floating_windows.sort_by(floating_sort);
 
-            root_windows.into_iter().chain(floating_windows).collect()
+            let mut floating_layers = vec![];
+
+            let mut base_zindex = 0;
+            let mut current_windows = vec![];
+
+            for window in floating_windows {
+                let zindex = window.anchor_info.as_ref().unwrap().sort_order;
+                log::debug!("zindex: {}, base: {}", zindex, base_zindex);
+                if zindex - base_zindex > zindex_step {
+                    if !current_windows.is_empty() {
+                        for windows in group_windows(current_windows, font_dimensions) {
+                            floating_layers.push(FloatingLayer {
+                                sort_order: base_zindex,
+                                windows,
+                            });
+                        }
+                        current_windows = vec![];
+                    }
+                    base_zindex = zindex;
+                }
+                current_windows.push(window);
+            }
+            if !current_windows.is_empty() {
+                for windows in group_windows(current_windows, font_dimensions) {
+                    floating_layers.push(FloatingLayer {
+                        sort_order: base_zindex,
+                        windows,
+                    });
+                }
+            }
+            for layer in &mut floating_layers {
+                layer.windows.sort_by(floating_sort);
+                log::debug!(
+                    "layer: {:?}",
+                    layer
+                        .windows
+                        .iter()
+                        .map(|w| (w.id, w.anchor_info.as_ref().unwrap().sort_order))
+                        .collect_vec()
+                );
+            }
+
+            (root_windows, floating_layers)
         };
 
-        let settings = SETTINGS.get::<RendererSettings>();
-        let mut floating_rects = Vec::new();
-
-        self.window_regions = windows
+        let root_window_regions = root_windows
             .into_iter()
             .map(|window| {
                 window.draw(
                     root_canvas,
+                    default_background.with_a((255.0 * transparency) as u8),
+                    font_dimensions,
+                )
+            })
+            .collect_vec();
+
+        let floating_window_regions = floating_layers
+            .into_iter()
+            .flat_map(|mut layer| {
+                layer.draw(
+                    root_canvas,
                     &settings,
                     default_background.with_a((255.0 * transparency) as u8),
                     font_dimensions,
-                    &mut floating_rects,
                 )
             })
-            .collect();
+            .collect_vec();
 
+        self.window_regions = root_window_regions
+            .into_iter()
+            .chain(floating_window_regions)
+            .collect();
         self.cursor_renderer
             .draw(&mut self.grid_renderer, root_canvas);
 
