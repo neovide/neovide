@@ -78,9 +78,13 @@ pub struct CmdLineSettings {
     #[arg(long = "no-idle", env = "NEOVIDE_IDLE", action = ArgAction::SetFalse, value_parser = FalseyValueParser::new())]
     pub idle: bool,
 
+    /// Enable opening multiple files supplied in tabs [DEFAULT]
+    #[arg(long = "tabs", env = "NEOVIDE_TABS", action = ArgAction::SetTrue, default_value = "1", value_parser = FalseyValueParser::new())]
+    pub tabs: bool,
+
     /// Disable opening multiple files supplied in tabs (they're still buffers)
-    #[arg(long = "no-tabs", env = "NEOVIDE_NO_TABS", value_parser = FalseyValueParser::new())]
-    pub no_tabs: bool,
+    #[arg(long = "no-tabs", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
+    _no_tabs: bool,
 
     /// Request sRGB when initializing the window, may help with GPUs with weird pixel
     /// formats. Default on Windows.
@@ -159,14 +163,9 @@ impl Default for CmdLineSettings {
 pub fn handle_command_line_arguments(args: Vec<String>) -> Result<()> {
     let mut cmdline = CmdLineSettings::try_parse_from(args)?;
 
-    // The neovim_args in cmdline are unprocessed, actually add options to it
-    let maybe_tab_flag = (!cmdline.no_tabs).then(|| "-p".to_string());
-
-    cmdline.neovim_args = maybe_tab_flag
-        .into_iter()
-        .chain(mem::take(&mut cmdline.files_to_open))
-        .chain(cmdline.neovim_args)
-        .collect();
+    if cmdline._no_tabs {
+        cmdline.tabs = false;
+    }
 
     if cmdline._no_fork {
         cmdline.fork = false;
@@ -179,6 +178,15 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<()> {
     if cmdline._no_vsync {
         cmdline.vsync = false;
     }
+
+    cmdline.neovim_args =
+        cmdline
+            .tabs
+            .then(|| "-p".to_string())
+            .into_iter()
+            .chain(mem::take(&mut cmdline.files_to_open))
+            .chain(cmdline.neovim_args)
+            .collect();
 
     SETTINGS.set::<CmdLineSettings>(&cmdline);
     Ok(())
