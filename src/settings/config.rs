@@ -48,6 +48,7 @@ pub struct Config {
     pub theme: Option<String>,
     pub font: Option<FontSettings>,
     pub title_hidden: Option<bool>,
+    pub no_tabs: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -104,6 +105,9 @@ impl Config {
         }
         if let Some(title_hidden) = &self.title_hidden {
             env::set_var("NEOVIDE_TITLE_HIDDEN", title_hidden.to_string());
+        }
+        if let Some(no_tabs) = &self.no_tabs {
+            env::set_var("NEOVIDE_NO_TABS", no_tabs.to_string());
         }
     }
 
