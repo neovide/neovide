@@ -79,7 +79,7 @@ pub struct CmdLineSettings {
     pub idle: bool,
 
     /// Disable opening multiple files supplied in tabs (they're still buffers)
-    #[arg(long = "no-tabs")]
+    #[arg(long = "no-tabs", env = "NEOVIDE_NO_TABS", value_parser = FalseyValueParser::new())]
     pub no_tabs: bool,
 
     /// Request sRGB when initializing the window, may help with GPUs with weird pixel

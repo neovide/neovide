@@ -156,7 +156,7 @@ priority over the environment variable.
 ### No Tabs
 
 ```sh
---no-tabs
+--no-tabs or $NEOVIDE_NO_TABS
 ```
 
 By default, Neovide opens files given directly to Neovide (not NeoVim through `--`!) in multiple
