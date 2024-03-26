@@ -14,7 +14,7 @@ use std::{
 };
 
 use log::error;
-use skia_safe::{Canvas, Point, Rect};
+use skia_safe::{Canvas, Data, Image, Point, Rect};
 use winit::event::Event;
 
 use crate::{
@@ -93,6 +93,7 @@ pub struct Renderer {
     cursor_renderer: CursorRenderer,
     pub grid_renderer: GridRenderer,
     current_mode: EditorMode,
+    background_image: Option<Image>,
 
     rendered_windows: HashMap<u64, RenderedWindow>,
     pub window_regions: Vec<WindowDrawDetails>,
@@ -124,6 +125,13 @@ impl Renderer {
 
         let profiler = profiler::Profiler::new(12.0);
 
+        let image = if window_settings.background_image.is_empty() {
+            None
+        } else {
+            let skia_data =
+                Data::from_filename(std::path::Path::new(&window_settings.background_image));
+            skia_data.and_then(|data| Image::from_encoded(data))
+        };
         Renderer {
             rendered_windows,
             cursor_renderer,
@@ -133,6 +141,7 @@ impl Renderer {
             profiler,
             os_scale_factor,
             user_scale_factor,
+            background_image: image,
         }
     }
 
@@ -148,12 +157,14 @@ impl Renderer {
         self.cursor_renderer.prepare_frame()
     }
 
-    pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32) {
+    pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32, width: f32, height: f32) {
         tracy_zone!("renderer_draw_frame");
         let default_background = self.grid_renderer.get_default_background();
         let font_dimensions = self.grid_renderer.font_dimensions;
 
         let transparency = { SETTINGS.get::<WindowSettings>().transparency };
+        let background_transparency =
+            { SETTINGS.get::<WindowSettings>().background_transparency } * transparency;
         root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
         root_canvas.save();
         root_canvas.reset_matrix();
@@ -184,13 +195,17 @@ impl Renderer {
         let settings = SETTINGS.get::<RendererSettings>();
         let mut floating_rects = Vec::new();
 
+        let screen_rect = Rect::from_xywh(0.0, 0.0, width, height);
         self.window_regions = windows
             .into_iter()
             .map(|window| {
                 window.draw(
                     root_canvas,
                     &settings,
-                    default_background.with_a((255.0 * transparency) as u8),
+                    (transparency * 255.0) as u8,
+                    default_background.with_a((255.0 * background_transparency) as u8),
+                    self.background_image.as_ref(),
+                    &screen_rect,
                     font_dimensions,
                     &mut floating_rects,
                 )

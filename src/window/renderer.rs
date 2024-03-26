@@ -85,4 +85,12 @@ impl SkiaRenderer {
     pub fn resize(&mut self, windowed_context: &WindowedContext) {
         self.surface = create_surface(windowed_context, &mut self.gr_context, self.fb_info);
     }
+
+    pub fn width(&self) -> i32 {
+        self.surface.width()
+    }
+
+    pub fn height(&self) -> i32 {
+        self.surface.height()
+    }
 }

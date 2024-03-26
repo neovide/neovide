@@ -396,7 +396,12 @@ impl WinitWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         tracy_zone!("draw_frame");
-        self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
+
+        let width = self.skia_renderer.width() as f32;
+        let height = self.skia_renderer.height() as f32;
+
+        self.renderer
+            .draw_frame(self.skia_renderer.canvas(), dt, width, height);
         {
             tracy_gpu_zone!("skia flush");
             self.skia_renderer.gr_context.flush_and_submit();
