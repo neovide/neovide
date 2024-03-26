@@ -365,8 +365,15 @@ impl RenderedWindow {
 
         let pixel_region = self.pixel_region(font_dimensions);
         let transparent_floating = self.anchor_info.is_some() && has_transparency;
-
-        if self.anchor_info.is_some()
+        let zindices: Vec<u64> = settings
+            .flatten_floating_zindex
+            .split(',')
+            .flat_map(|index| u64::from_str_radix(&index, 10))
+            .collect();
+        if self
+            .anchor_info
+            .as_ref()
+            .map_or(false, |info| !zindices.contains(&info.sort_order))
             && settings.floating_shadow
             && !previous_floating_rects
                 .iter()
@@ -432,11 +439,17 @@ impl RenderedWindow {
         let paint = Paint::default()
             .set_anti_alias(false)
             .set_color(Color::from_argb(255, 255, 255, default_background.a()))
-            .set_blend_mode(if self.anchor_info.is_some() {
-                BlendMode::SrcOver
-            } else {
-                BlendMode::Src
-            })
+            .set_blend_mode(
+                if self
+                    .anchor_info
+                    .as_ref()
+                    .map_or(false, |info| !zindices.contains(&info.sort_order))
+                {
+                    BlendMode::SrcOver
+                } else {
+                    BlendMode::Src
+                },
+            )
             .to_owned();
 
         let save_layer_rec = SaveLayerRec::default().bounds(&pixel_region).paint(&paint);
@@ -450,7 +463,6 @@ impl RenderedWindow {
         root_canvas.restore();
 
         root_canvas.restore();
-
         WindowDrawDetails {
             id: self.id,
             region: pixel_region,
