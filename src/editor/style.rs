@@ -1,3 +1,4 @@
+use nvim_rs::element_tags::ElementTags;
 use skia_safe::Color4f;
 
 #[derive(new, Debug, Clone, PartialEq)]
@@ -31,8 +32,8 @@ pub struct Style {
     pub blend: u8,
     #[new(default)]
     pub underline: Option<UnderlineStyle>,
-    #[new(default)]
-    pub infos: Vec<HighlightInfo>,
+    #[new(value = "ElementTags::empty()")]
+    pub element_tags: ElementTags,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]

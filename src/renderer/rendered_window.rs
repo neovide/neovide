@@ -1,5 +1,6 @@
 use std::{cell::RefCell, ops::Range, rc::Rc, sync::Arc};
 
+use nvim_rs::element_tags::ElementTags;
 use skia_safe::{
     canvas::SaveLayerRec,
     image_filters::blur,
@@ -517,32 +518,23 @@ impl RenderedWindow {
             } => {
                 tracy_zone!("draw_line_cmd", 0);
 
-                let check_border = |fragment: &LineFragment, check: &dyn Fn(&str) -> bool| {
-                    fragment.style.as_ref().map_or(false, |style| {
-                        style.infos.last().map_or(false, |info| {
-                            // The specification seems to indicate that kind should be UI and
-                            // then we only need to test ui_name. But at least for FloatTitle,
-                            // that is not the case, the kind is set to syntax and hi_name is
-                            // set.
-                            check(&info.ui_name) || check(&info.hi_name)
-                        })
-                    })
+                let check_border = |fragment: &LineFragment, check: ElementTags| {
+                    fragment
+                        .style
+                        .as_ref()
+                        .map_or(false, |style| style.element_tags.intersects(check))
                 };
 
-                let float_border =
-                    |s: &str| matches!(s, "FloatBorder" | "FloatTitle" | "FloatFooter");
-                let winbar = |s: &str| matches!(s, "WinBar" | "WinBarNC");
-
-                // Lines with purly border highlight groups are considered borders.
+                // Lines with purely border highlight groups are considered borders.
                 let mut is_border = line_fragments
                     .iter()
-                    .map(|fragment| check_border(fragment, &float_border))
+                    .map(|fragment| check_border(fragment, ElementTags::FloatBorder))
                     .all(|v| v);
 
                 // And also lines with a winbar highlight anywhere
                 is_border |= line_fragments
                     .iter()
-                    .map(|fragment| check_border(fragment, &winbar))
+                    .map(|fragment| check_border(fragment, ElementTags::WinBar))
                     .any(|v| v);
 
                 self.actual_lines[row] = Some(Rc::new(RefCell::new(Line {

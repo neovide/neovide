@@ -5,6 +5,7 @@ use std::{
 };
 
 use log::{debug, warn};
+use nvim_rs::element_tags::ElementTags;
 use rmpv::Value;
 use skia_safe::Color4f;
 use strum::AsRefStr;
@@ -478,7 +479,7 @@ fn parse_default_colors(default_colors_arguments: Vec<Value>) -> Result<RedrawEv
     })
 }
 
-fn parse_style(style_map: Value, info_array: Value) -> Result<Style> {
+fn parse_style(style_map: Value, info_array: Value, element_tags: Option<Value>) -> Result<Style> {
     let attributes = parse_map(style_map)?;
 
     let mut style = Style::new(Colors::new(None, None, None));
@@ -526,10 +527,19 @@ fn parse_style(style_map: Value, info_array: Value) -> Result<Style> {
         }
     }
 
-    style.infos = parse_array(info_array)?
-        .into_iter()
-        .map(parse_highlight_info)
-        .collect::<Result<Vec<_>>>()?;
+    if let Some(element_tags) = element_tags {
+        style.element_tags = ElementTags::from_bits_truncate(parse_u64(element_tags)? as u32);
+    } else {
+        let highlight_infos = parse_array(info_array)?
+            .into_iter()
+            .map(parse_highlight_info)
+            .collect::<Result<Vec<_>>>()?;
+        style.element_tags = highlight_infos
+            .iter()
+            .map(highlight_info_to_element_type)
+            .reduce(|a, b| a | b)
+            .unwrap_or(ElementTags::empty());
+    }
 
     Ok(style)
 }
@@ -589,10 +599,16 @@ fn parse_highlight_info(info_map: Value) -> Result<HighlightInfo> {
     })
 }
 
-fn parse_hl_attr_define(hl_attr_define_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [id, attributes, _terminal_attributes, infos] = extract_values(hl_attr_define_arguments)?;
+fn highlight_info_to_element_type(_info: &HighlightInfo) -> ElementTags {
+    // TODO: Implement for backwards compatibility
+    ElementTags::empty()
+}
 
-    let style = parse_style(attributes, infos)?;
+fn parse_hl_attr_define(hl_attr_define_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    let ([id, attributes, _terminal_attributes, infos], [element_types]) =
+        extract_values_with_optional(hl_attr_define_arguments)?;
+
+    let style = parse_style(attributes, infos, element_types)?;
     Ok(RedrawEvent::HighlightAttributesDefine {
         id: parse_u64(id)?,
         style,
