@@ -365,13 +365,13 @@ impl RenderedWindow {
 
         let pixel_region = self.pixel_region(font_dimensions);
         let transparent_floating = self.anchor_info.is_some() && has_transparency;
-
-        if self.anchor_info.is_some()
+        let is_bottom = self.anchor_info.is_some()
             && settings.floating_shadow
             && !previous_floating_rects
                 .iter()
-                .any(|rect| rect.contains(pixel_region))
-        {
+                .any(|rect| rect.contains(pixel_region));
+
+        if is_bottom {
             root_canvas.save();
             let shadow_path = Path::rect(pixel_region, None);
             // We clip using the Difference op to make sure that the shadow isn't rendered inside
@@ -406,7 +406,7 @@ impl RenderedWindow {
         root_canvas.clip_rect(pixel_region, None, Some(false));
         let need_blur = transparent_floating && settings.floating_blur;
 
-        if need_blur {
+        if need_blur && is_bottom {
             if let Some(blur) = blur(
                 (
                     settings.floating_blur_amount_x,
