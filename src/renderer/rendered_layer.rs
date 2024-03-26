@@ -140,18 +140,63 @@ impl<'w> FloatingLayer<'w> {
             }
         }
 
-        root_canvas.save();
+        let paint = Paint::default()
+            .set_anti_alias(false)
+            .set_color(Color::from_argb(255, 255, 255, default_background.a()))
+            .set_blend_mode(BlendMode::SrcOver)
+            .to_owned();
 
-        let ret = self
+        let save_layer_rec = SaveLayerRec::default().bounds(&bound_rect).paint(&paint);
+
+        root_canvas.save_layer(&save_layer_rec);
+
+        let regions = self
             .windows
-            .iter_mut()
-            .map(|window| window.draw(root_canvas, default_background, font_dimensions))
-            .collect();
+            .iter()
+            .map(|window| window.pixel_region(font_dimensions))
+            .collect::<Vec<_>>();
+
+        let blend = self.uniform_background_blend();
+
+        self.windows.iter_mut().for_each(|window| {
+            window.update_blend(blend);
+        });
+
+        let mut ret = vec![];
+
+        (0..self.windows.len()).for_each(|i| {
+            let window = &mut self.windows[i];
+            window.draw_background_surface(
+                root_canvas,
+                &regions[i],
+                font_dimensions,
+                default_background,
+            );
+        });
+        (0..self.windows.len()).for_each(|i| {
+            let window = &mut self.windows[i];
+            window.draw_foreground_surface(root_canvas, &regions[i], font_dimensions);
+
+            ret.push(WindowDrawDetails {
+                id: window.id,
+                region: regions[i],
+                floating_order: window.anchor_info.as_ref().map(|v| v.sort_order),
+            });
+        });
 
         root_canvas.restore();
+
         root_canvas.restore();
 
         ret
+    }
+
+    pub fn uniform_background_blend(&self) -> u8 {
+        self.windows
+            .iter()
+            .filter_map(|window| window.get_smallest_blend_value())
+            .min()
+            .unwrap_or(0)
     }
 
     fn _draw_shadow(&self, root_canvas: &Canvas, path: &Path, settings: &RendererSettings) {
