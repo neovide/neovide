@@ -1,6 +1,7 @@
 //! This module contains adaptations of the functions found in
 //! https://github.com/KillTheMule/nvim-rs/blob/master/src/create/tokio.rs
 
+use core::fmt;
 use std::{
     io::{Error, ErrorKind, Result},
     process::Stdio,
@@ -24,6 +25,15 @@ type BoxedWriter = Box<dyn AsyncWrite + Send + Unpin + 'static>;
 pub struct NeovimSession {
     pub neovim: Neovim<NeovimWriter>,
     pub io_handle: JoinHandle<std::result::Result<(), Box<LoopError>>>,
+}
+
+#[cfg(debug_assertions)]
+impl fmt::Debug for NeovimSession {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("NeovimSession")
+            .field("io_handle", &self.io_handle)
+            .finish()
+    }
 }
 
 impl NeovimSession {
