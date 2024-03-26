@@ -237,12 +237,11 @@ but it's still enabled by default on Windows to work around
 platforms should not need it, but if you encounter either startup crashes or
 wrong colors, you can try to swap the option. The command line parameter takes
 priority over the environment variable.</p>
-<h3 id="no-tabs"><a class="header" href="#no-tabs">No Tabs</a></h3>
-<pre><code class="language-sh">--no-tabs
+<h3 id="tabs"><a class="header" href="#tabs">Tabs</a></h3>
+<pre><code class="language-sh">--no-tabs, --tabs or $NEOVIDE_TABS=0|1
 </code></pre>
 <p>By default, Neovide opens files given directly to Neovide (not NeoVim through <code>--</code>!) in multiple
-tabs to avoid confusing new users. The option disables that and makes multiple given files to normal
-buffers.</p>
+tabs to avoid confusing new users. <code>--no-tabs</code> disables this behavior.</p>
 <p>Note: Even if files are opened in tabs, they're buffers anyways. It's just about them being visible
 or not.</p>
 <h3 id="no-vsync"><a class="header" href="#no-vsync">No VSync</a></h3>
