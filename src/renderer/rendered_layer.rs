@@ -149,6 +149,7 @@ impl<'w> FloatingLayer<'w> {
         let save_layer_rec = SaveLayerRec::default().bounds(&bound_rect).paint(&paint);
 
         root_canvas.save_layer(&save_layer_rec);
+        root_canvas.clear(default_background.with_a(255));
 
         let regions = self
             .windows
@@ -166,12 +167,7 @@ impl<'w> FloatingLayer<'w> {
 
         (0..self.windows.len()).for_each(|i| {
             let window = &mut self.windows[i];
-            window.draw_background_surface(
-                root_canvas,
-                &regions[i],
-                font_dimensions,
-                default_background,
-            );
+            window.draw_background_surface(root_canvas, &regions[i], font_dimensions);
         });
         (0..self.windows.len()).for_each(|i| {
             let window = &mut self.windows[i];
