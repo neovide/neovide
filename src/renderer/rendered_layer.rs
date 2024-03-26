@@ -48,16 +48,14 @@ impl Hash for PointWrapper {
 
 impl PartialOrd for PointWrapper {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match compare_coordinate(self.0.x, other.0.x) {
-            std::cmp::Ordering::Equal => Some(compare_coordinate(self.0.y, other.0.y)),
-            order => Some(order),
-        }
+        Some(self.cmp(other))
     }
 }
 
 impl Ord for PointWrapper {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.partial_cmp(other).unwrap()
+        compare_coordinate(self.0.x, other.0.x)
+            .then_with(|| compare_coordinate(self.0.y, other.0.y))
     }
 }
 
@@ -166,7 +164,7 @@ impl<'w> FloatingLayer<'w> {
         let light_angle_radians = settings.light_angle_degrees.to_radians();
         draw_shadow(
             root_canvas,
-            &path,
+            path,
             // Specifies how far from the root canvas the shadow casting rect is. We just use
             // the z component here to set it a constant distance away.
             Point3::new(0., 0., settings.floating_z_height),
@@ -209,10 +207,10 @@ fn group_windows_with_regions(windows: &mut Vec<LayerWindow>, regions: &[Rect]) 
     }
 }
 
-pub fn group_windows<'w>(
-    windows: Vec<&'w mut RenderedWindow>,
+pub fn group_windows(
+    windows: Vec<&mut RenderedWindow>,
     font_dimensions: Dimensions,
-) -> Vec<Vec<&'w mut RenderedWindow>> {
+) -> Vec<Vec<&mut RenderedWindow>> {
     let mut windows = windows
         .into_iter()
         .enumerate()
@@ -325,7 +323,7 @@ fn calculate_silhouette_corners(regions: &[Rect]) -> Vec<CornerFromRect> {
 fn rect_collision_points(regions: &[Rect], i: usize, j: usize) -> Vec<CornerFromRect> {
     let mut intersection = Rect::new_empty();
     if intersection.intersect2(regions[i], regions[j]) {
-        return vec![
+        vec![
             CornerFromRect {
                 p: Point::new(intersection.left, intersection.top),
                 rect_index: vec![i, j],
@@ -342,13 +340,13 @@ fn rect_collision_points(regions: &[Rect], i: usize, j: usize) -> Vec<CornerFrom
                 p: Point::new(intersection.left, intersection.bottom),
                 rect_index: vec![i, j],
             },
-        ];
+        ]
     } else {
         vec![]
     }
 }
 
-fn sort_points_in_clockwise_order(corners: &mut Vec<(CornerFromRect, bool)>) -> Vec<Point> {
+fn sort_points_in_clockwise_order(corners: &mut [(CornerFromRect, bool)]) -> Vec<Point> {
     let mut ret = vec![];
     // PERFORMANCE NOTE: this is a O(n^2) algorithm, it can be optimized
     corners[0].1 = true;
@@ -366,7 +364,7 @@ fn sort_points_in_clockwise_order(corners: &mut Vec<(CornerFromRect, bool)>) -> 
 }
 
 // R U D L, clockwise
-fn find_nearest_point<'a>(
+fn find_nearest_point(
     pivot: &CornerFromRect,
     points: &mut [(CornerFromRect, bool)],
 ) -> Option<CornerFromRect> {
@@ -375,52 +373,40 @@ fn find_nearest_point<'a>(
         .filter(|(p, used)| !used && pivot.share_rect(p))
         .collect::<Vec<_>>();
     // right
-    match shared_points
+    if let Some((point, used)) = shared_points
         .iter_mut()
         .filter(|(p, _)| pivot.left_to(p) && pivot.same_y(p))
         .min_by(|a, b| compare_coordinate(a.0.p.x, b.0.p.x))
     {
-        Some((point, used)) => {
-            *used = true;
-            return Some(point.clone());
-        }
-        None => {}
+        *used = true;
+        return Some(point.clone());
     };
     // up
-    match shared_points
+    if let Some((point, used)) = shared_points
         .iter_mut()
         .filter(|(p, _)| p.up_to(pivot) && pivot.same_x(p))
         .max_by(|a, b| compare_coordinate(a.0.p.y, b.0.p.y))
     {
-        Some((point, used)) => {
-            *used = true;
-            return Some(point.clone());
-        }
-        None => {}
+        *used = true;
+        return Some(point.clone());
     };
     // down
-    match shared_points
+    if let Some((point, used)) = shared_points
         .iter_mut()
         .filter(|(p, _)| pivot.up_to(p) && pivot.same_x(p))
         .min_by(|a, b| compare_coordinate(a.0.p.y, b.0.p.y))
     {
-        Some((point, used)) => {
-            *used = true;
-            return Some(point.clone());
-        }
-        None => {}
+        *used = true;
+        return Some(point.clone());
     };
     // left
-    match shared_points
+    if let Some((point, used)) = shared_points
         .iter_mut()
         .filter(|(p, _)| p.left_to(pivot) && pivot.same_y(p))
         .max_by(|a, b| compare_coordinate(a.0.p.x, b.0.p.x))
     {
-        Some((point, used)) => {
-            *used = true;
-            return Some(point.clone());
-        }
-        None => {}
+        *used = true;
+        return Some(point.clone());
     };
     None
 }
