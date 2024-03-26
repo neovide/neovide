@@ -67,7 +67,7 @@ pub fn load_last_window_settings() -> Result<PersistentWindowSettings, String> {
 }
 
 pub fn save_window_size(window_wrapper: &WinitWindowWrapper) {
-    let window = window_wrapper.windowed_context.window();
+    let window = window_wrapper.skia_renderer.window();
     // Don't save the window size when the window is minimized, since the size can be 0
     // Note wayland can't determine this
     if window.is_minimized() == Some(true) {

@@ -21,7 +21,7 @@ use crate::{
     window::UserEvent,
 };
 
-pub struct VSyncWin {
+pub struct VSyncWinDwm {
     should_exit: Arc<AtomicBool>,
     vsync_thread: Option<JoinHandle<()>>,
     redraw_requested: Arc<AtomicBool>,
@@ -45,7 +45,7 @@ fn vblank_wait_time(delay: f64, period: f64, offset: f64) -> f64 {
     time_until_vblank
 }
 
-impl VSyncWin {
+impl VSyncWinDwm {
     // On Windows the fake vsync is always enabled
     // Everything else is very jerky
     pub fn new(proxy: EventLoopProxy<UserEvent>) -> Self {
@@ -114,7 +114,7 @@ impl VSyncWin {
     }
 }
 
-impl Drop for VSyncWin {
+impl Drop for VSyncWinDwm {
     fn drop(&mut self) {
         self.should_exit.store(true, Ordering::SeqCst);
         self.vsync_thread.take().unwrap().join().unwrap();
