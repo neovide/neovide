@@ -105,9 +105,6 @@ impl<'w> FloatingLayer<'w> {
             .map(|window| window.pixel_region(font_dimensions))
             .collect::<Vec<_>>();
         let (silhouette, bound_rect) = build_slihouette(&pixel_regions);
-
-        log::debug!("silhouette: {:?}", silhouette);
-
         let has_transparency = default_background.a() != 255
             || self.windows.iter().any(|window| window.has_transparency());
 
@@ -232,12 +229,16 @@ fn get_window_group(windows: &mut Vec<LayerWindow>, index: usize) -> usize {
     windows[index].group
 }
 
+fn rect_intersect(a: &Rect, b: &Rect) -> bool {
+    Rect::intersects2(a, b)
+}
+
 fn group_windows_with_regions(windows: &mut Vec<LayerWindow>, regions: &[Rect]) {
     for i in 0..windows.len() {
         for j in i + 1..windows.len() {
             let group_i = get_window_group(windows, i);
             let group_j = get_window_group(windows, j);
-            if group_i != group_j && Rect::intersects2(regions[i], regions[j]) {
+            if group_i != group_j && rect_intersect(&regions[i], &regions[j]) {
                 let new_group = group_i.min(group_j);
                 if group_i != group_j {
                     windows[group_i].group = new_group;
@@ -456,17 +457,14 @@ fn find_nearest_point(
 mod tests {
     use super::*;
 
-    lazy_static! {
-        static ref COMMON_REGIONS: Vec<Rect> = vec![
+    #[test]
+    fn test_clockwise_paths() {
+        let regions: Vec<Rect> = vec![
             Rect::from_xywh(100., 100., 100., 100.),
             Rect::from_xywh(180., 20., 100., 100.),
             Rect::from_xywh(180., 180., 130., 100.),
         ];
-    }
-
-    #[test]
-    fn test_clockwise_paths() {
-        let mut corners = calculate_silhouette_corners(&COMMON_REGIONS)
+        let mut corners = calculate_silhouette_corners(&regions)
             .into_iter()
             .map(|v| (v, false))
             .collect::<Vec<_>>();
@@ -490,6 +488,36 @@ mod tests {
                 Point::new(180., 280.),
                 Point::new(180., 200.),
                 Point::new(100., 200.),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_clockwise_paths_telescope_case() {
+        let regions = vec![
+            Rect::from_ltrb(0., 834., 3420., 912.),
+            Rect::from_ltrb(0., 886., 1692., 1328.),
+            Rect::from_ltrb(12., 860., 3408., 886.),
+            Rect::from_ltrb(12., 886., 1680., 1302.),
+            Rect::from_ltrb(1692., 886., 3420., 1328.),
+            Rect::from_ltrb(1704., 912., 3408., 1302.),
+        ];
+        let mut corners = calculate_silhouette_corners(&regions)
+            .into_iter()
+            .map(|v| (v, false))
+            .collect::<Vec<_>>();
+        let ret = sort_points_in_clockwise_order(&mut corners);
+
+        println!("{:?}", ret);
+        println!("{:?}", corners);
+        assert!(ret.len() == corners.len());
+        assert_eq!(
+            ret,
+            vec![
+                Point::new(0., 834.),
+                Point::new(3420., 834.),
+                Point::new(3420., 1328.),
+                Point::new(0., 1328.),
             ]
         );
     }
