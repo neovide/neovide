@@ -3,7 +3,7 @@ use skia_safe::{
     canvas::SaveLayerRec,
     image_filters::blur,
     utils::shadow_utils::{draw_shadow, ShadowFlags},
-    BlendMode, Canvas, ClipOp, Color, Paint, Path, PathBuilder, Point, Point3, Rect,
+    BlendMode, Canvas, ClipOp, Color, Contains, Paint, Path, PathBuilder, Point, Point3, Rect,
 };
 use std::hash::{Hash, Hasher};
 use std::{cmp::PartialOrd, collections::HashMap};
@@ -393,11 +393,13 @@ fn sort_points_in_clockwise_order(corners: &mut [(CornerFromRect, bool)]) -> Vec
     // PERFORMANCE NOTE: this is a O(n^2) algorithm, it can be optimized
     corners[0].1 = true;
     let mut pivot = Some(corners[0].0.clone());
+    let mut direction: Option<MoveDirection> = None;
     ret.push(corners[0].0.p);
     while let Some(current) = pivot {
-        if let Some(next) = find_nearest_point(&current, corners) {
+        if let Some((next, next_direction)) = find_nearest_point(&current, corners, direction) {
             ret.push(next.p);
             pivot = Some(next);
+            direction = Some(next_direction);
         } else {
             break;
         }
@@ -405,52 +407,126 @@ fn sort_points_in_clockwise_order(corners: &mut [(CornerFromRect, bool)]) -> Vec
     ret
 }
 
+enum MoveDirection {
+    Right,
+    Up,
+    Down,
+    Left,
+}
+
+fn try_right(
+    pivot: &CornerFromRect,
+    points: &mut [&mut (CornerFromRect, bool)],
+) -> Option<(CornerFromRect, MoveDirection)> {
+    points
+        .iter_mut()
+        .filter(|(p, _)| pivot.left_to(p) && pivot.same_y(p))
+        .min_by(|a, b| compare_coordinate(a.0.p.x, b.0.p.x))
+        .map(|(p, used)| {
+            *used = true;
+            (p.clone(), MoveDirection::Right)
+        })
+}
+
+fn try_up(
+    pivot: &CornerFromRect,
+    points: &mut [&mut (CornerFromRect, bool)],
+) -> Option<(CornerFromRect, MoveDirection)> {
+    points
+        .iter_mut()
+        .filter(|(p, _)| p.up_to(pivot) && pivot.same_x(p))
+        .max_by(|a, b| compare_coordinate(a.0.p.y, b.0.p.y))
+        .map(|(p, used)| {
+            *used = true;
+            (p.clone(), MoveDirection::Up)
+        })
+}
+
+fn try_down(
+    pivot: &CornerFromRect,
+    points: &mut [&mut (CornerFromRect, bool)],
+) -> Option<(CornerFromRect, MoveDirection)> {
+    points
+        .iter_mut()
+        .filter(|(p, _)| pivot.up_to(p) && pivot.same_x(p))
+        .min_by(|a, b| compare_coordinate(a.0.p.y, b.0.p.y))
+        .map(|(p, used)| {
+            *used = true;
+            (p.clone(), MoveDirection::Down)
+        })
+}
+
+fn try_left(
+    pivot: &CornerFromRect,
+    points: &mut [&mut (CornerFromRect, bool)],
+) -> Option<(CornerFromRect, MoveDirection)> {
+    points
+        .iter_mut()
+        .filter(|(p, _)| p.left_to(pivot) && pivot.same_y(p))
+        .max_by(|a, b| compare_coordinate(a.0.p.x, b.0.p.x))
+        .map(|(p, used)| {
+            *used = true;
+            (p.clone(), MoveDirection::Left)
+        })
+}
+
 // R U D L, clockwise
 fn find_nearest_point(
     pivot: &CornerFromRect,
     points: &mut [(CornerFromRect, bool)],
-) -> Option<CornerFromRect> {
+    previous_direction: Option<MoveDirection>,
+) -> Option<(CornerFromRect, MoveDirection)> {
     let mut shared_points = points
         .iter_mut()
         .filter(|(p, used)| !used && pivot.share_rect(p))
         .collect::<Vec<_>>();
-    // right
-    if let Some((point, used)) = shared_points
-        .iter_mut()
-        .filter(|(p, _)| pivot.left_to(p) && pivot.same_y(p))
-        .min_by(|a, b| compare_coordinate(a.0.p.x, b.0.p.x))
-    {
-        *used = true;
-        return Some(point.clone());
-    };
-    // up
-    if let Some((point, used)) = shared_points
-        .iter_mut()
-        .filter(|(p, _)| p.up_to(pivot) && pivot.same_x(p))
-        .max_by(|a, b| compare_coordinate(a.0.p.y, b.0.p.y))
-    {
-        *used = true;
-        return Some(point.clone());
-    };
-    // down
-    if let Some((point, used)) = shared_points
-        .iter_mut()
-        .filter(|(p, _)| pivot.up_to(p) && pivot.same_x(p))
-        .min_by(|a, b| compare_coordinate(a.0.p.y, b.0.p.y))
-    {
-        *used = true;
-        return Some(point.clone());
-    };
-    // left
-    if let Some((point, used)) = shared_points
-        .iter_mut()
-        .filter(|(p, _)| p.left_to(pivot) && pivot.same_y(p))
-        .max_by(|a, b| compare_coordinate(a.0.p.x, b.0.p.x))
-    {
-        *used = true;
-        return Some(point.clone());
-    };
-    None
+    let previous_direction = previous_direction.unwrap_or(MoveDirection::Right);
+    match previous_direction {
+        MoveDirection::Right => {
+            if let Some(ret) = try_right(pivot, &mut shared_points) {
+                Some(ret)
+            } else if let Some(ret) = try_up(pivot, &mut shared_points) {
+                Some(ret)
+            } else if let Some(ret) = try_down(pivot, &mut shared_points) {
+                Some(ret)
+            } else {
+                try_left(pivot, &mut shared_points)
+            }
+        }
+        MoveDirection::Up => {
+            if let Some(ret) = try_up(pivot, &mut shared_points) {
+                Some(ret)
+            } else if let Some(ret) = try_right(pivot, &mut shared_points) {
+                Some(ret)
+            } else if let Some(ret) = try_left(pivot, &mut shared_points) {
+                Some(ret)
+            } else {
+                try_down(pivot, &mut shared_points)
+            }
+        }
+        MoveDirection::Down => {
+            if let Some(ret) = try_down(pivot, &mut shared_points) {
+                Some(ret)
+            } else if let Some(ret) = try_left(pivot, &mut shared_points) {
+                Some(ret)
+            } else if let Some(ret) = try_right(pivot, &mut shared_points) {
+                Some(ret)
+            } else {
+                try_up(pivot, &mut shared_points)
+            }
+        }
+        MoveDirection::Left => {
+            if let Some(ret) = try_left(pivot, &mut shared_points) {
+                Some(ret)
+            } else if let Some(ret) = try_down(pivot, &mut shared_points) {
+                Some(ret)
+            } else if let Some(ret) = try_up(pivot, &mut shared_points) {
+                Some(ret)
+            } else {
+                try_right(pivot, &mut shared_points)
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -509,8 +585,11 @@ mod tests {
         let ret = sort_points_in_clockwise_order(&mut corners);
 
         println!("{:?}", ret);
-        println!("{:?}", corners);
-        assert!(ret.len() == corners.len());
+
+        for corner in corners.iter() {
+            println!("{:?}", corner);
+        }
+
         assert_eq!(
             ret,
             vec![
