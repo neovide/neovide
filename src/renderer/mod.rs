@@ -86,7 +86,7 @@ impl Default for RendererSettings {
             debug_renderer: false,
             profiler: false,
             underline_stroke_scale: 1.,
-            group_zindex_step: 5,
+            group_zindex_step: 3,
         }
     }
 }
@@ -205,7 +205,7 @@ impl Renderer {
             for window in floating_windows {
                 let zindex = window.anchor_info.as_ref().unwrap().sort_order;
                 log::debug!("zindex: {}, base: {}", zindex, base_zindex);
-                if zindex - base_zindex > zindex_step {
+                if zindex - base_zindex >= zindex_step {
                     if !current_windows.is_empty() {
                         for windows in group_windows(current_windows, font_dimensions) {
                             floating_layers.push(FloatingLayer {

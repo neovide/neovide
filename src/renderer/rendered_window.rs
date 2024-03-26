@@ -341,21 +341,13 @@ impl RenderedWindow {
         canvas: &Canvas,
         pixel_region: &Rect,
         font_dimensions: Dimensions,
-        default_background: Color,
     ) {
         let mut has_transparency = false;
 
         let (lines, border_lines, inner_region) = self.split_lines(pixel_region, font_dimensions);
 
-        let mut background_paint = Paint::default();
-        background_paint.set_blend_mode(BlendMode::Src);
-        background_paint.set_alpha(default_background.a());
-
-        let save_layer_rec = SaveLayerRec::default()
-            .bounds(pixel_region)
-            .paint(&background_paint);
-        canvas.save_layer(&save_layer_rec);
-        canvas.clear(default_background.with_a(255));
+        canvas.save();
+        canvas.clip_rect(pixel_region, None, false);
         for (matrix, line) in &border_lines {
             let line = line.borrow();
             if let Some(background_picture) = &line.background_picture {
@@ -365,14 +357,21 @@ impl RenderedWindow {
         }
         canvas.save();
         canvas.clip_rect(inner_region, None, false);
+        let mut pics = 0;
         for (matrix, line) in &lines {
             let line = line.borrow();
             if let Some(background_picture) = &line.background_picture {
                 has_transparency |= line.has_transparency();
                 canvas.draw_picture(background_picture, Some(matrix), None);
+                pics += 1;
             }
         }
-        log::debug!("id: {}, Has transparency: {}", self.id, has_transparency);
+        log::trace!(
+            "region: {:?}, inner: {:?}, pics: {}",
+            pixel_region,
+            inner_region,
+            pics
+        );
         canvas.restore();
         canvas.restore();
 
@@ -440,12 +439,18 @@ impl RenderedWindow {
 
         let save_layer_rec = SaveLayerRec::default().bounds(&pixel_region).paint(&paint);
         root_canvas.save_layer(&save_layer_rec);
-        self.draw_background_surface(
-            root_canvas,
-            &pixel_region,
-            font_dimensions,
-            default_background,
-        );
+
+        let mut background_paint = Paint::default();
+        background_paint.set_blend_mode(BlendMode::Src);
+        background_paint.set_alpha(default_background.a());
+        let background_layer_rec = SaveLayerRec::default()
+            .bounds(&pixel_region)
+            .paint(&background_paint);
+
+        root_canvas.save_layer(&background_layer_rec);
+        root_canvas.clear(default_background.with_a(255));
+        self.draw_background_surface(root_canvas, &pixel_region, font_dimensions);
+        root_canvas.restore();
         self.draw_foreground_surface(root_canvas, &pixel_region, font_dimensions);
         root_canvas.restore();
 
