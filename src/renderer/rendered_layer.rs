@@ -3,7 +3,7 @@ use skia_safe::{
     canvas::SaveLayerRec,
     image_filters::blur,
     utils::shadow_utils::{draw_shadow, ShadowFlags},
-    BlendMode, Canvas, ClipOp, Color, Contains, Paint, Path, PathBuilder, Point, Point3, Rect,
+    BlendMode, Canvas, ClipOp, Color, Paint, Path, PathBuilder, Point, Point3, Rect,
 };
 use std::hash::{Hash, Hasher};
 use std::{cmp::PartialOrd, collections::HashMap};
@@ -595,8 +595,13 @@ mod tests {
             vec![
                 Point::new(0., 834.),
                 Point::new(3420., 834.),
+                Point::new(3420., 886.),
+                Point::new(3420., 912.),
                 Point::new(3420., 1328.),
+                Point::new(1692., 1328.),
                 Point::new(0., 1328.),
+                Point::new(0., 912.),
+                Point::new(0., 886.),
             ]
         );
     }
