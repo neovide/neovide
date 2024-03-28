@@ -179,14 +179,13 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<()> {
         cmdline.vsync = false;
     }
 
-    cmdline.neovim_args =
-        cmdline
-            .tabs
-            .then(|| "-p".to_string())
-            .into_iter()
-            .chain(mem::take(&mut cmdline.files_to_open))
-            .chain(cmdline.neovim_args)
-            .collect();
+    cmdline.neovim_args = cmdline
+        .tabs
+        .then(|| "-p".to_string())
+        .into_iter()
+        .chain(mem::take(&mut cmdline.files_to_open))
+        .chain(cmdline.neovim_args)
+        .collect();
 
     SETTINGS.set::<CmdLineSettings>(&cmdline);
     Ok(())
