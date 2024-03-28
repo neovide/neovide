@@ -51,7 +51,6 @@ fn handle_command_arg(position: usize, args: Vec<String>) -> String {
 }
 
 /// Takes the valid path argument and returns the startup directory.
-#[cfg(target_os = "macos")]
 fn handle_command_arg_as_path_or_default(args: &mut Vec<String>) -> String {
     args.retain(|arg| is_valid_path(arg));
 
@@ -101,7 +100,6 @@ pub async fn setup_tty_startup_directory(
     nvim.command(cmd.as_str()).await
 }
 
-#[cfg(target_os = "macos")]
 fn get_startup_directory(path: &str) -> String {
     use std::path::{Path, PathBuf};
 
@@ -118,7 +116,6 @@ fn get_startup_directory(path: &str) -> String {
     }
 }
 
-#[cfg(target_os = "macos")]
 fn is_valid_path(path: &str) -> bool {
     use std::path::PathBuf;
 
