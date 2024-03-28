@@ -9,7 +9,11 @@ use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
     dimensions::Dimensions,
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
-    renderer::{build_context, DrawCommand, GlWindow, Renderer, VSync, WindowedContext},
+    renderer::{
+        build_context,
+        ime::{Ime, Preedit},
+        DrawCommand, GlWindow, Renderer, VSync, WindowedContext,
+    },
     running_tracker::RUNNING_TRACKER,
     settings::{
         FontSettings, HotReloadConfigs, SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS,
@@ -65,8 +69,8 @@ pub struct WinitWindowWrapper {
     font_changed_last_frame: bool,
     saved_inner_size: PhysicalSize<u32>,
     saved_grid_size: Option<Dimensions>,
-    ime_enabled: bool,
-    ime_position: PhysicalPosition<i32>,
+    ime: Ime,
+    window_width: f32,
     requested_columns: Option<u64>,
     requested_lines: Option<u64>,
     ui_state: UIState,
@@ -137,8 +141,8 @@ impl WinitWindowWrapper {
             font_changed_last_frame: false,
             saved_inner_size,
             saved_grid_size: None,
-            ime_enabled,
-            ime_position: PhysicalPosition::new(-1, -1),
+            ime: Ime::new(),
+            window_width: 0.0,
             requested_columns: None,
             requested_lines: None,
             ui_state: UIState::Initing,
@@ -179,7 +183,7 @@ impl WinitWindowWrapper {
     }
 
     pub fn set_ime(&mut self, ime_enabled: bool) {
-        self.ime_enabled = ime_enabled;
+        self.ime.set_enabled(ime_enabled);
         self.windowed_context.window().set_ime_allowed(ime_enabled);
     }
 
@@ -228,7 +232,7 @@ impl WinitWindowWrapper {
                 }
             }
             WindowSettingsChanged::InputIme(ime_enabled) => {
-                if self.ime_enabled != ime_enabled {
+                if self.ime.is_enabled() != ime_enabled {
                     self.set_ime(ime_enabled);
                 }
             }
@@ -358,6 +362,32 @@ impl WinitWindowWrapper {
                 tracy_zone!("Moved");
                 self.vsync.update(&self.windowed_context);
             }
+
+            Event::WindowEvent {
+                event: WindowEvent::Resized(size),
+                ..
+            } => {
+                if size.width != 0 && size.height != 0 {
+                    self.window_width = size.width as f32;
+                }
+            }
+            Event::WindowEvent {
+                event: WindowEvent::Ime(ime),
+                ..
+            } => match ime {
+                winit::event::Ime::Preedit(text, cursor_offset) => {
+                    let preedit = if text.is_empty() {
+                        None
+                    } else {
+                        Some(Preedit::new(text, cursor_offset.map(|offset| offset.0)))
+                    };
+
+                    if self.ime.preedit() != preedit.as_ref() {
+                        self.ime.set_preedit(preedit);
+                    }
+                }
+                _ => {}
+            },
             Event::UserEvent(UserEvent::DrawCommandBatch(batch)) => {
                 self.handle_draw_commands(batch);
             }
@@ -396,7 +426,14 @@ impl WinitWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         tracy_zone!("draw_frame");
-        self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
+        self.renderer.prepare_lines();
+        self.renderer.draw_frame(
+            self.skia_renderer.canvas(),
+            dt,
+            &self.ime,
+            self.window_width,
+        );
+
         {
             tracy_gpu_zone!("skia flush");
             self.skia_renderer.gr_context.flush_and_submit();
@@ -462,7 +499,7 @@ impl WinitWindowWrapper {
             }
 
             // Ensure that the window has the correct IME state
-            self.set_ime(self.ime_enabled);
+            self.set_ime(self.ime.is_enabled());
         };
     }
 
@@ -613,8 +650,9 @@ impl WinitWindowWrapper {
             cursor_position.x.round() as i32,
             cursor_position.y.round() as i32 + font_dimensions.height as i32,
         );
-        if position != self.ime_position {
-            self.ime_position = position;
+        if position != self.ime.position() {
+            // self.ime.position = position;
+            self.ime.set_position(position);
             self.windowed_context.window().set_ime_cursor_area(
                 Position::Physical(position),
                 PhysicalSize::new(100, font_dimensions.height as u32),

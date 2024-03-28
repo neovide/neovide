@@ -2,6 +2,7 @@ pub mod animation_utils;
 pub mod cursor_renderer;
 pub mod fonts;
 pub mod grid_renderer;
+pub mod ime;
 mod opengl;
 pub mod profiler;
 mod rendered_window;
@@ -30,6 +31,7 @@ use crate::{
 use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
+pub use ime::{Ime, Preedit};
 pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails};
 
 pub use opengl::{build_context, build_window, Context as WindowedContext, GlWindow};
@@ -148,7 +150,7 @@ impl Renderer {
         self.cursor_renderer.prepare_frame()
     }
 
-    pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32) {
+    pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32, ime: &Ime, w: f32) {
         tracy_zone!("renderer_draw_frame");
         let default_background = self.grid_renderer.get_default_background();
         let font_dimensions = self.grid_renderer.font_dimensions;
@@ -198,7 +200,7 @@ impl Renderer {
             .collect();
 
         self.cursor_renderer
-            .draw(&mut self.grid_renderer, root_canvas);
+            .draw(&mut self.grid_renderer, root_canvas, ime.preedit(), w);
 
         self.profiler.draw(root_canvas, dt);
 

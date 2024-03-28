@@ -11,7 +11,7 @@ use crate::{
     editor::{Cursor, CursorShape},
     profiling::{tracy_plot, tracy_zone},
     renderer::animation_utils::*,
-    renderer::{GridRenderer, RenderedWindow},
+    renderer::{GridRenderer, Preedit, RenderedWindow},
     settings::{ParseFromValue, SETTINGS},
     window::{ShouldRender, UserEvent},
 };
@@ -286,7 +286,13 @@ impl CursorRenderer {
         self.blink_status.update_status(&self.cursor)
     }
 
-    pub fn draw(&mut self, grid_renderer: &mut GridRenderer, canvas: &Canvas) {
+    pub fn draw(
+        &mut self,
+        grid_renderer: &mut GridRenderer,
+        canvas: &Canvas,
+        preedit: Option<&Preedit>,
+        w: f32,
+    ) {
         tracy_zone!("cursor_draw");
         let settings = SETTINGS.get::<CursorSettings>();
         let render = self.blink_status.should_render() || settings.smooth_blink;
@@ -345,6 +351,54 @@ impl CursorRenderer {
         }
 
         canvas.restore();
+
+        // draw ime if possible under current cursor
+        if let Some(preedit) = preedit {
+            let factor = grid_renderer.font_dimensions.width as f32;
+            let y_adjustment = y_adjustment as f32 + factor / 5.0;
+
+            let off = if let Some(off) = preedit.cursor_offset() {
+                off as f32 * factor
+            } else {
+                0f32
+            };
+
+            let mut start = self.destination.x;
+            let mut end = self.destination.x + off;
+            if end + factor > w {
+                start = start - (end + factor - w);
+                end = w - factor;
+            }
+
+            use skia_safe::Rect;
+            let r = Rect::new(
+                start,
+                self.destination.y,
+                end,
+                self.destination.y + y_adjustment + factor / 4.0,
+            );
+
+            paint.set_color(background_color);
+            canvas.draw_rect(r, &paint);
+
+            let blobs =
+                &grid_renderer
+                    .shaper
+                    .shape_cached(preedit.preedit_text().clone(), bold, italic);
+            paint.set_color(foreground_color);
+            for blob in blobs.iter() {
+                canvas.draw_text_blob(blob, (start, self.destination.y + y_adjustment), &paint);
+            }
+
+            paint.set_color(skia_safe::colors::GREY.to_color());
+            let r = Rect::new(
+                start,
+                self.destination.y + y_adjustment,
+                end,
+                self.destination.y + y_adjustment + factor / 4.0,
+            );
+            canvas.draw_rect(r, &paint);
+        }
 
         if let Some(vfx) = self.cursor_vfx.as_ref() {
             vfx.render(&settings, canvas, grid_renderer, &self.cursor);
