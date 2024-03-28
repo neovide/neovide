@@ -193,14 +193,13 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<()> {
 
 #[cfg(test)]
 #[allow(clippy::bool_assert_comparison)] // useful here since the explicit true/false comparison matters
+#[serial_test::serial]
 mod tests {
     use scoped_env::ScopedEnv;
 
     use super::*;
-    use serial_test::serial;
 
     #[test]
-    #[serial]
     fn test_neovim_passthrough() {
         let args: Vec<String> = ["neovide", "--no-tabs", "--", "--clean"]
             .iter()
@@ -215,7 +214,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_files_to_open() {
         let args: Vec<String> = ["neovide", "./foo.txt", "--no-tabs", "./bar.md"]
             .iter()
@@ -230,7 +228,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_files_to_open_with_passthrough() {
         let args: Vec<String> = [
             "neovide",
@@ -252,7 +249,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_files_to_open_with_flag() {
         let args: Vec<String> = ["neovide", "./foo.txt", "./bar.md", "--grid=42x24"]
             .iter()
@@ -275,7 +271,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_grid() {
         let args: Vec<String> = ["neovide", "--grid=42x24"]
             .iter()
@@ -293,7 +288,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_size() {
         let args: Vec<String> = ["neovide", "--size=420x240"]
             .iter()
@@ -311,7 +305,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_log_to_file() {
         let args: Vec<String> = ["neovide", "--log"].iter().map(|s| s.to_string()).collect();
 
@@ -320,7 +313,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_frameless_flag() {
         let args: Vec<String> = ["neovide", "--frame=full"]
             .iter()
@@ -332,7 +324,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_frameless_environment_variable() {
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
@@ -342,7 +333,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_neovim_bin_arg() {
         let args: Vec<String> = ["neovide", "--neovim-bin", "foo"]
             .iter()
@@ -357,7 +347,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_neovim_bin_environment_variable() {
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
@@ -370,7 +359,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_srgb_default() {
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
@@ -383,7 +371,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_srgb() {
         let args: Vec<String> = ["neovide", "--srgb"]
             .iter()
@@ -395,7 +382,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_nosrgb() {
         let args: Vec<String> = ["neovide", "--no-srgb"]
             .iter()
@@ -407,7 +393,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_no_srgb_environment() {
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
@@ -417,7 +402,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_override_srgb_environment() {
         let args: Vec<String> = ["neovide", "--no-srgb"]
             .iter()
@@ -430,7 +414,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_override_nosrgb_environment() {
         let args: Vec<String> = ["neovide", "--srgb"]
             .iter()
@@ -443,7 +426,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_vsync_default() {
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
@@ -452,7 +434,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_vsync() {
         let args: Vec<String> = ["neovide", "--vsync"]
             .iter()
@@ -464,7 +445,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_novsync() {
         let args: Vec<String> = ["neovide", "--no-vsync"]
             .iter()
@@ -476,7 +456,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_no_vsync_environment() {
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
@@ -486,7 +465,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_override_vsync_environment() {
         let args: Vec<String> = ["neovide", "--no-vsync"]
             .iter()
@@ -499,7 +477,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_override_novsync_environment() {
         let args: Vec<String> = ["neovide", "--vsync"]
             .iter()
