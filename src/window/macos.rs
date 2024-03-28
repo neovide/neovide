@@ -227,7 +227,6 @@ impl MacosWindowFeature {
             background_color,
             show_border,
             transparency,
-            window_blurred,
             ..
         } = SETTINGS.get::<WindowSettings>();
         match background_color.parse::<Color>() {
@@ -236,8 +235,6 @@ impl MacosWindowFeature {
             }
             _ => self.update_ns_background(transparency, show_border),
         }
-        let opaque = transparency >= 1.0;
-        window.set_blur(window_blurred && !opaque);
     }
 
     pub fn handle_settings_changed(&self, window: &Window, changed_setting: WindowSettingsChanged) {
@@ -246,17 +243,14 @@ impl MacosWindowFeature {
                 log::info!("background_color changed to {}", background_color);
                 self.update_background(window, false);
             }
-            #[cfg(target_os = "macos")]
             WindowSettingsChanged::ShowBorder(show_border) => {
                 log::info!("show_border changed to {}", show_border);
                 self.update_background(window, true);
             }
-            #[cfg(target_os = "macos")]
             WindowSettingsChanged::Transparency(transparency) => {
                 log::info!("transparency changed to {}", transparency);
                 self.update_background(window, true);
             }
-            #[cfg(target_os = "macos")]
             WindowSettingsChanged::WindowBlurred(window_blurred) => {
                 log::info!("window_blurred changed to {}", window_blurred);
                 self.update_background(window, true);

@@ -781,6 +781,24 @@ If the value is \<=0 then the cursor will be invisible. This setting takes effec
 window is unfocused, at which time a block cursor will be rendered as an outline instead of as a
 full rectangle.
 
+#### Animate cursor blink
+
+VimScript:
+
+```vim
+let g:neovide_cursor_smooth_blink = v:false
+```
+
+Lua:
+
+```lua
+vim.g.neovide_cursor_smooth_blink = false
+```
+
+If enabled, the cursor will smoothly animate the transition between the cursor's on and off state.
+The built in `guicursor` neovim option needs to be configured to enable blinking by having a value
+set for both `blinkoff`, `blinkon` and `blinkwait` for this setting to apply.
+
 ### Cursor Particles
 
 There are a number of vfx modes you can enable which produce particles behind the cursor. These are
