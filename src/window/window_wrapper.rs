@@ -104,10 +104,19 @@ impl WinitWindowWrapper {
             renderer.grid_renderer.font_dimensions,
         );
 
-        let settings = SETTINGS.get::<WindowSettings>();
-        let ime_enabled = settings.input_ime;
+        let WindowSettings {
+            input_ime,
+            theme,
+            window_blurred,
+            transparency,
+            ..
+        } = SETTINGS.get::<WindowSettings>();
 
-        match settings.theme.as_str() {
+        windowed_context
+            .window()
+            .set_blur(window_blurred && transparency < 1.0);
+
+        match theme.as_str() {
             "light" => set_background("light"),
             "dark" => set_background("dark"),
             "auto" => match window.theme() {
@@ -137,7 +146,7 @@ impl WinitWindowWrapper {
             font_changed_last_frame: false,
             saved_inner_size,
             saved_grid_size: None,
-            ime_enabled,
+            ime_enabled: input_ime,
             ime_position: PhysicalPosition::new(-1, -1),
             requested_columns: None,
             requested_lines: None,
@@ -156,7 +165,7 @@ impl WinitWindowWrapper {
             macos_feature,
         };
 
-        wrapper.set_ime(ime_enabled);
+        wrapper.set_ime(input_ime);
         wrapper
     }
 
@@ -231,6 +240,11 @@ impl WinitWindowWrapper {
                 if self.ime_enabled != ime_enabled {
                     self.set_ime(ime_enabled);
                 }
+            }
+            WindowSettingsChanged::WindowBlurred(blur) => {
+                let WindowSettings { transparency, .. } = SETTINGS.get::<WindowSettings>();
+                let transparent = transparency < 1.0;
+                self.windowed_context.window().set_blur(blur && transparent);
             }
             _ => {}
         };
