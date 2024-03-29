@@ -9,6 +9,8 @@ use crate::{
     settings::{SettingLocation, SETTINGS},
 };
 
+use crate::bridge::{command::is_tty, setup_tty_startup_directory};
+
 const INIT_LUA: &str = include_str!("../../lua/init.lua");
 
 pub async fn setup_neovide_specific_state(
@@ -23,6 +25,10 @@ pub async fn setup_neovide_specific_state(
     nvim.command("runtime! ginit.vim")
         .await
         .context("Error encountered in ginit.vim ")?;
+
+    nvim.set_var("neovide_ntty", Value::from(!is_tty()))
+        .await
+        .context("Could not communicate with neovim process")?;
 
     // Set details about the neovide version.
     nvim.set_client_info(
@@ -99,6 +105,10 @@ pub async fn setup_neovide_specific_state(
     nvim.execute_lua(INIT_LUA, vec![args])
         .await
         .context("Error when running Neovide init.lua")?;
+
+    setup_tty_startup_directory(nvim)
+        .await
+        .context("Error setting up TTY startup directory")?;
 
     setup_intro_message_autocommand(nvim)
         .await
