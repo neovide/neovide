@@ -194,6 +194,12 @@ $ scoop install neovide
 line:</p>
 <pre><code class="language-sh">brew install --cask neovide
 </code></pre>
+<p>Neovide registers launched shells taking the user's preferred shell into account.</p>
+<p>If you are encountering issues with Neovide not being found by your shell, you can try to add the
+<code>brew</code> binary path to your <code>PATH</code> environment variable:</p>
+<pre><code class="language-sh">sudo launchctl config user path &quot;$(brew --prefix)/bin:${PATH}&quot;
+</code></pre>
+<p>For more information, see the Homebrew <a href="https://docs.brew.sh/FAQ#my-mac-apps-dont-find-homebrew-utilities">FAQ</a>.</p>
 <h3 id="mac-source"><a class="header" href="#mac-source">Mac Source</a></h3>
 <ol>
 <li>
