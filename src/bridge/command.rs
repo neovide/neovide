@@ -1,6 +1,7 @@
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
 
+use std::io::IsTerminal;
 use std::process::{Command as StdCommand, Stdio};
 
 use anyhow::{bail, Result};
@@ -9,9 +10,6 @@ use regex::Regex;
 use tokio::process::Command as TokioCommand;
 
 use crate::{cmd_line::CmdLineSettings, settings::*};
-
-#[cfg(target_os = "macos")]
-use std::io::IsTerminal;
 
 pub fn create_nvim_command() -> Result<TokioCommand> {
     let mut cmd = build_nvim_cmd()?;
@@ -235,7 +233,6 @@ fn platform_which(bin: &str) -> Option<String> {
     None
 }
 
-#[cfg(target_os = "macos")]
 pub fn is_tty() -> bool {
     std::io::stdout().is_terminal()
 }
