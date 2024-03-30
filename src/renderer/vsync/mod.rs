@@ -4,23 +4,20 @@ mod macos_display_link;
 mod vsync_macos;
 mod vsync_timer;
 #[cfg(target_os = "windows")]
-mod vsync_win;
+mod vsync_win_dwm;
 
 use vsync_timer::VSyncTimer;
 
 use crate::{
-    renderer::WindowedContext, settings::SETTINGS, window::UserEvent, window::WindowSettings,
+    renderer::SkiaRenderer, settings::SETTINGS, window::UserEvent, window::WindowSettings,
 };
-use winit::event_loop::EventLoopProxy;
-
-#[cfg(target_os = "linux")]
-use std::env;
+use winit::{event_loop::EventLoopProxy, window::Window};
 
 #[cfg(target_os = "windows")]
-use vsync_win::VSyncWin;
+pub use vsync_win_dwm::VSyncWinDwm;
 
 #[cfg(target_os = "macos")]
-use vsync_macos::VSyncMacos;
+pub use vsync_macos::VSyncMacos;
 
 #[allow(dead_code)]
 pub enum VSync {
@@ -28,35 +25,19 @@ pub enum VSync {
     WinitThrottling(),
     Timer(VSyncTimer),
     #[cfg(target_os = "windows")]
-    Windows(VSyncWin),
+    WindowsDwm(VSyncWinDwm),
     #[cfg(target_os = "macos")]
     Macos(VSyncMacos),
 }
 
 impl VSync {
-    #[allow(unused_variables)]
     pub fn new(
         vsync_enabled: bool,
-        context: &WindowedContext,
+        renderer: &dyn SkiaRenderer,
         proxy: EventLoopProxy<UserEvent>,
     ) -> Self {
         if vsync_enabled {
-            #[cfg(target_os = "linux")]
-            if env::var("WAYLAND_DISPLAY").is_ok() {
-                VSync::WinitThrottling()
-            } else {
-                VSync::Opengl()
-            }
-
-            #[cfg(target_os = "windows")]
-            {
-                VSync::Windows(VSyncWin::new(proxy))
-            }
-
-            #[cfg(target_os = "macos")]
-            {
-                VSync::Macos(VSyncMacos::new(context, proxy))
-            }
+            renderer.create_vsync(proxy)
         } else {
             VSync::Timer(VSyncTimer::new())
         }
@@ -66,7 +47,7 @@ impl VSync {
         match self {
             VSync::Timer(vsync) => vsync.wait_for_vsync(),
             #[cfg(target_os = "windows")]
-            VSync::Windows(vsync) => vsync.wait_for_vsync(),
+            VSync::WindowsDwm(vsync) => vsync.wait_for_vsync(),
             #[cfg(target_os = "macos")]
             VSync::Macos(vsync) => vsync.wait_for_vsync(),
             _ => {}
@@ -75,7 +56,7 @@ impl VSync {
 
     pub fn uses_winit_throttling(&self) -> bool {
         #[cfg(target_os = "windows")]
-        return matches!(self, VSync::WinitThrottling() | VSync::Windows(..));
+        return matches!(self, VSync::WinitThrottling() | VSync::WindowsDwm(..));
 
         #[cfg(target_os = "macos")]
         return matches!(self, VSync::WinitThrottling() | VSync::Macos(..));
@@ -84,21 +65,21 @@ impl VSync {
         return matches!(self, VSync::WinitThrottling());
     }
 
-    pub fn update(&mut self, #[allow(unused_variables)] context: &WindowedContext) {
+    pub fn update(&mut self, #[allow(unused_variables)] window: &Window) {
         match self {
             #[cfg(target_os = "macos")]
-            VSync::Macos(vsync) => vsync.update(context),
+            VSync::Macos(vsync) => vsync.update(window),
             _ => {}
         }
     }
 
-    pub fn get_refresh_rate(&self, context: &WindowedContext) -> f32 {
+    pub fn get_refresh_rate(&self, window: &Window) -> f32 {
         let settings_refresh_rate = 1.0 / SETTINGS.get::<WindowSettings>().refresh_rate as f32;
 
         match self {
             VSync::Timer(_) => settings_refresh_rate,
             _ => {
-                let monitor = context.window().current_monitor();
+                let monitor = window.current_monitor();
                 monitor
                     .and_then(|monitor| monitor.refresh_rate_millihertz())
                     .map(|rate| 1000.0 / rate as f32)
@@ -109,11 +90,11 @@ impl VSync {
         }
     }
 
-    pub fn request_redraw(&mut self, context: &WindowedContext) {
+    pub fn request_redraw(&mut self, window: &Window) {
         match self {
-            VSync::WinitThrottling(..) => context.window().request_redraw(),
+            VSync::WinitThrottling(..) => window.request_redraw(),
             #[cfg(target_os = "windows")]
-            VSync::Windows(vsync) => vsync.request_redraw(),
+            VSync::WindowsDwm(vsync) => vsync.request_redraw(),
             #[cfg(target_os = "macos")]
             VSync::Macos(vsync) => vsync.request_redraw(),
             _ => {}
