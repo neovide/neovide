@@ -108,7 +108,7 @@ impl WinitWindowWrapper {
             ..
         } = SETTINGS.get::<WindowSettings>();
 
-        windowed_context
+        skia_renderer
             .window()
             .set_blur(window_blurred && transparency < 1.0);
 
@@ -239,7 +239,7 @@ impl WinitWindowWrapper {
             WindowSettingsChanged::WindowBlurred(blur) => {
                 let WindowSettings { transparency, .. } = SETTINGS.get::<WindowSettings>();
                 let transparent = transparency < 1.0;
-                self.windowed_context.window().set_blur(blur && transparent);
+                self.skia_renderer.window().set_blur(blur && transparent);
             }
             _ => {}
         };

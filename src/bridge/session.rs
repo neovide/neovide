@@ -1,6 +1,7 @@
 //! This module contains adaptations of the functions found in
 //! https://github.com/KillTheMule/nvim-rs/blob/master/src/create/tokio.rs
 
+#[cfg(debug_assertions)]
 use core::fmt;
 use std::{
     io::{Error, ErrorKind, Result},
