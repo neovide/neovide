@@ -55,7 +55,7 @@ rmpv = "1.0.0"
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.79"
 shlex = "1.1.0"
-skia-safe = { version = "0.68.0", features = ["gl", "textlayout"] }
+simple_moving_average = "0.1.2"
 spin_sleep = "1.1.1"
 strum = { version = "0.26.2", features = ["derive"] }
 swash = { version = "0.1.8", default-features = false }
@@ -78,7 +78,28 @@ serial_test = "3.0.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 # NOTE: winerror is only needed because the indirect dependency parity-tokio-ipc does not set it even if it uses it
-winapi = { version = "0.3.9", features = ["winuser", "wincon", "winerror", "dwmapi", "profileapi"] }
+winapi = { version = "0.3.9", features = [
+    "d3d12",
+    "d3d12sdklayers",
+    "dwmapi",
+    "dxgi",
+    "dxgi1_2",
+    "dxgi1_3",
+    "dxgi1_4",
+    "dxgi1_6",
+    "impl-default",
+    "profileapi",
+    "synchapi",
+    "wincon",
+    "winerror",
+    "winuser",
+    ]}
+# for ComPtr
+wio = { version = "0.2.2" }
+skia-safe = { version = "0.68.0", features = ["gl", "d3d", "textlayout"] }
+
+[target.'cfg(not(target_os = "windows"))'.dependencies]
+skia-safe = { version = "0.68.0", features = ["gl", "textlayout"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 icrate = { version = "0.0.4", features = [ "apple", "Foundation", "Foundation_NSThread", "AppKit", "AppKit_NSColor", "AppKit_NSEvent", "AppKit_NSView", "AppKit_NSWindow", "AppKit_NSViewController", "AppKit_NSMenu", "AppKit_NSMenuItem", "AppKit_NSOpenPanel", "AppKit_NSScreen", "Foundation_NSArray" ] }
