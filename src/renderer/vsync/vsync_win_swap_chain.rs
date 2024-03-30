@@ -32,20 +32,18 @@ impl VSyncWinSwapChain {
             handle: swap_chain_waitable,
         };
         let (sender, receiver) = channel();
-        let vsync_thread = {
-            Some(spawn(move || {
-                let handle = handle;
-                while let Ok(Message::RequestRedraw) = receiver.recv() {
-                    tracy_zone!("wait for vblank");
-                    unsafe {
-                        WaitForSingleObjectEx(handle.handle, 1000, true.into());
-                    }
-                    let _ = proxy.send_event(UserEvent::RedrawRequested);
+        let vsync_thread = spawn(move || {
+            let handle = handle;
+            while let Ok(Message::RequestRedraw) = receiver.recv() {
+                tracy_zone!("wait for vblank");
+                unsafe {
+                    WaitForSingleObjectEx(handle.handle, 1000, true.into());
                 }
-            }))
-        };
+                proxy.send_event(UserEvent::RedrawRequested).ok();
+            }
+        });
         Self {
-            vsync_thread,
+            vsync_thread: Some(vsync_thread),
             sender,
         }
     }
@@ -53,13 +51,13 @@ impl VSyncWinSwapChain {
     pub fn wait_for_vsync(&mut self) {}
 
     pub fn request_redraw(&mut self) {
-        let _ = self.sender.send(Message::RequestRedraw);
+        self.sender.send(Message::RequestRedraw).ok();
     }
 }
 
 impl Drop for VSyncWinSwapChain {
     fn drop(&mut self) {
-        let _ = self.sender.send(Message::Quit);
+        self.sender.send(Message::Quit).ok();
         self.vsync_thread.take().unwrap().join().unwrap();
     }
 }

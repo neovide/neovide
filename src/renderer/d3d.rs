@@ -1,5 +1,15 @@
 use std::ptr::{null, null_mut};
 
+use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+use skia_safe::{
+    gpu::{
+        d3d::{BackendContext, TextureResourceInfo},
+        surfaces::wrap_backend_render_target,
+        BackendRenderTarget, DirectContext, FlushInfo, Protected, SurfaceOrigin, SyncCpu,
+    },
+    surface::BackendSurfaceAccess,
+    Canvas, ColorType, Surface,
+};
 use winapi::{
     shared::{
         dxgi::{
@@ -32,27 +42,12 @@ use winapi::{
     },
     Interface,
 };
-
+use winit::{event_loop::EventLoopProxy, window::Window};
 use wio::com::ComPtr;
 
-use skia_safe::{
-    gpu::{
-        d3d::{BackendContext, TextureResourceInfo},
-        surfaces::wrap_backend_render_target,
-        BackendRenderTarget, DirectContext, FlushInfo, Protected, SurfaceOrigin, SyncCpu,
-    },
-    surface::BackendSurfaceAccess,
-    Canvas, ColorType, Surface,
-};
-
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-use winit::{event_loop::EventLoopProxy, window::Window};
-
 use super::{vsync::VSyncWinSwapChain, SkiaRenderer, VSync};
-
 #[cfg(feature = "gpu_profiling")]
 use crate::profiling::{d3d::create_d3d_gpu_context, GpuCtx};
-
 use crate::{profiling::tracy_gpu_zone, window::UserEvent};
 
 const D3D_FEATUREL_LEVEL: D3D_FEATURE_LEVEL = D3D_FEATURE_LEVEL_11_0;
