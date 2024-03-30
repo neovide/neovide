@@ -141,7 +141,6 @@ pub struct ApiInformation {
     pub channel: u64,
     pub version: ApiVersion,
     pub functions: HashSet<ApiFunction>,
-    pub ui_events: HashSet<ApiFunction>,
     pub ui_options: Vec<String>,
     // types and error_error types are not implemented
 }
@@ -278,7 +277,6 @@ pub fn parse_api_info(value: &[Value]) -> std::result::Result<ApiInformation, Ap
 
     let mut version = None;
     let mut functions = None;
-    let mut ui_events = None;
     let mut ui_options = None;
 
     for (k, v) in metadata {
@@ -286,7 +284,6 @@ pub fn parse_api_info(value: &[Value]) -> std::result::Result<ApiInformation, Ap
         match k.as_str() {
             Some("version") => version = Some(parse_version(v)?),
             Some("functions") => functions = Some(parse_functions(v)?),
-            Some("ui_events") => ui_events = Some(parse_functions(v)?),
             Some("ui_options") => ui_options = Some(parse_string_vec(v)?),
             _ => {}
         }
@@ -296,7 +293,6 @@ pub fn parse_api_info(value: &[Value]) -> std::result::Result<ApiInformation, Ap
         channel,
         version: version.ok_or("version field is misssing")?,
         functions: functions.ok_or("functions field is missing")?,
-        ui_events: ui_events.ok_or("ui_events field is missing")?,
         ui_options: ui_options.ok_or("ui_options field is missing")?,
     })
 }
