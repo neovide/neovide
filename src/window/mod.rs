@@ -320,7 +320,7 @@ pub fn main_loop(
             return;
         }
 
-        if !RUNNING_TRACKER.is_running() {
+        if !RUNNING_TRACKER.is_running() && !window_target.exiting() {
             save_window_size(&window_wrapper);
             window_target.exit();
         } else {
