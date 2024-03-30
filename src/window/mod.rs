@@ -142,8 +142,15 @@ pub fn create_window(
         Some(PersistentWindowSettings::Windowed { position, .. }) => Some(position),
         _ => None,
     };
+    #[cfg(target_os = "linux")]
+    let maximized = matches!(window_settings, Some(PersistentWindowSettings::Maximized))
+        || cmd_line_settings.geometry.maximized;
+    // Unfortunately we can't maximize here, because winit shows the window momentarily causing
+    // flickering
+    #[cfg(not(target_os = "linux"))]
+    let maximized = false;
 
-    log::trace!("Settings initial_window_size {:?}", initial_window_size);
+    log::trace!("Settings initial_window_size {initial_window_size:?} maximized {maximized:?}");
 
     // NOTE: For Geometry, the window is resized when it's shown based on the font and other
     // settings.
@@ -156,9 +163,7 @@ pub fn create_window(
         .with_title("Neovide")
         .with_window_icon(Some(icon))
         .with_inner_size(inner_size)
-        // Unfortunately we can't maximize here, because winit shows the window momentarily causing
-        // flickering
-        .with_maximized(false)
+        .with_maximized(maximized)
         .with_transparent(true)
         .with_visible(false);
 
