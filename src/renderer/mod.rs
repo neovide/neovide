@@ -86,7 +86,7 @@ impl Default for RendererSettings {
             debug_renderer: false,
             profiler: false,
             underline_stroke_scale: 1.,
-            group_zindex_step: 3,
+            group_zindex_step: 2,
         }
     }
 }
