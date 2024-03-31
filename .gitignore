@@ -6,8 +6,3 @@
 .DS_Store
 website/book
 *.AppImage
-.envrc
-flake.nix
-flake.lock
-.direnv/
-.devenv/
