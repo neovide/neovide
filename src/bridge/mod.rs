@@ -17,8 +17,8 @@ use tokio::runtime::{Builder, Runtime};
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
-    cmd_line::CmdLineSettings, editor::start_editor, settings::*,
-    window::UserEvent, units::GridSize,
+    cmd_line::CmdLineSettings, editor::start_editor, settings::*, units::GridSize,
+    window::UserEvent,
 };
 pub use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
