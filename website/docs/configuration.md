@@ -371,6 +371,26 @@ than 1, it is clamped to 1 to prevent strange aliasing.
 **Note**: This is currently glitchy if the scale is too large, and leads to some underlines being
 clipped by the line of text below.
 
+#### Group zindex step
+
+Vimscript:
+
+```vim
+let g:neovide_group_zindex_step = 2
+```
+
+Lua:
+
+```lua
+vim.g.neovide_group_zindex_step = 2
+```
+
+**Available since 0.12.3.**
+
+Setting `g:neovide_group_zindex_step` to an usize will group together multiple floating windows
+whose zindex differences within the `step`. Each group of windows will have its shadow and blur
+rendered only once.
+
 #### Theme
 
 VimScript:
