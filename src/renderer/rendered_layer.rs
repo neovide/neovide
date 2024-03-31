@@ -14,14 +14,11 @@ use super::{RenderedWindow, RendererSettings, WindowDrawDetails};
 
 const EPSILON: f32 = 1e-6;
 
-#[derive(Debug, Clone)]
-struct CornerFromRect {
-    p: Point,
-    rect_index: Vec<usize>,
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 struct PointWrapper(Point);
+
+#[derive(Debug, Clone, Copy)]
+struct CoordinateWrapper(f32);
 
 fn compare_coordinate(a: f32, b: f32) -> std::cmp::Ordering {
     if (a - b).abs() < EPSILON {
@@ -59,25 +56,29 @@ impl Ord for PointWrapper {
     }
 }
 
-impl CornerFromRect {
-    fn share_rect(&self, other: &CornerFromRect) -> bool {
-        self.rect_index.iter().any(|i| other.rect_index.contains(i))
+impl PartialEq for CoordinateWrapper {
+    fn eq(&self, other: &Self) -> bool {
+        (self.0 - other.0).abs() < EPSILON
     }
+}
 
-    fn left_to(&self, other: &CornerFromRect) -> bool {
-        self.p.x < other.p.x
+impl Eq for CoordinateWrapper {}
+
+impl Hash for CoordinateWrapper {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        (self.0 as i32).hash(state);
     }
+}
 
-    fn up_to(&self, other: &CornerFromRect) -> bool {
-        self.p.y < other.p.y
+impl PartialOrd for CoordinateWrapper {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
     }
+}
 
-    fn same_x(&self, other: &CornerFromRect) -> bool {
-        (self.p.x - other.p.x).abs() < EPSILON
-    }
-
-    fn same_y(&self, other: &CornerFromRect) -> bool {
-        (self.p.y - other.p.y).abs() < EPSILON
+impl Ord for CoordinateWrapper {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        compare_coordinate(self.0, other.0)
     }
 }
 
@@ -284,14 +285,303 @@ fn inclusive_contains(rect: &Rect, point: &Point) -> bool {
         && compare_coordinate(rect.bottom, point.y) == std::cmp::Ordering::Greater
 }
 
-fn build_slihouette(regions: &[Rect]) -> (Path, Rect) {
-    let mut corners = calculate_silhouette_corners(regions)
+struct SilihouetteCorner {
+    pos: Point,
+    next: [Option<Point>; 4],
+}
+
+fn build_rect_corners(region: &Rect) -> Vec<Point> {
+    vec![
+        Point::new(region.left, region.top),
+        Point::new(region.right, region.top),
+        Point::new(region.right, region.bottom),
+        Point::new(region.left, region.bottom),
+    ]
+}
+
+// fn split_rect_edge(region: &Rect, intersection: &Rect) -> Vec<SilihouetteCorner> {
+//     let mut ret = vec![];
+//     if compare_coordinate(region.left, intersection.left) == std::cmp::Ordering::Equal {
+//         if compare_coordinate(intersection.top, intersection.bottom) != std::cmp::Ordering::Equal {
+//             ret.push(SilihouetteCorner {
+//                 pos: Point::new(intersection.left, intersection.bottom),
+//                 next: vec![NextSilihouetteCorner {
+//                     pos: Point::new(intersection.left, intersection.top),
+//                     direction: EdgeDirection::Up,
+//                 }],
+//             });
+//         }
+//         if compare_coordinate(region.top, intersection.top) == std::cmp::Ordering::Less {
+//             ret.push(SilihouetteCorner {
+//                 pos: Point::new(intersection.left, intersection.top),
+//                 next: vec![NextSilihouetteCorner {
+//                     pos: Point::new(region.left, region.top),
+//                     direction: EdgeDirection::Up,
+//                 }],
+//             });
+//         }
+//         if compare_coordinate(region.bottom, intersection.bottom) == std::cmp::Ordering::Greater {
+//             ret.push(SilihouetteCorner {
+//                 pos: Point::new(region.left, region.bottom),
+//                 next: vec![NextSilihouetteCorner {
+//                     pos: Point::new(intersection.left, intersection.bottom),
+//                     direction: EdgeDirection::Up,
+//                 }],
+//             });
+//         }
+//     }
+//     if compare_coordinate(region.right, intersection.right) == std::cmp::Ordering::Equal {
+//         if compare_coordinate(intersection.top, intersection.bottom) != std::cmp::Ordering::Equal {
+//             ret.push(SilihouetteCorner {
+//                 pos: Point::new(intersection.right, intersection.top),
+//                 next: vec![NextSilihouetteCorner {
+//                     pos: Point::new(intersection.right, intersection.bottom),
+//                     direction: EdgeDirection::Down,
+//                 }],
+//             });
+//         }
+//
+//         if compare_coordinate(region.top, intersection.top) == std::cmp::Ordering::Less {
+//             ret.push(SilihouetteCorner {
+//                 pos: Point::new(region.right, region.top),
+//                 next: vec![NextSilihouetteCorner {
+//                     pos: Point::new(intersection.right, intersection.top),
+//                     direction: EdgeDirection::Down,
+//                 }],
+//             });
+//         }
+//         if compare_coordinate(region.bottom, intersection.bottom) == std::cmp::Ordering::Greater {
+//             ret.push(SilihouetteCorner {
+//                 pos: Point::new(intersection.right, intersection.bottom),
+//                 next: vec![NextSilihouetteCorner {
+//                     pos: Point::new(region.right, region.bottom),
+//                     direction: EdgeDirection::Down,
+//                 }],
+//             });
+//         }
+//     }
+//     if compare_coordinate(region.top, intersection.top) == std::cmp::Ordering::Equal {
+//         if compare_coordinate(intersection.left, intersection.right) != std::cmp::Ordering::Equal {
+//             ret.push(SilihouetteCorner {
+//                 pos: Point::new(intersection.left, intersection.top),
+//                 next: vec![NextSilihouetteCorner {
+//                     pos: Point::new(intersection.right, intersection.top),
+//                     direction: EdgeDirection::Right,
+//                 }],
+//             });
+//         }
+//
+//         if compare_coordinate(region.left, intersection.left) == std::cmp::Ordering::Less {
+//             ret.push(SilihouetteCorner {
+//                 pos: Point::new(region.left, region.top),
+//                 next: vec![NextSilihouetteCorner {
+//                     pos: Point::new(intersection.left, intersection.top),
+//                     direction: EdgeDirection::Right,
+//                 }],
+//             });
+//         }
+//         if compare_coordinate(region.right, intersection.right) == std::cmp::Ordering::Greater {
+//             ret.push(SilihouetteCorner {
+//                 pos: Point::new(intersection.right, intersection.top),
+//                 next: vec![NextSilihouetteCorner {
+//                     pos: Point::new(region.right, region.top),
+//                     direction: EdgeDirection::Right,
+//                 }],
+//             });
+//         }
+//     }
+//     if compare_coordinate(region.bottom, intersection.bottom) == std::cmp::Ordering::Equal {
+//         if compare_coordinate(intersection.left, intersection.right) != std::cmp::Ordering::Equal {
+//             ret.push(SilihouetteCorner {
+//                 pos: Point::new(intersection.right, intersection.bottom),
+//                 next: vec![NextSilihouetteCorner {
+//                     pos: Point::new(intersection.left, intersection.bottom),
+//                     direction: EdgeDirection::Left,
+//                 }],
+//             });
+//         }
+//
+//         if compare_coordinate(region.left, intersection.left) == std::cmp::Ordering::Less {
+//             ret.push(SilihouetteCorner {
+//                 pos: Point::new(intersection.left, intersection.bottom),
+//                 next: vec![NextSilihouetteCorner {
+//                     pos: Point::new(region.left, region.bottom),
+//                     direction: EdgeDirection::Left,
+//                 }],
+//             });
+//         }
+//         if compare_coordinate(region.right, intersection.right) == std::cmp::Ordering::Greater {
+//             ret.push(SilihouetteCorner {
+//                 pos: Point::new(region.right, region.bottom),
+//                 next: vec![NextSilihouetteCorner {
+//                     pos: Point::new(intersection.right, intersection.bottom),
+//                     direction: EdgeDirection::Left,
+//                 }],
+//             });
+//         }
+//     }
+//     ret
+// }
+
+fn intersect_rects(a: &Rect, b: &Rect) -> Option<Rect> {
+    let left = a.left.max(b.left);
+    let right = a.right.min(b.right);
+    let top = a.top.max(b.top);
+    let bottom = a.bottom.min(b.bottom);
+    if compare_coordinate(left, right) != std::cmp::Ordering::Greater
+        && compare_coordinate(top, bottom) != std::cmp::Ordering::Greater
+    {
+        Some(Rect::from_ltrb(left, top, right, bottom))
+    } else {
+        None
+    }
+}
+
+fn build_collision_corners(regions: &[Rect], i: usize, j: usize) -> Vec<Point> {
+    if i != j {
+        if let Some(intersection) = intersect_rects(&regions[i], &regions[j]) {
+            return build_rect_corners(&intersection);
+        }
+    }
+    vec![]
+}
+
+#[derive(Debug, Clone, Copy)]
+struct NextSilihouetteCorner {
+    pos: Point,
+    direction: EdgeDirection,
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+struct NextCorners {
+    used: bool,
+    nexts: [Option<NextSilihouetteCorner>; 4],
+}
+
+fn build_silhouette_corners(
+    regions: &[Rect],
+) -> (HashMap<PointWrapper, NextCorners>, PointWrapper) {
+    let mut points_in_row = HashMap::new();
+    let mut points_in_col = HashMap::new();
+
+    (0..regions.len())
+        .cartesian_product(0..regions.len())
+        .flat_map(|(i, j)| build_collision_corners(regions, i, j))
+        .for_each(|p| {
+            points_in_col
+                .entry(CoordinateWrapper(p.x))
+                .or_insert_with(Vec::new)
+                .push(CoordinateWrapper(p.y));
+            points_in_row
+                .entry(CoordinateWrapper(p.y))
+                .or_insert_with(Vec::new)
+                .push(CoordinateWrapper(p.x));
+        });
+
+    (0..regions.len())
+        .flat_map(|i| build_rect_corners(&regions[i]))
+        .for_each(|p| {
+            points_in_col
+                .entry(CoordinateWrapper(p.x))
+                .or_insert_with(Vec::new)
+                .push(CoordinateWrapper(p.y));
+            points_in_row
+                .entry(CoordinateWrapper(p.y))
+                .or_insert_with(Vec::new)
+                .push(CoordinateWrapper(p.x));
+        });
+    let mut points_in_col = points_in_col
         .into_iter()
-        .map(|v| (v, false))
-        .collect::<Vec<_>>();
+        .map(|(k, v)| (k, v.into_iter().unique().collect::<Vec<_>>()))
+        .collect::<HashMap<_, _>>();
+    let mut points_in_row = points_in_row
+        .into_iter()
+        .map(|(k, v)| (k, v.into_iter().unique().collect::<Vec<_>>()))
+        .collect::<HashMap<_, _>>();
+
+    for (_, v) in points_in_col.iter_mut() {
+        v.sort_unstable();
+    }
+    for (_, v) in points_in_row.iter_mut() {
+        v.sort_unstable();
+    }
+
+    let mut points = HashMap::new();
+    let mut top_left_points = vec![];
+
+    for region in regions {
+        let left = CoordinateWrapper(region.left);
+        let right = CoordinateWrapper(region.right);
+        let top = CoordinateWrapper(region.top);
+        let bottom = CoordinateWrapper(region.bottom);
+
+        top_left_points.push(PointWrapper(Point::new(left.0, top.0)));
+
+        if let Some(top_row) = points_in_row.get(&top) {
+            let range_start = top_row.binary_search(&left).unwrap();
+            let range_end = top_row.binary_search(&right).unwrap();
+            for i in range_start..range_end {
+                let point = PointWrapper(Point::new(top_row[i].0, top.0));
+                let next = points.entry(point).or_insert_with(NextCorners::default);
+                next.nexts[EdgeDirection::Right as usize] = Some(NextSilihouetteCorner {
+                    pos: Point::new(top_row[i + 1].0, top.0),
+                    direction: EdgeDirection::Right,
+                });
+            }
+        }
+
+        if let Some(bottom_row) = points_in_row.get(&bottom) {
+            let range_start = bottom_row.binary_search(&left).unwrap();
+            let range_end = bottom_row.binary_search(&right).unwrap();
+            for i in (range_start..range_end).rev() {
+                let point = PointWrapper(Point::new(bottom_row[i + 1].0, bottom.0));
+                let next = points.entry(point).or_insert_with(NextCorners::default);
+                next.nexts[EdgeDirection::Left as usize] = Some(NextSilihouetteCorner {
+                    pos: Point::new(bottom_row[i].0, bottom.0),
+                    direction: EdgeDirection::Left,
+                });
+            }
+        }
+
+        if let Some(left_col) = points_in_col.get(&left) {
+            let range_start = left_col.binary_search(&top).unwrap();
+            let range_end = left_col.binary_search(&bottom).unwrap();
+            for i in (range_start..range_end).rev() {
+                let point = PointWrapper(Point::new(left.0, left_col[i + 1].0));
+                let next = points.entry(point).or_insert_with(NextCorners::default);
+                next.nexts[EdgeDirection::Up as usize] = Some(NextSilihouetteCorner {
+                    pos: Point::new(left.0, left_col[i].0),
+                    direction: EdgeDirection::Up,
+                });
+            }
+        }
+
+        if let Some(right_col) = points_in_col.get(&right) {
+            let range_start = right_col.binary_search(&top).unwrap();
+            let range_end = right_col.binary_search(&bottom).unwrap();
+            for i in range_start..range_end {
+                let point = PointWrapper(Point::new(right.0, right_col[i].0));
+                let next = points.entry(point).or_insert_with(NextCorners::default);
+                next.nexts[EdgeDirection::Down as usize] = Some(NextSilihouetteCorner {
+                    pos: Point::new(right.0, right_col[i + 1].0),
+                    direction: EdgeDirection::Down,
+                });
+            }
+        }
+    }
+
+    top_left_points.sort_unstable();
+    let start = top_left_points[0];
+
+    (points, start)
+}
+
+fn build_slihouette(regions: &[Rect]) -> (Path, Rect) {
     let mut builder = PathBuilder::new();
 
-    let points = sort_points_in_clockwise_order(&mut corners);
+    let (mut corners, start) = build_silhouette_corners(regions);
+    let points = sort_corsers_in_clockwise_order(start, &mut corners);
+
     builder.move_to(points[0]);
     for point in points.iter().skip(1) {
         builder.line_to(*point);
@@ -304,102 +594,31 @@ fn build_slihouette(regions: &[Rect]) -> (Path, Rect) {
     (builder.snapshot(), builder.compute_bounds())
 }
 
-fn calculate_silhouette_corners(regions: &[Rect]) -> Vec<CornerFromRect> {
-    let mut merge_points = HashMap::new();
-    (0..regions.len())
-        .cartesian_product(0..regions.len())
-        .flat_map(|(i, j)| rect_collision_points(regions, i, j))
-        .for_each(|p| {
-            let point = PointWrapper(p.p);
-            merge_points
-                .entry(point)
-                .or_insert_with(Vec::new)
-                .extend(p.rect_index);
-        });
-    (0..regions.len())
-        .flat_map(|i| {
-            vec![
-                CornerFromRect {
-                    p: Point::new(regions[i].left, regions[i].top),
-                    rect_index: vec![i],
-                },
-                CornerFromRect {
-                    p: Point::new(regions[i].right, regions[i].top),
-                    rect_index: vec![i],
-                },
-                CornerFromRect {
-                    p: Point::new(regions[i].right, regions[i].bottom),
-                    rect_index: vec![i],
-                },
-                CornerFromRect {
-                    p: Point::new(regions[i].left, regions[i].bottom),
-                    rect_index: vec![i],
-                },
-            ]
-        })
-        .for_each(|p| {
-            let point = PointWrapper(p.p);
-            merge_points
-                .entry(point)
-                .or_insert_with(Vec::new)
-                .extend(p.rect_index);
-        });
-
-    let mut points = merge_points
-        .into_iter()
-        .filter(|p| !regions.iter().any(|r| inclusive_contains(r, &p.0 .0)))
-        .map(|(k, v)| CornerFromRect {
-            p: k.0,
-            rect_index: v.into_iter().unique().collect(),
-        })
-        .collect_vec();
-
-    points.sort_unstable_by(|a, b| {
-        compare_coordinate(a.p.x, b.p.x).then_with(|| compare_coordinate(a.p.y, b.p.y))
-    });
-
-    points
-}
-
-/// Returns the points of intersection between two rectangles
-fn rect_collision_points(regions: &[Rect], i: usize, j: usize) -> Vec<CornerFromRect> {
-    let mut intersection = Rect::new_empty();
-    if intersection.intersect2(regions[i], regions[j]) {
-        vec![
-            CornerFromRect {
-                p: Point::new(intersection.left, intersection.top),
-                rect_index: vec![i, j],
-            },
-            CornerFromRect {
-                p: Point::new(intersection.right, intersection.top),
-                rect_index: vec![i, j],
-            },
-            CornerFromRect {
-                p: Point::new(intersection.right, intersection.bottom),
-                rect_index: vec![i, j],
-            },
-            CornerFromRect {
-                p: Point::new(intersection.left, intersection.bottom),
-                rect_index: vec![i, j],
-            },
-        ]
-    } else {
-        vec![]
-    }
-}
-
-fn sort_points_in_clockwise_order(corners: &mut [(CornerFromRect, bool)]) -> Vec<Point> {
+fn sort_corsers_in_clockwise_order(
+    start: PointWrapper,
+    corners: &mut HashMap<PointWrapper, NextCorners>,
+) -> Vec<Point> {
     let mut ret = vec![];
-    // PERFORMANCE NOTE: this is a O(n^2) algorithm, it can be optimized
-    corners[0].1 = true;
-    let mut pivot = Some(corners[0].0.clone());
-    let mut direction: Option<MoveDirection> = None;
-    ret.push(corners[0].0.p);
-    while let Some(current) = pivot {
-        if let Some((next, next_direction)) = find_nearest_point(&current, corners, direction) {
-            ret.push(next.p);
-            pivot = Some(next);
-            direction = Some(next_direction);
+    let mut pivot = Some(start);
+    let mut direction = EdgeDirection::Up;
+    'pivot: while let Some(current_pos) = pivot {
+        if let Some(current) = corners.get_mut(&current_pos) {
+            if current.used {
+                break;
+            }
+            if !ret.is_empty() {
+                current.used = true;
+            }
+            ret.push(current_pos.0);
+
+            let try_directions = NEXT_DIRECTION_SEQ[direction as usize];
+            for next_direction in try_directions {
+                if let Some(next) = current.nexts[next_direction as usize] {
+                    pivot = Some(PointWrapper(next.pos));
+                    direction = next_direction;
+                    continue 'pivot;
+                }
+            }
         } else {
             break;
         }
@@ -407,127 +626,45 @@ fn sort_points_in_clockwise_order(corners: &mut [(CornerFromRect, bool)]) -> Vec
     ret
 }
 
-enum MoveDirection {
-    Right,
-    Up,
-    Down,
-    Left,
+#[derive(Debug, Clone, Copy)]
+#[repr(u8)]
+enum EdgeDirection {
+    Right = 0,
+    Down = 1,
+    Left = 2,
+    Up = 3,
 }
 
-fn try_right(
-    pivot: &CornerFromRect,
-    points: &mut [&mut (CornerFromRect, bool)],
-) -> Option<(CornerFromRect, MoveDirection)> {
-    points
-        .iter_mut()
-        .filter(|(p, _)| pivot.left_to(p) && pivot.same_y(p))
-        .min_by(|a, b| compare_coordinate(a.0.p.x, b.0.p.x))
-        .map(|(p, used)| {
-            *used = true;
-            (p.clone(), MoveDirection::Right)
-        })
-}
-
-fn try_up(
-    pivot: &CornerFromRect,
-    points: &mut [&mut (CornerFromRect, bool)],
-) -> Option<(CornerFromRect, MoveDirection)> {
-    points
-        .iter_mut()
-        .filter(|(p, _)| p.up_to(pivot) && pivot.same_x(p))
-        .max_by(|a, b| compare_coordinate(a.0.p.y, b.0.p.y))
-        .map(|(p, used)| {
-            *used = true;
-            (p.clone(), MoveDirection::Up)
-        })
-}
-
-fn try_down(
-    pivot: &CornerFromRect,
-    points: &mut [&mut (CornerFromRect, bool)],
-) -> Option<(CornerFromRect, MoveDirection)> {
-    points
-        .iter_mut()
-        .filter(|(p, _)| pivot.up_to(p) && pivot.same_x(p))
-        .min_by(|a, b| compare_coordinate(a.0.p.y, b.0.p.y))
-        .map(|(p, used)| {
-            *used = true;
-            (p.clone(), MoveDirection::Down)
-        })
-}
-
-fn try_left(
-    pivot: &CornerFromRect,
-    points: &mut [&mut (CornerFromRect, bool)],
-) -> Option<(CornerFromRect, MoveDirection)> {
-    points
-        .iter_mut()
-        .filter(|(p, _)| p.left_to(pivot) && pivot.same_y(p))
-        .max_by(|a, b| compare_coordinate(a.0.p.x, b.0.p.x))
-        .map(|(p, used)| {
-            *used = true;
-            (p.clone(), MoveDirection::Left)
-        })
-}
-
-// R U D L, clockwise
-fn find_nearest_point(
-    pivot: &CornerFromRect,
-    points: &mut [(CornerFromRect, bool)],
-    previous_direction: Option<MoveDirection>,
-) -> Option<(CornerFromRect, MoveDirection)> {
-    let mut shared_points = points
-        .iter_mut()
-        .filter(|(p, used)| !used && pivot.share_rect(p))
-        .collect::<Vec<_>>();
-    let previous_direction = previous_direction.unwrap_or(MoveDirection::Right);
-    match previous_direction {
-        MoveDirection::Right => {
-            if let Some(ret) = try_right(pivot, &mut shared_points) {
-                Some(ret)
-            } else if let Some(ret) = try_up(pivot, &mut shared_points) {
-                Some(ret)
-            } else if let Some(ret) = try_down(pivot, &mut shared_points) {
-                Some(ret)
-            } else {
-                try_left(pivot, &mut shared_points)
-            }
-        }
-        MoveDirection::Up => {
-            if let Some(ret) = try_up(pivot, &mut shared_points) {
-                Some(ret)
-            } else if let Some(ret) = try_right(pivot, &mut shared_points) {
-                Some(ret)
-            } else if let Some(ret) = try_left(pivot, &mut shared_points) {
-                Some(ret)
-            } else {
-                try_down(pivot, &mut shared_points)
-            }
-        }
-        MoveDirection::Down => {
-            if let Some(ret) = try_down(pivot, &mut shared_points) {
-                Some(ret)
-            } else if let Some(ret) = try_left(pivot, &mut shared_points) {
-                Some(ret)
-            } else if let Some(ret) = try_right(pivot, &mut shared_points) {
-                Some(ret)
-            } else {
-                try_up(pivot, &mut shared_points)
-            }
-        }
-        MoveDirection::Left => {
-            if let Some(ret) = try_left(pivot, &mut shared_points) {
-                Some(ret)
-            } else if let Some(ret) = try_down(pivot, &mut shared_points) {
-                Some(ret)
-            } else if let Some(ret) = try_up(pivot, &mut shared_points) {
-                Some(ret)
-            } else {
-                try_right(pivot, &mut shared_points)
-            }
-        }
-    }
-}
+const NEXT_DIRECTION_SEQ: [[EdgeDirection; 4]; 4] = [
+    // from Right
+    [
+        EdgeDirection::Up,
+        EdgeDirection::Right,
+        EdgeDirection::Down,
+        EdgeDirection::Left,
+    ],
+    // from Down
+    [
+        EdgeDirection::Right,
+        EdgeDirection::Down,
+        EdgeDirection::Left,
+        EdgeDirection::Up,
+    ],
+    // from Left
+    [
+        EdgeDirection::Down,
+        EdgeDirection::Left,
+        EdgeDirection::Up,
+        EdgeDirection::Right,
+    ],
+    // from Up
+    [
+        EdgeDirection::Left,
+        EdgeDirection::Up,
+        EdgeDirection::Right,
+        EdgeDirection::Down,
+    ],
+];
 
 #[cfg(test)]
 mod tests {
@@ -540,15 +677,11 @@ mod tests {
             Rect::from_xywh(180., 20., 100., 100.),
             Rect::from_xywh(180., 180., 130., 100.),
         ];
-        let mut corners = calculate_silhouette_corners(&regions)
-            .into_iter()
-            .map(|v| (v, false))
-            .collect::<Vec<_>>();
-        let ret = sort_points_in_clockwise_order(&mut corners);
+        let (mut corners, start) = build_silhouette_corners(&regions);
+        let ret = sort_corsers_in_clockwise_order(start, &mut corners);
 
-        println!("{:?}", ret);
         println!("{:?}", corners);
-        assert!(ret.len() == corners.len());
+
         assert_eq!(
             ret,
             vec![
@@ -564,6 +697,7 @@ mod tests {
                 Point::new(180., 280.),
                 Point::new(180., 200.),
                 Point::new(100., 200.),
+                Point::new(100., 100.),
             ]
         );
     }
@@ -578,13 +712,8 @@ mod tests {
             Rect::from_ltrb(1692., 886., 3420., 1328.),
             Rect::from_ltrb(1704., 912., 3408., 1302.),
         ];
-        let mut corners = calculate_silhouette_corners(&regions)
-            .into_iter()
-            .map(|v| (v, false))
-            .collect::<Vec<_>>();
-        let ret = sort_points_in_clockwise_order(&mut corners);
-
-        println!("{:?}", ret);
+        let (mut corners, start) = build_silhouette_corners(&regions);
+        let ret = sort_corsers_in_clockwise_order(start, &mut corners);
 
         for corner in corners.iter() {
             println!("{:?}", corner);
@@ -602,6 +731,7 @@ mod tests {
                 Point::new(0., 1328.),
                 Point::new(0., 912.),
                 Point::new(0., 886.),
+                Point::new(0., 834.),
             ]
         );
     }
@@ -612,17 +742,14 @@ mod tests {
             Rect::from_ltrb(0., 0., 1000., 500.),
             Rect::from_ltrb(0., 500., 100., 520.),
         ];
-        let mut corners = calculate_silhouette_corners(&regions)
-            .into_iter()
-            .map(|v| (v, false))
-            .collect::<Vec<_>>();
-        let ret = sort_points_in_clockwise_order(&mut corners);
-
-        println!("{:?}", ret);
-
+        let (mut corners, start) = build_silhouette_corners(&regions);
         for corner in corners.iter() {
             println!("{:?}", corner);
         }
+
+        let ret = sort_corsers_in_clockwise_order(start, &mut corners);
+
+        println!("{:?}", ret);
 
         assert_eq!(
             ret,
@@ -634,6 +761,7 @@ mod tests {
                 Point::new(100., 520.),
                 Point::new(0., 520.),
                 Point::new(0., 500.),
+                Point::new(0., 0.),
             ]
         );
     }
