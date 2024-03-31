@@ -108,7 +108,7 @@ impl<'w> FloatingLayer<'w> {
         let has_transparency = default_background.a() != 255
             || self.windows.iter().any(|window| window.has_transparency());
 
-        self._draw_shadow(root_canvas, &silhouette, settings);
+        self.draw_shadow(root_canvas, &silhouette, settings);
 
         root_canvas.save();
         root_canvas.clip_path(&silhouette, None, Some(false));
@@ -192,7 +192,7 @@ impl<'w> FloatingLayer<'w> {
             .unwrap_or(0)
     }
 
-    fn _draw_shadow(&self, root_canvas: &Canvas, path: &Path, settings: &RendererSettings) {
+    fn draw_shadow(&self, root_canvas: &Canvas, path: &Path, settings: &RendererSettings) {
         root_canvas.save();
         // We clip using the Difference op to make sure that the shadow isn't rendered inside
         // the window itself.
@@ -602,6 +602,38 @@ mod tests {
                 Point::new(0., 1328.),
                 Point::new(0., 912.),
                 Point::new(0., 886.),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_clockwise_paths_case2() {
+        let regions = vec![
+            Rect::from_ltrb(0., 0., 1000., 500.),
+            Rect::from_ltrb(0., 500., 100., 520.),
+        ];
+        let mut corners = calculate_silhouette_corners(&regions)
+            .into_iter()
+            .map(|v| (v, false))
+            .collect::<Vec<_>>();
+        let ret = sort_points_in_clockwise_order(&mut corners);
+
+        println!("{:?}", ret);
+
+        for corner in corners.iter() {
+            println!("{:?}", corner);
+        }
+
+        assert_eq!(
+            ret,
+            vec![
+                Point::new(0., 0.),
+                Point::new(1000., 0.),
+                Point::new(1000., 500.),
+                Point::new(100., 500.),
+                Point::new(100., 520.),
+                Point::new(0., 520.),
+                Point::new(0., 500.),
             ]
         );
     }
