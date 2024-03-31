@@ -40,7 +40,6 @@ use crate::{
     cmd_line::{CmdLineSettings, GeometryArgs},
     frame::Frame,
     renderer::{build_window_config, DrawCommand, WindowConfig},
-    running_tracker::*,
     settings::{
         clamped_grid_size, load_last_window_settings, save_window_size, FontSettings,
         HotReloadConfigs, PersistentWindowSettings, SettingsChanged, SETTINGS,
@@ -90,6 +89,7 @@ pub enum UserEvent {
     ConfigsChanged(Box<HotReloadConfigs>),
     #[allow(dead_code)]
     RedrawRequested,
+    NeovimExited,
 }
 
 impl From<Vec<DrawCommand>> for UserEvent {
@@ -316,15 +316,14 @@ pub fn main_loop(
     event_loop.run(move |e, window_target| {
         #[cfg(target_os = "macos")]
         menu.ensure_menu_added(&e);
-        if e == Event::LoopExiting {
-            return;
-        }
 
-        if !RUNNING_TRACKER.is_running() && !window_target.exiting() {
-            save_window_size(&window_wrapper);
-            window_target.exit();
-        } else {
-            window_target.set_control_flow(update_loop.step(&mut window_wrapper, e));
+        match e {
+            Event::LoopExiting => (),
+            Event::UserEvent(UserEvent::NeovimExited) => {
+                save_window_size(&window_wrapper);
+                window_target.exit();
+            }
+            _ => window_target.set_control_flow(update_loop.step(&mut window_wrapper, e)),
         }
     })
 }

@@ -17,8 +17,8 @@ use tokio::runtime::{Builder, Runtime};
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
-    cmd_line::CmdLineSettings, editor::start_editor, running_tracker::*, settings::*,
-    units::GridSize, window::UserEvent,
+    cmd_line::CmdLineSettings, editor::start_editor, settings::*,
+    window::UserEvent, units::GridSize,
 };
 pub use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
@@ -134,7 +134,7 @@ async fn launch(handler: NeovimHandler, grid_size: Option<GridSize<u32>>) -> Res
     res.map(|()| session)
 }
 
-async fn run(session: NeovimSession) {
+async fn run(session: NeovimSession, proxy: EventLoopProxy<UserEvent>) {
     match session.io_handle.await {
         Err(join_error) => error!("Error joining IO loop: '{}'", join_error),
         Ok(Err(error)) => {
@@ -144,7 +144,8 @@ async fn run(session: NeovimSession) {
         }
         Ok(Ok(())) => {}
     };
-    RUNNING_TRACKER.quit("neovim processed failed");
+    log::info!("Neovim has quit");
+    proxy.send_event(UserEvent::NeovimExited).ok();
 }
 
 impl NeovimRuntime {
@@ -161,10 +162,10 @@ impl NeovimRuntime {
         event_loop_proxy: EventLoopProxy<UserEvent>,
         grid_size: Option<GridSize<u32>>,
     ) -> Result<()> {
-        let handler = start_editor(event_loop_proxy);
+        let handler = start_editor(event_loop_proxy.clone());
         let runtime = self.runtime.as_ref().unwrap();
         let session = runtime.block_on(launch(handler, grid_size))?;
-        runtime.spawn(run(session));
+        runtime.spawn(run(session, event_loop_proxy));
         Ok(())
     }
 }

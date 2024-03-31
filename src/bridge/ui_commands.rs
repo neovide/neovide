@@ -11,7 +11,6 @@ use super::show_error_message;
 use crate::{
     bridge::{ApiInformation, NeovimWriter},
     profiling::{tracy_dynamic_zone, tracy_fiber_enter, tracy_fiber_leave},
-    running_tracker::RUNNING_TRACKER,
     LoggingSender,
 };
 
@@ -295,7 +294,7 @@ pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, api_information: &Ap
     let ui_command_nvim = nvim.clone();
     tokio::spawn(async move {
         let mut ui_command_receiver = UI_CHANNELS.receiver.lock().unwrap().take().unwrap();
-        while RUNNING_TRACKER.is_running() {
+        loop {
             match ui_command_receiver.recv().await {
                 Some(UiCommand::Serial(serial_command)) => {
                     tracy_dynamic_zone!(serial_command.as_ref());
@@ -309,18 +308,17 @@ pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, api_information: &Ap
                         parallel_command.execute(&ui_command_nvim).await;
                     });
                 }
-                None => {
-                    RUNNING_TRACKER.quit("ui command channel failed");
-                }
+                None => break,
             }
         }
+        log::info!("ui command receiver finished");
     });
 
     let has_x_buttons = api_information.version.has_version(0, 10, 0);
 
     tokio::spawn(async move {
         tracy_fiber_enter!("Serial command");
-        while RUNNING_TRACKER.is_running() {
+        loop {
             tracy_fiber_leave();
             let res = serial_rx.recv().await;
             tracy_fiber_enter!("Serial command");
@@ -331,11 +329,10 @@ pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, api_information: &Ap
                     serial_command.execute(&nvim, has_x_buttons).await;
                     tracy_fiber_enter!("Serial command");
                 }
-                None => {
-                    RUNNING_TRACKER.quit("serial ui command channel failed");
-                }
+                None => break,
             }
         }
+        log::info!("serial command receiver finished");
     });
 }
 
