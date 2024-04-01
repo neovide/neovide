@@ -137,12 +137,40 @@ pub struct ApiParameter {
 }
 
 #[derive(Debug)]
+pub struct ApiEvent {
+    pub name: String,
+    pub parameters: Vec<ApiParameter>,
+    pub since: u64,
+}
+
+impl Hash for ApiEvent {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.name.hash(state)
+    }
+}
+
+impl PartialEq for ApiEvent {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+    }
+}
+
+impl Eq for ApiEvent {}
+
+#[derive(Debug)]
 pub struct ApiInformation {
     pub channel: u64,
     pub version: ApiVersion,
     pub functions: HashSet<ApiFunction>,
     pub ui_options: Vec<String>,
+    pub ui_events: HashSet<ApiEvent>,
     // types and error_error types are not implemented
+}
+
+impl ApiInformation {
+    pub fn has_event(&self, event_name: &str) -> bool {
+        self.ui_events.iter().any(|event| event.name == event_name)
+    }
 }
 
 fn parse_version(value: ValueRef) -> std::result::Result<ApiVersion, ApiInfoParseError> {
@@ -170,13 +198,13 @@ fn parse_version(value: ValueRef) -> std::result::Result<ApiVersion, ApiInfoPars
     }
 
     Ok(ApiVersion {
-        major: major.ok_or("major field is misssing")?,
-        minor: minor.ok_or("minor field is misssing")?,
-        patch: patch.ok_or("patch field is misssing")?,
-        prerelease: prerelease.ok_or("prerelease field is misssing")?,
-        api_level: api_level.ok_or("api_level field is misssing")?,
-        api_compatible: api_compatible.ok_or("api_compatible field is misssing")?,
-        api_prerelease: api_prerelase.ok_or("api_prerelease field is misssing")?,
+        major: major.ok_or("major field is missing")?,
+        minor: minor.ok_or("minor field is missing")?,
+        patch: patch.ok_or("patch field is missing")?,
+        prerelease: prerelease.ok_or("prerelease field is isssing")?,
+        api_level: api_level.ok_or("api_level field is missing")?,
+        api_compatible: api_compatible.ok_or("api_compatible field is missing")?,
+        api_prerelease: api_prerelase.ok_or("api_prerelease field is missing")?,
     })
 }
 
@@ -196,7 +224,7 @@ fn parse_function(value: ValueRef) -> std::result::Result<ApiFunction, ApiInfoPa
                 name = n.as_str().map(|n| n.to_owned())
             }
             Some("parameters") => parameters = Some(parse_parameters(v)?),
-            Some("return_type") => return_type = Some(parse_paramteter_type(v)?),
+            Some("return_type") => return_type = Some(parse_parameter_type(v)?),
             Some("method") => method = Some(v.try_into()?),
             Some("since") => since = Some(v.try_into()?),
             Some("deprecated_since") => deprecated_since = Some(v.try_into()?),
@@ -205,11 +233,11 @@ fn parse_function(value: ValueRef) -> std::result::Result<ApiFunction, ApiInfoPa
         }
     }
     Ok(ApiFunction {
-        name: name.ok_or("name field is misssing")?,
-        parameters: parameters.ok_or("parameters field is misssing")?,
+        name: name.ok_or("name field is missing")?,
+        parameters: parameters.ok_or("parameters field is missing")?,
         return_type,
         method,
-        since: since.ok_or("since field is misssing")?,
+        since: since.ok_or("since field is missing")?,
         deprecated_since,
     })
 }
@@ -224,7 +252,7 @@ fn parse_functions(
         .collect::<std::result::Result<HashSet<_>, _>>()
 }
 
-fn parse_paramteter_type(
+fn parse_parameter_type(
     value: ValueRef,
 ) -> std::result::Result<ApiParameterType, ApiInfoParseError> {
     let parameter_type: Utf8StringRef = value.try_into()?;
@@ -236,9 +264,9 @@ fn parse_parameter(value: ValueRef) -> std::result::Result<ApiParameter, ApiInfo
     if let Some((t, n)) = info.into_iter().collect_tuple() {
         let name: Utf8StringRef = n.try_into()?;
         let name = name.as_str();
-        let parameter_type = parse_paramteter_type(t)?;
+        let parameter_type = parse_parameter_type(t)?;
         Ok(ApiParameter {
-            name: name.map_or(Err("name field is misssing"), |v| Ok(v.to_owned()))?,
+            name: name.map_or(Err("name field is missing"), |v| Ok(v.to_owned()))?,
             parameter_type,
         })
     } else {
@@ -270,6 +298,39 @@ fn parse_string_vec(value: ValueRef) -> std::result::Result<Vec<String>, ApiInfo
         .collect::<std::result::Result<Vec<_>, _>>()
 }
 
+fn parse_ui_event(value: ValueRef) -> std::result::Result<ApiEvent, ApiInfoParseError> {
+    let mut name = None;
+    let mut parameters = None;
+    let mut since = None;
+    let fields: Vec<(ValueRef, ValueRef)> = value.try_into()?;
+    for (key, v) in fields {
+        let k: Utf8StringRef = key.try_into()?;
+        match k.as_str() {
+            Some("name") => {
+                let n: Utf8StringRef = v.try_into()?;
+                name = n.as_str().map(|n| n.to_owned())
+            }
+            Some("parameters") => parameters = Some(parse_parameters(v)?),
+            Some("since") => since = Some(v.try_into()?),
+            Some(key) => return Err(key.into()),
+            _ => {}
+        }
+    }
+    Ok(ApiEvent {
+        name: name.ok_or("name field is missing")?,
+        parameters: parameters.ok_or("parameters field is missing")?,
+        since: since.ok_or("since field is missing")?,
+    })
+}
+
+fn parse_ui_events(value: ValueRef) -> std::result::Result<HashSet<ApiEvent>, ApiInfoParseError> {
+    let functions: Vec<ValueRef> = value.try_into()?;
+    functions
+        .into_iter()
+        .map(parse_ui_event)
+        .collect::<std::result::Result<HashSet<_>, _>>()
+}
+
 pub fn parse_api_info(value: &[Value]) -> std::result::Result<ApiInformation, ApiInfoParseError> {
     let channel = value[0].as_ref().try_into()?;
 
@@ -278,6 +339,7 @@ pub fn parse_api_info(value: &[Value]) -> std::result::Result<ApiInformation, Ap
     let mut version = None;
     let mut functions = None;
     let mut ui_options = None;
+    let mut ui_events = None;
 
     for (k, v) in metadata {
         let k: Utf8StringRef = k.try_into()?;
@@ -285,14 +347,16 @@ pub fn parse_api_info(value: &[Value]) -> std::result::Result<ApiInformation, Ap
             Some("version") => version = Some(parse_version(v)?),
             Some("functions") => functions = Some(parse_functions(v)?),
             Some("ui_options") => ui_options = Some(parse_string_vec(v)?),
+            Some("ui_events") => ui_events = Some(parse_ui_events(v)?),
             _ => {}
         }
     }
 
     Ok(ApiInformation {
         channel,
-        version: version.ok_or("version field is misssing")?,
+        version: version.ok_or("version field is missing")?,
         functions: functions.ok_or("functions field is missing")?,
         ui_options: ui_options.ok_or("ui_options field is missing")?,
+        ui_events: ui_events.ok_or("ui_events field is missing")?,
     })
 }
