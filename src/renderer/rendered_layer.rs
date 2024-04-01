@@ -278,18 +278,6 @@ pub fn group_windows(
         .collect_vec()
 }
 
-fn inclusive_contains(rect: &Rect, point: &Point) -> bool {
-    compare_coordinate(rect.left, point.x) == std::cmp::Ordering::Less
-        && compare_coordinate(rect.right, point.x) == std::cmp::Ordering::Greater
-        && compare_coordinate(rect.top, point.y) == std::cmp::Ordering::Less
-        && compare_coordinate(rect.bottom, point.y) == std::cmp::Ordering::Greater
-}
-
-struct SilihouetteCorner {
-    pos: Point,
-    next: [Option<Point>; 4],
-}
-
 fn build_rect_corners(region: &Rect) -> Vec<Point> {
     vec![
         Point::new(region.left, region.top),
@@ -298,130 +286,6 @@ fn build_rect_corners(region: &Rect) -> Vec<Point> {
         Point::new(region.left, region.bottom),
     ]
 }
-
-// fn split_rect_edge(region: &Rect, intersection: &Rect) -> Vec<SilihouetteCorner> {
-//     let mut ret = vec![];
-//     if compare_coordinate(region.left, intersection.left) == std::cmp::Ordering::Equal {
-//         if compare_coordinate(intersection.top, intersection.bottom) != std::cmp::Ordering::Equal {
-//             ret.push(SilihouetteCorner {
-//                 pos: Point::new(intersection.left, intersection.bottom),
-//                 next: vec![NextSilihouetteCorner {
-//                     pos: Point::new(intersection.left, intersection.top),
-//                     direction: EdgeDirection::Up,
-//                 }],
-//             });
-//         }
-//         if compare_coordinate(region.top, intersection.top) == std::cmp::Ordering::Less {
-//             ret.push(SilihouetteCorner {
-//                 pos: Point::new(intersection.left, intersection.top),
-//                 next: vec![NextSilihouetteCorner {
-//                     pos: Point::new(region.left, region.top),
-//                     direction: EdgeDirection::Up,
-//                 }],
-//             });
-//         }
-//         if compare_coordinate(region.bottom, intersection.bottom) == std::cmp::Ordering::Greater {
-//             ret.push(SilihouetteCorner {
-//                 pos: Point::new(region.left, region.bottom),
-//                 next: vec![NextSilihouetteCorner {
-//                     pos: Point::new(intersection.left, intersection.bottom),
-//                     direction: EdgeDirection::Up,
-//                 }],
-//             });
-//         }
-//     }
-//     if compare_coordinate(region.right, intersection.right) == std::cmp::Ordering::Equal {
-//         if compare_coordinate(intersection.top, intersection.bottom) != std::cmp::Ordering::Equal {
-//             ret.push(SilihouetteCorner {
-//                 pos: Point::new(intersection.right, intersection.top),
-//                 next: vec![NextSilihouetteCorner {
-//                     pos: Point::new(intersection.right, intersection.bottom),
-//                     direction: EdgeDirection::Down,
-//                 }],
-//             });
-//         }
-//
-//         if compare_coordinate(region.top, intersection.top) == std::cmp::Ordering::Less {
-//             ret.push(SilihouetteCorner {
-//                 pos: Point::new(region.right, region.top),
-//                 next: vec![NextSilihouetteCorner {
-//                     pos: Point::new(intersection.right, intersection.top),
-//                     direction: EdgeDirection::Down,
-//                 }],
-//             });
-//         }
-//         if compare_coordinate(region.bottom, intersection.bottom) == std::cmp::Ordering::Greater {
-//             ret.push(SilihouetteCorner {
-//                 pos: Point::new(intersection.right, intersection.bottom),
-//                 next: vec![NextSilihouetteCorner {
-//                     pos: Point::new(region.right, region.bottom),
-//                     direction: EdgeDirection::Down,
-//                 }],
-//             });
-//         }
-//     }
-//     if compare_coordinate(region.top, intersection.top) == std::cmp::Ordering::Equal {
-//         if compare_coordinate(intersection.left, intersection.right) != std::cmp::Ordering::Equal {
-//             ret.push(SilihouetteCorner {
-//                 pos: Point::new(intersection.left, intersection.top),
-//                 next: vec![NextSilihouetteCorner {
-//                     pos: Point::new(intersection.right, intersection.top),
-//                     direction: EdgeDirection::Right,
-//                 }],
-//             });
-//         }
-//
-//         if compare_coordinate(region.left, intersection.left) == std::cmp::Ordering::Less {
-//             ret.push(SilihouetteCorner {
-//                 pos: Point::new(region.left, region.top),
-//                 next: vec![NextSilihouetteCorner {
-//                     pos: Point::new(intersection.left, intersection.top),
-//                     direction: EdgeDirection::Right,
-//                 }],
-//             });
-//         }
-//         if compare_coordinate(region.right, intersection.right) == std::cmp::Ordering::Greater {
-//             ret.push(SilihouetteCorner {
-//                 pos: Point::new(intersection.right, intersection.top),
-//                 next: vec![NextSilihouetteCorner {
-//                     pos: Point::new(region.right, region.top),
-//                     direction: EdgeDirection::Right,
-//                 }],
-//             });
-//         }
-//     }
-//     if compare_coordinate(region.bottom, intersection.bottom) == std::cmp::Ordering::Equal {
-//         if compare_coordinate(intersection.left, intersection.right) != std::cmp::Ordering::Equal {
-//             ret.push(SilihouetteCorner {
-//                 pos: Point::new(intersection.right, intersection.bottom),
-//                 next: vec![NextSilihouetteCorner {
-//                     pos: Point::new(intersection.left, intersection.bottom),
-//                     direction: EdgeDirection::Left,
-//                 }],
-//             });
-//         }
-//
-//         if compare_coordinate(region.left, intersection.left) == std::cmp::Ordering::Less {
-//             ret.push(SilihouetteCorner {
-//                 pos: Point::new(intersection.left, intersection.bottom),
-//                 next: vec![NextSilihouetteCorner {
-//                     pos: Point::new(region.left, region.bottom),
-//                     direction: EdgeDirection::Left,
-//                 }],
-//             });
-//         }
-//         if compare_coordinate(region.right, intersection.right) == std::cmp::Ordering::Greater {
-//             ret.push(SilihouetteCorner {
-//                 pos: Point::new(region.right, region.bottom),
-//                 next: vec![NextSilihouetteCorner {
-//                     pos: Point::new(intersection.right, intersection.bottom),
-//                     direction: EdgeDirection::Left,
-//                 }],
-//             });
-//         }
-//     }
-//     ret
-// }
 
 fn intersect_rects(a: &Rect, b: &Rect) -> Option<Rect> {
     let left = a.left.max(b.left);
@@ -446,16 +310,10 @@ fn build_collision_corners(regions: &[Rect], i: usize, j: usize) -> Vec<Point> {
     vec![]
 }
 
-#[derive(Debug, Clone, Copy)]
-struct NextSilihouetteCorner {
-    pos: Point,
-    direction: EdgeDirection,
-}
-
 #[derive(Debug, Clone, Copy, Default)]
 struct NextCorners {
     used: bool,
-    nexts: [Option<NextSilihouetteCorner>; 4],
+    nexts: [Option<Point>; 4],
 }
 
 fn build_silhouette_corners(
@@ -523,10 +381,8 @@ fn build_silhouette_corners(
             for i in range_start..range_end {
                 let point = PointWrapper(Point::new(top_row[i].0, top.0));
                 let next = points.entry(point).or_insert_with(NextCorners::default);
-                next.nexts[EdgeDirection::Right as usize] = Some(NextSilihouetteCorner {
-                    pos: Point::new(top_row[i + 1].0, top.0),
-                    direction: EdgeDirection::Right,
-                });
+                next.nexts[EdgeDirection::Right as usize] =
+                    Some(Point::new(top_row[i + 1].0, top.0));
             }
         }
 
@@ -536,10 +392,8 @@ fn build_silhouette_corners(
             for i in (range_start..range_end).rev() {
                 let point = PointWrapper(Point::new(bottom_row[i + 1].0, bottom.0));
                 let next = points.entry(point).or_insert_with(NextCorners::default);
-                next.nexts[EdgeDirection::Left as usize] = Some(NextSilihouetteCorner {
-                    pos: Point::new(bottom_row[i].0, bottom.0),
-                    direction: EdgeDirection::Left,
-                });
+                next.nexts[EdgeDirection::Left as usize] =
+                    Some(Point::new(bottom_row[i].0, bottom.0));
             }
         }
 
@@ -549,10 +403,7 @@ fn build_silhouette_corners(
             for i in (range_start..range_end).rev() {
                 let point = PointWrapper(Point::new(left.0, left_col[i + 1].0));
                 let next = points.entry(point).or_insert_with(NextCorners::default);
-                next.nexts[EdgeDirection::Up as usize] = Some(NextSilihouetteCorner {
-                    pos: Point::new(left.0, left_col[i].0),
-                    direction: EdgeDirection::Up,
-                });
+                next.nexts[EdgeDirection::Up as usize] = Some(Point::new(left.0, left_col[i].0));
             }
         }
 
@@ -562,10 +413,8 @@ fn build_silhouette_corners(
             for i in range_start..range_end {
                 let point = PointWrapper(Point::new(right.0, right_col[i].0));
                 let next = points.entry(point).or_insert_with(NextCorners::default);
-                next.nexts[EdgeDirection::Down as usize] = Some(NextSilihouetteCorner {
-                    pos: Point::new(right.0, right_col[i + 1].0),
-                    direction: EdgeDirection::Down,
-                });
+                next.nexts[EdgeDirection::Down as usize] =
+                    Some(Point::new(right.0, right_col[i + 1].0));
             }
         }
     }
@@ -614,7 +463,7 @@ fn sort_corsers_in_clockwise_order(
             let try_directions = NEXT_DIRECTION_SEQ[direction as usize];
             for next_direction in try_directions {
                 if let Some(next) = current.nexts[next_direction as usize] {
-                    pivot = Some(PointWrapper(next.pos));
+                    pivot = Some(PointWrapper(next));
                     direction = next_direction;
                     continue 'pivot;
                 }
