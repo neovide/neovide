@@ -235,6 +235,13 @@ pub enum RedrawEvent {
         line_count: Option<f64>,
         scroll_delta: Option<f64>,
     },
+    WindowViewportMargins {
+        grid: u64,
+        top: u64,
+        bottom: u64,
+        left: u64,
+        right: u64,
+    },
     CommandLineShow {
         content: StyledContent,
         position: u64,
@@ -780,6 +787,18 @@ fn parse_win_viewport(win_viewport_arguments: Vec<Value>) -> Result<RedrawEvent>
     })
 }
 
+fn parse_win_viewport_margins(win_viewport_margins_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    let [grid, _window, top, bottom, left, right] = extract_values(win_viewport_margins_arguments)?;
+
+    Ok(RedrawEvent::WindowViewportMargins {
+        grid: parse_u64(grid)?,
+        top: parse_u64(top)?,
+        bottom: parse_u64(bottom)?,
+        left: parse_u64(left)?,
+        right: parse_u64(right)?,
+    })
+}
+
 fn parse_styled_content(line: Value) -> Result<StyledContent> {
     parse_array(line)?
         .into_iter()
@@ -947,6 +966,7 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
             "win_close" => Some(parse_win_close(event_parameters)),
             "msg_set_pos" => Some(parse_msg_set_pos(event_parameters)),
             "win_viewport" => Some(parse_win_viewport(event_parameters)),
+            "win_viewport_margins" => Some(parse_win_viewport_margins(event_parameters)),
             "cmdline_show" => Some(parse_cmdline_show(event_parameters)),
             "cmdline_pos" => Some(parse_cmdline_pos(event_parameters)),
             "cmdline_special_char" => Some(parse_cmdline_special_char(event_parameters)),
