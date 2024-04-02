@@ -320,7 +320,7 @@ pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, api_information: &Ap
         }
     });
 
-    let has_x_buttons = api_information.version.has_version(10, 0);
+    let has_x_buttons = api_information.version.has_version(0, 10, 0);
 
     tokio::spawn(async move {
         tracy_fiber_enter!("Serial command");
