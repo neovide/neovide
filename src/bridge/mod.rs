@@ -100,7 +100,12 @@ pub async fn setup_tty_startup_directory(
         cmd = format!("{} | {}", cmd, handle_command_arg(pos, neovim_args));
     }
 
-    nvim.command(cmd.as_str()).await
+    match nvim.command(cmd.as_str()).await {
+        Ok(_) => {}
+        Err(e) => log::error!("Error setting startup directory: {}", e),
+    }
+
+    Ok(())
 }
 
 fn get_startup_directory(path: &str) -> Option<String> {
