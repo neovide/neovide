@@ -1,3 +1,4 @@
+mod api_info;
 mod clipboard;
 mod command;
 mod events;
@@ -21,8 +22,9 @@ use crate::{
 };
 pub use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
-use setup::setup_neovide_specific_state;
+use setup::{get_api_information, setup_neovide_specific_state};
 
+pub use api_info::*;
 pub use command::create_nvim_command;
 pub use events::*;
 pub use session::NeovimWriter;
@@ -98,7 +100,12 @@ pub async fn setup_tty_startup_directory(
         cmd = format!("{} | {}", cmd, handle_command_arg(pos, neovim_args));
     }
 
-    nvim.command(cmd.as_str()).await
+    match nvim.command(cmd.as_str()).await {
+        Ok(_) => {}
+        Err(e) => log::error!("Error setting startup directory: {}", e),
+    }
+
+    Ok(())
 }
 
 fn get_startup_directory(path: &str) -> Option<String> {
@@ -195,14 +202,24 @@ async fn launch(handler: NeovimHandler, grid_size: Option<Dimensions>) -> Result
     let settings = SETTINGS.get::<CmdLineSettings>();
 
     let should_handle_clipboard = settings.wsl || settings.server.is_some();
-    setup_neovide_specific_state(&session.neovim, should_handle_clipboard).await?;
+    let api_information = get_api_information(&session.neovim).await?;
+    info!(
+        "Neovide registered to nvim with channel id {}",
+        api_information.channel
+    );
+    // This is too verbose to keep enabled all the time
+    // log::info!("Api information {:#?}", api_information);
+    setup_neovide_specific_state(&session.neovim, should_handle_clipboard, &api_information)
+        .await?;
 
-    start_ui_command_handler(session.neovim.clone());
+    start_ui_command_handler(session.neovim.clone(), &api_information);
     SETTINGS.read_initial_values(&session.neovim).await?;
 
     let mut options = UiAttachOptions::new();
+    if !api_information.has_event("win_viewport_margins") {
+        options.set_hlstate_external(true);
+    }
     options.set_linegrid_external(true);
-    options.set_hlstate_external(true);
     options.set_multigrid_external(!settings.no_multi_grid);
     options.set_rgb(true);
 

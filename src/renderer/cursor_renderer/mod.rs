@@ -260,8 +260,8 @@ impl CursorRenderer {
             let mut grid_y = cursor_grid_y as f32 + window.grid_current_position.y
                 - window.scroll_animation.position;
 
-            let top_border = (window.top_border.len() as u64) as f32;
-            let bottom_border = (window.bottom_border.len() as u64) as f32;
+            let top_border = window.viewport_margins.top as f32;
+            let bottom_border = window.viewport_margins.bottom as f32;
 
             // Prevent the cursor from targeting a position outside its current window. Since only
             // the vertical direction is effected by scrolling, we only have to clamp the vertical

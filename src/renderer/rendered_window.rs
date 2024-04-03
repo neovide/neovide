@@ -1,4 +1,4 @@
-use std::{cell::RefCell, ops::Range, rc::Rc, sync::Arc};
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use skia_safe::{
     canvas::SaveLayerRec, scalar, BlendMode, Canvas, Color, Matrix, Paint, Picture,
@@ -21,6 +21,13 @@ pub struct LineFragment {
     pub window_left: u64,
     pub width: u64,
     pub style: Option<Arc<Style>>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ViewportMargins {
+    pub top: u64,
+    pub bottom: u64,
+    pub inferred: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -50,6 +57,12 @@ pub enum WindowDrawCommand {
     Viewport {
         scroll_delta: f64,
     },
+    ViewportMargins {
+        top: u64,
+        bottom: u64,
+        left: u64,
+        right: u64,
+    },
 }
 
 #[derive(Clone)]
@@ -58,7 +71,7 @@ struct Line {
     background_picture: Option<Picture>,
     foreground_picture: Option<Picture>,
     blend: u8,
-    is_border: bool,
+    is_inferred_border: bool,
     is_valid: bool,
 }
 
@@ -75,8 +88,7 @@ pub struct RenderedWindow {
     scrollback_lines: RingBuffer<Option<Rc<RefCell<Line>>>>,
     actual_lines: RingBuffer<Option<Rc<RefCell<Line>>>>,
     scroll_delta: isize,
-    pub top_border: Range<isize>,
-    pub bottom_border: Range<isize>,
+    pub viewport_margins: ViewportMargins,
 
     grid_start_position: Point,
     pub grid_current_position: Point,
@@ -132,8 +144,11 @@ impl RenderedWindow {
             actual_lines: RingBuffer::new(grid_size.height as usize, None),
             scrollback_lines: RingBuffer::new(2 * grid_size.height as usize, None),
             scroll_delta: 0,
-            top_border: 0..0,
-            bottom_border: 0..0,
+            viewport_margins: ViewportMargins {
+                top: 0,
+                bottom: 0,
+                inferred: true,
+            },
 
             grid_start_position: grid_position,
             grid_current_position: grid_position,
@@ -276,7 +291,7 @@ impl RenderedWindow {
                         pixel_region.left(),
                         pixel_region.top()
                             + (scroll_offset_pixels
-                                + ((i + self.top_border.len() as isize)
+                                + ((i + self.viewport_margins.top as isize)
                                     * font_dimensions.height as isize))
                                 as f32,
                     ));
@@ -287,14 +302,22 @@ impl RenderedWindow {
             Vec::new()
         };
 
-        let border_lines: Vec<_> = self
-            .top_border
-            .clone()
-            .chain(self.bottom_border.clone())
+        let top_border_indices = 0..self.viewport_margins.top as isize;
+        let actual_line_count = self.actual_lines.len() as isize;
+        let bottom_border_indices =
+            actual_line_count - self.viewport_margins.bottom as isize..actual_line_count;
+        let margins_inferred = self.viewport_margins.inferred;
+
+        let border_lines: Vec<_> = top_border_indices
+            .chain(bottom_border_indices)
             .filter_map(|i| {
-                self.actual_lines[i]
-                    .as_ref()
-                    .and_then(|line| line.borrow().is_border.then_some((i, line)))
+                self.actual_lines[i].as_ref().and_then(|line| {
+                    if !margins_inferred || line.borrow().is_inferred_border {
+                        Some((i, line))
+                    } else {
+                        None
+                    }
+                })
             })
             .map(|(i, line)| {
                 let mut matrix = Matrix::new_identity();
@@ -308,10 +331,10 @@ impl RenderedWindow {
 
         let inner_region = Rect::from_xywh(
             pixel_region.x(),
-            pixel_region.y() + self.top_border.len() as f32 * line_height,
+            pixel_region.y() + self.viewport_margins.top as f32 * line_height,
             pixel_region.width(),
             pixel_region.height()
-                - (self.top_border.len() + self.bottom_border.len()) as f32 * line_height,
+                - (self.viewport_margins.top + self.viewport_margins.bottom) as f32 * line_height,
         );
 
         (lines, border_lines, inner_region)
@@ -503,42 +526,48 @@ impl RenderedWindow {
             } => {
                 tracy_zone!("draw_line_cmd", 0);
 
-                let check_border = |fragment: &LineFragment, check: &dyn Fn(&str) -> bool| {
-                    fragment.style.as_ref().map_or(false, |style| {
-                        style.infos.last().map_or(false, |info| {
-                            // The specification seems to indicate that kind should be UI and
-                            // then we only need to test ui_name. But at least for FloatTitle,
-                            // that is not the case, the kind is set to syntax and hi_name is
-                            // set.
-                            check(&info.ui_name) || check(&info.hi_name)
-                        })
-                    })
-                };
-
-                let float_border =
-                    |s: &str| matches!(s, "FloatBorder" | "FloatTitle" | "FloatFooter");
-                let winbar = |s: &str| matches!(s, "WinBar" | "WinBarNC");
-
-                // Lines with purly border highlight groups are considered borders.
-                let mut is_border = line_fragments
-                    .iter()
-                    .map(|fragment| check_border(fragment, &float_border))
-                    .all(|v| v);
-
-                // And also lines with a winbar highlight anywhere
-                is_border |= line_fragments
-                    .iter()
-                    .map(|fragment| check_border(fragment, &winbar))
-                    .any(|v| v);
-
-                self.actual_lines[row] = Some(Rc::new(RefCell::new(Line {
+                let mut line = Line {
                     line_fragments,
                     background_picture: None,
                     foreground_picture: None,
                     blend: 0,
-                    is_border,
+                    is_inferred_border: false,
                     is_valid: false,
-                })));
+                };
+
+                if self.viewport_margins.inferred {
+                    let check_border = |fragment: &LineFragment, check: &dyn Fn(&str) -> bool| {
+                        fragment.style.as_ref().map_or(false, |style| {
+                            style.infos.last().map_or(false, |info| {
+                                // The specification seems to indicate that kind should be UI and
+                                // then we only need to test ui_name. But at least for FloatTitle,
+                                // that is not the case, the kind is set to syntax and hi_name is
+                                // set.
+                                check(&info.ui_name) || check(&info.hi_name)
+                            })
+                        })
+                    };
+
+                    let float_border =
+                        |s: &str| matches!(s, "FloatBorder" | "FloatTitle" | "FloatFooter");
+                    let winbar = |s: &str| matches!(s, "WinBar" | "WinBarNC");
+
+                    // Lines with purly border highlight groups are considered borders.
+                    line.is_inferred_border = line
+                        .line_fragments
+                        .iter()
+                        .map(|fragment| check_border(fragment, &float_border))
+                        .all(|v| v);
+
+                    // And also lines with a winbar highlight anywhere
+                    line.is_inferred_border |= line
+                        .line_fragments
+                        .iter()
+                        .map(|fragment| check_border(fragment, &winbar))
+                        .any(|v| v)
+                }
+
+                self.actual_lines[row] = Some(Rc::new(RefCell::new(line)));
             }
             WindowDrawCommand::Scroll {
                 top,
@@ -584,43 +613,51 @@ impl RenderedWindow {
                 log::trace!("Handling Viewport {}", self.id);
                 self.scroll_delta = scroll_delta.round() as isize;
             }
+            WindowDrawCommand::ViewportMargins { top, bottom, .. } => {
+                self.viewport_margins = ViewportMargins {
+                    top,
+                    bottom,
+                    inferred: false,
+                }
+            }
             _ => {}
         };
     }
 
-    fn calculate_borders(&mut self) {
-        let top_border = self
-            .actual_lines
-            .iter()
-            .take_while(|line| {
-                if let Some(line) = line {
-                    line.borrow().is_border
-                } else {
-                    false
-                }
-            })
-            .count();
-        let bottom_border = (top_border..self.actual_lines.len())
-            .rev()
-            .map(|i| self.actual_lines[i].as_ref())
-            .take_while(|line| {
-                if let Some(line) = line {
-                    line.borrow().is_border
-                } else {
-                    false
-                }
-            })
-            .count();
-        self.top_border = 0..top_border as isize;
-        self.bottom_border =
-            (self.actual_lines.len() - bottom_border) as isize..self.actual_lines.len() as isize
+    fn infer_viewport_margins(&mut self) {
+        if self.viewport_margins.inferred {
+            self.viewport_margins.top = self
+                .actual_lines
+                .iter()
+                .take_while(|line| {
+                    if let Some(line) = line {
+                        line.borrow().is_inferred_border
+                    } else {
+                        false
+                    }
+                })
+                .count() as u64;
+            self.viewport_margins.bottom = (self.viewport_margins.top as usize
+                ..self.actual_lines.len())
+                .rev()
+                .map(|i| self.actual_lines[i].as_ref())
+                .take_while(|line| {
+                    if let Some(line) = line {
+                        line.borrow().is_inferred_border
+                    } else {
+                        false
+                    }
+                })
+                .count() as u64;
+        }
     }
 
     pub fn flush(&mut self, renderer_settings: &RendererSettings) {
-        self.calculate_borders();
+        self.infer_viewport_margins();
 
         // If the borders are changed, reset the scrollback to only fit the inner view
-        let inner_range = self.top_border.end..self.bottom_border.start;
+        let inner_range = self.viewport_margins.top as isize
+            ..(self.actual_lines.len() - self.viewport_margins.bottom as usize) as isize;
         let inner_size = inner_range.len();
         let inner_view = self.actual_lines.iter_range(inner_range);
         if inner_size != self.scrollback_lines.len() / 2 {
@@ -803,14 +840,17 @@ impl RenderedWindow {
 
         for line in self
             .actual_lines
-            .iter_range_mut(self.top_border.clone())
+            .iter_range_mut(0..self.viewport_margins.top as isize)
             .flatten()
         {
             prepare_line(line)
         }
+        let actual_line_count = self.actual_lines.len() as isize;
         for line in self
             .actual_lines
-            .iter_range_mut(self.bottom_border.clone())
+            .iter_range_mut(
+                actual_line_count - self.viewport_margins.bottom as isize..actual_line_count,
+            )
             .flatten()
         {
             prepare_line(line)

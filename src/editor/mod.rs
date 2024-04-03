@@ -288,6 +288,16 @@ impl Editor {
                 self.set_ui_ready();
                 self.send_updated_viewport(grid, scroll_delta)
             }
+            RedrawEvent::WindowViewportMargins {
+                grid,
+                top,
+                bottom,
+                left,
+                right,
+            } => {
+                tracy_zone!("EditorWindowViewportMargins");
+                self.send_updated_viewport_margins(grid, top, bottom, left, right)
+            }
             RedrawEvent::ShowIntro { message } => {
                 // Support the yet unmerged intro message support
                 // This could probably be handled completely on the lua side
@@ -551,6 +561,21 @@ impl Editor {
     fn send_updated_viewport(&mut self, grid: u64, scroll_delta: f64) {
         if let Some(window) = self.windows.get_mut(&grid) {
             window.update_viewport(scroll_delta);
+        } else {
+            trace!("viewport event received before window initialized");
+        }
+    }
+
+    fn send_updated_viewport_margins(
+        &mut self,
+        grid: u64,
+        top: u64,
+        bottom: u64,
+        left: u64,
+        right: u64,
+    ) {
+        if let Some(window) = self.windows.get_mut(&grid) {
+            window.update_viewport_margins(top, bottom, left, right);
         } else {
             trace!("viewport event received before window initialized");
         }
