@@ -173,12 +173,10 @@ impl RenderedWindow {
     }
 
     pub fn update_blend(&self, blend: u8) {
-        let update_line = |line: &Rc<RefCell<Line>>| {
+        for line in self.iter_lines() {
             let mut line = line.borrow_mut();
             line.update_background_blend(blend);
-        };
-
-        self.map_lines(update_line);
+        }
     }
 
     fn get_target_position(&self, outer_size: &Dimensions, padding_as_grid: &Rect) -> Point {
@@ -707,39 +705,38 @@ impl RenderedWindow {
         self.scroll_delta = 0;
     }
 
-    fn map_lines<F>(&self, mut f: F)
-    where
-        F: FnMut(&Rc<RefCell<Line>>),
-    {
+    fn iter_lines<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Rc<RefCell<Line>>> + 'a> {
         let scroll_offset_lines = self.scroll_animation.position.floor() as isize;
         let height = self.grid_size.height as isize;
         if height == 0 {
-            todo!();
+            return Box::new(std::iter::empty());
         }
 
-        if !self.scrollback_lines.is_empty() {
-            for line in self
+        let top_border_lines = self
+            .actual_lines
+            .iter_range(0..self.viewport_margins.top as isize)
+            .flatten();
+        let actual_line_count = self.actual_lines.len() as isize;
+        let bottom_border_lines = self
+            .actual_lines
+            .iter_range(
+                actual_line_count - self.viewport_margins.bottom as isize..actual_line_count,
+            )
+            .flatten();
+
+        if self.scrollback_lines.is_empty() {
+            Box::new(top_border_lines.chain(bottom_border_lines))
+        } else {
+            let scrollable_lines = self
                 .scrollback_lines
                 .iter_range(scroll_offset_lines..scroll_offset_lines + height + 1)
-                .flatten()
-            {
-                f(line);
-            }
-        }
+                .flatten();
 
-        for line in self
-            .actual_lines
-            .iter_range(self.top_border.clone())
-            .flatten()
-        {
-            f(line);
-        }
-        for line in self
-            .actual_lines
-            .iter_range(self.bottom_border.clone())
-            .flatten()
-        {
-            f(line);
+            Box::new(
+                top_border_lines
+                    .chain(scrollable_lines)
+                    .chain(bottom_border_lines),
+            )
         }
     }
 
@@ -749,7 +746,8 @@ impl RenderedWindow {
             return None;
         }
         let mut smallest_blend_value: Option<u8> = None;
-        let check_line = |line: &Rc<RefCell<Line>>| {
+
+        for line in self.iter_lines() {
             let line = line.borrow();
             line.line_fragments.iter().for_each(|f| {
                 if let Some(style) = &f.style {
@@ -757,9 +755,7 @@ impl RenderedWindow {
                         Some(smallest_blend_value.map_or(style.blend, |v| v.min(style.blend)));
                 }
             });
-        };
-
-        self.map_lines(check_line);
+        }
 
         smallest_blend_value
     }
