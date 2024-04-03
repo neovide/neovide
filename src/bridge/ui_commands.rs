@@ -5,7 +5,10 @@ use log::trace;
 use anyhow::{Context, Result};
 use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim, Value};
 use strum::AsRefStr;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
+use tokio::{
+    sync::mpsc::{unbounded_channel, UnboundedReceiver},
+    task::JoinSet,
+};
 
 use super::show_error_message;
 use crate::{
@@ -271,7 +274,7 @@ impl AsRef<str> for UiCommand {
 }
 
 struct UIChannels {
-    sender: LoggingSender<UiCommand>,
+    sender: Mutex<Option<LoggingSender<UiCommand>>>,
     receiver: Mutex<Option<UnboundedReceiver<UiCommand>>>,
 }
 
@@ -279,7 +282,7 @@ impl UIChannels {
     fn new() -> Self {
         let (sender, receiver) = unbounded_channel();
         Self {
-            sender: LoggingSender::attach(sender, "UICommand"),
+            sender: Mutex::new(Some(LoggingSender::attach(sender, "UICommand"))),
             receiver: Mutex::new(Some(receiver)),
         }
     }
@@ -289,10 +292,14 @@ lazy_static! {
     static ref UI_CHANNELS: UIChannels = UIChannels::new();
 }
 
-pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, api_information: &ApiInformation) {
+pub fn start_ui_command_handler(
+    nvim: Neovim<NeovimWriter>,
+    api_information: &ApiInformation,
+    join_set: &mut JoinSet<()>,
+) {
     let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
     let ui_command_nvim = nvim.clone();
-    tokio::spawn(async move {
+    join_set.spawn(async move {
         let mut ui_command_receiver = UI_CHANNELS.receiver.lock().unwrap().take().unwrap();
         loop {
             match ui_command_receiver.recv().await {
@@ -316,7 +323,7 @@ pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, api_information: &Ap
 
     let has_x_buttons = api_information.version.has_version(0, 10, 0);
 
-    tokio::spawn(async move {
+    join_set.spawn(async move {
         tracy_fiber_enter!("Serial command");
         loop {
             tracy_fiber_leave();
@@ -341,5 +348,16 @@ where
     T: Into<UiCommand>,
 {
     let command: UiCommand = command.into();
-    let _ = UI_CHANNELS.sender.send(command);
+    let _ = UI_CHANNELS
+        .sender
+        .lock()
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .send(command);
+}
+
+pub fn shutdown_ui() {
+    *UI_CHANNELS.sender.lock().unwrap() = None;
+    log::info!("The UI subsystem has been shut down")
 }

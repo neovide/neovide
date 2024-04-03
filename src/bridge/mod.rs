@@ -12,8 +12,11 @@ use itertools::Itertools;
 use log::{error, info};
 use nvim_rs::{error::CallError, Neovim, UiAttachOptions, Value};
 use rmpv::Utf8String;
-use std::{io::Error, ops::Add};
-use tokio::runtime::{Builder, Runtime};
+use std::{io::Error, ops::Add, time::Instant};
+use tokio::{
+    runtime::{Builder, Runtime},
+    task::JoinSet,
+};
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
@@ -28,13 +31,16 @@ pub use api_info::*;
 pub use command::create_nvim_command;
 pub use events::*;
 pub use session::NeovimWriter;
-pub use ui_commands::{send_ui, start_ui_command_handler, ParallelCommand, SerialCommand};
+pub use ui_commands::{
+    send_ui, shutdown_ui, start_ui_command_handler, ParallelCommand, SerialCommand,
+};
 
 const INTRO_MESSAGE_LUA: &str = include_str!("../../lua/intro.lua");
 const NEOVIM_REQUIRED_VERSION: &str = "0.9.2";
 
 pub struct NeovimRuntime {
-    runtime: Option<Runtime>,
+    runtime: Runtime,
+    join_set: JoinSet<()>,
 }
 
 fn neovim_instance() -> Result<NeovimInstance> {
@@ -77,7 +83,11 @@ pub async fn show_error_message(
     nvim.echo(prepared_lines, true, vec![]).await
 }
 
-async fn launch(handler: NeovimHandler, grid_size: Option<GridSize<u32>>) -> Result<NeovimSession> {
+async fn launch(
+    handler: NeovimHandler,
+    grid_size: Option<GridSize<u32>>,
+    join_set: &mut JoinSet<()>,
+) -> Result<NeovimSession> {
     let neovim_instance = neovim_instance()?;
 
     let session = NeovimSession::new(neovim_instance, handler)
@@ -110,7 +120,7 @@ async fn launch(handler: NeovimHandler, grid_size: Option<GridSize<u32>>) -> Res
     setup_neovide_specific_state(&session.neovim, should_handle_clipboard, &api_information)
         .await?;
 
-    start_ui_command_handler(session.neovim.clone(), &api_information);
+    start_ui_command_handler(session.neovim.clone(), &api_information, join_set);
     SETTINGS.read_initial_values(&session.neovim).await?;
 
     let mut options = UiAttachOptions::new();
@@ -148,12 +158,17 @@ async fn run(session: NeovimSession, proxy: EventLoopProxy<UserEvent>) {
     proxy.send_event(UserEvent::NeovimExited).ok();
 }
 
+async fn wait(join_set: &mut JoinSet<()>) {
+    while join_set.join_next().await.is_some() {}
+}
+
 impl NeovimRuntime {
     pub fn new() -> Result<Self, Error> {
         let runtime = Builder::new_multi_thread().enable_all().build()?;
 
         Ok(Self {
-            runtime: Some(runtime),
+            runtime,
+            join_set: JoinSet::new(),
         })
     }
 
@@ -163,15 +178,22 @@ impl NeovimRuntime {
         grid_size: Option<GridSize<u32>>,
     ) -> Result<()> {
         let handler = start_editor(event_loop_proxy.clone());
-        let runtime = self.runtime.as_ref().unwrap();
-        let session = runtime.block_on(launch(handler, grid_size))?;
-        runtime.spawn(run(session, event_loop_proxy));
+        let session = self
+            .runtime
+            .block_on(launch(handler, grid_size, &mut self.join_set))?;
+        self.join_set
+            .spawn_on(run(session, event_loop_proxy), self.runtime.handle());
         Ok(())
     }
 }
 
 impl Drop for NeovimRuntime {
     fn drop(&mut self) {
-        self.runtime.take().unwrap().shutdown_background();
+        log::info!("Starting neovim runtime shutdown");
+        let start = Instant::now();
+        shutdown_ui();
+        self.runtime.block_on(wait(&mut self.join_set));
+        let elapsed = start.elapsed().as_millis();
+        log::info!("Neovim runtime shutdown took {elapsed} ms");
     }
 }

@@ -314,7 +314,7 @@ pub fn main_loop(
         let mtm = MainThreadMarker::new().expect("must be on the main thread");
         macos::Menu::new(mtm)
     };
-    event_loop.run(move |e, window_target| {
+    let res = event_loop.run(move |e, window_target| {
         #[cfg(target_os = "macos")]
         menu.ensure_menu_added(&e);
 
@@ -327,7 +327,8 @@ pub fn main_loop(
             _ => window_target
                 .set_control_flow(update_loop.step(window_wrapper.as_mut().unwrap(), e)),
         }
-    })
+    });
+    res
 }
 
 pub fn load_icon() -> Icon {
