@@ -1353,6 +1353,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "metal"
+version = "0.28.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5637e166ea14be6063a3f8ba5ccb9a4159df7d8f6d61c02fc3d480b1f90dcfcb"
+dependencies = [
+ "bitflags 2.5.0",
+ "block",
+ "core-graphics-types",
+ "foreign-types",
+ "log",
+ "objc",
+ "paste",
+]
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1421,11 +1436,13 @@ dependencies = [
  "backtrace",
  "clap",
  "copypasta",
+ "core-graphics-types",
  "csscolorparser",
  "derive-new",
  "dirs",
  "euclid",
  "flexi_logger",
+ "foreign-types-shared",
  "futures 0.3.30",
  "gl",
  "glutin",
@@ -1437,6 +1454,7 @@ dependencies = [
  "lazy_static",
  "log",
  "lru",
+ "metal",
  "neovide-derive",
  "notify-debouncer-full",
  "num",

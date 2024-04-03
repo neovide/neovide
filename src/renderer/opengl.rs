@@ -35,7 +35,7 @@ use winit::{
 pub use super::vsync::VSyncWinDwm;
 
 #[cfg(target_os = "macos")]
-pub use super::vsync::VSyncMacos;
+pub use super::vsync::VSyncMacosDisplayLink;
 
 use super::{RendererSettings, SkiaRenderer, VSync, WindowConfig, WindowConfigType};
 
@@ -205,7 +205,7 @@ impl SkiaRenderer for OpenGLSkiaRenderer {
 
         #[cfg(target_os = "macos")]
         {
-            VSync::Macos(VSyncMacos::new(self.window(), proxy))
+            VSync::MacosDisplayLink(VSyncMacosDisplayLink::new(self.window(), proxy))
         }
     }
 
