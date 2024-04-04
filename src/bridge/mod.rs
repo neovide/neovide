@@ -9,13 +9,19 @@ mod ui_commands;
 
 use anyhow::{bail, Context, Result};
 use itertools::Itertools;
-use log::{error, info};
+use log::info;
 use nvim_rs::{error::CallError, Neovim, UiAttachOptions, Value};
 use rmpv::Utf8String;
-use std::{io::Error, ops::Add, time::Instant};
+use std::{
+    io::Error,
+    ops::Add,
+    time::{Duration, Instant},
+};
 use tokio::{
     runtime::{Builder, Runtime},
+    select,
     task::JoinSet,
+    time::sleep,
 };
 use winit::event_loop::EventLoopProxy;
 
@@ -145,15 +151,31 @@ async fn launch(
 }
 
 async fn run(session: NeovimSession, proxy: EventLoopProxy<UserEvent>) {
-    match session.io_handle.await {
-        Err(join_error) => error!("Error joining IO loop: '{}'", join_error),
-        Ok(Err(error)) => {
-            if !error.is_channel_closed() {
-                error!("Error: '{}'", error);
+    let mut session = session;
+
+    if let Some(process) = session.neovim_process.as_mut() {
+        let neovim_exited = select! {
+            _ = &mut session.io_handle => false,
+            _ = process.wait() => true,
+        };
+
+        // We primarily wait for the stdio to finish, but due to bugs,
+        // for example, this one in in Neovim 0.9.5
+        // https://github.com/neovim/neovim/issues/26743
+        // it does not always finish.
+        // So wait for some additional time, both to make the bug obvious and to prevent incomplete
+        // data.
+        if neovim_exited {
+            let sleep = sleep(Duration::from_millis(2000));
+            tokio::pin!(sleep);
+            select! {
+                _ = session.io_handle => {}
+                _ = &mut sleep  => {}
             }
         }
-        Ok(Ok(())) => {}
-    };
+    } else {
+        session.io_handle.await.ok();
+    }
     log::info!("Neovim has quit");
     proxy.send_event(UserEvent::NeovimExited).ok();
 }
