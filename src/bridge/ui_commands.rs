@@ -7,7 +7,7 @@ use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim, Value};
 use strum::AsRefStr;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
 
-use super::{show_error_message, show_intro_message};
+use super::show_error_message;
 use crate::{
     bridge::{ApiInformation, NeovimWriter},
     profiling::{tracy_dynamic_zone, tracy_fiber_enter, tracy_fiber_leave},
@@ -134,7 +134,6 @@ pub enum ParallelCommand {
     FocusGained,
     DisplayAvailableFonts(Vec<String>),
     SetBackground(String),
-    ShowIntro { message: Vec<String> },
     ShowError { lines: Vec<String> },
 }
 
@@ -227,9 +226,6 @@ impl ParallelCommand {
             ParallelCommand::DisplayAvailableFonts(fonts) => display_available_fonts(nvim, fonts)
                 .await
                 .context("DisplayAvailableFonts failed"),
-            ParallelCommand::ShowIntro { message } => show_intro_message(nvim, &message)
-                .await
-                .context("ShowIntro failed"),
 
             ParallelCommand::ShowError { lines } => {
                 // nvim.err_write(&message).await.ok();

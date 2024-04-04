@@ -140,16 +140,6 @@ pub async fn setup_intro_message_autocommand(
     nvim.exec_lua(INTRO_MESSAGE_LUA, args).await
 }
 
-pub async fn show_intro_message(
-    nvim: &Neovim<NeovimWriter>,
-    message: &[String],
-) -> Result<(), Box<CallError>> {
-    let mut args = vec![Value::from("show_intro")];
-    let lines = message.iter().map(|line| Value::from(line.as_str()));
-    args.extend(lines);
-    nvim.exec_lua(INTRO_MESSAGE_LUA, args).await.map(|_| ())
-}
-
 pub async fn show_error_message(
     nvim: &Neovim<NeovimWriter>,
     lines: &[String],
