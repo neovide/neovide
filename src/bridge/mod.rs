@@ -156,7 +156,10 @@ async fn run(session: NeovimSession, proxy: EventLoopProxy<UserEvent>) {
     if let Some(process) = session.neovim_process.as_mut() {
         let neovim_exited = select! {
             _ = &mut session.io_handle => false,
-            _ = process.wait() => true,
+            _ = process.wait() => {
+                log::info!("The Neovim process quit before the IO stream, waiting two seconds");
+                true
+            }
         };
 
         // We primarily wait for the stdio to finish, but due to bugs,
@@ -170,7 +173,9 @@ async fn run(session: NeovimSession, proxy: EventLoopProxy<UserEvent>) {
             tokio::pin!(sleep);
             select! {
                 _ = session.io_handle => {}
-                _ = &mut sleep  => {}
+                _ = &mut sleep  => {
+                    log::info!("The IO stream was never closed, forcing Neovide to exit");
+                }
             }
         }
     } else {
