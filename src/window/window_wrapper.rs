@@ -202,9 +202,6 @@ impl WinitWindowWrapper {
                 self.minimize_window();
                 self.is_minimized = true;
             }
-            WindowCommand::ShowIntro(message) => {
-                send_ui(ParallelCommand::ShowIntro { message });
-            }
             WindowCommand::ThemeChanged(new_theme) => {
                 self.handle_theme_changed(new_theme);
             }

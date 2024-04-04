@@ -285,9 +285,6 @@ pub enum RedrawEvent {
     MessageHistoryShow {
         entries: Vec<(MessageKind, StyledContent)>,
     },
-    ShowIntro {
-        message: Vec<String>,
-    },
     Suspend,
 }
 
@@ -916,17 +913,6 @@ fn parse_msg_history_show(msg_history_show_arguments: Vec<Value>) -> Result<Redr
     })
 }
 
-fn parse_msg_intro(msg_intro_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [lines] = extract_values(msg_intro_arguments)?;
-
-    Ok(RedrawEvent::ShowIntro {
-        message: parse_array(lines)?
-            .into_iter()
-            .map(parse_string)
-            .collect::<Result<_>>()?,
-    })
-}
-
 pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
     let mut event_contents = parse_array(event_value)?.into_iter();
     let event_name = event_contents
@@ -980,7 +966,6 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
             "msg_showcmd" => Some(parse_msg_showcmd(event_parameters)),
             "msg_ruler" => Some(parse_msg_ruler(event_parameters)),
             "msg_history_show" => Some(parse_msg_history_show(event_parameters)),
-            "msg_intro" => Some(parse_msg_intro(event_parameters)),
             "suspend" => Some(Ok(RedrawEvent::Suspend)),
             _ => None,
         };

@@ -38,12 +38,15 @@ pub struct ApiVersion {
 }
 
 impl ApiVersion {
-    pub fn has_version(&self, major: u64, minor: u64) -> bool {
+    pub fn has_version(&self, major: u64, minor: u64, patch: u64) -> bool {
         let actual_major = self.major;
         let actual_minor = self.minor;
-        log::trace!("actual nvim version: {actual_major}.{actual_minor}");
-        log::trace!("expect nvim version: {major}.{minor}");
-        let ret = actual_major > major || (actual_major == major && actual_minor >= minor);
+        let actual_patch = self.patch;
+        log::trace!("actual nvim version: {actual_major}.{actual_minor}.{actual_patch}");
+        log::trace!("expect nvim version: {major}.{minor}.{patch}");
+        let ret = actual_major > major
+            || (actual_major == major && actual_minor > minor)
+            || (actual_major == major && actual_minor == minor && actual_patch >= patch);
         log::trace!("has desired nvim version: {ret}");
         return ret;
     }

@@ -298,13 +298,6 @@ impl Editor {
                 tracy_zone!("EditorWindowViewportMargins");
                 self.send_updated_viewport_margins(grid, top, bottom, left, right)
             }
-            RedrawEvent::ShowIntro { message } => {
-                // Support the yet unmerged intro message support
-                // This could probably be handled completely on the lua side
-                let _ = self
-                    .event_loop_proxy
-                    .send_event(WindowCommand::ShowIntro(message).into());
-            }
             // Interpreting suspend as a window minimize request
             RedrawEvent::Suspend => {
                 let _ = self

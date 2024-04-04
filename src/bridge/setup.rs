@@ -108,9 +108,11 @@ pub async fn setup_neovide_specific_state(
         .await
         .context("Error setting up TTY startup directory")?;
 
-    setup_intro_message_autocommand(nvim)
-        .await
-        .context("Error setting up intro message")?;
+    if !api_information.version.has_version(0, 10, 0) {
+        setup_intro_message_autocommand(nvim)
+            .await
+            .context("Error setting up intro message")?;
+    }
 
     Ok(())
 }
