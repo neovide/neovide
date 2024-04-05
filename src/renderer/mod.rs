@@ -67,7 +67,6 @@ pub struct RendererSettings {
     debug_renderer: bool,
     profiler: bool,
     underline_stroke_scale: f32,
-    group_zindex_step: u64,
 }
 
 impl Default for RendererSettings {
@@ -86,7 +85,6 @@ impl Default for RendererSettings {
             debug_renderer: false,
             profiler: false,
             underline_stroke_scale: 1.,
-            group_zindex_step: 3,
         }
     }
 }
@@ -180,9 +178,6 @@ impl Renderer {
             root_canvas.clip_rect(clip_rect, None, Some(false));
         }
 
-        let settings = SETTINGS.get::<RendererSettings>();
-        let zindex_step = settings.group_zindex_step;
-
         let (root_windows, floating_layers) = {
             let (mut root_windows, mut floating_windows): (
                 Vec<&mut RenderedWindow>,
@@ -200,12 +195,14 @@ impl Renderer {
             let mut floating_layers = vec![];
 
             let mut base_zindex = 0;
+            let mut last_zindex = 0;
             let mut current_windows = vec![];
 
             for window in floating_windows {
                 let zindex = window.anchor_info.as_ref().unwrap().sort_order;
                 log::debug!("zindex: {}, base: {}", zindex, base_zindex);
-                if zindex - base_zindex >= zindex_step {
+                // Group floating windows by consecutive z indices
+                if zindex - last_zindex > 1 {
                     if !current_windows.is_empty() {
                         for windows in group_windows(current_windows, font_dimensions) {
                             floating_layers.push(FloatingLayer {
@@ -215,10 +212,15 @@ impl Renderer {
                         }
                         current_windows = vec![];
                     }
+                }
+
+                if current_windows.is_empty() {
                     base_zindex = zindex;
                 }
                 current_windows.push(window);
+                last_zindex = zindex;
             }
+
             if !current_windows.is_empty() {
                 for windows in group_windows(current_windows, font_dimensions) {
                     floating_layers.push(FloatingLayer {
@@ -227,6 +229,7 @@ impl Renderer {
                     });
                 }
             }
+
             for layer in &mut floating_layers {
                 layer.windows.sort_by(floating_sort);
                 log::debug!(
@@ -253,6 +256,7 @@ impl Renderer {
             })
             .collect_vec();
 
+        let settings = SETTINGS.get::<RendererSettings>();
         let floating_window_regions = floating_layers
             .into_iter()
             .flat_map(|mut layer| {
