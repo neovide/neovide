@@ -177,6 +177,14 @@ impl UpdateLoop {
         self.previous_frame_start = Instant::now();
     }
 
+    pub fn process_buffered_draw_commands(&mut self, window_wrapper: &mut WinitWindowWrapper) {
+        for e in self.pending_draw_commands.drain(..) {
+            if window_wrapper.handle_event(e) {
+                self.should_render = ShouldRender::Immediately;
+            }
+        }
+    }
+
     pub fn step(
         &mut self,
         window_wrapper: &mut WinitWindowWrapper,
@@ -225,6 +233,7 @@ impl UpdateLoop {
                                 self.pending_render = true;
                             } else {
                                 self.render(window_wrapper);
+                                self.process_buffered_draw_commands(window_wrapper);
                             }
                         }
                     } else {
@@ -245,18 +254,14 @@ impl UpdateLoop {
             _ => {}
         }
 
-        if !self.pending_render {
-            for e in self.pending_draw_commands.drain(..) {
-                if window_wrapper.handle_event(e) {
-                    self.should_render = ShouldRender::Immediately;
-                }
-            }
-        }
-
         if self.pending_render && matches!(&event, Event::UserEvent(UserEvent::DrawCommandBatch(_)))
         {
+            // Buffer the draw commands if we have a pending render, we have already decided what to
+            // draw, so it's not a good idea to process them now.
             self.pending_draw_commands.push(event);
         } else if window_wrapper.handle_event(event) {
+            // But we need to handle other events (in the if statement itself)
+            // Also schedule a render as soon as possible
             self.should_render = ShouldRender::Immediately;
         }
 
