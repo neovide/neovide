@@ -318,7 +318,7 @@ pub fn main_loop(
             save_window_size(&window_wrapper);
             window_target.exit();
         } else {
-            window_target.set_control_flow(update_loop.step(&mut window_wrapper, Ok(e)).unwrap());
+            window_target.set_control_flow(update_loop.step(&mut window_wrapper, e).unwrap());
         }
     })
 }

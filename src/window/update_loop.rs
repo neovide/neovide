@@ -180,26 +180,22 @@ impl UpdateLoop {
     pub fn step(
         &mut self,
         window_wrapper: &mut WinitWindowWrapper,
-        event: Result<Event<UserEvent>, bool>,
+        event: Event<UserEvent>,
     ) -> Result<ControlFlow, ()> {
         tracy_zone!("render loop", 0);
         match event {
             // Window focus changed
-            Ok(Event::WindowEvent {
+            Event::WindowEvent {
                 event: WindowEvent::Focused(focused_event),
                 ..
-            }) => {
+            } => {
                 self.focused = if focused_event {
                     FocusedState::Focused
                 } else {
                     FocusedState::UnfocusedNotDrawn
                 };
             }
-            Err(true) => {
-                // Disconnected
-                return Err(());
-            }
-            Ok(Event::AboutToWait) | Err(false) => {
+            Event::AboutToWait => {
                 // We will also animate, but not render when frames are skipped(or very late) to reduce visual artifacts
                 let skipped_frame = self.pending_render
                     && Instant::now() > (self.animation_start + self.animation_time);
@@ -238,11 +234,11 @@ impl UpdateLoop {
                     }
                 }
             }
-            Ok(Event::WindowEvent {
+            Event::WindowEvent {
                 event: WindowEvent::RedrawRequested,
                 ..
-            })
-            | Ok(Event::UserEvent(UserEvent::RedrawRequested)) => {
+            }
+            | Event::UserEvent(UserEvent::RedrawRequested) => {
                 tracy_zone!("render (redraw requested)");
                 self.render(window_wrapper);
             }
@@ -257,15 +253,13 @@ impl UpdateLoop {
             }
         }
 
-        if let Ok(event) = event {
-            if self.pending_render
-                && matches!(&event, Event::UserEvent(UserEvent::DrawCommandBatch(_)))
-            {
-                self.pending_draw_commands.push(event);
-            } else if window_wrapper.handle_event(event) {
-                self.should_render = ShouldRender::Immediately;
-            }
+        if self.pending_render && matches!(&event, Event::UserEvent(UserEvent::DrawCommandBatch(_)))
+        {
+            self.pending_draw_commands.push(event);
+        } else if window_wrapper.handle_event(event) {
+            self.should_render = ShouldRender::Immediately;
         }
+
         #[cfg(feature = "profiling")]
         self.should_render.plot_tracy();
 
