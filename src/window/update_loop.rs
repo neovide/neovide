@@ -78,7 +78,7 @@ pub struct UpdateLoop {
     pending_render: bool, // We should render as soon as the compositor/vsync allows
     pending_draw_commands: Vec<Event<UserEvent>>,
     animation_start: Instant, // When the last animation started (went from idle to animating)
-    animation_time: Duration, // How long the current animation has been simulated
+    animation_time: Duration, // How long the current animation has been simulated, will usually be in the future
 }
 
 impl UpdateLoop {
@@ -185,6 +185,58 @@ impl UpdateLoop {
         }
     }
 
+    fn reset_animation_period(&mut self) {
+        self.should_render = ShouldRender::Wait;
+        if self.num_consecutive_rendered == 0 {
+            self.animation_start = Instant::now();
+            self.animation_time = Duration::from_millis(0);
+        }
+    }
+
+    fn schedule_render(&mut self, skipped_frame: bool, window_wrapper: &mut WinitWindowWrapper) {
+        // There's really no point in trying to render if the frame is skipped
+        // (most likely due to the compositor being busy). The animated frame will
+        // be rendered at an appropriate time anyway.
+        if !skipped_frame {
+            // When winit throttling is used, request a redraw and wait for the render event
+            // Otherwise render immediately
+            if window_wrapper.vsync.uses_winit_throttling() {
+                window_wrapper
+                    .vsync
+                    .request_redraw(window_wrapper.skia_renderer.window());
+                self.pending_render = true;
+            } else {
+                self.render(window_wrapper);
+            }
+        }
+    }
+
+    fn prepare_and_animate(&mut self, window_wrapper: &mut WinitWindowWrapper) {
+        // We will also animate, but not render when frames are skipped or a bit late, to reduce visual artifacts
+        let skipped_frame =
+            self.pending_render && Instant::now() > (self.animation_start + self.animation_time);
+        let should_prepare = !self.pending_render || skipped_frame;
+        if !should_prepare {
+            return;
+        }
+
+        let res = window_wrapper.prepare_frame();
+        self.should_render.update(res);
+
+        let should_animate =
+            self.should_render == ShouldRender::Immediately || !self.idle || skipped_frame;
+
+        if should_animate {
+            self.reset_animation_period();
+            self.animate(window_wrapper);
+            self.schedule_render(skipped_frame, window_wrapper);
+        } else {
+            self.num_consecutive_rendered = 0;
+            self.last_dt = self.previous_frame_start.elapsed().as_secs_f32();
+            self.previous_frame_start = Instant::now();
+        }
+    }
+
     pub fn step(
         &mut self,
         window_wrapper: &mut WinitWindowWrapper,
@@ -204,44 +256,7 @@ impl UpdateLoop {
                 };
             }
             Event::AboutToWait => {
-                // We will also animate, but not render when frames are skipped(or very late) to reduce visual artifacts
-                let skipped_frame = self.pending_render
-                    && Instant::now() > (self.animation_start + self.animation_time);
-                let should_prepare = !self.pending_render || skipped_frame;
-                if should_prepare {
-                    self.should_render.update(window_wrapper.prepare_frame());
-                    if self.should_render == ShouldRender::Immediately
-                        || !self.idle
-                        || skipped_frame
-                    {
-                        self.should_render = ShouldRender::Wait;
-                        if self.num_consecutive_rendered == 0 {
-                            self.animation_start = Instant::now();
-                            self.animation_time = Duration::from_millis(0);
-                        }
-                        self.animate(window_wrapper);
-                        // There's really no point in trying to render if the frame is skipped
-                        // (most likely due to the compositor being busy). The animated frame will
-                        // be rendered at an appropriate time anyway.
-                        if !skipped_frame {
-                            // When winit throttling is used, request a redraw and wait for the render event
-                            // Otherwise render immediately
-                            if window_wrapper.vsync.uses_winit_throttling() {
-                                window_wrapper
-                                    .vsync
-                                    .request_redraw(window_wrapper.skia_renderer.window());
-                                self.pending_render = true;
-                            } else {
-                                self.render(window_wrapper);
-                                self.process_buffered_draw_commands(window_wrapper);
-                            }
-                        }
-                    } else {
-                        self.num_consecutive_rendered = 0;
-                        self.last_dt = self.previous_frame_start.elapsed().as_secs_f32();
-                        self.previous_frame_start = Instant::now();
-                    }
-                }
+                self.prepare_and_animate(window_wrapper);
             }
             Event::WindowEvent {
                 event: WindowEvent::RedrawRequested,
@@ -250,6 +265,8 @@ impl UpdateLoop {
             | Event::UserEvent(UserEvent::RedrawRequested) => {
                 tracy_zone!("render (redraw requested)");
                 self.render(window_wrapper);
+                // We should process all buffered draw commands as soon as the rendering has finished
+                self.process_buffered_draw_commands(window_wrapper);
             }
             _ => {}
         }
@@ -258,6 +275,7 @@ impl UpdateLoop {
         {
             // Buffer the draw commands if we have a pending render, we have already decided what to
             // draw, so it's not a good idea to process them now.
+            // They will be processed immediately after the rendering.
             self.pending_draw_commands.push(event);
         } else if window_wrapper.handle_event(event) {
             // But we need to handle other events (in the if statement itself)
