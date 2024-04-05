@@ -243,7 +243,7 @@ impl UpdateLoop {
         &mut self,
         window_wrapper: &mut WinitWindowWrapper,
         event: Event<UserEvent>,
-    ) -> Result<ControlFlow, ()> {
+    ) -> ControlFlow {
         tracy_zone!("render loop", 0);
         match event {
             // Window focus changed
@@ -288,6 +288,6 @@ impl UpdateLoop {
         #[cfg(feature = "profiling")]
         self.should_render.plot_tracy();
 
-        Ok(ControlFlow::WaitUntil(self.get_event_deadline()))
+        ControlFlow::WaitUntil(self.get_event_deadline())
     }
 }
