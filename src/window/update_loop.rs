@@ -107,7 +107,7 @@ impl UpdateLoop {
         }
     }
 
-    pub fn get_event_wait_time(&self) -> (Duration, Instant) {
+    fn get_event_wait_time(&self) -> (Duration, Instant) {
         let refresh_rate = match self.focused {
             // NOTE: Always wait for the idle refresh rate when winit throttling is used to avoid waking up too early
             // The winit redraw request will likely happen much before that and wake it up anyway
@@ -136,7 +136,7 @@ impl UpdateLoop {
         }
     }
 
-    pub fn animate(&mut self, window_wrapper: &mut WinitWindowWrapper) {
+    fn animate(&mut self, window_wrapper: &mut WinitWindowWrapper) {
         let dt = window_wrapper
             .vsync
             .get_refresh_rate(window_wrapper.skia_renderer.window());
@@ -164,7 +164,7 @@ impl UpdateLoop {
         }
     }
 
-    pub fn render(&mut self, window_wrapper: &mut WinitWindowWrapper) {
+    fn render(&mut self, window_wrapper: &mut WinitWindowWrapper) {
         self.pending_render = false;
         window_wrapper.draw_frame(self.last_dt);
 
@@ -177,7 +177,7 @@ impl UpdateLoop {
         self.previous_frame_start = Instant::now();
     }
 
-    pub fn process_buffered_draw_commands(&mut self, window_wrapper: &mut WinitWindowWrapper) {
+    fn process_buffered_draw_commands(&mut self, window_wrapper: &mut WinitWindowWrapper) {
         for e in self.pending_draw_commands.drain(..) {
             if window_wrapper.handle_event(e) {
                 self.should_render = ShouldRender::Immediately;
