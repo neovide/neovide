@@ -45,7 +45,7 @@ impl ApiVersion {
         log::trace!("expect nvim version: {major}.{minor}");
         let ret = actual_major > major || (actual_major == major && actual_minor >= minor);
         log::trace!("has desired nvim version: {ret}");
-        return ret;
+        ret
     }
 }
 
