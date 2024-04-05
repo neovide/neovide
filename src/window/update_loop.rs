@@ -107,8 +107,8 @@ impl UpdateLoop {
         }
     }
 
-    fn get_event_wait_time(&self) -> (Duration, Instant) {
-        let refresh_rate = match self.focused {
+    fn get_refresh_rate(&self) -> f32 {
+        match self.focused {
             // NOTE: Always wait for the idle refresh rate when winit throttling is used to avoid waking up too early
             // The winit redraw request will likely happen much before that and wake it up anyway
             FocusedState::Focused | FocusedState::UnfocusedNotDrawn => {
@@ -116,23 +116,25 @@ impl UpdateLoop {
             }
             _ => SETTINGS.get::<WindowSettings>().refresh_rate_idle as f32,
         }
-        .max(1.0);
+        .max(1.0)
+    }
 
+    fn get_frame_deadline(&self) -> Instant {
+        let refresh_rate = self.get_refresh_rate();
         let expected_frame_duration = Duration::from_secs_f32(1.0 / refresh_rate);
-        if self.should_render == ShouldRender::Immediately && !self.pending_render {
-            (Duration::from_nanos(0), Instant::now())
-        } else if self.pending_render {
-            let deadline = self.animation_start + self.animation_time;
-            (deadline.saturating_duration_since(Instant::now()), deadline)
-        } else {
-            let mut deadline = self.previous_frame_start + expected_frame_duration;
-            deadline = match self.should_render {
-                ShouldRender::Deadline(should_render_deadline) => {
-                    should_render_deadline.min(deadline)
-                }
-                _ => deadline,
-            };
-            (deadline.saturating_duration_since(Instant::now()), deadline)
+        self.previous_frame_start + expected_frame_duration
+    }
+
+    fn get_event_deadline(&self) -> Instant {
+        // When there's a pending render we don't need to wait for anything else than the render event
+        if self.pending_render {
+            return self.animation_start + self.animation_time;
+        }
+
+        match self.should_render {
+            ShouldRender::Immediately => Instant::now(),
+            ShouldRender::Deadline(old_deadline) => old_deadline.min(self.get_frame_deadline()),
+            _ => self.get_frame_deadline(),
         }
     }
 
@@ -286,7 +288,6 @@ impl UpdateLoop {
         #[cfg(feature = "profiling")]
         self.should_render.plot_tracy();
 
-        let (_, deadline) = self.get_event_wait_time();
-        Ok(ControlFlow::WaitUntil(deadline))
+        Ok(ControlFlow::WaitUntil(self.get_event_deadline()))
     }
 }
