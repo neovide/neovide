@@ -21,7 +21,7 @@ use tokio::{
     runtime::{Builder, Runtime},
     select,
     task::JoinSet,
-    time::sleep,
+    time::timeout,
 };
 use winit::event_loop::EventLoopProxy;
 
@@ -154,30 +154,24 @@ async fn run(session: NeovimSession, proxy: EventLoopProxy<UserEvent>) {
     let mut session = session;
 
     if let Some(process) = session.neovim_process.as_mut() {
-        let neovim_exited = select! {
-            _ = &mut session.io_handle => false,
-            _ = process.wait() => {
-                log::info!("The Neovim process quit before the IO stream, waiting two seconds");
-                true
-            }
-        };
-
         // We primarily wait for the stdio to finish, but due to bugs,
         // for example, this one in in Neovim 0.9.5
         // https://github.com/neovim/neovim/issues/26743
         // it does not always finish.
         // So wait for some additional time, both to make the bug obvious and to prevent incomplete
         // data.
-        if neovim_exited {
-            let sleep = sleep(Duration::from_millis(2000));
-            tokio::pin!(sleep);
-            select! {
-                _ = session.io_handle => {}
-                _ = &mut sleep  => {
+        select! {
+            _ = &mut session.io_handle => {}
+            _ = process.wait() => {
+                log::info!("The Neovim process quit before the IO stream, waiting two seconds");
+                if timeout(Duration::from_millis(2000), session.io_handle)
+                        .await
+                        .is_err()
+                {
                     log::info!("The IO stream was never closed, forcing Neovide to exit");
                 }
             }
-        }
+        };
     } else {
         session.io_handle.await.ok();
     }
