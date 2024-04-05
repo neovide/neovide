@@ -41,6 +41,7 @@ gl = "0.14.0"
 glutin = "0.31.1"
 glutin-winit = "0.4.2"
 image = { version = "0.25.0", default-features = false, features = ["ico"] }
+indoc = "2.0.5"
 itertools = "0.12.1"
 lazy_static = "1.4.0"
 log = "0.4.16"
