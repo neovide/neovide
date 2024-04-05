@@ -75,10 +75,10 @@ pub struct UpdateLoop {
     should_render: ShouldRender,
     num_consecutive_rendered: u32,
     focused: FocusedState,
-    pending_render: bool,
+    pending_render: bool, // We should render as soon as the compositor/vsync allows
     pending_draw_commands: Vec<Event<UserEvent>>,
-    animation_start: Instant,
-    simulation_time: Duration,
+    animation_start: Instant, // When the last animation started (went from idle to animating)
+    animation_time: Duration, // How long the current animation has been simulated
 }
 
 impl UpdateLoop {
@@ -91,7 +91,7 @@ impl UpdateLoop {
         let pending_render = false;
         let pending_draw_commands = Vec::new();
         let animation_start = Instant::now();
-        let simulation_time = Duration::from_millis(0);
+        let animation_time = Duration::from_millis(0);
 
         Self {
             idle,
@@ -103,7 +103,7 @@ impl UpdateLoop {
             pending_render,
             pending_draw_commands,
             animation_start,
-            simulation_time,
+            animation_time,
         }
     }
 
@@ -122,7 +122,7 @@ impl UpdateLoop {
         if self.should_render == ShouldRender::Immediately && !self.pending_render {
             (Duration::from_nanos(0), Instant::now())
         } else if self.pending_render {
-            let deadline = self.animation_start + self.simulation_time;
+            let deadline = self.animation_start + self.animation_time;
             (deadline.saturating_duration_since(Instant::now()), deadline)
         } else {
             let mut deadline = self.previous_frame_start + expected_frame_duration;
@@ -142,8 +142,8 @@ impl UpdateLoop {
             .get_refresh_rate(window_wrapper.skia_renderer.window());
 
         let now = Instant::now();
-        let animation_time = (now - self.animation_start).as_secs_f64();
-        let delta = animation_time - self.simulation_time.as_secs_f64();
+        let target_animation_time = (now - self.animation_start).as_secs_f64();
+        let delta = target_animation_time - self.animation_time.as_secs_f64();
         // Catchup immediately if the delta is more than one frame, otherwise smooth it over 10 frames
         let catchup = if delta >= dt as f64 {
             delta
@@ -153,7 +153,7 @@ impl UpdateLoop {
 
         let dt = (dt + catchup as f32).max(0.0);
         tracy_plot!("Simulation dt", dt as f64);
-        self.simulation_time += Duration::from_secs_f32(dt);
+        self.animation_time += Duration::from_secs_f32(dt);
 
         let num_steps = (dt / MAX_ANIMATION_DT).ceil();
         let step = dt / num_steps;
@@ -202,7 +202,7 @@ impl UpdateLoop {
             Ok(Event::AboutToWait) | Err(false) => {
                 // We will also animate, but not render when frames are skipped(or very late) to reduce visual artifacts
                 let skipped_frame = self.pending_render
-                    && Instant::now() > (self.animation_start + self.simulation_time);
+                    && Instant::now() > (self.animation_start + self.animation_time);
                 let should_prepare = !self.pending_render || skipped_frame;
                 if should_prepare {
                     self.should_render.update(window_wrapper.prepare_frame());
@@ -213,7 +213,7 @@ impl UpdateLoop {
                         self.should_render = ShouldRender::Wait;
                         if self.num_consecutive_rendered == 0 {
                             self.animation_start = Instant::now();
-                            self.simulation_time = Duration::from_millis(0);
+                            self.animation_time = Duration::from_millis(0);
                         }
                         self.animate(window_wrapper);
                         // There's really no point in trying to render if the frame is skipped
