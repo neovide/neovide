@@ -1,14 +1,11 @@
-use std::sync::Mutex;
+use std::sync::OnceLock;
 
 use log::trace;
 
 use anyhow::{Context, Result};
 use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim, Value};
 use strum::AsRefStr;
-use tokio::{
-    sync::mpsc::{unbounded_channel, UnboundedReceiver},
-    task::JoinSet,
-};
+use tokio::sync::mpsc::unbounded_channel;
 
 use super::show_error_message;
 use crate::{
@@ -273,34 +270,16 @@ impl AsRef<str> for UiCommand {
     }
 }
 
-struct UIChannels {
-    sender: Mutex<Option<LoggingSender<UiCommand>>>,
-    receiver: Mutex<Option<UnboundedReceiver<UiCommand>>>,
-}
+static UI_COMMAND_CHANNEL: OnceLock<LoggingSender<UiCommand>> = OnceLock::new();
 
-impl UIChannels {
-    fn new() -> Self {
-        let (sender, receiver) = unbounded_channel();
-        Self {
-            sender: Mutex::new(Some(LoggingSender::attach(sender, "UICommand"))),
-            receiver: Mutex::new(Some(receiver)),
-        }
-    }
-}
-
-lazy_static! {
-    static ref UI_CHANNELS: UIChannels = UIChannels::new();
-}
-
-pub fn start_ui_command_handler(
-    nvim: Neovim<NeovimWriter>,
-    api_information: &ApiInformation,
-    join_set: &mut JoinSet<()>,
-) {
+pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, api_information: &ApiInformation) {
     let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
     let ui_command_nvim = nvim.clone();
-    join_set.spawn(async move {
-        let mut ui_command_receiver = UI_CHANNELS.receiver.lock().unwrap().take().unwrap();
+    let (sender, mut ui_command_receiver) = unbounded_channel();
+    UI_COMMAND_CHANNEL
+        .set(LoggingSender::attach(sender, "UIComand"))
+        .expect("The UI command channel is already created");
+    tokio::spawn(async move {
         loop {
             match ui_command_receiver.recv().await {
                 Some(UiCommand::Serial(serial_command)) => {
@@ -323,7 +302,7 @@ pub fn start_ui_command_handler(
 
     let has_x_buttons = api_information.version.has_version(0, 10, 0);
 
-    join_set.spawn(async move {
+    tokio::spawn(async move {
         tracy_fiber_enter!("Serial command");
         loop {
             tracy_fiber_leave();
@@ -348,16 +327,8 @@ where
     T: Into<UiCommand>,
 {
     let command: UiCommand = command.into();
-    let _ = UI_CHANNELS
-        .sender
-        .lock()
-        .unwrap()
-        .as_ref()
-        .unwrap()
+    let _ = UI_COMMAND_CHANNEL
+        .get()
+        .expect("The UI command channel has not been initialized")
         .send(command);
-}
-
-pub fn shutdown_ui() {
-    *UI_CHANNELS.sender.lock().unwrap() = None;
-    log::info!("The UI subsystem has been shut down")
 }
