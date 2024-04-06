@@ -78,7 +78,7 @@ fn handle_command_arg_as_path_or_default(args: &mut Vec<String>) -> Option<Strin
 pub async fn setup_tty_startup_directory(
     nvim: &Neovim<NeovimWriter>,
 ) -> Result<(), Box<CallError>> {
-    use self::command::is_tty;
+    use crate::utils::is_tty;
 
     if is_tty() {
         return Ok(());

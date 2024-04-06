@@ -120,7 +120,10 @@ pub fn create_event_loop() -> EventLoop<UserEvent> {
     let mut builder = EventLoopBuilder::<UserEvent>::with_user_event();
     #[cfg(target_os = "macos")]
     builder.with_default_menu(false);
-    builder.build().expect("Failed to create winit event loop")
+    let event_loop = builder.build().expect("Failed to create winit event loop");
+    #[cfg(target_os = "macos")]
+    crate::window::macos::register_file_handler();
+    event_loop
 }
 
 pub fn create_window(

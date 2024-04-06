@@ -1,5 +1,6 @@
 use std::{iter, mem};
 
+use crate::utils::is_tty;
 use crate::{dimensions::Dimensions, frame::Frame, settings::*};
 
 use anyhow::Result;
@@ -19,6 +20,10 @@ fn get_styles() -> Styles {
         .usage(styling::AnsiColor::Green.on_default() | styling::Effects::BOLD)
         .literal(styling::AnsiColor::Blue.on_default() | styling::Effects::BOLD)
         .placeholder(styling::AnsiColor::Cyan.on_default())
+}
+
+fn is_tty_str() -> &'static str {
+    is_tty().then_some("1").unwrap_or("0")
 }
 
 #[derive(Clone, Debug, Parser)]
@@ -66,7 +71,7 @@ pub struct CmdLineSettings {
     pub title_hidden: bool,
 
     /// Spawn a child process and leak it [DEFAULT]
-    #[arg(long = "fork", env = "NEOVIDE_FORK", action = ArgAction::SetTrue, default_value = "1", value_parser = FalseyValueParser::new())]
+    #[arg(long = "fork", env = "NEOVIDE_FORK", action = ArgAction::SetTrue, default_value = is_tty_str(), value_parser = FalseyValueParser::new())]
     pub fork: bool,
 
     /// Be "blocking" and let the shell persist as parent process. Takes precedence over `--fork`.
