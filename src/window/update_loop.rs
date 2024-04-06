@@ -168,6 +168,7 @@ impl UpdateLoop {
 
     fn render(&mut self, window_wrapper: &mut WinitWindowWrapper) {
         self.pending_render = false;
+        tracy_plot!("pending_render", self.pending_render as u8 as f64);
         window_wrapper.draw_frame(self.last_dt);
 
         if let FocusedState::UnfocusedNotDrawn = self.focused {
@@ -175,6 +176,10 @@ impl UpdateLoop {
         }
 
         self.num_consecutive_rendered += 1;
+        tracy_plot!(
+            "num_consecutive_rendered",
+            self.num_consecutive_rendered as f64
+        );
         self.last_dt = self.previous_frame_start.elapsed().as_secs_f32();
         self.previous_frame_start = Instant::now();
     }
@@ -207,6 +212,7 @@ impl UpdateLoop {
                     .vsync
                     .request_redraw(window_wrapper.skia_renderer.window());
                 self.pending_render = true;
+                tracy_plot!("pending_render", self.pending_render as u8 as f64);
             } else {
                 self.render(window_wrapper);
             }
@@ -234,6 +240,10 @@ impl UpdateLoop {
             self.schedule_render(skipped_frame, window_wrapper);
         } else {
             self.num_consecutive_rendered = 0;
+            tracy_plot!(
+                "num_consecutive_rendered",
+                self.num_consecutive_rendered as f64
+            );
             self.last_dt = self.previous_frame_start.elapsed().as_secs_f32();
             self.previous_frame_start = Instant::now();
         }
@@ -265,10 +275,16 @@ impl UpdateLoop {
                 ..
             }
             | Event::UserEvent(UserEvent::RedrawRequested) => {
-                tracy_zone!("render (redraw requested)");
-                self.render(window_wrapper);
-                // We should process all buffered draw commands as soon as the rendering has finished
-                self.process_buffered_draw_commands(window_wrapper);
+                if self.pending_render {
+                    tracy_zone!("render (redraw requested)");
+                    self.render(window_wrapper);
+                    // We should process all buffered draw commands as soon as the rendering has finished
+                    self.process_buffered_draw_commands(window_wrapper);
+                } else {
+                    tracy_zone!("redraw requested");
+                    // The OS itself asks us to redraw, so we need to prepare first
+                    self.should_render = ShouldRender::Immediately;
+                }
             }
             _ => {}
         }
