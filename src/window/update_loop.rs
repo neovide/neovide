@@ -66,7 +66,7 @@ impl ShouldRender {
     }
 }
 
-const MAX_ANIMATION_DT: f32 = 1.0 / 120.0;
+const MAX_ANIMATION_DT: f64 = 1.0 / 120.0;
 
 pub struct UpdateLoop {
     idle: bool,
@@ -139,28 +139,37 @@ impl UpdateLoop {
     }
 
     fn animate(&mut self, window_wrapper: &mut WinitWindowWrapper) {
-        let dt = window_wrapper
-            .vsync
-            .get_refresh_rate(window_wrapper.skia_renderer.window());
+        let dt = Duration::from_secs_f32(
+            window_wrapper
+                .vsync
+                .get_refresh_rate(window_wrapper.skia_renderer.window()),
+        );
 
         let now = Instant::now();
-        let target_animation_time = (now - self.animation_start).as_secs_f64();
-        let delta = target_animation_time - self.animation_time.as_secs_f64();
+        let target_animation_time = now - self.animation_start;
+        let mut delta = target_animation_time.saturating_sub(self.animation_time);
+        // Don't try to animate way too big deltas
+        // Instead reset the animation times, and simulate a single frame
+        if delta > Duration::from_millis(1000) {
+            self.animation_start = now;
+            self.animation_time = Duration::ZERO;
+            delta = dt;
+        }
         // Catchup immediately if the delta is more than one frame, otherwise smooth it over 10 frames
-        let catchup = if delta >= dt as f64 {
+        let catchup = if delta >= dt {
             delta
         } else {
-            delta / 10.0
+            delta.div_f64(10.0)
         };
 
-        let dt = (dt + catchup as f32).max(0.0);
-        tracy_plot!("Simulation dt", dt as f64);
-        self.animation_time += Duration::from_secs_f32(dt);
+        let dt = dt + catchup;
+        tracy_plot!("Simulation dt", dt.as_secs_f64());
+        self.animation_time += dt;
 
-        let num_steps = (dt / MAX_ANIMATION_DT).ceil();
+        let num_steps = (dt.as_secs_f64() / MAX_ANIMATION_DT).ceil() as u32;
         let step = dt / num_steps;
-        for _ in 0..num_steps as usize {
-            if window_wrapper.animate_frame(step) {
+        for _ in 0..num_steps {
+            if window_wrapper.animate_frame(step.as_secs_f32()) {
                 self.should_render = ShouldRender::Immediately;
             }
         }
@@ -196,7 +205,7 @@ impl UpdateLoop {
         self.should_render = ShouldRender::Wait;
         if self.num_consecutive_rendered == 0 {
             self.animation_start = Instant::now();
-            self.animation_time = Duration::from_millis(0);
+            self.animation_time = Duration::ZERO;
         }
     }
 
