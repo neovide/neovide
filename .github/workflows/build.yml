@@ -5,7 +5,18 @@ permissions:
   contents: read
 
 on:
+  # Allow manual triggering
+  workflow_dispatch:
+  # Always run on pull requests
+  pull_request:
+  # And on master when manually pushed or after merges
+    paths-ignore:
+      - "website/**"
+      - ".vscode/**"
+      - "**.md"
   push:
+    branches:
+      main
     paths-ignore:
       - "website/**"
       - ".vscode/**"
