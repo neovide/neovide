@@ -75,6 +75,7 @@ jobs:
           level: warning
           fail_on_error: true
           filter_mode: file
+          clippy_debug: true
 
       - name: Install neovim
         uses: rhysd/action-setup-vim@v1
