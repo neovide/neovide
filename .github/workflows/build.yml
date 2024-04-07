@@ -81,15 +81,14 @@ jobs:
 
       - name: Prepare test results
         run: |
-          mkdir -p test-results
-          mv target/nextest/ci/results-*.xml test-results/
-
+          mkdir -p test-results-${{ matrix.os }}-${{ matrix.toolchain }}
+          mv target/nextest/ci/results-*.xml test-results-${{ matrix.os }}-${{ matrix.toolchain }}/
       - name: Upload test results
         uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: test-results-${{ matrix.os }}-${{ matrix.toolchain }}
           path: |
-            test-results
+            test-results-${{ matrix.os }}-${{ matrix.toolchain }}
 
   event-upload:
     needs: test
