@@ -63,6 +63,9 @@ jobs:
             target/
           key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Build
+        run: cargo build
+
       - name: Run clippy
         uses: giraffate/clippy-action@v1
         with:
