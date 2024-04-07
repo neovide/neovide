@@ -69,6 +69,8 @@ jobs:
         with:
           reporter: "github-pr-review"
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          level: warning
+          fail_on_error: true
 
       - name: Install neovim
         uses: rhysd/action-setup-vim@v1
