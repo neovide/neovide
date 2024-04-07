@@ -76,7 +76,7 @@ jobs:
           reviewdog_version: latest
 
       - name: Run clippy
-        run: cargo clippy --message-format=json | clippy-sarif | tee clippy.sarif | sarif-fmt
+        run: cargo clippy --all-targets --message-format=json | clippy-sarif | tee clippy.sarif | sarif-fmt
         continue-on-error: true
 
       - name: Run clippy reviewdog
