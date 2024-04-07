@@ -73,6 +73,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           level: warning
           fail_on_error: true
+          filter_mode: file
 
       - name: Install neovim
         uses: rhysd/action-setup-vim@v1
