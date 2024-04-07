@@ -44,7 +44,7 @@ jobs:
     continue-on-error: ${{ matrix.toolchain == 'nightly' }}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Setup toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -54,7 +54,7 @@ jobs:
       - name: Show toolchain info
         run: cargo --version --verbose
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -85,7 +85,7 @@ jobs:
           mv target/nextest/ci/results-*.xml test-results/
 
       - name: Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: test-results
           path: |
@@ -96,7 +96,7 @@ jobs:
     name: Upload Test Event
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: test-event
           path: ${{ github.event_path }}
@@ -111,9 +111,9 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -216,19 +216,19 @@ jobs:
             echo "ARTIFACT3=neovide.AppImage.zsync" >> $GITHUB_ENV
           fi
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT }}
           path: target/release/${{ env.ARTIFACT }}
 
       - if: env.ARTIFACT2
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT2 }}
           path: target/release/${{ env.ARTIFACT2 }}
 
       - if: env.ARTIFACT3
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT3 }}
           path: target/release/${{ env.ARTIFACT3 }}
