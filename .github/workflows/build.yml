@@ -41,7 +41,6 @@ jobs:
         os: [windows-latest, macOS-12, ubuntu-latest]
         toolchain: [stable, nightly]
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.toolchain == 'nightly' }}
 
     steps:
       - uses: actions/checkout@v4
