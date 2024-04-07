@@ -64,18 +64,26 @@ jobs:
             target/
           key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Build
-        run: cargo build
+      - name: Install cargo binstall
+        uses: cargo-bins/cargo-binstall@main
+
+      - name: Install sarif
+        run: cargo binstall -y clippy-sarif sarif-fmt
+
+      - name: Setup reviewdog
+        uses: reviewdog/action-setup@v1
+        with:
+          reviewdog_version: latest
 
       - name: Run clippy
-        uses: giraffate/clippy-action@v1
-        with:
-          reporter: "github-check"
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          level: warning
-          fail_on_error: true
-          filter_mode: file
-          clippy_debug: true
+        run: cargo clippy --message-format=json | clippy-sarif | tee clippy.sarif | sarif-fmt
+        continue-on-error: true
+
+      - name: Run clippy reviewdog
+        run: cat clippy.sarif | reviewdog -f=sarif -name=clippy -reporter=github-check -filter-mode=file -fail-on-error=true -level=warning
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install neovim
         uses: rhysd/action-setup-vim@v1
