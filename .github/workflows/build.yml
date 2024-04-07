@@ -49,6 +49,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.toolchain }}
+          components: clippy
 
       - name: Show toolchain info
         run: cargo --version --verbose
