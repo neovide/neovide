@@ -64,13 +64,13 @@ jobs:
             target/
           key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Install cargo binstall
+      - name: Install Cargo Binstall
         uses: cargo-bins/cargo-binstall@main
 
-      - name: Install sarif
+      - name: Install Sarif
         run: cargo binstall -y clippy-sarif sarif-fmt
 
-      - name: Setup reviewdog
+      - name: Setup Reviewdog
         uses: reviewdog/action-setup@v1
         with:
           reviewdog_version: latest
@@ -79,7 +79,7 @@ jobs:
         run: cargo clippy --all-targets --message-format=json | clippy-sarif | tee clippy.sarif | sarif-fmt
         continue-on-error: true
 
-      - name: Run clippy reviewdog
+      - name: Run Clippy Reviewdog
         run: cat clippy.sarif | reviewdog -f=sarif -name=clippy -reporter=github-check -filter-mode=file -fail-on-error=true -level=warning
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
