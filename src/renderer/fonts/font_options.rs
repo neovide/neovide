@@ -318,7 +318,7 @@ impl FontHinting {
     }
 }
 
-fn points_to_pixels(value: f32) -> f32 {
+pub fn points_to_pixels(value: f32) -> f32 {
     // Fonts in neovim are using points, not pixels.
     //
     // Skia docs is incorrectly stating it uses points, but uses pixels:
@@ -329,14 +329,17 @@ fn points_to_pixels(value: f32) -> f32 {
     //
     // In reality, this depends on DPI/PPI of monitor, but here we only care about converting
     // from points to pixels, so this is standard constant values.
-    if cfg!(target_os = "macos") {
+    let pixels = if cfg!(target_os = "macos") {
         // On macos points == pixels
         value
     } else {
         let pixels_per_inch = 96.0;
         let points_per_inch = 72.0;
         value * (pixels_per_inch / points_per_inch)
-    }
+    };
+
+    log::info!("point_to_pixels {value} -> {pixels}");
+    pixels
 }
 
 impl FontDescription {
