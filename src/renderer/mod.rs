@@ -98,7 +98,7 @@ impl Default for RendererSettings {
 pub enum DrawCommand {
     UpdateCursor(Cursor),
     FontChanged(String),
-    LineSpaceChanged(i64),
+    LineSpaceChanged(f32),
     DefaultStyleChanged(Style),
     ModeChanged(EditorMode),
     UIReady,
