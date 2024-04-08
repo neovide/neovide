@@ -31,6 +31,7 @@ pub struct WindowSettings {
     pub input_macos_option_key_is_meta: OptionAsMeta,
     pub input_ime: bool,
     pub show_border: bool,
+    pub bell_command: String,
 
     #[option = "mousemoveevent"]
     pub mouse_move_event: bool,
@@ -72,6 +73,7 @@ impl Default for WindowSettings {
             observed_lines: None,
             observed_columns: None,
             show_border: false,
+            bell_command: "".to_string(),
         }
     }
 }
