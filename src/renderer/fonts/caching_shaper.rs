@@ -36,7 +36,6 @@ pub struct CachingShaper {
     blob_cache: LruCache<ShapeKey, Vec<TextBlob>>,
     shape_context: ShapeContext,
     scale_factor: f32,
-    fudge_factor: f32,
     linespace: f32,
     font_info: Option<(Metrics, f32)>,
 }
@@ -51,7 +50,6 @@ impl CachingShaper {
             blob_cache: LruCache::new(NonZeroUsize::new(10000).unwrap()),
             shape_context: ShapeContext::new(),
             scale_factor,
-            fudge_factor: 1.0,
             linespace: 0.0,
             font_info: None,
         };
@@ -75,7 +73,7 @@ impl CachingShaper {
 
     pub fn current_size(&self) -> f32 {
         let min_font_size = 1.0;
-        (self.options.size * self.scale_factor * self.fudge_factor).max(min_font_size)
+        (self.options.size * self.scale_factor).max(min_font_size)
     }
 
     pub fn update_scale_factor(&mut self, scale_factor: f32) {
@@ -154,7 +152,6 @@ impl CachingShaper {
     }
 
     fn reset_font_loader(&mut self) {
-        self.fudge_factor = 1.0;
         self.font_info = None;
         let font_size = self.current_size();
 
