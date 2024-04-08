@@ -1,7 +1,7 @@
 use std::{num::NonZeroUsize, sync::Arc};
 
 use itertools::Itertools;
-use log::{debug, error, trace, warn};
+use log::{debug, error, info, trace, warn};
 use lru::LruCache;
 use skia_safe::{
     graphics::{font_cache_limit, font_cache_used, set_font_cache_limit},
@@ -156,29 +156,15 @@ impl CachingShaper {
     fn reset_font_loader(&mut self) {
         self.fudge_factor = 1.0;
         self.font_info = None;
-        let mut font_size = self.current_size();
-        debug!("Original font_size: {:.2}px", font_size);
+        let font_size = self.current_size();
 
         self.font_loader = FontLoader::new(font_size);
-        let (metrics, font_width) = self.info();
+        let (_, font_width) = self.info();
+        info!(
+            "Reset Font Loader: font_size: {:.2}px, font_width: {:.2}px",
+            font_size, font_width
+        );
 
-        debug!("Original font_width: {:.2}px", font_width);
-
-        if !self.options.allow_float_size {
-            // Calculate the new fudge factor required to scale the font width to the nearest exact pixel
-            debug!(
-                "Font width: {:.2}px (avg: {:.2}px)",
-                font_width, metrics.average_width
-            );
-            let min_fudged_width = 1.0;
-            self.fudge_factor = font_width.round().max(min_fudged_width) / font_width;
-            debug!("Fudge factor: {:.2}", self.fudge_factor);
-            font_size = self.current_size();
-            self.font_info = None;
-            self.font_loader = FontLoader::new(font_size);
-            debug!("Fudged font size: {:.2}px", font_size);
-            debug!("Fudged font width: {:.2}px", self.info().1);
-        }
         self.blob_cache.clear();
     }
 
@@ -221,7 +207,7 @@ impl CachingShaper {
 
         let bare_font_height = (metrics.ascent + metrics.descent + metrics.leading).ceil();
         let font_height = bare_font_height + self.linespace;
-        let font_width = (glyph_advance + self.options.width + 0.5).floor();
+        let font_width = glyph_advance + self.options.width;
 
         (
             font_width,
@@ -420,7 +406,7 @@ impl CachingShaper {
 
             shaper.shape_with(|glyph_cluster| {
                 for glyph in glyph_cluster.glyphs {
-                    let position = ((glyph.data as f32 * glyph_width), glyph.y);
+                    let position = (glyph.data as f32 * glyph_width, glyph.y);
                     glyph_data.push((glyph.id, position));
                 }
             });
