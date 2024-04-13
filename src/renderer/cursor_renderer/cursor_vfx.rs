@@ -134,7 +134,7 @@ impl CursorVfx for PointHighlight {
         grid_renderer: &mut GridRenderer,
         cursor: &Cursor,
     ) {
-        if (self.t - 1.0).abs() < std::f32::EPSILON {
+        if (self.t - 1.0).abs() < f32::EPSILON {
             return;
         }
 

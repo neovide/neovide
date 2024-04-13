@@ -185,7 +185,7 @@ impl FontOptions {
             Some(style.into_iter().unique().sorted().join(" "))
         };
         for font in font_options.normal.iter_mut() {
-            font.style = style.clone();
+            font.style.clone_from(&style);
         }
 
         Ok(font_options)
@@ -255,7 +255,7 @@ impl PartialEq for FontOptions {
             && self.bold_italic == other.bold_italic
             && self.features == other.features
             && self.edging == other.edging
-            && (self.size - other.size).abs() < std::f32::EPSILON
+            && (self.size - other.size).abs() < f32::EPSILON
             && self.hinting == other.hinting
     }
 }

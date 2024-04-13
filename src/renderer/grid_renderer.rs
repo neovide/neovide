@@ -21,7 +21,6 @@ pub struct GridRenderer {
     pub default_style: Arc<Style>,
     pub em_size: f32,
     pub font_dimensions: Dimensions,
-    pub scale_factor: f64,
     pub is_ready: bool,
 }
 
@@ -47,7 +46,6 @@ impl GridRenderer {
             default_style,
             em_size,
             font_dimensions,
-            scale_factor,
             is_ready: false,
         }
     }

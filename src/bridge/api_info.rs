@@ -26,6 +26,7 @@ impl From<&str> for ApiInfoParseError {
     }
 }
 
+#[allow(unused)]
 #[derive(Debug)]
 pub struct ApiVersion {
     pub major: u64,
@@ -52,6 +53,7 @@ impl ApiVersion {
     }
 }
 
+#[allow(unused)]
 #[derive(Debug)]
 pub struct ApiFunction {
     pub name: String,
@@ -76,6 +78,7 @@ impl PartialEq for ApiFunction {
 
 impl Eq for ApiFunction {}
 
+#[allow(unused)]
 #[derive(Debug)]
 pub enum ApiParameterType {
     Nil,
@@ -133,12 +136,14 @@ impl ApiParameterType {
     }
 }
 
+#[allow(unused)]
 #[derive(Debug)]
 pub struct ApiParameter {
     pub name: String,
     pub parameter_type: ApiParameterType,
 }
 
+#[allow(unused)]
 #[derive(Debug)]
 pub struct ApiEvent {
     pub name: String,
@@ -160,6 +165,7 @@ impl PartialEq for ApiEvent {
 
 impl Eq for ApiEvent {}
 
+#[allow(unused)]
 #[derive(Debug)]
 pub struct ApiInformation {
     pub channel: u64,

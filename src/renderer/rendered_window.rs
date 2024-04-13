@@ -80,8 +80,6 @@ struct Line {
 }
 
 pub struct RenderedWindow {
-    pub vertical_position: f32,
-
     pub id: u64,
     pub hidden: bool,
     pub anchor_info: Option<AnchorInfo>,
@@ -108,7 +106,6 @@ pub struct RenderedWindow {
 pub struct WindowDrawDetails {
     pub id: u64,
     pub region: Rect,
-    pub floating_order: Option<u64>,
 }
 
 impl WindowDrawDetails {
@@ -124,7 +121,6 @@ impl WindowDrawDetails {
 impl RenderedWindow {
     pub fn new(id: u64, grid_position: Point, grid_size: Dimensions) -> RenderedWindow {
         RenderedWindow {
-            vertical_position: 0.0,
             id,
             hidden: false,
             anchor_info: None,
@@ -214,7 +210,7 @@ impl RenderedWindow {
     ) -> bool {
         let mut animating = false;
 
-        if 1.0 - self.position_t < std::f32::EPSILON {
+        if self.position_t > 1.0 - f32::EPSILON {
             // We are at destination, move t out of 0-1 range to stop the animation.
             self.position_t = 2.0;
         } else {
@@ -477,7 +473,6 @@ impl RenderedWindow {
         WindowDrawDetails {
             id: self.id,
             region: pixel_region,
-            floating_order: self.anchor_info.as_ref().map(|v| v.sort_order),
         }
     }
 

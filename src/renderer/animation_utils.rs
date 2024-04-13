@@ -58,7 +58,7 @@ pub fn ease_in_expo(t: f32) -> f32 {
 
 #[allow(dead_code)]
 pub fn ease_out_expo(t: f32) -> f32 {
-    if (t - 1.0).abs() < std::f32::EPSILON {
+    if (t - 1.0).abs() < f32::EPSILON {
         1.0
     } else {
         1.0 - 2.0f32.powf(-10.0 * t)
@@ -103,7 +103,7 @@ impl CriticallyDampedSpringAnimation {
             self.scroll_t = 0.0;
         }
 
-        if 1.0 - self.scroll_t < std::f32::EPSILON {
+        if self.scroll_t > 1.0 - f32::EPSILON {
             // We are at destination, move t out of 0-1 range to stop the animation.
             self.scroll_t = 2.0;
         } else {
