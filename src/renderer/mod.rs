@@ -412,7 +412,7 @@ impl Renderer {
                 result.font_changed = true;
             }
             DrawCommand::LineSpaceChanged(new_linespace) => {
-                self.grid_renderer.update_linespace(new_linespace as f32);
+                self.grid_renderer.update_linespace(new_linespace);
                 result.font_changed = true;
             }
             DrawCommand::DefaultStyleChanged(new_style) => {
