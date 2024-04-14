@@ -186,7 +186,7 @@ impl KeyboardManager {
             return key_event
                 .key_without_modifiers()
                 .to_text()
-                .map(|text| self.format_key_text(text, true));
+                .map(|text| self.format_key_text(text, false));
         }
 
         key_event
