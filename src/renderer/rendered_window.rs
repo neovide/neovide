@@ -689,7 +689,7 @@ impl RenderedWindow {
     ) -> impl Iterator<Item = (Matrix, &Rc<RefCell<Line>>)> {
         let scroll_offset_lines = self.scroll_animation.position.floor();
         let scroll_offset = scroll_offset_lines - self.scroll_animation.position;
-        let scroll_offset_pixels = scroll_offset * grid_scale.0.height;
+        let scroll_offset_pixels = (scroll_offset * grid_scale.0.height).round();
 
         self.iter_scrollable_lines().map(move |(i, line)| {
             let mut matrix = Matrix::new_identity();
@@ -697,8 +697,7 @@ impl RenderedWindow {
                 pixel_region.min.x,
                 pixel_region.min.y
                     + (scroll_offset_pixels
-                        + ((i + self.viewport_margins.top as isize) as f32 * grid_scale.0.height))
-                        as f32,
+                        + ((i + self.viewport_margins.top as isize) as f32 * grid_scale.0.height)),
             ));
             (matrix, line)
         })
