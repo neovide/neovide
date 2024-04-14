@@ -2,9 +2,13 @@ pub mod animation_utils;
 pub mod cursor_renderer;
 pub mod fonts;
 pub mod grid_renderer;
-mod opengl;
+pub mod opengl;
 pub mod profiler;
 mod rendered_window;
+mod vsync;
+
+#[cfg(target_os = "windows")]
+pub mod d3d;
 
 use std::{
     cmp::Ordering,
@@ -13,39 +17,53 @@ use std::{
 };
 
 use log::error;
-use skia_safe::{Canvas, Point};
-use tokio::sync::mpsc::UnboundedReceiver;
-use winit::event::Event;
+use skia_safe::{Canvas, Point, Rect};
+use winit::{
+    event::Event,
+    event_loop::{EventLoop, EventLoopProxy},
+    window::{Window, WindowBuilder},
+};
 
 use crate::{
     bridge::EditorMode,
+    dimensions::Dimensions,
     editor::{Cursor, Style},
-    event_aggregator::EVENT_AGGREGATOR,
-    profiling::tracy_zone,
+    profiling::{tracy_create_gpu_context, tracy_named_frame, tracy_zone},
     settings::*,
+    window::{ShouldRender, UserEvent},
     WindowSettings,
 };
+
+#[cfg(feature = "gpu_profiling")]
+use crate::profiling::GpuCtx;
+
+#[cfg(target_os = "windows")]
+use crate::CmdLineSettings;
 
 use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
-pub use rendered_window::{
-    LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails, WindowPadding,
-};
+pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails};
 
-pub use opengl::{build_context, build_window, Context as WindowedContext};
+pub use vsync::VSync;
+
+use self::fonts::font_options::FontOptions;
 
 #[derive(SettingGroup, Clone)]
 pub struct RendererSettings {
     position_animation_length: f32,
     scroll_animation_length: f32,
-    floating_opacity: f32,
+    scroll_animation_far_lines: u32,
     floating_blur: bool,
     floating_blur_amount_x: f32,
     floating_blur_amount_y: f32,
+    floating_shadow: bool,
+    floating_z_height: f32,
+    light_angle_degrees: f32,
+    light_radius: f32,
     debug_renderer: bool,
     profiler: bool,
-    underline_automatic_scaling: bool,
+    underline_stroke_scale: f32,
 }
 
 impl Default for RendererSettings {
@@ -53,18 +71,22 @@ impl Default for RendererSettings {
         Self {
             position_animation_length: 0.15,
             scroll_animation_length: 0.3,
-            floating_opacity: 0.7,
+            scroll_animation_far_lines: 1,
             floating_blur: true,
             floating_blur_amount_x: 2.0,
             floating_blur_amount_y: 2.0,
+            floating_shadow: true,
+            floating_z_height: 10.,
+            light_angle_degrees: 45.,
+            light_radius: 5.,
             debug_renderer: false,
             profiler: false,
-            underline_automatic_scaling: false,
+            underline_stroke_scale: 1.,
         }
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum DrawCommand {
     CloseWindow(u64),
     Window {
@@ -76,6 +98,7 @@ pub enum DrawCommand {
     LineSpaceChanged(i64),
     DefaultStyleChanged(Style),
     ModeChanged(EditorMode),
+    UIReady,
 }
 
 pub struct Renderer {
@@ -86,35 +109,32 @@ pub struct Renderer {
     rendered_windows: HashMap<u64, RenderedWindow>,
     pub window_regions: Vec<WindowDrawDetails>,
 
-    pub batched_draw_command_receiver: UnboundedReceiver<Vec<DrawCommand>>,
     profiler: profiler::Profiler,
     os_scale_factor: f64,
     user_scale_factor: f64,
-    pub window_padding: WindowPadding,
+}
+
+/// Results of processing the draw commands from the command channel.
+pub struct DrawCommandResult {
+    pub font_changed: bool,
+    pub should_show: bool,
 }
 
 impl Renderer {
-    pub fn new(os_scale_factor: f64) -> Self {
+    pub fn new(os_scale_factor: f64, init_font_settings: Option<FontSettings>) -> Self {
         let window_settings = SETTINGS.get::<WindowSettings>();
 
         let user_scale_factor = window_settings.scale_factor.into();
         let scale_factor = user_scale_factor * os_scale_factor;
         let cursor_renderer = CursorRenderer::new();
-        let grid_renderer = GridRenderer::new(scale_factor);
+        let mut grid_renderer = GridRenderer::new(scale_factor);
+        grid_renderer.update_font_options(init_font_settings.map(|x| x.into()).unwrap_or_default());
         let current_mode = EditorMode::Unknown(String::from(""));
 
         let rendered_windows = HashMap::new();
         let window_regions = Vec::new();
 
-        let batched_draw_command_receiver = EVENT_AGGREGATOR.register_event::<Vec<DrawCommand>>();
         let profiler = profiler::Profiler::new(12.0);
-
-        let window_padding = WindowPadding {
-            top: window_settings.padding_top,
-            left: window_settings.padding_left,
-            right: window_settings.padding_right,
-            bottom: window_settings.padding_bottom,
-        };
 
         Renderer {
             rendered_windows,
@@ -122,43 +142,26 @@ impl Renderer {
             grid_renderer,
             current_mode,
             window_regions,
-            batched_draw_command_receiver,
             profiler,
             os_scale_factor,
             user_scale_factor,
-            window_padding,
         }
     }
 
-    pub fn handle_event(&mut self, event: &Event<()>) {
-        self.cursor_renderer.handle_event(event);
+    pub fn handle_event(&mut self, event: &Event<UserEvent>) -> bool {
+        self.cursor_renderer.handle_event(event)
     }
 
     pub fn font_names(&self) -> Vec<String> {
         self.grid_renderer.font_names()
     }
 
-    /// Draws frame
-    ///
-    /// # Returns
-    /// `bool` indicating whether or not font was changed during this frame.
-    #[allow(clippy::needless_collect)]
-    pub fn draw_frame(&mut self, root_canvas: &mut Canvas, dt: f32) -> bool {
+    pub fn prepare_frame(&mut self) -> ShouldRender {
+        self.cursor_renderer.prepare_frame()
+    }
+
+    pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32) {
         tracy_zone!("renderer_draw_frame");
-        let mut draw_commands = Vec::new();
-        while let Ok(draw_command) = self.batched_draw_command_receiver.try_recv() {
-            draw_commands.extend(draw_command);
-        }
-
-        let mut font_changed = false;
-
-        for draw_command in draw_commands.into_iter() {
-            if let DrawCommand::FontChanged(_) | DrawCommand::LineSpaceChanged(_) = draw_command {
-                font_changed = true;
-            }
-            self.handle_draw_command(root_canvas, draw_command);
-        }
-
         let default_background = self.grid_renderer.get_default_background();
         let font_dimensions = self.grid_renderer.font_dimensions;
 
@@ -166,14 +169,6 @@ impl Renderer {
         root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
         root_canvas.save();
         root_canvas.reset_matrix();
-
-        let user_scale_factor = SETTINGS.get::<WindowSettings>().scale_factor.into();
-        if user_scale_factor != self.user_scale_factor {
-            self.user_scale_factor = user_scale_factor;
-            self.grid_renderer
-                .handle_scale_factor_update(self.os_scale_factor * self.user_scale_factor);
-            font_changed = true;
-        }
 
         if let Some(root_window) = self.rendered_windows.get(&1) {
             let clip_rect = root_window.pixel_region(font_dimensions);
@@ -188,7 +183,7 @@ impl Renderer {
                 .rendered_windows
                 .values_mut()
                 .filter(|window| !window.hidden)
-                .partition(|window| window.floating_order.is_none());
+                .partition(|window| window.anchor_info.is_none());
 
             root_windows
                 .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
@@ -199,35 +194,108 @@ impl Renderer {
         };
 
         let settings = SETTINGS.get::<RendererSettings>();
+        let mut floating_rects = Vec::new();
+
         self.window_regions = windows
             .into_iter()
             .map(|window| {
-                if window.padding != self.window_padding {
-                    window.padding = self.window_padding;
-                }
-
                 window.draw(
                     root_canvas,
                     &settings,
                     default_background.with_a((255.0 * transparency) as u8),
                     font_dimensions,
-                    dt,
+                    &mut floating_rects,
                 )
             })
             .collect();
 
-        let windows = &self.rendered_windows;
         self.cursor_renderer
-            .update_cursor_destination(font_dimensions.into(), windows);
-
-        self.cursor_renderer
-            .draw(&mut self.grid_renderer, &self.current_mode, root_canvas, dt);
+            .draw(&mut self.grid_renderer, root_canvas);
 
         self.profiler.draw(root_canvas, dt);
 
         root_canvas.restore();
+    }
 
-        font_changed
+    pub fn animate_frame(
+        &mut self,
+        window_size: &Dimensions,
+        padding_as_grid: &Rect,
+        dt: f32,
+    ) -> bool {
+        let windows = {
+            let (mut root_windows, mut floating_windows): (
+                Vec<&mut RenderedWindow>,
+                Vec<&mut RenderedWindow>,
+            ) = self
+                .rendered_windows
+                .values_mut()
+                .filter(|window| !window.hidden)
+                .partition(|window| window.anchor_info.is_none());
+
+            root_windows
+                .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
+
+            floating_windows.sort_by(floating_sort);
+
+            root_windows.into_iter().chain(floating_windows)
+        };
+
+        let settings = SETTINGS.get::<RendererSettings>();
+        // Clippy recommends short-circuiting with any which is not what we want
+        #[allow(clippy::unnecessary_fold)]
+        let mut animating = windows.fold(false, |acc, window| {
+            acc | window.animate(&settings, window_size, padding_as_grid, dt)
+        });
+
+        let windows = &self.rendered_windows;
+        let font_dimensions = self.grid_renderer.font_dimensions;
+        self.cursor_renderer
+            .update_cursor_destination(font_dimensions.into(), windows);
+
+        animating |= self
+            .cursor_renderer
+            .animate(&self.current_mode, &self.grid_renderer, dt);
+
+        animating
+    }
+
+    pub fn handle_config_changed(&mut self, config: HotReloadConfigs) {
+        match config {
+            HotReloadConfigs::Font(font) => match font {
+                Some(font) => {
+                    self.grid_renderer.update_font_options(font.into());
+                }
+                None => {
+                    self.grid_renderer
+                        .update_font_options(FontOptions::default());
+                }
+            },
+        }
+    }
+
+    pub fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) -> DrawCommandResult {
+        let settings = SETTINGS.get::<RendererSettings>();
+        let mut result = DrawCommandResult {
+            font_changed: false,
+            should_show: false,
+        };
+
+        for draw_command in batch {
+            self.handle_draw_command(draw_command, &mut result);
+            tracy_named_frame!("neovim draw batch processed");
+        }
+        self.flush(&settings);
+
+        let user_scale_factor = SETTINGS.get::<WindowSettings>().scale_factor.into();
+        if user_scale_factor != self.user_scale_factor {
+            self.user_scale_factor = user_scale_factor;
+            self.grid_renderer
+                .handle_scale_factor_update(self.os_scale_factor * self.user_scale_factor);
+            result.font_changed = true;
+        }
+
+        result
     }
 
     pub fn handle_os_scale_factor_change(&mut self, os_scale_factor: f64) {
@@ -236,7 +304,13 @@ impl Renderer {
             .handle_scale_factor_update(self.os_scale_factor * self.user_scale_factor);
     }
 
-    fn handle_draw_command(&mut self, root_canvas: &mut Canvas, draw_command: DrawCommand) {
+    pub fn prepare_lines(&mut self) {
+        self.rendered_windows
+            .iter_mut()
+            .for_each(|(_, w)| w.prepare_lines(&mut self.grid_renderer));
+    }
+
+    fn handle_draw_command(&mut self, draw_command: DrawCommand, result: &mut DrawCommandResult) {
         match draw_command {
             DrawCommand::Window {
                 grid_id,
@@ -248,8 +322,7 @@ impl Renderer {
                 match self.rendered_windows.entry(grid_id) {
                     Entry::Occupied(mut occupied_entry) => {
                         let rendered_window = occupied_entry.get_mut();
-                        rendered_window
-                            .handle_window_draw_command(&mut self.grid_renderer, command);
+                        rendered_window.handle_window_draw_command(command);
                     }
                     Entry::Vacant(vacant_entry) => {
                         if let WindowDrawCommand::Position {
@@ -259,12 +332,9 @@ impl Renderer {
                         } = command
                         {
                             let new_window = RenderedWindow::new(
-                                root_canvas,
-                                &self.grid_renderer,
                                 grid_id,
                                 (grid_left as f32, grid_top as f32).into(),
                                 (width, height).into(),
-                                self.window_padding,
                             );
                             vacant_entry.insert(new_window);
                         } else {
@@ -278,9 +348,11 @@ impl Renderer {
             }
             DrawCommand::FontChanged(new_font) => {
                 self.grid_renderer.update_font(&new_font);
+                result.font_changed = true;
             }
             DrawCommand::LineSpaceChanged(new_linespace) => {
                 self.grid_renderer.update_linespace(new_linespace);
+                result.font_changed = true;
             }
             DrawCommand::DefaultStyleChanged(new_style) => {
                 self.grid_renderer.default_style = Arc::new(new_style);
@@ -288,12 +360,29 @@ impl Renderer {
             DrawCommand::ModeChanged(new_mode) => {
                 self.current_mode = new_mode;
             }
+            DrawCommand::UIReady => {
+                result.should_show = true;
+            }
             _ => {}
         }
     }
 
+    pub fn flush(&mut self, renderer_settings: &RendererSettings) {
+        self.rendered_windows
+            .iter_mut()
+            .for_each(|(_, w)| w.flush(renderer_settings));
+    }
+
     pub fn get_cursor_position(&self) -> Point {
         self.cursor_renderer.get_current_position()
+    }
+
+    pub fn get_grid_size(&self) -> Dimensions {
+        if let Some(main_grid) = self.rendered_windows.get(&1) {
+            main_grid.grid_size
+        } else {
+            DEFAULT_GRID_SIZE
+        }
     }
 }
 
@@ -301,9 +390,11 @@ impl Renderer {
 fn floating_sort(window_a: &&mut RenderedWindow, window_b: &&mut RenderedWindow) -> Ordering {
     // First, compare floating order
     let mut ord = window_a
-        .floating_order
+        .anchor_info
+        .as_ref()
         .unwrap()
-        .partial_cmp(&window_b.floating_order.unwrap())
+        .sort_order
+        .partial_cmp(&window_b.anchor_info.as_ref().unwrap().sort_order)
         .unwrap();
     if ord == Ordering::Equal {
         // if equal, compare grid pos x
@@ -322,4 +413,64 @@ fn floating_sort(window_a: &&mut RenderedWindow, window_b: &&mut RenderedWindow)
         }
     }
     ord
+}
+
+pub enum WindowConfigType {
+    OpenGL(glutin::config::Config),
+    #[cfg(target_os = "windows")]
+    Direct3D,
+}
+
+pub struct WindowConfig {
+    pub window: Window,
+    pub config: WindowConfigType,
+}
+
+pub fn build_window_config<TE>(
+    winit_window_builder: WindowBuilder,
+    event_loop: &EventLoop<TE>,
+) -> WindowConfig {
+    #[cfg(target_os = "windows")]
+    {
+        let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
+        if cmd_line_settings.opengl {
+            opengl::build_window(winit_window_builder, event_loop)
+        } else {
+            let window = winit_window_builder.build(event_loop).unwrap();
+            let config = WindowConfigType::Direct3D;
+            WindowConfig { window, config }
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        opengl::build_window(winit_window_builder, event_loop)
+    }
+}
+
+pub trait SkiaRenderer {
+    fn window(&self) -> &Window;
+    fn flush(&mut self);
+    fn swap_buffers(&mut self);
+    fn canvas(&mut self) -> &Canvas;
+    fn resize(&mut self);
+    fn create_vsync(&self, proxy: EventLoopProxy<UserEvent>) -> VSync;
+    #[cfg(feature = "gpu_profiling")]
+    fn tracy_create_gpu_context(&self, name: &str) -> Box<dyn GpuCtx>;
+}
+
+pub fn create_skia_renderer(
+    window: WindowConfig,
+    srgb: bool,
+    vsync: bool,
+) -> Box<dyn SkiaRenderer> {
+    let renderer: Box<dyn SkiaRenderer> = match &window.config {
+        WindowConfigType::OpenGL(..) => {
+            Box::new(opengl::OpenGLSkiaRenderer::new(window, srgb, vsync))
+        }
+        #[cfg(target_os = "windows")]
+        WindowConfigType::Direct3D => Box::new(d3d::D3DSkiaRenderer::new(window.window)),
+    };
+    tracy_create_gpu_context("main_render_context", renderer.as_ref());
+    renderer
 }

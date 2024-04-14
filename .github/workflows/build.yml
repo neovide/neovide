@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macOS-11, ubuntu-latest]
+        os: [windows-latest, macOS-12, ubuntu-latest]
         toolchain: [stable, nightly]
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.toolchain == 'nightly' }}
@@ -96,7 +96,7 @@ jobs:
       fail-fast: false
       matrix:
         # NOTE: Should use the oldest available Ubuntu release, for maximum compatibility
-        os: [windows-latest, macOS-11, ubuntu-20.04]
+        os: [windows-latest, macOS-12, ubuntu-20.04]
     runs-on: ${{ matrix.os }}
 
     steps:

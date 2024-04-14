@@ -1,71 +1,46 @@
-use log::{info, warn};
+use anyhow::{Context, Result};
 use nvim_rs::Neovim;
 use rmpv::Value;
 
+use super::api_info::{parse_api_info, ApiInformation};
 use super::setup_intro_message_autocommand;
-use crate::{bridge::NeovimWriter, error_handling::ResultPanicExplanation};
+use crate::{
+    bridge::NeovimWriter,
+    settings::{SettingLocation, SETTINGS},
+};
 
-const REGISTER_CLIPBOARD_PROVIDER_LUA: &str = r"
-    local function set_clipboard(register)
-        return function(lines, regtype)
-            vim.rpcrequest(vim.g.neovide_channel_id, 'neovide.set_clipboard', lines)
-        end
-    end
+use crate::bridge::setup_tty_startup_directory;
+use crate::utils::is_tty;
 
-    local function get_clipboard(register)
-        return function()
-            return vim.rpcrequest(vim.g.neovide_channel_id, 'neovide.get_clipboard', register)
-        end
-    end
+const INIT_LUA: &str = include_str!("../../lua/init.lua");
 
-    vim.g.clipboard = {
-        name = 'neovide',
-        copy = {
-            ['+'] = set_clipboard('+'),
-            ['*'] = set_clipboard('*'),
-        },
-        paste = {
-            ['+'] = get_clipboard('+'),
-            ['*'] = get_clipboard('*'),
-        },
-        cache_enabled = 0
-    }";
-
-pub async fn setup_neovide_remote_clipboard(nvim: &Neovim<NeovimWriter>) {
-    // Users can opt-out with
-    // vim: `let g:neovide_no_custom_clipboard = v:true`
-    // lua: `vim.g.neovide_no_custom_clipboard = true`
-    let no_custom_clipboard = nvim
-        .get_var("neovide_no_custom_clipboard")
+pub async fn get_api_information(nvim: &Neovim<NeovimWriter>) -> Result<ApiInformation> {
+    // Retrieve the channel number for communicating with neovide.
+    let api_info = nvim
+        .get_api_info()
         .await
-        .ok()
-        .and_then(|v| v.as_bool());
-    if Some(true) == no_custom_clipboard {
-        info!("Neovide working remotely but custom clipboard is disabled");
-        return;
-    }
+        .context("Error getting API info")?;
 
-    nvim.execute_lua(REGISTER_CLIPBOARD_PROVIDER_LUA, vec![])
-        .await
-        .ok();
+    parse_api_info(&api_info).context("Failed to parse Neovim api information")
 }
 
 pub async fn setup_neovide_specific_state(
     nvim: &Neovim<NeovimWriter>,
     should_handle_clipboard: bool,
-) {
+    api_information: &ApiInformation,
+) -> Result<()> {
     // Set variable indicating to user config that neovide is being used.
     nvim.set_var("neovide", Value::Boolean(true))
         .await
-        .unwrap_or_explained_panic("Could not communicate with neovim process");
+        .context("Could not communicate with neovim process")?;
 
-    if let Err(command_error) = nvim.command("runtime! ginit.vim").await {
-        nvim.command(&format!(
-            "echomsg \"error encountered in ginit.vim {command_error:?}\""
-        ))
+    nvim.command("runtime! ginit.vim")
         .await
-        .ok();
-    }
+        .context("Error encountered in ginit.vim ")?;
+
+    nvim.set_var("neovide_ntty", Value::from(!is_tty()))
+        .await
+        .context("Could not communicate with neovim process")?;
 
     // Set details about the neovide version.
     nvim.set_client_info(
@@ -85,100 +60,60 @@ pub async fn setup_neovide_specific_state(
         vec![],
     )
     .await
-    .ok();
+    .context("Error setting client info")?;
 
-    // Retrieve the channel number for communicating with neovide.
-    let neovide_channel: Option<u64> = nvim
-        .get_api_info()
+    let register_clipboard = should_handle_clipboard;
+    let register_right_click = cfg!(target_os = "windows");
+
+    let settings = SETTINGS.setting_locations();
+    let global_variable_settings = settings
+        .iter()
+        .filter_map(|s| match s {
+            SettingLocation::NeovideGlobal(setting) => Some(Value::from(setting.to_owned())),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let option_settings = settings
+        .iter()
+        .filter_map(|s| match s {
+            SettingLocation::NeovimOption(setting) => Some(Value::from(setting.to_owned())),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    let args = Value::from(vec![
+        (
+            Value::from("neovide_channel_id"),
+            Value::from(api_information.channel),
+        ),
+        (
+            Value::from("register_clipboard"),
+            Value::from(register_clipboard),
+        ),
+        (
+            Value::from("register_right_click"),
+            Value::from(register_right_click),
+        ),
+        (
+            Value::from("global_variable_settings"),
+            Value::from(global_variable_settings),
+        ),
+        (Value::from("option_settings"), Value::from(option_settings)),
+    ]);
+
+    nvim.execute_lua(INIT_LUA, vec![args])
         .await
-        .ok()
-        .and_then(|info| info[0].as_u64());
+        .context("Error when running Neovide init.lua")?;
 
-    if let Some(neovide_channel) = neovide_channel {
-        // Record the channel to the log.
-        info!(
-            "Neovide registered to nvim with channel id {}",
-            neovide_channel
-        );
+    setup_tty_startup_directory(nvim)
+        .await
+        .context("Error setting up TTY startup directory")?;
 
-        nvim.set_var("neovide_channel_id", Value::from(neovide_channel))
+    if !api_information.version.has_version(0, 10, 0) {
+        setup_intro_message_autocommand(nvim)
             .await
-            .ok();
-
-        // Create a command for registering right click context hooking.
-        #[cfg(windows)]
-        nvim.command(&build_neovide_command(
-            neovide_channel,
-            0,
-            "NeovideRegisterRightClick",
-            "register_right_click",
-        ))
-        .await
-        .ok();
-
-        // Create a command for unregistering the right click context hooking.
-        #[cfg(windows)]
-        nvim.command(&build_neovide_command(
-            neovide_channel,
-            0,
-            "NeovideUnregisterRightClick",
-            "unregister_right_click",
-        ))
-        .await
-        .ok();
-
-        // Create a command for focusing the platform window.
-        #[cfg(windows)]
-        nvim.command(&build_neovide_command(
-            neovide_channel,
-            0,
-            "NeovideFocus",
-            "focus_window",
-        ))
-        .await
-        .ok();
-
-        if should_handle_clipboard {
-            setup_neovide_remote_clipboard(nvim).await;
-        }
-    } else {
-        warn!("Neovide could not find the correct channel id. Some functionality may be disabled.");
+            .context("Error setting up intro message")?;
     }
 
-    // Set some basic rendering options.
-    nvim.set_option("lazyredraw", Value::Boolean(false))
-        .await
-        .ok();
-    nvim.set_option("termguicolors", Value::Boolean(true))
-        .await
-        .ok();
-
-    // Create auto command for retrieving exit code from neovim on quit.
-    nvim.command(
-        "autocmd VimLeave * call rpcnotify(g:neovide_channel_id, 'neovide.quit', v:exiting)",
-    )
-    .await
-    .ok();
-
-    setup_intro_message_autocommand(nvim).await.ok();
-}
-
-#[cfg(windows)]
-pub fn build_neovide_command(channel: u64, num_args: u64, command: &str, event: &str) -> String {
-    let nargs: String = if num_args > 1 {
-        "+".to_string()
-    } else {
-        num_args.to_string()
-    };
-    if num_args == 0 {
-        format!(
-            "command! -nargs={} {} call rpcnotify({}, 'neovide.{}')",
-            nargs, command, channel, event
-        )
-    } else {
-        format!(
-            "command! -nargs={} -complete=expression {} call rpcnotify({}, 'neovide.{}', <args>)",
-            nargs, command, channel, event
-        )
-    }
+    Ok(())
 }

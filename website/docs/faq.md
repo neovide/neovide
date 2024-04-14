@@ -25,12 +25,6 @@ vim.api.nvim_set_keymap('t', '<D-v>', '<C-R>+', { noremap = true, silent = true}
 vim.api.nvim_set_keymap('v', '<D-v>', '<C-R>+', { noremap = true, silent = true})
 ```
 
-## How To Enable Scrolling Animations and Transparency?
-
-First, [enable multigrid](command-line-reference.md#multigrid), it's not enabled by default.
-
-Then, scrolling animations should work, for transparency see the section below.
-
 ## How To Enable Floating And Popupmenu Transparency?
 
 Those are controlled through the `winblend` and `pumblend` options. See their help pages for more,
@@ -152,3 +146,9 @@ Another possible cause is that you are using IME on X11. Dead keys with IME is
 not yet supported, but you can work around that either by disabling IME or
 configuring it to only be enabled in insert mode. See
 [Configuration](configuration.md).
+
+## Font size is weird with high dpi display on x11
+
+Winit looks in multiple locations for the configured dpi.
+Make sure its set in at least one of them. More details
+here: [#2010](https://github.com/neovide/neovide/issues/2010#issuecomment-1704416685).

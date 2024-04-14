@@ -15,12 +15,11 @@ use winit::{
 };
 
 use crate::{
-    bridge::{SerialCommand, UiCommand},
-    event_aggregator::EVENT_AGGREGATOR,
+    bridge::{send_ui, SerialCommand},
     renderer::{Renderer, WindowDrawDetails},
     settings::SETTINGS,
     window::keyboard_manager::KeyboardManager,
-    window::WindowSettings,
+    window::{UserEvent, WindowSettings},
 };
 
 fn clamp_position(
@@ -55,6 +54,8 @@ fn mouse_button_to_button_text(mouse_button: &MouseButton) -> Option<String> {
         MouseButton::Left => Some("left".to_owned()),
         MouseButton::Right => Some("right".to_owned()),
         MouseButton::Middle => Some("middle".to_owned()),
+        MouseButton::Back => Some("x1".to_owned()),
+        MouseButton::Forward => Some("x2".to_owned()),
         _ => None,
     }
 }
@@ -174,25 +175,26 @@ impl MouseManager {
 
             // If dragging and we haven't already sent a position, send a drag command
             if self.dragging.is_some() && has_moved {
-                EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::Drag {
+                send_ui(SerialCommand::Drag {
                     button: self.dragging.as_ref().unwrap().to_owned(),
-                    grid_id: relevant_window_details.id,
+                    grid_id: relevant_window_details.event_grid_id(),
                     position: self.drag_position.into(),
                     modifier_string: keyboard_manager.format_modifier_string("", true),
-                }));
+                });
             } else {
                 // otherwise, update the window_id_under_mouse to match the one selected
                 self.window_details_under_mouse = Some(relevant_window_details.clone());
-            }
-            if has_moved {
-                // Send a mouse move command
-                EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::MouseButton {
-                    button: "move".into(),
-                    action: "".into(), // this is ignored by nvim
-                    grid_id: relevant_window_details.id,
-                    position: self.relative_position.into(),
-                    modifier_string: keyboard_manager.format_modifier_string("", true),
-                }))
+
+                if has_moved && SETTINGS.get::<WindowSettings>().mouse_move_event {
+                    // Send a mouse move command
+                    send_ui(SerialCommand::MouseButton {
+                        button: "move".into(),
+                        action: "".into(), // this is ignored by nvim
+                        grid_id: relevant_window_details.event_grid_id(),
+                        position: self.relative_position.into(),
+                        modifier_string: keyboard_manager.format_modifier_string("", true),
+                    })
+                }
             }
 
             self.has_moved = self.dragging.is_some() && (self.has_moved || has_moved);
@@ -223,13 +225,13 @@ impl MouseManager {
                         self.relative_position
                     };
 
-                    EVENT_AGGREGATOR.send(UiCommand::Serial(SerialCommand::MouseButton {
+                    send_ui(SerialCommand::MouseButton {
                         button: button_text.clone(),
                         action,
-                        grid_id: details.id,
+                        grid_id: details.event_grid_id(),
                         position: position.into(),
                         modifier_string: keyboard_manager.format_modifier_string("", true),
-                    }));
+                    });
                 }
 
                 if down {
@@ -261,7 +263,7 @@ impl MouseManager {
         };
 
         if let Some(input_type) = vertical_input_type {
-            let scroll_command: UiCommand = SerialCommand::Scroll {
+            let scroll_command = SerialCommand::Scroll {
                 direction: input_type.to_string(),
                 grid_id: self
                     .window_details_under_mouse
@@ -270,10 +272,9 @@ impl MouseManager {
                     .unwrap_or(0),
                 position: self.drag_position.into(),
                 modifier_string: keyboard_manager.format_modifier_string("", true),
-            }
-            .into();
+            };
             for _ in 0..(new_y - previous_y).abs() {
-                EVENT_AGGREGATOR.send(scroll_command.clone());
+                send_ui(scroll_command.clone());
             }
         }
 
@@ -288,7 +289,7 @@ impl MouseManager {
         };
 
         if let Some(input_type) = horizontal_input_type {
-            let scroll_command: UiCommand = SerialCommand::Scroll {
+            let scroll_command = SerialCommand::Scroll {
                 direction: input_type.to_string(),
                 grid_id: self
                     .window_details_under_mouse
@@ -297,10 +298,9 @@ impl MouseManager {
                     .unwrap_or(0),
                 position: self.drag_position.into(),
                 modifier_string: keyboard_manager.format_modifier_string("", true),
-            }
-            .into();
+            };
             for _ in 0..(new_x - previous_x).abs() {
-                EVENT_AGGREGATOR.send(scroll_command.clone());
+                send_ui(scroll_command.clone());
             }
         }
     }
@@ -422,7 +422,7 @@ impl MouseManager {
 
     pub fn handle_event(
         &mut self,
-        event: &Event<()>,
+        event: &Event<UserEvent>,
         keyboard_manager: &KeyboardManager,
         renderer: &Renderer,
         window: &Window,

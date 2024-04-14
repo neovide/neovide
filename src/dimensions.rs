@@ -16,9 +16,20 @@ pub struct Dimensions {
     pub height: u64,
 }
 
+impl Dimensions {
+    pub fn clamped_grid_size(&self) -> Self {
+        let min = settings::MIN_GRID_SIZE;
+        let max = settings::MAX_GRID_SIZE;
+        Dimensions {
+            width: self.width.clamp(min.width, max.width),
+            height: self.height.clamp(min.height, max.height),
+        }
+    }
+}
+
 impl Default for Dimensions {
     fn default() -> Self {
-        settings::DEFAULT_WINDOW_GEOMETRY
+        settings::DEFAULT_GRID_SIZE
     }
 }
 

@@ -5,27 +5,36 @@ mod style;
 mod window;
 
 use std::{collections::HashMap, rc::Rc, sync::Arc, thread};
+use tokio::sync::mpsc::unbounded_channel;
 
-use log::{error, trace};
+use log::{error, trace, warn};
+
+use winit::event_loop::EventLoopProxy;
+
+#[cfg(target_os = "macos")]
+use winit::window::Theme;
+
+#[cfg(target_os = "macos")]
+use skia_safe::Color4f;
 
 use crate::{
-    bridge::{GuiOption, ParallelCommand, RedrawEvent, UiCommand, WindowAnchor},
-    event_aggregator::EVENT_AGGREGATOR,
-    profiling::tracy_zone,
-    redraw_scheduler::REDRAW_SCHEDULER,
+    bridge::{GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
+    profiling::{tracy_named_frame, tracy_zone},
     renderer::DrawCommand,
-    window::WindowCommand,
+    window::{UserEvent, WindowCommand},
 };
+
+#[cfg(target_os = "macos")]
+use crate::{cmd_line::CmdLineSettings, frame::Frame, settings::SETTINGS};
 
 pub use cursor::{Cursor, CursorMode, CursorShape};
 pub use draw_command_batcher::DrawCommandBatcher;
-pub use grid::CharacterGrid;
-pub use style::{Colors, Style, UnderlineStyle};
+pub use style::{Colors, HighlightInfo, HighlightKind, Style, UnderlineStyle};
 pub use window::*;
 
 const MODE_CMDLINE: u64 = 4;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct AnchorInfo {
     pub anchor_grid_id: u64,
     pub anchor_type: WindowAnchor,
@@ -51,12 +60,6 @@ impl WindowAnchor {
     }
 }
 
-#[derive(Clone, Debug)]
-pub enum EditorCommand {
-    NeovimRedrawEvent(RedrawEvent),
-    RedrawScreen,
-}
-
 pub struct Editor {
     pub windows: HashMap<u64, Window>,
     pub cursor: Cursor,
@@ -64,10 +67,12 @@ pub struct Editor {
     pub mode_list: Vec<CursorMode>,
     pub draw_command_batcher: Rc<DrawCommandBatcher>,
     pub current_mode_index: Option<u64>,
+    pub ui_ready: bool,
+    event_loop_proxy: EventLoopProxy<UserEvent>,
 }
 
 impl Editor {
-    pub fn new() -> Editor {
+    pub fn new(event_loop_proxy: EventLoopProxy<UserEvent>) -> Editor {
         Editor {
             windows: HashMap::new(),
             cursor: Cursor::new(),
@@ -75,207 +80,231 @@ impl Editor {
             mode_list: Vec::new(),
             draw_command_batcher: Rc::new(DrawCommandBatcher::new()),
             current_mode_index: None,
+            ui_ready: false,
+            event_loop_proxy,
         }
     }
 
-    pub fn handle_editor_command(&mut self, command: EditorCommand) {
-        match command {
-            EditorCommand::NeovimRedrawEvent(event) => match event {
-                RedrawEvent::SetTitle { title } => {
-                    tracy_zone!("EditorSetTitle");
-                    EVENT_AGGREGATOR.send(WindowCommand::TitleChanged(title));
+    pub fn handle_redraw_event(&mut self, event: RedrawEvent) {
+        match event {
+            RedrawEvent::SetTitle { mut title } => {
+                tracy_zone!("EditorSetTitle");
+                if title.is_empty() {
+                    title = "Neovide".to_string()
                 }
-                RedrawEvent::ModeInfoSet { cursor_modes } => {
-                    tracy_zone!("EditorModeInfoSet");
-                    self.mode_list = cursor_modes;
-                    if let Some(current_mode_i) = self.current_mode_index {
-                        if let Some(current_mode) = self.mode_list.get(current_mode_i as usize) {
-                            self.cursor.change_mode(current_mode, &self.defined_styles)
-                        }
-                    }
-                }
-                RedrawEvent::OptionSet { gui_option } => {
-                    tracy_zone!("EditorOptionSet");
-                    self.set_option(gui_option);
-                }
-                RedrawEvent::ModeChange { mode, mode_index } => {
-                    tracy_zone!("ModeChange");
-                    if let Some(cursor_mode) = self.mode_list.get(mode_index as usize) {
-                        self.cursor.change_mode(cursor_mode, &self.defined_styles);
-                        self.current_mode_index = Some(mode_index)
-                    } else {
-                        self.current_mode_index = None
-                    }
-                    self.draw_command_batcher
-                        .queue(DrawCommand::ModeChanged(mode))
-                        .ok();
-                }
-                RedrawEvent::MouseOn => {
-                    tracy_zone!("EditorMouseOn");
-                    EVENT_AGGREGATOR.send(WindowCommand::SetMouseEnabled(true));
-                }
-                RedrawEvent::MouseOff => {
-                    tracy_zone!("EditorMouseOff");
-                    EVENT_AGGREGATOR.send(WindowCommand::SetMouseEnabled(false));
-                }
-                RedrawEvent::BusyStart => {
-                    tracy_zone!("EditorBusyStart");
-                    trace!("Cursor off");
-                    self.cursor.enabled = false;
-                }
-                RedrawEvent::BusyStop => {
-                    tracy_zone!("EditorBusyStop");
-                    trace!("Cursor on");
-                    self.cursor.enabled = true;
-                }
-                RedrawEvent::Flush => {
-                    tracy_zone!("EditorFlush");
-                    trace!("Image flushed");
-                    self.send_cursor_info();
-                    {
-                        trace!("send_batch");
-                        self.draw_command_batcher.send_batch();
-                    }
-                    {
-                        trace!("queue_next_frame");
-                        REDRAW_SCHEDULER.queue_next_frame();
-                    }
-                }
-                RedrawEvent::DefaultColorsSet { colors } => {
-                    tracy_zone!("EditorDefaultColorsSet");
-                    self.draw_command_batcher
-                        .queue(DrawCommand::DefaultStyleChanged(Style::new(colors)))
-                        .ok();
-                    self.redraw_screen();
-                    self.draw_command_batcher.send_batch();
-                    REDRAW_SCHEDULER.queue_next_frame();
-                }
-                RedrawEvent::HighlightAttributesDefine { id, style } => {
-                    tracy_zone!("EditorHighlightAttributesDefine");
-                    self.defined_styles.insert(id, Arc::new(style));
-                }
-                RedrawEvent::CursorGoto {
-                    grid,
-                    column: left,
-                    row: top,
-                } => {
-                    tracy_zone!("EditorCursorGoto");
-                    self.set_cursor_position(grid, left, top);
-                }
-                RedrawEvent::Resize {
-                    grid,
-                    width,
-                    height,
-                } => {
-                    tracy_zone!("EditorResize");
-                    self.resize_window(grid, width, height);
-                }
-                RedrawEvent::GridLine {
-                    grid,
-                    row,
-                    column_start,
-                    cells,
-                } => {
-                    tracy_zone!("EditorGridLine");
-                    let defined_styles = &self.defined_styles;
-                    let window = self.windows.get_mut(&grid);
-                    if let Some(window) = window {
-                        window.draw_grid_line(row, column_start, cells, defined_styles);
-                    }
-                }
-                RedrawEvent::Clear { grid } => {
-                    tracy_zone!("EditorClear");
-                    let window = self.windows.get_mut(&grid);
-                    if let Some(window) = window {
-                        window.clear();
-                    }
-                }
-                RedrawEvent::Destroy { grid } => {
-                    tracy_zone!("EditorDestroy");
-                    self.close_window(grid)
-                }
-                RedrawEvent::Scroll {
-                    grid,
-                    top,
-                    bottom,
-                    left,
-                    right,
-                    rows,
-                    columns,
-                } => {
-                    tracy_zone!("EditorScroll");
-                    let window = self.windows.get_mut(&grid);
-                    if let Some(window) = window {
-                        window.scroll_region(top, bottom, left, right, rows, columns);
-                    }
-                }
-                RedrawEvent::WindowPosition {
-                    grid,
-                    start_row,
-                    start_column,
-                    width,
-                    height,
-                } => {
-                    tracy_zone!("EditorWindowPosition");
-                    self.set_window_position(grid, start_column, start_row, width, height)
-                }
-                RedrawEvent::WindowFloatPosition {
-                    grid,
-                    anchor,
-                    anchor_grid,
-                    anchor_column: anchor_left,
-                    anchor_row: anchor_top,
-                    sort_order,
-                    ..
-                } => {
-                    tracy_zone!("EditorWindowFloatPosition");
-                    self.set_window_float_position(
-                        grid,
-                        anchor_grid,
-                        anchor,
-                        anchor_left,
-                        anchor_top,
-                        sort_order,
-                    )
-                }
-                RedrawEvent::WindowHide { grid } => {
-                    tracy_zone!("EditorWindowHide");
-                    let window = self.windows.get(&grid);
-                    if let Some(window) = window {
-                        window.hide();
-                    }
-                }
-                RedrawEvent::WindowClose { grid } => {
-                    tracy_zone!("EditorWindowClose");
-                    self.close_window(grid)
-                }
-                RedrawEvent::MessageSetPosition { grid, row, .. } => {
-                    tracy_zone!("EditorMessageSetPosition");
-                    self.set_message_position(grid, row)
-                }
-                RedrawEvent::WindowViewport {
-                    grid,
-                    // Don't send viewport events if they don't have a scroll delta
-                    scroll_delta: Some(scroll_delta),
-                    ..
-                } => {
-                    tracy_zone!("EditorWindowViewport");
-                    self.send_updated_viewport(grid, scroll_delta)
-                }
-                RedrawEvent::ShowIntro { message } => {
-                    EVENT_AGGREGATOR
-                        .send(UiCommand::Parallel(ParallelCommand::ShowIntro { message }));
-                }
-                // Interpreting suspend as a window minimize request
-                RedrawEvent::Suspend => {
-                    EVENT_AGGREGATOR.send(WindowCommand::Minimize);
-                }
-                _ => {}
-            },
-            EditorCommand::RedrawScreen => {
-                tracy_zone!("EditorRedrawScreen");
-                self.redraw_screen();
+                let _ = self
+                    .event_loop_proxy
+                    .send_event(WindowCommand::TitleChanged(title).into());
             }
+            RedrawEvent::ModeInfoSet { cursor_modes } => {
+                tracy_zone!("EditorModeInfoSet");
+                self.mode_list = cursor_modes;
+                if let Some(current_mode_i) = self.current_mode_index {
+                    if let Some(current_mode) = self.mode_list.get(current_mode_i as usize) {
+                        self.cursor.change_mode(current_mode, &self.defined_styles)
+                    }
+                }
+            }
+            RedrawEvent::OptionSet { gui_option } => {
+                tracy_zone!("EditorOptionSet");
+                self.set_option(gui_option);
+            }
+            RedrawEvent::ModeChange { mode, mode_index } => {
+                tracy_zone!("ModeChange");
+                if let Some(cursor_mode) = self.mode_list.get(mode_index as usize) {
+                    self.cursor.change_mode(cursor_mode, &self.defined_styles);
+                    self.current_mode_index = Some(mode_index)
+                } else {
+                    self.current_mode_index = None
+                }
+                self.draw_command_batcher
+                    .queue(DrawCommand::ModeChanged(mode));
+            }
+            RedrawEvent::MouseOn => {
+                tracy_zone!("EditorMouseOn");
+                let _ = self
+                    .event_loop_proxy
+                    .send_event(WindowCommand::SetMouseEnabled(true).into());
+            }
+            RedrawEvent::MouseOff => {
+                tracy_zone!("EditorMouseOff");
+                let _ = self
+                    .event_loop_proxy
+                    .send_event(WindowCommand::SetMouseEnabled(false).into());
+            }
+            RedrawEvent::BusyStart => {
+                tracy_zone!("EditorBusyStart");
+                trace!("Cursor off");
+                self.cursor.enabled = false;
+            }
+            RedrawEvent::BusyStop => {
+                tracy_zone!("EditorBusyStop");
+                trace!("Cursor on");
+                self.cursor.enabled = true;
+            }
+            RedrawEvent::Flush => {
+                tracy_zone!("EditorFlush");
+                trace!("Image flushed");
+                tracy_named_frame!("neovim draw command flush");
+                self.send_cursor_info();
+                {
+                    trace!("send_batch");
+                    self.draw_command_batcher.send_batch(&self.event_loop_proxy);
+                }
+            }
+            RedrawEvent::DefaultColorsSet { colors } => {
+                tracy_zone!("EditorDefaultColorsSet");
+
+                // Set the dark/light theme of window, so the titlebar text gets correct color.
+                #[cfg(target_os = "macos")]
+                if SETTINGS.get::<CmdLineSettings>().frame == Frame::Transparent {
+                    let _ = self.event_loop_proxy.send_event(
+                        WindowCommand::ThemeChanged(window_theme_for_background(colors.background))
+                            .into(),
+                    );
+                }
+
+                self.draw_command_batcher
+                    .queue(DrawCommand::DefaultStyleChanged(Style::new(colors)));
+                self.redraw_screen();
+                self.draw_command_batcher.send_batch(&self.event_loop_proxy);
+            }
+            RedrawEvent::HighlightAttributesDefine { id, style } => {
+                tracy_zone!("EditorHighlightAttributesDefine");
+                self.defined_styles.insert(id, Arc::new(style));
+            }
+            RedrawEvent::CursorGoto {
+                grid,
+                column: left,
+                row: top,
+            } => {
+                tracy_zone!("EditorCursorGoto");
+                self.set_cursor_position(grid, left, top);
+            }
+            RedrawEvent::Resize {
+                grid,
+                width,
+                height,
+            } => {
+                tracy_zone!("EditorResize");
+                self.resize_window(grid, width, height);
+            }
+            RedrawEvent::GridLine {
+                grid,
+                row,
+                column_start,
+                cells,
+            } => {
+                tracy_zone!("EditorGridLine");
+                self.set_ui_ready();
+                let defined_styles = &self.defined_styles;
+                let window = self.windows.get_mut(&grid);
+                if let Some(window) = window {
+                    window.draw_grid_line(row, column_start, cells, defined_styles);
+                }
+            }
+            RedrawEvent::Clear { grid } => {
+                tracy_zone!("EditorClear");
+                let window = self.windows.get_mut(&grid);
+                if let Some(window) = window {
+                    window.clear();
+                }
+            }
+            RedrawEvent::Destroy { grid } => {
+                tracy_zone!("EditorDestroy");
+                self.close_window(grid)
+            }
+            RedrawEvent::Scroll {
+                grid,
+                top,
+                bottom,
+                left,
+                right,
+                rows,
+                columns,
+            } => {
+                tracy_zone!("EditorScroll");
+                let window = self.windows.get_mut(&grid);
+                if let Some(window) = window {
+                    window.scroll_region(top, bottom, left, right, rows, columns);
+                }
+            }
+            RedrawEvent::WindowPosition {
+                grid,
+                start_row,
+                start_column,
+                width,
+                height,
+            } => {
+                tracy_zone!("EditorWindowPosition");
+                self.set_window_position(grid, start_column, start_row, width, height)
+            }
+            RedrawEvent::WindowFloatPosition {
+                grid,
+                anchor,
+                anchor_grid,
+                anchor_column: anchor_left,
+                anchor_row: anchor_top,
+                sort_order,
+                ..
+            } => {
+                tracy_zone!("EditorWindowFloatPosition");
+                self.set_window_float_position(
+                    grid,
+                    anchor_grid,
+                    anchor,
+                    anchor_left,
+                    anchor_top,
+                    sort_order,
+                )
+            }
+            RedrawEvent::WindowHide { grid } => {
+                tracy_zone!("EditorWindowHide");
+                let window = self.windows.get(&grid);
+                if let Some(window) = window {
+                    window.hide();
+                }
+            }
+            RedrawEvent::WindowClose { grid } => {
+                tracy_zone!("EditorWindowClose");
+                self.close_window(grid)
+            }
+            RedrawEvent::MessageSetPosition {
+                grid,
+                row,
+                scrolled,
+                ..
+            } => {
+                tracy_zone!("EditorMessageSetPosition");
+                self.set_message_position(grid, row, scrolled)
+            }
+            RedrawEvent::WindowViewport {
+                grid,
+                // Don't send viewport events if they don't have a scroll delta
+                scroll_delta: Some(scroll_delta),
+                ..
+            } => {
+                tracy_zone!("EditorWindowViewport");
+                self.set_ui_ready();
+                self.send_updated_viewport(grid, scroll_delta)
+            }
+            RedrawEvent::WindowViewportMargins {
+                grid,
+                top,
+                bottom,
+                left,
+                right,
+            } => {
+                tracy_zone!("EditorWindowViewportMargins");
+                self.send_updated_viewport_margins(grid, top, bottom, left, right)
+            }
+            // Interpreting suspend as a window minimize request
+            RedrawEvent::Suspend => {
+                let _ = self
+                    .event_loop_proxy
+                    .send_event(WindowCommand::Minimize.into());
+            }
+            _ => {}
         };
     }
 
@@ -283,8 +312,7 @@ impl Editor {
         if let Some(window) = self.windows.remove(&grid) {
             window.close();
             self.draw_command_batcher
-                .queue(DrawCommand::CloseWindow(grid))
-                .ok();
+                .queue(DrawCommand::CloseWindow(grid));
         }
     }
 
@@ -313,7 +341,7 @@ impl Editor {
                 None,
                 (0.0, 0.0),
                 (width, height),
-                self.draw_command_batcher.clone(),
+                Rc::clone(&self.draw_command_batcher),
             );
             self.windows.insert(grid, window);
         }
@@ -337,7 +365,7 @@ impl Editor {
                 None,
                 (start_left as f64, start_top as f64),
                 (width, height),
-                self.draw_command_batcher.clone(),
+                Rc::clone(&self.draw_command_batcher),
             );
             self.windows.insert(grid, new_window);
         }
@@ -352,6 +380,11 @@ impl Editor {
         anchor_top: f64,
         sort_order: Option<u64>,
     ) {
+        if anchor_grid == grid {
+            warn!("NeoVim requested a window to float relative to itself. This is not supported.");
+            return;
+        }
+
         let parent_position = self.get_window_top_left(anchor_grid);
         if let Some(window) = self.windows.get_mut(&grid) {
             let width = window.get_width();
@@ -381,7 +414,7 @@ impl Editor {
         }
     }
 
-    fn set_message_position(&mut self, grid: u64, grid_top: u64) {
+    fn set_message_position(&mut self, grid: u64, grid_top: u64, scrolled: bool) {
         let parent_width = self
             .windows
             .get(&1)
@@ -397,7 +430,7 @@ impl Editor {
         };
 
         if let Some(window) = self.windows.get_mut(&grid) {
-            window.window_type = WindowType::Message;
+            window.window_type = WindowType::Message { scrolled };
             window.position(
                 Some(anchor_info),
                 (parent_width, window.get_height()),
@@ -407,11 +440,11 @@ impl Editor {
         } else {
             let new_window = Window::new(
                 grid,
-                WindowType::Message,
+                WindowType::Message { scrolled },
                 Some(anchor_info),
                 (0.0, grid_top as f64),
                 (parent_width, 1),
-                self.draw_command_batcher.clone(),
+                Rc::clone(&self.draw_command_batcher),
             );
             self.windows.insert(grid, new_window);
         }
@@ -445,7 +478,7 @@ impl Editor {
 
     fn set_cursor_position(&mut self, grid: u64, grid_left: u64, grid_top: u64) {
         if let Some(Window {
-            window_type: WindowType::Message,
+            window_type: WindowType::Message { .. },
             ..
         }) = self.windows.get(&grid)
         {
@@ -489,8 +522,7 @@ impl Editor {
             self.cursor.grid_cell = (" ".to_string(), None);
         }
         self.draw_command_batcher
-            .queue(DrawCommand::UpdateCursor(self.cursor.clone()))
-            .ok();
+            .queue(DrawCommand::UpdateCursor(self.cursor.clone()));
     }
 
     fn set_option(&mut self, gui_option: GuiOption) {
@@ -499,19 +531,19 @@ impl Editor {
         match gui_option {
             GuiOption::GuiFont(guifont) => {
                 if guifont == *"*" {
-                    EVENT_AGGREGATOR.send(WindowCommand::ListAvailableFonts);
+                    let _ = self
+                        .event_loop_proxy
+                        .send_event(WindowCommand::ListAvailableFonts.into());
+                } else {
+                    self.draw_command_batcher
+                        .queue(DrawCommand::FontChanged(guifont));
+
+                    self.redraw_screen();
                 }
-
-                self.draw_command_batcher
-                    .queue(DrawCommand::FontChanged(guifont))
-                    .ok();
-
-                self.redraw_screen();
             }
             GuiOption::LineSpace(linespace) => {
                 self.draw_command_batcher
-                    .queue(DrawCommand::LineSpaceChanged(linespace))
-                    .ok();
+                    .queue(DrawCommand::LineSpaceChanged(linespace));
 
                 self.redraw_screen();
             }
@@ -527,20 +559,62 @@ impl Editor {
         }
     }
 
+    fn send_updated_viewport_margins(
+        &mut self,
+        grid: u64,
+        top: u64,
+        bottom: u64,
+        left: u64,
+        right: u64,
+    ) {
+        if let Some(window) = self.windows.get_mut(&grid) {
+            window.update_viewport_margins(top, bottom, left, right);
+        } else {
+            trace!("viewport event received before window initialized");
+        }
+    }
+
     fn redraw_screen(&mut self) {
         for window in self.windows.values() {
             window.redraw();
         }
     }
+
+    fn set_ui_ready(&mut self) {
+        if !self.ui_ready {
+            self.ui_ready = true;
+            self.draw_command_batcher.queue(DrawCommand::UIReady);
+        }
+    }
 }
 
-pub fn start_editor() {
+pub fn start_editor(event_loop_proxy: EventLoopProxy<UserEvent>) -> NeovimHandler {
+    let (sender, mut receiver) = unbounded_channel();
+    let handler = NeovimHandler::new(sender, event_loop_proxy.clone());
     thread::spawn(move || {
-        let mut editor = Editor::new();
+        let mut editor = Editor::new(event_loop_proxy);
 
-        let mut editor_command_receiver = EVENT_AGGREGATOR.register_event::<EditorCommand>();
-        while let Some(editor_command) = editor_command_receiver.blocking_recv() {
-            editor.handle_editor_command(editor_command);
+        while let Some(editor_command) = receiver.blocking_recv() {
+            editor.handle_redraw_event(editor_command);
         }
     });
+    handler
+}
+
+/// Based on formula in https://graphicdesign.stackexchange.com/questions/62368/automatically-select-a-foreground-color-based-on-a-background-color
+/// Check if the color is light or dark
+#[cfg(target_os = "macos")]
+fn is_light_color(color: &Color4f) -> bool {
+    0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b > 0.5
+}
+
+/// Get the proper dark/light theme for a background_color.
+#[cfg(target_os = "macos")]
+fn window_theme_for_background(background_color: Option<Color4f>) -> Option<Theme> {
+    background_color?;
+
+    match background_color.unwrap() {
+        color if is_light_color(&color) => Some(Theme::Light),
+        _ => Some(Theme::Dark),
+    }
 }

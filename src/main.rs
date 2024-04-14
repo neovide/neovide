@@ -5,6 +5,10 @@
 #[macro_use]
 extern crate neovide_derive;
 
+#[cfg(test)]
+#[macro_use]
+extern crate approx;
+
 #[macro_use]
 extern crate clap;
 
@@ -15,13 +19,12 @@ mod cmd_line;
 mod dimensions;
 mod editor;
 mod error_handling;
-mod event_aggregator;
 mod frame;
 mod profiling;
-mod redraw_scheduler;
 mod renderer;
 mod running_tracker;
 mod settings;
+mod utils;
 mod window;
 
 #[cfg(target_os = "windows")]
@@ -32,41 +35,45 @@ extern crate derive_new;
 #[macro_use]
 extern crate lazy_static;
 
-use std::env::{self, args};
-
-#[cfg(not(test))]
-use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
-
+use anyhow::Result;
 use log::trace;
-
-use backtrace::Backtrace;
-use bridge::start_bridge;
-use cmd_line::CmdLineSettings;
-use editor::start_editor;
-use renderer::{cursor_renderer::CursorSettings, RendererSettings};
-use settings::SETTINGS;
+use std::env::{self, args};
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::panic::{set_hook, PanicInfo};
 use std::time::SystemTime;
 use time::macros::format_description;
 use time::OffsetDateTime;
-use window::{create_window, KeyboardSettings, WindowSettings};
+use winit::event_loop::EventLoopProxy;
+
+#[cfg(not(test))]
+use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
+
+use backtrace::Backtrace;
+use bridge::NeovimRuntime;
+use cmd_line::CmdLineSettings;
+use error_handling::{handle_startup_errors, NeovideExitCode};
+use renderer::{cursor_renderer::CursorSettings, RendererSettings};
+#[cfg_attr(target_os = "windows", allow(unused_imports))]
+use settings::SETTINGS;
+use window::{
+    create_event_loop, create_window, determine_window_size, main_loop, UserEvent, WindowSettings,
+    WindowSize,
+};
 
 pub use channel_utils::*;
-pub use event_aggregator::*;
 pub use running_tracker::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
-use crate::settings::Config;
+use crate::settings::{load_last_window_settings, Config, FontSettings, PersistentWindowSettings};
 
 pub use profiling::startup_profiler;
 
 const BACKTRACES_FILE: &str = "neovide_backtraces.log";
 const REQUEST_MESSAGE: &str = "This is a bug and we would love for it to be reported to https://github.com/neovide/neovide/issues";
 
-fn main() {
+fn main() -> NeovideExitCode {
     set_hook(Box::new(|panic_info| {
         let backtrace = Backtrace::new();
 
@@ -76,10 +83,26 @@ fn main() {
         log_panic_to_file(panic_info, &backtrace);
     }));
 
-    protected_main()
+    #[cfg(target_os = "windows")]
+    {
+        windows_fix_dpi();
+    }
+
+    let event_loop = create_event_loop();
+
+    match setup(event_loop.create_proxy()) {
+        Err(err) => handle_startup_errors(err, event_loop).into(),
+        Ok((window_size, font_settings, _runtime)) => {
+            clipboard::init(&event_loop);
+            let window = create_window(&event_loop, &window_size);
+            main_loop(window, window_size, font_settings, event_loop).into()
+        }
+    }
 }
 
-fn protected_main() {
+fn setup(
+    proxy: EventLoopProxy<UserEvent>,
+) -> Result<(WindowSize, Option<FontSettings>, NeovimRuntime)> {
     //  --------------
     // | Architecture |
     //  --------------
@@ -99,7 +122,7 @@ fn protected_main() {
     //       This component handles communication from other components to the neovim process. The
     //       commands are split into Serial and Parallel commands. Serial commands must be
     //       processed in order while parallel commands can be processed in any order and in
-    //       parallel.
+    //       parallel. `send_ui` is used to send those commands from the window code.
     //
     // EDITOR:
     //   The editor is responsible for processing and transforming redraw events into something
@@ -127,56 +150,59 @@ fn protected_main() {
     // Neovide also includes some other systems which are globally available via lazy static
     // instantiations.
     //
-    // EVENT AGGREGATOR:
-    //   Central system which distributes events to each of the other components. This is done
-    //   using TypeIds and channels. Any component can publish any Clone + Debug + Send + Sync type
-    //   to the aggregator, but only one component can subscribe to any type. The system takes
-    //   pains to ensure that channels are shared by thread in order to keep things performant.
-    //   Also tokio channels are used so that the async components can properly await for events.
-    //
     // SETTINGS:
     //   The settings system is live updated from global variables in neovim with the prefix
     //   "neovide". They allow us to configure and manage the functionality of neovide from neovim
     //   init scripts and variables.
     //
-    // REDRAW SCHEDULER:
-    //   The redraw scheduler is a simple system in charge of deciding if the renderer should draw
-    //   another frame next frame, or if it can safely skip drawing to save battery and cpu power.
-    //   Multiple other parts of the app "queue_next_frame" function to ensure animations continue
-    //   properly or updates to the graphics are pushed to the screen.
-
-    startup_profiler();
-
-    #[cfg(target_os = "windows")]
-    windows_attach_to_console();
-
-    Config::init();
+    // RUNNING_TRACKER:
+    //   The running tracker responds to quit requests, allowing other systems to check if they
+    //   should terminate for a graceful exit. It also records the exit code (if provided) and
+    //   returns it upon neovide's termination.
+    //
+    //  ------------------
+    // | Communication flow |
+    //  ------------------
+    //
+    // The bridge reads from Neovim, and sends `RedrawEvent` to the editor. Some events are also
+    // sent directly to the window event loop using `WindowCommand`. Finally changed settings are
+    // parsed, which are sent as a window event through `SettingChanged`.
+    //
+    // The editor reads `RedrawEvent` and sends `DrawCommand` to the Window.
+    //
+    // The Window event loop sends UICommand to the bridge, which forwards them to Neovim. It also
+    // reads `DrawCommand`, `SettingChanged`, and `WindowCommand` from the other components.
+    let config = Config::init();
+    Config::watch_config_file(config.clone(), proxy.clone());
 
     //Will exit if -h or -v
-    if let Err(err) = cmd_line::handle_command_line_arguments(args().collect()) {
-        eprintln!("{err}");
-        return;
-    }
+    cmd_line::handle_command_line_arguments(args().collect())?;
+    #[cfg(not(target_os = "windows"))]
+    maybe_disown();
+
+    startup_profiler();
 
     #[cfg(not(test))]
     init_logger();
 
     trace!("Neovide version: {}", crate_version!());
 
-    #[cfg(target_os = "windows")]
-    windows_fix_dpi();
+    SETTINGS.register::<WindowSettings>();
+    SETTINGS.register::<RendererSettings>();
+    SETTINGS.register::<CursorSettings>();
+    let window_settings = load_last_window_settings().ok();
+    let window_size = determine_window_size(window_settings.as_ref());
+    let grid_size = match window_size {
+        WindowSize::Grid(grid_size) => Some(grid_size),
+        _ => match window_settings {
+            Some(PersistentWindowSettings::Windowed { grid_size, .. }) => grid_size,
+            _ => None,
+        },
+    };
 
-    WindowSettings::register();
-    RendererSettings::register();
-    CursorSettings::register();
-    KeyboardSettings::register();
-
-    start_bridge();
-    start_editor();
-    maybe_disown();
-
-    // implicitly takes control over the thread
-    create_window();
+    let mut runtime = NeovimRuntime::new()?;
+    runtime.launch(proxy, grid_size)?;
+    Ok((window_size, config.font, runtime))
 }
 
 #[cfg(not(test))]
@@ -200,24 +226,22 @@ pub fn init_logger() {
     logger.start().expect("Could not start logger");
 }
 
+#[cfg(not(target_os = "windows"))]
 fn maybe_disown() {
     use std::process;
 
     let settings = SETTINGS.get::<CmdLineSettings>();
 
-    if cfg!(debug_assertions) || settings.no_fork {
+    if cfg!(debug_assertions) || !settings.fork {
         return;
     }
-
-    #[cfg(target_os = "windows")]
-    windows_detach_from_console();
 
     if let Ok(current_exe) = env::current_exe() {
         assert!(process::Command::new(current_exe)
             .stdin(process::Stdio::null())
             .stdout(process::Stdio::null())
             .stderr(process::Stdio::null())
-            .arg("--nofork")
+            .arg("--no-fork")
             .args(env::args().skip(1))
             .spawn()
             .is_ok());

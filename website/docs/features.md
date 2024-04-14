@@ -20,15 +20,11 @@ Cursor animates into position with a smear effect to improve tracking of cursor 
 Scroll operations on buffers in neovim will be animated smoothly pixel wise rather than line by line
 at a time.
 
-Note: [multigrid](command-line-reference.md#multigrid) must be enabled for this to work.
-
 <img src="./assets/SmoothScrolling.gif" alt="Smooth Scrolling" width=550>
 
 ## Animated Windows
 
 Windows animate into position when they are moved making it easier to see how layout changes happen.
-
-Note: [multigrid](command-line-reference.md#multigrid) must be enabled for this to work.
 
 <img src="./assets/AnimatedWindows.gif" alt="Animated Windows" width=550>
 
@@ -36,8 +32,6 @@ Note: [multigrid](command-line-reference.md#multigrid) must be enabled for this 
 
 The backgrounds of floating windows are blurred improving the visual separation between foreground
 and background from built in window transparency.
-
-Note: [multigrid](command-line-reference.md#multigrid) must be enabled for this to work.
 
 <img src="./assets/BlurredFloatingWindows.png" alt="Blurred Floating Windows" width=550>
 

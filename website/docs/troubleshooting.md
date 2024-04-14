@@ -27,7 +27,7 @@
 
 - If your scrolling is stuttering
 
-  - Add flag `--novsync` before startup as a quickfix.
+  - Add flags `--no-vsync` and `--no-idle` before startup as a quickfix.
 
   - Check if the value of `g:neovide_refresh_rate` and the refresh rate of your monitor are matched.
 
@@ -36,3 +36,63 @@
     mixed refresh rate out of the box), if so,that's because X11 does not support mixed refresh
     rate well. You may be able to fix this through your compositor or by switching to wayland.
     As a temporary work around, you may set `g:neovide_refresh_rate` to the lower value.
+
+## Performance Profiling
+
+If you encounter a performance problem like frame rate stuttering, besides attaching a log file
+when reporting bugs, [tracy](https://github.com/wolfpld/tracy) profiling data will also be very
+useful and can usually help developers to troubleshoot the bug much faster. Here is how you can
+collect tracy data.
+
+1. *Install tracy.* Windows users can download it at
+[its GitHub release page](https://github.com/wolfpld/tracy/releases). Linux and macOS users can
+install it with package manager. Otherwise, you may have to build it yourself following tracy
+docs.
+
+2. *Build a profiling version of Neovide.* Follow
+[the installation page](https://neovide.dev/installation.html) to install all required
+dependencies and Rust SDK. Download or clone
+[source code of Neovide](https://github.com/neovide/neovide). Build it with following commands.
+Note that you need to specify **both** `--profile profiling` and `--features profiling`, so that
+Neovide is built for a profiling version. Or, you can skip these commands, and let `cargo run`
+in step 5 build it automatically before running.
+
+    ```sh
+    cd [neovide-source-dir]
+    cargo build --profile profiling --features profiling
+    ```
+
+3. *Prepare tracy for collecting data.* Start tracy with,
+
+    ```sh
+    tracy-capture -o [log-file-path]
+    ```
+
+    You will see output like this,
+
+    ```plain
+    Connecting to 127.0.0.1:8086...
+    ```
+
+    It means tracy begins to wait for Neovide and will capture profiling data once it starts.
+
+4. *Running Neovide and reproduce the performance issue.* Start Neovide with following
+commands in another terminal. If you have built Neovide with commands in step 3, this should
+be very fast. If not, it will build Neovide first. You have to specify
+`--profile profiling` and `--features profiling` here, too.
+
+    ```sh
+    cd [neovide-source-dir]
+    cargo run --profile profiling --features profiling -- --no-fork [neovide-arguments...]
+    ```
+
+    Now do whatever leads to performance issue in Neovide and exit.
+
+5. *Get the tracy data and report bugs with it.* Turn to tracy, you will see output like,
+
+    ```plain
+    Saving trace... done!
+    ```
+
+    You will find tracy log file at the path you specified before. Attach it in your bug
+    report! You can also view it yourself with `tracy [log-file-path]`.

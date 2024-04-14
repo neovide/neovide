@@ -1,41 +1,51 @@
-use std::{collections::VecDeque, sync::Arc};
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use skia_safe::{
-    canvas::{SaveLayerRec, SrcRectConstraint},
-    gpu::{Budgeted, SurfaceOrigin},
+    canvas::SaveLayerRec,
     image_filters::blur,
-    BlendMode, Canvas, Color, Image, ImageInfo, Paint, Point, Rect, SamplingOptions, Surface,
-    SurfaceProps, SurfacePropsFlags,
+    scalar,
+    utils::shadow_utils::{draw_shadow, ShadowFlags},
+    BlendMode, Canvas, ClipOp, Color, Contains, Matrix, Paint, Path, Picture, PictureRecorder,
+    Point, Point3, Rect,
 };
 
 use crate::{
+    cmd_line::CmdLineSettings,
     dimensions::Dimensions,
-    editor::Style,
-    profiling::tracy_zone,
-    redraw_scheduler::REDRAW_SCHEDULER,
+    editor::{AnchorInfo, Style, WindowType},
+    profiling::{tracy_plot, tracy_zone},
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
+    settings::SETTINGS,
+    utils::RingBuffer,
 };
-use winit::dpi::PhysicalSize;
 
-use super::opengl::clamp_render_buffer_size;
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct LineFragment {
     pub text: String,
     pub window_left: u64,
-    pub window_top: u64,
     pub width: u64,
     pub style: Option<Arc<Style>>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
+pub struct ViewportMargins {
+    pub top: u64,
+    pub bottom: u64,
+    pub inferred: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum WindowDrawCommand {
     Position {
         grid_position: (f64, f64),
         grid_size: (u64, u64),
-        floating_order: Option<u64>,
+        anchor_info: Option<AnchorInfo>,
+        window_type: WindowType,
     },
-    DrawLine(Vec<LineFragment>),
+    DrawLine {
+        row: usize,
+        line_fragments: Vec<LineFragment>,
+    },
     Scroll {
         top: u64,
         bottom: u64,
@@ -51,112 +61,47 @@ pub enum WindowDrawCommand {
     Viewport {
         scroll_delta: f64,
     },
+    ViewportMargins {
+        top: u64,
+        bottom: u64,
+        left: u64,
+        right: u64,
+    },
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub struct WindowPadding {
-    pub top: u32,
-    pub left: u32,
-    pub right: u32,
-    pub bottom: u32,
-}
-
-fn build_window_surface(parent_canvas: &mut Canvas, pixel_size: PhysicalSize<u32>) -> Surface {
-    let pixel_size = clamp_render_buffer_size(pixel_size);
-    let mut context = parent_canvas.recording_context().unwrap();
-    let budgeted = Budgeted::Yes;
-    let parent_image_info = parent_canvas.image_info();
-    let image_info = ImageInfo::new(
-        (pixel_size.width as i32, pixel_size.height as i32),
-        parent_image_info.color_type(),
-        parent_image_info.alpha_type(),
-        parent_image_info.color_space(),
-    );
-    let surface_origin = SurfaceOrigin::TopLeft;
-    // Subpixel layout (should be configurable/obtained from fontconfig).
-    let props = SurfaceProps::new(SurfacePropsFlags::default(), skia_safe::PixelGeometry::RGBH);
-    Surface::new_render_target(
-        &mut context,
-        budgeted,
-        &image_info,
-        None,
-        surface_origin,
-        Some(&props),
-        None,
-    )
-    .expect("Could not create surface")
-}
-
-fn build_window_surface_with_grid_size(
-    parent_canvas: &mut Canvas,
-    grid_renderer: &GridRenderer,
-    grid_size: Dimensions,
-) -> Surface {
-    let mut surface = build_window_surface(
-        parent_canvas,
-        (grid_size * grid_renderer.font_dimensions).into(),
-    );
-
-    let canvas = surface.canvas();
-    canvas.clear(grid_renderer.get_default_background());
-    surface
-}
-
-pub struct LocatedSnapshot {
-    image: Image,
-    vertical_position: f32,
-}
-
-pub struct LocatedSurface {
-    surface: Surface,
-    pub vertical_position: f32,
-}
-
-impl LocatedSurface {
-    fn new(
-        parent_canvas: &mut Canvas,
-        grid_renderer: &GridRenderer,
-        grid_size: Dimensions,
-        vertical_position: f32,
-    ) -> LocatedSurface {
-        let surface = build_window_surface_with_grid_size(parent_canvas, grid_renderer, grid_size);
-
-        LocatedSurface {
-            surface,
-            vertical_position,
-        }
-    }
-
-    fn snapshot(&mut self) -> LocatedSnapshot {
-        let image = self.surface.image_snapshot();
-        LocatedSnapshot {
-            image,
-            vertical_position: self.vertical_position,
-        }
-    }
+#[derive(Clone)]
+struct Line {
+    line_fragments: Vec<LineFragment>,
+    background_picture: Option<Picture>,
+    foreground_picture: Option<Picture>,
+    has_transparency: bool,
+    is_inferred_border: bool,
+    is_valid: bool,
 }
 
 pub struct RenderedWindow {
-    snapshots: VecDeque<LocatedSnapshot>,
-    pub current_surface: LocatedSurface,
+    pub vertical_position: f32,
 
     pub id: u64,
     pub hidden: bool,
-    pub floating_order: Option<u64>,
+    pub anchor_info: Option<AnchorInfo>,
+    window_type: WindowType,
 
     pub grid_size: Dimensions,
+
+    scrollback_lines: RingBuffer<Option<Rc<RefCell<Line>>>>,
+    actual_lines: RingBuffer<Option<Rc<RefCell<Line>>>>,
+    scroll_delta: isize,
+    pub viewport_margins: ViewportMargins,
 
     grid_start_position: Point,
     pub grid_current_position: Point,
     grid_destination: Point,
     position_t: f32,
 
-    start_scroll: f32,
-    pub current_scroll: f32,
-    scroll_destination: f32,
-    scroll_t: f32,
+    pub scroll_animation: CriticallyDampedSpringAnimation,
 
-    pub padding: WindowPadding,
+    has_transparency: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -166,36 +111,44 @@ pub struct WindowDrawDetails {
     pub floating_order: Option<u64>,
 }
 
-impl RenderedWindow {
-    pub fn new(
-        parent_canvas: &mut Canvas,
-        grid_renderer: &GridRenderer,
-        id: u64,
-        grid_position: Point,
-        grid_size: Dimensions,
-        padding: WindowPadding,
-    ) -> RenderedWindow {
-        let current_surface = LocatedSurface::new(parent_canvas, grid_renderer, grid_size, 0.);
+impl WindowDrawDetails {
+    pub fn event_grid_id(&self) -> u64 {
+        if SETTINGS.get::<CmdLineSettings>().no_multi_grid {
+            0
+        } else {
+            self.id
+        }
+    }
+}
 
+impl RenderedWindow {
+    pub fn new(id: u64, grid_position: Point, grid_size: Dimensions) -> RenderedWindow {
         RenderedWindow {
-            snapshots: VecDeque::new(),
-            current_surface,
+            vertical_position: 0.0,
             id,
             hidden: false,
-            floating_order: None,
+            anchor_info: None,
+            window_type: WindowType::Editor,
 
             grid_size,
+
+            actual_lines: RingBuffer::new(grid_size.height as usize, None),
+            scrollback_lines: RingBuffer::new(2 * grid_size.height as usize, None),
+            scroll_delta: 0,
+            viewport_margins: ViewportMargins {
+                top: 0,
+                bottom: 0,
+                inferred: true,
+            },
 
             grid_start_position: grid_position,
             grid_current_position: grid_position,
             grid_destination: grid_position,
             position_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation.
 
-            start_scroll: 0.0,
-            current_scroll: 0.0,
-            scroll_destination: 0.0,
-            scroll_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation.
-            padding,
+            scroll_animation: CriticallyDampedSpringAnimation::new(),
+
+            has_transparency: false,
         }
     }
 
@@ -210,70 +163,273 @@ impl RenderedWindow {
         Rect::from_point_and_size(current_pixel_position, image_size)
     }
 
-    pub fn update(&mut self, settings: &RendererSettings, dt: f32) -> bool {
-        let mut animating = false;
+    fn get_target_position(&self, outer_size: &Dimensions, padding_as_grid: &Rect) -> Point {
+        let destination = Point {
+            x: self.grid_destination.x + padding_as_grid.left,
+            y: self.grid_destination.y + padding_as_grid.top,
+        };
 
-        {
-            if 1.0 - self.position_t < std::f32::EPSILON {
-                // We are at destination, move t out of 0-1 range to stop the animation.
-                self.position_t = 2.0;
-            } else {
-                animating = true;
-                self.position_t =
-                    (self.position_t + dt / settings.position_animation_length).min(1.0);
-            }
-
-            self.grid_current_position = ease_point(
-                ease_out_expo,
-                self.grid_start_position,
-                self.grid_destination,
-                self.position_t,
-            );
+        if self.anchor_info.is_none() {
+            return destination;
         }
 
-        {
-            if 1.0 - self.scroll_t < std::f32::EPSILON {
-                // We are at destination, move t out of 0-1 range to stop the animation.
-                self.scroll_t = 2.0;
-                self.snapshots.clear();
-            } else {
-                animating = true;
-                self.scroll_t = (self.scroll_t + dt / settings.scroll_animation_length).min(1.0);
-            }
+        // Note the rect is always as far top/left as possible, which means that the right and
+        // bottom paddings might be bigger than requested. This is done in order to avoid the text
+        // moving around when the window is resized.
+        let valid_rect = Rect {
+            left: padding_as_grid.left,
+            right: padding_as_grid.left + outer_size.width as scalar,
+            top: padding_as_grid.top,
+            bottom: padding_as_grid.top + outer_size.height as scalar,
+        };
 
-            self.current_scroll = ease(
-                ease_out_expo,
-                self.start_scroll,
-                self.scroll_destination,
-                self.scroll_t,
-            );
+        let mut grid_size = Point::new(self.grid_size.width as f32, self.grid_size.height as f32);
+        if matches!(self.window_type, WindowType::Message { .. }) {
+            // The message grid size is always the full window size, so use the relative position to
+            // calculate the actual grid size
+            grid_size.y -= self.grid_destination.y;
+        }
+
+        let x = destination
+            .x
+            .min(valid_rect.right - grid_size.x)
+            .max(valid_rect.left);
+
+        // For messages the last line is most important, (it shows press enter), so let the position go negative
+        // Otherwise ensure that the window start row is within the screen
+        let mut y = destination.y.min(valid_rect.bottom - grid_size.y);
+        if matches!(self.window_type, WindowType::Message { .. }) {
+            y = y.max(valid_rect.top)
+        }
+        Point { x, y }
+    }
+
+    /// Returns `true` if the window has been animated in this step.
+    pub fn animate(
+        &mut self,
+        settings: &RendererSettings,
+        outer_size: &Dimensions,
+        padding_as_grid: &Rect,
+        dt: f32,
+    ) -> bool {
+        let mut animating = false;
+
+        if 1.0 - self.position_t < std::f32::EPSILON {
+            // We are at destination, move t out of 0-1 range to stop the animation.
+            self.position_t = 2.0;
+        } else {
+            animating = true;
+            self.position_t = (self.position_t + dt / settings.position_animation_length).min(1.0);
+        }
+
+        let prev_position = self.grid_current_position;
+        self.grid_current_position = ease_point(
+            ease_out_expo,
+            self.grid_start_position,
+            self.get_target_position(outer_size, padding_as_grid),
+            self.position_t,
+        );
+        animating |= self.grid_current_position != prev_position;
+
+        let scrolling = self
+            .scroll_animation
+            .update(dt, settings.scroll_animation_length);
+
+        animating |= scrolling;
+
+        if scrolling {
+            tracy_plot!("Scroll position {}", self.scroll_animation.position.into());
         }
 
         animating
     }
 
+    pub fn draw_surface(
+        &mut self,
+        canvas: &Canvas,
+        pixel_region: &Rect,
+        font_dimensions: Dimensions,
+        default_background: Color,
+    ) {
+        let scroll_offset_lines = self.scroll_animation.position.floor();
+        let scroll_offset = scroll_offset_lines - self.scroll_animation.position;
+        let scroll_offset_lines = scroll_offset_lines as isize;
+        let scroll_offset_pixels = (scroll_offset * font_dimensions.height as f32).round() as isize;
+        let line_height = font_dimensions.height as f32;
+        let mut has_transparency = false;
+
+        let lines: Vec<(Matrix, &Rc<RefCell<Line>>)> = if !self.scrollback_lines.is_empty() {
+            (0..self.grid_size.height as isize + 1)
+                .filter_map(|i| {
+                    self.scrollback_lines[scroll_offset_lines + i]
+                        .as_ref()
+                        .map(|line| (i, line))
+                })
+                .map(|(i, line)| {
+                    let mut matrix = Matrix::new_identity();
+                    matrix.set_translate((
+                        pixel_region.left(),
+                        pixel_region.top()
+                            + (scroll_offset_pixels
+                                + ((i + self.viewport_margins.top as isize)
+                                    * font_dimensions.height as isize))
+                                as f32,
+                    ));
+                    (matrix, line)
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+
+        let top_border_indices = 0..self.viewport_margins.top as isize;
+        let actual_line_count = self.actual_lines.len() as isize;
+        let bottom_border_indices =
+            actual_line_count - self.viewport_margins.bottom as isize..actual_line_count;
+        let margins_inferred = self.viewport_margins.inferred;
+
+        let border_lines: Vec<_> = top_border_indices
+            .chain(bottom_border_indices)
+            .filter_map(|i| {
+                self.actual_lines[i].as_ref().and_then(|line| {
+                    if !margins_inferred || line.borrow().is_inferred_border {
+                        Some((i, line))
+                    } else {
+                        None
+                    }
+                })
+            })
+            .map(|(i, line)| {
+                let mut matrix = Matrix::new_identity();
+                matrix.set_translate((
+                    pixel_region.left(),
+                    pixel_region.top() + (i * font_dimensions.height as isize) as f32,
+                ));
+                (matrix, line)
+            })
+            .collect();
+
+        let inner_region = Rect::from_xywh(
+            pixel_region.x(),
+            pixel_region.y() + self.viewport_margins.top as f32 * line_height,
+            pixel_region.width(),
+            pixel_region.height()
+                - (self.viewport_margins.top + self.viewport_margins.bottom) as f32 * line_height,
+        );
+
+        let mut background_paint = Paint::default();
+        background_paint.set_blend_mode(BlendMode::Src);
+        background_paint.set_alpha(default_background.a());
+
+        let save_layer_rec = SaveLayerRec::default()
+            .bounds(pixel_region)
+            .paint(&background_paint);
+        canvas.save_layer(&save_layer_rec);
+        canvas.clear(default_background.with_a(255));
+        for (matrix, line) in &border_lines {
+            let line = line.borrow();
+            if let Some(background_picture) = &line.background_picture {
+                has_transparency |= line.has_transparency;
+                canvas.draw_picture(background_picture, Some(matrix), None);
+            }
+        }
+        canvas.save();
+        canvas.clip_rect(inner_region, None, false);
+        for (matrix, line) in &lines {
+            let line = line.borrow();
+            if let Some(background_picture) = &line.background_picture {
+                has_transparency |= line.has_transparency;
+                canvas.draw_picture(background_picture, Some(matrix), None);
+            }
+        }
+        canvas.restore();
+        canvas.restore();
+
+        for (matrix, line) in &border_lines {
+            let line = line.borrow();
+            if let Some(foreground_picture) = &line.foreground_picture {
+                canvas.draw_picture(foreground_picture, Some(matrix), None);
+            }
+        }
+        canvas.save();
+        canvas.clip_rect(inner_region, None, false);
+        for (matrix, line) in &lines {
+            let line = line.borrow();
+            if let Some(foreground_picture) = &line.foreground_picture {
+                canvas.draw_picture(foreground_picture, Some(matrix), None);
+            }
+        }
+        canvas.restore();
+        self.has_transparency = has_transparency;
+    }
+
+    fn has_transparency(&self) -> bool {
+        let scroll_offset_lines = self.scroll_animation.position.floor() as isize;
+        if self.scrollback_lines.is_empty() {
+            return false;
+        }
+        self.scrollback_lines
+            .iter_range(
+                scroll_offset_lines..scroll_offset_lines + self.grid_size.height as isize + 1,
+            )
+            .flatten()
+            .any(|line| line.borrow().has_transparency)
+    }
+
     pub fn draw(
         &mut self,
-        root_canvas: &mut Canvas,
+        root_canvas: &Canvas,
         settings: &RendererSettings,
         default_background: Color,
         font_dimensions: Dimensions,
-        dt: f32,
+        previous_floating_rects: &mut Vec<Rect>,
     ) -> WindowDrawDetails {
-        if self.update(settings, dt) {
-            REDRAW_SCHEDULER.queue_next_frame();
-        }
+        let has_transparency = default_background.a() != 255 || self.has_transparency();
 
         let pixel_region = self.pixel_region(font_dimensions);
+        let transparent_floating = self.anchor_info.is_some() && has_transparency;
+
+        if self.anchor_info.is_some()
+            && settings.floating_shadow
+            && !previous_floating_rects
+                .iter()
+                .any(|rect| rect.contains(pixel_region))
+        {
+            root_canvas.save();
+            let shadow_path = Path::rect(pixel_region, None);
+            // We clip using the Difference op to make sure that the shadow isn't rendered inside
+            // the window itself.
+            root_canvas.clip_path(&shadow_path, Some(ClipOp::Difference), None);
+            // The light angle is specified in degrees from the vertical, so we first convert them
+            // to radians and then use sin/cos to get the y and z components of the light
+            let light_angle_radians = settings.light_angle_degrees.to_radians();
+            draw_shadow(
+                root_canvas,
+                &shadow_path,
+                // Specifies how far from the root canvas the shadow casting rect is. We just use
+                // the z component here to set it a constant distance away.
+                Point3::new(0., 0., settings.floating_z_height),
+                // Because we use the DIRECTIONAL_LIGHT shadow flag, this specifies the angle that
+                // the light is coming from.
+                Point3::new(0., -light_angle_radians.sin(), light_angle_radians.cos()),
+                // This is roughly equal to the apparent radius of the light .
+                5.,
+                Color::from_argb((0.03 * 255.) as u8, 0, 0, 0),
+                Color::from_argb((0.35 * 255.) as u8, 0, 0, 0),
+                // Directional Light flag is necessary to make the shadow render consistently
+                // across various sizes of floating windows. It effects how the light direction is
+                // processed.
+                Some(ShadowFlags::DIRECTIONAL_LIGHT),
+            );
+            root_canvas.restore();
+            previous_floating_rects.push(pixel_region);
+        }
 
         root_canvas.save();
         root_canvas.clip_rect(pixel_region, None, Some(false));
+        let need_blur = transparent_floating && settings.floating_blur;
 
-        if self.floating_order.is_none() {
-            root_canvas.clear(default_background);
-        }
-
-        if self.floating_order.is_some() && settings.floating_blur {
+        if need_blur {
             if let Some(blur) = blur(
                 (
                     settings.floating_blur_amount_x,
@@ -283,97 +439,61 @@ impl RenderedWindow {
                 None,
                 None,
             ) {
+                let paint = Paint::default()
+                    .set_anti_alias(false)
+                    .set_blend_mode(BlendMode::Src)
+                    .to_owned();
                 let save_layer_rec = SaveLayerRec::default()
                     .backdrop(&blur)
-                    .bounds(&pixel_region);
-
+                    .bounds(&pixel_region)
+                    .paint(&paint);
                 root_canvas.save_layer(&save_layer_rec);
+                root_canvas.restore();
             }
         }
 
-        let mut paint = Paint::default();
-        // We want each surface to overwrite the one underneath and will use layers to ensure
-        // only lower priority surfaces will get clobbered and not the underlying windows.
-        paint.set_blend_mode(BlendMode::Src);
-        paint.set_anti_alias(false);
+        let paint = Paint::default()
+            .set_anti_alias(false)
+            .set_color(Color::from_argb(255, 255, 255, default_background.a()))
+            .set_blend_mode(if self.anchor_info.is_some() {
+                BlendMode::SrcOver
+            } else {
+                BlendMode::Src
+            })
+            .to_owned();
 
-        // Save layer so that setting the blend mode doesn't effect the blur.
-        root_canvas.save_layer(&SaveLayerRec::default());
-        let mut a = 255;
-        if self.floating_order.is_some() {
-            a = (settings.floating_opacity.min(1.0).max(0.0) * 255.0) as u8;
-        }
-
-        paint.set_color(default_background.with_a(a));
-        root_canvas.draw_rect(pixel_region, &paint);
-
-        paint.set_color(Color::from_argb(255, 255, 255, 255));
-
-        let font_height = font_dimensions.height;
-
-        // Draw scrolling snapshots.
-        for snapshot in self.snapshots.iter_mut().rev() {
-            let scroll_offset =
-                (snapshot.vertical_position - self.current_scroll) * font_height as f32;
-            let image = &mut snapshot.image;
-            root_canvas.draw_image_rect(
-                image,
-                None,
-                pixel_region.with_offset((0.0, scroll_offset)),
-                &paint,
-            );
-        }
-
-        // Draw current surface.
-        let scroll_offset =
-            (self.current_surface.vertical_position - self.current_scroll) * font_height as f32;
-        let snapshot = self.current_surface.surface.image_snapshot();
-        root_canvas.draw_image_rect(
-            snapshot,
-            None,
-            pixel_region.with_offset((0.0, scroll_offset)),
-            &paint,
+        let save_layer_rec = SaveLayerRec::default().bounds(&pixel_region).paint(&paint);
+        root_canvas.save_layer(&save_layer_rec);
+        self.draw_surface(
+            root_canvas,
+            &pixel_region,
+            font_dimensions,
+            default_background,
         );
-
         root_canvas.restore();
-
-        if self.floating_order.is_some() {
-            root_canvas.restore();
-        }
 
         root_canvas.restore();
 
         WindowDrawDetails {
             id: self.id,
             region: pixel_region,
-            floating_order: self.floating_order,
+            floating_order: self.anchor_info.as_ref().map(|v| v.sort_order),
         }
     }
 
-    pub fn handle_window_draw_command(
-        &mut self,
-        grid_renderer: &mut GridRenderer,
-        draw_command: WindowDrawCommand,
-    ) {
+    pub fn handle_window_draw_command(&mut self, draw_command: WindowDrawCommand) {
         match draw_command {
             WindowDrawCommand::Position {
                 grid_position: (grid_left, grid_top),
                 grid_size,
-                floating_order,
+                anchor_info,
+                window_type,
             } => {
                 tracy_zone!("position_cmd", 0);
-                let Dimensions {
-                    width: font_width,
-                    height: font_height,
-                } = grid_renderer.font_dimensions;
 
-                let top_offset = self.padding.top as f32 / font_height as f32;
-                let left_offset = self.padding.left as f32 / font_width as f32;
-
-                let grid_left = grid_left.max(0.0);
-                let grid_top = grid_top.max(0.0);
-                let new_destination: Point =
-                    (grid_left as f32 + left_offset, grid_top as f32 + top_offset).into();
+                let grid_left = grid_left.max(0.0) as f32;
+                let grid_top = grid_top.max(0.0) as f32;
+                let new_destination: Point = (grid_left, grid_top).into();
                 let new_grid_size: Dimensions = grid_size.into();
 
                 if self.grid_destination != new_destination {
@@ -391,24 +511,20 @@ impl RenderedWindow {
                     self.grid_destination = new_destination;
                 }
 
-                if self.grid_size != new_grid_size {
-                    let mut new_surface = build_window_surface_with_grid_size(
-                        self.current_surface.surface.canvas(),
-                        grid_renderer,
-                        new_grid_size,
-                    );
-                    self.current_surface.surface.draw(
-                        new_surface.canvas(),
-                        (0.0, 0.0),
-                        SamplingOptions::default(),
-                        None,
-                    );
+                let height = new_grid_size.height as usize;
+                self.actual_lines.resize(height, None);
+                self.grid_size = new_grid_size;
 
-                    self.current_surface.surface = new_surface;
-                    self.grid_size = new_grid_size;
+                self.scrollback_lines.resize(2 * height, None);
+                self.scrollback_lines.clone_from_iter(&self.actual_lines);
+                self.scroll_delta = 0;
+
+                if height != self.actual_lines.len() {
+                    self.scroll_animation.reset();
                 }
 
-                self.floating_order = floating_order;
+                self.anchor_info = anchor_info;
+                self.window_type = window_type;
 
                 if self.hidden {
                     self.hidden = false;
@@ -418,41 +534,54 @@ impl RenderedWindow {
                     self.grid_destination = new_destination;
                 }
             }
-            WindowDrawCommand::DrawLine(line_fragments) => {
+            WindowDrawCommand::DrawLine {
+                row,
+                line_fragments,
+            } => {
                 tracy_zone!("draw_line_cmd", 0);
-                let canvas = self.current_surface.surface.canvas();
 
-                canvas.save();
-                for line_fragment in line_fragments.iter() {
-                    let LineFragment {
-                        window_left,
-                        window_top,
-                        width,
-                        style,
-                        ..
-                    } = line_fragment;
-                    let grid_position = (*window_left, *window_top);
-                    grid_renderer.draw_background(
-                        canvas,
-                        grid_position,
-                        *width,
-                        style,
-                        self.floating_order.is_some(),
-                    );
+                let mut line = Line {
+                    line_fragments,
+                    background_picture: None,
+                    foreground_picture: None,
+                    has_transparency: false,
+                    is_inferred_border: false,
+                    is_valid: false,
+                };
+
+                if self.viewport_margins.inferred {
+                    let check_border = |fragment: &LineFragment, check: &dyn Fn(&str) -> bool| {
+                        fragment.style.as_ref().map_or(false, |style| {
+                            style.infos.last().map_or(false, |info| {
+                                // The specification seems to indicate that kind should be UI and
+                                // then we only need to test ui_name. But at least for FloatTitle,
+                                // that is not the case, the kind is set to syntax and hi_name is
+                                // set.
+                                check(&info.ui_name) || check(&info.hi_name)
+                            })
+                        })
+                    };
+
+                    let float_border =
+                        |s: &str| matches!(s, "FloatBorder" | "FloatTitle" | "FloatFooter");
+                    let winbar = |s: &str| matches!(s, "WinBar" | "WinBarNC");
+
+                    // Lines with purly border highlight groups are considered borders.
+                    line.is_inferred_border = line
+                        .line_fragments
+                        .iter()
+                        .map(|fragment| check_border(fragment, &float_border))
+                        .all(|v| v);
+
+                    // And also lines with a winbar highlight anywhere
+                    line.is_inferred_border |= line
+                        .line_fragments
+                        .iter()
+                        .map(|fragment| check_border(fragment, &winbar))
+                        .any(|v| v)
                 }
 
-                for line_fragment in line_fragments.into_iter() {
-                    let LineFragment {
-                        text,
-                        window_left,
-                        window_top,
-                        width,
-                        style,
-                    } = line_fragment;
-                    let grid_position = (window_left, window_top);
-                    grid_renderer.draw_foreground(canvas, text, grid_position, width, &style);
-                }
-                canvas.restore();
+                self.actual_lines[row] = Some(Rc::new(RefCell::new(line)));
             }
             WindowDrawCommand::Scroll {
                 top,
@@ -463,47 +592,22 @@ impl RenderedWindow {
                 cols,
             } => {
                 tracy_zone!("scroll_cmd", 0);
-                let Dimensions {
-                    width: font_width,
-                    height: font_height,
-                } = grid_renderer.font_dimensions;
-                let scrolled_region = Rect::new(
-                    (left * font_width) as f32,
-                    (top * font_height) as f32,
-                    (right * font_width) as f32,
-                    (bottom * font_height) as f32,
-                );
-
-                let mut translated_region = scrolled_region;
-                translated_region.offset((
-                    -cols as f32 * font_width as f32,
-                    -rows as f32 * font_height as f32,
-                ));
-
-                let snapshot = self.current_surface.surface.image_snapshot();
-                let canvas = self.current_surface.surface.canvas();
-
-                canvas.save();
-
-                canvas.clip_rect(scrolled_region, None, Some(false));
-                canvas.draw_image_rect(
-                    snapshot,
-                    Some((&scrolled_region, SrcRectConstraint::Fast)),
-                    translated_region,
-                    &grid_renderer.paint,
-                );
-
-                canvas.restore();
+                if top == 0
+                    && bottom == self.grid_size.height
+                    && left == 0
+                    && right == self.grid_size.width
+                    && cols == 0
+                {
+                    self.actual_lines.rotate(rows as isize);
+                }
             }
             WindowDrawCommand::Clear => {
                 tracy_zone!("clear_cmd", 0);
-                self.current_surface.surface = build_window_surface_with_grid_size(
-                    self.current_surface.surface.canvas(),
-                    grid_renderer,
-                    self.grid_size,
-                );
-
-                self.snapshots.clear();
+                self.scroll_delta = 0;
+                self.scrollback_lines
+                    .iter_mut()
+                    .for_each(|line| *line = None);
+                self.scroll_animation.reset();
             }
             WindowDrawCommand::Show => {
                 tracy_zone!("show_cmd", 0);
@@ -512,31 +616,201 @@ impl RenderedWindow {
                     self.position_t = 2.0; // We don't want to animate since the window is becoming visible,
                                            // so we set t to 2.0 to stop animations.
                     self.grid_start_position = self.grid_destination;
+                    self.scroll_animation.reset();
                 }
             }
             WindowDrawCommand::Hide => {
                 tracy_zone!("hide_cmd", 0);
                 self.hidden = true;
             }
-            WindowDrawCommand::Viewport { scroll_delta, .. } => {
-                tracy_zone!("viewport_cmd", 0);
-                if scroll_delta.abs() > f64::EPSILON {
-                    let new_snapshot = self.current_surface.snapshot();
-                    self.snapshots.push_back(new_snapshot);
-
-                    if self.snapshots.len() > 5 {
-                        self.snapshots.pop_front();
-                    }
-
-                    self.current_surface.vertical_position += scroll_delta as f32;
-
-                    // Set new target viewport position and initialize animation timer.
-                    self.start_scroll = self.current_scroll;
-                    self.scroll_destination = self.current_surface.vertical_position;
-                    self.scroll_t = 0.0;
+            WindowDrawCommand::Viewport { scroll_delta } => {
+                log::trace!("Handling Viewport {}", self.id);
+                self.scroll_delta = scroll_delta.round() as isize;
+            }
+            WindowDrawCommand::ViewportMargins { top, bottom, .. } => {
+                self.viewport_margins = ViewportMargins {
+                    top,
+                    bottom,
+                    inferred: false,
                 }
             }
             _ => {}
         };
+    }
+
+    fn infer_viewport_margins(&mut self) {
+        if self.viewport_margins.inferred {
+            self.viewport_margins.top = self
+                .actual_lines
+                .iter()
+                .take_while(|line| {
+                    if let Some(line) = line {
+                        line.borrow().is_inferred_border
+                    } else {
+                        false
+                    }
+                })
+                .count() as u64;
+            self.viewport_margins.bottom = (self.viewport_margins.top as usize
+                ..self.actual_lines.len())
+                .rev()
+                .map(|i| self.actual_lines[i].as_ref())
+                .take_while(|line| {
+                    if let Some(line) = line {
+                        line.borrow().is_inferred_border
+                    } else {
+                        false
+                    }
+                })
+                .count() as u64;
+        }
+    }
+
+    pub fn flush(&mut self, renderer_settings: &RendererSettings) {
+        self.infer_viewport_margins();
+
+        // If the borders are changed, reset the scrollback to only fit the inner view
+        let inner_range = self.viewport_margins.top as isize
+            ..(self.actual_lines.len() - self.viewport_margins.bottom as usize) as isize;
+        let inner_size = inner_range.len();
+        let inner_view = self.actual_lines.iter_range(inner_range);
+        if inner_size != self.scrollback_lines.len() / 2 {
+            self.scrollback_lines.resize(2 * inner_size, None);
+            self.scrollback_lines.clone_from_iter(inner_view);
+            self.scroll_delta = 0;
+            self.scroll_animation.reset();
+            return;
+        }
+
+        let scroll_delta = self.scroll_delta;
+        self.scrollback_lines.rotate(scroll_delta);
+
+        self.scrollback_lines.clone_from_iter(inner_view);
+
+        if scroll_delta != 0 {
+            let mut scroll_offset = self.scroll_animation.position;
+
+            let max_delta = self.scrollback_lines.len() - self.grid_size.height as usize;
+            log::trace!(
+                "Scroll offset {scroll_offset}, delta {scroll_delta}, max_delta {max_delta}"
+            );
+            // Do a limited scroll with empty lines when scrolling far
+            if scroll_delta.unsigned_abs() > max_delta {
+                let far_lines = renderer_settings
+                    .scroll_animation_far_lines
+                    .min(self.actual_lines.len() as u32) as isize;
+
+                scroll_offset = -(far_lines * scroll_delta.signum()) as f32;
+                let empty_lines = if scroll_delta > 0 {
+                    -far_lines..0
+                } else {
+                    self.actual_lines.len() as isize..self.actual_lines.len() as isize + far_lines
+                };
+                for i in empty_lines {
+                    self.scrollback_lines[i] = None;
+                }
+            // And even when scrolling in steps, we can't let it drift too far, since the
+            // buffer size is limited
+            } else {
+                scroll_offset -= scroll_delta as f32;
+                scroll_offset = scroll_offset.clamp(-(max_delta as f32), max_delta as f32);
+            }
+            self.scroll_animation.position = scroll_offset;
+            log::trace!("Current scroll {scroll_offset}");
+        }
+        self.scroll_delta = 0;
+    }
+
+    pub fn prepare_lines(&mut self, grid_renderer: &mut GridRenderer) {
+        let scroll_offset_lines = self.scroll_animation.position.floor() as isize;
+        let height = self.grid_size.height as isize;
+        if height == 0 {
+            return;
+        }
+        let font_dimensions = grid_renderer.font_dimensions;
+
+        let mut prepare_line = |line: &Rc<RefCell<Line>>| {
+            let mut line = line.borrow_mut();
+            if line.is_valid {
+                return;
+            }
+
+            let mut recorder = PictureRecorder::new();
+
+            let grid_rect = Rect::from_wh(
+                (self.grid_size.width * font_dimensions.width) as f32,
+                font_dimensions.height as f32,
+            );
+            let canvas = recorder.begin_recording(grid_rect, None);
+
+            let mut has_transparency = false;
+            let mut custom_background = false;
+
+            for line_fragment in line.line_fragments.iter() {
+                let LineFragment {
+                    window_left,
+                    width,
+                    style,
+                    ..
+                } = line_fragment;
+                let grid_position = (*window_left, 0);
+                let background_info =
+                    grid_renderer.draw_background(canvas, grid_position, *width, style);
+                custom_background |= background_info.custom_color;
+                has_transparency |= background_info.transparent;
+            }
+            let background_picture =
+                custom_background.then_some(recorder.finish_recording_as_picture(None).unwrap());
+
+            let canvas = recorder.begin_recording(grid_rect, None);
+            let mut foreground_drawn = false;
+            for line_fragment in &line.line_fragments {
+                let LineFragment {
+                    text,
+                    window_left,
+                    width,
+                    style,
+                } = line_fragment;
+                let grid_position = (*window_left, 0);
+
+                foreground_drawn |=
+                    grid_renderer.draw_foreground(canvas, text, grid_position, *width, style);
+            }
+            let foreground_picture =
+                foreground_drawn.then_some(recorder.finish_recording_as_picture(None).unwrap());
+
+            line.background_picture = background_picture;
+            line.foreground_picture = foreground_picture;
+            line.has_transparency = has_transparency;
+            line.is_valid = true;
+        };
+
+        if !self.scrollback_lines.is_empty() {
+            for line in self
+                .scrollback_lines
+                .iter_range_mut(scroll_offset_lines..scroll_offset_lines + height + 1)
+                .flatten()
+            {
+                prepare_line(line)
+            }
+        }
+
+        for line in self
+            .actual_lines
+            .iter_range_mut(0..self.viewport_margins.top as isize)
+            .flatten()
+        {
+            prepare_line(line)
+        }
+        let actual_line_count = self.actual_lines.len() as isize;
+        for line in self
+            .actual_lines
+            .iter_range_mut(
+                actual_line_count - self.viewport_margins.bottom as isize..actual_line_count,
+            )
+            .flatten()
+        {
+            prepare_line(line)
+        }
     }
 }
