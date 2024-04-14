@@ -553,13 +553,13 @@ Possible values are `Both`, `OnlyLeft`, `OnlyRight`, `None`. Set to `None` by de
 VimScript:
 
 ```vim
-let g:neovide_input_macos_option_key_is_meta = "OnlyLeft"
+let g:neovide_input_macos_option_key_is_meta = 'OnlyLeft'
 ```
 
 Lua:
 
 ```lua
-vim.g.neovide_input_macos_option_key_is_meta = "OnlyLeft"
+vim.g.neovide_input_macos_option_key_is_meta = 'OnlyLeft'
 ```
 
 **Available since 0.10.**
