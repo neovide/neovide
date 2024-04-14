@@ -1,16 +1,16 @@
 use crate::bridge::{send_ui, SerialCommand};
 
 use crate::window::UserEvent;
-#[cfg(target_os = "macos")]
-use {
-    crate::{settings::SETTINGS, window::WindowSettings},
-    winit::{keyboard::ModifiersKeyState, platform::macos::OptionAsAlt},
-};
 #[allow(unused_imports)]
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use winit::{
     event::{ElementState, Event, Ime, KeyEvent, Modifiers, WindowEvent},
     keyboard::{Key, KeyCode, KeyLocation, NamedKey, PhysicalKey},
+};
+#[cfg(target_os = "macos")]
+use {
+    crate::{settings::SETTINGS, window::WindowSettings},
+    winit::{keyboard::ModifiersKeyState, platform::macos::OptionAsAlt},
 };
 
 use crate::profiling::tracy_named_frame;
@@ -78,9 +78,7 @@ impl KeyboardManager {
                 {
                     let ws = SETTINGS.get::<WindowSettings>();
                     self.meta_is_pressed = match ws.input_macos_option_key_is_meta.0 {
-                        OptionAsAlt::Both => {
-                            self.modifiers.state().alt_key()
-                        }
+                        OptionAsAlt::Both => self.modifiers.state().alt_key(),
                         OptionAsAlt::OnlyLeft => {
                             self.modifiers.lalt_state() == ModifiersKeyState::Pressed
                         }

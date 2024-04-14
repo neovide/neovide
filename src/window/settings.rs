@@ -2,7 +2,10 @@
 use {
     log::error,
     rmpv::{Utf8String, Value},
-    serde::{de::{value, IntoDeserializer}, Deserialize},
+    serde::{
+        de::{value, IntoDeserializer},
+        Deserialize,
+    },
     winit::platform::macos::OptionAsAlt,
 };
 
