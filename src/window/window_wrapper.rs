@@ -2,6 +2,10 @@ use super::{
     KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged,
 };
 
+#[cfg(target_os = "macos")]
+use winit::platform::macos::{OptionAsAlt, WindowExtMacOS};
+use crate::window::settings::OptionAsMeta;
+
 #[cfg(windows)]
 use crate::windows_utils::{register_right_click, unregister_right_click};
 use crate::{
@@ -72,6 +76,8 @@ pub struct WinitWindowWrapper {
     initial_window_size: WindowSize,
     is_minimized: bool,
     theme: Option<Theme>,
+    #[cfg(target_os = "macos")]
+    macos_option_is_meta: OptionAsAlt,
     pub vsync: VSync,
     #[cfg(target_os = "macos")]
     pub macos_feature: MacosWindowFeature,
@@ -102,9 +108,10 @@ impl WinitWindowWrapper {
 
         let WindowSettings {
             input_ime,
+            input_macos_option_key_is_meta,
             theme,
-            window_blurred,
             transparency,
+            window_blurred,
             ..
         } = SETTINGS.get::<WindowSettings>();
 
@@ -143,6 +150,7 @@ impl WinitWindowWrapper {
             saved_grid_size: None,
             ime_enabled: input_ime,
             ime_position: PhysicalPosition::new(-1, -1),
+            macos_option_is_meta: OptionAsAlt::None,
             requested_columns: None,
             requested_lines: None,
             ui_state: UIState::Initing,
@@ -174,6 +182,11 @@ impl WinitWindowWrapper {
         }
 
         self.fullscreen = !self.fullscreen;
+    }
+
+    pub fn set_macos_option_is_meta(&mut self, option: OptionAsAlt) {
+        self.macos_option_is_meta = option;
+        self.skia_renderer.window().set_option_as_alt(option);
     }
 
     pub fn minimize_window(&mut self) {
@@ -237,6 +250,12 @@ impl WinitWindowWrapper {
                 let WindowSettings { transparency, .. } = SETTINGS.get::<WindowSettings>();
                 let transparent = transparency < 1.0;
                 self.skia_renderer.window().set_blur(blur && transparent);
+            }
+            #[cfg(target_os = "macos")]
+            WindowSettingsChanged::InputMacosOptionKeyIsMeta(option) => {
+                if self.macos_option_is_meta != option.0 {
+                    self.set_macos_option_is_meta(option.0)
+                }
             }
             _ => {}
         };
