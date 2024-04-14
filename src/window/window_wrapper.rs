@@ -2,9 +2,9 @@ use super::{
     KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged,
 };
 
+use crate::window::settings::OptionAsMeta;
 #[cfg(target_os = "macos")]
 use winit::platform::macos::{OptionAsAlt, WindowExtMacOS};
-use crate::window::settings::OptionAsMeta;
 
 #[cfg(windows)]
 use crate::windows_utils::{register_right_click, unregister_right_click};
