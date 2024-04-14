@@ -202,16 +202,12 @@ impl CachingShaper {
     pub fn font_base_dimensions(&mut self) -> PixelSize<f32> {
         let (metrics, glyph_advance) = self.info();
 
-        let bare_font_height = (metrics.ascent + metrics.descent + metrics.leading).ceil();
+        let bare_font_height = metrics.ascent + metrics.descent + metrics.leading;
+        // assuming that linespace is checked on receive for validity
         let font_height = bare_font_height + self.linespace;
         let font_width = glyph_advance + self.options.width;
 
-        (
-            font_width,
-            font_height, // assuming that linespace is checked on receive for
-                         // validity
-        )
-            .into()
+        (font_width, font_height).into()
     }
 
     pub fn underline_position(&mut self) -> f32 {
@@ -220,7 +216,7 @@ impl CachingShaper {
 
     pub fn y_adjustment(&mut self) -> f32 {
         let metrics = self.metrics();
-        (metrics.ascent + metrics.leading + self.linespace / 2.).ceil()
+        metrics.ascent + metrics.leading + self.linespace / 2.
     }
 
     fn build_clusters(
