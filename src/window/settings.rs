@@ -1,3 +1,11 @@
+#[cfg(target_os = "macos")]
+use {
+    log::error,
+    rmpv::{Utf8String, Value},
+    serde::{de::{value, IntoDeserializer}, Deserialize},
+    winit::platform::macos::OptionAsAlt,
+};
+
 use crate::{cmd_line::CmdLineSettings, settings::*};
 
 #[derive(Clone, SettingGroup, PartialEq)]
@@ -22,7 +30,7 @@ pub struct WindowSettings {
     pub padding_right: u32,
     pub padding_bottom: u32,
     pub theme: String,
-    pub input_macos_alt_is_meta: bool,
+    pub input_macos_option_key_is_meta: OptionAsMeta,
     pub input_ime: bool,
     pub unlink_border_highlights: bool,
     pub show_border: bool,
@@ -58,7 +66,7 @@ impl Default for WindowSettings {
             padding_right: 0,
             padding_bottom: 0,
             theme: "".to_string(),
-            input_macos_alt_is_meta: false,
+            input_macos_option_key_is_meta: OptionAsMeta(OptionAsAlt::None),
             input_ime: true,
             mouse_move_event: false,
             observed_lines: None,
@@ -66,5 +74,29 @@ impl Default for WindowSettings {
             unlink_border_highlights: true,
             show_border: false,
         }
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+pub struct OptionAsMeta(pub OptionAsAlt);
+
+#[cfg(target_os = "macos")]
+impl ParseFromValue for OptionAsMeta {
+    fn parse_from_value(&mut self, value: Value) {
+        let s = value.as_str().unwrap();
+        match OptionAsAlt::deserialize(s.into_deserializer()) as Result<OptionAsAlt, value::Error> {
+            Ok(oa) => *self = OptionAsMeta(oa),
+            Err(e) => error!("Setting neovide_input_macos_option_key_is_meta expected one of OnlyLeft, OnlyRight, Both, or None, but received {:?}: {:?}", e, value),
+        };
+    }
+}
+
+#[cfg(target_os = "macos")]
+impl From<OptionAsMeta> for Value {
+    fn from(oam: OptionAsMeta) -> Self {
+        let s = serde_json::to_string(&oam.0).unwrap();
+        Value::String(Utf8String::from(s))
     }
 }

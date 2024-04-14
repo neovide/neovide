@@ -76,8 +76,8 @@ impl KeyboardManager {
 
                 #[cfg(target_os = "macos")]
                 {
-                    let ks = SETTINGS.get::<KeyboardSettings>();
-                    self.meta_is_pressed = match ks.macos_option_key_is_meta.0 {
+                    let ws = SETTINGS.get::<WindowSettings>();
+                    self.meta_is_pressed = match ws.input_macos_option_key_is_meta.0 {
                         OptionAsAlt::Both => {
                             self.modifiers.state().alt_key()
                         }
