@@ -1,12 +1,9 @@
 use std::{num::NonZeroUsize, sync::Arc};
 
 use itertools::Itertools;
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, info, trace};
 use lru::LruCache;
-use skia_safe::{
-    graphics::{font_cache_limit, font_cache_used, set_font_cache_limit},
-    TextBlob, TextBlobBuilder,
-};
+use skia_safe::{graphics::set_font_cache_limit, TextBlob, TextBlobBuilder};
 use swash::{
     shape::ShapeContext,
     text::{
@@ -29,6 +26,8 @@ struct ShapeKey {
     pub text: String,
     pub style: CoarseStyle,
 }
+
+const FONT_CACHE_SIZE: usize = 8 * 1024 * 1024;
 
 pub struct CachingShaper {
     options: FontOptions,
@@ -352,16 +351,10 @@ impl CachingShaper {
         grouped_results
     }
 
-    pub fn adjust_font_cache_size(&self) {
-        let current_font_cache_size = font_cache_limit() as f32;
-        let percent_font_cache_used = font_cache_used() as f32 / current_font_cache_size;
-        if percent_font_cache_used > 0.9 {
-            warn!(
-                "Font cache is {}% full, increasing cache size",
-                percent_font_cache_used * 100.0
-            );
-            set_font_cache_limit((percent_font_cache_used * 1.5) as usize);
-        }
+    pub fn cleanup_font_cache(&self) {
+        tracy_zone!("purge_font_cache");
+        set_font_cache_limit(FONT_CACHE_SIZE / 2);
+        set_font_cache_limit(FONT_CACHE_SIZE);
     }
 
     pub fn shape(&mut self, text: String, style: CoarseStyle) -> Vec<TextBlob> {
@@ -419,8 +412,6 @@ impl CachingShaper {
             let blob = blob_builder.make();
             resulting_blobs.push(blob.expect("Could not create textblob"));
         }
-
-        self.adjust_font_cache_size();
 
         resulting_blobs
     }
