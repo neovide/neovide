@@ -5,8 +5,8 @@ use {
     serde::{
         de::{value, IntoDeserializer},
         Deserialize,
+        Serialize,
     },
-    winit::platform::macos::OptionAsAlt,
 };
 
 use crate::{cmd_line::CmdLineSettings, settings::*};
@@ -80,6 +80,17 @@ impl Default for WindowSettings {
     }
 }
 
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+#[cfg(target_os = "macos")]
+pub enum OptionAsAlt {
+    OnlyLeft,
+    OnlyRight,
+    Both,
+    #[default]
+    None,
+}
+
 #[cfg(target_os = "macos")]
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -88,11 +99,19 @@ pub struct OptionAsMeta(pub OptionAsAlt);
 #[cfg(target_os = "macos")]
 impl ParseFromValue for OptionAsMeta {
     fn parse_from_value(&mut self, value: Value) {
-        let s = value.as_str().unwrap();
-        match OptionAsAlt::deserialize(s.into_deserializer()) as Result<OptionAsAlt, value::Error> {
-            Ok(oa) => *self = OptionAsMeta(oa),
-            Err(e) => error!("Setting neovide_input_macos_option_key_is_meta expected one of OnlyLeft, OnlyRight, Both, or None, but received {:?}: {:?}", e, value),
-        };
+        match value.as_str() {
+            Some(value) => {
+                dbg!(value);
+            }
+            _ => error!(
+                "Setting neovide_input_macos_option_key_is_meta expected one of OnlyLeft, OnlyRight, Both, or None, but received {:?}",
+                value
+            ),
+        }
+        // match OptionAsAlt::deserialize(s.into_deserializer()) as Result<OptionAsAlt, value::Error> {
+        //     Ok(oa) => *self = OptionAsMeta(oa),
+        //     Err(e) => error!("Setting neovide_input_macos_option_key_is_meta expected one of OnlyLeft, OnlyRight, Both, or None, but received {:?}: {:?}", e, value),
+        // };
     }
 }
 

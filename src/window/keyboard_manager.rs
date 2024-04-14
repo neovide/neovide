@@ -9,8 +9,8 @@ use winit::{
 };
 #[cfg(target_os = "macos")]
 use {
-    crate::{settings::SETTINGS, window::WindowSettings},
-    winit::{keyboard::ModifiersKeyState, platform::macos::OptionAsAlt},
+    crate::{settings::SETTINGS, window::settings::OptionAsAlt, window::WindowSettings},
+    winit::keyboard::ModifiersKeyState,
 };
 
 use crate::profiling::tracy_named_frame;

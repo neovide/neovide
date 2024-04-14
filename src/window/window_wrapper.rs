@@ -3,7 +3,10 @@ use super::{
 };
 
 #[cfg(target_os = "macos")]
-use winit::platform::macos::{OptionAsAlt, WindowExtMacOS};
+use {
+    crate::window::settings,
+    winit::platform::macos::{self, WindowExtMacOS},
+};
 
 #[cfg(windows)]
 use crate::windows_utils::{register_right_click, unregister_right_click};
@@ -76,7 +79,7 @@ pub struct WinitWindowWrapper {
     is_minimized: bool,
     theme: Option<Theme>,
     #[cfg(target_os = "macos")]
-    macos_option_is_meta: OptionAsAlt,
+    macos_option_is_meta: settings::OptionAsAlt,
     pub vsync: VSync,
     #[cfg(target_os = "macos")]
     pub macos_feature: MacosWindowFeature,
@@ -149,7 +152,7 @@ impl WinitWindowWrapper {
             saved_grid_size: None,
             ime_enabled: input_ime,
             ime_position: PhysicalPosition::new(-1, -1),
-            macos_option_is_meta: OptionAsAlt::None,
+            macos_option_is_meta: settings::OptionAsAlt::None,
             requested_columns: None,
             requested_lines: None,
             ui_state: UIState::Initing,
@@ -183,9 +186,15 @@ impl WinitWindowWrapper {
         self.fullscreen = !self.fullscreen;
     }
 
-    pub fn set_macos_option_is_meta(&mut self, option: OptionAsAlt) {
+    pub fn set_macos_option_is_meta(&mut self, option: settings::OptionAsAlt) {
         self.macos_option_is_meta = option;
-        self.skia_renderer.window().set_option_as_alt(option);
+        let winit_option = match option {
+            settings::OptionAsAlt::OnlyLeft => macos::OptionAsAlt::OnlyLeft,
+            settings::OptionAsAlt::OnlyRight => macos::OptionAsAlt::OnlyRight,
+            settings::OptionAsAlt::Both => macos::OptionAsAlt::Both,
+            settings::OptionAsAlt::None => macos::OptionAsAlt::None,
+        };
+        self.skia_renderer.window().set_option_as_alt(winit_option);
     }
 
     pub fn minimize_window(&mut self) {
