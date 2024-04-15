@@ -79,7 +79,6 @@ pub struct WinitWindowWrapper {
     is_minimized: bool,
     theme: Option<Theme>,
     #[cfg(target_os = "macos")]
-    macos_option_as_meta: settings::OptionAsMeta,
     pub vsync: VSync,
     #[cfg(target_os = "macos")]
     pub macos_feature: MacosWindowFeature,
@@ -152,7 +151,6 @@ impl WinitWindowWrapper {
             ime_enabled: input_ime,
             ime_position: PhysicalPosition::new(-1, -1),
             #[cfg(target_os = "macos")]
-            macos_option_as_meta: settings::OptionAsMeta::None,
             requested_columns: None,
             requested_lines: None,
             ui_state: UIState::Initing,
@@ -194,8 +192,9 @@ impl WinitWindowWrapper {
             settings::OptionAsMeta::Both => macos::OptionAsAlt::Both,
             settings::OptionAsMeta::None => macos::OptionAsAlt::None,
         };
-        self.macos_option_as_meta = option;
-        self.skia_renderer.window().set_option_as_alt(winit_option);
+        if winit_option != self.skia_renderer.window().option_as_alt() {
+            self.skia_renderer.window().set_option_as_alt(winit_option);
+        }
     }
 
     pub fn minimize_window(&mut self) {
@@ -262,9 +261,7 @@ impl WinitWindowWrapper {
             }
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::InputMacosOptionKeyIsMeta(option) => {
-                if self.macos_option_as_meta != option {
-                    self.set_macos_option_as_meta(option);
-                }
+                self.set_macos_option_as_meta(option);
             }
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::InputMacosAltIsMeta(enabled) => {
