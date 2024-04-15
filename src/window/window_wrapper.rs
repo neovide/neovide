@@ -274,8 +274,7 @@ impl WinitWindowWrapper {
             _ => {}
         };
         #[cfg(target_os = "macos")]
-        self.macos_feature
-            .handle_settings_changed(self.skia_renderer.window(), changed_setting);
+        self.macos_feature.handle_settings_changed(changed_setting);
     }
 
     pub fn handle_title_changed(&mut self, new_title: String) {

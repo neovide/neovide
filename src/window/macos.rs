@@ -118,7 +118,7 @@ impl MacosWindowFeature {
             is_fullscreen,
         };
 
-        macos_window_feature.update_background(window, true);
+        macos_window_feature.update_background(true);
 
         macos_window_feature
     }
@@ -226,8 +226,8 @@ impl MacosWindowFeature {
         }
     }
 
-    /// Update background color, opacity, shadow and blur of a window.
-    fn update_background(&self, window: &Window, ignore_deprecation_warning: bool) {
+    // Update background color, opacity, shadow and blur of a window.
+    fn update_background(&self, ignore_deprecation_warning: bool) {
         let WindowSettings {
             background_color,
             show_border,
@@ -242,23 +242,23 @@ impl MacosWindowFeature {
         }
     }
 
-    pub fn handle_settings_changed(&self, window: &Window, changed_setting: WindowSettingsChanged) {
+    pub fn handle_settings_changed(&self, changed_setting: WindowSettingsChanged) {
         match changed_setting {
             WindowSettingsChanged::BackgroundColor(background_color) => {
                 log::info!("background_color changed to {}", background_color);
-                self.update_background(window, false);
+                self.update_background(false);
             }
             WindowSettingsChanged::ShowBorder(show_border) => {
                 log::info!("show_border changed to {}", show_border);
-                self.update_background(window, true);
+                self.update_background(true);
             }
             WindowSettingsChanged::Transparency(transparency) => {
                 log::info!("transparency changed to {}", transparency);
-                self.update_background(window, true);
+                self.update_background(true);
             }
             WindowSettingsChanged::WindowBlurred(window_blurred) => {
                 log::info!("window_blurred changed to {}", window_blurred);
-                self.update_background(window, true);
+                self.update_background(true);
             }
             _ => {}
         }
