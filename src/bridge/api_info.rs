@@ -48,7 +48,7 @@ impl ApiVersion {
             || (actual_major == major && actual_minor > minor)
             || (actual_major == major && actual_minor == minor && actual_patch >= patch);
         log::trace!("has desired nvim version: {ret}");
-        return ret;
+        ret
     }
 }
 
