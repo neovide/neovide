@@ -110,7 +110,6 @@ impl WinitWindowWrapper {
 
         let WindowSettings {
             input_ime,
-            input_macos_option_key_is_meta,
             theme,
             transparency,
             window_blurred,
