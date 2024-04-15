@@ -78,7 +78,6 @@ pub struct WinitWindowWrapper {
     initial_window_size: WindowSize,
     is_minimized: bool,
     theme: Option<Theme>,
-    #[cfg(target_os = "macos")]
     pub vsync: VSync,
     #[cfg(target_os = "macos")]
     pub macos_feature: MacosWindowFeature,
@@ -150,7 +149,6 @@ impl WinitWindowWrapper {
             saved_grid_size: None,
             ime_enabled: input_ime,
             ime_position: PhysicalPosition::new(-1, -1),
-            #[cfg(target_os = "macos")]
             requested_columns: None,
             requested_lines: None,
             ui_state: UIState::Initing,
