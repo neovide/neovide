@@ -265,7 +265,7 @@ impl WinitWindowWrapper {
             WindowSettingsChanged::InputMacosAltIsMeta(enabled) => {
                 if enabled {
                     error_msg!(concat!(
-                        "neovide_input_macos_alt_is_meta has now been deprecated. ",
+                        "neovide_input_macos_alt_is_meta has now been removed. ",
                         "Use neovide_input_macos_option_key_is_meta instead. ",
                         "Please check https://neovide.dev/configuration.html#macos-option-key-is-meta for more information.",
                     ));
