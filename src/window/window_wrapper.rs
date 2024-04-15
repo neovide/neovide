@@ -186,6 +186,7 @@ impl WinitWindowWrapper {
         self.fullscreen = !self.fullscreen;
     }
 
+    #[cfg(target_os = "macos")]
     pub fn set_macos_option_as_meta(&mut self, option: settings::OptionAsMeta) {
         let winit_option = match option {
             settings::OptionAsMeta::OnlyLeft => macos::OptionAsAlt::OnlyLeft,

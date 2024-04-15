@@ -25,7 +25,9 @@ pub struct WindowSettings {
     pub padding_right: u32,
     pub padding_bottom: u32,
     pub theme: String,
+    #[cfg(target_os = "macos")]
     pub input_macos_alt_is_meta: bool,
+    #[cfg(target_os = "macos")]
     pub input_macos_option_key_is_meta: OptionAsMeta,
     pub input_ime: bool,
     pub unlink_border_highlights: bool,
@@ -62,7 +64,9 @@ impl Default for WindowSettings {
             padding_right: 0,
             padding_bottom: 0,
             theme: "".to_string(),
+            #[cfg(target_os = "macos")]
             input_macos_alt_is_meta: false,
+            #[cfg(target_os = "macos")]
             input_macos_option_key_is_meta: OptionAsMeta::None,
             input_ime: true,
             mouse_move_event: false,
