@@ -100,7 +100,10 @@ impl ParseFromValue for OptionAsMeta {
                 }
             };
         } else {
-            error!("neovide_input_macos_option_key_is_meta expected string, but received {:?}", value);
+            error!(
+                "neovide_input_macos_option_key_is_meta expected string, but received {:?}",
+                value
+            );
         }
     }
 }
