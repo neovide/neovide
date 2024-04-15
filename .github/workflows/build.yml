@@ -5,7 +5,18 @@ permissions:
   contents: read
 
 on:
+  # Allow manual triggering
+  workflow_dispatch:
+  # Always run on pull requests
+  pull_request:
+  # And on master when manually pushed or after merges
+    paths-ignore:
+      - "website/**"
+      - ".vscode/**"
+      - "**.md"
   push:
+    branches:
+      main
     paths-ignore:
       - "website/**"
       - ".vscode/**"
@@ -30,20 +41,20 @@ jobs:
         os: [windows-latest, macOS-12, ubuntu-latest]
         toolchain: [stable, nightly]
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.toolchain == 'nightly' }}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Setup toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ matrix.toolchain }}
+          components: clippy
 
       - name: Show toolchain info
         run: cargo --version --verbose
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -70,22 +81,42 @@ jobs:
 
       - name: Prepare test results
         run: |
-          mkdir -p test-results
-          mv target/nextest/ci/results-*.xml test-results/
-
+          mkdir -p test-results-${{ matrix.os }}-${{ matrix.toolchain }}
+          mv target/nextest/ci/results-*.xml test-results-${{ matrix.os }}-${{ matrix.toolchain }}/
       - name: Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: test-results
+          name: test-results-${{ matrix.os }}-${{ matrix.toolchain }}
           path: |
-            test-results
+            test-results-${{ matrix.os }}-${{ matrix.toolchain }}
+
+      - name: Install Cargo Binstall
+        uses: cargo-bins/cargo-binstall@main
+
+      - name: Install Sarif
+        run: cargo binstall -y clippy-sarif sarif-fmt
+
+      - name: Setup Reviewdog
+        uses: reviewdog/action-setup@v1
+        with:
+          reviewdog_version: latest
+
+      - name: Run Clippy
+        run: cargo clippy --all-targets --message-format=json | clippy-sarif | tee clippy.sarif | sarif-fmt
+        continue-on-error: true
+
+      - name: Run Clippy Reviewdog
+        run: cat clippy.sarif | reviewdog -f=sarif -name=clippy -reporter=github-check -filter-mode=file -fail-on-error=true -level=warning
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   event-upload:
     needs: test
     name: Upload Test Event
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: test-event
           path: ${{ github.event_path }}
@@ -100,9 +131,9 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -146,7 +177,7 @@ jobs:
             # x86
             cargo build --locked --release --target=x86_64-apple-darwin
             cargo bundle --release --target=x86_64-apple-darwin
-            # arch 
+            # arch
             cargo build --locked --release --target=aarch64-apple-darwin
             cargo bundle --release --target=aarch64-apple-darwin
 
@@ -188,7 +219,7 @@ jobs:
             curl -Lo linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/latest/download/linuxdeploy-x86_64.AppImage
             chmod +x linuxdeploy
             curl -Lo linuxdeploy-plugin-appimage https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/latest/download/linuxdeploy-plugin-appimage-x86_64.AppImage
-            chmod +x linuxdeploy-plugin-appimage 
+            chmod +x linuxdeploy-plugin-appimage
 
             export LDAI_OUTPUT=neovide.AppImage
             export LDAI_UPDATE_INFORMATION="gh-releases-zsync|neovide|neovide|latest|neovide.AppImage.zsync"
@@ -205,19 +236,19 @@ jobs:
             echo "ARTIFACT3=neovide.AppImage.zsync" >> $GITHUB_ENV
           fi
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT }}
           path: target/release/${{ env.ARTIFACT }}
 
       - if: env.ARTIFACT2
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT2 }}
           path: target/release/${{ env.ARTIFACT2 }}
 
       - if: env.ARTIFACT3
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT3 }}
           path: target/release/${{ env.ARTIFACT3 }}
