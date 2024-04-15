@@ -95,13 +95,13 @@ impl ParseFromValue for OptionAsMeta {
                 "both" => OptionAsMeta(OptionAsAlt::Both),
                 "none" => OptionAsMeta(OptionAsAlt::None),
                 value => {
-                    error!("neovide_input_macos_option_key_is_meta expected one of only_left, only_right, both, or none, but received {:?}", value);
+                    error!("Setting OptionAsMeta expected one of `only_left`, `only_right`, `both`, or `none`, but received {:?}", value);
                     return;
                 }
             };
         } else {
             error!(
-                "neovide_input_macos_option_key_is_meta expected string, but received {:?}",
+                "Setting OptionAsMeta expected string, but received {:?}",
                 value
             );
         }
