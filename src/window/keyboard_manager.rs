@@ -69,8 +69,7 @@ impl KeyboardManager {
                 event: WindowEvent::ModifiersChanged(modifiers),
                 ..
             } => {
-                // Record the modifier states so that we can properly add them to the keybinding
-                // text
+                // Record the modifier states so that we can properly add them to the keybinding text
                 log::trace!("{:?}", *modifiers);
                 self.modifiers = *modifiers;
 

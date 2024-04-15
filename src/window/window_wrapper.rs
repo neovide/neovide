@@ -4,7 +4,7 @@ use super::{
 
 #[cfg(target_os = "macos")]
 use {
-    crate::window::settings,
+    crate::{error_msg, window::settings},
     winit::platform::macos::{self, WindowExtMacOS},
 };
 
@@ -79,7 +79,7 @@ pub struct WinitWindowWrapper {
     is_minimized: bool,
     theme: Option<Theme>,
     #[cfg(target_os = "macos")]
-    macos_option_is_meta: settings::OptionAsMeta,
+    macos_option_as_meta: settings::OptionAsMeta,
     pub vsync: VSync,
     #[cfg(target_os = "macos")]
     pub macos_feature: MacosWindowFeature,
@@ -151,7 +151,8 @@ impl WinitWindowWrapper {
             saved_grid_size: None,
             ime_enabled: input_ime,
             ime_position: PhysicalPosition::new(-1, -1),
-            macos_option_is_meta: settings::OptionAsMeta::None,
+            #[cfg(target_os = "macos")]
+            macos_option_as_meta: settings::OptionAsMeta::None,
             requested_columns: None,
             requested_lines: None,
             ui_state: UIState::Initing,
@@ -185,14 +186,14 @@ impl WinitWindowWrapper {
         self.fullscreen = !self.fullscreen;
     }
 
-    pub fn set_macos_option_is_meta(&mut self, option: settings::OptionAsMeta) {
-        self.macos_option_is_meta = option;
+    pub fn set_macos_option_as_meta(&mut self, option: settings::OptionAsMeta) {
         let winit_option = match option {
             settings::OptionAsMeta::OnlyLeft => macos::OptionAsAlt::OnlyLeft,
             settings::OptionAsMeta::OnlyRight => macos::OptionAsAlt::OnlyRight,
             settings::OptionAsMeta::Both => macos::OptionAsAlt::Both,
             settings::OptionAsMeta::None => macos::OptionAsAlt::None,
         };
+        self.macos_option_as_meta = option;
         self.skia_renderer.window().set_option_as_alt(winit_option);
     }
 
@@ -260,8 +261,18 @@ impl WinitWindowWrapper {
             }
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::InputMacosOptionKeyIsMeta(option) => {
-                if self.macos_option_is_meta != option {
-                    self.set_macos_option_is_meta(option)
+                if self.macos_option_as_meta != option {
+                    self.set_macos_option_as_meta(option);
+                }
+            }
+            #[cfg(target_os = "macos")]
+            WindowSettingsChanged::InputMacosAltIsMeta(enabled) => {
+                if enabled {
+                    error_msg!(concat!(
+                        "neovide_input_macos_alt_is_meta has now been deprecated. ",
+                        "Use neovide_input_macos_option_key_is_meta instead. ",
+                        "Please check https://neovide.dev/configuration.html#macos-option-key-is-meta for more information.",
+                    ));
                 }
             }
             _ => {}
