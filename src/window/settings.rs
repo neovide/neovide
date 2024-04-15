@@ -95,20 +95,20 @@ impl ParseFromValue for OptionAsMeta {
                 "both" => OptionAsMeta(OptionAsAlt::Both),
                 "none" => OptionAsMeta(OptionAsAlt::None),
                 value => {
-                    error!("Setting neovide_input_macos_option_key_is_meta expected one of only_left, only_right, both, or none, but received {:?}", value);
+                    error!("neovide_input_macos_option_key_is_meta expected one of only_left, only_right, both, or none, but received {:?}", value);
                     return;
                 }
             };
         } else {
-            error!("Expected a neovide_input_macos_option_key_is_meta string, but received {:?}", value);
+            error!("neovide_input_macos_option_key_is_meta expected string, but received {:?}", value);
         }
     }
 }
 
 #[cfg(target_os = "macos")]
 impl From<OptionAsMeta> for Value {
-    fn from(oam: OptionAsMeta) -> Self {
-        match oam.0 {
+    fn from(meta: OptionAsMeta) -> Self {
+        match meta.0 {
             OptionAsAlt::OnlyLeft => Value::from("only_left"),
             OptionAsAlt::OnlyRight => Value::from("only_right"),
             OptionAsAlt::Both => Value::from("both"),
