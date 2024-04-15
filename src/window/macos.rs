@@ -182,10 +182,6 @@ impl MacosWindowFeature {
         ));
     }
 
-    #[deprecated(
-        since = "0.12.2",
-        note = "This function will be removed in the future."
-    )]
     fn update_ns_background_legacy(
         &self,
         color: Color,
