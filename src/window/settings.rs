@@ -1,13 +1,5 @@
 #[cfg(target_os = "macos")]
-use {
-    log::error,
-    rmpv::{Utf8String, Value},
-    serde::{
-        de::{value, IntoDeserializer},
-        Deserialize,
-        Serialize,
-    },
-};
+use {log::error, rmpv::Value};
 
 use crate::{cmd_line::CmdLineSettings, settings::*};
 
@@ -80,45 +72,47 @@ impl Default for WindowSettings {
     }
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg(target_os = "macos")]
 pub enum OptionAsAlt {
     OnlyLeft,
     OnlyRight,
     Both,
-    #[default]
     None,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg(target_os = "macos")]
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct OptionAsMeta(pub OptionAsAlt);
 
 #[cfg(target_os = "macos")]
 impl ParseFromValue for OptionAsMeta {
     fn parse_from_value(&mut self, value: Value) {
-        match value.as_str() {
-            Some(value) => {
-                dbg!(value);
-            }
-            _ => error!(
-                "Setting neovide_input_macos_option_key_is_meta expected one of OnlyLeft, OnlyRight, Both, or None, but received {:?}",
-                value
-            ),
+        if value.is_str() {
+            *self = match value.as_str().unwrap() {
+                "only_left" => OptionAsMeta(OptionAsAlt::OnlyLeft),
+                "only_right" => OptionAsMeta(OptionAsAlt::OnlyRight),
+                "both" => OptionAsMeta(OptionAsAlt::Both),
+                "none" => OptionAsMeta(OptionAsAlt::None),
+                value => {
+                    error!("Setting neovide_input_macos_option_key_is_meta expected one of only_left, only_right, both, or none, but received {:?}", value);
+                    return;
+                }
+            };
+        } else {
+            error!("Expected a neovide_input_macos_option_key_is_meta string, but received {:?}", value);
         }
-        // match OptionAsAlt::deserialize(s.into_deserializer()) as Result<OptionAsAlt, value::Error> {
-        //     Ok(oa) => *self = OptionAsMeta(oa),
-        //     Err(e) => error!("Setting neovide_input_macos_option_key_is_meta expected one of OnlyLeft, OnlyRight, Both, or None, but received {:?}: {:?}", e, value),
-        // };
     }
 }
 
 #[cfg(target_os = "macos")]
 impl From<OptionAsMeta> for Value {
     fn from(oam: OptionAsMeta) -> Self {
-        let s = serde_json::to_string(&oam.0).unwrap();
-        Value::String(Utf8String::from(s))
+        match oam.0 {
+            OptionAsAlt::OnlyLeft => Value::from("only_left"),
+            OptionAsAlt::OnlyRight => Value::from("only_right"),
+            OptionAsAlt::Both => Value::from("both"),
+            OptionAsAlt::None => Value::from("none"),
+        }
     }
 }
