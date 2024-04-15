@@ -332,12 +332,12 @@ fn get_special_key(key_event: &KeyEvent) -> Option<&str> {
 //
 //     vim.g.neovide_input_macos_option_key_is_meta
 //
-// ..where possible values (defined by the 'winit' crate) are:
+// ...where possible values are:
 //
-//    "Both"
-//    "OnlyLeft"
-//    "OnlyRight"
-//    "None"
+//    "both"
+//    "only_left"
+//    "only_right"
+//    "none"
 //
 // (On a Windows PC, or on non-mac POSIX platforms with a Windows PC keyboard,
 // the physical key labeled 'alt' always maps to the virtual key 'meta'.)
