@@ -9,7 +9,7 @@ use winit::{
 };
 #[cfg(target_os = "macos")]
 use {
-    crate::{settings::SETTINGS, window::settings::OptionAsAlt, window::WindowSettings},
+    crate::{settings::SETTINGS, window::settings::OptionAsMeta, window::WindowSettings},
     winit::keyboard::ModifiersKeyState,
 };
 
@@ -77,21 +77,21 @@ impl KeyboardManager {
                 #[cfg(target_os = "macos")]
                 {
                     let ws = SETTINGS.get::<WindowSettings>();
-                    self.meta_is_pressed = match ws.input_macos_option_key_is_meta.0 {
-                        OptionAsAlt::Both => self.modifiers.state().alt_key(),
-                        OptionAsAlt::OnlyLeft => {
+                    self.meta_is_pressed = match ws.input_macos_option_key_is_meta {
+                        OptionAsMeta::Both => self.modifiers.state().alt_key(),
+                        OptionAsMeta::OnlyLeft => {
                             self.modifiers.lalt_state() == ModifiersKeyState::Pressed
                         }
-                        OptionAsAlt::OnlyRight => {
+                        OptionAsMeta::OnlyRight => {
                             self.modifiers.ralt_state() == ModifiersKeyState::Pressed
                         }
-                        OptionAsAlt::None => false,
+                        OptionAsMeta::None => false,
                     };
+                }
 
-                    #[cfg(not(target_os = "macos"))]
-                    {
-                        self.meta_is_pressed = self.modifiers.state().alt_key();
-                    }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    self.meta_is_pressed = self.modifiers.state().alt_key();
                 }
             }
             _ => {}

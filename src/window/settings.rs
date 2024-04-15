@@ -61,7 +61,7 @@ impl Default for WindowSettings {
             padding_right: 0,
             padding_bottom: 0,
             theme: "".to_string(),
-            input_macos_option_key_is_meta: OptionAsMeta(OptionAsAlt::None),
+            input_macos_option_key_is_meta: OptionAsMeta::None,
             input_ime: true,
             mouse_move_event: false,
             observed_lines: None,
@@ -74,26 +74,22 @@ impl Default for WindowSettings {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg(target_os = "macos")]
-pub enum OptionAsAlt {
+pub enum OptionAsMeta {
     OnlyLeft,
     OnlyRight,
     Both,
     None,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg(target_os = "macos")]
-pub struct OptionAsMeta(pub OptionAsAlt);
-
 #[cfg(target_os = "macos")]
 impl ParseFromValue for OptionAsMeta {
     fn parse_from_value(&mut self, value: Value) {
         if value.is_str() {
             *self = match value.as_str().unwrap() {
-                "only_left" => OptionAsMeta(OptionAsAlt::OnlyLeft),
-                "only_right" => OptionAsMeta(OptionAsAlt::OnlyRight),
-                "both" => OptionAsMeta(OptionAsAlt::Both),
-                "none" => OptionAsMeta(OptionAsAlt::None),
+                "only_left" => OptionAsMeta::OnlyLeft,
+                "only_right" => OptionAsMeta::OnlyRight,
+                "both" => OptionAsMeta::Both,
+                "none" => OptionAsMeta::None,
                 value => {
                     error!("Setting OptionAsMeta expected one of `only_left`, `only_right`, `both`, or `none`, but received {:?}", value);
                     return;
@@ -111,11 +107,11 @@ impl ParseFromValue for OptionAsMeta {
 #[cfg(target_os = "macos")]
 impl From<OptionAsMeta> for Value {
     fn from(meta: OptionAsMeta) -> Self {
-        match meta.0 {
-            OptionAsAlt::OnlyLeft => Value::from("only_left"),
-            OptionAsAlt::OnlyRight => Value::from("only_right"),
-            OptionAsAlt::Both => Value::from("both"),
-            OptionAsAlt::None => Value::from("none"),
+        match meta {
+            OptionAsMeta::OnlyLeft => Value::from("only_left"),
+            OptionAsMeta::OnlyRight => Value::from("only_right"),
+            OptionAsMeta::Both => Value::from("both"),
+            OptionAsMeta::None => Value::from("none"),
         }
     }
 }

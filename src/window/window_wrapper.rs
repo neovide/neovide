@@ -79,7 +79,7 @@ pub struct WinitWindowWrapper {
     is_minimized: bool,
     theme: Option<Theme>,
     #[cfg(target_os = "macos")]
-    macos_option_is_meta: settings::OptionAsAlt,
+    macos_option_is_meta: settings::OptionAsMeta,
     pub vsync: VSync,
     #[cfg(target_os = "macos")]
     pub macos_feature: MacosWindowFeature,
@@ -151,7 +151,7 @@ impl WinitWindowWrapper {
             saved_grid_size: None,
             ime_enabled: input_ime,
             ime_position: PhysicalPosition::new(-1, -1),
-            macos_option_is_meta: settings::OptionAsAlt::None,
+            macos_option_is_meta: settings::OptionAsMeta::None,
             requested_columns: None,
             requested_lines: None,
             ui_state: UIState::Initing,
@@ -185,13 +185,13 @@ impl WinitWindowWrapper {
         self.fullscreen = !self.fullscreen;
     }
 
-    pub fn set_macos_option_is_meta(&mut self, option: settings::OptionAsAlt) {
+    pub fn set_macos_option_is_meta(&mut self, option: settings::OptionAsMeta) {
         self.macos_option_is_meta = option;
         let winit_option = match option {
-            settings::OptionAsAlt::OnlyLeft => macos::OptionAsAlt::OnlyLeft,
-            settings::OptionAsAlt::OnlyRight => macos::OptionAsAlt::OnlyRight,
-            settings::OptionAsAlt::Both => macos::OptionAsAlt::Both,
-            settings::OptionAsAlt::None => macos::OptionAsAlt::None,
+            settings::OptionAsMeta::OnlyLeft => macos::OptionAsAlt::OnlyLeft,
+            settings::OptionAsMeta::OnlyRight => macos::OptionAsAlt::OnlyRight,
+            settings::OptionAsMeta::Both => macos::OptionAsAlt::Both,
+            settings::OptionAsMeta::None => macos::OptionAsAlt::None,
         };
         self.skia_renderer.window().set_option_as_alt(winit_option);
     }
@@ -260,8 +260,8 @@ impl WinitWindowWrapper {
             }
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::InputMacosOptionKeyIsMeta(option) => {
-                if self.macos_option_is_meta != option.0 {
-                    self.set_macos_option_is_meta(option.0)
+                if self.macos_option_is_meta != option {
+                    self.set_macos_option_is_meta(option)
                 }
             }
             _ => {}
