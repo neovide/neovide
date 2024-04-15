@@ -6,6 +6,7 @@
 #[macro_use]
 extern crate neovide_derive;
 
+#[cfg(target_os = "windows")]
 #[cfg(test)]
 #[macro_use]
 extern crate approx;
