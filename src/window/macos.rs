@@ -222,7 +222,7 @@ impl MacosWindowFeature {
         }
     }
 
-    // Update background color, opacity, shadow and blur of a window.
+    /// Update background color, opacity, shadow and blur of a window.
     fn update_background(&self, ignore_deprecation_warning: bool) {
         let WindowSettings {
             background_color,
