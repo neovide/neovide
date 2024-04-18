@@ -102,6 +102,7 @@ pub struct RenderedWindow {
 pub struct WindowDrawDetails {
     pub id: u64,
     pub region: Rect,
+    pub floating_order: Option<u64>,
 }
 
 impl WindowDrawDetails {
@@ -457,6 +458,7 @@ impl RenderedWindow {
         WindowDrawDetails {
             id: self.id,
             region: pixel_region,
+            floating_order: self.anchor_info.as_ref().map(|v| v.sort_order),
         }
     }
 
