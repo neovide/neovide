@@ -7,30 +7,11 @@ use std::{
 use serde::{Deserialize, Serialize};
 use winit::dpi::PhysicalSize;
 
-use crate::settings;
-
 // Maybe this should be independent from serialization?
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Dimensions {
     pub width: u64,
     pub height: u64,
-}
-
-impl Dimensions {
-    pub fn clamped_grid_size(&self) -> Self {
-        let min = settings::MIN_GRID_SIZE;
-        let max = settings::MAX_GRID_SIZE;
-        Dimensions {
-            width: self.width.clamp(min.width, max.width),
-            height: self.height.clamp(min.height, max.height),
-        }
-    }
-}
-
-impl Default for Dimensions {
-    fn default() -> Self {
-        settings::DEFAULT_GRID_SIZE
-    }
 }
 
 impl FromStr for Dimensions {

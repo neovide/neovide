@@ -17,7 +17,7 @@ use std::{
 };
 
 use log::error;
-use skia_safe::{Canvas, Point, Rect};
+use skia_safe::Canvas;
 use winit::{
     event::Event,
     event_loop::{EventLoop, EventLoopProxy},
@@ -26,10 +26,10 @@ use winit::{
 
 use crate::{
     bridge::EditorMode,
-    dimensions::Dimensions,
     editor::{Cursor, Style},
     profiling::{tracy_create_gpu_context, tracy_named_frame, tracy_zone},
     settings::*,
+    units::{to_skia_rect, GridPos, GridRect, GridSize, PixelPos},
     window::{ShouldRender, UserEvent},
     WindowSettings,
 };
@@ -163,7 +163,7 @@ impl Renderer {
     pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32) {
         tracy_zone!("renderer_draw_frame");
         let default_background = self.grid_renderer.get_default_background();
-        let font_dimensions = self.grid_renderer.font_dimensions;
+        let grid_scale = self.grid_renderer.grid_scale;
 
         let transparency = { SETTINGS.get::<WindowSettings>().transparency };
         root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
@@ -171,7 +171,7 @@ impl Renderer {
         root_canvas.reset_matrix();
 
         if let Some(root_window) = self.rendered_windows.get(&1) {
-            let clip_rect = root_window.pixel_region(font_dimensions);
+            let clip_rect = to_skia_rect(&root_window.pixel_region(grid_scale));
             root_canvas.clip_rect(clip_rect, None, Some(false));
         }
 
@@ -203,7 +203,7 @@ impl Renderer {
                     root_canvas,
                     &settings,
                     default_background.with_a((255.0 * transparency) as u8),
-                    font_dimensions,
+                    grid_scale,
                     &mut floating_rects,
                 )
             })
@@ -217,12 +217,7 @@ impl Renderer {
         root_canvas.restore();
     }
 
-    pub fn animate_frame(
-        &mut self,
-        window_size: &Dimensions,
-        padding_as_grid: &Rect,
-        dt: f32,
-    ) -> bool {
+    pub fn animate_frame(&mut self, grid_rect: &GridRect<f32>, dt: f32) -> bool {
         let windows = {
             let (mut root_windows, mut floating_windows): (
                 Vec<&mut RenderedWindow>,
@@ -245,13 +240,13 @@ impl Renderer {
         // Clippy recommends short-circuiting with any which is not what we want
         #[allow(clippy::unnecessary_fold)]
         let mut animating = windows.fold(false, |acc, window| {
-            acc | window.animate(&settings, window_size, padding_as_grid, dt)
+            acc | window.animate(&settings, grid_rect, dt)
         });
 
         let windows = &self.rendered_windows;
-        let font_dimensions = self.grid_renderer.font_dimensions;
+        let grid_scale = self.grid_renderer.grid_scale;
         self.cursor_renderer
-            .update_cursor_destination(font_dimensions.into(), windows);
+            .update_cursor_destination(grid_scale, windows);
 
         animating |= self
             .cursor_renderer
@@ -326,16 +321,14 @@ impl Renderer {
                     }
                     Entry::Vacant(vacant_entry) => {
                         if let WindowDrawCommand::Position {
-                            grid_position: (grid_left, grid_top),
-                            grid_size: (width, height),
+                            grid_position,
+                            grid_size,
                             ..
                         } = command
                         {
-                            let new_window = RenderedWindow::new(
-                                grid_id,
-                                (grid_left as f32, grid_top as f32).into(),
-                                (width, height).into(),
-                            );
+                            let grid_position = GridPos::from(grid_position).try_cast().unwrap();
+                            let grid_size = GridSize::from(grid_size).try_cast().unwrap();
+                            let new_window = RenderedWindow::new(grid_id, grid_position, grid_size);
                             vacant_entry.insert(new_window);
                         } else {
                             error!("WindowDrawCommand sent for uninitialized grid {}", grid_id);
@@ -351,7 +344,7 @@ impl Renderer {
                 result.font_changed = true;
             }
             DrawCommand::LineSpaceChanged(new_linespace) => {
-                self.grid_renderer.update_linespace(new_linespace);
+                self.grid_renderer.update_linespace(new_linespace as f32);
                 result.font_changed = true;
             }
             DrawCommand::DefaultStyleChanged(new_style) => {
@@ -373,11 +366,11 @@ impl Renderer {
             .for_each(|(_, w)| w.flush(renderer_settings));
     }
 
-    pub fn get_cursor_position(&self) -> Point {
-        self.cursor_renderer.get_current_position()
+    pub fn get_cursor_destination(&self) -> PixelPos<f32> {
+        self.cursor_renderer.get_destination()
     }
 
-    pub fn get_grid_size(&self) -> Dimensions {
+    pub fn get_grid_size(&self) -> GridSize<u32> {
         if let Some(main_grid) = self.rendered_windows.get(&1) {
             main_grid.grid_size
         } else {

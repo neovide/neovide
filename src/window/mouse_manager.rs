@@ -4,9 +4,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use skia_safe::Rect;
 use winit::{
-    dpi::PhysicalPosition,
     event::{
         DeviceId, ElementState, Event, MouseButton, MouseScrollDelta, Touch, TouchPhase,
         WindowEvent,
@@ -18,35 +16,20 @@ use crate::{
     bridge::{send_ui, SerialCommand},
     renderer::{Renderer, WindowDrawDetails},
     settings::SETTINGS,
+    units::{GridPos, GridScale, GridVec, PixelPos, PixelRect, PixelSize, PixelVec},
     window::keyboard_manager::KeyboardManager,
     window::{UserEvent, WindowSettings},
 };
 
 fn clamp_position(
-    position: PhysicalPosition<f32>,
-    region: Rect,
-    (font_width, font_height): (u64, u64),
-) -> PhysicalPosition<f32> {
-    PhysicalPosition::new(
-        position
-            .x
-            .min(region.right - font_width as f32)
-            .max(region.left),
-        position
-            .y
-            .min(region.bottom - font_height as f32)
-            .max(region.top),
-    )
-}
+    position: PixelPos<f32>,
+    region: PixelRect<f32>,
+    grid_scale: GridScale,
+) -> PixelPos<f32> {
+    let min = region.min;
+    let max = region.max - grid_scale.0;
 
-fn to_grid_coords(
-    position: PhysicalPosition<f32>,
-    (font_width, font_height): (u64, u64),
-) -> PhysicalPosition<u32> {
-    PhysicalPosition::new(
-        (position.x as u64 / font_width) as u32,
-        (position.y as u64 / font_height) as u32,
-    )
+    position.clamp(min, max)
 }
 
 fn mouse_button_to_button_text(mouse_button: &MouseButton) -> Option<String> {
@@ -63,20 +46,20 @@ fn mouse_button_to_button_text(mouse_button: &MouseButton) -> Option<String> {
 #[derive(Debug)]
 struct TouchTrace {
     start_time: Instant,
-    start: PhysicalPosition<f32>,
-    last: PhysicalPosition<f32>,
+    start: PixelPos<f32>,
+    last: PixelPos<f32>,
     left_deadzone_once: bool,
 }
 
 pub struct MouseManager {
     dragging: Option<String>,
-    drag_position: PhysicalPosition<u32>,
+    drag_position: GridPos<i32>,
 
     has_moved: bool,
-    position: PhysicalPosition<u32>,
-    relative_position: PhysicalPosition<u32>,
+    position: GridPos<i32>,
+    relative_position: GridPos<i32>,
 
-    scroll_position: PhysicalPosition<f32>,
+    scroll_position: GridPos<f32>,
 
     // the tuple allows to keep track of different fingers per device
     touch_position: HashMap<(DeviceId, u64), TouchTrace>,
@@ -92,10 +75,10 @@ impl MouseManager {
         MouseManager {
             dragging: None,
             has_moved: false,
-            position: PhysicalPosition::new(0, 0),
-            relative_position: PhysicalPosition::new(0, 0),
-            drag_position: PhysicalPosition::new(0, 0),
-            scroll_position: PhysicalPosition::new(0.0, 0.0),
+            position: GridPos::origin(),
+            relative_position: GridPos::origin(),
+            drag_position: GridPos::origin(),
+            scroll_position: GridPos::<f32>::origin(),
             touch_position: HashMap::new(),
             window_details_under_mouse: None,
             mouse_hidden: false,
@@ -105,18 +88,17 @@ impl MouseManager {
 
     fn handle_pointer_motion(
         &mut self,
-        x: i32,
-        y: i32,
+        position: PixelPos<f32>,
         keyboard_manager: &KeyboardManager,
         renderer: &Renderer,
         window: &Window,
     ) {
-        let size = window.inner_size();
-        if x < 0 || x as u32 >= size.width || y < 0 || y as u32 >= size.height {
+        let window_size = window.inner_size();
+        let window_size = PixelSize::new(window_size.width as f32, window_size.height as f32);
+        let relative_window_rect = PixelRect::from_size(window_size);
+        if !relative_window_rect.contains(position) {
             return;
         }
-
-        let position: PhysicalPosition<f32> = PhysicalPosition::new(x as f32, y as f32);
 
         // If dragging, the relevant window (the one which we send all commands to) is the one
         // which the mouse drag started on. Otherwise its the top rendered window
@@ -135,38 +117,26 @@ impl MouseManager {
             renderer
                 .window_regions
                 .iter()
-                .filter(|details| {
-                    position.x >= details.region.left
-                        && position.x < details.region.right
-                        && position.y >= details.region.top
-                        && position.y < details.region.bottom
-                })
+                .filter(|details| details.region.contains(position))
                 .last()
         };
 
         let global_bounds = relevant_window_details
             .map(|details| details.region)
-            .unwrap_or_else(|| Rect::from_wh(size.width as f32, size.height as f32));
-        let clamped_position = clamp_position(
-            position,
-            global_bounds,
-            renderer.grid_renderer.font_dimensions.into(),
-        );
+            .unwrap_or_else(|| relative_window_rect.cast());
+        let clamped_position =
+            clamp_position(position, global_bounds, renderer.grid_renderer.grid_scale);
 
-        self.position = to_grid_coords(
-            clamped_position,
-            renderer.grid_renderer.font_dimensions.into(),
-        );
+        self.position = (clamped_position / renderer.grid_renderer.grid_scale)
+            .floor()
+            .cast();
 
         if let Some(relevant_window_details) = relevant_window_details {
-            let relative_position = PhysicalPosition::new(
-                clamped_position.x - relevant_window_details.region.left,
-                clamped_position.y - relevant_window_details.region.top,
-            );
-            self.relative_position = to_grid_coords(
-                relative_position,
-                renderer.grid_renderer.font_dimensions.into(),
-            );
+            let relative_position = clamped_position - relevant_window_details.region.min;
+            self.relative_position = (relative_position.to_point()
+                / renderer.grid_renderer.grid_scale)
+                .floor()
+                .cast();
 
             let previous_position = self.drag_position;
             self.drag_position = self.relative_position;
@@ -178,7 +148,7 @@ impl MouseManager {
                 send_ui(SerialCommand::Drag {
                     button: self.dragging.as_ref().unwrap().to_owned(),
                     grid_id: relevant_window_details.event_grid_id(),
-                    position: self.drag_position.into(),
+                    position: self.drag_position.try_cast().unwrap().to_tuple(),
                     modifier_string: keyboard_manager.format_modifier_string("", true),
                 });
             } else {
@@ -191,7 +161,7 @@ impl MouseManager {
                         button: "move".into(),
                         action: "".into(), // this is ignored by nvim
                         grid_id: relevant_window_details.event_grid_id(),
-                        position: self.relative_position.into(),
+                        position: self.relative_position.try_cast().unwrap().to_tuple(),
                         modifier_string: keyboard_manager.format_modifier_string("", true),
                     })
                 }
@@ -229,7 +199,7 @@ impl MouseManager {
                         button: button_text.clone(),
                         action,
                         grid_id: details.event_grid_id(),
-                        position: position.into(),
+                        position: position.try_cast().unwrap().to_tuple(),
                         modifier_string: keyboard_manager.format_modifier_string("", true),
                     });
                 }
@@ -247,16 +217,16 @@ impl MouseManager {
         }
     }
 
-    fn handle_line_scroll(&mut self, x: f32, y: f32, keyboard_manager: &KeyboardManager) {
+    fn handle_line_scroll(&mut self, amount: GridVec<f32>, keyboard_manager: &KeyboardManager) {
         if !self.enabled {
             return;
         }
 
-        let previous_y = self.scroll_position.y as i64;
-        self.scroll_position.y += y;
-        let new_y = self.scroll_position.y as i64;
+        let previous: GridPos<i32> = self.scroll_position.floor().cast().cast_unit();
+        self.scroll_position += amount;
+        let new: GridPos<i32> = self.scroll_position.floor().cast().cast_unit();
 
-        let vertical_input_type = match new_y.partial_cmp(&previous_y) {
+        let vertical_input_type = match new.y.partial_cmp(&previous.y) {
             Some(Ordering::Greater) => Some("up"),
             Some(Ordering::Less) => Some("down"),
             _ => None,
@@ -270,19 +240,15 @@ impl MouseManager {
                     .as_ref()
                     .map(|details| details.id)
                     .unwrap_or(0),
-                position: self.drag_position.into(),
+                position: self.drag_position.try_cast().unwrap().to_tuple(),
                 modifier_string: keyboard_manager.format_modifier_string("", true),
             };
-            for _ in 0..(new_y - previous_y).abs() {
+            for _ in 0..(new.y - previous.y).abs() {
                 send_ui(scroll_command.clone());
             }
         }
 
-        let previous_x = self.scroll_position.x as i64;
-        self.scroll_position.x += x;
-        let new_x = self.scroll_position.x as i64;
-
-        let horizontal_input_type = match new_x.partial_cmp(&previous_x) {
+        let horizontal_input_type = match new.x.partial_cmp(&previous.x) {
             Some(Ordering::Greater) => Some("left"),
             Some(Ordering::Less) => Some("right"),
             _ => None,
@@ -296,10 +262,10 @@ impl MouseManager {
                     .as_ref()
                     .map(|details| details.id)
                     .unwrap_or(0),
-                position: self.drag_position.into(),
+                position: self.drag_position.try_cast().unwrap().to_tuple(),
                 modifier_string: keyboard_manager.format_modifier_string("", true),
             };
-            for _ in 0..(new_x - previous_x).abs() {
+            for _ in 0..(new.x - previous.x).abs() {
                 send_ui(scroll_command.clone());
             }
         }
@@ -307,15 +273,12 @@ impl MouseManager {
 
     fn handle_pixel_scroll(
         &mut self,
-        (font_width, font_height): (u64, u64),
-        (pixel_x, pixel_y): (f32, f32),
+        grid_scale: GridScale,
+        amount: PixelVec<f32>,
         keyboard_manager: &KeyboardManager,
     ) {
-        self.handle_line_scroll(
-            pixel_x / font_width as f32,
-            pixel_y / font_height as f32,
-            keyboard_manager,
-        );
+        let amount = amount / grid_scale;
+        self.handle_line_scroll(amount, keyboard_manager);
     }
 
     fn handle_touch(
@@ -324,7 +287,7 @@ impl MouseManager {
         renderer: &Renderer,
         window: &Window,
         finger_id: (DeviceId, u64),
-        location: PhysicalPosition<f32>,
+        location: PixelPos<f32>,
         phase: &TouchPhase,
     ) {
         match phase {
@@ -367,8 +330,7 @@ impl MouseManager {
 
                     if self.dragging.is_some() || dragging_just_now {
                         self.handle_pointer_motion(
-                            location.x.round() as i32,
-                            location.y.round() as i32,
+                            (location.x, location.y).into(),
                             keyboard_manager,
                             renderer,
                             window,
@@ -377,21 +339,23 @@ impl MouseManager {
                     // the double check might seem useless, but the if branch above might set
                     // trace.left_deadzone_once - which urges to check again
                     else if trace.left_deadzone_once {
-                        let delta = (trace.last.x - location.x, location.y - trace.last.y);
+                        let delta = (trace.last.x - location.x, location.y - trace.last.y).into();
 
                         // not updating the position would cause the movement to "escalate" from the
                         // starting point
                         trace.last = location;
 
-                        let font_size = renderer.grid_renderer.font_dimensions.into();
-                        self.handle_pixel_scroll(font_size, delta, keyboard_manager);
+                        self.handle_pixel_scroll(
+                            renderer.grid_renderer.grid_scale,
+                            delta,
+                            keyboard_manager,
+                        );
                     }
                 }
 
                 if dragging_just_now {
                     self.handle_pointer_motion(
-                        location.x.round() as i32,
-                        location.y.round() as i32,
+                        (location.x, location.y).into(),
                         keyboard_manager,
                         renderer,
                         window,
@@ -406,8 +370,7 @@ impl MouseManager {
                     }
                     if !trace.left_deadzone_once {
                         self.handle_pointer_motion(
-                            trace.start.x.round() as i32,
-                            trace.start.y.round() as i32,
+                            (trace.start.x, trace.start.y).into(),
                             keyboard_manager,
                             renderer,
                             window,
@@ -433,8 +396,7 @@ impl MouseManager {
                 ..
             } => {
                 self.handle_pointer_motion(
-                    position.x as i32,
-                    position.y as i32,
+                    (position.x as f32, position.y as f32).into(),
                     keyboard_manager,
                     renderer,
                     window,
@@ -451,7 +413,7 @@ impl MouseManager {
                         ..
                     },
                 ..
-            } => self.handle_line_scroll(*x, *y, keyboard_manager),
+            } => self.handle_line_scroll((*x, *y).into(), keyboard_manager),
             Event::WindowEvent {
                 event:
                     WindowEvent::MouseWheel {
@@ -460,8 +422,8 @@ impl MouseManager {
                     },
                 ..
             } => self.handle_pixel_scroll(
-                renderer.grid_renderer.font_dimensions.into(),
-                (delta.x as f32, delta.y as f32),
+                renderer.grid_renderer.grid_scale,
+                (delta.x as f32, delta.y as f32).into(),
                 keyboard_manager,
             ),
             Event::WindowEvent {
@@ -479,7 +441,7 @@ impl MouseManager {
                 renderer,
                 window,
                 (*device_id, *id),
-                location.cast(),
+                PixelPos::new(location.x as f32, location.y as f32),
                 phase,
             ),
             Event::WindowEvent {

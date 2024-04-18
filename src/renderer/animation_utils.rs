@@ -1,4 +1,4 @@
-use skia_safe::Point;
+use crate::units::PixelPos;
 
 #[allow(dead_code)]
 pub fn ease_linear(t: f32) -> f32 {
@@ -73,11 +73,16 @@ pub fn ease(ease_func: fn(f32) -> f32, start: f32, end: f32, t: f32) -> f32 {
     lerp(start, end, ease_func(t))
 }
 
-pub fn ease_point(ease_func: fn(f32) -> f32, start: Point, end: Point, t: f32) -> Point {
-    Point {
-        x: ease(ease_func, start.x, end.x, t),
-        y: ease(ease_func, start.y, end.y, t),
-    }
+pub fn ease_point(
+    ease_func: fn(f32) -> f32,
+    start: PixelPos<f32>,
+    end: PixelPos<f32>,
+    t: f32,
+) -> PixelPos<f32> {
+    PixelPos::new(
+        ease(ease_func, start.x, end.x, t),
+        ease(ease_func, start.y, end.y, t),
+    )
 }
 
 pub struct CriticallyDampedSpringAnimation {
@@ -205,79 +210,70 @@ mod test {
 
     #[test]
     fn test_ease_point_linear() {
-        let start = Point { x: 0.0, y: 0.0 };
-        let end = Point { x: 1.0, y: 1.0 };
+        let start = PixelPos::new(0.0, 0.0);
+        let end = PixelPos::new(1.0, 1.0);
         assert_eq!(ease_point(ease_linear, start, end, 1.0), end);
     }
 
     #[test]
     fn test_ease_point_in_quad() {
-        let start = Point { x: 0.0, y: 0.0 };
-        let end = Point { x: 1.0, y: 1.0 };
+        let start = PixelPos::new(0.0, 0.0);
+        let end = PixelPos::new(1.0, 1.0);
         assert_eq!(ease_point(ease_in_quad, start, end, 1.0), end);
     }
 
     #[test]
     fn test_ease_point_out_quad() {
-        let start = Point { x: 0.0, y: 0.0 };
-        let end = Point { x: 1.0, y: 1.0 };
+        let start = PixelPos::new(0.0, 0.0);
+        let end = PixelPos::new(1.0, 1.0);
         assert_eq!(ease_point(ease_out_quad, start, end, 1.0), end);
     }
 
     #[test]
     fn test_ease_point_in_out_quad() {
-        let start = Point { x: 0.0, y: 0.0 };
-        let end = Point { x: 1.0, y: 1.0 };
-        let expected = Point {
-            x: 0.68000007,
-            y: 0.68000007,
-        };
+        let start = PixelPos::new(0.0, 0.0);
+        let end = PixelPos::new(1.0, 1.0);
+        let expected = PixelPos::new(0.68000007, 0.68000007);
         assert_eq!(ease_point(ease_in_out_quad, start, end, 1.0), end);
         assert_eq!(ease_point(ease_in_out_quad, start, end, 1.4), expected);
     }
 
     #[test]
     fn test_ease_point_in_cubic() {
-        let start = Point { x: 0.0, y: 0.0 };
-        let end = Point { x: 1.0, y: 1.0 };
+        let start = PixelPos::new(0.0, 0.0);
+        let end = PixelPos::new(1.0, 1.0);
         assert_eq!(ease_point(ease_in_cubic, start, end, 1.0), end);
     }
 
     #[test]
     fn test_ease_point_out_cubic() {
-        let start = Point { x: 0.0, y: 0.0 };
-        let end = Point { x: 1.0, y: 1.0 };
+        let start = PixelPos::new(0.0, 0.0);
+        let end = PixelPos::new(1.0, 1.0);
         assert_eq!(ease_point(ease_out_cubic, start, end, 1.0), end);
     }
 
     #[test]
     fn test_ease_point_in_out_cubic() {
-        let start = Point { x: 0.0, y: 0.0 };
-        let end = Point { x: 1.0, y: 1.0 };
-        let expected = Point {
-            x: 0.0625,
-            y: 0.0625,
-        };
+        let start = PixelPos::new(0.0, 0.0);
+        let end = PixelPos::new(1.0, 1.0);
+        let expected = PixelPos::new(0.0625, 0.0625);
         assert_eq!(ease_point(ease_in_out_cubic, start, end, 1.0), end);
         assert_eq!(ease_point(ease_in_out_cubic, start, end, 0.25), expected);
     }
 
     #[test]
     fn test_ease_point_in_expo() {
-        let start = Point { x: 0.0, y: 0.0 };
-        let end = Point { x: 1.0, y: 1.0 };
+        let start = PixelPos::new(0.0, 0.0);
+        let end = PixelPos::new(1.0, 1.0);
         assert_eq!(ease_point(ease_in_expo, start, end, 1.0), end);
         assert_eq!(ease_point(ease_in_expo, start, end, 0.0), start);
     }
 
     #[test]
     fn test_ease_point_out_expo() {
-        let start = Point { x: 0.0, y: 0.0 };
-        let end = Point { x: 1.0, y: 1.0 };
-        let expected = Point {
-            x: 0.9995117,
-            y: 0.9995117,
-        };
+        let start = PixelPos::new(0.0, 0.0);
+        let end = PixelPos::new(1.0, 1.0);
+        let expected = PixelPos::new(0.9995117, 0.9995117);
         assert_eq!(ease_point(ease_out_expo, start, end, 1.0), end);
         assert_eq!(ease_point(ease_out_expo, start, end, 1.1), expected);
     }

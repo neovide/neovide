@@ -35,6 +35,7 @@ copypasta = "0.10.1"
 csscolorparser = "0.6.2"
 derive-new = "0.6.0"
 dirs = "5.0.0"
+euclid = { version = "0.22.9", features = ["serde"] }
 flexi_logger = { version = "0.28.0", default-features = false }
 futures = "0.3.21"
 gl = "0.14.0"

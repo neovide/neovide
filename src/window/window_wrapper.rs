@@ -6,13 +6,14 @@ use super::{
 use crate::windows_utils::{register_right_click, unregister_right_click};
 use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
-    dimensions::Dimensions,
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
     renderer::{create_skia_renderer, DrawCommand, Renderer, SkiaRenderer, VSync, WindowConfig},
     running_tracker::RUNNING_TRACKER,
     settings::{
-        FontSettings, HotReloadConfigs, SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE, SETTINGS,
+        clamped_grid_size, FontSettings, HotReloadConfigs, SettingsChanged, DEFAULT_GRID_SIZE,
+        MIN_GRID_SIZE, SETTINGS,
     },
+    units::{GridPos, GridRect, GridSize, PixelPos, PixelSize},
     window::{ShouldRender, WindowSize},
     CmdLineSettings,
 };
@@ -24,9 +25,8 @@ use super::macos::MacosWindowFeature;
 use icrate::Foundation::MainThreadMarker;
 
 use log::trace;
-use skia_safe::{scalar, Rect};
 use winit::{
-    dpi::{PhysicalPosition, PhysicalSize, Position},
+    dpi,
     event::{Event, WindowEvent},
     event_loop::EventLoopProxy,
     window::{Fullscreen, Theme},
@@ -61,12 +61,12 @@ pub struct WinitWindowWrapper {
     title: String,
     fullscreen: bool,
     font_changed_last_frame: bool,
-    saved_inner_size: PhysicalSize<u32>,
-    saved_grid_size: Option<Dimensions>,
+    saved_inner_size: dpi::PhysicalSize<u32>,
+    saved_grid_size: Option<GridSize<u32>>,
     ime_enabled: bool,
-    ime_position: PhysicalPosition<i32>,
-    requested_columns: Option<u64>,
-    requested_lines: Option<u64>,
+    ime_position: dpi::PhysicalPosition<i32>,
+    requested_columns: Option<u32>,
+    requested_lines: Option<u32>,
     ui_state: UIState,
     window_padding: WindowPadding,
     initial_window_size: WindowSize,
@@ -97,7 +97,7 @@ impl WinitWindowWrapper {
         log::info!(
             "window created (scale_factor: {:.4}, font_dimensions: {:?})",
             scale_factor,
-            renderer.grid_renderer.font_dimensions,
+            renderer.grid_renderer.grid_scale.0,
         );
 
         let WindowSettings {
@@ -142,7 +142,7 @@ impl WinitWindowWrapper {
             saved_inner_size,
             saved_grid_size: None,
             ime_enabled: input_ime,
-            ime_position: PhysicalPosition::new(-1, -1),
+            ime_position: dpi::PhysicalPosition::new(-1, -1),
             requested_columns: None,
             requested_lines: None,
             ui_state: UIState::Initing,
@@ -217,11 +217,11 @@ impl WinitWindowWrapper {
         match changed_setting {
             WindowSettingsChanged::ObservedColumns(columns) => {
                 log::info!("columns changed");
-                self.requested_columns = columns;
+                self.requested_columns = columns.map(|v| v.try_into().unwrap());
             }
             WindowSettingsChanged::ObservedLines(lines) => {
                 log::info!("lines changed");
-                self.requested_lines = lines;
+                self.requested_lines = lines.map(|v| v.try_into().unwrap());
             }
             WindowSettingsChanged::Fullscreen(fullscreen) => {
                 if self.fullscreen != fullscreen {
@@ -415,11 +415,9 @@ impl WinitWindowWrapper {
     pub fn animate_frame(&mut self, dt: f32) -> bool {
         tracy_zone!("animate_frame", 0);
 
-        let res = self.renderer.animate_frame(
-            &self.get_grid_size_from_window(0, 0),
-            &self.padding_as_grid(),
-            dt,
-        );
+        let res = self
+            .renderer
+            .animate_frame(&self.get_grid_rect_from_window(GridSize::zero()).cast(), dt);
         tracy_plot!("animate_frame", res as u8 as f64);
         self.renderer.prepare_lines();
         #[allow(clippy::let_and_return)]
@@ -441,7 +439,7 @@ impl WinitWindowWrapper {
                     self.skia_renderer.window().set_visible(true);
                     self.skia_renderer.window().set_maximized(true);
                 }
-                WindowSize::Grid(Dimensions { width, height }) => {
+                WindowSize::Grid(GridSize { width, height, .. }) => {
                     self.requested_columns = Some(width);
                     self.requested_lines = Some(height);
                     log::info!("Showing window {width}, {height}");
@@ -527,66 +525,74 @@ impl WinitWindowWrapper {
         should_render
     }
 
-    pub fn get_grid_size(&self) -> Dimensions {
+    pub fn get_grid_size(&self) -> GridSize<u32> {
         self.renderer.get_grid_size()
     }
 
     fn update_window_size_from_grid(&mut self, window_padding: &WindowPadding) {
         let window = self.skia_renderer.window();
 
-        let window_padding_width = window_padding.left + window_padding.right;
-        let window_padding_height = window_padding.top + window_padding.bottom;
+        let window_padding_size = PixelSize::new(
+            window_padding.left + window_padding.right,
+            window_padding.top + window_padding.bottom,
+        );
 
-        let grid_size = Dimensions {
-            width: self.requested_columns.take().unwrap_or(
+        let grid_size = clamped_grid_size(&GridSize::new(
+            self.requested_columns.take().unwrap_or(
                 self.saved_grid_size
                     .map_or(DEFAULT_GRID_SIZE.width, |v| v.width),
             ),
-            height: self.requested_lines.take().unwrap_or(
+            self.requested_lines.take().unwrap_or(
                 self.saved_grid_size
                     .map_or(DEFAULT_GRID_SIZE.height, |v| v.height),
             ),
-        };
+        ));
 
-        let mut new_size = self
-            .renderer
-            .grid_renderer
-            .convert_grid_to_physical(grid_size);
-        new_size.width += window_padding_width;
-        new_size.height += window_padding_height;
+        let new_size = (grid_size.cast() * self.renderer.grid_renderer.grid_scale)
+            .floor()
+            .cast()
+            .cast_unit()
+            + window_padding_size;
+
         log::info!(
             "Resizing window based on grid. Grid Size: {:?}, Window Size {:?}",
             grid_size,
             new_size
         );
+        let new_size = winit::dpi::PhysicalSize {
+            width: new_size.width,
+            height: new_size.height,
+        };
         let _ = window.request_inner_size(new_size);
     }
 
-    fn get_grid_size_from_window(&self, min_width: u64, min_height: u64) -> Dimensions {
+    fn get_grid_size_from_window(&self, min: GridSize<u32>) -> GridSize<u32> {
         let window_padding = self.window_padding;
-        let window_padding_width = window_padding.left + window_padding.right;
-        let window_padding_height = window_padding.top + window_padding.bottom;
+        let window_padding_size: PixelSize<u32> = PixelSize::new(
+            window_padding.left + window_padding.right,
+            window_padding.top + window_padding.bottom,
+        );
 
-        let content_size = PhysicalSize {
-            width: self.saved_inner_size.width - window_padding_width,
-            height: self.saved_inner_size.height - window_padding_height,
-        };
+        let content_size =
+            PixelSize::new(self.saved_inner_size.width, self.saved_inner_size.height)
+                - window_padding_size;
 
-        let grid_size = self
-            .renderer
-            .grid_renderer
-            .convert_physical_to_grid(content_size);
+        let grid_size = (content_size.cast() / self.renderer.grid_renderer.grid_scale)
+            .floor()
+            .cast();
 
-        Dimensions {
-            width: grid_size.width.max(min_width),
-            height: grid_size.height.max(min_height),
-        }
+        grid_size.max(min)
+    }
+
+    fn get_grid_rect_from_window(&self, min: GridSize<u32>) -> GridRect<f32> {
+        let size = self.get_grid_size_from_window(min).cast();
+        let pos = PixelPos::new(self.window_padding.left, self.window_padding.top).cast()
+            / self.renderer.grid_renderer.grid_scale;
+        GridRect::<f32>::from_origin_and_size(pos, size)
     }
 
     fn update_grid_size_from_window(&mut self) {
-        let min_width = MIN_GRID_SIZE.width;
-        let min_height = MIN_GRID_SIZE.height;
-        let grid_size = self.get_grid_size_from_window(min_width, min_height);
+        let grid_size = self.get_grid_size_from_window(MIN_GRID_SIZE);
 
         if self.saved_grid_size.as_ref() == Some(&grid_size) {
             trace!("Grid matched saved size, skip update.");
@@ -599,23 +605,26 @@ impl WinitWindowWrapper {
             self.saved_inner_size
         );
         send_ui(ParallelCommand::Resize {
-            width: grid_size.width,
-            height: grid_size.height,
+            width: grid_size.width.into(),
+            height: grid_size.height.into(),
         });
     }
 
     fn update_ime_position(&mut self) {
-        let font_dimensions = self.renderer.grid_renderer.font_dimensions;
-        let cursor_position = self.renderer.get_cursor_position();
-        let position = PhysicalPosition::new(
-            cursor_position.x.round() as i32,
-            cursor_position.y.round() as i32 + font_dimensions.height as i32,
-        );
+        let grid_scale = self.renderer.grid_renderer.grid_scale;
+        let font_dimensions = grid_scale.0;
+        let mut position = self.renderer.get_cursor_destination();
+        position.y += font_dimensions.height;
+        let position: GridPos<i32> = (position / grid_scale).floor().cast();
+        let position = dpi::PhysicalPosition {
+            x: position.x,
+            y: position.y,
+        };
         if position != self.ime_position {
             self.ime_position = position;
             self.skia_renderer.window().set_ime_cursor_area(
-                Position::Physical(position),
-                PhysicalSize::new(100, font_dimensions.height as u32),
+                dpi::Position::Physical(position),
+                dpi::PhysicalSize::new(100, font_dimensions.height as u32),
             );
         }
     }
@@ -625,15 +634,5 @@ impl WinitWindowWrapper {
         self.macos_feature.handle_scale_factor_update(scale_factor);
         self.renderer.handle_os_scale_factor_change(scale_factor);
         self.skia_renderer.resize();
-    }
-
-    fn padding_as_grid(&self) -> Rect {
-        let font_dimensions = self.renderer.grid_renderer.font_dimensions;
-        Rect {
-            left: self.window_padding.left as scalar / font_dimensions.width as scalar,
-            right: self.window_padding.right as scalar / font_dimensions.width as scalar,
-            top: self.window_padding.top as scalar / font_dimensions.height as scalar,
-            bottom: self.window_padding.bottom as scalar / font_dimensions.height as scalar,
-        }
     }
 }
