@@ -20,7 +20,7 @@ impl DrawCommandBatcher {
     }
 
     pub fn send_batch(&self, proxy: &EventLoopProxy<UserEvent>) {
-        let mut batch: Vec<DrawCommand> = self.batch.borrow_mut().split_off(0).into();
+        let mut batch: Vec<DrawCommand> = self.batch.borrow_mut().split_off(0);
         // Order the draw command batches such that window draw commands are handled first
         // by grid id, and then by the draw command such that they are positioned first.
         batch.sort_by_key(|draw_command| match draw_command {
