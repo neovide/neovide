@@ -99,6 +99,7 @@ impl MessageKind {
     }
 }
 
+#[allow(unused)]
 #[derive(Clone, Debug)]
 pub enum GuiOption {
     ArabicShape(bool),
@@ -208,9 +209,11 @@ pub enum RedrawEvent {
         anchor_grid: u64,
         anchor_row: f64,
         anchor_column: f64,
+        #[allow(unused)]
         focusable: bool,
         sort_order: Option<u64>,
     },
+    #[allow(unused)]
     WindowExternalPosition {
         grid: u64,
     },
@@ -224,14 +227,20 @@ pub enum RedrawEvent {
         grid: u64,
         row: u64,
         scrolled: bool,
+        #[allow(unused)]
         separator_character: String,
     },
     WindowViewport {
         grid: u64,
+        #[allow(unused)]
         top_line: f64,
+        #[allow(unused)]
         bottom_line: f64,
+        #[allow(unused)]
         current_line: f64,
+        #[allow(unused)]
         current_column: f64,
+        #[allow(unused)]
         line_count: Option<f64>,
         scroll_delta: Option<f64>,
     },
@@ -242,6 +251,7 @@ pub enum RedrawEvent {
         left: u64,
         right: u64,
     },
+    #[allow(unused)]
     CommandLineShow {
         content: StyledContent,
         position: u64,
@@ -250,38 +260,49 @@ pub enum RedrawEvent {
         indent: u64,
         level: u64,
     },
+    #[allow(unused)]
     CommandLinePosition {
         position: u64,
         level: u64,
     },
+    #[allow(unused)]
     CommandLineSpecialCharacter {
         character: String,
         shift: bool,
         level: u64,
     },
+    #[allow(unused)]
     CommandLineHide,
+    #[allow(unused)]
     CommandLineBlockShow {
         lines: Vec<StyledContent>,
     },
+    #[allow(unused)]
     CommandLineBlockAppend {
         line: StyledContent,
     },
+    #[allow(unused)]
     CommandLineBlockHide,
+    #[allow(unused)]
     MessageShow {
         kind: MessageKind,
         content: StyledContent,
         replace_last: bool,
     },
     MessageClear,
+    #[allow(unused)]
     MessageShowMode {
         content: StyledContent,
     },
+    #[allow(unused)]
     MessageShowCommand {
         content: StyledContent,
     },
+    #[allow(unused)]
     MessageRuler {
         content: StyledContent,
     },
+    #[allow(unused)]
     MessageHistoryShow {
         entries: Vec<(MessageKind, StyledContent)>,
     },

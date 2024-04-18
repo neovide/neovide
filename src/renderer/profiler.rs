@@ -2,7 +2,6 @@ use crate::renderer::animation_utils::lerp;
 use crate::settings::SETTINGS;
 use std::collections::VecDeque;
 use std::sync::Arc;
-use std::time::Instant;
 
 use crate::{
     profiling::tracy_zone,
@@ -16,7 +15,6 @@ pub struct Profiler {
     pub font: Arc<FontPair>,
     pub position: Point,
     pub size: Size,
-    pub last_draw: Instant,
     pub frametimes: VecDeque<f32>,
 }
 
@@ -29,7 +27,6 @@ impl Profiler {
             font,
             position: Point::new(32.0, 32.0),
             size: Size::new(200.0, 120.0),
-            last_draw: Instant::now(),
             frametimes: VecDeque::with_capacity(FRAMETIMES_COUNT),
         }
     }

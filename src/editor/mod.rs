@@ -426,7 +426,7 @@ impl Editor {
             anchor_type: WindowAnchor::NorthWest,
             anchor_left: 0.0,
             anchor_top: grid_top as f64,
-            sort_order: std::u64::MAX,
+            sort_order: u64::MAX,
         };
 
         if let Some(window) = self.windows.get_mut(&grid) {

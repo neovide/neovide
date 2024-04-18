@@ -111,7 +111,7 @@ impl Corner {
         }
 
         // Check first if animation's over
-        if (self.t - 1.0).abs() < std::f32::EPSILON {
+        if (self.t - 1.0).abs() < f32::EPSILON {
             return false;
         }
 
@@ -147,14 +147,14 @@ impl Corner {
 
         let direction_alignment = travel_direction.dot(corner_direction);
 
-        if (self.t - 1.0).abs() < std::f32::EPSILON {
+        if (self.t - 1.0).abs() < f32::EPSILON {
             // We are at destination, move t out of 0-1 range to stop the animation
             self.t = 2.0;
         } else {
             let corner_dt = dt
                 * lerp(
                     1.0,
-                    (1.0 - settings.trail_size).max(0.0).min(1.0),
+                    (1.0 - settings.trail_size).clamp(0.0, 1.0),
                     -direction_alignment,
                 );
             self.t =

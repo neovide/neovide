@@ -23,7 +23,11 @@ fn get_styles() -> Styles {
 }
 
 fn is_tty_str() -> &'static str {
-    is_tty().then_some("1").unwrap_or("0")
+    if is_tty() {
+        "1"
+    } else {
+        "0"
+    }
 }
 
 #[derive(Clone, Debug, Parser)]
