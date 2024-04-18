@@ -1,9 +1,8 @@
-use std::sync::Arc;
-
 use log::trace;
 use skia_safe::{
     colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Path, Point, Rect, HSV,
 };
+use std::sync::Arc;
 use winit::dpi::PhysicalSize;
 
 use crate::{
@@ -28,6 +27,23 @@ pub struct GridRenderer {
 pub struct BackgroundInfo {
     pub custom_color: bool,
     pub transparent: bool,
+}
+
+fn is_box_drawing_character(c: char) -> bool {
+    // box drawing characters
+    ('\u{2500}'..'\u{257F}').contains(&c)
+        // block elements
+        || ('\u{2580}'..'\u{259F}').contains(&c)
+        // geometric shapes
+        || ('\u{25A0}'..'\u{25FF}').contains(&c)
+        // nerdfont powerline
+        || ('\u{e0a0}'..'\u{e0a2}').contains(&c)
+        || ('\u{e0b0}'..'\u{e0b3}').contains(&c)
+        // nerdfont powerline extras
+        || (c == '\u{e0a3}')
+        || ('\u{e0b4}'..'\u{e0c8}').contains(&c)
+        || (c == '\u{e0ca}')
+        || ('\u{e0cc}'..'\u{e0d7}').contains(&c)
 }
 
 impl GridRenderer {
@@ -199,7 +215,11 @@ impl GridRenderer {
 
         let mut paint = Paint::default();
         paint.set_anti_alias(false);
-        paint.set_blend_mode(BlendMode::SrcOver);
+        if text.chars().all(is_box_drawing_character) {
+            paint.set_blend_mode(BlendMode::SrcATop);
+        } else {
+            paint.set_blend_mode(BlendMode::SrcOver);
+        }
 
         if SETTINGS.get::<RendererSettings>().debug_renderer {
             let random_hsv: HSV = (rand::random::<f32>() * 360.0, 1.0, 1.0).into();
