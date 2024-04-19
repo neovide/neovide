@@ -2,6 +2,12 @@ use super::{
     KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged,
 };
 
+#[cfg(target_os = "macos")]
+use {
+    crate::{error_msg, window::settings},
+    winit::platform::macos::{self, WindowExtMacOS},
+};
+
 #[cfg(windows)]
 use crate::windows_utils::{register_right_click, unregister_right_click};
 use crate::{
@@ -103,8 +109,8 @@ impl WinitWindowWrapper {
         let WindowSettings {
             input_ime,
             theme,
-            window_blurred,
             transparency,
+            window_blurred,
             ..
         } = SETTINGS.get::<WindowSettings>();
 
@@ -176,6 +182,19 @@ impl WinitWindowWrapper {
         self.fullscreen = !self.fullscreen;
     }
 
+    #[cfg(target_os = "macos")]
+    pub fn set_macos_option_as_meta(&mut self, option: settings::OptionAsMeta) {
+        let winit_option = match option {
+            settings::OptionAsMeta::OnlyLeft => macos::OptionAsAlt::OnlyLeft,
+            settings::OptionAsMeta::OnlyRight => macos::OptionAsAlt::OnlyRight,
+            settings::OptionAsMeta::Both => macos::OptionAsAlt::Both,
+            settings::OptionAsMeta::None => macos::OptionAsAlt::None,
+        };
+        if winit_option != self.skia_renderer.window().option_as_alt() {
+            self.skia_renderer.window().set_option_as_alt(winit_option);
+        }
+    }
+
     pub fn minimize_window(&mut self) {
         let window = self.skia_renderer.window();
 
@@ -238,11 +257,24 @@ impl WinitWindowWrapper {
                 let transparent = transparency < 1.0;
                 self.skia_renderer.window().set_blur(blur && transparent);
             }
+            #[cfg(target_os = "macos")]
+            WindowSettingsChanged::InputMacosOptionKeyIsMeta(option) => {
+                self.set_macos_option_as_meta(option);
+            }
+            #[cfg(target_os = "macos")]
+            WindowSettingsChanged::InputMacosAltIsMeta(enabled) => {
+                if enabled {
+                    error_msg!(concat!(
+                        "neovide_input_macos_alt_is_meta has now been removed. ",
+                        "Use neovide_input_macos_option_key_is_meta instead. ",
+                        "Please check https://neovide.dev/configuration.html#macos-option-key-is-meta for more information.",
+                    ));
+                }
+            }
             _ => {}
         };
         #[cfg(target_os = "macos")]
-        self.macos_feature
-            .handle_settings_changed(self.skia_renderer.window(), changed_setting);
+        self.macos_feature.handle_settings_changed(changed_setting);
     }
 
     pub fn handle_title_changed(&mut self, new_title: String) {
