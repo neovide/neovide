@@ -1,222 +1,177 @@
-use std::{
-    ffi::CString,
-    ptr::{null, null_mut},
+use windows::core::*;
+use windows::Win32::Foundation::*;
+use windows::Win32::System::LibraryLoader::GetModuleFileNameA;
+use windows::Win32::System::Registry::{
+    RegCloseKey, RegCreateKeyExA, RegDeleteTreeA, RegSetValueExA, HKEY, HKEY_CURRENT_USER,
+    KEY_READ, KEY_WRITE, REG_OPTION_NON_VOLATILE, REG_SZ,
 };
-
-use winapi::{
-    shared::{
-        minwindef::{DWORD, HKEY, MAX_PATH},
-        windef::DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
-    },
-    um::{
-        libloaderapi::GetModuleFileNameA,
-        winnt::{KEY_WRITE, REG_OPTION_NON_VOLATILE, REG_SZ},
-        winreg::{RegCloseKey, RegCreateKeyExA, RegDeleteTreeA, RegSetValueExA, HKEY_CURRENT_USER},
-        winuser::SetProcessDpiAwarenessContext,
-    },
+use windows::Win32::UI::HiDpi::{
+    SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
 };
 
 use crate::error_msg;
 
-fn get_binary_path() -> String {
-    let mut buffer = vec![0u8; MAX_PATH];
+const REGISTRY_PATH_DIRECTORY: PCSTR =
+    s!("Software\\Classes\\Directory\\Background\\shell\\Neovide");
+const REGISTRY_PATH_DIRECTORY_COMMAND: PCSTR =
+    s!("Software\\Classes\\Directory\\Background\\shell\\Neovide\\command");
+const REGISTRY_PATH_FOLDER: PCSTR = s!("Software\\Classes\\*\\shell\\Neovide");
+const REGISTRY_PATH_FOLDER_COMMAND: PCSTR = s!("Software\\Classes\\*\\shell\\Neovide\\command");
+
+fn get_neovide_path() -> String {
+    let mut buffer = vec![0u8; MAX_PATH as usize];
+    let len: u32;
     unsafe {
-        GetModuleFileNameA(
-            null_mut(),
-            buffer.as_mut_ptr() as *mut i8,
-            MAX_PATH as DWORD,
-        );
-        CString::from_vec_unchecked(buffer)
-            .into_string()
-            .unwrap_or_else(|_| "".to_string())
-            .trim_end_matches(char::from(0))
-            .to_string()
+        len = GetModuleFileNameA(HMODULE::default(), &mut buffer);
     }
+    buffer.truncate(len as usize);
+    String::from_utf8(buffer).unwrap()
 }
 
 fn unregister_rightclick() -> bool {
-    let str_registry_path_1 =
-        CString::new("Software\\Classes\\Directory\\Background\\shell\\Neovide").unwrap();
-    let str_registry_path_2 = CString::new("Software\\Classes\\*\\shell\\Neovide").unwrap();
     unsafe {
-        let s1 = RegDeleteTreeA(HKEY_CURRENT_USER, str_registry_path_1.as_ptr());
-        let s2 = RegDeleteTreeA(HKEY_CURRENT_USER, str_registry_path_2.as_ptr());
-        s1 == 0 && s2 == 0
+        RegDeleteTreeA(HKEY_CURRENT_USER, REGISTRY_PATH_DIRECTORY).0 == 0
+            && RegDeleteTreeA(HKEY_CURRENT_USER, REGISTRY_PATH_FOLDER).0 == 0
     }
 }
 
 fn register_rightclick_directory() -> bool {
-    let neovide_path = get_binary_path();
-    let mut registry_key: HKEY = null_mut();
-    let str_registry_path =
-        CString::new("Software\\Classes\\Directory\\Background\\shell\\Neovide").unwrap();
-    let str_registry_command_path =
-        CString::new("Software\\Classes\\Directory\\Background\\shell\\Neovide\\command").unwrap();
-    let str_icon = CString::new("Icon").unwrap();
-    let str_command = CString::new(format!("{} \"%V\"", neovide_path).as_bytes()).unwrap();
-    let str_description = CString::new("Open with Neovide").unwrap();
-    let str_neovide_path = CString::new(neovide_path.as_bytes()).unwrap();
+    let mut registry_key = HKEY::default();
+
+    let neovide_path = get_neovide_path();
+    let neovide_description = "Open with Neovide";
+    let neovide_command = format!("{} \"%V\"", neovide_path);
+
     unsafe {
         if RegCreateKeyExA(
             HKEY_CURRENT_USER,
-            str_registry_path.as_ptr(),
+            REGISTRY_PATH_DIRECTORY,
             0,
-            null_mut(),
+            PCSTR::null(),
             REG_OPTION_NON_VOLATILE,
-            KEY_WRITE,
-            null_mut(),
+            KEY_READ | KEY_WRITE,
+            None,
             &mut registry_key,
-            null_mut(),
-        ) != 0
+            None,
+        )
+        .0 != 0
         {
-            RegCloseKey(registry_key);
+            let _ = RegCloseKey(registry_key);
             return false;
         }
-        let registry_values = [
-            (
-                null(),
-                REG_SZ,
-                str_description.as_ptr() as *const u8,
-                str_description.to_bytes().len() + 1,
-            ),
-            (
-                str_icon.as_ptr(),
-                REG_SZ,
-                str_neovide_path.as_ptr() as *const u8,
-                str_neovide_path.to_bytes().len() + 1,
-            ),
-        ];
-        for &(key, keytype, value_ptr, size_in_bytes) in &registry_values {
-            RegSetValueExA(
-                registry_key,
-                key,
-                0,
-                keytype,
-                value_ptr,
-                size_in_bytes as u32,
-            );
-        }
-        RegCloseKey(registry_key);
+
+        let _ = RegSetValueExA(
+            registry_key,
+            PCSTR::null(),
+            0,
+            REG_SZ,
+            Some(neovide_description.as_bytes()),
+        );
+        let _ = RegSetValueExA(
+            registry_key,
+            s!("Icon"),
+            0,
+            REG_SZ,
+            Some(neovide_path.as_bytes()),
+        );
+        let _ = RegCloseKey(registry_key);
 
         if RegCreateKeyExA(
             HKEY_CURRENT_USER,
-            str_registry_command_path.as_ptr(),
+            REGISTRY_PATH_DIRECTORY_COMMAND,
             0,
-            null_mut(),
+            PCSTR::null(),
             REG_OPTION_NON_VOLATILE,
-            KEY_WRITE,
-            null_mut(),
+            KEY_READ | KEY_WRITE,
+            None,
             &mut registry_key,
-            null_mut(),
-        ) != 0
+            None,
+        )
+        .0 != 0
         {
             return false;
         }
-        let registry_values = [(
-            null(),
+
+        let _ = RegSetValueExA(
+            registry_key,
+            PCSTR::null(),
+            0,
             REG_SZ,
-            str_command.as_ptr() as *const u8,
-            str_command.to_bytes().len() + 1,
-        )];
-        for &(key, keytype, value_ptr, size_in_bytes) in &registry_values {
-            RegSetValueExA(
-                registry_key,
-                key,
-                0,
-                keytype,
-                value_ptr,
-                size_in_bytes as u32,
-            );
-        }
-        RegCloseKey(registry_key);
+            Some(neovide_command.as_bytes()),
+        );
+        let _ = RegCloseKey(registry_key);
     }
+
     true
 }
 
 fn register_rightclick_file() -> bool {
-    let neovide_path = get_binary_path();
-    let mut registry_key: HKEY = null_mut();
-    let str_registry_path = CString::new("Software\\Classes\\*\\shell\\Neovide").unwrap();
-    let str_registry_command_path =
-        CString::new("Software\\Classes\\*\\shell\\Neovide\\command").unwrap();
-    let str_icon = CString::new("Icon").unwrap();
-    let str_command = CString::new(format!("{} \"%1\"", neovide_path).as_bytes()).unwrap();
-    let str_description = CString::new("Open with Neovide").unwrap();
-    let str_neovide_path = CString::new(neovide_path.as_bytes()).unwrap();
+    let mut registry_key = HKEY::default();
+
+    let neovide_path = get_neovide_path();
+    let neovide_description = "Open with Neovide";
+    let neovide_command = format!("{} \"%1\"", neovide_path);
+
     unsafe {
         if RegCreateKeyExA(
             HKEY_CURRENT_USER,
-            str_registry_path.as_ptr(),
+            REGISTRY_PATH_FOLDER,
             0,
-            null_mut(),
+            PCSTR::null(),
             REG_OPTION_NON_VOLATILE,
-            KEY_WRITE,
-            null_mut(),
+            KEY_READ | KEY_WRITE,
+            None,
             &mut registry_key,
-            null_mut(),
-        ) != 0
+            None,
+        )
+        .0 != 0
         {
-            RegCloseKey(registry_key);
+            let _ = RegCloseKey(registry_key);
             return false;
         }
-        let registry_values = [
-            (
-                null(),
-                REG_SZ,
-                str_description.as_ptr() as *const u8,
-                str_description.to_bytes().len() + 1,
-            ),
-            (
-                str_icon.as_ptr(),
-                REG_SZ,
-                str_neovide_path.as_ptr() as *const u8,
-                str_neovide_path.to_bytes().len() + 1,
-            ),
-        ];
-        for &(key, keytype, value_ptr, size_in_bytes) in &registry_values {
-            RegSetValueExA(
-                registry_key,
-                key,
-                0,
-                keytype,
-                value_ptr,
-                size_in_bytes as u32,
-            );
-        }
-        RegCloseKey(registry_key);
+
+        let _ = RegSetValueExA(
+            registry_key,
+            PCSTR::null(),
+            0,
+            REG_SZ,
+            Some(neovide_description.as_bytes()),
+        );
+        let _ = RegSetValueExA(
+            registry_key,
+            s!("Icon"),
+            0,
+            REG_SZ,
+            Some(get_neovide_path().as_bytes()),
+        );
+        let _ = RegCloseKey(registry_key);
 
         if RegCreateKeyExA(
             HKEY_CURRENT_USER,
-            str_registry_command_path.as_ptr(),
+            REGISTRY_PATH_FOLDER_COMMAND,
             0,
-            null_mut(),
+            PCSTR::null(),
             REG_OPTION_NON_VOLATILE,
-            KEY_WRITE,
-            null_mut(),
+            KEY_READ | KEY_WRITE,
+            None,
             &mut registry_key,
-            null_mut(),
-        ) != 0
+            None,
+        )
+        .0 != 0
         {
             return false;
         }
-        let registry_values = [(
-            null(),
+
+        let _ = RegSetValueExA(
+            registry_key,
+            PCSTR::null(),
+            0,
             REG_SZ,
-            str_command.as_ptr() as *const u8,
-            str_command.to_bytes().len() + 1,
-        )];
-        for &(key, keytype, value_ptr, size_in_bytes) in &registry_values {
-            RegSetValueExA(
-                registry_key,
-                key,
-                0,
-                keytype,
-                value_ptr,
-                size_in_bytes as u32,
-            );
-        }
-        RegCloseKey(registry_key);
+            Some(neovide_command.as_bytes()),
+        );
+        let _ = RegCloseKey(registry_key);
     }
+
     true
 }
 
@@ -240,6 +195,6 @@ pub fn unregister_right_click() {
 
 pub fn windows_fix_dpi() {
     unsafe {
-        SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+        SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2).unwrap();
     }
 }
