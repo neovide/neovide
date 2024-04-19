@@ -36,6 +36,16 @@ pub fn to_skia_rect(rect: &PixelRect<f32>) -> skia_safe::Rect {
 #[derive(Copy, Clone)]
 pub struct GridScale(pub PixelSize<f32>);
 
+impl GridScale {
+    pub fn height(&self) -> f32 {
+        self.0.height
+    }
+
+    pub fn width(&self) -> f32 {
+        self.0.width
+    }
+}
+
 impl Mul<GridScale> for GridVec<f32> {
     type Output = PixelVec<f32>;
 
