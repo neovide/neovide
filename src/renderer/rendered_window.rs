@@ -3,15 +3,19 @@ use std::{cell::RefCell, rc::Rc, sync::Arc};
 use skia_safe::{
     canvas::SaveLayerRec, scalar, BlendMode, Canvas, Color, Matrix, Paint, Picture,
     PictureRecorder, Point, Rect,
+    canvas::SaveLayerRec,
+    image_filters::blur,
+    utils::shadow_utils::{draw_shadow, ShadowFlags},
+    BlendMode, Canvas, ClipOp, Color, Matrix, Paint, Path, Picture, PictureRecorder, Point3, Rect,
 };
 
 use crate::{
     cmd_line::CmdLineSettings,
-    dimensions::Dimensions,
     editor::{AnchorInfo, Style, WindowType},
     profiling::{tracy_plot, tracy_zone},
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
     settings::SETTINGS,
+    units::{to_skia_rect, GridPos, GridRect, GridScale, GridSize, PixelRect},
     utils::RingBuffer,
 };
 
@@ -81,16 +85,16 @@ pub struct RenderedWindow {
     pub anchor_info: Option<AnchorInfo>,
     window_type: WindowType,
 
-    pub grid_size: Dimensions,
+    pub grid_size: GridSize<u32>,
 
     scrollback_lines: RingBuffer<Option<Rc<RefCell<Line>>>>,
     actual_lines: RingBuffer<Option<Rc<RefCell<Line>>>>,
     scroll_delta: isize,
     pub viewport_margins: ViewportMargins,
 
-    grid_start_position: Point,
-    pub grid_current_position: Point,
-    grid_destination: Point,
+    grid_start_position: GridPos<f32>,
+    pub grid_current_position: GridPos<f32>,
+    grid_destination: GridPos<f32>,
     position_t: f32,
 
     pub scroll_animation: CriticallyDampedSpringAnimation,
@@ -101,7 +105,7 @@ pub struct RenderedWindow {
 #[derive(Clone, Debug)]
 pub struct WindowDrawDetails {
     pub id: u64,
-    pub region: Rect,
+    pub region: PixelRect<f32>,
     pub floating_order: Option<u64>,
 }
 
@@ -129,7 +133,7 @@ impl Line {
 }
 
 impl RenderedWindow {
-    pub fn new(id: u64, grid_position: Point, grid_size: Dimensions) -> RenderedWindow {
+    pub fn new(id: u64, grid_position: GridPos<i32>, grid_size: GridSize<u32>) -> RenderedWindow {
         RenderedWindow {
             id,
             hidden: false,
@@ -147,9 +151,9 @@ impl RenderedWindow {
                 inferred: true,
             },
 
-            grid_start_position: grid_position,
-            grid_current_position: grid_position,
-            grid_destination: grid_position,
+            grid_start_position: grid_position.cast(),
+            grid_current_position: grid_position.cast(),
+            grid_destination: grid_position.cast(),
             position_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation.
 
             scroll_animation: CriticallyDampedSpringAnimation::new(),
@@ -158,15 +162,9 @@ impl RenderedWindow {
         }
     }
 
-    pub fn pixel_region(&self, font_dimensions: Dimensions) -> Rect {
-        let current_pixel_position = Point::new(
-            self.grid_current_position.x * font_dimensions.width as f32,
-            self.grid_current_position.y * font_dimensions.height as f32,
-        );
-
-        let image_size: (i32, i32) = (self.grid_size * font_dimensions).into();
-
-        Rect::from_point_and_size(current_pixel_position, image_size)
+    pub fn pixel_region(&self, grid_scale: GridScale) -> PixelRect<f32> {
+        GridRect::<f32>::from_origin_and_size(self.grid_current_position, self.grid_size.cast())
+            * grid_scale
     }
 
     pub fn update_blend(&self, blend: u8) {
@@ -176,53 +174,41 @@ impl RenderedWindow {
         }
     }
 
-    fn get_target_position(&self, outer_size: &Dimensions, padding_as_grid: &Rect) -> Point {
-        let destination = Point {
-            x: self.grid_destination.x + padding_as_grid.left,
-            y: self.grid_destination.y + padding_as_grid.top,
-        };
+    fn get_target_position(&self, grid_rect: &GridRect<f32>) -> Point {
+        let destination = self.grid_destination + grid_rect.min.to_vector();
 
         if self.anchor_info.is_none() {
             return destination;
         }
 
-        // Note the rect is always as far top/left as possible, which means that the right and
-        // bottom paddings might be bigger than requested. This is done in order to avoid the text
-        // moving around when the window is resized.
-        let valid_rect = Rect {
-            left: padding_as_grid.left,
-            right: padding_as_grid.left + outer_size.width as scalar,
-            top: padding_as_grid.top,
-            bottom: padding_as_grid.top + outer_size.height as scalar,
-        };
+        let mut grid_size: GridSize<f32> = self.grid_size.cast();
 
-        let mut grid_size = Point::new(self.grid_size.width as f32, self.grid_size.height as f32);
         if matches!(self.window_type, WindowType::Message { .. }) {
             // The message grid size is always the full window size, so use the relative position to
             // calculate the actual grid size
-            grid_size.y -= self.grid_destination.y;
+            grid_size.height -= self.grid_destination.y;
         }
-
+        // If a floating window is partially outside the grid, then move it in from the right, but
+        // ensure that the left edge is always visible.
         let x = destination
             .x
-            .min(valid_rect.right - grid_size.x)
-            .max(valid_rect.left);
+            .min(grid_rect.max.x - grid_size.width)
+            .max(grid_rect.min.x);
 
         // For messages the last line is most important, (it shows press enter), so let the position go negative
         // Otherwise ensure that the window start row is within the screen
-        let mut y = destination.y.min(valid_rect.bottom - grid_size.y);
-        if matches!(self.window_type, WindowType::Message { .. }) {
-            y = y.max(valid_rect.top)
+        let mut y = destination.y.min(grid_rect.max.y - grid_size.height);
+        if !matches!(self.window_type, WindowType::Message { .. }) {
+            y = y.max(grid_rect.min.y)
         }
-        Point { x, y }
+        GridPos::<f32>::new(x, y)
     }
 
     /// Returns `true` if the window has been animated in this step.
     pub fn animate(
         &mut self,
         settings: &RendererSettings,
-        outer_size: &Dimensions,
-        padding_as_grid: &Rect,
+        grid_rect: &GridRect<f32>,
         dt: f32,
     ) -> bool {
         let mut animating = false;
@@ -238,10 +224,11 @@ impl RenderedWindow {
         let prev_position = self.grid_current_position;
         self.grid_current_position = ease_point(
             ease_out_expo,
-            self.grid_start_position,
-            self.get_target_position(outer_size, padding_as_grid),
+            self.grid_start_position.cast_unit(),
+            self.get_target_position(grid_rect).cast_unit(),
             self.position_t,
-        );
+        )
+        .cast_unit();
         animating |= self.grid_current_position != prev_position;
 
         let scrolling = self
@@ -260,7 +247,7 @@ impl RenderedWindow {
     fn iter_scrollback_lines_with_transform(
         &self,
         pixel_region: Rect,
-        font_dimensions: Dimensions,
+        grid_scale: GridScale<f32>,
     ) -> impl Iterator<Item = (Matrix, &Rc<RefCell<Line>>)> {
         let scroll_offset_lines = self.scroll_animation.position.floor();
         let scroll_offset = scroll_offset_lines - self.scroll_animation.position;
@@ -400,9 +387,50 @@ impl RenderedWindow {
         &mut self,
         root_canvas: &Canvas,
         default_background: Color,
-        font_dimensions: Dimensions,
+        grid_scale: GridScale,
+        previous_floating_rects: &mut Vec<PixelRect<f32>>,
     ) -> WindowDrawDetails {
-        let pixel_region = self.pixel_region(font_dimensions);
+        let has_transparency = default_background.a() != 255 || self.has_transparency();
+
+        let pixel_region_box = self.pixel_region(grid_scale);
+        let pixel_region = to_skia_rect(&pixel_region_box);
+        let transparent_floating = self.anchor_info.is_some() && has_transparency;
+
+        if self.anchor_info.is_some()
+            && settings.floating_shadow
+            && !previous_floating_rects
+                .iter()
+                .any(|rect| rect.contains_box(&pixel_region_box))
+        {
+            root_canvas.save();
+            let shadow_path = Path::rect(pixel_region, None);
+            // We clip using the Difference op to make sure that the shadow isn't rendered inside
+            // the window itself.
+            root_canvas.clip_path(&shadow_path, Some(ClipOp::Difference), None);
+            // The light angle is specified in degrees from the vertical, so we first convert them
+            // to radians and then use sin/cos to get the y and z components of the light
+            let light_angle_radians = settings.light_angle_degrees.to_radians();
+            draw_shadow(
+                root_canvas,
+                &shadow_path,
+                // Specifies how far from the root canvas the shadow casting rect is. We just use
+                // the z component here to set it a constant distance away.
+                Point3::new(0., 0., settings.floating_z_height),
+                // Because we use the DIRECTIONAL_LIGHT shadow flag, this specifies the angle that
+                // the light is coming from.
+                Point3::new(0., -light_angle_radians.sin(), light_angle_radians.cos()),
+                // This is roughly equal to the apparent radius of the light .
+                5.,
+                Color::from_argb((0.03 * 255.) as u8, 0, 0, 0),
+                Color::from_argb((0.35 * 255.) as u8, 0, 0, 0),
+                // Directional Light flag is necessary to make the shadow render consistently
+                // across various sizes of floating windows. It effects how the light direction is
+                // processed.
+                Some(ShadowFlags::DIRECTIONAL_LIGHT),
+            );
+            root_canvas.restore();
+            previous_floating_rects.push(pixel_region_box);
+        }
 
         root_canvas.save();
         root_canvas.clip_rect(pixel_region, None, Some(false));
@@ -438,7 +466,7 @@ impl RenderedWindow {
 
         WindowDrawDetails {
             id: self.id,
-            region: pixel_region,
+            region: pixel_region_box,
             floating_order: self.anchor_info.as_ref().map(|v| v.sort_order),
         }
     }
@@ -446,19 +474,19 @@ impl RenderedWindow {
     pub fn handle_window_draw_command(&mut self, draw_command: WindowDrawCommand) {
         match draw_command {
             WindowDrawCommand::Position {
-                grid_position: (grid_left, grid_top),
+                grid_position,
                 grid_size,
                 anchor_info,
                 window_type,
             } => {
                 tracy_zone!("position_cmd", 0);
 
-                let grid_left = grid_left.max(0.0) as f32;
-                let grid_top = grid_top.max(0.0) as f32;
-                let new_destination: Point = (grid_left, grid_top).into();
-                let new_grid_size: Dimensions = grid_size.into();
+                let new_grid_size: GridSize<u32> =
+                    GridSize::<u64>::from(grid_size).try_cast().unwrap();
+                let grid_position: GridPos<f32> =
+                    GridPos::<f64>::from(grid_position).try_cast().unwrap();
 
-                if self.grid_destination != new_destination {
+                if self.grid_destination != grid_position {
                     if self.grid_start_position.x.abs() > f32::EPSILON
                         || self.grid_start_position.y.abs() > f32::EPSILON
                     {
@@ -468,9 +496,9 @@ impl RenderedWindow {
                         // We don't want to animate since the window is animating out of the start location,
                         // so we set t to 2.0 to stop animations.
                         self.position_t = 2.0;
-                        self.grid_start_position = new_destination;
+                        self.grid_start_position = grid_position;
                     }
-                    self.grid_destination = new_destination;
+                    self.grid_destination = grid_position;
                 }
 
                 let height = new_grid_size.height as usize;
@@ -492,8 +520,8 @@ impl RenderedWindow {
                     self.hidden = false;
                     self.position_t = 2.0; // We don't want to animate since the window is becoming visible,
                                            // so we set t to 2.0 to stop animations.
-                    self.grid_start_position = new_destination;
-                    self.grid_destination = new_destination;
+                    self.grid_start_position = grid_position;
+                    self.grid_destination = grid_position;
                 }
             }
             WindowDrawCommand::DrawLine {
@@ -555,9 +583,9 @@ impl RenderedWindow {
             } => {
                 tracy_zone!("scroll_cmd", 0);
                 if top == 0
-                    && bottom == self.grid_size.height
+                    && bottom == u64::from(self.grid_size.height)
                     && left == 0
-                    && right == self.grid_size.width
+                    && right == u64::from(self.grid_size.width)
                     && cols == 0
                 {
                     self.actual_lines.rotate(rows as isize);
@@ -757,7 +785,7 @@ impl RenderedWindow {
         if height == 0 {
             return;
         }
-        let font_dimensions = grid_renderer.font_dimensions;
+        let grid_scale = grid_renderer.grid_scale;
 
         let mut prepare_line = |line: &Rc<RefCell<Line>>| {
             let mut line = line.borrow_mut();
@@ -767,10 +795,8 @@ impl RenderedWindow {
 
             let mut recorder = PictureRecorder::new();
 
-            let grid_rect = Rect::from_wh(
-                (self.grid_size.width * font_dimensions.width) as f32,
-                font_dimensions.height as f32,
-            );
+            let line_size = GridSize::new(self.grid_size.width, 1).cast() * grid_scale;
+            let grid_rect = Rect::from_wh(line_size.width, line_size.height);
             let canvas = recorder.begin_recording(grid_rect, None);
 
             let mut blend = 0;
@@ -783,9 +809,13 @@ impl RenderedWindow {
                     style,
                     ..
                 } = line_fragment;
-                let grid_position = (*window_left, 0);
-                let background_info =
-                    grid_renderer.draw_background(canvas, grid_position, *width, style);
+                let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
+                let background_info = grid_renderer.draw_background(
+                    canvas,
+                    grid_position,
+                    i32::try_from(*width).unwrap(),
+                    style,
+                );
                 custom_background |= background_info.custom_color;
                 blend = blend.min(style.as_ref().map_or(0, |s| s.blend));
             }
@@ -801,10 +831,15 @@ impl RenderedWindow {
                     width,
                     style,
                 } = line_fragment;
-                let grid_position = (*window_left, 0);
+                let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
 
-                foreground_drawn |=
-                    grid_renderer.draw_foreground(canvas, text, grid_position, *width, style);
+                foreground_drawn |= grid_renderer.draw_foreground(
+                    canvas,
+                    text,
+                    grid_position,
+                    i32::try_from(*width).unwrap(),
+                    style,
+                );
             }
             let foreground_picture =
                 foreground_drawn.then_some(recorder.finish_recording_as_picture(None).unwrap());

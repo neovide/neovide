@@ -26,6 +26,7 @@ mod profiling;
 mod renderer;
 mod running_tracker;
 mod settings;
+mod units;
 mod utils;
 mod window;
 

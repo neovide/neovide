@@ -38,14 +38,14 @@ use update_loop::UpdateLoop;
 
 use crate::{
     cmd_line::{CmdLineSettings, GeometryArgs},
-    dimensions::Dimensions,
     frame::Frame,
     renderer::{build_window_config, DrawCommand, WindowConfig},
     running_tracker::*,
     settings::{
-        load_last_window_settings, save_window_size, FontSettings, HotReloadConfigs,
-        PersistentWindowSettings, SettingsChanged, SETTINGS,
+        clamped_grid_size, load_last_window_settings, save_window_size, FontSettings,
+        HotReloadConfigs, PersistentWindowSettings, SettingsChanged, SETTINGS,
     },
+    units::GridSize,
 };
 pub use error_window::show_error_window;
 pub use settings::{WindowSettings, WindowSettingsChanged};
@@ -244,7 +244,7 @@ pub fn create_window(
 pub enum WindowSize {
     Size(PhysicalSize<u32>),
     Maximized,
-    Grid(Dimensions),
+    Grid(GridSize<u32>),
     NeovimGrid, // The geometry is read from init.vim/lua
 }
 
@@ -255,7 +255,10 @@ pub fn determine_window_size(window_settings: Option<&PersistentWindowSettings>)
         GeometryArgs {
             grid: Some(Some(dimensions)),
             ..
-        } => WindowSize::Grid(dimensions.clamped_grid_size()),
+        } => WindowSize::Grid(clamped_grid_size(&GridSize::new(
+            dimensions.width.try_into().unwrap(),
+            dimensions.height.try_into().unwrap(),
+        ))),
         GeometryArgs {
             grid: Some(None), ..
         } => WindowSize::NeovimGrid,

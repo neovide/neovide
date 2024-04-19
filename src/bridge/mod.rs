@@ -17,8 +17,8 @@ use tokio::runtime::{Builder, Runtime};
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
-    cmd_line::CmdLineSettings, dimensions::Dimensions, editor::start_editor, running_tracker::*,
-    settings::*, window::UserEvent,
+    cmd_line::CmdLineSettings, editor::start_editor, running_tracker::*, settings::*,
+    units::GridSize, window::UserEvent,
 };
 pub use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
@@ -77,7 +77,7 @@ pub async fn show_error_message(
     nvim.echo(prepared_lines, true, vec![]).await
 }
 
-async fn launch(handler: NeovimHandler, grid_size: Option<Dimensions>) -> Result<NeovimSession> {
+async fn launch(handler: NeovimHandler, grid_size: Option<GridSize<u32>>) -> Result<NeovimSession> {
     let neovim_instance = neovim_instance()?;
 
     let session = NeovimSession::new(neovim_instance, handler)
@@ -123,7 +123,7 @@ async fn launch(handler: NeovimHandler, grid_size: Option<Dimensions>) -> Result
 
     // Triggers loading the user config
 
-    let grid_size = grid_size.map_or(DEFAULT_GRID_SIZE, |v| v.clamped_grid_size());
+    let grid_size = grid_size.map_or(DEFAULT_GRID_SIZE, |v| clamped_grid_size(&v));
     let res = session
         .neovim
         .ui_attach(grid_size.width as i64, grid_size.height as i64, &options)
@@ -159,7 +159,7 @@ impl NeovimRuntime {
     pub fn launch(
         &mut self,
         event_loop_proxy: EventLoopProxy<UserEvent>,
-        grid_size: Option<Dimensions>,
+        grid_size: Option<GridSize<u32>>,
     ) -> Result<()> {
         let handler = start_editor(event_loop_proxy);
         let runtime = self.runtime.as_ref().unwrap();
