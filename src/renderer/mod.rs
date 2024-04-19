@@ -19,7 +19,7 @@ use std::{
 
 use itertools::Itertools;
 use log::{error, warn};
-use skia_safe::{Canvas, Point, Rect};
+use skia_safe::Canvas;
 use winit::{
     event::Event,
     event_loop::{EventLoop, EventLoopProxy},
@@ -208,7 +208,7 @@ impl Renderer {
                 log::debug!("zindex: {}, base: {}", zindex, base_zindex);
                 // Group floating windows by consecutive z indices
                 if zindex - last_zindex > 1 && !current_windows.is_empty() {
-                    for windows in group_windows(current_windows, font_dimensions) {
+                    for windows in group_windows(current_windows, grid_scale) {
                         floating_layers.push(FloatingLayer {
                             sort_order: base_zindex,
                             windows,
@@ -225,7 +225,7 @@ impl Renderer {
             }
 
             if !current_windows.is_empty() {
-                for windows in group_windows(current_windows, font_dimensions) {
+                for windows in group_windows(current_windows, grid_scale) {
                     floating_layers.push(FloatingLayer {
                         sort_order: base_zindex,
                         windows,
@@ -248,18 +248,19 @@ impl Renderer {
             (root_windows, floating_layers)
         };
 
+        let settings = SETTINGS.get::<RendererSettings>();
         let root_window_regions = root_windows
             .into_iter()
             .map(|window| {
                 window.draw(
                     root_canvas,
+                    &settings,
                     default_background.with_a((255.0 * transparency) as u8),
-                    font_dimensions,
+                    grid_scale,
                 )
             })
             .collect_vec();
 
-        let settings = SETTINGS.get::<RendererSettings>();
         let floating_window_regions = floating_layers
             .into_iter()
             .flat_map(|mut layer| {
@@ -268,7 +269,6 @@ impl Renderer {
                     &settings,
                     default_background.with_a((255.0 * transparency) as u8),
                     grid_scale,
-                    &mut floating_rects,
                 )
             })
             .collect_vec();

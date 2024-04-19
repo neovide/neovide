@@ -6,7 +6,7 @@ use skia_safe::{
     BlendMode, Canvas, ClipOp, Color, Paint, Path, PathOp, Point3, Rect,
 };
 
-use crate::dimensions::Dimensions;
+use crate::units::{to_skia_rect, GridScale, PixelRect};
 
 use super::{RenderedWindow, RendererSettings, WindowDrawDetails};
 
@@ -26,12 +26,12 @@ impl<'w> FloatingLayer<'w> {
         root_canvas: &Canvas,
         settings: &RendererSettings,
         default_background: Color,
-        font_dimensions: Dimensions,
+        grid_scale: GridScale,
     ) -> Vec<WindowDrawDetails> {
         let pixel_regions = self
             .windows
             .iter()
-            .map(|window| window.pixel_region(font_dimensions))
+            .map(|window| window.pixel_region(grid_scale))
             .collect::<Vec<_>>();
         let (silhouette, bound_rect) = build_silhouette(&pixel_regions);
         let has_transparency = default_background.a() != 255
@@ -80,7 +80,7 @@ impl<'w> FloatingLayer<'w> {
         let regions = self
             .windows
             .iter()
-            .map(|window| window.pixel_region(font_dimensions))
+            .map(|window| window.pixel_region(grid_scale))
             .collect::<Vec<_>>();
 
         let blend = self.uniform_background_blend();
@@ -93,11 +93,11 @@ impl<'w> FloatingLayer<'w> {
 
         (0..self.windows.len()).for_each(|i| {
             let window = &mut self.windows[i];
-            window.draw_background_surface(root_canvas, &regions[i], font_dimensions);
+            window.draw_background_surface(root_canvas, regions[i], grid_scale);
         });
         (0..self.windows.len()).for_each(|i| {
             let window = &mut self.windows[i];
-            window.draw_foreground_surface(root_canvas, &regions[i], font_dimensions);
+            window.draw_foreground_surface(root_canvas, regions[i], grid_scale);
 
             ret.push(WindowDrawDetails {
                 id: window.id,
@@ -162,12 +162,14 @@ fn rect_intersect(a: &Rect, b: &Rect) -> bool {
     Rect::intersects2(a, b)
 }
 
-fn group_windows_with_regions(windows: &mut Vec<LayerWindow>, regions: &[Rect]) {
+fn group_windows_with_regions(windows: &mut Vec<LayerWindow>, regions: &[PixelRect<f32>]) {
     for i in 0..windows.len() {
         for j in i + 1..windows.len() {
             let group_i = get_window_group(windows, i);
             let group_j = get_window_group(windows, j);
-            if group_i != group_j && rect_intersect(&regions[i], &regions[j]) {
+            if group_i != group_j
+                && rect_intersect(&to_skia_rect(&regions[i]), &to_skia_rect(&regions[j]))
+            {
                 let new_group = group_i.min(group_j);
                 if group_i != group_j {
                     windows[group_i].group = new_group;
@@ -180,7 +182,7 @@ fn group_windows_with_regions(windows: &mut Vec<LayerWindow>, regions: &[Rect]) 
 
 pub fn group_windows(
     windows: Vec<&mut RenderedWindow>,
-    font_dimensions: Dimensions,
+    grid_scale: GridScale,
 ) -> Vec<Vec<&mut RenderedWindow>> {
     let mut windows = windows
         .into_iter()
@@ -192,7 +194,7 @@ pub fn group_windows(
         .collect::<Vec<_>>();
     let regions = windows
         .iter()
-        .map(|window| window.window.pixel_region(font_dimensions))
+        .map(|window| window.window.pixel_region(grid_scale))
         .collect::<Vec<_>>();
     group_windows_with_regions(&mut windows, &regions);
     for i in 0..windows.len() {
@@ -206,13 +208,17 @@ pub fn group_windows(
         .collect_vec()
 }
 
-fn build_silhouette(regions: &[Rect]) -> (Path, Rect) {
+fn build_silhouette(regions: &[PixelRect<f32>]) -> (Path, Rect) {
     let silhouette = regions
         .iter()
-        .map(|r| Path::rect(r, None))
+        .map(|r| Path::rect(to_skia_rect(r), None))
         .reduce(|a, b| a.op(&b, PathOp::Union).unwrap())
         .unwrap();
-    let bounding_rect = regions.iter().cloned().reduce(Rect::join2).unwrap();
+    let bounding_rect = regions
+        .iter()
+        .map(to_skia_rect)
+        .reduce(Rect::join2)
+        .unwrap();
 
     (silhouette, bounding_rect)
 }
