@@ -212,11 +212,7 @@ fn build_silhouette(regions: &[Rect]) -> (Path, Rect) {
         .map(|r| Path::rect(r, None))
         .reduce(|a, b| a.op(&b, PathOp::Union).unwrap())
         .unwrap();
-    let bounding_rect = regions
-        .into_iter()
-        .cloned()
-        .reduce(|a, b| Rect::join2(a, b))
-        .unwrap();
+    let bounding_rect = regions.iter().cloned().reduce(Rect::join2).unwrap();
 
     (silhouette, bounding_rect)
 }

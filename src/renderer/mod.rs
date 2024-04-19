@@ -202,16 +202,14 @@ impl Renderer {
                 let zindex = window.anchor_info.as_ref().unwrap().sort_order;
                 log::debug!("zindex: {}, base: {}", zindex, base_zindex);
                 // Group floating windows by consecutive z indices
-                if zindex - last_zindex > 1 {
-                    if !current_windows.is_empty() {
-                        for windows in group_windows(current_windows, font_dimensions) {
-                            floating_layers.push(FloatingLayer {
-                                sort_order: base_zindex,
-                                windows,
-                            });
-                        }
-                        current_windows = vec![];
+                if zindex - last_zindex > 1 && !current_windows.is_empty() {
+                    for windows in group_windows(current_windows, font_dimensions) {
+                        floating_layers.push(FloatingLayer {
+                            sort_order: base_zindex,
+                            windows,
+                        });
                     }
+                    current_windows = vec![];
                 }
 
                 if current_windows.is_empty() {

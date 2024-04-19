@@ -170,7 +170,7 @@ impl RenderedWindow {
     }
 
     pub fn update_blend(&self, blend: u8) {
-        for line in self.iter_lines() {
+        for (_, line) in self.iter_lines() {
             let mut line = line.borrow_mut();
             line.update_background_blend(blend);
         }
@@ -257,82 +257,55 @@ impl RenderedWindow {
         animating
     }
 
-    #[allow(clippy::type_complexity)]
-    fn split_lines(
+    fn iter_scrollback_lines_with_transform(
         &self,
-        pixel_region: &Rect,
+        pixel_region: Rect,
         font_dimensions: Dimensions,
-    ) -> (
-        Vec<(Matrix, &Rc<RefCell<Line>>)>,
-        Vec<(Matrix, &Rc<RefCell<Line>>)>,
-        Rect,
-    ) {
+    ) -> impl Iterator<Item = (Matrix, &Rc<RefCell<Line>>)> {
         let scroll_offset_lines = self.scroll_animation.position.floor();
         let scroll_offset = scroll_offset_lines - self.scroll_animation.position;
-        let scroll_offset_lines = scroll_offset_lines as isize;
         let scroll_offset_pixels = (scroll_offset * font_dimensions.height as f32).round() as isize;
+
+        self.iter_scrollback_lines().map(move |(i, line)| {
+            let mut matrix = Matrix::new_identity();
+            matrix.set_translate((
+                pixel_region.left(),
+                pixel_region.top()
+                    + (scroll_offset_pixels
+                        + ((i + self.viewport_margins.top as isize)
+                            * font_dimensions.height as isize)) as f32,
+            ));
+            (matrix, line)
+        })
+    }
+
+    fn iter_border_lines_with_transform(
+        &self,
+        pixel_region: Rect,
+        font_dimensions: Dimensions,
+    ) -> impl Iterator<Item = (Matrix, &Rc<RefCell<Line>>)> {
+        self.iter_border_lines().map(move |(i, line)| {
+            let mut matrix = Matrix::new_identity();
+            matrix.set_translate((
+                pixel_region.left(),
+                pixel_region.top() + (i * font_dimensions.height as isize) as f32,
+            ));
+            (matrix, line)
+        })
+    }
+
+    /// Returns the rect containing the region of the window that does not have borders above and
+    /// below it. Note: This does not take into account the borders on the left and the right of
+    /// the window.
+    pub fn inner_region(&self, pixel_region: &Rect, font_dimensions: Dimensions) -> Rect {
         let line_height = font_dimensions.height as f32;
-
-        let lines: Vec<(Matrix, &Rc<RefCell<Line>>)> = if !self.scrollback_lines.is_empty() {
-            (0..self.grid_size.height as isize + 1)
-                .filter_map(|i| {
-                    self.scrollback_lines[scroll_offset_lines + i]
-                        .as_ref()
-                        .map(|line| (i, line))
-                })
-                .map(|(i, line)| {
-                    let mut matrix = Matrix::new_identity();
-                    matrix.set_translate((
-                        pixel_region.left(),
-                        pixel_region.top()
-                            + (scroll_offset_pixels
-                                + ((i + self.viewport_margins.top as isize)
-                                    * font_dimensions.height as isize))
-                                as f32,
-                    ));
-                    (matrix, line)
-                })
-                .collect()
-        } else {
-            Vec::new()
-        };
-
-        let top_border_indices = 0..self.viewport_margins.top as isize;
-        let actual_line_count = self.actual_lines.len() as isize;
-        let bottom_border_indices =
-            actual_line_count - self.viewport_margins.bottom as isize..actual_line_count;
-        let margins_inferred = self.viewport_margins.inferred;
-
-        let border_lines: Vec<_> = top_border_indices
-            .chain(bottom_border_indices)
-            .filter_map(|i| {
-                self.actual_lines[i].as_ref().and_then(|line| {
-                    if !margins_inferred || line.borrow().is_inferred_border {
-                        Some((i, line))
-                    } else {
-                        None
-                    }
-                })
-            })
-            .map(|(i, line)| {
-                let mut matrix = Matrix::new_identity();
-                matrix.set_translate((
-                    pixel_region.left(),
-                    pixel_region.top() + (i * font_dimensions.height as isize) as f32,
-                ));
-                (matrix, line)
-            })
-            .collect();
-
-        let inner_region = Rect::from_xywh(
+        Rect::from_xywh(
             pixel_region.x(),
             pixel_region.y() + self.viewport_margins.top as f32 * line_height,
             pixel_region.width(),
             pixel_region.height()
                 - (self.viewport_margins.top + self.viewport_margins.bottom) as f32 * line_height,
-        );
-
-        (lines, border_lines, inner_region)
+        )
     }
 
     pub fn draw_background_surface(
@@ -343,25 +316,28 @@ impl RenderedWindow {
     ) {
         let mut has_transparency = false;
 
-        let (lines, border_lines, inner_region) = self.split_lines(pixel_region, font_dimensions);
+        let inner_region = self.inner_region(pixel_region, font_dimensions);
 
         canvas.save();
         canvas.clip_rect(pixel_region, None, false);
-        for (matrix, line) in &border_lines {
+        for (matrix, line) in self.iter_border_lines_with_transform(*pixel_region, font_dimensions)
+        {
             let line = line.borrow();
             if let Some(background_picture) = &line.background_picture {
                 has_transparency |= line.has_transparency();
-                canvas.draw_picture(background_picture, Some(matrix), None);
+                canvas.draw_picture(background_picture, Some(&matrix), None);
             }
         }
         canvas.save();
         canvas.clip_rect(inner_region, None, false);
         let mut pics = 0;
-        for (matrix, line) in &lines {
+        for (matrix, line) in
+            self.iter_scrollback_lines_with_transform(*pixel_region, font_dimensions)
+        {
             let line = line.borrow();
             if let Some(background_picture) = &line.background_picture {
                 has_transparency |= line.has_transparency();
-                canvas.draw_picture(background_picture, Some(matrix), None);
+                canvas.draw_picture(background_picture, Some(&matrix), None);
                 pics += 1;
             }
         }
@@ -383,20 +359,25 @@ impl RenderedWindow {
         pixel_region: &Rect,
         font_dimensions: Dimensions,
     ) {
-        let (lines, border_lines, inner_region) = self.split_lines(pixel_region, font_dimensions);
-
-        for (matrix, line) in &border_lines {
+        for (matrix, line) in self.iter_border_lines_with_transform(*pixel_region, font_dimensions)
+        {
             let line = line.borrow();
             if let Some(foreground_picture) = &line.foreground_picture {
-                canvas.draw_picture(foreground_picture, Some(matrix), None);
+                canvas.draw_picture(foreground_picture, Some(&matrix), None);
             }
         }
         canvas.save();
-        canvas.clip_rect(inner_region, None, false);
-        for (matrix, line) in &lines {
+        canvas.clip_rect(
+            self.inner_region(pixel_region, font_dimensions),
+            None,
+            false,
+        );
+        for (matrix, line) in
+            self.iter_scrollback_lines_with_transform(*pixel_region, font_dimensions)
+        {
             let line = line.borrow();
             if let Some(foreground_picture) = &line.foreground_picture {
-                canvas.draw_picture(foreground_picture, Some(matrix), None);
+                canvas.draw_picture(foreground_picture, Some(&matrix), None);
             }
         }
         canvas.restore();
@@ -702,39 +683,52 @@ impl RenderedWindow {
         self.scroll_delta = 0;
     }
 
-    fn iter_lines<'a>(&'a self) -> Box<dyn Iterator<Item = &'a Rc<RefCell<Line>>> + 'a> {
-        let scroll_offset_lines = self.scroll_animation.position.floor() as isize;
-        let height = self.grid_size.height as isize;
-        if height == 0 {
-            return Box::new(std::iter::empty());
-        }
-
-        let top_border_lines = self
-            .actual_lines
-            .iter_range(0..self.viewport_margins.top as isize)
-            .flatten();
+    fn iter_border_lines(&self) -> impl Iterator<Item = (isize, &Rc<RefCell<Line>>)> {
+        let top_border_indices = 0..self.viewport_margins.top as isize;
         let actual_line_count = self.actual_lines.len() as isize;
-        let bottom_border_lines = self
-            .actual_lines
-            .iter_range(
-                actual_line_count - self.viewport_margins.bottom as isize..actual_line_count,
-            )
-            .flatten();
+        let bottom_border_indices =
+            actual_line_count - self.viewport_margins.bottom as isize..actual_line_count;
+        let margins_inferred = self.viewport_margins.inferred;
 
-        if self.scrollback_lines.is_empty() {
-            Box::new(top_border_lines.chain(bottom_border_lines))
+        top_border_indices
+            .chain(bottom_border_indices)
+            .filter_map(move |i| {
+                self.actual_lines[i].as_ref().and_then(|line| {
+                    if !margins_inferred || line.borrow().is_inferred_border {
+                        Some((i, line))
+                    } else {
+                        None
+                    }
+                })
+            })
+    }
+
+    fn iter_scrollback_lines(&self) -> impl Iterator<Item = (isize, &Rc<RefCell<Line>>)> {
+        let scroll_offset_lines = self.scroll_animation.position.floor();
+        let scroll_offset_lines = scroll_offset_lines as isize;
+
+        let line_indices = if !self.scrollback_lines.is_empty() {
+            0..self.grid_size.height as isize + 1
         } else {
-            let scrollable_lines = self
-                .scrollback_lines
-                .iter_range(scroll_offset_lines..scroll_offset_lines + height + 1)
-                .flatten();
+            0..0
+        };
+        let margins_inferred = self.viewport_margins.inferred;
 
-            Box::new(
-                top_border_lines
-                    .chain(scrollable_lines)
-                    .chain(bottom_border_lines),
-            )
-        }
+        line_indices.filter_map(move |i| {
+            self.scrollback_lines[scroll_offset_lines + i]
+                .as_ref()
+                .and_then(|line| {
+                    if !margins_inferred || !line.borrow().is_inferred_border {
+                        Some((i, line))
+                    } else {
+                        None
+                    }
+                })
+        })
+    }
+
+    fn iter_lines(&self) -> impl Iterator<Item = (isize, &Rc<RefCell<Line>>)> {
+        self.iter_border_lines().chain(self.iter_scrollback_lines())
     }
 
     pub fn get_smallest_blend_value(&self) -> Option<u8> {
@@ -744,7 +738,7 @@ impl RenderedWindow {
         }
         let mut smallest_blend_value: Option<u8> = None;
 
-        for line in self.iter_lines() {
+        for (_, line) in self.iter_lines() {
             let line = line.borrow();
             line.line_fragments.iter().for_each(|f| {
                 if let Some(style) = &f.style {
