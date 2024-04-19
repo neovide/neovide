@@ -16,7 +16,7 @@ use std::{
     sync::Arc,
 };
 
-use log::error;
+use log::{error, warn};
 use skia_safe::Canvas;
 use winit::{
     event::Event,
@@ -86,19 +86,24 @@ impl Default for RendererSettings {
     }
 }
 
+// Since draw commmands are inserted into a heap, we need to implement Ord such that
+// the commands that should be processed first (such as window draw commands or close
+// window) are sorted as larger than the ones that should be handled later
+// So the order of the variants here matters so that the derive implementation can get
+// the order in the binary heap correct
 #[derive(Clone, Debug, PartialEq)]
 pub enum DrawCommand {
-    CloseWindow(u64),
-    Window {
-        grid_id: u64,
-        command: WindowDrawCommand,
-    },
     UpdateCursor(Cursor),
     FontChanged(String),
     LineSpaceChanged(i64),
     DefaultStyleChanged(Style),
     ModeChanged(EditorMode),
     UIReady,
+    Window {
+        grid_id: u64,
+        command: WindowDrawCommand,
+    },
+    CloseWindow(u64),
 }
 
 pub struct Renderer {
@@ -319,21 +324,27 @@ impl Renderer {
                         let rendered_window = occupied_entry.get_mut();
                         rendered_window.handle_window_draw_command(command);
                     }
-                    Entry::Vacant(vacant_entry) => {
-                        if let WindowDrawCommand::Position {
+                    Entry::Vacant(vacant_entry) => match command {
+                        WindowDrawCommand::Position {
                             grid_position,
                             grid_size,
                             ..
-                        } = command
-                        {
+                        } => {
                             let grid_position = GridPos::from(grid_position).try_cast().unwrap();
                             let grid_size = GridSize::from(grid_size).try_cast().unwrap();
                             let new_window = RenderedWindow::new(grid_id, grid_position, grid_size);
                             vacant_entry.insert(new_window);
-                        } else {
-                            error!("WindowDrawCommand sent for uninitialized grid {}", grid_id);
                         }
-                    }
+                        WindowDrawCommand::ViewportMargins { .. } => {
+                            warn!("ViewportMargins recieved before window was initialized");
+                        }
+                        _ => {
+                            error!(
+                                "WindowDrawCommand: {:?} sent for uninitialized grid {}",
+                                command, grid_id
+                            );
+                        }
+                    },
                 }
             }
             DrawCommand::UpdateCursor(new_cursor) => {

@@ -20,7 +20,7 @@ use skia_safe::Color4f;
 use crate::{
     bridge::{GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
     profiling::{tracy_named_frame, tracy_zone},
-    renderer::DrawCommand,
+    renderer::{DrawCommand, WindowDrawCommand},
     window::{UserEvent, WindowCommand},
 };
 
@@ -286,7 +286,10 @@ impl Editor {
             } => {
                 tracy_zone!("EditorWindowViewport");
                 self.set_ui_ready();
-                self.send_updated_viewport(grid, scroll_delta)
+                self.draw_command_batcher.queue(DrawCommand::Window {
+                    grid_id: grid,
+                    command: WindowDrawCommand::Viewport { scroll_delta },
+                });
             }
             RedrawEvent::WindowViewportMargins {
                 grid,
@@ -296,7 +299,15 @@ impl Editor {
                 right,
             } => {
                 tracy_zone!("EditorWindowViewportMargins");
-                self.send_updated_viewport_margins(grid, top, bottom, left, right)
+                self.draw_command_batcher.queue(DrawCommand::Window {
+                    grid_id: grid,
+                    command: WindowDrawCommand::ViewportMargins {
+                        top,
+                        bottom,
+                        left,
+                        right,
+                    },
+                });
             }
             // Interpreting suspend as a window minimize request
             RedrawEvent::Suspend => {
@@ -548,29 +559,6 @@ impl Editor {
                 self.redraw_screen();
             }
             _ => (),
-        }
-    }
-
-    fn send_updated_viewport(&mut self, grid: u64, scroll_delta: f64) {
-        if let Some(window) = self.windows.get_mut(&grid) {
-            window.update_viewport(scroll_delta);
-        } else {
-            trace!("viewport event received before window initialized");
-        }
-    }
-
-    fn send_updated_viewport_margins(
-        &mut self,
-        grid: u64,
-        top: u64,
-        bottom: u64,
-        left: u64,
-        right: u64,
-    ) {
-        if let Some(window) = self.windows.get_mut(&grid) {
-            window.update_viewport_margins(top, bottom, left, right);
-        } else {
-            trace!("viewport event received before window initialized");
         }
     }
 
