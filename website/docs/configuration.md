@@ -546,18 +546,20 @@ corner.
 
 ### Input Settings
 
-#### macOS Alt is Meta
+#### macOS Option Key is Meta
+
+Possible values are `both`, `only_left`, `only_right`, `none`. Set to `none` by default.
 
 VimScript:
 
 ```vim
-let g:neovide_input_macos_alt_is_meta = v:false
+let g:neovide_input_macos_option_key_is_meta = 'only_left'
 ```
 
 Lua:
 
 ```lua
-vim.g.neovide_input_macos_alt_is_meta = false
+vim.g.neovide_input_macos_option_key_is_meta = 'only_left'
 ```
 
 **Available since 0.10.**
