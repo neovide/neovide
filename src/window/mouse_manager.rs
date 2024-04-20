@@ -32,7 +32,7 @@ fn clamp_position(
     position.clamp(min, max)
 }
 
-fn mouse_button_to_button_text(mouse_button: &MouseButton) -> Option<String> {
+fn mouse_button_to_button_text(mouse_button: MouseButton) -> Option<String> {
     match mouse_button {
         MouseButton::Left => Some("left".to_owned()),
         MouseButton::Right => Some("right".to_owned()),
@@ -45,7 +45,7 @@ fn mouse_button_to_button_text(mouse_button: &MouseButton) -> Option<String> {
 
 struct DragDetails {
     draw_details: WindowDrawDetails,
-    button: String,
+    button: MouseButton,
 }
 
 #[derive(Debug)]
@@ -155,7 +155,7 @@ impl MouseManager {
             if has_moved {
                 if let Some(drag_details) = &self.drag_details {
                     send_ui(SerialCommand::Drag {
-                        button: drag_details.button.clone(),
+                        button: mouse_button_to_button_text(drag_details.button).unwrap(),
                         grid_id: relevant_window_details.event_grid_id(),
                         position: self.drag_position.try_cast().unwrap().to_tuple(),
                         modifier_string: keyboard_manager.format_modifier_string("", true),
@@ -178,7 +178,7 @@ impl MouseManager {
 
     fn handle_pointer_transition(
         &mut self,
-        mouse_button: &MouseButton,
+        mouse_button: MouseButton,
         down: bool,
         keyboard_manager: &KeyboardManager,
         renderer: &Renderer,
@@ -211,7 +211,7 @@ impl MouseManager {
 
                     if down {
                         self.drag_details = Some(DragDetails {
-                            button: button_text,
+                            button: mouse_button,
                             draw_details: details.clone(),
                         });
                     } else {
@@ -375,7 +375,7 @@ impl MouseManager {
                         window,
                     );
                     self.handle_pointer_transition(
-                        &MouseButton::Left,
+                        MouseButton::Left,
                         true,
                         keyboard_manager,
                         renderer,
@@ -386,7 +386,7 @@ impl MouseManager {
                 if let Some(trace) = self.touch_position.remove(&finger_id) {
                     if self.drag_details.is_some() {
                         self.handle_pointer_transition(
-                            &MouseButton::Left,
+                            MouseButton::Left,
                             false,
                             keyboard_manager,
                             renderer,
@@ -400,13 +400,13 @@ impl MouseManager {
                             window,
                         );
                         self.handle_pointer_transition(
-                            &MouseButton::Left,
+                            MouseButton::Left,
                             true,
                             keyboard_manager,
                             renderer,
                         );
                         self.handle_pointer_transition(
-                            &MouseButton::Left,
+                            MouseButton::Left,
                             false,
                             keyboard_manager,
                             renderer,
@@ -483,7 +483,7 @@ impl MouseManager {
                 event: WindowEvent::MouseInput { button, state, .. },
                 ..
             } => self.handle_pointer_transition(
-                button,
+                *button,
                 state == &ElementState::Pressed,
                 keyboard_manager,
                 renderer,
