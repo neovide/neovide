@@ -21,6 +21,7 @@ use crate::{
     error_msg,
     profiling::tracy_zone,
     renderer::fonts::{font_loader::*, font_options::*},
+    units::PixelSize,
 };
 
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
@@ -36,7 +37,7 @@ pub struct CachingShaper {
     shape_context: ShapeContext,
     scale_factor: f32,
     fudge_factor: f32,
-    linespace: i64,
+    linespace: f32,
     font_info: Option<(Metrics, f32)>,
 }
 
@@ -51,7 +52,7 @@ impl CachingShaper {
             shape_context: ShapeContext::new(),
             scale_factor,
             fudge_factor: 1.0,
-            linespace: 0,
+            linespace: 0.0,
             font_info: None,
         };
         shaper.reset_font_loader();
@@ -132,11 +133,11 @@ impl CachingShaper {
         }
     }
 
-    pub fn update_linespace(&mut self, linespace: i64) {
+    pub fn update_linespace(&mut self, linespace: f32) {
         debug!("Updating linespace: {}", linespace);
 
-        let font_height = self.font_base_dimensions().1;
-        let impossible_linespace = font_height as i64 + linespace <= 0;
+        let font_height = self.font_base_dimensions().height;
+        let impossible_linespace = font_height + linespace <= 0.0;
 
         if !impossible_linespace {
             debug!("Linespace updated to: {linespace}");
@@ -215,27 +216,28 @@ impl CachingShaper {
         self.info().0
     }
 
-    pub fn font_base_dimensions(&mut self) -> (u64, u64) {
+    pub fn font_base_dimensions(&mut self) -> PixelSize<f32> {
         let (metrics, glyph_advance) = self.info();
 
         let bare_font_height = (metrics.ascent + metrics.descent + metrics.leading).ceil();
-        let font_height = bare_font_height as i64 + self.linespace;
-        let font_width = (glyph_advance + self.options.width + 0.5).floor() as u64;
+        let font_height = bare_font_height + self.linespace;
+        let font_width = (glyph_advance + self.options.width + 0.5).floor();
 
         (
             font_width,
-            font_height as u64, // assuming that linespace is checked on receive for
-                                // validity
+            font_height, // assuming that linespace is checked on receive for
+                         // validity
         )
+            .into()
     }
 
-    pub fn underline_position(&mut self) -> u64 {
-        self.metrics().underline_offset as u64
+    pub fn underline_position(&mut self) -> f32 {
+        self.metrics().underline_offset
     }
 
-    pub fn y_adjustment(&mut self) -> u64 {
+    pub fn y_adjustment(&mut self) -> f32 {
         let metrics = self.metrics();
-        (metrics.ascent + metrics.leading + self.linespace as f32 / 2.).ceil() as u64
+        (metrics.ascent + metrics.leading + self.linespace / 2.).ceil()
     }
 
     fn build_clusters(
@@ -385,7 +387,7 @@ impl CachingShaper {
 
     pub fn shape(&mut self, text: String, style: CoarseStyle) -> Vec<TextBlob> {
         let current_size = self.current_size();
-        let (glyph_width, ..) = self.font_base_dimensions();
+        let glyph_width = self.font_base_dimensions().width;
 
         let mut resulting_blobs = Vec::new();
 
@@ -418,7 +420,7 @@ impl CachingShaper {
 
             shaper.shape_with(|glyph_cluster| {
                 for glyph in glyph_cluster.glyphs {
-                    let position = ((glyph.data as u64 * glyph_width) as f32, glyph.y);
+                    let position = ((glyph.data as f32 * glyph_width), glyph.y);
                     glyph_data.push((glyph.id, position));
                 }
             });

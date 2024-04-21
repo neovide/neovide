@@ -52,21 +52,6 @@ impl<T, E: ToString> ResultPanicExplanation<T, E> for Result<T, E> {
     }
 }
 
-pub trait OptionPanicExplanation<T> {
-    fn unwrap_or_explained_panic(self, explanation: &str) -> T;
-}
-
-impl<T> OptionPanicExplanation<T> for Option<T> {
-    fn unwrap_or_explained_panic(self, explanation: &str) -> T {
-        match self {
-            None => {
-                show_error(explanation);
-            }
-            Some(content) => content,
-        }
-    }
-}
-
 fn format_and_log_error_message(err: Error) -> String {
     let msg = format!("\
 Neovide just crashed :(

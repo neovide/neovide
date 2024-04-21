@@ -2,9 +2,11 @@
 // Test naming occasionally uses camelCase with underscores to separate sections of
 // the test name.
 #![cfg_attr(test, allow(non_snake_case))]
+#![allow(unknown_lints)]
 #[macro_use]
 extern crate neovide_derive;
 
+#[cfg(target_os = "windows")]
 #[cfg(test)]
 #[macro_use]
 extern crate approx;
@@ -24,6 +26,7 @@ mod profiling;
 mod renderer;
 mod running_tracker;
 mod settings;
+mod units;
 mod utils;
 mod window;
 
@@ -194,6 +197,8 @@ fn setup(
     let window_size = determine_window_size(window_settings.as_ref());
     let grid_size = match window_size {
         WindowSize::Grid(grid_size) => Some(grid_size),
+        // Clippy wrongly suggests to use unwrap or default here
+        #[allow(clippy::manual_unwrap_or_default)]
         _ => match window_settings {
             Some(PersistentWindowSettings::Windowed { grid_size, .. }) => grid_size,
             _ => None,

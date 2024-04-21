@@ -1,3 +1,4 @@
+mod api_info;
 mod clipboard;
 mod command;
 mod events;
@@ -16,13 +17,14 @@ use tokio::runtime::{Builder, Runtime};
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
-    cmd_line::CmdLineSettings, dimensions::Dimensions, editor::start_editor, running_tracker::*,
-    settings::*, window::UserEvent,
+    cmd_line::CmdLineSettings, editor::start_editor, running_tracker::*, settings::*,
+    units::GridSize, window::UserEvent,
 };
 pub use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
-use setup::setup_neovide_specific_state;
+use setup::{get_api_information, setup_neovide_specific_state};
 
+pub use api_info::*;
 pub use command::create_nvim_command;
 pub use events::*;
 pub use session::NeovimWriter;
@@ -51,16 +53,6 @@ pub async fn setup_intro_message_autocommand(
     nvim.exec_lua(INTRO_MESSAGE_LUA, args).await
 }
 
-pub async fn show_intro_message(
-    nvim: &Neovim<NeovimWriter>,
-    message: &[String],
-) -> Result<(), Box<CallError>> {
-    let mut args = vec![Value::from("show_intro")];
-    let lines = message.iter().map(|line| Value::from(line.as_str()));
-    args.extend(lines);
-    nvim.exec_lua(INTRO_MESSAGE_LUA, args).await.map(|_| ())
-}
-
 pub async fn show_error_message(
     nvim: &Neovim<NeovimWriter>,
     lines: &[String],
@@ -85,7 +77,7 @@ pub async fn show_error_message(
     nvim.echo(prepared_lines, true, vec![]).await
 }
 
-async fn launch(handler: NeovimHandler, grid_size: Option<Dimensions>) -> Result<NeovimSession> {
+async fn launch(handler: NeovimHandler, grid_size: Option<GridSize<u32>>) -> Result<NeovimSession> {
     let neovim_instance = neovim_instance()?;
 
     let session = NeovimSession::new(neovim_instance, handler)
@@ -104,23 +96,34 @@ async fn launch(handler: NeovimHandler, grid_size: Option<Dimensions>) -> Result
             bail!("Neovide requires nvim version {NEOVIM_REQUIRED_VERSION} or higher. Download the latest version here https://github.com/neovim/neovim/wiki/Installing-Neovim");
         }
     }
+
     let settings = SETTINGS.get::<CmdLineSettings>();
 
     let should_handle_clipboard = settings.wsl || settings.server.is_some();
-    setup_neovide_specific_state(&session.neovim, should_handle_clipboard).await?;
+    let api_information = get_api_information(&session.neovim).await?;
+    info!(
+        "Neovide registered to nvim with channel id {}",
+        api_information.channel
+    );
+    // This is too verbose to keep enabled all the time
+    // log::info!("Api information {:#?}", api_information);
+    setup_neovide_specific_state(&session.neovim, should_handle_clipboard, &api_information)
+        .await?;
 
-    start_ui_command_handler(session.neovim.clone());
+    start_ui_command_handler(session.neovim.clone(), &api_information);
     SETTINGS.read_initial_values(&session.neovim).await?;
 
     let mut options = UiAttachOptions::new();
+    if !api_information.has_event("win_viewport_margins") {
+        options.set_hlstate_external(true);
+    }
     options.set_linegrid_external(true);
-    options.set_hlstate_external(true);
     options.set_multigrid_external(!settings.no_multi_grid);
     options.set_rgb(true);
 
     // Triggers loading the user config
 
-    let grid_size = grid_size.map_or(DEFAULT_GRID_SIZE, |v| v.clamped_grid_size());
+    let grid_size = grid_size.map_or(DEFAULT_GRID_SIZE, |v| clamped_grid_size(&v));
     let res = session
         .neovim
         .ui_attach(grid_size.width as i64, grid_size.height as i64, &options)
@@ -156,7 +159,7 @@ impl NeovimRuntime {
     pub fn launch(
         &mut self,
         event_loop_proxy: EventLoopProxy<UserEvent>,
-        grid_size: Option<Dimensions>,
+        grid_size: Option<GridSize<u32>>,
     ) -> Result<()> {
         let handler = start_editor(event_loop_proxy);
         let runtime = self.runtime.as_ref().unwrap();

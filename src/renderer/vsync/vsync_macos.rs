@@ -4,9 +4,9 @@ use std::sync::{
     Arc,
 };
 
-use winit::event_loop::EventLoopProxy;
+use winit::{event_loop::EventLoopProxy, window::Window};
 
-use crate::{renderer::WindowedContext, window::UserEvent};
+use crate::window::UserEvent;
 
 use super::macos_display_link::{
     core_video, get_display_id_of_window, MacosDisplayLink, MacosDisplayLinkCallbackArgs,
@@ -34,7 +34,7 @@ pub struct VSyncMacos {
 }
 
 impl VSyncMacos {
-    pub fn new(context: &WindowedContext, proxy: EventLoopProxy<UserEvent>) -> VSyncMacos {
+    pub fn new(window: &Window, proxy: EventLoopProxy<UserEvent>) -> VSyncMacos {
         let redraw_requested = AtomicBool::new(false).into();
         let mut vsync = VSyncMacos {
             old_display: 0,
@@ -43,13 +43,13 @@ impl VSyncMacos {
             redraw_requested,
         };
 
-        vsync.create_display_link(context);
+        vsync.create_display_link(window);
 
         vsync
     }
 
-    fn create_display_link(&mut self, context: &WindowedContext) {
-        self.old_display = get_display_id_of_window(context.window());
+    fn create_display_link(&mut self, window: &Window) {
+        self.old_display = get_display_id_of_window(window);
 
         let display_link = match MacosDisplayLink::new_from_display(
             self.old_display,
@@ -90,11 +90,11 @@ impl VSyncMacos {
         self.redraw_requested.store(true, Ordering::Relaxed);
     }
 
-    pub fn update(&mut self, context: &WindowedContext) {
-        let new_display = get_display_id_of_window(context.window());
+    pub fn update(&mut self, window: &Window) {
+        let new_display = get_display_id_of_window(window);
         if new_display != self.old_display {
             trace!("Window moved to a new screen, try to re-create the display link.");
-            self.create_display_link(context);
+            self.create_display_link(window);
         }
     }
 }

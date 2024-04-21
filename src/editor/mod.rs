@@ -20,7 +20,7 @@ use skia_safe::Color4f;
 use crate::{
     bridge::{GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
     profiling::{tracy_named_frame, tracy_zone},
-    renderer::DrawCommand,
+    renderer::{DrawCommand, WindowDrawCommand},
     window::{UserEvent, WindowCommand},
 };
 
@@ -286,14 +286,28 @@ impl Editor {
             } => {
                 tracy_zone!("EditorWindowViewport");
                 self.set_ui_ready();
-                self.send_updated_viewport(grid, scroll_delta)
+                self.draw_command_batcher.queue(DrawCommand::Window {
+                    grid_id: grid,
+                    command: WindowDrawCommand::Viewport { scroll_delta },
+                });
             }
-            RedrawEvent::ShowIntro { message } => {
-                // Support the yet unmerged intro message support
-                // This could probably be handled completely on the lua side
-                let _ = self
-                    .event_loop_proxy
-                    .send_event(WindowCommand::ShowIntro(message).into());
+            RedrawEvent::WindowViewportMargins {
+                grid,
+                top,
+                bottom,
+                left,
+                right,
+            } => {
+                tracy_zone!("EditorWindowViewportMargins");
+                self.draw_command_batcher.queue(DrawCommand::Window {
+                    grid_id: grid,
+                    command: WindowDrawCommand::ViewportMargins {
+                        top,
+                        bottom,
+                        left,
+                        right,
+                    },
+                });
             }
             // Interpreting suspend as a window minimize request
             RedrawEvent::Suspend => {
@@ -423,7 +437,7 @@ impl Editor {
             anchor_type: WindowAnchor::NorthWest,
             anchor_left: 0.0,
             anchor_top: grid_top as f64,
-            sort_order: std::u64::MAX,
+            sort_order: u64::MAX,
         };
 
         if let Some(window) = self.windows.get_mut(&grid) {
@@ -545,14 +559,6 @@ impl Editor {
                 self.redraw_screen();
             }
             _ => (),
-        }
-    }
-
-    fn send_updated_viewport(&mut self, grid: u64, scroll_delta: f64) {
-        if let Some(window) = self.windows.get_mut(&grid) {
-            window.update_viewport(scroll_delta);
-        } else {
-            trace!("viewport event received before window initialized");
         }
     }
 

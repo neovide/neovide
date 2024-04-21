@@ -97,10 +97,10 @@ mod tests {
         let mut v0: f32 = 0.0;
         let v1 = Value::from(1.0);
         let v2 = Value::from(-1);
-        let v3 = Value::from(std::u64::MAX);
+        let v3 = Value::from(u64::MAX);
         let v1p = 1.0;
         let v2p = -1.0;
-        let v3p = std::u64::MAX as f32;
+        let v3p = u64::MAX as f32;
 
         v0.parse_from_value(v1);
         assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
@@ -117,8 +117,8 @@ mod tests {
     #[test]
     fn test_parse_from_value_u64() {
         let mut v0: u64 = 0;
-        let v1 = Value::from(std::u64::MAX);
-        let v1p = std::u64::MAX;
+        let v1 = Value::from(u64::MAX);
+        let v1p = u64::MAX;
 
         v0.parse_from_value(v1);
         assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
@@ -131,8 +131,8 @@ mod tests {
     #[test]
     fn test_parse_from_value_u32() {
         let mut v0: u32 = 0;
-        let v1 = Value::from(std::u64::MAX);
-        let v1p = std::u64::MAX as u32;
+        let v1 = Value::from(u64::MAX);
+        let v1p = u64::MAX as u32;
 
         v0.parse_from_value(v1);
         assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
@@ -145,8 +145,8 @@ mod tests {
     #[test]
     fn test_parse_from_value_i32() {
         let mut v0: i32 = 0;
-        let v1 = Value::from(std::i64::MAX);
-        let v1p = std::i64::MAX as i32;
+        let v1 = Value::from(i64::MAX);
+        let v1p = i64::MAX as i32;
 
         v0.parse_from_value(v1);
         assert_eq!(v0, v1p, "v0 should equal {v1p} but is actually {v0}");
