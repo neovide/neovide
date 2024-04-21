@@ -493,9 +493,9 @@ pub struct WindowConfig {
     pub config: WindowConfigType,
 }
 
-pub fn build_window_config<TE>(
+pub fn build_window_config<T>(
     winit_window_builder: WindowBuilder,
-    event_loop: &EventLoop<TE>,
+    event_loop: &EventLoop<T>,
 ) -> WindowConfig {
     #[cfg(target_os = "windows")]
     {
