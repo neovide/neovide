@@ -1,0 +1,64 @@
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.6.0
+  hooks:
+  - id: check-case-conflict
+  - id: check-json
+    exclude: ^\.vscode/.*$
+  - id: check-merge-conflict
+  - id: check-symlinks
+  - id: check-toml
+  - id: check-xml
+  - id: check-yaml
+  - id: destroyed-symlinks
+  - id: end-of-file-fixer
+  - id: fix-byte-order-marker
+  - id: forbid-new-submodules
+  - id: mixed-line-ending
+  - id: trailing-whitespace
+- repo: https://github.com/codespell-project/codespell
+  rev: v2.2.6
+  hooks:
+  - id: codespell
+    exclude: '\.rtf$'
+    args: [
+      --ignore-words=.codespellignore
+    ]
+- repo: https://github.com/doublify/pre-commit-rust
+  rev: v1.0
+  hooks:
+  - id: fmt
+    args: [
+      --all,
+      --,
+    ]
+  - id: cargo-check
+    args: [
+      --locked,
+      --workspace,
+      --all-features,
+      --all-targets,
+    ]
+  - id: clippy
+    args: [
+      --locked,
+      --workspace,
+      --all-features,
+      --all-targets,
+      --,
+      -D,
+      warnings,
+    ]
+- repo: https://github.com/gitleaks/gitleaks
+  rev: v8.18.2
+  hooks:
+    - id: gitleaks
+- repo: https://github.com/igorshubovych/markdownlint-cli
+  rev: v0.39.0
+  hooks:
+  - id: markdownlint
+    alias: markdownlint-app
+    exclude: '^website/'
+  - id: markdownlint
+    alias: markdownlint-website
+    files: '^website/'

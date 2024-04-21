@@ -25,4 +25,4 @@ jobs:
         uses: nosborn/github-action-markdown-cli@v3.1.0
         with:
           files: ./website
-          config_file: ./website/.markdownlintrc
+          config_file: ./.markdownlintrc
