@@ -275,6 +275,7 @@ mod tests {
             "C:\\Users\\MyUser\\foo.txt",
             "--no-tabs",
             "C:\\bar.md",
+            "C:\\Program Files (x86)\\Some Application\\Settings.ini",
         ]
         .iter()
         .map(|s| s.to_string())
@@ -283,7 +284,11 @@ mod tests {
         handle_command_line_arguments(args).expect("Could not parse arguments");
         assert_eq!(
             SETTINGS.get::<CmdLineSettings>().neovim_args,
-            vec!["/mnt/c/Users/MyUser/foo.txt", "/mnt/c/bar.md"]
+            vec![
+                "/mnt/c/Users/MyUser/foo.txt",
+                "/mnt/c/bar.md",
+                "/mnt/c/Program Files (x86)/Some Application/Settings.ini"
+            ]
         );
     }
 
