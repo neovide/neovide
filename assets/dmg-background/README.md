@@ -11,9 +11,10 @@ and dimensions:
   1. `assets/neovide-dmg-background.png` (650x450)
   2. `assets/neovide-dmg-background@2x.png` (1300x900)
 
-Next, to support retina images you must generate a properly composed tiff by running the builder script from the root of the project:
+Next, to support retina images you must generate a properly composed tiff by
+running the builder script from the root of the project:
 
-```
+```bash
 macos-builder/make-icns
 ```
 
