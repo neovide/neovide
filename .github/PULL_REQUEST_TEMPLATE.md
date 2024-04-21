@@ -8,7 +8,7 @@
 - Documentation
 - Other
 
-## Did this PR introduce a breaking change? 
+## Did this PR introduce a breaking change?
 _A breaking change includes anything that breaks backwards compatibility either at compile or run time._
 - Yes, please list breaking changes
 - No

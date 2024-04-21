@@ -4,4 +4,3 @@ Array.prototype.forEach.call(document.links, function(link) {
         link.target = '_blank';
     }
 })
-

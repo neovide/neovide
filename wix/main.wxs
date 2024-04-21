@@ -2,7 +2,7 @@
 
 <!--
   Wix [0] is a toolset that builds Windows Installer [1] packages. It uses a declarative approach, which is well defined by an XML schema [2]. Also, see the default template provided by the `cargo-wix` project [3]. The XML is organised in alphabetical order, however `Package` must be the first element in `Product`.
-  
+
   [0] https://wixtoolset.org/documentation/manual/v3/main/
   [1] https://learn.microsoft.com/en-us/windows/win32/msi/windows-installer-portal
   [2] https://wixtoolset.org/documentation/manual/v3/xsd/wix/
