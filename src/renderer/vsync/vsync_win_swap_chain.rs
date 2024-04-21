@@ -33,7 +33,7 @@ impl VSyncWinSwapChain {
         };
         let (sender, receiver) = channel();
         let vsync_thread = spawn(move || {
-            // Removing this asignment causes a build failure complaining that
+            // Removing this assignment causes a build failure complaining that
             // `*mut c_void` cannot be sent between threads safely.
             #[allow(clippy::redundant_locals)]
             let handle = handle;

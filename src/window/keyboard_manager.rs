@@ -240,7 +240,7 @@ impl KeyboardManager {
         let include_shift = is_special || (state.control_key() && is_ascii_alphabetic_char(text));
 
         #[cfg(target_os = "macos")]
-        let have_meta = self.meta_is_pressed || is_special && state.alt_key(); // e.g. non-meta 'option' with <F1> yeilds <M-F1>
+        let have_meta = self.meta_is_pressed || is_special && state.alt_key(); // e.g. non-meta 'option' with <F1> yields <M-F1>
 
         #[cfg(not(target_os = "macos"))]
         let have_meta = self.meta_is_pressed;

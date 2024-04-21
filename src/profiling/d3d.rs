@@ -485,7 +485,7 @@ impl GpuCtx for GpuCtxD3D {
     }
 
     fn gpu_end(&mut self, query_id: i64) {
-        // TODO: Should probly flush Skia here, since it uses it's own command lists
+        // TODO: Should probably flush Skia here, since it uses it's own command lists
         let end_query_id = query_id as u32 + 1;
 
         let gpu_data = ___tracy_gpu_zone_end_data {
