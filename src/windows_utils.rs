@@ -58,9 +58,6 @@ fn register_rightclick_file() -> Result<()> {
 }
 
 pub fn register_right_click() {
-    if unregister_rightclick().is_ok() {
-        error_msg!("Could not unregister previous menu item. Possibly already registered.");
-    }
     if register_rightclick_directory().is_err() {
         error_msg!("Could not register directory context menu item. Possibly already registered.");
     }
