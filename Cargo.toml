@@ -98,6 +98,7 @@ winapi = { version = "0.3.9", features = [
     ]}
 # for ComPtr
 wio = { version = "0.2.2" }
+wslpath-rs = "0.1"
 skia-safe = { version = "0.68.0", features = ["gl", "d3d", "textlayout"] }
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
