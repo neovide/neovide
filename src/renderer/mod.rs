@@ -209,10 +209,7 @@ impl Renderer {
                 // Group floating windows by consecutive z indices
                 if zindex - last_zindex > 1 && !current_windows.is_empty() {
                     for windows in group_windows(current_windows, grid_scale) {
-                        floating_layers.push(FloatingLayer {
-                            sort_order: base_zindex,
-                            windows,
-                        });
+                        floating_layers.push(FloatingLayer { windows });
                     }
                     current_windows = vec![];
                 }
@@ -226,10 +223,7 @@ impl Renderer {
 
             if !current_windows.is_empty() {
                 for windows in group_windows(current_windows, grid_scale) {
-                    floating_layers.push(FloatingLayer {
-                        sort_order: base_zindex,
-                        windows,
-                    });
+                    floating_layers.push(FloatingLayer { windows });
                 }
             }
 

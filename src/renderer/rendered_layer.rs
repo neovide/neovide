@@ -16,7 +16,6 @@ struct LayerWindow<'w> {
 }
 
 pub struct FloatingLayer<'w> {
-    pub sort_order: u64,
     pub windows: Vec<&'w mut RenderedWindow>,
 }
 
