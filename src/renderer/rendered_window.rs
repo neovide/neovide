@@ -663,9 +663,12 @@ impl RenderedWindow {
     fn iter_scrollable_lines(&self) -> impl Iterator<Item = (isize, &Rc<RefCell<Line>>)> {
         let scroll_offset_lines = self.scroll_animation.position.floor();
         let scroll_offset_lines = scroll_offset_lines as isize;
+        let inner_size = self.actual_lines.len() as isize
+            - self.viewport_margins.top as isize
+            - self.viewport_margins.bottom as isize;
 
-        let line_indices = if !self.scrollback_lines.is_empty() {
-            0..self.grid_size.height as isize + 1
+        let line_indices = if inner_size > 0 {
+            0..inner_size + 1
         } else {
             0..0
         };
