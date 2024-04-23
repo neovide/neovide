@@ -554,7 +554,7 @@ impl Editor {
             }
             GuiOption::LineSpace(linespace) => {
                 self.draw_command_batcher
-                    .queue(DrawCommand::LineSpaceChanged(linespace as f32));
+                    .queue(DrawCommand::LineSpaceChanged(linespace));
 
                 self.redraw_screen();
             }
