@@ -102,7 +102,6 @@ impl<'w> FloatingLayer<'w> {
             ret.push(WindowDrawDetails {
                 id: window.id,
                 region: regions[i],
-                floating_order: window.anchor_info.as_ref().map(|v| v.sort_order),
             });
         });
 
