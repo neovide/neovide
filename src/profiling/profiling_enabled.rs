@@ -19,6 +19,7 @@ unsafe impl Send for _LocationData {}
 unsafe impl Sync for _LocationData {}
 
 #[allow(unconditional_panic)]
+#[allow(clippy::out_of_bounds_indexing)]
 const fn illegal_null_in_string() {
     [][0]
 }
