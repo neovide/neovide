@@ -723,13 +723,10 @@ impl RenderedWindow {
     /// the window.
     pub fn inner_region(&self, pixel_region: PixelRect<f32>, grid_scale: GridScale) -> Rect {
         let line_height = grid_scale.height();
+
         let adjusted_region = PixelRect::new(
             pixel_region.min + PixelVec::new(0., self.viewport_margins.top as f32 * line_height),
-            pixel_region.max
-                + PixelVec::new(
-                    0.,
-                    (self.viewport_margins.top - self.viewport_margins.bottom) as f32 * line_height,
-                ),
+            pixel_region.max - PixelVec::new(0., self.viewport_margins.bottom as f32 * line_height),
         );
 
         to_skia_rect(&adjusted_region)
