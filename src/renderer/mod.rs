@@ -20,7 +20,6 @@ use std::{
 use itertools::Itertools;
 use log::{error, warn};
 use skia_safe::Canvas;
-
 use winit::{
     event::Event,
     event_loop::{EventLoop, EventLoopProxy},
@@ -38,15 +37,6 @@ use crate::{
     WindowSettings,
 };
 
-#[cfg(feature = "profiling")]
-use crate::profiling::tracy_plot;
-#[cfg(feature = "profiling")]
-use skia_safe::graphics::{
-    font_cache_count_limit, font_cache_count_used, font_cache_limit, font_cache_used,
-    resource_cache_single_allocation_byte_limit, resource_cache_total_bytes_limit,
-    resource_cache_total_bytes_used,
-};
-
 #[cfg(feature = "gpu_profiling")]
 use crate::profiling::GpuCtx;
 
@@ -61,26 +51,6 @@ pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, Windo
 pub use vsync::VSync;
 
 use self::fonts::font_options::FontOptions;
-
-#[cfg(feature = "profiling")]
-fn plot_skia_cache() {
-    tracy_plot!("font_cache_limit", font_cache_limit() as f64);
-    tracy_plot!("font_cache_used", font_cache_used() as f64);
-    tracy_plot!("font_cache_count_used", font_cache_count_used() as f64);
-    tracy_plot!("font_cache_count_limit", font_cache_count_limit() as f64);
-    tracy_plot!(
-        "resource_cache_total_bytes_used",
-        resource_cache_total_bytes_used() as f64
-    );
-    tracy_plot!(
-        "resource_cache_total_bytes_limit",
-        resource_cache_total_bytes_limit() as f64
-    );
-    tracy_plot!(
-        "resource_cache_single_allocation_byte_limit",
-        resource_cache_single_allocation_byte_limit().unwrap_or_default() as f64
-    );
-}
 
 #[derive(SettingGroup, Clone)]
 pub struct RendererSettings {
@@ -128,7 +98,7 @@ impl Default for RendererSettings {
 pub enum DrawCommand {
     UpdateCursor(Cursor),
     FontChanged(String),
-    LineSpaceChanged(f32),
+    LineSpaceChanged(i64),
     DefaultStyleChanged(Style),
     ModeChanged(EditorMode),
     UIReady,
@@ -307,9 +277,6 @@ impl Renderer {
         self.profiler.draw(root_canvas, dt);
 
         root_canvas.restore();
-
-        #[cfg(feature = "profiling")]
-        plot_skia_cache();
     }
 
     pub fn animate_frame(&mut self, grid_rect: &GridRect<f32>, dt: f32) -> bool {
@@ -445,7 +412,7 @@ impl Renderer {
                 result.font_changed = true;
             }
             DrawCommand::LineSpaceChanged(new_linespace) => {
-                self.grid_renderer.update_linespace(new_linespace);
+                self.grid_renderer.update_linespace(new_linespace as f32);
                 result.font_changed = true;
             }
             DrawCommand::DefaultStyleChanged(new_style) => {
