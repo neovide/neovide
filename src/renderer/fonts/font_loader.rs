@@ -27,6 +27,7 @@ pub struct FontPair {
 impl FontPair {
     fn new(key: FontKey, mut skia_font: Font) -> Option<FontPair> {
         skia_font.set_subpixel(true);
+        skia_font.set_baseline_snap(false);
         skia_font.set_hinting(font_hinting(&key.hinting));
         skia_font.set_edging(font_edging(&key.edging));
 

@@ -16,7 +16,6 @@ const FONT_LIST_SEPARATOR: char = ',';
 const FONT_HINTING_PREFIX: &str = "#h-";
 const FONT_EDGING_PREFIX: &str = "#e-";
 const FONT_HEIGHT_PREFIX: char = 'h';
-const ALLOW_FLOAT_SIZE_OPT: char = '.';
 const FONT_WIDTH_PREFIX: char = 'w';
 const FONT_BOLD_OPT: &str = "b";
 const FONT_ITALIC_OPT: &str = "i";
@@ -109,7 +108,6 @@ pub struct FontOptions {
     pub features: HashMap<String /* family */, Vec<FontFeature> /* features */>,
     pub size: f32,
     pub width: f32,
-    pub allow_float_size: bool,
     pub hinting: FontHinting,
     pub edging: FontEdging,
 }
@@ -168,10 +166,8 @@ impl FontOptions {
             } else if let Some(edging_string) = part.strip_prefix(FONT_EDGING_PREFIX) {
                 font_options.edging = FontEdging::parse(edging_string)?;
             } else if part.starts_with(FONT_HEIGHT_PREFIX) && part.len() > 1 {
-                font_options.allow_float_size |= part[1..].contains(ALLOW_FLOAT_SIZE_OPT);
                 font_options.size = parse_pixels(part).map_err(|_| INVALID_SIZE_ERR)?;
             } else if part.starts_with(FONT_WIDTH_PREFIX) && part.len() > 1 {
-                font_options.allow_float_size |= part[1..].contains(ALLOW_FLOAT_SIZE_OPT);
                 font_options.width = parse_pixels(part).map_err(|_| INVALID_WIDTH_ERR)?;
             } else if part == FONT_BOLD_OPT {
                 style.push("Bold".to_string());
@@ -238,7 +234,6 @@ impl Default for FontOptions {
             bold: None,
             bold_italic: None,
             features: HashMap::new(),
-            allow_float_size: false,
             size: points_to_pixels(DEFAULT_FONT_SIZE),
             width: 0.0,
             hinting: FontHinting::default(),
@@ -552,12 +547,6 @@ mod tests {
             font_options.size, font_size_pixels,
             "font size should equal {}, but {}",
             font_size_pixels, font_options.size,
-        );
-
-        assert_eq!(
-            font_options.allow_float_size, true,
-            "allow float size should equal {}, but {}",
-            true, font_options.allow_float_size,
         );
 
         for font in font_options.normal.iter() {
