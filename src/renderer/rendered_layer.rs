@@ -16,7 +16,6 @@ struct LayerWindow<'w> {
 }
 
 pub struct FloatingLayer<'w> {
-    pub sort_order: u64,
     pub windows: Vec<&'w mut RenderedWindow>,
 }
 
@@ -102,7 +101,6 @@ impl<'w> FloatingLayer<'w> {
             ret.push(WindowDrawDetails {
                 id: window.id,
                 region: regions[i],
-                floating_order: window.anchor_info.as_ref().map(|v| v.sort_order),
             });
         });
 

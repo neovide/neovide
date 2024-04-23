@@ -103,7 +103,6 @@ pub struct RenderedWindow {
 pub struct WindowDrawDetails {
     pub id: u64,
     pub region: PixelRect<f32>,
-    pub floating_order: Option<u64>,
 }
 
 impl WindowDrawDetails {
@@ -394,7 +393,6 @@ impl RenderedWindow {
         WindowDrawDetails {
             id: self.id,
             region: pixel_region_box,
-            floating_order: self.anchor_info.as_ref().map(|v| v.sort_order),
         }
     }
 
@@ -663,9 +661,12 @@ impl RenderedWindow {
     fn iter_scrollable_lines(&self) -> impl Iterator<Item = (isize, &Rc<RefCell<Line>>)> {
         let scroll_offset_lines = self.scroll_animation.position.floor();
         let scroll_offset_lines = scroll_offset_lines as isize;
+        let inner_size = self.actual_lines.len() as isize
+            - self.viewport_margins.top as isize
+            - self.viewport_margins.bottom as isize;
 
-        let line_indices = if !self.scrollback_lines.is_empty() {
-            0..self.grid_size.height as isize + 1
+        let line_indices = if inner_size > 0 {
+            0..inner_size + 1
         } else {
             0..0
         };
@@ -723,13 +724,10 @@ impl RenderedWindow {
     /// the window.
     pub fn inner_region(&self, pixel_region: PixelRect<f32>, grid_scale: GridScale) -> Rect {
         let line_height = grid_scale.height();
+
         let adjusted_region = PixelRect::new(
             pixel_region.min + PixelVec::new(0., self.viewport_margins.top as f32 * line_height),
-            pixel_region.max
-                + PixelVec::new(
-                    0.,
-                    (self.viewport_margins.top - self.viewport_margins.bottom) as f32 * line_height,
-                ),
+            pixel_region.max - PixelVec::new(0., self.viewport_margins.bottom as f32 * line_height),
         );
 
         to_skia_rect(&adjusted_region)
