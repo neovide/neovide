@@ -32,7 +32,7 @@ fn clamp_position(
     position.clamp(min, max)
 }
 
-fn mouse_button_to_button_text(mouse_button: &MouseButton) -> Option<String> {
+fn mouse_button_to_button_text(mouse_button: MouseButton) -> Option<String> {
     match mouse_button {
         MouseButton::Left => Some("left".to_owned()),
         MouseButton::Right => Some("right".to_owned()),
@@ -41,6 +41,11 @@ fn mouse_button_to_button_text(mouse_button: &MouseButton) -> Option<String> {
         MouseButton::Forward => Some("x2".to_owned()),
         _ => None,
     }
+}
+
+struct DragDetails {
+    draw_details: WindowDrawDetails,
+    button: MouseButton,
 }
 
 #[derive(Debug)]
@@ -52,19 +57,16 @@ struct TouchTrace {
 }
 
 pub struct MouseManager {
-    dragging: Option<String>,
-    drag_position: GridPos<i32>,
+    drag_details: Option<DragDetails>,
+    grid_position: GridPos<i32>,
 
     has_moved: bool,
-    position: GridPos<i32>,
-    relative_position: GridPos<i32>,
+    window_position: PixelPos<f32>,
 
     scroll_position: GridPos<f32>,
 
     // the tuple allows to keep track of different fingers per device
     touch_position: HashMap<(DeviceId, u64), TouchTrace>,
-
-    window_details_under_mouse: Option<WindowDrawDetails>,
 
     mouse_hidden: bool,
     pub enabled: bool,
@@ -73,17 +75,47 @@ pub struct MouseManager {
 impl MouseManager {
     pub fn new() -> MouseManager {
         MouseManager {
-            dragging: None,
+            drag_details: None,
             has_moved: false,
-            position: GridPos::origin(),
-            relative_position: GridPos::origin(),
-            drag_position: GridPos::origin(),
+            window_position: PixelPos::origin(),
+            grid_position: GridPos::origin(),
             scroll_position: GridPos::<f32>::origin(),
             touch_position: HashMap::new(),
-            window_details_under_mouse: None,
             mouse_hidden: false,
             enabled: true,
         }
+    }
+
+    fn get_window_details_under_mouse<'a>(
+        &self,
+        renderer: &'a Renderer,
+    ) -> Option<&'a WindowDrawDetails> {
+        let position = self.window_position;
+
+        // the rendered window regions are sorted by draw order, so the earlier windows in the
+        // list are drawn under the later ones
+        renderer
+            .window_regions
+            .iter()
+            .filter(|details| details.region.contains(position))
+            .last()
+    }
+
+    fn get_relative_position(
+        &self,
+        window_details: &WindowDrawDetails,
+        renderer: &Renderer,
+    ) -> GridPos<i32> {
+        let global_bounds = window_details.region;
+        let clamped_position = clamp_position(
+            self.window_position,
+            global_bounds,
+            renderer.grid_renderer.grid_scale,
+        );
+
+        (clamped_position / renderer.grid_renderer.grid_scale)
+            .floor()
+            .cast()
     }
 
     fn handle_pointer_motion(
@@ -100,89 +132,63 @@ impl MouseManager {
             return;
         }
 
+        self.window_position = position;
+
         // If dragging, the relevant window (the one which we send all commands to) is the one
         // which the mouse drag started on. Otherwise its the top rendered window
-        let relevant_window_details = if self.dragging.is_some() {
-            renderer.window_regions.iter().find(|details| {
-                details.id
-                    == self
-                        .window_details_under_mouse
-                        .as_ref()
-                        .expect("If dragging, there should be a window details recorded")
-                        .id
-            })
-        } else {
-            // the rendered window regions are sorted by draw order, so the earlier windows in the
-            // list are drawn under the later ones
+        let window_details = if let Some(drag_details) = &self.drag_details {
             renderer
                 .window_regions
                 .iter()
-                .filter(|details| details.region.contains(position))
-                .last()
+                .find(|details| details.id == drag_details.draw_details.id)
+        } else {
+            self.get_window_details_under_mouse(renderer)
         };
 
-        let global_bounds = relevant_window_details
-            .map(|details| details.region)
-            .unwrap_or_else(|| relative_window_rect.cast());
-        let clamped_position =
-            clamp_position(position, global_bounds, renderer.grid_renderer.grid_scale);
+        if let Some(window_details) = window_details {
+            let relative_position = self.get_relative_position(window_details, renderer);
+            let previous_position = self.grid_position;
+            self.grid_position = relative_position;
 
-        self.position = (clamped_position / renderer.grid_renderer.grid_scale)
-            .floor()
-            .cast();
+            let has_moved = self.grid_position != previous_position;
 
-        if let Some(relevant_window_details) = relevant_window_details {
-            let relative_position = clamped_position - relevant_window_details.region.min;
-            self.relative_position = (relative_position.to_point()
-                / renderer.grid_renderer.grid_scale)
-                .floor()
-                .cast();
-
-            let previous_position = self.drag_position;
-            self.drag_position = self.relative_position;
-
-            let has_moved = self.drag_position != previous_position;
-
-            // If dragging and we haven't already sent a position, send a drag command
-            if self.dragging.is_some() && has_moved {
-                send_ui(SerialCommand::Drag {
-                    button: self.dragging.as_ref().unwrap().to_owned(),
-                    grid_id: relevant_window_details.event_grid_id(),
-                    position: self.drag_position.try_cast().unwrap().to_tuple(),
-                    modifier_string: keyboard_manager.format_modifier_string("", true),
-                });
-            } else {
-                // otherwise, update the window_id_under_mouse to match the one selected
-                self.window_details_under_mouse = Some(relevant_window_details.clone());
-
-                if has_moved && SETTINGS.get::<WindowSettings>().mouse_move_event {
+            if has_moved {
+                if let Some(drag_details) = &self.drag_details {
+                    send_ui(SerialCommand::Drag {
+                        button: mouse_button_to_button_text(drag_details.button).unwrap(),
+                        grid_id: window_details.event_grid_id(),
+                        position: self.grid_position.try_cast().unwrap().to_tuple(),
+                        modifier_string: keyboard_manager.format_modifier_string("", true),
+                    });
+                } else if SETTINGS.get::<WindowSettings>().mouse_move_event {
                     // Send a mouse move command
                     send_ui(SerialCommand::MouseButton {
                         button: "move".into(),
                         action: "".into(), // this is ignored by nvim
-                        grid_id: relevant_window_details.event_grid_id(),
-                        position: self.relative_position.try_cast().unwrap().to_tuple(),
+                        grid_id: window_details.event_grid_id(),
+                        position: relative_position.try_cast().unwrap().to_tuple(),
                         modifier_string: keyboard_manager.format_modifier_string("", true),
                     })
                 }
             }
 
-            self.has_moved = self.dragging.is_some() && (self.has_moved || has_moved);
+            self.has_moved = self.drag_details.is_some() && (self.has_moved || has_moved);
         }
     }
 
     fn handle_pointer_transition(
         &mut self,
-        mouse_button: &MouseButton,
+        mouse_button: MouseButton,
         down: bool,
         keyboard_manager: &KeyboardManager,
+        renderer: &Renderer,
     ) {
         // For some reason pointer down is handled differently from pointer up and drag.
         // Floating windows: relative coordinates are great.
         // Non floating windows: rather than global coordinates, relative are needed
         if self.enabled {
             if let Some(button_text) = mouse_button_to_button_text(mouse_button) {
-                if let Some(details) = &self.window_details_under_mouse {
+                if let &Some(details) = &self.get_window_details_under_mouse(renderer) {
                     let action = if down {
                         "press".to_owned()
                     } else {
@@ -190,9 +196,9 @@ impl MouseManager {
                     };
 
                     let position = if !down && self.has_moved {
-                        self.drag_position
+                        self.grid_position
                     } else {
-                        self.relative_position
+                        self.get_relative_position(details, renderer)
                     };
 
                     send_ui(SerialCommand::MouseButton {
@@ -202,25 +208,38 @@ impl MouseManager {
                         position: position.try_cast().unwrap().to_tuple(),
                         modifier_string: keyboard_manager.format_modifier_string("", true),
                     });
-                }
 
-                if down {
-                    self.dragging = Some(button_text);
+                    if down {
+                        self.drag_details = Some(DragDetails {
+                            button: mouse_button,
+                            draw_details: details.clone(),
+                        });
+                    } else {
+                        self.drag_details = None;
+                    }
                 } else {
-                    self.dragging = None;
+                    self.drag_details = None;
                 }
 
-                if self.dragging.is_none() {
+                if self.drag_details.is_none() {
                     self.has_moved = false;
                 }
             }
         }
     }
 
-    fn handle_line_scroll(&mut self, amount: GridVec<f32>, keyboard_manager: &KeyboardManager) {
+    fn handle_line_scroll(
+        &mut self,
+        amount: GridVec<f32>,
+        keyboard_manager: &KeyboardManager,
+        renderer: &Renderer,
+    ) {
         if !self.enabled {
             return;
         }
+
+        let draw_details = self.get_window_details_under_mouse(renderer);
+        let grid_id = draw_details.map(|details| details.id).unwrap_or(0);
 
         let previous: GridPos<i32> = self.scroll_position.floor().cast().cast_unit();
         self.scroll_position += amount;
@@ -235,12 +254,8 @@ impl MouseManager {
         if let Some(input_type) = vertical_input_type {
             let scroll_command = SerialCommand::Scroll {
                 direction: input_type.to_string(),
-                grid_id: self
-                    .window_details_under_mouse
-                    .as_ref()
-                    .map(|details| details.id)
-                    .unwrap_or(0),
-                position: self.drag_position.try_cast().unwrap().to_tuple(),
+                grid_id,
+                position: self.grid_position.try_cast().unwrap().to_tuple(),
                 modifier_string: keyboard_manager.format_modifier_string("", true),
             };
             for _ in 0..(new.y - previous.y).abs() {
@@ -257,12 +272,8 @@ impl MouseManager {
         if let Some(input_type) = horizontal_input_type {
             let scroll_command = SerialCommand::Scroll {
                 direction: input_type.to_string(),
-                grid_id: self
-                    .window_details_under_mouse
-                    .as_ref()
-                    .map(|details| details.id)
-                    .unwrap_or(0),
-                position: self.drag_position.try_cast().unwrap().to_tuple(),
+                grid_id,
+                position: self.grid_position.try_cast().unwrap().to_tuple(),
                 modifier_string: keyboard_manager.format_modifier_string("", true),
             };
             for _ in 0..(new.x - previous.x).abs() {
@@ -276,9 +287,10 @@ impl MouseManager {
         grid_scale: GridScale,
         amount: PixelVec<f32>,
         keyboard_manager: &KeyboardManager,
+        renderer: &Renderer,
     ) {
         let amount = amount / grid_scale;
-        self.handle_line_scroll(amount, keyboard_manager);
+        self.handle_line_scroll(amount, keyboard_manager, renderer);
     }
 
     fn handle_touch(
@@ -322,13 +334,14 @@ impl MouseManager {
                         let timeout_setting = Duration::from_micros(
                             (settings.touch_drag_timeout * 1_000_000.) as u64,
                         );
-                        if self.dragging.is_none() && trace.start_time.elapsed() >= timeout_setting
+                        if self.drag_details.is_none()
+                            && trace.start_time.elapsed() >= timeout_setting
                         {
                             dragging_just_now = true;
                         }
                     }
 
-                    if self.dragging.is_some() || dragging_just_now {
+                    if self.drag_details.is_some() || dragging_just_now {
                         self.handle_pointer_motion(
                             (location.x, location.y).into(),
                             keyboard_manager,
@@ -349,6 +362,7 @@ impl MouseManager {
                             renderer.grid_renderer.grid_scale,
                             delta,
                             keyboard_manager,
+                            renderer,
                         );
                     }
                 }
@@ -360,13 +374,23 @@ impl MouseManager {
                         renderer,
                         window,
                     );
-                    self.handle_pointer_transition(&MouseButton::Left, true, keyboard_manager);
+                    self.handle_pointer_transition(
+                        MouseButton::Left,
+                        true,
+                        keyboard_manager,
+                        renderer,
+                    );
                 }
             }
             TouchPhase::Ended | TouchPhase::Cancelled => {
                 if let Some(trace) = self.touch_position.remove(&finger_id) {
-                    if self.dragging.is_some() {
-                        self.handle_pointer_transition(&MouseButton::Left, false, keyboard_manager);
+                    if self.drag_details.is_some() {
+                        self.handle_pointer_transition(
+                            MouseButton::Left,
+                            false,
+                            keyboard_manager,
+                            renderer,
+                        );
                     }
                     if !trace.left_deadzone_once {
                         self.handle_pointer_motion(
@@ -375,8 +399,18 @@ impl MouseManager {
                             renderer,
                             window,
                         );
-                        self.handle_pointer_transition(&MouseButton::Left, true, keyboard_manager);
-                        self.handle_pointer_transition(&MouseButton::Left, false, keyboard_manager);
+                        self.handle_pointer_transition(
+                            MouseButton::Left,
+                            true,
+                            keyboard_manager,
+                            renderer,
+                        );
+                        self.handle_pointer_transition(
+                            MouseButton::Left,
+                            false,
+                            keyboard_manager,
+                            renderer,
+                        );
                     }
                 }
             }
@@ -413,7 +447,7 @@ impl MouseManager {
                         ..
                     },
                 ..
-            } => self.handle_line_scroll((*x, *y).into(), keyboard_manager),
+            } => self.handle_line_scroll((*x, *y).into(), keyboard_manager, renderer),
             Event::WindowEvent {
                 event:
                     WindowEvent::MouseWheel {
@@ -425,6 +459,7 @@ impl MouseManager {
                 renderer.grid_renderer.grid_scale,
                 (delta.x as f32, delta.y as f32).into(),
                 keyboard_manager,
+                renderer,
             ),
             Event::WindowEvent {
                 event:
@@ -448,9 +483,10 @@ impl MouseManager {
                 event: WindowEvent::MouseInput { button, state, .. },
                 ..
             } => self.handle_pointer_transition(
-                button,
+                *button,
                 state == &ElementState::Pressed,
                 keyboard_manager,
+                renderer,
             ),
             Event::WindowEvent {
                 event:
