@@ -712,7 +712,7 @@ impl RenderedWindow {
             let mut matrix = Matrix::new_identity();
             matrix.set_translate((
                 pixel_region.min.x,
-                pixel_region.min.y + (i * grid_scale.height() as isize) as f32,
+                pixel_region.min.y + (i as f32 * grid_scale.height()),
             ));
             (matrix, line)
         })
