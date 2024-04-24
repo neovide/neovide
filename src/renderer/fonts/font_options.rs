@@ -298,9 +298,9 @@ impl FontEdging {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Default)]
 pub enum FontHinting {
-    #[default]
     Full,
     Normal,
+    #[default]
     Slight,
     None,
 }
