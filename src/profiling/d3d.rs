@@ -1,38 +1,29 @@
 use std::{
     collections::VecDeque,
-    ffi::CString,
+    ffi::c_void,
     mem,
-    ptr::{null, null_mut},
+    ptr::null_mut,
     slice::from_raw_parts,
     sync::atomic::{AtomicU8, Ordering},
 };
 
-use winapi::{
-    ctypes::c_void,
-    shared::{
-        dxgiformat::DXGI_FORMAT_UNKNOWN,
-        dxgitype::DXGI_SAMPLE_DESC,
-        minwindef::BOOL,
-        ntdef::LARGE_INTEGER,
-        winerror::{FAILED, SUCCEEDED},
-    },
-    um::{
-        d3d12::{
-            ID3D12CommandAllocator, ID3D12CommandList, ID3D12CommandQueue, ID3D12Device,
-            ID3D12Fence, ID3D12GraphicsCommandList, ID3D12QueryHeap, ID3D12Resource,
-            D3D12_COMMAND_LIST_TYPE_COPY, D3D12_COMMAND_LIST_TYPE_DIRECT,
-            D3D12_CPU_PAGE_PROPERTY_UNKNOWN, D3D12_FENCE_FLAG_NONE, D3D12_HEAP_FLAG_NONE,
-            D3D12_HEAP_PROPERTIES, D3D12_HEAP_TYPE_READBACK, D3D12_MEMORY_POOL_UNKNOWN,
-            D3D12_QUERY_HEAP_DESC, D3D12_QUERY_TYPE_TIMESTAMP, D3D12_RANGE, D3D12_RESOURCE_DESC,
-            D3D12_RESOURCE_DIMENSION_BUFFER, D3D12_RESOURCE_FLAG_NONE,
-            D3D12_RESOURCE_STATE_COPY_DEST, D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
-        },
-        profileapi::QueryPerformanceFrequency,
-    },
-    ENUM, STRUCT,
+use windows::core::Interface;
+use windows::Win32::Graphics::Direct3D12::{
+    ID3D12CommandAllocator, ID3D12CommandQueue, ID3D12Device, ID3D12Fence,
+    ID3D12GraphicsCommandList, ID3D12QueryHeap, ID3D12Resource, D3D12_COMMAND_LIST_TYPE_COPY,
+    D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_CPU_PAGE_PROPERTY_UNKNOWN, D3D12_FEATURE_D3D12_OPTIONS3,
+    D3D12_FEATURE_DATA_D3D12_OPTIONS3, D3D12_FENCE_FLAG_NONE, D3D12_HEAP_FLAG_NONE,
+    D3D12_HEAP_PROPERTIES, D3D12_HEAP_TYPE_READBACK, D3D12_MEMORY_POOL_UNKNOWN,
+    D3D12_QUERY_HEAP_DESC, D3D12_QUERY_HEAP_TYPE_COPY_QUEUE_TIMESTAMP,
+    D3D12_QUERY_HEAP_TYPE_TIMESTAMP, D3D12_QUERY_TYPE_TIMESTAMP, D3D12_RANGE, D3D12_RESOURCE_DESC,
+    D3D12_RESOURCE_DIMENSION_BUFFER, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST,
+    D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
 };
-
-use wio::com::ComPtr;
+use windows::Win32::Graphics::{
+    Direct3D12::ID3D12PipelineState,
+    Dxgi::Common::{DXGI_FORMAT_UNKNOWN, DXGI_SAMPLE_DESC},
+};
+use windows::Win32::System::Performance::QueryPerformanceFrequency;
 
 use tracy_client_sys::{
     ___tracy_emit_gpu_calibration_serial, ___tracy_emit_gpu_context_name,
@@ -44,95 +35,7 @@ use tracy_client_sys::{
 };
 
 use crate::profiling::{is_connected, GpuContextType, GpuCtx};
-use crate::renderer::d3d::{call_com_fn, D3DSkiaRenderer};
-
-// The winapi crate does not expose these for some reason
-ENUM! {
-    enum D3d12ViewInstancingTier {
-    D3D12_VIEW_INSTANCING_TIER_NOT_SUPPORTED = 0,
-    D3D12_VIEW_INSTANCING_TIER_1 = 1,
-    D3D12_VIEW_INSTANCING_TIER_2 = 2,
-    D3D12_VIEW_INSTANCING_TIER_3 = 3,
-}}
-#[allow(non_camel_case_types)]
-type D3D12_VIEW_INSTANCING_TIER = D3d12ViewInstancingTier;
-
-ENUM! {
-    enum D3d12CommandListSupportFlags {
-    D3D12_COMMAND_LIST_SUPPORT_FLAG_NONE = 0,
-    D3D12_COMMAND_LIST_SUPPORT_FLAG_DIRECT,
-    D3D12_COMMAND_LIST_SUPPORT_FLAG_BUNDLE,
-    D3D12_COMMAND_LIST_SUPPORT_FLAG_COMPUTE,
-    D3D12_COMMAND_LIST_SUPPORT_FLAG_COPY,
-    D3D12_COMMAND_LIST_SUPPORT_FLAG_VIDEO_DECODE,
-    D3D12_COMMAND_LIST_SUPPORT_FLAG_VIDEO_PROCESS,
-    D3D12_COMMAND_LIST_SUPPORT_FLAG_VIDEO_ENCODE,
-}}
-#[allow(non_camel_case_types)]
-type D3D12_COMMAND_LIST_SUPPORT_FLAGS = D3d12CommandListSupportFlags;
-
-STRUCT! {
-    #[allow(non_snake_case)]
-    struct D3D12_FEATURE_DATA_D3D12_OPTIONS3 {
-    CopyQueueTimestampQueriesSupported: BOOL,
-    CastingFullyTypedFormatSupported: BOOL,
-    WriteBufferImmediateSupportFlags: D3D12_COMMAND_LIST_SUPPORT_FLAGS,
-    ViewInstancingTier: D3D12_VIEW_INSTANCING_TIER,
-    BarycentricsSupported: BOOL,
-}}
-
-ENUM! {
-    enum D3d12Feature {
-    D3D12_FEATURE_D3D12_OPTIONS = 0,
-    D3D12_FEATURE_ARCHITECTURE = 1,
-    D3D12_FEATURE_FEATURE_LEVELS = 2,
-    D3D12_FEATURE_FORMAT_SUPPORT = 3,
-    D3D12_FEATURE_MULTISAMPLE_QUALITY_LEVELS = 4,
-    D3D12_FEATURE_FORMAT_INFO = 5,
-    D3D12_FEATURE_GPU_VIRTUAL_ADDRESS_SUPPORT = 6,
-    D3D12_FEATURE_SHADER_MODEL = 7,
-    D3D12_FEATURE_D3D12_OPTIONS1 = 8,
-    D3D12_FEATURE_PROTECTED_RESOURCE_SESSION_SUPPORT = 10,
-    D3D12_FEATURE_ROOT_SIGNATURE = 12,
-    D3D12_FEATURE_ARCHITECTURE1 = 16,
-    D3D12_FEATURE_D3D12_OPTIONS2 = 18,
-    D3D12_FEATURE_SHADER_CACHE = 19,
-    D3D12_FEATURE_COMMAND_QUEUE_PRIORITY = 20,
-    D3D12_FEATURE_D3D12_OPTIONS3 = 21,
-    D3D12_FEATURE_EXISTING_HEAPS = 22,
-    D3D12_FEATURE_D3D12_OPTIONS4 = 23,
-    D3D12_FEATURE_SERIALIZATION = 24,
-    D3D12_FEATURE_CROSS_NODE = 25,
-    D3D12_FEATURE_D3D12_OPTIONS5 = 27,
-    D3D12_FEATURE_DISPLAYABLE,
-    D3D12_FEATURE_D3D12_OPTIONS6 = 30,
-    D3D12_FEATURE_QUERY_META_COMMAND = 31,
-    D3D12_FEATURE_D3D12_OPTIONS7 = 32,
-    D3D12_FEATURE_PROTECTED_RESOURCE_SESSION_TYPE_COUNT = 33,
-    D3D12_FEATURE_PROTECTED_RESOURCE_SESSION_TYPES = 34,
-    D3D12_FEATURE_D3D12_OPTIONS8 = 36,
-    D3D12_FEATURE_D3D12_OPTIONS9 = 37,
-    D3D12_FEATURE_D3D12_OPTIONS10,
-    D3D12_FEATURE_D3D12_OPTIONS11,
-    D3D12_FEATURE_D3D12_OPTIONS12,
-    D3D12_FEATURE_D3D12_OPTIONS13,
-}}
-
-ENUM! {enum D3d12QueryHeapType {
-  D3D12_QUERY_HEAP_TYPE_OCCLUSION = 0,
-  D3D12_QUERY_HEAP_TYPE_TIMESTAMP = 1,
-  D3D12_QUERY_HEAP_TYPE_PIPELINE_STATISTICS = 2,
-  D3D12_QUERY_HEAP_TYPE_SO_STATISTICS = 3,
-  D3D12_QUERY_HEAP_TYPE_VIDEO_DECODE_STATISTICS = 4,
-  D3D12_QUERY_HEAP_TYPE_COPY_QUEUE_TIMESTAMP = 5,
-  D3D12_QUERY_HEAP_TYPE_PIPELINE_STATISTICS1,
-}}
-
-impl Default for D3D12_FEATURE_DATA_D3D12_OPTIONS3 {
-    fn default() -> Self {
-        unsafe { mem::zeroed() }
-    }
-}
+use crate::renderer::d3d::D3DSkiaRenderer;
 
 static CONTEXT_ID: AtomicU8 = AtomicU8::new(0);
 
@@ -143,13 +46,13 @@ struct D3D12QueryPayload {
 
 struct GpuCtxD3D {
     id: u8,
-    _device: ComPtr<ID3D12Device>,
-    queue: ComPtr<ID3D12CommandQueue>,
-    query_heap: ComPtr<ID3D12QueryHeap>,
-    readback_buffer: ComPtr<ID3D12Resource>,
-    payload_fence: ComPtr<ID3D12Fence>,
-    command_allocator: ComPtr<ID3D12CommandAllocator>,
-    command_list: ComPtr<ID3D12GraphicsCommandList>,
+    _device: ID3D12Device,
+    queue: ID3D12CommandQueue,
+    query_heap: ID3D12QueryHeap,
+    readback_buffer: ID3D12Resource,
+    payload_fence: ID3D12Fence,
+    command_allocator: ID3D12CommandAllocator,
+    command_list: ID3D12GraphicsCommandList,
     query_limit: u32,
     prev_calibration: u64,
     qpc_to_ns: u64,
@@ -190,17 +93,18 @@ impl GpuCtxD3D {
         self.active_payload += 1;
         unsafe {
             self.queue
-                .Signal(self.payload_fence.as_raw(), self.active_payload as u64);
+                .Signal(&self.payload_fence, self.active_payload as u64)
+                .unwrap();
         }
     }
 }
 
 fn get_performance_counter_frequency() -> u64 {
-    let mut t = LARGE_INTEGER::default();
+    let mut t = 0;
     unsafe {
-        QueryPerformanceFrequency(&mut t);
-        *t.QuadPart() as u64
+        QueryPerformanceFrequency(&mut t).unwrap();
     }
+    t as u64
 }
 
 const MAXQUERIES: u32 = 64 * 1024; // Queries are begin and end markers, so we can store half as many total time durations. Must be even!
@@ -214,26 +118,27 @@ pub fn create_d3d_gpu_context(name: &str, renderer: &D3DSkiaRenderer) -> Box<dyn
             let mut feature_data = D3D12_FEATURE_DATA_D3D12_OPTIONS3::default();
             let p_feature_data =
                 &mut feature_data as *mut D3D12_FEATURE_DATA_D3D12_OPTIONS3 as *mut c_void;
-            let success = SUCCEEDED(device.CheckFeatureSupport(
-                D3D12_FEATURE_D3D12_OPTIONS3,
-                p_feature_data,
-                mem::size_of_val(&feature_data) as u32,
-            ));
-            if !(success && feature_data.CopyQueueTimestampQueriesSupported != 0) {
+            let success = device
+                .CheckFeatureSupport(
+                    D3D12_FEATURE_D3D12_OPTIONS3,
+                    p_feature_data,
+                    mem::size_of_val(&feature_data) as u32,
+                )
+                .is_ok();
+            if !(success && feature_data.CopyQueueTimestampQueriesSupported != true) {
                 panic!("Platform does not support profiling of copy queues.");
             }
         }
 
-        let mut timestamp_frequency = 0;
-
-        if FAILED(queue.GetTimestampFrequency(&mut timestamp_frequency)) {
-            panic!("Failed to get timestamp frequency.");
-        }
+        let timestamp_frequency = queue.GetTimestampFrequency().unwrap();
 
         let mut cpu_timestamp = 0;
         let mut gpu_timestamp = 0;
 
-        if FAILED(queue.GetClockCalibration(&mut gpu_timestamp, &mut cpu_timestamp)) {
+        if queue
+            .GetClockCalibration(&mut gpu_timestamp, &mut cpu_timestamp)
+            .is_err()
+        {
             panic!("Failed to get queue clock calibration.");
         }
 
@@ -255,11 +160,10 @@ pub fn create_d3d_gpu_context(name: &str, renderer: &D3DSkiaRenderer) -> Box<dyn
         heap_desc.Count = query_limit;
         heap_desc.NodeMask = 0; // #TODO: Support multiple adapters.
 
-        let query_heap: ComPtr<ID3D12QueryHeap> = loop {
-            if let Ok(query_heap) =
-                call_com_fn(|query_heap, id| device.CreateQueryHeap(&heap_desc, id, query_heap))
-            {
-                break query_heap;
+        let query_heap = loop {
+            let mut query_heap: Option<ID3D12QueryHeap> = None;
+            if device.CreateQueryHeap(&heap_desc, &mut query_heap).is_ok() {
+                break query_heap.unwrap();
             } else {
                 query_limit /= 2;
                 heap_desc.Count = query_limit;
@@ -292,39 +196,34 @@ pub fn create_d3d_gpu_context(name: &str, renderer: &D3DSkiaRenderer) -> Box<dyn
             VisibleNodeMask: 0, // TODO: Support multiple adapters.
         };
 
-        let readback_buffer: ComPtr<ID3D12Resource> = call_com_fn(|readback_buffer, id| {
-            device.CreateCommittedResource(
+        let mut readback_buffer: Option<ID3D12Resource> = None;
+        device
+            .CreateCommittedResource(
                 &readback_heap_props,
                 D3D12_HEAP_FLAG_NONE,
                 &readback_buffer_desc,
                 D3D12_RESOURCE_STATE_COPY_DEST,
-                null(),
-                id,
-                readback_buffer,
+                None,
+                &mut readback_buffer,
             )
-        })
-        .expect("Failed to create query readback buffer.");
+            .expect("Failed to create query readback buffer.");
 
-        let payload_fence: ComPtr<ID3D12Fence> =
-            call_com_fn(|fence, id| device.CreateFence(0, D3D12_FENCE_FLAG_NONE, id, fence))
-                .expect("Failed to create payload fence.");
+        let payload_fence: ID3D12Fence = device
+            .CreateFence(0, D3D12_FENCE_FLAG_NONE)
+            .expect("Failed to create payload fence.");
 
-        let command_allocator: ComPtr<ID3D12CommandAllocator> = call_com_fn(|allocator, id| {
-            device.CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, id, allocator)
-        })
-        .expect("Failed to create command allocator");
+        let command_allocator: ID3D12CommandAllocator = device
+            .CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT)
+            .expect("Failed to create command allocator");
 
-        let command_list: ComPtr<ID3D12GraphicsCommandList> = call_com_fn(|command_list, id| {
-            device.CreateCommandList(
+        let command_list: ID3D12GraphicsCommandList = device
+            .CreateCommandList(
                 0,
                 D3D12_COMMAND_LIST_TYPE_DIRECT,
-                command_allocator.as_raw(),
-                null_mut(),
-                id,
-                command_list,
+                &command_allocator,
+                &ID3D12PipelineState::from_raw(null_mut()),
             )
-        })
-        .expect("Failed to create command list");
+            .expect("Failed to create command list");
 
         (
             Box::new(GpuCtxD3D {
@@ -332,7 +231,7 @@ pub fn create_d3d_gpu_context(name: &str, renderer: &D3DSkiaRenderer) -> Box<dyn
                 _device: device,
                 queue,
                 query_heap,
-                readback_buffer,
+                readback_buffer: readback_buffer.unwrap(),
                 command_list,
                 payload_fence,
                 command_allocator,
@@ -362,10 +261,10 @@ pub fn create_d3d_gpu_context(name: &str, renderer: &D3DSkiaRenderer) -> Box<dyn
         flags: GpuContextFlags::GpuContextCalibration as u8,
         type_: GpuContextType::Direct3D12 as u8,
     };
-    let namestring = CString::new(name).unwrap();
+    // let namestring = CString::new(name).unwrap();
     let name_data = ___tracy_gpu_context_name_data {
         context: ctx_id,
-        name: namestring.as_ptr(),
+        name: name.as_ptr() as *const i8,
         len: name.len() as u16,
     };
     unsafe {
@@ -393,10 +292,11 @@ impl GpuCtx for GpuCtxD3D {
             };
 
             let mut readback_buffer_mapping = null_mut();
-            if FAILED(unsafe {
+            if unsafe {
                 self.readback_buffer
-                    .Map(0, &map_range, &mut readback_buffer_mapping)
-            }) {
+                    .Map(0, Some(&map_range), Some(&mut readback_buffer_mapping))
+                    .is_err()
+            } {
                 panic!("Failed to map readback buffer.");
             }
 
@@ -427,7 +327,7 @@ impl GpuCtx for GpuCtxD3D {
                 }
             }
             unsafe {
-                self.readback_buffer.Unmap(0, null());
+                self.readback_buffer.Unmap(0, None);
             }
 
             // Recalibrate to account for drift.
@@ -435,10 +335,11 @@ impl GpuCtx for GpuCtxD3D {
             let mut cpu_timestamp = 0;
             let mut gpu_timestamp = 0;
 
-            if FAILED(unsafe {
+            if unsafe {
                 self.queue
                     .GetClockCalibration(&mut gpu_timestamp, &mut cpu_timestamp)
-            }) {
+                    .is_err()
+            } {
                 panic!("Failed to get queue clock calibration.");
             }
 
@@ -473,12 +374,13 @@ impl GpuCtx for GpuCtxD3D {
             // We don't have access to the skia command list, so we need to use our own, consisting
             // of just a single command to get the order right.
             self.command_list
-                .EndQuery(self.query_heap.as_raw(), D3D12_QUERY_TYPE_TIMESTAMP, query);
-            self.command_list.Close();
-            let command_list = self.command_list.as_raw() as *mut ID3D12CommandList;
-            self.queue.ExecuteCommandLists(1, &command_list);
+                .EndQuery(&self.query_heap, D3D12_QUERY_TYPE_TIMESTAMP, query);
+            self.command_list.Close().unwrap();
+            let command_list = [Some(self.command_list.cast().unwrap())];
+            self.queue.ExecuteCommandLists(&command_list);
             self.command_list
-                .Reset(self.command_allocator.as_raw(), null_mut());
+                .Reset(&self.command_allocator, None)
+                .unwrap();
             ___tracy_emit_gpu_zone_begin_serial(gpu_data);
         }
         query as i64
@@ -493,24 +395,22 @@ impl GpuCtx for GpuCtxD3D {
             context: self.id,
         };
         unsafe {
-            self.command_list.EndQuery(
-                self.query_heap.as_raw(),
-                D3D12_QUERY_TYPE_TIMESTAMP,
-                end_query_id,
-            );
+            self.command_list
+                .EndQuery(&self.query_heap, D3D12_QUERY_TYPE_TIMESTAMP, end_query_id);
             self.command_list.ResolveQueryData(
-                self.query_heap.as_raw(),
+                &self.query_heap,
                 D3D12_QUERY_TYPE_TIMESTAMP,
                 query_id as u32,
                 2,
-                self.readback_buffer.as_raw(),
+                &self.readback_buffer,
                 query_id as u64 * mem::size_of::<u64>() as u64,
             );
-            self.command_list.Close();
-            let command_list = self.command_list.as_raw() as *mut ID3D12CommandList;
-            self.queue.ExecuteCommandLists(1, &command_list);
+            self.command_list.Close().unwrap();
+            let command_list = [Some(self.command_list.cast().unwrap())];
+            self.queue.ExecuteCommandLists(&command_list);
             self.command_list
-                .Reset(self.command_allocator.as_raw(), null_mut());
+                .Reset(&self.command_allocator, None)
+                .unwrap();
             ___tracy_emit_gpu_zone_end_serial(gpu_data);
         }
     }

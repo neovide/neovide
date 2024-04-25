@@ -121,7 +121,7 @@ impl OpenGLSkiaRenderer {
         })
         .expect("Could not create interface");
 
-        let mut gr_context = skia_safe::gpu::DirectContext::new_gl(Some(interface), None)
+        let mut gr_context = skia_safe::gpu::DirectContext::new_gl(interface, None)
             .expect("Could not create direct context");
         let fb_info = {
             let mut fboid: GLint = 0;

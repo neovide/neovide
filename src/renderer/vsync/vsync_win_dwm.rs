@@ -6,15 +6,12 @@ use std::{
     thread::{spawn, JoinHandle},
     time::Duration,
 };
-use winapi::{
-    shared::ntdef::LARGE_INTEGER,
-    um::dwmapi::{DwmGetCompositionTimingInfo, DWM_TIMING_INFO},
-    um::profileapi::{QueryPerformanceCounter, QueryPerformanceFrequency},
-};
-
-use winit::event_loop::EventLoopProxy;
 
 use spin_sleep::SpinSleeper;
+use windows::Win32::Foundation::HWND;
+use windows::Win32::Graphics::Dwm::{DwmGetCompositionTimingInfo, DWM_TIMING_INFO};
+use windows::Win32::System::Performance::{QueryPerformanceCounter, QueryPerformanceFrequency};
+use winit::event_loop::EventLoopProxy;
 
 use crate::{
     profiling::{tracy_plot, tracy_zone},
@@ -61,9 +58,9 @@ impl VSyncWinDwm {
             let redraw_requested = Arc::clone(&redraw_requested);
             Some(spawn(move || {
                 let performance_frequency = unsafe {
-                    let mut performance_frequency: LARGE_INTEGER = std::mem::zeroed();
-                    QueryPerformanceFrequency(&mut performance_frequency as *mut LARGE_INTEGER);
-                    *performance_frequency.QuadPart() as f64
+                    let mut performance_frequency: i64 = std::mem::zeroed();
+                    QueryPerformanceFrequency(&mut performance_frequency).unwrap();
+                    performance_frequency as f64
                 };
                 let sleeper = SpinSleeper::default();
                 while !should_exit.load(Ordering::SeqCst) {
@@ -72,12 +69,13 @@ impl VSyncWinDwm {
                         let mut timing_info: DWM_TIMING_INFO = std::mem::zeroed();
                         timing_info.cbSize = std::mem::size_of::<DWM_TIMING_INFO>() as u32;
                         DwmGetCompositionTimingInfo(
-                            std::ptr::null_mut(),
+                            HWND::default(),
                             &mut timing_info as *mut DWM_TIMING_INFO,
-                        );
-                        let mut time_now: LARGE_INTEGER = std::mem::zeroed();
-                        QueryPerformanceCounter(&mut time_now as *mut LARGE_INTEGER);
-                        let time_now = *time_now.QuadPart() as f64;
+                        )
+                        .unwrap();
+                        let mut time_now: i64 = std::mem::zeroed();
+                        QueryPerformanceCounter(&mut time_now).unwrap();
+                        let time_now = time_now as f64;
                         let vblank_delay =
                             (timing_info.qpcVBlank as f64 - time_now) / performance_frequency;
                         let period = ((timing_info.qpcRefreshPeriod as f64)
