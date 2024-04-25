@@ -58,7 +58,7 @@ impl VSyncWinDwm {
             let redraw_requested = Arc::clone(&redraw_requested);
             Some(spawn(move || {
                 let performance_frequency = unsafe {
-                    let mut performance_frequency: i64 = std::mem::zeroed();
+                    let mut performance_frequency = 0;
                     QueryPerformanceFrequency(&mut performance_frequency).unwrap();
                     performance_frequency as f64
                 };
@@ -66,14 +66,12 @@ impl VSyncWinDwm {
                 while !should_exit.load(Ordering::SeqCst) {
                     tracy_zone!("VSyncThread");
                     let (_vblank_delay, _sleep_time) = unsafe {
-                        let mut timing_info: DWM_TIMING_INFO = std::mem::zeroed();
-                        timing_info.cbSize = std::mem::size_of::<DWM_TIMING_INFO>() as u32;
-                        DwmGetCompositionTimingInfo(
-                            HWND::default(),
-                            &mut timing_info as *mut DWM_TIMING_INFO,
-                        )
-                        .unwrap();
-                        let mut time_now: i64 = std::mem::zeroed();
+                        let mut timing_info = DWM_TIMING_INFO {
+                            cbSize: std::mem::size_of::<DWM_TIMING_INFO>() as u32,
+                            ..Default::default()
+                        };
+                        DwmGetCompositionTimingInfo(HWND::default(), &mut timing_info).unwrap();
+                        let mut time_now = 0;
                         QueryPerformanceCounter(&mut time_now).unwrap();
                         let time_now = time_now as f64;
                         let vblank_delay =
@@ -92,7 +90,7 @@ impl VSyncWinDwm {
                     tracy_plot!("sleep_time", _sleep_time);
 
                     if redraw_requested.swap(false, Ordering::Relaxed) {
-                        let _ = proxy.send_event(UserEvent::RedrawRequested);
+                        proxy.send_event(UserEvent::RedrawRequested).unwrap();
                     }
                 }
             }))

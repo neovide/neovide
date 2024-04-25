@@ -40,9 +40,10 @@ use crate::{profiling::tracy_gpu_zone, window::UserEvent};
 fn get_hardware_adapter(factory: &IDXGIFactory4) -> Result<IDXGIAdapter1> {
     for i in 0.. {
         let adapter = unsafe { factory.EnumAdapters1(i)? };
-
         let mut desc = Default::default();
-        unsafe { adapter.GetDesc1(&mut desc)? };
+        unsafe {
+            adapter.GetDesc1(&mut desc)?;
+        }
 
         if (DXGI_ADAPTER_FLAG(desc.Flags as i32) & DXGI_ADAPTER_FLAG_SOFTWARE)
             != DXGI_ADAPTER_FLAG_NONE
@@ -50,15 +51,16 @@ fn get_hardware_adapter(factory: &IDXGIFactory4) -> Result<IDXGIAdapter1> {
             continue;
         }
 
-        if unsafe {
-            D3D12CreateDevice(
+        unsafe {
+            if D3D12CreateDevice(
                 &adapter,
                 D3D_FEATURE_LEVEL_11_0,
                 &mut Option::<ID3D12Device>::None,
             )
             .is_ok()
-        } {
-            return Ok(adapter);
+            {
+                return Ok(adapter);
+            }
         }
     }
 
@@ -89,13 +91,13 @@ impl D3DSkiaRenderer {
         let mut debug_controller: Option<ID3D12Debug> = None;
         unsafe {
             D3D12GetDebugInterface(&mut debug_controller)
-                .expect("Failed to create Direct3D debug controller")
-        };
+                .expect("Failed to create Direct3D debug controller");
+        }
         unsafe {
             debug_controller
                 .expect("Failed to enable debug layer")
-                .EnableDebugLayer()
-        };
+                .EnableDebugLayer();
+        }
 
         let dxgi_factory: IDXGIFactory4 = unsafe {
             CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG).expect("Failed to create DXGI factory")
@@ -106,8 +108,8 @@ impl D3DSkiaRenderer {
         let mut device: Option<ID3D12Device> = None;
         unsafe {
             D3D12CreateDevice(&adapter, D3D_FEATURE_LEVEL_11_0, &mut device)
-                .expect("Failed to create a Direct3D 12 device")
-        };
+                .expect("Failed to create a Direct3D 12 device");
+        }
         let device = device.expect("Failed to create a Direct3D 12 device");
 
         // Describe and create the command queue.
@@ -168,8 +170,8 @@ impl D3DSkiaRenderer {
         unsafe {
             swap_chain
                 .SetMaximumFrameLatency(1)
-                .expect("Failed to set maximum frame latency")
-        };
+                .expect("Failed to set maximum frame latency");
+        }
 
         let swap_chain_waitable = unsafe { swap_chain.GetFrameLatencyWaitableObject() };
         if swap_chain_waitable.is_invalid() {
@@ -326,25 +328,19 @@ impl SkiaRenderer for D3DSkiaRenderer {
 
     fn swap_buffers(&mut self) {
         unsafe {
-            {
-                tracy_gpu_zone!("submit surface");
-                // Switch the back buffer resource state to present For some reason the
-                // DirectContext::flush_and_submit does not do that for us automatically.
-                let buffer_index = self.swap_chain.GetCurrentBackBufferIndex() as usize;
-                self.gr_context.flush_surface_with_access(
-                    &mut self.surfaces[buffer_index],
-                    BackendSurfaceAccess::Present,
-                    &FlushInfo::default(),
-                );
-                self.gr_context.submit(Some(SyncCpu::No));
-            }
+            tracy_gpu_zone!("submit surface");
+            // Switch the back buffer resource state to present For some reason the
+            // DirectContext::flush_and_submit does not do that for us automatically.
+            let buffer_index = self.swap_chain.GetCurrentBackBufferIndex() as usize;
+            self.gr_context.flush_surface_with_access(
+                &mut self.surfaces[buffer_index],
+                BackendSurfaceAccess::Present,
+                &FlushInfo::default(),
+            );
+            self.gr_context.submit(Some(SyncCpu::No));
 
-            if {
-                tracy_gpu_zone!("present");
-                self.swap_chain.Present(1, 0)
-            }
-            .is_ok()
-            {
+            tracy_gpu_zone!("present");
+            if self.swap_chain.Present(1, 0).is_ok() {
                 self.frame_swapped = true;
             }
         }
@@ -378,7 +374,7 @@ impl SkiaRenderer for D3DSkiaRenderer {
                     self.swap_chain_desc.Format,
                     self.swap_chain_desc.Flags,
                 )
-                .unwrap();
+                .expect("Failed to resize buffers");
         }
         self.setup_surfaces();
     }

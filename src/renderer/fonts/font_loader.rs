@@ -104,9 +104,7 @@ impl FontLoader {
         }
 
         let loaded_font = self.load(font_key.clone())?;
-
         let font_arc = Arc::new(loaded_font);
-
         self.cache.put(font_key.clone(), font_arc.clone());
 
         Some(font_arc)
