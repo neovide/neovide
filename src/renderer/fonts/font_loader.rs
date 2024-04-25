@@ -142,21 +142,20 @@ impl FontLoader {
     }
 
     pub fn get_or_load_last_resort(&mut self) -> Option<Arc<FontPair>> {
-        match self.last_resort.clone() {
-            Some(font_pair) => Some(font_pair),
-            None => {
-                let font_key = FontKey::default();
-                let data = Data::new_copy(LAST_RESORT_FONT);
+        if self.last_resort.is_some() {
+            self.last_resort.clone()
+        } else {
+            let font_key = FontKey::default();
+            let data = Data::new_copy(LAST_RESORT_FONT);
 
-                let typeface = self.font_mgr.new_from_data(&data, 0)?;
-                let font_pair = Arc::new(FontPair::new(
-                    font_key,
-                    Font::from_typeface(typeface, self.font_size),
-                )?);
+            let typeface = self.font_mgr.new_from_data(&data, 0)?;
+            let font_pair = Arc::new(FontPair::new(
+                font_key,
+                Font::from_typeface(typeface, self.font_size),
+            )?);
 
-                self.last_resort = Some(font_pair.clone());
-                Some(font_pair)
-            }
+            self.last_resort = Some(font_pair.clone());
+            Some(font_pair)
         }
     }
 

@@ -253,22 +253,24 @@ impl D3DSkiaRenderer {
         }
     }
 
-    unsafe fn wait_for_gpu(&mut self) {
-        let current_fence_value = *self.fence_values.iter().max().unwrap();
-        // Schedule a Signal command in the queue.
-        self.command_queue
-            .Signal(&self.fence, current_fence_value)
-            .unwrap();
+    fn wait_for_gpu(&mut self) {
+        unsafe {
+            let current_fence_value = *self.fence_values.iter().max().unwrap();
+            // Schedule a Signal command in the queue.
+            self.command_queue
+                .Signal(&self.fence, current_fence_value)
+                .unwrap();
 
-        // Wait until the fence has been processed.
-        self.fence
-            .SetEventOnCompletion(current_fence_value, self.fence_event)
-            .unwrap();
-        WaitForSingleObjectEx(self.fence_event, INFINITE, false);
+            // Wait until the fence has been processed.
+            self.fence
+                .SetEventOnCompletion(current_fence_value, self.fence_event)
+                .unwrap();
+            WaitForSingleObjectEx(self.fence_event, INFINITE, false);
 
-        // Increment all fence values
-        for v in &mut self.fence_values {
-            *v = current_fence_value + 1;
+            // Increment all fence values
+            for v in &mut self.fence_values {
+                *v = current_fence_value + 1;
+            }
         }
     }
 
@@ -337,7 +339,12 @@ impl SkiaRenderer for D3DSkiaRenderer {
                 self.gr_context.submit(Some(SyncCpu::No));
             }
 
-            if self.swap_chain.Present(1, 0).is_ok() {
+            if {
+                tracy_gpu_zone!("present");
+                self.swap_chain.Present(1, 0)
+            }
+            .is_ok()
+            {
                 self.frame_swapped = true;
             }
         }
@@ -355,9 +362,7 @@ impl SkiaRenderer for D3DSkiaRenderer {
         // Clean up any outstanding resources in command lists
         self.gr_context.flush_submit_and_sync_cpu();
 
-        unsafe {
-            self.wait_for_gpu();
-        }
+        self.wait_for_gpu();
 
         self.surfaces.clear();
         self.buffers.clear();
