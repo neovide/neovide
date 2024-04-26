@@ -288,9 +288,9 @@ mod tests {
         assert_eq!(
             SETTINGS.get::<CmdLineSettings>().neovim_args,
             vec![
-                "/mnt/c/Users/MyUser/foo.txt",
-                "/mnt/c/bar.md",
-                "/mnt/c/Program Files (x86)/Some Application/Settings.ini"
+                "'/mnt/c/Users/MyUser/foo.txt'",
+                "'/mnt/c/bar.md'",
+                "'/mnt/c/Program Files (x86)/Some Application/Settings.ini'"
             ]
         );
     }
