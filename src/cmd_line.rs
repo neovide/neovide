@@ -192,7 +192,10 @@ fn handle_wslpaths(paths: Vec<String>, wsl: bool) -> Vec<String> {
 
     paths
         .into_iter()
-        .map(|path| format!("'{}'", windows_to_wsl(&path).unwrap_or(path)))
+        .map(|path| {
+            let path = std::fs::canonicalize(&path).map_or(path, |p| p.to_string_lossy().into());
+            format!("'{}'", windows_to_wsl(&path).unwrap_or(path))
+        })
         .collect()
 }
 
