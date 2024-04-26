@@ -192,7 +192,7 @@ fn handle_wslpaths(paths: Vec<String>, wsl: bool) -> Vec<String> {
 
     paths
         .into_iter()
-        .map(|path| windows_to_wsl(&path).unwrap_or(path))
+        .map(|path| format!("'{}'", windows_to_wsl(&path).unwrap_or(path)))
         .collect()
 }
 
