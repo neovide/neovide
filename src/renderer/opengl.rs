@@ -23,7 +23,8 @@ use skia_safe::{
         backend_render_targets::make_gl, gl::FramebufferInfo, surfaces::wrap_backend_render_target,
         DirectContext, SurfaceOrigin,
     },
-    ColorType,
+    ColorType, PixelGeometry,
+    SurfaceProps, SurfacePropsFlags,
 };
 use winit::{
     dpi::PhysicalSize,
@@ -37,9 +38,9 @@ pub use super::vsync::VSyncWinDwm;
 #[cfg(target_os = "macos")]
 pub use super::vsync::VSyncMacos;
 
-use super::{SkiaRenderer, VSync, WindowConfig, WindowConfigType};
+use super::{RendererSettings, SkiaRenderer, VSync, WindowConfig, WindowConfigType};
 
-use crate::{profiling::tracy_gpu_zone, window::UserEvent};
+use crate::{profiling::tracy_gpu_zone, settings::SETTINGS, window::UserEvent};
 
 #[cfg(feature = "gpu_profiling")]
 use crate::profiling::{opengl::create_opengl_gpu_context, GpuCtx};
@@ -254,13 +255,23 @@ fn create_surface(
     let width = NonZeroU32::new(size.width).unwrap();
     let height = NonZeroU32::new(size.height).unwrap();
     GlSurface::resize(window_surface, context, width, height);
+
+    let render_settings = SETTINGS.get::<RendererSettings>();
+
+    let surface_props = SurfaceProps::new_with_text_properties(
+        SurfacePropsFlags::default(),
+        PixelGeometry::default(),
+        render_settings.text_contrast,
+        render_settings.text_gamma,
+    );
+
     wrap_backend_render_target(
         gr_context,
         &backend_render_target,
         SurfaceOrigin::BottomLeft,
         ColorType::RGBA8888,
         None,
-        None,
+        Some(surface_props).as_ref(),
     )
-    .expect("Could not create skia surface")
+    .expect("Could not create skia backend render target")
 }
