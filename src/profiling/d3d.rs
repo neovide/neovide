@@ -1,6 +1,6 @@
 use std::{
     collections::VecDeque,
-    ffi::c_void,
+    ffi::{c_void, CString},
     mem,
     ptr::null_mut,
     slice::from_raw_parts,
@@ -10,19 +10,16 @@ use std::{
 use windows::core::Interface;
 use windows::Win32::Graphics::Direct3D12::{
     ID3D12CommandAllocator, ID3D12CommandQueue, ID3D12Device, ID3D12Fence,
-    ID3D12GraphicsCommandList, ID3D12QueryHeap, ID3D12Resource, D3D12_COMMAND_LIST_TYPE_COPY,
-    D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_CPU_PAGE_PROPERTY_UNKNOWN, D3D12_FEATURE_D3D12_OPTIONS3,
-    D3D12_FEATURE_DATA_D3D12_OPTIONS3, D3D12_FENCE_FLAG_NONE, D3D12_HEAP_FLAG_NONE,
-    D3D12_HEAP_PROPERTIES, D3D12_HEAP_TYPE_READBACK, D3D12_MEMORY_POOL_UNKNOWN,
-    D3D12_QUERY_HEAP_DESC, D3D12_QUERY_HEAP_TYPE_COPY_QUEUE_TIMESTAMP,
+    ID3D12GraphicsCommandList, ID3D12PipelineState, ID3D12QueryHeap, ID3D12Resource,
+    D3D12_COMMAND_LIST_TYPE_COPY, D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_CPU_PAGE_PROPERTY_UNKNOWN,
+    D3D12_FEATURE_D3D12_OPTIONS3, D3D12_FEATURE_DATA_D3D12_OPTIONS3, D3D12_FENCE_FLAG_NONE,
+    D3D12_HEAP_FLAG_NONE, D3D12_HEAP_PROPERTIES, D3D12_HEAP_TYPE_READBACK,
+    D3D12_MEMORY_POOL_UNKNOWN, D3D12_QUERY_HEAP_DESC, D3D12_QUERY_HEAP_TYPE_COPY_QUEUE_TIMESTAMP,
     D3D12_QUERY_HEAP_TYPE_TIMESTAMP, D3D12_QUERY_TYPE_TIMESTAMP, D3D12_RANGE, D3D12_RESOURCE_DESC,
     D3D12_RESOURCE_DIMENSION_BUFFER, D3D12_RESOURCE_FLAG_NONE, D3D12_RESOURCE_STATE_COPY_DEST,
     D3D12_TEXTURE_LAYOUT_ROW_MAJOR,
 };
-use windows::Win32::Graphics::{
-    Direct3D12::ID3D12PipelineState,
-    Dxgi::Common::{DXGI_FORMAT_UNKNOWN, DXGI_SAMPLE_DESC},
-};
+use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_UNKNOWN, DXGI_SAMPLE_DESC};
 use windows::Win32::System::Performance::QueryPerformanceFrequency;
 
 use tracy_client_sys::{
@@ -261,10 +258,10 @@ pub fn create_d3d_gpu_context(name: &str, renderer: &D3DSkiaRenderer) -> Box<dyn
         flags: GpuContextFlags::GpuContextCalibration as u8,
         type_: GpuContextType::Direct3D12 as u8,
     };
-    // let namestring = CString::new(name).unwrap();
+    let namestring = CString::new(name).unwrap();
     let name_data = ___tracy_gpu_context_name_data {
         context: ctx_id,
-        name: name.as_ptr() as *const i8,
+        name: namestring.as_ptr(),
         len: name.len() as u16,
     };
     unsafe {

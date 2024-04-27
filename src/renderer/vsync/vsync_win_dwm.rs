@@ -90,7 +90,7 @@ impl VSyncWinDwm {
                     tracy_plot!("sleep_time", _sleep_time);
 
                     if redraw_requested.swap(false, Ordering::Relaxed) {
-                        proxy.send_event(UserEvent::RedrawRequested).unwrap();
+                        proxy.send_event(UserEvent::RedrawRequested).ok();
                     }
                 }
             }))

@@ -20,10 +20,9 @@ use windows::Win32::Graphics::Dxgi::Common::{
 };
 use windows::Win32::Graphics::Dxgi::{
     CreateDXGIFactory2, IDXGIAdapter1, IDXGIFactory4, IDXGISwapChain1, IDXGISwapChain3,
-    DXGI_ADAPTER_FLAG, DXGI_ADAPTER_FLAG_NONE, DXGI_ADAPTER_FLAG_SOFTWARE,
-    DXGI_CREATE_FACTORY_DEBUG, DXGI_SCALING_NONE, DXGI_SWAP_CHAIN_DESC1,
-    DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT, DXGI_SWAP_EFFECT_FLIP_DISCARD,
-    DXGI_USAGE_RENDER_TARGET_OUTPUT,
+    DXGI_ADAPTER_FLAG, DXGI_ADAPTER_FLAG_SOFTWARE, DXGI_CREATE_FACTORY_DEBUG, DXGI_SCALING_NONE,
+    DXGI_SWAP_CHAIN_DESC1, DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT,
+    DXGI_SWAP_EFFECT_FLIP_DISCARD, DXGI_USAGE_RENDER_TARGET_OUTPUT,
 };
 use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObjectEx, INFINITE};
 use winit::{
@@ -45,9 +44,7 @@ fn get_hardware_adapter(factory: &IDXGIFactory4) -> Result<IDXGIAdapter1> {
             adapter.GetDesc1(&mut desc)?;
         }
 
-        if (DXGI_ADAPTER_FLAG(desc.Flags as i32) & DXGI_ADAPTER_FLAG_SOFTWARE)
-            != DXGI_ADAPTER_FLAG_NONE
-        {
+        if DXGI_ADAPTER_FLAG(desc.Flags as i32).contains(DXGI_ADAPTER_FLAG_SOFTWARE) {
             continue;
         }
 
@@ -64,6 +61,8 @@ fn get_hardware_adapter(factory: &IDXGIFactory4) -> Result<IDXGIAdapter1> {
         }
     }
 
+    // As this function returns `Ok()` when successfully enumerated all of adapters
+    // or `Err()` when failed, this code will never reach here.
     unreachable!()
 }
 
@@ -81,6 +80,7 @@ pub struct D3DSkiaRenderer {
     frame_swapped: bool,
     frame_index: usize,
     _backend_context: BackendContext,
+    #[cfg(feature = "gpu_profiling")]
     pub device: ID3D12Device,
     _adapter: IDXGIAdapter1,
     window: Window,
@@ -204,6 +204,7 @@ impl D3DSkiaRenderer {
 
         let mut ret = Self {
             _adapter: adapter,
+            #[cfg(feature = "gpu_profiling")]
             device,
             command_queue,
             swap_chain,
