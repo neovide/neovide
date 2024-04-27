@@ -97,6 +97,8 @@ pub struct RendererSettings {
     debug_renderer: bool,
     profiler: bool,
     underline_stroke_scale: f32,
+    text_gamma: f32,
+    text_contrast: f32,
 }
 
 impl Default for RendererSettings {
@@ -115,6 +117,8 @@ impl Default for RendererSettings {
             debug_renderer: false,
             profiler: false,
             underline_stroke_scale: 1.,
+            text_gamma: 0.0,
+            text_contrast: 0.5,
         }
     }
 }
