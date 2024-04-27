@@ -6,9 +6,7 @@ use std::{
 
 use log::trace;
 use lru::LruCache;
-use skia_safe::{
-    font::Edging as SkiaEdging, Data, Font, FontHinting as SkiaHinting, FontMgr, Typeface,
-};
+use skia_safe::{font::Edging as SkiaEdging, Data, Font, FontHinting as SkiaHinting, FontMgr};
 
 use crate::renderer::fonts::font_options::{FontEdging, FontHinting};
 use crate::renderer::fonts::swash_font::SwashFont;
@@ -30,8 +28,8 @@ impl FontPair {
         skia_font.set_hinting(font_hinting(&key.hinting));
         skia_font.set_edging(font_edging(&key.edging));
 
-        let typeface = skia_font.typeface().unwrap();
-        let (font_data, index) = typeface.to_font_data().unwrap();
+        let typeface = skia_font.typeface();
+        let (font_data, index) = typeface.to_font_data()?;
         // Only the lower 16 bits are part of the index, the rest indicates named instances. But we
         // don't care about those here, since we are just loading the font, so ignore them
         let index = index & 0xFFFF;
@@ -95,7 +93,7 @@ impl FontLoader {
             FontPair::new(font_key, Font::from_typeface(typeface, self.font_size))
         } else {
             let data = Data::new_copy(DEFAULT_FONT);
-            let typeface = Typeface::from_data(data, 0).unwrap();
+            let typeface = self.font_mgr.new_from_data(&data, 0)?;
             FontPair::new(font_key, Font::from_typeface(typeface, self.font_size))
         }
     }
@@ -106,9 +104,7 @@ impl FontLoader {
         }
 
         let loaded_font = self.load(font_key.clone())?;
-
         let font_arc = Arc::new(loaded_font);
-
         self.cache.put(font_key.clone(), font_arc.clone());
 
         Some(font_arc)
@@ -143,20 +139,21 @@ impl FontLoader {
         Some(font_pair)
     }
 
-    pub fn get_or_load_last_resort(&mut self) -> Arc<FontPair> {
-        if let Some(last_resort) = self.last_resort.clone() {
-            last_resort
+    pub fn get_or_load_last_resort(&mut self) -> Option<Arc<FontPair>> {
+        if self.last_resort.is_some() {
+            self.last_resort.clone()
         } else {
             let font_key = FontKey::default();
             let data = Data::new_copy(LAST_RESORT_FONT);
-            let typeface = Typeface::from_data(data, 0).unwrap();
 
-            let font_pair =
-                FontPair::new(font_key, Font::from_typeface(typeface, self.font_size)).unwrap();
-            let font_pair = Arc::new(font_pair);
+            let typeface = self.font_mgr.new_from_data(&data, 0)?;
+            let font_pair = Arc::new(FontPair::new(
+                font_key,
+                Font::from_typeface(typeface, self.font_size),
+            )?);
 
             self.last_resort = Some(font_pair.clone());
-            font_pair
+            Some(font_pair)
         }
     }
 

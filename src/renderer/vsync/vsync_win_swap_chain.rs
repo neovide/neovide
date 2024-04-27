@@ -3,7 +3,8 @@ use std::{
     thread::{spawn, JoinHandle},
 };
 
-use winapi::um::{synchapi::WaitForSingleObjectEx, winnt::HANDLE};
+use windows::Win32::Foundation::HANDLE;
+use windows::Win32::System::Threading::WaitForSingleObjectEx;
 
 use winit::event_loop::EventLoopProxy;
 
@@ -40,7 +41,7 @@ impl VSyncWinSwapChain {
             while let Ok(Message::RequestRedraw) = receiver.recv() {
                 tracy_zone!("wait for vblank");
                 unsafe {
-                    WaitForSingleObjectEx(handle.handle, 1000, true.into());
+                    WaitForSingleObjectEx(handle.handle, 1000, true);
                 }
                 proxy.send_event(UserEvent::RedrawRequested).ok();
             }

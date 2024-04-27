@@ -57,7 +57,6 @@ rmpv = "1.0.0"
 serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.79"
 shlex = "1.1.0"
-simple_moving_average = "0.1.2"
 spin_sleep = "1.1.1"
 strum = { version = "0.26.2", features = ["derive"] }
 swash = { version = "0.1.8", default-features = false }
@@ -85,37 +84,23 @@ scoped-env = "2.1.0"
 serial_test = "3.0.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-# NOTE: winerror is only needed because the indirect dependency parity-tokio-ipc does not set it even if it uses it
-winapi = { version = "0.3.9", features = [
-    "d3d12",
-    "d3d12sdklayers",
-    "dwmapi",
-    "dxgi",
-    "dxgi1_2",
-    "dxgi1_3",
-    "dxgi1_4",
-    "dxgi1_6",
-    "impl-default",
-    "profileapi",
-    "synchapi",
-    "wincon",
-    "winerror",
-    "winuser",
-] }
-# for ComPtr
-wio = { version = "0.2.2" }
 wslpath-rs = "0.1"
-skia-safe = { version = "0.68.0", features = ["gl", "d3d", "textlayout"] }
+skia-safe = { version = "0.73.0", features = ["gl", "d3d", "textlayout"] }
 windows = { version = "0.56.0", features = [
+    "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D12",
+    "Win32_Graphics_Dwm",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
     "Win32_Security",
-    "Win32_System_LibraryLoader",
-    "Win32_System_Registry",
+    "Win32_System_Performance",
+    "Win32_System_Threading",
     "Win32_UI_HiDpi",
 ] }
 windows-registry = "0.1.1"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
-skia-safe = { version = "0.68.0", features = ["gl", "textlayout"] }
+skia-safe = { version = "0.73.0", features = ["gl", "textlayout"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 icrate = { version = "0.0.4", features = [

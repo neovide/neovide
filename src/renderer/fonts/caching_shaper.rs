@@ -340,7 +340,7 @@ impl CachingShaper {
                     // Last Resort covers all of the unicode space so we will always have a fallback
                     results.push((
                         cluster.to_owned(),
-                        self.font_loader.get_or_load_last_resort(),
+                        self.font_loader.get_or_load_last_resort().unwrap(),
                     ));
                 }
             }

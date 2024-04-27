@@ -22,7 +22,7 @@ pub fn create_nvim_command() -> Result<TokioCommand> {
     cmd.stderr(Stdio::inherit());
 
     #[cfg(windows)]
-    cmd.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
+    cmd.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
 
     Ok(cmd)
 }
@@ -88,14 +88,14 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
             result.args(["$SHELL", "-lc"]);
             result.arg(format!("{} {}", command, args.join(" ")));
 
-            result.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
+            result.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
 
             result
         } else {
             let mut result = StdCommand::new(command);
             result.args(args);
 
-            result.creation_flags(winapi::um::winbase::CREATE_NO_WINDOW);
+            result.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
 
             result
         }
