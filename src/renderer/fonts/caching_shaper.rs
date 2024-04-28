@@ -203,7 +203,7 @@ impl CachingShaper {
 
         let bare_font_height = metrics.ascent + metrics.descent + metrics.leading;
         // assuming that linespace is checked on receive for validity
-        let font_height = bare_font_height + self.linespace;
+        let font_height = (bare_font_height + self.linespace).ceil();
         let font_width = glyph_advance + self.options.width;
 
         (font_width, font_height).into()
