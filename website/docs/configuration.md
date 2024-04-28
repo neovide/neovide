@@ -71,9 +71,9 @@ as such it's also documented in `:h guifont`. But to sum it up and also add Neov
       - alias
     - `#h-X` (available since 0.10.2) - Sets level of glyph outline adjustment, while `X` is
       a type of hinting:
-      - full (default)
+      - full
       - normal
-      - slight
+      - slight (default)
       - none
 - Some examples:
   - `Hack,Noto_Color_Emoji:h12:b` — Hack at size 12 in bold, with Noto Color Emoji as fallback
@@ -118,6 +118,32 @@ whole font definition. Very useful for presentations. See [the FAQ section about
 this][scale-runtime] for a nice recipe to bind this to a hotkey.
 
 [scale-runtime]: faq.md#how-can-i-dynamically-change-the-scale-at-runtime
+
+#### Text Gamma and Contrast
+
+VimScript:
+
+```vim
+let g:neovide_text_gamma = 0.0
+let g:neovide_text_contrast = 0.5
+```
+
+Lua:
+
+```lua
+vim.g.neovide_text_gamma = 0.0
+vim.g.neovide_text_contrast = 0.5
+```
+
+**Unreleased yet.**
+
+You can fine tune the gamma and contrast of the text to your liking. The defaults is a good
+compromise that gives readable text on all backgrounds and an accurate color representation. But if
+that doesn't suit you, and you want to emulate the Alacritty font rendering for example you can use
+a gamma of 0.8 and a contrast of 0.1.
+
+Note a gamma of 0.0, means standard sRGB gamma or 2.2. Also note that these settings don't
+necessarily apply immediately due to caching of the fonts.
 
 #### Padding
 
