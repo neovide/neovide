@@ -119,8 +119,9 @@ impl MouseManager {
             global_bounds,
             *editor_state.grid_scale,
         );
+        let relative_position = (clamped_position - window_details.region.min).to_point();
 
-        (clamped_position / *editor_state.grid_scale)
+        (relative_position / *editor_state.grid_scale)
             .floor()
             .cast()
     }
