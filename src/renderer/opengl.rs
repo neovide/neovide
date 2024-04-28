@@ -23,8 +23,7 @@ use skia_safe::{
         backend_render_targets::make_gl, gl::FramebufferInfo, surfaces::wrap_backend_render_target,
         DirectContext, SurfaceOrigin,
     },
-    ColorType, PixelGeometry, ColorSpace,
-    SurfaceProps, SurfacePropsFlags,
+    ColorSpace, ColorType, PixelGeometry, SurfaceProps, SurfacePropsFlags,
 };
 use winit::{
     dpi::PhysicalSize,
