@@ -23,7 +23,7 @@ use skia_safe::{
         backend_render_targets::make_gl, gl::FramebufferInfo, surfaces::wrap_backend_render_target,
         DirectContext, SurfaceOrigin,
     },
-    ColorType, PixelGeometry,
+    ColorType, PixelGeometry, ColorSpace,
     SurfaceProps, SurfacePropsFlags,
 };
 use winit::{
@@ -265,12 +265,15 @@ fn create_surface(
         render_settings.text_gamma,
     );
 
+    // NOTE: It would be much better to render using a linear gamma format, and SRGB backbuffer
+    // format But currently the Skia glyph atlas uses a 32-bit linear format texture, so some color
+    // precision is lost, and the font colors will be slightly off.
     wrap_backend_render_target(
         gr_context,
         &backend_render_target,
         SurfaceOrigin::BottomLeft,
         ColorType::RGBA8888,
-        None,
+        ColorSpace::new_srgb(),
         Some(surface_props).as_ref(),
     )
     .expect("Could not create skia backend render target")
