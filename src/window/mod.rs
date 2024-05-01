@@ -1,4 +1,4 @@
-mod error_window;
+//mod error_window;
 mod keyboard_manager;
 mod mouse_manager;
 mod settings;
@@ -47,7 +47,7 @@ use crate::{
     },
     units::GridSize,
 };
-pub use error_window::show_error_window;
+//pub use error_window::show_error_window;
 pub use settings::{WindowSettings, WindowSettingsChanged};
 pub use update_loop::ShouldRender;
 pub use window_wrapper::WinitWindowWrapper;
@@ -300,7 +300,7 @@ pub fn main_loop(
 ) -> Result<(), EventLoopError> {
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
     let mut window_wrapper = WinitWindowWrapper::new(
-        window,
+        &window.window,
         initial_window_size,
         initial_font_settings,
         event_loop.create_proxy(),

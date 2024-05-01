@@ -142,7 +142,7 @@ impl UpdateLoop {
         let dt = Duration::from_secs_f32(
             window_wrapper
                 .vsync
-                .get_refresh_rate(window_wrapper.skia_renderer.window()),
+                .get_refresh_rate(&window_wrapper.window),
         );
 
         let now = Instant::now();
@@ -217,9 +217,7 @@ impl UpdateLoop {
             // When winit throttling is used, request a redraw and wait for the render event
             // Otherwise render immediately
             if window_wrapper.vsync.uses_winit_throttling() {
-                window_wrapper
-                    .vsync
-                    .request_redraw(window_wrapper.skia_renderer.window());
+                window_wrapper.vsync.request_redraw(&window_wrapper.window);
                 self.pending_render = true;
                 tracy_plot!("pending_render", self.pending_render as u8 as f64);
             } else {

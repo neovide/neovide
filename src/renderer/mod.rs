@@ -2,20 +2,18 @@ pub mod animation_utils;
 pub mod cursor_renderer;
 pub mod fonts;
 pub mod grid_renderer;
-pub mod opengl;
 pub mod profiler;
 mod rendered_layer;
 mod rendered_window;
 mod vsync;
-
-#[cfg(target_os = "windows")]
-pub mod d3d;
 
 use std::{
     cmp::Ordering,
     collections::{hash_map::Entry, HashMap},
     sync::Arc,
 };
+
+use futures::executor::block_on;
 
 use itertools::Itertools;
 use log::{error, warn};
@@ -26,6 +24,9 @@ use winit::{
     event_loop::{EventLoop, EventLoopProxy},
     window::{Window, WindowBuilder},
 };
+
+use rust_embed::RustEmbed;
+use vide::{Scene, WinitRenderer};
 
 use crate::{
     bridge::EditorMode,
@@ -143,7 +144,12 @@ pub enum DrawCommand {
     CloseWindow(u64),
 }
 
-pub struct Renderer {
+#[derive(RustEmbed)]
+#[folder = "../rusty-2d-renderer/scene_viewer/assets"]
+struct Assets;
+
+pub struct Renderer<'a> {
+    wgpu_renderer: WinitRenderer<'a>,
     cursor_renderer: CursorRenderer,
     pub grid_renderer: GridRenderer,
     current_mode: EditorMode,
@@ -154,6 +160,8 @@ pub struct Renderer {
     profiler: profiler::Profiler,
     os_scale_factor: f64,
     user_scale_factor: f64,
+
+    scene: Scene,
 }
 
 /// Results of processing the draw commands from the command channel.
@@ -162,8 +170,22 @@ pub struct DrawCommandResult {
     pub should_show: bool,
 }
 
-impl Renderer {
-    pub fn new(os_scale_factor: f64, init_font_settings: Option<FontSettings>) -> Self {
+fn read_scene(path: &std::path::Path) -> Scene {
+    use std::io::Read;
+    let mut file = std::fs::File::open(&path).expect("Could not read file");
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)
+        .expect("Could not read file");
+
+    serde_json::from_str(&contents).expect("Could not parse scene file")
+}
+
+impl<'a> Renderer<'a> {
+    pub fn new(
+        os_scale_factor: f64,
+        init_font_settings: Option<FontSettings>,
+        window: &'a Window,
+    ) -> Self {
         let window_settings = SETTINGS.get::<WindowSettings>();
 
         let user_scale_factor = window_settings.scale_factor.into();
@@ -178,7 +200,12 @@ impl Renderer {
 
         let profiler = profiler::Profiler::new(12.0);
 
+        let wgpu_renderer = block_on(WinitRenderer::new(window)).with_default_drawables::<Assets>();
+        let scene_path = Arc::from(std::path::Path::new("../rusty-2d-renderer/scene.json"));
+        let scene = read_scene(&scene_path);
+
         Renderer {
+            wgpu_renderer,
             rendered_windows,
             cursor_renderer,
             grid_renderer,
@@ -187,10 +214,12 @@ impl Renderer {
             profiler,
             os_scale_factor,
             user_scale_factor,
+            scene,
         }
     }
 
-    pub fn handle_event(&mut self, event: &Event<UserEvent>) -> bool {
+    pub fn handle_event(&mut self, event: &Event<UserEvent>, window: &'a Window) -> bool {
+        self.wgpu_renderer.handle_event(window, event);
         self.cursor_renderer.handle_event(event)
     }
 
@@ -202,118 +231,120 @@ impl Renderer {
         self.cursor_renderer.prepare_frame()
     }
 
-    pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32) {
+    pub fn draw_frame(&mut self, dt: f32) {
         tracy_zone!("renderer_draw_frame");
-        let default_background = self.grid_renderer.get_default_background();
-        let grid_scale = self.grid_renderer.grid_scale;
+        self.wgpu_renderer.draw(&self.scene);
 
-        let transparency = { SETTINGS.get::<WindowSettings>().transparency };
-        root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
-        root_canvas.save();
-        root_canvas.reset_matrix();
-
-        if let Some(root_window) = self.rendered_windows.get(&1) {
-            let clip_rect = to_skia_rect(&root_window.pixel_region(grid_scale));
-            root_canvas.clip_rect(clip_rect, None, Some(false));
-        }
-
-        let (root_windows, floating_layers) = {
-            let (mut root_windows, mut floating_windows): (
-                Vec<&mut RenderedWindow>,
-                Vec<&mut RenderedWindow>,
-            ) = self
-                .rendered_windows
-                .values_mut()
-                .filter(|window| !window.hidden)
-                .partition(|window| window.anchor_info.is_none());
-
-            root_windows
-                .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
-            floating_windows.sort_by(floating_sort);
-
-            let mut floating_layers = vec![];
-
-            let mut base_zindex = 0;
-            let mut last_zindex = 0;
-            let mut current_windows = vec![];
-
-            for window in floating_windows {
-                let zindex = window.anchor_info.as_ref().unwrap().sort_order;
-                log::debug!("zindex: {}, base: {}", zindex, base_zindex);
-                // Group floating windows by consecutive z indices
-                if zindex - last_zindex > 1 && !current_windows.is_empty() {
-                    for windows in group_windows(current_windows, grid_scale) {
-                        floating_layers.push(FloatingLayer { windows });
-                    }
-                    current_windows = vec![];
-                }
-
-                if current_windows.is_empty() {
-                    base_zindex = zindex;
-                }
-                current_windows.push(window);
-                last_zindex = zindex;
-            }
-
-            if !current_windows.is_empty() {
-                for windows in group_windows(current_windows, grid_scale) {
-                    floating_layers.push(FloatingLayer { windows });
-                }
-            }
-
-            for layer in &mut floating_layers {
-                layer.windows.sort_by(floating_sort);
-                log::debug!(
-                    "layer: {:?}",
-                    layer
-                        .windows
-                        .iter()
-                        .map(|w| (w.id, w.anchor_info.as_ref().unwrap().sort_order))
-                        .collect_vec()
-                );
-            }
-
-            (root_windows, floating_layers)
-        };
-
-        let settings = SETTINGS.get::<RendererSettings>();
-        let root_window_regions = root_windows
-            .into_iter()
-            .map(|window| {
-                window.draw(
-                    root_canvas,
-                    &settings,
-                    default_background.with_a((255.0 * transparency) as u8),
-                    grid_scale,
-                )
-            })
-            .collect_vec();
-
-        let floating_window_regions = floating_layers
-            .into_iter()
-            .flat_map(|mut layer| {
-                layer.draw(
-                    root_canvas,
-                    &settings,
-                    default_background.with_a((255.0 * transparency) as u8),
-                    grid_scale,
-                )
-            })
-            .collect_vec();
-
-        self.window_regions = root_window_regions
-            .into_iter()
-            .chain(floating_window_regions)
-            .collect();
-        self.cursor_renderer
-            .draw(&mut self.grid_renderer, root_canvas);
-
-        self.profiler.draw(root_canvas, dt);
-
-        root_canvas.restore();
-
-        #[cfg(feature = "profiling")]
-        plot_skia_cache();
+        // let default_background = self.grid_renderer.get_default_background();
+        // let grid_scale = self.grid_renderer.grid_scale;
+        //
+        // let transparency = { SETTINGS.get::<WindowSettings>().transparency };
+        // root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
+        // root_canvas.save();
+        // root_canvas.reset_matrix();
+        //
+        // if let Some(root_window) = self.rendered_windows.get(&1) {
+        //     let clip_rect = to_skia_rect(&root_window.pixel_region(grid_scale));
+        //     root_canvas.clip_rect(clip_rect, None, Some(false));
+        // }
+        //
+        // let (root_windows, floating_layers) = {
+        //     let (mut root_windows, mut floating_windows): (
+        //         Vec<&mut RenderedWindow>,
+        //         Vec<&mut RenderedWindow>,
+        //     ) = self
+        //         .rendered_windows
+        //         .values_mut()
+        //         .filter(|window| !window.hidden)
+        //         .partition(|window| window.anchor_info.is_none());
+        //
+        //     root_windows
+        //         .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
+        //     floating_windows.sort_by(floating_sort);
+        //
+        //     let mut floating_layers = vec![];
+        //
+        //     let mut base_zindex = 0;
+        //     let mut last_zindex = 0;
+        //     let mut current_windows = vec![];
+        //
+        //     for window in floating_windows {
+        //         let zindex = window.anchor_info.as_ref().unwrap().sort_order;
+        //         log::debug!("zindex: {}, base: {}", zindex, base_zindex);
+        //         // Group floating windows by consecutive z indices
+        //         if zindex - last_zindex > 1 && !current_windows.is_empty() {
+        //             for windows in group_windows(current_windows, grid_scale) {
+        //                 floating_layers.push(FloatingLayer { windows });
+        //             }
+        //             current_windows = vec![];
+        //         }
+        //
+        //         if current_windows.is_empty() {
+        //             base_zindex = zindex;
+        //         }
+        //         current_windows.push(window);
+        //         last_zindex = zindex;
+        //     }
+        //
+        //     if !current_windows.is_empty() {
+        //         for windows in group_windows(current_windows, grid_scale) {
+        //             floating_layers.push(FloatingLayer { windows });
+        //         }
+        //     }
+        //
+        //     for layer in &mut floating_layers {
+        //         layer.windows.sort_by(floating_sort);
+        //         log::debug!(
+        //             "layer: {:?}",
+        //             layer
+        //                 .windows
+        //                 .iter()
+        //                 .map(|w| (w.id, w.anchor_info.as_ref().unwrap().sort_order))
+        //                 .collect_vec()
+        //         );
+        //     }
+        //
+        //     (root_windows, floating_layers)
+        // };
+        //
+        // let settings = SETTINGS.get::<RendererSettings>();
+        // let root_window_regions = root_windows
+        //     .into_iter()
+        //     .map(|window| {
+        //         window.draw(
+        //             root_canvas,
+        //             &settings,
+        //             default_background.with_a((255.0 * transparency) as u8),
+        //             grid_scale,
+        //         )
+        //     })
+        //     .collect_vec();
+        //
+        // let floating_window_regions = floating_layers
+        //     .into_iter()
+        //     .flat_map(|mut layer| {
+        //         layer.draw(
+        //             root_canvas,
+        //             &settings,
+        //             default_background.with_a((255.0 * transparency) as u8),
+        //             grid_scale,
+        //         )
+        //     })
+        //     .collect_vec();
+        //
+        // self.window_regions = root_window_regions
+        //     .into_iter()
+        //     .chain(floating_window_regions)
+        //     .collect();
+        // self.cursor_renderer
+        //     .draw(&mut self.grid_renderer, root_canvas);
+        //
+        // self.profiler.draw(root_canvas, dt);
+        //
+        // root_canvas.restore();
+        //
+        // #[cfg(feature = "profiling")]
+        // plot_skia_cache();
     }
 
     pub fn animate_frame(&mut self, grid_rect: &GridRect<f32>, dt: f32) -> bool {
@@ -514,9 +545,7 @@ fn floating_sort(window_a: &&mut RenderedWindow, window_b: &&mut RenderedWindow)
 }
 
 pub enum WindowConfigType {
-    OpenGL(glutin::config::Config),
-    #[cfg(target_os = "windows")]
-    Direct3D,
+    WGpu,
 }
 
 pub struct WindowConfig {
@@ -528,47 +557,7 @@ pub fn build_window_config<TE>(
     winit_window_builder: WindowBuilder,
     event_loop: &EventLoop<TE>,
 ) -> WindowConfig {
-    #[cfg(target_os = "windows")]
-    {
-        let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
-        if cmd_line_settings.opengl {
-            opengl::build_window(winit_window_builder, event_loop)
-        } else {
-            let window = winit_window_builder.build(event_loop).unwrap();
-            let config = WindowConfigType::Direct3D;
-            WindowConfig { window, config }
-        }
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        opengl::build_window(winit_window_builder, event_loop)
-    }
-}
-
-pub trait SkiaRenderer {
-    fn window(&self) -> &Window;
-    fn flush(&mut self);
-    fn swap_buffers(&mut self);
-    fn canvas(&mut self) -> &Canvas;
-    fn resize(&mut self);
-    fn create_vsync(&self, proxy: EventLoopProxy<UserEvent>) -> VSync;
-    #[cfg(feature = "gpu_profiling")]
-    fn tracy_create_gpu_context(&self, name: &str) -> Box<dyn GpuCtx>;
-}
-
-pub fn create_skia_renderer(
-    window: WindowConfig,
-    srgb: bool,
-    vsync: bool,
-) -> Box<dyn SkiaRenderer> {
-    let renderer: Box<dyn SkiaRenderer> = match &window.config {
-        WindowConfigType::OpenGL(..) => {
-            Box::new(opengl::OpenGLSkiaRenderer::new(window, srgb, vsync))
-        }
-        #[cfg(target_os = "windows")]
-        WindowConfigType::Direct3D => Box::new(d3d::D3DSkiaRenderer::new(window.window)),
-    };
-    tracy_create_gpu_context("main_render_context", renderer.as_ref());
-    renderer
+    let window = winit_window_builder.build(event_loop).unwrap();
+    let config = WindowConfigType::WGpu;
+    WindowConfig { window, config }
 }
