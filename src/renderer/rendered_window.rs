@@ -245,6 +245,7 @@ impl RenderedWindow {
         grid_renderer: &GridRenderer,
         scene: &mut Scene,
     ) {
+        tracy_zone!("draw_background_surface");
         let mut has_transparency = false;
 
         let grid_scale = grid_renderer.grid_scale;
@@ -319,6 +320,7 @@ impl RenderedWindow {
         grid_renderer: &GridRenderer,
         scene: &mut Scene,
     ) {
+        tracy_zone!("draw_foreground_surface");
         let grid_scale = grid_renderer.grid_scale;
         let inner_region = self.inner_region(pixel_region, grid_scale);
         // TODO: Support transparent background

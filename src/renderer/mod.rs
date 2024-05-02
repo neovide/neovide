@@ -43,12 +43,6 @@ use crate::{
 
 #[cfg(feature = "profiling")]
 use crate::profiling::tracy_plot;
-#[cfg(feature = "profiling")]
-use skia_safe::graphics::{
-    font_cache_count_limit, font_cache_count_used, font_cache_limit, font_cache_used,
-    resource_cache_single_allocation_byte_limit, resource_cache_total_bytes_limit,
-    resource_cache_total_bytes_used,
-};
 
 #[cfg(feature = "gpu_profiling")]
 use crate::profiling::GpuCtx;
@@ -63,26 +57,6 @@ pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, Windo
 pub use vsync::VSync;
 
 use self::fonts::font_options::FontOptions;
-
-#[cfg(feature = "profiling")]
-fn plot_skia_cache() {
-    tracy_plot!("font_cache_limit", font_cache_limit() as f64);
-    tracy_plot!("font_cache_used", font_cache_used() as f64);
-    tracy_plot!("font_cache_count_used", font_cache_count_used() as f64);
-    tracy_plot!("font_cache_count_limit", font_cache_count_limit() as f64);
-    tracy_plot!(
-        "resource_cache_total_bytes_used",
-        resource_cache_total_bytes_used() as f64
-    );
-    tracy_plot!(
-        "resource_cache_total_bytes_limit",
-        resource_cache_total_bytes_limit() as f64
-    );
-    tracy_plot!(
-        "resource_cache_single_allocation_byte_limit",
-        resource_cache_single_allocation_byte_limit().unwrap_or_default() as f64
-    );
-}
 
 #[derive(SettingGroup, Clone)]
 pub struct RendererSettings {
@@ -222,7 +196,6 @@ impl<'a> Renderer<'a> {
 
     pub fn draw_frame(&mut self, dt: f32) {
         tracy_zone!("renderer_draw_frame");
-        self.wgpu_renderer.draw(&self.scene);
 
         let default_background: LinSrgba = self.grid_renderer.get_default_background().into();
         let transparency = { SETTINGS.get::<WindowSettings>().transparency };
@@ -333,6 +306,10 @@ impl<'a> Renderer<'a> {
         self.cursor_renderer.draw(&mut self.grid_renderer);
 
         self.profiler.draw(dt);
+        {
+            tracy_zone!("wgpu_renderer.draw");
+            self.wgpu_renderer.draw(&self.scene);
+        }
     }
 
     pub fn animate_frame(&mut self, grid_rect: &GridRect<f32>, dt: f32) -> bool {

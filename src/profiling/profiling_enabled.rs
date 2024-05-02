@@ -9,8 +9,6 @@ use tracy_client_sys::{
     ___tracy_fiber_leave, ___tracy_source_location_data, ___tracy_startup_profiler,
 };
 
-use crate::renderer::SkiaRenderer;
-
 pub struct _LocationData {
     pub data: ___tracy_source_location_data,
 }
@@ -173,10 +171,10 @@ pub fn tracy_frame() {
 }
 
 #[cfg(not(feature = "gpu_profiling"))]
-pub fn tracy_create_gpu_context(_name: &str, _skia_renderer: &dyn SkiaRenderer) {}
+pub fn tracy_create_gpu_context(_name: &str) {}
 
 #[cfg(feature = "gpu_profiling")]
-pub fn tracy_create_gpu_context(name: &str, skia_renderer: &dyn SkiaRenderer) {
+pub fn tracy_create_gpu_context(name: &str) {
     let context = skia_renderer.tracy_create_gpu_context(name);
     GPUCTX.with(|ctx| {
         ctx.set(RefCell::new(context)).unwrap_or_else(|_| {
