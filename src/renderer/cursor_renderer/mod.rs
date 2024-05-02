@@ -3,7 +3,6 @@ mod cursor_vfx;
 
 use std::collections::HashMap;
 
-use skia_safe::{op, Canvas, Paint, Path};
 use winit::event::{Event, WindowEvent};
 
 use crate::{
@@ -12,7 +11,7 @@ use crate::{
     profiling::{tracy_plot, tracy_zone},
     renderer::{animation_utils::*, GridRenderer, RenderedWindow},
     settings::{ParseFromValue, SETTINGS},
-    units::{to_skia_point, GridPos, GridScale, PixelPos, PixelSize, PixelVec},
+    units::{GridPos, GridScale, PixelPos, PixelSize, PixelVec},
     window::{ShouldRender, UserEvent},
 };
 
@@ -273,7 +272,7 @@ impl CursorRenderer {
         self.blink_status.update_status(&self.cursor)
     }
 
-    pub fn draw(&mut self, grid_renderer: &mut GridRenderer, canvas: &Canvas) {
+    pub fn draw(&mut self, grid_renderer: &mut GridRenderer) {
         // tracy_zone!("cursor_draw");
         // let settings = SETTINGS.get::<CursorSettings>();
         // let render = self.blink_status.should_render() || settings.smooth_blink;
@@ -423,50 +422,50 @@ impl CursorRenderer {
         animating
     }
 
-    fn draw_rectangle(&self, canvas: &Canvas, paint: &Paint) -> Path {
-        // The cursor is made up of four points, so I create a path with each of the four
-        // corners.
-        let mut path = Path::new();
-
-        path.move_to(to_skia_point(self.corners[0].current_position));
-        path.line_to(to_skia_point(self.corners[1].current_position));
-        path.line_to(to_skia_point(self.corners[2].current_position));
-        path.line_to(to_skia_point(self.corners[3].current_position));
-        path.close();
-
-        canvas.draw_path(&path, paint);
-        path
-    }
-
-    fn draw_rectangular_outline(&self, canvas: &Canvas, paint: &Paint, outline_width: f32) -> Path {
-        let mut rectangle = Path::new();
-        rectangle.move_to(to_skia_point(self.corners[0].current_position));
-        rectangle.line_to(to_skia_point(self.corners[1].current_position));
-        rectangle.line_to(to_skia_point(self.corners[2].current_position));
-        rectangle.line_to(to_skia_point(self.corners[3].current_position));
-        rectangle.close();
-
-        let offsets: [PixelVec<f32>; 4] = [
-            (outline_width, outline_width).into(),
-            (-outline_width, outline_width).into(),
-            (-outline_width, -outline_width).into(),
-            (outline_width, -outline_width).into(),
-        ];
-
-        let mut subtract = Path::new();
-        subtract.move_to(to_skia_point(self.corners[0].current_position + offsets[0]));
-        subtract.line_to(to_skia_point(self.corners[1].current_position + offsets[1]));
-        subtract.line_to(to_skia_point(self.corners[2].current_position + offsets[2]));
-        subtract.line_to(to_skia_point(self.corners[3].current_position + offsets[3]));
-        subtract.close();
-
-        // We have two "rectangles"; create an outline path by subtracting the smaller rectangle
-        // from the larger one. This can fail in which case we return a full "rectangle".
-        let path = op(&rectangle, &subtract, skia_safe::PathOp::Difference).unwrap_or(rectangle);
-
-        canvas.draw_path(&path, paint);
-        path
-    }
+    // fn draw_rectangle(&self, canvas: &Canvas, paint: &Paint) -> Path {
+    //     // The cursor is made up of four points, so I create a path with each of the four
+    //     // corners.
+    //     let mut path = Path::new();
+    //
+    //     path.move_to(to_skia_point(self.corners[0].current_position));
+    //     path.line_to(to_skia_point(self.corners[1].current_position));
+    //     path.line_to(to_skia_point(self.corners[2].current_position));
+    //     path.line_to(to_skia_point(self.corners[3].current_position));
+    //     path.close();
+    //
+    //     canvas.draw_path(&path, paint);
+    //     path
+    // }
+    //
+    // fn draw_rectangular_outline(&self, canvas: &Canvas, paint: &Paint, outline_width: f32) -> Path {
+    //     let mut rectangle = Path::new();
+    //     rectangle.move_to(to_skia_point(self.corners[0].current_position));
+    //     rectangle.line_to(to_skia_point(self.corners[1].current_position));
+    //     rectangle.line_to(to_skia_point(self.corners[2].current_position));
+    //     rectangle.line_to(to_skia_point(self.corners[3].current_position));
+    //     rectangle.close();
+    //
+    //     let offsets: [PixelVec<f32>; 4] = [
+    //         (outline_width, outline_width).into(),
+    //         (-outline_width, outline_width).into(),
+    //         (-outline_width, -outline_width).into(),
+    //         (outline_width, -outline_width).into(),
+    //     ];
+    //
+    //     let mut subtract = Path::new();
+    //     subtract.move_to(to_skia_point(self.corners[0].current_position + offsets[0]));
+    //     subtract.line_to(to_skia_point(self.corners[1].current_position + offsets[1]));
+    //     subtract.line_to(to_skia_point(self.corners[2].current_position + offsets[2]));
+    //     subtract.line_to(to_skia_point(self.corners[3].current_position + offsets[3]));
+    //     subtract.close();
+    //
+    //     // We have two "rectangles"; create an outline path by subtracting the smaller rectangle
+    //     // from the larger one. This can fail in which case we return a full "rectangle".
+    //     let path = op(&rectangle, &subtract, skia_safe::PathOp::Difference).unwrap_or(rectangle);
+    //
+    //     canvas.draw_path(&path, paint);
+    //     path
+    // }
 
     pub fn get_destination(&self) -> PixelPos<f32> {
         self.destination

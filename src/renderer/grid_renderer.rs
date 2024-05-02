@@ -1,24 +1,21 @@
 use std::sync::Arc;
 
 use log::trace;
-use skia_safe::{dash_path_effect, BlendMode, Canvas, Paint, Path};
 
-use palette::{named, Hsv, Srgba, WithAlpha};
+use palette::{named, Srgba, WithAlpha};
 
 use crate::{
     editor::{Colors, Style, UnderlineStyle},
     profiling::tracy_zone,
-    renderer::{CachingShaper, RendererSettings},
+    renderer::RendererSettings,
     settings::*,
-    units::{
-        to_skia_point, to_skia_rect, GridPos, GridScale, GridSize, PixelPos, PixelRect, PixelVec,
-    },
+    units::{GridPos, GridScale, GridSize, PixelPos, PixelRect, PixelVec},
 };
 
 use super::fonts::font_options::FontOptions;
 
 pub struct GridRenderer {
-    pub shaper: CachingShaper,
+    //pub shaper: CachingShaper,
     pub default_style: Arc<Style>,
     pub em_size: f32,
     pub grid_scale: GridScale,
@@ -33,17 +30,19 @@ pub struct BackgroundInfo {
 
 impl GridRenderer {
     pub fn new(scale_factor: f64) -> Self {
-        let mut shaper = CachingShaper::new(scale_factor as f32);
+        //let mut shaper = CachingShaper::new(scale_factor as f32);
         let default_style = Arc::new(Style::new(Colors::new(
             Some(named::WHITE.with_alpha(255).into()),
             Some(named::BLACK.with_alpha(255).into()),
             Some(named::GREY.with_alpha(255).into()),
         )));
-        let em_size = shaper.current_size();
-        let font_dimensions = shaper.font_base_dimensions();
+        // let em_size = shaper.current_size();
+        // let font_dimensions = shaper.font_base_dimensions();
+        let em_size = 10.0;
+        let font_dimensions = (10.0, 10.0).into();
 
         GridRenderer {
-            shaper,
+            //shaper,
             default_style,
             em_size,
             grid_scale: GridScale(font_dimensions),
@@ -52,32 +51,35 @@ impl GridRenderer {
     }
 
     pub fn font_names(&self) -> Vec<String> {
-        self.shaper.font_names()
+        //self.shaper.font_names()
+        Vec::new()
     }
 
     pub fn handle_scale_factor_update(&mut self, scale_factor: f64) {
-        self.shaper.update_scale_factor(scale_factor as f32);
+        // self.shaper.update_scale_factor(scale_factor as f32);
         self.update_font_dimensions();
     }
 
     pub fn update_font(&mut self, guifont_setting: &str) {
-        self.shaper.update_font(guifont_setting);
+        // self.shaper.update_font(guifont_setting);
         self.update_font_dimensions();
     }
 
     pub fn update_font_options(&mut self, options: FontOptions) {
-        self.shaper.update_font_options(options);
+        // self.shaper.update_font_options(options);
         self.update_font_dimensions();
     }
 
     pub fn update_linespace(&mut self, linespace_setting: f32) {
-        self.shaper.update_linespace(linespace_setting);
+        // self.shaper.update_linespace(linespace_setting);
         self.update_font_dimensions();
     }
 
     fn update_font_dimensions(&mut self) {
-        self.em_size = self.shaper.current_size();
-        self.grid_scale = GridScale(self.shaper.font_base_dimensions());
+        //self.em_size = self.shaper.current_size();
+        self.em_size = 10.0;
+        //self.grid_scale = GridScale(self.shaper.font_base_dimensions());
+        self.grid_scale = GridScale((10.0, 10.0).into());
         self.is_ready = true;
         trace!("Updated font dimensions: {:?}", self.grid_scale.0);
     }
@@ -99,7 +101,6 @@ impl GridRenderer {
     ///     The second element is true if the cell has transparency
     pub fn draw_background(
         &mut self,
-        canvas: &Canvas,
         grid_position: GridPos<i32>,
         cell_width: i32,
         style: &Option<Arc<Style>>,
@@ -153,7 +154,6 @@ impl GridRenderer {
     /// Returns true if any text was actually drawn.
     pub fn draw_foreground(
         &mut self,
-        canvas: &Canvas,
         text: &str,
         grid_position: GridPos<i32>,
         cell_width: i32,
@@ -238,7 +238,6 @@ impl GridRenderer {
 
     fn draw_underline(
         &self,
-        canvas: &Canvas,
         style: &Arc<Style>,
         underline_style: UnderlineStyle,
         p1: PixelPos<f32>,

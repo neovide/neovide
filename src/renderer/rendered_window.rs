@@ -1,10 +1,6 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
-use skia_safe::{
-    canvas::SaveLayerRec,
-    utils::shadow_utils::{draw_shadow, ShadowFlags},
-    BlendMode, Canvas, ClipOp, Color, Matrix, Paint, Path, Picture, PictureRecorder, Point3, Rect,
-};
+use palette::Srgba;
 
 use crate::{
     cmd_line::CmdLineSettings,
@@ -12,7 +8,7 @@ use crate::{
     profiling::{tracy_plot, tracy_zone},
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
     settings::SETTINGS,
-    units::{to_skia_rect, GridPos, GridRect, GridScale, GridSize, PixelRect, PixelVec},
+    units::{GridPos, GridRect, GridScale, GridSize, PixelRect, PixelVec},
     utils::RingBuffer,
 };
 
@@ -69,8 +65,8 @@ pub enum WindowDrawCommand {
 #[derive(Clone)]
 struct Line {
     line_fragments: Vec<LineFragment>,
-    background_picture: Option<Picture>,
-    foreground_picture: Option<Picture>,
+    //background_picture: Option<Picture>,
+    //foreground_picture: Option<Picture>,
     is_inferred_border: bool,
     blend: u8,
     is_valid: bool,
@@ -240,69 +236,59 @@ impl RenderedWindow {
         animating
     }
 
-    pub fn draw_background_surface(
-        &mut self,
-        canvas: &Canvas,
-        pixel_region: PixelRect<f32>,
-        grid_scale: GridScale,
-    ) {
-        let mut has_transparency = false;
-
-        let inner_region = self.inner_region(pixel_region, grid_scale);
-
-        canvas.save();
-        canvas.clip_rect(to_skia_rect(&pixel_region), None, false);
-        for (matrix, line) in self.iter_border_lines_with_transform(pixel_region, grid_scale) {
-            let line = line.borrow();
-            if let Some(background_picture) = &line.background_picture {
-                has_transparency |= line.has_transparency();
-                canvas.draw_picture(background_picture, Some(&matrix), None);
-            }
-        }
-        canvas.save();
-        canvas.clip_rect(inner_region, None, false);
-        let mut pics = 0;
-        for (matrix, line) in self.iter_scrollable_lines_with_transform(pixel_region, grid_scale) {
-            let line = line.borrow();
-            if let Some(background_picture) = &line.background_picture {
-                has_transparency |= line.has_transparency();
-                canvas.draw_picture(background_picture, Some(&matrix), None);
-                pics += 1;
-            }
-        }
-        log::trace!(
-            "region: {:?}, inner: {:?}, pics: {}",
-            pixel_region,
-            inner_region,
-            pics
-        );
-        canvas.restore();
-        canvas.restore();
-
-        self.has_transparency = has_transparency;
+    pub fn draw_background_surface(&mut self, pixel_region: PixelRect<f32>, grid_scale: GridScale) {
+        // let mut has_transparency = false;
+        //
+        // let inner_region = self.inner_region(pixel_region, grid_scale);
+        //
+        // canvas.save();
+        // canvas.clip_rect(to_skia_rect(&pixel_region), None, false);
+        // for (matrix, line) in self.iter_border_lines_with_transform(pixel_region, grid_scale) {
+        //     let line = line.borrow();
+        //     if let Some(background_picture) = &line.background_picture {
+        //         has_transparency |= line.has_transparency();
+        //         canvas.draw_picture(background_picture, Some(&matrix), None);
+        //     }
+        // }
+        // canvas.save();
+        // canvas.clip_rect(inner_region, None, false);
+        // let mut pics = 0;
+        // for (matrix, line) in self.iter_scrollable_lines_with_transform(pixel_region, grid_scale) {
+        //     let line = line.borrow();
+        //     if let Some(background_picture) = &line.background_picture {
+        //         has_transparency |= line.has_transparency();
+        //         canvas.draw_picture(background_picture, Some(&matrix), None);
+        //         pics += 1;
+        //     }
+        // }
+        // log::trace!(
+        //     "region: {:?}, inner: {:?}, pics: {}",
+        //     pixel_region,
+        //     inner_region,
+        //     pics
+        // );
+        // canvas.restore();
+        // canvas.restore();
+        //
+        // self.has_transparency = has_transparency;
     }
 
-    pub fn draw_foreground_surface(
-        &mut self,
-        canvas: &Canvas,
-        pixel_region: PixelRect<f32>,
-        grid_scale: GridScale,
-    ) {
-        for (matrix, line) in self.iter_border_lines_with_transform(pixel_region, grid_scale) {
-            let line = line.borrow();
-            if let Some(foreground_picture) = &line.foreground_picture {
-                canvas.draw_picture(foreground_picture, Some(&matrix), None);
-            }
-        }
-        canvas.save();
-        canvas.clip_rect(self.inner_region(pixel_region, grid_scale), None, false);
-        for (matrix, line) in self.iter_scrollable_lines_with_transform(pixel_region, grid_scale) {
-            let line = line.borrow();
-            if let Some(foreground_picture) = &line.foreground_picture {
-                canvas.draw_picture(foreground_picture, Some(&matrix), None);
-            }
-        }
-        canvas.restore();
+    pub fn draw_foreground_surface(&mut self, pixel_region: PixelRect<f32>, grid_scale: GridScale) {
+        // for (matrix, line) in self.iter_border_lines_with_transform(pixel_region, grid_scale) {
+        //     let line = line.borrow();
+        //     if let Some(foreground_picture) = &line.foreground_picture {
+        //         canvas.draw_picture(foreground_picture, Some(&matrix), None);
+        //     }
+        // }
+        // canvas.save();
+        // canvas.clip_rect(self.inner_region(pixel_region, grid_scale), None, false);
+        // for (matrix, line) in self.iter_scrollable_lines_with_transform(pixel_region, grid_scale) {
+        //     let line = line.borrow();
+        //     if let Some(foreground_picture) = &line.foreground_picture {
+        //         canvas.draw_picture(foreground_picture, Some(&matrix), None);
+        //     }
+        // }
+        // canvas.restore();
     }
 
     pub fn has_transparency(&self) -> bool {
@@ -320,79 +306,82 @@ impl RenderedWindow {
 
     pub fn draw(
         &mut self,
-        root_canvas: &Canvas,
         settings: &RendererSettings,
-        default_background: Color,
+        default_background: Srgba,
         grid_scale: GridScale,
     ) -> WindowDrawDetails {
-        let pixel_region_box = self.pixel_region(grid_scale);
-        let pixel_region = to_skia_rect(&pixel_region_box);
-
-        if self.anchor_info.is_some() && settings.floating_shadow {
-            root_canvas.save();
-            let shadow_path = Path::rect(pixel_region, None);
-            // We clip using the Difference op to make sure that the shadow isn't rendered inside
-            // the window itself.
-            root_canvas.clip_path(&shadow_path, Some(ClipOp::Difference), None);
-            // The light angle is specified in degrees from the vertical, so we first convert them
-            // to radians and then use sin/cos to get the y and z components of the light
-            let light_angle_radians = settings.light_angle_degrees.to_radians();
-            draw_shadow(
-                root_canvas,
-                &shadow_path,
-                // Specifies how far from the root canvas the shadow casting rect is. We just use
-                // the z component here to set it a constant distance away.
-                Point3::new(0., 0., settings.floating_z_height),
-                // Because we use the DIRECTIONAL_LIGHT shadow flag, this specifies the angle that
-                // the light is coming from.
-                Point3::new(0., -light_angle_radians.sin(), light_angle_radians.cos()),
-                // This is roughly equal to the apparent radius of the light .
-                5.,
-                Color::from_argb((0.03 * 255.) as u8, 0, 0, 0),
-                Color::from_argb((0.35 * 255.) as u8, 0, 0, 0),
-                // Directional Light flag is necessary to make the shadow render consistently
-                // across various sizes of floating windows. It effects how the light direction is
-                // processed.
-                Some(ShadowFlags::DIRECTIONAL_LIGHT),
-            );
-            root_canvas.restore();
-        }
-
-        root_canvas.save();
-        root_canvas.clip_rect(pixel_region, None, Some(false));
-
-        let paint = Paint::default()
-            .set_anti_alias(false)
-            .set_color(Color::from_argb(255, 255, 255, default_background.a()))
-            .set_blend_mode(if self.anchor_info.is_some() {
-                BlendMode::SrcOver
-            } else {
-                BlendMode::Src
-            })
-            .to_owned();
-
-        let save_layer_rec = SaveLayerRec::default().bounds(&pixel_region).paint(&paint);
-        root_canvas.save_layer(&save_layer_rec);
-
-        let mut background_paint = Paint::default();
-        background_paint.set_blend_mode(BlendMode::Src);
-        background_paint.set_alpha(default_background.a());
-        let background_layer_rec = SaveLayerRec::default()
-            .bounds(&pixel_region)
-            .paint(&background_paint);
-
-        root_canvas.save_layer(&background_layer_rec);
-        root_canvas.clear(default_background.with_a(255));
-        self.draw_background_surface(root_canvas, pixel_region_box, grid_scale);
-        root_canvas.restore();
-        self.draw_foreground_surface(root_canvas, pixel_region_box, grid_scale);
-        root_canvas.restore();
-
-        root_canvas.restore();
-
+        // let pixel_region_box = self.pixel_region(grid_scale);
+        // let pixel_region = to_skia_rect(&pixel_region_box);
+        //
+        // if self.anchor_info.is_some() && settings.floating_shadow {
+        //     root_canvas.save();
+        //     let shadow_path = Path::rect(pixel_region, None);
+        //     // We clip using the Difference op to make sure that the shadow isn't rendered inside
+        //     // the window itself.
+        //     root_canvas.clip_path(&shadow_path, Some(ClipOp::Difference), None);
+        //     // The light angle is specified in degrees from the vertical, so we first convert them
+        //     // to radians and then use sin/cos to get the y and z components of the light
+        //     let light_angle_radians = settings.light_angle_degrees.to_radians();
+        //     draw_shadow(
+        //         root_canvas,
+        //         &shadow_path,
+        //         // Specifies how far from the root canvas the shadow casting rect is. We just use
+        //         // the z component here to set it a constant distance away.
+        //         Point3::new(0., 0., settings.floating_z_height),
+        //         // Because we use the DIRECTIONAL_LIGHT shadow flag, this specifies the angle that
+        //         // the light is coming from.
+        //         Point3::new(0., -light_angle_radians.sin(), light_angle_radians.cos()),
+        //         // This is roughly equal to the apparent radius of the light .
+        //         5.,
+        //         Color::from_argb((0.03 * 255.) as u8, 0, 0, 0),
+        //         Color::from_argb((0.35 * 255.) as u8, 0, 0, 0),
+        //         // Directional Light flag is necessary to make the shadow render consistently
+        //         // across various sizes of floating windows. It effects how the light direction is
+        //         // processed.
+        //         Some(ShadowFlags::DIRECTIONAL_LIGHT),
+        //     );
+        //     root_canvas.restore();
+        // }
+        //
+        // root_canvas.save();
+        // root_canvas.clip_rect(pixel_region, None, Some(false));
+        //
+        // let paint = Paint::default()
+        //     .set_anti_alias(false)
+        //     .set_color(Color::from_argb(255, 255, 255, default_background.a()))
+        //     .set_blend_mode(if self.anchor_info.is_some() {
+        //         BlendMode::SrcOver
+        //     } else {
+        //         BlendMode::Src
+        //     })
+        //     .to_owned();
+        //
+        // let save_layer_rec = SaveLayerRec::default().bounds(&pixel_region).paint(&paint);
+        // root_canvas.save_layer(&save_layer_rec);
+        //
+        // let mut background_paint = Paint::default();
+        // background_paint.set_blend_mode(BlendMode::Src);
+        // background_paint.set_alpha(default_background.a());
+        // let background_layer_rec = SaveLayerRec::default()
+        //     .bounds(&pixel_region)
+        //     .paint(&background_paint);
+        //
+        // root_canvas.save_layer(&background_layer_rec);
+        // root_canvas.clear(default_background.with_a(255));
+        // self.draw_background_surface(root_canvas, pixel_region_box, grid_scale);
+        // root_canvas.restore();
+        // self.draw_foreground_surface(root_canvas, pixel_region_box, grid_scale);
+        // root_canvas.restore();
+        //
+        // root_canvas.restore();
+        //
+        // WindowDrawDetails {
+        //     id: self.id,
+        //     region: pixel_region_box,
+        // }
         WindowDrawDetails {
             id: self.id,
-            region: pixel_region_box,
+            region: PixelRect::zero(),
         }
     }
 
@@ -457,8 +446,8 @@ impl RenderedWindow {
 
                 let mut line = Line {
                     line_fragments,
-                    background_picture: None,
-                    foreground_picture: None,
+                    //background_picture: None,
+                    //foreground_picture: None,
                     is_inferred_border: false,
                     blend: 0,
                     is_valid: false,
@@ -686,20 +675,19 @@ impl RenderedWindow {
         &self,
         pixel_region: PixelRect<f32>,
         grid_scale: GridScale,
-    ) -> impl Iterator<Item = (Matrix, &Rc<RefCell<Line>>)> {
+    ) -> impl Iterator<Item = (PixelVec<f32>, &Rc<RefCell<Line>>)> {
         let scroll_offset_lines = self.scroll_animation.position.floor();
         let scroll_offset = scroll_offset_lines - self.scroll_animation.position;
         let scroll_offset_pixels = (scroll_offset * grid_scale.0.height).round();
 
         self.iter_scrollable_lines().map(move |(i, line)| {
-            let mut matrix = Matrix::new_identity();
-            matrix.set_translate((
+            let transform = PixelVec::new(
                 pixel_region.min.x,
                 pixel_region.min.y
                     + (scroll_offset_pixels
                         + ((i + self.viewport_margins.top as isize) as f32 * grid_scale.0.height)),
-            ));
-            (matrix, line)
+            );
+            (transform, line)
         })
     }
 
@@ -707,29 +695,30 @@ impl RenderedWindow {
         &self,
         pixel_region: PixelRect<f32>,
         grid_scale: GridScale,
-    ) -> impl Iterator<Item = (Matrix, &Rc<RefCell<Line>>)> {
+    ) -> impl Iterator<Item = (PixelVec<f32>, &Rc<RefCell<Line>>)> {
         self.iter_border_lines().map(move |(i, line)| {
-            let mut matrix = Matrix::new_identity();
-            matrix.set_translate((
+            let transform = PixelVec::new(
                 pixel_region.min.x,
                 pixel_region.min.y + (i as f32 * grid_scale.height()),
-            ));
-            (matrix, line)
+            );
+            (transform, line)
         })
     }
 
     /// Returns the rect containing the region of the window that does not have borders above and
     /// below it. Note: This does not take into account the borders on the left and the right of
     /// the window.
-    pub fn inner_region(&self, pixel_region: PixelRect<f32>, grid_scale: GridScale) -> Rect {
+    pub fn inner_region(
+        &self,
+        pixel_region: PixelRect<f32>,
+        grid_scale: GridScale,
+    ) -> PixelRect<f32> {
         let line_height = grid_scale.height();
 
-        let adjusted_region = PixelRect::new(
+        PixelRect::new(
             pixel_region.min + PixelVec::new(0., self.viewport_margins.top as f32 * line_height),
             pixel_region.max - PixelVec::new(0., self.viewport_margins.bottom as f32 * line_height),
-        );
-
-        to_skia_rect(&adjusted_region)
+        )
     }
 
     pub fn get_smallest_blend_value(&self) -> Option<u8> {
@@ -753,102 +742,102 @@ impl RenderedWindow {
     }
 
     pub fn prepare_lines(&mut self, grid_renderer: &mut GridRenderer) {
-        let scroll_offset_lines = self.scroll_animation.position.floor() as isize;
-        let height = self.grid_size.height as isize;
-        if height == 0 {
-            return;
-        }
-        let grid_scale = grid_renderer.grid_scale;
-
-        let mut prepare_line = |line: &Rc<RefCell<Line>>| {
-            let mut line = line.borrow_mut();
-            if line.is_valid {
-                return;
-            }
-
-            let mut recorder = PictureRecorder::new();
-
-            let line_size = GridSize::new(self.grid_size.width, 1).cast() * grid_scale;
-            let grid_rect = Rect::from_wh(line_size.width, line_size.height);
-            let canvas = recorder.begin_recording(grid_rect, None);
-
-            let mut blend = 0;
-            let mut custom_background = false;
-
-            for line_fragment in line.line_fragments.iter() {
-                let LineFragment {
-                    window_left,
-                    width,
-                    style,
-                    ..
-                } = line_fragment;
-                let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
-                let background_info = grid_renderer.draw_background(
-                    canvas,
-                    grid_position,
-                    i32::try_from(*width).unwrap(),
-                    style,
-                );
-                custom_background |= background_info.custom_color;
-                blend = blend.min(style.as_ref().map_or(0, |s| s.blend));
-            }
-            let background_picture =
-                custom_background.then_some(recorder.finish_recording_as_picture(None).unwrap());
-
-            let canvas = recorder.begin_recording(grid_rect, None);
-            let mut foreground_drawn = false;
-            for line_fragment in &line.line_fragments {
-                let LineFragment {
-                    text,
-                    window_left,
-                    width,
-                    style,
-                } = line_fragment;
-                let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
-
-                foreground_drawn |= grid_renderer.draw_foreground(
-                    canvas,
-                    text,
-                    grid_position,
-                    i32::try_from(*width).unwrap(),
-                    style,
-                );
-            }
-            let foreground_picture =
-                foreground_drawn.then_some(recorder.finish_recording_as_picture(None).unwrap());
-
-            line.background_picture = background_picture;
-            line.foreground_picture = foreground_picture;
-            line.blend = blend;
-            line.is_valid = true;
-        };
-
-        if !self.scrollback_lines.is_empty() {
-            for line in self
-                .scrollback_lines
-                .iter_range_mut(scroll_offset_lines..scroll_offset_lines + height + 1)
-                .flatten()
-            {
-                prepare_line(line)
-            }
-        }
-
-        for line in self
-            .actual_lines
-            .iter_range_mut(0..self.viewport_margins.top as isize)
-            .flatten()
-        {
-            prepare_line(line)
-        }
-        let actual_line_count = self.actual_lines.len() as isize;
-        for line in self
-            .actual_lines
-            .iter_range_mut(
-                actual_line_count - self.viewport_margins.bottom as isize..actual_line_count,
-            )
-            .flatten()
-        {
-            prepare_line(line)
-        }
+        // let scroll_offset_lines = self.scroll_animation.position.floor() as isize;
+        // let height = self.grid_size.height as isize;
+        // if height == 0 {
+        //     return;
+        // }
+        // let grid_scale = grid_renderer.grid_scale;
+        //
+        // let mut prepare_line = |line: &Rc<RefCell<Line>>| {
+        //     let mut line = line.borrow_mut();
+        //     if line.is_valid {
+        //         return;
+        //     }
+        //
+        //     let mut recorder = PictureRecorder::new();
+        //
+        //     let line_size = GridSize::new(self.grid_size.width, 1).cast() * grid_scale;
+        //     let grid_rect = Rect::from_wh(line_size.width, line_size.height);
+        //     let canvas = recorder.begin_recording(grid_rect, None);
+        //
+        //     let mut blend = 0;
+        //     let mut custom_background = false;
+        //
+        //     for line_fragment in line.line_fragments.iter() {
+        //         let LineFragment {
+        //             window_left,
+        //             width,
+        //             style,
+        //             ..
+        //         } = line_fragment;
+        //         let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
+        //         let background_info = grid_renderer.draw_background(
+        //             canvas,
+        //             grid_position,
+        //             i32::try_from(*width).unwrap(),
+        //             style,
+        //         );
+        //         custom_background |= background_info.custom_color;
+        //         blend = blend.min(style.as_ref().map_or(0, |s| s.blend));
+        //     }
+        //     let background_picture =
+        //         custom_background.then_some(recorder.finish_recording_as_picture(None).unwrap());
+        //
+        //     let canvas = recorder.begin_recording(grid_rect, None);
+        //     let mut foreground_drawn = false;
+        //     for line_fragment in &line.line_fragments {
+        //         let LineFragment {
+        //             text,
+        //             window_left,
+        //             width,
+        //             style,
+        //         } = line_fragment;
+        //         let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
+        //
+        //         foreground_drawn |= grid_renderer.draw_foreground(
+        //             canvas,
+        //             text,
+        //             grid_position,
+        //             i32::try_from(*width).unwrap(),
+        //             style,
+        //         );
+        //     }
+        //     let foreground_picture =
+        //         foreground_drawn.then_some(recorder.finish_recording_as_picture(None).unwrap());
+        //
+        //     line.background_picture = background_picture;
+        //     line.foreground_picture = foreground_picture;
+        //     line.blend = blend;
+        //     line.is_valid = true;
+        // };
+        //
+        // if !self.scrollback_lines.is_empty() {
+        //     for line in self
+        //         .scrollback_lines
+        //         .iter_range_mut(scroll_offset_lines..scroll_offset_lines + height + 1)
+        //         .flatten()
+        //     {
+        //         prepare_line(line)
+        //     }
+        // }
+        //
+        // for line in self
+        //     .actual_lines
+        //     .iter_range_mut(0..self.viewport_margins.top as isize)
+        //     .flatten()
+        // {
+        //     prepare_line(line)
+        // }
+        // let actual_line_count = self.actual_lines.len() as isize;
+        // for line in self
+        //     .actual_lines
+        //     .iter_range_mut(
+        //         actual_line_count - self.viewport_margins.bottom as isize..actual_line_count,
+        //     )
+        //     .flatten()
+        // {
+        //     prepare_line(line)
+        // }
     }
 }

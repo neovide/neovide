@@ -1,6 +1,5 @@
 use log::error;
 use nvim_rs::Value;
-use skia_safe::{paint::Style, BlendMode, Canvas, Color, Paint, Rect};
 
 use crate::{
     editor::Cursor,
@@ -20,13 +19,7 @@ pub trait CursorVfx {
         dt: f32,
     ) -> bool;
     fn restart(&mut self, position: PixelPos<f32>);
-    fn render(
-        &self,
-        settings: &CursorSettings,
-        canvas: &Canvas,
-        grid_renderer: &mut GridRenderer,
-        cursor: &Cursor,
-    );
+    fn render(&self, settings: &CursorSettings, grid_renderer: &mut GridRenderer, cursor: &Cursor);
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -128,13 +121,7 @@ impl CursorVfx for PointHighlight {
         self.center_position = position;
     }
 
-    fn render(
-        &self,
-        settings: &CursorSettings,
-        canvas: &Canvas,
-        grid_renderer: &mut GridRenderer,
-        cursor: &Cursor,
-    ) {
+    fn render(&self, settings: &CursorSettings, grid_renderer: &mut GridRenderer, cursor: &Cursor) {
         // if (self.t - 1.0).abs() < f32::EPSILON {
         //     return;
         // }
@@ -327,13 +314,7 @@ impl CursorVfx for ParticleTrail {
 
     fn restart(&mut self, _position: PixelPos<f32>) {}
 
-    fn render(
-        &self,
-        settings: &CursorSettings,
-        canvas: &Canvas,
-        grid_renderer: &mut GridRenderer,
-        cursor: &Cursor,
-    ) {
+    fn render(&self, settings: &CursorSettings, grid_renderer: &mut GridRenderer, cursor: &Cursor) {
         // let mut paint = Paint::new(skia_safe::colors::WHITE, None);
         // let font_dimensions = grid_renderer.grid_scale.0;
         // match self.trail_mode {

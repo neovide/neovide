@@ -19,19 +19,6 @@ pub type PixelPos<T> = Point2D<T, Pixel>;
 pub type GridRect<T> = Box2D<T, Grid>;
 pub type PixelRect<T> = Box2D<T, Pixel>;
 
-pub fn to_skia_point(pos: PixelPos<f32>) -> skia_safe::Point {
-    skia_safe::Point::new(pos.x, pos.y)
-}
-
-pub fn to_skia_rect(rect: &PixelRect<f32>) -> skia_safe::Rect {
-    skia_safe::Rect {
-        left: rect.min.x,
-        top: rect.min.y,
-        right: rect.max.x,
-        bottom: rect.max.y,
-    }
-}
-
 // The Euclid library doesn't support two dimensional scales, so make our own simplified one
 #[derive(Copy, Clone)]
 pub struct GridScale(pub PixelSize<f32>);

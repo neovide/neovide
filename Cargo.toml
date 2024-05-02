@@ -38,7 +38,6 @@ dirs = "5.0.0"
 euclid = { version = "0.22.9", features = ["serde"] }
 flexi_logger = { version = "0.28.0", default-features = false }
 futures = "0.3.21"
-gl = "0.14.0"
 glam = { version = "0.22.0" }
 glutin = "0.31.1"
 glutin-winit = "0.4.2"
@@ -89,7 +88,6 @@ serial_test = "3.0.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 wslpath-rs = "0.1"
-skia-safe = { version = "0.73.0", features = ["gl", "d3d", "textlayout"] }
 windows = { version = "0.56.0", features = [
     "Win32_Graphics_Direct3D",
     "Win32_Graphics_Direct3D12",
@@ -102,9 +100,6 @@ windows = { version = "0.56.0", features = [
     "Win32_UI_HiDpi",
 ] }
 windows-registry = "0.1.1"
-
-[target.'cfg(not(target_os = "windows"))'.dependencies]
-skia-safe = { version = "0.73.0", features = ["gl", "textlayout"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 icrate = { version = "0.0.4", features = [

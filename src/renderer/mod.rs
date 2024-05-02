@@ -35,7 +35,7 @@ use crate::{
     profiling::{tracy_create_gpu_context, tracy_named_frame, tracy_zone},
     renderer::rendered_layer::{group_windows, FloatingLayer},
     settings::*,
-    units::{to_skia_rect, GridPos, GridRect, GridSize, PixelPos},
+    units::{GridPos, GridRect, GridSize, PixelPos},
     window::{ShouldRender, UserEvent},
     WindowSettings,
 };
@@ -56,7 +56,6 @@ use crate::profiling::GpuCtx;
 use crate::CmdLineSettings;
 
 use cursor_renderer::CursorRenderer;
-pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
 pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails};
 

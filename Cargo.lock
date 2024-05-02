@@ -412,29 +412,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bindgen"
-version = "0.69.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a00dc851838a2120612785d195287475a3ac45514741da670b735818822129a0"
-dependencies = [
- "bitflags 2.5.0",
- "cexpr",
- "clang-sys",
- "itertools 0.12.1",
- "lazy_static",
- "lazycell",
- "log",
- "prettyplease",
- "proc-macro2",
- "quote",
- "regex",
- "rustc-hash",
- "shlex",
- "syn 2.0.60",
- "which 4.4.2",
-]
-
-[[package]]
 name = "bit-set"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -607,15 +584,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6d43a04d8753f35258c91f8ec639f792891f748a1edbd759cf1dcea3382ad83c"
 
 [[package]]
-name = "cexpr"
-version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6fac387a98bb7c37292057cffc56d62ecb629900026402633ae9160df93a8766"
-dependencies = [
- "nom",
-]
-
-[[package]]
 name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -646,17 +614,6 @@ dependencies = [
  "iana-time-zone",
  "num-traits",
  "windows-targets 0.52.5",
-]
-
-[[package]]
-name = "clang-sys"
-version = "1.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67523a3b4be3ce1989d607a828d036249522dd9c1c8de7f4dd2dae43a37369d1"
-dependencies = [
- "glob",
- "libc",
- "libloading 0.8.3",
 ]
 
 [[package]]
@@ -1562,15 +1519,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4271d37baee1b8c7e4b708028c57d816cf9d2434acb33a549475f78c181f6253"
 
 [[package]]
-name = "gl"
-version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a94edab108827d67608095e269cf862e60d920f144a5026d3dbcfd8b877fb404"
-dependencies = [
- "gl_generator",
-]
-
-[[package]]
 name = "gl_generator"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2052,12 +2000,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
-name = "lazycell"
-version = "1.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
-
-[[package]]
 name = "libc"
 version = "0.2.154"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2248,12 +2190,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "minimal-lexical"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68354c5c6bd36d73ff3feceb05efa59b6acb7626617f4962be322a825e61f79a"
-
-[[package]]
 name = "miniz_oxide"
 version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2343,7 +2279,6 @@ dependencies = [
  "euclid",
  "flexi_logger",
  "futures 0.3.30",
- "gl",
  "glam 0.22.0",
  "glutin",
  "glutin-winit",
@@ -2371,7 +2306,6 @@ dependencies = [
  "serde_json",
  "serial_test",
  "shlex",
- "skia-safe",
  "spin_sleep",
  "strum",
  "swash",
@@ -2382,7 +2316,7 @@ dependencies = [
  "tracy-client-sys",
  "unicode-segmentation",
  "vide",
- "which 6.0.1",
+ "which",
  "windows 0.56.0",
  "windows-registry",
  "winit",
@@ -2398,16 +2332,6 @@ dependencies = [
  "convert_case 0.6.0",
  "quote",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "nom"
-version = "7.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d273983c5a657a70a3e8f2a01329822f3b8c8172b73826411a55751e404a0a4a"
-dependencies = [
- "memchr",
- "minimal-lexical",
 ]
 
 [[package]]
@@ -2908,16 +2832,6 @@ name = "presser"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8cf8e6a8aa66ce33f63993ffc4ea4271eb5b0530a9002db8455ea6050c77bfa"
-
-[[package]]
-name = "prettyplease"
-version = "0.2.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ac2cf0f2e4f42b49f5ffd07dae8d746508ef7526c13940e5f524012ae6c6550"
-dependencies = [
- "proc-macro2",
- "syn 2.0.60",
-]
 
 [[package]]
 name = "proc-macro-crate"
@@ -3485,35 +3399,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "38b58827f4464d87d377d175e90bf58eb00fd8716ff0a62f80356b5e61555d0d"
 
 [[package]]
-name = "skia-bindings"
-version = "0.73.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43555ec5d87ee8c14273f3045bf09504a58c6afe842c51d1593b62abf095aa96"
-dependencies = [
- "bindgen",
- "cc",
- "flate2",
- "heck 0.5.0",
- "lazy_static",
- "regex",
- "serde_json",
- "tar",
- "toml 0.8.12",
-]
-
-[[package]]
-name = "skia-safe"
-version = "0.73.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c431cc5c1ca6008199bf2e849083dd05539c9f2a2ffc1c24b521e6e0ef2c31a7"
-dependencies = [
- "bitflags 2.5.0",
- "lazy_static",
- "skia-bindings",
- "windows 0.56.0",
-]
-
-[[package]]
 name = "slab"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3813,17 +3698,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
-]
-
-[[package]]
-name = "tar"
-version = "0.4.40"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b16afcea1f22891c49a00c751c7b63b2233284064f11a200fc624137c51e2ddb"
-dependencies = [
- "filetime",
- "libc",
- "xattr",
 ]
 
 [[package]]
@@ -4468,18 +4342,6 @@ dependencies = [
 
 [[package]]
 name = "which"
-version = "4.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87ba24419a2078cd2b0f2ede2691b6c66d8e47836da3b6db8265ebad47afbfc7"
-dependencies = [
- "either",
- "home",
- "once_cell",
- "rustix 0.38.34",
-]
-
-[[package]]
-name = "which"
 version = "6.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8211e4f58a2b2805adfbefbc07bab82958fc91e3836339b1ab7ae32465dce0d7"
@@ -4956,17 +4818,6 @@ name = "x11rb-protocol"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec107c4503ea0b4a98ef47356329af139c0a4f7750e621cf2973cd3385ebcb3d"
-
-[[package]]
-name = "xattr"
-version = "1.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8da84f1a25939b27f6820d92aed108f83ff920fdf11a7b19366c27c4cda81d4f"
-dependencies = [
- "libc",
- "linux-raw-sys 0.4.13",
- "rustix 0.38.34",
-]
 
 [[package]]
 name = "xcursor"
