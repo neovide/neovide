@@ -312,21 +312,22 @@ impl<'a> Renderer<'a> {
             })
             .collect_vec();
 
-        // let (floating_window_regions, float_layers) = floating_layers
-        //     .into_iter()
-        //     .flat_map(|mut layer| {
-        //         layer.draw(
-        //             &settings,
-        //             transparent_default_background.into(),
-        //             grid_scale,
-        //         )
-        //     })
-        //     .collect_vec();
+        let floating_window_regions = floating_layers
+            .into_iter()
+            .flat_map(|mut layer| {
+                layer.draw(
+                    &settings,
+                    transparent_default_background.into(),
+                    &self.grid_renderer,
+                    &mut self.scene,
+                )
+            })
+            .collect_vec();
 
         let window_regions = root_window_regions
             .into_iter()
-            //.chain(floating_window_regions)
-            .collect();
+            .chain(floating_window_regions)
+            .collect_vec();
 
         self.window_regions = window_regions;
         self.cursor_renderer.draw(&mut self.grid_renderer);

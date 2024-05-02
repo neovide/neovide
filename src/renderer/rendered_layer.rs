@@ -1,9 +1,12 @@
 use itertools::Itertools;
 
 use palette::LinSrgba;
-use vide::Layer;
+use vide::{Layer, Scene};
 
-use crate::units::{GridScale, PixelRect};
+use crate::{
+    renderer::GridRenderer,
+    units::{GridScale, PixelRect},
+};
 
 use super::{RenderedWindow, RendererSettings, WindowDrawDetails};
 
@@ -21,13 +24,15 @@ impl<'w> FloatingLayer<'w> {
         &mut self,
         settings: &RendererSettings,
         default_background: LinSrgba,
-        grid_scale: GridScale,
-    ) -> (Vec<WindowDrawDetails>, Vec<Layer>) {
+        grid_renderer: &GridRenderer,
+        scene: &mut Scene,
+    ) -> Vec<WindowDrawDetails> {
+        let grid_scale = grid_renderer.grid_scale;
         // let pixel_regions = self
         //     .windows
         //     .iter()
         //     .map(|window| window.pixel_region(grid_scale))
-        //     .collect::<Vec<_>>();
+        //     .collect_vec();
         // let (silhouette, bound_rect) = build_silhouette(&pixel_regions);
         // let has_transparency = default_background.a() != 255
         //     || self.windows.iter().any(|window| window.has_transparency());
@@ -71,41 +76,37 @@ impl<'w> FloatingLayer<'w> {
         //
         // root_canvas.save_layer(&save_layer_rec);
         // root_canvas.clear(default_background.with_a(255));
-        //
-        // let regions = self
-        //     .windows
-        //     .iter()
-        //     .map(|window| window.pixel_region(grid_scale))
-        //     .collect::<Vec<_>>();
+
+        let regions = self
+            .windows
+            .iter()
+            .map(|window| window.pixel_region(grid_scale))
+            .collect_vec();
         //
         // let blend = self.uniform_background_blend();
         //
         // self.windows.iter_mut().for_each(|window| {
         //     window.update_blend(blend);
         // });
-        //
-        // let mut ret = vec![];
-        //
-        // (0..self.windows.len()).for_each(|i| {
-        //     let window = &mut self.windows[i];
-        //     window.draw_background_surface(root_canvas, regions[i], grid_scale);
-        // });
-        // (0..self.windows.len()).for_each(|i| {
-        //     let window = &mut self.windows[i];
-        //     window.draw_foreground_surface(root_canvas, regions[i], grid_scale);
-        //
-        //     ret.push(WindowDrawDetails {
-        //         id: window.id,
-        //         region: regions[i],
-        //     });
-        // });
-        //
-        // root_canvas.restore();
-        //
-        // root_canvas.restore();
-        //
-        // ret
-        (Vec::new(), Vec::new())
+
+        let mut ret = vec![];
+
+        (0..self.windows.len()).for_each(|i| {
+            let window = &mut self.windows[i];
+            window.draw_background_surface(regions[i], default_background, grid_renderer);
+            scene.add_layer(window.draw_foreground_surface(regions[i], grid_renderer));
+        });
+        (0..self.windows.len()).for_each(|i| {
+            let window = &mut self.windows[i];
+            scene.add_layer(window.draw_foreground_surface(regions[i], grid_renderer));
+
+            ret.push(WindowDrawDetails {
+                id: window.id,
+                region: regions[i],
+            });
+        });
+
+        ret
     }
 
     pub fn uniform_background_blend(&self) -> u8 {
