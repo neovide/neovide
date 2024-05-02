@@ -243,45 +243,67 @@ impl RenderedWindow {
         pixel_region: PixelRect<f32>,
         default_color: LinSrgba,
         grid_renderer: &GridRenderer,
-    ) -> Layer {
+        scene: &mut Scene,
+    ) {
         let mut has_transparency = false;
 
         let grid_scale = grid_renderer.grid_scale;
         let inner_region = self.inner_region(pixel_region, grid_scale);
-        let mut layer = Layer::new().with_background(Vec4::from_array(default_color.into()));
 
-        let mut draw_line = |(transform, line): (PixelVec<f32>, &Rc<RefCell<Line>>)| {
-            let line = line.borrow();
-            if !line.line_fragments.is_empty() {
-                has_transparency |= line.has_transparency();
-                for line_fragment in line.line_fragments.iter() {
-                    let LineFragment {
-                        window_left,
-                        width,
-                        style,
-                        ..
-                    } = line_fragment;
-                    let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
-                    grid_renderer.draw_background(
-                        grid_position,
-                        i32::try_from(*width).unwrap(),
-                        transform,
-                        style,
-                        &mut layer,
-                    );
-                    // TODO: Implement these
-                    // custom_background |= background_info.custom_color;
-                    // blend = blend.min(style.as_ref().map_or(0, |s| s.blend));
+        let mut draw_line =
+            |transform: PixelVec<f32>, line: &Rc<RefCell<Line>>, layer: &mut Layer| {
+                let line = line.borrow();
+                if !line.line_fragments.is_empty() {
+                    has_transparency |= line.has_transparency();
+                    for line_fragment in line.line_fragments.iter() {
+                        let LineFragment {
+                            window_left,
+                            width,
+                            style,
+                            ..
+                        } = line_fragment;
+                        let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
+                        grid_renderer.draw_background(
+                            grid_position,
+                            i32::try_from(*width).unwrap(),
+                            transform,
+                            style,
+                            layer,
+                        );
+                        // TODO: Implement these
+                        // custom_background |= background_info.custom_color;
+                        // blend = blend.min(style.as_ref().map_or(0, |s| s.blend));
+                    }
                 }
-            }
-        };
+            };
         //
         // canvas.save();
         // canvas.clip_rect(to_skia_rect(&pixel_region), None, false);
+        let clip = Vec4::new(
+            pixel_region.min.x,
+            pixel_region.min.y,
+            pixel_region.width(),
+            pixel_region.height(),
+        );
+        let mut layer = Layer::new()
+            .with_background(Vec4::from_array(default_color.into()))
+            .with_clip(clip);
         self.iter_border_lines_with_transform(pixel_region, grid_scale)
-            .for_each(&mut draw_line);
+            .for_each(|(transform, line)| draw_line(transform, line, &mut layer));
+        scene.add_layer(layer);
+
+        let clip = Vec4::new(
+            inner_region.min.x,
+            inner_region.min.y,
+            inner_region.width(),
+            inner_region.height(),
+        );
+        let mut layer = Layer::new()
+            .with_background(Vec4::from_array(default_color.into()))
+            .with_clip(clip);
         self.iter_scrollable_lines_with_transform(pixel_region, grid_scale)
-            .for_each(&mut draw_line);
+            .for_each(|(transform, line)| draw_line(transform, line, &mut layer));
+        scene.add_layer(layer);
         // canvas.clip_rect(inner_region, None, false);
 
         log::trace!("region: {:?}, inner: {:?}", pixel_region, inner_region,);
@@ -289,21 +311,19 @@ impl RenderedWindow {
         // canvas.restore();
         //
         self.has_transparency = has_transparency;
-        layer
     }
 
     pub fn draw_foreground_surface(
         &mut self,
         pixel_region: PixelRect<f32>,
         grid_renderer: &GridRenderer,
-    ) -> Layer {
+        scene: &mut Scene,
+    ) {
         let grid_scale = grid_renderer.grid_scale;
+        let inner_region = self.inner_region(pixel_region, grid_scale);
         // TODO: Support transparent background
-        let mut layer = Layer::new()
-            .with_background(Vec4::new(0.0, 0.0, 0.0, 0.0))
-            .with_font("FiraCode Nerd Font".to_string());
 
-        let mut draw_line = |(transform, line): (PixelVec<f32>, &Rc<RefCell<Line>>)| {
+        let draw_line = |transform: PixelVec<f32>, line: &Rc<RefCell<Line>>, layer: &mut Layer| {
             let line = line.borrow();
             if !line.line_fragments.is_empty() {
                 for line_fragment in &line.line_fragments {
@@ -321,19 +341,40 @@ impl RenderedWindow {
                         i32::try_from(*width).unwrap(),
                         transform,
                         style,
-                        &mut layer,
+                        layer,
                     );
                 }
             }
         };
+
+        let clip = Vec4::new(
+            pixel_region.min.x,
+            pixel_region.min.y,
+            pixel_region.width(),
+            pixel_region.height(),
+        );
+        let mut layer = Layer::new()
+            .with_background(Vec4::new(0.0, 0.0, 0.0, 0.0))
+            .with_font("FiraCode Nerd Font".to_string())
+            .with_clip(clip);
+        self.iter_border_lines_with_transform(pixel_region, grid_scale)
+            .for_each(|(transform, line)| draw_line(transform, line, &mut layer));
+        scene.add_layer(layer);
+
+        let clip = Vec4::new(
+            inner_region.min.x,
+            inner_region.min.y,
+            inner_region.width(),
+            inner_region.height(),
+        );
+        let mut layer = Layer::new()
+            .with_background(Vec4::new(0.0, 0.0, 0.0, 0.0))
+            .with_font("FiraCode Nerd Font".to_string())
+            .with_clip(clip);
+
         self.iter_scrollable_lines_with_transform(pixel_region, grid_scale)
-            .for_each(&mut draw_line);
-        // canvas.save();
-        // canvas.clip_rect(self.inner_region(pixel_region, grid_scale), None, false);
-        self.iter_scrollable_lines_with_transform(pixel_region, grid_scale)
-            .for_each(&mut draw_line);
-        // canvas.restore();
-        layer
+            .for_each(|(transform, line)| draw_line(transform, line, &mut layer));
+        scene.add_layer(layer);
     }
 
     pub fn has_transparency(&self) -> bool {
@@ -417,13 +458,9 @@ impl RenderedWindow {
         // self.draw_background_surface(root_canvas, pixel_region_box, grid_scale);
         // root_canvas.restore();
 
-        scene.add_layer(self.draw_background_surface(
-            pixel_region,
-            default_background,
-            grid_renderer,
-        ));
+        self.draw_background_surface(pixel_region, default_background, grid_renderer, scene);
 
-        scene.add_layer(self.draw_foreground_surface(pixel_region, grid_renderer));
+        self.draw_foreground_surface(pixel_region, grid_renderer, scene);
         // root_canvas.restore();
         //
         // root_canvas.restore();

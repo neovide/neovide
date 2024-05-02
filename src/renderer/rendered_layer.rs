@@ -93,12 +93,11 @@ impl<'w> FloatingLayer<'w> {
 
         (0..self.windows.len()).for_each(|i| {
             let window = &mut self.windows[i];
-            window.draw_background_surface(regions[i], default_background, grid_renderer);
-            scene.add_layer(window.draw_foreground_surface(regions[i], grid_renderer));
+            window.draw_background_surface(regions[i], default_background, grid_renderer, scene);
         });
         (0..self.windows.len()).for_each(|i| {
             let window = &mut self.windows[i];
-            scene.add_layer(window.draw_foreground_surface(regions[i], grid_renderer));
+            window.draw_foreground_surface(regions[i], grid_renderer, scene);
 
             ret.push(WindowDrawDetails {
                 id: window.id,
