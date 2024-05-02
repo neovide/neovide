@@ -17,7 +17,8 @@ use futures::executor::block_on;
 
 use itertools::Itertools;
 use log::{error, warn};
-use skia_safe::Canvas;
+use skia_safe::Color4f;
+use glam::Vec4;
 
 use winit::{
     event::Event,
@@ -26,7 +27,7 @@ use winit::{
 };
 
 use rust_embed::RustEmbed;
-use vide::{Scene, WinitRenderer};
+use vide::{Scene, WinitRenderer, Layer};
 
 use crate::{
     bridge::EditorMode,
@@ -145,7 +146,7 @@ pub enum DrawCommand {
 }
 
 #[derive(RustEmbed)]
-#[folder = "../rusty-2d-renderer/scene_viewer/assets"]
+#[folder = "assets/embedded"]
 struct Assets;
 
 pub struct Renderer<'a> {
@@ -169,17 +170,6 @@ pub struct DrawCommandResult {
     pub font_changed: bool,
     pub should_show: bool,
 }
-
-fn read_scene(path: &std::path::Path) -> Scene {
-    use std::io::Read;
-    let mut file = std::fs::File::open(&path).expect("Could not read file");
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)
-        .expect("Could not read file");
-
-    serde_json::from_str(&contents).expect("Could not parse scene file")
-}
-
 impl<'a> Renderer<'a> {
     pub fn new(
         os_scale_factor: f64,
@@ -201,8 +191,7 @@ impl<'a> Renderer<'a> {
         let profiler = profiler::Profiler::new(12.0);
 
         let wgpu_renderer = block_on(WinitRenderer::new(window)).with_default_drawables::<Assets>();
-        let scene_path = Arc::from(std::path::Path::new("../rusty-2d-renderer/scene.json"));
-        let scene = read_scene(&scene_path);
+        let scene = Scene::new();
 
         Renderer {
             wgpu_renderer,
@@ -235,7 +224,15 @@ impl<'a> Renderer<'a> {
         tracy_zone!("renderer_draw_frame");
         self.wgpu_renderer.draw(&self.scene);
 
-        // let default_background = self.grid_renderer.get_default_background();
+
+        let default_background = Color4f::from(self.grid_renderer.get_default_background());
+
+        self.scene = Scene::new().with_layer(
+            Layer::new().with_background(Vec4::from_array(*default_background.as_array()))
+        );
+
+
+
         // let grid_scale = self.grid_renderer.grid_scale;
         //
         // let transparency = { SETTINGS.get::<WindowSettings>().transparency };

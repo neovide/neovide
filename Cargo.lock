@@ -2332,6 +2332,7 @@ dependencies = [
  "flexi_logger",
  "futures 0.3.30",
  "gl",
+ "glam 0.22.0",
  "glutin",
  "glutin-winit",
  "icrate",
