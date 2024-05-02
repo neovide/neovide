@@ -310,7 +310,7 @@ impl RenderedWindow {
     ) -> Layer {
         let grid_scale = grid_renderer.grid_scale;
         // TODO: Support transparent background
-        let mut layer = Layer::new().with_background(Vec4::new(0.0, 0.0, 0.0, 0.0));
+        let mut layer = Layer::new().with_background(Vec4::new(0.0, 0.0, 0.0, 0.0)).with_font("FiraCode Nerd Font".to_string());
         // for (matrix, line) in self.iter_border_lines_with_transform(pixel_region, grid_scale) {
         //     let line = line.borrow();
         //     if let Some(foreground_picture) = &line.foreground_picture {
