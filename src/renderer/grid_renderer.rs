@@ -138,6 +138,7 @@ impl GridRenderer {
         if custom_color {
             let top_left: mint::Vector2<_> = region.min.to_vector().into();
             let bottom_right: mint::Vector2<_> = region.max.to_vector().into();
+            let color: LinSrgba = color.into_color();
             let quad = Quad::new(
                 top_left.into(),
                 bottom_right.into(),
