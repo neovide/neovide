@@ -1,10 +1,10 @@
-use skia_safe::Color4f;
+use palette::Srgba;
 
 #[derive(new, Debug, Clone, PartialEq)]
 pub struct Colors {
-    pub foreground: Option<Color4f>,
-    pub background: Option<Color4f>,
-    pub special: Option<Color4f>,
+    pub foreground: Option<Srgba>,
+    pub background: Option<Srgba>,
+    pub special: Option<Srgba>,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -51,7 +51,7 @@ pub struct HighlightInfo {
 }
 
 impl Style {
-    pub fn foreground(&self, default_colors: &Colors) -> Color4f {
+    pub fn foreground(&self, default_colors: &Colors) -> Srgba {
         if self.reverse {
             self.colors
                 .background
@@ -63,7 +63,7 @@ impl Style {
         }
     }
 
-    pub fn background(&self, default_colors: &Colors) -> Color4f {
+    pub fn background(&self, default_colors: &Colors) -> Srgba {
         if self.reverse {
             self.colors
                 .foreground
@@ -75,7 +75,7 @@ impl Style {
         }
     }
 
-    pub fn special(&self, default_colors: &Colors) -> Color4f {
+    pub fn special(&self, default_colors: &Colors) -> Srgba {
         self.colors
             .special
             .unwrap_or_else(|| self.foreground(default_colors))
@@ -87,15 +87,15 @@ mod tests {
     use super::*;
 
     const COLORS: Colors = Colors {
-        foreground: Some(Color4f::new(0.1, 0.1, 0.1, 0.1)),
-        background: Some(Color4f::new(0.2, 0.1, 0.1, 0.1)),
-        special: Some(Color4f::new(0.3, 0.1, 0.1, 0.1)),
+        foreground: Some(Srgba::new(0.1, 0.1, 0.1, 0.1)),
+        background: Some(Srgba::new(0.2, 0.1, 0.1, 0.1)),
+        special: Some(Srgba::new(0.3, 0.1, 0.1, 0.1)),
     };
 
     const DEFAULT_COLORS: Colors = Colors {
-        foreground: Some(Color4f::new(0.1, 0.2, 0.1, 0.1)),
-        background: Some(Color4f::new(0.2, 0.2, 0.1, 0.1)),
-        special: Some(Color4f::new(0.3, 0.2, 0.1, 0.1)),
+        foreground: Some(Srgba::new(0.1, 0.2, 0.1, 0.1)),
+        background: Some(Srgba::new(0.2, 0.2, 0.1, 0.1)),
+        special: Some(Srgba::new(0.3, 0.2, 0.1, 0.1)),
     };
 
     #[test]

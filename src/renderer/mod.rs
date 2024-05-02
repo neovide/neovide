@@ -15,10 +15,10 @@ use std::{
 
 use futures::executor::block_on;
 
+use glam::Vec4;
 use itertools::Itertools;
 use log::{error, warn};
-use skia_safe::Color4f;
-use glam::Vec4;
+use palette::LinSrgba;
 
 use winit::{
     event::Event,
@@ -27,7 +27,7 @@ use winit::{
 };
 
 use rust_embed::RustEmbed;
-use vide::{Scene, WinitRenderer, Layer};
+use vide::{Layer, Scene, WinitRenderer};
 
 use crate::{
     bridge::EditorMode,
@@ -224,14 +224,10 @@ impl<'a> Renderer<'a> {
         tracy_zone!("renderer_draw_frame");
         self.wgpu_renderer.draw(&self.scene);
 
+        let default_background: LinSrgba = self.grid_renderer.get_default_background().into();
 
-        let default_background = Color4f::from(self.grid_renderer.get_default_background());
-
-        self.scene = Scene::new().with_layer(
-            Layer::new().with_background(Vec4::from_array(*default_background.as_array()))
-        );
-
-
+        self.scene = Scene::new()
+            .with_layer(Layer::new().with_background(Vec4::from_array(default_background.into())));
 
         // let grid_scale = self.grid_renderer.grid_scale;
         //

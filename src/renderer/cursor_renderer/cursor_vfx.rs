@@ -135,46 +135,46 @@ impl CursorVfx for PointHighlight {
         grid_renderer: &mut GridRenderer,
         cursor: &Cursor,
     ) {
-        if (self.t - 1.0).abs() < f32::EPSILON {
-            return;
-        }
-
-        let mut paint = Paint::new(skia_safe::colors::WHITE, None);
-        paint.set_blend_mode(BlendMode::SrcOver);
-
-        let colors = &grid_renderer.default_style.colors;
-        let base_color: Color = cursor.background(colors).to_color();
-        let alpha = ease(ease_in_quad, settings.vfx_opacity, 0.0, self.t) as u8;
-        let color = Color::from_argb(alpha, base_color.r(), base_color.g(), base_color.b());
-
-        paint.set_color(color);
-
-        let cursor_height = grid_renderer.grid_scale.0.height;
-        let size = 3.0 * cursor_height;
-        let radius = self.t * size;
-        let hr = radius * 0.5;
-        let rect = Rect::from_xywh(
-            self.center_position.x - hr,
-            self.center_position.y - hr,
-            radius,
-            radius,
-        );
-
-        match self.mode {
-            HighlightMode::SonicBoom => {
-                canvas.draw_oval(rect, &paint);
-            }
-            HighlightMode::Ripple => {
-                paint.set_style(Style::Stroke);
-                paint.set_stroke_width(cursor_height * 0.2);
-                canvas.draw_oval(rect, &paint);
-            }
-            HighlightMode::Wireframe => {
-                paint.set_style(Style::Stroke);
-                paint.set_stroke_width(cursor_height * 0.2);
-                canvas.draw_rect(rect, &paint);
-            }
-        }
+        // if (self.t - 1.0).abs() < f32::EPSILON {
+        //     return;
+        // }
+        //
+        // let mut paint = Paint::new(skia_safe::colors::WHITE, None);
+        // paint.set_blend_mode(BlendMode::SrcOver);
+        //
+        // let colors = &grid_renderer.default_style.colors;
+        // let base_color: Color = cursor.background(colors).to_color();
+        // let alpha = ease(ease_in_quad, settings.vfx_opacity, 0.0, self.t) as u8;
+        // let color = Color::from_argb(alpha, base_color.r(), base_color.g(), base_color.b());
+        //
+        // paint.set_color(color);
+        //
+        // let cursor_height = grid_renderer.grid_scale.0.height;
+        // let size = 3.0 * cursor_height;
+        // let radius = self.t * size;
+        // let hr = radius * 0.5;
+        // let rect = Rect::from_xywh(
+        //     self.center_position.x - hr,
+        //     self.center_position.y - hr,
+        //     radius,
+        //     radius,
+        // );
+        //
+        // match self.mode {
+        //     HighlightMode::SonicBoom => {
+        //         canvas.draw_oval(rect, &paint);
+        //     }
+        //     HighlightMode::Ripple => {
+        //         paint.set_style(Style::Stroke);
+        //         paint.set_stroke_width(cursor_height * 0.2);
+        //         canvas.draw_oval(rect, &paint);
+        //     }
+        //     HighlightMode::Wireframe => {
+        //         paint.set_style(Style::Stroke);
+        //         paint.set_stroke_width(cursor_height * 0.2);
+        //         canvas.draw_rect(rect, &paint);
+        //     }
+        // }
     }
 }
 
@@ -334,44 +334,44 @@ impl CursorVfx for ParticleTrail {
         grid_renderer: &mut GridRenderer,
         cursor: &Cursor,
     ) {
-        let mut paint = Paint::new(skia_safe::colors::WHITE, None);
-        let font_dimensions = grid_renderer.grid_scale.0;
-        match self.trail_mode {
-            TrailMode::Torpedo | TrailMode::Railgun => {
-                paint.set_style(Style::Stroke);
-                paint.set_stroke_width(font_dimensions.height * 0.2);
-            }
-            _ => {}
-        }
-
-        let colors = &grid_renderer.default_style.colors;
-        let base_color: Color = cursor.background(colors).to_color();
-
-        paint.set_blend_mode(BlendMode::SrcOver);
-
-        self.particles.iter().for_each(|particle| {
-            let lifetime = particle.lifetime / settings.vfx_particle_lifetime;
-            let alpha = (lifetime * settings.vfx_opacity) as u8;
-            let color = Color::from_argb(alpha, base_color.r(), base_color.g(), base_color.b());
-            paint.set_color(color);
-
-            let radius = match self.trail_mode {
-                TrailMode::Torpedo | TrailMode::Railgun => font_dimensions.width * 0.5 * lifetime,
-                TrailMode::PixieDust => font_dimensions.width * 0.2,
-            };
-
-            let hr = radius * 0.5;
-            let rect = Rect::from_xywh(particle.pos.x - hr, particle.pos.y - hr, radius, radius);
-
-            match self.trail_mode {
-                TrailMode::Torpedo | TrailMode::Railgun => {
-                    canvas.draw_oval(rect, &paint);
-                }
-                TrailMode::PixieDust => {
-                    canvas.draw_rect(rect, &paint);
-                }
-            }
-        });
+        // let mut paint = Paint::new(skia_safe::colors::WHITE, None);
+        // let font_dimensions = grid_renderer.grid_scale.0;
+        // match self.trail_mode {
+        //     TrailMode::Torpedo | TrailMode::Railgun => {
+        //         paint.set_style(Style::Stroke);
+        //         paint.set_stroke_width(font_dimensions.height * 0.2);
+        //     }
+        //     _ => {}
+        // }
+        //
+        // let colors = &grid_renderer.default_style.colors;
+        // let base_color: Color = cursor.background(colors).to_color();
+        //
+        // paint.set_blend_mode(BlendMode::SrcOver);
+        //
+        // self.particles.iter().for_each(|particle| {
+        //     let lifetime = particle.lifetime / settings.vfx_particle_lifetime;
+        //     let alpha = (lifetime * settings.vfx_opacity) as u8;
+        //     let color = Color::from_argb(alpha, base_color.r(), base_color.g(), base_color.b());
+        //     paint.set_color(color);
+        //
+        //     let radius = match self.trail_mode {
+        //         TrailMode::Torpedo | TrailMode::Railgun => font_dimensions.width * 0.5 * lifetime,
+        //         TrailMode::PixieDust => font_dimensions.width * 0.2,
+        //     };
+        //
+        //     let hr = radius * 0.5;
+        //     let rect = Rect::from_xywh(particle.pos.x - hr, particle.pos.y - hr, radius, radius);
+        //
+        //     match self.trail_mode {
+        //         TrailMode::Torpedo | TrailMode::Railgun => {
+        //             canvas.draw_oval(rect, &paint);
+        //         }
+        //         TrailMode::PixieDust => {
+        //             canvas.draw_rect(rect, &paint);
+        //         }
+        //     }
+        // });
     }
 }
 

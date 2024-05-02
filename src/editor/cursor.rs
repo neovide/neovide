@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use skia_safe::Color4f;
+use palette::Srgba;
 
 use crate::editor::style::{Colors, Style};
 
@@ -66,14 +66,14 @@ impl Cursor {
         }
     }
 
-    pub fn foreground(&self, default_colors: &Colors) -> Color4f {
+    pub fn foreground(&self, default_colors: &Colors) -> Srgba {
         self.style
             .as_ref()
             .and_then(|s| s.colors.foreground)
             .unwrap_or_else(|| default_colors.background.unwrap())
     }
 
-    pub fn background(&self, default_colors: &Colors) -> Color4f {
+    pub fn background(&self, default_colors: &Colors) -> Srgba {
         self.style
             .as_ref()
             .and_then(|s| s.colors.background)

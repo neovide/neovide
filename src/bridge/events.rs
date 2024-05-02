@@ -5,8 +5,8 @@ use std::{
 };
 
 use log::{debug, warn};
+use palette::Srgba;
 use rmpv::Value;
-use skia_safe::Color4f;
 use strum::AsRefStr;
 
 use crate::editor::{
@@ -309,17 +309,12 @@ pub enum RedrawEvent {
     Suspend,
 }
 
-fn unpack_color(packed_color: u64) -> Color4f {
+fn unpack_color(packed_color: u64) -> Srgba {
     let packed_color = packed_color as u32;
     let r = ((packed_color & 0x00ff_0000) >> 16) as f32;
     let g = ((packed_color & 0xff00) >> 8) as f32;
     let b = (packed_color & 0xff) as f32;
-    Color4f {
-        r: r / 255.0,
-        g: g / 255.0,
-        b: b / 255.0,
-        a: 1.0,
-    }
+    Srgba::new(r / 255.0, g / 255.0, b / 255.0, 1.0)
 }
 
 fn extract_values<const REQ: usize>(values: Vec<Value>) -> Result<[Value; REQ]> {
