@@ -249,22 +249,8 @@ impl RenderedWindow {
         let grid_scale = grid_renderer.grid_scale;
         let inner_region = self.inner_region(pixel_region, grid_scale);
         let mut layer = Layer::new().with_background(Vec4::from_array(default_color.into()));
-        //
-        // canvas.save();
-        // canvas.clip_rect(to_skia_rect(&pixel_region), None, false);
-        // for (matrix, line) in self.iter_border_lines_with_transform(pixel_region, grid_scale) {
-        //     let line = line.borrow();
-        //     if let Some(background_picture) = &line.background_picture {
-        //         has_transparency |= line.has_transparency();
-        //         canvas.draw_picture(background_picture, Some(&matrix), None);
-        //     }
-        // }
-        // canvas.save();
-        // canvas.clip_rect(inner_region, None, false);
 
-        let mut pics = 0;
-        for (transform, line) in self.iter_scrollable_lines_with_transform(pixel_region, grid_scale)
-        {
+        let mut draw_line = |(transform, line): (PixelVec<f32>, &Rc<RefCell<Line>>)| {
             let line = line.borrow();
             if !line.line_fragments.is_empty() {
                 has_transparency |= line.has_transparency();
@@ -287,19 +273,22 @@ impl RenderedWindow {
                     // custom_background |= background_info.custom_color;
                     // blend = blend.min(style.as_ref().map_or(0, |s| s.blend));
                 }
-                pics += 1;
             }
-        }
-        log::trace!(
-            "region: {:?}, inner: {:?}, pics: {}",
-            pixel_region,
-            inner_region,
-            pics
-        );
+        };
+        //
+        // canvas.save();
+        // canvas.clip_rect(to_skia_rect(&pixel_region), None, false);
+        self.iter_border_lines_with_transform(pixel_region, grid_scale)
+            .for_each(&mut draw_line);
+        self.iter_scrollable_lines_with_transform(pixel_region, grid_scale)
+            .for_each(&mut draw_line);
+        // canvas.clip_rect(inner_region, None, false);
+
+        log::trace!("region: {:?}, inner: {:?}", pixel_region, inner_region,);
         // canvas.restore();
         // canvas.restore();
         //
-        // self.has_transparency = has_transparency;
+        self.has_transparency = has_transparency;
         layer
     }
 
@@ -313,16 +302,8 @@ impl RenderedWindow {
         let mut layer = Layer::new()
             .with_background(Vec4::new(0.0, 0.0, 0.0, 0.0))
             .with_font("FiraCode Nerd Font".to_string());
-        // for (matrix, line) in self.iter_border_lines_with_transform(pixel_region, grid_scale) {
-        //     let line = line.borrow();
-        //     if let Some(foreground_picture) = &line.foreground_picture {
-        //         canvas.draw_picture(foreground_picture, Some(&matrix), None);
-        //     }
-        // }
-        // canvas.save();
-        // canvas.clip_rect(self.inner_region(pixel_region, grid_scale), None, false);
-        for (transform, line) in self.iter_scrollable_lines_with_transform(pixel_region, grid_scale)
-        {
+
+        let mut draw_line = |(transform, line): (PixelVec<f32>, &Rc<RefCell<Line>>)| {
             let line = line.borrow();
             if !line.line_fragments.is_empty() {
                 for line_fragment in &line.line_fragments {
@@ -344,7 +325,13 @@ impl RenderedWindow {
                     );
                 }
             }
-        }
+        };
+        self.iter_scrollable_lines_with_transform(pixel_region, grid_scale)
+            .for_each(&mut draw_line);
+        // canvas.save();
+        // canvas.clip_rect(self.inner_region(pixel_region, grid_scale), None, false);
+        self.iter_scrollable_lines_with_transform(pixel_region, grid_scale)
+            .for_each(&mut draw_line);
         // canvas.restore();
         layer
     }
