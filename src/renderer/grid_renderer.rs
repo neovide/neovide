@@ -203,7 +203,7 @@ impl GridRenderer {
         let trimmed = trimmed.trim_end();
         // TODO:
         // let y_adjustment = self.shaper.y_adjustment;
-        let y_adjustment = 0.0;
+        let y_adjustment = self.em_size;
         let adjustment = PixelVec::new(
             leading_spaces as f32 * self.grid_scale.0.width,
             y_adjustment,
