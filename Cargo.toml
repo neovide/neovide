@@ -35,10 +35,10 @@ copypasta = "0.10.1"
 csscolorparser = "0.6.2"
 derive-new = "0.6.0"
 dirs = "5.0.0"
-euclid = { version = "0.22.9", features = ["serde"] }
+euclid = { version = "0.22.9", features = ["serde", "mint"] }
 flexi_logger = { version = "0.28.0", default-features = false }
 futures = "0.3.21"
-glam = { version = "0.22.0" }
+glam = { version = "0.22.0", features = ["mint"] }
 glutin = "0.31.1"
 glutin-winit = "0.4.2"
 image = { version = "0.25.0", default-features = false, features = ["ico"] }
@@ -48,6 +48,7 @@ lazy_static = "1.4.0"
 log = "0.4.16"
 lru = "0.12.2"
 neovide-derive = { path = "neovide-derive", version = "0.1.0" }
+mint = "0.5.9"
 num = "0.4.1"
 nvim-rs = { version = "0.7.0", features = ["use_tokio"] }
 palette = "0.7.6"

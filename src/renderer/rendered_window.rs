@@ -1,6 +1,8 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
-use palette::Srgba;
+use glam::Vec4;
+use palette::{LinSrgba, Srgba, WithAlpha};
+use vide::{Layer, Scene};
 
 use crate::{
     cmd_line::CmdLineSettings,
@@ -236,10 +238,17 @@ impl RenderedWindow {
         animating
     }
 
-    pub fn draw_background_surface(&mut self, pixel_region: PixelRect<f32>, grid_scale: GridScale) {
-        // let mut has_transparency = false;
-        //
-        // let inner_region = self.inner_region(pixel_region, grid_scale);
+    pub fn draw_background_surface(
+        &mut self,
+        pixel_region: PixelRect<f32>,
+        default_color: LinSrgba,
+        grid_renderer: &GridRenderer,
+    ) -> Layer {
+        let mut has_transparency = false;
+
+        let grid_scale = grid_renderer.grid_scale;
+        let inner_region = self.inner_region(pixel_region, grid_scale);
+        let mut layer = Layer::new().with_background(Vec4::from_array(default_color.into()));
         //
         // canvas.save();
         // canvas.clip_rect(to_skia_rect(&pixel_region), None, false);
@@ -252,28 +261,56 @@ impl RenderedWindow {
         // }
         // canvas.save();
         // canvas.clip_rect(inner_region, None, false);
-        // let mut pics = 0;
-        // for (matrix, line) in self.iter_scrollable_lines_with_transform(pixel_region, grid_scale) {
-        //     let line = line.borrow();
-        //     if let Some(background_picture) = &line.background_picture {
-        //         has_transparency |= line.has_transparency();
-        //         canvas.draw_picture(background_picture, Some(&matrix), None);
-        //         pics += 1;
-        //     }
-        // }
-        // log::trace!(
-        //     "region: {:?}, inner: {:?}, pics: {}",
-        //     pixel_region,
-        //     inner_region,
-        //     pics
-        // );
+
+        let mut pics = 0;
+        for (transform, line) in self.iter_scrollable_lines_with_transform(pixel_region, grid_scale)
+        {
+            let line = line.borrow();
+            if !line.line_fragments.is_empty() {
+                has_transparency |= line.has_transparency();
+                for line_fragment in line.line_fragments.iter() {
+                    let LineFragment {
+                        window_left,
+                        width,
+                        style,
+                        ..
+                    } = line_fragment;
+                    let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
+                    grid_renderer.draw_background(
+                        grid_position,
+                        i32::try_from(*width).unwrap(),
+                        transform,
+                        style,
+                        &mut layer,
+                    );
+                    // TODO: Implement these
+                    // custom_background |= background_info.custom_color;
+                    // blend = blend.min(style.as_ref().map_or(0, |s| s.blend));
+                }
+                pics += 1;
+            }
+        }
+        log::trace!(
+            "region: {:?}, inner: {:?}, pics: {}",
+            pixel_region,
+            inner_region,
+            pics
+        );
         // canvas.restore();
         // canvas.restore();
         //
         // self.has_transparency = has_transparency;
+        layer
     }
 
-    pub fn draw_foreground_surface(&mut self, pixel_region: PixelRect<f32>, grid_scale: GridScale) {
+    pub fn draw_foreground_surface(
+        &mut self,
+        pixel_region: PixelRect<f32>,
+        grid_renderer: &GridRenderer,
+    ) -> Layer {
+        let grid_scale = grid_renderer.grid_scale;
+        // TODO: Support transparent background
+        let mut layer = Layer::new().with_background(Vec4::new(0.0, 0.0, 0.0, 0.0));
         // for (matrix, line) in self.iter_border_lines_with_transform(pixel_region, grid_scale) {
         //     let line = line.borrow();
         //     if let Some(foreground_picture) = &line.foreground_picture {
@@ -282,13 +319,32 @@ impl RenderedWindow {
         // }
         // canvas.save();
         // canvas.clip_rect(self.inner_region(pixel_region, grid_scale), None, false);
-        // for (matrix, line) in self.iter_scrollable_lines_with_transform(pixel_region, grid_scale) {
-        //     let line = line.borrow();
-        //     if let Some(foreground_picture) = &line.foreground_picture {
-        //         canvas.draw_picture(foreground_picture, Some(&matrix), None);
-        //     }
-        // }
+        for (transform, line) in self.iter_scrollable_lines_with_transform(pixel_region, grid_scale)
+        {
+            let line = line.borrow();
+            if !line.line_fragments.is_empty() {
+                for line_fragment in &line.line_fragments {
+                    let LineFragment {
+                        text,
+                        window_left,
+                        width,
+                        style,
+                    } = line_fragment;
+                    let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
+
+                    grid_renderer.draw_foreground(
+                        text,
+                        grid_position,
+                        i32::try_from(*width).unwrap(),
+                        transform,
+                        style,
+                        &mut layer,
+                    );
+                }
+            }
+        }
         // canvas.restore();
+        layer
     }
 
     pub fn has_transparency(&self) -> bool {
@@ -307,12 +363,12 @@ impl RenderedWindow {
     pub fn draw(
         &mut self,
         settings: &RendererSettings,
-        default_background: Srgba,
-        grid_scale: GridScale,
+        default_background: LinSrgba,
+        grid_renderer: &GridRenderer,
+        scene: &mut Scene,
     ) -> WindowDrawDetails {
-        // let pixel_region_box = self.pixel_region(grid_scale);
-        // let pixel_region = to_skia_rect(&pixel_region_box);
-        //
+        let pixel_region = self.pixel_region(grid_renderer.grid_scale);
+
         // if self.anchor_info.is_some() && settings.floating_shadow {
         //     root_canvas.save();
         //     let shadow_path = Path::rect(pixel_region, None);
@@ -356,6 +412,7 @@ impl RenderedWindow {
         //     })
         //     .to_owned();
         //
+
         // let save_layer_rec = SaveLayerRec::default().bounds(&pixel_region).paint(&paint);
         // root_canvas.save_layer(&save_layer_rec);
         //
@@ -370,18 +427,21 @@ impl RenderedWindow {
         // root_canvas.clear(default_background.with_a(255));
         // self.draw_background_surface(root_canvas, pixel_region_box, grid_scale);
         // root_canvas.restore();
-        // self.draw_foreground_surface(root_canvas, pixel_region_box, grid_scale);
+
+        scene.add_layer(self.draw_background_surface(
+            pixel_region,
+            default_background,
+            grid_renderer,
+        ));
+
+        scene.add_layer(self.draw_foreground_surface(pixel_region, grid_renderer));
         // root_canvas.restore();
         //
         // root_canvas.restore();
         //
-        // WindowDrawDetails {
-        //     id: self.id,
-        //     region: pixel_region_box,
-        // }
         WindowDrawDetails {
             id: self.id,
-            region: PixelRect::zero(),
+            region: pixel_region,
         }
     }
 

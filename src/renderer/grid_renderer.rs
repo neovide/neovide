@@ -2,7 +2,9 @@ use std::sync::Arc;
 
 use log::trace;
 
-use palette::{named, Srgba, WithAlpha};
+use glam::Vec4;
+use palette::{named, Hsv, IntoColor, LinSrgba, Srgba, WithAlpha};
+use vide::{Layer, Quad, Text};
 
 use crate::{
     editor::{Colors, Style, UnderlineStyle},
@@ -38,8 +40,8 @@ impl GridRenderer {
         )));
         // let em_size = shaper.current_size();
         // let font_dimensions = shaper.font_base_dimensions();
-        let em_size = 10.0;
-        let font_dimensions = (10.0, 10.0).into();
+        let em_size = 13.3333333;
+        let font_dimensions = (8.205129, 17.0).into();
 
         GridRenderer {
             //shaper,
@@ -76,10 +78,10 @@ impl GridRenderer {
     }
 
     fn update_font_dimensions(&mut self) {
+        // TODO
         //self.em_size = self.shaper.current_size();
-        self.em_size = 10.0;
         //self.grid_scale = GridScale(self.shaper.font_base_dimensions());
-        self.grid_scale = GridScale((10.0, 10.0).into());
+        //self.grid_scale = GridScale((10.0, 10.0).into());
         self.is_ready = true;
         trace!("Updated font dimensions: {:?}", self.grid_scale.0);
     }
@@ -100,78 +102,81 @@ impl GridRenderer {
     ///     The first element is true if the cell has a custom background color
     ///     The second element is true if the cell has transparency
     pub fn draw_background(
-        &mut self,
+        &self,
         grid_position: GridPos<i32>,
         cell_width: i32,
+        transform: PixelVec<f32>,
         style: &Option<Arc<Style>>,
+        layer: &mut Layer,
     ) -> BackgroundInfo {
-        // tracy_zone!("draw_background");
-        // let debug = SETTINGS.get::<RendererSettings>().debug_renderer;
-        // if style.is_none() && !debug {
-        //     return BackgroundInfo {
-        //         custom_color: false,
-        //         transparent: false,
-        //     };
-        // }
-        //
-        // let region = self.compute_text_region(grid_position, cell_width);
-        // let style = style.as_ref().unwrap_or(&self.default_style);
-        //
-        // let mut paint = Paint::default();
-        // paint.set_anti_alias(false);
-        // paint.set_blend_mode(BlendMode::Src);
-        //
-        // if debug {
-        //     let random_hsv = Hsv::new(rand::random::<f32>() * 360.0, 0.3, 0.3);
-        //     let random_color = random_hsv.to_color(255);
-        //     paint.set_color(random_color);
-        // } else {
-        //     paint.set_color(style.background(&self.default_style.colors).to_color());
-        // }
-        // if style.blend > 0 {
-        //     paint.set_alpha_f((100 - style.blend) as f32 / 100.0);
-        // } else {
-        //     paint.set_alpha_f(1.0);
-        // }
-        //
-        // let custom_color = paint.color4f() != self.default_style.colors.background.unwrap();
-        // if custom_color {
-        //     canvas.draw_rect(to_skia_rect(&region), &paint);
-        // }
-        //
-        // BackgroundInfo {
-        //     custom_color,
-        //     transparent: style.blend > 0,
-        // }
+        tracy_zone!("draw_background");
+        let debug = SETTINGS.get::<RendererSettings>().debug_renderer;
+        if style.is_none() && !debug {
+            return BackgroundInfo {
+                custom_color: false,
+                transparent: false,
+            };
+        }
+
+        let region = self
+            .compute_text_region(grid_position, cell_width)
+            .translate(transform);
+        let style = style.as_ref().unwrap_or(&self.default_style);
+
+        let color: Srgba = if debug {
+            Hsv::new(rand::random::<f32>() * 360.0, 0.3, 0.3).into_color()
+        } else {
+            style.background(&self.default_style.colors)
+        }
+        .with_alpha(if style.blend > 0 {
+            (100 - style.blend) as f32 / 100.0
+        } else {
+            1.0
+        });
+
+        let custom_color = color != self.default_style.colors.background.unwrap();
+        if custom_color {
+            let top_left: mint::Vector2<_> = region.min.to_vector().into();
+            let bottom_right: mint::Vector2<_> = region.max.to_vector().into();
+            let quad = Quad::new(
+                top_left.into(),
+                bottom_right.into(),
+                Vec4::from_array(color.into()),
+            );
+            layer.add_quad(quad);
+        }
 
         BackgroundInfo {
-            custom_color: false,
-            transparent: false,
+            custom_color,
+            transparent: style.blend > 0,
         }
     }
 
     /// Draws some foreground text.
     /// Returns true if any text was actually drawn.
     pub fn draw_foreground(
-        &mut self,
+        &self,
         text: &str,
         grid_position: GridPos<i32>,
         cell_width: i32,
+        transform: PixelVec<f32>,
         style: &Option<Arc<Style>>,
+        layer: &mut Layer,
     ) -> bool {
-        // tracy_zone!("draw_foreground");
-        // let pos = grid_position.cast() * self.grid_scale;
-        // let size = GridSize::new(cell_width, 0).cast() * self.grid_scale;
-        // let width = size.width;
-        //
-        // let style = style.as_ref().unwrap_or(&self.default_style);
-        // let mut drawn = false;
-        //
-        // // We don't want to clip text in the x position, only the y so we add a buffer of 1
-        // // character on either side of the region so that we clip vertically but not horizontally.
-        // let clip_position = (grid_position.x.saturating_sub(1), grid_position.y).into();
-        // let region = self.compute_text_region(clip_position, cell_width + 2);
-        //
+        tracy_zone!("draw_foreground");
+        let pos = grid_position.cast() * self.grid_scale + transform;
+        let size = GridSize::new(cell_width, 0).cast() * self.grid_scale;
+        let width = size.width;
+
+        let style = style.as_ref().unwrap_or(&self.default_style);
+        let mut drawn = false;
+
+        // We don't want to clip text in the x position, only the y so we add a buffer of 1
+        // character on either side of the region so that we clip vertically but not horizontally.
+        let clip_position = (grid_position.x.saturating_sub(1), grid_position.y).into();
+        let region = self.compute_text_region(clip_position, cell_width + 2);
+
+        // TODO: Draw underline
         // if let Some(underline_style) = style.underline {
         //     let line_position = self.grid_scale.0.height - self.shaper.underline_position();
         //     let p1 = pos + PixelVec::new(0.0, line_position);
@@ -180,46 +185,46 @@ impl GridRenderer {
         //     self.draw_underline(canvas, style, underline_style, p1, p2);
         //     drawn = true;
         // }
-        //
+
         // canvas.save();
         // canvas.clip_rect(to_skia_rect(&region), None, Some(false));
-        //
-        // let mut paint = Paint::default();
-        // paint.set_anti_alias(false);
-        // paint.set_blend_mode(BlendMode::SrcOver);
-        //
-        // if SETTINGS.get::<RendererSettings>().debug_renderer {
-        //     let random_hsv: HSV = (rand::random::<f32>() * 360.0, 1.0, 1.0).into();
-        //     let random_color = random_hsv.to_color(255);
-        //     paint.set_color(random_color);
-        // } else {
-        //     paint.set_color(style.foreground(&self.default_style.colors).to_color());
-        // }
-        // paint.set_anti_alias(false);
-        //
-        // // There's a lot of overhead for empty blobs in Skia, for some reason they never hit the
-        // // cache, so trim all the spaces
-        // let trimmed = text.trim_start();
-        // let leading_space_bytes = text.len() - trimmed.len();
-        // let leading_spaces = text[..leading_space_bytes].chars().count();
-        // let trimmed = trimmed.trim_end();
-        // let adjustment = PixelVec::new(
-        //     leading_spaces as f32 * self.grid_scale.0.width,
-        //     self.shaper.y_adjustment(),
-        // );
-        //
-        // if !trimmed.is_empty() {
-        //     for blob in self
-        //         .shaper
-        //         .shape_cached(trimmed.to_string(), style.into())
-        //         .iter()
-        //     {
-        //         tracy_zone!("draw_text_blob");
-        //         canvas.draw_text_blob(blob, to_skia_point(pos + adjustment), &paint);
-        //         drawn = true;
-        //     }
-        // }
-        //
+
+        let color: Srgba = if SETTINGS.get::<RendererSettings>().debug_renderer {
+            Hsv::new(rand::random::<f32>() * 360.0, 1.0, 1.0).into_color()
+        } else {
+            style.foreground(&self.default_style.colors)
+        };
+
+        // There's a lot of overhead for empty blobs in Skia, for some reason they never hit the
+        // cache, so trim all the spaces
+        let trimmed = text.trim_start();
+        let leading_space_bytes = text.len() - trimmed.len();
+        let leading_spaces = text[..leading_space_bytes].chars().count();
+        let trimmed = trimmed.trim_end();
+        // TODO:
+        // let y_adjustment = self.shaper.y_adjustment;
+        let y_adjustment = 0.0;
+        let adjustment = PixelVec::new(
+            leading_spaces as f32 * self.grid_scale.0.width,
+            y_adjustment,
+        );
+
+        if !trimmed.is_empty() {
+            tracy_zone!("draw_text_blob");
+            let pos: mint::Vector2<_> = (pos + adjustment).to_vector().into();
+            // TODO: The text is not in linear srgba for some reason
+            //let color: LinSrgba = color.into_color();
+            let text = Text::new(
+                trimmed.to_string(),
+                pos.into(),
+                self.em_size,
+                Vec4::from_array(color.into()),
+            );
+            layer.add_text(text);
+            //canvas.draw_text_blob(blob, to_skia_point(pos + adjustment), &paint);
+            drawn = true;
+        }
+
         // if style.strikethrough {
         //     let line_position = region.center().y;
         //     paint.set_color(style.special(&self.default_style.colors).to_color());
@@ -230,10 +235,8 @@ impl GridRenderer {
         //     );
         //     drawn = true;
         // }
-        //
-        // canvas.restore();
-        // drawn
-        true
+
+        drawn
     }
 
     fn draw_underline(

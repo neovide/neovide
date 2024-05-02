@@ -18,7 +18,8 @@ use futures::executor::block_on;
 use glam::Vec4;
 use itertools::Itertools;
 use log::{error, warn};
-use palette::LinSrgba;
+use mint::Vector2;
+use palette::{LinSrgba, WithAlpha};
 
 use winit::{
     event::Event,
@@ -224,119 +225,113 @@ impl<'a> Renderer<'a> {
         self.wgpu_renderer.draw(&self.scene);
 
         let default_background: LinSrgba = self.grid_renderer.get_default_background().into();
+        let transparency = { SETTINGS.get::<WindowSettings>().transparency };
+        let transparent_default_background = default_background.with_alpha(transparency);
 
-        self.scene = Scene::new()
-            .with_layer(Layer::new().with_background(Vec4::from_array(default_background.into())));
+        let grid_scale = self.grid_renderer.grid_scale;
 
-        // let grid_scale = self.grid_renderer.grid_scale;
-        //
-        // let transparency = { SETTINGS.get::<WindowSettings>().transparency };
-        // root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
-        // root_canvas.save();
-        // root_canvas.reset_matrix();
-        //
+        self.scene = Scene::new();
+
+        let mut background_layer =
+            Layer::new().with_background(Vec4::from_array(transparent_default_background.into()));
         // if let Some(root_window) = self.rendered_windows.get(&1) {
-        //     let clip_rect = to_skia_rect(&root_window.pixel_region(grid_scale));
-        //     root_canvas.clip_rect(clip_rect, None, Some(false));
+        //     let clip_rect = root_window.pixel_region(grid_scale);
+        //     background_layer.set_clip((clip_rect.min.x, clip_rect.min.y, clip_rect.max.x, clip_rect.max.y).into());
         // }
-        //
-        // let (root_windows, floating_layers) = {
-        //     let (mut root_windows, mut floating_windows): (
-        //         Vec<&mut RenderedWindow>,
-        //         Vec<&mut RenderedWindow>,
-        //     ) = self
-        //         .rendered_windows
-        //         .values_mut()
-        //         .filter(|window| !window.hidden)
-        //         .partition(|window| window.anchor_info.is_none());
-        //
-        //     root_windows
-        //         .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
-        //     floating_windows.sort_by(floating_sort);
-        //
-        //     let mut floating_layers = vec![];
-        //
-        //     let mut base_zindex = 0;
-        //     let mut last_zindex = 0;
-        //     let mut current_windows = vec![];
-        //
-        //     for window in floating_windows {
-        //         let zindex = window.anchor_info.as_ref().unwrap().sort_order;
-        //         log::debug!("zindex: {}, base: {}", zindex, base_zindex);
-        //         // Group floating windows by consecutive z indices
-        //         if zindex - last_zindex > 1 && !current_windows.is_empty() {
-        //             for windows in group_windows(current_windows, grid_scale) {
-        //                 floating_layers.push(FloatingLayer { windows });
-        //             }
-        //             current_windows = vec![];
-        //         }
-        //
-        //         if current_windows.is_empty() {
-        //             base_zindex = zindex;
-        //         }
-        //         current_windows.push(window);
-        //         last_zindex = zindex;
-        //     }
-        //
-        //     if !current_windows.is_empty() {
-        //         for windows in group_windows(current_windows, grid_scale) {
-        //             floating_layers.push(FloatingLayer { windows });
-        //         }
-        //     }
-        //
-        //     for layer in &mut floating_layers {
-        //         layer.windows.sort_by(floating_sort);
-        //         log::debug!(
-        //             "layer: {:?}",
-        //             layer
-        //                 .windows
-        //                 .iter()
-        //                 .map(|w| (w.id, w.anchor_info.as_ref().unwrap().sort_order))
-        //                 .collect_vec()
-        //         );
-        //     }
-        //
-        //     (root_windows, floating_layers)
-        // };
-        //
-        // let settings = SETTINGS.get::<RendererSettings>();
-        // let root_window_regions = root_windows
-        //     .into_iter()
-        //     .map(|window| {
-        //         window.draw(
-        //             root_canvas,
-        //             &settings,
-        //             default_background.with_a((255.0 * transparency) as u8),
-        //             grid_scale,
-        //         )
-        //     })
-        //     .collect_vec();
-        //
-        // let floating_window_regions = floating_layers
+        self.scene.add_layer(background_layer);
+
+        let (root_windows, floating_layers) = {
+            let (mut root_windows, mut floating_windows): (
+                Vec<&mut RenderedWindow>,
+                Vec<&mut RenderedWindow>,
+            ) = self
+                .rendered_windows
+                .values_mut()
+                .filter(|window| !window.hidden)
+                .partition(|window| window.anchor_info.is_none());
+
+            root_windows
+                .sort_by(|window_a, window_b| window_a.id.partial_cmp(&window_b.id).unwrap());
+            floating_windows.sort_by(floating_sort);
+
+            let mut floating_layers = vec![];
+
+            let mut base_zindex = 0;
+            let mut last_zindex = 0;
+            let mut current_windows = vec![];
+
+            for window in floating_windows {
+                let zindex = window.anchor_info.as_ref().unwrap().sort_order;
+                log::debug!("zindex: {}, base: {}", zindex, base_zindex);
+                // Group floating windows by consecutive z indices
+                if zindex - last_zindex > 1 && !current_windows.is_empty() {
+                    for windows in group_windows(current_windows, grid_scale) {
+                        floating_layers.push(FloatingLayer { windows });
+                    }
+                    current_windows = vec![];
+                }
+
+                if current_windows.is_empty() {
+                    base_zindex = zindex;
+                }
+                current_windows.push(window);
+                last_zindex = zindex;
+            }
+
+            if !current_windows.is_empty() {
+                for windows in group_windows(current_windows, grid_scale) {
+                    floating_layers.push(FloatingLayer { windows });
+                }
+            }
+
+            for layer in &mut floating_layers {
+                layer.windows.sort_by(floating_sort);
+                log::debug!(
+                    "layer: {:?}",
+                    layer
+                        .windows
+                        .iter()
+                        .map(|w| (w.id, w.anchor_info.as_ref().unwrap().sort_order))
+                        .collect_vec()
+                );
+            }
+
+            (root_windows, floating_layers)
+        };
+
+        let settings = SETTINGS.get::<RendererSettings>();
+        let root_window_regions = root_windows
+            .into_iter()
+            .map(|window| {
+                window.draw(
+                    &settings,
+                    transparent_default_background,
+                    &self.grid_renderer,
+                    &mut self.scene,
+                )
+            })
+            .collect_vec();
+
+        // let (floating_window_regions, float_layers) = floating_layers
         //     .into_iter()
         //     .flat_map(|mut layer| {
         //         layer.draw(
-        //             root_canvas,
         //             &settings,
-        //             default_background.with_a((255.0 * transparency) as u8),
+        //             transparent_default_background.into(),
         //             grid_scale,
         //         )
         //     })
         //     .collect_vec();
-        //
-        // self.window_regions = root_window_regions
-        //     .into_iter()
-        //     .chain(floating_window_regions)
-        //     .collect();
-        // self.cursor_renderer
-        //     .draw(&mut self.grid_renderer, root_canvas);
-        //
-        // self.profiler.draw(root_canvas, dt);
-        //
-        // root_canvas.restore();
-        //
-        // #[cfg(feature = "profiling")]
-        // plot_skia_cache();
+
+        let window_regions = root_window_regions
+            .into_iter()
+            //.chain(floating_window_regions)
+            .collect();
+
+        self.window_regions = window_regions;
+        self.cursor_renderer.draw(&mut self.grid_renderer);
+
+        self.profiler.draw(dt);
     }
 
     pub fn animate_frame(&mut self, grid_rect: &GridRect<f32>, dt: f32) -> bool {

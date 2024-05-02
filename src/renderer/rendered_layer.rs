@@ -1,6 +1,7 @@
 use itertools::Itertools;
 
-use palette::Srgba;
+use palette::LinSrgba;
+use vide::Layer;
 
 use crate::units::{GridScale, PixelRect};
 
@@ -19,9 +20,9 @@ impl<'w> FloatingLayer<'w> {
     pub fn draw(
         &mut self,
         settings: &RendererSettings,
-        default_background: Srgba,
+        default_background: LinSrgba,
         grid_scale: GridScale,
-    ) -> Vec<WindowDrawDetails> {
+    ) -> (Vec<WindowDrawDetails>, Vec<Layer>) {
         // let pixel_regions = self
         //     .windows
         //     .iter()
@@ -104,7 +105,7 @@ impl<'w> FloatingLayer<'w> {
         // root_canvas.restore();
         //
         // ret
-        Vec::new()
+        (Vec::new(), Vec::new())
     }
 
     pub fn uniform_background_blend(&self) -> u8 {
