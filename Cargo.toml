@@ -89,6 +89,7 @@ skia-safe = { version = "0.73.0", features = ["gl", "d3d", "textlayout"] }
 windows = { version = "0.56.0", features = [
     "Win32_Graphics_Direct3D",
     "Win32_Graphics_Direct3D12",
+    "Win32_Graphics_DirectComposition",
     "Win32_Graphics_Dwm",
     "Win32_Graphics_Dxgi",
     "Win32_Graphics_Dxgi_Common",

@@ -28,6 +28,9 @@ use winit::platform::macos::WindowBuilderExtMacOS;
 #[cfg(target_os = "linux")]
 use winit::platform::{wayland::WindowBuilderExtWayland, x11::WindowBuilderExtX11};
 
+#[cfg(target_os = "windows")]
+use winit::platform::windows::WindowBuilderExtWindows;
+
 #[cfg(target_os = "macos")]
 use winit::platform::macos::EventLoopBuilderExtMacOS;
 
@@ -160,6 +163,13 @@ pub fn create_window(
         .with_maximized(false)
         .with_transparent(true)
         .with_visible(false);
+
+    #[cfg(target_os = "windows")]
+    let winit_window_builder = if !cmd_line_settings.opengl {
+        WindowBuilderExtWindows::with_no_redirection_bitmap(winit_window_builder, true)
+    } else {
+        winit_window_builder
+    };
 
     let frame_decoration = cmd_line_settings.frame;
 
