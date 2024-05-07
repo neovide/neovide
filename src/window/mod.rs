@@ -270,7 +270,7 @@ pub fn determine_window_size(window_settings: Option<&PersistentWindowSettings>)
             maximized: true, ..
         } => WindowSize::Maximized,
         _ => match window_settings {
-            Some(PersistentWindowSettings::Maximized) => WindowSize::Maximized,
+            Some(PersistentWindowSettings::Maximized { .. }) => WindowSize::Maximized,
             Some(PersistentWindowSettings::Windowed {
                 pixel_size: Some(pixel_size),
                 ..
