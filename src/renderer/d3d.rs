@@ -7,7 +7,6 @@ use skia_safe::{
     surface::BackendSurfaceAccess,
     Canvas, ColorType, Surface,
 };
-use windows::core::{Interface, Result, PCWSTR};
 use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND};
 use windows::Win32::Graphics::Direct3D::D3D_FEATURE_LEVEL_11_0;
 use windows::Win32::Graphics::Direct3D12::{
@@ -25,6 +24,10 @@ use windows::Win32::Graphics::Dxgi::{
     DXGI_SWAP_EFFECT_FLIP_DISCARD, DXGI_USAGE_RENDER_TARGET_OUTPUT,
 };
 use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObjectEx, INFINITE};
+use windows::{
+    core::{Interface, Result, PCWSTR},
+    Win32::Graphics::Dxgi::DXGI_MWA_NO_ALT_ENTER,
+};
 use winit::{
     event_loop::EventLoopProxy,
     raw_window_handle::{HasWindowHandle, RawWindowHandle},
@@ -176,6 +179,12 @@ impl D3DSkiaRenderer {
         let swap_chain_waitable = unsafe { swap_chain.GetFrameLatencyWaitableObject() };
         if swap_chain_waitable.is_invalid() {
             panic!("Failed to get swapchain waitable object");
+        }
+
+        unsafe {
+            dxgi_factory
+                .MakeWindowAssociation(HWND(hwnd.get()), DXGI_MWA_NO_ALT_ENTER)
+                .expect("Failed to make window association");
         }
 
         // use a high value to make it easier to track these in PIX
