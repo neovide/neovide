@@ -11,10 +11,12 @@ use windows::core::{Interface, Result, PCWSTR};
 use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND};
 use windows::Win32::Graphics::Direct3D::D3D_FEATURE_LEVEL_11_0;
 use windows::Win32::Graphics::Direct3D12::{
-    D3D12CreateDevice, D3D12GetDebugInterface, ID3D12CommandQueue, ID3D12Debug, ID3D12Device,
-    ID3D12Fence, ID3D12Resource, D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_COMMAND_QUEUE_DESC,
-    D3D12_COMMAND_QUEUE_FLAG_NONE, D3D12_FENCE_FLAG_NONE, D3D12_RESOURCE_STATE_PRESENT,
+    D3D12CreateDevice, ID3D12CommandQueue, ID3D12Device, ID3D12Fence, ID3D12Resource,
+    D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_COMMAND_QUEUE_DESC, D3D12_COMMAND_QUEUE_FLAG_NONE,
+    D3D12_FENCE_FLAG_NONE, D3D12_RESOURCE_STATE_PRESENT,
 };
+#[cfg(feature = "d3d_debug")]
+use windows::Win32::Graphics::Direct3D12::{D3D12GetDebugInterface, ID3D12Debug};
 use windows::Win32::Graphics::DirectComposition::{
     DCompositionCreateDevice2, IDCompositionDevice, IDCompositionTarget, IDCompositionVisual,
 };
@@ -95,12 +97,12 @@ pub struct D3DSkiaRenderer {
 
 impl D3DSkiaRenderer {
     pub fn new(window: Window) -> Self {
-        let mut debug_controller: Option<ID3D12Debug> = None;
+        #[cfg(feature = "d3d_debug")]
         unsafe {
+            let mut debug_controller: Option<ID3D12Debug> = None;
             D3D12GetDebugInterface(&mut debug_controller)
                 .expect("Failed to create Direct3D debug controller");
-        }
-        unsafe {
+
             debug_controller
                 .expect("Failed to enable debug layer")
                 .EnableDebugLayer();
