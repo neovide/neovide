@@ -120,6 +120,10 @@ impl<'w> FloatingLayer<'w> {
     }
 
     fn _draw_shadow(&self, root_canvas: &Canvas, path: &Path, settings: &RendererSettings) {
+        if !settings.floating_shadow {
+            return;
+        }
+
         root_canvas.save();
         // We clip using the Difference op to make sure that the shadow isn't rendered inside
         // the window itself.
