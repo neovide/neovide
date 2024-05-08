@@ -200,6 +200,7 @@ fn setup(
         // Clippy wrongly suggests to use unwrap or default here
         #[allow(clippy::manual_unwrap_or_default)]
         _ => match window_settings {
+            Some(PersistentWindowSettings::Maximized { grid_size, .. }) => grid_size,
             Some(PersistentWindowSettings::Windowed { grid_size, .. }) => grid_size,
             _ => None,
         },
