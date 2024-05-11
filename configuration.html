@@ -205,10 +205,10 @@ with partial transparency, while <code>X</code> is a type of edging:
 <li><code>#h-X</code> (available since 0.10.2) - Sets level of glyph outline adjustment, while <code>X</code> is
 a type of hinting:
 <ul>
-<li>full (default)</li>
+<li>full</li>
 <li>normal</li>
 <li>slight</li>
-<li>none</li>
+<li>none (default)</li>
 </ul>
 </li>
 </ul>
@@ -243,6 +243,22 @@ should Hack fail to contain any glyph.</li>
 <p>In addition to setting the font itself, this setting allows to change the scale without changing the
 whole font definition. Very useful for presentations. See <a href="faq.html#how-can-i-dynamically-change-the-scale-at-runtime">the FAQ section about
 this</a> for a nice recipe to bind this to a hotkey.</p>
+<h4 id="text-gamma-and-contrast"><a class="header" href="#text-gamma-and-contrast">Text Gamma and Contrast</a></h4>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_text_gamma = 0.0
+let g:neovide_text_contrast = 0.5
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_text_gamma = 0.0
+vim.g.neovide_text_contrast = 0.5
+</code></pre>
+<p><strong>Unreleased yet.</strong></p>
+<p>You can fine tune the gamma and contrast of the text to your liking. The defaults is a good
+compromise that gives readable text on all backgrounds and an accurate color representation. But if
+that doesn't suit you, and you want to emulate the Alacritty font rendering for example you can use
+a gamma of 0.8 and a contrast of 0.1.</p>
+<p>Note a gamma of 0.0, means standard sRGB gamma or 2.2. Also note that these settings don't
+necessarily apply immediately due to caching of the fonts.</p>
 <h4 id="padding"><a class="header" href="#padding">Padding</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_padding_top = 0
