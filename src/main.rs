@@ -238,7 +238,8 @@ fn maybe_disown() {
 
     let settings = SETTINGS.get::<CmdLineSettings>();
 
-    if cfg!(debug_assertions) || !settings.fork {
+    // Never fork unless a tty is attached
+    if !settings.fork || !utils::is_tty() {
         return;
     }
 
