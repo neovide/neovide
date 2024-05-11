@@ -53,7 +53,7 @@ pub struct OpenGLSkiaRenderer {
     context: PossiblyCurrentContext,
     window_surface: Surface<WindowSurface>,
     config: Config,
-    window: Window,
+    window: Option<Window>,
 }
 
 fn clamp_render_buffer_size(size: &PhysicalSize<u32>) -> PhysicalSize<u32> {
@@ -145,7 +145,7 @@ impl OpenGLSkiaRenderer {
         Self {
             window_surface,
             context,
-            window,
+            window: Some(window),
             config,
             gr_context,
             fb_info,
@@ -156,7 +156,7 @@ impl OpenGLSkiaRenderer {
 
 impl SkiaRenderer for OpenGLSkiaRenderer {
     fn window(&self) -> &Window {
-        &self.window
+        self.window.as_ref().unwrap()
     }
 
     fn flush(&mut self) {
@@ -181,7 +181,7 @@ impl SkiaRenderer for OpenGLSkiaRenderer {
     fn resize(&mut self) {
         self.skia_surface = create_surface(
             &self.config,
-            &self.window.inner_size(),
+            &self.window().inner_size(),
             &self.context,
             &self.window_surface,
             &mut self.gr_context,
@@ -212,6 +212,28 @@ impl SkiaRenderer for OpenGLSkiaRenderer {
     #[cfg(feature = "gpu_profiling")]
     fn tracy_create_gpu_context(&self, name: &str) -> Box<dyn GpuCtx> {
         create_opengl_gpu_context(name)
+    }
+}
+
+impl Drop for OpenGLSkiaRenderer {
+    fn drop(&mut self) {
+        match self.window_surface.display() {
+            #[cfg(not(target_os = "macos"))]
+            glutin::display::Display::Egl(display) => {
+                // Ensure that all the windows are dropped, so the destructors for
+                // Renderer and contexts ran.
+                self.window = None;
+
+                self.gr_context.release_resources_and_abandon();
+
+                // SAFETY: the display is being destroyed after destroying all the
+                // windows, thus no attempt to access the EGL state will be made.
+                unsafe {
+                    display.terminate();
+                }
+            }
+            _ => (),
+        }
     }
 }
 

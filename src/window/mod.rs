@@ -40,7 +40,6 @@ use crate::{
     cmd_line::{CmdLineSettings, GeometryArgs},
     frame::Frame,
     renderer::{build_window_config, DrawCommand, WindowConfig},
-    running_tracker::*,
     settings::{
         clamped_grid_size, load_last_window_settings, save_window_size, FontSettings,
         HotReloadConfigs, PersistentWindowSettings, SettingsChanged, SETTINGS,
@@ -90,6 +89,7 @@ pub enum UserEvent {
     ConfigsChanged(Box<HotReloadConfigs>),
     #[allow(dead_code)]
     RedrawRequested,
+    NeovimExited,
 }
 
 impl From<Vec<DrawCommand>> for UserEvent {
@@ -299,7 +299,7 @@ pub fn main_loop(
     event_loop: EventLoop<UserEvent>,
 ) -> Result<(), EventLoopError> {
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
-    let mut window_wrapper = WinitWindowWrapper::new(
+    let window_wrapper = WinitWindowWrapper::new(
         window,
         initial_window_size,
         initial_font_settings,
@@ -307,26 +307,28 @@ pub fn main_loop(
     );
 
     let mut update_loop = UpdateLoop::new(cmd_line_settings.idle);
+    let mut window_wrapper = Some(window_wrapper);
 
     #[cfg(target_os = "macos")]
     let mut menu = {
         let mtm = MainThreadMarker::new().expect("must be on the main thread");
         macos::Menu::new(mtm)
     };
-    event_loop.run(move |e, window_target| {
+    let res = event_loop.run(move |e, window_target| {
         #[cfg(target_os = "macos")]
         menu.ensure_menu_added(&e);
-        if e == Event::LoopExiting {
-            return;
-        }
 
-        if !RUNNING_TRACKER.is_running() {
-            save_window_size(&window_wrapper);
-            window_target.exit();
-        } else {
-            window_target.set_control_flow(update_loop.step(&mut window_wrapper, e));
+        match e {
+            Event::LoopExiting => window_wrapper = None,
+            Event::UserEvent(UserEvent::NeovimExited) => {
+                save_window_size(window_wrapper.as_ref().unwrap());
+                window_target.exit();
+            }
+            _ => window_target
+                .set_control_flow(update_loop.step(window_wrapper.as_mut().unwrap(), e)),
         }
-    })
+    });
+    res
 }
 
 pub fn load_icon() -> Icon {
