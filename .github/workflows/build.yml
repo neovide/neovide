@@ -69,8 +69,11 @@ jobs:
         with:
           neovim: true
 
+      - name: Install Cargo Binstall
+        uses: cargo-bins/cargo-binstall@main
+
       - name: Install cargo-nextest
-        uses: taiki-e/install-action@nextest
+        run: cargo binstall -y cargo-nextest
 
       - name: Test
         env:
@@ -90,8 +93,6 @@ jobs:
           path: |
             test-results-${{ matrix.os }}-${{ matrix.toolchain }}
 
-      - name: Install Cargo Binstall
-        uses: cargo-bins/cargo-binstall@main
 
       - name: Install Sarif
         run: cargo binstall -y clippy-sarif sarif-fmt
