@@ -804,12 +804,13 @@ from the previous session or the default size will be used on startup. The comma
 <p>Setting this to <code>v:true</code> enables the profiler, which shows a frametime graph in the upper left
 corner.</p>
 <h3 id="input-settings"><a class="header" href="#input-settings">Input Settings</a></h3>
-<h4 id="macos-alt-is-meta"><a class="header" href="#macos-alt-is-meta">macOS Alt is Meta</a></h4>
+<h4 id="macos-option-key-is-meta"><a class="header" href="#macos-option-key-is-meta">macOS Option Key is Meta</a></h4>
+<p>Possible values are <code>both</code>, <code>only_left</code>, <code>only_right</code>, <code>none</code>. Set to <code>none</code> by default.</p>
 <p>VimScript:</p>
-<pre><code class="language-vim">let g:neovide_input_macos_alt_is_meta = v:false
+<pre><code class="language-vim">let g:neovide_input_macos_option_key_is_meta = 'only_left'
 </code></pre>
 <p>Lua:</p>
-<pre><code class="language-lua">vim.g.neovide_input_macos_alt_is_meta = false
+<pre><code class="language-lua">vim.g.neovide_input_macos_option_key_is_meta = 'only_left'
 </code></pre>
 <p><strong>Available since 0.10.</strong></p>
 <p>Interprets <kbd>Alt</kbd> + <kbd>whatever</kbd> actually as <code>&lt;M-whatever&gt;</code>, instead of sending the
@@ -1156,11 +1157,11 @@ containing trace events which may help debug an issue.</p>
 <p>This disables neovim's multigrid functionality which will also disable floating window blurred
 backgrounds, smooth scrolling, and window animations. This can solve some issues where neovide
 acts differently from terminal neovim.</p>
-<h3 id="no-fork"><a class="header" href="#no-fork">No Fork</a></h3>
-<pre><code class="language-sh">--no-fork or $NEOVIDE_FORK=0|1
+<h3 id="fork"><a class="header" href="#fork">Fork</a></h3>
+<pre><code class="language-sh">--fork or $NEOVIDE_FORK=0|1
 </code></pre>
-<p>By default, neovide detaches itself from the terminal. Instead of spawning a child process and
-leaking it, be &quot;blocking&quot; and have the shell directly as parent process.</p>
+<p>Detach from the terminal instead of waiting for the Neovide process to
+terminate. This parameter has no effect when launching from a GUI.</p>
 <h3 id="no-idle-1"><a class="header" href="#no-idle-1">No Idle</a></h3>
 <pre><code class="language-sh">--no-idle or $NEOVIDE_IDLE=0|1
 </code></pre>

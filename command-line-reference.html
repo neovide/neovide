@@ -211,11 +211,11 @@ containing trace events which may help debug an issue.</p>
 <p>This disables neovim's multigrid functionality which will also disable floating window blurred
 backgrounds, smooth scrolling, and window animations. This can solve some issues where neovide
 acts differently from terminal neovim.</p>
-<h3 id="no-fork"><a class="header" href="#no-fork">No Fork</a></h3>
-<pre><code class="language-sh">--no-fork or $NEOVIDE_FORK=0|1
+<h3 id="fork"><a class="header" href="#fork">Fork</a></h3>
+<pre><code class="language-sh">--fork or $NEOVIDE_FORK=0|1
 </code></pre>
-<p>By default, neovide detaches itself from the terminal. Instead of spawning a child process and
-leaking it, be &quot;blocking&quot; and have the shell directly as parent process.</p>
+<p>Detach from the terminal instead of waiting for the Neovide process to
+terminate. This parameter has no effect when launching from a GUI.</p>
 <h3 id="no-idle"><a class="header" href="#no-idle">No Idle</a></h3>
 <pre><code class="language-sh">--no-idle or $NEOVIDE_IDLE=0|1
 </code></pre>
