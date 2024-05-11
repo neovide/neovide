@@ -13,7 +13,10 @@ use crate::windows_utils::{register_right_click, unregister_right_click};
 use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
-    renderer::{create_skia_renderer, DrawCommand, Renderer, SkiaRenderer, VSync, WindowConfig},
+    renderer::{
+        create_skia_renderer, DrawCommand, Renderer, RendererSettingsChanged, SkiaRenderer, VSync,
+        WindowConfig,
+    },
     settings::{
         clamped_grid_size, FontSettings, HotReloadConfigs, SettingsChanged, DEFAULT_GRID_SIZE,
         MIN_GRID_SIZE, SETTINGS,
@@ -276,6 +279,16 @@ impl WinitWindowWrapper {
         self.macos_feature.handle_settings_changed(changed_setting);
     }
 
+    fn handle_render_settings_changed(&mut self, changed_setting: RendererSettingsChanged) {
+        match changed_setting {
+            RendererSettingsChanged::TextGamma(..) | RendererSettingsChanged::TextContrast(..) => {
+                self.skia_renderer.resize();
+                self.font_changed_last_frame = true;
+            }
+            _ => {}
+        }
+    }
+
     pub fn handle_title_changed(&mut self, new_title: String) {
         self.title = new_title;
         self.skia_renderer.window().set_title(&self.title);
@@ -398,6 +411,9 @@ impl WinitWindowWrapper {
             }
             Event::UserEvent(UserEvent::SettingsChanged(SettingsChanged::Window(e))) => {
                 self.handle_window_settings_changed(e);
+            }
+            Event::UserEvent(UserEvent::SettingsChanged(SettingsChanged::Renderer(e))) => {
+                self.handle_render_settings_changed(e);
             }
             Event::UserEvent(UserEvent::ConfigsChanged(config)) => {
                 self.handle_config_changed(*config);

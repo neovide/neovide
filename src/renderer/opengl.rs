@@ -23,7 +23,7 @@ use skia_safe::{
         backend_render_targets::make_gl, gl::FramebufferInfo, surfaces::wrap_backend_render_target,
         DirectContext, SurfaceOrigin,
     },
-    ColorType,
+    ColorSpace, ColorType, PixelGeometry, SurfaceProps, SurfacePropsFlags,
 };
 use winit::{
     dpi::PhysicalSize,
@@ -37,9 +37,9 @@ pub use super::vsync::VSyncWinDwm;
 #[cfg(target_os = "macos")]
 pub use super::vsync::VSyncMacos;
 
-use super::{SkiaRenderer, VSync, WindowConfig, WindowConfigType};
+use super::{RendererSettings, SkiaRenderer, VSync, WindowConfig, WindowConfigType};
 
-use crate::{profiling::tracy_gpu_zone, window::UserEvent};
+use crate::{profiling::tracy_gpu_zone, settings::SETTINGS, window::UserEvent};
 
 #[cfg(feature = "gpu_profiling")]
 use crate::profiling::{opengl::create_opengl_gpu_context, GpuCtx};
@@ -276,13 +276,26 @@ fn create_surface(
     let width = NonZeroU32::new(size.width).unwrap();
     let height = NonZeroU32::new(size.height).unwrap();
     GlSurface::resize(window_surface, context, width, height);
+
+    let render_settings = SETTINGS.get::<RendererSettings>();
+
+    let surface_props = SurfaceProps::new_with_text_properties(
+        SurfacePropsFlags::default(),
+        PixelGeometry::default(),
+        render_settings.text_contrast,
+        render_settings.text_gamma,
+    );
+
+    // NOTE: It would be much better to render using a linear gamma format, and SRGB backbuffer
+    // format But currently the Skia glyph atlas uses a 32-bit linear format texture, so some color
+    // precision is lost, and the font colors will be slightly off.
     wrap_backend_render_target(
         gr_context,
         &backend_render_target,
         SurfaceOrigin::BottomLeft,
         ColorType::RGBA8888,
-        None,
-        None,
+        ColorSpace::new_srgb(),
+        Some(surface_props).as_ref(),
     )
-    .expect("Could not create skia surface")
+    .expect("Could not create skia backend render target")
 }
