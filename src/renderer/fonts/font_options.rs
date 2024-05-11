@@ -305,8 +305,8 @@ impl FontEdging {
 pub enum FontHinting {
     Full,
     Normal,
-    #[default]
     Slight,
+    #[default]
     None,
 }
 
