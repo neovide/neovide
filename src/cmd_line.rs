@@ -183,7 +183,10 @@ fn handle_wslpaths(paths: Vec<String>, wsl: bool) -> Vec<String> {
 
     paths
         .into_iter()
-        .map(|path| windows_to_wsl(&path).unwrap_or(path))
+        .map(|path| {
+            let path = std::fs::canonicalize(&path).map_or(path, |p| p.to_string_lossy().into());
+            format!("'{}'", windows_to_wsl(&path).unwrap_or(path))
+        })
         .collect()
 }
 
@@ -276,9 +279,9 @@ mod tests {
         assert_eq!(
             SETTINGS.get::<CmdLineSettings>().neovim_args,
             vec![
-                "/mnt/c/Users/MyUser/foo.txt",
-                "/mnt/c/bar.md",
-                "/mnt/c/Program Files (x86)/Some Application/Settings.ini"
+                "'/mnt/c/Users/MyUser/foo.txt'",
+                "'/mnt/c/bar.md'",
+                "'/mnt/c/Program Files (x86)/Some Application/Settings.ini'"
             ]
         );
     }
