@@ -60,7 +60,7 @@ pub struct WinitWindowWrapper {
     // Don't rearrange this, unless you have a good reason to do so
     // The destruction order has to be correct
     pub skia_renderer: Box<dyn SkiaRenderer>,
-    renderer: Renderer,
+    pub renderer: Renderer,
     keyboard_manager: KeyboardManager,
     mouse_manager: MouseManager,
     title: String,
