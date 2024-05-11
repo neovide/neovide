@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 use crate::renderer::fonts::font_options::{
-    FontDescription, FontEdging, FontFeature, FontHinting, FontOptions, SecondaryFontDescription,
+    points_to_pixels, FontDescription, FontEdging, FontFeature, FontHinting, FontOptions,
+    SecondaryFontDescription,
 };
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -118,8 +119,8 @@ impl From<FontSettings> for FontOptions {
                         .collect()
                 })
                 .unwrap_or_default(),
-            size: value.size,
-            width: value.width.unwrap_or_default(),
+            size: points_to_pixels(value.size),
+            width: points_to_pixels(value.width.unwrap_or_default()),
             hinting: value
                 .hinting
                 .map(|hinting| FontHinting::parse(&hinting).unwrap_or_default())
