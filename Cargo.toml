@@ -25,6 +25,7 @@ tracy-context-switch-tracing = ["tracy-client-sys?/context-switch-tracing"]
 tracy-sampling = ["tracy-client-sys?/sampling"]
 tracy-code-transfer = ["tracy-client-sys?/code-transfer"]
 tracy-callstack-inlines = ["tracy-client-sys?/callstack-inlines"]
+d3d_debug = [] # Enable the D3D debug layer
 
 [dependencies]
 anyhow = { version = "1.0.75", features = ["backtrace"] }
@@ -89,6 +90,7 @@ skia-safe = { version = "0.73.0", features = ["gl", "d3d", "textlayout"] }
 windows = { version = "0.56.0", features = [
     "Win32_Graphics_Direct3D",
     "Win32_Graphics_Direct3D12",
+    "Win32_Graphics_DirectComposition",
     "Win32_Graphics_Dwm",
     "Win32_Graphics_Dxgi",
     "Win32_Graphics_Dxgi_Common",
