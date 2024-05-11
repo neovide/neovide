@@ -17,7 +17,6 @@ use crate::{
         create_skia_renderer, DrawCommand, Renderer, RendererSettingsChanged, SkiaRenderer, VSync,
         WindowConfig,
     },
-    running_tracker::RUNNING_TRACKER,
     settings::{
         clamped_grid_size, FontSettings, HotReloadConfigs, SettingsChanged, DEFAULT_GRID_SIZE,
         MIN_GRID_SIZE, SETTINGS,
@@ -64,7 +63,7 @@ pub struct WinitWindowWrapper {
     // Don't rearrange this, unless you have a good reason to do so
     // The destruction order has to be correct
     pub skia_renderer: Box<dyn SkiaRenderer>,
-    renderer: Renderer,
+    pub renderer: Renderer,
     keyboard_manager: KeyboardManager,
     mouse_manager: MouseManager,
     title: String,
@@ -306,11 +305,7 @@ impl WinitWindowWrapper {
     }
 
     pub fn handle_quit(&mut self) {
-        if SETTINGS.get::<CmdLineSettings>().server.is_none() {
-            send_ui(ParallelCommand::Quit);
-        } else {
-            RUNNING_TRACKER.quit("window closed");
-        }
+        send_ui(ParallelCommand::Quit);
     }
 
     pub fn handle_focus_lost(&mut self) {

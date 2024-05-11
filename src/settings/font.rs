@@ -120,7 +120,6 @@ impl From<FontSettings> for FontOptions {
                 .unwrap_or_default(),
             size: value.size,
             width: value.width.unwrap_or_default(),
-            allow_float_size: value.allow_float_size.unwrap_or_default(),
             hinting: value
                 .hinting
                 .map(|hinting| FontHinting::parse(&hinting).unwrap_or_default())

@@ -3,7 +3,7 @@ use skia_safe::{
     canvas::SaveLayerRec,
     image_filters::blur,
     utils::shadow_utils::{draw_shadow, ShadowFlags},
-    BlendMode, Canvas, ClipOp, Color, Paint, Path, PathOp, Point3, Rect,
+    BlendMode, Canvas, ClipOp, Color, Contains, Paint, Path, PathOp, Point3, Rect,
 };
 
 use crate::units::{to_skia_rect, GridScale, PixelRect};
@@ -120,6 +120,10 @@ impl<'w> FloatingLayer<'w> {
     }
 
     fn _draw_shadow(&self, root_canvas: &Canvas, path: &Path, settings: &RendererSettings) {
+        if !settings.floating_shadow {
+            return;
+        }
+
         root_canvas.save();
         // We clip using the Difference op to make sure that the shadow isn't rendered inside
         // the window itself.
@@ -156,8 +160,8 @@ fn get_window_group(windows: &mut Vec<LayerWindow>, index: usize) -> usize {
     windows[index].group
 }
 
-fn rect_intersect(a: &Rect, b: &Rect) -> bool {
-    Rect::intersects2(a, b)
+fn rect_contains(a: &Rect, b: &Rect) -> bool {
+    Rect::contains(a, b) || Rect::contains(b, a)
 }
 
 fn group_windows_with_regions(windows: &mut Vec<LayerWindow>, regions: &[PixelRect<f32>]) {
@@ -166,7 +170,7 @@ fn group_windows_with_regions(windows: &mut Vec<LayerWindow>, regions: &[PixelRe
             let group_i = get_window_group(windows, i);
             let group_j = get_window_group(windows, j);
             if group_i != group_j
-                && rect_intersect(&to_skia_rect(&regions[i]), &to_skia_rect(&regions[j]))
+                && rect_contains(&to_skia_rect(&regions[i]), &to_skia_rect(&regions[j]))
             {
                 let new_group = group_i.min(group_j);
                 if group_i != group_j {

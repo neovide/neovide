@@ -89,7 +89,7 @@ jobs:
 
     steps:
       - name: Download HTML
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: book
           path: ./book
@@ -119,7 +119,7 @@ jobs:
 
     steps:
       - name: Download HTML & Sitemap
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
 
       - name: Move Sitemap Into HTML
         run: mv ./sitemap/sitemap.xml ./book/html
