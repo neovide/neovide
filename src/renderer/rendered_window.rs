@@ -329,15 +329,33 @@ impl RenderedWindow {
         let image_width = image.width() as f32;
         let image_height = image.height() as f32;
 
-        // Calculate the scaling factors based on the full screen size
-        let scale_x = image_width / screen_rect.width();
-        let scale_y = image_height / screen_rect.height();
+        // Calculate the cover scale factor to ensure the image covers the whole screen
+        let scale_x = screen_rect.width() / image_width;
+        let scale_y = screen_rect.height() / image_height;
+        let scale = scale_x.max(scale_y); // Use the larger scale factor to ensure the screen is covered
 
-        // Calculate the portion of the image that corresponds to the window's position
-        let src_x = scale_x * (window_rect.left() - screen_rect.left());
-        let src_y = scale_y * (window_rect.top() - screen_rect.top());
-        let src_width = scale_x * window_rect.width();
-        let src_height = scale_y * window_rect.height();
+        // Calculate new dimensions after scaling
+        let scaled_width = image_width * scale;
+        let scaled_height = image_height * scale;
+
+        // Calculate the offset to center the cropped area
+        let offset_x = if scaled_width > screen_rect.width() {
+            (scaled_width - screen_rect.width()) / 2.0 / scale
+        } else {
+            0.0
+        };
+
+        let offset_y = if scaled_height > screen_rect.height() {
+            (scaled_height - screen_rect.height()) / 2.0 / scale
+        } else {
+            0.0
+        };
+
+        // Define the source rectangle to crop the image to fill the screen
+        let src_x = offset_x;
+        let src_y = offset_y;
+        let src_width = screen_rect.width() / scale;
+        let src_height = screen_rect.height() / scale;
 
         let src_rect = Rect::from_xywh(src_x, src_y, src_width, src_height);
 
