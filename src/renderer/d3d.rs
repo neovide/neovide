@@ -134,7 +134,9 @@ impl D3DSkiaRenderer {
                 .expect("Failed to create the Direct3D command queue")
         };
 
-        let size = window.inner_size();
+        let mut size = window.inner_size();
+        size.width = size.width.max(1);
+        size.height = size.height.max(1);
 
         // Describe and create the swap chain.
         let swap_chain_desc = DXGI_SWAP_CHAIN_DESC1 {
@@ -398,7 +400,9 @@ impl SkiaRenderer for D3DSkiaRenderer {
         self.surfaces.clear();
         self.buffers.clear();
 
-        let size = self.window.inner_size();
+        let mut size = self.window.inner_size();
+        size.width = size.width.max(1);
+        size.height = size.height.max(1);
 
         unsafe {
             self.swap_chain
