@@ -147,7 +147,6 @@ pub struct Renderer {
     cursor_renderer: CursorRenderer,
     pub grid_renderer: GridRenderer,
     current_mode: EditorMode,
-    background_image: Option<Image>,
 
     rendered_windows: HashMap<u64, RenderedWindow>,
     pub window_regions: Vec<WindowDrawDetails>,
@@ -179,13 +178,6 @@ impl Renderer {
 
         let profiler = profiler::Profiler::new(12.0);
 
-        let image = if window_settings.background_image.is_empty() {
-            None
-        } else {
-            let skia_data =
-                Data::from_filename(std::path::Path::new(&window_settings.background_image));
-            skia_data.and_then(|data| Image::from_encoded(data))
-        };
         Renderer {
             rendered_windows,
             cursor_renderer,
@@ -195,7 +187,6 @@ impl Renderer {
             profiler,
             os_scale_factor,
             user_scale_factor,
-            background_image: image,
         }
     }
 
@@ -211,7 +202,7 @@ impl Renderer {
         self.cursor_renderer.prepare_frame()
     }
 
-    pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32) {
+    pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32, background_image: Option<&Image>) {
         tracy_zone!("renderer_draw_frame");
         let default_background = self.grid_renderer.get_default_background();
         let grid_scale = self.grid_renderer.grid_scale;
@@ -298,7 +289,7 @@ impl Renderer {
                     &settings,
                     (transparency * 255.0) as u8,
                     default_background.with_a((255.0 * background_transparency) as u8),
-                    self.background_image.as_ref(),
+                    background_image,
                     &screen_rect,
                     grid_scale,
                 )

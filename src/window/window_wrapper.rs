@@ -33,6 +33,7 @@ use super::macos::MacosWindowFeature;
 use icrate::Foundation::MainThreadMarker;
 
 use log::trace;
+use skia_safe::{Data, Image};
 use winit::{
     dpi,
     event::{Event, WindowEvent},
@@ -81,6 +82,7 @@ pub struct WinitWindowWrapper {
     is_minimized: bool,
     theme: Option<Theme>,
     pub vsync: VSync,
+    background_image: Option<Image>,
     #[cfg(target_os = "macos")]
     pub macos_feature: MacosWindowFeature,
 }
@@ -113,6 +115,7 @@ impl WinitWindowWrapper {
             theme,
             transparency,
             window_blurred,
+            background_image,
             ..
         } = SETTINGS.get::<WindowSettings>();
 
@@ -164,12 +167,22 @@ impl WinitWindowWrapper {
             is_minimized: false,
             theme: None,
             vsync,
+            background_image: Self::load_image(&background_image),
             #[cfg(target_os = "macos")]
             macos_feature,
         };
 
         wrapper.set_ime(input_ime);
         wrapper
+    }
+
+    fn load_image(image: &str) -> Option<Image> {
+        if image.is_empty() {
+            None
+        } else {
+            let skia_data = Data::from_filename(std::path::Path::new(image));
+            skia_data.and_then(|data| Image::from_encoded(data))
+        }
     }
 
     pub fn toggle_fullscreen(&mut self) {
@@ -258,6 +271,9 @@ impl WinitWindowWrapper {
                 let WindowSettings { transparency, .. } = SETTINGS.get::<WindowSettings>();
                 let transparent = transparency < 1.0;
                 self.skia_renderer.window().set_blur(blur && transparent);
+            }
+            WindowSettingsChanged::BackgroundImage(image) => {
+                self.background_image = Self::load_image(&image);
             }
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::InputMacosOptionKeyIsMeta(option) => {
@@ -444,7 +460,11 @@ impl WinitWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         tracy_zone!("draw_frame");
-        self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
+        self.renderer.draw_frame(
+            self.skia_renderer.canvas(),
+            dt,
+            self.background_image.as_ref(),
+        );
         self.skia_renderer.flush();
         {
             tracy_gpu_zone!("wait for vsync");
