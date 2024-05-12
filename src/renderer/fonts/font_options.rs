@@ -16,7 +16,6 @@ const FONT_LIST_SEPARATOR: char = ',';
 const FONT_HINTING_PREFIX: &str = "#h-";
 const FONT_EDGING_PREFIX: &str = "#e-";
 const FONT_HEIGHT_PREFIX: char = 'h';
-const ALLOW_FLOAT_SIZE_OPT: char = '.';
 const FONT_WIDTH_PREFIX: char = 'w';
 const FONT_BOLD_OPT: &str = "b";
 const FONT_ITALIC_OPT: &str = "i";
@@ -109,7 +108,6 @@ pub struct FontOptions {
     pub features: HashMap<String /* family */, Vec<FontFeature> /* features */>,
     pub size: f32,
     pub width: f32,
-    pub allow_float_size: bool,
     pub hinting: FontHinting,
     pub edging: FontEdging,
 }
@@ -168,10 +166,8 @@ impl FontOptions {
             } else if let Some(edging_string) = part.strip_prefix(FONT_EDGING_PREFIX) {
                 font_options.edging = FontEdging::parse(edging_string)?;
             } else if part.starts_with(FONT_HEIGHT_PREFIX) && part.len() > 1 {
-                font_options.allow_float_size |= part[1..].contains(ALLOW_FLOAT_SIZE_OPT);
                 font_options.size = parse_pixels(part).map_err(|_| INVALID_SIZE_ERR)?;
             } else if part.starts_with(FONT_WIDTH_PREFIX) && part.len() > 1 {
-                font_options.allow_float_size |= part[1..].contains(ALLOW_FLOAT_SIZE_OPT);
                 font_options.width = parse_pixels(part).map_err(|_| INVALID_WIDTH_ERR)?;
             } else if part == FONT_BOLD_OPT {
                 style.push("Bold".to_string());
@@ -185,7 +181,7 @@ impl FontOptions {
             Some(style.into_iter().unique().sorted().join(" "))
         };
         for font in font_options.normal.iter_mut() {
-            font.style = style.clone();
+            font.style.clone_from(&style);
         }
 
         Ok(font_options)
@@ -238,7 +234,6 @@ impl Default for FontOptions {
             bold: None,
             bold_italic: None,
             features: HashMap::new(),
-            allow_float_size: false,
             size: points_to_pixels(DEFAULT_FONT_SIZE),
             width: 0.0,
             hinting: FontHinting::default(),
@@ -255,7 +250,7 @@ impl PartialEq for FontOptions {
             && self.bold_italic == other.bold_italic
             && self.features == other.features
             && self.edging == other.edging
-            && (self.size - other.size).abs() < std::f32::EPSILON
+            && (self.size - other.size).abs() < f32::EPSILON
             && self.hinting == other.hinting
     }
 }
@@ -303,10 +298,10 @@ impl FontEdging {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Default)]
 pub enum FontHinting {
-    #[default]
     Full,
     Normal,
     Slight,
+    #[default]
     None,
 }
 
@@ -323,7 +318,7 @@ impl FontHinting {
     }
 }
 
-fn points_to_pixels(value: f32) -> f32 {
+pub fn points_to_pixels(value: f32) -> f32 {
     // Fonts in neovim are using points, not pixels.
     //
     // Skia docs is incorrectly stating it uses points, but uses pixels:
@@ -334,14 +329,17 @@ fn points_to_pixels(value: f32) -> f32 {
     //
     // In reality, this depends on DPI/PPI of monitor, but here we only care about converting
     // from points to pixels, so this is standard constant values.
-    if cfg!(target_os = "macos") {
+    let pixels = if cfg!(target_os = "macos") {
         // On macos points == pixels
         value
     } else {
         let pixels_per_inch = 96.0;
         let points_per_inch = 72.0;
         value * (pixels_per_inch / points_per_inch)
-    }
+    };
+
+    log::info!("point_to_pixels {value} -> {pixels}");
+    pixels
 }
 
 impl FontDescription {
@@ -552,12 +550,6 @@ mod tests {
             font_options.size, font_size_pixels,
             "font size should equal {}, but {}",
             font_size_pixels, font_options.size,
-        );
-
-        assert_eq!(
-            font_options.allow_float_size, true,
-            "allow float size should equal {}, but {}",
-            true, font_options.allow_float_size,
         );
 
         for font in font_options.normal.iter() {

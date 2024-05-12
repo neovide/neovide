@@ -164,20 +164,4 @@ local function setup_autocommand()
     })
 end
 
-
-local function entry(function_name, ...)
-    local api_metadata = vim.fn.api_info()
-    local has_msg_intro = vim.tbl_contains(api_metadata.ui_events, function(v)
-        return v.name == "msg_intro"
-    end, { predicate = true })
-
-    if has_msg_intro then
-        if function_name == "show_intro" then
-            show_intro({...})
-        end
-    elseif function_name == "setup_autocommand" then
-        setup_autocommand()
-    end
-end
-
-entry(...)
+setup_autocommand()

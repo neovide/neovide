@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
-use log::info;
 use nvim_rs::Neovim;
 use rmpv::Value;
 
+use super::api_info::{parse_api_info, ApiInformation};
 use super::setup_intro_message_autocommand;
 use crate::{
     bridge::NeovimWriter,
@@ -11,9 +11,20 @@ use crate::{
 
 const INIT_LUA: &str = include_str!("../../lua/init.lua");
 
+pub async fn get_api_information(nvim: &Neovim<NeovimWriter>) -> Result<ApiInformation> {
+    // Retrieve the channel number for communicating with neovide.
+    let api_info = nvim
+        .get_api_info()
+        .await
+        .context("Error getting API info")?;
+
+    parse_api_info(&api_info).context("Failed to parse Neovim api information")
+}
+
 pub async fn setup_neovide_specific_state(
     nvim: &Neovim<NeovimWriter>,
     should_handle_clipboard: bool,
+    api_information: &ApiInformation,
 ) -> Result<()> {
     // Set variable indicating to user config that neovide is being used.
     nvim.set_var("neovide", Value::Boolean(true))
@@ -44,22 +55,6 @@ pub async fn setup_neovide_specific_state(
     .await
     .context("Error setting client info")?;
 
-    // Retrieve the channel number for communicating with neovide.
-    let api_info = nvim
-        .get_api_info()
-        .await
-        .context("Error getting API info")?;
-
-    let neovide_channel = api_info[0]
-        .as_u64()
-        .context("Neovide could not find the correct channel id")?;
-
-    info!(
-        "Neovide registered to nvim with channel id {}",
-        neovide_channel
-    );
-    let neovide_channel = Value::from(neovide_channel);
-
     let register_clipboard = should_handle_clipboard;
     let register_right_click = cfg!(target_os = "windows");
 
@@ -80,7 +75,10 @@ pub async fn setup_neovide_specific_state(
         .collect::<Vec<_>>();
 
     let args = Value::from(vec![
-        (Value::from("neovide_channel_id"), neovide_channel),
+        (
+            Value::from("neovide_channel_id"),
+            Value::from(api_information.channel),
+        ),
         (
             Value::from("register_clipboard"),
             Value::from(register_clipboard),
@@ -100,9 +98,11 @@ pub async fn setup_neovide_specific_state(
         .await
         .context("Error when running Neovide init.lua")?;
 
-    setup_intro_message_autocommand(nvim)
-        .await
-        .context("Error setting up intro message")?;
+    if !api_information.version.has_version(0, 10, 0) {
+        setup_intro_message_autocommand(nvim)
+            .await
+            .context("Error setting up intro message")?;
+    }
 
     Ok(())
 }

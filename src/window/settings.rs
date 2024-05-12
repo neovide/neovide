@@ -1,3 +1,6 @@
+#[cfg(target_os = "macos")]
+use {log::error, rmpv::Value};
+
 use crate::{cmd_line::CmdLineSettings, settings::*};
 
 #[derive(Clone, SettingGroup, PartialEq)]
@@ -24,7 +27,10 @@ pub struct WindowSettings {
     pub padding_right: u32,
     pub padding_bottom: u32,
     pub theme: String,
+    #[cfg(target_os = "macos")]
     pub input_macos_alt_is_meta: bool,
+    #[cfg(target_os = "macos")]
+    pub input_macos_option_key_is_meta: OptionAsMeta,
     pub input_ime: bool,
     pub unlink_border_highlights: bool,
     pub show_border: bool,
@@ -62,13 +68,60 @@ impl Default for WindowSettings {
             padding_right: 0,
             padding_bottom: 0,
             theme: "".to_string(),
+            #[cfg(target_os = "macos")]
             input_macos_alt_is_meta: false,
+            #[cfg(target_os = "macos")]
+            input_macos_option_key_is_meta: OptionAsMeta::None,
             input_ime: true,
             mouse_move_event: false,
             observed_lines: None,
             observed_columns: None,
             unlink_border_highlights: true,
             show_border: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(target_os = "macos")]
+pub enum OptionAsMeta {
+    OnlyLeft,
+    OnlyRight,
+    Both,
+    None,
+}
+
+#[cfg(target_os = "macos")]
+impl ParseFromValue for OptionAsMeta {
+    fn parse_from_value(&mut self, value: Value) {
+        if value.is_str() {
+            *self = match value.as_str().unwrap() {
+                "only_left" => OptionAsMeta::OnlyLeft,
+                "only_right" => OptionAsMeta::OnlyRight,
+                "both" => OptionAsMeta::Both,
+                "none" => OptionAsMeta::None,
+                value => {
+                    error!("Setting OptionAsMeta expected one of `only_left`, `only_right`, `both`, or `none`, but received {:?}", value);
+                    return;
+                }
+            };
+        } else {
+            error!(
+                "Setting OptionAsMeta expected string, but received {:?}",
+                value
+            );
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+impl From<OptionAsMeta> for Value {
+    fn from(meta: OptionAsMeta) -> Self {
+        match meta {
+            OptionAsMeta::OnlyLeft => Value::from("only_left"),
+            OptionAsMeta::OnlyRight => Value::from("only_right"),
+            OptionAsMeta::Both => Value::from("both"),
+            OptionAsMeta::None => Value::from("none"),
         }
     }
 }

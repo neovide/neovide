@@ -1,20 +1,16 @@
-use std::sync::Mutex;
+use std::sync::OnceLock;
 
 use log::trace;
 
 use anyhow::{Context, Result};
 use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim, Value};
 use strum::AsRefStr;
-use tokio::sync::{
-    mpsc::{unbounded_channel, UnboundedReceiver},
-    OnceCell,
-};
+use tokio::sync::mpsc::unbounded_channel;
 
-use super::{show_error_message, show_intro_message};
+use super::show_error_message;
 use crate::{
-    bridge::NeovimWriter,
+    bridge::{ApiInformation, NeovimWriter},
     profiling::{tracy_dynamic_zone, tracy_fiber_enter, tracy_fiber_leave},
-    running_tracker::RUNNING_TRACKER,
     LoggingSender,
 };
 
@@ -46,56 +42,13 @@ pub enum SerialCommand {
     },
 }
 
-fn has_nvim_version(metadata: &Value, major: i64, minor: i64) -> bool {
-    if let Some(map) = metadata.as_map() {
-        if let Some(Some(y)) = map
-            .iter()
-            .find(|&(k, _)| k.as_str() == Some("version"))
-            .map(|(_, value)| value.as_map())
-        {
-            let mut actual_major: i64 = -1;
-            let mut actual_minor: i64 = -1;
-            for (k, v) in y {
-                match (k.as_str(), v.as_i64()) {
-                    (Some("major"), Some(v)) => actual_major = v,
-                    (Some("minor"), Some(v)) => actual_minor = v,
-                    _ => {}
-                }
-            }
-            log::trace!("actual nvim version: {actual_major}.{actual_minor}");
-            log::trace!("expect nvim version: {major}.{minor}");
-            let ret = actual_major > major || (actual_major == major && actual_minor >= minor);
-            log::trace!("has desired nvim version: {ret}");
-            return ret;
-        }
-    }
-    false
-}
-
 impl SerialCommand {
-    async fn execute(self, nvim: &Neovim<NeovimWriter>) {
+    async fn execute(self, nvim: &Neovim<NeovimWriter>, has_x_buttons: bool) {
         // Don't panic here unless there's absolutely no chance of continuing the program, Instead
         // just log the error and hope that it's something temporary or recoverable A normal reason
         // for failure is when neovim has already quit, and a command, for example mouse move is
         // being sent
-        static HAS_X: OnceCell<bool> = OnceCell::const_new();
         log::trace!("In Serial Command");
-        let has_x = HAS_X
-            .get_or_init(|| async {
-                log::trace!("Requesting nvim version");
-                match nvim.get_api_info().await.as_deref() {
-                    Ok([_, metadata]) if metadata.is_map() => has_nvim_version(metadata, 0, 10),
-                    Err(e) => {
-                        log::warn!("Failed to get neovim api info: {e}");
-                        false
-                    }
-                    Ok(v) => {
-                        log::warn!("Unrecogonized API metadata format {:?}", v);
-                        false
-                    }
-                }
-            })
-            .await;
         let result = match self {
             SerialCommand::Keyboard(input_command) => {
                 trace!("Keyboard Input Sent: {}", input_command);
@@ -111,7 +64,7 @@ impl SerialCommand {
                 position: (grid_x, grid_y),
                 modifier_string,
             } => match &*button {
-                "x1" | "x2" if !has_x => {
+                "x1" | "x2" if !has_x_buttons => {
                     log::debug!("Ignoring unsupported {button} mouse event");
                     Ok(())
                 }
@@ -150,7 +103,7 @@ impl SerialCommand {
                 position: (grid_x, grid_y),
                 modifier_string,
             } => match &*button {
-                "x1" | "x2" if !has_x => Ok(()),
+                "x1" | "x2" if !has_x_buttons => Ok(()),
                 _ => nvim
                     .input_mouse(
                         &button,
@@ -180,7 +133,6 @@ pub enum ParallelCommand {
     FocusGained,
     DisplayAvailableFonts(Vec<String>),
     SetBackground(String),
-    ShowIntro { message: Vec<String> },
     ShowError { lines: Vec<String> },
 }
 
@@ -273,9 +225,6 @@ impl ParallelCommand {
             ParallelCommand::DisplayAvailableFonts(fonts) => display_available_fonts(nvim, fonts)
                 .await
                 .context("DisplayAvailableFonts failed"),
-            ParallelCommand::ShowIntro { message } => show_intro_message(nvim, &message)
-                .await
-                .context("ShowIntro failed"),
 
             ParallelCommand::ShowError { lines } => {
                 // nvim.err_write(&message).await.ok();
@@ -321,31 +270,17 @@ impl AsRef<str> for UiCommand {
     }
 }
 
-struct UIChannels {
-    sender: LoggingSender<UiCommand>,
-    receiver: Mutex<Option<UnboundedReceiver<UiCommand>>>,
-}
+static UI_COMMAND_CHANNEL: OnceLock<LoggingSender<UiCommand>> = OnceLock::new();
 
-impl UIChannels {
-    fn new() -> Self {
-        let (sender, receiver) = unbounded_channel();
-        Self {
-            sender: LoggingSender::attach(sender, "UICommand"),
-            receiver: Mutex::new(Some(receiver)),
-        }
-    }
-}
-
-lazy_static! {
-    static ref UI_CHANNELS: UIChannels = UIChannels::new();
-}
-
-pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>) {
+pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, api_information: &ApiInformation) {
     let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
     let ui_command_nvim = nvim.clone();
+    let (sender, mut ui_command_receiver) = unbounded_channel();
+    UI_COMMAND_CHANNEL
+        .set(LoggingSender::attach(sender, "UIComand"))
+        .expect("The UI command channel is already created");
     tokio::spawn(async move {
-        let mut ui_command_receiver = UI_CHANNELS.receiver.lock().unwrap().take().unwrap();
-        while RUNNING_TRACKER.is_running() {
+        loop {
             match ui_command_receiver.recv().await {
                 Some(UiCommand::Serial(serial_command)) => {
                     tracy_dynamic_zone!(serial_command.as_ref());
@@ -359,16 +294,17 @@ pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>) {
                         parallel_command.execute(&ui_command_nvim).await;
                     });
                 }
-                None => {
-                    RUNNING_TRACKER.quit("ui command channel failed");
-                }
+                None => break,
             }
         }
+        log::info!("ui command receiver finished");
     });
+
+    let has_x_buttons = api_information.version.has_version(0, 10, 0);
 
     tokio::spawn(async move {
         tracy_fiber_enter!("Serial command");
-        while RUNNING_TRACKER.is_running() {
+        loop {
             tracy_fiber_leave();
             let res = serial_rx.recv().await;
             tracy_fiber_enter!("Serial command");
@@ -376,14 +312,13 @@ pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>) {
                 Some(serial_command) => {
                     tracy_dynamic_zone!(serial_command.as_ref());
                     tracy_fiber_leave();
-                    serial_command.execute(&nvim).await;
+                    serial_command.execute(&nvim, has_x_buttons).await;
                     tracy_fiber_enter!("Serial command");
                 }
-                None => {
-                    RUNNING_TRACKER.quit("serial ui command channel failed");
-                }
+                None => break,
             }
         }
+        log::info!("serial command receiver finished");
     });
 }
 
@@ -392,5 +327,8 @@ where
     T: Into<UiCommand>,
 {
     let command: UiCommand = command.into();
-    let _ = UI_CHANNELS.sender.send(command);
+    let _ = UI_COMMAND_CHANNEL
+        .get()
+        .expect("The UI command channel has not been initialized")
+        .send(command);
 }

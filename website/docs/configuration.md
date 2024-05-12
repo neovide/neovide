@@ -71,10 +71,10 @@ as such it's also documented in `:h guifont`. But to sum it up and also add Neov
       - alias
     - `#h-X` (available since 0.10.2) - Sets level of glyph outline adjustment, while `X` is
       a type of hinting:
-      - full (default)
+      - full
       - normal
       - slight
-      - none
+      - none (default)
 - Some examples:
   - `Hack,Noto_Color_Emoji:h12:b` — Hack at size 12 in bold, with Noto Color Emoji as fallback
     should Hack fail to contain any glyph.
@@ -118,6 +118,32 @@ whole font definition. Very useful for presentations. See [the FAQ section about
 this][scale-runtime] for a nice recipe to bind this to a hotkey.
 
 [scale-runtime]: faq.md#how-can-i-dynamically-change-the-scale-at-runtime
+
+#### Text Gamma and Contrast
+
+VimScript:
+
+```vim
+let g:neovide_text_gamma = 0.0
+let g:neovide_text_contrast = 0.5
+```
+
+Lua:
+
+```lua
+vim.g.neovide_text_gamma = 0.0
+vim.g.neovide_text_contrast = 0.5
+```
+
+**Unreleased yet.**
+
+You can fine tune the gamma and contrast of the text to your liking. The defaults is a good
+compromise that gives readable text on all backgrounds and an accurate color representation. But if
+that doesn't suit you, and you want to emulate the Alacritty font rendering for example you can use
+a gamma of 0.8 and a contrast of 0.1.
+
+Note a gamma of 0.0, means standard sRGB gamma or 2.2. Also note that these settings don't
+necessarily apply immediately due to caching of the fonts.
 
 #### Padding
 
@@ -546,18 +572,20 @@ corner.
 
 ### Input Settings
 
-#### macOS Alt is Meta
+#### macOS Option Key is Meta
+
+Possible values are `both`, `only_left`, `only_right`, `none`. Set to `none` by default.
 
 VimScript:
 
 ```vim
-let g:neovide_input_macos_alt_is_meta = v:false
+let g:neovide_input_macos_option_key_is_meta = 'only_left'
 ```
 
 Lua:
 
 ```lua
-vim.g.neovide_input_macos_alt_is_meta = false
+vim.g.neovide_input_macos_option_key_is_meta = 'only_left'
 ```
 
 **Available since 0.10.**
@@ -780,6 +808,24 @@ Specify cursor outline width in `em`s. You probably want this to be a positive v
 If the value is \<=0 then the cursor will be invisible. This setting takes effect when the editor
 window is unfocused, at which time a block cursor will be rendered as an outline instead of as a
 full rectangle.
+
+#### Animate cursor blink
+
+VimScript:
+
+```vim
+let g:neovide_cursor_smooth_blink = v:false
+```
+
+Lua:
+
+```lua
+vim.g.neovide_cursor_smooth_blink = false
+```
+
+If enabled, the cursor will smoothly animate the transition between the cursor's on and off state.
+The built in `guicursor` neovim option needs to be configured to enable blinking by having a value
+set for both `blinkoff`, `blinkon` and `blinkwait` for this setting to apply.
 
 ### Cursor Particles
 

@@ -34,6 +34,7 @@ idle = true
 neovim-bin = "/usr/bin/nvim" # in reality found dynamically on $PATH if unset
 frame = "full"
 title-hidden = true
+tabs = true
 ```
 
 Settings from environment variables can be found in [Command Line Reference](command-line-reference.md),
@@ -54,11 +55,10 @@ see that doc for details on what those settings do.
 - `features`: optional, `{ "<font>" = ["<string>"] }`
 - `size`: required,
 - `width`: optional,
-- `allow_float_size`: optional,
 - `hinting`: optional,
 - `edging`: optional,
 
-Settings `size`, `width`, `allow_float_size`, `hinting` and `edging` can be found in
+Settings `size`, `width`, `hinting` and `edging` can be found in
 [Configuration](configuration.md).
 
 - `FontDescription` can be:

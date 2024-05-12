@@ -198,7 +198,7 @@ mod tests {
         assert_eq!(grid.get_cell(x, y), cell);
     }
 
-    fn create_initialized_grid(lines: &Vec<&str>) -> CharacterGrid {
+    fn create_initialized_grid(lines: &[&str]) -> CharacterGrid {
         let num_lines = lines.len();
         assert_ne!(num_lines, 0);
         let line_lengths: Vec<usize> = lines.iter().map(|s| s.len()).collect();
@@ -342,7 +342,7 @@ mod tests {
 
     #[test]
     fn scroll_down_moves_the_grid_correctly() {
-        let mut grid = create_initialized_grid(&["abcd", "efgh", "ijkl", "mnop"].to_vec());
+        let mut grid = create_initialized_grid(["abcd", "efgh", "ijkl", "mnop"].as_ref());
 
         grid.scroll_region(0, 4, 0, 4, 2, 0);
         assert_grid_cell_contents(&grid, 0, 0, "i");
@@ -352,7 +352,7 @@ mod tests {
 
     #[test]
     fn scroll_up_moves_the_grid_correctly() {
-        let mut grid = create_initialized_grid(&["abcd", "efgh", "ijkl", "mnop"].to_vec());
+        let mut grid = create_initialized_grid(["abcd", "efgh", "ijkl", "mnop"].as_ref());
 
         grid.scroll_region(0, 4, 0, 4, -2, 0);
         assert_grid_cell_contents(&grid, 0, 2, "a");
@@ -362,7 +362,7 @@ mod tests {
 
     #[test]
     fn partial_scroll_lines_down_moves_the_grid_correctly() {
-        let mut grid = create_initialized_grid(&["abcd", "efgh", "ijkl", "mnop"].to_vec());
+        let mut grid = create_initialized_grid(["abcd", "efgh", "ijkl", "mnop"].as_ref());
 
         grid.scroll_region(1, 3, 0, 4, 1, 0);
         // The initial line is not touched
@@ -377,7 +377,7 @@ mod tests {
 
     #[test]
     fn partial_scroll_lines_up_moves_the_grid_correctly() {
-        let mut grid = create_initialized_grid(&["abcd", "efgh", "ijkl", "mnop"].to_vec());
+        let mut grid = create_initialized_grid(["abcd", "efgh", "ijkl", "mnop"].as_ref());
 
         grid.scroll_region(1, 3, 0, 4, -1, 0);
         // The initial line is not touched
@@ -392,7 +392,7 @@ mod tests {
 
     #[test]
     fn scroll_left_moves_the_grid_correctly() {
-        let mut grid = create_initialized_grid(&["abcd", "efgh", "ijkl", "mnop"].to_vec());
+        let mut grid = create_initialized_grid(["abcd", "efgh", "ijkl", "mnop"].as_ref());
 
         grid.scroll_region(0, 4, 0, 4, 0, 1);
         assert_grid_cell_contents(&grid, 0, 0, "b");
@@ -401,7 +401,7 @@ mod tests {
 
     #[test]
     fn scroll_right_moves_the_grid_correctly() {
-        let mut grid = create_initialized_grid(&["abcd", "efgh", "ijkl", "mnop"].to_vec());
+        let mut grid = create_initialized_grid(["abcd", "efgh", "ijkl", "mnop"].as_ref());
 
         grid.scroll_region(0, 4, 0, 4, 0, -3);
         assert_grid_cell_contents(&grid, 3, 0, "a");
@@ -410,7 +410,7 @@ mod tests {
 
     #[test]
     fn scroll_inner_box_diagonally_moves_the_grid_correctly() {
-        let mut grid = create_initialized_grid(&["abcd", "efgh", "ijkl", "mnop"].to_vec());
+        let mut grid = create_initialized_grid(["abcd", "efgh", "ijkl", "mnop"].as_ref());
 
         grid.scroll_region(1, 3, 1, 3, 1, 1);
         // The first row is preserved
@@ -432,7 +432,7 @@ mod tests {
 
     #[test]
     fn scrolling_one_screen_down_works() {
-        let mut grid = create_initialized_grid(&["1", "2", "3", "4"].to_vec());
+        let mut grid = create_initialized_grid(["1", "2", "3", "4"].as_ref());
         // Scroll down one screen
         grid.scroll_region(0, 4, 0, 1, 4, 0);
         set_grid_line_to_chars(&mut grid, 0, "5");
@@ -443,7 +443,7 @@ mod tests {
 
     #[test]
     fn scrolling_more_than_one_screen_down_works_makes_a_small_jump() {
-        let mut grid = create_initialized_grid(&["1", "2", "3", "4"].to_vec());
+        let mut grid = create_initialized_grid(["1", "2", "3", "4"].as_ref());
         // Scroll down one screen
         grid.scroll_region(0, 4, 0, 1, 4, 0);
         set_grid_line_to_chars(&mut grid, 0, "5");
@@ -454,7 +454,7 @@ mod tests {
 
     #[test]
     fn scrolling_one_screen_up_works() {
-        let mut grid = create_initialized_grid(&["5", "6", "7", "8"].to_vec());
+        let mut grid = create_initialized_grid(["5", "6", "7", "8"].as_ref());
         // Scroll up one screen
         grid.scroll_region(0, 4, 0, 1, -4, 0);
         set_grid_line_to_chars(&mut grid, 0, "1");
@@ -465,7 +465,7 @@ mod tests {
 
     #[test]
     fn scrolling_more_than_one_screen_up_works_makes_a_small_jump() {
-        let mut grid = create_initialized_grid(&["5", "6", "7", "8"].to_vec());
+        let mut grid = create_initialized_grid(["5", "6", "7", "8"].as_ref());
         // Scroll up one screen
         grid.scroll_region(0, 4, 0, 1, -4, 0);
         set_grid_line_to_chars(&mut grid, 0, "1");

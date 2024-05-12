@@ -5,7 +5,7 @@ use tokio::sync::mpsc::{error::SendError as TokioSendError, UnboundedSender};
 
 use crate::profiling::tracy_dynamic_zone;
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct LoggingSender<T>
 where
     T: Debug + AsRef<str>,

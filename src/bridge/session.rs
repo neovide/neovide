@@ -1,6 +1,8 @@
 //! This module contains adaptations of the functions found in
 //! https://github.com/KillTheMule/nvim-rs/blob/master/src/create/tokio.rs
 
+#[cfg(debug_assertions)]
+use core::fmt;
 use std::{
     io::{Error, ErrorKind, Result},
     process::Stdio,
@@ -10,7 +12,7 @@ use nvim_rs::{error::LoopError, neovim::Neovim, Handler};
 use tokio::{
     io::{split, AsyncRead, AsyncWrite},
     net::TcpStream,
-    process::Command,
+    process::{Child, Command},
     spawn,
     task::JoinHandle,
 };
@@ -24,6 +26,16 @@ type BoxedWriter = Box<dyn AsyncWrite + Send + Unpin + 'static>;
 pub struct NeovimSession {
     pub neovim: Neovim<NeovimWriter>,
     pub io_handle: JoinHandle<std::result::Result<(), Box<LoopError>>>,
+    pub neovim_process: Option<Child>,
+}
+
+#[cfg(debug_assertions)]
+impl fmt::Debug for NeovimSession {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("NeovimSession")
+            .field("io_handle", &self.io_handle)
+            .finish()
+    }
 }
 
 impl NeovimSession {
@@ -31,12 +43,16 @@ impl NeovimSession {
         instance: NeovimInstance,
         handler: impl Handler<Writer = NeovimWriter>,
     ) -> Result<Self> {
-        let (reader, writer) = instance.connect().await?;
+        let (reader, writer, neovim_process) = instance.connect().await?;
         let (neovim, io) =
             Neovim::<NeovimWriter>::new(reader.compat(), Box::new(writer.compat_write()), handler);
         let io_handle = spawn(io);
 
-        Ok(Self { neovim, io_handle })
+        Ok(Self {
+            neovim,
+            io_handle,
+            neovim_process,
+        })
     }
 }
 
@@ -55,14 +71,16 @@ pub enum NeovimInstance {
 }
 
 impl NeovimInstance {
-    async fn connect(self) -> Result<(BoxedReader, BoxedWriter)> {
+    async fn connect(self) -> Result<(BoxedReader, BoxedWriter, Option<Child>)> {
         match self {
             NeovimInstance::Embedded(cmd) => Self::spawn_process(cmd).await,
-            NeovimInstance::Server { address } => Self::connect_to_server(address).await,
+            NeovimInstance::Server { address } => Self::connect_to_server(address)
+                .await
+                .map(|(reader, writer)| (reader, writer, None)),
         }
     }
 
-    async fn spawn_process(mut cmd: Command) -> Result<(BoxedReader, BoxedWriter)> {
+    async fn spawn_process(mut cmd: Command) -> Result<(BoxedReader, BoxedWriter, Option<Child>)> {
         let mut child = cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).spawn()?;
         let reader = Box::new(
             child
@@ -77,7 +95,7 @@ impl NeovimInstance {
                 .ok_or_else(|| Error::new(ErrorKind::Other, "Can't open stdin"))?,
         );
 
-        Ok((reader, writer))
+        Ok((reader, writer, Some(child)))
     }
 
     async fn connect_to_server(address: String) -> Result<(BoxedReader, BoxedWriter)> {
