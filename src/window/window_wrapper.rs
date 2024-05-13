@@ -181,7 +181,7 @@ impl WinitWindowWrapper {
             None
         } else {
             let skia_data = Data::from_filename(std::path::Path::new(image));
-            skia_data.and_then(|data| Image::from_encoded(data))
+            skia_data.and_then(Image::from_encoded)
         }
     }
 
@@ -272,8 +272,8 @@ impl WinitWindowWrapper {
                 let transparent = transparency < 1.0;
                 self.skia_renderer.window().set_blur(blur && transparent);
             }
-            WindowSettingsChanged::BackgroundImage(image) => {
-                self.background_image = Self::load_image(&image);
+            WindowSettingsChanged::BackgroundImage(ref image) => {
+                self.background_image = Self::load_image(image);
             }
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::InputMacosOptionKeyIsMeta(option) => {

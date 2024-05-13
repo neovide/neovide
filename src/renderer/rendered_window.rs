@@ -17,6 +17,11 @@ use crate::{
     utils::RingBuffer,
 };
 
+pub struct Background<'a> {
+    pub color: Color,
+    pub image: Option<&'a Image>,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct LineFragment {
     pub text: String,
@@ -362,8 +367,8 @@ impl RenderedWindow {
         canvas.draw_image_rect(
             image,
             Some((&src_rect, SrcRectConstraint::Strict)),
-            &window_rect,
-            &paint,
+            window_rect,
+            paint,
         );
     }
 
@@ -372,8 +377,7 @@ impl RenderedWindow {
         root_canvas: &Canvas,
         settings: &RendererSettings,
         transparency: u8,
-        default_background: Color,
-        background_image: Option<&Image>,
+        background: Background,
         screen_rect: &Rect,
         grid_scale: GridScale,
     ) -> WindowDrawDetails {
@@ -425,24 +429,24 @@ impl RenderedWindow {
 
         let save_layer_rec = SaveLayerRec::default().bounds(&pixel_region).paint(&paint);
         root_canvas.save_layer(&save_layer_rec);
-        if let Some(background) = background_image {
+        if let Some(background) = background.image {
             Self::draw_window_background_image(
                 &paint,
-                &root_canvas,
-                &background,
+                root_canvas,
+                background,
                 &pixel_region,
-                &screen_rect,
+                screen_rect,
             );
         }
         let mut background_paint = Paint::default();
         background_paint.set_blend_mode(BlendMode::SrcOver);
-        background_paint.set_alpha(default_background.a());
+        background_paint.set_alpha(background.color.a());
         let background_layer_rec = SaveLayerRec::default()
             .bounds(&pixel_region)
             .paint(&background_paint);
 
         root_canvas.save_layer(&background_layer_rec);
-        root_canvas.clear(default_background.with_a(255));
+        root_canvas.clear(background.color.with_a(255));
         self.draw_background_surface(root_canvas, pixel_region_box, grid_scale);
         root_canvas.restore();
         self.draw_foreground_surface(root_canvas, pixel_region_box, grid_scale);

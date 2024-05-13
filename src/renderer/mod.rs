@@ -19,7 +19,7 @@ use std::{
 
 use itertools::Itertools;
 use log::{error, warn};
-use skia_safe::{Canvas, Data, Image, Rect};
+use skia_safe::{Canvas, Image, Rect};
 
 use winit::{
     event::Event,
@@ -31,7 +31,10 @@ use crate::{
     bridge::EditorMode,
     editor::{Cursor, Style},
     profiling::{tracy_create_gpu_context, tracy_named_frame, tracy_zone},
-    renderer::rendered_layer::{group_windows, FloatingLayer},
+    renderer::{
+        rendered_layer::{group_windows, FloatingLayer},
+        rendered_window::Background,
+    },
     settings::*,
     units::{to_skia_rect, GridPos, GridRect, GridSize, PixelPos},
     window::{ShouldRender, UserEvent},
@@ -288,8 +291,10 @@ impl Renderer {
                     root_canvas,
                     &settings,
                     (transparency * 255.0) as u8,
-                    default_background.with_a((255.0 * background_transparency) as u8),
-                    background_image,
+                    Background {
+                        color: default_background.with_a((255.0 * background_transparency) as u8),
+                        image: background_image,
+                    },
                     &screen_rect,
                     grid_scale,
                 )
