@@ -76,7 +76,7 @@ unicode-segmentation = "1.9.0"
 which = "6.0.1"
 winit = { version = "=0.29.15", features = ["serde"] }
 xdg = "2.4.1"
-notify = "6.1.1"
+notify-debouncer-full = "0.3.1"
 regex = "1.10.3"
 
 [dev-dependencies]
