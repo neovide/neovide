@@ -357,10 +357,10 @@ impl RenderedWindow {
         };
 
         // Define the source rectangle to crop the image to fill the screen
-        let src_x = offset_x;
-        let src_y = offset_y;
-        let src_width = screen_rect.width() / scale;
-        let src_height = screen_rect.height() / scale;
+        let src_x = (window_rect.left() - screen_rect.left()) / scale + offset_x;
+        let src_y = (window_rect.top() - screen_rect.top()) / scale + offset_y;
+        let src_width = window_rect.width() / scale;
+        let src_height = window_rect.height() / scale;
 
         let src_rect = Rect::from_xywh(src_x, src_y, src_width, src_height);
 
