@@ -531,8 +531,8 @@ a few auto commands:</p>
     autocmd!
     autocmd InsertLeave * execute &quot;let g:neovide_input_ime=v:false&quot;
     autocmd InsertEnter * execute &quot;let g:neovide_input_ime=v:true&quot;
-    autocmd CmdlineEnter [/\?] execute &quot;let g:neovide_input_ime=v:false&quot;
-    autocmd CmdlineLeave [/\?] execute &quot;let g:neovide_input_ime=v:true&quot;
+    autocmd CmdlineLeave [/\?] execute &quot;let g:neovide_input_ime=v:false&quot;
+    autocmd CmdlineEnter [/\?] execute &quot;let g:neovide_input_ime=v:true&quot;
 augroup END
 </code></pre>
 <pre><code class="language-lua">local function set_ime(args)
