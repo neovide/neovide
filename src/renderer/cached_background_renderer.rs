@@ -71,15 +71,15 @@ impl CachedBackgroundRenderer {
         if let Some(ref cached_image) = self.cached_image {
             if self.prev_key.as_ref() == Some(&key) {
                 // Use cached rendering
-                canvas.draw_image_rect(cached_image, None, window_rect, &Paint::default());
+                canvas.draw_image_rect(cached_image, None, window_rect, paint);
                 return;
             }
         }
 
         // Create an off-screen surface
         let mut surface = skia_safe::surfaces::raster_n32_premul(ISize::new(
-            screen_rect.width() as i32,
-            screen_rect.height() as i32,
+            window_rect.width() as i32,
+            window_rect.height() as i32,
         ))
         .expect("Failed to create surface");
         let surface_canvas = surface.canvas();
@@ -120,7 +120,7 @@ impl CachedBackgroundRenderer {
         surface_canvas.draw_image_rect(
             image,
             Some((&src_rect, SrcRectConstraint::Strict)),
-            Rect::from_wh(screen_rect.width(), screen_rect.height()),
+            Rect::from_wh(window_rect.width(), window_rect.height()),
             paint,
         );
 
