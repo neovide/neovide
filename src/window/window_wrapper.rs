@@ -33,7 +33,7 @@ use super::macos::MacosWindowFeature;
 use icrate::Foundation::MainThreadMarker;
 
 use log::trace;
-use skia_safe::{Data, Image};
+use skia_safe::{image::CachingHint, images, Bitmap, Data, IPoint, Image, ImageInfo};
 use winit::{
     dpi,
     event::{Event, WindowEvent},
@@ -180,11 +180,31 @@ impl WinitWindowWrapper {
         if image.is_empty() {
             None
         } else {
-            let skia_data = Data::from_filename(std::path::Path::new(image));
-            skia_data.and_then(Image::from_encoded)
+            let skia_data = Data::from_filename(std::path::Path::new(image))?;
+            let image = Image::from_encoded(skia_data)?;
+            let mut bitmap = Bitmap::new();
+            let image_info = ImageInfo::new_n32_premul((image.width(), image.height()), None);
+            bitmap.alloc_n32_pixels((image.width(), image.height()), Some(true));
+
+            let pixels = bitmap.pixels();
+
+            // Read the pixels from the image into the bitmap
+            let success = image.read_pixels(
+                &image_info,
+                // pixels,
+                unsafe {
+                    std::slice::from_raw_parts_mut(pixels as *mut u8, bitmap.compute_byte_size())
+                },
+                image_info.min_row_bytes(),
+                IPoint::new(0, 0),
+                CachingHint::Disallow,
+            );
+            if !success {
+                return None;
+            }
+            images::raster_from_bitmap(&bitmap)
         }
     }
-
     pub fn toggle_fullscreen(&mut self) {
         let window = self.skia_renderer.window();
         if self.fullscreen {

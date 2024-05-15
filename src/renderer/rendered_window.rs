@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use skia_safe::{
-    canvas::{SaveLayerRec, SrcRectConstraint},
+    canvas::SaveLayerRec,
     utils::shadow_utils::{draw_shadow, ShadowFlags},
     BlendMode, Canvas, ClipOp, Color, Image, Matrix, Paint, Path, Picture, PictureRecorder, Point3,
     Rect,
@@ -16,6 +16,8 @@ use crate::{
     units::{to_skia_rect, GridPos, GridRect, GridScale, GridSize, PixelRect, PixelVec},
     utils::RingBuffer,
 };
+
+use super::cached_background_renderer::CachedBackgroundRenderer;
 
 pub struct Background<'a> {
     pub color: Color,
@@ -103,6 +105,7 @@ pub struct RenderedWindow {
     pub scroll_animation: CriticallyDampedSpringAnimation,
 
     has_transparency: bool,
+    background: CachedBackgroundRenderer,
 }
 
 #[derive(Clone, Debug)]
@@ -161,6 +164,7 @@ impl RenderedWindow {
             scroll_animation: CriticallyDampedSpringAnimation::new(),
 
             has_transparency: false,
+            background: CachedBackgroundRenderer::new(),
         }
     }
 
@@ -324,54 +328,6 @@ impl RenderedWindow {
             .any(|line| line.borrow().has_transparency())
     }
 
-    fn draw_window_background_image(
-        paint: &Paint,
-        canvas: &Canvas,
-        image: &Image,
-        window_rect: &Rect,
-        screen_rect: &Rect,
-    ) {
-        let image_width = image.width() as f32;
-        let image_height = image.height() as f32;
-
-        // Calculate the cover scale factor to ensure the image covers the whole screen
-        let scale_x = screen_rect.width() / image_width;
-        let scale_y = screen_rect.height() / image_height;
-        let scale = scale_x.max(scale_y); // Use the larger scale factor to ensure the screen is covered
-
-        // Calculate new dimensions after scaling
-        let scaled_width = image_width * scale;
-        let scaled_height = image_height * scale;
-
-        // Calculate the offset to center the cropped area
-        let offset_x = if scaled_width > screen_rect.width() {
-            (scaled_width - screen_rect.width()) / 2.0 / scale
-        } else {
-            0.0
-        };
-
-        let offset_y = if scaled_height > screen_rect.height() {
-            (scaled_height - screen_rect.height()) / 2.0 / scale
-        } else {
-            0.0
-        };
-
-        // Define the source rectangle to crop the image to fill the screen
-        let src_x = (window_rect.left() - screen_rect.left()) / scale + offset_x;
-        let src_y = (window_rect.top() - screen_rect.top()) / scale + offset_y;
-        let src_width = window_rect.width() / scale;
-        let src_height = window_rect.height() / scale;
-
-        let src_rect = Rect::from_xywh(src_x, src_y, src_width, src_height);
-
-        canvas.draw_image_rect(
-            image,
-            Some((&src_rect, SrcRectConstraint::Strict)),
-            window_rect,
-            paint,
-        );
-    }
-
     pub fn draw(
         &mut self,
         root_canvas: &Canvas,
@@ -430,13 +386,20 @@ impl RenderedWindow {
         let save_layer_rec = SaveLayerRec::default().bounds(&pixel_region).paint(&paint);
         root_canvas.save_layer(&save_layer_rec);
         if let Some(background) = background.image {
-            Self::draw_window_background_image(
+            self.background.draw_window_background_image(
                 &paint,
                 root_canvas,
                 background,
                 &pixel_region,
                 screen_rect,
             );
+            // Self::draw_window_background_image(
+            //     &paint,
+            //     root_canvas,
+            //     background,
+            //     &pixel_region,
+            //     screen_rect,
+            // );
         }
         let mut background_paint = Paint::default();
         background_paint.set_blend_mode(BlendMode::SrcOver);

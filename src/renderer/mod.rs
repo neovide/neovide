@@ -1,4 +1,5 @@
 pub mod animation_utils;
+mod cached_background_renderer;
 pub mod cursor_renderer;
 pub mod fonts;
 pub mod grid_renderer;
