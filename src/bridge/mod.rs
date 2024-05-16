@@ -114,7 +114,7 @@ async fn launch(handler: NeovimHandler, grid_size: Option<GridSize<u32>>) -> Res
     setup_neovide_specific_state(&session.neovim, should_handle_clipboard, &api_information)
         .await?;
 
-    start_ui_command_handler(session.neovim.clone(), &api_information);
+    start_ui_command_handler(session.neovim.clone());
     SETTINGS.read_initial_values(&session.neovim).await?;
 
     let mut options = UiAttachOptions::new();
