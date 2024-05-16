@@ -3,7 +3,6 @@ use nvim_rs::Neovim;
 use rmpv::Value;
 
 use super::api_info::{parse_api_info, ApiInformation};
-use super::setup_intro_message_autocommand;
 use crate::{
     bridge::NeovimWriter,
     settings::{SettingLocation, SETTINGS},
@@ -97,12 +96,6 @@ pub async fn setup_neovide_specific_state(
     nvim.execute_lua(INIT_LUA, vec![args])
         .await
         .context("Error when running Neovide init.lua")?;
-
-    if !api_information.version.has_version(0, 10, 0) {
-        setup_intro_message_autocommand(nvim)
-            .await
-            .context("Error setting up intro message")?;
-    }
 
     Ok(())
 }

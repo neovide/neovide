@@ -34,7 +34,6 @@ pub use events::*;
 pub use session::NeovimWriter;
 pub use ui_commands::{send_ui, start_ui_command_handler, ParallelCommand, SerialCommand};
 
-const INTRO_MESSAGE_LUA: &str = include_str!("../../lua/intro.lua");
 const NEOVIM_REQUIRED_VERSION: &str = "0.10.0";
 
 pub struct NeovimRuntime {
@@ -48,13 +47,6 @@ fn neovim_instance() -> Result<NeovimInstance> {
         let cmd = create_nvim_command()?;
         Ok(NeovimInstance::Embedded(cmd))
     }
-}
-
-pub async fn setup_intro_message_autocommand(
-    nvim: &Neovim<NeovimWriter>,
-) -> Result<Value, Box<CallError>> {
-    let args = vec![Value::from("setup_autocommand")];
-    nvim.exec_lua(INTRO_MESSAGE_LUA, args).await
 }
 
 pub async fn show_error_message(

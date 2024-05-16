@@ -39,6 +39,7 @@ pub struct ApiVersion {
 }
 
 impl ApiVersion {
+    #[allow(dead_code)]
     pub fn has_version(&self, major: u64, minor: u64, patch: u64) -> bool {
         let actual_major = self.major;
         let actual_minor = self.minor;
