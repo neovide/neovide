@@ -444,6 +444,10 @@ impl WinitWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         tracy_zone!("draw_frame");
+        if self.font_changed_last_frame {
+            self.font_changed_last_frame = false;
+            self.renderer.prepare_lines(true);
+        }
         self.renderer.draw_frame(self.skia_renderer.canvas(), dt);
         self.skia_renderer.flush();
         {
@@ -462,7 +466,7 @@ impl WinitWindowWrapper {
             .renderer
             .animate_frame(&self.get_grid_rect_from_window(GridSize::zero()).cast(), dt);
         tracy_plot!("animate_frame", res as u8 as f64);
-        self.renderer.prepare_lines();
+        self.renderer.prepare_lines(false);
         #[allow(clippy::let_and_return)]
         res
     }
@@ -553,7 +557,6 @@ impl WinitWindowWrapper {
             if self.saved_inner_size != new_size || self.font_changed_last_frame || padding_changed
             {
                 self.window_padding = window_padding;
-                self.font_changed_last_frame = false;
                 self.saved_inner_size = new_size;
 
                 self.update_grid_size_from_window();

@@ -71,10 +71,10 @@ as such it's also documented in `:h guifont`. But to sum it up and also add Neov
       - alias
     - `#h-X` (available since 0.10.2) - Sets level of glyph outline adjustment, while `X` is
       a type of hinting:
-      - full
+      - full (default)
       - normal
       - slight
-      - none (default)
+      - none
 - Some examples:
   - `Hack,Noto_Color_Emoji:h12:b` — Hack at size 12 in bold, with Noto Color Emoji as fallback
     should Hack fail to contain any glyph.

@@ -5,7 +5,7 @@ use skia_safe::{
         BackendRenderTarget, DirectContext, FlushInfo, Protected, SurfaceOrigin, SyncCpu,
     },
     surface::BackendSurfaceAccess,
-    Canvas, ColorType, Surface,
+    Canvas, ColorSpace, ColorType, PixelGeometry, Surface, SurfaceProps, SurfacePropsFlags,
 };
 use windows::core::{Interface, Result, PCWSTR};
 use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND};
@@ -37,10 +37,10 @@ use winit::{
     window::Window,
 };
 
-use super::{vsync::VSyncWinSwapChain, SkiaRenderer, VSync};
+use super::{vsync::VSyncWinSwapChain, RendererSettings, SkiaRenderer, VSync};
 #[cfg(feature = "gpu_profiling")]
 use crate::profiling::{d3d::create_d3d_gpu_context, GpuCtx};
-use crate::{profiling::tracy_gpu_zone, window::UserEvent};
+use crate::{profiling::tracy_gpu_zone, settings::SETTINGS, window::UserEvent};
 
 fn get_hardware_adapter(factory: &IDXGIFactory4) -> Result<IDXGIAdapter1> {
     for i in 0.. {
@@ -341,13 +341,22 @@ impl D3DSkiaRenderer {
                 protected: Protected::No,
             };
 
+            let render_settings = SETTINGS.get::<RendererSettings>();
+
+            let surface_props = SurfaceProps::new_with_text_properties(
+                SurfacePropsFlags::default(),
+                PixelGeometry::default(),
+                render_settings.text_contrast,
+                render_settings.text_gamma,
+            );
+
             let surface = wrap_backend_render_target(
                 &mut self.gr_context,
                 &BackendRenderTarget::new_d3d(size, &info),
                 SurfaceOrigin::TopLeft,
                 ColorType::RGBA8888,
-                None,
-                None,
+                ColorSpace::new_srgb(),
+                Some(surface_props).as_ref(),
             )
             .expect("Could not create backend render target");
             self.surfaces.push(surface);
