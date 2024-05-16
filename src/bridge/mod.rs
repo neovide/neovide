@@ -35,7 +35,7 @@ pub use session::NeovimWriter;
 pub use ui_commands::{send_ui, start_ui_command_handler, ParallelCommand, SerialCommand};
 
 const INTRO_MESSAGE_LUA: &str = include_str!("../../lua/intro.lua");
-const NEOVIM_REQUIRED_VERSION: &str = "0.9.2";
+const NEOVIM_REQUIRED_VERSION: &str = "0.10.0";
 
 pub struct NeovimRuntime {
     runtime: Runtime,
