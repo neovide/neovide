@@ -135,7 +135,7 @@ vim.g.neovide_text_gamma = 0.0
 vim.g.neovide_text_contrast = 0.5
 ```
 
-**Unreleased yet.**
+**Available since 0.13.0.**
 
 You can fine tune the gamma and contrast of the text to your liking. The defaults is a good
 compromise that gives readable text on all backgrounds and an accurate color representation. But if
@@ -588,7 +588,7 @@ Lua:
 vim.g.neovide_input_macos_option_key_is_meta = 'only_left'
 ```
 
-**Available since 0.10.**
+**Available since 0.13.0.**
 
 Interprets <kbd>Alt</kbd> + <kbd>whatever</kbd> actually as `<M-whatever>`, instead of sending the
 actual special character to Neovim.
