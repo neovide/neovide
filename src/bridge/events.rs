@@ -9,9 +9,7 @@ use rmpv::Value;
 use skia_safe::Color4f;
 use strum::AsRefStr;
 
-use crate::editor::{
-    Colors, CursorMode, CursorShape, HighlightInfo, HighlightKind, Style, UnderlineStyle,
-};
+use crate::editor::{Colors, CursorMode, CursorShape, Style, UnderlineStyle};
 
 #[derive(Clone, Debug)]
 pub enum ParseError {
@@ -503,7 +501,7 @@ fn parse_default_colors(default_colors_arguments: Vec<Value>) -> Result<RedrawEv
     })
 }
 
-fn parse_style(style_map: Value, info_array: Value) -> Result<Style> {
+fn parse_style(style_map: Value, _info_array: Value) -> Result<Style> {
     let attributes = parse_map(style_map)?;
 
     let mut style = Style::new(Colors::new(None, None, None));
@@ -551,67 +549,7 @@ fn parse_style(style_map: Value, info_array: Value) -> Result<Style> {
         }
     }
 
-    style.infos = parse_array(info_array)?
-        .into_iter()
-        .map(parse_highlight_info)
-        .collect::<Result<Vec<_>>>()?;
-
     Ok(style)
-}
-
-fn parse_highlight_info(info_map: Value) -> Result<HighlightInfo> {
-    let attributes = parse_map(info_map)?;
-
-    let mut kind = None;
-    let mut ui_name = None;
-    let mut hi_name = None;
-    let mut id = None;
-
-    for attribute in attributes {
-        if let (Value::String(name), value) = attribute {
-            match (name.as_str().unwrap(), value) {
-                ("kind", value) => {
-                    let kind_str = parse_string(value)?;
-                    match kind_str.as_str() {
-                        "ui" => kind = Some(HighlightKind::Ui),
-                        "syntax" => kind = Some(HighlightKind::Syntax),
-                        // The documentation says terminal but Neovim 0.9.4 sends term...
-                        "terminal" | "term" => kind = Some(HighlightKind::Terminal),
-                        _ => return Err(ParseError::Format("Invalid highlight kind".to_string())),
-                    }
-                }
-                ("ui_name", value) => ui_name = Some(parse_string(value)?),
-                ("hi_name", value) => hi_name = Some(parse_string(value)?),
-                ("id", value) => id = Some(parse_u64(value)?),
-                _ => debug!("Ignored highlight info attribute: {}", name),
-            }
-        } else {
-            return Err(ParseError::Format(
-                "Invalid highlight info format".to_string(),
-            ));
-        }
-    }
-    let kind = kind.ok_or(ParseError::Format(
-        "kind field not found in highlight info".to_string(),
-    ))?;
-    let ui_name = if kind == HighlightKind::Ui {
-        ui_name.ok_or(ParseError::Format(
-            "ui_name field not found in highlight info".to_string(),
-        ))?
-    } else {
-        String::default()
-    };
-    // hi_name can actually be absent for terminal, even though the documentation indicates otherwise
-    let hi_name = hi_name.unwrap_or_default();
-    let id = id.ok_or(ParseError::Format(
-        "id field not found in highlight info".to_string(),
-    ))?;
-    Ok(HighlightInfo {
-        kind,
-        ui_name,
-        hi_name,
-        id,
-    })
 }
 
 fn parse_hl_attr_define(hl_attr_define_arguments: Vec<Value>) -> Result<RedrawEvent> {

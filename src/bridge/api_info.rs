@@ -39,6 +39,7 @@ pub struct ApiVersion {
 }
 
 impl ApiVersion {
+    #[allow(dead_code)]
     pub fn has_version(&self, major: u64, minor: u64, patch: u64) -> bool {
         let actual_major = self.major;
         let actual_minor = self.minor;
@@ -177,6 +178,7 @@ pub struct ApiInformation {
 }
 
 impl ApiInformation {
+    #[allow(dead_code)]
     pub fn has_event(&self, event_name: &str) -> bool {
         self.ui_events.iter().any(|event| event.name == event_name)
     }
@@ -201,7 +203,8 @@ fn parse_version(value: ValueRef) -> std::result::Result<ApiVersion, ApiInfoPars
             Some("prerelease") => prerelease = Some(v.try_into()?),
             Some("api_level") => api_level = Some(v.try_into()?),
             Some("api_compatible") => api_compatible = Some(v.try_into()?),
-            Some("api_prerelease") => api_prerelase = Some(v.try_into()?),
+            // api_prerelease should be a boolean value, but Neovim 0.10.0 sets it to nil for some reason, so assume nil means release
+            Some("api_prerelease") => api_prerelase = Some(!v.to_owned().is_nil() && v.try_into()?),
             _ => {}
         }
     }

@@ -111,25 +111,3 @@ vim.api.nvim_create_autocmd({ "VimLeavePre" }, {
         rpcrequest("neovide.quit", vim.v.exiting)
     end
 })
-
-local function unlink_highlight(name)
-    local highlight = vim.api.nvim_get_hl(0, {name=name, link=false})
-    vim.api.nvim_set_hl(0, name, highlight)
-end
-
--- Neovim only reports the final highlight group in the ext_hlstate information
--- So we need to unlink all the groups when the color scheme is changed
--- This is quite hacky, so let the user disable it.
-vim.api.nvim_create_autocmd({ "ColorScheme" }, {
-    pattern = "*",
-    nested = false,
-    callback = function()
-        if vim.g.neovide_unlink_border_highlights then
-            unlink_highlight("FloatTitle")
-            unlink_highlight("FloatFooter")
-            unlink_highlight("FloatBorder")
-            unlink_highlight("WinBar")
-            unlink_highlight("WinBarNC")
-        end
-    end
-})

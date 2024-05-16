@@ -9,7 +9,7 @@ use tokio::sync::mpsc::unbounded_channel;
 
 use super::show_error_message;
 use crate::{
-    bridge::{ApiInformation, NeovimWriter},
+    bridge::NeovimWriter,
     profiling::{tracy_dynamic_zone, tracy_fiber_enter, tracy_fiber_leave},
     LoggingSender,
 };
@@ -43,7 +43,7 @@ pub enum SerialCommand {
 }
 
 impl SerialCommand {
-    async fn execute(self, nvim: &Neovim<NeovimWriter>, has_x_buttons: bool) {
+    async fn execute(self, nvim: &Neovim<NeovimWriter>) {
         // Don't panic here unless there's absolutely no chance of continuing the program, Instead
         // just log the error and hope that it's something temporary or recoverable A normal reason
         // for failure is when neovim has already quit, and a command, for example mouse move is
@@ -63,24 +63,17 @@ impl SerialCommand {
                 grid_id,
                 position: (grid_x, grid_y),
                 modifier_string,
-            } => match &*button {
-                "x1" | "x2" if !has_x_buttons => {
-                    log::debug!("Ignoring unsupported {button} mouse event");
-                    Ok(())
-                }
-                _ => {
-                    nvim.input_mouse(
-                        &button,
-                        &action,
-                        &modifier_string,
-                        grid_id as i64,
-                        grid_y as i64,
-                        grid_x as i64,
-                    )
-                    .await
-                }
-            }
-            .context("Mouse input failed"),
+            } => nvim
+                .input_mouse(
+                    &button,
+                    &action,
+                    &modifier_string,
+                    grid_id as i64,
+                    grid_y as i64,
+                    grid_x as i64,
+                )
+                .await
+                .context("Mouse input failed"),
             SerialCommand::Scroll {
                 direction,
                 grid_id,
@@ -102,20 +95,17 @@ impl SerialCommand {
                 grid_id,
                 position: (grid_x, grid_y),
                 modifier_string,
-            } => match &*button {
-                "x1" | "x2" if !has_x_buttons => Ok(()),
-                _ => nvim
-                    .input_mouse(
-                        &button,
-                        "drag",
-                        &modifier_string,
-                        grid_id as i64,
-                        grid_y as i64,
-                        grid_x as i64,
-                    )
-                    .await
-                    .context("Mouse Drag Failed"),
-            },
+            } => nvim
+                .input_mouse(
+                    &button,
+                    "drag",
+                    &modifier_string,
+                    grid_id as i64,
+                    grid_y as i64,
+                    grid_x as i64,
+                )
+                .await
+                .context("Mouse Drag Failed"),
         };
 
         if let Err(error) = result {
@@ -272,7 +262,7 @@ impl AsRef<str> for UiCommand {
 
 static UI_COMMAND_CHANNEL: OnceLock<LoggingSender<UiCommand>> = OnceLock::new();
 
-pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, api_information: &ApiInformation) {
+pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>) {
     let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
     let ui_command_nvim = nvim.clone();
     let (sender, mut ui_command_receiver) = unbounded_channel();
@@ -300,8 +290,6 @@ pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, api_information: &Ap
         log::info!("ui command receiver finished");
     });
 
-    let has_x_buttons = api_information.version.has_version(0, 10, 0);
-
     tokio::spawn(async move {
         tracy_fiber_enter!("Serial command");
         loop {
@@ -312,7 +300,7 @@ pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, api_information: &Ap
                 Some(serial_command) => {
                     tracy_dynamic_zone!(serial_command.as_ref());
                     tracy_fiber_leave();
-                    serial_command.execute(&nvim, has_x_buttons).await;
+                    serial_command.execute(&nvim).await;
                     tracy_fiber_enter!("Serial command");
                 }
                 None => break,
