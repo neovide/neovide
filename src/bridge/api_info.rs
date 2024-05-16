@@ -178,6 +178,7 @@ pub struct ApiInformation {
 }
 
 impl ApiInformation {
+    #[allow(dead_code)]
     pub fn has_event(&self, event_name: &str) -> bool {
         self.ui_events.iter().any(|event| event.name == event_name)
     }

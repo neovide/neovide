@@ -110,9 +110,6 @@ async fn launch(handler: NeovimHandler, grid_size: Option<GridSize<u32>>) -> Res
     SETTINGS.read_initial_values(&session.neovim).await?;
 
     let mut options = UiAttachOptions::new();
-    if !api_information.has_event("win_viewport_margins") {
-        options.set_hlstate_external(true);
-    }
     options.set_linegrid_external(true);
     options.set_multigrid_external(!settings.no_multi_grid);
     options.set_rgb(true);

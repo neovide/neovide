@@ -28,7 +28,6 @@ pub struct LineFragment {
 pub struct ViewportMargins {
     pub top: u64,
     pub bottom: u64,
-    pub inferred: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -71,7 +70,6 @@ struct Line {
     line_fragments: Vec<LineFragment>,
     background_picture: Option<Picture>,
     foreground_picture: Option<Picture>,
-    is_inferred_border: bool,
     blend: u8,
     is_valid: bool,
 }
@@ -141,11 +139,7 @@ impl RenderedWindow {
             actual_lines: RingBuffer::new(grid_size.height as usize, None),
             scrollback_lines: RingBuffer::new(2 * grid_size.height as usize, None),
             scroll_delta: 0,
-            viewport_margins: ViewportMargins {
-                top: 0,
-                bottom: 0,
-                inferred: true,
-            },
+            viewport_margins: ViewportMargins { top: 0, bottom: 0 },
 
             grid_start_position: grid_position.cast(),
             grid_current_position: grid_position.cast(),
@@ -455,46 +449,13 @@ impl RenderedWindow {
             } => {
                 tracy_zone!("draw_line_cmd", 0);
 
-                let mut line = Line {
+                let line = Line {
                     line_fragments,
                     background_picture: None,
                     foreground_picture: None,
-                    is_inferred_border: false,
                     blend: 0,
                     is_valid: false,
                 };
-
-                if self.viewport_margins.inferred {
-                    let check_border = |fragment: &LineFragment, check: &dyn Fn(&str) -> bool| {
-                        fragment.style.as_ref().map_or(false, |style| {
-                            style.infos.last().map_or(false, |info| {
-                                // The specification seems to indicate that kind should be UI and
-                                // then we only need to test ui_name. But at least for FloatTitle,
-                                // that is not the case, the kind is set to syntax and hi_name is
-                                // set.
-                                check(&info.ui_name) || check(&info.hi_name)
-                            })
-                        })
-                    };
-
-                    let float_border =
-                        |s: &str| matches!(s, "FloatBorder" | "FloatTitle" | "FloatFooter");
-                    let winbar = |s: &str| matches!(s, "WinBar" | "WinBarNC");
-
-                    // Lines with purly border highlight groups are considered borders.
-                    line.is_inferred_border = line
-                        .line_fragments
-                        .iter()
-                        .map(|fragment| check_border(fragment, &float_border))
-                        .all(|v| v);
-
-                    // And also lines with a winbar highlight anywhere
-                    line.is_inferred_border |= line
-                        .line_fragments
-                        .iter()
-                        .map(|fragment| check_border(fragment, &winbar))
-                        .any(|v| v)
-                }
 
                 self.actual_lines[row] = Some(Rc::new(RefCell::new(line)));
             }
@@ -543,47 +504,13 @@ impl RenderedWindow {
                 self.scroll_delta = scroll_delta.round() as isize;
             }
             WindowDrawCommand::ViewportMargins { top, bottom, .. } => {
-                self.viewport_margins = ViewportMargins {
-                    top,
-                    bottom,
-                    inferred: false,
-                }
+                self.viewport_margins = ViewportMargins { top, bottom }
             }
             _ => {}
         };
     }
 
-    fn infer_viewport_margins(&mut self) {
-        if self.viewport_margins.inferred {
-            self.viewport_margins.top = self
-                .actual_lines
-                .iter()
-                .take_while(|line| {
-                    if let Some(line) = line {
-                        line.borrow().is_inferred_border
-                    } else {
-                        false
-                    }
-                })
-                .count() as u64;
-            self.viewport_margins.bottom = (self.viewport_margins.top as usize
-                ..self.actual_lines.len())
-                .rev()
-                .map(|i| self.actual_lines[i].as_ref())
-                .take_while(|line| {
-                    if let Some(line) = line {
-                        line.borrow().is_inferred_border
-                    } else {
-                        false
-                    }
-                })
-                .count() as u64;
-        }
-    }
-
     pub fn flush(&mut self, renderer_settings: &RendererSettings) {
-        self.infer_viewport_margins();
-
         // If the borders are changed, reset the scrollback to only fit the inner view
         let inner_range = self.viewport_margins.top as isize
             ..(self.actual_lines.len() - self.viewport_margins.bottom as usize) as isize;
@@ -641,19 +568,10 @@ impl RenderedWindow {
         let actual_line_count = self.actual_lines.len() as isize;
         let bottom_border_indices =
             actual_line_count - self.viewport_margins.bottom as isize..actual_line_count;
-        let margins_inferred = self.viewport_margins.inferred;
 
         top_border_indices
             .chain(bottom_border_indices)
-            .filter_map(move |i| {
-                self.actual_lines[i].as_ref().and_then(|line| {
-                    if !margins_inferred || line.borrow().is_inferred_border {
-                        Some((i, line))
-                    } else {
-                        None
-                    }
-                })
-            })
+            .filter_map(move |i| self.actual_lines[i].as_ref().map(|line| (i, line)))
     }
 
     // Iterates over the scrollable lines (excluding the viewport margins). Includes the index for
