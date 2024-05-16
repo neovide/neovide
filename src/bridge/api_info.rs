@@ -201,7 +201,8 @@ fn parse_version(value: ValueRef) -> std::result::Result<ApiVersion, ApiInfoPars
             Some("prerelease") => prerelease = Some(v.try_into()?),
             Some("api_level") => api_level = Some(v.try_into()?),
             Some("api_compatible") => api_compatible = Some(v.try_into()?),
-            Some("api_prerelease") => api_prerelase = Some(v.try_into()?),
+            // api_prerelease should be a boolean value, but Neovim 0.10.0 sets it to nil for some reason, so assume nil means release
+            Some("api_prerelease") => api_prerelase = Some(!v.to_owned().is_nil() && v.try_into()?),
             _ => {}
         }
     }
