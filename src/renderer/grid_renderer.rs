@@ -164,7 +164,7 @@ impl GridRenderer {
         let region = self.compute_text_region(clip_position, cell_width + 2);
 
         if let Some(underline_style) = style.underline {
-            let line_position = self.grid_scale.0.height - self.shaper.underline_position();
+            let line_position = self.grid_scale.0.height + self.shaper.underline_position();
             let p1 = pos + PixelVec::new(0.0, line_position);
             let p2 = pos + PixelVec::new(width, line_position);
 
@@ -238,7 +238,7 @@ impl GridRenderer {
         canvas.save();
 
         let mut underline_paint = Paint::default();
-        underline_paint.set_anti_alias(false);
+        underline_paint.set_anti_alias(true);
         underline_paint.set_blend_mode(BlendMode::SrcOver);
         let underline_stroke_scale = SETTINGS.get::<RendererSettings>().underline_stroke_scale;
         // If the stroke width is less than one, clamp it to one otherwise we get nasty aliasing
@@ -257,16 +257,15 @@ impl GridRenderer {
             UnderlineStyle::UnderDouble => {
                 underline_paint.set_path_effect(None);
                 canvas.draw_line(to_skia_point(p1), to_skia_point(p2), &underline_paint);
-                let p1 = (p1.x, p1.y - 2.);
-                let p2 = (p2.x, p2.y - 2.);
+                let p1 = (p1.x, p1.y + 2. * stroke_width);
+                let p2 = (p2.x, p2.y + 2. * stroke_width);
                 canvas.draw_line(p1, p2, &underline_paint);
             }
             UnderlineStyle::UnderCurl => {
-                let p1 = (p1.x, p1.y - 3. + stroke_width);
-                let p2 = (p2.x, p2.y - 3. + stroke_width);
+                let p1 = (p1.x, p1.y + stroke_width);
+                let p2 = (p2.x, p2.y + stroke_width);
                 underline_paint
                     .set_path_effect(None)
-                    .set_anti_alias(true)
                     .set_style(skia_safe::paint::Style::Stroke);
                 let mut path = Path::default();
                 path.move_to(p1);
