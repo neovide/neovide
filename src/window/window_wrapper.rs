@@ -445,12 +445,24 @@ impl WinitWindowWrapper {
             return;
         }
 
-        let mut maximized = false;
+        let maximized = matches!(self.initial_window_size, WindowSize::Maximized);
+
+        let window = create_window(event_loop, maximized, &self.title);
+        let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
+        let srgb = cmd_line_settings.srgb;
+        let vsync_enabled = cmd_line_settings.vsync;
+        let skia_renderer = create_skia_renderer(window, srgb, vsync_enabled);
+        let window = skia_renderer.window();
+        window.request_redraw();
+
+        let scale_factor = skia_renderer.window().scale_factor();
+        self.renderer
+            .grid_renderer
+            .handle_scale_factor_update(scale_factor);
+
         let mut size = PhysicalSize::default();
         match self.initial_window_size {
-            WindowSize::Maximized => {
-                maximized = true;
-            }
+            WindowSize::Maximized => {}
             WindowSize::Grid(grid_size) => {
                 let window_size = self.get_window_size_from_grid(&grid_size);
                 size = PhysicalSize::new(window_size.width, window_size.height);
@@ -463,18 +475,36 @@ impl WinitWindowWrapper {
             WindowSize::Size(window_size) => {
                 size = window_size;
             }
+        };
+        if !maximized {
+            let _ = window.request_inner_size(size);
+        }
+
+        // Check that window is visible in some monitor, and reposition it if not.
+        if let Ok(previous_position) = window.outer_position() {
+            if let Some(current_monitor) = window.current_monitor() {
+                let monitor_position = current_monitor.position();
+                let monitor_size = current_monitor.size();
+                let monitor_width = monitor_size.width as i32;
+                let monitor_height = monitor_size.height as i32;
+
+                let window_position = previous_position;
+
+                let window_size = window.outer_size();
+                let window_width = window_size.width as i32;
+                let window_height = window_size.height as i32;
+
+                if window_position.x + window_width < monitor_position.x
+                    || window_position.y + window_height < monitor_position.y
+                    || window_position.x > monitor_position.x + monitor_width
+                    || window_position.y > monitor_position.y + monitor_height
+                {
+                    window.set_outer_position(monitor_position);
+                };
+            };
         }
         log::info!("Showing window size: {:#?}, maximized: {}", size, maximized);
 
-        let window = create_window(event_loop, &size, maximized, &self.title);
-        let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
-        let srgb = cmd_line_settings.srgb;
-        let vsync_enabled = cmd_line_settings.vsync;
-        let skia_renderer = create_skia_renderer(window, srgb, vsync_enabled);
-        let window = skia_renderer.window();
-        window.request_redraw();
-
-        let scale_factor = skia_renderer.window().scale_factor();
         self.saved_inner_size = window.inner_size();
 
         log::info!(
