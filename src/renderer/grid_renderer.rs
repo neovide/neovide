@@ -164,9 +164,9 @@ impl GridRenderer {
         let region = self.compute_text_region(clip_position, cell_width + 2);
 
         if let Some(underline_style) = style.underline {
-            let line_position = self.grid_scale.0.height + self.shaper.underline_position();
-            let p1 = pos + PixelVec::new(0.0, line_position);
-            let p2 = pos + PixelVec::new(width, line_position);
+            let underline_position = self.shaper.underline_position();
+            let p1 = pos + PixelVec::new(0.0, underline_position);
+            let p2 = pos + PixelVec::new(width, underline_position);
 
             self.draw_underline(canvas, style, underline_style, p1, p2);
             drawn = true;

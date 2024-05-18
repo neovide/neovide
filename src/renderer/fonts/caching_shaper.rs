@@ -210,7 +210,8 @@ impl CachingShaper {
     }
 
     pub fn underline_position(&mut self) -> f32 {
-        self.metrics().underline_offset
+        let metrics = self.metrics();
+        metrics.ascent - metrics.underline_offset
     }
 
     pub fn y_adjustment(&mut self) -> f32 {
