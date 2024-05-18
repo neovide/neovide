@@ -18,7 +18,7 @@ use winit::{
     dpi::{PhysicalSize, Size},
     error::EventLoopError,
     event::Event,
-    event_loop::{EventLoop, EventLoopBuilder},
+    event_loop::{EventLoop, EventLoopBuilder, EventLoopWindowTarget},
     window::{Icon, Theme, WindowBuilder},
 };
 
@@ -131,8 +131,10 @@ pub fn create_event_loop() -> EventLoop<UserEvent> {
 }
 
 pub fn create_window(
-    event_loop: &EventLoop<UserEvent>,
-    initial_window_size: &WindowSize,
+    event_loop: &EventLoopWindowTarget<UserEvent>,
+    window_size: &PhysicalSize<u32>,
+    maximized: bool,
+    title: &str,
 ) -> WindowConfig {
     let icon = load_icon();
 
@@ -145,24 +147,17 @@ pub fn create_window(
         _ => None,
     };
 
-    log::trace!("Settings initial_window_size {:?}", initial_window_size);
-
-    // NOTE: For Geometry, the window is resized when it's shown based on the font and other
-    // settings.
-    let inner_size = match *initial_window_size {
-        WindowSize::Size(size) => size,
-        _ => DEFAULT_WINDOW_SIZE,
-    };
+    log::trace!("Settings initial_window_size {:?}", window_size);
 
     let winit_window_builder = WindowBuilder::new()
-        .with_title("Neovide")
+        .with_title(title)
         .with_window_icon(Some(icon))
-        .with_inner_size(inner_size)
+        .with_inner_size(*window_size)
         // Unfortunately we can't maximize here, because winit shows the window momentarily causing
         // flickering
-        .with_maximized(false)
+        .with_maximized(maximized)
         .with_transparent(true)
-        .with_visible(false);
+        .with_visible(true);
 
     #[cfg(target_os = "windows")]
     let winit_window_builder = if !cmd_line_settings.opengl {
@@ -303,21 +298,19 @@ pub fn determine_window_size(window_settings: Option<&PersistentWindowSettings>)
 }
 
 pub fn main_loop(
-    window: WindowConfig,
     initial_window_size: WindowSize,
     initial_font_settings: Option<FontSettings>,
     event_loop: EventLoop<UserEvent>,
 ) -> Result<(), EventLoopError> {
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
-    let window_wrapper = WinitWindowWrapper::new(
-        window,
+    let mut update_loop = UpdateLoop::new(cmd_line_settings.idle);
+
+    let proxy = event_loop.create_proxy();
+    let mut window_wrapper = Some(WinitWindowWrapper::new(
         initial_window_size,
         initial_font_settings,
-        event_loop.create_proxy(),
-    );
-
-    let mut update_loop = UpdateLoop::new(cmd_line_settings.idle);
-    let mut window_wrapper = Some(window_wrapper);
+    ));
+    let mut create_window_allowed = false;
 
     #[cfg(target_os = "macos")]
     let mut menu = {
@@ -329,13 +322,25 @@ pub fn main_loop(
         menu.ensure_menu_added(&e);
 
         match e {
+            Event::Resumed => {
+                create_window_allowed = true;
+                if let Some(window_wrapper) = &mut window_wrapper {
+                    window_wrapper.try_create_window(window_target, &proxy);
+                }
+            }
             Event::LoopExiting => window_wrapper = None,
             Event::UserEvent(UserEvent::NeovimExited) => {
                 save_window_size(window_wrapper.as_ref().unwrap());
                 window_target.exit();
             }
-            _ => window_target
-                .set_control_flow(update_loop.step(window_wrapper.as_mut().unwrap(), e)),
+            _ => {
+                if let Some(window_wrapper) = &mut window_wrapper {
+                    window_target.set_control_flow(update_loop.step(window_wrapper, e));
+                    if create_window_allowed {
+                        window_wrapper.try_create_window(window_target, &proxy);
+                    }
+                }
+            }
         }
     });
     res

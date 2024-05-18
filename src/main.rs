@@ -60,8 +60,7 @@ use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 #[cfg_attr(target_os = "windows", allow(unused_imports))]
 use settings::SETTINGS;
 use window::{
-    create_event_loop, create_window, determine_window_size, main_loop, UserEvent, WindowSettings,
-    WindowSize,
+    create_event_loop, determine_window_size, main_loop, UserEvent, WindowSettings, WindowSize,
 };
 
 pub use channel_utils::*;
@@ -97,8 +96,7 @@ fn main() -> NeovideExitCode {
         Err(err) => handle_startup_errors(err, event_loop).into(),
         Ok((window_size, font_settings, _runtime)) => {
             clipboard::init(&event_loop);
-            let window = create_window(&event_loop, &window_size);
-            main_loop(window, window_size, font_settings, event_loop).into()
+            main_loop(window_size, font_settings, event_loop).into()
         }
     }
 }
