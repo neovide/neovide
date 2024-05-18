@@ -269,13 +269,13 @@ impl GridRenderer {
                     .set_style(skia_safe::paint::Style::Stroke);
                 let mut path = Path::default();
                 path.move_to(p1);
-                let mut i = p1.0;
                 let mut sin = -2. * stroke_width;
-                let increment = self.grid_scale.0.width / 2.;
-                while i < p2.0 {
+                let dx = self.grid_scale.0.width / 2.;
+                let count = ((p2.0 - p1.0) / dx).round();
+                let dy = (p2.1 - p1.1) / count;
+                for _ in 0..(count as i32) {
                     sin *= -1.;
-                    i += increment;
-                    path.quad_to((i - (increment / 2.), p1.1 + sin), (i, p1.1));
+                    path.r_quad_to((dx / 2., sin), (dx, dy));
                 }
                 canvas.draw_path(&path, &underline_paint);
             }
