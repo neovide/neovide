@@ -548,6 +548,8 @@ impl WinitWindowWrapper {
             };
         }
 
+        window.set_visible(true);
+
         // Ensure that the window has the correct IME state
         self.set_ime(input_ime);
 
