@@ -363,7 +363,7 @@ impl WinitWindowWrapper {
             WindowEvent::Resized { .. } => {
                 skia_renderer.resize();
                 #[cfg(target_os = "macos")]
-                self.macos_feature.unwrap().handle_size_changed();
+                self.macos_feature.as_mut().unwrap().handle_size_changed();
             }
             WindowEvent::DroppedFile(path) => {
                 tracy_zone!("DroppedFile");
@@ -521,9 +521,7 @@ impl WinitWindowWrapper {
             ..
         } = SETTINGS.get::<WindowSettings>();
 
-        skia_renderer
-            .window()
-            .set_blur(window_blurred && transparency < 1.0);
+        window.set_blur(window_blurred && transparency < 1.0);
 
         match theme.as_str() {
             "light" => set_background("light"),
@@ -541,7 +539,6 @@ impl WinitWindowWrapper {
             skia_renderer.as_ref(),
             proxy.clone(),
         ));
-        self.skia_renderer = Some(skia_renderer);
 
         #[cfg(target_os = "macos")]
         {
@@ -555,6 +552,7 @@ impl WinitWindowWrapper {
         self.set_ime(input_ime);
 
         self.ui_state = UIState::FirstFrame;
+        self.skia_renderer = Some(skia_renderer);
     }
 
     fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
@@ -580,8 +578,12 @@ impl WinitWindowWrapper {
         #[cfg(not(target_os = "macos"))]
         let window_padding_top = window_settings.padding_top;
         #[cfg(target_os = "macos")]
-        let window_padding_top =
-            window_settings.padding_top + self.macos_feature.extra_titlebar_height_in_pixels();
+        let window_padding_top = window_settings.padding_top
+            + self
+                .macos_feature
+                .as_ref()
+                .unwrap()
+                .extra_titlebar_height_in_pixels();
         WindowPadding {
             top: window_padding_top,
             left: window_settings.padding_left,
