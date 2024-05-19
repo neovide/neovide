@@ -293,6 +293,9 @@ impl WinitWindowWrapper {
     /// the window should be rendered.
     pub fn handle_event(&mut self, event: Event<UserEvent>) -> bool {
         tracy_zone!("handle_event", 0);
+        let window_settings = SETTINGS.get::<WindowSettings>();
+        // For some some reason we have to set the ime every frame, otherwise it won't apply
+        self.set_ime(window_settings.input_ime);
 
         let renderer_asks_to_be_rendered = self.renderer.handle_event(&event);
         let mut should_render = true;
