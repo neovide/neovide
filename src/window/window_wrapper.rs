@@ -420,6 +420,10 @@ impl WinitWindowWrapper {
             vsync.wait_for_vsync();
         }
         skia_renderer.swap_buffers();
+        if self.ui_state == UIState::FirstFrame {
+            skia_renderer.window().set_visible(true);
+            self.ui_state = UIState::Showing;
+        }
         tracy_frame();
         tracy_gpu_collect();
     }
@@ -552,10 +556,6 @@ impl WinitWindowWrapper {
         ));
 
         {
-            tracy_zone!("set_visible");
-            window.set_visible(true);
-        }
-        {
             tracy_zone!("request_redraw");
             window.request_redraw();
         }
@@ -616,7 +616,6 @@ impl WinitWindowWrapper {
             return ShouldRender::Wait;
         } else if self.ui_state == UIState::FirstFrame {
             should_render = ShouldRender::Immediately;
-            self.ui_state = UIState::Showing;
         }
 
         // The skia renderer shuld always be created when this point is reached, since the < UIState::FirstFrame check will return true
