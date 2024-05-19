@@ -142,9 +142,12 @@ impl WinitWindowWrapper {
             settings::OptionAsMeta::Both => macos::OptionAsAlt::Both,
             settings::OptionAsMeta::None => macos::OptionAsAlt::None,
         };
-        let window = self.skia_renderer.as_ref().unwrap().window();
-        if winit_option != window.option_as_alt() {
-            window.set_option_as_alt(winit_option);
+
+        if let Some(skia_renderer) = &self.skia_renderer {
+            let window = skia_renderer.window();
+            if winit_option != window.option_as_alt() {
+                window.set_option_as_alt(winit_option);
+            }
         }
     }
 
@@ -464,6 +467,7 @@ impl WinitWindowWrapper {
                 Some(MacosWindowFeature::from_winit_window(window, mtm))
             };
         }
+
         let scale_factor = window.scale_factor();
         self.renderer
             .grid_renderer
@@ -596,13 +600,16 @@ impl WinitWindowWrapper {
         let window_settings = SETTINGS.get::<WindowSettings>();
         #[cfg(not(target_os = "macos"))]
         let window_padding_top = window_settings.padding_top;
+
         #[cfg(target_os = "macos")]
-        let window_padding_top = window_settings.padding_top
-            + self
-                .macos_feature
-                .as_ref()
-                .unwrap()
-                .extra_titlebar_height_in_pixels();
+        let window_padding_top = {
+            let mut padding_top = window_settings.padding_top;
+            if let Some(macos_feature) = &self.macos_feature {
+                padding_top += macos_feature.extra_titlebar_height_in_pixels();
+            }
+            padding_top
+        };
+
         WindowPadding {
             top: window_padding_top,
             left: window_settings.padding_left,

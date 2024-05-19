@@ -29,6 +29,7 @@ use super::{WindowSettings, WindowSettingsChanged};
 
 declare_class!(
     // A view to simulate the double-click-to-zoom effect for `--frame transparency`.
+    #[derive(Debug)]
     struct TitlebarClickHandler;
 
     unsafe impl ClassType for TitlebarClickHandler {
@@ -58,6 +59,7 @@ lazy_static! {
     static ref TITLEBAR_HEIGHT: f64 = MacosWindowFeature::titlebar_height();
 }
 
+#[derive(Debug)]
 pub struct MacosWindowFeature {
     ns_window: Id<NSWindow>,
     titlebar_click_handler: Option<Id<TitlebarClickHandler>>,
