@@ -448,14 +448,9 @@ impl WinitWindowWrapper {
 
         let maximized = matches!(self.initial_window_size, WindowSize::Maximized);
 
-        let window = create_window(event_loop, maximized, &self.title);
-        let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
-        let srgb = cmd_line_settings.srgb;
-        let vsync_enabled = cmd_line_settings.vsync;
-        let skia_renderer = create_skia_renderer(window, srgb, vsync_enabled);
-        let window = skia_renderer.window();
-
-        let scale_factor = skia_renderer.window().scale_factor();
+        let window_config = create_window(event_loop, maximized, &self.title);
+        let window = &window_config.window;
+        let scale_factor = window.scale_factor();
         self.renderer
             .grid_renderer
             .handle_scale_factor_update(scale_factor);
@@ -505,6 +500,12 @@ impl WinitWindowWrapper {
             };
         }
         log::info!("Showing window size: {:#?}, maximized: {}", size, maximized);
+
+        let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
+        let srgb = cmd_line_settings.srgb;
+        let vsync_enabled = cmd_line_settings.vsync;
+        let skia_renderer = create_skia_renderer(window_config, srgb, vsync_enabled);
+        let window = skia_renderer.window();
 
         self.saved_inner_size = window.inner_size();
 
