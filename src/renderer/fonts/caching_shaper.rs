@@ -151,6 +151,7 @@ impl CachingShaper {
     }
 
     fn reset_font_loader(&mut self) {
+        tracy_zone!("reset_font_loader");
         self.font_info = None;
         let font_size = self.current_size();
 

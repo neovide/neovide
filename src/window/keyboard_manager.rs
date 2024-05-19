@@ -1,10 +1,9 @@
 use crate::bridge::{send_ui, SerialCommand};
 
-use crate::window::UserEvent;
 #[allow(unused_imports)]
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use winit::{
-    event::{ElementState, Event, Ime, KeyEvent, Modifiers, WindowEvent},
+    event::{ElementState, Ime, KeyEvent, Modifiers, WindowEvent},
     keyboard::{Key, KeyCode, KeyLocation, NamedKey, PhysicalKey},
 };
 #[cfg(target_os = "macos")]
@@ -34,15 +33,11 @@ impl KeyboardManager {
         }
     }
 
-    pub fn handle_event(&mut self, event: &Event<UserEvent>) {
+    pub fn handle_event(&mut self, event: &WindowEvent) {
         match event {
-            Event::WindowEvent {
-                event:
-                    WindowEvent::KeyboardInput {
-                        event: key_event,
-                        is_synthetic: false,
-                        ..
-                    },
+            WindowEvent::KeyboardInput {
+                event: key_event,
+                is_synthetic: false,
                 ..
             } if self.ime_preedit.0.is_empty() => {
                 log::trace!("{:#?}", key_event);
@@ -54,21 +49,14 @@ impl KeyboardManager {
                     }
                 }
             }
-            Event::WindowEvent {
-                event: WindowEvent::Ime(Ime::Commit(text)),
-                ..
-            } => {
+            WindowEvent::Ime(Ime::Commit(text)) => {
                 log::trace!("Ime commit {text}");
                 send_ui(SerialCommand::Keyboard(text.to_string()));
             }
-            Event::WindowEvent {
-                event: WindowEvent::Ime(Ime::Preedit(text, cursor_offset)),
-                ..
-            } => self.ime_preedit = (text.to_string(), *cursor_offset),
-            Event::WindowEvent {
-                event: WindowEvent::ModifiersChanged(modifiers),
-                ..
-            } => {
+            WindowEvent::Ime(Ime::Preedit(text, cursor_offset)) => {
+                self.ime_preedit = (text.to_string(), *cursor_offset)
+            }
+            WindowEvent::ModifiersChanged(modifiers) => {
                 // Record the modifier states so that we can properly add them to the keybinding text
                 log::trace!("{:?}", *modifiers);
                 self.modifiers = *modifiers;

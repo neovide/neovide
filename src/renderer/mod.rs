@@ -23,7 +23,7 @@ use skia_safe::Canvas;
 
 use winit::{
     event::Event,
-    event_loop::{EventLoop, EventLoopProxy},
+    event_loop::{EventLoopProxy, EventLoopWindowTarget},
     window::{Window, WindowBuilder},
 };
 
@@ -526,7 +526,7 @@ pub struct WindowConfig {
 
 pub fn build_window_config<TE>(
     winit_window_builder: WindowBuilder,
-    event_loop: &EventLoop<TE>,
+    event_loop: &EventLoopWindowTarget<TE>,
 ) -> WindowConfig {
     #[cfg(target_os = "windows")]
     {
