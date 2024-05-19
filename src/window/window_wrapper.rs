@@ -444,6 +444,7 @@ impl WinitWindowWrapper {
         if self.ui_state != UIState::WaitingForWindowCreate {
             return;
         }
+        tracy_zone!("create_window");
 
         let maximized = matches!(self.initial_window_size, WindowSize::Maximized);
 
@@ -453,7 +454,6 @@ impl WinitWindowWrapper {
         let vsync_enabled = cmd_line_settings.vsync;
         let skia_renderer = create_skia_renderer(window, srgb, vsync_enabled);
         let window = skia_renderer.window();
-        window.request_redraw();
 
         let scale_factor = skia_renderer.window().scale_factor();
         self.renderer
@@ -477,6 +477,7 @@ impl WinitWindowWrapper {
             }
         };
         if !maximized {
+            tracy_zone!("request_inner_size");
             let _ = window.request_inner_size(size);
         }
 
@@ -548,7 +549,14 @@ impl WinitWindowWrapper {
             };
         }
 
-        window.set_visible(true);
+        {
+            tracy_zone!("set_visible");
+            window.set_visible(true);
+        }
+        {
+            tracy_zone!("request_redraw");
+            window.request_redraw();
+        }
 
         // Ensure that the window has the correct IME state
         self.set_ime(input_ime);
