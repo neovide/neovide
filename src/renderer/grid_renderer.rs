@@ -164,11 +164,12 @@ impl GridRenderer {
         let region = self.compute_text_region(clip_position, cell_width + 2);
 
         if let Some(underline_style) = style.underline {
+            let stroke_size = self.shaper.stroke_size();
             let underline_position = self.shaper.underline_position();
             let p1 = pos + PixelVec::new(0.0, underline_position);
             let p2 = pos + PixelVec::new(width, underline_position);
 
-            self.draw_underline(canvas, style, underline_style, p1, p2);
+            self.draw_underline(canvas, style, underline_style, stroke_size, p1, p2);
             drawn = true;
         }
 
@@ -231,6 +232,7 @@ impl GridRenderer {
         canvas: &Canvas,
         style: &Arc<Style>,
         underline_style: UnderlineStyle,
+        stroke_size: f32,
         p1: PixelPos<f32>,
         p2: PixelPos<f32>,
     ) {
@@ -243,7 +245,11 @@ impl GridRenderer {
         let underline_stroke_scale = SETTINGS.get::<RendererSettings>().underline_stroke_scale;
         // If the stroke width is less than one, clamp it to one otherwise we get nasty aliasing
         // issues
-        let stroke_width = (self.shaper.current_size() * underline_stroke_scale / 10.).max(1.);
+        let stroke_width = (stroke_size * underline_stroke_scale).max(1.);
+
+        // offset y by width / 2 to align the *top* of the underline with p1 and p2
+        let p1 = p1 + PixelVec::new(0., stroke_width / 2.);
+        let p2 = p2 + PixelVec::new(0., stroke_width / 2.);
 
         underline_paint
             .set_color(style.special(&self.default_style.colors).to_color())

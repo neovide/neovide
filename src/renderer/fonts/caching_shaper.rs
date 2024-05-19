@@ -214,6 +214,10 @@ impl CachingShaper {
         metrics.ascent - metrics.underline_offset
     }
 
+    pub fn stroke_size(&mut self) -> f32 {
+        self.metrics().stroke_size
+    }
+
     pub fn y_adjustment(&mut self) -> f32 {
         let metrics = self.metrics();
         metrics.ascent + metrics.leading + self.linespace / 2.
