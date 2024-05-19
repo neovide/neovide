@@ -450,6 +450,15 @@ impl WinitWindowWrapper {
 
         let window_config = create_window(event_loop, maximized, &self.title);
         let window = &window_config.window;
+
+        // It's important that this is created before the window is resized, since it can change the padding and affect the size
+        #[cfg(target_os = "macos")]
+        {
+            self.macos_feature = {
+                let mtm = MainThreadMarker::new().expect("must be on the main thread");
+                Some(MacosWindowFeature::from_winit_window(window, mtm))
+            };
+        }
         let scale_factor = window.scale_factor();
         self.renderer
             .grid_renderer
@@ -541,14 +550,6 @@ impl WinitWindowWrapper {
             skia_renderer.as_ref(),
             proxy.clone(),
         ));
-
-        #[cfg(target_os = "macos")]
-        {
-            self.macos_feature = {
-                let mtm = MainThreadMarker::new().expect("must be on the main thread");
-                Some(MacosWindowFeature::from_winit_window(window, mtm))
-            };
-        }
 
         {
             tracy_zone!("set_visible");
