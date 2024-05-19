@@ -28,4 +28,3 @@ Unported License][cc-by-3.0].
 
 [cc-by-4.0]: https://creativecommons.org/licenses/by/4.0/
 [cc-by-3.0]: https://creativecommons.org/licenses/by/3.0/
-

@@ -450,7 +450,7 @@ pub fn register_file_handler() {
         // this should be safe as:
         //  * our class is a subclass
         //  * no new ivars
-        //  * overriden methods are compatible with old (we implement protocol method)
+        //  * overridden methods are compatible with old (we implement protocol method)
         let delegate_obj = Id::cast::<AnyObject>(delegate);
         AnyObject::set_class(&delegate_obj, class);
     }

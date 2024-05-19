@@ -1,7 +1,10 @@
-# Neovide 
-[![Discord](https://badgen.net/badge/icon/discord?icon=discord&label)](https://discord.gg/SjFpZdQys6) [![Chat on Matrix](https://matrix.to/img/matrix-badge.svg)](https://matrix.to/#/#neovide:matrix.org) [![Discussions](https://img.shields.io/badge/GitHub-Discussions-green?logo=github)](https://github.com/neovide/neovide/discussions)
+# Neovide
 
-<img align="left" src="website/docs/assets/neovide-128x128.png">
+[![Discord](https://badgen.net/badge/icon/discord?icon=discord&label)](https://discord.gg/SjFpZdQys6)
+[![Chat on Matrix](https://matrix.to/img/matrix-badge.svg)](https://matrix.to/#/#neovide:matrix.org)
+[![Discussions](https://img.shields.io/badge/GitHub-Discussions-green?logo=github)](https://github.com/neovide/neovide/discussions)
+
+<img align="left" src="website/docs/assets/neovide-128x128.png" alt="Neovide Logo">
 
 This is a simple graphical user interface for [Neovim](https://github.com/neovim/neovim) (an
 aggressively refactored and updated Vim editor). Where possible there are some graphical

@@ -8,28 +8,36 @@ assignees: ''
 
 <!--- NOTE: PLEASE FILL OUT TEMPLATE RATHER THAN DELETING --->
 
-**Describe the bug**
+#### Describe the bug
+
 A clear and concise description of what the bug is.
 
-**To Reproduce**
+#### To Reproduce
+
 Steps to reproduce the behavior:
+
 1. Go to '...'
 2. Click on '....'
 3. Scroll down to '....'
 4. See error
 
-**Expected behavior**
+#### Expected behavior
+
 A clear and concise description of what you expected to happen.
 
-**Screenshots**
+#### Screenshots
+
 If applicable, add screenshots to help explain your problem.
 
-**Desktop (please complete the following information):**
- - OS: [e.g. macOS 11.4]
- - Neovide Version [e.g. 0.6.0]
- - Neovim Version [e.g. 0.5.0]
+#### Desktop (please complete the following information)
 
-**Please run `neovide --log` and paste the contents of the `.log` file created in the current directory here:**
+- OS: [e.g. macOS 11.4]
+- Neovide Version [e.g. 0.6.0]
+- Neovim Version [e.g. 0.5.0]
 
-**Additional context**
+**Please run `neovide --log` and paste the contents of the `.log` file created
+in the current directory here:**
+
+#### Additional context
+
 Add any other context about the problem here.

@@ -30,11 +30,7 @@ defaults:
     shell: bash # necessary for windows
 
 jobs:
-  lint:
-    uses: ./.github/workflows/lint-app.yml
-
   test:
-    needs: lint
     strategy:
       fail-fast: false
       matrix:

@@ -393,7 +393,7 @@ impl SkiaRenderer for D3DSkiaRenderer {
     }
 
     fn canvas(&mut self) -> &Canvas {
-        // Only block the cpu when whe actually need to draw to the canvas
+        // Only block the cpu when we actually need to draw to the canvas
         if self.frame_swapped {
             self.move_to_next_frame();
         }

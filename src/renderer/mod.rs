@@ -123,7 +123,7 @@ impl Default for RendererSettings {
     }
 }
 
-// Since draw commmands are inserted into a heap, we need to implement Ord such that
+// Since draw commands are inserted into a heap, we need to implement Ord such that
 // the commands that should be processed first (such as window draw commands or close
 // window) are sorted as larger than the ones that should be handled later
 // So the order of the variants here matters so that the derive implementation can get
@@ -430,7 +430,7 @@ impl Renderer {
                             vacant_entry.insert(new_window);
                         }
                         WindowDrawCommand::ViewportMargins { .. } => {
-                            warn!("ViewportMargins recieved before window was initialized");
+                            warn!("ViewportMargins received before window was initialized");
                         }
                         _ => {
                             error!(
@@ -524,9 +524,9 @@ pub struct WindowConfig {
     pub config: WindowConfigType,
 }
 
-pub fn build_window_config<TE>(
+pub fn build_window_config<T>(
     winit_window_builder: WindowBuilder,
-    event_loop: &EventLoop<TE>,
+    event_loop: &EventLoop<T>,
 ) -> WindowConfig {
     #[cfg(target_os = "windows")]
     {

@@ -241,9 +241,9 @@ fn gen_config(mut config_iterator: Box<dyn Iterator<Item = Config> + '_>) -> Con
     config_iterator.next().unwrap()
 }
 
-pub fn build_window<TE>(
+pub fn build_window<T>(
     winit_window_builder: WindowBuilder,
-    event_loop: &EventLoop<TE>,
+    event_loop: &EventLoop<T>,
 ) -> WindowConfig {
     let template_builder = ConfigTemplateBuilder::new()
         .with_stencil_size(8)
