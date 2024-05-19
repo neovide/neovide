@@ -469,9 +469,7 @@ impl WinitWindowWrapper {
         }
 
         let scale_factor = window.scale_factor();
-        self.renderer
-            .grid_renderer
-            .handle_scale_factor_update(scale_factor);
+        self.renderer.handle_os_scale_factor_change(scale_factor);
 
         let mut size = PhysicalSize::default();
         match self.initial_window_size {
