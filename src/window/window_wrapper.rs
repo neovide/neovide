@@ -32,6 +32,7 @@ use super::macos::MacosWindowFeature;
 use icrate::Foundation::MainThreadMarker;
 
 use log::trace;
+use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winit::{
     dpi,
     event::{Event, WindowEvent},
@@ -513,6 +514,12 @@ impl WinitWindowWrapper {
             };
         }
         log::info!("Showing window size: {:#?}, maximized: {}", size, maximized);
+        let is_wayland = matches!(window.raw_window_handle(), RawWindowHandle::Wayland(_));
+        // On Wayland we can show the window now, since internally it's only shown after the first rendering
+        // On the other platforms the window is shown after rendering to avoid flickering
+        if is_wayland {
+            window.set_visible(true);
+        }
 
         let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
         let srgb = cmd_line_settings.srgb;
