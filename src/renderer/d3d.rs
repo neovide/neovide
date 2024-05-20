@@ -15,8 +15,6 @@ use windows::Win32::Graphics::Direct3D12::{
     D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_COMMAND_QUEUE_DESC, D3D12_COMMAND_QUEUE_FLAG_NONE,
     D3D12_FENCE_FLAG_NONE, D3D12_RESOURCE_STATE_PRESENT,
 };
-#[cfg(feature = "d3d_debug")]
-use windows::Win32::Graphics::Direct3D12::{D3D12GetDebugInterface, ID3D12Debug};
 use windows::Win32::Graphics::DirectComposition::{
     DCompositionCreateDevice2, IDCompositionDevice, IDCompositionTarget, IDCompositionVisual,
 };
@@ -25,10 +23,15 @@ use windows::Win32::Graphics::Dxgi::Common::{
     DXGI_SAMPLE_DESC,
 };
 use windows::Win32::Graphics::Dxgi::{
-    CreateDXGIFactory2, IDXGIAdapter1, IDXGIFactory4, IDXGISwapChain1, IDXGISwapChain3,
-    DXGI_ADAPTER_FLAG, DXGI_ADAPTER_FLAG_SOFTWARE, DXGI_CREATE_FACTORY_DEBUG, DXGI_SCALING_STRETCH,
-    DXGI_SWAP_CHAIN_DESC1, DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT,
-    DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL, DXGI_USAGE_RENDER_TARGET_OUTPUT,
+    CreateDXGIFactory1, IDXGIAdapter1, IDXGIFactory2, IDXGISwapChain1, IDXGISwapChain3,
+    DXGI_ADAPTER_FLAG, DXGI_ADAPTER_FLAG_SOFTWARE, DXGI_SCALING_STRETCH, DXGI_SWAP_CHAIN_DESC1,
+    DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT, DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
+    DXGI_USAGE_RENDER_TARGET_OUTPUT,
+};
+#[cfg(feature = "d3d_debug")]
+use windows::Win32::Graphics::{
+    Direct3D12::{D3D12GetDebugInterface, ID3D12Debug},
+    Dxgi::{CreateDXGIFactory2, DXGI_CREATE_FACTORY_DEBUG},
 };
 use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObjectEx, INFINITE};
 use winit::{
@@ -46,7 +49,7 @@ use crate::{
     window::UserEvent,
 };
 
-fn get_hardware_adapter(factory: &IDXGIFactory4) -> Result<IDXGIAdapter1> {
+fn get_hardware_adapter(factory: &IDXGIFactory2) -> Result<IDXGIAdapter1> {
     tracy_zone!("get_hardware_adapter");
     for i in 0.. {
         let adapter = unsafe { factory.EnumAdapters1(i)? };
@@ -104,7 +107,7 @@ impl D3DSkiaRenderer {
     pub fn new(window: Window) -> Self {
         tracy_zone!("D3DSkiaRenderer::new");
         #[cfg(feature = "d3d_debug")]
-        unsafe {
+        let dxgi_factory: IDXGIFactory2 = unsafe {
             let mut debug_controller: Option<ID3D12Debug> = None;
             D3D12GetDebugInterface(&mut debug_controller)
                 .expect("Failed to create Direct3D debug controller");
@@ -112,11 +115,13 @@ impl D3DSkiaRenderer {
             debug_controller
                 .expect("Failed to enable debug layer")
                 .EnableDebugLayer();
-        }
 
-        let dxgi_factory: IDXGIFactory4 = unsafe {
             CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG).expect("Failed to create DXGI factory")
         };
+
+        #[cfg(not(feature = "d3d_debug"))]
+        let dxgi_factory: IDXGIFactory2 =
+            unsafe { CreateDXGIFactory1().expect("Failed to create DXGI factory") };
 
         let adapter = get_hardware_adapter(&dxgi_factory)
             .expect("Failed to find any suitable Direct3D 12 adapters");
