@@ -20,7 +20,7 @@ use crate::{
         clamped_grid_size, FontSettings, HotReloadConfigs, SettingsChanged, DEFAULT_GRID_SIZE,
         MIN_GRID_SIZE, SETTINGS,
     },
-    units::{GridPos, GridRect, GridSize, PixelPos, PixelSize},
+    units::{GridRect, GridSize, PixelPos, PixelSize},
     window::{create_window, PhysicalSize, ShouldRender, WindowSize},
     CmdLineSettings,
 };
@@ -72,7 +72,6 @@ pub struct WinitWindowWrapper {
     font_changed_last_frame: bool,
     saved_inner_size: dpi::PhysicalSize<u32>,
     saved_grid_size: Option<GridSize<u32>>,
-    ime_position: dpi::PhysicalPosition<i32>,
     requested_columns: Option<u32>,
     requested_lines: Option<u32>,
     ui_state: UIState,
@@ -102,7 +101,6 @@ impl WinitWindowWrapper {
             font_changed_last_frame: false,
             saved_inner_size,
             saved_grid_size: None,
-            ime_position: dpi::PhysicalPosition::new(-1, -1),
             requested_columns: None,
             requested_lines: None,
             ui_state: UIState::Initing,
@@ -293,6 +291,9 @@ impl WinitWindowWrapper {
     /// the window should be rendered.
     pub fn handle_event(&mut self, event: Event<UserEvent>) -> bool {
         tracy_zone!("handle_event", 0);
+        let window_settings = SETTINGS.get::<WindowSettings>();
+        // For some some reason we have to set the ime every frame, otherwise it won't apply
+        self.set_ime(window_settings.input_ime);
 
         let renderer_asks_to_be_rendered = self.renderer.handle_event(&event);
         let mut should_render = true;
@@ -759,20 +760,21 @@ impl WinitWindowWrapper {
         let skia_renderer = self.skia_renderer.as_ref().unwrap();
         let grid_scale = self.renderer.grid_renderer.grid_scale;
         let font_dimensions = grid_scale.0;
-        let mut position = self.renderer.get_cursor_destination();
-        position.y += font_dimensions.height;
-        let position: GridPos<i32> = (position / grid_scale).floor().cast();
+        let position = self.renderer.get_cursor_destination();
+        let position = position.cast();
         let position = dpi::PhysicalPosition {
             x: position.x,
             y: position.y,
         };
-        if position != self.ime_position {
-            self.ime_position = position;
-            skia_renderer.window().set_ime_cursor_area(
-                dpi::Position::Physical(position),
-                dpi::PhysicalSize::new(100, font_dimensions.height as u32),
-            );
-        }
+        // NOTE: some compositors don't like excluding too much and try to render popup at the
+        // bottom right corner of the provided area, so exclude just the full-width char to not
+        // obscure the cursor and not render popup at the end of the window.
+        let width = font_dimensions.width * 2.0;
+        let height = font_dimensions.height.ceil();
+        skia_renderer.window().set_ime_cursor_area(
+            dpi::Position::Physical(position),
+            dpi::PhysicalSize::new(width, height),
+        );
     }
 
     fn handle_scale_factor_update(&mut self, scale_factor: f64) {
