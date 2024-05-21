@@ -460,6 +460,16 @@ impl WinitWindowWrapper {
         let window_config = create_window(event_loop, maximized, &self.title);
         let window = &window_config.window;
 
+        let WindowSettings {
+            input_ime,
+            theme,
+            transparency,
+            window_blurred,
+            ..
+        } = SETTINGS.get::<WindowSettings>();
+
+        window.set_ime_allowed(input_ime);
+
         // It's important that this is created before the window is resized, since it can change the padding and affect the size
         #[cfg(target_os = "macos")]
         {
@@ -538,14 +548,6 @@ impl WinitWindowWrapper {
             self.renderer.grid_renderer.grid_scale.0,
         );
 
-        let WindowSettings {
-            input_ime,
-            theme,
-            transparency,
-            window_blurred,
-            ..
-        } = SETTINGS.get::<WindowSettings>();
-
         window.set_blur(window_blurred && transparency < 1.0);
 
         match theme.as_str() {
@@ -569,9 +571,6 @@ impl WinitWindowWrapper {
             tracy_zone!("request_redraw");
             window.request_redraw();
         }
-
-        // Ensure that the window has the correct IME state
-        self.set_ime(input_ime);
 
         self.ui_state = UIState::FirstFrame;
         self.skia_renderer = Some(skia_renderer);
