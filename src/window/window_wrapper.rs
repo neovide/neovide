@@ -35,7 +35,7 @@ use log::trace;
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winit::{
     dpi,
-    event::{Event, WindowEvent},
+    event::{Event, Ime, WindowEvent},
     event_loop::{EventLoopProxy, EventLoopWindowTarget},
     window::{Fullscreen, Theme},
 };
@@ -78,6 +78,8 @@ pub struct WinitWindowWrapper {
     window_padding: WindowPadding,
     initial_window_size: WindowSize,
     is_minimized: bool,
+    ime_enabled: bool,
+    ime_area: (dpi::PhysicalPosition<u32>, dpi::PhysicalSize<u32>),
     pub vsync: Option<VSync>,
     #[cfg(target_os = "macos")]
     pub macos_feature: Option<MacosWindowFeature>,
@@ -113,6 +115,8 @@ impl WinitWindowWrapper {
             initial_window_size,
             is_minimized: false,
             vsync: None,
+            ime_enabled: false,
+            ime_area: Default::default(),
             #[cfg(target_os = "macos")]
             macos_feature: None,
         }
@@ -291,9 +295,6 @@ impl WinitWindowWrapper {
     /// the window should be rendered.
     pub fn handle_event(&mut self, event: Event<UserEvent>) -> bool {
         tracy_zone!("handle_event", 0);
-        let window_settings = SETTINGS.get::<WindowSettings>();
-        // For some some reason we have to set the ime every frame, otherwise it won't apply
-        self.set_ime(window_settings.input_ime);
 
         let renderer_asks_to_be_rendered = self.renderer.handle_event(&event);
         let mut should_render = true;
@@ -397,6 +398,15 @@ impl WinitWindowWrapper {
             WindowEvent::Moved(_) => {
                 tracy_zone!("Moved");
                 vsync.update(skia_renderer.window());
+            }
+            WindowEvent::Ime(Ime::Enabled) => {
+                log::info!("Ime enabled");
+                self.ime_enabled = true;
+                self.update_ime_position(true);
+            }
+            WindowEvent::Ime(Ime::Disabled) => {
+                log::info!("Ime disabled");
+                self.ime_enabled = false;
             }
             _ => {
                 tracy_zone!("Unknown WindowEvent");
@@ -653,7 +663,7 @@ impl WinitWindowWrapper {
             }
         }
 
-        self.update_ime_position();
+        self.update_ime_position(false);
 
         should_render.update(self.renderer.prepare_frame());
 
@@ -752,8 +762,8 @@ impl WinitWindowWrapper {
         });
     }
 
-    fn update_ime_position(&mut self) {
-        if self.skia_renderer.is_none() {
+    fn update_ime_position(&mut self, force: bool) {
+        if !self.ime_enabled || self.skia_renderer.is_none() {
             return;
         }
         let skia_renderer = self.skia_renderer.as_ref().unwrap();
@@ -768,12 +778,14 @@ impl WinitWindowWrapper {
         // NOTE: some compositors don't like excluding too much and try to render popup at the
         // bottom right corner of the provided area, so exclude just the full-width char to not
         // obscure the cursor and not render popup at the end of the window.
-        let width = font_dimensions.width * 2.0;
-        let height = font_dimensions.height.ceil();
-        skia_renderer.window().set_ime_cursor_area(
-            dpi::Position::Physical(position),
-            dpi::PhysicalSize::new(width, height),
-        );
+        let width = (font_dimensions.width * 2.0).ceil() as u32;
+        let height = font_dimensions.height.ceil() as u32;
+        let size = dpi::PhysicalSize::new(width, height);
+        let area = (position, size);
+        if force || self.ime_area != area {
+            self.ime_area = (position, size);
+            skia_renderer.window().set_ime_cursor_area(position, size);
+        }
     }
 
     fn handle_scale_factor_update(&mut self, scale_factor: f64) {
