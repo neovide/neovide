@@ -30,11 +30,17 @@ no-multigrid = false
 vsync = true
 maximized = false
 srgb = false
+fork = false
 idle = true
 neovim-bin = "/usr/bin/nvim" # in reality found dynamically on $PATH if unset
 frame = "full"
+theme = "auto"
 title-hidden = true
 tabs = true
+
+[font]
+    normal = [] # Will use the bundled Fira Code Nerd Font by default
+    size = 14.0
 ```
 
 Settings from environment variables can be found in [Command Line Reference](command-line-reference.md),
