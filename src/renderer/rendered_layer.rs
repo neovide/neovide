@@ -202,6 +202,7 @@ pub fn group_windows(
     for i in 0..windows.len() {
         let _ = get_window_group(&mut windows, i);
     }
+    windows.sort_by(|a, b| a.group.cmp(&b.group));
     windows
         .into_iter()
         .group_by(|window| window.group)
