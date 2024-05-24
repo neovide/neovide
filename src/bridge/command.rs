@@ -49,6 +49,16 @@ fn build_login_cmd_args(command: &str, args: &[&str]) -> (String, Vec<String>) {
 
     use crate::error_handling::ResultPanicExplanation;
 
+    // If $TERM is set, we assume user is running from a terminal, and we shouldn't
+    // re-initialize the environment.
+    // See https://github.com/neovide/neovide/issues/2584
+    if env::var_os("TERM").is_some() {
+        return (
+            command.to_string(),
+            args.iter().map(|s| s.to_string()).collect(),
+        );
+    }
+
     let user = env::var("USER").unwrap_or_explained_panic("USER environment variable not found");
     let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
 
