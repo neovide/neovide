@@ -96,7 +96,7 @@ pub fn points_to_ascii(points: Vec<Point>) -> String {
 
     let line_width = points.iter().map(|p| p.x as usize).max().unwrap() + 1;
     let line_count = points.iter().map(|p| p.y as usize).max().unwrap() + 1;
-    let mut ascii = vec![vec![' '; line_width as usize]; line_count as usize];
+    let mut ascii = vec![vec![' '; line_width]; line_count];
     let numbers_big_enough = points.len() <= 9;
     let chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
     for (index, p) in points.iter().enumerate() {
