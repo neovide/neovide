@@ -417,6 +417,26 @@ Set the [`background`](https://neovim.io/doc/user/options.html#'background') opt
 starts. Possible values: _light_, _dark_, _auto_. On systems that support it, _auto_ will mirror the
 system theme, and will update `background` when the system theme changes.
 
+#### Layer grouping
+
+VimScript:
+
+```vim
+let g:experimental_layer_grouping = v:false
+```
+
+Lua:
+
+```lua
+vim.g.experimental_layer_grouping = false
+```
+
+**Available since 0.13.1.**
+
+Group non-emtpy consecutive layers (zindex) together, so that the shadows and blurring is done for
+the whole group instead of each individual layer. This can get rid of some shadowing and blending
+artifacts, but cause worse problems like [#2574](https://github.com/neovide/neovide/issues/2574).
+
 ### Functionality
 
 #### Refresh Rate

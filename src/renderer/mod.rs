@@ -99,6 +99,7 @@ pub struct RendererSettings {
     underline_stroke_scale: f32,
     text_gamma: f32,
     text_contrast: f32,
+    experimental_layer_grouping: bool,
 }
 
 impl Default for RendererSettings {
@@ -119,6 +120,7 @@ impl Default for RendererSettings {
             underline_stroke_scale: 1.,
             text_gamma: 0.0,
             text_contrast: 0.5,
+            experimental_layer_grouping: false,
         }
     }
 }
@@ -207,7 +209,10 @@ impl Renderer {
         let default_background = self.grid_renderer.get_default_background();
         let grid_scale = self.grid_renderer.grid_scale;
 
-        let transparency = { SETTINGS.get::<WindowSettings>().transparency };
+        let transparency = SETTINGS.get::<WindowSettings>().transparency;
+        let layer_grouping = SETTINGS
+            .get::<RendererSettings>()
+            .experimental_layer_grouping;
         root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
         root_canvas.save();
         root_canvas.reset_matrix();
@@ -240,8 +245,15 @@ impl Renderer {
             for window in floating_windows {
                 let zindex = window.anchor_info.as_ref().unwrap().sort_order;
                 log::debug!("zindex: {}, base: {}", zindex, base_zindex);
-                // Group floating windows by consecutive z indices
-                if zindex - last_zindex > 1 && !current_windows.is_empty() {
+                if layer_grouping {
+                    // Group floating windows by consecutive z indices
+                    if zindex - last_zindex > 1 && !current_windows.is_empty() {
+                        for windows in group_windows(current_windows, grid_scale) {
+                            floating_layers.push(FloatingLayer { windows });
+                        }
+                        current_windows = vec![];
+                    }
+                } else {
                     for windows in group_windows(current_windows, grid_scale) {
                         floating_layers.push(FloatingLayer { windows });
                     }
