@@ -24,7 +24,7 @@ use skia_safe::{Canvas, Image, Rect};
 
 use winit::{
     event::Event,
-    event_loop::{EventLoop, EventLoopProxy},
+    event_loop::{EventLoopProxy, EventLoopWindowTarget},
     window::{Window, WindowBuilder},
 };
 
@@ -103,6 +103,7 @@ pub struct RendererSettings {
     underline_stroke_scale: f32,
     text_gamma: f32,
     text_contrast: f32,
+    experimental_layer_grouping: bool,
 }
 
 impl Default for RendererSettings {
@@ -123,6 +124,7 @@ impl Default for RendererSettings {
             underline_stroke_scale: 1.,
             text_gamma: 0.0,
             text_contrast: 0.5,
+            experimental_layer_grouping: false,
         }
     }
 }
@@ -211,9 +213,12 @@ impl Renderer {
         let default_background = self.grid_renderer.get_default_background();
         let grid_scale = self.grid_renderer.grid_scale;
 
-        let transparency = { SETTINGS.get::<WindowSettings>().transparency };
+        let transparency = SETTINGS.get::<WindowSettings>().transparency;
         let background_transparency =
             { SETTINGS.get::<WindowSettings>().background_transparency } * transparency;
+        let layer_grouping = SETTINGS
+            .get::<RendererSettings>()
+            .experimental_layer_grouping;
         root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
         root_canvas.save();
         root_canvas.reset_matrix();
@@ -246,8 +251,15 @@ impl Renderer {
             for window in floating_windows {
                 let zindex = window.anchor_info.as_ref().unwrap().sort_order;
                 log::debug!("zindex: {}, base: {}", zindex, base_zindex);
-                // Group floating windows by consecutive z indices
-                if zindex - last_zindex > 1 && !current_windows.is_empty() {
+                if layer_grouping {
+                    // Group floating windows by consecutive z indices
+                    if zindex - last_zindex > 1 && !current_windows.is_empty() {
+                        for windows in group_windows(current_windows, grid_scale) {
+                            floating_layers.push(FloatingLayer { windows });
+                        }
+                        current_windows = vec![];
+                    }
+                } else {
                     for windows in group_windows(current_windows, grid_scale) {
                         floating_layers.push(FloatingLayer { windows });
                     }
@@ -411,10 +423,10 @@ impl Renderer {
             .handle_scale_factor_update(self.os_scale_factor * self.user_scale_factor);
     }
 
-    pub fn prepare_lines(&mut self) {
+    pub fn prepare_lines(&mut self, force: bool) {
         self.rendered_windows
             .iter_mut()
-            .for_each(|(_, w)| w.prepare_lines(&mut self.grid_renderer));
+            .for_each(|(_, w)| w.prepare_lines(&mut self.grid_renderer, force));
     }
 
     fn handle_draw_command(&mut self, draw_command: DrawCommand, result: &mut DrawCommandResult) {
@@ -539,7 +551,7 @@ pub struct WindowConfig {
 
 pub fn build_window_config<TE>(
     winit_window_builder: WindowBuilder,
-    event_loop: &EventLoop<TE>,
+    event_loop: &EventLoopWindowTarget<TE>,
 ) -> WindowConfig {
     #[cfg(target_os = "windows")]
     {

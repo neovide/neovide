@@ -71,10 +71,10 @@ as such it's also documented in `:h guifont`. But to sum it up and also add Neov
       - alias
     - `#h-X` (available since 0.10.2) - Sets level of glyph outline adjustment, while `X` is
       a type of hinting:
-      - full
+      - full (default)
       - normal
       - slight
-      - none (default)
+      - none
 - Some examples:
   - `Hack,Noto_Color_Emoji:h12:b` — Hack at size 12 in bold, with Noto Color Emoji as fallback
     should Hack fail to contain any glyph.
@@ -135,7 +135,7 @@ vim.g.neovide_text_gamma = 0.0
 vim.g.neovide_text_contrast = 0.5
 ```
 
-**Unreleased yet.**
+**Available since 0.13.0.**
 
 You can fine tune the gamma and contrast of the text to your liking. The defaults is a good
 compromise that gives readable text on all backgrounds and an accurate color representation. But if
@@ -417,28 +417,25 @@ Set the [`background`](https://neovim.io/doc/user/options.html#'background') opt
 starts. Possible values: _light_, _dark_, _auto_. On systems that support it, _auto_ will mirror the
 system theme, and will update `background` when the system theme changes.
 
-#### Fix border and winbar scrolling glitches
+#### Layer grouping
 
 VimScript:
 
 ```vim
-let g:neovide_unlink_border_highlights = v:true
+let g:experimental_layer_grouping = v:false
 ```
 
 Lua:
 
 ```lua
-vim.g.neovide_unlink_border_highlights = true
+vim.g.experimental_layer_grouping = false
 ```
 
-**Available since 0.12.0.**
+**Available since 0.13.1.**
 
-Neovide uses some highlight groups for detecting the border of the windows, when scrolling. This
-detection is not perfect due to some limitations of Neovim, it only returns the final highlight
-groups for linked highlights. This option unlinks those highlight groups after the color scheme is
-loaded to make Neovide detect them properly.
-
-If this causes other problems, you can set this option to false.
+Group non-emtpy consecutive layers (zindex) together, so that the shadows and blurring is done for
+the whole group instead of each individual layer. This can get rid of some shadowing and blending
+artifacts, but cause worse problems like [#2574](https://github.com/neovide/neovide/issues/2574).
 
 ### Functionality
 
@@ -588,7 +585,7 @@ Lua:
 vim.g.neovide_input_macos_option_key_is_meta = 'only_left'
 ```
 
-**Available since 0.10.**
+**Available since 0.13.0.**
 
 Interprets <kbd>Alt</kbd> + <kbd>whatever</kbd> actually as `<M-whatever>`, instead of sending the
 actual special character to Neovim.
@@ -618,8 +615,8 @@ augroup ime_input
     autocmd!
     autocmd InsertLeave * execute "let g:neovide_input_ime=v:false"
     autocmd InsertEnter * execute "let g:neovide_input_ime=v:true"
-    autocmd CmdlineEnter [/\?] execute "let g:neovide_input_ime=v:false"
-    autocmd CmdlineLeave [/\?] execute "let g:neovide_input_ime=v:true"
+    autocmd CmdlineLeave [/\?] execute "let g:neovide_input_ime=v:false"
+    autocmd CmdlineEnter [/\?] execute "let g:neovide_input_ime=v:true"
 augroup END
 ```
 

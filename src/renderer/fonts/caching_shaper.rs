@@ -151,6 +151,7 @@ impl CachingShaper {
     }
 
     fn reset_font_loader(&mut self) {
+        tracy_zone!("reset_font_loader");
         self.font_info = None;
         let font_size = self.current_size();
 
@@ -210,7 +211,12 @@ impl CachingShaper {
     }
 
     pub fn underline_position(&mut self) -> f32 {
-        self.metrics().underline_offset
+        let metrics = self.metrics();
+        metrics.ascent - metrics.underline_offset
+    }
+
+    pub fn stroke_size(&mut self) -> f32 {
+        self.metrics().stroke_size
     }
 
     pub fn y_adjustment(&mut self) -> f32 {

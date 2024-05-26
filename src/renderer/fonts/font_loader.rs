@@ -8,10 +8,13 @@ use log::trace;
 use lru::LruCache;
 use skia_safe::{font::Edging as SkiaEdging, Data, Font, FontHinting as SkiaHinting, FontMgr};
 
-use crate::renderer::fonts::font_options::{FontEdging, FontHinting};
-use crate::renderer::fonts::swash_font::SwashFont;
-
-use super::font_options::{CoarseStyle, FontDescription};
+use crate::{
+    profiling::tracy_zone,
+    renderer::fonts::{
+        font_options::{CoarseStyle, FontDescription, FontEdging, FontHinting},
+        swash_font::SwashFont,
+    },
+};
 
 static DEFAULT_FONT: &[u8] = include_bytes!("../../../assets/fonts/FiraCodeNerdFont-Regular.ttf");
 static LAST_RESORT_FONT: &[u8] = include_bytes!("../../../assets/fonts/LastResort-Regular.ttf");
@@ -87,6 +90,7 @@ impl FontLoader {
     }
 
     fn load(&mut self, font_key: FontKey) -> Option<FontPair> {
+        tracy_zone!("load_font");
         trace!("Loading font {:?}", font_key);
         if let Some(desc) = &font_key.font_desc {
             let (family, style) = desc.as_family_and_font_style();

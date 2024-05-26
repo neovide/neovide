@@ -5,10 +5,8 @@ use std::{
 };
 
 use winit::{
-    event::{
-        DeviceId, ElementState, Event, MouseButton, MouseScrollDelta, Touch, TouchPhase,
-        WindowEvent,
-    },
+    event::WindowEvent,
+    event::{DeviceId, ElementState, MouseButton, MouseScrollDelta, Touch, TouchPhase},
     window::Window,
 };
 
@@ -18,7 +16,7 @@ use crate::{
     settings::SETTINGS,
     units::{GridPos, GridScale, GridVec, PixelPos, PixelRect, PixelSize, PixelVec},
     window::keyboard_manager::KeyboardManager,
-    window::{UserEvent, WindowSettings},
+    window::WindowSettings,
 };
 
 fn clamp_position(
@@ -380,7 +378,7 @@ impl MouseManager {
 
     pub fn handle_event(
         &mut self,
-        event: &Event<UserEvent>,
+        event: &WindowEvent,
         keyboard_manager: &KeyboardManager,
         renderer: &Renderer,
         window: &Window,
@@ -392,10 +390,7 @@ impl MouseManager {
             keyboard_manager,
         };
         match event {
-            Event::WindowEvent {
-                event: WindowEvent::CursorMoved { position, .. },
-                ..
-            } => {
+            WindowEvent::CursorMoved { position, .. } => {
                 self.handle_pointer_motion(
                     (position.x as f32, position.y as f32).into(),
                     &editor_state,
@@ -405,53 +400,34 @@ impl MouseManager {
                     self.mouse_hidden = false;
                 }
             }
-            Event::WindowEvent {
-                event:
-                    WindowEvent::MouseWheel {
-                        delta: MouseScrollDelta::LineDelta(x, y),
-                        ..
-                    },
+            WindowEvent::MouseWheel {
+                delta: MouseScrollDelta::LineDelta(x, y),
                 ..
             } => self.handle_line_scroll((*x, *y).into(), &editor_state),
-            Event::WindowEvent {
-                event:
-                    WindowEvent::MouseWheel {
-                        delta: MouseScrollDelta::PixelDelta(delta),
-                        ..
-                    },
+            WindowEvent::MouseWheel {
+                delta: MouseScrollDelta::PixelDelta(delta),
                 ..
             } => self.handle_pixel_scroll((delta.x as f32, delta.y as f32).into(), &editor_state),
-            Event::WindowEvent {
-                event:
-                    WindowEvent::Touch(Touch {
-                        device_id,
-                        id,
-                        location,
-                        phase,
-                        ..
-                    }),
+            WindowEvent::Touch(Touch {
+                device_id,
+                id,
+                location,
+                phase,
                 ..
-            } => self.handle_touch(
+            }) => self.handle_touch(
                 (*device_id, *id),
                 PixelPos::new(location.x as f32, location.y as f32),
                 phase,
                 &editor_state,
             ),
-            Event::WindowEvent {
-                event: WindowEvent::MouseInput { button, state, .. },
-                ..
-            } => self.handle_pointer_transition(
+            WindowEvent::MouseInput { button, state, .. } => self.handle_pointer_transition(
                 *button,
                 state == &ElementState::Pressed,
                 &editor_state,
             ),
 
-            Event::WindowEvent {
-                event:
-                    WindowEvent::KeyboardInput {
-                        event: key_event, ..
-                    },
-                ..
+            WindowEvent::KeyboardInput {
+                event: key_event, ..
             } => {
                 if key_event.state == ElementState::Pressed {
                     let window_settings = SETTINGS.get::<WindowSettings>();

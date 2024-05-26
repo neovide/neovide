@@ -1,8 +1,11 @@
 //! Config file handling
 
-use std::{env, fs, sync::mpsc};
+use std::{env, fs, sync::mpsc, time::Duration};
 
-use notify::Watcher;
+use notify_debouncer_full::{
+    new_debouncer,
+    notify::{RecursiveMode, Watcher},
+};
 use serde::Deserialize;
 use winit::event_loop::EventLoopProxy;
 
@@ -36,19 +39,19 @@ pub fn config_path() -> PathBuf {
 #[derive(Debug, Deserialize, Default, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct Config {
-    pub wsl: Option<bool>,
-    pub no_multigrid: Option<bool>,
-    pub maximized: Option<bool>,
-    pub vsync: Option<bool>,
-    pub srgb: Option<bool>,
-    pub fork: Option<bool>,
-    pub idle: Option<bool>,
-    pub neovim_bin: Option<PathBuf>,
-    pub frame: Option<Frame>,
-    pub theme: Option<String>,
     pub font: Option<FontSettings>,
-    pub title_hidden: Option<bool>,
+    pub fork: Option<bool>,
+    pub frame: Option<Frame>,
+    pub idle: Option<bool>,
+    pub maximized: Option<bool>,
+    pub neovim_bin: Option<PathBuf>,
+    pub no_multigrid: Option<bool>,
+    pub srgb: Option<bool>,
     pub tabs: Option<bool>,
+    pub theme: Option<String>,
+    pub title_hidden: Option<bool>,
+    pub vsync: Option<bool>,
+    pub wsl: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -136,16 +139,14 @@ impl Config {
 
 fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<UserEvent>) {
     let (tx, rx) = mpsc::channel();
-    let mut watcher =
-        notify::RecommendedWatcher::new(tx, notify::Config::default().with_compare_contents(true))
-            .unwrap();
+    let mut debouncer = new_debouncer(Duration::from_millis(500), None, tx).unwrap();
 
-    if let Err(e) = watcher.watch(
+    if let Err(e) = debouncer.watcher().watch(
         // watching the directory rather than the config file itself to also allow it to be deleted/created later on
         config_path()
             .parent()
             .expect("config path to point to a file which must be in some directory"),
-        notify::RecursiveMode::NonRecursive,
+        RecursiveMode::NonRecursive,
     ) {
         log::error!("Could not watch config file, chances are it just doesn't exist: {e}");
         return;

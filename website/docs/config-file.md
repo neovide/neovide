@@ -25,16 +25,22 @@ There are two types of settings:
 Settings currently available in the config file with default values:
 
 ```toml
-wsl = false
-no-multigrid = false
-vsync = true
-maximized = false
-srgb = false
-idle = true
-neovim-bin = "/usr/bin/nvim" # in reality found dynamically on $PATH if unset
+[font]
+    normal = [] # Will use the bundled Fira Code Nerd Font by default
+    size = 14.0
+
+fork = false
 frame = "full"
-title-hidden = true
+idle = true
+maximized = false
+neovim-bin = "/usr/bin/nvim" # in reality found dynamically on $PATH if unset
+no-multigrid = false
+srgb = false
 tabs = true
+theme = "auto"
+title-hidden = true
+vsync = true
+wsl = false
 ```
 
 Settings from environment variables can be found in [Command Line Reference](command-line-reference.md),

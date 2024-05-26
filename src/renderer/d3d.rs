@@ -5,7 +5,7 @@ use skia_safe::{
         BackendRenderTarget, DirectContext, FlushInfo, Protected, SurfaceOrigin, SyncCpu,
     },
     surface::BackendSurfaceAccess,
-    Canvas, ColorType, Surface,
+    Canvas, ColorSpace, ColorType, PixelGeometry, Surface, SurfaceProps, SurfacePropsFlags,
 };
 use windows::core::{Interface, Result, PCWSTR};
 use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND};
@@ -15,8 +15,6 @@ use windows::Win32::Graphics::Direct3D12::{
     D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_COMMAND_QUEUE_DESC, D3D12_COMMAND_QUEUE_FLAG_NONE,
     D3D12_FENCE_FLAG_NONE, D3D12_RESOURCE_STATE_PRESENT,
 };
-#[cfg(feature = "d3d_debug")]
-use windows::Win32::Graphics::Direct3D12::{D3D12GetDebugInterface, ID3D12Debug};
 use windows::Win32::Graphics::DirectComposition::{
     DCompositionCreateDevice2, IDCompositionDevice, IDCompositionTarget, IDCompositionVisual,
 };
@@ -25,10 +23,15 @@ use windows::Win32::Graphics::Dxgi::Common::{
     DXGI_SAMPLE_DESC,
 };
 use windows::Win32::Graphics::Dxgi::{
-    CreateDXGIFactory2, IDXGIAdapter1, IDXGIFactory4, IDXGISwapChain1, IDXGISwapChain3,
-    DXGI_ADAPTER_FLAG, DXGI_ADAPTER_FLAG_SOFTWARE, DXGI_CREATE_FACTORY_DEBUG, DXGI_SCALING_STRETCH,
-    DXGI_SWAP_CHAIN_DESC1, DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT,
-    DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL, DXGI_USAGE_RENDER_TARGET_OUTPUT,
+    CreateDXGIFactory1, IDXGIAdapter1, IDXGIFactory2, IDXGISwapChain1, IDXGISwapChain3,
+    DXGI_ADAPTER_FLAG, DXGI_ADAPTER_FLAG_SOFTWARE, DXGI_SCALING_STRETCH, DXGI_SWAP_CHAIN_DESC1,
+    DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT, DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
+    DXGI_USAGE_RENDER_TARGET_OUTPUT,
+};
+#[cfg(feature = "d3d_debug")]
+use windows::Win32::Graphics::{
+    Direct3D12::{D3D12GetDebugInterface, ID3D12Debug},
+    Dxgi::{CreateDXGIFactory2, DXGI_CREATE_FACTORY_DEBUG},
 };
 use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObjectEx, INFINITE};
 use winit::{
@@ -37,12 +40,17 @@ use winit::{
     window::Window,
 };
 
-use super::{vsync::VSyncWinSwapChain, SkiaRenderer, VSync};
+use super::{vsync::VSyncWinSwapChain, RendererSettings, SkiaRenderer, VSync};
 #[cfg(feature = "gpu_profiling")]
 use crate::profiling::{d3d::create_d3d_gpu_context, GpuCtx};
-use crate::{profiling::tracy_gpu_zone, window::UserEvent};
+use crate::{
+    profiling::{tracy_gpu_zone, tracy_zone},
+    settings::SETTINGS,
+    window::UserEvent,
+};
 
-fn get_hardware_adapter(factory: &IDXGIFactory4) -> Result<IDXGIAdapter1> {
+fn get_hardware_adapter(factory: &IDXGIFactory2) -> Result<IDXGIAdapter1> {
+    tracy_zone!("get_hardware_adapter");
     for i in 0.. {
         let adapter = unsafe { factory.EnumAdapters1(i)? };
         let mut desc = Default::default();
@@ -97,8 +105,9 @@ pub struct D3DSkiaRenderer {
 
 impl D3DSkiaRenderer {
     pub fn new(window: Window) -> Self {
+        tracy_zone!("D3DSkiaRenderer::new");
         #[cfg(feature = "d3d_debug")]
-        unsafe {
+        let dxgi_factory: IDXGIFactory2 = unsafe {
             let mut debug_controller: Option<ID3D12Debug> = None;
             D3D12GetDebugInterface(&mut debug_controller)
                 .expect("Failed to create Direct3D debug controller");
@@ -106,17 +115,20 @@ impl D3DSkiaRenderer {
             debug_controller
                 .expect("Failed to enable debug layer")
                 .EnableDebugLayer();
-        }
 
-        let dxgi_factory: IDXGIFactory4 = unsafe {
             CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG).expect("Failed to create DXGI factory")
         };
+
+        #[cfg(not(feature = "d3d_debug"))]
+        let dxgi_factory: IDXGIFactory2 =
+            unsafe { CreateDXGIFactory1().expect("Failed to create DXGI factory") };
 
         let adapter = get_hardware_adapter(&dxgi_factory)
             .expect("Failed to find any suitable Direct3D 12 adapters");
 
         let mut device: Option<ID3D12Device> = None;
         unsafe {
+            tracy_zone!("create_device");
             D3D12CreateDevice(&adapter, D3D_FEATURE_LEVEL_11_0, &mut device)
                 .expect("Failed to create a Direct3D 12 device");
         }
@@ -167,6 +179,7 @@ impl D3DSkiaRenderer {
         };
 
         let swap_chain = unsafe {
+            tracy_zone!("create swap_chain");
             dxgi_factory
                 .CreateSwapChainForComposition(&command_queue, &swap_chain_desc, None)
                 .expect("Failed to create the Direct3D swap chain")
@@ -232,6 +245,7 @@ impl D3DSkiaRenderer {
             protected_context: Protected::No,
         };
         let gr_context = unsafe {
+            tracy_zone!("create skia context");
             DirectContext::new_d3d(&backend_context, None).expect("Failed to create Skia context")
         };
 
@@ -314,6 +328,7 @@ impl D3DSkiaRenderer {
     }
 
     fn setup_surfaces(&mut self) {
+        tracy_zone!("setup_surfaces");
         let size = self.window.inner_size();
         let size = (
             size.width.try_into().expect("Could not convert width"),
@@ -341,13 +356,22 @@ impl D3DSkiaRenderer {
                 protected: Protected::No,
             };
 
+            let render_settings = SETTINGS.get::<RendererSettings>();
+
+            let surface_props = SurfaceProps::new_with_text_properties(
+                SurfacePropsFlags::default(),
+                PixelGeometry::default(),
+                render_settings.text_contrast,
+                render_settings.text_gamma,
+            );
+
             let surface = wrap_backend_render_target(
                 &mut self.gr_context,
                 &BackendRenderTarget::new_d3d(size, &info),
                 SurfaceOrigin::TopLeft,
                 ColorType::RGBA8888,
-                None,
-                None,
+                ColorSpace::new_srgb(),
+                Some(surface_props).as_ref(),
             )
             .expect("Could not create backend render target");
             self.surfaces.push(surface);
