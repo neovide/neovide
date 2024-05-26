@@ -211,6 +211,50 @@ window to that value.
 Note that `g:neovide_transparency` should be 0 if you want to unify transparency of content and
 title bar.
 
+### Background Transparency
+
+In addition to the general window transparency (`neovide_transparency`), you can control the transparency of the default background color independently using the `neovide_background_transparency` variable.
+
+It also will control how much default color is overlayed on top of the background image.
+
+VimScript:
+
+```vim
+let g:neovide_background_transparency = 0.8
+```
+
+Lua:
+
+```lua
+vim.g.neovide_background_transparency = 0.8
+```
+
+This setting takes a value between 0.0 and 1.0, where 0.0 means fully transparent and 1.0 means fully opaque.
+
+### Background Image
+
+**Warning:** The background image will not be visible if `g:neovide_background_transparency` is set to 1 (fully opaque), which is the default setting. Ensure to set this value below 1 to see the background image.
+
+You can set a background image for Neovide, which will be displayed behind the text editor. This setting is controlled via the `vim.g.neovide_background_image` variable.
+
+VimScript:
+
+```vim
+let g:neovide_background_transparency = 0.8
+let g:neovide_background_image = "~/image.jpg"
+```
+
+Lua:
+
+```lua
+vim.g.neovide_background_transparency = 0.8
+vim.g.neovide_background_image = "~/image.jpg"
+```
+
+![image](assets/BackgroundImage.png)
+
+---
+
 #### Window Blur (Currently macOS only)
 
 VimScript:
