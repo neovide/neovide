@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use super::{
     KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged,
 };
@@ -177,10 +179,20 @@ impl WinitWindowWrapper {
     }
 
     fn load_image(image: &str) -> Option<Image> {
+        let image = shellexpand::tilde_with_context(image, || {
+            homedir::get_my_home()
+                .ok()
+                .flatten()
+                .and_then(|p| p.to_str().map(|sp| sp.to_string()))
+        });
+
+        log::info!("Start loading background image {:?}", image);
         if image.is_empty() {
+            log::info!("No background image set");
             None
         } else {
-            let skia_data = Data::from_filename(std::path::Path::new(image))?;
+            let skia_data = Data::from_filename(std::path::Path::new(image.deref()))?;
+            log::info!("Succesfully read image {:?}", image);
             let image = Image::from_encoded(skia_data)?;
             let mut bitmap = Bitmap::new();
             let image_info = ImageInfo::new_n32_premul((image.width(), image.height()), None);
@@ -191,7 +203,6 @@ impl WinitWindowWrapper {
             // Read the pixels from the image into the bitmap
             let success = image.read_pixels(
                 &image_info,
-                // pixels,
                 unsafe {
                     std::slice::from_raw_parts_mut(pixels as *mut u8, bitmap.compute_byte_size())
                 },
@@ -200,6 +211,7 @@ impl WinitWindowWrapper {
                 CachingHint::Disallow,
             );
             if !success {
+                log::warn!("Cant read background image's pixels");
                 return None;
             }
             images::raster_from_bitmap(&bitmap)

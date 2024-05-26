@@ -393,13 +393,6 @@ impl RenderedWindow {
                 &pixel_region,
                 screen_rect,
             );
-            // Self::draw_window_background_image(
-            //     &paint,
-            //     root_canvas,
-            //     background,
-            //     &pixel_region,
-            //     screen_rect,
-            // );
         }
         let mut background_paint = Paint::default();
         background_paint.set_blend_mode(BlendMode::SrcOver);
