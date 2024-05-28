@@ -82,6 +82,7 @@ impl<'w> FloatingLayer<'w> {
             .map(|window| window.pixel_region(grid_scale))
             .collect::<Vec<_>>();
 
+        // TODO: Get rid of this
         let blend = self.uniform_background_blend();
 
         self.windows.iter_mut().for_each(|window| {

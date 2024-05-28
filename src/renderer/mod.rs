@@ -245,19 +245,15 @@ impl Renderer {
             for window in floating_windows {
                 let zindex = window.anchor_info.as_ref().unwrap().sort_order;
                 log::debug!("zindex: {}, base: {}", zindex, base_zindex);
-                if layer_grouping {
-                    // Group floating windows by consecutive z indices
-                    if zindex - last_zindex > 1 && !current_windows.is_empty() {
+                if !current_windows.is_empty() && zindex !=last_zindex {
+                    // Group floating windows by consecutive z indices if layer_grouping is enabled,
+                    // Otherwise group all windows inside a single layer
+                    if true || !layer_grouping || zindex - last_zindex > 1 {
                         for windows in group_windows(current_windows, grid_scale) {
                             floating_layers.push(FloatingLayer { windows });
                         }
                         current_windows = vec![];
                     }
-                } else {
-                    for windows in group_windows(current_windows, grid_scale) {
-                        floating_layers.push(FloatingLayer { windows });
-                    }
-                    current_windows = vec![];
                 }
 
                 if current_windows.is_empty() {
