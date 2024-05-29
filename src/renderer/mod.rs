@@ -243,12 +243,12 @@ impl Renderer {
             let mut current_windows = vec![];
 
             for window in floating_windows {
-                let zindex = window.anchor_info.as_ref().unwrap().sort_order;
+                let zindex = window.anchor_info.as_ref().unwrap().sort_order.z_index;
                 log::debug!("zindex: {}, base: {}", zindex, base_zindex);
-                if !current_windows.is_empty() && zindex !=last_zindex {
+                if !current_windows.is_empty() && zindex != last_zindex {
                     // Group floating windows by consecutive z indices if layer_grouping is enabled,
                     // Otherwise group all windows inside a single layer
-                    if true || !layer_grouping || zindex - last_zindex > 1 {
+                    if !layer_grouping || zindex - last_zindex > 1 {
                         for windows in group_windows(current_windows, grid_scale) {
                             floating_layers.push(FloatingLayer { windows });
                         }
@@ -276,7 +276,7 @@ impl Renderer {
                     layer
                         .windows
                         .iter()
-                        .map(|w| (w.id, w.anchor_info.as_ref().unwrap().sort_order))
+                        .map(|w| (w.id, w.anchor_info.as_ref().unwrap().sort_order.clone()))
                         .collect_vec()
                 );
             }
@@ -494,31 +494,9 @@ impl Renderer {
 
 /// Defines how floating windows are sorted.
 fn floating_sort(window_a: &&mut RenderedWindow, window_b: &&mut RenderedWindow) -> Ordering {
-    // First, compare floating order
-    let mut ord = window_a
-        .anchor_info
-        .as_ref()
-        .unwrap()
-        .sort_order
-        .partial_cmp(&window_b.anchor_info.as_ref().unwrap().sort_order)
-        .unwrap();
-    if ord == Ordering::Equal {
-        // if equal, compare grid pos x
-        ord = window_a
-            .grid_current_position
-            .x
-            .partial_cmp(&window_b.grid_current_position.x)
-            .unwrap();
-        if ord == Ordering::Equal {
-            // if equal, compare grid pos z
-            ord = window_a
-                .grid_current_position
-                .y
-                .partial_cmp(&window_b.grid_current_position.y)
-                .unwrap();
-        }
-    }
-    ord
+    let orda = &window_a.anchor_info.as_ref().unwrap().sort_order;
+    let ordb = &window_b.anchor_info.as_ref().unwrap().sort_order;
+    orda.cmp(ordb)
 }
 
 pub enum WindowConfigType {

@@ -209,7 +209,7 @@ pub enum RedrawEvent {
         anchor_column: f64,
         #[allow(unused)]
         focusable: bool,
-        sort_order: Option<u64>,
+        z_index: u64,
     },
     #[allow(unused)]
     WindowExternalPosition {
@@ -677,8 +677,8 @@ fn parse_window_anchor(value: Value) -> Result<WindowAnchor> {
 }
 
 fn parse_win_float_pos(win_float_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let ([grid, _window, anchor, anchor_grid, anchor_row, anchor_column, focusable], [sort_order]) =
-        extract_values_with_optional(win_float_pos_arguments)?;
+    let [grid, _window, anchor, anchor_grid, anchor_row, anchor_column, focusable, z_index] =
+        extract_values(win_float_pos_arguments)?;
 
     Ok(RedrawEvent::WindowFloatPosition {
         grid: parse_u64(grid)?,
@@ -687,7 +687,7 @@ fn parse_win_float_pos(win_float_pos_arguments: Vec<Value>) -> Result<RedrawEven
         anchor_row: parse_f64(anchor_row)?,
         anchor_column: parse_f64(anchor_column)?,
         focusable: parse_bool(focusable)?,
-        sort_order: sort_order.map(parse_u64).transpose()?,
+        z_index: parse_u64(z_index)?,
     })
 }
 

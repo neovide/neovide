@@ -8,7 +8,7 @@ use skia_safe::{
 
 use crate::{
     cmd_line::CmdLineSettings,
-    editor::{AnchorInfo, Style, WindowType},
+    editor::{AnchorInfo, SortOrder, Style, WindowType},
     profiling::{tracy_plot, tracy_zone},
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
     settings::SETTINGS,
@@ -63,6 +63,7 @@ pub enum WindowDrawCommand {
         left: u64,
         right: u64,
     },
+    SortOrder(SortOrder),
 }
 
 #[derive(Clone)]
@@ -505,6 +506,11 @@ impl RenderedWindow {
             }
             WindowDrawCommand::ViewportMargins { top, bottom, .. } => {
                 self.viewport_margins = ViewportMargins { top, bottom }
+            }
+            WindowDrawCommand::SortOrder(sort_order) => {
+                if let Some(anchor_info) = self.anchor_info.as_mut() {
+                    anchor_info.sort_order = sort_order;
+                }
             }
             _ => {}
         };
