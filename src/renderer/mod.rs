@@ -154,8 +154,8 @@ pub struct Renderer {
     pub window_regions: Vec<WindowDrawDetails>,
 
     profiler: profiler::Profiler,
-    os_scale_factor: f64,
-    user_scale_factor: f64,
+    pub os_scale_factor: f64,
+    pub user_scale_factor: f64,
 }
 
 /// Results of processing the draw commands from the command channel.
@@ -392,14 +392,6 @@ impl Renderer {
             tracy_named_frame!("neovim draw batch processed");
         }
         self.flush(&settings);
-
-        let user_scale_factor = SETTINGS.get::<WindowSettings>().scale_factor.into();
-        if user_scale_factor != self.user_scale_factor {
-            self.user_scale_factor = user_scale_factor;
-            self.grid_renderer
-                .handle_scale_factor_update(self.os_scale_factor * self.user_scale_factor);
-            result.font_changed = true;
-        }
 
         result
     }

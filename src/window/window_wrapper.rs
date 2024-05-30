@@ -213,6 +213,14 @@ impl WinitWindowWrapper {
             WindowSettingsChanged::InputIme(ime_enabled) => {
                 self.set_ime(ime_enabled);
             }
+            WindowSettingsChanged::ScaleFactor(user_scale_factor) => {
+                let renderer = &mut self.renderer;
+                renderer.user_scale_factor = user_scale_factor.into();
+                renderer.grid_renderer.handle_scale_factor_update(
+                    renderer.os_scale_factor * renderer.user_scale_factor,
+                );
+                self.font_changed_last_frame = true;
+            }
             WindowSettingsChanged::WindowBlurred(blur) => {
                 if let Some(skia_renderer) = &self.skia_renderer {
                     let WindowSettings { transparency, .. } = SETTINGS.get::<WindowSettings>();
