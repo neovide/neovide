@@ -115,13 +115,6 @@ impl WindowDrawDetails {
 }
 
 impl Line {
-    fn update_background_blend(&mut self, blend: u8) {
-        if self.blend != blend {
-            self.blend = blend;
-            self.is_valid = false;
-        }
-    }
-
     fn has_transparency(&self) -> bool {
         self.blend > 0
     }
@@ -156,13 +149,6 @@ impl RenderedWindow {
     pub fn pixel_region(&self, grid_scale: GridScale) -> PixelRect<f32> {
         GridRect::<f32>::from_origin_and_size(self.grid_current_position, self.grid_size.cast())
             * grid_scale
-    }
-
-    pub fn update_blend(&self, blend: u8) {
-        for (_, line) in self.iter_lines() {
-            let mut line = line.borrow_mut();
-            line.update_background_blend(blend);
-        }
     }
 
     fn get_target_position(&self, grid_rect: &GridRect<f32>) -> GridPos<f32> {
@@ -602,10 +588,6 @@ impl RenderedWindow {
         })
     }
 
-    fn iter_lines(&self) -> impl Iterator<Item = (isize, &Rc<RefCell<Line>>)> {
-        self.iter_border_lines().chain(self.iter_scrollable_lines())
-    }
-
     fn iter_scrollable_lines_with_transform(
         &self,
         pixel_region: PixelRect<f32>,
@@ -654,26 +636,6 @@ impl RenderedWindow {
         );
 
         to_skia_rect(&adjusted_region)
-    }
-
-    pub fn get_smallest_blend_value(&self) -> Option<u8> {
-        let height = self.grid_size.height as isize;
-        if height == 0 {
-            return None;
-        }
-        let mut smallest_blend_value: Option<u8> = None;
-
-        for (_, line) in self.iter_lines() {
-            let line = line.borrow();
-            line.line_fragments.iter().for_each(|f| {
-                if let Some(style) = &f.style {
-                    smallest_blend_value =
-                        Some(smallest_blend_value.map_or(style.blend, |v| v.min(style.blend)));
-                }
-            });
-        }
-
-        smallest_blend_value
     }
 
     pub fn prepare_lines(&mut self, grid_renderer: &mut GridRenderer, force: bool) {
