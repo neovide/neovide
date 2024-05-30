@@ -161,18 +161,15 @@ fn get_window_group(windows: &mut Vec<LayerWindow>, index: usize) -> usize {
     windows[index].group
 }
 
-fn rect_contains(a: &Rect, b: &Rect) -> bool {
-    Rect::contains(a, b) || Rect::contains(b, a)
-}
-
 fn group_windows_with_regions(windows: &mut Vec<LayerWindow>, regions: &[PixelRect<f32>]) {
+    // intersects does not consider touching regions as intersection, so extend the box by one
+    // pixel before doing the test.
+    let epsilon = 1.0;
     for i in 0..windows.len() {
         for j in i + 1..windows.len() {
             let group_i = get_window_group(windows, i);
             let group_j = get_window_group(windows, j);
-            if group_i != group_j
-                && rect_contains(&to_skia_rect(&regions[i]), &to_skia_rect(&regions[j]))
-            {
+            if group_i != group_j && regions[i].inflate(epsilon, epsilon).intersects(&regions[j]) {
                 let new_group = group_i.min(group_j);
                 if group_i != group_j {
                     windows[group_i].group = new_group;
