@@ -71,7 +71,7 @@ struct Line {
     line_fragments: Vec<LineFragment>,
     background_picture: Option<Picture>,
     foreground_picture: Option<Picture>,
-    blend: u8,
+    has_transparency: bool,
     is_valid: bool,
 }
 
@@ -94,8 +94,6 @@ pub struct RenderedWindow {
     position_t: f32,
 
     pub scroll_animation: CriticallyDampedSpringAnimation,
-
-    has_transparency: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -111,12 +109,6 @@ impl WindowDrawDetails {
         } else {
             self.id
         }
-    }
-}
-
-impl Line {
-    fn has_transparency(&self) -> bool {
-        self.blend > 0
     }
 }
 
@@ -141,8 +133,6 @@ impl RenderedWindow {
             position_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation.
 
             scroll_animation: CriticallyDampedSpringAnimation::new(),
-
-            has_transparency: false,
         }
     }
 
@@ -227,8 +217,6 @@ impl RenderedWindow {
         pixel_region: PixelRect<f32>,
         grid_scale: GridScale,
     ) {
-        let mut has_transparency = false;
-
         let inner_region = self.inner_region(pixel_region, grid_scale);
 
         canvas.save();
@@ -236,7 +224,6 @@ impl RenderedWindow {
         for (matrix, line) in self.iter_border_lines_with_transform(pixel_region, grid_scale) {
             let line = line.borrow();
             if let Some(background_picture) = &line.background_picture {
-                has_transparency |= line.has_transparency();
                 canvas.draw_picture(background_picture, Some(&matrix), None);
             }
         }
@@ -246,7 +233,6 @@ impl RenderedWindow {
         for (matrix, line) in self.iter_scrollable_lines_with_transform(pixel_region, grid_scale) {
             let line = line.borrow();
             if let Some(background_picture) = &line.background_picture {
-                has_transparency |= line.has_transparency();
                 canvas.draw_picture(background_picture, Some(&matrix), None);
                 pics += 1;
             }
@@ -259,8 +245,6 @@ impl RenderedWindow {
         );
         canvas.restore();
         canvas.restore();
-
-        self.has_transparency = has_transparency;
     }
 
     pub fn draw_foreground_surface(
@@ -296,7 +280,7 @@ impl RenderedWindow {
                 scroll_offset_lines..scroll_offset_lines + self.grid_size.height as isize + 1,
             )
             .flatten()
-            .any(|line| line.borrow().has_transparency())
+            .any(|line| line.borrow().has_transparency)
     }
 
     pub fn draw(
@@ -440,7 +424,7 @@ impl RenderedWindow {
                     line_fragments,
                     background_picture: None,
                     foreground_picture: None,
-                    blend: 0,
+                    has_transparency: false,
                     is_valid: false,
                 };
 
@@ -659,7 +643,7 @@ impl RenderedWindow {
             let grid_rect = Rect::from_wh(line_size.width, line_size.height);
             let canvas = recorder.begin_recording(grid_rect, None);
 
-            let mut blend = 0;
+            let mut has_transparency = false;
             let mut custom_background = false;
 
             for line_fragment in line.line_fragments.iter() {
@@ -677,7 +661,7 @@ impl RenderedWindow {
                     style,
                 );
                 custom_background |= background_info.custom_color;
-                blend = blend.min(style.as_ref().map_or(0, |s| s.blend));
+                has_transparency |= background_info.transparent;
             }
             let background_picture =
                 custom_background.then_some(recorder.finish_recording_as_picture(None).unwrap());
@@ -706,7 +690,7 @@ impl RenderedWindow {
 
             line.background_picture = background_picture;
             line.foreground_picture = foreground_picture;
-            line.blend = blend;
+            line.has_transparency = has_transparency;
             line.is_valid = true;
         };
 
