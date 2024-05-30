@@ -290,7 +290,6 @@ impl Renderer {
             .map(|window| {
                 window.draw(
                     root_canvas,
-                    &settings,
                     default_background.with_a((255.0 * transparency) as u8),
                     grid_scale,
                 )
