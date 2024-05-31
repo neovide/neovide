@@ -333,7 +333,7 @@ vim.g.neovide_position_animation_length = 0.15
 ```
 
 Determines the time it takes for a window to complete animation from one position to another
-position in seconds, such as :split. Set to `0` to disable.
+position in seconds, such as `:split`. Set to `0` to disable.
 
 #### Scroll Animation Length
 
