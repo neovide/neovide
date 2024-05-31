@@ -483,6 +483,8 @@ impl WinitWindowWrapper {
             theme,
             transparency,
             window_blurred,
+            #[cfg(target_os = "macos")]
+            input_macos_option_key_is_meta,
             ..
         } = SETTINGS.get::<WindowSettings>();
 
@@ -592,6 +594,8 @@ impl WinitWindowWrapper {
 
         self.ui_state = UIState::FirstFrame;
         self.skia_renderer = Some(skia_renderer);
+        #[cfg(target_os = "macos")]
+        self.set_macos_option_as_meta(input_macos_option_key_is_meta);
     }
 
     fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
