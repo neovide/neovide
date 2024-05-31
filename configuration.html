@@ -366,6 +366,15 @@ to that value.</p>
 </code></pre>
 <p>Draw a grey border around opaque windows only.</p>
 <p>Default: <code>false</code></p>
+<h4 id="position-animation-length"><a class="header" href="#position-animation-length">Position Animation Length</a></h4>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_position_animation_length = 0.15
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_position_animation_length = 0.15
+</code></pre>
+<p>Determines the time it takes for a window to complete animation from one position to another
+position in seconds, such as <code>:split</code>. Set to <code>0</code> to disable.</p>
 <h4 id="scroll-animation-length"><a class="header" href="#scroll-animation-length">Scroll Animation Length</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_scroll_animation_length = 0.3
