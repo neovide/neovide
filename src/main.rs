@@ -91,11 +91,11 @@ fn main() -> NeovideExitCode {
     }
 
     let event_loop = create_event_loop();
+    clipboard::init(&event_loop);
 
     match setup(event_loop.create_proxy()) {
         Err(err) => handle_startup_errors(err, event_loop).into(),
         Ok((window_size, font_settings, _runtime)) => {
-            clipboard::init(&event_loop);
             main_loop(window_size, font_settings, event_loop).into()
         }
     }
