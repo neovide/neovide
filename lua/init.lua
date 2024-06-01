@@ -1,5 +1,6 @@
 ---@class Args
 ---@field neovide_channel_id integer
+---@field neovide_version string
 ---@field register_clipboard boolean
 ---@field register_right_click boolean
 ---@field enable_focus_command boolean
@@ -11,6 +12,7 @@ local args = ...
 
 
 vim.g.neovide_channel_id = args.neovide_channel_id
+vim.g.neovide_version = args.neovide_version
 
 -- Set some basic rendering options.
 vim.o.lazyredraw = false

@@ -83,6 +83,10 @@ pub async fn setup_neovide_specific_state(
             Value::from(api_information.channel),
         ),
         (
+            Value::from("neovide_version"),
+            Value::from(crate_version!()),
+        ),
+        (
             Value::from("register_clipboard"),
             Value::from(register_clipboard),
         ),
