@@ -173,6 +173,11 @@ fn setup(
     //
     // The Window event loop sends UICommand to the bridge, which forwards them to Neovim. It also
     // reads `DrawCommand`, `SettingChanged`, and `WindowCommand` from the other components.
+
+    SETTINGS.register::<WindowSettings>();
+    SETTINGS.register::<RendererSettings>();
+    SETTINGS.register::<CursorSettings>();
+
     let config = Config::init();
     Config::watch_config_file(config.clone(), proxy.clone());
 
@@ -188,9 +193,6 @@ fn setup(
 
     trace!("Neovide version: {}", crate_version!());
 
-    SETTINGS.register::<WindowSettings>();
-    SETTINGS.register::<RendererSettings>();
-    SETTINGS.register::<CursorSettings>();
     let window_settings = load_last_window_settings().ok();
     let window_size = determine_window_size(window_settings.as_ref());
     let grid_size = match window_size {
