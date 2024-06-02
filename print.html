@@ -476,6 +476,16 @@ endif
     -- Put anything you want to happen only in Neovide here
 end
 </code></pre>
+<p>You can also query the version with:</p>
+<pre><code class="language-vim">echo g:neovide_version
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.print(vim.g.neovide_version)
+</code></pre>
+<p>Or inspect the more detailed channel information:</p>
+<p>Lua:</p>
+<pre><code class="language-lua">lua vim.print(vim.api.nvim_get_chan_info(vim.g.neovide_channel_id))
+</code></pre>
 <h3 id="display"><a class="header" href="#display">Display</a></h3>
 <h4 id="font"><a class="header" href="#font">Font</a></h4>
 <p>VimScript:</p>
