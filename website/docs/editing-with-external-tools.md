@@ -11,7 +11,7 @@ your own responsibility._
 In your configuration file:
 
 ```yaml
-editor: "neovide --no-fork"
+editor: "neovide"
 ```
 
 ...as `jrnl` saves & removes the temporary file as soon as the main process exits, which happens
