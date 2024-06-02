@@ -237,7 +237,7 @@ commands in another terminal. If you have built Neovide with commands in step 3,
 be very fast. If not, it will build Neovide first. You have to specify
 <code>--profile profiling</code> and <code>--features profiling</code> here, too.</p>
 <pre><code class="language-sh">cd [neovide-source-dir]
-cargo run --profile profiling --features profiling -- --no-fork [neovide-arguments...]
+cargo run --profile profiling --features profiling -- [neovide-arguments...]
 </code></pre>
 <p>Now do whatever leads to performance issue in Neovide and exit.</p>
 </li>
