@@ -29,6 +29,7 @@ use winit::{
 
 use crate::{
     bridge::EditorMode,
+    cmd_line::CmdLineSettings,
     editor::{Cursor, Style},
     profiling::{tracy_create_gpu_context, tracy_named_frame, tracy_zone},
     renderer::rendered_layer::{group_windows, FloatingLayer},
@@ -49,9 +50,6 @@ use skia_safe::graphics::{
 
 #[cfg(feature = "gpu_profiling")]
 use crate::profiling::GpuCtx;
-
-#[cfg(target_os = "windows")]
-use crate::CmdLineSettings;
 
 use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
@@ -437,10 +435,14 @@ impl Renderer {
                             warn!("ViewportMargins recieved before window was initialized");
                         }
                         _ => {
-                            error!(
-                                "WindowDrawCommand: {:?} sent for uninitialized grid {}",
-                                command, grid_id
-                            );
+                            let settings = SETTINGS.get::<CmdLineSettings>();
+                            // Ignore the errors when not using multigrid, since Neovim wrongly sends some of these
+                            if !settings.no_multi_grid {
+                                error!(
+                                    "WindowDrawCommand: {:?} sent for uninitialized grid {}",
+                                    command, grid_id
+                                );
+                            }
                         }
                     },
                 }
