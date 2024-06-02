@@ -28,6 +28,26 @@ if vim.g.neovide then
 end
 ```
 
+You can also query the version with:
+
+```vim
+echo g:neovide_version
+```
+
+Lua:
+
+```lua
+vim.print(vim.g.neovide_version)
+```
+
+Or inspect the more detailed channel information:
+
+Lua:
+
+```lua
+lua vim.print(vim.api.nvim_get_chan_info(vim.g.neovide_channel_id))
+```
+
 ### Display
 
 #### Font
