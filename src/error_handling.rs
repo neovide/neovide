@@ -9,6 +9,9 @@ use itertools::Itertools;
 use log::error;
 use winit::{error::EventLoopError, event_loop::EventLoop};
 
+#[cfg(target_os = "windows")]
+use crate::windows_attach_to_console;
+
 use crate::{
     bridge::{send_ui, ParallelCommand},
     running_tracker::RUNNING_TRACKER,
@@ -65,28 +68,23 @@ This is the error that caused the crash. In case you don't know what to do with 
 }
 
 fn handle_terminal_startup_errors(err: Error) -> i32 {
-    if let Some(clap_error) = err.downcast_ref::<ClapError>() {
-        let _ = clap_error.print();
-        clap_error.exit_code()
-    } else {
-        eprintln!("{}", &format_and_log_error_message(err));
-        1
-    }
+    eprintln!("{}", &format_and_log_error_message(err));
+    1
 }
 
 fn handle_gui_startup_errors(err: Error, event_loop: EventLoop<UserEvent>) -> i32 {
-    if let Some(clap_error) = err.downcast_ref::<ClapError>() {
-        let text = clap_error.render().to_string();
-        show_error_window(&text, event_loop);
-        clap_error.exit_code()
-    } else {
-        show_error_window(&format_and_log_error_message(err), event_loop);
-        1
-    }
+    show_error_window(&format_and_log_error_message(err), event_loop);
+    1
 }
 
 pub fn handle_startup_errors(err: Error, event_loop: EventLoop<UserEvent>) -> i32 {
-    if stdout().is_terminal() {
+    // Command line output is always printed to the stdout/stderr
+    if let Some(clap_error) = err.downcast_ref::<ClapError>() {
+        #[cfg(target_os = "windows")]
+        windows_attach_to_console();
+        let _ = clap_error.print();
+        clap_error.exit_code()
+    } else if stdout().is_terminal() {
         handle_terminal_startup_errors(err)
     } else {
         handle_gui_startup_errors(err, event_loop)
