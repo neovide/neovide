@@ -1,4 +1,5 @@
 pub mod animation_utils;
+mod cached_background_renderer;
 pub mod cursor_renderer;
 pub mod fonts;
 pub mod grid_renderer;
@@ -19,7 +20,7 @@ use std::{
 
 use itertools::Itertools;
 use log::{error, warn};
-use skia_safe::Canvas;
+use skia_safe::{Canvas, Image, Rect};
 
 use winit::{
     event::Event,
@@ -32,7 +33,10 @@ use crate::{
     cmd_line::CmdLineSettings,
     editor::{Cursor, Style},
     profiling::{tracy_create_gpu_context, tracy_named_frame, tracy_zone},
-    renderer::rendered_layer::{group_windows, FloatingLayer},
+    renderer::{
+        rendered_layer::{group_windows, FloatingLayer},
+        rendered_window::Background,
+    },
     settings::*,
     units::{to_skia_rect, GridPos, GridRect, GridSize, PixelPos},
     window::{ShouldRender, UserEvent},
@@ -202,12 +206,14 @@ impl Renderer {
         self.cursor_renderer.prepare_frame()
     }
 
-    pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32) {
+    pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32, background_image: Option<&Image>) {
         tracy_zone!("renderer_draw_frame");
         let default_background = self.grid_renderer.get_default_background();
         let grid_scale = self.grid_renderer.grid_scale;
 
         let transparency = SETTINGS.get::<WindowSettings>().transparency;
+        let background_transparency =
+            { SETTINGS.get::<WindowSettings>().background_transparency } * transparency;
         let layer_grouping = SETTINGS
             .get::<RendererSettings>()
             .experimental_layer_grouping;
@@ -287,13 +293,20 @@ impl Renderer {
         };
 
         let settings = SETTINGS.get::<RendererSettings>();
+        let size = root_canvas.base_layer_size();
+        let screen_rect = Rect::from_xywh(0.0, 0.0, size.width as f32, size.height as f32);
         let root_window_regions = root_windows
             .into_iter()
             .map(|window| {
                 window.draw(
                     root_canvas,
                     &settings,
-                    default_background.with_a((255.0 * transparency) as u8),
+                    (transparency * 255.0) as u8,
+                    Background {
+                        color: default_background.with_a((255.0 * background_transparency) as u8),
+                        image: background_image,
+                    },
+                    &screen_rect,
                     grid_scale,
                 )
             })

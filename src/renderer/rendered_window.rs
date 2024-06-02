@@ -3,7 +3,8 @@ use std::{cell::RefCell, rc::Rc, sync::Arc};
 use skia_safe::{
     canvas::SaveLayerRec,
     utils::shadow_utils::{draw_shadow, ShadowFlags},
-    BlendMode, Canvas, ClipOp, Color, Matrix, Paint, Path, Picture, PictureRecorder, Point3, Rect,
+    BlendMode, Canvas, ClipOp, Color, Image, Matrix, Paint, Path, Picture, PictureRecorder, Point3,
+    Rect,
 };
 
 use crate::{
@@ -15,6 +16,13 @@ use crate::{
     units::{to_skia_rect, GridPos, GridRect, GridScale, GridSize, PixelRect, PixelVec},
     utils::RingBuffer,
 };
+
+use super::cached_background_renderer::CachedBackgroundRenderer;
+
+pub struct Background<'a> {
+    pub color: Color,
+    pub image: Option<&'a Image>,
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LineFragment {
@@ -95,6 +103,7 @@ pub struct RenderedWindow {
     pub scroll_animation: CriticallyDampedSpringAnimation,
 
     has_transparency: bool,
+    background: CachedBackgroundRenderer,
 }
 
 #[derive(Clone, Debug)]
@@ -149,6 +158,7 @@ impl RenderedWindow {
             scroll_animation: CriticallyDampedSpringAnimation::new(),
 
             has_transparency: false,
+            background: CachedBackgroundRenderer::new(),
         }
     }
 
@@ -316,7 +326,9 @@ impl RenderedWindow {
         &mut self,
         root_canvas: &Canvas,
         settings: &RendererSettings,
-        default_background: Color,
+        transparency: u8,
+        background: Background,
+        screen_rect: &Rect,
         grid_scale: GridScale,
     ) -> WindowDrawDetails {
         let pixel_region_box = self.pixel_region(grid_scale);
@@ -357,7 +369,7 @@ impl RenderedWindow {
 
         let paint = Paint::default()
             .set_anti_alias(false)
-            .set_color(Color::from_argb(255, 255, 255, default_background.a()))
+            .set_color(Color::from_argb(transparency, 255, 255, 255))
             .set_blend_mode(if self.anchor_info.is_some() {
                 BlendMode::SrcOver
             } else {
@@ -367,16 +379,24 @@ impl RenderedWindow {
 
         let save_layer_rec = SaveLayerRec::default().bounds(&pixel_region).paint(&paint);
         root_canvas.save_layer(&save_layer_rec);
-
+        if let Some(background) = background.image {
+            self.background.draw_window_background_image(
+                &paint,
+                root_canvas,
+                background,
+                &pixel_region,
+                screen_rect,
+            );
+        }
         let mut background_paint = Paint::default();
-        background_paint.set_blend_mode(BlendMode::Src);
-        background_paint.set_alpha(default_background.a());
+        background_paint.set_blend_mode(BlendMode::SrcOver);
+        background_paint.set_alpha(background.color.a());
         let background_layer_rec = SaveLayerRec::default()
             .bounds(&pixel_region)
             .paint(&background_paint);
 
         root_canvas.save_layer(&background_layer_rec);
-        root_canvas.clear(default_background.with_a(255));
+        root_canvas.clear(background.color.with_a(255));
         self.draw_background_surface(root_canvas, pixel_region_box, grid_scale);
         root_canvas.restore();
         self.draw_foreground_surface(root_canvas, pixel_region_box, grid_scale);

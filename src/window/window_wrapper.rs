@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use super::{
     KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged,
 };
@@ -32,6 +34,8 @@ use super::macos::MacosWindowFeature;
 use icrate::Foundation::MainThreadMarker;
 
 use log::trace;
+
+use skia_safe::{image::CachingHint, images, Bitmap, Data, IPoint, Image, ImageInfo};
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winit::{
     dpi,
@@ -81,6 +85,7 @@ pub struct WinitWindowWrapper {
     ime_enabled: bool,
     ime_area: (dpi::PhysicalPosition<u32>, dpi::PhysicalSize<u32>),
     pub vsync: Option<VSync>,
+    background_image: Option<Image>,
     #[cfg(target_os = "macos")]
     pub macos_feature: Option<MacosWindowFeature>,
 }
@@ -114,6 +119,7 @@ impl WinitWindowWrapper {
             },
             initial_window_size,
             is_minimized: false,
+            background_image: Self::load_image(&SETTINGS.get::<WindowSettings>().background_image),
             vsync: None,
             ime_enabled: false,
             ime_area: Default::default(),
@@ -122,6 +128,45 @@ impl WinitWindowWrapper {
         }
     }
 
+    fn load_image(image: &str) -> Option<Image> {
+        let image = shellexpand::tilde_with_context(image, || {
+            homedir::get_my_home()
+                .ok()
+                .flatten()
+                .and_then(|p| p.to_str().map(|sp| sp.to_string()))
+        });
+
+        log::info!("Start loading background image {:?}", image);
+        if image.is_empty() {
+            log::info!("No background image set");
+            None
+        } else {
+            let skia_data = Data::from_filename(std::path::Path::new(image.deref()))?;
+            log::info!("Succesfully read image {:?}", image);
+            let image = Image::from_encoded(skia_data)?;
+            let mut bitmap = Bitmap::new();
+            let image_info = ImageInfo::new_n32_premul((image.width(), image.height()), None);
+            bitmap.alloc_n32_pixels((image.width(), image.height()), Some(true));
+
+            let pixels = bitmap.pixels();
+
+            // Read the pixels from the image into the bitmap
+            let success = image.read_pixels(
+                &image_info,
+                unsafe {
+                    std::slice::from_raw_parts_mut(pixels as *mut u8, bitmap.compute_byte_size())
+                },
+                image_info.min_row_bytes(),
+                IPoint::new(0, 0),
+                CachingHint::Disallow,
+            );
+            if !success {
+                log::warn!("Cant read background image's pixels");
+                return None;
+            }
+            images::raster_from_bitmap(&bitmap)
+        }
+    }
     pub fn toggle_fullscreen(&mut self) {
         if let Some(skia_renderer) = &self.skia_renderer {
             let window = skia_renderer.window();
@@ -227,6 +272,9 @@ impl WinitWindowWrapper {
                     let transparent = transparency < 1.0;
                     skia_renderer.window().set_blur(blur && transparent);
                 }
+            }
+            WindowSettingsChanged::BackgroundImage(ref image) => {
+                self.background_image = Self::load_image(image);
             }
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::InputMacosOptionKeyIsMeta(option) => {
@@ -436,7 +484,7 @@ impl WinitWindowWrapper {
             self.font_changed_last_frame = false;
             self.renderer.prepare_lines(true);
         }
-        self.renderer.draw_frame(skia_renderer.canvas(), dt);
+        self.renderer.draw_frame(skia_renderer.canvas(), dt, self.background_image.as_ref());
         skia_renderer.flush();
         {
             tracy_gpu_zone!("wait for vsync");

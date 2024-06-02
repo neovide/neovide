@@ -8,6 +8,7 @@ pub struct WindowSettings {
     pub refresh_rate: u64,
     pub refresh_rate_idle: u64,
     pub transparency: f32,
+    pub background_transparency: f32,
     pub window_blurred: bool,
     pub scale_factor: f32,
     pub fullscreen: bool,
@@ -18,6 +19,7 @@ pub struct WindowSettings {
     pub touch_deadzone: f32,
     pub touch_drag_timeout: f32,
     pub background_color: String,
+    pub background_image: String,
     pub confirm_quit: bool,
     pub padding_top: u32,
     pub padding_left: u32,
@@ -43,6 +45,7 @@ impl Default for WindowSettings {
     fn default() -> Self {
         Self {
             transparency: 1.0,
+            background_transparency: 1.0,
             window_blurred: false,
             scale_factor: 1.0,
             fullscreen: false,
@@ -55,6 +58,7 @@ impl Default for WindowSettings {
             touch_deadzone: 6.0,
             touch_drag_timeout: 0.17,
             background_color: "".to_string(),
+            background_image: "".to_string(),
             confirm_quit: true,
             padding_top: 0,
             padding_left: 0,
