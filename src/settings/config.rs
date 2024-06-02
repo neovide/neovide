@@ -76,6 +76,8 @@ impl Config {
     }
 
     fn write_to_env(&self) {
+        // This variable is set by the AppImage runtime and causes probles for child processes
+        env::remove_var("ARGV0");
         if let Some(wsl) = self.wsl {
             env::set_var("NEOVIDE_WSL", wsl.to_string());
         }
