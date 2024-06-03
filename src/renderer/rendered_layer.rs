@@ -3,7 +3,7 @@ use skia_safe::{
     canvas::SaveLayerRec,
     image_filters::blur,
     utils::shadow_utils::{draw_shadow, ShadowFlags},
-    BlendMode, Canvas, ClipOp, Color, Contains, Paint, Path, PathOp, Point3, Rect,
+    BlendMode, Canvas, ClipOp, Color, Paint, Path, PathOp, Point3, Rect,
 };
 
 use crate::units::{to_skia_rect, GridScale, PixelRect};
@@ -82,22 +82,12 @@ impl<'w> FloatingLayer<'w> {
             .map(|window| window.pixel_region(grid_scale))
             .collect::<Vec<_>>();
 
-        let blend = self.uniform_background_blend();
-
-        self.windows.iter_mut().for_each(|window| {
-            window.update_blend(blend);
-        });
-
         let mut ret = vec![];
 
         (0..self.windows.len()).for_each(|i| {
             let window = &mut self.windows[i];
             window.draw_background_surface(root_canvas, regions[i], grid_scale);
-        });
-        (0..self.windows.len()).for_each(|i| {
-            let window = &mut self.windows[i];
             window.draw_foreground_surface(root_canvas, regions[i], grid_scale);
-
             ret.push(WindowDrawDetails {
                 id: window.id,
                 region: regions[i],
@@ -109,14 +99,6 @@ impl<'w> FloatingLayer<'w> {
         root_canvas.restore();
 
         ret
-    }
-
-    pub fn uniform_background_blend(&self) -> u8 {
-        self.windows
-            .iter()
-            .filter_map(|window| window.get_smallest_blend_value())
-            .min()
-            .unwrap_or(0)
     }
 
     fn _draw_shadow(&self, root_canvas: &Canvas, path: &Path, settings: &RendererSettings) {
@@ -160,18 +142,15 @@ fn get_window_group(windows: &mut Vec<LayerWindow>, index: usize) -> usize {
     windows[index].group
 }
 
-fn rect_contains(a: &Rect, b: &Rect) -> bool {
-    Rect::contains(a, b) || Rect::contains(b, a)
-}
-
 fn group_windows_with_regions(windows: &mut Vec<LayerWindow>, regions: &[PixelRect<f32>]) {
+    // intersects does not consider touching regions as intersection, so extend the box by one
+    // pixel before doing the test.
+    let epsilon = 1.0;
     for i in 0..windows.len() {
         for j in i + 1..windows.len() {
             let group_i = get_window_group(windows, i);
             let group_j = get_window_group(windows, j);
-            if group_i != group_j
-                && rect_contains(&to_skia_rect(&regions[i]), &to_skia_rect(&regions[j]))
-            {
+            if group_i != group_j && regions[i].inflate(epsilon, epsilon).intersects(&regions[j]) {
                 let new_group = group_i.min(group_j);
                 if group_i != group_j {
                     windows[group_i].group = new_group;

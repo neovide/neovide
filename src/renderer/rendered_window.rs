@@ -1,14 +1,12 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use skia_safe::{
-    canvas::SaveLayerRec,
-    utils::shadow_utils::{draw_shadow, ShadowFlags},
-    BlendMode, Canvas, ClipOp, Color, Matrix, Paint, Path, Picture, PictureRecorder, Point3, Rect,
+    canvas::SaveLayerRec, BlendMode, Canvas, Color, Matrix, Paint, Picture, PictureRecorder, Rect,
 };
 
 use crate::{
     cmd_line::CmdLineSettings,
-    editor::{AnchorInfo, Style, WindowType},
+    editor::{AnchorInfo, SortOrder, Style, WindowType},
     profiling::{tracy_plot, tracy_zone},
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
     settings::SETTINGS,
@@ -63,6 +61,7 @@ pub enum WindowDrawCommand {
         left: u64,
         right: u64,
     },
+    SortOrder(SortOrder),
 }
 
 #[derive(Clone)]
@@ -70,7 +69,7 @@ struct Line {
     line_fragments: Vec<LineFragment>,
     background_picture: Option<Picture>,
     foreground_picture: Option<Picture>,
-    blend: u8,
+    has_transparency: bool,
     is_valid: bool,
 }
 
@@ -93,8 +92,6 @@ pub struct RenderedWindow {
     position_t: f32,
 
     pub scroll_animation: CriticallyDampedSpringAnimation,
-
-    has_transparency: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -110,19 +107,6 @@ impl WindowDrawDetails {
         } else {
             self.id
         }
-    }
-}
-
-impl Line {
-    fn update_background_blend(&mut self, blend: u8) {
-        if self.blend != blend {
-            self.blend = blend;
-            self.is_valid = false;
-        }
-    }
-
-    fn has_transparency(&self) -> bool {
-        self.blend > 0
     }
 }
 
@@ -147,21 +131,12 @@ impl RenderedWindow {
             position_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation.
 
             scroll_animation: CriticallyDampedSpringAnimation::new(),
-
-            has_transparency: false,
         }
     }
 
     pub fn pixel_region(&self, grid_scale: GridScale) -> PixelRect<f32> {
         GridRect::<f32>::from_origin_and_size(self.grid_current_position, self.grid_size.cast())
             * grid_scale
-    }
-
-    pub fn update_blend(&self, blend: u8) {
-        for (_, line) in self.iter_lines() {
-            let mut line = line.borrow_mut();
-            line.update_background_blend(blend);
-        }
     }
 
     fn get_target_position(&self, grid_rect: &GridRect<f32>) -> GridPos<f32> {
@@ -240,8 +215,6 @@ impl RenderedWindow {
         pixel_region: PixelRect<f32>,
         grid_scale: GridScale,
     ) {
-        let mut has_transparency = false;
-
         let inner_region = self.inner_region(pixel_region, grid_scale);
 
         canvas.save();
@@ -249,7 +222,6 @@ impl RenderedWindow {
         for (matrix, line) in self.iter_border_lines_with_transform(pixel_region, grid_scale) {
             let line = line.borrow();
             if let Some(background_picture) = &line.background_picture {
-                has_transparency |= line.has_transparency();
                 canvas.draw_picture(background_picture, Some(&matrix), None);
             }
         }
@@ -259,7 +231,6 @@ impl RenderedWindow {
         for (matrix, line) in self.iter_scrollable_lines_with_transform(pixel_region, grid_scale) {
             let line = line.borrow();
             if let Some(background_picture) = &line.background_picture {
-                has_transparency |= line.has_transparency();
                 canvas.draw_picture(background_picture, Some(&matrix), None);
                 pics += 1;
             }
@@ -272,8 +243,6 @@ impl RenderedWindow {
         );
         canvas.restore();
         canvas.restore();
-
-        self.has_transparency = has_transparency;
     }
 
     pub fn draw_foreground_surface(
@@ -309,48 +278,17 @@ impl RenderedWindow {
                 scroll_offset_lines..scroll_offset_lines + self.grid_size.height as isize + 1,
             )
             .flatten()
-            .any(|line| line.borrow().has_transparency())
+            .any(|line| line.borrow().has_transparency)
     }
 
     pub fn draw(
         &mut self,
         root_canvas: &Canvas,
-        settings: &RendererSettings,
         default_background: Color,
         grid_scale: GridScale,
     ) -> WindowDrawDetails {
         let pixel_region_box = self.pixel_region(grid_scale);
         let pixel_region = to_skia_rect(&pixel_region_box);
-
-        if self.anchor_info.is_some() && settings.floating_shadow {
-            root_canvas.save();
-            let shadow_path = Path::rect(pixel_region, None);
-            // We clip using the Difference op to make sure that the shadow isn't rendered inside
-            // the window itself.
-            root_canvas.clip_path(&shadow_path, Some(ClipOp::Difference), None);
-            // The light angle is specified in degrees from the vertical, so we first convert them
-            // to radians and then use sin/cos to get the y and z components of the light
-            let light_angle_radians = settings.light_angle_degrees.to_radians();
-            draw_shadow(
-                root_canvas,
-                &shadow_path,
-                // Specifies how far from the root canvas the shadow casting rect is. We just use
-                // the z component here to set it a constant distance away.
-                Point3::new(0., 0., settings.floating_z_height),
-                // Because we use the DIRECTIONAL_LIGHT shadow flag, this specifies the angle that
-                // the light is coming from.
-                Point3::new(0., -light_angle_radians.sin(), light_angle_radians.cos()),
-                // This is roughly equal to the apparent radius of the light .
-                5.,
-                Color::from_argb((0.03 * 255.) as u8, 0, 0, 0),
-                Color::from_argb((0.35 * 255.) as u8, 0, 0, 0),
-                // Directional Light flag is necessary to make the shadow render consistently
-                // across various sizes of floating windows. It effects how the light direction is
-                // processed.
-                Some(ShadowFlags::DIRECTIONAL_LIGHT),
-            );
-            root_canvas.restore();
-        }
 
         root_canvas.save();
         root_canvas.clip_rect(pixel_region, None, Some(false));
@@ -453,7 +391,7 @@ impl RenderedWindow {
                     line_fragments,
                     background_picture: None,
                     foreground_picture: None,
-                    blend: 0,
+                    has_transparency: false,
                     is_valid: false,
                 };
 
@@ -505,6 +443,11 @@ impl RenderedWindow {
             }
             WindowDrawCommand::ViewportMargins { top, bottom, .. } => {
                 self.viewport_margins = ViewportMargins { top, bottom }
+            }
+            WindowDrawCommand::SortOrder(sort_order) => {
+                if let Some(anchor_info) = self.anchor_info.as_mut() {
+                    anchor_info.sort_order = sort_order;
+                }
             }
             _ => {}
         };
@@ -596,10 +539,6 @@ impl RenderedWindow {
         })
     }
 
-    fn iter_lines(&self) -> impl Iterator<Item = (isize, &Rc<RefCell<Line>>)> {
-        self.iter_border_lines().chain(self.iter_scrollable_lines())
-    }
-
     fn iter_scrollable_lines_with_transform(
         &self,
         pixel_region: PixelRect<f32>,
@@ -650,26 +589,6 @@ impl RenderedWindow {
         to_skia_rect(&adjusted_region)
     }
 
-    pub fn get_smallest_blend_value(&self) -> Option<u8> {
-        let height = self.grid_size.height as isize;
-        if height == 0 {
-            return None;
-        }
-        let mut smallest_blend_value: Option<u8> = None;
-
-        for (_, line) in self.iter_lines() {
-            let line = line.borrow();
-            line.line_fragments.iter().for_each(|f| {
-                if let Some(style) = &f.style {
-                    smallest_blend_value =
-                        Some(smallest_blend_value.map_or(style.blend, |v| v.min(style.blend)));
-                }
-            });
-        }
-
-        smallest_blend_value
-    }
-
     pub fn prepare_lines(&mut self, grid_renderer: &mut GridRenderer, force: bool) {
         let scroll_offset_lines = self.scroll_animation.position.floor() as isize;
         let height = self.grid_size.height as isize;
@@ -690,7 +609,7 @@ impl RenderedWindow {
             let grid_rect = Rect::from_wh(line_size.width, line_size.height);
             let canvas = recorder.begin_recording(grid_rect, None);
 
-            let mut blend = 0;
+            let mut has_transparency = false;
             let mut custom_background = false;
 
             for line_fragment in line.line_fragments.iter() {
@@ -708,7 +627,7 @@ impl RenderedWindow {
                     style,
                 );
                 custom_background |= background_info.custom_color;
-                blend = blend.min(style.as_ref().map_or(0, |s| s.blend));
+                has_transparency |= background_info.transparent;
             }
             let background_picture =
                 custom_background.then_some(recorder.finish_recording_as_picture(None).unwrap());
@@ -737,7 +656,7 @@ impl RenderedWindow {
 
             line.background_picture = background_picture;
             line.foreground_picture = foreground_picture;
-            line.blend = blend;
+            line.has_transparency = has_transparency;
             line.is_valid = true;
         };
 
