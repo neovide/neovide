@@ -111,7 +111,15 @@ edging = "antialias"
 family = "JetBrainsMono Nerd Font Propo"
 style = "W400"
 
+[[font.normal]]
+family = "Noto Sans CJK SC" # You can set a different font for fallback
+style = "Normal"
+
 [[font.bold]]
 family = "JetBrainsMono Nerd Font Propo"
 style = "W600"
+
+[[font.bold]] # No need to specify fallback in every variant, if omit or specified here but not found, it will fallback to normal font
+family = "Noto Sans CJK SC"
+style = "Bold"
 ```
