@@ -111,15 +111,19 @@ edging = "antialias"
 family = "JetBrainsMono Nerd Font Propo"
 style = "W400"
 
+# You can set a different font for fallback
 [[font.normal]]
-family = "Noto Sans CJK SC" # You can set a different font for fallback
+family = "Noto Sans CJK SC" 
 style = "Normal"
 
 [[font.bold]]
 family = "JetBrainsMono Nerd Font Propo"
 style = "W600"
 
-[[font.bold]] # No need to specify fallback in every variant, if omit or specified here but not found, it will fallback to normal font
+# No need to specify fallback in every variant, if omitted or specified here
+# but not found, it will fallback to normal font with this weight which is bold
+# in this case.
+[[font.bold]] 
 family = "Noto Sans CJK SC"
 style = "Bold"
 ```
