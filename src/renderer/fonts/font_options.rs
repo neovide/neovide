@@ -204,7 +204,12 @@ impl FontOptions {
             .map(|fonts| {
                 fonts
                     .iter()
-                    .flat_map(|font| font.fallback(&self.normal))
+                    .filter(|font| font.family.is_some())
+                    .map(|font| FontDescription {
+                        family: font.family.clone().unwrap(),
+                        style: None,
+                    })
+                    .chain(self.normal.iter().cloned())
                     .collect()
             })
             .unwrap_or_else(|| self.normal.clone());
@@ -212,7 +217,7 @@ impl FontOptions {
         fonts
             .into_iter()
             .map(|font| FontDescription {
-                style: font.style.or_else(|| style.name().map(str::to_string)),
+                style: style.name().map(str::to_string),
                 ..font
             })
             .collect()
@@ -382,25 +387,6 @@ impl FontDescription {
             FontStyle::default()
         };
         (self.family.as_str(), style)
-    }
-}
-
-impl SecondaryFontDescription {
-    pub fn fallback(&self, primary: &[FontDescription]) -> Vec<FontDescription> {
-        if let Some(family) = &self.family {
-            vec![FontDescription {
-                family: family.clone(),
-                style: self.style.clone(),
-            }]
-        } else {
-            primary
-                .iter()
-                .map(|font| FontDescription {
-                    family: font.family.clone(),
-                    style: self.style.clone(),
-                })
-                .collect()
-        }
     }
 }
 
