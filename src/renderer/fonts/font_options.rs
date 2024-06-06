@@ -408,7 +408,7 @@ impl fmt::Display for FontDescription {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.family)?;
         if let Some(style) = &self.style {
-            write!(f, " {}", style)?;
+            write!(f, " {style}")?;
         }
         Ok(())
     }
@@ -522,8 +522,7 @@ mod tests {
 
         assert_eq!(
             err, INVALID_SIZE_ERR,
-            "parse err should equal {}, but {}",
-            INVALID_SIZE_ERR, err,
+            "parse err should equal {INVALID_SIZE_ERR}, but {err}",
         );
     }
 
@@ -534,8 +533,7 @@ mod tests {
 
         assert_eq!(
             err, INVALID_WIDTH_ERR,
-            "parse err should equal {}, but {}",
-            INVALID_WIDTH_ERR, err,
+            "parse err should equal {INVALID_WIDTH_ERR}, but {err}",
         );
     }
 
