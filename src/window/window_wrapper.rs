@@ -483,6 +483,7 @@ impl WinitWindowWrapper {
             theme,
             transparency,
             window_blurred,
+            fullscreen,
             #[cfg(target_os = "macos")]
             input_macos_option_key_is_meta,
             ..
@@ -569,6 +570,11 @@ impl WinitWindowWrapper {
         );
 
         window.set_blur(window_blurred && transparency < 1.0);
+        if fullscreen {
+            let handle = window.current_monitor();
+            window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
+            self.fullscreen = true;
+        }
 
         match theme.as_str() {
             "light" => set_background("light"),
