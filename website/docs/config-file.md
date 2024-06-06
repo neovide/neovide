@@ -25,10 +25,6 @@ There are two types of settings:
 Settings currently available in the config file with default values:
 
 ```toml
-[font]
-    normal = [] # Will use the bundled Fira Code Nerd Font by default
-    size = 14.0
-
 fork = false
 frame = "full"
 idle = true
@@ -41,6 +37,10 @@ theme = "auto"
 title-hidden = true
 vsync = true
 wsl = false
+
+[font]
+normal = [] # Will use the bundled Fira Code Nerd Font by default
+size = 14.0
 ```
 
 Settings from environment variables can be found in [Command Line Reference](command-line-reference.md),
@@ -97,4 +97,21 @@ size = 18
 
 [font.features]
 MonoLisa = [ "+ss01", "+ss07", "+ss11", "-calt", "+ss09", "+ss02", "+ss14", "+ss16", "+ss17" ]
+```
+
+Specify font weight:
+
+```toml
+[font]
+size = 19
+hinting = "full"
+edging = "antialias"
+
+[[font.normal]]
+family = "JetBrainsMono Nerd Font Propo"
+style = "W400"
+
+[[font.bold]]
+family = "JetBrainsMono Nerd Font Propo"
+style = "W600"
 ```
