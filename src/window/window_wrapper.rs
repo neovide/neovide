@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use super::{
     KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged,
 };
@@ -37,7 +39,7 @@ use winit::{
     dpi,
     event::{Event, Ime, WindowEvent},
     event_loop::{EventLoopProxy, EventLoopWindowTarget},
-    window::{Fullscreen, Theme},
+    window::{CursorIcon, Fullscreen, Theme},
 };
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -567,6 +569,14 @@ impl WinitWindowWrapper {
         );
 
         window.set_blur(window_blurred && transparency < 1.0);
+
+        let cursor_icon = match CursorIcon::from_str(cmd_line_settings.cursor_icon.as_str()) {
+            Ok(icon) => icon,
+            Err(_) => CursorIcon::Default,
+        };
+
+        log::info!("cursor icon configured: {:?}", cursor_icon.to_string());
+        window.set_cursor_icon(cursor_icon);
 
         match theme.as_str() {
             "light" => set_background("light"),
