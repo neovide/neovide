@@ -102,9 +102,6 @@ windows = { version = "0.56.0", features = [
 ] }
 windows-registry = "0.1.1"
 
-[target.'cfg(not(target_os = "windows"))'.dependencies]
-skia-safe = { version = "0.73.0", features = ["gl", "textlayout"] }
-
 [target.'cfg(target_os = "macos")'.dependencies]
 icrate = { version = "0.0.4", features = [
     "apple",
@@ -123,6 +120,13 @@ icrate = { version = "0.0.4", features = [
     "Foundation_NSArray",
 ] }
 objc2 = "0.4.1"
+metal = "0.28.0"
+skia-safe = { version = "0.73.0", features = ["metal", "gl", "textlayout"] }
+foreign-types-shared = "0.3.1"
+core-graphics-types = "0.1.3"
+
+[target.'cfg(not(any(target_os = "windows", target_os = "macos")))'.dependencies]
+skia-safe = { version = "0.73.0", features = ["gl", "textlayout"] }
 
 [target.'cfg(target_os = "windows")'.build-dependencies]
 winres = "0.1.12"
