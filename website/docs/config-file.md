@@ -96,7 +96,7 @@ normal = ["MonoLisa Nerd Font"]
 size = 18
 
 [font.features]
-MonoLisa = [ "+ss01", "+ss07", "+ss11", "-calt", "+ss09", "+ss02", "+ss14", "+ss16", "+ss17" ]
+"MonoLisa Nerd Font" = [ "+ss01", "+ss07", "+ss11", "-calt", "+ss09", "+ss02", "+ss14" ]
 ```
 
 Specify font weight:
