@@ -52,6 +52,7 @@ pub struct Config {
     pub title_hidden: Option<bool>,
     pub vsync: Option<bool>,
     pub wsl: Option<bool>,
+    pub cursor_icon: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -111,6 +112,9 @@ impl Config {
         }
         if let Some(tabs) = &self.tabs {
             env::set_var("NEOVIDE_TABS", tabs.to_string());
+        }
+        if let Some(cursor_icon) = &self.cursor_icon {
+            env::set_var("CURSOR_ICON", cursor_icon.to_string());
         }
     }
 
