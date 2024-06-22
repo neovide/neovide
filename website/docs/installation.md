@@ -19,6 +19,13 @@ The binaries are to be found on
 
 ## Windows
 
+### WinGet
+Neovide is available on [WinGet](https://learn.microsoft.com/en-us/windows/package-manager/).
+It can be installed from the command line:
+```sh
+winget install Neovide.Neovide
+```
+
 ### Scoop
 
 [Scoop](https://scoop.sh/) has Neovide in the `extras` bucket. Ensure you have the `extras` bucket,
