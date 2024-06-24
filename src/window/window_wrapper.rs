@@ -68,7 +68,6 @@ pub struct WinitWindowWrapper {
     keyboard_manager: KeyboardManager,
     mouse_manager: MouseManager,
     title: String,
-    fullscreen: bool,
     font_changed_last_frame: bool,
     saved_inner_size: dpi::PhysicalSize<u32>,
     saved_grid_size: Option<GridSize<u32>>,
@@ -99,7 +98,6 @@ impl WinitWindowWrapper {
             keyboard_manager: KeyboardManager::new(),
             mouse_manager: MouseManager::new(),
             title: String::from("Neovide"),
-            fullscreen: false,
             font_changed_last_frame: false,
             saved_inner_size,
             saved_grid_size: None,
@@ -122,18 +120,16 @@ impl WinitWindowWrapper {
         }
     }
 
-    pub fn toggle_fullscreen(&mut self) {
+    pub fn set_fullscreen(&mut self, fullscreen: bool) {
         if let Some(skia_renderer) = &self.skia_renderer {
             let window = skia_renderer.window();
-            if self.fullscreen {
-                window.set_fullscreen(None);
-            } else {
+            if fullscreen {
                 let handle = window.current_monitor();
                 window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
+            } else {
+                window.set_fullscreen(None);
             }
         }
-
-        self.fullscreen = !self.fullscreen;
     }
 
     #[cfg(target_os = "macos")]
@@ -206,9 +202,7 @@ impl WinitWindowWrapper {
                 self.requested_lines = lines.map(|v| v.try_into().unwrap());
             }
             WindowSettingsChanged::Fullscreen(fullscreen) => {
-                if self.fullscreen != fullscreen {
-                    self.toggle_fullscreen();
-                }
+                self.set_fullscreen(fullscreen);
             }
             WindowSettingsChanged::InputIme(ime_enabled) => {
                 self.set_ime(ime_enabled);
@@ -483,6 +477,9 @@ impl WinitWindowWrapper {
             theme,
             transparency,
             window_blurred,
+            fullscreen,
+            #[cfg(target_os = "macos")]
+            input_macos_option_key_is_meta,
             ..
         } = SETTINGS.get::<WindowSettings>();
 
@@ -567,6 +564,10 @@ impl WinitWindowWrapper {
         );
 
         window.set_blur(window_blurred && transparency < 1.0);
+        if fullscreen {
+            let handle = window.current_monitor();
+            window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
+        }
 
         match theme.as_str() {
             "light" => set_background("light"),
@@ -592,6 +593,8 @@ impl WinitWindowWrapper {
 
         self.ui_state = UIState::FirstFrame;
         self.skia_renderer = Some(skia_renderer);
+        #[cfg(target_os = "macos")]
+        self.set_macos_option_as_meta(input_macos_option_key_is_meta);
     }
 
     fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
