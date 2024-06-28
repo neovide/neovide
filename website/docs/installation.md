@@ -140,16 +140,6 @@ Just add `neovide` from nixpkgs to your `environment.systemPackages` in `configu
 environment.systemPackages = with pkgs; [neovide];
 ```
 
-### Snap
-
-Neovide is also available in the Snap Store. You can install it using the command below.
-
-```sh
-snap install neovide
-```
-
-[![Get it from the Snap Store](https://snapcraft.io/static/images/badges/en/snap-store-white.svg)](https://snapcraft.io/neovide)
-
 ### Linux Source
 
 1. Install necessary dependencies (adjust for your preferred package manager, probably most of this
