@@ -53,16 +53,6 @@ jobs:
       - name: Show toolchain info
         run: cargo --version --verbose
 
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
       - name: Install neovim
         uses: rhysd/action-setup-vim@v1
         with:
@@ -73,6 +63,8 @@ jobs:
 
       - name: Install cargo-nextest
         run: cargo binstall -y cargo-nextest
+
+      - uses: Swatinem/rust-cache@v2
 
       - name: Test
         env:
@@ -110,18 +102,10 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           components: clippy
 
+      - uses: Swatinem/rust-cache@v2
+
       - name: Show toolchain info
         run: cargo --version --verbose
-
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Run Clippy
         run: cargo clippy --all-targets -- -D warnings
@@ -149,15 +133,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/cache@v4
+      - name: Setup toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          toolchain: stable
 
       - name: Install dependencies
         run: |
@@ -182,6 +161,8 @@ jobs:
         uses: rhysd/action-setup-vim@v1
         with:
           neovim: true
+
+      - uses: Swatinem/rust-cache@v2
 
       - name: Build
         run: |
