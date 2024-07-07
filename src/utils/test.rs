@@ -69,51 +69,6 @@ pub fn ascii_to_points(ascii: &str) -> Vec<Point> {
         .collect()
 }
 
-pub fn assert_points_eq(actual: Vec<Point>, expected_ascii: &str) {
-    let expected = ascii_to_points(expected_ascii);
-    if expected.len() != actual.len() || expected.iter().zip(actual.iter()).any(|(a, b)| a != b) {
-        let actual_ascii = points_to_ascii(actual);
-        panic!(
-            indoc! {"
-                Points do not match
-                Expected:
-                {}
-                Actual:
-                {}
-            "},
-            expected_ascii, actual_ascii
-        );
-    }
-}
-
-pub fn points_to_ascii(points: Vec<Point>) -> String {
-    if points
-        .iter()
-        .any(|point| point.x.fract() != 0.0 || point.y.fract() != 0.)
-    {
-        panic!("Points must be integers to render as ascii");
-    }
-
-    let line_width = points.iter().map(|p| p.x as usize).max().unwrap() + 1;
-    let line_count = points.iter().map(|p| p.y as usize).max().unwrap() + 1;
-    let mut ascii = vec![vec![' '; line_width]; line_count];
-    let numbers_big_enough = points.len() <= 9;
-    let chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    for (index, p) in points.iter().enumerate() {
-        let char = if numbers_big_enough {
-            std::char::from_digit(index as u32, 10).unwrap()
-        } else {
-            chars.chars().nth(index).expect("Too many points")
-        };
-        ascii[p.y as usize][p.x as usize] = char;
-    }
-    ascii
-        .iter()
-        .map(|line| line.iter().collect::<String>())
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
 #[test]
 fn ascii_to_rect_works() {
     // Single rect

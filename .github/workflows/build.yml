@@ -34,7 +34,6 @@ jobs:
     uses: ./.github/workflows/lint-app.yml
 
   test:
-    needs: lint
     strategy:
       fail-fast: false
       matrix:
@@ -46,23 +45,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.toolchain }}
-          components: clippy
 
       - name: Show toolchain info
         run: cargo --version --verbose
-
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install neovim
         uses: rhysd/action-setup-vim@v1
@@ -74,6 +62,8 @@ jobs:
 
       - name: Install cargo-nextest
         run: cargo binstall -y cargo-nextest
+
+      - uses: Swatinem/rust-cache@v2
 
       - name: Test
         env:
@@ -93,24 +83,31 @@ jobs:
           path: |
             test-results-${{ matrix.os }}-${{ matrix.toolchain }}
 
+  clippy:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macOS-12, ubuntu-latest]
+        toolchain: [stable, nightly]
+    runs-on: ${{ matrix.os }}
 
-      - name: Install Sarif
-        run: cargo binstall -y clippy-sarif sarif-fmt
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Setup Reviewdog
-        uses: reviewdog/action-setup@v1
+      - name: Setup toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
-          reviewdog_version: latest
+          toolchain: ${{ matrix.toolchain }}
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Show toolchain info
+        run: cargo --version --verbose
 
       - name: Run Clippy
-        run: cargo clippy --all-targets --message-format=json | clippy-sarif | tee clippy.sarif | sarif-fmt
-        continue-on-error: true
-
-      - name: Run Clippy Reviewdog
-        run: cat clippy.sarif | reviewdog -f=sarif -name=clippy -reporter=github-check -filter-mode=file -fail-on-error=true -level=warning
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: cargo clippy --all-targets -- -D warnings
+        continue-on-error: ${{ matrix.toolchain == 'nightly' }}
 
   event-upload:
     needs: test
@@ -123,7 +120,6 @@ jobs:
           path: ${{ github.event_path }}
 
   build-deploy:
-    needs: test
     strategy:
       fail-fast: false
       matrix:
@@ -134,25 +130,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/cache@v4
+      - name: Setup toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          toolchain: stable
+
+      - name: Install Cargo Binstall
+        uses: cargo-bins/cargo-binstall@main
 
       - name: Install dependencies
         run: |
           if [[ $RUNNER_OS == "Windows" ]]; then
-            if ! which cargo-wix; then cargo install cargo-wix; fi
+            if ! which cargo-wix; then cargo binstall -y cargo-wix; fi
 
           elif [[ $RUNNER_OS == "macOS" ]]; then
             rustup target add x86_64-apple-darwin
             rustup target add aarch64-apple-darwin
-            if ! which cargo-bundle; then cargo install cargo-bundle; fi
+            if ! which cargo-bundle; then cargo binstall -y cargo-bundle; fi
 
           elif [[ $RUNNER_OS == "Linux" ]]; then
             sudo apt-get update
@@ -167,6 +161,8 @@ jobs:
         uses: rhysd/action-setup-vim@v1
         with:
           neovim: true
+
+      - uses: Swatinem/rust-cache@v2
 
       - name: Build
         run: |
