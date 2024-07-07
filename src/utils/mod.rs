@@ -3,8 +3,6 @@ mod ring_buffer;
 mod test;
 
 pub use ring_buffer::*;
-#[cfg(test)]
-pub use test::*;
 
 #[cfg(not(target_os = "windows"))]
 pub fn is_tty() -> bool {
