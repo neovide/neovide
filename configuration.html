@@ -492,6 +492,17 @@ be a quick hack if animations appear to stop too early.</p>
 </code></pre>
 <p>If set to <code>true</code>, quitting while having unsaved changes will require confirmation. Enabled by
 default.</p>
+<h4 id="detach-on-quit"><a class="header" href="#detach-on-quit">Detach On Quit</a></h4>
+<p>Possible values are <code>always_quit</code>, <code>always_detach</code>, or <code>prompt</code>. Set to <code>prompt</code> by default.</p>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_detach_on_quit = 'always_quit'
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_detach_on_quit = 'always_quit'
+</code></pre>
+<p>This option changes the closing behavior of Neovide when it's used to connect to a remote Neovim
+instance. It does this by switching between detaching from the remote instance and quitting Neovim
+entirely.</p>
 <h4 id="fullscreen"><a class="header" href="#fullscreen">Fullscreen</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_fullscreen = v:true
