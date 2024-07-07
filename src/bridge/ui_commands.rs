@@ -7,9 +7,10 @@ use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim, Value};
 use strum::AsRefStr;
 use tokio::sync::mpsc::unbounded_channel;
 
-use super::show_error_message;
+use super::{show_error_message, SETTINGS};
 use crate::{
     bridge::NeovimWriter,
+    cmd_line::CmdLineSettings,
     profiling::{tracy_dynamic_zone, tracy_fiber_enter, tracy_fiber_leave},
     LoggingSender,
 };
@@ -178,14 +179,19 @@ impl ParallelCommand {
         // for failure is when neovim has already quit, and a command, for example mouse move is
         // being sent
         let result = match self {
-            ParallelCommand::Quit => nvim
-                .command(
-                    "if get(g:, 'neovide_confirm_quit', 0) == 1 | confirm qa | else | qa! | endif",
-                )
-                .await
+            ParallelCommand::Quit => {
                 // Ignore all errors, since neovim exits immediately before the response is sent.
                 // We could an RPC notify instead of request, but nvim-rs does currently not support it.
-                .or(Ok(())),
+                let _ = nvim
+                    .exec_lua(
+                        include_str!("exit_handler.lua"),
+                        vec![Value::Boolean(
+                            SETTINGS.get::<CmdLineSettings>().server.is_some(),
+                        )],
+                    )
+                    .await;
+                Ok(())
+            }
             ParallelCommand::Resize { width, height } => nvim
                 .ui_try_resize(width.max(10) as i64, height.max(3) as i64)
                 .await
