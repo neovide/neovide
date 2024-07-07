@@ -301,7 +301,7 @@ fn get_special_key(key_event: &KeyEvent) -> Option<&str> {
         NamedKey::Space => {
             // Space can finish a dead key sequence, so treat space as a special key only when
             // that doesn't happen.
-            if key_event.text == Some(" ".into()) {
+            if key_event.text == Some(" ".into()) || key_event.text.is_none() {
                 Some("Space")
             } else {
                 None
