@@ -1282,11 +1282,7 @@ by command line arguments.</li>
 </div>
 <h2 id="available-settings"><a class="header" href="#available-settings">Available settings</a></h2>
 <p>Settings currently available in the config file with default values:</p>
-<pre><code class="language-toml">[font]
-    normal = [] # Will use the bundled Fira Code Nerd Font by default
-    size = 14.0
-
-fork = false
+<pre><code class="language-toml">fork = false
 frame = &quot;full&quot;
 idle = true
 maximized = false
@@ -1298,6 +1294,10 @@ theme = &quot;auto&quot;
 title-hidden = true
 vsync = true
 wsl = false
+
+[font]
+normal = [] # Will use the bundled Fira Code Nerd Font by default
+size = 14.0
 </code></pre>
 <p>Settings from environment variables can be found in <a href="command-line-reference.html">Command Line Reference</a>,
 see that doc for details on what those settings do.</p>
@@ -1361,7 +1361,33 @@ normal = [&quot;MonoLisa Nerd Font&quot;]
 size = 18
 
 [font.features]
-MonoLisa = [ &quot;+ss01&quot;, &quot;+ss07&quot;, &quot;+ss11&quot;, &quot;-calt&quot;, &quot;+ss09&quot;, &quot;+ss02&quot;, &quot;+ss14&quot;, &quot;+ss16&quot;, &quot;+ss17&quot; ]
+&quot;MonoLisa Nerd Font&quot; = [ &quot;+ss01&quot;, &quot;+ss07&quot;, &quot;+ss11&quot;, &quot;-calt&quot;, &quot;+ss09&quot;, &quot;+ss02&quot;, &quot;+ss14&quot; ]
+</code></pre>
+<p>Specify font weight:</p>
+<pre><code class="language-toml">[font]
+size = 19
+hinting = &quot;full&quot;
+edging = &quot;antialias&quot;
+
+[[font.normal]]
+family = &quot;JetBrainsMono Nerd Font Propo&quot;
+style = &quot;W400&quot;
+
+# You can set a different font for fallback
+[[font.normal]]
+family = &quot;Noto Sans CJK SC&quot; 
+style = &quot;Normal&quot;
+
+[[font.bold]]
+family = &quot;JetBrainsMono Nerd Font Propo&quot;
+style = &quot;W600&quot;
+
+# No need to specify fallback in every variant, if omitted or specified here
+# but not found, it will fallback to normal font with this weight which is bold
+# in this case.
+[[font.bold]] 
+family = &quot;Noto Sans CJK SC&quot;
+style = &quot;Bold&quot;
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="editing-w-external-tools"><a class="header" href="#editing-w-external-tools">Editing w/ External Tools</a></h1>
 <p>You can use Neovide in other programs as editor, this page aims to document some quirks. Support for
