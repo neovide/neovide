@@ -221,7 +221,11 @@ impl CachingShaper {
 
     pub fn baseline_offset(&mut self) -> f32 {
         let metrics = self.metrics();
-        metrics.ascent + metrics.leading + self.linespace / 2.
+        // NOTE: leading is also called linegap and should be equally distributed on the top and
+        // bottom, so it's centered like our linespace settings. That's how it works on the web,
+        // but some desktop applications only use the top according to:
+        // https://googlefonts.github.io/gf-guide/metrics.html#8-linegap-values-must-be-0
+        metrics.ascent + (metrics.leading + self.linespace) / 2.0
     }
 
     fn build_clusters(
