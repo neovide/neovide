@@ -212,7 +212,7 @@ impl CachingShaper {
 
     pub fn underline_position(&mut self) -> f32 {
         let metrics = self.metrics();
-        metrics.ascent - metrics.underline_offset + self.linespace / 2.
+        self.baseline_offset() - metrics.underline_offset
     }
 
     pub fn stroke_size(&mut self) -> f32 {
