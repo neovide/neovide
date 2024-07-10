@@ -27,15 +27,15 @@ local function rpcrequest(method, ...)
 end
 
 local function set_clipboard(register)
-    return function(lines, regtype)
+    return function(lines)
         rpcrequest("neovide.set_clipboard", lines)
     end
 end
 
 local function get_clipboard(register)
     return function()
-        return rpcrequest("neovide.get_clipboard", register)
-    end
+        return rpcrequest("neovide.get_clipboard")
+   end
 end
 
 if args.register_clipboard and not vim.g.neovide_no_custom_clipboard then
