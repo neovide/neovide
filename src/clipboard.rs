@@ -30,10 +30,11 @@ pub fn init(event_loop: &EventLoop<UserEvent>) {
         .set(Mutex::new(match event_loop.raw_display_handle() {
             #[cfg(target_os = "linux")]
             RawDisplayHandle::Wayland(WaylandDisplayHandle { display, .. }) => unsafe {
-                let clipboards = wayland_clipboard::create_clipboards_from_external(display);
+                let (selection, clipboard) =
+                    wayland_clipboard::create_clipboards_from_external(display);
                 Clipboard {
-                    clipboard: Box::new(clipboards.1),
-                    selection: Box::new(clipboards.0),
+                    clipboard: Box::new(clipboard),
+                    selection: Box::new(selection),
                 }
             },
             #[cfg(target_os = "linux")]
