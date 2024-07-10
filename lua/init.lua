@@ -28,13 +28,13 @@ end
 
 local function set_clipboard(register)
     return function(lines)
-        rpcrequest("neovide.set_clipboard", lines)
+        rpcrequest("neovide.set_clipboard", lines, register)
     end
 end
 
 local function get_clipboard(register)
     return function()
-        return rpcrequest("neovide.get_clipboard")
+        return rpcrequest("neovide.get_clipboard", register)
    end
 end
 
