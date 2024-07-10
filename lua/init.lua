@@ -49,9 +49,13 @@ if args.register_clipboard and not vim.g.neovide_no_custom_clipboard then
             ["+"] = get_clipboard("+"),
             ["*"] = get_clipboard("*"),
         },
-        cache_enabled = 0
+        cache_enabled = false
     }
+    vim.g.loaded_clipboard_provider = nil
+    vim.cmd.runtime("autoload/provider/clipboard.vim")
 end
+
+
 
 if args.register_right_click then
     vim.api.nvim_create_user_command("NeovideRegisterRightClick", function()
