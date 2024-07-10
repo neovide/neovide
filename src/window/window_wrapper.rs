@@ -32,11 +32,11 @@ use super::macos::MacosWindowFeature;
 use icrate::Foundation::MainThreadMarker;
 
 use log::trace;
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::{
     dpi,
     event::{Event, Ime, WindowEvent},
-    event_loop::{EventLoopProxy, EventLoopWindowTarget},
+    event_loop::{ActiveEventLoop, EventLoopProxy},
     window::{Fullscreen, Theme},
 };
 
@@ -459,7 +459,7 @@ impl WinitWindowWrapper {
 
     pub fn try_create_window(
         &mut self,
-        event_loop: &EventLoopWindowTarget<UserEvent>,
+        event_loop: &ActiveEventLoop,
         proxy: &EventLoopProxy<UserEvent>,
     ) {
         if self.ui_state != UIState::WaitingForWindowCreate {
@@ -542,7 +542,10 @@ impl WinitWindowWrapper {
             };
         }
         log::info!("Showing window size: {:#?}, maximized: {}", size, maximized);
-        let is_wayland = matches!(window.raw_window_handle(), RawWindowHandle::Wayland(_));
+        let is_wayland = matches!(
+            window.window_handle().unwrap().as_raw(),
+            RawWindowHandle::Wayland(_)
+        );
         // On Wayland we can show the window now, since internally it's only shown after the first rendering
         // On the other platforms the window is shown after rendering to avoid flickering
         if is_wayland {

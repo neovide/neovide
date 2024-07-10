@@ -18,18 +18,18 @@ use winit::{
     dpi::{PhysicalSize, Size},
     error::EventLoopError,
     event::Event,
-    event_loop::{EventLoop, EventLoopBuilder, EventLoopWindowTarget},
-    window::{Icon, Theme, WindowBuilder},
+    event_loop::{ActiveEventLoop, EventLoop},
+    window::{Icon, Theme, Window},
 };
 
 #[cfg(target_os = "macos")]
-use winit::platform::macos::WindowBuilderExtMacOS;
+use winit::platform::macos::WindowAttributesExtMacOS;
 
 #[cfg(target_os = "linux")]
-use winit::platform::{wayland::WindowBuilderExtWayland, x11::WindowBuilderExtX11};
+use winit::platform::{wayland::WindowAttributesExtWayland, x11::WindowAttributesExtX11};
 
 #[cfg(target_os = "windows")]
-use winit::platform::windows::WindowBuilderExtWindows;
+use winit::platform::windows::WindowAttributesExtWindows;
 
 #[cfg(target_os = "macos")]
 use winit::platform::macos::EventLoopBuilderExtMacOS;
@@ -120,7 +120,7 @@ impl From<HotReloadConfigs> for UserEvent {
 }
 
 pub fn create_event_loop() -> EventLoop<UserEvent> {
-    let mut builder = EventLoopBuilder::<UserEvent>::with_user_event();
+    let mut builder = EventLoop::with_user_event();
     #[cfg(target_os = "macos")]
     builder.with_default_menu(false);
     let event_loop = builder.build().expect("Failed to create winit event loop");
@@ -130,11 +130,7 @@ pub fn create_event_loop() -> EventLoop<UserEvent> {
     event_loop
 }
 
-pub fn create_window(
-    event_loop: &EventLoopWindowTarget<UserEvent>,
-    maximized: bool,
-    title: &str,
-) -> WindowConfig {
+pub fn create_window(event_loop: &ActiveEventLoop, maximized: bool, title: &str) -> WindowConfig {
     let icon = load_icon();
 
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
@@ -146,7 +142,7 @@ pub fn create_window(
         _ => None,
     };
 
-    let winit_window_builder = WindowBuilder::new()
+    let winit_window_builder = Window::default_attributes()
         .with_title(title)
         .with_window_icon(Some(icon))
         .with_maximized(maximized)
@@ -193,11 +189,11 @@ pub fn create_window(
     let winit_window_builder = {
         if env::var("WAYLAND_DISPLAY").is_ok() {
             let app_id = &cmd_line_settings.wayland_app_id;
-            WindowBuilderExtWayland::with_name(winit_window_builder, "neovide", app_id.clone())
+            WindowAttributesExtWayland::with_name(winit_window_builder, "neovide", app_id.clone())
         } else {
             let class = &cmd_line_settings.x11_wm_class;
             let instance = &cmd_line_settings.x11_wm_class_instance;
-            WindowBuilderExtX11::with_name(winit_window_builder, class, instance)
+            WindowAttributesExtX11::with_name(winit_window_builder, class, instance)
         }
     };
 
