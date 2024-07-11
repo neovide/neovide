@@ -10,8 +10,9 @@ use skia_safe::{
 use strum::IntoEnumIterator;
 use strum::{EnumCount, EnumIter};
 use winit::{
+    application::ApplicationHandler,
     dpi::PhysicalSize,
-    event::{ElementState, Event, KeyEvent, Modifiers, MouseScrollDelta, WindowEvent},
+    event::{ElementState, KeyEvent, Modifiers, MouseScrollDelta, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoop},
     keyboard::{Key, NamedKey},
     window::Window,
@@ -34,7 +35,7 @@ const DEFAULT_SIZE: PhysicalSize<u32> = PhysicalSize::new(800, 600);
 
 pub fn show_error_window(message: &str, event_loop: EventLoop<UserEvent>) {
     let mut error_window = ErrorWindow::new(message);
-    error_window.run_event_loop(event_loop);
+    event_loop.run_app(&mut error_window).ok();
 }
 
 #[derive(Debug)]
@@ -83,20 +84,23 @@ impl<'a> ErrorWindow<'a> {
             message,
         }
     }
+}
 
-    fn run_event_loop(&mut self, event_loop: EventLoop<UserEvent>) {
-        let _ = event_loop.run(|e, active_event_loop| match e {
-            Event::Resumed => {
-                if self.state.is_none() {
-                    self.state = Some(State::new(self.message, active_event_loop));
-                }
-            }
-            Event::WindowEvent { event, .. } => {
-                let state = self.state.as_mut().unwrap();
-                state.handle_window_event(event, active_event_loop, self.message);
-            }
-            _ => {}
-        });
+impl<'a> ApplicationHandler<UserEvent> for ErrorWindow<'a> {
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        _window_id: winit::window::WindowId,
+        event: WindowEvent,
+    ) {
+        let state = self.state.as_mut().unwrap();
+        state.handle_window_event(event, event_loop, self.message);
+    }
+
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        if self.state.is_none() {
+            self.state = Some(State::new(self.message, event_loop));
+        }
     }
 }
 
