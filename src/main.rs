@@ -40,7 +40,7 @@ extern crate lazy_static;
 
 use anyhow::Result;
 use log::trace;
-use std::env::{self, args};
+use std::env::{self, args, var};
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::panic::{set_hook, PanicInfo};
@@ -72,7 +72,8 @@ use crate::settings::{load_last_window_settings, Config, FontSettings, Persisten
 
 pub use profiling::startup_profiler;
 
-const BACKTRACES_FILE: &str = "neovide_backtraces.log";
+const DEFAULT_BACKTRACES_FILE: &str = "neovide_backtraces.log";
+const BACKTRACES_FILE_ENV_VAR: &str = "NEOVIDEBACKTRACES";
 const REQUEST_MESSAGE: &str = "This is a bug and we would love for it to be reported to https://github.com/neovide/neovide/issues";
 
 fn main() -> NeovideExitCode {
@@ -288,10 +289,15 @@ fn generate_stderr_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) ->
 fn log_panic_to_file(panic_info: &PanicInfo, backtrace: &Backtrace) {
     let log_msg = generate_panic_log_message(panic_info, backtrace);
 
+    let backtraces_file = match var(BACKTRACES_FILE_ENV_VAR) {
+        Ok(v) => v,
+        Err(_) => DEFAULT_BACKTRACES_FILE.to_string(), // Converted to match types with v
+    };
+
     let mut file = match OpenOptions::new()
         .append(true)
-        .open(BACKTRACES_FILE)
-        .or_else(|_| File::create(BACKTRACES_FILE))
+        .open(&backtraces_file)
+        .or_else(|_| File::create(&backtraces_file))
     {
         Ok(x) => x,
         Err(e) => {
@@ -301,8 +307,8 @@ fn log_panic_to_file(panic_info: &PanicInfo, backtrace: &Backtrace) {
     };
 
     match file.write_all(log_msg.as_bytes()) {
-        Ok(()) => eprintln!("\nBacktrace saved to {BACKTRACES_FILE}!"),
-        Err(e) => eprintln!("Failed writing panic to {BACKTRACES_FILE}: {e}"),
+        Ok(()) => eprintln!("\nBacktrace saved to {backtraces_file}!"),
+        Err(e) => eprintln!("Failed writing panic to {backtraces_file}: {e}"),
     }
 }
 
