@@ -137,7 +137,7 @@ pub fn create_window(event_loop: &ActiveEventLoop, maximized: bool, title: &str)
         _ => None,
     };
 
-    let winit_window_builder = Window::default_attributes()
+    let window_attributes = Window::default_attributes()
         .with_title(title)
         .with_window_icon(Some(icon))
         .with_maximized(maximized)
@@ -145,10 +145,10 @@ pub fn create_window(event_loop: &ActiveEventLoop, maximized: bool, title: &str)
         .with_visible(false);
 
     #[cfg(target_os = "windows")]
-    let winit_window_builder = if !cmd_line_settings.opengl {
-        WindowBuilderExtWindows::with_no_redirection_bitmap(winit_window_builder, true)
+    let window_attributes = if !cmd_line_settings.opengl {
+        WindowAttributesExtWindows::with_no_redirection_bitmap(window_attributes, true)
     } else {
-        winit_window_builder
+        window_attributes
     };
 
     let frame_decoration = cmd_line_settings.frame;
@@ -158,8 +158,7 @@ pub fn create_window(event_loop: &ActiveEventLoop, maximized: bool, title: &str)
 
     // There is only two options for windows & linux, no need to match more options.
     #[cfg(not(target_os = "macos"))]
-    let mut winit_window_builder =
-        winit_window_builder.with_decorations(frame_decoration == Frame::Full);
+    let mut window_attributes = window_attributes.with_decorations(frame_decoration == Frame::Full);
 
     #[cfg(target_os = "macos")]
     let mut window_attributes = match frame_decoration {
@@ -170,33 +169,33 @@ pub fn create_window(event_loop: &ActiveEventLoop, maximized: bool, title: &str)
             .with_titlebar_buttons_hidden(true)
             .with_titlebar_transparent(true)
             .with_fullsize_content_view(true),
-        Frame::Transparent => winit_window_builder
+        Frame::Transparent => window_attributes
             .with_title_hidden(title_hidden)
             .with_titlebar_transparent(true)
             .with_fullsize_content_view(true),
     };
 
     if let Some(previous_position) = previous_position {
-        winit_window_builder = winit_window_builder.with_position(previous_position);
+        window_attributes = window_attributes.with_position(previous_position);
     }
 
     #[cfg(target_os = "linux")]
-    let winit_window_builder = {
+    let window_attributes = {
         if env::var("WAYLAND_DISPLAY").is_ok() {
             let app_id = &cmd_line_settings.wayland_app_id;
-            WindowAttributesExtWayland::with_name(winit_window_builder, "neovide", app_id.clone())
+            WindowAttributesExtWayland::with_name(window_attributes, "neovide", app_id.clone())
         } else {
             let class = &cmd_line_settings.x11_wm_class;
             let instance = &cmd_line_settings.x11_wm_class_instance;
-            WindowAttributesExtX11::with_name(winit_window_builder, class, instance)
+            WindowAttributesExtX11::with_name(window_attributes, class, instance)
         }
     };
 
     #[cfg(target_os = "macos")]
-    let winit_window_builder = winit_window_builder.with_accepts_first_mouse(false);
+    let window_attributes = window_attributes.with_accepts_first_mouse(false);
 
     #[allow(clippy::let_and_return)]
-    let window_config = build_window_config(winit_window_builder, event_loop);
+    let window_config = build_window_config(window_attributes, event_loop);
 
     #[cfg(target_os = "macos")]
     if let Some(previous_position) = previous_position {

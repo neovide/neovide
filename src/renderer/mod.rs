@@ -513,7 +513,7 @@ pub fn build_window_config(
         if cmd_line_settings.opengl {
             opengl::build_window(window_attributes, event_loop)
         } else {
-            let window = winit_window_builder.build(event_loop).unwrap();
+            let window = event_loop.create_window(window_attributes).unwrap();
             let config = WindowConfigType::Direct3D;
             WindowConfig { window, config }
         }
