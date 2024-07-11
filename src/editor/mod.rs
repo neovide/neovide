@@ -29,7 +29,7 @@ use crate::{cmd_line::CmdLineSettings, frame::Frame, settings::SETTINGS};
 
 pub use cursor::{Cursor, CursorMode, CursorShape};
 pub use draw_command_batcher::DrawCommandBatcher;
-pub use style::{Colors, HighlightInfo, HighlightKind, Style, UnderlineStyle};
+pub use style::{Colors, Style, UnderlineStyle};
 pub use window::*;
 
 const MODE_CMDLINE: u64 = 4;

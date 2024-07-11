@@ -27,6 +27,8 @@ pub struct GridRenderer {
 /// Struct with named fields to be returned from draw_background
 pub struct BackgroundInfo {
     pub custom_color: bool,
+    // This should probably be used
+    #[allow(unused)]
     pub transparent: bool,
 }
 
@@ -97,10 +99,6 @@ impl GridRenderer {
     }
 
     /// Draws a single background cell with the same style
-    ///
-    /// Returns a boolean tuple that describes the cell:
-    ///     The first element is true if the cell has a custom background color
-    ///     The second element is true if the cell has transparency
     pub fn draw_background(
         &self,
         grid_position: GridPos<i32>,

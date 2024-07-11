@@ -30,7 +30,6 @@ pub struct WindowSettings {
     #[cfg(target_os = "macos")]
     pub input_macos_option_key_is_meta: OptionAsMeta,
     pub input_ime: bool,
-    pub unlink_border_highlights: bool,
     pub show_border: bool,
 
     #[option = "mousemoveevent"]
@@ -72,7 +71,6 @@ impl Default for WindowSettings {
             mouse_move_event: false,
             observed_lines: None,
             observed_columns: None,
-            unlink_border_highlights: true,
             show_border: false,
         }
     }

@@ -28,14 +28,12 @@ pub use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
 use setup::{get_api_information, setup_neovide_specific_state};
 
-pub use api_info::*;
 pub use command::create_nvim_command;
 pub use events::*;
 pub use session::NeovimWriter;
 pub use ui_commands::{send_ui, start_ui_command_handler, ParallelCommand, SerialCommand};
 
-const INTRO_MESSAGE_LUA: &str = include_str!("../../lua/intro.lua");
-const NEOVIM_REQUIRED_VERSION: &str = "0.9.2";
+const NEOVIM_REQUIRED_VERSION: &str = "0.10.0";
 
 pub struct NeovimRuntime {
     runtime: Runtime,
@@ -48,13 +46,6 @@ fn neovim_instance() -> Result<NeovimInstance> {
         let cmd = create_nvim_command()?;
         Ok(NeovimInstance::Embedded(cmd))
     }
-}
-
-pub async fn setup_intro_message_autocommand(
-    nvim: &Neovim<NeovimWriter>,
-) -> Result<Value, Box<CallError>> {
-    let args = vec![Value::from("setup_autocommand")];
-    nvim.exec_lua(INTRO_MESSAGE_LUA, args).await
 }
 
 pub async fn show_error_message(
@@ -114,13 +105,10 @@ async fn launch(handler: NeovimHandler, grid_size: Option<GridSize<u32>>) -> Res
     setup_neovide_specific_state(&session.neovim, should_handle_clipboard, &api_information)
         .await?;
 
-    start_ui_command_handler(session.neovim.clone(), &api_information);
+    start_ui_command_handler(session.neovim.clone());
     SETTINGS.read_initial_values(&session.neovim).await?;
 
     let mut options = UiAttachOptions::new();
-    if !api_information.has_event("win_viewport_margins") {
-        options.set_hlstate_external(true);
-    }
     options.set_linegrid_external(true);
     options.set_multigrid_external(!settings.no_multi_grid);
     options.set_rgb(true);
