@@ -394,10 +394,10 @@ impl<'a> Renderer<'a> {
             .handle_scale_factor_update(self.os_scale_factor * self.user_scale_factor);
     }
 
-    pub fn prepare_lines(&mut self) {
+    pub fn prepare_lines(&mut self, force: bool) {
         self.rendered_windows
             .iter_mut()
-            .for_each(|(_, w)| w.prepare_lines(&mut self.grid_renderer));
+            .for_each(|(_, w)| w.prepare_lines(&mut self.grid_renderer, force));
     }
 
     fn handle_draw_command(&mut self, draw_command: DrawCommand, result: &mut DrawCommandResult) {

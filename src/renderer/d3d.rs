@@ -5,24 +5,30 @@ use skia_safe::{
         BackendRenderTarget, DirectContext, FlushInfo, Protected, SurfaceOrigin, SyncCpu,
     },
     surface::BackendSurfaceAccess,
-    Canvas, ColorType, Surface,
+    Canvas, ColorSpace, ColorType, PixelGeometry, Surface, SurfaceProps, SurfacePropsFlags,
 };
 use windows::core::{Interface, Result, PCWSTR};
 use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND};
 use windows::Win32::Graphics::Direct3D::D3D_FEATURE_LEVEL_11_0;
 use windows::Win32::Graphics::Direct3D12::{
-    D3D12CreateDevice, D3D12GetDebugInterface, ID3D12CommandQueue, ID3D12Debug, ID3D12Device,
-    ID3D12Fence, ID3D12Resource, D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_COMMAND_QUEUE_DESC,
-    D3D12_COMMAND_QUEUE_FLAG_NONE, D3D12_FENCE_FLAG_NONE, D3D12_RESOURCE_STATE_PRESENT,
+    D3D12CreateDevice, ID3D12CommandQueue, ID3D12Device, ID3D12Fence, ID3D12Resource,
+    D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_COMMAND_QUEUE_DESC, D3D12_COMMAND_QUEUE_FLAG_NONE,
+    D3D12_FENCE_FLAG_NONE, D3D12_RESOURCE_STATE_PRESENT,
+};
+#[cfg(feature = "d3d_debug")]
+use windows::Win32::Graphics::Direct3D12::{D3D12GetDebugInterface, ID3D12Debug};
+use windows::Win32::Graphics::DirectComposition::{
+    DCompositionCreateDevice2, IDCompositionDevice, IDCompositionTarget, IDCompositionVisual,
 };
 use windows::Win32::Graphics::Dxgi::Common::{
-    DXGI_ALPHA_MODE_UNSPECIFIED, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_SAMPLE_DESC,
+    DXGI_ALPHA_MODE_PREMULTIPLIED, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_FORMAT_UNKNOWN,
+    DXGI_SAMPLE_DESC,
 };
 use windows::Win32::Graphics::Dxgi::{
     CreateDXGIFactory2, IDXGIAdapter1, IDXGIFactory4, IDXGISwapChain1, IDXGISwapChain3,
-    DXGI_ADAPTER_FLAG, DXGI_ADAPTER_FLAG_SOFTWARE, DXGI_CREATE_FACTORY_DEBUG, DXGI_SCALING_NONE,
+    DXGI_ADAPTER_FLAG, DXGI_ADAPTER_FLAG_SOFTWARE, DXGI_CREATE_FACTORY_DEBUG, DXGI_SCALING_STRETCH,
     DXGI_SWAP_CHAIN_DESC1, DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT,
-    DXGI_SWAP_EFFECT_FLIP_DISCARD, DXGI_USAGE_RENDER_TARGET_OUTPUT,
+    DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL, DXGI_USAGE_RENDER_TARGET_OUTPUT,
 };
 use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObjectEx, INFINITE};
 use winit::{
@@ -31,10 +37,10 @@ use winit::{
     window::Window,
 };
 
-use super::{vsync::VSyncWinSwapChain, SkiaRenderer, VSync};
+use super::{vsync::VSyncWinSwapChain, RendererSettings, SkiaRenderer, VSync};
 #[cfg(feature = "gpu_profiling")]
 use crate::profiling::{d3d::create_d3d_gpu_context, GpuCtx};
-use crate::{profiling::tracy_gpu_zone, window::UserEvent};
+use crate::{profiling::tracy_gpu_zone, settings::SETTINGS, window::UserEvent};
 
 fn get_hardware_adapter(factory: &IDXGIFactory4) -> Result<IDXGIAdapter1> {
     for i in 0.. {
@@ -83,17 +89,20 @@ pub struct D3DSkiaRenderer {
     #[cfg(feature = "gpu_profiling")]
     pub device: ID3D12Device,
     _adapter: IDXGIAdapter1,
+    _composition_device: IDCompositionDevice,
+    _target: IDCompositionTarget,
+    _visual: IDCompositionVisual,
     window: Window,
 }
 
 impl D3DSkiaRenderer {
     pub fn new(window: Window) -> Self {
-        let mut debug_controller: Option<ID3D12Debug> = None;
+        #[cfg(feature = "d3d_debug")]
         unsafe {
+            let mut debug_controller: Option<ID3D12Debug> = None;
             D3D12GetDebugInterface(&mut debug_controller)
                 .expect("Failed to create Direct3D debug controller");
-        }
-        unsafe {
+
             debug_controller
                 .expect("Failed to enable debug layer")
                 .EnableDebugLayer();
@@ -102,6 +111,7 @@ impl D3DSkiaRenderer {
         let dxgi_factory: IDXGIFactory4 = unsafe {
             CreateDXGIFactory2(DXGI_CREATE_FACTORY_DEBUG).expect("Failed to create DXGI factory")
         };
+
         let adapter = get_hardware_adapter(&dxgi_factory)
             .expect("Failed to find any suitable Direct3D 12 adapters");
 
@@ -124,10 +134,14 @@ impl D3DSkiaRenderer {
                 .expect("Failed to create the Direct3D command queue")
         };
 
+        let mut size = window.inner_size();
+        size.width = size.width.max(1);
+        size.height = size.height.max(1);
+
         // Describe and create the swap chain.
         let swap_chain_desc = DXGI_SWAP_CHAIN_DESC1 {
-            Width: 0,
-            Height: 0,
+            Width: size.width,
+            Height: size.height,
             Format: DXGI_FORMAT_R8G8B8A8_UNORM,
             Stereo: false.into(),
             SampleDesc: DXGI_SAMPLE_DESC {
@@ -136,9 +150,9 @@ impl D3DSkiaRenderer {
             },
             BufferUsage: DXGI_USAGE_RENDER_TARGET_OUTPUT,
             BufferCount: 2,
-            Scaling: DXGI_SCALING_NONE,
-            SwapEffect: DXGI_SWAP_EFFECT_FLIP_DISCARD,
-            AlphaMode: DXGI_ALPHA_MODE_UNSPECIFIED,
+            Scaling: DXGI_SCALING_STRETCH,
+            SwapEffect: DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
+            AlphaMode: DXGI_ALPHA_MODE_PREMULTIPLIED,
             Flags: DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT.0 as u32,
         };
 
@@ -147,20 +161,14 @@ impl D3DSkiaRenderer {
             .expect("Failed to fetch window handle")
             .as_raw()
         {
-            handle.hwnd
+            HWND(handle.hwnd.get())
         } else {
             panic!("Not a Win32 window");
         };
 
         let swap_chain = unsafe {
             dxgi_factory
-                .CreateSwapChainForHwnd(
-                    &command_queue,
-                    HWND(hwnd.get()),
-                    &swap_chain_desc,
-                    None,
-                    None,
-                )
+                .CreateSwapChainForComposition(&command_queue, &swap_chain_desc, None)
                 .expect("Failed to create the Direct3D swap chain")
         };
 
@@ -171,6 +179,31 @@ impl D3DSkiaRenderer {
             swap_chain
                 .SetMaximumFrameLatency(1)
                 .expect("Failed to set maximum frame latency");
+        }
+        let composition_device: IDCompositionDevice = unsafe {
+            DCompositionCreateDevice2(None).expect("Could not create composition device")
+        };
+        let target = unsafe {
+            composition_device
+                .CreateTargetForHwnd(hwnd, true)
+                .expect("Could not create composition target")
+        };
+        let visual = unsafe {
+            composition_device
+                .CreateVisual()
+                .expect("Could not create composition visual")
+        };
+
+        unsafe {
+            visual
+                .SetContent(&swap_chain)
+                .expect("Failed to set composition content");
+            target
+                .SetRoot(&visual)
+                .expect("Failed to set composition root");
+            composition_device
+                .Commit()
+                .expect("Failed to commit composition");
         }
 
         let swap_chain_waitable = unsafe { swap_chain.GetFrameLatencyWaitableObject() };
@@ -219,6 +252,9 @@ impl D3DSkiaRenderer {
             fence_event,
             frame_swapped: true,
             frame_index,
+            _composition_device: composition_device,
+            _target: target,
+            _visual: visual,
             window,
         };
         ret.setup_surfaces();
@@ -305,13 +341,22 @@ impl D3DSkiaRenderer {
                 protected: Protected::No,
             };
 
+            let render_settings = SETTINGS.get::<RendererSettings>();
+
+            let surface_props = SurfaceProps::new_with_text_properties(
+                SurfacePropsFlags::default(),
+                PixelGeometry::default(),
+                render_settings.text_contrast,
+                render_settings.text_gamma,
+            );
+
             let surface = wrap_backend_render_target(
                 &mut self.gr_context,
                 &BackendRenderTarget::new_d3d(size, &info),
                 SurfaceOrigin::TopLeft,
                 ColorType::RGBA8888,
-                None,
-                None,
+                ColorSpace::new_srgb(),
+                Some(surface_props).as_ref(),
             )
             .expect("Could not create backend render target");
             self.surfaces.push(surface);
@@ -364,7 +409,9 @@ impl SkiaRenderer for D3DSkiaRenderer {
         self.surfaces.clear();
         self.buffers.clear();
 
-        let size = self.window.inner_size();
+        let mut size = self.window.inner_size();
+        size.width = size.width.max(1);
+        size.height = size.height.max(1);
 
         unsafe {
             self.swap_chain
@@ -372,7 +419,7 @@ impl SkiaRenderer for D3DSkiaRenderer {
                     0,
                     size.width,
                     size.height,
-                    self.swap_chain_desc.Format,
+                    DXGI_FORMAT_UNKNOWN,
                     self.swap_chain_desc.Flags,
                 )
                 .expect("Failed to resize buffers");
