@@ -4,11 +4,11 @@ use crate::profiling::tracy_zone;
 
 use self::core_video::CVReturn;
 
-use icrate::{AppKit::NSWindow, Foundation::NSString};
+use icrate::{AppKit::NSView, Foundation::NSString};
 use objc2::msg_send;
 use objc2::rc::Id;
 
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
 // Display link api reference: https://developer.apple.com/documentation/corevideo/cvdisplaylink?language=objc
@@ -206,8 +206,12 @@ impl<UserData> Drop for MacosDisplayLink<UserData> {
 pub fn get_display_id_of_window(window: &Window) -> core_video::CGDirectDisplayID {
     unsafe fn get_display_id(window: &Window) -> Option<core_video::CGDirectDisplayID> {
         let key: Id<NSString> = NSString::from_str("NSScreenNumber");
-        if let RawWindowHandle::AppKit(handle) = window.raw_window_handle() {
-            let ns_window = Id::retain(handle.ns_window as *mut NSWindow)?;
+        if let RawWindowHandle::AppKit(handle) = window.window_handle().unwrap().as_raw() {
+            let ns_view = handle.ns_view.as_ptr();
+            let ns_view: Id<NSView> = unsafe { Id::retain(ns_view.cast()) }.unwrap();
+            let ns_window = ns_view
+                .window()
+                .expect("view was not installed in a window");
             let screen = ns_window.screen()?;
             let descr = screen.deviceDescription();
             let display_id_ns_number = descr.get(&key)?;

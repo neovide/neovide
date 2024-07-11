@@ -110,6 +110,7 @@ icrate = { version = "0.0.4", features = [
     "apple",
     "Foundation",
     "Foundation_NSThread",
+    "Foundation_NSProcessInfo",
     "AppKit",
     "AppKit_NSColor",
     "AppKit_NSEvent",

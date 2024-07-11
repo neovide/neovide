@@ -6,6 +6,9 @@ use winit::{
     event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy},
 };
 
+#[cfg(target_os = "macos")]
+use icrate::Foundation::MainThreadMarker;
+
 use super::{save_window_size, CmdLineSettings, UserEvent, WindowSettings, WinitWindowWrapper};
 use crate::{
     profiling::{tracy_plot, tracy_zone},
@@ -13,6 +16,9 @@ use crate::{
     settings::SETTINGS,
     FontSettings, WindowSize,
 };
+
+#[cfg(target_os = "macos")]
+use super::macos::Menu;
 
 enum FocusedState {
     Focused,
@@ -86,6 +92,9 @@ pub struct UpdateLoop {
     window_wrapper: WinitWindowWrapper,
     create_window_allowed: bool,
     proxy: EventLoopProxy<UserEvent>,
+
+    #[cfg(target_os = "macos")]
+    menu: Menu,
 }
 
 impl UpdateLoop {
@@ -105,7 +114,10 @@ impl UpdateLoop {
         let animation_time = Duration::from_millis(0);
 
         #[cfg(target_os = "macos")]
-        menu.ensure_menu_added(&e);
+        let menu = {
+            let mtm = MainThreadMarker::new().expect("must be on the main thread");
+            Menu::new(mtm)
+        };
 
         let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
         let idle = cmd_line_settings.idle;
@@ -127,6 +139,9 @@ impl UpdateLoop {
             window_wrapper,
             create_window_allowed: false,
             proxy,
+
+            #[cfg(target_os = "macos")]
+            menu,
         }
     }
 
@@ -335,6 +350,8 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
                 } else {
                     FocusedState::UnfocusedNotDrawn
                 };
+                #[cfg(target_os = "macos")]
+                self.menu.ensure_menu_added();
             }
             _ => {}
         }

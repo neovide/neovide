@@ -11,9 +11,6 @@ mod macos;
 #[cfg(target_os = "linux")]
 use std::env;
 
-#[cfg(target_os = "macos")]
-use icrate::Foundation::MainThreadMarker;
-
 use winit::{
     dpi::{PhysicalSize, Size},
     event_loop::{ActiveEventLoop, EventLoop},
@@ -165,10 +162,10 @@ pub fn create_window(event_loop: &ActiveEventLoop, maximized: bool, title: &str)
         winit_window_builder.with_decorations(frame_decoration == Frame::Full);
 
     #[cfg(target_os = "macos")]
-    let mut winit_window_builder = match frame_decoration {
-        Frame::Full => winit_window_builder,
-        Frame::None => winit_window_builder.with_decorations(false),
-        Frame::Buttonless => winit_window_builder
+    let mut window_attributes = match frame_decoration {
+        Frame::Full => window_attributes,
+        Frame::None => window_attributes.with_decorations(false),
+        Frame::Buttonless => window_attributes
             .with_title_hidden(title_hidden)
             .with_titlebar_buttons_hidden(true)
             .with_titlebar_transparent(true)
