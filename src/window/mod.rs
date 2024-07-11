@@ -16,8 +16,6 @@ use icrate::Foundation::MainThreadMarker;
 
 use winit::{
     dpi::{PhysicalSize, Size},
-    error::EventLoopError,
-    event::Event,
     event_loop::{ActiveEventLoop, EventLoop},
     window::{Icon, Theme, Window},
 };
@@ -37,21 +35,21 @@ use winit::platform::macos::EventLoopBuilderExtMacOS;
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
 use mouse_manager::MouseManager;
-use update_loop::UpdateLoop;
 
 use crate::{
     cmd_line::{CmdLineSettings, GeometryArgs},
     frame::Frame,
     renderer::{build_window_config, DrawCommand, WindowConfig},
     settings::{
-        clamped_grid_size, load_last_window_settings, save_window_size, FontSettings,
-        HotReloadConfigs, PersistentWindowSettings, SettingsChanged, SETTINGS,
+        clamped_grid_size, load_last_window_settings, save_window_size, HotReloadConfigs,
+        PersistentWindowSettings, SettingsChanged, SETTINGS,
     },
     units::GridSize,
 };
 pub use error_window::show_error_window;
 pub use settings::{WindowSettings, WindowSettingsChanged};
 pub use update_loop::ShouldRender;
+pub use update_loop::UpdateLoop;
 pub use window_wrapper::WinitWindowWrapper;
 
 static ICON: &[u8] = include_bytes!("../../assets/neovide.ico");
@@ -261,55 +259,6 @@ pub fn determine_window_size(window_settings: Option<&PersistentWindowSettings>)
             _ => WindowSize::Size(DEFAULT_WINDOW_SIZE),
         },
     }
-}
-
-pub fn main_loop(
-    initial_window_size: WindowSize,
-    initial_font_settings: Option<FontSettings>,
-    event_loop: EventLoop<UserEvent>,
-) -> Result<(), EventLoopError> {
-    let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
-    let mut update_loop = UpdateLoop::new(cmd_line_settings.idle);
-
-    let proxy = event_loop.create_proxy();
-    let mut window_wrapper = Some(WinitWindowWrapper::new(
-        initial_window_size,
-        initial_font_settings,
-    ));
-    let mut create_window_allowed = false;
-
-    #[cfg(target_os = "macos")]
-    let mut menu = {
-        let mtm = MainThreadMarker::new().expect("must be on the main thread");
-        macos::Menu::new(mtm)
-    };
-    let res = event_loop.run(move |e, window_target| {
-        #[cfg(target_os = "macos")]
-        menu.ensure_menu_added(&e);
-
-        match e {
-            Event::Resumed => {
-                create_window_allowed = true;
-                if let Some(window_wrapper) = &mut window_wrapper {
-                    window_wrapper.try_create_window(window_target, &proxy);
-                }
-            }
-            Event::LoopExiting => window_wrapper = None,
-            Event::UserEvent(UserEvent::NeovimExited) => {
-                save_window_size(window_wrapper.as_ref().unwrap());
-                window_target.exit();
-            }
-            _ => {
-                if let Some(window_wrapper) = &mut window_wrapper {
-                    window_target.set_control_flow(update_loop.step(window_wrapper, e));
-                    if create_window_allowed {
-                        window_wrapper.try_create_window(window_target, &proxy);
-                    }
-                }
-            }
-        }
-    });
-    res
 }
 
 pub fn load_icon() -> Icon {

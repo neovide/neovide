@@ -22,7 +22,7 @@ use log::{error, warn};
 use skia_safe::Canvas;
 
 use winit::{
-    event::Event,
+    event::WindowEvent,
     event_loop::{ActiveEventLoop, EventLoopProxy},
     window::{Window, WindowAttributes},
 };
@@ -190,8 +190,8 @@ impl Renderer {
         }
     }
 
-    pub fn handle_event(&mut self, event: &Event<UserEvent>) -> bool {
-        self.cursor_renderer.handle_event(event)
+    pub fn handle_event(&mut self, event: &WindowEvent) {
+        self.cursor_renderer.handle_event(event);
     }
 
     pub fn font_names(&self) -> Vec<String> {
