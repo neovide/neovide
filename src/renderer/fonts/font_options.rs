@@ -298,6 +298,7 @@ pub enum FontHinting {
     Normal,
     #[default]
     Slight,
+    #[default]
     None,
 }
 

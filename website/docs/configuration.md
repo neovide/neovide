@@ -73,8 +73,8 @@ as such it's also documented in `:h guifont`. But to sum it up and also add Neov
       a type of hinting:
       - full
       - normal
-      - slight (default)
-      - none
+      - slight
+      - none (default)
 - Some examples:
   - `Hack,Noto_Color_Emoji:h12:b` — Hack at size 12 in bold, with Noto Color Emoji as fallback
     should Hack fail to contain any glyph.

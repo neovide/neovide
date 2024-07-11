@@ -277,7 +277,6 @@ impl<'a> WinitWindowWrapper<'a> {
     fn handle_render_settings_changed(&mut self, changed_setting: RendererSettingsChanged) {
         match changed_setting {
             RendererSettingsChanged::TextGamma(..) | RendererSettingsChanged::TextContrast(..) => {
-                // TODO: rebuild the font cache
                 self.font_changed_last_frame = true;
             }
             _ => {}
