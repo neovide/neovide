@@ -15,7 +15,10 @@ pub const MAX_GRID_SIZE: GridSize<u32> = GridSize::new(10000, 1000);
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum PersistentWindowSettings {
-    Maximized,
+    Maximized {
+        #[serde(default)]
+        grid_size: Option<GridSize<u32>>,
+    },
     Windowed {
         #[serde(default)]
         position: PhysicalPosition<i32>,
@@ -70,7 +73,9 @@ pub fn save_window_size(window_wrapper: &WinitWindowWrapper) {
 
     let settings = PersistentSettings {
         window: if maximized && window_settings.remember_window_size {
-            PersistentWindowSettings::Maximized
+            PersistentWindowSettings::Maximized {
+                grid_size: { window_settings.remember_window_size.then_some(grid_size) },
+            }
         } else {
             PersistentWindowSettings::Windowed {
                 pixel_size: { window_settings.remember_window_size.then_some(pixel_size) },

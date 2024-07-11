@@ -16,7 +16,6 @@ use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
     renderer::{DrawCommand, Renderer, RendererSettingsChanged, VSync, WindowConfig},
-    running_tracker::RUNNING_TRACKER,
     settings::{
         clamped_grid_size, FontSettings, HotReloadConfigs, SettingsChanged, DEFAULT_GRID_SIZE,
         MIN_GRID_SIZE, SETTINGS,
@@ -301,11 +300,7 @@ impl<'a> WinitWindowWrapper<'a> {
     }
 
     pub fn handle_quit(&mut self) {
-        if SETTINGS.get::<CmdLineSettings>().server.is_none() {
-            send_ui(ParallelCommand::Quit);
-        } else {
-            RUNNING_TRACKER.quit("window closed");
-        }
+        send_ui(ParallelCommand::Quit);
     }
 
     pub fn handle_focus_lost(&mut self) {

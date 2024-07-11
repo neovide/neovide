@@ -9,16 +9,20 @@ mod ui_commands;
 
 use anyhow::{bail, Context, Result};
 use itertools::Itertools;
-use log::{error, info};
+use log::info;
 use nvim_rs::{error::CallError, Neovim, UiAttachOptions, Value};
 use rmpv::Utf8String;
-use std::{io::Error, ops::Add};
-use tokio::runtime::{Builder, Runtime};
+use std::{io::Error, ops::Add, time::Duration};
+use tokio::{
+    runtime::{Builder, Runtime},
+    select,
+    time::timeout,
+};
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
-    cmd_line::CmdLineSettings, editor::start_editor, running_tracker::*, settings::*,
-    units::GridSize, window::UserEvent,
+    cmd_line::CmdLineSettings, editor::start_editor, settings::*, units::GridSize,
+    window::UserEvent,
 };
 pub use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
@@ -34,7 +38,7 @@ const INTRO_MESSAGE_LUA: &str = include_str!("../../lua/intro.lua");
 const NEOVIM_REQUIRED_VERSION: &str = "0.9.2";
 
 pub struct NeovimRuntime {
-    runtime: Option<Runtime>,
+    runtime: Runtime,
 }
 
 fn neovim_instance() -> Result<NeovimInstance> {
@@ -134,26 +138,40 @@ async fn launch(handler: NeovimHandler, grid_size: Option<GridSize<u32>>) -> Res
     res.map(|()| session)
 }
 
-async fn run(session: NeovimSession) {
-    match session.io_handle.await {
-        Err(join_error) => error!("Error joining IO loop: '{}'", join_error),
-        Ok(Err(error)) => {
-            if !error.is_channel_closed() {
-                error!("Error: '{}'", error);
+async fn run(session: NeovimSession, proxy: EventLoopProxy<UserEvent>) {
+    let mut session = session;
+
+    if let Some(process) = session.neovim_process.as_mut() {
+        // We primarily wait for the stdio to finish, but due to bugs,
+        // for example, this one in in Neovim 0.9.5
+        // https://github.com/neovim/neovim/issues/26743
+        // it does not always finish.
+        // So wait for some additional time, both to make the bug obvious and to prevent incomplete
+        // data.
+        select! {
+            _ = &mut session.io_handle => {}
+            _ = process.wait() => {
+                log::info!("The Neovim process quit before the IO stream, waiting two seconds");
+                if timeout(Duration::from_millis(2000), session.io_handle)
+                        .await
+                        .is_err()
+                {
+                    log::info!("The IO stream was never closed, forcing Neovide to exit");
+                }
             }
-        }
-        Ok(Ok(())) => {}
-    };
-    RUNNING_TRACKER.quit("neovim processed failed");
+        };
+    } else {
+        session.io_handle.await.ok();
+    }
+    log::info!("Neovim has quit");
+    proxy.send_event(UserEvent::NeovimExited).ok();
 }
 
 impl NeovimRuntime {
     pub fn new() -> Result<Self, Error> {
         let runtime = Builder::new_multi_thread().enable_all().build()?;
 
-        Ok(Self {
-            runtime: Some(runtime),
-        })
+        Ok(Self { runtime })
     }
 
     pub fn launch(
@@ -161,16 +179,9 @@ impl NeovimRuntime {
         event_loop_proxy: EventLoopProxy<UserEvent>,
         grid_size: Option<GridSize<u32>>,
     ) -> Result<()> {
-        let handler = start_editor(event_loop_proxy);
-        let runtime = self.runtime.as_ref().unwrap();
-        let session = runtime.block_on(launch(handler, grid_size))?;
-        runtime.spawn(run(session));
+        let handler = start_editor(event_loop_proxy.clone());
+        let session = self.runtime.block_on(launch(handler, grid_size))?;
+        self.runtime.spawn(run(session, event_loop_proxy));
         Ok(())
-    }
-}
-
-impl Drop for NeovimRuntime {
-    fn drop(&mut self) {
-        self.runtime.take().unwrap().shutdown_background();
     }
 }

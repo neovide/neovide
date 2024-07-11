@@ -1,17 +1,16 @@
-use std::sync::Mutex;
+use std::sync::OnceLock;
 
 use log::trace;
 
 use anyhow::{Context, Result};
 use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim, Value};
 use strum::AsRefStr;
-use tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
+use tokio::sync::mpsc::unbounded_channel;
 
 use super::show_error_message;
 use crate::{
     bridge::{ApiInformation, NeovimWriter},
     profiling::{tracy_dynamic_zone, tracy_fiber_enter, tracy_fiber_leave},
-    running_tracker::RUNNING_TRACKER,
     LoggingSender,
 };
 
@@ -271,31 +270,17 @@ impl AsRef<str> for UiCommand {
     }
 }
 
-struct UIChannels {
-    sender: LoggingSender<UiCommand>,
-    receiver: Mutex<Option<UnboundedReceiver<UiCommand>>>,
-}
-
-impl UIChannels {
-    fn new() -> Self {
-        let (sender, receiver) = unbounded_channel();
-        Self {
-            sender: LoggingSender::attach(sender, "UICommand"),
-            receiver: Mutex::new(Some(receiver)),
-        }
-    }
-}
-
-lazy_static! {
-    static ref UI_CHANNELS: UIChannels = UIChannels::new();
-}
+static UI_COMMAND_CHANNEL: OnceLock<LoggingSender<UiCommand>> = OnceLock::new();
 
 pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, api_information: &ApiInformation) {
     let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
     let ui_command_nvim = nvim.clone();
+    let (sender, mut ui_command_receiver) = unbounded_channel();
+    UI_COMMAND_CHANNEL
+        .set(LoggingSender::attach(sender, "UIComand"))
+        .expect("The UI command channel is already created");
     tokio::spawn(async move {
-        let mut ui_command_receiver = UI_CHANNELS.receiver.lock().unwrap().take().unwrap();
-        while RUNNING_TRACKER.is_running() {
+        loop {
             match ui_command_receiver.recv().await {
                 Some(UiCommand::Serial(serial_command)) => {
                     tracy_dynamic_zone!(serial_command.as_ref());
@@ -309,18 +294,17 @@ pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, api_information: &Ap
                         parallel_command.execute(&ui_command_nvim).await;
                     });
                 }
-                None => {
-                    RUNNING_TRACKER.quit("ui command channel failed");
-                }
+                None => break,
             }
         }
+        log::info!("ui command receiver finished");
     });
 
     let has_x_buttons = api_information.version.has_version(0, 10, 0);
 
     tokio::spawn(async move {
         tracy_fiber_enter!("Serial command");
-        while RUNNING_TRACKER.is_running() {
+        loop {
             tracy_fiber_leave();
             let res = serial_rx.recv().await;
             tracy_fiber_enter!("Serial command");
@@ -331,11 +315,10 @@ pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, api_information: &Ap
                     serial_command.execute(&nvim, has_x_buttons).await;
                     tracy_fiber_enter!("Serial command");
                 }
-                None => {
-                    RUNNING_TRACKER.quit("serial ui command channel failed");
-                }
+                None => break,
             }
         }
+        log::info!("serial command receiver finished");
     });
 }
 
@@ -344,5 +327,8 @@ where
     T: Into<UiCommand>,
 {
     let command: UiCommand = command.into();
-    let _ = UI_CHANNELS.sender.send(command);
+    let _ = UI_COMMAND_CHANNEL
+        .get()
+        .expect("The UI command channel has not been initialized")
+        .send(command);
 }

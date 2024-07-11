@@ -109,14 +109,14 @@ This disables neovim's multigrid functionality which will also disable floating 
 backgrounds, smooth scrolling, and window animations. This can solve some issues where neovide
 acts differently from terminal neovim.
 
-### No Fork
+### Fork
 
 ```sh
---no-fork or $NEOVIDE_FORK=0|1
+--fork or $NEOVIDE_FORK=0|1
 ```
 
-By default, neovide detaches itself from the terminal. Instead of spawning a child process and
-leaking it, be "blocking" and have the shell directly as parent process.
+Detach from the terminal instead of waiting for the Neovide process to
+terminate. This parameter has no effect when launching from a GUI.
 
 ### No Idle
 
