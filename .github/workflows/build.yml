@@ -187,6 +187,7 @@ jobs:
             echo "ARTIFACT2=neovide.msi" >> $GITHUB_ENV
 
           elif [[ $RUNNER_OS == "macOS" ]]; then
+            cd $GITHUB_WORKSPACE
             # create .dmg for x86_64-apple-darwin
             ./macos-builder/run x86_64-apple-darwin
 
@@ -221,7 +222,8 @@ jobs:
             echo "ARTIFACT3=neovide.AppImage.zsync" >> $GITHUB_ENV
           fi
 
-      - uses: actions/upload-artifact@v4
+      - if: env.ARTIFACT
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT }}
           path: target/release/${{ env.ARTIFACT }}
