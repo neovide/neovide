@@ -9,14 +9,14 @@ on:
   workflow_dispatch:
   # Always run on pull requests
   pull_request:
-  # And on master when manually pushed or after merges
+    # And on `main` when manually pushed or after merges
     paths-ignore:
       - "website/**"
       - ".vscode/**"
       - "**.md"
   push:
     branches:
-      main
+      - main
     paths-ignore:
       - "website/**"
       - ".vscode/**"
@@ -144,9 +144,9 @@ jobs:
             if ! which cargo-wix; then cargo binstall -y cargo-wix; fi
 
           elif [[ $RUNNER_OS == "macOS" ]]; then
+            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)" && brew install create-dmg
             rustup target add x86_64-apple-darwin
             rustup target add aarch64-apple-darwin
-            if ! which cargo-bundle; then cargo binstall -y cargo-bundle; fi
 
           elif [[ $RUNNER_OS == "Linux" ]]; then
             sudo apt-get update
@@ -173,10 +173,8 @@ jobs:
             echo "MACOSX_DEPLOYMENT_TARGET=10.11" >> $GITHUB_ENV
             # x86
             cargo build --locked --release --target=x86_64-apple-darwin
-            cargo bundle --release --target=x86_64-apple-darwin
             # arch
             cargo build --locked --release --target=aarch64-apple-darwin
-            cargo bundle --release --target=aarch64-apple-darwin
 
           elif [[ $RUNNER_OS == "Linux" ]]; then
             cargo build --locked --release
@@ -184,31 +182,23 @@ jobs:
 
       - name: Prepare Artifacts
         run: |
-          cd target/release
-
           if [[ $RUNNER_OS == "Windows" ]]; then
             echo "ARTIFACT=neovide.exe" >> $GITHUB_ENV
             echo "ARTIFACT2=neovide.msi" >> $GITHUB_ENV
 
           elif [[ $RUNNER_OS == "macOS" ]]; then
-            # merge builds
-            mkdir -p bundle/osx
-            rm -rf bundle/osx/neovide.app || true
-            cp -R ../x86_64-apple-darwin/release/bundle/osx/neovide.app \
-              bundle/osx/neovide.app
-            rm bundle/osx/neovide.app/Contents/MacOS/neovide
-            lipo ../x86_64-apple-darwin/release/bundle/osx/neovide.app/Contents/MacOS/neovide \
-              ../aarch64-apple-darwin/release/bundle/osx/neovide.app/Contents/MacOS/neovide \
-              -create -output \
-              bundle/osx/neovide.app/Contents/MacOS/neovide
-            codesign --force --deep -s - bundle/osx/neovide.app
-            # create .dmg
-            hdiutil create neovide-uncompressed.dmg -volname "neovide" -srcfolder bundle/osx
-            hdiutil convert neovide-uncompressed.dmg -format UDZO -o neovide.dmg
+            cd $GITHUB_WORKSPACE
+            # create .dmg for x86_64-apple-darwin
+            ./macos-builder/run x86_64-apple-darwin
 
-            echo "ARTIFACT=neovide.dmg" >> $GITHUB_ENV
+            # create .dmg for aarch64-apple-darwin
+            ./macos-builder/run aarch64-apple-darwin
+
+            echo "ARTIFACT4=Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
+            echo "ARTIFACT5=Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV
 
           elif [[ $RUNNER_OS == "Linux" ]]; then
+            cd target/release
             # archive artifact
             strip neovide
             tar czvf neovide-linux-x86_64.tar.gz neovide
@@ -227,13 +217,13 @@ jobs:
               --icon-file=../../assets/neovide.svg \
               --output=appimage
 
-
             echo "ARTIFACT=neovide-linux-x86_64.tar.gz" >> $GITHUB_ENV
             echo "ARTIFACT2=neovide.AppImage" >> $GITHUB_ENV
             echo "ARTIFACT3=neovide.AppImage.zsync" >> $GITHUB_ENV
           fi
 
-      - uses: actions/upload-artifact@v4
+      - if: env.ARTIFACT
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT }}
           path: target/release/${{ env.ARTIFACT }}
@@ -249,3 +239,15 @@ jobs:
         with:
           name: ${{ env.ARTIFACT3 }}
           path: target/release/${{ env.ARTIFACT3 }}
+
+      - if: env.ARTIFACT4
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT4 }}
+          path: target/x86_64-apple-darwin/release/bundle/osx/${{ env.ARTIFACT4 }}
+
+      - if: env.ARTIFACT5
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT5 }}
+          path: target/aarch64-apple-darwin/release/bundle/osx/${{ env.ARTIFACT5 }}

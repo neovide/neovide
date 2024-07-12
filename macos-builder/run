@@ -5,7 +5,7 @@ set -e
 TARGET="neovide"
 EXTRAS_DIR="extra"
 ASSETS_DIR="assets"
-RELEASE_DIR="target/release"
+RELEASE_DIR="target/$1/release"
 BUNDLE_DIR="${RELEASE_DIR}/bundle"
 
 APP_NAME="Neovide.app"
@@ -15,7 +15,7 @@ APP_BINARY="${RELEASE_DIR}/${TARGET}"
 APP_BINARY_DIR="${APP_DIR}/${APP_NAME}/Contents/MacOS"
 APP_EXTRAS_DIR="${APP_DIR}/${APP_NAME}/Contents/Resources"
 
-DMG_NAME="Neovide.dmg"
+DMG_NAME="Neovide-$1.dmg"
 DMG_VOLNAME="Neovide"
 DMG_FILESYSTEM="HFS+"
 DMG_FORMAT="UDZO"
