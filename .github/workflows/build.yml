@@ -197,22 +197,23 @@ jobs:
             echo "ARTIFACT5=Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV
 
           elif [[ $RUNNER_OS == "Linux" ]]; then
+            cd target/release
             # archive artifact
-            strip target/release/neovide
-            tar czvf neovide-linux-x86_64.tar.gz target/release/neovide
+            strip neovide
+            tar czvf neovide-linux-x86_64.tar.gz neovide
             # create appimage
             curl -Lo linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/latest/download/linuxdeploy-x86_64.AppImage
             chmod +x linuxdeploy
             curl -Lo linuxdeploy-plugin-appimage https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/latest/download/linuxdeploy-plugin-appimage-x86_64.AppImage
             chmod +x linuxdeploy-plugin-appimage
 
-            export LDAI_OUTPUT=target/release/neovide.AppImage
+            export LDAI_OUTPUT=neovide.AppImage
             export LDAI_UPDATE_INFORMATION="gh-releases-zsync|neovide|neovide|latest|neovide.AppImage.zsync"
             ./linuxdeploy \
-              --executable=target/release/neovide \
-              --desktop-file=assets/neovide.desktop \
+              --executable=neovide \
+              --desktop-file=../../assets/neovide.desktop \
               --appdir=AppDir \
-              --icon-file=assets/neovide.svg \
+              --icon-file=../../assets/neovide.svg \
               --output=appimage
 
             echo "ARTIFACT=neovide-linux-x86_64.tar.gz" >> $GITHUB_ENV
