@@ -9,14 +9,13 @@ on:
   workflow_dispatch:
   # Always run on pull requests
   pull_request:
-  # And on master when manually pushed or after merges
+    # And on master when manually pushed or after merges
     paths-ignore:
       - "website/**"
       - ".vscode/**"
       - "**.md"
   push:
-    branches:
-      main
+    branches: feat/dmg
     paths-ignore:
       - "website/**"
       - ".vscode/**"
@@ -37,7 +36,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macOS-12, ubuntu-latest]
+        os: [windows-latest, macOS-12, ubuntu-latest, macOS-14]
         toolchain: [stable, nightly]
     runs-on: ${{ matrix.os }}
 
@@ -87,7 +86,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macOS-12, ubuntu-latest]
+        os: [windows-latest, macOS-12, ubuntu-latest, macOS-14]
         toolchain: [stable, nightly]
     runs-on: ${{ matrix.os }}
 
@@ -124,7 +123,7 @@ jobs:
       fail-fast: false
       matrix:
         # NOTE: Should use the oldest available Ubuntu release, for maximum compatibility
-        os: [windows-latest, macOS-12, ubuntu-20.04]
+        os: [windows-latest, macOS-12, ubuntu-20.04, macOS-14]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -144,9 +143,9 @@ jobs:
             if ! which cargo-wix; then cargo binstall -y cargo-wix; fi
 
           elif [[ $RUNNER_OS == "macOS" ]]; then
+            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)" && brew install create-dmg
             rustup target add x86_64-apple-darwin
             rustup target add aarch64-apple-darwin
-            if ! which cargo-bundle; then cargo binstall -y cargo-bundle; fi
 
           elif [[ $RUNNER_OS == "Linux" ]]; then
             sudo apt-get update
@@ -173,10 +172,8 @@ jobs:
             echo "MACOSX_DEPLOYMENT_TARGET=10.11" >> $GITHUB_ENV
             # x86
             cargo build --locked --release --target=x86_64-apple-darwin
-            cargo bundle --release --target=x86_64-apple-darwin
             # arch
             cargo build --locked --release --target=aarch64-apple-darwin
-            cargo bundle --release --target=aarch64-apple-darwin
 
           elif [[ $RUNNER_OS == "Linux" ]]; then
             cargo build --locked --release
@@ -184,53 +181,44 @@ jobs:
 
       - name: Prepare Artifacts
         run: |
-          cd target/release
-
           if [[ $RUNNER_OS == "Windows" ]]; then
             echo "ARTIFACT=neovide.exe" >> $GITHUB_ENV
             echo "ARTIFACT2=neovide.msi" >> $GITHUB_ENV
 
-          elif [[ $RUNNER_OS == "macOS" ]]; then
-            # merge builds
-            mkdir -p bundle/osx
-            rm -rf bundle/osx/neovide.app || true
-            cp -R ../x86_64-apple-darwin/release/bundle/osx/neovide.app \
-              bundle/osx/neovide.app
-            rm bundle/osx/neovide.app/Contents/MacOS/neovide
-            lipo ../x86_64-apple-darwin/release/bundle/osx/neovide.app/Contents/MacOS/neovide \
-              ../aarch64-apple-darwin/release/bundle/osx/neovide.app/Contents/MacOS/neovide \
-              -create -output \
-              bundle/osx/neovide.app/Contents/MacOS/neovide
-            codesign --force --deep -s - bundle/osx/neovide.app
-            # create .dmg
-            hdiutil create neovide-uncompressed.dmg -volname "neovide" -srcfolder bundle/osx
-            hdiutil convert neovide-uncompressed.dmg -format UDZO -o neovide.dmg
-
-            echo "ARTIFACT=neovide.dmg" >> $GITHUB_ENV
-
           elif [[ $RUNNER_OS == "Linux" ]]; then
             # archive artifact
-            strip neovide
-            tar czvf neovide-linux-x86_64.tar.gz neovide
+            strip target/release/neovide
+            tar czvf neovide-linux-x86_64.tar.gz target/release/neovide
             # create appimage
             curl -Lo linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/latest/download/linuxdeploy-x86_64.AppImage
             chmod +x linuxdeploy
             curl -Lo linuxdeploy-plugin-appimage https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/latest/download/linuxdeploy-plugin-appimage-x86_64.AppImage
             chmod +x linuxdeploy-plugin-appimage
 
-            export LDAI_OUTPUT=neovide.AppImage
+            export LDAI_OUTPUT=target/release/neovide.AppImage
             export LDAI_UPDATE_INFORMATION="gh-releases-zsync|neovide|neovide|latest|neovide.AppImage.zsync"
             ./linuxdeploy \
-              --executable=neovide \
-              --desktop-file=../../assets/neovide.desktop \
+              --executable=target/release/neovide \
+              --desktop-file=assets/neovide.desktop \
               --appdir=AppDir \
-              --icon-file=../../assets/neovide.svg \
+              --icon-file=assets/neovide.svg \
               --output=appimage
 
 
             echo "ARTIFACT=neovide-linux-x86_64.tar.gz" >> $GITHUB_ENV
             echo "ARTIFACT2=neovide.AppImage" >> $GITHUB_ENV
             echo "ARTIFACT3=neovide.AppImage.zsync" >> $GITHUB_ENV
+
+          elif [[ $RUNNER_OS == "macOS" ]]; then
+            # create .dmg for x86_64-apple-darwin
+            ./macos-builder/run x86_64-apple-darwin
+
+            echo "ARTIFACT4=Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
+
+            # create .dmg for aarch64-apple-darwin
+            ./macos-builder/run aarch64-apple-darwin
+
+            echo "ARTIFACT5=Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV
           fi
 
       - uses: actions/upload-artifact@v4
@@ -249,3 +237,15 @@ jobs:
         with:
           name: ${{ env.ARTIFACT3 }}
           path: target/release/${{ env.ARTIFACT3 }}
+
+      - if: env.ARTIFACT4
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT4 }}
+          path: target/x86_64-apple-darwin/release/bundle/osx/${{ env.ARTIFACT4 }}
+
+      - if: env.ARTIFACT5
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT5 }}
+          path: target/aarch64-apple-darwin/release/bundle/osx/${{ env.ARTIFACT5 }}
