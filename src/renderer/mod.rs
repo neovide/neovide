@@ -11,6 +11,9 @@ mod vsync;
 #[cfg(target_os = "windows")]
 pub mod d3d;
 
+#[cfg(target_os = "macos")]
+mod metal;
+
 use std::{
     cmp::Ordering,
     collections::{hash_map::Entry, HashMap},
@@ -496,6 +499,8 @@ pub enum WindowConfigType {
     OpenGL(glutin::config::Config),
     #[cfg(target_os = "windows")]
     Direct3D,
+    #[cfg(target_os = "macos")]
+    Metal,
 }
 
 pub struct WindowConfig {
@@ -519,7 +524,19 @@ pub fn build_window_config<TE>(
         }
     }
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "macos")]
+    {
+        let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
+        if cmd_line_settings.opengl {
+            opengl::build_window(winit_window_builder, event_loop)
+        } else {
+            let window = winit_window_builder.build(event_loop).unwrap();
+            let config = WindowConfigType::Metal;
+            WindowConfig { window, config }
+        }
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     {
         opengl::build_window(winit_window_builder, event_loop)
     }
@@ -547,6 +564,8 @@ pub fn create_skia_renderer(
         }
         #[cfg(target_os = "windows")]
         WindowConfigType::Direct3D => Box::new(d3d::D3DSkiaRenderer::new(window.window)),
+        #[cfg(target_os = "macos")]
+        WindowConfigType::Metal => Box::new(metal::MetalSkiaRenderer::new(window.window)),
     };
     tracy_create_gpu_context("main_render_context", renderer.as_ref());
     renderer
