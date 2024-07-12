@@ -214,12 +214,12 @@ jobs:
             # create .dmg for x86_64-apple-darwin
             ./macos-builder/run x86_64-apple-darwin
 
-            echo "ARTIFACT4=Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
-
             # create .dmg for aarch64-apple-darwin
             ./macos-builder/run aarch64-apple-darwin
 
+            echo "ARTIFACT4=Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
             echo "ARTIFACT5=Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV
+
           fi
 
       - uses: actions/upload-artifact@v4
