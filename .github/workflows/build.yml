@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
   # Always run on pull requests
   pull_request:
-    # And on master when manually pushed or after merges
+    # And on `main` when manually pushed or after merges
     paths-ignore:
       - "website/**"
       - ".vscode/**"
