@@ -15,7 +15,8 @@ on:
       - ".vscode/**"
       - "**.md"
   push:
-    branches: feat/dmg
+    branches:
+      - main
     paths-ignore:
       - "website/**"
       - ".vscode/**"
