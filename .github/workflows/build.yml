@@ -186,6 +186,16 @@ jobs:
             echo "ARTIFACT=neovide.exe" >> $GITHUB_ENV
             echo "ARTIFACT2=neovide.msi" >> $GITHUB_ENV
 
+          elif [[ $RUNNER_OS == "macOS" ]]; then
+            # create .dmg for x86_64-apple-darwin
+            ./macos-builder/run x86_64-apple-darwin
+
+            # create .dmg for aarch64-apple-darwin
+            ./macos-builder/run aarch64-apple-darwin
+
+            echo "ARTIFACT4=Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
+            echo "ARTIFACT5=Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV
+
           elif [[ $RUNNER_OS == "Linux" ]]; then
             # archive artifact
             strip target/release/neovide
@@ -205,21 +215,9 @@ jobs:
               --icon-file=assets/neovide.svg \
               --output=appimage
 
-
             echo "ARTIFACT=neovide-linux-x86_64.tar.gz" >> $GITHUB_ENV
             echo "ARTIFACT2=neovide.AppImage" >> $GITHUB_ENV
             echo "ARTIFACT3=neovide.AppImage.zsync" >> $GITHUB_ENV
-
-          elif [[ $RUNNER_OS == "macOS" ]]; then
-            # create .dmg for x86_64-apple-darwin
-            ./macos-builder/run x86_64-apple-darwin
-
-            # create .dmg for aarch64-apple-darwin
-            ./macos-builder/run aarch64-apple-darwin
-
-            echo "ARTIFACT4=Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
-            echo "ARTIFACT5=Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV
-
           fi
 
       - uses: actions/upload-artifact@v4
