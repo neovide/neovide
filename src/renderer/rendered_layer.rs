@@ -184,7 +184,7 @@ pub fn group_windows(
     windows.sort_by(|a, b| a.group.cmp(&b.group));
     windows
         .into_iter()
-        .group_by(|window| window.group)
+        .chunk_by(|window| window.group)
         .into_iter()
         .map(|(_, v)| v.map(|w| w.window).collect::<Vec<_>>())
         .collect_vec()
