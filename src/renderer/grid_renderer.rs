@@ -164,11 +164,12 @@ impl GridRenderer {
         let region = self.compute_text_region(clip_position, cell_width + 2);
 
         if let Some(underline_style) = style.underline {
-            let line_position = self.grid_scale.height() - self.shaper.underline_position();
-            let p1 = pos + PixelVec::new(0.0, line_position);
-            let p2 = pos + PixelVec::new(width, line_position);
+            let stroke_size = self.shaper.stroke_size();
+            let underline_position = self.shaper.underline_position();
+            let p1 = pos + PixelVec::new(0.0, underline_position);
+            let p2 = pos + PixelVec::new(width, underline_position);
 
-            self.draw_underline(canvas, style, underline_style, p1, p2);
+            self.draw_underline(canvas, style, underline_style, stroke_size, p1, p2);
             drawn = true;
         }
 
@@ -231,6 +232,7 @@ impl GridRenderer {
         canvas: &Canvas,
         style: &Arc<Style>,
         underline_style: UnderlineStyle,
+        stroke_size: f32,
         p1: PixelPos<f32>,
         p2: PixelPos<f32>,
     ) {
@@ -241,9 +243,13 @@ impl GridRenderer {
         underline_paint.set_anti_alias(false);
         underline_paint.set_blend_mode(BlendMode::SrcOver);
         let underline_stroke_scale = SETTINGS.get::<RendererSettings>().underline_stroke_scale;
-        // If the stroke width is less than one, clamp it to one otherwise we get nasty aliasing
-        // issues
-        let stroke_width = (self.shaper.current_size() * underline_stroke_scale / 10.).max(1.);
+        // clamp to 1 and round to avoid aliasing issues
+        let stroke_width = (stroke_size * underline_stroke_scale).max(1.).round();
+
+        // offset y by width / 2 to align the *top* of the underline with p1 and p2
+        // also round to avoid aliasing issues
+        let p1 = (p1.x.round(), (p1.y + stroke_width / 2.).round());
+        let p2 = (p2.x.round(), (p2.y + stroke_width / 2.).round());
 
         underline_paint
             .set_color(style.special(&self.default_style.colors).to_color())
@@ -252,31 +258,31 @@ impl GridRenderer {
         match underline_style {
             UnderlineStyle::Underline => {
                 underline_paint.set_path_effect(None);
-                canvas.draw_line(to_skia_point(p1), to_skia_point(p2), &underline_paint);
+                canvas.draw_line(p1, p2, &underline_paint);
             }
             UnderlineStyle::UnderDouble => {
                 underline_paint.set_path_effect(None);
-                canvas.draw_line(to_skia_point(p1), to_skia_point(p2), &underline_paint);
-                let p1 = (p1.x, p1.y - 2.);
-                let p2 = (p2.x, p2.y - 2.);
+                canvas.draw_line(p1, p2, &underline_paint);
+                let p1 = (p1.0, p1.1 + 2. * stroke_width);
+                let p2 = (p2.0, p2.1 + 2. * stroke_width);
                 canvas.draw_line(p1, p2, &underline_paint);
             }
             UnderlineStyle::UnderCurl => {
-                let p1 = (p1.x, p1.y - 3. + stroke_width);
-                let p2 = (p2.x, p2.y - 3. + stroke_width);
+                let p1 = (p1.0, p1.1 + stroke_width);
+                let p2 = (p2.0, p2.1 + stroke_width);
                 underline_paint
                     .set_path_effect(None)
                     .set_anti_alias(true)
                     .set_style(skia_safe::paint::Style::Stroke);
                 let mut path = Path::default();
                 path.move_to(p1);
-                let mut i = p1.0;
                 let mut sin = -2. * stroke_width;
-                let increment = self.grid_scale.width() / 2.;
-                while i < p2.0 {
+                let dx = self.grid_scale.width() / 2.;
+                let count = ((p2.0 - p1.0) / dx).round();
+                let dy = (p2.1 - p1.1) / count;
+                for _ in 0..(count as i32) {
                     sin *= -1.;
-                    i += increment;
-                    path.quad_to((i - (increment / 2.), p1.1 + sin), (i, p1.1));
+                    path.r_quad_to((dx / 2., sin), (dx, dy));
                 }
                 canvas.draw_path(&path, &underline_paint);
             }
@@ -285,14 +291,14 @@ impl GridRenderer {
                     &[6.0 * stroke_width, 2.0 * stroke_width],
                     0.0,
                 ));
-                canvas.draw_line(to_skia_point(p1), to_skia_point(p2), &underline_paint);
+                canvas.draw_line(p1, p2, &underline_paint);
             }
             UnderlineStyle::UnderDot => {
                 underline_paint.set_path_effect(dash_path_effect::new(
                     &[1.0 * stroke_width, 1.0 * stroke_width],
                     0.0,
                 ));
-                canvas.draw_line(to_skia_point(p1), to_skia_point(p2), &underline_paint);
+                canvas.draw_line(p1, p2, &underline_paint);
             }
         }
 

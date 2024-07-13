@@ -27,7 +27,7 @@ use skia_safe::{
 };
 use winit::{
     dpi::PhysicalSize,
-    event_loop::{EventLoop, EventLoopProxy},
+    event_loop::{EventLoopProxy, EventLoopWindowTarget},
     window::{Window, WindowBuilder},
 };
 
@@ -243,7 +243,7 @@ fn gen_config(mut config_iterator: Box<dyn Iterator<Item = Config> + '_>) -> Con
 
 pub fn build_window<TE>(
     winit_window_builder: WindowBuilder,
-    event_loop: &EventLoop<TE>,
+    event_loop: &EventLoopWindowTarget<TE>,
 ) -> WindowConfig {
     let template_builder = ConfigTemplateBuilder::new()
         .with_stencil_size(8)
