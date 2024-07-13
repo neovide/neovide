@@ -138,6 +138,13 @@ pub struct Renderer<'a> {
     scene: Scene,
 }
 
+async fn create_renderer(window: Arc<Window>) -> WinitRenderer<'static> {
+    WinitRenderer::new(window)
+        .await
+        .with_default_drawables()
+        .await
+}
+
 /// Results of processing the draw commands from the command channel.
 pub struct DrawCommandResult {
     pub font_changed: bool,
@@ -147,7 +154,7 @@ impl<'a> Renderer<'a> {
     pub fn new(
         os_scale_factor: f64,
         init_font_settings: Option<FontSettings>,
-        window: &'a Window,
+        window: Arc<Window>,
     ) -> Self {
         let window_settings = SETTINGS.get::<WindowSettings>();
 
@@ -163,7 +170,7 @@ impl<'a> Renderer<'a> {
 
         let profiler = profiler::Profiler::new(12.0);
 
-        let wgpu_renderer = block_on(WinitRenderer::new(window)).with_default_drawables::<Assets>();
+        let wgpu_renderer = block_on(create_renderer(window));
         let scene = Scene::new();
 
         Renderer {
@@ -205,7 +212,7 @@ impl<'a> Renderer<'a> {
         self.scene = Scene::new();
 
         let mut background_layer =
-            Layer::new().with_background(Vec4::from_array(transparent_default_background.into()));
+            Layer::new().with_background(transparent_default_background.into());
         // if let Some(root_window) = self.rendered_windows.get(&1) {
         //     let clip_rect = root_window.pixel_region(grid_scale);
         //     background_layer.set_clip((clip_rect.min.x, clip_rect.min.y, clip_rect.max.x, clip_rect.max.y).into());
@@ -278,7 +285,7 @@ impl<'a> Renderer<'a> {
                 window.draw(
                     &settings,
                     transparent_default_background,
-                    &self.grid_renderer,
+                    &mut self.grid_renderer,
                     &mut self.scene,
                 )
             })
@@ -290,7 +297,7 @@ impl<'a> Renderer<'a> {
                 layer.draw(
                     &settings,
                     transparent_default_background.into(),
-                    &self.grid_renderer,
+                    &mut self.grid_renderer,
                     &mut self.scene,
                 )
             })

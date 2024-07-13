@@ -2344,6 +2344,7 @@ dependencies = [
  "objc2 0.4.1",
  "palette",
  "parking_lot",
+ "parley",
  "rand 0.8.5",
  "raw-window-handle 0.5.2",
  "regex",

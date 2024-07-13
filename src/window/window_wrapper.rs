@@ -86,7 +86,7 @@ pub struct WinitWindowWrapper<'a> {
 
 impl<'a> WinitWindowWrapper<'a> {
     pub fn new(
-        window: &'a Window,
+        window: &'a Arc<Window>,
         initial_window_size: WindowSize,
         initial_font_settings: Option<FontSettings>,
         proxy: EventLoopProxy<UserEvent>,
@@ -96,7 +96,7 @@ impl<'a> WinitWindowWrapper<'a> {
         let vsync_enabled = cmd_line_settings.vsync;
 
         let scale_factor = window.scale_factor();
-        let renderer = Renderer::new(scale_factor, initial_font_settings, &window);
+        let renderer = Renderer::new(scale_factor, initial_font_settings, window.clone());
         let saved_inner_size = window.inner_size();
 
         log::info!(
@@ -328,7 +328,7 @@ impl<'a> WinitWindowWrapper<'a> {
             &self.renderer,
             &self.window,
         );
-        let renderer_asks_to_be_rendered = self.renderer.handle_event(&event, self.window);
+        let renderer_asks_to_be_rendered = self.renderer.handle_event(&event, &self.window);
         let mut should_render = true;
         match event {
             Event::Resumed => {

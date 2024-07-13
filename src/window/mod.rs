@@ -5,6 +5,8 @@ mod settings;
 mod update_loop;
 mod window_wrapper;
 
+use std::sync::Arc;
+
 #[cfg(target_os = "macos")]
 mod macos;
 
@@ -309,8 +311,9 @@ pub fn main_loop(
     event_loop: EventLoop<UserEvent>,
 ) -> Result<(), EventLoopError> {
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
+    let window = Arc::new(window.window);
     let window_wrapper = WinitWindowWrapper::new(
-        &window.window,
+        &window,
         initial_window_size,
         initial_font_settings,
         event_loop.create_proxy(),

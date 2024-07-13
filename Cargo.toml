@@ -53,6 +53,7 @@ num = "0.4.1"
 nvim-rs = { version = "0.7.0", features = ["use_tokio"] }
 palette = "0.7.6"
 parking_lot = "0.12.0"
+parley = { git = "https://github.com/linebender/parley" }
 rand = "0.8.5"
 raw-window-handle = "0.5.0"
 rmpv = "1.0.0"

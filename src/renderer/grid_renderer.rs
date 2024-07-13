@@ -3,7 +3,8 @@ use std::sync::Arc;
 use log::trace;
 
 use palette::{named, Hsv, IntoColor, LinSrgba, Srgba, WithAlpha};
-use vide::{Layer, Quad, Text};
+use parley::style::{FontStack, StyleProperty};
+use vide::{Layer, Quad, Scene, Shaper};
 
 use crate::{
     editor::{Colors, Style, UnderlineStyle},
@@ -16,7 +17,7 @@ use crate::{
 use super::fonts::font_options::FontOptions;
 
 pub struct GridRenderer {
-    //pub shaper: CachingShaper,
+    pub shaper: Shaper,
     pub default_style: Arc<Style>,
     pub em_size: f32,
     pub grid_scale: GridScale,
@@ -33,7 +34,7 @@ pub struct BackgroundInfo {
 
 impl GridRenderer {
     pub fn new(scale_factor: f64) -> Self {
-        //let mut shaper = CachingShaper::new(scale_factor as f32);
+        let mut shaper = Shaper::new();
         let default_style = Arc::new(Style::new(Colors::new(
             Some(named::WHITE.with_alpha(255).into()),
             Some(named::BLACK.with_alpha(255).into()),
@@ -43,9 +44,13 @@ impl GridRenderer {
         // let font_dimensions = shaper.font_base_dimensions();
         let em_size = 13.3333333;
         let font_dimensions = (8.205129, 17.0).into();
+        shaper.push_default(StyleProperty::FontStack(FontStack::Source(
+            "FiraCode Nerd Font",
+        )));
+        shaper.push_default(StyleProperty::FontSize(em_size));
 
         GridRenderer {
-            //shaper,
+            shaper,
             default_style,
             em_size,
             grid_scale: GridScale::new(font_dimensions),
@@ -146,13 +151,13 @@ impl GridRenderer {
     /// Draws some foreground text.
     /// Returns true if any text was actually drawn.
     pub fn draw_foreground(
-        &self,
+        &mut self,
         text: &str,
         grid_position: GridPos<i32>,
         cell_width: i32,
         transform: PixelVec<f32>,
         style: &Option<Arc<Style>>,
-        layer: &mut Layer,
+        scene: &mut Scene,
     ) -> bool {
         tracy_zone!("draw_foreground");
         let pos = grid_position * self.grid_scale + transform;
@@ -205,8 +210,10 @@ impl GridRenderer {
             let pos = pos + adjustment;
             // TODO: The text is not in linear srgba for some reason
             //let color: LinSrgba = color.into_color();
-            let text = Text::new(trimmed.to_string(), pos, self.em_size, color);
-            layer.add_text(text);
+            let layout = self.shaper.layout_with(trimmed, |builder| {
+                builder.push_default(&StyleProperty::Brush(color));
+            });
+            scene.add_text_layout(layout, pos.cast());
             //canvas.draw_text_blob(blob, to_skia_point(pos + adjustment), &paint);
             drawn = true;
         }

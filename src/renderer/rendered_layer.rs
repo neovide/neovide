@@ -25,7 +25,7 @@ impl<'w> FloatingLayer<'w> {
         &mut self,
         settings: &RendererSettings,
         default_background: LinSrgba,
-        grid_renderer: &GridRenderer,
+        grid_renderer: &mut GridRenderer,
         scene: &mut Scene,
     ) -> Vec<WindowDrawDetails> {
         let grid_scale = grid_renderer.grid_scale;

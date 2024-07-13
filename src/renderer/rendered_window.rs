@@ -296,10 +296,39 @@ impl RenderedWindow {
         self.has_transparency = has_transparency;
     }
 
+    fn draw_line(
+        grid_renderer: &mut GridRenderer,
+        scene: &mut Scene,
+        transform: PixelVec<f32>,
+        line: &Rc<RefCell<Line>>,
+    ) {
+        let line = line.borrow();
+        if !line.line_fragments.is_empty() {
+            for line_fragment in &line.line_fragments {
+                let LineFragment {
+                    text,
+                    window_left,
+                    width,
+                    style,
+                } = line_fragment;
+                let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
+
+                grid_renderer.draw_foreground(
+                    text,
+                    grid_position,
+                    i32::try_from(*width).unwrap(),
+                    transform,
+                    style,
+                    scene,
+                );
+            }
+        }
+    }
+
     pub fn draw_foreground_surface(
         &mut self,
         pixel_region: PixelRect<f32>,
-        grid_renderer: &GridRenderer,
+        grid_renderer: &mut GridRenderer,
         scene: &mut Scene,
     ) {
         tracy_zone!("draw_foreground_surface");
@@ -307,46 +336,23 @@ impl RenderedWindow {
         let inner_region = self.inner_region(pixel_region, grid_scale);
         // TODO: Support transparent background
 
-        let draw_line = |transform: PixelVec<f32>, line: &Rc<RefCell<Line>>, layer: &mut Layer| {
-            let line = line.borrow();
-            if !line.line_fragments.is_empty() {
-                for line_fragment in &line.line_fragments {
-                    let LineFragment {
-                        text,
-                        window_left,
-                        width,
-                        style,
-                    } = line_fragment;
-                    let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
-
-                    grid_renderer.draw_foreground(
-                        text,
-                        grid_position,
-                        i32::try_from(*width).unwrap(),
-                        transform,
-                        style,
-                        layer,
-                    );
-                }
-            }
-        };
-
-        let mut layer = Layer::new()
+        let layer = Layer::new()
             .with_background(named::BLACK.with_alpha(0).into())
             //.with_font("FiraCode Nerd Font".to_string())
             .with_clip(pixel_region.to_rect().as_untyped().try_cast().unwrap());
-        self.iter_border_lines_with_transform(pixel_region, grid_scale)
-            .for_each(|(transform, line)| draw_line(transform, line, &mut layer));
         scene.add_layer(layer);
 
-        let mut layer = Layer::new()
+        self.iter_border_lines_with_transform(pixel_region, grid_scale)
+            .for_each(|(transform, line)| Self::draw_line(grid_renderer, scene, transform, line));
+
+        let layer = Layer::new()
             .with_background(named::BLACK.with_alpha(0).into())
             //.with_font("FiraCode Nerd Font".to_string())
             .with_clip(inner_region.to_rect().as_untyped().try_cast().unwrap());
+        scene.add_layer(layer);
 
         self.iter_scrollable_lines_with_transform(pixel_region, grid_scale)
-            .for_each(|(transform, line)| draw_line(transform, line, &mut layer));
-        scene.add_layer(layer);
+            .for_each(|(transform, line)| Self::draw_line(grid_renderer, scene, transform, line));
     }
 
     pub fn has_transparency(&self) -> bool {
@@ -366,7 +372,7 @@ impl RenderedWindow {
         &mut self,
         settings: &RendererSettings,
         default_background: LinSrgba,
-        grid_renderer: &GridRenderer,
+        grid_renderer: &mut GridRenderer,
         scene: &mut Scene,
     ) -> WindowDrawDetails {
         let pixel_region = self.pixel_region(grid_renderer.grid_scale);
