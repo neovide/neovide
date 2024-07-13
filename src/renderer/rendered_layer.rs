@@ -1,5 +1,6 @@
 use itertools::Itertools;
 
+use glamour::Intersection;
 use palette::LinSrgba;
 use vide::{Layer, Scene};
 

@@ -15,7 +15,6 @@ use std::{
 
 use futures::executor::block_on;
 
-use glam::Vec4;
 use itertools::Itertools;
 use log::{error, warn};
 use mint::Vector2;

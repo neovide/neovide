@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use log::trace;
 
-use glam::Vec4;
 use palette::{named, Hsv, IntoColor, LinSrgba, Srgba, WithAlpha};
 use vide::{Layer, Quad, Text};
 
@@ -49,7 +48,7 @@ impl GridRenderer {
             //shaper,
             default_style,
             em_size,
-            grid_scale: GridScale(font_dimensions),
+            grid_scale: GridScale::new(font_dimensions),
             is_ready: false,
         }
     }
@@ -81,16 +80,16 @@ impl GridRenderer {
 
     fn update_font_dimensions(&mut self) {
         // TODO
-        //self.em_size = self.shaper.current_size();
-        //self.grid_scale = GridScale(self.shaper.font_base_dimensions());
-        //self.grid_scale = GridScale((10.0, 10.0).into());
+        // self.em_size = self.shaper.current_size();
+        // self.grid_scale = GridScale::new(self.shaper.font_base_dimensions());
+        self.grid_scale = GridScale::new((10.0, 10.0).into());
         self.is_ready = true;
-        trace!("Updated font dimensions: {:?}", self.grid_scale.0);
+        trace!("Updated font dimensions: {:?}", self.grid_scale);
     }
 
     fn compute_text_region(&self, grid_position: GridPos<i32>, cell_width: i32) -> PixelRect<f32> {
-        let pos = grid_position.cast() * self.grid_scale;
-        let size = GridSize::new(cell_width, 1).cast() * self.grid_scale;
+        let pos = grid_position * self.grid_scale;
+        let size = GridSize::new(cell_width, 1) * self.grid_scale;
         PixelRect::from_origin_and_size(pos, size)
     }
 
@@ -134,14 +133,7 @@ impl GridRenderer {
 
         let custom_color = color != self.default_style.colors.background.unwrap();
         if custom_color {
-            let top_left: mint::Vector2<_> = region.min.to_vector().into();
-            let bottom_right: mint::Vector2<_> = region.max.to_vector().into();
-            let color: LinSrgba = color.into_color();
-            let quad = Quad::new(
-                top_left.into(),
-                bottom_right.into(),
-                Vec4::from_array(color.into()),
-            );
+            let quad = Quad::new(*region.min.as_untyped(), *region.size().as_untyped(), color);
             layer.add_quad(quad);
         }
 
@@ -163,8 +155,8 @@ impl GridRenderer {
         layer: &mut Layer,
     ) -> bool {
         tracy_zone!("draw_foreground");
-        let pos = grid_position.cast() * self.grid_scale + transform;
-        let size = GridSize::new(cell_width, 0).cast() * self.grid_scale;
+        let pos = grid_position * self.grid_scale + transform;
+        let size = GridSize::new(cell_width, 0) * self.grid_scale;
         let width = size.width;
 
         let style = style.as_ref().unwrap_or(&self.default_style);
@@ -177,7 +169,7 @@ impl GridRenderer {
 
         // TODO: Draw underline
         // if let Some(underline_style) = style.underline {
-        //     let line_position = self.grid_scale.0.height - self.shaper.underline_position();
+        //     let line_position = self.grid_scale.height() - self.shaper.underline_position();
         //     let p1 = pos + PixelVec::new(0.0, line_position);
         //     let p2 = pos + PixelVec::new(width, line_position);
         //
@@ -204,21 +196,16 @@ impl GridRenderer {
         // let y_adjustment = self.shaper.y_adjustment;
         let y_adjustment = self.em_size;
         let adjustment = PixelVec::new(
-            leading_spaces as f32 * self.grid_scale.0.width,
+            leading_spaces as f32 * self.grid_scale.width(),
             y_adjustment,
         );
 
         if !trimmed.is_empty() {
             tracy_zone!("draw_text_blob");
-            let pos: mint::Vector2<_> = (pos + adjustment).to_vector().into();
+            let pos = pos + adjustment;
             // TODO: The text is not in linear srgba for some reason
             //let color: LinSrgba = color.into_color();
-            let text = Text::new(
-                trimmed.to_string(),
-                pos.into(),
-                self.em_size,
-                Vec4::from_array(color.into()),
-            );
+            let text = Text::new(trimmed.to_string(), pos, self.em_size, color);
             layer.add_text(text);
             //canvas.draw_text_blob(blob, to_skia_point(pos + adjustment), &paint);
             drawn = true;
@@ -283,7 +270,7 @@ impl GridRenderer {
         //         path.move_to(p1);
         //         let mut i = p1.0;
         //         let mut sin = -2. * stroke_width;
-        //         let increment = self.grid_scale.0.width / 2.;
+        //         let increment = self.grid_scale.width() / 2.;
         //         while i < p2.0 {
         //             sin *= -1.;
         //             i += increment;

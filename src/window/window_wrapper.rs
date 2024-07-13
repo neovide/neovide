@@ -102,7 +102,7 @@ impl<'a> WinitWindowWrapper<'a> {
         log::info!(
             "window created (scale_factor: {:.4}, font_dimensions: {:?})",
             scale_factor,
-            renderer.grid_renderer.grid_scale.0,
+            renderer.grid_renderer.grid_scale,
         );
 
         let WindowSettings {
@@ -451,7 +451,7 @@ impl<'a> WinitWindowWrapper<'a> {
 
         let res = self
             .renderer
-            .animate_frame(&self.get_grid_rect_from_window(GridSize::zero()).cast(), dt);
+            .animate_frame(&self.get_grid_rect_from_window(GridSize::default()), dt);
         tracy_plot!("animate_frame", res as u8 as f64);
         self.renderer.prepare_lines(false);
         #[allow(clippy::let_and_return)]
@@ -581,10 +581,10 @@ impl<'a> WinitWindowWrapper<'a> {
             ),
         ));
 
-        let new_size = (grid_size.cast() * self.renderer.grid_renderer.grid_scale)
+        let new_size = (grid_size * self.renderer.grid_renderer.grid_scale)
             .floor()
-            .cast()
-            .cast_unit()
+            .try_cast()
+            .unwrap()
             + window_padding_size;
 
         log::info!(
@@ -610,15 +610,16 @@ impl<'a> WinitWindowWrapper<'a> {
             PixelSize::new(self.saved_inner_size.width, self.saved_inner_size.height)
                 - window_padding_size;
 
-        let grid_size = (content_size.cast() / self.renderer.grid_renderer.grid_scale)
+        let grid_size = (content_size / self.renderer.grid_renderer.grid_scale)
             .floor()
-            .cast();
+            .try_cast()
+            .unwrap();
 
         grid_size.max(min)
     }
 
     fn get_grid_rect_from_window(&self, min: GridSize<u32>) -> GridRect<f32> {
-        let size = self.get_grid_size_from_window(min).cast();
+        let size = self.get_grid_size_from_window(min).try_cast().unwrap();
         let pos = PixelPos::new(self.window_padding.left, self.window_padding.top).cast()
             / self.renderer.grid_renderer.grid_scale;
         GridRect::<f32>::from_origin_and_size(pos, size)
@@ -645,10 +646,10 @@ impl<'a> WinitWindowWrapper<'a> {
 
     fn update_ime_position(&mut self) {
         let grid_scale = self.renderer.grid_renderer.grid_scale;
-        let font_dimensions = grid_scale.0;
+        let font_dimensions = GridSize::new(1.0, 1.0) * grid_scale;
         let mut position = self.renderer.get_cursor_destination();
         position.y += font_dimensions.height;
-        let position: GridPos<i32> = (position / grid_scale).floor().cast();
+        let position: GridPos<i32> = (position / grid_scale).floor().try_cast().unwrap();
         let position = dpi::PhysicalPosition {
             x: position.x,
             y: position.y,

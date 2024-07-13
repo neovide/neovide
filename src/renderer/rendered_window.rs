@@ -1,7 +1,6 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
-use glam::Vec4;
-use palette::{LinSrgba, Srgba, WithAlpha};
+use palette::{named, LinSrgba, Srgba, WithAlpha};
 use vide::{Layer, Scene};
 
 use crate::{
@@ -139,9 +138,9 @@ impl RenderedWindow {
             scroll_delta: 0,
             viewport_margins: ViewportMargins { top: 0, bottom: 0 },
 
-            grid_start_position: grid_position.cast(),
-            grid_current_position: grid_position.cast(),
-            grid_destination: grid_position.cast(),
+            grid_start_position: grid_position.try_cast().unwrap(),
+            grid_current_position: grid_position.try_cast().unwrap(),
+            grid_destination: grid_position.try_cast().unwrap(),
             position_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation.
 
             scroll_animation: CriticallyDampedSpringAnimation::new(),
@@ -151,8 +150,10 @@ impl RenderedWindow {
     }
 
     pub fn pixel_region(&self, grid_scale: GridScale) -> PixelRect<f32> {
-        GridRect::<f32>::from_origin_and_size(self.grid_current_position, self.grid_size.cast())
-            * grid_scale
+        GridRect::<f32>::from_origin_and_size(
+            self.grid_current_position,
+            self.grid_size.try_cast().unwrap(),
+        ) * grid_scale
     }
 
     pub fn update_blend(&self, blend: u8) {
@@ -169,7 +170,7 @@ impl RenderedWindow {
             return destination;
         }
 
-        let mut grid_size: GridSize<f32> = self.grid_size.cast();
+        let mut grid_size: GridSize<f32> = self.grid_size.try_cast().unwrap();
 
         if matches!(self.window_type, WindowType::Message { .. }) {
             // The message grid size is always the full window size, so use the relative position to
@@ -212,11 +213,10 @@ impl RenderedWindow {
         let prev_position = self.grid_current_position;
         self.grid_current_position = ease_point(
             ease_out_expo,
-            self.grid_start_position.cast_unit(),
-            self.get_target_position(grid_rect).cast_unit(),
+            self.grid_start_position,
+            self.get_target_position(grid_rect),
             self.position_t,
-        )
-        .cast_unit();
+        );
         animating |= self.grid_current_position != prev_position;
 
         let scrolling = self
@@ -274,28 +274,16 @@ impl RenderedWindow {
         //
         // canvas.save();
         // canvas.clip_rect(to_skia_rect(&pixel_region), None, false);
-        let clip = Vec4::new(
-            pixel_region.min.x,
-            pixel_region.min.y,
-            pixel_region.width(),
-            pixel_region.height(),
-        );
         let mut layer = Layer::new()
-            .with_background(Vec4::from_array(default_color.into()))
-            .with_clip(clip);
+            .with_background(default_color.into())
+            .with_clip(pixel_region.to_rect().as_untyped().try_cast().unwrap());
         self.iter_border_lines_with_transform(pixel_region, grid_scale)
             .for_each(|(transform, line)| draw_line(transform, line, &mut layer));
         scene.add_layer(layer);
 
-        let clip = Vec4::new(
-            inner_region.min.x,
-            inner_region.min.y,
-            inner_region.width(),
-            inner_region.height(),
-        );
         let mut layer = Layer::new()
-            .with_background(Vec4::from_array(default_color.into()))
-            .with_clip(clip);
+            .with_background(default_color.into())
+            .with_clip(inner_region.to_rect().as_untyped().try_cast().unwrap());
         self.iter_scrollable_lines_with_transform(pixel_region, grid_scale)
             .for_each(|(transform, line)| draw_line(transform, line, &mut layer));
         scene.add_layer(layer);
@@ -343,30 +331,18 @@ impl RenderedWindow {
             }
         };
 
-        let clip = Vec4::new(
-            pixel_region.min.x,
-            pixel_region.min.y,
-            pixel_region.width(),
-            pixel_region.height(),
-        );
         let mut layer = Layer::new()
-            .with_background(Vec4::new(0.0, 0.0, 0.0, 0.0))
-            .with_font("FiraCode Nerd Font".to_string())
-            .with_clip(clip);
+            .with_background(named::BLACK.with_alpha(0).into())
+            //.with_font("FiraCode Nerd Font".to_string())
+            .with_clip(pixel_region.to_rect().as_untyped().try_cast().unwrap());
         self.iter_border_lines_with_transform(pixel_region, grid_scale)
             .for_each(|(transform, line)| draw_line(transform, line, &mut layer));
         scene.add_layer(layer);
 
-        let clip = Vec4::new(
-            inner_region.min.x,
-            inner_region.min.y,
-            inner_region.width(),
-            inner_region.height(),
-        );
         let mut layer = Layer::new()
-            .with_background(Vec4::new(0.0, 0.0, 0.0, 0.0))
-            .with_font("FiraCode Nerd Font".to_string())
-            .with_clip(clip);
+            .with_background(named::BLACK.with_alpha(0).into())
+            //.with_font("FiraCode Nerd Font".to_string())
+            .with_clip(inner_region.to_rect().as_untyped().try_cast().unwrap());
 
         self.iter_scrollable_lines_with_transform(pixel_region, grid_scale)
             .for_each(|(transform, line)| draw_line(transform, line, &mut layer));
@@ -684,14 +660,14 @@ impl RenderedWindow {
     ) -> impl Iterator<Item = (PixelVec<f32>, &Rc<RefCell<Line>>)> {
         let scroll_offset_lines = self.scroll_animation.position.floor();
         let scroll_offset = scroll_offset_lines - self.scroll_animation.position;
-        let scroll_offset_pixels = (scroll_offset * grid_scale.0.height).round();
+        let scroll_offset_pixels = (scroll_offset * grid_scale.height()).round();
 
         self.iter_scrollable_lines().map(move |(i, line)| {
             let transform = PixelVec::new(
                 pixel_region.min.x,
                 pixel_region.min.y
                     + (scroll_offset_pixels
-                        + ((i + self.viewport_margins.top as isize) as f32 * grid_scale.0.height)),
+                        + ((i + self.viewport_margins.top as isize) as f32 * grid_scale.height())),
             );
             (transform, line)
         })
@@ -764,7 +740,7 @@ impl RenderedWindow {
         //
         //     let mut recorder = PictureRecorder::new();
         //
-        //     let line_size = GridSize::new(self.grid_size.width, 1).cast() * grid_scale;
+        //     let line_size = GridSize::new(self.grid_size.width, 1) * grid_scale;
         //     let grid_rect = Rect::from_wh(line_size.width, line_size.height);
         //     let canvas = recorder.begin_recording(grid_rect, None);
         //
