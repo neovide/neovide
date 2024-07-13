@@ -1,4 +1,4 @@
-use crate::units::PixelPos;
+use glamour::{Point2, Unit};
 
 #[allow(dead_code)]
 pub fn ease_linear(t: f32) -> f32 {
@@ -73,13 +73,13 @@ pub fn ease(ease_func: fn(f32) -> f32, start: f32, end: f32, t: f32) -> f32 {
     lerp(start, end, ease_func(t))
 }
 
-pub fn ease_point(
+pub fn ease_point<T: Unit<Scalar = f32>>(
     ease_func: fn(f32) -> f32,
-    start: PixelPos<f32>,
-    end: PixelPos<f32>,
+    start: Point2<T>,
+    end: Point2<T>,
     t: f32,
-) -> PixelPos<f32> {
-    PixelPos::new(
+) -> Point2<T> {
+    Point2::new(
         ease(ease_func, start.x, end.x, t),
         ease(ease_func, start.y, end.y, t),
     )

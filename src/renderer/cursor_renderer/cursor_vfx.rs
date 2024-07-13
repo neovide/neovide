@@ -7,7 +7,7 @@ use crate::{
     renderer::cursor_renderer::CursorSettings,
     renderer::{animation_utils::*, grid_renderer::GridRenderer},
     settings::*,
-    units::{PixelPos, PixelSize, PixelVec},
+    units::{GridSize, PixelPos, PixelSize, PixelVec},
 };
 
 pub trait CursorVfx {
@@ -149,7 +149,7 @@ impl CursorVfx for PointHighlight {
 
         paint.set_color(color);
 
-        let cursor_height = grid_renderer.grid_scale.0.height;
+        let cursor_height = grid_renderer.grid_scale.height();
         let size = 3.0 * cursor_height;
         let radius = self.t * size;
         let hr = radius * 0.5;
@@ -335,7 +335,7 @@ impl CursorVfx for ParticleTrail {
         cursor: &Cursor,
     ) {
         let mut paint = Paint::new(skia_safe::colors::WHITE, None);
-        let font_dimensions = grid_renderer.grid_scale.0;
+        let font_dimensions = GridSize::new(1.0, 1.0) * grid_renderer.grid_scale;
         match self.trail_mode {
             TrailMode::Torpedo | TrailMode::Railgun => {
                 paint.set_style(Style::Stroke);

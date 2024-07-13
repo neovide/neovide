@@ -46,7 +46,7 @@ impl GridRenderer {
             shaper,
             default_style,
             em_size,
-            grid_scale: GridScale(font_dimensions),
+            grid_scale: GridScale::new(font_dimensions),
             is_ready: false,
         }
     }
@@ -77,14 +77,14 @@ impl GridRenderer {
 
     fn update_font_dimensions(&mut self) {
         self.em_size = self.shaper.current_size();
-        self.grid_scale = GridScale(self.shaper.font_base_dimensions());
+        self.grid_scale = GridScale::new(self.shaper.font_base_dimensions());
         self.is_ready = true;
-        trace!("Updated font dimensions: {:?}", self.grid_scale.0);
+        trace!("Updated font dimensions: {:?}", self.grid_scale);
     }
 
     fn compute_text_region(&self, grid_position: GridPos<i32>, cell_width: i32) -> PixelRect<f32> {
-        let pos = grid_position.cast() * self.grid_scale;
-        let size = GridSize::new(cell_width, 1).cast() * self.grid_scale;
+        let pos = grid_position * self.grid_scale;
+        let size = GridSize::new(cell_width, 1) * self.grid_scale;
         PixelRect::from_origin_and_size(pos, size)
     }
 
@@ -151,8 +151,8 @@ impl GridRenderer {
         style: &Option<Arc<Style>>,
     ) -> bool {
         tracy_zone!("draw_foreground");
-        let pos = grid_position.cast() * self.grid_scale;
-        let size = GridSize::new(cell_width, 0).cast() * self.grid_scale;
+        let pos = grid_position * self.grid_scale;
+        let size = GridSize::new(cell_width, 0) * self.grid_scale;
         let width = size.width;
 
         let style = style.as_ref().unwrap_or(&self.default_style);
@@ -164,7 +164,7 @@ impl GridRenderer {
         let region = self.compute_text_region(clip_position, cell_width + 2);
 
         if let Some(underline_style) = style.underline {
-            let line_position = self.grid_scale.0.height - self.shaper.underline_position();
+            let line_position = self.grid_scale.height() - self.shaper.underline_position();
             let p1 = pos + PixelVec::new(0.0, line_position);
             let p2 = pos + PixelVec::new(width, line_position);
 
@@ -195,7 +195,7 @@ impl GridRenderer {
         let leading_spaces = text[..leading_space_bytes].chars().count();
         let trimmed = trimmed.trim_end();
         let adjustment = PixelVec::new(
-            leading_spaces as f32 * self.grid_scale.0.width,
+            leading_spaces as f32 * self.grid_scale.width(),
             self.shaper.y_adjustment(),
         );
 
@@ -272,7 +272,7 @@ impl GridRenderer {
                 path.move_to(p1);
                 let mut i = p1.0;
                 let mut sin = -2. * stroke_width;
-                let increment = self.grid_scale.0.width / 2.;
+                let increment = self.grid_scale.width() / 2.;
                 while i < p2.0 {
                     sin *= -1.;
                     i += increment;
