@@ -90,12 +90,16 @@ fn main() -> NeovideExitCode {
         windows_fix_dpi();
     }
 
+    // This variable is set by the AppImage runtime and causes problems for child processes
+    #[cfg(target_os = "linux")]
+    env::remove_var("ARGV0");
+
     let event_loop = create_event_loop();
+    clipboard::init(&event_loop);
 
     match setup(event_loop.create_proxy()) {
         Err(err) => handle_startup_errors(err, event_loop).into(),
         Ok((window_size, font_settings, _runtime)) => {
-            clipboard::init(&event_loop);
             main_loop(window_size, font_settings, event_loop).into()
         }
     }
@@ -173,6 +177,11 @@ fn setup(
     //
     // The Window event loop sends UICommand to the bridge, which forwards them to Neovim. It also
     // reads `DrawCommand`, `SettingChanged`, and `WindowCommand` from the other components.
+
+    SETTINGS.register::<WindowSettings>();
+    SETTINGS.register::<RendererSettings>();
+    SETTINGS.register::<CursorSettings>();
+
     let config = Config::init();
     Config::watch_config_file(config.clone(), proxy.clone());
 
@@ -188,9 +197,6 @@ fn setup(
 
     trace!("Neovide version: {}", crate_version!());
 
-    SETTINGS.register::<WindowSettings>();
-    SETTINGS.register::<RendererSettings>();
-    SETTINGS.register::<CursorSettings>();
     let window_settings = load_last_window_settings().ok();
     let window_size = determine_window_size(window_settings.as_ref());
     let grid_size = match window_size {
@@ -246,7 +252,6 @@ fn maybe_disown() {
             .stdin(process::Stdio::null())
             .stdout(process::Stdio::null())
             .stderr(process::Stdio::null())
-            .arg("--no-fork")
             .args(env::args().skip(1))
             .spawn()
             .is_ok());

@@ -197,7 +197,7 @@ impl GridRenderer {
         let trimmed = trimmed.trim_end();
         let adjustment = PixelVec::new(
             leading_spaces as f32 * self.grid_scale.width(),
-            self.shaper.y_adjustment(),
+            self.shaper.baseline_offset(),
         );
 
         if !trimmed.is_empty() {

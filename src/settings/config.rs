@@ -39,19 +39,19 @@ pub fn config_path() -> PathBuf {
 #[derive(Debug, Deserialize, Default, Clone)]
 #[serde(rename_all = "kebab-case")]
 pub struct Config {
-    pub wsl: Option<bool>,
-    pub no_multigrid: Option<bool>,
-    pub maximized: Option<bool>,
-    pub vsync: Option<bool>,
-    pub srgb: Option<bool>,
-    pub fork: Option<bool>,
-    pub idle: Option<bool>,
-    pub neovim_bin: Option<PathBuf>,
-    pub frame: Option<Frame>,
-    pub theme: Option<String>,
     pub font: Option<FontSettings>,
-    pub title_hidden: Option<bool>,
+    pub fork: Option<bool>,
+    pub frame: Option<Frame>,
+    pub idle: Option<bool>,
+    pub maximized: Option<bool>,
+    pub neovim_bin: Option<PathBuf>,
+    pub no_multigrid: Option<bool>,
+    pub srgb: Option<bool>,
     pub tabs: Option<bool>,
+    pub theme: Option<String>,
+    pub title_hidden: Option<bool>,
+    pub vsync: Option<bool>,
+    pub wsl: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -160,7 +160,7 @@ fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<UserEven
 
     loop {
         if let Err(e) = rx.recv() {
-            eprintln!("Error while watching config file: {}", e);
+            eprintln!("Error while watching config file: {e}");
             continue;
         }
 

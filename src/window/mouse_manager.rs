@@ -65,7 +65,7 @@ struct TouchTrace {
 
 pub struct MouseManager {
     drag_details: Option<DragDetails>,
-    grid_position: GridPos<i32>,
+    grid_position: GridPos<u32>,
 
     has_moved: bool,
     window_position: PixelPos<f32>,
@@ -112,7 +112,7 @@ impl MouseManager {
         &self,
         window_details: &WindowDrawDetails,
         editor_state: &EditorState,
-    ) -> GridPos<i32> {
+    ) -> GridPos<u32> {
         let global_bounds = window_details.region;
         let clamped_position = clamp_position(
             self.window_position,
@@ -123,6 +123,7 @@ impl MouseManager {
 
         (relative_position / *editor_state.grid_scale)
             .floor()
+            .max((0.0, 0.0).into())
             .try_cast()
             .unwrap()
     }
@@ -160,7 +161,7 @@ impl MouseManager {
                     send_ui(SerialCommand::Drag {
                         button: mouse_button_to_button_text(drag_details.button).unwrap(),
                         grid_id: window_details.event_grid_id(),
-                        position: self.grid_position.try_cast::<u32>().unwrap().to_tuple(),
+                        position: self.grid_position.to_tuple(),
                         modifier_string: editor_state
                             .keyboard_manager
                             .format_modifier_string("", true),
@@ -171,7 +172,7 @@ impl MouseManager {
                         button: "move".into(),
                         action: "".into(), // this is ignored by nvim
                         grid_id: window_details.event_grid_id(),
-                        position: relative_position.try_cast::<u32>().unwrap().to_tuple(),
+                        position: relative_position.to_tuple(),
                         modifier_string: editor_state
                             .keyboard_manager
                             .format_modifier_string("", true),
@@ -211,7 +212,7 @@ impl MouseManager {
                         button: button_text.clone(),
                         action,
                         grid_id: details.event_grid_id(),
-                        position: position.try_cast::<u32>().unwrap().to_tuple(),
+                        position: position.to_tuple(),
                         modifier_string: editor_state
                             .keyboard_manager
                             .format_modifier_string("", true),
@@ -258,7 +259,7 @@ impl MouseManager {
             let scroll_command = SerialCommand::Scroll {
                 direction: input_type.to_string(),
                 grid_id,
-                position: self.grid_position.try_cast::<u32>().unwrap().to_tuple(),
+                position: self.grid_position.to_tuple(),
                 modifier_string: editor_state
                     .keyboard_manager
                     .format_modifier_string("", true),
@@ -278,7 +279,7 @@ impl MouseManager {
             let scroll_command = SerialCommand::Scroll {
                 direction: input_type.to_string(),
                 grid_id,
-                position: self.grid_position.try_cast::<u32>().unwrap().to_tuple(),
+                position: self.grid_position.to_tuple(),
                 modifier_string: editor_state
                     .keyboard_manager
                     .format_modifier_string("", true),

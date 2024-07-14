@@ -67,11 +67,11 @@ pub struct CmdLineSettings {
     #[arg(long = "title-hidden", env = "NEOVIDE_TITLE_HIDDEN", value_parser = FalseyValueParser::new())]
     pub title_hidden: bool,
 
-    /// Spawn a child process and leak it [DEFAULT]
+    /// Spawn a child process and leak it
     #[arg(long = "fork", env = "NEOVIDE_FORK", action = ArgAction::SetTrue, default_value = "0", value_parser = FalseyValueParser::new())]
     pub fork: bool,
 
-    /// Be "blocking" and let the shell persist as parent process. Takes precedence over `--fork`.
+    /// Be "blocking" and let the shell persist as parent process. Takes precedence over `--fork`. [DEFAULT]
     #[arg(long = "no-fork", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
     _no_fork: bool,
 
