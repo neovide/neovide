@@ -22,7 +22,7 @@ use palette::{LinSrgba, WithAlpha};
 
 use winit::{
     event::Event,
-    event_loop::{EventLoop, EventLoopProxy},
+    event_loop::{EventLoopProxy, EventLoopWindowTarget},
     window::{Window, WindowBuilder},
 };
 
@@ -122,8 +122,8 @@ pub enum DrawCommand {
 #[folder = "assets/embedded"]
 struct Assets;
 
-pub struct Renderer<'a> {
-    wgpu_renderer: WinitRenderer<'a>,
+pub struct Renderer {
+    wgpu_renderer: Option<WinitRenderer>,
     cursor_renderer: CursorRenderer,
     pub grid_renderer: GridRenderer,
     current_mode: EditorMode,
@@ -138,7 +138,7 @@ pub struct Renderer<'a> {
     scene: Scene,
 }
 
-async fn create_renderer(window: Arc<Window>) -> WinitRenderer<'static> {
+async fn create_renderer(window: Arc<Window>) -> WinitRenderer {
     WinitRenderer::new(window)
         .await
         .with_default_drawables()
@@ -150,11 +150,10 @@ pub struct DrawCommandResult {
     pub font_changed: bool,
     pub should_show: bool,
 }
-impl<'a> Renderer<'a> {
+impl Renderer {
     pub fn new(
         os_scale_factor: f64,
         init_font_settings: Option<FontSettings>,
-        window: Arc<Window>,
     ) -> Self {
         let window_settings = SETTINGS.get::<WindowSettings>();
 
@@ -170,11 +169,10 @@ impl<'a> Renderer<'a> {
 
         let profiler = profiler::Profiler::new(12.0);
 
-        let wgpu_renderer = block_on(create_renderer(window));
         let scene = Scene::new();
 
         Renderer {
-            wgpu_renderer,
+            wgpu_renderer: None,
             rendered_windows,
             cursor_renderer,
             grid_renderer,
@@ -187,8 +185,14 @@ impl<'a> Renderer<'a> {
         }
     }
 
-    pub fn handle_event(&mut self, event: &Event<UserEvent>, window: &'a Window) -> bool {
-        self.wgpu_renderer.handle_event(window, event);
+    pub fn create_wgpu(&mut self, window: Arc<Window>) {
+        self.wgpu_renderer = Some(block_on(create_renderer(window)));
+    }
+
+    pub fn handle_event(&mut self, event: &Event<UserEvent>) -> bool {
+        if let Some(wgpu_renderer) = self.wgpu_renderer.as_mut() {
+            wgpu_renderer.handle_event(event);
+        }
         self.cursor_renderer.handle_event(event)
     }
 
@@ -312,9 +316,10 @@ impl<'a> Renderer<'a> {
         self.cursor_renderer.draw(&mut self.grid_renderer);
 
         self.profiler.draw(dt);
+        if let Some(wgpu_renderer) = self.wgpu_renderer.as_mut() 
         {
             tracy_zone!("wgpu_renderer.draw");
-            self.wgpu_renderer.draw(&self.scene);
+            wgpu_renderer.draw(&self.scene);
         }
     }
 
@@ -526,7 +531,7 @@ pub struct WindowConfig {
 
 pub fn build_window_config<TE>(
     winit_window_builder: WindowBuilder,
-    event_loop: &EventLoop<TE>,
+    event_loop: &EventLoopWindowTarget<TE>,
 ) -> WindowConfig {
     let window = winit_window_builder.build(event_loop).unwrap();
     let config = WindowConfigType::WGpu;

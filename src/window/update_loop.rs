@@ -139,11 +139,13 @@ impl UpdateLoop {
     }
 
     fn animate(&mut self, window_wrapper: &mut WinitWindowWrapper) {
-        let dt = Duration::from_secs_f32(
-            window_wrapper
-                .vsync
-                .get_refresh_rate(&window_wrapper.window),
-        );
+        if window_wrapper.window.is_none() {
+            return;
+        }
+        let window = window_wrapper.window.as_ref().unwrap();
+        let vsync = window_wrapper.vsync.as_mut().unwrap();
+
+        let dt = Duration::from_secs_f32(vsync.get_refresh_rate(window));
 
         let now = Instant::now();
         let target_animation_time = now - self.animation_start;
@@ -210,14 +212,20 @@ impl UpdateLoop {
     }
 
     fn schedule_render(&mut self, skipped_frame: bool, window_wrapper: &mut WinitWindowWrapper) {
+        if window_wrapper.window.is_none() {
+            return;
+        }
+        let window = window_wrapper.window.as_ref().unwrap();
+        let vsync = window_wrapper.vsync.as_mut().unwrap();
+
         // There's really no point in trying to render if the frame is skipped
         // (most likely due to the compositor being busy). The animated frame will
         // be rendered at an appropriate time anyway.
         if !skipped_frame {
             // When winit throttling is used, request a redraw and wait for the render event
             // Otherwise render immediately
-            if window_wrapper.vsync.uses_winit_throttling() {
-                window_wrapper.vsync.request_redraw(&window_wrapper.window);
+            if vsync.uses_winit_throttling() {
+                vsync.request_redraw(window);
                 self.pending_render = true;
                 tracy_plot!("pending_render", self.pending_render as u8 as f64);
             } else {

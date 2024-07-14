@@ -33,7 +33,7 @@ const MIN_SIZE: PhysicalSize<u32> = PhysicalSize::new(500, 500);
 const DEFAULT_SIZE: PhysicalSize<u32> = PhysicalSize::new(800, 600);
 
 pub fn show_error_window(message: &str, event_loop: EventLoop<UserEvent>) {
-    let mut error_window = ErrorWindow::new(message, &event_loop);
+    let mut error_window = ErrorWindow::new(message);
     error_window.run_event_loop(event_loop);
 }
 
@@ -59,22 +59,49 @@ struct Paragraphs {
     help_messages: [Paragraph; PossibleScrollDirection::COUNT],
 }
 
-struct ErrorWindow<'a> {
+struct State {
     skia_renderer: Box<dyn SkiaRenderer>,
     font_collection: FontCollection,
     size: PhysicalSize<u32>,
     scale_factor: f64,
     paragraphs: Paragraphs,
-    message: &'a str,
     scroll: Scroll,
     current_position: TextIndex,
     modifiers: Modifiers,
-    visible: bool,
     mouse_scroll_accumulator: f32,
 }
 
+struct ErrorWindow<'a> {
+    state: Option<State>,
+    message: &'a str,
+}
+
 impl<'a> ErrorWindow<'a> {
-    fn new(message: &'a str, event_loop: &EventLoop<UserEvent>) -> Self {
+    fn new(message: &'a str) -> Self {
+        Self {
+            state: None,
+            message,
+        }
+    }
+
+    fn run_event_loop(&mut self, event_loop: EventLoop<UserEvent>) {
+        let _ = event_loop.run(|e, window_target| match e {
+            Event::Resumed => {
+                if self.state.is_none() {
+                    self.state = Some(State::new(self.message, window_target));
+                }
+            }
+            Event::WindowEvent { event, .. } => {
+                let state = self.state.as_mut().unwrap();
+                state.handle_window_event(event, window_target, self.message);
+            }
+            _ => {}
+        });
+    }
+}
+
+impl State {
+    fn new(message: &str, event_loop: &EventLoopWindowTarget<UserEvent>) -> Self {
         let message = message.trim_end();
 
         let font_manager = FontMgr::new();
@@ -85,13 +112,13 @@ impl<'a> ErrorWindow<'a> {
         let vsync = true;
         let window = create_window(event_loop);
         let skia_renderer = create_skia_renderer(window, srgb, vsync);
+        skia_renderer.window().set_visible(true);
         let scale_factor = skia_renderer.window().scale_factor();
         let size = skia_renderer.window().inner_size();
         let paragraphs = create_paragraphs(message, scale_factor as f32, &font_collection);
         let scroll = Scroll::None;
         let current_position = 0;
         let modifiers = Modifiers::default();
-        let visible = false;
         let mouse_scroll_accumulator = 0.0;
 
         Self {
@@ -100,36 +127,18 @@ impl<'a> ErrorWindow<'a> {
             size,
             scale_factor,
             paragraphs,
-            message,
             scroll,
             current_position,
             modifiers,
-            visible,
             mouse_scroll_accumulator,
         }
-    }
-
-    fn run_event_loop(&mut self, event_loop: EventLoop<UserEvent>) {
-        let _ = event_loop.run(move |e, window_target| match e {
-            Event::WindowEvent { event, .. } => {
-                self.handle_window_event(event, window_target);
-            }
-            Event::AboutToWait => {
-                if !self.visible {
-                    self.visible = true;
-                    let _ = self.layout();
-                    self.skia_renderer.window().set_visible(true);
-                    self.skia_renderer.window().request_redraw();
-                }
-            }
-            _ => {}
-        });
     }
 
     fn handle_window_event(
         &mut self,
         event: WindowEvent,
         window_target: &EventLoopWindowTarget<UserEvent>,
+        message: &str,
     ) {
         match event {
             WindowEvent::CloseRequested => {
@@ -145,14 +154,14 @@ impl<'a> ErrorWindow<'a> {
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 self.scale_factor = scale_factor;
                 self.paragraphs =
-                    create_paragraphs(self.message, scale_factor as f32, &self.font_collection);
+                    create_paragraphs(message, scale_factor as f32, &self.font_collection);
             }
             WindowEvent::KeyboardInput {
                 event,
                 is_synthetic: false,
                 ..
             } => {
-                if self.handle_keyboard_input(event, window_target) {
+                if self.handle_keyboard_input(event, window_target, message) {
                     self.skia_renderer.window().request_redraw();
                 }
             }
@@ -203,8 +212,8 @@ impl<'a> ErrorWindow<'a> {
     fn handle_keyboard_input(
         &mut self,
         event: KeyEvent,
-
         window_target: &EventLoopWindowTarget<UserEvent>,
+        message: &str,
     ) -> bool {
         if event.state != ElementState::Pressed {
             return false;
@@ -239,7 +248,7 @@ impl<'a> ErrorWindow<'a> {
                         true
                     }
                     "y" => {
-                        let _ = clipboard::set_contents(self.message.to_string());
+                        let _ = clipboard::set_contents(message.to_string());
                         true
                     }
                     _ => false,
@@ -471,14 +480,14 @@ fn create_paragraphs(
     }
 }
 
-fn create_window(event_loop: &EventLoop<UserEvent>) -> WindowConfig {
+fn create_window(event_loop: &EventLoopWindowTarget<UserEvent>) -> WindowConfig {
     let icon = load_icon();
 
     let winit_window_builder = WindowBuilder::new()
         .with_title("Neovide")
         .with_window_icon(Some(icon))
         .with_transparent(false)
-        .with_visible(false)
+        .with_visible(true)
         .with_decorations(true)
         .with_inner_size(DEFAULT_SIZE)
         .with_min_inner_size(MIN_SIZE);
