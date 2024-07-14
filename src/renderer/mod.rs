@@ -31,6 +31,7 @@ use vide::{Layer, Scene, WinitRenderer};
 
 use crate::{
     bridge::EditorMode,
+    cmd_line::CmdLineSettings,
     editor::{Cursor, Style},
     profiling::{tracy_create_gpu_context, tracy_named_frame, tracy_zone},
     renderer::rendered_layer::{group_windows, FloatingLayer},
@@ -45,9 +46,6 @@ use crate::profiling::tracy_plot;
 
 #[cfg(feature = "gpu_profiling")]
 use crate::profiling::GpuCtx;
-
-#[cfg(target_os = "windows")]
-use crate::CmdLineSettings;
 
 use cursor_renderer::CursorRenderer;
 pub use grid_renderer::GridRenderer;
@@ -74,6 +72,7 @@ pub struct RendererSettings {
     underline_stroke_scale: f32,
     text_gamma: f32,
     text_contrast: f32,
+    experimental_layer_grouping: bool,
 }
 
 impl Default for RendererSettings {
@@ -94,6 +93,7 @@ impl Default for RendererSettings {
             underline_stroke_scale: 1.,
             text_gamma: 0.0,
             text_contrast: 0.5,
+            experimental_layer_grouping: false,
         }
     }
 }
@@ -132,8 +132,8 @@ pub struct Renderer {
     pub window_regions: Vec<WindowDrawDetails>,
 
     profiler: profiler::Profiler,
-    os_scale_factor: f64,
-    user_scale_factor: f64,
+    pub os_scale_factor: f64,
+    pub user_scale_factor: f64,
 
     scene: Scene,
 }
@@ -151,10 +151,7 @@ pub struct DrawCommandResult {
     pub should_show: bool,
 }
 impl Renderer {
-    pub fn new(
-        os_scale_factor: f64,
-        init_font_settings: Option<FontSettings>,
-    ) -> Self {
+    pub fn new(os_scale_factor: f64, init_font_settings: Option<FontSettings>) -> Self {
         let window_settings = SETTINGS.get::<WindowSettings>();
 
         let user_scale_factor = window_settings.scale_factor.into();
@@ -215,6 +212,14 @@ impl Renderer {
 
         self.scene = Scene::new();
 
+        // let transparency = SETTINGS.get::<WindowSettings>().transparency;
+        let layer_grouping = SETTINGS
+            .get::<RendererSettings>()
+            .experimental_layer_grouping;
+        // root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
+        // root_canvas.save();
+        // root_canvas.reset_matrix();
+
         let mut background_layer =
             Layer::new().with_background(transparent_default_background.into());
         // if let Some(root_window) = self.rendered_windows.get(&1) {
@@ -244,14 +249,17 @@ impl Renderer {
             let mut current_windows = vec![];
 
             for window in floating_windows {
-                let zindex = window.anchor_info.as_ref().unwrap().sort_order;
+                let zindex = window.anchor_info.as_ref().unwrap().sort_order.z_index;
                 log::debug!("zindex: {}, base: {}", zindex, base_zindex);
-                // Group floating windows by consecutive z indices
-                if zindex - last_zindex > 1 && !current_windows.is_empty() {
-                    for windows in group_windows(current_windows, grid_scale) {
-                        floating_layers.push(FloatingLayer { windows });
+                if !current_windows.is_empty() && zindex != last_zindex {
+                    // Group floating windows by consecutive z indices if layer_grouping is enabled,
+                    // Otherwise group all windows inside a single layer
+                    if !layer_grouping || zindex - last_zindex > 1 {
+                        for windows in group_windows(current_windows, grid_scale) {
+                            floating_layers.push(FloatingLayer { windows });
+                        }
+                        current_windows = vec![];
                     }
-                    current_windows = vec![];
                 }
 
                 if current_windows.is_empty() {
@@ -274,7 +282,7 @@ impl Renderer {
                     layer
                         .windows
                         .iter()
-                        .map(|w| (w.id, w.anchor_info.as_ref().unwrap().sort_order))
+                        .map(|w| (w.id, w.anchor_info.as_ref().unwrap().sort_order.clone()))
                         .collect_vec()
                 );
             }
@@ -287,9 +295,9 @@ impl Renderer {
             .into_iter()
             .map(|window| {
                 window.draw(
-                    &settings,
-                    transparent_default_background,
+                    default_background.with_alpha(255.0 * transparency),
                     &mut self.grid_renderer,
+                    grid_scale,
                     &mut self.scene,
                 )
             })
@@ -316,8 +324,7 @@ impl Renderer {
         self.cursor_renderer.draw(&mut self.grid_renderer);
 
         self.profiler.draw(dt);
-        if let Some(wgpu_renderer) = self.wgpu_renderer.as_mut() 
-        {
+        if let Some(wgpu_renderer) = self.wgpu_renderer.as_mut() {
             tracy_zone!("wgpu_renderer.draw");
             wgpu_renderer.draw(&self.scene);
         }
@@ -388,14 +395,6 @@ impl Renderer {
         }
         self.flush(&settings);
 
-        let user_scale_factor = SETTINGS.get::<WindowSettings>().scale_factor.into();
-        if user_scale_factor != self.user_scale_factor {
-            self.user_scale_factor = user_scale_factor;
-            self.grid_renderer
-                .handle_scale_factor_update(self.os_scale_factor * self.user_scale_factor);
-            result.font_changed = true;
-        }
-
         result
     }
 
@@ -440,10 +439,14 @@ impl Renderer {
                             warn!("ViewportMargins recieved before window was initialized");
                         }
                         _ => {
-                            error!(
-                                "WindowDrawCommand: {:?} sent for uninitialized grid {}",
-                                command, grid_id
-                            );
+                            let settings = SETTINGS.get::<CmdLineSettings>();
+                            // Ignore the errors when not using multigrid, since Neovim wrongly sends some of these
+                            if !settings.no_multi_grid {
+                                error!(
+                                    "WindowDrawCommand: {:?} sent for uninitialized grid {}",
+                                    command, grid_id
+                                );
+                            }
                         }
                     },
                 }
@@ -493,31 +496,9 @@ impl Renderer {
 
 /// Defines how floating windows are sorted.
 fn floating_sort(window_a: &&mut RenderedWindow, window_b: &&mut RenderedWindow) -> Ordering {
-    // First, compare floating order
-    let mut ord = window_a
-        .anchor_info
-        .as_ref()
-        .unwrap()
-        .sort_order
-        .partial_cmp(&window_b.anchor_info.as_ref().unwrap().sort_order)
-        .unwrap();
-    if ord == Ordering::Equal {
-        // if equal, compare grid pos x
-        ord = window_a
-            .grid_current_position
-            .x
-            .partial_cmp(&window_b.grid_current_position.x)
-            .unwrap();
-        if ord == Ordering::Equal {
-            // if equal, compare grid pos z
-            ord = window_a
-                .grid_current_position
-                .y
-                .partial_cmp(&window_b.grid_current_position.y)
-                .unwrap();
-        }
-    }
-    ord
+    let orda = &window_a.anchor_info.as_ref().unwrap().sort_order;
+    let ordb = &window_b.anchor_info.as_ref().unwrap().sort_order;
+    orda.cmp(ordb)
 }
 
 pub enum WindowConfigType {

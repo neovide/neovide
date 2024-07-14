@@ -200,7 +200,12 @@ impl FontOptions {
             .map(|fonts| {
                 fonts
                     .iter()
-                    .flat_map(|font| font.fallback(&self.normal))
+                    .filter(|font| font.family.is_some())
+                    .map(|font| FontDescription {
+                        family: font.family.clone().unwrap(),
+                        style: None,
+                    })
+                    .chain(self.normal.iter().cloned())
                     .collect()
             })
             .unwrap_or_else(|| self.normal.clone());
@@ -208,7 +213,7 @@ impl FontOptions {
         fonts
             .into_iter()
             .map(|font| FontDescription {
-                style: font.style.or_else(|| style.name().map(str::to_string)),
+                style: style.name().map(str::to_string),
                 ..font
             })
             .collect()
@@ -381,30 +386,11 @@ impl FontDescription {
     // }
 }
 
-impl SecondaryFontDescription {
-    pub fn fallback(&self, primary: &[FontDescription]) -> Vec<FontDescription> {
-        if let Some(family) = &self.family {
-            vec![FontDescription {
-                family: family.clone(),
-                style: self.style.clone(),
-            }]
-        } else {
-            primary
-                .iter()
-                .map(|font| FontDescription {
-                    family: font.family.clone(),
-                    style: self.style.clone(),
-                })
-                .collect()
-        }
-    }
-}
-
 impl fmt::Display for FontDescription {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.family)?;
         if let Some(style) = &self.style {
-            write!(f, " {}", style)?;
+            write!(f, " {style}")?;
         }
         Ok(())
     }
@@ -518,8 +504,7 @@ mod tests {
 
         assert_eq!(
             err, INVALID_SIZE_ERR,
-            "parse err should equal {}, but {}",
-            INVALID_SIZE_ERR, err,
+            "parse err should equal {INVALID_SIZE_ERR}, but {err}",
         );
     }
 
@@ -530,8 +515,7 @@ mod tests {
 
         assert_eq!(
             err, INVALID_WIDTH_ERR,
-            "parse err should equal {}, but {}",
-            INVALID_WIDTH_ERR, err,
+            "parse err should equal {INVALID_WIDTH_ERR}, but {err}",
         );
     }
 

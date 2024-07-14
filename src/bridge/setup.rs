@@ -46,6 +46,10 @@ pub async fn setup_neovide_specific_state(
                 Value::from("minor"),
                 Value::from(env!("CARGO_PKG_VERSION_MINOR")),
             ),
+            (
+                Value::from("patch"),
+                Value::from(env!("CARGO_PKG_VERSION_PATCH")),
+            ),
         ],
         "ui",
         vec![],
@@ -77,6 +81,10 @@ pub async fn setup_neovide_specific_state(
         (
             Value::from("neovide_channel_id"),
             Value::from(api_information.channel),
+        ),
+        (
+            Value::from("neovide_version"),
+            Value::from(crate_version!()),
         ),
         (
             Value::from("register_clipboard"),

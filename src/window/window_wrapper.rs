@@ -15,14 +15,12 @@ use crate::windows_utils::{register_right_click, unregister_right_click};
 use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
-    renderer::{
-        DrawCommand, Renderer, RendererSettingsChanged, VSync,
-    },
+    renderer::{DrawCommand, Renderer, RendererSettingsChanged, VSync},
     settings::{
         clamped_grid_size, FontSettings, HotReloadConfigs, SettingsChanged, DEFAULT_GRID_SIZE,
         MIN_GRID_SIZE, SETTINGS,
     },
-    units::{GridPos, GridRect, GridSize, PixelPos, PixelSize},
+    units::{GridRect, GridSize, PixelPos, PixelSize},
     window::{create_window, PhysicalSize, ShouldRender, WindowSize},
     CmdLineSettings,
 };
@@ -37,7 +35,7 @@ use log::trace;
 use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winit::{
     dpi,
-    event::{Event, WindowEvent},
+    event::{Event, Ime, WindowEvent},
     event_loop::{EventLoopProxy, EventLoopWindowTarget},
     window::{Fullscreen, Theme, Window},
 };
@@ -70,17 +68,17 @@ pub struct WinitWindowWrapper {
     keyboard_manager: KeyboardManager,
     mouse_manager: MouseManager,
     title: String,
-    fullscreen: bool,
     font_changed_last_frame: bool,
     saved_inner_size: dpi::PhysicalSize<u32>,
     saved_grid_size: Option<GridSize<u32>>,
-    ime_position: dpi::PhysicalPosition<i32>,
     requested_columns: Option<u32>,
     requested_lines: Option<u32>,
     ui_state: UIState,
     window_padding: WindowPadding,
     initial_window_size: WindowSize,
     is_minimized: bool,
+    ime_enabled: bool,
+    ime_area: (dpi::PhysicalPosition<u32>, dpi::PhysicalSize<u32>),
     pub vsync: Option<VSync>,
     #[cfg(target_os = "macos")]
     pub macos_feature: Option<MacosWindowFeature>,
@@ -100,11 +98,9 @@ impl WinitWindowWrapper {
             keyboard_manager: KeyboardManager::new(),
             mouse_manager: MouseManager::new(),
             title: String::from("Neovide"),
-            fullscreen: false,
             font_changed_last_frame: false,
             saved_inner_size,
             saved_grid_size: None,
-            ime_position: dpi::PhysicalPosition::new(-1, -1),
             requested_columns: None,
             requested_lines: None,
             ui_state: UIState::Initing,
@@ -117,22 +113,22 @@ impl WinitWindowWrapper {
             initial_window_size,
             is_minimized: false,
             vsync: None,
+            ime_enabled: false,
+            ime_area: Default::default(),
             #[cfg(target_os = "macos")]
             macos_feature: None,
         }
     }
 
-    pub fn toggle_fullscreen(&mut self) {
+    pub fn set_fullscreen(&mut self, fullscreen: bool) {
         if let Some(window) = &self.window {
-            if self.fullscreen {
-                window.set_fullscreen(None);
-            } else {
+            if fullscreen {
                 let handle = window.current_monitor();
                 window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
+            } else {
+                window.set_fullscreen(None);
             }
         }
-
-        self.fullscreen = !self.fullscreen;
     }
 
     #[cfg(target_os = "macos")]
@@ -202,12 +198,18 @@ impl WinitWindowWrapper {
                 self.requested_lines = lines.map(|v| v.try_into().unwrap());
             }
             WindowSettingsChanged::Fullscreen(fullscreen) => {
-                if self.fullscreen != fullscreen {
-                    self.toggle_fullscreen();
-                }
+                self.set_fullscreen(fullscreen);
             }
             WindowSettingsChanged::InputIme(ime_enabled) => {
                 self.set_ime(ime_enabled);
+            }
+            WindowSettingsChanged::ScaleFactor(user_scale_factor) => {
+                let renderer = &mut self.renderer;
+                renderer.user_scale_factor = user_scale_factor.into();
+                renderer.grid_renderer.handle_scale_factor_update(
+                    renderer.os_scale_factor * renderer.user_scale_factor,
+                );
+                self.font_changed_last_frame = true;
             }
             WindowSettingsChanged::WindowBlurred(blur) => {
                 if let Some(window) = &self.window {
@@ -342,12 +344,8 @@ impl WinitWindowWrapper {
         let window = self.window.as_mut().unwrap();
         let vsync = self.vsync.as_mut().unwrap();
 
-        self.mouse_manager.handle_event(
-            &event,
-            &self.keyboard_manager,
-            &self.renderer,
-            window,
-        );
+        self.mouse_manager
+            .handle_event(&event, &self.keyboard_manager, &self.renderer, window);
         self.keyboard_manager.handle_event(&event);
 
         match event {
@@ -390,6 +388,15 @@ impl WinitWindowWrapper {
             WindowEvent::Moved(_) => {
                 tracy_zone!("Moved");
                 vsync.update(window);
+            }
+            WindowEvent::Ime(Ime::Enabled) => {
+                log::info!("Ime enabled");
+                self.ime_enabled = true;
+                self.update_ime_position(true);
+            }
+            WindowEvent::Ime(Ime::Disabled) => {
+                log::info!("Ime disabled");
+                self.ime_enabled = false;
             }
             _ => {
                 tracy_zone!("Unknown WindowEvent");
@@ -447,6 +454,19 @@ impl WinitWindowWrapper {
         let window_config = create_window(event_loop, maximized, &self.title);
         let window = window_config.window;
 
+        let WindowSettings {
+            input_ime,
+            theme,
+            transparency,
+            window_blurred,
+            fullscreen,
+            #[cfg(target_os = "macos")]
+            input_macos_option_key_is_meta,
+            ..
+        } = SETTINGS.get::<WindowSettings>();
+
+        window.set_ime_allowed(input_ime);
+
         // It's important that this is created before the window is resized, since it can change the padding and affect the size
         #[cfg(target_os = "macos")]
         {
@@ -457,9 +477,7 @@ impl WinitWindowWrapper {
         }
 
         let scale_factor = window.scale_factor();
-        self.renderer
-            .grid_renderer
-            .handle_scale_factor_update(scale_factor);
+        self.renderer.handle_os_scale_factor_change(scale_factor);
 
         let mut size = PhysicalSize::default();
         match self.initial_window_size {
@@ -528,15 +546,11 @@ impl WinitWindowWrapper {
             self.renderer.grid_renderer.grid_scale
         );
 
-        let WindowSettings {
-            input_ime,
-            theme,
-            transparency,
-            window_blurred,
-            ..
-        } = SETTINGS.get::<WindowSettings>();
-
         window.set_blur(window_blurred && transparency < 1.0);
+        if fullscreen {
+            let handle = window.current_monitor();
+            window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
+        }
 
         match theme.as_str() {
             "light" => set_background("light"),
@@ -549,21 +563,17 @@ impl WinitWindowWrapper {
             _ => {}
         }
 
-        self.vsync = Some(VSync::new(
-            vsync_enabled,
-            proxy.clone(),
-        ));
+        self.vsync = Some(VSync::new(vsync_enabled, proxy.clone()));
 
         {
             tracy_zone!("request_redraw");
             window.request_redraw();
         }
 
-        // Ensure that the window has the correct IME state
-        self.set_ime(input_ime);
-
         self.ui_state = UIState::FirstFrame;
         self.window = Some(window);
+        #[cfg(target_os = "macos")]
+        self.set_macos_option_as_meta(input_macos_option_key_is_meta);
     }
 
     fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
@@ -643,7 +653,7 @@ impl WinitWindowWrapper {
             }
         }
 
-        self.update_ime_position();
+        self.update_ime_position(false);
 
         should_render.update(self.renderer.prepare_frame());
 
@@ -743,26 +753,29 @@ impl WinitWindowWrapper {
         });
     }
 
-    fn update_ime_position(&mut self) {
-        if self.window.is_none() {
+    fn update_ime_position(&mut self, force: bool) {
+        if !self.ime_enabled || self.window.is_none() {
             return;
         }
         let window = self.window.as_ref().unwrap();
         let grid_scale = self.renderer.grid_renderer.grid_scale;
         let font_dimensions = GridSize::new(1.0, 1.0) * grid_scale;
-        let mut position = self.renderer.get_cursor_destination();
-        position.y += font_dimensions.height;
-        let position: GridPos<i32> = (position / grid_scale).floor().try_cast().unwrap();
+        let position = self.renderer.get_cursor_destination();
+        let position = position.try_cast::<u32>().unwrap();
         let position = dpi::PhysicalPosition {
             x: position.x,
             y: position.y,
         };
-        if position != self.ime_position {
-            self.ime_position = position;
-                window.set_ime_cursor_area(
-                dpi::Position::Physical(position),
-                dpi::PhysicalSize::new(100, font_dimensions.height as u32),
-            );
+        // NOTE: some compositors don't like excluding too much and try to render popup at the
+        // bottom right corner of the provided area, so exclude just the full-width char to not
+        // obscure the cursor and not render popup at the end of the window.
+        let width = (font_dimensions.width * 2.0).ceil() as u32;
+        let height = font_dimensions.height.ceil() as u32;
+        let size = dpi::PhysicalSize::new(width, height);
+        let area = (position, size);
+        if force || self.ime_area != area {
+            self.ime_area = (position, size);
+            window.set_ime_cursor_area(position, size);
         }
     }
 

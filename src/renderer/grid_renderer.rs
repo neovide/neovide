@@ -195,12 +195,12 @@ impl GridRenderer {
         let leading_space_bytes = text.len() - trimmed.len();
         let leading_spaces = text[..leading_space_bytes].chars().count();
         let trimmed = trimmed.trim_end();
-        // TODO:
-        // let y_adjustment = self.shaper.y_adjustment;
-        let y_adjustment = self.em_size;
         let adjustment = PixelVec::new(
+            // TODO:
             leading_spaces as f32 * self.grid_scale.width(),
-            y_adjustment,
+            // TODO:
+            // self.shaper.baseline_offset(),
+            self.em_size,
         );
 
         if !trimmed.is_empty() {

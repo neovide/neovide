@@ -1,5 +1,6 @@
 ---@class Args
 ---@field neovide_channel_id integer
+---@field neovide_version string
 ---@field register_clipboard boolean
 ---@field register_right_click boolean
 ---@field enable_focus_command boolean
@@ -11,6 +12,7 @@ local args = ...
 
 
 vim.g.neovide_channel_id = args.neovide_channel_id
+vim.g.neovide_version = args.neovide_version
 
 -- Set some basic rendering options.
 vim.o.lazyredraw = false
@@ -25,15 +27,15 @@ local function rpcrequest(method, ...)
 end
 
 local function set_clipboard(register)
-    return function(lines, regtype)
-        rpcrequest("neovide.set_clipboard", lines)
+    return function(lines)
+        rpcrequest("neovide.set_clipboard", lines, register)
     end
 end
 
 local function get_clipboard(register)
     return function()
         return rpcrequest("neovide.get_clipboard", register)
-    end
+   end
 end
 
 if args.register_clipboard and not vim.g.neovide_no_custom_clipboard then
@@ -47,9 +49,13 @@ if args.register_clipboard and not vim.g.neovide_no_custom_clipboard then
             ["+"] = get_clipboard("+"),
             ["*"] = get_clipboard("*"),
         },
-        cache_enabled = 0
+        cache_enabled = false
     }
+    vim.g.loaded_clipboard_provider = nil
+    vim.cmd.runtime("autoload/provider/clipboard.vim")
 end
+
+
 
 if args.register_right_click then
     vim.api.nvim_create_user_command("NeovideRegisterRightClick", function()

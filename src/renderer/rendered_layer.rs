@@ -4,12 +4,9 @@ use glamour::Intersection;
 use palette::LinSrgba;
 use vide::{Layer, Scene};
 
-use crate::{
-    renderer::GridRenderer,
-    units::{GridScale, PixelRect},
-};
+use crate::units::{GridScale, PixelRect};
 
-use super::{RenderedWindow, RendererSettings, WindowDrawDetails};
+use super::{GridRenderer, RenderedWindow, RendererSettings, WindowDrawDetails};
 
 struct LayerWindow<'w> {
     window: &'w mut RenderedWindow,
@@ -82,24 +79,14 @@ impl<'w> FloatingLayer<'w> {
             .windows
             .iter()
             .map(|window| window.pixel_region(grid_scale))
-            .collect_vec();
-        //
-        // let blend = self.uniform_background_blend();
-        //
-        // self.windows.iter_mut().for_each(|window| {
-        //     window.update_blend(blend);
-        // });
+            .collect::<Vec<_>>();
 
         let mut ret = vec![];
 
         (0..self.windows.len()).for_each(|i| {
             let window = &mut self.windows[i];
             window.draw_background_surface(regions[i], default_background, grid_renderer, scene);
-        });
-        (0..self.windows.len()).for_each(|i| {
-            let window = &mut self.windows[i];
             window.draw_foreground_surface(regions[i], grid_renderer, scene);
-
             ret.push(WindowDrawDetails {
                 id: window.id,
                 region: regions[i],
@@ -107,14 +94,6 @@ impl<'w> FloatingLayer<'w> {
         });
 
         ret
-    }
-
-    pub fn uniform_background_blend(&self) -> u8 {
-        self.windows
-            .iter()
-            .filter_map(|window| window.get_smallest_blend_value())
-            .min()
-            .unwrap_or(0)
     }
 
     // fn _draw_shadow(&self, root_canvas: &Canvas, path: &Path, settings: &RendererSettings) {
@@ -159,11 +138,19 @@ fn get_window_group(windows: &mut Vec<LayerWindow>, index: usize) -> usize {
 }
 
 fn group_windows_with_regions(windows: &mut Vec<LayerWindow>, regions: &[PixelRect<f32>]) {
+    // intersects does not consider touching regions as intersection, so extend the box by one
+    // pixel before doing the test.
+    let epsilon = 1.0;
     for i in 0..windows.len() {
         for j in i + 1..windows.len() {
             let group_i = get_window_group(windows, i);
             let group_j = get_window_group(windows, j);
-            if group_i != group_j && regions[i].intersects(&regions[j]) {
+            if group_i != group_j
+                && regions[i]
+                    .to_rect()
+                    .inflate((epsilon, epsilon).into())
+                    .intersects(&regions[j])
+            {
                 let new_group = group_i.min(group_j);
                 if group_i != group_j {
                     windows[group_i].group = new_group;
@@ -194,9 +181,10 @@ pub fn group_windows(
     for i in 0..windows.len() {
         let _ = get_window_group(&mut windows, i);
     }
+    windows.sort_by(|a, b| a.group.cmp(&b.group));
     windows
         .into_iter()
-        .group_by(|window| window.group)
+        .chunk_by(|window| window.group)
         .into_iter()
         .map(|(_, v)| v.map(|w| w.window).collect::<Vec<_>>())
         .collect_vec()

@@ -28,6 +28,26 @@ if vim.g.neovide then
 end
 ```
 
+You can also query the version with:
+
+```vim
+echo g:neovide_version
+```
+
+Lua:
+
+```lua
+vim.print(vim.g.neovide_version)
+```
+
+Or inspect the more detailed channel information:
+
+Lua:
+
+```lua
+lua vim.print(vim.api.nvim_get_chan_info(vim.g.neovide_channel_id))
+```
+
 ### Display
 
 #### Font
@@ -318,6 +338,23 @@ Draw a grey border around opaque windows only.
 
 Default: `false`
 
+#### Position Animation Length
+
+VimScript:
+
+```vim
+let g:neovide_position_animation_length = 0.15
+```
+
+Lua:
+
+```lua
+vim.g.neovide_position_animation_length = 0.15
+```
+
+Determines the time it takes for a window to complete animation from one position to another
+position in seconds, such as `:split`. Set to `0` to disable.
+
 #### Scroll Animation Length
 
 VimScript:
@@ -417,6 +454,26 @@ Set the [`background`](https://neovim.io/doc/user/options.html#'background') opt
 starts. Possible values: _light_, _dark_, _auto_. On systems that support it, _auto_ will mirror the
 system theme, and will update `background` when the system theme changes.
 
+#### Layer grouping
+
+VimScript:
+
+```vim
+let g:experimental_layer_grouping = v:false
+```
+
+Lua:
+
+```lua
+vim.g.experimental_layer_grouping = false
+```
+
+**Available since 0.13.1.**
+
+Group non-emtpy consecutive layers (zindex) together, so that the shadows and blurring is done for
+the whole group instead of each individual layer. This can get rid of some shadowing and blending
+artifacts, but cause worse problems like [#2574](https://github.com/neovide/neovide/issues/2574).
+
 ### Functionality
 
 #### Refresh Rate
@@ -493,6 +550,26 @@ vim.g.neovide_confirm_quit = true
 
 If set to `true`, quitting while having unsaved changes will require confirmation. Enabled by
 default.
+
+#### Detach On Quit
+
+Possible values are `always_quit`, `always_detach`, or `prompt`. Set to `prompt` by default.
+
+VimScript:
+
+```vim
+let g:neovide_detach_on_quit = 'always_quit'
+```
+
+Lua:
+
+```lua
+vim.g.neovide_detach_on_quit = 'always_quit'
+```
+
+This option changes the closing behavior of Neovide when it's used to connect to a remote Neovim
+instance. It does this by switching between detaching from the remote instance and quitting Neovim
+entirely.
 
 #### Fullscreen
 

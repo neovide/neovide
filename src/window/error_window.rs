@@ -248,7 +248,7 @@ impl State {
                         true
                     }
                     "y" => {
-                        let _ = clipboard::set_contents(message.to_string());
+                        let _ = clipboard::set_contents(message.to_string(), "+");
                         true
                     }
                     _ => false,

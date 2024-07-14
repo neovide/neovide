@@ -316,7 +316,7 @@ impl CursorRenderer {
         // canvas.save();
         // canvas.clip_path(&path, None, Some(false));
         //
-        // let y_adjustment = grid_renderer.shaper.y_adjustment();
+        // let baseline_offset = grid_renderer.shaper.baseline_offset();
         // let style = &self.cursor.grid_cell.1;
         // let coarse_style = style.as_ref().map(|style| style.into()).unwrap_or_default();
         //
@@ -325,7 +325,7 @@ impl CursorRenderer {
         // for blob in blobs.iter() {
         //     canvas.draw_text_blob(
         //         blob,
-        //         (self.destination.x, self.destination.y + y_adjustment),
+        //         (self.destination.x, self.destination.y + baseline_offset),
         //         &paint,
         //     );
         // }

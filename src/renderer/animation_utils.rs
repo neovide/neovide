@@ -154,6 +154,8 @@ impl CriticallyDampedSpringAnimation {
 mod test {
     use super::*;
 
+    use crate::units::PixelPos;
+
     #[test]
     fn test_lerp() {
         assert_eq!(lerp(1.0, 0.0, 1.0), 0.0);

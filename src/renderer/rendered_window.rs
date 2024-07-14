@@ -5,7 +5,7 @@ use vide::{Layer, Scene};
 
 use crate::{
     cmd_line::CmdLineSettings,
-    editor::{AnchorInfo, Style, WindowType},
+    editor::{AnchorInfo, SortOrder, Style, WindowType},
     profiling::{tracy_plot, tracy_zone},
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
     settings::SETTINGS,
@@ -60,14 +60,15 @@ pub enum WindowDrawCommand {
         left: u64,
         right: u64,
     },
+    SortOrder(SortOrder),
 }
 
 #[derive(Clone)]
 struct Line {
     line_fragments: Vec<LineFragment>,
-    //background_picture: Option<Picture>,
-    //foreground_picture: Option<Picture>,
-    blend: u8,
+    // background_picture: Option<Picture>,
+    // foreground_picture: Option<Picture>,
+    has_transparency: bool,
     is_valid: bool,
 }
 
@@ -90,8 +91,6 @@ pub struct RenderedWindow {
     position_t: f32,
 
     pub scroll_animation: CriticallyDampedSpringAnimation,
-
-    has_transparency: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -107,19 +106,6 @@ impl WindowDrawDetails {
         } else {
             self.id
         }
-    }
-}
-
-impl Line {
-    fn update_background_blend(&mut self, blend: u8) {
-        if self.blend != blend {
-            self.blend = blend;
-            self.is_valid = false;
-        }
-    }
-
-    fn has_transparency(&self) -> bool {
-        self.blend > 0
     }
 }
 
@@ -144,8 +130,6 @@ impl RenderedWindow {
             position_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation.
 
             scroll_animation: CriticallyDampedSpringAnimation::new(),
-
-            has_transparency: false,
         }
     }
 
@@ -154,13 +138,6 @@ impl RenderedWindow {
             self.grid_current_position,
             self.grid_size.try_cast().unwrap(),
         ) * grid_scale
-    }
-
-    pub fn update_blend(&self, blend: u8) {
-        for (_, line) in self.iter_lines() {
-            let mut line = line.borrow_mut();
-            line.update_background_blend(blend);
-        }
     }
 
     fn get_target_position(&self, grid_rect: &GridRect<f32>) -> GridPos<f32> {
@@ -240,7 +217,6 @@ impl RenderedWindow {
         scene: &mut Scene,
     ) {
         tracy_zone!("draw_background_surface");
-        let mut has_transparency = false;
 
         let grid_scale = grid_renderer.grid_scale;
         let inner_region = self.inner_region(pixel_region, grid_scale);
@@ -249,7 +225,6 @@ impl RenderedWindow {
             |transform: PixelVec<f32>, line: &Rc<RefCell<Line>>, layer: &mut Layer| {
                 let line = line.borrow();
                 if !line.line_fragments.is_empty() {
-                    has_transparency |= line.has_transparency();
                     for line_fragment in line.line_fragments.iter() {
                         let LineFragment {
                             window_left,
@@ -290,10 +265,6 @@ impl RenderedWindow {
         // canvas.clip_rect(inner_region, None, false);
 
         log::trace!("region: {:?}, inner: {:?}", pixel_region, inner_region,);
-        // canvas.restore();
-        // canvas.restore();
-        //
-        self.has_transparency = has_transparency;
     }
 
     fn draw_line(
@@ -365,76 +336,20 @@ impl RenderedWindow {
                 scroll_offset_lines..scroll_offset_lines + self.grid_size.height as isize + 1,
             )
             .flatten()
-            .any(|line| line.borrow().has_transparency())
+            .any(|line| line.borrow().has_transparency)
     }
 
     pub fn draw(
         &mut self,
-        settings: &RendererSettings,
         default_background: LinSrgba,
         grid_renderer: &mut GridRenderer,
+        grid_scale: GridScale,
         scene: &mut Scene,
     ) -> WindowDrawDetails {
         let pixel_region = self.pixel_region(grid_renderer.grid_scale);
 
-        // if self.anchor_info.is_some() && settings.floating_shadow {
-        //     root_canvas.save();
-        //     let shadow_path = Path::rect(pixel_region, None);
-        //     // We clip using the Difference op to make sure that the shadow isn't rendered inside
-        //     // the window itself.
-        //     root_canvas.clip_path(&shadow_path, Some(ClipOp::Difference), None);
-        //     // The light angle is specified in degrees from the vertical, so we first convert them
-        //     // to radians and then use sin/cos to get the y and z components of the light
-        //     let light_angle_radians = settings.light_angle_degrees.to_radians();
-        //     draw_shadow(
-        //         root_canvas,
-        //         &shadow_path,
-        //         // Specifies how far from the root canvas the shadow casting rect is. We just use
-        //         // the z component here to set it a constant distance away.
-        //         Point3::new(0., 0., settings.floating_z_height),
-        //         // Because we use the DIRECTIONAL_LIGHT shadow flag, this specifies the angle that
-        //         // the light is coming from.
-        //         Point3::new(0., -light_angle_radians.sin(), light_angle_radians.cos()),
-        //         // This is roughly equal to the apparent radius of the light .
-        //         5.,
-        //         Color::from_argb((0.03 * 255.) as u8, 0, 0, 0),
-        //         Color::from_argb((0.35 * 255.) as u8, 0, 0, 0),
-        //         // Directional Light flag is necessary to make the shadow render consistently
-        //         // across various sizes of floating windows. It effects how the light direction is
-        //         // processed.
-        //         Some(ShadowFlags::DIRECTIONAL_LIGHT),
-        //     );
-        //     root_canvas.restore();
-        // }
-        //
         // root_canvas.save();
         // root_canvas.clip_rect(pixel_region, None, Some(false));
-        //
-        // let paint = Paint::default()
-        //     .set_anti_alias(false)
-        //     .set_color(Color::from_argb(255, 255, 255, default_background.a()))
-        //     .set_blend_mode(if self.anchor_info.is_some() {
-        //         BlendMode::SrcOver
-        //     } else {
-        //         BlendMode::Src
-        //     })
-        //     .to_owned();
-        //
-
-        // let save_layer_rec = SaveLayerRec::default().bounds(&pixel_region).paint(&paint);
-        // root_canvas.save_layer(&save_layer_rec);
-        //
-        // let mut background_paint = Paint::default();
-        // background_paint.set_blend_mode(BlendMode::Src);
-        // background_paint.set_alpha(default_background.a());
-        // let background_layer_rec = SaveLayerRec::default()
-        //     .bounds(&pixel_region)
-        //     .paint(&background_paint);
-        //
-        // root_canvas.save_layer(&background_layer_rec);
-        // root_canvas.clear(default_background.with_a(255));
-        // self.draw_background_surface(root_canvas, pixel_region_box, grid_scale);
-        // root_canvas.restore();
 
         self.draw_background_surface(pixel_region, default_background, grid_renderer, scene);
 
@@ -510,9 +425,9 @@ impl RenderedWindow {
 
                 let line = Line {
                     line_fragments,
-                    //background_picture: None,
-                    //foreground_picture: None,
-                    blend: 0,
+                    // background_picture: None,
+                    // foreground_picture: None,
+                    has_transparency: false,
                     is_valid: false,
                 };
 
@@ -564,6 +479,11 @@ impl RenderedWindow {
             }
             WindowDrawCommand::ViewportMargins { top, bottom, .. } => {
                 self.viewport_margins = ViewportMargins { top, bottom }
+            }
+            WindowDrawCommand::SortOrder(sort_order) => {
+                if let Some(anchor_info) = self.anchor_info.as_mut() {
+                    anchor_info.sort_order = sort_order;
+                }
             }
             _ => {}
         };
@@ -655,10 +575,6 @@ impl RenderedWindow {
         })
     }
 
-    fn iter_lines(&self) -> impl Iterator<Item = (isize, &Rc<RefCell<Line>>)> {
-        self.iter_border_lines().chain(self.iter_scrollable_lines())
-    }
-
     fn iter_scrollable_lines_with_transform(
         &self,
         pixel_region: PixelRect<f32>,
@@ -709,28 +625,7 @@ impl RenderedWindow {
         )
     }
 
-    pub fn get_smallest_blend_value(&self) -> Option<u8> {
-        let height = self.grid_size.height as isize;
-        if height == 0 {
-            return None;
-        }
-        let mut smallest_blend_value: Option<u8> = None;
-
-        for (_, line) in self.iter_lines() {
-            let line = line.borrow();
-            line.line_fragments.iter().for_each(|f| {
-                if let Some(style) = &f.style {
-                    smallest_blend_value =
-                        Some(smallest_blend_value.map_or(style.blend, |v| v.min(style.blend)));
-                }
-            });
-        }
-
-        smallest_blend_value
-    }
-
     pub fn prepare_lines(&mut self, grid_renderer: &mut GridRenderer, force: bool) {
-        // log::trace!("prepare_lines force: {force}");
         // let scroll_offset_lines = self.scroll_animation.position.floor() as isize;
         // let height = self.grid_size.height as isize;
         // if height == 0 {
@@ -750,7 +645,7 @@ impl RenderedWindow {
         //     let grid_rect = Rect::from_wh(line_size.width, line_size.height);
         //     let canvas = recorder.begin_recording(grid_rect, None);
         //
-        //     let mut blend = 0;
+        //     let mut has_transparency = false;
         //     let mut custom_background = false;
         //
         //     for line_fragment in line.line_fragments.iter() {
@@ -768,7 +663,7 @@ impl RenderedWindow {
         //             style,
         //         );
         //         custom_background |= background_info.custom_color;
-        //         blend = blend.min(style.as_ref().map_or(0, |s| s.blend));
+        //         has_transparency |= background_info.transparent;
         //     }
         //     let background_picture =
         //         custom_background.then_some(recorder.finish_recording_as_picture(None).unwrap());
@@ -797,7 +692,7 @@ impl RenderedWindow {
         //
         //     line.background_picture = background_picture;
         //     line.foreground_picture = foreground_picture;
-        //     line.blend = blend;
+        //     line.has_transparency = has_transparency;
         //     line.is_valid = true;
         // };
         //
