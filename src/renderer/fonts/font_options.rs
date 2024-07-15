@@ -217,7 +217,10 @@ impl FontOptions {
                     .filter(|font| font.family.is_some())
                     .map(|font| FontDescription {
                         family: font.family.clone().unwrap(),
-                        style: font.style.clone(),
+                        style: font
+                            .style
+                            .clone()
+                            .or_else(|| style.name().map(str::to_string)),
                     })
                     .chain(normal_fallback.clone())
                     .collect()
