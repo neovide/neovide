@@ -155,13 +155,6 @@ pub fn create_window(
         .with_transparent(true)
         .with_visible(false);
 
-    #[cfg(target_os = "windows")]
-    let winit_window_builder = if !cmd_line_settings.opengl {
-        WindowBuilderExtWindows::with_no_redirection_bitmap(winit_window_builder, true)
-    } else {
-        winit_window_builder
-    };
-
     let frame_decoration = cmd_line_settings.frame;
 
     #[cfg(target_os = "macos")]
