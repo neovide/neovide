@@ -26,54 +26,56 @@ impl<'w> FloatingLayer<'w> {
         scene: &mut Scene,
     ) -> Vec<WindowDrawDetails> {
         let grid_scale = grid_renderer.grid_scale;
-        // let pixel_regions = self
-        //     .windows
-        //     .iter()
-        //     .map(|window| window.pixel_region(grid_scale))
-        //     .collect_vec();
-        // let (silhouette, bound_rect) = build_silhouette(&pixel_regions);
-        // let has_transparency = default_background.a() != 255
-        //     || self.windows.iter().any(|window| window.has_transparency());
-        //
-        // self._draw_shadow(root_canvas, &silhouette, settings);
-        //
-        // root_canvas.save();
-        // root_canvas.clip_path(&silhouette, None, Some(false));
-        // let need_blur = has_transparency || settings.floating_blur;
-        //
-        // if need_blur {
-        //     if let Some(blur) = blur(
-        //         (
-        //             settings.floating_blur_amount_x,
-        //             settings.floating_blur_amount_y,
-        //         ),
-        //         None,
-        //         None,
-        //         None,
-        //     ) {
-        //         let paint = Paint::default()
-        //             .set_anti_alias(false)
-        //             .set_blend_mode(BlendMode::Src)
-        //             .to_owned();
-        //         let save_layer_rec = SaveLayerRec::default()
-        //             .backdrop(&blur)
-        //             .bounds(&bound_rect)
-        //             .paint(&paint);
-        //         root_canvas.save_layer(&save_layer_rec);
-        //         root_canvas.restore();
-        //     }
-        // }
-        //
-        // let paint = Paint::default()
-        //     .set_anti_alias(false)
-        //     .set_color(Color::from_argb(255, 255, 255, default_background.a()))
-        //     .set_blend_mode(BlendMode::SrcOver)
-        //     .to_owned();
-        //
-        // let save_layer_rec = SaveLayerRec::default().bounds(&bound_rect).paint(&paint);
-        //
-        // root_canvas.save_layer(&save_layer_rec);
-        // root_canvas.clear(default_background.with_a(255));
+        /*
+        let pixel_regions = self
+            .windows
+            .iter()
+            .map(|window| window.pixel_region(grid_scale))
+            .collect::<Vec<_>>();
+        let (silhouette, bound_rect) = build_silhouette(&pixel_regions);
+        let has_transparency = default_background.a() != 255
+            || self.windows.iter().any(|window| window.has_transparency());
+
+        self._draw_shadow(root_canvas, &silhouette, settings);
+
+        root_canvas.save();
+        root_canvas.clip_path(&silhouette, None, Some(false));
+        let need_blur = has_transparency || settings.floating_blur;
+
+        if need_blur {
+            if let Some(blur) = blur(
+                (
+                    settings.floating_blur_amount_x,
+                    settings.floating_blur_amount_y,
+                ),
+                None,
+                None,
+                None,
+            ) {
+                let paint = Paint::default()
+                    .set_anti_alias(false)
+                    .set_blend_mode(BlendMode::Src)
+                    .to_owned();
+                let save_layer_rec = SaveLayerRec::default()
+                    .backdrop(&blur)
+                    .bounds(&bound_rect)
+                    .paint(&paint);
+                root_canvas.save_layer(&save_layer_rec);
+                root_canvas.restore();
+            }
+        }
+
+        let paint = Paint::default()
+            .set_anti_alias(false)
+            .set_color(Color::from_argb(255, 255, 255, default_background.a()))
+            .set_blend_mode(BlendMode::SrcOver)
+            .to_owned();
+
+        let save_layer_rec = SaveLayerRec::default().bounds(&bound_rect).paint(&paint);
+
+        root_canvas.save_layer(&save_layer_rec);
+        root_canvas.clear(default_background.with_a(255));
+        */
 
         let regions = self
             .windows
@@ -96,38 +98,40 @@ impl<'w> FloatingLayer<'w> {
         ret
     }
 
-    // fn _draw_shadow(&self, root_canvas: &Canvas, path: &Path, settings: &RendererSettings) {
-    //     if !settings.floating_shadow {
-    //         return;
-    //     }
-    //
-    //     root_canvas.save();
-    //     // We clip using the Difference op to make sure that the shadow isn't rendered inside
-    //     // the window itself.
-    //     root_canvas.clip_path(path, Some(ClipOp::Difference), None);
-    //     // The light angle is specified in degrees from the vertical, so we first convert them
-    //     // to radians and then use sin/cos to get the y and z components of the light
-    //     let light_angle_radians = settings.light_angle_degrees.to_radians();
-    //     draw_shadow(
-    //         root_canvas,
-    //         path,
-    //         // Specifies how far from the root canvas the shadow casting rect is. We just use
-    //         // the z component here to set it a constant distance away.
-    //         Point3::new(0., 0., settings.floating_z_height),
-    //         // Because we use the DIRECTIONAL_LIGHT shadow flag, this specifies the angle that
-    //         // the light is coming from.
-    //         Point3::new(0., -light_angle_radians.sin(), light_angle_radians.cos()),
-    //         // This is roughly equal to the apparent radius of the light .
-    //         5.,
-    //         Color::from_argb((0.03 * 255.) as u8, 0, 0, 0),
-    //         Color::from_argb((0.35 * 255.) as u8, 0, 0, 0),
-    //         // Directional Light flag is necessary to make the shadow render consistently
-    //         // across various sizes of floating windows. It effects how the light direction is
-    //         // processed.
-    //         Some(ShadowFlags::DIRECTIONAL_LIGHT),
-    //     );
-    //     root_canvas.restore();
-    // }
+    /*
+    fn _draw_shadow(&self, root_canvas: &Canvas, path: &Path, settings: &RendererSettings) {
+        if !settings.floating_shadow {
+            return;
+        }
+
+        root_canvas.save();
+        // We clip using the Difference op to make sure that the shadow isn't rendered inside
+        // the window itself.
+        root_canvas.clip_path(path, Some(ClipOp::Difference), None);
+        // The light angle is specified in degrees from the vertical, so we first convert them
+        // to radians and then use sin/cos to get the y and z components of the light
+        let light_angle_radians = settings.light_angle_degrees.to_radians();
+        draw_shadow(
+            root_canvas,
+            path,
+            // Specifies how far from the root canvas the shadow casting rect is. We just use
+            // the z component here to set it a constant distance away.
+            Point3::new(0., 0., settings.floating_z_height),
+            // Because we use the DIRECTIONAL_LIGHT shadow flag, this specifies the angle that
+            // the light is coming from.
+            Point3::new(0., -light_angle_radians.sin(), light_angle_radians.cos()),
+            // This is roughly equal to the apparent radius of the light .
+            5.,
+            Color::from_argb((0.03 * 255.) as u8, 0, 0, 0),
+            Color::from_argb((0.35 * 255.) as u8, 0, 0, 0),
+            // Directional Light flag is necessary to make the shadow render consistently
+            // across various sizes of floating windows. It effects how the light direction is
+            // processed.
+            Some(ShadowFlags::DIRECTIONAL_LIGHT),
+        );
+        root_canvas.restore();
+    }
+    */
 }
 
 fn get_window_group(windows: &mut Vec<LayerWindow>, index: usize) -> usize {
@@ -190,17 +194,19 @@ pub fn group_windows(
         .collect_vec()
 }
 
-// fn build_silhouette(regions: &[PixelRect<f32>]) -> (Path, Rect) {
-//     let silhouette = regions
-//         .iter()
-//         .map(|r| Path::rect(to_skia_rect(r), None))
-//         .reduce(|a, b| a.op(&b, PathOp::Union).unwrap())
-//         .unwrap();
-//     let bounding_rect = regions
-//         .iter()
-//         .map(to_skia_rect)
-//         .reduce(Rect::join2)
-//         .unwrap();
-//
-//     (silhouette, bounding_rect)
-// }
+/*
+fn build_silhouette(regions: &[PixelRect<f32>]) -> (Path, Rect) {
+    let silhouette = regions
+        .iter()
+        .map(|r| Path::rect(to_skia_rect(r), None))
+        .reduce(|a, b| a.op(&b, PathOp::Union).unwrap())
+        .unwrap();
+    let bounding_rect = regions
+        .iter()
+        .map(to_skia_rect)
+        .reduce(Rect::join2)
+        .unwrap();
+
+    (silhouette, bounding_rect)
+}
+*/

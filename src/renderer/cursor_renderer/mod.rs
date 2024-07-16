@@ -272,69 +272,71 @@ impl CursorRenderer {
         self.blink_status.update_status(&self.cursor)
     }
 
-    pub fn draw(&mut self, grid_renderer: &mut GridRenderer) {
-        // tracy_zone!("cursor_draw");
-        // let settings = SETTINGS.get::<CursorSettings>();
-        // let render = self.blink_status.should_render() || settings.smooth_blink;
-        // let opacity = match settings.smooth_blink {
-        //     true => self.blink_status.opacity(),
-        //     false => 1.0,
-        // };
-        // let alpha = self.cursor.alpha() as f32;
-        //
-        // let mut paint = Paint::new(skia_safe::colors::WHITE, None);
-        // paint.set_anti_alias(settings.antialiasing);
-        //
-        // let character = self.cursor.grid_cell.0.clone();
-        //
-        // if !(self.cursor.enabled && render) {
-        //     return;
-        // }
-        // // Draw Background
-        // let background_color = self
-        //     .cursor
-        //     .background(&grid_renderer.default_style.colors)
-        //     .to_color()
-        //     .with_a((opacity * alpha) as u8);
-        // paint.set_color(background_color);
-        //
-        // let path = if self.window_has_focus || self.cursor.shape != CursorShape::Block {
-        //     self.draw_rectangle(canvas, &paint)
-        // } else {
-        //     let outline_width = settings.unfocused_outline_width * grid_renderer.em_size;
-        //     self.draw_rectangular_outline(canvas, &paint, outline_width)
-        // };
-        //
-        // // Draw foreground
-        // let foreground_color = self
-        //     .cursor
-        //     .foreground(&grid_renderer.default_style.colors)
-        //     .to_color()
-        //     .with_a((opacity * alpha) as u8);
-        // paint.set_color(foreground_color);
-        //
-        // canvas.save();
-        // canvas.clip_path(&path, None, Some(false));
-        //
-        // let baseline_offset = grid_renderer.shaper.baseline_offset();
-        // let style = &self.cursor.grid_cell.1;
-        // let coarse_style = style.as_ref().map(|style| style.into()).unwrap_or_default();
-        //
-        // let blobs = &grid_renderer.shaper.shape_cached(character, coarse_style);
-        //
-        // for blob in blobs.iter() {
-        //     canvas.draw_text_blob(
-        //         blob,
-        //         (self.destination.x, self.destination.y + baseline_offset),
-        //         &paint,
-        //     );
-        // }
-        //
-        // canvas.restore();
-        //
-        // if let Some(vfx) = self.cursor_vfx.as_ref() {
-        //     vfx.render(&settings, canvas, grid_renderer, &self.cursor);
-        // }
+    pub fn draw(&mut self, _grid_renderer: &mut GridRenderer) {
+        /*
+        tracy_zone!("cursor_draw");
+        let settings = SETTINGS.get::<CursorSettings>();
+        let render = self.blink_status.should_render() || settings.smooth_blink;
+        let opacity = match settings.smooth_blink {
+            true => self.blink_status.opacity(),
+            false => 1.0,
+        };
+        let alpha = self.cursor.alpha() as f32;
+
+        let mut paint = Paint::new(skia_safe::colors::WHITE, None);
+        paint.set_anti_alias(settings.antialiasing);
+
+        let character = self.cursor.grid_cell.0.clone();
+
+        if !(self.cursor.enabled && render) {
+            return;
+        }
+        // Draw Background
+        let background_color = self
+            .cursor
+            .background(&grid_renderer.default_style.colors)
+            .to_color()
+            .with_a((opacity * alpha) as u8);
+        paint.set_color(background_color);
+
+        let path = if self.window_has_focus || self.cursor.shape != CursorShape::Block {
+            self.draw_rectangle(canvas, &paint)
+        } else {
+            let outline_width = settings.unfocused_outline_width * grid_renderer.em_size;
+            self.draw_rectangular_outline(canvas, &paint, outline_width)
+        };
+
+        // Draw foreground
+        let foreground_color = self
+            .cursor
+            .foreground(&grid_renderer.default_style.colors)
+            .to_color()
+            .with_a((opacity * alpha) as u8);
+        paint.set_color(foreground_color);
+
+        canvas.save();
+        canvas.clip_path(&path, None, Some(false));
+
+        let baseline_offset = grid_renderer.shaper.baseline_offset();
+        let style = &self.cursor.grid_cell.1;
+        let coarse_style = style.as_ref().map(|style| style.into()).unwrap_or_default();
+
+        let blobs = &grid_renderer.shaper.shape_cached(character, coarse_style);
+
+        for blob in blobs.iter() {
+            canvas.draw_text_blob(
+                blob,
+                (self.destination.x, self.destination.y + baseline_offset),
+                &paint,
+            );
+        }
+
+        canvas.restore();
+
+        if let Some(vfx) = self.cursor_vfx.as_ref() {
+            vfx.render(&settings, canvas, grid_renderer, &self.cursor);
+        }
+        */
     }
 
     pub fn animate(
@@ -422,50 +424,52 @@ impl CursorRenderer {
         animating
     }
 
-    // fn draw_rectangle(&self, canvas: &Canvas, paint: &Paint) -> Path {
-    //     // The cursor is made up of four points, so I create a path with each of the four
-    //     // corners.
-    //     let mut path = Path::new();
-    //
-    //     path.move_to(to_skia_point(self.corners[0].current_position));
-    //     path.line_to(to_skia_point(self.corners[1].current_position));
-    //     path.line_to(to_skia_point(self.corners[2].current_position));
-    //     path.line_to(to_skia_point(self.corners[3].current_position));
-    //     path.close();
-    //
-    //     canvas.draw_path(&path, paint);
-    //     path
-    // }
-    //
-    // fn draw_rectangular_outline(&self, canvas: &Canvas, paint: &Paint, outline_width: f32) -> Path {
-    //     let mut rectangle = Path::new();
-    //     rectangle.move_to(to_skia_point(self.corners[0].current_position));
-    //     rectangle.line_to(to_skia_point(self.corners[1].current_position));
-    //     rectangle.line_to(to_skia_point(self.corners[2].current_position));
-    //     rectangle.line_to(to_skia_point(self.corners[3].current_position));
-    //     rectangle.close();
-    //
-    //     let offsets: [PixelVec<f32>; 4] = [
-    //         (outline_width, outline_width).into(),
-    //         (-outline_width, outline_width).into(),
-    //         (-outline_width, -outline_width).into(),
-    //         (outline_width, -outline_width).into(),
-    //     ];
-    //
-    //     let mut subtract = Path::new();
-    //     subtract.move_to(to_skia_point(self.corners[0].current_position + offsets[0]));
-    //     subtract.line_to(to_skia_point(self.corners[1].current_position + offsets[1]));
-    //     subtract.line_to(to_skia_point(self.corners[2].current_position + offsets[2]));
-    //     subtract.line_to(to_skia_point(self.corners[3].current_position + offsets[3]));
-    //     subtract.close();
-    //
-    //     // We have two "rectangles"; create an outline path by subtracting the smaller rectangle
-    //     // from the larger one. This can fail in which case we return a full "rectangle".
-    //     let path = op(&rectangle, &subtract, skia_safe::PathOp::Difference).unwrap_or(rectangle);
-    //
-    //     canvas.draw_path(&path, paint);
-    //     path
-    // }
+    /*
+    fn draw_rectangle(&self, canvas: &Canvas, paint: &Paint) -> Path {
+        // The cursor is made up of four points, so I create a path with each of the four
+        // corners.
+        let mut path = Path::new();
+
+        path.move_to(to_skia_point(self.corners[0].current_position));
+        path.line_to(to_skia_point(self.corners[1].current_position));
+        path.line_to(to_skia_point(self.corners[2].current_position));
+        path.line_to(to_skia_point(self.corners[3].current_position));
+        path.close();
+
+        canvas.draw_path(&path, paint);
+        path
+    }
+
+    fn draw_rectangular_outline(&self, canvas: &Canvas, paint: &Paint, outline_width: f32) -> Path {
+        let mut rectangle = Path::new();
+        rectangle.move_to(to_skia_point(self.corners[0].current_position));
+        rectangle.line_to(to_skia_point(self.corners[1].current_position));
+        rectangle.line_to(to_skia_point(self.corners[2].current_position));
+        rectangle.line_to(to_skia_point(self.corners[3].current_position));
+        rectangle.close();
+
+        let offsets: [PixelVec<f32>; 4] = [
+            (outline_width, outline_width).into(),
+            (-outline_width, outline_width).into(),
+            (-outline_width, -outline_width).into(),
+            (outline_width, -outline_width).into(),
+        ];
+
+        let mut subtract = Path::new();
+        subtract.move_to(to_skia_point(self.corners[0].current_position + offsets[0]));
+        subtract.line_to(to_skia_point(self.corners[1].current_position + offsets[1]));
+        subtract.line_to(to_skia_point(self.corners[2].current_position + offsets[2]));
+        subtract.line_to(to_skia_point(self.corners[3].current_position + offsets[3]));
+        subtract.close();
+
+        // We have two "rectangles"; create an outline path by subtracting the smaller rectangle
+        // from the larger one. This can fail in which case we return a full "rectangle".
+        let path = op(&rectangle, &subtract, skia_safe::PathOp::Difference).unwrap_or(rectangle);
+
+        canvas.draw_path(&path, paint);
+        path
+    }
+    */
 
     pub fn get_destination(&self) -> PixelPos<f32> {
         self.destination

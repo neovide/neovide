@@ -173,15 +173,17 @@ impl GridRenderer {
         let region = self.compute_text_region(clip_position, cell_width + 2);
 
         // TODO: Draw underline
-        // if let Some(underline_style) = style.underline {
-        //     let stroke_size = self.shaper.stroke_size();
-        //     let underline_position = self.shaper.underline_position();
-        //     let p1 = pos + PixelVec::new(0.0, underline_position);
-        //     let p2 = pos + PixelVec::new(width, underline_position);
-        //
-        //     self.draw_underline(canvas, style, underline_style, stroke_size, p1, p2);
-        //     drawn = true;
-        // }
+        if let Some(_underline_style) = style.underline {
+            /*
+            let stroke_size = self.shaper.stroke_size();
+            let underline_position = self.shaper.underline_position();
+            let p1 = pos + PixelVec::new(0.0, underline_position);
+            let p2 = pos + PixelVec::new(width, underline_position);
+
+            self.draw_underline(canvas, style, underline_style, stroke_size, p1, p2);
+            */
+            drawn = true;
+        }
 
         let color: Srgba = if SETTINGS.get::<RendererSettings>().debug_renderer {
             Hsv::new(rand::random::<f32>() * 360.0, 1.0, 1.0).into_color()
@@ -216,16 +218,18 @@ impl GridRenderer {
             drawn = true;
         }
 
-        // if style.strikethrough {
-        //     let line_position = region.center().y;
-        //     paint.set_color(style.special(&self.default_style.colors).to_color());
-        //     canvas.draw_line(
-        //         (pos.x, line_position),
-        //         (pos.x + width, line_position),
-        //         &paint,
-        //     );
-        //     drawn = true;
-        // }
+        if style.strikethrough {
+            /*
+            let line_position = region.center().y;
+            paint.set_color(style.special(&self.default_style.colors).to_color());
+            canvas.draw_line(
+                (pos.x, line_position),
+                (pos.x + width, line_position),
+                &paint,
+            );
+            */
+            drawn = true;
+        }
 
         drawn
     }
@@ -238,72 +242,74 @@ impl GridRenderer {
         p1: PixelPos<f32>,
         p2: PixelPos<f32>,
     ) {
-        // tracy_zone!("draw_underline");
-        // canvas.save();
-        //
-        // let mut underline_paint = Paint::default();
-        // underline_paint.set_anti_alias(false);
-        // underline_paint.set_blend_mode(BlendMode::SrcOver);
-        // let underline_stroke_scale = SETTINGS.get::<RendererSettings>().underline_stroke_scale;
-        // // clamp to 1 and round to avoid aliasing issues
-        // let stroke_width = (stroke_size * underline_stroke_scale).max(1.).round();
-        //
-        // // offset y by width / 2 to align the *top* of the underline with p1 and p2
-        // // also round to avoid aliasing issues
-        // let p1 = (p1.x.round(), (p1.y + stroke_width / 2.).round());
-        // let p2 = (p2.x.round(), (p2.y + stroke_width / 2.).round());
-        //
-        // underline_paint
-        //     .set_color(style.special(&self.default_style.colors).to_color())
-        //     .set_stroke_width(stroke_width);
-        //
-        // match underline_style {
-        //     UnderlineStyle::Underline => {
-        //         underline_paint.set_path_effect(None);
-        //         canvas.draw_line(p1, p2, &underline_paint);
-        //     }
-        //     UnderlineStyle::UnderDouble => {
-        //         underline_paint.set_path_effect(None);
-        //         canvas.draw_line(p1, p2, &underline_paint);
-        //         let p1 = (p1.0, p1.1 + 2. * stroke_width);
-        //         let p2 = (p2.0, p2.1 + 2. * stroke_width);
-        //         canvas.draw_line(p1, p2, &underline_paint);
-        //     }
-        //     UnderlineStyle::UnderCurl => {
-        //         let p1 = (p1.0, p1.1 + stroke_width);
-        //         let p2 = (p2.0, p2.1 + stroke_width);
-        //         underline_paint
-        //             .set_path_effect(None)
-        //             .set_anti_alias(true)
-        //             .set_style(skia_safe::paint::Style::Stroke);
-        //         let mut path = Path::default();
-        //         path.move_to(p1);
-        //         let mut sin = -2. * stroke_width;
-        //         let dx = self.grid_scale.width() / 2.;
-        //         let count = ((p2.0 - p1.0) / dx).round();
-        //         let dy = (p2.1 - p1.1) / count;
-        //         for _ in 0..(count as i32) {
-        //             sin *= -1.;
-        //             path.r_quad_to((dx / 2., sin), (dx, dy));
-        //         }
-        //         canvas.draw_path(&path, &underline_paint);
-        //     }
-        //     UnderlineStyle::UnderDash => {
-        //         underline_paint.set_path_effect(dash_path_effect::new(
-        //             &[6.0 * stroke_width, 2.0 * stroke_width],
-        //             0.0,
-        //         ));
-        //         canvas.draw_line(p1, p2, &underline_paint);
-        //     }
-        //     UnderlineStyle::UnderDot => {
-        //         underline_paint.set_path_effect(dash_path_effect::new(
-        //             &[1.0 * stroke_width, 1.0 * stroke_width],
-        //             0.0,
-        //         ));
-        //         canvas.draw_line(p1, p2, &underline_paint);
-        //     }
-        // }
-        //
-        // canvas.restore();
+        /*
+        tracy_zone!("draw_underline");
+        canvas.save();
+
+        let mut underline_paint = Paint::default();
+        underline_paint.set_anti_alias(false);
+        underline_paint.set_blend_mode(BlendMode::SrcOver);
+        let underline_stroke_scale = SETTINGS.get::<RendererSettings>().underline_stroke_scale;
+        // clamp to 1 and round to avoid aliasing issues
+        let stroke_width = (stroke_size * underline_stroke_scale).max(1.).round();
+
+        // offset y by width / 2 to align the *top* of the underline with p1 and p2
+        // also round to avoid aliasing issues
+        let p1 = (p1.x.round(), (p1.y + stroke_width / 2.).round());
+        let p2 = (p2.x.round(), (p2.y + stroke_width / 2.).round());
+
+        underline_paint
+            .set_color(style.special(&self.default_style.colors).to_color())
+            .set_stroke_width(stroke_width);
+
+        match underline_style {
+            UnderlineStyle::Underline => {
+                underline_paint.set_path_effect(None);
+                canvas.draw_line(p1, p2, &underline_paint);
+            }
+            UnderlineStyle::UnderDouble => {
+                underline_paint.set_path_effect(None);
+                canvas.draw_line(p1, p2, &underline_paint);
+                let p1 = (p1.0, p1.1 + 2. * stroke_width);
+                let p2 = (p2.0, p2.1 + 2. * stroke_width);
+                canvas.draw_line(p1, p2, &underline_paint);
+            }
+            UnderlineStyle::UnderCurl => {
+                let p1 = (p1.0, p1.1 + stroke_width);
+                let p2 = (p2.0, p2.1 + stroke_width);
+                underline_paint
+                    .set_path_effect(None)
+                    .set_anti_alias(true)
+                    .set_style(skia_safe::paint::Style::Stroke);
+                let mut path = Path::default();
+                path.move_to(p1);
+                let mut sin = -2. * stroke_width;
+                let dx = self.grid_scale.width() / 2.;
+                let count = ((p2.0 - p1.0) / dx).round();
+                let dy = (p2.1 - p1.1) / count;
+                for _ in 0..(count as i32) {
+                    sin *= -1.;
+                    path.r_quad_to((dx / 2., sin), (dx, dy));
+                }
+                canvas.draw_path(&path, &underline_paint);
+            }
+            UnderlineStyle::UnderDash => {
+                underline_paint.set_path_effect(dash_path_effect::new(
+                    &[6.0 * stroke_width, 2.0 * stroke_width],
+                    0.0,
+                ));
+                canvas.draw_line(p1, p2, &underline_paint);
+            }
+            UnderlineStyle::UnderDot => {
+                underline_paint.set_path_effect(dash_path_effect::new(
+                    &[1.0 * stroke_width, 1.0 * stroke_width],
+                    0.0,
+                ));
+                canvas.draw_line(p1, p2, &underline_paint);
+            }
+        }
+
+        canvas.restore();
+        */
     }
 }

@@ -36,100 +36,104 @@ impl Profiler {
             return;
         }
 
-        // root_canvas.save();
-        // let rect = self.get_rect();
-        // root_canvas.clip_rect(rect, None, Some(false));
-        //
-        // let mut paint = Paint::default();
-        //
-        // // Draw background
-        // let color = Color::from_argb(200, 30, 30, 30);
-        // paint.set_color(color);
-        // root_canvas.draw_paint(&paint);
-        //
-        // // Draw FPS
-        // let color = Color::from_argb(255, 0, 255, 0);
-        // paint.set_color(color);
-        // let mut text_position = self.position;
-        // text_position.y += self.font.skia_font.size();
-        // root_canvas.draw_str(
-        //     format!("{:.0}FPS", 1.0 / dt.max(f32::EPSILON)),
-        //     text_position,
-        //     &self.font.skia_font,
-        //     &paint,
-        // );
-        //
-        // self.frametimes.push_back(dt * 1000.0); // to msecs
-        // while self.frametimes.len() > FRAMETIMES_COUNT {
-        //     self.frametimes.pop_front();
-        // }
-        //
-        // self.draw_graph(root_canvas);
-        //
-        // root_canvas.restore();
+        /*
+        root_canvas.save();
+        let rect = self.get_rect();
+        root_canvas.clip_rect(rect, None, Some(false));
+
+        let mut paint = Paint::default();
+
+        // Draw background
+        let color = Color::from_argb(200, 30, 30, 30);
+        paint.set_color(color);
+        root_canvas.draw_paint(&paint);
+
+        // Draw FPS
+        let color = Color::from_argb(255, 0, 255, 0);
+        paint.set_color(color);
+        let mut text_position = self.position;
+        text_position.y += self.font.skia_font.size();
+        root_canvas.draw_str(
+            format!("{:.0}FPS", 1.0 / dt.max(f32::EPSILON)),
+            text_position,
+            &self.font.skia_font,
+            &paint,
+        );
+
+        self.frametimes.push_back(dt * 1000.0); // to msecs
+        while self.frametimes.len() > FRAMETIMES_COUNT {
+            self.frametimes.pop_front();
+        }
+
+        self.draw_graph(root_canvas);
+
+        root_canvas.restore();
+        */
     }
 
+    /*
     fn draw_graph(&self) {
-        // let mut paint = Paint::default();
-        // let color = Color::from_argb(255, 0, 100, 200);
-        // paint.set_color(color);
-        //
-        // // Get min and max and avg.
-        // let mut min_ft = f32::MAX;
-        // let mut max_ft = f32::MIN;
-        // let mut sum = 0.0;
-        // for dt in self.frametimes.iter() {
-        //     min_ft = dt.min(min_ft);
-        //     max_ft = dt.max(max_ft);
-        //     sum += dt;
-        // }
-        // let avg = sum / self.frametimes.len() as f32;
-        // let min_g = min_ft * 0.8;
-        // let max_g = max_ft * 1.1;
-        // let diff = max_g - min_g;
-        //
-        // let mut rect = self.get_rect();
-        // rect.bottom -= 8.0; // bottom margin
-        //
-        // let graph_height = 80.0;
-        //
-        // paint.set_anti_alias(true);
-        //
-        // let mut prev_point = (rect.left - 10.0, self.position.y + rect.bottom);
-        // for (i, dt) in self.frametimes.iter().enumerate() {
-        //     let x = lerp(
-        //         rect.left,
-        //         rect.right,
-        //         i as f32 / self.frametimes.len() as f32,
-        //     );
-        //     let y = rect.bottom - graph_height * (*dt - min_g) / diff;
-        //     let point = (x, y);
-        //     root_canvas.draw_line(prev_point, point, &paint);
-        //     prev_point = point;
-        // }
-        //
-        // let color = Color::from_argb(255, 0, 255, 0);
-        // paint.set_color(color);
-        // paint.set_anti_alias(false);
-        //
-        // // Show min, max, avg (average).
-        // root_canvas.draw_str(
-        //     format!("min: {min_ft:.1}ms"),
-        //     (rect.left, rect.bottom),
-        //     &self.font.skia_font,
-        //     &paint,
-        // );
-        // root_canvas.draw_str(
-        //     format!("avg: {avg:.1}ms"),
-        //     (rect.left, rect.bottom - graph_height * 0.5),
-        //     &self.font.skia_font,
-        //     &paint,
-        // );
-        // root_canvas.draw_str(
-        //     format!("max: {max_ft:.1}ms"),
-        //     (rect.left, rect.bottom - graph_height),
-        //     &self.font.skia_font,
-        //     &paint,
-        // );
+        let mut paint = Paint::default();
+        let color = Color::from_argb(255, 0, 100, 200);
+        paint.set_color(color);
+
+        // Get min and max and avg.
+        let mut min_ft = f32::MAX;
+        let mut max_ft = f32::MIN;
+        let mut sum = 0.0;
+        for dt in self.frametimes.iter() {
+            min_ft = dt.min(min_ft);
+            max_ft = dt.max(max_ft);
+            sum += dt;
+        }
+        let avg = sum / self.frametimes.len() as f32;
+        let min_g = min_ft * 0.8;
+        let max_g = max_ft * 1.1;
+        let diff = max_g - min_g;
+
+        let mut rect = self.get_rect();
+        rect.bottom -= 8.0; // bottom margin
+
+        let graph_height = 80.0;
+
+        paint.set_anti_alias(true);
+
+        let mut prev_point = (rect.left - 10.0, self.position.y + rect.bottom);
+        for (i, dt) in self.frametimes.iter().enumerate() {
+            let x = lerp(
+                rect.left,
+                rect.right,
+                i as f32 / self.frametimes.len() as f32,
+            );
+            let y = rect.bottom - graph_height * (*dt - min_g) / diff;
+            let point = (x, y);
+            root_canvas.draw_line(prev_point, point, &paint);
+            prev_point = point;
+        }
+
+        let color = Color::from_argb(255, 0, 255, 0);
+        paint.set_color(color);
+        paint.set_anti_alias(false);
+
+        // Show min, max, avg (average).
+        root_canvas.draw_str(
+            format!("min: {min_ft:.1}ms"),
+            (rect.left, rect.bottom),
+            &self.font.skia_font,
+            &paint,
+        );
+        root_canvas.draw_str(
+            format!("avg: {avg:.1}ms"),
+            (rect.left, rect.bottom - graph_height * 0.5),
+            &self.font.skia_font,
+            &paint,
+        );
+        root_canvas.draw_str(
+            format!("max: {max_ft:.1}ms"),
+            (rect.left, rect.bottom - graph_height),
+            &self.font.skia_font,
+            &paint,
+        );
     }
+    */
 }

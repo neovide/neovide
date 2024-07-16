@@ -348,16 +348,9 @@ impl RenderedWindow {
     ) -> WindowDrawDetails {
         let pixel_region = self.pixel_region(grid_renderer.grid_scale);
 
-        // root_canvas.save();
-        // root_canvas.clip_rect(pixel_region, None, Some(false));
-
         self.draw_background_surface(pixel_region, default_background, grid_renderer, scene);
 
         self.draw_foreground_surface(pixel_region, grid_renderer, scene);
-        // root_canvas.restore();
-        //
-        // root_canvas.restore();
-        //
         WindowDrawDetails {
             id: self.id,
             region: pixel_region,
@@ -626,102 +619,104 @@ impl RenderedWindow {
     }
 
     pub fn prepare_lines(&mut self, grid_renderer: &mut GridRenderer, force: bool) {
-        // let scroll_offset_lines = self.scroll_animation.position.floor() as isize;
-        // let height = self.grid_size.height as isize;
-        // if height == 0 {
-        //     return;
-        // }
-        // let grid_scale = grid_renderer.grid_scale;
-        //
-        // let mut prepare_line = |line: &Rc<RefCell<Line>>| {
-        //     let mut line = line.borrow_mut();
-        //     if line.is_valid && !force {
-        //         return;
-        //     }
-        //
-        //     let mut recorder = PictureRecorder::new();
-        //
-        //     let line_size = GridSize::new(self.grid_size.width, 1) * grid_scale;
-        //     let grid_rect = Rect::from_wh(line_size.width, line_size.height);
-        //     let canvas = recorder.begin_recording(grid_rect, None);
-        //
-        //     let mut has_transparency = false;
-        //     let mut custom_background = false;
-        //
-        //     for line_fragment in line.line_fragments.iter() {
-        //         let LineFragment {
-        //             window_left,
-        //             width,
-        //             style,
-        //             ..
-        //         } = line_fragment;
-        //         let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
-        //         let background_info = grid_renderer.draw_background(
-        //             canvas,
-        //             grid_position,
-        //             i32::try_from(*width).unwrap(),
-        //             style,
-        //         );
-        //         custom_background |= background_info.custom_color;
-        //         has_transparency |= background_info.transparent;
-        //     }
-        //     let background_picture =
-        //         custom_background.then_some(recorder.finish_recording_as_picture(None).unwrap());
-        //
-        //     let canvas = recorder.begin_recording(grid_rect, None);
-        //     let mut foreground_drawn = false;
-        //     for line_fragment in &line.line_fragments {
-        //         let LineFragment {
-        //             text,
-        //             window_left,
-        //             width,
-        //             style,
-        //         } = line_fragment;
-        //         let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
-        //
-        //         foreground_drawn |= grid_renderer.draw_foreground(
-        //             canvas,
-        //             text,
-        //             grid_position,
-        //             i32::try_from(*width).unwrap(),
-        //             style,
-        //         );
-        //     }
-        //     let foreground_picture =
-        //         foreground_drawn.then_some(recorder.finish_recording_as_picture(None).unwrap());
-        //
-        //     line.background_picture = background_picture;
-        //     line.foreground_picture = foreground_picture;
-        //     line.has_transparency = has_transparency;
-        //     line.is_valid = true;
-        // };
-        //
-        // if !self.scrollback_lines.is_empty() {
-        //     for line in self
-        //         .scrollback_lines
-        //         .iter_range_mut(scroll_offset_lines..scroll_offset_lines + height + 1)
-        //         .flatten()
-        //     {
-        //         prepare_line(line)
-        //     }
-        // }
-        //
-        // for line in self
-        //     .actual_lines
-        //     .iter_range_mut(0..self.viewport_margins.top as isize)
-        //     .flatten()
-        // {
-        //     prepare_line(line)
-        // }
-        // let actual_line_count = self.actual_lines.len() as isize;
-        // for line in self
-        //     .actual_lines
-        //     .iter_range_mut(
-        //         actual_line_count - self.viewport_margins.bottom as isize..actual_line_count,
-        //     )
-        //     .flatten()
-        // {
-        //     prepare_line(line)
-        // }
+        /*
+        let scroll_offset_lines = self.scroll_animation.position.floor() as isize;
+        let height = self.grid_size.height as isize;
+        if height == 0 {
+            return;
+        }
+        let grid_scale = grid_renderer.grid_scale;
+
+        let mut prepare_line = |line: &Rc<RefCell<Line>>| {
+            let mut line = line.borrow_mut();
+            if line.is_valid && !force {
+                return;
+            }
+
+            let mut recorder = PictureRecorder::new();
+
+            let line_size = GridSize::new(self.grid_size.width, 1) * grid_scale;
+            let grid_rect = Rect::from_wh(line_size.width, line_size.height);
+            let canvas = recorder.begin_recording(grid_rect, None);
+
+            let mut has_transparency = false;
+            let mut custom_background = false;
+
+            for line_fragment in line.line_fragments.iter() {
+                let LineFragment {
+                    window_left,
+                    width,
+                    style,
+                    ..
+                } = line_fragment;
+                let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
+                let background_info = grid_renderer.draw_background(
+                    canvas,
+                    grid_position,
+                    i32::try_from(*width).unwrap(),
+                    style,
+                );
+                custom_background |= background_info.custom_color;
+                has_transparency |= background_info.transparent;
+            }
+            let background_picture =
+                custom_background.then_some(recorder.finish_recording_as_picture(None).unwrap());
+
+            let canvas = recorder.begin_recording(grid_rect, None);
+            let mut foreground_drawn = false;
+            for line_fragment in &line.line_fragments {
+                let LineFragment {
+                    text,
+                    window_left,
+                    width,
+                    style,
+                } = line_fragment;
+                let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
+
+                foreground_drawn |= grid_renderer.draw_foreground(
+                    canvas,
+                    text,
+                    grid_position,
+                    i32::try_from(*width).unwrap(),
+                    style,
+                );
+            }
+            let foreground_picture =
+                foreground_drawn.then_some(recorder.finish_recording_as_picture(None).unwrap());
+
+            line.background_picture = background_picture;
+            line.foreground_picture = foreground_picture;
+            line.has_transparency = has_transparency;
+            line.is_valid = true;
+        };
+
+        if !self.scrollback_lines.is_empty() {
+            for line in self
+                .scrollback_lines
+                .iter_range_mut(scroll_offset_lines..scroll_offset_lines + height + 1)
+                .flatten()
+            {
+                prepare_line(line)
+            }
+        }
+
+        for line in self
+            .actual_lines
+            .iter_range_mut(0..self.viewport_margins.top as isize)
+            .flatten()
+        {
+            prepare_line(line)
+        }
+        let actual_line_count = self.actual_lines.len() as isize;
+        for line in self
+            .actual_lines
+            .iter_range_mut(
+                actual_line_count - self.viewport_margins.bottom as isize..actual_line_count,
+            )
+            .flatten()
+        {
+            prepare_line(line)
+        }
+        */
     }
 }

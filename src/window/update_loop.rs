@@ -239,14 +239,6 @@ impl UpdateLoop {
         let skipped_frame =
             self.pending_render && Instant::now() > (self.animation_start + self.animation_time);
         let should_prepare = !self.pending_render || skipped_frame;
-        if !should_prepare {
-            // window_wrapper
-            //     .renderer
-            //     .grid_renderer
-            //     .shaper
-            //     .cleanup_font_cache();
-            return;
-        }
 
         let res = window_wrapper.prepare_frame();
         self.should_render.update(res);
