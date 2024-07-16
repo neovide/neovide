@@ -9,7 +9,7 @@ use vide::{Layer, Quad, Scene, Shaper};
 use crate::{
     editor::{Colors, Style, UnderlineStyle},
     profiling::tracy_zone,
-    renderer::RendererSettings,
+    renderer::{fonts::CachingShaper, RendererSettings},
     settings::*,
     units::{GridPos, GridScale, GridSize, PixelPos, PixelRect, PixelVec},
 };
@@ -17,7 +17,7 @@ use crate::{
 use super::fonts::font_options::FontOptions;
 
 pub struct GridRenderer {
-    pub shaper: Shaper,
+    pub shaper: CachingShaper,
     pub default_style: Arc<Style>,
     pub em_size: f32,
     pub grid_scale: GridScale,
@@ -34,20 +34,14 @@ pub struct BackgroundInfo {
 
 impl GridRenderer {
     pub fn new(scale_factor: f64) -> Self {
-        let mut shaper = Shaper::new();
+        let mut shaper = CachingShaper::new(scale_factor as f32);
         let default_style = Arc::new(Style::new(Colors::new(
             Some(named::WHITE.with_alpha(255).into()),
             Some(named::BLACK.with_alpha(255).into()),
             Some(named::GREY.with_alpha(255).into()),
         )));
-        // let em_size = shaper.current_size();
-        // let font_dimensions = shaper.font_base_dimensions();
-        let em_size = 13.3333333;
-        let font_dimensions = (8.205129, 17.0).into();
-        shaper.push_default(StyleProperty::FontStack(FontStack::Source(
-            "FiraCode Nerd Font",
-        )));
-        shaper.push_default(StyleProperty::FontSize(em_size));
+        let em_size = shaper.current_size();
+        let font_dimensions = shaper.font_base_dimensions();
 
         GridRenderer {
             shaper,
@@ -59,35 +53,32 @@ impl GridRenderer {
     }
 
     pub fn font_names(&self) -> Vec<String> {
-        //self.shaper.font_names()
-        Vec::new()
+        self.shaper.font_names()
     }
 
     pub fn handle_scale_factor_update(&mut self, scale_factor: f64) {
-        // self.shaper.update_scale_factor(scale_factor as f32);
+        self.shaper.update_scale_factor(scale_factor as f32);
         self.update_font_dimensions();
     }
 
     pub fn update_font(&mut self, guifont_setting: &str) {
-        // self.shaper.update_font(guifont_setting);
+        self.shaper.update_font(guifont_setting);
         self.update_font_dimensions();
     }
 
     pub fn update_font_options(&mut self, options: FontOptions) {
-        // self.shaper.update_font_options(options);
+        self.shaper.update_font_options(options);
         self.update_font_dimensions();
     }
 
     pub fn update_linespace(&mut self, linespace_setting: f32) {
-        // self.shaper.update_linespace(linespace_setting);
+        self.shaper.update_linespace(linespace_setting);
         self.update_font_dimensions();
     }
 
     fn update_font_dimensions(&mut self) {
-        // TODO
-        // self.em_size = self.shaper.current_size();
-        // self.grid_scale = GridScale::new(self.shaper.font_base_dimensions());
-        self.grid_scale = GridScale::new((10.0, 10.0).into());
+        self.em_size = self.shaper.current_size();
+        self.grid_scale = GridScale::new(self.shaper.font_base_dimensions());
         self.is_ready = true;
         trace!("Updated font dimensions: {:?}", self.grid_scale);
     }
@@ -198,11 +189,8 @@ impl GridRenderer {
         let leading_spaces = text[..leading_space_bytes].chars().count();
         let trimmed = trimmed.trim_end();
         let adjustment = PixelVec::new(
-            // TODO:
             leading_spaces as f32 * self.grid_scale.width(),
-            // TODO:
-            // self.shaper.baseline_offset(),
-            self.em_size,
+            self.shaper.baseline_offset(),
         );
 
         if !trimmed.is_empty() {
@@ -210,7 +198,7 @@ impl GridRenderer {
             let pos = pos + adjustment;
             // TODO: The text is not in linear srgba for some reason
             //let color: LinSrgba = color.into_color();
-            let layout = self.shaper.layout_with(trimmed, |builder| {
+            let layout = self.shaper.shaper.layout_with(trimmed, |builder| {
                 builder.push_default(&StyleProperty::Brush(color));
             });
             scene.add_text_layout(layout, pos.cast());
