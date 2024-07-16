@@ -33,7 +33,7 @@ use crate::{
     bridge::EditorMode,
     cmd_line::CmdLineSettings,
     editor::{Cursor, Style},
-    profiling::{tracy_create_gpu_context, tracy_named_frame, tracy_zone},
+    profiling::{tracy_named_frame, tracy_zone},
     renderer::rendered_layer::{group_windows, FloatingLayer},
     settings::*,
     units::{GridPos, GridRect, GridSize, PixelPos},
@@ -43,9 +43,6 @@ use crate::{
 
 #[cfg(feature = "profiling")]
 use crate::profiling::tracy_plot;
-
-#[cfg(feature = "gpu_profiling")]
-use crate::profiling::GpuCtx;
 
 use cursor_renderer::CursorRenderer;
 pub use grid_renderer::GridRenderer;
