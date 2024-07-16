@@ -450,7 +450,7 @@ impl WinitWindowWrapper {
 
         let res = self
             .renderer
-            .animate_frame(&self.get_grid_rect_from_window(GridSize::zero()).cast(), dt);
+            .animate_frame(&self.get_grid_rect_from_window(GridSize::default()), dt);
         tracy_plot!("animate_frame", res as u8 as f64);
         self.renderer.prepare_lines(false);
         #[allow(clippy::let_and_return)]
@@ -560,7 +560,7 @@ impl WinitWindowWrapper {
         log::info!(
             "window created (scale_factor: {:.4}, font_dimensions: {:?})",
             scale_factor,
-            self.renderer.grid_renderer.grid_scale.0,
+            self.renderer.grid_renderer.grid_scale
         );
 
         window.set_blur(window_blurred && transparency < 1.0);
@@ -693,10 +693,10 @@ impl WinitWindowWrapper {
             window_padding.top + window_padding.bottom,
         );
 
-        let window_size = (grid_size.cast() * self.renderer.grid_renderer.grid_scale)
+        let window_size = (*grid_size * self.renderer.grid_renderer.grid_scale)
             .floor()
-            .cast()
-            .cast_unit()
+            .try_cast()
+            .unwrap()
             + window_padding_size;
 
         log::info!(
@@ -740,15 +740,16 @@ impl WinitWindowWrapper {
             PixelSize::new(self.saved_inner_size.width, self.saved_inner_size.height)
                 - window_padding_size;
 
-        let grid_size = (content_size.cast() / self.renderer.grid_renderer.grid_scale)
+        let grid_size = (content_size / self.renderer.grid_renderer.grid_scale)
             .floor()
-            .cast();
+            .try_cast()
+            .unwrap();
 
         grid_size.max(min)
     }
 
     fn get_grid_rect_from_window(&self, min: GridSize<u32>) -> GridRect<f32> {
-        let size = self.get_grid_size_from_window(min).cast();
+        let size = self.get_grid_size_from_window(min).try_cast().unwrap();
         let pos = PixelPos::new(self.window_padding.left, self.window_padding.top).cast()
             / self.renderer.grid_renderer.grid_scale;
         GridRect::<f32>::from_origin_and_size(pos, size)
@@ -779,9 +780,9 @@ impl WinitWindowWrapper {
         }
         let skia_renderer = self.skia_renderer.as_ref().unwrap();
         let grid_scale = self.renderer.grid_renderer.grid_scale;
-        let font_dimensions = grid_scale.0;
+        let font_dimensions = GridSize::new(1.0, 1.0) * grid_scale;
         let position = self.renderer.get_cursor_destination();
-        let position = position.cast();
+        let position = position.try_cast::<u32>().unwrap();
         let position = dpi::PhysicalPosition {
             x: position.x,
             y: position.y,

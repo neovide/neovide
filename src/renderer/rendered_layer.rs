@@ -6,6 +6,8 @@ use skia_safe::{
     BlendMode, Canvas, ClipOp, Color, Paint, Path, PathOp, Point3, Rect,
 };
 
+use glamour::Intersection;
+
 use crate::units::{to_skia_rect, GridScale, PixelRect};
 
 use super::{RenderedWindow, RendererSettings, WindowDrawDetails};
@@ -150,7 +152,12 @@ fn group_windows_with_regions(windows: &mut Vec<LayerWindow>, regions: &[PixelRe
         for j in i + 1..windows.len() {
             let group_i = get_window_group(windows, i);
             let group_j = get_window_group(windows, j);
-            if group_i != group_j && regions[i].inflate(epsilon, epsilon).intersects(&regions[j]) {
+            if group_i != group_j
+                && regions[i]
+                    .to_rect()
+                    .inflate((epsilon, epsilon).into())
+                    .intersects(&regions[j])
+            {
                 let new_group = group_i.min(group_j);
                 if group_i != group_j {
                     windows[group_i].group = new_group;
