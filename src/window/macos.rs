@@ -426,7 +426,13 @@ pub fn register_file_handler() {
         autoreleasepool(|pool| {
             for file in files.iter() {
                 let path = file.as_str(pool).to_owned();
-                send_ui(ParallelCommand::FileDrop(path));
+                if !SETTINGS
+                    .get::<CmdLineSettings>()
+                    .neovim_args
+                    .contains(&path)
+                {
+                    send_ui(ParallelCommand::FileDrop(path));
+                }
             }
         });
     }
