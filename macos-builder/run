@@ -2,6 +2,10 @@
 
 set -e
 
+if [ -n "$1" ]; then
+  TARGET_ARCHITECTURE=$1
+fi
+
 RELEASE_DIR=${TARGET_ARCHITECTURE:+target/${TARGET_ARCHITECTURE}/release}
 RELEASE_DIR=${RELEASE_DIR:-target/release}
 echo "Release directory: ${RELEASE_DIR}"

@@ -13,14 +13,8 @@ Before running the script, ensure you have the following dependencies installed:
 **Run the Script**:
 
 ```bash
-./macos-builder/run
+./macos-builder/run aarch64-apple-darwin
 ```
-
-## Script Details
-
-### Environment Variables
-
-- `TARGET_ARCHITECTURE`: Optional. Specifies the architecture target for the build. If not set, the default architecture is used.
 
 ### Steps
 
