@@ -67,6 +67,10 @@ pub struct CmdLineSettings {
     #[arg(long = "title-hidden", env = "NEOVIDE_TITLE_HIDDEN", value_parser = FalseyValueParser::new())]
     pub title_hidden: bool,
 
+    /// Sets the cursor icon for the window
+    #[arg(long = "cursor-icon", env = "CURSOR_ICON", default_value = "default")]
+    pub cursor_icon: String,
+
     /// Spawn a child process and leak it
     #[arg(long = "fork", env = "NEOVIDE_FORK", action = ArgAction::SetTrue, default_value = "0", value_parser = FalseyValueParser::new())]
     pub fork: bool,
