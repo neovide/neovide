@@ -189,10 +189,10 @@ jobs:
           elif [[ $RUNNER_OS == "macOS" ]]; then
             cd $GITHUB_WORKSPACE
             # create .dmg for x86_64-apple-darwin
-            ./macos-builder/run x86_64-apple-darwin
+            TARGET_ARCHITECTURE=x86_64-apple-darwin ./macos-builder/run
 
             # create .dmg for aarch64-apple-darwin
-            ./macos-builder/run aarch64-apple-darwin
+            TARGET_ARCHITECTURE=aarch64-apple-darwin ./macos-builder/run
 
             echo "ARTIFACT4=Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
             echo "ARTIFACT5=Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV
