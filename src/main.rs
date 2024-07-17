@@ -43,7 +43,8 @@ use log::trace;
 use std::env::{self, args, var};
 use std::fs::{File, OpenOptions};
 use std::io::Write;
-use std::panic::{set_hook, PanicInfo};
+use std::panic::{set_hook, take_hook, PanicInfo};
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use time::macros::format_description;
 use time::OffsetDateTime;
@@ -83,7 +84,7 @@ fn main() -> NeovideExitCode {
         let stderr_msg = generate_stderr_log_message(panic_info, &backtrace);
         eprintln!("{stderr_msg}");
 
-        log_panic_to_file(panic_info, &backtrace);
+        log_panic_to_file(panic_info, &backtrace, &None);
     }));
 
     #[cfg(target_os = "windows")]
@@ -186,6 +187,23 @@ fn setup(
     let config = Config::init();
     Config::watch_config_file(config.clone(), proxy.clone());
 
+    // Update panic hook to pass value from config file
+
+    let _ = take_hook();
+    let hook_closure = {
+        let backtraces_file = config.backtraces_file.clone();
+        move |panic_info: &PanicInfo<'_>| {
+            let backtrace = Backtrace::new();
+
+            let stderr_msg = generate_stderr_log_message(panic_info, &backtrace);
+            eprintln!("{stderr_msg}");
+
+            log_panic_to_file(panic_info, &backtrace, &backtraces_file);
+        }
+    };
+
+    set_hook(Box::new(hook_closure));
+
     //Will exit if -h or -v
     cmd_line::handle_command_line_arguments(args().collect())?;
     #[cfg(not(target_os = "windows"))]
@@ -286,18 +304,21 @@ fn generate_stderr_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) ->
     }
 }
 
-fn log_panic_to_file(panic_info: &PanicInfo, backtrace: &Backtrace) {
+fn log_panic_to_file(panic_info: &PanicInfo, backtrace: &Backtrace, file_path: &Option<PathBuf>) {
     let log_msg = generate_panic_log_message(panic_info, backtrace);
 
-    let backtraces_file = match var(BACKTRACES_FILE_ENV_VAR) {
-        Ok(v) => v,
-        Err(_) => DEFAULT_BACKTRACES_FILE.to_string(), // Converted to match types with v
+    let file_path = match file_path {
+        Some(v) => v,
+        None => &PathBuf::from(match var(BACKTRACES_FILE_ENV_VAR) {
+            Ok(v) => v,
+            Err(_) => DEFAULT_BACKTRACES_FILE.to_string(),
+        }),
     };
 
     let mut file = match OpenOptions::new()
         .append(true)
-        .open(&backtraces_file)
-        .or_else(|_| File::create(&backtraces_file))
+        .open(&file_path)
+        .or_else(|_| File::create(&file_path))
     {
         Ok(x) => x,
         Err(e) => {
@@ -307,8 +328,8 @@ fn log_panic_to_file(panic_info: &PanicInfo, backtrace: &Backtrace) {
     };
 
     match file.write_all(log_msg.as_bytes()) {
-        Ok(()) => eprintln!("\nBacktrace saved to {backtraces_file}!"),
-        Err(e) => eprintln!("Failed writing panic to {backtraces_file}: {e}"),
+        Ok(()) => eprintln!("\nBacktrace saved to {:?}!", file_path),
+        Err(e) => eprintln!("Failed writing panic to {:?}: {e}", file_path),
     }
 }
 
