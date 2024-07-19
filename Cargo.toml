@@ -83,7 +83,6 @@ notify-debouncer-full = "0.3.1"
 regex = "1.10.3"
 
 [dev-dependencies]
-approx = "0.5.1"
 scoped-env = "2.1.0"
 serial_test = "3.0.0"
 

@@ -2335,7 +2335,6 @@ name = "neovide"
 version = "0.13.3"
 dependencies = [
  "anyhow",
- "approx",
  "async-trait",
  "backtrace",
  "clap",

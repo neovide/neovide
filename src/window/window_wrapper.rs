@@ -139,8 +139,7 @@ impl WinitWindowWrapper {
             settings::OptionAsMeta::Both => macos::OptionAsAlt::Both,
             settings::OptionAsMeta::None => macos::OptionAsAlt::None,
         };
-        if let Some(skia_renderer) = &self.skia_renderer {
-            let window = skia_renderer.window();
+        if let Some(window) = &self.window {
             if winit_option != window.option_as_alt() {
                 window.set_option_as_alt(winit_option);
             }
@@ -469,7 +468,7 @@ impl WinitWindowWrapper {
         {
             self.macos_feature = {
                 let mtm = MainThreadMarker::new().expect("must be on the main thread");
-                Some(MacosWindowFeature::from_winit_window(window, mtm))
+                Some(MacosWindowFeature::from_winit_window(&window, mtm))
             };
         }
 

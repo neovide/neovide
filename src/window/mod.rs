@@ -28,9 +28,6 @@ use winit::platform::macos::WindowBuilderExtMacOS;
 #[cfg(target_os = "linux")]
 use winit::platform::{wayland::WindowBuilderExtWayland, x11::WindowBuilderExtX11};
 
-#[cfg(target_os = "windows")]
-use winit::platform::windows::WindowBuilderExtWindows;
-
 #[cfg(target_os = "macos")]
 use winit::platform::macos::EventLoopBuilderExtMacOS;
 
