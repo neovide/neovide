@@ -16,7 +16,7 @@ use glutin::{
     surface::{Surface, SurfaceAttributesBuilder, WindowSurface},
 };
 use glutin_winit::DisplayBuilder;
-use raw_window_handle::HasRawWindowHandle;
+use raw_window_handle::HasWindowHandle;
 use skia_safe::{
     canvas::Canvas,
     gpu::{
@@ -27,8 +27,8 @@ use skia_safe::{
 };
 use winit::{
     dpi::PhysicalSize,
-    event_loop::{EventLoopProxy, EventLoopWindowTarget},
-    window::{Window, WindowBuilder},
+    event_loop::{ActiveEventLoop, EventLoopProxy},
+    window::{Window, WindowAttributes},
 };
 
 #[cfg(target_os = "windows")]
@@ -77,7 +77,7 @@ impl OpenGLSkiaRenderer {
         };
         let window = window.window;
         let gl_display = config.display();
-        let raw_window_handle = window.raw_window_handle();
+        let raw_window_handle = window.window_handle().unwrap().as_raw();
 
         let size = clamp_render_buffer_size(&window.inner_size());
 
@@ -241,15 +241,15 @@ fn gen_config(mut config_iterator: Box<dyn Iterator<Item = Config> + '_>) -> Con
     config_iterator.next().unwrap()
 }
 
-pub fn build_window<TE>(
-    winit_window_builder: WindowBuilder,
-    event_loop: &EventLoopWindowTarget<TE>,
+pub fn build_window(
+    window_attributes: WindowAttributes,
+    event_loop: &ActiveEventLoop,
 ) -> WindowConfig {
     let template_builder = ConfigTemplateBuilder::new()
         .with_stencil_size(8)
         .with_transparency(true);
     let (window, config) = DisplayBuilder::new()
-        .with_window_builder(Some(winit_window_builder))
+        .with_window_attributes(Some(window_attributes))
         .build(event_loop, template_builder, gen_config)
         .expect("Failed to create Window");
     let window = window.expect("Could not create Window");
