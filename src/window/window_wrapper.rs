@@ -266,7 +266,7 @@ impl WinitWindowWrapper {
         }
     }
 
-    pub fn send_font_names(&self) {
+    pub fn send_font_names(&mut self) {
         let font_names = self.renderer.font_names();
         send_ui(ParallelCommand::DisplayAvailableFonts(font_names));
     }
