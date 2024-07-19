@@ -18,6 +18,7 @@ impl<T: Scalar> Unit for Grid<T> {
 pub struct Pixel<T> {
     phantom: PhantomData<T>,
 }
+
 impl<T: Scalar> Unit for Pixel<T> {
     type Scalar = T;
 }
