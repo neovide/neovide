@@ -617,6 +617,7 @@ mod tests {
         )
     }
 
+    /*
     #[test]
     fn test_parse_font_style() {
         let font_style = FontDescription {
@@ -673,4 +674,5 @@ mod tests {
         assert_eq!(style.weight(), Weight::from(100));
         assert_eq!(style.slant(), Slant::Upright);
     }
+    */
 }

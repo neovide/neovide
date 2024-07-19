@@ -120,15 +120,15 @@ mod tests {
     use super::*;
 
     const COLORS: Colors = Colors {
-        foreground: Some(Color4f::new(0.1, 0.1, 0.1, 0.1)),
-        background: Some(Color4f::new(0.2, 0.1, 0.1, 0.1)),
-        special: Some(Color4f::new(0.3, 0.1, 0.1, 0.1)),
+        foreground: Some(Srgba::new(0.1, 0.1, 0.1, 0.1)),
+        background: Some(Srgba::new(0.2, 0.1, 0.1, 0.1)),
+        special: Some(Srgba::new(0.3, 0.1, 0.1, 0.1)),
     };
 
     const DEFAULT_COLORS: Colors = Colors {
-        foreground: Some(Color4f::new(0.1, 0.2, 0.1, 0.1)),
-        background: Some(Color4f::new(0.2, 0.2, 0.1, 0.1)),
-        special: Some(Color4f::new(0.3, 0.2, 0.1, 0.1)),
+        foreground: Some(Srgba::new(0.1, 0.2, 0.1, 0.1)),
+        background: Some(Srgba::new(0.2, 0.2, 0.1, 0.1)),
+        special: Some(Srgba::new(0.3, 0.2, 0.1, 0.1)),
     };
 
     const NONE_COLORS: Colors = Colors {
