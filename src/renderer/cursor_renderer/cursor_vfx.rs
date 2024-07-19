@@ -4,9 +4,9 @@ use nvim_rs::Value;
 use crate::{
     editor::Cursor,
     renderer::cursor_renderer::CursorSettings,
-    renderer::{animation_utils::*, grid_renderer::GridRenderer},
+    renderer::grid_renderer::GridRenderer,
     settings::*,
-    units::{GridSize, PixelPos, PixelSize, PixelVec},
+    units::{PixelPos, PixelSize, PixelVec},
 };
 
 pub trait CursorVfx {
@@ -90,7 +90,7 @@ pub fn new_cursor_vfx(mode: &VfxMode) -> Option<Box<dyn CursorVfx>> {
 pub struct PointHighlight {
     t: f32,
     center_position: PixelPos<f32>,
-    mode: HighlightMode,
+    _mode: HighlightMode,
 }
 
 impl PointHighlight {
@@ -98,7 +98,7 @@ impl PointHighlight {
         PointHighlight {
             t: 0.0,
             center_position: PixelPos::new(0.0, 0.0),
-            mode: mode.clone(),
+            _mode: mode.clone(),
         }
     }
 }

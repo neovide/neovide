@@ -24,14 +24,13 @@ impl VSync {
     }
 
     pub fn wait_for_vsync(&mut self) {
-        match self {
-            VSync::Timer(vsync) => vsync.wait_for_vsync(),
-            _ => {}
+        if let VSync::Timer(vsync) = self {
+            vsync.wait_for_vsync();
         }
     }
 
     pub fn uses_winit_throttling(&self) -> bool {
-        return matches!(self, VSync::WinitThrottling());
+        matches!(self, VSync::WinitThrottling())
     }
 
     pub fn update(&mut self, #[allow(unused_variables)] window: &Window) {}
@@ -54,9 +53,8 @@ impl VSync {
     }
 
     pub fn request_redraw(&mut self, window: &Window) {
-        match self {
-            VSync::WinitThrottling(..) => window.request_redraw(),
-            _ => {}
+        if let VSync::WinitThrottling(..) = self {
+            window.request_redraw();
         }
     }
 }

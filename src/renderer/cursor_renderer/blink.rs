@@ -26,6 +26,8 @@ fn is_static(cursor: &Cursor) -> bool {
         || cursor.blinkon.is_none()
 }
 
+// TODO: Remove
+#[allow(unused)]
 impl BlinkStatus {
     pub fn new() -> BlinkStatus {
         BlinkStatus {

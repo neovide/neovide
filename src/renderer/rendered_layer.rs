@@ -2,7 +2,7 @@ use itertools::Itertools;
 
 use glamour::Intersection;
 use palette::LinSrgba;
-use vide::{Layer, Scene};
+use vide::Scene;
 
 use crate::units::{GridScale, PixelRect};
 
@@ -20,7 +20,7 @@ pub struct FloatingLayer<'w> {
 impl<'w> FloatingLayer<'w> {
     pub fn draw(
         &mut self,
-        settings: &RendererSettings,
+        _settings: &RendererSettings,
         default_background: LinSrgba,
         grid_renderer: &mut GridRenderer,
         scene: &mut Scene,

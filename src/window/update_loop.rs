@@ -238,7 +238,6 @@ impl UpdateLoop {
         // We will also animate, but not render when frames are skipped or a bit late, to reduce visual artifacts
         let skipped_frame =
             self.pending_render && Instant::now() > (self.animation_start + self.animation_time);
-        let should_prepare = !self.pending_render || skipped_frame;
 
         let res = window_wrapper.prepare_frame();
         self.should_render.update(res);

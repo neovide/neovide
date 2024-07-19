@@ -17,12 +17,11 @@ use futures::executor::block_on;
 
 use itertools::Itertools;
 use log::{error, warn};
-use mint::Vector2;
 use palette::{LinSrgba, WithAlpha};
 
 use winit::{
     event::Event,
-    event_loop::{EventLoopProxy, EventLoopWindowTarget},
+    event_loop::EventLoopWindowTarget,
     window::{Window, WindowBuilder},
 };
 
@@ -209,20 +208,11 @@ impl Renderer {
 
         self.scene = Scene::new();
 
-        // let transparency = SETTINGS.get::<WindowSettings>().transparency;
         let layer_grouping = SETTINGS
             .get::<RendererSettings>()
             .experimental_layer_grouping;
-        // root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
-        // root_canvas.save();
-        // root_canvas.reset_matrix();
 
-        let mut background_layer =
-            Layer::new().with_background(transparent_default_background.into());
-        // if let Some(root_window) = self.rendered_windows.get(&1) {
-        //     let clip_rect = root_window.pixel_region(grid_scale);
-        //     background_layer.set_clip((clip_rect.min.x, clip_rect.min.y, clip_rect.max.x, clip_rect.max.y).into());
-        // }
+        let background_layer = Layer::new().with_background(transparent_default_background.into());
         self.scene.add_layer(background_layer);
 
         let (root_windows, floating_layers) = {
@@ -294,7 +284,6 @@ impl Renderer {
                 window.draw(
                     default_background.with_alpha(255.0 * transparency),
                     &mut self.grid_renderer,
-                    grid_scale,
                     &mut self.scene,
                 )
             })
@@ -305,7 +294,7 @@ impl Renderer {
             .flat_map(|mut layer| {
                 layer.draw(
                     &settings,
-                    transparent_default_background.into(),
+                    transparent_default_background,
                     &mut self.grid_renderer,
                     &mut self.scene,
                 )

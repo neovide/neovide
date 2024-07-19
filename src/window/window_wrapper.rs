@@ -36,7 +36,7 @@ use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
 use winit::{
     dpi,
     event::{Event, Ime, WindowEvent},
-    event_loop::{EventLoopProxy, EventLoopWindowTarget},
+    event_loop::EventLoopWindowTarget,
     window::{Fullscreen, Theme, Window},
 };
 
@@ -439,11 +439,7 @@ impl WinitWindowWrapper {
         res
     }
 
-    pub fn try_create_window(
-        &mut self,
-        event_loop: &EventLoopWindowTarget<UserEvent>,
-        proxy: &EventLoopProxy<UserEvent>,
-    ) {
+    pub fn try_create_window(&mut self, event_loop: &EventLoopWindowTarget<UserEvent>) {
         if self.ui_state != UIState::WaitingForWindowCreate {
             return;
         }
@@ -536,7 +532,6 @@ impl WinitWindowWrapper {
         }
 
         let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
-        let srgb = cmd_line_settings.srgb;
         let vsync_enabled = cmd_line_settings.vsync;
 
         self.saved_inner_size = window.inner_size();

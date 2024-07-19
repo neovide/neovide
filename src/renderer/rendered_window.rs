@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
-use palette::{named, LinSrgba, Srgba, WithAlpha};
+use palette::{named, LinSrgba, WithAlpha};
 use vide::{Layer, Scene};
 
 use crate::{
@@ -68,8 +68,8 @@ struct Line {
     line_fragments: Vec<LineFragment>,
     // background_picture: Option<Picture>,
     // foreground_picture: Option<Picture>,
-    has_transparency: bool,
-    is_valid: bool,
+    // has_transparency: bool,
+    // is_valid: bool,
 }
 
 pub struct RenderedWindow {
@@ -221,34 +221,31 @@ impl RenderedWindow {
         let grid_scale = grid_renderer.grid_scale;
         let inner_region = self.inner_region(pixel_region, grid_scale);
 
-        let mut draw_line =
-            |transform: PixelVec<f32>, line: &Rc<RefCell<Line>>, layer: &mut Layer| {
-                let line = line.borrow();
-                if !line.line_fragments.is_empty() {
-                    for line_fragment in line.line_fragments.iter() {
-                        let LineFragment {
-                            window_left,
-                            width,
-                            style,
-                            ..
-                        } = line_fragment;
-                        let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
-                        grid_renderer.draw_background(
-                            grid_position,
-                            i32::try_from(*width).unwrap(),
-                            transform,
-                            style,
-                            layer,
-                        );
-                        // TODO: Implement these
-                        // custom_background |= background_info.custom_color;
-                        // blend = blend.min(style.as_ref().map_or(0, |s| s.blend));
-                    }
+        let draw_line = |transform: PixelVec<f32>, line: &Rc<RefCell<Line>>, layer: &mut Layer| {
+            let line = line.borrow();
+            if !line.line_fragments.is_empty() {
+                for line_fragment in line.line_fragments.iter() {
+                    let LineFragment {
+                        window_left,
+                        width,
+                        style,
+                        ..
+                    } = line_fragment;
+                    let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
+                    grid_renderer.draw_background(
+                        grid_position,
+                        i32::try_from(*width).unwrap(),
+                        transform,
+                        style,
+                        layer,
+                    );
+                    // TODO: Implement these
+                    // custom_background |= background_info.custom_color;
+                    // blend = blend.min(style.as_ref().map_or(0, |s| s.blend));
                 }
-            };
-        //
-        // canvas.save();
-        // canvas.clip_rect(to_skia_rect(&pixel_region), None, false);
+            }
+        };
+
         let mut layer = Layer::new()
             .with_background(default_color.into())
             .with_clip(pixel_region.to_rect().as_untyped().try_cast().unwrap());
@@ -262,7 +259,6 @@ impl RenderedWindow {
         self.iter_scrollable_lines_with_transform(pixel_region, grid_scale)
             .for_each(|(transform, line)| draw_line(transform, line, &mut layer));
         scene.add_layer(layer);
-        // canvas.clip_rect(inner_region, None, false);
 
         log::trace!("region: {:?}, inner: {:?}", pixel_region, inner_region,);
     }
@@ -326,6 +322,7 @@ impl RenderedWindow {
             .for_each(|(transform, line)| Self::draw_line(grid_renderer, scene, transform, line));
     }
 
+    /*
     pub fn has_transparency(&self) -> bool {
         let scroll_offset_lines = self.scroll_animation.position.floor() as isize;
         if self.scrollback_lines.is_empty() {
@@ -338,12 +335,12 @@ impl RenderedWindow {
             .flatten()
             .any(|line| line.borrow().has_transparency)
     }
+    */
 
     pub fn draw(
         &mut self,
         default_background: LinSrgba,
         grid_renderer: &mut GridRenderer,
-        grid_scale: GridScale,
         scene: &mut Scene,
     ) -> WindowDrawDetails {
         let pixel_region = self.pixel_region(grid_renderer.grid_scale);
@@ -420,8 +417,8 @@ impl RenderedWindow {
                     line_fragments,
                     // background_picture: None,
                     // foreground_picture: None,
-                    has_transparency: false,
-                    is_valid: false,
+                    // has_transparency: false,
+                    // is_valid: false,
                 };
 
                 self.actual_lines[row] = Some(Rc::new(RefCell::new(line)));
@@ -618,7 +615,7 @@ impl RenderedWindow {
         )
     }
 
-    pub fn prepare_lines(&mut self, grid_renderer: &mut GridRenderer, force: bool) {
+    pub fn prepare_lines(&mut self, _grid_renderer: &mut GridRenderer, _force: bool) {
         /*
         let scroll_offset_lines = self.scroll_animation.position.floor() as isize;
         let height = self.grid_size.height as isize;

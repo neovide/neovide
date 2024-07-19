@@ -58,6 +58,8 @@ impl Style {
         }
     }
 
+    //TODO: Remove
+    #[allow(unused)]
     pub fn special(&self, default_colors: &Colors) -> Srgba {
         self.colors
             .special

@@ -1,10 +1,7 @@
-use crate::renderer::animation_utils::lerp;
-use crate::settings::SETTINGS;
 use std::collections::VecDeque;
 
 use crate::{
     profiling::tracy_zone,
-    renderer::RendererSettings,
     units::{PixelPos, PixelSize},
 };
 
@@ -18,7 +15,7 @@ pub struct Profiler {
 }
 
 impl Profiler {
-    pub fn new(font_size: f32) -> Self {
+    pub fn new(_font_size: f32) -> Self {
         // let font_key = FontKey::default();
         // let mut font_loader = FontLoader::new(font_size);
         // let font = font_loader.get_or_load(&font_key).unwrap();
@@ -30,13 +27,13 @@ impl Profiler {
         }
     }
 
-    pub fn draw(&mut self, dt: f32) {
+    pub fn draw(&mut self, _dt: f32) {
         tracy_zone!("profiler_draw");
+        /*
         if !SETTINGS.get::<RendererSettings>().profiler {
             return;
         }
 
-        /*
         root_canvas.save();
         let rect = self.get_rect();
         root_canvas.clip_rect(rect, None, Some(false));

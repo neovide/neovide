@@ -2266,12 +2266,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mint"
-version = "0.5.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e53debba6bda7a793e5f99b8dacf19e626084f525f7829104ba9898f367d85ff"
-
-[[package]]
 name = "mio"
 version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2361,7 +2355,6 @@ dependencies = [
  "lazy_static",
  "log",
  "lru",
- "mint",
  "neovide-derive",
  "notify-debouncer-full",
  "num",

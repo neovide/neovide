@@ -49,6 +49,8 @@ pub struct Cursor {
     pub grid_cell: GridCell,
 }
 
+// TODO: Remove
+#[allow(unused)]
 impl Cursor {
     pub fn new() -> Cursor {
         Cursor {

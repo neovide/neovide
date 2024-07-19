@@ -44,6 +44,8 @@ pub struct CoarseStyle {
     italic: bool,
 }
 
+// TODO: Remove
+#[allow(unused)]
 impl CoarseStyle {
     /// Returns the textual name of this style.
     pub fn name(&self) -> Option<&'static str> {
@@ -68,16 +70,18 @@ impl CoarseStyle {
     }
 }
 
-// impl From<CoarseStyle> for FontStyle {
-//     fn from(CoarseStyle { bold, italic }: CoarseStyle) -> Self {
-//         match (bold, italic) {
-//             (true, true) => FontStyle::bold_italic(),
-//             (true, false) => FontStyle::bold(),
-//             (false, true) => FontStyle::italic(),
-//             (false, false) => FontStyle::normal(),
-//         }
-//     }
-// }
+/*
+impl From<CoarseStyle> for FontStyle {
+    fn from(CoarseStyle { bold, italic }: CoarseStyle) -> Self {
+        match (bold, italic) {
+            (true, true) => FontStyle::bold_italic(),
+            (true, false) => FontStyle::bold(),
+            (false, true) => FontStyle::italic(),
+            (false, false) => FontStyle::normal(),
+        }
+    }
+}
+*/
 
 impl From<&editor::Style> for CoarseStyle {
     fn from(fine_style: &editor::Style) -> Self {
@@ -95,6 +99,7 @@ impl From<&Arc<editor::Style>> for CoarseStyle {
     }
 }
 
+// TODO: Remove
 #[derive(Clone, Debug)]
 pub struct FontOptions {
     pub normal: Vec<FontDescription>,
@@ -129,6 +134,7 @@ impl FontFeature {
     }
 }
 
+#[allow(unused)]
 impl FontOptions {
     pub fn parse(guifont_setting: &str) -> Result<FontOptions, &str> {
         let mut font_options = FontOptions::default();
@@ -348,48 +354,50 @@ pub fn points_to_pixels(value: f32) -> f32 {
     pixels
 }
 
+/*
 impl FontDescription {
-    // pub fn as_family_and_font_style(&self) -> (&str, FontStyle) {
-    //     // support font weights:
-    //     // Thin, ExtraLight, Light, Normal, Medium, SemiBold, Bold, ExtraBold, Black, ExtraBlack
-    //     // W{weight}
-    //     // support font slants:
-    //     // Upright, Italic, Oblique
-    //
-    //     let style = if let Some(style) = &self.style {
-    //         let mut weight = Weight::NORMAL;
-    //         let mut slant = Slant::Upright;
-    //
-    //         for part in style.split_whitespace() {
-    //             match part {
-    //                 "Thin" => weight = Weight::THIN,
-    //                 "ExtraLight" => weight = Weight::EXTRA_LIGHT,
-    //                 "Light" => weight = Weight::LIGHT,
-    //                 "Normal" => weight = Weight::NORMAL,
-    //                 "Medium" => weight = Weight::MEDIUM,
-    //                 "SemiBold" => weight = Weight::SEMI_BOLD,
-    //                 "Bold" => weight = Weight::BOLD,
-    //                 "ExtraBold" => weight = Weight::EXTRA_BOLD,
-    //                 "Black" => weight = Weight::BLACK,
-    //                 "ExtraBlack" => weight = Weight::EXTRA_BLACK,
-    //                 "Italic" => slant = Slant::Italic,
-    //                 "Oblique" => slant = Slant::Oblique,
-    //                 _ => {
-    //                     if let Some(rest) = part.strip_prefix('W') {
-    //                         if let Ok(weight_value) = rest.parse::<i32>() {
-    //                             weight = Weight::from(weight_value);
-    //                         }
-    //                     }
-    //                 }
-    //             }
-    //         }
-    //         FontStyle::new(weight, Width::NORMAL, slant)
-    //     } else {
-    //         FontStyle::default()
-    //     };
-    //     (self.family.as_str(), style)
-    // }
+    pub fn as_family_and_font_style(&self) -> (&str, FontStyle) {
+        // support font weights:
+        // Thin, ExtraLight, Light, Normal, Medium, SemiBold, Bold, ExtraBold, Black, ExtraBlack
+        // W{weight}
+        // support font slants:
+        // Upright, Italic, Oblique
+
+        let style = if let Some(style) = &self.style {
+            let mut weight = Weight::NORMAL;
+            let mut slant = Slant::Upright;
+
+            for part in style.split_whitespace() {
+                match part {
+                    "Thin" => weight = Weight::THIN,
+                    "ExtraLight" => weight = Weight::EXTRA_LIGHT,
+                    "Light" => weight = Weight::LIGHT,
+                    "Normal" => weight = Weight::NORMAL,
+                    "Medium" => weight = Weight::MEDIUM,
+                    "SemiBold" => weight = Weight::SEMI_BOLD,
+                    "Bold" => weight = Weight::BOLD,
+                    "ExtraBold" => weight = Weight::EXTRA_BOLD,
+                    "Black" => weight = Weight::BLACK,
+                    "ExtraBlack" => weight = Weight::EXTRA_BLACK,
+                    "Italic" => slant = Slant::Italic,
+                    "Oblique" => slant = Slant::Oblique,
+                    _ => {
+                        if let Some(rest) = part.strip_prefix('W') {
+                            if let Ok(weight_value) = rest.parse::<i32>() {
+                                weight = Weight::from(weight_value);
+                            }
+                        }
+                    }
+                }
+            }
+            FontStyle::new(weight, Width::NORMAL, slant)
+        } else {
+            FontStyle::default()
+        };
+        (self.family.as_str(), style)
+    }
 }
+*/
 
 impl fmt::Display for FontDescription {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {

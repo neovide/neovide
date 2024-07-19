@@ -5,8 +5,6 @@ mod settings;
 mod update_loop;
 mod window_wrapper;
 
-use std::sync::Arc;
-
 #[cfg(target_os = "macos")]
 mod macos;
 
@@ -270,7 +268,6 @@ pub fn main_loop(
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
     let mut update_loop = UpdateLoop::new(cmd_line_settings.idle);
 
-    let proxy = event_loop.create_proxy();
     let mut window_wrapper = Some(WinitWindowWrapper::new(
         initial_window_size,
         initial_font_settings,
@@ -290,7 +287,7 @@ pub fn main_loop(
             Event::Resumed => {
                 create_window_allowed = true;
                 if let Some(window_wrapper) = &mut window_wrapper {
-                    window_wrapper.try_create_window(window_target, &proxy);
+                    window_wrapper.try_create_window(window_target);
                 }
             }
             Event::LoopExiting => window_wrapper = None,
@@ -302,7 +299,7 @@ pub fn main_loop(
                 if let Some(window_wrapper) = &mut window_wrapper {
                     window_target.set_control_flow(update_loop.step(window_wrapper, e));
                     if create_window_allowed {
-                        window_wrapper.try_create_window(window_target, &proxy);
+                        window_wrapper.try_create_window(window_target);
                     }
                 }
             }

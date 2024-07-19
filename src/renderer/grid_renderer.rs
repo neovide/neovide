@@ -2,16 +2,16 @@ use std::sync::Arc;
 
 use log::trace;
 
-use palette::{named, Hsv, IntoColor, LinSrgba, Srgba, WithAlpha};
-use parley::style::{FontStack, StyleProperty};
-use vide::{Layer, Quad, Scene, Shaper};
+use palette::{named, Hsv, IntoColor, Srgba, WithAlpha};
+use parley::style::StyleProperty;
+use vide::{Layer, Quad, Scene};
 
 use crate::{
-    editor::{Colors, Style, UnderlineStyle},
+    editor::{Colors, Style},
     profiling::tracy_zone,
     renderer::{fonts::CachingShaper, RendererSettings},
     settings::*,
-    units::{GridPos, GridScale, GridSize, PixelPos, PixelRect, PixelVec},
+    units::{GridPos, GridScale, GridSize, PixelRect, PixelVec},
 };
 
 use super::fonts::font_options::FontOptions;
@@ -145,23 +145,23 @@ impl GridRenderer {
         &mut self,
         text: &str,
         grid_position: GridPos<i32>,
-        cell_width: i32,
+        _cell_width: i32,
         transform: PixelVec<f32>,
         style: &Option<Arc<Style>>,
         scene: &mut Scene,
     ) -> bool {
         tracy_zone!("draw_foreground");
         let pos = grid_position * self.grid_scale + transform;
-        let size = GridSize::new(cell_width, 0) * self.grid_scale;
-        let width = size.width;
+        // let size = GridSize::new(cell_width, 0) * self.grid_scale;
+        //let width = size.width;
 
         let style = style.as_ref().unwrap_or(&self.default_style);
         let mut drawn = false;
 
         // We don't want to clip text in the x position, only the y so we add a buffer of 1
         // character on either side of the region so that we clip vertically but not horizontally.
-        let clip_position = (grid_position.x.saturating_sub(1), grid_position.y).into();
-        let region = self.compute_text_region(clip_position, cell_width + 2);
+        // let clip_position = (grid_position.x.saturating_sub(1), grid_position.y).into();
+        //let region = self.compute_text_region(clip_position, cell_width + 2);
 
         // TODO: Draw underline
         if let Some(_underline_style) = style.underline {
@@ -196,13 +196,10 @@ impl GridRenderer {
         if !trimmed.is_empty() {
             tracy_zone!("draw_text_blob");
             let pos = pos + adjustment;
-            // TODO: The text is not in linear srgba for some reason
-            //let color: LinSrgba = color.into_color();
             let layout = self.shaper.shaper.layout_with(trimmed, |builder| {
                 builder.push_default(&StyleProperty::Brush(color));
             });
             scene.add_text_layout(layout, pos.cast());
-            //canvas.draw_text_blob(blob, to_skia_point(pos + adjustment), &paint);
             drawn = true;
         }
 
@@ -222,6 +219,7 @@ impl GridRenderer {
         drawn
     }
 
+    /*
     fn draw_underline(
         &self,
         style: &Arc<Style>,
@@ -230,7 +228,6 @@ impl GridRenderer {
         p1: PixelPos<f32>,
         p2: PixelPos<f32>,
     ) {
-        /*
         tracy_zone!("draw_underline");
         canvas.save();
 
@@ -298,6 +295,6 @@ impl GridRenderer {
         }
 
         canvas.restore();
-        */
     }
+    */
 }

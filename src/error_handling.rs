@@ -71,7 +71,7 @@ fn handle_terminal_startup_errors(err: Error) -> i32 {
     1
 }
 
-fn handle_gui_startup_errors(err: Error, event_loop: EventLoop<UserEvent>) -> i32 {
+fn handle_gui_startup_errors(_err: Error, _event_loop: EventLoop<UserEvent>) -> i32 {
     // show_error_window(&format_and_log_error_message(err), event_loop);
     1
 }

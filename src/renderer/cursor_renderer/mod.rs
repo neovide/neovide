@@ -11,7 +11,7 @@ use crate::{
     profiling::{tracy_plot, tracy_zone},
     renderer::{animation_utils::*, GridRenderer, RenderedWindow},
     settings::{ParseFromValue, SETTINGS},
-    units::{GridPos, GridScale, PixelPos, PixelSize, PixelVec},
+    units::{GridPos, GridScale, PixelPos, PixelSize},
     window::{ShouldRender, UserEvent},
 };
 
