@@ -21,7 +21,6 @@ use palette::{LinSrgba, WithAlpha};
 
 use winit::{event::Event, window::Window};
 
-use rust_embed::RustEmbed;
 use vide::{Layer, Scene, WinitRenderer};
 
 use crate::{
@@ -109,10 +108,6 @@ pub enum DrawCommand {
     },
     CloseWindow(u64),
 }
-
-#[derive(RustEmbed)]
-#[folder = "assets/embedded"]
-struct Assets;
 
 pub struct Renderer {
     wgpu_renderer: Option<WinitRenderer>,
