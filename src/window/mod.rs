@@ -19,7 +19,7 @@ use winit::{
     error::EventLoopError,
     event::Event,
     event_loop::{EventLoop, EventLoopBuilder, EventLoopWindowTarget},
-    window::{Icon, Theme, WindowBuilder},
+    window::{Icon, Theme, Window, WindowBuilder},
 };
 
 #[cfg(target_os = "macos")]
@@ -39,7 +39,7 @@ use update_loop::UpdateLoop;
 use crate::{
     cmd_line::{CmdLineSettings, GeometryArgs},
     frame::Frame,
-    renderer::{build_window_config, DrawCommand, WindowConfig},
+    renderer::DrawCommand,
     settings::{
         clamped_grid_size, load_last_window_settings, save_window_size, FontSettings,
         HotReloadConfigs, PersistentWindowSettings, SettingsChanged, SETTINGS,
@@ -131,7 +131,7 @@ pub fn create_window(
     event_loop: &EventLoopWindowTarget<UserEvent>,
     maximized: bool,
     title: &str,
-) -> WindowConfig {
+) -> Window {
     let icon = load_icon();
 
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
@@ -195,14 +195,14 @@ pub fn create_window(
     let winit_window_builder = winit_window_builder.with_accepts_first_mouse(false);
 
     #[allow(clippy::let_and_return)]
-    let window_config = build_window_config(winit_window_builder, event_loop);
+    let window = winit_window_builder.build(event_loop).unwrap();
 
     #[cfg(target_os = "macos")]
     if let Some(previous_position) = previous_position {
-        window_config.window.set_outer_position(previous_position);
+        window.set_outer_position(previous_position);
     }
 
-    window_config
+    window
 }
 
 #[derive(Clone, Debug)]

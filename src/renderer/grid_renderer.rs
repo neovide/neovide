@@ -25,10 +25,10 @@ pub struct GridRenderer {
 }
 
 /// Struct with named fields to be returned from draw_background
+// This should probably be used
+#[allow(unused)]
 pub struct BackgroundInfo {
     pub custom_color: bool,
-    // This should probably be used
-    #[allow(unused)]
     pub transparent: bool,
 }
 

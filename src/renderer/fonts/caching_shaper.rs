@@ -5,11 +5,13 @@ use vide::Shaper;
 
 use crate::{error_msg, profiling::tracy_zone, renderer::fonts::font_options::*, units::PixelSize};
 
+/*
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
 struct ShapeKey {
     pub text: String,
     pub style: CoarseStyle,
 }
+*/
 
 pub struct CachingShaper {
     options: FontOptions,

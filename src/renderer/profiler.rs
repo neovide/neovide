@@ -7,6 +7,8 @@ use crate::{
 
 const FRAMETIMES_COUNT: usize = 48;
 
+// TODO: Remove
+#[allow(unused)]
 pub struct Profiler {
     //pub font: Arc<FontPair>,
     pub position: PixelPos<f32>,

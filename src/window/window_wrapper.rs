@@ -447,8 +447,7 @@ impl WinitWindowWrapper {
 
         let maximized = matches!(self.initial_window_size, WindowSize::Maximized);
 
-        let window_config = create_window(event_loop, maximized, &self.title);
-        let window = window_config.window;
+        let window = create_window(event_loop, maximized, &self.title);
 
         let WindowSettings {
             input_ime,

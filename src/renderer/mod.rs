@@ -19,11 +19,7 @@ use itertools::Itertools;
 use log::{error, warn};
 use palette::{LinSrgba, WithAlpha};
 
-use winit::{
-    event::Event,
-    event_loop::EventLoopWindowTarget,
-    window::{Window, WindowBuilder},
-};
+use winit::{event::Event, window::Window};
 
 use rust_embed::RustEmbed;
 use vide::{Layer, Scene, WinitRenderer};
@@ -485,22 +481,4 @@ fn floating_sort(window_a: &&mut RenderedWindow, window_b: &&mut RenderedWindow)
     let orda = &window_a.anchor_info.as_ref().unwrap().sort_order;
     let ordb = &window_b.anchor_info.as_ref().unwrap().sort_order;
     orda.cmp(ordb)
-}
-
-pub enum WindowConfigType {
-    WGpu,
-}
-
-pub struct WindowConfig {
-    pub window: Window,
-    pub config: WindowConfigType,
-}
-
-pub fn build_window_config<TE>(
-    winit_window_builder: WindowBuilder,
-    event_loop: &EventLoopWindowTarget<TE>,
-) -> WindowConfig {
-    let window = winit_window_builder.build(event_loop).unwrap();
-    let config = WindowConfigType::WGpu;
-    WindowConfig { window, config }
 }
