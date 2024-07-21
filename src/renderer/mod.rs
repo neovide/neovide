@@ -19,7 +19,7 @@ use itertools::Itertools;
 use log::{error, warn};
 use palette::{LinSrgba, WithAlpha};
 
-use winit::{event::Event, window::Window};
+use winit::{event::WindowEvent, window::Window};
 
 use vide::{Layer, Scene, WinitRenderer};
 
@@ -31,7 +31,7 @@ use crate::{
     renderer::rendered_layer::{group_windows, FloatingLayer},
     settings::*,
     units::{GridPos, GridRect, GridSize, PixelPos},
-    window::{ShouldRender, UserEvent},
+    window::ShouldRender,
     WindowSettings,
 };
 
@@ -173,9 +173,11 @@ impl Renderer {
         self.wgpu_renderer = Some(block_on(create_renderer(window)));
     }
 
-    pub fn handle_event(&mut self, event: &Event<UserEvent>) -> bool {
+    pub fn handle_event(&mut self, event: &WindowEvent) {
         if let Some(wgpu_renderer) = self.wgpu_renderer.as_mut() {
-            wgpu_renderer.handle_event(event);
+            if let WindowEvent::Resized(new_size) = event {
+                wgpu_renderer.resize(new_size.width, new_size.height);
+            }
         }
         self.cursor_renderer.handle_event(event)
     }
@@ -468,6 +470,10 @@ impl Renderer {
         } else {
             DEFAULT_GRID_SIZE
         }
+    }
+
+    pub fn exit(&mut self) {
+        self.wgpu_renderer = None;
     }
 }
 

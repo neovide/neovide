@@ -8,7 +8,7 @@ use copypasta::{
 };
 use copypasta::{ClipboardContext, ClipboardProvider};
 use parking_lot::Mutex;
-use raw_window_handle::HasRawDisplayHandle;
+use raw_window_handle::HasDisplayHandle;
 #[cfg(target_os = "linux")]
 use raw_window_handle::{RawDisplayHandle, WaylandDisplayHandle};
 use winit::event_loop::EventLoop;
@@ -27,26 +27,30 @@ static CLIPBOARD: OnceLock<Mutex<Clipboard>> = OnceLock::new();
 
 pub fn init(event_loop: &EventLoop<UserEvent>) {
     CLIPBOARD
-        .set(Mutex::new(match event_loop.raw_display_handle() {
-            #[cfg(target_os = "linux")]
-            RawDisplayHandle::Wayland(WaylandDisplayHandle { display, .. }) => unsafe {
-                let (selection, clipboard) =
-                    wayland_clipboard::create_clipboards_from_external(display);
-                Clipboard {
-                    clipboard: Box::new(clipboard),
-                    selection: Box::new(selection),
-                }
+        .set(Mutex::new(
+            match event_loop.display_handle().unwrap().as_raw() {
+                #[cfg(target_os = "linux")]
+                RawDisplayHandle::Wayland(WaylandDisplayHandle { mut display, .. }) => unsafe {
+                    let (selection, clipboard) =
+                        wayland_clipboard::create_clipboards_from_external(display.as_mut());
+                    Clipboard {
+                        clipboard: Box::new(clipboard),
+                        selection: Box::new(selection),
+                    }
+                },
+                #[cfg(target_os = "linux")]
+                _ => Clipboard {
+                    clipboard: Box::new(ClipboardContext::new().unwrap()),
+                    selection: Box::new(
+                        X11ClipboardContext::<X11SelectionClipboard>::new().unwrap(),
+                    ),
+                },
+                #[cfg(not(target_os = "linux"))]
+                _ => Clipboard {
+                    clipboard: Box::new(ClipboardContext::new().unwrap()),
+                },
             },
-            #[cfg(target_os = "linux")]
-            _ => Clipboard {
-                clipboard: Box::new(ClipboardContext::new().unwrap()),
-                selection: Box::new(X11ClipboardContext::<X11SelectionClipboard>::new().unwrap()),
-            },
-            #[cfg(not(target_os = "linux"))]
-            _ => Clipboard {
-                clipboard: Box::new(ClipboardContext::new().unwrap()),
-            },
-        }))
+        ))
         .ok();
 }
 

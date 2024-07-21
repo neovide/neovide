@@ -32,11 +32,11 @@ use super::macos::MacosWindowFeature;
 use icrate::Foundation::MainThreadMarker;
 
 use log::trace;
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::{
     dpi,
-    event::{Event, Ime, WindowEvent},
-    event_loop::EventLoopWindowTarget,
+    event::{Ime, WindowEvent},
+    event_loop::ActiveEventLoop,
     window::{Fullscreen, Theme, Window},
 };
 
@@ -118,6 +118,11 @@ impl WinitWindowWrapper {
             #[cfg(target_os = "macos")]
             macos_feature: None,
         }
+    }
+
+    pub fn exit(&mut self) {
+        self.renderer.exit();
+        self.vsync = None;
     }
 
     pub fn set_fullscreen(&mut self, fullscreen: bool) {
@@ -285,60 +290,7 @@ impl WinitWindowWrapper {
         }
     }
 
-    /// Handles an event from winit and returns an boolean indicating if
-    /// the window should be rendered.
-    pub fn handle_event(&mut self, event: Event<UserEvent>) -> bool {
-        tracy_zone!("handle_event", 0);
-
-        let renderer_asks_to_be_rendered = self.renderer.handle_event(&event);
-        let mut should_render = true;
-        match event {
-            Event::Resumed => {
-                tracy_zone!("Resumed");
-                // No need to do anything, but handle the event so that should_render gets set
-            }
-            Event::WindowEvent { event, .. } => {
-                if !self.handle_window_event(event) {
-                    should_render = renderer_asks_to_be_rendered;
-                }
-            }
-            Event::UserEvent(UserEvent::DrawCommandBatch(batch)) => {
-                self.handle_draw_commands(batch);
-            }
-            Event::UserEvent(UserEvent::WindowCommand(e)) => {
-                self.handle_window_command(e);
-            }
-            Event::UserEvent(UserEvent::SettingsChanged(SettingsChanged::Window(e))) => {
-                self.handle_window_settings_changed(e);
-            }
-            Event::UserEvent(UserEvent::SettingsChanged(SettingsChanged::Renderer(e))) => {
-                self.handle_render_settings_changed(e);
-            }
-            Event::UserEvent(UserEvent::ConfigsChanged(config)) => {
-                self.handle_config_changed(*config);
-            }
-            _ => {
-                match event {
-                    Event::AboutToWait { .. } => {
-                        tracy_zone!("AboutToWait");
-                    }
-                    Event::DeviceEvent { .. } => {
-                        tracy_zone!("DeviceEvent");
-                    }
-                    Event::NewEvents(..) => {
-                        tracy_zone!("NewEvents");
-                    }
-                    _ => {
-                        tracy_zone!("Unknown");
-                    }
-                }
-                should_render = renderer_asks_to_be_rendered;
-            }
-        }
-        self.ui_state >= UIState::FirstFrame && should_render
-    }
-
-    fn handle_window_event(&mut self, event: WindowEvent) -> bool {
+    pub fn handle_window_event(&mut self, event: WindowEvent) -> bool {
         // The renderer and vsync should always be created when a window event is received
         let window = self.window.as_mut().unwrap();
         let vsync = self.vsync.as_mut().unwrap();
@@ -346,6 +298,8 @@ impl WinitWindowWrapper {
         self.mouse_manager
             .handle_event(&event, &self.keyboard_manager, &self.renderer, window);
         self.keyboard_manager.handle_event(&event);
+        self.renderer.handle_event(&event);
+        let mut should_render = true;
 
         match event {
             WindowEvent::CloseRequested => {
@@ -399,10 +353,31 @@ impl WinitWindowWrapper {
             }
             _ => {
                 tracy_zone!("Unknown WindowEvent");
-                return false;
+                should_render = false;
             }
         }
-        true
+        self.ui_state >= UIState::FirstFrame && should_render
+    }
+
+    pub fn handle_user_event(&mut self, event: UserEvent) {
+        match event {
+            UserEvent::DrawCommandBatch(batch) => {
+                self.handle_draw_commands(batch);
+            }
+            UserEvent::WindowCommand(e) => {
+                self.handle_window_command(e);
+            }
+            UserEvent::SettingsChanged(SettingsChanged::Window(e)) => {
+                self.handle_window_settings_changed(e);
+            }
+            UserEvent::SettingsChanged(SettingsChanged::Renderer(e)) => {
+                self.handle_render_settings_changed(e);
+            }
+            UserEvent::ConfigsChanged(config) => {
+                self.handle_config_changed(*config);
+            }
+            _ => {}
+        }
     }
 
     pub fn draw_frame(&mut self, dt: f32) {
@@ -438,7 +413,7 @@ impl WinitWindowWrapper {
         res
     }
 
-    pub fn try_create_window(&mut self, event_loop: &EventLoopWindowTarget<UserEvent>) {
+    pub fn try_create_window(&mut self, event_loop: &ActiveEventLoop) {
         if self.ui_state != UIState::WaitingForWindowCreate {
             return;
         }
@@ -522,7 +497,10 @@ impl WinitWindowWrapper {
         self.renderer.create_wgpu(window.clone());
 
         log::info!("Showing window size: {:#?}, maximized: {}", size, maximized);
-        let is_wayland = matches!(window.raw_window_handle(), RawWindowHandle::Wayland(_));
+        let is_wayland = matches!(
+            window.window_handle().unwrap().as_raw(),
+            RawWindowHandle::Wayland(_)
+        );
         // On Wayland we can show the window now, since internally it's only shown after the first rendering
         // On the other platforms the window is shown after rendering to avoid flickering
         if is_wayland {
@@ -570,7 +548,7 @@ impl WinitWindowWrapper {
         self.set_macos_option_as_meta(input_macos_option_key_is_meta);
     }
 
-    fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
+    pub fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
         tracy_zone!("handle_draw_commands");
         let handle_draw_commands_result = self.renderer.handle_draw_commands(batch);
 

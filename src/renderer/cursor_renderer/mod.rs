@@ -3,7 +3,7 @@ mod cursor_vfx;
 
 use std::collections::HashMap;
 
-use winit::event::{Event, WindowEvent};
+use winit::event::WindowEvent;
 
 use crate::{
     bridge::EditorMode,
@@ -12,7 +12,7 @@ use crate::{
     renderer::{animation_utils::*, GridRenderer, RenderedWindow},
     settings::{ParseFromValue, SETTINGS},
     units::{GridPos, GridScale, PixelPos, PixelSize},
-    window::{ShouldRender, UserEvent},
+    window::ShouldRender,
 };
 
 use blink::*;
@@ -191,16 +191,9 @@ impl CursorRenderer {
         renderer
     }
 
-    pub fn handle_event(&mut self, event: &Event<UserEvent>) -> bool {
-        if let Event::WindowEvent {
-            event: WindowEvent::Focused(is_focused),
-            ..
-        } = event
-        {
+    pub fn handle_event(&mut self, event: &WindowEvent) {
+        if let WindowEvent::Focused(is_focused) = event {
             self.window_has_focus = *is_focused;
-            true
-        } else {
-            false
         }
     }
 
