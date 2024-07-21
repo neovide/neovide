@@ -1,4 +1,4 @@
-pub mod caching_shaper;
-pub mod font_loader;
+mod caching_shaper;
 pub mod font_options;
-mod swash_font;
+
+pub use caching_shaper::CachingShaper;

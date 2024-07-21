@@ -1,38 +1,37 @@
-use crate::renderer::animation_utils::lerp;
-use crate::settings::SETTINGS;
 use std::collections::VecDeque;
-use std::sync::Arc;
 
 use crate::{
     profiling::tracy_zone,
-    renderer::{fonts::font_loader::*, RendererSettings},
+    units::{PixelPos, PixelSize},
 };
-use skia_safe::{Canvas, Color, Paint, Point, Rect, Size};
 
 const FRAMETIMES_COUNT: usize = 48;
 
+// TODO: Remove
+#[allow(unused)]
 pub struct Profiler {
-    pub font: Arc<FontPair>,
-    pub position: Point,
-    pub size: Size,
+    //pub font: Arc<FontPair>,
+    pub position: PixelPos<f32>,
+    pub size: PixelSize<f32>,
     pub frametimes: VecDeque<f32>,
 }
 
 impl Profiler {
-    pub fn new(font_size: f32) -> Self {
-        let font_key = FontKey::default();
-        let mut font_loader = FontLoader::new(font_size);
-        let font = font_loader.get_or_load(&font_key).unwrap();
+    pub fn new(_font_size: f32) -> Self {
+        // let font_key = FontKey::default();
+        // let mut font_loader = FontLoader::new(font_size);
+        // let font = font_loader.get_or_load(&font_key).unwrap();
         Self {
-            font,
-            position: Point::new(32.0, 32.0),
-            size: Size::new(200.0, 120.0),
+            //font,
+            position: PixelPos::new(32.0, 32.0),
+            size: PixelSize::new(200.0, 120.0),
             frametimes: VecDeque::with_capacity(FRAMETIMES_COUNT),
         }
     }
 
-    pub fn draw(&mut self, root_canvas: &Canvas, dt: f32) {
+    pub fn draw(&mut self, _dt: f32) {
         tracy_zone!("profiler_draw");
+        /*
         if !SETTINGS.get::<RendererSettings>().profiler {
             return;
         }
@@ -68,9 +67,11 @@ impl Profiler {
         self.draw_graph(root_canvas);
 
         root_canvas.restore();
+        */
     }
 
-    fn draw_graph(&self, root_canvas: &Canvas) {
+    /*
+    fn draw_graph(&self) {
         let mut paint = Paint::default();
         let color = Color::from_argb(255, 0, 100, 200);
         paint.set_color(color);
@@ -133,13 +134,5 @@ impl Profiler {
             &paint,
         );
     }
-
-    fn get_rect(&self) -> Rect {
-        Rect::new(
-            self.position.x,
-            self.position.y,
-            self.position.x + self.size.width,
-            self.position.y + self.size.height,
-        )
-    }
+    */
 }

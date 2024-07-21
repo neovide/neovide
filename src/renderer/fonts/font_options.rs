@@ -3,10 +3,6 @@ use std::{collections::HashMap, fmt, iter, num::ParseFloatError, sync::Arc};
 use itertools::Itertools;
 use log::warn;
 use serde::Deserialize;
-use skia_safe::{
-    font_style::{Slant, Weight, Width},
-    FontStyle,
-};
 
 use crate::editor;
 
@@ -48,6 +44,8 @@ pub struct CoarseStyle {
     italic: bool,
 }
 
+// TODO: Remove
+#[allow(unused)]
 impl CoarseStyle {
     /// Returns the textual name of this style.
     pub fn name(&self) -> Option<&'static str> {
@@ -72,6 +70,7 @@ impl CoarseStyle {
     }
 }
 
+/*
 impl From<CoarseStyle> for FontStyle {
     fn from(CoarseStyle { bold, italic }: CoarseStyle) -> Self {
         match (bold, italic) {
@@ -82,6 +81,7 @@ impl From<CoarseStyle> for FontStyle {
         }
     }
 }
+*/
 
 impl From<&editor::Style> for CoarseStyle {
     fn from(fine_style: &editor::Style) -> Self {
@@ -99,6 +99,7 @@ impl From<&Arc<editor::Style>> for CoarseStyle {
     }
 }
 
+// TODO: Remove
 #[derive(Clone, Debug)]
 pub struct FontOptions {
     pub normal: Vec<FontDescription>,
@@ -133,6 +134,7 @@ impl FontFeature {
     }
 }
 
+#[allow(unused)]
 impl FontOptions {
     pub fn parse(guifont_setting: &str) -> Result<FontOptions, &str> {
         let mut font_options = FontOptions::default();
@@ -352,6 +354,7 @@ pub fn points_to_pixels(value: f32) -> f32 {
     pixels
 }
 
+/*
 impl FontDescription {
     pub fn as_family_and_font_style(&self) -> (&str, FontStyle) {
         // support font weights:
@@ -394,6 +397,7 @@ impl FontDescription {
         (self.family.as_str(), style)
     }
 }
+*/
 
 impl fmt::Display for FontDescription {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
@@ -613,6 +617,7 @@ mod tests {
         )
     }
 
+    /*
     #[test]
     fn test_parse_font_style() {
         let font_style = FontDescription {
@@ -669,4 +674,5 @@ mod tests {
         assert_eq!(style.weight(), Weight::from(100));
         assert_eq!(style.slant(), Slant::Upright);
     }
+    */
 }

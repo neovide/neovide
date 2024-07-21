@@ -1,16 +1,12 @@
 use itertools::Itertools;
-use skia_safe::{
-    canvas::SaveLayerRec,
-    image_filters::blur,
-    utils::shadow_utils::{draw_shadow, ShadowFlags},
-    BlendMode, Canvas, ClipOp, Color, Paint, Path, PathOp, Point3, Rect,
-};
 
 use glamour::Intersection;
+use palette::LinSrgba;
+use vide::Scene;
 
-use crate::units::{to_skia_rect, GridScale, PixelRect};
+use crate::units::{GridScale, PixelRect};
 
-use super::{RenderedWindow, RendererSettings, WindowDrawDetails};
+use super::{GridRenderer, RenderedWindow, RendererSettings, WindowDrawDetails};
 
 struct LayerWindow<'w> {
     window: &'w mut RenderedWindow,
@@ -24,11 +20,13 @@ pub struct FloatingLayer<'w> {
 impl<'w> FloatingLayer<'w> {
     pub fn draw(
         &mut self,
-        root_canvas: &Canvas,
-        settings: &RendererSettings,
-        default_background: Color,
-        grid_scale: GridScale,
+        _settings: &RendererSettings,
+        default_background: LinSrgba,
+        grid_renderer: &mut GridRenderer,
+        scene: &mut Scene,
     ) -> Vec<WindowDrawDetails> {
+        let grid_scale = grid_renderer.grid_scale;
+        /*
         let pixel_regions = self
             .windows
             .iter()
@@ -77,6 +75,7 @@ impl<'w> FloatingLayer<'w> {
 
         root_canvas.save_layer(&save_layer_rec);
         root_canvas.clear(default_background.with_a(255));
+        */
 
         let regions = self
             .windows
@@ -88,21 +87,18 @@ impl<'w> FloatingLayer<'w> {
 
         (0..self.windows.len()).for_each(|i| {
             let window = &mut self.windows[i];
-            window.draw_background_surface(root_canvas, regions[i], grid_scale);
-            window.draw_foreground_surface(root_canvas, regions[i], grid_scale);
+            window.draw_background_surface(regions[i], default_background, grid_renderer, scene);
+            window.draw_foreground_surface(regions[i], grid_renderer, scene);
             ret.push(WindowDrawDetails {
                 id: window.id,
                 region: regions[i],
             });
         });
 
-        root_canvas.restore();
-
-        root_canvas.restore();
-
         ret
     }
 
+    /*
     fn _draw_shadow(&self, root_canvas: &Canvas, path: &Path, settings: &RendererSettings) {
         if !settings.floating_shadow {
             return;
@@ -135,6 +131,7 @@ impl<'w> FloatingLayer<'w> {
         );
         root_canvas.restore();
     }
+    */
 }
 
 fn get_window_group(windows: &mut Vec<LayerWindow>, index: usize) -> usize {
@@ -197,6 +194,7 @@ pub fn group_windows(
         .collect_vec()
 }
 
+/*
 fn build_silhouette(regions: &[PixelRect<f32>]) -> (Path, Rect) {
     let silhouette = regions
         .iter()
@@ -211,3 +209,4 @@ fn build_silhouette(regions: &[PixelRect<f32>]) -> (Path, Rect) {
 
     (silhouette, bounding_rect)
 }
+*/

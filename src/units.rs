@@ -18,6 +18,7 @@ impl<T: Scalar> Unit for Grid<T> {
 pub struct Pixel<T> {
     phantom: PhantomData<T>,
 }
+
 impl<T: Scalar> Unit for Pixel<T> {
     type Scalar = T;
 }
@@ -33,19 +34,6 @@ pub type PixelPos<T> = Point2<Pixel<T>>;
 
 pub type GridRect<T> = Box2<Grid<T>>;
 pub type PixelRect<T> = Box2<Pixel<T>>;
-
-pub fn to_skia_point(pos: PixelPos<f32>) -> skia_safe::Point {
-    skia_safe::Point::new(pos.x, pos.y)
-}
-
-pub fn to_skia_rect(rect: &PixelRect<f32>) -> skia_safe::Rect {
-    skia_safe::Rect {
-        left: rect.min.x,
-        top: rect.min.y,
-        right: rect.max.x,
-        bottom: rect.max.y,
-    }
-}
 
 #[derive(Copy, Clone, Debug)]
 pub struct GridScale {

@@ -1,4 +1,4 @@
-mod error_window;
+//mod error_window;
 mod keyboard_manager;
 mod mouse_manager;
 mod settings;
@@ -19,7 +19,7 @@ use winit::{
     error::EventLoopError,
     event::Event,
     event_loop::{EventLoop, EventLoopBuilder, EventLoopWindowTarget},
-    window::{Icon, Theme, WindowBuilder},
+    window::{Icon, Theme, Window, WindowBuilder},
 };
 
 #[cfg(target_os = "macos")]
@@ -27,9 +27,6 @@ use winit::platform::macos::WindowBuilderExtMacOS;
 
 #[cfg(target_os = "linux")]
 use winit::platform::{wayland::WindowBuilderExtWayland, x11::WindowBuilderExtX11};
-
-#[cfg(target_os = "windows")]
-use winit::platform::windows::WindowBuilderExtWindows;
 
 #[cfg(target_os = "macos")]
 use winit::platform::macos::EventLoopBuilderExtMacOS;
@@ -42,14 +39,14 @@ use update_loop::UpdateLoop;
 use crate::{
     cmd_line::{CmdLineSettings, GeometryArgs},
     frame::Frame,
-    renderer::{build_window_config, DrawCommand, WindowConfig},
+    renderer::DrawCommand,
     settings::{
         clamped_grid_size, load_last_window_settings, save_window_size, FontSettings,
         HotReloadConfigs, PersistentWindowSettings, SettingsChanged, SETTINGS,
     },
     units::GridSize,
 };
-pub use error_window::show_error_window;
+//pub use error_window::show_error_window;
 pub use settings::{WindowSettings, WindowSettingsChanged};
 pub use update_loop::ShouldRender;
 pub use window_wrapper::WinitWindowWrapper;
@@ -134,7 +131,7 @@ pub fn create_window(
     event_loop: &EventLoopWindowTarget<UserEvent>,
     maximized: bool,
     title: &str,
-) -> WindowConfig {
+) -> Window {
     let icon = load_icon();
 
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
@@ -152,13 +149,6 @@ pub fn create_window(
         .with_maximized(maximized)
         .with_transparent(true)
         .with_visible(false);
-
-    #[cfg(target_os = "windows")]
-    let winit_window_builder = if !cmd_line_settings.opengl {
-        WindowBuilderExtWindows::with_no_redirection_bitmap(winit_window_builder, true)
-    } else {
-        winit_window_builder
-    };
 
     let frame_decoration = cmd_line_settings.frame;
 
@@ -205,14 +195,14 @@ pub fn create_window(
     let winit_window_builder = winit_window_builder.with_accepts_first_mouse(false);
 
     #[allow(clippy::let_and_return)]
-    let window_config = build_window_config(winit_window_builder, event_loop);
+    let window = winit_window_builder.build(event_loop).unwrap();
 
     #[cfg(target_os = "macos")]
     if let Some(previous_position) = previous_position {
-        window_config.window.set_outer_position(previous_position);
+        window.set_outer_position(previous_position);
     }
 
-    window_config
+    window
 }
 
 #[derive(Clone, Debug)]
@@ -275,7 +265,6 @@ pub fn main_loop(
     let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
     let mut update_loop = UpdateLoop::new(cmd_line_settings.idle);
 
-    let proxy = event_loop.create_proxy();
     let mut window_wrapper = Some(WinitWindowWrapper::new(
         initial_window_size,
         initial_font_settings,
@@ -295,7 +284,7 @@ pub fn main_loop(
             Event::Resumed => {
                 create_window_allowed = true;
                 if let Some(window_wrapper) = &mut window_wrapper {
-                    window_wrapper.try_create_window(window_target, &proxy);
+                    window_wrapper.try_create_window(window_target);
                 }
             }
             Event::LoopExiting => window_wrapper = None,
@@ -307,7 +296,7 @@ pub fn main_loop(
                 if let Some(window_wrapper) = &mut window_wrapper {
                     window_target.set_control_flow(update_loop.step(window_wrapper, e));
                     if create_window_allowed {
-                        window_wrapper.try_create_window(window_target, &proxy);
+                        window_wrapper.try_create_window(window_target);
                     }
                 }
             }

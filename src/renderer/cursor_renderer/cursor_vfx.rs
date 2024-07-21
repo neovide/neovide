@@ -1,13 +1,10 @@
 use log::error;
 use nvim_rs::Value;
-use skia_safe::{paint::Style, BlendMode, Canvas, Color, Paint, Rect};
 
 use crate::{
-    editor::Cursor,
     renderer::cursor_renderer::CursorSettings,
-    renderer::{animation_utils::*, grid_renderer::GridRenderer},
     settings::*,
-    units::{GridSize, PixelPos, PixelSize, PixelVec},
+    units::{PixelPos, PixelSize, PixelVec},
 };
 
 pub trait CursorVfx {
@@ -20,13 +17,7 @@ pub trait CursorVfx {
         dt: f32,
     ) -> bool;
     fn restart(&mut self, position: PixelPos<f32>);
-    fn render(
-        &self,
-        settings: &CursorSettings,
-        canvas: &Canvas,
-        grid_renderer: &mut GridRenderer,
-        cursor: &Cursor,
-    );
+    // fn render(&self, settings: &CursorSettings, grid_renderer: &mut GridRenderer, cursor: &Cursor);
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -97,7 +88,7 @@ pub fn new_cursor_vfx(mode: &VfxMode) -> Option<Box<dyn CursorVfx>> {
 pub struct PointHighlight {
     t: f32,
     center_position: PixelPos<f32>,
-    mode: HighlightMode,
+    _mode: HighlightMode,
 }
 
 impl PointHighlight {
@@ -105,7 +96,7 @@ impl PointHighlight {
         PointHighlight {
             t: 0.0,
             center_position: PixelPos::new(0.0, 0.0),
-            mode: mode.clone(),
+            _mode: mode.clone(),
         }
     }
 }
@@ -128,12 +119,12 @@ impl CursorVfx for PointHighlight {
         self.center_position = position;
     }
 
+    /*
     fn render(
         &self,
-        settings: &CursorSettings,
-        canvas: &Canvas,
-        grid_renderer: &mut GridRenderer,
-        cursor: &Cursor,
+        _settings: &CursorSettings,
+        _grid_renderer: &mut GridRenderer,
+        _cursor: &Cursor,
     ) {
         if (self.t - 1.0).abs() < f32::EPSILON {
             return;
@@ -174,8 +165,8 @@ impl CursorVfx for PointHighlight {
                 paint.set_stroke_width(cursor_height * 0.2);
                 canvas.draw_rect(rect, &paint);
             }
-        }
     }
+    */
 }
 
 #[derive(Clone)]
@@ -327,12 +318,12 @@ impl CursorVfx for ParticleTrail {
 
     fn restart(&mut self, _position: PixelPos<f32>) {}
 
+    /*
     fn render(
         &self,
-        settings: &CursorSettings,
-        canvas: &Canvas,
-        grid_renderer: &mut GridRenderer,
-        cursor: &Cursor,
+        _settings: &CursorSettings,
+        _grid_renderer: &mut GridRenderer,
+        _cursor: &Cursor,
     ) {
         let mut paint = Paint::new(skia_safe::colors::WHITE, None);
         let font_dimensions = GridSize::new(1.0, 1.0) * grid_renderer.grid_scale;
@@ -373,6 +364,7 @@ impl CursorVfx for ParticleTrail {
             }
         });
     }
+    */
 }
 
 // Random number generator based on http://www.pcg-random.org/

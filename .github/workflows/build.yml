@@ -68,6 +68,10 @@ jobs:
       - name: Test
         env:
           RUST_BACKTRACE: full
+          # Tracy can't run in the CI on macOS
+          # TODO: Tracy should not be enabled automatically by Vide
+          TRACY_NO_INVARIANT_CHECK: 1
+
         run: |
           cargo nextest run --profile ci
           mv target/nextest/ci/results.xml target/nextest/ci/results-${{ matrix.os }}.xml

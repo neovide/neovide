@@ -139,13 +139,13 @@ impl UpdateLoop {
     }
 
     fn animate(&mut self, window_wrapper: &mut WinitWindowWrapper) {
-        if window_wrapper.skia_renderer.is_none() {
+        if window_wrapper.window.is_none() {
             return;
         }
-        let skia_renderer = window_wrapper.skia_renderer.as_ref().unwrap();
-        let vsync = window_wrapper.vsync.as_ref().unwrap();
+        let window = window_wrapper.window.as_ref().unwrap();
+        let vsync = window_wrapper.vsync.as_mut().unwrap();
 
-        let dt = Duration::from_secs_f32(vsync.get_refresh_rate(skia_renderer.window()));
+        let dt = Duration::from_secs_f32(vsync.get_refresh_rate(window));
 
         let now = Instant::now();
         let target_animation_time = now - self.animation_start;
@@ -212,10 +212,10 @@ impl UpdateLoop {
     }
 
     fn schedule_render(&mut self, skipped_frame: bool, window_wrapper: &mut WinitWindowWrapper) {
-        if window_wrapper.skia_renderer.is_none() {
+        if window_wrapper.window.is_none() {
             return;
         }
-        let skia_renderer = window_wrapper.skia_renderer.as_ref().unwrap();
+        let window = window_wrapper.window.as_ref().unwrap();
         let vsync = window_wrapper.vsync.as_mut().unwrap();
 
         // There's really no point in trying to render if the frame is skipped
@@ -225,7 +225,7 @@ impl UpdateLoop {
             // When winit throttling is used, request a redraw and wait for the render event
             // Otherwise render immediately
             if vsync.uses_winit_throttling() {
-                vsync.request_redraw(skia_renderer.window());
+                vsync.request_redraw(window);
                 self.pending_render = true;
                 tracy_plot!("pending_render", self.pending_render as u8 as f64);
             } else {
@@ -238,15 +238,6 @@ impl UpdateLoop {
         // We will also animate, but not render when frames are skipped or a bit late, to reduce visual artifacts
         let skipped_frame =
             self.pending_render && Instant::now() > (self.animation_start + self.animation_time);
-        let should_prepare = !self.pending_render || skipped_frame;
-        if !should_prepare {
-            window_wrapper
-                .renderer
-                .grid_renderer
-                .shaper
-                .cleanup_font_cache();
-            return;
-        }
 
         let res = window_wrapper.prepare_frame();
         self.should_render.update(res);

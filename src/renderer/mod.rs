@@ -2,14 +2,10 @@ pub mod animation_utils;
 pub mod cursor_renderer;
 pub mod fonts;
 pub mod grid_renderer;
-pub mod opengl;
 pub mod profiler;
 mod rendered_layer;
 mod rendered_window;
 mod vsync;
-
-#[cfg(target_os = "windows")]
-pub mod d3d;
 
 use std::{
     cmp::Ordering,
@@ -17,68 +13,38 @@ use std::{
     sync::Arc,
 };
 
+use futures::executor::block_on;
+
 use itertools::Itertools;
 use log::{error, warn};
-use skia_safe::Canvas;
+use palette::{LinSrgba, WithAlpha};
 
-use winit::{
-    event::Event,
-    event_loop::{EventLoopProxy, EventLoopWindowTarget},
-    window::{Window, WindowBuilder},
-};
+use winit::{event::Event, window::Window};
+
+use vide::{Layer, Scene, WinitRenderer};
 
 use crate::{
     bridge::EditorMode,
     cmd_line::CmdLineSettings,
     editor::{Cursor, Style},
-    profiling::{tracy_create_gpu_context, tracy_named_frame, tracy_zone},
+    profiling::{tracy_named_frame, tracy_zone},
     renderer::rendered_layer::{group_windows, FloatingLayer},
     settings::*,
-    units::{to_skia_rect, GridPos, GridRect, GridSize, PixelPos},
+    units::{GridPos, GridRect, GridSize, PixelPos},
     window::{ShouldRender, UserEvent},
     WindowSettings,
 };
 
 #[cfg(feature = "profiling")]
 use crate::profiling::tracy_plot;
-#[cfg(feature = "profiling")]
-use skia_safe::graphics::{
-    font_cache_count_limit, font_cache_count_used, font_cache_limit, font_cache_used,
-    resource_cache_single_allocation_byte_limit, resource_cache_total_bytes_limit,
-    resource_cache_total_bytes_used,
-};
-
-#[cfg(feature = "gpu_profiling")]
-use crate::profiling::GpuCtx;
 
 use cursor_renderer::CursorRenderer;
-pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
 pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails};
 
 pub use vsync::VSync;
 
 use self::fonts::font_options::FontOptions;
-
-#[cfg(feature = "profiling")]
-fn plot_skia_cache() {
-    tracy_plot!("font_cache_limit", font_cache_limit() as f64);
-    tracy_plot!("font_cache_used", font_cache_used() as f64);
-    tracy_plot!("font_cache_count_used", font_cache_count_used() as f64);
-    tracy_plot!("font_cache_count_limit", font_cache_count_limit() as f64);
-    tracy_plot!(
-        "resource_cache_total_bytes_used",
-        resource_cache_total_bytes_used() as f64
-    );
-    tracy_plot!(
-        "resource_cache_total_bytes_limit",
-        resource_cache_total_bytes_limit() as f64
-    );
-    tracy_plot!(
-        "resource_cache_single_allocation_byte_limit",
-        resource_cache_single_allocation_byte_limit().unwrap_or_default() as f64
-    );
-}
 
 #[derive(SettingGroup, Clone)]
 pub struct RendererSettings {
@@ -144,6 +110,7 @@ pub enum DrawCommand {
 }
 
 pub struct Renderer {
+    wgpu_renderer: Option<WinitRenderer>,
     cursor_renderer: CursorRenderer,
     pub grid_renderer: GridRenderer,
     current_mode: EditorMode,
@@ -154,6 +121,15 @@ pub struct Renderer {
     profiler: profiler::Profiler,
     pub os_scale_factor: f64,
     pub user_scale_factor: f64,
+
+    scene: Scene,
+}
+
+async fn create_renderer(window: Arc<Window>) -> WinitRenderer {
+    WinitRenderer::new(window)
+        .await
+        .with_default_drawables()
+        .await
 }
 
 /// Results of processing the draw commands from the command channel.
@@ -161,7 +137,6 @@ pub struct DrawCommandResult {
     pub font_changed: bool,
     pub should_show: bool,
 }
-
 impl Renderer {
     pub fn new(os_scale_factor: f64, init_font_settings: Option<FontSettings>) -> Self {
         let window_settings = SETTINGS.get::<WindowSettings>();
@@ -178,7 +153,10 @@ impl Renderer {
 
         let profiler = profiler::Profiler::new(12.0);
 
+        let scene = Scene::new();
+
         Renderer {
+            wgpu_renderer: None,
             rendered_windows,
             cursor_renderer,
             grid_renderer,
@@ -187,10 +165,18 @@ impl Renderer {
             profiler,
             os_scale_factor,
             user_scale_factor,
+            scene,
         }
     }
 
+    pub fn create_wgpu(&mut self, window: Arc<Window>) {
+        self.wgpu_renderer = Some(block_on(create_renderer(window)));
+    }
+
     pub fn handle_event(&mut self, event: &Event<UserEvent>) -> bool {
+        if let Some(wgpu_renderer) = self.wgpu_renderer.as_mut() {
+            wgpu_renderer.handle_event(event);
+        }
         self.cursor_renderer.handle_event(event)
     }
 
@@ -202,23 +188,23 @@ impl Renderer {
         self.cursor_renderer.prepare_frame()
     }
 
-    pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32) {
+    pub fn draw_frame(&mut self, dt: f32) {
         tracy_zone!("renderer_draw_frame");
-        let default_background = self.grid_renderer.get_default_background();
+
+        let default_background: LinSrgba = self.grid_renderer.get_default_background().into();
+        let transparency = { SETTINGS.get::<WindowSettings>().transparency };
+        let transparent_default_background = default_background.with_alpha(transparency);
+
         let grid_scale = self.grid_renderer.grid_scale;
 
-        let transparency = SETTINGS.get::<WindowSettings>().transparency;
+        self.scene = Scene::new();
+
         let layer_grouping = SETTINGS
             .get::<RendererSettings>()
             .experimental_layer_grouping;
-        root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
-        root_canvas.save();
-        root_canvas.reset_matrix();
 
-        if let Some(root_window) = self.rendered_windows.get(&1) {
-            let clip_rect = to_skia_rect(&root_window.pixel_region(grid_scale));
-            root_canvas.clip_rect(clip_rect, None, Some(false));
-        }
+        let background_layer = Layer::new().with_background(transparent_default_background.into());
+        self.scene.add_layer(background_layer);
 
         let (root_windows, floating_layers) = {
             let (mut root_windows, mut floating_windows): (
@@ -287,9 +273,9 @@ impl Renderer {
             .into_iter()
             .map(|window| {
                 window.draw(
-                    root_canvas,
-                    default_background.with_a((255.0 * transparency) as u8),
-                    grid_scale,
+                    default_background.with_alpha(255.0 * transparency),
+                    &mut self.grid_renderer,
+                    &mut self.scene,
                 )
             })
             .collect_vec();
@@ -298,27 +284,27 @@ impl Renderer {
             .into_iter()
             .flat_map(|mut layer| {
                 layer.draw(
-                    root_canvas,
                     &settings,
-                    default_background.with_a((255.0 * transparency) as u8),
-                    grid_scale,
+                    transparent_default_background,
+                    &mut self.grid_renderer,
+                    &mut self.scene,
                 )
             })
             .collect_vec();
 
-        self.window_regions = root_window_regions
+        let window_regions = root_window_regions
             .into_iter()
             .chain(floating_window_regions)
-            .collect();
-        self.cursor_renderer
-            .draw(&mut self.grid_renderer, root_canvas);
+            .collect_vec();
 
-        self.profiler.draw(root_canvas, dt);
+        self.window_regions = window_regions;
+        self.cursor_renderer.draw(&mut self.grid_renderer);
 
-        root_canvas.restore();
-
-        #[cfg(feature = "profiling")]
-        plot_skia_cache();
+        self.profiler.draw(dt);
+        if let Some(wgpu_renderer) = self.wgpu_renderer.as_mut() {
+            tracy_zone!("wgpu_renderer.draw");
+            wgpu_renderer.draw(&self.scene);
+        }
     }
 
     pub fn animate_frame(&mut self, grid_rect: &GridRect<f32>, dt: f32) -> bool {
@@ -490,64 +476,4 @@ fn floating_sort(window_a: &&mut RenderedWindow, window_b: &&mut RenderedWindow)
     let orda = &window_a.anchor_info.as_ref().unwrap().sort_order;
     let ordb = &window_b.anchor_info.as_ref().unwrap().sort_order;
     orda.cmp(ordb)
-}
-
-pub enum WindowConfigType {
-    OpenGL(glutin::config::Config),
-    #[cfg(target_os = "windows")]
-    Direct3D,
-}
-
-pub struct WindowConfig {
-    pub window: Window,
-    pub config: WindowConfigType,
-}
-
-pub fn build_window_config<TE>(
-    winit_window_builder: WindowBuilder,
-    event_loop: &EventLoopWindowTarget<TE>,
-) -> WindowConfig {
-    #[cfg(target_os = "windows")]
-    {
-        let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
-        if cmd_line_settings.opengl {
-            opengl::build_window(winit_window_builder, event_loop)
-        } else {
-            let window = winit_window_builder.build(event_loop).unwrap();
-            let config = WindowConfigType::Direct3D;
-            WindowConfig { window, config }
-        }
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        opengl::build_window(winit_window_builder, event_loop)
-    }
-}
-
-pub trait SkiaRenderer {
-    fn window(&self) -> &Window;
-    fn flush(&mut self);
-    fn swap_buffers(&mut self);
-    fn canvas(&mut self) -> &Canvas;
-    fn resize(&mut self);
-    fn create_vsync(&self, proxy: EventLoopProxy<UserEvent>) -> VSync;
-    #[cfg(feature = "gpu_profiling")]
-    fn tracy_create_gpu_context(&self, name: &str) -> Box<dyn GpuCtx>;
-}
-
-pub fn create_skia_renderer(
-    window: WindowConfig,
-    srgb: bool,
-    vsync: bool,
-) -> Box<dyn SkiaRenderer> {
-    let renderer: Box<dyn SkiaRenderer> = match &window.config {
-        WindowConfigType::OpenGL(..) => {
-            Box::new(opengl::OpenGLSkiaRenderer::new(window, srgb, vsync))
-        }
-        #[cfg(target_os = "windows")]
-        WindowConfigType::Direct3D => Box::new(d3d::D3DSkiaRenderer::new(window.window)),
-    };
-    tracy_create_gpu_context("main_render_context", renderer.as_ref());
-    renderer
 }

@@ -15,7 +15,7 @@ use winit::event_loop::EventLoopProxy;
 use winit::window::Theme;
 
 #[cfg(target_os = "macos")]
-use skia_safe::Color4f;
+use palette::Srgba;
 
 use crate::{
     bridge::{GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
@@ -652,13 +652,14 @@ pub fn start_editor(event_loop_proxy: EventLoopProxy<UserEvent>) -> NeovimHandle
 /// Based on formula in https://graphicdesign.stackexchange.com/questions/62368/automatically-select-a-foreground-color-based-on-a-background-color
 /// Check if the color is light or dark
 #[cfg(target_os = "macos")]
-fn is_light_color(color: &Color4f) -> bool {
-    0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b > 0.5
+fn is_light_color(color: &Srgba) -> bool {
+    let color = color.color;
+    0.2126 * color.red + 0.7152 * color.green + 0.0722 * color.blue > 0.5
 }
 
 /// Get the proper dark/light theme for a background_color.
 #[cfg(target_os = "macos")]
-fn window_theme_for_background(background_color: Option<Color4f>) -> Option<Theme> {
+fn window_theme_for_background(background_color: Option<Srgba>) -> Option<Theme> {
     background_color?;
 
     match background_color.unwrap() {

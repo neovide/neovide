@@ -15,7 +15,7 @@ use crate::windows_attach_to_console;
 use crate::{
     bridge::{send_ui, ParallelCommand},
     running_tracker::RUNNING_TRACKER,
-    window::{show_error_window, UserEvent},
+    window::UserEvent,
 };
 
 fn show_error(explanation: &str) -> ! {
@@ -71,8 +71,8 @@ fn handle_terminal_startup_errors(err: Error) -> i32 {
     1
 }
 
-fn handle_gui_startup_errors(err: Error, event_loop: EventLoop<UserEvent>) -> i32 {
-    show_error_window(&format_and_log_error_message(err), event_loop);
+fn handle_gui_startup_errors(_err: Error, _event_loop: EventLoop<UserEvent>) -> i32 {
+    // show_error_window(&format_and_log_error_message(err), event_loop);
     1
 }
 

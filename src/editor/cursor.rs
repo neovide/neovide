@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use skia_safe::Color4f;
+use palette::Srgba;
 
 use crate::editor::style::{Colors, Style};
 
@@ -49,6 +49,8 @@ pub struct Cursor {
     pub grid_cell: GridCell,
 }
 
+// TODO: Remove
+#[allow(unused)]
 impl Cursor {
     pub fn new() -> Cursor {
         Cursor {
@@ -66,14 +68,14 @@ impl Cursor {
         }
     }
 
-    pub fn foreground(&self, default_colors: &Colors) -> Color4f {
+    pub fn foreground(&self, default_colors: &Colors) -> Srgba {
         self.style
             .as_ref()
             .and_then(|s| s.colors.foreground)
             .unwrap_or_else(|| default_colors.background.unwrap())
     }
 
-    pub fn background(&self, default_colors: &Colors) -> Color4f {
+    pub fn background(&self, default_colors: &Colors) -> Srgba {
         self.style
             .as_ref()
             .and_then(|s| s.colors.background)
@@ -118,15 +120,15 @@ mod tests {
     use super::*;
 
     const COLORS: Colors = Colors {
-        foreground: Some(Color4f::new(0.1, 0.1, 0.1, 0.1)),
-        background: Some(Color4f::new(0.2, 0.1, 0.1, 0.1)),
-        special: Some(Color4f::new(0.3, 0.1, 0.1, 0.1)),
+        foreground: Some(Srgba::new(0.1, 0.1, 0.1, 0.1)),
+        background: Some(Srgba::new(0.2, 0.1, 0.1, 0.1)),
+        special: Some(Srgba::new(0.3, 0.1, 0.1, 0.1)),
     };
 
     const DEFAULT_COLORS: Colors = Colors {
-        foreground: Some(Color4f::new(0.1, 0.2, 0.1, 0.1)),
-        background: Some(Color4f::new(0.2, 0.2, 0.1, 0.1)),
-        special: Some(Color4f::new(0.3, 0.2, 0.1, 0.1)),
+        foreground: Some(Srgba::new(0.1, 0.2, 0.1, 0.1)),
+        background: Some(Srgba::new(0.2, 0.2, 0.1, 0.1)),
+        special: Some(Srgba::new(0.3, 0.2, 0.1, 0.1)),
     };
 
     const NONE_COLORS: Colors = Colors {

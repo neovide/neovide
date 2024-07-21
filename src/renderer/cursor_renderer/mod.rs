@@ -3,7 +3,6 @@ mod cursor_vfx;
 
 use std::collections::HashMap;
 
-use skia_safe::{op, Canvas, Paint, Path};
 use winit::event::{Event, WindowEvent};
 
 use crate::{
@@ -12,7 +11,7 @@ use crate::{
     profiling::{tracy_plot, tracy_zone},
     renderer::{animation_utils::*, GridRenderer, RenderedWindow},
     settings::{ParseFromValue, SETTINGS},
-    units::{to_skia_point, GridPos, GridScale, PixelPos, PixelSize, PixelVec},
+    units::{GridPos, GridScale, PixelPos, PixelSize},
     window::{ShouldRender, UserEvent},
 };
 
@@ -273,7 +272,8 @@ impl CursorRenderer {
         self.blink_status.update_status(&self.cursor)
     }
 
-    pub fn draw(&mut self, grid_renderer: &mut GridRenderer, canvas: &Canvas) {
+    pub fn draw(&mut self, _grid_renderer: &mut GridRenderer) {
+        /*
         tracy_zone!("cursor_draw");
         let settings = SETTINGS.get::<CursorSettings>();
         let render = self.blink_status.should_render() || settings.smooth_blink;
@@ -336,6 +336,7 @@ impl CursorRenderer {
         if let Some(vfx) = self.cursor_vfx.as_ref() {
             vfx.render(&settings, canvas, grid_renderer, &self.cursor);
         }
+        */
     }
 
     pub fn animate(
@@ -423,6 +424,7 @@ impl CursorRenderer {
         animating
     }
 
+    /*
     fn draw_rectangle(&self, canvas: &Canvas, paint: &Paint) -> Path {
         // The cursor is made up of four points, so I create a path with each of the four
         // corners.
@@ -467,6 +469,7 @@ impl CursorRenderer {
         canvas.draw_path(&path, paint);
         path
     }
+    */
 
     pub fn get_destination(&self) -> PixelPos<f32> {
         self.destination
