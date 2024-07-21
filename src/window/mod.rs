@@ -68,6 +68,7 @@ const MAX_PERSISTENT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
 pub enum WindowCommand {
     TitleChanged(String),
     SetMouseEnabled(bool),
+    Bell,
     ListAvailableFonts,
     FocusWindow,
     Minimize,
