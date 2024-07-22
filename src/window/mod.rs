@@ -13,6 +13,7 @@ use std::env;
 
 use winit::{
     dpi::{PhysicalSize, Size},
+    event::DeviceId,
     event_loop::{ActiveEventLoop, EventLoop},
     window::{Icon, Theme, Window},
 };
@@ -65,11 +66,19 @@ const MAX_PERSISTENT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
 };
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct Pressure {
+    device_id: DeviceId,
+    pressure: f32,
+    stage: i64,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum WindowCommand {
     TitleChanged(String),
     SetMouseEnabled(bool),
     ListAvailableFonts,
     FocusWindow,
+    TouchpadPressure,
     Minimize,
     #[allow(dead_code)] // Theme change is only used on macOS right now
     ThemeChanged(Option<Theme>),

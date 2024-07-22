@@ -123,6 +123,7 @@ pub enum ParallelCommand {
     FocusLost,
     FocusGained,
     DisplayAvailableFonts(Vec<String>),
+    TakeWordUnderCursor,
     SetBackground(String),
     ShowError { lines: Vec<String> },
 }
@@ -173,7 +174,7 @@ async fn display_available_fonts(
 }
 
 impl ParallelCommand {
-    async fn execute(self, nvim: &Neovim<NeovimWriter>) {
+    async fn execute(self, nvim: &Neovim<NeovimWriter>) -> Result<Option<Value>> {
         // Don't panic here unless there's absolutely no chance of continuing the program, Instead
         // just log the error and hope that it's something temporary or recoverable A normal reason
         // for failure is when neovim has already quit, and a command, for example mouse move is
@@ -227,7 +228,15 @@ impl ParallelCommand {
             ParallelCommand::DisplayAvailableFonts(fonts) => display_available_fonts(nvim, fonts)
                 .await
                 .context("DisplayAvailableFonts failed"),
+            ParallelCommand::TakeWordUnderCursor => {
+                println!("TakeWordUnderCursor");
 
+                let result = nvim
+                    .exec_lua(include_str!("extractor.lua"), vec![Value::Nil])
+                    .await;
+
+                Ok(())
+            }
             ParallelCommand::ShowError { lines } => {
                 // nvim.err_write(&message).await.ok();
                 // NOTE: https://github.com/neovim/neovim/issues/5067
@@ -242,6 +251,8 @@ impl ParallelCommand {
         if let Err(error) = result {
             log::error!("{:?}", error);
         }
+
+        Ok(None)
     }
 }
 

@@ -1,25 +1,36 @@
+use glamour::Point2;
 use icrate::{
+    block2::{Block, ConcreteBlock, RcBlock},
     AppKit::{
-        NSApplication, NSColor, NSEvent, NSEventModifierFlagCommand, NSEventModifierFlagControl,
-        NSEventModifierFlagOption, NSMenu, NSMenuItem, NSView, NSViewMinYMargin,
-        NSViewWidthSizable, NSWindow, NSWindowStyleMaskFullScreen, NSWindowStyleMaskTitled,
-        NSWindowTabbingModeDisallowed,
+        self, NSApplication, NSColor, NSEvent, NSEventModifierFlagCommand,
+        NSEventModifierFlagControl, NSEventModifierFlagDeviceIndependentFlagsMask,
+        NSEventModifierFlagOption, NSEventModifierFlags, NSEventType, NSEventTypePressure, NSMenu,
+        NSMenuItem, NSTextView, NSView, NSViewMinYMargin, NSViewWidthSizable, NSWindow,
+        NSWindowStyleMaskFullScreen, NSWindowStyleMaskTitled, NSWindowTabbingModeDisallowed,
     },
-    Foundation::{MainThreadMarker, NSObject, NSPoint, NSProcessInfo, NSRect, NSSize, NSString},
+    Foundation::{
+        CGFloat, CGPoint, MainThreadMarker, NSAttributedString, NSDictionary, NSMouseInRect,
+        NSObject, NSPoint, NSProcessInfo, NSRange, NSRect, NSSize, NSString,
+    },
 };
 use objc2::{
-    declare_class, msg_send_id,
+    class, declare_class,
+    ffi::id,
+    msg_send, msg_send_id,
     mutability::InteriorMutable,
-    rc::Id,
-    runtime::{AnyClass, AnyObject},
+    rc::{Allocated, Id},
+    runtime::{AnyClass, AnyObject, Bool, Object, BOOL, NO},
     sel, ClassType,
 };
 
 use csscolorparser::Color;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use winit::window::Window;
+use winit::{dpi::PhysicalPosition, event::DeviceId, window::Window};
 
-use crate::bridge::{send_ui, ParallelCommand};
+use crate::{
+    bridge::{send_ui, ParallelCommand},
+    units::Pixel,
+};
 use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame, settings::SETTINGS};
 
 use super::{WindowSettings, WindowSettingsChanged};
@@ -260,6 +271,54 @@ impl MacosWindowFeature {
                 self.update_background(true);
             }
             _ => {}
+        }
+    }
+
+    pub fn handle_touchpad_pressure(
+        &self,
+        device_id: &DeviceId,
+        pressure: &f32,
+        stage: &i64,
+        cursor_position: Point2<Pixel<f32>>,
+    ) {
+        log::info!(
+            "Touchpad pressure: device_id: {:?}, pressure: {}, stage: {}",
+            device_id,
+            pressure,
+            stage
+        );
+
+        // if stage == 1 && pressure > 0.5 {
+        if stage == &2 && cursor_position.y > 0. {
+            println!(
+                "Touchpad pressure: device_id: {:?}, pressure: {}, stage: {}",
+                device_id, pressure, stage
+            );
+
+            unsafe {
+                let ns_view = self.ns_window.contentView().unwrap();
+                println!("ns_view: {:?}", ns_view);
+                let scale_factor = self.ns_window.backingScaleFactor();
+                let transleted_point = NSPoint::new(
+                    cursor_position.x as f64 / scale_factor,
+                    cursor_position.y as f64 / scale_factor,
+                );
+                println!("transleted_point: {:?}", transleted_point);
+                ns_view.setNeedsDisplay(true);
+                ns_view.display();
+                // Retrieve the scale factor of the window
+                let scale_factor = self.ns_window.backingScaleFactor();
+                println!("Scale factor: {}", scale_factor);
+
+                // Create an NSAttributedString with the hardcoded text
+                let text = NSString::from_str("gpu_profiling"); // replace the text
+                let attr_string = NSAttributedString::from_nsstring(&text);
+                attr_string.fontAttributesInRange(NSRange::new(0, attr_string.length()));
+                ns_view.showDefinitionForAttributedString_atPoint(
+                    Some(&attr_string),
+                    transleted_point,
+                );
+            }
         }
     }
 }

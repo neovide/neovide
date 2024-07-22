@@ -122,6 +122,14 @@ impl Handler for NeovimHandler {
                     .unwrap()
                     .send_event(WindowCommand::FocusWindow.into());
             }
+            #[cfg(target_os = "macos")]
+            "neovide.force_click" => {
+                let _ = self
+                    .proxy
+                    .lock()
+                    .unwrap()
+                    .send_event(WindowCommand::TouchpadPressure.into());
+            }
             _ => {}
         }
     }

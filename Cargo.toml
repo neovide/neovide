@@ -107,23 +107,32 @@ skia-safe = { version = "0.75.0", features = ["gl", "textlayout"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 icrate = { version = "0.0.4", features = [
+    "block",
     "apple",
     "Foundation",
     "Foundation_NSThread",
+    "Foundation_NSDictionary",
     "Foundation_NSProcessInfo",
+    "Foundation_NSAttributedString",
+    "AppKit_NSGraphicsContext",
     "AppKit",
     "AppKit_NSColor",
     "AppKit_NSEvent",
     "AppKit_NSView",
+    "AppKit_NSTextView",
     "AppKit_NSWindow",
+    "AppKit_NSResponder",
     "AppKit_NSViewController",
     "AppKit_NSMenu",
+    "AppKit_NSFont",
     "AppKit_NSMenuItem",
     "AppKit_NSOpenPanel",
     "AppKit_NSScreen",
+    "AppKit_NSTextInputContext",
+    # "AppKit_NSUserInterfaceItemIdentification",
     "Foundation_NSArray",
 ] }
-objc2 = "0.4.1"
+objc2 = { version = "0.4.1" , default-features = false }
 
 [target.'cfg(target_os = "windows")'.build-dependencies]
 winres = "0.1.12"

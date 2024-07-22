@@ -5,21 +5,24 @@ use std::{
 };
 
 use winit::{
-    event::WindowEvent,
-    event::{DeviceId, ElementState, MouseButton, MouseScrollDelta, Touch, TouchPhase},
+    dpi,
+    event::{
+        DeviceId, ElementState, MouseButton, MouseScrollDelta, Touch, TouchPhase, WindowEvent,
+    },
     window::Window,
 };
 
 use glamour::Contains;
 
 use crate::{
-    bridge::{send_ui, SerialCommand},
+    bridge::{neovim_instance, send_ui, ParallelCommand, SerialCommand},
     renderer::{Renderer, WindowDrawDetails},
     settings::SETTINGS,
     units::{GridPos, GridScale, GridVec, PixelPos, PixelRect, PixelSize, PixelVec},
-    window::keyboard_manager::KeyboardManager,
-    window::WindowSettings,
+    window::{keyboard_manager::KeyboardManager, WindowSettings},
 };
+
+use super::macos::MacosWindowFeature;
 
 fn clamp_position(
     position: PixelPos<f32>,
@@ -386,6 +389,7 @@ impl MouseManager {
         keyboard_manager: &KeyboardManager,
         renderer: &Renderer,
         window: &Window,
+        macos_feature: Option<&MacosWindowFeature>,
     ) {
         let editor_state = EditorState {
             grid_scale: &renderer.grid_renderer.grid_scale,
@@ -439,6 +443,34 @@ impl MouseManager {
                         window.set_cursor_visible(false);
                         self.mouse_hidden = true;
                     }
+                }
+            }
+            WindowEvent::TouchpadPressure {
+                device_id,
+                pressure,
+                stage,
+            } => {
+                println!("1.Touchpad pressure event");
+                send_ui(ParallelCommand::TakeWordUnderCursor);
+                send_ui(SerialCommand::MouseButton {
+                    button: "x1".to_owned(),
+                    action: "press".to_owned(),
+                    grid_id: 0,
+                    position: (),
+                    modifier_string: (),
+                });
+                // let neovim_instance = neovim_instance().unwrap();
+                //
+                // let session = NeovimSession::new(neovim_instance, handler)
+                //     .await
+                //     .context("Could not locate or start neovim process")?;
+                if let Some(macos_feature) = macos_feature {
+                    macos_feature.handle_touchpad_pressure(
+                        device_id,
+                        pressure,
+                        stage,
+                        self.window_position,
+                    );
                 }
             }
             _ => {}

@@ -1,5 +1,6 @@
 use super::{
-    KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged,
+    KeyboardManager, MouseManager, Pressure, UserEvent, WindowCommand, WindowSettings,
+    WindowSettingsChanged,
 };
 
 #[cfg(target_os = "macos")]
@@ -181,6 +182,9 @@ impl WinitWindowWrapper {
                     skia_renderer.window().focus_window();
                 }
             }
+            WindowCommand::TouchpadPressure => {
+                println!("TouchpadPressure from neovim");
+            }
             WindowCommand::Minimize => {
                 self.minimize_window();
                 self.is_minimized = true;
@@ -308,6 +312,7 @@ impl WinitWindowWrapper {
             &self.keyboard_manager,
             &self.renderer,
             skia_renderer.window(),
+            self.macos_feature.as_ref(),
         );
         self.keyboard_manager.handle_event(&event);
         self.renderer.handle_event(&event);
@@ -339,6 +344,18 @@ impl WinitWindowWrapper {
                 } else {
                     self.handle_focus_lost();
                 }
+            }
+            WindowEvent::TouchpadPressure {
+                device_id,
+                pressure,
+                stage,
+            } => {
+                self.handle_user_event(UserEvent::WindowCommand(WindowCommand::TouchpadPressure));
+                // let grid_position = self.renderer.get_cursor_destination();
+                // self.macos_feature
+                //     .as_mut()
+                //     .unwrap()
+                //     .handle_touchpad_pressure(&device_id, &pressure, &stage);
             }
             WindowEvent::ThemeChanged(theme) => {
                 tracy_zone!("ThemeChanged");

@@ -39,7 +39,7 @@ pub struct NeovimRuntime {
     runtime: Runtime,
 }
 
-fn neovim_instance() -> Result<NeovimInstance> {
+pub fn neovim_instance() -> Result<NeovimInstance> {
     if let Some(address) = SETTINGS.get::<CmdLineSettings>().server {
         Ok(NeovimInstance::Server { address })
     } else {
