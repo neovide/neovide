@@ -166,8 +166,9 @@ impl GridRenderer {
         if let Some(underline_style) = style.underline {
             let stroke_size = self.shaper.stroke_size();
             let underline_position = self.shaper.underline_position();
-            let p1 = pos + PixelVec::new(0.0, underline_position);
-            let p2 = pos + PixelVec::new(width, underline_position);
+            let underline_offset = SETTINGS.get::<RendererSettings>().underline_offset;
+            let p1 = pos + PixelVec::new(0.0, underline_position - underline_offset);
+            let p2 = pos + PixelVec::new(width, underline_position - underline_offset);
 
             self.draw_underline(canvas, style, underline_style, stroke_size, p1, p2);
             drawn = true;
