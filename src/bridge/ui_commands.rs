@@ -174,7 +174,7 @@ async fn display_available_fonts(
 }
 
 impl ParallelCommand {
-    async fn execute(self, nvim: &Neovim<NeovimWriter>) -> Result<Option<Value>> {
+    async fn execute(self, nvim: &Neovim<NeovimWriter>) {
         // Don't panic here unless there's absolutely no chance of continuing the program, Instead
         // just log the error and hope that it's something temporary or recoverable A normal reason
         // for failure is when neovim has already quit, and a command, for example mouse move is
@@ -251,8 +251,6 @@ impl ParallelCommand {
         if let Err(error) = result {
             log::error!("{:?}", error);
         }
-
-        Ok(None)
     }
 }
 

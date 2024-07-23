@@ -51,11 +51,11 @@ struct DragDetails {
     button: MouseButton,
 }
 
-struct EditorState<'a> {
-    grid_scale: &'a GridScale,
-    window_regions: &'a Vec<WindowDrawDetails>,
-    window: &'a Window,
-    keyboard_manager: &'a KeyboardManager,
+pub struct EditorState<'a> {
+    pub grid_scale: &'a GridScale,
+    pub window_regions: &'a Vec<WindowDrawDetails>,
+    pub window: &'a Window,
+    pub keyboard_manager: &'a KeyboardManager,
 }
 
 #[derive(Debug)]
@@ -71,7 +71,7 @@ pub struct MouseManager {
     grid_position: GridPos<u32>,
 
     has_moved: bool,
-    window_position: PixelPos<f32>,
+    pub window_position: PixelPos<f32>,
 
     scroll_position: GridPos<f32>,
 
@@ -96,7 +96,7 @@ impl MouseManager {
         }
     }
 
-    fn get_window_details_under_mouse<'a>(
+    pub fn get_window_details_under_mouse<'a>(
         &self,
         editor_state: &'a EditorState<'a>,
     ) -> Option<&'a WindowDrawDetails> {
@@ -111,7 +111,7 @@ impl MouseManager {
             .last()
     }
 
-    fn get_relative_position(
+    pub fn get_relative_position(
         &self,
         window_details: &WindowDrawDetails,
         editor_state: &EditorState,
@@ -451,27 +451,27 @@ impl MouseManager {
                 stage,
             } => {
                 println!("1.Touchpad pressure event");
-                send_ui(ParallelCommand::TakeWordUnderCursor);
-                send_ui(SerialCommand::MouseButton {
-                    button: "x1".to_owned(),
-                    action: "press".to_owned(),
-                    grid_id: 0,
-                    position: (),
-                    modifier_string: (),
-                });
+                // send_ui(ParallelCommand::TakeWordUnderCursor);
+                // send_ui(SerialCommand::MouseButton {
+                //     button: "x1".to_owned(),
+                //     action: "press".to_owned(),
+                //     grid_id: 0,
+                //     position: (),
+                //     modifier_string: (),
+                // });
                 // let neovim_instance = neovim_instance().unwrap();
                 //
                 // let session = NeovimSession::new(neovim_instance, handler)
                 //     .await
                 //     .context("Could not locate or start neovim process")?;
-                if let Some(macos_feature) = macos_feature {
-                    macos_feature.handle_touchpad_pressure(
-                        device_id,
-                        pressure,
-                        stage,
-                        self.window_position,
-                    );
-                }
+                // if let Some(macos_feature) = macos_feature {
+                //     macos_feature.handle_touchpad_pressure(
+                //         device_id,
+                //         pressure,
+                //         stage,
+                //         self.window_position,
+                //     );
+                // }
             }
             _ => {}
         }

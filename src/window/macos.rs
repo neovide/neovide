@@ -4,13 +4,14 @@ use icrate::{
     AppKit::{
         self, NSApplication, NSColor, NSEvent, NSEventModifierFlagCommand,
         NSEventModifierFlagControl, NSEventModifierFlagDeviceIndependentFlagsMask,
-        NSEventModifierFlagOption, NSEventModifierFlags, NSEventType, NSEventTypePressure, NSMenu,
-        NSMenuItem, NSTextView, NSView, NSViewMinYMargin, NSViewWidthSizable, NSWindow,
+        NSEventModifierFlagOption, NSEventModifierFlags, NSEventType, NSEventTypePressure, NSFont,
+        NSMenu, NSMenuItem, NSTextView, NSView, NSViewMinYMargin, NSViewWidthSizable, NSWindow,
         NSWindowStyleMaskFullScreen, NSWindowStyleMaskTitled, NSWindowTabbingModeDisallowed,
     },
     Foundation::{
-        CGFloat, CGPoint, MainThreadMarker, NSAttributedString, NSDictionary, NSMouseInRect,
-        NSObject, NSPoint, NSProcessInfo, NSRange, NSRect, NSSize, NSString,
+        CGFloat, CGPoint, MainThreadMarker, NSArray, NSAttributedString, NSDictionary,
+        NSMouseInRect, NSMutableAttributedString, NSMutableDictionary, NSObject, NSPoint,
+        NSProcessInfo, NSRange, NSRangePointer, NSRect, NSSize, NSString,
     },
 };
 use objc2::{
@@ -274,48 +275,81 @@ impl MacosWindowFeature {
         }
     }
 
-    pub fn handle_touchpad_pressure(
-        &self,
-        device_id: &DeviceId,
-        pressure: &f32,
-        stage: &i64,
-        cursor_position: Point2<Pixel<f32>>,
-    ) {
+    pub fn handle_touchpad_pressure(&self, text: &str, cursor_position: Point2<Pixel<f32>>) {
         log::info!(
-            "Touchpad pressure: device_id: {:?}, pressure: {}, stage: {}",
-            device_id,
-            pressure,
-            stage
+            "Touchpad pressure: text: {}, cursor_position: {:?}",
+            text,
+            cursor_position
         );
 
         // if stage == 1 && pressure > 0.5 {
-        if stage == &2 && cursor_position.y > 0. {
+        if cursor_position.y > 0. {
             println!(
-                "Touchpad pressure: device_id: {:?}, pressure: {}, stage: {}",
-                device_id, pressure, stage
+                "cursor_position.y: {:?}, cursor_position.x: {:?}",
+                cursor_position.y, cursor_position.x
             );
+
+            println!("transleted_point.x: {:?}", cursor_position.x / 2.);
+            println!("transleted_point.y: {:?}", cursor_position.y / 2.);
 
             unsafe {
                 let ns_view = self.ns_window.contentView().unwrap();
-                println!("ns_view: {:?}", ns_view);
+
+                // Retrieve the scale factor of the window
                 let scale_factor = self.ns_window.backingScaleFactor();
+                println!("Scale factor: {}", scale_factor);
+
                 let transleted_point = NSPoint::new(
                     cursor_position.x as f64 / scale_factor,
                     cursor_position.y as f64 / scale_factor,
                 );
                 println!("transleted_point: {:?}", transleted_point);
-                ns_view.setNeedsDisplay(true);
-                ns_view.display();
-                // Retrieve the scale factor of the window
-                let scale_factor = self.ns_window.backingScaleFactor();
-                println!("Scale factor: {}", scale_factor);
+
+                // ns_view.setNeedsDisplay(true);
+                // ns_view.display();
 
                 // Create an NSAttributedString with the hardcoded text
-                let text = NSString::from_str("gpu_profiling"); // replace the text
-                let attr_string = NSAttributedString::from_nsstring(&text);
-                attr_string.fontAttributesInRange(NSRange::new(0, attr_string.length()));
+                let text = NSString::from_str(text);
+                // let attr_string = NSAttributedString::from_nsstring(&text);
+
+                // Create an NSFont with the desired font size
+                let font = NSFont::boldSystemFontOfSize(40.0);
+
+                let font_key_any: Id<AnyObject> = Id::cast(font);
+                // Create an NSArray with the font attribute
+                let fonts: Id<NSArray<AnyObject>> = NSArray::from_vec(vec![font_key_any]);
+
+                // Create an NSString for the key and convert it to AnyObject
+                let font_attr_key: Id<NSString> = NSString::from_str("NSFontAttributeName");
+                let key_any: Id<AnyObject> = Id::cast(font_attr_key);
+
+                // Create an NSArray with the key
+                let keys: Id<NSArray<AnyObject>> = NSArray::from_vec(vec![key_any]);
+
+                // Create an NSDictionary with the font attribute
+                let attributes: Id<NSDictionary<NSString, AnyObject>> =
+                    NSDictionary::dictionaryWithObjects_forKeys(&fonts, &keys);
+
+                let attr_string_with_font = NSAttributedString::initWithString_attributes(
+                    NSAttributedString::alloc(),
+                    &text,
+                    Some(&attributes),
+                );
+                // Create an NSRange for the entire length of the string
+                let range = NSRange::new(0, text.len());
+
+                let mut mut_attr_string =
+                    NSMutableAttributedString::from_attributed_nsstring(&attr_string_with_font);
+
+                // Apply the attributes over the specified range
+                // mut_attr_string
+                //     .attributesAtIndex_effectiveRange(0, NSRangePointer::from(&mut range));
+                // Apply the attributes over the specified range
+                mut_attr_string.setAttributes_range(Some(&attributes), range);
+
+                // attr_string.fontAttributesInRange(NSRange::new(10, attr_string.length() + 20));
                 ns_view.showDefinitionForAttributedString_atPoint(
-                    Some(&attr_string),
+                    Some(&mut_attr_string),
                     transleted_point,
                 );
             }

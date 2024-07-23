@@ -22,7 +22,7 @@ use crate::{
         MIN_GRID_SIZE, SETTINGS,
     },
     units::{GridRect, GridSize, PixelPos, PixelSize},
-    window::{create_window, PhysicalSize, ShouldRender, WindowSize},
+    window::{create_window, mouse_manager::EditorState, PhysicalSize, ShouldRender, WindowSize},
     CmdLineSettings,
 };
 
@@ -182,8 +182,40 @@ impl WinitWindowWrapper {
                     skia_renderer.window().focus_window();
                 }
             }
-            WindowCommand::TouchpadPressure => {
+            WindowCommand::TouchpadPressure(text) => {
                 println!("TouchpadPressure from neovim");
+                if let Some(macos_feature) = &self.macos_feature {
+                    let editor_state = EditorState {
+                        grid_scale: &self.renderer.grid_renderer.grid_scale,
+                        window_regions: &self.renderer.window_regions,
+                        window: self.skia_renderer.as_ref().unwrap().window(),
+                        keyboard_manager: &self.keyboard_manager,
+                    };
+                    let window_details = self
+                        .mouse_manager
+                        .get_window_details_under_mouse(&editor_state);
+
+                    if let Some(window_details) = window_details {
+                        println!("window_details: {:?}", window_details);
+
+                        let relative_position = self
+                            .mouse_manager
+                            .get_relative_position(window_details, &editor_state);
+
+                        println!("relative_position: {:?}", relative_position);
+                    }
+
+                    let scale_factor = self.skia_renderer.as_ref().unwrap().window().scale_factor();
+                    println!(
+                        "window created (scale_factor: {:.4}, font_dimensions: {:?})",
+                        scale_factor, self.renderer.grid_renderer.grid_scale
+                    );
+
+                    println!("saved_inner_size: {:?}", self.saved_inner_size);
+
+                    let mouse_pos = self.mouse_manager.window_position;
+                    macos_feature.handle_touchpad_pressure(&text, mouse_pos);
+                }
             }
             WindowCommand::Minimize => {
                 self.minimize_window();
@@ -350,7 +382,7 @@ impl WinitWindowWrapper {
                 pressure,
                 stage,
             } => {
-                self.handle_user_event(UserEvent::WindowCommand(WindowCommand::TouchpadPressure));
+                // self.handle_user_event(UserEvent::WindowCommand(WindowCommand::TouchpadPressure));
                 // let grid_position = self.renderer.get_cursor_destination();
                 // self.macos_feature
                 //     .as_mut()

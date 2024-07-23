@@ -114,6 +114,7 @@ icrate = { version = "0.0.4", features = [
     "Foundation_NSDictionary",
     "Foundation_NSProcessInfo",
     "Foundation_NSAttributedString",
+    "Foundation_NSMutableAttributedString",
     "AppKit_NSGraphicsContext",
     "AppKit",
     "AppKit_NSColor",
