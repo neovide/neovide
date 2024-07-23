@@ -110,10 +110,13 @@ icrate = { version = "0.0.4", features = [
     "block",
     "apple",
     "Foundation",
+    "Foundation_NSArray",
+    "Foundation_NSString",
     "Foundation_NSThread",
     "Foundation_NSDictionary",
     "Foundation_NSProcessInfo",
     "Foundation_NSAttributedString",
+    "Foundation_NSMutableDictionary",
     "Foundation_NSMutableAttributedString",
     "AppKit_NSGraphicsContext",
     "AppKit",
@@ -130,8 +133,6 @@ icrate = { version = "0.0.4", features = [
     "AppKit_NSOpenPanel",
     "AppKit_NSScreen",
     "AppKit_NSTextInputContext",
-    # "AppKit_NSUserInterfaceItemIdentification",
-    "Foundation_NSArray",
 ] }
 objc2 = { version = "0.4.1" , default-features = false }
 
