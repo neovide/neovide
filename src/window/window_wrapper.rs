@@ -21,7 +21,7 @@ use crate::{
         clamped_grid_size, FontSettings, HotReloadConfigs, SettingsChanged, DEFAULT_GRID_SIZE,
         MIN_GRID_SIZE, SETTINGS,
     },
-    units::{GridRect, GridSize, PixelPos, PixelSize},
+    units::{to_skia_rect, GridPos, GridRect, GridSize, PixelPos, PixelSize},
     window::{create_window, mouse_manager::EditorState, PhysicalSize, ShouldRender, WindowSize},
     CmdLineSettings,
 };
@@ -184,6 +184,7 @@ impl WinitWindowWrapper {
             }
             WindowCommand::TouchpadPressure(text) => {
                 println!("TouchpadPressure from neovim");
+                let grid_scale = self.renderer.grid_renderer.grid_scale;
                 if let Some(macos_feature) = &self.macos_feature {
                     let editor_state = EditorState {
                         grid_scale: &self.renderer.grid_renderer.grid_scale,
@@ -197,12 +198,27 @@ impl WinitWindowWrapper {
 
                     if let Some(window_details) = window_details {
                         println!("window_details: {:?}", window_details);
-
                         let relative_position = self
                             .mouse_manager
                             .get_relative_position(window_details, &editor_state);
 
                         println!("relative_position: {:?}", relative_position);
+
+                        // send_ui(SerialCommand::MouseButton {
+                        //     button: "x11".to_owned(),
+                        //     action: "press".to_owned(),
+                        //     grid_id: window_details.event_grid_id(),
+                        //     position: relative_position.to_tuple(),
+                        //     modifier_string: editor_state
+                        //         .keyboard_manager
+                        //         .format_modifier_string("", true),
+                        // });
+
+                        let neovim_cursor_position = GridPos::new(
+                            relative_position.x as f64 * 2.,
+                            relative_position.y as f64 * 2.,
+                        );
+                        println!("neovim_cursor_position: {:?}", neovim_cursor_position);
                     }
 
                     let scale_factor = self.skia_renderer.as_ref().unwrap().window().scale_factor();
@@ -212,6 +228,13 @@ impl WinitWindowWrapper {
                     );
 
                     println!("saved_inner_size: {:?}", self.saved_inner_size);
+                    if let Some(root_window) = self.renderer.rendered_windows.get(&1) {
+                        let clip_rect = to_skia_rect(&root_window.pixel_region(grid_scale));
+                        println!("clip_rect using pixel_region: {:?}", clip_rect);
+
+                        let cursor_destination = self.renderer.get_cursor_destination();
+                        println!("cursor_destination: {:?}", cursor_destination);
+                    }
 
                     let mouse_pos = self.mouse_manager.window_position;
                     macos_feature.handle_touchpad_pressure(&text, mouse_pos);
@@ -382,6 +405,36 @@ impl WinitWindowWrapper {
                 pressure,
                 stage,
             } => {
+                println!("2.TouchpadPressure from winit");
+                if stage == 2 {
+                    let editor_state = EditorState {
+                        grid_scale: &self.renderer.grid_renderer.grid_scale,
+                        window_regions: &self.renderer.window_regions,
+                        window: self.skia_renderer.as_ref().unwrap().window(),
+                        keyboard_manager: &self.keyboard_manager,
+                    };
+                    let window_details = self
+                        .mouse_manager
+                        .get_window_details_under_mouse(&editor_state);
+
+                    if let Some(window_details) = window_details {
+                        let relative_position = self
+                            .mouse_manager
+                            .get_relative_position(window_details, &editor_state);
+
+                        println!("action: press");
+                        send_ui(SerialCommand::MouseButton {
+                            button: "x1".to_owned(),
+                            action: "press".to_owned(),
+                            grid_id: window_details.event_grid_id(),
+                            position: relative_position.to_tuple(),
+                            modifier_string: editor_state
+                                .keyboard_manager
+                                .format_modifier_string("", true),
+                        });
+                    }
+                }
+
                 // self.handle_user_event(UserEvent::WindowCommand(WindowCommand::TouchpadPressure));
                 // let grid_position = self.renderer.get_cursor_destination();
                 // self.macos_feature

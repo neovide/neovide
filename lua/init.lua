@@ -70,7 +70,6 @@ vim.api.nvim_create_user_command("NeovideFocus", function()
   rpcnotify("neovide.focus_window")
 end, {})
 
-
 -- macos trackpad force click
 local function matchstr(...)
   local ok, ret = pcall(vim.fn.matchstr, ...)
@@ -127,6 +126,13 @@ vim.api.nvim_create_user_command("NeovideForceClick", function()
   local cursorword = take_word_under_cursor()
   rpcnotify("neovide.force_click", cursorword)
 end, {})
+
+vim.api.nvim_set_keymap(
+  'n',
+  '<X1Mouse>',
+  "<Cmd>NeovideForceClick<CR>",
+  { noremap = true, silent = false }
+)
 
 vim.api.nvim_exec([[
 function! WatchGlobal(variable, callback)

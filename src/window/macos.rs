@@ -309,7 +309,8 @@ impl MacosWindowFeature {
                 // let attr_string = NSAttributedString::from_nsstring(&text);
 
                 // Create an NSFont with the desired font size
-                let font = NSFont::systemFontOfSize(20.0);
+                let font = NSFont::userFontOfSize(20.0).unwrap();
+                // let font = NSFont::systemFontOfSize(20.0);
                 // let font = NSFont::boldSystemFontOfSize(20.0);
 
                 // Create an NSDictionary with the font attribute

@@ -148,7 +148,7 @@ pub struct Renderer {
     pub grid_renderer: GridRenderer,
     current_mode: EditorMode,
 
-    rendered_windows: HashMap<u64, RenderedWindow>,
+    pub rendered_windows: HashMap<u64, RenderedWindow>,
     pub window_regions: Vec<WindowDrawDetails>,
 
     profiler: profiler::Profiler,
