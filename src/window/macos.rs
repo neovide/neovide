@@ -16,14 +16,11 @@ use objc2::{
 };
 
 use csscolorparser::Color;
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-use winit::event::{Event, WindowEvent};
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
 use crate::bridge::{send_ui, ParallelCommand};
-use crate::{
-    cmd_line::CmdLineSettings, error_msg, frame::Frame, settings::SETTINGS, window::UserEvent,
-};
+use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame, settings::SETTINGS};
 
 use super::{WindowSettings, WindowSettingsChanged};
 
@@ -70,9 +67,13 @@ pub struct MacosWindowFeature {
 
 impl MacosWindowFeature {
     pub fn from_winit_window(window: &Window, mtm: MainThreadMarker) -> MacosWindowFeature {
-        let ns_window = match window.raw_window_handle() {
+        let ns_window = match window.window_handle().unwrap().as_raw() {
             RawWindowHandle::AppKit(handle) => unsafe {
-                Id::retain(handle.ns_window as *mut NSWindow).unwrap()
+                let ns_view = handle.ns_view.as_ptr();
+                let ns_view: Id<NSView> = Id::retain(ns_view.cast()).unwrap();
+                ns_view
+                    .window()
+                    .expect("view was not installed in a window")
             },
             _ => panic!("Not an appkit window."),
         };
@@ -298,16 +299,10 @@ impl Menu {
             quit_handler: QuitHandler::new(mtm),
         }
     }
-    pub fn ensure_menu_added(&mut self, ev: &Event<UserEvent>) {
-        if let Event::WindowEvent {
-            event: WindowEvent::Focused(_),
-            ..
-        } = ev
-        {
-            if !self.menu_added {
-                self.add_menus();
-                self.menu_added = true;
-            }
+    pub fn ensure_menu_added(&mut self) {
+        if !self.menu_added {
+            self.add_menus();
+            self.menu_added = true;
         }
     }
 
