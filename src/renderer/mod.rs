@@ -182,7 +182,7 @@ impl Renderer {
         self.cursor_renderer.handle_event(event)
     }
 
-    pub fn font_names(&self) -> Vec<String> {
+    pub fn font_names(&mut self) -> Vec<String> {
         self.grid_renderer.font_names()
     }
 

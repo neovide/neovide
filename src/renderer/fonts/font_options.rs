@@ -40,8 +40,8 @@ pub struct FontFeature(pub String, pub u16);
 // TODO: could be made a bitfield sometime?
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct CoarseStyle {
-    bold: bool,
-    italic: bool,
+    pub bold: bool,
+    pub italic: bool,
 }
 
 // TODO: Remove
@@ -69,19 +69,6 @@ impl CoarseStyle {
             })
     }
 }
-
-/*
-impl From<CoarseStyle> for FontStyle {
-    fn from(CoarseStyle { bold, italic }: CoarseStyle) -> Self {
-        match (bold, italic) {
-            (true, true) => FontStyle::bold_italic(),
-            (true, false) => FontStyle::bold(),
-            (false, true) => FontStyle::italic(),
-            (false, false) => FontStyle::normal(),
-        }
-    }
-}
-*/
 
 impl From<&editor::Style> for CoarseStyle {
     fn from(fine_style: &editor::Style) -> Self {
@@ -332,11 +319,6 @@ impl FontHinting {
 
 pub fn points_to_pixels(value: f32) -> f32 {
     // Fonts in neovim are using points, not pixels.
-    //
-    // Skia docs is incorrectly stating it uses points, but uses pixels:
-    // https://api.skia.org/classSkFont.html#a7e28a156a517d01bc608c14c761346bf
-    // https://github.com/mono/SkiaSharp/issues/1147#issuecomment-587421201
-    //
     // So, we need to convert points to pixels.
     //
     // In reality, this depends on DPI/PPI of monitor, but here we only care about converting
@@ -353,51 +335,6 @@ pub fn points_to_pixels(value: f32) -> f32 {
     log::info!("point_to_pixels {value} -> {pixels}");
     pixels
 }
-
-/*
-impl FontDescription {
-    pub fn as_family_and_font_style(&self) -> (&str, FontStyle) {
-        // support font weights:
-        // Thin, ExtraLight, Light, Normal, Medium, SemiBold, Bold, ExtraBold, Black, ExtraBlack
-        // W{weight}
-        // support font slants:
-        // Upright, Italic, Oblique
-
-        let style = if let Some(style) = &self.style {
-            let mut weight = Weight::NORMAL;
-            let mut slant = Slant::Upright;
-
-            for part in style.split_whitespace() {
-                match part {
-                    "Thin" => weight = Weight::THIN,
-                    "ExtraLight" => weight = Weight::EXTRA_LIGHT,
-                    "Light" => weight = Weight::LIGHT,
-                    "Normal" => weight = Weight::NORMAL,
-                    "Medium" => weight = Weight::MEDIUM,
-                    "SemiBold" => weight = Weight::SEMI_BOLD,
-                    "Bold" => weight = Weight::BOLD,
-                    "ExtraBold" => weight = Weight::EXTRA_BOLD,
-                    "Black" => weight = Weight::BLACK,
-                    "ExtraBlack" => weight = Weight::EXTRA_BLACK,
-                    "Italic" => slant = Slant::Italic,
-                    "Oblique" => slant = Slant::Oblique,
-                    _ => {
-                        if let Some(rest) = part.strip_prefix('W') {
-                            if let Ok(weight_value) = rest.parse::<i32>() {
-                                weight = Weight::from(weight_value);
-                            }
-                        }
-                    }
-                }
-            }
-            FontStyle::new(weight, Width::NORMAL, slant)
-        } else {
-            FontStyle::default()
-        };
-        (self.family.as_str(), style)
-    }
-}
-*/
 
 impl fmt::Display for FontDescription {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> std::fmt::Result {
