@@ -3,14 +3,17 @@ use std::sync::Arc;
 use log::trace;
 
 use palette::{named, Hsv, IntoColor, Srgba, WithAlpha};
-use vide::{parley::style::StyleProperty, Layer, Quad, Scene};
+use vide::{
+    parley::{style::StyleProperty, Layout},
+    Quad,
+};
 
 use crate::{
     editor::{Colors, Style},
     profiling::tracy_zone,
     renderer::{fonts::CachingShaper, RendererSettings},
     settings::*,
-    units::{GridPos, GridScale, GridSize, PixelRect, PixelVec},
+    units::{GridPos, GridScale, GridSize, PixelPos, PixelRect, PixelVec},
 };
 
 use super::fonts::font_options::FontOptions;
@@ -29,6 +32,12 @@ pub struct GridRenderer {
 pub struct BackgroundInfo {
     pub custom_color: bool,
     pub transparent: bool,
+}
+
+#[derive(Clone)]
+pub struct ForegroundLineFragment {
+    pub layout: Layout<Srgba>,
+    pub position: PixelPos<f32>,
 }
 
 impl GridRenderer {
@@ -97,9 +106,8 @@ impl GridRenderer {
         &self,
         grid_position: GridPos<i32>,
         cell_width: i32,
-        transform: PixelVec<f32>,
         style: &Option<Arc<Style>>,
-        layer: &mut Layer,
+        quads: &mut Vec<Quad>,
     ) -> BackgroundInfo {
         tracy_zone!("draw_background");
         let debug = SETTINGS.get::<RendererSettings>().debug_renderer;
@@ -110,9 +118,7 @@ impl GridRenderer {
             };
         }
 
-        let region = self
-            .compute_text_region(grid_position, cell_width)
-            .translate(transform);
+        let region = self.compute_text_region(grid_position, cell_width);
         let style = style.as_ref().unwrap_or(&self.default_style);
 
         let color: Srgba = if debug {
@@ -129,7 +135,7 @@ impl GridRenderer {
         let custom_color = color != self.default_style.colors.background.unwrap();
         if custom_color {
             let quad = Quad::new(*region.min.as_untyped(), *region.size().as_untyped(), color);
-            layer.add_quad(quad);
+            quads.push(quad);
         }
 
         BackgroundInfo {
@@ -145,12 +151,11 @@ impl GridRenderer {
         text: &str,
         grid_position: GridPos<i32>,
         _cell_width: i32,
-        transform: PixelVec<f32>,
         style: &Option<Arc<Style>>,
-        scene: &mut Scene,
+        fragments: &mut Vec<ForegroundLineFragment>,
     ) -> bool {
         tracy_zone!("draw_foreground");
-        let pos = grid_position * self.grid_scale + transform;
+        let pos = grid_position * self.grid_scale;
         // let size = GridSize::new(cell_width, 0) * self.grid_scale;
         //let width = size.width;
 
@@ -194,11 +199,11 @@ impl GridRenderer {
 
         if !trimmed.is_empty() {
             tracy_zone!("draw_text_blob");
-            let pos = pos + adjustment;
+            let position = pos + adjustment;
             let layout = self.shaper.layout_with(trimmed, &style.into(), |builder| {
                 builder.push_default(&StyleProperty::Brush(color));
             });
-            scene.add_text_layout(layout, pos.cast());
+            fragments.push(ForegroundLineFragment { layout, position });
             drawn = true;
         }
 
