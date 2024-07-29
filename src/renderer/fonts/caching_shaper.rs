@@ -161,10 +161,12 @@ impl CachingShaper {
                 )));
             }
         });
-        FontInfo {
+        let font_info = FontInfo {
             width: layout.width(),
             height: layout.height(),
-        }
+        };
+        self.font_info = Some(font_info);
+        self.font_info.as_ref().unwrap().clone()
     }
 
     fn clamped_linespace(&mut self) -> f32 {
