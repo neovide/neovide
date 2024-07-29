@@ -10,7 +10,6 @@ use vide::{
 
 use crate::{
     editor::{Colors, Style},
-    profiling::tracy_zone,
     renderer::{fonts::CachingShaper, RendererSettings},
     settings::*,
     units::{GridPos, GridScale, GridSize, PixelPos, PixelRect, PixelVec},
@@ -109,7 +108,6 @@ impl GridRenderer {
         style: &Option<Arc<Style>>,
         quads: &mut Vec<Quad>,
     ) -> BackgroundInfo {
-        tracy_zone!("draw_background");
         let debug = SETTINGS.get::<RendererSettings>().debug_renderer;
         if style.is_none() && !debug {
             return BackgroundInfo {
@@ -154,7 +152,6 @@ impl GridRenderer {
         style: &Option<Arc<Style>>,
         fragments: &mut Vec<ForegroundLineFragment>,
     ) -> bool {
-        tracy_zone!("draw_foreground");
         let pos = grid_position * self.grid_scale;
         // let size = GridSize::new(cell_width, 0) * self.grid_scale;
         //let width = size.width;
@@ -198,7 +195,6 @@ impl GridRenderer {
         );
 
         if !trimmed.is_empty() {
-            tracy_zone!("draw_text_blob");
             let position = pos + adjustment;
             let layout = self.shaper.layout_with(trimmed, &style.into(), |builder| {
                 builder.push_default(&StyleProperty::Brush(color));
