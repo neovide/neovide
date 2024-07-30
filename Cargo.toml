@@ -136,6 +136,23 @@ inherits = "release"
 strip = false
 debug = true
 
+[profile.dev.package.swash]
+opt-level = 3
+[profile.dev.package.parley]
+opt-level = 3
+[profile.dev.package.fontique]
+opt-level = 3
+[profile.dev.package.vide]
+opt-level = 3
+[profile.dev.package.wgpu]
+opt-level = 3
+[profile.dev.package.wgpu-core]
+opt-level = 3
+[profile.dev.package.wgpu-hal]
+opt-level = 3
+[profile.dev.package.wgpu-types]
+opt-level = 3
+
 [package.metadata.bundle]
 name = "Neovide"
 identifier = "com.neovide.neovide"
