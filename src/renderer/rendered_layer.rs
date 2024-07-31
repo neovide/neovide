@@ -34,7 +34,7 @@ impl<'w> FloatingLayer<'w> {
             .iter()
             .map(|window| window.pixel_region(grid_scale))
             .collect::<Vec<_>>();
-        let (silhouette, bound_rect) = build_silhouette(&pixel_regions);
+        let (silhouette, bound_rect) = build_silhouette(&pixel_regions, settings);
         let has_transparency = default_background.a() != 255
             || self.windows.iter().any(|window| window.has_transparency());
 
@@ -197,10 +197,10 @@ pub fn group_windows(
         .collect_vec()
 }
 
-fn build_silhouette(regions: &[PixelRect<f32>]) -> (Path, Rect) {
+fn build_silhouette(regions: &[PixelRect<f32>], settings: &RendererSettings) -> (Path, Rect) {
     let silhouette = regions
         .iter()
-        .map(|r| Path::rect(to_skia_rect(r), None))
+        .map(|r| rect_to_round_rect_path(&to_skia_rect(r), settings))
         .reduce(|a, b| a.op(&b, PathOp::Union).unwrap())
         .unwrap();
     let bounding_rect = regions
@@ -210,4 +210,10 @@ fn build_silhouette(regions: &[PixelRect<f32>]) -> (Path, Rect) {
         .unwrap();
 
     (silhouette, bounding_rect)
+}
+
+fn rect_to_round_rect_path(rect: &Rect, settings: &RendererSettings) -> Path {
+    let mut path = Path::new();
+    path.add_round_rect(*rect, (settings.floating_corner_radius, settings.floating_corner_radius), None);
+    path
 }
