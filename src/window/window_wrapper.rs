@@ -391,7 +391,6 @@ impl WinitWindowWrapper {
             self.font_changed_last_frame = false;
             self.renderer.prepare_lines(true);
         }
-        tracy_zone!("wait for vsync");
         self.vsync.as_mut().unwrap().wait_for_vsync();
         self.renderer.draw_frame(dt);
         if self.ui_state == UIState::FirstFrame {

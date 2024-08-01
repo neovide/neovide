@@ -4,7 +4,7 @@ use std::env;
 
 use vsync_timer::VSyncTimer;
 
-use crate::{settings::SETTINGS, window::WindowSettings};
+use crate::{profiling::tracy_zone, settings::SETTINGS, window::WindowSettings};
 use winit::window::Window;
 
 #[allow(dead_code)]
@@ -14,9 +14,8 @@ pub enum VSync {
 }
 
 impl VSync {
-    pub fn new(_vsync_enabled: bool) -> Self {
-        //TODO: Support vsync enabled
-        if env::var("WAYLAND_DISPLAY").is_ok() {
+    pub fn new(vsync_enabled: bool) -> Self {
+        if env::var("WAYLAND_DISPLAY").is_ok() && vsync_enabled {
             VSync::WinitThrottling()
         } else {
             VSync::Timer(VSyncTimer::new())
@@ -24,6 +23,7 @@ impl VSync {
     }
 
     pub fn wait_for_vsync(&mut self) {
+        tracy_zone!("wait for vsync");
         if let VSync::Timer(vsync) = self {
             vsync.wait_for_vsync();
         }
