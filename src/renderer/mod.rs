@@ -297,7 +297,8 @@ impl Renderer {
             .collect_vec();
 
         self.window_regions = window_regions;
-        self.cursor_renderer.draw(&mut self.grid_renderer);
+        self.cursor_renderer
+            .draw(&mut self.grid_renderer, &mut self.scene);
 
         self.profiler
             .draw(dt, &mut self.scene, &mut self.grid_renderer.shaper.shaper);
