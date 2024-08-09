@@ -14,7 +14,7 @@ use {
 use crate::windows_utils::{register_right_click, unregister_right_click};
 use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
-    profiling::{tracy_frame, tracy_plot, tracy_zone},
+    profiling::{tracy_plot, tracy_zone},
     renderer::{DrawCommand, Renderer, RendererSettingsChanged, VSync},
     settings::{
         clamped_grid_size, FontSettings, HotReloadConfigs, SettingsChanged, DEFAULT_GRID_SIZE,
@@ -398,7 +398,6 @@ impl WinitWindowWrapper {
             window.set_visible(true);
             self.ui_state = UIState::Showing;
         }
-        tracy_frame();
     }
 
     pub fn animate_frame(&mut self, dt: f32) -> bool {

@@ -2,6 +2,7 @@
 pub fn startup_profiler() {}
 
 #[inline(always)]
+#[allow(unused)]
 pub fn tracy_frame() {}
 
 macro_rules! tracy_zone {

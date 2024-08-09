@@ -133,6 +133,7 @@ pub fn startup_profiler() {
 }
 
 #[inline(always)]
+#[allow(unused)]
 pub fn tracy_frame() {
     unsafe {
         ___tracy_emit_frame_mark(null());
