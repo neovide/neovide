@@ -3,8 +3,7 @@ use std::sync::Arc;
 use log::trace;
 
 use palette::{named, Hsv, IntoColor, Srgba, WithAlpha};
-use parley::style::StyleProperty;
-use vide::{Layer, Quad, Scene};
+use vide::{parley::style::StyleProperty, Layer, Quad, Scene};
 
 use crate::{
     editor::{Colors, Style},
@@ -52,7 +51,7 @@ impl GridRenderer {
         }
     }
 
-    pub fn font_names(&self) -> Vec<String> {
+    pub fn font_names(&mut self) -> Vec<String> {
         self.shaper.font_names()
     }
 
@@ -196,7 +195,7 @@ impl GridRenderer {
         if !trimmed.is_empty() {
             tracy_zone!("draw_text_blob");
             let pos = pos + adjustment;
-            let layout = self.shaper.shaper.layout_with(trimmed, |builder| {
+            let layout = self.shaper.layout_with(trimmed, &style.into(), |builder| {
                 builder.push_default(&StyleProperty::Brush(color));
             });
             scene.add_text_layout(layout, pos.cast());
