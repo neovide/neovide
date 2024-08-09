@@ -299,7 +299,8 @@ impl Renderer {
         self.window_regions = window_regions;
         self.cursor_renderer.draw(&mut self.grid_renderer);
 
-        self.profiler.draw(dt);
+        self.profiler
+            .draw(dt, &mut self.scene, &mut self.grid_renderer.shaper.shaper);
         if let Some(wgpu_renderer) = self.wgpu_renderer.as_mut() {
             tracy_zone!("wgpu_renderer.draw");
             wgpu_renderer.draw(&self.scene);
