@@ -1,13 +1,15 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use palette::{named, LinSrgba, WithAlpha};
-use vide::{Layer, Scene};
+use vide::{Layer, Quad, Scene};
 
 use crate::{
     cmd_line::CmdLineSettings,
     editor::{AnchorInfo, SortOrder, Style, WindowType},
     profiling::{tracy_plot, tracy_zone},
-    renderer::{animation_utils::*, GridRenderer, RendererSettings},
+    renderer::{
+        animation_utils::*, grid_renderer::ForegroundLineFragment, GridRenderer, RendererSettings,
+    },
     settings::SETTINGS,
     units::{GridPos, GridRect, GridScale, GridSize, PixelRect, PixelVec},
     utils::RingBuffer,
@@ -66,10 +68,10 @@ pub enum WindowDrawCommand {
 #[derive(Clone)]
 struct Line {
     line_fragments: Vec<LineFragment>,
-    // background_picture: Option<Picture>,
-    // foreground_picture: Option<Picture>,
-    // has_transparency: bool,
-    // is_valid: bool,
+    background: Option<Vec<Quad>>,
+    foreground: Option<Vec<ForegroundLineFragment>>,
+    has_transparency: bool,
+    is_valid: bool,
 }
 
 pub struct RenderedWindow {
@@ -223,27 +225,16 @@ impl RenderedWindow {
 
         let draw_line = |transform: PixelVec<f32>, line: &Rc<RefCell<Line>>, layer: &mut Layer| {
             let line = line.borrow();
-            if !line.line_fragments.is_empty() {
-                for line_fragment in line.line_fragments.iter() {
-                    let LineFragment {
-                        window_left,
-                        width,
-                        style,
-                        ..
-                    } = line_fragment;
-                    let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
-                    grid_renderer.draw_background(
-                        grid_position,
-                        i32::try_from(*width).unwrap(),
-                        transform,
-                        style,
-                        layer,
-                    );
-                    // TODO: Implement these
-                    // custom_background |= background_info.custom_color;
-                    // blend = blend.min(style.as_ref().map_or(0, |s| s.blend));
+            if let Some(background) = &line.background {
+                for quad in background {
+                    let mut quad = quad.clone();
+                    quad.top_left += transform.to_untyped();
+                    layer.add_quad(quad);
                 }
             }
+            // TODO: Implement these
+            // custom_background |= background_info.custom_color;
+            // blend = blend.min(style.as_ref().map_or(0, |s| s.blend));
         };
 
         let mut layer = Layer::new()
@@ -263,31 +254,12 @@ impl RenderedWindow {
         log::trace!("region: {:?}, inner: {:?}", pixel_region, inner_region,);
     }
 
-    fn draw_line(
-        grid_renderer: &mut GridRenderer,
-        scene: &mut Scene,
-        transform: PixelVec<f32>,
-        line: &Rc<RefCell<Line>>,
-    ) {
+    fn draw_line(scene: &mut Scene, transform: PixelVec<f32>, line: &Rc<RefCell<Line>>) {
         let line = line.borrow();
-        if !line.line_fragments.is_empty() {
-            for line_fragment in &line.line_fragments {
-                let LineFragment {
-                    text,
-                    window_left,
-                    width,
-                    style,
-                } = line_fragment;
-                let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
-
-                grid_renderer.draw_foreground(
-                    text,
-                    grid_position,
-                    i32::try_from(*width).unwrap(),
-                    transform,
-                    style,
-                    scene,
-                );
+        if let Some(foreground) = &line.foreground {
+            for fragment in foreground {
+                let pixelpos = fragment.position + transform;
+                scene.add_text_layout(fragment.layout.clone(), pixelpos.to_untyped());
             }
         }
     }
@@ -305,21 +277,19 @@ impl RenderedWindow {
 
         let layer = Layer::new()
             .with_background(named::BLACK.with_alpha(0).into())
-            //.with_font("FiraCode Nerd Font".to_string())
             .with_clip(pixel_region.to_rect().as_untyped().try_cast().unwrap());
         scene.add_layer(layer);
 
         self.iter_border_lines_with_transform(pixel_region, grid_scale)
-            .for_each(|(transform, line)| Self::draw_line(grid_renderer, scene, transform, line));
+            .for_each(|(transform, line)| Self::draw_line(scene, transform, line));
 
         let layer = Layer::new()
             .with_background(named::BLACK.with_alpha(0).into())
-            //.with_font("FiraCode Nerd Font".to_string())
             .with_clip(inner_region.to_rect().as_untyped().try_cast().unwrap());
         scene.add_layer(layer);
 
         self.iter_scrollable_lines_with_transform(pixel_region, grid_scale)
-            .for_each(|(transform, line)| Self::draw_line(grid_renderer, scene, transform, line));
+            .for_each(|(transform, line)| Self::draw_line(scene, transform, line));
     }
 
     /*
@@ -415,10 +385,10 @@ impl RenderedWindow {
 
                 let line = Line {
                     line_fragments,
-                    // background_picture: None,
-                    // foreground_picture: None,
-                    // has_transparency: false,
-                    // is_valid: false,
+                    background: None,
+                    foreground: None,
+                    has_transparency: false,
+                    is_valid: false,
                 };
 
                 self.actual_lines[row] = Some(Rc::new(RefCell::new(line)));
@@ -615,14 +585,12 @@ impl RenderedWindow {
         )
     }
 
-    pub fn prepare_lines(&mut self, _grid_renderer: &mut GridRenderer, _force: bool) {
-        /*
+    pub fn prepare_lines(&mut self, grid_renderer: &mut GridRenderer, force: bool) {
         let scroll_offset_lines = self.scroll_animation.position.floor() as isize;
         let height = self.grid_size.height as isize;
         if height == 0 {
             return;
         }
-        let grid_scale = grid_renderer.grid_scale;
 
         let mut prepare_line = |line: &Rc<RefCell<Line>>| {
             let mut line = line.borrow_mut();
@@ -630,11 +598,7 @@ impl RenderedWindow {
                 return;
             }
 
-            let mut recorder = PictureRecorder::new();
-
-            let line_size = GridSize::new(self.grid_size.width, 1) * grid_scale;
-            let grid_rect = Rect::from_wh(line_size.width, line_size.height);
-            let canvas = recorder.begin_recording(grid_rect, None);
+            let mut background_quads = Vec::new();
 
             let mut has_transparency = false;
             let mut custom_background = false;
@@ -648,19 +612,17 @@ impl RenderedWindow {
                 } = line_fragment;
                 let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
                 let background_info = grid_renderer.draw_background(
-                    canvas,
                     grid_position,
                     i32::try_from(*width).unwrap(),
                     style,
+                    &mut background_quads,
                 );
                 custom_background |= background_info.custom_color;
                 has_transparency |= background_info.transparent;
             }
-            let background_picture =
-                custom_background.then_some(recorder.finish_recording_as_picture(None).unwrap());
 
-            let canvas = recorder.begin_recording(grid_rect, None);
             let mut foreground_drawn = false;
+            let mut foreground = Vec::new();
             for line_fragment in &line.line_fragments {
                 let LineFragment {
                     text,
@@ -671,18 +633,16 @@ impl RenderedWindow {
                 let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
 
                 foreground_drawn |= grid_renderer.draw_foreground(
-                    canvas,
                     text,
                     grid_position,
                     i32::try_from(*width).unwrap(),
                     style,
+                    &mut foreground,
                 );
             }
-            let foreground_picture =
-                foreground_drawn.then_some(recorder.finish_recording_as_picture(None).unwrap());
 
-            line.background_picture = background_picture;
-            line.foreground_picture = foreground_picture;
+            line.background = custom_background.then_some(background_quads);
+            line.foreground = foreground_drawn.then_some(foreground);
             line.has_transparency = has_transparency;
             line.is_valid = true;
         };
@@ -714,6 +674,5 @@ impl RenderedWindow {
         {
             prepare_line(line)
         }
-        */
     }
 }
