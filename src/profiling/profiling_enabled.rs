@@ -89,7 +89,7 @@ impl _Zone {
         _Zone { context, gpu_id }
     }
 
-    pub fn new_dynamic(line: u32, source: &str, name: &str, gpu: bool) -> Self {
+    pub fn new_dynamic(line: u32, source: &str, name: &str, gpu: bool, color: u32) -> Self {
         let function = "Unknown";
 
         let srcloc = unsafe {
@@ -101,6 +101,7 @@ impl _Zone {
                 function.len(),
                 name.as_ptr() as *const c_char,
                 name.len(),
+                color,
             )
         };
         let context = unsafe { ___tracy_emit_zone_begin_alloc(srcloc, 1) };
@@ -206,7 +207,7 @@ macro_rules! tracy_zone {
 macro_rules! tracy_dynamic_zone {
     ($name: expr, $color: expr) => {
         let _tracy_zone =
-            $crate::profiling::_Zone::new_dynamic(std::line!(), std::file!(), $name, false);
+            $crate::profiling::_Zone::new_dynamic(std::line!(), std::file!(), $name, false, $color);
     };
     ($name: expr) => {
         $crate::profiling::tracy_dynamic_zone!($name, 0)
