@@ -65,7 +65,7 @@ time = { version = "0.3.34", features = ["macros", "formatting"] }
 tokio = { version = "1.25.0", features = ["full"] }
 tokio-util = { version = "0.7.4", features = ["compat"] }
 toml = "0.8.12"
-tracy-client-sys = { version = "0.22.0", optional = true, default-features = false, features = [
+tracy-client-sys = { version = "0.23.0", optional = true, default-features = false, features = [
     "broadcast",
     "delayed-init",
     "enable",
@@ -135,6 +135,23 @@ strip = true
 inherits = "release"
 strip = false
 debug = true
+
+[profile.dev.package.swash]
+opt-level = 3
+[profile.dev.package.parley]
+opt-level = 3
+[profile.dev.package.fontique]
+opt-level = 3
+[profile.dev.package.vide]
+opt-level = 3
+[profile.dev.package.wgpu]
+opt-level = 3
+[profile.dev.package.wgpu-core]
+opt-level = 3
+[profile.dev.package.wgpu-hal]
+opt-level = 3
+[profile.dev.package.wgpu-types]
+opt-level = 3
 
 [package.metadata.bundle]
 name = "Neovide"

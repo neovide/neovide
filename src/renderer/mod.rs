@@ -35,9 +35,6 @@ use crate::{
     WindowSettings,
 };
 
-#[cfg(feature = "profiling")]
-use crate::profiling::tracy_plot;
-
 use cursor_renderer::CursorRenderer;
 pub use grid_renderer::GridRenderer;
 pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails};

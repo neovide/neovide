@@ -597,52 +597,59 @@ impl RenderedWindow {
             if line.is_valid && !force {
                 return;
             }
+            tracy_zone!("prepare line");
 
             let mut background_quads = Vec::new();
 
             let mut has_transparency = false;
-            let mut custom_background = false;
 
-            for line_fragment in line.line_fragments.iter() {
-                let LineFragment {
-                    window_left,
-                    width,
-                    style,
-                    ..
-                } = line_fragment;
-                let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
-                let background_info = grid_renderer.draw_background(
-                    grid_position,
-                    i32::try_from(*width).unwrap(),
-                    style,
-                    &mut background_quads,
-                );
-                custom_background |= background_info.custom_color;
-                has_transparency |= background_info.transparent;
+            {
+                tracy_zone!("draw background");
+                let mut custom_background = false;
+                for line_fragment in line.line_fragments.iter() {
+                    let LineFragment {
+                        window_left,
+                        width,
+                        style,
+                        ..
+                    } = line_fragment;
+                    let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
+                    let background_info = grid_renderer.draw_background(
+                        grid_position,
+                        i32::try_from(*width).unwrap(),
+                        style,
+                        &mut background_quads,
+                    );
+                    custom_background |= background_info.custom_color;
+                    has_transparency |= background_info.transparent;
+                }
+                line.background = custom_background.then_some(background_quads);
             }
 
-            let mut foreground_drawn = false;
-            let mut foreground = Vec::new();
-            for line_fragment in &line.line_fragments {
-                let LineFragment {
-                    text,
-                    window_left,
-                    width,
-                    style,
-                } = line_fragment;
-                let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
+            {
+                tracy_zone!("draw foreground");
+                let mut foreground_drawn = false;
+                let mut foreground = Vec::new();
+                for line_fragment in &line.line_fragments {
+                    let LineFragment {
+                        text,
+                        window_left,
+                        width,
+                        style,
+                    } = line_fragment;
+                    let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
 
-                foreground_drawn |= grid_renderer.draw_foreground(
-                    text,
-                    grid_position,
-                    i32::try_from(*width).unwrap(),
-                    style,
-                    &mut foreground,
-                );
+                    foreground_drawn |= grid_renderer.draw_foreground(
+                        text,
+                        grid_position,
+                        i32::try_from(*width).unwrap(),
+                        style,
+                        &mut foreground,
+                    );
+                }
+                line.foreground = foreground_drawn.then_some(foreground);
             }
 
-            line.background = custom_background.then_some(background_quads);
-            line.foreground = foreground_drawn.then_some(foreground);
             line.has_transparency = has_transparency;
             line.is_valid = true;
         };
