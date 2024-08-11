@@ -148,7 +148,11 @@ jobs:
             if ! which cargo-wix; then cargo binstall -y cargo-wix; fi
 
           elif [[ $RUNNER_OS == "macOS" ]]; then
-            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)" && brew install create-dmg
+            curl -L -o create-dmg.tar.gz https://github.com/create-dmg/create-dmg/archive/refs/tags/v1.2.2.tar.gz
+            tar -xzf create-dmg.tar.gz
+            cd create-dmg-1.2.2
+            make install
+            cd ..
             rustup target add x86_64-apple-darwin
             rustup target add aarch64-apple-darwin
 
