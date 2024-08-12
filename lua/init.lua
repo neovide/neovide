@@ -123,8 +123,8 @@ local function take_word_under_cursor()
 end
 
 vim.api.nvim_create_user_command("NeovideForceClick", function()
-  local cursorword = take_word_under_cursor()
-  rpcnotify("neovide.force_click", cursorword)
+  local cursorword, curword_start, curword_end = take_word_under_cursor()
+  rpcnotify("neovide.force_click", cursorword, curword_start, curword_end)
 end, {})
 
 vim.api.nvim_set_keymap(
