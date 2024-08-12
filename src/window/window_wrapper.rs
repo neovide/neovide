@@ -29,7 +29,10 @@ use crate::{
 use super::macos::MacosWindowFeature;
 
 #[cfg(target_os = "macos")]
-use icrate::Foundation::MainThreadMarker;
+use icrate::{AppKit::NSBeep, Foundation::MainThreadMarker};
+
+#[cfg(target_os = "windows")]
+use windows::Win32::{System::Diagnostics::Debug::MessageBeep, UI::WindowsAndMessaging::MB_OK};
 
 use log::trace;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -176,6 +179,25 @@ impl WinitWindowWrapper {
                 self.mouse_manager.enabled = mouse_enabled
             }
             WindowCommand::ListAvailableFonts => self.send_font_names(),
+            WindowCommand::Bell => {
+                unsafe {
+                    #[cfg(target_os = "macos")]
+                    NSBeep();
+                    #[cfg(target_os = "windows")]
+                    MessageBeep(MB_OK);
+                }
+                #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+                {
+                    let bell_command = SETTINGS.get::<WindowSettings>().bell_command;
+                    let bell_command = bell_command.split(" ").collect::<Vec<_>>();
+                    if !bell_command.is_empty() {
+                        let _ = std::process::Command::new(&bell_command[0])
+                            .args(&bell_command[1..])
+                            .spawn()
+                            .unwrap();
+                    }
+                }
+            }
             WindowCommand::FocusWindow => {
                 if let Some(skia_renderer) = &self.skia_renderer {
                     skia_renderer.window().focus_window();

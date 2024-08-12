@@ -155,6 +155,8 @@ pub enum RedrawEvent {
     MouseOff,
     BusyStart,
     BusyStop,
+    Bell,
+    VisualBell,
     Flush,
     Resize {
         grid: u64,
@@ -895,6 +897,8 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
             "mouse_off" => Some(Ok(RedrawEvent::MouseOff)),
             "busy_start" => Some(Ok(RedrawEvent::BusyStart)),
             "busy_stop" => Some(Ok(RedrawEvent::BusyStop)),
+            "bell" => Some(Ok(RedrawEvent::Bell)),
+            "visual_bell" => Some(Ok(RedrawEvent::VisualBell)),
             "flush" => Some(Ok(RedrawEvent::Flush)),
             "grid_resize" => Some(parse_grid_resize(event_parameters)),
             "default_colors_set" => Some(parse_default_colors(event_parameters)),
