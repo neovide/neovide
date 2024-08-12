@@ -73,7 +73,7 @@ tracy-client-sys = { version = "0.23.0", optional = true, default-features = fal
     "fibers",
 ] }
 unicode-segmentation = "1.9.0"
-vide = { git = "https://github.com/neovide/vide", rev="53974b7390046c63e960594f38a67a6fda74525c" }
+vide = { git = "https://github.com/neovide/vide", rev="3445446072b516181c64117fe2a121a657bfb85a" }
 #vide = { path = "../vide" }
 which = "6.0.1"
 winit = { version = "=0.30.3", features = ["serde"] }
