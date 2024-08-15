@@ -34,10 +34,6 @@ struct PersistentSettings {
     window: PersistentWindowSettings,
 }
 
-fn neovide_std_datapath() -> PathBuf {
-    dirs::data_local_dir().unwrap().join("neovide")
-}
-
 fn settings_path() -> PathBuf {
     let mut settings_path = neovide_std_datapath();
     settings_path.push(SETTINGS_FILE);
@@ -48,6 +44,10 @@ fn load_settings() -> Result<PersistentSettings, String> {
     let settings_path = settings_path();
     let json = std::fs::read_to_string(settings_path).map_err(|e| e.to_string())?;
     serde_json::from_str(&json).map_err(|e| e.to_string())
+}
+
+pub fn neovide_std_datapath() -> PathBuf {
+    dirs::data_local_dir().unwrap().join("neovide")
 }
 
 pub fn load_last_window_settings() -> Result<PersistentWindowSettings, String> {

@@ -18,7 +18,7 @@ use winit::event_loop::EventLoopProxy;
 use crate::{bridge::NeovimWriter, window::UserEvent};
 pub use from_value::ParseFromValue;
 pub use window_size::{
-    clamped_grid_size, load_last_window_settings, save_window_size, PersistentWindowSettings,
+    neovide_std_datapath, clamped_grid_size, load_last_window_settings, save_window_size, PersistentWindowSettings,
     DEFAULT_GRID_SIZE, MIN_GRID_SIZE,
 };
 
