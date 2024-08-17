@@ -180,7 +180,7 @@ impl MacosWindowFeature {
     pub fn display_deprecation_warning(&self) {
         error_msg!(concat!(
             "neovide_background_color has now been deprecated. ",
-            "Use neovide_transparency instead if you want to get a transparent window titlebar. ",
+            "Use neovide_opacity instead if you want to get a transparent window titlebar. ",
             "Please check https://neovide.dev/configuration.html#background-color-deprecated-currently-macos-only for more information.",
         ));
     }

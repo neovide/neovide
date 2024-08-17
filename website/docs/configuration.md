@@ -194,14 +194,14 @@ background color instead.
 
 This configuration is deprecated now and might be removed in the future. In
 [#2168](https://github.com/neovide/neovide/issues/2168), we have made Neovide control the title bar
-color itself. The color of title bar now honors [`neovide_transparency`](#transparency). If you want
-a transparent title bar, setting `neovide_transparency` is sufficient.
+color itself. The color of title bar now honors [`neovide_opacity`](#transparency). If you want
+a transparent title bar, setting `neovide_opacity` is sufficient.
 
 VimScript:
 
 ```vim
-" g:neovide_transparency should be 0 if you want to unify transparency of content and title bar.
-let g:neovide_transparency = 0.0
+" g:neovide_opacity should be 0 if you want to unify transparency of content and title bar.
+let g:neovide_opacity = 0.0
 let g:transparency = 0.8
 let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:transparency))
 ```
@@ -213,8 +213,8 @@ Lua:
 local alpha = function()
   return string.format("%x", math.floor(255 * vim.g.transparency or 0.8))
 end
--- g:neovide_transparency should be 0 if you want to unify transparency of content and title bar.
-vim.g.neovide_transparency = 0.0
+-- g:neovide_opacity should be 0 if you want to unify transparency of content and title bar.
+vim.g.neovide_opacity = 0.0
 vim.g.transparency = 0.8
 vim.g.neovide_background_color = "#0f1117" .. alpha()
 ```
@@ -228,7 +228,7 @@ Setting `g:neovide_background_color` to a value that can be parsed by
 [csscolorparser-rs](https://github.com/mazznoer/csscolorparser-rs) will set the color of the whole
 window to that value.
 
-Note that `g:neovide_transparency` should be 0 if you want to unify transparency of content and
+Note that `g:neovide_opacity` should be 0 if you want to unify transparency of content and
 title bar.
 
 #### Window Blur (Currently macOS only)
@@ -249,7 +249,7 @@ vim.g.neovide_window_blurred = true
 
 Setting `g:neovide_window_blurred` toggles the window blur state.
 
-The blurred level respects the `g:neovide_transparency` value between 0.0 and 1.0.
+The blurred level respects the `g:neovide_opacity` value between 0.0 and 1.0.
 
 #### Floating Blur Amount
 
@@ -306,18 +306,18 @@ The other variables configure the shadow in various ways:
 VimScript:
 
 ```vim
-let g:neovide_transparency = 0.8
+let g:neovide_opacity = 0.8
 ```
 
 Lua:
 
 ```lua
-vim.g.neovide_transparency = 0.8
+vim.g.neovide_opacity = 0.8
 ```
 
 ![Transparency](assets/Transparency.png)
 
-Setting `g:neovide_transparency` to a value between 0.0 and 1.0 will set the opacity of the window
+Setting `g:neovide_opacity` to a value between 0.0 and 1.0 will set the opacity of the window
 to that value.
 
 #### Show Border (Currently macOS only)
