@@ -6,7 +6,7 @@ mod update_loop;
 mod window_wrapper;
 
 #[cfg(target_os = "macos")]
-mod macos;
+pub mod macos;
 
 #[cfg(target_os = "linux")]
 use std::env;
@@ -119,8 +119,6 @@ pub fn create_event_loop() -> EventLoop<UserEvent> {
     #[cfg(target_os = "macos")]
     builder.with_default_menu(false);
     let event_loop = builder.build().expect("Failed to create winit event loop");
-    #[cfg(target_os = "macos")]
-    crate::window::macos::register_file_handler();
     #[allow(clippy::let_and_return)]
     event_loop
 }

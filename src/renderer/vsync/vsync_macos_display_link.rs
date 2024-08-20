@@ -26,17 +26,17 @@ fn vsync_macos_display_link_callback(
     }
 }
 
-pub struct VSyncMacos {
+pub struct VSyncMacosDisplayLink {
     old_display: core_video::CGDirectDisplayID,
     display_link: Option<MacosDisplayLink<VSyncMacosDisplayLinkUserData>>,
     proxy: EventLoopProxy<UserEvent>,
     redraw_requested: Arc<AtomicBool>,
 }
 
-impl VSyncMacos {
-    pub fn new(window: &Window, proxy: EventLoopProxy<UserEvent>) -> VSyncMacos {
+impl VSyncMacosDisplayLink {
+    pub fn new(window: &Window, proxy: EventLoopProxy<UserEvent>) -> VSyncMacosDisplayLink {
         let redraw_requested = AtomicBool::new(false).into();
-        let mut vsync = VSyncMacos {
+        let mut vsync = VSyncMacosDisplayLink {
             old_display: 0,
             display_link: None,
             proxy,
