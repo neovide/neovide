@@ -7,6 +7,7 @@ use crate::settings::*;
 pub struct WindowSettings {
     pub refresh_rate: u64,
     pub refresh_rate_idle: u64,
+    #[alias = "transparency"]
     pub opacity: f32,
     pub window_blurred: bool,
     pub scale_factor: f32,
