@@ -107,7 +107,14 @@ impl Settings {
     }
 
     pub async fn read_initial_values(&self, nvim: &Neovim<NeovimWriter>) -> Result<()> {
-        let keys: Vec<SettingLocation> = self.updaters.read().keys().cloned().collect();
+        let deprecated_settings = ["transparency".to_owned()];
+        let keys: Vec<SettingLocation> = self
+            .updaters
+            .read()
+            .keys()
+            .filter(|key| !matches!(key, SettingLocation::NeovideGlobal(name) if deprecated_settings.contains(name)))
+            .cloned()
+            .collect();
 
         for location in keys {
             match &location {
