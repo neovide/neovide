@@ -1,6 +1,7 @@
 #[cfg(target_os = "macos")]
 use {log::error, rmpv::Value};
 
+use crate::error_msg;
 use crate::settings::*;
 
 #[derive(Clone, SettingGroup, PartialEq)]

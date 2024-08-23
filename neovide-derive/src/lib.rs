@@ -78,9 +78,17 @@ fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream 
                 Ok(Some(alias_name)) => {
                     let vim_alias_setting_name = format!("{prefix}{alias_name}");
                     quote! {
+                        fn alias_update(settings: &crate::settings::Settings, value: rmpv::Value) -> crate::settings::SettingsChanged {
+                            error_msg!(concat!(
+                                "neovide_", #vim_alias_setting_name, " has now been deprecated, ",
+                                "use neovide_", #vim_setting_name, " instead."
+                            ));
+                            update(settings, value)
+                        }
+
                         settings.set_setting_handlers(
                             crate::settings::SettingLocation::NeovideGlobal(#vim_alias_setting_name.to_owned()),
-                            update,
+                            alias_update,
                             reader,
                         );
                     }
