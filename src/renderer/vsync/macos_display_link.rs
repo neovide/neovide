@@ -1,14 +1,12 @@
-use std::{ffi::c_void, pin::Pin};
+use std::{ffi::c_void, marker::PhantomPinned, pin::Pin};
 
-use crate::profiling::tracy_zone;
+use crate::{profiling::tracy_zone, window::macos::get_ns_window};
 
 use self::core_video::CVReturn;
 
-use icrate::{AppKit::NSView, Foundation::NSString};
 use objc2::msg_send;
-use objc2::rc::Id;
+use objc2_foundation::ns_string;
 
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
 // Display link api reference: https://developer.apple.com/documentation/corevideo/cvdisplaylink?language=objc
@@ -99,6 +97,8 @@ pub type MacosDisplayLinkCallback<UserData> = fn(&mut MacosDisplayLinkCallbackAr
 struct MacosDisplayLinkCallbackContext<UserData> {
     callback: MacosDisplayLinkCallback<UserData>,
     user_data: UserData,
+    // Make this struct pinned so that its address doesn't change.
+    _pin: PhantomPinned,
 }
 
 pub struct MacosDisplayLink<UserData> {
@@ -141,6 +141,7 @@ impl<UserData> MacosDisplayLink<UserData> {
                 MacosDisplayLinkCallbackContext {
                     callback,
                     user_data,
+                    _pin: PhantomPinned,
                 },
             ),
         };
@@ -205,22 +206,12 @@ impl<UserData> Drop for MacosDisplayLink<UserData> {
 // Here is the doc about how to do this. https://developer.apple.com/documentation/appkit/nsscreen/1388360-devicedescription?language=objc
 pub fn get_display_id_of_window(window: &Window) -> core_video::CGDirectDisplayID {
     unsafe fn get_display_id(window: &Window) -> Option<core_video::CGDirectDisplayID> {
-        let key: Id<NSString> = NSString::from_str("NSScreenNumber");
-        if let RawWindowHandle::AppKit(handle) = window.window_handle().unwrap().as_raw() {
-            let ns_view = handle.ns_view.as_ptr();
-            let ns_view: Id<NSView> = unsafe { Id::retain(ns_view.cast()) }.unwrap();
-            let ns_window = ns_view
-                .window()
-                .expect("view was not installed in a window");
-            let screen = ns_window.screen()?;
-            let descr = screen.deviceDescription();
-            let display_id_ns_number = descr.get(&key)?;
-            let res = msg_send![display_id_ns_number, unsignedIntValue];
-            Some(res)
-        } else {
-            // Should be impossible.
-            panic!("Not an AppKitWindowHandle.")
-        }
+        let ns_window = get_ns_window(window);
+        let screen = ns_window.screen()?;
+        let descr = screen.deviceDescription();
+        let display_id_ns_number = descr.get(ns_string!("NSScreenNumber"))?;
+        let res = msg_send![display_id_ns_number, unsignedIntValue];
+        Some(res)
     }
     unsafe { get_display_id(window) }.unwrap_or(0)
 }
