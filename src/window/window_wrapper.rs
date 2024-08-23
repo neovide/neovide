@@ -28,9 +28,6 @@ use crate::{
 #[cfg(target_os = "macos")]
 use super::macos::MacosWindowFeature;
 
-#[cfg(target_os = "macos")]
-use icrate::Foundation::MainThreadMarker;
-
 use log::trace;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::{
@@ -463,10 +460,7 @@ impl WinitWindowWrapper {
         // It's important that this is created before the window is resized, since it can change the padding and affect the size
         #[cfg(target_os = "macos")]
         {
-            self.macos_feature = {
-                let mtm = MainThreadMarker::new().expect("must be on the main thread");
-                Some(MacosWindowFeature::from_winit_window(window, mtm))
-            };
+            self.macos_feature = Some(MacosWindowFeature::from_winit_window(window));
         }
 
         let scale_factor = window.scale_factor();

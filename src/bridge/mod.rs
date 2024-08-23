@@ -36,7 +36,7 @@ pub use ui_commands::{send_ui, start_ui_command_handler, ParallelCommand, Serial
 const NEOVIM_REQUIRED_VERSION: &str = "0.10.0";
 
 pub struct NeovimRuntime {
-    runtime: Runtime,
+    pub runtime: Runtime,
 }
 
 fn neovim_instance() -> Result<NeovimInstance> {
@@ -139,8 +139,10 @@ async fn run(session: NeovimSession, proxy: EventLoopProxy<UserEvent>) {
         select! {
             _ = &mut session.io_handle => {}
             _ = process.wait() => {
-                log::info!("The Neovim process quit before the IO stream, waiting two seconds");
-                if timeout(Duration::from_millis(2000), session.io_handle)
+                // Wait a little bit more if we detect that Neovim exits before the stream, to
+                // allow us to finish reading from it.
+                log::info!("The Neovim process quit before the IO stream, waiting for a half second");
+                if timeout(Duration::from_millis(500), &mut session.io_handle)
                         .await
                         .is_err()
                 {

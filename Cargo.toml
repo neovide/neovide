@@ -106,24 +106,9 @@ windows-registry = "0.2.0"
 skia-safe = { version = "0.75.0", features = ["gl", "textlayout"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-icrate = { version = "0.0.4", features = [
-    "apple",
-    "Foundation",
-    "Foundation_NSThread",
-    "Foundation_NSProcessInfo",
-    "AppKit",
-    "AppKit_NSColor",
-    "AppKit_NSEvent",
-    "AppKit_NSView",
-    "AppKit_NSWindow",
-    "AppKit_NSViewController",
-    "AppKit_NSMenu",
-    "AppKit_NSMenuItem",
-    "AppKit_NSOpenPanel",
-    "AppKit_NSScreen",
-    "Foundation_NSArray",
-] }
-objc2 = "0.4.1"
+objc2 = "0.5.2"
+objc2-foundation = { version = "0.2.2" }
+objc2-app-kit = { version = "0.2.2", features = [ "NSLayoutConstraint" ] }
 
 [target.'cfg(target_os = "windows")'.build-dependencies]
 winres = "0.1.12"
