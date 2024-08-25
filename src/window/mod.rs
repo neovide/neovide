@@ -140,7 +140,7 @@ pub fn create_window(event_loop: &ActiveEventLoop, maximized: bool, title: &str)
         .with_window_icon(Some(icon))
         .with_maximized(maximized)
         .with_transparent(true)
-        .with_visible(false);
+        .with_visible(true);
 
     #[cfg(target_os = "windows")]
     let window_attributes = if !cmd_line_settings.opengl {
