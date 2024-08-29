@@ -11,6 +11,7 @@ use crate::{
     units::{
         to_skia_point, to_skia_rect, GridPos, GridScale, GridSize, PixelPos, PixelRect, PixelVec,
     },
+    window::WindowSettings,
 };
 
 use super::fonts::font_options::FontOptions;
@@ -126,10 +127,15 @@ impl GridRenderer {
         }
 
         // Only apply transparency on the default background color
-        if style_background == self.get_default_background() && style.blend > 0 {
-            paint.set_alpha_f((100 - style.blend) as f32 / 100.0);
+        if style_background == self.get_default_background() {
+            if style.blend > 0 {
+                paint.set_alpha_f((100 - style.blend) as f32 / 100.0);
+            } else {
+                paint.set_alpha_f(SETTINGS.get::<WindowSettings>().opacity);
+            }
         } else {
-            paint.set_alpha_f(1.0);
+            paint.set_blend_mode(BlendMode::SrcOver);
+            paint.set_alpha_f(SETTINGS.get::<WindowSettings>().text_background_opacity);
         }
 
         let custom_color = paint.color4f() != self.default_style.colors.background.unwrap();

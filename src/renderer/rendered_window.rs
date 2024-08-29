@@ -316,8 +316,8 @@ impl RenderedWindow {
 
         root_canvas.save_layer(&background_layer_rec);
         root_canvas.clear(default_background.with_a(255));
-        self.draw_background_surface(root_canvas, pixel_region_box, grid_scale);
         root_canvas.restore();
+        self.draw_background_surface(root_canvas, pixel_region_box, grid_scale);
         self.draw_foreground_surface(root_canvas, pixel_region_box, grid_scale);
         root_canvas.restore();
 

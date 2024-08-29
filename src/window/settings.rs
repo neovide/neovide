@@ -10,6 +10,7 @@ pub struct WindowSettings {
     pub refresh_rate_idle: u64,
     #[alias = "transparency"]
     pub opacity: f32,
+    pub text_background_opacity: f32,
     pub window_blurred: bool,
     pub scale_factor: f32,
     pub fullscreen: bool,
@@ -45,6 +46,7 @@ impl Default for WindowSettings {
     fn default() -> Self {
         Self {
             opacity: 1.0,
+            text_background_opacity: 1.0,
             window_blurred: false,
             scale_factor: 1.0,
             fullscreen: false,
