@@ -4,7 +4,7 @@ mod cursor_vfx;
 use std::collections::HashMap;
 
 use skia_safe::{op, Canvas, Paint, Path};
-use winit::event::{Event, WindowEvent};
+use winit::event::WindowEvent;
 
 use crate::{
     bridge::EditorMode,
@@ -13,7 +13,7 @@ use crate::{
     renderer::{animation_utils::*, GridRenderer, RenderedWindow},
     settings::{ParseFromValue, SETTINGS},
     units::{to_skia_point, GridPos, GridScale, PixelPos, PixelSize, PixelVec},
-    window::{ShouldRender, UserEvent},
+    window::ShouldRender,
 };
 
 use blink::*;
@@ -79,9 +79,9 @@ pub struct Corner {
 impl Corner {
     pub fn new() -> Corner {
         Corner {
-            start_position: PixelPos::origin(),
-            current_position: PixelPos::origin(),
-            relative_position: GridPos::<f32>::origin(),
+            start_position: PixelPos::default(),
+            current_position: PixelPos::default(),
+            relative_position: GridPos::<f32>::default(),
             previous_destination: PixelPos::new(-1000.0, -1000.0),
             length_multiplier: 1.0,
             t: 0.0,
@@ -134,7 +134,7 @@ impl Corner {
             d.normalize()
         };
 
-        let corner_direction = self.relative_position.to_vector().normalize().cast_unit();
+        let corner_direction = self.relative_position.as_vector().normalize().cast();
 
         let direction_alignment = travel_direction.dot(corner_direction);
 
@@ -192,16 +192,9 @@ impl CursorRenderer {
         renderer
     }
 
-    pub fn handle_event(&mut self, event: &Event<UserEvent>) -> bool {
-        if let Event::WindowEvent {
-            event: WindowEvent::Focused(is_focused),
-            ..
-        } = event
-        {
+    pub fn handle_event(&mut self, event: &WindowEvent) {
+        if let WindowEvent::Focused(is_focused) = event {
             self.window_has_focus = *is_focused;
-            true
-        } else {
-            false
         }
     }
 
@@ -317,7 +310,7 @@ impl CursorRenderer {
         canvas.save();
         canvas.clip_path(&path, None, Some(false));
 
-        let y_adjustment = grid_renderer.shaper.y_adjustment();
+        let baseline_offset = grid_renderer.shaper.baseline_offset();
         let style = &self.cursor.grid_cell.1;
         let coarse_style = style.as_ref().map(|style| style.into()).unwrap_or_default();
 
@@ -326,7 +319,7 @@ impl CursorRenderer {
         for blob in blobs.iter() {
             canvas.draw_text_blob(
                 blob,
-                (self.destination.x, self.destination.y + y_adjustment),
+                (self.destination.x, self.destination.y + baseline_offset),
                 &paint,
             );
         }
@@ -352,12 +345,12 @@ impl CursorRenderer {
             self.previous_vfx_mode = settings.vfx_mode.clone();
         }
 
-        let mut cursor_width = grid_renderer.grid_scale.0.width;
+        let mut cursor_width = grid_renderer.grid_scale.width();
         if self.cursor.double_width && self.cursor.shape == CursorShape::Block {
             cursor_width *= 2.0;
         }
 
-        let cursor_dimensions = PixelSize::new(cursor_width, grid_renderer.grid_scale.0.height);
+        let cursor_dimensions = PixelSize::new(cursor_width, grid_renderer.grid_scale.height());
 
         let in_insert_mode = matches!(current_mode, EditorMode::Insert);
 
@@ -382,13 +375,13 @@ impl CursorRenderer {
 
         let mut animating = false;
 
-        if center_destination != PixelPos::origin() {
+        if center_destination != PixelPos::ZERO {
             let immediate_movement = !settings.animate_in_insert_mode && in_insert_mode
                 || !settings.animate_command_line && !changed_to_from_cmdline;
             for corner in self.corners.iter_mut() {
                 let corner_animating = corner.update(
                     &settings,
-                    GridScale(cursor_dimensions),
+                    GridScale::new(cursor_dimensions),
                     center_destination,
                     dt,
                     immediate_movement,

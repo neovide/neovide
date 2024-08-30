@@ -22,9 +22,9 @@ use log::{error, warn};
 use skia_safe::Canvas;
 
 use winit::{
-    event::Event,
-    event_loop::{EventLoopProxy, EventLoopWindowTarget},
-    window::{Window, WindowBuilder},
+    event::WindowEvent,
+    event_loop::{ActiveEventLoop, EventLoopProxy},
+    window::{Window, WindowAttributes},
 };
 
 use crate::{
@@ -192,8 +192,8 @@ impl Renderer {
         }
     }
 
-    pub fn handle_event(&mut self, event: &Event<UserEvent>) -> bool {
-        self.cursor_renderer.handle_event(event)
+    pub fn handle_event(&mut self, event: &WindowEvent) {
+        self.cursor_renderer.handle_event(event);
     }
 
     pub fn font_names(&self) -> Vec<String> {
@@ -505,17 +505,17 @@ pub struct WindowConfig {
     pub config: WindowConfigType,
 }
 
-pub fn build_window_config<TE>(
-    winit_window_builder: WindowBuilder,
-    event_loop: &EventLoopWindowTarget<TE>,
+pub fn build_window_config(
+    window_attributes: WindowAttributes,
+    event_loop: &ActiveEventLoop,
 ) -> WindowConfig {
     #[cfg(target_os = "windows")]
     {
         let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
         if cmd_line_settings.opengl {
-            opengl::build_window(winit_window_builder, event_loop)
+            opengl::build_window(window_attributes, event_loop)
         } else {
-            let window = winit_window_builder.build(event_loop).unwrap();
+            let window = event_loop.create_window(window_attributes).unwrap();
             let config = WindowConfigType::Direct3D;
             WindowConfig { window, config }
         }
@@ -523,7 +523,7 @@ pub fn build_window_config<TE>(
 
     #[cfg(not(target_os = "windows"))]
     {
-        opengl::build_window(winit_window_builder, event_loop)
+        opengl::build_window(window_attributes, event_loop)
     }
 }
 

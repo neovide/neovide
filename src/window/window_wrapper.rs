@@ -28,15 +28,12 @@ use crate::{
 #[cfg(target_os = "macos")]
 use super::macos::MacosWindowFeature;
 
-#[cfg(target_os = "macos")]
-use icrate::Foundation::MainThreadMarker;
-
 use log::trace;
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::{
     dpi,
-    event::{Event, Ime, WindowEvent},
-    event_loop::{EventLoopProxy, EventLoopWindowTarget},
+    event::{Ime, WindowEvent},
+    event_loop::{ActiveEventLoop, EventLoopProxy},
     window::{Fullscreen, Theme},
 };
 
@@ -68,7 +65,6 @@ pub struct WinitWindowWrapper {
     keyboard_manager: KeyboardManager,
     mouse_manager: MouseManager,
     title: String,
-    fullscreen: bool,
     font_changed_last_frame: bool,
     saved_inner_size: dpi::PhysicalSize<u32>,
     saved_grid_size: Option<GridSize<u32>>,
@@ -99,7 +95,6 @@ impl WinitWindowWrapper {
             keyboard_manager: KeyboardManager::new(),
             mouse_manager: MouseManager::new(),
             title: String::from("Neovide"),
-            fullscreen: false,
             font_changed_last_frame: false,
             saved_inner_size,
             saved_grid_size: None,
@@ -122,18 +117,21 @@ impl WinitWindowWrapper {
         }
     }
 
-    pub fn toggle_fullscreen(&mut self) {
+    pub fn exit(&mut self) {
+        self.vsync = None;
+        self.skia_renderer = None;
+    }
+
+    pub fn set_fullscreen(&mut self, fullscreen: bool) {
         if let Some(skia_renderer) = &self.skia_renderer {
             let window = skia_renderer.window();
-            if self.fullscreen {
-                window.set_fullscreen(None);
-            } else {
+            if fullscreen {
                 let handle = window.current_monitor();
                 window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
+            } else {
+                window.set_fullscreen(None);
             }
         }
-
-        self.fullscreen = !self.fullscreen;
     }
 
     #[cfg(target_os = "macos")]
@@ -206,9 +204,7 @@ impl WinitWindowWrapper {
                 self.requested_lines = lines.map(|v| v.try_into().unwrap());
             }
             WindowSettingsChanged::Fullscreen(fullscreen) => {
-                if self.fullscreen != fullscreen {
-                    self.toggle_fullscreen();
-                }
+                self.set_fullscreen(fullscreen);
             }
             WindowSettingsChanged::InputIme(ime_enabled) => {
                 self.set_ime(ime_enabled);
@@ -299,60 +295,7 @@ impl WinitWindowWrapper {
         }
     }
 
-    /// Handles an event from winit and returns an boolean indicating if
-    /// the window should be rendered.
-    pub fn handle_event(&mut self, event: Event<UserEvent>) -> bool {
-        tracy_zone!("handle_event", 0);
-
-        let renderer_asks_to_be_rendered = self.renderer.handle_event(&event);
-        let mut should_render = true;
-        match event {
-            Event::Resumed => {
-                tracy_zone!("Resumed");
-                // No need to do anything, but handle the event so that should_render gets set
-            }
-            Event::WindowEvent { event, .. } => {
-                if !self.handle_window_event(event) {
-                    should_render = renderer_asks_to_be_rendered;
-                }
-            }
-            Event::UserEvent(UserEvent::DrawCommandBatch(batch)) => {
-                self.handle_draw_commands(batch);
-            }
-            Event::UserEvent(UserEvent::WindowCommand(e)) => {
-                self.handle_window_command(e);
-            }
-            Event::UserEvent(UserEvent::SettingsChanged(SettingsChanged::Window(e))) => {
-                self.handle_window_settings_changed(e);
-            }
-            Event::UserEvent(UserEvent::SettingsChanged(SettingsChanged::Renderer(e))) => {
-                self.handle_render_settings_changed(e);
-            }
-            Event::UserEvent(UserEvent::ConfigsChanged(config)) => {
-                self.handle_config_changed(*config);
-            }
-            _ => {
-                match event {
-                    Event::AboutToWait { .. } => {
-                        tracy_zone!("AboutToWait");
-                    }
-                    Event::DeviceEvent { .. } => {
-                        tracy_zone!("DeviceEvent");
-                    }
-                    Event::NewEvents(..) => {
-                        tracy_zone!("NewEvents");
-                    }
-                    _ => {
-                        tracy_zone!("Unknown");
-                    }
-                }
-                should_render = renderer_asks_to_be_rendered;
-            }
-        }
-        self.ui_state >= UIState::FirstFrame && should_render
-    }
-
-    fn handle_window_event(&mut self, event: WindowEvent) -> bool {
+    pub fn handle_window_event(&mut self, event: WindowEvent) -> bool {
         // The renderer and vsync should always be created when a window event is received
         let skia_renderer = self.skia_renderer.as_mut().unwrap();
         let vsync = self.vsync.as_mut().unwrap();
@@ -364,6 +307,8 @@ impl WinitWindowWrapper {
             skia_renderer.window(),
         );
         self.keyboard_manager.handle_event(&event);
+        self.renderer.handle_event(&event);
+        let mut should_render = true;
 
         match event {
             WindowEvent::CloseRequested => {
@@ -418,10 +363,31 @@ impl WinitWindowWrapper {
             }
             _ => {
                 tracy_zone!("Unknown WindowEvent");
-                return false;
+                should_render = false;
             }
         }
-        true
+        self.ui_state >= UIState::FirstFrame && should_render
+    }
+
+    pub fn handle_user_event(&mut self, event: UserEvent) {
+        match event {
+            UserEvent::DrawCommandBatch(batch) => {
+                self.handle_draw_commands(batch);
+            }
+            UserEvent::WindowCommand(e) => {
+                self.handle_window_command(e);
+            }
+            UserEvent::SettingsChanged(SettingsChanged::Window(e)) => {
+                self.handle_window_settings_changed(e);
+            }
+            UserEvent::SettingsChanged(SettingsChanged::Renderer(e)) => {
+                self.handle_render_settings_changed(e);
+            }
+            UserEvent::ConfigsChanged(config) => {
+                self.handle_config_changed(*config);
+            }
+            _ => {}
+        }
     }
 
     pub fn draw_frame(&mut self, dt: f32) {
@@ -456,7 +422,7 @@ impl WinitWindowWrapper {
 
         let res = self
             .renderer
-            .animate_frame(&self.get_grid_rect_from_window(GridSize::zero()).cast(), dt);
+            .animate_frame(&self.get_grid_rect_from_window(GridSize::default()), dt);
         tracy_plot!("animate_frame", res as u8 as f64);
         self.renderer.prepare_lines(false);
         #[allow(clippy::let_and_return)]
@@ -465,7 +431,7 @@ impl WinitWindowWrapper {
 
     pub fn try_create_window(
         &mut self,
-        event_loop: &EventLoopWindowTarget<UserEvent>,
+        event_loop: &ActiveEventLoop,
         proxy: &EventLoopProxy<UserEvent>,
     ) {
         if self.ui_state != UIState::WaitingForWindowCreate {
@@ -483,6 +449,9 @@ impl WinitWindowWrapper {
             theme,
             transparency,
             window_blurred,
+            fullscreen,
+            #[cfg(target_os = "macos")]
+            input_macos_option_key_is_meta,
             ..
         } = SETTINGS.get::<WindowSettings>();
 
@@ -491,10 +460,7 @@ impl WinitWindowWrapper {
         // It's important that this is created before the window is resized, since it can change the padding and affect the size
         #[cfg(target_os = "macos")]
         {
-            self.macos_feature = {
-                let mtm = MainThreadMarker::new().expect("must be on the main thread");
-                Some(MacosWindowFeature::from_winit_window(window, mtm))
-            };
+            self.macos_feature = Some(MacosWindowFeature::from_winit_window(window));
         }
 
         let scale_factor = window.scale_factor();
@@ -545,7 +511,10 @@ impl WinitWindowWrapper {
             };
         }
         log::info!("Showing window size: {:#?}, maximized: {}", size, maximized);
-        let is_wayland = matches!(window.raw_window_handle(), RawWindowHandle::Wayland(_));
+        let is_wayland = matches!(
+            window.window_handle().unwrap().as_raw(),
+            RawWindowHandle::Wayland(_)
+        );
         // On Wayland we can show the window now, since internally it's only shown after the first rendering
         // On the other platforms the window is shown after rendering to avoid flickering
         if is_wayland {
@@ -563,10 +532,14 @@ impl WinitWindowWrapper {
         log::info!(
             "window created (scale_factor: {:.4}, font_dimensions: {:?})",
             scale_factor,
-            self.renderer.grid_renderer.grid_scale.0,
+            self.renderer.grid_renderer.grid_scale
         );
 
         window.set_blur(window_blurred && transparency < 1.0);
+        if fullscreen {
+            let handle = window.current_monitor();
+            window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
+        }
 
         match theme.as_str() {
             "light" => set_background("light"),
@@ -592,9 +565,11 @@ impl WinitWindowWrapper {
 
         self.ui_state = UIState::FirstFrame;
         self.skia_renderer = Some(skia_renderer);
+        #[cfg(target_os = "macos")]
+        self.set_macos_option_as_meta(input_macos_option_key_is_meta);
     }
 
-    fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
+    pub fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
         tracy_zone!("handle_draw_commands");
         let handle_draw_commands_result = self.renderer.handle_draw_commands(batch);
 
@@ -690,10 +665,10 @@ impl WinitWindowWrapper {
             window_padding.top + window_padding.bottom,
         );
 
-        let window_size = (grid_size.cast() * self.renderer.grid_renderer.grid_scale)
+        let window_size = (*grid_size * self.renderer.grid_renderer.grid_scale)
             .floor()
-            .cast()
-            .cast_unit()
+            .try_cast()
+            .unwrap()
             + window_padding_size;
 
         log::info!(
@@ -737,15 +712,16 @@ impl WinitWindowWrapper {
             PixelSize::new(self.saved_inner_size.width, self.saved_inner_size.height)
                 - window_padding_size;
 
-        let grid_size = (content_size.cast() / self.renderer.grid_renderer.grid_scale)
+        let grid_size = (content_size / self.renderer.grid_renderer.grid_scale)
             .floor()
-            .cast();
+            .try_cast()
+            .unwrap();
 
         grid_size.max(min)
     }
 
     fn get_grid_rect_from_window(&self, min: GridSize<u32>) -> GridRect<f32> {
-        let size = self.get_grid_size_from_window(min).cast();
+        let size = self.get_grid_size_from_window(min).try_cast().unwrap();
         let pos = PixelPos::new(self.window_padding.left, self.window_padding.top).cast()
             / self.renderer.grid_renderer.grid_scale;
         GridRect::<f32>::from_origin_and_size(pos, size)
@@ -776,9 +752,9 @@ impl WinitWindowWrapper {
         }
         let skia_renderer = self.skia_renderer.as_ref().unwrap();
         let grid_scale = self.renderer.grid_renderer.grid_scale;
-        let font_dimensions = grid_scale.0;
+        let font_dimensions = GridSize::new(1.0, 1.0) * grid_scale;
         let position = self.renderer.get_cursor_destination();
-        let position = position.cast();
+        let position = position.try_cast::<u32>().unwrap();
         let position = dpi::PhysicalPosition {
             x: position.x,
             y: position.y,

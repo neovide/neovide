@@ -160,7 +160,7 @@ fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<UserEven
 
     loop {
         if let Err(e) = rx.recv() {
-            eprintln!("Error while watching config file: {}", e);
+            eprintln!("Error while watching config file: {e}");
             continue;
         }
 

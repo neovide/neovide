@@ -4,8 +4,12 @@ use rmpv::Value;
 
 use crate::clipboard;
 
-pub fn get_clipboard_contents(format: Option<&str>) -> Result<Value, Box<dyn Error + Send + Sync>> {
-    let clipboard_raw = clipboard::get_contents()?.replace('\r', "");
+pub fn get_clipboard_contents(
+    format: Option<&str>,
+    register: &Value,
+) -> Result<Value, Box<dyn Error + Send + Sync>> {
+    let register = register.as_str().unwrap_or("+");
+    let clipboard_raw = clipboard::get_contents(register)?.replace('\r', "");
     let is_line_paste = clipboard_raw.ends_with('\n');
 
     let lines = if let Some("dos") = format {
@@ -29,11 +33,15 @@ pub fn get_clipboard_contents(format: Option<&str>) -> Result<Value, Box<dyn Err
     Ok(Value::from(vec![lines, paste_mode]))
 }
 
-pub fn set_clipboard_contents(value: &Value) -> Result<Value, Box<dyn Error + Send + Sync>> {
+pub fn set_clipboard_contents(
+    value: &Value,
+    register: &Value,
+) -> Result<Value, Box<dyn Error + Send + Sync>> {
     #[cfg(not(windows))]
     let endline = "\n";
     #[cfg(windows)]
     let endline = "\r\n";
+    let register = register.as_str().unwrap_or("+");
 
     let lines = value
         .as_array()
@@ -46,7 +54,7 @@ pub fn set_clipboard_contents(value: &Value) -> Result<Value, Box<dyn Error + Se
         })
         .ok_or("can't build string from provided text")?;
 
-    clipboard::set_contents(lines)?;
+    clipboard::set_contents(lines, register)?;
 
     Ok(Value::Nil)
 }

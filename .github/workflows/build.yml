@@ -9,14 +9,14 @@ on:
   workflow_dispatch:
   # Always run on pull requests
   pull_request:
-  # And on master when manually pushed or after merges
+    # And on `main` when manually pushed or after merges
     paths-ignore:
       - "website/**"
       - ".vscode/**"
       - "**.md"
   push:
     branches:
-      main
+      - main
     paths-ignore:
       - "website/**"
       - ".vscode/**"
@@ -34,7 +34,6 @@ jobs:
     uses: ./.github/workflows/lint-app.yml
 
   test:
-    needs: lint
     strategy:
       fail-fast: false
       matrix:
@@ -46,23 +45,12 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Setup toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.toolchain }}
-          components: clippy
 
       - name: Show toolchain info
         run: cargo --version --verbose
-
-      - uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
       - name: Install neovim
         uses: rhysd/action-setup-vim@v1
@@ -74,6 +62,8 @@ jobs:
 
       - name: Install cargo-nextest
         run: cargo binstall -y cargo-nextest
+
+      - uses: Swatinem/rust-cache@v2
 
       - name: Test
         env:
@@ -93,24 +83,31 @@ jobs:
           path: |
             test-results-${{ matrix.os }}-${{ matrix.toolchain }}
 
+  clippy:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macOS-12, ubuntu-latest]
+        toolchain: [stable, nightly]
+    runs-on: ${{ matrix.os }}
 
-      - name: Install Sarif
-        run: cargo binstall -y clippy-sarif sarif-fmt
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Setup Reviewdog
-        uses: reviewdog/action-setup@v1
+      - name: Setup toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
-          reviewdog_version: latest
+          toolchain: ${{ matrix.toolchain }}
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Show toolchain info
+        run: cargo --version --verbose
 
       - name: Run Clippy
-        run: cargo clippy --all-targets --message-format=json | clippy-sarif | tee clippy.sarif | sarif-fmt
-        continue-on-error: true
-
-      - name: Run Clippy Reviewdog
-        run: cat clippy.sarif | reviewdog -f=sarif -name=clippy -reporter=github-check -filter-mode=file -fail-on-error=true -level=warning
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: cargo clippy --all-targets -- -D warnings
+        continue-on-error: ${{ matrix.toolchain == 'nightly' }}
 
   event-upload:
     needs: test
@@ -123,7 +120,6 @@ jobs:
           path: ${{ github.event_path }}
 
   build-deploy:
-    needs: test
     strategy:
       fail-fast: false
       matrix:
@@ -134,25 +130,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/cache@v4
+      - name: Setup toolchain
+        uses: dtolnay/rust-toolchain@master
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          toolchain: stable
+
+      - name: Install Cargo Binstall
+        uses: cargo-bins/cargo-binstall@main
 
       - name: Install dependencies
         run: |
           if [[ $RUNNER_OS == "Windows" ]]; then
-            if ! which cargo-wix; then cargo install cargo-wix; fi
+            if ! which cargo-wix; then cargo binstall -y cargo-wix; fi
 
           elif [[ $RUNNER_OS == "macOS" ]]; then
+            curl -L -o create-dmg.tar.gz https://github.com/create-dmg/create-dmg/archive/refs/tags/v1.2.2.tar.gz
+            tar -xzf create-dmg.tar.gz
+            cd create-dmg-1.2.2
+            make install
+            cd ..
             rustup target add x86_64-apple-darwin
             rustup target add aarch64-apple-darwin
-            if ! which cargo-bundle; then cargo install cargo-bundle; fi
 
           elif [[ $RUNNER_OS == "Linux" ]]; then
             sudo apt-get update
@@ -168,6 +166,8 @@ jobs:
         with:
           neovim: true
 
+      - uses: Swatinem/rust-cache@v2
+
       - name: Build
         run: |
           if [[ $RUNNER_OS == "Windows" ]]; then
@@ -177,10 +177,8 @@ jobs:
             echo "MACOSX_DEPLOYMENT_TARGET=10.11" >> $GITHUB_ENV
             # x86
             cargo build --locked --release --target=x86_64-apple-darwin
-            cargo bundle --release --target=x86_64-apple-darwin
             # arch
             cargo build --locked --release --target=aarch64-apple-darwin
-            cargo bundle --release --target=aarch64-apple-darwin
 
           elif [[ $RUNNER_OS == "Linux" ]]; then
             cargo build --locked --release
@@ -188,31 +186,23 @@ jobs:
 
       - name: Prepare Artifacts
         run: |
-          cd target/release
-
           if [[ $RUNNER_OS == "Windows" ]]; then
             echo "ARTIFACT=neovide.exe" >> $GITHUB_ENV
             echo "ARTIFACT2=neovide.msi" >> $GITHUB_ENV
 
           elif [[ $RUNNER_OS == "macOS" ]]; then
-            # merge builds
-            mkdir -p bundle/osx
-            rm -rf bundle/osx/neovide.app || true
-            cp -R ../x86_64-apple-darwin/release/bundle/osx/neovide.app \
-              bundle/osx/neovide.app
-            rm bundle/osx/neovide.app/Contents/MacOS/neovide
-            lipo ../x86_64-apple-darwin/release/bundle/osx/neovide.app/Contents/MacOS/neovide \
-              ../aarch64-apple-darwin/release/bundle/osx/neovide.app/Contents/MacOS/neovide \
-              -create -output \
-              bundle/osx/neovide.app/Contents/MacOS/neovide
-            codesign --force --deep -s - bundle/osx/neovide.app
-            # create .dmg
-            hdiutil create neovide-uncompressed.dmg -volname "neovide" -srcfolder bundle/osx
-            hdiutil convert neovide-uncompressed.dmg -format UDZO -o neovide.dmg
+            cd $GITHUB_WORKSPACE
+            # create .dmg for x86_64-apple-darwin
+            ./macos-builder/run x86_64-apple-darwin
 
-            echo "ARTIFACT=neovide.dmg" >> $GITHUB_ENV
+            # create .dmg for aarch64-apple-darwin
+            ./macos-builder/run aarch64-apple-darwin
+
+            echo "ARTIFACT4=Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
+            echo "ARTIFACT5=Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV
 
           elif [[ $RUNNER_OS == "Linux" ]]; then
+            cd target/release
             # archive artifact
             strip neovide
             tar czvf neovide-linux-x86_64.tar.gz neovide
@@ -231,13 +221,13 @@ jobs:
               --icon-file=../../assets/neovide.svg \
               --output=appimage
 
-
             echo "ARTIFACT=neovide-linux-x86_64.tar.gz" >> $GITHUB_ENV
             echo "ARTIFACT2=neovide.AppImage" >> $GITHUB_ENV
             echo "ARTIFACT3=neovide.AppImage.zsync" >> $GITHUB_ENV
           fi
 
-      - uses: actions/upload-artifact@v4
+      - if: env.ARTIFACT
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT }}
           path: target/release/${{ env.ARTIFACT }}
@@ -253,3 +243,15 @@ jobs:
         with:
           name: ${{ env.ARTIFACT3 }}
           path: target/release/${{ env.ARTIFACT3 }}
+
+      - if: env.ARTIFACT4
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT4 }}
+          path: target/x86_64-apple-darwin/release/bundle/osx/${{ env.ARTIFACT4 }}
+
+      - if: env.ARTIFACT5
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT5 }}
+          path: target/aarch64-apple-darwin/release/bundle/osx/${{ env.ARTIFACT5 }}

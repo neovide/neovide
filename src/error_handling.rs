@@ -60,8 +60,7 @@ fn format_and_log_error_message(err: Error) -> String {
 Neovide just crashed :(
 This is the error that caused the crash. In case you don't know what to do with this, please feel free to report this on https://github.com/neovide/neovide/issues!
 
-{:?}",
-        err
+{err:?}"
     );
     log::error!("{}", msg);
     msg

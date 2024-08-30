@@ -551,6 +551,26 @@ vim.g.neovide_confirm_quit = true
 If set to `true`, quitting while having unsaved changes will require confirmation. Enabled by
 default.
 
+#### Detach On Quit
+
+Possible values are `always_quit`, `always_detach`, or `prompt`. Set to `prompt` by default.
+
+VimScript:
+
+```vim
+let g:neovide_detach_on_quit = 'always_quit'
+```
+
+Lua:
+
+```lua
+vim.g.neovide_detach_on_quit = 'always_quit'
+```
+
+This option changes the closing behavior of Neovide when it's used to connect to a remote Neovim
+instance. It does this by switching between detaching from the remote instance and quitting Neovim
+entirely.
+
 #### Fullscreen
 
 VimScript:
