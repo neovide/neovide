@@ -352,12 +352,14 @@ VimScript:
 
 ```vim
 let g:neovide_transparency = 0.8
+let g:neovide_normal_opacity = 0.8
 ```
 
 Lua:
 
 ```lua
 vim.g.neovide_transparency = 0.8
+vim.g.neovide_normal_opacity = 0.8
 ```
 
 **Unreleased yet.**
@@ -366,6 +368,9 @@ vim.g.neovide_transparency = 0.8
 
 Setting `g:neovide_transparency` to a value between 0.0 and 1.0 will set the opacity of the window
 to that value.
+
+`g:neovide_normal_opacity` sets the opacity for the normal background color.
+Set it to 1 to disable.
 
 #### Show Border (Currently macOS only)
 
