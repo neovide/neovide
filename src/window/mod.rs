@@ -29,6 +29,9 @@ use winit::platform::windows::WindowAttributesExtWindows;
 #[cfg(target_os = "macos")]
 use winit::platform::macos::EventLoopBuilderExtMacOS;
 
+#[cfg(target_os = "macos")]
+use macos::register_file_handler;
+
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
 use mouse_manager::MouseManager;
@@ -119,6 +122,8 @@ pub fn create_event_loop() -> EventLoop<UserEvent> {
     #[cfg(target_os = "macos")]
     builder.with_default_menu(false);
     let event_loop = builder.build().expect("Failed to create winit event loop");
+    #[cfg(target_os = "macos")]
+    register_file_handler();
     #[allow(clippy::let_and_return)]
     event_loop
 }

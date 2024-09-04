@@ -146,8 +146,6 @@ impl MacosWindowFeature {
 
         macos_window_feature.update_background(true);
 
-        register_file_handler(mtm);
-
         macos_window_feature
     }
 
@@ -445,7 +443,7 @@ impl Menu {
     }
 }
 
-fn register_file_handler(mtm: MainThreadMarker) {
+pub fn register_file_handler() {
     unsafe extern "C" fn handle_open_files(
         _this: &mut AnyObject,
         _sel: objc2::runtime::Sel,
@@ -459,6 +457,8 @@ fn register_file_handler(mtm: MainThreadMarker) {
             }
         });
     }
+
+    let mtm = MainThreadMarker::new().expect("File handler must be registered on main thread.");
 
     unsafe {
         let app = NSApplication::sharedApplication(mtm);
