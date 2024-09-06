@@ -204,14 +204,13 @@ impl Renderer {
 
     pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32) {
         tracy_zone!("renderer_draw_frame");
-        let default_background = self.grid_renderer.get_default_background();
+        let default_background = self.grid_renderer.get_default_background().to_color();
         let grid_scale = self.grid_renderer.grid_scale;
 
-        let opacity = SETTINGS.get::<WindowSettings>().opacity;
         let layer_grouping = SETTINGS
             .get::<RendererSettings>()
             .experimental_layer_grouping;
-        root_canvas.clear(default_background.with_a((255.0 * opacity) as u8));
+        root_canvas.clear(default_background);
         root_canvas.save();
         root_canvas.reset_matrix();
 
@@ -285,24 +284,13 @@ impl Renderer {
         let settings = SETTINGS.get::<RendererSettings>();
         let root_window_regions = root_windows
             .into_iter()
-            .map(|window| {
-                window.draw(
-                    root_canvas,
-                    default_background.with_a((255.0 * opacity) as u8),
-                    grid_scale,
-                )
-            })
+            .map(|window| window.draw(root_canvas, default_background, grid_scale))
             .collect_vec();
 
         let floating_window_regions = floating_layers
             .into_iter()
             .flat_map(|mut layer| {
-                layer.draw(
-                    root_canvas,
-                    &settings,
-                    default_background.with_a((255.0 * opacity) as u8),
-                    grid_scale,
-                )
+                layer.draw(root_canvas, &settings, default_background, grid_scale)
             })
             .collect_vec();
 

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use log::trace;
-use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Path, HSV};
+use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color4f, Paint, Path, HSV};
 
 use crate::{
     editor::{Colors, Style, UnderlineStyle},
@@ -91,8 +91,8 @@ impl GridRenderer {
         PixelRect::from_origin_and_size(pos, size)
     }
 
-    pub fn get_default_background(&self) -> Color {
-        self.default_style.colors.background.unwrap().to_color()
+    pub fn get_default_background(&self) -> Color4f {
+        self.default_style.colors.background.unwrap()
     }
 
     /// Draws a single background cell with the same style
@@ -114,32 +114,28 @@ impl GridRenderer {
 
         let region = self.compute_text_region(grid_position, cell_width);
         let style = style.as_ref().unwrap_or(&self.default_style);
+        let style_background = style.background(&self.default_style.colors);
 
         let mut paint = Paint::default();
         paint.set_anti_alias(false);
-        paint.set_blend_mode(BlendMode::Src);
+        paint.set_blend_mode(BlendMode::SrcOver);
 
         if debug {
             let random_hsv: HSV = (rand::random::<f32>() * 360.0, 0.3, 0.3).into();
             let random_color = random_hsv.to_color(255);
             paint.set_color(random_color);
         } else {
-            paint.set_color(style.background(&self.default_style.colors).to_color());
-        }
-        if style.blend > 0 {
-            paint.set_alpha_f((100 - style.blend) as f32 / 100.0);
-        } else {
-            paint.set_alpha_f(1.0);
+            paint.set_color(style_background.to_color());
         }
 
-        let custom_color = paint.color4f() != self.default_style.colors.background.unwrap();
+        let custom_color = style_background != self.get_default_background();
         if custom_color {
             canvas.draw_rect(to_skia_rect(&region), &paint);
         }
 
         BackgroundInfo {
             custom_color,
-            transparent: style.blend > 0,
+            transparent: paint.color4f().a < 1.0,
         }
     }
 
