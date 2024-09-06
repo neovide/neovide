@@ -1,14 +1,13 @@
-local dap = require('dap')
+local dap = require("dap")
 
 dap.adapters.rust = {
-    type = 'server',
+    type = "server",
     port = "${port}",
     executable = {
-        command = 'codelldb.cmd',
+        command = "codelldb.cmd",
         args = { "--port", "${port}" },
-    }
+    },
 }
-
 
 dap.configurations.rust = {
     {
