@@ -67,6 +67,28 @@ vim.api.nvim_create_user_command("NeovideFocus", function()
     rpcnotify("neovide.focus_window")
 end, {})
 
+---@class neovide.ColorOpacity
+---@field disable? boolean
+---@field base_opacity? number
+---@field multiplier? number
+---@field applies_to_foreground? boolean
+local neovide_color_opacity = {
+    disable = false,
+    base_opacity = 0.0,
+    multiplier = 1.0,
+    applies_to_foreground = true,
+}
+
+---Apply opacity to a color
+---@param color_index number
+---@param opts neovide.ColorOpacity
+function _G.neovide_set_transparent_color(color_index, opts)
+    if type(opts) == "table" then
+        opts = vim.tbl_deep_extend("force", neovide_color_opacity, opts)
+        rpcnotify("neovide.set_transparent_color", color_index, opts)
+    end
+end
+
 vim.api.nvim_exec(
     [[
 function! WatchGlobal(variable, callback)
