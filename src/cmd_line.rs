@@ -138,7 +138,7 @@ pub struct CmdLineSettings {
     pub geometry: GeometryArgs,
 
     /// Force opengl on Windows
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     #[arg(long = "opengl", env = "NEOVIDE_OPENGL", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
     pub opengl: bool,
 }
