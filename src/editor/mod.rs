@@ -2,9 +2,11 @@ mod cursor;
 mod draw_command_batcher;
 mod grid;
 mod style;
+mod style_registry;
 mod window;
 
-use std::{collections::HashMap, rc::Rc, sync::Arc, thread};
+use std::{collections::HashMap, rc::Rc, thread};
+use style_registry::StyleRegistry;
 use tokio::sync::mpsc::unbounded_channel;
 
 use log::{error, trace, warn};
@@ -21,7 +23,8 @@ use crate::{
     bridge::{GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
     profiling::{tracy_named_frame, tracy_zone},
     renderer::{DrawCommand, WindowDrawCommand},
-    window::{UserEvent, WindowCommand},
+    settings::SETTINGS,
+    window::{UserEvent, WindowCommand, WindowSettings},
 };
 
 #[cfg(target_os = "macos")]
@@ -29,7 +32,7 @@ use crate::{cmd_line::CmdLineSettings, frame::Frame, settings::SETTINGS};
 
 pub use cursor::{Cursor, CursorMode, CursorShape};
 pub use draw_command_batcher::DrawCommandBatcher;
-pub use style::{Colors, Style, UnderlineStyle};
+pub use style::{ColorOpacity, Colors, Style, UnderlineStyle};
 pub use window::*;
 
 const MODE_CMDLINE: u64 = 4;
@@ -87,7 +90,7 @@ impl WindowAnchor {
 pub struct Editor {
     pub windows: HashMap<u64, Window>,
     pub cursor: Cursor,
-    pub defined_styles: HashMap<u64, Arc<Style>>,
+    pub style_registry: StyleRegistry,
     pub mode_list: Vec<CursorMode>,
     pub draw_command_batcher: Rc<DrawCommandBatcher>,
     pub current_mode_index: Option<u64>,
@@ -101,7 +104,7 @@ impl Editor {
         Editor {
             windows: HashMap::new(),
             cursor: Cursor::new(),
-            defined_styles: HashMap::new(),
+            style_registry: StyleRegistry::new(),
             mode_list: Vec::new(),
             draw_command_batcher: Rc::new(DrawCommandBatcher::new()),
             current_mode_index: None,
@@ -127,7 +130,8 @@ impl Editor {
                 self.mode_list = cursor_modes;
                 if let Some(current_mode_i) = self.current_mode_index {
                     if let Some(current_mode) = self.mode_list.get(current_mode_i as usize) {
-                        self.cursor.change_mode(current_mode, &self.defined_styles)
+                        self.cursor
+                            .change_mode(current_mode, self.style_registry.defined_styles())
                     }
                 }
             }
@@ -138,7 +142,8 @@ impl Editor {
             RedrawEvent::ModeChange { mode, mode_index } => {
                 tracy_zone!("ModeChange");
                 if let Some(cursor_mode) = self.mode_list.get(mode_index as usize) {
-                    self.cursor.change_mode(cursor_mode, &self.defined_styles);
+                    self.cursor
+                        .change_mode(cursor_mode, self.style_registry.defined_styles());
                     self.current_mode_index = Some(mode_index)
                 } else {
                     self.current_mode_index = None
@@ -190,14 +195,46 @@ impl Editor {
                     );
                 }
 
+                // Use id 0 for the default style
+                self.style_registry.set_style(
+                    Style::new(colors),
+                    0,
+                    SETTINGS.get::<WindowSettings>().transparency,
+                );
+                let style = self.style_registry.default_style().unwrap();
                 self.draw_command_batcher
-                    .queue(DrawCommand::DefaultStyleChanged(Style::new(colors)));
+                    .queue(DrawCommand::DefaultStyleChanged(style));
                 self.redraw_screen();
                 self.draw_command_batcher.send_batch(&self.event_loop_proxy);
             }
             RedrawEvent::HighlightAttributesDefine { id, style } => {
                 tracy_zone!("EditorHighlightAttributesDefine");
-                self.defined_styles.insert(id, Arc::new(style));
+                self.style_registry.set_style(
+                    style,
+                    id,
+                    SETTINGS.get::<WindowSettings>().transparency,
+                );
+            }
+            RedrawEvent::ColorOpacitySet {
+                packed_color,
+                color_opacity,
+            } => {
+                let default_style = self.style_registry.default_style();
+                self.style_registry.set_opacity(
+                    packed_color,
+                    color_opacity,
+                    SETTINGS.get::<WindowSettings>().transparency,
+                );
+                let updated_default_style = self.style_registry.default_style();
+
+                if default_style != updated_default_style {
+                    if let Some(new_style) = updated_default_style {
+                        self.draw_command_batcher
+                            .queue(DrawCommand::DefaultStyleChanged(new_style));
+                        self.redraw_screen();
+                        self.draw_command_batcher.send_batch(&self.event_loop_proxy);
+                    }
+                }
             }
             RedrawEvent::CursorGoto {
                 grid,
@@ -223,7 +260,7 @@ impl Editor {
             } => {
                 tracy_zone!("EditorGridLine");
                 self.set_ui_ready();
-                let defined_styles = &self.defined_styles;
+                let defined_styles = &self.style_registry.defined_styles();
                 let window = self.windows.get_mut(&grid);
                 if let Some(window) = window {
                     window.draw_grid_line(row, column_start, cells, defined_styles);
