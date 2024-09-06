@@ -5,6 +5,9 @@ pub struct Colors {
     pub foreground: Option<Color4f>,
     pub background: Option<Color4f>,
     pub special: Option<Color4f>,
+    pub packed_foreground: Option<u64>,
+    pub packed_background: Option<u64>,
+    pub packed_special: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -126,12 +129,18 @@ mod tests {
         foreground: Some(Color4f::new(0.1, 0.1, 0.1, 0.1)),
         background: Some(Color4f::new(0.2, 0.1, 0.1, 0.1)),
         special: Some(Color4f::new(0.3, 0.1, 0.1, 0.1)),
+        packed_foreground: None,
+        packed_background: None,
+        packed_special: None,
     };
 
     const DEFAULT_COLORS: Colors = Colors {
         foreground: Some(Color4f::new(0.1, 0.2, 0.1, 0.1)),
         background: Some(Color4f::new(0.2, 0.2, 0.1, 0.1)),
         special: Some(Color4f::new(0.3, 0.2, 0.1, 0.1)),
+        packed_foreground: None,
+        packed_background: None,
+        packed_special: None,
     };
 
     #[test]
