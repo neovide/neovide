@@ -9,8 +9,11 @@ use winit::event_loop::EventLoopProxy;
 
 use crate::{
     bridge::clipboard::{get_clipboard_contents, set_clipboard_contents},
-    bridge::{events::parse_redraw_event, NeovimWriter, RedrawEvent},
+    bridge::{
+        events::parse_redraw_event, events::parse_transparent_color, NeovimWriter, RedrawEvent,
+    },
     error_handling::ResultPanicExplanation,
+    error_msg,
     running_tracker::*,
     settings::SETTINGS,
     window::{UserEvent, WindowCommand},
@@ -99,6 +102,15 @@ impl Handler for NeovimHandler {
             "option_changed" => {
                 SETTINGS.handle_option_changed_notification(arguments, &self.proxy.lock().unwrap());
             }
+            "neovide.set_transparent_color" => match parse_transparent_color(arguments) {
+                Ok(transparent_color_event) => {
+                    let _ = self.sender.send(transparent_color_event);
+                }
+                _ => {
+                    error_msg!("Could not parse set_transparent_color event from neovim");
+                }
+            },
+
             #[cfg(windows)]
             "neovide.register_right_click" => {
                 let _ = self
