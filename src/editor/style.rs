@@ -16,6 +16,27 @@ pub enum UnderlineStyle {
     UnderCurl,
 }
 
+#[derive(Default, Debug, Clone)]
+pub struct ColorOpacity {
+    /// Color is always fully opaque when true (except for floating window with blend)
+    pub disable: bool,
+    /// Base opacity of the color
+    pub base_opacity: f32,
+    /// Opacity multiplier applied to opacity setting
+    pub multiplier: f32,
+    /// If true, opacity also applies to foreground color
+    pub applies_to_foreground: bool,
+}
+
+impl ColorOpacity {
+    pub fn compute_opacity(&self, default_opacity: f32) -> f32 {
+        match self.disable {
+            true => 1.0,
+            false => (self.base_opacity + self.multiplier * default_opacity).clamp(0.0, 1.0),
+        }
+    }
+}
+
 #[derive(new, Debug, Clone, PartialEq)]
 pub struct Style {
     pub colors: Colors,
@@ -62,6 +83,38 @@ impl Style {
         self.colors
             .special
             .unwrap_or_else(|| self.foreground(default_colors))
+    }
+
+    pub fn packed_foreground(&self) -> Option<u64> {
+        if self.reverse {
+            self.colors.packed_background
+        } else {
+            self.colors.packed_foreground
+        }
+    }
+
+    pub fn packed_background(&self) -> Option<u64> {
+        if self.reverse {
+            self.colors.packed_foreground
+        } else {
+            self.colors.packed_background
+        }
+    }
+
+    pub fn packed_special(&self) -> Option<u64> {
+        self.colors.packed_special
+    }
+
+    pub fn set_background_opacity(&mut self, color_opacity: &ColorOpacity, default_opacity: f32) {
+        if let Some(bg) = self.colors.background.as_mut() {
+            bg.a = color_opacity.compute_opacity(default_opacity)
+        };
+    }
+
+    pub fn set_foreground_opacity(&mut self, color_opacity: &ColorOpacity, default_opacity: f32) {
+        if let Some(fg) = self.colors.foreground.as_mut() {
+            fg.a = color_opacity.compute_opacity(default_opacity)
+        };
     }
 }
 
