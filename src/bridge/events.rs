@@ -9,7 +9,7 @@ use rmpv::Value;
 use skia_safe::Color4f;
 use strum::AsRefStr;
 
-use crate::editor::{Colors, CursorMode, CursorShape, Style, UnderlineStyle};
+use crate::editor::{ColorOpacity, Colors, CursorMode, CursorShape, Style, UnderlineStyle};
 
 #[derive(Clone, Debug)]
 pub enum ParseError {
@@ -59,6 +59,31 @@ pub struct GridLineCell {
 }
 
 pub type StyledContent = Vec<(u64, String)>;
+
+impl ColorOpacity {
+    pub fn parse(arguments: Value) -> Result<ColorOpacity> {
+        let attributes = parse_map(arguments)?;
+        let mut color_opacity = ColorOpacity::default();
+        for (key, value) in attributes {
+            match parse_string(key)?.as_str() {
+                "disable" => {
+                    color_opacity.disable = parse_bool(value)?;
+                }
+                "base_opacity" => {
+                    color_opacity.base_opacity = parse_f64(value)? as f32;
+                }
+                "multiplier" => {
+                    color_opacity.multiplier = parse_f64(value)? as f32;
+                }
+                "applies_to_foreground" => {
+                    color_opacity.applies_to_foreground = parse_bool(value)?;
+                }
+                key => debug!("Ignored style attribute: {}", key),
+            }
+        }
+        Ok(color_opacity)
+    }
+}
 
 #[derive(Clone, Debug)]
 pub enum MessageKind {
@@ -167,6 +192,10 @@ pub enum RedrawEvent {
     HighlightAttributesDefine {
         id: u64,
         style: Style,
+    },
+    ColorOpacitySet {
+        packed_color: u64,
+        color_opacity: ColorOpacity,
     },
     GridLine {
         grid: u64,
@@ -869,6 +898,16 @@ fn parse_msg_history_show(msg_history_show_arguments: Vec<Value>) -> Result<Redr
             .into_iter()
             .map(parse_msg_history_entry)
             .collect::<Result<_>>()?,
+    })
+}
+
+pub fn parse_transparent_color(transparent_color_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    let [color_index, opts] = extract_values(transparent_color_arguments)?;
+    let color_opacity = ColorOpacity::parse(opts)?;
+
+    Ok(RedrawEvent::ColorOpacitySet {
+        packed_color: parse_u64(color_index)?,
+        color_opacity,
     })
 }
 
