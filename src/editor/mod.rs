@@ -23,8 +23,7 @@ use crate::{
     bridge::{GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
     profiling::{tracy_named_frame, tracy_zone},
     renderer::{DrawCommand, WindowDrawCommand},
-    settings::SETTINGS,
-    window::{UserEvent, WindowCommand, WindowSettings},
+    window::{UserEvent, WindowCommand},
 };
 
 #[cfg(target_os = "macos")]
@@ -32,7 +31,7 @@ use crate::{cmd_line::CmdLineSettings, frame::Frame, settings::SETTINGS};
 
 pub use cursor::{Cursor, CursorMode, CursorShape};
 pub use draw_command_batcher::DrawCommandBatcher;
-pub use style::{ColorOpacity, Colors, Style, UnderlineStyle};
+pub use style::{Colors, OpacitySetting, Style, UnderlineStyle};
 pub use window::*;
 
 const MODE_CMDLINE: u64 = 4;
@@ -196,11 +195,7 @@ impl Editor {
                 }
 
                 // Use id 0 for the default style
-                self.style_registry.set_style(
-                    Style::new(colors),
-                    0,
-                    SETTINGS.get::<WindowSettings>().transparency,
-                );
+                self.style_registry.set_style(Style::new(colors), 0);
                 let style = self.style_registry.default_style().unwrap();
                 self.draw_command_batcher
                     .queue(DrawCommand::DefaultStyleChanged(style));
@@ -209,22 +204,14 @@ impl Editor {
             }
             RedrawEvent::HighlightAttributesDefine { id, style } => {
                 tracy_zone!("EditorHighlightAttributesDefine");
-                self.style_registry.set_style(
-                    style,
-                    id,
-                    SETTINGS.get::<WindowSettings>().transparency,
-                );
+                self.style_registry.set_style(style, id);
             }
             RedrawEvent::ColorOpacitySet {
                 packed_color,
                 color_opacity,
             } => {
                 let default_style = self.style_registry.default_style();
-                self.style_registry.set_opacity(
-                    packed_color,
-                    color_opacity,
-                    SETTINGS.get::<WindowSettings>().transparency,
-                );
+                self.style_registry.set_opacity(packed_color, color_opacity);
                 let updated_default_style = self.style_registry.default_style();
 
                 if default_style != updated_default_style {

@@ -204,7 +204,11 @@ impl Renderer {
 
     pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32) {
         tracy_zone!("renderer_draw_frame");
-        let default_background = self.grid_renderer.get_default_background().to_color();
+        let opacity = SETTINGS.get::<WindowSettings>().opacity;
+        let default_background = self
+            .grid_renderer
+            .get_default_background(opacity)
+            .to_color();
         let grid_scale = self.grid_renderer.grid_scale;
 
         let layer_grouping = SETTINGS
