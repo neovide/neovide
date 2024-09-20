@@ -10,7 +10,7 @@ use objc2_app_kit::{
 };
 use objc2_foundation::{
     ns_string, MainThreadMarker, NSArray, NSObject, NSPoint, NSProcessInfo, NSRect, NSSize,
-    NSString,
+    NSString, NSUserDefaults, NSDictionary,
 };
 
 use csscolorparser::Color;
@@ -481,5 +481,12 @@ pub fn register_file_handler() {
         //  * overriden methods are compatible with old (we implement protocol method)
         let delegate_obj = Retained::cast::<AnyObject>(delegate);
         AnyObject::set_class(&delegate_obj, class);
+
+        // Prevent AppKit from interpreting our command line.
+        let key = NSString::from_str("NSTreatUnknownArgumentsAsOpen");
+        let keys = vec![key.as_ref()];
+        let objects = vec![Retained::cast::<AnyObject>(NSString::from_str("NO"))];
+        let dict = NSDictionary::from_vec(&keys, objects);
+        NSUserDefaults::standardUserDefaults().registerDefaults(dict.as_ref());
     }
 }
