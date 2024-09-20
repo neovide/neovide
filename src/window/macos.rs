@@ -9,8 +9,8 @@ use objc2_app_kit::{
     NSMenuItem, NSView, NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
 };
 use objc2_foundation::{
-    ns_string, MainThreadMarker, NSArray, NSObject, NSPoint, NSProcessInfo, NSRect, NSSize,
-    NSString, NSUserDefaults, NSDictionary,
+    ns_string, MainThreadMarker, NSArray, NSDictionary, NSObject, NSPoint, NSProcessInfo, NSRect,
+    NSSize, NSString, NSUserDefaults,
 };
 
 use csscolorparser::Color;
