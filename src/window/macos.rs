@@ -288,10 +288,15 @@ impl MacosWindowFeature {
         }
     }
 
-    pub fn ensure_menu_added(&mut self) {
+    /// Create the application menu and grab initial focus.
+    pub fn ensure_app_initialized(&mut self) {
         let mtm = MainThreadMarker::new().expect("Menu must be created on the main thread");
         if self.menu.is_none() {
             self.menu = Some(Menu::new(mtm));
+            let app = NSApplication::sharedApplication(mtm);
+
+            #[allow(deprecated)]
+            app.activateIgnoringOtherApps(true)
         }
     }
 }
