@@ -241,12 +241,12 @@ impl WinitWindowWrapper {
             }
             WindowSettingsChanged::WindowBlurred(blur) => {
                 if let Some(skia_renderer) = &self.skia_renderer {
-                    let WindowSettings { transparency, .. } = self.settings.get::<WindowSettings>();
-                    let transparent = transparency < 1.0;
+                    let WindowSettings { opacity, .. } = self.settings.get::<WindowSettings>();
+                    let transparent = opacity < 1.0;
                     skia_renderer.window().set_blur(blur && transparent);
                 }
             }
-            WindowSettingsChanged::Transparency(..) | WindowSettingsChanged::NormalOpacity(..) => {
+            WindowSettingsChanged::Opacity(..) | WindowSettingsChanged::NormalOpacity(..) => {
                 self.renderer.prepare_lines(true);
             }
             #[cfg(target_os = "windows")]
@@ -477,7 +477,7 @@ impl WinitWindowWrapper {
         let WindowSettings {
             input_ime,
             theme,
-            transparency,
+            opacity,
             window_blurred,
             fullscreen,
             #[cfg(target_os = "macos")]
@@ -574,7 +574,7 @@ impl WinitWindowWrapper {
             self.renderer.grid_renderer.grid_scale
         );
 
-        window.set_blur(window_blurred && transparency < 1.0);
+        window.set_blur(window_blurred && opacity < 1.0);
         if fullscreen {
             let handle = window.current_monitor();
             window.set_fullscreen(Some(Fullscreen::Borderless(handle)));

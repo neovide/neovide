@@ -11,7 +11,7 @@ use syn::{
     parse_macro_input, Attribute, Data, DataStruct, DeriveInput, Error, Field, Ident, Lit, Meta,
 };
 
-#[proc_macro_derive(SettingGroup, attributes(setting_prefix, option))]
+#[proc_macro_derive(SettingGroup, attributes(setting_prefix, option, alias))]
 pub fn setting_group(item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as DeriveInput);
     let prefix = setting_prefix(input.attrs.as_ref())
@@ -41,7 +41,7 @@ fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream 
         Some(ref ident) => {
             let vim_setting_name = format!("{prefix}{ident}");
 
-            let option_name = match option(field) {
+            let option_name = match get_attribute_value(field, "option") {
                 Ok(option_name) => option_name,
                 Err(error) => {
                     return error.to_compile_error();
@@ -73,6 +73,32 @@ fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream 
                 }
             };
 
+            // Add setting location from alias
+            let set_setting_handlers_alias = match get_attribute_value(field, "alias") {
+                Ok(Some(alias_name)) => {
+                    let vim_alias_setting_name = format!("{prefix}{alias_name}");
+                    quote! {
+                        fn alias_update(settings: &crate::settings::Settings, value: rmpv::Value) -> crate::settings::SettingsChanged {
+                            error_msg!(concat!(
+                                "neovide_", #vim_alias_setting_name, " has now been deprecated, ",
+                                "use neovide_", #vim_setting_name, " instead."
+                            ));
+                            update(settings, value)
+                        }
+
+                        settings.set_setting_handlers(
+                            crate::settings::SettingLocation::NeovideGlobal(#vim_alias_setting_name.to_owned()),
+                            alias_update,
+                            reader,
+                        );
+                    }
+                },
+                Ok(None) => quote! {},
+                Err(error) => {
+                    return error.to_compile_error();
+                },
+            };
+
             quote! {{
                 fn update(settings: &crate::settings::Settings, value: rmpv::Value) -> crate::settings::SettingsChanged {
                     let mut s = settings.get::<#name>();
@@ -88,6 +114,8 @@ fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream 
                     update,
                     reader,
                 );
+
+                #set_setting_handlers_alias
             }}
         }
         None => {
@@ -143,9 +171,9 @@ fn setting_prefix(attrs: &[Attribute]) -> Option<String> {
     None
 }
 
-fn option(field: &Field) -> Result<Option<String>, Error> {
+fn get_attribute_value(field: &Field, ident: &str) -> Result<Option<String>, Error> {
     for attr in field.attrs.iter() {
-        if !attr.path().is_ident("option") {
+        if !attr.path().is_ident(ident) {
             continue;
         }
 
