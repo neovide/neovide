@@ -205,7 +205,7 @@ impl MacosWindowFeature {
     fn display_deprecation_warning(&self) {
         error_msg!(concat!(
             "neovide_background_color has now been deprecated. ",
-            "Use neovide_transparency instead if you want to get a transparent window titlebar. ",
+            "Use neovide_opacity instead if you want to get a transparent window titlebar. ",
             "Please check https://neovide.dev/configuration.html#background-color-deprecated-currently-macos-only for more information.",
         ));
     }
@@ -255,14 +255,14 @@ impl MacosWindowFeature {
         let WindowSettings {
             background_color,
             show_border,
-            transparency,
+            opacity,
             ..
         } = SETTINGS.get::<WindowSettings>();
         match background_color.parse::<Color>() {
             Ok(color) => {
                 self.update_ns_background_legacy(color, show_border, ignore_deprecation_warning)
             }
-            _ => self.update_ns_background(transparency, show_border),
+            _ => self.update_ns_background(opacity, show_border),
         }
     }
 
@@ -276,8 +276,8 @@ impl MacosWindowFeature {
                 log::info!("show_border changed to {}", show_border);
                 self.update_background(true);
             }
-            WindowSettingsChanged::Transparency(transparency) => {
-                log::info!("transparency changed to {}", transparency);
+            WindowSettingsChanged::Opacity(opacity) => {
+                log::info!("opacity changed to {}", opacity);
                 self.update_background(true);
             }
             WindowSettingsChanged::WindowBlurred(window_blurred) => {
