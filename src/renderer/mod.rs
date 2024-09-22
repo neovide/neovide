@@ -202,7 +202,7 @@ impl Renderer {
             .get::<RendererSettings>()
             .experimental_layer_grouping;
 
-        let background_layer = Layer::new().with_background(transparent_default_background.into());
+        let background_layer = Layer::new().with_clear(transparent_default_background.into());
         self.scene.add_layer(background_layer);
 
         let (root_windows, floating_layers) = {

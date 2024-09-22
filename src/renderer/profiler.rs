@@ -40,7 +40,7 @@ impl Profiler {
 
         let mut layer = Layer::new()
             .with_clip(self.rect.as_untyped().to_rect().try_cast().unwrap())
-            .with_background(background_color.into());
+            .with_clear(background_color.into());
 
         // // Draw FPS
         let text = format!("{:.0}FPS", 1.0 / dt.max(f32::EPSILON));
@@ -65,12 +65,12 @@ impl Profiler {
         shaper: &mut Shaper,
     ) {
         let text_color = Srgba::new(0, 255, 0, 255);
-        let layout = shaper.layout_with(&text, |builder| {
+        let layout = shaper.layout_with(text, |builder| {
             builder.push_default(&StyleProperty::FontStack(FontStack::Source("monospace")));
             builder.push_default(&StyleProperty::Brush(text_color.into()));
             builder.push_default(&StyleProperty::FontSize(self.font_size));
         });
-        layer.add_text_layout(&mut scene.resources, layout, *text_pos.as_untyped());
+        layer.add_text_layout(&mut scene.resources, &layout, *text_pos.as_untyped());
     }
 
     fn draw_graph(&self, layer: &mut Layer, scene: &mut Scene, shaper: &mut Shaper) {
@@ -98,7 +98,7 @@ impl Profiler {
         //paint.set_anti_alias(true);
 
         let start_point = (rect.max().x + 10.0, rect.min().y + rect.height() / 2.0);
-        let mut path = Path::new_open_stroke(1.0, color.into(), start_point.into());
+        let mut path = Path::new_line(1.0, color.into(), start_point.into());
         for (i, dt) in self.frametimes.iter().enumerate() {
             let x = lerp(
                 rect.min().x,
