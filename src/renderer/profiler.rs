@@ -1,8 +1,14 @@
 use std::collections::VecDeque;
 
+use palette::Srgba;
+use vide::parley::style::{FontStack, StyleProperty};
+use vide::{Layer, Path, PathCommand, Scene, Shaper};
+
 use crate::{
     profiling::tracy_zone,
-    units::{PixelPos, PixelSize},
+    renderer::{animation_utils::lerp, RendererSettings},
+    units::{PixelPos, PixelRect},
+    SETTINGS,
 };
 
 const FRAMETIMES_COUNT: usize = 48;
@@ -10,71 +16,65 @@ const FRAMETIMES_COUNT: usize = 48;
 // TODO: Remove
 #[allow(unused)]
 pub struct Profiler {
-    //pub font: Arc<FontPair>,
-    pub position: PixelPos<f32>,
-    pub size: PixelSize<f32>,
-    pub frametimes: VecDeque<f32>,
+    font_size: f32,
+    rect: PixelRect<f32>,
+    frametimes: VecDeque<f32>,
 }
 
 impl Profiler {
-    pub fn new(_font_size: f32) -> Self {
-        // let font_key = FontKey::default();
-        // let mut font_loader = FontLoader::new(font_size);
-        // let font = font_loader.get_or_load(&font_key).unwrap();
+    pub fn new(font_size: f32) -> Self {
         Self {
-            //font,
-            position: PixelPos::new(32.0, 32.0),
-            size: PixelSize::new(200.0, 120.0),
+            font_size,
+            rect: PixelRect::from_origin_and_size((32.0, 32.0).into(), (200.0, 120.0).into()),
             frametimes: VecDeque::with_capacity(FRAMETIMES_COUNT),
         }
     }
 
-    pub fn draw(&mut self, _dt: f32) {
+    pub fn draw(&mut self, dt: f32, scene: &mut Scene, shaper: &mut Shaper) {
         tracy_zone!("profiler_draw");
-        /*
         if !SETTINGS.get::<RendererSettings>().profiler {
             return;
         }
 
-        root_canvas.save();
-        let rect = self.get_rect();
-        root_canvas.clip_rect(rect, None, Some(false));
+        let background_color = Srgba::new(30, 30, 30, 200);
 
-        let mut paint = Paint::default();
+        let mut layer = Layer::new()
+            .with_clip(self.rect.as_untyped().to_rect().try_cast().unwrap())
+            .with_background(background_color.into());
 
-        // Draw background
-        let color = Color::from_argb(200, 30, 30, 30);
-        paint.set_color(color);
-        root_canvas.draw_paint(&paint);
-
-        // Draw FPS
-        let color = Color::from_argb(255, 0, 255, 0);
-        paint.set_color(color);
-        let mut text_position = self.position;
-        text_position.y += self.font.skia_font.size();
-        root_canvas.draw_str(
-            format!("{:.0}FPS", 1.0 / dt.max(f32::EPSILON)),
-            text_position,
-            &self.font.skia_font,
-            &paint,
-        );
+        // // Draw FPS
+        let text = format!("{:.0}FPS", 1.0 / dt.max(f32::EPSILON));
+        let text_pos = self.rect.min;
+        self.draw_text(&text, &text_pos, &mut layer, scene, shaper);
 
         self.frametimes.push_back(dt * 1000.0); // to msecs
         while self.frametimes.len() > FRAMETIMES_COUNT {
             self.frametimes.pop_front();
         }
+        self.draw_graph(&mut layer, scene, shaper);
 
-        self.draw_graph(root_canvas);
-
-        root_canvas.restore();
-        */
+        scene.add_layer(layer);
     }
 
-    /*
-    fn draw_graph(&self) {
-        let mut paint = Paint::default();
-        let color = Color::from_argb(255, 0, 100, 200);
-        paint.set_color(color);
+    fn draw_text(
+        &self,
+        text: &str,
+        text_pos: &PixelPos<f32>,
+        layer: &mut Layer,
+        scene: &mut Scene,
+        shaper: &mut Shaper,
+    ) {
+        let text_color = Srgba::new(0, 255, 0, 255);
+        let layout = shaper.layout_with(&text, |builder| {
+            builder.push_default(&StyleProperty::FontStack(FontStack::Source("monospace")));
+            builder.push_default(&StyleProperty::Brush(text_color.into()));
+            builder.push_default(&StyleProperty::FontSize(self.font_size));
+        });
+        layer.add_text_layout(&mut scene.resources, layout, *text_pos.as_untyped());
+    }
+
+    fn draw_graph(&self, layer: &mut Layer, scene: &mut Scene, shaper: &mut Shaper) {
+        let color = Srgba::new(0, 100, 200, 255);
 
         // Get min and max and avg.
         let mut min_ft = f32::MAX;
@@ -90,49 +90,53 @@ impl Profiler {
         let max_g = max_ft * 1.1;
         let diff = max_g - min_g;
 
-        let mut rect = self.get_rect();
-        rect.bottom -= 8.0; // bottom margin
+        let mut rect = self.rect.to_rect();
+        rect.size.height -= 8.0;
 
         let graph_height = 80.0;
 
-        paint.set_anti_alias(true);
+        //paint.set_anti_alias(true);
 
-        let mut prev_point = (rect.left - 10.0, self.position.y + rect.bottom);
+        let start_point = (rect.max().x + 10.0, rect.min().y + rect.height() / 2.0);
+        let mut path = Path::new_open_stroke(1.0, color.into(), start_point.into());
         for (i, dt) in self.frametimes.iter().enumerate() {
             let x = lerp(
-                rect.left,
-                rect.right,
+                rect.min().x,
+                rect.max().x,
                 i as f32 / self.frametimes.len() as f32,
             );
-            let y = rect.bottom - graph_height * (*dt - min_g) / diff;
+            let y = self.rect.max.y - graph_height * (*dt - min_g) / diff;
             let point = (x, y);
-            root_canvas.draw_line(prev_point, point, &paint);
-            prev_point = point;
+            path.commands.push(PathCommand::LineTo { to: point.into() });
         }
 
-        let color = Color::from_argb(255, 0, 255, 0);
-        paint.set_color(color);
-        paint.set_anti_alias(false);
+        layer.add_path(path);
 
         // Show min, max, avg (average).
-        root_canvas.draw_str(
-            format!("min: {min_ft:.1}ms"),
-            (rect.left, rect.bottom),
-            &self.font.skia_font,
-            &paint,
+        self.draw_text(
+            &format!("min: {min_ft:.1}ms"),
+            &(rect.min().x, rect.max().y - self.font_size).into(),
+            layer,
+            scene,
+            shaper,
         );
-        root_canvas.draw_str(
-            format!("avg: {avg:.1}ms"),
-            (rect.left, rect.bottom - graph_height * 0.5),
-            &self.font.skia_font,
-            &paint,
+        self.draw_text(
+            &format!("avg: {avg:.1}ms"),
+            &(
+                rect.min().x,
+                rect.max().y - graph_height * 0.5 - self.font_size,
+            )
+                .into(),
+            layer,
+            scene,
+            shaper,
         );
-        root_canvas.draw_str(
-            format!("max: {max_ft:.1}ms"),
-            (rect.left, rect.bottom - graph_height),
-            &self.font.skia_font,
-            &paint,
+        self.draw_text(
+            &format!("max: {max_ft:.1}ms"),
+            &(rect.min().x, rect.max().y - graph_height - self.font_size).into(),
+            layer,
+            scene,
+            shaper,
         );
     }
-    */
 }
