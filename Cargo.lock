@@ -1218,7 +1218,7 @@ dependencies = [
 [[package]]
 name = "fontique"
 version = "0.1.0"
-source = "git+https://github.com/linebender/parley?rev=6ecf702d68bfe4402dd0a9a362afccffbeef76f4#6ecf702d68bfe4402dd0a9a362afccffbeef76f4"
+source = "git+https://github.com/linebender/parley?rev=7a4cc48013f650de91fe0729e4b6027c535f10c4#7a4cc48013f650de91fe0729e4b6027c535f10c4"
 dependencies = [
  "core-foundation",
  "core-text",
@@ -2851,7 +2851,7 @@ dependencies = [
 [[package]]
 name = "parley"
 version = "0.1.0"
-source = "git+https://github.com/linebender/parley?rev=6ecf702d68bfe4402dd0a9a362afccffbeef76f4#6ecf702d68bfe4402dd0a9a362afccffbeef76f4"
+source = "git+https://github.com/linebender/parley?rev=7a4cc48013f650de91fe0729e4b6027c535f10c4#7a4cc48013f650de91fe0729e4b6027c535f10c4"
 dependencies = [
  "fontique",
  "peniko",
@@ -4158,7 +4158,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 [[package]]
 name = "vide"
 version = "0.1.0"
-source = "git+https://github.com/neovide/vide?rev=3445446072b516181c64117fe2a121a657bfb85a#3445446072b516181c64117fe2a121a657bfb85a"
+source = "git+https://github.com/neovide/vide?rev=04a635db2058bccc362c2132560552c5b82eb232#04a635db2058bccc362c2132560552c5b82eb232"
 dependencies = [
  "base64",
  "bytemuck",
@@ -4183,6 +4183,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "smol",
+ "swash",
  "termcolor",
  "thread_local",
  "wgpu",

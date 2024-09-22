@@ -228,7 +228,7 @@ impl RenderedWindow {
             if let Some(background) = &line.background {
                 for quad in background {
                     let mut quad = quad.clone();
-                    quad.top_left += transform.to_untyped();
+                    quad.region.origin += transform.to_untyped();
                     layer.add_quad(quad);
                 }
             }
@@ -238,14 +238,14 @@ impl RenderedWindow {
         };
 
         let mut layer = Layer::new()
-            .with_background(default_color.into())
+            .with_clear(default_color.into())
             .with_clip(pixel_region.to_rect().as_untyped().try_cast().unwrap());
         self.iter_border_lines_with_transform(pixel_region, grid_scale)
             .for_each(|(transform, line)| draw_line(transform, line, &mut layer));
         scene.add_layer(layer);
 
         let mut layer = Layer::new()
-            .with_background(default_color.into())
+            .with_clear(default_color.into())
             .with_clip(inner_region.to_rect().as_untyped().try_cast().unwrap());
         self.iter_scrollable_lines_with_transform(pixel_region, grid_scale)
             .for_each(|(transform, line)| draw_line(transform, line, &mut layer));
@@ -259,7 +259,7 @@ impl RenderedWindow {
         if let Some(foreground) = &line.foreground {
             for fragment in foreground {
                 let pixelpos = fragment.position + transform;
-                scene.add_text_layout(fragment.layout.clone(), pixelpos.to_untyped());
+                scene.add_text_layout(&fragment.layout, pixelpos.to_untyped());
             }
         }
     }
@@ -276,7 +276,7 @@ impl RenderedWindow {
         // TODO: Support transparent background
 
         let layer = Layer::new()
-            .with_background(named::BLACK.with_alpha(0).into())
+            .with_clear(named::BLACK.with_alpha(0).into())
             .with_clip(pixel_region.to_rect().as_untyped().try_cast().unwrap());
         scene.add_layer(layer);
 
@@ -284,7 +284,7 @@ impl RenderedWindow {
             .for_each(|(transform, line)| Self::draw_line(scene, transform, line));
 
         let layer = Layer::new()
-            .with_background(named::BLACK.with_alpha(0).into())
+            .with_clear(named::BLACK.with_alpha(0).into())
             .with_clip(inner_region.to_rect().as_untyped().try_cast().unwrap());
         scene.add_layer(layer);
 

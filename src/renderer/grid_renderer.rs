@@ -132,7 +132,7 @@ impl GridRenderer {
 
         let custom_color = color != self.default_style.colors.background.unwrap();
         if custom_color {
-            let quad = Quad::new(*region.min.as_untyped(), *region.size().as_untyped(), color);
+            let quad = Quad::new(region.to_rect().to_untyped(), color);
             quads.push(quad);
         }
 

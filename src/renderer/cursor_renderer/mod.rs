@@ -322,7 +322,7 @@ impl CursorRenderer {
 
         layer.add_text_layout(
             &mut scene.resources,
-            layout,
+            &layout,
             (self.destination.x, self.destination.y + baseline_offset).into(),
         );
         scene.add_layer(layer);
