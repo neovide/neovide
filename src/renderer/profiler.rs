@@ -65,7 +65,7 @@ impl Profiler {
         shaper: &mut Shaper,
     ) {
         let text_color = Srgba::new(0, 255, 0, 255);
-        let layout = shaper.layout_with(&text, |builder| {
+        let layout = shaper.layout_with(text, |builder| {
             builder.push_default(&StyleProperty::FontStack(FontStack::Source("monospace")));
             builder.push_default(&StyleProperty::Brush(text_color.into()));
             builder.push_default(&StyleProperty::FontSize(self.font_size));

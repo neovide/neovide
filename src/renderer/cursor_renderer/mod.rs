@@ -276,7 +276,7 @@ impl CursorRenderer {
             true => self.blink_status.opacity(),
             false => 1.0,
         };
-        let alpha = self.cursor.alpha() as f32;
+        let alpha = self.cursor.alpha();
 
         let character = self.cursor.grid_cell.0.clone();
 
@@ -311,7 +311,6 @@ impl CursorRenderer {
             .grid_cell
             .1
             .as_ref()
-            .map(|style| style)
             .unwrap_or(&grid_renderer.default_style);
 
         let layout = grid_renderer
