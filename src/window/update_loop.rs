@@ -337,7 +337,7 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
                     .macos_feature
                     .as_mut()
                     .expect("MacosWindowFeature should already be created here.")
-                    .ensure_menu_added();
+                    .ensure_app_initialized();
             }
             _ => {}
         }
