@@ -148,6 +148,10 @@ pub fn create_window(event_loop: &ActiveEventLoop, maximized: bool, title: &str)
         .with_visible(false);
 
     #[cfg(target_os = "windows")]
+    let window_attributes = window_attributes
+        .with_taskbar_icon(Some(load_icon()));
+
+    #[cfg(target_os = "windows")]
     let window_attributes = if !cmd_line_settings.opengl {
         WindowAttributesExtWindows::with_no_redirection_bitmap(window_attributes, true)
     } else {
