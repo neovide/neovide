@@ -224,6 +224,9 @@ impl WinitWindowWrapper {
                     skia_renderer.window().set_blur(blur && opacity);
                 }
             }
+            WindowSettingsChanged::Opacity(_) | WindowSettingsChanged::TextBackgroundOpacity(_) => {
+                self.renderer.prepare_lines(true)
+            }
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::InputMacosOptionKeyIsMeta(option) => {
                 self.set_macos_option_as_meta(option);
