@@ -142,10 +142,17 @@ pub fn create_window(event_loop: &ActiveEventLoop, maximized: bool, title: &str)
 
     let window_attributes = Window::default_attributes()
         .with_title(title)
-        .with_window_icon(Some(icon))
         .with_maximized(maximized)
         .with_transparent(true)
         .with_visible(false);
+
+    #[cfg(target_family = "unix")]
+    let window_attributes = window_attributes.with_window_icon(Some(icon));
+
+    #[cfg(target_os = "windows")]
+    let window_attributes = window_attributes
+        .with_window_icon(Some(icon.clone()))
+        .with_taskbar_icon(Some(icon));
 
     #[cfg(target_os = "windows")]
     let window_attributes = if !cmd_line_settings.opengl {
