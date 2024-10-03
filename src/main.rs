@@ -35,8 +35,6 @@ mod windows_utils;
 
 #[macro_use]
 extern crate derive_new;
-#[macro_use]
-extern crate lazy_static;
 
 use anyhow::Result;
 use log::trace;
