@@ -14,6 +14,8 @@ use super::{
     EventPayload, EventTarget, KeyboardManager, MessageSelectionEvent, MouseManager, OverlayEvent,
     RouteId, UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged, WindowSize,
 };
+#[cfg(target_os = "windows")]
+use super::settings::CornerPreference;
 
 #[cfg(target_os = "macos")]
 use {
@@ -316,6 +318,16 @@ impl WinitWindowWrapper {
         } else {
             window.set_fullscreen(None);
         }
+    }
+
+    #[cfg(target_os = "windows")]
+    fn set_corner_preference(&self, window_id: WindowId, option: CornerPreference) {
+        let Some(route) = self.routes.get(&window_id) else {
+            return;
+        };
+
+        let skia_renderer = route.window.skia_renderer.borrow();
+        skia_renderer.window().set_corner_preference(option.into());
     }
 
     #[cfg(target_os = "macos")]
@@ -626,7 +638,12 @@ impl WinitWindowWrapper {
                     self.handle_title_text_color(*window_id, &color);
                 }
             }
-
+            #[cfg(target_os = "windows")]
+            WindowSettingsChanged::CornerPreference(option) => {
+                for window_id in window_ids.iter() {
+                    self.set_corner_preference(*window_id, option);
+                }
+            }
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::InputMacosOptionKeyIsMeta(option) => {
                 for window_id in window_ids.iter() {
