@@ -45,7 +45,6 @@ glutin-winit = "0.5.0"
 image = { version = "0.25.0", default-features = false, features = ["ico"] }
 indoc = "2.0.5"
 itertools = "0.13.0"
-lazy_static = "1.4.0"
 log = "0.4.16"
 lru = "0.12.2"
 neovide-derive = { path = "neovide-derive", version = "0.1.0" }
@@ -74,7 +73,7 @@ tracy-client-sys = { version = "0.22.0", optional = true, default-features = fal
 ] }
 unicode-segmentation = "1.9.0"
 which = "6.0.1"
-winit = { version = "=0.30.3", features = ["serde"] }
+winit = { version = "=0.30.5", features = ["serde"] }
 xdg = "2.4.1"
 notify-debouncer-full = "0.3.1"
 regex = "1.10.3"
@@ -106,35 +105,9 @@ windows-registry = "0.2.0"
 skia-safe = { version = "0.75.0", features = ["gl", "textlayout"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-icrate = { version = "0.0.4", features = [
-    "block",
-    "apple",
-    "Foundation",
-    "Foundation_NSArray",
-    "Foundation_NSString",
-    "Foundation_NSThread",
-    "Foundation_NSDictionary",
-    "Foundation_NSProcessInfo",
-    "Foundation_NSAttributedString",
-    "Foundation_NSMutableDictionary",
-    "Foundation_NSMutableAttributedString",
-    "AppKit_NSGraphicsContext",
-    "AppKit",
-    "AppKit_NSColor",
-    "AppKit_NSEvent",
-    "AppKit_NSView",
-    "AppKit_NSTextView",
-    "AppKit_NSWindow",
-    "AppKit_NSResponder",
-    "AppKit_NSViewController",
-    "AppKit_NSMenu",
-    "AppKit_NSFont",
-    "AppKit_NSMenuItem",
-    "AppKit_NSOpenPanel",
-    "AppKit_NSScreen",
-    "AppKit_NSTextInputContext",
-] }
-objc2 = { version = "0.4.1" , default-features = false }
+objc2 = { version = "0.5.2" , default-features = false }
+objc2-foundation = { version = "0.2.2", features = [ "block2", "NSUserDefaults", "NSDictionary", "NSArray", "NSString", "NSAttributedString" ] }
+objc2-app-kit = { version = "0.2.2", features = [ "NSLayoutConstraint", "NSFont", "NSTextInputContext", "NSTextView", "NSResponder" ] }
 
 [target.'cfg(target_os = "windows")'.build-dependencies]
 winres = "0.1.12"

@@ -246,7 +246,9 @@ impl MouseManager {
         }
 
         let draw_details = self.get_window_details_under_mouse(editor_state);
-        let grid_id = draw_details.map(|details| details.id).unwrap_or(0);
+        let grid_id = draw_details
+            .map(|details| details.event_grid_id())
+            .unwrap_or(0);
 
         let previous: GridPos<i32> = self.scroll_position.floor().try_cast().unwrap();
         self.scroll_position += amount;
