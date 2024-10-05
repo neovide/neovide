@@ -824,9 +824,8 @@ impl WinitWindowWrapper {
 
     fn handle_title_background_color(&self, color: &String) {
         if let Some(skia_renderer) = &self.skia_renderer {
-            if let Some(winit_color) = Self::parse_winit_color(color) {
-                skia_renderer.window().set_title_background_color(Some(winit_color));
-            }
+            let winit_color = Self::parse_winit_color(color);
+            skia_renderer.window().set_title_background_color(winit_color);
         }
     }
 
