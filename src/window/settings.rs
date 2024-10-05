@@ -1,7 +1,7 @@
 #[cfg(target_os = "macos")]
 use {log::error, rmpv::Value};
 
-use {crate::settings::*};
+use crate::settings::*;
 
 #[derive(Clone, SettingGroup, PartialEq)]
 pub struct WindowSettings {
