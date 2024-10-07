@@ -70,7 +70,7 @@ vim.api.nvim_create_user_command("NeovideFocus", function()
   rpcnotify("neovide.focus_window")
 end, {})
 
-local function take_word_under_cursor()
+local function take_entity_under_cursor()
   if vim.tbl_contains(vim.g.cursorword_disable_filetypes or {}, vim.bo.filetype) then
     return
   end
@@ -105,8 +105,8 @@ local function take_word_under_cursor()
 end
 
 vim.api.nvim_create_user_command("NeovideForceClick", function()
-  local cursorword, curword_start, curword_end, guifont = take_word_under_cursor()
-  rpcnotify("neovide.force_click", cursorword, curword_start, curword_end, guifont)
+  local cursorentity, entity_start, entity_end, guifont = take_entity_under_cursor()
+  rpcnotify("neovide.force_click", cursorentity, entity_start, entity_end, guifont)
 end, {})
 
 vim.api.nvim_set_keymap(
