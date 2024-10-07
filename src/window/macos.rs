@@ -322,10 +322,8 @@ impl MacosWindowFeature {
                 cursor_position.y as f64 / scale_factor,
             );
 
-            let text = NSString::from_str(text);
-
             // Create an NSFont with the desired font size
-            // let font = NSFont::userFontOfSize(23.0).unwrap();
+            let text = NSString::from_str(text);
             let font_name = guifont.split(":").collect::<Vec<&str>>()[0].replace("_", " ");
             let font_size = guifont.split(":").collect::<Vec<&str>>()[1][1..]
                 .parse::<f64>()
