@@ -443,11 +443,7 @@ impl MouseManager {
                     }
                 }
             }
-            WindowEvent::TouchpadPressure {
-                device_id,
-                pressure,
-                stage,
-            } => {
+            WindowEvent::TouchpadPressure { .. } => {
                 println!("1.Touchpad pressure event");
                 // send_ui(ParallelCommand::TakeWordUnderCursor);
                 // send_ui(SerialCommand::MouseButton {

@@ -21,7 +21,7 @@ use winit::window::Window;
 
 use crate::{
     bridge::{send_ui, ParallelCommand},
-    units::{GridPos, Pixel},
+    units::Pixel,
 };
 use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame, settings::SETTINGS};
 
