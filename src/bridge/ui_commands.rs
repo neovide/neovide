@@ -229,8 +229,6 @@ impl ParallelCommand {
                 .await
                 .context("DisplayAvailableFonts failed"),
             ParallelCommand::TakeWordUnderCursor => {
-                println!("TakeWordUnderCursor");
-
                 let result = nvim
                     .exec_lua(include_str!("extractor.lua"), vec![Value::Nil])
                     .await;

@@ -22,7 +22,7 @@ local function take_word_under_cursor()
   print("Curword: " .. curword)
   print("Curword start: " .. curword_start)
   print("Curword end: " .. curword_end)
-  return curword
+  return curword, curword_start, curword_end
 end
 
 return take_word_under_cursor()

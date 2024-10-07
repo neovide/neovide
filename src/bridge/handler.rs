@@ -126,8 +126,13 @@ impl Handler for NeovimHandler {
             "neovide.force_click" => {
                 println!("arguments from force_click: {:?}", arguments);
                 let _ = self.proxy.lock().unwrap().send_event(
-                    WindowCommand::TouchpadPressure(arguments[0].as_str().unwrap().to_string())
-                        .into(),
+                    WindowCommand::TouchpadPressure(
+                        arguments[0].as_str().unwrap().into(),
+                        arguments[1].as_i64().unwrap(),
+                        arguments[2].as_i64().unwrap(),
+                        arguments[3].as_str().unwrap().into(),
+                    )
+                    .into(),
                 );
             }
             _ => {}

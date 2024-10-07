@@ -5,7 +5,6 @@ use std::{
 };
 
 use winit::{
-    dpi,
     event::{
         DeviceId, ElementState, MouseButton, MouseScrollDelta, Touch, TouchPhase, WindowEvent,
     },
@@ -15,7 +14,7 @@ use winit::{
 use glamour::Contains;
 
 use crate::{
-    bridge::{neovim_instance, send_ui, ParallelCommand, SerialCommand},
+    bridge::{send_ui, SerialCommand},
     renderer::{Renderer, WindowDrawDetails},
     settings::SETTINGS,
     units::{GridPos, GridScale, GridVec, PixelPos, PixelRect, PixelSize, PixelVec},

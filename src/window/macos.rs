@@ -21,7 +21,7 @@ use winit::window::Window;
 
 use crate::{
     bridge::{send_ui, ParallelCommand},
-    units::Pixel,
+    units::{GridPos, Pixel},
 };
 use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame, settings::SETTINGS};
 
@@ -293,7 +293,12 @@ impl MacosWindowFeature {
         }
     }
 
-    pub fn handle_touchpad_pressure(&self, text: &str, cursor_position: Point2<Pixel<f32>>) {
+    pub fn handle_touchpad_pressure(
+        &self,
+        text: &str,
+        cursor_position: Point2<Pixel<f32>>,
+        guifont: String,
+    ) {
         log::info!(
             "Touchpad pressure: text: {}, cursor_position: {:?}",
             text,
@@ -324,10 +329,18 @@ impl MacosWindowFeature {
 
                 // Create an NSAttributedString with the hardcoded text
                 let text = NSString::from_str(text);
+
                 // let attr_string = NSAttributedString::from_nsstring(&text);
 
                 // Create an NSFont with the desired font size
-                let font = NSFont::userFontOfSize(20.0).unwrap();
+                // let font = NSFont::userFontOfSize(23.0).unwrap();
+                let font_name = guifont.split(":").collect::<Vec<&str>>()[0].replace("_", " ");
+                let font_size = guifont.split(":").collect::<Vec<&str>>()[1][1..]
+                    .parse::<f64>()
+                    .unwrap();
+                let font =
+                    NSFont::fontWithName_size(NSString::from_str(&font_name).as_ref(), font_size)
+                        .unwrap();
                 // let font = NSFont::systemFontOfSize(20.0);
                 // let font = NSFont::boldSystemFontOfSize(20.0);
 

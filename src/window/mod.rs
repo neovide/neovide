@@ -81,7 +81,7 @@ pub enum WindowCommand {
     SetMouseEnabled(bool),
     ListAvailableFonts,
     FocusWindow,
-    TouchpadPressure(String),
+    TouchpadPressure(String, i64, i64, String),
     Minimize,
     #[allow(dead_code)] // Theme change is only used on macOS right now
     ThemeChanged(Option<Theme>),

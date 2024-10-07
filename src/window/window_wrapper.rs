@@ -1,6 +1,5 @@
 use super::{
-    KeyboardManager, MouseManager, Pressure, UserEvent, WindowCommand, WindowSettings,
-    WindowSettingsChanged,
+    KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged,
 };
 
 #[cfg(target_os = "macos")]
@@ -21,7 +20,7 @@ use crate::{
         clamped_grid_size, FontSettings, HotReloadConfigs, SettingsChanged, DEFAULT_GRID_SIZE,
         MIN_GRID_SIZE, SETTINGS,
     },
-    units::{to_skia_rect, GridPos, GridRect, GridSize, PixelPos, PixelSize},
+    units::{to_skia_rect, GridPos, GridRect, GridSize, Pixel, PixelPos, PixelSize},
     window::{create_window, mouse_manager::EditorState, PhysicalSize, ShouldRender, WindowSize},
     CmdLineSettings,
 };
@@ -29,6 +28,7 @@ use crate::{
 #[cfg(target_os = "macos")]
 use super::macos::MacosWindowFeature;
 
+use glamour::Point2;
 use log::trace;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::{
@@ -179,9 +179,20 @@ impl WinitWindowWrapper {
                     skia_renderer.window().focus_window();
                 }
             }
-            WindowCommand::TouchpadPressure(text) => {
+            WindowCommand::TouchpadPressure(text, row, col, guifont) => {
+                println!("text, row, col: {:?}, {:?}, {:?}", text, row, col);
                 println!("TouchpadPressure from neovim");
                 let grid_scale = self.renderer.grid_renderer.grid_scale;
+                println!("grid_scale: {:?}", grid_scale);
+                // Assume you have the grid position of the word
+                let grid_position = GridPos::new(row, col);
+
+                // Convert the grid position to a pixel position
+                let pixel_position = grid_position * grid_scale;
+
+                // Express the pixel position as Point2<Pixel<f32>>
+                let point = Point2::new(pixel_position.x, pixel_position.y) as Point2<Pixel<f32>>;
+
                 if let Some(macos_feature) = &self.macos_feature {
                     let editor_state = EditorState {
                         grid_scale: &self.renderer.grid_renderer.grid_scale,
@@ -234,7 +245,8 @@ impl WinitWindowWrapper {
                     }
 
                     let mouse_pos = self.mouse_manager.window_position;
-                    macos_feature.handle_touchpad_pressure(&text, mouse_pos);
+                    // macos_feature.handle_touchpad_pressure(&text, mouse_pos);
+                    macos_feature.handle_touchpad_pressure(&text, point, guifont);
                 }
             }
             WindowCommand::Minimize => {

@@ -70,61 +70,43 @@ vim.api.nvim_create_user_command("NeovideFocus", function()
   rpcnotify("neovide.focus_window")
 end, {})
 
--- macos trackpad force click
-local function matchstr(...)
-  local ok, ret = pcall(vim.fn.matchstr, ...)
-  return ok and ret or ""
-end
-
 local function take_word_under_cursor()
   if vim.tbl_contains(vim.g.cursorword_disable_filetypes or {}, vim.bo.filetype) then
     return
   end
 
-  local column = vim.api.nvim_win_get_cursor(0)[2]
-  local line = vim.api.nvim_get_current_line()
-  print("Column: " .. column)
-  print("Line: " .. line)
-
-  -- Get mouse position
   local mouse_pos = vim.fn.getmousepos()
-  print("Mouse Screen Row: " .. mouse_pos.screenrow)
-  print("Mouse Screen Column: " .. mouse_pos.screencol)
-  print("Mouse Window ID: " .. mouse_pos.winid)
-  print("Mouse Window Row: " .. mouse_pos.winrow)
-  print("Mouse Window Column: " .. mouse_pos.wincol)
-  print("Mouse Line: " .. mouse_pos.line)
-  print("Mouse Column: " .. mouse_pos.column)
-  print("Mouse Column Offset: " .. mouse_pos.coladd)
-
-  -- Get the word under the cursor
-  local left = matchstr(line:sub(1, column + 1), [[\k*$]])
-  local right = matchstr(line:sub(column + 1), [[^\k*]]):sub(2)
-  local cursorword = left .. right
-  print("Cursorword: " .. cursorword)
-
-  -- Get the word under the cursor using matchstrpos
+  local guifont = vim.api.nvim_get_option('guifont')
+  local column = vim.api.nvim_win_get_cursor(0)[2]
   local cursor = vim.api.nvim_win_get_cursor(0)
-  local curword, curword_start, curword_end = unpack(vim.fn.matchstrpos(line, [[\k*\%]] .. cursor[2] + 1 .. [[c\k*]]))
-  print("Curword: " .. curword)
-  print("Curword start: " .. curword_start)
-  print("Curword end: " .. curword_end)
+  local line = vim.api.nvim_get_current_line()
 
-  -- Get screen position of the cursor
+  -- get the word under the cursor using matchstrpos
+  local curword, curword_start, _ = unpack(vim.fn.matchstrpos(line, [[\k*\%]] .. cursor[2] + 1 .. [[c\k*]]))
+
+  -- get screen position of the cursor
   local screenpos = vim.fn.screenpos(mouse_pos.winid, cursor[1], cursor[2] + 1)
-  if screenpos then
-    print("Screen Row: " .. screenpos.row)
-    print("Screen Column: " .. screenpos.col)
-  else
-    print("Failed to get screen position")
+
+  local entity
+  local entity_start
+  local url_pattern = 'https?://[%w-_%.]+%.%w[%w-_%.%%%?%.:/+=&%%[%]#]*'
+  for url in line:gmatch(url_pattern) do
+    local s, e = line:find(url, 1, true)
+    -- check if the cursor is within this URL
+    if column >= s and column <= e then
+      entity = url
+      entity_start = s - 1
+    end
   end
 
-  return curword, curword_start, curword_end
+  entity = entity or curword
+  entity_start = entity_start or curword_start
+  return entity, entity_start + 5, screenpos.row, guifont
 end
 
 vim.api.nvim_create_user_command("NeovideForceClick", function()
-  local cursorword, curword_start, curword_end = take_word_under_cursor()
-  rpcnotify("neovide.force_click", cursorword, curword_start, curword_end)
+  local cursorword, curword_start, curword_end, guifont = take_word_under_cursor()
+  rpcnotify("neovide.force_click", cursorword, curword_start, curword_end, guifont)
 end, {})
 
 vim.api.nvim_set_keymap(
