@@ -21,8 +21,6 @@ use crate::{
     window::{keyboard_manager::KeyboardManager, WindowSettings},
 };
 
-use super::macos::MacosWindowFeature;
-
 fn clamp_position(
     position: PixelPos<f32>,
     region: PixelRect<f32>,
