@@ -237,8 +237,6 @@ impl WinitWindowWrapper {
                         println!("cursor_destination: {:?}", cursor_destination);
                     }
 
-                    // let mouse_pos = self.mouse_manager.window_position;
-                    // macos_feature.handle_touchpad_pressure(&text, mouse_pos);
                     macos_feature.handle_touchpad_pressure(&text, point, guifont);
                 }
             }
