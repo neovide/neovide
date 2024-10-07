@@ -31,7 +31,9 @@ use super::macos::MacosWindowFeature;
 #[cfg(target_os = "macos")]
 use crate::units::{to_skia_rect, GridPos, Pixel};
 
+#[cfg(target_os = "macos")]
 use glamour::Point2;
+
 use log::trace;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::{
