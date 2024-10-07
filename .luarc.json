@@ -1,0 +1,14 @@
+{
+  "runtime": {
+    "version": "LuaJIT",
+    "path": ["lua/?/init.lua", "?/init.lua", "lua/?.lua", "?.lua"]
+  },
+  "diagnostics.globals": ["vim"],
+  "format": {
+    "defaultConfig": {
+      "indent_style": "space",
+      "indent_size": "4",
+      "tab_width": "4"
+    }
+  }
+}
