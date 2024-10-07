@@ -390,7 +390,6 @@ impl MouseManager {
         keyboard_manager: &KeyboardManager,
         renderer: &Renderer,
         window: &Window,
-        macos_feature: Option<&MacosWindowFeature>,
     ) {
         let editor_state = EditorState {
             grid_scale: &renderer.grid_renderer.grid_scale,

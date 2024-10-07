@@ -376,7 +376,6 @@ impl WinitWindowWrapper {
             &self.keyboard_manager,
             &self.renderer,
             skia_renderer.window(),
-            self.macos_feature.as_ref(),
         );
         self.keyboard_manager.handle_event(&event);
         self.renderer.handle_event(&event);
