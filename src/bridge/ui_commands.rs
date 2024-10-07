@@ -123,7 +123,6 @@ pub enum ParallelCommand {
     FocusLost,
     FocusGained,
     DisplayAvailableFonts(Vec<String>),
-    TakeWordUnderCursor,
     SetBackground(String),
     ShowError { lines: Vec<String> },
 }
@@ -228,13 +227,6 @@ impl ParallelCommand {
             ParallelCommand::DisplayAvailableFonts(fonts) => display_available_fonts(nvim, fonts)
                 .await
                 .context("DisplayAvailableFonts failed"),
-            ParallelCommand::TakeWordUnderCursor => {
-                let result = nvim
-                    .exec_lua(include_str!("extractor.lua"), vec![Value::Nil])
-                    .await;
-
-                Ok(())
-            }
             ParallelCommand::ShowError { lines } => {
                 // nvim.err_write(&message).await.ok();
                 // NOTE: https://github.com/neovim/neovim/issues/5067
