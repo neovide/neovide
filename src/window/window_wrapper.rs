@@ -409,11 +409,7 @@ impl WinitWindowWrapper {
                     self.handle_focus_lost();
                 }
             }
-            WindowEvent::TouchpadPressure {
-                device_id,
-                pressure,
-                stage,
-            } => {
+            WindowEvent::TouchpadPressure { stage, .. } => {
                 println!("2.TouchpadPressure from winit");
                 if stage == 2 {
                     let editor_state = EditorState {
@@ -443,13 +439,6 @@ impl WinitWindowWrapper {
                         });
                     }
                 }
-
-                // self.handle_user_event(UserEvent::WindowCommand(WindowCommand::TouchpadPressure));
-                // let grid_position = self.renderer.get_cursor_destination();
-                // self.macos_feature
-                //     .as_mut()
-                //     .unwrap()
-                //     .handle_touchpad_pressure(&device_id, &pressure, &stage);
             }
             WindowEvent::ThemeChanged(theme) => {
                 tracy_zone!("ThemeChanged");
