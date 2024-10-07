@@ -179,6 +179,7 @@ impl WinitWindowWrapper {
                     skia_renderer.window().focus_window();
                 }
             }
+            #[cfg(target_os = "macos")]
             WindowCommand::TouchpadPressure(text, row, col, guifont) => {
                 println!("text, row, col: {:?}, {:?}, {:?}", text, row, col);
                 println!("TouchpadPressure from neovim");
