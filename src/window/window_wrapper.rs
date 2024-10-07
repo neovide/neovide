@@ -20,13 +20,16 @@ use crate::{
         clamped_grid_size, FontSettings, HotReloadConfigs, SettingsChanged, DEFAULT_GRID_SIZE,
         MIN_GRID_SIZE, SETTINGS,
     },
-    units::{to_skia_rect, GridPos, GridRect, GridSize, Pixel, PixelPos, PixelSize},
+    units::{GridRect, GridSize, PixelPos, PixelSize},
     window::{create_window, mouse_manager::EditorState, PhysicalSize, ShouldRender, WindowSize},
     CmdLineSettings,
 };
 
 #[cfg(target_os = "macos")]
 use super::macos::MacosWindowFeature;
+
+#[cfg(target_os = "macos")]
+use crate::units::{to_skia_rect, GridPos, Pixel};
 
 use glamour::Point2;
 use log::trace;
