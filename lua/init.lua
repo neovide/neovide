@@ -89,6 +89,33 @@ function _G.neovide_set_transparent_color(color_index, opts)
     end
 end
 
+local neovide_group = vim.api.nvim_create_augroup("NeovideOpacity", { clear = true })
+
+---Apply opacity settings to default background colors
+vim.api.nvim_create_autocmd("ColorScheme", {
+    group = neovide_group,
+    pattern = "*",
+    callback = function()
+        neovide_set_transparent_color(0, neovide_color_opacity)
+        vim.iter({
+            "Normal",
+            "NormalFloat",
+            "NormalNC",
+            "StatusLine",
+            "StatusLineNC",
+        })
+            :map(function(name)
+                return vim.api.nvim_get_hl(0, { name = name }).bg
+            end)
+            :filter(function(bg)
+                return type(bg) == "number"
+            end)
+            :each(function(bg)
+                neovide_set_transparent_color(bg, neovide_color_opacity)
+            end)
+    end,
+})
+
 vim.api.nvim_exec(
     [[
 function! WatchGlobal(variable, callback)
