@@ -121,18 +121,27 @@ mod tests {
         foreground: Some(Color4f::new(0.1, 0.1, 0.1, 0.1)),
         background: Some(Color4f::new(0.2, 0.1, 0.1, 0.1)),
         special: Some(Color4f::new(0.3, 0.1, 0.1, 0.1)),
+        fg: None,
+        bg: None,
+        sp: None,
     };
 
     const DEFAULT_COLORS: Colors = Colors {
         foreground: Some(Color4f::new(0.1, 0.2, 0.1, 0.1)),
         background: Some(Color4f::new(0.2, 0.2, 0.1, 0.1)),
         special: Some(Color4f::new(0.3, 0.2, 0.1, 0.1)),
+        fg: None,
+        bg: None,
+        sp: None,
     };
 
     const NONE_COLORS: Colors = Colors {
         foreground: None,
         background: None,
         special: None,
+        fg: None,
+        bg: None,
+        sp: None,
     };
 
     #[test]

@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use log::trace;
-use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Path, HSV};
+use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color4f, Paint, Path, HSV};
 
 use crate::{
     editor::{Colors, Style, UnderlineStyle},
@@ -11,6 +11,7 @@ use crate::{
     units::{
         to_skia_point, to_skia_rect, GridPos, GridScale, GridSize, PixelPos, PixelRect, PixelVec,
     },
+    window::WindowSettings,
 };
 
 use super::fonts::font_options::FontOptions;
@@ -38,6 +39,9 @@ impl GridRenderer {
             Some(colors::WHITE),
             Some(colors::BLACK),
             Some(colors::GREY),
+            Some(16777215),
+            Some(0),
+            Some(8947848),
         )));
         let em_size = shaper.current_size();
         let font_dimensions = shaper.font_base_dimensions();
@@ -88,8 +92,12 @@ impl GridRenderer {
         PixelRect::from_origin_and_size(pos, size)
     }
 
-    pub fn get_default_background(&self) -> Color {
-        self.default_style.colors.background.unwrap().to_color()
+    pub fn get_default_background(&self, opacity: f32) -> Color4f {
+        let mut background = self.default_style.colors.background.unwrap();
+        if let Some(opacity_setting) = &self.default_style.opacity_settings.background {
+            background.a = opacity_setting.compute_background_opacity(opacity);
+        }
+        background
     }
 
     /// Draws a single background cell with the same style
@@ -109,34 +117,32 @@ impl GridRenderer {
             };
         }
 
+        let opacity = SETTINGS.get::<WindowSettings>().opacity;
         let region = self.compute_text_region(grid_position, cell_width);
         let style = style.as_ref().unwrap_or(&self.default_style);
+        let style_background = style.background(&self.default_style.colors, opacity);
 
         let mut paint = Paint::default();
         paint.set_anti_alias(false);
-        paint.set_blend_mode(BlendMode::Src);
+        paint.set_blend_mode(BlendMode::SrcOver);
 
         if debug {
             let random_hsv: HSV = (rand::random::<f32>() * 360.0, 0.3, 0.3).into();
             let random_color = random_hsv.to_color(255);
             paint.set_color(random_color);
         } else {
-            paint.set_color(style.background(&self.default_style.colors).to_color());
-        }
-        if style.blend > 0 {
-            paint.set_alpha_f((100 - style.blend) as f32 / 100.0);
-        } else {
-            paint.set_alpha_f(1.0);
+            paint.set_color(style_background.to_color());
         }
 
-        let custom_color = paint.color4f() != self.default_style.colors.background.unwrap();
+        let custom_color =
+            style_background.to_opaque() != self.get_default_background(opacity).to_opaque();
         if custom_color {
             canvas.draw_rect(to_skia_rect(&region), &paint);
         }
 
         BackgroundInfo {
             custom_color,
-            transparent: style.blend > 0,
+            transparent: paint.color4f().a < 1.0,
         }
     }
 
@@ -185,7 +191,12 @@ impl GridRenderer {
             let random_color = random_hsv.to_color(255);
             paint.set_color(random_color);
         } else {
-            paint.set_color(style.foreground(&self.default_style.colors).to_color());
+            let opacity = SETTINGS.get::<WindowSettings>().opacity;
+            paint.set_color(
+                style
+                    .foreground(&self.default_style.colors, opacity)
+                    .to_color(),
+            );
         }
         paint.set_anti_alias(false);
 
@@ -214,7 +225,7 @@ impl GridRenderer {
 
         if style.strikethrough {
             let line_position = region.center().y;
-            paint.set_color(style.special(&self.default_style.colors).to_color());
+            paint.set_color(style.special(&self.default_style.colors, 1.0).to_color());
             canvas.draw_line(
                 (pos.x, line_position),
                 (pos.x + width, line_position),
@@ -251,8 +262,13 @@ impl GridRenderer {
         let p1 = (p1.x.round(), (p1.y + stroke_width / 2.).round());
         let p2 = (p2.x.round(), (p2.y + stroke_width / 2.).round());
 
+        let opacity = SETTINGS.get::<WindowSettings>().opacity;
         underline_paint
-            .set_color(style.special(&self.default_style.colors).to_color())
+            .set_color(
+                style
+                    .special(&self.default_style.colors, opacity)
+                    .to_color(),
+            )
             .set_stroke_width(stroke_width);
 
         match underline_style {

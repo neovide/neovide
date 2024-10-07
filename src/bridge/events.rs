@@ -9,7 +9,7 @@ use rmpv::Value;
 use skia_safe::Color4f;
 use strum::AsRefStr;
 
-use crate::editor::{Colors, CursorMode, CursorShape, Style, UnderlineStyle};
+use crate::editor::{Colors, CursorMode, CursorShape, OpacitySetting, Style, UnderlineStyle};
 
 #[derive(Clone, Debug)]
 pub enum ParseError {
@@ -59,6 +59,31 @@ pub struct GridLineCell {
 }
 
 pub type StyledContent = Vec<(u64, String)>;
+
+impl OpacitySetting {
+    pub fn parse(arguments: Value) -> Result<OpacitySetting> {
+        let attributes = parse_map(arguments)?;
+        let mut color_opacity = OpacitySetting::default();
+        for (key, value) in attributes {
+            match parse_string(key)?.as_str() {
+                "disable" => {
+                    color_opacity.disable = parse_bool(value)?;
+                }
+                "base_opacity" => {
+                    color_opacity.base_opacity = parse_f64(value)? as f32;
+                }
+                "multiplier" => {
+                    color_opacity.multiplier = parse_f64(value)? as f32;
+                }
+                "applies_to_foreground" => {
+                    color_opacity.applies_to_foreground = parse_bool(value)?;
+                }
+                key => debug!("Ignored style attribute: {}", key),
+            }
+        }
+        Ok(color_opacity)
+    }
+}
 
 #[derive(Clone, Debug)]
 pub enum MessageKind {
@@ -167,6 +192,10 @@ pub enum RedrawEvent {
     HighlightAttributesDefine {
         id: u64,
         style: Style,
+    },
+    ColorOpacitySet {
+        packed_color: u64,
+        color_opacity: OpacitySetting,
     },
     GridLine {
         grid: u64,
@@ -489,14 +518,21 @@ fn parse_grid_resize(grid_resize_arguments: Vec<Value>) -> Result<RedrawEvent> {
 }
 
 fn parse_default_colors(default_colors_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [foreground, background, special, _term_foreground, _term_background] =
+    let [fg, bg, sp, _term_foreground, _term_background] =
         extract_values(default_colors_arguments)?;
+
+    let fg = parse_u64(fg)?;
+    let bg = parse_u64(bg)?;
+    let sp = parse_u64(sp)?;
 
     Ok(RedrawEvent::DefaultColorsSet {
         colors: Colors {
-            foreground: Some(unpack_color(parse_u64(foreground)?)),
-            background: Some(unpack_color(parse_u64(background)?)),
-            special: Some(unpack_color(parse_u64(special)?)),
+            foreground: Some(unpack_color(fg)),
+            background: Some(unpack_color(bg)),
+            special: Some(unpack_color(sp)),
+            fg: Some(fg),
+            bg: Some(bg),
+            sp: Some(sp),
         },
     })
 }
@@ -504,19 +540,25 @@ fn parse_default_colors(default_colors_arguments: Vec<Value>) -> Result<RedrawEv
 fn parse_style(style_map: Value, _info_array: Value) -> Result<Style> {
     let attributes = parse_map(style_map)?;
 
-    let mut style = Style::new(Colors::new(None, None, None));
+    let mut style = Style::new(Colors::new(None, None, None, None, None, None));
 
     for attribute in attributes {
         if let (Value::String(name), value) = attribute {
             match (name.as_str().unwrap(), value) {
-                ("foreground", Value::Integer(packed_color)) => {
-                    style.colors.foreground = Some(unpack_color(packed_color.as_u64().unwrap()))
+                ("foreground", Value::Integer(fg)) => {
+                    let fg = fg.as_u64().unwrap();
+                    style.colors.fg = Some(fg);
+                    style.colors.foreground = Some(unpack_color(fg));
                 }
-                ("background", Value::Integer(packed_color)) => {
-                    style.colors.background = Some(unpack_color(packed_color.as_u64().unwrap()))
+                ("background", Value::Integer(bg)) => {
+                    let bg = bg.as_u64().unwrap();
+                    style.colors.bg = Some(bg);
+                    style.colors.background = Some(unpack_color(bg))
                 }
-                ("special", Value::Integer(packed_color)) => {
-                    style.colors.special = Some(unpack_color(packed_color.as_u64().unwrap()))
+                ("special", Value::Integer(sp)) => {
+                    let sp = sp.as_u64().unwrap();
+                    style.colors.sp = Some(sp);
+                    style.colors.special = Some(unpack_color(sp))
                 }
                 ("reverse", Value::Boolean(reverse)) => style.reverse = reverse,
                 ("italic", Value::Boolean(italic)) => style.italic = italic,
@@ -869,6 +911,16 @@ fn parse_msg_history_show(msg_history_show_arguments: Vec<Value>) -> Result<Redr
             .into_iter()
             .map(parse_msg_history_entry)
             .collect::<Result<_>>()?,
+    })
+}
+
+pub fn parse_transparent_color(transparent_color_arguments: Vec<Value>) -> Result<RedrawEvent> {
+    let [color_index, opts] = extract_values(transparent_color_arguments)?;
+    let color_opacity = OpacitySetting::parse(opts)?;
+
+    Ok(RedrawEvent::ColorOpacitySet {
+        packed_color: parse_u64(color_index)?,
+        color_opacity,
     })
 }
 
