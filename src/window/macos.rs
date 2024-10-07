@@ -305,95 +305,58 @@ impl MacosWindowFeature {
             cursor_position
         );
 
-        if cursor_position.y > 0. {
-            println!(
-                "cursor_position.y: {:?}, cursor_position.x: {:?}",
-                cursor_position.y, cursor_position.x
+        println!(
+            "cursor_position.y: {:?}, cursor_position.x: {:?}",
+            cursor_position.y, cursor_position.x
+        );
+
+        println!("transleted_point.x: {:?}", cursor_position.x / 2.);
+        println!("transleted_point.y: {:?}", cursor_position.y / 2.);
+
+        unsafe {
+            let ns_view = self.ns_window.contentView().unwrap();
+            let scale_factor = self.ns_window.backingScaleFactor();
+
+            let transleted_point = NSPoint::new(
+                cursor_position.x as f64 / scale_factor,
+                cursor_position.y as f64 / scale_factor,
             );
 
-            println!("transleted_point.x: {:?}", cursor_position.x / 2.);
-            println!("transleted_point.y: {:?}", cursor_position.y / 2.);
+            let text = NSString::from_str(text);
 
-            unsafe {
-                let ns_view = self.ns_window.contentView().unwrap();
-
-                // Retrieve the scale factor of the window
-                let scale_factor = self.ns_window.backingScaleFactor();
-                println!("Scale factor: {}", scale_factor);
-
-                let transleted_point = NSPoint::new(
-                    cursor_position.x as f64 / scale_factor,
-                    cursor_position.y as f64 / scale_factor,
-                );
-                println!("transleted_point: {:?}", transleted_point);
-
-                // Create an NSAttributedString with the hardcoded text
-                let text = NSString::from_str(text);
-
-                // let attr_string = NSAttributedString::from_nsstring(&text);
-
-                // Create an NSFont with the desired font size
-                // let font = NSFont::userFontOfSize(23.0).unwrap();
-                let font_name = guifont.split(":").collect::<Vec<&str>>()[0].replace("_", " ");
-                let font_size = guifont.split(":").collect::<Vec<&str>>()[1][1..]
-                    .parse::<f64>()
+            // Create an NSFont with the desired font size
+            // let font = NSFont::userFontOfSize(23.0).unwrap();
+            let font_name = guifont.split(":").collect::<Vec<&str>>()[0].replace("_", " ");
+            let font_size = guifont.split(":").collect::<Vec<&str>>()[1][1..]
+                .parse::<f64>()
+                .unwrap();
+            let font =
+                NSFont::fontWithName_size(NSString::from_str(&font_name).as_ref(), font_size)
                     .unwrap();
-                let font =
-                    NSFont::fontWithName_size(NSString::from_str(&font_name).as_ref(), font_size)
-                        .unwrap();
-                // let font = NSFont::systemFontOfSize(20.0);
-                // let font = NSFont::boldSystemFontOfSize(20.0);
 
-                // Create an NSDictionary with the font attribute
-                let attributes: Id<NSDictionary<NSString, AnyObject>> = {
-                    let font_attr_key: Id<NSString> = NSString::from_str("NSFont");
-                    let font_value: Id<AnyObject> = Id::cast(font);
-                    let keys: Vec<&NSString> = vec![&font_attr_key];
-                    let values: Vec<Id<AnyObject>> = vec![font_value];
-                    NSDictionary::from_vec(&keys, values)
-                };
-                println!("attributes: {:?}", attributes);
+            let attributes: Id<NSDictionary<NSString, AnyObject>> = {
+                let font_attr_key: Id<NSString> = NSString::from_str("NSFont");
+                let font_value: Id<AnyObject> = Id::cast(font);
+                let keys: Vec<&NSString> = vec![&font_attr_key];
+                let values: Vec<Id<AnyObject>> = vec![font_value];
+                NSDictionary::from_vec(&keys, values)
+            };
 
-                // Create an NSAttributedString with the font attribute
-                let attr_string_with_font = NSAttributedString::initWithString_attributes(
-                    NSAttributedString::alloc(),
-                    &text,
-                    Some(&attributes),
-                );
-                println!("attr_string_with_font: {:?}", attr_string_with_font);
+            let attr_string_with_font = NSAttributedString::initWithString_attributes(
+                NSAttributedString::alloc(),
+                &text,
+                Some(&attributes),
+            );
 
-                // let font_key_any: Id<AnyObject> = Id::cast(font);
-                // // Create an NSArray with the font attribute
-                // let fonts: Id<NSArray<AnyObject>> = NSArray::from_vec(vec![font_key_any]);
-                //
-                // // Create an NSString for the key and convert it to AnyObject
-                // let font_attr_key: Id<NSString> = NSString::from_str("NSFontAttributeName");
-                // let key_any: Id<AnyObject> = Id::cast(font_attr_key);
-                //
-                // // Create an NSArray with the key
-                // let keys: Id<NSArray<AnyObject>> = NSArray::from_vec(vec![key_any]);
-                //
-                // // Create an NSDictionary with the font attribute
-                // let attributes: Id<NSDictionary<NSString, AnyObject>> =
-                //     NSDictionary::dictionaryWithObjects_forKeys(&fonts, &keys);
-                //
-                // let attr_string_with_font = NSAttributedString::initWithString_attributes(
-                //     NSAttributedString::alloc(),
-                //     &text,
-                //     Some(&attributes),
-                // );
-                // Create an NSRange for the entire length of the string
-                let range = NSRange::new(0, text.len());
-                let mut mut_attr_string =
-                    NSMutableAttributedString::from_attributed_nsstring(&attr_string_with_font);
-                mut_attr_string.setAttributes_range(Some(&attributes), range);
-                println!("mut_attr_string: {:?}", mut_attr_string);
+            let range = NSRange::new(0, text.len());
+            let mut mut_attr_string =
+                NSMutableAttributedString::from_attributed_nsstring(&attr_string_with_font);
+            mut_attr_string.setAttributes_range(Some(&attributes), range);
 
-                ns_view.showDefinitionForAttributedString_atPoint(
-                    Some(&mut_attr_string),
-                    transleted_point,
-                );
-            }
+            ns_view.showDefinitionForAttributedString_atPoint(
+                Some(&mut_attr_string),
+                transleted_point,
+            );
         }
     }
 
