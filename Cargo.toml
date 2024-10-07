@@ -107,7 +107,7 @@ skia-safe = { version = "0.75.0", features = ["gl", "textlayout"] }
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = { version = "0.5.2" , default-features = false }
 objc2-foundation = { version = "0.2.2", features = [ "block2", "NSUserDefaults", "NSDictionary", "NSArray", "NSString", "NSAttributedString" ] }
-objc2-app-kit = { version = "0.2.2", features = [ "NSLayoutConstraint", "NSFont", "NSTextInputContext", "NSTextView", "NSResponder" ] }
+objc2-app-kit = { version = "0.2.2", features = [ "NSLayoutConstraint", "NSFont", "NSFontDescriptor", "NSTextInputContext", "NSTextView", "NSResponder" ] }
 
 [target.'cfg(target_os = "windows")'.build-dependencies]
 winres = "0.1.12"

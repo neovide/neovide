@@ -7,7 +7,8 @@ use objc2::{
 };
 use objc2_app_kit::{
     NSApplication, NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventModifierFlags, NSFont,
-    NSMenu, NSMenuItem, NSView, NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
+    NSFontDescriptor, NSFontDescriptorSymbolicTraits, NSFontSymbolicTraits, NSMenu, NSMenuItem,
+    NSView, NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
 };
 use objc2_foundation::{
     ns_string, MainThreadMarker, NSArray, NSAttributedString, NSDictionary,
@@ -296,30 +297,26 @@ impl MacosWindowFeature {
     pub fn handle_touchpad_pressure(
         &self,
         text: &str,
-        cursor_position: Point2<Pixel<f32>>,
+        entity_position: Point2<Pixel<f32>>,
         guifont: String,
     ) {
         log::info!(
-            "Touchpad pressure: text: {}, cursor_position: {:?}",
+            "Touchpad pressure: text: {}, entity_position: {:?}",
             text,
-            cursor_position
+            entity_position
         );
 
         println!(
-            "cursor_position.y: {:?}, cursor_position.x: {:?}",
-            cursor_position.y, cursor_position.x
+            "entity_position.y: {:?}, entity_position.x: {:?}",
+            entity_position.y, entity_position.x
         );
-
-        println!("transleted_point.x: {:?}", cursor_position.x / 2.);
-        println!("transleted_point.y: {:?}", cursor_position.y / 2.);
 
         unsafe {
             let ns_view = self.ns_window.contentView().unwrap();
             let scale_factor = self.ns_window.backingScaleFactor();
-
             let transleted_point = NSPoint::new(
-                cursor_position.x as f64 / scale_factor,
-                cursor_position.y as f64 / scale_factor,
+                entity_position.x as f64 / scale_factor,
+                entity_position.y as f64 / scale_factor,
             );
 
             // Create an NSFont with the desired font size
@@ -328,10 +325,17 @@ impl MacosWindowFeature {
             let font_size = guifont.split(":").collect::<Vec<&str>>()[1][1..]
                 .parse::<f64>()
                 .unwrap();
-            let font =
-                NSFont::fontWithName_size(NSString::from_str(&font_name).as_ref(), font_size)
-                    .unwrap();
 
+            let font_descriptor = NSFontDescriptor::fontDescriptorWithName_size(
+                &NSString::from_str(&font_name),
+                font_size,
+            );
+
+            let italic_descriptor = font_descriptor.fontDescriptorWithSymbolicTraits(
+                NSFontDescriptorSymbolicTraits::NSFontDescriptorTraitItalic,
+            );
+
+            let font = NSFont::fontWithDescriptor_size(&italic_descriptor, font_size).unwrap();
             let attributes: Id<NSDictionary<NSString, AnyObject>> = {
                 let font_attr_key: Id<NSString> = NSString::from_str("NSFont");
                 let font_value: Id<AnyObject> = Id::cast(font);
@@ -350,7 +354,6 @@ impl MacosWindowFeature {
             let mut mut_attr_string =
                 NSMutableAttributedString::from_attributed_nsstring(&attr_string_with_font);
             mut_attr_string.setAttributes_range(Some(&attributes), range);
-
             ns_view.showDefinitionForAttributedString_atPoint(
                 Some(&mut_attr_string),
                 transleted_point,

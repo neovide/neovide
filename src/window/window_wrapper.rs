@@ -211,22 +211,9 @@ impl WinitWindowWrapper {
                         .get_window_details_under_mouse(&editor_state);
 
                     if let Some(window_details) = window_details {
-                        println!("window_details: {:?}", window_details);
                         let relative_position = self
                             .mouse_manager
                             .get_relative_position(window_details, &editor_state);
-
-                        println!("relative_position: {:?}", relative_position);
-
-                        // send_ui(SerialCommand::MouseButton {
-                        //     button: "x11".to_owned(),
-                        //     action: "press".to_owned(),
-                        //     grid_id: window_details.event_grid_id(),
-                        //     position: relative_position.to_tuple(),
-                        //     modifier_string: editor_state
-                        //         .keyboard_manager
-                        //         .format_modifier_string("", true),
-                        // });
 
                         let neovim_cursor_position = GridPos::new(
                             relative_position.x as f64 * 2.,
