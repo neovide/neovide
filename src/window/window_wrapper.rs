@@ -29,7 +29,7 @@ use crate::{
 use super::macos::{MacosWindowFeature, TouchpadStage};
 
 #[cfg(target_os = "macos")]
-use crate::units::{to_skia_rect, GridPos, Pixel};
+use crate::units::{GridPos, Pixel};
 
 #[cfg(target_os = "macos")]
 use glamour::Point2;
@@ -186,66 +186,14 @@ impl WinitWindowWrapper {
             }
             #[cfg(target_os = "macos")]
             WindowCommand::TouchpadPressure(text, row, col, guifont) => {
-                println!("text, row, col: {:?}, {:?}, {:?}", text, row, col);
-                println!("TouchpadPressure from neovim");
-                let grid_scale = self.renderer.grid_renderer.grid_scale;
-                println!("grid_scale: {:?}", grid_scale);
-                // Assume you have the grid position of the word
-                let grid_position = GridPos::new(row, col);
-
+                let pixel_position = self.grid_to_pixel_position(row, col);
                 let window_padding = self.calculate_window_padding();
-
-                // convert the grid position to a pixel position
-                let pixel_position = grid_position * grid_scale;
-
-                let pixel_position = PixelPos::new(
-                    pixel_position.x + window_padding.left as f32,
-                    pixel_position.y + window_padding.top as f32,
+                let point = self.apply_padding_to_position(pixel_position, window_padding);
+                let macos_feature = self.macos_feature.as_ref().expect(
+                    "The macos feature should be initialized before the touchpad pressure event",
                 );
 
-                // express the pixel position as Point2<Pixel<f32>>
-                let point = Point2::new(pixel_position.x, pixel_position.y) as Point2<Pixel<f32>>;
-
-                if let Some(macos_feature) = &self.macos_feature {
-                    let editor_state = crate::window::mouse_manager::EditorState {
-                        grid_scale: &self.renderer.grid_renderer.grid_scale,
-                        window_regions: &self.renderer.window_regions,
-                        window: self.skia_renderer.as_ref().unwrap().window(),
-                        keyboard_manager: &self.keyboard_manager,
-                    };
-                    let window_details = self
-                        .mouse_manager
-                        .get_window_details_under_mouse(&editor_state);
-
-                    if let Some(window_details) = window_details {
-                        let relative_position = self
-                            .mouse_manager
-                            .get_relative_position(window_details, &editor_state);
-
-                        let neovim_cursor_position = GridPos::new(
-                            relative_position.x as f64 * 2.,
-                            relative_position.y as f64 * 2.,
-                        );
-                        println!("neovim_cursor_position: {:?}", neovim_cursor_position);
-                    }
-
-                    let scale_factor = self.skia_renderer.as_ref().unwrap().window().scale_factor();
-                    println!(
-                        "window created (scale_factor: {:.4}, font_dimensions: {:?})",
-                        scale_factor, self.renderer.grid_renderer.grid_scale
-                    );
-
-                    println!("saved_inner_size: {:?}", self.saved_inner_size);
-                    if let Some(root_window) = self.renderer.rendered_windows.get(&1) {
-                        let clip_rect = to_skia_rect(&root_window.pixel_region(grid_scale));
-                        println!("clip_rect using pixel_region: {:?}", clip_rect);
-
-                        let cursor_destination = self.renderer.get_cursor_destination();
-                        println!("cursor_destination: {:?}", cursor_destination);
-                    }
-
-                    macos_feature.show_definition_or_webview(&text, point, guifont);
-                }
+                macos_feature.show_definition_or_webview(&text, point, guifont);
             }
             WindowCommand::Minimize => {
                 self.minimize_window();
@@ -695,6 +643,26 @@ impl WinitWindowWrapper {
             right: window_settings.padding_right,
             bottom: window_settings.padding_bottom,
         }
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn grid_to_pixel_position(&self, row: i64, col: i64) -> Point2<Pixel<f32>> {
+        let grid_scale = self.renderer.grid_renderer.grid_scale;
+        let grid_position = GridPos::new(row, col);
+
+        grid_position * grid_scale
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn apply_padding_to_position(
+        &self,
+        position: Point2<Pixel<f32>>,
+        padding: WindowPadding,
+    ) -> Point2<Pixel<f32>> {
+        PixelPos::new(
+            position.x + padding.left as f32,
+            position.y + padding.top as f32,
+        )
     }
 
     pub fn prepare_frame(&mut self) -> ShouldRender {
