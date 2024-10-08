@@ -9,8 +9,7 @@
 
 ---@type Args
 local args = ...
-
-local touch_pad_module = require("lua/modules/cursor")
+local cursor_module = require("lua/modules/cursor")
 
 vim.g.neovide_channel_id = args.neovide_channel_id
 vim.g.neovide_version = args.neovide_version
@@ -70,7 +69,8 @@ vim.api.nvim_create_user_command("NeovideFocus", function()
 end, {})
 
 vim.api.nvim_create_user_command("NeovideForceClick", function()
-    local cursorentity, entity_start, entity_end, guifont = touch_pad_module.take_entity_under_cursor()
+    local guifont = vim.api.nvim_get_option("guifont")
+    local cursorentity, entity_start, entity_end = cursor_module.take_entity_under_cursor()
     rpcnotify("neovide.force_click", cursorentity, entity_start, entity_end, guifont)
 end, {})
 

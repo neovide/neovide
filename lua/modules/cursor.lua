@@ -2,7 +2,6 @@ local M = {}
 
 M.take_entity_under_cursor = function()
     local mouse_pos = vim.fn.getmousepos()
-    local guifont = vim.api.nvim_get_option("guifont")
     local column = vim.api.nvim_win_get_cursor(0)[2]
     local cursor = vim.api.nvim_win_get_cursor(0)
     local line = vim.api.nvim_get_current_line()
@@ -27,7 +26,7 @@ M.take_entity_under_cursor = function()
 
     entity = entity or curword
     entity_start = entity_start or curword_start
-    return entity, entity_start + 5, screenpos.row, guifont
+    return entity, entity_start + 5, screenpos.row
 end
 
 return M
