@@ -9,7 +9,6 @@
 
 ---@type Args
 local args = ...
-local cursor_module = require("lua/modules/cursor")
 
 vim.g.neovide_channel_id = args.neovide_channel_id
 vim.g.neovide_version = args.neovide_version
@@ -36,6 +35,35 @@ local function get_clipboard(register)
     return function()
         return rpcrequest("neovide.get_clipboard", register)
     end
+end
+
+local function take_entity_under_cursor()
+    local mouse_pos = vim.fn.getmousepos()
+    local guifont = vim.api.nvim_get_option("guifont")
+    local column = vim.api.nvim_win_get_cursor(0)[2]
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    local line = vim.api.nvim_get_current_line()
+
+    local entity
+    local col
+
+    -- get the word under the cursor using matchstrpos
+    entity, col, _ = unpack(vim.fn.matchstrpos(line, [[\k*\%]] .. cursor[2] + 1 .. [[c\k*]]))
+
+    -- get screen position of the cursor
+    local screenpos = vim.fn.screenpos(mouse_pos.winid, cursor[1], cursor[2] + 1)
+
+    local url_pattern = "https?://[%w-_%.]+%.%w[%w-_%.%%%?%.:/+=&%%[%]#]*"
+    for url in line:gmatch(url_pattern) do
+        local s, e = line:find(url, 1, true)
+        -- check if the cursor is within this URL
+        if column >= s and column <= e then
+            entity = url
+            col = s - 1
+        end
+    end
+
+    return col + 5, screenpos.row, entity, guifont
 end
 
 if args.register_clipboard and not vim.g.neovide_no_custom_clipboard then
@@ -69,7 +97,7 @@ vim.api.nvim_create_user_command("NeovideFocus", function()
 end, {})
 
 vim.api.nvim_create_user_command("NeovideForceClick", function()
-    local col, row, entity, guifont = cursor_module.take_entity_under_cursor()
+    local col, row, entity, guifont = take_entity_under_cursor()
     rpcnotify("neovide.force_click", col, row, entity, guifont)
 end, {})
 
