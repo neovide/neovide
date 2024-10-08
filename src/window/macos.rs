@@ -347,7 +347,7 @@ impl MacosWindowFeature {
         });
     }
 
-    pub fn show_definition_or_webview(
+    pub fn show_definition_at_point(
         &self,
         text: &str,
         entity_position: Point2<Pixel<f32>>,
@@ -361,7 +361,6 @@ impl MacosWindowFeature {
                 entity_position.y as f64 / scale_factor,
             );
 
-            // Create an NSFont with the desired font size
             let text = NSString::from_str(text);
             let font_data = guifont.split(":").collect::<Vec<&str>>();
             let font_name = font_data[0].replace("_", " ");
@@ -395,6 +394,7 @@ impl MacosWindowFeature {
             let mut mut_attr_string =
                 NSMutableAttributedString::from_attributed_nsstring(&attr_string_with_font);
             mut_attr_string.setAttributes_range(Some(&attributes), range);
+
             ns_view.showDefinitionForAttributedString_atPoint(
                 Some(&mut_attr_string),
                 transleted_point,

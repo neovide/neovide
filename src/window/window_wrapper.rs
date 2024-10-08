@@ -193,7 +193,7 @@ impl WinitWindowWrapper {
                     "The macos feature should be initialized before the touchpad pressure event",
                 );
 
-                macos_feature.show_definition_or_webview(&entity, point, guifont);
+                macos_feature.show_definition_at_point(&entity, point, guifont);
             }
             WindowCommand::Minimize => {
                 self.minimize_window();
