@@ -193,10 +193,17 @@ impl WinitWindowWrapper {
                 // Assume you have the grid position of the word
                 let grid_position = GridPos::new(row, col);
 
-                // Convert the grid position to a pixel position
+                let window_padding = self.calculate_window_padding();
+
+                // convert the grid position to a pixel position
                 let pixel_position = grid_position * grid_scale;
 
-                // Express the pixel position as Point2<Pixel<f32>>
+                let pixel_position = PixelPos::new(
+                    pixel_position.x + window_padding.left as f32,
+                    pixel_position.y + window_padding.top as f32,
+                );
+
+                // express the pixel position as Point2<Pixel<f32>>
                 let point = Point2::new(pixel_position.x, pixel_position.y) as Point2<Pixel<f32>>;
 
                 if let Some(macos_feature) = &self.macos_feature {

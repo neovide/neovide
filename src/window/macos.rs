@@ -355,9 +355,6 @@ impl MacosWindowFeature {
         entity_position: Point2<Pixel<f32>>,
         guifont: String,
     ) {
-        log::info!("show_definition_or_webview: {}", text);
-        log::info!("entity_position: {:?}", entity_position);
-        log::info!("guifont: {}", guifont);
         unsafe {
             let ns_view = self.ns_window.contentView().unwrap();
             let scale_factor = self.ns_window.backingScaleFactor();
