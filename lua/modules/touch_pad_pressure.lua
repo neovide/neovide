@@ -1,10 +1,6 @@
 local M = {}
 
 M.take_entity_under_cursor = function()
-    if vim.tbl_contains(vim.g.cursorword_disable_filetypes or {}, vim.bo.filetype) then
-        return
-    end
-
     local mouse_pos = vim.fn.getmousepos()
     local guifont = vim.api.nvim_get_option("guifont")
     local column = vim.api.nvim_win_get_cursor(0)[2]
