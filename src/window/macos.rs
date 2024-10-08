@@ -363,10 +363,9 @@ impl MacosWindowFeature {
 
             // Create an NSFont with the desired font size
             let text = NSString::from_str(text);
-            let font_name = guifont.split(":").collect::<Vec<&str>>()[0].replace("_", " ");
-            let font_size = guifont.split(":").collect::<Vec<&str>>()[1][1..]
-                .parse::<f64>()
-                .unwrap();
+            let font_data = guifont.split(":").collect::<Vec<&str>>();
+            let font_name = font_data[0].replace("_", " ");
+            let font_size = font_data[1][1..].parse::<f64>().unwrap();
 
             let font_descriptor = NSFontDescriptor::fontDescriptorWithName_size(
                 &NSString::from_str(&font_name),
