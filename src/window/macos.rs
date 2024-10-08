@@ -347,19 +347,12 @@ impl MacosWindowFeature {
         });
     }
 
-    pub fn show_definition_at_point(
-        &self,
-        text: &str,
-        entity_position: Point2<Pixel<f32>>,
-        guifont: String,
-    ) {
+    pub fn show_definition_at_point(&self, text: &str, point: Point2<Pixel<f32>>, guifont: String) {
         unsafe {
             let ns_view = self.ns_window.contentView().unwrap();
             let scale_factor = self.ns_window.backingScaleFactor();
-            let transleted_point = NSPoint::new(
-                entity_position.x as f64 / scale_factor,
-                entity_position.y as f64 / scale_factor,
-            );
+            let transleted_point =
+                NSPoint::new(point.x as f64 / scale_factor, point.y as f64 / scale_factor);
 
             let text = NSString::from_str(text);
             let font_data = guifont.split(":").collect::<Vec<&str>>();

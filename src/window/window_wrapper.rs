@@ -185,7 +185,7 @@ impl WinitWindowWrapper {
                 }
             }
             #[cfg(target_os = "macos")]
-            WindowCommand::TouchpadPressure(col, row, entity, guifont) => {
+            WindowCommand::TouchpadPressure(col, row, text, guifont) => {
                 let pixel_position = self.grid_to_pixel_position(col, row);
                 let window_padding = self.calculate_window_padding();
                 let point = self.apply_padding_to_position(pixel_position, window_padding);
@@ -193,7 +193,7 @@ impl WinitWindowWrapper {
                     "The macos feature should be initialized before the touchpad pressure event",
                 );
 
-                macos_feature.show_definition_at_point(&entity, point, guifont);
+                macos_feature.show_definition_at_point(&text, point, guifont);
             }
             WindowCommand::Minimize => {
                 self.minimize_window();
