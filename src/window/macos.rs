@@ -386,6 +386,7 @@ impl MacosWindowFeature {
             let range = NSRange::new(0, text.len());
             let mut mut_attr_string =
                 NSMutableAttributedString::from_attributed_nsstring(&attr_string_with_font);
+
             mut_attr_string.setAttributes_range(Some(&attributes), range);
 
             ns_view.showDefinitionForAttributedString_atPoint(
