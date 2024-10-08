@@ -10,7 +10,7 @@
 ---@type Args
 local args = ...
 
-local touch_pad_module = require("lua/modules/touch_pad_pressure")
+local touch_pad_module = require("lua/modules/cursor")
 
 vim.g.neovide_channel_id = args.neovide_channel_id
 vim.g.neovide_version = args.neovide_version
