@@ -21,15 +21,12 @@ use crate::{
         MIN_GRID_SIZE, SETTINGS,
     },
     units::{GridRect, GridSize, PixelPos, PixelSize},
-    window::{
-        create_window, macos::TouchpadStage, mouse_manager::EditorState, PhysicalSize,
-        ShouldRender, WindowSize,
-    },
+    window::{create_window, PhysicalSize, ShouldRender, WindowSize},
     CmdLineSettings,
 };
 
 #[cfg(target_os = "macos")]
-use super::macos::MacosWindowFeature;
+use super::macos::{MacosWindowFeature, TouchpadStage};
 
 #[cfg(target_os = "macos")]
 use crate::units::{to_skia_rect, GridPos, Pixel};
@@ -203,7 +200,7 @@ impl WinitWindowWrapper {
                 let point = Point2::new(pixel_position.x, pixel_position.y) as Point2<Pixel<f32>>;
 
                 if let Some(macos_feature) = &self.macos_feature {
-                    let editor_state = EditorState {
+                    let editor_state = crate::window::mouse_manager::EditorState {
                         grid_scale: &self.renderer.grid_renderer.grid_scale,
                         window_regions: &self.renderer.window_regions,
                         window: self.skia_renderer.as_ref().unwrap().window(),
@@ -402,6 +399,7 @@ impl WinitWindowWrapper {
                     self.handle_focus_lost();
                 }
             }
+            #[cfg(target_os = "macos")]
             WindowEvent::TouchpadPressure { stage, .. } => {
                 tracy_zone!("TouchpadPressure");
                 match TouchpadStage::from_stage(stage) {
