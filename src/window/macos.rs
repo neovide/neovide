@@ -331,22 +331,20 @@ impl MacosWindowFeature {
             keyboard_manager,
         };
 
-        let window_details = mouse_manager.get_window_details_under_mouse(&editor_state);
+        let window_details = mouse_manager
+            .get_window_details_under_mouse(&editor_state)
+            .expect("Failed to get window details under mouse when handling touchpad force click");
 
-        if let Some(window_details) = window_details {
-            let relative_position =
-                mouse_manager.get_relative_position(window_details, &editor_state);
-
-            send_ui(SerialCommand::MouseButton {
-                button: "x1".to_owned(),
-                action: "press".to_owned(),
-                grid_id: window_details.event_grid_id(),
-                position: relative_position.to_tuple(),
-                modifier_string: editor_state
-                    .keyboard_manager
-                    .format_modifier_string("", true),
-            });
-        }
+        let relative_position = mouse_manager.get_relative_position(window_details, &editor_state);
+        send_ui(SerialCommand::MouseButton {
+            button: "x1".to_owned(),
+            action: "press".to_owned(),
+            grid_id: window_details.event_grid_id(),
+            position: relative_position.to_tuple(),
+            modifier_string: editor_state
+                .keyboard_manager
+                .format_modifier_string("", true),
+        });
     }
 
     pub fn show_definition_or_webview(
