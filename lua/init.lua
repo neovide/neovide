@@ -69,8 +69,7 @@ vim.api.nvim_create_user_command("NeovideFocus", function()
 end, {})
 
 vim.api.nvim_create_user_command("NeovideForceClick", function()
-    local guifont = vim.api.nvim_get_option("guifont")
-    local cursorentity, entity_start, entity_end = cursor_module.take_entity_under_cursor()
+    local cursorentity, entity_start, entity_end, guifont = cursor_module.take_entity_under_cursor()
     rpcnotify("neovide.force_click", cursorentity, entity_start, entity_end, guifont)
 end, {})
 
