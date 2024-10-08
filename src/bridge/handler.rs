@@ -124,16 +124,15 @@ impl Handler for NeovimHandler {
             }
             #[cfg(target_os = "macos")]
             "neovide.force_click" => {
-                println!("arguments from force_click: {:?}", arguments);
-                let _ = self.proxy.lock().unwrap().send_event(
-                    WindowCommand::TouchpadPressure(
-                        arguments[0].as_str().unwrap().into(),
-                        arguments[1].as_i64().unwrap(),
-                        arguments[2].as_i64().unwrap(),
-                        arguments[3].as_str().unwrap().into(),
-                    )
-                    .into(),
-                );
+                let col = arguments[0].as_i64().unwrap();
+                let row = arguments[1].as_i64().unwrap();
+                let entity = arguments[2].as_str().unwrap().into();
+                let guifont = arguments[3].as_str().unwrap().into();
+
+                let _ =
+                    self.proxy.lock().unwrap().send_event(
+                        WindowCommand::TouchpadPressure(col, row, entity, guifont).into(),
+                    );
             }
             _ => {}
         }

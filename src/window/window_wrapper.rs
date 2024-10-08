@@ -185,15 +185,15 @@ impl WinitWindowWrapper {
                 }
             }
             #[cfg(target_os = "macos")]
-            WindowCommand::TouchpadPressure(text, row, col, guifont) => {
-                let pixel_position = self.grid_to_pixel_position(row, col);
+            WindowCommand::TouchpadPressure(col, row, entity, guifont) => {
+                let pixel_position = self.grid_to_pixel_position(col, row);
                 let window_padding = self.calculate_window_padding();
                 let point = self.apply_padding_to_position(pixel_position, window_padding);
                 let macos_feature = self.macos_feature.as_ref().expect(
                     "The macos feature should be initialized before the touchpad pressure event",
                 );
 
-                macos_feature.show_definition_or_webview(&text, point, guifont);
+                macos_feature.show_definition_or_webview(&entity, point, guifont);
             }
             WindowCommand::Minimize => {
                 self.minimize_window();
@@ -646,9 +646,9 @@ impl WinitWindowWrapper {
     }
 
     #[cfg(target_os = "macos")]
-    pub fn grid_to_pixel_position(&self, row: i64, col: i64) -> Point2<Pixel<f32>> {
+    pub fn grid_to_pixel_position(&self, col: i64, row: i64) -> Point2<Pixel<f32>> {
         let grid_scale = self.renderer.grid_renderer.grid_scale;
-        let grid_position = GridPos::new(row, col);
+        let grid_position = GridPos::new(col, row);
 
         grid_position * grid_scale
     }

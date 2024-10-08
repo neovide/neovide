@@ -69,8 +69,8 @@ vim.api.nvim_create_user_command("NeovideFocus", function()
 end, {})
 
 vim.api.nvim_create_user_command("NeovideForceClick", function()
-    local cursorentity, entity_start, entity_end, guifont = cursor_module.take_entity_under_cursor()
-    rpcnotify("neovide.force_click", cursorentity, entity_start, entity_end, guifont)
+    local col, row, cursorentity, guifont = cursor_module.take_entity_under_cursor()
+    rpcnotify("neovide.force_click", col, row, cursorentity, guifont)
 end, {})
 
 vim.api.nvim_set_keymap("n", "<X1Mouse>", "<Cmd>NeovideForceClick<CR>", { noremap = true, silent = false })

@@ -82,7 +82,7 @@ pub enum WindowCommand {
     ListAvailableFonts,
     FocusWindow,
     #[cfg(target_os = "macos")]
-    TouchpadPressure(String, i64, i64, String),
+    TouchpadPressure(i64, i64, String, String),
     Minimize,
     #[allow(dead_code)] // Theme change is only used on macOS right now
     ThemeChanged(Option<Theme>),
