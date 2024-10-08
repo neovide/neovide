@@ -7,8 +7,8 @@ use objc2::{
 };
 use objc2_app_kit::{
     NSApplication, NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventModifierFlags, NSFont,
-    NSFontDescriptor, NSFontDescriptorSymbolicTraits, NSFontSymbolicTraits, NSMenu, NSMenuItem,
-    NSView, NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
+    NSFontDescriptor, NSFontDescriptorSymbolicTraits, NSMenu, NSMenuItem, NSView, NSWindow,
+    NSWindowStyleMask, NSWindowTabbingMode,
 };
 use objc2_foundation::{
     ns_string, MainThreadMarker, NSArray, NSAttributedString, NSDictionary,
@@ -21,15 +21,37 @@ use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
 use crate::{
-    bridge::{send_ui, ParallelCommand},
-    units::Pixel,
+    bridge::{send_ui, ParallelCommand, SerialCommand},
+    renderer::WindowDrawDetails,
+    units::{GridScale, Pixel},
 };
 use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame, settings::SETTINGS};
 
-use super::{WindowSettings, WindowSettingsChanged};
+use super::{
+    keyboard_manager::KeyboardManager,
+    mouse_manager::{EditorState, MouseManager},
+    WindowSettings, WindowSettingsChanged,
+};
 
 #[derive(Clone)]
 struct TitlebarClickHandlerIvars {}
+
+pub enum TouchpadStage {
+    Soft,
+    Click,
+    ForceClick,
+}
+
+impl TouchpadStage {
+    pub fn from_stage(stage: i64) -> TouchpadStage {
+        match stage {
+            0 => TouchpadStage::Soft,
+            1 => TouchpadStage::Click,
+            2 => TouchpadStage::ForceClick,
+            _ => panic!("Invalid touchpad stage"),
+        }
+    }
+}
 
 declare_class!(
     // A view to simulate the double-click-to-zoom effect for `--frame transparency`.
@@ -294,23 +316,48 @@ impl MacosWindowFeature {
         }
     }
 
-    pub fn handle_touchpad_pressure(
+    pub fn handle_touchpad_force_click(
+        &self,
+        window: &Window,
+        grid_scale: &GridScale,
+        mouse_manager: &MouseManager,
+        keyboard_manager: &KeyboardManager,
+        window_regions: &Vec<WindowDrawDetails>,
+    ) {
+        let editor_state = EditorState {
+            grid_scale,
+            window_regions,
+            window,
+            keyboard_manager,
+        };
+
+        let window_details = mouse_manager.get_window_details_under_mouse(&editor_state);
+
+        if let Some(window_details) = window_details {
+            let relative_position =
+                mouse_manager.get_relative_position(window_details, &editor_state);
+
+            send_ui(SerialCommand::MouseButton {
+                button: "x1".to_owned(),
+                action: "press".to_owned(),
+                grid_id: window_details.event_grid_id(),
+                position: relative_position.to_tuple(),
+                modifier_string: editor_state
+                    .keyboard_manager
+                    .format_modifier_string("", true),
+            });
+        }
+    }
+
+    pub fn show_definition_or_webview(
         &self,
         text: &str,
         entity_position: Point2<Pixel<f32>>,
         guifont: String,
     ) {
-        log::info!(
-            "Touchpad pressure: text: {}, entity_position: {:?}",
-            text,
-            entity_position
-        );
-
-        println!(
-            "entity_position.y: {:?}, entity_position.x: {:?}",
-            entity_position.y, entity_position.x
-        );
-
+        log::info!("show_definition_or_webview: {}", text);
+        log::info!("entity_position: {:?}", entity_position);
+        log::info!("guifont: {}", guifont);
         unsafe {
             let ns_view = self.ns_window.contentView().unwrap();
             let scale_factor = self.ns_window.backingScaleFactor();

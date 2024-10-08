@@ -443,30 +443,6 @@ impl MouseManager {
                     }
                 }
             }
-            WindowEvent::TouchpadPressure { .. } => {
-                println!("1.Touchpad pressure event");
-                // send_ui(ParallelCommand::TakeWordUnderCursor);
-                // send_ui(SerialCommand::MouseButton {
-                //     button: "x1".to_owned(),
-                //     action: "press".to_owned(),
-                //     grid_id: 0,
-                //     position: (),
-                //     modifier_string: (),
-                // });
-                // let neovim_instance = neovim_instance().unwrap();
-                //
-                // let session = NeovimSession::new(neovim_instance, handler)
-                //     .await
-                //     .context("Could not locate or start neovim process")?;
-                // if let Some(macos_feature) = macos_feature {
-                //     macos_feature.handle_touchpad_pressure(
-                //         device_id,
-                //         pressure,
-                //         stage,
-                //         self.window_position,
-                //     );
-                // }
-            }
             _ => {}
         }
     }

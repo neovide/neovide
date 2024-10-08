@@ -21,7 +21,10 @@ use crate::{
         MIN_GRID_SIZE, SETTINGS,
     },
     units::{GridRect, GridSize, PixelPos, PixelSize},
-    window::{create_window, mouse_manager::EditorState, PhysicalSize, ShouldRender, WindowSize},
+    window::{
+        create_window, macos::TouchpadStage, mouse_manager::EditorState, PhysicalSize,
+        ShouldRender, WindowSize,
+    },
     CmdLineSettings,
 };
 
@@ -237,7 +240,7 @@ impl WinitWindowWrapper {
                         println!("cursor_destination: {:?}", cursor_destination);
                     }
 
-                    macos_feature.handle_touchpad_pressure(&text, point, guifont);
+                    macos_feature.show_definition_or_webview(&text, point, guifont);
                 }
             }
             WindowCommand::Minimize => {
@@ -400,34 +403,21 @@ impl WinitWindowWrapper {
                 }
             }
             WindowEvent::TouchpadPressure { stage, .. } => {
-                println!("2.TouchpadPressure from winit");
-                if stage == 2 {
-                    let editor_state = EditorState {
-                        grid_scale: &self.renderer.grid_renderer.grid_scale,
-                        window_regions: &self.renderer.window_regions,
-                        window: self.skia_renderer.as_ref().unwrap().window(),
-                        keyboard_manager: &self.keyboard_manager,
-                    };
-                    let window_details = self
-                        .mouse_manager
-                        .get_window_details_under_mouse(&editor_state);
-
-                    if let Some(window_details) = window_details {
-                        let relative_position = self
-                            .mouse_manager
-                            .get_relative_position(window_details, &editor_state);
-
-                        println!("action: press");
-                        send_ui(SerialCommand::MouseButton {
-                            button: "x1".to_owned(),
-                            action: "press".to_owned(),
-                            grid_id: window_details.event_grid_id(),
-                            position: relative_position.to_tuple(),
-                            modifier_string: editor_state
-                                .keyboard_manager
-                                .format_modifier_string("", true),
-                        });
-                    }
+                tracy_zone!("TouchpadPressure");
+                match TouchpadStage::from_stage(stage) {
+                    TouchpadStage::Soft => {}
+                    TouchpadStage::Click => {}
+                    TouchpadStage::ForceClick => self
+                        .macos_feature
+                        .as_mut()
+                        .unwrap()
+                        .handle_touchpad_force_click(
+                            self.skia_renderer.as_ref().unwrap().window(),
+                            &self.renderer.grid_renderer.grid_scale,
+                            &self.mouse_manager,
+                            &self.keyboard_manager,
+                            &self.renderer.window_regions,
+                        ),
                 }
             }
             WindowEvent::ThemeChanged(theme) => {
