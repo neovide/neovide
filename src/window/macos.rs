@@ -106,7 +106,7 @@ pub fn get_ns_window(window: &Window) -> Retained<NSWindow> {
 #[derive(Debug)]
 pub struct MacosWindowFeature {
     ns_window: Retained<NSWindow>,
-    system_titlebar_height: f64,
+    pub system_titlebar_height: f64,
     titlebar_click_handler: Option<Retained<TitlebarClickHandler>>,
     // Extra titlebar height in --frame transparency. 0 in other cases.
     extra_titlebar_height_in_pixel: u32,
