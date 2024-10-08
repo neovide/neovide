@@ -134,6 +134,15 @@ impl WinitWindowWrapper {
         }
     }
 
+    #[cfg(target_os = "windows")]
+    pub fn set_corner_preference(&mut self, option: CornerPreference) {
+        let Some(skia_renderer) = &self.skia_renderer else {
+            return;
+        };
+        let window = skia_renderer.window();
+        window.set_corner_preference(option.into());
+    }
+
     #[cfg(target_os = "macos")]
     pub fn set_macos_option_as_meta(&mut self, option: settings::OptionAsMeta) {
         let winit_option = match option {
@@ -223,6 +232,10 @@ impl WinitWindowWrapper {
                     let transparent = transparency < 1.0;
                     skia_renderer.window().set_blur(blur && transparent);
                 }
+            }
+            #[cfg(target_os = "windows")]
+            WindowSettingsChanged::CornerPreference(option) => {
+                self.set_corner_preference(option);
             }
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::InputMacosOptionKeyIsMeta(option) => {
