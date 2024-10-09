@@ -76,6 +76,7 @@ pub struct WinitWindowWrapper {
     is_minimized: bool,
     ime_enabled: bool,
     ime_area: (dpi::PhysicalPosition<u32>, dpi::PhysicalSize<u32>),
+    needs_x11_maximization: bool,
     pub vsync: Option<VSync>,
     #[cfg(target_os = "macos")]
     pub macos_feature: Option<MacosWindowFeature>,
@@ -88,6 +89,7 @@ impl WinitWindowWrapper {
     ) -> Self {
         let saved_inner_size = Default::default();
         let renderer = Renderer::new(1.0, initial_font_settings);
+        let needs_x11_maximization = matches!(initial_window_size, WindowSize::Maximized);
 
         Self {
             skia_renderer: None,
@@ -109,6 +111,7 @@ impl WinitWindowWrapper {
             },
             initial_window_size,
             is_minimized: false,
+            needs_x11_maximization,
             vsync: None,
             ime_enabled: false,
             ime_area: Default::default(),
@@ -292,6 +295,9 @@ impl WinitWindowWrapper {
             send_ui(SerialCommand::Keyboard("<NOP>".into()));
 
             self.is_minimized = false;
+        } else if self.needs_x11_maximization {
+            self.x11_set_maximized();
+            self.needs_x11_maximization = false
         }
     }
 
@@ -784,5 +790,21 @@ impl WinitWindowWrapper {
             .handle_scale_factor_update(scale_factor);
         self.renderer.handle_os_scale_factor_change(scale_factor);
         skia_renderer.resize();
+    }
+
+    /**
+     * [winit::window::WindowAttributes::with_maximized] is not effective on X11, since we need to
+     * maximize the window after it is first drawn.
+     *
+     * [See winit issue](https://github.com/rust-windowing/winit/issues/2360)
+     */
+    fn x11_set_maximized(&mut self) {
+        let renderer = self.skia_renderer.as_ref().unwrap();
+        let window = renderer.window();
+        let handle = window.window_handle().unwrap().as_raw();
+        let is_x11 = matches!(handle, RawWindowHandle::Xlib(_) | RawWindowHandle::Xcb(_));
+        if is_x11 {
+            window.set_maximized(true);
+        }
     }
 }
