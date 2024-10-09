@@ -358,7 +358,7 @@ impl MacosWindowFeature {
                 NSPoint::new(point.x as f64 / scale_factor, point.y as f64 / scale_factor);
 
             let text = NSString::from_str(text);
-            let user_font = NSFont::monospacedSystemFontOfSize_weight(
+            let default_font = NSFont::monospacedSystemFontOfSize_weight(
                 CGFloat::from(DEFAULT_FONT_SIZE),
                 NSFontWeight::from(5),
             );
@@ -369,7 +369,7 @@ impl MacosWindowFeature {
             let font_name = normal
                 .first()
                 .map(|font| font.family.to_string())
-                .unwrap_or(NSFont::fontName(user_font.as_ref()).to_string());
+                .unwrap_or(NSFont::fontName(default_font.as_ref()).to_string());
 
             let font_descriptor = NSFontDescriptor::fontDescriptorWithName_size(
                 &NSString::from_str(&font_name),
