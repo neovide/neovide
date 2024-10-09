@@ -7,11 +7,11 @@ use objc2::{
 };
 use objc2_app_kit::{
     NSApplication, NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventModifierFlags, NSFont,
-    NSFontDescriptor, NSFontDescriptorSymbolicTraits, NSMenu, NSMenuItem, NSView, NSWindow,
-    NSWindowStyleMask, NSWindowTabbingMode,
+    NSFontDescriptor, NSFontDescriptorSymbolicTraits, NSFontWeight, NSMenu, NSMenuItem, NSView,
+    NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
 };
 use objc2_foundation::{
-    ns_string, MainThreadMarker, NSArray, NSAttributedString, NSDictionary,
+    ns_string, CGFloat, MainThreadMarker, NSArray, NSAttributedString, NSDictionary,
     NSMutableAttributedString, NSObject, NSPoint, NSProcessInfo, NSRange, NSRect, NSSize, NSString,
     NSUserDefaults,
 };
@@ -22,7 +22,10 @@ use winit::window::Window;
 
 use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
-    renderer::WindowDrawDetails,
+    renderer::{
+        fonts::font_options::{FontOptions, DEFAULT_FONT_SIZE},
+        WindowDrawDetails,
+    },
     units::{GridScale, Pixel},
 };
 use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame, settings::SETTINGS};
@@ -355,9 +358,18 @@ impl MacosWindowFeature {
                 NSPoint::new(point.x as f64 / scale_factor, point.y as f64 / scale_factor);
 
             let text = NSString::from_str(text);
-            let font_data = guifont.split(":").collect::<Vec<&str>>();
-            let font_name = font_data[0].replace("_", " ");
-            let font_size = font_data[1][1..].parse::<f64>().unwrap();
+            let user_font = NSFont::monospacedSystemFontOfSize_weight(
+                CGFloat::from(DEFAULT_FONT_SIZE),
+                NSFontWeight::from(5),
+            );
+
+            let options = FontOptions::parse(&guifont).unwrap_or_default();
+            let normal = options.normal;
+            let font_size = options.size as f64;
+            let font_name = normal
+                .first()
+                .map(|font| font.family.to_string())
+                .unwrap_or(NSFont::fontName(user_font.as_ref()).to_string());
 
             let font_descriptor = NSFontDescriptor::fontDescriptorWithName_size(
                 &NSString::from_str(&font_name),
