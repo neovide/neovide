@@ -1,29 +1,60 @@
+use glamour::Point2;
 use objc2::{
     declare_class, msg_send, msg_send_id, mutability,
-    rc::{autoreleasepool, Retained},
+    rc::{autoreleasepool, Id, Retained},
     runtime::{AnyClass, AnyObject, ClassBuilder},
     sel, ClassType, DeclaredClass,
 };
 use objc2_app_kit::{
-    NSApplication, NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventModifierFlags, NSMenu,
-    NSMenuItem, NSView, NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
+    NSApplication, NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventModifierFlags, NSFont,
+    NSFontDescriptor, NSFontDescriptorSymbolicTraits, NSFontWeight, NSMenu, NSMenuItem, NSView,
+    NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
 };
 use objc2_foundation::{
-    ns_string, MainThreadMarker, NSArray, NSDictionary, NSObject, NSPoint, NSProcessInfo, NSRect,
-    NSSize, NSString, NSUserDefaults,
+    ns_string, CGFloat, MainThreadMarker, NSArray, NSAttributedString, NSDictionary,
+    NSMutableAttributedString, NSObject, NSPoint, NSProcessInfo, NSRange, NSRect, NSSize, NSString,
+    NSUserDefaults,
 };
 
 use csscolorparser::Color;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
-use crate::bridge::{send_ui, ParallelCommand};
+use crate::{
+    bridge::{send_ui, ParallelCommand, SerialCommand},
+    renderer::{
+        fonts::font_options::{FontOptions, DEFAULT_FONT_SIZE},
+        WindowDrawDetails,
+    },
+    units::{GridScale, Pixel},
+};
 use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame, settings::SETTINGS};
 
-use super::{WindowSettings, WindowSettingsChanged};
+use super::{
+    keyboard_manager::KeyboardManager,
+    mouse_manager::{EditorState, MouseManager},
+    WindowSettings, WindowSettingsChanged,
+};
 
 #[derive(Clone)]
 struct TitlebarClickHandlerIvars {}
+
+pub enum TouchpadStage {
+    Soft,
+    Click,
+    ForceClick,
+}
+
+impl TouchpadStage {
+    pub fn from_stage(stage: i64) -> TouchpadStage {
+        match stage {
+            0 => TouchpadStage::Soft,
+            1 => TouchpadStage::Click,
+            2 => TouchpadStage::ForceClick,
+            _ => panic!("Invalid touchpad stage"),
+        }
+    }
+}
 
 declare_class!(
     // A view to simulate the double-click-to-zoom effect for `--frame transparency`.
@@ -78,7 +109,7 @@ pub fn get_ns_window(window: &Window) -> Retained<NSWindow> {
 #[derive(Debug)]
 pub struct MacosWindowFeature {
     ns_window: Retained<NSWindow>,
-    system_titlebar_height: f64,
+    pub system_titlebar_height: f64,
     titlebar_click_handler: Option<Retained<TitlebarClickHandler>>,
     // Extra titlebar height in --frame transparency. 0 in other cases.
     extra_titlebar_height_in_pixel: u32,
@@ -285,6 +316,95 @@ impl MacosWindowFeature {
                 self.update_background(true);
             }
             _ => {}
+        }
+    }
+
+    pub fn handle_touchpad_force_click(
+        &self,
+        window: &Window,
+        grid_scale: &GridScale,
+        mouse_manager: &MouseManager,
+        keyboard_manager: &KeyboardManager,
+        window_regions: &Vec<WindowDrawDetails>,
+    ) {
+        let editor_state = EditorState {
+            grid_scale,
+            window_regions,
+            window,
+            keyboard_manager,
+        };
+
+        let window_details = mouse_manager
+            .get_window_details_under_mouse(&editor_state)
+            .expect("Failed to get window details under mouse when handling touchpad force click");
+
+        let relative_position = mouse_manager.get_relative_position(window_details, &editor_state);
+        send_ui(SerialCommand::MouseButton {
+            button: "x1".to_owned(),
+            action: "press".to_owned(),
+            grid_id: window_details.event_grid_id(),
+            position: relative_position.to_tuple(),
+            modifier_string: editor_state
+                .keyboard_manager
+                .format_modifier_string("", true),
+        });
+    }
+
+    pub fn show_definition_at_point(&self, text: &str, point: Point2<Pixel<f32>>, guifont: String) {
+        unsafe {
+            let ns_view = self.ns_window.contentView().unwrap();
+            let scale_factor = self.ns_window.backingScaleFactor();
+            let transleted_point =
+                NSPoint::new(point.x as f64 / scale_factor, point.y as f64 / scale_factor);
+
+            let text = NSString::from_str(text);
+            let default_font = NSFont::monospacedSystemFontOfSize_weight(
+                CGFloat::from(DEFAULT_FONT_SIZE),
+                NSFontWeight::from(5),
+            );
+
+            let options = FontOptions::parse(&guifont).unwrap_or_default();
+            let normal = options.normal;
+            let font_size = options.size as f64;
+            let font_name = normal
+                .first()
+                .map(|font| font.family.to_string())
+                .unwrap_or(NSFont::fontName(default_font.as_ref()).to_string());
+
+            let font_descriptor = NSFontDescriptor::fontDescriptorWithName_size(
+                &NSString::from_str(&font_name),
+                font_size,
+            );
+
+            let italic_descriptor = font_descriptor.fontDescriptorWithSymbolicTraits(
+                NSFontDescriptorSymbolicTraits::NSFontDescriptorTraitItalic,
+            );
+
+            let font = NSFont::fontWithDescriptor_size(&italic_descriptor, font_size).unwrap();
+            let attributes: Id<NSDictionary<NSString, AnyObject>> = {
+                let font_attr_key: Id<NSString> = NSString::from_str("NSFont");
+                let font_value: Id<AnyObject> = Id::cast(font);
+                let keys: Vec<&NSString> = vec![&font_attr_key];
+                let values: Vec<Id<AnyObject>> = vec![font_value];
+                NSDictionary::from_vec(&keys, values)
+            };
+
+            let attr_string_with_font = NSAttributedString::initWithString_attributes(
+                NSAttributedString::alloc(),
+                &text,
+                Some(&attributes),
+            );
+
+            let range = NSRange::new(0, text.len());
+            let mut mut_attr_string =
+                NSMutableAttributedString::from_attributed_nsstring(&attr_string_with_font);
+
+            mut_attr_string.setAttributes_range(Some(&attributes), range);
+
+            ns_view.showDefinitionForAttributedString_atPoint(
+                Some(&mut_attr_string),
+                transleted_point,
+            );
         }
     }
 
