@@ -1,3 +1,5 @@
+use std::{os::raw::c_void, str};
+
 use objc2::{
     declare_class, msg_send, msg_send_id, mutability,
     rc::{autoreleasepool, Retained},
@@ -5,12 +7,12 @@ use objc2::{
     sel, ClassType, DeclaredClass,
 };
 use objc2_app_kit::{
-    NSApplication, NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventModifierFlags, NSMenu,
-    NSMenuItem, NSView, NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
+    NSApplication, NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventModifierFlags, NSImage,
+    NSMenu, NSMenuItem, NSView, NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
 };
 use objc2_foundation::{
-    ns_string, MainThreadMarker, NSArray, NSDictionary, NSObject, NSPoint, NSProcessInfo, NSRect,
-    NSSize, NSString, NSUserDefaults,
+    ns_string, MainThreadMarker, NSArray, NSData, NSDictionary, NSObject, NSPoint, NSProcessInfo,
+    NSRect, NSSize, NSString, NSUserDefaults,
 };
 
 use csscolorparser::Color;
@@ -21,6 +23,9 @@ use crate::bridge::{send_ui, ParallelCommand};
 use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame, settings::SETTINGS};
 
 use super::{WindowSettings, WindowSettingsChanged};
+
+static NEOVIDE_ICON_PATH: &[u8] =
+    include_bytes!("../../extra/osx/Neovide.app/Contents/resources/Neovide.icns");
 
 #[derive(Clone)]
 struct TitlebarClickHandlerIvars {}
@@ -72,6 +77,20 @@ pub fn get_ns_window(window: &Window) -> Retained<NSWindow> {
                 .expect("NSView was not installed in a window")
         }
         _ => panic!("Not an AppKit window"),
+    }
+}
+
+pub fn load_neovide_icon() -> Option<Retained<NSImage>> {
+    unsafe {
+        let data = NSData::dataWithBytes_length(
+            NEOVIDE_ICON_PATH.as_ptr() as *mut c_void,
+            NEOVIDE_ICON_PATH.len(),
+        );
+
+        let icon_image: Option<Retained<NSImage>> =
+            NSImage::initWithData(NSImage::alloc(), data.as_ref());
+
+        icon_image
     }
 }
 
@@ -294,9 +313,13 @@ impl MacosWindowFeature {
         if self.menu.is_none() {
             self.menu = Some(Menu::new(mtm));
             let app = NSApplication::sharedApplication(mtm);
-
             #[allow(deprecated)]
-            app.activateIgnoringOtherApps(true)
+            app.activateIgnoringOtherApps(true);
+
+            // Make sure the icon is loaded when launched from terminal
+            let icon = load_neovide_icon();
+            let icon_ref: Option<&NSImage> = icon.as_ref().map(|img| img.as_ref());
+            unsafe { app.setApplicationIconImage(icon_ref) }
         }
     }
 }
