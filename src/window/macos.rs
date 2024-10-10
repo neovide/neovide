@@ -5,8 +5,8 @@ use objc2::{
     sel, ClassType, DeclaredClass,
 };
 use objc2_app_kit::{
-    NSApplication, NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventModifierFlags, NSMenu,
-    NSMenuItem, NSView, NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
+    NSApplication, NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventModifierFlags, NSImage,
+    NSMenu, NSMenuItem, NSView, NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
 };
 use objc2_foundation::{
     ns_string, MainThreadMarker, NSArray, NSDictionary, NSObject, NSPoint, NSProcessInfo, NSRect,
@@ -72,6 +72,16 @@ pub fn get_ns_window(window: &Window) -> Retained<NSWindow> {
                 .expect("NSView was not installed in a window")
         }
         _ => panic!("Not an AppKit window"),
+    }
+}
+
+pub fn load_neovide_icon() -> Option<Retained<NSImage>> {
+    unsafe {
+        let icon_path = NSString::from_str("extra/osx/Neovide.app/Contents/Resources/Neovide.icns");
+        let icon_image: Option<Retained<NSImage>> =
+            NSImage::initWithContentsOfFile(NSImage::alloc(), &icon_path);
+
+        icon_image
     }
 }
 
@@ -294,9 +304,13 @@ impl MacosWindowFeature {
         if self.menu.is_none() {
             self.menu = Some(Menu::new(mtm));
             let app = NSApplication::sharedApplication(mtm);
-
             #[allow(deprecated)]
-            app.activateIgnoringOtherApps(true)
+            app.activateIgnoringOtherApps(true);
+
+            // Make sure the icon is loaded when launched from terminal
+            let icon = load_neovide_icon();
+            let icon_ref: Option<&NSImage> = icon.as_ref().map(|img| img.as_ref());
+            unsafe { app.setApplicationIconImage(icon_ref) }
         }
     }
 }
