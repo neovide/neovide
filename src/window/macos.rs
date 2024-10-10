@@ -22,6 +22,8 @@ use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame, settings::SETTIN
 
 use super::{WindowSettings, WindowSettingsChanged};
 
+static NEOVIDE_ICON_PATH: &str = "extra/osx/Neovide.app/Contents/Resources/Neovide.icns";
+
 #[derive(Clone)]
 struct TitlebarClickHandlerIvars {}
 
@@ -77,7 +79,7 @@ pub fn get_ns_window(window: &Window) -> Retained<NSWindow> {
 
 pub fn load_neovide_icon() -> Option<Retained<NSImage>> {
     unsafe {
-        let icon_path = NSString::from_str("extra/osx/Neovide.app/Contents/Resources/Neovide.icns");
+        let icon_path = NSString::from_str(NEOVIDE_ICON_PATH);
         let icon_image: Option<Retained<NSImage>> =
             NSImage::initWithContentsOfFile(NSImage::alloc(), &icon_path);
 
