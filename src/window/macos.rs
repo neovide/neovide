@@ -1,3 +1,5 @@
+use std::{os::raw::c_void, str};
+
 use objc2::{
     declare_class, msg_send, msg_send_id, mutability,
     rc::{autoreleasepool, Retained},
@@ -9,8 +11,8 @@ use objc2_app_kit::{
     NSMenu, NSMenuItem, NSView, NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
 };
 use objc2_foundation::{
-    ns_string, MainThreadMarker, NSArray, NSDictionary, NSObject, NSPoint, NSProcessInfo, NSRect,
-    NSSize, NSString, NSUserDefaults,
+    ns_string, MainThreadMarker, NSArray, NSData, NSDictionary, NSObject, NSPoint, NSProcessInfo,
+    NSRect, NSSize, NSString, NSUserDefaults,
 };
 
 use csscolorparser::Color;
@@ -22,7 +24,8 @@ use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame, settings::SETTIN
 
 use super::{WindowSettings, WindowSettingsChanged};
 
-static NEOVIDE_ICON_PATH: &str = "extra/osx/Neovide.app/Contents/Resources/Neovide.icns";
+static NEOVIDE_ICON_PATH: &[u8] =
+    include_bytes!("../../extra/osx/Neovide.app/Contents/resources/Neovide.icns");
 
 #[derive(Clone)]
 struct TitlebarClickHandlerIvars {}
@@ -79,9 +82,13 @@ pub fn get_ns_window(window: &Window) -> Retained<NSWindow> {
 
 pub fn load_neovide_icon() -> Option<Retained<NSImage>> {
     unsafe {
-        let icon_path = NSString::from_str(NEOVIDE_ICON_PATH);
+        let data = NSData::dataWithBytes_length(
+            NEOVIDE_ICON_PATH.as_ptr() as *mut c_void,
+            NEOVIDE_ICON_PATH.len(),
+        );
+
         let icon_image: Option<Retained<NSImage>> =
-            NSImage::initWithContentsOfFile(NSImage::alloc(), &icon_path);
+            NSImage::initWithData(NSImage::alloc(), data.as_ref());
 
         icon_image
     }
