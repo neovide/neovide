@@ -29,7 +29,6 @@ use crate::{
 use super::macos::MacosWindowFeature;
 
 use log::trace;
-use objc2_app_kit::NSCursor;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::{
     dpi,
