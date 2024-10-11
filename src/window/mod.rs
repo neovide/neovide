@@ -162,8 +162,6 @@ pub fn create_window(event_loop: &ActiveEventLoop, maximized: bool, title: &str)
         window_attributes
     };
 
-    let window_attributes = window_attributes.with_cursor(Cursor::Icon(CursorIcon::Text));
-
     let frame_decoration = cmd_line_settings.frame;
 
     #[cfg(target_os = "macos")]
