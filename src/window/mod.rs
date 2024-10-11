@@ -14,8 +14,11 @@ use std::env;
 use winit::{
     dpi::{PhysicalSize, Size},
     event_loop::{ActiveEventLoop, EventLoop},
-    window::{Cursor, CursorIcon, Icon, Theme, Window},
+    window::{Icon, Theme, Window},
 };
+
+#[cfg(target_os = "macos")]
+use winit::window::{Cursor, CursorIcon};
 
 #[cfg(target_os = "macos")]
 use winit::platform::macos::WindowAttributesExtMacOS;
