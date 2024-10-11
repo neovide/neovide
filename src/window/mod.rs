@@ -14,7 +14,7 @@ use std::env;
 use winit::{
     dpi::{PhysicalSize, Size},
     event_loop::{ActiveEventLoop, EventLoop},
-    window::{Icon, Theme, Window},
+    window::{Cursor, CursorIcon, Icon, Theme, Window},
 };
 
 #[cfg(target_os = "macos")]
@@ -144,6 +144,7 @@ pub fn create_window(event_loop: &ActiveEventLoop, maximized: bool, title: &str)
         .with_title(title)
         .with_maximized(maximized)
         .with_transparent(true)
+        .with_cursor(Cursor::Icon(CursorIcon::Text))
         .with_visible(false);
 
     #[cfg(target_family = "unix")]
