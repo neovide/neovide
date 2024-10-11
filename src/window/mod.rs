@@ -144,7 +144,6 @@ pub fn create_window(event_loop: &ActiveEventLoop, maximized: bool, title: &str)
         .with_title(title)
         .with_maximized(maximized)
         .with_transparent(true)
-        .with_cursor(Cursor::Icon(CursorIcon::Text))
         .with_visible(false);
 
     #[cfg(target_family = "unix")]
@@ -161,6 +160,9 @@ pub fn create_window(event_loop: &ActiveEventLoop, maximized: bool, title: &str)
     } else {
         window_attributes
     };
+
+    #[cfg(target_os = "macos")]
+    let window_attributes = window_attributes.with_cursor(Cursor::Icon(CursorIcon::Text));
 
     let frame_decoration = cmd_line_settings.frame;
 
