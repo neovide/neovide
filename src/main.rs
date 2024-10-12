@@ -101,7 +101,7 @@ fn main() -> ExitCode {
     let running_tracker = RunningTracker::new();
 
     match setup(event_loop.create_proxy(), running_tracker.clone()) {
-        Err(err) => handle_startup_errors(err, event_loop).into(),
+        Err(err) => handle_startup_errors(err, event_loop),
         Ok((window_size, font_settings, runtime)) => {
             let mut update_loop =
                 UpdateLoop::new(window_size, font_settings, event_loop.create_proxy());
