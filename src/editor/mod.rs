@@ -22,6 +22,7 @@ use crate::{
     profiling::{tracy_named_frame, tracy_zone},
     renderer::{DrawCommand, WindowDrawCommand},
     running_tracker::RunningTracker,
+    settings::Settings,
     window::{UserEvent, WindowCommand},
 };
 
@@ -640,9 +641,10 @@ impl Editor {
 pub fn start_editor(
     event_loop_proxy: EventLoopProxy<UserEvent>,
     running_tracker: RunningTracker,
+    settings: Arc<Settings>,
 ) -> NeovimHandler {
     let (sender, mut receiver) = unbounded_channel();
-    let handler = NeovimHandler::new(sender, event_loop_proxy.clone(), running_tracker);
+    let handler = NeovimHandler::new(sender, event_loop_proxy.clone(), running_tracker, settings);
     thread::spawn(move || {
         let mut editor = Editor::new(event_loop_proxy);
 

@@ -42,7 +42,7 @@ use crate::{
     renderer::{build_window_config, DrawCommand, WindowConfig},
     settings::{
         clamped_grid_size, load_last_window_settings, save_window_size, HotReloadConfigs,
-        PersistentWindowSettings, SettingsChanged, SETTINGS,
+        PersistentWindowSettings, Settings, SettingsChanged,
     },
     units::GridSize,
 };
@@ -128,10 +128,15 @@ pub fn create_event_loop() -> EventLoop<UserEvent> {
     event_loop
 }
 
-pub fn create_window(event_loop: &ActiveEventLoop, maximized: bool, title: &str) -> WindowConfig {
+pub fn create_window(
+    event_loop: &ActiveEventLoop,
+    maximized: bool,
+    title: &str,
+    settings: &Settings,
+) -> WindowConfig {
     let icon = load_icon();
 
-    let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
+    let cmd_line_settings = settings.get::<CmdLineSettings>();
 
     let window_settings = load_last_window_settings().ok();
 
@@ -205,7 +210,7 @@ pub fn create_window(event_loop: &ActiveEventLoop, maximized: bool, title: &str)
     let window_attributes = window_attributes.with_accepts_first_mouse(false);
 
     #[allow(clippy::let_and_return)]
-    let window_config = build_window_config(window_attributes, event_loop);
+    let window_config = build_window_config(window_attributes, event_loop, settings);
 
     #[cfg(target_os = "macos")]
     if let Some(previous_position) = previous_position {
@@ -223,8 +228,11 @@ pub enum WindowSize {
     NeovimGrid, // The geometry is read from init.vim/lua
 }
 
-pub fn determine_window_size(window_settings: Option<&PersistentWindowSettings>) -> WindowSize {
-    let cmd_line = SETTINGS.get::<CmdLineSettings>();
+pub fn determine_window_size(
+    window_settings: Option<&PersistentWindowSettings>,
+    settings: &Settings,
+) -> WindowSize {
+    let cmd_line = settings.get::<CmdLineSettings>();
 
     match cmd_line.geometry {
         GeometryArgs {

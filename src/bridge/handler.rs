@@ -12,7 +12,7 @@ use crate::{
     bridge::{events::parse_redraw_event, NeovimWriter, RedrawEvent},
     error_handling::ResultPanicExplanation,
     running_tracker::RunningTracker,
-    settings::SETTINGS,
+    settings::Settings,
     window::{UserEvent, WindowCommand},
     LoggingSender,
 };
@@ -23,6 +23,7 @@ pub struct NeovimHandler {
     proxy: Arc<Mutex<EventLoopProxy<UserEvent>>>,
     sender: LoggingSender<RedrawEvent>,
     running_tracker: RunningTracker,
+    settings: Arc<Settings>,
 }
 
 impl NeovimHandler {
@@ -30,11 +31,13 @@ impl NeovimHandler {
         sender: UnboundedSender<RedrawEvent>,
         proxy: EventLoopProxy<UserEvent>,
         running_tracker: RunningTracker,
+        settings: Arc<Settings>,
     ) -> Self {
         Self {
             proxy: Arc::new(Mutex::new(proxy)),
             sender: LoggingSender::attach(sender, "neovim_handler"),
             running_tracker,
+            settings,
         }
     }
 }
@@ -100,11 +103,12 @@ impl Handler for NeovimHandler {
                 }
             }
             "setting_changed" => {
-                SETTINGS
+                self.settings
                     .handle_setting_changed_notification(arguments, &self.proxy.lock().unwrap());
             }
             "option_changed" => {
-                SETTINGS.handle_option_changed_notification(arguments, &self.proxy.lock().unwrap());
+                self.settings
+                    .handle_option_changed_notification(arguments, &self.proxy.lock().unwrap());
             }
             #[cfg(windows)]
             "neovide.register_right_click" => {

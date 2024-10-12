@@ -42,6 +42,7 @@ use std::{
     io::Write,
     panic::{set_hook, PanicInfo},
     process::ExitCode,
+    sync::Arc,
     time::{Duration, SystemTime},
 };
 
@@ -59,8 +60,6 @@ use cmd_line::CmdLineSettings;
 use error_handling::handle_startup_errors;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 use running_tracker::RunningTracker;
-#[cfg_attr(target_os = "windows", allow(unused_imports))]
-use settings::SETTINGS;
 use window::{
     create_event_loop, determine_window_size, UpdateLoop, UserEvent, WindowSettings, WindowSize,
 };
@@ -69,7 +68,9 @@ pub use channel_utils::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
-use crate::settings::{load_last_window_settings, Config, FontSettings, PersistentWindowSettings};
+use crate::settings::{
+    load_last_window_settings, Config, FontSettings, PersistentWindowSettings, Settings,
+};
 
 pub use profiling::startup_profiler;
 
@@ -99,12 +100,21 @@ fn main() -> ExitCode {
     clipboard::init(&event_loop);
 
     let running_tracker = RunningTracker::new();
+    let settings = Arc::new(Settings::new());
 
-    match setup(event_loop.create_proxy(), running_tracker.clone()) {
-        Err(err) => handle_startup_errors(err, event_loop),
+    match setup(
+        event_loop.create_proxy(),
+        running_tracker.clone(),
+        settings.clone(),
+    ) {
+        Err(err) => handle_startup_errors(err, event_loop, settings.clone()),
         Ok((window_size, font_settings, runtime)) => {
-            let mut update_loop =
-                UpdateLoop::new(window_size, font_settings, event_loop.create_proxy());
+            let mut update_loop = UpdateLoop::new(
+                window_size,
+                font_settings,
+                event_loop.create_proxy(),
+                settings.clone(),
+            );
 
             let result = event_loop.run_app(&mut update_loop).into();
 
@@ -127,6 +137,7 @@ fn main() -> ExitCode {
 fn setup(
     proxy: EventLoopProxy<UserEvent>,
     running_tracker: RunningTracker,
+    settings: Arc<Settings>,
 ) -> Result<(WindowSize, Option<FontSettings>, NeovimRuntime)> {
     //  --------------
     // | Architecture |
@@ -175,7 +186,7 @@ fn setup(
     // Neovide also includes some other systems which are globally available via lazy static
     // instantiations or passed between components.
     //
-    // SETTINGS:
+    // Settings:
     //   The settings system is live updated from global variables in neovim with the prefix
     //   "neovide". They allow us to configure and manage the functionality of neovide from neovim
     //   init scripts and variables.
@@ -197,27 +208,27 @@ fn setup(
     // The Window event loop sends UICommand to the bridge, which forwards them to Neovim. It also
     // reads `DrawCommand`, `SettingChanged`, and `WindowCommand` from the other components.
 
-    SETTINGS.register::<WindowSettings>();
-    SETTINGS.register::<RendererSettings>();
-    SETTINGS.register::<CursorSettings>();
+    settings.register::<WindowSettings>();
+    settings.register::<RendererSettings>();
+    settings.register::<CursorSettings>();
 
     let config = Config::init();
     Config::watch_config_file(config.clone(), proxy.clone());
 
     //Will exit if -h or -v
-    cmd_line::handle_command_line_arguments(args().collect())?;
+    cmd_line::handle_command_line_arguments(args().collect(), settings.as_ref())?;
     #[cfg(not(target_os = "windows"))]
     maybe_disown();
 
     startup_profiler();
 
     #[cfg(not(test))]
-    init_logger();
+    init_logger(&settings);
 
     trace!("Neovide version: {}", crate_version!());
 
     let window_settings = load_last_window_settings().ok();
-    let window_size = determine_window_size(window_settings.as_ref());
+    let window_size = determine_window_size(window_settings.as_ref(), &settings);
     let grid_size = match window_size {
         WindowSize::Grid(grid_size) => Some(grid_size),
         // Clippy wrongly suggests to use unwrap or default here
@@ -230,15 +241,15 @@ fn setup(
     };
 
     let mut runtime = NeovimRuntime::new()?;
-    runtime.launch(proxy, grid_size, running_tracker)?;
+    runtime.launch(proxy, grid_size, running_tracker, settings)?;
     Ok((window_size, config.font, runtime))
 }
 
 #[cfg(not(test))]
-pub fn init_logger() {
-    let settings = SETTINGS.get::<CmdLineSettings>();
+pub fn init_logger(settings: &Settings) {
+    let cmdline_settings = settings.get::<CmdLineSettings>();
 
-    let logger = if settings.log_to_file {
+    let logger = if cmdline_settings.log_to_file {
         Logger::try_with_env_or_str("neovide")
             .expect("Could not init logger")
             .log_to_file(FileSpec::default())
@@ -256,13 +267,13 @@ pub fn init_logger() {
 }
 
 #[cfg(not(target_os = "windows"))]
-fn maybe_disown() {
+fn maybe_disown(settings: &Settings) {
     use std::process;
 
-    let settings = SETTINGS.get::<CmdLineSettings>();
+    let cmdline_settings = settings.get::<CmdLineSettings>();
 
     // Never fork unless a tty is attached
-    if !settings.fork || !utils::is_tty() {
+    if !cmdline_settings.fork || !utils::is_tty() {
         return;
     }
 

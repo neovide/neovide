@@ -1,6 +1,7 @@
 use std::{
     io::{stdout, IsTerminal},
     process::ExitCode,
+    sync::Arc,
 };
 
 use anyhow::{Error, Result};
@@ -14,6 +15,7 @@ use crate::windows_attach_to_console;
 
 use crate::{
     bridge::{send_ui, ParallelCommand},
+    settings::Settings,
     window::{show_error_window, UserEvent},
 };
 
@@ -65,7 +67,11 @@ This is the error that caused the crash. In case you don't know what to do with 
     msg
 }
 
-pub fn handle_startup_errors(err: Error, event_loop: EventLoop<UserEvent>) -> ExitCode {
+pub fn handle_startup_errors(
+    err: Error,
+    event_loop: EventLoop<UserEvent>,
+    settings: Arc<Settings>,
+) -> ExitCode {
     // Command line output is always printed to the stdout/stderr
     if let Some(clap_error) = err.downcast_ref::<ClapError>() {
         #[cfg(target_os = "windows")]
@@ -76,7 +82,7 @@ pub fn handle_startup_errors(err: Error, event_loop: EventLoop<UserEvent>) -> Ex
         eprintln!("{}", &format_and_log_error_message(err));
         ExitCode::from(1)
     } else {
-        show_error_window(&format_and_log_error_message(err), event_loop);
+        show_error_window(&format_and_log_error_message(err), event_loop, settings);
         ExitCode::from(1)
     }
 }
