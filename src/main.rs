@@ -36,16 +36,19 @@ mod windows_utils;
 #[macro_use]
 extern crate derive_new;
 
+use std::{
+    env::{self, args},
+    fs::{File, OpenOptions},
+    io::Write,
+    panic::{set_hook, PanicInfo},
+    process::ExitCode,
+    time::{Duration, SystemTime},
+};
+
 use anyhow::Result;
 use log::trace;
-use std::env::{self, args};
-use std::fs::{File, OpenOptions};
-use std::io::Write;
-use std::panic::{set_hook, PanicInfo};
-use std::time::{Duration, SystemTime};
-use time::macros::format_description;
-use time::OffsetDateTime;
-use winit::event_loop::EventLoopProxy;
+use time::{macros::format_description, OffsetDateTime};
+use winit::{error::EventLoopError, event_loop::EventLoopProxy};
 
 #[cfg(not(test))]
 use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
@@ -53,8 +56,9 @@ use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
 use backtrace::Backtrace;
 use bridge::NeovimRuntime;
 use cmd_line::CmdLineSettings;
-use error_handling::{handle_startup_errors, NeovideExitCode};
+use error_handling::handle_startup_errors;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
+use running_tracker::RunningTracker;
 #[cfg_attr(target_os = "windows", allow(unused_imports))]
 use settings::SETTINGS;
 use window::{
@@ -62,7 +66,6 @@ use window::{
 };
 
 pub use channel_utils::*;
-pub use running_tracker::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
@@ -73,7 +76,7 @@ pub use profiling::startup_profiler;
 const BACKTRACES_FILE: &str = "neovide_backtraces.log";
 const REQUEST_MESSAGE: &str = "This is a bug and we would love for it to be reported to https://github.com/neovide/neovide/issues";
 
-fn main() -> NeovideExitCode {
+fn main() -> ExitCode {
     set_hook(Box::new(|panic_info| {
         let backtrace = Backtrace::new();
 
@@ -95,26 +98,35 @@ fn main() -> NeovideExitCode {
     let event_loop = create_event_loop();
     clipboard::init(&event_loop);
 
-    match setup(event_loop.create_proxy()) {
+    let running_tracker = RunningTracker::new();
+
+    match setup(event_loop.create_proxy(), running_tracker.clone()) {
         Err(err) => handle_startup_errors(err, event_loop).into(),
         Ok((window_size, font_settings, runtime)) => {
             let mut update_loop =
                 UpdateLoop::new(window_size, font_settings, event_loop.create_proxy());
 
-            let res = event_loop.run_app(&mut update_loop).into();
+            let result = event_loop.run_app(&mut update_loop).into();
+
             // Wait a little bit more and force Nevoim to exit after that.
             // This should not be required, but Neovim through libuv spawns childprocesses that inherits all the handles
             // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
             // read will hang forever, waiting for more data to read.
             // See https://github.com/neovide/neovide/issues/2182 (which includes links to libuv issues)
             runtime.runtime.shutdown_timeout(Duration::from_millis(500));
-            res
+
+            match result {
+                Ok(_) => running_tracker.exit_code(),
+                Err(EventLoopError::ExitFailure(code)) => ExitCode::from(code as u8),
+                _ => ExitCode::FAILURE,
+            }
         }
     }
 }
 
 fn setup(
     proxy: EventLoopProxy<UserEvent>,
+    running_tracker: RunningTracker,
 ) -> Result<(WindowSize, Option<FontSettings>, NeovimRuntime)> {
     //  --------------
     // | Architecture |
@@ -219,7 +231,7 @@ fn setup(
     };
 
     let mut runtime = NeovimRuntime::new()?;
-    runtime.launch(proxy, grid_size)?;
+    runtime.launch(proxy, grid_size, running_tracker)?;
     Ok((window_size, config.font, runtime))
 }
 

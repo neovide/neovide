@@ -5,9 +5,9 @@ mod style;
 mod window;
 
 use std::{collections::HashMap, rc::Rc, sync::Arc, thread};
-use tokio::sync::mpsc::unbounded_channel;
 
 use log::{error, trace, warn};
+use tokio::sync::mpsc::unbounded_channel;
 
 use winit::event_loop::EventLoopProxy;
 
@@ -21,6 +21,7 @@ use crate::{
     bridge::{GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
     profiling::{tracy_named_frame, tracy_zone},
     renderer::{DrawCommand, WindowDrawCommand},
+    running_tracker::RunningTracker,
     window::{UserEvent, WindowCommand},
 };
 
@@ -636,9 +637,12 @@ impl Editor {
     }
 }
 
-pub fn start_editor(event_loop_proxy: EventLoopProxy<UserEvent>) -> NeovimHandler {
+pub fn start_editor(
+    event_loop_proxy: EventLoopProxy<UserEvent>,
+    running_tracker: RunningTracker,
+) -> NeovimHandler {
     let (sender, mut receiver) = unbounded_channel();
-    let handler = NeovimHandler::new(sender, event_loop_proxy.clone());
+    let handler = NeovimHandler::new(sender, event_loop_proxy.clone(), running_tracker);
     thread::spawn(move || {
         let mut editor = Editor::new(event_loop_proxy);
 
