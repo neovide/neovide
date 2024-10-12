@@ -42,6 +42,7 @@ type ReaderHandlerFunc = fn(&Settings) -> Option<Value>;
 // read_initial_values call, after that point we should not modify the contents of the Settings
 // struct except when prompted by an update event from nvim. Otherwise, the settings in Neovide and
 // nvim will get out of sync.
+#[derive(Default)]
 pub struct Settings {
     settings: RwLock<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
     updaters: RwLock<HashMap<SettingLocation, UpdateHandlerFunc>>,
@@ -58,11 +59,7 @@ pub enum SettingLocation {
 
 impl Settings {
     pub fn new() -> Self {
-        Self {
-            settings: RwLock::new(HashMap::new()),
-            updaters: RwLock::new(HashMap::new()),
-            readers: RwLock::new(HashMap::new()),
-        }
+        Self::default()
     }
 
     pub fn set_setting_handlers(

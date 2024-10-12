@@ -116,7 +116,7 @@ fn main() -> ExitCode {
                 settings.clone(),
             );
 
-            let result = event_loop.run_app(&mut update_loop).into();
+            let result = event_loop.run_app(&mut update_loop);
 
             // Wait a little bit more and force Nevoim to exit after that.
             // This should not be required, but Neovim through libuv spawns childprocesses that inherits all the handles
