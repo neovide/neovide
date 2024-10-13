@@ -130,6 +130,20 @@ With idle `off` (e.g. with `--no-idle` flag), neovide will constantly render new
 even when nothing changed. This takes more power and CPU time, but can possibly help
 with frame timing issues.
 
+### Mouse Cursor Icon
+
+```sh
+--mouse-cursor-icon or $NEOVIDE_MOUSE_CURSOR_ICON="arrow|i-beam"
+```
+
+**Available since 0.14.**
+
+This sets the mouse cursor icon to be used in the window.
+
+TLDR; Neovim has not yet implemented the ['mouseshape'](https://github.com/neovim/neovim/issues/21458) feature, meaning
+that the cursor will not be reactive respecting the context of any Neovim element such as tabs, buttons and dividers.
+For that reason, the Arrow cursor has been taken as the default due to its generalistic purpose.
+
 ### Title (macOS Only)
 
 ```sh

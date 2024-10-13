@@ -140,9 +140,11 @@ pub fn create_window(event_loop: &ActiveEventLoop, maximized: bool, title: &str)
         _ => None,
     };
 
+    let mouse_cursor_icon = cmd_line_settings.mouse_cursor_icon;
+
     let window_attributes = Window::default_attributes()
         .with_title(title)
-        .with_cursor(Cursor::Icon(CursorIcon::Text))
+        .with_cursor(Cursor::Icon(mouse_cursor_icon.parse()))
         .with_maximized(maximized)
         .with_transparent(true)
         .with_visible(false);
