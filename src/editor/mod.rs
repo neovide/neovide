@@ -95,6 +95,7 @@ pub struct Editor {
     pub current_mode_index: Option<u64>,
     pub ui_ready: bool,
     event_loop_proxy: EventLoopProxy<UserEvent>,
+    #[allow(dead_code)]
     settings: Arc<Settings>,
     composition_order: u64,
 }

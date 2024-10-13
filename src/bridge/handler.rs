@@ -23,6 +23,7 @@ pub struct NeovimHandler {
     proxy: Arc<Mutex<EventLoopProxy<UserEvent>>>,
     sender: LoggingSender<RedrawEvent>,
     running_tracker: RunningTracker,
+    #[allow(dead_code)]
     settings: Arc<Settings>,
 }
 

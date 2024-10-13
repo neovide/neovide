@@ -27,6 +27,7 @@ pub struct KeyboardManager {
     modifiers: Modifiers,
     ime_preedit: (String, Option<(usize, usize)>),
     meta_is_pressed: bool, // see note on 'meta' below
+    #[allow(dead_code)]
     settings: Arc<Settings>,
 }
 
