@@ -49,6 +49,12 @@ pub struct Cursor {
     pub grid_cell: GridCell,
 }
 
+impl Default for Cursor {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Cursor {
     pub fn new() -> Cursor {
         Cursor {

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use skia_safe::{
     gpu::{
         d3d::{BackendContext, TextureResourceInfo},
@@ -45,7 +47,7 @@ use super::{vsync::VSyncWinSwapChain, RendererSettings, SkiaRenderer, VSync};
 use crate::profiling::{d3d::create_d3d_gpu_context, GpuCtx};
 use crate::{
     profiling::{tracy_gpu_zone, tracy_zone},
-    settings::SETTINGS,
+    settings::Settings,
     window::UserEvent,
 };
 
@@ -101,10 +103,12 @@ pub struct D3DSkiaRenderer {
     _target: IDCompositionTarget,
     _visual: IDCompositionVisual,
     window: Window,
+
+    settings: Arc<Settings>,
 }
 
 impl D3DSkiaRenderer {
-    pub fn new(window: Window) -> Self {
+    pub fn new(window: Window, settings: Arc<Settings>) -> Self {
         tracy_zone!("D3DSkiaRenderer::new");
         #[cfg(feature = "d3d_debug")]
         let dxgi_factory: IDXGIFactory2 = unsafe {
@@ -270,6 +274,8 @@ impl D3DSkiaRenderer {
             _target: target,
             _visual: visual,
             window,
+
+            settings,
         };
         ret.setup_surfaces();
 
@@ -356,7 +362,7 @@ impl D3DSkiaRenderer {
                 protected: Protected::No,
             };
 
-            let render_settings = SETTINGS.get::<RendererSettings>();
+            let render_settings = self.settings.get::<RendererSettings>();
 
             let surface_props = SurfaceProps::new_with_text_properties(
                 SurfacePropsFlags::default(),

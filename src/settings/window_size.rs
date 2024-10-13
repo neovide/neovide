@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 
 use crate::{
-    settings::SETTINGS, units::GridSize, window::WindowSettings, window::WinitWindowWrapper,
+    settings::Settings, units::GridSize, window::WindowSettings, window::WinitWindowWrapper,
 };
 
 const SETTINGS_FILE: &str = "neovide-settings.json";
@@ -67,7 +67,7 @@ pub fn load_last_window_settings() -> Result<PersistentWindowSettings, String> {
     Ok(loaded_settings)
 }
 
-pub fn save_window_size(window_wrapper: &WinitWindowWrapper) {
+pub fn save_window_size(window_wrapper: &WinitWindowWrapper, settings: &Settings) {
     if window_wrapper.skia_renderer.is_none() {
         return;
     }
@@ -81,7 +81,7 @@ pub fn save_window_size(window_wrapper: &WinitWindowWrapper) {
     let pixel_size = window.inner_size();
     let grid_size = window_wrapper.get_grid_size();
     let position = window.outer_position().ok();
-    let window_settings = SETTINGS.get::<WindowSettings>();
+    let window_settings = settings.get::<WindowSettings>();
 
     let settings = PersistentSettings {
         window: if maximized && window_settings.remember_window_size {
