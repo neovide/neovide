@@ -140,9 +140,11 @@ with frame timing issues.
 
 This sets the mouse cursor icon to be used in the window.
 
-TLDR; Neovim has not yet implemented the ['mouseshape'](https://github.com/neovim/neovim/issues/21458) feature, meaning
-that the cursor will not be reactive respecting the context of any Neovim element such as tabs, buttons and dividers.
-For that reason, the Arrow cursor has been taken as the default due to its generalistic purpose.
+TLDR; Neovim has not yet implemented the
+['mouseshape'](https://github.com/neovim/neovim/issues/21458) feature, meaning that
+the cursor will not be reactive respecting the context of any Neovim element such as tabs,
+buttons and dividers. For that reason, the Arrow cursor has been taken as the default due
+to its generalistic purpose.
 
 ### Title (macOS Only)
 
