@@ -34,6 +34,7 @@ no-multigrid = false
 srgb = false
 tabs = true
 theme = "auto"
+mouse-cursor-icon = "arrow"
 title-hidden = true
 vsync = true
 wsl = false
@@ -113,7 +114,7 @@ style = "W400"
 
 # You can set a different font for fallback
 [[font.normal]]
-family = "Noto Sans CJK SC" 
+family = "Noto Sans CJK SC"
 style = "Normal"
 
 [[font.bold]]
@@ -123,7 +124,7 @@ style = "W600"
 # No need to specify fallback in every variant, if omitted or specified here
 # but not found, it will fallback to normal font with this weight which is bold
 # in this case.
-[[font.bold]] 
+[[font.bold]]
 family = "Noto Sans CJK SC"
 style = "Bold"
 ```
