@@ -223,6 +223,16 @@ terminate. This parameter has no effect when launching from a GUI.</p>
 <p>With idle <code>off</code> (e.g. with <code>--no-idle</code> flag), neovide will constantly render new frames,
 even when nothing changed. This takes more power and CPU time, but can possibly help
 with frame timing issues.</p>
+<h3 id="mouse-cursor-icon"><a class="header" href="#mouse-cursor-icon">Mouse Cursor Icon</a></h3>
+<pre><code class="language-sh">--mouse-cursor-icon or $NEOVIDE_MOUSE_CURSOR_ICON=&quot;arrow|i-beam&quot;
+</code></pre>
+<p><strong>Available since 0.14.</strong></p>
+<p>This sets the mouse cursor icon to be used in the window.</p>
+<p>TLDR; Neovim has not yet implemented the
+<a href="https://github.com/neovim/neovim/issues/21458">'mouseshape'</a> feature, meaning that
+the cursor will not be reactive respecting the context of any Neovim element such as tabs,
+buttons and dividers. For that reason, the Arrow cursor has been taken as the default due
+to its generalistic purpose.</p>
 <h3 id="title-macos-only"><a class="header" href="#title-macos-only">Title (macOS Only)</a></h3>
 <pre><code class="language-sh">--title-hidden or $NEOVIDE_TITLE_HIDDEN
 </code></pre>
