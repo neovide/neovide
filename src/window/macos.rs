@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use objc2::{
     declare_class, msg_send, msg_send_id, mutability,
     rc::{autoreleasepool, Retained},
@@ -17,8 +19,11 @@ use csscolorparser::Color;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
-use crate::bridge::{send_ui, ParallelCommand};
-use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame, settings::SETTINGS};
+use crate::{
+    bridge::{send_ui, ParallelCommand},
+    settings::Settings,
+};
+use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame};
 
 use super::{WindowSettings, WindowSettingsChanged};
 
@@ -84,10 +89,11 @@ pub struct MacosWindowFeature {
     extra_titlebar_height_in_pixel: u32,
     is_fullscreen: bool,
     menu: Option<Menu>,
+    settings: Arc<Settings>,
 }
 
 impl MacosWindowFeature {
-    pub fn from_winit_window(window: &Window) -> MacosWindowFeature {
+    pub fn from_winit_window(window: &Window, settings: Arc<Settings>) -> Self {
         let mtm =
             MainThreadMarker::new().expect("MacosWindowFeature must be created in main thread.");
 
@@ -100,7 +106,7 @@ impl MacosWindowFeature {
 
         let mut extra_titlebar_height_in_pixel: u32 = 0;
 
-        let frame = SETTINGS.get::<CmdLineSettings>().frame;
+        let frame = settings.get::<CmdLineSettings>().frame;
         let titlebar_click_handler: Option<Retained<TitlebarClickHandler>> = match frame {
             Frame::Transparent => unsafe {
                 let titlebar_click_handler = TitlebarClickHandler::new(mtm);
@@ -142,6 +148,7 @@ impl MacosWindowFeature {
             extra_titlebar_height_in_pixel,
             is_fullscreen,
             menu: None,
+            settings: settings.clone(),
         };
 
         macos_window_feature.update_background(true);
@@ -257,7 +264,7 @@ impl MacosWindowFeature {
             show_border,
             transparency,
             ..
-        } = SETTINGS.get::<WindowSettings>();
+        } = self.settings.get::<WindowSettings>();
         match background_color.parse::<Color>() {
             Ok(color) => {
                 self.update_ns_background_legacy(color, show_border, ignore_deprecation_warning)

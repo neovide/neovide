@@ -97,7 +97,7 @@ impl WinitWindowWrapper {
         Self {
             skia_renderer: None,
             renderer,
-            keyboard_manager: KeyboardManager::new(),
+            keyboard_manager: KeyboardManager::new(settings.clone()),
             mouse_manager: MouseManager::new(settings.clone()),
             title: String::from("Neovide"),
             font_changed_last_frame: false,
@@ -466,7 +466,10 @@ impl WinitWindowWrapper {
         // It's important that this is created before the window is resized, since it can change the padding and affect the size
         #[cfg(target_os = "macos")]
         {
-            self.macos_feature = Some(MacosWindowFeature::from_winit_window(window));
+            self.macos_feature = Some(MacosWindowFeature::from_winit_window(
+                window,
+                self.settings.clone(),
+            ));
         }
 
         let scale_factor = window.scale_factor();

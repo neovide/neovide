@@ -93,7 +93,6 @@ impl MouseManager {
             touch_position: HashMap::new(),
             mouse_hidden: false,
             enabled: true,
-
             settings,
         }
     }

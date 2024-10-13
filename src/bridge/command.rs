@@ -243,7 +243,7 @@ fn platform_which(bin: &str, settings: &Settings) -> Option<String> {
 }
 
 #[cfg(target_os = "macos")]
-fn nvim_cmd_impl(bin: String, args: Vec<String>) -> TokioCommand {
+fn nvim_cmd_impl(bin: String, args: Vec<String>, _settings: &Settings) -> TokioCommand {
     let (cmd, cmd_args) = build_login_cmd_args(
         &bin,
         &args.iter().map(|s| s.as_str()).collect::<Vec<&str>>(),

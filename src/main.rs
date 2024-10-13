@@ -218,7 +218,7 @@ fn setup(
     //Will exit if -h or -v
     cmd_line::handle_command_line_arguments(args().collect(), settings.as_ref())?;
     #[cfg(not(target_os = "windows"))]
-    maybe_disown();
+    maybe_disown(&settings);
 
     startup_profiler();
 
