@@ -90,41 +90,41 @@ fn build_login_cmd_args(command: &str, args: &[&str]) -> (String, Vec<String>) {
 }
 
 // Creates a shell command if needed on this platform (wsl or macOS)
+#[cfg(target_os = "macos")]
+fn create_platform_shell_command(command: &str, args: &[&str], _settings: &Settings) -> StdCommand {
+    let (cmd, cmd_args) = build_login_cmd_args(command, args);
+
+    let mut result = StdCommand::new(cmd);
+    result.args(cmd_args);
+
+    result
+}
+
+// Creates a shell command if needed on this platform (wsl or macOS)
+#[cfg(target_os = "linux")]
+fn create_platform_shell_command(command: &str, args: &[&str], _settings: &Settings) -> StdCommand {
+    let mut result = StdCommand::new(command);
+    result.args(args);
+
+    result
+}
+
+// Creates a shell command if needed on this platform (wsl or macOS)
+#[cfg(target_os = "windows")]
 fn create_platform_shell_command(command: &str, args: &[&str], settings: &Settings) -> StdCommand {
-    #[cfg(target_os = "windows")]
-    {
-        if settings.get::<CmdLineSettings>().wsl {
-            let mut result = StdCommand::new("wsl");
-            result.args(["$SHELL", "-lc"]);
-            result.arg(format!("{} {}", command, args.join(" ")));
+    if settings.get::<CmdLineSettings>().wsl {
+        let mut result = StdCommand::new("wsl");
+        result.args(["$SHELL", "-lc"]);
+        result.arg(format!("{} {}", command, args.join(" ")));
 
-            result.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
-
-            result
-        } else {
-            let mut result = StdCommand::new(command);
-            result.args(args);
-
-            result.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
-
-            result
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        let (cmd, cmd_args) = build_login_cmd_args(command, args);
-
-        let mut result = StdCommand::new(cmd);
-        result.args(cmd_args);
+        result.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
 
         result
-    }
-
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-    {
+    } else {
         let mut result = StdCommand::new(command);
         result.args(args);
+
+        result.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
 
         result
     }
