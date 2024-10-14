@@ -116,7 +116,6 @@ impl GridRenderer {
 
         let mut paint = Paint::default();
         paint.set_anti_alias(false);
-        paint.set_blend_mode(BlendMode::Src);
 
         if debug {
             let random_hsv: HSV = (rand::random::<f32>() * 360.0, 0.3, 0.3).into();
@@ -126,17 +125,19 @@ impl GridRenderer {
             paint.set_color(style_background);
         }
 
-        // Only apply transparency on the default background color
-        if style_background == self.get_default_background() {
-            if style.blend > 0 {
-                paint.set_alpha_f((100 - style.blend) as f32 / 100.0);
-            } else {
-                paint.set_alpha_f(SETTINGS.get::<WindowSettings>().transparency);
-            }
+        let is_default_background = style_background == self.get_default_background();
+
+        // Blend color with background only for non default backgrounds
+        paint.set_blend_mode(if is_default_background {
+            BlendMode::Src
         } else {
-            paint.set_blend_mode(BlendMode::SrcOver);
-            paint.set_alpha_f(SETTINGS.get::<WindowSettings>().text_background_opacity);
-        }
+            BlendMode::SrcOver
+        });
+
+        paint.set_alpha_f(GridRenderer::get_background_opacity(
+            style,
+            is_default_background,
+        ));
 
         let custom_color = paint.color4f() != self.default_style.colors.background.unwrap();
         if custom_color {
@@ -234,6 +235,52 @@ impl GridRenderer {
 
         canvas.restore();
         drawn
+    }
+
+    /// Returns the background opacity based on the provided style and whether the style is the default background.
+    ///
+    /// There are two kinds of styles with fallback logic for background opacity:
+    /// - Default background:
+    ///     1. If style blend is greater than 0, use the blend value.
+    ///     2. Otherwise, use the opacity setting.
+    /// - Non-default background:
+    ///     1. If text_background_opacity is provided, use it.
+    ///     2. If style blend is greater than 0, use the blend value.
+    ///     3. Otherwise, use opaque.
+    ///
+    /// To achieve visual consistency, the `text_background_opacity` setting overrides the style blend value.
+    /// Otherwise, the background won't be visible with transparency enabled when pumblend/winblend is set to 100.
+    /// Since all background blends are set to the winblend/pumblend value for floating windows when multi-grid is enabled.
+    ///
+    /// # Returns
+    ///
+    /// A `f32` value representing the background opacity.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let style = Style { blend: 50 };
+    /// let is_default_background = true;
+    /// let opacity = get_background_opacity(style, is_default_background);
+    /// assert_eq!(opacity, 0.5);
+    /// ```
+    fn get_background_opacity(style: &Style, is_default_background: bool) -> f32 {
+        fn compute_blend_opacity(blend: u8, default: f32) -> f32 {
+            if blend > 0 {
+                (100 - blend) as f32 / 100.0
+            } else {
+                default
+            }
+        }
+
+        let settings = SETTINGS.get::<WindowSettings>();
+        if is_default_background {
+            compute_blend_opacity(style.blend, settings.transparency)
+        } else {
+            settings
+                .text_background_opacity
+                .unwrap_or_else(|| compute_blend_opacity(style.blend, 1.0))
+        }
     }
 
     fn draw_underline(
