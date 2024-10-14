@@ -307,18 +307,25 @@ VimScript:
 
 ```vim
 let g:neovide_transparency = 0.8
+let g:neovide_text_background_opacity = 0.8
 ```
 
 Lua:
 
 ```lua
 vim.g.neovide_transparency = 0.8
+vim.g.neovide_text_background_opacity = 0.8
 ```
 
 ![Transparency](assets/Transparency.png)
 
-Setting `g:neovide_transparency` to a value between 0.0 and 1.0 will set the opacity of the window
-to that value.
+Setting `g:neovide_transparency` to a value between 0.0 and 1.0 will set the default background
+color opacity to that value, while `g:neovide_text_background_opacity` sets the opacity for
+background colors other than the default one.
+
+The parameter `g:neovide_text_background_opacity` can override the default blend value for all
+styles if configured. To preserve the use of blend values, it is recommended not to set this
+parameter.
 
 #### Show Border (Currently macOS only)
 
