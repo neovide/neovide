@@ -289,13 +289,15 @@ impl CursorRenderer {
             return;
         }
         // Draw Background
-        let bg_color = if settings.bg == 0 {
-            self.cursor.background(&grid_renderer.default_style.colors).to_color()
+        let background_color = if settings.bg == 0 {
+            self.cursor
+                .background(&grid_renderer.default_style.colors)
+                .to_color()
         } else {
-            skia_safe::Color::from(settings.bg)
-        };
-
-        paint.set_color(bg_color.with_a((opacity * alpha) as u8));
+            settings.bg.into()
+        }
+        .with_a((opacity * alpha) as u8);
+        paint.set_color(background_color);
 
         let path = if self.window_has_focus || self.cursor.shape != CursorShape::Block {
             self.draw_rectangle(canvas, &paint)
@@ -305,13 +307,15 @@ impl CursorRenderer {
         };
 
         // Draw foreground
-        let fg_color = if settings.fg == 0 {
-            self.cursor.foreground(&grid_renderer.default_style.colors).to_color()
+        let foreground_color = if settings.fg == 0 {
+            self.cursor
+                .foreground(&grid_renderer.default_style.colors)
+                .to_color()
         } else {
-            skia_safe::Color::from(settings.fg)
-        };
-
-        paint.set_color(fg_color.with_a((opacity * alpha) as u8));
+            settings.fg.into()
+        }
+        .with_a((opacity * alpha) as u8);
+        paint.set_color(foreground_color);
 
         canvas.save();
         canvas.clip_path(&path, None, Some(false));
