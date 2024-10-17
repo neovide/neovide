@@ -34,6 +34,8 @@ pub struct CursorSettings {
     trail_size: f32,
     unfocused_outline_width: f32,
     smooth_blink: bool,
+    bg: u32,
+    fg: u32,
 
     vfx_mode: cursor_vfx::VfxMode,
     vfx_opacity: f32,
@@ -53,6 +55,8 @@ impl Default for CursorSettings {
             animate_in_insert_mode: true,
             animate_command_line: true,
             trail_size: 0.7,
+            bg: 0,
+            fg: 0,
             unfocused_outline_width: 1.0 / 8.0,
             smooth_blink: false,
             vfx_mode: cursor_vfx::VfxMode::Disabled,
@@ -285,11 +289,14 @@ impl CursorRenderer {
             return;
         }
         // Draw Background
-        let background_color = self
-            .cursor
-            .background(&grid_renderer.default_style.colors)
-            .to_color()
-            .with_a((opacity * alpha) as u8);
+        let background_color = if settings.bg == 0 {
+            self.cursor
+                .background(&grid_renderer.default_style.colors)
+                .to_color()
+        } else {
+            settings.bg.into()
+        }
+        .with_a((opacity * alpha) as u8);
         paint.set_color(background_color);
 
         let path = if self.window_has_focus || self.cursor.shape != CursorShape::Block {
@@ -300,11 +307,14 @@ impl CursorRenderer {
         };
 
         // Draw foreground
-        let foreground_color = self
-            .cursor
-            .foreground(&grid_renderer.default_style.colors)
-            .to_color()
-            .with_a((opacity * alpha) as u8);
+        let foreground_color = if settings.fg == 0 {
+            self.cursor
+                .foreground(&grid_renderer.default_style.colors)
+                .to_color()
+        } else {
+            settings.fg.into()
+        }
+        .with_a((opacity * alpha) as u8);
         paint.set_color(foreground_color);
 
         canvas.save();
