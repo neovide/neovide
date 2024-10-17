@@ -34,8 +34,8 @@ pub struct CursorSettings {
     trail_size: f32,
     unfocused_outline_width: f32,
     smooth_blink: bool,
-    bg: String,
-    fg: String,
+    bg: u32,
+    fg: u32,
 
     vfx_mode: cursor_vfx::VfxMode,
     vfx_opacity: f32,
@@ -55,8 +55,8 @@ impl Default for CursorSettings {
             animate_in_insert_mode: true,
             animate_command_line: true,
             trail_size: 0.7,
-            bg: String::from(""),
-            fg: String::from(""),
+            bg: 0,
+            fg: 0,
             unfocused_outline_width: 1.0 / 8.0,
             smooth_blink: false,
             vfx_mode: cursor_vfx::VfxMode::Disabled,
@@ -289,21 +289,13 @@ impl CursorRenderer {
             return;
         }
         // Draw Background
-        let bg = &settings.bg.trim_start_matches("#");
-        let bg_color = if bg.is_empty() {
-            self.cursor.background(&grid_renderer.default_style.colors)
+        let bg_color = if settings.bg == 0 {
+            self.cursor.background(&grid_renderer.default_style.colors).to_color()
         } else {
-            match (0..bg.len())
-                .step_by(2)
-                .map(|i| u8::from_str_radix(&bg[i..i + 2], 16).unwrap_or(0) as u32)
-                .reduce(|l, r| (l << 8) + r)
-                {
-                    Some(v) => skia_safe::Color4f::from(v),
-                    None => self.cursor.foreground(&grid_renderer.default_style.colors),
-                }
+            skia_safe::Color::from(settings.bg)
         };
 
-        paint.set_color(bg_color.to_color().with_a((opacity * alpha) as u8));
+        paint.set_color(bg_color.with_a((opacity * alpha) as u8));
 
         let path = if self.window_has_focus || self.cursor.shape != CursorShape::Block {
             self.draw_rectangle(canvas, &paint)
@@ -313,21 +305,13 @@ impl CursorRenderer {
         };
 
         // Draw foreground
-        let fg = &settings.fg.trim_start_matches("#");
-        let fg_color = if fg.is_empty() {
-            self.cursor.foreground(&grid_renderer.default_style.colors)
+        let fg_color = if settings.fg == 0 {
+            self.cursor.foreground(&grid_renderer.default_style.colors).to_color()
         } else {
-            match (0..bg.len())
-                .step_by(2)
-                .map(|i| u8::from_str_radix(&fg[i..i + 2], 16).unwrap_or(0) as u32)
-                .reduce(|l, r| (l << 8) + r)
-                {
-                    Some(v) => skia_safe::Color4f::from(v),
-                    None => self.cursor.foreground(&grid_renderer.default_style.colors),
-                }
+            skia_safe::Color::from(settings.fg)
         };
 
-        paint.set_color(fg_color.to_color().with_a((opacity * alpha) as u8));
+        paint.set_color(fg_color.with_a((opacity * alpha) as u8));
 
         canvas.save();
         canvas.clip_path(&path, None, Some(false));
