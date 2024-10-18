@@ -24,6 +24,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  MACOSX_DEPLOYMENT_TARGET: 13.0
 
 defaults:
   run:
@@ -37,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macOS-12, ubuntu-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest]
         toolchain: [stable, nightly]
     runs-on: ${{ matrix.os }}
 
@@ -87,7 +88,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macOS-12, ubuntu-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest]
         toolchain: [stable, nightly]
     runs-on: ${{ matrix.os }}
 
@@ -124,7 +125,7 @@ jobs:
       fail-fast: false
       matrix:
         # NOTE: Should use the oldest available Ubuntu release, for maximum compatibility
-        os: [windows-latest, macOS-12, ubuntu-20.04]
+        os: [windows-latest, macos-latest, ubuntu-20.04]
     runs-on: ${{ matrix.os }}
 
     steps:
