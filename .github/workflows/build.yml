@@ -148,7 +148,7 @@ jobs:
             curl -L -o create-dmg.tar.gz https://github.com/create-dmg/create-dmg/archive/refs/tags/v1.2.2.tar.gz
             tar -xzf create-dmg.tar.gz
             cd create-dmg-1.2.2
-            make install
+            sudo make install
             cd ..
             rustup target add x86_64-apple-darwin
             rustup target add aarch64-apple-darwin
