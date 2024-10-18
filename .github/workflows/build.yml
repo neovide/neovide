@@ -24,7 +24,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  MACOSX_DEPLOYMENT_TARGET: 10.5
+  MACOSX_DEPLOYMENT_TARGET: 10.11
 
 defaults:
   run:
@@ -175,7 +175,6 @@ jobs:
             cargo wix --output target/release/neovide.msi --package neovide
 
           elif [[ $RUNNER_OS == "macOS" ]]; then
-            echo "MACOSX_DEPLOYMENT_TARGET=10.11" >> $GITHUB_ENV
             # x86
             cargo build --locked --release --target=x86_64-apple-darwin
             # arch
