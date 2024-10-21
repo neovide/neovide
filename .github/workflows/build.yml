@@ -24,6 +24,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  MACOSX_DEPLOYMENT_TARGET: 10.11
 
 defaults:
   run:
@@ -37,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macOS-12, ubuntu-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest]
         toolchain: [stable, nightly]
     runs-on: ${{ matrix.os }}
 
@@ -87,7 +88,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macOS-12, ubuntu-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest]
         toolchain: [stable, nightly]
     runs-on: ${{ matrix.os }}
 
@@ -124,7 +125,7 @@ jobs:
       fail-fast: false
       matrix:
         # NOTE: Should use the oldest available Ubuntu release, for maximum compatibility
-        os: [windows-latest, macOS-12, ubuntu-20.04]
+        os: [windows-latest, macos-latest, ubuntu-20.04]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -147,7 +148,7 @@ jobs:
             curl -L -o create-dmg.tar.gz https://github.com/create-dmg/create-dmg/archive/refs/tags/v1.2.2.tar.gz
             tar -xzf create-dmg.tar.gz
             cd create-dmg-1.2.2
-            make install
+            sudo make install
             cd ..
             rustup target add x86_64-apple-darwin
             rustup target add aarch64-apple-darwin
@@ -174,7 +175,6 @@ jobs:
             cargo wix --output target/release/neovide.msi --package neovide
 
           elif [[ $RUNNER_OS == "macOS" ]]; then
-            echo "MACOSX_DEPLOYMENT_TARGET=10.11" >> $GITHUB_ENV
             # x86
             cargo build --locked --release --target=x86_64-apple-darwin
             # arch
