@@ -6,7 +6,7 @@
   <metadata_license>MIT</metadata_license>
   <project_license>MIT</project_license>
   <developer id="dev.neovide">
-    <name>Kaylee Simmons</name>
+    <name>Neovide maintainers</name>
   </developer>
   <description>
     <p>Fully-featured Neovim GUI with some visual upgrades:</p>
@@ -21,6 +21,7 @@
   <categories>
     <category>Utility</category>
     <category>TextEditor</category>
+    <category>Development</category>
   </categories>
   <launchable type="desktop-id">dev.neovide.Neovide.desktop</launchable>
   <icon type="stock">dev.neovide.Neovide</icon>
@@ -35,7 +36,7 @@
   <url type="faq">https://neovide.dev/faq.html</url>
   <url type="vcs-browser">https://github.com/neovide/neovide</url>
   <releases>
-    <release date="2024-01-28" version="0.12.2">
+    <release date="2024-06-16" version="0.13.3">
       <url type="details">https://github.com/neovide/neovide/releases/tag/0.12.2</url>
     </release>
   </releases>
