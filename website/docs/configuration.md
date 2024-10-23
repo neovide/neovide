@@ -302,6 +302,7 @@ The other variables configure the shadow in various ways:
 - `g:neovide_light_radius` sets the radius of the casting light
 
 #### Floating Corner Radius
+
 VimScript:
 
 ```vim
@@ -314,8 +315,8 @@ Lua:
 vim.g.neovide_floating_corner_radius = 0.0
 ```
 
-Setting `g:neovide_floating_corner_radius` to 0.0 will disable the corner radius.
-The value of floating_corner_radius ranges from 0.0 to 1.0, representing a percentage of the line height. 
+Setting `g:neovide_floating_corner_radius` to 0.0 will disable the corner radius. The value of
+floating_corner_radius ranges from 0.0 to 1.0, representing a percentage of the line height.
 
 #### Transparency
 
