@@ -197,7 +197,11 @@ pub fn group_windows(
         .collect_vec()
 }
 
-fn build_silhouette(regions: &[PixelRect<f32>], settings: &RendererSettings, grid_scale: GridScale) -> (Path, Rect) {
+fn build_silhouette(
+    regions: &[PixelRect<f32>],
+    settings: &RendererSettings,
+    grid_scale: GridScale,
+) -> (Path, Rect) {
     let silhouette = regions
         .iter()
         .map(|r| Path::rect(to_skia_rect(r), None))
@@ -215,7 +219,11 @@ fn build_silhouette(regions: &[PixelRect<f32>], settings: &RendererSettings, gri
     (rounded_silhouette, bounding_rect)
 }
 
-fn rect_to_round_rect_path(rect: &Rect, settings: &RendererSettings, grid_scale: GridScale) -> Path {
+fn rect_to_round_rect_path(
+    rect: &Rect,
+    settings: &RendererSettings,
+    grid_scale: GridScale,
+) -> Path {
     let mut rounded_path = Path::new();
 
     let mut scaled_radius = 0.0;
@@ -223,10 +231,7 @@ fn rect_to_round_rect_path(rect: &Rect, settings: &RendererSettings, grid_scale:
         scaled_radius = settings.floating_corner_radius * grid_scale.height();
     }
 
-    rounded_path.add_round_rect(rect, (
-        scaled_radius,
-        scaled_radius,
-    ), None);
+    rounded_path.add_round_rect(rect, (scaled_radius, scaled_radius), None);
 
     rounded_path
 }
