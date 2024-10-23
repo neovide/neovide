@@ -11,6 +11,7 @@ pub enum BlinkState {
 
 pub struct BlinkStatus {
     state: BlinkState,
+    /// When the cursor should change to the next [`BlinkState`]
     transition_time: Instant,
     current_cursor: Option<Cursor>,
 }
@@ -62,7 +63,7 @@ impl BlinkStatus {
         let current_cursor = self.current_cursor.as_ref().unwrap();
 
         if is_static(current_cursor) {
-            self.state = BlinkState::On;
+            self.state = BlinkState::Waiting;
             ShouldRender::Wait
         } else {
             if self.transition_time <= now {
@@ -82,6 +83,32 @@ impl BlinkStatus {
         }
     }
 
+    /// Calculate the opacity the cursor should be drawn with when smooth cursor blink is enabled.
+    /// `0.0` is fully transparent, `1.0` is fully opaque.
+    pub fn opacity(&self) -> f32 {
+        let now = Instant::now();
+        if self.state == BlinkState::Waiting {
+            return 1.0;
+        }
+        let total = self.get_delay().as_secs_f32();
+        let remaining = (self.transition_time - now).as_secs_f32();
+        match self.state {
+            BlinkState::Waiting => 1.0,
+            BlinkState::On => (remaining / total).clamp(0.0, 1.0),
+            BlinkState::Off => (1.0 - remaining / total).clamp(0.0, 1.0),
+        }
+    }
+
+    /// Whether or not the cursor is in a state that should be animated (only applicable when
+    /// smooth blink is enabled).
+    pub fn should_animate(&self) -> bool {
+        match self.state {
+            BlinkState::Waiting => false,
+            BlinkState::On | BlinkState::Off => true,
+        }
+    }
+
+    /// Whether or not the cursor should be drawn (only applicable when smooth blink is disabled).
     pub fn should_render(&self) -> bool {
         match self.state {
             BlinkState::Off => false,

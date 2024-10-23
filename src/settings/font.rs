@@ -3,7 +3,8 @@ use std::collections::HashMap;
 use serde::Deserialize;
 
 use crate::renderer::fonts::font_options::{
-    FontDescription, FontEdging, FontFeature, FontHinting, FontOptions, SecondaryFontDescription,
+    points_to_pixels, FontDescription, FontEdging, FontFeature, FontHinting, FontOptions,
+    SecondaryFontDescription,
 };
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -118,9 +119,8 @@ impl From<FontSettings> for FontOptions {
                         .collect()
                 })
                 .unwrap_or_default(),
-            size: value.size,
-            width: value.width.unwrap_or_default(),
-            allow_float_size: value.allow_float_size.unwrap_or_default(),
+            size: points_to_pixels(value.size),
+            width: points_to_pixels(value.width.unwrap_or_default()),
             hinting: value
                 .hinting
                 .map(|hinting| FontHinting::parse(&hinting).unwrap_or_default())
@@ -135,6 +135,8 @@ impl From<FontSettings> for FontOptions {
 
 #[cfg(test)]
 mod tests {
+    use crate::renderer::fonts::font_options::CoarseStyle;
+
     use super::*;
 
     #[test]
@@ -219,5 +221,83 @@ mod tests {
             }
             _ => panic!("Unexpected value"),
         }
+    }
+
+    #[test]
+    fn test_secondary_font_not_found_fallback() {
+        let settings = r#"
+        {
+            "normal": ["Consolas", "Noto Emoji"],
+            "bold": "NotFound",
+            "size": 19
+        }
+        "#;
+
+        let settings: FontSettings = serde_json::from_str(settings).unwrap();
+        let options = FontOptions::from(settings);
+        let style: CoarseStyle = CoarseStyle::permutations()
+            .filter(|style| style.name() == Some("Bold"))
+            .collect::<Vec<CoarseStyle>>()[0];
+        let fonts = options.font_list(style);
+
+        assert_eq!(fonts.len(), 3);
+        assert_eq!(
+            fonts,
+            vec![
+                FontDescription {
+                    family: "NotFound".into(),
+                    style: Some("Bold".into())
+                },
+                FontDescription {
+                    family: "Consolas".into(),
+                    style: Some("Bold".into())
+                },
+                FontDescription {
+                    family: "Noto Emoji".into(),
+                    style: Some("Bold".into())
+                }
+            ]
+        );
+    }
+
+    #[test]
+    fn test_oneof_secondary_font_not_found_fallback() {
+        let settings = r#"
+        {
+            "normal": ["Consolas", "Noto Emoji"],
+            "bold": ["NotFound", "Menlo"],
+            "size": 19
+        }
+        "#;
+
+        let settings: FontSettings = serde_json::from_str(settings).unwrap();
+        let options = FontOptions::from(settings);
+        let style: CoarseStyle = CoarseStyle::permutations()
+            .filter(|style| style.name() == Some("Bold"))
+            .collect::<Vec<CoarseStyle>>()[0];
+        let fonts = options.font_list(style);
+
+        assert_eq!(fonts.len(), 4);
+        assert_eq!(
+            fonts,
+            vec![
+                FontDescription {
+                    family: "NotFound".into(),
+                    style: Some("Bold".into())
+                },
+                FontDescription {
+                    family: "Menlo".into(),
+                    style: Some("Bold".into())
+                },
+                FontDescription {
+                    family: "Consolas".into(),
+                    style: Some("Bold".into())
+                },
+                FontDescription {
+                    family: "Noto Emoji".into(),
+                    style: Some("Bold".into())
+                }
+            ]
+        );
     }
 }

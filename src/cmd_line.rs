@@ -7,6 +7,9 @@ use clap::{
     builder::{styling, FalseyValueParser, Styles},
     ArgAction, Parser,
 };
+use winit::window::CursorIcon;
+#[cfg(target_os = "windows")]
+use wslpath_rs::windows_to_wsl;
 
 #[cfg(target_os = "windows")]
 pub const SRGB_DEFAULT: &str = "1";
@@ -24,7 +27,7 @@ fn get_styles() -> Styles {
 #[derive(Clone, Debug, Parser)]
 #[command(version, about, long_about = None, styles = get_styles())]
 pub struct CmdLineSettings {
-    /// Files to open (plainly appended to NeoVim args)
+    /// Files to open (usually plainly appended to NeoVim args, except when --wsl is used)
     #[arg(
         num_args = ..,
         action = ArgAction::Append,
@@ -61,15 +64,23 @@ pub struct CmdLineSettings {
     #[arg(long = "no-multigrid", env = "NEOVIDE_NO_MULTIGRID", value_parser = FalseyValueParser::new())]
     pub no_multi_grid: bool,
 
+    /// Which mouse cursor icon to use
+    #[arg(
+        long = "mouse-cursor-icon",
+        env = "NEOVIDE_MOUSE_CURSOR_ICON",
+        default_value = "arrow"
+    )]
+    pub mouse_cursor_icon: MouseCursorIcon,
+
     /// Sets title hidden for the window
     #[arg(long = "title-hidden", env = "NEOVIDE_TITLE_HIDDEN", value_parser = FalseyValueParser::new())]
     pub title_hidden: bool,
 
-    /// Spawn a child process and leak it [DEFAULT]
-    #[arg(long = "fork", env = "NEOVIDE_FORK", action = ArgAction::SetTrue, default_value = "1", value_parser = FalseyValueParser::new())]
+    /// Spawn a child process and leak it
+    #[arg(long = "fork", env = "NEOVIDE_FORK", action = ArgAction::SetTrue, default_value = "0", value_parser = FalseyValueParser::new())]
     pub fork: bool,
 
-    /// Be "blocking" and let the shell persist as parent process. Takes precedence over `--fork`.
+    /// Be "blocking" and let the shell persist as parent process. Takes precedence over `--fork`. [DEFAULT]
     #[arg(long = "no-fork", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
     _no_fork: bool,
 
@@ -78,9 +89,13 @@ pub struct CmdLineSettings {
     #[arg(long = "no-idle", env = "NEOVIDE_IDLE", action = ArgAction::SetFalse, value_parser = FalseyValueParser::new())]
     pub idle: bool,
 
+    /// Enable opening multiple files supplied in tabs [DEFAULT]
+    #[arg(long = "tabs", env = "NEOVIDE_TABS", action = ArgAction::SetTrue, default_value = "1", value_parser = FalseyValueParser::new())]
+    pub tabs: bool,
+
     /// Disable opening multiple files supplied in tabs (they're still buffers)
-    #[arg(long = "no-tabs")]
-    pub no_tabs: bool,
+    #[arg(long = "no-tabs", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
+    _no_tabs: bool,
 
     /// Request sRGB when initializing the window, may help with GPUs with weird pixel
     /// formats. Default on Windows.
@@ -130,6 +145,11 @@ pub struct CmdLineSettings {
 
     #[command(flatten)]
     pub geometry: GeometryArgs,
+
+    /// Force opengl on Windows
+    #[cfg(target_os = "windows")]
+    #[arg(long = "opengl", env = "NEOVIDE_OPENGL", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
+    pub opengl: bool,
 }
 
 // geometry, size and maximized are mutually exclusive
@@ -150,23 +170,56 @@ pub struct GeometryArgs {
     pub maximized: bool,
 }
 
+#[derive(ValueEnum, Clone, Debug)]
+pub enum MouseCursorIcon {
+    Arrow,
+    IBeam,
+}
+
+impl MouseCursorIcon {
+    pub fn parse(&self) -> CursorIcon {
+        match self {
+            MouseCursorIcon::Arrow => CursorIcon::Default,
+            MouseCursorIcon::IBeam => CursorIcon::Text,
+        }
+    }
+}
+
 impl Default for CmdLineSettings {
     fn default() -> Self {
         Self::parse_from(iter::empty::<String>())
     }
 }
 
+#[cfg(not(target_os = "windows"))]
+fn handle_wslpaths(paths: Vec<String>, _wsl: bool) -> Vec<String> {
+    paths
+}
+
+/// Convert a Vector of Windows path strings to a Vector of WSL paths if `wsl` is true.
+///
+/// If conversion of a path fails, the path is passed to neovim unchanged.
+#[cfg(target_os = "windows")]
+fn handle_wslpaths(paths: Vec<String>, wsl: bool) -> Vec<String> {
+    if !wsl {
+        return paths;
+    }
+
+    paths
+        .into_iter()
+        .map(|path| {
+            let path = std::fs::canonicalize(&path).map_or(path, |p| p.to_string_lossy().into());
+            format!("'{}'", windows_to_wsl(&path).unwrap_or(path))
+        })
+        .collect()
+}
+
 pub fn handle_command_line_arguments(args: Vec<String>) -> Result<()> {
     let mut cmdline = CmdLineSettings::try_parse_from(args)?;
 
-    // The neovim_args in cmdline are unprocessed, actually add options to it
-    let maybe_tab_flag = (!cmdline.no_tabs).then(|| "-p".to_string());
-
-    cmdline.neovim_args = maybe_tab_flag
-        .into_iter()
-        .chain(mem::take(&mut cmdline.files_to_open))
-        .chain(cmdline.neovim_args)
-        .collect();
+    if cmdline._no_tabs {
+        cmdline.tabs = false;
+    }
 
     if cmdline._no_fork {
         cmdline.fork = false;
@@ -180,20 +233,30 @@ pub fn handle_command_line_arguments(args: Vec<String>) -> Result<()> {
         cmdline.vsync = false;
     }
 
+    cmdline.neovim_args = cmdline
+        .tabs
+        .then(|| "-p".to_string())
+        .into_iter()
+        .chain(handle_wslpaths(
+            mem::take(&mut cmdline.files_to_open),
+            cmdline.wsl,
+        ))
+        .chain(cmdline.neovim_args)
+        .collect();
+
     SETTINGS.set::<CmdLineSettings>(&cmdline);
     Ok(())
 }
 
 #[cfg(test)]
 #[allow(clippy::bool_assert_comparison)] // useful here since the explicit true/false comparison matters
+#[serial_test::serial]
 mod tests {
     use scoped_env::ScopedEnv;
 
     use super::*;
-    use serial_test::serial;
 
     #[test]
-    #[serial]
     fn test_neovim_passthrough() {
         let args: Vec<String> = ["neovide", "--no-tabs", "--", "--clean"]
             .iter()
@@ -208,7 +271,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_files_to_open() {
         let args: Vec<String> = ["neovide", "./foo.txt", "--no-tabs", "./bar.md"]
             .iter()
@@ -223,7 +285,32 @@ mod tests {
     }
 
     #[test]
-    #[serial]
+    #[cfg(target_os = "windows")]
+    fn test_files_to_open_with_wsl() {
+        let args: Vec<String> = [
+            "neovide",
+            "--wsl",
+            "C:\\Users\\MyUser\\foo.txt",
+            "--no-tabs",
+            "C:\\bar.md",
+            "C:\\Program Files (x86)\\Some Application\\Settings.ini",
+        ]
+        .iter()
+        .map(|s| s.to_string())
+        .collect();
+
+        handle_command_line_arguments(args).expect("Could not parse arguments");
+        assert_eq!(
+            SETTINGS.get::<CmdLineSettings>().neovim_args,
+            vec![
+                "'/mnt/c/Users/MyUser/foo.txt'",
+                "'/mnt/c/bar.md'",
+                "'/mnt/c/Program Files (x86)/Some Application/Settings.ini'"
+            ]
+        );
+    }
+
+    #[test]
     fn test_files_to_open_with_passthrough() {
         let args: Vec<String> = [
             "neovide",
@@ -245,7 +332,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_files_to_open_with_flag() {
         let args: Vec<String> = ["neovide", "./foo.txt", "./bar.md", "--grid=42x24"]
             .iter()
@@ -268,7 +354,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_grid() {
         let args: Vec<String> = ["neovide", "--grid=42x24"]
             .iter()
@@ -286,7 +371,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_size() {
         let args: Vec<String> = ["neovide", "--size=420x240"]
             .iter()
@@ -304,7 +388,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_log_to_file() {
         let args: Vec<String> = ["neovide", "--log"].iter().map(|s| s.to_string()).collect();
 
@@ -313,7 +396,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_frameless_flag() {
         let args: Vec<String> = ["neovide", "--frame=full"]
             .iter()
@@ -325,7 +407,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_frameless_environment_variable() {
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
@@ -335,7 +416,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_neovim_bin_arg() {
         let args: Vec<String> = ["neovide", "--neovim-bin", "foo"]
             .iter()
@@ -350,7 +430,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_neovim_bin_environment_variable() {
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
@@ -363,7 +442,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_srgb_default() {
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
@@ -376,7 +454,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_srgb() {
         let args: Vec<String> = ["neovide", "--srgb"]
             .iter()
@@ -388,7 +465,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_nosrgb() {
         let args: Vec<String> = ["neovide", "--no-srgb"]
             .iter()
@@ -400,7 +476,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_no_srgb_environment() {
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
@@ -410,7 +485,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_override_srgb_environment() {
         let args: Vec<String> = ["neovide", "--no-srgb"]
             .iter()
@@ -423,7 +497,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_override_nosrgb_environment() {
         let args: Vec<String> = ["neovide", "--srgb"]
             .iter()
@@ -436,7 +509,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_vsync_default() {
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
@@ -445,7 +517,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_vsync() {
         let args: Vec<String> = ["neovide", "--vsync"]
             .iter()
@@ -457,7 +528,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_novsync() {
         let args: Vec<String> = ["neovide", "--no-vsync"]
             .iter()
@@ -469,7 +539,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_no_vsync_environment() {
         let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
 
@@ -479,7 +548,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_override_vsync_environment() {
         let args: Vec<String> = ["neovide", "--no-vsync"]
             .iter()
@@ -492,7 +560,6 @@ mod tests {
     }
 
     #[test]
-    #[serial]
     fn test_override_novsync_environment() {
         let args: Vec<String> = ["neovide", "--vsync"]
             .iter()

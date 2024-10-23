@@ -6,7 +6,7 @@
     <a href="https://discord.gg/SjFpZdQys6">
         <img src="https://badgen.net/badge/icon/discord?icon=discord&label" alt="Discord">
     </a>
-    <a href="https://matrix.to/#/#neovide_community:gitter.im">
+    <a href="https://matrix.to/#/#neovide:matrix.org">
         <img src="https://matrix.to/img/matrix-badge.svg" alt="Chat On Matrix">
     </a>
     <a href="https://github.com/neovide/neovide/discussions">
@@ -19,7 +19,7 @@
         <a href="https://discord.gg/SjFpZdQys6">
             <img src="https://badgen.net/badge/icon/discord?icon=discord&label" alt="Discord">
         </a>
-        <a href="https://matrix.to/#/#neovide_community:gitter.im">
+        <a href="https://matrix.to/#/#neovide:matrix.org">
             <img src="https://matrix.to/img/matrix-badge.svg" alt="Chat On Matrix">
         </a>
         <a href="https://github.com/neovide/neovide/discussions">
@@ -38,7 +38,7 @@ Where possible there are some graphical improvements, but functionally it should
 terminal UI.
 
 <div class="hide-mobile">
-    <a href="https://github.com/neovide/neovide/releases/latest/download/neovide.dmg.zip">
+    <a href="https://github.com/neovide/neovide/releases/latest/download/Neovide-aarch64-apple-darwin.dmg">
         <button class="button-hover color">Download for macOS</button>
     </a>
     <a href="https://github.com/neovide/neovide/releases/latest/download/neovide.msi">

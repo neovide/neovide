@@ -1,12 +1,9 @@
 use std::{num::NonZeroUsize, sync::Arc};
 
 use itertools::Itertools;
-use log::{debug, error, trace, warn};
+use log::{debug, error, info, trace};
 use lru::LruCache;
-use skia_safe::{
-    graphics::{font_cache_limit, font_cache_used, set_font_cache_limit},
-    TextBlob, TextBlobBuilder,
-};
+use skia_safe::{graphics::set_font_cache_limit, TextBlob, TextBlobBuilder};
 use swash::{
     shape::ShapeContext,
     text::{
@@ -21,6 +18,7 @@ use crate::{
     error_msg,
     profiling::tracy_zone,
     renderer::fonts::{font_loader::*, font_options::*},
+    units::PixelSize,
 };
 
 #[derive(new, Clone, Hash, PartialEq, Eq, Debug)]
@@ -29,14 +27,15 @@ struct ShapeKey {
     pub style: CoarseStyle,
 }
 
+const FONT_CACHE_SIZE: usize = 8 * 1024 * 1024;
+
 pub struct CachingShaper {
     options: FontOptions,
     font_loader: FontLoader,
     blob_cache: LruCache<ShapeKey, Vec<TextBlob>>,
     shape_context: ShapeContext,
     scale_factor: f32,
-    fudge_factor: f32,
-    linespace: i64,
+    linespace: f32,
     font_info: Option<(Metrics, f32)>,
 }
 
@@ -50,8 +49,7 @@ impl CachingShaper {
             blob_cache: LruCache::new(NonZeroUsize::new(10000).unwrap()),
             shape_context: ShapeContext::new(),
             scale_factor,
-            fudge_factor: 1.0,
-            linespace: 0,
+            linespace: 0.0,
             font_info: None,
         };
         shaper.reset_font_loader();
@@ -74,7 +72,7 @@ impl CachingShaper {
 
     pub fn current_size(&self) -> f32 {
         let min_font_size = 1.0;
-        (self.options.size * self.scale_factor * self.fudge_factor).max(min_font_size)
+        (self.options.size * self.scale_factor).max(min_font_size)
     }
 
     pub fn update_scale_factor(&mut self, scale_factor: f32) {
@@ -132,11 +130,11 @@ impl CachingShaper {
         }
     }
 
-    pub fn update_linespace(&mut self, linespace: i64) {
+    pub fn update_linespace(&mut self, linespace: f32) {
         debug!("Updating linespace: {}", linespace);
 
-        let font_height = self.font_base_dimensions().1;
-        let impossible_linespace = font_height as i64 + linespace <= 0;
+        let font_height = self.font_base_dimensions().height;
+        let impossible_linespace = font_height + linespace <= 0.0;
 
         if !impossible_linespace {
             debug!("Linespace updated to: {linespace}");
@@ -153,31 +151,17 @@ impl CachingShaper {
     }
 
     fn reset_font_loader(&mut self) {
-        self.fudge_factor = 1.0;
+        tracy_zone!("reset_font_loader");
         self.font_info = None;
-        let mut font_size = self.current_size();
-        debug!("Original font_size: {:.2}px", font_size);
+        let font_size = self.current_size();
 
         self.font_loader = FontLoader::new(font_size);
-        let (metrics, font_width) = self.info();
+        let (_, font_width) = self.info();
+        info!(
+            "Reset Font Loader: font_size: {:.2}px, font_width: {:.2}px",
+            font_size, font_width
+        );
 
-        debug!("Original font_width: {:.2}px", font_width);
-
-        if !self.options.allow_float_size {
-            // Calculate the new fudge factor required to scale the font width to the nearest exact pixel
-            debug!(
-                "Font width: {:.2}px (avg: {:.2}px)",
-                font_width, metrics.average_width
-            );
-            let min_fudged_width = 1.0;
-            self.fudge_factor = font_width.round().max(min_fudged_width) / font_width;
-            debug!("Fudge factor: {:.2}", self.fudge_factor);
-            font_size = self.current_size();
-            self.font_info = None;
-            self.font_loader = FontLoader::new(font_size);
-            debug!("Fudged font size: {:.2}px", font_size);
-            debug!("Fudged font width: {:.2}px", self.info().1);
-        }
         self.blob_cache.clear();
     }
 
@@ -215,27 +199,33 @@ impl CachingShaper {
         self.info().0
     }
 
-    pub fn font_base_dimensions(&mut self) -> (u64, u64) {
+    pub fn font_base_dimensions(&mut self) -> PixelSize<f32> {
         let (metrics, glyph_advance) = self.info();
 
-        let bare_font_height = (metrics.ascent + metrics.descent + metrics.leading).ceil();
-        let font_height = bare_font_height as i64 + self.linespace;
-        let font_width = (glyph_advance + self.options.width + 0.5).floor() as u64;
+        let bare_font_height = metrics.ascent + metrics.descent + metrics.leading;
+        // assuming that linespace is checked on receive for validity
+        let font_height = (bare_font_height + self.linespace).ceil();
+        let font_width = glyph_advance + self.options.width;
 
-        (
-            font_width,
-            font_height as u64, // assuming that linespace is checked on receive for
-                                // validity
-        )
+        (font_width, font_height).into()
     }
 
-    pub fn underline_position(&mut self) -> u64 {
-        self.metrics().underline_offset as u64
-    }
-
-    pub fn y_adjustment(&mut self) -> u64 {
+    pub fn underline_position(&mut self) -> f32 {
         let metrics = self.metrics();
-        (metrics.ascent + metrics.leading + self.linespace as f32 / 2.).ceil() as u64
+        self.baseline_offset() - metrics.underline_offset
+    }
+
+    pub fn stroke_size(&mut self) -> f32 {
+        self.metrics().stroke_size
+    }
+
+    pub fn baseline_offset(&mut self) -> f32 {
+        let metrics = self.metrics();
+        // NOTE: leading is also called linegap and should be equally distributed on the top and
+        // bottom, so it's centered like our linespace settings. That's how it works on the web,
+        // but some desktop applications only use the top according to:
+        // https://googlefonts.github.io/gf-guide/metrics.html#8-linegap-values-must-be-0
+        metrics.ascent + (metrics.leading + self.linespace) / 2.0
     }
 
     fn build_clusters(
@@ -338,7 +328,7 @@ impl CachingShaper {
                     // Last Resort covers all of the unicode space so we will always have a fallback
                     results.push((
                         cluster.to_owned(),
-                        self.font_loader.get_or_load_last_resort(),
+                        self.font_loader.get_or_load_last_resort().unwrap(),
                     ));
                 }
             }
@@ -371,21 +361,15 @@ impl CachingShaper {
         grouped_results
     }
 
-    pub fn adjust_font_cache_size(&self) {
-        let current_font_cache_size = font_cache_limit() as f32;
-        let percent_font_cache_used = font_cache_used() as f32 / current_font_cache_size;
-        if percent_font_cache_used > 0.9 {
-            warn!(
-                "Font cache is {}% full, increasing cache size",
-                percent_font_cache_used * 100.0
-            );
-            set_font_cache_limit((percent_font_cache_used * 1.5) as usize);
-        }
+    pub fn cleanup_font_cache(&self) {
+        tracy_zone!("purge_font_cache");
+        set_font_cache_limit(FONT_CACHE_SIZE / 2);
+        set_font_cache_limit(FONT_CACHE_SIZE);
     }
 
     pub fn shape(&mut self, text: String, style: CoarseStyle) -> Vec<TextBlob> {
         let current_size = self.current_size();
-        let (glyph_width, ..) = self.font_base_dimensions();
+        let glyph_width = self.font_base_dimensions().width;
 
         let mut resulting_blobs = Vec::new();
 
@@ -418,7 +402,7 @@ impl CachingShaper {
 
             shaper.shape_with(|glyph_cluster| {
                 for glyph in glyph_cluster.glyphs {
-                    let position = ((glyph.data as u64 * glyph_width) as f32, glyph.y);
+                    let position = (glyph.data as f32 * glyph_width, glyph.y);
                     glyph_data.push((glyph.id, position));
                 }
             });
@@ -438,8 +422,6 @@ impl CachingShaper {
             let blob = blob_builder.make();
             resulting_blobs.push(blob.expect("Could not create textblob"));
         }
-
-        self.adjust_font_cache_size();
 
         resulting_blobs
     }

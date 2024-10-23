@@ -12,23 +12,22 @@ use std::{
     collections::HashMap,
     convert::TryInto,
     fmt::Debug,
+    sync::LazyLock,
 };
 use winit::event_loop::EventLoopProxy;
 
 use crate::{bridge::NeovimWriter, window::UserEvent};
 pub use from_value::ParseFromValue;
 pub use window_size::{
-    load_last_window_settings, save_window_size, PersistentWindowSettings, DEFAULT_GRID_SIZE,
-    MAX_GRID_SIZE, MIN_GRID_SIZE,
+    clamped_grid_size, load_last_window_settings, save_window_size, PersistentWindowSettings,
+    DEFAULT_GRID_SIZE, MIN_GRID_SIZE,
 };
 
 mod config;
 pub use config::{Config, HotReloadConfigs};
 pub use font::FontSettings;
 
-lazy_static! {
-    pub static ref SETTINGS: Settings = Settings::new();
-}
+pub static SETTINGS: LazyLock<Settings> = LazyLock::new(Settings::new);
 
 pub trait SettingGroup {
     type ChangedEvent: Debug + Clone + Send + Sync + Any;

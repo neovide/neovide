@@ -3,17 +3,17 @@ mod cursor_vfx;
 
 use std::collections::HashMap;
 
-use skia_safe::{op, Canvas, Paint, Path, Point};
-use winit::event::{Event, WindowEvent};
+use skia_safe::{op, Canvas, Paint, Path};
+use winit::event::WindowEvent;
 
 use crate::{
     bridge::EditorMode,
     editor::{Cursor, CursorShape},
     profiling::{tracy_plot, tracy_zone},
-    renderer::animation_utils::*,
-    renderer::{GridRenderer, RenderedWindow},
+    renderer::{animation_utils::*, GridRenderer, RenderedWindow},
     settings::{ParseFromValue, SETTINGS},
-    window::{ShouldRender, UserEvent},
+    units::{to_skia_point, GridPos, GridScale, PixelPos, PixelSize, PixelVec},
+    window::ShouldRender,
 };
 
 use blink::*;
@@ -33,6 +33,7 @@ pub struct CursorSettings {
     animate_command_line: bool,
     trail_size: f32,
     unfocused_outline_width: f32,
+    smooth_blink: bool,
 
     vfx_mode: cursor_vfx::VfxMode,
     vfx_opacity: f32,
@@ -53,6 +54,7 @@ impl Default for CursorSettings {
             animate_command_line: true,
             trail_size: 0.7,
             unfocused_outline_width: 1.0 / 8.0,
+            smooth_blink: false,
             vfx_mode: cursor_vfx::VfxMode::Disabled,
             vfx_opacity: 200.0,
             vfx_particle_lifetime: 1.2,
@@ -66,10 +68,10 @@ impl Default for CursorSettings {
 
 #[derive(Debug, Clone)]
 pub struct Corner {
-    start_position: Point,
-    current_position: Point,
-    relative_position: Point,
-    previous_destination: Point,
+    start_position: PixelPos<f32>,
+    current_position: PixelPos<f32>,
+    relative_position: GridPos<f32>,
+    previous_destination: PixelPos<f32>,
     length_multiplier: f32,
     t: f32,
 }
@@ -77,10 +79,10 @@ pub struct Corner {
 impl Corner {
     pub fn new() -> Corner {
         Corner {
-            start_position: Point::new(0.0, 0.0),
-            current_position: Point::new(0.0, 0.0),
-            relative_position: Point::new(0.0, 0.0),
-            previous_destination: Point::new(-1000.0, -1000.0),
+            start_position: PixelPos::default(),
+            current_position: PixelPos::default(),
+            relative_position: GridPos::<f32>::default(),
+            previous_destination: PixelPos::new(-1000.0, -1000.0),
             length_multiplier: 1.0,
             t: 0.0,
         }
@@ -89,8 +91,8 @@ impl Corner {
     pub fn update(
         &mut self,
         settings: &CursorSettings,
-        font_dimensions: Point,
-        destination: Point,
+        cursor_dimensions: GridScale,
+        destination: PixelPos<f32>,
         dt: f32,
         immediate_movement: bool,
     ) -> bool {
@@ -109,18 +111,14 @@ impl Corner {
         }
 
         // Check first if animation's over
-        if (self.t - 1.0).abs() < std::f32::EPSILON {
+        if (self.t - 1.0).abs() < f32::EPSILON {
             return false;
         }
 
         // Calculate window-space destination for corner
-        let relative_scaled_position: Point = (
-            self.relative_position.x * font_dimensions.x,
-            self.relative_position.y * font_dimensions.y,
-        )
-            .into();
+        let relative_scaled_position = self.relative_position * cursor_dimensions;
 
-        let corner_destination = destination + relative_scaled_position;
+        let corner_destination = destination + relative_scaled_position.to_vector();
 
         if immediate_movement {
             self.t = 1.0;
@@ -132,27 +130,22 @@ impl Corner {
         // with the direction of motion. Corners in front will move faster than corners in the
         // back
         let travel_direction = {
-            let mut d = destination - self.current_position;
-            d.normalize();
-            d
+            let d = destination - self.current_position;
+            d.normalize()
         };
 
-        let corner_direction = {
-            let mut d = self.relative_position;
-            d.normalize();
-            d
-        };
+        let corner_direction = self.relative_position.as_vector().normalize().cast();
 
         let direction_alignment = travel_direction.dot(corner_direction);
 
-        if (self.t - 1.0).abs() < std::f32::EPSILON {
+        if (self.t - 1.0).abs() < f32::EPSILON {
             // We are at destination, move t out of 0-1 range to stop the animation
             self.t = 2.0;
         } else {
             let corner_dt = dt
                 * lerp(
                     1.0,
-                    (1.0 - settings.trail_size).max(0.0).min(1.0),
+                    (1.0 - settings.trail_size).clamp(0.0, 1.0),
                     -direction_alignment,
                 );
             self.t =
@@ -173,7 +166,7 @@ impl Corner {
 pub struct CursorRenderer {
     pub corners: Vec<Corner>,
     cursor: Cursor,
-    destination: Point,
+    destination: PixelPos<f32>,
     blink_status: BlinkStatus,
     previous_cursor_shape: Option<CursorShape>,
     previous_editor_mode: EditorMode,
@@ -199,16 +192,9 @@ impl CursorRenderer {
         renderer
     }
 
-    pub fn handle_event(&mut self, event: &Event<UserEvent>) -> bool {
-        if let Event::WindowEvent {
-            event: WindowEvent::Focused(is_focused),
-            ..
-        } = event
-        {
+    pub fn handle_event(&mut self, event: &WindowEvent) {
+        if let WindowEvent::Focused(is_focused) = event {
             self.window_has_focus = *is_focused;
-            true
-        } else {
-            false
         }
     }
 
@@ -248,35 +234,31 @@ impl CursorRenderer {
 
     pub fn update_cursor_destination(
         &mut self,
-        (font_width, font_height): (u64, u64),
+        grid_scale: GridScale,
         windows: &HashMap<u64, RenderedWindow>,
     ) {
-        let (cursor_grid_x, cursor_grid_y) = self.cursor.grid_position;
-
+        let cursor_grid_position = GridPos::<u64>::from(self.cursor.grid_position)
+            .try_cast()
+            .unwrap();
         if let Some(window) = windows.get(&self.cursor.parent_window_id) {
-            let grid_x = cursor_grid_x as f32 + window.grid_current_position.x;
-            let mut grid_y = cursor_grid_y as f32 + window.grid_current_position.y
-                - window.scroll_animation.position;
+            let mut grid = cursor_grid_position + window.grid_current_position.to_vector();
+            grid.y -= window.scroll_animation.position;
 
-            let top_border = (window.top_border.len() as u64) as f32;
-            let bottom_border = (window.bottom_border.len() as u64) as f32;
+            let top_border = window.viewport_margins.top as f32;
+            let bottom_border = window.viewport_margins.bottom as f32;
 
             // Prevent the cursor from targeting a position outside its current window. Since only
             // the vertical direction is effected by scrolling, we only have to clamp the vertical
             // grid position.
-            grid_y = grid_y.max(window.grid_current_position.y + top_border).min(
+            grid.y = grid.y.max(window.grid_current_position.y + top_border).min(
                 window.grid_current_position.y + window.grid_size.height as f32
                     - 1.0
                     - bottom_border,
             );
 
-            self.destination = (grid_x * font_width as f32, grid_y * font_height as f32).into();
+            self.destination = grid * grid_scale;
         } else {
-            self.destination = (
-                (cursor_grid_x * font_width) as f32,
-                (cursor_grid_y * font_height) as f32,
-            )
-                .into();
+            self.destination = cursor_grid_position * grid_scale;
         }
     }
 
@@ -286,8 +268,13 @@ impl CursorRenderer {
 
     pub fn draw(&mut self, grid_renderer: &mut GridRenderer, canvas: &Canvas) {
         tracy_zone!("cursor_draw");
-        let render = self.blink_status.should_render();
         let settings = SETTINGS.get::<CursorSettings>();
+        let render = self.blink_status.should_render() || settings.smooth_blink;
+        let opacity = match settings.smooth_blink {
+            true => self.blink_status.opacity(),
+            false => 1.0,
+        };
+        let alpha = self.cursor.alpha() as f32;
 
         let mut paint = Paint::new(skia_safe::colors::WHITE, None);
         paint.set_anti_alias(settings.antialiasing);
@@ -302,7 +289,7 @@ impl CursorRenderer {
             .cursor
             .background(&grid_renderer.default_style.colors)
             .to_color()
-            .with_a(self.cursor.alpha());
+            .with_a((opacity * alpha) as u8);
         paint.set_color(background_color);
 
         let path = if self.window_has_focus || self.cursor.shape != CursorShape::Block {
@@ -317,13 +304,13 @@ impl CursorRenderer {
             .cursor
             .foreground(&grid_renderer.default_style.colors)
             .to_color()
-            .with_a(self.cursor.alpha());
+            .with_a((opacity * alpha) as u8);
         paint.set_color(foreground_color);
 
         canvas.save();
         canvas.clip_path(&path, None, Some(false));
 
-        let y_adjustment = grid_renderer.shaper.y_adjustment();
+        let baseline_offset = grid_renderer.shaper.baseline_offset();
         let style = &self.cursor.grid_cell.1;
         let coarse_style = style.as_ref().map(|style| style.into()).unwrap_or_default();
 
@@ -332,7 +319,7 @@ impl CursorRenderer {
         for blob in blobs.iter() {
             canvas.draw_text_blob(
                 blob,
-                (self.destination.x, self.destination.y + y_adjustment as f32),
+                (self.destination.x, self.destination.y + baseline_offset),
                 &paint,
             );
         }
@@ -358,23 +345,19 @@ impl CursorRenderer {
             self.previous_vfx_mode = settings.vfx_mode.clone();
         }
 
-        let mut cursor_width = grid_renderer.font_dimensions.width;
+        let mut cursor_width = grid_renderer.grid_scale.width();
         if self.cursor.double_width && self.cursor.shape == CursorShape::Block {
-            cursor_width *= 2;
+            cursor_width *= 2.0;
         }
 
-        let cursor_dimensions: Point = (
-            cursor_width as f32,
-            grid_renderer.font_dimensions.height as f32,
-        )
-            .into();
+        let cursor_dimensions = PixelSize::new(cursor_width, grid_renderer.grid_scale.height());
 
         let in_insert_mode = matches!(current_mode, EditorMode::Insert);
 
         let changed_to_from_cmdline = !matches!(self.previous_editor_mode, EditorMode::CmdLine)
             ^ matches!(current_mode, EditorMode::CmdLine);
 
-        let center_destination = self.destination + cursor_dimensions * 0.5;
+        let center_destination = self.destination + cursor_dimensions.to_vector() * 0.5;
 
         if self.previous_cursor_shape.as_ref() != Some(&self.cursor.shape) {
             self.previous_cursor_shape = Some(self.cursor.shape.clone());
@@ -392,13 +375,13 @@ impl CursorRenderer {
 
         let mut animating = false;
 
-        if !center_destination.is_zero() {
+        if center_destination != PixelPos::ZERO {
             let immediate_movement = !settings.animate_in_insert_mode && in_insert_mode
                 || !settings.animate_command_line && !changed_to_from_cmdline;
             for corner in self.corners.iter_mut() {
                 let corner_animating = corner.update(
                     &settings,
-                    cursor_dimensions,
+                    GridScale::new(cursor_dimensions),
                     center_destination,
                     dt,
                     immediate_movement,
@@ -422,6 +405,10 @@ impl CursorRenderer {
             animating |= vfx_animating;
         }
 
+        let blink_animating = settings.smooth_blink && self.blink_status.should_animate();
+
+        animating |= blink_animating;
+
         if !animating {
             self.previous_editor_mode = current_mode.clone();
         }
@@ -434,10 +421,10 @@ impl CursorRenderer {
         // corners.
         let mut path = Path::new();
 
-        path.move_to(self.corners[0].current_position);
-        path.line_to(self.corners[1].current_position);
-        path.line_to(self.corners[2].current_position);
-        path.line_to(self.corners[3].current_position);
+        path.move_to(to_skia_point(self.corners[0].current_position));
+        path.line_to(to_skia_point(self.corners[1].current_position));
+        path.line_to(to_skia_point(self.corners[2].current_position));
+        path.line_to(to_skia_point(self.corners[3].current_position));
         path.close();
 
         canvas.draw_path(&path, paint);
@@ -446,13 +433,13 @@ impl CursorRenderer {
 
     fn draw_rectangular_outline(&self, canvas: &Canvas, paint: &Paint, outline_width: f32) -> Path {
         let mut rectangle = Path::new();
-        rectangle.move_to(self.corners[0].current_position);
-        rectangle.line_to(self.corners[1].current_position);
-        rectangle.line_to(self.corners[2].current_position);
-        rectangle.line_to(self.corners[3].current_position);
+        rectangle.move_to(to_skia_point(self.corners[0].current_position));
+        rectangle.line_to(to_skia_point(self.corners[1].current_position));
+        rectangle.line_to(to_skia_point(self.corners[2].current_position));
+        rectangle.line_to(to_skia_point(self.corners[3].current_position));
         rectangle.close();
 
-        let offsets: [Point; 4] = [
+        let offsets: [PixelVec<f32>; 4] = [
             (outline_width, outline_width).into(),
             (-outline_width, outline_width).into(),
             (-outline_width, -outline_width).into(),
@@ -460,10 +447,10 @@ impl CursorRenderer {
         ];
 
         let mut subtract = Path::new();
-        subtract.move_to(self.corners[0].current_position + offsets[0]);
-        subtract.line_to(self.corners[1].current_position + offsets[1]);
-        subtract.line_to(self.corners[2].current_position + offsets[2]);
-        subtract.line_to(self.corners[3].current_position + offsets[3]);
+        subtract.move_to(to_skia_point(self.corners[0].current_position + offsets[0]));
+        subtract.line_to(to_skia_point(self.corners[1].current_position + offsets[1]));
+        subtract.line_to(to_skia_point(self.corners[2].current_position + offsets[2]));
+        subtract.line_to(to_skia_point(self.corners[3].current_position + offsets[3]));
         subtract.close();
 
         // We have two "rectangles"; create an outline path by subtracting the smaller rectangle
@@ -474,7 +461,7 @@ impl CursorRenderer {
         path
     }
 
-    pub fn get_current_position(&self) -> Point {
+    pub fn get_destination(&self) -> PixelPos<f32> {
         self.destination
     }
 }

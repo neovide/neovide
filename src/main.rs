@@ -2,9 +2,11 @@
 // Test naming occasionally uses camelCase with underscores to separate sections of
 // the test name.
 #![cfg_attr(test, allow(non_snake_case))]
+#![allow(unknown_lints)]
 #[macro_use]
 extern crate neovide_derive;
 
+#[cfg(target_os = "windows")]
 #[cfg(test)]
 #[macro_use]
 extern crate approx;
@@ -24,6 +26,7 @@ mod profiling;
 mod renderer;
 mod running_tracker;
 mod settings;
+mod units;
 mod utils;
 mod window;
 
@@ -32,16 +35,14 @@ mod windows_utils;
 
 #[macro_use]
 extern crate derive_new;
-#[macro_use]
-extern crate lazy_static;
 
 use anyhow::Result;
 use log::trace;
 use std::env::{self, args};
 use std::fs::{File, OpenOptions};
 use std::io::Write;
-use std::panic::{set_hook, PanicInfo};
-use std::time::SystemTime;
+use std::panic::{set_hook, PanicHookInfo};
+use std::time::{Duration, SystemTime};
 use time::macros::format_description;
 use time::OffsetDateTime;
 use winit::event_loop::EventLoopProxy;
@@ -57,8 +58,7 @@ use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 #[cfg_attr(target_os = "windows", allow(unused_imports))]
 use settings::SETTINGS;
 use window::{
-    create_event_loop, create_window, determine_window_size, main_loop, UserEvent, WindowSettings,
-    WindowSize,
+    create_event_loop, determine_window_size, UpdateLoop, UserEvent, WindowSettings, WindowSize,
 };
 
 pub use channel_utils::*;
@@ -88,14 +88,27 @@ fn main() -> NeovideExitCode {
         windows_fix_dpi();
     }
 
+    // This variable is set by the AppImage runtime and causes problems for child processes
+    #[cfg(target_os = "linux")]
+    env::remove_var("ARGV0");
+
     let event_loop = create_event_loop();
+    clipboard::init(&event_loop);
 
     match setup(event_loop.create_proxy()) {
         Err(err) => handle_startup_errors(err, event_loop).into(),
-        Ok((window_size, font_settings, _runtime)) => {
-            clipboard::init(&event_loop);
-            let window = create_window(&event_loop, &window_size);
-            main_loop(window, window_size, font_settings, event_loop).into()
+        Ok((window_size, font_settings, runtime)) => {
+            let mut update_loop =
+                UpdateLoop::new(window_size, font_settings, event_loop.create_proxy());
+
+            let res = event_loop.run_app(&mut update_loop).into();
+            // Wait a little bit more and force Nevoim to exit after that.
+            // This should not be required, but Neovim through libuv spawns childprocesses that inherits all the handles
+            // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
+            // read will hang forever, waiting for more data to read.
+            // See https://github.com/neovide/neovide/issues/2182 (which includes links to libuv issues)
+            runtime.runtime.shutdown_timeout(Duration::from_millis(500));
+            res
         }
     }
 }
@@ -172,6 +185,11 @@ fn setup(
     //
     // The Window event loop sends UICommand to the bridge, which forwards them to Neovim. It also
     // reads `DrawCommand`, `SettingChanged`, and `WindowCommand` from the other components.
+
+    SETTINGS.register::<WindowSettings>();
+    SETTINGS.register::<RendererSettings>();
+    SETTINGS.register::<CursorSettings>();
+
     let config = Config::init();
     Config::watch_config_file(config.clone(), proxy.clone());
 
@@ -187,14 +205,14 @@ fn setup(
 
     trace!("Neovide version: {}", crate_version!());
 
-    SETTINGS.register::<WindowSettings>();
-    SETTINGS.register::<RendererSettings>();
-    SETTINGS.register::<CursorSettings>();
     let window_settings = load_last_window_settings().ok();
     let window_size = determine_window_size(window_settings.as_ref());
     let grid_size = match window_size {
         WindowSize::Grid(grid_size) => Some(grid_size),
+        // Clippy wrongly suggests to use unwrap or default here
+        #[allow(clippy::manual_unwrap_or_default)]
         _ => match window_settings {
+            Some(PersistentWindowSettings::Maximized { grid_size, .. }) => grid_size,
             Some(PersistentWindowSettings::Windowed { grid_size, .. }) => grid_size,
             _ => None,
         },
@@ -232,7 +250,8 @@ fn maybe_disown() {
 
     let settings = SETTINGS.get::<CmdLineSettings>();
 
-    if cfg!(debug_assertions) || !settings.fork {
+    // Never fork unless a tty is attached
+    if !settings.fork || !utils::is_tty() {
         return;
     }
 
@@ -241,7 +260,6 @@ fn maybe_disown() {
             .stdin(process::Stdio::null())
             .stdout(process::Stdio::null())
             .stderr(process::Stdio::null())
-            .arg("--no-fork")
             .args(env::args().skip(1))
             .spawn()
             .is_ok());
@@ -251,7 +269,7 @@ fn maybe_disown() {
     }
 }
 
-fn generate_stderr_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) -> String {
+fn generate_stderr_log_message(panic_info: &PanicHookInfo, backtrace: &Backtrace) -> String {
     if cfg!(debug_assertions) {
         let print_backtrace = match env::var("RUST_BACKTRACE") {
             Ok(x) => x == "full" || x == "1",
@@ -275,7 +293,7 @@ fn generate_stderr_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) ->
     }
 }
 
-fn log_panic_to_file(panic_info: &PanicInfo, backtrace: &Backtrace) {
+fn log_panic_to_file(panic_info: &PanicHookInfo, backtrace: &Backtrace) {
     let log_msg = generate_panic_log_message(panic_info, backtrace);
 
     let mut file = match OpenOptions::new()
@@ -296,7 +314,7 @@ fn log_panic_to_file(panic_info: &PanicInfo, backtrace: &Backtrace) {
     }
 }
 
-fn generate_panic_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) -> String {
+fn generate_panic_log_message(panic_info: &PanicHookInfo, backtrace: &Backtrace) -> String {
     let system_time: OffsetDateTime = SystemTime::now().into();
 
     let timestamp = system_time
@@ -311,7 +329,7 @@ fn generate_panic_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) -> 
     format!("{full_panic_msg}\n{backtrace:?}\n")
 }
 
-fn generate_panic_message(panic_info: &PanicInfo) -> String {
+fn generate_panic_message(panic_info: &PanicHookInfo) -> String {
     // As per the documentation for `.location()`(https://doc.rust-lang.org/std/panic/struct.PanicInfo.html#method.location)
     // the call to location cannot currently return `None`, so we unwrap.
     let location_info = panic_info.location().unwrap();

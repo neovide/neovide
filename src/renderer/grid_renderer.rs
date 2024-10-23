@@ -1,17 +1,16 @@
 use std::sync::Arc;
 
 use log::trace;
-use skia_safe::{
-    colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Path, Point, Rect, HSV,
-};
-use winit::dpi::PhysicalSize;
+use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Path, HSV};
 
 use crate::{
-    dimensions::Dimensions,
     editor::{Colors, Style, UnderlineStyle},
     profiling::tracy_zone,
     renderer::{CachingShaper, RendererSettings},
     settings::*,
+    units::{
+        to_skia_point, to_skia_rect, GridPos, GridScale, GridSize, PixelPos, PixelRect, PixelVec,
+    },
 };
 
 use super::fonts::font_options::FontOptions;
@@ -20,14 +19,15 @@ pub struct GridRenderer {
     pub shaper: CachingShaper,
     pub default_style: Arc<Style>,
     pub em_size: f32,
-    pub font_dimensions: Dimensions,
-    pub scale_factor: f64,
+    pub grid_scale: GridScale,
     pub is_ready: bool,
 }
 
 /// Struct with named fields to be returned from draw_background
 pub struct BackgroundInfo {
     pub custom_color: bool,
+    // This should probably be used
+    #[allow(unused)]
     pub transparent: bool,
 }
 
@@ -40,30 +40,19 @@ impl GridRenderer {
             Some(colors::GREY),
         )));
         let em_size = shaper.current_size();
-        let font_dimensions: Dimensions = shaper.font_base_dimensions().into();
+        let font_dimensions = shaper.font_base_dimensions();
 
         GridRenderer {
             shaper,
             default_style,
             em_size,
-            font_dimensions,
-            scale_factor,
+            grid_scale: GridScale::new(font_dimensions),
             is_ready: false,
         }
     }
 
     pub fn font_names(&self) -> Vec<String> {
         self.shaper.font_names()
-    }
-
-    /// Convert PhysicalSize to grid size.
-    pub fn convert_physical_to_grid(&self, physical: PhysicalSize<u32>) -> Dimensions {
-        Dimensions::from(physical) / self.font_dimensions
-    }
-
-    /// Convert grid size to PhysicalSize.
-    pub fn convert_grid_to_physical(&self, grid: Dimensions) -> PhysicalSize<u32> {
-        (grid * self.font_dimensions).into()
     }
 
     pub fn handle_scale_factor_update(&mut self, scale_factor: f64) {
@@ -81,23 +70,22 @@ impl GridRenderer {
         self.update_font_dimensions();
     }
 
-    pub fn update_linespace(&mut self, linespace_setting: i64) {
+    pub fn update_linespace(&mut self, linespace_setting: f32) {
         self.shaper.update_linespace(linespace_setting);
         self.update_font_dimensions();
     }
 
     fn update_font_dimensions(&mut self) {
         self.em_size = self.shaper.current_size();
-        self.font_dimensions = self.shaper.font_base_dimensions().into();
+        self.grid_scale = GridScale::new(self.shaper.font_base_dimensions());
         self.is_ready = true;
-        trace!("Updated font dimensions: {:?}", self.font_dimensions,);
+        trace!("Updated font dimensions: {:?}", self.grid_scale);
     }
 
-    fn compute_text_region(&self, grid_position: (u64, u64), cell_width: u64) -> Rect {
-        let (x, y) = grid_position * self.font_dimensions;
-        let width = cell_width * self.font_dimensions.width;
-        let height = self.font_dimensions.height;
-        Rect::new(x as f32, y as f32, (x + width) as f32, (y + height) as f32)
+    fn compute_text_region(&self, grid_position: GridPos<i32>, cell_width: i32) -> PixelRect<f32> {
+        let pos = grid_position * self.grid_scale;
+        let size = GridSize::new(cell_width, 1) * self.grid_scale;
+        PixelRect::from_origin_and_size(pos, size)
     }
 
     pub fn get_default_background(&self) -> Color {
@@ -105,15 +93,11 @@ impl GridRenderer {
     }
 
     /// Draws a single background cell with the same style
-    ///
-    /// Returns a boolean tuple that describes the cell:
-    ///     The first element is true if the cell has a custom background color
-    ///     The second element is true if the cell has transparency
     pub fn draw_background(
         &mut self,
         canvas: &Canvas,
-        grid_position: (u64, u64),
-        cell_width: u64,
+        grid_position: GridPos<i32>,
+        cell_width: i32,
         style: &Option<Arc<Style>>,
     ) -> BackgroundInfo {
         tracy_zone!("draw_background");
@@ -147,7 +131,7 @@ impl GridRenderer {
 
         let custom_color = paint.color4f() != self.default_style.colors.background.unwrap();
         if custom_color {
-            canvas.draw_rect(region, &paint);
+            canvas.draw_rect(to_skia_rect(&region), &paint);
         }
 
         BackgroundInfo {
@@ -162,42 +146,35 @@ impl GridRenderer {
         &mut self,
         canvas: &Canvas,
         text: &str,
-        grid_position: (u64, u64),
-        cell_width: u64,
+        grid_position: GridPos<i32>,
+        cell_width: i32,
         style: &Option<Arc<Style>>,
     ) -> bool {
         tracy_zone!("draw_foreground");
-        let (x, y) = grid_position * self.font_dimensions;
-        let width = cell_width * self.font_dimensions.width;
+        let pos = grid_position * self.grid_scale;
+        let size = GridSize::new(cell_width, 0) * self.grid_scale;
+        let width = size.width;
 
         let style = style.as_ref().unwrap_or(&self.default_style);
         let mut drawn = false;
 
         // We don't want to clip text in the x position, only the y so we add a buffer of 1
         // character on either side of the region so that we clip vertically but not horizontally.
-        let (grid_x, grid_y) = grid_position;
-        let clip_position = (grid_x.saturating_sub(1), grid_y);
+        let clip_position = (grid_position.x.saturating_sub(1), grid_position.y).into();
         let region = self.compute_text_region(clip_position, cell_width + 2);
 
         if let Some(underline_style) = style.underline {
-            let line_position = self.shaper.underline_position();
-            let p1 = (
-                x as f32,
-                (y - line_position + self.font_dimensions.height) as f32,
-            );
-            let p2 = (
-                (x + width) as f32,
-                (y - line_position + self.font_dimensions.height) as f32,
-            );
+            let stroke_size = self.shaper.stroke_size();
+            let underline_position = self.shaper.underline_position();
+            let p1 = pos + PixelVec::new(0.0, underline_position);
+            let p2 = pos + PixelVec::new(width, underline_position);
 
-            self.draw_underline(canvas, style, underline_style, p1.into(), p2.into());
+            self.draw_underline(canvas, style, underline_style, stroke_size, p1, p2);
             drawn = true;
         }
 
         canvas.save();
-        canvas.clip_rect(region, None, Some(false));
-
-        let y_adjustment = self.shaper.y_adjustment();
+        canvas.clip_rect(to_skia_rect(&region), None, Some(false));
 
         let mut paint = Paint::default();
         paint.set_anti_alias(false);
@@ -218,7 +195,10 @@ impl GridRenderer {
         let leading_space_bytes = text.len() - trimmed.len();
         let leading_spaces = text[..leading_space_bytes].chars().count();
         let trimmed = trimmed.trim_end();
-        let x_adjustment = leading_spaces as u64 * self.font_dimensions.width;
+        let adjustment = PixelVec::new(
+            leading_spaces as f32 * self.grid_scale.width(),
+            self.shaper.baseline_offset(),
+        );
 
         if !trimmed.is_empty() {
             for blob in self
@@ -227,21 +207,17 @@ impl GridRenderer {
                 .iter()
             {
                 tracy_zone!("draw_text_blob");
-                canvas.draw_text_blob(
-                    blob,
-                    ((x + x_adjustment) as f32, (y + y_adjustment) as f32),
-                    &paint,
-                );
+                canvas.draw_text_blob(blob, to_skia_point(pos + adjustment), &paint);
                 drawn = true;
             }
         }
 
         if style.strikethrough {
-            let line_position = region.center_y();
+            let line_position = region.center().y;
             paint.set_color(style.special(&self.default_style.colors).to_color());
             canvas.draw_line(
-                (x as f32, line_position),
-                ((x + width) as f32, line_position),
+                (pos.x, line_position),
+                (pos.x + width, line_position),
                 &paint,
             );
             drawn = true;
@@ -256,8 +232,9 @@ impl GridRenderer {
         canvas: &Canvas,
         style: &Arc<Style>,
         underline_style: UnderlineStyle,
-        p1: Point,
-        p2: Point,
+        stroke_size: f32,
+        p1: PixelPos<f32>,
+        p2: PixelPos<f32>,
     ) {
         tracy_zone!("draw_underline");
         canvas.save();
@@ -266,9 +243,13 @@ impl GridRenderer {
         underline_paint.set_anti_alias(false);
         underline_paint.set_blend_mode(BlendMode::SrcOver);
         let underline_stroke_scale = SETTINGS.get::<RendererSettings>().underline_stroke_scale;
-        // If the stroke width is less than one, clamp it to one otherwise we get nasty aliasing
-        // issues
-        let stroke_width = (self.shaper.current_size() * underline_stroke_scale / 10.).max(1.);
+        // clamp to 1 and round to avoid aliasing issues
+        let stroke_width = (stroke_size * underline_stroke_scale).max(1.).round();
+
+        // offset y by width / 2 to align the *top* of the underline with p1 and p2
+        // also round to avoid aliasing issues
+        let p1 = (p1.x.round(), (p1.y + stroke_width / 2.).round());
+        let p2 = (p2.x.round(), (p2.y + stroke_width / 2.).round());
 
         underline_paint
             .set_color(style.special(&self.default_style.colors).to_color())
@@ -282,26 +263,26 @@ impl GridRenderer {
             UnderlineStyle::UnderDouble => {
                 underline_paint.set_path_effect(None);
                 canvas.draw_line(p1, p2, &underline_paint);
-                let p1 = (p1.x, p1.y - 2.);
-                let p2 = (p2.x, p2.y - 2.);
+                let p1 = (p1.0, p1.1 + 2. * stroke_width);
+                let p2 = (p2.0, p2.1 + 2. * stroke_width);
                 canvas.draw_line(p1, p2, &underline_paint);
             }
             UnderlineStyle::UnderCurl => {
-                let p1 = (p1.x, p1.y - 3. + stroke_width);
-                let p2 = (p2.x, p2.y - 3. + stroke_width);
+                let p1 = (p1.0, p1.1 + stroke_width);
+                let p2 = (p2.0, p2.1 + stroke_width);
                 underline_paint
                     .set_path_effect(None)
                     .set_anti_alias(true)
                     .set_style(skia_safe::paint::Style::Stroke);
                 let mut path = Path::default();
                 path.move_to(p1);
-                let mut i = p1.0;
                 let mut sin = -2. * stroke_width;
-                let increment = self.font_dimensions.width as f32 / 2.;
-                while i < p2.0 {
+                let dx = self.grid_scale.width() / 2.;
+                let count = ((p2.0 - p1.0) / dx).round();
+                let dy = (p2.1 - p1.1) / count;
+                for _ in 0..(count as i32) {
                     sin *= -1.;
-                    i += increment;
-                    path.quad_to((i - (increment / 2.), p1.1 + sin), (i, p1.1));
+                    path.r_quad_to((dx / 2., sin), (dx, dy));
                 }
                 canvas.draw_path(&path, &underline_paint);
             }

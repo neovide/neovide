@@ -20,7 +20,7 @@ use skia_safe::Color4f;
 use crate::{
     bridge::{GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
     profiling::{tracy_named_frame, tracy_zone},
-    renderer::DrawCommand,
+    renderer::{DrawCommand, WindowDrawCommand},
     window::{UserEvent, WindowCommand},
 };
 
@@ -29,10 +29,34 @@ use crate::{cmd_line::CmdLineSettings, frame::Frame, settings::SETTINGS};
 
 pub use cursor::{Cursor, CursorMode, CursorShape};
 pub use draw_command_batcher::DrawCommandBatcher;
-pub use style::{Colors, HighlightInfo, HighlightKind, Style, UnderlineStyle};
+pub use style::{Colors, Style, UnderlineStyle};
 pub use window::*;
 
 const MODE_CMDLINE: u64 = 4;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SortOrder {
+    pub z_index: u64,
+    composition_order: u64,
+}
+
+impl Ord for SortOrder {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        // The windows are sorted primarily by z_index, and inside the z_index by
+        // composition_order. The composition_order is the window creation order with the special
+        // case that every time a floating window is activated it gets the highest priority for
+        // its z_index.
+        let a = (self.z_index, (self.composition_order as i64));
+        let b = (other.z_index, (other.composition_order as i64));
+        a.cmp(&b)
+    }
+}
+
+impl PartialOrd for SortOrder {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct AnchorInfo {
@@ -40,7 +64,7 @@ pub struct AnchorInfo {
     pub anchor_type: WindowAnchor,
     pub anchor_left: f64,
     pub anchor_top: f64,
-    pub sort_order: u64,
+    pub sort_order: SortOrder,
 }
 
 impl WindowAnchor {
@@ -69,6 +93,7 @@ pub struct Editor {
     pub current_mode_index: Option<u64>,
     pub ui_ready: bool,
     event_loop_proxy: EventLoopProxy<UserEvent>,
+    composition_order: u64,
 }
 
 impl Editor {
@@ -82,6 +107,7 @@ impl Editor {
             current_mode_index: None,
             ui_ready: false,
             event_loop_proxy,
+            composition_order: 0,
         }
     }
 
@@ -245,23 +271,28 @@ impl Editor {
                 anchor_grid,
                 anchor_column: anchor_left,
                 anchor_row: anchor_top,
-                sort_order,
+                z_index,
                 ..
             } => {
                 tracy_zone!("EditorWindowFloatPosition");
+                self.composition_order += 1;
                 self.set_window_float_position(
                     grid,
                     anchor_grid,
                     anchor,
                     anchor_left,
                     anchor_top,
-                    sort_order,
+                    SortOrder {
+                        z_index,
+                        composition_order: self.composition_order,
+                    },
                 )
             }
             RedrawEvent::WindowHide { grid } => {
                 tracy_zone!("EditorWindowHide");
-                let window = self.windows.get(&grid);
+                let window = self.windows.get_mut(&grid);
                 if let Some(window) = window {
+                    window.anchor_info = None;
                     window.hide();
                 }
             }
@@ -286,14 +317,28 @@ impl Editor {
             } => {
                 tracy_zone!("EditorWindowViewport");
                 self.set_ui_ready();
-                self.send_updated_viewport(grid, scroll_delta)
+                self.draw_command_batcher.queue(DrawCommand::Window {
+                    grid_id: grid,
+                    command: WindowDrawCommand::Viewport { scroll_delta },
+                });
             }
-            RedrawEvent::ShowIntro { message } => {
-                // Support the yet unmerged intro message support
-                // This could probably be handled completely on the lua side
-                let _ = self
-                    .event_loop_proxy
-                    .send_event(WindowCommand::ShowIntro(message).into());
+            RedrawEvent::WindowViewportMargins {
+                grid,
+                top,
+                bottom,
+                left,
+                right,
+            } => {
+                tracy_zone!("EditorWindowViewportMargins");
+                self.draw_command_batcher.queue(DrawCommand::Window {
+                    grid_id: grid,
+                    command: WindowDrawCommand::ViewportMargins {
+                        top,
+                        bottom,
+                        left,
+                        right,
+                    },
+                });
             }
             // Interpreting suspend as a window minimize request
             RedrawEvent::Suspend => {
@@ -321,7 +366,7 @@ impl Editor {
                 let anchor_type = anchor_info.anchor_type.clone();
                 let anchor_left = anchor_info.anchor_left;
                 let anchor_top = anchor_info.anchor_top;
-                let sort_order = Some(anchor_info.sort_order);
+                let sort_order = anchor_info.sort_order.clone();
                 self.set_window_float_position(
                     grid,
                     anchor_grid_id,
@@ -375,7 +420,7 @@ impl Editor {
         anchor_type: WindowAnchor,
         anchor_left: f64,
         anchor_top: f64,
-        sort_order: Option<u64>,
+        sort_order: SortOrder,
     ) {
         if anchor_grid == grid {
             warn!("NeoVim requested a window to float relative to itself. This is not supported.");
@@ -394,13 +439,25 @@ impl Editor {
                 modified_top += parent_top;
             }
 
+            // Only update the sort order if it's the first position request (no anchor_info), or
+            // the z_index changes
+            let sort_order = if let Some(anchor_info) = &window.anchor_info {
+                if sort_order.z_index == anchor_info.sort_order.z_index {
+                    anchor_info.sort_order.clone()
+                } else {
+                    sort_order
+                }
+            } else {
+                sort_order
+            };
+
             window.position(
                 Some(AnchorInfo {
                     anchor_grid_id: anchor_grid,
                     anchor_type,
                     anchor_left,
                     anchor_top,
-                    sort_order: sort_order.unwrap_or(grid),
+                    sort_order,
                 }),
                 (width, height),
                 (modified_left, modified_top),
@@ -412,6 +469,7 @@ impl Editor {
     }
 
     fn set_message_position(&mut self, grid: u64, grid_top: u64, scrolled: bool) {
+        let z_index = 250; // From the Neovim source code
         let parent_width = self
             .windows
             .get(&1)
@@ -423,7 +481,10 @@ impl Editor {
             anchor_type: WindowAnchor::NorthWest,
             anchor_left: 0.0,
             anchor_top: grid_top as f64,
-            sort_order: std::u64::MAX,
+            sort_order: SortOrder {
+                z_index,
+                composition_order: self.composition_order,
+            },
         };
 
         if let Some(window) = self.windows.get_mut(&grid) {
@@ -474,10 +535,23 @@ impl Editor {
     }
 
     fn set_cursor_position(&mut self, grid: u64, grid_left: u64, grid_top: u64) {
+        let mut window = self.windows.get_mut(&grid);
+        if let Some(window) = &mut window {
+            if let Some(anchor) = window.anchor_info.as_mut() {
+                // Neovim moves a window to the top of the layer each time the cursor enters it, so do the same here as well
+                self.composition_order += 1;
+                anchor.sort_order.composition_order = self.composition_order;
+                self.draw_command_batcher.queue(DrawCommand::Window {
+                    grid_id: grid,
+                    command: WindowDrawCommand::SortOrder(anchor.sort_order.clone()),
+                });
+            }
+        }
+
         if let Some(Window {
             window_type: WindowType::Message { .. },
             ..
-        }) = self.windows.get(&grid)
+        }) = window
         {
             // When the user presses ":" to type a command, the cursor is sent to the gutter
             // in position 1 (right after the ":"). In all other cases, we want to skip
@@ -540,19 +614,11 @@ impl Editor {
             }
             GuiOption::LineSpace(linespace) => {
                 self.draw_command_batcher
-                    .queue(DrawCommand::LineSpaceChanged(linespace));
+                    .queue(DrawCommand::LineSpaceChanged(linespace as f32));
 
                 self.redraw_screen();
             }
             _ => (),
-        }
-    }
-
-    fn send_updated_viewport(&mut self, grid: u64, scroll_delta: f64) {
-        if let Some(window) = self.windows.get_mut(&grid) {
-            window.update_viewport(scroll_delta);
-        } else {
-            trace!("viewport event received before window initialized");
         }
     }
 

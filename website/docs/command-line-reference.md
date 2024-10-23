@@ -109,14 +109,14 @@ This disables neovim's multigrid functionality which will also disable floating 
 backgrounds, smooth scrolling, and window animations. This can solve some issues where neovide
 acts differently from terminal neovim.
 
-### No Fork
+### Fork
 
 ```sh
---no-fork or $NEOVIDE_FORK=0|1
+--fork or $NEOVIDE_FORK=0|1
 ```
 
-By default, neovide detaches itself from the terminal. Instead of spawning a child process and
-leaking it, be "blocking" and have the shell directly as parent process.
+Detach from the terminal instead of waiting for the Neovide process to
+terminate. This parameter has no effect when launching from a GUI.
 
 ### No Idle
 
@@ -129,6 +129,22 @@ With idle `on` (default), neovide won't render new frames when nothing is happen
 With idle `off` (e.g. with `--no-idle` flag), neovide will constantly render new frames,
 even when nothing changed. This takes more power and CPU time, but can possibly help
 with frame timing issues.
+
+### Mouse Cursor Icon
+
+```sh
+--mouse-cursor-icon or $NEOVIDE_MOUSE_CURSOR_ICON="arrow|i-beam"
+```
+
+**Available since 0.14.**
+
+This sets the mouse cursor icon to be used in the window.
+
+TLDR; Neovim has not yet implemented the
+['mouseshape'](https://github.com/neovim/neovim/issues/21458) feature, meaning that
+the cursor will not be reactive respecting the context of any Neovim element such as tabs,
+buttons and dividers. For that reason, the Arrow cursor has been taken as the default due
+to its generalistic purpose.
 
 ### Title (macOS Only)
 
@@ -153,15 +169,14 @@ platforms should not need it, but if you encounter either startup crashes or
 wrong colors, you can try to swap the option. The command line parameter takes
 priority over the environment variable.
 
-### No Tabs
+### Tabs
 
 ```sh
---no-tabs
+--no-tabs, --tabs or $NEOVIDE_TABS=0|1
 ```
 
 By default, Neovide opens files given directly to Neovide (not NeoVim through `--`!) in multiple
-tabs to avoid confusing new users. The option disables that and makes multiple given files to normal
-buffers.
+tabs to avoid confusing new users. `--no-tabs` disables this behavior.
 
 Note: Even if files are opened in tabs, they're buffers anyways. It's just about them being visible
 or not.

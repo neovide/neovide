@@ -28,6 +28,26 @@ if vim.g.neovide then
 end
 ```
 
+You can also query the version with:
+
+```vim
+echo g:neovide_version
+```
+
+Lua:
+
+```lua
+vim.print(vim.g.neovide_version)
+```
+
+Or inspect the more detailed channel information:
+
+Lua:
+
+```lua
+lua vim.print(vim.api.nvim_get_chan_info(vim.g.neovide_channel_id))
+```
+
 ### Display
 
 #### Font
@@ -118,6 +138,32 @@ whole font definition. Very useful for presentations. See [the FAQ section about
 this][scale-runtime] for a nice recipe to bind this to a hotkey.
 
 [scale-runtime]: faq.md#how-can-i-dynamically-change-the-scale-at-runtime
+
+#### Text Gamma and Contrast
+
+VimScript:
+
+```vim
+let g:neovide_text_gamma = 0.0
+let g:neovide_text_contrast = 0.5
+```
+
+Lua:
+
+```lua
+vim.g.neovide_text_gamma = 0.0
+vim.g.neovide_text_contrast = 0.5
+```
+
+**Available since 0.13.0.**
+
+You can fine tune the gamma and contrast of the text to your liking. The defaults is a good
+compromise that gives readable text on all backgrounds and an accurate color representation. But if
+that doesn't suit you, and you want to emulate the Alacritty font rendering for example you can use
+a gamma of 0.8 and a contrast of 0.1.
+
+Note a gamma of 0.0, means standard sRGB gamma or 2.2. Also note that these settings don't
+necessarily apply immediately due to caching of the fonts.
 
 #### Padding
 
@@ -255,6 +301,23 @@ The other variables configure the shadow in various ways:
 - `g:neovide_light_angle_degrees` sets the angle from the screen normal of the casting light
 - `g:neovide_light_radius` sets the radius of the casting light
 
+#### Floating Corner Radius
+
+VimScript:
+
+```vim
+let g:neovide_floating_corner_radius = 0.0
+```
+
+Lua:
+
+```lua
+vim.g.neovide_floating_corner_radius = 0.0
+```
+
+Setting `g:neovide_floating_corner_radius` to 0.0 will disable the corner radius. The value of
+floating_corner_radius ranges from 0.0 to 1.0, representing a percentage of the line height.
+
 #### Transparency
 
 VimScript:
@@ -268,6 +331,8 @@ Lua:
 ```lua
 vim.g.neovide_transparency = 0.8
 ```
+
+**Unreleased yet.**
 
 ![Transparency](assets/Transparency.png)
 
@@ -291,6 +356,23 @@ vim.g.neovide_show_border = true
 Draw a grey border around opaque windows only.
 
 Default: `false`
+
+#### Position Animation Length
+
+VimScript:
+
+```vim
+let g:neovide_position_animation_length = 0.15
+```
+
+Lua:
+
+```lua
+vim.g.neovide_position_animation_length = 0.15
+```
+
+Determines the time it takes for a window to complete animation from one position to another
+position in seconds, such as `:split`. Set to `0` to disable.
 
 #### Scroll Animation Length
 
@@ -391,28 +473,25 @@ Set the [`background`](https://neovim.io/doc/user/options.html#'background') opt
 starts. Possible values: _light_, _dark_, _auto_. On systems that support it, _auto_ will mirror the
 system theme, and will update `background` when the system theme changes.
 
-#### Fix border and winbar scrolling glitches
+#### Layer grouping
 
 VimScript:
 
 ```vim
-let g:neovide_unlink_border_highlights = v:true
+let g:experimental_layer_grouping = v:false
 ```
 
 Lua:
 
 ```lua
-vim.g.neovide_unlink_border_highlights = true
+vim.g.experimental_layer_grouping = false
 ```
 
-**Available since 0.12.0.**
+**Available since 0.13.1.**
 
-Neovide uses some highlight groups for detecting the border of the windows, when scrolling. This
-detection is not perfect due to some limitations of Neovim, it only returns the final highlight
-groups for linked highlights. This option unlinks those highlight groups after the color scheme is
-loaded to make Neovide detect them properly.
-
-If this causes other problems, you can set this option to false.
+Group non-emtpy consecutive layers (zindex) together, so that the shadows and blurring is done for
+the whole group instead of each individual layer. This can get rid of some shadowing and blending
+artifacts, but cause worse problems like [#2574](https://github.com/neovide/neovide/issues/2574).
 
 ### Functionality
 
@@ -491,6 +570,26 @@ vim.g.neovide_confirm_quit = true
 If set to `true`, quitting while having unsaved changes will require confirmation. Enabled by
 default.
 
+#### Detach On Quit
+
+Possible values are `always_quit`, `always_detach`, or `prompt`. Set to `prompt` by default.
+
+VimScript:
+
+```vim
+let g:neovide_detach_on_quit = 'always_quit'
+```
+
+Lua:
+
+```lua
+vim.g.neovide_detach_on_quit = 'always_quit'
+```
+
+This option changes the closing behavior of Neovide when it's used to connect to a remote Neovim
+instance. It does this by switching between detaching from the remote instance and quitting Neovim
+entirely.
+
 #### Fullscreen
 
 VimScript:
@@ -546,21 +645,23 @@ corner.
 
 ### Input Settings
 
-#### macOS Alt is Meta
+#### macOS Option Key is Meta
+
+Possible values are `both`, `only_left`, `only_right`, `none`. Set to `none` by default.
 
 VimScript:
 
 ```vim
-let g:neovide_input_macos_alt_is_meta = v:false
+let g:neovide_input_macos_option_key_is_meta = 'only_left'
 ```
 
 Lua:
 
 ```lua
-vim.g.neovide_input_macos_alt_is_meta = false
+vim.g.neovide_input_macos_option_key_is_meta = 'only_left'
 ```
 
-**Available since 0.10.**
+**Available since 0.13.0.**
 
 Interprets <kbd>Alt</kbd> + <kbd>whatever</kbd> actually as `<M-whatever>`, instead of sending the
 actual special character to Neovim.
@@ -590,8 +691,8 @@ augroup ime_input
     autocmd!
     autocmd InsertLeave * execute "let g:neovide_input_ime=v:false"
     autocmd InsertEnter * execute "let g:neovide_input_ime=v:true"
-    autocmd CmdlineEnter [/\?] execute "let g:neovide_input_ime=v:false"
-    autocmd CmdlineLeave [/\?] execute "let g:neovide_input_ime=v:true"
+    autocmd CmdlineLeave [/\?] execute "let g:neovide_input_ime=v:false"
+    autocmd CmdlineEnter [/\?] execute "let g:neovide_input_ime=v:true"
 augroup END
 ```
 
@@ -780,6 +881,24 @@ Specify cursor outline width in `em`s. You probably want this to be a positive v
 If the value is \<=0 then the cursor will be invisible. This setting takes effect when the editor
 window is unfocused, at which time a block cursor will be rendered as an outline instead of as a
 full rectangle.
+
+#### Animate cursor blink
+
+VimScript:
+
+```vim
+let g:neovide_cursor_smooth_blink = v:false
+```
+
+Lua:
+
+```lua
+vim.g.neovide_cursor_smooth_blink = false
+```
+
+If enabled, the cursor will smoothly animate the transition between the cursor's on and off state.
+The built in `guicursor` neovim option needs to be configured to enable blinking by having a value
+set for both `blinkoff`, `blinkon` and `blinkwait` for this setting to apply.
 
 ### Cursor Particles
 

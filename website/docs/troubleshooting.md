@@ -83,7 +83,7 @@ be very fast. If not, it will build Neovide first. You have to specify
 
     ```sh
     cd [neovide-source-dir]
-    cargo run --profile profiling --features profiling -- --no-fork [neovide-arguments...]
+    cargo run --profile profiling --features profiling -- [neovide-arguments...]
     ```
 
     Now do whatever leads to performance issue in Neovide and exit.

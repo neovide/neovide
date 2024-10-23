@@ -25,15 +25,23 @@ There are two types of settings:
 Settings currently available in the config file with default values:
 
 ```toml
-wsl = false
-no-multigrid = false
-vsync = true
-maximized = false
-srgb = false
-idle = true
-neovim-bin = "/usr/bin/nvim" # in reality found dynamically on $PATH if unset
+fork = false
 frame = "full"
+idle = true
+maximized = false
+neovim-bin = "/usr/bin/nvim" # in reality found dynamically on $PATH if unset
+no-multigrid = false
+srgb = false
+tabs = true
+theme = "auto"
+mouse-cursor-icon = "arrow"
 title-hidden = true
+vsync = true
+wsl = false
+
+[font]
+normal = [] # Will use the bundled Fira Code Nerd Font by default
+size = 14.0
 ```
 
 Settings from environment variables can be found in [Command Line Reference](command-line-reference.md),
@@ -54,11 +62,10 @@ see that doc for details on what those settings do.
 - `features`: optional, `{ "<font>" = ["<string>"] }`
 - `size`: required,
 - `width`: optional,
-- `allow_float_size`: optional,
 - `hinting`: optional,
 - `edging`: optional,
 
-Settings `size`, `width`, `allow_float_size`, `hinting` and `edging` can be found in
+Settings `size`, `width`, `hinting` and `edging` can be found in
 [Configuration](configuration.md).
 
 - `FontDescription` can be:
@@ -90,5 +97,34 @@ normal = ["MonoLisa Nerd Font"]
 size = 18
 
 [font.features]
-MonoLisa = [ "+ss01", "+ss07", "+ss11", "-calt", "+ss09", "+ss02", "+ss14", "+ss16", "+ss17" ]
+"MonoLisa Nerd Font" = [ "+ss01", "+ss07", "+ss11", "-calt", "+ss09", "+ss02", "+ss14" ]
+```
+
+Specify font weight:
+
+```toml
+[font]
+size = 19
+hinting = "full"
+edging = "antialias"
+
+[[font.normal]]
+family = "JetBrainsMono Nerd Font Propo"
+style = "W400"
+
+# You can set a different font for fallback
+[[font.normal]]
+family = "Noto Sans CJK SC"
+style = "Normal"
+
+[[font.bold]]
+family = "JetBrainsMono Nerd Font Propo"
+style = "W600"
+
+# No need to specify fallback in every variant, if omitted or specified here
+# but not found, it will fallback to normal font with this weight which is bold
+# in this case.
+[[font.bold]]
+family = "Noto Sans CJK SC"
+style = "Bold"
 ```

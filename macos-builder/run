@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+
+set -e
+
+if [ -n "$1" ]; then
+  TARGET_ARCHITECTURE=$1
+fi
+
+RELEASE_DIR=${TARGET_ARCHITECTURE:+target/${TARGET_ARCHITECTURE}/release}
+RELEASE_DIR=${RELEASE_DIR:-target/release}
+
+if [ ! -d "${RELEASE_DIR}" ]; then
+  echo "Release directory '${RELEASE_DIR}' does not exist."
+  echo "Running 'cargo build --release${TARGET_ARCHITECTURE:+ --target ${TARGET_ARCHITECTURE}}' ..."
+  cargo build --release ${TARGET_ARCHITECTURE:+--target "${TARGET_ARCHITECTURE}"}
+fi
+
+TARGET="neovide"
+EXTRAS_DIR="extra"
+ASSETS_DIR="assets"
+BUNDLE_DIR="${RELEASE_DIR}/bundle"
+
+APP_NAME="Neovide.app"
+APP_TEMPLATE="${EXTRAS_DIR}/osx/${APP_NAME}"
+APP_DIR="${BUNDLE_DIR}/osx"
+APP_BINARY="${RELEASE_DIR}/${TARGET}"
+APP_BINARY_DIR="${APP_DIR}/${APP_NAME}/Contents/MacOS"
+APP_EXTRAS_DIR="${APP_DIR}/${APP_NAME}/Contents/Resources"
+
+DMG_NAME="Neovide${TARGET_ARCHITECTURE:+-${TARGET_ARCHITECTURE}}.dmg"
+DMG_VOLNAME="Neovide"
+DMG_FILESYSTEM="HFS+"
+DMG_FORMAT="UDZO"
+DMG_ICNS="${APP_EXTRAS_DIR}/Neovide.icns"
+DMG_BACKGROUND="${ASSETS_DIR}/neovide-dmg-background.tiff"
+
+# Make Neovide.app
+
+mkdir -p "${APP_BINARY_DIR}"
+mkdir -p "${APP_EXTRAS_DIR}"
+cp -fRp "${APP_TEMPLATE}" "${APP_DIR}"
+cp -fp "${APP_BINARY}" "${APP_BINARY_DIR}"
+touch -r "${APP_BINARY}" "${APP_DIR}/${APP_NAME}"
+codesign --remove-signature "${APP_DIR}/${APP_NAME}"
+codesign --force --deep --sign - "${APP_DIR}/${APP_NAME}"
+echo "Created '${APP_NAME}' in '${APP_DIR}'"
+
+# Make Neovide.dmg
+
+create-dmg \
+  --filesystem "${DMG_FILESYSTEM}" \
+  --format "${DMG_FORMAT}" \
+  --volname "${DMG_VOLNAME}" \
+  --volicon "${DMG_ICNS}" \
+  --background "${DMG_BACKGROUND}" \
+  --window-size 650 470 \
+  --icon-size 80 \
+  --icon Neovide.app 240 320 \
+  --app-drop-link 410 320 \
+  "${APP_DIR}/${DMG_NAME}" \
+  "${APP_DIR}/${APP_NAME}"

@@ -57,10 +57,10 @@ impl Handler for NeovimHandler {
                         s.next().map(String::from)
                     });
 
-                get_clipboard_contents(endline_type.as_deref())
+                get_clipboard_contents(endline_type.as_deref(), &arguments[0])
                     .map_err(|_| Value::from("cannot get clipboard contents"))
             }
-            "neovide.set_clipboard" => set_clipboard_contents(&arguments[0])
+            "neovide.set_clipboard" => set_clipboard_contents(&arguments[0], &arguments[1])
                 .map_err(|_| Value::from("cannot set clipboard contents")),
             "neovide.quit" => {
                 let error_code = arguments[0]
