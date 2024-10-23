@@ -332,6 +332,8 @@ Lua:
 vim.g.neovide_transparency = 0.8
 ```
 
+**Unreleased yet.**
+
 ![Transparency](assets/Transparency.png)
 
 Setting `g:neovide_transparency` to a value between 0.0 and 1.0 will set the opacity of the window
