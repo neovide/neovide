@@ -226,6 +226,18 @@ jobs:
             echo "ARTIFACT3=neovide.AppImage.zsync" >> $GITHUB_ENV
           fi
 
+      - name: Sign Mac App (aarch64-apple-darwin)
+        if: matrix.os == 'macOS-12'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/aarch64-apple-darwin/release/bundle/osx/Neovide-aarch64-apple-darwin.dmg
+
+      - name: Sign Mac App (x86_64-apple-darwin)
+        if: matrix.os == 'macOS-12'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/x86_64-apple-darwin/release/bundle/osx/Neovide-x86_64-apple-darwin.dmg
+
       - if: env.ARTIFACT
         uses: actions/upload-artifact@v4
         with:
