@@ -278,24 +278,6 @@ jobs:
           sign: true
           sign_args: "--code-signature-flags=runtime"
 
-      - name: Notarise signed macOS (aarch64-apple-darwin)
-        if: matrix.os == 'macos-latest'
-        uses: indygreg/apple-code-sign-action@v1
-        with:
-          input_path: target/aarch64-apple-darwin/release/bundle/osx/Neovide-aarch64-apple-darwin.dmg
-          sign: false
-          notarize: true
-          app_store_connect_api_key_json_file: app_store_connect_api_key.json
-
-      - name: Notarise signed macOS (x86_64-apple-darwin)
-        if: matrix.os == 'macos-latest'
-        uses: indygreg/apple-code-sign-action@v1
-        with:
-          input_path: target/x86_64-apple-darwin/release/bundle/osx/Neovide-x86_64-apple-darwin.dmg
-          sign: false
-          notarize: true
-          app_store_connect_api_key_json_file: app_store_connect_api_key.json
-
       - if: env.ARTIFACT
         uses: actions/upload-artifact@v4
         with:
