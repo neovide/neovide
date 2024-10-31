@@ -49,6 +49,7 @@ pub struct Config {
     pub srgb: Option<bool>,
     pub tabs: Option<bool>,
     pub theme: Option<String>,
+    pub mouse_cursor_icon: Option<String>,
     pub title_hidden: Option<bool>,
     pub vsync: Option<bool>,
     pub wsl: Option<bool>,
@@ -105,6 +106,9 @@ impl Config {
         }
         if let Some(theme) = &self.theme {
             env::set_var("NEOVIDE_THEME", theme);
+        }
+        if let Some(mouse_cursor_icon) = &self.mouse_cursor_icon {
+            env::set_var("NEOVIDE_MOUSE_CURSOR_ICON", mouse_cursor_icon);
         }
         if let Some(title_hidden) = &self.title_hidden {
             env::set_var("NEOVIDE_TITLE_HIDDEN", title_hidden.to_string());

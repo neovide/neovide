@@ -1,13 +1,11 @@
 use std::collections::{BTreeMap, HashSet};
+use std::sync::LazyLock;
 
 use indoc::indoc;
-use lazy_static::lazy_static;
 use skia_safe::{Point, Rect};
 
-lazy_static! {
-    static ref IGNOREABLE_CHARACTERS: HashSet<char> =
-        ['-', '|', '*', '+', ' '].iter().cloned().collect();
-}
+static IGNOREABLE_CHARACTERS: LazyLock<HashSet<char>> =
+    LazyLock::new(|| ['-', '|', '*', '+', ' '].iter().cloned().collect());
 
 /// Helper function to convert ascii art into a list of rectangles.
 /// Each rectangle must have at least two corners labeled in opposite corners to work

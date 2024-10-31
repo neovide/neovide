@@ -1,13 +1,11 @@
 use std::sync::{
     atomic::{AtomicI32, Ordering},
-    Arc,
+    Arc, LazyLock,
 };
 
 use log::info;
 
-lazy_static! {
-    pub static ref RUNNING_TRACKER: RunningTracker = RunningTracker::new();
-}
+pub static RUNNING_TRACKER: LazyLock<RunningTracker> = LazyLock::new(RunningTracker::new);
 
 pub struct RunningTracker {
     exit_code: Arc<AtomicI32>,

@@ -35,15 +35,13 @@ mod windows_utils;
 
 #[macro_use]
 extern crate derive_new;
-#[macro_use]
-extern crate lazy_static;
 
 use anyhow::Result;
 use log::trace;
 use std::env::{self, args};
 use std::fs::{File, OpenOptions};
 use std::io::Write;
-use std::panic::{set_hook, PanicInfo};
+use std::panic::{set_hook, PanicHookInfo};
 use std::time::{Duration, SystemTime};
 use time::macros::format_description;
 use time::OffsetDateTime;
@@ -271,7 +269,7 @@ fn maybe_disown() {
     }
 }
 
-fn generate_stderr_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) -> String {
+fn generate_stderr_log_message(panic_info: &PanicHookInfo, backtrace: &Backtrace) -> String {
     if cfg!(debug_assertions) {
         let print_backtrace = match env::var("RUST_BACKTRACE") {
             Ok(x) => x == "full" || x == "1",
@@ -295,7 +293,7 @@ fn generate_stderr_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) ->
     }
 }
 
-fn log_panic_to_file(panic_info: &PanicInfo, backtrace: &Backtrace) {
+fn log_panic_to_file(panic_info: &PanicHookInfo, backtrace: &Backtrace) {
     let log_msg = generate_panic_log_message(panic_info, backtrace);
 
     let mut file = match OpenOptions::new()
@@ -316,7 +314,7 @@ fn log_panic_to_file(panic_info: &PanicInfo, backtrace: &Backtrace) {
     }
 }
 
-fn generate_panic_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) -> String {
+fn generate_panic_log_message(panic_info: &PanicHookInfo, backtrace: &Backtrace) -> String {
     let system_time: OffsetDateTime = SystemTime::now().into();
 
     let timestamp = system_time
@@ -331,7 +329,7 @@ fn generate_panic_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) -> 
     format!("{full_panic_msg}\n{backtrace:?}\n")
 }
 
-fn generate_panic_message(panic_info: &PanicInfo) -> String {
+fn generate_panic_message(panic_info: &PanicHookInfo) -> String {
     // As per the documentation for `.location()`(https://doc.rust-lang.org/std/panic/struct.PanicInfo.html#method.location)
     // the call to location cannot currently return `None`, so we unwrap.
     let location_info = panic_info.location().unwrap();

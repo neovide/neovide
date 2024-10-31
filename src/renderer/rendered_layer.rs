@@ -34,7 +34,7 @@ impl<'w> FloatingLayer<'w> {
             .iter()
             .map(|window| window.pixel_region(grid_scale))
             .collect::<Vec<_>>();
-        let (silhouette, bound_rect) = build_silhouette(&pixel_regions);
+        let (silhouette, bound_rect) = build_silhouette(&pixel_regions, settings, grid_scale);
         let has_transparency = default_background.a() != 255
             || self.windows.iter().any(|window| window.has_transparency());
 
@@ -197,17 +197,41 @@ pub fn group_windows(
         .collect_vec()
 }
 
-fn build_silhouette(regions: &[PixelRect<f32>]) -> (Path, Rect) {
+fn build_silhouette(
+    regions: &[PixelRect<f32>],
+    settings: &RendererSettings,
+    grid_scale: GridScale,
+) -> (Path, Rect) {
     let silhouette = regions
         .iter()
         .map(|r| Path::rect(to_skia_rect(r), None))
         .reduce(|a, b| a.op(&b, PathOp::Union).unwrap())
         .unwrap();
+
+    let rounded_silhouette = rect_to_round_rect_path(silhouette.bounds(), settings, grid_scale);
+
     let bounding_rect = regions
         .iter()
         .map(to_skia_rect)
         .reduce(Rect::join2)
         .unwrap();
 
-    (silhouette, bounding_rect)
+    (rounded_silhouette, bounding_rect)
+}
+
+fn rect_to_round_rect_path(
+    rect: &Rect,
+    settings: &RendererSettings,
+    grid_scale: GridScale,
+) -> Path {
+    let mut rounded_path = Path::new();
+
+    let mut scaled_radius = 0.0;
+    if settings.floating_corner_radius > 0.0 && settings.floating_corner_radius <= 1.0 {
+        scaled_radius = settings.floating_corner_radius * grid_scale.height();
+    }
+
+    rounded_path.add_round_rect(rect, (scaled_radius, scaled_radius), None);
+
+    rounded_path
 }
