@@ -245,6 +245,8 @@ jobs:
           input_path: target/aarch64-apple-darwin/release/bundle/osx/Neovide.app/Contents/MacOS/neovide
           p12_file: key.p12
           p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
 
       - name: Sign Mac App .dmg (aarch64-apple-darwin)
         if: matrix.os == 'macos-latest'
@@ -253,6 +255,8 @@ jobs:
           input_path: target/aarch64-apple-darwin/release/bundle/osx/Neovide-aarch64-apple-darwin.dmg
           p12_file: key.p12
           p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
 
       - name: Sign Mac App binary (x86_64-apple-darwin)
         if: matrix.os == 'macos-latest'
@@ -261,6 +265,8 @@ jobs:
           input_path: target/x86_64-apple-darwin/release/bundle/osx/Neovide.app/Contents/MacOS/neovide
           p12_file: key.p12
           p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
 
       - name: Sign Mac App .dmg (x86_64-apple-darwin)
         if: matrix.os == 'macos-latest'
@@ -269,6 +275,8 @@ jobs:
           input_path: target/x86_64-apple-darwin/release/bundle/osx/Neovide-x86_64-apple-darwin.dmg
           p12_file: key.p12
           p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
 
       - name: Notarise signed macOS (aarch64-apple-darwin)
         if: matrix.os == 'macos-latest'
