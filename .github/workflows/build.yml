@@ -198,8 +198,8 @@ jobs:
             # create .dmg for aarch64-apple-darwin
             ./macos-builder/run aarch64-apple-darwin
 
-            echo "ARTIFACT4=Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
-            echo "ARTIFACT5=Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV
+            # echo "ARTIFACT4=Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
+            # echo "ARTIFACT5=Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV
 
           elif [[ $RUNNER_OS == "Linux" ]]; then
             cd target/release
@@ -277,6 +277,15 @@ jobs:
           p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
           sign: true
           sign_args: "--code-signature-flags=runtime"
+
+      - name: Set Artifacts (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          if [[ $RUNNER_OS == "macOS" ]]; then
+            cd $GITHUB_WORKSPACE
+            echo "ARTIFACT4=Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
+            echo "ARTIFACT5=Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV
+          fi
 
       - if: env.ARTIFACT
         uses: actions/upload-artifact@v4
