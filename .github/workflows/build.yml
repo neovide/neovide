@@ -238,6 +238,16 @@ jobs:
           APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
         run: echo "$APP_STORE_CONNECT_API_KEY" > app_store_connect_api_key.json
 
+      - name: Sign Mac App binary root (aarch64-apple-darwin)
+        if: matrix.os == 'macos-latest'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/aarch64-apple-darwin/release/neovide
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
+
       - name: Sign Mac App binary (aarch64-apple-darwin)
         if: matrix.os == 'macos-latest'
         uses: indygreg/apple-code-sign-action@v1
@@ -253,6 +263,16 @@ jobs:
         uses: indygreg/apple-code-sign-action@v1
         with:
           input_path: target/aarch64-apple-darwin/release/bundle/osx/Neovide-aarch64-apple-darwin.dmg
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
+
+      - name: Sign Mac App binary root (x86_64-apple-darwin)
+        if: matrix.os == 'macos-latest'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/x86_64-apple-darwin/release/neovide
           p12_file: key.p12
           p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
           sign: true
