@@ -275,7 +275,7 @@ jobs:
             GENERATE_BUNDLE_APP=false GENERATE_DMG=true ./macos-builder/run x86_64-apple-darwin
 
             # create .dmg for aarch64-apple-darwin
-            GENERATE_BUNDLE_APP=false GENERATE_DMG=true ./macos-builder/run aarch64-apple-darwin "${{ secrets.DEVELOPER_ID }}" 
+            GENERATE_BUNDLE_APP=false GENERATE_DMG=true ./macos-builder/run aarch64-apple-darwin
 
             echo "ARTIFACT4=Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
             echo "ARTIFACT5=Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV
@@ -332,6 +332,7 @@ jobs:
           input_path: target/aarch64-apple-darwin/release/bundle/osx/Neovide-aarch64-apple-darwin.dmg
           sign: false
           notarize: true
+          staple: true
           app_store_connect_api_key_json_file: app_store_connect_api_key.json
 
       - name: Notarise signed macOS (x86_64-apple-darwin)
@@ -341,6 +342,7 @@ jobs:
           input_path: target/x86_64-apple-darwin/release/bundle/osx/Neovide-x86_64-apple-darwin.dmg
           sign: false
           notarize: true
+          staple: true
           app_store_connect_api_key_json_file: app_store_connect_api_key.json
 
       - if: env.ARTIFACT
