@@ -184,6 +184,13 @@ jobs:
             cargo build --locked --release
           fi
 
+      - name: create Neovide.app (macOS only)
+        if: matrix.os == 'macos-latest'
+        run: |
+          # create the .app only, fix the arguments later
+          GENERATE_BUNDLE_APP=true GENERATE_DMG=false ./macos-builder/run aarch64-apple-darwin
+          GENERATE_BUNDLE_APP=true GENERATE_DMG=false ./macos-builder/run x86_64-apple-darwin
+
       - name: Write Apple signing key to a file (macOS only)
         if: matrix.os == 'macos-latest'
         env:
@@ -206,15 +213,25 @@ jobs:
           sign: true
           sign_args: "--code-signature-flags=runtime"
 
-      # - name: Sign Mac App binary (aarch64-apple-darwin)
-      #   if: matrix.os == 'macos-latest'
-      #   uses: indygreg/apple-code-sign-action@v1
-      #   with:
-      #     input_path: target/aarch64-apple-darwin/release/bundle/osx/Neovide.app/Contents/MacOS/neovide
-      #     p12_file: key.p12
-      #     p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
-      #     sign: true
-      #     sign_args: "--code-signature-flags=runtime"
+      - name: Sign Mac App binary (aarch64-apple-darwin)
+        if: matrix.os == 'macos-latest'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/aarch64-apple-darwin/release/bundle/osx/Neovide.app/Contents/MacOS/neovide
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
+
+      - name: Sign Mac App .app (aarch64-apple-darwin)
+        if: matrix.os == 'macos-latest'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/aarch64-apple-darwin/release/bundle/osx/Neovide.app
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
 
       - name: Sign Mac App binary root (x86_64-apple-darwin)
         if: matrix.os == 'macos-latest'
@@ -226,15 +243,25 @@ jobs:
           sign: true
           sign_args: "--code-signature-flags=runtime"
 
-      # - name: Sign Mac App binary (x86_64-apple-darwin)
-      #   if: matrix.os == 'macos-latest'
-      #   uses: indygreg/apple-code-sign-action@v1
-      #   with:
-      #     input_path: target/x86_64-apple-darwin/release/bundle/osx/Neovide.app/Contents/MacOS/neovide
-      #     p12_file: key.p12
-      #     p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
-      #     sign: true
-      #     sign_args: "--code-signature-flags=runtime"
+      - name: Sign Mac App binary (x86_64-apple-darwin)
+        if: matrix.os == 'macos-latest'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/x86_64-apple-darwin/release/bundle/osx/Neovide.app/Contents/MacOS/neovide
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
+
+      - name: Sign Mac App .app (x86_64-apple-darwin)
+        if: matrix.os == 'macos-latest'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/x86_64-apple-darwin/release/bundle/osx/Neovide.app
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
 
       - name: Prepare Artifacts
         run: |
@@ -245,10 +272,10 @@ jobs:
           elif [[ $RUNNER_OS == "macOS" ]]; then
             cd $GITHUB_WORKSPACE
             # create .dmg for x86_64-apple-darwin
-            ./macos-builder/run x86_64-apple-darwin "${{ secrets.DEVELOPER_ID }}"
+            GENERATE_BUNDLE_APP=false GENERATE_DMG=true ./macos-builder/run x86_64-apple-darwin
 
             # create .dmg for aarch64-apple-darwin
-            ./macos-builder/run aarch64-apple-darwin "${{ secrets.DEVELOPER_ID }}" 
+            GENERATE_BUNDLE_APP=false GENERATE_DMG=true ./macos-builder/run aarch64-apple-darwin "${{ secrets.DEVELOPER_ID }}" 
 
             echo "ARTIFACT4=Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
             echo "ARTIFACT5=Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV

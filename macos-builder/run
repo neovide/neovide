@@ -16,6 +16,10 @@ if [ ! -d "${RELEASE_DIR}" ]; then
 fi
 
 
+echo "Generate Bundle App: ${GENERATE_BUNDLE_APP}"
+
+echo "Generate DMG: ${GENERATE_DMG}"
+
 if [ -n "$2" ]; then
   DEVELOPER_ID=$2
 fi
@@ -42,30 +46,41 @@ DMG_FORMAT="UDZO"
 DMG_ICNS="${APP_EXTRAS_DIR}/Neovide.icns"
 DMG_BACKGROUND="${ASSETS_DIR}/neovide-dmg-background.tiff"
 
-# Make Neovide.app
+if [ "$GENERATE_BUNDLE_APP" == "true" ]; then
+  # Make Neovide.app
+  mkdir -p "${APP_BINARY_DIR}"
+  mkdir -p "${APP_EXTRAS_DIR}"
+  cp -fRp "${APP_TEMPLATE}" "${APP_DIR}"
+  cp -fp "${APP_BINARY}" "${APP_BINARY_DIR}"
+  touch -r "${APP_BINARY}" "${APP_DIR}/${APP_NAME}"
 
-mkdir -p "${APP_BINARY_DIR}"
-mkdir -p "${APP_EXTRAS_DIR}"
-cp -fRp "${APP_TEMPLATE}" "${APP_DIR}"
-cp -fp "${APP_BINARY}" "${APP_BINARY_DIR}"
-touch -r "${APP_BINARY}" "${APP_DIR}/${APP_NAME}"
-# codesign --remove-signature "${APP_DIR}/${APP_NAME}"
-# codesign --force --options runtime --deep --sign "${DEVELOPER_ID}" "${APP_BINARY}"
-# codesign --force --options runtime --deep --sign "${DEVELOPER_ID}" "${APP_BINARY_DIR}/${TARGET}"
-# codesign --force --options runtime --deep --sign "${DEVELOPER_ID}" "${APP_DIR}/${APP_NAME}"
-echo "Created '${APP_NAME}' in '${APP_DIR}'"
+  # Use `codesign` for local signing using keychain
+  # codesign --remove-signature "${APP_DIR}/${APP_NAME}"
+  # codesign --force --options runtime --deep --sign "${DEVELOPER_ID}" "${APP_BINARY}"
+  # codesign --force --options runtime --deep --sign "${DEVELOPER_ID}" "${APP_BINARY_DIR}/${TARGET}"
+  # codesign --force --options runtime --deep --sign "${DEVELOPER_ID}" "${APP_DIR}/${APP_NAME}"
+  echo "Created '${APP_NAME}' in '${APP_DIR}'"
+fi
 
-# Make Neovide.dmg
+if [ "$GENERATE_DMG" == "true" ]; then
+  # Use `codesign` for local signing using keychain
+  # codesign --remove-signature "${APP_DIR}/${APP_NAME}"
+  # codesign --force --options runtime --deep --sign "${DEVELOPER_ID}" "${APP_BINARY}"
+  # codesign --force --options runtime --deep --sign "${DEVELOPER_ID}" "${APP_BINARY_DIR}/${TARGET}"
+  # codesign --force --options runtime --deep --sign "${DEVELOPER_ID}" "${APP_DIR}/${APP_NAME}"
+  # echo "Signed '${APP_NAME}' in '${APP_DIR}'"
 
-create-dmg \
-  --filesystem "${DMG_FILESYSTEM}" \
-  --format "${DMG_FORMAT}" \
-  --volname "${DMG_VOLNAME}" \
-  --volicon "${DMG_ICNS}" \
-  --background "${DMG_BACKGROUND}" \
-  --window-size 650 470 \
-  --icon-size 80 \
-  --icon Neovide.app 240 320 \
-  --app-drop-link 410 320 \
-  "${APP_DIR}/${DMG_NAME}" \
-  "${APP_DIR}/${APP_NAME}"
+  # Make Neovide.dmg
+  create-dmg \
+    --filesystem "${DMG_FILESYSTEM}" \
+    --format "${DMG_FORMAT}" \
+    --volname "${DMG_VOLNAME}" \
+    --volicon "${DMG_ICNS}" \
+    --background "${DMG_BACKGROUND}" \
+    --window-size 650 470 \
+    --icon-size 80 \
+    --icon Neovide.app 240 320 \
+    --app-drop-link 410 320 \
+    "${APP_DIR}/${DMG_NAME}" \
+    "${APP_DIR}/${APP_NAME}"
+fi
