@@ -3,7 +3,7 @@ use skia_safe::{
     canvas::SaveLayerRec,
     image_filters::blur,
     utils::shadow_utils::{draw_shadow, ShadowFlags},
-    BlendMode, Canvas, ClipOp, Color, Paint, Path, PathOp, Point3, Rect,
+    BlendMode, Canvas, ClipOp, Color, Paint, Path, PathOp, Point3, RRect, Rect,
 };
 
 use glamour::Intersection;
@@ -204,11 +204,9 @@ fn build_silhouette(
 ) -> (Path, Rect) {
     let silhouette = regions
         .iter()
-        .map(|r| Path::rect(to_skia_rect(r), None))
+        .map(|r| rect_to_round_rect_path(to_skia_rect(r), settings, grid_scale))
         .reduce(|a, b| a.op(&b, PathOp::Union).unwrap())
         .unwrap();
-
-    let rounded_silhouette = rect_to_round_rect_path(silhouette.bounds(), settings, grid_scale);
 
     let bounding_rect = regions
         .iter()
@@ -216,22 +214,15 @@ fn build_silhouette(
         .reduce(Rect::join2)
         .unwrap();
 
-    (rounded_silhouette, bounding_rect)
+    (silhouette, bounding_rect)
 }
 
-fn rect_to_round_rect_path(
-    rect: &Rect,
-    settings: &RendererSettings,
-    grid_scale: GridScale,
-) -> Path {
-    let mut rounded_path = Path::new();
-
-    let mut scaled_radius = 0.0;
-    if settings.floating_corner_radius > 0.0 && settings.floating_corner_radius <= 1.0 {
-        scaled_radius = settings.floating_corner_radius * grid_scale.height();
-    }
-
-    rounded_path.add_round_rect(rect, (scaled_radius, scaled_radius), None);
-
-    rounded_path
+fn rect_to_round_rect_path(rect: Rect, settings: &RendererSettings, grid_scale: GridScale) -> Path {
+    let scaled_radius =
+        if settings.floating_corner_radius > 0.0 && settings.floating_corner_radius <= 1.0 {
+            settings.floating_corner_radius * grid_scale.height()
+        } else {
+            0.0
+        };
+    Path::rrect(RRect::new_rect_xy(rect, scaled_radius, scaled_radius), None)
 }
