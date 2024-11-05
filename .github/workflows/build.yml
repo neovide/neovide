@@ -169,20 +169,21 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Build
+      - name: Build (Windows)
+        if: matrix.os == 'windows-latest'
+        run: cargo wix --output target/release/neovide.msi --package neovide
+
+      - name: Build (macOS)
+        if: matrix.os == 'macos-latest'
         run: |
-          if [[ $RUNNER_OS == "Windows" ]]; then
-            cargo wix --output target/release/neovide.msi --package neovide
+          # x86
+          cargo build --locked --release --target=x86_64-apple-darwin
+          # arch
+          cargo build --locked --release --target=aarch64-apple-darwin
 
-          elif [[ $RUNNER_OS == "macOS" ]]; then
-            # x86
-            cargo build --locked --release --target=x86_64-apple-darwin
-            # arch
-            cargo build --locked --release --target=aarch64-apple-darwin
-
-          elif [[ $RUNNER_OS == "Linux" ]]; then
-            cargo build --locked --release
-          fi
+      - name: Build (Linux)
+        if: matrix.os == 'ubuntu-20.04'
+        run: cargo build --locked --release
 
       - name: create Neovide.app (macOS only)
         if: matrix.os == 'macos-latest'
