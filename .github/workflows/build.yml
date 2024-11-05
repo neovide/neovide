@@ -139,28 +139,31 @@ jobs:
       - name: Install Cargo Binstall
         uses: cargo-bins/cargo-binstall@main
 
-      - name: Install dependencies
+      - name: Install dependencies (Windows)
+        if: matrix.os == 'windows-latest'
         run: |
-          if [[ $RUNNER_OS == "Windows" ]]; then
-            if ! which cargo-wix; then cargo binstall -y cargo-wix; fi
+          if ! which cargo-wix; then cargo binstall -y cargo-wix; fi
 
-          elif [[ $RUNNER_OS == "macOS" ]]; then
-            curl -L -o create-dmg.tar.gz https://github.com/create-dmg/create-dmg/archive/refs/tags/v1.2.2.tar.gz
-            tar -xzf create-dmg.tar.gz
-            cd create-dmg-1.2.2
-            sudo make install
-            cd ..
-            rustup target add x86_64-apple-darwin
-            rustup target add aarch64-apple-darwin
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          curl -L -o create-dmg.tar.gz https://github.com/create-dmg/create-dmg/archive/refs/tags/v1.2.2.tar.gz
+          tar -xzf create-dmg.tar.gz
+          cd create-dmg-1.2.2
+          sudo make install
+          cd ..
+          rustup target add x86_64-apple-darwin
+          rustup target add aarch64-apple-darwin
 
-          elif [[ $RUNNER_OS == "Linux" ]]; then
-            sudo apt-get update
-            sudo apt-get -qq install -y \
-              curl gnupg ca-certificates git gcc-multilib g++-multilib cmake \
-              libssl-dev pkg-config libfreetype6-dev libasound2-dev \
-              libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev \
-              libxi-dev libfuse2 appstream
-          fi
+      - name: Install dependencies (Linux)
+        if: matrix.os == 'ubuntu-20.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get -qq install -y \
+            curl gnupg ca-certificates git gcc-multilib g++-multilib cmake \
+            libssl-dev pkg-config libfreetype6-dev libasound2-dev \
+            libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev \
+            libxi-dev libfuse2 appstream
 
       - name: Install neovim
         uses: rhysd/action-setup-vim@v1
@@ -264,47 +267,50 @@ jobs:
           sign: true
           sign_args: "--code-signature-flags=runtime"
 
-      - name: Prepare Artifacts
+      - name: Prepare Artifacts (Windows)
+        if: matrix.os == 'windows-latest'
         run: |
-          if [[ $RUNNER_OS == "Windows" ]]; then
-            echo "ARTIFACT=neovide.exe" >> $GITHUB_ENV
-            echo "ARTIFACT2=neovide.msi" >> $GITHUB_ENV
+          echo "ARTIFACT=neovide.exe" >> $GITHUB_ENV
+          echo "ARTIFACT2=neovide.msi" >> $GITHUB_ENV
 
-          elif [[ $RUNNER_OS == "macOS" ]]; then
-            cd $GITHUB_WORKSPACE
-            # create .dmg for x86_64-apple-darwin
-            GENERATE_BUNDLE_APP=false GENERATE_DMG=true ./macos-builder/run x86_64-apple-darwin
+      - name: Prepare Artifacts (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd $GITHUB_WORKSPACE
+          # create .dmg for x86_64-apple-darwin
+          GENERATE_BUNDLE_APP=false GENERATE_DMG=true ./macos-builder/run x86_64-apple-darwin
 
-            # create .dmg for aarch64-apple-darwin
-            GENERATE_BUNDLE_APP=false GENERATE_DMG=true ./macos-builder/run aarch64-apple-darwin
+          # create .dmg for aarch64-apple-darwin
+          GENERATE_BUNDLE_APP=false GENERATE_DMG=true ./macos-builder/run aarch64-apple-darwin
 
-            echo "ARTIFACT4=Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
-            echo "ARTIFACT5=Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV
+          echo "ARTIFACT4=Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
+          echo "ARTIFACT5=Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV
 
-          elif [[ $RUNNER_OS == "Linux" ]]; then
-            cd target/release
-            # archive artifact
-            strip neovide
-            tar czvf neovide-linux-x86_64.tar.gz neovide
-            # create appimage
-            curl -Lo linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/latest/download/linuxdeploy-x86_64.AppImage
-            chmod +x linuxdeploy
-            curl -Lo linuxdeploy-plugin-appimage https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/latest/download/linuxdeploy-plugin-appimage-x86_64.AppImage
-            chmod +x linuxdeploy-plugin-appimage
+      - name: Prepare Artifacts (Linux)
+        if: matrix.os == 'ubuntu-20.04'
+        run: |
+          cd target/release
+          # archive artifact
+          strip neovide
+          tar czvf neovide-linux-x86_64.tar.gz neovide
+          # create appimage
+          curl -Lo linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/latest/download/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy
+          curl -Lo linuxdeploy-plugin-appimage https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/latest/download/linuxdeploy-plugin-appimage-x86_64.AppImage
+          chmod +x linuxdeploy-plugin-appimage
 
-            export LDAI_OUTPUT=neovide.AppImage
-            export LDAI_UPDATE_INFORMATION="gh-releases-zsync|neovide|neovide|latest|neovide.AppImage.zsync"
-            ./linuxdeploy \
-              --executable=neovide \
-              --desktop-file=../../assets/neovide.desktop \
-              --appdir=AppDir \
-              --icon-file=../../assets/neovide.svg \
-              --output=appimage
+          export LDAI_OUTPUT=neovide.AppImage
+          export LDAI_UPDATE_INFORMATION="gh-releases-zsync|neovide|neovide|latest|neovide.AppImage.zsync"
+          ./linuxdeploy \
+            --executable=neovide \
+            --desktop-file=../../assets/neovide.desktop \
+            --appdir=AppDir \
+            --icon-file=../../assets/neovide.svg \
+            --output=appimage
 
-            echo "ARTIFACT=neovide-linux-x86_64.tar.gz" >> $GITHUB_ENV
-            echo "ARTIFACT2=neovide.AppImage" >> $GITHUB_ENV
-            echo "ARTIFACT3=neovide.AppImage.zsync" >> $GITHUB_ENV
-          fi
+          echo "ARTIFACT=neovide-linux-x86_64.tar.gz" >> $GITHUB_ENV
+          echo "ARTIFACT2=neovide.AppImage" >> $GITHUB_ENV
+          echo "ARTIFACT3=neovide.AppImage.zsync" >> $GITHUB_ENV
 
       - name: Sign Mac App .dmg (aarch64-apple-darwin)
         if: matrix.os == 'macos-latest'

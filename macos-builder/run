@@ -53,17 +53,12 @@ if [ "$GENERATE_BUNDLE_APP" == "true" ]; then
   cp -fRp "${APP_TEMPLATE}" "${APP_DIR}"
   cp -fp "${APP_BINARY}" "${APP_BINARY_DIR}"
   touch -r "${APP_BINARY}" "${APP_DIR}/${APP_NAME}"
-
-  # Use `codesign` for local signing using keychain
-  # codesign --remove-signature "${APP_DIR}/${APP_NAME}"
-  # codesign --force --options runtime --deep --sign "${DEVELOPER_ID}" "${APP_BINARY}"
-  # codesign --force --options runtime --deep --sign "${DEVELOPER_ID}" "${APP_BINARY_DIR}/${TARGET}"
-  # codesign --force --options runtime --deep --sign "${DEVELOPER_ID}" "${APP_DIR}/${APP_NAME}"
   echo "Created '${APP_NAME}' in '${APP_DIR}'"
 fi
 
 if [ "$GENERATE_DMG" == "true" ]; then
-  # Use `codesign` for local signing using keychain
+  # Useful for use `codesign` for local signing using local keychain certificates
+  # In case our pipeline fails, so we can sign the app manually
   # codesign --remove-signature "${APP_DIR}/${APP_NAME}"
   # codesign --force --options runtime --deep --sign "${DEVELOPER_ID}" "${APP_BINARY}"
   # codesign --force --options runtime --deep --sign "${DEVELOPER_ID}" "${APP_BINARY_DIR}/${TARGET}"
