@@ -335,6 +335,7 @@ jobs:
       - name: Notarise signed macOS (aarch64-apple-darwin)
         if: matrix.os == 'macos-latest'
         uses: indygreg/apple-code-sign-action@v1
+        continue-on-error: true
         with:
           input_path: target/aarch64-apple-darwin/release/bundle/osx/Neovide-aarch64-apple-darwin.dmg
           sign: false
@@ -345,6 +346,7 @@ jobs:
       - name: Notarise signed macOS (x86_64-apple-darwin)
         if: matrix.os == 'macos-latest'
         uses: indygreg/apple-code-sign-action@v1
+        continue-on-error: true
         with:
           input_path: target/x86_64-apple-darwin/release/bundle/osx/Neovide-x86_64-apple-darwin.dmg
           sign: false
