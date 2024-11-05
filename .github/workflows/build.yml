@@ -332,7 +332,7 @@ jobs:
           sign: true
           sign_args: "--code-signature-flags=runtime"
 
-      - name: Notarise signed macOS (aarch64-apple-darwin)
+      - name: Notarize signed macOS (aarch64-apple-darwin)
         if: matrix.os == 'macos-latest' && github.event.pull_request.head.repo.full_name == github.repository
         uses: indygreg/apple-code-sign-action@v1
         continue-on-error: true
@@ -343,7 +343,7 @@ jobs:
           staple: true
           app_store_connect_api_key_json_file: app_store_connect_api_key.json
 
-      - name: Notarise signed macOS (x86_64-apple-darwin)
+      - name: Notarize signed macOS (x86_64-apple-darwin)
         if: matrix.os == 'macos-latest' && github.event.pull_request.head.repo.full_name == github.repository
         uses: indygreg/apple-code-sign-action@v1
         continue-on-error: true
