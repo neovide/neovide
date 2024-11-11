@@ -296,7 +296,6 @@ impl RenderedWindow {
 
         let paint = Paint::default()
             .set_anti_alias(false)
-            .set_color(Color::from_argb(255, 255, 255, default_background.a()))
             .set_blend_mode(if self.anchor_info.is_some() {
                 BlendMode::SrcOver
             } else {
@@ -316,8 +315,8 @@ impl RenderedWindow {
 
         root_canvas.save_layer(&background_layer_rec);
         root_canvas.clear(default_background.with_a(255));
-        self.draw_background_surface(root_canvas, pixel_region_box, grid_scale);
         root_canvas.restore();
+        self.draw_background_surface(root_canvas, pixel_region_box, grid_scale);
         self.draw_foreground_surface(root_canvas, pixel_region_box, grid_scale);
         root_canvas.restore();
 
