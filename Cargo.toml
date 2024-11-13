@@ -41,9 +41,9 @@ flexi_logger = { version = "0.28.0", default-features = false }
 futures = "0.3.21"
 gl = "0.14.0"
 # glutin = "0.32.0"
-glutin = { git = "https://github.com/falcucci/glutin.git", branch = "v0.32.0", default-features = false }
+glutin = { git = "https://github.com/falcucci/glutin.git", branch = "multi-window-support", default-features = false }
 # glutin-winit = "0.5.0"
-glutin-winit = { git = "https://github.com/falcucci/glutin.git", branch = "v0.32.0", default-features = false }
+glutin-winit = { git = "https://github.com/falcucci/glutin.git", branch = "multi-window-support", default-features = false }
 image = { version = "0.25.0", default-features = false, features = ["ico"] }
 indoc = "2.0.5"
 itertools = "0.13.0"
@@ -76,7 +76,7 @@ tracy-client-sys = { version = "0.22.0", optional = true, default-features = fal
 unicode-segmentation = "1.9.0"
 which = "6.0.1"
 # winit = { version = "=0.30.5", features = ["serde"] }
-winit = { git = "https://github.com/falcucci/winit.git", branch = "0.30.5", default-features = false, features = ["serde"] }
+winit = { git = "https://github.com/falcucci/winit.git", branch = "multi-window-support", features = ["serde"] }
 xdg = "2.4.1"
 notify-debouncer-full = "0.3.1"
 regex = "1.10.3"

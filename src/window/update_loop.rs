@@ -332,12 +332,12 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
                 } else {
                     FocusedState::UnfocusedNotDrawn
                 };
-                #[cfg(target_os = "macos")]
-                self.window_wrapper
-                    .macos_feature
-                    .as_mut()
-                    .expect("MacosWindowFeature should already be created here.")
-                    .ensure_app_initialized();
+                // #[cfg(target_os = "macos")]
+                // self.window_wrapper
+                //     .macos_feature
+                //     .as_mut()
+                //     .expect("MacosWindowFeature should already be created here.")
+                //     .ensure_app_initialized();
             }
             _ => {}
         }
