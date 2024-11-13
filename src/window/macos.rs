@@ -461,6 +461,12 @@ impl Menu {
             );
             menu.addItem(&full_screen_item);
 
+            let create_new_window = NSMenuItem::new(mtm);
+            create_new_window.setTitle(ns_string!("New Window"));
+            create_new_window.setKeyEquivalent(ns_string!("n"));
+            create_new_window.setAction(Some(sel!(neovideCreateWindow:)));
+            menu.addItem(&create_new_window);
+
             let min_item = NSMenuItem::new(mtm);
             min_item.setTitle(ns_string!("Minimize"));
             min_item.setKeyEquivalent(ns_string!("m"));

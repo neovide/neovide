@@ -120,7 +120,7 @@ impl From<HotReloadConfigs> for UserEvent {
 pub fn create_event_loop() -> EventLoop<UserEvent> {
     let mut builder = EventLoop::with_user_event();
     #[cfg(target_os = "macos")]
-    builder.with_default_menu(true);
+    builder.with_default_menu(false);
     let event_loop = builder.build().expect("Failed to create winit event loop");
     #[cfg(target_os = "macos")]
     register_file_handler();
