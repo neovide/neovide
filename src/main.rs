@@ -58,7 +58,7 @@ use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 #[cfg_attr(target_os = "windows", allow(unused_imports))]
 use settings::SETTINGS;
 use window::{
-    create_event_loop, determine_window_size, UpdateLoop, UserEvent, WindowSettings, WindowSize,
+    create_event_loop, determine_window_size, Application, UserEvent, WindowSettings, WindowSize,
 };
 
 pub use channel_utils::*;
@@ -99,7 +99,7 @@ fn main() -> NeovideExitCode {
         Err(err) => handle_startup_errors(err, event_loop).into(),
         Ok((window_size, font_settings, runtime)) => {
             let mut update_loop =
-                UpdateLoop::new(window_size, font_settings, event_loop.create_proxy());
+                Application::new(window_size, font_settings, event_loop.create_proxy());
 
             let res = event_loop.run_app(&mut update_loop).into();
             // Wait a little bit more and force Nevoim to exit after that.

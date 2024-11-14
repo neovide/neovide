@@ -71,7 +71,7 @@ impl ShouldRender {
 
 const MAX_ANIMATION_DT: f64 = 1.0 / 120.0;
 
-pub struct UpdateLoop {
+pub struct Application {
     idle: bool,
     previous_frame_start: Instant,
     last_dt: f32,
@@ -88,7 +88,7 @@ pub struct UpdateLoop {
     proxy: EventLoopProxy<UserEvent>,
 }
 
-impl UpdateLoop {
+impl Application {
     pub fn new(
         initial_window_size: WindowSize,
         initial_font_settings: Option<FontSettings>,
@@ -314,7 +314,7 @@ impl UpdateLoop {
     }
 }
 
-impl ApplicationHandler<UserEvent> for UpdateLoop {
+impl ApplicationHandler<UserEvent> for Application {
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
