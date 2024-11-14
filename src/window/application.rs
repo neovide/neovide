@@ -84,7 +84,6 @@ pub struct Application {
     animation_time: Duration, // How long the current animation has been simulated, will usually be in the future
 
     window_wrapper: WinitWindowWrapper,
-    create_window_allowed: bool,
     proxy: EventLoopProxy<UserEvent>,
 }
 
@@ -122,7 +121,6 @@ impl Application {
             animation_time,
 
             window_wrapper,
-            create_window_allowed: false,
             proxy,
         }
     }
@@ -161,10 +159,6 @@ impl Application {
     fn schedule_next_event(&mut self, event_loop: &ActiveEventLoop) {
         #[cfg(feature = "profiling")]
         self.should_render.plot_tracy();
-        if self.create_window_allowed {
-            self.window_wrapper
-                .try_create_window(event_loop, &self.proxy);
-        }
         event_loop.set_control_flow(ControlFlow::WaitUntil(self.get_event_deadline()));
     }
 
@@ -315,6 +309,33 @@ impl Application {
 }
 
 impl ApplicationHandler<UserEvent> for Application {
+    fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: winit::event::StartCause) {
+        match cause {
+            winit::event::StartCause::Init => {
+                println!("1.Init");
+                self.window_wrapper
+                    .try_create_window(event_loop, &self.proxy);
+                self.schedule_next_event(event_loop);
+            }
+            winit::event::StartCause::ResumeTimeReached { .. } => {
+                self.prepare_and_animate();
+                self.schedule_next_event(event_loop);
+            }
+            winit::event::StartCause::WaitCancelled { .. } => {
+                self.schedule_next_event(event_loop);
+            }
+            winit::event::StartCause::Poll => {
+                self.schedule_next_event(event_loop);
+            }
+            winit::event::StartCause::CreateWindow => {
+                println!("2.CreateWindow");
+                self.window_wrapper
+                    .try_create_window(event_loop, &self.proxy);
+                self.schedule_next_event(event_loop);
+            }
+        }
+    }
+
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -372,15 +393,8 @@ impl ApplicationHandler<UserEvent> for Application {
         self.schedule_next_event(event_loop);
     }
 
-    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        tracy_zone!("about_to_wait");
-        self.prepare_and_animate();
-        self.schedule_next_event(event_loop);
-    }
-
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         tracy_zone!("resumed");
-        self.create_window_allowed = true;
         self.schedule_next_event(event_loop);
     }
 

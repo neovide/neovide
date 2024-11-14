@@ -434,13 +434,8 @@ impl WinitWindowWrapper {
         event_loop: &ActiveEventLoop,
         proxy: &EventLoopProxy<UserEvent>,
     ) {
-        if self.ui_state != UIState::WaitingForWindowCreate {
-            return;
-        }
-        tracy_zone!("create_window");
-
+        tracy_zone!("try_create_window");
         let maximized = matches!(self.initial_window_size, WindowSize::Maximized);
-
         let window_config = create_window(event_loop, maximized, &self.title);
         let window = &window_config.window;
 
@@ -577,6 +572,7 @@ impl WinitWindowWrapper {
 
         if self.ui_state == UIState::Initing && handle_draw_commands_result.should_show {
             log::info!("Showing the Window");
+            println!("Showing the Window");
             self.ui_state = UIState::WaitingForWindowCreate;
         };
     }
