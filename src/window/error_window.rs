@@ -22,7 +22,7 @@ use crate::{
     clipboard,
     cmd_line::SRGB_DEFAULT,
     renderer::{build_window_config, create_skia_renderer, SkiaRenderer, WindowConfig},
-    window::{load_icon, UserEvent},
+    window::{load_icon, EventPayload},
 };
 
 const TEXT_COLOR: Color4f = WHITE;
@@ -33,7 +33,7 @@ const MAX_LINES: i32 = 9999;
 const MIN_SIZE: PhysicalSize<u32> = PhysicalSize::new(500, 500);
 const DEFAULT_SIZE: PhysicalSize<u32> = PhysicalSize::new(800, 600);
 
-pub fn show_error_window(message: &str, event_loop: EventLoop<UserEvent>) {
+pub fn show_error_window(message: &str, event_loop: EventLoop<EventPayload>) {
     let mut error_window = ErrorWindow::new(message);
     event_loop.run_app(&mut error_window).ok();
 }
@@ -86,7 +86,7 @@ impl<'a> ErrorWindow<'a> {
     }
 }
 
-impl<'a> ApplicationHandler<UserEvent> for ErrorWindow<'a> {
+impl<'a> ApplicationHandler<EventPayload> for ErrorWindow<'a> {
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,

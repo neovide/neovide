@@ -15,7 +15,7 @@ use crate::windows_attach_to_console;
 use crate::{
     bridge::{send_ui, ParallelCommand},
     running_tracker::RUNNING_TRACKER,
-    window::{show_error_window, UserEvent},
+    window::{show_error_window, EventPayload},
 };
 
 fn show_error(explanation: &str) -> ! {
@@ -71,12 +71,12 @@ fn handle_terminal_startup_errors(err: Error) -> i32 {
     1
 }
 
-fn handle_gui_startup_errors(err: Error, event_loop: EventLoop<UserEvent>) -> i32 {
+fn handle_gui_startup_errors(err: Error, event_loop: EventLoop<EventPayload>) -> i32 {
     show_error_window(&format_and_log_error_message(err), event_loop);
     1
 }
 
-pub fn handle_startup_errors(err: Error, event_loop: EventLoop<UserEvent>) -> i32 {
+pub fn handle_startup_errors(err: Error, event_loop: EventLoop<EventPayload>) -> i32 {
     // Command line output is always printed to the stdout/stderr
     if let Some(clap_error) = err.downcast_ref::<ClapError>() {
         #[cfg(target_os = "windows")]

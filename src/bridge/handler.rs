@@ -13,19 +13,19 @@ use crate::{
     error_handling::ResultPanicExplanation,
     running_tracker::*,
     settings::SETTINGS,
-    window::{UserEvent, WindowCommand},
+    window::{EventPayload, WindowCommand},
     LoggingSender,
 };
 
 #[derive(Clone)]
 pub struct NeovimHandler {
     // The EventLoopProxy is not sync on all platforms, so wrap it in a mutex
-    proxy: Arc<Mutex<EventLoopProxy<UserEvent>>>,
+    proxy: Arc<Mutex<EventLoopProxy<EventPayload>>>,
     sender: LoggingSender<RedrawEvent>,
 }
 
 impl NeovimHandler {
-    pub fn new(sender: UnboundedSender<RedrawEvent>, proxy: EventLoopProxy<UserEvent>) -> Self {
+    pub fn new(sender: UnboundedSender<RedrawEvent>, proxy: EventLoopProxy<EventPayload>) -> Self {
         Self {
             proxy: Arc::new(Mutex::new(proxy)),
             sender: LoggingSender::attach(sender, "neovim_handler"),

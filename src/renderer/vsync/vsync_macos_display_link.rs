@@ -6,14 +6,14 @@ use std::sync::{
 
 use winit::{event_loop::EventLoopProxy, window::Window};
 
-use crate::window::UserEvent;
+use crate::window::{EventPayload, UserEvent};
 
 use super::macos_display_link::{
     core_video, get_display_id_of_window, MacosDisplayLink, MacosDisplayLinkCallbackArgs,
 };
 
 struct VSyncMacosDisplayLinkUserData {
-    proxy: EventLoopProxy<UserEvent>,
+    proxy: EventLoopProxy<EventPayload>,
     redraw_requested: Arc<AtomicBool>,
 }
 
@@ -22,19 +22,21 @@ fn vsync_macos_display_link_callback(
     user_data: &mut VSyncMacosDisplayLinkUserData,
 ) {
     if user_data.redraw_requested.swap(false, Ordering::Relaxed) {
-        let _ = user_data.proxy.send_event(UserEvent::RedrawRequested);
+        let _ = user_data
+            .proxy
+            .send_event(EventPayload::new(UserEvent::RedrawRequested));
     }
 }
 
 pub struct VSyncMacosDisplayLink {
     old_display: core_video::CGDirectDisplayID,
     display_link: Option<MacosDisplayLink<VSyncMacosDisplayLinkUserData>>,
-    proxy: EventLoopProxy<UserEvent>,
+    proxy: EventLoopProxy<EventPayload>,
     redraw_requested: Arc<AtomicBool>,
 }
 
 impl VSyncMacosDisplayLink {
-    pub fn new(window: &Window, proxy: EventLoopProxy<UserEvent>) -> VSyncMacosDisplayLink {
+    pub fn new(window: &Window, proxy: EventLoopProxy<EventPayload>) -> VSyncMacosDisplayLink {
         let redraw_requested = AtomicBool::new(false).into();
         let mut vsync = VSyncMacosDisplayLink {
             old_display: 0,

@@ -1,5 +1,6 @@
 use super::{
-    KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged,
+    EventPayload, KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings,
+    WindowSettingsChanged,
 };
 
 #[cfg(target_os = "macos")]
@@ -369,8 +370,8 @@ impl WinitWindowWrapper {
         self.ui_state >= UIState::FirstFrame && should_render
     }
 
-    pub fn handle_user_event(&mut self, event: UserEvent) {
-        match event {
+    pub fn handle_user_event(&mut self, event: EventPayload) {
+        match event.payload {
             UserEvent::DrawCommandBatch(batch) => {
                 self.handle_draw_commands(batch);
             }
@@ -432,7 +433,7 @@ impl WinitWindowWrapper {
     pub fn try_create_window(
         &mut self,
         event_loop: &ActiveEventLoop,
-        proxy: &EventLoopProxy<UserEvent>,
+        proxy: &EventLoopProxy<EventPayload>,
     ) {
         tracy_zone!("try_create_window");
         let maximized = matches!(self.initial_window_size, WindowSize::Maximized);

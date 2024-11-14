@@ -93,6 +93,17 @@ pub enum UserEvent {
     NeovimExited,
 }
 
+#[derive(Debug, Clone)]
+pub struct EventPayload {
+    pub payload: UserEvent,
+}
+
+impl EventPayload {
+    pub fn new(payload: UserEvent) -> Self {
+        Self { payload }
+    }
+}
+
 impl From<Vec<DrawCommand>> for UserEvent {
     fn from(value: Vec<DrawCommand>) -> Self {
         UserEvent::DrawCommandBatch(value)
@@ -102,6 +113,12 @@ impl From<Vec<DrawCommand>> for UserEvent {
 impl From<WindowCommand> for UserEvent {
     fn from(value: WindowCommand) -> Self {
         UserEvent::WindowCommand(value)
+    }
+}
+
+impl From<WindowCommand> for EventPayload {
+    fn from(value: WindowCommand) -> Self {
+        EventPayload::new(UserEvent::WindowCommand(value))
     }
 }
 
@@ -117,7 +134,7 @@ impl From<HotReloadConfigs> for UserEvent {
     }
 }
 
-pub fn create_event_loop() -> EventLoop<UserEvent> {
+pub fn create_event_loop() -> EventLoop<EventPayload> {
     let mut builder = EventLoop::with_user_event();
     #[cfg(target_os = "macos")]
     builder.with_default_menu(false);

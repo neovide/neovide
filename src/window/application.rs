@@ -6,11 +6,12 @@ use winit::{
     event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy},
 };
 
-use super::{save_window_size, CmdLineSettings, UserEvent, WindowSettings, WinitWindowWrapper};
+use super::{save_window_size, CmdLineSettings, EventPayload, WindowSettings, WinitWindowWrapper};
 use crate::{
     profiling::{tracy_plot, tracy_zone},
     renderer::DrawCommand,
     settings::SETTINGS,
+    window::UserEvent,
     FontSettings, WindowSize,
 };
 
@@ -84,14 +85,14 @@ pub struct Application {
     animation_time: Duration, // How long the current animation has been simulated, will usually be in the future
 
     window_wrapper: WinitWindowWrapper,
-    proxy: EventLoopProxy<UserEvent>,
+    proxy: EventLoopProxy<EventPayload>,
 }
 
 impl Application {
     pub fn new(
         initial_window_size: WindowSize,
         initial_font_settings: Option<FontSettings>,
-        proxy: EventLoopProxy<UserEvent>,
+        proxy: EventLoopProxy<EventPayload>,
     ) -> Self {
         let previous_frame_start = Instant::now();
         let last_dt = 0.0;
@@ -308,7 +309,7 @@ impl Application {
     }
 }
 
-impl ApplicationHandler<UserEvent> for Application {
+impl ApplicationHandler<EventPayload> for Application {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: winit::event::StartCause) {
         match cause {
             winit::event::StartCause::Init => {
@@ -369,9 +370,9 @@ impl ApplicationHandler<UserEvent> for Application {
         self.schedule_next_event(event_loop);
     }
 
-    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: UserEvent) {
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: EventPayload) {
         tracy_zone!("user_event");
-        match event {
+        match event.payload {
             UserEvent::NeovimExited => {
                 save_window_size(&self.window_wrapper);
                 event_loop.exit();

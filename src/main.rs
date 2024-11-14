@@ -58,7 +58,7 @@ use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 #[cfg_attr(target_os = "windows", allow(unused_imports))]
 use settings::SETTINGS;
 use window::{
-    create_event_loop, determine_window_size, Application, UserEvent, WindowSettings, WindowSize,
+    create_event_loop, determine_window_size, Application, EventPayload, WindowSettings, WindowSize,
 };
 
 pub use channel_utils::*;
@@ -98,10 +98,10 @@ fn main() -> NeovideExitCode {
     match setup(event_loop.create_proxy()) {
         Err(err) => handle_startup_errors(err, event_loop).into(),
         Ok((window_size, font_settings, runtime)) => {
-            let mut update_loop =
+            let mut application =
                 Application::new(window_size, font_settings, event_loop.create_proxy());
 
-            let res = event_loop.run_app(&mut update_loop).into();
+            let res = event_loop.run_app(&mut application).into();
             // Wait a little bit more and force Nevoim to exit after that.
             // This should not be required, but Neovim through libuv spawns childprocesses that inherits all the handles
             // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
@@ -114,7 +114,7 @@ fn main() -> NeovideExitCode {
 }
 
 fn setup(
-    proxy: EventLoopProxy<UserEvent>,
+    proxy: EventLoopProxy<EventPayload>,
 ) -> Result<(WindowSize, Option<FontSettings>, NeovimRuntime)> {
     //  --------------
     // | Architecture |

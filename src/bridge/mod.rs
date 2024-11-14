@@ -21,8 +21,11 @@ use tokio::{
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
-    cmd_line::CmdLineSettings, editor::start_editor, settings::*, units::GridSize,
-    window::UserEvent,
+    cmd_line::CmdLineSettings,
+    editor::start_editor,
+    settings::*,
+    units::GridSize,
+    window::{EventPayload, UserEvent},
 };
 pub use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
@@ -126,7 +129,7 @@ async fn launch(handler: NeovimHandler, grid_size: Option<GridSize<u32>>) -> Res
     res.map(|()| session)
 }
 
-async fn run(session: NeovimSession, proxy: EventLoopProxy<UserEvent>) {
+async fn run(session: NeovimSession, proxy: EventLoopProxy<EventPayload>) {
     let mut session = session;
 
     if let Some(process) = session.neovim_process.as_mut() {
@@ -154,7 +157,9 @@ async fn run(session: NeovimSession, proxy: EventLoopProxy<UserEvent>) {
         session.io_handle.await.ok();
     }
     log::info!("Neovim has quit");
-    proxy.send_event(UserEvent::NeovimExited).ok();
+    proxy
+        .send_event(EventPayload::new(UserEvent::NeovimExited))
+        .ok();
 }
 
 impl NeovimRuntime {
@@ -166,7 +171,7 @@ impl NeovimRuntime {
 
     pub fn launch(
         &mut self,
-        event_loop_proxy: EventLoopProxy<UserEvent>,
+        event_loop_proxy: EventLoopProxy<EventPayload>,
         grid_size: Option<GridSize<u32>>,
     ) -> Result<()> {
         let handler = start_editor(event_loop_proxy.clone());

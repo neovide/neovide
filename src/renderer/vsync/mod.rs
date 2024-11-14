@@ -11,7 +11,7 @@ mod vsync_win_swap_chain;
 use vsync_timer::VSyncTimer;
 
 use crate::{
-    renderer::SkiaRenderer, settings::SETTINGS, window::UserEvent, window::WindowSettings,
+    renderer::SkiaRenderer, settings::SETTINGS, window::EventPayload, window::WindowSettings,
 };
 use winit::{event_loop::EventLoopProxy, window::Window};
 
@@ -40,7 +40,7 @@ impl VSync {
     pub fn new(
         vsync_enabled: bool,
         renderer: &dyn SkiaRenderer,
-        proxy: EventLoopProxy<UserEvent>,
+        proxy: EventLoopProxy<EventPayload>,
     ) -> Self {
         if vsync_enabled {
             renderer.create_vsync(proxy)

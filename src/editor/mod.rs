@@ -21,7 +21,7 @@ use crate::{
     bridge::{GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
     profiling::{tracy_named_frame, tracy_zone},
     renderer::{DrawCommand, WindowDrawCommand},
-    window::{UserEvent, WindowCommand},
+    window::{EventPayload, WindowCommand},
 };
 
 #[cfg(target_os = "macos")]
@@ -92,12 +92,12 @@ pub struct Editor {
     pub draw_command_batcher: Rc<DrawCommandBatcher>,
     pub current_mode_index: Option<u64>,
     pub ui_ready: bool,
-    event_loop_proxy: EventLoopProxy<UserEvent>,
+    event_loop_proxy: EventLoopProxy<EventPayload>,
     composition_order: u64,
 }
 
 impl Editor {
-    pub fn new(event_loop_proxy: EventLoopProxy<UserEvent>) -> Editor {
+    pub fn new(event_loop_proxy: EventLoopProxy<EventPayload>) -> Editor {
         Editor {
             windows: HashMap::new(),
             cursor: Cursor::new(),
@@ -636,7 +636,7 @@ impl Editor {
     }
 }
 
-pub fn start_editor(event_loop_proxy: EventLoopProxy<UserEvent>) -> NeovimHandler {
+pub fn start_editor(event_loop_proxy: EventLoopProxy<EventPayload>) -> NeovimHandler {
     let (sender, mut receiver) = unbounded_channel();
     let handler = NeovimHandler::new(sender, event_loop_proxy.clone());
     thread::spawn(move || {
