@@ -7,6 +7,7 @@ use skia_safe::{
     surface::BackendSurfaceAccess,
     Canvas, ColorSpace, ColorType, PixelGeometry, Surface, SurfaceProps, SurfacePropsFlags,
 };
+use windows::core::{Interface, Result, PCWSTR};
 use windows::Win32::Graphics::DirectComposition::{
     DCompositionCreateDevice2, IDCompositionDevice, IDCompositionTarget, IDCompositionVisual,
 };
@@ -38,10 +39,6 @@ use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObjectEx, INF
 use windows::Win32::{
     Foundation::{CloseHandle, HANDLE, HWND},
     Graphics::Dxgi::DXGI_PRESENT,
-};
-use windows::{
-    core::{Interface, Result, PCWSTR},
-    Win32::Graphics::Dxgi::IDXGIFactory4,
 };
 use winit::{
     event_loop::EventLoopProxy,
@@ -126,7 +123,7 @@ impl D3DSkiaRenderer {
         };
 
         #[cfg(not(feature = "d3d_debug"))]
-        let dxgi_factory: IDXGIFactory4 =
+        let dxgi_factory: IDXGIFactory2 =
             unsafe { CreateDXGIFactory1().expect("Failed to create DXGI factory") };
 
         let adapter = get_hardware_adapter(&dxgi_factory)
