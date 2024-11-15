@@ -404,7 +404,7 @@ impl SkiaRenderer for D3DSkiaRenderer {
             self.gr_context.submit(Some(SyncCpu::No));
 
             tracy_gpu_zone!("present");
-            if self.swap_chain.Present(1, DXGI_PRESENT::default()).is_ok() {
+            if self.swap_chain.Present(1, DXGI_PRESENT(0)).is_ok() {
                 self.frame_swapped = true;
             }
         }
@@ -438,7 +438,7 @@ impl SkiaRenderer for D3DSkiaRenderer {
                     size.width,
                     size.height,
                     DXGI_FORMAT_UNKNOWN,
-                    DXGI_SWAP_CHAIN_FLAG::default(),
+                    DXGI_SWAP_CHAIN_FLAG(self.swap_chain_desc.Flags as i32),
                 )
                 .expect("Failed to resize buffers");
         }
