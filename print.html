@@ -1236,12 +1236,24 @@ to its generalistic purpose.</p>
 <h3 id="srgb"><a class="header" href="#srgb">sRGB</a></h3>
 <pre><code class="language-sh">--no-srgb, --srgb or $NEOVIDE_SRGB=0|1
 </code></pre>
-<p>Request sRGB support on the window. Neovide does not actually render with sRGB,
-but it's still enabled by default on Windows to work around
-<a href="https://github.com/neovim/neovim/issues/907">neovim/neovim/issues/907</a>. Other
-platforms should not need it, but if you encounter either startup crashes or
-wrong colors, you can try to swap the option. The command line parameter takes
-priority over the environment variable.</p>
+<p>Request sRGB support on the window. The command line parameter takes priority
+over the environment variable.</p>
+<p>On Windows, Neovide does not actually render with sRGB, but it's still enabled
+by default to work around
+<a href="https://github.com/neovim/neovim/issues/907">neovim/neovim/issues/907</a>.</p>
+<p>On macOS, this option works as expected to switch sRGB color space. The
+default is <code>--no-srgb</code> to keep the behavior of previous versions. If you want
+to enable srgb, please use <code>--srgb</code>.</p>
+<p>Other platforms should not need it, but if you encounter either startup crashes
+or wrong colors, you can try to swap the option.</p>
+<p>Notes on macOS: Traditional terminals do not use sRGB by default. This is how
+most terminals on Windows and Linux do. Neovide follows this rule. However,
+Terminal of macOS changes the default to sRGB. Other terminal emulators, like
+Alacritty, Kitty, may follow Apple and use sRGB. Some may offer no function
+to switch it off currently. So you might get different color of the same value
+in Neovide surprisingly. Please read
+<a href="https://github.com/neovide/neovide/issues/1102">neovide/neovide/issues/1102</a>
+for more details.</p>
 <h3 id="tabs"><a class="header" href="#tabs">Tabs</a></h3>
 <pre><code class="language-sh">--no-tabs, --tabs or $NEOVIDE_TABS=0|1
 </code></pre>
@@ -1249,6 +1261,11 @@ priority over the environment variable.</p>
 tabs to avoid confusing new users. <code>--no-tabs</code> disables this behavior.</p>
 <p>Note: Even if files are opened in tabs, they're buffers anyways. It's just about them being visible
 or not.</p>
+<h3 id="opengl-renderer"><a class="header" href="#opengl-renderer">OpenGL Renderer</a></h3>
+<pre><code class="language-sh">--opengl or $NEOVIDE_OPENGL=1
+</code></pre>
+<p>By default, Neovide uses D3D on Windows and Metal on macOS as renderer. You
+can use <code>--opengl</code> to force OpenGL when you meet some problems of D3D/Metal.</p>
 <h3 id="no-vsync"><a class="header" href="#no-vsync">No VSync</a></h3>
 <pre><code class="language-sh">--no-vsync, --vsync or $NEOVIDE_VSYNC=0|1
 </code></pre>
