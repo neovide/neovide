@@ -8,13 +8,6 @@ use skia_safe::{
     Canvas, ColorSpace, ColorType, PixelGeometry, Surface, SurfaceProps, SurfacePropsFlags,
 };
 use windows::core::{Interface, Result, PCWSTR};
-use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND};
-use windows::Win32::Graphics::Direct3D::D3D_FEATURE_LEVEL_11_0;
-use windows::Win32::Graphics::Direct3D12::{
-    D3D12CreateDevice, ID3D12CommandQueue, ID3D12Device, ID3D12Fence, ID3D12Resource,
-    D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_COMMAND_QUEUE_DESC, D3D12_COMMAND_QUEUE_FLAG_NONE,
-    D3D12_FENCE_FLAG_NONE, D3D12_RESOURCE_STATE_PRESENT,
-};
 use windows::Win32::Graphics::DirectComposition::{
     DCompositionCreateDevice2, IDCompositionDevice, IDCompositionTarget, IDCompositionVisual,
 };
@@ -24,9 +17,18 @@ use windows::Win32::Graphics::Dxgi::Common::{
 };
 use windows::Win32::Graphics::Dxgi::{
     CreateDXGIFactory1, IDXGIAdapter1, IDXGIFactory2, IDXGISwapChain1, IDXGISwapChain3,
-    DXGI_ADAPTER_FLAG, DXGI_ADAPTER_FLAG_SOFTWARE, DXGI_SCALING_STRETCH, DXGI_SWAP_CHAIN_DESC1,
+    DXGI_ADAPTER_FLAG, DXGI_ADAPTER_FLAG_SOFTWARE, DXGI_SCALING_STRETCH,
     DXGI_SWAP_CHAIN_FLAG_FRAME_LATENCY_WAITABLE_OBJECT, DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL,
     DXGI_USAGE_RENDER_TARGET_OUTPUT,
+};
+use windows::Win32::Graphics::{Direct3D::D3D_FEATURE_LEVEL_11_0, Dxgi::DXGI_SWAP_CHAIN_DESC1};
+use windows::Win32::Graphics::{
+    Direct3D12::{
+        D3D12CreateDevice, ID3D12CommandQueue, ID3D12Device, ID3D12Fence, ID3D12Resource,
+        D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_COMMAND_QUEUE_DESC, D3D12_COMMAND_QUEUE_FLAG_NONE,
+        D3D12_FENCE_FLAG_NONE, D3D12_RESOURCE_STATE_PRESENT,
+    },
+    Dxgi::DXGI_SWAP_CHAIN_FLAG,
 };
 #[cfg(feature = "d3d_debug")]
 use windows::Win32::Graphics::{
@@ -34,6 +36,10 @@ use windows::Win32::Graphics::{
     Dxgi::{CreateDXGIFactory2, DXGI_CREATE_FACTORY_DEBUG},
 };
 use windows::Win32::System::Threading::{CreateEventW, WaitForSingleObjectEx, INFINITE};
+use windows::Win32::{
+    Foundation::{CloseHandle, HANDLE, HWND},
+    Graphics::Dxgi::DXGI_PRESENT,
+};
 use winit::{
     event_loop::EventLoopProxy,
     raw_window_handle::{HasWindowHandle, RawWindowHandle},
@@ -53,10 +59,7 @@ fn get_hardware_adapter(factory: &IDXGIFactory2) -> Result<IDXGIAdapter1> {
     tracy_zone!("get_hardware_adapter");
     for i in 0.. {
         let adapter = unsafe { factory.EnumAdapters1(i)? };
-        let mut desc = Default::default();
-        unsafe {
-            adapter.GetDesc1(&mut desc)?;
-        }
+        let desc = unsafe { adapter.GetDesc1() }?;
 
         if DXGI_ADAPTER_FLAG(desc.Flags as i32).contains(DXGI_ADAPTER_FLAG_SOFTWARE) {
             continue;
@@ -173,7 +176,7 @@ impl D3DSkiaRenderer {
             .expect("Failed to fetch window handle")
             .as_raw()
         {
-            HWND(handle.hwnd.get())
+            HWND(handle.hwnd.get() as *mut _)
         } else {
             panic!("Not a Win32 window");
         };
@@ -401,7 +404,7 @@ impl SkiaRenderer for D3DSkiaRenderer {
             self.gr_context.submit(Some(SyncCpu::No));
 
             tracy_gpu_zone!("present");
-            if self.swap_chain.Present(1, 0).is_ok() {
+            if self.swap_chain.Present(1, DXGI_PRESENT(0)).is_ok() {
                 self.frame_swapped = true;
             }
         }
@@ -435,7 +438,7 @@ impl SkiaRenderer for D3DSkiaRenderer {
                     size.width,
                     size.height,
                     DXGI_FORMAT_UNKNOWN,
-                    self.swap_chain_desc.Flags,
+                    DXGI_SWAP_CHAIN_FLAG(self.swap_chain_desc.Flags as i32),
                 )
                 .expect("Failed to resize buffers");
         }
