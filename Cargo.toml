@@ -85,8 +85,8 @@ serial_test = "3.0.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 wslpath-rs = "0.1"
-skia-safe = { version = "0.75.0", features = ["gl", "d3d", "textlayout"] }
-windows = { version = "0.56.0", features = [
+skia-safe = { version = "0.80.0", features = ["gl", "d3d", "textlayout"] }
+windows = { version = "0.58.0", features = [
     "Win32_Graphics_Direct3D",
     "Win32_Graphics_Direct3D12",
     "Win32_Graphics_DirectComposition",
@@ -101,16 +101,19 @@ windows = { version = "0.56.0", features = [
 ] }
 windows-registry = "0.2.0"
 
+[target.'cfg(not(target_os = "windows"))'.dependencies]
+skia-safe = { version = "0.80.0", features = ["gl", "textlayout"] }
+
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.5.2"
 objc2-foundation = { version = "0.2.2", features = [ "NSUserDefaults" ] }
 objc2-app-kit = { version = "0.2.2", features = [ "NSLayoutConstraint", "NSColorSpace", "objc2-quartz-core" ] }
 objc2-quartz-core = { version = "0.2.2", features = [ "objc2-metal", "CALayer", "CAMetalLayer" ] }
 objc2-metal = { version = "0.2.2", features = [ "MTLCommandQueue", "MTLCommandBuffer" ] }
-skia-safe = { version = "0.75.0", features = ["metal", "gl", "textlayout"] }
+skia-safe = { version = "0.80.0", features = ["metal", "gl", "textlayout"] }
 
 [target.'cfg(not(any(target_os = "windows", target_os = "macos")))'.dependencies]
-skia-safe = { version = "0.75.0", features = ["gl", "textlayout"] }
+skia-safe = { version = "0.80.0", features = ["gl", "textlayout"] }
 
 [target.'cfg(target_os = "windows")'.build-dependencies]
 winres = "0.1.12"
