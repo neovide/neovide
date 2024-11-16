@@ -162,12 +162,28 @@ This sets the window title to be hidden on macOS.
 --no-srgb, --srgb or $NEOVIDE_SRGB=0|1
 ```
 
-Request sRGB support on the window. Neovide does not actually render with sRGB,
-but it's still enabled by default on Windows to work around
-[neovim/neovim/issues/907](https://github.com/neovim/neovim/issues/907). Other
-platforms should not need it, but if you encounter either startup crashes or
-wrong colors, you can try to swap the option. The command line parameter takes
-priority over the environment variable.
+Request sRGB support on the window. The command line parameter takes priority
+over the environment variable.
+
+On Windows, Neovide does not actually render with sRGB, but it's still enabled
+by default to work around
+[neovim/neovim/issues/907](https://github.com/neovim/neovim/issues/907).
+
+On macOS, this option works as expected to switch sRGB color space. The
+default is `--no-srgb` to keep the behavior of previous versions. If you want
+to enable srgb, please use `--srgb`.
+
+Other platforms should not need it, but if you encounter either startup crashes
+or wrong colors, you can try to swap the option.
+
+Notes on macOS: Traditional terminals do not use sRGB by default. This is how
+most terminals on Windows and Linux do. Neovide follows this rule. However,
+Terminal of macOS changes the default to sRGB. Other terminal emulators, like
+Alacritty, Kitty, may follow Apple and use sRGB. Some may offer no function
+to switch it off currently. So you might get different color of the same value
+in Neovide surprisingly. Please read
+[neovide/neovide/issues/1102](https://github.com/neovide/neovide/issues/1102)
+for more details.
 
 ### Tabs
 
@@ -180,6 +196,15 @@ tabs to avoid confusing new users. `--no-tabs` disables this behavior.
 
 Note: Even if files are opened in tabs, they're buffers anyways. It's just about them being visible
 or not.
+
+### OpenGL Renderer
+
+```sh
+--opengl or $NEOVIDE_OPENGL=1
+```
+
+By default, Neovide uses D3D on Windows and Metal on macOS as renderer. You
+can use `--opengl` to force OpenGL when you meet some problems of D3D/Metal.
 
 ### No VSync
 
