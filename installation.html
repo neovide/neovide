@@ -144,7 +144,7 @@
                 <div id="content" class="content">
                     <main><div class="sidetoc"><nav class="pagetoc"></nav></div>
                         <h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
-<p><strong>Note</strong>: Neovide requires neovim version <code>0.6</code> <em>or greater</em>. See previous releases such as <code>0.5.0</code>
+<p><strong>Note</strong>: Neovide requires neovim version <code>0.10</code> <em>or greater</em>. See previous releases such as <code>0.5.0</code>
 if your distro is too slow with updating or you need to rely on older neovim versions.</p>
 <p>Building instructions are somewhat limited at the moment. All the libraries Neovide uses are cross
 platform and should have support for Windows, Mac, and Linux. The rendering is based on OpenGL, so a
@@ -152,7 +152,7 @@ good GPU driver will be necessary, the default drivers provided by virtual machi
 enough. On Windows this should be enabled by default if you have a relatively recent system.</p>
 <h2 id="binaries"><a class="header" href="#binaries">Binaries</a></h2>
 <p>Installing should be as simple as downloading the binary, making sure the <code>nvim</code> executable with
-version 0.6 or greater is on your <code>PATH</code> environment variable, and running it. Everything should be
+version 0.10 or greater is on your <code>PATH</code> environment variable, and running it. Everything should be
 self contained.</p>
 <p>The binaries are to be found on
 <a href="https://github.com/neovide/neovide/releases/latest">the release page</a>.</p>
@@ -223,13 +223,10 @@ line:</p>
 bundle:</p>
 </li>
 <li>
-<p><code>cargo install cargo-bundle</code></p>
+<p><code>GENERATE_BUNDLE_APP=true GENERATE_DMG=true ./macos-builder/run</code></p>
 </li>
 <li>
-<p><code>cargo bundle --release</code></p>
-</li>
-<li>
-<p><code>cp -r ./target/release/bundle/osx/Neovide.app /Applications/Neovide.app</code> and enjoy.</p>
+<p><code>open ./target/release/bundle/osx/Neovide.dmg</code></p>
 </li>
 </ol>
 <h2 id="linux"><a class="header" href="#linux">Linux</a></h2>
