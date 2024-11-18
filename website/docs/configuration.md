@@ -342,9 +342,8 @@ Setting `g:neovide_transparency` to a value between 0.0 and 1.0 will set the def
 color opacity to that value, while `g:neovide_text_background_opacity` sets the opacity for
 background colors other than the default one.
 
-The parameter `g:neovide_text_background_opacity` can override the default blend value for all
-styles if configured. To preserve the use of blend values, it is recommended not to set this
-parameter.
+The parameter `g:neovide_text_background_opacity` will override the default blend value
+for all styles if configured. To preserve the use of blend values, set it to 1.0.
 
 #### Show Border (Currently macOS only)
 

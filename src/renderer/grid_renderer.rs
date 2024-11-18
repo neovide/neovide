@@ -244,7 +244,7 @@ impl GridRenderer {
     ///     1. If style blend is greater than 0, use the blend value.
     ///     2. Otherwise, use the opacity setting.
     /// - Non-default background:
-    ///     1. If text_background_opacity is provided, use it.
+    ///     1. If text_background_opacity is inferior to 1.0 use it directly, ignoring blend.
     ///     2. If style blend is greater than 0, use the blend value.
     ///     3. Otherwise, use opaque.
     ///
@@ -276,10 +276,10 @@ impl GridRenderer {
         let settings = SETTINGS.get::<WindowSettings>();
         if is_default_background {
             compute_blend_opacity(style.blend, settings.transparency)
+        } else if settings.text_background_opacity < 1.0 {
+            settings.text_background_opacity
         } else {
-            settings
-                .text_background_opacity
-                .unwrap_or_else(|| compute_blend_opacity(style.blend, 1.0))
+            compute_blend_opacity(style.blend, 1.0)
         }
     }
 

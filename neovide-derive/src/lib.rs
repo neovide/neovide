@@ -9,7 +9,6 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
     parse_macro_input, Attribute, Data, DataStruct, DeriveInput, Error, Field, Ident, Lit, Meta,
-    Type,
 };
 
 #[proc_macro_derive(SettingGroup, attributes(setting_prefix, option))]
@@ -60,21 +59,10 @@ fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream 
 
             // Only create a reader function for global neovide variables
             let reader = if option_name.is_none() {
-                // Convert field value, including Optional, to an rmpv::Value
-                let read_expr = if is_field_type_optional(field) {
-                    quote! {
-                        s.#ident.map(|value| value.into())
-                    }
-                } else {
-                    quote! {
-                        Some(s.#ident.clone().into())
-                    }
-                };
-
                 quote! {
                     fn reader(settings: &crate::settings::Settings) -> Option<rmpv::Value> {
                         let s = settings.get::<#name>();
-                        #read_expr
+                        Some(s.#ident.into())
                     }
                 }
             } else {
@@ -153,17 +141,6 @@ fn setting_prefix(attrs: &[Attribute]) -> Option<String> {
         }
     }
     None
-}
-
-fn is_field_type_optional(field: &Field) -> bool {
-    match &field.ty {
-        Type::Path(type_path) => type_path
-            .path
-            .segments
-            .first()
-            .map_or(false, |segment| segment.ident == "Option"),
-        _ => false,
-    }
 }
 
 fn option(field: &Field) -> Result<Option<String>, Error> {
