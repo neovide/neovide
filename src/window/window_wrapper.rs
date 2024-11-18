@@ -1,3 +1,14 @@
+use std::sync::Arc;
+
+use log::trace;
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+use winit::{
+    dpi,
+    event::{Ime, WindowEvent},
+    event_loop::{ActiveEventLoop, EventLoopProxy},
+    window::{Fullscreen, Theme},
+};
+
 use super::{
     EventPayload, KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings,
     WindowSettingsChanged,
@@ -18,8 +29,8 @@ use crate::{
         create_skia_renderer, DrawCommand, Renderer, RendererSettingsChanged, SkiaRenderer, VSync,
     },
     settings::{
-        clamped_grid_size, FontSettings, HotReloadConfigs, SettingsChanged, DEFAULT_GRID_SIZE,
-        MIN_GRID_SIZE, SETTINGS,
+        clamped_grid_size, FontSettings, HotReloadConfigs, Settings, SettingsChanged,
+        DEFAULT_GRID_SIZE, MIN_GRID_SIZE,
     },
     units::{GridRect, GridSize, PixelPos, PixelSize},
     window::{create_window, PhysicalSize, ShouldRender, WindowSize},
@@ -28,15 +39,6 @@ use crate::{
 
 #[cfg(target_os = "macos")]
 use super::macos::MacosWindowFeature;
-
-use log::trace;
-use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use winit::{
-    dpi,
-    event::{Ime, WindowEvent},
-    event_loop::{ActiveEventLoop, EventLoopProxy},
-    window::{Fullscreen, Theme},
-};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct WindowPadding {
@@ -80,21 +82,24 @@ pub struct WinitWindowWrapper {
     pub vsync: Option<VSync>,
     #[cfg(target_os = "macos")]
     pub macos_feature: Option<MacosWindowFeature>,
+
+    settings: Arc<Settings>,
 }
 
 impl WinitWindowWrapper {
     pub fn new(
         initial_window_size: WindowSize,
         initial_font_settings: Option<FontSettings>,
+        settings: Arc<Settings>,
     ) -> Self {
         let saved_inner_size = Default::default();
-        let renderer = Renderer::new(1.0, initial_font_settings);
+        let renderer = Renderer::new(1.0, initial_font_settings, settings.clone());
 
         Self {
             skia_renderer: None,
             renderer,
-            keyboard_manager: KeyboardManager::new(),
-            mouse_manager: MouseManager::new(),
+            keyboard_manager: KeyboardManager::new(settings.clone()),
+            mouse_manager: MouseManager::new(settings.clone()),
             title: String::from("Neovide"),
             font_changed_last_frame: false,
             saved_inner_size,
@@ -115,6 +120,7 @@ impl WinitWindowWrapper {
             ime_area: Default::default(),
             #[cfg(target_os = "macos")]
             macos_feature: None,
+            settings,
         }
     }
 
@@ -220,7 +226,7 @@ impl WinitWindowWrapper {
             }
             WindowSettingsChanged::WindowBlurred(blur) => {
                 if let Some(skia_renderer) = &self.skia_renderer {
-                    let WindowSettings { transparency, .. } = SETTINGS.get::<WindowSettings>();
+                    let WindowSettings { transparency, .. } = self.settings.get::<WindowSettings>();
                     let transparent = transparency < 1.0;
                     skia_renderer.window().set_blur(blur && transparent);
                 }
@@ -340,7 +346,7 @@ impl WinitWindowWrapper {
             }
             WindowEvent::ThemeChanged(theme) => {
                 tracy_zone!("ThemeChanged");
-                let settings = SETTINGS.get::<WindowSettings>();
+                let settings = self.settings.get::<WindowSettings>();
                 if settings.theme.as_str() == "auto" {
                     let background = match theme {
                         Theme::Light => "light",
@@ -437,7 +443,7 @@ impl WinitWindowWrapper {
     ) {
         tracy_zone!("try_create_window");
         let maximized = matches!(self.initial_window_size, WindowSize::Maximized);
-        let window_config = create_window(event_loop, maximized, &self.title);
+        let window_config = create_window(event_loop, maximized, &self.title, &self.settings);
         let window = &window_config.window;
 
         let WindowSettings {
@@ -449,14 +455,17 @@ impl WinitWindowWrapper {
             #[cfg(target_os = "macos")]
             input_macos_option_key_is_meta,
             ..
-        } = SETTINGS.get::<WindowSettings>();
+        } = self.settings.get::<WindowSettings>();
 
         window.set_ime_allowed(input_ime);
 
         // It's important that this is created before the window is resized, since it can change the padding and affect the size
         #[cfg(target_os = "macos")]
         {
-            self.macos_feature = Some(MacosWindowFeature::from_winit_window(window));
+            self.macos_feature = Some(MacosWindowFeature::from_winit_window(
+                window,
+                self.settings.clone(),
+            ));
         }
 
         let scale_factor = window.scale_factor();
@@ -517,10 +526,11 @@ impl WinitWindowWrapper {
             window.set_visible(true);
         }
 
-        let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
+        let cmd_line_settings = self.settings.get::<CmdLineSettings>();
         let srgb = cmd_line_settings.srgb;
         let vsync_enabled = cmd_line_settings.vsync;
-        let skia_renderer = create_skia_renderer(window_config, srgb, vsync_enabled);
+        let skia_renderer =
+            create_skia_renderer(window_config, srgb, vsync_enabled, self.settings.clone());
         let window = skia_renderer.window();
 
         self.saved_inner_size = window.inner_size();
@@ -552,6 +562,7 @@ impl WinitWindowWrapper {
             vsync_enabled,
             skia_renderer.as_ref(),
             proxy.clone(),
+            self.settings.clone(),
         ));
 
         {
@@ -585,7 +596,7 @@ impl WinitWindowWrapper {
     }
 
     fn calculate_window_padding(&self) -> WindowPadding {
-        let window_settings = SETTINGS.get::<WindowSettings>();
+        let window_settings = self.settings.get::<WindowSettings>();
         #[cfg(not(target_os = "macos"))]
         let window_padding_top = window_settings.padding_top;
 

@@ -4,6 +4,7 @@ use std::{
     env::consts::OS,
     ffi::{c_void, CStr, CString},
     num::NonZeroU32,
+    sync::Arc,
 };
 
 use gl::{types::*, MAX_RENDERBUFFER_SIZE};
@@ -39,7 +40,7 @@ pub use super::vsync::VSyncMacosDisplayLink;
 
 use super::{RendererSettings, SkiaRenderer, VSync, WindowConfig, WindowConfigType};
 
-use crate::{profiling::tracy_gpu_zone, settings::SETTINGS, window::EventPayload};
+use crate::{profiling::tracy_gpu_zone, settings::Settings, window::EventPayload};
 
 #[cfg(feature = "gpu_profiling")]
 use crate::profiling::{opengl::create_opengl_gpu_context, GpuCtx};
@@ -54,6 +55,8 @@ pub struct OpenGLSkiaRenderer {
     window_surface: Surface<WindowSurface>,
     config: Config,
     window: Option<Window>,
+
+    settings: Arc<Settings>,
 }
 
 fn clamp_render_buffer_size(size: &PhysicalSize<u32>) -> PhysicalSize<u32> {
@@ -68,7 +71,7 @@ fn get_proc_address(surface: &Surface<WindowSurface>, addr: &CStr) -> *const c_v
 }
 
 impl OpenGLSkiaRenderer {
-    pub fn new(window: WindowConfig, srgb: bool, vsync: bool) -> Self {
+    pub fn new(window: WindowConfig, srgb: bool, vsync: bool, settings: Arc<Settings>) -> Self {
         #[allow(irrefutable_let_patterns)] // This can only be something else than OpenGL on Windows
         let config = if let WindowConfigType::OpenGL(config) = window.config {
             config
@@ -140,6 +143,7 @@ impl OpenGLSkiaRenderer {
             &window_surface,
             &mut gr_context,
             &fb_info,
+            &settings,
         );
 
         Self {
@@ -150,6 +154,8 @@ impl OpenGLSkiaRenderer {
             gr_context,
             fb_info,
             skia_surface,
+
+            settings,
         }
     }
 }
@@ -186,6 +192,7 @@ impl SkiaRenderer for OpenGLSkiaRenderer {
             &self.window_surface,
             &mut self.gr_context,
             &self.fb_info,
+            &self.settings,
         );
     }
 
@@ -264,6 +271,7 @@ fn create_surface(
     window_surface: &Surface<WindowSurface>,
     gr_context: &mut DirectContext,
     fb_info: &FramebufferInfo,
+    settings: &Settings,
 ) -> skia_safe::Surface {
     let size = clamp_render_buffer_size(size);
     let backend_render_target = make_gl(
@@ -277,7 +285,7 @@ fn create_surface(
     let height = NonZeroU32::new(size.height).unwrap();
     GlSurface::resize(window_surface, context, width, height);
 
-    let render_settings = SETTINGS.get::<RendererSettings>();
+    let render_settings = settings.get::<RendererSettings>();
 
     let surface_props = SurfaceProps::new_with_text_properties(
         SurfacePropsFlags::default(),

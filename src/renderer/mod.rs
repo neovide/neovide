@@ -159,6 +159,8 @@ pub struct Renderer {
     profiler: profiler::Profiler,
     pub os_scale_factor: f64,
     pub user_scale_factor: f64,
+
+    settings: Arc<Settings>,
 }
 
 /// Results of processing the draw commands from the command channel.
@@ -168,20 +170,24 @@ pub struct DrawCommandResult {
 }
 
 impl Renderer {
-    pub fn new(os_scale_factor: f64, init_font_settings: Option<FontSettings>) -> Self {
-        let window_settings = SETTINGS.get::<WindowSettings>();
+    pub fn new(
+        os_scale_factor: f64,
+        init_font_settings: Option<FontSettings>,
+        settings: Arc<Settings>,
+    ) -> Self {
+        let window_settings = settings.get::<WindowSettings>();
 
         let user_scale_factor = window_settings.scale_factor.into();
         let scale_factor = user_scale_factor * os_scale_factor;
-        let cursor_renderer = CursorRenderer::new();
-        let mut grid_renderer = GridRenderer::new(scale_factor);
+        let cursor_renderer = CursorRenderer::new(settings.clone());
+        let mut grid_renderer = GridRenderer::new(scale_factor, settings.clone());
         grid_renderer.update_font_options(init_font_settings.map(|x| x.into()).unwrap_or_default());
         let current_mode = EditorMode::Unknown(String::from(""));
 
         let rendered_windows = HashMap::new();
         let window_regions = Vec::new();
 
-        let profiler = profiler::Profiler::new(12.0);
+        let profiler = profiler::Profiler::new(12.0, settings.clone());
 
         Renderer {
             rendered_windows,
@@ -192,6 +198,7 @@ impl Renderer {
             profiler,
             os_scale_factor,
             user_scale_factor,
+            settings,
         }
     }
 
@@ -212,8 +219,9 @@ impl Renderer {
         let default_background = self.grid_renderer.get_default_background();
         let grid_scale = self.grid_renderer.grid_scale;
 
-        let transparency = SETTINGS.get::<WindowSettings>().transparency;
-        let layer_grouping = SETTINGS
+        let transparency = self.settings.get::<WindowSettings>().transparency;
+        let layer_grouping = self
+            .settings
             .get::<RendererSettings>()
             .experimental_layer_grouping;
         root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
@@ -287,7 +295,7 @@ impl Renderer {
             (root_windows, floating_layers)
         };
 
-        let settings = SETTINGS.get::<RendererSettings>();
+        let settings = self.settings.get::<RendererSettings>();
         let root_window_regions = root_windows
             .into_iter()
             .map(|window| {
@@ -345,7 +353,7 @@ impl Renderer {
             root_windows.into_iter().chain(floating_windows)
         };
 
-        let settings = SETTINGS.get::<RendererSettings>();
+        let settings = self.settings.get::<RendererSettings>();
         // Clippy recommends short-circuiting with any which is not what we want
         #[allow(clippy::unnecessary_fold)]
         let mut animating = windows.fold(false, |acc, window| {
@@ -379,7 +387,7 @@ impl Renderer {
     }
 
     pub fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) -> DrawCommandResult {
-        let settings = SETTINGS.get::<RendererSettings>();
+        let settings = self.settings.get::<RendererSettings>();
         let mut result = DrawCommandResult {
             font_changed: false,
             should_show: false,
@@ -435,7 +443,7 @@ impl Renderer {
                             warn!("ViewportMargins recieved before window was initialized");
                         }
                         _ => {
-                            let settings = SETTINGS.get::<CmdLineSettings>();
+                            let settings = self.settings.get::<CmdLineSettings>();
                             // Ignore the errors when not using multigrid, since Neovim wrongly sends some of these
                             if !settings.no_multi_grid {
                                 error!(
@@ -510,38 +518,45 @@ pub struct WindowConfig {
     pub config: WindowConfigType,
 }
 
+#[cfg(target_os = "macos")]
 pub fn build_window_config(
     window_attributes: WindowAttributes,
     event_loop: &ActiveEventLoop,
+    settings: &Settings,
 ) -> WindowConfig {
-    #[cfg(target_os = "windows")]
-    {
-        let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
-        if cmd_line_settings.opengl {
-            opengl::build_window(window_attributes, event_loop)
-        } else {
-            let window = event_loop.create_window(window_attributes).unwrap();
-            let config = WindowConfigType::Direct3D;
-            WindowConfig { window, config }
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
-        if cmd_line_settings.opengl {
-            opengl::build_window(window_attributes, event_loop)
-        } else {
-            let window = event_loop.create_window(window_attributes).unwrap();
-            let config = WindowConfigType::Metal;
-            WindowConfig { window, config }
-        }
-    }
-
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-    {
+    let cmd_line_settings = settings.get::<CmdLineSettings>();
+    if cmd_line_settings.opengl {
         opengl::build_window(window_attributes, event_loop)
+    } else {
+        let window = event_loop.create_window(window_attributes).unwrap();
+        let config = WindowConfigType::Metal;
+        WindowConfig { window, config }
     }
+}
+
+#[cfg(target_os = "windows")]
+pub fn build_window_config(
+    window_attributes: WindowAttributes,
+    event_loop: &ActiveEventLoop,
+    settings: &Settings,
+) -> WindowConfig {
+    let cmd_line_settings = settings.get::<CmdLineSettings>();
+    if cmd_line_settings.opengl {
+        opengl::build_window(window_attributes, event_loop)
+    } else {
+        let window = event_loop.create_window(window_attributes).unwrap();
+        let config = WindowConfigType::Direct3D;
+        WindowConfig { window, config }
+    }
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
+pub fn build_window_config(
+    window_attributes: WindowAttributes,
+    event_loop: &ActiveEventLoop,
+    _settings: &Settings,
+) -> WindowConfig {
+    opengl::build_window(window_attributes, event_loop)
 }
 
 pub trait SkiaRenderer {
@@ -559,11 +574,15 @@ pub fn create_skia_renderer(
     window: WindowConfig,
     srgb: bool,
     vsync: bool,
+    settings: Arc<Settings>,
 ) -> Box<dyn SkiaRenderer> {
     let renderer: Box<dyn SkiaRenderer> = match &window.config {
-        WindowConfigType::OpenGL(..) => {
-            Box::new(opengl::OpenGLSkiaRenderer::new(window, srgb, vsync))
-        }
+        WindowConfigType::OpenGL(..) => Box::new(opengl::OpenGLSkiaRenderer::new(
+            window,
+            srgb,
+            vsync,
+            settings.clone(),
+        )),
         #[cfg(target_os = "windows")]
         WindowConfigType::Direct3D => Box::new(d3d::D3DSkiaRenderer::new(window.window)),
         #[cfg(target_os = "macos")]

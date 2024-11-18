@@ -5,9 +5,9 @@ mod style;
 mod window;
 
 use std::{collections::HashMap, rc::Rc, sync::Arc, thread};
-use tokio::sync::mpsc::unbounded_channel;
 
 use log::{error, trace, warn};
+use tokio::sync::mpsc::unbounded_channel;
 
 use winit::event_loop::EventLoopProxy;
 
@@ -21,11 +21,13 @@ use crate::{
     bridge::{GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
     profiling::{tracy_named_frame, tracy_zone},
     renderer::{DrawCommand, WindowDrawCommand},
+    running_tracker::RunningTracker,
+    settings::Settings,
     window::{EventPayload, WindowCommand},
 };
 
 #[cfg(target_os = "macos")]
-use crate::{cmd_line::CmdLineSettings, frame::Frame, settings::SETTINGS};
+use crate::{cmd_line::CmdLineSettings, frame::Frame};
 
 pub use cursor::{Cursor, CursorMode, CursorShape};
 pub use draw_command_batcher::DrawCommandBatcher;
@@ -93,11 +95,13 @@ pub struct Editor {
     pub current_mode_index: Option<u64>,
     pub ui_ready: bool,
     event_loop_proxy: EventLoopProxy<EventPayload>,
+    #[allow(dead_code)]
+    settings: Arc<Settings>,
     composition_order: u64,
 }
 
 impl Editor {
-    pub fn new(event_loop_proxy: EventLoopProxy<EventPayload>) -> Editor {
+    pub fn new(event_loop_proxy: EventLoopProxy<EventPayload>, settings: Arc<Settings>) -> Self {
         Editor {
             windows: HashMap::new(),
             cursor: Cursor::new(),
@@ -106,6 +110,7 @@ impl Editor {
             draw_command_batcher: Rc::new(DrawCommandBatcher::new()),
             current_mode_index: None,
             ui_ready: false,
+            settings,
             event_loop_proxy,
             composition_order: 0,
         }
@@ -183,7 +188,7 @@ impl Editor {
 
                 // Set the dark/light theme of window, so the titlebar text gets correct color.
                 #[cfg(target_os = "macos")]
-                if SETTINGS.get::<CmdLineSettings>().frame == Frame::Transparent {
+                if self.settings.get::<CmdLineSettings>().frame == Frame::Transparent {
                     let _ = self.event_loop_proxy.send_event(
                         WindowCommand::ThemeChanged(window_theme_for_background(colors.background))
                             .into(),
@@ -636,11 +641,20 @@ impl Editor {
     }
 }
 
-pub fn start_editor(event_loop_proxy: EventLoopProxy<EventPayload>) -> NeovimHandler {
+pub fn start_editor(
+    event_loop_proxy: EventLoopProxy<EventPayload>,
+    running_tracker: RunningTracker,
+    settings: Arc<Settings>,
+) -> NeovimHandler {
     let (sender, mut receiver) = unbounded_channel();
-    let handler = NeovimHandler::new(sender, event_loop_proxy.clone());
+    let handler = NeovimHandler::new(
+        sender,
+        event_loop_proxy.clone(),
+        running_tracker,
+        settings.clone(),
+    );
     thread::spawn(move || {
-        let mut editor = Editor::new(event_loop_proxy);
+        let mut editor = Editor::new(event_loop_proxy, settings.clone());
 
         while let Some(editor_command) = receiver.blocking_recv() {
             editor.handle_redraw_event(editor_command);

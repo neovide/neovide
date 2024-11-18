@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use skia_safe::{
     canvas::{Canvas, SaveLayerRec},
     colors::{BLACK, WHITE},
@@ -22,8 +24,11 @@ use crate::{
     clipboard,
     cmd_line::SRGB_DEFAULT,
     renderer::{build_window_config, create_skia_renderer, SkiaRenderer, WindowConfig},
-    window::{load_icon, EventPayload},
+    settings::Settings,
+    window::load_icon,
 };
+
+use super::EventPayload;
 
 const TEXT_COLOR: Color4f = WHITE;
 const BACKGROUND_COLOR: Color4f = BLACK;
@@ -33,8 +38,12 @@ const MAX_LINES: i32 = 9999;
 const MIN_SIZE: PhysicalSize<u32> = PhysicalSize::new(500, 500);
 const DEFAULT_SIZE: PhysicalSize<u32> = PhysicalSize::new(800, 600);
 
-pub fn show_error_window(message: &str, event_loop: EventLoop<EventPayload>) {
-    let mut error_window = ErrorWindow::new(message);
+pub fn show_error_window(
+    message: &str,
+    event_loop: EventLoop<EventPayload>,
+    settings: Arc<Settings>,
+) {
+    let mut error_window = ErrorWindow::new(message, settings);
     event_loop.run_app(&mut error_window).ok();
 }
 
@@ -75,13 +84,15 @@ struct State {
 struct ErrorWindow<'a> {
     state: Option<State>,
     message: &'a str,
+    settings: Arc<Settings>,
 }
 
 impl<'a> ErrorWindow<'a> {
-    fn new(message: &'a str) -> Self {
+    fn new(message: &'a str, settings: Arc<Settings>) -> Self {
         Self {
             state: None,
             message,
+            settings,
         }
     }
 }
@@ -99,13 +110,13 @@ impl<'a> ApplicationHandler<EventPayload> for ErrorWindow<'a> {
 
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.state.is_none() {
-            self.state = Some(State::new(self.message, event_loop));
+            self.state = Some(State::new(self.message, event_loop, self.settings.clone()));
         }
     }
 }
 
 impl State {
-    fn new(message: &str, event_loop: &ActiveEventLoop) -> Self {
+    fn new(message: &str, event_loop: &ActiveEventLoop, settings: Arc<Settings>) -> Self {
         let message = message.trim_end();
 
         let font_manager = FontMgr::new();
@@ -114,8 +125,8 @@ impl State {
 
         let srgb = SRGB_DEFAULT == "1";
         let vsync = true;
-        let window = create_window(event_loop);
-        let skia_renderer = create_skia_renderer(window, srgb, vsync);
+        let window = create_window(event_loop, &settings);
+        let skia_renderer = create_skia_renderer(window, srgb, vsync, settings);
         skia_renderer.window().set_visible(true);
         let scale_factor = skia_renderer.window().scale_factor();
         let size = skia_renderer.window().inner_size();
@@ -484,7 +495,7 @@ fn create_paragraphs(
     }
 }
 
-fn create_window(event_loop: &ActiveEventLoop) -> WindowConfig {
+fn create_window(event_loop: &ActiveEventLoop, settings: &Settings) -> WindowConfig {
     let icon = load_icon();
 
     let window_attributes = Window::default_attributes()
@@ -496,5 +507,5 @@ fn create_window(event_loop: &ActiveEventLoop) -> WindowConfig {
         .with_inner_size(DEFAULT_SIZE)
         .with_min_inner_size(MIN_SIZE);
 
-    build_window_config(window_attributes, event_loop)
+    build_window_config(window_attributes, event_loop, settings)
 }

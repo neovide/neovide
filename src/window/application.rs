@@ -1,4 +1,7 @@
-use std::time::{Duration, Instant};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
 
 use winit::{
     application::ApplicationHandler,
@@ -10,7 +13,7 @@ use super::{save_window_size, CmdLineSettings, EventPayload, WindowSettings, Win
 use crate::{
     profiling::{tracy_plot, tracy_zone},
     renderer::DrawCommand,
-    settings::SETTINGS,
+    settings::Settings,
     window::UserEvent,
     FontSettings, WindowSize,
 };
@@ -86,6 +89,8 @@ pub struct Application {
 
     window_wrapper: WinitWindowWrapper,
     proxy: EventLoopProxy<EventPayload>,
+
+    settings: Arc<Settings>,
 }
 
 impl Application {
@@ -93,6 +98,7 @@ impl Application {
         initial_window_size: WindowSize,
         initial_font_settings: Option<FontSettings>,
         proxy: EventLoopProxy<EventPayload>,
+        settings: Arc<Settings>,
     ) -> Self {
         let previous_frame_start = Instant::now();
         let last_dt = 0.0;
@@ -104,10 +110,11 @@ impl Application {
         let animation_start = Instant::now();
         let animation_time = Duration::from_millis(0);
 
-        let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
+        let cmd_line_settings = settings.get::<CmdLineSettings>();
         let idle = cmd_line_settings.idle;
 
-        let window_wrapper = WinitWindowWrapper::new(initial_window_size, initial_font_settings);
+        let window_wrapper =
+            WinitWindowWrapper::new(initial_window_size, initial_font_settings, settings.clone());
 
         Self {
             idle,
@@ -123,6 +130,8 @@ impl Application {
 
             window_wrapper,
             proxy,
+
+            settings,
         }
     }
 
@@ -131,9 +140,9 @@ impl Application {
             // NOTE: Always wait for the idle refresh rate when winit throttling is used to avoid waking up too early
             // The winit redraw request will likely happen much before that and wake it up anyway
             FocusedState::Focused | FocusedState::UnfocusedNotDrawn => {
-                SETTINGS.get::<WindowSettings>().refresh_rate as f32
+                self.settings.get::<WindowSettings>().refresh_rate as f32
             }
-            _ => SETTINGS.get::<WindowSettings>().refresh_rate_idle as f32,
+            _ => self.settings.get::<WindowSettings>().refresh_rate_idle as f32,
         }
         .max(1.0)
     }
@@ -170,7 +179,8 @@ impl Application {
         let skia_renderer = self.window_wrapper.skia_renderer.as_ref().unwrap();
         let vsync = self.window_wrapper.vsync.as_ref().unwrap();
 
-        let dt = Duration::from_secs_f32(vsync.get_refresh_rate(skia_renderer.window()));
+        let dt =
+            Duration::from_secs_f32(vsync.get_refresh_rate(skia_renderer.window(), &self.settings));
 
         let now = Instant::now();
         let target_animation_time = now - self.animation_start;
@@ -374,7 +384,7 @@ impl ApplicationHandler<EventPayload> for Application {
         tracy_zone!("user_event");
         match event.payload {
             UserEvent::NeovimExited => {
-                save_window_size(&self.window_wrapper);
+                save_window_size(&self.window_wrapper, &self.settings);
                 event_loop.exit();
             }
             UserEvent::RedrawRequested => {
