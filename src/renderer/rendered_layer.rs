@@ -69,14 +69,13 @@ impl<'w> FloatingLayer<'w> {
 
         let paint = Paint::default()
             .set_anti_alias(false)
-            .set_color(Color::from_argb(255, 255, 255, default_background.a()))
             .set_blend_mode(BlendMode::SrcOver)
             .to_owned();
 
         let save_layer_rec = SaveLayerRec::default().bounds(&bound_rect).paint(&paint);
 
         root_canvas.save_layer(&save_layer_rec);
-        root_canvas.clear(default_background.with_a(255));
+        root_canvas.clear(default_background);
 
         let regions = self
             .windows
