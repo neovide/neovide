@@ -127,9 +127,9 @@ impl State {
         let vsync = true;
         let window = create_window(event_loop, &settings);
         let skia_renderer = create_skia_renderer(&window, srgb, vsync, settings);
-        skia_renderer.window().set_visible(true);
-        let scale_factor = skia_renderer.window().scale_factor();
-        let size = skia_renderer.window().inner_size();
+        window.window.set_visible(true);
+        let scale_factor = window.window.scale_factor();
+        let size = window.window.inner_size();
         let paragraphs = create_paragraphs(message, scale_factor as f32, &font_collection);
         let scroll = Scroll::None;
         let current_position = 0;

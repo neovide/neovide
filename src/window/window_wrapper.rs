@@ -569,49 +569,41 @@ impl WinitWindowWrapper {
             create_skia_renderer(&window_config, srgb, vsync_enabled, self.settings.clone()),
         ));
 
-        {
-            // Create a separate binding for the mutable borrow
-            let renderer = skia_renderer.borrow_mut();
-            let window = renderer.window();
+        // Create a separate binding for the mutable borrow
+        let window = skia_renderer.borrow_mut().window();
 
-            self.saved_inner_size = window.inner_size();
+        self.saved_inner_size = window.inner_size();
 
-            log::info!(
-                "window created (scale_factor: {:.4}, font_dimensions: {:?})",
-                scale_factor,
-                self.renderer.grid_renderer.grid_scale
-            );
+        log::info!(
+            "window created (scale_factor: {:.4}, font_dimensions: {:?})",
+            scale_factor,
+            self.renderer.grid_renderer.grid_scale
+        );
 
-            window.set_blur(window_blurred && transparency < 1.0);
-            if fullscreen {
-                let handle = window.current_monitor();
-                window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
-            }
-
-            match theme.as_str() {
-                "light" => set_background("light"),
-                "dark" => set_background("dark"),
-                "auto" => match window.theme() {
-                    Some(Theme::Light) => set_background("light"),
-                    Some(Theme::Dark) => set_background("dark"),
-                    None => {}
-                },
-                _ => {}
-            }
+        window.set_blur(window_blurred && transparency < 1.0);
+        if fullscreen {
+            let handle = window.current_monitor();
+            window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
         }
 
-        {
-            let skia_renderer_ref: &dyn SkiaRenderer = &**skia_renderer.borrow_mut();
-            self.vsync = Some(VSync::new(
-                vsync_enabled,
-                skia_renderer_ref,
-                proxy.clone(),
-                self.settings.clone(),
-            ));
+        match theme.as_str() {
+            "light" => set_background("light"),
+            "dark" => set_background("dark"),
+            "auto" => match window.theme() {
+                Some(Theme::Light) => set_background("light"),
+                Some(Theme::Dark) => set_background("dark"),
+                None => {}
+            },
+            _ => {}
         }
 
-        let binding = skia_renderer.borrow_mut();
-        let window = binding.window();
+        let skia_renderer_ref: &dyn SkiaRenderer = &**skia_renderer.borrow();
+        self.vsync = Some(VSync::new(
+            vsync_enabled,
+            skia_renderer_ref,
+            proxy.clone(),
+            self.settings.clone(),
+        ));
 
         {
             tracy_zone!("request_redraw");
