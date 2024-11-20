@@ -191,10 +191,10 @@ impl Application {
         let dt = {
             let window_id = *self.window_wrapper.routes.keys().next().unwrap();
             let route = self.window_wrapper.routes.get(&window_id).unwrap();
-            let skia_renderer = route.window.skia_renderer.borrow();
+            let window = route.window.winit_window.clone();
             let vsync = self.window_wrapper.vsync.as_ref().unwrap();
 
-            Duration::from_secs_f32(vsync.get_refresh_rate(skia_renderer.window(), &self.settings))
+            Duration::from_secs_f32(vsync.get_refresh_rate(&window, &self.settings))
         };
 
         let now = Instant::now();
@@ -273,7 +273,7 @@ impl Application {
         let route = self.window_wrapper.routes.get(&window_id).unwrap();
 
         let uses_winit_throttling = {
-            let skia_renderer = route.window.skia_renderer.borrow();
+            let window = route.window.winit_window.clone();
             let vsync = self.window_wrapper.vsync.as_mut().unwrap();
 
             // There's really no point in trying to render if the frame is skipped
@@ -282,7 +282,7 @@ impl Application {
             // When winit throttling is used, request a redraw and wait for the render event
             // Otherwise, render immediately
             if vsync.uses_winit_throttling() {
-                vsync.request_redraw(skia_renderer.window());
+                vsync.request_redraw(&window);
                 self.pending_render = true;
                 tracy_plot!("pending_render", self.pending_render as u8 as f64);
                 true

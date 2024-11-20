@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use objc2::{rc::Retained, runtime::ProtocolObject};
 use objc2_app_kit::NSColorSpace;
 use objc2_foundation::{CGFloat, CGSize};
@@ -69,7 +71,7 @@ impl MetalDrawableSurface {
 }
 
 pub struct MetalSkiaRenderer {
-    window: Window,
+    window: Rc<Window>,
     _device: Retained<ProtocolObject<dyn MTLDevice>>,
     command_queue: Retained<ProtocolObject<dyn MTLCommandQueue>>,
     metal_layer: Retained<CAMetalLayer>,
@@ -131,7 +133,7 @@ impl MetalSkiaRenderer {
         let context = gpu::direct_contexts::make_metal(&backend, None).unwrap();
 
         MetalSkiaRenderer {
-            window,
+            window: window.into(),
             _device: device,
             metal_layer,
             command_queue,
@@ -155,8 +157,8 @@ impl MetalSkiaRenderer {
 }
 
 impl SkiaRenderer for MetalSkiaRenderer {
-    fn window(&self) -> &Window {
-        &self.window
+    fn window(&self) -> Rc<Window> {
+        Rc::clone(&self.window)
     }
 
     fn flush(&mut self) {

@@ -1,9 +1,9 @@
 use std::{
     convert::TryInto,
-    env,
-    env::consts::OS,
+    env::{self, consts::OS},
     ffi::{c_void, CStr, CString},
     num::NonZeroU32,
+    rc::Rc,
     sync::Arc,
 };
 
@@ -54,7 +54,7 @@ pub struct OpenGLSkiaRenderer {
     context: PossiblyCurrentContext,
     window_surface: Surface<WindowSurface>,
     config: Config,
-    window: Option<Window>,
+    window: Option<Rc<Window>>,
 
     settings: Arc<Settings>,
 }
@@ -149,7 +149,7 @@ impl OpenGLSkiaRenderer {
         Self {
             window_surface,
             context,
-            window: Some(window),
+            window: Some(Rc::new(window)),
             config,
             gr_context,
             fb_info,
@@ -161,8 +161,8 @@ impl OpenGLSkiaRenderer {
 }
 
 impl SkiaRenderer for OpenGLSkiaRenderer {
-    fn window(&self) -> &Window {
-        self.window.as_ref().unwrap()
+    fn window(&self) -> Rc<Window> {
+        Rc::clone(self.window.as_ref().unwrap())
     }
 
     fn flush(&mut self) {
@@ -212,7 +212,7 @@ impl SkiaRenderer for OpenGLSkiaRenderer {
 
         #[cfg(target_os = "macos")]
         {
-            VSync::MacosDisplayLink(VSyncMacosDisplayLink::new(self.window(), proxy))
+            VSync::MacosDisplayLink(VSyncMacosDisplayLink::new(&self.window(), proxy))
         }
     }
 
