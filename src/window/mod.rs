@@ -96,11 +96,12 @@ pub enum UserEvent {
 #[derive(Debug, Clone)]
 pub struct EventPayload {
     pub payload: UserEvent,
+    pub window_id: winit::window::WindowId,
 }
 
 impl EventPayload {
-    pub fn new(payload: UserEvent) -> Self {
-        Self { payload }
+    pub fn new(payload: UserEvent, window_id: winit::window::WindowId) -> Self {
+        Self { payload, window_id }
     }
 }
 
@@ -118,7 +119,10 @@ impl From<WindowCommand> for UserEvent {
 
 impl From<WindowCommand> for EventPayload {
     fn from(value: WindowCommand) -> Self {
-        EventPayload::new(UserEvent::WindowCommand(value))
+        EventPayload::new(
+            UserEvent::WindowCommand(value),
+            winit::window::WindowId::from(0),
+        )
     }
 }
 

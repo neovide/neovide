@@ -150,7 +150,10 @@ impl Settings {
             .read()
             .get(&SettingLocation::NeovideGlobal(name))
             .unwrap()(self, value);
-        let _ = event_loop_proxy.send_event(EventPayload::new(event.into()));
+        let _ = event_loop_proxy.send_event(EventPayload::new(
+            event.into(),
+            winit::window::WindowId::from(0),
+        ));
     }
 
     pub fn handle_option_changed_notification(
@@ -170,7 +173,10 @@ impl Settings {
             .get(&SettingLocation::NeovimOption(name))
             .unwrap()(self, value);
 
-        let _ = event_loop_proxy.send_event(EventPayload::new(event.into()));
+        let _ = event_loop_proxy.send_event(EventPayload::new(
+            event.into(),
+            winit::window::WindowId::from(0),
+        ));
     }
 
     pub fn register<T: SettingGroup>(&self) {

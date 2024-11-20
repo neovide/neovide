@@ -15,6 +15,7 @@ use super::macos_display_link::{
 struct VSyncMacosDisplayLinkUserData {
     proxy: EventLoopProxy<EventPayload>,
     redraw_requested: Arc<AtomicBool>,
+    window_id: winit::window::WindowId,
 }
 
 fn vsync_macos_display_link_callback(
@@ -22,9 +23,10 @@ fn vsync_macos_display_link_callback(
     user_data: &mut VSyncMacosDisplayLinkUserData,
 ) {
     if user_data.redraw_requested.swap(false, Ordering::Relaxed) {
-        let _ = user_data
-            .proxy
-            .send_event(EventPayload::new(UserEvent::RedrawRequested));
+        let _ = user_data.proxy.send_event(EventPayload::new(
+            UserEvent::RedrawRequested,
+            user_data.window_id,
+        ));
     }
 }
 
@@ -59,6 +61,7 @@ impl VSyncMacosDisplayLink {
             VSyncMacosDisplayLinkUserData {
                 proxy: self.proxy.clone(),
                 redraw_requested: Arc::clone(&self.redraw_requested),
+                window_id: window.id(),
             },
         ) {
             Ok(display_link) => {

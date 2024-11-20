@@ -34,6 +34,11 @@ impl DrawCommandBatcher {
             }
             _ => 200,
         });
-        proxy.send_event(EventPayload::new(batch.into())).ok();
+        proxy
+            .send_event(EventPayload::new(
+                batch.into(),
+                winit::window::WindowId::from(0),
+            ))
+            .ok();
     }
 }

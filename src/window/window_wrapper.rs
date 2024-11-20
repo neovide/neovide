@@ -30,7 +30,7 @@ use crate::{
         create_skia_renderer, DrawCommand, Renderer, RendererSettingsChanged, SkiaRenderer, VSync,
     },
     settings::{
-        clamped_grid_size, FontSettings, HotReloadConfigs, Settings, SettingsChanged,
+        clamped_grid_size, Config, FontSettings, HotReloadConfigs, Settings, SettingsChanged,
         DEFAULT_GRID_SIZE, MIN_GRID_SIZE,
     },
     units::{GridRect, GridSize, PixelPos, PixelSize},
@@ -479,8 +479,13 @@ impl WinitWindowWrapper {
         tracy_zone!("try_create_window");
         let maximized = matches!(self.initial_window_size, WindowSize::Maximized);
         let window_config = create_window(event_loop, maximized, &self.title, &self.settings);
-        // let window = &window_config.window;
         let window = Rc::new(window_config.window.clone());
+
+        let config = Config::init();
+        let initial_font_settings = config.font;
+
+        // TODO: must be decided if the renderder should be a global state or not
+        let _renderer = Renderer::new(1.0, initial_font_settings, self.settings.clone());
 
         let WindowSettings {
             input_ime,

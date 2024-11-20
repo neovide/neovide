@@ -393,6 +393,7 @@ impl ApplicationHandler<EventPayload> for Application {
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: EventPayload) {
         tracy_zone!("user_event");
+        println!("window_id: {:?}", event.window_id);
         match event.payload {
             UserEvent::NeovimExited => {
                 save_window_size(&self.window_wrapper, &self.settings);

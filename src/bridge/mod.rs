@@ -168,7 +168,10 @@ async fn run(session: NeovimSession, proxy: EventLoopProxy<EventPayload>) {
     }
     log::info!("Neovim has quit");
     proxy
-        .send_event(EventPayload::new(UserEvent::NeovimExited))
+        .send_event(EventPayload::new(
+            UserEvent::NeovimExited,
+            winit::window::WindowId::from(0),
+        ))
         .ok();
 }
 
