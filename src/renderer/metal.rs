@@ -133,7 +133,7 @@ impl MetalSkiaRenderer {
         let context = gpu::direct_contexts::make_metal(&backend, None).unwrap();
 
         MetalSkiaRenderer {
-            window: window.into(),
+            window,
             _device: device,
             metal_layer,
             command_queue,

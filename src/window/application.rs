@@ -220,13 +220,6 @@ impl Application {
         self.animation_time += dt;
 
         self.handle_animation_steps(dt);
-        // let num_steps = (dt.as_secs_f64() / MAX_ANIMATION_DT).ceil() as u32;
-        // let step = dt / num_steps;
-        // for _ in 0..num_steps {
-        //     if self.window_wrapper.animate_frame(step.as_secs_f32()) {
-        //         self.should_render = ShouldRender::Immediately;
-        //     }
-        // }
     }
 
     fn render(&mut self) {
@@ -265,33 +258,25 @@ impl Application {
     }
 
     fn schedule_render(&mut self, skipped_frame: bool) {
+        // There's really no point in trying to render if the frame is skipped
+        // (most likely due to the compositor being busy). The animated frame will
+        // be rendered at an appropriate time anyway.
         if self.window_wrapper.routes.is_empty() && !skipped_frame {
             return;
         }
 
         let window_id = *self.window_wrapper.routes.keys().next().unwrap();
         let route = self.window_wrapper.routes.get(&window_id).unwrap();
+        let window = route.window.winit_window.clone();
+        let vsync = self.window_wrapper.vsync.as_mut().unwrap();
 
-        let uses_winit_throttling = {
-            let window = route.window.winit_window.clone();
-            let vsync = self.window_wrapper.vsync.as_mut().unwrap();
-
-            // There's really no point in trying to render if the frame is skipped
-            // (most likely due to the compositor being busy). The animated frame will
-            // be rendered at an appropriate time anyway.
-            // When winit throttling is used, request a redraw and wait for the render event
-            // Otherwise, render immediately
-            if vsync.uses_winit_throttling() {
-                vsync.request_redraw(&window);
-                self.pending_render = true;
-                tracy_plot!("pending_render", self.pending_render as u8 as f64);
-                true
-            } else {
-                false
-            }
-        };
-
-        if !uses_winit_throttling {
+        // When winit throttling is used, request a redraw and wait for the render event
+        // Otherwise, render immediately
+        if vsync.uses_winit_throttling() {
+            vsync.request_redraw(&window);
+            self.pending_render = true;
+            tracy_plot!("pending_render", self.pending_render as u8 as f64);
+        } else {
             self.render();
         }
     }
