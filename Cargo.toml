@@ -114,6 +114,7 @@ objc2-app-kit = { version = "0.2.2", features = [ "NSLayoutConstraint", "NSColor
 objc2-quartz-core = { version = "0.2.2", features = [ "objc2-metal", "CALayer", "CAMetalLayer" ] }
 objc2-metal = { version = "0.2.2", features = [ "MTLCommandQueue", "MTLCommandBuffer" ] }
 skia-safe = { version = "0.80.0", features = ["metal", "gl", "textlayout"] }
+rustc-hash = "2.0.0"
 
 [target.'cfg(not(any(target_os = "windows", target_os = "macos")))'.dependencies]
 skia-safe = { version = "0.80.0", features = ["gl", "textlayout"] }

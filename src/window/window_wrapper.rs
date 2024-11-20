@@ -1,12 +1,13 @@
-use std::sync::Arc;
+use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use log::trace;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+use rustc_hash::FxHashMap;
 use winit::{
     dpi,
     event::{Ime, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoopProxy},
-    window::{Fullscreen, Theme},
+    window::{Fullscreen, Theme, WindowId},
 };
 
 use super::{
@@ -60,11 +61,20 @@ enum UIState {
     Showing, // No pending resizes
 }
 
+pub struct RouteWindow {
+    pub skia_renderer: Rc<RefCell<Box<dyn SkiaRenderer>>>,
+    pub winit_window: Rc<WindowId>,
+}
+
+pub struct Route {
+    pub window: RouteWindow,
+}
+
 pub struct WinitWindowWrapper {
     // Don't rearrange this, unless you have a good reason to do so
     // The destruction order has to be correct
-    pub skia_renderer: Option<Box<dyn SkiaRenderer>>,
     pub renderer: Renderer,
+    pub routes: FxHashMap<WindowId, Route>,
     keyboard_manager: KeyboardManager,
     mouse_manager: MouseManager,
     title: String,
@@ -96,8 +106,8 @@ impl WinitWindowWrapper {
         let renderer = Renderer::new(1.0, initial_font_settings, settings.clone());
 
         Self {
-            skia_renderer: None,
             renderer,
+            routes: Default::default(),
             keyboard_manager: KeyboardManager::new(settings.clone()),
             mouse_manager: MouseManager::new(settings.clone()),
             title: String::from("Neovide"),
@@ -126,11 +136,12 @@ impl WinitWindowWrapper {
 
     pub fn exit(&mut self) {
         self.vsync = None;
-        self.skia_renderer = None;
     }
 
     pub fn set_fullscreen(&mut self, fullscreen: bool) {
-        if let Some(skia_renderer) = &self.skia_renderer {
+        let window_id = *self.routes.keys().next().unwrap();
+        if let Some(route) = &self.routes.get(&window_id) {
+            let skia_renderer = route.window.skia_renderer.borrow_mut();
             let window = skia_renderer.window();
             if fullscreen {
                 let handle = window.current_monitor();
@@ -150,7 +161,9 @@ impl WinitWindowWrapper {
             settings::OptionAsMeta::None => macos::OptionAsAlt::None,
         };
 
-        if let Some(skia_renderer) = &self.skia_renderer {
+        let window_id = *self.routes.keys().next().unwrap();
+        if let Some(route) = &self.routes.get(&window_id) {
+            let skia_renderer = route.window.skia_renderer.borrow_mut();
             let window = skia_renderer.window();
             if winit_option != window.option_as_alt() {
                 window.set_option_as_alt(winit_option);
@@ -159,7 +172,9 @@ impl WinitWindowWrapper {
     }
 
     pub fn minimize_window(&mut self) {
-        if let Some(skia_renderer) = &self.skia_renderer {
+        let window_id = *self.routes.keys().next().unwrap();
+        if let Some(route) = &self.routes.get(&window_id) {
+            let skia_renderer = route.window.skia_renderer.borrow_mut();
             let window = skia_renderer.window();
 
             window.set_minimized(true);
@@ -167,13 +182,16 @@ impl WinitWindowWrapper {
     }
 
     pub fn set_ime(&mut self, ime_enabled: bool) {
-        if let Some(skia_renderer) = &self.skia_renderer {
+        let window_id = *self.routes.keys().next().unwrap();
+        if let Some(route) = &self.routes.get(&window_id) {
+            let skia_renderer = route.window.skia_renderer.borrow_mut();
             skia_renderer.window().set_ime_allowed(ime_enabled);
         }
     }
 
     pub fn handle_window_command(&mut self, command: WindowCommand) {
         tracy_zone!("handle_window_commands", 0);
+        let window_id = *self.routes.keys().next().unwrap();
         match command {
             WindowCommand::TitleChanged(new_title) => self.handle_title_changed(new_title),
             WindowCommand::SetMouseEnabled(mouse_enabled) => {
@@ -181,7 +199,8 @@ impl WinitWindowWrapper {
             }
             WindowCommand::ListAvailableFonts => self.send_font_names(),
             WindowCommand::FocusWindow => {
-                if let Some(skia_renderer) = &self.skia_renderer {
+                if let Some(route) = &self.routes.get(&window_id) {
+                    let skia_renderer = route.window.skia_renderer.borrow_mut();
                     skia_renderer.window().focus_window();
                 }
             }
@@ -225,7 +244,9 @@ impl WinitWindowWrapper {
                 self.font_changed_last_frame = true;
             }
             WindowSettingsChanged::WindowBlurred(blur) => {
-                if let Some(skia_renderer) = &self.skia_renderer {
+                let window_id = *self.routes.keys().next().unwrap();
+                if let Some(route) = &self.routes.get(&window_id) {
+                    let skia_renderer = route.window.skia_renderer.borrow_mut();
                     let WindowSettings { transparency, .. } = self.settings.get::<WindowSettings>();
                     let transparent = transparency < 1.0;
                     skia_renderer.window().set_blur(blur && transparent);
@@ -254,9 +275,11 @@ impl WinitWindowWrapper {
     }
 
     fn handle_render_settings_changed(&mut self, changed_setting: RendererSettingsChanged) {
+        let window_id = *self.routes.keys().next().unwrap();
         match changed_setting {
             RendererSettingsChanged::TextGamma(..) | RendererSettingsChanged::TextContrast(..) => {
-                if let Some(skia_renderer) = &mut self.skia_renderer {
+                if let Some(route) = &self.routes.get(&window_id) {
+                    let mut skia_renderer = route.window.skia_renderer.borrow_mut();
                     skia_renderer.resize();
                 }
                 self.font_changed_last_frame = true;
@@ -266,14 +289,18 @@ impl WinitWindowWrapper {
     }
 
     pub fn handle_title_changed(&mut self, new_title: String) {
+        let window_id = *self.routes.keys().next().unwrap();
         self.title = new_title;
-        if let Some(skia_renderer) = &self.skia_renderer {
+        if let Some(route) = &self.routes.get(&window_id) {
+            let skia_renderer = route.window.skia_renderer.borrow_mut();
             skia_renderer.window().set_title(&self.title);
         }
     }
 
     pub fn handle_theme_changed(&mut self, new_theme: Option<Theme>) {
-        if let Some(skia_renderer) = &self.skia_renderer {
+        let window_id = *self.routes.keys().next().unwrap();
+        if let Some(route) = &self.routes.get(&window_id) {
+            let skia_renderer = route.window.skia_renderer.borrow_mut();
             skia_renderer.window().set_theme(new_theme);
         }
     }
@@ -304,15 +331,19 @@ impl WinitWindowWrapper {
 
     pub fn handle_window_event(&mut self, event: WindowEvent) -> bool {
         // The renderer and vsync should always be created when a window event is received
-        let skia_renderer = self.skia_renderer.as_mut().unwrap();
-        let vsync = self.vsync.as_mut().unwrap();
+        let window_id = *self.routes.keys().next().unwrap();
+        let route = self.routes.get(&window_id).unwrap();
 
-        self.mouse_manager.handle_event(
-            &event,
-            &self.keyboard_manager,
-            &self.renderer,
-            skia_renderer.window(),
-        );
+        {
+            let skia_renderer = route.window.skia_renderer.borrow_mut();
+            self.mouse_manager.handle_event(
+                &event,
+                &self.keyboard_manager,
+                &self.renderer,
+                skia_renderer.window(),
+            );
+        }
+
         self.keyboard_manager.handle_event(&event);
         self.renderer.handle_event(&event);
         let mut should_render = true;
@@ -327,6 +358,7 @@ impl WinitWindowWrapper {
                 self.handle_scale_factor_update(scale_factor);
             }
             WindowEvent::Resized { .. } => {
+                let mut skia_renderer = route.window.skia_renderer.borrow_mut();
                 skia_renderer.resize();
                 #[cfg(target_os = "macos")]
                 self.macos_feature.as_mut().unwrap().handle_size_changed();
@@ -357,6 +389,8 @@ impl WinitWindowWrapper {
             }
             WindowEvent::Moved(_) => {
                 tracy_zone!("Moved");
+                let skia_renderer = route.window.skia_renderer.borrow_mut();
+                let vsync = self.vsync.as_mut().unwrap();
                 vsync.update(skia_renderer.window());
             }
             WindowEvent::Ime(Ime::Enabled) => {
@@ -399,10 +433,13 @@ impl WinitWindowWrapper {
 
     pub fn draw_frame(&mut self, dt: f32) {
         tracy_zone!("draw_frame");
-        if self.skia_renderer.is_none() {
+        if self.routes.is_empty() {
             return;
         }
-        let skia_renderer = self.skia_renderer.as_mut().unwrap();
+
+        let window_id = *self.routes.keys().next().unwrap();
+        let route = self.routes.get(&window_id).unwrap();
+        let mut skia_renderer = route.window.skia_renderer.borrow_mut();
         let vsync = self.vsync.as_mut().unwrap();
 
         if self.font_changed_last_frame {
@@ -529,41 +566,53 @@ impl WinitWindowWrapper {
         let cmd_line_settings = self.settings.get::<CmdLineSettings>();
         let srgb = cmd_line_settings.srgb;
         let vsync_enabled = cmd_line_settings.vsync;
-        let skia_renderer =
-            create_skia_renderer(window_config, srgb, vsync_enabled, self.settings.clone());
-        let window = skia_renderer.window();
-
-        self.saved_inner_size = window.inner_size();
-
-        log::info!(
-            "window created (scale_factor: {:.4}, font_dimensions: {:?})",
-            scale_factor,
-            self.renderer.grid_renderer.grid_scale
-        );
-
-        window.set_blur(window_blurred && transparency < 1.0);
-        if fullscreen {
-            let handle = window.current_monitor();
-            window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
-        }
-
-        match theme.as_str() {
-            "light" => set_background("light"),
-            "dark" => set_background("dark"),
-            "auto" => match window.theme() {
-                Some(Theme::Light) => set_background("light"),
-                Some(Theme::Dark) => set_background("dark"),
-                None => {}
-            },
-            _ => {}
-        }
-
-        self.vsync = Some(VSync::new(
-            vsync_enabled,
-            skia_renderer.as_ref(),
-            proxy.clone(),
-            self.settings.clone(),
+        let skia_renderer: Rc<RefCell<Box<dyn SkiaRenderer>>> = Rc::new(RefCell::new(
+            create_skia_renderer(window_config, srgb, vsync_enabled, self.settings.clone()),
         ));
+
+        {
+            // Create a separate binding for the mutable borrow
+            let renderer = skia_renderer.borrow_mut();
+            let window = renderer.window();
+
+            self.saved_inner_size = window.inner_size();
+
+            log::info!(
+                "window created (scale_factor: {:.4}, font_dimensions: {:?})",
+                scale_factor,
+                self.renderer.grid_renderer.grid_scale
+            );
+
+            window.set_blur(window_blurred && transparency < 1.0);
+            if fullscreen {
+                let handle = window.current_monitor();
+                window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
+            }
+
+            match theme.as_str() {
+                "light" => set_background("light"),
+                "dark" => set_background("dark"),
+                "auto" => match window.theme() {
+                    Some(Theme::Light) => set_background("light"),
+                    Some(Theme::Dark) => set_background("dark"),
+                    None => {}
+                },
+                _ => {}
+            }
+        }
+
+        {
+            let skia_renderer_ref: &dyn SkiaRenderer = &**skia_renderer.borrow_mut();
+            self.vsync = Some(VSync::new(
+                vsync_enabled,
+                skia_renderer_ref,
+                proxy.clone(),
+                self.settings.clone(),
+            ));
+        }
+
+        let binding = skia_renderer.borrow_mut();
+        let window = binding.window();
 
         {
             tracy_zone!("request_redraw");
@@ -571,7 +620,13 @@ impl WinitWindowWrapper {
         }
 
         self.ui_state = UIState::FirstFrame;
-        self.skia_renderer = Some(skia_renderer);
+        let route = Route {
+            window: RouteWindow {
+                skia_renderer: skia_renderer.clone(),
+                winit_window: window.clone(),
+            },
+        };
+        self.routes.insert(window.id(), route);
         #[cfg(target_os = "macos")]
         self.set_macos_option_as_meta(input_macos_option_key_is_meta);
     }
@@ -631,8 +686,15 @@ impl WinitWindowWrapper {
             should_render = ShouldRender::Immediately;
         }
 
-        // The skia renderer shuld always be created when this point is reached, since the < UIState::FirstFrame check will return true
-        let skia_renderer = self.skia_renderer.as_ref().unwrap();
+        let is_minimized = {
+            let window_id = *self.routes.keys().next().unwrap();
+            let route = self.routes.get(&window_id).unwrap();
+            // The skia renderer shuld always be created when this point is reached, since the < UIState::FirstFrame check will return true
+            let skia_renderer = route.window.skia_renderer.borrow_mut();
+            let window = skia_renderer.window();
+
+            window.is_minimized() == Some(true)
+        };
 
         let resize_requested = self.requested_columns.is_some() || self.requested_lines.is_some();
         if resize_requested {
@@ -640,14 +702,25 @@ impl WinitWindowWrapper {
             // So, deal with them first and resize the window programmatically.
             // The new window size will then be processed in the following frame.
             self.update_window_size_from_grid();
-        } else if skia_renderer.window().is_minimized() != Some(true) {
+        } else if is_minimized {
             // NOTE: Only actually resize the grid when the window is not minimized
             // Some platforms return a zero size when that is the case, so we should not try to resize to that.
-            let new_size = skia_renderer.window().inner_size();
-            if self.saved_inner_size != new_size || self.font_changed_last_frame || padding_changed
+            let new_window_size = {
+                let window_id = *self.routes.keys().next().unwrap();
+                let route = self.routes.get(&window_id).unwrap();
+                // The skia renderer shuld always be created when this point is reached, since the < UIState::FirstFrame check will return true
+                let skia_renderer = route.window.skia_renderer.borrow_mut();
+                let window = skia_renderer.window();
+                let window_size = window.inner_size();
+
+                window_size
+            };
+            if self.saved_inner_size != new_window_size
+                || self.font_changed_last_frame
+                || padding_changed
             {
                 self.window_padding = window_padding;
-                self.saved_inner_size = new_size;
+                self.saved_inner_size = new_window_size;
 
                 self.update_grid_size_from_window();
                 should_render = ShouldRender::Immediately;
@@ -688,7 +761,10 @@ impl WinitWindowWrapper {
     }
 
     fn update_window_size_from_grid(&mut self) {
-        let window = self.skia_renderer.as_ref().unwrap().window();
+        let window_id = *self.routes.keys().next().unwrap();
+        let route = self.routes.get(&window_id).unwrap();
+        let skia_renderer = route.window.skia_renderer.borrow_mut();
+        let window = skia_renderer.window();
 
         let grid_size = clamped_grid_size(&GridSize::new(
             self.requested_columns.take().unwrap_or(
@@ -755,10 +831,12 @@ impl WinitWindowWrapper {
     }
 
     fn update_ime_position(&mut self, force: bool) {
-        if !self.ime_enabled || self.skia_renderer.is_none() {
+        if !self.ime_enabled || self.routes.is_empty() {
             return;
         }
-        let skia_renderer = self.skia_renderer.as_ref().unwrap();
+        let window_id = *self.routes.keys().next().unwrap();
+        let route = self.routes.get(&window_id).unwrap();
+        let skia_renderer = route.window.skia_renderer.borrow_mut();
         let grid_scale = self.renderer.grid_renderer.grid_scale;
         let font_dimensions = GridSize::new(1.0, 1.0) * grid_scale;
         let position = self.renderer.get_cursor_destination();
@@ -781,10 +859,13 @@ impl WinitWindowWrapper {
     }
 
     fn handle_scale_factor_update(&mut self, scale_factor: f64) {
-        if self.skia_renderer.is_none() {
+        if self.routes.is_empty() {
             return;
         }
-        let skia_renderer = self.skia_renderer.as_mut().unwrap();
+
+        let window_id = *self.routes.keys().next().unwrap();
+        let route = self.routes.get(&window_id).unwrap();
+        let mut skia_renderer = route.window.skia_renderer.borrow_mut();
         #[cfg(target_os = "macos")]
         self.macos_feature
             .as_mut()

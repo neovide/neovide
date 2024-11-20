@@ -172,19 +172,35 @@ impl Application {
         event_loop.set_control_flow(ControlFlow::WaitUntil(self.get_event_deadline()));
     }
 
+    fn handle_animation_steps(&mut self, dt: Duration) {
+        let num_steps = (dt.as_secs_f64() / MAX_ANIMATION_DT).ceil() as u32;
+        let step = dt / num_steps;
+        for _ in 0..num_steps {
+            if self.window_wrapper.animate_frame(step.as_secs_f32()) {
+                self.should_render = ShouldRender::Immediately;
+            }
+        }
+    }
+
     fn animate(&mut self) {
-        if self.window_wrapper.skia_renderer.is_none() {
+        if self.window_wrapper.routes.is_empty() {
             return;
         }
-        let skia_renderer = self.window_wrapper.skia_renderer.as_ref().unwrap();
-        let vsync = self.window_wrapper.vsync.as_ref().unwrap();
 
-        let dt =
-            Duration::from_secs_f32(vsync.get_refresh_rate(skia_renderer.window(), &self.settings));
+        // Limit the scope of the immutable borrow
+        let dt = {
+            let window_id = *self.window_wrapper.routes.keys().next().unwrap();
+            let route = self.window_wrapper.routes.get(&window_id).unwrap();
+            let skia_renderer = route.window.skia_renderer.borrow();
+            let vsync = self.window_wrapper.vsync.as_ref().unwrap();
+
+            Duration::from_secs_f32(vsync.get_refresh_rate(skia_renderer.window(), &self.settings))
+        };
 
         let now = Instant::now();
         let target_animation_time = now - self.animation_start;
         let mut delta = target_animation_time.saturating_sub(self.animation_time);
+
         // Don't try to animate way too big deltas
         // Instead reset the animation times, and simulate a single frame
         if delta > Duration::from_millis(1000) {
@@ -203,13 +219,14 @@ impl Application {
         tracy_plot!("Simulation dt", dt.as_secs_f64());
         self.animation_time += dt;
 
-        let num_steps = (dt.as_secs_f64() / MAX_ANIMATION_DT).ceil() as u32;
-        let step = dt / num_steps;
-        for _ in 0..num_steps {
-            if self.window_wrapper.animate_frame(step.as_secs_f32()) {
-                self.should_render = ShouldRender::Immediately;
-            }
-        }
+        self.handle_animation_steps(dt);
+        // let num_steps = (dt.as_secs_f64() / MAX_ANIMATION_DT).ceil() as u32;
+        // let step = dt / num_steps;
+        // for _ in 0..num_steps {
+        //     if self.window_wrapper.animate_frame(step.as_secs_f32()) {
+        //         self.should_render = ShouldRender::Immediately;
+        //     }
+        // }
     }
 
     fn render(&mut self) {
@@ -248,25 +265,34 @@ impl Application {
     }
 
     fn schedule_render(&mut self, skipped_frame: bool) {
-        if self.window_wrapper.skia_renderer.is_none() {
+        if self.window_wrapper.routes.is_empty() && !skipped_frame {
             return;
         }
-        let skia_renderer = self.window_wrapper.skia_renderer.as_ref().unwrap();
-        let vsync = self.window_wrapper.vsync.as_mut().unwrap();
 
-        // There's really no point in trying to render if the frame is skipped
-        // (most likely due to the compositor being busy). The animated frame will
-        // be rendered at an appropriate time anyway.
-        if !skipped_frame {
+        let window_id = *self.window_wrapper.routes.keys().next().unwrap();
+        let route = self.window_wrapper.routes.get(&window_id).unwrap();
+
+        let uses_winit_throttling = {
+            let skia_renderer = route.window.skia_renderer.borrow();
+            let vsync = self.window_wrapper.vsync.as_mut().unwrap();
+
+            // There's really no point in trying to render if the frame is skipped
+            // (most likely due to the compositor being busy). The animated frame will
+            // be rendered at an appropriate time anyway.
             // When winit throttling is used, request a redraw and wait for the render event
-            // Otherwise render immediately
+            // Otherwise, render immediately
             if vsync.uses_winit_throttling() {
                 vsync.request_redraw(skia_renderer.window());
                 self.pending_render = true;
                 tracy_plot!("pending_render", self.pending_render as u8 as f64);
+                true
             } else {
-                self.render();
+                false
             }
+        };
+
+        if !uses_winit_throttling {
+            self.render();
         }
     }
 
