@@ -81,7 +81,7 @@ pub struct MetalSkiaRenderer {
 }
 
 impl MetalSkiaRenderer {
-    pub fn new(window: Window, srgb: bool, vsync: bool) -> Self {
+    pub fn new(window: Rc<Window>, srgb: bool, vsync: bool) -> Self {
         log::info!("Initialize MetalSkiaRenderer...");
 
         let draw_size = window.inner_size();

@@ -149,7 +149,7 @@ impl OpenGLSkiaRenderer {
         Self {
             window_surface,
             context,
-            window: Some(Rc::new(window)),
+            window: Some(window),
             config,
             gr_context,
             fb_info,
@@ -261,7 +261,10 @@ pub fn build_window(
         .expect("Failed to create Window");
     let window = window.expect("Could not create Window");
     let config = WindowConfigType::OpenGL(config);
-    WindowConfig { window, config }
+    WindowConfig {
+        window: window.into(),
+        config,
+    }
 }
 
 fn create_surface(

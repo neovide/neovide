@@ -479,7 +479,8 @@ impl WinitWindowWrapper {
         tracy_zone!("try_create_window");
         let maximized = matches!(self.initial_window_size, WindowSize::Maximized);
         let window_config = create_window(event_loop, maximized, &self.title, &self.settings);
-        let window = &window_config.window;
+        // let window = &window_config.window;
+        let window = Rc::new(window_config.window.clone());
 
         let WindowSettings {
             input_ime,
@@ -498,7 +499,7 @@ impl WinitWindowWrapper {
         #[cfg(target_os = "macos")]
         {
             self.macos_feature = Some(MacosWindowFeature::from_winit_window(
-                window,
+                &window,
                 self.settings.clone(),
             ));
         }
@@ -565,7 +566,7 @@ impl WinitWindowWrapper {
         let srgb = cmd_line_settings.srgb;
         let vsync_enabled = cmd_line_settings.vsync;
         let skia_renderer: Rc<RefCell<Box<dyn SkiaRenderer>>> = Rc::new(RefCell::new(
-            create_skia_renderer(window_config, srgb, vsync_enabled, self.settings.clone()),
+            create_skia_renderer(&window_config, srgb, vsync_enabled, self.settings.clone()),
         ));
 
         {

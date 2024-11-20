@@ -506,6 +506,7 @@ fn floating_sort(window_a: &&mut RenderedWindow, window_b: &&mut RenderedWindow)
     orda.cmp(ordb)
 }
 
+#[derive(Clone)]
 pub enum WindowConfigType {
     OpenGL(glutin::config::Config),
     #[cfg(target_os = "windows")]
@@ -514,8 +515,9 @@ pub enum WindowConfigType {
     Metal,
 }
 
+#[derive(Clone)]
 pub struct WindowConfig {
-    pub window: Window,
+    pub window: Rc<Window>,
     pub config: WindowConfigType,
 }
 
@@ -531,7 +533,10 @@ pub fn build_window_config(
     } else {
         let window = event_loop.create_window(window_attributes).unwrap();
         let config = WindowConfigType::Metal;
-        WindowConfig { window, config }
+        WindowConfig {
+            window: window.into(),
+            config,
+        }
     }
 }
 
@@ -572,14 +577,14 @@ pub trait SkiaRenderer {
 }
 
 pub fn create_skia_renderer(
-    window: WindowConfig,
+    window: &WindowConfig,
     srgb: bool,
     vsync: bool,
     settings: Arc<Settings>,
 ) -> Box<dyn SkiaRenderer> {
     let renderer: Box<dyn SkiaRenderer> = match &window.config {
         WindowConfigType::OpenGL(..) => Box::new(opengl::OpenGLSkiaRenderer::new(
-            window,
+            window.clone(),
             srgb,
             vsync,
             settings.clone(),
@@ -587,9 +592,11 @@ pub fn create_skia_renderer(
         #[cfg(target_os = "windows")]
         WindowConfigType::Direct3D => Box::new(d3d::D3DSkiaRenderer::new(window.window)),
         #[cfg(target_os = "macos")]
-        WindowConfigType::Metal => {
-            Box::new(metal::MetalSkiaRenderer::new(window.window, srgb, vsync))
-        }
+        WindowConfigType::Metal => Box::new(metal::MetalSkiaRenderer::new(
+            window.window.clone(),
+            srgb,
+            vsync,
+        )),
     };
     tracy_create_gpu_context("main_render_context", renderer.as_ref());
     renderer

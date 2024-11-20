@@ -126,7 +126,7 @@ impl State {
         let srgb = SRGB_DEFAULT == "1";
         let vsync = true;
         let window = create_window(event_loop, &settings);
-        let skia_renderer = create_skia_renderer(window, srgb, vsync, settings);
+        let skia_renderer = create_skia_renderer(&window, srgb, vsync, settings);
         skia_renderer.window().set_visible(true);
         let scale_factor = skia_renderer.window().scale_factor();
         let size = skia_renderer.window().inner_size();
