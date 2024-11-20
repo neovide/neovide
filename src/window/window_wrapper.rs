@@ -676,13 +676,11 @@ impl WinitWindowWrapper {
             should_render = ShouldRender::Immediately;
         }
 
-        let is_minimized = {
-            let window_id = *self.routes.keys().next().unwrap();
-            let route = self.routes.get(&window_id).unwrap();
-            let window = route.window.winit_window.clone();
+        let window_id = *self.routes.keys().next().unwrap();
+        let route = self.routes.get(&window_id).unwrap();
+        let window = route.window.winit_window.clone();
 
-            window.is_minimized() == Some(true)
-        };
+        let is_minimized = window.is_minimized() == Some(true);
 
         let resize_requested = self.requested_columns.is_some() || self.requested_lines.is_some();
         if resize_requested {
@@ -690,18 +688,10 @@ impl WinitWindowWrapper {
             // So, deal with them first and resize the window programmatically.
             // The new window size will then be processed in the following frame.
             self.update_window_size_from_grid();
-        } else if is_minimized {
+        } else if !is_minimized {
             // NOTE: Only actually resize the grid when the window is not minimized
             // Some platforms return a zero size when that is the case, so we should not try to resize to that.
-            let new_window_size = {
-                let window_id = *self.routes.keys().next().unwrap();
-                let route = self.routes.get(&window_id).unwrap();
-                let window = route.window.winit_window.clone();
-                // The skia renderer shuld always be created when this point is reached, since the < UIState::FirstFrame check will return true
-                let window_size = window.inner_size();
-
-                window_size
-            };
+            let new_window_size = window.inner_size();
             if self.saved_inner_size != new_window_size
                 || self.font_changed_last_frame
                 || padding_changed
@@ -799,6 +789,7 @@ impl WinitWindowWrapper {
 
     fn update_grid_size_from_window(&mut self) {
         let grid_size = self.get_grid_size_from_window(MIN_GRID_SIZE);
+        println!("grid_size: {:?}", grid_size);
 
         if self.saved_grid_size.as_ref() == Some(&grid_size) {
             trace!("Grid matched saved size, skip update.");
