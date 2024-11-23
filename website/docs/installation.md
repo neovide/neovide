@@ -1,6 +1,6 @@
 # Installation
 
-**Note**: Neovide requires neovim version `0.6` _or greater_. See previous releases such as `0.5.0`
+**Note**: Neovide requires neovim version `0.10` _or greater_. See previous releases such as `0.5.0`
 if your distro is too slow with updating or you need to rely on older neovim versions.
 
 Building instructions are somewhat limited at the moment. All the libraries Neovide uses are cross
@@ -11,7 +11,7 @@ enough. On Windows this should be enabled by default if you have a relatively re
 ## Binaries
 
 Installing should be as simple as downloading the binary, making sure the `nvim` executable with
-version 0.6 or greater is on your `PATH` environment variable, and running it. Everything should be
+version 0.10 or greater is on your `PATH` environment variable, and running it. Everything should be
 self contained.
 
 The binaries are to be found on
@@ -90,11 +90,9 @@ For more information, see the Homebrew [FAQ](https://docs.brew.sh/FAQ#my-mac-app
    The resulting binary is to be found under `~/.cargo/bin`. In case you want a nice application
    bundle:
 
-7. `cargo install cargo-bundle`
+7. `GENERATE_BUNDLE_APP=true GENERATE_DMG=true ./macos-builder/run`
 
-8. `cargo bundle --release`
-
-9. `cp -r ./target/release/bundle/osx/Neovide.app /Applications/Neovide.app` and enjoy.
+8. `open ./target/release/bundle/osx/Neovide.dmg`
 
 ## Linux
 
