@@ -99,6 +99,7 @@ impl GridRenderer {
         grid_position: GridPos<i32>,
         cell_width: i32,
         style: &Option<Arc<Style>>,
+        is_floating_window: bool,
     ) -> BackgroundInfo {
         tracy_zone!("draw_background");
         let debug = SETTINGS.get::<RendererSettings>().debug_renderer;
