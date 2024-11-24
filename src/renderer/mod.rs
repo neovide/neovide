@@ -399,7 +399,7 @@ impl Renderer {
 
     pub fn prepare_lines(&mut self, force: bool) {
         self.rendered_windows.iter_mut().for_each(|(_, w)| {
-            w.prepare_lines(&mut self.grid_renderer, force, !w.anchor_info.is_none())
+            w.prepare_lines(&mut self.grid_renderer, force, w.anchor_info.is_some())
         });
     }
 
