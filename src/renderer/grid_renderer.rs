@@ -4,6 +4,7 @@ use log::trace;
 use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Path, HSV};
 
 use crate::{
+    cmd_line::CmdLineSettings,
     editor::{Colors, Style, UnderlineStyle},
     profiling::tracy_zone,
     renderer::{CachingShaper, RendererSettings},
@@ -11,6 +12,7 @@ use crate::{
     units::{
         to_skia_point, to_skia_rect, GridPos, GridScale, GridSize, PixelPos, PixelRect, PixelVec,
     },
+    window::WindowSettings,
 };
 
 use super::fonts::font_options::FontOptions;
@@ -112,6 +114,8 @@ impl GridRenderer {
 
         let region = self.compute_text_region(grid_position, cell_width);
         let style = style.as_ref().unwrap_or(&self.default_style);
+        let style_background = style.background(&self.default_style.colors).to_color();
+        let is_default_background = style_background == self.get_default_background();
 
         let mut paint = Paint::default();
         paint.set_anti_alias(false);
@@ -122,13 +126,14 @@ impl GridRenderer {
             let random_color = random_hsv.to_color(255);
             paint.set_color(random_color);
         } else {
-            paint.set_color(style.background(&self.default_style.colors).to_color());
+            paint.set_color(style_background);
         }
-        if style.blend > 0 {
-            paint.set_alpha_f((100 - style.blend) as f32 / 100.0);
-        } else {
-            paint.set_alpha_f(1.0);
-        }
+
+        paint.set_alpha_f(Self::get_background_opacity(
+            style,
+            is_default_background,
+            is_floating_window,
+        ));
 
         let custom_color = paint.color4f() != self.default_style.colors.background.unwrap();
         if custom_color {
@@ -138,6 +143,56 @@ impl GridRenderer {
         BackgroundInfo {
             custom_color,
             transparent: style.blend > 0,
+        }
+    }
+
+    /// Returns the background's opacity based on the provided style, background, floating, multi-grid
+    /// information.
+    ///
+    /// Background opacity uses fallback logic depending on multiple factors:
+    ///
+    /// Default background:
+    ///     1. Use style blend if positive or in floating window.
+    ///     2. Use transparency setting.
+    /// Non-default background:
+    ///     1. With multi-grid, floating windows style blends are set to pumblend/winblend.
+    ///        Since expected style blend cannot be determined, opaque is returned.
+    ///     2. Use style blend if positive.
+    ///     3. Otherwise return opaque.
+    ///
+    /// # Returns
+    ///
+    /// A `f32` value representing the background opacity.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// let style = Style { blend: 50 };
+    /// let is_default_background = true;
+    /// let is_floating_window = false;
+    /// let opacity = get_background_opacity(style, is_default_background, is_floating_window);
+    /// assert_eq!(opacity, 0.5);
+    /// ```
+    fn get_background_opacity(
+        style: &Style,
+        is_default_background: bool,
+        is_floating_window: bool,
+    ) -> f32 {
+        let is_multi_grid = !SETTINGS.get::<CmdLineSettings>().no_multi_grid;
+        let blend = (100 - style.blend) as f32 / 100.0;
+
+        if is_default_background {
+            if style.blend > 0 || is_floating_window {
+                blend
+            } else {
+                SETTINGS.get::<WindowSettings>().transparency
+            }
+        } else if is_multi_grid && is_floating_window {
+            1.0
+        } else if style.blend > 0 {
+            blend
+        } else {
+            1.0
         }
     }
 
