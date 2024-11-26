@@ -471,6 +471,15 @@ impl WinitWindowWrapper {
         res
     }
 
+    // TODO: must be decided if the renderder should be a global state or not
+    // Rc<> Reference counters are not thread safe, so we can't share the window or anything
+    // else between threads.
+    //
+    // The renderer is a global state, so it should be shared between threads. (this must be
+    // validated, but it's the current idea)
+    // Instead, we can use std::sync::Arc, which stands for "atomically reference counted."
+    // It’s identical to Rc, except it guarantees that modifications to the reference counter
+    // are indivisible atomic operations, making it safe to use it with multiple threads.
     pub fn try_create_window(
         &mut self,
         event_loop: &ActiveEventLoop,
@@ -484,7 +493,6 @@ impl WinitWindowWrapper {
         let config = Config::init();
         let initial_font_settings = config.font;
 
-        // TODO: must be decided if the renderder should be a global state or not
         let _renderer = Renderer::new(1.0, initial_font_settings, self.settings.clone());
 
         let WindowSettings {

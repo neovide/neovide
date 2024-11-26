@@ -3,17 +3,22 @@ use std::{
     time::{Duration, Instant},
 };
 
+use glamour::Size2;
 use winit::{
     application::ApplicationHandler,
+    error::EventLoopError,
     event::WindowEvent,
-    event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy},
 };
 
 use super::{save_window_size, CmdLineSettings, EventPayload, WindowSettings, WinitWindowWrapper};
 use crate::{
+    bridge::NeovimRuntime,
     profiling::{tracy_plot, tracy_zone},
     renderer::DrawCommand,
+    running_tracker::RunningTracker,
     settings::Settings,
+    units::Grid,
     window::UserEvent,
     FontSettings, WindowSize,
 };
@@ -77,6 +82,7 @@ const MAX_ANIMATION_DT: f64 = 1.0 / 120.0;
 
 pub struct Application {
     idle: bool,
+    initial_grid_size: Option<Size2<Grid<u32>>>,
     previous_frame_start: Instant,
     last_dt: f32,
     should_render: ShouldRender,
@@ -89,6 +95,8 @@ pub struct Application {
 
     window_wrapper: WinitWindowWrapper,
     proxy: EventLoopProxy<EventPayload>,
+    pub runtime: NeovimRuntime,
+    pub runtime_tracker: RunningTracker,
 
     settings: Arc<Settings>,
 }
@@ -96,6 +104,7 @@ pub struct Application {
 impl Application {
     pub fn new(
         initial_window_size: WindowSize,
+        initial_grid_size: Option<Size2<Grid<u32>>>,
         initial_font_settings: Option<FontSettings>,
         proxy: EventLoopProxy<EventPayload>,
         settings: Arc<Settings>,
@@ -113,11 +122,15 @@ impl Application {
         let cmd_line_settings = settings.get::<CmdLineSettings>();
         let idle = cmd_line_settings.idle;
 
+        let runtime_tracker = RunningTracker::new();
+        let mut runtime = NeovimRuntime::new().expect("Failed to create neovim runtime");
+
         let window_wrapper =
             WinitWindowWrapper::new(initial_window_size, initial_font_settings, settings.clone());
 
         Self {
             idle,
+            initial_grid_size,
             previous_frame_start,
             last_dt,
             should_render,
@@ -130,9 +143,33 @@ impl Application {
 
             window_wrapper,
             proxy,
+            runtime,
+            runtime_tracker,
 
             settings,
         }
+    }
+
+    pub fn run(&mut self, event_loop: EventLoop<EventPayload>) -> Result<(), EventLoopError> {
+        self.runtime
+            .launch(
+                self.proxy.clone(),
+                self.initial_grid_size,
+                self.runtime_tracker.clone(),
+                self.settings.clone(),
+            )
+            .expect("Failed to launch neovim runtime");
+
+        // self.runtime
+        //     .launch(
+        //         self.proxy.clone(),
+        //         self.initial_grid_size,
+        //         self.runtime_tracker.clone(),
+        //         self.settings.clone(),
+        //     )
+        //     .expect("Failed to launch neovim runtime");
+
+        event_loop.run_app(self)
     }
 
     fn get_refresh_rate(&self) -> f32 {

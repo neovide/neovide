@@ -61,7 +61,8 @@ use error_handling::handle_startup_errors;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 use running_tracker::RunningTracker;
 use window::{
-    create_event_loop, determine_window_size, Application, EventPayload, WindowSettings, WindowSize,
+    create_event_loop, determine_grid_size, determine_window_size, Application, EventPayload,
+    WindowSettings, WindowSize,
 };
 
 pub use channel_utils::*;
@@ -99,34 +100,38 @@ fn main() -> ExitCode {
     let event_loop = create_event_loop();
     clipboard::init(&event_loop);
 
-    let running_tracker = RunningTracker::new();
     let settings = Arc::new(Settings::new());
-
-    match setup(
-        event_loop.create_proxy(),
-        running_tracker.clone(),
-        settings.clone(),
-    ) {
+    let proxy = event_loop.create_proxy();
+    match setup(proxy.clone(), settings.clone()) {
         Err(err) => handle_startup_errors(err, event_loop, settings.clone()),
-        Ok((window_size, font_settings, runtime)) => {
+        Ok(font_settings) => {
+            // TODO: move it to application as propers
+            let window_settings = load_last_window_settings().ok();
+            let window_size = determine_window_size(window_settings.as_ref(), &settings);
+            let grid_size = determine_grid_size(&window_size, window_settings);
+
             let mut application = Application::new(
                 window_size,
+                grid_size,
                 font_settings,
                 event_loop.create_proxy(),
                 settings.clone(),
             );
 
-            let result = event_loop.run_app(&mut application);
+            let result = application.run(event_loop);
 
-            // Wait a little bit more and force Nevoim to exit after that.
+            // Wait a little bit more and force Nevovim to exit after that.
             // This should not be required, but Neovim through libuv spawns childprocesses that inherits all the handles
             // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
             // read will hang forever, waiting for more data to read.
             // See https://github.com/neovide/neovide/issues/2182 (which includes links to libuv issues)
-            runtime.runtime.shutdown_timeout(Duration::from_millis(500));
+            application
+                .runtime
+                .runtime
+                .shutdown_timeout(Duration::from_millis(500));
 
             match result {
-                Ok(_) => running_tracker.exit_code(),
+                Ok(_) => application.runtime_tracker.exit_code(),
                 Err(EventLoopError::ExitFailure(code)) => ExitCode::from(code as u8),
                 _ => ExitCode::FAILURE,
             }
@@ -136,9 +141,8 @@ fn main() -> ExitCode {
 
 fn setup(
     proxy: EventLoopProxy<EventPayload>,
-    running_tracker: RunningTracker,
     settings: Arc<Settings>,
-) -> Result<(WindowSize, Option<FontSettings>, NeovimRuntime)> {
+) -> Result<Option<FontSettings>> {
     //  --------------
     // | Architecture |
     //  --------------
@@ -227,22 +231,7 @@ fn setup(
 
     trace!("Neovide version: {}", crate_version!());
 
-    let window_settings = load_last_window_settings().ok();
-    let window_size = determine_window_size(window_settings.as_ref(), &settings);
-    let grid_size = match window_size {
-        WindowSize::Grid(grid_size) => Some(grid_size),
-        // Clippy wrongly suggests to use unwrap or default here
-        #[allow(clippy::manual_unwrap_or_default)]
-        _ => match window_settings {
-            Some(PersistentWindowSettings::Maximized { grid_size, .. }) => grid_size,
-            Some(PersistentWindowSettings::Windowed { grid_size, .. }) => grid_size,
-            _ => None,
-        },
-    };
-
-    let mut runtime = NeovimRuntime::new()?;
-    runtime.launch(proxy, grid_size, running_tracker, settings)?;
-    Ok((window_size, config.font, runtime))
+    Ok(config.font)
 }
 
 #[cfg(not(test))]

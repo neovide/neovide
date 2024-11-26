@@ -11,6 +11,7 @@ pub mod macos;
 #[cfg(target_os = "linux")]
 use std::env;
 
+use glamour::Size2;
 use winit::{
     dpi::{PhysicalSize, Size},
     event_loop::{ActiveEventLoop, EventLoop},
@@ -44,7 +45,7 @@ use crate::{
         clamped_grid_size, load_last_window_settings, save_window_size, HotReloadConfigs,
         PersistentWindowSettings, Settings, SettingsChanged,
     },
-    units::GridSize,
+    units::{Grid, GridSize},
 };
 pub use application::Application;
 pub use application::ShouldRender;
@@ -295,6 +296,22 @@ pub fn determine_window_size(
                 )
             }
             _ => WindowSize::Size(DEFAULT_WINDOW_SIZE),
+        },
+    }
+}
+
+pub fn determine_grid_size(
+    window_size: &WindowSize,
+    window_settings: Option<PersistentWindowSettings>,
+) -> Option<Size2<Grid<u32>>> {
+    match window_size {
+        WindowSize::Grid(grid_size) => Some(*grid_size),
+        // Clippy wrongly suggests to use unwrap or default here
+        #[allow(clippy::manual_unwrap_or_default)]
+        _ => match window_settings {
+            Some(PersistentWindowSettings::Maximized { grid_size, .. }) => grid_size,
+            Some(PersistentWindowSettings::Windowed { grid_size, .. }) => grid_size,
+            _ => None,
         },
     }
 }
