@@ -231,6 +231,33 @@ window to that value.
 Note that `g:neovide_transparency` should be 0 if you want to unify transparency of content and
 title bar.
 
+#### Title Bar Color (Currently Windows only)
+
+**Unreleased yet.**
+
+![TitleBackgroundColor](assets/TitleBackgroundColor.png)
+
+Setting `g:neovide_title_background_color` to a value that can be parsed by
+[csscolorparser-rs](https://github.com/mazznoer/csscolorparser-rs) will set
+color the title window to that value.
+
+VimScript:
+```vim
+let g:neovide_title_background_color = "green"
+let g:neovide_title_text_color = "pink"
+```
+
+lua:
+
+```lua
+vim.g.neovide_title_background_color = string.format(
+    "%x",
+    vim.api.nvim_get_hl(0, {id=vim.api.nvim_get_hl_id_by_name("Normal")}).bg
+)
+
+vim.g.neovide_title_text_color = "pink"
+```
+
 #### Window Blur (Currently macOS only)
 
 VimScript:
@@ -338,6 +365,8 @@ vim.g.neovide_transparency = 0.8
 
 Setting `g:neovide_transparency` to a value between 0.0 and 1.0 will set the opacity of the window
 to that value.
+
+
 
 #### Show Border (Currently macOS only)
 
