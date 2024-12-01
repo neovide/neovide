@@ -279,7 +279,7 @@ pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, settings: Arc<Settin
     let ui_command_nvim = nvim.clone();
     let (sender, mut ui_command_receiver) = unbounded_channel();
     UI_COMMAND_CHANNEL
-        .set(LoggingSender::attach(sender, "UIComand"))
+        .set(LoggingSender::attach(sender, "UICommand"))
         .expect("1.The UI command channel is already created");
     tokio::spawn(async move {
         loop {
