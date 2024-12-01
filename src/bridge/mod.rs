@@ -76,7 +76,10 @@ pub async fn show_error_message(
     nvim.echo(prepared_lines, true, vec![]).await
 }
 
-async fn launch(
+// TODO: this function name is bringing confusion and is duplicated
+// conflicting with the runtime.launch fn, it should be renamed
+// to something else
+async fn create_neovim_session(
     handler: NeovimHandler,
     grid_size: Option<GridSize<u32>>,
     settings: Arc<Settings>,
@@ -192,7 +195,7 @@ impl NeovimRuntime {
         let handler = start_editor(event_loop_proxy.clone(), running_tracker, settings.clone());
         let session = self
             .runtime
-            .block_on(launch(handler, grid_size, settings))?;
+            .block_on(create_neovim_session(handler, grid_size, settings))?;
         self.runtime.spawn(run(session, event_loop_proxy));
         Ok(())
     }
