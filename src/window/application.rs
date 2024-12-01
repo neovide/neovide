@@ -95,7 +95,6 @@ pub struct Application {
 
     window_wrapper: WinitWindowWrapper,
     proxy: EventLoopProxy<EventPayload>,
-    pub runtime: NeovimRuntime,
     pub runtime_tracker: RunningTracker,
 
     settings: Arc<Settings>,
@@ -123,10 +122,13 @@ impl Application {
         let idle = cmd_line_settings.idle;
 
         let runtime_tracker = RunningTracker::new();
-        let mut runtime = NeovimRuntime::new().expect("Failed to create neovim runtime");
 
-        let window_wrapper =
-            WinitWindowWrapper::new(initial_window_size, initial_font_settings, settings.clone());
+        let window_wrapper = WinitWindowWrapper::new(
+            initial_window_size,
+            initial_font_settings,
+            settings.clone(),
+            runtime_tracker.clone(),
+        );
 
         Self {
             idle,
@@ -143,7 +145,6 @@ impl Application {
 
             window_wrapper,
             proxy,
-            runtime,
             runtime_tracker,
 
             settings,
@@ -151,14 +152,14 @@ impl Application {
     }
 
     pub fn run(&mut self, event_loop: EventLoop<EventPayload>) -> Result<(), EventLoopError> {
-        self.runtime
-            .launch(
-                self.proxy.clone(),
-                self.initial_grid_size,
-                self.runtime_tracker.clone(),
-                self.settings.clone(),
-            )
-            .expect("Failed to launch neovim runtime");
+        // self.runtime
+        //     .launch(
+        //         self.proxy.clone(),
+        //         self.initial_grid_size,
+        //         self.runtime_tracker.clone(),
+        //         self.settings.clone(),
+        //     )
+        //     .expect("Failed to launch neovim runtime");
 
         // self.runtime
         //     .launch(

@@ -24,17 +24,21 @@ use {
 #[cfg(windows)]
 use crate::windows_utils::{register_right_click, unregister_right_click};
 use crate::{
-    bridge::{send_ui, ParallelCommand, SerialCommand},
+    bridge::{send_ui, NeovimRuntime, ParallelCommand, SerialCommand},
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
     renderer::{
         create_skia_renderer, DrawCommand, Renderer, RendererSettingsChanged, SkiaRenderer, VSync,
     },
+    running_tracker::RunningTracker,
     settings::{
-        clamped_grid_size, Config, FontSettings, HotReloadConfigs, Settings, SettingsChanged,
-        DEFAULT_GRID_SIZE, MIN_GRID_SIZE,
+        clamped_grid_size, load_last_window_settings, Config, FontSettings, HotReloadConfigs,
+        Settings, SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE,
     },
     units::{GridRect, GridSize, PixelPos, PixelSize},
-    window::{create_window, PhysicalSize, ShouldRender, WindowSize},
+    window::{
+        create_window, determine_grid_size, determine_window_size, PhysicalSize, ShouldRender,
+        WindowSize,
+    },
     CmdLineSettings,
 };
 
@@ -75,6 +79,8 @@ pub struct WinitWindowWrapper {
     // The destruction order has to be correct
     pub renderer: Renderer,
     pub routes: FxHashMap<WindowId, Route>,
+    pub runtime: NeovimRuntime,
+    pub runtime_tracker: RunningTracker,
     keyboard_manager: KeyboardManager,
     mouse_manager: MouseManager,
     title: String,
@@ -101,13 +107,17 @@ impl WinitWindowWrapper {
         initial_window_size: WindowSize,
         initial_font_settings: Option<FontSettings>,
         settings: Arc<Settings>,
+        runtime_tracker: RunningTracker,
     ) -> Self {
         let saved_inner_size = Default::default();
         let renderer = Renderer::new(1.0, initial_font_settings, settings.clone());
+        let runtime = NeovimRuntime::new().expect("Failed to create neovim runtime");
 
         Self {
             renderer,
             routes: Default::default(),
+            runtime,
+            runtime_tracker,
             keyboard_manager: KeyboardManager::new(settings.clone()),
             mouse_manager: MouseManager::new(settings.clone()),
             title: String::from("Neovide"),
@@ -622,6 +632,19 @@ impl WinitWindowWrapper {
             tracy_zone!("request_redraw");
             window.request_redraw();
         }
+
+        let window_settings = load_last_window_settings().ok();
+        let window_size = determine_window_size(window_settings.as_ref(), &self.settings.clone());
+        let grid_size = determine_grid_size(&window_size, window_settings);
+
+        self.runtime
+            .launch(
+                proxy.clone(),
+                grid_size,
+                self.runtime_tracker.clone(),
+                self.settings.clone(),
+            )
+            .expect("Failed to launch neovim runtime");
 
         self.ui_state = UIState::FirstFrame;
         let route = Route {
