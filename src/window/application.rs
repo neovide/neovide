@@ -220,14 +220,14 @@ impl Application {
         }
     }
 
-    fn animate(&mut self) {
+    fn animate(&mut self, window_id: winit::window::WindowId) {
         if self.window_wrapper.routes.is_empty() {
             return;
         }
 
         // Limit the scope of the immutable borrow
         let dt = {
-            let window_id = *self.window_wrapper.routes.keys().next().unwrap();
+            // let window_id = *self.window_wrapper.routes.keys().next().unwrap();
             let route = self.window_wrapper.routes.get(&window_id).unwrap();
             let window = route.window.winit_window.clone();
             let vsync = self.window_wrapper.vsync.as_ref().unwrap();
@@ -330,11 +330,13 @@ impl Application {
             self.pending_render && Instant::now() > (self.animation_start + self.animation_time);
         let should_prepare = !self.pending_render || skipped_frame;
         if !should_prepare {
-            self.window_wrapper
-                .renderer
-                .grid_renderer
-                .shaper
-                .cleanup_font_cache();
+            let route = self
+                .window_wrapper
+                .routes
+                .get(&self.window_wrapper.get_focused_route().unwrap())
+                .unwrap();
+            let renderer = &route.window.renderer.borrow_mut();
+            renderer.grid_renderer.shaper.cleanup_font_cache();
             return;
         }
 
@@ -344,9 +346,14 @@ impl Application {
         let should_animate =
             self.should_render == ShouldRender::Immediately || !self.idle || skipped_frame;
 
+        let window_id = match self.window_wrapper.get_focused_route() {
+            Some(window_id) => window_id,
+            None => return,
+        };
+
         if should_animate {
             self.reset_animation_period();
-            self.animate();
+            self.animate(window_id);
             self.schedule_render(skipped_frame);
         } else {
             self.num_consecutive_rendered = 0;

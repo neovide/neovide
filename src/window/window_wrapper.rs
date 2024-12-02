@@ -34,7 +34,7 @@ use crate::{
         clamped_grid_size, load_last_window_settings, Config, FontSettings, HotReloadConfigs,
         Settings, SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE,
     },
-    units::{GridRect, GridSize, PixelPos, PixelSize},
+    units::{GridRect, GridScale, GridSize, PixelPos, PixelSize},
     window::{
         create_window, determine_grid_size, determine_window_size, PhysicalSize, ShouldRender,
         WindowSize,
@@ -66,6 +66,7 @@ pub struct RouteWindow {
     pub winit_window: Rc<Window>,
     pub neovim_handler: NeovimHandler,
     pub mouse_manager: Rc<RefCell<Box<MouseManager>>>,
+    pub renderer: Rc<RefCell<Box<Renderer>>>,
 }
 
 impl fmt::Debug for RouteWindow {
@@ -93,7 +94,6 @@ impl fmt::Debug for Route {
 pub struct WinitWindowWrapper {
     // Don't rearrange this, unless you have a good reason to do so
     // The destruction order has to be correct
-    pub renderer: Renderer,
     pub routes: FxHashMap<WindowId, Route>,
     pub runtime: NeovimRuntime,
     pub runtime_tracker: RunningTracker,
@@ -125,11 +125,9 @@ impl WinitWindowWrapper {
         runtime_tracker: RunningTracker,
     ) -> Self {
         let saved_inner_size = Default::default();
-        let renderer = Renderer::new(1.0, initial_font_settings, settings.clone());
         let runtime = NeovimRuntime::new().expect("Failed to create neovim runtime");
 
         Self {
-            renderer,
             routes: Default::default(),
             runtime,
             runtime_tracker,
@@ -271,11 +269,17 @@ impl WinitWindowWrapper {
                 self.set_ime(ime_enabled);
             }
             WindowSettingsChanged::ScaleFactor(user_scale_factor) => {
-                let renderer = &mut self.renderer;
+                let route = self
+                    .routes
+                    .get(self.get_focused_route().as_ref().unwrap())
+                    .unwrap();
+                let mut renderer = route.window.renderer.borrow_mut();
+                let scale_factor = renderer.os_scale_factor;
+                let renderer_user_scale_factor = renderer.user_scale_factor;
                 renderer.user_scale_factor = user_scale_factor.into();
-                renderer.grid_renderer.handle_scale_factor_update(
-                    renderer.os_scale_factor * renderer.user_scale_factor,
-                );
+                renderer
+                    .grid_renderer
+                    .handle_scale_factor_update(scale_factor * renderer_user_scale_factor);
                 self.font_changed_last_frame = true;
             }
             WindowSettingsChanged::WindowBlurred(blur) => {
@@ -343,8 +347,9 @@ impl WinitWindowWrapper {
     pub fn send_font_names(&self, window_id: WindowId) {
         // let window_id = *self.routes.keys().next().unwrap();
         let route = self.routes.get(&window_id).unwrap();
+        let renderer = route.window.renderer.borrow();
         let neovim_handler = &route.window.neovim_handler;
-        let font_names = self.renderer.font_names();
+        let font_names = renderer.font_names();
         send_ui(
             ParallelCommand::DisplayAvailableFonts(font_names),
             neovim_handler,
@@ -388,17 +393,21 @@ impl WinitWindowWrapper {
         {
             let mut mouse_manager = route.window.mouse_manager.borrow_mut();
             let window = route.window.winit_window.clone();
+            let renderer = route.window.renderer.borrow_mut();
             mouse_manager.handle_event(
                 &event,
                 &self.keyboard_manager,
-                &self.renderer,
+                &renderer,
                 &window,
                 neovim_handler,
             );
         }
 
         self.keyboard_manager.handle_event(&event, neovim_handler);
-        self.renderer.handle_event(&event);
+        {
+            let mut renderer = route.window.renderer.borrow_mut();
+            renderer.handle_event(&event);
+        }
         let mut should_render = true;
 
         match event {
@@ -500,15 +509,16 @@ impl WinitWindowWrapper {
         println!("window_id 7: {:?}", window_id);
 
         let route = self.routes.get(&window_id).unwrap();
+        let mut renderer = route.window.renderer.borrow_mut();
         let window = route.window.winit_window.clone();
         let mut skia_renderer = route.window.skia_renderer.borrow_mut();
         let vsync = self.vsync.as_mut().unwrap();
 
         if self.font_changed_last_frame {
             self.font_changed_last_frame = false;
-            self.renderer.prepare_lines(true);
+            renderer.prepare_lines(true);
         }
-        self.renderer.draw_frame(skia_renderer.canvas(), dt);
+        renderer.draw_frame(skia_renderer.canvas(), dt);
         skia_renderer.flush();
         {
             tracy_gpu_zone!("wait for vsync");
@@ -526,11 +536,22 @@ impl WinitWindowWrapper {
     pub fn animate_frame(&mut self, dt: f32) -> bool {
         tracy_zone!("animate_frame", 0);
 
-        let res = self
-            .renderer
-            .animate_frame(&self.get_grid_rect_from_window(GridSize::default()), dt);
+        let window_id = match self.get_focused_route() {
+            Some(window_id) => window_id,
+            None => return false,
+        };
+
+        let route = self.routes.get(&window_id).unwrap();
+        let mut renderer = route.window.renderer.borrow_mut();
+
+        let grid_scale = renderer.grid_renderer.grid_scale;
+
+        let res = renderer.animate_frame(
+            &self.get_grid_rect_from_window(grid_scale, GridSize::default()),
+            dt,
+        );
         tracy_plot!("animate_frame", res as u8 as f64);
-        self.renderer.prepare_lines(false);
+        renderer.prepare_lines(false);
         #[allow(clippy::let_and_return)]
         res
     }
@@ -557,7 +578,7 @@ impl WinitWindowWrapper {
         let config = Config::init();
         let initial_font_settings = config.font;
 
-        let _renderer = Renderer::new(1.0, initial_font_settings, self.settings.clone());
+        let mut renderer = Renderer::new(1.0, initial_font_settings, self.settings.clone());
 
         let WindowSettings {
             input_ime,
@@ -582,7 +603,7 @@ impl WinitWindowWrapper {
         }
 
         let scale_factor = window.scale_factor();
-        self.renderer.handle_os_scale_factor_change(scale_factor);
+        renderer.handle_os_scale_factor_change(scale_factor);
 
         let mut size = PhysicalSize::default();
         match self.initial_window_size {
@@ -592,7 +613,7 @@ impl WinitWindowWrapper {
                 size = PhysicalSize::new(window_size.width, window_size.height);
             }
             WindowSize::NeovimGrid => {
-                let grid_size = self.renderer.get_grid_size();
+                let grid_size = renderer.get_grid_size();
                 let window_size = self.get_window_size_from_grid(&grid_size);
                 size = PhysicalSize::new(window_size.width, window_size.height);
             }
@@ -654,7 +675,7 @@ impl WinitWindowWrapper {
         log::info!(
             "window created (scale_factor: {:.4}, font_dimensions: {:?})",
             scale_factor,
-            self.renderer.grid_renderer.grid_scale
+            renderer.grid_renderer.grid_scale
         );
 
         window.set_blur(window_blurred && transparency < 1.0);
@@ -706,6 +727,7 @@ impl WinitWindowWrapper {
         let mouse_manager = MouseManager::new(self.settings.clone());
         let route = Route {
             window: RouteWindow {
+                renderer: Rc::new(RefCell::new(Box::new(renderer))),
                 skia_renderer: skia_renderer.clone(),
                 winit_window: window.clone(),
                 neovim_handler,
@@ -720,7 +742,10 @@ impl WinitWindowWrapper {
 
     pub fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
         tracy_zone!("handle_draw_commands");
-        let handle_draw_commands_result = self.renderer.handle_draw_commands(batch);
+        let window_id = self.get_focused_route().unwrap();
+        let route = self.routes.get(&window_id).unwrap();
+        let mut renderer = route.window.renderer.borrow_mut();
+        let handle_draw_commands_result = renderer.handle_draw_commands(batch);
 
         self.font_changed_last_frame |= handle_draw_commands_result.font_changed;
 
@@ -732,7 +757,10 @@ impl WinitWindowWrapper {
 
     fn handle_config_changed(&mut self, config: HotReloadConfigs) {
         tracy_zone!("handle_config_changed");
-        self.renderer.handle_config_changed(config);
+        let window_id = self.get_focused_route().unwrap();
+        let route = self.routes.get(&window_id).unwrap();
+        let mut renderer = route.window.renderer.borrow_mut();
+        renderer.handle_config_changed(config);
         self.font_changed_last_frame = true;
     }
 
@@ -794,10 +822,12 @@ impl WinitWindowWrapper {
             Some(window_id) => window_id,
             None => return ShouldRender::Wait,
         };
-        let route = self.routes.get(&window_id).unwrap();
-        let window = route.window.winit_window.clone();
 
-        let is_minimized = window.is_minimized() == Some(true);
+        let is_minimized = {
+            let route = self.routes.get(&window_id).unwrap();
+            let window = route.window.winit_window.clone();
+            window.is_minimized() == Some(true)
+        };
 
         let resize_requested = self.requested_columns.is_some() || self.requested_lines.is_some();
         if resize_requested {
@@ -808,7 +838,13 @@ impl WinitWindowWrapper {
         } else if !is_minimized {
             // NOTE: Only actually resize the grid when the window is not minimized
             // Some platforms return a zero size when that is the case, so we should not try to resize to that.
-            let new_window_size = window.inner_size();
+            let new_window_size = {
+                let route = self.routes.get(&window_id).unwrap();
+                let window = route.window.winit_window.clone();
+
+                window.inner_size()
+            };
+
             if self.saved_inner_size != new_window_size
                 || self.font_changed_last_frame
                 || padding_changed
@@ -823,13 +859,20 @@ impl WinitWindowWrapper {
 
         self.update_ime_position(false);
 
-        should_render.update(self.renderer.prepare_frame());
+        {
+            let route = self.routes.get(&window_id).unwrap();
+            let mut renderer = route.window.renderer.borrow_mut();
+            should_render.update(renderer.prepare_frame());
+        }
 
         should_render
     }
 
     pub fn get_grid_size(&self) -> GridSize<u32> {
-        self.renderer.get_grid_size()
+        let window_id = self.get_focused_route().unwrap();
+        let route = self.routes.get(&window_id).unwrap();
+        let renderer = route.window.renderer.borrow();
+        renderer.get_grid_size()
     }
 
     fn get_window_size_from_grid(&self, grid_size: &GridSize<u32>) -> PixelSize<u32> {
@@ -840,7 +883,11 @@ impl WinitWindowWrapper {
             window_padding.top + window_padding.bottom,
         );
 
-        let window_size = (*grid_size * self.renderer.grid_renderer.grid_scale)
+        let window_id = self.get_focused_route().unwrap();
+        let route = self.routes.get(&window_id).unwrap();
+        let renderer = route.window.renderer.borrow();
+
+        let window_size = (*grid_size * renderer.grid_renderer.grid_scale)
             .floor()
             .try_cast()
             .unwrap()
@@ -878,7 +925,11 @@ impl WinitWindowWrapper {
         let _ = window.request_inner_size(new_size);
     }
 
-    fn get_grid_size_from_window(&self, min: GridSize<u32>) -> GridSize<u32> {
+    fn get_grid_size_from_window(
+        &self,
+        grid_scale: GridScale,
+        min: GridSize<u32>,
+    ) -> GridSize<u32> {
         let window_padding = self.window_padding;
         let window_padding_size: PixelSize<u32> = PixelSize::new(
             window_padding.left + window_padding.right,
@@ -889,26 +940,32 @@ impl WinitWindowWrapper {
             PixelSize::new(self.saved_inner_size.width, self.saved_inner_size.height)
                 - window_padding_size;
 
-        let grid_size = (content_size / self.renderer.grid_renderer.grid_scale)
-            .floor()
-            .try_cast()
-            .unwrap();
+        let grid_size = (content_size / grid_scale).floor().try_cast().unwrap();
 
         grid_size.max(min)
     }
 
-    fn get_grid_rect_from_window(&self, min: GridSize<u32>) -> GridRect<f32> {
-        let size = self.get_grid_size_from_window(min).try_cast().unwrap();
-        let pos = PixelPos::new(self.window_padding.left, self.window_padding.top).cast()
-            / self.renderer.grid_renderer.grid_scale;
+    fn get_grid_rect_from_window(
+        &self,
+        grid_scale: GridScale,
+        min: GridSize<u32>,
+    ) -> GridRect<f32> {
+        let size = self
+            .get_grid_size_from_window(grid_scale, min)
+            .try_cast()
+            .unwrap();
+        let pos =
+            PixelPos::new(self.window_padding.left, self.window_padding.top).cast() / grid_scale;
         GridRect::<f32>::from_origin_and_size(pos, size)
     }
 
     fn update_grid_size_from_window(&mut self) {
         let window_id = *self.routes.keys().next().unwrap();
         let route = self.routes.get(&window_id).unwrap();
+        let renderer = route.window.renderer.borrow();
         let neovim_handler = &route.window.neovim_handler;
-        let grid_size = self.get_grid_size_from_window(MIN_GRID_SIZE);
+        let grid_scale = renderer.grid_renderer.grid_scale;
+        let grid_size = self.get_grid_size_from_window(grid_scale, MIN_GRID_SIZE);
         println!("grid_size: {:?}", grid_size);
 
         if self.saved_grid_size.as_ref() == Some(&grid_size) {
@@ -937,9 +994,10 @@ impl WinitWindowWrapper {
         let window_id = *self.routes.keys().next().unwrap();
         let route = self.routes.get(&window_id).unwrap();
         let window = route.window.winit_window.clone();
-        let grid_scale = self.renderer.grid_renderer.grid_scale;
+        let renderer = route.window.renderer.borrow();
+        let grid_scale = renderer.grid_renderer.grid_scale;
         let font_dimensions = GridSize::new(1.0, 1.0) * grid_scale;
-        let position = self.renderer.get_cursor_destination();
+        let position = renderer.get_cursor_destination();
         let position = position.try_cast::<u32>().unwrap();
         let position = dpi::PhysicalPosition {
             x: position.x,
@@ -965,13 +1023,14 @@ impl WinitWindowWrapper {
 
         let window_id = *self.routes.keys().next().unwrap();
         let route = self.routes.get(&window_id).unwrap();
+        let mut renderer = route.window.renderer.borrow_mut();
         let mut skia_renderer = route.window.skia_renderer.borrow_mut();
         #[cfg(target_os = "macos")]
         self.macos_feature
             .as_mut()
             .unwrap()
             .handle_scale_factor_update(scale_factor);
-        self.renderer.handle_os_scale_factor_change(scale_factor);
+        renderer.handle_os_scale_factor_change(scale_factor);
         skia_renderer.resize();
     }
 }
