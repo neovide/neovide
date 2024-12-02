@@ -303,11 +303,11 @@ impl Application {
             return;
         }
 
-        let window_id = *self.window_wrapper.routes.keys().next().unwrap();
-        // let window_id = match self.window_wrapper.get_focused_route() {
-        //     Some(window_id) => window_id,
-        //     None => return,
-        // };
+        // let window_id = *self.window_wrapper.routes.keys().next().unwrap();
+        let window_id = match self.window_wrapper.get_focused_route() {
+            Some(window_id) => window_id,
+            None => return,
+        };
         println!("window_id 6: {:?}", window_id);
         let route = self.window_wrapper.routes.get(&window_id).unwrap();
         let window = route.window.winit_window.clone();

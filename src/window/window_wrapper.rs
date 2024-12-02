@@ -65,6 +65,7 @@ pub struct RouteWindow {
     pub skia_renderer: Rc<RefCell<Box<dyn SkiaRenderer>>>,
     pub winit_window: Rc<Window>,
     pub neovim_handler: NeovimHandler,
+    pub mouse_manager: Rc<RefCell<Box<MouseManager>>>,
 }
 
 impl fmt::Debug for RouteWindow {
@@ -97,7 +98,6 @@ pub struct WinitWindowWrapper {
     pub runtime: NeovimRuntime,
     pub runtime_tracker: RunningTracker,
     keyboard_manager: KeyboardManager,
-    mouse_manager: MouseManager,
     title: String,
     font_changed_last_frame: bool,
     saved_inner_size: dpi::PhysicalSize<u32>,
@@ -134,7 +134,6 @@ impl WinitWindowWrapper {
             runtime,
             runtime_tracker,
             keyboard_manager: KeyboardManager::new(settings.clone()),
-            mouse_manager: MouseManager::new(settings.clone()),
             title: String::from("Neovide"),
             font_changed_last_frame: false,
             saved_inner_size,
@@ -227,7 +226,11 @@ impl WinitWindowWrapper {
         match command {
             WindowCommand::TitleChanged(new_title) => self.handle_title_changed(new_title),
             WindowCommand::SetMouseEnabled(mouse_enabled) => {
-                self.mouse_manager.enabled = mouse_enabled
+                if !(window_id == WindowId::from(0)) {
+                    let route = self.routes.get(&window_id).unwrap();
+                    let mut mouse_manager = route.window.mouse_manager.borrow_mut();
+                    mouse_manager.enabled = mouse_enabled
+                }
             }
             WindowCommand::ListAvailableFonts => self.send_font_names(window_id),
             WindowCommand::FocusWindow => {
@@ -383,8 +386,9 @@ impl WinitWindowWrapper {
         let neovim_handler = &route.window.neovim_handler;
 
         {
+            let mut mouse_manager = route.window.mouse_manager.borrow_mut();
             let window = route.window.winit_window.clone();
-            self.mouse_manager.handle_event(
+            mouse_manager.handle_event(
                 &event,
                 &self.keyboard_manager,
                 &self.renderer,
@@ -488,11 +492,11 @@ impl WinitWindowWrapper {
             return;
         }
 
-        let window_id = *self.routes.keys().next().unwrap();
-        // let window_id = match self.get_focused_route() {
-        //     Some(window_id) => window_id,
-        //     None => return,
-        // };
+        // let window_id = *self.routes.keys().next().unwrap();
+        let window_id = match self.get_focused_route() {
+            Some(window_id) => window_id,
+            None => return,
+        };
         println!("window_id 7: {:?}", window_id);
 
         let route = self.routes.get(&window_id).unwrap();
@@ -699,11 +703,13 @@ impl WinitWindowWrapper {
             .expect("Failed to launch neovim runtime");
 
         self.ui_state = UIState::FirstFrame;
+        let mouse_manager = MouseManager::new(self.settings.clone());
         let route = Route {
             window: RouteWindow {
                 skia_renderer: skia_renderer.clone(),
                 winit_window: window.clone(),
                 neovim_handler,
+                mouse_manager: Rc::new(RefCell::new(Box::new(mouse_manager))),
             },
         };
         self.routes.insert(window.id(), route);
@@ -758,7 +764,7 @@ impl WinitWindowWrapper {
             .find_map(|(key, val)| {
                 let has_focus = val.window.winit_window.has_focus();
                 println!("has_focus: {:?}, key: {:?}", has_focus, key);
-                if (val.window.winit_window.has_focus() && self.routes.len() == 1)
+                if (!val.window.winit_window.has_focus() && self.routes.len() == 1)
                     || val.window.winit_window.has_focus()
                 {
                     Some(key)
@@ -783,11 +789,11 @@ impl WinitWindowWrapper {
             should_render = ShouldRender::Immediately;
         }
 
-        let window_id = *self.routes.keys().next().unwrap();
-        // let window_id = match self.get_focused_route() {
-        //     Some(window_id) => window_id,
-        //     None => return ShouldRender::Wait,
-        // };
+        // let window_id = *self.routes.keys().next().unwrap();
+        let window_id = match self.get_focused_route() {
+            Some(window_id) => window_id,
+            None => return ShouldRender::Wait,
+        };
         let route = self.routes.get(&window_id).unwrap();
         let window = route.window.winit_window.clone();
 

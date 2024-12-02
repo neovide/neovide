@@ -174,7 +174,7 @@ pub fn create_window(
         .with_cursor(Cursor::Icon(mouse_cursor_icon.parse()))
         .with_maximized(maximized)
         .with_transparent(true)
-        .with_visible(false);
+        .with_visible(true);
 
     #[cfg(target_family = "unix")]
     let window_attributes = window_attributes.with_window_icon(Some(icon));
