@@ -742,7 +742,10 @@ impl WinitWindowWrapper {
 
     pub fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
         tracy_zone!("handle_draw_commands");
-        let window_id = self.get_focused_route().unwrap();
+        let window_id = match self.get_focused_route() {
+            Some(window_id) => window_id,
+            None => return,
+        };
         let route = self.routes.get(&window_id).unwrap();
         let mut renderer = route.window.renderer.borrow_mut();
         let handle_draw_commands_result = renderer.handle_draw_commands(batch);
