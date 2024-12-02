@@ -25,9 +25,9 @@ fn show_error(explanation: &str) -> ! {
 }
 
 pub fn show_nvim_error(msg: &str) {
-    send_ui(ParallelCommand::ShowError {
-        lines: msg.split('\n').map(|s| s.to_string()).collect_vec(),
-    });
+    // send_ui(ParallelCommand::ShowError {
+    //     lines: msg.split('\n').map(|s| s.to_string()).collect_vec(),
+    // });
 }
 
 /// Formats, logs and displays the given message.

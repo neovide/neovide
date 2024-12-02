@@ -7,7 +7,7 @@ use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim, Value};
 use strum::AsRefStr;
 use tokio::sync::mpsc::unbounded_channel;
 
-use super::{show_error_message, Settings};
+use super::{show_error_message, NeovimHandler, Settings};
 use crate::{
     bridge::NeovimWriter,
     cmd_line::CmdLineSettings,
@@ -274,13 +274,14 @@ impl AsRef<str> for UiCommand {
 
 static UI_COMMAND_CHANNEL: OnceLock<LoggingSender<UiCommand>> = OnceLock::new();
 
-pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, settings: Arc<Settings>) {
+pub fn start_ui_command_handler(
+    handler: NeovimHandler,
+    nvim: Neovim<NeovimWriter>,
+    settings: Arc<Settings>,
+) {
     let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
     let ui_command_nvim = nvim.clone();
-    let (sender, mut ui_command_receiver) = unbounded_channel();
-    UI_COMMAND_CHANNEL
-        .set(LoggingSender::attach(sender, "UICommand"))
-        .expect("1.The UI command channel is already created");
+    let (_ui_command_sender, mut ui_command_receiver) = handler.get_ui_command_channel();
     tokio::spawn(async move {
         loop {
             match ui_command_receiver.recv().await {
@@ -325,13 +326,13 @@ pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, settings: Arc<Settin
     });
 }
 
-pub fn send_ui<T>(command: T)
+pub fn send_ui<T>(command: T, handler: &NeovimHandler)
 where
     T: Into<UiCommand>,
 {
     let command: UiCommand = command.into();
-    let _ = UI_COMMAND_CHANNEL
-        .get()
-        .expect("The UI command channel has not been initialized")
-        .send(command);
+    let sender = handler.get_ui_command_channel().0;
+    let _ = sender
+        .send(command)
+        .expect("2.The UI command channel has not been initialized");
 }

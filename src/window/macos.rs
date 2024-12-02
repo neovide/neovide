@@ -350,7 +350,7 @@ declare_class!(
     unsafe impl QuitHandler {
         #[method(quit:)]
         unsafe fn quit(&self, _event: &NSEvent) {
-            send_ui(ParallelCommand::Quit);
+            // send_ui(ParallelCommand::Quit);
         }
     }
 );
@@ -493,7 +493,7 @@ pub fn register_file_handler() {
         autoreleasepool(|pool| {
             for file in files.iter() {
                 let path = file.as_str(pool).to_owned();
-                send_ui(ParallelCommand::FileDrop(path));
+                // send_ui(ParallelCommand::FileDrop(path));
             }
         });
     }

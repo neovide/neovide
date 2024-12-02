@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::{cell::RefCell, fmt, rc::Rc, sync::Arc};
 
 use log::trace;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -24,7 +24,7 @@ use {
 #[cfg(windows)]
 use crate::windows_utils::{register_right_click, unregister_right_click};
 use crate::{
-    bridge::{send_ui, NeovimRuntime, ParallelCommand, SerialCommand},
+    bridge::{send_ui, NeovimHandler, NeovimRuntime, ParallelCommand, SerialCommand},
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
     renderer::{
         create_skia_renderer, DrawCommand, Renderer, RendererSettingsChanged, SkiaRenderer, VSync,
@@ -53,10 +53,6 @@ pub struct WindowPadding {
     pub bottom: u32,
 }
 
-pub fn set_background(background: &str) {
-    send_ui(ParallelCommand::SetBackground(background.to_string()));
-}
-
 #[derive(PartialEq, PartialOrd)]
 enum UIState {
     Initing, // Running init.vim/lua
@@ -68,10 +64,29 @@ enum UIState {
 pub struct RouteWindow {
     pub skia_renderer: Rc<RefCell<Box<dyn SkiaRenderer>>>,
     pub winit_window: Rc<Window>,
+    pub neovim_handler: NeovimHandler,
+}
+
+impl fmt::Debug for RouteWindow {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("RouteWindow")
+            .field("skia_renderer", &"...") // Custom debug output since Box<dyn SkiaRenderer> is a trait object
+            .field("winit_window", &self.winit_window)
+            .field("neovim_handler", &self.neovim_handler)
+            .finish()
+    }
 }
 
 pub struct Route {
     pub window: RouteWindow,
+}
+
+impl fmt::Debug for Route {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Route")
+            .field("window", &self.window)
+            .finish()
+    }
 }
 
 pub struct WinitWindowWrapper {
@@ -196,15 +211,25 @@ impl WinitWindowWrapper {
         }
     }
 
-    pub fn handle_window_command(&mut self, command: WindowCommand) {
+    pub fn set_background(&mut self, window_id: WindowId, background: &str) {
+        // let window_id = *self.routes.keys().next().unwrap();
+        let route = self.routes.get(&window_id).unwrap();
+        let neovim_handler = &route.window.neovim_handler;
+        send_ui(
+            ParallelCommand::SetBackground(background.to_string()),
+            neovim_handler,
+        );
+    }
+
+    pub fn handle_window_command(&mut self, window_id: WindowId, command: WindowCommand) {
         tracy_zone!("handle_window_commands", 0);
-        let window_id = *self.routes.keys().next().unwrap();
+        // let window_id = *self.routes.keys().next().unwrap();
         match command {
             WindowCommand::TitleChanged(new_title) => self.handle_title_changed(new_title),
             WindowCommand::SetMouseEnabled(mouse_enabled) => {
                 self.mouse_manager.enabled = mouse_enabled
             }
-            WindowCommand::ListAvailableFonts => self.send_font_names(),
+            WindowCommand::ListAvailableFonts => self.send_font_names(window_id),
             WindowCommand::FocusWindow => {
                 if let Some(route) = &self.routes.get(&window_id) {
                     let window = route.window.winit_window.clone();
@@ -312,34 +337,50 @@ impl WinitWindowWrapper {
         }
     }
 
-    pub fn send_font_names(&self) {
+    pub fn send_font_names(&self, window_id: WindowId) {
+        // let window_id = *self.routes.keys().next().unwrap();
+        let route = self.routes.get(&window_id).unwrap();
+        let neovim_handler = &route.window.neovim_handler;
         let font_names = self.renderer.font_names();
-        send_ui(ParallelCommand::DisplayAvailableFonts(font_names));
+        send_ui(
+            ParallelCommand::DisplayAvailableFonts(font_names),
+            neovim_handler,
+        );
     }
 
-    pub fn handle_quit(&mut self) {
-        send_ui(ParallelCommand::Quit);
+    pub fn handle_quit(&mut self, window_id: WindowId) {
+        // let window_id = *self.routes.keys().next().unwrap();
+        let route = self.routes.get(&window_id).unwrap();
+        let neovim_handler = &route.window.neovim_handler;
+        send_ui(ParallelCommand::Quit, neovim_handler);
     }
 
-    pub fn handle_focus_lost(&mut self) {
-        send_ui(ParallelCommand::FocusLost);
+    pub fn handle_focus_lost(&mut self, window_id: WindowId) {
+        // let window_id = *self.routes.keys().next().unwrap();
+        let route = self.routes.get(&window_id).unwrap();
+        let neovim_handler = &route.window.neovim_handler;
+        send_ui(ParallelCommand::FocusLost, neovim_handler);
     }
 
-    pub fn handle_focus_gained(&mut self) {
-        send_ui(ParallelCommand::FocusGained);
+    pub fn handle_focus_gained(&mut self, window_id: WindowId) {
+        // let window_id = *self.routes.keys().next().unwrap();
+        let route = self.routes.get(&window_id).unwrap();
+        let neovim_handler = &route.window.neovim_handler;
+        send_ui(ParallelCommand::FocusGained, neovim_handler);
         // Got focus back after being minimized previously
         if self.is_minimized {
             // Sending <NOP> after suspend triggers the `VimResume` AutoCmd
-            send_ui(SerialCommand::Keyboard("<NOP>".into()));
+            send_ui(SerialCommand::Keyboard("<NOP>".into()), neovim_handler);
 
             self.is_minimized = false;
         }
     }
 
-    pub fn handle_window_event(&mut self, event: WindowEvent) -> bool {
+    pub fn handle_window_event(&mut self, window_id: WindowId, event: WindowEvent) -> bool {
         // The renderer and vsync should always be created when a window event is received
-        let window_id = *self.routes.keys().next().unwrap();
-        let route = self.routes.get(&window_id).unwrap();
+        // let window_id = *self.routes.keys().next().unwrap();
+        let route = self.routes.get_mut(&window_id).unwrap();
+        let neovim_handler = &route.window.neovim_handler;
 
         {
             let window = route.window.winit_window.clone();
@@ -348,17 +389,18 @@ impl WinitWindowWrapper {
                 &self.keyboard_manager,
                 &self.renderer,
                 &window,
+                neovim_handler,
             );
         }
 
-        self.keyboard_manager.handle_event(&event);
+        self.keyboard_manager.handle_event(&event, neovim_handler);
         self.renderer.handle_event(&event);
         let mut should_render = true;
 
         match event {
             WindowEvent::CloseRequested => {
                 tracy_zone!("CloseRequested");
-                self.handle_quit();
+                self.handle_quit(window_id);
             }
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 tracy_zone!("ScaleFactorChanged");
@@ -373,14 +415,14 @@ impl WinitWindowWrapper {
             WindowEvent::DroppedFile(path) => {
                 tracy_zone!("DroppedFile");
                 let file_path = path.into_os_string().into_string().unwrap();
-                send_ui(ParallelCommand::FileDrop(file_path));
+                send_ui(ParallelCommand::FileDrop(file_path), neovim_handler);
             }
             WindowEvent::Focused(focus) => {
                 tracy_zone!("Focused");
                 if focus {
-                    self.handle_focus_gained();
+                    self.handle_focus_gained(window_id);
                 } else {
-                    self.handle_focus_lost();
+                    self.handle_focus_lost(window_id);
                 }
             }
             WindowEvent::ThemeChanged(theme) => {
@@ -391,7 +433,7 @@ impl WinitWindowWrapper {
                         Theme::Light => "light",
                         Theme::Dark => "dark",
                     };
-                    set_background(background);
+                    self.set_background(window_id, background);
                 }
             }
             WindowEvent::Moved(_) => {
@@ -418,12 +460,14 @@ impl WinitWindowWrapper {
     }
 
     pub fn handle_user_event(&mut self, event: EventPayload) {
+        println!("event4: {:?}", event.window_id);
+        let window_id = event.window_id;
         match event.payload {
             UserEvent::DrawCommandBatch(batch) => {
                 self.handle_draw_commands(batch);
             }
             UserEvent::WindowCommand(e) => {
-                self.handle_window_command(e);
+                self.handle_window_command(window_id, e);
             }
             UserEvent::SettingsChanged(SettingsChanged::Window(e)) => {
                 self.handle_window_settings_changed(e);
@@ -445,6 +489,12 @@ impl WinitWindowWrapper {
         }
 
         let window_id = *self.routes.keys().next().unwrap();
+        // let window_id = match self.get_focused_route() {
+        //     Some(window_id) => window_id,
+        //     None => return,
+        // };
+        println!("window_id 7: {:?}", window_id);
+
         let route = self.routes.get(&window_id).unwrap();
         let window = route.window.winit_window.clone();
         let mut skia_renderer = route.window.skia_renderer.borrow_mut();
@@ -610,11 +660,11 @@ impl WinitWindowWrapper {
         }
 
         match theme.as_str() {
-            "light" => set_background("light"),
-            "dark" => set_background("dark"),
+            "light" => self.set_background(window.id(), "light"),
+            "dark" => self.set_background(window.id(), "dark"),
             "auto" => match window.theme() {
-                Some(Theme::Light) => set_background("light"),
-                Some(Theme::Dark) => set_background("dark"),
+                Some(Theme::Light) => self.set_background(window.id(), "light"),
+                Some(Theme::Dark) => self.set_background(window.id(), "dark"),
                 None => {}
             },
             _ => {}
@@ -637,8 +687,10 @@ impl WinitWindowWrapper {
         let window_size = determine_window_size(window_settings.as_ref(), &self.settings.clone());
         let grid_size = determine_grid_size(&window_size, window_settings);
 
-        self.runtime
+        let neovim_handler = self
+            .runtime
             .launch(
+                window.id(),
                 proxy.clone(),
                 grid_size,
                 self.runtime_tracker.clone(),
@@ -651,9 +703,11 @@ impl WinitWindowWrapper {
             window: RouteWindow {
                 skia_renderer: skia_renderer.clone(),
                 winit_window: window.clone(),
+                neovim_handler,
             },
         };
         self.routes.insert(window.id(), route);
+        println!("routes: {:?}", self.routes);
         #[cfg(target_os = "macos")]
         self.set_macos_option_as_meta(input_macos_option_key_is_meta);
     }
@@ -698,6 +752,23 @@ impl WinitWindowWrapper {
         }
     }
 
+    pub fn get_focused_route(&self) -> Option<WindowId> {
+        self.routes
+            .iter()
+            .find_map(|(key, val)| {
+                let has_focus = val.window.winit_window.has_focus();
+                println!("has_focus: {:?}, key: {:?}", has_focus, key);
+                if (val.window.winit_window.has_focus() && self.routes.len() == 1)
+                    || val.window.winit_window.has_focus()
+                {
+                    Some(key)
+                } else {
+                    None
+                }
+            })
+            .cloned()
+    }
+
     pub fn prepare_frame(&mut self) -> ShouldRender {
         tracy_zone!("prepare_frame", 0);
         let mut should_render = ShouldRender::Wait;
@@ -713,6 +784,10 @@ impl WinitWindowWrapper {
         }
 
         let window_id = *self.routes.keys().next().unwrap();
+        // let window_id = match self.get_focused_route() {
+        //     Some(window_id) => window_id,
+        //     None => return ShouldRender::Wait,
+        // };
         let route = self.routes.get(&window_id).unwrap();
         let window = route.window.winit_window.clone();
 
@@ -824,6 +899,9 @@ impl WinitWindowWrapper {
     }
 
     fn update_grid_size_from_window(&mut self) {
+        let window_id = *self.routes.keys().next().unwrap();
+        let route = self.routes.get(&window_id).unwrap();
+        let neovim_handler = &route.window.neovim_handler;
         let grid_size = self.get_grid_size_from_window(MIN_GRID_SIZE);
         println!("grid_size: {:?}", grid_size);
 
@@ -837,10 +915,13 @@ impl WinitWindowWrapper {
             grid_size,
             self.saved_inner_size
         );
-        send_ui(ParallelCommand::Resize {
-            width: grid_size.width.into(),
-            height: grid_size.height.into(),
-        });
+        send_ui(
+            ParallelCommand::Resize {
+                width: grid_size.width.into(),
+                height: grid_size.height.into(),
+            },
+            neovim_handler,
+        );
     }
 
     fn update_ime_position(&mut self, force: bool) {

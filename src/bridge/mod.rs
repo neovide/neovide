@@ -11,7 +11,7 @@ use std::{io::Error, ops::Add, sync::Arc, time::Duration};
 
 use crate::{
     cmd_line::CmdLineSettings,
-    editor::start_editor,
+    editor::start_editor_handler,
     running_tracker::RunningTracker,
     settings::*,
     units::GridSize,
@@ -86,7 +86,7 @@ async fn create_neovim_session(
 ) -> Result<NeovimSession> {
     let neovim_instance = neovim_instance(settings.as_ref())?;
 
-    let session = NeovimSession::new(neovim_instance, handler)
+    let session = NeovimSession::new(neovim_instance, handler.clone())
         .await
         .context("Could not locate or start neovim process")?;
 
@@ -121,7 +121,7 @@ async fn create_neovim_session(
     )
     .await?;
 
-    start_ui_command_handler(session.neovim.clone(), settings.clone());
+    start_ui_command_handler(handler.clone(), session.neovim.clone(), settings.clone());
     settings.read_initial_values(&session.neovim).await?;
 
     let mut options = UiAttachOptions::new();
@@ -142,7 +142,11 @@ async fn create_neovim_session(
     res.map(|()| session)
 }
 
-async fn run(session: NeovimSession, proxy: EventLoopProxy<EventPayload>) {
+async fn run(
+    winit_window_id: winit::window::WindowId,
+    session: NeovimSession,
+    proxy: EventLoopProxy<EventPayload>,
+) {
     let mut session = session;
 
     if let Some(process) = session.neovim_process.as_mut() {
@@ -173,7 +177,7 @@ async fn run(session: NeovimSession, proxy: EventLoopProxy<EventPayload>) {
     proxy
         .send_event(EventPayload::new(
             UserEvent::NeovimExited,
-            winit::window::WindowId::from(0),
+            winit::window::WindowId::from(winit_window_id),
         ))
         .ok();
 }
@@ -187,16 +191,28 @@ impl NeovimRuntime {
 
     pub fn launch(
         &mut self,
+        winit_window_id: winit::window::WindowId,
         event_loop_proxy: EventLoopProxy<EventPayload>,
         grid_size: Option<GridSize<u32>>,
         running_tracker: RunningTracker,
         settings: Arc<Settings>,
-    ) -> Result<()> {
-        let handler = start_editor(event_loop_proxy.clone(), running_tracker, settings.clone());
-        let session = self
-            .runtime
-            .block_on(create_neovim_session(handler, grid_size, settings))?;
-        self.runtime.spawn(run(session, event_loop_proxy));
-        Ok(())
+    ) -> Result<NeovimHandler> {
+        let editor_handler = start_editor_handler(
+            winit_window_id,
+            event_loop_proxy.clone(),
+            running_tracker,
+            settings.clone(),
+        );
+
+        let session = self.runtime.block_on(create_neovim_session(
+            editor_handler.clone(),
+            grid_size,
+            settings,
+        ))?;
+
+        self.runtime
+            .spawn(run(winit_window_id, session, event_loop_proxy));
+
+        Ok(editor_handler)
     }
 }

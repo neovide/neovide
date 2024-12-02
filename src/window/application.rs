@@ -304,6 +304,11 @@ impl Application {
         }
 
         let window_id = *self.window_wrapper.routes.keys().next().unwrap();
+        // let window_id = match self.window_wrapper.get_focused_route() {
+        //     Some(window_id) => window_id,
+        //     None => return,
+        // };
+        println!("window_id 6: {:?}", window_id);
         let route = self.window_wrapper.routes.get(&window_id).unwrap();
         let window = route.window.winit_window.clone();
         let vsync = self.window_wrapper.vsync.as_mut().unwrap();
@@ -379,6 +384,7 @@ impl ApplicationHandler<EventPayload> for Application {
             }
             winit::event::StartCause::ResumeTimeReached { .. } => {
                 self.prepare_and_animate();
+                // println!("3.ResumeTimeReached");
                 self.schedule_next_event(event_loop);
             }
             winit::event::StartCause::WaitCancelled { .. } => {
@@ -399,7 +405,7 @@ impl ApplicationHandler<EventPayload> for Application {
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
-        _window_id: winit::window::WindowId,
+        window_id: winit::window::WindowId,
         event: winit::event::WindowEvent,
     ) {
         tracy_zone!("window_event");
@@ -423,7 +429,7 @@ impl ApplicationHandler<EventPayload> for Application {
             _ => {}
         }
 
-        if self.window_wrapper.handle_window_event(event) {
+        if self.window_wrapper.handle_window_event(window_id, event) {
             self.should_render = ShouldRender::Immediately;
         }
         self.schedule_next_event(event_loop);
@@ -431,7 +437,7 @@ impl ApplicationHandler<EventPayload> for Application {
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: EventPayload) {
         tracy_zone!("user_event");
-        println!("window_id: {:?}", event.window_id);
+        println!("window_id from user_event: {:?}", event.window_id);
         match event.payload {
             UserEvent::NeovimExited => {
                 save_window_size(&self.window_wrapper, &self.settings);
