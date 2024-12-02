@@ -427,11 +427,19 @@ impl ApplicationHandler<EventPayload> for Application {
                     FocusedState::UnfocusedNotDrawn
                 };
                 #[cfg(target_os = "macos")]
-                self.window_wrapper
-                    .macos_feature
-                    .as_mut()
-                    .expect("MacosWindowFeature should already be created here.")
-                    .ensure_app_initialized();
+                {
+                    let route = self
+                        .window_wrapper
+                        .routes
+                        .get(&window_id)
+                        .expect("Window should be created here.");
+                    let macos_feature = route
+                        .window
+                        .macos_feature
+                        .as_ref()
+                        .expect("MacosWindowFeature should already be created here.");
+                    macos_feature.borrow_mut().ensure_app_initialized();
+                }
             }
             _ => {}
         }
@@ -444,7 +452,6 @@ impl ApplicationHandler<EventPayload> for Application {
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, event: EventPayload) {
         tracy_zone!("user_event");
-        println!("window_id from user_event: {:?}", event.window_id);
         match event.payload {
             UserEvent::NeovimExited => {
                 save_window_size(&self.window_wrapper, &self.settings);
@@ -460,6 +467,7 @@ impl ApplicationHandler<EventPayload> for Application {
                 self.pending_draw_commands.push(batch);
             }
             _ => {
+                println!("window_id from user_event2: {:?}", event.window_id);
                 self.window_wrapper.handle_user_event(event);
                 self.should_render = ShouldRender::Immediately;
             }
