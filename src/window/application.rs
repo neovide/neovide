@@ -278,11 +278,11 @@ impl Application {
         self.previous_frame_start = Instant::now();
     }
 
-    fn process_buffered_draw_commands(&mut self) {
+    fn process_buffered_draw_commands(&mut self, window_id: winit::window::WindowId) {
         if !self.pending_draw_commands.is_empty() {
             self.pending_draw_commands
                 .drain(..)
-                .for_each(|b| self.window_wrapper.handle_draw_commands(b));
+                .for_each(|b| self.window_wrapper.handle_draw_commands(window_id, b));
             self.should_render = ShouldRender::Immediately;
         }
     }
@@ -366,12 +366,12 @@ impl Application {
         }
     }
 
-    fn redraw_requested(&mut self) {
+    fn redraw_requested(&mut self, window_id: winit::window::WindowId) {
         if self.pending_render {
             tracy_zone!("render (redraw requested)");
             self.render();
             // We should process all buffered draw commands as soon as the rendering has finished
-            self.process_buffered_draw_commands();
+            self.process_buffered_draw_commands(window_id);
         } else {
             tracy_zone!("redraw requested");
             // The OS itself asks us to redraw, so we need to prepare first
@@ -418,7 +418,7 @@ impl ApplicationHandler<EventPayload> for Application {
         tracy_zone!("window_event");
         match event {
             WindowEvent::RedrawRequested => {
-                self.redraw_requested();
+                self.redraw_requested(window_id);
             }
             WindowEvent::Focused(focused_event) => {
                 self.focused = if focused_event {
@@ -458,7 +458,7 @@ impl ApplicationHandler<EventPayload> for Application {
                 event_loop.exit();
             }
             UserEvent::RedrawRequested => {
-                self.redraw_requested();
+                self.redraw_requested(event.window_id);
             }
             UserEvent::DrawCommandBatch(batch) if self.pending_render => {
                 // Buffer the draw commands if we have a pending render, we have already decided what to

@@ -497,7 +497,7 @@ impl WinitWindowWrapper {
         let window_id = event.window_id;
         match event.payload {
             UserEvent::DrawCommandBatch(batch) => {
-                self.handle_draw_commands(batch);
+                self.handle_draw_commands(window_id, batch);
             }
             UserEvent::WindowCommand(e) => {
                 self.handle_window_command(window_id, e);
@@ -758,12 +758,12 @@ impl WinitWindowWrapper {
         self.set_macos_option_as_meta(input_macos_option_key_is_meta);
     }
 
-    pub fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
+    pub fn handle_draw_commands(&mut self, window_id: WindowId, batch: Vec<DrawCommand>) {
         tracy_zone!("handle_draw_commands");
-        let window_id = match self.get_focused_route() {
-            Some(window_id) => window_id,
-            None => return,
-        };
+        // let window_id = match self.get_focused_route() {
+        //     Some(window_id) => window_id,
+        //     None => return,
+        // };
         let route = self.routes.get(&window_id).unwrap();
         let mut renderer = route.window.renderer.borrow_mut();
         let handle_draw_commands_result = renderer.handle_draw_commands(batch);
