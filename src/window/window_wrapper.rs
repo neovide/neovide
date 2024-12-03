@@ -8,8 +8,6 @@ use {
     winit::platform::macos::{self, WindowExtMacOS},
 };
 
-#[cfg(windows)]
-use crate::windows_utils::{register_right_click, unregister_right_click};
 use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
@@ -24,6 +22,11 @@ use crate::{
     window::{create_window, PhysicalSize, ShouldRender, WindowSize},
     CmdLineSettings,
 };
+#[cfg(windows)]
+use {
+    crate::windows_utils::{register_right_click, unregister_right_click},
+    winit::platform::windows::{Color, WindowExtWindows},
+};
 
 #[cfg(target_os = "macos")]
 use super::macos::MacosWindowFeature;
@@ -34,7 +37,6 @@ use winit::{
     dpi,
     event::{Ime, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoopProxy},
-    platform::windows::{Color, WindowExtWindows},
     window::{Fullscreen, Theme},
 };
 
@@ -822,13 +824,17 @@ impl WinitWindowWrapper {
         }
     }
 
+    #[cfg(windows)]
     fn handle_title_background_color(&self, color: &String) {
         if let Some(skia_renderer) = &self.skia_renderer {
             let winit_color = Self::parse_winit_color(color);
-            skia_renderer.window().set_title_background_color(winit_color);
+            skia_renderer
+                .window()
+                .set_title_background_color(winit_color);
         }
     }
 
+    #[cfg(windows)]
     fn handle_title_text_color(&self, color: &String) {
         if let Some(skia_renderer) = &self.skia_renderer {
             if let Some(winit_color) = Self::parse_winit_color(color) {

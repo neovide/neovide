@@ -36,7 +36,6 @@ pub struct WindowSettings {
     #[cfg(target_os = "windows")]
     pub title_text_color: String,
 
-
     #[option = "mousemoveevent"]
     pub mouse_move_event: bool,
     #[option = "lines"]
