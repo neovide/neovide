@@ -242,6 +242,7 @@ Setting `g:neovide_title_background_color` to a value that can be parsed by
 color the title window to that value.
 
 VimScript:
+
 ```vim
 let g:neovide_title_background_color = "green"
 let g:neovide_title_text_color = "pink"
