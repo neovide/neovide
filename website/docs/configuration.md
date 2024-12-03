@@ -366,8 +366,6 @@ vim.g.neovide_transparency = 0.8
 Setting `g:neovide_transparency` to a value between 0.0 and 1.0 will set the opacity of the window
 to that value.
 
-
-
 #### Show Border (Currently macOS only)
 
 VimScript:
