@@ -39,13 +39,14 @@ dirs = "5.0.0"
 glamour = { version = "0.11.1", features = ["serde"] }
 flexi_logger = { version = "0.28.0", default-features = false }
 futures = "0.3.21"
+rustc-hash = "2.0.0"
 gl = "0.14.0"
 # glutin = "0.32.0"
-# glutin = { path = "/Users/falcucci/clones/glutin/glutin", default-features = false }
-glutin = { git = "https://github.com/falcucci/glutin.git", branch = "multi-window-support", default-features = false }
+# glutin = { path = "/Users/falcucci/clones/glutin/glutin" }
+glutin = { git = "https://github.com/falcucci/glutin.git", branch = "multi-window-support" }
 # glutin-winit = "0.5.0"
-# glutin-winit = { path = "/Users/falcucci/clones/glutin/glutin-winit", default-features = false } 
-glutin-winit = { git = "https://github.com/falcucci/glutin.git", branch = "multi-window-support", default-features = false }
+# glutin-winit = { path = "/Users/falcucci/clones/glutin/glutin-winit" } 
+glutin-winit = { git = "https://github.com/falcucci/glutin.git", branch = "multi-window-support" }
 image = { version = "0.25.0", default-features = false, features = ["ico"] }
 indoc = "2.0.5"
 itertools = "0.13.0"
@@ -117,7 +118,6 @@ objc2-app-kit = { version = "0.2.2", features = [ "NSLayoutConstraint", "NSColor
 objc2-quartz-core = { version = "0.2.2", features = [ "objc2-metal", "CALayer", "CAMetalLayer" ] }
 objc2-metal = { version = "0.2.2", features = [ "MTLCommandQueue", "MTLCommandBuffer" ] }
 skia-safe = { version = "0.80.0", features = ["metal", "gl", "textlayout"] }
-rustc-hash = "2.0.0"
 
 [target.'cfg(not(any(target_os = "windows", target_os = "macos")))'.dependencies]
 skia-safe = { version = "0.80.0", features = ["gl", "textlayout"] }

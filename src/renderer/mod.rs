@@ -552,7 +552,10 @@ pub fn build_window_config(
     } else {
         let window = event_loop.create_window(window_attributes).unwrap();
         let config = WindowConfigType::Direct3D;
-        WindowConfig { window, config }
+        WindowConfig {
+            window: window.into(),
+            config,
+        }
     }
 }
 
@@ -590,7 +593,10 @@ pub fn create_skia_renderer(
             settings.clone(),
         )),
         #[cfg(target_os = "windows")]
-        WindowConfigType::Direct3D => Box::new(d3d::D3DSkiaRenderer::new(window.window)),
+        WindowConfigType::Direct3D => Box::new(d3d::D3DSkiaRenderer::new(
+            window.window.clone(),
+            settings.clone(),
+        )),
         #[cfg(target_os = "macos")]
         WindowConfigType::Metal => Box::new(metal::MetalSkiaRenderer::new(
             window.window.clone(),

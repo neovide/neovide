@@ -11,11 +11,11 @@ use spin_sleep::SpinSleeper;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::Graphics::Dwm::{DwmGetCompositionTimingInfo, DWM_TIMING_INFO};
 use windows::Win32::System::Performance::{QueryPerformanceCounter, QueryPerformanceFrequency};
-use winit::event_loop::EventLoopProxy;
+use winit::{event_loop::EventLoopProxy, window::WindowId};
 
 use crate::{
     profiling::{tracy_plot, tracy_zone},
-    window::UserEvent,
+    window::{EventPayload, UserEvent},
 };
 
 pub struct VSyncWinDwm {
@@ -90,7 +90,12 @@ impl VSyncWinDwm {
                     tracy_plot!("sleep_time", _sleep_time);
 
                     if redraw_requested.swap(false, Ordering::Relaxed) {
-                        proxy.send_event(UserEvent::RedrawRequested).ok();
+                        proxy
+                            .send_event(EventPayload::new(
+                                UserEvent::RedrawRequested,
+                                WindowId::from(0),
+                            ))
+                            .ok();
                     }
                 }
             }))
