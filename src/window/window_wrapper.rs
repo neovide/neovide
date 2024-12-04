@@ -21,8 +21,6 @@ use {
     winit::platform::macos::{self, WindowExtMacOS},
 };
 
-#[cfg(windows)]
-use crate::windows_utils::{register_right_click, unregister_right_click};
 use crate::{
     bridge::{send_ui, NeovimHandler, NeovimRuntime, ParallelCommand, SerialCommand},
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
@@ -40,6 +38,11 @@ use crate::{
         WindowSize,
     },
     CmdLineSettings,
+};
+#[cfg(windows)]
+use {
+    crate::windows_utils::{register_right_click, unregister_right_click},
+    winit::platform::windows::{Color, WindowExtWindows},
 };
 
 #[cfg(target_os = "macos")]
@@ -295,6 +298,15 @@ impl WinitWindowWrapper {
                     window.set_blur(blur && transparent);
                 }
             }
+            #[cfg(target_os = "windows")]
+            WindowSettingsChanged::TitleBackgroundColor(color) => {
+                self.handle_title_background_color(&color);
+            }
+            #[cfg(target_os = "windows")]
+            WindowSettingsChanged::TitleTextColor(color) => {
+                self.handle_title_text_color(&color);
+            }
+
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::InputMacosOptionKeyIsMeta(option) => {
                 self.set_macos_option_as_meta(option);
@@ -608,6 +620,11 @@ impl WinitWindowWrapper {
             fullscreen,
             #[cfg(target_os = "macos")]
             input_macos_option_key_is_meta,
+
+            #[cfg(target_os = "windows")]
+            title_background_color,
+            #[cfg(target_os = "windows")]
+            title_text_color,
             ..
         } = self.settings.get::<WindowSettings>();
 
@@ -684,6 +701,17 @@ impl WinitWindowWrapper {
 
         // Create a separate binding for the mutable borrow
         let window = skia_renderer.borrow_mut().window();
+
+        #[cfg(target_os = "windows")]
+        {
+            if let Some(winit_color) = Self::parse_winit_color(&title_background_color) {
+                window.set_title_background_color(Some(winit_color));
+            }
+
+            if let Some(winit_color) = Self::parse_winit_color(&title_text_color) {
+                window.set_title_text_color(winit_color);
+            }
+        }
 
         self.saved_inner_size = window.inner_size();
 
@@ -1068,5 +1096,35 @@ impl WinitWindowWrapper {
         }
         renderer.handle_os_scale_factor_change(scale_factor);
         skia_renderer.resize();
+    }
+
+    #[cfg(windows)]
+    fn parse_winit_color(color: &str) -> Option<Color> {
+        match csscolorparser::parse(color) {
+            Ok(color) => {
+                let color = color.to_rgba8();
+                Some(Color::from_rgb(color[0], color[1], color[2]))
+            }
+            _ => None,
+        }
+    }
+
+    #[cfg(windows)]
+    fn handle_title_background_color(&self, color: &str) {
+        if let Some(skia_renderer) = &self.skia_renderer {
+            let winit_color = Self::parse_winit_color(color);
+            skia_renderer
+                .window()
+                .set_title_background_color(winit_color);
+        }
+    }
+
+    #[cfg(windows)]
+    fn handle_title_text_color(&self, color: &str) {
+        if let Some(skia_renderer) = &self.skia_renderer {
+            if let Some(winit_color) = Self::parse_winit_color(color) {
+                skia_renderer.window().set_title_text_color(winit_color);
+            }
+        }
     }
 }

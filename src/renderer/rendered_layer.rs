@@ -21,7 +21,7 @@ pub struct FloatingLayer<'w> {
     pub windows: Vec<&'w mut RenderedWindow>,
 }
 
-impl<'w> FloatingLayer<'w> {
+impl FloatingLayer<'_> {
     pub fn draw(
         &mut self,
         root_canvas: &Canvas,
