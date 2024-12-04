@@ -814,6 +814,7 @@ impl WinitWindowWrapper {
         skia_renderer.resize();
     }
 
+    #[cfg(windows)]
     fn parse_winit_color(color: &String) -> Option<Color> {
         match csscolorparser::parse(color) {
             Ok(color) => {
