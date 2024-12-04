@@ -332,7 +332,7 @@ where
 {
     let command: UiCommand = command.into();
     let sender = handler.get_ui_command_channel().0;
-    let _ = sender
+    sender
         .send(command)
         .expect("2.The UI command channel has not been initialized");
 }

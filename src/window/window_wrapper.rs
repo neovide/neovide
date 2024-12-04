@@ -231,7 +231,7 @@ impl WinitWindowWrapper {
                 self.handle_title_changed(window_id, new_title)
             }
             WindowCommand::SetMouseEnabled(mouse_enabled) => {
-                if !(window_id == WindowId::from(0)) {
+                if window_id != WindowId::from(0) {
                     let route = self.routes.get(&window_id).unwrap();
                     let mut mouse_manager = route.window.mouse_manager.borrow_mut();
                     mouse_manager.enabled = mouse_enabled

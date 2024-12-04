@@ -97,7 +97,7 @@ impl<'a> ErrorWindow<'a> {
     }
 }
 
-impl<'a> ApplicationHandler<EventPayload> for ErrorWindow<'a> {
+impl ApplicationHandler<EventPayload> for ErrorWindow<'_> {
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
