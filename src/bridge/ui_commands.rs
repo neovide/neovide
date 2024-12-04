@@ -272,8 +272,6 @@ impl AsRef<str> for UiCommand {
     }
 }
 
-static UI_COMMAND_CHANNEL: OnceLock<LoggingSender<UiCommand>> = OnceLock::new();
-
 pub fn start_ui_command_handler(
     handler: NeovimHandler,
     nvim: Neovim<NeovimWriter>,
