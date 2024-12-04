@@ -34,6 +34,12 @@ pub use window::*;
 
 const MODE_CMDLINE: u64 = 4;
 
+pub struct PendingCursorPos {
+    pub grid: u64,
+    pub left: u64,
+    pub top: u64,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SortOrder {
     pub z_index: u64,
@@ -87,6 +93,7 @@ impl WindowAnchor {
 pub struct Editor {
     pub windows: HashMap<u64, Window>,
     pub cursor: Cursor,
+    pub pending_cursor_pos: Option<PendingCursorPos>,
     pub defined_styles: HashMap<u64, Arc<Style>>,
     pub mode_list: Vec<CursorMode>,
     pub draw_command_batcher: Rc<DrawCommandBatcher>,
@@ -101,6 +108,7 @@ impl Editor {
         Editor {
             windows: HashMap::new(),
             cursor: Cursor::new(),
+            pending_cursor_pos: None,
             defined_styles: HashMap::new(),
             mode_list: Vec::new(),
             draw_command_batcher: Rc::new(DrawCommandBatcher::new()),
@@ -108,6 +116,16 @@ impl Editor {
             ui_ready: false,
             event_loop_proxy,
             composition_order: 0,
+        }
+    }
+
+    fn set_forward_cursor_pos(&mut self, grid: u64, left: u64, top: u64) {
+        self.pending_cursor_pos = Some(PendingCursorPos { grid, left, top });
+    }
+
+    fn process_forward_cursor_pos(&mut self) {
+        if let Some(position) = self.pending_cursor_pos.take() {
+            self.set_cursor_position(position.grid, position.left, position.top);
         }
     }
 
@@ -172,6 +190,15 @@ impl Editor {
                 tracy_zone!("EditorFlush");
                 trace!("Image flushed");
                 tracy_named_frame!("neovim draw command flush");
+                // By design, currently this is the order of events that comes from Neovim:
+                // 1. RedrawEvent::CursorGoto
+                // 2. RedrawEvent::ModeChange
+                // 3. RedrawEvent::Flush
+                //
+                // So now by that way we only send the cursor info after all the draw commands have been sent
+                // to the renderer. This is to ensure that the cursor is always drawn on top of any
+                // mode changes or cursor movements.
+                self.process_forward_cursor_pos();
                 self.send_cursor_info();
                 {
                     trace!("send_batch");
@@ -205,7 +232,7 @@ impl Editor {
                 row: top,
             } => {
                 tracy_zone!("EditorCursorGoto");
-                self.set_cursor_position(grid, left, top);
+                self.set_forward_cursor_pos(grid, left, top);
             }
             RedrawEvent::Resize {
                 grid,
