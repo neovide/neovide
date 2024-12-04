@@ -621,6 +621,24 @@ vim.g.neovide_background_color = &quot;#0f1117&quot; .. alpha()
 window to that value.</p>
 <p>Note that <code>g:neovide_transparency</code> should be 0 if you want to unify transparency of content and
 title bar.</p>
+<h4 id="title-bar-color-currently-windows-only"><a class="header" href="#title-bar-color-currently-windows-only">Title Bar Color (Currently Windows only)</a></h4>
+<p><strong>Unreleased yet.</strong></p>
+<p><img src="assets/TitleBackgroundColor.png" alt="TitleBackgroundColor" /></p>
+<p>Setting <code>g:neovide_title_background_color</code> to a value that can be parsed by
+<a href="https://github.com/mazznoer/csscolorparser-rs">csscolorparser-rs</a> will set
+color the title window to that value.</p>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_title_background_color = &quot;green&quot;
+let g:neovide_title_text_color = &quot;pink&quot;
+</code></pre>
+<p>lua:</p>
+<pre><code class="language-lua">vim.g.neovide_title_background_color = string.format(
+    &quot;%x&quot;,
+    vim.api.nvim_get_hl(0, {id=vim.api.nvim_get_hl_id_by_name(&quot;Normal&quot;)}).bg
+)
+
+vim.g.neovide_title_text_color = &quot;pink&quot;
+</code></pre>
 <h4 id="window-blur-currently-macos-only"><a class="header" href="#window-blur-currently-macos-only">Window Blur (Currently macOS only)</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_window_blurred = v:true
