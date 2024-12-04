@@ -255,3 +255,13 @@ permission bit set.
 
 On Linux/Unix, this alters the identification of the window to either X11 or the more modern
 Wayland, depending on what you are running on.
+
+### Working Directory
+
+```sh
+--chdir <path>
+```
+
+Start neovim in the specified working directory. This will impact neovim
+arguments that use relative path names (e.g. file names), and the initial
+working directory for all instances of neovim or terminal.
