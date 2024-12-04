@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use std::{os::raw::c_void, str};
 
 use objc2::{
@@ -19,8 +20,11 @@ use csscolorparser::Color;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
-use crate::bridge::{send_ui, ParallelCommand};
-use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame, settings::SETTINGS};
+use crate::{
+    bridge::{send_ui, ParallelCommand},
+    settings::Settings,
+};
+use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame};
 
 use super::{WindowSettings, WindowSettingsChanged};
 
@@ -103,10 +107,11 @@ pub struct MacosWindowFeature {
     extra_titlebar_height_in_pixel: u32,
     is_fullscreen: bool,
     menu: Option<Menu>,
+    settings: Arc<Settings>,
 }
 
 impl MacosWindowFeature {
-    pub fn from_winit_window(window: &Window) -> MacosWindowFeature {
+    pub fn from_winit_window(window: &Window, settings: Arc<Settings>) -> Self {
         let mtm =
             MainThreadMarker::new().expect("MacosWindowFeature must be created in main thread.");
 
@@ -119,7 +124,7 @@ impl MacosWindowFeature {
 
         let mut extra_titlebar_height_in_pixel: u32 = 0;
 
-        let frame = SETTINGS.get::<CmdLineSettings>().frame;
+        let frame = settings.get::<CmdLineSettings>().frame;
         let titlebar_click_handler: Option<Retained<TitlebarClickHandler>> = match frame {
             Frame::Transparent => unsafe {
                 let titlebar_click_handler = TitlebarClickHandler::new(mtm);
@@ -161,6 +166,7 @@ impl MacosWindowFeature {
             extra_titlebar_height_in_pixel,
             is_fullscreen,
             menu: None,
+            settings: settings.clone(),
         };
 
         macos_window_feature.update_background(true);
@@ -276,7 +282,7 @@ impl MacosWindowFeature {
             show_border,
             transparency,
             ..
-        } = SETTINGS.get::<WindowSettings>();
+        } = self.settings.get::<WindowSettings>();
         match background_color.parse::<Color>() {
             Ok(color) => {
                 self.update_ns_background_legacy(color, show_border, ignore_deprecation_warning)
@@ -344,7 +350,7 @@ declare_class!(
     unsafe impl QuitHandler {
         #[method(quit:)]
         unsafe fn quit(&self, _event: &NSEvent) {
-            send_ui(ParallelCommand::Quit);
+            // send_ui(ParallelCommand::Quit);
         }
     }
 );
@@ -461,6 +467,12 @@ impl Menu {
             );
             menu.addItem(&full_screen_item);
 
+            let create_new_window = NSMenuItem::new(mtm);
+            create_new_window.setTitle(ns_string!("New Window"));
+            create_new_window.setKeyEquivalent(ns_string!("n"));
+            create_new_window.setAction(Some(sel!(neovideCreateWindow:)));
+            menu.addItem(&create_new_window);
+
             let min_item = NSMenuItem::new(mtm);
             min_item.setTitle(ns_string!("Minimize"));
             min_item.setKeyEquivalent(ns_string!("m"));
@@ -481,7 +493,7 @@ pub fn register_file_handler() {
         autoreleasepool(|pool| {
             for file in files.iter() {
                 let path = file.as_str(pool).to_owned();
-                send_ui(ParallelCommand::FileDrop(path));
+                // send_ui(ParallelCommand::FileDrop(path));
             }
         });
     }

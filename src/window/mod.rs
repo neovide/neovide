@@ -1,8 +1,8 @@
+mod application;
 mod error_window;
 mod keyboard_manager;
 mod mouse_manager;
 mod settings;
-mod update_loop;
 mod window_wrapper;
 
 #[cfg(target_os = "macos")]
@@ -11,6 +11,7 @@ pub mod macos;
 #[cfg(target_os = "linux")]
 use std::env;
 
+use glamour::Size2;
 use winit::{
     dpi::{PhysicalSize, Size},
     event_loop::{ActiveEventLoop, EventLoop},
@@ -42,14 +43,14 @@ use crate::{
     renderer::{build_window_config, DrawCommand, WindowConfig},
     settings::{
         clamped_grid_size, load_last_window_settings, save_window_size, HotReloadConfigs,
-        PersistentWindowSettings, SettingsChanged, SETTINGS,
+        PersistentWindowSettings, Settings, SettingsChanged,
     },
-    units::GridSize,
+    units::{Grid, GridSize},
 };
+pub use application::Application;
+pub use application::ShouldRender;
 pub use error_window::show_error_window;
 pub use settings::{WindowSettings, WindowSettingsChanged};
-pub use update_loop::ShouldRender;
-pub use update_loop::UpdateLoop;
 pub use window_wrapper::WinitWindowWrapper;
 
 static ICON: &[u8] = include_bytes!("../../assets/neovide.ico");
@@ -93,6 +94,18 @@ pub enum UserEvent {
     NeovimExited,
 }
 
+#[derive(Debug, Clone)]
+pub struct EventPayload {
+    pub payload: UserEvent,
+    pub window_id: winit::window::WindowId,
+}
+
+impl EventPayload {
+    pub fn new(payload: UserEvent, window_id: winit::window::WindowId) -> Self {
+        Self { payload, window_id }
+    }
+}
+
 impl From<Vec<DrawCommand>> for UserEvent {
     fn from(value: Vec<DrawCommand>) -> Self {
         UserEvent::DrawCommandBatch(value)
@@ -102,6 +115,15 @@ impl From<Vec<DrawCommand>> for UserEvent {
 impl From<WindowCommand> for UserEvent {
     fn from(value: WindowCommand) -> Self {
         UserEvent::WindowCommand(value)
+    }
+}
+
+impl From<WindowCommand> for EventPayload {
+    fn from(value: WindowCommand) -> Self {
+        EventPayload::new(
+            UserEvent::WindowCommand(value),
+            winit::window::WindowId::from(0),
+        )
     }
 }
 
@@ -117,7 +139,7 @@ impl From<HotReloadConfigs> for UserEvent {
     }
 }
 
-pub fn create_event_loop() -> EventLoop<UserEvent> {
+pub fn create_event_loop() -> EventLoop<EventPayload> {
     let mut builder = EventLoop::with_user_event();
     #[cfg(target_os = "macos")]
     builder.with_default_menu(false);
@@ -128,10 +150,15 @@ pub fn create_event_loop() -> EventLoop<UserEvent> {
     event_loop
 }
 
-pub fn create_window(event_loop: &ActiveEventLoop, maximized: bool, title: &str) -> WindowConfig {
+pub fn create_window(
+    event_loop: &ActiveEventLoop,
+    maximized: bool,
+    title: &str,
+    settings: &Settings,
+) -> WindowConfig {
     let icon = load_icon();
 
-    let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
+    let cmd_line_settings = settings.get::<CmdLineSettings>();
 
     let window_settings = load_last_window_settings().ok();
 
@@ -147,7 +174,7 @@ pub fn create_window(event_loop: &ActiveEventLoop, maximized: bool, title: &str)
         .with_cursor(Cursor::Icon(mouse_cursor_icon.parse()))
         .with_maximized(maximized)
         .with_transparent(true)
-        .with_visible(false);
+        .with_visible(true);
 
     #[cfg(target_family = "unix")]
     let window_attributes = window_attributes.with_window_icon(Some(icon));
@@ -208,7 +235,7 @@ pub fn create_window(event_loop: &ActiveEventLoop, maximized: bool, title: &str)
     let window_attributes = window_attributes.with_accepts_first_mouse(false);
 
     #[allow(clippy::let_and_return)]
-    let window_config = build_window_config(window_attributes, event_loop);
+    let window_config = build_window_config(window_attributes, event_loop, settings);
 
     #[cfg(target_os = "macos")]
     if let Some(previous_position) = previous_position {
@@ -226,8 +253,11 @@ pub enum WindowSize {
     NeovimGrid, // The geometry is read from init.vim/lua
 }
 
-pub fn determine_window_size(window_settings: Option<&PersistentWindowSettings>) -> WindowSize {
-    let cmd_line = SETTINGS.get::<CmdLineSettings>();
+pub fn determine_window_size(
+    window_settings: Option<&PersistentWindowSettings>,
+    settings: &Settings,
+) -> WindowSize {
+    let cmd_line = settings.get::<CmdLineSettings>();
 
     match cmd_line.geometry {
         GeometryArgs {
@@ -266,6 +296,22 @@ pub fn determine_window_size(window_settings: Option<&PersistentWindowSettings>)
                 )
             }
             _ => WindowSize::Size(DEFAULT_WINDOW_SIZE),
+        },
+    }
+}
+
+pub fn determine_grid_size(
+    window_size: &WindowSize,
+    window_settings: Option<PersistentWindowSettings>,
+) -> Option<Size2<Grid<u32>>> {
+    match window_size {
+        WindowSize::Grid(grid_size) => Some(*grid_size),
+        // Clippy wrongly suggests to use unwrap or default here
+        #[allow(clippy::manual_unwrap_or_default)]
+        _ => match window_settings {
+            Some(PersistentWindowSettings::Maximized { grid_size, .. }) => grid_size,
+            Some(PersistentWindowSettings::Windowed { grid_size, .. }) => grid_size,
+            _ => None,
         },
     }
 }

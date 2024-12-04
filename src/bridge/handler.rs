@@ -1,35 +1,69 @@
+use std::sync::{Arc, Mutex};
+
 use async_trait::async_trait;
 use log::trace;
 use nvim_rs::{Handler, Neovim};
 use rmpv::Value;
-use std::sync::Arc;
-use std::sync::Mutex;
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
-    bridge::clipboard::{get_clipboard_contents, set_clipboard_contents},
-    bridge::{events::parse_redraw_event, NeovimWriter, RedrawEvent},
+    bridge::{
+        clipboard::{get_clipboard_contents, set_clipboard_contents},
+        events::parse_redraw_event,
+        NeovimWriter, RedrawEvent,
+    },
     error_handling::ResultPanicExplanation,
-    running_tracker::*,
-    settings::SETTINGS,
-    window::{UserEvent, WindowCommand},
-    LoggingSender,
+    running_tracker::RunningTracker,
+    settings::Settings,
+    window::{EventPayload, WindowCommand},
+    LoggingReceiver, LoggingSender,
 };
+
+use super::ui_commands::UiCommand;
 
 #[derive(Clone)]
 pub struct NeovimHandler {
     // The EventLoopProxy is not sync on all platforms, so wrap it in a mutex
-    proxy: Arc<Mutex<EventLoopProxy<UserEvent>>>,
-    sender: LoggingSender<RedrawEvent>,
+    proxy: Arc<Mutex<EventLoopProxy<EventPayload>>>,
+    redraw_event_sender: LoggingSender<RedrawEvent>,
+    ui_command_sender: LoggingSender<UiCommand>,
+    ui_command_receiver: LoggingReceiver<UiCommand>,
+    running_tracker: RunningTracker,
+    #[allow(dead_code)]
+    settings: Arc<Settings>,
+}
+
+impl std::fmt::Debug for NeovimHandler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NeovimHandler").finish()
+    }
 }
 
 impl NeovimHandler {
-    pub fn new(sender: UnboundedSender<RedrawEvent>, proxy: EventLoopProxy<UserEvent>) -> Self {
+    pub fn new(
+        redraw_event_sender: UnboundedSender<RedrawEvent>,
+        ui_command_sender: UnboundedSender<UiCommand>,
+        ui_command_receiver: UnboundedReceiver<UiCommand>,
+        proxy: EventLoopProxy<EventPayload>,
+        running_tracker: RunningTracker,
+        settings: Arc<Settings>,
+    ) -> Self {
         Self {
             proxy: Arc::new(Mutex::new(proxy)),
-            sender: LoggingSender::attach(sender, "neovim_handler"),
+            redraw_event_sender: LoggingSender::attach(redraw_event_sender, "neovim_handler"),
+            ui_command_sender: LoggingSender::attach(ui_command_sender, "UICommand"),
+            ui_command_receiver: LoggingReceiver::attach(ui_command_receiver, "UICommand"),
+            running_tracker,
+            settings,
         }
+    }
+
+    pub fn get_ui_command_channel(&self) -> (LoggingSender<UiCommand>, LoggingReceiver<UiCommand>) {
+        (
+            self.ui_command_sender.clone(),
+            self.ui_command_receiver.clone(),
+        )
     }
 }
 
@@ -66,7 +100,8 @@ impl Handler for NeovimHandler {
                 let error_code = arguments[0]
                     .as_i64()
                     .expect("Could not parse error code from neovim");
-                RUNNING_TRACKER.quit_with_code(error_code as i32, "Quit from neovim");
+                self.running_tracker
+                    .quit_with_code(error_code as u8, "Quit from neovim");
                 Ok(Value::Nil)
             }
             _ => Ok(Value::from("rpcrequest not handled")),
@@ -88,16 +123,17 @@ impl Handler for NeovimHandler {
                         .unwrap_or_explained_panic("Could not parse event from neovim");
 
                     for parsed_event in parsed_events {
-                        let _ = self.sender.send(parsed_event);
+                        let _ = self.redraw_event_sender.send(parsed_event);
                     }
                 }
             }
             "setting_changed" => {
-                SETTINGS
+                self.settings
                     .handle_setting_changed_notification(arguments, &self.proxy.lock().unwrap());
             }
             "option_changed" => {
-                SETTINGS.handle_option_changed_notification(arguments, &self.proxy.lock().unwrap());
+                self.settings
+                    .handle_option_changed_notification(arguments, &self.proxy.lock().unwrap());
             }
             #[cfg(windows)]
             "neovide.register_right_click" => {

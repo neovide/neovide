@@ -39,9 +39,14 @@ dirs = "5.0.0"
 glamour = { version = "0.11.1", features = ["serde"] }
 flexi_logger = { version = "0.28.0", default-features = false }
 futures = "0.3.21"
+rustc-hash = "2.0.0"
 gl = "0.14.0"
-glutin = "0.32.0"
-glutin-winit = "0.5.0"
+# glutin = "0.32.0"
+# glutin = { path = "/Users/falcucci/clones/glutin/glutin" }
+glutin = { git = "https://github.com/falcucci/glutin.git", branch = "multi-window-support" }
+# glutin-winit = "0.5.0"
+# glutin-winit = { path = "/Users/falcucci/clones/glutin/glutin-winit" } 
+glutin-winit = { git = "https://github.com/falcucci/glutin.git", branch = "multi-window-support" }
 image = { version = "0.25.0", default-features = false, features = ["ico"] }
 indoc = "2.0.5"
 itertools = "0.13.0"
@@ -73,7 +78,9 @@ tracy-client-sys = { version = "0.22.0", optional = true, default-features = fal
 ] }
 unicode-segmentation = "1.9.0"
 which = "6.0.1"
-winit = { version = "=0.30.5", features = ["serde"] }
+# winit = { version = "=0.30.5", features = ["serde"] }
+# winit = { path = "/Users/falcucci/clones/winit", features = ["serde"] }
+winit = { git = "https://github.com/falcucci/winit.git", branch = "multi-window-support", features = ["serde"] }
 xdg = "2.4.1"
 notify-debouncer-full = "0.3.1"
 regex = "1.10.3"

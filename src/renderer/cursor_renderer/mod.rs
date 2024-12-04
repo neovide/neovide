@@ -1,7 +1,7 @@
 mod blink;
 mod cursor_vfx;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use skia_safe::{op, Canvas, Paint, Path};
 use winit::event::WindowEvent;
@@ -11,7 +11,7 @@ use crate::{
     editor::{Cursor, CursorShape},
     profiling::{tracy_plot, tracy_zone},
     renderer::{animation_utils::*, GridRenderer, RenderedWindow},
-    settings::{ParseFromValue, SETTINGS},
+    settings::{ParseFromValue, Settings},
     units::{to_skia_point, GridPos, GridScale, PixelPos, PixelSize, PixelVec},
     window::ShouldRender,
 };
@@ -173,10 +173,12 @@ pub struct CursorRenderer {
     cursor_vfx: Option<Box<dyn cursor_vfx::CursorVfx>>,
     previous_vfx_mode: cursor_vfx::VfxMode,
     window_has_focus: bool,
+
+    settings: Arc<Settings>,
 }
 
 impl CursorRenderer {
-    pub fn new() -> CursorRenderer {
+    pub fn new(settings: Arc<Settings>) -> CursorRenderer {
         let mut renderer = CursorRenderer {
             corners: vec![Corner::new(); 4],
             cursor: Cursor::new(),
@@ -187,6 +189,8 @@ impl CursorRenderer {
             cursor_vfx: None,
             previous_vfx_mode: cursor_vfx::VfxMode::Disabled,
             window_has_focus: true,
+
+            settings,
         };
         renderer.set_cursor_shape(&CursorShape::Block, DEFAULT_CELL_PERCENTAGE);
         renderer
@@ -268,7 +272,7 @@ impl CursorRenderer {
 
     pub fn draw(&mut self, grid_renderer: &mut GridRenderer, canvas: &Canvas) {
         tracy_zone!("cursor_draw");
-        let settings = SETTINGS.get::<CursorSettings>();
+        let settings = self.settings.get::<CursorSettings>();
         let render = self.blink_status.should_render() || settings.smooth_blink;
         let opacity = match settings.smooth_blink {
             true => self.blink_status.opacity(),
@@ -338,7 +342,7 @@ impl CursorRenderer {
         dt: f32,
     ) -> bool {
         tracy_zone!("cursor_animate");
-        let settings = SETTINGS.get::<CursorSettings>();
+        let settings = self.settings.get::<CursorSettings>();
 
         if settings.vfx_mode != self.previous_vfx_mode {
             self.cursor_vfx = cursor_vfx::new_cursor_vfx(&settings.vfx_mode);

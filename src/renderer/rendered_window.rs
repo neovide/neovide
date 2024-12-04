@@ -9,7 +9,7 @@ use crate::{
     editor::{AnchorInfo, SortOrder, Style, WindowType},
     profiling::{tracy_plot, tracy_zone},
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
-    settings::SETTINGS,
+    settings::Settings,
     units::{to_skia_rect, GridPos, GridRect, GridScale, GridSize, PixelRect, PixelVec},
     utils::RingBuffer,
 };
@@ -101,8 +101,8 @@ pub struct WindowDrawDetails {
 }
 
 impl WindowDrawDetails {
-    pub fn event_grid_id(&self) -> u64 {
-        if SETTINGS.get::<CmdLineSettings>().no_multi_grid {
+    pub fn event_grid_id(&self, settings: &Settings) -> u64 {
+        if settings.get::<CmdLineSettings>().no_multi_grid {
             0
         } else {
             self.id
