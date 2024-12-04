@@ -298,10 +298,12 @@ impl WinitWindowWrapper {
                     window.set_blur(blur && transparent);
                 }
             }
+
             #[cfg(target_os = "windows")]
             WindowSettingsChanged::TitleBackgroundColor(color) => {
                 self.handle_title_background_color(&color);
             }
+
             #[cfg(target_os = "windows")]
             WindowSettingsChanged::TitleTextColor(color) => {
                 self.handle_title_text_color(&color);
@@ -311,6 +313,7 @@ impl WinitWindowWrapper {
             WindowSettingsChanged::InputMacosOptionKeyIsMeta(option) => {
                 self.set_macos_option_as_meta(option);
             }
+
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::InputMacosAltIsMeta(enabled) => {
                 if enabled {
@@ -1111,20 +1114,27 @@ impl WinitWindowWrapper {
 
     #[cfg(windows)]
     fn handle_title_background_color(&self, color: &str) {
-        if let Some(skia_renderer) = &self.skia_renderer {
-            let winit_color = Self::parse_winit_color(color);
-            skia_renderer
-                .window()
-                .set_title_background_color(winit_color);
-        }
+        let route = self
+            .routes
+            .get(self.get_focused_route().as_ref().unwrap())
+            .unwrap();
+        let skia_renderer = route.window.skia_renderer.borrow();
+        let winit_color = Self::parse_winit_color(color);
+        skia_renderer
+            .window()
+            .set_title_background_color(winit_color);
     }
 
     #[cfg(windows)]
     fn handle_title_text_color(&self, color: &str) {
-        if let Some(skia_renderer) = &self.skia_renderer {
-            if let Some(winit_color) = Self::parse_winit_color(color) {
-                skia_renderer.window().set_title_text_color(winit_color);
-            }
+        let route = self
+            .routes
+            .get(self.get_focused_route().as_ref().unwrap())
+            .unwrap();
+
+        let skia_renderer = route.window.skia_renderer.borrow();
+        if let Some(winit_color) = Self::parse_winit_color(color) {
+            skia_renderer.window().set_title_text_color(winit_color);
         }
     }
 }
