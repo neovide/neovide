@@ -815,7 +815,7 @@ impl WinitWindowWrapper {
     }
 
     #[cfg(windows)]
-    fn parse_winit_color(color: &String) -> Option<Color> {
+    fn parse_winit_color(color: &str) -> Option<Color> {
         match csscolorparser::parse(color) {
             Ok(color) => {
                 let color = color.to_rgba8();
@@ -826,7 +826,7 @@ impl WinitWindowWrapper {
     }
 
     #[cfg(windows)]
-    fn handle_title_background_color(&self, color: &String) {
+    fn handle_title_background_color(&self, color: &str) {
         if let Some(skia_renderer) = &self.skia_renderer {
             let winit_color = Self::parse_winit_color(color);
             skia_renderer
@@ -836,7 +836,7 @@ impl WinitWindowWrapper {
     }
 
     #[cfg(windows)]
-    fn handle_title_text_color(&self, color: &String) {
+    fn handle_title_text_color(&self, color: &str) {
         if let Some(skia_renderer) = &self.skia_renderer {
             if let Some(winit_color) = Self::parse_winit_color(color) {
                 skia_renderer.window().set_title_text_color(winit_color);
