@@ -24,6 +24,8 @@ pub struct WindowSettings {
     pub padding_right: u32,
     pub padding_bottom: u32,
     pub theme: String,
+    #[cfg(target_os = "windows")]
+    pub corner_preference: CornerPreference,
     #[cfg(target_os = "macos")]
     pub input_macos_alt_is_meta: bool,
     #[cfg(target_os = "macos")]
@@ -61,6 +63,8 @@ impl Default for WindowSettings {
             padding_right: 0,
             padding_bottom: 0,
             theme: "".to_string(),
+            #[cfg(target_os = "windows")]
+            corner_preference: CornerPreference::Default,
             #[cfg(target_os = "macos")]
             input_macos_alt_is_meta: false,
             #[cfg(target_os = "macos")]
@@ -70,6 +74,53 @@ impl Default for WindowSettings {
             observed_lines: None,
             observed_columns: None,
             show_border: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg(target_os = "windows")]
+pub enum CornerPreference {
+    Default,
+    DoNotRound,
+    Round,
+    RoundSmall,
+}
+
+#[cfg(target_os = "windows")]
+impl ParseFromValue for CornerPreference {
+    fn parse_from_value(&mut self, value: rmpv::Value) {
+        *self = match value.as_str() {
+            Some(value) => match value {
+                "default" => CornerPreferece::Default,
+                "do_not_round" => CornerPreference::DoNotRound,
+                "round" => CornerPreference::Round,
+                "round_small" => CornerPreference::RoundSmall,
+                value => {
+                    error!("Bad CornerPreference");
+                    return;
+                }
+            },
+            None => {
+                error!(
+                    "Setting CornerPreference expected string, but received {:?}",
+                    value
+                );
+                return;
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "windows")]
+impl Into<winit::platform::windows::CornerPreference> for CornerPreference {
+    fn into(self) -> winit::platform::windows::CornerPreference {
+        use winit::platform::windows::CornerPreference as WinitCornerPreference;
+        match self {
+            CornerPreference::Default => WinitCornerPreference::Default,
+            CornerPreference::DoNotRound => WinitCornerPreference::DoNotRound,
+            CornerPreference::Round => WinitCornerPreference::Round,
+            CornerPreference::RoundSmall => WinitCornerPreference::RoundSmall,
         }
     }
 }
