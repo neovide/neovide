@@ -1,6 +1,6 @@
 # Command Line Reference
 
-Neovide supports a few command line arguments for effecting things which couldn't be set using
+Neovide supports a few command line arguments for affecting things which couldn't be set using
 normal vim variables.
 
 `$` in front of a word refers to it being an "environment variable" which is checked for, some
