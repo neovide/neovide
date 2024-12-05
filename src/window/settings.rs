@@ -31,6 +31,11 @@ pub struct WindowSettings {
     pub input_ime: bool,
     pub show_border: bool,
 
+    #[cfg(target_os = "windows")]
+    pub title_background_color: String,
+    #[cfg(target_os = "windows")]
+    pub title_text_color: String,
+
     #[option = "mousemoveevent"]
     pub mouse_move_event: bool,
     #[option = "lines"]
@@ -70,6 +75,11 @@ impl Default for WindowSettings {
             observed_lines: None,
             observed_columns: None,
             show_border: false,
+
+            #[cfg(target_os = "windows")]
+            title_background_color: "".to_string(),
+            #[cfg(target_os = "windows")]
+            title_text_color: "".to_string(),
         }
     }
 }

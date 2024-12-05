@@ -81,11 +81,10 @@ impl Cursor {
     }
 
     pub fn alpha(&self) -> u8 {
-        return self
-            .style
+        self.style
             .as_ref()
             .map(|s| (255_f32 * ((100 - s.blend) as f32 / 100.0_f32)) as u8)
-            .unwrap_or(255);
+            .unwrap_or(255)
     }
 
     pub fn change_mode(&mut self, cursor_mode: &CursorMode, styles: &HashMap<u64, Arc<Style>>) {

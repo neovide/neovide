@@ -194,7 +194,6 @@ pub enum SettingsChanged {
 }
 
 #[cfg(test)]
-
 mod tests {
     #[derive(Clone, SettingGroup)]
     struct TestSettings {

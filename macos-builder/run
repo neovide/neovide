@@ -15,6 +15,11 @@ if [ ! -d "${RELEASE_DIR}" ]; then
   cargo build --release ${TARGET_ARCHITECTURE:+--target "${TARGET_ARCHITECTURE}"}
 fi
 
+if [ -n "$2" ]; then
+  DEVELOPER_ID=$2
+fi
+
+DEVELOPER_ID=${DEVELOPER_ID:-""}
 TARGET="neovide"
 EXTRAS_DIR="extra"
 ASSETS_DIR="assets"
@@ -34,28 +39,51 @@ DMG_FORMAT="UDZO"
 DMG_ICNS="${APP_EXTRAS_DIR}/Neovide.icns"
 DMG_BACKGROUND="${ASSETS_DIR}/neovide-dmg-background.tiff"
 
-# Make Neovide.app
+if [ "$GENERATE_BUNDLE_APP" == "true" ]; then
+  # Make Neovide.app
+  mkdir -p "${APP_BINARY_DIR}"
+  mkdir -p "${APP_EXTRAS_DIR}"
+  cp -fRp "${APP_TEMPLATE}" "${APP_DIR}"
+  cp -fp "${APP_BINARY}" "${APP_BINARY_DIR}"
+  touch -r "${APP_BINARY}" "${APP_DIR}/${APP_NAME}"
+  echo "Created '${APP_NAME}' in '${APP_DIR}'"
 
-mkdir -p "${APP_BINARY_DIR}"
-mkdir -p "${APP_EXTRAS_DIR}"
-cp -fRp "${APP_TEMPLATE}" "${APP_DIR}"
-cp -fp "${APP_BINARY}" "${APP_BINARY_DIR}"
-touch -r "${APP_BINARY}" "${APP_DIR}/${APP_NAME}"
-codesign --remove-signature "${APP_DIR}/${APP_NAME}"
-codesign --force --deep --sign - "${APP_DIR}/${APP_NAME}"
-echo "Created '${APP_NAME}' in '${APP_DIR}'"
+  # Useful to use `codesign` for local signing using local keychain certificates
+  # In case our pipeline fails, we are still able to sign the app manually
+  if [ -n "$DEVELOPER_ID" ]; then
+    codesign --remove-signature "${APP_DIR}/${APP_NAME}"
+    echo "Signing '${APP_BINARY}' with '${DEVELOPER_ID}'"
+    codesign --force --options runtime --deep --sign "${DEVELOPER_ID}" "${APP_BINARY}"
+    echo "Signed '${APP_BINARY}'"
+    echo "Signing '${APP_BINARY_DIR}/${TARGET}' with '${DEVELOPER_ID}'"
+    codesign --force --options runtime --deep --sign "${DEVELOPER_ID}" "${APP_BINARY_DIR}/${TARGET}"
+    echo "Signed '${APP_BINARY_DIR}/${TARGET}'"
+    echo "Signing '${APP_NAME}' in '${APP_DIR}' with '${DEVELOPER_ID}'"
+    codesign --force --options runtime --deep --sign "${DEVELOPER_ID}" "${APP_DIR}/${APP_NAME}"
+    echo "Signed '${APP_NAME}' in '${APP_DIR}'"
+  fi
+fi
 
-# Make Neovide.dmg
+if [ "$GENERATE_DMG" == "true" ]; then
+  # Make Neovide.dmg
+  create-dmg \
+    --filesystem "${DMG_FILESYSTEM}" \
+    --format "${DMG_FORMAT}" \
+    --volname "${DMG_VOLNAME}" \
+    --volicon "${DMG_ICNS}" \
+    --background "${DMG_BACKGROUND}" \
+    --window-size 650 470 \
+    --icon-size 80 \
+    --icon Neovide.app 240 320 \
+    --app-drop-link 410 320 \
+    "${APP_DIR}/${DMG_NAME}" \
+    "${APP_DIR}/${APP_NAME}"
 
-create-dmg \
-  --filesystem "${DMG_FILESYSTEM}" \
-  --format "${DMG_FORMAT}" \
-  --volname "${DMG_VOLNAME}" \
-  --volicon "${DMG_ICNS}" \
-  --background "${DMG_BACKGROUND}" \
-  --window-size 650 470 \
-  --icon-size 80 \
-  --icon Neovide.app 240 320 \
-  --app-drop-link 410 320 \
-  "${APP_DIR}/${DMG_NAME}" \
-  "${APP_DIR}/${APP_NAME}"
+  # Useful to use `codesign` for local signing using local keychain certificates
+  # In case our pipeline fails, we are still able to sign the app manually
+  if [ -n "$DEVELOPER_ID" ]; then
+    echo "Signing '${APP_DIR}/${DMG_NAME}' with '${DEVELOPER_ID}'"
+    codesign --force --options runtime --deep --sign "${DEVELOPER_ID}" "${APP_DIR}/${DMG_NAME}"
+    echo "Signed '${APP_DIR}/${DMG_NAME}'"
+  fi
+fi

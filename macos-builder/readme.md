@@ -13,7 +13,7 @@ Before running the script, ensure you have the following dependencies installed:
 **Run the Script**:
 
 ```bash
-./macos-builder/run aarch64-apple-darwin
+GENERATE_BUNDLE_APP=true GENERATE_DMG=true ./macos-builder/run aarch64-apple-darwin
 ```
 
 ### Steps
