@@ -241,7 +241,12 @@ impl MacosWindowFeature {
         let [red, green, blue, alpha] = color.to_array();
         unsafe {
             let opaque = alpha >= 1.0;
-            let ns_background = NSColor::colorWithSRGBRed_green_blue_alpha(red, green, blue, alpha);
+            let ns_background = NSColor::colorWithSRGBRed_green_blue_alpha(
+                red.into(),
+                green.into(),
+                blue.into(),
+                alpha.into(),
+            );
             self.ns_window.setBackgroundColor(Some(&ns_background));
             // If the shadow is enabled and the background color is not transparent, the window will have a grey border
             // Workaround: Disable shadow when `show_border` is false
