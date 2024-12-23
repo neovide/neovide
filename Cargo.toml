@@ -73,7 +73,7 @@ tracy-client-sys = { version = "0.22.0", optional = true, default-features = fal
 ] }
 unicode-segmentation = "1.9.0"
 which = "6.0.1"
-winit = { version = "=0.30.5", features = ["serde"] }
+winit = { version = "=0.30.7", features = ["serde"] }
 xdg = "2.4.1"
 notify-debouncer-full = "0.3.1"
 regex = "1.10.3"
