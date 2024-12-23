@@ -46,10 +46,8 @@ impl Handler for NeovimHandler {
         trace!("Neovim request: {:?}", &event_name);
 
         match event_name.as_ref() {
-            "neovide.get_clipboard" => {
-                get_clipboard_contents(&arguments[0])
-                    .map_err(|_| Value::from("cannot get clipboard contents"))
-            }
+            "neovide.get_clipboard" => get_clipboard_contents(&arguments[0])
+                .map_err(|_| Value::from("cannot get clipboard contents")),
             "neovide.set_clipboard" => set_clipboard_contents(&arguments[0], &arguments[1])
                 .map_err(|_| Value::from("cannot set clipboard contents")),
             "neovide.quit" => {
