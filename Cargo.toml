@@ -28,64 +28,64 @@ tracy-callstack-inlines = ["tracy-client-sys?/callstack-inlines"]
 d3d_debug = [] # Enable the D3D debug layer
 
 [dependencies]
-anyhow = { version = "1.0.75", features = ["backtrace"] }
-async-trait = "0.1.53"
-backtrace = "0.3.67"
-clap = { version = "4.4.18", features = ["cargo", "derive", "env", "color"] }
+anyhow = { version = "1.0.95", features = ["backtrace"] }
+async-trait = "0.1.83"
+backtrace = "0.3.74"
+clap = { version = "4.5.23", features = ["cargo", "derive", "env", "color"] }
 copypasta = "0.10.1"
-csscolorparser = "0.6.2"
-derive-new = "0.6.0"
-dirs = "5.0.0"
-glamour = { version = "0.11.1", features = ["serde"] }
-flexi_logger = { version = "0.28.0", default-features = false }
-futures = "0.3.21"
+csscolorparser = "0.7.0"
+derive-new = "0.7.0"
+dirs = "5.0.1"
+glamour = { version = "0.15.0", features = ["serde"] }
+flexi_logger = { version = "0.29.8", default-features = false }
+futures = "0.3.31"
 gl = "0.14.0"
-glutin = "0.32.0"
+glutin = "0.32.1"
 glutin-winit = "0.5.0"
-image = { version = "0.25.0", default-features = false, features = ["ico"] }
+image = { version = "0.25.5", default-features = false, features = ["ico"] }
 indoc = "2.0.5"
 itertools = "0.13.0"
-log = "0.4.16"
-lru = "0.12.2"
+log = "0.4.22"
+lru = "0.12.5"
 neovide-derive = { path = "neovide-derive", version = "0.1.0" }
-num = "0.4.1"
+num = "0.4.3"
 nvim-rs = { version = "0.7.0", features = ["use_tokio"] }
-parking_lot = "0.12.0"
+parking_lot = "0.12.3"
 rand = "0.8.5"
-raw-window-handle = "0.6.0"
-rmpv = "1.0.0"
-serde = { version = "1.0.136", features = ["derive"] }
-serde_json = "1.0.79"
-shlex = "1.1.0"
-spin_sleep = "1.1.1"
-strum = { version = "0.26.2", features = ["derive"] }
-swash = { version = "0.1.8", default-features = false }
-time = { version = "0.3.34", features = ["macros", "formatting"] }
-tokio = { version = "1.25.0", features = ["full"] }
-tokio-util = { version = "0.7.4", features = ["compat"] }
-toml = "0.8.12"
-tracy-client-sys = { version = "0.22.0", optional = true, default-features = false, features = [
+raw-window-handle = "0.6.2"
+rmpv = "1.3.0"
+serde = { version = "1.0.216", features = ["derive"] }
+serde_json = "1.0.134"
+shlex = "1.3.0"
+spin_sleep = "1.3.0"
+strum = { version = "0.26.3", features = ["derive"] }
+swash = { version = "0.1.19", default-features = false }
+time = { version = "0.3.37", features = ["macros", "formatting"] }
+tokio = { version = "1.42.0", features = ["full"] }
+tokio-util = { version = "0.7.13", features = ["compat"] }
+toml = "0.8.19"
+tracy-client-sys = { version = "0.24.3", optional = true, default-features = false, features = [
     "broadcast",
     "delayed-init",
     "enable",
     "manual-lifetime",
     "fibers",
 ] }
-unicode-segmentation = "1.9.0"
-which = "6.0.1"
-winit = { version = "=0.30.5", features = ["serde"] }
-xdg = "2.4.1"
-notify-debouncer-full = "0.3.1"
-regex = "1.10.3"
+unicode-segmentation = "1.12.0"
+which = "7.0.1"
+winit = { version = "=0.30.7", features = ["serde"] }
+xdg = "2.5.2"
+notify-debouncer-full = "0.4.0"
+regex = "1.11.1"
 
 [dev-dependencies]
 approx = "0.5.1"
 scoped-env = "2.1.0"
-serial_test = "3.0.0"
+serial_test = "3.2.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 wslpath-rs = "0.1"
-skia-safe = { version = "0.80.0", features = ["gl", "d3d", "textlayout"] }
+skia-safe = { version = "0.80.1", features = ["gl", "d3d", "textlayout"] }
 windows = { version = "0.58.0", features = [
     "Win32_Graphics_Direct3D",
     "Win32_Graphics_Direct3D12",
@@ -99,10 +99,10 @@ windows = { version = "0.58.0", features = [
     "Win32_System_Threading",
     "Win32_UI_HiDpi",
 ] }
-windows-registry = "0.2.0"
+windows-registry = "0.3.0"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
-skia-safe = { version = "0.80.0", features = ["gl", "textlayout"] }
+skia-safe = { version = "0.80.1", features = ["gl", "textlayout"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.5.2"
@@ -110,10 +110,10 @@ objc2-foundation = { version = "0.2.2", features = [ "NSUserDefaults" ] }
 objc2-app-kit = { version = "0.2.2", features = [ "NSLayoutConstraint", "NSColorSpace", "objc2-quartz-core" ] }
 objc2-quartz-core = { version = "0.2.2", features = [ "objc2-metal", "CALayer", "CAMetalLayer" ] }
 objc2-metal = { version = "0.2.2", features = [ "MTLCommandQueue", "MTLCommandBuffer" ] }
-skia-safe = { version = "0.80.0", features = ["metal", "gl", "textlayout"] }
+skia-safe = { version = "0.80.1", features = ["metal", "gl", "textlayout"] }
 
 [target.'cfg(not(any(target_os = "windows", target_os = "macos")))'.dependencies]
-skia-safe = { version = "0.80.0", features = ["gl", "textlayout"] }
+skia-safe = { version = "0.80.1", features = ["gl", "textlayout"] }
 
 [target.'cfg(target_os = "windows")'.build-dependencies]
 winres = "0.1.12"
