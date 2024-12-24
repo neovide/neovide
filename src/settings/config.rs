@@ -50,6 +50,7 @@ pub struct Config {
     pub title_hidden: Option<bool>,
     pub vsync: Option<bool>,
     pub wsl: Option<bool>,
+    pub backtraces_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
