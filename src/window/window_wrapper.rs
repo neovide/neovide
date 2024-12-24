@@ -31,6 +31,9 @@ use {
 #[cfg(target_os = "macos")]
 use super::macos::MacosWindowFeature;
 
+const GRID_TOLERANCE: f32 = 0e-6;
+
+use approx::AbsDiffEq;
 use log::trace;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::{
@@ -693,10 +696,14 @@ impl WinitWindowWrapper {
             window_padding.top + window_padding.bottom,
         );
 
-        let window_size = (*grid_size * self.renderer.grid_renderer.grid_scale)
-            .floor()
-            .try_cast()
-            .unwrap()
+        let window_size = *grid_size * self.renderer.grid_renderer.grid_scale;
+        let window_size = if window_size.abs_diff_eq(&window_size.round(), GRID_TOLERANCE) {
+            window_size.round()
+        } else {
+            window_size.floor()
+        }
+        .try_cast()
+        .unwrap()
             + window_padding_size;
 
         log::info!(
@@ -740,10 +747,14 @@ impl WinitWindowWrapper {
             PixelSize::new(self.saved_inner_size.width, self.saved_inner_size.height)
                 - window_padding_size;
 
-        let grid_size = (content_size / self.renderer.grid_renderer.grid_scale)
-            .floor()
-            .try_cast()
-            .unwrap();
+        let grid_size = content_size / self.renderer.grid_renderer.grid_scale;
+        let grid_size = if grid_size.abs_diff_eq(&grid_size.round(), GRID_TOLERANCE) {
+            grid_size.round()
+        } else {
+            grid_size.ceil()
+        }
+        .try_cast()
+        .unwrap();
 
         grid_size.max(min)
     }

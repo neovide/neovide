@@ -29,6 +29,7 @@ d3d_debug = [] # Enable the D3D debug layer
 
 [dependencies]
 anyhow = { version = "1.0.95", features = ["backtrace"] }
+approx = "0.5.1"
 async-trait = "0.1.83"
 backtrace = "0.3.74"
 clap = { version = "4.5.23", features = ["cargo", "derive", "env", "color"] }
@@ -79,7 +80,6 @@ notify-debouncer-full = "0.4.0"
 regex = "1.11.1"
 
 [dev-dependencies]
-approx = "0.5.1"
 scoped-env = "2.1.0"
 serial_test = "3.2.0"
 
