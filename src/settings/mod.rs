@@ -12,6 +12,7 @@ use std::{
     collections::HashMap,
     convert::TryInto,
     fmt::Debug,
+    sync::LazyLock,
 };
 use winit::event_loop::EventLoopProxy;
 
@@ -26,9 +27,7 @@ mod config;
 pub use config::{Config, HotReloadConfigs};
 pub use font::FontSettings;
 
-lazy_static! {
-    pub static ref SETTINGS: Settings = Settings::new();
-}
+pub static SETTINGS: LazyLock<Settings> = LazyLock::new(Settings::new);
 
 pub trait SettingGroup {
     type ChangedEvent: Debug + Clone + Send + Sync + Any;
@@ -195,7 +194,6 @@ pub enum SettingsChanged {
 }
 
 #[cfg(test)]
-
 mod tests {
     #[derive(Clone, SettingGroup)]
     struct TestSettings {

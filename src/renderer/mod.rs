@@ -11,6 +11,9 @@ mod vsync;
 #[cfg(target_os = "windows")]
 pub mod d3d;
 
+#[cfg(target_os = "macos")]
+mod metal;
+
 use std::{
     cmp::Ordering,
     collections::{hash_map::Entry, HashMap},
@@ -22,9 +25,9 @@ use log::{error, warn};
 use skia_safe::Canvas;
 
 use winit::{
-    event::Event,
-    event_loop::{EventLoopProxy, EventLoopWindowTarget},
-    window::{Window, WindowBuilder},
+    event::WindowEvent,
+    event_loop::{ActiveEventLoop, EventLoopProxy},
+    window::{Window, WindowAttributes},
 };
 
 use crate::{
@@ -90,6 +93,7 @@ pub struct RendererSettings {
     floating_blur_amount_y: f32,
     floating_shadow: bool,
     floating_z_height: f32,
+    floating_corner_radius: f32,
     light_angle_degrees: f32,
     light_radius: f32,
     debug_renderer: bool,
@@ -111,6 +115,7 @@ impl Default for RendererSettings {
             floating_blur_amount_y: 2.0,
             floating_shadow: true,
             floating_z_height: 10.,
+            floating_corner_radius: 0.0,
             light_angle_degrees: 45.,
             light_radius: 5.,
             debug_renderer: false,
@@ -190,8 +195,8 @@ impl Renderer {
         }
     }
 
-    pub fn handle_event(&mut self, event: &Event<UserEvent>) -> bool {
-        self.cursor_renderer.handle_event(event)
+    pub fn handle_event(&mut self, event: &WindowEvent) {
+        self.cursor_renderer.handle_event(event);
     }
 
     pub fn font_names(&self) -> Vec<String> {
@@ -428,6 +433,9 @@ impl Renderer {
                         }
                         WindowDrawCommand::ViewportMargins { .. } => {
                             warn!("ViewportMargins recieved before window was initialized");
+                            let new_window =
+                                RenderedWindow::new(grid_id, GridPos::ZERO, GridSize::ZERO);
+                            vacant_entry.insert(new_window);
                         }
                         _ => {
                             let settings = SETTINGS.get::<CmdLineSettings>();
@@ -496,6 +504,8 @@ pub enum WindowConfigType {
     OpenGL(glutin::config::Config),
     #[cfg(target_os = "windows")]
     Direct3D,
+    #[cfg(target_os = "macos")]
+    Metal,
 }
 
 pub struct WindowConfig {
@@ -503,25 +513,37 @@ pub struct WindowConfig {
     pub config: WindowConfigType,
 }
 
-pub fn build_window_config<TE>(
-    winit_window_builder: WindowBuilder,
-    event_loop: &EventLoopWindowTarget<TE>,
+pub fn build_window_config(
+    window_attributes: WindowAttributes,
+    event_loop: &ActiveEventLoop,
 ) -> WindowConfig {
     #[cfg(target_os = "windows")]
     {
         let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
         if cmd_line_settings.opengl {
-            opengl::build_window(winit_window_builder, event_loop)
+            opengl::build_window(window_attributes, event_loop)
         } else {
-            let window = winit_window_builder.build(event_loop).unwrap();
+            let window = event_loop.create_window(window_attributes).unwrap();
             let config = WindowConfigType::Direct3D;
             WindowConfig { window, config }
         }
     }
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "macos")]
     {
-        opengl::build_window(winit_window_builder, event_loop)
+        let cmd_line_settings = SETTINGS.get::<CmdLineSettings>();
+        if cmd_line_settings.opengl {
+            opengl::build_window(window_attributes, event_loop)
+        } else {
+            let window = event_loop.create_window(window_attributes).unwrap();
+            let config = WindowConfigType::Metal;
+            WindowConfig { window, config }
+        }
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    {
+        opengl::build_window(window_attributes, event_loop)
     }
 }
 
@@ -547,6 +569,10 @@ pub fn create_skia_renderer(
         }
         #[cfg(target_os = "windows")]
         WindowConfigType::Direct3D => Box::new(d3d::D3DSkiaRenderer::new(window.window)),
+        #[cfg(target_os = "macos")]
+        WindowConfigType::Metal => {
+            Box::new(metal::MetalSkiaRenderer::new(window.window, srgb, vsync))
+        }
     };
     tracy_create_gpu_context("main_render_context", renderer.as_ref());
     renderer

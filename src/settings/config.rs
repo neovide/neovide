@@ -2,10 +2,7 @@
 
 use std::{env, fs, sync::mpsc, time::Duration};
 
-use notify_debouncer_full::{
-    new_debouncer,
-    notify::{RecursiveMode, Watcher},
-};
+use notify_debouncer_full::{new_debouncer, notify::RecursiveMode};
 use serde::Deserialize;
 use winit::event_loop::EventLoopProxy;
 
@@ -49,6 +46,7 @@ pub struct Config {
     pub srgb: Option<bool>,
     pub tabs: Option<bool>,
     pub theme: Option<String>,
+    pub mouse_cursor_icon: Option<String>,
     pub title_hidden: Option<bool>,
     pub vsync: Option<bool>,
     pub wsl: Option<bool>,
@@ -107,6 +105,9 @@ impl Config {
         if let Some(theme) = &self.theme {
             env::set_var("NEOVIDE_THEME", theme);
         }
+        if let Some(mouse_cursor_icon) = &self.mouse_cursor_icon {
+            env::set_var("NEOVIDE_MOUSE_CURSOR_ICON", mouse_cursor_icon);
+        }
         if let Some(title_hidden) = &self.title_hidden {
             env::set_var("NEOVIDE_TITLE_HIDDEN", title_hidden.to_string());
         }
@@ -142,7 +143,7 @@ fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<UserEven
     let (tx, rx) = mpsc::channel();
     let mut debouncer = new_debouncer(Duration::from_millis(500), None, tx).unwrap();
 
-    if let Err(e) = debouncer.watcher().watch(
+    if let Err(e) = debouncer.watch(
         // watching the directory rather than the config file itself to also allow it to be deleted/created later on
         config_path()
             .parent()

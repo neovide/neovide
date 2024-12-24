@@ -10,11 +10,12 @@ use skia_safe::{
 use strum::IntoEnumIterator;
 use strum::{EnumCount, EnumIter};
 use winit::{
+    application::ApplicationHandler,
     dpi::PhysicalSize,
-    event::{ElementState, Event, KeyEvent, Modifiers, MouseScrollDelta, WindowEvent},
-    event_loop::{EventLoop, EventLoopWindowTarget},
+    event::{ElementState, KeyEvent, Modifiers, MouseScrollDelta, WindowEvent},
+    event_loop::{ActiveEventLoop, EventLoop},
     keyboard::{Key, NamedKey},
-    window::WindowBuilder,
+    window::Window,
 };
 
 use crate::{
@@ -34,7 +35,7 @@ const DEFAULT_SIZE: PhysicalSize<u32> = PhysicalSize::new(800, 600);
 
 pub fn show_error_window(message: &str, event_loop: EventLoop<UserEvent>) {
     let mut error_window = ErrorWindow::new(message);
-    error_window.run_event_loop(event_loop);
+    event_loop.run_app(&mut error_window).ok();
 }
 
 #[derive(Debug)]
@@ -83,25 +84,28 @@ impl<'a> ErrorWindow<'a> {
             message,
         }
     }
+}
 
-    fn run_event_loop(&mut self, event_loop: EventLoop<UserEvent>) {
-        let _ = event_loop.run(|e, window_target| match e {
-            Event::Resumed => {
-                if self.state.is_none() {
-                    self.state = Some(State::new(self.message, window_target));
-                }
-            }
-            Event::WindowEvent { event, .. } => {
-                let state = self.state.as_mut().unwrap();
-                state.handle_window_event(event, window_target, self.message);
-            }
-            _ => {}
-        });
+impl ApplicationHandler<UserEvent> for ErrorWindow<'_> {
+    fn window_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        _window_id: winit::window::WindowId,
+        event: WindowEvent,
+    ) {
+        let state = self.state.as_mut().unwrap();
+        state.handle_window_event(event, event_loop, self.message);
+    }
+
+    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+        if self.state.is_none() {
+            self.state = Some(State::new(self.message, event_loop));
+        }
     }
 }
 
 impl State {
-    fn new(message: &str, event_loop: &EventLoopWindowTarget<UserEvent>) -> Self {
+    fn new(message: &str, event_loop: &ActiveEventLoop) -> Self {
         let message = message.trim_end();
 
         let font_manager = FontMgr::new();
@@ -137,12 +141,12 @@ impl State {
     fn handle_window_event(
         &mut self,
         event: WindowEvent,
-        window_target: &EventLoopWindowTarget<UserEvent>,
+        event_loop: &ActiveEventLoop,
         message: &str,
     ) {
         match event {
             WindowEvent::CloseRequested => {
-                window_target.exit();
+                event_loop.exit();
             }
             WindowEvent::RedrawRequested => {
                 self.render();
@@ -161,7 +165,7 @@ impl State {
                 is_synthetic: false,
                 ..
             } => {
-                if self.handle_keyboard_input(event, window_target, message) {
+                if self.handle_keyboard_input(event, event_loop, message) {
                     self.skia_renderer.window().request_redraw();
                 }
             }
@@ -212,7 +216,7 @@ impl State {
     fn handle_keyboard_input(
         &mut self,
         event: KeyEvent,
-        window_target: &EventLoopWindowTarget<UserEvent>,
+        event_loop: &ActiveEventLoop,
         message: &str,
     ) -> bool {
         if event.state != ElementState::Pressed {
@@ -244,7 +248,7 @@ impl State {
                         true
                     }
                     "q" => {
-                        window_target.exit();
+                        event_loop.exit();
                         true
                     }
                     "y" => {
@@ -267,7 +271,7 @@ impl State {
                         true
                     }
                     NamedKey::Escape => {
-                        window_target.exit();
+                        event_loop.exit();
                         true
                     }
                     _ => false,
@@ -480,10 +484,10 @@ fn create_paragraphs(
     }
 }
 
-fn create_window(event_loop: &EventLoopWindowTarget<UserEvent>) -> WindowConfig {
+fn create_window(event_loop: &ActiveEventLoop) -> WindowConfig {
     let icon = load_icon();
 
-    let winit_window_builder = WindowBuilder::new()
+    let window_attributes = Window::default_attributes()
         .with_title("Neovide")
         .with_window_icon(Some(icon))
         .with_transparent(false)
@@ -492,5 +496,5 @@ fn create_window(event_loop: &EventLoopWindowTarget<UserEvent>) -> WindowConfig 
         .with_inner_size(DEFAULT_SIZE)
         .with_min_inner_size(MIN_SIZE);
 
-    build_window_config(winit_window_builder, event_loop)
+    build_window_config(window_attributes, event_loop)
 }

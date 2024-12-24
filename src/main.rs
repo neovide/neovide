@@ -35,17 +35,15 @@ mod windows_utils;
 
 #[macro_use]
 extern crate derive_new;
-#[macro_use]
-extern crate lazy_static;
 
 use anyhow::Result;
 use log::trace;
 use std::env::{self, args, var};
 use std::fs::{File, OpenOptions};
 use std::io::Write;
-use std::panic::{set_hook, take_hook, PanicInfo};
+use std::panic::{set_hook, PanicHookInfo};
 use std::path::PathBuf;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 use time::macros::format_description;
 use time::OffsetDateTime;
 use winit::event_loop::EventLoopProxy;
@@ -61,7 +59,7 @@ use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 #[cfg_attr(target_os = "windows", allow(unused_imports))]
 use settings::SETTINGS;
 use window::{
-    create_event_loop, determine_window_size, main_loop, UserEvent, WindowSettings, WindowSize,
+    create_event_loop, determine_window_size, UpdateLoop, UserEvent, WindowSettings, WindowSize,
 };
 
 pub use channel_utils::*;
@@ -101,8 +99,18 @@ fn main() -> NeovideExitCode {
 
     match setup(event_loop.create_proxy()) {
         Err(err) => handle_startup_errors(err, event_loop).into(),
-        Ok((window_size, font_settings, _runtime)) => {
-            main_loop(window_size, font_settings, event_loop).into()
+        Ok((window_size, font_settings, runtime)) => {
+            let mut update_loop =
+                UpdateLoop::new(window_size, font_settings, event_loop.create_proxy());
+
+            let res = event_loop.run_app(&mut update_loop).into();
+            // Wait a little bit more and force Nevoim to exit after that.
+            // This should not be required, but Neovim through libuv spawns childprocesses that inherits all the handles
+            // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
+            // read will hang forever, waiting for more data to read.
+            // See https://github.com/neovide/neovide/issues/2182 (which includes links to libuv issues)
+            runtime.runtime.shutdown_timeout(Duration::from_millis(500));
+            res
         }
     }
 }
@@ -189,7 +197,7 @@ fn setup(
 
     set_hook(Box::new({
         let path = config.backtraces_path.clone();
-        move |panic_info: &PanicInfo<'_>| {
+        move |panic_info: &PanicHookInfo<'_>| {
             let backtrace = Backtrace::new();
 
             let stderr_msg = generate_stderr_log_message(panic_info, &backtrace);
@@ -275,7 +283,7 @@ fn maybe_disown() {
     }
 }
 
-fn generate_stderr_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) -> String {
+fn generate_stderr_log_message(panic_info: &PanicHookInfo, backtrace: &Backtrace) -> String {
     if cfg!(debug_assertions) {
         let print_backtrace = match env::var("RUST_BACKTRACE") {
             Ok(x) => x == "full" || x == "1",
@@ -299,7 +307,7 @@ fn generate_stderr_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) ->
     }
 }
 
-fn log_panic_to_file(panic_info: &PanicInfo, backtrace: &Backtrace, path: &Option<PathBuf>) {
+fn log_panic_to_file(panic_info: &PanicHookInfo, backtrace: &Backtrace, path: &Option<PathBuf>) {
     let log_msg = generate_panic_log_message(panic_info, backtrace);
 
     let file_path = match path {
@@ -328,7 +336,7 @@ fn log_panic_to_file(panic_info: &PanicInfo, backtrace: &Backtrace, path: &Optio
     }
 }
 
-fn generate_panic_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) -> String {
+fn generate_panic_log_message(panic_info: &PanicHookInfo, backtrace: &Backtrace) -> String {
     let system_time: OffsetDateTime = SystemTime::now().into();
 
     let timestamp = system_time
@@ -343,7 +351,7 @@ fn generate_panic_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) -> 
     format!("{full_panic_msg}\n{backtrace:?}\n")
 }
 
-fn generate_panic_message(panic_info: &PanicInfo) -> String {
+fn generate_panic_message(panic_info: &PanicHookInfo) -> String {
     // As per the documentation for `.location()`(https://doc.rust-lang.org/std/panic/struct.PanicInfo.html#method.location)
     // the call to location cannot currently return `None`, so we unwrap.
     let location_info = panic_info.location().unwrap();

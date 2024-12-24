@@ -9,9 +9,18 @@ use crate::{
 
 const SETTINGS_FILE: &str = "neovide-settings.json";
 
-pub const DEFAULT_GRID_SIZE: GridSize<u32> = GridSize::new(100, 50);
-pub const MIN_GRID_SIZE: GridSize<u32> = GridSize::new(20, 6);
-pub const MAX_GRID_SIZE: GridSize<u32> = GridSize::new(10000, 1000);
+pub const DEFAULT_GRID_SIZE: GridSize<u32> = GridSize {
+    width: 100,
+    height: 50,
+};
+pub const MIN_GRID_SIZE: GridSize<u32> = GridSize {
+    width: 20,
+    height: 6,
+};
+pub const MAX_GRID_SIZE: GridSize<u32> = GridSize {
+    width: 10000,
+    height: 1000,
+};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum PersistentWindowSettings {

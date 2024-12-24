@@ -8,7 +8,7 @@ use skia_safe::{
     FontStyle,
 };
 
-use crate::editor;
+use crate::{editor, error_msg};
 
 const DEFAULT_FONT_SIZE: f32 = 14.0;
 const FONT_OPTS_SEPARATOR: char = ':';
@@ -192,6 +192,10 @@ impl FontOptions {
     }
 
     pub fn font_list(&self, style: CoarseStyle) -> Vec<FontDescription> {
+        if style == CoarseStyle::default() {
+            return self.normal.clone();
+        }
+
         let fonts = match (style.bold, style.italic) {
             (true, true) => &self.bold_italic,
             (true, false) => &self.bold,
@@ -199,28 +203,42 @@ impl FontOptions {
             (false, false) => &None,
         };
 
-        let fonts = fonts
+        let normal_fallback = self.normal.iter().map(|font| FontDescription {
+            // use current requested font style instead of normal
+            style: style.name().map(str::to_string),
+            family: font.family.clone(),
+        });
+
+        fonts
             .as_ref()
             .map(|fonts| {
                 fonts
                     .iter()
-                    .filter(|font| font.family.is_some())
-                    .map(|font| FontDescription {
-                        family: font.family.clone().unwrap(),
-                        style: None,
+                    .filter(|font| font.family.is_some() || font.style.is_some())
+                    .map(|font| {
+                        if font.family.is_none() && self.primary_font().is_some() {
+                            error_msg!("Font style {:?} is missing font family", font.style);
+                            // only has style specified, use primary font family
+                            self.primary_font()
+                                .map(|primary_font| FontDescription {
+                                    family: primary_font.family.clone(),
+                                    style: font.style.clone(),
+                                })
+                                .unwrap()
+                        } else {
+                            FontDescription {
+                                family: font.family.clone().unwrap(),
+                                style: font
+                                    .style
+                                    .clone()
+                                    .or_else(|| style.name().map(str::to_string)),
+                            }
+                        }
                     })
-                    .chain(self.normal.iter().cloned())
+                    .chain(normal_fallback.clone())
                     .collect()
             })
-            .unwrap_or_else(|| self.normal.clone());
-
-        fonts
-            .into_iter()
-            .map(|font| FontDescription {
-                style: style.name().map(str::to_string),
-                ..font
-            })
-            .collect()
+            .unwrap_or_else(|| normal_fallback.collect())
     }
 
     pub fn possible_fonts(&self) -> Vec<FontDescription> {

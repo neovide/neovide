@@ -1,7 +1,7 @@
 #[cfg(target_os = "macos")]
 mod macos_display_link;
 #[cfg(target_os = "macos")]
-mod vsync_macos;
+mod vsync_macos_display_link;
 mod vsync_timer;
 #[cfg(target_os = "windows")]
 mod vsync_win_dwm;
@@ -21,7 +21,7 @@ pub use vsync_win_dwm::VSyncWinDwm;
 pub use vsync_win_swap_chain::VSyncWinSwapChain;
 
 #[cfg(target_os = "macos")]
-pub use vsync_macos::VSyncMacos;
+pub use vsync_macos_display_link::VSyncMacosDisplayLink;
 
 #[allow(dead_code)]
 pub enum VSync {
@@ -33,7 +33,9 @@ pub enum VSync {
     #[cfg(target_os = "windows")]
     WindowsSwapChain(VSyncWinSwapChain),
     #[cfg(target_os = "macos")]
-    Macos(VSyncMacos),
+    MacosDisplayLink(VSyncMacosDisplayLink),
+    #[cfg(target_os = "macos")]
+    MacosMetal(),
 }
 
 impl VSync {
@@ -57,7 +59,7 @@ impl VSync {
             #[cfg(target_os = "windows")]
             VSync::WindowsSwapChain(vsync) => vsync.wait_for_vsync(),
             #[cfg(target_os = "macos")]
-            VSync::Macos(vsync) => vsync.wait_for_vsync(),
+            VSync::MacosDisplayLink(vsync) => vsync.wait_for_vsync(),
             _ => {}
         }
     }
@@ -70,7 +72,7 @@ impl VSync {
         );
 
         #[cfg(target_os = "macos")]
-        return matches!(self, VSync::WinitThrottling() | VSync::Macos(..));
+        return matches!(self, VSync::WinitThrottling() | VSync::MacosDisplayLink(..));
 
         #[cfg(target_os = "linux")]
         return matches!(self, VSync::WinitThrottling());
@@ -79,7 +81,7 @@ impl VSync {
     pub fn update(&mut self, #[allow(unused_variables)] window: &Window) {
         match self {
             #[cfg(target_os = "macos")]
-            VSync::Macos(vsync) => vsync.update(window),
+            VSync::MacosDisplayLink(vsync) => vsync.update(window),
             _ => {}
         }
     }
@@ -109,7 +111,7 @@ impl VSync {
             #[cfg(target_os = "windows")]
             VSync::WindowsSwapChain(vsync) => vsync.request_redraw(),
             #[cfg(target_os = "macos")]
-            VSync::Macos(vsync) => vsync.request_redraw(),
+            VSync::MacosDisplayLink(vsync) => vsync.request_redraw(),
             _ => {}
         }
     }

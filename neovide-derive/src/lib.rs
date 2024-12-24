@@ -130,10 +130,12 @@ fn struct_stream(name: Ident, prefix: String, data: &DataStruct) -> TokenStream 
 
 fn setting_prefix(attrs: &[Attribute]) -> Option<String> {
     for attr in attrs.iter() {
-        if let Ok(Meta::NameValue(name_value)) = attr.parse_meta() {
-            if name_value.path.is_ident("setting_prefix") {
-                if let Lit::Str(literal) = name_value.lit {
-                    return Some(literal.value());
+        if let Meta::NameValue(name_value) = &attr.meta {
+            if attr.path().is_ident("setting_prefix") {
+                if let syn::Expr::Lit(expr) = &name_value.value {
+                    if let Lit::Str(literal) = &expr.lit {
+                        return Some(literal.value());
+                    }
                 }
             }
         }
@@ -143,13 +145,15 @@ fn setting_prefix(attrs: &[Attribute]) -> Option<String> {
 
 fn option(field: &Field) -> Result<Option<String>, Error> {
     for attr in field.attrs.iter() {
-        if !attr.path.is_ident("option") {
+        if !attr.path().is_ident("option") {
             continue;
         }
 
-        if let Ok(Meta::NameValue(name_value)) = attr.parse_meta() {
-            if let Lit::Str(literal) = name_value.lit {
-                return Ok(Some(literal.value()));
+        if let Meta::NameValue(name_value) = &attr.meta {
+            if let syn::Expr::Lit(expr) = &name_value.value {
+                if let Lit::Str(literal) = &expr.lit {
+                    return Ok(Some(literal.value()));
+                }
             }
         }
         return Err(Error::new_spanned(

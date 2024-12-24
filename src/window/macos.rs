@@ -1,31 +1,34 @@
-use icrate::{
-    AppKit::{
-        NSApplication, NSColor, NSEvent, NSEventModifierFlagCommand, NSEventModifierFlagControl,
-        NSEventModifierFlagOption, NSMenu, NSMenuItem, NSView, NSViewMinYMargin,
-        NSViewWidthSizable, NSWindow, NSWindowStyleMaskFullScreen, NSWindowStyleMaskTitled,
-        NSWindowTabbingModeDisallowed,
-    },
-    Foundation::{MainThreadMarker, NSObject, NSPoint, NSProcessInfo, NSRect, NSSize, NSString},
-};
+use std::{os::raw::c_void, str};
+
 use objc2::{
-    declare_class, msg_send_id,
-    mutability::InteriorMutable,
-    rc::Id,
-    runtime::{AnyClass, AnyObject},
-    sel, ClassType,
+    declare_class, msg_send, msg_send_id, mutability,
+    rc::{autoreleasepool, Retained},
+    runtime::{AnyClass, AnyObject, ClassBuilder},
+    sel, ClassType, DeclaredClass,
+};
+use objc2_app_kit::{
+    NSApplication, NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventModifierFlags, NSImage,
+    NSMenu, NSMenuItem, NSView, NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
+};
+use objc2_foundation::{
+    ns_string, MainThreadMarker, NSArray, NSData, NSDictionary, NSObject, NSPoint, NSProcessInfo,
+    NSRect, NSSize, NSString, NSUserDefaults,
 };
 
 use csscolorparser::Color;
-use raw_window_handle::{HasRawWindowHandle, RawWindowHandle};
-use winit::event::{Event, WindowEvent};
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
 use crate::bridge::{send_ui, ParallelCommand};
-use crate::{
-    cmd_line::CmdLineSettings, error_msg, frame::Frame, settings::SETTINGS, window::UserEvent,
-};
+use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame, settings::SETTINGS};
 
 use super::{WindowSettings, WindowSettingsChanged};
+
+static NEOVIDE_ICON_PATH: &[u8] =
+    include_bytes!("../../extra/osx/Neovide.app/Contents/resources/Neovide.icns");
+
+#[derive(Clone)]
+struct TitlebarClickHandlerIvars {}
 
 declare_class!(
     // A view to simulate the double-click-to-zoom effect for `--frame transparency`.
@@ -34,8 +37,12 @@ declare_class!(
 
     unsafe impl ClassType for TitlebarClickHandler {
         type Super = NSView;
-        type Mutability = InteriorMutable;
+        type Mutability = mutability::MainThreadOnly;
         const NAME: &'static str = "TitlebarClickHandler";
+    }
+
+    impl DeclaredClass for TitlebarClickHandler {
+        type Ivars = TitlebarClickHandlerIvars;
     }
 
     unsafe impl TitlebarClickHandler {
@@ -49,42 +56,71 @@ declare_class!(
 );
 
 impl TitlebarClickHandler {
-    pub fn new(_mtm: MainThreadMarker) -> Id<TitlebarClickHandler> {
-        unsafe { msg_send_id![Self::alloc(), init] }
+    fn new(mtm: MainThreadMarker) -> Retained<TitlebarClickHandler> {
+        unsafe { msg_send_id![mtm.alloc(), init] }
     }
 }
 
-lazy_static! {
-    // This height is in dpi-independent length, convert it to pixel length by multiplying it with scale factor.
-    static ref TITLEBAR_HEIGHT: f64 = MacosWindowFeature::titlebar_height();
+pub fn get_ns_window(window: &Window) -> Retained<NSWindow> {
+    match window
+        .window_handle()
+        .expect("Failed to fetch window handle")
+        .as_raw()
+    {
+        RawWindowHandle::AppKit(handle) => {
+            let ns_view: Retained<NSView> = unsafe {
+                Retained::retain(handle.ns_view.as_ptr().cast())
+                    .expect("Failed to get NSView instance.")
+            };
+            ns_view
+                .window()
+                .expect("NSView was not installed in a window")
+        }
+        _ => panic!("Not an AppKit window"),
+    }
+}
+
+pub fn load_neovide_icon() -> Option<Retained<NSImage>> {
+    unsafe {
+        let data = NSData::dataWithBytes_length(
+            NEOVIDE_ICON_PATH.as_ptr() as *mut c_void,
+            NEOVIDE_ICON_PATH.len(),
+        );
+
+        let icon_image: Option<Retained<NSImage>> =
+            NSImage::initWithData(NSImage::alloc(), data.as_ref());
+
+        icon_image
+    }
 }
 
 #[derive(Debug)]
 pub struct MacosWindowFeature {
-    ns_window: Id<NSWindow>,
-    titlebar_click_handler: Option<Id<TitlebarClickHandler>>,
+    ns_window: Retained<NSWindow>,
+    system_titlebar_height: f64,
+    titlebar_click_handler: Option<Retained<TitlebarClickHandler>>,
     // Extra titlebar height in --frame transparency. 0 in other cases.
     extra_titlebar_height_in_pixel: u32,
     is_fullscreen: bool,
+    menu: Option<Menu>,
 }
 
 impl MacosWindowFeature {
-    pub fn from_winit_window(window: &Window, mtm: MainThreadMarker) -> MacosWindowFeature {
-        let ns_window = match window.raw_window_handle() {
-            RawWindowHandle::AppKit(handle) => unsafe {
-                Id::retain(handle.ns_window as *mut NSWindow).unwrap()
-            },
-            _ => panic!("Not an appkit window."),
-        };
+    pub fn from_winit_window(window: &Window) -> MacosWindowFeature {
+        let mtm =
+            MainThreadMarker::new().expect("MacosWindowFeature must be created in main thread.");
+
+        let system_titlebar_height = Self::system_titlebar_height(mtm);
+
+        let ns_window = get_ns_window(window);
+
         // Disallow tabbing mode to prevent the window from being tabbed.
-        unsafe {
-            ns_window.setTabbingMode(NSWindowTabbingModeDisallowed);
-        }
+        ns_window.setTabbingMode(NSWindowTabbingMode::Disallowed);
 
         let mut extra_titlebar_height_in_pixel: u32 = 0;
 
         let frame = SETTINGS.get::<CmdLineSettings>().frame;
-        let titlebar_click_handler: Option<Id<TitlebarClickHandler>> = match frame {
+        let titlebar_click_handler: Option<Retained<TitlebarClickHandler>> = match frame {
             Frame::Transparent => unsafe {
                 let titlebar_click_handler = TitlebarClickHandler::new(mtm);
 
@@ -95,29 +131,36 @@ impl MacosWindowFeature {
                 // Set the initial size of titlebar_click_handler.
                 let content_view_size = content_view.frame().size;
                 titlebar_click_handler.setFrame(NSRect::new(
-                    NSPoint::new(0., content_view_size.height - *TITLEBAR_HEIGHT),
-                    NSSize::new(content_view_size.width, *TITLEBAR_HEIGHT),
+                    NSPoint::new(0., content_view_size.height - system_titlebar_height),
+                    NSSize::new(content_view_size.width, system_titlebar_height),
                 ));
 
                 // Setup auto layout for titlebar_click_handler.
-                titlebar_click_handler.setAutoresizingMask(NSViewWidthSizable | NSViewMinYMargin);
+                titlebar_click_handler.setAutoresizingMask(
+                    NSAutoresizingMaskOptions::NSViewWidthSizable
+                        | NSAutoresizingMaskOptions::NSViewMinYMargin,
+                );
                 titlebar_click_handler.setTranslatesAutoresizingMaskIntoConstraints(true);
 
                 extra_titlebar_height_in_pixel =
-                    Self::titlebar_height_in_pixel(window.scale_factor());
+                    Self::titlebar_height_in_pixel(system_titlebar_height, window.scale_factor());
 
                 Some(titlebar_click_handler)
             },
             _ => None,
         };
 
-        let is_fullscreen = unsafe { ns_window.styleMask() } & NSWindowStyleMaskFullScreen != 0;
+        let is_fullscreen = ns_window
+            .styleMask()
+            .contains(NSWindowStyleMask::FullScreen);
 
         let macos_window_feature = MacosWindowFeature {
             ns_window,
+            system_titlebar_height,
             titlebar_click_handler,
             extra_titlebar_height_in_pixel,
             is_fullscreen,
+            menu: None,
         };
 
         macos_window_feature.update_background(true);
@@ -126,40 +169,42 @@ impl MacosWindowFeature {
     }
 
     // Used to calculate the value of TITLEBAR_HEIGHT, aka, titlebar height in dpi-independent length.
-    fn titlebar_height() -> f64 {
+    fn system_titlebar_height(mtm: MainThreadMarker) -> f64 {
         // Do a test to calculate this.
-        unsafe {
-            let mock_content_rect = NSRect::new(NSPoint::new(100., 100.), NSSize::new(100., 100.));
-            let frame_rect = NSWindow::frameRectForContentRect_styleMask(
+        let mock_content_rect = NSRect::new(NSPoint::new(100., 100.), NSSize::new(100., 100.));
+        let frame_rect = unsafe {
+            NSWindow::frameRectForContentRect_styleMask(
                 mock_content_rect,
-                NSWindowStyleMaskTitled,
-            );
-            frame_rect.size.height - mock_content_rect.size.height
-        }
+                NSWindowStyleMask::Titled,
+                mtm,
+            )
+        };
+        frame_rect.size.height - mock_content_rect.size.height
     }
 
-    fn titlebar_height_in_pixel(scale_factor: f64) -> u32 {
-        (*TITLEBAR_HEIGHT * scale_factor) as u32
+    fn titlebar_height_in_pixel(system_titlebar_height: f64, scale_factor: f64) -> u32 {
+        (system_titlebar_height * scale_factor) as u32
     }
 
     pub fn handle_scale_factor_update(&mut self, scale_factor: f64) {
         // If 0, there needs no extra height.
         if self.extra_titlebar_height_in_pixel != 0 {
-            self.extra_titlebar_height_in_pixel = Self::titlebar_height_in_pixel(scale_factor);
+            self.extra_titlebar_height_in_pixel =
+                Self::titlebar_height_in_pixel(self.system_titlebar_height, scale_factor);
         }
     }
 
     fn set_titlebar_click_handler_visible(&self, visible: bool) {
         if let Some(titlebar_click_handler) = &self.titlebar_click_handler {
-            unsafe {
-                titlebar_click_handler.setHidden(!visible);
-            }
+            titlebar_click_handler.setHidden(!visible);
         }
     }
 
     pub fn handle_size_changed(&mut self) {
-        let is_fullscreen =
-            unsafe { self.ns_window.styleMask() } & NSWindowStyleMaskFullScreen != 0;
+        let is_fullscreen = self
+            .ns_window
+            .styleMask()
+            .contains(NSWindowStyleMask::FullScreen);
         if is_fullscreen != self.is_fullscreen {
             self.is_fullscreen = is_fullscreen;
             self.set_titlebar_click_handler_visible(!is_fullscreen);
@@ -176,7 +221,7 @@ impl MacosWindowFeature {
     }
 
     /// Print a deprecation warning for `neovide_background_color`
-    pub fn display_deprecation_warning(&self) {
+    fn display_deprecation_warning(&self) {
         error_msg!(concat!(
             "neovide_background_color has now been deprecated. ",
             "Use neovide_transparency instead if you want to get a transparent window titlebar. ",
@@ -196,7 +241,12 @@ impl MacosWindowFeature {
         let [red, green, blue, alpha] = color.to_array();
         unsafe {
             let opaque = alpha >= 1.0;
-            let ns_background = NSColor::colorWithSRGBRed_green_blue_alpha(red, green, blue, alpha);
+            let ns_background = NSColor::colorWithSRGBRed_green_blue_alpha(
+                red.into(),
+                green.into(),
+                blue.into(),
+                alpha.into(),
+            );
             self.ns_window.setBackgroundColor(Some(&ns_background));
             // If the shadow is enabled and the background color is not transparent, the window will have a grey border
             // Workaround: Disable shadow when `show_border` is false
@@ -261,15 +311,39 @@ impl MacosWindowFeature {
             _ => {}
         }
     }
+
+    /// Create the application menu and grab initial focus.
+    pub fn ensure_app_initialized(&mut self) {
+        let mtm = MainThreadMarker::new().expect("Menu must be created on the main thread");
+        if self.menu.is_none() {
+            self.menu = Some(Menu::new(mtm));
+            let app = NSApplication::sharedApplication(mtm);
+            #[allow(deprecated)]
+            app.activateIgnoringOtherApps(true);
+
+            // Make sure the icon is loaded when launched from terminal
+            let icon = load_neovide_icon();
+            let icon_ref: Option<&NSImage> = icon.as_ref().map(|img| img.as_ref());
+            unsafe { app.setApplicationIconImage(icon_ref) }
+        }
+    }
 }
 
+#[derive(Clone)]
+struct QuitHandlerIvars {}
+
 declare_class!(
+    #[derive(Debug)]
     struct QuitHandler;
 
     unsafe impl ClassType for QuitHandler {
         type Super = NSObject;
-        type Mutability = InteriorMutable;
+        type Mutability = mutability::MainThreadOnly;
         const NAME: &'static str = "QuitHandler";
+    }
+
+    impl DeclaredClass for QuitHandler {
+        type Ivars = QuitHandlerIvars;
     }
 
     unsafe impl QuitHandler {
@@ -281,82 +355,71 @@ declare_class!(
 );
 
 impl QuitHandler {
-    pub fn new(_mtm: MainThreadMarker) -> Id<QuitHandler> {
-        unsafe { msg_send_id![Self::alloc(), init] }
+    fn new(mtm: MainThreadMarker) -> Retained<QuitHandler> {
+        unsafe { msg_send_id![mtm.alloc(), init] }
     }
 }
 
-pub struct Menu {
-    menu_added: bool,
-    quit_handler: Id<QuitHandler>,
+#[derive(Debug)]
+struct Menu {
+    quit_handler: Retained<QuitHandler>,
 }
 
 impl Menu {
-    pub fn new(mtm: MainThreadMarker) -> Self {
-        Menu {
-            menu_added: false,
+    fn new(mtm: MainThreadMarker) -> Self {
+        let menu = Menu {
             quit_handler: QuitHandler::new(mtm),
-        }
-    }
-    pub fn ensure_menu_added(&mut self, ev: &Event<UserEvent>) {
-        if let Event::WindowEvent {
-            event: WindowEvent::Focused(_),
-            ..
-        } = ev
-        {
-            if !self.menu_added {
-                self.add_menus();
-                self.menu_added = true;
-            }
-        }
+        };
+        menu.add_menus(mtm);
+        menu
     }
 
-    fn add_app_menu(&self) -> Id<NSMenu> {
+    fn add_app_menu(&self, mtm: MainThreadMarker) -> Retained<NSMenu> {
         unsafe {
-            let app_menu = NSMenu::new();
+            let app_menu = NSMenu::new(mtm);
             let process_name = NSProcessInfo::processInfo().processName();
-            let about_item = NSMenuItem::new();
-            about_item
-                .setTitle(&NSString::from_str("About ").stringByAppendingString(&process_name));
+            let about_item = NSMenuItem::new(mtm);
+            about_item.setTitle(&ns_string!("About ").stringByAppendingString(&process_name));
             about_item.setAction(Some(sel!(orderFrontStandardAboutPanel:)));
             app_menu.addItem(&about_item);
 
-            let services_item = NSMenuItem::new();
-            let services_menu = NSMenu::new();
-            services_item.setTitle(&NSString::from_str("Services"));
+            let services_item = NSMenuItem::new(mtm);
+            let services_menu = NSMenu::new(mtm);
+            services_item.setTitle(ns_string!("Services"));
             services_item.setSubmenu(Some(&services_menu));
             app_menu.addItem(&services_item);
 
-            let sep = NSMenuItem::separatorItem();
+            let sep = NSMenuItem::separatorItem(mtm);
             app_menu.addItem(&sep);
 
             // application window operations
-            let hide_item = NSMenuItem::new();
-            hide_item.setTitle(&NSString::from_str("Hide ").stringByAppendingString(&process_name));
-            hide_item.setKeyEquivalent(&NSString::from_str("h"));
+            let hide_item = NSMenuItem::new(mtm);
+            hide_item.setTitle(&ns_string!("Hide ").stringByAppendingString(&process_name));
+            hide_item.setKeyEquivalent(ns_string!("h"));
             hide_item.setAction(Some(sel!(hide:)));
             app_menu.addItem(&hide_item);
 
-            let hide_others_item = NSMenuItem::new();
-            hide_others_item.setTitle(&NSString::from_str("Hide Others"));
-            hide_others_item.setKeyEquivalent(&NSString::from_str("h"));
+            let hide_others_item = NSMenuItem::new(mtm);
+            hide_others_item.setTitle(ns_string!("Hide Others"));
+            hide_others_item.setKeyEquivalent(ns_string!("h"));
             hide_others_item.setKeyEquivalentModifierMask(
-                NSEventModifierFlagOption | NSEventModifierFlagCommand,
+                NSEventModifierFlags::NSEventModifierFlagOption
+                    | NSEventModifierFlags::NSEventModifierFlagCommand,
             );
             hide_others_item.setAction(Some(sel!(hideOtherApplications:)));
             app_menu.addItem(&hide_others_item);
 
-            let show_all_item = NSMenuItem::new();
-            show_all_item.setTitle(&NSString::from_str("Show All"));
+            let show_all_item = NSMenuItem::new(mtm);
+            show_all_item.setTitle(ns_string!("Show All"));
             show_all_item.setAction(Some(sel!(unhideAllApplications:)));
 
             // quit
-            let sep = NSMenuItem::separatorItem();
+            let sep = NSMenuItem::separatorItem(mtm);
             app_menu.addItem(&sep);
 
-            let quit_item = NSMenuItem::new();
-            quit_item.setTitle(&NSString::from_str("Quit ").stringByAppendingString(&process_name));
-            quit_item.setKeyEquivalent(&NSString::from_str("q"));
+            let quit_item = NSMenuItem::new(mtm);
+            quit_item.setTitle(&ns_string!("Quit ").stringByAppendingString(&process_name));
+            quit_item.setKeyEquivalent(ns_string!("q"));
             quit_item.setAction(Some(sel!(quit:)));
             quit_item.setTarget(Some(&self.quit_handler));
             app_menu.addItem(&quit_item);
@@ -365,48 +428,47 @@ impl Menu {
         }
     }
 
-    fn add_menus(&self) {
-        let app = unsafe { NSApplication::sharedApplication() };
+    fn add_menus(&self, mtm: MainThreadMarker) {
+        let app = NSApplication::sharedApplication(mtm);
 
-        let main_menu = unsafe { NSMenu::new() };
+        let main_menu = NSMenu::new(mtm);
 
         unsafe {
-            let app_menu = self.add_app_menu();
-            let app_menu_item = NSMenuItem::new();
+            let app_menu = self.add_app_menu(mtm);
+            let app_menu_item = NSMenuItem::new(mtm);
             app_menu_item.setSubmenu(Some(&app_menu));
-            if let Some(services_menu) = app_menu.itemWithTitle(&NSString::from_str("Services")) {
+            if let Some(services_menu) = app_menu.itemWithTitle(ns_string!("Services")) {
                 app.setServicesMenu(services_menu.submenu().as_deref());
             }
             main_menu.addItem(&app_menu_item);
 
-            let win_menu = self.add_window_menu();
-            let win_menu_item = NSMenuItem::new();
+            let win_menu = self.add_window_menu(mtm);
+            let win_menu_item = NSMenuItem::new(mtm);
             win_menu_item.setSubmenu(Some(&win_menu));
             main_menu.addItem(&win_menu_item);
             app.setWindowsMenu(Some(&win_menu));
         }
-
-        unsafe { app.setMainMenu(Some(&main_menu)) };
+        app.setMainMenu(Some(&main_menu));
     }
 
-    fn add_window_menu(&self) -> Id<NSMenu> {
-        let menu_title = NSString::from_str("Window");
+    fn add_window_menu(&self, mtm: MainThreadMarker) -> Retained<NSMenu> {
         unsafe {
-            let menu = NSMenu::new();
-            menu.setTitle(&menu_title);
+            let menu = NSMenu::new(mtm);
+            menu.setTitle(ns_string!("Window"));
 
-            let full_screen_item = NSMenuItem::new();
-            full_screen_item.setTitle(&NSString::from_str("Enter Full Screen"));
-            full_screen_item.setKeyEquivalent(&NSString::from_str("f"));
+            let full_screen_item = NSMenuItem::new(mtm);
+            full_screen_item.setTitle(ns_string!("Enter Full Screen"));
+            full_screen_item.setKeyEquivalent(ns_string!("f"));
             full_screen_item.setAction(Some(sel!(toggleFullScreen:)));
             full_screen_item.setKeyEquivalentModifierMask(
-                NSEventModifierFlagControl | NSEventModifierFlagCommand,
+                NSEventModifierFlags::NSEventModifierFlagControl
+                    | NSEventModifierFlags::NSEventModifierFlagCommand,
             );
             menu.addItem(&full_screen_item);
 
-            let min_item = NSMenuItem::new();
-            min_item.setTitle(&NSString::from_str("Minimize"));
-            min_item.setKeyEquivalent(&NSString::from_str("m"));
+            let min_item = NSMenuItem::new(mtm);
+            min_item.setTitle(ns_string!("Minimize"));
+            min_item.setKeyEquivalent(ns_string!("m"));
             min_item.setAction(Some(sel!(performMiniaturize:)));
             menu.addItem(&min_item);
             menu
@@ -415,13 +477,11 @@ impl Menu {
 }
 
 pub fn register_file_handler() {
-    use objc2::rc::autoreleasepool;
-
-    extern "C" fn handle_open_files(
+    unsafe extern "C" fn handle_open_files(
         _this: &mut AnyObject,
         _sel: objc2::runtime::Sel,
         _sender: &objc2::runtime::AnyObject,
-        files: &mut icrate::Foundation::NSArray<icrate::Foundation::NSString>,
+        files: &mut NSArray<NSString>,
     ) {
         autoreleasepool(|pool| {
             for file in files.iter() {
@@ -431,11 +491,10 @@ pub fn register_file_handler() {
         });
     }
 
-    unsafe {
-        use objc2::declare::ClassBuilder;
-        use objc2::msg_send;
+    let mtm = MainThreadMarker::new().expect("File handler must be registered on main thread.");
 
-        let app = NSApplication::sharedApplication();
+    unsafe {
+        let app = NSApplication::sharedApplication(mtm);
         let delegate = app.delegate().unwrap();
 
         // Find out class of the NSApplicationDelegate
@@ -453,7 +512,14 @@ pub fn register_file_handler() {
         //  * our class is a subclass
         //  * no new ivars
         //  * overriden methods are compatible with old (we implement protocol method)
-        let delegate_obj = Id::cast::<AnyObject>(delegate);
+        let delegate_obj = Retained::cast::<AnyObject>(delegate);
         AnyObject::set_class(&delegate_obj, class);
+
+        // Prevent AppKit from interpreting our command line.
+        let key = NSString::from_str("NSTreatUnknownArgumentsAsOpen");
+        let keys = vec![key.as_ref()];
+        let objects = vec![Retained::cast::<AnyObject>(NSString::from_str("NO"))];
+        let dict = NSDictionary::from_vec(&keys, objects);
+        NSUserDefaults::standardUserDefaults().registerDefaults(dict.as_ref());
     }
 }

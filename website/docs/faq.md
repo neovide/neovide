@@ -152,3 +152,18 @@ configuring it to only be enabled in insert mode. See
 Winit looks in multiple locations for the configured dpi.
 Make sure its set in at least one of them. More details
 here: [#2010](https://github.com/neovide/neovide/issues/2010#issuecomment-1704416685).
+
+## How to turn off all animations?
+
+Animations can be turned off by setting the following global
+variables:
+
+```lua
+vim.g.neovide_position_animation_length = 0
+vim.g.neovide_cursor_animation_length = 0.00
+vim.g.neovide_cursor_trail_size = 0
+vim.g.neovide_cursor_animate_in_insert_mode = false
+vim.g.neovide_cursor_animate_command_line = false
+vim.g.neovide_scroll_animation_far_lines = 0
+vim.g.neovide_scroll_animation_length = 0.00
+```

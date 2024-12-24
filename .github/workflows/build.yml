@@ -9,14 +9,14 @@ on:
   workflow_dispatch:
   # Always run on pull requests
   pull_request:
-  # And on master when manually pushed or after merges
+    # And on `main` when manually pushed or after merges
     paths-ignore:
       - "website/**"
       - ".vscode/**"
       - "**.md"
   push:
     branches:
-      main
+      - main
     paths-ignore:
       - "website/**"
       - ".vscode/**"
@@ -24,6 +24,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  MACOSX_DEPLOYMENT_TARGET: 10.11
 
 defaults:
   run:
@@ -37,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macOS-12, ubuntu-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest]
         toolchain: [stable, nightly]
     runs-on: ${{ matrix.os }}
 
@@ -87,7 +88,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, macOS-12, ubuntu-latest]
+        os: [windows-latest, macos-latest, ubuntu-latest]
         toolchain: [stable, nightly]
     runs-on: ${{ matrix.os }}
 
@@ -124,7 +125,7 @@ jobs:
       fail-fast: false
       matrix:
         # NOTE: Should use the oldest available Ubuntu release, for maximum compatibility
-        os: [windows-latest, macOS-12, ubuntu-20.04]
+        os: [windows-latest, macos-latest, ubuntu-20.04]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -138,24 +139,31 @@ jobs:
       - name: Install Cargo Binstall
         uses: cargo-bins/cargo-binstall@main
 
-      - name: Install dependencies
+      - name: Install dependencies (Windows)
+        if: matrix.os == 'windows-latest'
         run: |
-          if [[ $RUNNER_OS == "Windows" ]]; then
-            if ! which cargo-wix; then cargo binstall -y cargo-wix; fi
+          if ! which cargo-wix; then cargo binstall -y cargo-wix; fi
 
-          elif [[ $RUNNER_OS == "macOS" ]]; then
-            rustup target add x86_64-apple-darwin
-            rustup target add aarch64-apple-darwin
-            if ! which cargo-bundle; then cargo binstall -y cargo-bundle; fi
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          curl -L -o create-dmg.tar.gz https://github.com/create-dmg/create-dmg/archive/refs/tags/v1.2.2.tar.gz
+          tar -xzf create-dmg.tar.gz
+          cd create-dmg-1.2.2
+          sudo make install
+          cd ..
+          rustup target add x86_64-apple-darwin
+          rustup target add aarch64-apple-darwin
 
-          elif [[ $RUNNER_OS == "Linux" ]]; then
-            sudo apt-get update
-            sudo apt-get -qq install -y \
-              curl gnupg ca-certificates git gcc-multilib g++-multilib cmake \
-              libssl-dev pkg-config libfreetype6-dev libasound2-dev \
-              libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev \
-              libxi-dev libfuse2 appstream
-          fi
+      - name: Install dependencies (Linux)
+        if: matrix.os == 'ubuntu-20.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get -qq install -y \
+            curl gnupg ca-certificates git gcc-multilib g++-multilib cmake \
+            libssl-dev pkg-config libfreetype6-dev libasound2-dev \
+            libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev \
+            libxi-dev libfuse2 appstream
 
       - name: Install neovim
         uses: rhysd/action-setup-vim@v1
@@ -164,76 +172,190 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Build
+      - name: Build (Windows)
+        if: matrix.os == 'windows-latest'
+        run: cargo wix --output target/release/neovide.msi --package neovide
+
+      - name: Build (macOS)
+        if: matrix.os == 'macos-latest'
         run: |
-          if [[ $RUNNER_OS == "Windows" ]]; then
-            cargo wix --output target/release/neovide.msi --package neovide
+          # x86
+          cargo build --locked --release --target=x86_64-apple-darwin
+          # arch
+          cargo build --locked --release --target=aarch64-apple-darwin
 
-          elif [[ $RUNNER_OS == "macOS" ]]; then
-            echo "MACOSX_DEPLOYMENT_TARGET=10.11" >> $GITHUB_ENV
-            # x86
-            cargo build --locked --release --target=x86_64-apple-darwin
-            cargo bundle --release --target=x86_64-apple-darwin
-            # arch
-            cargo build --locked --release --target=aarch64-apple-darwin
-            cargo bundle --release --target=aarch64-apple-darwin
+      - name: Build (Linux)
+        if: matrix.os == 'ubuntu-20.04'
+        run: cargo build --locked --release
 
-          elif [[ $RUNNER_OS == "Linux" ]]; then
-            cargo build --locked --release
-          fi
+      - name: create Neovide.app (macOS only)
+        if: matrix.os == 'macos-latest'
+        run: |
+          # create the .app only, fix the arguments later
+          GENERATE_BUNDLE_APP=true GENERATE_DMG=false ./macos-builder/run aarch64-apple-darwin
+          GENERATE_BUNDLE_APP=true GENERATE_DMG=false ./macos-builder/run x86_64-apple-darwin
 
-      - name: Prepare Artifacts
+      - name: Write Apple signing key to a file (macOS only)
+        if: matrix.os == 'macos-latest' && github.ref == 'refs/heads/main'
+        env:
+          APPLE_SIGNING_KEY_P12: ${{ secrets.APPLE_SIGNING_KEY_P12 }}
+        run: echo "$APPLE_SIGNING_KEY_P12" | base64 -d -o key.p12
+
+      - name: Write App Store Connect API key to a file (macOS only)
+        if: matrix.os == 'macos-latest' && github.ref == 'refs/heads/main'
+        env:
+          APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+        run: echo "$APP_STORE_CONNECT_API_KEY" > app_store_connect_api_key.json
+
+      - name: Sign Mac App binary root (aarch64-apple-darwin)
+        if: matrix.os == 'macos-latest' && github.ref == 'refs/heads/main'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/aarch64-apple-darwin/release/neovide
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
+
+      - name: Sign Mac App binary (aarch64-apple-darwin)
+        if: matrix.os == 'macos-latest' && github.ref == 'refs/heads/main'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/aarch64-apple-darwin/release/bundle/osx/Neovide.app/Contents/MacOS/neovide
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
+
+      - name: Sign Mac App .app (aarch64-apple-darwin)
+        if: matrix.os == 'macos-latest' && github.ref == 'refs/heads/main'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/aarch64-apple-darwin/release/bundle/osx/Neovide.app
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
+
+      - name: Sign Mac App binary root (x86_64-apple-darwin)
+        if: matrix.os == 'macos-latest' && github.ref == 'refs/heads/main'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/x86_64-apple-darwin/release/neovide
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
+
+      - name: Sign Mac App binary (x86_64-apple-darwin)
+        if: matrix.os == 'macos-latest' && github.ref == 'refs/heads/main'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/x86_64-apple-darwin/release/bundle/osx/Neovide.app/Contents/MacOS/neovide
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
+
+      - name: Sign Mac App .app (x86_64-apple-darwin)
+        if: matrix.os == 'macos-latest' && github.ref == 'refs/heads/main'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/x86_64-apple-darwin/release/bundle/osx/Neovide.app
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
+
+      - name: Prepare Artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          echo "ARTIFACT=neovide.exe" >> $GITHUB_ENV
+          echo "ARTIFACT2=neovide.msi" >> $GITHUB_ENV
+
+      - name: Prepare Artifacts (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd $GITHUB_WORKSPACE
+          # create .dmg for x86_64-apple-darwin
+          GENERATE_BUNDLE_APP=false GENERATE_DMG=true ./macos-builder/run x86_64-apple-darwin
+
+          # create .dmg for aarch64-apple-darwin
+          GENERATE_BUNDLE_APP=false GENERATE_DMG=true ./macos-builder/run aarch64-apple-darwin
+
+          echo "ARTIFACT4=Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
+          echo "ARTIFACT5=Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV
+
+      - name: Prepare Artifacts (Linux)
+        if: matrix.os == 'ubuntu-20.04'
         run: |
           cd target/release
+          # archive artifact
+          strip neovide
+          tar czvf neovide-linux-x86_64.tar.gz neovide
+          # create appimage
+          curl -Lo linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/latest/download/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy
+          curl -Lo linuxdeploy-plugin-appimage https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/latest/download/linuxdeploy-plugin-appimage-x86_64.AppImage
+          chmod +x linuxdeploy-plugin-appimage
 
-          if [[ $RUNNER_OS == "Windows" ]]; then
-            echo "ARTIFACT=neovide.exe" >> $GITHUB_ENV
-            echo "ARTIFACT2=neovide.msi" >> $GITHUB_ENV
+          export LDAI_OUTPUT=neovide.AppImage
+          export LDAI_UPDATE_INFORMATION="gh-releases-zsync|neovide|neovide|latest|neovide.AppImage.zsync"
+          ./linuxdeploy \
+            --executable=neovide \
+            --desktop-file=../../assets/neovide.desktop \
+            --appdir=AppDir \
+            --icon-file=../../assets/neovide.svg \
+            --output=appimage
 
-          elif [[ $RUNNER_OS == "macOS" ]]; then
-            # merge builds
-            mkdir -p bundle/osx
-            rm -rf bundle/osx/neovide.app || true
-            cp -R ../x86_64-apple-darwin/release/bundle/osx/neovide.app \
-              bundle/osx/neovide.app
-            rm bundle/osx/neovide.app/Contents/MacOS/neovide
-            lipo ../x86_64-apple-darwin/release/bundle/osx/neovide.app/Contents/MacOS/neovide \
-              ../aarch64-apple-darwin/release/bundle/osx/neovide.app/Contents/MacOS/neovide \
-              -create -output \
-              bundle/osx/neovide.app/Contents/MacOS/neovide
-            codesign --force --deep -s - bundle/osx/neovide.app
-            # create .dmg
-            hdiutil create neovide-uncompressed.dmg -volname "neovide" -srcfolder bundle/osx
-            hdiutil convert neovide-uncompressed.dmg -format UDZO -o neovide.dmg
+          echo "ARTIFACT=neovide-linux-x86_64.tar.gz" >> $GITHUB_ENV
+          echo "ARTIFACT2=neovide.AppImage" >> $GITHUB_ENV
+          echo "ARTIFACT3=neovide.AppImage.zsync" >> $GITHUB_ENV
 
-            echo "ARTIFACT=neovide.dmg" >> $GITHUB_ENV
+      - name: Sign Mac App .dmg (aarch64-apple-darwin)
+        if: matrix.os == 'macos-latest' && github.ref == 'refs/heads/main'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/aarch64-apple-darwin/release/bundle/osx/Neovide-aarch64-apple-darwin.dmg
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
 
-          elif [[ $RUNNER_OS == "Linux" ]]; then
-            # archive artifact
-            strip neovide
-            tar czvf neovide-linux-x86_64.tar.gz neovide
-            # create appimage
-            curl -Lo linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/latest/download/linuxdeploy-x86_64.AppImage
-            chmod +x linuxdeploy
-            curl -Lo linuxdeploy-plugin-appimage https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/latest/download/linuxdeploy-plugin-appimage-x86_64.AppImage
-            chmod +x linuxdeploy-plugin-appimage
+      - name: Sign Mac App .dmg (x86_64-apple-darwin)
+        if: matrix.os == 'macos-latest' && github.ref == 'refs/heads/main'
+        uses: indygreg/apple-code-sign-action@v1
+        with:
+          input_path: target/x86_64-apple-darwin/release/bundle/osx/Neovide-x86_64-apple-darwin.dmg
+          p12_file: key.p12
+          p12_password: ${{ secrets.APPLE_SIGNING_KEY_PASSWORD }}
+          sign: true
+          sign_args: "--code-signature-flags=runtime"
 
-            export LDAI_OUTPUT=neovide.AppImage
-            export LDAI_UPDATE_INFORMATION="gh-releases-zsync|neovide|neovide|latest|neovide.AppImage.zsync"
-            ./linuxdeploy \
-              --executable=neovide \
-              --desktop-file=../../assets/neovide.desktop \
-              --appdir=AppDir \
-              --icon-file=../../assets/neovide.svg \
-              --output=appimage
+      - name: Notarize signed macOS (aarch64-apple-darwin)
+        if: matrix.os == 'macos-latest' && github.ref == 'refs/heads/main'
+        uses: indygreg/apple-code-sign-action@v1
+        continue-on-error: true
+        with:
+          input_path: target/aarch64-apple-darwin/release/bundle/osx/Neovide-aarch64-apple-darwin.dmg
+          sign: false
+          notarize: true
+          staple: true
+          app_store_connect_api_key_json_file: app_store_connect_api_key.json
 
+      - name: Notarize signed macOS (x86_64-apple-darwin)
+        if: matrix.os == 'macos-latest' && github.ref == 'refs/heads/main'
+        uses: indygreg/apple-code-sign-action@v1
+        continue-on-error: true
+        with:
+          input_path: target/x86_64-apple-darwin/release/bundle/osx/Neovide-x86_64-apple-darwin.dmg
+          sign: false
+          notarize: true
+          staple: true
+          app_store_connect_api_key_json_file: app_store_connect_api_key.json
 
-            echo "ARTIFACT=neovide-linux-x86_64.tar.gz" >> $GITHUB_ENV
-            echo "ARTIFACT2=neovide.AppImage" >> $GITHUB_ENV
-            echo "ARTIFACT3=neovide.AppImage.zsync" >> $GITHUB_ENV
-          fi
-
-      - uses: actions/upload-artifact@v4
+      - if: env.ARTIFACT
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT }}
           path: target/release/${{ env.ARTIFACT }}
@@ -249,3 +371,15 @@ jobs:
         with:
           name: ${{ env.ARTIFACT3 }}
           path: target/release/${{ env.ARTIFACT3 }}
+
+      - if: env.ARTIFACT4
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT4 }}
+          path: target/x86_64-apple-darwin/release/bundle/osx/${{ env.ARTIFACT4 }}
+
+      - if: env.ARTIFACT5
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT5 }}
+          path: target/aarch64-apple-darwin/release/bundle/osx/${{ env.ARTIFACT5 }}

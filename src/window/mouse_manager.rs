@@ -10,6 +10,8 @@ use winit::{
     window::Window,
 };
 
+use glamour::Contains;
+
 use crate::{
     bridge::{send_ui, SerialCommand},
     renderer::{Renderer, WindowDrawDetails},
@@ -25,9 +27,9 @@ fn clamp_position(
     grid_scale: GridScale,
 ) -> PixelPos<f32> {
     let min = region.min;
-    let max = region.max - grid_scale.0;
+    let max = region.max - GridPos::new(1.0, 1.0) * grid_scale;
 
-    position.clamp(min, max)
+    position.clamp(min, max.into())
 }
 
 fn mouse_button_to_button_text(mouse_button: MouseButton) -> Option<String> {
@@ -82,9 +84,9 @@ impl MouseManager {
         MouseManager {
             drag_details: None,
             has_moved: false,
-            window_position: PixelPos::origin(),
-            grid_position: GridPos::origin(),
-            scroll_position: GridPos::<f32>::origin(),
+            window_position: PixelPos::default(),
+            grid_position: GridPos::default(),
+            scroll_position: GridPos::default(),
             touch_position: HashMap::new(),
             mouse_hidden: false,
             enabled: true,
@@ -102,7 +104,7 @@ impl MouseManager {
         editor_state
             .window_regions
             .iter()
-            .filter(|details| details.region.contains(position))
+            .filter(|details| details.region.contains(&position))
             .last()
     }
 
@@ -122,14 +124,15 @@ impl MouseManager {
         (relative_position / *editor_state.grid_scale)
             .floor()
             .max((0.0, 0.0).into())
-            .cast()
+            .try_cast()
+            .unwrap()
     }
 
     fn handle_pointer_motion(&mut self, position: PixelPos<f32>, editor_state: &EditorState) {
         let window_size = editor_state.window.inner_size();
         let window_size = PixelSize::new(window_size.width as f32, window_size.height as f32);
         let relative_window_rect = PixelRect::from_size(window_size);
-        if !relative_window_rect.contains(position) {
+        if !relative_window_rect.contains(&position) {
             return;
         }
 
@@ -240,11 +243,13 @@ impl MouseManager {
         }
 
         let draw_details = self.get_window_details_under_mouse(editor_state);
-        let grid_id = draw_details.map(|details| details.id).unwrap_or(0);
+        let grid_id = draw_details
+            .map(|details| details.event_grid_id())
+            .unwrap_or(0);
 
-        let previous: GridPos<i32> = self.scroll_position.floor().cast().cast_unit();
+        let previous: GridPos<i32> = self.scroll_position.floor().try_cast().unwrap();
         self.scroll_position += amount;
-        let new: GridPos<i32> = self.scroll_position.floor().cast().cast_unit();
+        let new: GridPos<i32> = self.scroll_position.floor().try_cast().unwrap();
 
         let vertical_input_type = match new.y.partial_cmp(&previous.y) {
             Some(Ordering::Greater) => Some("up"),

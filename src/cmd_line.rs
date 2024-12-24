@@ -7,6 +7,7 @@ use clap::{
     builder::{styling, FalseyValueParser, Styles},
     ArgAction, Parser,
 };
+use winit::window::CursorIcon;
 #[cfg(target_os = "windows")]
 use wslpath_rs::windows_to_wsl;
 
@@ -62,6 +63,14 @@ pub struct CmdLineSettings {
     /// Disable the Multigrid extension (disables smooth scrolling, window animations, and floating blur)
     #[arg(long = "no-multigrid", env = "NEOVIDE_NO_MULTIGRID", value_parser = FalseyValueParser::new())]
     pub no_multi_grid: bool,
+
+    /// Which mouse cursor icon to use
+    #[arg(
+        long = "mouse-cursor-icon",
+        env = "NEOVIDE_MOUSE_CURSOR_ICON",
+        default_value = "arrow"
+    )]
+    pub mouse_cursor_icon: MouseCursorIcon,
 
     /// Sets title hidden for the window
     #[arg(long = "title-hidden", env = "NEOVIDE_TITLE_HIDDEN", value_parser = FalseyValueParser::new())]
@@ -137,8 +146,8 @@ pub struct CmdLineSettings {
     #[command(flatten)]
     pub geometry: GeometryArgs,
 
-    /// Force opengl on Windows
-    #[cfg(target_os = "windows")]
+    /// Force opengl on Windows or macOS
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     #[arg(long = "opengl", env = "NEOVIDE_OPENGL", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
     pub opengl: bool,
 }
@@ -159,6 +168,21 @@ pub struct GeometryArgs {
     /// Maximize the window on startup (not equivalent to fullscreen)
     #[arg(long, env = "NEOVIDE_MAXIMIZED", value_parser = FalseyValueParser::new())]
     pub maximized: bool,
+}
+
+#[derive(ValueEnum, Clone, Debug)]
+pub enum MouseCursorIcon {
+    Arrow,
+    IBeam,
+}
+
+impl MouseCursorIcon {
+    pub fn parse(&self) -> CursorIcon {
+        match self {
+            MouseCursorIcon::Arrow => CursorIcon::Default,
+            MouseCursorIcon::IBeam => CursorIcon::Text,
+        }
+    }
 }
 
 impl Default for CmdLineSettings {

@@ -41,25 +41,13 @@ impl Handler for NeovimHandler {
         &self,
         event_name: String,
         arguments: Vec<Value>,
-        neovim: Neovim<Self::Writer>,
+        _neovim: Neovim<Self::Writer>,
     ) -> Result<Value, Value> {
         trace!("Neovim request: {:?}", &event_name);
 
         match event_name.as_ref() {
-            "neovide.get_clipboard" => {
-                let endline_type = neovim
-                    .command_output("set ff")
-                    .await
-                    .ok()
-                    .and_then(|format| {
-                        let mut s = format.split('=');
-                        s.next();
-                        s.next().map(String::from)
-                    });
-
-                get_clipboard_contents(endline_type.as_deref(), &arguments[0])
-                    .map_err(|_| Value::from("cannot get clipboard contents"))
-            }
+            "neovide.get_clipboard" => get_clipboard_contents(&arguments[0])
+                .map_err(|_| Value::from("cannot get clipboard contents")),
             "neovide.set_clipboard" => set_clipboard_contents(&arguments[0], &arguments[1])
                 .map_err(|_| Value::from("cannot set clipboard contents")),
             "neovide.quit" => {

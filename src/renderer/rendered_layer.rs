@@ -3,8 +3,10 @@ use skia_safe::{
     canvas::SaveLayerRec,
     image_filters::blur,
     utils::shadow_utils::{draw_shadow, ShadowFlags},
-    BlendMode, Canvas, ClipOp, Color, Paint, Path, PathOp, Point3, Rect,
+    BlendMode, Canvas, ClipOp, Color, Paint, Path, PathOp, Point3, RRect, Rect,
 };
+
+use glamour::Intersection;
 
 use crate::units::{to_skia_rect, GridScale, PixelRect};
 
@@ -19,7 +21,7 @@ pub struct FloatingLayer<'w> {
     pub windows: Vec<&'w mut RenderedWindow>,
 }
 
-impl<'w> FloatingLayer<'w> {
+impl FloatingLayer<'_> {
     pub fn draw(
         &mut self,
         root_canvas: &Canvas,
@@ -32,7 +34,7 @@ impl<'w> FloatingLayer<'w> {
             .iter()
             .map(|window| window.pixel_region(grid_scale))
             .collect::<Vec<_>>();
-        let (silhouette, bound_rect) = build_silhouette(&pixel_regions);
+        let (silhouette, bound_rect) = build_silhouette(&pixel_regions, settings, grid_scale);
         let has_transparency = default_background.a() != 255
             || self.windows.iter().any(|window| window.has_transparency());
 
@@ -150,7 +152,12 @@ fn group_windows_with_regions(windows: &mut Vec<LayerWindow>, regions: &[PixelRe
         for j in i + 1..windows.len() {
             let group_i = get_window_group(windows, i);
             let group_j = get_window_group(windows, j);
-            if group_i != group_j && regions[i].inflate(epsilon, epsilon).intersects(&regions[j]) {
+            if group_i != group_j
+                && regions[i]
+                    .to_rect()
+                    .inflate((epsilon, epsilon).into())
+                    .intersects(&regions[j])
+            {
                 let new_group = group_i.min(group_j);
                 if group_i != group_j {
                     windows[group_i].group = new_group;
@@ -184,18 +191,23 @@ pub fn group_windows(
     windows.sort_by(|a, b| a.group.cmp(&b.group));
     windows
         .into_iter()
-        .group_by(|window| window.group)
+        .chunk_by(|window| window.group)
         .into_iter()
         .map(|(_, v)| v.map(|w| w.window).collect::<Vec<_>>())
         .collect_vec()
 }
 
-fn build_silhouette(regions: &[PixelRect<f32>]) -> (Path, Rect) {
+fn build_silhouette(
+    regions: &[PixelRect<f32>],
+    settings: &RendererSettings,
+    grid_scale: GridScale,
+) -> (Path, Rect) {
     let silhouette = regions
         .iter()
-        .map(|r| Path::rect(to_skia_rect(r), None))
+        .map(|r| rect_to_round_rect_path(to_skia_rect(r), settings, grid_scale))
         .reduce(|a, b| a.op(&b, PathOp::Union).unwrap())
         .unwrap();
+
     let bounding_rect = regions
         .iter()
         .map(to_skia_rect)
@@ -203,4 +215,14 @@ fn build_silhouette(regions: &[PixelRect<f32>]) -> (Path, Rect) {
         .unwrap();
 
     (silhouette, bounding_rect)
+}
+
+fn rect_to_round_rect_path(rect: Rect, settings: &RendererSettings, grid_scale: GridScale) -> Path {
+    let scaled_radius =
+        if settings.floating_corner_radius > 0.0 && settings.floating_corner_radius <= 1.0 {
+            settings.floating_corner_radius * grid_scale.height()
+        } else {
+            0.0
+        };
+    Path::rrect(RRect::new_rect_xy(rect, scaled_radius, scaled_radius), None)
 }
