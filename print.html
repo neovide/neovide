@@ -1321,24 +1321,25 @@ by command line arguments.</li>
 <li>Runtime settings. These settings can be hot-reloaded in runtime.</li>
 </ol>
 <h2 id="location"><a class="header" href="#location">Location</a></h2>
-<div class="table-wrapper"><table><thead><tr><th>Platform</th><th>Location</th></tr></thead><tbody>
-<tr><td>Linux</td><td><code>$XDG_CONFIG_HOME/neovide/config.toml</code> or <code>$HOME/.config/neovide/config.toml</code></td></tr>
-<tr><td>macOS</td><td><code>$XDG_CONFIG_HOME/neovide/config.toml</code> or <code>$HOME/.config/neovide/config.toml</code></td></tr>
-<tr><td>Windows</td><td><code>{FOLDERID_RoamingAppData}/neovide/config.toml</code></td></tr>
+<div class="table-wrapper"><table><thead><tr><th>Platform</th><th>Location</th><th>Example</th></tr></thead><tbody>
+<tr><td>Linux</td><td><code>$XDG_CONFIG_HOME/neovide/config.toml</code> or <code>$HOME/.config/neovide/config.toml</code></td><td><code>/home/alice/.config/neovide/config.toml</code></td></tr>
+<tr><td>macOS</td><td><code>$XDG_CONFIG_HOME/neovide/config.toml</code> or <code>$HOME/.config/neovide/config.toml</code></td><td><code>/Users/Alice/Library/Application Support/neovide/config.toml</code></td></tr>
+<tr><td>Windows</td><td><code>{FOLDERID_RoamingAppData}/neovide/config.toml</code></td><td><code>C:\Users\Alice\AppData\Roaming/neovide/config.toml</code></td></tr>
 </tbody></table>
 </div>
 <h2 id="available-settings"><a class="header" href="#available-settings">Available settings</a></h2>
 <p>Settings currently available in the config file with default values:</p>
-<pre><code class="language-toml">fork = false
+<pre><code class="language-toml">backtraces_path = &quot;/path/to/neovide_backtraces.log&quot; # see below for the default platform specific location
+fork = false
 frame = &quot;full&quot;
 idle = true
 maximized = false
+mouse-cursor-icon = &quot;arrow&quot;
 neovim-bin = &quot;/usr/bin/nvim&quot; # in reality found dynamically on $PATH if unset
 no-multigrid = false
 srgb = false
 tabs = true
 theme = &quot;auto&quot;
-mouse-cursor-icon = &quot;arrow&quot;
 title-hidden = true
 vsync = true
 wsl = false
@@ -1437,7 +1438,19 @@ style = &quot;W600&quot;
 family = &quot;Noto Sans CJK SC&quot;
 style = &quot;Bold&quot;
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="editing-w-external-tools"><a class="header" href="#editing-w-external-tools">Editing w/ External Tools</a></h1>
+<h4 id="backtraces_path"><a class="header" href="#backtraces_path">backtraces_path</a></h4>
+<p><strong>Unreleased yet.</strong></p>
+<p>If Neovide crashes, it will write a file named <code>neovide_backtraces.log</code> into
+this location, with more information about the crash. This can alternatively be
+configured through the environment variable <code>NEOVIDE_BACKTRACES</code>, which is
+useful if the crash happens before the config file is read for example.</p>
+<p>The default location is the following:</p>
+<div class="table-wrapper"><table><thead><tr><th>Platform</th><th>Location</th><th>Example</th></tr></thead><tbody>
+<tr><td>Linux</td><td><code>$XDG_DATA_HOME or $HOME/.local/share/neovide</code></td><td><code>/home/alice/.local/share/neovide</code></td></tr>
+<tr><td>macOS</td><td><code>$HOME/Library/Application Support/neovide</code></td><td><code>/Users/Alice/Library/Application Support/neovide</code></td></tr>
+<tr><td>Windows</td><td><code>{FOLDERID_LocalAppData}\neovide</code></td><td><code>C:\Users\Alice\AppData\Local\neovide</code></td></tr>
+</tbody></table>
+</div><div style="break-before: page; page-break-before: always;"></div><h1 id="editing-w-external-tools"><a class="header" href="#editing-w-external-tools">Editing w/ External Tools</a></h1>
 <p>You can use Neovide in other programs as editor, this page aims to document some quirks. Support for
 that, however, is only possible as far as reasonably debuggable.</p>
 <p><em>Note: We do not endorse nor disrecommend usage of all programs listed here. All usage happens on
