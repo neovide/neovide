@@ -1,7 +1,8 @@
 {
     /* Wrap lines at 100 chars */
     "MD013": {
-        "line_length": 100
+        "line_length": 100,
+        "tables": false
     },
 
     /* Allow inline-html */
