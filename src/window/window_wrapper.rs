@@ -410,10 +410,6 @@ impl WinitWindowWrapper {
         let skia_renderer = self.skia_renderer.as_mut().unwrap();
         let vsync = self.vsync.as_mut().unwrap();
 
-        if self.font_changed_last_frame {
-            self.font_changed_last_frame = false;
-            self.renderer.prepare_lines(true);
-        }
         self.renderer.draw_frame(skia_renderer.canvas(), dt);
         skia_renderer.flush();
         {
@@ -677,6 +673,11 @@ impl WinitWindowWrapper {
         self.update_ime_position(false);
 
         should_render.update(self.renderer.prepare_frame());
+
+        if self.font_changed_last_frame {
+            self.renderer.prepare_lines(true);
+            self.font_changed_last_frame = false;
+        }
 
         should_render
     }
