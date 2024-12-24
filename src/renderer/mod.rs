@@ -433,6 +433,9 @@ impl Renderer {
                         }
                         WindowDrawCommand::ViewportMargins { .. } => {
                             warn!("ViewportMargins recieved before window was initialized");
+                            let new_window =
+                                RenderedWindow::new(grid_id, GridPos::ZERO, GridSize::ZERO);
+                            vacant_entry.insert(new_window);
                         }
                         _ => {
                             let settings = SETTINGS.get::<CmdLineSettings>();
