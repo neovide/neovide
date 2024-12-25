@@ -31,7 +31,16 @@ use {
 #[cfg(target_os = "macos")]
 use super::macos::MacosWindowFeature;
 
-const GRID_TOLERANCE: f32 = 0e-6;
+const GRID_TOLERANCE: f32 = 1e-3;
+
+fn round_or_op<Op: FnOnce(f32) -> f32>(v: f32, op: Op) -> f32 {
+    let rounded = v.round();
+    if v.abs_diff_eq(&rounded, GRID_TOLERANCE) {
+        rounded
+    } else {
+        op(v)
+    }
+}
 
 use approx::AbsDiffEq;
 use log::trace;
@@ -696,15 +705,16 @@ impl WinitWindowWrapper {
             window_padding.left + window_padding.right,
             window_padding.top + window_padding.bottom,
         );
+        let round_or_ceil = |v: PixelSize<f32>| -> PixelSize<f32> {
+            PixelSize::new(
+                round_or_op(v.width, f32::ceil),
+                round_or_op(v.height, f32::ceil),
+            )
+        };
 
-        let window_size = *grid_size * self.renderer.grid_renderer.grid_scale;
-        let window_size = if window_size.abs_diff_eq(&window_size.round(), GRID_TOLERANCE) {
-            window_size.round()
-        } else {
-            window_size.floor()
-        }
-        .try_cast()
-        .unwrap()
+        let window_size = round_or_ceil(*grid_size * self.renderer.grid_renderer.grid_scale)
+            .try_cast()
+            .unwrap()
             + window_padding_size;
 
         log::info!(
@@ -749,14 +759,16 @@ impl WinitWindowWrapper {
             PixelSize::new(self.saved_inner_size.width, self.saved_inner_size.height)
                 - window_padding_size;
 
-        let grid_size = content_size / self.renderer.grid_renderer.grid_scale;
-        let grid_size = if grid_size.abs_diff_eq(&grid_size.round(), GRID_TOLERANCE) {
-            grid_size.round()
-        } else {
-            grid_size.ceil()
-        }
-        .try_cast()
-        .unwrap();
+        let round_or_floor = |v: GridSize<f32>| -> GridSize<f32> {
+            GridSize::new(
+                round_or_op(v.width, f32::floor),
+                round_or_op(v.height, f32::floor),
+            )
+        };
+
+        let grid_size = round_or_floor(content_size / self.renderer.grid_renderer.grid_scale)
+            .try_cast()
+            .unwrap();
 
         grid_size.max(min)
     }
