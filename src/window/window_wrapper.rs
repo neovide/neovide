@@ -728,6 +728,7 @@ impl WinitWindowWrapper {
             height: new_size.height,
         };
         let _ = window.request_inner_size(new_size);
+        self.skia_renderer.as_mut().unwrap().resize();
     }
 
     fn get_grid_size_from_window(&self, min: GridSize<u32>) -> GridSize<u32> {
