@@ -239,6 +239,7 @@ impl WinitWindowWrapper {
                     skia_renderer.window().set_blur(blur && transparent);
                 }
             }
+            WindowSettingsChanged::Transparency(_) => self.renderer.prepare_lines(true),
             #[cfg(target_os = "windows")]
             WindowSettingsChanged::TitleBackgroundColor(color) => {
                 self.handle_title_background_color(&color);
@@ -247,7 +248,6 @@ impl WinitWindowWrapper {
             WindowSettingsChanged::TitleTextColor(color) => {
                 self.handle_title_text_color(&color);
             }
-
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::InputMacosOptionKeyIsMeta(option) => {
                 self.set_macos_option_as_meta(option);

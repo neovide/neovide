@@ -307,7 +307,6 @@ impl RenderedWindow {
 
         let paint = Paint::default()
             .set_anti_alias(false)
-            .set_color(Color::from_argb(255, 255, 255, default_background.a()))
             .set_blend_mode(if self.anchor_info.is_some() {
                 BlendMode::SrcOver
             } else {
@@ -327,8 +326,8 @@ impl RenderedWindow {
 
         root_canvas.save_layer(&background_layer_rec);
         root_canvas.clear(default_background.with_a(255));
-        self.draw_background_surface(root_canvas, pixel_region_box, grid_scale);
         root_canvas.restore();
+        self.draw_background_surface(root_canvas, pixel_region_box, grid_scale);
         self.draw_foreground_surface(root_canvas, pixel_region_box, grid_scale);
         root_canvas.restore();
 
@@ -606,7 +605,12 @@ impl RenderedWindow {
         to_skia_rect(&adjusted_region)
     }
 
-    pub fn prepare_lines(&mut self, grid_renderer: &mut GridRenderer, force: bool) {
+    pub fn prepare_lines(
+        &mut self,
+        grid_renderer: &mut GridRenderer,
+        force: bool,
+        is_floating_window: bool,
+    ) {
         let scroll_offset_lines = self.scroll_animation.position.floor() as isize;
         let height = self.grid_size.height as isize;
         if height == 0 {
@@ -642,6 +646,7 @@ impl RenderedWindow {
                     grid_position,
                     i32::try_from(*width).unwrap(),
                     style,
+                    is_floating_window,
                 );
                 custom_background |= background_info.custom_color;
                 has_transparency |= background_info.transparent;
