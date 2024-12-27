@@ -145,7 +145,7 @@ impl GridRenderer {
 
         BackgroundInfo {
             custom_color,
-            transparent: alpha > 0.0,
+            transparent: alpha < 1.0,
         }
     }
 
