@@ -239,6 +239,9 @@ impl WinitWindowWrapper {
                     skia_renderer.window().set_blur(blur && transparent);
                 }
             }
+            WindowSettingsChanged::Transparency(..) => {
+                self.renderer.prepare_lines(true);
+            }
             #[cfg(target_os = "windows")]
             WindowSettingsChanged::TitleBackgroundColor(color) => {
                 self.handle_title_background_color(&color);
