@@ -27,7 +27,6 @@ impl FloatingLayer<'_> {
         root_canvas: &Canvas,
         settings: &RendererSettings,
         default_background: Color,
-        opacity: f32,
         grid_scale: GridScale,
     ) -> Vec<WindowDrawDetails> {
         let pixel_regions = self
@@ -75,7 +74,8 @@ impl FloatingLayer<'_> {
         let save_layer_rec = SaveLayerRec::default().bounds(&bound_rect).paint(&paint);
 
         root_canvas.save_layer(&save_layer_rec);
-        root_canvas.clear(default_background.with_a((opacity * 255.0) as u8));
+        let background_paint = Paint::default().set_color(default_background).to_owned();
+        root_canvas.draw_path(&silhouette, &background_paint);
 
         let regions = self
             .windows

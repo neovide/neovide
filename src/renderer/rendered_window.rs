@@ -289,7 +289,6 @@ impl RenderedWindow {
         &mut self,
         root_canvas: &Canvas,
         default_background: Color,
-        opacity: f32,
         grid_scale: GridScale,
     ) -> WindowDrawDetails {
         let pixel_region_box = self.pixel_region(grid_scale);
@@ -304,7 +303,7 @@ impl RenderedWindow {
 
         root_canvas.save();
         root_canvas.clip_rect(pixel_region, None, Some(false));
-        root_canvas.clear(default_background.with_a((255.0 * opacity) as u8));
+        root_canvas.clear(default_background);
 
         self.draw_background_surface(root_canvas, pixel_region_box, grid_scale);
         self.draw_foreground_surface(root_canvas, pixel_region_box, grid_scale);

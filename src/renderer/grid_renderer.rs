@@ -88,8 +88,15 @@ impl GridRenderer {
         PixelRect::from_origin_and_size(pos, size)
     }
 
-    pub fn get_default_background(&self) -> Color {
-        self.default_style.colors.background.unwrap().to_color()
+    pub fn get_default_background(&self, opacity: f32) -> Color {
+        log::info!("blend {}", self.default_style.blend);
+        let alpha = opacity * (100 - self.default_style.blend) as f32 / 100.0;
+        self.default_style
+            .colors
+            .background
+            .unwrap()
+            .to_color()
+            .with_a((alpha * 255.0) as u8)
     }
 
     /// Draws a single background cell with the same style
@@ -106,7 +113,7 @@ impl GridRenderer {
         if style.is_none() && !debug {
             return BackgroundInfo {
                 custom_color: false,
-                transparent: opacity < 1.0,
+                transparent: self.default_style.blend > 0 || opacity < 1.0,
             };
         }
 
