@@ -212,11 +212,11 @@ impl Renderer {
         let default_background = self.grid_renderer.get_default_background();
         let grid_scale = self.grid_renderer.grid_scale;
 
-        let transparency = SETTINGS.get::<WindowSettings>().transparency;
+        let opacity = SETTINGS.get::<WindowSettings>().transparency;
         let layer_grouping = SETTINGS
             .get::<RendererSettings>()
             .experimental_layer_grouping;
-        root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
+        root_canvas.clear(default_background.with_a((255.0 * opacity) as u8));
         root_canvas.save();
         root_canvas.reset_matrix();
 
@@ -290,13 +290,7 @@ impl Renderer {
         let settings = SETTINGS.get::<RendererSettings>();
         let root_window_regions = root_windows
             .into_iter()
-            .map(|window| {
-                window.draw(
-                    root_canvas,
-                    default_background.with_a((255.0 * transparency) as u8),
-                    grid_scale,
-                )
-            })
+            .map(|window| window.draw(root_canvas, default_background, opacity, grid_scale))
             .collect_vec();
 
         let floating_window_regions = floating_layers
@@ -305,7 +299,8 @@ impl Renderer {
                 layer.draw(
                     root_canvas,
                     &settings,
-                    default_background.with_a((255.0 * transparency) as u8),
+                    default_background,
+                    opacity,
                     grid_scale,
                 )
             })
@@ -401,9 +396,10 @@ impl Renderer {
     }
 
     pub fn prepare_lines(&mut self, force: bool) {
+        let transparency = SETTINGS.get::<WindowSettings>().transparency;
         self.rendered_windows
             .iter_mut()
-            .for_each(|(_, w)| w.prepare_lines(&mut self.grid_renderer, force));
+            .for_each(|(_, w)| w.prepare_lines(&mut self.grid_renderer, transparency, force));
     }
 
     fn handle_draw_command(&mut self, draw_command: DrawCommand, result: &mut DrawCommandResult) {
