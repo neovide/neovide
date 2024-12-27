@@ -106,7 +106,7 @@ impl GridRenderer {
         if style.is_none() && !debug {
             return BackgroundInfo {
                 custom_color: false,
-                transparent: false,
+                transparent: opacity < 1.0,
             };
         }
 
