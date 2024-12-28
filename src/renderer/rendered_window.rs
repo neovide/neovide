@@ -1,8 +1,6 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
-use skia_safe::{
-    canvas::SaveLayerRec, BlendMode, Canvas, Color, Matrix, Paint, Picture, PictureRecorder, Rect,
-};
+use skia_safe::{Canvas, Color, Matrix, Picture, PictureRecorder, Rect};
 
 use crate::{
     cmd_line::CmdLineSettings,
@@ -230,6 +228,8 @@ impl RenderedWindow {
                 canvas.draw_picture(background_picture, Some(&matrix), None);
             }
         }
+        canvas.restore();
+
         canvas.save();
         canvas.clip_rect(inner_region, None, false);
         let mut pics = 0;
@@ -246,7 +246,6 @@ impl RenderedWindow {
             inner_region,
             pics
         );
-        canvas.restore();
         canvas.restore();
     }
 
@@ -304,33 +303,10 @@ impl RenderedWindow {
 
         root_canvas.save();
         root_canvas.clip_rect(pixel_region, None, Some(false));
+        root_canvas.clear(default_background);
 
-        let paint = Paint::default()
-            .set_anti_alias(false)
-            .set_color(Color::from_argb(255, 255, 255, default_background.a()))
-            .set_blend_mode(if self.anchor_info.is_some() {
-                BlendMode::SrcOver
-            } else {
-                BlendMode::Src
-            })
-            .to_owned();
-
-        let save_layer_rec = SaveLayerRec::default().bounds(&pixel_region).paint(&paint);
-        root_canvas.save_layer(&save_layer_rec);
-
-        let mut background_paint = Paint::default();
-        background_paint.set_blend_mode(BlendMode::Src);
-        background_paint.set_alpha(default_background.a());
-        let background_layer_rec = SaveLayerRec::default()
-            .bounds(&pixel_region)
-            .paint(&background_paint);
-
-        root_canvas.save_layer(&background_layer_rec);
-        root_canvas.clear(default_background.with_a(255));
         self.draw_background_surface(root_canvas, pixel_region_box, grid_scale);
-        root_canvas.restore();
         self.draw_foreground_surface(root_canvas, pixel_region_box, grid_scale);
-        root_canvas.restore();
 
         root_canvas.restore();
 
@@ -606,7 +582,7 @@ impl RenderedWindow {
         to_skia_rect(&adjusted_region)
     }
 
-    pub fn prepare_lines(&mut self, grid_renderer: &mut GridRenderer, force: bool) {
+    pub fn prepare_lines(&mut self, grid_renderer: &mut GridRenderer, opacity: f32, force: bool) {
         let scroll_offset_lines = self.scroll_animation.position.floor() as isize;
         let height = self.grid_size.height as isize;
         if height == 0 {
@@ -642,6 +618,7 @@ impl RenderedWindow {
                     grid_position,
                     i32::try_from(*width).unwrap(),
                     style,
+                    opacity,
                 );
                 custom_background |= background_info.custom_color;
                 has_transparency |= background_info.transparent;
