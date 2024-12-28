@@ -387,14 +387,18 @@ floating_corner_radius ranges from 0.0 to 1.0, representing a percentage of the 
 <h4 id="transparency"><a class="header" href="#transparency">Transparency</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_transparency = 0.8
+let g:neovide_normal_opacity = 0.8
 </code></pre>
 <p>Lua:</p>
 <pre><code class="language-lua">vim.g.neovide_transparency = 0.8
+vim.g.neovide_normal_opacity = 0.8
 </code></pre>
 <p><strong>Unreleased yet.</strong></p>
 <p><img src="assets/Transparency.png" alt="Transparency" /></p>
 <p>Setting <code>g:neovide_transparency</code> to a value between 0.0 and 1.0 will set the opacity of the window
 to that value.</p>
+<p><code>g:neovide_normal_opacity</code> sets the opacity for the normal background color.
+Set it to 1 to disable.</p>
 <h4 id="show-border-currently-macos-only"><a class="header" href="#show-border-currently-macos-only">Show Border (Currently macOS only)</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_show_border = v:true
