@@ -21,7 +21,7 @@ use std::{
 };
 
 use itertools::Itertools;
-use log::{error, warn};
+use log::error;
 use skia_safe::Canvas;
 
 use winit::{
@@ -37,7 +37,7 @@ use crate::{
     profiling::{tracy_create_gpu_context, tracy_named_frame, tracy_zone},
     renderer::rendered_layer::{group_windows, FloatingLayer},
     settings::*,
-    units::{to_skia_rect, GridPos, GridRect, GridSize, PixelPos},
+    units::{to_skia_rect, GridRect, GridSize, PixelPos},
     window::{ShouldRender, UserEvent},
     WindowSettings,
 };
@@ -421,18 +421,11 @@ impl Renderer {
                         rendered_window.handle_window_draw_command(command);
                     }
                     Entry::Vacant(vacant_entry) => match command {
-                        WindowDrawCommand::Position {
-                            grid_position,
-                            grid_size,
-                            ..
-                        } => {
-                            let grid_position = GridPos::from(grid_position).try_cast().unwrap();
-                            let grid_size = GridSize::from(grid_size).try_cast().unwrap();
-                            let new_window = RenderedWindow::new(grid_id, grid_position, grid_size);
+                        WindowDrawCommand::Position { .. }
+                        | WindowDrawCommand::ViewportMargins { .. } => {
+                            let mut new_window = RenderedWindow::new(grid_id);
+                            new_window.handle_window_draw_command(command);
                             vacant_entry.insert(new_window);
-                        }
-                        WindowDrawCommand::ViewportMargins { .. } => {
-                            warn!("ViewportMargins recieved before window was initialized");
                         }
                         _ => {
                             let settings = SETTINGS.get::<CmdLineSettings>();

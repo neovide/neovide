@@ -8,8 +8,6 @@ use {
     winit::platform::macos::{self, WindowExtMacOS},
 };
 
-#[cfg(windows)]
-use crate::windows_utils::{register_right_click, unregister_right_click};
 use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
@@ -24,6 +22,11 @@ use crate::{
     window::{create_window, PhysicalSize, ShouldRender, WindowSize},
     CmdLineSettings,
 };
+#[cfg(windows)]
+use {
+    crate::windows_utils::{register_right_click, unregister_right_click},
+    winit::platform::windows::{Color, WindowExtWindows},
+};
 
 #[cfg(target_os = "macos")]
 use super::macos::{MacosWindowFeature, TouchpadStage};
@@ -34,6 +37,18 @@ use crate::units::{GridPos, Pixel};
 #[cfg(target_os = "macos")]
 use glamour::Point2;
 
+const GRID_TOLERANCE: f32 = 1e-3;
+
+fn round_or_op<Op: FnOnce(f32) -> f32>(v: f32, op: Op) -> f32 {
+    let rounded = v.round();
+    if v.abs_diff_eq(&rounded, GRID_TOLERANCE) {
+        rounded
+    } else {
+        op(v)
+    }
+}
+
+use approx::AbsDiffEq;
 use log::trace;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::{
@@ -250,6 +265,15 @@ impl WinitWindowWrapper {
                     skia_renderer.window().set_blur(blur && transparent);
                 }
             }
+            #[cfg(target_os = "windows")]
+            WindowSettingsChanged::TitleBackgroundColor(color) => {
+                self.handle_title_background_color(&color);
+            }
+            #[cfg(target_os = "windows")]
+            WindowSettingsChanged::TitleTextColor(color) => {
+                self.handle_title_text_color(&color);
+            }
+
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::InputMacosOptionKeyIsMeta(option) => {
                 self.set_macos_option_as_meta(option);
@@ -443,10 +467,6 @@ impl WinitWindowWrapper {
         let skia_renderer = self.skia_renderer.as_mut().unwrap();
         let vsync = self.vsync.as_mut().unwrap();
 
-        if self.font_changed_last_frame {
-            self.font_changed_last_frame = false;
-            self.renderer.prepare_lines(true);
-        }
         self.renderer.draw_frame(skia_renderer.canvas(), dt);
         skia_renderer.flush();
         {
@@ -497,6 +517,11 @@ impl WinitWindowWrapper {
             fullscreen,
             #[cfg(target_os = "macos")]
             input_macos_option_key_is_meta,
+
+            #[cfg(target_os = "windows")]
+            title_background_color,
+            #[cfg(target_os = "windows")]
+            title_text_color,
             ..
         } = SETTINGS.get::<WindowSettings>();
 
@@ -595,6 +620,17 @@ impl WinitWindowWrapper {
                 None => {}
             },
             _ => {}
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            if let Some(winit_color) = Self::parse_winit_color(&title_background_color) {
+                window.set_title_background_color(Some(winit_color));
+            }
+
+            if let Some(winit_color) = Self::parse_winit_color(&title_text_color) {
+                window.set_title_text_color(winit_color);
+            }
         }
 
         self.vsync = Some(VSync::new(
@@ -718,6 +754,11 @@ impl WinitWindowWrapper {
 
         should_render.update(self.renderer.prepare_frame());
 
+        if self.font_changed_last_frame {
+            self.renderer.prepare_lines(true);
+            self.font_changed_last_frame = false;
+        }
+
         should_render
     }
 
@@ -732,9 +773,14 @@ impl WinitWindowWrapper {
             window_padding.left + window_padding.right,
             window_padding.top + window_padding.bottom,
         );
+        let round_or_ceil = |v: PixelSize<f32>| -> PixelSize<f32> {
+            PixelSize::new(
+                round_or_op(v.width, f32::ceil),
+                round_or_op(v.height, f32::ceil),
+            )
+        };
 
-        let window_size = (*grid_size * self.renderer.grid_renderer.grid_scale)
-            .floor()
+        let window_size = round_or_ceil(*grid_size * self.renderer.grid_renderer.grid_scale)
             .try_cast()
             .unwrap()
             + window_padding_size;
@@ -767,6 +813,7 @@ impl WinitWindowWrapper {
             height: new_size.height,
         };
         let _ = window.request_inner_size(new_size);
+        self.skia_renderer.as_mut().unwrap().resize();
     }
 
     fn get_grid_size_from_window(&self, min: GridSize<u32>) -> GridSize<u32> {
@@ -780,8 +827,14 @@ impl WinitWindowWrapper {
             PixelSize::new(self.saved_inner_size.width, self.saved_inner_size.height)
                 - window_padding_size;
 
-        let grid_size = (content_size / self.renderer.grid_renderer.grid_scale)
-            .floor()
+        let round_or_floor = |v: GridSize<f32>| -> GridSize<f32> {
+            GridSize::new(
+                round_or_op(v.width, f32::floor),
+                round_or_op(v.height, f32::floor),
+            )
+        };
+
+        let grid_size = round_or_floor(content_size / self.renderer.grid_renderer.grid_scale)
             .try_cast()
             .unwrap();
 
@@ -852,5 +905,35 @@ impl WinitWindowWrapper {
             .handle_scale_factor_update(scale_factor);
         self.renderer.handle_os_scale_factor_change(scale_factor);
         skia_renderer.resize();
+    }
+
+    #[cfg(windows)]
+    fn parse_winit_color(color: &str) -> Option<Color> {
+        match csscolorparser::parse(color) {
+            Ok(color) => {
+                let color = color.to_rgba8();
+                Some(Color::from_rgb(color[0], color[1], color[2]))
+            }
+            _ => None,
+        }
+    }
+
+    #[cfg(windows)]
+    fn handle_title_background_color(&self, color: &str) {
+        if let Some(skia_renderer) = &self.skia_renderer {
+            let winit_color = Self::parse_winit_color(color);
+            skia_renderer
+                .window()
+                .set_title_background_color(winit_color);
+        }
+    }
+
+    #[cfg(windows)]
+    fn handle_title_text_color(&self, color: &str) {
+        if let Some(skia_renderer) = &self.skia_renderer {
+            if let Some(winit_color) = Self::parse_winit_color(color) {
+                skia_renderer.window().set_title_text_color(winit_color);
+            }
+        }
     }
 }

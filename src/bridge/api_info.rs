@@ -14,7 +14,7 @@ impl fmt::Display for ApiInfoParseError {
     }
 }
 
-impl<'a> From<ValueRef<'a>> for ApiInfoParseError {
+impl From<ValueRef<'_>> for ApiInfoParseError {
     fn from(value: ValueRef) -> Self {
         Self(format!("{value}"))
     }

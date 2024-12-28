@@ -75,6 +75,7 @@ struct Line {
 
 pub struct RenderedWindow {
     pub id: u64,
+    valid: bool,
     pub hidden: bool,
     pub anchor_info: Option<AnchorInfo>,
     window_type: WindowType,
@@ -111,9 +112,12 @@ impl WindowDrawDetails {
 }
 
 impl RenderedWindow {
-    pub fn new(id: u64, grid_position: GridPos<i32>, grid_size: GridSize<u32>) -> RenderedWindow {
+    pub fn new(id: u64) -> RenderedWindow {
+        let grid_size = GridSize::ZERO;
+        let grid_position = GridPos::ZERO;
         RenderedWindow {
             id,
+            valid: false,
             hidden: false,
             anchor_info: None,
             window_type: WindowType::Editor,
@@ -125,9 +129,9 @@ impl RenderedWindow {
             scroll_delta: 0,
             viewport_margins: ViewportMargins { top: 0, bottom: 0 },
 
-            grid_start_position: grid_position.try_cast().unwrap(),
-            grid_current_position: grid_position.try_cast().unwrap(),
-            grid_destination: grid_position.try_cast().unwrap(),
+            grid_start_position: grid_position,
+            grid_current_position: grid_position,
+            grid_destination: grid_position,
             position_t: 2.0, // 2.0 is out of the 0.0 to 1.0 range and stops animation.
 
             scroll_animation: CriticallyDampedSpringAnimation::new(),
@@ -291,6 +295,13 @@ impl RenderedWindow {
         let pixel_region_box = self.pixel_region(grid_scale);
         let pixel_region = to_skia_rect(&pixel_region_box);
 
+        if !self.valid {
+            return WindowDrawDetails {
+                id: self.id,
+                region: pixel_region_box,
+            };
+        }
+
         root_canvas.save();
         root_canvas.clip_rect(pixel_region, None, Some(false));
 
@@ -338,6 +349,8 @@ impl RenderedWindow {
                 window_type,
             } => {
                 tracy_zone!("position_cmd", 0);
+
+                self.valid = true;
 
                 let new_grid_size: GridSize<u32> =
                     GridSize::<u64>::from(grid_size).try_cast().unwrap();
@@ -455,6 +468,9 @@ impl RenderedWindow {
     }
 
     pub fn flush(&mut self, renderer_settings: &RendererSettings) {
+        if !self.valid {
+            return;
+        }
         // If the borders are changed, reset the scrollback to only fit the inner view
         let inner_range = self.viewport_margins.top as isize
             ..(self.actual_lines.len() - self.viewport_margins.bottom as usize) as isize;

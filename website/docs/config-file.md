@@ -14,27 +14,28 @@ There are two types of settings:
 
 ## Location
 
-| Platform | Location                                                                      |
-| -------- | ----------------------------------------------------------------------------- |
-| Linux    | `$XDG_CONFIG_HOME/neovide/config.toml` or `$HOME/.config/neovide/config.toml` |
-| macOS    | `$XDG_CONFIG_HOME/neovide/config.toml` or `$HOME/.config/neovide/config.toml` |
-| Windows  | `{FOLDERID_RoamingAppData}/neovide/config.toml`                               |
+| Platform | Location                                                                      | Example                                                        |
+| -------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Linux    | `$XDG_CONFIG_HOME/neovide/config.toml` or `$HOME/.config/neovide/config.toml` | `/home/alice/.config/neovide/config.toml`                      |
+| macOS    | `$XDG_CONFIG_HOME/neovide/config.toml` or `$HOME/.config/neovide/config.toml` | `/Users/Alice/Library/Application Support/neovide/config.toml` |
+| Windows  | `{FOLDERID_RoamingAppData}/neovide/config.toml`                               | `C:\Users\Alice\AppData\Roaming/neovide/config.toml`           |
 
 ## Available settings
 
 Settings currently available in the config file with default values:
 
 ```toml
+backtraces_path = "/path/to/neovide_backtraces.log" # see below for the default platform specific location
 fork = false
 frame = "full"
 idle = true
 maximized = false
+mouse-cursor-icon = "arrow"
 neovim-bin = "/usr/bin/nvim" # in reality found dynamically on $PATH if unset
 no-multigrid = false
 srgb = false
 tabs = true
 theme = "auto"
-mouse-cursor-icon = "arrow"
 title-hidden = true
 vsync = true
 wsl = false
@@ -128,3 +129,20 @@ style = "W600"
 family = "Noto Sans CJK SC"
 style = "Bold"
 ```
+
+#### backtraces_path
+
+**Unreleased yet.**
+
+If Neovide crashes, it will write a file named `neovide_backtraces.log` into
+this location, with more information about the crash. This can alternatively be
+configured through the environment variable `NEOVIDE_BACKTRACES`, which is
+useful if the crash happens before the config file is read for example.
+
+The default location is the following:
+
+| Platform | Location                                       | Example                                            |
+| -------- | ---------------------------------------------- | -------------------------------------------------- |
+| Linux    | `$XDG_DATA_HOME or $HOME/.local/share/neovide` | `/home/alice/.local/share/neovide`                 |
+| macOS    | `$HOME/Library/Application Support/neovide`    | `/Users/Alice/Library/Application Support/neovide` |
+| Windows  | `{FOLDERID_LocalAppData}\neovide`              | `C:\Users\Alice\AppData\Local\neovide`             |
