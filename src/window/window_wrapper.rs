@@ -239,7 +239,7 @@ impl WinitWindowWrapper {
                     skia_renderer.window().set_blur(blur && transparent);
                 }
             }
-            WindowSettingsChanged::Transparency(..) => {
+            WindowSettingsChanged::Transparency(..) | WindowSettingsChanged::NormalOpacity(..) => {
                 self.renderer.prepare_lines(true);
             }
             #[cfg(target_os = "windows")]
