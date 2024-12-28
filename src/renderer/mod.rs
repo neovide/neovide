@@ -209,7 +209,12 @@ impl Renderer {
 
     pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32) {
         tracy_zone!("renderer_draw_frame");
-        let opacity = SETTINGS.get::<WindowSettings>().transparency;
+        let window_settings = SETTINGS.get::<WindowSettings>();
+        let opacity = if window_settings.normal_opacity < 1.0 {
+            window_settings.normal_opacity
+        } else {
+            window_settings.transparency
+        };
         let default_background = self.grid_renderer.get_default_background(opacity);
         let grid_scale = self.grid_renderer.grid_scale;
 
