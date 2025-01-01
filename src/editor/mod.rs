@@ -272,6 +272,7 @@ impl Editor {
                 anchor_column: anchor_left,
                 anchor_row: anchor_top,
                 z_index,
+                comp_index,
                 ..
             } => {
                 tracy_zone!("EditorWindowFloatPosition");
@@ -284,7 +285,7 @@ impl Editor {
                     anchor_top,
                     SortOrder {
                         z_index,
-                        composition_order: self.composition_order,
+                        composition_order: comp_index.unwrap_or(self.composition_order),
                     },
                 )
             }
@@ -304,10 +305,12 @@ impl Editor {
                 grid,
                 row,
                 scrolled,
+                z_index,
+                comp_index,
                 ..
             } => {
                 tracy_zone!("EditorMessageSetPosition");
-                self.set_message_position(grid, row, scrolled)
+                self.set_message_position(grid, row, scrolled, z_index, comp_index)
             }
             RedrawEvent::WindowViewport {
                 grid,
@@ -468,8 +471,15 @@ impl Editor {
         }
     }
 
-    fn set_message_position(&mut self, grid: u64, grid_top: u64, scrolled: bool) {
-        let z_index = 250; // From the Neovim source code
+    fn set_message_position(
+        &mut self,
+        grid: u64,
+        grid_top: u64,
+        scrolled: bool,
+        z_index: Option<u64>,
+        comp_index: Option<u64>,
+    ) {
+        let z_index = z_index.unwrap_or(250); // From the Neovim source code
         let parent_width = self
             .windows
             .get(&1)
@@ -483,7 +493,7 @@ impl Editor {
             anchor_top: grid_top as f64,
             sort_order: SortOrder {
                 z_index,
-                composition_order: self.composition_order,
+                composition_order: comp_index.unwrap_or(self.composition_order),
             },
         };
 
