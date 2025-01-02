@@ -77,6 +77,7 @@ async fn launch(
     handler: NeovimHandler,
     grid_size: Option<GridSize<u32>>,
     settings: Arc<Settings>,
+    event_loop_proxy: &EventLoopProxy<UserEvent>,
 ) -> Result<NeovimSession> {
     let neovim_instance = neovim_instance(settings.as_ref())?;
 
@@ -105,6 +106,14 @@ async fn launch(
         "Neovide registered to nvim with channel id {}",
         api_information.channel
     );
+    let has_composition = api_information.has_event_with_parameter("win_float_pos", "compindex");
+    let multigrid = !cmdline_settings.no_multi_grid;
+    if has_composition && multigrid {
+        event_loop_proxy
+            .send_event(UserEvent::EnableComposition)
+            .ok();
+    }
+    log::info!("Has composition {has_composition}");
     // This is too verbose to keep enabled all the time
     // log::info!("Api information {:#?}", api_information);
     setup_neovide_specific_state(
@@ -120,7 +129,7 @@ async fn launch(
 
     let mut options = UiAttachOptions::new();
     options.set_linegrid_external(true);
-    options.set_multigrid_external(!cmdline_settings.no_multi_grid);
+    options.set_multigrid_external(multigrid);
     options.set_rgb(true);
 
     // Triggers loading the user config
@@ -182,9 +191,9 @@ impl NeovimRuntime {
         settings: Arc<Settings>,
     ) -> Result<()> {
         let handler = start_editor(event_loop_proxy.clone(), running_tracker, settings.clone());
-        let session = self
-            .runtime
-            .block_on(launch(handler, grid_size, settings))?;
+        let session =
+            self.runtime
+                .block_on(launch(handler, grid_size, settings, &event_loop_proxy))?;
         self.runtime.spawn(run(session, event_loop_proxy));
         Ok(())
     }
