@@ -296,25 +296,24 @@ impl Editor {
                 ..
             } => {
                 tracy_zone!("EditorWindowFloatPosition");
-                let anchor = if comp_index.is_some() {
+                let anchor_type = if comp_index.is_some() {
                     WindowAnchor::Absolute
                 } else {
                     self.composition_order += 1;
                     anchor
                 };
-                self.set_window_float_position(
-                    grid,
-                    anchor_grid,
-                    anchor,
+                let sort_order = SortOrder {
+                    z_index,
+                    composition_order: comp_index.unwrap_or(self.composition_order),
+                };
+                let anchor = AnchorInfo {
+                    anchor_grid_id: anchor_grid,
+                    anchor_type,
                     anchor_left,
                     anchor_top,
-                    SortOrder {
-                        z_index,
-                        composition_order: comp_index.unwrap_or(self.composition_order),
-                    },
-                    screen_col,
-                    screen_row,
-                )
+                    sort_order,
+                };
+                self.set_window_float_position(grid, anchor, screen_col, screen_row)
             }
             RedrawEvent::WindowHide { grid } => {
                 tracy_zone!("EditorWindowHide");
@@ -395,22 +394,9 @@ impl Editor {
         if let Some(window) = self.windows.get_mut(&grid) {
             window.resize(&mut self.draw_command_batcher, (width, height));
             if let Some(anchor_info) = &window.anchor_info {
-                let anchor_grid_id = anchor_info.anchor_grid_id;
-                let anchor_type = anchor_info.anchor_type.clone();
-                let anchor_left = anchor_info.anchor_left;
-                let anchor_top = anchor_info.anchor_top;
-                let sort_order = anchor_info.sort_order.clone();
+                let anchor_info = anchor_info.clone();
 
-                self.set_window_float_position(
-                    grid,
-                    anchor_grid_id,
-                    anchor_type,
-                    anchor_left,
-                    anchor_top,
-                    sort_order,
-                    None,
-                    None,
-                )
+                self.set_window_float_position(grid, anchor_info, None, None)
             }
         } else {
             let window = Window::new(
@@ -457,68 +443,62 @@ impl Editor {
     fn set_window_float_position(
         &mut self,
         grid: u64,
-        anchor_grid: u64,
-        anchor_type: WindowAnchor,
-        anchor_left: f64,
-        anchor_top: f64,
-        sort_order: SortOrder,
+        anchor: AnchorInfo,
         screen_col: Option<u64>,
         screen_row: Option<u64>,
     ) {
-        if anchor_grid == grid {
+        if anchor.anchor_grid_id == grid {
             warn!("NeoVim requested a window to float relative to itself. This is not supported.");
             return;
         }
 
-        let parent_position = self.get_window_top_left(anchor_grid);
+        let parent_position = self.get_window_top_left(anchor.anchor_grid_id);
         if let Some(window) = self.windows.get_mut(&grid) {
             let width = window.get_width();
             let height = window.get_height();
-            let neovim_composed = anchor_type == WindowAnchor::Absolute;
-            let (left, top, sort_order) = if neovim_composed {
-                // NOTE: screen_col is None when the window is just resized
-                if screen_col.is_some() {
-                    (
-                        screen_col.unwrap() as f64,
-                        screen_row.unwrap() as f64,
-                        sort_order,
-                    )
-                } else {
-                    let (left, top) = window.get_grid_position();
-                    (left, top, sort_order)
-                }
-            } else {
-                let (mut modified_left, mut modified_top) =
-                    anchor_type.modified_top_left(anchor_left, anchor_top, width, height);
-
-                if let Some((parent_left, parent_top)) = parent_position {
-                    modified_left += parent_left;
-                    modified_top += parent_top;
-                }
-
-                // Only update the sort order if it's the first position request (no anchor_info), or
-                // the z_index changes
-                let sort_order = if let Some(anchor_info) = &window.anchor_info {
-                    if sort_order.z_index == anchor_info.sort_order.z_index {
-                        anchor_info.sort_order.clone()
+            let neovim_composed = anchor.anchor_type == WindowAnchor::Absolute;
+            let (left, top, sort_order) =
+                if neovim_composed {
+                    // NOTE: screen_col is None when the window is just resized
+                    if let (Some(screen_col), Some(screen_row)) = (screen_col, screen_row) {
+                        (
+                            screen_col as f64,
+                            screen_row as f64,
+                            anchor.sort_order.clone(),
+                        )
                     } else {
-                        sort_order
+                        let (left, top) = window.get_grid_position();
+                        (left, top, anchor.sort_order.clone())
                     }
                 } else {
-                    sort_order
+                    let (mut modified_left, mut modified_top) = anchor
+                        .anchor_type
+                        .modified_top_left(anchor.anchor_left, anchor.anchor_top, width, height);
+
+                    if let Some((parent_left, parent_top)) = parent_position {
+                        modified_left += parent_left;
+                        modified_top += parent_top;
+                    }
+
+                    // Only update the sort order if it's the first position request (no anchor_info), or
+                    // the z_index changes
+                    let sort_order = if let Some(old_anchor) = &window.anchor_info {
+                        if anchor.sort_order.z_index == old_anchor.sort_order.z_index {
+                            old_anchor.sort_order.clone()
+                        } else {
+                            anchor.sort_order.clone()
+                        }
+                    } else {
+                        anchor.sort_order.clone()
+                    };
+                    (modified_left, modified_top, sort_order)
                 };
-                (modified_left, modified_top, sort_order)
-            };
+            let mut anchor = anchor;
+            anchor.sort_order = sort_order;
 
             window.position(
                 &mut self.draw_command_batcher,
-                Some(AnchorInfo {
-                    anchor_grid_id: anchor_grid,
-                    anchor_type,
-                    anchor_left,
-                    anchor_top,
-                    sort_order,
-                }),
+                Some(anchor),
                 (width, height),
                 (left, top),
             );
