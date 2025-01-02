@@ -132,7 +132,7 @@ style = "Bold"
 
 #### backtraces_path
 
-**Unreleased yet.**
+**Available since 0.14.0.**
 
 If Neovide crashes, it will write a file named `neovide_backtraces.log` into
 this location, with more information about the crash. This can alternatively be
