@@ -233,7 +233,7 @@ title bar.
 
 #### Title Bar Color (Currently Windows only)
 
-**Available since 0.14.0**
+**Available since 0.14.0.**
 
 ![TitleBackgroundColor](assets/TitleBackgroundColor.png)
 
@@ -362,7 +362,7 @@ vim.g.neovide_transparency = 0.8
 vim.g.neovide_normal_opacity = 0.8
 ```
 
-**Available since 0.14.0**
+**Available since 0.14.0.**
 
 ![Transparency](assets/Transparency.png)
 
