@@ -119,6 +119,7 @@ pub enum WindowAnchor {
     NorthEast,
     SouthWest,
     SouthEast,
+    Absolute,
 }
 
 #[derive(Clone, Debug, PartialEq)]
