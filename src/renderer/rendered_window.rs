@@ -97,6 +97,7 @@ pub struct RenderedWindow {
 pub struct WindowDrawDetails {
     pub id: u64,
     pub region: PixelRect<f32>,
+    pub grid_size: GridSize<u32>,
 }
 
 impl WindowDrawDetails {
@@ -298,6 +299,7 @@ impl RenderedWindow {
             return WindowDrawDetails {
                 id: self.id,
                 region: pixel_region_box,
+                grid_size: self.grid_size,
             };
         }
 
@@ -313,6 +315,7 @@ impl RenderedWindow {
         WindowDrawDetails {
             id: self.id,
             region: pixel_region_box,
+            grid_size: self.grid_size,
         }
     }
 
