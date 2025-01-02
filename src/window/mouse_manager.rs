@@ -11,7 +11,7 @@ use winit::{
     window::Window,
 };
 
-use glamour::Contains;
+use glamour::{Contains, Point2};
 
 use crate::{
     bridge::{send_ui, SerialCommand},
@@ -21,17 +21,6 @@ use crate::{
     window::keyboard_manager::KeyboardManager,
     window::WindowSettings,
 };
-
-fn clamp_position(
-    position: PixelPos<f32>,
-    region: PixelRect<f32>,
-    grid_scale: GridScale,
-) -> PixelPos<f32> {
-    let min = region.min;
-    let max = region.max - GridPos::new(1.0, 1.0) * grid_scale;
-
-    position.clamp(min, max.into())
-}
 
 fn mouse_button_to_button_text(mouse_button: MouseButton) -> Option<String> {
     match mouse_button {
@@ -117,19 +106,18 @@ impl MouseManager {
         window_details: &WindowDrawDetails,
         editor_state: &EditorState,
     ) -> GridPos<u32> {
-        let global_bounds = window_details.region;
-        let clamped_position = clamp_position(
-            self.window_position,
-            global_bounds,
-            *editor_state.grid_scale,
-        );
-        let relative_position = (clamped_position - window_details.region.min).to_point();
-
+        let relative_position = (self.window_position - window_details.region.min).to_point();
         (relative_position / *editor_state.grid_scale)
             .floor()
-            .max((0.0, 0.0).into())
             .try_cast()
             .unwrap()
+            .clamp(
+                (0, 0).into(),
+                Point2::new(
+                    window_details.grid_size.width.max(1) - 1,
+                    window_details.grid_size.height.max(1) - 1,
+                ),
+            )
     }
 
     fn handle_pointer_motion(&mut self, position: PixelPos<f32>, editor_state: &EditorState) {
