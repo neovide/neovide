@@ -64,6 +64,7 @@ struct TouchTrace {
 }
 
 pub struct MouseManager {
+    use_composition: bool,
     drag_details: Option<DragDetails>,
     grid_position: GridPos<u32>,
 
@@ -82,6 +83,7 @@ pub struct MouseManager {
 impl MouseManager {
     pub fn new() -> MouseManager {
         MouseManager {
+            use_composition: false,
             drag_details: None,
             has_moved: false,
             window_position: PixelPos::default(),
@@ -91,6 +93,10 @@ impl MouseManager {
             mouse_hidden: false,
             enabled: true,
         }
+    }
+
+    pub fn enable_composition(&mut self) {
+        self.use_composition = true;
     }
 
     fn get_window_details_under_mouse<'a>(
