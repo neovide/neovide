@@ -51,6 +51,7 @@ struct DragDetails {
 struct EditorState<'a> {
     grid_scale: &'a GridScale,
     window_regions: &'a Vec<WindowDrawDetails>,
+    full_region: WindowDrawDetails,
     window: &'a Window,
     keyboard_manager: &'a KeyboardManager,
 }
@@ -104,14 +105,17 @@ impl MouseManager {
         editor_state: &'a EditorState<'a>,
     ) -> Option<&'a WindowDrawDetails> {
         let position = self.window_position;
-
-        // the rendered window regions are sorted by draw order, so the earlier windows in the
-        // list are drawn under the later ones
-        editor_state
-            .window_regions
-            .iter()
-            .filter(|details| details.region.contains(&position))
-            .last()
+        if self.use_composition {
+            Some(&editor_state.full_region)
+        } else {
+            // the rendered window regions are sorted by draw order, so the earlier windows in the
+            // list are drawn under the later ones
+            editor_state
+                .window_regions
+                .iter()
+                .filter(|details| details.region.contains(&position))
+                .last()
+        }
     }
 
     fn get_relative_position(
@@ -147,10 +151,14 @@ impl MouseManager {
         // If dragging, the relevant window (the one which we send all commands to) is the one
         // which the mouse drag started on. Otherwise its the top rendered window
         let window_details = if let Some(drag_details) = &self.drag_details {
-            editor_state
-                .window_regions
-                .iter()
-                .find(|details| details.id == drag_details.draw_details.id)
+            if self.use_composition {
+                Some(&editor_state.full_region)
+            } else {
+                editor_state
+                    .window_regions
+                    .iter()
+                    .find(|details| details.id == drag_details.draw_details.id)
+            }
         } else {
             self.get_window_details_under_mouse(editor_state)
         };
@@ -395,9 +403,17 @@ impl MouseManager {
         renderer: &Renderer,
         window: &Window,
     ) {
+        let full_region = WindowDrawDetails {
+            id: 0,
+            region: renderer
+                .window_regions
+                .first()
+                .map_or(PixelRect::ZERO, |v| v.region),
+        };
         let editor_state = EditorState {
             grid_scale: &renderer.grid_renderer.grid_scale,
             window_regions: &renderer.window_regions,
+            full_region,
             window,
             keyboard_manager,
         };
