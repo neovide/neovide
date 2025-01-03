@@ -72,7 +72,11 @@ pub async fn show_error_message(
     nvim.echo(prepared_lines, true, vec![]).await
 }
 
-async fn launch(handler: NeovimHandler, grid_size: Option<GridSize<u32>>) -> Result<NeovimSession> {
+async fn launch(
+    handler: NeovimHandler,
+    grid_size: Option<GridSize<u32>>,
+    event_loop_proxy: &EventLoopProxy<UserEvent>,
+) -> Result<NeovimSession> {
     let neovim_instance = neovim_instance()?;
 
     let session = NeovimSession::new(neovim_instance, handler)
@@ -100,6 +104,14 @@ async fn launch(handler: NeovimHandler, grid_size: Option<GridSize<u32>>) -> Res
         "Neovide registered to nvim with channel id {}",
         api_information.channel
     );
+    let has_composition = api_information.has_event_with_parameter("win_float_pos", "compindex");
+    let multigrid = !settings.no_multi_grid;
+    if has_composition && multigrid {
+        event_loop_proxy
+            .send_event(UserEvent::EnableComposition)
+            .ok();
+    }
+    log::info!("Has composition {has_composition}");
     // This is too verbose to keep enabled all the time
     // log::info!("Api information {:#?}", api_information);
     setup_neovide_specific_state(&session.neovim, should_handle_clipboard, &api_information)
@@ -110,7 +122,7 @@ async fn launch(handler: NeovimHandler, grid_size: Option<GridSize<u32>>) -> Res
 
     let mut options = UiAttachOptions::new();
     options.set_linegrid_external(true);
-    options.set_multigrid_external(!settings.no_multi_grid);
+    options.set_multigrid_external(multigrid);
     options.set_rgb(true);
 
     // Triggers loading the user config
@@ -170,7 +182,9 @@ impl NeovimRuntime {
         grid_size: Option<GridSize<u32>>,
     ) -> Result<()> {
         let handler = start_editor(event_loop_proxy.clone());
-        let session = self.runtime.block_on(launch(handler, grid_size))?;
+        let session = self
+            .runtime
+            .block_on(launch(handler, grid_size, &event_loop_proxy))?;
         self.runtime.spawn(run(session, event_loop_proxy));
         Ok(())
     }

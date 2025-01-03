@@ -182,6 +182,16 @@ impl ApiInformation {
     pub fn has_event(&self, event_name: &str) -> bool {
         self.ui_events.iter().any(|event| event.name == event_name)
     }
+
+    pub fn has_event_with_parameter(&self, event_name: &str, parameter_name: &str) -> bool {
+        if let Some(event) = self.ui_events.iter().find(|event| event.name == event_name) {
+            return event
+                .parameters
+                .iter()
+                .any(|parameter| parameter.name == parameter_name);
+        }
+        false
+    }
 }
 
 fn parse_version(value: ValueRef) -> std::result::Result<ApiVersion, ApiInfoParseError> {
