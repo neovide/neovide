@@ -2,10 +2,7 @@
 
 use std::{env, fs, sync::mpsc, time::Duration};
 
-use notify_debouncer_full::{
-    new_debouncer,
-    notify::{RecursiveMode, Watcher},
-};
+use notify_debouncer_full::{new_debouncer, notify::RecursiveMode};
 use serde::Deserialize;
 use winit::event_loop::EventLoopProxy;
 
@@ -57,6 +54,7 @@ pub struct Config {
     pub title_hidden: Option<bool>,
     pub vsync: Option<bool>,
     pub wsl: Option<bool>,
+    pub backtraces_path: Option<PathBuf>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -149,7 +147,7 @@ fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<EventPay
     let (tx, rx) = mpsc::channel();
     let mut debouncer = new_debouncer(Duration::from_millis(500), None, tx).unwrap();
 
-    if let Err(e) = debouncer.watcher().watch(
+    if let Err(e) = debouncer.watch(
         // watching the directory rather than the config file itself to also allow it to be deleted/created later on
         config_path()
             .parent()

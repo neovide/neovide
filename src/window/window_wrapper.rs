@@ -48,6 +48,19 @@ use {
 #[cfg(target_os = "macos")]
 use super::macos::MacosWindowFeature;
 
+const GRID_TOLERANCE: f32 = 1e-3;
+
+fn round_or_op<Op: FnOnce(f32) -> f32>(v: f32, op: Op) -> f32 {
+    let rounded = v.round();
+    if v.abs_diff_eq(&rounded, GRID_TOLERANCE) {
+        rounded
+    } else {
+        op(v)
+    }
+}
+
+use approx::AbsDiffEq;
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct WindowPadding {
     pub top: u32,
@@ -298,7 +311,13 @@ impl WinitWindowWrapper {
                     window.set_blur(blur && transparent);
                 }
             }
-
+            WindowSettingsChanged::Transparency(..) | WindowSettingsChanged::NormalOpacity(..) => {
+                let window_id = *self.routes.keys().next().unwrap();
+                if let Some(route) = &self.routes.get(&window_id) {
+                    let mut renderer = route.window.renderer.borrow_mut();
+                    renderer.prepare_lines(true);
+                }
+            }
             #[cfg(target_os = "windows")]
             WindowSettingsChanged::TitleBackgroundColor(color) => {
                 self.handle_title_background_color(&color);
@@ -549,10 +568,6 @@ impl WinitWindowWrapper {
         let mut skia_renderer = route.window.skia_renderer.borrow_mut();
         let vsync = self.vsync.as_mut().unwrap();
 
-        if self.font_changed_last_frame {
-            self.font_changed_last_frame = false;
-            renderer.prepare_lines(true);
-        }
         renderer.draw_frame(skia_renderer.canvas(), dt);
         skia_renderer.flush();
         {
@@ -927,6 +942,11 @@ impl WinitWindowWrapper {
             let route = self.routes.get(&window_id).unwrap();
             let mut renderer = route.window.renderer.borrow_mut();
             should_render.update(renderer.prepare_frame());
+            // TODO: remove self.renderer
+            if self.font_changed_last_frame {
+                renderer.prepare_lines(true);
+                self.font_changed_last_frame = false;
+            }
         }
 
         should_render
@@ -946,13 +966,17 @@ impl WinitWindowWrapper {
             window_padding.left + window_padding.right,
             window_padding.top + window_padding.bottom,
         );
+        let round_or_ceil = |v: PixelSize<f32>| -> PixelSize<f32> {
+            PixelSize::new(
+                round_or_op(v.width, f32::ceil),
+                round_or_op(v.height, f32::ceil),
+            )
+        };
 
         let window_id = self.get_focused_route().unwrap();
         let route = self.routes.get(&window_id).unwrap();
         let renderer = route.window.renderer.borrow();
-
-        let window_size = (*grid_size * renderer.grid_renderer.grid_scale)
-            .floor()
+        let window_size = round_or_ceil(*grid_size * renderer.grid_renderer.grid_scale)
             .try_cast()
             .unwrap()
             + window_padding_size;
@@ -987,6 +1011,9 @@ impl WinitWindowWrapper {
             height: new_size.height,
         };
         let _ = window.request_inner_size(new_size);
+
+        let mut skia_renderer = route.window.skia_renderer.borrow_mut();
+        skia_renderer.resize();
     }
 
     fn get_grid_size_from_window(
@@ -1004,7 +1031,16 @@ impl WinitWindowWrapper {
             PixelSize::new(self.saved_inner_size.width, self.saved_inner_size.height)
                 - window_padding_size;
 
-        let grid_size = (content_size / grid_scale).floor().try_cast().unwrap();
+        let round_or_floor = |v: GridSize<f32>| -> GridSize<f32> {
+            GridSize::new(
+                round_or_op(v.width, f32::floor),
+                round_or_op(v.height, f32::floor),
+            )
+        };
+
+        let grid_size = round_or_floor(content_size / grid_scale)
+            .try_cast()
+            .unwrap();
 
         grid_size.max(min)
     }

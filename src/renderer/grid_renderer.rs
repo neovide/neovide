@@ -11,6 +11,7 @@ use crate::{
     units::{
         to_skia_point, to_skia_rect, GridPos, GridScale, GridSize, PixelPos, PixelRect, PixelVec,
     },
+    window::WindowSettings,
 };
 
 use super::fonts::font_options::FontOptions;
@@ -92,8 +93,15 @@ impl GridRenderer {
         PixelRect::from_origin_and_size(pos, size)
     }
 
-    pub fn get_default_background(&self) -> Color {
+    pub fn get_default_background_color(&self) -> Color {
         self.default_style.colors.background.unwrap().to_color()
+    }
+
+    pub fn get_default_background(&self, opacity: f32) -> Color {
+        log::info!("blend {}", self.default_style.blend);
+        let alpha = opacity * (100 - self.default_style.blend) as f32 / 100.0;
+        self.get_default_background_color()
+            .with_a((alpha * 255.0) as u8)
     }
 
     /// Draws a single background cell with the same style
@@ -103,18 +111,20 @@ impl GridRenderer {
         grid_position: GridPos<i32>,
         cell_width: i32,
         style: &Option<Arc<Style>>,
+        opacity: f32,
     ) -> BackgroundInfo {
         tracy_zone!("draw_background");
         let debug = self.settings.get::<RendererSettings>().debug_renderer;
         if style.is_none() && !debug {
             return BackgroundInfo {
                 custom_color: false,
-                transparent: false,
+                transparent: self.default_style.blend > 0 || opacity < 1.0,
             };
         }
 
         let region = self.compute_text_region(grid_position, cell_width);
         let style = style.as_ref().unwrap_or(&self.default_style);
+        let style_background = style.background(&self.default_style.colors).to_color();
 
         let mut paint = Paint::default();
         paint.set_anti_alias(false);
@@ -125,13 +135,20 @@ impl GridRenderer {
             let random_color = random_hsv.to_color(255);
             paint.set_color(random_color);
         } else {
-            paint.set_color(style.background(&self.default_style.colors).to_color());
+            paint.set_color(style_background);
         }
-        if style.blend > 0 {
-            paint.set_alpha_f((100 - style.blend) as f32 / 100.0);
+
+        let is_default_background = style_background == self.get_default_background_color();
+        let normal_opacity = self.settings.get::<WindowSettings>().normal_opacity;
+
+        let alpha = if normal_opacity < 1.0 && is_default_background {
+            normal_opacity
+        } else if style.blend > 0 {
+            ((100 - style.blend) as f32 / 100.0) * opacity
         } else {
-            paint.set_alpha_f(1.0);
-        }
+            opacity
+        };
+        paint.set_alpha_f(alpha);
 
         let custom_color = paint.color4f() != self.default_style.colors.background.unwrap();
         if custom_color {
@@ -140,7 +157,7 @@ impl GridRenderer {
 
         BackgroundInfo {
             custom_color,
-            transparent: style.blend > 0,
+            transparent: alpha < 1.0,
         }
     }
 
