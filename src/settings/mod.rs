@@ -12,11 +12,10 @@ use std::{
     collections::HashMap,
     convert::TryInto,
     fmt::Debug,
-    sync::LazyLock,
 };
 use winit::event_loop::EventLoopProxy;
 
-use crate::{bridge::NeovimWriter, window::UserEvent};
+use crate::{bridge::NeovimWriter, window::EventPayload};
 pub use from_value::ParseFromValue;
 pub use window_size::{
     clamped_grid_size, load_last_window_settings, neovide_std_datapath, save_window_size,
@@ -26,8 +25,6 @@ pub use window_size::{
 mod config;
 pub use config::{Config, HotReloadConfigs};
 pub use font::FontSettings;
-
-pub static SETTINGS: LazyLock<Settings> = LazyLock::new(Settings::new);
 
 pub trait SettingGroup {
     type ChangedEvent: Debug + Clone + Send + Sync + Any;
@@ -45,6 +42,7 @@ type ReaderHandlerFunc = fn(&Settings) -> Option<Value>;
 // read_initial_values call, after that point we should not modify the contents of the Settings
 // struct except when prompted by an update event from nvim. Otherwise, the settings in Neovide and
 // nvim will get out of sync.
+#[derive(Default, Debug)]
 pub struct Settings {
     settings: RwLock<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
     updaters: RwLock<HashMap<SettingLocation, UpdateHandlerFunc>>,
@@ -60,12 +58,8 @@ pub enum SettingLocation {
 }
 
 impl Settings {
-    fn new() -> Self {
-        Self {
-            settings: RwLock::new(HashMap::new()),
-            updaters: RwLock::new(HashMap::new()),
-            readers: RwLock::new(HashMap::new()),
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn set_setting_handlers(
@@ -143,7 +137,7 @@ impl Settings {
     pub fn handle_setting_changed_notification(
         &self,
         arguments: Vec<Value>,
-        event_loop_proxy: &EventLoopProxy<UserEvent>,
+        event_loop_proxy: &EventLoopProxy<EventPayload>,
     ) {
         let mut arguments = arguments.into_iter();
         let (name, value) = (arguments.next().unwrap(), arguments.next().unwrap());
@@ -156,13 +150,16 @@ impl Settings {
             .read()
             .get(&SettingLocation::NeovideGlobal(name))
             .unwrap()(self, value);
-        let _ = event_loop_proxy.send_event(event.into());
+        let _ = event_loop_proxy.send_event(EventPayload::new(
+            event.into(),
+            winit::window::WindowId::from(0),
+        ));
     }
 
     pub fn handle_option_changed_notification(
         &self,
         arguments: Vec<Value>,
-        event_loop_proxy: &EventLoopProxy<UserEvent>,
+        event_loop_proxy: &EventLoopProxy<EventPayload>,
     ) {
         let mut arguments = arguments.into_iter();
         let (name, value) = (arguments.next().unwrap(), arguments.next().unwrap());
@@ -176,7 +173,10 @@ impl Settings {
             .get(&SettingLocation::NeovimOption(name))
             .unwrap()(self, value);
 
-        let _ = event_loop_proxy.send_event(event.into());
+        let _ = event_loop_proxy.send_event(EventPayload::new(
+            event.into(),
+            winit::window::WindowId::from(0),
+        ));
     }
 
     pub fn register<T: SettingGroup>(&self) {
@@ -324,11 +324,10 @@ mod tests {
         settings.register::<TestSettings>();
 
         //create_nvim_command tries to read from CmdLineSettings.neovim_args
-        //TODO: this sets a static variable. Can this have side effects on other tests?
-        SETTINGS.set::<CmdLineSettings>(&CmdLineSettings::default());
+        settings.set::<CmdLineSettings>(&CmdLineSettings::default());
 
-        let command =
-            create_nvim_command().unwrap_or_explained_panic("Could not create nvim command");
+        let command = create_nvim_command(&settings)
+            .unwrap_or_explained_panic("Could not create nvim command");
         let instance = NeovimInstance::Embedded(command);
         let NeovimSession { neovim: nvim, .. } = NeovimSession::new(instance, NeovimHandler())
             .await

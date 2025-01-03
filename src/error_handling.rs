@@ -1,21 +1,22 @@
 use std::{
     io::{stdout, IsTerminal},
-    process::{ExitCode, Termination},
+    process::ExitCode,
+    sync::Arc,
 };
 
 use anyhow::{Error, Result};
 use clap::error::Error as ClapError;
 use itertools::Itertools;
 use log::error;
-use winit::{error::EventLoopError, event_loop::EventLoop};
+use winit::event_loop::EventLoop;
 
 #[cfg(target_os = "windows")]
 use crate::windows_attach_to_console;
 
 use crate::{
-    bridge::{send_ui, ParallelCommand},
-    running_tracker::RUNNING_TRACKER,
-    window::{show_error_window, UserEvent},
+    bridge::{send_ui, ParallelCommand, HANDLER_REGISTRY},
+    settings::Settings,
+    window::{show_error_window, EventPayload},
 };
 
 fn show_error(explanation: &str) -> ! {
@@ -24,9 +25,19 @@ fn show_error(explanation: &str) -> ! {
 }
 
 pub fn show_nvim_error(msg: &str) {
-    send_ui(ParallelCommand::ShowError {
-        lines: msg.split('\n').map(|s| s.to_string()).collect_vec(),
-    });
+    let handler = {
+        let handler_lock = HANDLER_REGISTRY.lock().unwrap();
+        handler_lock
+            .clone()
+            .expect("NeovimHandler has not been initialized")
+    };
+    println!("show_nvim_error: {}", msg);
+    send_ui(
+        ParallelCommand::ShowError {
+            lines: msg.split('\n').map(|s| s.to_string()).collect_vec(),
+        },
+        &handler,
+    );
 }
 
 /// Formats, logs and displays the given message.
@@ -66,52 +77,22 @@ This is the error that caused the crash. In case you don't know what to do with 
     msg
 }
 
-fn handle_terminal_startup_errors(err: Error) -> i32 {
-    eprintln!("{}", &format_and_log_error_message(err));
-    1
-}
-
-fn handle_gui_startup_errors(err: Error, event_loop: EventLoop<UserEvent>) -> i32 {
-    show_error_window(&format_and_log_error_message(err), event_loop);
-    1
-}
-
-pub fn handle_startup_errors(err: Error, event_loop: EventLoop<UserEvent>) -> i32 {
+pub fn handle_startup_errors(
+    err: Error,
+    event_loop: EventLoop<EventPayload>,
+    settings: Arc<Settings>,
+) -> ExitCode {
     // Command line output is always printed to the stdout/stderr
     if let Some(clap_error) = err.downcast_ref::<ClapError>() {
         #[cfg(target_os = "windows")]
         windows_attach_to_console();
         let _ = clap_error.print();
-        clap_error.exit_code()
+        ExitCode::from(clap_error.exit_code() as u8)
     } else if stdout().is_terminal() {
-        handle_terminal_startup_errors(err)
+        eprintln!("{}", &format_and_log_error_message(err));
+        ExitCode::from(1)
     } else {
-        handle_gui_startup_errors(err, event_loop)
-    }
-}
-
-pub struct NeovideExitCode(ExitCode);
-
-impl From<Result<(), EventLoopError>> for NeovideExitCode {
-    fn from(res: Result<(), EventLoopError>) -> Self {
-        match res {
-            Ok(_) => RUNNING_TRACKER.exit_code().into(),
-            Err(EventLoopError::ExitFailure(code)) => code.into(),
-            _ => Self(ExitCode::FAILURE),
-        }
-    }
-}
-
-impl From<i32> for NeovideExitCode {
-    fn from(res: i32) -> Self {
-        // All error codes have to be u8, so just do a direct cast with wrap around, even if the value is negative,
-        // that's how it's normally done on operating systems that don't support negative return values.
-        Self((res as u8).into())
-    }
-}
-
-impl Termination for NeovideExitCode {
-    fn report(self) -> ExitCode {
-        self.0
+        show_error_window(&format_and_log_error_message(err), event_loop, settings);
+        ExitCode::from(1)
     }
 }

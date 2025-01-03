@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use objc2::{rc::Retained, runtime::ProtocolObject};
 use objc2_app_kit::NSColorSpace;
 use objc2_foundation::{CGFloat, CGSize};
@@ -20,7 +22,7 @@ use winit::{event_loop::EventLoopProxy, window::Window};
 use crate::{
     profiling::tracy_gpu_zone,
     renderer::{SkiaRenderer, VSync},
-    window::{macos::get_ns_window, UserEvent},
+    window::{macos::get_ns_window, EventPayload},
 };
 
 struct MetalDrawableSurface {
@@ -69,7 +71,7 @@ impl MetalDrawableSurface {
 }
 
 pub struct MetalSkiaRenderer {
-    window: Window,
+    window: Rc<Window>,
     _device: Retained<ProtocolObject<dyn MTLDevice>>,
     command_queue: Retained<ProtocolObject<dyn MTLCommandQueue>>,
     metal_layer: Retained<CAMetalLayer>,
@@ -79,7 +81,7 @@ pub struct MetalSkiaRenderer {
 }
 
 impl MetalSkiaRenderer {
-    pub fn new(window: Window, srgb: bool, vsync: bool) -> Self {
+    pub fn new(window: Rc<Window>, srgb: bool, vsync: bool) -> Self {
         log::info!("Initialize MetalSkiaRenderer...");
 
         let draw_size = window.inner_size();
@@ -155,8 +157,8 @@ impl MetalSkiaRenderer {
 }
 
 impl SkiaRenderer for MetalSkiaRenderer {
-    fn window(&self) -> &Window {
-        &self.window
+    fn window(&self) -> Rc<Window> {
+        Rc::clone(&self.window)
     }
 
     fn flush(&mut self) {
@@ -209,7 +211,7 @@ impl SkiaRenderer for MetalSkiaRenderer {
         self.window.request_redraw();
     }
 
-    fn create_vsync(&self, _proxy: EventLoopProxy<UserEvent>) -> VSync {
+    fn create_vsync(&self, _proxy: EventLoopProxy<EventPayload>) -> VSync {
         VSync::MacosMetal()
     }
 }

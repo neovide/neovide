@@ -5,9 +5,9 @@ mod style;
 mod window;
 
 use std::{collections::HashMap, rc::Rc, sync::Arc, thread};
-use tokio::sync::mpsc::unbounded_channel;
 
 use log::{error, trace, warn};
+use tokio::sync::mpsc::unbounded_channel;
 
 use winit::event_loop::EventLoopProxy;
 
@@ -21,11 +21,13 @@ use crate::{
     bridge::{GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
     profiling::{tracy_named_frame, tracy_zone},
     renderer::{DrawCommand, WindowDrawCommand},
-    window::{UserEvent, WindowCommand},
+    running_tracker::RunningTracker,
+    settings::Settings,
+    window::{EventPayload, WindowCommand},
 };
 
 #[cfg(target_os = "macos")]
-use crate::{cmd_line::CmdLineSettings, frame::Frame, settings::SETTINGS};
+use crate::{cmd_line::CmdLineSettings, frame::Frame};
 
 pub use cursor::{Cursor, CursorMode, CursorShape};
 pub use draw_command_batcher::DrawCommandBatcher;
@@ -92,12 +94,14 @@ pub struct Editor {
     pub draw_command_batcher: Rc<DrawCommandBatcher>,
     pub current_mode_index: Option<u64>,
     pub ui_ready: bool,
-    event_loop_proxy: EventLoopProxy<UserEvent>,
+    event_loop_proxy: EventLoopProxy<EventPayload>,
+    #[allow(dead_code)]
+    settings: Arc<Settings>,
     composition_order: u64,
 }
 
 impl Editor {
-    pub fn new(event_loop_proxy: EventLoopProxy<UserEvent>) -> Editor {
+    pub fn new(event_loop_proxy: EventLoopProxy<EventPayload>, settings: Arc<Settings>) -> Self {
         Editor {
             windows: HashMap::new(),
             cursor: Cursor::new(),
@@ -106,12 +110,17 @@ impl Editor {
             draw_command_batcher: Rc::new(DrawCommandBatcher::new()),
             current_mode_index: None,
             ui_ready: false,
+            settings,
             event_loop_proxy,
             composition_order: 0,
         }
     }
 
-    pub fn handle_redraw_event(&mut self, event: RedrawEvent) {
+    pub fn handle_redraw_event(
+        &mut self,
+        winit_window_id: winit::window::WindowId,
+        event: RedrawEvent,
+    ) {
         match event {
             RedrawEvent::SetTitle { mut title } => {
                 tracy_zone!("EditorSetTitle");
@@ -175,7 +184,8 @@ impl Editor {
                 self.send_cursor_info();
                 {
                     trace!("send_batch");
-                    self.draw_command_batcher.send_batch(&self.event_loop_proxy);
+                    self.draw_command_batcher
+                        .send_batch(winit_window_id, &self.event_loop_proxy);
                 }
             }
             RedrawEvent::DefaultColorsSet { colors } => {
@@ -183,7 +193,7 @@ impl Editor {
 
                 // Set the dark/light theme of window, so the titlebar text gets correct color.
                 #[cfg(target_os = "macos")]
-                if SETTINGS.get::<CmdLineSettings>().frame == Frame::Transparent {
+                if self.settings.get::<CmdLineSettings>().frame == Frame::Transparent {
                     let _ = self.event_loop_proxy.send_event(
                         WindowCommand::ThemeChanged(window_theme_for_background(colors.background))
                             .into(),
@@ -193,7 +203,8 @@ impl Editor {
                 self.draw_command_batcher
                     .queue(DrawCommand::DefaultStyleChanged(Style::new(colors)));
                 self.redraw_screen();
-                self.draw_command_batcher.send_batch(&self.event_loop_proxy);
+                self.draw_command_batcher
+                    .send_batch(winit_window_id, &self.event_loop_proxy);
             }
             RedrawEvent::HighlightAttributesDefine { id, style } => {
                 tracy_zone!("EditorHighlightAttributesDefine");
@@ -636,14 +647,27 @@ impl Editor {
     }
 }
 
-pub fn start_editor(event_loop_proxy: EventLoopProxy<UserEvent>) -> NeovimHandler {
-    let (sender, mut receiver) = unbounded_channel();
-    let handler = NeovimHandler::new(sender, event_loop_proxy.clone());
+pub fn start_editor_handler(
+    winit_window_id: winit::window::WindowId,
+    event_loop_proxy: EventLoopProxy<EventPayload>,
+    running_tracker: RunningTracker,
+    settings: Arc<Settings>,
+) -> NeovimHandler {
+    let (redraw_event_sender, mut redraw_event_receiver) = unbounded_channel();
+    let (ui_command_sender, ui_command_receiver) = unbounded_channel();
+    let handler = NeovimHandler::new(
+        redraw_event_sender,
+        ui_command_sender,
+        ui_command_receiver,
+        event_loop_proxy.clone(),
+        running_tracker,
+        settings.clone(),
+    );
     thread::spawn(move || {
-        let mut editor = Editor::new(event_loop_proxy);
+        let mut editor = Editor::new(event_loop_proxy, settings.clone());
 
-        while let Some(editor_command) = receiver.blocking_recv() {
-            editor.handle_redraw_event(editor_command);
+        while let Some(editor_command) = redraw_event_receiver.blocking_recv() {
+            editor.handle_redraw_event(winit_window_id, editor_command);
         }
     });
     handler
