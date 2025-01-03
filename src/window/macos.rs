@@ -20,10 +20,8 @@ use csscolorparser::Color;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
-use crate::{
-    bridge::{send_ui, ParallelCommand},
-    settings::Settings,
-};
+use crate::bridge::{send_ui, ParallelCommand, HANDLER_REGISTRY};
+use crate::settings::Settings;
 use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame};
 
 use super::{WindowSettings, WindowSettingsChanged};
@@ -356,7 +354,13 @@ declare_class!(
     unsafe impl QuitHandler {
         #[method(quit:)]
         unsafe fn quit(&self, _event: &NSEvent) {
-            // send_ui(ParallelCommand::Quit);
+            let handler = {
+                let handler_lock = HANDLER_REGISTRY.lock().unwrap();
+                handler_lock
+                    .clone()
+                    .expect("NeovimHandler has not been initialized")
+            };
+            send_ui(ParallelCommand::Quit, &handler);
         }
     }
 );
@@ -498,7 +502,7 @@ pub fn register_file_handler() {
     ) {
         autoreleasepool(|pool| {
             for file in files.iter() {
-                let path = file.as_str(pool).to_owned();
+                let _path = file.as_str(pool).to_owned();
                 // send_ui(ParallelCommand::FileDrop(path));
             }
         });

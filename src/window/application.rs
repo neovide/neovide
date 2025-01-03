@@ -13,7 +13,6 @@ use winit::{
 
 use super::{save_window_size, CmdLineSettings, EventPayload, WindowSettings, WinitWindowWrapper};
 use crate::{
-    bridge::NeovimRuntime,
     profiling::{tracy_plot, tracy_zone},
     renderer::DrawCommand,
     running_tracker::RunningTracker,
@@ -82,6 +81,7 @@ const MAX_ANIMATION_DT: f64 = 1.0 / 120.0;
 
 pub struct Application {
     idle: bool,
+    #[allow(dead_code)]
     initial_grid_size: Option<Size2<Grid<u32>>>,
     previous_frame_start: Instant,
     last_dt: f32,
@@ -152,24 +152,6 @@ impl Application {
     }
 
     pub fn run(&mut self, event_loop: EventLoop<EventPayload>) -> Result<(), EventLoopError> {
-        // self.runtime
-        //     .launch(
-        //         self.proxy.clone(),
-        //         self.initial_grid_size,
-        //         self.runtime_tracker.clone(),
-        //         self.settings.clone(),
-        //     )
-        //     .expect("Failed to launch neovim runtime");
-
-        // self.runtime
-        //     .launch(
-        //         self.proxy.clone(),
-        //         self.initial_grid_size,
-        //         self.runtime_tracker.clone(),
-        //         self.settings.clone(),
-        //     )
-        //     .expect("Failed to launch neovim runtime");
-
         event_loop.run_app(self)
     }
 

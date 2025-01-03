@@ -14,7 +14,7 @@ use winit::event_loop::EventLoop;
 use crate::windows_attach_to_console;
 
 use crate::{
-    bridge::{send_ui, ParallelCommand},
+    bridge::{send_ui, ParallelCommand, HANDLER_REGISTRY},
     settings::Settings,
     window::{show_error_window, EventPayload},
 };
@@ -25,9 +25,19 @@ fn show_error(explanation: &str) -> ! {
 }
 
 pub fn show_nvim_error(msg: &str) {
-    // send_ui(ParallelCommand::ShowError {
-    //     lines: msg.split('\n').map(|s| s.to_string()).collect_vec(),
-    // });
+    let handler = {
+        let handler_lock = HANDLER_REGISTRY.lock().unwrap();
+        handler_lock
+            .clone()
+            .expect("NeovimHandler has not been initialized")
+    };
+    println!("show_nvim_error: {}", msg);
+    send_ui(
+        ParallelCommand::ShowError {
+            lines: msg.split('\n').map(|s| s.to_string()).collect_vec(),
+        },
+        &handler,
+    );
 }
 
 /// Formats, logs and displays the given message.

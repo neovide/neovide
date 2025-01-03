@@ -1,4 +1,4 @@
-use std::sync::{Arc, OnceLock};
+use std::sync::{Arc, LazyLock, Mutex};
 
 use log::trace;
 
@@ -12,8 +12,10 @@ use crate::{
     bridge::NeovimWriter,
     cmd_line::CmdLineSettings,
     profiling::{tracy_dynamic_zone, tracy_fiber_enter, tracy_fiber_leave},
-    LoggingSender,
 };
+
+pub static HANDLER_REGISTRY: LazyLock<Mutex<Option<NeovimHandler>>> =
+    LazyLock::new(|| Mutex::new(None));
 
 // Serial commands are any commands which must complete before the next value is sent. This
 // includes keyboard and mouse input which would cause problems if sent out of order.
@@ -280,6 +282,7 @@ pub fn start_ui_command_handler(
     let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
     let ui_command_nvim = nvim.clone();
     let (_ui_command_sender, mut ui_command_receiver) = handler.get_ui_command_channel();
+    HANDLER_REGISTRY.lock().unwrap().replace(handler);
     tokio::spawn(async move {
         loop {
             match ui_command_receiver.recv().await {

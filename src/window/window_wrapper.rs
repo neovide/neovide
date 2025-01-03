@@ -136,7 +136,7 @@ pub struct WinitWindowWrapper {
 impl WinitWindowWrapper {
     pub fn new(
         initial_window_size: WindowSize,
-        initial_font_settings: Option<FontSettings>,
+        _initial_font_settings: Option<FontSettings>,
         settings: Arc<Settings>,
         runtime_tracker: RunningTracker,
     ) -> Self {
@@ -231,7 +231,7 @@ impl WinitWindowWrapper {
         );
     }
 
-    pub fn handle_window_command(&mut self, window_id: WindowId, command: WindowCommand) {
+    pub fn handle_window_command(&mut self, _window_id: WindowId, command: WindowCommand) {
         tracy_zone!("handle_window_commands", 0);
         // let window_id = *self.routes.keys().next().unwrap();
         let window_id = match self.get_focused_route() {

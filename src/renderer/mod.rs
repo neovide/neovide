@@ -38,7 +38,7 @@ use crate::{
     profiling::{tracy_create_gpu_context, tracy_named_frame, tracy_zone},
     renderer::rendered_layer::{group_windows, FloatingLayer},
     settings::*,
-    units::{to_skia_rect, GridPos, GridRect, GridSize, PixelPos},
+    units::{to_skia_rect, GridRect, GridSize, PixelPos},
     window::{EventPayload, ShouldRender},
     WindowSettings,
 };

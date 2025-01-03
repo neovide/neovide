@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use crate::{editor::DrawCommand, renderer::WindowDrawCommand, window::EventPayload};
+use crate::{editor::DrawCommand, window::EventPayload};
 
 use winit::event_loop::EventLoopProxy;
 

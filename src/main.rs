@@ -43,7 +43,7 @@ use std::{
     path::PathBuf,
     process::ExitCode,
     sync::Arc,
-    time::{Duration, SystemTime},
+    time::SystemTime,
 };
 
 use anyhow::Result;
@@ -56,11 +56,9 @@ use winit::{error::EventLoopError, event_loop::EventLoopProxy};
 use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
 
 use backtrace::Backtrace;
-use bridge::NeovimRuntime;
 use cmd_line::CmdLineSettings;
 use error_handling::handle_startup_errors;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
-use running_tracker::RunningTracker;
 use window::{
     create_event_loop, determine_grid_size, determine_window_size, Application, EventPayload,
     WindowSettings, WindowSize,
@@ -70,9 +68,7 @@ pub use channel_utils::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
-use crate::settings::{
-    load_last_window_settings, Config, FontSettings, PersistentWindowSettings, Settings,
-};
+use crate::settings::{load_last_window_settings, Config, FontSettings, Settings};
 
 pub use profiling::startup_profiler;
 

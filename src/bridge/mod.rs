@@ -35,7 +35,9 @@ use winit::event_loop::EventLoopProxy;
 pub use command::create_nvim_command;
 pub use events::*;
 pub use session::NeovimWriter;
-pub use ui_commands::{send_ui, start_ui_command_handler, ParallelCommand, SerialCommand};
+pub use ui_commands::{
+    send_ui, start_ui_command_handler, ParallelCommand, SerialCommand, HANDLER_REGISTRY,
+};
 
 const NEOVIM_REQUIRED_VERSION: &str = "0.10.0";
 
