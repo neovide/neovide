@@ -54,7 +54,7 @@ use crate::profiling::{d3d::create_d3d_gpu_context, GpuCtx};
 use crate::{
     profiling::{tracy_gpu_zone, tracy_zone},
     settings::Settings,
-    window::{EventPayload, UserEvent},
+    window::EventPayload,
 };
 
 fn get_hardware_adapter(factory: &IDXGIFactory2) -> Result<IDXGIAdapter1> {
@@ -276,7 +276,7 @@ impl D3DSkiaRenderer {
             _composition_device: composition_device,
             _target: target,
             _visual: visual,
-            window: window.into(),
+            window,
 
             settings,
         };
