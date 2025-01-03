@@ -150,6 +150,10 @@ pub struct CmdLineSettings {
     #[cfg(any(target_os = "windows", target_os = "macos"))]
     #[arg(long = "opengl", env = "NEOVIDE_OPENGL", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
     pub opengl: bool,
+
+    /// Change to this directory during startup.
+    #[arg(long = "chdir")]
+    pub chdir: Option<String>,
 }
 
 // geometry, size and maximized are mutually exclusive
