@@ -27,7 +27,7 @@ impl DrawCommandBatcher {
         proxy
             .send_event(EventPayload::new(
                 self.batch.borrow_mut().split_off(0).into(),
-                winit::window::WindowId::from(winit_window_id),
+                winit_window_id,
             ))
             .ok();
     }
