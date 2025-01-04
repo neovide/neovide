@@ -60,8 +60,6 @@ fn build_login_cmd_args(command: &str, args: &[&str]) -> (String, Vec<String>) {
     }
 
     let user = env::var("USER").unwrap_or_explained_panic("USER environment variable not found");
-    let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
-
     let args = match shlex::try_join(args.iter().map(|s| (*s) as &str)) {
         Ok(args) => args,
         Err(_) => panic!("Failed to join arguments"),
@@ -81,7 +79,7 @@ fn build_login_cmd_args(command: &str, args: &[&str]) -> (String, Vec<String>) {
     // -l: Skips changing directory to $HOME and prepending '-' to argv[0].
     // -p: Preserves the environment.
     // -q: Forces quiet logins, as if a .hushlogin is present.
-    let cmd_args = vec!["-flpq", &user, &shell, "-lc", &exec];
+    let cmd_args = vec!["-flpq", &user, "/bin/zsh", "-lc", &exec];
 
     (
         cmd_path.to_string(),
