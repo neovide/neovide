@@ -85,7 +85,7 @@ fn build_login_cmd_args(command: &str, args: &[&str]) -> (String, Vec<String>) {
     // -l: Skips changing directory to $HOME and prepending '-' to argv[0].
     // -p: Preserves the environment.
     // -q: Forces quiet logins, as if a .hushlogin is present.
-    let cmd_args = vec!["-flpq", &user, "/bin/zsh", "-lc", &exec];
+    let cmd_args = vec!["-flpq", &user, "/bin/zsh", "-fc", &exec];
 
     (
         cmd_path.to_string(),
