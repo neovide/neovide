@@ -145,6 +145,16 @@ osx_minimum_system_version = "10.11"
  # Specify files and directories to exclude from the package
 exclude = [
     "website/*",       # Exclude all files in the large_assets directory
+    "ubuntu-builder/*",     # Exclude all files in the ubuntu-builder directory
+    "wix/*",                # Exclude all files in the wix directory
+    "macos-builder/*",      # Exclude all files in the macos-builder directory
+    ".vscode/**/*",
+    ".github/**/*",
+    "assets/dmg-background/**/*",
+    "assets/neovide-*.png",
+    "assets/neovide.ico",
+    "assets/neovide.svg",
+    "extra/**/*",
     "*.md",                 # Exclude all markdown files
     "scripts/*.sh",         # Exclude all shell scripts in the scripts directory
     "docs/*",               # Exclude all files in the docs directory
