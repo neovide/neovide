@@ -10,6 +10,24 @@ homepage = "https://neovide.dev/"
 repository = "https://github.com/neovide/neovide"
 readme = "README.md"
 keywords = ["neovim", "nvim", "gui"]
+exclude = [
+    "website/*",
+    "ubuntu-builder/*",
+    "wix/*",
+    "macos-builder/*",
+    ".vscode/**/*",
+    ".github/**/*",
+    "assets/dmg-background/**/*",
+    "assets/neovide-*.png",
+    "assets/neovide.svg",
+    "extra/**/*",
+    "*.md",
+    "scripts/*.sh",
+    "docs/*",
+    "target/*",
+    ".gitignore",
+    "stylua.toml",
+]
 
 [workspace]
 members = ["neovide-derive"]
