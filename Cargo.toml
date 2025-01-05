@@ -19,7 +19,6 @@ exclude = [
     ".github/**/*",
     "assets/dmg-background/**/*",
     "assets/neovide-*.png",
-    "assets/neovide.ico",
     "assets/neovide.svg",
     "extra/**/*",
     "*.md",
