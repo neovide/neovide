@@ -20,7 +20,6 @@ exclude = [
     "assets/dmg-background/**/*",
     "assets/neovide-*.png",
     "assets/neovide.svg",
-    "extra/**/*",
     "*.md",
     "scripts/*.sh",
     "docs/*",
