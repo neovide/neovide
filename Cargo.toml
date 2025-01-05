@@ -28,6 +28,7 @@ exclude = [
     "docs/*",               # Exclude all files in the docs directory
     "target/*",             # Exclude the target directory
     ".gitignore",           # Exclude the .gitignore file
+    "stylua.toml",
 ]
 
 [workspace]
