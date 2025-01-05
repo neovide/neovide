@@ -142,7 +142,7 @@ This is a simple graphical user interface for Neovim. Where possible there are s
 """
 osx_minimum_system_version = "10.11"
 
- # Specify files and directories to exclude from the package
+# Specify files and directories to exclude from the package
 exclude = [
     "website/*",       # Exclude all files in the large_assets directory
     "ubuntu-builder/*",     # Exclude all files in the ubuntu-builder directory
