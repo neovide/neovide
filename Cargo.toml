@@ -48,7 +48,7 @@ indoc = "2.0.5"
 itertools = "0.13.0"
 log = "0.4.22"
 lru = "0.12.5"
-neovide-derive = { path = "neovide-derive", version = "0.1.0" }
+neovide-derive = { path = "neovide-derive", version = "0.1.1" }
 num = "0.4.3"
 nvim-rs = { version = "0.7.0", features = ["use_tokio"] }
 parking_lot = "0.12.3"
