@@ -194,8 +194,6 @@ executed when starting an interactive non-login shell.
 
 ![pic alt](./assets/login-shell.png)
 
-### _Neovide Behavior_
-
 _Regarding to the moment when Neovide launches, it does not start an
 interactive shell session, meaning the .bashrc file is not executed. Instead,
 the system reads the .bash_profile file. This behavior stems from the
