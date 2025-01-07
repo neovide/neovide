@@ -193,7 +193,7 @@ overlooked, resulting in developers placing their shell setup entirely in
 terminal. Now that zsh is the new default, `.zprofile` and `.zshrc` are both
 called starting an interactive non-login shell.
 
-![pic alt](https://private-user-images.githubusercontent.com/9946255/400803742-4978f773-b732-4ff4-87a1-c8a43aad351a.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzYyNjc4MjYsIm5iZiI6MTczNjI2NzUyNiwicGF0aCI6Ii85OTQ2MjU1LzQwMDgwMzc0Mi00OTc4Zjc3My1iNzMyLTRmZjQtODdhMS1jOGE0M2FhZDM1MWEucG5nP1gtQW16LUFsZ29yaXRobT1BV1M0LUhNQUMtU0hBMjU2JlgtQW16LUNyZWRlbnRpYWw9QUtJQVZDT0RZTFNBNTNQUUs0WkElMkYyMDI1MDEwNyUyRnVzLWVhc3QtMSUyRnMzJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNTAxMDdUMTYzMjA2WiZYLUFtei1FeHBpcmVzPTMwMCZYLUFtei1TaWduYXR1cmU9ZmZmZTY2ZjMzMTM5OTZkZDA3OWE2Y2M2NjQyM2E3ZTlmMGI1YjhhNTNjZDE5NjNjMWYxYTE1YzdjNzYyNDMzMiZYLUFtei1TaWduZWRIZWFkZXJzPWhvc3QifQ.vbl7R3lxRBa2feyeJfOpE76-IVIRHZIthx_iMQ_-_DA)
+![pic alt](./assets/login-shell.png)
 
 **_Regarding to the moment when Neovide launches, it does not start an interactive shell session, meaning the .bashrc file is not executed. Instead, the system reads the .bash_profile file. This behavior stems from the difference in how interactive and login shells process configuration files._**
 
