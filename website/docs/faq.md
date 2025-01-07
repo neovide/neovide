@@ -209,18 +209,4 @@ in that there is no `.xsession` or similar, since `.zprofile` is never run,
 that can give a users terminals access to initial settings or set things like
 global environment variables [^1].
 
-This however does _not_ mean that everything should just go in `.zprofile`, or
-that the two files are always called together. Since zsh in started in login
-mode and interactive mode, both `.zprofile` and `.zshrc` will run every time
-a new terminal is created. However, if you run a shell inside of a terminal
-emulator that will only be an interactive shell and it will lose access to the
-parent shells settings that were initialized in `.zprofile`. You can test this
-by placing an alias in your `.zprofile` and starting a terminal instance and
-running that alias, then run `zsh` and you will find that the alias is no longer
-available.
-
-Therefore, most shell setup should still go in the `.zshrc` file so that any shells,
-terminal or otherwise, are initialized correctly. This is also somewhat in line
-with how dotfiles on other Linux systems would be written.
-
 [^1]: [Why are interactive shells on OSX login shells by default?](https://unix.stackexchange.com/questions/119627/why-are-interactive-shells-on-osx-login-shells-by-default)
