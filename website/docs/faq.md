@@ -167,3 +167,57 @@ vim.g.neovide_cursor_animate_command_line = false
 vim.g.neovide_scroll_animation_far_lines = 0
 vim.g.neovide_scroll_animation_length = 0.00
 ```
+
+## macOS Login Shells
+
+Traditionally, unix shells have two main files that expect to be run before the user
+is able to interact with the shell: a profile file and the rc file. The
+profile file is usually run once at login and is used to set up the environment
+for the user. The rc file is run every time a new shell is created and is used
+to set up the shell itself.
+
+Using zsh as an example (the default shell on macOS since 10.15):
+zsh uses the `.zprofile` and `.zshrc` files. On most Linux systems `.zprofile`
+(or similar) is executed when the user initially logs in via something like
+a desktop manager. This allows subsequent shells to inherit the environment
+and any setup done by `.zprofile`. The idea here is that any expensive
+initialization only needs done once at login, and subsequent shells can reuse
+everything from the setup process.
+
+Zsh is used as an example but almost any shell can be used in its place and
+have the same behavior, with the exception of bash. Bash will **only** read
+`.bashrc` if the shell is both interactive and non-login. Since macOS moved from
+tcsh to bash in OSX 10.2 Jaguar, this difference in bash may have been
+overlooked, resulting in developers placing their shell setup entirely in
+`.profile` as `.bashrc` would rarely be run, specifically not by starting a new
+terminal. Now that zsh is the new default, `.zprofile` and `.zshrc` are both
+called starting an interactive non-login shell.
+
+![pic alt](https://private-user-images.githubusercontent.com/9946255/400803742-4978f773-b732-4ff4-87a1-c8a43aad351a.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MzYyNjc4MjYsIm5iZiI6MTczNjI2NzUyNiwicGF0aCI6Ii85OTQ2MjU1LzQwMDgwMzc0Mi00OTc4Zjc3My1iNzMyLTRmZjQtODdhMS1jOGE0M2FhZDM1MWEucG5nP1gtQW16LUFsZ29yaXRobT1BV1M0LUhNQUMtU0hBMjU2JlgtQW16LUNyZWRlbnRpYWw9QUtJQVZDT0RZTFNBNTNQUUs0WkElMkYyMDI1MDEwNyUyRnVzLWVhc3QtMSUyRnMzJTJGYXdzNF9yZXF1ZXN0JlgtQW16LURhdGU9MjAyNTAxMDdUMTYzMjA2WiZYLUFtei1FeHBpcmVzPTMwMCZYLUFtei1TaWduYXR1cmU9ZmZmZTY2ZjMzMTM5OTZkZDA3OWE2Y2M2NjQyM2E3ZTlmMGI1YjhhNTNjZDE5NjNjMWYxYTE1YzdjNzYyNDMzMiZYLUFtei1TaWduZWRIZWFkZXJzPWhvc3QifQ.vbl7R3lxRBa2feyeJfOpE76-IVIRHZIthx_iMQ_-_DA)
+
+**_Regarding to the moment when Neovide launches, it does not start an interactive shell session, meaning the .bashrc file is not executed. Instead, the system reads the .bash_profile file. This behavior stems from the difference in how interactive and login shells process configuration files._**
+
+macOS differs in that the GUI used to login to the system does not run
+`.zprofile` as it has its own method of loading in system level global
+settings. This means that any terminal emulator must run shells as login or
+else new shells would be potentially broken since they would be missing any
+setup process in `.zprofile`. This is the unfortunate reality, but makes sense
+in that there is no `.xsession` or similar, since `.zprofile` is never run,
+that can give a users terminals access to initial settings or set things like
+global environment variables [^1].
+
+This however does _not_ mean that everything should just go in `.zprofile`, or
+that the two files are always called together. Since zsh in started in login
+mode and interactive mode, both `.zprofile` and `.zshrc` will run every time
+a new terminal is created. However, if you run a shell inside of a terminal
+emulator that will only be an interactive shell and it will lose access to the
+parent shells settings that were initialized in `.zprofile`. You can test this
+by placing an alias in your `.zprofile` and starting a terminal instance and
+running that alias, then run `zsh` and you will find that the alias is no longer
+available.
+
+Therefore, most shell setup should still go in the `.zshrc` file so that any shells,
+terminal or otherwise, are initialized correctly. This is also somewhat in line
+with how dotfiles on other Linux systems would be written.
+
+[^1]: [Why are interactive shells on OSX login shells by default?](https://unix.stackexchange.com/questions/119627/why-are-interactive-shells-on-osx-login-shells-by-default)
