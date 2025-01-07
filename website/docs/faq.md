@@ -170,43 +170,43 @@ vim.g.neovide_scroll_animation_length = 0.00
 
 ## macOS Login Shells
 
-Traditionally, unix shells have two main files that expect to be run before the user
-is able to interact with the shell: a profile file and the rc file. The
-profile file is usually run once at login and is used to set up the environment
-for the user. The rc file is run every time a new shell is created and is used
-to set up the shell itself.
+Traditionally, Unix shells use two main configuration files that are executed
+before a user can interact with the shell: a profile file and an rc file.
 
-Using zsh as an example (the default shell on macOS since 10.15):
-zsh uses the `.zprofile` and `.zshrc` files. On most Linux systems `.zprofile`
-(or similar) is executed when the user initially logs in via something like
-a desktop manager. This allows subsequent shells to inherit the environment
-and any setup done by `.zprofile`. The idea here is that any expensive
-initialization only needs done once at login, and subsequent shells can reuse
-everything from the setup process.
+- **Profile File:** This file is typically executed once at login to set up
+  the user's environment.
+- **RC File:** This file is executed every time a new shell is created to
+  configure the shell itself.
 
-Zsh is used as an example but almost any shell can be used in its place and
-have the same behavior, with the exception of bash. Bash will **only** read
-`.bashrc` if the shell is both interactive and non-login. Since macOS moved from
-tcsh to bash in OSX 10.2 Jaguar, this difference in bash may have been
-overlooked, resulting in developers placing their shell setup entirely in
-`.profile` as `.bashrc` would rarely be run, specifically not by starting a new
-terminal. Now that zsh is the new default, `.zprofile` and `.zshrc` are both
-called starting an interactive non-login shell.
+In the case of Zsh, which has been the default shell on macOS since version
+10.15, the configuration files used are `.zprofile` and `.zshrc`.
+
+### Bash Differences
+
+Unlike Zsh, Bash behaves differently. It only reads `.bashrc` if the shell
+session is both interactive and non-login. This distinction might have been
+overlooked when macOS transitioned from tcsh to bash in OSX 10.2 Jaguar,
+leading developers to place their setup entirely in `.profile` since `.bashrc`
+would rarely be executed, especially when starting a new terminal.
+
+With the shift to Zsh as the default shell, both `.zprofile` and `.zshrc` are
+executed when starting an interactive non-login shell.
 
 ![pic alt](./assets/login-shell.png)
 
-**_Regarding to the moment when Neovide launches, it does not start an interactive
-shell session, meaning the .bashrc file is not executed. Instead, the system reads
-the .bash_profile file. This behavior stems from the difference in how interactive
-and login shells process configuration files._**
+_Regarding to the moment when Neovide launches, it does not start an
+interactive shell session, meaning the .bashrc file is not executed. Instead,
+the system reads the .bash_profile file. This behavior stems from the
+difference in how interactive and login shells process configuration files._
 
-macOS differs in that the GUI used to login to the system does not run
-`.zprofile` as it has its own method of loading in system level global
-settings. This means that any terminal emulator must run shells as login or
-else new shells would be potentially broken since they would be missing any
-setup process in `.zprofile`. This is the unfortunate reality, but makes sense
-in that there is no `.xsession` or similar, since `.zprofile` is never run,
-that can give a users terminals access to initial settings or set things like
-global environment variables [^1].
+### macOS Specifics
+
+On macOS, the graphical user interface used for system login does not execute
+`.zprofile`, as it employs a different method for loading system-level global
+settings. This means that terminal emulators must run shells as login shells
+to ensure that new shells are properly configured, avoiding potential issues
+from missing setup processes in `.zprofile`. This necessity arises because
+there is no `.xsession` or equivalent file on macOS to provide initial
+settings or global environment variables to terminal sessions[^1].
 
 [^1]: [Why are interactive shells on OSX login shells by default?](https://unix.stackexchange.com/questions/119627/why-are-interactive-shells-on-osx-login-shells-by-default)
