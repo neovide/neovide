@@ -195,7 +195,10 @@ called starting an interactive non-login shell.
 
 ![pic alt](./assets/login-shell.png)
 
-**_Regarding to the moment when Neovide launches, it does not start an interactive shell session, meaning the .bashrc file is not executed. Instead, the system reads the .bash_profile file. This behavior stems from the difference in how interactive and login shells process configuration files._**
+**_Regarding to the moment when Neovide launches, it does not start an interactive
+shell session, meaning the .bashrc file is not executed. Instead, the system reads
+the .bash_profile file. This behavior stems from the difference in how interactive
+and login shells process configuration files._**
 
 macOS differs in that the GUI used to login to the system does not run
 `.zprofile` as it has its own method of loading in system level global
