@@ -13,7 +13,7 @@ use raw_window_handle::HasDisplayHandle;
 use raw_window_handle::{RawDisplayHandle, WaylandDisplayHandle};
 use winit::event_loop::EventLoop;
 
-use crate::window::UserEvent;
+use crate::window::EventPayload;
 
 type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync + 'static>>;
 
@@ -25,7 +25,7 @@ pub struct Clipboard {
 
 static CLIPBOARD: OnceLock<Mutex<Clipboard>> = OnceLock::new();
 
-pub fn init(event_loop: &EventLoop<UserEvent>) {
+pub fn init(event_loop: &EventLoop<EventPayload>) {
     CLIPBOARD
         .set(Mutex::new(
             match event_loop.display_handle().unwrap().as_raw() {

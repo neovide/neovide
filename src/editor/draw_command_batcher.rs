@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use crate::{editor::DrawCommand, window::UserEvent};
+use crate::{editor::DrawCommand, window::EventPayload};
 
 use winit::event_loop::EventLoopProxy;
 
@@ -19,9 +19,16 @@ impl DrawCommandBatcher {
         self.batch.borrow_mut().push(draw_command);
     }
 
-    pub fn send_batch(&self, proxy: &EventLoopProxy<UserEvent>) {
+    pub fn send_batch(
+        &self,
+        winit_window_id: winit::window::WindowId,
+        proxy: &EventLoopProxy<EventPayload>,
+    ) {
         proxy
-            .send_event(self.batch.borrow_mut().split_off(0).into())
+            .send_event(EventPayload::new(
+                self.batch.borrow_mut().split_off(0).into(),
+                winit_window_id,
+            ))
             .ok();
     }
 }
