@@ -99,8 +99,10 @@ fn create_platform_shell_command(command: &str, args: &[&str]) -> StdCommand {
     {
         if SETTINGS.get::<CmdLineSettings>().wsl {
             let mut result = StdCommand::new("wsl");
-            result.args(["$SHELL", "-lc"]);
-            result.arg(format!("{} {}", command, args.join(" ")));
+            result.args(["--shell-type", "login"]);
+            result.arg("--");
+            result.arg(command);
+            result.args(args);
 
             result.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
 
@@ -183,7 +185,7 @@ fn neovim_ok(bin: &str, args: &[String]) -> Result<bool> {
     if unexpected_output {
         let error_message = create_error_message(bin, &stdout, non_matching_stderr_lines, is_wsl);
         let command = if is_wsl {
-            "wsl '$SHELL' -lc '{bin} -v'"
+            "wsl --shell-type login -- {bin} -v"
         } else {
             "$SHELL -lc '{bin} -v'"
         };
@@ -260,11 +262,13 @@ fn nvim_cmd_impl(bin: String, args: Vec<String>) -> TokioCommand {
 }
 
 #[cfg(not(target_os = "macos"))]
-fn nvim_cmd_impl(bin: String, mut args: Vec<String>) -> TokioCommand {
+fn nvim_cmd_impl(bin: String, args: Vec<String>) -> TokioCommand {
     if cfg!(target_os = "windows") && SETTINGS.get::<CmdLineSettings>().wsl {
-        args.insert(0, bin);
         let mut cmd = TokioCommand::new("wsl");
-        cmd.args(["$SHELL", "-lc", &args.join(" ")]);
+        cmd.args(["--shell-type", "login"]);
+        cmd.arg("--");
+        cmd.arg(bin);
+        cmd.args(args);
         cmd
     } else {
         let mut cmd = TokioCommand::new(bin);
