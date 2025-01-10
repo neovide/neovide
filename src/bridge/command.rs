@@ -180,14 +180,14 @@ fn neovim_ok(bin: &str, args: &[String]) -> Result<bool> {
 
     let unexpected_output = !output.status.success()
         || !stdout.starts_with("NVIM v")
-        || non_matching_stderr_lines.len() != stderr.lines().count();
+        || !non_matching_stderr_lines.is_empty();
 
     if unexpected_output {
         let error_message = create_error_message(bin, &stdout, non_matching_stderr_lines, is_wsl);
         let command = if is_wsl {
-            "wsl --shell-type login -- {bin} -v"
+            format!("wsl --shell-type login -- {bin} -v")
         } else {
-            "$SHELL -lc '{bin} -v'"
+            format!("$SHELL -lc '{bin} -v'")
         };
 
         bail!("{error_message}{command}")
