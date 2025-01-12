@@ -13,13 +13,13 @@ use skia_safe::{
         surfaces::wrap_backend_render_target,
         DirectContext, SurfaceOrigin,
     },
-    Canvas, ColorSpace, ColorType, Surface,
+    Canvas, ColorSpace, ColorType, PixelGeometry, Surface, SurfaceProps, SurfacePropsFlags,
 };
 use winit::{event_loop::EventLoopProxy, window::Window};
 
 use crate::{
     profiling::tracy_gpu_zone,
-    renderer::{SkiaRenderer, VSync},
+    renderer::{RendererSettings, SkiaRenderer, VSync, SETTINGS},
     window::{macos::get_ns_window, UserEvent},
 };
 
@@ -46,13 +46,22 @@ impl MetalDrawableSurface {
         let metal_drawable =
             unsafe { Retained::cast::<ProtocolObject<dyn MTLDrawable>>(drawable.clone()) };
 
+        let render_settings = SETTINGS.get::<RendererSettings>();
+
+        let surface_props = SurfaceProps::new_with_text_properties(
+            SurfacePropsFlags::default(),
+            PixelGeometry::default(),
+            render_settings.text_contrast,
+            render_settings.text_gamma,
+        );
+
         let surface = wrap_backend_render_target(
             context,
             &backend_render_target,
             SurfaceOrigin::TopLeft,
             ColorType::BGRA8888,
             ColorSpace::new_srgb(),
-            None,
+            Some(surface_props).as_ref(),
         )
         .expect("Failed to create skia surface with metal drawable.");
 
