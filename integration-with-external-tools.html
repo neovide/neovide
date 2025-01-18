@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Editing w/ External Tools - Neovide</title>
+        <title>Integration w/ External Tools - Neovide</title>
         <!-- Custom HTML head -->
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="A Simple, No Nonsense, Cross-Platform, Graphical User Interface for Neovim">
@@ -78,7 +78,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Neovide</a></li><li class="spacer"></li><li class="chapter-item expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">3.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="commands.html"><strong aria-hidden="true">4.</strong> Commands</a></li><li class="chapter-item expanded "><a href="command-line-reference.html"><strong aria-hidden="true">5.</strong> Command Line Reference</a></li><li class="chapter-item expanded "><a href="config-file.html"><strong aria-hidden="true">6.</strong> Config File</a></li><li class="chapter-item expanded "><a href="editing-with-external-tools.html" class="active"><strong aria-hidden="true">7.</strong> Editing w/ External Tools</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">8.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">9.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="maintainer-cookbook.html"><strong aria-hidden="true">10.</strong> Maintainer Cookbook</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="index.html">Neovide</a></li><li class="spacer"></li><li class="chapter-item expanded "><a href="features.html"><strong aria-hidden="true">1.</strong> Features</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="configuration.html"><strong aria-hidden="true">3.</strong> Configuration</a></li><li class="chapter-item expanded "><a href="commands.html"><strong aria-hidden="true">4.</strong> Commands</a></li><li class="chapter-item expanded "><a href="command-line-reference.html"><strong aria-hidden="true">5.</strong> Command Line Reference</a></li><li class="chapter-item expanded "><a href="config-file.html"><strong aria-hidden="true">6.</strong> Config File</a></li><li class="chapter-item expanded "><a href="integration-with-external-tools.html" class="active"><strong aria-hidden="true">7.</strong> Integration w/ External Tools</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">8.</strong> Troubleshooting</a></li><li class="chapter-item expanded "><a href="faq.html"><strong aria-hidden="true">9.</strong> FAQ</a></li><li class="chapter-item expanded "><a href="maintainer-cookbook.html"><strong aria-hidden="true">10.</strong> Maintainer Cookbook</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -116,7 +116,7 @@
                         <a href="https://github.com/neovide/neovide" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
-                        <a href="https://github.com/neovide/neovide/edit/main/website/docs/editing-with-external-tools.md" title="Suggest an edit" aria-label="Suggest an edit">
+                        <a href="https://github.com/neovide/neovide/edit/main/website/docs/integration-with-external-tools.md" title="Suggest an edit" aria-label="Suggest an edit">
                             <i id="git-edit-button" class="fa fa-edit"></i>
                         </a>
                     </div>
@@ -143,7 +143,7 @@
 
                 <div id="content" class="content">
                     <main><div class="sidetoc"><nav class="pagetoc"></nav></div>
-                        <h1 id="editing-w-external-tools"><a class="header" href="#editing-w-external-tools">Editing w/ External Tools</a></h1>
+                        <h1 id="integration-w-external-tools"><a class="header" href="#integration-w-external-tools">Integration w/ External Tools</a></h1>
 <p>You can use Neovide in other programs as editor, this page aims to document some quirks. Support for
 that, however, is only possible as far as reasonably debuggable.</p>
 <p><em>Note: We do not endorse nor disrecommend usage of all programs listed here. All usage happens on
@@ -154,6 +154,45 @@ your own responsibility.</em></p>
 </code></pre>
 <p>...as <code>jrnl</code> saves &amp; removes the temporary file as soon as the main process exits, which happens
 before startup by <a href="https://en.wikipedia.org/wiki/Fork_(system_call)">forking</a>.</p>
+<h2 id="quake-mode-accessibility-macos-only"><a class="header" href="#quake-mode-accessibility-macos-only">Quake Mode Accessibility (macOS only)</a></h2>
+<p>This feature is quite popular in many terminals.</p>
+<p>At the moment you can achieve the same mode using
+<a href="http://www.hammerspoon.org">Hammerspoon</a> just creating key bindings to increase
+the accessibility and flexibility.</p>
+<p>To open Neovide on the current space (with your preferred key-binding) add the
+following code at <code>~/.hammerspoon/init.lua</code>:</p>
+<pre><code class="language-lua">-- Neovide configuration
+hs.hotkey.bind({&quot;ctrl&quot;, &quot;shift&quot;}, &quot;z&quot;, function()
+  -- Get current space
+  local currentSpace = hs.spaces.focusedSpace()
+  -- Get neovide app
+  local app = hs.application.get(&quot;neovide&quot;)
+  -- If app already open:
+  if app then
+    -- If no main window, then open a new window
+    if not app:mainWindow() then
+      app:selectMenuItem(&quot;New OS Window&quot;, true)
+      -- If app is already in front, then hide it
+    elseif app:isFrontmost() then
+      app:hide()
+      -- If there is a main window somewhere, bring it to current space and to
+      -- front
+    else
+      -- First move the main window to the current space
+      hs.spaces.moveWindowToSpace(app:mainWindow(), currentSpace)
+      -- Activate the app
+      app:activate()
+      -- Raise the main window and position correctly
+      app:mainWindow():raise()
+    end
+    -- If app not open, open it
+  else
+    hs.application.launchOrFocus(&quot;neovide&quot;)
+    app = hs.application.get(&quot;neovide&quot;)
+  end
+  -- hs.spaces.gotoSpace(currentSpace)
+end)
+</code></pre>
 
                     </main>
 
