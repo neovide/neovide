@@ -19,13 +19,16 @@ before startup by [forking](<https://en.wikipedia.org/wiki/Fork_(system_call)>).
 
 ## Quake Mode Accessibility (macOS only)
 
-This feature is quite popular in many terminals aka [iTerm2](https://iterm2.com), [Kitty](https://sw.kovidgoyal.net/kitty/) and [Warp](https://www.warp.dev/f).
+This feature is quite popular in many terminals.
 
-At the moment you can achieve the same mode using [Hammerspoon](http://www.hammerspoon.org) just creating key bindings to increase the accessibility and flexibility.
+At the moment you can achieve the same mode using
+[Hammerspoon](http://www.hammerspoon.org) just creating key bindings to increase
+the accessibility and flexibility.
 
-To open Neovide on the current space (with your preferred key-binding) add the following code at `~/.hammerspoon/init.lua`:
+To open Neovide on the current space (with your preferred key-binding) add the
+following code at `~/.hammerspoon/init.lua`:
 
-```vim
+```lua
 -- Neovide configuration
 hs.hotkey.bind({"ctrl", "shift"}, "z", function()
   -- Get current space
@@ -40,7 +43,8 @@ hs.hotkey.bind({"ctrl", "shift"}, "z", function()
       -- If app is already in front, then hide it
     elseif app:isFrontmost() then
       app:hide()
-      -- If there is a main window somewhere, bring it to current space and to front
+      -- If there is a main window somewhere, bring it to current space and to
+      -- front
     else
       -- First move the main window to the current space
       hs.spaces.moveWindowToSpace(app:mainWindow(), currentSpace)
