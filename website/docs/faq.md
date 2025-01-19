@@ -167,3 +167,46 @@ vim.g.neovide_cursor_animate_command_line = false
 vim.g.neovide_scroll_animation_far_lines = 0
 vim.g.neovide_scroll_animation_length = 0.00
 ```
+
+## macOS Login Shells
+
+Traditionally, Unix shells use two main configuration files that are executed
+before a user can interact with the shell: a profile file and an rc file.
+
+- **Profile File:** This file is typically executed once at login to set up
+  the user's environment.
+- **RC File:** This file is executed every time a new shell is created to
+  configure the shell itself.
+
+In the case of Zsh, which has been the default shell on macOS since version
+10.15, the configuration files used are `.zprofile` and `.zshrc`.
+
+### Bash Differences
+
+Unlike Zsh, Bash behaves differently. It only reads `.bashrc` if the shell
+session is both interactive and non-login. This distinction might have been
+overlooked when macOS transitioned from tcsh to bash in OSX 10.2 Jaguar,
+leading developers to place their setup entirely in `.profile` since `.bashrc`
+would rarely be executed, especially when starting a new terminal.
+
+With the shift to Zsh as the default shell, both `.zprofile` and `.zshrc` are
+executed when starting an interactive non-login shell.
+
+![pic alt](./assets/login-shell.png)
+
+_Regarding to the moment when Neovide launches, it does not start an
+interactive shell session, meaning the .bashrc file is not executed. Instead,
+the system reads the .bash_profile file. This behavior stems from the
+difference in how interactive and login shells process configuration files._
+
+### macOS Specifics
+
+On macOS, the graphical user interface used for system login does not execute
+`.zprofile`, as it employs a different method for loading system-level global
+settings. This means that terminal emulators must run shells as login shells
+to ensure that new shells are properly configured, avoiding potential issues
+from missing setup processes in `.zprofile`. This necessity arises because
+there is no `.xsession` or equivalent file on macOS to provide initial
+settings or global environment variables to terminal sessions[^1].
+
+[^1]: [Why are interactive shells on OSX login shells by default?](https://unix.stackexchange.com/questions/119627/why-are-interactive-shells-on-osx-login-shells-by-default)

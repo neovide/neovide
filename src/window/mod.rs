@@ -201,7 +201,7 @@ pub fn create_window(
     let window_attributes = {
         if env::var("WAYLAND_DISPLAY").is_ok() {
             let app_id = &cmd_line_settings.wayland_app_id;
-            WindowAttributesExtWayland::with_name(window_attributes, "neovide", app_id.clone())
+            WindowAttributesExtWayland::with_name(window_attributes, app_id.clone(), "neovide")
         } else {
             let class = &cmd_line_settings.x11_wm_class;
             let instance = &cmd_line_settings.x11_wm_class_instance;

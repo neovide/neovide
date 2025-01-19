@@ -40,7 +40,7 @@ use std::{
     env::{self, args},
     fs::{File, OpenOptions},
     io::Write,
-    panic::{set_hook, PanicInfo},
+    panic::set_hook,
     process::ExitCode,
     sync::Arc,
     time::{Duration, SystemTime},
@@ -48,7 +48,11 @@ use std::{
 
 use anyhow::Result;
 use log::trace;
-use time::{macros::format_description, OffsetDateTime};
+use std::env::var;
+use std::panic::PanicHookInfo;
+use std::path::PathBuf;
+use time::macros::format_description;
+use time::OffsetDateTime;
 use winit::{error::EventLoopError, event_loop::EventLoopProxy};
 
 #[cfg(not(test))]
@@ -74,7 +78,8 @@ use crate::settings::{
 
 pub use profiling::startup_profiler;
 
-const BACKTRACES_FILE: &str = "neovide_backtraces.log";
+const DEFAULT_BACKTRACES_FILE: &str = "neovide_backtraces.log";
+const BACKTRACES_FILE_ENV_VAR: &str = "NEOVIDE_BACKTRACES";
 const REQUEST_MESSAGE: &str = "This is a bug and we would love for it to be reported to https://github.com/neovide/neovide/issues";
 
 fn main() -> ExitCode {
@@ -84,7 +89,7 @@ fn main() -> ExitCode {
         let stderr_msg = generate_stderr_log_message(panic_info, &backtrace);
         eprintln!("{stderr_msg}");
 
-        log_panic_to_file(panic_info, &backtrace);
+        log_panic_to_file(panic_info, &backtrace, &None);
     }));
 
     #[cfg(target_os = "windows")]
@@ -215,6 +220,18 @@ fn setup(
     let config = Config::init();
     Config::watch_config_file(config.clone(), proxy.clone());
 
+    set_hook(Box::new({
+        let path = config.backtraces_path.clone();
+        move |panic_info: &PanicHookInfo<'_>| {
+            let backtrace = Backtrace::new();
+
+            let stderr_msg = generate_stderr_log_message(panic_info, &backtrace);
+            eprintln!("{stderr_msg}");
+
+            log_panic_to_file(panic_info, &backtrace, &path);
+        }
+    }));
+
     //Will exit if -h or -v
     cmd_line::handle_command_line_arguments(args().collect(), settings.as_ref())?;
     #[cfg(not(target_os = "windows"))]
@@ -291,7 +308,7 @@ fn maybe_disown(settings: &Settings) {
     }
 }
 
-fn generate_stderr_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) -> String {
+fn generate_stderr_log_message(panic_info: &PanicHookInfo, backtrace: &Backtrace) -> String {
     if cfg!(debug_assertions) {
         let print_backtrace = match env::var("RUST_BACKTRACE") {
             Ok(x) => x == "full" || x == "1",
@@ -315,13 +332,21 @@ fn generate_stderr_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) ->
     }
 }
 
-fn log_panic_to_file(panic_info: &PanicInfo, backtrace: &Backtrace) {
+fn log_panic_to_file(panic_info: &PanicHookInfo, backtrace: &Backtrace, path: &Option<PathBuf>) {
     let log_msg = generate_panic_log_message(panic_info, backtrace);
+
+    let file_path = match path {
+        Some(v) => v,
+        None => &match var(BACKTRACES_FILE_ENV_VAR) {
+            Ok(v) => PathBuf::from(v),
+            Err(_) => settings::neovide_std_datapath().join(DEFAULT_BACKTRACES_FILE),
+        },
+    };
 
     let mut file = match OpenOptions::new()
         .append(true)
-        .open(BACKTRACES_FILE)
-        .or_else(|_| File::create(BACKTRACES_FILE))
+        .open(file_path)
+        .or_else(|_| File::create(file_path))
     {
         Ok(x) => x,
         Err(e) => {
@@ -331,12 +356,12 @@ fn log_panic_to_file(panic_info: &PanicInfo, backtrace: &Backtrace) {
     };
 
     match file.write_all(log_msg.as_bytes()) {
-        Ok(()) => eprintln!("\nBacktrace saved to {BACKTRACES_FILE}!"),
-        Err(e) => eprintln!("Failed writing panic to {BACKTRACES_FILE}: {e}"),
+        Ok(()) => eprintln!("\nBacktrace saved to {:?}!", file_path),
+        Err(e) => eprintln!("Failed writing panic to {:?}: {e}", file_path),
     }
 }
 
-fn generate_panic_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) -> String {
+fn generate_panic_log_message(panic_info: &PanicHookInfo, backtrace: &Backtrace) -> String {
     let system_time: OffsetDateTime = SystemTime::now().into();
 
     let timestamp = system_time
@@ -351,7 +376,7 @@ fn generate_panic_log_message(panic_info: &PanicInfo, backtrace: &Backtrace) -> 
     format!("{full_panic_msg}\n{backtrace:?}\n")
 }
 
-fn generate_panic_message(panic_info: &PanicInfo) -> String {
+fn generate_panic_message(panic_info: &PanicHookInfo) -> String {
     // As per the documentation for `.location()`(https://doc.rust-lang.org/std/panic/struct.PanicInfo.html#method.location)
     // the call to location cannot currently return `None`, so we unwrap.
     let location_info = panic_info.location().unwrap();

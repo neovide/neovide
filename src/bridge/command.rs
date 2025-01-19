@@ -61,6 +61,7 @@ fn build_login_cmd_args(command: &str, args: &[&str]) -> (String, Vec<String>) {
 
     let user = env::var("USER").unwrap_or_explained_panic("USER environment variable not found");
     let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+    let shell_name = shell.split('/').last().unwrap_or("zsh");
 
     let args = match shlex::try_join(args.iter().map(|s| (*s) as &str)) {
         Ok(args) => args,
@@ -68,7 +69,10 @@ fn build_login_cmd_args(command: &str, args: &[&str]) -> (String, Vec<String>) {
     };
 
     // Executes neovim as a login shell, so it will source the user's startup files.
-    let exec = format!("{} {}", command, args);
+    let exec = format!(
+        "exec -a -{} {} -c '{} {}'",
+        shell_name, shell, command, args
+    );
 
     // See "man login". It sets up some important env vars like $PATH and $HOME.
     // On macOS, use the `login` command so it will appear as a tty session.
@@ -81,7 +85,7 @@ fn build_login_cmd_args(command: &str, args: &[&str]) -> (String, Vec<String>) {
     // -l: Skips changing directory to $HOME and prepending '-' to argv[0].
     // -p: Preserves the environment.
     // -q: Forces quiet logins, as if a .hushlogin is present.
-    let cmd_args = vec!["-flpq", &user, &shell, "-lc", &exec];
+    let cmd_args = vec!["-flpq", &user, "/bin/zsh", "-fc", &exec];
 
     (
         cmd_path.to_string(),
@@ -90,7 +94,6 @@ fn build_login_cmd_args(command: &str, args: &[&str]) -> (String, Vec<String>) {
 }
 
 // Creates a shell command if needed on this platform (wsl or macOS)
-#[cfg(target_os = "macos")]
 fn create_platform_shell_command(command: &str, args: &[&str], _settings: &Settings) -> StdCommand {
     let (cmd, cmd_args) = build_login_cmd_args(command, args);
 
@@ -174,14 +177,14 @@ fn neovim_ok(bin: &str, args: &[String], settings: &Settings) -> Result<bool> {
 
     let unexpected_output = !output.status.success()
         || !stdout.starts_with("NVIM v")
-        || non_matching_stderr_lines.len() != stderr.lines().count();
+        || !non_matching_stderr_lines.is_empty();
 
     if unexpected_output {
         let error_message = create_error_message(bin, &stdout, non_matching_stderr_lines, is_wsl);
         let command = if is_wsl {
-            "wsl '$SHELL' -lc '{bin} -v'"
+            format!("wsl --shell-type login -- {bin} -v")
         } else {
-            "$SHELL -lc '{bin} -v'"
+            format!("$SHELL -lc '{bin} -v'")
         };
 
         bail!("{error_message}{command}")
@@ -260,7 +263,10 @@ fn nvim_cmd_impl(bin: String, mut args: Vec<String>, settings: &Settings) -> Tok
     if cfg!(target_os = "windows") && settings.get::<CmdLineSettings>().wsl {
         args.insert(0, bin);
         let mut cmd = TokioCommand::new("wsl");
-        cmd.args(["$SHELL", "-lc", &args.join(" ")]);
+        cmd.args(["--shell-type", "login"]);
+        cmd.arg("--");
+        cmd.arg(bin);
+        cmd.args(args);
         cmd
     } else {
         let mut cmd = TokioCommand::new(bin);

@@ -36,6 +36,8 @@ pub enum VSync {
     WindowsSwapChain(VSyncWinSwapChain),
     #[cfg(target_os = "macos")]
     MacosDisplayLink(VSyncMacosDisplayLink),
+    #[cfg(target_os = "macos")]
+    MacosMetal(),
 }
 
 impl VSync {

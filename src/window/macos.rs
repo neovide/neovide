@@ -247,7 +247,12 @@ impl MacosWindowFeature {
         let [red, green, blue, alpha] = color.to_array();
         unsafe {
             let opaque = alpha >= 1.0;
-            let ns_background = NSColor::colorWithSRGBRed_green_blue_alpha(red, green, blue, alpha);
+            let ns_background = NSColor::colorWithSRGBRed_green_blue_alpha(
+                red.into(),
+                green.into(),
+                blue.into(),
+                alpha.into(),
+            );
             self.ns_window.setBackgroundColor(Some(&ns_background));
             // If the shadow is enabled and the background color is not transparent, the window will have a grey border
             // Workaround: Disable shadow when `show_border` is false
@@ -258,9 +263,8 @@ impl MacosWindowFeature {
         }
     }
 
-    fn update_ns_background(&self, transparency: f32, show_border: bool) {
+    fn update_ns_background(&self, opaque: bool, show_border: bool) {
         unsafe {
-            let opaque = transparency >= 1.0;
             // Setting the background color to `NSColor::windowBackgroundColor()`
             // makes the background opaque and draws a grey border around the window
             let ns_background = match opaque && show_border {
@@ -281,13 +285,15 @@ impl MacosWindowFeature {
             background_color,
             show_border,
             transparency,
+            normal_opacity,
             ..
         } = self.settings.get::<WindowSettings>();
+        let opaque = transparency.min(normal_opacity) >= 1.0;
         match background_color.parse::<Color>() {
             Ok(color) => {
                 self.update_ns_background_legacy(color, show_border, ignore_deprecation_warning)
             }
-            _ => self.update_ns_background(transparency, show_border),
+            _ => self.update_ns_background(opaque, show_border),
         }
     }
 

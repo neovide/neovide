@@ -80,8 +80,8 @@ as such it's also documented in `:h guifont`. But to sum it up and also add Neov
   - can be one of the following:
     - `hX` — Sets the font size to `X` points, while `X` can be any (even floating-point) number.
     - `wX` (available since 0.11.2) — Sets the width **relative offset** to be `X` points, while `X`
-        can be again any number. Negative values shift characters closer together, positive values
-        shift them further apart.
+      can be again any number. Negative values shift characters closer together, positive values
+      shift them further apart.
     - `b` — Sets the font **bold**.
     - `i` — Sets the font _italic_.
     - `#e-X` (available since 0.10.2) — Sets edge pixels to be drawn opaquely or
@@ -231,6 +231,34 @@ window to that value.
 Note that `g:neovide_transparency` should be 0 if you want to unify transparency of content and
 title bar.
 
+#### Title Bar Color (Currently Windows only)
+
+**Available since 0.14.0.**
+
+![TitleBackgroundColor](assets/TitleBackgroundColor.png)
+
+Setting `g:neovide_title_background_color` to a value that can be parsed by
+[csscolorparser-rs](https://github.com/mazznoer/csscolorparser-rs) will set
+color the title window to that value.
+
+VimScript:
+
+```vim
+let g:neovide_title_background_color = "green"
+let g:neovide_title_text_color = "pink"
+```
+
+lua:
+
+```lua
+vim.g.neovide_title_background_color = string.format(
+    "%x",
+    vim.api.nvim_get_hl(0, {id=vim.api.nvim_get_hl_id_by_name("Normal")}).bg
+)
+
+vim.g.neovide_title_text_color = "pink"
+```
+
 #### Window Blur (Currently macOS only)
 
 VimScript:
@@ -301,24 +329,48 @@ The other variables configure the shadow in various ways:
 - `g:neovide_light_angle_degrees` sets the angle from the screen normal of the casting light
 - `g:neovide_light_radius` sets the radius of the casting light
 
+#### Floating Corner Radius
+
+VimScript:
+
+```vim
+let g:neovide_floating_corner_radius = 0.0
+```
+
+Lua:
+
+```lua
+vim.g.neovide_floating_corner_radius = 0.0
+```
+
+Setting `g:neovide_floating_corner_radius` to 0.0 will disable the corner radius. The value of
+floating_corner_radius ranges from 0.0 to 1.0, representing a percentage of the line height.
+
 #### Transparency
 
 VimScript:
 
 ```vim
 let g:neovide_transparency = 0.8
+let g:neovide_normal_opacity = 0.8
 ```
 
 Lua:
 
 ```lua
 vim.g.neovide_transparency = 0.8
+vim.g.neovide_normal_opacity = 0.8
 ```
+
+**Available since 0.14.0.**
 
 ![Transparency](assets/Transparency.png)
 
 Setting `g:neovide_transparency` to a value between 0.0 and 1.0 will set the opacity of the window
 to that value.
+
+`g:neovide_normal_opacity` sets the opacity for the normal background color.
+Set it to 1 to disable.
 
 #### Show Border (Currently macOS only)
 

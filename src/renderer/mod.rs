@@ -11,6 +11,9 @@ mod vsync;
 #[cfg(target_os = "windows")]
 pub mod d3d;
 
+#[cfg(target_os = "macos")]
+mod metal;
+
 use std::{
     cmp::Ordering,
     collections::{hash_map::Entry, HashMap},
@@ -18,7 +21,7 @@ use std::{
 };
 
 use itertools::Itertools;
-use log::{error, warn};
+use log::error;
 use skia_safe::Canvas;
 
 use winit::{
@@ -34,7 +37,7 @@ use crate::{
     profiling::{tracy_create_gpu_context, tracy_named_frame, tracy_zone},
     renderer::rendered_layer::{group_windows, FloatingLayer},
     settings::*,
-    units::{to_skia_rect, GridPos, GridRect, GridSize, PixelPos},
+    units::{to_skia_rect, GridRect, GridSize, PixelPos},
     window::{ShouldRender, UserEvent},
     WindowSettings,
 };
@@ -90,6 +93,7 @@ pub struct RendererSettings {
     floating_blur_amount_y: f32,
     floating_shadow: bool,
     floating_z_height: f32,
+    floating_corner_radius: f32,
     light_angle_degrees: f32,
     light_radius: f32,
     debug_renderer: bool,
@@ -111,6 +115,7 @@ impl Default for RendererSettings {
             floating_blur_amount_y: 2.0,
             floating_shadow: true,
             floating_z_height: 10.,
+            floating_corner_radius: 0.0,
             light_angle_degrees: 45.,
             light_radius: 5.,
             debug_renderer: false,
@@ -211,15 +216,20 @@ impl Renderer {
 
     pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32) {
         tracy_zone!("renderer_draw_frame");
-        let default_background = self.grid_renderer.get_default_background();
+        let window_settings = self.settings.get::<WindowSettings>();
+        let opacity = if window_settings.normal_opacity < 1.0 {
+            window_settings.normal_opacity
+        } else {
+            window_settings.transparency
+        };
+        let default_background = self.grid_renderer.get_default_background(opacity);
         let grid_scale = self.grid_renderer.grid_scale;
 
-        let transparency = self.settings.get::<WindowSettings>().transparency;
         let layer_grouping = self
             .settings
             .get::<RendererSettings>()
             .experimental_layer_grouping;
-        root_canvas.clear(default_background.with_a((255.0 * transparency) as u8));
+        root_canvas.clear(default_background);
         root_canvas.save();
         root_canvas.reset_matrix();
 
@@ -293,24 +303,13 @@ impl Renderer {
         let settings = self.settings.get::<RendererSettings>();
         let root_window_regions = root_windows
             .into_iter()
-            .map(|window| {
-                window.draw(
-                    root_canvas,
-                    default_background.with_a((255.0 * transparency) as u8),
-                    grid_scale,
-                )
-            })
+            .map(|window| window.draw(root_canvas, default_background, grid_scale))
             .collect_vec();
 
         let floating_window_regions = floating_layers
             .into_iter()
             .flat_map(|mut layer| {
-                layer.draw(
-                    root_canvas,
-                    &settings,
-                    default_background.with_a((255.0 * transparency) as u8),
-                    grid_scale,
-                )
+                layer.draw(root_canvas, &settings, default_background, grid_scale)
             })
             .collect_vec();
 
@@ -404,9 +403,10 @@ impl Renderer {
     }
 
     pub fn prepare_lines(&mut self, force: bool) {
+        let transparency = self.settings.get::<WindowSettings>().transparency;
         self.rendered_windows
             .iter_mut()
-            .for_each(|(_, w)| w.prepare_lines(&mut self.grid_renderer, force));
+            .for_each(|(_, w)| w.prepare_lines(&mut self.grid_renderer, transparency, force));
     }
 
     fn handle_draw_command(&mut self, draw_command: DrawCommand, result: &mut DrawCommandResult) {
@@ -424,18 +424,11 @@ impl Renderer {
                         rendered_window.handle_window_draw_command(command);
                     }
                     Entry::Vacant(vacant_entry) => match command {
-                        WindowDrawCommand::Position {
-                            grid_position,
-                            grid_size,
-                            ..
-                        } => {
-                            let grid_position = GridPos::from(grid_position).try_cast().unwrap();
-                            let grid_size = GridSize::from(grid_size).try_cast().unwrap();
-                            let new_window = RenderedWindow::new(grid_id, grid_position, grid_size);
+                        WindowDrawCommand::Position { .. }
+                        | WindowDrawCommand::ViewportMargins { .. } => {
+                            let mut new_window = RenderedWindow::new(grid_id);
+                            new_window.handle_window_draw_command(command);
                             vacant_entry.insert(new_window);
-                        }
-                        WindowDrawCommand::ViewportMargins { .. } => {
-                            warn!("ViewportMargins recieved before window was initialized");
                         }
                         _ => {
                             let settings = self.settings.get::<CmdLineSettings>();
@@ -504,11 +497,29 @@ pub enum WindowConfigType {
     OpenGL(glutin::config::Config),
     #[cfg(target_os = "windows")]
     Direct3D,
+    #[cfg(target_os = "macos")]
+    Metal,
 }
 
 pub struct WindowConfig {
     pub window: Window,
     pub config: WindowConfigType,
+}
+
+#[cfg(target_os = "macos")]
+pub fn build_window_config(
+    window_attributes: WindowAttributes,
+    event_loop: &ActiveEventLoop,
+    settings: &Settings,
+) -> WindowConfig {
+    let cmd_line_settings = settings.get::<CmdLineSettings>();
+    if cmd_line_settings.opengl {
+        opengl::build_window(window_attributes, event_loop)
+    } else {
+        let window = event_loop.create_window(window_attributes).unwrap();
+        let config = WindowConfigType::Metal;
+        WindowConfig { window, config }
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -527,7 +538,7 @@ pub fn build_window_config(
     }
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
 pub fn build_window_config(
     window_attributes: WindowAttributes,
     event_loop: &ActiveEventLoop,
@@ -563,6 +574,10 @@ pub fn create_skia_renderer(
         #[cfg(target_os = "windows")]
         WindowConfigType::Direct3D => {
             Box::new(d3d::D3DSkiaRenderer::new(window.window, settings.clone()))
+        }
+        #[cfg(target_os = "macos")]
+        WindowConfigType::Metal => {
+            Box::new(metal::MetalSkiaRenderer::new(window.window, srgb, vsync))
         }
     };
     tracy_create_gpu_context("main_render_context", renderer.as_ref());

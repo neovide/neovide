@@ -101,7 +101,10 @@ impl<T: Scalar> Mul<GridScale> for GridRect<T> {
 
     #[inline]
     fn mul(self, scale: GridScale) -> Self::Output {
-        PixelRect::new(*self.min.as_vector() * scale, *self.max.as_vector() * scale)
+        PixelRect::new(
+            (*self.min.as_vector() * scale).into(),
+            (*self.max.as_vector() * scale).into(),
+        )
     }
 }
 
@@ -138,6 +141,9 @@ impl<T: Scalar> Div<GridScale> for PixelRect<T> {
 
     #[inline]
     fn div(self, scale: GridScale) -> Self::Output {
-        GridRect::new(*self.min.as_vector() / scale, *self.max.as_vector() / scale)
+        GridRect::new(
+            (*self.min.as_vector() / scale).into(),
+            (*self.max.as_vector() / scale).into(),
+        )
     }
 }
