@@ -45,8 +45,8 @@ normal = [] # Will use the bundled Fira Code Nerd Font by default
 size = 14.0
 ```
 
-Settings from environment variables can be found in [Command Line Reference](command-line-reference.md),
-see that doc for details on what those settings do.
+Refer to [Command Line Reference](command-line-reference.md) for details about the config settings
+listed above.
 
 ### Runtime settings
 
