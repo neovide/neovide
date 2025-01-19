@@ -262,7 +262,7 @@ fn nvim_cmd_impl(bin: String, args: Vec<String>, _settings: &Settings) -> TokioC
 #[cfg(not(target_os = "macos"))]
 fn nvim_cmd_impl(bin: String, mut args: Vec<String>, settings: &Settings) -> TokioCommand {
     if cfg!(target_os = "windows") && settings.get::<CmdLineSettings>().wsl {
-        args.insert(0, bin);
+        args.insert(0, bin.clone());
         let mut cmd = TokioCommand::new("wsl");
         cmd.args(["--shell-type", "login"]);
         cmd.arg("--");
