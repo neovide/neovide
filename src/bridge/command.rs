@@ -93,7 +93,8 @@ fn build_login_cmd_args(command: &str, args: &[&str]) -> (String, Vec<String>) {
     )
 }
 
-// Creates a shell command if needed on this platform (wsl or macOS)
+// Creates a shell command if needed on this platform
+#[cfg(target_os = "macos")]
 fn create_platform_shell_command(command: &str, args: &[&str], _settings: &Settings) -> StdCommand {
     let (cmd, cmd_args) = build_login_cmd_args(command, args);
 
@@ -103,7 +104,7 @@ fn create_platform_shell_command(command: &str, args: &[&str], _settings: &Setti
     result
 }
 
-// Creates a shell command if needed on this platform (wsl or macOS)
+// Creates a shell command if needed on this platform
 #[cfg(target_os = "linux")]
 fn create_platform_shell_command(command: &str, args: &[&str], _settings: &Settings) -> StdCommand {
     let mut result = StdCommand::new(command);
@@ -112,7 +113,7 @@ fn create_platform_shell_command(command: &str, args: &[&str], _settings: &Setti
     result
 }
 
-// Creates a shell command if needed on this platform (wsl or macOS)
+// Creates a shell command if needed on this platform
 #[cfg(target_os = "windows")]
 fn create_platform_shell_command(command: &str, args: &[&str], settings: &Settings) -> StdCommand {
     if settings.get::<CmdLineSettings>().wsl {
