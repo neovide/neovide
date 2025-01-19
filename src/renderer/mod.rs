@@ -576,9 +576,12 @@ pub fn create_skia_renderer(
             Box::new(d3d::D3DSkiaRenderer::new(window.window, settings.clone()))
         }
         #[cfg(target_os = "macos")]
-        WindowConfigType::Metal => {
-            Box::new(metal::MetalSkiaRenderer::new(window.window, srgb, vsync))
-        }
+        WindowConfigType::Metal => Box::new(metal::MetalSkiaRenderer::new(
+            window.window,
+            srgb,
+            vsync,
+            settings.clone(),
+        )),
     };
     tracy_create_gpu_context("main_render_context", renderer.as_ref());
     renderer

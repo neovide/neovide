@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use objc2::{rc::Retained, runtime::ProtocolObject};
 use objc2_app_kit::NSColorSpace;
 use objc2_foundation::{CGFloat, CGSize};
@@ -19,9 +21,11 @@ use winit::{event_loop::EventLoopProxy, window::Window};
 
 use crate::{
     profiling::tracy_gpu_zone,
-    renderer::{RendererSettings, SkiaRenderer, VSync, SETTINGS},
+    renderer::{RendererSettings, SkiaRenderer, VSync},
     window::{macos::get_ns_window, UserEvent},
 };
+
+use super::Settings;
 
 struct MetalDrawableSurface {
     pub _drawable: Retained<ProtocolObject<dyn CAMetalDrawable>>,
@@ -33,6 +37,7 @@ impl MetalDrawableSurface {
     fn new(
         drawable: Retained<ProtocolObject<dyn CAMetalDrawable>>,
         context: &mut DirectContext,
+        settings: &Settings,
     ) -> MetalDrawableSurface {
         tracy_gpu_zone!("MetalDrawableSurface.new");
 
@@ -46,7 +51,7 @@ impl MetalDrawableSurface {
         let metal_drawable =
             unsafe { Retained::cast::<ProtocolObject<dyn MTLDrawable>>(drawable.clone()) };
 
-        let render_settings = SETTINGS.get::<RendererSettings>();
+        let render_settings = settings.get::<RendererSettings>();
 
         let surface_props = SurfaceProps::new_with_text_properties(
             SurfacePropsFlags::default(),
@@ -85,10 +90,11 @@ pub struct MetalSkiaRenderer {
     _backend: BackendContext,
     context: DirectContext,
     metal_drawable_surface: Option<MetalDrawableSurface>,
+    settings: Arc<Settings>,
 }
 
 impl MetalSkiaRenderer {
-    pub fn new(window: Window, srgb: bool, vsync: bool) -> Self {
+    pub fn new(window: Window, srgb: bool, vsync: bool, settings: Arc<Settings>) -> Self {
         log::info!("Initialize MetalSkiaRenderer...");
 
         let draw_size = window.inner_size();
@@ -147,6 +153,7 @@ impl MetalSkiaRenderer {
             _backend: backend,
             context,
             metal_drawable_surface: None,
+            settings,
         }
     }
 
@@ -159,7 +166,11 @@ impl MetalSkiaRenderer {
                 .expect("Failed to get next drawable of metal layer.")
         };
 
-        self.metal_drawable_surface = Some(MetalDrawableSurface::new(drawable, &mut self.context));
+        self.metal_drawable_surface = Some(MetalDrawableSurface::new(
+            drawable,
+            &mut self.context,
+            &self.settings,
+        ));
     }
 }
 
