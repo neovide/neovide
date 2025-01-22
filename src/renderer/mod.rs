@@ -590,6 +590,7 @@ pub fn create_skia_renderer(
             window.window.clone(),
             srgb,
             vsync,
+            settings.clone(),
         )),
     };
     tracy_create_gpu_context("main_render_context", renderer.as_ref());

@@ -10,6 +10,23 @@ homepage = "https://neovide.dev/"
 repository = "https://github.com/neovide/neovide"
 readme = "README.md"
 keywords = ["neovim", "nvim", "gui"]
+exclude = [
+    "website/*",
+    "ubuntu-builder/*",
+    "wix/*",
+    "macos-builder/*",
+    ".vscode/**/*",
+    ".github/**/*",
+    "assets/dmg-background/**/*",
+    "assets/neovide-*.png",
+    "assets/neovide.svg",
+    "*.md",
+    "scripts/*.sh",
+    "docs/*",
+    "target/*",
+    ".gitignore",
+    "stylua.toml",
+]
 
 [workspace]
 members = ["neovide-derive"]
@@ -53,7 +70,7 @@ indoc = "2.0.5"
 itertools = "0.13.0"
 log = "0.4.22"
 lru = "0.12.5"
-neovide-derive = { path = "neovide-derive", version = "0.1.0" }
+neovide-derive = { path = "neovide-derive", version = "0.1.1" }
 num = "0.4.3"
 nvim-rs = { version = "0.7.0", features = ["use_tokio"] }
 parking_lot = "0.12.3"

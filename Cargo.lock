@@ -1457,7 +1457,7 @@ dependencies = [
 
 [[package]]
 name = "neovide-derive"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "convert_case",
  "quote",
