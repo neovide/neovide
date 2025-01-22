@@ -117,8 +117,7 @@ impl MacosWindowFeature {
 
         let ns_window = get_ns_window(window);
 
-        // TODO: add config to enable tabbing mode and adapt the behavior of the window.
-        ns_window.setTabbingMode(NSWindowTabbingMode::Disallowed);
+        ns_window.setTabbingMode(NSWindowTabbingMode::Preferred);
 
         let mut extra_titlebar_height_in_pixel: u32 = 0;
 
