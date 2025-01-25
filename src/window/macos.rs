@@ -20,10 +20,8 @@ use csscolorparser::Color;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
-use crate::{
-    bridge::{send_ui, ParallelCommand},
-    settings::Settings,
-};
+use crate::bridge::{send_ui, ParallelCommand, HANDLER_REGISTRY};
+use crate::settings::Settings;
 use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame};
 
 use super::{WindowSettings, WindowSettingsChanged};
@@ -119,8 +117,7 @@ impl MacosWindowFeature {
 
         let ns_window = get_ns_window(window);
 
-        // Disallow tabbing mode to prevent the window from being tabbed.
-        ns_window.setTabbingMode(NSWindowTabbingMode::Disallowed);
+        ns_window.setTabbingMode(NSWindowTabbingMode::Preferred);
 
         let mut extra_titlebar_height_in_pixel: u32 = 0;
 
@@ -356,7 +353,13 @@ declare_class!(
     unsafe impl QuitHandler {
         #[method(quit:)]
         unsafe fn quit(&self, _event: &NSEvent) {
-            send_ui(ParallelCommand::Quit);
+            let handler = {
+                let handler_lock = HANDLER_REGISTRY.lock().unwrap();
+                handler_lock
+                    .clone()
+                    .expect("NeovimHandler has not been initialized")
+            };
+            send_ui(ParallelCommand::Quit, &handler);
         }
     }
 );
@@ -473,6 +476,12 @@ impl Menu {
             );
             menu.addItem(&full_screen_item);
 
+            let create_new_window = NSMenuItem::new(mtm);
+            create_new_window.setTitle(ns_string!("New Window"));
+            create_new_window.setKeyEquivalent(ns_string!("n"));
+            create_new_window.setAction(Some(sel!(neovideCreateWindow:)));
+            menu.addItem(&create_new_window);
+
             let min_item = NSMenuItem::new(mtm);
             min_item.setTitle(ns_string!("Minimize"));
             min_item.setKeyEquivalent(ns_string!("m"));
@@ -492,8 +501,8 @@ pub fn register_file_handler() {
     ) {
         autoreleasepool(|pool| {
             for file in files.iter() {
-                let path = file.as_str(pool).to_owned();
-                send_ui(ParallelCommand::FileDrop(path));
+                let _path = file.as_str(pool).to_owned();
+                // send_ui(ParallelCommand::FileDrop(path));
             }
         });
     }
