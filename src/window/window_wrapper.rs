@@ -239,6 +239,7 @@ impl WinitWindowWrapper {
                 );
                 self.font_changed_last_frame = true;
             }
+            #[cfg(target_os = "macos")]
             WindowSettingsChanged::WindowBlurred(blur) => {
                 if let Some(macos_feature) = &self.macos_feature {
                     let WindowSettings {
@@ -248,6 +249,7 @@ impl WinitWindowWrapper {
                     macos_feature.set_blur(blur, Some(window_blurred_radius));
                 }
             }
+            #[cfg(target_os = "macos")]
             WindowSettingsChanged::WindowBlurredRadius(radius) => {
                 if let Some(macos_feature) = &self.macos_feature {
                     let WindowSettings { window_blurred, .. } =
