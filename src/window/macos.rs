@@ -26,11 +26,12 @@ use crate::{
 };
 use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame};
 
-use super::settings::ACRYLIC_DEFAULT_RADIUS;
 use super::{WindowSettings, WindowSettingsChanged};
 
 static NEOVIDE_ICON_PATH: &[u8] =
     include_bytes!("../../extra/osx/Neovide.app/Contents/resources/Neovide.icns");
+
+pub const ACRYLIC_DEFAULT_RADIUS: i64 = 80;
 
 #[derive(Clone)]
 struct TitlebarClickHandlerIvars {}

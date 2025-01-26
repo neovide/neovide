@@ -1,9 +1,7 @@
 #[cfg(target_os = "macos")]
 use {log::error, rmpv::Value};
 
-use crate::settings::*;
-
-pub const ACRYLIC_DEFAULT_RADIUS: i64 = 80;
+use {super::macos::ACRYLIC_DEFAULT_RADIUS, crate::settings::*};
 
 #[derive(Clone, SettingGroup, PartialEq)]
 pub struct WindowSettings {
