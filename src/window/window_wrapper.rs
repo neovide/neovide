@@ -240,10 +240,19 @@ impl WinitWindowWrapper {
                 self.font_changed_last_frame = true;
             }
             WindowSettingsChanged::WindowBlurred(blur) => {
-                if let Some(skia_renderer) = &self.skia_renderer {
-                    let WindowSettings { transparency, .. } = self.settings.get::<WindowSettings>();
-                    let transparent = transparency < 1.0;
-                    skia_renderer.window().set_blur(blur && transparent);
+                if let Some(macos_feature) = &self.macos_feature {
+                    let WindowSettings {
+                        window_blurred_radius,
+                        ..
+                    } = self.settings.get::<WindowSettings>();
+                    macos_feature.set_blur(blur, Some(window_blurred_radius));
+                }
+            }
+            WindowSettingsChanged::WindowBlurredRadius(radius) => {
+                if let Some(macos_feature) = &self.macos_feature {
+                    let WindowSettings { window_blurred, .. } =
+                        self.settings.get::<WindowSettings>();
+                    macos_feature.set_blur(window_blurred, Some(radius));
                 }
             }
             WindowSettingsChanged::Transparency(..) | WindowSettingsChanged::NormalOpacity(..) => {

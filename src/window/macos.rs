@@ -12,8 +12,8 @@ use objc2_app_kit::{
     NSMenu, NSMenuItem, NSView, NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
 };
 use objc2_foundation::{
-    ns_string, MainThreadMarker, NSArray, NSData, NSDictionary, NSObject, NSPoint, NSProcessInfo,
-    NSRect, NSSize, NSString, NSUserDefaults,
+    ns_string, MainThreadMarker, NSArray, NSData, NSDictionary, NSInteger, NSObject, NSPoint,
+    NSProcessInfo, NSRect, NSSize, NSString, NSUserDefaults,
 };
 
 use csscolorparser::Color;
@@ -58,6 +58,16 @@ declare_class!(
         }
     }
 );
+
+#[link(name = "CoreGraphics", kind = "framework")]
+extern "C" {
+    pub fn CGSMainConnectionID() -> *mut AnyObject;
+    pub fn CGSSetWindowBackgroundBlurRadius(
+        connection_id: *mut AnyObject,
+        window_id: NSInteger,
+        radius: i64,
+    ) -> i32;
+}
 
 impl TitlebarClickHandler {
     fn new(mtm: MainThreadMarker) -> Retained<TitlebarClickHandler> {
@@ -297,6 +307,18 @@ impl MacosWindowFeature {
         }
     }
 
+    pub fn set_blur(&self, blurred: bool, radius: Option<i64>) {
+        let WindowSettings { transparency, .. } = self.settings.get::<WindowSettings>();
+        let transparent = transparency < 1.0;
+        let radius = (blurred && transparent)
+            .then_some(radius.unwrap_or(80))
+            .unwrap_or(0);
+        unsafe {
+            let window_number = self.ns_window.windowNumber();
+            CGSSetWindowBackgroundBlurRadius(CGSMainConnectionID(), window_number, radius);
+        }
+    }
+
     pub fn handle_settings_changed(&self, changed_setting: WindowSettingsChanged) {
         match changed_setting {
             WindowSettingsChanged::BackgroundColor(background_color) => {
@@ -313,6 +335,10 @@ impl MacosWindowFeature {
             }
             WindowSettingsChanged::WindowBlurred(window_blurred) => {
                 log::info!("window_blurred changed to {}", window_blurred);
+                self.update_background(true);
+            }
+            WindowSettingsChanged::WindowBlurredRadius(radius) => {
+                log::info!("window_blurred_radius changed to {}", radius);
                 self.update_background(true);
             }
             _ => {}
