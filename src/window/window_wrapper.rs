@@ -239,23 +239,13 @@ impl WinitWindowWrapper {
                 );
                 self.font_changed_last_frame = true;
             }
-            #[cfg(target_os = "macos")]
             WindowSettingsChanged::WindowBlurred(blur) => {
-                if let Some(macos_feature) = &self.macos_feature {
-                    let WindowSettings {
-                        window_blurred_radius,
-                        ..
-                    } = self.settings.get::<WindowSettings>();
-                    macos_feature.set_blur(blur, Some(window_blurred_radius));
-                }
+                self.apply_blur(blur, None);
             }
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::WindowBlurredRadius(radius) => {
-                if let Some(macos_feature) = &self.macos_feature {
-                    let WindowSettings { window_blurred, .. } =
-                        self.settings.get::<WindowSettings>();
-                    macos_feature.set_blur(window_blurred, Some(radius));
-                }
+                let WindowSettings { window_blurred, .. } = self.settings.get::<WindowSettings>();
+                self.apply_blur(window_blurred, Some(radius));
             }
             WindowSettingsChanged::Transparency(..) | WindowSettingsChanged::NormalOpacity(..) => {
                 self.renderer.prepare_lines(true);
@@ -458,6 +448,26 @@ impl WinitWindowWrapper {
         tracy_gpu_collect();
     }
 
+    #[cfg(target_os = "macos")]
+    pub fn apply_blur(&mut self, blur: bool, radius: Option<i64>) {
+        let WindowSettings { transparency, .. } = self.settings.get::<WindowSettings>();
+        let transparent = transparency < 1.0;
+
+        if let Some(macos_feature) = &self.macos_feature {
+            macos_feature.set_blur(blur && transparent, radius);
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    pub fn apply_blur(&mut self, blur: bool, _radius: Option<i64>) {
+        let WindowSettings { transparency, .. } = self.settings.get::<WindowSettings>();
+        let transparent = transparency < 1.0;
+
+        if let Some(skia_renderer) = &self.skia_renderer {
+            skia_renderer.window().set_blur(blur && transparent);
+        }
+    }
+
     pub fn animate_frame(&mut self, dt: f32) -> bool {
         tracy_zone!("animate_frame", 0);
 
@@ -585,7 +595,7 @@ impl WinitWindowWrapper {
             self.renderer.grid_renderer.grid_scale
         );
 
-        window.set_blur(window_blurred && transparency < 1.0);
+        self.apply_blur(window_blurred && transparency < 1.0, None);
         if fullscreen {
             let handle = window.current_monitor();
             window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
