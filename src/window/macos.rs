@@ -314,6 +314,7 @@ impl MacosWindowFeature {
         } else {
             0
         };
+
         unsafe {
             let window_number = self.ns_window.windowNumber();
             CGSSetWindowBackgroundBlurRadius(CGSMainConnectionID(), window_number, radius);
