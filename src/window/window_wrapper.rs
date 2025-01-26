@@ -30,7 +30,9 @@ use crate::{
         DEFAULT_GRID_SIZE, MIN_GRID_SIZE,
     },
     units::{GridRect, GridSize, PixelPos, PixelSize},
-    window::{create_window, PhysicalSize, ShouldRender, WindowSize},
+    window::{
+        create_window, settings::ACRYLIC_DEFAULT_RADIUS, PhysicalSize, ShouldRender, WindowSize,
+    },
     CmdLineSettings,
 };
 #[cfg(windows)]
@@ -240,7 +242,7 @@ impl WinitWindowWrapper {
                 self.font_changed_last_frame = true;
             }
             WindowSettingsChanged::WindowBlurred(blur) => {
-                self.apply_blur(blur, None);
+                self.apply_blur(blur, Some(ACRYLIC_DEFAULT_RADIUS));
             }
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::WindowBlurredRadius(radius) => {
@@ -595,7 +597,11 @@ impl WinitWindowWrapper {
             self.renderer.grid_renderer.grid_scale
         );
 
-        self.apply_blur(window_blurred && transparency < 1.0, None);
+        self.apply_blur(
+            window_blurred && transparency < 1.0,
+            Some(ACRYLIC_DEFAULT_RADIUS),
+        );
+
         if fullscreen {
             let handle = window.current_monitor();
             window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
