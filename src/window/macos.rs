@@ -310,9 +310,12 @@ impl MacosWindowFeature {
     pub fn set_blur(&self, blurred: bool, radius: Option<i64>) {
         let WindowSettings { transparency, .. } = self.settings.get::<WindowSettings>();
         let transparent = transparency < 1.0;
-        let radius = (blurred && transparent)
-            .then_some(radius.unwrap_or(80))
-            .unwrap_or(0);
+        let radius = if blurred && transparent {
+            radius.unwrap_or(80)
+        } else {
+            0
+        };
+
         unsafe {
             let window_number = self.ns_window.windowNumber();
             CGSSetWindowBackgroundBlurRadius(CGSMainConnectionID(), window_number, radius);
