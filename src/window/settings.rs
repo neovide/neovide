@@ -3,6 +3,8 @@ use {log::error, rmpv::Value};
 
 use crate::settings::*;
 
+pub const ACRYLIC_DEFAULT_RADIUS: i64 = 80;
+
 #[derive(Clone, SettingGroup, PartialEq)]
 pub struct WindowSettings {
     pub refresh_rate: u64,
@@ -54,7 +56,7 @@ impl Default for WindowSettings {
             normal_opacity: 1.0,
             window_blurred: false,
             #[cfg(target_os = "macos")]
-            window_blurred_radius: 80,
+            window_blurred_radius: ACRYLIC_DEFAULT_RADIUS,
             scale_factor: 1.0,
             fullscreen: false,
             iso_layout: false,

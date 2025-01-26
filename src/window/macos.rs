@@ -26,6 +26,7 @@ use crate::{
 };
 use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame};
 
+use super::settings::ACRYLIC_DEFAULT_RADIUS;
 use super::{WindowSettings, WindowSettingsChanged};
 
 static NEOVIDE_ICON_PATH: &[u8] =
@@ -308,7 +309,11 @@ impl MacosWindowFeature {
     }
 
     pub fn set_blur(&self, blurred: bool, radius: Option<i64>) {
-        let radius = if blurred { radius.unwrap_or(80) } else { 0 };
+        let radius = if blurred {
+            radius.unwrap_or(ACRYLIC_DEFAULT_RADIUS)
+        } else {
+            0
+        };
         unsafe {
             let window_number = self.ns_window.windowNumber();
             CGSSetWindowBackgroundBlurRadius(CGSMainConnectionID(), window_number, radius);
