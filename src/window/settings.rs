@@ -10,6 +10,7 @@ pub struct WindowSettings {
     pub transparency: f32,
     pub normal_opacity: f32,
     pub window_blurred: bool,
+    #[cfg(target_os = "macos")]
     pub window_blurred_radius: i64,
     pub scale_factor: f32,
     pub fullscreen: bool,
@@ -52,6 +53,7 @@ impl Default for WindowSettings {
             transparency: 1.0,
             normal_opacity: 1.0,
             window_blurred: false,
+            #[cfg(target_os = "macos")]
             window_blurred_radius: 80,
             scale_factor: 1.0,
             fullscreen: false,
