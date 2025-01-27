@@ -30,9 +30,7 @@ use crate::{
         DEFAULT_GRID_SIZE, MIN_GRID_SIZE,
     },
     units::{GridRect, GridSize, PixelPos, PixelSize},
-    window::{
-        create_window, settings::ACRYLIC_DEFAULT_RADIUS, PhysicalSize, ShouldRender, WindowSize,
-    },
+    window::{create_window, PhysicalSize, ShouldRender, WindowSize},
     CmdLineSettings,
 };
 #[cfg(windows)]
@@ -242,7 +240,7 @@ impl WinitWindowWrapper {
                 self.font_changed_last_frame = true;
             }
             WindowSettingsChanged::WindowBlurred(blur) => {
-                self.apply_blur(blur, Some(ACRYLIC_DEFAULT_RADIUS));
+                self.apply_blur(blur, None);
             }
             #[cfg(target_os = "macos")]
             WindowSettingsChanged::WindowBlurredRadius(radius) => {
@@ -452,6 +450,7 @@ impl WinitWindowWrapper {
 
     #[cfg(target_os = "macos")]
     pub fn apply_blur(&mut self, blur: bool, radius: Option<i64>) {
+        use crate::window::settings::ACRYLIC_DEFAULT_RADIUS;
         let WindowSettings {
             transparency,
             window_blurred_radius,
