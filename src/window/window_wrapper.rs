@@ -452,8 +452,15 @@ impl WinitWindowWrapper {
 
     #[cfg(target_os = "macos")]
     pub fn apply_blur(&mut self, blur: bool, radius: Option<i64>) {
-        let WindowSettings { transparency, .. } = self.settings.get::<WindowSettings>();
+        let WindowSettings {
+            transparency,
+            window_blurred_radius,
+            ..
+        } = self.settings.get::<WindowSettings>();
         let transparent = transparency < 1.0;
+        let radius = radius
+            .or(Some(window_blurred_radius))
+            .or(Some(ACRYLIC_DEFAULT_RADIUS));
 
         if let Some(macos_feature) = &self.macos_feature {
             macos_feature.set_blur(blur && transparent, radius);
@@ -502,6 +509,8 @@ impl WinitWindowWrapper {
             theme,
             transparency,
             window_blurred,
+            #[cfg(target_os = "macos")]
+            window_blurred_radius,
             fullscreen,
             #[cfg(target_os = "macos")]
             input_macos_option_key_is_meta,
@@ -597,10 +606,7 @@ impl WinitWindowWrapper {
             self.renderer.grid_renderer.grid_scale
         );
 
-        self.apply_blur(
-            window_blurred && transparency < 1.0,
-            Some(ACRYLIC_DEFAULT_RADIUS),
-        );
+        self.apply_blur(window_blurred && transparency < 1.0, None);
 
         if fullscreen {
             let handle = window.current_monitor();
