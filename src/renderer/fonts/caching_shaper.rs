@@ -212,7 +212,8 @@ impl CachingShaper {
 
     pub fn underline_position(&mut self) -> f32 {
         let metrics = self.metrics();
-        self.baseline_offset() - metrics.underline_offset
+        // At least 1 pixel between baseline and underline
+        self.baseline_offset() - metrics.underline_offset.min(-1.)
     }
 
     pub fn stroke_size(&mut self) -> f32 {

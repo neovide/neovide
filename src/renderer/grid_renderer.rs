@@ -271,9 +271,12 @@ impl GridRenderer {
         let stroke_width = (stroke_size * underline_stroke_scale).max(1.).round();
 
         // offset y by width / 2 to align the *top* of the underline with p1 and p2
-        // also round to avoid aliasing issues
-        let p1 = (p1.x.round(), (p1.y + stroke_width / 2.).round());
-        let p2 = (p2.x.round(), (p2.y + stroke_width / 2.).round());
+        // offset is rounded up because the stroke asymmetry for odd values of stroke_width ends up
+        // on top
+        // round p1 and p2 to avoid aliasing issues
+        let offset = (stroke_width / 2.).ceil();
+        let p1 = (p1.x.round(), p1.y.round() + offset);
+        let p2 = (p2.x.round(), p2.y.round() + offset);
 
         underline_paint
             .set_color(style.special(&self.default_style.colors).to_color())
