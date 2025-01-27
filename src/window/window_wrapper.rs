@@ -508,8 +508,6 @@ impl WinitWindowWrapper {
             theme,
             transparency,
             window_blurred,
-            #[cfg(target_os = "macos")]
-            window_blurred_radius,
             fullscreen,
             #[cfg(target_os = "macos")]
             input_macos_option_key_is_meta,
