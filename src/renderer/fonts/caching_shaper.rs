@@ -210,9 +210,8 @@ impl CachingShaper {
         (font_width, font_height).into()
     }
 
-    pub fn underline_position(&mut self) -> f32 {
-        let metrics = self.metrics();
-        self.baseline_offset() - metrics.underline_offset
+    pub fn underline_offset(&mut self) -> f32 {
+        self.metrics().underline_offset
     }
 
     pub fn stroke_size(&mut self) -> f32 {
