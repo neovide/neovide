@@ -211,7 +211,14 @@ impl CachingShaper {
     }
 
     pub fn underline_offset(&mut self) -> f32 {
-        self.metrics().underline_offset
+        let metrics = self.metrics();
+        if metrics.underline_offset != 0. {
+            metrics.underline_offset
+        } else {
+            // If a font does not have an underline_offset, use the stroke_size as offset
+            // A negative offset places the underline below the baseline
+            -metrics.stroke_size
+        }
     }
 
     pub fn stroke_size(&mut self) -> f32 {
