@@ -57,6 +57,7 @@ jobs:
         uses: rhysd/action-setup-vim@v1
         with:
           neovim: true
+          version: v0.10.3
 
       - name: Install dependencies (Linux)
         if: matrix.os == 'ubuntu-latest'
@@ -179,6 +180,7 @@ jobs:
         uses: rhysd/action-setup-vim@v1
         with:
           neovim: true
+          version: v0.10.3
 
       - uses: Swatinem/rust-cache@v2
 
