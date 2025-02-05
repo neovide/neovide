@@ -405,7 +405,7 @@ impl CachingShaper {
                 let mut x_offset = glyph_width * glyph_cluster.data as f32;
 
                 for glyph in glyph_cluster.glyphs {
-                    let position = (x_offset + glyph.x, glyph.y);
+                    let position = (x_offset + glyph.x, -glyph.y);
                     glyph_data.push((glyph.id, position));
                     x_offset += glyph.advance;
                 }
