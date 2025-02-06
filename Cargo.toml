@@ -58,7 +58,7 @@ glamour = { version = "0.15.0", features = ["serde"] }
 flexi_logger = { version = "0.29.8", default-features = false }
 futures = "0.3.31"
 gl = "0.14.0"
-glutin = "0.32.1"
+glutin = "0.32.2"
 glutin-winit = "0.5.0"
 image = { version = "0.25.5", default-features = false, features = ["ico"] }
 indoc = "2.0.5"
@@ -91,7 +91,7 @@ tracy-client-sys = { version = "0.24.3", optional = true, default-features = fal
 ] }
 unicode-segmentation = "1.12.0"
 which = "7.0.1"
-winit = { version = "=0.30.7", features = ["serde"] }
+winit = { version = "=0.30.9", features = ["serde"] }
 xdg = "2.5.2"
 notify-debouncer-full = "0.4.0"
 regex = "1.11.1"
