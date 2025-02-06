@@ -210,9 +210,15 @@ impl CachingShaper {
         (font_width, font_height).into()
     }
 
-    pub fn underline_position(&mut self) -> f32 {
+    pub fn underline_offset(&mut self) -> f32 {
         let metrics = self.metrics();
-        self.baseline_offset() - metrics.underline_offset
+        if metrics.underline_offset != 0. {
+            metrics.underline_offset
+        } else {
+            // If a font does not have an underline_offset, use the stroke_size as offset
+            // A negative offset places the underline below the baseline
+            -metrics.stroke_size
+        }
     }
 
     pub fn stroke_size(&mut self) -> f32 {
@@ -401,9 +407,13 @@ impl CachingShaper {
             let mut glyph_data = Vec::new();
 
             shaper.shape_with(|glyph_cluster| {
+                //Align to the grid at the start of each cluster
+                let mut x_offset = glyph_width * glyph_cluster.data as f32;
+
                 for glyph in glyph_cluster.glyphs {
-                    let position = (glyph.data as f32 * glyph_width, glyph.y);
+                    let position = (x_offset + glyph.x, -glyph.y);
                     glyph_data.push((glyph.id, position));
+                    x_offset += glyph.advance;
                 }
             });
 

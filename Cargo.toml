@@ -123,10 +123,27 @@ skia-safe = { version = "0.80.1", features = ["gl", "textlayout"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.5.2"
-objc2-foundation = { version = "0.2.2", features = [ "NSUserDefaults" ] }
-objc2-app-kit = { version = "0.2.2", features = [ "NSLayoutConstraint", "NSColorSpace", "objc2-quartz-core" ] }
-objc2-quartz-core = { version = "0.2.2", features = [ "objc2-metal", "CALayer", "CAMetalLayer" ] }
-objc2-metal = { version = "0.2.2", features = [ "MTLCommandQueue", "MTLCommandBuffer" ] }
+objc2-foundation = { version = "0.2.2", default-features = false, features = [
+    "std",
+    "NSUserDefaults",
+] }
+objc2-app-kit = { version = "0.2.2", default-features = false, features = [
+    "std",
+    "NSLayoutConstraint",
+    "NSColorSpace",
+    "objc2-quartz-core",
+] }
+objc2-quartz-core = { version = "0.2.2", default-features = false, features = [
+    "std",
+    "objc2-metal",
+    "CALayer",
+    "CAMetalLayer",
+] }
+objc2-metal = { version = "0.2.2", default-features = false, features = [
+    "std",
+    "MTLCommandQueue",
+    "MTLCommandBuffer",
+] }
 skia-safe = { version = "0.80.1", features = ["metal", "gl", "textlayout"] }
 
 [target.'cfg(not(any(target_os = "windows", target_os = "macos")))'.dependencies]
