@@ -203,19 +203,13 @@ impl ParallelCommand {
                 nvim.ui_set_focus(true).await.context("FocusGained failed")
             }
             ParallelCommand::FileDrop(path) => nvim
-                .cmd(
-                    vec![
-                        (
-                            "cmd".into(),
-                            (settings.get::<CmdLineSettings>().tabs)
-                                .then(|| "tabnew".to_string())
-                                .unwrap_or("edit".into())
-                                .into(),
-                        ),
-                        ("magic".into(), vec![("file".into(), false.into())].into()),
-                        ("args".into(), vec![Value::from(path)].into()),
-                    ],
-                    vec![],
+                .exec_lua(
+                    &format!(
+                        "neovide.private.dropfile([[{}]], {})",
+                        path,
+                        settings.get::<CmdLineSettings>().tabs
+                    ),
+                    Vec::new(),
                 )
                 .await
                 .map(|_| ()) // We don't care about the result
