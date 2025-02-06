@@ -14,11 +14,8 @@ pub fn is_tty() -> bool {
 }
 
 #[cfg(not(target_os = "windows"))]
-pub fn handle_wslpaths(paths: Vec<String>, _wsl: bool, quote: bool) -> Vec<String> {
+pub fn handle_wslpaths(paths: Vec<String>, _wsl: bool, _quote: bool) -> Vec<String> {
     paths
-        .into_iter()
-        .map(|path| if quote { format!("'{}'", path) } else { path })
-        .collect()
 }
 
 /// Convert a Vector of Windows path strings to a Vector of WSL paths if `wsl` is true.
