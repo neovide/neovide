@@ -154,6 +154,10 @@ jobs:
         run: |
           if ! which cargo-wix; then cargo binstall -y cargo-wix; fi
 
+      - name: Setup Ninja
+        if: matrix.os == 'windows-latest'
+        uses: seanmiddleditch/gha-setup-ninja@v6
+
       - name: Install dependencies (macOS)
         if: matrix.os == 'macos-latest'
         run: |
