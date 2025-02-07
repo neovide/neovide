@@ -184,6 +184,8 @@ jobs:
 
       - name: Build (Windows)
         if: matrix.os == 'windows-latest'
+        env:
+          RUSTFLAGS: "-Ctarget-feature=+crt-static" 
         run: cargo wix --output target/release/neovide.msi --package neovide
 
       - name: Build (macOS)
