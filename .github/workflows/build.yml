@@ -186,7 +186,11 @@ jobs:
         if: matrix.os == 'windows-latest'
         env:
           RUSTFLAGS: "-Ctarget-feature=+crt-static" 
-        run: cargo wix --nocapture --output target/release/neovide.msi --package neovide
+        # The file paths are to long, so we need to vendor the dependencies
+        run: |
+          mkdir .cargo
+          cargo vendor ../c > .cargo/config.toml
+          cargo wix --nocapture --output target/release/neovide.msi --package neovide
 
       - name: Build (macOS)
         if: matrix.os == 'macos-latest'
