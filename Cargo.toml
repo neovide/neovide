@@ -118,8 +118,6 @@ windows = { version = "0.59.0", features = [
 ] }
 windows-registry = "0.4.0"
 
-[target.'cfg(not(target_os = "windows"))'.dependencies]
-skia-safe = { version = "0.81.0", features = ["gl", "textlayout"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.5.2"
@@ -145,6 +143,8 @@ objc2-metal = { version = "0.2.2", default-features = false, features = [
     "MTLCommandBuffer",
 ] }
 skia-safe = { version = "0.81.0", features = ["metal", "gl", "textlayout"] }
+[target.'cfg(not(any(target_os = "windows", target_os = "macos")))'.dependencies]
+skia-safe = { version = "0.81.0", features = ["gl", "textlayout"] }
 
 [target.'cfg(target_os = "windows")'.build-dependencies]
 winres = "0.1.12"
