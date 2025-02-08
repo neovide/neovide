@@ -155,14 +155,8 @@ mod tests {
 
     impl Context {
         fn new() -> Self {
-            let size = (
-                (thread_rng().gen::<usize>() % 500) + 1,
-                (thread_rng().gen::<usize>() % 500) + 1,
-            );
-            let (x, y) = (
-                thread_rng().gen::<usize>() % size.0,
-                thread_rng().gen::<usize>() % size.1,
-            );
+            let size = (rng().random_range(1..=500), rng().random_range(1..=500));
+            let (x, y) = (rng().random_range(0..size.0), rng().random_range(0..size.1));
             Self {
                 none_colors: Colors {
                     foreground: None,
@@ -309,10 +303,7 @@ mod tests {
     fn resize_clears_and_resizes_grid() {
         let context = Context::new();
         let mut character_grid = CharacterGrid::new(context.size);
-        let (width, height) = (
-            (thread_rng().gen::<usize>() % 500) + 1,
-            (thread_rng().gen::<usize>() % 500) + 1,
-        );
+        let (width, height) = (rng().random_range(1..=500), rng().random_range(1..=500));
 
         let grid_cell = (
             "foo".to_string(),
