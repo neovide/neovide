@@ -38,6 +38,11 @@ fn build_nvim_cmd(settings: &Settings) -> Result<TokioCommand> {
         if neovim_ok(&path, &[], settings)? {
             return Ok(build_nvim_cmd_with_args(path, vec![], settings));
         }
+    } else if should_use_flatpak_spawn() {
+        return Ok(build_nvim_cmd_with_args(
+            "flatpak-spawn".to_string(),
+            vec!["--host".to_string(), "nvim".to_string()],
+        ));
     }
 
     bail!("ERROR: nvim not found!")
@@ -283,4 +288,30 @@ fn build_nvim_cmd_with_args(
     args.push("--embed".to_string());
     args.extend(settings.get::<CmdLineSettings>().neovim_args);
     nvim_cmd_impl(bin, args, settings)
+}
+
+// Adapted from https://github.com/bugadani/lapce/blob/0c0a37ab1ceda829ba9691149038a1e7f282cb6d/lapce-proxy/src/terminal.rs#L378
+#[cfg(target_os = "linux")]
+fn should_use_flatpak_spawn() -> bool {
+    use std::path::Path;
+
+    const FLATPAK_INFO_PATH: &str = "/.flatpak-info";
+
+    // The de-facto way of checking whether one is inside of a Flatpak container is by checking for
+    // the presence of /.flatpak-info in the filesystem
+    if !Path::new(FLATPAK_INFO_PATH).exists() {
+        return false;
+    }
+
+    // Ensure flatpak-spawn --host can execute a basic command
+    StdCommand::new("flatpak-spawn")
+        .arg("--host")
+        .arg("true")
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+#[cfg(not(target_os = "linux"))]
+fn should_use_flatpak_spawn() -> bool {
+    return false;
 }
