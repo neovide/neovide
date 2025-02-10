@@ -1,6 +1,6 @@
 use std::{iter, mem};
 
-use crate::{dimensions::Dimensions, frame::Frame, settings::*};
+use crate::{dimensions::Dimensions, frame::Frame, settings::*, utils::handle_wslpaths};
 
 use anyhow::Result;
 use clap::{
@@ -8,8 +8,6 @@ use clap::{
     ArgAction, Parser,
 };
 use winit::window::CursorIcon;
-#[cfg(target_os = "windows")]
-use wslpath_rs::windows_to_wsl;
 
 #[cfg(target_os = "windows")]
 pub const SRGB_DEFAULT: &str = "1";
@@ -191,29 +189,6 @@ impl Default for CmdLineSettings {
     }
 }
 
-#[cfg(not(target_os = "windows"))]
-fn handle_wslpaths(paths: Vec<String>, _wsl: bool) -> Vec<String> {
-    paths
-}
-
-/// Convert a Vector of Windows path strings to a Vector of WSL paths if `wsl` is true.
-///
-/// If conversion of a path fails, the path is passed to neovim unchanged.
-#[cfg(target_os = "windows")]
-fn handle_wslpaths(paths: Vec<String>, wsl: bool) -> Vec<String> {
-    if !wsl {
-        return paths;
-    }
-
-    paths
-        .into_iter()
-        .map(|path| {
-            let path = std::fs::canonicalize(&path).map_or(path, |p| p.to_string_lossy().into());
-            format!("'{}'", windows_to_wsl(&path).unwrap_or(path))
-        })
-        .collect()
-}
-
 pub fn handle_command_line_arguments(args: Vec<String>, settings: &Settings) -> Result<()> {
     let mut cmdline = CmdLineSettings::try_parse_from(args)?;
 
@@ -240,6 +215,7 @@ pub fn handle_command_line_arguments(args: Vec<String>, settings: &Settings) -> 
         .chain(handle_wslpaths(
             mem::take(&mut cmdline.files_to_open),
             cmdline.wsl,
+            true,
         ))
         .chain(cmdline.neovim_args)
         .collect();

@@ -154,6 +154,10 @@ jobs:
         run: |
           if ! which cargo-wix; then cargo binstall -y cargo-wix; fi
 
+      - name: Setup Ninja
+        if: matrix.os == 'windows-latest'
+        uses: seanmiddleditch/gha-setup-ninja@v6
+
       - name: Install dependencies (macOS)
         if: matrix.os == 'macos-latest'
         run: |
@@ -184,7 +188,13 @@ jobs:
 
       - name: Build (Windows)
         if: matrix.os == 'windows-latest'
-        run: cargo wix --output target/release/neovide.msi --package neovide
+        env:
+          RUSTFLAGS: "-Ctarget-feature=+crt-static" 
+        # The file paths are to long, so we need to vendor the dependencies
+        run: |
+          mkdir .cargo
+          cargo vendor ../c > .cargo/config.toml
+          cargo wix --nocapture --output target/release/neovide.msi --package neovide
 
       - name: Build (macOS)
         if: matrix.os == 'macos-latest'

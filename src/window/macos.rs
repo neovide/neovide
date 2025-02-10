@@ -30,7 +30,7 @@ use super::settings::ACRYLIC_DEFAULT_RADIUS;
 use super::{WindowSettings, WindowSettingsChanged};
 
 static NEOVIDE_ICON_PATH: &[u8] =
-    include_bytes!("../../extra/osx/Neovide.app/Contents/resources/Neovide.icns");
+    include_bytes!("../../extra/osx/Neovide.app/Contents/Resources/Neovide.icns");
 
 #[derive(Clone)]
 struct TitlebarClickHandlerIvars {}
