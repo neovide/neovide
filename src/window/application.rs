@@ -209,7 +209,6 @@ impl Application {
 
         // Limit the scope of the immutable borrow
         let dt = {
-            // let window_id = *self.window_wrapper.routes.keys().next().unwrap();
             let route = self.window_wrapper.routes.get(&window_id).unwrap();
             let window = route.window.winit_window.clone();
             let vsync = self.window_wrapper.vsync.as_ref().unwrap();
@@ -285,7 +284,6 @@ impl Application {
             return;
         }
 
-        // let window_id = *self.window_wrapper.routes.keys().next().unwrap();
         let window_id = match self.window_wrapper.get_focused_route() {
             Some(window_id) => window_id,
             None => return,
