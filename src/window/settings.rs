@@ -3,6 +3,9 @@ use {log::error, rmpv::Value};
 
 use crate::settings::*;
 
+#[cfg(target_os = "macos")]
+pub const ACRYLIC_DEFAULT_RADIUS: i64 = 80;
+
 #[derive(Clone, SettingGroup, PartialEq)]
 pub struct WindowSettings {
     pub refresh_rate: u64,
@@ -10,6 +13,8 @@ pub struct WindowSettings {
     pub transparency: f32,
     pub normal_opacity: f32,
     pub window_blurred: bool,
+    #[cfg(target_os = "macos")]
+    pub window_blurred_radius: i64,
     pub scale_factor: f32,
     pub fullscreen: bool,
     pub iso_layout: bool,
@@ -51,6 +56,8 @@ impl Default for WindowSettings {
             transparency: 1.0,
             normal_opacity: 1.0,
             window_blurred: false,
+            #[cfg(target_os = "macos")]
+            window_blurred_radius: ACRYLIC_DEFAULT_RADIUS,
             scale_factor: 1.0,
             fullscreen: false,
             iso_layout: false,
