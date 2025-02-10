@@ -10,6 +10,9 @@
 ---@type Args
 local args = ...
 
+local M = {}
+M.private = {}
+
 vim.g.neovide_channel_id = args.neovide_channel_id
 vim.g.neovide_version = args.neovide_version
 
@@ -117,3 +120,13 @@ vim.api.nvim_create_autocmd({ "VimLeavePre" }, {
         rpcrequest("neovide.quit", vim.v.exiting)
     end,
 })
+
+M.private.dropfile = function(filename, tabs)
+    vim.api.nvim_cmd({
+        cmd = "drop",
+        args = { vim.fn.fnameescape(filename) },
+        mods = { tab = tabs and 1 or 0 },
+    }, {})
+end
+
+_G["neovide"] = M

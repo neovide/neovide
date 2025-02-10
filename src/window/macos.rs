@@ -27,7 +27,7 @@ use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame};
 use super::{WindowSettings, WindowSettingsChanged};
 
 static NEOVIDE_ICON_PATH: &[u8] =
-    include_bytes!("../../extra/osx/Neovide.app/Contents/resources/Neovide.icns");
+    include_bytes!("../../extra/osx/Neovide.app/Contents/Resources/Neovide.icns");
 
 #[derive(Clone)]
 struct TitlebarClickHandlerIvars {}

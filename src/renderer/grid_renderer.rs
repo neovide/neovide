@@ -186,9 +186,13 @@ impl GridRenderer {
 
         if let Some(underline_style) = style.underline {
             let stroke_size = self.shaper.stroke_size();
-            let underline_position = self.shaper.underline_position();
-            let p1 = pos + PixelVec::new(0.0, underline_position);
-            let p2 = pos + PixelVec::new(width, underline_position);
+            // Measure the underline offset from the baseline position snapped to a whole pixel
+            let baseline_position = (pos.y + self.shaper.baseline_offset()).round();
+            // The underline should be at least 1 pixel below the baseline
+            let underline_position =
+                baseline_position - self.shaper.underline_offset().min(-1.).round();
+            let p1 = PixelPos::new(pos.x, underline_position);
+            let p2 = PixelPos::new(pos.x + width, underline_position);
 
             self.draw_underline(canvas, style, underline_style, stroke_size, p1, p2);
             drawn = true;
@@ -267,13 +271,13 @@ impl GridRenderer {
             .settings
             .get::<RendererSettings>()
             .underline_stroke_scale;
-        // clamp to 1 and round to avoid aliasing issues
+        // at least 1 and in whole pixels
         let stroke_width = (stroke_size * underline_stroke_scale).max(1.).round();
 
         // offset y by width / 2 to align the *top* of the underline with p1 and p2
-        // also round to avoid aliasing issues
-        let p1 = (p1.x.round(), (p1.y + stroke_width / 2.).round());
-        let p2 = (p2.x.round(), (p2.y + stroke_width / 2.).round());
+        let offset = stroke_width / 2.;
+        let p1 = (p1.x, p1.y + offset);
+        let p2 = (p2.x, p2.y + offset);
 
         underline_paint
             .set_color(style.special(&self.default_style.colors).to_color())

@@ -38,7 +38,7 @@ extern crate derive_new;
 
 use std::{
     env::{self, args},
-    fs::{File, OpenOptions},
+    fs::{create_dir_all, File, OpenOptions},
     io::Write,
     path::PathBuf,
     process::ExitCode,
@@ -324,6 +324,10 @@ fn log_panic_to_file(panic_info: &PanicHookInfo, backtrace: &Backtrace, path: &O
             Err(_) => settings::neovide_std_datapath().join(DEFAULT_BACKTRACES_FILE),
         },
     };
+
+    if let Some(parent) = file_path.parent() {
+        create_dir_all(parent).ok();
+    }
 
     let mut file = match OpenOptions::new()
         .append(true)

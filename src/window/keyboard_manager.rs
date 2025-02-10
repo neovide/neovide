@@ -59,7 +59,10 @@ impl KeyboardManager {
             }
             WindowEvent::Ime(Ime::Commit(text)) => {
                 log::trace!("Ime commit {text}");
-                send_ui(SerialCommand::Keyboard(text.to_string()), neovim_handler);
+                send_ui(
+                    SerialCommand::Keyboard(self.format_key_text(text, false)),
+                    neovim_handler,
+                );
             }
             WindowEvent::Ime(Ime::Preedit(text, cursor_offset)) => {
                 self.ime_preedit = (text.to_string(), *cursor_offset)
