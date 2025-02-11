@@ -356,9 +356,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.12"
+version = "1.2.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "755717a7de9ec452bf7f3f1a3099085deabd7f2962b861dae91ecd7a365903d2"
+checksum = "c7777341816418c02e033934a09f20dc0ccaf65a5201ef8a450ae0105a573fda"
 dependencies = [
  "jobserver",
  "libc",
@@ -660,8 +660,7 @@ checksum = "75b325c5dbd37f80359721ad39aca5a29fb04c89279657cffdda8736d0c0b9d2"
 [[package]]
 name = "dpi"
 version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f25c0e292a7ca6d6498557ff1df68f32c99850012b6ea401cf8daf771f22ff53"
+source = "git+https://github.com/falcucci/winit.git?branch=multi-window-support#9a94f5d9c5311937f2240c833c70b9a682ad63c9"
 dependencies = [
  "serde",
 ]
@@ -995,9 +994,8 @@ checksum = "a8d1add55171497b4705a648c6b583acafb01d58050a51727785f0b2c8e0a2b2"
 
 [[package]]
 name = "glutin"
-version = "0.32.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "03642b8b0cce622392deb0ee3e88511f75df2daac806102597905c3ea1974848"
+version = "0.32.0"
+source = "git+https://github.com/falcucci/glutin.git?branch=multi-window-support#d9eb8b803a44afc92efafabbb5aa5914dd4d6d4f"
 dependencies = [
  "bitflags 2.8.0",
  "cfg_aliases",
@@ -1021,8 +1019,7 @@ dependencies = [
 [[package]]
 name = "glutin-winit"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85edca7075f8fc728f28cb8fbb111a96c3b89e930574369e3e9c27eb75d3788f"
+source = "git+https://github.com/falcucci/glutin.git?branch=multi-window-support#d9eb8b803a44afc92efafabbb5aa5914dd4d6d4f"
 dependencies = [
  "cfg_aliases",
  "glutin",
@@ -1032,9 +1029,8 @@ dependencies = [
 
 [[package]]
 name = "glutin_egl_sys"
-version = "0.7.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c4680ba6195f424febdc3ba46e7a42a0e58743f2edb115297b86d7f8ecc02d2"
+version = "0.7.0"
+source = "git+https://github.com/falcucci/glutin.git?branch=multi-window-support#d9eb8b803a44afc92efafabbb5aa5914dd4d6d4f"
 dependencies = [
  "gl_generator",
  "windows-sys 0.52.0",
@@ -1042,9 +1038,8 @@ dependencies = [
 
 [[package]]
 name = "glutin_glx_sys"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a7bb2938045a88b612499fbcba375a77198e01306f52272e692f8c1f3751185"
+version = "0.6.0"
+source = "git+https://github.com/falcucci/glutin.git?branch=multi-window-support#d9eb8b803a44afc92efafabbb5aa5914dd4d6d4f"
 dependencies = [
  "gl_generator",
  "x11-dl",
@@ -1052,9 +1047,8 @@ dependencies = [
 
 [[package]]
 name = "glutin_wgl_sys"
-version = "0.6.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c4ee00b289aba7a9e5306d57c2d05499b2e5dc427f84ac708bd2c090212cf3e"
+version = "0.6.0"
+source = "git+https://github.com/falcucci/glutin.git?branch=multi-window-support#d9eb8b803a44afc92efafabbb5aa5914dd4d6d4f"
 dependencies = [
  "gl_generator",
 ]
@@ -1449,6 +1443,7 @@ dependencies = [
  "raw-window-handle",
  "regex",
  "rmpv",
+ "rustc-hash",
  "scoped-env",
  "serde",
  "serde_json",
@@ -3590,9 +3585,8 @@ checksum = "271414315aff87387382ec3d271b52d7ae78726f5d44ac98b4f4030c91880486"
 
 [[package]]
 name = "winit"
-version = "0.30.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a809eacf18c8eca8b6635091543f02a5a06ddf3dad846398795460e6e0ae3cc0"
+version = "0.30.5"
+source = "git+https://github.com/falcucci/winit.git?branch=multi-window-support#9a94f5d9c5311937f2240c833c70b9a682ad63c9"
 dependencies = [
  "ahash",
  "android-activity",
@@ -3643,9 +3637,9 @@ dependencies = [
 
 [[package]]
 name = "winnow"
-version = "0.7.1"
+version = "0.7.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86e376c75f4f43f44db463cf729e0d3acbf954d13e22c51e26e4c264b4ab545f"
+checksum = "59690dea168f2198d1a3b0cac23b8063efcd11012f10ae4698f284808c8ef603"
 dependencies = [
  "memchr",
 ]
