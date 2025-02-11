@@ -123,10 +123,11 @@ fn main() -> ExitCode {
             // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
             // read will hang forever, waiting for more data to read.
             // See https://github.com/neovide/neovide/issues/2182 (which includes links to libuv issues)
-            // application
-            //     .runtime
-            //     .runtime
-            //     .shutdown_timeout(Duration::from_millis(500));
+            application
+                .window_wrapper
+                .runtime
+                .runtime
+                .shutdown_timeout(std::time::Duration::from_millis(500));
 
             match result {
                 Ok(_) => application.runtime_tracker.exit_code(),

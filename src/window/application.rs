@@ -93,7 +93,7 @@ pub struct Application {
     animation_start: Instant, // When the last animation started (went from idle to animating)
     animation_time: Duration, // How long the current animation has been simulated, will usually be in the future
 
-    window_wrapper: WinitWindowWrapper,
+    pub window_wrapper: WinitWindowWrapper,
     proxy: EventLoopProxy<EventPayload>,
     pub runtime_tracker: RunningTracker,
 
