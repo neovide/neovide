@@ -500,15 +500,20 @@ pub fn register_file_handler() {
         files: &mut NSArray<NSString>,
     ) {
         autoreleasepool(|pool| {
-            let handler = {
-                let handler_lock = HANDLER_REGISTRY.lock().unwrap();
-                handler_lock
-                    .clone()
-                    .expect("NeovimHandler has not been initialized")
-            };
-            for file in files.iter() {
-                let path = file.as_str(pool).to_owned();
-                send_ui(ParallelCommand::FileDrop(path), &handler);
+            // NOTE: Once Neovide is open and the user drops a new file, it opens as expected.
+            // TODO: For files to be visualized upon being dropped when Neovide is not started,
+            // a valid Neovim handler must be initialized. This requirement explains why files
+            // might not appear if the application is not already opened or if the Neovim handler
+            // has not been initialized. Without an active handler, the very first file drop event
+            // cannot be processed, and consequently, the file will not be displayed.
+            // This behavior is already known currently upstream warning users that Neovide
+            // isn't actually able to open .txt files which isn't the case.
+            if let Some(handler) = HANDLER_REGISTRY.lock().unwrap().clone() {
+                log::info!("Received files: {:?}", files);
+                for file in files.iter() {
+                    let path = file.as_str(pool).to_owned();
+                    send_ui(ParallelCommand::FileDrop(path), &handler);
+                }
             }
         });
     }

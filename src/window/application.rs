@@ -18,7 +18,7 @@ use crate::{
     running_tracker::RunningTracker,
     settings::Settings,
     units::Grid,
-    window::UserEvent,
+    window::{macos::register_file_handler, UserEvent},
     FontSettings, WindowSize,
 };
 
@@ -367,6 +367,7 @@ impl ApplicationHandler<EventPayload> for Application {
                 println!("1.Init");
                 self.window_wrapper
                     .try_create_window(event_loop, &self.proxy);
+
                 self.schedule_next_event(event_loop);
             }
             winit::event::StartCause::ResumeTimeReached { .. } => {
