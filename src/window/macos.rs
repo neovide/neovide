@@ -500,9 +500,15 @@ pub fn register_file_handler() {
         files: &mut NSArray<NSString>,
     ) {
         autoreleasepool(|pool| {
+            let handler = {
+                let handler_lock = HANDLER_REGISTRY.lock().unwrap();
+                handler_lock
+                    .clone()
+                    .expect("NeovimHandler has not been initialized")
+            };
             for file in files.iter() {
-                let _path = file.as_str(pool).to_owned();
-                // send_ui(ParallelCommand::FileDrop(path));
+                let path = file.as_str(pool).to_owned();
+                send_ui(ParallelCommand::FileDrop(path), &handler);
             }
         });
     }
