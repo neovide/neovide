@@ -28,9 +28,15 @@ fn neovide_config_dir() -> PathBuf {
 }
 
 pub fn config_path() -> PathBuf {
-    let mut config_path = neovide_config_dir();
-    config_path.push(CONFIG_FILE);
-    config_path
+    env::var("NEOVIDE_CONFIG")
+        .ok()
+        .map(PathBuf::from)
+        .filter(|path| path.exists() && path.is_file())
+        .unwrap_or_else(|| {
+            let mut path = neovide_config_dir();
+            path.push(CONFIG_FILE);
+            path
+        })
 }
 
 #[derive(Debug, Deserialize, Default, Clone)]
