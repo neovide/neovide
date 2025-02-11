@@ -506,8 +506,6 @@ pub fn register_file_handler() {
             // might not appear if the application is not already opened or if the Neovim handler
             // has not been initialized. Without an active handler, the very first file drop event
             // cannot be processed, and consequently, the file will not be displayed.
-            // This behavior is already known currently upstream warning users that Neovide
-            // isn't actually able to open .txt files which isn't the case.
             if let Some(handler) = HANDLER_REGISTRY.lock().unwrap().clone() {
                 log::info!("Received files: {:?}", files);
                 for file in files.iter() {
