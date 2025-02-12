@@ -28,7 +28,16 @@ fn neovide_config_dir() -> PathBuf {
 }
 
 pub fn config_path() -> PathBuf {
-    let mut config_path = neovide_config_dir();
+    let mut config_path = match env::var("NEOVIDE_CONFIG") {
+        Ok(val) => PathBuf::from(val),
+        Err(e) => {
+            if e != env::VarError::NotPresent {
+                println!("Not a valid config path! Using default value.");
+            }
+
+            neovide_config_dir()
+        }
+    };
     config_path.push(CONFIG_FILE);
     config_path
 }
