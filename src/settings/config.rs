@@ -36,7 +36,7 @@ pub fn config_path() -> PathBuf {
             }
 
             neovide_config_dir()
-        },
+        }
     };
     config_path.push(CONFIG_FILE);
     config_path
