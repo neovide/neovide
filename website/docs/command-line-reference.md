@@ -6,6 +6,10 @@ normal vim variables.
 `$` in front of a word refers to it being an "environment variable" which is checked for, some
 settings only require it to be set in some way, some settings also use the contents.
 
+Note: On macOS, it's not easy to specify command line arguments when launching Apps, you can use
+[Neovide Config File](config-file.md) or `launchctl setenv NEOVIDE_FRAME transparent` to
+apply those setting.
+
 ## Information
 
 ### Version

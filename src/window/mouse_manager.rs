@@ -1,6 +1,7 @@
 use std::{
     cmp::Ordering,
     collections::HashMap,
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -16,7 +17,7 @@ use glamour::Contains;
 use crate::{
     bridge::{send_ui, SerialCommand},
     renderer::{Renderer, WindowDrawDetails},
-    settings::SETTINGS,
+    settings::Settings,
     units::{GridPos, GridScale, GridVec, PixelPos, PixelRect, PixelSize, PixelVec},
     window::{keyboard_manager::KeyboardManager, WindowSettings},
 };
@@ -77,10 +78,12 @@ pub struct MouseManager {
 
     mouse_hidden: bool,
     pub enabled: bool,
+
+    settings: Arc<Settings>,
 }
 
 impl MouseManager {
-    pub fn new() -> MouseManager {
+    pub fn new(settings: Arc<Settings>) -> MouseManager {
         MouseManager {
             drag_details: None,
             has_moved: false,
@@ -90,13 +93,14 @@ impl MouseManager {
             touch_position: HashMap::new(),
             mouse_hidden: false,
             enabled: true,
+            settings,
         }
     }
 
-    pub fn get_window_details_under_mouse<'a>(
+    pub fn get_window_details_under_mouse<'b>(
         &self,
-        editor_state: &'a EditorState<'a>,
-    ) -> Option<&'a WindowDrawDetails> {
+        editor_state: &'b EditorState<'b>,
+    ) -> Option<&'b WindowDrawDetails> {
         let position = self.window_position;
 
         // the rendered window regions are sorted by draw order, so the earlier windows in the
@@ -160,18 +164,18 @@ impl MouseManager {
                 if let Some(drag_details) = &self.drag_details {
                     send_ui(SerialCommand::Drag {
                         button: mouse_button_to_button_text(drag_details.button).unwrap(),
-                        grid_id: window_details.event_grid_id(),
+                        grid_id: window_details.event_grid_id(&self.settings),
                         position: self.grid_position.to_tuple(),
                         modifier_string: editor_state
                             .keyboard_manager
                             .format_modifier_string("", true),
                     });
-                } else if SETTINGS.get::<WindowSettings>().mouse_move_event {
+                } else if self.settings.get::<WindowSettings>().mouse_move_event {
                     // Send a mouse move command
                     send_ui(SerialCommand::MouseButton {
                         button: "move".into(),
                         action: "".into(), // this is ignored by nvim
-                        grid_id: window_details.event_grid_id(),
+                        grid_id: window_details.event_grid_id(&self.settings),
                         position: relative_position.to_tuple(),
                         modifier_string: editor_state
                             .keyboard_manager
@@ -211,7 +215,7 @@ impl MouseManager {
                     send_ui(SerialCommand::MouseButton {
                         button: button_text.clone(),
                         action,
-                        grid_id: details.event_grid_id(),
+                        grid_id: details.event_grid_id(&self.settings),
                         position: position.to_tuple(),
                         modifier_string: editor_state
                             .keyboard_manager
@@ -244,7 +248,7 @@ impl MouseManager {
 
         let draw_details = self.get_window_details_under_mouse(editor_state);
         let grid_id = draw_details
-            .map(|details| details.event_grid_id())
+            .map(|details| details.event_grid_id(&self.settings))
             .unwrap_or(0);
 
         let previous: GridPos<i32> = self.scroll_position.floor().try_cast().unwrap();
@@ -306,7 +310,7 @@ impl MouseManager {
     ) {
         match phase {
             TouchPhase::Started => {
-                let settings = SETTINGS.get::<WindowSettings>();
+                let settings = self.settings.get::<WindowSettings>();
                 let enable_deadzone = settings.touch_deadzone >= 0.0;
 
                 self.touch_position.insert(
@@ -328,7 +332,7 @@ impl MouseManager {
                             + (trace.start.y - location.y).powi(2))
                         .sqrt();
 
-                        let settings = SETTINGS.get::<WindowSettings>();
+                        let settings = self.settings.get::<WindowSettings>();
                         if distance_to_start >= settings.touch_deadzone {
                             trace.left_deadzone_once = true;
                         }
@@ -436,7 +440,7 @@ impl MouseManager {
                 event: key_event, ..
             } => {
                 if key_event.state == ElementState::Pressed {
-                    let window_settings = SETTINGS.get::<WindowSettings>();
+                    let window_settings = self.settings.get::<WindowSettings>();
                     if window_settings.hide_mouse_when_typing && !self.mouse_hidden {
                         window.set_cursor_visible(false);
                         self.mouse_hidden = true;

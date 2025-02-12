@@ -1,4 +1,4 @@
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 
 use log::trace;
 
@@ -7,11 +7,12 @@ use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim, Value};
 use strum::AsRefStr;
 use tokio::sync::mpsc::unbounded_channel;
 
-use super::{show_error_message, SETTINGS};
+use super::{show_error_message, Settings};
 use crate::{
     bridge::NeovimWriter,
     cmd_line::CmdLineSettings,
     profiling::{tracy_dynamic_zone, tracy_fiber_enter, tracy_fiber_leave},
+    utils::handle_wslpaths,
     LoggingSender,
 };
 
@@ -173,7 +174,7 @@ async fn display_available_fonts(
 }
 
 impl ParallelCommand {
-    async fn execute(self, nvim: &Neovim<NeovimWriter>) {
+    async fn execute(self, nvim: &Neovim<NeovimWriter>, settings: &Settings) {
         // Don't panic here unless there's absolutely no chance of continuing the program, Instead
         // just log the error and hope that it's something temporary or recoverable A normal reason
         // for failure is when neovim has already quit, and a command, for example mouse move is
@@ -186,7 +187,7 @@ impl ParallelCommand {
                     .exec_lua(
                         include_str!("exit_handler.lua"),
                         vec![Value::Boolean(
-                            SETTINGS.get::<CmdLineSettings>().server.is_some(),
+                            settings.get::<CmdLineSettings>().server.is_some(),
                         )],
                     )
                     .await;
@@ -203,19 +204,15 @@ impl ParallelCommand {
                 nvim.ui_set_focus(true).await.context("FocusGained failed")
             }
             ParallelCommand::FileDrop(path) => nvim
-                .cmd(
-                    vec![
-                        (
-                            "cmd".into(),
-                            (SETTINGS.get::<CmdLineSettings>().tabs)
-                                .then(|| "tabnew".to_string())
-                                .unwrap_or("edit".into())
-                                .into(),
-                        ),
-                        ("magic".into(), vec![("file".into(), false.into())].into()),
-                        ("args".into(), vec![Value::from(path)].into()),
-                    ],
-                    vec![],
+                .exec_lua(
+                    &format!(
+                        "neovide.private.dropfile([[{}]], {})",
+                        handle_wslpaths(vec![path], settings.get::<CmdLineSettings>().wsl, false)
+                            .first()
+                            .unwrap(),
+                        settings.get::<CmdLineSettings>().tabs
+                    ),
+                    Vec::new(),
                 )
                 .await
                 .map(|_| ()) // We don't care about the result
@@ -273,7 +270,7 @@ impl AsRef<str> for UiCommand {
 
 static UI_COMMAND_CHANNEL: OnceLock<LoggingSender<UiCommand>> = OnceLock::new();
 
-pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>) {
+pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, settings: Arc<Settings>) {
     let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
     let ui_command_nvim = nvim.clone();
     let (sender, mut ui_command_receiver) = unbounded_channel();
@@ -291,8 +288,11 @@ pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>) {
                 Some(UiCommand::Parallel(parallel_command)) => {
                     tracy_dynamic_zone!(parallel_command.as_ref());
                     let ui_command_nvim = ui_command_nvim.clone();
+                    let settings = settings.clone();
                     tokio::spawn(async move {
-                        parallel_command.execute(&ui_command_nvim).await;
+                        parallel_command
+                            .execute(&ui_command_nvim, settings.as_ref())
+                            .await;
                     });
                 }
                 None => break,

@@ -35,8 +35,7 @@ impl FloatingLayer<'_> {
             .map(|window| window.pixel_region(grid_scale))
             .collect::<Vec<_>>();
         let (silhouette, bound_rect) = build_silhouette(&pixel_regions, settings, grid_scale);
-        let has_transparency = default_background.a() != 255
-            || self.windows.iter().any(|window| window.has_transparency());
+        let has_transparency = self.windows.iter().any(|window| window.has_transparency());
 
         self._draw_shadow(root_canvas, &silhouette, settings);
 
@@ -69,14 +68,14 @@ impl FloatingLayer<'_> {
 
         let paint = Paint::default()
             .set_anti_alias(false)
-            .set_color(Color::from_argb(255, 255, 255, default_background.a()))
             .set_blend_mode(BlendMode::SrcOver)
             .to_owned();
 
         let save_layer_rec = SaveLayerRec::default().bounds(&bound_rect).paint(&paint);
 
         root_canvas.save_layer(&save_layer_rec);
-        root_canvas.clear(default_background.with_a(255));
+        let background_paint = Paint::default().set_color(default_background).to_owned();
+        root_canvas.draw_path(&silhouette, &background_paint);
 
         let regions = self
             .windows

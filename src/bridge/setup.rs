@@ -5,7 +5,7 @@ use rmpv::Value;
 use super::api_info::{parse_api_info, ApiInformation};
 use crate::{
     bridge::NeovimWriter,
-    settings::{SettingLocation, SETTINGS},
+    settings::{SettingLocation, Settings},
 };
 
 const INIT_LUA: &str = include_str!("../../lua/init.lua");
@@ -24,6 +24,7 @@ pub async fn setup_neovide_specific_state(
     nvim: &Neovim<NeovimWriter>,
     should_handle_clipboard: bool,
     api_information: &ApiInformation,
+    settings: &Settings,
 ) -> Result<()> {
     // Set variable indicating to user config that neovide is being used.
     nvim.set_var("neovide", Value::Boolean(true))
@@ -61,15 +62,15 @@ pub async fn setup_neovide_specific_state(
     let register_clipboard = should_handle_clipboard;
     let register_right_click = cfg!(target_os = "windows");
 
-    let settings = SETTINGS.setting_locations();
-    let global_variable_settings = settings
+    let setting_locations = settings.setting_locations();
+    let global_variable_settings = setting_locations
         .iter()
         .filter_map(|s| match s {
             SettingLocation::NeovideGlobal(setting) => Some(Value::from(setting.to_owned())),
             _ => None,
         })
         .collect::<Vec<_>>();
-    let option_settings = settings
+    let option_settings = setting_locations
         .iter()
         .filter_map(|s| match s {
             SettingLocation::NeovimOption(setting) => Some(Value::from(setting.to_owned())),

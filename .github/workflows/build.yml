@@ -58,6 +58,16 @@ jobs:
         with:
           neovim: true
 
+      - name: Install dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get -qq install -y \
+            curl gnupg ca-certificates git gcc-multilib g++-multilib cmake \
+            libssl-dev pkg-config libfreetype6-dev libasound2-dev \
+            libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev \
+            libxi-dev libfuse2 appstream libfontconfig1-dev
+
       - name: Install Cargo Binstall
         uses: cargo-bins/cargo-binstall@main
 
@@ -144,6 +154,10 @@ jobs:
         run: |
           if ! which cargo-wix; then cargo binstall -y cargo-wix; fi
 
+      - name: Setup Ninja
+        if: matrix.os == 'windows-latest'
+        uses: seanmiddleditch/gha-setup-ninja@v6
+
       - name: Install dependencies (macOS)
         if: matrix.os == 'macos-latest'
         run: |
@@ -174,7 +188,13 @@ jobs:
 
       - name: Build (Windows)
         if: matrix.os == 'windows-latest'
-        run: cargo wix --output target/release/neovide.msi --package neovide
+        env:
+          RUSTFLAGS: "-Ctarget-feature=+crt-static" 
+        # The file paths are to long, so we need to vendor the dependencies
+        run: |
+          mkdir .cargo
+          cargo vendor ../c > .cargo/config.toml
+          cargo wix --nocapture --output target/release/neovide.msi --package neovide
 
       - name: Build (macOS)
         if: matrix.os == 'macos-latest'

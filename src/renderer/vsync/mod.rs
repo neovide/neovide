@@ -8,12 +8,14 @@ mod vsync_win_dwm;
 #[cfg(target_os = "windows")]
 mod vsync_win_swap_chain;
 
-use vsync_timer::VSyncTimer;
+use std::sync::Arc;
+
+use winit::{event_loop::EventLoopProxy, window::Window};
 
 use crate::{
-    renderer::SkiaRenderer, settings::SETTINGS, window::UserEvent, window::WindowSettings,
+    renderer::SkiaRenderer, settings::Settings, window::UserEvent, window::WindowSettings,
 };
-use winit::{event_loop::EventLoopProxy, window::Window};
+use vsync_timer::VSyncTimer;
 
 #[cfg(target_os = "windows")]
 pub use vsync_win_dwm::VSyncWinDwm;
@@ -43,11 +45,12 @@ impl VSync {
         vsync_enabled: bool,
         renderer: &dyn SkiaRenderer,
         proxy: EventLoopProxy<UserEvent>,
+        settings: Arc<Settings>,
     ) -> Self {
         if vsync_enabled {
             renderer.create_vsync(proxy)
         } else {
-            VSync::Timer(VSyncTimer::new())
+            VSync::Timer(VSyncTimer::new(settings))
         }
     }
 
@@ -86,8 +89,8 @@ impl VSync {
         }
     }
 
-    pub fn get_refresh_rate(&self, window: &Window) -> f32 {
-        let settings_refresh_rate = 1.0 / SETTINGS.get::<WindowSettings>().refresh_rate as f32;
+    pub fn get_refresh_rate(&self, window: &Window, settings: &Settings) -> f32 {
+        let settings_refresh_rate = 1.0 / settings.get::<WindowSettings>().refresh_rate as f32;
 
         match self {
             VSync::Timer(_) => settings_refresh_rate,

@@ -1,4 +1,5 @@
 use glamour::Point2;
+use std::sync::Arc;
 use std::{os::raw::c_void, str};
 
 use objc2::{
@@ -22,6 +23,7 @@ use csscolorparser::Color;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
+use crate::settings::Settings;
 use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
     renderer::{
@@ -30,7 +32,7 @@ use crate::{
     },
     units::{GridScale, Pixel},
 };
-use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame, settings::SETTINGS};
+use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame};
 
 use super::{
     keyboard_manager::KeyboardManager,
@@ -39,7 +41,7 @@ use super::{
 };
 
 static NEOVIDE_ICON_PATH: &[u8] =
-    include_bytes!("../../extra/osx/Neovide.app/Contents/resources/Neovide.icns");
+    include_bytes!("../../extra/osx/Neovide.app/Contents/Resources/Neovide.icns");
 
 #[derive(Clone)]
 struct TitlebarClickHandlerIvars {}
@@ -134,10 +136,11 @@ pub struct MacosWindowFeature {
     extra_titlebar_height_in_pixel: u32,
     is_fullscreen: bool,
     menu: Option<Menu>,
+    settings: Arc<Settings>,
 }
 
 impl MacosWindowFeature {
-    pub fn from_winit_window(window: &Window) -> MacosWindowFeature {
+    pub fn from_winit_window(window: &Window, settings: Arc<Settings>) -> Self {
         let mtm =
             MainThreadMarker::new().expect("MacosWindowFeature must be created in main thread.");
 
@@ -150,7 +153,7 @@ impl MacosWindowFeature {
 
         let mut extra_titlebar_height_in_pixel: u32 = 0;
 
-        let frame = SETTINGS.get::<CmdLineSettings>().frame;
+        let frame = settings.get::<CmdLineSettings>().frame;
         let titlebar_click_handler: Option<Retained<TitlebarClickHandler>> = match frame {
             Frame::Transparent => unsafe {
                 let titlebar_click_handler = TitlebarClickHandler::new(mtm);
@@ -192,6 +195,7 @@ impl MacosWindowFeature {
             extra_titlebar_height_in_pixel,
             is_fullscreen,
             menu: None,
+            settings: settings.clone(),
         };
 
         macos_window_feature.update_background(true);
@@ -288,9 +292,8 @@ impl MacosWindowFeature {
         }
     }
 
-    fn update_ns_background(&self, transparency: f32, show_border: bool) {
+    fn update_ns_background(&self, opaque: bool, show_border: bool) {
         unsafe {
-            let opaque = transparency >= 1.0;
             // Setting the background color to `NSColor::windowBackgroundColor()`
             // makes the background opaque and draws a grey border around the window
             let ns_background = match opaque && show_border {
@@ -311,13 +314,15 @@ impl MacosWindowFeature {
             background_color,
             show_border,
             transparency,
+            normal_opacity,
             ..
-        } = SETTINGS.get::<WindowSettings>();
+        } = self.settings.get::<WindowSettings>();
+        let opaque = transparency.min(normal_opacity) >= 1.0;
         match background_color.parse::<Color>() {
             Ok(color) => {
                 self.update_ns_background_legacy(color, show_border, ignore_deprecation_warning)
             }
-            _ => self.update_ns_background(transparency, show_border),
+            _ => self.update_ns_background(opaque, show_border),
         }
     }
 
@@ -366,7 +371,7 @@ impl MacosWindowFeature {
         send_ui(SerialCommand::MouseButton {
             button: "x1".to_owned(),
             action: "press".to_owned(),
-            grid_id: window_details.event_grid_id(),
+            grid_id: window_details.event_grid_id(&self.settings),
             position: relative_position.to_tuple(),
             modifier_string: editor_state
                 .keyboard_manager

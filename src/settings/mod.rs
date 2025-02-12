@@ -12,7 +12,6 @@ use std::{
     collections::HashMap,
     convert::TryInto,
     fmt::Debug,
-    sync::LazyLock,
 };
 use winit::event_loop::EventLoopProxy;
 
@@ -26,8 +25,6 @@ pub use window_size::{
 mod config;
 pub use config::{Config, HotReloadConfigs};
 pub use font::FontSettings;
-
-pub static SETTINGS: LazyLock<Settings> = LazyLock::new(Settings::new);
 
 pub trait SettingGroup {
     type ChangedEvent: Debug + Clone + Send + Sync + Any;
@@ -45,6 +42,7 @@ type ReaderHandlerFunc = fn(&Settings) -> Option<Value>;
 // read_initial_values call, after that point we should not modify the contents of the Settings
 // struct except when prompted by an update event from nvim. Otherwise, the settings in Neovide and
 // nvim will get out of sync.
+#[derive(Default, Debug)]
 pub struct Settings {
     settings: RwLock<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
     updaters: RwLock<HashMap<SettingLocation, UpdateHandlerFunc>>,
@@ -60,12 +58,8 @@ pub enum SettingLocation {
 }
 
 impl Settings {
-    fn new() -> Self {
-        Self {
-            settings: RwLock::new(HashMap::new()),
-            updaters: RwLock::new(HashMap::new()),
-            readers: RwLock::new(HashMap::new()),
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn set_setting_handlers(
@@ -324,11 +318,10 @@ mod tests {
         settings.register::<TestSettings>();
 
         //create_nvim_command tries to read from CmdLineSettings.neovim_args
-        //TODO: this sets a static variable. Can this have side effects on other tests?
-        SETTINGS.set::<CmdLineSettings>(&CmdLineSettings::default());
+        settings.set::<CmdLineSettings>(&CmdLineSettings::default());
 
-        let command =
-            create_nvim_command().unwrap_or_explained_panic("Could not create nvim command");
+        let command = create_nvim_command(&settings)
+            .unwrap_or_explained_panic("Could not create nvim command");
         let instance = NeovimInstance::Embedded(command);
         let NeovimSession { neovim: nvim, .. } = NeovimSession::new(instance, NeovimHandler())
             .await

@@ -11,6 +11,7 @@ use crate::{
     units::{
         to_skia_point, to_skia_rect, GridPos, GridScale, GridSize, PixelPos, PixelRect, PixelVec,
     },
+    window::WindowSettings,
 };
 
 use super::fonts::font_options::FontOptions;
@@ -21,6 +22,8 @@ pub struct GridRenderer {
     pub em_size: f32,
     pub grid_scale: GridScale,
     pub is_ready: bool,
+
+    settings: Arc<Settings>,
 }
 
 /// Struct with named fields to be returned from draw_background
@@ -32,7 +35,7 @@ pub struct BackgroundInfo {
 }
 
 impl GridRenderer {
-    pub fn new(scale_factor: f64) -> Self {
+    pub fn new(scale_factor: f64, settings: Arc<Settings>) -> Self {
         let mut shaper = CachingShaper::new(scale_factor as f32);
         let default_style = Arc::new(Style::new(Colors::new(
             Some(colors::WHITE),
@@ -48,6 +51,8 @@ impl GridRenderer {
             em_size,
             grid_scale: GridScale::new(font_dimensions),
             is_ready: false,
+
+            settings,
         }
     }
 
@@ -88,8 +93,15 @@ impl GridRenderer {
         PixelRect::from_origin_and_size(pos, size)
     }
 
-    pub fn get_default_background(&self) -> Color {
+    pub fn get_default_background_color(&self) -> Color {
         self.default_style.colors.background.unwrap().to_color()
+    }
+
+    pub fn get_default_background(&self, opacity: f32) -> Color {
+        log::info!("blend {}", self.default_style.blend);
+        let alpha = opacity * (100 - self.default_style.blend) as f32 / 100.0;
+        self.get_default_background_color()
+            .with_a((alpha * 255.0) as u8)
     }
 
     /// Draws a single background cell with the same style
@@ -99,18 +111,20 @@ impl GridRenderer {
         grid_position: GridPos<i32>,
         cell_width: i32,
         style: &Option<Arc<Style>>,
+        opacity: f32,
     ) -> BackgroundInfo {
         tracy_zone!("draw_background");
-        let debug = SETTINGS.get::<RendererSettings>().debug_renderer;
+        let debug = self.settings.get::<RendererSettings>().debug_renderer;
         if style.is_none() && !debug {
             return BackgroundInfo {
                 custom_color: false,
-                transparent: false,
+                transparent: self.default_style.blend > 0 || opacity < 1.0,
             };
         }
 
         let region = self.compute_text_region(grid_position, cell_width);
         let style = style.as_ref().unwrap_or(&self.default_style);
+        let style_background = style.background(&self.default_style.colors).to_color();
 
         let mut paint = Paint::default();
         paint.set_anti_alias(false);
@@ -121,13 +135,20 @@ impl GridRenderer {
             let random_color = random_hsv.to_color(255);
             paint.set_color(random_color);
         } else {
-            paint.set_color(style.background(&self.default_style.colors).to_color());
+            paint.set_color(style_background);
         }
-        if style.blend > 0 {
-            paint.set_alpha_f((100 - style.blend) as f32 / 100.0);
+
+        let is_default_background = style_background == self.get_default_background_color();
+        let normal_opacity = self.settings.get::<WindowSettings>().normal_opacity;
+
+        let alpha = if normal_opacity < 1.0 && is_default_background {
+            normal_opacity
+        } else if style.blend > 0 {
+            ((100 - style.blend) as f32 / 100.0) * opacity
         } else {
-            paint.set_alpha_f(1.0);
-        }
+            opacity
+        };
+        paint.set_alpha_f(alpha);
 
         let custom_color = paint.color4f() != self.default_style.colors.background.unwrap();
         if custom_color {
@@ -136,7 +157,7 @@ impl GridRenderer {
 
         BackgroundInfo {
             custom_color,
-            transparent: style.blend > 0,
+            transparent: alpha < 1.0,
         }
     }
 
@@ -165,9 +186,13 @@ impl GridRenderer {
 
         if let Some(underline_style) = style.underline {
             let stroke_size = self.shaper.stroke_size();
-            let underline_position = self.shaper.underline_position();
-            let p1 = pos + PixelVec::new(0.0, underline_position);
-            let p2 = pos + PixelVec::new(width, underline_position);
+            // Measure the underline offset from the baseline position snapped to a whole pixel
+            let baseline_position = (pos.y + self.shaper.baseline_offset()).round();
+            // The underline should be at least 1 pixel below the baseline
+            let underline_position =
+                baseline_position - self.shaper.underline_offset().min(-1.).round();
+            let p1 = PixelPos::new(pos.x, underline_position);
+            let p2 = PixelPos::new(pos.x + width, underline_position);
 
             self.draw_underline(canvas, style, underline_style, stroke_size, p1, p2);
             drawn = true;
@@ -180,7 +205,7 @@ impl GridRenderer {
         paint.set_anti_alias(false);
         paint.set_blend_mode(BlendMode::SrcOver);
 
-        if SETTINGS.get::<RendererSettings>().debug_renderer {
+        if self.settings.get::<RendererSettings>().debug_renderer {
             let random_hsv: HSV = (rand::random::<f32>() * 360.0, 1.0, 1.0).into();
             let random_color = random_hsv.to_color(255);
             paint.set_color(random_color);
@@ -242,14 +267,17 @@ impl GridRenderer {
         let mut underline_paint = Paint::default();
         underline_paint.set_anti_alias(false);
         underline_paint.set_blend_mode(BlendMode::SrcOver);
-        let underline_stroke_scale = SETTINGS.get::<RendererSettings>().underline_stroke_scale;
-        // clamp to 1 and round to avoid aliasing issues
+        let underline_stroke_scale = self
+            .settings
+            .get::<RendererSettings>()
+            .underline_stroke_scale;
+        // at least 1 and in whole pixels
         let stroke_width = (stroke_size * underline_stroke_scale).max(1.).round();
 
         // offset y by width / 2 to align the *top* of the underline with p1 and p2
-        // also round to avoid aliasing issues
-        let p1 = (p1.x.round(), (p1.y + stroke_width / 2.).round());
-        let p2 = (p2.x.round(), (p2.y + stroke_width / 2.).round());
+        let offset = stroke_width / 2.;
+        let p1 = (p1.x, p1.y + offset);
+        let p2 = (p2.x, p2.y + offset);
 
         underline_paint
             .set_color(style.special(&self.default_style.colors).to_color())

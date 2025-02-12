@@ -1,4 +1,9 @@
-use crate::bridge::{send_ui, SerialCommand};
+use std::sync::Arc;
+
+use crate::{
+    bridge::{send_ui, SerialCommand},
+    settings::Settings,
+};
 
 #[allow(unused_imports)]
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
@@ -8,7 +13,7 @@ use winit::{
 };
 #[cfg(target_os = "macos")]
 use {
-    crate::{settings::SETTINGS, window::settings::OptionAsMeta, window::WindowSettings},
+    crate::{window::settings::OptionAsMeta, window::WindowSettings},
     winit::keyboard::ModifiersKeyState,
 };
 
@@ -22,14 +27,17 @@ pub struct KeyboardManager {
     modifiers: Modifiers,
     ime_preedit: (String, Option<(usize, usize)>),
     meta_is_pressed: bool, // see note on 'meta' below
+    #[allow(dead_code)]
+    settings: Arc<Settings>,
 }
 
 impl KeyboardManager {
-    pub fn new() -> KeyboardManager {
+    pub fn new(settings: Arc<Settings>) -> Self {
         KeyboardManager {
             modifiers: Modifiers::default(),
             ime_preedit: ("".to_string(), None),
             meta_is_pressed: false,
+            settings,
         }
     }
 
@@ -51,7 +59,7 @@ impl KeyboardManager {
             }
             WindowEvent::Ime(Ime::Commit(text)) => {
                 log::trace!("Ime commit {text}");
-                send_ui(SerialCommand::Keyboard(text.to_string()));
+                send_ui(SerialCommand::Keyboard(self.format_key_text(text, false)));
             }
             WindowEvent::Ime(Ime::Preedit(text, cursor_offset)) => {
                 self.ime_preedit = (text.to_string(), *cursor_offset)
@@ -63,7 +71,7 @@ impl KeyboardManager {
 
                 #[cfg(target_os = "macos")]
                 {
-                    let ws = SETTINGS.get::<WindowSettings>();
+                    let ws = self.settings.get::<WindowSettings>();
                     self.meta_is_pressed = match ws.input_macos_option_key_is_meta {
                         OptionAsMeta::Both => self.modifiers.state().alt_key(),
                         OptionAsMeta::OnlyLeft => {

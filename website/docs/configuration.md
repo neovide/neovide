@@ -80,8 +80,8 @@ as such it's also documented in `:h guifont`. But to sum it up and also add Neov
   - can be one of the following:
     - `hX` — Sets the font size to `X` points, while `X` can be any (even floating-point) number.
     - `wX` (available since 0.11.2) — Sets the width **relative offset** to be `X` points, while `X`
-        can be again any number. Negative values shift characters closer together, positive values
-        shift them further apart.
+      can be again any number. Negative values shift characters closer together, positive values
+      shift them further apart.
     - `b` — Sets the font **bold**.
     - `i` — Sets the font _italic_.
     - `#e-X` (available since 0.10.2) — Sets edge pixels to be drawn opaquely or
@@ -233,7 +233,7 @@ title bar.
 
 #### Title Bar Color (Currently Windows only)
 
-**Unreleased yet.**
+**Available since 0.14.0.**
 
 ![TitleBackgroundColor](assets/TitleBackgroundColor.png)
 
@@ -352,20 +352,25 @@ VimScript:
 
 ```vim
 let g:neovide_transparency = 0.8
+let g:neovide_normal_opacity = 0.8
 ```
 
 Lua:
 
 ```lua
 vim.g.neovide_transparency = 0.8
+vim.g.neovide_normal_opacity = 0.8
 ```
 
-**Unreleased yet.**
+**Available since 0.14.0.**
 
 ![Transparency](assets/Transparency.png)
 
 Setting `g:neovide_transparency` to a value between 0.0 and 1.0 will set the opacity of the window
 to that value.
+
+`g:neovide_normal_opacity` sets the opacity for the normal background color.
+Set it to 1 to disable.
 
 #### Show Border (Currently macOS only)
 

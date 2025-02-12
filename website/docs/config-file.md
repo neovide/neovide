@@ -45,8 +45,8 @@ normal = [] # Will use the bundled Fira Code Nerd Font by default
 size = 14.0
 ```
 
-Settings from environment variables can be found in [Command Line Reference](command-line-reference.md),
-see that doc for details on what those settings do.
+Refer to [Command Line Reference](command-line-reference.md) for details about the config settings
+listed above.
 
 ### Runtime settings
 
@@ -132,7 +132,7 @@ style = "Bold"
 
 #### backtraces_path
 
-**Unreleased yet.**
+**Available since 0.14.0.**
 
 If Neovide crashes, it will write a file named `neovide_backtraces.log` into
 this location, with more information about the crash. This can alternatively be
