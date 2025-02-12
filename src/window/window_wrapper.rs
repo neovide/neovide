@@ -708,7 +708,9 @@ impl WinitWindowWrapper {
         scale_factor: f32,
     ) -> Point2<Pixel<f32>> {
         PixelPos::new(
-            position.x + padding.left as f32,
+            position.x
+                + (padding.left as f32 * scale_factor)
+                + (padding.right as f32 * scale_factor),
             position.y + padding.top as f32 - (titlebar_height / scale_factor),
         )
     }
