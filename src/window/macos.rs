@@ -405,11 +405,8 @@ impl MacosWindowFeature {
                 font_size,
             );
 
-            let italic_descriptor = font_descriptor.fontDescriptorWithSymbolicTraits(
-                NSFontDescriptorSymbolicTraits::NSFontDescriptorTraitItalic,
-            );
+            let font = NSFont::fontWithDescriptor_size(&font_descriptor, font_size).unwrap();
 
-            let font = NSFont::fontWithDescriptor_size(&italic_descriptor, font_size).unwrap();
             let attributes: Id<NSDictionary<NSString, AnyObject>> = {
                 let font_attr_key: Id<NSString> = NSString::from_str("NSFont");
                 let font_value: Id<AnyObject> = Id::cast(font);
