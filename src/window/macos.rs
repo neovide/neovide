@@ -10,8 +10,8 @@ use objc2::{
 };
 use objc2_app_kit::{
     NSApplication, NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventModifierFlags, NSFont,
-    NSFontDescriptor, NSFontDescriptorSymbolicTraits, NSFontWeight, NSImage, NSMenu, NSMenuItem,
-    NSView, NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
+    NSFontDescriptor, NSFontWeight, NSImage, NSMenu, NSMenuItem, NSView, NSWindow,
+    NSWindowStyleMask, NSWindowTabbingMode,
 };
 use objc2_foundation::{
     ns_string, CGFloat, MainThreadMarker, NSArray, NSAttributedString, NSData, NSDictionary,
