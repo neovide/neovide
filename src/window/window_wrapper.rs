@@ -215,14 +215,8 @@ impl WinitWindowWrapper {
                 let window_padding = self.calculate_window_padding();
                 let pixel_position = self.grid_to_pixel_position(col, row);
                 let titlebar_height = macos_feature.system_titlebar_height as f32;
-                let scale_factor =
-                    (self.renderer.os_scale_factor * self.renderer.user_scale_factor) as f32;
-                let point = self.apply_padding_to_position(
-                    pixel_position,
-                    window_padding,
-                    titlebar_height,
-                    scale_factor,
-                );
+                let point =
+                    self.apply_padding_to_position(pixel_position, window_padding, titlebar_height);
 
                 macos_feature.show_definition_at_point(&text, point, guifont);
             }
@@ -720,12 +714,14 @@ impl WinitWindowWrapper {
         position: Point2<Pixel<f32>>,
         padding: WindowPadding,
         titlebar_height: f32,
-        scale_factor: f32,
     ) -> Point2<Pixel<f32>> {
+        let scale_factor = (self.renderer.os_scale_factor * self.renderer.user_scale_factor) as f32;
+        let font_size = self.renderer.grid_renderer.grid_scale.height();
+        let dynamic_offset = font_size * 0.57;
         PixelPos::new(
             position.x
-                + (padding.left as f32 * scale_factor)
-                + (padding.right as f32 * scale_factor),
+                + ((padding.left as f32 + padding.right as f32) / scale_factor)
+                + (dynamic_offset * scale_factor),
             position.y + padding.top as f32 - (titlebar_height / scale_factor),
         )
     }
