@@ -219,6 +219,11 @@ impl WinitWindowWrapper {
                     self.apply_padding_to_position(pixel_position, window_padding, titlebar_height);
 
                 macos_feature.show_definition_at_point(&text, point, guifont);
+
+                {
+                    let macos_feature = self.macos_feature.as_mut().unwrap();
+                    macos_feature.definition_is_active = true;
+                }
             }
             WindowCommand::Minimize => {
                 self.minimize_window();
@@ -394,20 +399,19 @@ impl WinitWindowWrapper {
             #[cfg(target_os = "macos")]
             WindowEvent::TouchpadPressure { stage, .. } => {
                 tracy_zone!("TouchpadPressure");
+                let macos_feature = self.macos_feature.as_mut().expect(
+                    "The macos feature should be initialized before the touchpad pressure event",
+                );
                 match TouchpadStage::from_stage(stage) {
-                    TouchpadStage::Soft => {}
-                    TouchpadStage::Click => {}
-                    TouchpadStage::ForceClick => self
-                        .macos_feature
-                        .as_mut()
-                        .unwrap()
-                        .handle_touchpad_force_click(
-                            self.skia_renderer.as_ref().unwrap().window(),
-                            &self.renderer.grid_renderer.grid_scale,
-                            &self.mouse_manager,
-                            &self.keyboard_manager,
-                            &self.renderer.window_regions,
-                        ),
+                    TouchpadStage::Soft => macos_feature.set_definition_is_active(false),
+                    TouchpadStage::Click => macos_feature.set_definition_is_active(false),
+                    TouchpadStage::ForceClick => macos_feature.handle_touchpad_force_click(
+                        self.skia_renderer.as_ref().unwrap().window(),
+                        &self.renderer.grid_renderer.grid_scale,
+                        &self.mouse_manager,
+                        &self.keyboard_manager,
+                        &self.renderer.window_regions,
+                    ),
                 }
             }
             WindowEvent::ThemeChanged(theme) => {

@@ -137,6 +137,7 @@ pub struct MacosWindowFeature {
     is_fullscreen: bool,
     menu: Option<Menu>,
     settings: Arc<Settings>,
+    pub definition_is_active: bool,
 }
 
 impl MacosWindowFeature {
@@ -196,6 +197,7 @@ impl MacosWindowFeature {
             is_fullscreen,
             menu: None,
             settings: settings.clone(),
+            definition_is_active: false,
         };
 
         macos_window_feature.update_background(true);
@@ -348,6 +350,10 @@ impl MacosWindowFeature {
         }
     }
 
+    pub fn set_definition_is_active(&mut self, is_active: bool) {
+        self.definition_is_active = is_active;
+    }
+
     pub fn handle_touchpad_force_click(
         &self,
         window: &Window,
@@ -356,6 +362,10 @@ impl MacosWindowFeature {
         keyboard_manager: &KeyboardManager,
         window_regions: &Vec<WindowDrawDetails>,
     ) {
+        if self.definition_is_active {
+            return;
+        }
+
         let editor_state = EditorState {
             grid_scale,
             window_regions,
