@@ -54,6 +54,7 @@ fn round_or_op<Op: FnOnce(f32) -> f32>(v: f32, op: Op) -> f32 {
 }
 
 use approx::AbsDiffEq;
+use winit::platform::windows::BackdropType;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct WindowPadding {
@@ -575,6 +576,12 @@ impl WinitWindowWrapper {
         );
 
         window.set_blur(window_blurred && transparency < 1.0);
+
+        #[cfg(target_os = "windows")]
+        if window_blurred && transparency < 1.0 {
+            window.set_system_backdrop(BackdropType::TransientWindow); // Acrylic blur
+        }
+
         if fullscreen {
             let handle = window.current_monitor();
             window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
