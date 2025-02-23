@@ -76,14 +76,14 @@ VimScript:
 
 ```vim
 " Set transparency and background color (title bar color)
-let g:neovide_transparency=0.0
-let g:neovide_transparency_point=0.8
-let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:neovide_transparency_point))
+let g:neovide_opacity=0.0
+let g:neovide_opacity_point=0.8
+let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:neovide_opacity_point))
 
 " Add keybinds to change transparency
 function! ChangeTransparency(delta)
-  let g:neovide_transparency_point = g:neovide_transparency_point + a:delta
-  let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:neovide_transparency_point))
+  let g:neovide_opacity_point = g:neovide_opacity_point + a:delta
+  let g:neovide_background_color = '#0f1117'.printf('%x', float2nr(255 * g:neovide_opacity_point))
 endfunction
 noremap <expr><D-]> ChangeTransparency(0.01)
 noremap <expr><D-[> ChangeTransparency(-0.01)
@@ -94,15 +94,15 @@ Lua:
 ```lua
 -- Helper function for transparency formatting
 local alpha = function()
-  return string.format("%x", math.floor(255 * vim.g.neovide_transparency_point or 0.8))
+  return string.format("%x", math.floor(255 * vim.g.neovide_opacity_point or 0.8))
 end
 -- Set transparency and background color (title bar color)
-vim.g.neovide_transparency = 0.0
-vim.g.neovide_transparency_point = 0.8
+vim.g.neovide_opacity = 0.0
+vim.g.neovide_opacity_point = 0.8
 vim.g.neovide_background_color = "#0f1117" .. alpha()
 -- Add keybinds to change transparency
 local change_transparency = function(delta)
-  vim.g.neovide_transparency_point = vim.g.neovide_transparency_point + delta
+  vim.g.neovide_opacity_point = vim.g.neovide_opacity_point + delta
   vim.g.neovide_background_color = "#0f1117" .. alpha()
 end
 vim.keymap.set({ "n", "v", "o" }, "<D-]>", function()
