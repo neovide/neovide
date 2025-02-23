@@ -578,7 +578,7 @@ impl WinitWindowWrapper {
         window.set_blur(window_blurred && transparency < 1.0);
 
         #[cfg(target_os = "windows")]
-        if window_blurred && transparency < 1.0 {
+        if window_blurred {
             window.set_system_backdrop(BackdropType::TransientWindow); // Acrylic blur
         }
 
