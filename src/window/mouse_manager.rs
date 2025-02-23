@@ -6,8 +6,9 @@ use std::{
 };
 
 use winit::{
-    event::WindowEvent,
-    event::{DeviceId, ElementState, MouseButton, MouseScrollDelta, Touch, TouchPhase},
+    event::{
+        DeviceId, ElementState, MouseButton, MouseScrollDelta, Touch, TouchPhase, WindowEvent,
+    },
     window::Window,
 };
 
@@ -18,8 +19,7 @@ use crate::{
     renderer::{Renderer, WindowDrawDetails},
     settings::Settings,
     units::{GridPos, GridScale, GridVec, PixelPos, PixelRect, PixelSize, PixelVec},
-    window::keyboard_manager::KeyboardManager,
-    window::WindowSettings,
+    window::{keyboard_manager::KeyboardManager, WindowSettings},
 };
 
 fn mouse_button_to_button_text(mouse_button: MouseButton) -> Option<String> {
@@ -38,11 +38,11 @@ struct DragDetails {
     button: MouseButton,
 }
 
-struct EditorState<'a> {
-    grid_scale: &'a GridScale,
-    window_regions: &'a Vec<WindowDrawDetails>,
-    window: &'a Window,
-    keyboard_manager: &'a KeyboardManager,
+pub struct EditorState<'a> {
+    pub grid_scale: &'a GridScale,
+    pub window_regions: &'a Vec<WindowDrawDetails>,
+    pub window: &'a Window,
+    pub keyboard_manager: &'a KeyboardManager,
 }
 
 #[derive(Debug)]
@@ -58,7 +58,7 @@ pub struct MouseManager {
     grid_position: GridPos<u32>,
 
     has_moved: bool,
-    window_position: PixelPos<f32>,
+    pub window_position: PixelPos<f32>,
 
     scroll_position: GridPos<f32>,
 
@@ -86,7 +86,7 @@ impl MouseManager {
         }
     }
 
-    fn get_window_details_under_mouse<'b>(
+    pub fn get_window_details_under_mouse<'b>(
         &self,
         editor_state: &'b EditorState<'b>,
     ) -> Option<&'b WindowDrawDetails> {
@@ -101,7 +101,7 @@ impl MouseManager {
             .last()
     }
 
-    fn get_relative_position(
+    pub fn get_relative_position(
         &self,
         window_details: &WindowDrawDetails,
         editor_state: &EditorState,
