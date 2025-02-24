@@ -91,6 +91,7 @@ pub enum UserEvent {
     #[allow(dead_code)]
     RedrawRequested,
     NeovimExited,
+    EnableComposition,
 }
 
 impl From<Vec<DrawCommand>> for UserEvent {
