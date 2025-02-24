@@ -1,5 +1,6 @@
 pub mod animation_utils;
 pub mod box_drawing;
+mod cached_background_renderer;
 pub mod cursor_renderer;
 pub mod fonts;
 pub mod grid_renderer;
@@ -23,7 +24,7 @@ use std::{
 
 use itertools::Itertools;
 use log::error;
-use skia_safe::Canvas;
+use skia_safe::{Canvas, Image, Rect};
 
 use winit::{
     event::WindowEvent,
@@ -36,7 +37,10 @@ use crate::{
     cmd_line::CmdLineSettings,
     editor::{Cursor, Style, WindowType},
     profiling::{tracy_create_gpu_context, tracy_named_frame, tracy_zone},
-    renderer::rendered_layer::{group_windows, FloatingLayer},
+    renderer::{
+        rendered_layer::{group_windows, FloatingLayer},
+        rendered_window::Background,
+    },
     settings::*,
     units::{to_skia_rect, GridRect, GridSize, PixelPos},
     window::{ShouldRender, UserEvent},
@@ -212,7 +216,7 @@ impl Renderer {
         self.cursor_renderer.prepare_frame()
     }
 
-    pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32) {
+    pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32, background_image: Option<&Image>) {
         tracy_zone!("renderer_draw_frame");
         let window_settings = self.settings.get::<WindowSettings>();
         let opacity = if window_settings.normal_opacity < 1.0 {
@@ -222,6 +226,10 @@ impl Renderer {
         };
         let default_background = self.grid_renderer.get_default_background(opacity);
         let grid_scale = self.grid_renderer.grid_scale;
+
+        let transparency = window_settings.transparency;
+        let background_transparency =
+            { window_settings.background_transparency } * window_settings.transparency;
 
         let layer_grouping = self
             .settings
@@ -307,9 +315,22 @@ impl Renderer {
         };
 
         let settings = self.settings.get::<RendererSettings>();
+        let size = root_canvas.base_layer_size();
+        let screen_rect = Rect::from_xywh(0.0, 0.0, size.width as f32, size.height as f32);
         let root_window_regions = root_windows
             .into_iter()
-            .map(|window| window.draw(root_canvas, default_background, grid_scale))
+            .map(|window| {
+                window.draw(
+                    root_canvas,
+                    (transparency * 255.0) as u8,
+                    Background {
+                        color: default_background.with_a((255.0 * background_transparency) as u8),
+                        image: background_image,
+                    },
+                    &screen_rect,
+                    grid_scale,
+                )
+            })
             .collect_vec();
 
         let floating_window_regions = floating_layers

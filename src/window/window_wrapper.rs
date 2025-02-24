@@ -1,7 +1,9 @@
+use std::ops::Deref;
 use std::sync::Arc;
 
 use log::trace;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+use skia_safe::{image::CachingHint, images, Bitmap, Data, IPoint, Image, ImageInfo};
 use winit::{
     dpi,
     event::{Ime, WindowEvent},
@@ -95,6 +97,7 @@ pub struct WinitWindowWrapper {
     ime_enabled: bool,
     ime_area: (dpi::PhysicalPosition<u32>, dpi::PhysicalSize<u32>),
     pub vsync: Option<VSync>,
+    background_image: Option<Image>,
     #[cfg(target_os = "macos")]
     pub macos_feature: Option<MacosWindowFeature>,
 
@@ -131,11 +134,52 @@ impl WinitWindowWrapper {
             initial_window_size,
             is_minimized: false,
             vsync: None,
+            background_image: Self::load_image(&settings.get::<WindowSettings>().background_image),
             ime_enabled: false,
             ime_area: Default::default(),
             #[cfg(target_os = "macos")]
             macos_feature: None,
             settings,
+        }
+    }
+
+    fn load_image(image: &str) -> Option<Image> {
+        let image = shellexpand::tilde_with_context(image, || {
+            homedir::get_my_home()
+                .ok()
+                .flatten()
+                .and_then(|p| p.to_str().map(|sp| sp.to_string()))
+        });
+
+        log::info!("Start loading background image {:?}", image);
+        if image.is_empty() {
+            log::info!("No background image set");
+            None
+        } else {
+            let skia_data = Data::from_filename(std::path::Path::new(image.deref()))?;
+            log::info!("Succesfully read image {:?}", image);
+            let image = Image::from_encoded(skia_data)?;
+            let mut bitmap = Bitmap::new();
+            let image_info = ImageInfo::new_n32_premul((image.width(), image.height()), None);
+            bitmap.alloc_n32_pixels((image.width(), image.height()), Some(true));
+
+            let pixels = bitmap.pixels();
+
+            // Read the pixels from the image into the bitmap
+            let success = image.read_pixels(
+                &image_info,
+                unsafe {
+                    std::slice::from_raw_parts_mut(pixels as *mut u8, bitmap.compute_byte_size())
+                },
+                image_info.min_row_bytes(),
+                IPoint::new(0, 0),
+                CachingHint::Disallow,
+            );
+            if !success {
+                log::warn!("Cant read background image's pixels");
+                return None;
+            }
+            images::raster_from_bitmap(&bitmap)
         }
     }
 
@@ -245,6 +289,9 @@ impl WinitWindowWrapper {
                     let transparent = opacity < 1.0;
                     skia_renderer.window().set_blur(blur && transparent);
                 }
+            }
+            WindowSettingsChanged::BackgroundImage(ref image) => {
+                self.background_image = Self::load_image(image);
             }
             WindowSettingsChanged::Opacity(..) | WindowSettingsChanged::NormalOpacity(..) => {
                 self.renderer.prepare_lines(true);
@@ -432,7 +479,8 @@ impl WinitWindowWrapper {
         let skia_renderer = self.skia_renderer.as_mut().unwrap();
         let vsync = self.vsync.as_mut().unwrap();
 
-        self.renderer.draw_frame(skia_renderer.canvas(), dt);
+        self.renderer
+            .draw_frame(skia_renderer.canvas(), dt, self.background_image.as_ref());
         skia_renderer.flush();
         {
             tracy_gpu_zone!("wait for vsync");
