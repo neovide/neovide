@@ -20,6 +20,8 @@ There are two types of settings:
 | macOS    | `$XDG_CONFIG_HOME/neovide/config.toml` or `$HOME/.config/neovide/config.toml` | `/Users/Alice/Library/Application Support/neovide/config.toml` |
 | Windows  | `{FOLDERID_RoamingAppData}/neovide/config.toml`                               | `C:\Users\Alice\AppData\Roaming/neovide/config.toml`           |
 
+You may use a different location by modifying the `$NEOVIDE_CONFIG`.
+
 ## Available settings
 
 Settings currently available in the config file with default values:
