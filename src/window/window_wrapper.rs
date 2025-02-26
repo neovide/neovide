@@ -36,7 +36,7 @@ use crate::{
 #[cfg(windows)]
 use {
     crate::windows_utils::{register_right_click, unregister_right_click},
-    winit::platform::windows::{Color, WindowExtWindows},
+    winit::platform::windows::{Color, WindowExtWindows, BackdropType},
 };
 
 #[cfg(target_os = "macos")]
@@ -54,7 +54,6 @@ fn round_or_op<Op: FnOnce(f32) -> f32>(v: f32, op: Op) -> f32 {
 }
 
 use approx::AbsDiffEq;
-use winit::platform::windows::BackdropType;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct WindowPadding {
