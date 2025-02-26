@@ -36,7 +36,7 @@ use crate::{
 #[cfg(windows)]
 use {
     crate::windows_utils::{register_right_click, unregister_right_click},
-    winit::platform::windows::{Color, WindowExtWindows, BackdropType},
+    winit::platform::windows::{BackdropType, Color, WindowExtWindows},
 };
 
 #[cfg(target_os = "macos")]
