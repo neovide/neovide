@@ -15,6 +15,11 @@ pub fn create_nvim_command(settings: &Settings) -> Result<TokioCommand> {
 
     debug!("Starting neovim with: {:?}", cmd);
 
+    if let Some(dir) = settings.get::<CmdLineSettings>().chdir {
+        debug!("Changing working directory to: {:?}", dir);
+        cmd.current_dir(dir);
+    }
+
     #[cfg(not(debug_assertions))]
     cmd.stderr(Stdio::piped());
 
