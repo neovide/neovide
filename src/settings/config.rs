@@ -6,7 +6,9 @@ use notify_debouncer_full::{new_debouncer, notify::RecursiveMode};
 use serde::Deserialize;
 use winit::event_loop::EventLoopProxy;
 
-use crate::{error_msg, frame::Frame, window::UserEvent};
+use crate::{
+    error_msg, frame::Frame, renderer::box_drawing::BoxDrawingSettings, window::UserEvent,
+};
 
 use std::path::{Path, PathBuf};
 
@@ -43,6 +45,7 @@ pub fn config_path() -> PathBuf {
 #[serde(rename_all = "kebab-case")]
 pub struct Config {
     pub font: Option<FontSettings>,
+    pub box_drawing: Option<BoxDrawingSettings>,
     pub fork: Option<bool>,
     pub frame: Option<Frame>,
     pub idle: Option<bool>,
@@ -62,6 +65,7 @@ pub struct Config {
 #[derive(Debug, Clone, PartialEq)]
 pub enum HotReloadConfigs {
     Font(Option<FontSettings>),
+    BoxDrawing(Option<BoxDrawingSettings>),
 }
 
 impl Config {
@@ -188,6 +192,13 @@ fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<UserEven
                 .send_event(UserEvent::ConfigsChanged(Box::new(HotReloadConfigs::Font(
                     config.font.clone(),
                 ))))
+                .unwrap();
+        }
+        if config.box_drawing != previous_config.box_drawing {
+            event_loop_proxy
+                .send_event(UserEvent::ConfigsChanged(Box::new(
+                    HotReloadConfigs::BoxDrawing(config.box_drawing.clone()),
+                )))
                 .unwrap();
         }
         previous_config = config;

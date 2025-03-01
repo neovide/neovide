@@ -6,7 +6,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::{
     bridge::GridLineCell,
     editor::{grid::CharacterGrid, style::Style, AnchorInfo, DrawCommand, DrawCommandBatcher},
-    renderer::{LineFragment, WindowDrawCommand},
+    renderer::{box_drawing, LineFragment, WindowDrawCommand},
 };
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -167,10 +167,28 @@ impl Window {
 
         let mut text = String::new();
         let mut width = 0;
+        let mut last_box_char = None;
 
         for (character, possible_end_style) in row.iter().take(self.grid.width).skip(start) {
             // Style doesn't match. Draw what we've got.
             if style != possible_end_style {
+                break;
+            }
+
+            // Box drawing characters are rendered specially; break up the segment such that
+            // repeated box drawing characters are in a segment by themselves
+            if box_drawing::is_box_char(character) {
+                if text.is_empty() {
+                    last_box_char = Some(character)
+                }
+                if (!text.is_empty() && last_box_char.is_none()) || last_box_char != Some(character)
+                {
+                    // either we have non-box chars accumulated or this is a different box char
+                    // from what we have seen before. Either way, render what we have
+                    break;
+                }
+            } else if last_box_char.is_some() {
+                // render the list of box chars we have accumulated so far
                 break;
             }
 

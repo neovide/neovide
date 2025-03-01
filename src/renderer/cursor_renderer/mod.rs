@@ -12,7 +12,9 @@ use crate::{
     profiling::{tracy_plot, tracy_zone},
     renderer::{animation_utils::*, GridRenderer, RenderedWindow},
     settings::{ParseFromValue, Settings},
-    units::{to_skia_point, GridPos, GridScale, PixelPos, PixelSize, PixelVec},
+    units::{
+        to_skia_point, GridPos, GridScale, GridSize, PixelPos, PixelRect, PixelSize, PixelVec,
+    },
     window::ShouldRender,
 };
 
@@ -318,14 +320,22 @@ impl CursorRenderer {
         let style = &self.cursor.grid_cell.1;
         let coarse_style = style.as_ref().map(|style| style.into()).unwrap_or_default();
 
-        let blobs = &grid_renderer.shaper.shape_cached(character, coarse_style);
-
-        for blob in blobs.iter() {
-            canvas.draw_text_blob(
-                blob,
-                (self.destination.x, self.destination.y + baseline_offset),
-                &paint,
-            );
+        let box_char_drawn = grid_renderer.box_char_renderer.draw_glyph(
+            &character,
+            canvas,
+            PixelRect::from_origin_and_size(
+                self.destination,
+                GridSize::new(1, 1) * grid_renderer.grid_scale,
+            ),
+            foreground_color,
+            background_color,
+        );
+        if !box_char_drawn {
+            let pos = (self.destination.x, self.destination.y + baseline_offset);
+            let blobs = &grid_renderer.shaper.shape_cached(character, coarse_style);
+            for blob in blobs.iter() {
+                canvas.draw_text_blob(blob, pos, &paint);
+            }
         }
 
         canvas.restore();
