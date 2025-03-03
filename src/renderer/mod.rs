@@ -219,17 +219,17 @@ impl Renderer {
     pub fn draw_frame(&mut self, root_canvas: &Canvas, dt: f32, background_image: Option<&Image>) {
         tracy_zone!("renderer_draw_frame");
         let window_settings = self.settings.get::<WindowSettings>();
-        let opacity = if window_settings.normal_opacity < 1.0 {
+        let normal_opacity = if window_settings.normal_opacity < 1.0 {
             window_settings.normal_opacity
         } else {
             window_settings.opacity
         };
-        let default_background = self.grid_renderer.get_default_background(opacity);
+        let default_background = self.grid_renderer.get_default_background(normal_opacity);
         let grid_scale = self.grid_renderer.grid_scale;
 
-        let transparency = window_settings.transparency;
+        let opacity = window_settings.opacity;
         let background_transparency =
-            { window_settings.background_transparency } * window_settings.transparency;
+            { window_settings.background_transparency } * window_settings.opacity;
 
         let layer_grouping = self
             .settings
@@ -322,7 +322,7 @@ impl Renderer {
             .map(|window| {
                 window.draw(
                     root_canvas,
-                    (transparency * 255.0) as u8,
+                    (opacity * 255.0) as u8,
                     Background {
                         color: default_background.with_a((255.0 * background_transparency) as u8),
                         image: background_image,
