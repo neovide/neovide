@@ -356,6 +356,8 @@ impl RenderedWindow {
         // let save_layer_rec = SaveLayerRec::default().bounds(&pixel_region).paint(&paint);
         // root_canvas.save_layer(&save_layer_rec);
 
+        root_canvas.save();
+
         if let Some(background) = background.image {
             self.background.draw_window_background_image(
                 &paint,
@@ -368,7 +370,7 @@ impl RenderedWindow {
 
         let mut background_paint = Paint::default();
         background_paint.set_blend_mode(BlendMode::SrcOver);
-        background_paint.set_alpha(background.color.a());
+        // background_paint.set_alpha(background.color.a());
         let background_layer_rec = SaveLayerRec::default()
             .bounds(&pixel_region)
             .paint(&background_paint);
@@ -376,7 +378,7 @@ impl RenderedWindow {
         root_canvas.save_layer(&background_layer_rec);
         // root_canvas.save();
         root_canvas.clip_rect(pixel_region, None, Some(false));
-        root_canvas.clear(background.color);
+        root_canvas.clear(background.color.with_a(transparency));
         // root_canvas.clear(background.color.with_a(242));
 
         self.draw_background_surface(root_canvas, pixel_region_box, grid_scale);
