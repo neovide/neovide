@@ -345,6 +345,9 @@ impl CursorRenderer {
         dt: f32,
     ) -> bool {
         tracy_zone!("cursor_animate");
+        if !self.cursor.enabled {
+            return false;
+        }
         let settings = self.settings.get::<CursorSettings>();
 
         if settings.vfx_mode != self.previous_vfx_mode {
