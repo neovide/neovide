@@ -9,7 +9,10 @@ use winit::event_loop::EventLoopProxy;
 
 use crate::{
     bridge::clipboard::{get_clipboard_contents, set_clipboard_contents},
-    bridge::{events::parse_redraw_event, NeovimWriter, RedrawEvent},
+    bridge::{
+        events::{parse_redraw_event, parse_show_image, parse_upload_image},
+        NeovimWriter, RedrawEvent,
+    },
     error_handling::ResultPanicExplanation,
     running_tracker::RunningTracker,
     settings::Settings,
@@ -121,6 +124,24 @@ impl Handler for NeovimHandler {
                     .lock()
                     .unwrap()
                     .send_event(WindowCommand::FocusWindow.into());
+            }
+            "neovide.upload_image" => {
+                let (id, data) = parse_upload_image(arguments)
+                    .unwrap_or_explained_panic("Failed to parse upload image event");
+                let _ = self
+                    .proxy
+                    .lock()
+                    .unwrap()
+                    .send_event(WindowCommand::UploadImage(id, data).into());
+            }
+            "neovide.show_image" => {
+                let (id, opts) = parse_show_image(arguments)
+                    .unwrap_or_explained_panic("Failed to parse show image event");
+                let _ = self
+                    .proxy
+                    .lock()
+                    .unwrap()
+                    .send_event(WindowCommand::ShowImage(id, opts).into());
             }
             _ => {}
         }
