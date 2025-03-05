@@ -3,6 +3,7 @@ pub mod box_drawing;
 pub mod cursor_renderer;
 pub mod fonts;
 pub mod grid_renderer;
+mod image_renderer;
 pub mod opengl;
 pub mod profiler;
 mod rendered_layer;
@@ -58,8 +59,8 @@ use crate::profiling::GpuCtx;
 use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
+pub use image_renderer::*;
 pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails};
-
 pub use vsync::VSync;
 
 use self::fonts::font_options::FontOptions;
@@ -152,6 +153,7 @@ pub enum DrawCommand {
 pub struct Renderer {
     cursor_renderer: CursorRenderer,
     pub grid_renderer: GridRenderer,
+    pub image_renderer: ImageRenderer,
     current_mode: EditorMode,
 
     rendered_windows: HashMap<u64, RenderedWindow>,
@@ -180,6 +182,7 @@ impl Renderer {
         let mut grid_renderer = GridRenderer::new(scale_factor, settings.clone());
         grid_renderer.update_font_options(init_config.font.map(|x| x.into()).unwrap_or_default());
         grid_renderer.handle_box_drawing_update(init_config.box_drawing.unwrap_or_default());
+        let image_renderer = ImageRenderer::new();
         let current_mode = EditorMode::Unknown(String::from(""));
 
         let rendered_windows = HashMap::new();
@@ -191,6 +194,7 @@ impl Renderer {
             rendered_windows,
             cursor_renderer,
             grid_renderer,
+            image_renderer,
             current_mode,
             window_regions,
             profiler,
@@ -329,6 +333,8 @@ impl Renderer {
         self.profiler.draw(root_canvas, dt);
 
         root_canvas.restore();
+
+        self.image_renderer.draw_frame(root_canvas, grid_scale);
 
         #[cfg(feature = "profiling")]
         plot_skia_cache();

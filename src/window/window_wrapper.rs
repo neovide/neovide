@@ -215,6 +215,12 @@ impl WinitWindowWrapper {
             WindowCommand::ThemeChanged(new_theme) => {
                 self.handle_theme_changed(new_theme);
             }
+            WindowCommand::UploadImage(id, data) => {
+                self.renderer.image_renderer.upload_image(id, &data);
+            }
+            WindowCommand::ShowImage(id, opts) => {
+                self.renderer.image_renderer.show_image(id, opts);
+            }
             #[cfg(windows)]
             WindowCommand::RegisterRightClick => register_right_click(),
             #[cfg(windows)]
