@@ -1,7 +1,4 @@
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
-
-use std::process::{Command as StdCommand, Stdio};
+use std::{ffi::OsStr, process::Stdio};
 
 use anyhow::{bail, Result};
 use log::debug;
@@ -10,8 +7,8 @@ use tokio::process::Command as TokioCommand;
 
 use crate::{cmd_line::CmdLineSettings, settings::*};
 
-pub fn create_nvim_command(settings: &Settings) -> Result<TokioCommand> {
-    let mut cmd = build_nvim_cmd(settings)?;
+pub async fn create_nvim_command(settings: &Settings) -> Result<TokioCommand> {
+    let mut cmd = build_nvim_cmd(settings).await?;
 
     debug!("Starting neovim with: {:?}", cmd);
 
@@ -27,15 +24,15 @@ pub fn create_nvim_command(settings: &Settings) -> Result<TokioCommand> {
     Ok(cmd)
 }
 
-fn build_nvim_cmd(settings: &Settings) -> Result<TokioCommand> {
+async fn build_nvim_cmd(settings: &Settings) -> Result<TokioCommand> {
     if let Some(cmdline) = settings.get::<CmdLineSettings>().neovim_bin {
-        if let Some((bin, args)) = lex_nvim_cmdline(&cmdline, settings)? {
+        if let Some((bin, args)) = lex_nvim_cmdline(&cmdline, settings).await? {
             return Ok(build_nvim_cmd_with_args(bin, args, settings));
         }
 
         bail!("ERROR: NEOVIM_BIN='{}' was not found.", cmdline);
-    } else if let Some(path) = platform_which("nvim", settings) {
-        if neovim_ok(&path, &[], settings)? {
+    } else if let Some(path) = platform_which("nvim", settings).await {
+        if neovim_ok(&path, &[], settings).await? {
             return Ok(build_nvim_cmd_with_args(path, vec![], settings));
         }
     }
@@ -44,7 +41,10 @@ fn build_nvim_cmd(settings: &Settings) -> Result<TokioCommand> {
 }
 
 #[cfg(target_os = "macos")]
-fn build_login_cmd_args(command: &str, args: &[&str]) -> (String, Vec<String>) {
+fn build_login_cmd_args<T: AsRef<OsStr> + AsRef<str> + ToString>(
+    command: &str,
+    args: &[T],
+) -> (String, Vec<String>) {
     use std::env;
 
     use crate::error_handling::ResultPanicExplanation;
@@ -63,7 +63,7 @@ fn build_login_cmd_args(command: &str, args: &[&str]) -> (String, Vec<String>) {
     let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
     let shell_name = shell.split('/').next_back().unwrap_or("zsh");
 
-    let args = match shlex::try_join(args.iter().map(|s| (*s) as &str)) {
+    let args = match shlex::try_join(args.iter().map(|s| s.as_ref())) {
         Ok(args) => args,
         Err(_) => panic!("Failed to join arguments"),
     };
@@ -95,39 +95,42 @@ fn build_login_cmd_args(command: &str, args: &[&str]) -> (String, Vec<String>) {
 
 // Creates a shell command if needed on this platform
 #[cfg(target_os = "macos")]
-fn create_platform_shell_command(command: &str, args: &[&str], _settings: &Settings) -> StdCommand {
+fn create_platform_command<T: AsRef<OsStr> + AsRef<str> + ToString>(
+    command: &str,
+    args: &[T],
+    _settings: &Settings,
+) -> TokioCommand {
     let (cmd, cmd_args) = build_login_cmd_args(command, args);
 
-    let mut result = StdCommand::new(cmd);
+    let mut result = TokioCommand::new(cmd);
     result.args(cmd_args);
 
     result
 }
 
 // Creates a shell command if needed on this platform
-#[cfg(target_os = "linux")]
-fn create_platform_shell_command(command: &str, args: &[&str], _settings: &Settings) -> StdCommand {
-    let mut result = StdCommand::new(command);
-    result.args(args);
+#[cfg(not(target_os = "macos"))]
+fn create_platform_command<T: AsRef<OsStr>>(
+    command: &str,
+    args: &[T],
+    settings: &Settings,
+) -> TokioCommand {
+    if cfg!(target_os = "windows") && settings.get::<CmdLineSettings>().wsl {
+        let mut result = TokioCommand::new("wsl");
+        result.args(["--shell-type", "login"]);
+        result.arg("--");
+        result.arg(command);
+        result.args(args);
 
-    result
-}
-
-// Creates a shell command if needed on this platform
-#[cfg(target_os = "windows")]
-fn create_platform_shell_command(command: &str, args: &[&str], settings: &Settings) -> StdCommand {
-    if settings.get::<CmdLineSettings>().wsl {
-        let mut result = StdCommand::new("wsl");
-        result.args(["$SHELL", "-lc"]);
-        result.arg(format!("{} {}", command, args.join(" ")));
-
+        #[cfg(target_os = "windows")]
         result.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
 
         result
     } else {
-        let mut result = StdCommand::new(command);
+        let mut result = TokioCommand::new(command);
         result.args(args);
 
+        #[cfg(target_os = "windows")]
         result.creation_flags(windows::Win32::System::Threading::CREATE_NO_WINDOW.0);
 
         result
@@ -157,13 +160,13 @@ fn create_error_message(bin: &str, stdout: &str, stderr: Vec<&str>, is_wsl: bool
     error_message
 }
 
-fn neovim_ok(bin: &str, args: &[String], settings: &Settings) -> Result<bool> {
+async fn neovim_ok(bin: &str, args: &[String], settings: &Settings) -> Result<bool> {
     let is_wsl = settings.get::<CmdLineSettings>().wsl;
     let mut args = args.iter().map(String::as_str).collect::<Vec<_>>();
     args.push("-v");
 
-    let mut cmd = create_platform_shell_command(bin, &args, settings);
-    let Ok(output) = cmd.output() else {
+    let mut cmd = create_platform_command(bin, &args, settings);
+    let Ok(output) = cmd.output().await else {
         return Ok(false);
     };
 
@@ -194,33 +197,42 @@ fn neovim_ok(bin: &str, args: &[String], settings: &Settings) -> Result<bool> {
     Ok(true)
 }
 
-fn lex_nvim_cmdline(cmdline: &str, settings: &Settings) -> Result<Option<(String, Vec<String>)>> {
+async fn lex_nvim_cmdline(
+    cmdline: &str,
+    settings: &Settings,
+) -> Result<Option<(String, Vec<String>)>> {
     let is_windows = cfg!(target_os = "windows") && !settings.get::<CmdLineSettings>().wsl;
     // shlex::split does not work with windows path separators, so pass the cmdline as it is
     // Note that on WSL we can still try to split it to support specifying neovim-bin as
     // /usr/bin/env nvim for example
-    if is_windows {
+    let splitted = if is_windows {
         Some((cmdline.to_owned(), Vec::new()))
     } else {
         shlex::split(cmdline)
             .filter(|t| !t.is_empty())
             .map(|mut tokens| (tokens.remove(0), tokens))
-    }
-    .and_then(|(bin, args)| {
+    };
+    let splitted = if let Some((bin, args)) = splitted {
         // if neovim_bin contains a path separator, then try to launch it directly
         // otherwise use which to find the full path
         if !bin.contains('/') && !bin.contains('\\') {
-            platform_which(&bin, settings).map(|bin| (bin, args))
+            platform_which(&bin, settings).await.map(|bin| (bin, args))
         } else {
             Some((bin, args))
         }
-    })
-    .map_or(Ok(None), |(bin, args)| {
-        neovim_ok(&bin, &args, settings).map(|res| res.then_some((bin, args)))
-    })
+    } else {
+        None
+    };
+    if let Some((bin, args)) = splitted {
+        neovim_ok(&bin, &args, settings)
+            .await
+            .map(|res| res.then_some((bin, args)))
+    } else {
+        Ok(None)
+    }
 }
 
-fn platform_which(bin: &str, settings: &Settings) -> Option<String> {
+async fn platform_which(bin: &str, settings: &Settings) -> Option<String> {
     let is_wsl = settings.get::<CmdLineSettings>().wsl;
 
     // The which crate won't work in WSL, a shell always needs to be started
@@ -232,9 +244,9 @@ fn platform_which(bin: &str, settings: &Settings) -> Option<String> {
     }
 
     // But if that does not work, try the shell anyway
-    let mut which_command = create_platform_shell_command("which", &[bin], settings);
+    let mut which_command = create_platform_command("which", &[bin], settings);
     debug!("Running which command: {:?}", which_command);
-    if let Ok(output) = which_command.output() {
+    if let Ok(output) = which_command.output().await {
         if output.status.success() {
             // The output is not utf8 on Windows and can contain special characters.
             // This might fail with special characters in the path, but that probably does
@@ -246,35 +258,6 @@ fn platform_which(bin: &str, settings: &Settings) -> Option<String> {
     None
 }
 
-#[cfg(target_os = "macos")]
-fn nvim_cmd_impl(bin: String, args: Vec<String>, _settings: &Settings) -> TokioCommand {
-    let (cmd, cmd_args) = build_login_cmd_args(
-        &bin,
-        &args.iter().map(|s| s.as_str()).collect::<Vec<&str>>(),
-    );
-
-    let mut cmd = TokioCommand::new(cmd);
-    cmd.args(cmd_args);
-
-    cmd
-}
-
-#[cfg(not(target_os = "macos"))]
-fn nvim_cmd_impl(bin: String, args: Vec<String>, settings: &Settings) -> TokioCommand {
-    if cfg!(target_os = "windows") && settings.get::<CmdLineSettings>().wsl {
-        let mut cmd = TokioCommand::new("wsl");
-        cmd.args(["--shell-type", "login"]);
-        cmd.arg("--");
-        cmd.arg(bin);
-        cmd.args(args);
-        cmd
-    } else {
-        let mut cmd = TokioCommand::new(bin);
-        cmd.args(args);
-        cmd
-    }
-}
-
 fn build_nvim_cmd_with_args(
     bin: String,
     mut args: Vec<String>,
@@ -282,5 +265,5 @@ fn build_nvim_cmd_with_args(
 ) -> TokioCommand {
     args.push("--embed".to_string());
     args.extend(settings.get::<CmdLineSettings>().neovim_args);
-    nvim_cmd_impl(bin, args, settings)
+    create_platform_command(&bin, &args, settings)
 }
