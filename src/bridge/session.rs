@@ -42,10 +42,14 @@ impl NeovimSession {
     pub async fn new(
         instance: NeovimInstance,
         handler: impl Handler<Writer = NeovimWriter>,
-    ) -> Result<Self> {
+    ) -> anyhow::Result<Self> {
         let (reader, writer, neovim_process) = instance.connect().await?;
-        let (neovim, io) =
-            Neovim::<NeovimWriter>::new(reader.compat(), Box::new(writer.compat_write()), handler);
+        let (neovim, io) = Neovim::<NeovimWriter>::handshake(
+            reader.compat(),
+            Box::new(writer.compat_write()),
+            handler,
+        )
+        .await?;
         let io_handle = spawn(io);
 
         Ok(Self {
