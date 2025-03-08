@@ -4,7 +4,7 @@
 #[cfg(debug_assertions)]
 use core::fmt;
 use std::{
-    io::{Error, ErrorKind, Result},
+    io::{Error, Result},
     process::Stdio,
 };
 
@@ -86,13 +86,13 @@ impl NeovimInstance {
             child
                 .stdout
                 .take()
-                .ok_or_else(|| Error::new(ErrorKind::Other, "Can't open stdout"))?,
+                .ok_or_else(|| Error::other("Can't open stdout"))?,
         );
         let writer = Box::new(
             child
                 .stdin
                 .take()
-                .ok_or_else(|| Error::new(ErrorKind::Other, "Can't open stdin"))?,
+                .ok_or_else(|| Error::other("Can't open stdin"))?,
         );
 
         Ok((reader, writer, Some(child)))

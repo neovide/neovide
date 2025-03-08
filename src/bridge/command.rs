@@ -61,7 +61,7 @@ fn build_login_cmd_args(command: &str, args: &[&str]) -> (String, Vec<String>) {
 
     let user = env::var("USER").unwrap_or_explained_panic("USER environment variable not found");
     let shell = env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
-    let shell_name = shell.split('/').last().unwrap_or("zsh");
+    let shell_name = shell.split('/').next_back().unwrap_or("zsh");
 
     let args = match shlex::try_join(args.iter().map(|s| (*s) as &str)) {
         Ok(args) => args,

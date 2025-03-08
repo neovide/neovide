@@ -98,7 +98,7 @@ impl MouseManager {
             .window_regions
             .iter()
             .filter(|details| details.region.contains(&position))
-            .last()
+            .next_back()
     }
 
     fn get_relative_position(
