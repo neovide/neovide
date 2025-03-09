@@ -20,6 +20,7 @@ fn create_platform_command(
     args: &Vec<String>,
     _settings: &Settings,
 ) -> TokioCommand {
+    use std::env;
     use uzers::os::unix::UserExt;
     if env::var_os("TERM").is_some() {
         // If $TERM is set, we assume user is running from a terminal, and we shouldn't
@@ -30,9 +31,8 @@ fn create_platform_command(
         result
     } else {
         // Otherwise run inside a login shell
-        let mut result = TokioCommand::new("/usr/bin/login");
         let user = uzers::get_user_by_uid(uzers::get_current_uid()).unwrap();
-        let shell = user::shell();
+        let shell = user.shell();
         // -f: Bypasses authentication for the already-logged-in user.
         // -p: Preserves the environment.
         // -q: Forces quiet logins, as if a .hushlogin is present.
@@ -40,7 +40,13 @@ fn create_platform_command(
         // Convert to a single string and add quotes
         let args =
             shlex::try_join(args.iter().map(|s| s.as_ref())).expect("Failed to join arguments");
-        result.args(["-flq", shell, "-c"]);
+        let mut result = TokioCommand::new("/usr/bin/login");
+        result.args([
+            "-fpq",
+            user.name().to_str().unwrap(),
+            shell.to_str().unwrap(),
+            "-c",
+        ]);
         result.arg(format!("{} {}", command, args));
         result
     }
