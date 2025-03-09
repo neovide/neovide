@@ -8,9 +8,10 @@ use std::{
     process::Stdio,
 };
 
+use anyhow::Context;
 use nvim_rs::{error::LoopError, neovim::Neovim, Handler};
 use tokio::{
-    io::{split, AsyncRead, AsyncWrite},
+    io::{split, AsyncBufReadExt, AsyncRead, AsyncWrite, BufReader},
     net::TcpStream,
     process::{Child, Command},
     spawn,
@@ -27,6 +28,7 @@ pub struct NeovimSession {
     pub neovim: Neovim<NeovimWriter>,
     pub io_handle: JoinHandle<std::result::Result<(), Box<LoopError>>>,
     pub neovim_process: Option<Child>,
+    pub stderr_task: Option<JoinHandle<Vec<String>>>,
 }
 
 #[cfg(debug_assertions)]
@@ -43,20 +45,46 @@ impl NeovimSession {
         instance: NeovimInstance,
         handler: impl Handler<Writer = NeovimWriter>,
     ) -> anyhow::Result<Self> {
-        let (reader, writer, neovim_process) = instance.connect().await?;
-        let (neovim, io) = Neovim::<NeovimWriter>::handshake(
+        let (reader, writer, stderr_reader, neovim_process) = instance.connect().await?;
+        // Spawn a background task to read from stderr
+        let stderr_task = stderr_reader.map(|reader| {
+            tokio::spawn(async move {
+                let mut lines = Vec::new();
+                let mut reader = BufReader::new(reader).lines();
+                while let Some(line) = reader.next_line().await.unwrap_or_default() {
+                    log::error!("{}", line);
+                    lines.push(line);
+                }
+                lines
+            })
+        });
+
+        let handshake_res = Neovim::<NeovimWriter>::handshake(
             reader.compat(),
             Box::new(writer.compat_write()),
             handler,
         )
-        .await?;
-        let io_handle = spawn(io);
+        .await;
+        match handshake_res {
+            Err(err) => {
+                if let Some(stderr_task) = stderr_task {
+                    let stderr = "stderr output:\n".to_owned() + &stderr_task.await?.join("\n");
+                    Err(err).context(stderr)
+                } else {
+                    Err(err.into())
+                }
+            }
+            Ok((neovim, io)) => {
+                let io_handle = spawn(io);
 
-        Ok(Self {
-            neovim,
-            io_handle,
-            neovim_process,
-        })
+                Ok(Self {
+                    neovim,
+                    io_handle,
+                    neovim_process,
+                    stderr_task,
+                })
+            }
+        }
     }
 }
 
@@ -75,17 +103,27 @@ pub enum NeovimInstance {
 }
 
 impl NeovimInstance {
-    async fn connect(self) -> Result<(BoxedReader, BoxedWriter, Option<Child>)> {
+    async fn connect(
+        self,
+    ) -> Result<(BoxedReader, BoxedWriter, Option<BoxedReader>, Option<Child>)> {
         match self {
             NeovimInstance::Embedded(cmd) => Self::spawn_process(cmd).await,
             NeovimInstance::Server { address } => Self::connect_to_server(address)
                 .await
-                .map(|(reader, writer)| (reader, writer, None)),
+                .map(|(reader, writer)| (reader, writer, None, None)),
         }
     }
 
-    async fn spawn_process(mut cmd: Command) -> Result<(BoxedReader, BoxedWriter, Option<Child>)> {
-        let mut child = cmd.stdin(Stdio::piped()).stdout(Stdio::piped()).spawn()?;
+    async fn spawn_process(
+        mut cmd: Command,
+    ) -> Result<(BoxedReader, BoxedWriter, Option<BoxedReader>, Option<Child>)> {
+        log::debug!("Starting neovim with: {:?}", cmd);
+
+        let mut child = cmd
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
         let reader = Box::new(
             child
                 .stdout
@@ -99,7 +137,14 @@ impl NeovimInstance {
                 .ok_or_else(|| Error::other("Can't open stdin"))?,
         );
 
-        Ok((reader, writer, Some(child)))
+        let stderr_reader = Box::new(
+            child
+                .stderr
+                .take()
+                .ok_or_else(|| Error::other("Can't open stderr"))?,
+        );
+
+        Ok((reader, writer, Some(stderr_reader), Some(child)))
     }
 
     async fn connect_to_server(address: String) -> Result<(BoxedReader, BoxedWriter)> {

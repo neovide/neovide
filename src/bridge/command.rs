@@ -1,12 +1,8 @@
-use std::process::Stdio;
-
-use anyhow::Result;
-use log::debug;
 use tokio::process::Command as TokioCommand;
 
 use crate::{cmd_line::CmdLineSettings, settings::*};
 
-pub fn create_nvim_command(settings: &Settings) -> Result<TokioCommand> {
+pub fn create_nvim_command(settings: &Settings) -> TokioCommand {
     let bin = settings
         .get::<CmdLineSettings>()
         .neovim_bin
@@ -14,17 +10,7 @@ pub fn create_nvim_command(settings: &Settings) -> Result<TokioCommand> {
     let mut args = Vec::new();
     args.push("--embed".to_string());
     args.extend(settings.get::<CmdLineSettings>().neovim_args);
-    let mut cmd = create_platform_command(&bin, &args, settings);
-
-    debug!("Starting neovim with: {:?}", cmd);
-
-    #[cfg(not(debug_assertions))]
-    cmd.stderr(Stdio::piped());
-
-    #[cfg(debug_assertions)]
-    cmd.stderr(Stdio::inherit());
-
-    Ok(cmd)
+    create_platform_command(&bin, &args, settings)
 }
 
 // Creates a shell command if needed on this platform
