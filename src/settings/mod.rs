@@ -328,7 +328,6 @@ mod tests {
         settings.set::<CmdLineSettings>(&CmdLineSettings::default());
 
         let command = create_nvim_command(&settings)
-            .await
             .unwrap_or_explained_panic("Could not create nvim command");
         let instance = NeovimInstance::Embedded(command);
         let NeovimSession { neovim: nvim, .. } = NeovimSession::new(instance, NeovimHandler())

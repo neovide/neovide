@@ -44,7 +44,7 @@ async fn neovim_instance(settings: &Settings) -> Result<NeovimInstance> {
     if let Some(address) = settings.get::<CmdLineSettings>().server {
         Ok(NeovimInstance::Server { address })
     } else {
-        let cmd = create_nvim_command(settings).await?;
+        let cmd = create_nvim_command(settings)?;
         Ok(NeovimInstance::Embedded(cmd))
     }
 }

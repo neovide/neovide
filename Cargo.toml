@@ -143,6 +143,9 @@ objc2-metal = { version = "0.2.2", default-features = false, features = [
     "MTLCommandBuffer",
 ] }
 skia-safe = { version = "0.81.0", features = ["metal", "gl", "textlayout"] }
+uzers = "0.12.1"
+
+
 [target.'cfg(not(any(target_os = "windows", target_os = "macos")))'.dependencies]
 skia-safe = { version = "0.81.0", features = ["gl", "textlayout"] }
 
