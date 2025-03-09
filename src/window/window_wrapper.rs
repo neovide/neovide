@@ -40,7 +40,13 @@ use {
 };
 
 #[cfg(target_os = "macos")]
-use super::macos::MacosWindowFeature;
+use super::macos::{MacosWindowFeature, TouchpadStage};
+
+#[cfg(target_os = "macos")]
+use crate::units::{GridPos, Pixel};
+
+#[cfg(target_os = "macos")]
+use glamour::Point2;
 
 const GRID_TOLERANCE: f32 = 1e-3;
 
@@ -198,6 +204,25 @@ impl WinitWindowWrapper {
             WindowCommand::FocusWindow => {
                 if let Some(skia_renderer) = &self.skia_renderer {
                     skia_renderer.window().focus_window();
+                }
+            }
+            #[cfg(target_os = "macos")]
+            WindowCommand::TouchpadPressure(col, row, text, guifont) => {
+                let macos_feature = self.macos_feature.as_ref().expect(
+                    "The macos feature should be initialized before the touchpad pressure event",
+                );
+
+                let window_padding = self.calculate_window_padding();
+                let pixel_position = self.grid_to_pixel_position(col, row);
+                let titlebar_height = macos_feature.system_titlebar_height as f32;
+                let point =
+                    self.apply_padding_to_position(pixel_position, window_padding, titlebar_height);
+
+                macos_feature.show_definition_at_point(&text, point, guifont);
+
+                {
+                    let macos_feature = self.macos_feature.as_mut().unwrap();
+                    macos_feature.definition_is_active = true;
                 }
             }
             WindowCommand::Minimize => {
@@ -369,6 +394,24 @@ impl WinitWindowWrapper {
                     self.handle_focus_gained();
                 } else {
                     self.handle_focus_lost();
+                }
+            }
+            #[cfg(target_os = "macos")]
+            WindowEvent::TouchpadPressure { stage, .. } => {
+                tracy_zone!("TouchpadPressure");
+                let macos_feature = self.macos_feature.as_mut().expect(
+                    "The macos feature should be initialized before the touchpad pressure event",
+                );
+                match TouchpadStage::from_stage(stage) {
+                    TouchpadStage::Soft => macos_feature.set_definition_is_active(false),
+                    TouchpadStage::Click => macos_feature.set_definition_is_active(false),
+                    TouchpadStage::ForceClick => macos_feature.handle_touchpad_force_click(
+                        self.skia_renderer.as_ref().unwrap().window(),
+                        &self.renderer.grid_renderer.grid_scale,
+                        &self.mouse_manager,
+                        &self.keyboard_manager,
+                        &self.renderer.window_regions,
+                    ),
                 }
             }
             WindowEvent::ThemeChanged(theme) => {
@@ -655,6 +698,7 @@ impl WinitWindowWrapper {
             if let Some(macos_feature) = &self.macos_feature {
                 padding_top += macos_feature.extra_titlebar_height_in_pixels();
             }
+
             padding_top
         };
 
@@ -664,6 +708,32 @@ impl WinitWindowWrapper {
             right: window_settings.padding_right,
             bottom: window_settings.padding_bottom,
         }
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn grid_to_pixel_position(&self, col: i64, row: i64) -> Point2<Pixel<f32>> {
+        let grid_scale = self.renderer.grid_renderer.grid_scale;
+        let grid_position = GridPos::new(col, row);
+
+        grid_position * grid_scale
+    }
+
+    #[cfg(target_os = "macos")]
+    pub fn apply_padding_to_position(
+        &self,
+        position: Point2<Pixel<f32>>,
+        padding: WindowPadding,
+        titlebar_height: f32,
+    ) -> Point2<Pixel<f32>> {
+        let scale_factor = (self.renderer.os_scale_factor * self.renderer.user_scale_factor) as f32;
+        let font_size = self.renderer.grid_renderer.grid_scale.height();
+        let dynamic_offset = font_size * 0.57;
+        PixelPos::new(
+            position.x
+                + ((padding.left as f32 + padding.right as f32) / scale_factor)
+                + (dynamic_offset * scale_factor),
+            position.y + padding.top as f32 - (titlebar_height / scale_factor),
+        )
     }
 
     pub fn prepare_frame(&mut self) -> ShouldRender {
