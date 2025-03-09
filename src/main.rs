@@ -72,9 +72,7 @@ pub use channel_utils::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
-use crate::settings::{
-    load_last_window_settings, Config, FontSettings, PersistentWindowSettings, Settings,
-};
+use crate::settings::{load_last_window_settings, Config, PersistentWindowSettings, Settings};
 
 pub use profiling::startup_profiler;
 
@@ -113,10 +111,10 @@ fn main() -> ExitCode {
         settings.clone(),
     ) {
         Err(err) => handle_startup_errors(err, event_loop, settings.clone()),
-        Ok((window_size, font_settings, runtime)) => {
+        Ok((window_size, initial_config, runtime)) => {
             let mut update_loop = UpdateLoop::new(
                 window_size,
-                font_settings,
+                initial_config,
                 event_loop.create_proxy(),
                 settings.clone(),
             );
@@ -143,7 +141,7 @@ fn setup(
     proxy: EventLoopProxy<UserEvent>,
     running_tracker: RunningTracker,
     settings: Arc<Settings>,
-) -> Result<(WindowSize, Option<FontSettings>, NeovimRuntime)> {
+) -> Result<(WindowSize, Config, NeovimRuntime)> {
     //  --------------
     // | Architecture |
     //  --------------
@@ -259,7 +257,7 @@ fn setup(
 
     let mut runtime = NeovimRuntime::new()?;
     runtime.launch(proxy, grid_size, running_tracker, settings)?;
-    Ok((window_size, config.font, runtime))
+    Ok((window_size, config, runtime))
 }
 
 #[cfg(not(test))]

@@ -115,7 +115,8 @@ Lua:
 vim.opt.linespace = 0
 ```
 
-Controls spacing between lines, may also be negative.
+Controls spacing between lines, may also be negative. Setting linespace can result in vertical gaps
+when rendering [box drawing][https://en.wikipedia.org/wiki/Box_Drawing] characters, see [Box Drawing][#box-drawing] section on how to fix this.
 
 #### Scale
 
@@ -525,6 +526,29 @@ vim.g.experimental_layer_grouping = false
 Group non-emtpy consecutive layers (zindex) together, so that the shadows and blurring is done for
 the whole group instead of each individual layer. This can get rid of some shadowing and blending
 artifacts, but cause worse problems like [#2574](https://github.com/neovide/neovide/issues/2574).
+
+#### Box Drawing
+
+The unicode standard defines several code points that are useful to draw [boxes, diagrams or are
+otherwise decorations][https://en.wikipedia.org/wiki/Box_Drawing]. A font file can include graphical representation for several of these code points
+(glyphs). For example, [Nerd Fonts][https://www.nerdfonts.com/] is a collection of font faces that have been
+patched to include glyphs for several box drawing code points (and many other use-cases).
+
+When Neovide renders these glyphs, some glyphs might not line up correctly or might have
+gaps between adjacent cells, breaking visual continuity. This is especially pronounced when using the [linespace][#line-spacing] configuration option
+to add spacing between lines.
+
+Neovide has support for native rendering (i.e ignore the glyph data in the font) for a subset of these glyphs to avoid this problem. You can enable this via:
+
+```config.toml
+[box-drawing.mode]
+# "font_glyph", "native" or "selected_native"
+type = "native"
+# chars = "🮐🮑🮒"
+```
+- `font_glyph` is the default and uses the glyph data in the font file.
+- `native` turns on native rendering for all supported box drawing glyphs.
+- `selected_native` turns on native rendering for only code points specified in the `chars` setting.
 
 ### Functionality
 
