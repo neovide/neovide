@@ -1334,6 +1334,9 @@ by command line arguments.</li>
 <tr><td>Windows</td><td><code>{FOLDERID_RoamingAppData}/neovide/config.toml</code></td><td><code>C:\Users\Alice\AppData\Roaming/neovide/config.toml</code></td></tr>
 </tbody></table>
 </div>
+<p>You may use a different location by modifying the <code>$NEOVIDE_CONFIG</code> environment variable to be
+a full path to a <code>config.toml</code> file (doesn't explicitly have to be called <code>config.toml</code>
+however.)</p>
 <h2 id="available-settings"><a class="header" href="#available-settings">Available settings</a></h2>
 <p>Settings currently available in the config file with default values:</p>
 <pre><code class="language-toml">backtraces_path = &quot;/path/to/neovide_backtraces.log&quot; # see below for the default platform specific location
