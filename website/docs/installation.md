@@ -157,8 +157,8 @@ environment.systemPackages = with pkgs; [neovide];
    - Fedora
 
      ```sh
-     sudo dnf install fontconfig-devel freetype-devel libX11-xcb libX11-devel libstdc++-static libstdc++-devel
-     sudo dnf groupinstall "Development Tools" "Development Libraries"
+     sudo dnf install fontconfig-devel freetype-devel @development-tools \
+         libstdc++-static libstdc++-devel
      ```
 
    - Arch
