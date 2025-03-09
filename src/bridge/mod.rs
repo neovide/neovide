@@ -44,7 +44,7 @@ async fn neovim_instance(settings: &Settings) -> Result<NeovimInstance> {
     if let Some(address) = settings.get::<CmdLineSettings>().server {
         Ok(NeovimInstance::Server { address })
     } else {
-        let cmd = create_nvim_command(settings)?;
+        let cmd = create_nvim_command(settings);
         Ok(NeovimInstance::Embedded(cmd))
     }
 }
@@ -163,7 +163,10 @@ async fn run(session: NeovimSession, proxy: EventLoopProxy<UserEvent>) {
     } else {
         session.io_handle.await.ok();
     }
-    log::info!("Neovim has quit");
+    // Try to ensure that the stderr output has finished
+    if let Some(stderr_task) = &mut session.stderr_task {
+        timeout(Duration::from_millis(500), stderr_task).await.ok();
+    };
     proxy.send_event(UserEvent::NeovimExited).ok();
 }
 
