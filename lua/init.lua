@@ -20,6 +20,17 @@ vim.g.neovide_version = args.neovide_version
 vim.o.lazyredraw = false
 vim.o.termguicolors = true
 
+-- Quit when Command+Q is pressed on macOS
+if vim.fn.has("macunix") then
+    vim.keymap.set(
+        {"n", "i", "c", "v", "o", "t", "l"},
+        "<D-q>",
+        function()
+            vim.cmd [[ qa! ]]
+        end
+    )
+end
+
 local function rpcnotify(method, ...)
     vim.rpcnotify(vim.g.neovide_channel_id, method, ...)
 end

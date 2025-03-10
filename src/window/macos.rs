@@ -21,7 +21,7 @@ use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
 use crate::{
-    bridge::{send_ui, ParallelCommand},
+    bridge::{send_ui, ParallelCommand, SerialCommand},
     settings::Settings,
 };
 use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame};
@@ -356,7 +356,7 @@ declare_class!(
     unsafe impl QuitHandler {
         #[method(quit:)]
         unsafe fn quit(&self, _event: &NSEvent) {
-            send_ui(ParallelCommand::Quit);
+            send_ui(SerialCommand::Keyboard("<D-q>".into()));
         }
     }
 );
