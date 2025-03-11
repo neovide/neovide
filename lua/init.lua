@@ -20,17 +20,6 @@ vim.g.neovide_version = args.neovide_version
 vim.o.lazyredraw = false
 vim.o.termguicolors = true
 
--- Quit when Command+Q is pressed on macOS
-if vim.fn.has("macunix") then
-    vim.keymap.set(
-        {"n", "i", "c", "v", "o", "t", "l"},
-        "<D-q>",
-        function()
-            vim.cmd [[ qa! ]]
-        end
-    )
-end
-
 local function rpcnotify(method, ...)
     vim.rpcnotify(vim.g.neovide_channel_id, method, ...)
 end
@@ -49,6 +38,17 @@ local function get_clipboard(register)
     return function()
         return rpcrequest("neovide.get_clipboard", register)
     end
+end
+
+-- Quit when Command+Q is pressed on macOS
+if vim.fn.has("macunix") then
+    vim.keymap.set(
+        {"n", "i", "c", "v", "o", "t", "l"},
+        "<D-q>",
+        function()
+            rpcnotify("neovide.exec_detach_handler")
+        end
+    )
 end
 
 if args.register_clipboard and not vim.g.neovide_no_custom_clipboard then
