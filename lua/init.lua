@@ -40,6 +40,17 @@ local function get_clipboard(register)
     end
 end
 
+-- Quit when Command+Q is pressed on macOS
+if vim.fn.has("macunix") then
+    vim.keymap.set(
+        {"n", "i", "c", "v", "o", "t", "l"},
+        "<D-q>",
+        function()
+            rpcnotify("neovide.exec_detach_handler")
+        end
+    )
+end
+
 if args.register_clipboard and not vim.g.neovide_no_custom_clipboard then
     vim.g.clipboard = {
         name = "neovide",

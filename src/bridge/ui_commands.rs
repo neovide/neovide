@@ -185,7 +185,7 @@ impl ParallelCommand {
                 // We could an RPC notify instead of request, but nvim-rs does currently not support it.
                 let _ = nvim
                     .exec_lua(
-                        include_str!("exit_handler.lua"),
+                        include_str!("../../lua/exit_handler.lua"),
                         vec![Value::Boolean(
                             settings.get::<CmdLineSettings>().server.is_some(),
                         )],
