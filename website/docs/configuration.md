@@ -1100,7 +1100,8 @@ Lua:
 vim.g.neovide_cursor_vfx_particle_density = 7.0
 ```
 
-Sets the number of generated particles.
+Sets the number of generated particles. The unit is roughly the amount of particles per 10 lines of
+travel.
 
 #### Particle Speed
 
