@@ -168,6 +168,7 @@ pub struct CursorRenderer {
     cursor: Cursor,
     destination: PixelPos<f32>,
     blink_status: BlinkStatus,
+    previous_cursor_position: Option<(u64, GridPos<u64>)>,
     previous_cursor_shape: Option<CursorShape>,
     previous_editor_mode: EditorMode,
     cursor_vfx: Option<Box<dyn cursor_vfx::CursorVfx>>,
@@ -184,6 +185,7 @@ impl CursorRenderer {
             cursor: Cursor::new(),
             destination: (0.0, 0.0).into(),
             blink_status: BlinkStatus::new(),
+            previous_cursor_position: None,
             previous_cursor_shape: None,
             previous_editor_mode: EditorMode::Normal,
             cursor_vfx: None,
@@ -241,11 +243,10 @@ impl CursorRenderer {
         grid_scale: GridScale,
         windows: &HashMap<u64, RenderedWindow>,
     ) {
-        let cursor_grid_position = GridPos::<u64>::from(self.cursor.grid_position)
-            .try_cast()
-            .unwrap();
-        if let Some(window) = windows.get(&self.cursor.parent_window_id) {
-            let mut grid = cursor_grid_position + window.grid_current_position.to_vector();
+        let cursor_grid_position = GridPos::<u64>::from(self.cursor.grid_position);
+        let cursor_grid_position_f = cursor_grid_position.try_cast().unwrap();
+        let new_cursor_pos = if let Some(window) = windows.get(&self.cursor.parent_window_id) {
+            let mut grid = cursor_grid_position_f + window.grid_current_position.to_vector();
             grid.y -= window.scroll_animation.position;
 
             let top_border = window.viewport_margins.top as f32;
@@ -261,8 +262,16 @@ impl CursorRenderer {
             );
 
             self.destination = grid * grid_scale;
+            Some((window.id, cursor_grid_position))
         } else {
-            self.destination = cursor_grid_position * grid_scale;
+            self.destination = cursor_grid_position_f * grid_scale;
+            Some((0, cursor_grid_position))
+        };
+        if new_cursor_pos != self.previous_cursor_position {
+            self.previous_cursor_position = new_cursor_pos;
+            if let Some(cursor_vfx) = &mut self.cursor_vfx {
+                cursor_vfx.cursor_jumped(self.destination);
+            }
         }
     }
 
