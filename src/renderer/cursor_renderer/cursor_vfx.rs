@@ -20,6 +20,7 @@ pub trait CursorVfx {
         dt: f32,
     ) -> bool;
     fn restart(&mut self, position: PixelPos<f32>);
+    fn cursor_jumped(&mut self, position: PixelPos<f32>);
     fn render(
         &self,
         settings: &CursorSettings,
@@ -126,6 +127,10 @@ impl CursorVfx for PointHighlight {
     fn restart(&mut self, position: PixelPos<f32>) {
         self.t = 0.0;
         self.center_position = position;
+    }
+
+    fn cursor_jumped(&mut self, position: PixelPos<f32>) {
+        self.restart(position);
     }
 
     fn render(
@@ -334,6 +339,8 @@ impl CursorVfx for ParticleTrail {
     fn restart(&mut self, _position: PixelPos<f32>) {
         self.count_reminder = 0.0;
     }
+
+    fn cursor_jumped(&mut self, _position: PixelPos<f32>) {}
 
     fn render(
         &self,
