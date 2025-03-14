@@ -114,14 +114,18 @@ impl PointHighlight {
 impl CursorVfx for PointHighlight {
     fn update(
         &mut self,
-        _settings: &CursorSettings,
+        settings: &CursorSettings,
         current_cursor_destination: PixelPos<f32>,
         _cursor_dimensions: PixelSize<f32>,
         _immediate_movement: bool,
         dt: f32,
     ) -> bool {
         self.center_position = current_cursor_destination;
-        self.t = (self.t + dt * 5.0).min(1.0); // TODO - speed config
+        if settings.vfx_particle_lifetime > 0.0 {
+            self.t = (self.t + dt * (1.0 / settings.vfx_particle_lifetime)).min(1.0);
+        } else {
+            self.t = 1.0
+        }
         self.t < 1.0
     }
 
