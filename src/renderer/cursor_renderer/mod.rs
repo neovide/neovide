@@ -141,7 +141,7 @@ impl Corner {
         if (self.t - 1.0).abs() < f32::EPSILON {
             // We are at destination, move t out of 0-1 range to stop the animation
             self.t = 2.0;
-        } else {
+        } else if direction_alignment <= 0.0 {
             let corner_dt = dt
                 * lerp(
                     1.0,
@@ -150,6 +150,9 @@ impl Corner {
                 );
             self.t =
                 (self.t + corner_dt / (settings.animation_length * self.length_multiplier)).min(1.0)
+        } else {
+            // The front of the cursor jumps to the destination immediately
+            self.t = 1.0;
         }
 
         self.current_position = ease_point(
