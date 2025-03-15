@@ -116,7 +116,8 @@ vim.opt.linespace = 0
 ```
 
 Controls spacing between lines, may also be negative. Setting linespace can result in vertical gaps
-when rendering [box drawing][https://en.wikipedia.org/wiki/Box_Drawing] characters, see [Box Drawing][#box-drawing] section on how to fix this.
+when rendering [box drawing][https://en.wikipedia.org/wiki/Box_Drawing] characters, see [Box
+Drawing][#box-drawing] section on how to fix this.
 
 #### Scale
 
@@ -530,25 +531,44 @@ artifacts, but cause worse problems like [#2574](https://github.com/neovide/neov
 #### Box Drawing
 
 The unicode standard defines several code points that are useful to draw [boxes, diagrams or are
-otherwise decorations][https://en.wikipedia.org/wiki/Box_Drawing]. A font file can include graphical representation for several of these code points
-(glyphs). For example, [Nerd Fonts][https://www.nerdfonts.com/] is a collection of font faces that have been
-patched to include glyphs for several box drawing code points (and many other use-cases).
+otherwise decorations][https://en.wikipedia.org/wiki/Box_Drawing]. A font file can include graphical
+representation for several of these code points (glyphs). For example, [Nerd
+Fonts][https://www.nerdfonts.com/] is a collection of font faces that have been patched to include
+glyphs for several box drawing code points (and many other use-cases).
 
-When Neovide renders these glyphs, some glyphs might not line up correctly or might have
-gaps between adjacent cells, breaking visual continuity. This is especially pronounced when using the [linespace][#line-spacing] configuration option
-to add spacing between lines.
+When Neovide renders these glyphs, some glyphs might not line up correctly or might have gaps
+between adjacent cells, breaking visual continuity. This is especially pronounced when using the
+[linespace][#line-spacing] configuration option to add spacing between lines.
 
-Neovide has support for native rendering (i.e ignore the glyph data in the font) for a subset of these glyphs to avoid this problem. You can enable this via:
+Neovide has support for native rendering (i.e ignore the glyph data in the font) for a subset of
+these glyphs to avoid this problem. You can configure this via:
 
 ```config.toml
-[box-drawing.mode]
-# "font_glyph", "native" or "selected_native"
-type = "native"
-# chars = "🮐🮑🮒"
+[box-drawing]
+# "font-glyph", "native" or "selected-native"
+mode = "native"
+# selected = "🮐🮑🮒"
 ```
-- `font_glyph` is the default and uses the glyph data in the font file.
-- `native` turns on native rendering for all supported box drawing glyphs.
-- `selected_native` turns on native rendering for only code points specified in the `chars` setting.
+- `font-glyph` uses the glyph data in the font file.
+- `native` (default) turns on native rendering for all supported box drawing glyphs.
+- `selected-native` turns on native rendering for only code points specified in the `selected`
+  setting.
+
+The width of the lines drawn can be further controlled using the following settings (defaults shown):
+
+```toml
+[box-drawing]
+stroke-width-ratio = 0.15
+thickness-multipliers = [1.0, 1.5, 2.0]
+```
+- `stroke-width-ratio` is the base line width of lines. It is specified as a fraction of cell width.
+  For example, `1.0` would mean lines would take up the entire cell.
+- `thickness-multipliers` is used to scale the line width when drawing thicker lines. It accepts a
+  list of three numbers. The correspond to scaling factor for `thin`, `medium` and `thick` lines.
+  Thus, the default values result in the following widths (in points):
+  - `thin`   -> 1.0 * 0.15 * `cell_width`
+  - `medium` -> 1.5 * 0.15 * `cell_width`
+  - `thick`  -> 2.0 * 0.15 * `cell_width`
 
 ### Functionality
 

@@ -63,6 +63,7 @@ pub struct Config {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::large_enum_variant)]
 pub enum HotReloadConfigs {
     Font(Option<FontSettings>),
     BoxDrawing(Option<BoxDrawingSettings>),

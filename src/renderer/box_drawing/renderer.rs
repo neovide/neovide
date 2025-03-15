@@ -51,7 +51,7 @@ impl<'a> Context<'a> {
         fg.set_style(PaintStyle::Fill);
         fg.set_color(self.color_fg);
         fg.set_blend_mode(BlendMode::Src);
-        fg.set_anti_alias(true);
+        fg.set_anti_alias(false);
         fg
     }
 
@@ -114,6 +114,7 @@ impl<'a> Context<'a> {
         path.close();
         let mut fg = self.fg_paint();
         fg.set_style(PaintStyle::Fill);
+        fg.set_anti_alias(true);
         self.canvas.draw_path(&path, &fg);
     }
 
@@ -172,6 +173,7 @@ impl<'a> Context<'a> {
         path.close();
         let mut fg = self.fg_paint();
         fg.set_style(PaintStyle::Fill);
+        fg.set_anti_alias(true);
         self.canvas.draw_path(&path, &fg);
     }
 
@@ -201,6 +203,7 @@ impl<'a> Context<'a> {
         let mut fg = self.fg_paint();
         fg.set_style(PaintStyle::Stroke);
         fg.set_stroke_width(self.get_stroke_width_pixels(Thickness::Level2));
+        fg.set_anti_alias(true);
         self.canvas.draw_path(&path, &fg);
     }
 
@@ -231,6 +234,7 @@ impl<'a> Context<'a> {
         let mut fg = self.fg_paint();
         fg.set_stroke_width(stroke_width);
         fg.set_style(fill);
+        fg.set_anti_alias(true);
         self.canvas.draw_path(&path, &fg);
     }
 
@@ -240,6 +244,7 @@ impl<'a> Context<'a> {
         let mut fg = self.fg_paint();
         fg.set_stroke_width(self.get_stroke_width_pixels(Thickness::Level2));
         fg.set_style(PaintStyle::Stroke);
+        fg.set_anti_alias(true);
         match side {
             Side::Left => {
                 self.canvas.draw_line((min.x, min.y), (max.x, max.y), &fg);
@@ -440,6 +445,7 @@ impl<'a> Context<'a> {
         };
         let mut fg = self.fg_paint();
         fg.set_style(PaintStyle::Fill);
+        fg.set_anti_alias(true);
         match color_mode {
             ColorMode::Normal => (),
             ColorMode::Inverted => {
@@ -555,6 +561,7 @@ impl<'a> Context<'a> {
             let mut paint = self.fg_paint();
             paint.set_style(PaintStyle::Stroke);
             paint.set_stroke_width(stroke_width);
+            paint.set_anti_alias(true);
             self.canvas.draw_path(&path, &paint);
         };
 
@@ -597,70 +604,49 @@ impl<'a> Context<'a> {
         let horiz_t = self.get_stroke_width_pixels(horiz_t);
         let vert_t = self.get_stroke_width_pixels(vert_t);
         let color = self.color_fg;
+        let min = self.bounding_box.min;
+        let max = self.bounding_box.max;
+        let mid = self.bounding_box.center();
+        let mut fg = self.fg_paint();
+        fg.set_style(PaintStyle::Stroke);
+        fg.set_color(color);
+
+        let aligned_mid = match corner {
+            Corner::TopLeft | Corner::TopRight => {
+                mid.translate(Vector2::from((0.0, horiz_t * -0.5)))
+            }
+            Corner::BottomLeft | Corner::BottomRight => {
+                mid.translate(Vector2::from((0.0, horiz_t * 0.5)))
+            }
+        };
         match corner {
             Corner::TopLeft => {
-                self.draw_line(
-                    Orientation::Horizontal,
-                    HalfSelector::Last,
-                    horiz_t,
-                    color,
-                    None,
-                );
-                self.draw_line(
-                    Orientation::Vertical,
-                    HalfSelector::Last,
-                    vert_t,
-                    color,
-                    None,
-                );
+                fg.set_stroke_width(horiz_t);
+                self.canvas.draw_line(mid.to_tuple(), (max.x, mid.y), &fg);
+                fg.set_stroke_width(vert_t);
+                self.canvas
+                    .draw_line(aligned_mid.to_tuple(), (mid.x, max.y), &fg);
             }
             Corner::TopRight => {
-                self.draw_line(
-                    Orientation::Horizontal,
-                    HalfSelector::First,
-                    horiz_t,
-                    color,
-                    None,
-                );
-                self.draw_line(
-                    Orientation::Vertical,
-                    HalfSelector::Last,
-                    vert_t,
-                    color,
-                    None,
-                );
+                fg.set_stroke_width(horiz_t);
+                self.canvas.draw_line((min.x, mid.y), mid.to_tuple(), &fg);
+                fg.set_stroke_width(vert_t);
+                self.canvas
+                    .draw_line(aligned_mid.to_tuple(), (mid.x, max.y), &fg);
             }
             Corner::BottomRight => {
-                self.draw_line(
-                    Orientation::Horizontal,
-                    HalfSelector::First,
-                    horiz_t,
-                    color,
-                    None,
-                );
-                self.draw_line(
-                    Orientation::Vertical,
-                    HalfSelector::First,
-                    vert_t,
-                    color,
-                    None,
-                );
+                fg.set_stroke_width(horiz_t);
+                self.canvas.draw_line((min.x, mid.y), mid.to_tuple(), &fg);
+                fg.set_stroke_width(vert_t);
+                self.canvas
+                    .draw_line((mid.x, min.y), aligned_mid.to_tuple(), &fg);
             }
             Corner::BottomLeft => {
-                self.draw_line(
-                    Orientation::Horizontal,
-                    HalfSelector::Last,
-                    horiz_t,
-                    color,
-                    None,
-                );
-                self.draw_line(
-                    Orientation::Vertical,
-                    HalfSelector::First,
-                    vert_t,
-                    color,
-                    None,
-                );
+                fg.set_stroke_width(horiz_t);
+                self.canvas.draw_line(mid.to_tuple(), (max.x, mid.y), &fg);
+                fg.set_stroke_width(vert_t);
+                self.canvas
+                    .draw_line((mid.x, min.y), aligned_mid.to_tuple(), &fg);
             }
         }
     }
@@ -1119,7 +1105,9 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
         ctx.draw_eighth(Horizontal, 1..=7);
     }];
     box_char!['█' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 0..=7);
+        let mut paint = ctx.fg_paint();
+        paint.set_style(PaintStyle::Fill);
+        ctx.canvas.draw_paint(&paint);
     }];
     box_char!['▉' -> |ctx: &Context| {
         ctx.draw_eighth(Vertical, 0..=6);
@@ -1447,7 +1435,7 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
 pub fn is_box_char(text: &str) -> bool {
     text.chars()
         .next()
-        .map_or(false, |ch| BOX_CHARS.contains_key(&ch))
+        .is_some_and(|ch| BOX_CHARS.contains_key(&ch))
 }
 
 pub struct Renderer {
@@ -1493,11 +1481,12 @@ impl Renderer {
             BoxDrawingMode::Native => {
                 self.draw_box_glyph(box_char_text, canvas, dst, color_fg, color_bg)
             }
-            BoxDrawingMode::SelectedNative(selected) => {
+            BoxDrawingMode::SelectedNative => {
+                let selected = self.settings.selected.as_deref().unwrap_or("");
                 let is_selected = box_char_text
                     .chars()
                     .next()
-                    .map_or(false, |first| selected.contains(first));
+                    .is_some_and(|first| selected.contains(first));
                 if is_selected {
                     self.draw_box_glyph(box_char_text, canvas, dst, color_fg, color_bg)
                 } else {

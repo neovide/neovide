@@ -1,23 +1,24 @@
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, Default, Clone, PartialEq, Eq)]
-#[serde(tag = "type", content = "chars")]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "kebab-case")]
 pub enum BoxDrawingMode {
     /// render box chars using glyphs in current font
-    #[default]
     FontGlyph,
     /// render box chars natively, ignoring glyph data in the current font. If native rendering
     /// is not supported for a particular unicode char, fall back to glyphs in font.
+    #[default]
     Native,
     /// render only a specific subset of box drawing unicode char using native drawing. Each
     /// unicode char in the string is considered to be a sigle box char.
-    SelectedNative(String),
+    SelectedNative,
 }
 
 #[derive(Debug, Deserialize, Default, Clone, PartialEq)]
+#[serde(rename_all = "kebab-case")]
 pub struct BoxDrawingSettings {
     pub mode: Option<BoxDrawingMode>,
+    pub selected: Option<String>,
     pub thickness_multipliers: Option<ThicknessMultipliers>,
     pub stroke_width_ratio: Option<f32>,
 }
