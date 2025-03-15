@@ -216,7 +216,6 @@ impl GridRenderer {
             canvas,
             PixelRect::from_origin_and_size(pos, fragment_size),
             style.foreground(&self.default_style.colors).to_color(),
-            style.background(&self.default_style.colors).to_color(),
         ) {
             drawn = true;
         } else if !text.is_empty() {

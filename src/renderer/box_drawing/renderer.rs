@@ -18,7 +18,6 @@ pub struct Context<'a> {
     settings: &'a BoxDrawingSettings,
     bounding_box: PixelRect<f32>,
     color_fg: Color,
-    color_bg: Color,
 }
 
 impl<'a> Context<'a> {
@@ -27,14 +26,12 @@ impl<'a> Context<'a> {
         settings: &'a BoxDrawingSettings,
         bounding_box: PixelRect<f32>,
         color_fg: Color,
-        color_bg: Color,
     ) -> Self {
         Context {
             canvas,
             settings,
             bounding_box,
             color_fg,
-            color_bg,
         }
     }
 
@@ -51,7 +48,7 @@ impl<'a> Context<'a> {
         fg.set_style(PaintStyle::Fill);
         fg.set_color(self.color_fg);
         fg.set_blend_mode(BlendMode::Src);
-        fg.set_anti_alias(false);
+        fg.set_anti_alias(true);
         fg
     }
 
@@ -289,7 +286,6 @@ impl<'a> Context<'a> {
         let gap_width = self.get_stroke_width_pixels(Thickness::Level1);
         let fat_stroke_width = stroke_width + gap_width + stroke_width;
         self.draw_line(o, which_half, fat_stroke_width, self.color_fg, None);
-        self.draw_line(o, which_half, gap_width, self.color_bg, None);
     }
 
     // (min.x, min.y)                      (max.x, min.y)
@@ -449,8 +445,9 @@ impl<'a> Context<'a> {
         match color_mode {
             ColorMode::Normal => (),
             ColorMode::Inverted => {
-                self.canvas.draw_paint(&fg);
-                fg.set_color(self.color_bg);
+                // TODO: fix this
+                // self.canvas.draw_paint(&fg);
+                // fg.set_color(self.color_bg);
             }
         }
 
@@ -763,13 +760,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             ctx.color_fg,
             None,
         );
-        ctx.draw_line(
-            Vertical,
-            HalfSelector::Both,
-            ctx.get_stroke_width_pixels(Thickness::Level1),
-            ctx.color_bg,
-            None,
-        );
     }];
     box_char!['╍' -> |ctx: &Context| {
         ctx.draw_line(
@@ -777,13 +767,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::Both,
             ctx.get_stroke_width_pixels(Thickness::Level3),
             ctx.color_fg,
-            None,
-        );
-        ctx.draw_line(
-            Vertical,
-            HalfSelector::Both,
-            ctx.get_stroke_width_pixels(Thickness::Level3),
-            ctx.color_bg,
             None,
         );
     }];
@@ -1026,57 +1009,22 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
     box_char!['╬' -> |ctx: &Context| {
         ctx.draw_double_line(Vertical, HalfSelector::Both);
         ctx.draw_double_line(Horizontal, HalfSelector::Both);
-        ctx.draw_line(
-            Vertical,
-            HalfSelector::Both,
-            ctx.get_stroke_width_pixels(Thickness::Level1),
-            ctx.color_bg,
-            None,
-        );
     }];
     box_char!['╠' -> |ctx: &Context| {
         ctx.draw_double_line(Vertical, HalfSelector::Both);
         ctx.draw_double_line(Horizontal, HalfSelector::Last);
-        ctx.draw_line(
-            Vertical,
-            HalfSelector::Both,
-            ctx.get_stroke_width_pixels(Thickness::Level1),
-            ctx.color_bg,
-            None,
-        );
     }];
     box_char!['╣' -> |ctx: &Context| {
         ctx.draw_double_line(Vertical, HalfSelector::Both);
         ctx.draw_double_line(Horizontal, HalfSelector::First);
-        ctx.draw_line(
-            Vertical,
-            HalfSelector::Both,
-            ctx.get_stroke_width_pixels(Thickness::Level1),
-            ctx.color_bg,
-            None,
-        );
     }];
     box_char!['╦' -> |ctx: &Context| {
         ctx.draw_double_line(Horizontal, HalfSelector::Both);
         ctx.draw_double_line(Vertical, HalfSelector::Last);
-        ctx.draw_line(
-            Horizontal,
-            HalfSelector::Both,
-            ctx.get_stroke_width_pixels(Thickness::Level1),
-            ctx.color_bg,
-            None,
-        );
     }];
     box_char!['╩' -> |ctx: &Context| {
         ctx.draw_double_line(Horizontal, HalfSelector::Both);
         ctx.draw_double_line(Vertical, HalfSelector::First);
-        ctx.draw_line(
-            Horizontal,
-            HalfSelector::Both,
-            ctx.get_stroke_width_pixels(Thickness::Level1),
-            ctx.color_bg,
-            None,
-        );
     }];
 
     // eighth blocks
@@ -1469,7 +1417,6 @@ impl Renderer {
         canvas: &Canvas,
         dst: PixelRect<f32>,
         color_fg: Color,
-        color_bg: Color,
     ) -> bool {
         match self
             .settings
@@ -1478,9 +1425,7 @@ impl Renderer {
             .unwrap_or(&BoxDrawingMode::default())
         {
             BoxDrawingMode::FontGlyph => false,
-            BoxDrawingMode::Native => {
-                self.draw_box_glyph(box_char_text, canvas, dst, color_fg, color_bg)
-            }
+            BoxDrawingMode::Native => self.draw_box_glyph(box_char_text, canvas, dst, color_fg),
             BoxDrawingMode::SelectedNative => {
                 let selected = self.settings.selected.as_deref().unwrap_or("");
                 let is_selected = box_char_text
@@ -1488,7 +1433,7 @@ impl Renderer {
                     .next()
                     .is_some_and(|first| selected.contains(first));
                 if is_selected {
-                    self.draw_box_glyph(box_char_text, canvas, dst, color_fg, color_bg)
+                    self.draw_box_glyph(box_char_text, canvas, dst, color_fg)
                 } else {
                     false
                 }
@@ -1502,7 +1447,6 @@ impl Renderer {
         canvas: &Canvas,
         dst: PixelRect<f32>,
         color_fg: Color,
-        color_bg: Color,
     ) -> bool {
         let Some(ch) = box_char_text.chars().next() else {
             return false;
@@ -1520,7 +1464,6 @@ impl Renderer {
                     self.cell_size,
                 )),
                 color_fg,
-                color_bg,
             );
             (draw_fn)(&ctx);
         }
