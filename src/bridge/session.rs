@@ -58,11 +58,13 @@ impl NeovimSession {
                 lines
             })
         });
+        let handshake_message = "NeovideToNeovimMagicHandshakeMessage";
 
         let handshake_res = Neovim::<NeovimWriter>::handshake(
             reader.compat(),
             Box::new(writer.compat_write()),
             handler,
+            handshake_message,
         )
         .await;
         match handshake_res {
