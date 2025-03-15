@@ -1273,7 +1273,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc2f4eb4bc735547cfed7c0a4922cbd04a4655978c09b54f1f7b228750664c34"
 dependencies = [
  "cfg-if",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
@@ -1629,7 +1629,7 @@ dependencies = [
 [[package]]
 name = "nvim-rs"
 version = "0.9.0"
-source = "git+https://github.com/fredizzimo/nvim-rs?branch=handshake#030722ee22387e9a7e7f61d273f59e08341bc377"
+source = "git+https://github.com/fredizzimo/nvim-rs?branch=handshake#cc23df5f027b90b59a4cabb664f8787738f9733d"
 dependencies = [
  "async-trait",
  "futures 0.3.31",
@@ -2854,7 +2854,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "69fff37da548239c3bf9e64a12193d261e8b22b660991c6fd2df057c168f435f"
 dependencies = [
  "cc",
- "windows-targets 0.52.6",
+ "windows-targets 0.48.5",
 ]
 
 [[package]]
