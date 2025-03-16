@@ -48,7 +48,7 @@ impl<'a> Context<'a> {
         fg.set_style(PaintStyle::Fill);
         fg.set_color(self.color_fg);
         fg.set_blend_mode(BlendMode::Plus);
-        fg.set_anti_alias(true);
+        fg.set_anti_alias(false);
         fg
     }
 
