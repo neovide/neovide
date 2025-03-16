@@ -47,7 +47,7 @@ impl<'a> Context<'a> {
         let mut fg = Paint::default();
         fg.set_style(PaintStyle::Fill);
         fg.set_color(self.color_fg);
-        fg.set_blend_mode(BlendMode::Plus);
+        fg.set_blend_mode(BlendMode::Src);
         fg.set_anti_alias(false);
         fg
     }
