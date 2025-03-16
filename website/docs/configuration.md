@@ -549,6 +549,7 @@ these glyphs to avoid this problem. You can configure this via:
 mode = "native"
 # selected = "🮐🮑🮒"
 ```
+
 - `font-glyph` uses the glyph data in the font file.
 - `native` (default) turns on native rendering for all supported box drawing glyphs.
 - `selected-native` turns on native rendering for only code points specified in the `selected`
@@ -561,14 +562,15 @@ The width of the lines drawn can be further controlled using the following setti
 stroke-width-ratio = 0.15
 thickness-multipliers = [1.0, 1.5, 2.0]
 ```
+
 - `stroke-width-ratio` is the base line width of lines. It is specified as a fraction of cell width.
   For example, `1.0` would mean lines would take up the entire cell.
 - `thickness-multipliers` is used to scale the line width when drawing thicker lines. It accepts a
   list of three numbers. The correspond to scaling factor for `thin`, `medium` and `thick` lines.
   Thus, the default values result in the following widths (in points):
-  - `thin`   -> 1.0 * 0.15 * `cell_width`
-  - `medium` -> 1.5 * 0.15 * `cell_width`
-  - `thick`  -> 2.0 * 0.15 * `cell_width`
+  - `thin`   -> 1.0 \* 0.15 \* `cell_width`
+  - `medium` -> 1.5 \* 0.15 \* `cell_width`
+  - `thick`  -> 2.0 \* 0.15 \* `cell_width`
 
 ### Functionality
 
