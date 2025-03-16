@@ -11,7 +11,7 @@ use skia_safe::{
 
 use crate::renderer::fonts::font_options::points_to_pixels;
 use crate::units::Pixel;
-use crate::units::{to_skia_point, to_skia_rect, PixelRect};
+use crate::units::{to_skia_point, to_skia_rect, PixelRect, PixelVec};
 
 pub struct Context<'a> {
     canvas: &'a Canvas,
@@ -92,9 +92,9 @@ impl<'a> Context<'a> {
 
     fn draw_arrow(&self, side: Side) {
         let mut path = Path::default();
-        let min = self.bounding_box.min;
-        let max = self.bounding_box.max;
-        let mid = self.bounding_box.center();
+        let min = self.bounding_box.min.round();
+        let max = self.bounding_box.max.round();
+        let mid = self.bounding_box.center().round();
         path.set_fill_type(PathFillType::Winding);
         match side {
             Side::Left => {
@@ -117,9 +117,9 @@ impl<'a> Context<'a> {
 
     fn draw_quarter_triangle(&self, corner: Corner, height: Height) {
         let mut path = Path::default();
-        let min = self.bounding_box.min;
-        let max = self.bounding_box.max;
-        let mid = self.bounding_box.center();
+        let min = self.bounding_box.min.round();
+        let max = self.bounding_box.max.round();
+        let mid = self.bounding_box.center().round();
         path.set_fill_type(PathFillType::Winding);
         match corner {
             Corner::TopLeft => {
@@ -176,9 +176,9 @@ impl<'a> Context<'a> {
 
     fn draw_half_cross_line(&self, start_corner: Corner) {
         let mut path = Path::default();
-        let min = self.bounding_box.min;
-        let max = self.bounding_box.max;
-        let mid = self.bounding_box.center();
+        let min = self.bounding_box.min.round();
+        let max = self.bounding_box.max.round();
+        let mid = self.bounding_box.center().round();
         match start_corner {
             Corner::TopLeft => {
                 path.move_to((min.x, min.y));
@@ -206,7 +206,7 @@ impl<'a> Context<'a> {
 
     fn draw_d(&self, side: Side, fill: PaintStyle, close_path: bool) {
         let mut path = Path::default();
-        let mut oval = to_skia_rect(&self.bounding_box);
+        let mut oval = to_skia_rect(&self.bounding_box.round());
         let stroke_width = self.get_stroke_width_pixels(Thickness::Level2);
         if fill == PaintStyle::Stroke {
             oval.inset((stroke_width * 0.5, stroke_width * 0.5));
@@ -236,8 +236,8 @@ impl<'a> Context<'a> {
     }
 
     fn draw_cross_line(&self, side: Side) {
-        let min = self.bounding_box.min;
-        let max = self.bounding_box.max;
+        let min = self.bounding_box.min.round();
+        let max = self.bounding_box.max.round();
         let mut fg = self.fg_paint();
         fg.set_stroke_width(self.get_stroke_width_pixels(Thickness::Level2));
         fg.set_style(PaintStyle::Stroke);
