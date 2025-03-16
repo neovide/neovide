@@ -47,7 +47,7 @@ impl<'a> Context<'a> {
         let mut fg = Paint::default();
         fg.set_style(PaintStyle::Fill);
         fg.set_color(self.color_fg);
-        fg.set_blend_mode(BlendMode::Src);
+        fg.set_blend_mode(BlendMode::Plus);
         fg.set_anti_alias(true);
         fg
     }
@@ -1454,18 +1454,16 @@ impl Renderer {
         let Some(draw_fn) = BOX_CHARS.get(&ch) else {
             return false;
         };
-        canvas.clip_rect(to_skia_rect(&dst), None, Some(false));
         for (i, _) in box_char_text.chars().enumerate() {
-            let ctx = Context::new(
-                canvas,
-                &self.settings,
-                Box2::from_rect(glamour::Rect::new(
-                    dst.min + Vector2::new(self.cell_size.width * i as f32, 0.0),
-                    self.cell_size,
-                )),
-                color_fg,
-            );
+            canvas.save();
+            let rect = Box2::from_rect(glamour::Rect::new(
+                dst.min + Vector2::new(self.cell_size.width * i as f32, 0.0),
+                self.cell_size,
+            ));
+            canvas.clip_rect(to_skia_rect(&rect), None, Some(false));
+            let ctx = Context::new(canvas, &self.settings, rect, color_fg);
             (draw_fn)(&ctx);
+            canvas.restore();
         }
         true
     }

@@ -178,19 +178,20 @@ impl GridRenderer {
     /// Returns true if any text was actually drawn.
     pub fn draw_foreground(
         &mut self,
-        canvas: &Canvas,
+        text_canvas: &Canvas,
+        boxchar_canvas: &Canvas,
         text: &str,
         grid_position: GridPos<i32>,
         fragment_width: i32,
         style: &Option<Arc<Style>>,
-    ) -> bool {
+    ) -> (bool, bool) {
         tracy_zone!("draw_foreground");
         let pos = grid_position * self.grid_scale;
         let fragment_size = GridSize::new(fragment_width, 1) * self.grid_scale;
         let width = fragment_size.width;
 
         let style = style.as_ref().unwrap_or(&self.default_style);
-        let mut drawn = false;
+        let mut text_drawn = false;
 
         if let Some(underline_style) = style.underline {
             let stroke_size = self.shaper.stroke_size();
@@ -202,23 +203,23 @@ impl GridRenderer {
             let p1 = PixelPos::new(pos.x, underline_position);
             let p2 = PixelPos::new(pos.x + width, underline_position);
 
-            self.draw_underline(canvas, style, underline_style, stroke_size, p1, p2);
-            drawn = true;
+            self.draw_underline(text_canvas, style, underline_style, stroke_size, p1, p2);
+            text_drawn = true;
         }
-
-        let mut paint = Paint::default();
-        paint.set_anti_alias(false);
-        paint.set_blend_mode(BlendMode::SrcOver);
-        canvas.save();
 
         if self.box_char_renderer.draw_glyph(
             text,
-            canvas,
+            boxchar_canvas,
             PixelRect::from_origin_and_size(pos, fragment_size),
             style.foreground(&self.default_style.colors).to_color(),
         ) {
-            drawn = true;
+            return (text_drawn, true);
         } else if !text.is_empty() {
+            let mut paint = Paint::default();
+            paint.set_anti_alias(false);
+            paint.set_blend_mode(BlendMode::SrcOver);
+            text_canvas.save();
+
             // We don't want to clip text in the x position, only the y so we add a buffer of 1
             // character on either side of the region so that we clip vertically but not horizontally.
             let clip_position = (grid_position.x.saturating_sub(1), grid_position.y).into();
@@ -240,7 +241,7 @@ impl GridRenderer {
                 paint.set_color(style.foreground(&self.default_style.colors).to_color());
             }
             paint.set_anti_alias(false);
-            canvas.clip_rect(to_skia_rect(&region), None, Some(false));
+            text_canvas.clip_rect(to_skia_rect(&region), None, Some(false));
 
             let mut paint = Paint::default();
             paint.set_anti_alias(false);
@@ -271,23 +272,22 @@ impl GridRenderer {
                 .iter()
             {
                 tracy_zone!("draw_text_blob");
-                canvas.draw_text_blob(blob, to_skia_point(pos + adjustment), &paint);
-                drawn = true;
+                text_canvas.draw_text_blob(blob, to_skia_point(pos + adjustment), &paint);
+                text_drawn = true;
             }
             if style.strikethrough {
                 let line_position = region.center().y;
                 paint.set_color(style.special(&self.default_style.colors).to_color());
-                canvas.draw_line(
+                text_canvas.draw_line(
                     (pos.x, line_position),
                     (pos.x + width, line_position),
                     &paint,
                 );
-                drawn = true;
+                text_drawn = true;
             }
+            text_canvas.restore();
         }
-
-        canvas.restore();
-        drawn
+        (text_drawn, false)
     }
 
     fn draw_underline(

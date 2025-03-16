@@ -1,6 +1,8 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
-use skia_safe::{Canvas, Color, Matrix, Picture, PictureRecorder, Rect};
+use skia_safe::{
+    canvas::SaveLayerRec, BlendMode, Canvas, Color, Matrix, Paint, Picture, PictureRecorder, Rect,
+};
 
 use crate::{
     cmd_line::CmdLineSettings,
@@ -67,6 +69,7 @@ struct Line {
     line_fragments: Vec<LineFragment>,
     background_picture: Option<Picture>,
     foreground_picture: Option<Picture>,
+    boxchar_picture: Option<Picture>,
     has_transparency: bool,
     is_valid: bool,
 }
@@ -271,6 +274,31 @@ impl RenderedWindow {
             }
         }
         canvas.restore();
+
+        let paint = Paint::default()
+            .set_anti_alias(false)
+            .set_blend_mode(BlendMode::SrcOver)
+            .to_owned();
+        let bound_rect = to_skia_rect(&pixel_region);
+        let save_layer_rec = SaveLayerRec::default().bounds(&bound_rect).paint(&paint);
+        canvas.save_layer(&save_layer_rec);
+
+        for (matrix, line) in self.iter_border_lines_with_transform(pixel_region, grid_scale) {
+            let line = line.borrow();
+            if let Some(boxchar_picture) = &line.boxchar_picture {
+                canvas.draw_picture(boxchar_picture, Some(&matrix), None);
+            }
+        }
+        canvas.save();
+        canvas.clip_rect(self.inner_region(pixel_region, grid_scale), None, false);
+        for (matrix, line) in self.iter_scrollable_lines_with_transform(pixel_region, grid_scale) {
+            let line = line.borrow();
+            if let Some(boxchar_picture) = &line.boxchar_picture {
+                canvas.draw_picture(boxchar_picture, Some(&matrix), None);
+            }
+        }
+        canvas.restore();
+        canvas.restore();
     }
 
     pub fn has_transparency(&self) -> bool {
@@ -384,6 +412,7 @@ impl RenderedWindow {
                     line_fragments,
                     background_picture: None,
                     foreground_picture: None,
+                    boxchar_picture: None,
                     has_transparency: false,
                     is_valid: false,
                 };
@@ -629,8 +658,11 @@ impl RenderedWindow {
             let background_picture =
                 custom_background.then_some(recorder.finish_recording_as_picture(None).unwrap());
 
-            let canvas = recorder.begin_recording(grid_rect, None);
-            let mut foreground_drawn = false;
+            let text_canvas = recorder.begin_recording(grid_rect, None);
+            let mut boxchar_recorder = PictureRecorder::new();
+            let boxchar_canvas = boxchar_recorder.begin_recording(grid_rect, None);
+            let mut text_drawn = false;
+            let mut boxchar_drawn = false;
             for line_fragment in &line.line_fragments {
                 let LineFragment {
                     text,
@@ -640,19 +672,25 @@ impl RenderedWindow {
                 } = line_fragment;
                 let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
 
-                foreground_drawn |= grid_renderer.draw_foreground(
-                    canvas,
+                let (frag_text_drawn, frag_box_drawn) = grid_renderer.draw_foreground(
+                    text_canvas,
+                    boxchar_canvas,
                     text,
                     grid_position,
                     i32::try_from(*width).unwrap(),
                     style,
                 );
+                text_drawn |= frag_text_drawn;
+                boxchar_drawn |= frag_box_drawn;
             }
             let foreground_picture =
-                foreground_drawn.then_some(recorder.finish_recording_as_picture(None).unwrap());
+                text_drawn.then_some(recorder.finish_recording_as_picture(None).unwrap());
+            let boxchar_picture = boxchar_drawn
+                .then_some(boxchar_recorder.finish_recording_as_picture(None).unwrap());
 
             line.background_picture = background_picture;
             line.foreground_picture = foreground_picture;
+            line.boxchar_picture = boxchar_picture;
             line.has_transparency = has_transparency;
             line.is_valid = true;
         };
