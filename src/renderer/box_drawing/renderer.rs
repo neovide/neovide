@@ -915,7 +915,7 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::Both,
             LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level1),
-            Color::WHITE,
+            ctx.color_fg,
             ctx.get_dash_effect(Vertical, 3),
         );
     }];
