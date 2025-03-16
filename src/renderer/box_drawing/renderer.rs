@@ -774,7 +774,7 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::Both,
             ctx.get_stroke_width_pixels(Thickness::Level1),
             ctx.color_fg,
-            None,
+            ctx.get_dash_effect(Horizontal, 1),
             0.0,
         );
     }];
@@ -784,7 +784,7 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::Both,
             ctx.get_stroke_width_pixels(Thickness::Level3),
             ctx.color_fg,
-            None,
+            ctx.get_dash_effect(Horizontal, 1),
             0.0,
         );
     }];
