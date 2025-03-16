@@ -329,22 +329,39 @@ impl<'a> Context<'a> {
             LineSelector::Right => stroke_width,
             LineSelector::Middle => 0.0,
         };
+        let double_offset = stroke_width / 2.0;
         let (p1, p2) = match (o, which_half) {
             (Orientation::Horizontal, HalfSelector::First) => {
                 ((min.x, mid.y + offset), (mid.x, mid.y + offset))
             }
+            (Orientation::Horizontal, HalfSelector::FirstDouble) => (
+                (min.x, mid.y + offset),
+                (mid.x - double_offset, mid.y + offset),
+            ),
             (Orientation::Horizontal, HalfSelector::Last) => {
                 ((mid.x, mid.y + offset), (max.x, mid.y + offset))
             }
+            (Orientation::Horizontal, HalfSelector::LastDouble) => (
+                (mid.x + double_offset, mid.y + offset),
+                (max.x, mid.y + offset),
+            ),
             (Orientation::Horizontal, HalfSelector::Both) => {
                 ((min.x, mid.y + offset), (max.x, mid.y + offset))
             }
             (Orientation::Vertical, HalfSelector::First) => {
                 ((mid.x + offset, min.y), (mid.x + offset, mid.y))
             }
+            (Orientation::Vertical, HalfSelector::FirstDouble) => (
+                (mid.x + offset, min.y),
+                (mid.x + offset, mid.y - double_offset),
+            ),
             (Orientation::Vertical, HalfSelector::Last) => {
                 ((mid.x + offset, mid.y), (mid.x + offset, max.y))
             }
+            (Orientation::Vertical, HalfSelector::LastDouble) => (
+                (mid.x + offset, mid.y + double_offset),
+                (mid.x + offset, max.y),
+            ),
             (Orientation::Vertical, HalfSelector::Both) => {
                 ((mid.x + offset, min.y), (mid.x + offset, max.y))
             }
@@ -455,7 +472,7 @@ impl<'a> Context<'a> {
                         Orientation::Horizontal => rect.left = rect.center_x(),
                         Orientation::Vertical => rect.top = rect.center_y(),
                     },
-                    HalfSelector::Both => {}
+                    _ => {}
                 }
                 rect
             },
@@ -743,7 +760,9 @@ enum Orientation {
 #[derive(Clone, Copy)]
 enum HalfSelector {
     First,
+    FirstDouble,
     Last,
+    LastDouble,
     Both,
 }
 
@@ -1057,32 +1076,136 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
         ctx.draw_double_line(Vertical, HalfSelector::First);
     }];
     box_char!['╪' -> |ctx: &Context| {
-        ctx.draw_fg_line1(Vertical, HalfSelector::Both);
+        ctx.draw_fg_line1(Vertical, HalfSelector::FirstDouble);
+        ctx.draw_fg_line1(Vertical, HalfSelector::LastDouble);
         ctx.draw_double_line(Horizontal, HalfSelector::Both);
     }];
     box_char!['╫' -> |ctx: &Context| {
-        ctx.draw_fg_line1(Horizontal, HalfSelector::Both);
+        ctx.draw_fg_line1(Horizontal, HalfSelector::FirstDouble);
+        ctx.draw_fg_line1(Horizontal, HalfSelector::LastDouble);
         ctx.draw_double_line(Vertical, HalfSelector::Both);
     }];
     box_char!['╬' -> |ctx: &Context| {
-        ctx.draw_double_line(Vertical, HalfSelector::Both);
-        ctx.draw_double_line(Horizontal, HalfSelector::Both);
+        ctx.draw_double_line(Vertical, HalfSelector::FirstDouble);
+        ctx.draw_double_line(Vertical, HalfSelector::LastDouble);
+        ctx.draw_double_line(Horizontal, HalfSelector::FirstDouble);
+        ctx.draw_double_line(Horizontal, HalfSelector::LastDouble);
     }];
     box_char!['╠' -> |ctx: &Context| {
-        ctx.draw_double_line(Vertical, HalfSelector::Both);
-        ctx.draw_double_line(Horizontal, HalfSelector::Last);
+        let stroke_width = ctx.get_stroke_width_pixels(Thickness::Level1);
+        let o = Orientation::Vertical;
+        ctx.draw_line(
+            o,
+            HalfSelector::Both,
+            LineSelector::Left,
+            stroke_width,
+            ctx.color_fg,
+            None,
+        );
+        ctx.draw_line(
+            o,
+            HalfSelector::FirstDouble,
+            LineSelector::Right,
+            stroke_width,
+            ctx.color_fg,
+            None,
+        );
+        ctx.draw_line(
+            o,
+            HalfSelector::LastDouble,
+            LineSelector::Right,
+            stroke_width,
+            ctx.color_fg,
+            None,
+        );
+        ctx.draw_double_line(Horizontal, HalfSelector::LastDouble);
     }];
     box_char!['╣' -> |ctx: &Context| {
-        ctx.draw_double_line(Vertical, HalfSelector::Both);
-        ctx.draw_double_line(Horizontal, HalfSelector::First);
+        let stroke_width = ctx.get_stroke_width_pixels(Thickness::Level1);
+        let o = Orientation::Vertical;
+        ctx.draw_line(
+            o,
+            HalfSelector::Both,
+            LineSelector::Right,
+            stroke_width,
+            ctx.color_fg,
+            None,
+        );
+        ctx.draw_line(
+            o,
+            HalfSelector::FirstDouble,
+            LineSelector::Left,
+            stroke_width,
+            ctx.color_fg,
+            None,
+        );
+        ctx.draw_line(
+            o,
+            HalfSelector::LastDouble,
+            LineSelector::Left,
+            stroke_width,
+            ctx.color_fg,
+            None,
+        );
+        ctx.draw_double_line(Horizontal, HalfSelector::FirstDouble);
     }];
     box_char!['╦' -> |ctx: &Context| {
-        ctx.draw_double_line(Horizontal, HalfSelector::Both);
-        ctx.draw_double_line(Vertical, HalfSelector::Last);
+        let stroke_width = ctx.get_stroke_width_pixels(Thickness::Level1);
+        let o = Orientation::Horizontal;
+        ctx.draw_line(
+            o,
+            HalfSelector::Both,
+            LineSelector::Left,
+            stroke_width,
+            ctx.color_fg,
+            None,
+        );
+        ctx.draw_line(
+            o,
+            HalfSelector::FirstDouble,
+            LineSelector::Right,
+            stroke_width,
+            ctx.color_fg,
+            None,
+        );
+        ctx.draw_line(
+            o,
+            HalfSelector::LastDouble,
+            LineSelector::Right,
+            stroke_width,
+            ctx.color_fg,
+            None,
+        );
+        ctx.draw_double_line(Vertical, HalfSelector::LastDouble);
     }];
     box_char!['╩' -> |ctx: &Context| {
-        ctx.draw_double_line(Horizontal, HalfSelector::Both);
-        ctx.draw_double_line(Vertical, HalfSelector::First);
+        let stroke_width = ctx.get_stroke_width_pixels(Thickness::Level1);
+        let o = Orientation::Horizontal;
+        ctx.draw_line(
+            o,
+            HalfSelector::Both,
+            LineSelector::Right,
+            stroke_width,
+            ctx.color_fg,
+            None,
+        );
+        ctx.draw_line(
+            o,
+            HalfSelector::FirstDouble,
+            LineSelector::Left,
+            stroke_width,
+            ctx.color_fg,
+            None,
+        );
+        ctx.draw_line(
+            o,
+            HalfSelector::LastDouble,
+            LineSelector::Left,
+            stroke_width,
+            ctx.color_fg,
+            None,
+        );
+        ctx.draw_double_line(Vertical, HalfSelector::FirstDouble);
     }];
 
     // eighth blocks
