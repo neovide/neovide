@@ -18,9 +18,8 @@ pub struct BlinkStatus {
 
 fn is_static(cursor: &Cursor) -> bool {
     // The documentations says that if any state is zero there's no blinking
-    cursor.blinkwait == Some(0)
-        || cursor.blinkwait.is_none()
-        || cursor.blinkoff == Some(0)
+    // But blinkwait shuld be allowed to be 0, see https://github.com/neovim/neovim/issues/31687
+    cursor.blinkoff == Some(0)
         || cursor.blinkoff.is_none()
         || cursor.blinkon == Some(0)
         || cursor.blinkon.is_none()
