@@ -191,6 +191,7 @@ pub struct ParticleTrail {
     previous_cursor_dest: PixelPos<f32>,
     trail_mode: TrailMode,
     rng: RngState,
+    count_reminder: f32,
 }
 
 impl ParticleTrail {
@@ -200,6 +201,7 @@ impl ParticleTrail {
             previous_cursor_dest: PixelPos::new(0.0, 0.0),
             trail_mode: trail_mode.clone(),
             rng: RngState::new(),
+            count_reminder: 0.0,
         }
     }
 
@@ -260,14 +262,18 @@ impl CursorVfx for ParticleTrail {
                 let travel_distance = travel.length();
 
                 // Increase amount of particles when cursor travels further
-                let particle_count = ((travel_distance / cursor_dimensions.height).powf(1.5)
+                let f_particle_count = ((travel_distance / cursor_dimensions.height)
                     * settings.vfx_particle_density
-                    * 0.01) as usize;
+                    * 0.1)
+                    + self.count_reminder;
+
+                let particle_count = f_particle_count as usize;
+                self.count_reminder = f_particle_count - particle_count as f32;
 
                 let prev_p = self.previous_cursor_dest;
 
                 for i in 0..particle_count {
-                    let t = i as f32 / (particle_count as f32);
+                    let t = ((i + 1) as f32) / (particle_count as f32);
 
                     let speed = match self.trail_mode {
                         TrailMode::Railgun => {
@@ -325,7 +331,9 @@ impl CursorVfx for ParticleTrail {
         !self.particles.is_empty()
     }
 
-    fn restart(&mut self, _position: PixelPos<f32>) {}
+    fn restart(&mut self, _position: PixelPos<f32>) {
+        self.count_reminder = 0.0;
+    }
 
     fn render(
         &self,
