@@ -676,6 +676,28 @@ vim.g.neovide_profiler = false
 Setting this to `v:true` enables the profiler, which shows a frametime graph in the upper left
 corner.
 
+#### Cursor hack
+
+VimScript:
+
+```vim
+let g:neovide_cursor_hack = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_cursor_hack = true
+```
+
+**Unreleased yet.**
+
+Prevents the cursor from flickering to the command line when it shouldn't. This will be disabled by
+default when Neovim properly sends the UI busy events and the hack is no longer needed. NOTE: In
+some cases the hack itself is buggy and prevents the cursor from moving to the command line when it
+should. In that case you can try to disable it, especially if you are not using cursor animations
+and the flickering does not bother as much.
+
 ### Input Settings
 
 #### macOS Option Key is Meta
