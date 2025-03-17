@@ -5,8 +5,8 @@ use std::sync::LazyLock;
 use super::settings::{BoxDrawingMode, BoxDrawingSettings, ThicknessMultipliers};
 use glamour::{Box2, Size2, Vector2};
 use skia_safe::{
-    BlendMode, Canvas, ClipOp, Color, Paint, PaintStyle, Path, PathEffect, PathFillType, Point,
-    Rect, Size,
+    paint::Cap, BlendMode, Canvas, ClipOp, Color, Paint, PaintStyle, Path, PathEffect,
+    PathFillType, Point, Rect, Size,
 };
 
 use crate::renderer::fonts::font_options::points_to_pixels;
@@ -238,12 +238,27 @@ impl<'a> Context<'a> {
     }
 
     fn draw_cross_line(&self, side: Side) {
-        let min = self.bounding_box.min.round();
-        let max = self.bounding_box.max.round();
+        let stroke_width = self.get_stroke_width_pixels(Thickness::Level2);
+        let min = self.bounding_box.min;
+        let max = self.bounding_box.max;
+        // The bounding box needs to be extended slightly to the sides, so that thick lines and
+        // anti-aliasing can be drawn outside of it. stroke_width is a bit too much, but we don't
+        // know how much the anti-aliasing uses.
+        let mut extended_bounding_box = self.bounding_box;
+        extended_bounding_box.min.x -= stroke_width;
+        extended_bounding_box.max.x += stroke_width;
+        // This is stupid, but skia does not allow overriding a clip rect so assume that the only
+        // saved state is the previous clip rect Don't restore the state afterwards, it will be
+        // done outside of this.
+        self.canvas.restore();
+        self.canvas.save();
+        self.canvas
+            .clip_rect(to_skia_rect(&extended_bounding_box), None, Some(false));
         let mut fg = self.fg_paint();
-        fg.set_stroke_width(self.get_stroke_width_pixels(Thickness::Level2));
+        fg.set_stroke_width(stroke_width);
         fg.set_style(PaintStyle::Stroke);
         fg.set_anti_alias(true);
+        fg.set_stroke_cap(Cap::Square);
         match side {
             Side::Left => {
                 self.canvas.draw_line((min.x, min.y), (max.x, max.y), &fg);
