@@ -10,8 +10,8 @@ use skia_safe::{
 };
 
 use crate::renderer::fonts::font_options::points_to_pixels;
-use crate::units::Pixel;
 use crate::units::{to_skia_point, to_skia_rect, PixelRect, PixelVec};
+use crate::units::{Pixel, PixelPos};
 
 pub struct Context<'a> {
     canvas: &'a Canvas,
@@ -1613,6 +1613,7 @@ impl Renderer {
         canvas: &Canvas,
         dst: PixelRect<f32>,
         color_fg: Color,
+        window_pos: PixelPos<f32>,
     ) -> bool {
         match self
             .settings
@@ -1621,7 +1622,9 @@ impl Renderer {
             .unwrap_or(&BoxDrawingMode::default())
         {
             BoxDrawingMode::FontGlyph => false,
-            BoxDrawingMode::Native => self.draw_box_glyph(box_char_text, canvas, dst, color_fg),
+            BoxDrawingMode::Native => {
+                self.draw_box_glyph(box_char_text, canvas, dst, color_fg, window_pos)
+            }
             BoxDrawingMode::SelectedNative => {
                 let selected = self.settings.selected.as_deref().unwrap_or("");
                 let is_selected = box_char_text
@@ -1629,7 +1632,7 @@ impl Renderer {
                     .next()
                     .is_some_and(|first| selected.contains(first));
                 if is_selected {
-                    self.draw_box_glyph(box_char_text, canvas, dst, color_fg)
+                    self.draw_box_glyph(box_char_text, canvas, dst, color_fg, window_pos)
                 } else {
                     false
                 }
@@ -1643,6 +1646,7 @@ impl Renderer {
         canvas: &Canvas,
         dst: PixelRect<f32>,
         color_fg: Color,
+        window_pos: PixelPos<f32>,
     ) -> bool {
         let Some(ch) = box_char_text.chars().next() else {
             return false;
@@ -1652,10 +1656,12 @@ impl Renderer {
         };
         for (i, _) in box_char_text.chars().enumerate() {
             canvas.save();
+            // Box chars need to be rendered with absolute x positions, so translate the x coordinates.
+            // The line height is already a multiplier of pixels, so it does not need a fixup.
             let rect = Box2::from_rect(glamour::Rect::new(
                 dst.min + Vector2::new(self.cell_size.width * i as f32, 0.0),
                 self.cell_size,
-            ));
+            )) + PixelVec::new(window_pos.x, 0.0);
             canvas.clip_rect(to_skia_rect(&rect), None, Some(false));
             let ctx = Context::new(canvas, &self.settings, rect, color_fg);
             (draw_fn)(&ctx);

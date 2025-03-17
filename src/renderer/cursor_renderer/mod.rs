@@ -328,6 +328,7 @@ impl CursorRenderer {
                 GridSize::new(1, 1) * grid_renderer.grid_scale,
             ),
             foreground_color,
+            PixelPos::default(),
         );
         if !box_char_drawn {
             let pos = (self.destination.x, self.destination.y + baseline_offset);

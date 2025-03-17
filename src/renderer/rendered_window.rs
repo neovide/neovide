@@ -10,7 +10,7 @@ use crate::{
     profiling::{tracy_plot, tracy_zone},
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
     settings::Settings,
-    units::{to_skia_rect, GridPos, GridRect, GridScale, GridSize, PixelRect, PixelVec},
+    units::{to_skia_rect, GridPos, GridRect, GridScale, GridSize, PixelPos, PixelRect, PixelVec},
     utils::RingBuffer,
 };
 
@@ -69,7 +69,7 @@ struct Line {
     line_fragments: Vec<LineFragment>,
     background_picture: Option<Picture>,
     foreground_picture: Option<Picture>,
-    boxchar_picture: Option<Picture>,
+    boxchar_picture: Option<(Picture, PixelPos<f32>)>,
     has_transparency: bool,
     is_valid: bool,
 }
@@ -283,17 +283,23 @@ impl RenderedWindow {
         let save_layer_rec = SaveLayerRec::default().bounds(&bound_rect).paint(&paint);
         canvas.save_layer(&save_layer_rec);
 
-        for (matrix, line) in self.iter_border_lines_with_transform(pixel_region, grid_scale) {
+        for (mut matrix, line) in self.iter_border_lines_with_transform(pixel_region, grid_scale) {
             let line = line.borrow();
-            if let Some(boxchar_picture) = &line.boxchar_picture {
+            if let Some((boxchar_picture, position)) = &line.boxchar_picture {
+                let deltax = pixel_region.min.x - position.x;
+                matrix.set_translate_x(deltax);
                 canvas.draw_picture(boxchar_picture, Some(&matrix), None);
             }
         }
         canvas.save();
         canvas.clip_rect(self.inner_region(pixel_region, grid_scale), None, false);
-        for (matrix, line) in self.iter_scrollable_lines_with_transform(pixel_region, grid_scale) {
+        for (mut matrix, line) in
+            self.iter_scrollable_lines_with_transform(pixel_region, grid_scale)
+        {
             let line = line.borrow();
-            if let Some(boxchar_picture) = &line.boxchar_picture {
+            if let Some((boxchar_picture, position)) = &line.boxchar_picture {
+                let deltax = pixel_region.min.x - position.x;
+                matrix.set_translate_x(deltax);
                 canvas.draw_picture(boxchar_picture, Some(&matrix), None);
             }
         }
@@ -624,7 +630,14 @@ impl RenderedWindow {
 
         let mut prepare_line = |line: &Rc<RefCell<Line>>| {
             let mut line = line.borrow_mut();
-            if line.is_valid && !force {
+            let position = self.grid_destination * grid_renderer.grid_scale;
+            let boxchar_moved = match line.boxchar_picture {
+                None => false,
+                Some((_, p)) if p == position => false,
+                _ => true,
+            };
+            // This can be optimized, only the boxchars need to be redrawn when the window moves
+            if line.is_valid && !force && !boxchar_moved {
                 return;
             }
 
@@ -660,7 +673,8 @@ impl RenderedWindow {
 
             let text_canvas = recorder.begin_recording(grid_rect, None);
             let mut boxchar_recorder = PictureRecorder::new();
-            let boxchar_canvas = boxchar_recorder.begin_recording(grid_rect, None);
+            let boxchar_canvas =
+                boxchar_recorder.begin_recording(grid_rect.with_offset((position.x, 0.0)), None);
             let mut text_drawn = false;
             let mut boxchar_drawn = false;
             for line_fragment in &line.line_fragments {
@@ -679,14 +693,17 @@ impl RenderedWindow {
                     grid_position,
                     i32::try_from(*width).unwrap(),
                     style,
+                    position,
                 );
                 text_drawn |= frag_text_drawn;
                 boxchar_drawn |= frag_box_drawn;
             }
             let foreground_picture =
                 text_drawn.then_some(recorder.finish_recording_as_picture(None).unwrap());
-            let boxchar_picture = boxchar_drawn
-                .then_some(boxchar_recorder.finish_recording_as_picture(None).unwrap());
+            let boxchar_picture = boxchar_drawn.then_some((
+                boxchar_recorder.finish_recording_as_picture(None).unwrap(),
+                position,
+            ));
 
             line.background_picture = background_picture;
             line.foreground_picture = foreground_picture;

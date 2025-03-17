@@ -184,6 +184,7 @@ impl GridRenderer {
         grid_position: GridPos<i32>,
         fragment_width: i32,
         style: &Option<Arc<Style>>,
+        window_position: PixelPos<f32>,
     ) -> (bool, bool) {
         tracy_zone!("draw_foreground");
         let pos = grid_position * self.grid_scale;
@@ -212,6 +213,7 @@ impl GridRenderer {
             boxchar_canvas,
             PixelRect::from_origin_and_size(pos, fragment_size),
             style.foreground(&self.default_style.colors).to_color(),
+            window_position,
         ) {
             return (text_drawn, true);
         } else if !text.is_empty() {
