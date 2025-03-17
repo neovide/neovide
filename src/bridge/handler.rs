@@ -8,8 +8,11 @@ use tokio::sync::mpsc::UnboundedSender;
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
-    bridge::clipboard::{get_clipboard_contents, set_clipboard_contents},
-    bridge::{events::parse_redraw_event, NeovimWriter, RedrawEvent},
+    bridge::{
+        clipboard::{get_clipboard_contents, set_clipboard_contents},
+        events::parse_redraw_event,
+        send_ui, NeovimWriter, ParallelCommand, RedrawEvent,
+    },
     error_handling::ResultPanicExplanation,
     running_tracker::RunningTracker,
     settings::Settings,
@@ -121,6 +124,9 @@ impl Handler for NeovimHandler {
                     .lock()
                     .unwrap()
                     .send_event(WindowCommand::FocusWindow.into());
+            }
+            "neovide.exec_detach_handler" => {
+                send_ui(ParallelCommand::Quit);
             }
             _ => {}
         }
