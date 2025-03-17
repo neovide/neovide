@@ -35,7 +35,7 @@ pub struct CursorSettings {
     unfocused_outline_width: f32,
     smooth_blink: bool,
 
-    vfx_mode: cursor_vfx::VfxMode,
+    vfx_modes: cursor_vfx::VfxModeList,
     vfx_opacity: f32,
     vfx_particle_lifetime: f32,
     vfx_particle_density: f32,
@@ -55,7 +55,7 @@ impl Default for CursorSettings {
             trail_size: 0.7,
             unfocused_outline_width: 1.0 / 8.0,
             smooth_blink: false,
-            vfx_mode: cursor_vfx::VfxMode::Disabled,
+            vfx_modes: cursor_vfx::VfxModeList::default(),
             vfx_opacity: 200.0,
             vfx_particle_lifetime: 1.2,
             vfx_particle_density: 7.0,
@@ -174,8 +174,8 @@ pub struct CursorRenderer {
     previous_cursor_position: Option<(u64, GridPos<u64>)>,
     previous_cursor_shape: Option<CursorShape>,
     previous_editor_mode: EditorMode,
-    cursor_vfx: Option<Box<dyn cursor_vfx::CursorVfx>>,
-    previous_vfx_mode: cursor_vfx::VfxMode,
+    cursor_vfxs: Vec<Box<dyn cursor_vfx::CursorVfx>>,
+    previous_vfx_modes: cursor_vfx::VfxModeList,
     window_has_focus: bool,
 
     settings: Arc<Settings>,
@@ -191,8 +191,8 @@ impl CursorRenderer {
             previous_cursor_position: None,
             previous_cursor_shape: None,
             previous_editor_mode: EditorMode::Normal,
-            cursor_vfx: None,
-            previous_vfx_mode: cursor_vfx::VfxMode::Disabled,
+            cursor_vfxs: vec![],
+            previous_vfx_modes: cursor_vfx::VfxModeList::default(),
             window_has_focus: true,
 
             settings,
@@ -342,7 +342,7 @@ impl CursorRenderer {
 
         canvas.restore();
 
-        if let Some(vfx) = self.cursor_vfx.as_ref() {
+        for vfx in self.cursor_vfxs.iter() {
             vfx.render(&settings, canvas, grid_renderer, &self.cursor);
         }
     }
@@ -359,9 +359,9 @@ impl CursorRenderer {
         }
         let settings = self.settings.get::<CursorSettings>();
 
-        if settings.vfx_mode != self.previous_vfx_mode {
-            self.cursor_vfx = cursor_vfx::new_cursor_vfx(&settings.vfx_mode);
-            self.previous_vfx_mode = settings.vfx_mode.clone();
+        if settings.vfx_modes != self.previous_vfx_modes {
+            self.cursor_vfxs = cursor_vfx::new_cursor_vfxs(&settings.vfx_modes);
+            self.previous_vfx_modes = settings.vfx_modes.clone();
         }
 
         let mut cursor_width = grid_renderer.grid_scale.width();
@@ -387,7 +387,7 @@ impl CursorRenderer {
                     .unwrap_or(DEFAULT_CELL_PERCENTAGE),
             );
 
-            if let Some(vfx) = self.cursor_vfx.as_mut() {
+            for vfx in self.cursor_vfxs.iter_mut() {
                 vfx.restart(center_destination);
             }
         }
@@ -409,17 +409,20 @@ impl CursorRenderer {
                 animating |= corner_animating;
             }
 
-            let vfx_animating = if let Some(vfx) = self.cursor_vfx.as_mut() {
-                vfx.update(
+            let mut vfx_animating = false;
+
+            for vfx in self.cursor_vfxs.iter_mut() {
+                let ret = vfx.update(
                     &settings,
                     center_destination,
                     cursor_dimensions,
                     immediate_movement,
                     dt,
-                )
-            } else {
-                false
-            };
+                );
+                if !vfx_animating {
+                    vfx_animating = ret;
+                }
+            }
 
             animating |= vfx_animating;
         }
