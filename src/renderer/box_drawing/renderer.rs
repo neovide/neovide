@@ -159,9 +159,12 @@ impl<'a> Context<'a> {
 
     fn draw_quarter_triangle(&self, corner: Corner, height: Height) {
         let mut path = Path::default();
-        let min = self.bounding_box.min.round();
-        let max = self.bounding_box.max.round();
-        let mid = self.bounding_box.center().round();
+        let min = self.bounding_box.min.align_outside();
+        let max = self.bounding_box.max.align_outside();
+        let mid = self
+            .bounding_box
+            .center()
+            .align_mid_line(self.get_stroke_width_pixels(Thickness::Level1));
         path.set_fill_type(PathFillType::Winding);
         match corner {
             Corner::TopLeft => {
@@ -218,9 +221,10 @@ impl<'a> Context<'a> {
 
     fn draw_half_cross_line(&self, start_corner: Corner) {
         let mut path = Path::default();
-        let min = self.bounding_box.min.round();
-        let max = self.bounding_box.max.round();
-        let mid = self.bounding_box.center().round();
+        let min = self.bounding_box.min.align_outside();
+        let max = self.bounding_box.max.align_outside();
+        let stroke_width = self.get_stroke_width_pixels(Thickness::Level2);
+        let mid = self.bounding_box.center().align_mid_line(stroke_width);
         match start_corner {
             Corner::TopLeft => {
                 path.move_to((min.x, min.y));
@@ -241,7 +245,7 @@ impl<'a> Context<'a> {
         }
         let mut fg = self.fg_paint();
         fg.set_style(PaintStyle::Stroke);
-        fg.set_stroke_width(self.get_stroke_width_pixels(Thickness::Level2));
+        fg.set_stroke_width(stroke_width);
         fg.set_anti_alias(true);
         self.canvas.draw_path(&path, &fg);
     }
