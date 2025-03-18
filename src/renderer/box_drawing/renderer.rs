@@ -4,14 +4,36 @@ use std::sync::LazyLock;
 
 use super::settings::{BoxDrawingMode, BoxDrawingSettings, ThicknessMultipliers};
 use glamour::{Box2, Size2, Vector2};
+use num::{Integer, ToPrimitive};
 use skia_safe::{
     paint::Cap, BlendMode, Canvas, ClipOp, Color, Paint, PaintStyle, Path, PathEffect,
-    PathFillType, Point, Rect, Size,
+    PathFillType, Rect, Size,
 };
 
 use crate::renderer::fonts::font_options::points_to_pixels;
-use crate::units::{to_skia_point, to_skia_rect, PixelRect, PixelVec};
+use crate::units::{to_skia_rect, PixelRect, PixelVec};
 use crate::units::{Pixel, PixelPos};
+
+trait LineAlignment {
+    fn align_mid_line(self, stroke_width: f32) -> Self;
+    fn align_outside(self) -> Self;
+}
+
+impl LineAlignment for f32 {
+    fn align_mid_line(self, stroke_width: f32) -> Self {
+        let rounded_stroke = stroke_width.round();
+        let rounded_pos = self.round();
+        if rounded_stroke.to_i64().unwrap().is_odd() {
+            rounded_pos + 0.5
+        } else {
+            rounded_pos
+        }
+    }
+
+    fn align_outside(self) -> Self {
+        self.round()
+    }
+}
 
 pub struct Context<'a> {
     canvas: &'a Canvas,
@@ -575,71 +597,48 @@ impl<'a> Context<'a> {
         path
     }
 
-    // draws a "rectircle" using the formula
-    //
-    // (|x| / a) ^ (2a / r) + (|y| / b) ^ (2b / r) = 1
-    // where 2a = width, 2b = height and r is radius
-    //
-    // See: https://math.stackexchange.com/questions/1649714/whats-the-equation-for-a-rectircle-perfect-rounded-corner-rectangle-without-s
     fn draw_rounded_corner(&self, corner: Corner) {
-        let Size2 { width, height } = self.bounding_box.size();
         let stroke_width = self.get_stroke_width_pixels(Thickness::Level1);
-
-        const STEP: f32 = 1.0 / 2.0;
-        let a = width / 2.0;
-        let b = height / 2.0;
-        let exp = 1.0 / (2.0 * height / width);
-        let rectircle = |px: f32| {
-            //let term_x = (px.abs() / a).powf(2.0 * a / r);
-            //let intermediate = 1.0 - term_x;
-            //b * intermediate.powf(1.0 / (2.0 * b / r))
-
-            // if r == width/2, then above simplifies to
-            let term_x = px.abs() / a;
-            b * (1.0 - term_x * term_x).powf(exp)
+        let mut path = Path::new();
+        let (mut x1, mut y1, mut x2, mut y2) = match corner {
+            Corner::TopLeft => (
+                self.bounding_box.max.x,
+                self.bounding_box.center().y,
+                self.bounding_box.center().x,
+                self.bounding_box.max.y,
+            ),
+            Corner::TopRight => (
+                self.bounding_box.min.x,
+                self.bounding_box.center().y,
+                self.bounding_box.center().x,
+                self.bounding_box.max.y,
+            ),
+            Corner::BottomLeft => (
+                self.bounding_box.max.x,
+                self.bounding_box.center().y,
+                self.bounding_box.center().x,
+                self.bounding_box.min.y,
+            ),
+            Corner::BottomRight => (
+                self.bounding_box.min.x,
+                self.bounding_box.center().y,
+                self.bounding_box.center().x,
+                self.bounding_box.min.y,
+            ),
         };
-
-        let draw_rectircle = || {
-            let mut path = Path::default();
-            let num_steps = f32::ceil(width / STEP) as i32;
-            let points: Vec<_> = (1..num_steps)
-                .map(|i| -a + i as f32 * STEP)
-                .map(|px| (px, rectircle(px)))
-                .collect();
-            let start = Point::from((a, 0.0));
-            let end = Point::from((-a, 0.0));
-            path.move_to(start);
-            points.iter().rev().for_each(|p| {
-                path.line_to(*p);
-            });
-            path.line_to(end);
-
-            path.move_to(start);
-            points.iter().rev().for_each(|(x, y)| {
-                path.line_to(Point::from((*x, -*y)));
-            });
-            path.line_to(end);
-
-            let mut paint = self.fg_paint();
-            paint.set_style(PaintStyle::Stroke);
-            paint.set_stroke_width(stroke_width);
-            paint.set_anti_alias(true);
-            self.canvas.draw_path(&path, &paint);
-        };
-
-        let center = to_skia_point(self.bounding_box.center());
-        self.canvas.save();
-        {
-            self.canvas.translate(center);
-            self.canvas.translate(match corner {
-                Corner::TopLeft => (width / 2.0, height / 2.0),
-                Corner::TopRight => (-width / 2.0, height / 2.0),
-                Corner::BottomLeft => (width / 2.0, -height / 2.0),
-                Corner::BottomRight => (-width / 2.0, -height / 2.0),
-            });
-            draw_rectircle();
-        }
-        self.canvas.restore();
+        x1 = x1.align_outside();
+        y1 = y1.align_mid_line(stroke_width);
+        x2 = x2.align_mid_line(stroke_width);
+        y2 = y2.align_outside();
+        let radius = (x1 - x2).abs();
+        path.move_to((x1, y1));
+        path.arc_to_tangent((x2, y1), (x2, y2), radius);
+        path.line_to((x2, y2));
+        let mut fg = self.fg_paint();
+        fg.set_anti_alias(true);
+        fg.set_style(PaintStyle::Stroke);
+        fg.set_stroke_width(stroke_width);
+        self.canvas.draw_path(&path, &fg);
     }
 
     fn draw_t_joint(
