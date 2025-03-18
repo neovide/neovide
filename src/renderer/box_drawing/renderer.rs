@@ -95,7 +95,6 @@ impl<'a> Context<'a> {
             which_half,
             LineSelector::Middle,
             self.get_stroke_width_pixels(Thickness::Level1),
-            self.color_fg,
             None,
         );
     }
@@ -106,7 +105,6 @@ impl<'a> Context<'a> {
             which_half,
             LineSelector::Middle,
             self.get_stroke_width_pixels(Thickness::Level3),
-            self.color_fg,
             None,
         );
     }
@@ -358,22 +356,8 @@ impl<'a> Context<'a> {
 
     fn draw_double_line(&self, o: Orientation, which_half: HalfSelector) {
         let stroke_width = self.get_stroke_width_pixels(Thickness::Level1);
-        self.draw_line(
-            o,
-            which_half,
-            LineSelector::Left,
-            stroke_width,
-            self.color_fg,
-            None,
-        );
-        self.draw_line(
-            o,
-            which_half,
-            LineSelector::Right,
-            stroke_width,
-            self.color_fg,
-            None,
-        );
+        self.draw_line(o, which_half, LineSelector::Left, stroke_width, None);
+        self.draw_line(o, which_half, LineSelector::Right, stroke_width, None);
     }
 
     // (min.x, min.y)                      (max.x, min.y)
@@ -391,7 +375,6 @@ impl<'a> Context<'a> {
         which_half: HalfSelector,
         which_line: LineSelector,
         stroke_width: f32,
-        color: Color,
         effect: impl Into<Option<PathEffect>>,
     ) {
         let min = self.bounding_box.min;
@@ -442,7 +425,6 @@ impl<'a> Context<'a> {
         let mut paint = self.fg_paint();
         paint.set_style(PaintStyle::Stroke);
         paint.set_stroke_width(stroke_width);
-        paint.set_color(color);
         if let Some(effect) = effect.into() {
             paint.set_path_effect(effect);
             let mut path = Path::default();
@@ -684,7 +666,6 @@ impl<'a> Context<'a> {
         south: impl Into<Option<Thickness>>,
         west: impl Into<Option<Thickness>>,
     ) {
-        let fg = self.color_fg;
         for (t, o, h) in [
             (north.into(), Orientation::Vertical, HalfSelector::First),
             (east.into(), Orientation::Horizontal, HalfSelector::Last),
@@ -697,7 +678,6 @@ impl<'a> Context<'a> {
                     h,
                     LineSelector::Middle,
                     self.get_stroke_width_pixels(t),
-                    fg,
                     None,
                 );
             }
@@ -707,13 +687,11 @@ impl<'a> Context<'a> {
     fn draw_corner(&self, corner: Corner, horiz_t: Thickness, vert_t: Thickness) {
         let horiz_t = self.get_stroke_width_pixels(horiz_t);
         let vert_t = self.get_stroke_width_pixels(vert_t);
-        let color = self.color_fg;
         let min = self.bounding_box.min;
         let max = self.bounding_box.max;
         let mid = self.bounding_box.center();
         let mut fg = self.fg_paint();
         fg.set_style(PaintStyle::Stroke);
-        fg.set_color(color);
 
         let aligned_mid = match corner {
             Corner::TopLeft | Corner::TopRight => {
@@ -874,7 +852,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::Both,
             LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level1),
-            ctx.color_fg,
             ctx.get_dash_effect(Horizontal, 1),
         );
     }];
@@ -884,7 +861,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::Both,
             LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level3),
-            ctx.color_fg,
             ctx.get_dash_effect(Horizontal, 1),
         );
     }];
@@ -894,7 +870,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::Both,
             LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level3),
-            ctx.color_fg,
             ctx.get_dash_effect(Horizontal, 2),
         );
     }];
@@ -904,7 +879,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::Both,
             LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level1),
-            ctx.color_fg,
             ctx.get_dash_effect(Horizontal, 3),
         );
     }];
@@ -914,7 +888,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::Both,
             LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level3),
-            ctx.color_fg,
             ctx.get_dash_effect(Horizontal, 3),
         );
     }];
@@ -925,7 +898,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::Both,
             LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level1),
-            ctx.color_fg,
             ctx.get_dash_effect(Vertical, 1),
         );
     }];
@@ -935,7 +907,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::Both,
             LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level3),
-            ctx.color_fg,
             ctx.get_dash_effect(Vertical, 1),
         );
     }];
@@ -945,7 +916,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::Both,
             LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level1),
-            ctx.color_fg,
             ctx.get_dash_effect(Vertical, 2),
         );
     }];
@@ -955,7 +925,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::Both,
             LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level3),
-            ctx.color_fg,
             ctx.get_dash_effect(Vertical, 2),
         );
     }];
@@ -965,7 +934,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::Both,
             LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level1),
-            ctx.color_fg,
             ctx.get_dash_effect(Vertical, 3),
         );
     }];
@@ -975,7 +943,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::Both,
             LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level3),
-            ctx.color_fg,
             ctx.get_dash_effect(Vertical, 3),
         );
     }];
@@ -1149,7 +1116,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::Both,
             LineSelector::Left,
             stroke_width,
-            ctx.color_fg,
             None,
         );
         ctx.draw_line(
@@ -1157,7 +1123,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::FirstDouble,
             LineSelector::Right,
             stroke_width,
-            ctx.color_fg,
             None,
         );
         ctx.draw_line(
@@ -1165,7 +1130,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::LastDouble,
             LineSelector::Right,
             stroke_width,
-            ctx.color_fg,
             None,
         );
         ctx.draw_double_line(Horizontal, HalfSelector::LastDouble);
@@ -1178,7 +1142,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::Both,
             LineSelector::Right,
             stroke_width,
-            ctx.color_fg,
             None,
         );
         ctx.draw_line(
@@ -1186,7 +1149,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::FirstDouble,
             LineSelector::Left,
             stroke_width,
-            ctx.color_fg,
             None,
         );
         ctx.draw_line(
@@ -1194,7 +1156,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::LastDouble,
             LineSelector::Left,
             stroke_width,
-            ctx.color_fg,
             None,
         );
         ctx.draw_double_line(Horizontal, HalfSelector::FirstDouble);
@@ -1207,7 +1168,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::Both,
             LineSelector::Left,
             stroke_width,
-            ctx.color_fg,
             None,
         );
         ctx.draw_line(
@@ -1215,7 +1175,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::FirstDouble,
             LineSelector::Right,
             stroke_width,
-            ctx.color_fg,
             None,
         );
         ctx.draw_line(
@@ -1223,7 +1182,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::LastDouble,
             LineSelector::Right,
             stroke_width,
-            ctx.color_fg,
             None,
         );
         ctx.draw_double_line(Vertical, HalfSelector::LastDouble);
@@ -1236,7 +1194,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::Both,
             LineSelector::Right,
             stroke_width,
-            ctx.color_fg,
             None,
         );
         ctx.draw_line(
@@ -1244,7 +1201,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::FirstDouble,
             LineSelector::Left,
             stroke_width,
-            ctx.color_fg,
             None,
         );
         ctx.draw_line(
@@ -1252,7 +1208,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             HalfSelector::LastDouble,
             LineSelector::Left,
             stroke_width,
-            ctx.color_fg,
             None,
         );
         ctx.draw_double_line(Vertical, HalfSelector::FirstDouble);
