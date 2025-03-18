@@ -11,7 +11,7 @@ use skia_safe::{
 };
 
 use crate::renderer::fonts::font_options::points_to_pixels;
-use crate::units::{to_skia_rect, PixelRect, PixelVec};
+use crate::units::{to_skia_rect, PixelRect, PixelSize, PixelVec};
 use crate::units::{Pixel, PixelPos};
 
 trait LineAlignment {
@@ -230,23 +230,37 @@ impl<'a> Context<'a> {
 
     fn draw_d(&self, side: Side, fill: PaintStyle, close_path: bool) {
         let mut path = Path::default();
-        let mut oval = to_skia_rect(&self.bounding_box.round());
+        let bounds = self.bounding_box;
         let stroke_width = self.get_stroke_width_pixels(Thickness::Level2);
+        let mut radius = (bounds.size().width).min(bounds.size().height / 2.0);
+        // Leave a small gap between the circles, and also allow them to move a bit to the side
+        // depending on the pixel alignment of the cell.
+        radius -= 1.0;
         if fill == PaintStyle::Stroke {
-            oval.inset((stroke_width * 0.5, stroke_width * 0.5));
+            radius -= stroke_width / 2.0;
         }
+        let diameter = PixelSize::new(radius * 2.0, radius * 2.0);
+
         match side {
             Side::Left => {
-                let start_angle = 270.0;
-                let sweep_angle = 180.0;
-                oval.left -= oval.width();
-                path.arc_to(oval, start_angle, sweep_angle, false);
-            }
-            Side::Right => {
+                let origin = PixelPos::new(
+                    bounds.max.x.align_outside() - radius,
+                    bounds.center().y - radius,
+                );
+                let rect = to_skia_rect(&PixelRect::from_origin_and_size(origin, diameter));
                 let start_angle = 90.0;
                 let sweep_angle = 180.0;
-                oval.right += oval.width();
-                path.arc_to(oval, start_angle, sweep_angle, false);
+                path.arc_to(rect, start_angle, sweep_angle, true);
+            }
+            Side::Right => {
+                let origin = PixelPos::new(
+                    bounds.min.x.align_outside() - radius,
+                    bounds.center().y - radius,
+                );
+                let rect = to_skia_rect(&PixelRect::from_origin_and_size(origin, diameter));
+                let start_angle = 270.0;
+                let sweep_angle = 180.0;
+                path.arc_to(rect, start_angle, sweep_angle, true);
             }
         }
         if close_path {
@@ -1009,16 +1023,16 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
         ctx.draw_half_cross_line(Corner::BottomRight);
     }];
     box_char!['', '◗' -> |ctx: &Context| {
-        ctx.draw_d(Side::Left, PaintStyle::Fill, true);
-    }];
-    box_char!['', '◖' -> |ctx: &Context| {
         ctx.draw_d(Side::Right, PaintStyle::Fill, true);
     }];
+    box_char!['', '◖' -> |ctx: &Context| {
+        ctx.draw_d(Side::Left, PaintStyle::Fill, true);
+    }];
     box_char!['' -> |ctx: &Context| {
-        ctx.draw_d(Side::Left, PaintStyle::Stroke, false);
+        ctx.draw_d(Side::Right, PaintStyle::Stroke, false);
     }];
     box_char!['' -> |ctx: &Context| {
-        ctx.draw_d(Side::Right, PaintStyle::Stroke, false);
+        ctx.draw_d(Side::Left, PaintStyle::Stroke, false);
     }];
 
     box_char!['', '', '╲' -> |ctx: &Context| {
