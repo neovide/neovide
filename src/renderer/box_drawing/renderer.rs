@@ -22,7 +22,9 @@ trait LineAlignment {
 impl LineAlignment for f32 {
     fn align_mid_line(self, stroke_width: f32) -> Self {
         let rounded_stroke = stroke_width.round();
-        let rounded_pos = self.round();
+        // Line positions are floored not rounded
+        // Determined experimentally
+        let rounded_pos = self.floor();
         if rounded_stroke.to_i64().unwrap().is_odd() {
             rounded_pos + 0.5
         } else {
