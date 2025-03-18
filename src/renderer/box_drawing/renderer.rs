@@ -37,6 +37,19 @@ impl LineAlignment for f32 {
     }
 }
 
+impl LineAlignment for PixelPos<f32> {
+    fn align_mid_line(self, stroke_width: f32) -> Self {
+        PixelPos::new(
+            self.x.align_mid_line(stroke_width),
+            self.y.align_mid_line(stroke_width),
+        )
+    }
+
+    fn align_outside(self) -> Self {
+        self.round()
+    }
+}
+
 pub struct Context<'a> {
     canvas: &'a Canvas,
     settings: &'a BoxDrawingSettings,
@@ -118,9 +131,12 @@ impl<'a> Context<'a> {
 
     fn draw_arrow(&self, side: Side) {
         let mut path = Path::default();
-        let min = self.bounding_box.min.round();
-        let max = self.bounding_box.max.round();
-        let mid = self.bounding_box.center().round();
+        let min = self.bounding_box.min.align_outside();
+        let max = self.bounding_box.max.align_outside();
+        let mut mid = self.bounding_box.center();
+        mid.y = mid
+            .y
+            .align_mid_line(self.get_stroke_width_pixels(Thickness::Level1));
         path.set_fill_type(PathFillType::Winding);
         match side {
             Side::Left => {
