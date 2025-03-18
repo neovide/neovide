@@ -176,6 +176,7 @@ impl GridRenderer {
 
     /// Draws some foreground text.
     /// Returns true if any text was actually drawn.
+    #[allow(clippy::too_many_arguments)]
     pub fn draw_foreground(
         &mut self,
         text_canvas: &Canvas,
