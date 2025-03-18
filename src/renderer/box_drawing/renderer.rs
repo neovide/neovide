@@ -1022,10 +1022,10 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
         ctx.draw_half_cross_line(Corner::TopRight);
         ctx.draw_half_cross_line(Corner::BottomRight);
     }];
-    box_char!['', '◗' -> |ctx: &Context| {
+    box_char!['' -> |ctx: &Context| {
         ctx.draw_d(Side::Right, PaintStyle::Fill, true);
     }];
-    box_char!['', '◖' -> |ctx: &Context| {
+    box_char!['' -> |ctx: &Context| {
         ctx.draw_d(Side::Left, PaintStyle::Fill, true);
     }];
     box_char!['' -> |ctx: &Context| {
