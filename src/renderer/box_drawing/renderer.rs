@@ -4,10 +4,11 @@ use std::sync::LazyLock;
 
 use super::settings::{BoxDrawingMode, BoxDrawingSettings, ThicknessMultipliers};
 use glamour::{Box2, Size2, Vector2};
+use itertools::Itertools;
 use num::{Integer, ToPrimitive};
 use skia_safe::{
     paint::Cap, BlendMode, Canvas, ClipOp, Color, Paint, PaintStyle, Path, PathEffect,
-    PathFillType, Rect, Size,
+    PathFillType, Point, Rect, Size,
 };
 
 use crate::renderer::fonts::font_options::points_to_pixels;
@@ -94,7 +95,9 @@ impl<'a> Context<'a> {
             o,
             which_half,
             LineSelector::Middle,
+            LineSelector::Middle,
             self.get_stroke_width_pixels(Thickness::Level1),
+            0.0,
             None,
         );
     }
@@ -104,7 +107,9 @@ impl<'a> Context<'a> {
             o,
             which_half,
             LineSelector::Middle,
+            LineSelector::Middle,
             self.get_stroke_width_pixels(Thickness::Level3),
+            0.0,
             None,
         );
     }
@@ -356,8 +361,24 @@ impl<'a> Context<'a> {
 
     fn draw_double_line(&self, o: Orientation, which_half: HalfSelector) {
         let stroke_width = self.get_stroke_width_pixels(Thickness::Level1);
-        self.draw_line(o, which_half, LineSelector::Left, stroke_width, None);
-        self.draw_line(o, which_half, LineSelector::Right, stroke_width, None);
+        self.draw_line(
+            o,
+            which_half,
+            LineSelector::Left,
+            LineSelector::Middle,
+            stroke_width,
+            0.0,
+            None,
+        );
+        self.draw_line(
+            o,
+            which_half,
+            LineSelector::Right,
+            LineSelector::Middle,
+            stroke_width,
+            0.0,
+            None,
+        );
     }
 
     // (min.x, min.y)                      (max.x, min.y)
@@ -374,7 +395,9 @@ impl<'a> Context<'a> {
         o: Orientation,
         which_half: HalfSelector,
         which_line: LineSelector,
+        which_target_line: LineSelector,
         stroke_width: f32,
+        target_stroke_width: f32,
         effect: impl Into<Option<PathEffect>>,
     ) {
         let min = self.bounding_box.min;
@@ -385,43 +408,40 @@ impl<'a> Context<'a> {
             LineSelector::Right => stroke_width,
             LineSelector::Middle => 0.0,
         };
-        let double_offset = stroke_width / 2.0;
-        let (p1, p2) = match (o, which_half) {
-            (Orientation::Horizontal, HalfSelector::First) => {
-                ((min.x, mid.y + offset), (mid.x, mid.y + offset))
-            }
-            (Orientation::Horizontal, HalfSelector::FirstDouble) => (
-                (min.x, mid.y + offset),
-                (mid.x - double_offset, mid.y + offset),
-            ),
-            (Orientation::Horizontal, HalfSelector::Last) => {
-                ((mid.x, mid.y + offset), (max.x, mid.y + offset))
-            }
-            (Orientation::Horizontal, HalfSelector::LastDouble) => (
-                (mid.x + double_offset, mid.y + offset),
-                (max.x, mid.y + offset),
-            ),
-            (Orientation::Horizontal, HalfSelector::Both) => {
-                ((min.x, mid.y + offset), (max.x, mid.y + offset))
-            }
-            (Orientation::Vertical, HalfSelector::First) => {
-                ((mid.x + offset, min.y), (mid.x + offset, mid.y))
-            }
-            (Orientation::Vertical, HalfSelector::FirstDouble) => (
-                (mid.x + offset, min.y),
-                (mid.x + offset, mid.y - double_offset),
-            ),
-            (Orientation::Vertical, HalfSelector::Last) => {
-                ((mid.x + offset, mid.y), (mid.x + offset, max.y))
-            }
-            (Orientation::Vertical, HalfSelector::LastDouble) => (
-                (mid.x + offset, mid.y + double_offset),
-                (mid.x + offset, max.y),
-            ),
-            (Orientation::Vertical, HalfSelector::Both) => {
-                ((mid.x + offset, min.y), (mid.x + offset, max.y))
-            }
+        let target_offset = match which_target_line {
+            LineSelector::Left => -target_stroke_width,
+            LineSelector::Right => target_stroke_width,
+            LineSelector::Middle => 0.0,
         };
+
+        let (min, mid, max) = if o == Orientation::Horizontal {
+            (min, mid, max)
+        } else {
+            (
+                PixelPos::new(min.y, min.x),
+                PixelPos::new(mid.y, mid.x),
+                PixelPos::new(max.y, max.x),
+            )
+        };
+
+        let x1 = match which_half {
+            HalfSelector::First | HalfSelector::Both => min.x,
+            HalfSelector::Last => mid.x + target_offset - 0.5 * target_stroke_width,
+        };
+
+        let x2 = match which_half {
+            HalfSelector::Last | HalfSelector::Both => max.x,
+            HalfSelector::First => mid.x + target_offset + 0.5 * target_stroke_width,
+        };
+
+        let y = mid.y + offset;
+
+        let (p1, p2) = if o == Orientation::Horizontal {
+            (Point::new(x1, y), Point::new(x2, y))
+        } else {
+            (Point::new(y, x1), Point::new(y, x2))
+        };
+
         let mut paint = self.fg_paint();
         paint.set_style(PaintStyle::Stroke);
         paint.set_stroke_width(stroke_width);
@@ -677,59 +697,94 @@ impl<'a> Context<'a> {
                     o,
                     h,
                     LineSelector::Middle,
+                    LineSelector::Middle,
                     self.get_stroke_width_pixels(t),
+                    0.0,
                     None,
                 );
             }
         }
     }
 
-    fn draw_corner(&self, corner: Corner, horiz_t: Thickness, vert_t: Thickness) {
-        let horiz_t = self.get_stroke_width_pixels(horiz_t);
-        let vert_t = self.get_stroke_width_pixels(vert_t);
-        let min = self.bounding_box.min;
-        let max = self.bounding_box.max;
-        let mid = self.bounding_box.center();
-        let mut fg = self.fg_paint();
-        fg.set_style(PaintStyle::Stroke);
+    fn draw_corner(&self, corner: Corner, horiz_s: LineStyle, vert_s: LineStyle) {
+        let horiz_t = self.get_stroke_width_pixels(horiz_s.into());
+        let vert_t = self.get_stroke_width_pixels(vert_s.into());
 
-        let aligned_mid = match corner {
-            Corner::TopLeft | Corner::TopRight => {
-                mid.translate(Vector2::from((0.0, horiz_t * -0.5)))
-            }
-            Corner::BottomLeft | Corner::BottomRight => {
-                mid.translate(Vector2::from((0.0, horiz_t * 0.5)))
+        let outer_horiz = match (corner, horiz_s) {
+            (.., LineStyle::Single(..)) => LineSelector::Middle,
+            (Corner::TopLeft | Corner::TopRight, LineStyle::Double(..)) => LineSelector::Left,
+            (Corner::BottomLeft | Corner::BottomRight, LineStyle::Double(..)) => {
+                LineSelector::Right
             }
         };
-        match corner {
-            Corner::TopLeft => {
-                fg.set_stroke_width(horiz_t);
-                self.canvas.draw_line(mid.to_tuple(), (max.x, mid.y), &fg);
-                fg.set_stroke_width(vert_t);
-                self.canvas
-                    .draw_line(aligned_mid.to_tuple(), (mid.x, max.y), &fg);
-            }
-            Corner::TopRight => {
-                fg.set_stroke_width(horiz_t);
-                self.canvas.draw_line((min.x, mid.y), mid.to_tuple(), &fg);
-                fg.set_stroke_width(vert_t);
-                self.canvas
-                    .draw_line(aligned_mid.to_tuple(), (mid.x, max.y), &fg);
-            }
-            Corner::BottomRight => {
-                fg.set_stroke_width(horiz_t);
-                self.canvas.draw_line((min.x, mid.y), mid.to_tuple(), &fg);
-                fg.set_stroke_width(vert_t);
-                self.canvas
-                    .draw_line((mid.x, min.y), aligned_mid.to_tuple(), &fg);
-            }
-            Corner::BottomLeft => {
-                fg.set_stroke_width(horiz_t);
-                self.canvas.draw_line(mid.to_tuple(), (max.x, mid.y), &fg);
-                fg.set_stroke_width(vert_t);
-                self.canvas
-                    .draw_line((mid.x, min.y), aligned_mid.to_tuple(), &fg);
-            }
+        let outer_vert = match (corner, vert_s) {
+            (.., LineStyle::Single(..)) => LineSelector::Middle,
+            (Corner::TopLeft | Corner::BottomLeft, LineStyle::Double(..)) => LineSelector::Left,
+            (Corner::TopRight | Corner::BottomRight, LineStyle::Double(..)) => LineSelector::Right,
+        };
+        let inner_horiz = match outer_horiz {
+            LineSelector::Middle => LineSelector::Middle,
+            LineSelector::Left => LineSelector::Right,
+            LineSelector::Right => LineSelector::Left,
+        };
+        let inner_vert = match outer_vert {
+            LineSelector::Middle => LineSelector::Middle,
+            LineSelector::Left => LineSelector::Right,
+            LineSelector::Right => LineSelector::Left,
+        };
+
+        let horizontal_half = match corner {
+            Corner::TopLeft => HalfSelector::Last,
+            Corner::TopRight => HalfSelector::First,
+            Corner::BottomRight => HalfSelector::First,
+            Corner::BottomLeft => HalfSelector::Last,
+        };
+        let vertical_half = match corner {
+            Corner::TopLeft => HalfSelector::Last,
+            Corner::TopRight => HalfSelector::Last,
+            Corner::BottomRight => HalfSelector::First,
+            Corner::BottomLeft => HalfSelector::First,
+        };
+
+        self.draw_line(
+            Orientation::Horizontal,
+            horizontal_half,
+            outer_horiz,
+            outer_vert,
+            horiz_t,
+            vert_t,
+            None,
+        );
+        self.draw_line(
+            Orientation::Vertical,
+            vertical_half,
+            outer_vert,
+            outer_horiz,
+            vert_t,
+            horiz_t,
+            None,
+        );
+        if matches!(horiz_s, LineStyle::Double(..)) {
+            self.draw_line(
+                Orientation::Horizontal,
+                horizontal_half,
+                inner_horiz,
+                inner_vert,
+                horiz_t,
+                vert_t,
+                None,
+            );
+        }
+        if matches!(vert_s, LineStyle::Double(..)) {
+            self.draw_line(
+                Orientation::Vertical,
+                vertical_half,
+                inner_vert,
+                inner_horiz,
+                horiz_t,
+                horiz_t,
+                None,
+            );
         }
     }
 }
@@ -768,6 +823,12 @@ enum Thickness {
     Level3,
 }
 
+#[derive(Clone, Copy)]
+enum LineStyle {
+    Single(Thickness),
+    Double(Thickness),
+}
+
 impl Thickness {
     fn scale_factor(self, mult: Option<ThicknessMultipliers>) -> f32 {
         let ThicknessMultipliers(mult) = mult.unwrap_or_default();
@@ -779,19 +840,45 @@ impl Thickness {
     }
 }
 
-#[derive(Clone, Copy)]
+impl From<LineStyle> for Thickness {
+    fn from(value: LineStyle) -> Self {
+        match value {
+            LineStyle::Single(thickness) => thickness,
+            LineStyle::Double(thickness) => thickness,
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq)]
 enum Orientation {
     Horizontal,
     Vertical,
 }
 
+impl Orientation {
+    fn swap(&self) -> Self {
+        match self {
+            Orientation::Horizontal => Orientation::Vertical,
+            Orientation::Vertical => Orientation::Horizontal,
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 enum HalfSelector {
     First,
-    FirstDouble,
     Last,
-    LastDouble,
     Both,
+}
+
+impl From<LineSelector> for HalfSelector {
+    fn from(value: LineSelector) -> Self {
+        match value {
+            LineSelector::Left => HalfSelector::First,
+            LineSelector::Right => HalfSelector::Last,
+            LineSelector::Middle => HalfSelector::Both,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -799,6 +886,16 @@ enum LineSelector {
     Middle,
     Left,
     Right,
+}
+
+impl LineSelector {
+    fn swap(&self) -> Self {
+        match self {
+            LineSelector::Middle => LineSelector::Middle,
+            LineSelector::Left => LineSelector::Right,
+            LineSelector::Right => LineSelector::Left,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -851,7 +948,9 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             Horizontal,
             HalfSelector::Both,
             LineSelector::Middle,
+            LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level1),
+            0.0,
             ctx.get_dash_effect(Horizontal, 1),
         );
     }];
@@ -860,7 +959,9 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             Horizontal,
             HalfSelector::Both,
             LineSelector::Middle,
+            LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level3),
+            0.0,
             ctx.get_dash_effect(Horizontal, 1),
         );
     }];
@@ -869,7 +970,9 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             Horizontal,
             HalfSelector::Both,
             LineSelector::Middle,
+            LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level3),
+            0.0,
             ctx.get_dash_effect(Horizontal, 2),
         );
     }];
@@ -878,7 +981,9 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             Horizontal,
             HalfSelector::Both,
             LineSelector::Middle,
+            LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level1),
+            0.0,
             ctx.get_dash_effect(Horizontal, 3),
         );
     }];
@@ -887,7 +992,9 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             Horizontal,
             HalfSelector::Both,
             LineSelector::Middle,
+            LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level3),
+            0.0,
             ctx.get_dash_effect(Horizontal, 3),
         );
     }];
@@ -897,7 +1004,9 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             Vertical,
             HalfSelector::Both,
             LineSelector::Middle,
+            LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level1),
+            0.0,
             ctx.get_dash_effect(Vertical, 1),
         );
     }];
@@ -906,7 +1015,9 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             Vertical,
             HalfSelector::Both,
             LineSelector::Middle,
+            LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level3),
+            0.0,
             ctx.get_dash_effect(Vertical, 1),
         );
     }];
@@ -915,7 +1026,9 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             Vertical,
             HalfSelector::Both,
             LineSelector::Middle,
+            LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level1),
+            0.0,
             ctx.get_dash_effect(Vertical, 2),
         );
     }];
@@ -924,7 +1037,9 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             Vertical,
             HalfSelector::Both,
             LineSelector::Middle,
+            LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level3),
+            0.0,
             ctx.get_dash_effect(Vertical, 2),
         );
     }];
@@ -933,7 +1048,9 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             Vertical,
             HalfSelector::Both,
             LineSelector::Middle,
+            LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level1),
+            0.0,
             ctx.get_dash_effect(Vertical, 3),
         );
     }];
@@ -942,7 +1059,9 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             Vertical,
             HalfSelector::Both,
             LineSelector::Middle,
+            LineSelector::Middle,
             ctx.get_stroke_width_pixels(Thickness::Level3),
+            0.0,
             ctx.get_dash_effect(Vertical, 3),
         );
     }];
@@ -1076,141 +1195,77 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
     box_char!('║' -> |ctx: &Context|{
         ctx.draw_double_line(Vertical, HalfSelector::Both);
     });
-    box_char!['╞' -> |ctx: &Context| {
-        ctx.draw_fg_line1(Vertical, HalfSelector::Both);
-        ctx.draw_double_line(Horizontal, HalfSelector::Last);
-    }];
-    box_char!['╡' -> |ctx: &Context| {
-        ctx.draw_fg_line1(Vertical, HalfSelector::Both);
-        ctx.draw_double_line(Horizontal, HalfSelector::First);
-    }];
-    box_char!['╥' -> |ctx: &Context| {
-        ctx.draw_fg_line1(Horizontal, HalfSelector::Both);
-        ctx.draw_double_line(Vertical, HalfSelector::Last);
-    }];
-    box_char!['╨' -> |ctx: &Context| {
-        ctx.draw_fg_line1(Horizontal, HalfSelector::Both);
-        ctx.draw_double_line(Vertical, HalfSelector::First);
-    }];
     box_char!['╪' -> |ctx: &Context| {
-        ctx.draw_fg_line1(Vertical, HalfSelector::FirstDouble);
-        ctx.draw_fg_line1(Vertical, HalfSelector::LastDouble);
+        let stroke_width = ctx.get_stroke_width_pixels(Thickness::Level1);
+        ctx.draw_line(
+            Orientation::Vertical,
+            HalfSelector::First,
+            LineSelector::Middle,
+            LineSelector::Left,
+            stroke_width,
+            stroke_width,
+            None,
+        );
+        ctx.draw_line(
+            Orientation::Vertical,
+            HalfSelector::Last,
+            LineSelector::Middle,
+            LineSelector::Right,
+            stroke_width,
+            stroke_width,
+            None,
+        );
         ctx.draw_double_line(Horizontal, HalfSelector::Both);
     }];
     box_char!['╫' -> |ctx: &Context| {
-        ctx.draw_fg_line1(Horizontal, HalfSelector::FirstDouble);
-        ctx.draw_fg_line1(Horizontal, HalfSelector::LastDouble);
+        let stroke_width = ctx.get_stroke_width_pixels(Thickness::Level1);
+        ctx.draw_line(
+            Orientation::Horizontal,
+            HalfSelector::First,
+            LineSelector::Middle,
+            LineSelector::Left,
+            stroke_width,
+            stroke_width,
+            None,
+        );
+        ctx.draw_line(
+            Orientation::Horizontal,
+            HalfSelector::Last,
+            LineSelector::Middle,
+            LineSelector::Right,
+            stroke_width,
+            stroke_width,
+            None,
+        );
         ctx.draw_double_line(Vertical, HalfSelector::Both);
     }];
     box_char!['╬' -> |ctx: &Context| {
-        ctx.draw_double_line(Vertical, HalfSelector::FirstDouble);
-        ctx.draw_double_line(Vertical, HalfSelector::LastDouble);
-        ctx.draw_double_line(Horizontal, HalfSelector::FirstDouble);
-        ctx.draw_double_line(Horizontal, HalfSelector::LastDouble);
-    }];
-    box_char!['╠' -> |ctx: &Context| {
         let stroke_width = ctx.get_stroke_width_pixels(Thickness::Level1);
-        let o = Orientation::Vertical;
-        ctx.draw_line(
-            o,
-            HalfSelector::Both,
-            LineSelector::Left,
-            stroke_width,
-            None,
-        );
-        ctx.draw_line(
-            o,
-            HalfSelector::FirstDouble,
-            LineSelector::Right,
-            stroke_width,
-            None,
-        );
-        ctx.draw_line(
-            o,
-            HalfSelector::LastDouble,
-            LineSelector::Right,
-            stroke_width,
-            None,
-        );
-        ctx.draw_double_line(Horizontal, HalfSelector::LastDouble);
-    }];
-    box_char!['╣' -> |ctx: &Context| {
-        let stroke_width = ctx.get_stroke_width_pixels(Thickness::Level1);
-        let o = Orientation::Vertical;
-        ctx.draw_line(
-            o,
-            HalfSelector::Both,
-            LineSelector::Right,
-            stroke_width,
-            None,
-        );
-        ctx.draw_line(
-            o,
-            HalfSelector::FirstDouble,
-            LineSelector::Left,
-            stroke_width,
-            None,
-        );
-        ctx.draw_line(
-            o,
-            HalfSelector::LastDouble,
-            LineSelector::Left,
-            stroke_width,
-            None,
-        );
-        ctx.draw_double_line(Horizontal, HalfSelector::FirstDouble);
-    }];
-    box_char!['╦' -> |ctx: &Context| {
-        let stroke_width = ctx.get_stroke_width_pixels(Thickness::Level1);
-        let o = Orientation::Horizontal;
-        ctx.draw_line(
-            o,
-            HalfSelector::Both,
-            LineSelector::Left,
-            stroke_width,
-            None,
-        );
-        ctx.draw_line(
-            o,
-            HalfSelector::FirstDouble,
-            LineSelector::Right,
-            stroke_width,
-            None,
-        );
-        ctx.draw_line(
-            o,
-            HalfSelector::LastDouble,
-            LineSelector::Right,
-            stroke_width,
-            None,
-        );
-        ctx.draw_double_line(Vertical, HalfSelector::LastDouble);
-    }];
-    box_char!['╩' -> |ctx: &Context| {
-        let stroke_width = ctx.get_stroke_width_pixels(Thickness::Level1);
-        let o = Orientation::Horizontal;
-        ctx.draw_line(
-            o,
-            HalfSelector::Both,
-            LineSelector::Right,
-            stroke_width,
-            None,
-        );
-        ctx.draw_line(
-            o,
-            HalfSelector::FirstDouble,
-            LineSelector::Left,
-            stroke_width,
-            None,
-        );
-        ctx.draw_line(
-            o,
-            HalfSelector::LastDouble,
-            LineSelector::Left,
-            stroke_width,
-            None,
-        );
-        ctx.draw_double_line(Vertical, HalfSelector::FirstDouble);
+        let halfs = [LineSelector::Left, LineSelector::Right];
+        for (side1, side2) in halfs.iter().cartesian_product(halfs.iter()) {
+            let line_selector1 = *side1;
+            let line_selector2 = *side2;
+
+            ctx.draw_line(
+                Orientation::Horizontal,
+                line_selector1.into(),
+                line_selector2,
+                line_selector1,
+                stroke_width,
+                stroke_width,
+                None,
+            );
+            ctx.draw_line(
+                Orientation::Vertical,
+                line_selector1.into(),
+                line_selector2,
+                line_selector1,
+                stroke_width,
+                stroke_width,
+                None,
+            );
+
+        }
     }];
 
     // eighth blocks
@@ -1502,6 +1557,126 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
         ];
     }
 
+    // Double to single T-joint
+    {
+        macro_rules! t_double_to_single {
+            ($($ch:literal -> $orientation:ident, $halfselector:ident)+) => {
+                $(m.insert(
+                    $ch,
+                    Box::new(move |ctx: &Context| {
+                        ctx.draw_fg_line1(Orientation::$orientation, HalfSelector::Both);
+                        ctx.draw_double_line(Orientation::$orientation.swap(), HalfSelector::$halfselector);
+                    }),
+                ));+
+            };
+        }
+
+        t_double_to_single![
+        '╞' -> Vertical, Last
+        '╡' -> Vertical, First
+        '╥' -> Horizontal, Last
+        '╨' -> Horizontal, First
+        ];
+    }
+
+    // Single to double T-joint
+    {
+        macro_rules! t_single_to_double {
+            ($($ch:literal -> $orientation:ident, $halfselector:ident, $lineselector:ident)+) => {
+                $(m.insert(
+                    $ch,
+                    Box::new(move |ctx: &Context| {
+                        ctx.draw_double_line(Orientation::$orientation, HalfSelector::Both);
+                        ctx.draw_line(
+                            Orientation::$orientation.swap(),
+                            HalfSelector::$halfselector,
+                            LineSelector::Middle,
+                            LineSelector::$lineselector,
+                            ctx.get_stroke_width_pixels(Thickness::Level1),
+                            ctx.get_stroke_width_pixels(Thickness::Level1),
+                            None,
+                        );
+                    }),
+                ));+
+            };
+        }
+
+        t_single_to_double![
+        '╟' -> Vertical, Last, Right
+        '╢' -> Vertical, First, Left
+        '╤' -> Horizontal, Last, Right
+        '╧' -> Horizontal, First, Left
+        ];
+    }
+
+    // double to double T-joint
+    {
+        macro_rules! t_double_to_double {
+            ($($ch:literal -> $orientation:ident, $side:ident)+) => {
+                $(m.insert(
+                    $ch,
+                    Box::new(move |ctx: &Context| {
+                        let stroke_width = ctx.get_stroke_width_pixels(Thickness::Level1);
+                        let o = Orientation::$orientation;
+                        let side = LineSelector::$side;
+                        ctx.draw_line(
+                            o,
+                            HalfSelector::Both,
+                            side.swap(),
+                            LineSelector::Middle,
+                            stroke_width,
+                            stroke_width,
+                            None,
+                        );
+                        ctx.draw_line(
+                            o,
+                            HalfSelector::First,
+                            side,
+                            LineSelector::Left,
+                            stroke_width,
+                            stroke_width,
+                            None,
+                        );
+                        ctx.draw_line(
+                            o,
+                            HalfSelector::Last,
+                            side,
+                            LineSelector::Right,
+                            stroke_width,
+                            stroke_width,
+                            None,
+                        );
+                        ctx.draw_line(
+                            o.swap(),
+                            side.into(),
+                            LineSelector::Left,
+                            side,
+                            stroke_width,
+                            stroke_width,
+                            None,
+                        );
+                        ctx.draw_line(
+                            o.swap(),
+                            side.into(),
+                            LineSelector::Right,
+                            side,
+                            stroke_width,
+                            stroke_width,
+                            None,
+                        );
+                    }),
+                ));+
+            };
+        }
+
+        t_double_to_double![
+        '╠' -> Vertical, Right
+        '╣' -> Vertical, Left
+        '╦' -> Horizontal, Right
+        '╩' -> Horizontal, Left
+        ];
+    }
+
     // Corners
     // ┌ ┍ ┎ ┏
     // ┐ ┑ ┒ ┓
@@ -1529,7 +1704,9 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
     // ┗━┛
     {
         use Corner::*;
-        use Thickness::{Level1 as t1, Level3 as t3};
+        let t1 = LineStyle::Single(Thickness::Level1);
+        let t3 = LineStyle::Single(Thickness::Level3);
+        let d = LineStyle::Double(Thickness::Level1);
         macro_rules! corner {
             ($($ch:literal -> $corner:ident, $horiz:ident, $vert:ident)+) => {
                 $(m.insert(
@@ -1545,21 +1722,33 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             '┍' -> TopLeft, t3, t1
             '┎' -> TopLeft, t1, t3
             '┏' -> TopLeft, t3, t3
+            '╔' -> TopLeft, d, d
+            '╒' -> TopLeft, d, t1
+            '╓' -> TopLeft, t1, d
 
             '┐' -> TopRight, t1, t1
             '┑' -> TopRight, t3, t1
             '┒' -> TopRight, t1, t3
             '┓' -> TopRight, t3, t3
+            '╗' -> TopRight, d, d
+            '╕' -> TopRight, d, t1
+            '╖' -> TopRight, t1, d
 
             '└' -> BottomLeft, t1, t1
             '┕' -> BottomLeft, t3, t1
             '┖' -> BottomLeft, t1, t3
             '┗' -> BottomLeft, t3, t3
+            '╚' -> BottomLeft, d, d
+            '╘' -> BottomLeft, d, t1
+            '╙' -> BottomLeft, t1, d
 
             '┘' -> BottomRight, t1, t1
             '┙' -> BottomRight, t3, t1
             '┚' -> BottomRight, t1, t3
             '┛' -> BottomRight, t3, t3
+            '╝' -> BottomRight, d, d
+            '╛' -> BottomRight, d, t1
+            '╜' -> BottomRight, t1, d
         ];
     }
 
