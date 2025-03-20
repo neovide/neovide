@@ -967,6 +967,17 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             ctx.get_dash_effect(Horizontal, 1),
         );
     }];
+    box_char!['┄' -> |ctx: &Context| {
+        ctx.draw_line(
+            Horizontal,
+            HalfSelector::Both,
+            LineSelector::Middle,
+            LineSelector::Middle,
+            ctx.get_stroke_width_pixels(Thickness::Level1),
+            0.0,
+            ctx.get_dash_effect(Horizontal, 2),
+        );
+    }];
     box_char!['┅' -> |ctx: &Context| {
         ctx.draw_line(
             Horizontal,
