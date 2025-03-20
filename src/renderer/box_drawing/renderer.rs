@@ -551,16 +551,19 @@ impl<'a> Context<'a> {
 
         {
             let stripe_sz = (3.0 * tile_sz.width.max(tile_sz.height), stripe_height);
-            match mirror {
-                MirrorMode::Normal => (),
+            let offset = match mirror {
+                MirrorMode::Normal => -2.0,
                 MirrorMode::Mirror => {
                     rotation_degrees = 180.0 - rotation_degrees;
                     self.canvas.translate((tile_sz.width, 0.0));
+                    2.0
                 }
             };
             let top_left = self.bounding_box.min;
             for i in -1..NUM_STRIPES + 1 {
-                let (dx, dy) = (0., i as f32 * stripe_gap);
+                // The offset is there to make sure that we draw slightly outside the bounding box
+                // for sharp edges
+                let (dx, dy) = (offset, i as f32 * stripe_gap);
                 let stripe_top_left = top_left.translate(Vector2::new(dx, dy));
                 self.canvas.save();
                 self.canvas
