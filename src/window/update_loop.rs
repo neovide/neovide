@@ -13,8 +13,8 @@ use super::{save_window_size, CmdLineSettings, UserEvent, WindowSettings, WinitW
 use crate::{
     profiling::{tracy_plot, tracy_zone},
     renderer::DrawCommand,
-    settings::Settings,
-    FontSettings, WindowSize,
+    settings::{Config, Settings},
+    WindowSize,
 };
 
 enum FocusedState {
@@ -96,7 +96,7 @@ pub struct UpdateLoop {
 impl UpdateLoop {
     pub fn new(
         initial_window_size: WindowSize,
-        initial_font_settings: Option<FontSettings>,
+        initial_config: Config,
         proxy: EventLoopProxy<UserEvent>,
         settings: Arc<Settings>,
     ) -> Self {
@@ -114,7 +114,7 @@ impl UpdateLoop {
         let idle = cmd_line_settings.idle;
 
         let window_wrapper =
-            WinitWindowWrapper::new(initial_window_size, initial_font_settings, settings.clone());
+            WinitWindowWrapper::new(initial_window_size, initial_config, settings.clone());
 
         Self {
             idle,
