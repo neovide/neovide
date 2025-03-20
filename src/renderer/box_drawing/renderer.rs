@@ -679,7 +679,8 @@ impl<'a> Context<'a> {
         self.canvas.draw_path(&path, &fg);
     }
 
-    fn draw_t_joint(
+    /// Does not handle double lines
+    fn draw_t_or_cross_joint(
         &self,
         north: impl Into<Option<Thickness>>,
         east: impl Into<Option<Thickness>>,
@@ -706,6 +707,7 @@ impl<'a> Context<'a> {
         }
     }
 
+    /// Only handles corners, but can mix between double and single line types
     fn draw_corner(&self, corner: Corner, horiz_s: LineStyle, vert_s: LineStyle) {
         let horiz_t = self.get_stroke_width_pixels(horiz_s.into());
         let vert_t = self.get_stroke_width_pixels(vert_s.into());
@@ -1503,18 +1505,18 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
     // T joints
     {
         use Thickness::{Level1 as t1, Level3 as t3};
-        macro_rules! t_joint {
+        macro_rules! t_or_cross_joint {
             ($($ch:literal -> $north:ident, $east:ident, $south:ident, $west:ident)+) => {
                 $(m.insert(
                     $ch,
                     Box::new(move |ctx: &Context| {
-                        ctx.draw_t_joint($north, $east, $south, $west);
+                        ctx.draw_t_or_cross_joint($north, $east, $south, $west);
                     }),
                 ));+
             };
         }
 
-        t_joint![
+        t_or_cross_joint![
         // ┬ ┭ ┮ ┯ ┰ ┱ ┲ ┳
         '┬' -> None, t1, t1, t1
         '┭' -> None, t1, t1, t3
@@ -1554,6 +1556,25 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
         '┡' -> t3, t3, t1, None
         '┢' -> t1, t3, t3, None
         '┣' -> t3, t3, t3, None
+        '├' -> t1, t1, t1, None
+
+        // ┼ ┽ ┾ ┿ ╀ ╁ ╂ ╃ ╄ ╅ ╆ ╇ ╈ ╉ ╊ ╋
+        '┼' -> t1, t1, t1, t1
+        '┽' -> t1, t1, t1, t3
+        '╁' -> t1, t1, t3, t1
+        '╅' -> t1, t1, t3, t3
+        '┾' -> t1, t3, t1, t1
+        '┿' -> t1, t3, t1, t3
+        '╆' -> t1, t3, t3, t1
+        '╈' -> t1, t3, t3, t3
+        '╀' -> t3, t1, t1, t1
+        '╃' -> t3, t1, t1, t3
+        '╂' -> t3, t1, t3, t1
+        '╉' -> t3, t1, t3, t3
+        '╄' -> t3, t3, t1, t1
+        '╇' -> t3, t3, t1, t3
+        '╊' -> t3, t3, t3, t1
+        '╋' -> t3, t3, t3, t3
         ];
     }
 
