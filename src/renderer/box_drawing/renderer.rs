@@ -83,7 +83,7 @@ impl<'a> Context<'a> {
         let mut fg = Paint::default();
         fg.set_style(PaintStyle::Fill);
         fg.set_color(self.color_fg);
-        fg.set_blend_mode(BlendMode::Src);
+        fg.set_blend_mode(BlendMode::SrcOver);
         fg.set_anti_alias(false);
         fg
     }
@@ -472,7 +472,7 @@ impl<'a> Context<'a> {
         self.canvas.draw_path(&path, &paint);
     }
 
-    fn draw_eighth(&self, o: Orientation, which: impl std::ops::RangeBounds<u8>) {
+    fn draw_eighth(&self, o: Orientation, which: impl std::ops::RangeBounds<u8>, shade: Shade) {
         let min = self.bounding_box.min;
         let Size2 { width, height } = self.bounding_box.size();
         let (start, num_steps) = {
@@ -502,53 +502,17 @@ impl<'a> Context<'a> {
             }
         };
         let mut paint = self.fg_paint();
+        paint.set_alpha_f(shade.into());
         paint.set_style(PaintStyle::Fill);
         self.canvas.draw_rect(rect, &paint);
     }
 
-    // Test 1:
-    // ░
-    // ░░░░░░░░░░
-    // ░░░░░░░░░░
-    // ░░░░░░░░░░
-    // Test 2:
-    // ▒▒▒▒▒▒▒▒▒▒
-    // ▒▒▒▒▒▒▒▒▒▒
-    // Test 3:
-    // ▓▓▓▓▓▓▓▓▓▓
-    // ▓▓▓▓▓▓▓▓▓▓
-    // Test 4:
-    // 🮌
-    // 🮌
-    // Test 5:
-    // 🮍
-    // 🮍
-    // Test 6:
-    // 🮎🮎🮎🮎🮎🮎🮎🮎🮎🮎
-    // Test 7:
-    // 🮏🮏🮏🮏🮏🮏🮏🮏🮏🮏
-    // Test 8:
-    // 🮐🮐🮐🮐🮐🮐🮐🮐🮐🮐
-    // 🮐🮐🮐🮐🮐🮐🮐🮐🮐🮐
-    // Test 9:
-    // 🮑🮑🮑🮑🮑🮑🮑🮑🮑🮑
-    // 🮑🮑🮑🮑🮑🮑🮑🮑🮑🮑
-    // Test 10:
-    // 🮒🮒🮒🮒🮒🮒🮒🮒🮒🮒
-    // 🮒🮒🮒🮒🮒🮒🮒🮒🮒🮒
-    // Test 11:
-    // 🮓🮓🮓🮓🮓🮓🮓🮓🮓🮓
-    // 🮓🮓🮓🮓🮓🮓🮓🮓🮓🮓
-    // Test 12:
-    // 🮔🮔🮔🮔🮔🮔🮔🮔🮔🮔
-    // 🮔🮔🮔🮔🮔🮔🮔🮔🮔🮔
-    fn draw_shade(
+    fn draw_diagonal_fill(
         &self,
         o: Orientation,
         which_half: HalfSelector,
         shade: Shade,
         mirror: MirrorMode,
-        color_mode: ColorMode,
     ) {
         self.canvas.save();
         self.canvas.clip_rect(
@@ -579,18 +543,11 @@ impl<'a> Context<'a> {
             Shade::Light => 1.0,
             Shade::Medium => 2.0,
             Shade::Dark => 3.0,
+            Shade::Solid => panic!("Not supported"),
         };
         let mut fg = self.fg_paint();
         fg.set_style(PaintStyle::Fill);
         fg.set_anti_alias(true);
-        match color_mode {
-            ColorMode::Normal => (),
-            ColorMode::Inverted => {
-                // TODO: fix this
-                // self.canvas.draw_paint(&fg);
-                // fg.set_color(self.color_bg);
-            }
-        }
 
         {
             let stripe_sz = (3.0 * tile_sz.width.max(tile_sz.height), stripe_height);
@@ -913,21 +870,27 @@ impl LineSelector {
 
 #[derive(Clone, Copy)]
 enum Shade {
+    Solid,
     Light,
     Medium,
     Dark,
+}
+
+impl From<Shade> for f32 {
+    fn from(value: Shade) -> Self {
+        match value {
+            Shade::Solid => 1.0,
+            Shade::Light => 0.25,
+            Shade::Medium => 0.5,
+            Shade::Dark => 0.75,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
 enum MirrorMode {
     Normal,
     Mirror,
-}
-
-#[derive(Clone, Copy)]
-enum ColorMode {
-    Normal,
-    Inverted,
 }
 
 type BoxDrawFn = Box<dyn Fn(&Context) + Send + Sync>;
@@ -1192,28 +1155,28 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
 
     // eighth blocks
     box_char!['▀' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 0..=3);
+        ctx.draw_eighth(Horizontal, 0..=3, Shade::Solid);
     }];
     box_char!['▁' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 7..=7);
+        ctx.draw_eighth(Horizontal, 7..=7, Shade::Solid);
     }];
     box_char!['▂' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 6..=7);
+        ctx.draw_eighth(Horizontal, 6..=7, Shade::Solid);
     }];
     box_char!['▃' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 5..=7);
+        ctx.draw_eighth(Horizontal, 5..=7, Shade::Solid);
     }];
     box_char!['▄' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 4..=7);
+        ctx.draw_eighth(Horizontal, 4..=7, Shade::Solid);
     }];
     box_char!['▅' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 3..=7);
+        ctx.draw_eighth(Horizontal, 3..=7, Shade::Solid);
     }];
     box_char!['▆' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 2..=7);
+        ctx.draw_eighth(Horizontal, 2..=7, Shade::Solid);
     }];
     box_char!['▇' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 1..=7);
+        ctx.draw_eighth(Horizontal, 1..=7, Shade::Solid);
     }];
     box_char!['█' -> |ctx: &Context| {
         let mut paint = ctx.fg_paint();
@@ -1221,188 +1184,198 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
         ctx.canvas.draw_paint(&paint);
     }];
     box_char!['▉' -> |ctx: &Context| {
-        ctx.draw_eighth(Vertical, 0..=6);
+        ctx.draw_eighth(Vertical, 0..=6, Shade::Solid);
     }];
     box_char!['▊' -> |ctx: &Context| {
-        ctx.draw_eighth(Vertical, 0..=5);
+        ctx.draw_eighth(Vertical, 0..=5, Shade::Solid);
     }];
     box_char!['▋' -> |ctx: &Context| {
-        ctx.draw_eighth(Vertical, 0..=4);
+        ctx.draw_eighth(Vertical, 0..=4, Shade::Solid);
     }];
     box_char!['▌' -> |ctx: &Context| {
-        ctx.draw_eighth(Vertical, 0..=3);
+        ctx.draw_eighth(Vertical, 0..=3, Shade::Solid);
     }];
     box_char!['▍' -> |ctx: &Context| {
-        ctx.draw_eighth(Vertical, 0..=2);
+        ctx.draw_eighth(Vertical, 0..=2, Shade::Solid);
     }];
     box_char!['▎' -> |ctx: &Context| {
-        ctx.draw_eighth(Vertical, 0..=1);
+        ctx.draw_eighth(Vertical, 0..=1, Shade::Solid);
     }];
     box_char!['▏' -> |ctx: &Context| {
-        ctx.draw_eighth(Vertical, 0..=0);
+        ctx.draw_eighth(Vertical, 0..=0, Shade::Solid);
     }];
     box_char!['▐' -> |ctx: &Context| {
-        ctx.draw_eighth(Vertical, 4..=7);
+        ctx.draw_eighth(Vertical, 4..=7, Shade::Solid);
     }];
     box_char!['▔' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 0..=0);
+        ctx.draw_eighth(Horizontal, 0..=0, Shade::Solid);
     }];
     box_char!['▕' -> |ctx: &Context| {
-        ctx.draw_eighth(Vertical, 7..=7);
+        ctx.draw_eighth(Vertical, 7..=7, Shade::Solid);
     }];
     box_char!['🭼' -> |ctx: &Context| {
-        ctx.draw_eighth(Vertical, 0..=0);
-        ctx.draw_eighth(Horizontal, 7..=7);
+        ctx.draw_eighth(Vertical, 0..=0, Shade::Solid);
+        ctx.draw_eighth(Horizontal, 7..=7, Shade::Solid);
     }];
     box_char!['🭼' -> |ctx: &Context| {
-        ctx.draw_eighth(Vertical, 0..=0);
-        ctx.draw_eighth(Horizontal, 0..=0);
+        ctx.draw_eighth(Vertical, 0..=0, Shade::Solid);
+        ctx.draw_eighth(Horizontal, 0..=0, Shade::Solid);
     }];
     box_char!['🭾' -> |ctx: &Context| {
-        ctx.draw_eighth(Vertical, 7..=7);
-        ctx.draw_eighth(Horizontal, 0..=0);
+        ctx.draw_eighth(Vertical, 7..=7, Shade::Solid);
+        ctx.draw_eighth(Horizontal, 0..=0, Shade::Solid);
     }];
     box_char!['🭿' -> |ctx: &Context| {
-        ctx.draw_eighth(Vertical, 7..=7);
-        ctx.draw_eighth(Horizontal, 7..=7);
+        ctx.draw_eighth(Vertical, 7..=7, Shade::Solid);
+        ctx.draw_eighth(Horizontal, 7..=7, Shade::Solid);
     }];
     box_char!['🮀' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 0..=0);
-        ctx.draw_eighth(Horizontal, 7..=7);
+        ctx.draw_eighth(Horizontal, 0..=0, Shade::Solid);
+        ctx.draw_eighth(Horizontal, 7..=7, Shade::Solid);
     }];
     box_char!['🮁' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 0..=0);
-        ctx.draw_eighth(Horizontal, 2..=2);
-        ctx.draw_eighth(Horizontal, 4..=4);
-        ctx.draw_eighth(Horizontal, 7..=7);
+        ctx.draw_eighth(Horizontal, 0..=0, Shade::Solid);
+        ctx.draw_eighth(Horizontal, 2..=2, Shade::Solid);
+        ctx.draw_eighth(Horizontal, 4..=4, Shade::Solid);
+        ctx.draw_eighth(Horizontal, 7..=7, Shade::Solid);
     }];
     box_char!['🮂' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 0..=1);
+        ctx.draw_eighth(Horizontal, 0..=1, Shade::Solid);
     }];
     box_char!['🮃' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 0..=2);
+        ctx.draw_eighth(Horizontal, 0..=2, Shade::Solid);
     }];
     box_char!['🮄' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 0..=4);
+        ctx.draw_eighth(Horizontal, 0..=4, Shade::Solid);
     }];
     box_char!['🮅' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 0..=5);
+        ctx.draw_eighth(Horizontal, 0..=5, Shade::Solid);
     }];
     box_char!['🮆' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 0..=6);
+        ctx.draw_eighth(Horizontal, 0..=6, Shade::Solid);
     }];
     box_char!['🮇' -> |ctx: &Context| {
-        ctx.draw_eighth(Vertical, 6..=7);
+        ctx.draw_eighth(Vertical, 6..=7, Shade::Solid);
     }];
     box_char!['🮈' -> |ctx: &Context| {
-        ctx.draw_eighth(Vertical, 5..=7);
+        ctx.draw_eighth(Vertical, 5..=7, Shade::Solid);
     }];
     box_char!['🮉' -> |ctx: &Context| {
-        ctx.draw_eighth(Vertical, 3..=7);
+        ctx.draw_eighth(Vertical, 3..=7, Shade::Solid);
     }];
     box_char!['🮊' -> |ctx: &Context| {
-        ctx.draw_eighth(Vertical, 2..=7);
+        ctx.draw_eighth(Vertical, 2..=7, Shade::Solid);
     }];
     box_char!['🮋' -> |ctx: &Context| {
-        ctx.draw_eighth(Vertical, 1..=7);
+        ctx.draw_eighth(Vertical, 1..=7, Shade::Solid);
     }];
     box_char!['🮂' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 0..=1);
+        ctx.draw_eighth(Horizontal, 0..=1, Shade::Solid);
     }];
     box_char!['🮃' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 0..=2);
+        ctx.draw_eighth(Horizontal, 0..=2, Shade::Solid);
     }];
     box_char!['🮄' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 0..=4);
+        ctx.draw_eighth(Horizontal, 0..=4, Shade::Solid);
     }];
     box_char!['🮅' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 0..=5);
+        ctx.draw_eighth(Horizontal, 0..=5, Shade::Solid);
     }];
     box_char!['🮆' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 0..=6);
+        ctx.draw_eighth(Horizontal, 0..=6, Shade::Solid);
     }];
     box_char!['🮇' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 6..=7);
+        ctx.draw_eighth(Horizontal, 6..=7, Shade::Solid);
     }];
     box_char!['🮈' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 5..=7);
+        ctx.draw_eighth(Horizontal, 5..=7, Shade::Solid);
     }];
     box_char!['🮉' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 3..=7);
+        ctx.draw_eighth(Horizontal, 3..=7, Shade::Solid);
     }];
     box_char!['🮊' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 2..=7);
+        ctx.draw_eighth(Horizontal, 2..=7, Shade::Solid);
     }];
     box_char!['🮋' -> |ctx: &Context| {
-        ctx.draw_eighth(Horizontal, 1..=7);
+        ctx.draw_eighth(Horizontal, 1..=7, Shade::Solid);
     }];
 
     // Shade
     box_char!['░' -> |ctx: &Context| {
-        ctx.draw_shade(Orientation::Horizontal, HalfSelector::Both, Shade::Light, MirrorMode::Normal, ColorMode::Normal);
+        ctx.draw_eighth(Horizontal, 0..=7, Shade::Dark);
     }];
-    box_char!['▒' -> |ctx: &Context| {
-        ctx.draw_shade(Orientation::Horizontal, HalfSelector::Both, Shade::Medium, MirrorMode::Normal, ColorMode::Normal);
+    // Regular and inverse are rendered the same way for now
+    box_char!['▒', '🮐' -> |ctx: &Context| {
+        ctx.draw_eighth(Horizontal, 0..=7, Shade::Medium);
     }];
     box_char!['▓' -> |ctx: &Context| {
-        ctx.draw_shade(Orientation::Horizontal, HalfSelector::Both, Shade::Dark, MirrorMode::Normal, ColorMode::Normal);
+        ctx.draw_eighth(Horizontal, 0..=7, Shade::Light);
     }];
     box_char!['🮌' -> |ctx: &Context| {
-        ctx.draw_shade(Orientation::Horizontal, HalfSelector::First, Shade::Medium, MirrorMode::Normal, ColorMode::Normal);
+        ctx.draw_eighth(Vertical, 0..=3, Shade::Medium);
     }];
     box_char!['🮍' -> |ctx: &Context| {
-        ctx.draw_shade(Orientation::Horizontal, HalfSelector::Last, Shade::Medium, MirrorMode::Normal, ColorMode::Normal);
+        ctx.draw_eighth(Vertical, 4..=7, Shade::Medium);
     }];
     box_char!['🮎' -> |ctx: &Context| {
-        ctx.draw_shade(Orientation::Vertical, HalfSelector::First, Shade::Medium, MirrorMode::Normal, ColorMode::Normal);
+        ctx.draw_eighth(Horizontal, 0..=3, Shade::Medium);
     }];
     box_char!['🮏' -> |ctx: &Context| {
-        ctx.draw_shade(Orientation::Vertical, HalfSelector::Last, Shade::Medium, MirrorMode::Normal, ColorMode::Normal);
-    }];
-    box_char!['🮐' -> |ctx: &Context| {
-        ctx.draw_shade(Orientation::Horizontal, HalfSelector::Both, Shade::Medium, MirrorMode::Normal, ColorMode::Inverted);
+        ctx.draw_eighth(Horizontal, 4..=7, Shade::Medium);
     }];
     box_char!['🮑' -> |ctx: &Context| {
-        ctx.draw_shade(Orientation::Vertical, HalfSelector::Last, Shade::Medium, MirrorMode::Normal, ColorMode::Inverted);
+        ctx.draw_eighth(Horizontal, 0..=3, Shade::Solid);
+        ctx.draw_eighth(Horizontal, 4..=7, Shade::Medium);
     }];
     box_char!['🮒' -> |ctx: &Context| {
-        ctx.draw_shade(Orientation::Vertical, HalfSelector::First, Shade::Medium, MirrorMode::Normal, ColorMode::Inverted);
+        ctx.draw_eighth(Horizontal, 0..=3, Shade::Medium);
+        ctx.draw_eighth(Horizontal, 4..=7, Shade::Solid);
     }];
+    // This is not according to the unicode spec, but the character fits perfectly here in the reserved spot
     box_char!['🮓' -> |ctx: &Context| {
-        ctx.draw_shade(Orientation::Horizontal, HalfSelector::Last, Shade::Medium, MirrorMode::Normal, ColorMode::Inverted);
+        ctx.draw_eighth(Vertical, 0..=3, Shade::Solid);
+        ctx.draw_eighth(Vertical, 4..=7, Shade::Medium);
     }];
     box_char!['🮔' -> |ctx: &Context| {
-        ctx.draw_shade(Orientation::Horizontal, HalfSelector::First, Shade::Medium, MirrorMode::Normal, ColorMode::Inverted);
-    }];
-    box_char!['🮜' -> |ctx: &Context| {
-        ctx.canvas.clip_path(&ctx.triangle_path(Corner::TopLeft), None, Some(false));
-        ctx.draw_shade(Orientation::Horizontal, HalfSelector::Both, Shade::Medium,  MirrorMode::Normal, ColorMode::Normal);
-    }];
-    box_char!['🮝' -> |ctx: &Context| {
-        ctx.canvas.clip_path(&ctx.triangle_path(Corner::TopRight), None, Some(false));
-        ctx.draw_shade(Orientation::Horizontal, HalfSelector::Both, Shade::Medium,  MirrorMode::Normal, ColorMode::Normal);
-    }];
-    box_char!['🮞' -> |ctx: &Context| {
-        ctx.canvas.clip_path(&ctx.triangle_path(Corner::BottomRight), None, Some(false));
-        ctx.draw_shade(Orientation::Horizontal, HalfSelector::Both, Shade::Medium,  MirrorMode::Normal, ColorMode::Normal);
+        ctx.draw_eighth(Vertical, 0..=3, Shade::Medium);
+        ctx.draw_eighth(Vertical, 4..=7, Shade::Solid);
     }];
     // 🮜🮝
     // 🮞🮟
     // 🮝🮜
     // 🮟🮞
+    box_char!['🮜' -> |ctx: &Context| {
+        ctx.canvas.clip_path(&ctx.triangle_path(Corner::TopLeft), None, Some(false));
+        ctx.draw_eighth(Horizontal, 0..=7, Shade::Medium);
+    }];
+    box_char!['🮝' -> |ctx: &Context| {
+        ctx.canvas.clip_path(&ctx.triangle_path(Corner::TopRight), None, Some(false));
+        ctx.draw_eighth(Horizontal, 0..=7, Shade::Medium);
+    }];
+    box_char!['🮞' -> |ctx: &Context| {
+        ctx.canvas.clip_path(&ctx.triangle_path(Corner::BottomRight), None, Some(false));
+        ctx.draw_eighth(Horizontal, 0..=7, Shade::Medium);
+    }];
     box_char!['🮟' -> |ctx: &Context| {
         ctx.canvas.clip_path(&ctx.triangle_path(Corner::BottomLeft), None, Some(false));
-        ctx.draw_shade(Orientation::Horizontal, HalfSelector::Both, Shade::Medium,  MirrorMode::Normal, ColorMode::Normal);
+        ctx.draw_eighth(Horizontal, 0..=7, Shade::Medium);
     }];
+
+    // Diagonal fill
     // 🮙🮙🮙🮙🮙🮙🮙🮙🮙🮙
     // 🮙🮙🮙🮙🮙🮙🮙🮙🮙🮙
     box_char!['🮙' -> |ctx: &Context| {
-        ctx.draw_shade(Orientation::Horizontal, HalfSelector::Both, Shade::Light,  MirrorMode::Normal, ColorMode::Normal);
+        ctx.draw_diagonal_fill(Orientation::Horizontal, HalfSelector::Both, Shade::Light,  MirrorMode::Normal);
     }];
     // 🮘🮘🮘🮘🮘🮘🮘🮘🮘🮘
     // 🮘🮘🮘🮘🮘🮘🮘🮘🮘🮘
     box_char!['🮘' -> |ctx: &Context| {
-       ctx.draw_shade(Orientation::Horizontal, HalfSelector::Both, Shade::Light,  MirrorMode::Mirror, ColorMode::Normal);
+       ctx.draw_diagonal_fill(Orientation::Horizontal, HalfSelector::Both, Shade::Light,  MirrorMode::Mirror);
+    }];
+
+    box_char!['𜱃' -> |ctx: &Context| {
+       ctx.draw_diagonal_fill(Orientation::Horizontal, HalfSelector::Both, Shade::Light,  MirrorMode::Normal);
+       ctx.draw_diagonal_fill(Orientation::Horizontal, HalfSelector::Both, Shade::Light,  MirrorMode::Mirror);
     }];
 
     // ╭╮╰╯
