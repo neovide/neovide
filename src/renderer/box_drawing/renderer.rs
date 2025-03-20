@@ -98,7 +98,6 @@ impl<'a> Context<'a> {
             LineSelector::Middle,
             self.get_stroke_width_pixels(Thickness::Level1),
             0.0,
-            None,
         );
     }
 
@@ -110,25 +109,27 @@ impl<'a> Context<'a> {
             LineSelector::Middle,
             self.get_stroke_width_pixels(Thickness::Level3),
             0.0,
-            None,
         );
     }
 
-    fn get_dash_effect(&self, o: Orientation, num_gaps: u8) -> PathEffect {
+    fn get_dash_effect(&self, o: Orientation, num_dashes: u8) -> PathEffect {
         let Size2 {
             width: cell_width,
             height: cell_height,
         } = self.bounding_box.size();
-        let total = f32::round(match o {
+        let total = match o {
             Orientation::Horizontal => cell_width,
             Orientation::Vertical => cell_height,
-        }) as i32;
+        };
+        let num_dashes = num_dashes as f32;
 
-        let gap_sz = 2;
-        let all_gaps_use = (num_gaps as i32) * gap_sz;
-        let num_dashes = num_gaps as i32 + 1;
-        let dash_sz = (total - all_gaps_use) / num_dashes;
-        PathEffect::dash(&[dash_sz as f32, gap_sz as f32], 0.)
+        // Use an equal gap and line size, for a consistent color
+        // Always use the same gap for both vertical and horizontal lines
+        let gap_size = cell_width / (2.0 * num_dashes);
+        let dash_size = (total - gap_size * num_dashes) / num_dashes;
+
+        // Start with a half gap, which also ends with a half gap, so that continous lines look nice
+        PathEffect::dash(&[dash_size, gap_size], -gap_size / 2.0)
             .expect("new path effect ptr to be not null")
     }
 
@@ -368,7 +369,6 @@ impl<'a> Context<'a> {
             LineSelector::Middle,
             stroke_width,
             0.0,
-            None,
         );
         self.draw_line(
             o,
@@ -377,7 +377,6 @@ impl<'a> Context<'a> {
             LineSelector::Middle,
             stroke_width,
             0.0,
-            None,
         );
     }
 
@@ -398,7 +397,6 @@ impl<'a> Context<'a> {
         which_target_line: LineSelector,
         stroke_width: f32,
         target_stroke_width: f32,
-        effect: impl Into<Option<PathEffect>>,
     ) {
         let min = self.bounding_box.min;
         let max = self.bounding_box.max;
@@ -445,15 +443,28 @@ impl<'a> Context<'a> {
         let mut paint = self.fg_paint();
         paint.set_style(PaintStyle::Stroke);
         paint.set_stroke_width(stroke_width);
-        if let Some(effect) = effect.into() {
-            paint.set_path_effect(effect);
-            let mut path = Path::default();
-            path.move_to(p1);
-            path.line_to(p2);
-            self.canvas.draw_path(&path, &paint);
+        self.canvas.draw_line(p1, p2, &paint);
+    }
+
+    fn draw_dashed_line(&self, o: Orientation, thickness: Thickness, num_dashes: u8) {
+        let effect = self.get_dash_effect(o, num_dashes);
+        let stroke_width = self.get_stroke_width_pixels(thickness);
+        let mut paint = self.fg_paint();
+        paint.set_anti_alias(true);
+        paint.set_style(PaintStyle::Stroke);
+        paint.set_stroke_width(stroke_width);
+        paint.set_path_effect(effect);
+        let mut path = Path::default();
+        if o == Orientation::Horizontal {
+            let y = self.bounding_box.center().y.align_mid_line(stroke_width);
+            path.move_to((self.bounding_box.min.x, y));
+            path.line_to((self.bounding_box.max.x, y));
         } else {
-            self.canvas.draw_line(p1, p2, &paint);
+            let x = self.bounding_box.center().x.align_mid_line(stroke_width);
+            path.move_to((x, self.bounding_box.min.y));
+            path.line_to((x, self.bounding_box.max.y));
         }
+        self.canvas.draw_path(&path, &paint);
     }
 
     fn draw_eighth(&self, o: Orientation, which: impl std::ops::RangeBounds<u8>) {
@@ -701,7 +712,6 @@ impl<'a> Context<'a> {
                     LineSelector::Middle,
                     self.get_stroke_width_pixels(t),
                     0.0,
-                    None,
                 );
             }
         }
@@ -755,7 +765,6 @@ impl<'a> Context<'a> {
             outer_vert,
             horiz_t,
             vert_t,
-            None,
         );
         self.draw_line(
             Orientation::Vertical,
@@ -764,7 +773,6 @@ impl<'a> Context<'a> {
             outer_horiz,
             vert_t,
             horiz_t,
-            None,
         );
         if matches!(horiz_s, LineStyle::Double(..)) {
             self.draw_line(
@@ -774,7 +782,6 @@ impl<'a> Context<'a> {
                 inner_vert,
                 horiz_t,
                 vert_t,
-                None,
             );
         }
         if matches!(vert_s, LineStyle::Double(..)) {
@@ -785,7 +792,6 @@ impl<'a> Context<'a> {
                 inner_horiz,
                 horiz_t,
                 horiz_t,
-                None,
             );
         }
     }
@@ -946,137 +952,41 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
         ctx.draw_fg_line3(Vertical, HalfSelector::Both);
     }];
     box_char!['╌' -> |ctx: &Context| {
-        ctx.draw_line(
-            Horizontal,
-            HalfSelector::Both,
-            LineSelector::Middle,
-            LineSelector::Middle,
-            ctx.get_stroke_width_pixels(Thickness::Level1),
-            0.0,
-            ctx.get_dash_effect(Horizontal, 1),
-        );
+        ctx.draw_dashed_line(Horizontal, Thickness::Level1, 2);
     }];
     box_char!['╍' -> |ctx: &Context| {
-        ctx.draw_line(
-            Horizontal,
-            HalfSelector::Both,
-            LineSelector::Middle,
-            LineSelector::Middle,
-            ctx.get_stroke_width_pixels(Thickness::Level3),
-            0.0,
-            ctx.get_dash_effect(Horizontal, 1),
-        );
+        ctx.draw_dashed_line(Horizontal, Thickness::Level3, 2);
     }];
     box_char!['┄' -> |ctx: &Context| {
-        ctx.draw_line(
-            Horizontal,
-            HalfSelector::Both,
-            LineSelector::Middle,
-            LineSelector::Middle,
-            ctx.get_stroke_width_pixels(Thickness::Level1),
-            0.0,
-            ctx.get_dash_effect(Horizontal, 2),
-        );
+        ctx.draw_dashed_line(Horizontal, Thickness::Level1, 3);
     }];
     box_char!['┅' -> |ctx: &Context| {
-        ctx.draw_line(
-            Horizontal,
-            HalfSelector::Both,
-            LineSelector::Middle,
-            LineSelector::Middle,
-            ctx.get_stroke_width_pixels(Thickness::Level3),
-            0.0,
-            ctx.get_dash_effect(Horizontal, 2),
-        );
+        ctx.draw_dashed_line(Horizontal, Thickness::Level3, 3);
     }];
     box_char!['┈' -> |ctx: &Context| {
-        ctx.draw_line(
-            Horizontal,
-            HalfSelector::Both,
-            LineSelector::Middle,
-            LineSelector::Middle,
-            ctx.get_stroke_width_pixels(Thickness::Level1),
-            0.0,
-            ctx.get_dash_effect(Horizontal, 3),
-        );
+        ctx.draw_dashed_line(Horizontal, Thickness::Level1, 4);
     }];
     box_char!['┉' -> |ctx: &Context| {
-        ctx.draw_line(
-            Horizontal,
-            HalfSelector::Both,
-            LineSelector::Middle,
-            LineSelector::Middle,
-            ctx.get_stroke_width_pixels(Thickness::Level3),
-            0.0,
-            ctx.get_dash_effect(Horizontal, 3),
-        );
+        ctx.draw_dashed_line(Horizontal, Thickness::Level3, 4);
     }];
 
     box_char!['╎' -> |ctx: &Context| {
-        ctx.draw_line(
-            Vertical,
-            HalfSelector::Both,
-            LineSelector::Middle,
-            LineSelector::Middle,
-            ctx.get_stroke_width_pixels(Thickness::Level1),
-            0.0,
-            ctx.get_dash_effect(Vertical, 1),
-        );
+        ctx.draw_dashed_line(Vertical, Thickness::Level1, 2);
     }];
     box_char!['╏' -> |ctx: &Context| {
-        ctx.draw_line(
-            Vertical,
-            HalfSelector::Both,
-            LineSelector::Middle,
-            LineSelector::Middle,
-            ctx.get_stroke_width_pixels(Thickness::Level3),
-            0.0,
-            ctx.get_dash_effect(Vertical, 1),
-        );
+        ctx.draw_dashed_line(Vertical, Thickness::Level3, 2);
     }];
     box_char!['┆' -> |ctx: &Context| {
-        ctx.draw_line(
-            Vertical,
-            HalfSelector::Both,
-            LineSelector::Middle,
-            LineSelector::Middle,
-            ctx.get_stroke_width_pixels(Thickness::Level1),
-            0.0,
-            ctx.get_dash_effect(Vertical, 2),
-        );
+        ctx.draw_dashed_line(Vertical, Thickness::Level1, 3);
     }];
     box_char!['┇' -> |ctx: &Context| {
-        ctx.draw_line(
-            Vertical,
-            HalfSelector::Both,
-            LineSelector::Middle,
-            LineSelector::Middle,
-            ctx.get_stroke_width_pixels(Thickness::Level3),
-            0.0,
-            ctx.get_dash_effect(Vertical, 2),
-        );
+        ctx.draw_dashed_line(Vertical, Thickness::Level3, 3);
     }];
     box_char!['┊' -> |ctx: &Context| {
-        ctx.draw_line(
-            Vertical,
-            HalfSelector::Both,
-            LineSelector::Middle,
-            LineSelector::Middle,
-            ctx.get_stroke_width_pixels(Thickness::Level1),
-            0.0,
-            ctx.get_dash_effect(Vertical, 3),
-        );
+        ctx.draw_dashed_line(Vertical, Thickness::Level1, 4);
     }];
     box_char!['┋' -> |ctx: &Context| {
-        ctx.draw_line(
-            Vertical,
-            HalfSelector::Both,
-            LineSelector::Middle,
-            LineSelector::Middle,
-            ctx.get_stroke_width_pixels(Thickness::Level3),
-            0.0,
-            ctx.get_dash_effect(Vertical, 3),
-        );
+        ctx.draw_dashed_line(Vertical, Thickness::Level3, 4);
     }];
 
     // Half lines
@@ -1217,7 +1127,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             LineSelector::Left,
             stroke_width,
             stroke_width,
-            None,
         );
         ctx.draw_line(
             Orientation::Vertical,
@@ -1226,7 +1135,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             LineSelector::Right,
             stroke_width,
             stroke_width,
-            None,
         );
         ctx.draw_double_line(Horizontal, HalfSelector::Both);
     }];
@@ -1239,7 +1147,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             LineSelector::Left,
             stroke_width,
             stroke_width,
-            None,
         );
         ctx.draw_line(
             Orientation::Horizontal,
@@ -1248,7 +1155,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
             LineSelector::Right,
             stroke_width,
             stroke_width,
-            None,
         );
         ctx.draw_double_line(Vertical, HalfSelector::Both);
     }];
@@ -1266,7 +1172,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
                 line_selector1,
                 stroke_width,
                 stroke_width,
-                None,
             );
             ctx.draw_line(
                 Orientation::Vertical,
@@ -1275,7 +1180,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
                 line_selector1,
                 stroke_width,
                 stroke_width,
-                None,
             );
 
         }
@@ -1626,7 +1530,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
                             LineSelector::$lineselector,
                             ctx.get_stroke_width_pixels(Thickness::Level1),
                             ctx.get_stroke_width_pixels(Thickness::Level1),
-                            None,
                         );
                     }),
                 ));+
@@ -1658,7 +1561,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
                             LineSelector::Middle,
                             stroke_width,
                             stroke_width,
-                            None,
                         );
                         ctx.draw_line(
                             o,
@@ -1667,7 +1569,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
                             LineSelector::Left,
                             stroke_width,
                             stroke_width,
-                            None,
                         );
                         ctx.draw_line(
                             o,
@@ -1676,7 +1577,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
                             LineSelector::Right,
                             stroke_width,
                             stroke_width,
-                            None,
                         );
                         ctx.draw_line(
                             o.swap(),
@@ -1685,7 +1585,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
                             side,
                             stroke_width,
                             stroke_width,
-                            None,
                         );
                         ctx.draw_line(
                             o.swap(),
@@ -1694,7 +1593,6 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
                             side,
                             stroke_width,
                             stroke_width,
-                            None,
                         );
                     }),
                 ));+
