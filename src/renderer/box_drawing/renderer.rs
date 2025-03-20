@@ -1167,16 +1167,16 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
         ctx.draw_cross_line(Side::Right);
     }];
 
-    box_char!['', '◣' -> |ctx: &Context| {
+    box_char!['' -> |ctx: &Context| {
         ctx.draw_quarter_triangle(Corner::BottomLeft, Height::Tall);
     }];
-    box_char!['', '◢' -> |ctx: &Context| {
+    box_char!['' -> |ctx: &Context| {
         ctx.draw_quarter_triangle(Corner::BottomRight, Height::Tall);
     }];
-    box_char!['', '◤' -> |ctx: &Context| {
+    box_char!['' -> |ctx: &Context| {
         ctx.draw_quarter_triangle(Corner::TopLeft, Height::Tall);
     }];
-    box_char!['', '◥' -> |ctx: &Context| {
+    box_char!['' -> |ctx: &Context| {
         ctx.draw_quarter_triangle(Corner::TopRight, Height::Tall);
     }];
 
