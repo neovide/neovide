@@ -275,14 +275,6 @@ impl RenderedWindow {
         }
         canvas.restore();
 
-        let paint = Paint::default()
-            .set_anti_alias(false)
-            .set_blend_mode(BlendMode::SrcOver)
-            .to_owned();
-        let bound_rect = to_skia_rect(&pixel_region);
-        let save_layer_rec = SaveLayerRec::default().bounds(&bound_rect).paint(&paint);
-        canvas.save_layer(&save_layer_rec);
-
         for (mut matrix, line) in self.iter_border_lines_with_transform(pixel_region, grid_scale) {
             let line = line.borrow();
             if let Some((boxchar_picture, position)) = &line.boxchar_picture {
@@ -303,7 +295,6 @@ impl RenderedWindow {
                 canvas.draw_picture(boxchar_picture, Some(&matrix), None);
             }
         }
-        canvas.restore();
         canvas.restore();
     }
 
