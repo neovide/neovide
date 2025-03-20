@@ -23,9 +23,7 @@ trait LineAlignment {
 impl LineAlignment for f32 {
     fn align_mid_line(self, stroke_width: f32) -> Self {
         let rounded_stroke = stroke_width.round();
-        // Line positions are floored not rounded
-        // Determined experimentally
-        let rounded_pos = self.floor();
+        let rounded_pos = self.round();
         if rounded_stroke.to_i64().unwrap().is_odd() {
             rounded_pos + 0.5
         } else {
@@ -424,15 +422,22 @@ impl<'a> Context<'a> {
 
         let x1 = match which_half {
             HalfSelector::First | HalfSelector::Both => min.x,
-            HalfSelector::Last => mid.x + target_offset - 0.5 * target_stroke_width,
+            HalfSelector::Last => {
+                mid.x.align_mid_line(target_stroke_width) + target_offset
+                    - 0.5 * target_stroke_width
+            }
         };
 
         let x2 = match which_half {
             HalfSelector::Last | HalfSelector::Both => max.x,
-            HalfSelector::First => mid.x + target_offset + 0.5 * target_stroke_width,
+            HalfSelector::First => {
+                mid.x.align_mid_line(target_stroke_width)
+                    + target_offset
+                    + 0.5 * target_stroke_width
+            }
         };
 
-        let y = mid.y + offset;
+        let y = (mid.y + offset).align_mid_line(stroke_width);
 
         let (p1, p2) = if o == Orientation::Horizontal {
             (Point::new(x1, y), Point::new(x2, y))
