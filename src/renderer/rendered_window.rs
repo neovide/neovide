@@ -1,8 +1,6 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
-use skia_safe::{
-    canvas::SaveLayerRec, BlendMode, Canvas, Color, Matrix, Paint, Picture, PictureRecorder, Rect,
-};
+use skia_safe::{Canvas, Color, Matrix, Picture, PictureRecorder, Rect};
 
 use crate::{
     cmd_line::CmdLineSettings,
