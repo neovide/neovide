@@ -323,8 +323,7 @@ impl CursorVfx for ParticleTrail {
 
                 // Increase amount of particles when cursor travels further
                 let f_particle_count = ((travel_distance / cursor_dimensions.height)
-                    * settings.vfx_particle_density
-                    * 0.1)
+                    * settings.vfx_particle_density)
                     + self.count_reminder;
 
                 let particle_count = f_particle_count as usize;
