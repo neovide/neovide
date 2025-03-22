@@ -48,11 +48,11 @@ impl Default for CursorSettings {
     fn default() -> Self {
         CursorSettings {
             antialiasing: true,
-            animation_length: 0.06,
+            animation_length: 0.2,
             distance_length_adjust: true,
             animate_in_insert_mode: true,
             animate_command_line: true,
-            trail_size: 0.7,
+            trail_size: 0.4,
             unfocused_outline_width: 1.0 / 8.0,
             smooth_blink: false,
             vfx_mode: cursor_vfx::VfxMode::Disabled,
@@ -110,20 +110,15 @@ impl Corner {
             }
         }
 
-        // Check first if animation's over
-        if (self.t - 1.0).abs() < f32::EPSILON {
-            return false;
-        }
-
         // Calculate window-space destination for corner
         let relative_scaled_position = self.relative_position * cursor_dimensions;
 
         let corner_destination = destination + relative_scaled_position.to_vector();
-
-        if immediate_movement {
-            self.t = 1.0;
+        // Check first if animation's over
+        if self.t >= 1.0 || immediate_movement {
+            self.t = 2.0;
             self.current_position = corner_destination;
-            return true;
+            return false;
         }
 
         // Calculate how much a corner will be lagging behind based on how much it's aligned
@@ -137,26 +132,16 @@ impl Corner {
         let corner_direction = self.relative_position.as_vector().normalize().cast();
 
         let direction_alignment = travel_direction.dot(corner_direction);
-
-        if (self.t - 1.0).abs() < f32::EPSILON {
-            // We are at destination, move t out of 0-1 range to stop the animation
-            self.t = 2.0;
-        } else if direction_alignment <= 0.0 {
-            let corner_dt = dt
-                * lerp(
-                    1.0,
-                    (1.0 - settings.trail_size).clamp(0.0, 1.0),
-                    -direction_alignment,
-                );
-            self.t =
-                (self.t + corner_dt / (settings.animation_length * self.length_multiplier)).min(1.0)
-        } else {
-            // The front of the cursor jumps to the destination immediately
+        if direction_alignment > 0.0 {
+            // Never animate the leading edge of the cursor
             self.t = 1.0;
+        } else {
+            self.t += dt / settings.animation_length;
         }
-
+        self.t = self.t.min(1.0);
+        let trail_size = 1.0 - settings.trail_size.clamp(0.01, 0.99);
         self.current_position = ease_point(
-            ease_out_expo,
+            ease_out_parametric_expo(trail_size),
             self.start_position,
             corner_destination,
             self.t,
