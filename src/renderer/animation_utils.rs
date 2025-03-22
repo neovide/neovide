@@ -65,23 +65,47 @@ pub fn ease_out_expo(t: f32) -> f32 {
     }
 }
 
+fn scale_exp_param(param: f32) -> f32 {
+    100.0 * param.powf(3.0)
+}
+
+#[allow(dead_code)]
+pub fn ease_in_parametric_expo(param: f32) -> Box<dyn Fn(f32) -> f32> {
+    let p = scale_exp_param(param);
+    let denom = 1.0 - p.exp();
+    Box::new(move |t| (1.0 - (p * t)).exp() / denom)
+}
+
+#[allow(dead_code)]
+pub fn ease_out_parametric_expo(param: f32) -> Box<dyn Fn(f32) -> f32> {
+    let p = scale_exp_param(param);
+    let denom = 1.0 - p.exp();
+    Box::new(move |t| 1.0 - (1.0 - ((p * (1.0 - t)).exp())) / denom)
+}
+
 pub fn lerp(start: f32, end: f32, t: f32) -> f32 {
     start + (end - start) * t
 }
 
-pub fn ease(ease_func: fn(f32) -> f32, start: f32, end: f32, t: f32) -> f32 {
+pub fn ease<F>(ease_func: F, start: f32, end: f32, t: f32) -> f32
+where
+    F: Fn(f32) -> f32,
+{
     lerp(start, end, ease_func(t))
 }
 
-pub fn ease_point<T: Unit<Scalar = f32>>(
-    ease_func: fn(f32) -> f32,
+pub fn ease_point<T: Unit<Scalar = f32>, F>(
+    ease_func: F,
     start: Point2<T>,
     end: Point2<T>,
     t: f32,
-) -> Point2<T> {
+) -> Point2<T>
+where
+    F: Fn(f32) -> f32,
+{
     Point2::new(
-        ease(ease_func, start.x, end.x, t),
-        ease(ease_func, start.y, end.y, t),
+        ease(&ease_func, start.x, end.x, t),
+        ease(&ease_func, start.y, end.y, t),
     )
 }
 
