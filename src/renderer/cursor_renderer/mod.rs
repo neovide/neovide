@@ -58,7 +58,7 @@ impl Default for CursorSettings {
             vfx_mode: cursor_vfx::VfxMode::Disabled,
             vfx_opacity: 200.0,
             vfx_particle_lifetime: 1.2,
-            vfx_particle_density: 7.0,
+            vfx_particle_density: 0.7,
             vfx_particle_speed: 10.0,
             vfx_particle_phase: 1.5,
             vfx_particle_curl: 1.0,
