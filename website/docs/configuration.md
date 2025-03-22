@@ -832,17 +832,30 @@ this happens too often accidentally to you, set this to a higher value like `0.3
 VimScript:
 
 ```vim
-let g:neovide_cursor_animation_length = 0.13
+let g:neovide_cursor_animation_length = 0.2
 ```
 
 Lua:
 
 ```lua
-vim.g.neovide_cursor_animation_length = 0.13
+vim.g.neovide_cursor_animation_length = 0.2
 ```
 
 Setting `g:neovide_cursor_animation_length` determines the time it takes for the cursor to complete
-it's animation in seconds. Set to `0` to disable.
+its animation in seconds. Set to `0` to disable.
+
+Note that the perceived length is shorter than the configured one, and greatly depends on the
+animation trail size.
+
+Here are some example configurations you can try:
+
+| neovide_cursor_animation_length | neovide_cursor_trail_size | result |
+|---------------------------------|---------------------------|--------|
+| 0.75 | 0.5 | Almost like Neovide 0.14.1 and earlier |
+| 0.1  | 0.6 | Responsive, with a long streak to help tracking cursor movements |
+| 0.05 | 0.8 | More responsive version of the above |
+| 0.8  | 0.1 | Responsive with a short streak |
+| 0.2  | 0.4 | More responsive version of the above (default) |
 
 #### Animation Trail Size
 
@@ -855,17 +868,21 @@ it's animation in seconds. Set to `0` to disable.
 VimScript:
 
 ```vim
-let g:neovide_cursor_trail_size = 0.8
+let g:neovide_cursor_trail_size = 0.4
 ```
 
 Lua:
 
 ```lua
-vim.g.neovide_cursor_trail_size = 0.8
+vim.g.neovide_cursor_trail_size = 0.4
 ```
 
-Setting `g:neovide_cursor_trail_size` determines how much the trail of the cursor lags behind the
-front edge.
+Setting `g:neovide_cursor_trail_size` changes the acceleration profile of the cursor animation, so
+that the trail appears shorter or longer. The range is between 0.0 and 1.0, where 1.0 is a long
+trail, while 0 is a non-existent trail, effectively disabling the animation.
+
+See: [Animation Trail Size](#animation-trail-size) for some examples of how the values interact with
+each other.
 
 #### Antialiasing
 
