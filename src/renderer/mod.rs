@@ -33,7 +33,7 @@ use winit::{
 use crate::{
     bridge::EditorMode,
     cmd_line::CmdLineSettings,
-    editor::{Cursor, Style},
+    editor::{Cursor, Style, WindowType},
     profiling::{tracy_create_gpu_context, tracy_named_frame, tracy_zone},
     renderer::rendered_layer::{group_windows, FloatingLayer},
     settings::*,
@@ -258,12 +258,19 @@ impl Renderer {
             let mut last_zindex = 0;
             let mut current_windows = vec![];
 
+            let mut prev_is_message = false;
             for window in floating_windows {
                 let zindex = window.anchor_info.as_ref().unwrap().sort_order.z_index;
                 log::debug!("zindex: {}, base: {}", zindex, base_zindex);
-                if !current_windows.is_empty() && zindex != last_zindex {
+                let is_message = matches!(window.window_type, WindowType::Message { .. });
+                // NOTE: The message window is always on it's own layer
+                if !current_windows.is_empty() && zindex != last_zindex
+                    || is_message
+                    || prev_is_message
+                {
                     // Group floating windows by consecutive z indices if layer_grouping is enabled,
                     // Otherwise group all windows inside a single layer
+
                     if !layer_grouping || zindex - last_zindex > 1 {
                         for windows in group_windows(current_windows, grid_scale) {
                             floating_layers.push(FloatingLayer { windows });
@@ -271,6 +278,7 @@ impl Renderer {
                         current_windows = vec![];
                     }
                 }
+                prev_is_message = is_message;
 
                 if current_windows.is_empty() {
                     base_zindex = zindex;
