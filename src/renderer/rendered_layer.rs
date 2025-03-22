@@ -8,7 +8,10 @@ use skia_safe::{
 
 use glamour::Intersection;
 
-use crate::units::{to_skia_rect, GridScale, PixelRect};
+use crate::{
+    editor::WindowType,
+    units::{to_skia_rect, GridScale, PixelRect},
+};
 
 use super::{RenderedWindow, RendererSettings, WindowDrawDetails};
 
@@ -105,6 +108,14 @@ impl FloatingLayer<'_> {
 
     fn _draw_shadow(&self, root_canvas: &Canvas, path: &Path, settings: &RendererSettings) {
         if !settings.floating_shadow {
+            return;
+        }
+        // Assume that the message window is the only one in the layer
+        if self
+            .windows
+            .first()
+            .is_some_and(|w| matches!(w.window_type, WindowType::Message { scrolled: false }))
+        {
             return;
         }
 

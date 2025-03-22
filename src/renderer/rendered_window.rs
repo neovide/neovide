@@ -76,7 +76,7 @@ pub struct RenderedWindow {
     valid: bool,
     pub hidden: bool,
     pub anchor_info: Option<AnchorInfo>,
-    window_type: WindowType,
+    pub window_type: WindowType,
 
     pub grid_size: GridSize<u32>,
 
