@@ -67,7 +67,7 @@ log = "0.4.22"
 lru = "0.13.0"
 neovide-derive = { path = "neovide-derive", version = "0.1.2" }
 num = "0.4.3"
-nvim-rs = { version = "0.7.0", features = ["use_tokio"] }
+nvim-rs = { version = "0.9.2", features = ["use_tokio"] }
 parking_lot = "0.12.3"
 rand = "0.9.0"
 raw-window-handle = "0.6.2"
@@ -143,6 +143,9 @@ objc2-metal = { version = "0.2.2", default-features = false, features = [
     "MTLCommandBuffer",
 ] }
 skia-safe = { version = "0.81.0", features = ["metal", "gl", "textlayout"] }
+uzers = "0.12.1"
+
+
 [target.'cfg(not(any(target_os = "windows", target_os = "macos")))'.dependencies]
 skia-safe = { version = "0.81.0", features = ["gl", "textlayout"] }
 

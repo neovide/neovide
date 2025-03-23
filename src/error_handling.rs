@@ -63,7 +63,6 @@ This is the error that caused the crash. In case you don't know what to do with 
 
 {err:?}"
     );
-    log::error!("{}", msg);
     msg
 }
 
@@ -79,7 +78,8 @@ pub fn handle_startup_errors(
         let _ = clap_error.print();
         ExitCode::from(clap_error.exit_code() as u8)
     } else if stdout().is_terminal() {
-        eprintln!("{}", &format_and_log_error_message(err));
+        // The logger already writes to stderr
+        log::error!("{}", &format_and_log_error_message(err));
         ExitCode::from(1)
     } else {
         show_error_window(&format_and_log_error_message(err), event_loop, settings);
