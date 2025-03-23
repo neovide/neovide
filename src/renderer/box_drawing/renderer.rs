@@ -12,7 +12,7 @@ use skia_safe::{
 };
 
 use crate::renderer::fonts::font_options::points_to_pixels;
-use crate::units::{to_skia_rect, PixelRect, PixelSize, PixelVec};
+use crate::units::{to_skia_point, to_skia_rect, PixelRect, PixelSize, PixelVec};
 use crate::units::{Pixel, PixelPos};
 
 trait LineAlignment {
@@ -219,6 +219,69 @@ impl<'a> Context<'a> {
         fg.set_style(PaintStyle::Fill);
         fg.set_anti_alias(true);
         self.canvas.draw_path(&path, &fg);
+    }
+
+    fn draw_trapezoid_with_gap(&self, corner: Corner, gap_thickness: Thickness) {
+        let gap_offset = self.get_stroke_width_pixels(gap_thickness) * 0.5;
+        let short_side_width = self.bounding_box.size().width / 3.0;
+        let height = self.bounding_box.size().height;
+        let center_y = self.bounding_box.center().y;
+        let top_left = self.bounding_box.min;
+        let bottom_right = self.bounding_box.max;
+        let top_right = top_left.with_x(bottom_right.x);
+        let bottom_left = top_left.with_y(bottom_right.y);
+        let vertices: [PixelPos<f32>; 4] = match corner {
+            Corner::TopLeft => {
+                let middle_point =
+                    top_left.translate(Vector2::new(short_side_width, center_y - gap_offset));
+                [
+                    top_left,
+                    top_right,
+                    middle_point,
+                    middle_point.with_x(top_left.x),
+                ]
+            }
+            Corner::TopRight => {
+                let middle_point =
+                    top_right.translate(Vector2::new(-short_side_width, center_y - gap_offset));
+                [
+                    top_right,
+                    middle_point.with_x(bottom_right.x),
+                    middle_point,
+                    top_left,
+                ]
+            }
+            Corner::BottomRight => {
+                let middle_point = bottom_right
+                    .translate(Vector2::new(-short_side_width, -height * 0.5 + gap_offset));
+                [
+                    bottom_right,
+                    bottom_left,
+                    middle_point,
+                    middle_point.with_x(top_right.x),
+                ]
+            }
+            Corner::BottomLeft => {
+                let middle_point = bottom_left
+                    .translate(Vector2::new(short_side_width, -height * 0.5 + gap_offset));
+                [
+                    bottom_left,
+                    middle_point.with_x(top_left.x),
+                    middle_point,
+                    bottom_right,
+                ]
+            }
+        };
+        let mut path = Path::default();
+        path.move_to(to_skia_point(vertices[0]));
+        for v in &vertices[1..] {
+            path.line_to(to_skia_point(*v));
+        }
+        path.close();
+
+        let mut paint = self.fg_paint();
+        paint.set_anti_alias(true);
+        self.canvas.draw_path(&path, &paint);
     }
 
     fn draw_half_cross_line(&self, start_corner: Corner) {
@@ -1005,17 +1068,26 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
     box_char!['' -> |ctx: &Context| {
         ctx.draw_arrow(Side::Right);
     }];
+    box_char!['' -> |ctx: &Context| {
+        ctx.draw_arrow(Side::Left);
+    }];
     box_char!['' -> |ctx: &Context| {
         ctx.draw_quarter_triangle(Corner::TopRight, Height::Short);
         ctx.draw_quarter_triangle(Corner::BottomRight, Height::Short);
-    }];
-    box_char!['' -> |ctx: &Context| {
-        ctx.draw_arrow(Side::Left);
     }];
     box_char!['' -> |ctx: &Context| {
         ctx.draw_quarter_triangle(Corner::TopLeft, Height::Short);
         ctx.draw_quarter_triangle(Corner::BottomLeft, Height::Short);
     }];
+    box_char!['' -> |ctx: &Context| {
+        ctx.draw_trapezoid_with_gap(Corner::TopLeft, Thickness::Level3);
+        ctx.draw_trapezoid_with_gap(Corner::BottomLeft, Thickness::Level3);
+    }];
+    box_char!['' -> |ctx: &Context| {
+        ctx.draw_trapezoid_with_gap(Corner::TopRight, Thickness::Level3);
+        ctx.draw_trapezoid_with_gap(Corner::BottomRight, Thickness::Level3);
+    }];
+
     box_char!['' -> |ctx: &Context| {
         ctx.draw_half_cross_line(Corner::TopLeft);
         ctx.draw_half_cross_line(Corner::BottomLeft);

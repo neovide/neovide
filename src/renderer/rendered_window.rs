@@ -139,11 +139,10 @@ impl RenderedWindow {
     }
 
     pub fn pixel_region(&self, grid_scale: GridScale) -> PixelRect<f32> {
-        // Round to the same fraction as the desination to avoid glitches when rendering box
-        // characters.
-        let fract = (self.grid_destination * grid_scale).fract();
-        let pos = (self.grid_current_position * grid_scale - fract).round() + fract.to_vector();
-        PixelRect::<f32>::from_origin_and_size(pos.into(), self.grid_size * grid_scale)
+        GridRect::<f32>::from_origin_and_size(
+            self.grid_current_position,
+            self.grid_size.try_cast().unwrap(),
+        ) * grid_scale
     }
 
     fn get_target_position(&self, grid_rect: &GridRect<f32>) -> GridPos<f32> {
