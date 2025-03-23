@@ -56,7 +56,11 @@ impl GridRenderer {
             default_style,
             em_size,
             grid_scale,
-            box_char_renderer: box_drawing::Renderer::new(cell_size, BoxDrawingSettings::default()),
+            box_char_renderer: box_drawing::Renderer::new(
+                cell_size,
+                em_size,
+                BoxDrawingSettings::default(),
+            ),
             is_ready: false,
 
             settings,
@@ -95,7 +99,8 @@ impl GridRenderer {
         self.em_size = self.shaper.current_size();
         self.grid_scale = GridScale::new(self.shaper.font_base_dimensions());
         let new_cell_size = GridSize::new(1, 1) * self.grid_scale;
-        self.box_char_renderer.update_dimensions(new_cell_size);
+        self.box_char_renderer
+            .update_dimensions(new_cell_size, self.em_size);
         self.is_ready = true;
         trace!("Updated font dimensions: {:?}", self.grid_scale);
     }

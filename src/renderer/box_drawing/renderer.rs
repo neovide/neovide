@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::f32::consts::PI;
 use std::sync::LazyLock;
 
-use super::settings::{BoxDrawingMode, BoxDrawingSettings, ThicknessMultipliers};
+use super::settings::{BoxDrawingMode, BoxDrawingSettings, LineSizes};
 use glamour::{Box2, Size2, Vector2};
 use itertools::Itertools;
 use num::{Integer, ToPrimitive};
@@ -11,7 +11,6 @@ use skia_safe::{
     PathFillType, Point, Rect, Size,
 };
 
-use crate::renderer::fonts::font_options::points_to_pixels;
 use crate::units::{to_skia_point, to_skia_rect, PixelRect, PixelSize, PixelVec};
 use crate::units::{Pixel, PixelPos};
 
@@ -54,6 +53,7 @@ pub struct Context<'a> {
     settings: &'a BoxDrawingSettings,
     bounding_box: PixelRect<f32>,
     color_fg: Color,
+    em_size: f32,
 }
 
 impl<'a> Context<'a> {
@@ -62,21 +62,33 @@ impl<'a> Context<'a> {
         settings: &'a BoxDrawingSettings,
         bounding_box: PixelRect<f32>,
         color_fg: Color,
+        em_size: f32,
     ) -> Self {
         Context {
             canvas,
             settings,
             bounding_box,
             color_fg,
+            em_size,
         }
     }
 
     fn get_stroke_width_pixels(&self, t: Thickness) -> f32 {
-        let base_stroke_size =
-            self.bounding_box.size().width * self.settings.stroke_width_ratio.unwrap_or(0.15);
-        points_to_pixels(t.scale_factor(self.settings.thickness_multipliers) * base_stroke_size)
-            .round()
-            .max(1.0)
+        let v = t
+            .resolve_pixel_size(
+                self.em_size,
+                self.settings
+                    .sizes
+                    .as_ref()
+                    .unwrap_or(&LineSizes::default()),
+            )
+            .max(1.0);
+        log::error!(
+            "Resolved stroke width: {:?} for em_size: {}, thickness: {t:?}",
+            v,
+            self.em_size
+        );
+        v
     }
 
     fn fg_paint(&self) -> Paint {
@@ -94,7 +106,7 @@ impl<'a> Context<'a> {
             which_half,
             LineSelector::Middle,
             LineSelector::Middle,
-            self.get_stroke_width_pixels(Thickness::Level1),
+            self.get_stroke_width_pixels(Thickness::Thin),
             0.0,
         );
     }
@@ -105,7 +117,7 @@ impl<'a> Context<'a> {
             which_half,
             LineSelector::Middle,
             LineSelector::Middle,
-            self.get_stroke_width_pixels(Thickness::Level3),
+            self.get_stroke_width_pixels(Thickness::Thick),
             0.0,
         );
     }
@@ -138,7 +150,7 @@ impl<'a> Context<'a> {
         let mut mid = self.bounding_box.center();
         mid.y = mid
             .y
-            .align_mid_line(self.get_stroke_width_pixels(Thickness::Level1));
+            .align_mid_line(self.get_stroke_width_pixels(Thickness::Thin));
         path.set_fill_type(PathFillType::Winding);
         match side {
             Side::Left => {
@@ -166,7 +178,7 @@ impl<'a> Context<'a> {
         let mid = self
             .bounding_box
             .center()
-            .align_mid_line(self.get_stroke_width_pixels(Thickness::Level1));
+            .align_mid_line(self.get_stroke_width_pixels(Thickness::Thin));
         path.set_fill_type(PathFillType::Winding);
         match corner {
             Corner::TopLeft => {
@@ -288,7 +300,7 @@ impl<'a> Context<'a> {
         let mut path = Path::default();
         let min = self.bounding_box.min.align_outside();
         let max = self.bounding_box.max.align_outside();
-        let stroke_width = self.get_stroke_width_pixels(Thickness::Level2);
+        let stroke_width = self.get_stroke_width_pixels(Thickness::Thin);
         let mid = self.bounding_box.center().align_mid_line(stroke_width);
         match start_corner {
             Corner::TopLeft => {
@@ -318,7 +330,7 @@ impl<'a> Context<'a> {
     fn draw_d(&self, side: Side, fill: PaintStyle, close_path: bool) {
         let mut path = Path::default();
         let bounds = self.bounding_box;
-        let stroke_width = self.get_stroke_width_pixels(Thickness::Level2);
+        let stroke_width = self.get_stroke_width_pixels(Thickness::Thin);
         let mut radius = (bounds.size().width).min(bounds.size().height / 2.0);
         // Leave a small gap between the circles, and also allow them to move a bit to the side
         // depending on the pixel alignment of the cell.
@@ -361,7 +373,7 @@ impl<'a> Context<'a> {
     }
 
     fn draw_cross_line(&self, side: Side) {
-        let stroke_width = self.get_stroke_width_pixels(Thickness::Level2);
+        let stroke_width = self.get_stroke_width_pixels(Thickness::Thin);
         let min = self.bounding_box.min;
         let max = self.bounding_box.max;
         // The bounding box needs to be extended slightly to the sides, so that thick lines and
@@ -394,7 +406,7 @@ impl<'a> Context<'a> {
 
     fn draw_progress(&self, section: Section, fill: PaintStyle) {
         let bounds = to_skia_rect(&self.bounding_box);
-        let t: f32 = self.get_stroke_width_pixels(Thickness::Level1);
+        let t: f32 = self.get_stroke_width_pixels(Thickness::Thin);
         let clip_rect = match section {
             Section::Left => bounds.with_inset((0., t)).with_offset((t, 0.)),
             Section::Middle => bounds.with_inset((0., t)),
@@ -422,7 +434,7 @@ impl<'a> Context<'a> {
     }
 
     fn draw_double_line(&self, o: Orientation, which_half: HalfSelector) {
-        let stroke_width = self.get_stroke_width_pixels(Thickness::Level1);
+        let stroke_width = self.get_stroke_width_pixels(Thickness::Thin);
         self.draw_line(
             o,
             which_half,
@@ -675,7 +687,7 @@ impl<'a> Context<'a> {
     }
 
     fn draw_rounded_corner(&self, corner: Corner) {
-        let stroke_width = self.get_stroke_width_pixels(Thickness::Level1);
+        let stroke_width = self.get_stroke_width_pixels(Thickness::Thin);
         let mut path = Path::new();
         let (mut x1, mut y1, mut x2, mut y2) = match corner {
             Corner::TopLeft => (
@@ -852,11 +864,10 @@ enum Section {
     Right,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 enum Thickness {
-    Level1,
-    Level2,
-    Level3,
+    Thin,
+    Thick,
 }
 
 #[derive(Clone, Copy)]
@@ -866,12 +877,20 @@ enum LineStyle {
 }
 
 impl Thickness {
-    fn scale_factor(self, mult: Option<ThicknessMultipliers>) -> f32 {
-        let ThicknessMultipliers(mult) = mult.unwrap_or_default();
+    fn resolve_pixel_size(&self, em_size: f32, LineSizes(ref sizes): &LineSizes) -> f32 {
+        let sorted_intervals = sizes.keys().flat_map(|k| k.parse::<u16>().ok()).sorted();
+        let mut selected: Option<&(u16, u16)> = sizes.get("default");
+        for i in sorted_intervals {
+            if em_size >= i as f32 {
+                selected = sizes.get(&i.to_string());
+            } else {
+                break;
+            }
+        }
+        let (thin, thick) = selected.copied().unwrap_or((1, 2));
         match self {
-            Thickness::Level1 => mult[0],
-            Thickness::Level2 => mult[1],
-            Thickness::Level3 => mult[2],
+            Thickness::Thin => thin as f32,
+            Thickness::Thick => thick as f32,
         }
     }
 }
@@ -986,41 +1005,41 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
         ctx.draw_fg_line3(Vertical, HalfSelector::Both);
     }];
     box_char!['╌' -> |ctx: &Context| {
-        ctx.draw_dashed_line(Horizontal, Thickness::Level1, 2);
+        ctx.draw_dashed_line(Horizontal, Thickness::Thin, 2);
     }];
     box_char!['╍' -> |ctx: &Context| {
-        ctx.draw_dashed_line(Horizontal, Thickness::Level3, 2);
+        ctx.draw_dashed_line(Horizontal, Thickness::Thick, 2);
     }];
     box_char!['┄' -> |ctx: &Context| {
-        ctx.draw_dashed_line(Horizontal, Thickness::Level1, 3);
+        ctx.draw_dashed_line(Horizontal, Thickness::Thin, 3);
     }];
     box_char!['┅' -> |ctx: &Context| {
-        ctx.draw_dashed_line(Horizontal, Thickness::Level3, 3);
+        ctx.draw_dashed_line(Horizontal, Thickness::Thick, 3);
     }];
     box_char!['┈' -> |ctx: &Context| {
-        ctx.draw_dashed_line(Horizontal, Thickness::Level1, 4);
+        ctx.draw_dashed_line(Horizontal, Thickness::Thin, 4);
     }];
     box_char!['┉' -> |ctx: &Context| {
-        ctx.draw_dashed_line(Horizontal, Thickness::Level3, 4);
+        ctx.draw_dashed_line(Horizontal, Thickness::Thick, 4);
     }];
 
     box_char!['╎' -> |ctx: &Context| {
-        ctx.draw_dashed_line(Vertical, Thickness::Level1, 2);
+        ctx.draw_dashed_line(Vertical, Thickness::Thin, 2);
     }];
     box_char!['╏' -> |ctx: &Context| {
-        ctx.draw_dashed_line(Vertical, Thickness::Level3, 2);
+        ctx.draw_dashed_line(Vertical, Thickness::Thick, 2);
     }];
     box_char!['┆' -> |ctx: &Context| {
-        ctx.draw_dashed_line(Vertical, Thickness::Level1, 3);
+        ctx.draw_dashed_line(Vertical, Thickness::Thin, 3);
     }];
     box_char!['┇' -> |ctx: &Context| {
-        ctx.draw_dashed_line(Vertical, Thickness::Level3, 3);
+        ctx.draw_dashed_line(Vertical, Thickness::Thick, 3);
     }];
     box_char!['┊' -> |ctx: &Context| {
-        ctx.draw_dashed_line(Vertical, Thickness::Level1, 4);
+        ctx.draw_dashed_line(Vertical, Thickness::Thin, 4);
     }];
     box_char!['┋' -> |ctx: &Context| {
-        ctx.draw_dashed_line(Vertical, Thickness::Level3, 4);
+        ctx.draw_dashed_line(Vertical, Thickness::Thick, 4);
     }];
 
     // Half lines
@@ -1080,12 +1099,12 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
         ctx.draw_quarter_triangle(Corner::BottomLeft, Height::Short);
     }];
     box_char!['' -> |ctx: &Context| {
-        ctx.draw_trapezoid_with_gap(Corner::TopLeft, Thickness::Level3);
-        ctx.draw_trapezoid_with_gap(Corner::BottomLeft, Thickness::Level3);
+        ctx.draw_trapezoid_with_gap(Corner::TopLeft, Thickness::Thick);
+        ctx.draw_trapezoid_with_gap(Corner::BottomLeft, Thickness::Thick);
     }];
     box_char!['' -> |ctx: &Context| {
-        ctx.draw_trapezoid_with_gap(Corner::TopRight, Thickness::Level3);
-        ctx.draw_trapezoid_with_gap(Corner::BottomRight, Thickness::Level3);
+        ctx.draw_trapezoid_with_gap(Corner::TopRight, Thickness::Thick);
+        ctx.draw_trapezoid_with_gap(Corner::BottomRight, Thickness::Thick);
     }];
 
     box_char!['' -> |ctx: &Context| {
@@ -1162,7 +1181,7 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
         ctx.draw_double_line(Vertical, HalfSelector::Both);
     });
     box_char!['╪' -> |ctx: &Context| {
-        let stroke_width = ctx.get_stroke_width_pixels(Thickness::Level1);
+        let stroke_width = ctx.get_stroke_width_pixels(Thickness::Thin);
         ctx.draw_line(
             Orientation::Vertical,
             HalfSelector::First,
@@ -1182,7 +1201,7 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
         ctx.draw_double_line(Horizontal, HalfSelector::Both);
     }];
     box_char!['╫' -> |ctx: &Context| {
-        let stroke_width = ctx.get_stroke_width_pixels(Thickness::Level1);
+        let stroke_width = ctx.get_stroke_width_pixels(Thickness::Thin);
         ctx.draw_line(
             Orientation::Horizontal,
             HalfSelector::First,
@@ -1202,7 +1221,7 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
         ctx.draw_double_line(Vertical, HalfSelector::Both);
     }];
     box_char!['╬' -> |ctx: &Context| {
-        let stroke_width = ctx.get_stroke_width_pixels(Thickness::Level1);
+        let stroke_width = ctx.get_stroke_width_pixels(Thickness::Thin);
         let halfs = [LineSelector::Left, LineSelector::Right];
         for (side1, side2) in halfs.iter().cartesian_product(halfs.iter()) {
             let line_selector1 = *side1;
@@ -1472,7 +1491,7 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
 
     // T joints
     {
-        use Thickness::{Level1 as t1, Level3 as t3};
+        use Thickness::{Thick as t3, Thin as t1};
         macro_rules! t_or_cross_joint {
             ($($ch:literal -> $north:ident, $east:ident, $south:ident, $west:ident)+) => {
                 $(m.insert(
@@ -1581,8 +1600,8 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
                             HalfSelector::$halfselector,
                             LineSelector::Middle,
                             LineSelector::$lineselector,
-                            ctx.get_stroke_width_pixels(Thickness::Level1),
-                            ctx.get_stroke_width_pixels(Thickness::Level1),
+                            ctx.get_stroke_width_pixels(Thickness::Thin),
+                            ctx.get_stroke_width_pixels(Thickness::Thin),
                         );
                     }),
                 ));+
@@ -1604,7 +1623,7 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
                 $(m.insert(
                     $ch,
                     Box::new(move |ctx: &Context| {
-                        let stroke_width = ctx.get_stroke_width_pixels(Thickness::Level1);
+                        let stroke_width = ctx.get_stroke_width_pixels(Thickness::Thin);
                         let o = Orientation::$orientation;
                         let side = LineSelector::$side;
                         ctx.draw_line(
@@ -1687,9 +1706,9 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
     // ┗━┛
     {
         use Corner::*;
-        let t1 = LineStyle::Single(Thickness::Level1);
-        let t3 = LineStyle::Single(Thickness::Level3);
-        let d = LineStyle::Double(Thickness::Level1);
+        let t1 = LineStyle::Single(Thickness::Thin);
+        let t3 = LineStyle::Single(Thickness::Thick);
+        let d = LineStyle::Double(Thickness::Thin);
         macro_rules! corner {
             ($($ch:literal -> $corner:ident, $horiz:ident, $vert:ident)+) => {
                 $(m.insert(
@@ -1747,26 +1766,25 @@ pub fn is_box_char(text: &str) -> bool {
 pub struct Renderer {
     settings: BoxDrawingSettings,
     cell_size: Size2<Pixel<f32>>,
+    em_size: f32,
 }
 
 impl Renderer {
-    pub fn new(cell_size: Size2<Pixel<f32>>, settings: BoxDrawingSettings) -> Self {
+    pub fn new(cell_size: Size2<Pixel<f32>>, em_size: f32, settings: BoxDrawingSettings) -> Self {
         Self {
             settings,
             cell_size,
+            em_size,
         }
     }
 
-    pub fn update_dimensions(&mut self, new_cell_size: Size2<Pixel<f32>>) {
-        if self.cell_size != new_cell_size {
-            self.cell_size = new_cell_size;
-        }
+    pub fn update_dimensions(&mut self, new_cell_size: Size2<Pixel<f32>>, em_size: f32) {
+        self.cell_size = new_cell_size;
+        self.em_size = em_size;
     }
 
     pub fn update_settings(&mut self, settings: BoxDrawingSettings) {
-        if self.settings != settings {
-            self.settings = settings;
-        }
+        self.settings = settings;
     }
 
     pub fn draw_glyph(
@@ -1825,7 +1843,7 @@ impl Renderer {
                 self.cell_size,
             )) + PixelVec::new(window_pos.x, 0.0);
             canvas.clip_rect(to_skia_rect(&rect), None, Some(false));
-            let ctx = Context::new(canvas, &self.settings, rect, color_fg);
+            let ctx = Context::new(canvas, &self.settings, rect, color_fg, self.em_size);
             (draw_fn)(&ctx);
             canvas.restore();
         }

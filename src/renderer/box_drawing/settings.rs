@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize, Default, Clone, PartialEq, Eq)]
@@ -19,15 +21,24 @@ pub enum BoxDrawingMode {
 pub struct BoxDrawingSettings {
     pub mode: Option<BoxDrawingMode>,
     pub selected: Option<String>,
-    pub thickness_multipliers: Option<ThicknessMultipliers>,
-    pub stroke_width_ratio: Option<f32>,
+    pub sizes: Option<LineSizes>,
 }
 
-#[derive(Debug, Deserialize, Clone, Copy, PartialEq)]
-pub struct ThicknessMultipliers(pub [f32; 3]);
+#[derive(Debug, Deserialize, Clone, PartialEq)]
+pub struct LineSizes(pub HashMap<String, (u16, u16)>);
 
-impl Default for ThicknessMultipliers {
+impl Default for LineSizes {
     fn default() -> Self {
-        Self([1.0, 1.5, 2.0])
+        Self(
+            [
+                ("default", (1_u16, 3_u16)), // Thin and thick values respectively, below size 12
+                ("12", (1, 2)),              // Size 12 to 13.9999
+                ("14", (2, 4)),
+                ("18", (3, 6)),
+            ]
+            .into_iter()
+            .map(|(k, s)| (k.to_string(), s))
+            .collect(),
+        )
     }
 }
