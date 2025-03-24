@@ -558,19 +558,17 @@ mode = "native"
 The width of the lines drawn can be further controlled using the following settings (defaults shown):
 
 ```toml
-[box-drawing]
-stroke-width-ratio = 0.15
-thickness-multipliers = [1.0, 1.5, 2.0]
+[box-drawing.sizes]
+default = [1, 3]  # Thin and thick values respectively, below size 12
+12 = [1, 2]       # Size 12 to 13.9999
+14 = [2, 4]
+18 = [3, 6]
 ```
-
-- `stroke-width-ratio` is the base line width of lines. It is specified as a fraction of cell width.
-  For example, `1.0` would mean lines would take up the entire cell.
-- `thickness-multipliers` is used to scale the line width when drawing thicker lines. It accepts a
-  list of three numbers. The correspond to scaling factor for `thin`, `medium` and `thick` lines.
-  Thus, the default values result in the following widths (in points):
-  - `thin`   -> 1.0 \* 0.15 \* `cell_width`
-  - `medium` -> 1.5 \* 0.15 \* `cell_width`
-  - `thick`  -> 2.0 \* 0.15 \* `cell_width`
+The `sizes` settings maps font sizes the thickness (in pixels) for thin and thick lines
+respectively. For example, if you are using a font with size 15px and with the above default
+settings, Neovide to draw thin lines with width 2px and thick lines with width 4px. This settings
+only needs changing if you find that at certain font sizes the box characters seem too thick or too
+thin to your liking.
 
 ### Functionality
 
