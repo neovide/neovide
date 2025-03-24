@@ -85,6 +85,7 @@ pub fn ease_point<T: Unit<Scalar = f32>>(
     )
 }
 
+#[derive(Clone)]
 pub struct CriticallyDampedSpringAnimation {
     pub position: f32,
     velocity: f32,
