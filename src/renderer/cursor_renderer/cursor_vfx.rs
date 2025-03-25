@@ -170,7 +170,9 @@ impl CursorVfx for PointHighlight {
         dt: f32,
     ) -> bool {
         self.center_position = current_cursor_destination;
-        if settings.vfx_particle_lifetime > 0.0 {
+        if settings.vfx_particle_highlight_lifetime > 0.0 {
+            self.t = (self.t + dt * (1.0 / settings.vfx_particle_highlight_lifetime)).min(1.0);
+        } else if settings.vfx_particle_lifetime > 0.0 {
             self.t = (self.t + dt * (1.0 / settings.vfx_particle_lifetime)).min(1.0);
         } else {
             self.t = 1.0
