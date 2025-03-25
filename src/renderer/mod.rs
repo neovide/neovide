@@ -226,10 +226,8 @@ impl Renderer {
         };
         let default_background = self.grid_renderer.get_default_background(normal_opacity);
         let grid_scale = self.grid_renderer.grid_scale;
-
         let opacity = window_settings.opacity;
-        let background_transparency =
-            { window_settings.background_transparency } * window_settings.opacity;
+        let background_transparency = window_settings.background_transparency;
 
         let layer_grouping = self
             .settings
