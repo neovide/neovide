@@ -1,6 +1,6 @@
 use log::error;
 use nvim_rs::Value;
-use skia_safe::{paint::Style, BlendMode, Canvas, Color, Paint, Rect};
+use skia_safe::{BlendMode, Canvas, Color, Paint, Rect, paint::Style};
 
 use crate::{
     editor::Cursor,
@@ -78,7 +78,11 @@ impl ParseFromValue for VfxMode {
 
 impl ParseFromValue for VfxModeList {
     fn parse_from_value(&mut self, value: Value) {
-        if value.is_array() {
+        if value.is_str() {
+            let mut vfx_mode = VfxMode::Disabled;
+            vfx_mode.parse_from_value(value);
+            self.0.push(vfx_mode);
+        } else if value.is_array() {
             for item in value.as_array().unwrap() {
                 if item.is_str() {
                     let mut vfx_mode = VfxMode::Disabled;

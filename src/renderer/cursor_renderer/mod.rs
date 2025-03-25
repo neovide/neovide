@@ -35,7 +35,7 @@ pub struct CursorSettings {
     unfocused_outline_width: f32,
     smooth_blink: bool,
 
-    vfx_modes: cursor_vfx::VfxModeList,
+    vfx_mode: cursor_vfx::VfxModeList,
     vfx_opacity: f32,
     vfx_particle_lifetime: f32,
     vfx_particle_density: f32,
@@ -55,7 +55,7 @@ impl Default for CursorSettings {
             trail_size: 0.7,
             unfocused_outline_width: 1.0 / 8.0,
             smooth_blink: false,
-            vfx_modes: cursor_vfx::VfxModeList::default(),
+            vfx_mode: cursor_vfx::VfxModeList::default(),
             vfx_opacity: 200.0,
             vfx_particle_lifetime: 1.2,
             vfx_particle_density: 7.0,
@@ -175,7 +175,7 @@ pub struct CursorRenderer {
     previous_cursor_shape: Option<CursorShape>,
     previous_editor_mode: EditorMode,
     cursor_vfxs: Vec<Box<dyn cursor_vfx::CursorVfx>>,
-    previous_vfx_modes: cursor_vfx::VfxModeList,
+    previous_vfx_mode: cursor_vfx::VfxModeList,
     window_has_focus: bool,
 
     settings: Arc<Settings>,
@@ -192,7 +192,7 @@ impl CursorRenderer {
             previous_cursor_shape: None,
             previous_editor_mode: EditorMode::Normal,
             cursor_vfxs: vec![],
-            previous_vfx_modes: cursor_vfx::VfxModeList::default(),
+            previous_vfx_mode: cursor_vfx::VfxModeList::default(),
             window_has_focus: true,
 
             settings,
@@ -272,8 +272,8 @@ impl CursorRenderer {
         };
         if new_cursor_pos != self.previous_cursor_position {
             self.previous_cursor_position = new_cursor_pos;
-            if let Some(cursor_vfx) = &mut self.cursor_vfx {
-                cursor_vfx.cursor_jumped(self.destination);
+             for vfx in self.cursor_vfxs.iter_mut() {
+                vfx.cursor_jumped(self.destination);
             }
         }
     }
@@ -359,9 +359,9 @@ impl CursorRenderer {
         }
         let settings = self.settings.get::<CursorSettings>();
 
-        if settings.vfx_modes != self.previous_vfx_modes {
-            self.cursor_vfxs = cursor_vfx::new_cursor_vfxs(&settings.vfx_modes);
-            self.previous_vfx_modes = settings.vfx_modes.clone();
+        if settings.vfx_mode != self.previous_vfx_mode {
+            self.cursor_vfxs = cursor_vfx::new_cursor_vfxs(&settings.vfx_mode);
+            self.previous_vfx_mode = settings.vfx_mode.clone();
         }
 
         let mut cursor_width = grid_renderer.grid_scale.width();
