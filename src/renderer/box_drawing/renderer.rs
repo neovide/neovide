@@ -83,11 +83,6 @@ impl<'a> Context<'a> {
                     .unwrap_or(&LineSizes::default()),
             )
             .max(1.0);
-        log::error!(
-            "Resolved stroke width: {:?} for em_size: {}, thickness: {t:?}",
-            v,
-            self.em_size
-        );
         v
     }
 
