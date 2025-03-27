@@ -31,10 +31,7 @@ impl Default for LineSizes {
     fn default() -> Self {
         Self(
             [
-                ("default", (1_u16, 3_u16)), // Thin and thick values respectively, below size 12
-                ("12", (1, 2)),              // Size 12 to 13.9999
-                ("14", (2, 4)),
-                ("18", (3, 6)),
+                ("default", (2, 4)), // Thin and thick values respectively
             ]
             .into_iter()
             .map(|(k, s)| (k.to_string(), s))
