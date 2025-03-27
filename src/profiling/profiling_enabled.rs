@@ -111,6 +111,7 @@ impl _Zone {
                 function.len(),
                 name.as_ptr() as *const c_char,
                 name.len(),
+                0xFFFFFFFF,
             )
         };
         let context = unsafe { ___tracy_emit_zone_begin_alloc(srcloc, 1) };

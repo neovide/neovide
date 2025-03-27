@@ -26,8 +26,8 @@ use crate::{
         create_skia_renderer, DrawCommand, Renderer, RendererSettingsChanged, SkiaRenderer, VSync,
     },
     settings::{
-        clamped_grid_size, FontSettings, HotReloadConfigs, Settings, SettingsChanged,
-        DEFAULT_GRID_SIZE, MIN_GRID_SIZE,
+        clamped_grid_size, Config, HotReloadConfigs, Settings, SettingsChanged, DEFAULT_GRID_SIZE,
+        MIN_GRID_SIZE,
     },
     units::{GridRect, GridSize, PixelPos, PixelSize},
     window::{create_window, PhysicalSize, ShouldRender, WindowSize},
@@ -104,11 +104,11 @@ pub struct WinitWindowWrapper {
 impl WinitWindowWrapper {
     pub fn new(
         initial_window_size: WindowSize,
-        initial_font_settings: Option<FontSettings>,
+        initial_config: Config,
         settings: Arc<Settings>,
     ) -> Self {
         let saved_inner_size = Default::default();
-        let renderer = Renderer::new(1.0, initial_font_settings, settings.clone());
+        let renderer = Renderer::new(1.0, initial_config, settings.clone());
 
         Self {
             skia_renderer: None,

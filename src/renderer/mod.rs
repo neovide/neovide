@@ -1,4 +1,5 @@
 pub mod animation_utils;
+pub mod box_drawing;
 pub mod cursor_renderer;
 pub mod fonts;
 pub mod grid_renderer;
@@ -170,18 +171,15 @@ pub struct DrawCommandResult {
 }
 
 impl Renderer {
-    pub fn new(
-        os_scale_factor: f64,
-        init_font_settings: Option<FontSettings>,
-        settings: Arc<Settings>,
-    ) -> Self {
+    pub fn new(os_scale_factor: f64, init_config: Config, settings: Arc<Settings>) -> Self {
         let window_settings = settings.get::<WindowSettings>();
 
         let user_scale_factor = window_settings.scale_factor.into();
         let scale_factor = user_scale_factor * os_scale_factor;
         let cursor_renderer = CursorRenderer::new(settings.clone());
         let mut grid_renderer = GridRenderer::new(scale_factor, settings.clone());
-        grid_renderer.update_font_options(init_font_settings.map(|x| x.into()).unwrap_or_default());
+        grid_renderer.update_font_options(init_config.font.map(|x| x.into()).unwrap_or_default());
+        grid_renderer.handle_box_drawing_update(init_config.box_drawing.unwrap_or_default());
         let current_mode = EditorMode::Unknown(String::from(""));
 
         let rendered_windows = HashMap::new();
@@ -385,6 +383,9 @@ impl Renderer {
                         .update_font_options(FontOptions::default());
                 }
             },
+            HotReloadConfigs::BoxDrawing(settings) => self
+                .grid_renderer
+                .handle_box_drawing_update(settings.unwrap_or_default()),
         }
     }
 
