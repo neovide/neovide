@@ -528,48 +528,6 @@ Group non-emtpy consecutive layers (zindex) together, so that the shadows and bl
 the whole group instead of each individual layer. This can get rid of some shadowing and blending
 artifacts, but cause worse problems like [#2574](https://github.com/neovide/neovide/issues/2574).
 
-#### Box Drawing
-
-The unicode standard defines several code points that are useful to draw [boxes, diagrams or are
-otherwise decorations][https://en.wikipedia.org/wiki/Box_Drawing]. A font file can include graphical
-representation for several of these code points (glyphs). For example, [Nerd
-Fonts][https://www.nerdfonts.com/] is a collection of font faces that have been patched to include
-glyphs for several box drawing code points (and many other use-cases).
-
-When Neovide renders these glyphs, some glyphs might not line up correctly or might have gaps
-between adjacent cells, breaking visual continuity. This is especially pronounced when using the
-[linespace][#line-spacing] configuration option to add spacing between lines.
-
-Neovide has support for native rendering (i.e ignore the glyph data in the font) for a subset of
-these glyphs to avoid this problem. You can configure this via:
-
-```config.toml
-[box-drawing]
-# "font-glyph", "native" or "selected-native"
-mode = "native"
-# selected = "🮐🮑🮒"
-```
-
-- `font-glyph` uses the glyph data in the font file.
-- `native` (default) turns on native rendering for all supported box drawing glyphs.
-- `selected-native` turns on native rendering for only code points specified in the `selected`
-  setting.
-
-The width of the lines drawn can be further controlled using the following settings (defaults shown):
-
-```toml
-[box-drawing.sizes]
-default = [1, 3]  # Thin and thick values respectively, below size 12
-12 = [1, 2]       # Size 12 to 13.9999
-14 = [2, 4]
-18 = [3, 6]
-```
-The `sizes` settings maps font sizes the thickness (in pixels) for thin and thick lines
-respectively. For example, if you are using a font with size 15px and with the above default
-settings, Neovide to draw thin lines with width 2px and thick lines with width 4px. This settings
-only needs changing if you find that at certain font sizes the box characters seem too thick or too
-thin to your liking.
-
 ### Functionality
 
 #### Refresh Rate
