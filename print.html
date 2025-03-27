@@ -548,7 +548,9 @@ should Hack fail to contain any glyph.</li>
 <p>Lua:</p>
 <pre><code class="language-lua">vim.opt.linespace = 0
 </code></pre>
-<p>Controls spacing between lines, may also be negative.</p>
+<p>Controls spacing between lines, may also be negative. Setting linespace can result in vertical gaps
+when rendering [box drawing][https://en.wikipedia.org/wiki/Box_Drawing] characters, see [Box
+Drawing][./config-file.md#box-drawing] section on how to fix this.</p>
 <h4 id="scale"><a class="header" href="#scale">Scale</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_scale_factor = 1.0
@@ -1371,6 +1373,13 @@ wsl = false
 [font]
 normal = [] # Will use the bundled Fira Code Nerd Font by default
 size = 14.0
+
+[box-drawing]
+# &quot;font-glyph&quot;, &quot;native&quot; or &quot;selected-native&quot;
+mode = &quot;font-glyph&quot;
+
+[box-drawing.sizes]
+default = [2, 4]  # Thin and thick values respectively, for all sizes
 </code></pre>
 <p>Refer to <a href="command-line-reference.html">Command Line Reference</a> for details about the config settings
 listed above.</p>
@@ -1461,6 +1470,50 @@ style = &quot;W600&quot;
 [[font.bold]]
 family = &quot;Noto Sans CJK SC&quot;
 style = &quot;Bold&quot;
+</code></pre>
+<h4 id="box-drawing"><a class="header" href="#box-drawing">Box Drawing</a></h4>
+<p><strong>Unreleased yet.</strong></p>
+<p>The Unicode standard defines several code points that are useful to draw [boxes, diagrams or are
+otherwise decorations][https://en.wikipedia.org/wiki/Box_Drawing]. A font file can include graphical
+representation for several of these code points (glyphs). For example, [Nerd
+Fonts][https://www.nerdfonts.com/] is a collection of font faces that have been patched to include
+glyphs for several box drawing code points (and many other use-cases).</p>
+<p>When Neovide renders these glyphs, some glyphs might not line up correctly or might have gaps
+between adjacent cells, breaking visual continuity. This is especially pronounced when using the
+[linespace][#line-spacing] configuration option to add spacing between lines.</p>
+<p>Neovide has support for native rendering (i.e ignore the glyph data in the font) for a subset of
+these glyphs to avoid this problem. You can configure this via:</p>
+<pre><code class="language-toml">[box-drawing]
+# &quot;font-glyph&quot;, &quot;native&quot; or &quot;selected-native&quot;
+mode = &quot;native&quot;
+# selected = &quot;🮐🮑🮒&quot;
+</code></pre>
+<ul>
+<li><code>font-glyph</code> uses the glyph data in the font file.</li>
+<li><code>native</code> (default) turns on native rendering for all supported box drawing glyphs.</li>
+<li><code>selected-native</code> turns on native rendering for only code points specified in the <code>selected</code>
+setting.</li>
+</ul>
+<p>The width of the lines drawn can be further controlled using the following settings:</p>
+<pre><code class="language-toml">[box-drawing.sizes]
+default = [1, 3]  # Thin and thick values respectively, below 12px
+12 = [1, 2]       # 12px to 13.9999px
+14 = [2, 4]
+18 = [3, 6]
+</code></pre>
+<p>The <code>sizes</code> settings maps font sizes the thickness (in pixels) for thin and thick lines
+respectively. For example, if you are using a font with size 15px and with the above settings,
+Neovide to draw thin lines with width 2px and thick lines with width 4px. These settings only needs
+changing if you find that at certain font sizes the box characters seem too thick or too thin to
+your liking. Only <code>default</code> is required and overrides for specific sizes is optional.</p>
+<p><strong>NOTE:</strong> The sizes are specified in pixels unlike font size, which is specified in points. The
+reason for that, is to give a more controllable configuration when you are using different DPI
+settings. To convert from pt to pixels you can use the following formula <code>pt_size * (96/72) * scale</code>, so if you are using a 10.5 pt size font with a scale factor of 1.5, then it will become
+<code>10.5 pt * (96/72) * 1.5 = 21 px</code>. You also have to add the <code>linespace</code> setting if you use that.</p>
+<p>The default is 2 pixels for thin and 4 pixels for thick lines regardless of the font size, which
+corresponds to the settings below.</p>
+<pre><code class="language-toml">[box-drawing.sizes]
+default = [2, 4]  # Thin and thick values respectively, for all sizes
 </code></pre>
 <h4 id="backtraces_path"><a class="header" href="#backtraces_path">backtraces_path</a></h4>
 <p><strong>Available since 0.14.0.</strong></p>
