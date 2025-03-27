@@ -117,7 +117,7 @@ vim.opt.linespace = 0
 
 Controls spacing between lines, may also be negative. Setting linespace can result in vertical gaps
 when rendering [box drawing][https://en.wikipedia.org/wiki/Box_Drawing] characters, see [Box
-Drawing][#box-drawing] section on how to fix this.
+Drawing][./config-file.md#box-drawing] section on how to fix this.
 
 #### Scale
 
