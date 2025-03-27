@@ -56,7 +56,6 @@ mode = "font-glyph"
 default = [2, 4]  # Thin and thick values respectively, for all sizes
 ```
 
-
 Refer to [Command Line Reference](command-line-reference.md) for details about the config settings
 listed above.
 
@@ -185,7 +184,7 @@ The `sizes` settings maps font sizes the thickness (in pixels) for thin and thic
 respectively. For example, if you are using a font with size 15px and with the above settings,
 Neovide to draw thin lines with width 2px and thick lines with width 4px. These settings only needs
 changing if you find that at certain font sizes the box characters seem too thick or too thin to
-your liking. Only `default` is required and overrides for specific sizes is optional. 
+your liking. Only `default` is required and overrides for specific sizes is optional.
 
 **NOTE:** The sizes are specified in pixels unlike font size, which is specified in points. The
 reason for that, is to give a more controllable configuration when you are using different DPI
