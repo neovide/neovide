@@ -3,6 +3,7 @@ use std::{cell::RefCell, rc::Rc, sync::Arc};
 use skia_safe::{Canvas, Color, Matrix, Picture, PictureRecorder, Rect};
 
 use crate::{
+    bridge::WindowAnchor,
     cmd_line::CmdLineSettings,
     editor::{AnchorInfo, SortOrder, Style, WindowType},
     profiling::{tracy_plot, tracy_zone},
@@ -149,31 +150,36 @@ impl RenderedWindow {
     fn get_target_position(&self, grid_rect: &GridRect<f32>) -> GridPos<f32> {
         let destination = self.grid_destination + grid_rect.min.to_vector();
 
-        if self.anchor_info.is_none() {
-            return destination;
-        }
+        match self.anchor_info {
+            None => destination,
+            Some(AnchorInfo {
+                anchor_type: WindowAnchor::Absolute,
+                ..
+            }) => destination,
+            _ => {
+                let mut grid_size: GridSize<f32> = self.grid_size.try_cast().unwrap();
 
-        let mut grid_size: GridSize<f32> = self.grid_size.try_cast().unwrap();
+                if matches!(self.window_type, WindowType::Message { .. }) {
+                    // The message grid size is always the full window size, so use the relative position to
+                    // calculate the actual grid size
+                    grid_size.height -= self.grid_destination.y;
+                }
+                // If a floating window is partially outside the grid, then move it in from the right, but
+                // ensure that the left edge is always visible.
+                let x = destination
+                    .x
+                    .min(grid_rect.max.x - grid_size.width)
+                    .max(grid_rect.min.x);
 
-        if matches!(self.window_type, WindowType::Message { .. }) {
-            // The message grid size is always the full window size, so use the relative position to
-            // calculate the actual grid size
-            grid_size.height -= self.grid_destination.y;
+                // For messages the last line is most important, (it shows press enter), so let the position go negative
+                // Otherwise ensure that the window start row is within the screen
+                let mut y = destination.y.min(grid_rect.max.y - grid_size.height);
+                if !matches!(self.window_type, WindowType::Message { .. }) {
+                    y = y.max(grid_rect.min.y)
+                }
+                GridPos::<f32>::new(x, y)
+            }
         }
-        // If a floating window is partially outside the grid, then move it in from the right, but
-        // ensure that the left edge is always visible.
-        let x = destination
-            .x
-            .min(grid_rect.max.x - grid_size.width)
-            .max(grid_rect.min.x);
-
-        // For messages the last line is most important, (it shows press enter), so let the position go negative
-        // Otherwise ensure that the window start row is within the screen
-        let mut y = destination.y.min(grid_rect.max.y - grid_size.height);
-        if !matches!(self.window_type, WindowType::Message { .. }) {
-            y = y.max(grid_rect.min.y)
-        }
-        GridPos::<f32>::new(x, y)
     }
 
     /// Returns `true` if the window has been animated in this step.

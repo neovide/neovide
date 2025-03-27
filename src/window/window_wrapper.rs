@@ -420,6 +420,9 @@ impl WinitWindowWrapper {
             UserEvent::ConfigsChanged(config) => {
                 self.handle_config_changed(*config);
             }
+            UserEvent::EnableComposition => {
+                self.mouse_manager.enable_composition();
+            }
             _ => {}
         }
     }
