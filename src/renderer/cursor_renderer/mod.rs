@@ -26,6 +26,24 @@ const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
 
 const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5)];
 
+#[cfg(feature = "profiling")]
+use std::ffi::{c_char, CStr};
+#[cfg(feature = "profiling")]
+static PLOT_NAMES_X: [&CStr; 4] = [
+    unsafe { CStr::from_ptr(b"Cursor top left x\0".as_ptr() as *const c_char) },
+    unsafe { CStr::from_ptr(b"Cursor top right x\0".as_ptr() as *const c_char) },
+    unsafe { CStr::from_ptr(b"Cursor bottom right x\0".as_ptr() as *const c_char) },
+    unsafe { CStr::from_ptr(b"Cursor bottom left x\0".as_ptr() as *const c_char) },
+];
+
+#[cfg(feature = "profiling")]
+static PLOT_NAMES_Y: [&CStr; 4] = [
+    unsafe { CStr::from_ptr(b"Cursor top left y\0".as_ptr() as *const c_char) },
+    unsafe { CStr::from_ptr(b"Cursor top right y\0".as_ptr() as *const c_char) },
+    unsafe { CStr::from_ptr(b"Cursor bottom right y\0".as_ptr() as *const c_char) },
+    unsafe { CStr::from_ptr(b"Cursor bottom left y\0".as_ptr() as *const c_char) },
+];
+
 #[derive(SettingGroup)]
 #[setting_prefix = "cursor"]
 #[derive(Clone)]
@@ -81,6 +99,8 @@ pub struct Corner {
     animation_y: CriticallyDampedSpringAnimation,
     jump_vec: GridVec<f32>,
     animation_length: f32,
+    #[cfg(feature = "profiling")]
+    id: usize,
 }
 
 impl Corner {
@@ -93,6 +113,8 @@ impl Corner {
             animation_y: CriticallyDampedSpringAnimation::new(),
             jump_vec: GridVec::default(),
             animation_length: 0.0,
+            #[cfg(feature = "profiling")]
+            id: 0,
         }
     }
 
@@ -160,6 +182,12 @@ impl Corner {
         animating |= self.animation_y.update(dt, self.animation_length);
         self.current_position.x = corner_destination.x - self.animation_x.position;
         self.current_position.y = corner_destination.y - self.animation_y.position;
+
+        #[cfg(feature = "profiling")]
+        {
+            tracy_plot!(PLOT_NAMES_X[self.id], self.current_position.x.into());
+            tracy_plot!(PLOT_NAMES_Y[self.id], self.current_position.y.into());
+        }
 
         animating
     }
@@ -234,6 +262,8 @@ impl CursorRenderer {
                             (x, -((-y + 0.5) * cell_percentage - 0.5)).into()
                         }
                     },
+                    #[cfg(feature = "profiling")]
+                    id: i,
                     ..corner
                 }
             })
