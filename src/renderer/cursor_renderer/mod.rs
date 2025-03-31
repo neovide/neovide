@@ -4,6 +4,7 @@ mod cursor_vfx;
 use std::{collections::HashMap, sync::Arc};
 
 use approx::AbsDiffEq;
+use itertools::Itertools;
 use skia_safe::{op, Canvas, Paint, Path};
 use winit::event::WindowEvent;
 
@@ -14,8 +15,7 @@ use crate::{
     renderer::{animation_utils::*, GridRenderer, RenderedWindow},
     settings::{ParseFromValue, Settings},
     units::{
-        to_skia_point, GridPos, GridScale, GridSize, GridVec, PixelPos, PixelRect, PixelSize,
-        PixelVec,
+        to_skia_point, GridPos, GridScale, GridSize, PixelPos, PixelRect, PixelSize, PixelVec,
     },
     window::ShouldRender,
 };
@@ -97,7 +97,6 @@ pub struct Corner {
     previous_destination: PixelPos<f32>,
     animation_x: CriticallyDampedSpringAnimation,
     animation_y: CriticallyDampedSpringAnimation,
-    jump_vec: GridVec<f32>,
     animation_length: f32,
     #[cfg(feature = "profiling")]
     id: usize,
@@ -111,7 +110,6 @@ impl Corner {
             previous_destination: PixelPos::new(-1000.0, -1000.0),
             animation_x: CriticallyDampedSpringAnimation::new(),
             animation_y: CriticallyDampedSpringAnimation::new(),
-            jump_vec: GridVec::default(),
             animation_length: 0.0,
             #[cfg(feature = "profiling")]
             id: 0,
@@ -120,53 +118,14 @@ impl Corner {
 
     pub fn update(
         &mut self,
-        settings: &CursorSettings,
         cursor_dimensions: GridScale,
         destination: PixelPos<f32>,
         dt: f32,
         immediate_movement: bool,
-        jumped: bool,
     ) -> bool {
-        // Calculate window-space destination for corner
-        let relative_scaled_position = self.relative_position * cursor_dimensions;
-
-        let corner_destination = destination + relative_scaled_position.to_vector();
+        let corner_destination = self.get_destination(destination, cursor_dimensions);
         if corner_destination != self.previous_destination {
-            // Never lag more than one position behind
-            let delta = if jumped {
-                corner_destination - self.previous_destination
-            } else {
-                corner_destination - self.current_position
-            };
-
-            if jumped {
-                self.jump_vec =
-                    (corner_destination - self.previous_destination) / cursor_dimensions;
-
-                // Calculate how much a corner will be lagging behind based on how much it's aligned
-                // with the direction of motion. Corners in front will move faster than corners in the
-                // back
-                let travel_direction = {
-                    let d = corner_destination - self.current_position;
-                    d.normalize()
-                };
-                let corner_direction = self.relative_position.as_vector().normalize().cast();
-
-                let direction_alignment = travel_direction.dot(corner_direction);
-
-                self.animation_length =
-                    if self.jump_vec.x.abs() <= 2.001 && self.jump_vec.y.abs_diff_eq(&0.0, 0.001) {
-                        // Use a fast animation time for short jumps less than two characters, typically when
-                        // typing or holding a key in insert mode
-                        settings.animation_length.min(0.04)
-                    } else if direction_alignment > 0.0 {
-                        // The leading edge runs faster than the trailing edge, with a trail size of one
-                        // it jumps to the destination
-                        settings.animation_length * (1.0 - settings.trail_size).clamp(0.0, 1.0)
-                    } else {
-                        settings.animation_length
-                    };
-            }
+            let delta = corner_destination - self.current_position;
 
             self.animation_x.position = delta.x;
             self.animation_y.position = delta.y;
@@ -190,6 +149,66 @@ impl Corner {
         }
 
         animating
+    }
+
+    fn jump(
+        &mut self,
+        settings: &CursorSettings,
+        destination: PixelPos<f32>,
+        cursor_dimensions: GridScale,
+        rank: usize,
+    ) {
+        let corner_destination = self.get_destination(destination, cursor_dimensions);
+        let jump_vec = (corner_destination - self.previous_destination) / cursor_dimensions;
+
+        self.animation_length = if jump_vec.x.abs() <= 2.001 && jump_vec.y.abs_diff_eq(&0.0, 0.001)
+        {
+            // Use a fast animation time for short jumps less than two characters, typically when
+            // typing or holding a key in insert mode
+            settings.animation_length.min(0.04)
+        } else {
+            let leading = settings.animation_length * (1.0 - settings.trail_size).clamp(0.0, 1.0);
+            let trailing = settings.animation_length;
+            match rank {
+                // The leading edge runs faster than the trailing edge, with a trail size of one
+                // it jumps to the destination
+                2..=3 => leading,
+                // One of the corner runs between the trailing corner and the leading edge, creating a triangular effect
+                1 => (leading + trailing) / 2.0,
+                0 => trailing,
+                _ => panic!("Invalid rank"),
+            }
+        }
+    }
+
+    fn get_destination(
+        &self,
+        destination: PixelPos<f32>,
+        cursor_dimensions: GridScale,
+    ) -> PixelPos<f32> {
+        // Calculate window-space destination for corner
+        let relative_scaled_position = self.relative_position * cursor_dimensions;
+
+        destination + relative_scaled_position.to_vector()
+    }
+
+    fn calculate_direction_alignment(
+        &self,
+        cursor_dimensions: GridScale,
+        destination: PixelPos<f32>,
+    ) -> f32 {
+        // Calculate how much a corner will be lagging behind based on how much it's aligned
+        // with the direction of motion. Corners in front will move faster than corners in the
+        // back
+        let relative_scaled_position = self.relative_position * cursor_dimensions;
+        let corner_destination = destination + relative_scaled_position.to_vector();
+        //(center_destination- corner.current_position).length()
+        let corner_direction = self.relative_position.as_vector().normalize().cast();
+        let travel_direction = {
+            let d = corner_destination - self.current_position;
+            d.normalize()
+        };
+        travel_direction.dot(corner_direction)
     }
 }
 
@@ -435,14 +454,44 @@ impl CursorRenderer {
         if center_destination != PixelPos::ZERO {
             let immediate_movement = !settings.animate_in_insert_mode && in_insert_mode
                 || !settings.animate_command_line && !changed_to_from_cmdline;
+            if self.jumped {
+                // Caclculate the direction alignment for each corner and generate a sorted list
+                // This way we know which corner is the front and which is the back
+                let corner_ranks = self
+                    .corners
+                    .iter()
+                    .map(|corner| {
+                        corner.calculate_direction_alignment(
+                            cursor_dimensions.into(),
+                            center_destination,
+                        )
+                    })
+                    .enumerate()
+                    .sorted_by(|a, b| {
+                        a.1.partial_cmp(&b.1)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                            .then(a.0.cmp(&b.0))
+                    })
+                    .enumerate()
+                    .sorted_by_key(|(_, (id, _))| *id)
+                    .map(|(rank, (_, _))| (rank))
+                    .collect_array::<4>()
+                    .unwrap();
+                for (id, corner) in self.corners.iter_mut().enumerate() {
+                    corner.jump(
+                        &settings,
+                        center_destination,
+                        cursor_dimensions.into(),
+                        corner_ranks[id],
+                    )
+                }
+            }
             for corner in self.corners.iter_mut() {
                 let corner_animating = corner.update(
-                    &settings,
-                    GridScale::new(cursor_dimensions),
+                    cursor_dimensions.into(),
                     center_destination,
                     dt,
                     immediate_movement,
-                    self.jumped,
                 );
 
                 animating |= corner_animating;
