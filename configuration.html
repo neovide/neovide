@@ -827,12 +827,12 @@ and the rest to <code>neovide_cursor_vfx_particle_lifetime</code></p>
 <code>neovide_cursor_vfx_particle_lifetime</code> is used.</p>
 <h4 id="particle-density"><a class="header" href="#particle-density">Particle Density</a></h4>
 <p>VimScript:</p>
-<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_density = 7.0
+<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_density = 0.7
 </code></pre>
 <p>Lua:</p>
-<pre><code class="language-lua">vim.g.neovide_cursor_vfx_particle_density = 7.0
+<pre><code class="language-lua">vim.g.neovide_cursor_vfx_particle_density = 0.7
 </code></pre>
-<p>Sets the number of generated particles. The unit is roughly the amount of particles per 10 lines of
+<p>Sets the number of generated particles. The unit is the amount of particles per lines of
 travel.</p>
 <h4 id="particle-speed"><a class="header" href="#particle-speed">Particle Speed</a></h4>
 <p>VimScript:</p>
@@ -841,7 +841,7 @@ travel.</p>
 <p>Lua:</p>
 <pre><code class="language-lua">vim.g.neovide_cursor_vfx_particle_speed = 10.0
 </code></pre>
-<p>Sets the speed of particle movement.</p>
+<p>Sets the speed of particle movement in pixels / second.</p>
 <h4 id="particle-phase"><a class="header" href="#particle-phase">Particle Phase</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_cursor_vfx_particle_phase = 1.5
