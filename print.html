@@ -1043,13 +1043,21 @@ The built in <code>guicursor</code> neovim option needs to be configured to enab
 set for both <code>blinkoff</code>, <code>blinkon</code> and <code>blinkwait</code> for this setting to apply.</p>
 <h3 id="cursor-particles"><a class="header" href="#cursor-particles">Cursor Particles</a></h3>
 <p>There are a number of vfx modes you can enable which produce particles behind the cursor. These are
-enabled by setting <code>g:neovide_cursor_vfx_mode</code> to one of the following constants.</p>
+enabled by setting <code>g:neovide_cursor_vfx_mode</code> to one <code>string</code> or an <code>array</code> of the following constants.</p>
 <h4 id="none-at-all"><a class="header" href="#none-at-all">None at all</a></h4>
 <p>VimScript:</p>
-<pre><code class="language-vim">let g:neovide_cursor_vfx_mode = &quot;&quot;
+<pre><code class="language-vim">&quot; a string
+let g:neovide_cursor_vfx_mode = &quot;&quot;
+
+&quot; or an array
+let g:neovide_cursor_vfx_mode = [&quot;&quot;, &quot;&quot;]
 </code></pre>
 <p>Lua:</p>
-<pre><code class="language-lua">vim.g.neovide_cursor_vfx_mode = &quot;&quot;
+<pre><code class="language-lua">&lt;!-- a string --&gt;
+vim.g.neovide_cursor_vfx_mode = &quot;&quot;
+
+&lt;!-- or an array --&gt;
+vim.g.neovide_cursor_vfx_mode = {&quot;&quot;, &quot;&quot;}
 </code></pre>
 <p>The default, no particles at all.</p>
 <h4 id="railgun-1"><a class="header" href="#railgun-1">Railgun</a></h4>
@@ -1112,12 +1120,18 @@ enabled by setting <code>g:neovide_cursor_vfx_mode</code> to one of the followin
 <p>Sets the transparency of the generated particles.</p>
 <h4 id="particle-lifetime"><a class="header" href="#particle-lifetime">Particle Lifetime</a></h4>
 <p>VimScript:</p>
-<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_lifetime = 1.2
+<pre><code class="language-vim">let g:neovide_cursor_vfx_particle_lifetime = 0.5
+let g:neovide_cursor_vfx_particle_highlight_lifetime = 0.2
 </code></pre>
 <p>Lua:</p>
-<pre><code class="language-lua">vim.g.neovide_cursor_vfx_particle_lifetime = 1.2
+<pre><code class="language-lua">vim.g.neovide_cursor_vfx_particle_lifetime = 0.5
+vim.g.neovide_cursor_vfx_particle_highlight_lifetime = 0.2
 </code></pre>
 <p>Sets the amount of time the generated particles should survive.</p>
+<p><code>neovide_cursor_vfx_particle_highlight_lifetime</code> applies to <code>sonicboom</code>, <code>ripple</code> and <code>wireframe</code>,
+and the rest to <code>neovide_cursor_vfx_particle_lifetime</code></p>
+<p>If <code>neovide_cursor_vfx_particle_highlight_lifetime</code> is set to <code>0</code> then
+<code>neovide_cursor_vfx_particle_lifetime</code> is used.</p>
 <h4 id="particle-density"><a class="header" href="#particle-density">Particle Density</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_cursor_vfx_particle_density = 7.0
