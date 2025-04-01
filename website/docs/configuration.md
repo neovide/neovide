@@ -1131,16 +1131,16 @@ If `neovide_cursor_vfx_particle_highlight_lifetime` is set to `0` then
 VimScript:
 
 ```vim
-let g:neovide_cursor_vfx_particle_density = 7.0
+let g:neovide_cursor_vfx_particle_density = 0.7
 ```
 
 Lua:
 
 ```lua
-vim.g.neovide_cursor_vfx_particle_density = 7.0
+vim.g.neovide_cursor_vfx_particle_density = 0.7
 ```
 
-Sets the number of generated particles. The unit is roughly the amount of particles per 10 lines of
+Sets the number of generated particles. The unit is the amount of particles per lines of
 travel.
 
 #### Particle Speed
@@ -1157,7 +1157,7 @@ Lua:
 vim.g.neovide_cursor_vfx_particle_speed = 10.0
 ```
 
-Sets the speed of particle movement.
+Sets the speed of particle movement in pixels / second.
 
 #### Particle Phase
 
