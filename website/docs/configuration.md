@@ -960,20 +960,28 @@ set for both `blinkoff`, `blinkon` and `blinkwait` for this setting to apply.
 ### Cursor Particles
 
 There are a number of vfx modes you can enable which produce particles behind the cursor. These are
-enabled by setting `g:neovide_cursor_vfx_mode` to one of the following constants.
+enabled by setting `g:neovide_cursor_vfx_mode` to one `string` or an `array` of the following constants.
 
 #### None at all
 
 VimScript:
 
 ```vim
+" a string
 let g:neovide_cursor_vfx_mode = ""
+
+" or an array
+let g:neovide_cursor_vfx_mode = ["", ""]
 ```
 
 Lua:
 
 ```lua
+<!-- a string -->
 vim.g.neovide_cursor_vfx_mode = ""
+
+<!-- or an array -->
+vim.g.neovide_cursor_vfx_mode = {"", ""}
 ```
 
 The default, no particles at all.
@@ -1099,16 +1107,24 @@ Sets the transparency of the generated particles.
 VimScript:
 
 ```vim
-let g:neovide_cursor_vfx_particle_lifetime = 1.2
+let g:neovide_cursor_vfx_particle_lifetime = 0.5
+let g:neovide_cursor_vfx_particle_highlight_lifetime = 0.2
 ```
 
 Lua:
 
 ```lua
-vim.g.neovide_cursor_vfx_particle_lifetime = 1.2
+vim.g.neovide_cursor_vfx_particle_lifetime = 0.5
+vim.g.neovide_cursor_vfx_particle_highlight_lifetime = 0.2
 ```
 
 Sets the amount of time the generated particles should survive.
+
+`neovide_cursor_vfx_particle_highlight_lifetime` applies to `sonicboom`, `ripple` and `wireframe`,
+and the rest to `neovide_cursor_vfx_particle_lifetime`
+
+If `neovide_cursor_vfx_particle_highlight_lifetime` is set to `0` then
+`neovide_cursor_vfx_particle_lifetime` is used.
 
 #### Particle Density
 
