@@ -68,6 +68,12 @@ impl GridScale {
     }
 }
 
+impl From<PixelSize<f32>> for GridScale {
+    fn from(value: PixelSize<f32>) -> Self {
+        Self::new(value)
+    }
+}
+
 impl<T: Scalar> Mul<GridScale> for GridVec<T> {
     type Output = PixelVec<f32>;
 
