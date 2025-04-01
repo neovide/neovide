@@ -1118,6 +1118,12 @@ vim.g.neovide_cursor_vfx_particle_highlight_lifetime = 0.2
 
 Sets the amount of time the generated particles should survive.
 
+`neovide_cursor_vfx_particle_highlight_lifetime` applies to `sonicboom`, `ripple` and `wireframe`,
+and the rest to `neovide_cursor_vfx_particle_lifetime`
+
+If `neovide_cursor_vfx_particle_highlight_lifetime` is set to `0` then
+`neovide_cursor_vfx_particle_lifetime` is used.
+
 #### Particle Density
 
 VimScript:
