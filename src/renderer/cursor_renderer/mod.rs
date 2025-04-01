@@ -58,8 +58,8 @@ impl Default for CursorSettings {
             smooth_blink: false,
             vfx_mode: cursor_vfx::VfxModeList::default(),
             vfx_opacity: 200.0,
-            vfx_particle_lifetime: 1.2,
-            vfx_particle_highlight_lifetime: -1.,
+            vfx_particle_lifetime: 0.5,
+            vfx_particle_highlight_lifetime: 0.2,
             vfx_particle_density: 7.0,
             vfx_particle_speed: 10.0,
             vfx_particle_phase: 1.5,
@@ -274,7 +274,7 @@ impl CursorRenderer {
         };
         if new_cursor_pos != self.previous_cursor_position {
             self.previous_cursor_position = new_cursor_pos;
-             for vfx in self.cursor_vfxs.iter_mut() {
+            for vfx in self.cursor_vfxs.iter_mut() {
                 vfx.cursor_jumped(self.destination);
             }
         }

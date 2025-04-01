@@ -78,6 +78,7 @@ impl ParseFromValue for VfxMode {
 
 impl ParseFromValue for VfxModeList {
     fn parse_from_value(&mut self, value: Value) {
+        self.0.clear();
         if value.is_str() {
             let mut vfx_mode = VfxMode::Disabled;
             vfx_mode.parse_from_value(value);
@@ -97,7 +98,7 @@ impl ParseFromValue for VfxModeList {
             }
         } else {
             error!(
-                "Expected an array of VfxMode strings, but received {:?}",
+                "Expected a string or an array of VfxMode strings, but received {:?}",
                 value
             );
         }
@@ -172,8 +173,6 @@ impl CursorVfx for PointHighlight {
         self.center_position = current_cursor_destination;
         if settings.vfx_particle_highlight_lifetime > 0.0 {
             self.t = (self.t + dt * (1.0 / settings.vfx_particle_highlight_lifetime)).min(1.0);
-        } else if settings.vfx_particle_lifetime > 0.0 {
-            self.t = (self.t + dt * (1.0 / settings.vfx_particle_lifetime)).min(1.0);
         } else {
             self.t = 1.0
         }
