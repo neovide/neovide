@@ -42,13 +42,9 @@ end
 
 -- Quit when Command+Q is pressed on macOS
 if vim.fn.has("macunix") then
-    vim.keymap.set(
-        {"n", "i", "c", "v", "o", "t", "l"},
-        "<D-q>",
-        function()
-            rpcnotify("neovide.exec_detach_handler")
-        end
-    )
+    vim.keymap.set({ "n", "i", "c", "v", "o", "t", "l" }, "<D-q>", function()
+        rpcnotify("neovide.exec_detach_handler")
+    end)
 end
 
 if args.register_clipboard and not vim.g.neovide_no_custom_clipboard then
@@ -136,7 +132,8 @@ M.private.dropfile = function(filename, tabs)
     vim.api.nvim_cmd({
         cmd = "drop",
         args = { vim.fn.fnameescape(filename) },
-        mods = { tab = tabs and 1 or 0 },
+        -- Always open as the last tabpage
+        mods = tabs and { tab = #vim.api.nvim_list_tabpages() } or {},
     }, {})
 end
 
