@@ -665,13 +665,13 @@ this happens too often accidentally to you, set this to a higher value like <cod
   <img alt="Long Cursor Animation Length", src="./assets/LongCursorAnimationLength.gif" width="47%">
 </p>
 <p>VimScript:</p>
-<pre><code class="language-vim">let g:neovide_cursor_animation_length = 0.13
+<pre><code class="language-vim">let g:neovide_cursor_animation_length = 0.150
 </code></pre>
 <p>Lua:</p>
-<pre><code class="language-lua">vim.g.neovide_cursor_animation_length = 0.13
+<pre><code class="language-lua">vim.g.neovide_cursor_animation_length = 0.150
 </code></pre>
 <p>Setting <code>g:neovide_cursor_animation_length</code> determines the time it takes for the cursor to complete
-it's animation in seconds. Set to <code>0</code> to disable.</p>
+its animation in seconds. Set to <code>0</code> to disable.</p>
 <h4 id="animation-trail-size"><a class="header" href="#animation-trail-size">Animation Trail Size</a></h4>
 <p align="center">
   <img alt="Short Cursor Trail Length", src="./assets/ShortCursorTrailLength.gif" width="47%">
@@ -679,13 +679,15 @@ it's animation in seconds. Set to <code>0</code> to disable.</p>
   <img alt="Long Cursor Trail Length", src="./assets/LongCursorTrailLength.gif" width="47%">
 </p>
 <p>VimScript:</p>
-<pre><code class="language-vim">let g:neovide_cursor_trail_size = 0.8
+<pre><code class="language-vim">let g:neovide_cursor_trail_size = 1.0
 </code></pre>
 <p>Lua:</p>
-<pre><code class="language-lua">vim.g.neovide_cursor_trail_size = 0.8
+<pre><code class="language-lua">vim.g.neovide_cursor_trail_size = 1.0
 </code></pre>
-<p>Setting <code>g:neovide_cursor_trail_size</code> determines how much the trail of the cursor lags behind the
-front edge.</p>
+<p>Range 0.0 to 1.0</p>
+<p>Setting <code>g:neovide_cursor_trail_size</code> changes how much the back of the cursor trails the front. Set
+to 1.0 to make the front jump to the destination immediately with a maximum trail size. A lower
+value makes a smoother animation, with a shorter trail, but also adds lag.</p>
 <h4 id="antialiasing"><a class="header" href="#antialiasing">Antialiasing</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_cursor_antialiasing = v:true
