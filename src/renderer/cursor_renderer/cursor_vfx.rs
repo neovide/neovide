@@ -1,6 +1,6 @@
 use log::error;
 use nvim_rs::Value;
-use skia_safe::{BlendMode, Canvas, Color, Paint, Rect, paint::Style};
+use skia_safe::{paint::Style, BlendMode, Canvas, Color, Paint, Rect};
 
 use crate::{
     editor::Cursor,
