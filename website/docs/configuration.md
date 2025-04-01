@@ -233,6 +233,32 @@ window to that value.
 Note that `g:neovide_opacity` should be 0 if you want to unify transparency of content and
 title bar.
 
+#### Background Image
+
+**Available since 0.14.2.**
+
+Use the `g:neovide_background_image` variable to set a background image for Neovide. It is set to a string url.
+
+You can alter the background images transparency by changing the `g:neovide_background_transparency` variable. It takes a value ranging from 0.0 (transparent) to 1.0 (opaque).
+
+Vim:
+
+```vim
+let g:neovide_background_transparency = 0.8
+let g:neovide_background_image = "~/image.jpg"
+```
+
+Lua:
+
+```lua
+vim.g.neovide_background_transparency = 0.8
+vim.g.neovide_background_image = "~/image.jpg"
+```
+
+Using a background image in conjunction with `g:neovide_opacity` can lead to some nice looking results. Especially when using a more subtle texture instead of a regular image.
+
+![BackgroundImage](assets/BackgroundImage.png)
+
 #### Title Bar Color (Currently Windows only)
 
 **Available since 0.14.0.**
