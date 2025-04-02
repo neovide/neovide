@@ -1,6 +1,6 @@
 [package]
 name = "neovide"
-version = "0.14.1"
+version = "0.15.0"
 edition = "2021"
 build = "build.rs"
 resolver = "2"
@@ -54,8 +54,8 @@ copypasta = "0.10.1"
 csscolorparser = "0.7.0"
 derive-new = "0.7.0"
 dirs = "6.0.0"
-glamour = { version = "0.15.0", features = ["serde"] }
-flexi_logger = { version = "0.29.8", default-features = false }
+glamour = { version = "0.16.0", features = ["serde"] }
+flexi_logger = { version = "0.30.0", default-features = false }
 futures = "0.3.31"
 gl = "0.14.0"
 glutin = "0.32.2"
@@ -102,8 +102,8 @@ serial_test = "3.2.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 wslpath-rs = "0.2"
-skia-safe = { version = "0.81.0", features = ["gl", "d3d", "textlayout"] }
-windows = { version = "0.58.0", features = [
+skia-safe = { version = "0.84.0", features = ["gl", "d3d", "textlayout"] }
+windows = { version = "0.61.1", features = [
     "Win32_Graphics_Direct3D",
     "Win32_Graphics_Direct3D12",
     "Win32_Graphics_DirectComposition",
@@ -116,7 +116,7 @@ windows = { version = "0.58.0", features = [
     "Win32_System_Threading",
     "Win32_UI_HiDpi",
 ] }
-windows-registry = "0.4.0"
+windows-registry = "0.5.1"
 
 
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -142,12 +142,12 @@ objc2-metal = { version = "0.2.2", default-features = false, features = [
     "MTLCommandQueue",
     "MTLCommandBuffer",
 ] }
-skia-safe = { version = "0.81.0", features = ["metal", "gl", "textlayout"] }
+skia-safe = { version = "0.84.0", features = ["metal", "gl", "textlayout"] }
 uzers = "0.12.1"
 
 
 [target.'cfg(not(any(target_os = "windows", target_os = "macos")))'.dependencies]
-skia-safe = { version = "0.81.0", features = ["gl", "textlayout"] }
+skia-safe = { version = "0.84.0", features = ["gl", "textlayout"] }
 
 [target.'cfg(target_os = "windows")'.build-dependencies]
 winres = "0.1.12"
@@ -166,7 +166,7 @@ debug = true
 name = "Neovide"
 identifier = "com.neovide.neovide"
 icon = ["assets/neovide.ico"]
-version = "0.14.1"
+version = "0.15.0"
 resources = []
 copyright = "Copyright (c) Neovide Contributors 2024. All rights reserved."
 category = "Productivity"
