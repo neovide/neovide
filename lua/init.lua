@@ -77,13 +77,13 @@ vim.api.nvim_create_user_command("NeovideFocus", function()
     rpcnotify("neovide.focus_window")
 end, {})
 
-vim.api.nvim_exec(
+vim.api.nvim_exec2(
     [[
 function! WatchGlobal(variable, callback)
     call dictwatcheradd(g:, a:variable, a:callback)
 endfunction
 ]],
-    false
+    { output = false }
 )
 
 for _, global_variable_setting in ipairs(args.global_variable_settings) do
