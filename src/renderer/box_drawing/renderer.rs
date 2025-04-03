@@ -8,7 +8,7 @@ use itertools::Itertools;
 use num::{Integer, ToPrimitive};
 use skia_safe::{
     paint::Cap, BlendMode, Canvas, ClipOp, Color, Paint, PaintStyle, Path, PathEffect,
-    PathFillType, Point, Rect, Size,
+    PathFillType, Point, Rect,
 };
 
 use crate::units::{to_skia_point, to_skia_rect, PixelRect, PixelSize, PixelVec};
@@ -400,7 +400,7 @@ impl<'a> Context<'a> {
     }
 
     fn draw_progress(&self, section: Section, fill: PaintStyle) {
-        let bounds = to_skia_rect(&self.bounding_box);
+        let bounds = to_skia_rect(&self.bounding_box.round());
         let t: f32 = self.get_stroke_width_pixels(Thickness::Thin);
         let clip_rect = match section {
             Section::Left => bounds.with_inset((0., t)).with_offset((t, 0.)),
@@ -491,7 +491,7 @@ impl<'a> Context<'a> {
         };
 
         let x1 = match which_half {
-            HalfSelector::First | HalfSelector::Both => min.x,
+            HalfSelector::First | HalfSelector::Both => min.x.round(),
             HalfSelector::Last => {
                 mid.x.align_mid_line(target_stroke_width) + target_offset
                     - 0.5 * target_stroke_width
@@ -499,7 +499,7 @@ impl<'a> Context<'a> {
         };
 
         let x2 = match which_half {
-            HalfSelector::Last | HalfSelector::Both => max.x,
+            HalfSelector::Last | HalfSelector::Both => max.x.round(),
             HalfSelector::First => {
                 mid.x.align_mid_line(target_stroke_width)
                     + target_offset
@@ -563,18 +563,25 @@ impl<'a> Context<'a> {
             Orientation::Horizontal => {
                 let step = height / 8.0;
                 let y1 = min.y + start * step;
-                Rect::from_point_and_size((min.x, y1), Size::new(width, num_steps * step))
+                PixelRect::from_origin_and_size(
+                    (min.x, y1).into(),
+                    PixelSize::new(width, num_steps * step),
+                )
             }
             Orientation::Vertical => {
                 let step = width / 8.0;
                 let x1 = min.x + start * step;
-                Rect::from_point_and_size((x1, min.y), Size::new(num_steps * step, height))
+                PixelRect::from_origin_and_size(
+                    (x1, min.y).into(),
+                    PixelSize::new(num_steps * step, height),
+                )
             }
-        };
+        }
+        .round();
         let mut paint = self.fg_paint();
         paint.set_alpha_f(shade.into());
         paint.set_style(PaintStyle::Fill);
-        self.canvas.draw_rect(rect, &paint);
+        self.canvas.draw_rect(to_skia_rect(&rect), &paint);
     }
 
     fn draw_diagonal_fill(
@@ -1268,9 +1275,7 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
         ctx.draw_eighth(Horizontal, 1..=7, Shade::Solid);
     }];
     box_char!['█' -> |ctx: &Context| {
-        let mut paint = ctx.fg_paint();
-        paint.set_style(PaintStyle::Fill);
-        ctx.canvas.draw_paint(&paint);
+        ctx.draw_eighth(Horizontal, 0..=7, Shade::Solid);
     }];
     box_char!['▉' -> |ctx: &Context| {
         ctx.draw_eighth(Vertical, 0..=6, Shade::Solid);
