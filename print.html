@@ -548,9 +548,9 @@ should Hack fail to contain any glyph.</li>
 <p>Lua:</p>
 <pre><code class="language-lua">vim.opt.linespace = 0
 </code></pre>
-<p>Controls spacing between lines, may also be negative. Setting linespace can result in vertical gaps
-when rendering [box drawing][https://en.wikipedia.org/wiki/Box_Drawing] characters, see [Box
-Drawing][./config-file.md#box-drawing] section on how to fix this.</p>
+<p>Controls spacing between lines, may also be negative. Setting <code>linespace</code> can result in vertical gaps
+when rendering <a href="https://en.wikipedia.org/wiki/Box_Drawing">box drawing</a> characters, see <a href="./config-file.html#box-drawing">Box
+Drawing</a> section on how to fix this.</p>
 <h4 id="scale"><a class="header" href="#scale">Scale</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_scale_factor = 1.0
@@ -1487,14 +1487,14 @@ family = &quot;Noto Sans CJK SC&quot;
 style = &quot;Bold&quot;
 </code></pre>
 <h4 id="box-drawing"><a class="header" href="#box-drawing">Box Drawing</a></h4>
-<p>The Unicode standard defines several code points that are useful to draw [boxes, diagrams or are
-otherwise decorations][https://en.wikipedia.org/wiki/Box_Drawing]. A font file can include graphical
-representation for several of these code points (glyphs). For example, [Nerd
-Fonts][https://www.nerdfonts.com/] is a collection of font faces that have been patched to include
+<p>The Unicode standard defines several code points that are useful to draw <a href="https://en.wikipedia.org/wiki/Box_Drawing">boxes, diagrams or are
+otherwise decorations</a>. A font file can include graphical
+representation for several of these code points (glyphs). For example, <a href="https://www.nerdfonts.com/">Nerd
+Fonts</a> is a collection of font faces that have been patched to include
 glyphs for several box drawing code points (and many other use-cases).</p>
 <p>When Neovide renders these glyphs, some glyphs might not line up correctly or might have gaps
 between adjacent cells, breaking visual continuity. This is especially pronounced when using the
-[linespace][#line-spacing] configuration option to add spacing between lines.</p>
+<a href="./configuration.html#line-spacing">linespace</a> configuration option to add spacing between lines.</p>
 <p>Neovide has support for native rendering (i.e ignore the glyph data in the font) for a subset of
 these glyphs to avoid this problem. You can configure this via:</p>
 <pre><code class="language-toml">[box-drawing]
