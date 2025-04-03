@@ -643,6 +643,26 @@ Setting `g:neovide_fullscreen` to a boolean value will set whether the app shoul
 screen. This uses the so called "windowed fullscreen" mode that is sometimes used in games which
 want quick window switching.
 
+#### Simple Fullscreen (MacOS only)
+
+VimScript:
+
+```vim
+let g:neovide_macos_simple_fullscreen = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_macos_simple_fullscreen = true
+```
+
+**Unreleased yet.**
+
+Setting `neovide_macos_simple_fullscreen` will hide the dock and menu bar for MacOS.
+
+This won’t work if the window was already in the native fullscreen.
+
 #### Remember Previous Window Size
 
 VimScript:
