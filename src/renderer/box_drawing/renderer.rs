@@ -48,6 +48,19 @@ impl LineAlignment for PixelPos<f32> {
     }
 }
 
+impl LineAlignment for PixelRect<f32> {
+    fn align_mid_line(self, stroke_width: f32) -> Self {
+        PixelRect::new(
+            self.min.align_mid_line(stroke_width),
+            self.max.align_mid_line(stroke_width),
+        )
+    }
+
+    fn align_outside(self) -> Self {
+        PixelRect::new(self.min.align_outside(), self.max.align_outside())
+    }
+}
+
 pub struct Context<'a> {
     canvas: &'a Canvas,
     settings: &'a BoxDrawingSettings,
@@ -324,34 +337,29 @@ impl<'a> Context<'a> {
 
     fn draw_d(&self, side: Side, fill: PaintStyle, close_path: bool) {
         let mut path = Path::default();
-        let bounds = self.bounding_box;
+        let mut bounds = self.bounding_box.align_outside();
         let stroke_width = self.get_stroke_width_pixels(Thickness::Thin);
-        let mut radius = (bounds.size().width).min(bounds.size().height / 2.0);
-        // Leave a small gap between the circles, and also allow them to move a bit to the side
-        // depending on the pixel alignment of the cell.
-        radius -= 1.0;
-        if fill == PaintStyle::Stroke {
-            radius -= stroke_width / 2.0;
+
+        if matches!(side, Side::Left) {
+            bounds.max.x += bounds.size().width;
+        } else {
+            bounds.min.x -= bounds.size().width;
         }
-        let diameter = PixelSize::new(radius * 2.0, radius * 2.0);
+        if !close_path {
+            let stroke_offset = PixelVec::new(stroke_width / 2.0, stroke_width / 2.0);
+            bounds.min += stroke_offset;
+            bounds.max -= stroke_offset;
+        }
 
         match side {
             Side::Left => {
-                let origin = PixelPos::new(
-                    bounds.max.x.align_outside() - radius,
-                    bounds.center().y - radius,
-                );
-                let rect = to_skia_rect(&PixelRect::from_origin_and_size(origin, diameter));
+                let rect = to_skia_rect(&bounds);
                 let start_angle = 90.0;
                 let sweep_angle = 180.0;
                 path.arc_to(rect, start_angle, sweep_angle, true);
             }
             Side::Right => {
-                let origin = PixelPos::new(
-                    bounds.min.x.align_outside() - radius,
-                    bounds.center().y - radius,
-                );
-                let rect = to_skia_rect(&PixelRect::from_origin_and_size(origin, diameter));
+                let rect = to_skia_rect(&bounds);
                 let start_angle = 270.0;
                 let sweep_angle = 180.0;
                 path.arc_to(rect, start_angle, sweep_angle, true);
