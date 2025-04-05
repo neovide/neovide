@@ -50,7 +50,7 @@ static PLOT_NAMES_Y: [&CStr; 4] = [
 pub struct CursorSettings {
     antialiasing: bool,
     animation_length: f32,
-    distance_length_adjust: bool,
+    short_animation_length: f32,
     animate_in_insert_mode: bool,
     animate_command_line: bool,
     trail_size: f32,
@@ -72,7 +72,7 @@ impl Default for CursorSettings {
         CursorSettings {
             antialiasing: true,
             animation_length: 0.150,
-            distance_length_adjust: true,
+            short_animation_length: 0.04,
             animate_in_insert_mode: true,
             animate_command_line: true,
             trail_size: 1.0,
@@ -165,7 +165,9 @@ impl Corner {
         {
             // Use a fast animation time for short jumps less than two characters, typically when
             // typing or holding a key in insert mode
-            settings.animation_length.min(0.04)
+            settings
+                .animation_length
+                .min(settings.short_animation_length)
         } else {
             let leading = settings.animation_length * (1.0 - settings.trail_size).clamp(0.0, 1.0);
             let trailing = settings.animation_length;
