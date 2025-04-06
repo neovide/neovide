@@ -23,6 +23,7 @@ use crate::{
     renderer::{DrawCommand, WindowDrawCommand},
     running_tracker::RunningTracker,
     settings::Settings,
+    units::{GridRect, GridSize},
     window::{UserEvent, WindowCommand, WindowSettings},
 };
 
@@ -266,12 +267,8 @@ impl Editor {
                 if let Some(window) = window {
                     window.scroll_region(
                         &mut self.draw_command_batcher,
-                        top,
-                        bottom,
-                        left,
-                        right,
-                        rows,
-                        columns,
+                        GridRect::from_min_max((left, top), (right, bottom)),
+                        GridSize::new(columns, rows),
                     );
                 }
             }

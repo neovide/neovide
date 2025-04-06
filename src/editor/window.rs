@@ -7,6 +7,7 @@ use crate::{
     bridge::GridLineCell,
     editor::{grid::CharacterGrid, style::Style, AnchorInfo, DrawCommand, DrawCommandBatcher},
     renderer::{box_drawing, LineFragment, WindowDrawCommand},
+    units::{GridRect, GridSize},
 };
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -274,13 +275,15 @@ impl Window {
     pub fn scroll_region(
         &mut self,
         batcher: &mut DrawCommandBatcher,
-        top: u64,
-        bottom: u64,
-        left: u64,
-        right: u64,
-        rows: i64,
-        cols: i64,
+        region: GridRect<u64>,
+        size: GridSize<i64>,
     ) {
+        let top = region.min.y;
+        let bottom = region.max.y;
+        let left = region.min.x;
+        let right = region.max.x;
+        let rows = size.height;
+        let cols = size.width;
         // Scrolls must move the data and send a WindowDrawCommand to move the rendered texture so
         // that future renders draw correctly
         let is_pure_updown = self.grid.scroll_region(
