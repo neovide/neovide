@@ -305,6 +305,7 @@ pub enum RedrawEvent {
         entries: Vec<(MessageKind, StyledContent)>,
     },
     Suspend,
+    NeovideSetRedraw(bool),
 }
 
 fn unpack_color(packed_color: u64) -> Color4f {

@@ -363,6 +363,9 @@ impl Editor {
                     .event_loop_proxy
                     .send_event(WindowCommand::Minimize.into());
             }
+            RedrawEvent::NeovideSetRedraw(enable) => self
+                .draw_command_batcher
+                .set_enabled(enable, &self.event_loop_proxy),
             _ => {}
         };
     }

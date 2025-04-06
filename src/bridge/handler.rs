@@ -128,6 +128,12 @@ impl Handler for NeovimHandler {
             "neovide.exec_detach_handler" => {
                 send_ui(ParallelCommand::Quit);
             }
+            "neovide.set_redraw" => {
+                if let Some(value) = arguments.first() {
+                    let value = value.as_bool().unwrap_or(true);
+                    let _ = self.sender.send(RedrawEvent::NeovideSetRedraw(value));
+                }
+            }
             _ => {}
         }
     }
