@@ -844,6 +844,23 @@ vim.g.neovide_cursor_animation_length = 0.150
 Setting `g:neovide_cursor_animation_length` determines the time it takes for the cursor to complete
 its animation in seconds. Set to `0` to disable.
 
+#### Short Animation Length
+
+VimScript:
+
+```vim
+let g:neovide_cursor_short_animation_length = 0.04
+```
+
+Lua:
+
+```lua
+vim.g.neovide_cursor_short_animation_length = 0.04
+```
+
+Setting `g:neovide_cursor_short_animation_length` determines the time it takes for the cursor to complete
+its animation in seconds for short horizontal travels of one or two characters, like when typing.
+
 #### Animation Trail Size
 
 <p align="center">
