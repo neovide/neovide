@@ -4,7 +4,7 @@ mod grid;
 mod style;
 mod window;
 
-use std::{collections::HashMap, rc::Rc, sync::Arc, thread};
+use std::{collections::HashMap, sync::Arc, thread};
 
 use log::{error, trace, warn};
 use tokio::sync::mpsc::unbounded_channel;
@@ -23,6 +23,7 @@ use crate::{
     renderer::{DrawCommand, WindowDrawCommand},
     running_tracker::RunningTracker,
     settings::Settings,
+    units::{GridRect, GridSize},
     window::{UserEvent, WindowCommand, WindowSettings},
 };
 
@@ -92,7 +93,7 @@ pub struct Editor {
     pub cursor: Cursor,
     pub defined_styles: HashMap<u64, Arc<Style>>,
     pub mode_list: Vec<CursorMode>,
-    pub draw_command_batcher: Rc<DrawCommandBatcher>,
+    pub draw_command_batcher: DrawCommandBatcher,
     pub current_mode_index: Option<u64>,
     pub ui_ready: bool,
     event_loop_proxy: EventLoopProxy<UserEvent>,
@@ -108,7 +109,7 @@ impl Editor {
             cursor: Cursor::new(),
             defined_styles: HashMap::new(),
             mode_list: Vec::new(),
-            draw_command_batcher: Rc::new(DrawCommandBatcher::new()),
+            draw_command_batcher: DrawCommandBatcher::new(),
             current_mode_index: None,
             ui_ready: false,
             settings,
@@ -232,14 +233,20 @@ impl Editor {
                 let defined_styles = &self.defined_styles;
                 let window = self.windows.get_mut(&grid);
                 if let Some(window) = window {
-                    window.draw_grid_line(row, column_start, cells, defined_styles);
+                    window.draw_grid_line(
+                        &mut self.draw_command_batcher,
+                        row,
+                        column_start,
+                        cells,
+                        defined_styles,
+                    );
                 }
             }
             RedrawEvent::Clear { grid } => {
                 tracy_zone!("EditorClear");
                 let window = self.windows.get_mut(&grid);
                 if let Some(window) = window {
-                    window.clear();
+                    window.clear(&mut self.draw_command_batcher);
                 }
             }
             RedrawEvent::Destroy { grid } => {
@@ -258,7 +265,11 @@ impl Editor {
                 tracy_zone!("EditorScroll");
                 let window = self.windows.get_mut(&grid);
                 if let Some(window) = window {
-                    window.scroll_region(top, bottom, left, right, rows, columns);
+                    window.scroll_region(
+                        &mut self.draw_command_batcher,
+                        GridRect::from_min_max((left, top), (right, bottom)),
+                        GridSize::new(columns, rows),
+                    );
                 }
             }
             RedrawEvent::WindowPosition {
@@ -299,7 +310,7 @@ impl Editor {
                 let window = self.windows.get_mut(&grid);
                 if let Some(window) = window {
                     window.anchor_info = None;
-                    window.hide();
+                    window.hide(&mut self.draw_command_batcher);
                 }
             }
             RedrawEvent::WindowClose { grid } => {
@@ -358,7 +369,7 @@ impl Editor {
 
     fn close_window(&mut self, grid: u64) {
         if let Some(window) = self.windows.remove(&grid) {
-            window.close();
+            window.close(&mut self.draw_command_batcher);
             self.draw_command_batcher
                 .queue(DrawCommand::CloseWindow(grid));
         }
@@ -366,7 +377,7 @@ impl Editor {
 
     fn resize_window(&mut self, grid: u64, width: u64, height: u64) {
         if let Some(window) = self.windows.get_mut(&grid) {
-            window.resize((width, height));
+            window.resize(&mut self.draw_command_batcher, (width, height));
             if let Some(anchor_info) = &window.anchor_info {
                 let anchor_grid_id = anchor_info.anchor_grid_id;
                 let anchor_type = anchor_info.anchor_type.clone();
@@ -389,7 +400,7 @@ impl Editor {
                 None,
                 (0.0, 0.0),
                 (width, height),
-                Rc::clone(&self.draw_command_batcher),
+                &mut self.draw_command_batcher,
             );
             self.windows.insert(grid, window);
         }
@@ -404,8 +415,13 @@ impl Editor {
         height: u64,
     ) {
         if let Some(window) = self.windows.get_mut(&grid) {
-            window.position(None, (width, height), (start_left as f64, start_top as f64));
-            window.show();
+            window.position(
+                &mut self.draw_command_batcher,
+                None,
+                (width, height),
+                (start_left as f64, start_top as f64),
+            );
+            window.show(&mut self.draw_command_batcher);
         } else {
             let new_window = Window::new(
                 grid,
@@ -413,7 +429,7 @@ impl Editor {
                 None,
                 (start_left as f64, start_top as f64),
                 (width, height),
-                Rc::clone(&self.draw_command_batcher),
+                &mut self.draw_command_batcher,
             );
             self.windows.insert(grid, new_window);
         }
@@ -458,6 +474,7 @@ impl Editor {
             };
 
             window.position(
+                &mut self.draw_command_batcher,
                 Some(AnchorInfo {
                     anchor_grid_id: anchor_grid,
                     anchor_type,
@@ -468,7 +485,7 @@ impl Editor {
                 (width, height),
                 (modified_left, modified_top),
             );
-            window.show();
+            window.show(&mut self.draw_command_batcher);
         } else {
             error!("Attempted to float window that does not exist.");
         }
@@ -496,11 +513,12 @@ impl Editor {
         if let Some(window) = self.windows.get_mut(&grid) {
             window.window_type = WindowType::Message { scrolled };
             window.position(
+                &mut self.draw_command_batcher,
                 Some(anchor_info),
                 (parent_width, window.get_height()),
                 (0.0, grid_top as f64),
             );
-            window.show();
+            window.show(&mut self.draw_command_batcher);
         } else {
             let new_window = Window::new(
                 grid,
@@ -508,7 +526,7 @@ impl Editor {
                 Some(anchor_info),
                 (0.0, grid_top as f64),
                 (parent_width, 1),
-                Rc::clone(&self.draw_command_batcher),
+                &mut self.draw_command_batcher,
             );
             self.windows.insert(grid, new_window);
         }
@@ -632,7 +650,7 @@ impl Editor {
 
     fn redraw_screen(&mut self) {
         for window in self.windows.values() {
-            window.redraw();
+            window.redraw(&mut self.draw_command_batcher);
         }
     }
 
