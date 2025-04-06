@@ -1,4 +1,4 @@
-use std::{collections::HashMap, rc::Rc, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use log::warn;
 use unicode_segmentation::UnicodeSegmentation;
@@ -22,8 +22,6 @@ pub struct Window {
 
     pub anchor_info: Option<AnchorInfo>,
     grid_position: (f64, f64),
-
-    draw_command_batcher: Rc<DrawCommandBatcher>,
 }
 
 impl Window {
@@ -33,7 +31,7 @@ impl Window {
         anchor_info: Option<AnchorInfo>,
         grid_position: (f64, f64),
         grid_size: (u64, u64),
-        draw_command_batcher: Rc<DrawCommandBatcher>,
+        draw_command_batcher: &mut DrawCommandBatcher,
     ) -> Window {
         let window = Window {
             grid_id,
@@ -41,26 +39,28 @@ impl Window {
             window_type,
             anchor_info,
             grid_position,
-            draw_command_batcher,
         };
-        window.send_updated_position();
+        window.send_updated_position(draw_command_batcher);
         window
     }
 
-    fn send_command(&self, command: WindowDrawCommand) {
-        self.draw_command_batcher.queue(DrawCommand::Window {
+    fn send_command(&self, batcher: &mut DrawCommandBatcher, command: WindowDrawCommand) {
+        batcher.queue(DrawCommand::Window {
             grid_id: self.grid_id,
             command,
         });
     }
 
-    fn send_updated_position(&self) {
-        self.send_command(WindowDrawCommand::Position {
-            grid_position: self.grid_position,
-            grid_size: (self.grid.width as u64, self.grid.height as u64),
-            anchor_info: self.anchor_info.clone(),
-            window_type: self.window_type,
-        });
+    fn send_updated_position(&self, batcher: &mut DrawCommandBatcher) {
+        self.send_command(
+            batcher,
+            WindowDrawCommand::Position {
+                grid_position: self.grid_position,
+                grid_size: (self.grid.width as u64, self.grid.height as u64),
+                anchor_info: self.anchor_info.clone(),
+                window_type: self.window_type,
+            },
+        );
     }
 
     pub fn get_cursor_grid_cell(
@@ -98,6 +98,7 @@ impl Window {
 
     pub fn position(
         &mut self,
+        batcher: &mut DrawCommandBatcher,
         anchor_info: Option<AnchorInfo>,
         grid_size: (u64, u64),
         grid_position: (f64, f64),
@@ -106,12 +107,12 @@ impl Window {
             .resize((grid_size.0 as usize, grid_size.1 as usize));
         self.anchor_info = anchor_info;
         self.grid_position = grid_position;
-        self.send_updated_position();
+        self.send_updated_position(batcher);
     }
 
-    pub fn resize(&mut self, new_size: (u64, u64)) {
+    pub fn resize(&mut self, batcher: &mut DrawCommandBatcher, new_size: (u64, u64)) {
         self.grid.resize((new_size.0 as usize, new_size.1 as usize));
-        self.send_updated_position();
+        self.send_updated_position(batcher);
     }
 
     fn modify_grid(
@@ -215,7 +216,7 @@ impl Window {
     // Redraw line by calling build_line_fragment starting at 0
     // until current_start is greater than the grid width and sending the resulting
     // fragments as a batch.
-    fn redraw_line(&self, row: usize) {
+    fn redraw_line(&self, batcher: &mut DrawCommandBatcher, row: usize) {
         let mut current_start = 0;
         let mut line_fragments = Vec::new();
         while current_start < self.grid.width {
@@ -223,14 +224,18 @@ impl Window {
             current_start = next_start;
             line_fragments.push(line_fragment);
         }
-        self.send_command(WindowDrawCommand::DrawLine {
-            row,
-            line_fragments,
-        });
+        self.send_command(
+            batcher,
+            WindowDrawCommand::DrawLine {
+                row,
+                line_fragments,
+            },
+        );
     }
 
     pub fn draw_grid_line(
         &mut self,
+        batcher: &mut DrawCommandBatcher,
         row: u64,
         column_start: u64,
         cells: Vec<GridLineCell>,
@@ -255,11 +260,11 @@ impl Window {
             // an individual line is redrawn. Unfortunately, some clipping still happens.
             // TODO: figure out how to solve this
             if row < self.grid.height - 1 {
-                self.redraw_line(row + 1);
+                self.redraw_line(batcher, row + 1);
             }
-            self.redraw_line(row);
+            self.redraw_line(batcher, row);
             if row > 0 {
-                self.redraw_line(row - 1);
+                self.redraw_line(batcher, row - 1);
             }
         } else {
             warn!("Draw command out of bounds");
@@ -268,6 +273,7 @@ impl Window {
 
     pub fn scroll_region(
         &mut self,
+        batcher: &mut DrawCommandBatcher,
         top: u64,
         bottom: u64,
         left: u64,
@@ -286,14 +292,17 @@ impl Window {
             cols as isize,
         );
 
-        self.send_command(WindowDrawCommand::Scroll {
-            top,
-            bottom,
-            left,
-            right,
-            rows,
-            cols,
-        });
+        self.send_command(
+            batcher,
+            WindowDrawCommand::Scroll {
+                top,
+                bottom,
+                left,
+                right,
+                rows,
+                cols,
+            },
+        );
 
         // There's no need to send any updates for pure up/down scrolling, the actual new lines
         // will be sent later
@@ -309,34 +318,34 @@ impl Window {
             }
 
             for row in top..bottom {
-                self.redraw_line(row as usize);
+                self.redraw_line(batcher, row as usize);
             }
         }
     }
 
-    pub fn clear(&mut self) {
+    pub fn clear(&mut self, batcher: &mut DrawCommandBatcher) {
         self.grid.clear();
-        self.send_command(WindowDrawCommand::Clear);
+        self.send_command(batcher, WindowDrawCommand::Clear);
     }
 
-    pub fn redraw(&self) {
-        self.send_command(WindowDrawCommand::Clear);
+    pub fn redraw(&self, batcher: &mut DrawCommandBatcher) {
+        self.send_command(batcher, WindowDrawCommand::Clear);
         // Draw the lines from the bottom up so that underlines don't get overwritten by the line
         // below.
         for row in (0..self.grid.height).rev() {
-            self.redraw_line(row);
+            self.redraw_line(batcher, row);
         }
     }
 
-    pub fn hide(&self) {
-        self.send_command(WindowDrawCommand::Hide);
+    pub fn hide(&self, batcher: &mut DrawCommandBatcher) {
+        self.send_command(batcher, WindowDrawCommand::Hide);
     }
 
-    pub fn show(&self) {
-        self.send_command(WindowDrawCommand::Show);
+    pub fn show(&self, batcher: &mut DrawCommandBatcher) {
+        self.send_command(batcher, WindowDrawCommand::Show);
     }
 
-    pub fn close(&self) {
-        self.send_command(WindowDrawCommand::Close);
+    pub fn close(&self, batcher: &mut DrawCommandBatcher) {
+        self.send_command(batcher, WindowDrawCommand::Close);
     }
 }
