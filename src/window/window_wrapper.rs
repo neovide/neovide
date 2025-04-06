@@ -173,6 +173,14 @@ impl WinitWindowWrapper {
         }
     }
 
+    #[cfg(target_os = "macos")]
+    pub fn set_simple_fullscreen(&mut self, fullscreen: bool) {
+        if let Some(skia_renderer) = &self.skia_renderer {
+            let window = skia_renderer.window();
+            window.set_simple_fullscreen(fullscreen);
+        }
+    }
+
     pub fn minimize_window(&mut self) {
         if let Some(skia_renderer) = &self.skia_renderer {
             let window = skia_renderer.window();
@@ -271,6 +279,10 @@ impl WinitWindowWrapper {
                         "Please check https://neovide.dev/configuration.html#macos-option-key-is-meta for more information.",
                     ));
                 }
+            }
+            #[cfg(target_os = "macos")]
+            WindowSettingsChanged::MacosSimpleFullscreen(fullscreen) => {
+                self.set_simple_fullscreen(fullscreen);
             }
             _ => {}
         };
@@ -482,6 +494,8 @@ impl WinitWindowWrapper {
             fullscreen,
             #[cfg(target_os = "macos")]
             input_macos_option_key_is_meta,
+            #[cfg(target_os = "macos")]
+            macos_simple_fullscreen,
 
             #[cfg(target_os = "windows")]
             title_background_color,
@@ -624,6 +638,8 @@ impl WinitWindowWrapper {
         self.skia_renderer = Some(skia_renderer);
         #[cfg(target_os = "macos")]
         self.set_macos_option_as_meta(input_macos_option_key_is_meta);
+        #[cfg(target_os = "macos")]
+        self.set_simple_fullscreen(macos_simple_fullscreen);
     }
 
     pub fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
