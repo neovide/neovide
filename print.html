@@ -978,6 +978,15 @@ this happens too often accidentally to you, set this to a higher value like <cod
 </code></pre>
 <p>Setting <code>g:neovide_cursor_animation_length</code> determines the time it takes for the cursor to complete
 its animation in seconds. Set to <code>0</code> to disable.</p>
+<h4 id="short-animation-length"><a class="header" href="#short-animation-length">Short Animation Length</a></h4>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_cursor_short_animation_length = 0.04
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_cursor_short_animation_length = 0.04
+</code></pre>
+<p>Setting <code>g:neovide_cursor_short_animation_length</code> determines the time it takes for the cursor to complete
+its animation in seconds for short horizontal travels of one or two characters, like when typing.</p>
 <h4 id="animation-trail-size"><a class="header" href="#animation-trail-size">Animation Trail Size</a></h4>
 <p align="center">
   <img alt="Short Cursor Trail Length", src="./assets/ShortCursorTrailLength.gif" width="47%">
