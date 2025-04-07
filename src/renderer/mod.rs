@@ -227,7 +227,7 @@ impl Renderer {
         let default_background = self.grid_renderer.get_default_background(normal_opacity);
         let grid_scale = self.grid_renderer.grid_scale;
         let opacity = window_settings.opacity;
-        let background_transparency = window_settings.background_transparency;
+        let bg_image_opacity = window_settings.bgimage_opacity;
 
         let layer_grouping = self
             .settings
@@ -322,7 +322,7 @@ impl Renderer {
                     root_canvas,
                     (opacity * 255.0) as u8,
                     Background {
-                        color: default_background.with_a((255.0 * background_transparency) as u8),
+                        color: default_background.with_a((255.0 * bg_image_opacity) as u8),
                         image: background_image,
                     },
                     &screen_rect,

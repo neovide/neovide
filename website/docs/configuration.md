@@ -239,19 +239,19 @@ title bar.
 
 Use the `g:neovide_background_image` variable to set a background image for Neovide. It is set to a string url.
 
-You can alter the background images transparency by changing the `g:neovide_background_transparency` variable. It takes a value ranging from 0.0 (transparent) to 1.0 (opaque).
+You can alter the background images opacity by changing the `g:neovide_bgimage_opacity` variable. It takes a value ranging from 0.0 (transparent) to 1.0 (opaque).
 
 Vim:
 
 ```vim
-let g:neovide_background_transparency = 0.8
+let g:neovide_bgimage_opacity = 0.8
 let g:neovide_background_image = "~/image.jpg"
 ```
 
 Lua:
 
 ```lua
-vim.g.neovide_background_transparency = 0.8
+vim.g.neovide_bgimage_opacity = 0.8
 vim.g.neovide_background_image = "~/image.jpg"
 ```
 
