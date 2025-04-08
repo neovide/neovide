@@ -20,6 +20,8 @@ vim.g.neovide_version = args.neovide_version
 vim.o.lazyredraw = false
 vim.o.termguicolors = true
 
+vim.env.NEOVIDE_IMAGE = "1"
+
 local function rpcnotify(method, ...)
     vim.rpcnotify(vim.g.neovide_channel_id, method, ...)
 end
@@ -190,6 +192,10 @@ end
 
 M.private.set_info = function(info)
     M.info = create_table(info_structure, info)
+end
+
+M.write_kitty_image = function(data)
+    print(data)
 end
 
 _G["neovide"] = M
