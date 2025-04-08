@@ -1,3 +1,7 @@
+if not vim.img then
+    return
+end
+
 local next_id = 1
 
 local backend = {}

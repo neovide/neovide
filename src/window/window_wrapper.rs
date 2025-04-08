@@ -221,6 +221,9 @@ impl WinitWindowWrapper {
             WindowCommand::ShowImage(id, opts) => {
                 self.renderer.image_renderer.show_image(id, opts);
             }
+            WindowCommand::KittyImage(image) => {
+                self.renderer.image_renderer.kitty_image(image);
+            }
             #[cfg(windows)]
             WindowCommand::RegisterRightClick => register_right_click(),
             #[cfg(windows)]

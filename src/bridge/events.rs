@@ -12,7 +12,7 @@ use strum::AsRefStr;
 
 use crate::{
     editor::{Colors, CursorMode, CursorShape, Style, UnderlineStyle},
-    renderer::ImageRenderOpts,
+    renderer::{ImageRenderOpts, KittyImage},
 };
 
 #[derive(Clone, Debug)]
@@ -970,4 +970,9 @@ pub fn parse_show_image(arguments: Vec<Value>) -> Result<(u64, ImageRenderOpts)>
         }
     }
     Ok((parse_u64(id)?, ret))
+}
+
+pub fn parse_kitty_image(arguments: Vec<Value>) -> Result<KittyImage> {
+    let [opts] = extract_values(arguments)?;
+    Ok(from_value(opts)?)
 }

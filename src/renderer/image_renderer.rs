@@ -1,12 +1,20 @@
 use crate::units::{to_skia_rect, GridPos, GridScale, GridSize, PixelRect, PixelSize};
 use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine as _};
 use serde::Deserialize;
-use skia_safe::{canvas::SrcRectConstraint, Canvas, Data, Image, Paint};
+use skia_safe::ISize;
+use skia_safe::{
+    canvas::SrcRectConstraint, AlphaType, Canvas, ColorSpace, ColorType, Data, Image, ImageInfo,
+    Paint,
+};
 use std::collections::HashMap;
+
+use super::kitty_image::ImageFormat;
+use super::{KittyImage, Transmit};
 
 pub struct ImageRenderer {
     loaded_images: HashMap<u64, Image>,
     visible_images: Vec<(u64, ImageRenderOpts)>,
+    in_progress_image: Option<Transmit>,
 }
 
 #[derive(Clone, Debug, PartialEq, Default, Deserialize)]
@@ -65,17 +73,77 @@ impl ImageRenderer {
         Self {
             loaded_images: HashMap::new(),
             visible_images: Vec::new(),
+            in_progress_image: None,
         }
     }
 
     pub fn upload_image(&mut self, id: u64, data: &String) {
         log::info!("upload image");
         let image_data = STANDARD_NO_PAD.decode(data).unwrap();
-        // TODO: Don't copy
+        // TODO: don't copy
         let image_data = Data::new_copy(&image_data);
         let image = Image::from_encoded(image_data).unwrap();
         log::info!("Image loaded {:?}", image);
         self.loaded_images.insert(id, image);
+    }
+
+    pub fn kitty_image(&mut self, opts: KittyImage) {
+        match opts {
+            KittyImage::Transmit(opts) => {
+                let opts = if let Some(in_progress) = &mut self.in_progress_image {
+                    in_progress.data += &opts.data;
+                    if opts.more_chunks {
+                        return;
+                    }
+                    in_progress
+                } else if opts.more_chunks {
+                    self.in_progress_image = Some(opts);
+                    return;
+                } else {
+                    &opts
+                };
+
+                let image_data = STANDARD_NO_PAD.decode(&opts.data).unwrap();
+                // TODO: don't copy
+                let image_data = Data::new_copy(&image_data);
+                let dimensions = ISize::new(opts.width as i32, opts.height as i32);
+                let image = match opts.format {
+                    ImageFormat::Png => Image::from_encoded(image_data).unwrap(),
+                    ImageFormat::Rgb => {
+                        let image_info = ImageInfo::new(
+                            dimensions,
+                            ColorType::RGB888x,
+                            AlphaType::Opaque,
+                            Some(ColorSpace::new_srgb()),
+                        );
+                        skia_safe::images::raster_from_data(
+                            &image_info,
+                            image_data,
+                            dimensions.width as usize * 3,
+                        )
+                        .unwrap()
+                    }
+                    ImageFormat::Rgba => {
+                        let image_info = ImageInfo::new(
+                            dimensions,
+                            ColorType::RGBA8888,
+                            AlphaType::Premul,
+                            Some(ColorSpace::new_srgb()),
+                        );
+                        skia_safe::images::raster_from_data(
+                            &image_info,
+                            image_data,
+                            dimensions.width as usize * 4,
+                        )
+                        .unwrap()
+                    }
+                };
+                self.loaded_images.insert(opts.id.into(), image);
+                self.in_progress_image = None;
+            }
+            KittyImage::Delete => {}
+            KittyImage::Display(_opts) => {}
+        }
     }
 
     pub fn show_image(&mut self, id: u64, opts: ImageRenderOpts) {

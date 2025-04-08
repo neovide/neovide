@@ -194,8 +194,11 @@ M.private.set_info = function(info)
     M.info = create_table(info_structure, info)
 end
 
-M.write_kitty_image = function(data)
-    print(data)
+M.kitty_image = function(data)
+    if not data.a then
+        data.a = "t"
+    end
+    rpcnotify("neovide.kitty_image", data)
 end
 
 _G["neovide"] = M
