@@ -1,6 +1,9 @@
 use serde::de::{Error, Unexpected};
 use serde::{Deserialize, Deserializer};
 
+pub const IMAGE_PLACEHOLDER: char = '\u{10EEEE}';
+include!(concat!(env!("OUT_DIR"), "/kitty_rowcolumn_diacritics.rs"));
+
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 #[serde(tag = "a")]
 pub enum KittyImage {
