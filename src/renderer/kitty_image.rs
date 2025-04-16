@@ -1,5 +1,8 @@
+use itertools::Itertools;
 use serde::de::{Error, Unexpected};
 use serde::{Deserialize, Deserializer};
+
+use super::ImageFragment;
 
 pub const IMAGE_PLACEHOLDER: char = '\u{10EEEE}';
 include!(concat!(env!("OUT_DIR"), "/kitty_rowcolumn_diacritics.rs"));
@@ -105,6 +108,54 @@ pub enum TransmissionMedium {
     TemporaryFile,
     #[serde(rename = "s")]
     SharedMemory,
+}
+
+pub fn parse_kitty_image_placeholder(
+    text: &str,
+    start_column: u32,
+    id: u32,
+    fragments: &mut Vec<ImageFragment>,
+) -> bool {
+    if !text.starts_with(IMAGE_PLACEHOLDER) {
+        return false;
+    }
+
+    if text.len() % 3 != 0 {
+        log::warn!("Invalid Kitty placeholder {text}");
+    }
+    let id = id.into();
+
+    fragments.extend(
+        text.chars()
+            .tuples()
+            .enumerate()
+            .flat_map(|(index, (placeholder, row, column))| {
+                if placeholder != IMAGE_PLACEHOLDER {
+                    log::warn!("Invalid Kitty placeholder {text}");
+                    None
+                } else {
+                    let col = get_row_or_col(column);
+                    let row = get_row_or_col(row);
+                    Some((index, col, row))
+                }
+            })
+            // Group consecutive columns together
+            .chunk_by(|(index, col, row)| (*col as isize - *index as isize, *row))
+            .into_iter()
+            .map(|(_, chunk)| {
+                let mut chunk_iter = chunk.into_iter();
+                let (index, col, row) = chunk_iter.next().unwrap();
+                let len = chunk_iter.count() + 1;
+                ImageFragment {
+                    dst_col: index as u32 + start_column,
+                    src_row: row,
+                    src_range: col..col + len as u32,
+                    id,
+                }
+            }),
+    );
+
+    true
 }
 
 fn bool_from_int<'de, D>(deserializer: D) -> Result<bool, D::Error>

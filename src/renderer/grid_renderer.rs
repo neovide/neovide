@@ -8,7 +8,7 @@ use crate::{
     profiling::tracy_zone,
     renderer::{
         box_drawing::{self},
-        CachingShaper, RendererSettings,
+        parse_kitty_image_placeholder, CachingShaper, ImageFragment, RendererSettings,
     },
     settings::*,
     units::{
@@ -191,6 +191,7 @@ impl GridRenderer {
         fragment_width: i32,
         style: &Option<Arc<Style>>,
         window_position: PixelPos<f32>,
+        image_fragments: &mut Vec<ImageFragment>,
     ) -> (bool, bool) {
         tracy_zone!("draw_foreground");
         let pos = grid_position * self.grid_scale;
@@ -198,7 +199,17 @@ impl GridRenderer {
         let width = fragment_size.width;
 
         let style = style.as_ref().unwrap_or(&self.default_style);
+        let foreground_color = style.foreground(&self.default_style.colors);
         let mut text_drawn = false;
+        if parse_kitty_image_placeholder(
+            text,
+            grid_position.x.try_into().unwrap(),
+            foreground_color.to_bytes(),
+            image_fragments,
+        ) {
+            return (false, false);
+        }
+        let foreground_color = foreground_color.to_color();
 
         if let Some(underline_style) = style.underline {
             let stroke_size = self.shaper.stroke_size();
@@ -218,7 +229,7 @@ impl GridRenderer {
             text,
             boxchar_canvas,
             PixelRect::from_origin_and_size(pos, fragment_size),
-            style.foreground(&self.default_style.colors).to_color(),
+            foreground_color,
             window_position,
         ) {
             return (text_drawn, true);
@@ -238,21 +249,12 @@ impl GridRenderer {
                 let random_color = random_hsv.to_color(255);
                 paint.set_color(random_color);
             } else {
-                paint.set_color(style.foreground(&self.default_style.colors).to_color());
-            }
-            paint.set_anti_alias(false);
-            if self.settings.get::<RendererSettings>().debug_renderer {
-                let random_hsv: HSV = (rand::random::<f32>() * 360.0, 1.0, 1.0).into();
-                let random_color = random_hsv.to_color(255);
-                paint.set_color(random_color);
-            } else {
-                paint.set_color(style.foreground(&self.default_style.colors).to_color());
+                paint.set_color(foreground_color);
             }
             paint.set_anti_alias(false);
             text_canvas.clip_rect(to_skia_rect(&region), None, Some(false));
 
             let mut paint = Paint::default();
-            paint.set_anti_alias(false);
             paint.set_blend_mode(BlendMode::SrcOver);
 
             if self.settings.get::<RendererSettings>().debug_renderer {

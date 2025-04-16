@@ -6,7 +6,7 @@ use skia_safe::{
     canvas::SrcRectConstraint, AlphaType, Canvas, ColorSpace, ColorType, Data, Image, ImageInfo,
     Paint,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, ops::Range};
 
 use super::kitty_image::ImageFormat;
 use super::{KittyImage, Transmit};
@@ -15,6 +15,14 @@ pub struct ImageRenderer {
     loaded_images: HashMap<u64, Image>,
     visible_images: Vec<(u64, ImageRenderOpts)>,
     in_progress_image: Option<Transmit>,
+}
+
+#[derive(Clone)]
+pub struct ImageFragment {
+    pub dst_col: u32,
+    pub src_row: u32,
+    pub src_range: Range<u32>,
+    pub id: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Default, Deserialize)]
