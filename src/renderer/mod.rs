@@ -414,7 +414,11 @@ impl Renderer {
     pub fn handle_os_scale_factor_change(&mut self, os_scale_factor: f64) {
         self.os_scale_factor = os_scale_factor;
         self.grid_renderer
-            .handle_scale_factor_update(self.os_scale_factor * self.user_scale_factor);
+            .handle_scale_factor_update(self.get_combined_scale_factor());
+    }
+
+    pub fn get_combined_scale_factor(&self) -> f64 {
+        self.os_scale_factor * self.user_scale_factor
     }
 
     pub fn prepare_lines(&mut self, force: bool) {

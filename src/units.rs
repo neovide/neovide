@@ -5,6 +5,7 @@ use std::{
 };
 
 use glamour::{Box2, Point2, Scalar, Size2, Transform2, TransformMap, Unit, Vector2};
+use serde::{ser::SerializeStruct, Serialize, Serializer};
 
 /// Coordinates in grid units (multiplies of the font size)
 pub struct Grid<T> {
@@ -65,6 +66,18 @@ impl GridScale {
 
     pub fn width(&self) -> f32 {
         self.transform.matrix.x_axis.x
+    }
+}
+
+impl Serialize for GridScale {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut state = serializer.serialize_struct("GridScale", 2)?;
+        state.serialize_field("width", &self.width())?;
+        state.serialize_field("height", &self.height())?;
+        state.end()
     }
 }
 
