@@ -60,16 +60,18 @@ impl KeyboardManager {
             WindowEvent::Ime(Ime::Commit(text)) => {
                 log::trace!("Ime commit {text}");
                 send_ui(SerialCommand::KeyboardAsIme {
-                    text: Some(text.to_string()),
+                    text: Some(self.format_key_text(text, false)),
                     commit: true,
                 });
             }
             WindowEvent::Ime(Ime::Preedit(text, cursor_offset)) => {
                 self.ime_preedit = (text.to_string(), *cursor_offset);
-                let text = if text.is_empty() {
+                let formatted = self.format_key_text(text, false);
+                log::trace!("Ime preedit: {formatted} cursor_range: {:?}", cursor_offset);
+                let text = if formatted.is_empty() {
                     None
                 } else {
-                    Some(text.to_string())
+                    Some(formatted.to_string())
                 };
                 send_ui(SerialCommand::KeyboardAsIme {
                     text,
