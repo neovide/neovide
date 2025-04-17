@@ -78,6 +78,12 @@ pub struct Display {
     pub x_placement_offset: i32,
     #[serde(default, rename = "V")]
     pub y_placement_offset: i32,
+
+    // These are not directly documented for display, but actually needed
+    #[serde(default, rename = "i")]
+    pub id: u32,
+    #[serde(default, rename = "p")]
+    pub placement_id: u32,
 }
 
 #[derive(Clone, PartialEq, Debug, Default)]
@@ -113,7 +119,8 @@ pub enum TransmissionMedium {
 pub fn parse_kitty_image_placeholder(
     text: &str,
     start_column: u32,
-    id: u32,
+    color: u32,
+    underline_color: u32,
     fragments: &mut Vec<ImageFragment>,
 ) -> bool {
     if !text.starts_with(IMAGE_PLACEHOLDER) {
@@ -123,7 +130,8 @@ pub fn parse_kitty_image_placeholder(
     if text.len() % 3 != 0 {
         log::warn!("Invalid Kitty placeholder {text}");
     }
-    let id = id.into();
+    let image_id = color.swap_bytes() >> 8;
+    let placement_id = underline_color.swap_bytes() >> 8;
 
     fragments.extend(
         text.chars()
@@ -150,7 +158,8 @@ pub fn parse_kitty_image_placeholder(
                     dst_col: index as u32 + start_column,
                     src_row: row,
                     src_range: col..col + len as u32,
-                    id,
+                    image_id,
+                    placement_id,
                 }
             }),
     );

@@ -6,7 +6,11 @@ use crate::{
     cmd_line::CmdLineSettings,
     editor::{AnchorInfo, SortOrder, Style, WindowType},
     profiling::{tracy_plot, tracy_zone},
-    renderer::{animation_utils::*, image_renderer::ImageFragment, GridRenderer, RendererSettings},
+    renderer::{
+        animation_utils::*,
+        image_renderer::{ImageFragment, ImageRenderer},
+        GridRenderer, RendererSettings,
+    },
     settings::Settings,
     units::{to_skia_rect, GridPos, GridRect, GridScale, GridSize, PixelPos, PixelRect, PixelVec},
     utils::RingBuffer,
@@ -258,21 +262,28 @@ impl RenderedWindow {
         canvas: &Canvas,
         pixel_region: PixelRect<f32>,
         grid_scale: GridScale,
+        image_renderer: &ImageRenderer,
     ) {
+        let mut fragment_renderer = image_renderer.begin_draw_image_fragments();
         for (matrix, line) in self.iter_border_lines_with_transform(pixel_region, grid_scale) {
             let line = line.borrow();
             if let Some(foreground_picture) = &line.foreground_picture {
                 canvas.draw_picture(foreground_picture, Some(&matrix), None);
             }
+            fragment_renderer.draw(&line.image_fragments, &matrix, &grid_scale);
         }
+        fragment_renderer.flush(canvas);
         canvas.save();
         canvas.clip_rect(self.inner_region(pixel_region, grid_scale), None, false);
+        let mut fragment_renderer = image_renderer.begin_draw_image_fragments();
         for (matrix, line) in self.iter_scrollable_lines_with_transform(pixel_region, grid_scale) {
             let line = line.borrow();
             if let Some(foreground_picture) = &line.foreground_picture {
                 canvas.draw_picture(foreground_picture, Some(&matrix), None);
             }
+            fragment_renderer.draw(&line.image_fragments, &matrix, &grid_scale);
         }
+        fragment_renderer.flush(canvas);
         canvas.restore();
 
         for (mut matrix, line) in self.iter_border_lines_with_transform(pixel_region, grid_scale) {
@@ -316,6 +327,7 @@ impl RenderedWindow {
         root_canvas: &Canvas,
         default_background: Color,
         grid_scale: GridScale,
+        image_renderer: &ImageRenderer,
     ) -> WindowDrawDetails {
         let pixel_region_box = self.pixel_region(grid_scale);
         let pixel_region = to_skia_rect(&pixel_region_box);
@@ -333,7 +345,7 @@ impl RenderedWindow {
         root_canvas.clear(default_background);
 
         self.draw_background_surface(root_canvas, pixel_region_box, grid_scale);
-        self.draw_foreground_surface(root_canvas, pixel_region_box, grid_scale);
+        self.draw_foreground_surface(root_canvas, pixel_region_box, grid_scale, image_renderer);
 
         root_canvas.restore();
 

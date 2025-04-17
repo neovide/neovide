@@ -1,20 +1,23 @@
 use crate::units::{to_skia_rect, GridPos, GridScale, GridSize, PixelRect, PixelSize};
 use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine as _};
+use bytemuck::cast_ref;
+use glamour::{Matrix3, Matrix4};
 use serde::Deserialize;
-use skia_safe::ISize;
 use skia_safe::{
-    canvas::SrcRectConstraint, AlphaType, Canvas, ColorSpace, ColorType, Data, Image, ImageInfo,
-    Paint,
+    canvas::SrcRectConstraint, matrix::Member, AlphaType, BlendMode, Canvas, ColorSpace, ColorType,
+    Data, ISize, Image, ImageInfo, Matrix, Paint, RSXform, Rect, SamplingOptions, M44,
 };
 use std::{collections::HashMap, ops::Range};
 
-use super::kitty_image::ImageFormat;
+use super::kitty_image::{Display, ImageFormat};
 use super::{KittyImage, Transmit};
+use crate::units::{GridRect, PixelVec};
 
 pub struct ImageRenderer {
     loaded_images: HashMap<u64, Image>,
     visible_images: Vec<(u64, ImageRenderOpts)>,
     in_progress_image: Option<Transmit>,
+    displayed_images: HashMap<(u32, u32), Display>,
 }
 
 #[derive(Clone)]
@@ -22,7 +25,22 @@ pub struct ImageFragment {
     pub dst_col: u32,
     pub src_row: u32,
     pub src_range: Range<u32>,
-    pub id: u64,
+    pub image_id: u32,
+    pub placement_id: u32,
+}
+
+struct VisibleImage<'a> {
+    image: &'a Image,
+    xform: Vec<RSXform>,
+    tex: Vec<Rect>,
+    inv_matrix: Matrix3<f32>,
+    skia_matrix: M44,
+    image_scale: GridScale,
+}
+
+pub struct FragmentRenderer<'a> {
+    visible_images: HashMap<(u32, u32), VisibleImage<'a>>,
+    renderer: &'a ImageRenderer,
 }
 
 #[derive(Clone, Debug, PartialEq, Default, Deserialize)]
@@ -82,6 +100,7 @@ impl ImageRenderer {
             loaded_images: HashMap::new(),
             visible_images: Vec::new(),
             in_progress_image: None,
+            displayed_images: HashMap::new(),
         }
     }
 
@@ -150,7 +169,10 @@ impl ImageRenderer {
                 self.in_progress_image = None;
             }
             KittyImage::Delete => {}
-            KittyImage::Display(_opts) => {}
+            KittyImage::Display(opts) => {
+                self.displayed_images
+                    .insert((opts.id, opts.placement_id), opts);
+            }
         }
     }
 
@@ -179,6 +201,91 @@ impl ImageRenderer {
                 let paint = Paint::default();
                 canvas.draw_image_rect(image, src, to_skia_rect(&dst), &paint);
             }
+        }
+    }
+
+    pub fn begin_draw_image_fragments(&self) -> FragmentRenderer {
+        FragmentRenderer::new(self)
+    }
+}
+
+impl<'a> FragmentRenderer<'a> {
+    pub fn new(renderer: &'a ImageRenderer) -> Self {
+        Self {
+            visible_images: HashMap::new(),
+            renderer,
+        }
+    }
+
+    pub fn draw(&mut self, fragments: &Vec<ImageFragment>, matrix: &Matrix, scale: &GridScale) {
+        for fragment in fragments {
+            let image = self
+                .visible_images
+                .entry((fragment.image_id, fragment.placement_id))
+                .or_insert_with(|| {
+                    // TODO: allow failures somehow
+                    let display = self
+                        .renderer
+                        .displayed_images
+                        .get(&(fragment.image_id, fragment.placement_id))
+                        .unwrap();
+                    // HACK: A bit of a hack use 32 bit ids
+                    // Might be final if we drop the support for non-kitty images,
+                    // Otherwise we can decide that kitty has some fixed upper bit id
+                    let image = self
+                        .renderer
+                        .loaded_images
+                        .get(&(fragment.image_id as u64))
+                        .unwrap();
+                    let x_scale = (display.columns as f32 * scale.width()) / image.width() as f32;
+                    let y_scale = (display.rows as f32 * scale.height()) / image.height() as f32;
+                    let matrix = Matrix3::from_scale((x_scale, y_scale).into());
+                    let inv_matrix = matrix.inverse();
+                    let skia_matrix = Matrix4::<f32>::from_mat3(matrix);
+                    let skia_matrix = M44::col_major(cast_ref(skia_matrix.as_ref()));
+                    let image_scale = GridScale::new(PixelSize::new(
+                        image.width() as f32 / display.columns as f32,
+                        image.height() as f32 / display.rows as f32,
+                    ));
+                    VisibleImage {
+                        image,
+                        xform: Vec::new(),
+                        tex: Vec::new(),
+                        skia_matrix,
+                        inv_matrix,
+                        image_scale,
+                    }
+                });
+            let dest_pos = GridPos::new(fragment.dst_col, 0) * *scale
+                + PixelVec::new(matrix[Member::TransX], matrix[Member::TransY]);
+            let dest_pos = image.inv_matrix.transform_point2(dest_pos.to_untyped());
+            image
+                .xform
+                .push(RSXform::new(1.0, 0.0, (dest_pos.x, dest_pos.y)));
+
+            let src_min = GridPos::new(fragment.src_range.start, fragment.src_row);
+            let src_max = GridPos::new(fragment.src_range.end, fragment.src_row + 1);
+            let src_rect = GridRect::new(src_min, src_max) * image.image_scale;
+            image.tex.push(to_skia_rect(&src_rect));
+        }
+    }
+
+    pub fn flush(self, canvas: &Canvas) {
+        for image in self.visible_images.values() {
+            let paint = Paint::default();
+            canvas.save();
+            canvas.set_matrix(&image.skia_matrix);
+            canvas.draw_atlas(
+                image.image,
+                &image.xform,
+                &image.tex,
+                None,
+                BlendMode::Src,
+                SamplingOptions::default(),
+                None,
+                &paint,
+            );
+            canvas.restore();
         }
     }
 }

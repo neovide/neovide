@@ -50,6 +50,7 @@ approx = "0.5.1"
 async-trait = "0.1.83"
 backtrace = "0.3.74"
 base64 = "0.22.1"
+bytemuck = "1.22.0"
 clap = { version = "4.5.23", features = ["cargo", "derive", "env", "color"] }
 copypasta = "0.10.1"
 csscolorparser = "0.7.0"

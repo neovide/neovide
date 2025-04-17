@@ -315,13 +315,26 @@ impl Renderer {
         let settings = self.settings.get::<RendererSettings>();
         let root_window_regions = root_windows
             .into_iter()
-            .map(|window| window.draw(root_canvas, default_background, grid_scale))
+            .map(|window| {
+                window.draw(
+                    root_canvas,
+                    default_background,
+                    grid_scale,
+                    &self.image_renderer,
+                )
+            })
             .collect_vec();
 
         let floating_window_regions = floating_layers
             .into_iter()
             .flat_map(|mut layer| {
-                layer.draw(root_canvas, &settings, default_background, grid_scale)
+                layer.draw(
+                    root_canvas,
+                    &settings,
+                    default_background,
+                    grid_scale,
+                    &self.image_renderer,
+                )
             })
             .collect_vec();
 

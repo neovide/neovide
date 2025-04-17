@@ -200,11 +200,13 @@ impl GridRenderer {
 
         let style = style.as_ref().unwrap_or(&self.default_style);
         let foreground_color = style.foreground(&self.default_style.colors);
+        let underline_color = style.special(&self.default_style.colors);
         let mut text_drawn = false;
         if parse_kitty_image_placeholder(
             text,
             grid_position.x.try_into().unwrap(),
             foreground_color.to_bytes(),
+            underline_color.to_bytes(),
             image_fragments,
         ) {
             return (false, false);
