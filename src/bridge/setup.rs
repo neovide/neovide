@@ -9,6 +9,7 @@ use crate::{
 };
 
 const INIT_LUA: &str = include_str!("../../lua/init.lua");
+const IMEHANDLER_LUA: &str = include_str!("../../lua/ime_handler.lua");
 
 pub async fn get_api_information(nvim: &Neovim<NeovimWriter>) -> Result<ApiInformation> {
     // Retrieve the channel number for communicating with neovide.
@@ -101,6 +102,10 @@ pub async fn setup_neovide_specific_state(
         ),
         (Value::from("option_settings"), Value::from(option_settings)),
     ]);
+
+    nvim.execute_lua(IMEHANDLER_LUA, vec![])
+        .await
+        .context("Error when running Neovide ime_handler.lua")?;
 
     nvim.execute_lua(INIT_LUA, vec![args])
         .await

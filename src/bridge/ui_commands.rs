@@ -23,6 +23,10 @@ use crate::{
 #[derive(Clone, Debug, AsRefStr)]
 pub enum SerialCommand {
     Keyboard(String),
+    KeyboardAsIme {
+        text: Option<String>,
+        commit: bool,
+    },
     MouseButton {
         button: String,
         action: String,
@@ -58,6 +62,64 @@ impl SerialCommand {
                     .await
                     .map(|_| ())
                     .context("Input failed")
+            }
+            SerialCommand::KeyboardAsIme { text, commit } => {
+                if commit {
+                    // Notified ime commit event, the text is guaranteed not to be None.
+                    trace!("IME Input Sent: {}", text.clone().unwrap());
+
+                    nvim.exec_autocmds(
+                        Value::String("User".into()),
+                        vec![
+                            (
+                                Value::String("pattern".into()),
+                                Value::String("ImeCommit".into()),
+                            ),
+                            (
+                                Value::String("data".into()),
+                                Value::Map(vec![(
+                                    Value::String("commit_text".into()),
+                                    Value::String(text.unwrap().into()),
+                                )]),
+                            ),
+                        ],
+                    )
+                    .await
+                    .context("Input failed")
+                } else {
+                    trace!("IME Input Preedit");
+
+                    if let Some(text) = text {
+                        nvim.exec_autocmds(
+                            Value::String("User".into()),
+                            vec![
+                                (
+                                    Value::String("pattern".into()),
+                                    Value::String("ImePreedit".into()),
+                                ),
+                                (
+                                    Value::String("data".into()),
+                                    Value::Map(vec![(
+                                        Value::String("preedit_text".into()),
+                                        Value::String(text.into()),
+                                    )]),
+                                ),
+                            ],
+                        )
+                        .await
+                        .context("Input failed")
+                    } else {
+                        nvim.exec_autocmds(
+                            Value::String("User".into()),
+                            vec![(
+                                Value::String("pattern".into()),
+                                Value::String("ImePreedit".into()),
+                            )],
+                        )
+                        .await
+                        .context("Input failed")
+                    }
+                }
             }
             SerialCommand::MouseButton {
                 button,
