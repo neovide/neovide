@@ -1,5 +1,12 @@
 use crate::units::{to_skia_rect, GridPos, GridScale, GridSize, PixelRect, PixelSize};
-use base64::{engine::general_purpose::STANDARD_NO_PAD, Engine as _};
+use base64::{
+    alphabet,
+    engine::{
+        general_purpose::{GeneralPurpose, GeneralPurposeConfig},
+        DecodePaddingMode,
+    },
+    Engine,
+};
 use bytemuck::cast_ref;
 use glamour::{Matrix3, Matrix4};
 use serde::Deserialize;
@@ -12,6 +19,16 @@ use std::{collections::HashMap, ops::Range};
 use super::kitty_image::{Display, ImageFormat};
 use super::{KittyImage, Transmit};
 use crate::units::{GridRect, PixelVec};
+
+/// Don't add padding when encoding, and allow input with or without padding when decoding.
+pub const NO_PAD_INDIFFERENT: GeneralPurposeConfig = GeneralPurposeConfig::new()
+    .with_encode_padding(false)
+    .with_decode_padding_mode(DecodePaddingMode::Indifferent);
+
+/// A [`GeneralPurpose`] engine using the [`alphabet::STANDARD`] base64 alphabet and
+/// [`NO_PAD_INDIFFERENT`] config.
+pub const STANDARD_NO_PAD_INDIFFERENT: GeneralPurpose =
+    GeneralPurpose::new(&alphabet::STANDARD, NO_PAD_INDIFFERENT);
 
 pub struct ImageRenderer {
     loaded_images: HashMap<u64, Image>,
@@ -106,7 +123,7 @@ impl ImageRenderer {
 
     pub fn upload_image(&mut self, id: u64, data: &String) {
         log::info!("upload image");
-        let image_data = STANDARD_NO_PAD.decode(data).unwrap();
+        let image_data = STANDARD_NO_PAD_INDIFFERENT.decode(data).unwrap();
         // TODO: don't copy
         let image_data = Data::new_copy(&image_data);
         let image = Image::from_encoded(image_data).unwrap();
@@ -130,7 +147,7 @@ impl ImageRenderer {
                     &opts
                 };
 
-                let image_data = STANDARD_NO_PAD.decode(&opts.data).unwrap();
+                let image_data = STANDARD_NO_PAD_INDIFFERENT.decode(&opts.data).unwrap();
                 // TODO: don't copy
                 let image_data = Data::new_copy(&image_data);
                 let dimensions = ISize::new(opts.width as i32, opts.height as i32);
