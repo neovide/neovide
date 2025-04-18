@@ -119,6 +119,7 @@ pub enum WindowAnchor {
     NorthEast,
     SouthWest,
     SouthEast,
+    Absolute,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -210,6 +211,9 @@ pub enum RedrawEvent {
         #[allow(unused)]
         focusable: bool,
         z_index: u64,
+        comp_index: Option<u64>,
+        screen_row: Option<u64>,
+        screen_col: Option<u64>,
     },
     #[allow(unused)]
     WindowExternalPosition {
@@ -227,6 +231,8 @@ pub enum RedrawEvent {
         scrolled: bool,
         #[allow(unused)]
         separator_character: String,
+        z_index: Option<u64>,
+        comp_index: Option<u64>,
     },
     WindowViewport {
         grid: u64,
@@ -678,8 +684,10 @@ fn parse_window_anchor(value: Value) -> Result<WindowAnchor> {
 }
 
 fn parse_win_float_pos(win_float_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [grid, _window, anchor, anchor_grid, anchor_row, anchor_column, focusable, z_index] =
-        extract_values(win_float_pos_arguments)?;
+    let (
+        [grid, _window, anchor, anchor_grid, anchor_row, anchor_column, focusable, z_index],
+        [comp_index, screen_row, screen_col],
+    ) = extract_values_with_optional(win_float_pos_arguments)?;
 
     Ok(RedrawEvent::WindowFloatPosition {
         grid: parse_u64(grid)?,
@@ -689,6 +697,9 @@ fn parse_win_float_pos(win_float_pos_arguments: Vec<Value>) -> Result<RedrawEven
         anchor_column: parse_f64(anchor_column)?,
         focusable: parse_bool(focusable)?,
         z_index: parse_u64(z_index)?,
+        comp_index: comp_index.map(parse_u64).transpose()?,
+        screen_row: screen_row.map(parse_u64).transpose()?,
+        screen_col: screen_col.map(parse_u64).transpose()?,
     })
 }
 
@@ -717,13 +728,16 @@ fn parse_win_close(win_close_arguments: Vec<Value>) -> Result<RedrawEvent> {
 }
 
 fn parse_msg_set_pos(msg_set_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
-    let [grid, row, scrolled, separator_character] = extract_values(msg_set_pos_arguments)?;
+    let ([grid, row, scrolled, separator_character], [z_index, comp_index]) =
+        extract_values_with_optional(msg_set_pos_arguments)?;
 
     Ok(RedrawEvent::MessageSetPosition {
         grid: parse_u64(grid)?,
         row: parse_u64(row)?,
         scrolled: parse_bool(scrolled)?,
         separator_character: parse_string(separator_character)?,
+        z_index: z_index.map(parse_u64).transpose()?,
+        comp_index: comp_index.map(parse_u64).transpose()?,
     })
 }
 
