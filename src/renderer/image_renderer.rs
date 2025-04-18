@@ -12,7 +12,8 @@ use glamour::{Matrix3, Matrix4};
 use serde::Deserialize;
 use skia_safe::{
     canvas::SrcRectConstraint, matrix::Member, AlphaType, BlendMode, Canvas, ColorSpace, ColorType,
-    Data, ISize, Image, ImageInfo, Matrix, Paint, RSXform, Rect, SamplingOptions, M44,
+    Data, FilterMode, ISize, Image, ImageInfo, Matrix, MipmapMode, Paint, RSXform, Rect,
+    SamplingOptions, M44,
 };
 use std::{collections::HashMap, ops::Range};
 
@@ -290,6 +291,9 @@ impl<'a> FragmentRenderer<'a> {
     pub fn flush(self, canvas: &Canvas) {
         for image in self.visible_images.values() {
             let paint = Paint::default();
+            // Kitty uses Linear filtering, so use that here as well
+            // It does not look very good when upscaling some images like logos though
+            let sampling_options = SamplingOptions::new(FilterMode::Linear, MipmapMode::Linear);
             canvas.save();
             canvas.set_matrix(&image.skia_matrix);
             canvas.draw_atlas(
@@ -298,7 +302,7 @@ impl<'a> FragmentRenderer<'a> {
                 &image.tex,
                 None,
                 BlendMode::Src,
-                SamplingOptions::default(),
+                sampling_options,
                 None,
                 &paint,
             );
