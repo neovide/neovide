@@ -53,8 +53,15 @@ impl error::Error for ParseError {
 
 #[derive(Clone, Debug)]
 pub struct GridLineCell {
+    /// The UTF-8 text that should be put in the cell. Will be an empty string for the right cell
+    /// of a double-width char.
     pub text: String,
+    /// A highlight id defined by a previous [`RedrawEvent::HighlightAttributesDefine`]. If `None`,
+    /// the most recently seen `highlight_id` in the same [`RedrawEvent::GridLine`] should be used
+    /// (it is always sent for the first cell in the event).
     pub highlight_id: Option<u64>,
+    /// Repeat the cell the given number of times if `Some`, draw it once otherwise. Double-width
+    /// chars never use this.
     pub repeat: Option<u64>,
 }
 
@@ -137,50 +144,107 @@ pub enum EditorMode {
     Unknown(String),
 }
 
+/// Deserialized representations of [UI events] sent by the neovim process.
+///
+/// [UI events]: https://neovim.io/doc/user/ui.html
 #[derive(Clone, Debug, AsRefStr)]
 pub enum RedrawEvent {
+    /// Set the window title.
     SetTitle {
         title: String,
     },
     ModeInfoSet {
         cursor_modes: Vec<CursorMode>,
     },
+    /// UI-related option changed.
+    ///
+    /// Triggered when the UI first connects to Nvim, and whenever an option is changed by the
+    /// user or a plugin.
+    ///
+    /// Options are not represented here if their effects are communicated in other UI events. For
+    /// example, instead of forwarding the 'mouse' option value, the [`RedrawEvent::MouseOn`] and
+    /// [`RedrawEvent::MouseOff`] UI events directly indicate if mouse support is active. Some
+    /// options like 'ambiwidth' have already taken effect on the grid, where appropriate empty
+    /// cells are added, however a UI might still use such options when rendering raw text sent
+    /// from Nvim, like for ui-cmdline.
     OptionSet {
         gui_option: GuiOption,
     },
+    /// Editor mode changed. The set of modes reported will change in new versions of Nvim, for
+    /// instance more submodes and temporary states might be represented as separate modes.
     ModeChange {
+        /// The current mode.
         mode: EditorMode,
+        /// An index into the array emitted in [`RedrawEvent::ModeInfoSet`]. UIs should change the
+        /// cursor style according to the properties specified in the corresponding item.
         mode_index: u64,
     },
+    /// 'mouse' was enabled in the current editor mode.
     MouseOn,
+    /// 'mouse' was disabled in the current editor mode.
     MouseOff,
+    /// Indicates to the UI that it must stop rendering the cursor. This event is misnamed and does
+    /// not actually have anything to do with busyness.
     BusyStart,
+    /// Indicates to the UI that it must resume rendering the cursor. This event is misnamed and
+    /// does not actually have anything to do with busyness.
     BusyStop,
+    /// Nvim is done redrawing the screen. For an implementation that renders to an internal
+    /// buffer, this is the time to display the redrawn parts to the user.
     Flush,
+    /// The grid is resized to `width` and `height` cells.
     Resize {
         grid: u64,
         width: u64,
         height: u64,
     },
+    /// Set the default foreground, background and special colors.
+    ///
+    /// The RGB values will always be valid colors, by default. If no colors have been set, they
+    /// will default to black and white, depending on 'background'.
+    ///
+    /// **Note:** Unlike the corresponding [ui-grid-old] events, the screen is not always cleared after
+    /// sending this event. The UI must repaint the screen with changed background color itself.
+    ///
+    /// [ui-grid-old]: https://neovim.io/doc/user/ui.html#ui-grid-old
     DefaultColorsSet {
         colors: Colors,
     },
+    /// Add a highlight with `id` to the highlight table, with the attributes specified by `style`.
+    ///
+    /// `id` 0 will always be used for the default highlight with colors defined by
+    /// `default_colors_set` and no styles applied.
+    ///
+    /// **Note:** Nvim may reuse id values if its internal highlight table is full. In that case Nvim
+    /// will always issue redraws of screen cells that are affected by redefined ids, so UIs do not
+    /// need to keep track of this themselves.
     HighlightAttributesDefine {
         id: u64,
         style: Style,
     },
+    /// Redraw a continuous part of a `row` on a `grid`.
+    ///
+    /// If the array of cell changes doesn't reach to the end of the line, the rest should
+    /// remain unchanged. A whitespace char, repeated enough to cover the remaining line, will
+    /// be sent when the rest of the line should be cleared.
     GridLine {
         grid: u64,
         row: u64,
+        /// The column to start redrawing at.
         column_start: u64,
         cells: Vec<GridLineCell>,
     },
+    /// Clear a `grid`.
     Clear {
         grid: u64,
     },
+    /// `grid` will not be used anymore.
     Destroy {
         grid: u64,
     },
+    /// Makes `grid` the current grid and `row, column` the cursor position on this grid. This
+    /// event will be sent at most once in a redraw batch and indicates the visible cursor
+    /// position.
     CursorGoto {
         grid: u64,
         row: u64,
@@ -195,6 +259,8 @@ pub enum RedrawEvent {
         rows: i64,
         columns: i64,
     },
+    /// Set the position and size of the grid in Nvim (i.e. the outer grid size). If the window was
+    /// previously hidden, it should now be shown again.
     WindowPosition {
         grid: u64,
         start_row: u64,
@@ -202,6 +268,12 @@ pub enum RedrawEvent {
         width: u64,
         height: u64,
     },
+    /// Display or reconfigure floating window. The window should be displayed above another grid
+    /// `anchor_grid` at the specified position `anchor_row` and `anchor_col`. For the meaning of
+    /// `anchor` and more details of positioning, see [`nvim_open_win()`][nvim_open_win].
+    /// `mouse_enabled` is true if the window can receive mouse events.
+    ///
+    /// [nvim_open_win]: https://neovim.io/doc/user/api.html#nvim_open_win()
     WindowFloatPosition {
         grid: u64,
         anchor: WindowAnchor,
@@ -209,31 +281,58 @@ pub enum RedrawEvent {
         anchor_row: f64,
         anchor_column: f64,
         #[allow(unused)]
-        focusable: bool,
+        mouse_enabled: bool,
         z_index: u64,
         comp_index: Option<u64>,
         screen_row: Option<u64>,
         screen_col: Option<u64>,
     },
+    /// Display or reconfigure external window. The window should be displayed as a separate
+    /// top-level window in the desktop environment, or something similar.
     #[allow(unused)]
     WindowExternalPosition {
         grid: u64,
     },
+    /// Stop displaying the window. The window can be shown again later.
     WindowHide {
         grid: u64,
     },
+    /// Close the window.
     WindowClose {
         grid: u64,
     },
+    /// Display messages on `grid`. It can be useful to draw a separator then [msgsep]. The builtin
+    /// TUI draws a full line filled with `separator_character` ('fillchars' msgsep field) and
+    /// `hl-MsgSeparator` highlight.
+    ///
+    /// When `ui-messages` is active, no message grid is used, and this event will not be sent.
+    ///
+    /// [msgsep]: https://neovim.io/doc/user/vim_diff.html#msgsep
     MessageSetPosition {
         grid: u64,
+        /// The message grid will be displayed at this row of the default grid (grid=1), covering
+        /// the full column width.
         row: u64,
+        /// Indicates whether the message area has been scrolled to cover other grids.
         scrolled: bool,
         #[allow(unused)]
         separator_character: String,
         z_index: Option<u64>,
         comp_index: Option<u64>,
     },
+    /// Indicates the range of buffer text displayed in the window, as well as the cursor position
+    /// in the buffer. All positions are zero-based. `bottom_line` is set to one more than the line
+    /// count of the buffer, if there are filler lines past the end. `scroll_delta` contains how
+    /// much the top line of a window moved since `WindowViewport` was last emitted. It is intended
+    /// to be used to implement smooth scrolling. For this purpose it only counts "virtual" or
+    /// "displayed" lines, so folds only count as one line. When scrolling more than a full screen
+    /// it is an approximate value.
+    ///
+    /// All updates, such as [`RedrawEvent::GridLine`], in a batch affects the new viewport,
+    /// despite the fact that `WindowViewport` is received after the updates. Applications
+    /// implementing, for example, smooth scrolling should take this into account and keep the grid
+    /// separated from what's displayed on the screen and copy it to the viewport destination once
+    /// win_viewport is received.
     WindowViewport {
         grid: u64,
         #[allow(unused)]
@@ -248,6 +347,11 @@ pub enum RedrawEvent {
         line_count: Option<f64>,
         scroll_delta: Option<f64>,
     },
+    /// Indicates the margins of a window grid which are _not_ part of the viewport as indicated by
+    /// the [`RedrawEvent::WindowViewport`] event. This happens e.g. in the presence of ['winbar']
+    /// and floating window borders.
+    ///
+    /// ['winbar']: https://neovim.io/doc/user/options.html#'winbar'
     WindowViewportMargins {
         grid: u64,
         top: u64,
@@ -685,7 +789,7 @@ fn parse_window_anchor(value: Value) -> Result<WindowAnchor> {
 
 fn parse_win_float_pos(win_float_pos_arguments: Vec<Value>) -> Result<RedrawEvent> {
     let (
-        [grid, _window, anchor, anchor_grid, anchor_row, anchor_column, focusable, z_index],
+        [grid, _window, anchor, anchor_grid, anchor_row, anchor_column, mouse_enabled, z_index],
         [comp_index, screen_row, screen_col],
     ) = extract_values_with_optional(win_float_pos_arguments)?;
 
@@ -695,7 +799,7 @@ fn parse_win_float_pos(win_float_pos_arguments: Vec<Value>) -> Result<RedrawEven
         anchor_grid: parse_u64(anchor_grid)?,
         anchor_row: parse_f64(anchor_row)?,
         anchor_column: parse_f64(anchor_column)?,
-        focusable: parse_bool(focusable)?,
+        mouse_enabled: parse_bool(mouse_enabled)?,
         z_index: parse_u64(z_index)?,
         comp_index: comp_index.map(parse_u64).transpose()?,
         screen_row: screen_row.map(parse_u64).transpose()?,
