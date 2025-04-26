@@ -160,17 +160,15 @@ impl MetalSkiaRenderer {
     fn move_to_next_frame(&mut self) {
         tracy_gpu_zone!("move_to_next_frame");
 
-        let drawable = unsafe {
-            self.metal_layer
-                .nextDrawable()
-                .expect("Failed to get next drawable of metal layer.")
-        };
-
-        self.metal_drawable_surface = Some(MetalDrawableSurface::new(
-            drawable,
-            &mut self.context,
-            &self.settings,
-        ));
+        if let Some(drawable) = unsafe { self.metal_layer.nextDrawable() } {
+            self.metal_drawable_surface = Some(MetalDrawableSurface::new(
+                drawable,
+                &mut self.context,
+                &self.settings,
+            ));
+        } else {
+            self.window().request_redraw();
+        }
     }
 }
 
