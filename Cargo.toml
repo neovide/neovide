@@ -120,24 +120,50 @@ windows-registry = "0.5.1"
 
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2 = "0.5.2"
-objc2-foundation = { version = "0.2.2", default-features = false, features = [
+objc2 = "0.6.1"
+objc2-core-foundation = { version = "0.3.1", default-features = false, features = [
+    "CFCGTypes",
+] }
+objc2-foundation = { version = "0.3.1", default-features = false, features = [
     "std",
     "NSUserDefaults",
+    "NSProcessInfo",
 ] }
-objc2-app-kit = { version = "0.2.2", default-features = false, features = [
+objc2-app-kit = { version = "0.3.1", default-features = false, features = [
     "std",
-    "NSLayoutConstraint",
-    "NSColorSpace",
+    "objc2-core-foundation",
     "objc2-quartz-core",
+    "NSResponder",
+    "NSEvent",
+    "NSView",
+    "NSWindow",
+    "NSScreen",
+    "NSApplication",
+    "NSMenu",
+    "NSMenuItem",
+    "NSLayoutConstraint",
+    "NSColor",
+    "NSColorSpace",
+    "NSImage",
+    "NSGraphics",
 ] }
-objc2-quartz-core = { version = "0.2.2", default-features = false, features = [
+objc2-quartz-core = { version = "0.3.1", default-features = false, features = [
     "std",
+    "objc2-core-foundation",
     "objc2-metal",
     "CALayer",
     "CAMetalLayer",
 ] }
-objc2-metal = { version = "0.2.2", default-features = false, features = [
+objc2-core-video = { version = "0.3.1", default-features = false, features = [
+    "objc2-core-graphics",
+    "CVReturn",
+    "CVBase",
+    "CVDisplayLink",
+] }
+objc2-core-graphics = { version = "0.3.1", default-features = false, features = [
+    "CGDirectDisplay",
+] }
+objc2-metal = { version = "0.3.1", default-features = false, features = [
     "std",
     "MTLCommandQueue",
     "MTLCommandBuffer",
