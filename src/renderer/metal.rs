@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use objc2::{rc::Retained, runtime::ProtocolObject};
 use objc2_app_kit::NSColorSpace;
-use objc2_foundation::{CGFloat, CGSize};
+use objc2_core_foundation::{CGFloat, CGSize};
 use objc2_metal::{
     MTLCommandBuffer, MTLCommandQueue, MTLCreateSystemDefaultDevice, MTLDevice, MTLDrawable,
     MTLTexture,
@@ -28,8 +28,7 @@ use crate::{
 use super::Settings;
 
 struct MetalDrawableSurface {
-    pub _drawable: Retained<ProtocolObject<dyn CAMetalDrawable>>,
-    pub metal_drawable: Retained<ProtocolObject<dyn MTLDrawable>>,
+    pub drawable: Retained<ProtocolObject<dyn CAMetalDrawable>>,
     pub surface: Surface,
 }
 
@@ -47,9 +46,6 @@ impl MetalDrawableSurface {
             (texture.width() as i32, texture.height() as i32),
             &texture_info,
         );
-
-        let metal_drawable =
-            unsafe { Retained::cast::<ProtocolObject<dyn MTLDrawable>>(drawable.clone()) };
 
         let render_settings = settings.get::<RendererSettings>();
 
@@ -70,15 +66,11 @@ impl MetalDrawableSurface {
         )
         .expect("Failed to create skia surface with metal drawable.");
 
-        MetalDrawableSurface {
-            _drawable: drawable,
-            metal_drawable,
-            surface,
-        }
+        MetalDrawableSurface { drawable, surface }
     }
 
     fn metal_drawable(&self) -> &ProtocolObject<dyn MTLDrawable> {
-        &self.metal_drawable
+        self.drawable.as_ref()
     }
 }
 
@@ -111,10 +103,9 @@ impl MetalSkiaRenderer {
             ));
         }
 
-        let device = unsafe {
-            Retained::retain(MTLCreateSystemDefaultDevice())
-                .expect("Failed to create Metal system default device.")
-        };
+        let device =
+            MTLCreateSystemDefaultDevice().expect("Failed to create Metal system default device.");
+
         let metal_layer = unsafe {
             let metal_layer = CAMetalLayer::new();
             metal_layer.setDevice(Some(&device));
@@ -160,17 +151,15 @@ impl MetalSkiaRenderer {
     fn move_to_next_frame(&mut self) {
         tracy_gpu_zone!("move_to_next_frame");
 
-        let drawable = unsafe {
-            self.metal_layer
-                .nextDrawable()
-                .expect("Failed to get next drawable of metal layer.")
-        };
-
-        self.metal_drawable_surface = Some(MetalDrawableSurface::new(
-            drawable,
-            &mut self.context,
-            &self.settings,
-        ));
+        if let Some(drawable) = unsafe { self.metal_layer.nextDrawable() } {
+            self.metal_drawable_surface = Some(MetalDrawableSurface::new(
+                drawable,
+                &mut self.context,
+                &self.settings,
+            ));
+        } else {
+            self.window().request_redraw();
+        }
     }
 }
 
