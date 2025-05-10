@@ -66,59 +66,19 @@ impl SerialCommand {
             SerialCommand::KeyboardAsIme { text, commit } => {
                 if commit {
                     // Notified ime commit event, the text is guaranteed not to be None.
-                    trace!("IME Input Sent: {}", text.clone().unwrap());
-
-                    nvim.exec_autocmds(
-                        Value::String("User".into()),
-                        vec![
-                            (
-                                Value::String("pattern".into()),
-                                Value::String("ImeCommit".into()),
-                            ),
-                            (
-                                Value::String("data".into()),
-                                Value::Map(vec![(
-                                    Value::String("commit_text".into()),
-                                    Value::String(text.unwrap().into()),
-                                )]),
-                            ),
-                        ],
-                    )
-                    .await
-                    .context("Input failed")
+                    let text = text.clone().unwrap();
+                    trace!("IME Input Sent: {}", &text);
+                    nvim.exec_lua(&format!("neovide.commit_handler([[{}]])", text), vec![])
+                        .await
+                        .map(|_| ())
+                        .context("IME Commit failed")
                 } else {
                     trace!("IME Input Preedit");
 
-                    if let Some(text) = text {
-                        nvim.exec_autocmds(
-                            Value::String("User".into()),
-                            vec![
-                                (
-                                    Value::String("pattern".into()),
-                                    Value::String("ImePreedit".into()),
-                                ),
-                                (
-                                    Value::String("data".into()),
-                                    Value::Map(vec![(
-                                        Value::String("preedit_text".into()),
-                                        Value::String(text.into()),
-                                    )]),
-                                ),
-                            ],
-                        )
+                    nvim.exec_lua(&format!("neovide.preedit_handler([[{}]])", text.unwrap_or_default()), vec![])
                         .await
-                        .context("Input failed")
-                    } else {
-                        nvim.exec_autocmds(
-                            Value::String("User".into()),
-                            vec![(
-                                Value::String("pattern".into()),
-                                Value::String("ImePreedit".into()),
-                            )],
-                        )
-                        .await
-                        .context("Input failed")
-                    }
+                        .map(|_| ())
+                        .context("IME Preedit failed")
                 }
             }
             SerialCommand::MouseButton {
