@@ -23,6 +23,10 @@ use crate::{
 #[derive(Clone, Debug, AsRefStr)]
 pub enum SerialCommand {
     Keyboard(String),
+    KeyboardAsIme {
+        text: Option<String>,
+        commit: bool,
+    },
     MouseButton {
         button: String,
         action: String,
@@ -58,6 +62,24 @@ impl SerialCommand {
                     .await
                     .map(|_| ())
                     .context("Input failed")
+            }
+            SerialCommand::KeyboardAsIme { text, commit } => {
+                if commit {
+                    // Notified ime commit event, the text is guaranteed not to be None.
+                    let text = text.clone().unwrap();
+                    trace!("IME Input Sent: {}", &text);
+                    nvim.exec_lua(&format!("neovide.commit_handler([[{}]])", text), vec![])
+                        .await
+                        .map(|_| ())
+                        .context("IME Commit failed")
+                } else {
+                    trace!("IME Input Preedit");
+
+                    nvim.exec_lua(&format!("neovide.preedit_handler([[{}]])", text.unwrap_or_default()), vec![])
+                        .await
+                        .map(|_| ())
+                        .context("IME Preedit failed")
+                }
             }
             SerialCommand::MouseButton {
                 button,
