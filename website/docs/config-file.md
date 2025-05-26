@@ -37,10 +37,10 @@ maximized = false
 mouse-cursor-icon = "arrow"
 neovim-bin = "/usr/bin/nvim" # in reality found dynamically on $PATH if unset
 no-multigrid = false
-srgb = false
+srgb = false # platform-specific: false (Linux/macOS) or true (Windows)
 tabs = true
 theme = "auto"
-title-hidden = true
+title-hidden = false
 vsync = true
 wsl = false
 
