@@ -455,7 +455,7 @@ impl CursorRenderer {
 
         if center_destination != PixelPos::ZERO {
             let immediate_movement = !settings.animate_in_insert_mode && in_insert_mode
-                || !settings.animate_command_line && !changed_to_from_cmdline;
+                || !settings.animate_command_line && changed_to_from_cmdline;
             if self.jumped {
                 // Caclculate the direction alignment for each corner and generate a sorted list
                 // This way we know which corner is the front and which is the back
