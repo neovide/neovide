@@ -109,6 +109,7 @@ pub struct FontOptions {
     pub width: f32,
     pub hinting: FontHinting,
     pub edging: FontEdging,
+    pub underline_offset: f32,
 }
 
 impl FontFeature {
@@ -260,6 +261,7 @@ impl Default for FontOptions {
             width: 0.0,
             hinting: FontHinting::default(),
             edging: FontEdging::default(),
+            underline_offset: 0.0,
         }
     }
 }
