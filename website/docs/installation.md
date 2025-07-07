@@ -65,7 +65,7 @@ brew install --cask neovide
 Neovide registers launched shells taking the user's preferred shell into account.
 
 If you are encountering issues with Neovide not being found by your shell, you can try to add the
-`brew` binary path to your `PATH` environment variable:
+`brew` binary path to your `PATH` environment variable and reboot computer:
 
 ```sh
 sudo launchctl config user path "$(brew --prefix)/bin:${PATH}"
