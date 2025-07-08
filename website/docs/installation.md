@@ -65,13 +65,15 @@ brew install --cask neovide
 Neovide registers launched shells taking the user's preferred shell into account.
 
 If you are encountering issues with Neovide not being found by your shell, you can try to add the
-`brew` binary path to your `PATH` environment variable:
+`brew` binary path to your `PATH` environment variable and reboot computer:
 
 ```sh
 sudo launchctl config user path "$(brew --prefix)/bin:${PATH}"
 ```
 
 For more information, see the Homebrew [FAQ](https://docs.brew.sh/FAQ#my-mac-apps-dont-find-homebrew-utilities).
+
+For the other possible issue with Neovide cannot find command nvim, see this [FAQ](https://neovide.dev/faq.html#neovide-is-not-picking-up-some-shell-configured-information).
 
 ### Mac Source
 
