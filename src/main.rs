@@ -72,7 +72,7 @@ pub use channel_utils::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
-use crate::settings::{load_last_window_settings, Config, PersistentWindowSettings, Settings};
+use crate::settings::{load_last_window_settings, Config, Settings};
 
 pub use profiling::startup_profiler;
 
@@ -244,16 +244,20 @@ fn setup(
 
     let window_settings = load_last_window_settings().ok();
     let window_size = determine_window_size(window_settings.as_ref(), &settings);
-    let grid_size = match window_size {
-        WindowSize::Grid(grid_size) => Some(grid_size),
-        // Clippy wrongly suggests to use unwrap or default here
-        #[allow(clippy::manual_unwrap_or_default)]
-        _ => match window_settings {
-            Some(PersistentWindowSettings::Maximized { grid_size, .. }) => grid_size,
-            Some(PersistentWindowSettings::Windowed { grid_size, .. }) => grid_size,
-            _ => None,
-        },
-    };
+    // let grid_size = match window_size {
+    //     WindowSize::Grid(grid_size) => Some(grid_size),
+    //     // Clippy wrongly suggests to use unwrap or default here
+    //     #[allow(clippy::manual_unwrap_or_default)]
+    //     _ => match window_settings {
+    //         Some(PersistentWindowSettings::Maximized { grid_size, .. }) => grid_size,
+    //         Some(PersistentWindowSettings::Windowed { grid_size, .. }) => grid_size,
+    //         _ => None,
+    //     },
+    // };
+
+    // let neovide calc grid_size manually every time to avoid blank lines
+    // issues#3150
+    let grid_size = None;
 
     let mut runtime = NeovimRuntime::new()?;
     runtime.launch(proxy, grid_size, running_tracker, settings)?;
