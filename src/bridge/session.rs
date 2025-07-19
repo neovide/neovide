@@ -162,7 +162,7 @@ impl NeovimInstance {
                 let address = if address.starts_with("\\\\.\\pipe\\") {
                     address
                 } else {
-                    format!("\\\\.\\pipe\\{}", address)
+                    format!("\\\\.\\pipe\\{address}")
                 };
                 Ok(Self::split(
                     tokio::net::windows::named_pipe::ClientOptions::new().open(address)?,
