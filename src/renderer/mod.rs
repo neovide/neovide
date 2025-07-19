@@ -259,7 +259,7 @@ impl Renderer {
             let mut prev_is_message = false;
             for window in floating_windows {
                 let zindex = window.anchor_info.as_ref().unwrap().sort_order.z_index;
-                log::debug!("zindex: {}, base: {}", zindex, base_zindex);
+                log::debug!("zindex: {zindex}, base: {base_zindex}");
                 let is_message = matches!(window.window_type, WindowType::Message { .. });
                 // NOTE: The message window is always on it's own layer
                 if !current_windows.is_empty() && zindex != last_zindex
@@ -444,8 +444,7 @@ impl Renderer {
                             // Ignore the errors when not using multigrid, since Neovim wrongly sends some of these
                             if !settings.no_multi_grid {
                                 error!(
-                                    "WindowDrawCommand: {:?} sent for uninitialized grid {}",
-                                    command, grid_id
+                                    "WindowDrawCommand: {command:?} sent for uninitialized grid {grid_id}"
                                 );
                             }
                         }

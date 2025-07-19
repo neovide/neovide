@@ -71,13 +71,13 @@ impl VSyncMacosDisplayLink {
                         }
                     },
                     Err(code) => {
-                        error!("Failed to start display link, CVReturn code: {}.", code);
+                        error!("Failed to start display link, CVReturn code: {code}.");
                     }
                 }
                 Some(display_link)
             }
             Err(code) => {
-                error!("Failed to create display link, CVReturn code: {}.", code);
+                error!("Failed to create display link, CVReturn code: {code}.");
                 None
             }
         };

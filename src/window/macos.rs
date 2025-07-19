@@ -300,19 +300,19 @@ impl MacosWindowFeature {
     pub fn handle_settings_changed(&self, changed_setting: WindowSettingsChanged) {
         match changed_setting {
             WindowSettingsChanged::BackgroundColor(background_color) => {
-                log::info!("background_color changed to {}", background_color);
+                log::info!("background_color changed to {background_color}");
                 self.update_background(false);
             }
             WindowSettingsChanged::ShowBorder(show_border) => {
-                log::info!("show_border changed to {}", show_border);
+                log::info!("show_border changed to {show_border}");
                 self.update_background(true);
             }
             WindowSettingsChanged::Opacity(opacity) => {
-                log::info!("opacity changed to {}", opacity);
+                log::info!("opacity changed to {opacity}");
                 self.update_background(true);
             }
             WindowSettingsChanged::WindowBlurred(window_blurred) => {
-                log::info!("window_blurred changed to {}", window_blurred);
+                log::info!("window_blurred changed to {window_blurred}");
                 self.update_background(true);
             }
             _ => {}

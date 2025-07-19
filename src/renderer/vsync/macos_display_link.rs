@@ -60,6 +60,7 @@ pub mod core_video {
 
     pub type CVDisplayLinkRef = *mut c_void;
 
+    #[allow(non_snake_case)]
     pub type CVDisplayLinkOutputCallback = extern "C" fn(
         displayLink: CVDisplayLinkRef,
         inNow: *const CVTimeStamp,
@@ -69,6 +70,7 @@ pub mod core_video {
         displayLinkContext: *mut c_void,
     ) -> CVReturn;
 
+    #[allow(non_snake_case)]
     #[link(name = "CoreVideo", kind = "framework")]
     extern "C" {
         pub fn CVDisplayLinkCreateWithCGDisplay(
