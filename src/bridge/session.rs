@@ -52,7 +52,7 @@ impl NeovimSession {
                 let mut lines = Vec::new();
                 let mut reader = BufReader::new(reader).lines();
                 while let Some(line) = reader.next_line().await.unwrap_or_default() {
-                    log::error!("{}", line);
+                    log::error!("{line}");
                     lines.push(line);
                 }
                 lines
@@ -119,7 +119,7 @@ impl NeovimInstance {
     async fn spawn_process(
         mut cmd: Command,
     ) -> Result<(BoxedReader, BoxedWriter, Option<BoxedReader>, Option<Child>)> {
-        log::debug!("Starting neovim with: {:?}", cmd);
+        log::debug!("Starting neovim with: {cmd:?}");
 
         let mut child = cmd
             .stdin(Stdio::piped())

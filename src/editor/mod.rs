@@ -516,6 +516,12 @@ impl Editor {
         z_index: Option<u64>,
         comp_index: Option<u64>,
     ) {
+        // HACK: workaround https://github.com/neovide/neovide/issues/3150 by ignoring grid id 0.
+        // The real grid id should always be something else. But Neovim 0.11.3 sends an extra
+        // msg_set_pos with grid id 0.
+        if grid == 0 {
+            return;
+        }
         let z_index = z_index.unwrap_or(MSG_ZINDEX); // From the Neovim source code
         let parent_width = self
             .windows
@@ -621,10 +627,7 @@ impl Editor {
 
                 if !intentional && !already_there && !using_cmdline {
                     trace!(
-                        "Cursor unexpectedly sent to message buffer {} ({}, {})",
-                        grid,
-                        grid_left,
-                        grid_top
+                        "Cursor unexpectedly sent to message buffer {grid} ({grid_left}, {grid_top})"
                     );
                     return;
                 }

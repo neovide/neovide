@@ -66,12 +66,12 @@ impl ParseFromValue for VfxMode {
                 "pixiedust" => VfxMode::Trail(TrailMode::PixieDust),
                 "" => VfxMode::Disabled,
                 value => {
-                    error!("Expected a VfxMode name, but received {:?}", value);
+                    error!("Expected a VfxMode name, but received {value:?}");
                     return;
                 }
             };
         } else {
-            error!("Expected a VfxMode string, but received {:?}", value);
+            error!("Expected a VfxMode string, but received {value:?}");
         }
     }
 }
@@ -90,17 +90,11 @@ impl ParseFromValue for VfxModeList {
                     vfx_mode.parse_from_value(item.clone());
                     self.0.push(vfx_mode);
                 } else {
-                    error!(
-                        "Expected a VfxMode string in the array, but received {:?}",
-                        item
-                    );
+                    error!("Expected a VfxMode string in the array, but received {item:?}");
                 }
             }
         } else {
-            error!(
-                "Expected a string or an array of VfxMode strings, but received {:?}",
-                value
-            );
+            error!("Expected a string or an array of VfxMode strings, but received {value:?}");
         }
     }
 }
