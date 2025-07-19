@@ -47,7 +47,7 @@ fn create_platform_command(
             shell.to_str().unwrap(),
             "-c",
         ]);
-        result.arg(format!("{} {}", command, args));
+        result.arg(format!("{command} {args}"));
         result
     }
 }
