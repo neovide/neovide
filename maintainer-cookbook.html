@@ -256,6 +256,11 @@ top, one time at the bottom in the bundling section)</li>
 <a href="https://github.com/neovide/neovide/issues/1482">#1482</a>)</strong></p>
 </li>
 <li>
+<p>Check that <code>cargo publish --workspace --dry-run</code> works
+If necessary, you might have to bump the version number for the
+<code>neovide-derive</code> crate as well.</p>
+</li>
+<li>
 <p>Create a commit called <code>Bump version to $tag</code></p>
 </li>
 <li>
@@ -289,6 +294,12 @@ the unzipped versions if listed above)</p>
 </li>
 <li>
 <p>profit</p>
+</li>
+<li>
+<p>Publish <code>neovide-derive</code> to crates.io if necessary <code>cargo publish -p neovide-derive</code></p>
+</li>
+<li>
+<p>Publish <code>neovide</code> to crates.io <code>cargo publish -p neovide</code></p>
 </li>
 </ol>
 <p>Phew. Now, announce the new release anywhere you think is appropriate (like
