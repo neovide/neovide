@@ -657,7 +657,7 @@ Lua:
 vim.g.neovide_macos_simple_fullscreen = true
 ```
 
-**Unreleased yet.**
+**Available since 0.15.1.**
 
 Setting `neovide_macos_simple_fullscreen` will hide the dock and menu bar for MacOS.
 
