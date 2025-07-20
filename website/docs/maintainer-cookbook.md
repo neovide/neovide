@@ -106,9 +106,12 @@ Now here's where the order becomes important:
   Cargo.lock` to make sure releases stay reproducible
   ([#1628](https://github.com/neovide/neovide/issues/1628),
   [#1482](https://github.com/neovide/neovide/issues/1482))**
-6. Create a commit called `Bump version to $tag`
-7. Push and wait for CI to complete (will take around 25 minutes)
-8. Run `cargo build --frozen`
+6. Check that `cargo publish --workspace --dry-run` works
+   If necessary, you might have to bump the version number for the
+   `neovide-derive` crate as well.
+7. Create a commit called `Bump version to $tag`
+8. Push and wait for CI to complete (will take around 25 minutes)
+9. Run `cargo build --frozen`
 
 In the meantime, you can look through the previous commits to see if you missed
 anything.
@@ -125,6 +128,8 @@ anything.
     the unzipped versions if listed above)
 4. Hit `Publish release`
 5. profit
+6. Publish `neovide-derive` to crates.io if necessary `cargo publish -p neovide-derive`
+7. Publish `neovide` to crates.io `cargo publish -p neovide`
 
 Phew. Now, announce the new release anywhere you think is appropriate (like
 Reddit, Discord, whatever) ~~and go create a PR in nixpkgs~~.
