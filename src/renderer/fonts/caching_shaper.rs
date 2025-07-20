@@ -76,13 +76,13 @@ impl CachingShaper {
     }
 
     pub fn update_scale_factor(&mut self, scale_factor: f32) {
-        debug!("scale_factor changed: {:.2}", scale_factor);
+        debug!("scale_factor changed: {scale_factor:.2}");
         self.scale_factor = scale_factor;
         self.reset_font_loader();
     }
 
     pub fn update_font(&mut self, guifont_setting: &str) {
-        debug!("Updating font: {}", guifont_setting);
+        debug!("Updating font: {guifont_setting}");
 
         let options = match FontOptions::parse(guifont_setting) {
             Ok(opt) => opt,
@@ -96,7 +96,7 @@ impl CachingShaper {
     }
 
     pub fn update_font_options(&mut self, options: FontOptions) {
-        debug!("Updating font options: {:?}", options);
+        debug!("Updating font options: {options:?}");
 
         let keys = options
             .possible_fonts()
@@ -124,14 +124,14 @@ impl CachingShaper {
         }
 
         if failed_fonts.len() != keys.len() {
-            debug!("Font updated to: {:?}", options);
+            debug!("Font updated to: {options:?}");
             self.options = options;
             self.reset_font_loader();
         }
     }
 
     pub fn update_linespace(&mut self, linespace: f32) {
-        debug!("Updating linespace: {}", linespace);
+        debug!("Updating linespace: {linespace}");
 
         let font_height = self.font_base_dimensions().height;
         let impossible_linespace = font_height + linespace <= 0.0;
@@ -157,10 +157,7 @@ impl CachingShaper {
 
         self.font_loader = FontLoader::new(font_size);
         let (_, font_width) = self.info();
-        info!(
-            "Reset Font Loader: font_size: {:.2}px, font_width: {:.2}px",
-            font_size, font_width
-        );
+        info!("Reset Font Loader: font_size: {font_size:.2}px, font_width: {font_width:.2}px");
 
         self.blob_cache.clear();
     }
@@ -379,7 +376,7 @@ impl CachingShaper {
 
         let mut resulting_blobs = Vec::new();
 
-        trace!("Shaping text: {:?}", text);
+        trace!("Shaping text: {text:?}");
 
         for (cluster_group, font_pair) in self.build_clusters(&text, style) {
             let features = self.get_font_features(

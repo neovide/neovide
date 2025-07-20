@@ -249,12 +249,7 @@ impl RenderedWindow {
                 pics += 1;
             }
         }
-        log::trace!(
-            "region: {:?}, inner: {:?}, pics: {}",
-            pixel_region,
-            inner_region,
-            pics
-        );
+        log::trace!("region: {pixel_region:?}, inner: {inner_region:?}, pics: {pics}");
         canvas.restore();
     }
 

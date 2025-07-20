@@ -562,7 +562,7 @@ impl WinitWindowWrapper {
                 };
             };
         }
-        log::info!("Showing window size: {:#?}, maximized: {}", size, maximized);
+        log::info!("Showing window size: {size:#?}, maximized: {maximized}");
         let is_wayland = matches!(
             window.window_handle().unwrap().as_raw(),
             RawWindowHandle::Wayland(_)
@@ -755,9 +755,7 @@ impl WinitWindowWrapper {
             + window_padding_size;
 
         log::info!(
-            "get_window_size_from_grid: Grid Size: {:?}, Window Size {:?}",
-            grid_size,
-            window_size
+            "get_window_size_from_grid: Grid Size: {grid_size:?}, Window Size {window_size:?}"
         );
         window_size
     }

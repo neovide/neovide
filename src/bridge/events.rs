@@ -549,7 +549,7 @@ fn parse_style(style_map: Value, _info_array: Value) -> Result<Style> {
                     style.underline = Some(UnderlineStyle::UnderDouble)
                 }
 
-                _ => debug!("Ignored style attribute: {}", name),
+                _ => debug!("Ignored style attribute: {name}"),
             }
         } else {
             debug!("Invalid attribute format");

@@ -48,7 +48,7 @@ impl KeyboardManager {
                 is_synthetic: false,
                 ..
             } if self.ime_preedit.0.is_empty() => {
-                log::trace!("{:#?}", key_event);
+                log::trace!("{key_event:#?}");
                 if key_event.state == ElementState::Pressed {
                     if let Some(text) = self.format_key(key_event) {
                         log::trace!("Key pressed {} {:?}", text, self.modifiers.state());
