@@ -34,3 +34,23 @@ jobs:
         with:
           store_login: ${{ secrets.SNAPCRAFT_TOKEN }}
           snap: ${{ steps.snapcraft.outputs.snap }}
+
+  winget:
+    # based on https://github.com/microsoft/PowerToys/blob/main/.github/workflows/package-submissions.yml
+    runs-on: windows-latest
+    steps:
+      - name: Submit Neovide.Neovide package to Windows Package Manager Community Repository
+        run: |
+
+          $wingetPackage = "Neovide.Neovide"
+          $ghToken = "${{ secrets.NV_WINGET }}"
+
+          $github = Invoke-RestMethod -uri "https://api.github.com/repos/neovide/neovide/releases" 
+
+          $targetRelease = $github | Select -First 1
+          $installerUrl = $targetRelease | Select -ExpandProperty assets -First 1 | Where-Object -Property name -match 'neovide.msi' | Select -ExpandProperty browser_download_url
+          $ver = $targetRelease.tag_name
+
+          # getting latest wingetcreate file
+          Invoke-WebRequest https://aka.ms/wingetcreate/latest -OutFile wingetcreate.exe
+          .\wingetcreate.exe update $wingetPackage -s -v $ver -u "$installerUrl" -t $ghToken
