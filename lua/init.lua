@@ -20,6 +20,8 @@ vim.g.neovide_version = args.neovide_version
 vim.o.lazyredraw = false
 vim.o.termguicolors = true
 
+vim.env.NEOVIDE_IMAGE = "1"
+
 local function rpcnotify(method, ...)
     vim.rpcnotify(vim.g.neovide_channel_id, method, ...)
 end
@@ -145,6 +147,58 @@ end
 M.enable_redraw = function()
     -- Wrap inside pcall to avoid errors if Neovide disconnects
     pcall(rpcnotify, "neovide.set_redraw", true)
+end
+
+local point_structure = {
+    "x",
+    "y",
+}
+
+local size_structure = {
+    "width",
+    "height",
+}
+
+local rect_structure = {
+    "min",
+    "max",
+    min = point_structure,
+    max = point_structure,
+}
+
+local info_structure = {
+    "client_area",
+    "window_size",
+    "cell_size",
+    "scale_factor",
+    client_area = rect_structure,
+    window_size = size_structure,
+    cell_size = size_structure,
+}
+
+-- The rmpv serialization only supports array, so we need to reconstruct the table structure
+local function create_table(structure, value)
+    local ret = {}
+    for i, field in ipairs(structure) do
+        local sub_structure = structure[field]
+        if sub_structure then
+            ret[field] = create_table(sub_structure, value[i])
+        else
+            ret[field] = value[i]
+        end
+    end
+    return ret
+end
+
+M.private.set_info = function(info)
+    M.info = create_table(info_structure, info)
+end
+
+M.kitty_image = function(data)
+    if not data.a then
+        data.a = "t"
+    end
+    rpcnotify("neovide.kitty_image", data)
 end
 
 _G["neovide"] = M

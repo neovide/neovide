@@ -6,7 +6,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::{
     bridge::GridLineCell,
     editor::{grid::CharacterGrid, style::Style, AnchorInfo, DrawCommand, DrawCommandBatcher},
-    renderer::{box_drawing, LineFragment, WindowDrawCommand},
+    renderer::{box_drawing, LineFragment, WindowDrawCommand, IMAGE_PLACEHOLDER},
     units::{GridRect, GridSize},
 };
 
@@ -165,7 +165,8 @@ impl Window {
     fn build_line_fragment(&self, row_index: usize, start: usize) -> (usize, LineFragment) {
         let row = self.grid.row(row_index).unwrap();
 
-        let (_, style) = &row[start];
+        let (start_char, style) = &row[start];
+        let is_image = start_char.starts_with(IMAGE_PLACEHOLDER);
 
         let mut text = String::new();
         let mut width = 0;
@@ -174,6 +175,9 @@ impl Window {
         for (character, possible_end_style) in row.iter().take(self.grid.width).skip(start) {
             // Style doesn't match. Draw what we've got.
             if style != possible_end_style {
+                break;
+            }
+            if is_image != character.starts_with(IMAGE_PLACEHOLDER) {
                 break;
             }
 

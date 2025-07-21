@@ -4,6 +4,8 @@ use log::trace;
 
 use anyhow::{Context, Result};
 use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim, Value};
+use rmpv::ext::to_value;
+use serde::Serialize;
 use strum::AsRefStr;
 use tokio::sync::mpsc::unbounded_channel;
 
@@ -12,6 +14,7 @@ use crate::{
     bridge::NeovimWriter,
     cmd_line::CmdLineSettings,
     profiling::{tracy_dynamic_zone, tracy_fiber_enter, tracy_fiber_leave},
+    units::{GridScale, PixelRect, PixelSize},
     utils::handle_wslpaths,
     LoggingSender,
 };
@@ -116,6 +119,14 @@ impl SerialCommand {
     }
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct Info {
+    pub client_area: PixelRect<u32>,
+    pub window_size: PixelSize<u32>,
+    pub grid_scale: GridScale,
+    pub scale_factor: f32,
+}
+
 #[derive(Debug, Clone, AsRefStr)]
 pub enum ParallelCommand {
     Quit,
@@ -126,6 +137,7 @@ pub enum ParallelCommand {
     DisplayAvailableFonts(Vec<String>),
     SetBackground(String),
     ShowError { lines: Vec<String> },
+    SetInfo(Info),
 }
 
 async fn display_available_fonts(
@@ -233,6 +245,13 @@ impl ParallelCommand {
                 show_error_message(nvim, &lines)
                     .await
                     .context("ShowError failed")
+            }
+            ParallelCommand::SetInfo(info) => {
+                let args = vec![to_value(info).unwrap()];
+                nvim.exec_lua("neovide.private.set_info(...)", args)
+                    .await
+                    .map(|_| ()) // We don't care about the result
+                    .context("Failed to set neovide.info")
             }
         };
 

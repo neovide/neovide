@@ -3,6 +3,8 @@ pub mod box_drawing;
 pub mod cursor_renderer;
 pub mod fonts;
 pub mod grid_renderer;
+mod image_renderer;
+mod kitty_image;
 pub mod opengl;
 pub mod profiler;
 mod rendered_layer;
@@ -58,8 +60,9 @@ use crate::profiling::GpuCtx;
 use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
+pub use image_renderer::*;
+pub use kitty_image::*;
 pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails};
-
 pub use vsync::VSync;
 
 use self::fonts::font_options::FontOptions;
@@ -152,6 +155,7 @@ pub enum DrawCommand {
 pub struct Renderer {
     cursor_renderer: CursorRenderer,
     pub grid_renderer: GridRenderer,
+    pub image_renderer: ImageRenderer,
     current_mode: EditorMode,
 
     rendered_windows: HashMap<u64, RenderedWindow>,
@@ -180,6 +184,7 @@ impl Renderer {
         let mut grid_renderer = GridRenderer::new(scale_factor, settings.clone());
         grid_renderer.update_font_options(init_config.font.map(|x| x.into()).unwrap_or_default());
         grid_renderer.handle_box_drawing_update(init_config.box_drawing.unwrap_or_default());
+        let image_renderer = ImageRenderer::new();
         let current_mode = EditorMode::Unknown(String::from(""));
 
         let rendered_windows = HashMap::new();
@@ -191,6 +196,7 @@ impl Renderer {
             rendered_windows,
             cursor_renderer,
             grid_renderer,
+            image_renderer,
             current_mode,
             window_regions,
             profiler,
@@ -309,13 +315,26 @@ impl Renderer {
         let settings = self.settings.get::<RendererSettings>();
         let root_window_regions = root_windows
             .into_iter()
-            .map(|window| window.draw(root_canvas, default_background, grid_scale))
+            .map(|window| {
+                window.draw(
+                    root_canvas,
+                    default_background,
+                    grid_scale,
+                    &self.image_renderer,
+                )
+            })
             .collect_vec();
 
         let floating_window_regions = floating_layers
             .into_iter()
             .flat_map(|mut layer| {
-                layer.draw(root_canvas, &settings, default_background, grid_scale)
+                layer.draw(
+                    root_canvas,
+                    &settings,
+                    default_background,
+                    grid_scale,
+                    &self.image_renderer,
+                )
             })
             .collect_vec();
 
@@ -329,6 +348,8 @@ impl Renderer {
         self.profiler.draw(root_canvas, dt);
 
         root_canvas.restore();
+
+        self.image_renderer.draw_frame(root_canvas, grid_scale);
 
         #[cfg(feature = "profiling")]
         plot_skia_cache();
@@ -408,7 +429,11 @@ impl Renderer {
     pub fn handle_os_scale_factor_change(&mut self, os_scale_factor: f64) {
         self.os_scale_factor = os_scale_factor;
         self.grid_renderer
-            .handle_scale_factor_update(self.os_scale_factor * self.user_scale_factor);
+            .handle_scale_factor_update(self.get_combined_scale_factor());
+    }
+
+    pub fn get_combined_scale_factor(&self) -> f64 {
+        self.os_scale_factor * self.user_scale_factor
     }
 
     pub fn prepare_lines(&mut self, force: bool) {
