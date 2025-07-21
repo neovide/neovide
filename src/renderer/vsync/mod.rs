@@ -1,6 +1,4 @@
 #[cfg(target_os = "macos")]
-mod macos_display_link;
-#[cfg(target_os = "macos")]
 mod vsync_macos_display_link;
 mod vsync_timer;
 #[cfg(target_os = "windows")]

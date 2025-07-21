@@ -50,7 +50,7 @@ approx = "0.5.1"
 async-trait = "0.1.83"
 backtrace = "0.3.74"
 clap = { version = "4.5.23", features = ["cargo", "derive", "env", "color"] }
-copypasta = "0.10.1"
+copypasta = "0.10.2"
 csscolorparser = "0.7.0"
 derive-new = "0.7.0"
 dirs = "6.0.0"
@@ -58,7 +58,7 @@ glamour = { version = "0.16.0", features = ["serde"] }
 flexi_logger = { version = "0.30.0", default-features = false }
 futures = "0.3.31"
 gl = "0.14.0"
-glutin = "0.32.2"
+glutin = "0.32.3"
 glutin-winit = "0.5.0"
 image = { version = "0.25.5", default-features = false, features = ["ico"] }
 indoc = "2.0.5"
@@ -91,7 +91,7 @@ tracy-client-sys = { version = "0.24.3", optional = true, default-features = fal
 ] }
 unicode-segmentation = "1.12.0"
 which = "7.0.1"
-winit = { version = "=0.30.9", features = ["serde"] }
+winit = { version = "=0.30.11", features = ["serde"] }
 xdg = "2.5.2"
 notify-debouncer-full = "0.5.0"
 regex = "1.11.1"
@@ -120,24 +120,50 @@ windows-registry = "0.5.1"
 
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2 = "0.5.2"
-objc2-foundation = { version = "0.2.2", default-features = false, features = [
+objc2 = "0.6.1"
+objc2-core-foundation = { version = "0.3.1", default-features = false, features = [
+    "CFCGTypes",
+] }
+objc2-foundation = { version = "0.3.1", default-features = false, features = [
     "std",
     "NSUserDefaults",
+    "NSProcessInfo",
 ] }
-objc2-app-kit = { version = "0.2.2", default-features = false, features = [
+objc2-app-kit = { version = "0.3.1", default-features = false, features = [
     "std",
-    "NSLayoutConstraint",
-    "NSColorSpace",
+    "objc2-core-foundation",
     "objc2-quartz-core",
+    "NSResponder",
+    "NSEvent",
+    "NSView",
+    "NSWindow",
+    "NSScreen",
+    "NSApplication",
+    "NSMenu",
+    "NSMenuItem",
+    "NSLayoutConstraint",
+    "NSColor",
+    "NSColorSpace",
+    "NSImage",
+    "NSGraphics",
 ] }
-objc2-quartz-core = { version = "0.2.2", default-features = false, features = [
+objc2-quartz-core = { version = "0.3.1", default-features = false, features = [
     "std",
+    "objc2-core-foundation",
     "objc2-metal",
     "CALayer",
     "CAMetalLayer",
 ] }
-objc2-metal = { version = "0.2.2", default-features = false, features = [
+objc2-core-video = { version = "0.3.1", default-features = false, features = [
+    "objc2-core-graphics",
+    "CVBase",
+    "CVReturn",
+    "CVDisplayLink",
+] }
+objc2-core-graphics = { version = "0.3.1", default-features = false, features = [
+    "CGDirectDisplay",
+] }
+objc2-metal = { version = "0.3.1", default-features = false, features = [
     "std",
     "MTLCommandQueue",
     "MTLCommandBuffer",
