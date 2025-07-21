@@ -76,6 +76,7 @@ listed above.
 - `width`: optional,
 - `hinting`: optional,
 - `edging`: optional,
+- `underline_offset`: optional
 
 Settings `size`, `width`, `hinting` and `edging` can be found in
 [Configuration](configuration.md).
@@ -100,6 +101,9 @@ Settings `size`, `width`, `hinting` and `edging` can be found in
   - Font feature is a string with format `+<feature>`, `-<feature>` or `<feature>=<value>`,
     e.g. `+ss01`, `-calt`, `ss02=2`. `+<feature>` is a shorthand for `<feature>=1`,
     `-<feature>` is a shorthand for `<feature>=0`.
+- `underline_offset` is a float that defines the offset between the character baseline and the underline.
+  - This is decided automatically, either if the font contains the required metrics, or `-1.0` by default.
+  - Positive underline offset values will move the underline above the baseline, while negative values move it below.
 
 Example:
 
