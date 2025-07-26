@@ -147,4 +147,12 @@ M.enable_redraw = function()
     pcall(rpcnotify, "neovide.set_redraw", true)
 end
 
+---@param preedit_text string
+M.preedit_handler = function(preedit_text) end
+
+---@param commit_text string
+M.commit_handler = function(commit_text)
+    vim.api.nvim_input(commit_text)
+end
+
 _G["neovide"] = M
