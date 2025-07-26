@@ -260,7 +260,10 @@ mod tests {
         settings.set_setting_handlers(location.clone(), noop_update, noop_read);
         let listeners = settings.updaters.read();
         let listener = listeners.get(&location).unwrap();
-        assert_eq!(&(noop_update as UpdateHandlerFunc), listener);
+        assert!(core::ptr::fn_addr_eq(
+            noop_update as UpdateHandlerFunc,
+            *listener
+        ));
     }
 
     #[test]
