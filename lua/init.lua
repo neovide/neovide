@@ -152,10 +152,7 @@ M.preedit_handler = function(preedit_text) end
 
 ---@param commit_text string
 M.commit_handler = function(commit_text)
-    local mode = vim.api.nvim_get_mode().mode
-    if mode == "i" then
-        vim.api.nvim_paste(commit_text, false, -1)
-    end
+    vim.api.nvim_input(commit_text)
 end
 
 _G["neovide"] = M
