@@ -15,6 +15,8 @@ use objc2_foundation::{
     ns_string, MainThreadMarker, NSArray, NSData, NSDictionary, NSObject, NSPoint, NSProcessInfo,
     NSRect, NSSize, NSString, NSUserDefaults,
 };
+use once_cell::unsync::OnceCell;
+pub static mut WINDOW_FEATURE: OnceCell<MacosWindowFeature> = OnceCell::new();
 
 use csscolorparser::Color;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
