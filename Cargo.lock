@@ -1446,6 +1446,7 @@ dependencies = [
  "objc2-foundation 0.2.2",
  "objc2-metal",
  "objc2-quartz-core",
+ "once_cell",
  "parking_lot",
  "rand 0.9.1",
  "raw-window-handle",

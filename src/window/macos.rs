@@ -15,6 +15,11 @@ use objc2_foundation::{
     ns_string, MainThreadMarker, NSArray, NSData, NSDictionary, NSObject, NSPoint, NSProcessInfo,
     NSRect, NSSize, NSString, NSUserDefaults,
 };
+use once_cell::unsync::OnceCell;
+
+thread_local! {
+    pub static WINDOW_FEATURE: OnceCell<MacosWindowFeature> = OnceCell::new();
+}
 
 use csscolorparser::Color;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -98,7 +103,7 @@ pub fn load_neovide_icon() -> Option<Retained<NSImage>> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MacosWindowFeature {
     ns_window: Retained<NSWindow>,
     system_titlebar_height: f64,
@@ -367,7 +372,7 @@ impl QuitHandler {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Menu {
     quit_handler: Retained<QuitHandler>,
 }
@@ -495,6 +500,11 @@ pub fn register_file_handler() {
                 let path = file.as_str(pool).to_owned();
                 send_ui(ParallelCommand::FileDrop(path));
             }
+            WINDOW_FEATURE.with(|cell| {
+                if let Some(window_feature) = cell.get() {
+                    window_feature.ns_window.makeKeyAndOrderFront(None);
+                }
+            });
         });
     }
 

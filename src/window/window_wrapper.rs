@@ -40,7 +40,7 @@ use {
 };
 
 #[cfg(target_os = "macos")]
-use super::macos::MacosWindowFeature;
+use super::macos::{MacosWindowFeature, WINDOW_FEATURE};
 
 const GRID_TOLERANCE: f32 = 1e-3;
 
@@ -509,10 +509,12 @@ impl WinitWindowWrapper {
         // It's important that this is created before the window is resized, since it can change the padding and affect the size
         #[cfg(target_os = "macos")]
         {
-            self.macos_feature = Some(MacosWindowFeature::from_winit_window(
-                window,
-                self.settings.clone(),
-            ));
+            let feature = MacosWindowFeature::from_winit_window(window, self.settings.clone());
+            WINDOW_FEATURE.with(|cell| {
+                cell.set(feature.clone())
+                    .expect("WINDOW_FEATURE already set");
+            });
+            self.macos_feature = Some(feature);
         }
 
         let scale_factor = window.scale_factor();
