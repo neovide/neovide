@@ -501,8 +501,9 @@ pub fn register_file_handler() {
                 send_ui(ParallelCommand::FileDrop(path));
             }
             WINDOW_FEATURE.with(|cell| {
-                let window_feature = cell.get().expect("WINDOW_FEATURE not initialized");
-                window_feature.ns_window.makeKeyAndOrderFront(None);
+                if let Some(window_feature) = cell.get() {
+                    window_feature.ns_window.makeKeyAndOrderFront(None);
+                }
             });
         });
     }
