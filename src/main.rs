@@ -42,7 +42,7 @@ use std::{
     io::Write,
     panic::set_hook,
     process::ExitCode,
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::{Duration, SystemTime},
 };
 
@@ -72,7 +72,10 @@ pub use channel_utils::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
-use crate::settings::{load_last_window_settings, Config, PersistentWindowSettings, Settings};
+use crate::{
+    clipboard::Clipboard,
+    settings::{load_last_window_settings, Config, PersistentWindowSettings, Settings},
+};
 
 pub use profiling::startup_profiler;
 
@@ -100,7 +103,7 @@ fn main() -> ExitCode {
     env::remove_var("ARGV0");
 
     let event_loop = create_event_loop();
-    clipboard::init(&event_loop);
+    let clipboard = Arc::new(Mutex::new(Clipboard::new(&event_loop)));
 
     let running_tracker = RunningTracker::new();
     let settings = Arc::new(Settings::new());
@@ -109,14 +112,16 @@ fn main() -> ExitCode {
         event_loop.create_proxy(),
         running_tracker.clone(),
         settings.clone(),
+        clipboard.clone(),
     ) {
-        Err(err) => handle_startup_errors(err, event_loop, settings.clone()),
+        Err(err) => handle_startup_errors(err, event_loop, settings.clone(), clipboard),
         Ok((window_size, initial_config, runtime)) => {
             let mut update_loop = UpdateLoop::new(
                 window_size,
                 initial_config,
                 event_loop.create_proxy(),
                 settings.clone(),
+                clipboard,
             );
 
             let result = event_loop.run_app(&mut update_loop);
@@ -141,6 +146,7 @@ fn setup(
     proxy: EventLoopProxy<UserEvent>,
     running_tracker: RunningTracker,
     settings: Arc<Settings>,
+    clipboard: Arc<Mutex<Clipboard>>,
 ) -> Result<(WindowSize, Config, NeovimRuntime)> {
     //  --------------
     // | Architecture |
@@ -256,7 +262,7 @@ fn setup(
     };
 
     let mut runtime = NeovimRuntime::new()?;
-    runtime.launch(proxy, grid_size, running_tracker, settings)?;
+    runtime.launch(proxy, grid_size, running_tracker, settings, clipboard)?;
     Ok((window_size, config, runtime))
 }
 

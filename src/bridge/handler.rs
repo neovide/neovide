@@ -1,5 +1,6 @@
 use std::sync::{Arc, Mutex};
 
+use crate::clipboard::Clipboard;
 use async_trait::async_trait;
 use log::trace;
 use nvim_rs::{Handler, Neovim};
@@ -28,6 +29,7 @@ pub struct NeovimHandler {
     running_tracker: RunningTracker,
     #[allow(dead_code)]
     settings: Arc<Settings>,
+    clipboard: Arc<Mutex<Clipboard>>,
 }
 
 impl NeovimHandler {
@@ -36,12 +38,14 @@ impl NeovimHandler {
         proxy: EventLoopProxy<UserEvent>,
         running_tracker: RunningTracker,
         settings: Arc<Settings>,
+        clipboard: Arc<Mutex<Clipboard>>,
     ) -> Self {
         Self {
             proxy: Arc::new(Mutex::new(proxy)),
             sender: LoggingSender::attach(sender, "neovim_handler"),
             running_tracker,
             settings,
+            clipboard,
         }
     }
 }
@@ -59,10 +63,16 @@ impl Handler for NeovimHandler {
         trace!("Neovim request: {:?}", &event_name);
 
         match event_name.as_ref() {
-            "neovide.get_clipboard" => get_clipboard_contents(&arguments[0])
-                .map_err(|_| Value::from("cannot get clipboard contents")),
-            "neovide.set_clipboard" => set_clipboard_contents(&arguments[0], &arguments[1])
-                .map_err(|_| Value::from("cannot set clipboard contents")),
+            "neovide.get_clipboard" => {
+                get_clipboard_contents(&mut self.clipboard.lock().unwrap(), &arguments[0])
+                    .map_err(|_| Value::from("cannot get clipboard contents"))
+            }
+            "neovide.set_clipboard" => set_clipboard_contents(
+                &mut self.clipboard.lock().unwrap(),
+                &arguments[0],
+                &arguments[1],
+            )
+            .map_err(|_| Value::from("cannot set clipboard contents")),
             "neovide.quit" => {
                 let error_code = arguments[0]
                     .as_i64()

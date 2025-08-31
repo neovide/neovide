@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use skia_safe::{
     canvas::{Canvas, SaveLayerRec},
@@ -21,7 +21,7 @@ use winit::{
 };
 
 use crate::{
-    clipboard,
+    clipboard::Clipboard,
     cmd_line::SRGB_DEFAULT,
     renderer::{build_window_config, create_skia_renderer, SkiaRenderer, WindowConfig},
     settings::Settings,
@@ -36,8 +36,13 @@ const MAX_LINES: i32 = 9999;
 const MIN_SIZE: PhysicalSize<u32> = PhysicalSize::new(500, 500);
 const DEFAULT_SIZE: PhysicalSize<u32> = PhysicalSize::new(800, 600);
 
-pub fn show_error_window(message: &str, event_loop: EventLoop<UserEvent>, settings: Arc<Settings>) {
-    let mut error_window = ErrorWindow::new(message, settings);
+pub fn show_error_window(
+    message: &str,
+    event_loop: EventLoop<UserEvent>,
+    settings: Arc<Settings>,
+    clipboard: Arc<Mutex<Clipboard>>,
+) {
+    let mut error_window = ErrorWindow::new(message, settings, clipboard);
     event_loop.run_app(&mut error_window).ok();
 }
 
@@ -79,14 +84,16 @@ struct ErrorWindow<'a> {
     state: Option<State>,
     message: &'a str,
     settings: Arc<Settings>,
+    clipboard: Option<Arc<Mutex<Clipboard>>>,
 }
 
 impl<'a> ErrorWindow<'a> {
-    fn new(message: &'a str, settings: Arc<Settings>) -> Self {
+    fn new(message: &'a str, settings: Arc<Settings>, clipboard: Arc<Mutex<Clipboard>>) -> Self {
         Self {
             state: None,
             message,
             settings,
+            clipboard: Some(clipboard),
         }
     }
 }
@@ -99,13 +106,25 @@ impl ApplicationHandler<UserEvent> for ErrorWindow<'_> {
         event: WindowEvent,
     ) {
         let state = self.state.as_mut().unwrap();
-        state.handle_window_event(event, event_loop, self.message);
+        state.handle_window_event(
+            event,
+            event_loop,
+            self.message,
+            self.clipboard.as_mut().unwrap(),
+        );
     }
 
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.state.is_none() {
             self.state = Some(State::new(self.message, event_loop, self.settings.clone()));
         }
+    }
+
+    fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
+        // SAFETY: The clipboard must be dropped before the event loop
+        self.clipboard = None;
+        // SAFETY: The renderer must be dropped before the event loop
+        self.state = None;
     }
 }
 
@@ -148,6 +167,7 @@ impl State {
         event: WindowEvent,
         event_loop: &ActiveEventLoop,
         message: &str,
+        clipboard: &mut Arc<Mutex<Clipboard>>,
     ) {
         match event {
             WindowEvent::CloseRequested => {
@@ -170,7 +190,7 @@ impl State {
                 is_synthetic: false,
                 ..
             } => {
-                if self.handle_keyboard_input(event, event_loop, message) {
+                if self.handle_keyboard_input(event, event_loop, message, clipboard) {
                     self.skia_renderer.window().request_redraw();
                 }
             }
@@ -223,6 +243,7 @@ impl State {
         event: KeyEvent,
         event_loop: &ActiveEventLoop,
         message: &str,
+        clipboard: &mut Arc<Mutex<Clipboard>>,
     ) -> bool {
         if event.state != ElementState::Pressed {
             return false;
@@ -257,7 +278,10 @@ impl State {
                         true
                     }
                     "y" => {
-                        let _ = clipboard::set_contents(message.to_string(), "+");
+                        let _ = clipboard
+                            .lock()
+                            .unwrap()
+                            .set_contents(message.to_string(), "+");
                         true
                     }
                     _ => false,

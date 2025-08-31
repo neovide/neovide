@@ -7,7 +7,12 @@ pub mod session;
 mod setup;
 mod ui_commands;
 
-use std::{io::Error, ops::Add, sync::Arc, time::Duration};
+use std::{
+    io::Error,
+    ops::Add,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use anyhow::{bail, Context, Result};
 use itertools::Itertools;
@@ -22,8 +27,8 @@ use tokio::{
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
-    cmd_line::CmdLineSettings, editor::start_editor, running_tracker::RunningTracker, settings::*,
-    units::GridSize, window::UserEvent,
+    clipboard::Clipboard, cmd_line::CmdLineSettings, editor::start_editor,
+    running_tracker::RunningTracker, settings::*, units::GridSize, window::UserEvent,
 };
 pub use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
@@ -183,8 +188,14 @@ impl NeovimRuntime {
         grid_size: Option<GridSize<u32>>,
         running_tracker: RunningTracker,
         settings: Arc<Settings>,
+        clipboard: Arc<Mutex<Clipboard>>,
     ) -> Result<()> {
-        let handler = start_editor(event_loop_proxy.clone(), running_tracker, settings.clone());
+        let handler = start_editor(
+            event_loop_proxy.clone(),
+            running_tracker,
+            settings.clone(),
+            clipboard,
+        );
         let session = self
             .runtime
             .block_on(launch(handler, grid_size, settings))?;
