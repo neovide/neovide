@@ -13,7 +13,7 @@ use crate::{
     units::{to_skia_rect, GridScale, PixelRect},
 };
 
-use super::{RenderedWindow, RendererSettings, WindowDrawDetails};
+use super::{ImageRenderer, RenderedWindow, RendererSettings, WindowDrawDetails};
 
 struct LayerWindow<'w> {
     window: &'w mut RenderedWindow,
@@ -31,6 +31,7 @@ impl FloatingLayer<'_> {
         settings: &RendererSettings,
         default_background: Color,
         grid_scale: GridScale,
+        image_renderer: &ImageRenderer,
     ) -> Vec<WindowDrawDetails> {
         let pixel_regions = self
             .windows
@@ -91,7 +92,7 @@ impl FloatingLayer<'_> {
         (0..self.windows.len()).for_each(|i| {
             let window = &mut self.windows[i];
             window.draw_background_surface(root_canvas, regions[i], grid_scale);
-            window.draw_foreground_surface(root_canvas, regions[i], grid_scale);
+            window.draw_foreground_surface(root_canvas, regions[i], grid_scale, image_renderer);
             ret.push(WindowDrawDetails {
                 id: window.id,
                 region: regions[i],

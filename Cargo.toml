@@ -49,6 +49,8 @@ anyhow = { version = "1.0.95", features = ["backtrace"] }
 approx = "0.5.1"
 async-trait = "0.1.83"
 backtrace = "0.3.74"
+base64 = "0.22.1"
+bytemuck = "1.22.0"
 clap = { version = "4.5.23", features = ["cargo", "derive", "env", "color"] }
 copypasta = "0.10.2"
 csscolorparser = "0.7.0"
@@ -71,9 +73,10 @@ nvim-rs = { version = "0.9.2", features = ["use_tokio"] }
 parking_lot = "0.12.3"
 rand = "0.9.0"
 raw-window-handle = "0.6.2"
-rmpv = "1.3.0"
+rmpv = {version = "1.3.0", features = ["with-serde"]}
 serde = { version = "1.0.216", features = ["derive"] }
 serde_json = "1.0.134"
+serde_repr = "0.1.20"
 shlex = "1.3.0"
 spin_sleep = "1.3.0"
 strum = { version = "0.26.3", features = ["derive"] }
@@ -99,6 +102,10 @@ regex = "1.11.1"
 [dev-dependencies]
 scoped-env = "2.1.0"
 serial_test = "3.2.0"
+
+[build-dependencies]
+indoc = "2.0.5"
+itertools = "0.14.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 wslpath-rs = "0.2"

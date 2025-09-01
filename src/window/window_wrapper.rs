@@ -215,6 +215,15 @@ impl WinitWindowWrapper {
             WindowCommand::ThemeChanged(new_theme) => {
                 self.handle_theme_changed(new_theme);
             }
+            WindowCommand::UploadImage(id, data) => {
+                self.renderer.image_renderer.upload_image(id, &data);
+            }
+            WindowCommand::ShowImage(id, opts) => {
+                self.renderer.image_renderer.show_image(id, opts);
+            }
+            WindowCommand::KittyImage(image) => {
+                self.renderer.image_renderer.kitty_image(image);
+            }
             #[cfg(windows)]
             WindowCommand::RegisterRightClick => register_right_click(),
             #[cfg(windows)]
@@ -242,9 +251,9 @@ impl WinitWindowWrapper {
             WindowSettingsChanged::ScaleFactor(user_scale_factor) => {
                 let renderer = &mut self.renderer;
                 renderer.user_scale_factor = user_scale_factor.into();
-                renderer.grid_renderer.handle_scale_factor_update(
-                    renderer.os_scale_factor * renderer.user_scale_factor,
-                );
+                renderer
+                    .grid_renderer
+                    .handle_scale_factor_update(renderer.get_combined_scale_factor());
                 self.font_changed_last_frame = true;
             }
             WindowSettingsChanged::WindowBlurred(blur) => {
@@ -700,6 +709,7 @@ impl WinitWindowWrapper {
         let skia_renderer = self.skia_renderer.as_ref().unwrap();
 
         let resize_requested = self.requested_columns.is_some() || self.requested_lines.is_some();
+        let mut send_info = false;
         if resize_requested {
             // Resize requests (columns/lines) have priority over normal window sizing.
             // So, deal with them first and resize the window programmatically.
@@ -716,6 +726,7 @@ impl WinitWindowWrapper {
 
                 self.update_grid_size_from_window();
                 should_render = ShouldRender::Immediately;
+                send_info = true;
             }
         }
 
@@ -726,6 +737,21 @@ impl WinitWindowWrapper {
         if self.font_changed_last_frame {
             self.renderer.prepare_lines(true);
             self.font_changed_last_frame = false;
+            send_info = true;
+        }
+        if send_info {
+            let grid_scale = self.renderer.grid_renderer.grid_scale;
+            let window_size =
+                PixelSize::new(self.saved_inner_size.width, self.saved_inner_size.height);
+            let mut client_area = self.get_grid_rect_from_window(GridSize::default()) * grid_scale;
+            client_area.max = client_area.max.ceil();
+            let client_area = client_area.try_cast().unwrap();
+            send_ui(ParallelCommand::SetInfo(crate::bridge::Info {
+                client_area,
+                window_size,
+                grid_scale,
+                scale_factor: self.renderer.get_combined_scale_factor() as f32,
+            }));
         }
 
         should_render
