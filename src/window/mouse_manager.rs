@@ -122,9 +122,6 @@ impl MouseManager {
         let window_size = editor_state.window.inner_size();
         let window_size = PixelSize::new(window_size.width as f32, window_size.height as f32);
         let relative_window_rect = PixelRect::from_size(window_size);
-        if !relative_window_rect.contains(&position) {
-            return;
-        }
 
         self.window_position = position;
 
@@ -136,6 +133,10 @@ impl MouseManager {
                 .iter()
                 .find(|details| details.id == drag_details.draw_details.id)
         } else {
+            if !relative_window_rect.contains(&position) {
+                return;
+            }
+
             self.get_window_details_under_mouse(editor_state)
         };
 
