@@ -102,7 +102,7 @@ serial_test = "3.2.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 wslpath-rs = "0.2"
-skia-safe = { version = "0.84.0", features = ["gl", "d3d", "textlayout"] }
+skia-safe = { version = "0.87.0", features = ["gl", "d3d", "textlayout"] }
 windows = { version = "0.61.1", features = [
     "Win32_Graphics_Direct3D",
     "Win32_Graphics_Direct3D12",
@@ -168,12 +168,12 @@ objc2-metal = { version = "0.3.1", default-features = false, features = [
     "MTLCommandQueue",
     "MTLCommandBuffer",
 ] }
-skia-safe = { version = "0.84.0", features = ["metal", "gl", "textlayout"] }
+skia-safe = { version = "0.87.0", features = ["metal", "gl", "textlayout"] }
 uzers = "0.12.1"
 
 
 [target.'cfg(not(any(target_os = "windows", target_os = "macos")))'.dependencies]
-skia-safe = { version = "0.84.0", features = ["gl", "textlayout"] }
+skia-safe = { version = "0.87.0", features = ["gl", "textlayout"] }
 
 [target.'cfg(target_os = "windows")'.build-dependencies]
 winres = "0.1.12"
