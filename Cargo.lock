@@ -981,9 +981,9 @@ dependencies = [
 
 [[package]]
 name = "glamour"
-version = "0.16.0"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "379096d8c90a466c6ad4e701a580fa8459a24681de1dc12a2d0dbd213e8082d0"
+checksum = "ef06d510f7874a5647445b66316936f7a4a14bc8c30035da257bab425a991eb0"
 dependencies = [
  "approx",
  "bytemuck",
