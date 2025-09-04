@@ -103,6 +103,7 @@ serial_test = "3.2.0"
 [target.'cfg(target_os = "windows")'.dependencies]
 wslpath-rs = "0.2"
 skia-safe = { version = "0.87.0", features = ["gl", "d3d", "textlayout"] }
+# This needs to match the version used by skia
 windows = { version = "0.61.1", features = [
     "Win32_Graphics_Direct3D",
     "Win32_Graphics_Direct3D12",
