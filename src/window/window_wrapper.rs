@@ -63,10 +63,6 @@ pub struct WindowPadding {
     pub bottom: u32,
 }
 
-pub fn set_background(background: &str) {
-    send_ui(ParallelCommand::SetBackground(background.to_string()));
-}
-
 #[derive(PartialEq, PartialOrd)]
 enum UIState {
     Initing, // Running init.vim/lua
@@ -383,17 +379,6 @@ impl WinitWindowWrapper {
                     self.handle_focus_lost();
                 }
             }
-            WindowEvent::ThemeChanged(theme) => {
-                tracy_zone!("ThemeChanged");
-                let settings = self.settings.get::<WindowSettings>();
-                if settings.theme.as_str() == "auto" {
-                    let background = match theme {
-                        Theme::Light => "light",
-                        Theme::Dark => "dark",
-                    };
-                    set_background(background);
-                }
-            }
             WindowEvent::Moved(_) => {
                 tracy_zone!("Moved");
                 vsync.update(skia_renderer.window());
@@ -488,7 +473,6 @@ impl WinitWindowWrapper {
 
         let WindowSettings {
             input_ime,
-            theme,
             opacity,
             window_blurred,
             fullscreen,
@@ -598,17 +582,6 @@ impl WinitWindowWrapper {
         if fullscreen {
             let handle = window.current_monitor();
             window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
-        }
-
-        match theme.as_str() {
-            "light" => set_background("light"),
-            "dark" => set_background("dark"),
-            "auto" => match window.theme() {
-                Some(Theme::Light) => set_background("light"),
-                Some(Theme::Dark) => set_background("dark"),
-                None => {}
-            },
-            _ => {}
         }
 
         #[cfg(target_os = "windows")]
