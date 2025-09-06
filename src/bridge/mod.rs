@@ -110,7 +110,8 @@ async fn launch(
 ) -> Result<NeovimSession> {
     let neovim_instance = neovim_instance(settings.as_ref()).await?;
 
-    let session = NeovimSession::new(neovim_instance, handler)
+    #[allow(unused_mut)]
+    let mut session = NeovimSession::new(neovim_instance, handler)
         .await
         .context("Could not locate or start neovim process")?;
 
@@ -153,6 +154,14 @@ async fn launch(
     options.set_linegrid_external(true);
     options.set_multigrid_external(!cmdline_settings.no_multi_grid);
     options.set_rgb(true);
+    // We can close the handle here, as Neovim already owns it
+    #[cfg(not(target_os = "windows"))]
+    if let Some(fd) = session.stdin_fd.take() {
+        use rustix::fd::AsRawFd;
+        if let Ok(fd) = fd.as_raw_fd().try_into() {
+            options.set_stdin_fd(fd);
+        }
+    }
 
     // Triggers loading the user config
 

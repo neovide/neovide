@@ -29,6 +29,8 @@ pub struct NeovimSession {
     pub io_handle: JoinHandle<std::result::Result<(), Box<LoopError>>>,
     pub neovim_process: Option<Child>,
     pub stderr_task: Option<JoinHandle<Vec<String>>>,
+    #[cfg(not(target_os = "windows"))]
+    pub stdin_fd: Option<rustix::fd::OwnedFd>,
 }
 
 #[cfg(debug_assertions)]
@@ -45,6 +47,10 @@ impl NeovimSession {
         instance: NeovimInstance,
         handler: impl Handler<Writer = NeovimWriter>,
     ) -> anyhow::Result<Self> {
+        // This needs to be done before the process is spawned, since the file descriptors are
+        // inherited on unix-like systems
+        #[cfg(not(target_os = "windows"))]
+        let stdin_fd = instance.forward_stdin();
         let (reader, writer, stderr_reader, neovim_process) = instance.connect().await?;
         // Spawn a background task to read from stderr
         let stderr_task = stderr_reader.map(|reader| {
@@ -84,6 +90,8 @@ impl NeovimSession {
                     io_handle,
                     neovim_process,
                     stderr_task,
+                    #[cfg(not(target_os = "windows"))]
+                    stdin_fd,
                 })
             }
         }
@@ -120,7 +128,6 @@ impl NeovimInstance {
         mut cmd: Command,
     ) -> Result<(BoxedReader, BoxedWriter, Option<BoxedReader>, Option<Child>)> {
         log::debug!("Starting neovim with: {cmd:?}");
-
         let mut child = cmd
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -174,6 +181,23 @@ impl NeovimInstance {
                 ErrorKind::Unsupported,
                 "Unix Domain Sockets and Named Pipes are not supported on this platform",
             ))
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    fn forward_stdin(&self) -> Option<rustix::fd::OwnedFd> {
+        use std::io::IsTerminal;
+        // stdin should be forwarded only in embedded mode when stdio is piped
+        match self {
+            Self::Embedded(..) => {
+                let stdin = std::io::stdin();
+                let is_pipe = !stdin.is_terminal();
+                // We have to use rustix here, since the Rust standard library currently sets O_CLOEXEC
+                // on all file handles. And there's no way to pass file handles to subprocesses.
+                // See [Tracking Issue for std::os::fd::CommandExt::fd](https://github.com/rust-lang/rust/issues/144989)
+                is_pipe.then(|| rustix::io::dup(stdin).ok()).flatten()
+            }
+            Self::Server { .. } => None,
         }
     }
 
