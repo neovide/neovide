@@ -10,6 +10,7 @@ mod ui_commands;
 use std::{io::Error, ops::Add, sync::Arc, time::Duration};
 
 use anyhow::{bail, Context, Result};
+use futures::StreamExt;
 use itertools::Itertools;
 use log::info;
 use nvim_rs::{error::CallError, Neovim, UiAttachOptions, Value};
@@ -77,6 +78,7 @@ async fn launch(
     handler: NeovimHandler,
     grid_size: Option<GridSize<u32>>,
     settings: Arc<Settings>,
+    colorscheme_stream: &mut mundy::PreferencesStream,
 ) -> Result<NeovimSession> {
     let neovim_instance = neovim_instance(settings.as_ref()).await?;
 
@@ -117,6 +119,18 @@ async fn launch(
 
     start_ui_command_handler(session.neovim.clone(), settings.clone());
     settings.read_initial_values(&session.neovim).await?;
+
+    let colorscheme = timeout(Duration::from_millis(200), colorscheme_stream.next()).await;
+    let background = match colorscheme {
+        Ok(Some(preferences)) => match preferences.color_scheme {
+            mundy::ColorScheme::Dark => "dark",
+            mundy::ColorScheme::Light => "light",
+            mundy::ColorScheme::NoPreference => "dark",
+        },
+        Ok(None) => "dark",
+        Err(..) => "dark",
+    };
+    set_background_if_allowed(background, &session.neovim).await;
 
     let mut options = UiAttachOptions::new();
     options.set_linegrid_external(true);
@@ -170,6 +184,36 @@ async fn run(session: NeovimSession, proxy: EventLoopProxy<UserEvent>) {
     proxy.send_event(UserEvent::NeovimExited).ok();
 }
 
+async fn set_background_if_allowed(background: &str, neovim: &Neovim<NeovimWriter>) {
+    // Unfortunately neovim does not set the last_set_chan for options when they are set through
+    // exec_lua. The last_set_sid is also generic, so we are forced to do two calls.
+    if let Ok(can_set) = neovim
+        .exec_lua(
+            "return neovide.private.can_set_background()",
+            vec![background.into()],
+        )
+        .await
+    {
+        if can_set.as_bool().unwrap() {
+            let _ = neovim.set_option("background", background.into()).await;
+        }
+    }
+}
+
+async fn update_colorscheme(mut stream: mundy::PreferencesStream, neovim: Neovim<NeovimWriter>) {
+    while let Some(preferences) = stream.next().await {
+        if let Some(background) = match preferences.color_scheme {
+            mundy::ColorScheme::Dark => Some("dark"),
+            mundy::ColorScheme::Light => Some("light"),
+            // At least KDE Plasma sends this after sending the actual color scheme
+            // So do nothing
+            mundy::ColorScheme::NoPreference => None,
+        } {
+            set_background_if_allowed(background, &neovim).await;
+        }
+    }
+}
+
 impl NeovimRuntime {
     pub fn new() -> Result<Self, Error> {
         let runtime = Builder::new_multi_thread().enable_all().build()?;
@@ -183,11 +227,19 @@ impl NeovimRuntime {
         grid_size: Option<GridSize<u32>>,
         running_tracker: RunningTracker,
         settings: Arc<Settings>,
+        mut colorscheme_stream: mundy::PreferencesStream,
     ) -> Result<()> {
         let handler = start_editor(event_loop_proxy.clone(), running_tracker, settings.clone());
-        let session = self
-            .runtime
-            .block_on(launch(handler, grid_size, settings))?;
+        let session = self.runtime.block_on(launch(
+            handler,
+            grid_size,
+            settings,
+            &mut colorscheme_stream,
+        ))?;
+        self.runtime.spawn(update_colorscheme(
+            colorscheme_stream,
+            session.neovim.clone(),
+        ));
         self.runtime.spawn(run(session, event_loop_proxy));
         Ok(())
     }

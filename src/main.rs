@@ -102,6 +102,8 @@ fn main() -> ExitCode {
     let event_loop = create_event_loop();
     clipboard::init(&event_loop);
 
+    let colorscheme_stream = mundy::Preferences::stream(mundy::Interest::ColorScheme);
+
     let running_tracker = RunningTracker::new();
     let settings = Arc::new(Settings::new());
 
@@ -109,6 +111,7 @@ fn main() -> ExitCode {
         event_loop.create_proxy(),
         running_tracker.clone(),
         settings.clone(),
+        colorscheme_stream,
     ) {
         Err(err) => handle_startup_errors(err, event_loop, settings.clone()),
         Ok((window_size, initial_config, runtime)) => {
@@ -141,6 +144,7 @@ fn setup(
     proxy: EventLoopProxy<UserEvent>,
     running_tracker: RunningTracker,
     settings: Arc<Settings>,
+    colorscheme_stream: mundy::PreferencesStream,
 ) -> Result<(WindowSize, Config, NeovimRuntime)> {
     //  --------------
     // | Architecture |
@@ -256,7 +260,13 @@ fn setup(
     };
 
     let mut runtime = NeovimRuntime::new()?;
-    runtime.launch(proxy, grid_size, running_tracker, settings)?;
+    runtime.launch(
+        proxy,
+        grid_size,
+        running_tracker,
+        settings,
+        colorscheme_stream,
+    )?;
     Ok((window_size, config, runtime))
 }
 
