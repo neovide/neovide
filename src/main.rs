@@ -76,6 +76,9 @@ use crate::settings::{load_last_window_settings, Config, PersistentWindowSetting
 
 pub use profiling::startup_profiler;
 
+#[cfg(target_os = "macos")]
+use crate::frame::Frame;
+
 const DEFAULT_BACKTRACES_FILE: &str = "neovide_backtraces.log";
 const BACKTRACES_FILE_ENV_VAR: &str = "NEOVIDE_BACKTRACES";
 const REQUEST_MESSAGE: &str = "This is a bug and we would love for it to be reported to https://github.com/neovide/neovide/issues";
@@ -245,6 +248,15 @@ fn setup(
     init_logger(&settings);
 
     trace!("Neovide version: {}", crate_version!());
+
+    // Set BgColor by default when using a transparent frame, so the titlebar text gets correct
+    // color.
+    #[cfg(target_os = "macos")]
+    if settings.get::<CmdLineSettings>().frame == Frame::Transparent {
+        let mut window_settings = settings.get::<WindowSettings>();
+        window_settings.theme = window::ThemeSettings::BgColor;
+        settings.set(&window_settings);
+    }
 
     let window_settings = load_last_window_settings().ok();
     let window_size = determine_window_size(window_settings.as_ref(), &settings);
