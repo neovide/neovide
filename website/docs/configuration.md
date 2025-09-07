@@ -508,6 +508,32 @@ Set the [`background`](https://neovim.io/doc/user/options.html#'background') opt
 starts. Possible values: _light_, _dark_, _auto_. On systems that support it, _auto_ will mirror the
 system theme, and will update `background` when the system theme changes.
 
+**Unreleased yet.**
+
+**NOTE:** The meaning of the setting has changed in 0.16.0. The default value of the Neovim
+[`background`](https://neovim.io/doc/user/options.html#'background') option is now always
+automatically set, and updates according to the system theme, as long as the user has not set it to
+something else.
+
+Sets the theme of the Neovide window on systems that supports it.
+
+- `auto` - Use the system theme
+- `light` - Set the window theme to light
+- `dark` - Set the window theme to dark
+- `bg_color` - Determine window theme from the Neovide normal/background color
+
+`bg`, which would mirror the Neovim background option is not supported yet, due to technical
+challenges. If you need that now it's best to set both `neovide_theme` and `background` to the same.
+
+The default is `auto`, except when using `--frame transparent` on macOS to preserve the old visual
+look with that configuration.
+
+Supported platforms:
+
+- Windows
+- MacOS
+- Linux Wayland with client-side decorations (Most notably Gnome)
+
 #### Layer grouping
 
 VimScript:
