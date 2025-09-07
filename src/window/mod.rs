@@ -51,7 +51,7 @@ use crate::{
     units::GridSize,
 };
 pub use error_window::show_error_window;
-pub use settings::{WindowSettings, WindowSettingsChanged};
+pub use settings::{ThemeSettings, WindowSettings, WindowSettingsChanged};
 pub use update_loop::ShouldRender;
 pub use update_loop::UpdateLoop;
 pub use window_wrapper::WinitWindowWrapper;

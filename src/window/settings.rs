@@ -25,7 +25,7 @@ pub struct WindowSettings {
     pub padding_left: u32,
     pub padding_right: u32,
     pub padding_bottom: u32,
-    pub theme: Theme,
+    pub theme: ThemeSettings,
     #[cfg(target_os = "macos")]
     pub input_macos_alt_is_meta: bool,
     #[cfg(target_os = "macos")]
@@ -71,7 +71,7 @@ impl Default for WindowSettings {
             padding_left: 0,
             padding_right: 0,
             padding_bottom: 0,
-            theme: Theme::Auto,
+            theme: ThemeSettings::Auto,
             #[cfg(target_os = "macos")]
             input_macos_alt_is_meta: false,
             #[cfg(target_os = "macos")]
@@ -135,21 +135,21 @@ impl From<OptionAsMeta> for Value {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Theme {
+pub enum ThemeSettings {
     Auto,
     Dark,
     Light,
     BgColor,
 }
 
-impl ParseFromValue for Theme {
+impl ParseFromValue for ThemeSettings {
     fn parse_from_value(&mut self, value: Value) {
         if value.is_str() {
             *self = match value.as_str().unwrap() {
-                "auto" => Theme::Auto,
-                "dark" => Theme::Dark,
-                "light" => Theme::Light,
-                "bg_color" => Theme::BgColor,
+                "auto" => ThemeSettings::Auto,
+                "dark" => ThemeSettings::Dark,
+                "light" => ThemeSettings::Light,
+                "bg_color" => ThemeSettings::BgColor,
                 value => {
                     error_msg!("Setting Theme expected one of `auto`, `dark`, `light`, `bg_color`, but received {value:?}");
                     return;
@@ -161,13 +161,13 @@ impl ParseFromValue for Theme {
     }
 }
 
-impl From<Theme> for Value {
-    fn from(value: Theme) -> Self {
+impl From<ThemeSettings> for Value {
+    fn from(value: ThemeSettings) -> Self {
         match value {
-            Theme::Auto => Value::from("auto"),
-            Theme::Dark => Value::from("dark"),
-            Theme::Light => Value::from("light"),
-            Theme::BgColor => Value::from("bg_color"),
+            ThemeSettings::Auto => Value::from("auto"),
+            ThemeSettings::Dark => Value::from("dark"),
+            ThemeSettings::Light => Value::from("light"),
+            ThemeSettings::BgColor => Value::from("bg_color"),
         }
     }
 }

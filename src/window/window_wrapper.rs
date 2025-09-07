@@ -6,11 +6,11 @@ use winit::{
     dpi,
     event::{Ime, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoopProxy},
-    window::{Fullscreen, Theme as WinitTheme},
+    window::{Fullscreen, Theme},
 };
 
 use super::{
-    settings::Theme, KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings,
+    KeyboardManager, MouseManager, ThemeSettings, UserEvent, WindowCommand, WindowSettings,
     WindowSettingsChanged,
 };
 
@@ -91,7 +91,7 @@ pub struct WinitWindowWrapper {
     is_minimized: bool,
     ime_enabled: bool,
     ime_area: (dpi::PhysicalPosition<u32>, dpi::PhysicalSize<u32>),
-    inferred_theme: Option<WinitTheme>,
+    inferred_theme: Option<Theme>,
     pub vsync: Option<VSync>,
     #[cfg(target_os = "macos")]
     pub macos_feature: Option<MacosWindowFeature>,
@@ -316,13 +316,13 @@ impl WinitWindowWrapper {
         }
     }
 
-    fn get_theme(&self) -> Option<WinitTheme> {
+    fn get_theme(&self) -> Option<Theme> {
         let WindowSettings { theme, .. } = self.settings.get::<WindowSettings>();
         match theme {
-            Theme::Auto => None,
-            Theme::Light => Some(WinitTheme::Light),
-            Theme::Dark => Some(WinitTheme::Dark),
-            Theme::BgColor => self.inferred_theme,
+            ThemeSettings::Auto => None,
+            ThemeSettings::Light => Some(Theme::Light),
+            ThemeSettings::Dark => Some(Theme::Dark),
+            ThemeSettings::BgColor => self.inferred_theme,
         }
     }
 
