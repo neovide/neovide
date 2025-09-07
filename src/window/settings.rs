@@ -1,5 +1,4 @@
-#[cfg(target_os = "macos")]
-use {log::error, rmpv::Value};
+use rmpv::Value;
 
 use crate::error_msg;
 use crate::settings::*;
@@ -26,7 +25,7 @@ pub struct WindowSettings {
     pub padding_left: u32,
     pub padding_right: u32,
     pub padding_bottom: u32,
-    pub theme: String,
+    pub theme: Theme,
     #[cfg(target_os = "macos")]
     pub input_macos_alt_is_meta: bool,
     #[cfg(target_os = "macos")]
@@ -72,7 +71,7 @@ impl Default for WindowSettings {
             padding_left: 0,
             padding_right: 0,
             padding_bottom: 0,
-            theme: "".to_string(),
+            theme: Theme::Auto,
             #[cfg(target_os = "macos")]
             input_macos_alt_is_meta: false,
             #[cfg(target_os = "macos")]
@@ -113,12 +112,12 @@ impl ParseFromValue for OptionAsMeta {
                 "both" => OptionAsMeta::Both,
                 "none" => OptionAsMeta::None,
                 value => {
-                    error!("Setting OptionAsMeta expected one of `only_left`, `only_right`, `both`, or `none`, but received {value:?}");
+                    error_msg!("Setting OptionAsMeta expected one of `only_left`, `only_right`, `both`, or `none`, but received {value:?}");
                     return;
                 }
             };
         } else {
-            error!("Setting OptionAsMeta expected string, but received {value:?}");
+            error_msg!("Setting OptionAsMeta expected string, but received {value:?}");
         }
     }
 }
@@ -131,6 +130,44 @@ impl From<OptionAsMeta> for Value {
             OptionAsMeta::OnlyRight => Value::from("only_right"),
             OptionAsMeta::Both => Value::from("both"),
             OptionAsMeta::None => Value::from("none"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Theme {
+    Auto,
+    Dark,
+    Light,
+    BgColor,
+}
+
+impl ParseFromValue for Theme {
+    fn parse_from_value(&mut self, value: Value) {
+        if value.is_str() {
+            *self = match value.as_str().unwrap() {
+                "auto" => Theme::Auto,
+                "dark" => Theme::Dark,
+                "light" => Theme::Light,
+                "bg_color" => Theme::BgColor,
+                value => {
+                    error_msg!("Setting Theme expected one of `auto`, `dark`, `light`, `bg_color`, but received {value:?}");
+                    return;
+                }
+            };
+        } else {
+            error_msg!("Setting Theme expected string, but received {value:?}");
+        }
+    }
+}
+
+impl From<Theme> for Value {
+    fn from(value: Theme) -> Self {
+        match value {
+            Theme::Auto => Value::from("auto"),
+            Theme::Dark => Value::from("dark"),
+            Theme::Light => Value::from("light"),
+            Theme::BgColor => Value::from("bg_color"),
         }
     }
 }

@@ -78,7 +78,6 @@ pub enum WindowCommand {
     ListAvailableFonts,
     FocusWindow,
     Minimize,
-    #[allow(dead_code)] // Theme change is only used on macOS right now
     ThemeChanged(Option<Theme>),
     #[cfg(windows)]
     RegisterRightClick,
@@ -137,14 +136,15 @@ pub fn create_window(
     maximized: bool,
     title: &str,
     settings: &Settings,
+    theme: Option<Theme>,
 ) -> WindowConfig {
     let icon = load_icon();
 
     let cmd_line_settings = settings.get::<CmdLineSettings>();
 
-    let window_settings = load_last_window_settings().ok();
+    let persistent_window_settings = load_last_window_settings().ok();
 
-    let previous_position = match window_settings {
+    let previous_position = match persistent_window_settings {
         Some(PersistentWindowSettings::Windowed { position, .. }) => Some(position),
         _ => None,
     };
@@ -156,7 +156,8 @@ pub fn create_window(
         .with_cursor(Cursor::Icon(mouse_cursor_icon.parse()))
         .with_maximized(maximized)
         .with_transparent(true)
-        .with_visible(false);
+        .with_visible(false)
+        .with_theme(theme);
 
     #[cfg(target_family = "unix")]
     let window_attributes = window_attributes.with_window_icon(Some(icon));

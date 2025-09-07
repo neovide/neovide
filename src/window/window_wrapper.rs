@@ -6,11 +6,12 @@ use winit::{
     dpi,
     event::{Ime, WindowEvent},
     event_loop::{ActiveEventLoop, EventLoopProxy},
-    window::{Fullscreen, Theme},
+    window::{Fullscreen, Theme as WinitTheme},
 };
 
 use super::{
-    KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged,
+    settings::Theme, KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings,
+    WindowSettingsChanged,
 };
 
 #[cfg(target_os = "macos")]
@@ -90,6 +91,7 @@ pub struct WinitWindowWrapper {
     is_minimized: bool,
     ime_enabled: bool,
     ime_area: (dpi::PhysicalPosition<u32>, dpi::PhysicalSize<u32>),
+    inferred_theme: Option<WinitTheme>,
     pub vsync: Option<VSync>,
     #[cfg(target_os = "macos")]
     pub macos_feature: Option<MacosWindowFeature>,
@@ -129,6 +131,7 @@ impl WinitWindowWrapper {
             vsync: None,
             ime_enabled: false,
             ime_area: Default::default(),
+            inferred_theme: None,
             #[cfg(target_os = "macos")]
             macos_feature: None,
             settings,
@@ -209,7 +212,10 @@ impl WinitWindowWrapper {
                 self.is_minimized = true;
             }
             WindowCommand::ThemeChanged(new_theme) => {
-                self.handle_theme_changed(new_theme);
+                if self.inferred_theme != new_theme {
+                    self.inferred_theme = new_theme;
+                    self.handle_theme_changed();
+                }
             }
             #[cfg(windows)]
             WindowCommand::RegisterRightClick => register_right_click(),
@@ -252,6 +258,9 @@ impl WinitWindowWrapper {
             }
             WindowSettingsChanged::Opacity(..) | WindowSettingsChanged::NormalOpacity(..) => {
                 self.renderer.prepare_lines(true);
+            }
+            WindowSettingsChanged::Theme(..) => {
+                self.handle_theme_changed();
             }
             #[cfg(target_os = "windows")]
             WindowSettingsChanged::TitleBackgroundColor(color) => {
@@ -307,9 +316,19 @@ impl WinitWindowWrapper {
         }
     }
 
-    pub fn handle_theme_changed(&mut self, new_theme: Option<Theme>) {
+    fn get_theme(&self) -> Option<WinitTheme> {
+        let WindowSettings { theme, .. } = self.settings.get::<WindowSettings>();
+        match theme {
+            Theme::Auto => None,
+            Theme::Light => Some(WinitTheme::Light),
+            Theme::Dark => Some(WinitTheme::Dark),
+            Theme::BgColor => self.inferred_theme,
+        }
+    }
+
+    pub fn handle_theme_changed(&mut self) {
         if let Some(skia_renderer) = &self.skia_renderer {
-            skia_renderer.window().set_theme(new_theme);
+            skia_renderer.window().set_theme(self.get_theme());
         }
     }
 
@@ -468,7 +487,9 @@ impl WinitWindowWrapper {
 
         let maximized = matches!(self.initial_window_size, WindowSize::Maximized);
 
-        let window_config = create_window(event_loop, maximized, &self.title, &self.settings);
+        let theme = self.get_theme();
+        let window_config =
+            create_window(event_loop, maximized, &self.title, &self.settings, theme);
         let window = &window_config.window;
 
         let WindowSettings {
