@@ -18,8 +18,8 @@ const CONFIG_FILE: &str = "config.toml";
 
 #[cfg(unix)]
 fn neovide_config_dir() -> PathBuf {
-    let xdg_dirs = xdg::BaseDirectories::with_prefix("neovide").unwrap();
-    xdg_dirs.get_config_home()
+    let xdg_dirs = xdg::BaseDirectories::with_prefix("neovide");
+    xdg_dirs.get_config_home().unwrap()
 }
 
 #[cfg(windows)]
