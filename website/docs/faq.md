@@ -150,7 +150,7 @@ preedit_handler = function(preedit_raw_text, cursor_offset)
 end
 ```
 
-Neovide also exposes a Lua function called commit_handler() in addition to preedit_handler(). For details, see [IME handling on the API page](../api.html#ime-handling).
+Neovide also exposes a Lua function called commit_handler() in addition to preedit_handler(). For details, see [IME handling on the API page](api.html#ime-handling).
 
 If you’d prefer not to set this up yourself, you can use [kanium3/neovide_ime.nvim](https://github.com/kanium3/neovide-ime.nvim). Please refer to that repository for more information.
 Example: Installation with Lazy.nvim
