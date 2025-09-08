@@ -152,7 +152,7 @@ end
 M.preedit_handler = function(preedit_raw_text, cursor_offset) end
 
 ---@param commit_raw_text string
----@param commit_formatted_text string
+---@param commit_formatted_text string It's escaped.
 M.commit_handler = function(commit_raw_text, commit_formatted_text)
     vim.api.nvim_input(commit_formatted_text)
 end
