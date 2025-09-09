@@ -6,7 +6,9 @@ use std::{
 
 use log::info;
 use lru::LruCache;
-use skia_safe::{font::Edging as SkiaEdging, Data, Font, FontHinting as SkiaHinting, FontMgr};
+use skia_safe::{
+    font::Edging as SkiaEdging, Data, Font, FontHinting as SkiaHinting, FontMgr, Typeface,
+};
 
 use crate::{
     profiling::tracy_zone,
@@ -25,18 +27,18 @@ pub struct FontPair {
 }
 
 impl FontPair {
-    fn new(key: FontKey, mut skia_font: Font) -> Option<FontPair> {
-        skia_font.set_subpixel(true);
-        skia_font.set_baseline_snap(true);
-        skia_font.set_hinting(font_hinting(&key.hinting));
-        skia_font.set_edging(font_edging(&key.edging));
-
-        let typeface = skia_font.typeface();
+    fn new(key: FontKey, typeface: Typeface, size: f32) -> Option<FontPair> {
         let (font_data, index) = typeface.to_font_data()?;
         // Only the lower 16 bits are part of the index, the rest indicates named instances. But we
         // don't care about those here, since we are just loading the font, so ignore them
         let index = index & 0xFFFF;
         let swash_font = SwashFont::from_data(font_data, index)?;
+
+        let mut skia_font = Font::from_typeface(typeface, size);
+        skia_font.set_subpixel(true);
+        skia_font.set_baseline_snap(true);
+        skia_font.set_hinting(font_hinting(&key.hinting));
+        skia_font.set_edging(font_edging(&key.edging));
 
         Some(Self {
             key,
@@ -95,7 +97,7 @@ impl FontLoader {
         let (family, style) = desc.as_family_and_font_style();
         let typeface = self.font_mgr.match_family_style(family, style)?;
         info!("Actually loaded font {:?}", typeface.family_name());
-        FontPair::new(font_key, Font::from_typeface(typeface, self.font_size))
+        FontPair::new(font_key, typeface, self.font_size)
     }
 
     pub fn get_or_load(&mut self, font_key: &FontKey) -> Option<Rc<FontPair>> {
@@ -132,15 +134,13 @@ impl FontLoader {
             edging: FontEdging::default(),
         };
 
-        let font_pair = Rc::new(FontPair::new(
-            font_key.clone(),
-            Font::from_typeface(typeface, self.font_size),
-        )?);
         info!(
             "Load font for character {} {}",
             character,
-            font_pair.skia_font.typeface().family_name()
+            typeface.family_name()
         );
+
+        let font_pair = Rc::new(FontPair::new(font_key.clone(), typeface, self.font_size)?);
 
         self.cache.put(font_key, font_pair.clone());
 
@@ -156,10 +156,7 @@ impl FontLoader {
             let data = Data::new_copy(LAST_RESORT_FONT);
 
             let typeface = self.font_mgr.new_from_data(&data, 0)?;
-            let font_pair = Rc::new(FontPair::new(
-                font_key,
-                Font::from_typeface(typeface, self.font_size),
-            )?);
+            let font_pair = Rc::new(FontPair::new(font_key, typeface, self.font_size)?);
 
             self.last_resort = Some(font_pair.clone());
             Some(font_pair)
