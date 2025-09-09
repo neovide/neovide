@@ -85,10 +85,16 @@ impl SerialCommand {
                 } else {
                     trace!("IME Input Preedit");
                     if let Some((start_col, end_col)) = cursor_offset {
-                        nvim.exec_lua(&format!("neovide.preedit_handler([[{}]], {{ {}, {} }})", raw, start_col, end_col), vec![])
-                            .await
-                            .map(|_| ())
-                            .context("IME Preedit failed")
+                        nvim.exec_lua(
+                            &format!(
+                                "neovide.preedit_handler([[{}]], {{ {}, {} }})",
+                                raw, start_col, end_col
+                            ),
+                            vec![],
+                        )
+                        .await
+                        .map(|_| ())
+                        .context("IME Preedit failed")
                     } else {
                         nvim.exec_lua(&format!("neovide.preedit_handler([[{}]])", raw), vec![])
                             .await
