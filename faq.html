@@ -146,9 +146,9 @@
                         <h1 id="frequently-asked-questions"><a class="header" href="#frequently-asked-questions">Frequently Asked Questions</a></h1>
 <p>Commonly asked questions, or just explanations/elaborations on stuff.</p>
 <h2 id="how-can-i-use-cmd-ccmd-v-to-copy-and-paste"><a class="header" href="#how-can-i-use-cmd-ccmd-v-to-copy-and-paste">How can I use cmd-c/cmd-v to copy and paste?</a></h2>
-<p>Neovide doesn't add or remove any keybindings to neovim, it only forwards keys. Its likely that
-your terminal adds these keybindings, as neovim doesn't have them by default. We can replicate
-this behavior by adding keybindings in neovim.</p>
+<p>Neovide doesn't add or remove any keybindings to neovim, it only forwards keys. Its likely that your
+terminal adds these keybindings, as neovim doesn't have them by default. We can replicate this
+behavior by adding keybindings in neovim.</p>
 <pre><code class="language-lua">if vim.g.neovide then
   vim.keymap.set('n', '&lt;D-s&gt;', ':w&lt;CR&gt;') -- Save
   vim.keymap.set('v', '&lt;D-c&gt;', '&quot;+y') -- Copy
@@ -172,8 +172,8 @@ one for the popup menu.</p>
 <p>telescope.nvim is different here though. Instead of using the global <code>winblend</code> option, it has its
 own <code>telescope.defaults.winblend</code> configuration option, see <a href="https://github.com/neovide/neovide/issues/1626#issuecomment-1701080545">this comment in #1626</a>.</p>
 <h2 id="how-can-i-dynamically-change-the-scale-at-runtime"><a class="header" href="#how-can-i-dynamically-change-the-scale-at-runtime">How Can I Dynamically Change The Scale At Runtime?</a></h2>
-<p>Neovide offers the setting <code>g:neovide_scale_factor</code>, which is multiplied with
-the OS scale factor and the font size. So using this could look like</p>
+<p>Neovide offers the setting <code>g:neovide_scale_factor</code>, which is multiplied with the OS scale factor
+and the font size. So using this could look like</p>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_scale_factor=1.0
 function! ChangeScaleFactor(delta)
@@ -231,36 +231,73 @@ vim.keymap.set({ &quot;n&quot;, &quot;v&quot;, &quot;o&quot; }, &quot;&lt;D-[&gt
   change_transparency(-0.01)
 end)
 </code></pre>
+<h2 id="how-to-enable-preedit-support-of-ime"><a class="header" href="#how-to-enable-preedit-support-of-ime">How To Enable Preedit Support Of IME?</a></h2>
+<p>By default, the IME preedit event—that is, the preview of the text being composed—is not
+implemented. You can implement this preview yourself by using preedit_handler().</p>
+<p>Example:</p>
+<pre><code class="language-lua">local ime_context = {
+  base_col = 0,
+  base_row = 0,
+  preedit_col = 0,
+  preedit_row = 0,
+}
+
+---@param preedit_raw_text string
+---@param cursor_offset [integer, integer]: [start_col, end_col]
+preedit_handler = function(preedit_raw_text, cursor_offset)
+    vim.api.nvim_buf_set_text(
+      0,
+      ime_context.base_row - 1,
+      ime_context.base_col,
+      ime_context.preedit_row - 1,
+      ime_context.preedit_col,
+      {}
+    )
+    ime_context.preedit_col = ime_context.base_col + string.len(preedit_raw_text)
+    vim.api.nvim_buf_set_text(
+      0,
+      ime_context.base_row - 1,
+      ime_context.base_col,
+      ime_context.base_row - 1,
+      ime_context.base_col,
+      { preedit_raw_text }
+    )
+    vim.api.nvim_win_set_cursor(0, { ime_context.preedit_row, ime_context.preedit_col })
+end
+</code></pre>
+<p>Neovide also exposes a Lua function called commit_handler() in addition to preedit_handler(). For
+details, see <a href="api.html#ime-handling">IME handling on the API page</a>.</p>
+<p>If you’d prefer not to set this up yourself, you can use
+<a href="https://github.com/kanium3/neovide-ime.nvim">kanium3/neovide_ime.nvim</a>. Please refer to that
+repository for more information. Example: Installation with Lazy.nvim</p>
+<pre><code class="language-lua">return {
+  &quot;kanium3/neovide-ime.nvim&quot;
+}
+</code></pre>
+<p>Related: <a href="https://github.com/neovide/neovide/pull/3110">PR #3110</a></p>
 <h2 id="neovide-is-not-picking-up-some-shell-configured-information"><a class="header" href="#neovide-is-not-picking-up-some-shell-configured-information">Neovide Is Not Picking Up Some Shell-configured Information</a></h2>
-<p>...aka <code>nvm use</code> doesn't work, aka anything configured in <code>~/.bashrc</code>/<code>~/.zshrc</code>
-is ignored by Neovide.</p>
-<p>Neovide doesn't start the embedded neovim instance in an interactive shell, so your
-shell doesn't read part of its startup file (<code>~/.bashrc</code>/<code>~/.zshrc</code>/whatever the
-equivalent for your shell is). But depending on your shell there are other
-options for doing so, for example for zsh you can just put your relevant content
-into <code>~/.zprofile</code> or <code>~/.zlogin</code>.</p>
-<h2 id="the-terminal-displays-fallback-colorsterminal-does-not-show-my-colors"><a class="header" href="#the-terminal-displays-fallback-colorsterminal-does-not-show-my-colors">The Terminal Displays Fallback Colors/:terminal Does Not Show My Colors</a></h2>
-<p>Your colorscheme has to define <code>g:terminal_color_0</code> through
-<code>g:terminal_color_15</code> in order to have any effect on the terminal. Just setting
-any random highlights which have <code>Term</code> in name won't help.</p>
-<p>Some colorschemes think of this, some don't. Search in the documentation of
-yours, if it's your own, add it, and if you can't seem to find anything, open an
-issue in the colorscheme's repo.</p>
-<h2 id="compose-key-sequences-do-not-work"><a class="header" href="#compose-key-sequences-do-not-work">Compose key sequences do not work</a></h2>
-<p>One possible cause might be inconsistent capitalization of your locale
-settings, see <a href="https://github.com/neovide/neovide/issues/1896#issuecomment-1616421167.">#1896</a>. Possibly you're also running an outdated version of
+<p>...aka <code>nvm use</code> doesn't work, aka anything configured in <code>~/.bashrc</code>/<code>~/.zshrc</code> is ignored by
 Neovide.</p>
-<p>Another possible cause is that you are using IME on X11. Dead keys with IME is
-not yet supported, but you can work around that either by disabling IME or
-configuring it to only be enabled in insert mode. See
-<a href="configuration.html">Configuration</a>.</p>
+<p>Neovide doesn't start the embedded neovim instance in an interactive shell, so your shell doesn't
+read part of its startup file (<code>~/.bashrc</code>/<code>~/.zshrc</code>/whatever the equivalent for your shell is).
+But depending on your shell there are other options for doing so, for example for zsh you can just
+put your relevant content into <code>~/.zprofile</code> or <code>~/.zlogin</code>.</p>
+<h2 id="the-terminal-displays-fallback-colorsterminal-does-not-show-my-colors"><a class="header" href="#the-terminal-displays-fallback-colorsterminal-does-not-show-my-colors">The Terminal Displays Fallback Colors/:terminal Does Not Show My Colors</a></h2>
+<p>Your colorscheme has to define <code>g:terminal_color_0</code> through <code>g:terminal_color_15</code> in order to have
+any effect on the terminal. Just setting any random highlights which have <code>Term</code> in name won't help.</p>
+<p>Some colorschemes think of this, some don't. Search in the documentation of yours, if it's your own,
+add it, and if you can't seem to find anything, open an issue in the colorscheme's repo.</p>
+<h2 id="compose-key-sequences-do-not-work"><a class="header" href="#compose-key-sequences-do-not-work">Compose key sequences do not work</a></h2>
+<p>One possible cause might be inconsistent capitalization of your locale settings, see <a href="https://github.com/neovide/neovide/issues/1896#issuecomment-1616421167.">#1896</a>.
+Possibly you're also running an outdated version of Neovide.</p>
+<p>Another possible cause is that you are using IME on X11. Dead keys with IME is not yet supported,
+but you can work around that either by disabling IME or configuring it to only be enabled in insert
+mode. See <a href="configuration.html">Configuration</a>.</p>
 <h2 id="font-size-is-weird-with-high-dpi-display-on-x11"><a class="header" href="#font-size-is-weird-with-high-dpi-display-on-x11">Font size is weird with high dpi display on x11</a></h2>
-<p>Winit looks in multiple locations for the configured dpi.
-Make sure its set in at least one of them. More details
-here: <a href="https://github.com/neovide/neovide/issues/2010#issuecomment-1704416685">#2010</a>.</p>
+<p>Winit looks in multiple locations for the configured dpi. Make sure its set in at least one of them.
+More details here: <a href="https://github.com/neovide/neovide/issues/2010#issuecomment-1704416685">#2010</a>.</p>
 <h2 id="how-to-turn-off-all-animations"><a class="header" href="#how-to-turn-off-all-animations">How to turn off all animations?</a></h2>
-<p>Animations can be turned off by setting the following global
-variables:</p>
+<p>Animations can be turned off by setting the following global variables:</p>
 <pre><code class="language-lua">vim.g.neovide_position_animation_length = 0
 vim.g.neovide_cursor_animation_length = 0.00
 vim.g.neovide_cursor_trail_size = 0
@@ -270,40 +307,35 @@ vim.g.neovide_scroll_animation_far_lines = 0
 vim.g.neovide_scroll_animation_length = 0.00
 </code></pre>
 <h2 id="macos-login-shells"><a class="header" href="#macos-login-shells">macOS Login Shells</a></h2>
-<p>Traditionally, Unix shells use two main configuration files that are executed
-before a user can interact with the shell: a profile file and an rc file.</p>
+<p>Traditionally, Unix shells use two main configuration files that are executed before a user can
+interact with the shell: a profile file and an rc file.</p>
 <ul>
-<li><strong>Profile File:</strong> This file is typically executed once at login to set up
-the user's environment.</li>
-<li><strong>RC File:</strong> This file is executed every time a new shell is created to
-configure the shell itself.</li>
+<li><strong>Profile File:</strong> This file is typically executed once at login to set up the user's environment.</li>
+<li><strong>RC File:</strong> This file is executed every time a new shell is created to configure the shell
+itself.</li>
 </ul>
-<p>In the case of Zsh, which has been the default shell on macOS since version
-10.15, the configuration files used are <code>.zprofile</code> and <code>.zshrc</code>.</p>
+<p>In the case of Zsh, which has been the default shell on macOS since version 10.15, the configuration
+files used are <code>.zprofile</code> and <code>.zshrc</code>.</p>
 <h3 id="bash-differences"><a class="header" href="#bash-differences">Bash Differences</a></h3>
-<p>Unlike Zsh, Bash behaves differently. It only reads <code>.bashrc</code> if the shell
-session is both interactive and non-login. This distinction might have been
-overlooked when macOS transitioned from tcsh to bash in OSX 10.2 Jaguar,
-leading developers to place their setup entirely in <code>.profile</code> since <code>.bashrc</code>
-would rarely be executed, especially when starting a new terminal.</p>
-<p>With the shift to Zsh as the default shell, both <code>.zprofile</code> and <code>.zshrc</code> are
-executed when starting an interactive non-login shell.</p>
+<p>Unlike Zsh, Bash behaves differently. It only reads <code>.bashrc</code> if the shell session is both
+interactive and non-login. This distinction might have been overlooked when macOS transitioned from
+tcsh to bash in OSX 10.2 Jaguar, leading developers to place their setup entirely in <code>.profile</code>
+since <code>.bashrc</code> would rarely be executed, especially when starting a new terminal.</p>
+<p>With the shift to Zsh as the default shell, both <code>.zprofile</code> and <code>.zshrc</code> are executed when starting
+an interactive non-login shell.</p>
 <p><img src="./assets/login-shell.png" alt="pic alt" /></p>
-<p><em>Regarding to the moment when Neovide launches, it does not start an
-interactive shell session, meaning the .bashrc file is not executed. Instead,
-the system reads the .bash_profile file. This behavior stems from the
-difference in how interactive and login shells process configuration files.</em></p>
+<p><em>Regarding to the moment when Neovide launches, it does not start an interactive shell session,
+meaning the .bashrc file is not executed. Instead, the system reads the .bash_profile file. This
+behavior stems from the difference in how interactive and login shells process configuration files.</em></p>
 <h3 id="macos-specifics"><a class="header" href="#macos-specifics">macOS Specifics</a></h3>
-<p>On macOS, the graphical user interface used for system login does not execute
-<code>.zprofile</code>, as it employs a different method for loading system-level global
-settings. This means that terminal emulators must run shells as login shells
-to ensure that new shells are properly configured, avoiding potential issues
-from missing setup processes in <code>.zprofile</code>. This necessity arises because
-there is no <code>.xsession</code> or equivalent file on macOS to provide initial
-settings or global environment variables to terminal sessions<sup class="footnote-reference"><a href="#1">1</a></sup>.</p>
-<div class="footnote-definition" id="1"><sup class="footnote-definition-label">1</sup>
-<p><a href="https://unix.stackexchange.com/questions/119627/why-are-interactive-shells-on-osx-login-shells-by-default">Why are interactive shells on OSX login shells by default?</a></p>
-</div>
+<p>On macOS, the graphical user interface used for system login does not execute <code>.zprofile</code>, as it
+employs a different method for loading system-level global settings. This means that terminal
+emulators must run shells as login shells to ensure that new shells are properly configured,
+avoiding potential issues from missing setup processes in <code>.zprofile</code>. This necessity arises because
+there is no <code>.xsession</code> or equivalent file on macOS to provide initial settings or global
+environment variables to terminal sessions<sup class="footnote-reference"><a href="#1">1</a></sup>.</p>
+<p>[^1]:
+<a href="https://unix.stackexchange.com/questions/119627/why-are-interactive-shells-on-osx-login-shells-by-default">Why are interactive shells on OSX login shells by default?</a></p>
 
                     </main>
 
