@@ -48,6 +48,7 @@ pub struct FontSettings {
     pub allow_float_size: Option<bool>,
     pub hinting: Option<String>,
     pub edging: Option<String>,
+    pub underline_offset: Option<f32>,
 }
 
 impl From<FontDescriptionSettings> for Vec<FontDescription> {
@@ -129,6 +130,7 @@ impl From<FontSettings> for FontOptions {
                 .edging
                 .map(|edging| FontEdging::parse(&edging).unwrap_or_default())
                 .unwrap_or_default(),
+            underline_offset: points_to_pixels(value.underline_offset.unwrap_or_default()),
         }
     }
 }
