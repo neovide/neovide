@@ -1,5 +1,5 @@
 use std::{
-    sync::Arc,
+    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 
@@ -11,6 +11,7 @@ use winit::{
 
 use super::{save_window_size, CmdLineSettings, UserEvent, WindowSettings, WinitWindowWrapper};
 use crate::{
+    clipboard::Clipboard,
     profiling::{tracy_plot, tracy_zone},
     renderer::DrawCommand,
     settings::{Config, Settings},
@@ -85,12 +86,12 @@ pub struct UpdateLoop {
     pending_draw_commands: Vec<Vec<DrawCommand>>,
     animation_start: Instant, // When the last animation started (went from idle to animating)
     animation_time: Duration, // How long the current animation has been simulated, will usually be in the future
-
     window_wrapper: WinitWindowWrapper,
     create_window_allowed: bool,
     proxy: EventLoopProxy<UserEvent>,
-
     settings: Arc<Settings>,
+    // Stored here for future use
+    _clipboard: Option<Arc<Mutex<Clipboard>>>,
 }
 
 impl UpdateLoop {
@@ -99,6 +100,7 @@ impl UpdateLoop {
         initial_config: Config,
         proxy: EventLoopProxy<UserEvent>,
         settings: Arc<Settings>,
+        clipboard: Arc<Mutex<Clipboard>>,
     ) -> Self {
         let previous_frame_start = Instant::now();
         let last_dt = 0.0;
@@ -127,12 +129,11 @@ impl UpdateLoop {
             pending_draw_commands,
             animation_start,
             animation_time,
-
             window_wrapper,
             create_window_allowed: false,
             proxy,
-
             settings,
+            _clipboard: Some(clipboard),
         }
     }
 
@@ -396,6 +397,10 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
 
     fn exiting(&mut self, event_loop: &ActiveEventLoop) {
         tracy_zone!("exiting");
+
+        // SAFETY: The clipboard must be dropped before the event loop exits
+        self._clipboard = None;
+        // SAFETY: The renderer must be dropped before the event loop
         self.window_wrapper.exit();
         self.schedule_next_event(event_loop);
     }
