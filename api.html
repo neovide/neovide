@@ -146,7 +146,8 @@
                         <h1 id="api"><a class="header" href="#api">API</a></h1>
 <p>The API fuctions are always available without any imports as long as Neovide is connected.</p>
 <h2 id="redraw-control"><a class="header" href="#redraw-control">Redraw Control</a></h2>
-<p><code>neovide.disable_redraw()</code> <code>neovide.enable_redraw()</code></p>
+<p><code>neovide.disable_redraw()</code>
+<code>neovide.enable_redraw()</code></p>
 <p>These can be used to by plugins to temporarily disable redrawing while performing some update. They
 can for exapmple, be used to prevent the cursor from temporarily moving to the wrong location, or to
 atomically spawn a group of windows together. The animations are still updated even when the
@@ -171,30 +172,6 @@ if neovide and neovide.enable_redraw then neovide.enable_redraw() end
 </code></pre>
 <p><strong>Don't call these functions as a regular user, since you won't see any updates on the screen until
 the redrawing is enabled again, so it might be hard to type in the command.</strong></p>
-<h2 id="ime-handling"><a class="header" href="#ime-handling">IME handling</a></h2>
-<p><code>neovide.preedit_handler( preedit_raw_text:string, cursor_offset:[start_col:integer, end_col:integer] )</code>
-<code>neovide.commit_handler(commit_raw_text:string, commit_formatted_text:string)</code></p>
-<p>These can be used to by your plugin to handle IME events. The pre-edit handler is
-called when yourinput method, such as Fcitx, IBus and MS-IME, sends pre-edit event.
-So, you have to handle pre-edit texts if you would like to support pre-edit event.
-The commit handler is called when your inputmethod sends commit event,
-which you decide some text on enabled IME.</p>
-<p>In default, <code>preedit_handler()</code> is nothing to do and <code>commit_handler()</code> uses
-<a href="https://neovim.io/doc/user/api.html#nvim_input()"><code>nvim_input()</code></a></p>
-<pre><code class="language-lua">---@param preedit_raw_text string
----@param cursor_offset? [integer, integer] (start_col, end_col)
---- This values show the cursor begin position and end position.
---- The position is byte-wise indexed.
-neovide.preedit_handler = function (preedit_raw_text, cursor_offset)
-    -- handle pre-edit event...
-end
-
----@param commit_raw_text string
----@param commit_formatted_text string It's escaped.
-neovide.commit_handler = function (commit_raw_text, commit_formatted_text)
-    -- handle commit event...
-end
-</code></pre>
 
                     </main>
 
