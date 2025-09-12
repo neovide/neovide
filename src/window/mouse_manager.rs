@@ -371,6 +371,8 @@ impl MouseManager {
                 }
             }
         }
+
+        editor_state.window.request_redraw();
     }
 
     pub fn handle_event(
