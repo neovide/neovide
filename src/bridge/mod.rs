@@ -34,6 +34,8 @@ pub use events::*;
 pub use session::NeovimWriter;
 pub use ui_commands::{send_ui, start_ui_command_handler, ParallelCommand, SerialCommand};
 
+use rustix::fd::AsRawFd;
+
 const NEOVIM_REQUIRED_VERSION: &str = "0.10.0";
 
 pub struct NeovimRuntime {
@@ -80,7 +82,7 @@ async fn launch(
 ) -> Result<NeovimSession> {
     let neovim_instance = neovim_instance(settings.as_ref()).await?;
 
-    let session = NeovimSession::new(neovim_instance, handler)
+    let mut session = NeovimSession::new(neovim_instance, handler)
         .await
         .context("Could not locate or start neovim process")?;
 
@@ -122,6 +124,12 @@ async fn launch(
     options.set_linegrid_external(true);
     options.set_multigrid_external(!cmdline_settings.no_multi_grid);
     options.set_rgb(true);
+    // We can close the handle here, as Neovim already owns it
+    if let Some(fd) = session.stdin_fd.take() {
+        if let Ok(fd) = fd.as_raw_fd().try_into() {
+            options.set_stdin_fd(fd);
+        }
+    }
 
     // Triggers loading the user config
 
