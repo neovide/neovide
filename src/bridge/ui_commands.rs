@@ -124,7 +124,6 @@ pub enum ParallelCommand {
     FocusLost,
     FocusGained,
     DisplayAvailableFonts(Vec<String>),
-    SetBackground(String),
     ShowError { lines: Vec<String> },
 }
 
@@ -217,10 +216,6 @@ impl ParallelCommand {
                 .await
                 .map(|_| ()) // We don't care about the result
                 .context("FileDrop failed"),
-            ParallelCommand::SetBackground(background) => nvim
-                .command(format!("set background={background}").as_str())
-                .await
-                .context("SetBackground failed"),
             ParallelCommand::DisplayAvailableFonts(fonts) => display_available_fonts(nvim, fonts)
                 .await
                 .context("DisplayAvailableFonts failed"),
