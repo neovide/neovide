@@ -418,6 +418,7 @@ impl CachingShaper {
             );
             // Scale fallback fonts to have the same width as the primary one
             let scale = self.info().1 / (fallback_info.1 * current_size);
+            let baseline_offset = self.baseline_offset();
 
             let mut shaper = self
                 .shape_context
@@ -434,12 +435,19 @@ impl CachingShaper {
 
             let mut glyph_data = Vec::new();
 
+            let metrics = &fallback_info.0;
+            // Push the baseline down if there's not enough space above it.
+            // This only happens for fallback fonts.
+            let y_offset = ((metrics.ascent + metrics.leading / 2.0) * current_size
+                - baseline_offset)
+                .max(0.0);
+
             shaper.shape_with(|glyph_cluster| {
                 //Align to the grid at the start of each cluster
                 let mut x_offset = glyph_width * glyph_cluster.data as f32;
 
                 for glyph in glyph_cluster.glyphs {
-                    let position = (x_offset + glyph.x, -glyph.y);
+                    let position = (x_offset + glyph.x, -glyph.y + y_offset);
                     glyph_data.push((glyph.id, position));
                     x_offset += glyph.advance;
                 }
