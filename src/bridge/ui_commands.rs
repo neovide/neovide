@@ -4,6 +4,7 @@ use anyhow::{Context, Result};
 use indoc::indoc;
 use log::trace;
 use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim};
+use rmpv::Value;
 use strum::AsRefStr;
 use tokio::sync::mpsc::unbounded_channel;
 
@@ -77,32 +78,34 @@ impl SerialCommand {
                     // Notified ime commit event, the text is guaranteed not to be None.
                     let text = formatted.unwrap();
                     trace!("IME Input Sent: {}", &text);
-                    nvim.exec_lua(
-                        &format!("neovide.commit_handler([[{}]], [[{}]])", raw, text),
-                        vec![],
+                    nvim.call(
+                        "nvim__exec_lua_lua_fast",
+                        call_args![
+                            "neovide.commit_handler(...)",
+                            vec![Value::from(raw), Value::from(text)],
+                        ],
                     )
                     .await
                     .map(|_| ())
                     .context("IME Commit failed")
                 } else {
                     trace!("IME Input Preedit");
-                    if let Some((start_col, end_col)) = cursor_offset {
-                        nvim.exec_lua(
-                            &format!(
-                                "neovide.preedit_handler([[{}]], {{ {}, {} }})",
-                                raw, start_col, end_col
-                            ),
-                            vec![],
-                        )
-                        .await
-                        .map(|_| ())
-                        .context("IME Preedit failed")
-                    } else {
-                        nvim.exec_lua(&format!("neovide.preedit_handler([[{}]])", raw), vec![])
-                            .await
-                            .map(|_| ())
-                            .context("IME Preedit failed")
-                    }
+
+                    let (start_col, end_col) = cursor_offset
+                        .map_or((Value::Nil, Value::Nil), |(start_col, end_col)| {
+                            (Value::from(start_col), Value::from(end_col))
+                        });
+
+                    nvim.call(
+                        "nvim__exec_lua_fast",
+                        call_args![
+                            "neovide.preedit_handler(...)",
+                            vec![Value::from(raw), start_col, end_col],
+                        ],
+                    )
+                    .await
+                    .map(|_| ())
+                    .context("IME Preedit failed")
                 }
             }
             SerialCommand::MouseButton {
