@@ -23,6 +23,12 @@ use crate::{
 #[derive(Clone, Debug, AsRefStr)]
 pub enum SerialCommand {
     Keyboard(String),
+    KeyboardAsIme {
+        formatted: Option<String>,
+        raw: String,
+        commit: bool,
+        cursor_offset: Option<(usize, usize)>,
+    },
     MouseButton {
         button: String,
         action: String,
@@ -60,6 +66,44 @@ impl SerialCommand {
                     .await
                     .map(|_| ())
                     .context("Input failed")
+            }
+            SerialCommand::KeyboardAsIme {
+                formatted,
+                commit,
+                raw,
+                cursor_offset,
+            } => {
+                if commit {
+                    // Notified ime commit event, the text is guaranteed not to be None.
+                    let text = formatted.unwrap();
+                    trace!("IME Input Sent: {}", &text);
+                    nvim.exec_lua(
+                        &format!("neovide.commit_handler([[{}]], [[{}]])", raw, text),
+                        vec![],
+                    )
+                    .await
+                    .map(|_| ())
+                    .context("IME Commit failed")
+                } else {
+                    trace!("IME Input Preedit");
+                    if let Some((start_col, end_col)) = cursor_offset {
+                        nvim.exec_lua(
+                            &format!(
+                                "neovide.preedit_handler([[{}]], {{ {}, {} }})",
+                                raw, start_col, end_col
+                            ),
+                            vec![],
+                        )
+                        .await
+                        .map(|_| ())
+                        .context("IME Preedit failed")
+                    } else {
+                        nvim.exec_lua(&format!("neovide.preedit_handler([[{}]])", raw), vec![])
+                            .await
+                            .map(|_| ())
+                            .context("IME Preedit failed")
+                    }
+                }
             }
             SerialCommand::MouseButton {
                 button,
