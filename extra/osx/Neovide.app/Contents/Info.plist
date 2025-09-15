@@ -1052,6 +1052,26 @@
       <key>CFBundleTypeRole</key>
       <string>Editor</string>
     </dict>
+    <dict>
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>go</string>
+      </array>
+      <key>CFBundleTypeName</key>
+      <string>Go Source File</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+    </dict>
+    <dict>
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>rs</string>
+      </array>
+      <key>CFBundleTypeName</key>
+      <string>Rust Source File</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+    </dict>
   </array>
   <key>UTExportedTypeDeclarations</key>
   <array>
@@ -2429,6 +2449,40 @@
         <key>public.filename-extension</key>
         <array>
           <string>vh</string>
+        </array>
+      </dict>
+    </dict>
+    <dict>
+      <key>UTTypeConformsTo</key>
+      <array>
+        <string>public.plain-text</string>
+      </array>
+      <key>UTTypeDescription</key>
+      <string>Go Source File</string>
+      <key>UTTypeIdentifier</key>
+      <string>org.golang.go-script</string>
+      <key>UTTypeTagSpecification</key>
+      <dict>
+        <key>public.filename-extension</key>
+        <array>
+          <string>go</string>
+        </array>
+      </dict>
+    </dict>
+    <dict>
+      <key>UTTypeConformsTo</key>
+      <array>
+        <string>public.plain-text</string>
+      </array>
+      <key>UTTypeDescription</key>
+      <string>Rust Source File</string>
+      <key>UTTypeIdentifier</key>
+      <string>org.rust-lang.rust-script</string>
+      <key>UTTypeTagSpecification</key>
+      <dict>
+        <key>public.filename-extension</key>
+        <array>
+          <string>rs</string>
         </array>
       </dict>
     </dict>
