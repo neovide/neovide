@@ -20,7 +20,7 @@ use csscolorparser::Color;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 use winit::window::Window;
 
-use crate::bridge::{send_ui, ParallelCommand, HANDLER_REGISTRY};
+use crate::bridge::{send_ui, ParallelCommand, SerialCommand, HANDLER_REGISTRY};
 use crate::settings::Settings;
 use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame};
 
@@ -359,7 +359,7 @@ declare_class!(
                     .clone()
                     .expect("NeovimHandler has not been initialized")
             };
-            send_ui(ParallelCommand::Quit, &handler);
+            send_ui(SerialCommand::Keyboard("<D-q>".into()), &handler);
         }
     }
 );

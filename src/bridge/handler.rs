@@ -11,7 +11,7 @@ use crate::{
     bridge::{
         clipboard::{get_clipboard_contents, set_clipboard_contents},
         events::parse_redraw_event,
-        NeovimWriter, RedrawEvent,
+        send_ui, NeovimWriter, ParallelCommand, RedrawEvent, HANDLER_REGISTRY,
     },
     error_handling::ResultPanicExplanation,
     running_tracker::RunningTracker,
@@ -145,6 +145,15 @@ impl Handler for NeovimHandler {
                     .lock()
                     .unwrap()
                     .send_event(WindowCommand::FocusWindow.into());
+            }
+            "neovide.exec_detach_handler" => {
+                let handler = {
+                    let handler_lock = HANDLER_REGISTRY.lock().unwrap();
+                    handler_lock
+                        .clone()
+                        .expect("NeovimHandler has not been initialized")
+                };
+                send_ui(ParallelCommand::Quit, &handler);
             }
             _ => {}
         }
