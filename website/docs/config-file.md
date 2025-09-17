@@ -144,14 +144,14 @@ style = "Bold"
 #### Box Drawing
 
 The Unicode standard defines several code points that are useful to draw [boxes, diagrams or are
-otherwise decorations][https://en.wikipedia.org/wiki/Box_Drawing]. A font file can include graphical
+otherwise decorations](https://en.wikipedia.org/wiki/Box_Drawing). A font file can include graphical
 representation for several of these code points (glyphs). For example, [Nerd
-Fonts][https://www.nerdfonts.com/] is a collection of font faces that have been patched to include
+Fonts](https://www.nerdfonts.com/) is a collection of font faces that have been patched to include
 glyphs for several box drawing code points (and many other use-cases).
 
 When Neovide renders these glyphs, some glyphs might not line up correctly or might have gaps
 between adjacent cells, breaking visual continuity. This is especially pronounced when using the
-[linespace][#line-spacing] configuration option to add spacing between lines.
+[linespace](./configuration.md#line-spacing) configuration option to add spacing between lines.
 
 Neovide has support for native rendering (i.e ignore the glyph data in the font) for a subset of
 these glyphs to avoid this problem. You can configure this via:
