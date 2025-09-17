@@ -35,6 +35,7 @@ pub use style::{Colors, Style, UnderlineStyle};
 pub use window::*;
 
 const MODE_CMDLINE: u64 = 4;
+pub const MSG_ZINDEX: u64 = 200; // See the documenation for nvim_open_win
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SortOrder {
@@ -480,7 +481,7 @@ impl Editor {
     }
 
     fn set_message_position(&mut self, grid: u64, grid_top: u64, scrolled: bool) {
-        let z_index = 250; // From the Neovim source code
+        let z_index = MSG_ZINDEX;
         let parent_width = self
             .windows
             .get(&1)
