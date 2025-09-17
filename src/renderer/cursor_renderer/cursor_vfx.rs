@@ -51,6 +51,9 @@ pub enum VfxMode {
     Disabled,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Default)]
+pub struct VfxModeList(Vec<VfxMode>);
+
 impl ParseFromValue for VfxMode {
     fn parse_from_value(&mut self, value: Value) {
         if value.is_str() {
@@ -73,6 +76,35 @@ impl ParseFromValue for VfxMode {
     }
 }
 
+impl ParseFromValue for VfxModeList {
+    fn parse_from_value(&mut self, value: Value) {
+        self.0.clear();
+        if value.is_str() {
+            let mut vfx_mode = VfxMode::Disabled;
+            vfx_mode.parse_from_value(value);
+            self.0.push(vfx_mode);
+        } else if value.is_array() {
+            for item in value.as_array().unwrap() {
+                if item.is_str() {
+                    let mut vfx_mode = VfxMode::Disabled;
+                    vfx_mode.parse_from_value(item.clone());
+                    self.0.push(vfx_mode);
+                } else {
+                    error!(
+                        "Expected a VfxMode string in the array, but received {:?}",
+                        item
+                    );
+                }
+            }
+        } else {
+            error!(
+                "Expected a string or an array of VfxMode strings, but received {:?}",
+                value
+            );
+        }
+    }
+}
+
 impl From<VfxMode> for Value {
     fn from(mode: VfxMode) -> Self {
         match mode {
@@ -87,12 +119,30 @@ impl From<VfxMode> for Value {
     }
 }
 
-pub fn new_cursor_vfx(mode: &VfxMode) -> Option<Box<dyn CursorVfx>> {
-    match mode {
-        VfxMode::Highlight(mode) => Some(Box::new(PointHighlight::new(mode))),
-        VfxMode::Trail(mode) => Some(Box::new(ParticleTrail::new(mode))),
-        VfxMode::Disabled => None,
+impl From<VfxModeList> for Value {
+    fn from(modes: VfxModeList) -> Self {
+        let mut values = Vec::new();
+
+        for mode in modes.0 {
+            values.push(Value::from(mode));
+        }
+
+        Value::from(values)
     }
+}
+
+pub fn new_cursor_vfxs(modes: &VfxModeList) -> Vec<Box<dyn CursorVfx>> {
+    modes
+        .0
+        .iter()
+        .filter_map(|mode| match mode {
+            VfxMode::Highlight(mode) => {
+                Some(Box::new(PointHighlight::new(mode)) as Box<dyn CursorVfx>)
+            }
+            VfxMode::Trail(mode) => Some(Box::new(ParticleTrail::new(mode)) as Box<dyn CursorVfx>),
+            VfxMode::Disabled => None,
+        })
+        .collect()
 }
 
 pub struct PointHighlight {
@@ -121,8 +171,8 @@ impl CursorVfx for PointHighlight {
         dt: f32,
     ) -> bool {
         self.center_position = current_cursor_destination;
-        if settings.vfx_particle_lifetime > 0.0 {
-            self.t = (self.t + dt * (1.0 / settings.vfx_particle_lifetime)).min(1.0);
+        if settings.vfx_particle_highlight_lifetime > 0.0 {
+            self.t = (self.t + dt * (1.0 / settings.vfx_particle_highlight_lifetime)).min(1.0);
         } else {
             self.t = 1.0
         }
@@ -273,8 +323,7 @@ impl CursorVfx for ParticleTrail {
 
                 // Increase amount of particles when cursor travels further
                 let f_particle_count = ((travel_distance / cursor_dimensions.height)
-                    * settings.vfx_particle_density
-                    * 0.1)
+                    * settings.vfx_particle_density)
                     + self.count_reminder;
 
                 let particle_count = f_particle_count as usize;

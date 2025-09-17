@@ -834,17 +834,17 @@ this happens too often accidentally to you, set this to a higher value like `0.3
 VimScript:
 
 ```vim
-let g:neovide_cursor_animation_length = 0.13
+let g:neovide_cursor_animation_length = 0.150
 ```
 
 Lua:
 
 ```lua
-vim.g.neovide_cursor_animation_length = 0.13
+vim.g.neovide_cursor_animation_length = 0.150
 ```
 
 Setting `g:neovide_cursor_animation_length` determines the time it takes for the cursor to complete
-it's animation in seconds. Set to `0` to disable.
+its animation in seconds. Set to `0` to disable.
 
 #### Animation Trail Size
 
@@ -857,17 +857,20 @@ it's animation in seconds. Set to `0` to disable.
 VimScript:
 
 ```vim
-let g:neovide_cursor_trail_size = 0.8
+let g:neovide_cursor_trail_size = 1.0
 ```
 
 Lua:
 
 ```lua
-vim.g.neovide_cursor_trail_size = 0.8
+vim.g.neovide_cursor_trail_size = 1.0
 ```
 
-Setting `g:neovide_cursor_trail_size` determines how much the trail of the cursor lags behind the
-front edge.
+Range 0.0 to 1.0
+
+Setting `g:neovide_cursor_trail_size` changes how much the back of the cursor trails the front. Set
+to 1.0 to make the front jump to the destination immediately with a maximum trail size. A lower
+value makes a smoother animation, with a shorter trail, but also adds lag.
 
 #### Antialiasing
 
@@ -960,20 +963,28 @@ set for both `blinkoff`, `blinkon` and `blinkwait` for this setting to apply.
 ### Cursor Particles
 
 There are a number of vfx modes you can enable which produce particles behind the cursor. These are
-enabled by setting `g:neovide_cursor_vfx_mode` to one of the following constants.
+enabled by setting `g:neovide_cursor_vfx_mode` to one `string` or an `array` of the following constants.
 
 #### None at all
 
 VimScript:
 
 ```vim
+" a string
 let g:neovide_cursor_vfx_mode = ""
+
+" or an array
+let g:neovide_cursor_vfx_mode = ["", ""]
 ```
 
 Lua:
 
 ```lua
+<!-- a string -->
 vim.g.neovide_cursor_vfx_mode = ""
+
+<!-- or an array -->
+vim.g.neovide_cursor_vfx_mode = {"", ""}
 ```
 
 The default, no particles at all.
@@ -1099,32 +1110,40 @@ Sets the transparency of the generated particles.
 VimScript:
 
 ```vim
-let g:neovide_cursor_vfx_particle_lifetime = 1.2
+let g:neovide_cursor_vfx_particle_lifetime = 0.5
+let g:neovide_cursor_vfx_particle_highlight_lifetime = 0.2
 ```
 
 Lua:
 
 ```lua
-vim.g.neovide_cursor_vfx_particle_lifetime = 1.2
+vim.g.neovide_cursor_vfx_particle_lifetime = 0.5
+vim.g.neovide_cursor_vfx_particle_highlight_lifetime = 0.2
 ```
 
 Sets the amount of time the generated particles should survive.
+
+`neovide_cursor_vfx_particle_highlight_lifetime` applies to `sonicboom`, `ripple` and `wireframe`,
+and the rest to `neovide_cursor_vfx_particle_lifetime`
+
+If `neovide_cursor_vfx_particle_highlight_lifetime` is set to `0` then
+`neovide_cursor_vfx_particle_lifetime` is used.
 
 #### Particle Density
 
 VimScript:
 
 ```vim
-let g:neovide_cursor_vfx_particle_density = 7.0
+let g:neovide_cursor_vfx_particle_density = 0.7
 ```
 
 Lua:
 
 ```lua
-vim.g.neovide_cursor_vfx_particle_density = 7.0
+vim.g.neovide_cursor_vfx_particle_density = 0.7
 ```
 
-Sets the number of generated particles. The unit is roughly the amount of particles per 10 lines of
+Sets the number of generated particles. The unit is the amount of particles per lines of
 travel.
 
 #### Particle Speed
@@ -1141,7 +1160,7 @@ Lua:
 vim.g.neovide_cursor_vfx_particle_speed = 10.0
 ```
 
-Sets the speed of particle movement.
+Sets the speed of particle movement in pixels / second.
 
 #### Particle Phase
 

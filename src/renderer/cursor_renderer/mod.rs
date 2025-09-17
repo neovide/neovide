@@ -3,6 +3,8 @@ mod cursor_vfx;
 
 use std::{collections::HashMap, sync::Arc};
 
+use approx::AbsDiffEq;
+use itertools::Itertools;
 use skia_safe::{op, Canvas, Paint, Path};
 use winit::event::WindowEvent;
 
@@ -24,6 +26,24 @@ const DEFAULT_CELL_PERCENTAGE: f32 = 1.0 / 8.0;
 
 const STANDARD_CORNERS: &[(f32, f32); 4] = &[(-0.5, -0.5), (0.5, -0.5), (0.5, 0.5), (-0.5, 0.5)];
 
+#[cfg(feature = "profiling")]
+use std::ffi::{c_char, CStr};
+#[cfg(feature = "profiling")]
+static PLOT_NAMES_X: [&CStr; 4] = [
+    unsafe { CStr::from_ptr(b"Cursor top left x\0".as_ptr() as *const c_char) },
+    unsafe { CStr::from_ptr(b"Cursor top right x\0".as_ptr() as *const c_char) },
+    unsafe { CStr::from_ptr(b"Cursor bottom right x\0".as_ptr() as *const c_char) },
+    unsafe { CStr::from_ptr(b"Cursor bottom left x\0".as_ptr() as *const c_char) },
+];
+
+#[cfg(feature = "profiling")]
+static PLOT_NAMES_Y: [&CStr; 4] = [
+    unsafe { CStr::from_ptr(b"Cursor top left y\0".as_ptr() as *const c_char) },
+    unsafe { CStr::from_ptr(b"Cursor top right y\0".as_ptr() as *const c_char) },
+    unsafe { CStr::from_ptr(b"Cursor bottom right y\0".as_ptr() as *const c_char) },
+    unsafe { CStr::from_ptr(b"Cursor bottom left y\0".as_ptr() as *const c_char) },
+];
+
 #[derive(SettingGroup)]
 #[setting_prefix = "cursor"]
 #[derive(Clone)]
@@ -37,9 +57,10 @@ pub struct CursorSettings {
     unfocused_outline_width: f32,
     smooth_blink: bool,
 
-    vfx_mode: cursor_vfx::VfxMode,
+    vfx_mode: cursor_vfx::VfxModeList,
     vfx_opacity: f32,
     vfx_particle_lifetime: f32,
+    vfx_particle_highlight_lifetime: f32,
     vfx_particle_density: f32,
     vfx_particle_speed: f32,
     vfx_particle_phase: f32,
@@ -50,17 +71,18 @@ impl Default for CursorSettings {
     fn default() -> Self {
         CursorSettings {
             antialiasing: true,
-            animation_length: 0.06,
+            animation_length: 0.150,
             distance_length_adjust: true,
             animate_in_insert_mode: true,
             animate_command_line: true,
-            trail_size: 0.7,
+            trail_size: 1.0,
             unfocused_outline_width: 1.0 / 8.0,
             smooth_blink: false,
-            vfx_mode: cursor_vfx::VfxMode::Disabled,
+            vfx_mode: cursor_vfx::VfxModeList::default(),
             vfx_opacity: 200.0,
-            vfx_particle_lifetime: 1.2,
-            vfx_particle_density: 7.0,
+            vfx_particle_lifetime: 0.5,
+            vfx_particle_highlight_lifetime: 0.2,
+            vfx_particle_density: 0.7,
             vfx_particle_speed: 10.0,
             vfx_particle_phase: 1.5,
             vfx_particle_curl: 1.0,
@@ -68,103 +90,125 @@ impl Default for CursorSettings {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Corner {
-    start_position: PixelPos<f32>,
     current_position: PixelPos<f32>,
     relative_position: GridPos<f32>,
     previous_destination: PixelPos<f32>,
-    length_multiplier: f32,
-    t: f32,
+    animation_x: CriticallyDampedSpringAnimation,
+    animation_y: CriticallyDampedSpringAnimation,
+    animation_length: f32,
+    #[cfg(feature = "profiling")]
+    id: usize,
 }
 
 impl Corner {
     pub fn new() -> Corner {
         Corner {
-            start_position: PixelPos::default(),
             current_position: PixelPos::default(),
             relative_position: GridPos::<f32>::default(),
             previous_destination: PixelPos::new(-1000.0, -1000.0),
-            length_multiplier: 1.0,
-            t: 0.0,
+            animation_x: CriticallyDampedSpringAnimation::new(),
+            animation_y: CriticallyDampedSpringAnimation::new(),
+            animation_length: 0.0,
+            #[cfg(feature = "profiling")]
+            id: 0,
         }
     }
 
     pub fn update(
         &mut self,
-        settings: &CursorSettings,
         cursor_dimensions: GridScale,
         destination: PixelPos<f32>,
         dt: f32,
         immediate_movement: bool,
     ) -> bool {
-        if destination != self.previous_destination {
-            self.t = 0.0;
-            self.start_position = self.current_position;
-            self.previous_destination = destination;
-            self.length_multiplier = if settings.distance_length_adjust {
-                (destination - self.current_position)
-                    .length()
-                    .log10()
-                    .max(0.0)
-            } else {
-                1.0
-            }
+        let corner_destination = self.get_destination(destination, cursor_dimensions);
+        if corner_destination != self.previous_destination {
+            let delta = corner_destination - self.current_position;
+
+            self.animation_x.position = delta.x;
+            self.animation_y.position = delta.y;
+            self.previous_destination = corner_destination;
         }
 
-        // Check first if animation's over
-        if (self.t - 1.0).abs() < f32::EPSILON {
+        if immediate_movement {
+            self.current_position = corner_destination;
             return false;
         }
 
+        let mut animating = self.animation_x.update(dt, self.animation_length);
+        animating |= self.animation_y.update(dt, self.animation_length);
+        self.current_position.x = corner_destination.x - self.animation_x.position;
+        self.current_position.y = corner_destination.y - self.animation_y.position;
+
+        #[cfg(feature = "profiling")]
+        {
+            tracy_plot!(PLOT_NAMES_X[self.id], self.current_position.x.into());
+            tracy_plot!(PLOT_NAMES_Y[self.id], self.current_position.y.into());
+        }
+
+        animating
+    }
+
+    fn jump(
+        &mut self,
+        settings: &CursorSettings,
+        destination: PixelPos<f32>,
+        cursor_dimensions: GridScale,
+        rank: usize,
+    ) {
+        let corner_destination = self.get_destination(destination, cursor_dimensions);
+        let jump_vec = (corner_destination - self.previous_destination) / cursor_dimensions;
+
+        self.animation_length = if jump_vec.x.abs() <= 2.001 && jump_vec.y.abs_diff_eq(&0.0, 0.001)
+        {
+            // Use a fast animation time for short jumps less than two characters, typically when
+            // typing or holding a key in insert mode
+            settings.animation_length.min(0.04)
+        } else {
+            let leading = settings.animation_length * (1.0 - settings.trail_size).clamp(0.0, 1.0);
+            let trailing = settings.animation_length;
+            match rank {
+                // The leading edge runs faster than the trailing edge, with a trail size of one
+                // it jumps to the destination
+                2..=3 => leading,
+                // One of the corner runs between the trailing corner and the leading edge, creating a triangular effect
+                1 => (leading + trailing) / 2.0,
+                0 => trailing,
+                _ => panic!("Invalid rank"),
+            }
+        }
+    }
+
+    fn get_destination(
+        &self,
+        destination: PixelPos<f32>,
+        cursor_dimensions: GridScale,
+    ) -> PixelPos<f32> {
         // Calculate window-space destination for corner
         let relative_scaled_position = self.relative_position * cursor_dimensions;
 
-        let corner_destination = destination + relative_scaled_position.to_vector();
+        destination + relative_scaled_position.to_vector()
+    }
 
-        if immediate_movement {
-            self.t = 1.0;
-            self.current_position = corner_destination;
-            return true;
-        }
-
+    fn calculate_direction_alignment(
+        &self,
+        cursor_dimensions: GridScale,
+        destination: PixelPos<f32>,
+    ) -> f32 {
         // Calculate how much a corner will be lagging behind based on how much it's aligned
         // with the direction of motion. Corners in front will move faster than corners in the
         // back
+        let relative_scaled_position = self.relative_position * cursor_dimensions;
+        let corner_destination = destination + relative_scaled_position.to_vector();
+        //(center_destination- corner.current_position).length()
+        let corner_direction = self.relative_position.as_vector().normalize().cast();
         let travel_direction = {
-            let d = destination - self.current_position;
+            let d = corner_destination - self.current_position;
             d.normalize()
         };
-
-        let corner_direction = self.relative_position.as_vector().normalize().cast();
-
-        let direction_alignment = travel_direction.dot(corner_direction);
-
-        if (self.t - 1.0).abs() < f32::EPSILON {
-            // We are at destination, move t out of 0-1 range to stop the animation
-            self.t = 2.0;
-        } else if direction_alignment <= 0.0 {
-            let corner_dt = dt
-                * lerp(
-                    1.0,
-                    (1.0 - settings.trail_size).clamp(0.0, 1.0),
-                    -direction_alignment,
-                );
-            self.t =
-                (self.t + corner_dt / (settings.animation_length * self.length_multiplier)).min(1.0)
-        } else {
-            // The front of the cursor jumps to the destination immediately
-            self.t = 1.0;
-        }
-
-        self.current_position = ease_point(
-            ease_out_expo,
-            self.start_position,
-            corner_destination,
-            self.t,
-        );
-
-        true
+        travel_direction.dot(corner_direction)
     }
 }
 
@@ -176,9 +220,10 @@ pub struct CursorRenderer {
     previous_cursor_position: Option<(u64, GridPos<u64>)>,
     previous_cursor_shape: Option<CursorShape>,
     previous_editor_mode: EditorMode,
-    cursor_vfx: Option<Box<dyn cursor_vfx::CursorVfx>>,
-    previous_vfx_mode: cursor_vfx::VfxMode,
+    cursor_vfxs: Vec<Box<dyn cursor_vfx::CursorVfx>>,
+    previous_vfx_mode: cursor_vfx::VfxModeList,
     window_has_focus: bool,
+    jumped: bool,
 
     settings: Arc<Settings>,
 }
@@ -193,9 +238,10 @@ impl CursorRenderer {
             previous_cursor_position: None,
             previous_cursor_shape: None,
             previous_editor_mode: EditorMode::Normal,
-            cursor_vfx: None,
-            previous_vfx_mode: cursor_vfx::VfxMode::Disabled,
+            cursor_vfxs: vec![],
+            previous_vfx_mode: cursor_vfx::VfxModeList::default(),
             window_has_focus: true,
+            jumped: false,
 
             settings,
         };
@@ -235,8 +281,8 @@ impl CursorRenderer {
                             (x, -((-y + 0.5) * cell_percentage - 0.5)).into()
                         }
                     },
-                    t: 0.0,
-                    start_position: corner.current_position,
+                    #[cfg(feature = "profiling")]
+                    id: i,
                     ..corner
                 }
             })
@@ -274,8 +320,9 @@ impl CursorRenderer {
         };
         if new_cursor_pos != self.previous_cursor_position {
             self.previous_cursor_position = new_cursor_pos;
-            if let Some(cursor_vfx) = &mut self.cursor_vfx {
-                cursor_vfx.cursor_jumped(self.destination);
+            self.jumped = true;
+            for vfx in self.cursor_vfxs.iter_mut() {
+                vfx.cursor_jumped(self.destination);
             }
         }
     }
@@ -352,7 +399,7 @@ impl CursorRenderer {
 
         canvas.restore();
 
-        if let Some(vfx) = self.cursor_vfx.as_ref() {
+        for vfx in self.cursor_vfxs.iter() {
             vfx.render(&settings, canvas, grid_renderer, &self.cursor);
         }
     }
@@ -370,7 +417,7 @@ impl CursorRenderer {
         let settings = self.settings.get::<CursorSettings>();
 
         if settings.vfx_mode != self.previous_vfx_mode {
-            self.cursor_vfx = cursor_vfx::new_cursor_vfx(&settings.vfx_mode);
+            self.cursor_vfxs = cursor_vfx::new_cursor_vfxs(&settings.vfx_mode);
             self.previous_vfx_mode = settings.vfx_mode.clone();
         }
 
@@ -397,7 +444,7 @@ impl CursorRenderer {
                     .unwrap_or(DEFAULT_CELL_PERCENTAGE),
             );
 
-            if let Some(vfx) = self.cursor_vfx.as_mut() {
+            for vfx in self.cursor_vfxs.iter_mut() {
                 vfx.restart(center_destination);
             }
         }
@@ -407,10 +454,41 @@ impl CursorRenderer {
         if center_destination != PixelPos::ZERO {
             let immediate_movement = !settings.animate_in_insert_mode && in_insert_mode
                 || !settings.animate_command_line && !changed_to_from_cmdline;
+            if self.jumped {
+                // Caclculate the direction alignment for each corner and generate a sorted list
+                // This way we know which corner is the front and which is the back
+                let corner_ranks = self
+                    .corners
+                    .iter()
+                    .map(|corner| {
+                        corner.calculate_direction_alignment(
+                            cursor_dimensions.into(),
+                            center_destination,
+                        )
+                    })
+                    .enumerate()
+                    .sorted_by(|a, b| {
+                        a.1.partial_cmp(&b.1)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                            .then(a.0.cmp(&b.0))
+                    })
+                    .enumerate()
+                    .sorted_by_key(|(_, (id, _))| *id)
+                    .map(|(rank, (_, _))| (rank))
+                    .collect_array::<4>()
+                    .unwrap();
+                for (id, corner) in self.corners.iter_mut().enumerate() {
+                    corner.jump(
+                        &settings,
+                        center_destination,
+                        cursor_dimensions.into(),
+                        corner_ranks[id],
+                    )
+                }
+            }
             for corner in self.corners.iter_mut() {
                 let corner_animating = corner.update(
-                    &settings,
-                    GridScale::new(cursor_dimensions),
+                    cursor_dimensions.into(),
                     center_destination,
                     dt,
                     immediate_movement,
@@ -419,20 +497,24 @@ impl CursorRenderer {
                 animating |= corner_animating;
             }
 
-            let vfx_animating = if let Some(vfx) = self.cursor_vfx.as_mut() {
-                vfx.update(
+            let mut vfx_animating = false;
+
+            for vfx in self.cursor_vfxs.iter_mut() {
+                let ret = vfx.update(
                     &settings,
                     center_destination,
                     cursor_dimensions,
                     immediate_movement,
                     dt,
-                )
-            } else {
-                false
-            };
+                );
+                if !vfx_animating {
+                    vfx_animating = ret;
+                }
+            }
 
             animating |= vfx_animating;
         }
+        self.jumped = false;
 
         let blink_animating = settings.smooth_blink && self.blink_status.should_animate();
 

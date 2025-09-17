@@ -317,8 +317,11 @@ macro_rules! tracy_named_frame {
 
 #[macro_export]
 macro_rules! tracy_plot {
-    ($name: expr, $dt: expr) => {
+    ($name: literal, $dt: expr) => {
         $crate::profiling::_tracy_plot($crate::profiling::cstr!($name), $dt)
+    };
+    ($name: expr, $dt: expr) => {
+        $crate::profiling::_tracy_plot($name, $dt)
     };
 }
 
