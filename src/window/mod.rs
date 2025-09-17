@@ -22,7 +22,11 @@ use winit::{
 use winit::platform::macos::WindowAttributesExtMacOS;
 
 #[cfg(target_os = "linux")]
-use winit::platform::{wayland::WindowAttributesExtWayland, x11::WindowAttributesExtX11};
+use winit::platform::{
+    startup_notify::{self, EventLoopExtStartupNotify, WindowAttributesExtStartupNotify},
+    wayland::WindowAttributesExtWayland,
+    x11::WindowAttributesExtX11,
+};
 
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowAttributesExtWindows;
@@ -221,6 +225,14 @@ pub fn create_window(
 
     #[cfg(target_os = "linux")]
     let window_attributes = {
+        let window_attributes =
+            if let Some(token) = EventLoopExtStartupNotify::read_token_from_env(event_loop) {
+                startup_notify::reset_activation_token_env();
+                WindowAttributesExtStartupNotify::with_activation_token(window_attributes, token)
+            } else {
+                window_attributes
+            };
+
         if env::var("WAYLAND_DISPLAY").is_ok() {
             let app_id = &cmd_line_settings.wayland_app_id;
             WindowAttributesExtWayland::with_name(window_attributes, app_id.clone(), "neovide")
