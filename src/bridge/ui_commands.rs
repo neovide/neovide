@@ -209,7 +209,7 @@ impl ParallelCommand {
                 .exec_lua(
                     &format!(
                         "neovide.private.dropfile([[{}]], {})",
-                        handle_wslpaths(vec![path], settings.get::<CmdLineSettings>().wsl, false)
+                        handle_wslpaths(vec![path], settings.get::<CmdLineSettings>().wsl)
                             .first()
                             .unwrap(),
                         settings.get::<CmdLineSettings>().tabs
