@@ -20,7 +20,7 @@ use crate::{
 };
 
 fn show_error(explanation: &str) -> ! {
-    error!("{}", explanation);
+    error!("{explanation}");
     panic!("{}", explanation.to_string());
 }
 

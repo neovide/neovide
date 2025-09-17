@@ -643,6 +643,26 @@ Setting `g:neovide_fullscreen` to a boolean value will set whether the app shoul
 screen. This uses the so called "windowed fullscreen" mode that is sometimes used in games which
 want quick window switching.
 
+#### Simple Fullscreen (MacOS only)
+
+VimScript:
+
+```vim
+let g:neovide_macos_simple_fullscreen = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_macos_simple_fullscreen = true
+```
+
+**Available since 0.15.1.**
+
+Setting `neovide_macos_simple_fullscreen` will hide the dock and menu bar for MacOS.
+
+This won’t work if the window was already in the native fullscreen.
+
 #### Remember Previous Window Size
 
 VimScript:
@@ -843,6 +863,23 @@ vim.g.neovide_cursor_animation_length = 0.150
 
 Setting `g:neovide_cursor_animation_length` determines the time it takes for the cursor to complete
 its animation in seconds. Set to `0` to disable.
+
+#### Short Animation Length
+
+VimScript:
+
+```vim
+let g:neovide_cursor_short_animation_length = 0.04
+```
+
+Lua:
+
+```lua
+vim.g.neovide_cursor_short_animation_length = 0.04
+```
+
+Setting `g:neovide_cursor_short_animation_length` determines the time it takes for the cursor to complete
+its animation in seconds for short horizontal travels of one or two characters, like when typing.
 
 #### Animation Trail Size
 

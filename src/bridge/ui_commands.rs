@@ -55,7 +55,7 @@ impl SerialCommand {
         log::trace!("In Serial Command");
         let result = match self {
             SerialCommand::Keyboard(input_command) => {
-                trace!("Keyboard Input Sent: {}", input_command);
+                trace!("Keyboard Input Sent: {input_command}");
                 nvim.input(&input_command)
                     .await
                     .map(|_| ())
@@ -113,7 +113,7 @@ impl SerialCommand {
         };
 
         if let Err(error) = result {
-            log::error!("{:?}", error);
+            log::error!("{error:?}");
         }
     }
 }
@@ -239,7 +239,7 @@ impl ParallelCommand {
         };
 
         if let Err(error) = result {
-            log::error!("{:?}", error);
+            log::error!("{error:?}");
         }
     }
 }
