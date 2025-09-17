@@ -532,10 +532,10 @@ impl CursorRenderer {
         // corners.
         let mut path = Path::new();
 
-        path.move_to(to_skia_point(self.corners[0].current_position));
-        path.line_to(to_skia_point(self.corners[1].current_position));
-        path.line_to(to_skia_point(self.corners[2].current_position));
-        path.line_to(to_skia_point(self.corners[3].current_position));
+        path.move_to(to_skia_point(self.corners[0].current_position.round()));
+        path.line_to(to_skia_point(self.corners[1].current_position.round()));
+        path.line_to(to_skia_point(self.corners[2].current_position.round()));
+        path.line_to(to_skia_point(self.corners[3].current_position.round()));
         path.close();
 
         canvas.draw_path(&path, paint);
@@ -544,10 +544,10 @@ impl CursorRenderer {
 
     fn draw_rectangular_outline(&self, canvas: &Canvas, paint: &Paint, outline_width: f32) -> Path {
         let mut rectangle = Path::new();
-        rectangle.move_to(to_skia_point(self.corners[0].current_position));
-        rectangle.line_to(to_skia_point(self.corners[1].current_position));
-        rectangle.line_to(to_skia_point(self.corners[2].current_position));
-        rectangle.line_to(to_skia_point(self.corners[3].current_position));
+        rectangle.move_to(to_skia_point(self.corners[0].current_position.round()));
+        rectangle.line_to(to_skia_point(self.corners[1].current_position.round()));
+        rectangle.line_to(to_skia_point(self.corners[2].current_position.round()));
+        rectangle.line_to(to_skia_point(self.corners[3].current_position.round()));
         rectangle.close();
 
         let offsets: [PixelVec<f32>; 4] = [
