@@ -489,7 +489,10 @@ impl MouseManager {
             } => {
                 if key_event.state == ElementState::Pressed {
                     let window_settings = self.settings.get::<WindowSettings>();
-                    if window_settings.hide_mouse_when_typing && !self.mouse_hidden && window.has_focus() {
+                    if window_settings.hide_mouse_when_typing
+                        && !self.mouse_hidden
+                        && window.has_focus()
+                    {
                         window.set_cursor_visible(false);
                         self.mouse_hidden = true;
                     }
