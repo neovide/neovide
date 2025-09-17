@@ -447,7 +447,7 @@ impl MouseManager {
                     &editor_state,
                     neovim_handler,
                 );
-                if self.mouse_hidden {
+                if self.mouse_hidden && window.has_focus() {
                     window.set_cursor_visible(true);
                     self.mouse_hidden = false;
                 }
@@ -489,7 +489,7 @@ impl MouseManager {
             } => {
                 if key_event.state == ElementState::Pressed {
                     let window_settings = self.settings.get::<WindowSettings>();
-                    if window_settings.hide_mouse_when_typing && !self.mouse_hidden {
+                    if window_settings.hide_mouse_when_typing && !self.mouse_hidden && window.has_focus() {
                         window.set_cursor_visible(false);
                         self.mouse_hidden = true;
                     }
