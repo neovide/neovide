@@ -62,16 +62,19 @@ pub fn neovide_std_datapath() -> PathBuf {
 pub fn load_last_window_settings() -> Result<PersistentWindowSettings, String> {
     let settings = load_settings()?;
     let loaded_settings = settings.window;
-    log::debug!("Loaded window settings: {:?}", loaded_settings);
+    log::debug!("Loaded window settings: {loaded_settings:?}");
 
     Ok(loaded_settings)
 }
 
 pub fn save_window_size(window_wrapper: &WinitWindowWrapper, settings: &Settings) {
-    if window_wrapper.skia_renderer.is_none() {
+    if window_wrapper.routes.is_empty() {
         return;
     }
-    let window = window_wrapper.skia_renderer.as_ref().unwrap().window();
+    let window_id = window_wrapper.get_focused_route().unwrap();
+    let route = window_wrapper.routes.get(&window_id).unwrap();
+    let window = route.window.winit_window.clone();
+
     // Don't save the window size when the window is minimized, since the size can be 0
     // Note wayland can't determine this
     if window.is_minimized() == Some(true) {
@@ -106,7 +109,7 @@ pub fn save_window_size(window_wrapper: &WinitWindowWrapper, settings: &Settings
     let settings_path = settings_path();
     std::fs::create_dir_all(neovide_std_datapath()).unwrap();
     let json = serde_json::to_string(&settings).unwrap();
-    log::debug!("Saved Window Settings: {}", json);
+    log::debug!("Saved Window Settings: {json}");
     std::fs::write(&settings_path, json)
         .unwrap_or_else(|_| panic!("Can't write to {settings_path:?}"));
 }

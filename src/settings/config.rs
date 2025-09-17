@@ -7,7 +7,10 @@ use serde::Deserialize;
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
-    error_msg, frame::Frame, renderer::box_drawing::BoxDrawingSettings, window::UserEvent,
+    error_msg,
+    frame::Frame,
+    renderer::box_drawing::BoxDrawingSettings,
+    window::{EventPayload, UserEvent},
 };
 
 use std::path::{Path, PathBuf};
@@ -18,8 +21,8 @@ const CONFIG_FILE: &str = "config.toml";
 
 #[cfg(unix)]
 fn neovide_config_dir() -> PathBuf {
-    let xdg_dirs = xdg::BaseDirectories::with_prefix("neovide").unwrap();
-    xdg_dirs.get_config_home()
+    let xdg_dirs = xdg::BaseDirectories::with_prefix("neovide");
+    xdg_dirs.get_config_home().unwrap()
 }
 
 #[cfg(windows)]
@@ -54,12 +57,14 @@ pub struct Config {
     pub no_multigrid: Option<bool>,
     pub srgb: Option<bool>,
     pub tabs: Option<bool>,
+    pub macos_native_tabs: Option<bool>,
     pub theme: Option<String>,
     pub mouse_cursor_icon: Option<String>,
     pub title_hidden: Option<bool>,
     pub vsync: Option<bool>,
     pub wsl: Option<bool>,
     pub backtraces_path: Option<PathBuf>,
+    pub icon: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -81,7 +86,7 @@ impl Config {
         config.unwrap_or_default()
     }
 
-    pub fn watch_config_file(init_config: Config, event_loop_proxy: EventLoopProxy<UserEvent>) {
+    pub fn watch_config_file(init_config: Config, event_loop_proxy: EventLoopProxy<EventPayload>) {
         std::thread::spawn(move || watcher_thread(init_config, event_loop_proxy));
     }
 
@@ -113,9 +118,6 @@ impl Config {
         if let Some(neovim_bin) = &self.neovim_bin {
             env::set_var("NEOVIM_BIN", neovim_bin.to_string_lossy().to_string());
         }
-        if let Some(theme) = &self.theme {
-            env::set_var("NEOVIDE_THEME", theme);
-        }
         if let Some(mouse_cursor_icon) = &self.mouse_cursor_icon {
             env::set_var("NEOVIDE_MOUSE_CURSOR_ICON", mouse_cursor_icon);
         }
@@ -124,6 +126,12 @@ impl Config {
         }
         if let Some(tabs) = &self.tabs {
             env::set_var("NEOVIDE_TABS", tabs.to_string());
+        }
+        if let Some(macos_native_tabs) = &self.macos_native_tabs {
+            env::set_var("NEOVIDE_MACOS_NATIVE_TABS", macos_native_tabs.to_string());
+        }
+        if let Some(icon) = &self.icon {
+            env::set_var("NEOVIDE_ICON", icon);
         }
     }
 
@@ -150,7 +158,7 @@ impl Config {
     }
 }
 
-fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<UserEvent>) {
+fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<EventPayload>) {
     let (tx, rx) = mpsc::channel();
     let mut debouncer = new_debouncer(Duration::from_millis(500), None, tx).unwrap();
 
@@ -190,16 +198,22 @@ fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<UserEven
         // notify if font changed
         if config.font != previous_config.font {
             event_loop_proxy
-                .send_event(UserEvent::ConfigsChanged(Box::new(HotReloadConfigs::Font(
-                    config.font.clone(),
-                ))))
+                .send_event(EventPayload::new(
+                    UserEvent::ConfigsChanged(Box::new(HotReloadConfigs::Font(
+                        config.font.clone(),
+                    ))),
+                    winit::window::WindowId::from(0),
+                ))
                 .unwrap();
         }
         if config.box_drawing != previous_config.box_drawing {
             event_loop_proxy
-                .send_event(UserEvent::ConfigsChanged(Box::new(
-                    HotReloadConfigs::BoxDrawing(config.box_drawing.clone()),
-                )))
+                .send_event(EventPayload::new(
+                    UserEvent::ConfigsChanged(Box::new(HotReloadConfigs::BoxDrawing(
+                        config.box_drawing.clone(),
+                    ))),
+                    winit::window::WindowId::from(0),
+                ))
                 .unwrap();
         }
         previous_config = config;

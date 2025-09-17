@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{rc::Rc, sync::Arc};
 
 use skia_safe::{
     gpu::{
@@ -54,7 +54,7 @@ use crate::profiling::{d3d::create_d3d_gpu_context, GpuCtx};
 use crate::{
     profiling::{tracy_gpu_zone, tracy_zone},
     settings::Settings,
-    window::UserEvent,
+    window::EventPayload,
 };
 
 fn get_hardware_adapter(factory: &IDXGIFactory2) -> Result<IDXGIAdapter1> {
@@ -105,13 +105,13 @@ pub struct D3DSkiaRenderer {
     _composition_device: IDCompositionDevice,
     _target: IDCompositionTarget,
     _visual: IDCompositionVisual,
-    window: Window,
+    window: Rc<Window>,
 
     settings: Arc<Settings>,
 }
 
 impl D3DSkiaRenderer {
-    pub fn new(window: Window, settings: Arc<Settings>) -> Self {
+    pub fn new(window: Rc<Window>, settings: Arc<Settings>) -> Self {
         tracy_zone!("D3DSkiaRenderer::new");
         #[cfg(feature = "d3d_debug")]
         let dxgi_factory: IDXGIFactory2 = unsafe {
@@ -390,8 +390,8 @@ impl D3DSkiaRenderer {
 }
 
 impl SkiaRenderer for D3DSkiaRenderer {
-    fn window(&self) -> &Window {
-        &self.window
+    fn window(&self) -> Rc<Window> {
+        Rc::clone(&self.window)
     }
 
     fn flush(&mut self) {}
@@ -451,7 +451,7 @@ impl SkiaRenderer for D3DSkiaRenderer {
         self.setup_surfaces();
     }
 
-    fn create_vsync(&self, proxy: EventLoopProxy<UserEvent>) -> VSync {
+    fn create_vsync(&self, proxy: EventLoopProxy<EventPayload>) -> VSync {
         VSync::WindowsSwapChain(VSyncWinSwapChain::new(proxy, self.swap_chain_waitable))
     }
 

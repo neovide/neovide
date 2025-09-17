@@ -1,4 +1,4 @@
-mod font;
+pub mod font;
 mod from_value;
 mod window_size;
 
@@ -15,14 +15,14 @@ use std::{
 };
 use winit::event_loop::EventLoopProxy;
 
-use crate::{bridge::NeovimWriter, window::UserEvent};
+use crate::{bridge::NeovimWriter, window::EventPayload};
 pub use from_value::ParseFromValue;
 pub use window_size::{
     clamped_grid_size, load_last_window_settings, neovide_std_datapath, save_window_size,
     PersistentWindowSettings, DEFAULT_GRID_SIZE, MIN_GRID_SIZE,
 };
 
-mod config;
+pub mod config;
 pub use config::{Config, HotReloadConfigs};
 
 pub trait SettingGroup {
@@ -117,7 +117,7 @@ impl Settings {
                             self.updaters.read().get(&location).unwrap()(self, value);
                         }
                         Err(error) => {
-                            trace!("Initial value load failed for {}: {}", name, error);
+                            trace!("Initial value load failed for {name}: {error}");
                             let value = self.readers.read().get(&location).unwrap()(self);
                             if let Some(value) = value {
                                 nvim.set_var(&variable_name, value).await.with_context(|| {
@@ -132,7 +132,7 @@ impl Settings {
                         self.updaters.read().get(&location).unwrap()(self, value);
                     }
                     Err(error) => {
-                        trace!("Initial value load failed for {}: {}", name, error);
+                        trace!("Initial value load failed for {name}: {error}");
                     }
                 },
             }
@@ -143,7 +143,7 @@ impl Settings {
     pub fn handle_setting_changed_notification(
         &self,
         arguments: Vec<Value>,
-        event_loop_proxy: &EventLoopProxy<UserEvent>,
+        event_loop_proxy: &EventLoopProxy<EventPayload>,
     ) {
         let mut arguments = arguments.into_iter();
         let (name, value) = (arguments.next().unwrap(), arguments.next().unwrap());
@@ -156,13 +156,16 @@ impl Settings {
             .read()
             .get(&SettingLocation::NeovideGlobal(name))
             .unwrap()(self, value);
-        let _ = event_loop_proxy.send_event(event.into());
+        let _ = event_loop_proxy.send_event(EventPayload::new(
+            event.into(),
+            winit::window::WindowId::from(0),
+        ));
     }
 
     pub fn handle_option_changed_notification(
         &self,
         arguments: Vec<Value>,
-        event_loop_proxy: &EventLoopProxy<UserEvent>,
+        event_loop_proxy: &EventLoopProxy<EventPayload>,
     ) {
         let mut arguments = arguments.into_iter();
         let (name, value) = (arguments.next().unwrap(), arguments.next().unwrap());
@@ -176,7 +179,10 @@ impl Settings {
             .get(&SettingLocation::NeovimOption(name))
             .unwrap()(self, value);
 
-        let _ = event_loop_proxy.send_event(event.into());
+        let _ = event_loop_proxy.send_event(EventPayload::new(
+            event.into(),
+            winit::window::WindowId::from(0),
+        ));
     }
 
     pub fn register<T: SettingGroup>(&self) {
@@ -189,6 +195,7 @@ pub enum SettingsChanged {
     Window(crate::window::WindowSettingsChanged),
     Cursor(crate::renderer::cursor_renderer::CursorSettingsChanged),
     Renderer(crate::renderer::RendererSettingsChanged),
+    ProgressBar(crate::renderer::progress_bar::ProgressBarSettingsChanged),
     #[cfg(test)]
     Test(tests::TestSettingsChanged),
 }
@@ -260,7 +267,10 @@ mod tests {
         settings.set_setting_handlers(location.clone(), noop_update, noop_read);
         let listeners = settings.updaters.read();
         let listener = listeners.get(&location).unwrap();
-        assert_eq!(&(noop_update as UpdateHandlerFunc), listener);
+        assert!(core::ptr::fn_addr_eq(
+            noop_update as UpdateHandlerFunc,
+            *listener
+        ));
     }
 
     #[test]

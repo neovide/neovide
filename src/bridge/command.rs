@@ -10,7 +10,11 @@ pub fn create_nvim_command(settings: &Settings) -> TokioCommand {
     let mut args = Vec::new();
     args.push("--embed".to_string());
     args.extend(settings.get::<CmdLineSettings>().neovim_args);
-    create_platform_command(&bin, &args, settings)
+    let mut cmd = create_platform_command(&bin, &args, settings);
+    if let Some(dir) = settings.get::<CmdLineSettings>().chdir {
+        cmd.current_dir(dir);
+    }
+    cmd
 }
 
 // Creates a shell command if needed on this platform
@@ -47,7 +51,7 @@ fn create_platform_command(
             shell.to_str().unwrap(),
             "-c",
         ]);
-        result.arg(format!("{} {}", command, args));
+        result.arg(format!("{command} {args}"));
         result
     }
 }
@@ -58,9 +62,9 @@ fn create_platform_command(command: &str, args: &Vec<String>, settings: &Setting
     let mut result = if cfg!(target_os = "windows") && settings.get::<CmdLineSettings>().wsl {
         let mut result = TokioCommand::new("wsl");
         result.args(["$SHELL", "-l", "-c"]);
-        // There's no need to use shlex on Windows, the WSL path conversion already takes care of
-        // quoting
-        result.arg(format!("{} {}", command, args.join(" ")));
+        let args =
+            shlex::try_join(args.iter().map(|s| s.as_ref())).expect("Failed to join arguments");
+        result.arg(format!("{command} {args}"));
         result
     } else {
         // There's no need to go through the shell on Windows when not using WSL

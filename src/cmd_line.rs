@@ -95,6 +95,16 @@ pub struct CmdLineSettings {
     #[arg(long = "no-tabs", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
     _no_tabs: bool,
 
+    /// Keep the native macOS tab bar visible when windows merge together
+    #[cfg(target_os = "macos")]
+    #[arg(long = "macos-native-tabs", env = "NEOVIDE_MACOS_NATIVE_TABS", action = ArgAction::SetTrue, default_value = "0", value_parser = FalseyValueParser::new())]
+    pub macos_native_tabs: bool,
+
+    /// Hide the native macOS tab bar even if the config enables it
+    #[cfg(target_os = "macos")]
+    #[arg(long = "no-macos-native-tabs", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
+    _no_macos_native_tabs: bool,
+
     /// Request sRGB when initializing the window, may help with GPUs with weird pixel
     /// formats. Default on Windows.
     #[arg(long = "srgb", env = "NEOVIDE_SRGB", action = ArgAction::SetTrue, default_value = SRGB_DEFAULT, value_parser = FalseyValueParser::new())]
@@ -141,6 +151,10 @@ pub struct CmdLineSettings {
     )]
     pub x11_wm_class_instance: String,
 
+    /// The custom icon to use for the app.
+    #[arg(long, env = "NEOVIDE_ICON")]
+    pub icon: Option<String>,
+
     #[command(flatten)]
     pub geometry: GeometryArgs,
 
@@ -148,6 +162,10 @@ pub struct CmdLineSettings {
     #[cfg(any(target_os = "windows", target_os = "macos"))]
     #[arg(long = "opengl", env = "NEOVIDE_OPENGL", action = ArgAction::SetTrue, value_parser = FalseyValueParser::new())]
     pub opengl: bool,
+
+    /// Change to this directory during startup.
+    #[arg(long = "chdir")]
+    pub chdir: Option<String>,
 }
 
 // geometry, size and maximized are mutually exclusive
@@ -196,6 +214,11 @@ pub fn handle_command_line_arguments(args: Vec<String>, settings: &Settings) -> 
         cmdline.tabs = false;
     }
 
+    #[cfg(target_os = "macos")]
+    if cmdline._no_macos_native_tabs {
+        cmdline.macos_native_tabs = false;
+    }
+
     if cmdline._no_fork {
         cmdline.fork = false;
     }
@@ -215,7 +238,6 @@ pub fn handle_command_line_arguments(args: Vec<String>, settings: &Settings) -> 
         .chain(handle_wslpaths(
             mem::take(&mut cmdline.files_to_open),
             cmdline.wsl,
-            true,
         ))
         .chain(cmdline.neovim_args)
         .collect();
@@ -282,9 +304,9 @@ mod tests {
         assert_eq!(
             settings.get::<CmdLineSettings>().neovim_args,
             vec![
-                "'/mnt/c/Users/MyUser/foo.txt'",
-                "'/mnt/c/bar.md'",
-                "'/mnt/c/Program Files (x86)/Some Application/Settings.ini'"
+                "/mnt/c/Users/MyUser/foo.txt",
+                "/mnt/c/bar.md",
+                "/mnt/c/Program Files (x86)/Some Application/Settings.ini"
             ]
         );
     }
@@ -569,5 +591,43 @@ mod tests {
         let _env = ScopedEnv::set("NEOVIDE_VSYNC", "0");
         handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
         assert_eq!(settings.get::<CmdLineSettings>().vsync, true,);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn test_macos_native_tabs_flag() {
+        let settings = Settings::new();
+        let args: Vec<String> = ["neovide", "--macos-native-tabs"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        assert!(settings.get::<CmdLineSettings>().macos_native_tabs);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn test_macos_native_tabs_env() {
+        let settings = Settings::new();
+        let args: Vec<String> = ["neovide"].iter().map(|s| s.to_string()).collect();
+
+        let _env = ScopedEnv::set("NEOVIDE_MACOS_NATIVE_TABS", "1");
+        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        assert!(settings.get::<CmdLineSettings>().macos_native_tabs);
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn test_macos_native_tabs_override_env() {
+        let settings = Settings::new();
+        let args: Vec<String> = ["neovide", "--no-macos-native-tabs"]
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
+
+        let _env = ScopedEnv::set("NEOVIDE_MACOS_NATIVE_TABS", "1");
+        handle_command_line_arguments(args, &settings).expect("Could not parse arguments");
+        assert!(!settings.get::<CmdLineSettings>().macos_native_tabs);
     }
 }

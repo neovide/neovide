@@ -3,6 +3,9 @@ use std::{collections::HashSet, fmt, hash::Hash};
 use itertools::Itertools;
 use rmpv::{Utf8StringRef, Value, ValueRef};
 
+#[cfg(test)]
+use crate::bridge::nvim_dict;
+
 #[derive(Debug, Clone)]
 pub struct ApiInfoParseError(String);
 
@@ -36,21 +39,27 @@ pub struct ApiVersion {
     pub api_level: u64,
     pub api_compatible: u64,
     pub api_prerelease: bool,
+    pub prerelease_version: u64,
+    pub prerelease_commit: String,
+    pub string: String,
 }
 
 impl ApiVersion {
+    /// A pre-release only matches lower versions when prerelease is set to None.
+    /// So NVIM v0.12.0-dev-1253+gfb2d736481 matches for the arguments 0, 11, 1, None but not for 0, 12, 0, None.
+    /// When the prerelease is set to some number it compares the field after -dev in the version string.
+    /// So the above version matches for the arguments 0, 12, 0, Some(1253), but not for 0, 12, 0, Some(1254).
+    /// See the tests for more examples.
     #[allow(dead_code)]
-    pub fn has_version(&self, major: u64, minor: u64, patch: u64) -> bool {
-        let actual_major = self.major;
-        let actual_minor = self.minor;
-        let actual_patch = self.patch;
-        log::trace!("actual nvim version: {actual_major}.{actual_minor}.{actual_patch}");
-        log::trace!("expect nvim version: {major}.{minor}.{patch}");
-        let ret = actual_major > major
-            || (actual_major == major && actual_minor > minor)
-            || (actual_major == major && actual_minor == minor && actual_patch >= patch);
-        log::trace!("has desired nvim version: {ret}");
-        ret
+    pub fn has_version(&self, major: u64, minor: u64, patch: u64, prerelease: Option<u64>) -> bool {
+        self.major > major
+            || (self.major == major && self.minor > minor)
+            || ((self.major == major && self.minor == minor && self.patch >= patch)
+                && !self.prerelease)
+            || (self.major == major
+                && self.minor == minor
+                && self.patch == patch
+                && matches!(prerelease, Some(prerelease) if self.prerelease_version >= prerelease))
     }
 }
 
@@ -184,7 +193,10 @@ impl ApiInformation {
     }
 }
 
-fn parse_version(value: ValueRef) -> std::result::Result<ApiVersion, ApiInfoParseError> {
+fn parse_version(
+    value: ValueRef,
+    version_str: &str,
+) -> std::result::Result<ApiVersion, ApiInfoParseError> {
     let mut major = None;
     let mut minor = None;
     let mut patch = None;
@@ -209,6 +221,20 @@ fn parse_version(value: ValueRef) -> std::result::Result<ApiVersion, ApiInfoPars
         }
     }
 
+    // The api information does unfortunately not contain the detailed git information, so parse that from the version string
+    // A pre-release has the following format
+    // NVIM v0.12.0-dev-1253+gfb2d736481
+    let mut prerelease_version = 0;
+    let mut prerelease_commit = String::default();
+    if let Some((_, dev, version)) = version_str.split('-').collect_tuple() {
+        if dev == "dev" {
+            if let Some((version, commit)) = version.split("+").collect_tuple() {
+                prerelease_version = version.parse().unwrap_or(0);
+                prerelease_commit = commit.to_string();
+            }
+        }
+    }
+
     Ok(ApiVersion {
         major: major.ok_or("major field is missing")?,
         minor: minor.ok_or("minor field is missing")?,
@@ -217,6 +243,9 @@ fn parse_version(value: ValueRef) -> std::result::Result<ApiVersion, ApiInfoPars
         api_level: api_level.ok_or("api_level field is missing")?,
         api_compatible: api_compatible.ok_or("api_compatible field is missing")?,
         api_prerelease: api_prerelase.ok_or("api_prerelease field is missing")?,
+        prerelease_version,
+        prerelease_commit,
+        string: version_str.to_string(),
     })
 }
 
@@ -343,7 +372,10 @@ fn parse_ui_events(value: ValueRef) -> std::result::Result<HashSet<ApiEvent>, Ap
         .collect::<std::result::Result<HashSet<_>, _>>()
 }
 
-pub fn parse_api_info(value: &[Value]) -> std::result::Result<ApiInformation, ApiInfoParseError> {
+pub fn parse_api_info(
+    value: &[Value],
+    version_str: &str,
+) -> std::result::Result<ApiInformation, ApiInfoParseError> {
     let channel = value[0].as_ref().try_into()?;
 
     let metadata: Vec<(ValueRef, ValueRef)> = value[1].as_ref().try_into()?;
@@ -356,7 +388,7 @@ pub fn parse_api_info(value: &[Value]) -> std::result::Result<ApiInformation, Ap
     for (k, v) in metadata {
         let k: Utf8StringRef = k.try_into()?;
         match k.as_str() {
-            Some("version") => version = Some(parse_version(v)?),
+            Some("version") => version = Some(parse_version(v, version_str)?),
             Some("functions") => functions = Some(parse_functions(v)?),
             Some("ui_options") => ui_options = Some(parse_string_vec(v)?),
             Some("ui_events") => ui_events = Some(parse_ui_events(v)?),
@@ -371,4 +403,68 @@ pub fn parse_api_info(value: &[Value]) -> std::result::Result<ApiInformation, Ap
         ui_options: ui_options.ok_or("ui_options field is missing")?,
         ui_events: ui_events.ok_or("ui_events field is missing")?,
     })
+}
+
+#[test]
+fn version_match() {
+    let value = nvim_dict! {
+        "major" => 1,
+        "minor" => 11,
+        "patch" => 4,
+        "prerelease" => false,
+        "api_level" => 0,
+        "api_compatible" => 0,
+        "api_prerelease" => false,
+    };
+
+    let version = parse_version(Value::from(value).as_ref(), "NVIM v1.11.4").unwrap();
+    assert!(version.has_version(1, 11, 4, None));
+    assert!(version.has_version(1, 11, 3, None));
+    assert!(version.has_version(1, 10, 0, None));
+    assert!(version.has_version(0, 11, 4, None));
+    // We also have a pre-release of previous versions
+    assert!(version.has_version(1, 11, 4, Some(1253)));
+    assert!(version.has_version(1, 10, 4, Some(1253)));
+    assert!(!version.has_version(1, 11, 5, None));
+    assert!(!version.has_version(1, 12, 4, None));
+    assert!(!version.has_version(2, 11, 4, None));
+    // We don't have a pre-release of newer versions
+    assert!(!version.has_version(1, 12, 0, Some(0)));
+    assert!(!version.has_version(1, 11, 5, Some(0)));
+}
+
+#[test]
+fn version_match_prerelease() {
+    let value = nvim_dict! {
+        "major" => 1,
+        "minor" => 12,
+        "patch" => 0,
+        "prerelease" => true,
+        "api_level" => 0,
+        "api_compatible" => 0,
+        "api_prerelease" => false,
+    };
+
+    let version = parse_version(
+        Value::from(value).as_ref(),
+        "NVIM v1.12.0-dev-1253+gfb2d736481",
+    )
+    .unwrap();
+    assert!(version.has_version(1, 11, 4, None));
+    assert!(version.has_version(1, 11, 3, None));
+    assert!(version.has_version(1, 10, 0, None));
+    assert!(version.has_version(0, 11, 4, None));
+    // We also have a pre-release of previous versions
+    assert!(version.has_version(1, 11, 4, Some(1253)));
+    assert!(version.has_version(1, 10, 4, Some(1253)));
+    assert!(version.has_version(1, 11, 5, None));
+    assert!(!version.has_version(1, 12, 4, None));
+    assert!(!version.has_version(2, 11, 4, None));
+    // We have a pre-release that allows these
+    assert!(version.has_version(1, 12, 0, Some(0)));
+    assert!(version.has_version(1, 12, 0, Some(1253)));
+    assert!(version.has_version(1, 11, 5, Some(0)));
+    // But not these
+    assert!(!version.has_version(1, 12, 1, Some(0)));
+    assert!(!version.has_version(1, 12, 0, Some(1254)));
 }

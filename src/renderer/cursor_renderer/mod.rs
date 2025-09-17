@@ -10,7 +10,7 @@ use winit::event::WindowEvent;
 
 use crate::{
     bridge::EditorMode,
-    editor::{Cursor, CursorShape},
+    editor::{Cursor, CursorShape, Word},
     profiling::{tracy_plot, tracy_zone},
     renderer::{animation_utils::*, GridRenderer, RenderedWindow},
     settings::{ParseFromValue, Settings},
@@ -50,7 +50,7 @@ static PLOT_NAMES_Y: [&CStr; 4] = [
 pub struct CursorSettings {
     antialiasing: bool,
     animation_length: f32,
-    distance_length_adjust: bool,
+    short_animation_length: f32,
     animate_in_insert_mode: bool,
     animate_command_line: bool,
     trail_size: f32,
@@ -72,7 +72,7 @@ impl Default for CursorSettings {
         CursorSettings {
             antialiasing: true,
             animation_length: 0.150,
-            distance_length_adjust: true,
+            short_animation_length: 0.04,
             animate_in_insert_mode: true,
             animate_command_line: true,
             trail_size: 1.0,
@@ -165,7 +165,9 @@ impl Corner {
         {
             // Use a fast animation time for short jumps less than two characters, typically when
             // typing or holding a key in insert mode
-            settings.animation_length.min(0.04)
+            settings
+                .animation_length
+                .min(settings.short_animation_length)
         } else {
             let leading = settings.animation_length * (1.0 - settings.trail_size).clamp(0.0, 1.0);
             let trailing = settings.animation_length;
@@ -391,7 +393,10 @@ impl CursorRenderer {
         );
         if !box_char_drawn {
             let pos = (self.destination.x, self.destination.y + baseline_offset);
-            let blobs = &grid_renderer.shaper.shape_cached(character, coarse_style);
+            let blobs = &grid_renderer.shaper.shape_cached(
+                Word::new(&character, &[character.len() as u8]),
+                coarse_style,
+            );
             for blob in blobs.iter() {
                 canvas.draw_text_blob(blob, pos, &paint);
             }
@@ -474,7 +479,7 @@ impl CursorRenderer {
                     })
                     .enumerate()
                     .sorted_by_key(|(_, (id, _))| *id)
-                    .map(|(rank, (_, _))| (rank))
+                    .map(|(rank, (_, _))| rank)
                     .collect_array::<4>()
                     .unwrap();
                 for (id, corner) in self.corners.iter_mut().enumerate() {
@@ -532,10 +537,10 @@ impl CursorRenderer {
         // corners.
         let mut path = Path::new();
 
-        path.move_to(to_skia_point(self.corners[0].current_position));
-        path.line_to(to_skia_point(self.corners[1].current_position));
-        path.line_to(to_skia_point(self.corners[2].current_position));
-        path.line_to(to_skia_point(self.corners[3].current_position));
+        path.move_to(to_skia_point(self.corners[0].current_position.round()));
+        path.line_to(to_skia_point(self.corners[1].current_position.round()));
+        path.line_to(to_skia_point(self.corners[2].current_position.round()));
+        path.line_to(to_skia_point(self.corners[3].current_position.round()));
         path.close();
 
         canvas.draw_path(&path, paint);
@@ -544,10 +549,10 @@ impl CursorRenderer {
 
     fn draw_rectangular_outline(&self, canvas: &Canvas, paint: &Paint, outline_width: f32) -> Path {
         let mut rectangle = Path::new();
-        rectangle.move_to(to_skia_point(self.corners[0].current_position));
-        rectangle.line_to(to_skia_point(self.corners[1].current_position));
-        rectangle.line_to(to_skia_point(self.corners[2].current_position));
-        rectangle.line_to(to_skia_point(self.corners[3].current_position));
+        rectangle.move_to(to_skia_point(self.corners[0].current_position.round()));
+        rectangle.line_to(to_skia_point(self.corners[1].current_position.round()));
+        rectangle.line_to(to_skia_point(self.corners[2].current_position.round()));
+        rectangle.line_to(to_skia_point(self.corners[3].current_position.round()));
         rectangle.close();
 
         let offsets: [PixelVec<f32>; 4] = [

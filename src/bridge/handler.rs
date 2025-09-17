@@ -4,45 +4,67 @@ use async_trait::async_trait;
 use log::trace;
 use nvim_rs::{Handler, Neovim};
 use rmpv::Value;
-use tokio::sync::mpsc::UnboundedSender;
-use winit::event_loop::EventLoopProxy;
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use winit::{event_loop::EventLoopProxy, window::WindowId};
 
 use crate::{
     bridge::{
         clipboard::{get_clipboard_contents, set_clipboard_contents},
         events::parse_redraw_event,
-        send_ui, NeovimWriter, ParallelCommand, RedrawEvent,
+        parse_progress_bar_event, send_ui, NeovimWriter, ParallelCommand, RedrawEvent,
+        HANDLER_REGISTRY,
     },
     error_handling::ResultPanicExplanation,
     running_tracker::RunningTracker,
     settings::Settings,
-    window::{UserEvent, WindowCommand},
-    LoggingSender,
+    window::{EventPayload, WindowCommand},
+    LoggingReceiver, LoggingSender,
 };
+
+use super::ui_commands::UiCommand;
 
 #[derive(Clone)]
 pub struct NeovimHandler {
     // The EventLoopProxy is not sync on all platforms, so wrap it in a mutex
-    proxy: Arc<Mutex<EventLoopProxy<UserEvent>>>,
-    sender: LoggingSender<RedrawEvent>,
+    proxy: Arc<Mutex<EventLoopProxy<EventPayload>>>,
+    redraw_event_sender: LoggingSender<RedrawEvent>,
+    ui_command_sender: LoggingSender<UiCommand>,
+    ui_command_receiver: LoggingReceiver<UiCommand>,
     running_tracker: RunningTracker,
     #[allow(dead_code)]
     settings: Arc<Settings>,
 }
 
+impl std::fmt::Debug for NeovimHandler {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NeovimHandler").finish()
+    }
+}
+
 impl NeovimHandler {
     pub fn new(
-        sender: UnboundedSender<RedrawEvent>,
-        proxy: EventLoopProxy<UserEvent>,
+        redraw_event_sender: UnboundedSender<RedrawEvent>,
+        ui_command_sender: UnboundedSender<UiCommand>,
+        ui_command_receiver: UnboundedReceiver<UiCommand>,
+        proxy: EventLoopProxy<EventPayload>,
         running_tracker: RunningTracker,
         settings: Arc<Settings>,
     ) -> Self {
         Self {
             proxy: Arc::new(Mutex::new(proxy)),
-            sender: LoggingSender::attach(sender, "neovim_handler"),
+            redraw_event_sender: LoggingSender::attach(redraw_event_sender, "neovim_handler"),
+            ui_command_sender: LoggingSender::attach(ui_command_sender, "UICommand"),
+            ui_command_receiver: LoggingReceiver::attach(ui_command_receiver, "UICommand"),
             running_tracker,
             settings,
         }
+    }
+
+    pub fn get_ui_command_channel(&self) -> (LoggingSender<UiCommand>, LoggingReceiver<UiCommand>) {
+        (
+            self.ui_command_sender.clone(),
+            self.ui_command_receiver.clone(),
+        )
     }
 }
 
@@ -90,7 +112,7 @@ impl Handler for NeovimHandler {
                         .unwrap_or_explained_panic("Could not parse event from neovim");
 
                     for parsed_event in parsed_events {
-                        let _ = self.sender.send(parsed_event);
+                        let _ = self.redraw_event_sender.send(parsed_event);
                     }
                 }
             }
@@ -126,7 +148,46 @@ impl Handler for NeovimHandler {
                     .send_event(WindowCommand::FocusWindow.into());
             }
             "neovide.exec_detach_handler" => {
-                send_ui(ParallelCommand::Quit);
+                let handler = {
+                    let handler_lock = HANDLER_REGISTRY.lock().unwrap();
+                    handler_lock
+                        .clone()
+                        .expect("NeovimHandler has not been initialized")
+                };
+                send_ui(ParallelCommand::Quit, &handler);
+            }
+            "neovide.set_redraw" => {
+                if let Some(value) = arguments.first() {
+                    let value = value.as_bool().unwrap_or(true);
+                    let _ = self
+                        .redraw_event_sender
+                        .send(RedrawEvent::NeovideSetRedraw(value));
+                }
+            }
+            "neovide.intro_banner_allowed" => {
+                if let Some(value) = arguments.first() {
+                    if let Some(allowed) = value.as_bool() {
+                        let _ = self
+                            .redraw_event_sender
+                            .send(RedrawEvent::NeovideIntroBannerAllowed(allowed));
+                    }
+                }
+            }
+            "neovide.progress_bar" => {
+                parse_progress_bar_event(arguments.first())
+                    .map(|event| {
+                        let _ = self
+                            .proxy
+                            .lock()
+                            .unwrap()
+                            .send_event(EventPayload::new(event.into(), WindowId::from(0)));
+                    })
+                    .unwrap_or_else(|| {
+                        log::info!(
+                            "Failed to parse neovide.progress_bar event data: {:?}",
+                            arguments
+                        );
+                    });
             }
             _ => {}
         }

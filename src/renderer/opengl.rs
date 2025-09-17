@@ -1,9 +1,9 @@
 use std::{
     convert::TryInto,
-    env,
-    env::consts::OS,
+    env::{self, consts::OS},
     ffi::{c_void, CStr, CString},
     num::NonZeroU32,
+    rc::Rc,
     sync::Arc,
 };
 
@@ -40,7 +40,7 @@ pub use super::vsync::VSyncMacosDisplayLink;
 
 use super::{RendererSettings, SkiaRenderer, VSync, WindowConfig, WindowConfigType};
 
-use crate::{profiling::tracy_gpu_zone, settings::Settings, window::UserEvent};
+use crate::{profiling::tracy_gpu_zone, settings::Settings, window::EventPayload};
 
 #[cfg(feature = "gpu_profiling")]
 use crate::profiling::{opengl::create_opengl_gpu_context, GpuCtx};
@@ -54,7 +54,7 @@ pub struct OpenGLSkiaRenderer {
     context: PossiblyCurrentContext,
     window_surface: Surface<WindowSurface>,
     config: Config,
-    window: Option<Window>,
+    window: Option<Rc<Window>>,
 
     settings: Arc<Settings>,
 }
@@ -161,8 +161,8 @@ impl OpenGLSkiaRenderer {
 }
 
 impl SkiaRenderer for OpenGLSkiaRenderer {
-    fn window(&self) -> &Window {
-        self.window.as_ref().unwrap()
+    fn window(&self) -> Rc<Window> {
+        Rc::clone(self.window.as_ref().unwrap())
     }
 
     fn flush(&mut self) {
@@ -197,7 +197,7 @@ impl SkiaRenderer for OpenGLSkiaRenderer {
     }
 
     #[allow(unused_variables)]
-    fn create_vsync(&self, proxy: EventLoopProxy<UserEvent>) -> VSync {
+    fn create_vsync(&self, proxy: EventLoopProxy<EventPayload>) -> VSync {
         #[cfg(target_os = "linux")]
         if env::var("WAYLAND_DISPLAY").is_ok() {
             VSync::WinitThrottling()
@@ -212,7 +212,7 @@ impl SkiaRenderer for OpenGLSkiaRenderer {
 
         #[cfg(target_os = "macos")]
         {
-            VSync::MacosDisplayLink(VSyncMacosDisplayLink::new(self.window(), proxy))
+            VSync::MacosDisplayLink(VSyncMacosDisplayLink::new(&self.window(), proxy))
         }
     }
 
@@ -261,7 +261,10 @@ pub fn build_window(
         .expect("Failed to create Window");
     let window = window.expect("Could not create Window");
     let config = WindowConfigType::OpenGL(config);
-    WindowConfig { window, config }
+    WindowConfig {
+        window: window.into(),
+        config,
+    }
 }
 
 fn create_surface(

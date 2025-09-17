@@ -447,6 +447,34 @@ When scrolling more than one screen at a time, only this many lines at the end o
 will be animated. Set it to 0 to snap to the final position without any animation, or to something
 big like 9999 to always scroll the whole screen, much like Neovide <= 0.10.4 did.
 
+#### Progress Bar
+
+VimScript:
+
+```vim
+let g:neovide_progress_bar_enabled = v:true
+let g:neovide_progress_bar_height = 5.0
+let g:neovide_progress_bar_animation_speed = 200.0
+let g:neovide_progress_bar_hide_delay = 0.2
+```
+
+Lua:
+
+```lua
+vim.g.neovide_progress_bar_enabled = true
+vim.g.neovide_progress_bar_height = 5.0
+vim.g.neovide_progress_bar_animation_speed = 200.0
+vim.g.neovide_progress_bar_hide_delay = 0.2
+```
+
+**Unreleased yet.**
+
+- `g:neovide_progress_bar_enabled` sets whether the progress bar is enabled.
+- `g:neovide_progress_bar_height` sets the height of the progress bar in pixels.
+- `g:neovide_progress_bar_animation_speed` sets the speed of the progress bar animation.
+- `g:neovide_progress_bar_hide_delay` sets the delay in seconds before the progress bar is
+  hidden after reaching 100%.
+
 #### Hiding the mouse when typing
 
 VimScript:
@@ -643,6 +671,26 @@ Setting `g:neovide_fullscreen` to a boolean value will set whether the app shoul
 screen. This uses the so called "windowed fullscreen" mode that is sometimes used in games which
 want quick window switching.
 
+#### Simple Fullscreen (MacOS only)
+
+VimScript:
+
+```vim
+let g:neovide_macos_simple_fullscreen = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_macos_simple_fullscreen = true
+```
+
+**Available since 0.15.1.**
+
+Setting `neovide_macos_simple_fullscreen` will hide the dock and menu bar for MacOS.
+
+This won’t work if the window was already in the native fullscreen.
+
 #### Remember Previous Window Size
 
 VimScript:
@@ -775,6 +823,32 @@ vim.api.nvim_create_autocmd({ "CmdlineEnter", "CmdlineLeave" }, {
 })
 ```
 
+#### macOS Global Activation Shortcuts
+
+Neovide registers two system-wide shortcuts on macOS:
+
+- **Pinned** (<kbd>⌘</kbd> + <kbd>⌃</kbd> + <kbd>Z</kbd>) toggles the most recently used Neovide
+  window. When that window is already active, the shortcut hides it; otherwise it brings the window
+  to the front.
+- **Editors** (<kbd>⌘</kbd> + <kbd>⌃</kbd> + <kbd>N</kbd>) opens the Editors view so you can pick
+  another Neovide window. If only one window exists, it behaves the same as the pinned shortcut.
+
+Customize them by setting the environment variables `NEOVIDE_MACOS_PINNED_HOTKEY` and
+`NEOVIDE_MACOS_SWITCHER_HOTKEY` before launching Neovide:
+
+```bash
+launchctl setenv NEOVIDE_MACOS_PINNED_HOTKEY "ctrl+space"
+launchctl setenv NEOVIDE_MACOS_SWITCHER_HOTKEY "cmd+shift+space"
+```
+
+Use `cmd`, `ctrl`, `alt`, and `shift` for modifiers and a single character for the key. To disable a
+shortcut entirely, set the corresponding variable to `off`, `none`, `disabled`, or leave it empty.
+The legacy `NEOVIDE_MACOS_ACTIVATION_HOTKEY` variable is still honored as an alias for the Editors
+shortcut.
+
+macOS may prompt you to grant Neovide Accessibility/Input Monitoring permissions the first time you
+use this feature so the shortcut can be detected outside the app.
+
 #### Touch Deadzone
 
 VimScript:
@@ -843,6 +917,23 @@ vim.g.neovide_cursor_animation_length = 0.150
 
 Setting `g:neovide_cursor_animation_length` determines the time it takes for the cursor to complete
 its animation in seconds. Set to `0` to disable.
+
+#### Short Animation Length
+
+VimScript:
+
+```vim
+let g:neovide_cursor_short_animation_length = 0.04
+```
+
+Lua:
+
+```lua
+vim.g.neovide_cursor_short_animation_length = 0.04
+```
+
+Setting `g:neovide_cursor_short_animation_length` determines the time it takes for the cursor to complete
+its animation in seconds for short horizontal travels of one or two characters, like when typing.
 
 #### Animation Trail Size
 
@@ -1198,6 +1289,29 @@ Only for the `railgun` vfx mode.
 Sets the velocity rotation speed of particles. The higher, the less particles actually move and look
 more "nervous", the lower, the more it looks like a collapsing sine wave.
 
-<!--
-  vim: textwidth=100
--->
+### Automatic settings, should be turned on/off for debug purposes only
+
+Note: These settings will be removed when the features are deemed stable. In most cases they are
+only here because the automatic detection of Neovim nightly versions does not always work.
+
+#### Autodetect mouse grid
+
+VimScript:
+
+```vim
+let g:neovide_has_mouse_grid_detection = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_has_mouse_grid_detection = true
+```
+
+**Unreleased yet.**
+
+**Requires Neovim 0.12.0.**
+
+Neovim will detect the mouse grid for much better mouse compatibility when enabled. This is
+automaticaly enabled starting from Neovim Nightly September 20. 2025. You should not try to enable
+it manually for unsupported versions, since the behaviour is undefined.

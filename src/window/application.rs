@@ -3,17 +3,22 @@ use std::{
     time::{Duration, Instant},
 };
 
+use glamour::Size2;
 use winit::{
     application::ApplicationHandler,
+    error::EventLoopError,
     event::WindowEvent,
-    event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy},
 };
 
-use super::{save_window_size, CmdLineSettings, UserEvent, WindowSettings, WinitWindowWrapper};
+use super::{save_window_size, CmdLineSettings, EventPayload, WindowSettings, WinitWindowWrapper};
 use crate::{
     profiling::{tracy_plot, tracy_zone},
     renderer::DrawCommand,
-    settings::{Config, Settings},
+    running_tracker::RunningTracker,
+    settings::{font::FontSettings, Settings},
+    units::Grid,
+    window::UserEvent,
     WindowSize,
 };
 
@@ -74,8 +79,10 @@ impl ShouldRender {
 
 const MAX_ANIMATION_DT: f64 = 1.0 / 120.0;
 
-pub struct UpdateLoop {
+pub struct Application {
     idle: bool,
+    #[allow(dead_code)]
+    initial_grid_size: Option<Size2<Grid<u32>>>,
     previous_frame_start: Instant,
     last_dt: f32,
     should_render: ShouldRender,
@@ -86,18 +93,19 @@ pub struct UpdateLoop {
     animation_start: Instant, // When the last animation started (went from idle to animating)
     animation_time: Duration, // How long the current animation has been simulated, will usually be in the future
 
-    window_wrapper: WinitWindowWrapper,
-    create_window_allowed: bool,
-    proxy: EventLoopProxy<UserEvent>,
+    pub window_wrapper: WinitWindowWrapper,
+    proxy: EventLoopProxy<EventPayload>,
+    pub runtime_tracker: RunningTracker,
 
     settings: Arc<Settings>,
 }
 
-impl UpdateLoop {
+impl Application {
     pub fn new(
         initial_window_size: WindowSize,
-        initial_config: Config,
-        proxy: EventLoopProxy<UserEvent>,
+        initial_grid_size: Option<Size2<Grid<u32>>>,
+        initial_font_settings: Option<FontSettings>,
+        proxy: EventLoopProxy<EventPayload>,
         settings: Arc<Settings>,
     ) -> Self {
         let previous_frame_start = Instant::now();
@@ -113,11 +121,18 @@ impl UpdateLoop {
         let cmd_line_settings = settings.get::<CmdLineSettings>();
         let idle = cmd_line_settings.idle;
 
-        let window_wrapper =
-            WinitWindowWrapper::new(initial_window_size, initial_config, settings.clone());
+        let runtime_tracker = RunningTracker::new();
+
+        let window_wrapper = WinitWindowWrapper::new(
+            initial_window_size,
+            initial_font_settings,
+            settings.clone(),
+            runtime_tracker.clone(),
+        );
 
         Self {
             idle,
+            initial_grid_size,
             previous_frame_start,
             last_dt,
             should_render,
@@ -129,11 +144,15 @@ impl UpdateLoop {
             animation_time,
 
             window_wrapper,
-            create_window_allowed: false,
             proxy,
+            runtime_tracker,
 
             settings,
         }
+    }
+
+    pub fn run(&mut self, event_loop: EventLoop<EventPayload>) -> Result<(), EventLoopError> {
+        event_loop.run_app(self)
     }
 
     fn get_refresh_rate(&self) -> f32 {
@@ -170,26 +189,37 @@ impl UpdateLoop {
     fn schedule_next_event(&mut self, event_loop: &ActiveEventLoop) {
         #[cfg(feature = "profiling")]
         self.should_render.plot_tracy();
-        if self.create_window_allowed {
-            self.window_wrapper
-                .try_create_window(event_loop, &self.proxy);
-        }
         event_loop.set_control_flow(ControlFlow::WaitUntil(self.get_event_deadline()));
     }
 
-    fn animate(&mut self) {
-        if self.window_wrapper.skia_renderer.is_none() {
+    fn handle_animation_steps(&mut self, dt: Duration) {
+        let num_steps = (dt.as_secs_f64() / MAX_ANIMATION_DT).ceil() as u32;
+        let step = dt / num_steps;
+        for _ in 0..num_steps {
+            if self.window_wrapper.animate_frame(step.as_secs_f32()) {
+                self.should_render = ShouldRender::Immediately;
+            }
+        }
+    }
+
+    fn animate(&mut self, window_id: winit::window::WindowId) {
+        if self.window_wrapper.routes.is_empty() {
             return;
         }
-        let skia_renderer = self.window_wrapper.skia_renderer.as_ref().unwrap();
-        let vsync = self.window_wrapper.vsync.as_ref().unwrap();
 
-        let dt =
-            Duration::from_secs_f32(vsync.get_refresh_rate(skia_renderer.window(), &self.settings));
+        // Limit the scope of the immutable borrow
+        let dt = {
+            let route = self.window_wrapper.routes.get(&window_id).unwrap();
+            let window = route.window.winit_window.clone();
+            let vsync = self.window_wrapper.vsync.as_ref().unwrap();
+
+            Duration::from_secs_f32(vsync.get_refresh_rate(&window, &self.settings))
+        };
 
         let now = Instant::now();
         let target_animation_time = now - self.animation_start;
         let mut delta = target_animation_time.saturating_sub(self.animation_time);
+
         // Don't try to animate way too big deltas
         // Instead reset the animation times, and simulate a single frame
         if delta > Duration::from_millis(1000) {
@@ -208,13 +238,7 @@ impl UpdateLoop {
         tracy_plot!("Simulation dt", dt.as_secs_f64());
         self.animation_time += dt;
 
-        let num_steps = (dt.as_secs_f64() / MAX_ANIMATION_DT).ceil() as u32;
-        let step = dt / num_steps;
-        for _ in 0..num_steps {
-            if self.window_wrapper.animate_frame(step.as_secs_f32()) {
-                self.should_render = ShouldRender::Immediately;
-            }
-        }
+        self.handle_animation_steps(dt);
     }
 
     fn render(&mut self) {
@@ -235,11 +259,11 @@ impl UpdateLoop {
         self.previous_frame_start = Instant::now();
     }
 
-    fn process_buffered_draw_commands(&mut self) {
+    fn process_buffered_draw_commands(&mut self, window_id: winit::window::WindowId) {
         if !self.pending_draw_commands.is_empty() {
             self.pending_draw_commands
                 .drain(..)
-                .for_each(|b| self.window_wrapper.handle_draw_commands(b));
+                .for_each(|b| self.window_wrapper.handle_draw_commands(window_id, b));
             self.should_render = ShouldRender::Immediately;
         }
     }
@@ -253,25 +277,30 @@ impl UpdateLoop {
     }
 
     fn schedule_render(&mut self, skipped_frame: bool) {
-        if self.window_wrapper.skia_renderer.is_none() {
-            return;
-        }
-        let skia_renderer = self.window_wrapper.skia_renderer.as_ref().unwrap();
-        let vsync = self.window_wrapper.vsync.as_mut().unwrap();
-
         // There's really no point in trying to render if the frame is skipped
         // (most likely due to the compositor being busy). The animated frame will
         // be rendered at an appropriate time anyway.
-        if !skipped_frame {
-            // When winit throttling is used, request a redraw and wait for the render event
-            // Otherwise render immediately
-            if vsync.uses_winit_throttling() {
-                vsync.request_redraw(skia_renderer.window());
-                self.pending_render = true;
-                tracy_plot!("pending_render", self.pending_render as u8 as f64);
-            } else {
-                self.render();
-            }
+        if self.window_wrapper.routes.is_empty() && !skipped_frame {
+            return;
+        }
+
+        let window_id = match self.window_wrapper.get_focused_route() {
+            Some(window_id) => window_id,
+            None => return,
+        };
+        println!("window_id 6: {:?}", window_id);
+        let route = self.window_wrapper.routes.get(&window_id).unwrap();
+        let window = route.window.winit_window.clone();
+        let vsync = self.window_wrapper.vsync.as_mut().unwrap();
+
+        // When winit throttling is used, request a redraw and wait for the render event
+        // Otherwise, render immediately
+        if vsync.uses_winit_throttling() {
+            vsync.request_redraw(&window);
+            self.pending_render = true;
+            tracy_plot!("pending_render", self.pending_render as u8 as f64);
+        } else {
+            self.render();
         }
     }
 
@@ -281,11 +310,13 @@ impl UpdateLoop {
             self.pending_render && Instant::now() > (self.animation_start + self.animation_time);
         let should_prepare = !self.pending_render || skipped_frame;
         if !should_prepare {
-            self.window_wrapper
-                .renderer
-                .grid_renderer
-                .shaper
-                .cleanup_font_cache();
+            let route = self
+                .window_wrapper
+                .routes
+                .get(&self.window_wrapper.get_focused_route().unwrap())
+                .unwrap();
+            let renderer = &route.window.renderer.borrow_mut();
+            renderer.grid_renderer.shaper.cleanup_font_cache();
             return;
         }
 
@@ -295,9 +326,14 @@ impl UpdateLoop {
         let should_animate =
             self.should_render == ShouldRender::Immediately || !self.idle || skipped_frame;
 
+        let window_id = match self.window_wrapper.get_focused_route() {
+            Some(window_id) => window_id,
+            None => return,
+        };
+
         if should_animate {
             self.reset_animation_period();
-            self.animate();
+            self.animate(window_id);
             self.schedule_render(skipped_frame);
         } else {
             self.num_consecutive_rendered = 0;
@@ -310,12 +346,12 @@ impl UpdateLoop {
         }
     }
 
-    fn redraw_requested(&mut self) {
+    fn redraw_requested(&mut self, window_id: winit::window::WindowId) {
         if self.pending_render {
             tracy_zone!("render (redraw requested)");
             self.render();
             // We should process all buffered draw commands as soon as the rendering has finished
-            self.process_buffered_draw_commands();
+            self.process_buffered_draw_commands(window_id);
         } else {
             tracy_zone!("redraw requested");
             // The OS itself asks us to redraw, so we need to prepare first
@@ -324,17 +360,45 @@ impl UpdateLoop {
     }
 }
 
-impl ApplicationHandler<UserEvent> for UpdateLoop {
+impl ApplicationHandler<EventPayload> for Application {
+    fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: winit::event::StartCause) {
+        match cause {
+            winit::event::StartCause::Init => {
+                println!("1.Init");
+                self.window_wrapper
+                    .try_create_window(event_loop, &self.proxy);
+                self.schedule_next_event(event_loop);
+            }
+            winit::event::StartCause::ResumeTimeReached { .. } => {
+                self.prepare_and_animate();
+                // println!("3.ResumeTimeReached");
+                self.schedule_next_event(event_loop);
+            }
+            winit::event::StartCause::WaitCancelled { .. } => {
+                self.schedule_next_event(event_loop);
+            }
+            winit::event::StartCause::Poll => {
+                self.schedule_next_event(event_loop);
+            }
+            winit::event::StartCause::CreateWindow => {
+                println!("2.CreateWindow");
+                self.window_wrapper
+                    .try_create_window(event_loop, &self.proxy);
+                self.schedule_next_event(event_loop);
+            }
+        }
+    }
+
     fn window_event(
         &mut self,
         event_loop: &ActiveEventLoop,
-        _window_id: winit::window::WindowId,
+        window_id: winit::window::WindowId,
         event: winit::event::WindowEvent,
     ) {
         tracy_zone!("window_event");
         match event {
             WindowEvent::RedrawRequested => {
-                self.redraw_requested();
+                self.redraw_requested(window_id);
             }
             WindowEvent::Focused(focused_event) => {
                 self.focused = if focused_event {
@@ -343,30 +407,38 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
                     FocusedState::UnfocusedNotDrawn
                 };
                 #[cfg(target_os = "macos")]
-                self.window_wrapper
-                    .macos_feature
-                    .as_mut()
-                    .expect("MacosWindowFeature should already be created here.")
-                    .ensure_app_initialized();
+                {
+                    if let Some(route) = self.window_wrapper.routes.get(&window_id) {
+                        if let Some(macos_feature) = route.window.macos_feature.as_ref() {
+                            macos_feature.borrow_mut().ensure_app_initialized();
+                        }
+                    }
+                }
             }
             _ => {}
         }
 
-        if self.window_wrapper.handle_window_event(event) {
+        if self.window_wrapper.handle_window_event(window_id, event) {
             self.should_render = ShouldRender::Immediately;
         }
         self.schedule_next_event(event_loop);
     }
 
-    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: UserEvent) {
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, event: EventPayload) {
         tracy_zone!("user_event");
-        match event {
+        match event.payload {
             UserEvent::NeovimExited => {
-                save_window_size(&self.window_wrapper, &self.settings);
-                event_loop.exit();
+                let remaining_before = self.window_wrapper.routes.len();
+                if remaining_before <= 1 {
+                    save_window_size(&self.window_wrapper, &self.settings);
+                }
+                self.window_wrapper.handle_neovim_exit(event.window_id);
+                if self.window_wrapper.routes.is_empty() {
+                    event_loop.exit();
+                }
             }
             UserEvent::RedrawRequested => {
-                self.redraw_requested();
+                self.redraw_requested(event.window_id);
             }
             UserEvent::DrawCommandBatch(batch) if self.pending_render => {
                 // Buffer the draw commands if we have a pending render, we have already decided what to
@@ -374,7 +446,19 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
                 // They will be processed immediately after the rendering.
                 self.pending_draw_commands.push(batch);
             }
+            #[cfg(target_os = "macos")]
+            UserEvent::CreateWindow => {
+                self.window_wrapper
+                    .try_create_window(event_loop, &self.proxy);
+                self.should_render = ShouldRender::Immediately;
+            }
+            #[cfg(target_os = "macos")]
+            UserEvent::MacShortcut(command) => {
+                self.window_wrapper.handle_mac_shortcut(command);
+                self.should_render = ShouldRender::Immediately;
+            }
             _ => {
+                println!("window_id from user_event2: {:?}", event.window_id);
                 self.window_wrapper.handle_user_event(event);
                 self.should_render = ShouldRender::Immediately;
             }
@@ -382,15 +466,8 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
         self.schedule_next_event(event_loop);
     }
 
-    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        tracy_zone!("about_to_wait");
-        self.prepare_and_animate();
-        self.schedule_next_event(event_loop);
-    }
-
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         tracy_zone!("resumed");
-        self.create_window_allowed = true;
         self.schedule_next_event(event_loop);
     }
 

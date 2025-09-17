@@ -1,20 +1,22 @@
-use std::sync::{Arc, OnceLock};
-
-use log::trace;
+use std::sync::{Arc, LazyLock, Mutex};
 
 use anyhow::{Context, Result};
+use indoc::indoc;
+use log::trace;
 use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim, Value};
 use strum::AsRefStr;
 use tokio::sync::mpsc::unbounded_channel;
 
-use super::{show_error_message, Settings};
+use super::{show_error_message, NeovimHandler, Settings};
 use crate::{
-    bridge::NeovimWriter,
+    bridge::{nvim_dict, NeovimWriter},
     cmd_line::CmdLineSettings,
     profiling::{tracy_dynamic_zone, tracy_fiber_enter, tracy_fiber_leave},
     utils::handle_wslpaths,
-    LoggingSender,
 };
+
+pub static HANDLER_REGISTRY: LazyLock<Mutex<Option<NeovimHandler>>> =
+    LazyLock::new(|| Mutex::new(None));
 
 // Serial commands are any commands which must complete before the next value is sent. This
 // includes keyboard and mouse input which would cause problems if sent out of order.
@@ -53,7 +55,7 @@ impl SerialCommand {
         log::trace!("In Serial Command");
         let result = match self {
             SerialCommand::Keyboard(input_command) => {
-                trace!("Keyboard Input Sent: {}", input_command);
+                trace!("Keyboard Input Sent: {input_command}");
                 nvim.input(&input_command)
                     .await
                     .map(|_| ())
@@ -111,7 +113,7 @@ impl SerialCommand {
         };
 
         if let Err(error) = result {
-            log::error!("{:?}", error);
+            log::error!("{error:?}");
         }
     }
 }
@@ -155,20 +157,23 @@ async fn display_available_fonts(
     ].into_iter().map(|text| text.to_owned()).collect();
     content.extend(fonts);
 
-    nvim.command("split").await?;
-    nvim.command("noswapfile hide enew").await?;
-    nvim.command("setlocal buftype=nofile").await?;
-    nvim.command("setlocal bufhidden=hide").await?;
-    nvim.command("\"setlocal nobuflisted").await?;
-    nvim.command("\"lcd ~").await?;
-    nvim.command("file scratch").await?;
+    nvim.exec2(
+        indoc! {"
+            split
+            noswapfile hide enew
+            setlocal buftype=nofile
+            setlocal bufhidden=hide
+            file scratch
+            nnoremap <buffer> <CR> <cmd>lua vim.opt.guifont=vim.fn.getline('.')<CR>,
+        "},
+        nvim_dict! {},
+    )
+    .await?;
     let _ = nvim
         .call(
             "nvim_buf_set_lines",
             call_args![0i64, 0i64, -1i64, false, content],
         )
-        .await?;
-    nvim.command("nnoremap <buffer> <CR> <cmd>lua vim.opt.guifont=vim.fn.getline('.')<CR>")
         .await?;
     Ok(())
 }
@@ -186,9 +191,7 @@ impl ParallelCommand {
                 let _ = nvim
                     .exec_lua(
                         include_str!("../../lua/exit_handler.lua"),
-                        vec![Value::Boolean(
-                            settings.get::<CmdLineSettings>().server.is_some(),
-                        )],
+                        call_args![settings.get::<CmdLineSettings>().server.is_some()],
                     )
                     .await;
                 Ok(())
@@ -205,26 +208,25 @@ impl ParallelCommand {
             }
             ParallelCommand::FileDrop(path) => nvim
                 .exec_lua(
-                    &format!(
-                        "neovide.private.dropfile([[{}]], {})",
-                        handle_wslpaths(vec![path], settings.get::<CmdLineSettings>().wsl, false)
+                    "neovide.private.dropfile(...)",
+                    call_args![
+                        handle_wslpaths(vec![path], settings.get::<CmdLineSettings>().wsl)
                             .first()
-                            .unwrap(),
+                            .unwrap()
+                            .to_string(),
                         settings.get::<CmdLineSettings>().tabs
-                    ),
-                    Vec::new(),
+                    ],
                 )
                 .await
                 .map(|_| ()) // We don't care about the result
                 .context("FileDrop failed"),
             ParallelCommand::SetBackground(background) => nvim
-                .command(format!("set background={background}").as_str())
+                .set_option_value("background", Value::from(background), nvim_dict! {})
                 .await
                 .context("SetBackground failed"),
             ParallelCommand::DisplayAvailableFonts(fonts) => display_available_fonts(nvim, fonts)
                 .await
                 .context("DisplayAvailableFonts failed"),
-
             ParallelCommand::ShowError { lines } => {
                 // nvim.err_write(&message).await.ok();
                 // NOTE: https://github.com/neovim/neovim/issues/5067
@@ -237,7 +239,7 @@ impl ParallelCommand {
         };
 
         if let Err(error) = result {
-            log::error!("{:?}", error);
+            log::error!("{error:?}");
         }
     }
 }
@@ -269,15 +271,15 @@ impl AsRef<str> for UiCommand {
     }
 }
 
-static UI_COMMAND_CHANNEL: OnceLock<LoggingSender<UiCommand>> = OnceLock::new();
-
-pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, settings: Arc<Settings>) {
+pub fn start_ui_command_handler(
+    handler: NeovimHandler,
+    nvim: Neovim<NeovimWriter>,
+    settings: Arc<Settings>,
+) {
     let (serial_tx, mut serial_rx) = unbounded_channel::<SerialCommand>();
     let ui_command_nvim = nvim.clone();
-    let (sender, mut ui_command_receiver) = unbounded_channel();
-    UI_COMMAND_CHANNEL
-        .set(LoggingSender::attach(sender, "UIComand"))
-        .expect("The UI command channel is already created");
+    let (_ui_command_sender, mut ui_command_receiver) = handler.get_ui_command_channel();
+    HANDLER_REGISTRY.lock().unwrap().replace(handler);
     tokio::spawn(async move {
         loop {
             match ui_command_receiver.recv().await {
@@ -322,13 +324,13 @@ pub fn start_ui_command_handler(nvim: Neovim<NeovimWriter>, settings: Arc<Settin
     });
 }
 
-pub fn send_ui<T>(command: T)
+pub fn send_ui<T>(command: T, handler: &NeovimHandler)
 where
     T: Into<UiCommand>,
 {
     let command: UiCommand = command.into();
-    let _ = UI_COMMAND_CHANNEL
-        .get()
-        .expect("The UI command channel has not been initialized")
-        .send(command);
+    let sender = handler.get_ui_command_channel().0;
+    sender
+        .send(command)
+        .expect("2.The UI command channel has not been initialized");
 }

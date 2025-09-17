@@ -33,14 +33,19 @@ backtraces_path = "/path/to/neovide_backtraces.log" # see below for the default 
 fork = false
 frame = "full"
 idle = true
+icon = "/full/path/to/neovide.ico" # Example path. Default icon is bundled. Use .icns on macOS.
 maximized = false
 mouse-cursor-icon = "arrow"
 neovim-bin = "/usr/bin/nvim" # in reality found dynamically on $PATH if unset
 no-multigrid = false
-srgb = false
+srgb = false # platform-specific: false (Linux/macOS) or true (Windows)
 tabs = true
+<<<<<<< HEAD
+macos-native-tabs = false # macOS only
 theme = "auto"
-title-hidden = true
+=======
+>>>>>>> main
+title-hidden = false
 vsync = true
 wsl = false
 
@@ -76,6 +81,7 @@ listed above.
 - `width`: optional,
 - `hinting`: optional,
 - `edging`: optional,
+- `underline_offset`: optional
 
 Settings `size`, `width`, `hinting` and `edging` can be found in
 [Configuration](configuration.md).
@@ -100,6 +106,12 @@ Settings `size`, `width`, `hinting` and `edging` can be found in
   - Font feature is a string with format `+<feature>`, `-<feature>` or `<feature>=<value>`,
     e.g. `+ss01`, `-calt`, `ss02=2`. `+<feature>` is a shorthand for `<feature>=1`,
     `-<feature>` is a shorthand for `<feature>=0`.
+- `underline_offset` is a float that defines the offset between the character baseline and the
+  underline.
+  - If not specified, it will be decided automatically, either if the font contains the required
+    metrics, or `-1.0` by default.
+  - Positive underline offset values will move the underline below the baseline, while negative
+    values move it above.
 
 Example:
 

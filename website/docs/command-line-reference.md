@@ -160,6 +160,16 @@ to its generalistic purpose.
 
 This sets the window title to be hidden on macOS.
 
+### Application Icon
+
+```sh
+--icon <path>
+```
+
+**Unreleased yet.**
+
+This sets a custom application icon. A default icon is bundled with Neovide.
+
 ### sRGB
 
 ```sh
@@ -200,6 +210,17 @@ tabs to avoid confusing new users. `--no-tabs` disables this behavior.
 
 Note: Even if files are opened in tabs, they're buffers anyways. It's just about them being visible
 or not.
+
+### macOS Native Tabs
+
+```sh
+--no-macos-native-tabs, --macos-native-tabs or $NEOVIDE_MACOS_NATIVE_TABS=0|1
+```
+
+Neovide merges macOS windows into a single host window automatically and hides the native tab bar by
+default to mimic a standalone window. Enable this option to keep the tab bar visible so every window
+shows up as a tab immediately. The setting applies to windows opened through both global shortcuts
+and the Editors menu entry.
 
 ### OpenGL Renderer
 
@@ -259,3 +280,13 @@ permission bit set.
 
 On Linux/Unix, this alters the identification of the window to either X11 or the more modern
 Wayland, depending on what you are running on.
+
+### Working Directory
+
+```sh
+--chdir <path>
+```
+
+Start neovim in the specified working directory. This will impact neovim
+arguments that use relative path names (e.g. file names), and the initial
+working directory for all instances of neovim or terminal.
