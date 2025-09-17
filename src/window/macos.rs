@@ -1,58 +1,99 @@
+use objc2::AnyThread;
+use std::cell::Cell;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::{os::raw::c_void, str};
+use std::{os::raw::c_void, ptr, str};
 
 use objc2::{
-    declare_class, msg_send, msg_send_id, mutability,
+    define_class, msg_send,
     rc::{autoreleasepool, Retained},
-    runtime::{AnyClass, AnyObject, ClassBuilder},
-    sel, ClassType, DeclaredClass,
+    runtime::{AnyClass, AnyObject, ClassBuilder, ProtocolObject},
+    sel, MainThreadOnly, Message,
 };
 use objc2_app_kit::{
     NSApplication, NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventModifierFlags, NSImage,
-    NSMenu, NSMenuItem, NSView, NSWindow, NSWindowStyleMask, NSWindowTabbingMode,
+    NSMenu, NSMenuDelegate, NSMenuItem, NSView, NSWindow, NSWindowDidBecomeKeyNotification,
+    NSWindowStyleMask, NSWindowTabbingMode,
 };
 use objc2_foundation::{
-    ns_string, MainThreadMarker, NSArray, NSData, NSDictionary, NSObject, NSPoint, NSProcessInfo,
-    NSRect, NSSize, NSString, NSUserDefaults,
+    ns_string, MainThreadMarker, NSArray, NSData, NSDictionary, NSNotification,
+    NSNotificationCenter, NSObject, NSObjectProtocol, NSPoint, NSProcessInfo, NSRect, NSSize,
+    NSString, NSTimer, NSUserDefaults,
 };
 
 use csscolorparser::Color;
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
-use winit::window::Window;
+use winit::{event_loop::EventLoopProxy, window::Window};
 
-use crate::{
-    bridge::{send_ui, ParallelCommand, SerialCommand},
-    settings::Settings,
-};
+use crate::bridge::{send_ui, ParallelCommand, SerialCommand, HANDLER_REGISTRY};
+use crate::settings::Settings;
 use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame};
 
-use super::{WindowSettings, WindowSettingsChanged};
+use super::{EventPayload, WindowSettings, WindowSettingsChanged};
+
+mod hotkey;
+use self::hotkey::GlobalHotkeys;
+
+thread_local! {
+    static TAB_OVERVIEW_ACTIVE: Cell<bool> = Cell::new(false);
+    static PENDING_DETACH_WINDOW: Cell<usize> = Cell::new(0);
+    static SUPPRESS_FOCUS_EVENTS: Cell<bool> = Cell::new(false);
+    static ACTIVE_HOST_WINDOW: Cell<usize> = Cell::new(0);
+    static SUPPRESS_UNTIL_NEXT_KEY_EVENT: Cell<bool> = Cell::new(false);
+    static LAST_HOST_WINDOW: Cell<usize> = Cell::new(0);
+}
+
+static SHOW_NATIVE_TAB_BAR: AtomicBool = AtomicBool::new(false);
+
+fn should_show_native_tab_bar() -> bool {
+    SHOW_NATIVE_TAB_BAR.load(Ordering::Relaxed)
+}
+
+pub fn native_tab_bar_enabled() -> bool {
+    should_show_native_tab_bar()
+}
+
+fn merge_all_windows_if_native_tabs(ns_window: &NSWindow) {
+    if should_show_native_tab_bar() {
+        ns_window.mergeAllWindows(None);
+    }
+}
+
+pub fn is_focus_suppressed() -> bool {
+    SUPPRESS_FOCUS_EVENTS.with(|cell| cell.get())
+        || SUPPRESS_UNTIL_NEXT_KEY_EVENT.with(|cell| cell.get())
+}
+
+struct FocusSuppressionGuard;
+
+impl FocusSuppressionGuard {
+    fn new() -> Self {
+        SUPPRESS_FOCUS_EVENTS.with(|flag| flag.set(true));
+        FocusSuppressionGuard
+    }
+}
+
+impl Drop for FocusSuppressionGuard {
+    fn drop(&mut self) {
+        SUPPRESS_FOCUS_EVENTS.with(|flag| flag.set(false));
+    }
+}
 
 static NEOVIDE_ICON_PATH: &[u8] =
     include_bytes!("../../extra/osx/Neovide.app/Contents/Resources/Neovide.icns");
+const NEOVIDE_TABBING_IDENTIFIER: &str = "NeovideWindowTabGroup";
 
-#[derive(Clone)]
-struct TitlebarClickHandlerIvars {}
-
-declare_class!(
+define_class!(
     // A view to simulate the double-click-to-zoom effect for `--frame transparency`.
     #[derive(Debug)]
+    #[unsafe(super = NSView)]
+    #[thread_kind = MainThreadOnly]
     struct TitlebarClickHandler;
 
-    unsafe impl ClassType for TitlebarClickHandler {
-        type Super = NSView;
-        type Mutability = mutability::MainThreadOnly;
-        const NAME: &'static str = "TitlebarClickHandler";
-    }
-
-    impl DeclaredClass for TitlebarClickHandler {
-        type Ivars = TitlebarClickHandlerIvars;
-    }
-
-    unsafe impl TitlebarClickHandler {
-        #[method(mouseDown:)]
-        unsafe fn mouse_down(&self, event: &NSEvent) {
-            if event.clickCount() == 2 {
+    impl TitlebarClickHandler {
+        #[unsafe(method(mouseDown:))]
+        fn mouse_down(&self, event: &NSEvent) {
+            if  event.clickCount() == 2 {
                 self.window().unwrap().zoom(Some(self));
             }
         }
@@ -60,8 +101,8 @@ declare_class!(
 );
 
 impl TitlebarClickHandler {
-    fn new(mtm: MainThreadMarker) -> Retained<TitlebarClickHandler> {
-        unsafe { msg_send_id![mtm.alloc(), init] }
+    fn new(mtm: MainThreadMarker) -> Retained<Self> {
+        unsafe { msg_send![Self::alloc(mtm), init] }
     }
 }
 
@@ -84,7 +125,7 @@ pub fn get_ns_window(window: &Window) -> Retained<NSWindow> {
     }
 }
 
-pub fn load_neovide_icon() -> Option<Retained<NSImage>> {
+fn load_neovide_icon() -> Option<Retained<NSImage>> {
     unsafe {
         let data = NSData::dataWithBytes_length(
             NEOVIDE_ICON_PATH.as_ptr() as *mut c_void,
@@ -108,10 +149,16 @@ pub struct MacosWindowFeature {
     is_fullscreen: bool,
     menu: Option<Menu>,
     settings: Arc<Settings>,
+    #[allow(dead_code)]
+    activation_hotkey: Option<GlobalHotkeys>,
 }
 
 impl MacosWindowFeature {
-    pub fn from_winit_window(window: &Window, settings: Arc<Settings>) -> Self {
+    pub fn from_winit_window(
+        window: &Window,
+        settings: Arc<Settings>,
+        proxy: EventLoopProxy<EventPayload>,
+    ) -> Self {
         let mtm =
             MainThreadMarker::new().expect("MacosWindowFeature must be created in main thread.");
 
@@ -119,14 +166,18 @@ impl MacosWindowFeature {
 
         let ns_window = get_ns_window(window);
 
-        // Disallow tabbing mode to prevent the window from being tabbed.
-        ns_window.setTabbingMode(NSWindowTabbingMode::Disallowed);
+        let cmd_line_settings = settings.get::<CmdLineSettings>();
+        SHOW_NATIVE_TAB_BAR.store(cmd_line_settings.macos_native_tabs, Ordering::Relaxed);
+
+        ns_window.setTabbingMode(NSWindowTabbingMode::Preferred);
+        Self::configure_native_tabbing(&ns_window);
+        merge_all_windows_if_native_tabs(&ns_window);
 
         let mut extra_titlebar_height_in_pixel: u32 = 0;
 
-        let frame = settings.get::<CmdLineSettings>().frame;
+        let frame = cmd_line_settings.frame;
         let titlebar_click_handler: Option<Retained<TitlebarClickHandler>> = match frame {
-            Frame::Transparent => unsafe {
+            Frame::Transparent => {
                 let titlebar_click_handler = TitlebarClickHandler::new(mtm);
 
                 // Add the titlebar_click_handler into the view of window.
@@ -142,8 +193,8 @@ impl MacosWindowFeature {
 
                 // Setup auto layout for titlebar_click_handler.
                 titlebar_click_handler.setAutoresizingMask(
-                    NSAutoresizingMaskOptions::NSViewWidthSizable
-                        | NSAutoresizingMaskOptions::NSViewMinYMargin,
+                    NSAutoresizingMaskOptions::ViewWidthSizable
+                        | NSAutoresizingMaskOptions::ViewMinYMargin,
                 );
                 titlebar_click_handler.setTranslatesAutoresizingMaskIntoConstraints(true);
 
@@ -151,13 +202,15 @@ impl MacosWindowFeature {
                     Self::titlebar_height_in_pixel(system_titlebar_height, window.scale_factor());
 
                 Some(titlebar_click_handler)
-            },
+            }
             _ => None,
         };
 
         let is_fullscreen = ns_window
             .styleMask()
             .contains(NSWindowStyleMask::FullScreen);
+
+        let activation_hotkey = GlobalHotkeys::register(proxy);
 
         let macos_window_feature = MacosWindowFeature {
             ns_window,
@@ -167,24 +220,130 @@ impl MacosWindowFeature {
             is_fullscreen,
             menu: None,
             settings: settings.clone(),
+            activation_hotkey,
         };
 
         macos_window_feature.update_background(true);
 
         macos_window_feature
     }
+    fn configure_native_tabbing(ns_window: &NSWindow) {
+        ns_window.setTabbingIdentifier(ns_string!(NEOVIDE_TABBING_IDENTIFIER));
+        Self::apply_tab_bar_preference(ns_window);
+    }
+
+    fn apply_tab_bar_preference(ns_window: &NSWindow) {
+        if let Some(tab_group) = ns_window.tabGroup() {
+            let should_show = should_show_native_tab_bar();
+            if tab_group.isTabBarVisible() != should_show {
+                ns_window.toggleTabBar(None);
+            }
+        }
+    }
+
+    fn begin_tab_overview(ns_window: &NSWindow) {
+        if Self::merge_windows_for_overview(ns_window) {
+            TAB_OVERVIEW_ACTIVE.with(|active| active.set(true));
+            ACTIVE_HOST_WINDOW.with(|cell| cell.set(0));
+            SUPPRESS_UNTIL_NEXT_KEY_EVENT.with(|cell| cell.set(true));
+            ns_window.toggleTabOverview(None);
+        }
+    }
+
+    fn merge_windows_for_overview(ns_window: &NSWindow) -> bool {
+        ns_window.mergeAllWindows(None);
+
+        if let Some(tab_group) = ns_window.tabGroup() {
+            let windows = tab_group.windows();
+            if windows.len() <= 1 {
+                return false;
+            }
+            tab_group.setSelectedWindow(Some(ns_window));
+            true
+        } else {
+            false
+        }
+    }
+
+    fn detach_tabs_after_overview(ns_window: &NSWindow) {
+        let should_detach = TAB_OVERVIEW_ACTIVE.with(|active| active.get());
+        if !should_detach {
+            return;
+        }
+
+        if should_show_native_tab_bar() {
+            TAB_OVERVIEW_ACTIVE.with(|active| active.set(false));
+            PENDING_DETACH_WINDOW.with(|ptr| ptr.set(0));
+            ACTIVE_HOST_WINDOW.with(|cell| cell.set(0));
+            ns_window.makeKeyAndOrderFront(None);
+            ns_window.orderFrontRegardless();
+            record_host_window(ns_window);
+            Self::apply_tab_bar_preference(ns_window);
+            if let Some(mtm) = MainThreadMarker::new() {
+                let app = NSApplication::sharedApplication(mtm);
+                app.setWindowsNeedUpdate(true);
+            }
+            return;
+        }
+
+        let Some(tab_group) = ns_window.tabGroup() else {
+            TAB_OVERVIEW_ACTIVE.with(|active| active.set(false));
+            return;
+        };
+
+        TAB_OVERVIEW_ACTIVE.with(|active| active.set(false));
+        PENDING_DETACH_WINDOW.with(|ptr| ptr.set(0));
+        ACTIVE_HOST_WINDOW.with(|cell| cell.set(0));
+        let _focus_guard = FocusSuppressionGuard::new();
+        PENDING_DETACH_WINDOW.with(|ptr| ptr.set(0));
+
+        if tab_group.isOverviewVisible() {
+            return;
+        }
+
+        let windows_array = tab_group.windows();
+        if windows_array.len() <= 1 {
+            TAB_OVERVIEW_ACTIVE.with(|active| active.set(false));
+            return;
+        }
+
+        let retained_windows: Vec<Retained<NSWindow>> =
+            windows_array.iter().map(|window| window.retain()).collect();
+
+        for window in &retained_windows {
+            let window_ref: &NSWindow = window.as_ref();
+            if ptr::eq(window_ref, ns_window) {
+                continue;
+            }
+            window_ref.moveTabToNewWindow(None);
+            window_ref.orderBack(None);
+            log::trace!(
+                "Detached tab window ptr={:?} from host={:?}",
+                window_identifier(window_ref),
+                window_identifier(ns_window)
+            );
+            Self::apply_tab_bar_preference(window_ref);
+        }
+
+        ns_window.makeKeyAndOrderFront(None);
+        ns_window.orderFrontRegardless();
+        record_host_window(ns_window);
+        Self::apply_tab_bar_preference(ns_window);
+        if let Some(mtm) = MainThreadMarker::new() {
+            let app = NSApplication::sharedApplication(mtm);
+            app.setWindowsNeedUpdate(true);
+        }
+    }
 
     // Used to calculate the value of TITLEBAR_HEIGHT, aka, titlebar height in dpi-independent length.
     fn system_titlebar_height(mtm: MainThreadMarker) -> f64 {
         // Do a test to calculate this.
         let mock_content_rect = NSRect::new(NSPoint::new(100., 100.), NSSize::new(100., 100.));
-        let frame_rect = unsafe {
-            NSWindow::frameRectForContentRect_styleMask(
-                mock_content_rect,
-                NSWindowStyleMask::Titled,
-                mtm,
-            )
-        };
+        let frame_rect = NSWindow::frameRectForContentRect_styleMask(
+            mock_content_rect,
+            NSWindowStyleMask::Titled,
+            mtm,
+        );
         frame_rect.size.height - mock_content_rect.size.height
     }
 
@@ -218,12 +377,29 @@ impl MacosWindowFeature {
     }
 
     /// Get the extra titlebar height in pixels, so Neovide can do the correct top padding.
+    fn tab_bar_padding_in_pixels(&self) -> u32 {
+        if !should_show_native_tab_bar() {
+            return 0;
+        }
+        let Some(tab_group) = self.ns_window.tabGroup() else {
+            return 0;
+        };
+        if !tab_group.isTabBarVisible() {
+            return 0;
+        }
+        let windows = tab_group.windows();
+        if windows.len() <= 1 {
+            return 0;
+        }
+        let scale_factor = self.ns_window.backingScaleFactor();
+        Self::titlebar_height_in_pixel(self.system_titlebar_height, scale_factor)
+    }
+
     pub fn extra_titlebar_height_in_pixels(&self) -> u32 {
         if self.is_fullscreen {
-            0
-        } else {
-            self.extra_titlebar_height_in_pixel
+            return 0;
         }
+        self.extra_titlebar_height_in_pixel + self.tab_bar_padding_in_pixels()
     }
 
     /// Print a deprecation warning for `neovide_background_color`
@@ -245,38 +421,34 @@ impl MacosWindowFeature {
             self.display_deprecation_warning();
         }
         let [red, green, blue, alpha] = color.to_array();
-        unsafe {
-            let opaque = alpha >= 1.0;
-            let ns_background = NSColor::colorWithSRGBRed_green_blue_alpha(
-                red.into(),
-                green.into(),
-                blue.into(),
-                alpha.into(),
-            );
-            self.ns_window.setBackgroundColor(Some(&ns_background));
-            // If the shadow is enabled and the background color is not transparent, the window will have a grey border
-            // Workaround: Disable shadow when `show_border` is false
-            self.ns_window.setHasShadow(opaque && show_border);
-            // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
-            self.ns_window.setOpaque(opaque && show_border);
-            self.ns_window.invalidateShadow();
-        }
+        let opaque = alpha >= 1.0;
+        let ns_background = NSColor::colorWithSRGBRed_green_blue_alpha(
+            red.into(),
+            green.into(),
+            blue.into(),
+            alpha.into(),
+        );
+        self.ns_window.setBackgroundColor(Some(&ns_background));
+        // If the shadow is enabled and the background color is not transparent, the window will have a grey border
+        // Workaround: Disable shadow when `show_border` is false
+        self.ns_window.setHasShadow(opaque && show_border);
+        // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
+        self.ns_window.setOpaque(opaque && show_border);
+        self.ns_window.invalidateShadow();
     }
 
     fn update_ns_background(&self, opaque: bool, show_border: bool) {
-        unsafe {
-            // Setting the background color to `NSColor::windowBackgroundColor()`
-            // makes the background opaque and draws a grey border around the window
-            let ns_background = match opaque && show_border {
-                true => NSColor::windowBackgroundColor(),
-                false => NSColor::clearColor(),
-            };
-            self.ns_window.setBackgroundColor(Some(&ns_background));
-            self.ns_window.setHasShadow(opaque);
-            // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
-            self.ns_window.setOpaque(opaque && show_border);
-            self.ns_window.invalidateShadow();
-        }
+        // Setting the background color to `NSColor::windowBackgroundColor()`
+        // makes the background opaque and draws a grey border around the window
+        let ns_background = match opaque && show_border {
+            true => NSColor::windowBackgroundColor(),
+            false => NSColor::clearColor(),
+        };
+        self.ns_window.setBackgroundColor(Some(&ns_background));
+        self.ns_window.setHasShadow(opaque);
+        // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
+        self.ns_window.setOpaque(opaque && show_border);
+        self.ns_window.invalidateShadow();
     }
 
     /// Update background color, opacity, shadow and blur of a window.
@@ -300,23 +472,52 @@ impl MacosWindowFeature {
     pub fn handle_settings_changed(&self, changed_setting: WindowSettingsChanged) {
         match changed_setting {
             WindowSettingsChanged::BackgroundColor(background_color) => {
-                log::info!("background_color changed to {}", background_color);
+                log::info!("background_color changed to {background_color}");
                 self.update_background(false);
             }
             WindowSettingsChanged::ShowBorder(show_border) => {
-                log::info!("show_border changed to {}", show_border);
+                log::info!("show_border changed to {show_border}");
                 self.update_background(true);
             }
             WindowSettingsChanged::Opacity(opacity) => {
-                log::info!("opacity changed to {}", opacity);
+                log::info!("opacity changed to {opacity}");
                 self.update_background(true);
             }
             WindowSettingsChanged::WindowBlurred(window_blurred) => {
-                log::info!("window_blurred changed to {}", window_blurred);
+                log::info!("window_blurred changed to {window_blurred}");
                 self.update_background(true);
             }
             _ => {}
         }
+    }
+
+    pub fn activate_application(&self) {
+        match MainThreadMarker::new() {
+            Some(mtm) => {
+                let app = NSApplication::sharedApplication(mtm);
+                #[allow(deprecated)]
+                app.activateIgnoringOtherApps(true);
+                self.ns_window.makeKeyAndOrderFront(None);
+                if should_show_native_tab_bar() {
+                    merge_all_windows_if_native_tabs(&self.ns_window);
+                    if let Some(tab_group) = self.ns_window.tabGroup() {
+                        tab_group.setSelectedWindow(Some(&self.ns_window));
+                    }
+                    Self::apply_tab_bar_preference(&self.ns_window);
+                }
+            }
+            None => {
+                log::warn!("macOS activation shortcut attempted to activate window outside the main thread");
+            }
+        }
+    }
+
+    pub fn hide_window(&self) {
+        self.ns_window.orderOut(None);
+    }
+
+    pub fn is_key_window(&self) -> bool {
+        self.ns_window.isKeyWindow()
     }
 
     /// Create the application menu and grab initial focus.
@@ -336,46 +537,227 @@ impl MacosWindowFeature {
     }
 }
 
-#[derive(Clone)]
-struct QuitHandlerIvars {}
-
-declare_class!(
+define_class!(
     #[derive(Debug)]
+    #[unsafe(super = NSObject)]
+    #[thread_kind = MainThreadOnly]
     struct QuitHandler;
 
-    unsafe impl ClassType for QuitHandler {
-        type Super = NSObject;
-        type Mutability = mutability::MainThreadOnly;
-        const NAME: &'static str = "QuitHandler";
-    }
-
-    impl DeclaredClass for QuitHandler {
-        type Ivars = QuitHandlerIvars;
-    }
-
-    unsafe impl QuitHandler {
-        #[method(quit:)]
-        unsafe fn quit(&self, _event: &NSEvent) {
-            send_ui(SerialCommand::Keyboard("<D-q>".into()));
+    impl QuitHandler {
+        #[unsafe(method(quit:))]
+        fn quit(&self, _event: &NSEvent) {
+            let handler = {
+                let handler_lock = HANDLER_REGISTRY.lock().unwrap();
+                handler_lock
+                    .clone()
+                    .expect("NeovimHandler has not been initialized")
+            };
+            send_ui(SerialCommand::Keyboard("<D-q>".into()), &handler);
         }
     }
 );
 
 impl QuitHandler {
-    fn new(mtm: MainThreadMarker) -> Retained<QuitHandler> {
-        unsafe { msg_send_id![mtm.alloc(), init] }
+    fn new(mtm: MainThreadMarker) -> Retained<Self> {
+        unsafe { msg_send![Self::alloc(mtm), init] }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct TabOverviewHandlerIvars {}
+
+define_class!(
+    #[derive(Debug)]
+    #[unsafe(super = NSObject)]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = TabOverviewHandlerIvars]
+    struct TabOverviewHandler;
+
+    impl TabOverviewHandler {
+        #[unsafe(method(neovideShowAllTabs:))]
+        fn show_all_tabs(&self, _sender: Option<&AnyObject>) {
+            trigger_tab_overview();
+        }
+    }
+);
+
+impl TabOverviewHandler {
+    fn new(mtm: MainThreadMarker) -> Retained<TabOverviewHandler> {
+        unsafe { msg_send![Self::alloc(mtm), init] }
+    }
+}
+
+#[derive(Clone, Debug)]
+struct TabOverviewNotificationHandlerIvars {}
+
+define_class!(
+    #[derive(Debug)]
+    #[unsafe(super = NSObject)]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = TabOverviewNotificationHandlerIvars]
+    struct TabOverviewNotificationHandler;
+
+    impl TabOverviewNotificationHandler {
+        #[unsafe(method(neovideWindowDidBecomeKey:))]
+        fn window_did_become_key(&self, notification: &NSNotification) {
+            if !TAB_OVERVIEW_ACTIVE.with(|active| active.get()) {
+                return;
+            }
+
+            let Some(object) = notification.object() else {
+                return;
+            };
+            let window: Retained<NSWindow> = object
+                .downcast()
+                .expect("notification object was not an NSWindow");
+            let window_ref: &NSWindow = window.as_ref();
+
+            let identifier = window_ref.tabbingIdentifier();
+            let identifier_ref: &NSString = identifier.as_ref();
+            if identifier_ref != ns_string!(NEOVIDE_TABBING_IDENTIFIER) {
+                log::trace!(
+                    "WindowDidBecomeKey ignored (tab id = {})",
+                    identifier_ref.to_string()
+                );
+                return;
+            }
+            SUPPRESS_UNTIL_NEXT_KEY_EVENT.with(|cell| cell.set(false));
+
+            let ptr_value = window_identifier(window_ref);
+            let previous_host = ACTIVE_HOST_WINDOW.with(|cell| {
+                let previous = cell.get();
+                cell.set(ptr_value);
+                previous
+            });
+            if previous_host != 0 && previous_host != ptr_value {
+                log::trace!(
+                    "WindowDidBecomeKey host switched from {:?} to {:?}",
+                    previous_host as *const (),
+                    window_identifier(window_ref)
+                );
+            }
+            let already_pending = PENDING_DETACH_WINDOW.with(|ptr| ptr.get() == ptr_value);
+            if already_pending {
+                log::trace!(
+                    "WindowDidBecomeKey skipping duplicate scheduling (window ptr = {:?})",
+                    window_identifier(window_ref)
+                );
+                return;
+            }
+            PENDING_DETACH_WINDOW.with(|ptr| ptr.set(ptr_value));
+
+            log::trace!(
+                "WindowDidBecomeKey scheduling detach (window ptr = {:?})",
+                window_identifier(window_ref)
+            );
+            unsafe {
+                self.schedule_detach(window);
+            }
+        }
+
+        #[unsafe(method(neovidePerformDetach:))]
+        fn perform_detach(&self, timer: &NSTimer) {
+            let Some(user_info) = timer.userInfo() else {
+                return;
+            };
+            let window: Retained<NSWindow> = user_info
+                .downcast()
+                .expect("timer userInfo was not an NSWindow");
+            let ptr_value = window_identifier(window.as_ref());
+            let host_ptr = ACTIVE_HOST_WINDOW.with(|cell| cell.get());
+            if host_ptr != 0 && host_ptr != ptr_value {
+                log::trace!(
+                    "Detach timer ignoring stale window ptr = {:?} (active host = {:?})",
+                    window_identifier(window.as_ref()),
+                    host_ptr
+                );
+                return;
+            }
+            PENDING_DETACH_WINDOW.with(|ptr| ptr.set(0));
+            log::trace!(
+                "Detach timer fired for window ptr = {:?}",
+                window_identifier(window.as_ref())
+            );
+            MacosWindowFeature::detach_tabs_after_overview(window.as_ref());
+        }
+    }
+);
+
+impl TabOverviewNotificationHandler {
+    fn register(mtm: MainThreadMarker) -> Retained<TabOverviewNotificationHandler> {
+        let handler: Retained<TabOverviewNotificationHandler> =
+            unsafe { msg_send![mtm.alloc(), init] };
+        let center = NSNotificationCenter::defaultCenter();
+        unsafe {
+            center.addObserver_selector_name_object(
+                &handler,
+                sel!(neovideWindowDidBecomeKey:),
+                Some(NSWindowDidBecomeKeyNotification),
+                None,
+            );
+        }
+        log::trace!("Registered NSWindowDidBecomeKey observer");
+        handler
+    }
+
+    unsafe fn schedule_detach(&self, window: Retained<NSWindow>) {
+        log::trace!(
+            "Scheduling detach timer for window ptr = {:?}",
+            window_identifier(window.as_ref())
+        );
+        let _: Retained<NSTimer> =
+            NSTimer::scheduledTimerWithTimeInterval_target_selector_userInfo_repeats(
+                0.0,
+                self,
+                sel!(neovidePerformDetach:),
+                Some(window.as_ref()),
+                false,
+            );
+    }
+}
+
+#[derive(Clone, Debug)]
+struct WindowMenuDelegateIvars {}
+
+define_class!(
+    #[derive(Debug)]
+    #[unsafe(super = NSObject)]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = WindowMenuDelegateIvars]
+    struct WindowMenuDelegate;
+
+    impl WindowMenuDelegate {
+        #[unsafe(method(menuNeedsUpdate:))]
+        fn menu_needs_update(&self, menu: &NSMenu) {
+            Menu::remove_system_show_all_tabs(menu);
+        }
+    }
+);
+
+unsafe impl NSObjectProtocol for WindowMenuDelegate {}
+unsafe impl NSMenuDelegate for WindowMenuDelegate {}
+
+impl WindowMenuDelegate {
+    fn new(mtm: MainThreadMarker) -> Retained<WindowMenuDelegate> {
+        unsafe { msg_send![Self::alloc(mtm), init] }
     }
 }
 
 #[derive(Debug)]
 struct Menu {
     quit_handler: Retained<QuitHandler>,
+    tab_overview_handler: Retained<TabOverviewHandler>,
+    _tab_overview_observer: Retained<TabOverviewNotificationHandler>,
+    window_menu_delegate: Retained<WindowMenuDelegate>,
 }
 
 impl Menu {
     fn new(mtm: MainThreadMarker) -> Self {
         let menu = Menu {
             quit_handler: QuitHandler::new(mtm),
+            tab_overview_handler: TabOverviewHandler::new(mtm),
+            _tab_overview_observer: TabOverviewNotificationHandler::register(mtm),
+            window_menu_delegate: WindowMenuDelegate::new(mtm),
         };
         menu.add_menus(mtm);
         menu
@@ -410,8 +792,7 @@ impl Menu {
             hide_others_item.setTitle(ns_string!("Hide Others"));
             hide_others_item.setKeyEquivalent(ns_string!("h"));
             hide_others_item.setKeyEquivalentModifierMask(
-                NSEventModifierFlags::NSEventModifierFlagOption
-                    | NSEventModifierFlags::NSEventModifierFlagCommand,
+                NSEventModifierFlags::Option | NSEventModifierFlags::Command,
             );
             hide_others_item.setAction(Some(sel!(hideOtherApplications:)));
             app_menu.addItem(&hide_others_item);
@@ -440,21 +821,20 @@ impl Menu {
 
         let main_menu = NSMenu::new(mtm);
 
-        unsafe {
-            let app_menu = self.add_app_menu(mtm);
-            let app_menu_item = NSMenuItem::new(mtm);
-            app_menu_item.setSubmenu(Some(&app_menu));
-            if let Some(services_menu) = app_menu.itemWithTitle(ns_string!("Services")) {
-                app.setServicesMenu(services_menu.submenu().as_deref());
-            }
-            main_menu.addItem(&app_menu_item);
-
-            let win_menu = self.add_window_menu(mtm);
-            let win_menu_item = NSMenuItem::new(mtm);
-            win_menu_item.setSubmenu(Some(&win_menu));
-            main_menu.addItem(&win_menu_item);
-            app.setWindowsMenu(Some(&win_menu));
+        let app_menu = self.add_app_menu(mtm);
+        let app_menu_item = NSMenuItem::new(mtm);
+        app_menu_item.setSubmenu(Some(&app_menu));
+        if let Some(services_menu) = app_menu.itemWithTitle(ns_string!("Services")) {
+            app.setServicesMenu(services_menu.submenu().as_deref());
         }
+        main_menu.addItem(&app_menu_item);
+
+        let win_menu = self.add_window_menu(mtm);
+        let win_menu_item = NSMenuItem::new(mtm);
+        win_menu_item.setSubmenu(Some(&win_menu));
+        main_menu.addItem(&win_menu_item);
+        app.setWindowsMenu(Some(&win_menu));
+        Self::remove_system_show_all_tabs(&win_menu);
         app.setMainMenu(Some(&main_menu));
     }
 
@@ -462,16 +842,34 @@ impl Menu {
         unsafe {
             let menu = NSMenu::new(mtm);
             menu.setTitle(ns_string!("Window"));
+            let delegate: &ProtocolObject<dyn NSMenuDelegate> =
+                ProtocolObject::from_ref::<WindowMenuDelegate>(self.window_menu_delegate.as_ref());
+            menu.setDelegate(Some(delegate));
 
             let full_screen_item = NSMenuItem::new(mtm);
             full_screen_item.setTitle(ns_string!("Enter Full Screen"));
             full_screen_item.setKeyEquivalent(ns_string!("f"));
             full_screen_item.setAction(Some(sel!(toggleFullScreen:)));
             full_screen_item.setKeyEquivalentModifierMask(
-                NSEventModifierFlags::NSEventModifierFlagControl
-                    | NSEventModifierFlags::NSEventModifierFlagCommand,
+                NSEventModifierFlags::Control | NSEventModifierFlags::Command,
             );
             menu.addItem(&full_screen_item);
+
+            let create_new_window = NSMenuItem::new(mtm);
+            create_new_window.setTitle(ns_string!("New Window"));
+            create_new_window.setKeyEquivalent(ns_string!("n"));
+            create_new_window.setAction(Some(sel!(neovideCreateWindow:)));
+            menu.addItem(&create_new_window);
+
+            let show_all_tabs_item = NSMenuItem::new(mtm);
+            show_all_tabs_item.setTitle(ns_string!("Editors"));
+            show_all_tabs_item.setKeyEquivalent(ns_string!("e"));
+            show_all_tabs_item.setKeyEquivalentModifierMask(
+                NSEventModifierFlags::Command | NSEventModifierFlags::Shift,
+            );
+            show_all_tabs_item.setAction(Some(sel!(neovideShowAllTabs:)));
+            show_all_tabs_item.setTarget(Some(&self.tab_overview_handler));
+            menu.addItem(&show_all_tabs_item);
 
             let min_item = NSMenuItem::new(mtm);
             min_item.setTitle(ns_string!("Minimize"));
@@ -481,19 +879,56 @@ impl Menu {
             menu
         }
     }
+
+    fn remove_system_show_all_tabs(menu: &NSMenu) {
+        let mut idx = menu.numberOfItems();
+        while idx > 0 {
+            idx -= 1;
+            if let Some(item) = menu.itemAtIndex(idx) {
+                let title = item.title();
+                let title_ref: &NSString = title.as_ref();
+                if title_ref != ns_string!("Show All Tabs") {
+                    continue;
+                }
+                let action = item.action();
+                if action.map_or(true, |sel| sel != sel!(neovideShowAllTabs:)) {
+                    menu.removeItemAtIndex(idx);
+                }
+            }
+        }
+    }
+}
+
+pub fn trigger_tab_overview() {
+    if let Some(mtm) = MainThreadMarker::new() {
+        let app = NSApplication::sharedApplication(mtm);
+        if let Some(window) = app.keyWindow() {
+            MacosWindowFeature::begin_tab_overview(&window);
+        }
+    }
 }
 
 pub fn register_file_handler() {
-    unsafe extern "C" fn handle_open_files(
+    // See signature at
+    // https://developer.apple.com/documentation/appkit/nsapplicationdelegate/application(_:openfiles:)?language=objc
+    unsafe extern "C-unwind" fn handle_open_files(
         _this: &mut AnyObject,
         _sel: objc2::runtime::Sel,
         _sender: &objc2::runtime::AnyObject,
-        files: &mut NSArray<NSString>,
+        filenames: &NSArray<NSString>,
     ) {
-        autoreleasepool(|pool| {
-            for file in files.iter() {
-                let path = file.as_str(pool).to_owned();
-                send_ui(ParallelCommand::FileDrop(path));
+        autoreleasepool(|_| {
+            // NOTE: Once Neovide is open and the user drops a new file, it opens as expected.
+            // TODO: For files to be visualized upon being dropped when Neovide is not started,
+            // a valid Neovim handler must be initialized. This requirement explains why files
+            // might not appear if the application is not already opened or if the Neovim handler
+            // has not been initialized. Without an active handler, the very first file drop event
+            // cannot be processed, and consequently, the file will not be displayed.
+            if let Some(handler) = HANDLER_REGISTRY.lock().unwrap().clone() {
+                log::info!("Received files: {:?}", filenames);
+                for filename in filenames.iter() {
+                    send_ui(ParallelCommand::FileDrop(filename.to_string()), &handler);
+                }
             }
         });
     }
@@ -505,28 +940,57 @@ pub fn register_file_handler() {
         let delegate = app.delegate().unwrap();
 
         // Find out class of the NSApplicationDelegate
-        let class: &AnyClass = msg_send![&delegate, class];
+        let class: &AnyClass = AnyObject::class(delegate.as_ref());
 
         // register subclass of whatever was in delegate
-        let mut my_class = ClassBuilder::new("NeovideApplicationDelegate", class).unwrap();
+        let mut my_class = ClassBuilder::new(c"NeovideApplicationDelegate", class).unwrap();
         my_class.add_method(
             sel!(application:openFiles:),
-            handle_open_files as unsafe extern "C" fn(_, _, _, _) -> _,
+            handle_open_files as unsafe extern "C-unwind" fn(_, _, _, _) -> _,
         );
         let class = my_class.register();
 
         // this should be safe as:
         //  * our class is a subclass
         //  * no new ivars
-        //  * overriden methods are compatible with old (we implement protocol method)
-        let delegate_obj = Retained::cast::<AnyObject>(delegate);
-        AnyObject::set_class(&delegate_obj, class);
+        //  * overridden methods are compatible with old (we implement protocol method)
+        AnyObject::set_class(delegate.as_ref(), class);
+    }
 
-        // Prevent AppKit from interpreting our command line.
-        let key = NSString::from_str("NSTreatUnknownArgumentsAsOpen");
-        let keys = vec![key.as_ref()];
-        let objects = vec![Retained::cast::<AnyObject>(NSString::from_str("NO"))];
-        let dict = NSDictionary::from_vec(&keys, objects);
-        NSUserDefaults::standardUserDefaults().registerDefaults(dict.as_ref());
+    // Prevent AppKit from interpreting our command line.
+    let keys = &[ns_string!("NSTreatUnknownArgumentsAsOpen")];
+    // API requires `AnyObject[]` not `NSString[]`.
+    let objects = &[ns_string!("NO") as &AnyObject];
+    let dict = NSDictionary::from_slices(keys, objects);
+    unsafe {
+        NSUserDefaults::standardUserDefaults().registerDefaults(&dict);
+    }
+}
+pub fn window_identifier(window: &NSWindow) -> usize {
+    window as *const _ as usize
+}
+
+pub fn record_host_window(window: &NSWindow) {
+    LAST_HOST_WINDOW.with(|cell| cell.set(window_identifier(window)));
+}
+
+pub fn get_last_host_window() -> usize {
+    LAST_HOST_WINDOW.with(|cell| cell.get())
+}
+
+pub fn hide_application() {
+    match MainThreadMarker::new() {
+        Some(mtm) => {
+            let app = NSApplication::sharedApplication(mtm);
+            let app_ref: &NSApplication = app.as_ref();
+            unsafe {
+                let _: () = msg_send![app_ref, hide: None::<&AnyObject>];
+            }
+        }
+        None => {
+            log::warn!(
+                "macOS pinned shortcut attempted to hide application outside the main thread"
+            );
+        }
     }
 }

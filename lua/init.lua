@@ -137,4 +137,14 @@ M.private.dropfile = function(filename, tabs)
     }, {})
 end
 
+M.disable_redraw = function()
+    -- Wrap inside pcall to avoid errors if Neovide disconnects
+    pcall(rpcnotify, "neovide.set_redraw", false)
+end
+
+M.enable_redraw = function()
+    -- Wrap inside pcall to avoid errors if Neovide disconnects
+    pcall(rpcnotify, "neovide.set_redraw", true)
+end
+
 _G["neovide"] = M

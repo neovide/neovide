@@ -22,7 +22,7 @@ impl RunningTracker {
 
     pub fn quit_with_code(&self, code: u8, reason: &str) {
         self.exit_code.store(code, Ordering::Release);
-        info!("Quit with code {}: {}", code, reason);
+        info!("Quit with code {code}: {reason}");
     }
 
     pub fn exit_code(&self) -> ExitCode {

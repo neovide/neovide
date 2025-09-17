@@ -17,7 +17,7 @@ impl ParseFromValue for f32 {
         } else if value.is_u64() {
             *self = value.as_u64().unwrap() as f32;
         } else {
-            error!("Setting expected an f32, but received {:?}", value);
+            error!("Setting expected an f32, but received {value:?}");
         }
     }
 }
@@ -27,7 +27,7 @@ impl ParseFromValue for u64 {
         if value.is_u64() {
             *self = value.as_u64().unwrap();
         } else {
-            error!("Setting expected a u64, but received {:?}", value);
+            error!("Setting expected a u64, but received {value:?}");
         }
     }
 }
@@ -37,7 +37,7 @@ impl ParseFromValue for u32 {
         if value.is_u64() {
             *self = value.as_u64().unwrap() as u32;
         } else {
-            error!("Setting expected a u32, but received {:?}", value);
+            error!("Setting expected a u32, but received {value:?}");
         }
     }
 }
@@ -47,7 +47,7 @@ impl ParseFromValue for i32 {
         if value.is_i64() {
             *self = value.as_i64().unwrap() as i32;
         } else {
-            error!("Setting expected an i32, but received {:?}", value);
+            error!("Setting expected an i32, but received {value:?}");
         }
     }
 }
@@ -57,7 +57,7 @@ impl ParseFromValue for String {
         if value.is_str() {
             *self = String::from(value.as_str().unwrap());
         } else {
-            error!("Setting expected a string, but received {:?}", value);
+            error!("Setting expected a string, but received {value:?}");
         }
     }
 }
@@ -69,7 +69,7 @@ impl ParseFromValue for bool {
         } else if value.is_u64() {
             *self = value.as_u64().unwrap() != 0;
         } else {
-            error!("Setting expected a bool or 0/1, but received {:?}", value);
+            error!("Setting expected a bool or 0/1, but received {value:?}");
         }
     }
 }

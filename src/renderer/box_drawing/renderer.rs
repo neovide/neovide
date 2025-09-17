@@ -8,7 +8,7 @@ use itertools::Itertools;
 use num::{Integer, ToPrimitive};
 use skia_safe::{
     paint::Cap, BlendMode, Canvas, ClipOp, Color, Paint, PaintStyle, Path, PathEffect,
-    PathFillType, Point, Rect, Size,
+    PathFillType, Point, Rect,
 };
 
 use crate::units::{to_skia_point, to_skia_rect, PixelRect, PixelSize, PixelVec};
@@ -45,6 +45,19 @@ impl LineAlignment for PixelPos<f32> {
 
     fn align_outside(self) -> Self {
         self.round()
+    }
+}
+
+impl LineAlignment for PixelRect<f32> {
+    fn align_mid_line(self, stroke_width: f32) -> Self {
+        PixelRect::new(
+            self.min.align_mid_line(stroke_width),
+            self.max.align_mid_line(stroke_width),
+        )
+    }
+
+    fn align_outside(self) -> Self {
+        PixelRect::new(self.min.align_outside(), self.max.align_outside())
     }
 }
 
@@ -324,34 +337,29 @@ impl<'a> Context<'a> {
 
     fn draw_d(&self, side: Side, fill: PaintStyle, close_path: bool) {
         let mut path = Path::default();
-        let bounds = self.bounding_box;
+        let mut bounds = self.bounding_box.align_outside();
         let stroke_width = self.get_stroke_width_pixels(Thickness::Thin);
-        let mut radius = (bounds.size().width).min(bounds.size().height / 2.0);
-        // Leave a small gap between the circles, and also allow them to move a bit to the side
-        // depending on the pixel alignment of the cell.
-        radius -= 1.0;
-        if fill == PaintStyle::Stroke {
-            radius -= stroke_width / 2.0;
+
+        if matches!(side, Side::Left) {
+            bounds.max.x += bounds.size().width;
+        } else {
+            bounds.min.x -= bounds.size().width;
         }
-        let diameter = PixelSize::new(radius * 2.0, radius * 2.0);
+        if !close_path {
+            let stroke_offset = PixelVec::new(stroke_width / 2.0, stroke_width / 2.0);
+            bounds.min += stroke_offset;
+            bounds.max -= stroke_offset;
+        }
 
         match side {
             Side::Left => {
-                let origin = PixelPos::new(
-                    bounds.max.x.align_outside() - radius,
-                    bounds.center().y - radius,
-                );
-                let rect = to_skia_rect(&PixelRect::from_origin_and_size(origin, diameter));
+                let rect = to_skia_rect(&bounds);
                 let start_angle = 90.0;
                 let sweep_angle = 180.0;
                 path.arc_to(rect, start_angle, sweep_angle, true);
             }
             Side::Right => {
-                let origin = PixelPos::new(
-                    bounds.min.x.align_outside() - radius,
-                    bounds.center().y - radius,
-                );
-                let rect = to_skia_rect(&PixelRect::from_origin_and_size(origin, diameter));
+                let rect = to_skia_rect(&bounds);
                 let start_angle = 270.0;
                 let sweep_angle = 180.0;
                 path.arc_to(rect, start_angle, sweep_angle, true);
@@ -400,7 +408,7 @@ impl<'a> Context<'a> {
     }
 
     fn draw_progress(&self, section: Section, fill: PaintStyle) {
-        let bounds = to_skia_rect(&self.bounding_box);
+        let bounds = to_skia_rect(&self.bounding_box.round());
         let t: f32 = self.get_stroke_width_pixels(Thickness::Thin);
         let clip_rect = match section {
             Section::Left => bounds.with_inset((0., t)).with_offset((t, 0.)),
@@ -491,7 +499,7 @@ impl<'a> Context<'a> {
         };
 
         let x1 = match which_half {
-            HalfSelector::First | HalfSelector::Both => min.x,
+            HalfSelector::First | HalfSelector::Both => min.x.round(),
             HalfSelector::Last => {
                 mid.x.align_mid_line(target_stroke_width) + target_offset
                     - 0.5 * target_stroke_width
@@ -499,7 +507,7 @@ impl<'a> Context<'a> {
         };
 
         let x2 = match which_half {
-            HalfSelector::Last | HalfSelector::Both => max.x,
+            HalfSelector::Last | HalfSelector::Both => max.x.round(),
             HalfSelector::First => {
                 mid.x.align_mid_line(target_stroke_width)
                     + target_offset
@@ -563,18 +571,25 @@ impl<'a> Context<'a> {
             Orientation::Horizontal => {
                 let step = height / 8.0;
                 let y1 = min.y + start * step;
-                Rect::from_point_and_size((min.x, y1), Size::new(width, num_steps * step))
+                PixelRect::from_origin_and_size(
+                    (min.x, y1).into(),
+                    PixelSize::new(width, num_steps * step),
+                )
             }
             Orientation::Vertical => {
                 let step = width / 8.0;
                 let x1 = min.x + start * step;
-                Rect::from_point_and_size((x1, min.y), Size::new(num_steps * step, height))
+                PixelRect::from_origin_and_size(
+                    (x1, min.y).into(),
+                    PixelSize::new(num_steps * step, height),
+                )
             }
-        };
+        }
+        .round();
         let mut paint = self.fg_paint();
         paint.set_alpha_f(shade.into());
         paint.set_style(PaintStyle::Fill);
-        self.canvas.draw_rect(rect, &paint);
+        self.canvas.draw_rect(to_skia_rect(&rect), &paint);
     }
 
     fn draw_diagonal_fill(
@@ -1268,9 +1283,7 @@ static BOX_CHARS: LazyLock<BTreeMap<char, BoxDrawFn>> = LazyLock::new(|| {
         ctx.draw_eighth(Horizontal, 1..=7, Shade::Solid);
     }];
     box_char!['█' -> |ctx: &Context| {
-        let mut paint = ctx.fg_paint();
-        paint.set_style(PaintStyle::Fill);
-        ctx.canvas.draw_paint(&paint);
+        ctx.draw_eighth(Horizontal, 0..=7, Shade::Solid);
     }];
     box_char!['▉' -> |ctx: &Context| {
         ctx.draw_eighth(Vertical, 0..=6, Shade::Solid);

@@ -13,7 +13,7 @@ impl SwashFont {
         Some(Self { data, offset, key })
     }
 
-    pub fn as_ref(&self) -> FontRef {
+    pub fn as_ref(&self) -> FontRef<'_> {
         FontRef {
             data: &self.data,
             offset: self.offset,

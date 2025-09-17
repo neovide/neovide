@@ -643,6 +643,26 @@ Setting `g:neovide_fullscreen` to a boolean value will set whether the app shoul
 screen. This uses the so called "windowed fullscreen" mode that is sometimes used in games which
 want quick window switching.
 
+#### Simple Fullscreen (MacOS only)
+
+VimScript:
+
+```vim
+let g:neovide_macos_simple_fullscreen = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_macos_simple_fullscreen = true
+```
+
+**Available since 0.15.1.**
+
+Setting `neovide_macos_simple_fullscreen` will hide the dock and menu bar for MacOS.
+
+This won’t work if the window was already in the native fullscreen.
+
 #### Remember Previous Window Size
 
 VimScript:
@@ -775,6 +795,32 @@ vim.api.nvim_create_autocmd({ "CmdlineEnter", "CmdlineLeave" }, {
 })
 ```
 
+#### macOS Global Activation Shortcuts
+
+Neovide registers two system-wide shortcuts on macOS:
+
+- **Pinned** (<kbd>⌘</kbd> + <kbd>⌃</kbd> + <kbd>Z</kbd>) toggles the most recently used Neovide
+  window. When that window is already active, the shortcut hides it; otherwise it brings the window
+  to the front.
+- **Editors** (<kbd>⌘</kbd> + <kbd>⌃</kbd> + <kbd>N</kbd>) opens the Editors view so you can pick
+  another Neovide window. If only one window exists, it behaves the same as the pinned shortcut.
+
+Customize them by setting the environment variables `NEOVIDE_MACOS_PINNED_HOTKEY` and
+`NEOVIDE_MACOS_SWITCHER_HOTKEY` before launching Neovide:
+
+```bash
+launchctl setenv NEOVIDE_MACOS_PINNED_HOTKEY "ctrl+space"
+launchctl setenv NEOVIDE_MACOS_SWITCHER_HOTKEY "cmd+shift+space"
+```
+
+Use `cmd`, `ctrl`, `alt`, and `shift` for modifiers and a single character for the key. To disable a
+shortcut entirely, set the corresponding variable to `off`, `none`, `disabled`, or leave it empty.
+The legacy `NEOVIDE_MACOS_ACTIVATION_HOTKEY` variable is still honored as an alias for the Editors
+shortcut.
+
+macOS may prompt you to grant Neovide Accessibility/Input Monitoring permissions the first time you
+use this feature so the shortcut can be detected outside the app.
+
 #### Touch Deadzone
 
 VimScript:
@@ -843,6 +889,23 @@ vim.g.neovide_cursor_animation_length = 0.150
 
 Setting `g:neovide_cursor_animation_length` determines the time it takes for the cursor to complete
 its animation in seconds. Set to `0` to disable.
+
+#### Short Animation Length
+
+VimScript:
+
+```vim
+let g:neovide_cursor_short_animation_length = 0.04
+```
+
+Lua:
+
+```lua
+vim.g.neovide_cursor_short_animation_length = 0.04
+```
+
+Setting `g:neovide_cursor_short_animation_length` determines the time it takes for the cursor to complete
+its animation in seconds for short horizontal travels of one or two characters, like when typing.
 
 #### Animation Trail Size
 

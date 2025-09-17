@@ -10,6 +10,7 @@
 - [Commands](commands.md)
 - [Command Line Reference](command-line-reference.md)
 - [Config File](config-file.md)
+- [API](api.md)
 - [Integration w/ External Tools](integration-with-external-tools.md)
 - [Troubleshooting](troubleshooting.md)
 - [FAQ](faq.md)

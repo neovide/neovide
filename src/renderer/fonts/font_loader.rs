@@ -91,7 +91,7 @@ impl FontLoader {
 
     fn load(&mut self, font_key: FontKey) -> Option<FontPair> {
         tracy_zone!("load_font");
-        trace!("Loading font {:?}", font_key);
+        trace!("Loading font {font_key:?}");
         if let Some(desc) = &font_key.font_desc {
             let (family, style) = desc.as_family_and_font_style();
             let typeface = self.font_mgr.match_family_style(family, style)?;

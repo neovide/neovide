@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use crate::{
-    bridge::{send_ui, SerialCommand},
+    bridge::{send_ui, NeovimHandler, SerialCommand},
     settings::Settings,
 };
 
@@ -41,25 +41,28 @@ impl KeyboardManager {
         }
     }
 
-    pub fn handle_event(&mut self, event: &WindowEvent) {
+    pub fn handle_event(&mut self, event: &WindowEvent, neovim_handler: &NeovimHandler) {
         match event {
             WindowEvent::KeyboardInput {
                 event: key_event,
                 is_synthetic: false,
                 ..
             } if self.ime_preedit.0.is_empty() => {
-                log::trace!("{:#?}", key_event);
+                log::trace!("{key_event:#?}");
                 if key_event.state == ElementState::Pressed {
                     if let Some(text) = self.format_key(key_event) {
                         log::trace!("Key pressed {} {:?}", text, self.modifiers.state());
                         tracy_named_frame!("keyboard input");
-                        send_ui(SerialCommand::Keyboard(text));
+                        send_ui(SerialCommand::Keyboard(text), neovim_handler);
                     }
                 }
             }
             WindowEvent::Ime(Ime::Commit(text)) => {
                 log::trace!("Ime commit {text}");
-                send_ui(SerialCommand::Keyboard(self.format_key_text(text, false)));
+                send_ui(
+                    SerialCommand::Keyboard(self.format_key_text(text, false)),
+                    neovim_handler,
+                );
             }
             WindowEvent::Ime(Ime::Preedit(text, cursor_offset)) => {
                 self.ime_preedit = (text.to_string(), *cursor_offset)

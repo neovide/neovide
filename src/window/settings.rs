@@ -31,6 +31,8 @@ pub struct WindowSettings {
     pub input_macos_alt_is_meta: bool,
     #[cfg(target_os = "macos")]
     pub input_macos_option_key_is_meta: OptionAsMeta,
+    #[cfg(target_os = "macos")]
+    pub macos_simple_fullscreen: bool,
     pub input_ime: bool,
     pub show_border: bool,
     pub cursor_hack: bool,
@@ -75,6 +77,8 @@ impl Default for WindowSettings {
             input_macos_alt_is_meta: false,
             #[cfg(target_os = "macos")]
             input_macos_option_key_is_meta: OptionAsMeta::None,
+            #[cfg(target_os = "macos")]
+            macos_simple_fullscreen: false,
             input_ime: true,
             mouse_move_event: false,
             observed_lines: None,
@@ -109,15 +113,12 @@ impl ParseFromValue for OptionAsMeta {
                 "both" => OptionAsMeta::Both,
                 "none" => OptionAsMeta::None,
                 value => {
-                    error!("Setting OptionAsMeta expected one of `only_left`, `only_right`, `both`, or `none`, but received {:?}", value);
+                    error!("Setting OptionAsMeta expected one of `only_left`, `only_right`, `both`, or `none`, but received {value:?}");
                     return;
                 }
             };
         } else {
-            error!(
-                "Setting OptionAsMeta expected string, but received {:?}",
-                value
-            );
+            error!("Setting OptionAsMeta expected string, but received {value:?}");
         }
     }
 }

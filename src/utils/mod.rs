@@ -14,7 +14,7 @@ pub fn is_tty() -> bool {
 }
 
 #[cfg(not(target_os = "windows"))]
-pub fn handle_wslpaths(paths: Vec<String>, _wsl: bool, _quote: bool) -> Vec<String> {
+pub fn handle_wslpaths(paths: Vec<String>, _wsl: bool) -> Vec<String> {
     paths
 }
 
@@ -22,7 +22,7 @@ pub fn handle_wslpaths(paths: Vec<String>, _wsl: bool, _quote: bool) -> Vec<Stri
 ///
 /// If conversion of a path fails, the path is passed to neovim unchanged.
 #[cfg(target_os = "windows")]
-pub fn handle_wslpaths(paths: Vec<String>, wsl: bool, quote: bool) -> Vec<String> {
+pub fn handle_wslpaths(paths: Vec<String>, wsl: bool) -> Vec<String> {
     if !wsl {
         return paths;
     }
@@ -31,12 +31,7 @@ pub fn handle_wslpaths(paths: Vec<String>, wsl: bool, quote: bool) -> Vec<String
         .into_iter()
         .map(|path| {
             let path = std::fs::canonicalize(&path).map_or(path, |p| p.to_string_lossy().into());
-            let wslpath = windows_to_wsl(&path).unwrap_or(path);
-            if quote {
-                format!("'{}'", wslpath)
-            } else {
-                wslpath
-            }
+            windows_to_wsl(&path).unwrap_or(path)
         })
         .collect()
 }

@@ -122,11 +122,11 @@ impl FontFeature {
             if let Ok(value) = value {
                 Ok(FontFeature(name.to_string(), value))
             } else {
-                warn!("Wrong feature format: {}", feature);
+                warn!("Wrong feature format: {feature}");
                 Err(feature)
             }
         } else {
-            warn!("Wrong feature format: {}", feature);
+            warn!("Wrong feature format: {feature}");
             Err(feature)
         }
     }

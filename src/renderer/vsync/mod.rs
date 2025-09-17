@@ -1,6 +1,4 @@
 #[cfg(target_os = "macos")]
-mod macos_display_link;
-#[cfg(target_os = "macos")]
 mod vsync_macos_display_link;
 mod vsync_timer;
 #[cfg(target_os = "windows")]
@@ -13,7 +11,9 @@ use std::sync::Arc;
 use winit::{event_loop::EventLoopProxy, window::Window};
 
 use crate::{
-    renderer::SkiaRenderer, settings::Settings, window::UserEvent, window::WindowSettings,
+    renderer::SkiaRenderer,
+    settings::Settings,
+    window::{EventPayload, WindowSettings},
 };
 use vsync_timer::VSyncTimer;
 
@@ -44,7 +44,7 @@ impl VSync {
     pub fn new(
         vsync_enabled: bool,
         renderer: &dyn SkiaRenderer,
-        proxy: EventLoopProxy<UserEvent>,
+        proxy: EventLoopProxy<EventPayload>,
         settings: Arc<Settings>,
     ) -> Self {
         if vsync_enabled {

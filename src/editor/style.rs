@@ -2,8 +2,11 @@ use skia_safe::Color4f;
 
 #[derive(new, Debug, Clone, PartialEq)]
 pub struct Colors {
+    /// Foreground color.
     pub foreground: Option<Color4f>,
+    /// Background color.
     pub background: Option<Color4f>,
+    /// Color to use for various underlines, when present.
     pub special: Option<Color4f>,
 }
 
@@ -19,14 +22,19 @@ pub enum UnderlineStyle {
 #[derive(new, Debug, Clone, PartialEq)]
 pub struct Style {
     pub colors: Colors,
+    /// Reverse video, i.e. switch foreground and background colors.
     #[new(default)]
     pub reverse: bool,
+    /// Italic text.
     #[new(default)]
     pub italic: bool,
+    /// Bold text.
     #[new(default)]
     pub bold: bool,
+    /// Struck through text.
     #[new(default)]
     pub strikethrough: bool,
+    /// Blend level (0-100).
     #[new(default)]
     pub blend: u8,
     #[new(default)]
