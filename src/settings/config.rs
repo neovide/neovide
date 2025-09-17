@@ -9,6 +9,7 @@ use winit::event_loop::EventLoopProxy;
 use crate::{
     error_msg,
     frame::Frame,
+    renderer::box_drawing::BoxDrawingSettings,
     window::{EventPayload, UserEvent},
 };
 
@@ -47,6 +48,7 @@ pub fn config_path() -> PathBuf {
 #[serde(rename_all = "kebab-case")]
 pub struct Config {
     pub font: Option<FontSettings>,
+    pub box_drawing: Option<BoxDrawingSettings>,
     pub fork: Option<bool>,
     pub frame: Option<Frame>,
     pub idle: Option<bool>,
@@ -64,8 +66,10 @@ pub struct Config {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[allow(clippy::large_enum_variant)]
 pub enum HotReloadConfigs {
     Font(Option<FontSettings>),
+    BoxDrawing(Option<BoxDrawingSettings>),
 }
 
 impl Config {
@@ -192,6 +196,16 @@ fn watcher_thread(init_config: Config, event_loop_proxy: EventLoopProxy<EventPay
                 .send_event(EventPayload::new(
                     UserEvent::ConfigsChanged(Box::new(HotReloadConfigs::Font(
                         config.font.clone(),
+                    ))),
+                    winit::window::WindowId::from(0),
+                ))
+                .unwrap();
+        }
+        if config.box_drawing != previous_config.box_drawing {
+            event_loop_proxy
+                .send_event(EventPayload::new(
+                    UserEvent::ConfigsChanged(Box::new(HotReloadConfigs::BoxDrawing(
+                        config.box_drawing.clone(),
                     ))),
                     winit::window::WindowId::from(0),
                 ))

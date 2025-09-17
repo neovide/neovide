@@ -29,7 +29,7 @@ use crate::{
     },
     running_tracker::RunningTracker,
     settings::{
-        clamped_grid_size, load_last_window_settings, Config, FontSettings, HotReloadConfigs,
+        clamped_grid_size, font::FontSettings, load_last_window_settings, Config, HotReloadConfigs,
         Settings, SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE,
     },
     units::{GridRect, GridScale, GridSize, PixelPos, PixelSize},
@@ -617,9 +617,7 @@ impl WinitWindowWrapper {
         let window = Rc::new(window_config.window.clone());
 
         let config = Config::init();
-        let initial_font_settings = config.font;
-
-        let mut renderer = Renderer::new(1.0, initial_font_settings, self.settings.clone());
+        let mut renderer = Renderer::new(1.0, config, self.settings.clone());
 
         let WindowSettings {
             input_ime,

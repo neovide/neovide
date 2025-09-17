@@ -48,6 +48,7 @@ use std::{
 
 use anyhow::Result;
 use log::trace;
+use settings::font::FontSettings;
 use std::panic::{set_hook, PanicHookInfo};
 use time::{macros::format_description, OffsetDateTime};
 use winit::{error::EventLoopError, event_loop::EventLoopProxy};
@@ -68,7 +69,7 @@ pub use channel_utils::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
-use crate::settings::{load_last_window_settings, Config, FontSettings, Settings};
+use crate::settings::{load_last_window_settings, Config, PersistentWindowSettings, Settings};
 
 pub use profiling::startup_profiler;
 

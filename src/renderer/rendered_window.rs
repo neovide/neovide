@@ -8,7 +8,7 @@ use crate::{
     profiling::{tracy_plot, tracy_zone},
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
     settings::Settings,
-    units::{to_skia_rect, GridPos, GridRect, GridScale, GridSize, PixelRect, PixelVec},
+    units::{to_skia_rect, GridPos, GridRect, GridScale, GridSize, PixelPos, PixelRect, PixelVec},
     utils::RingBuffer,
 };
 
@@ -67,6 +67,7 @@ struct Line {
     line_fragments: Vec<LineFragment>,
     background_picture: Option<Picture>,
     foreground_picture: Option<Picture>,
+    boxchar_picture: Option<(Picture, PixelPos<f32>)>,
     has_transparency: bool,
     is_valid: bool,
 }
@@ -138,10 +139,11 @@ impl RenderedWindow {
     }
 
     pub fn pixel_region(&self, grid_scale: GridScale) -> PixelRect<f32> {
-        GridRect::<f32>::from_origin_and_size(
-            self.grid_current_position,
-            self.grid_size.try_cast().unwrap(),
-        ) * grid_scale
+        // Round to the same fraction as the desination to avoid glitches when rendering box
+        // characters.
+        let fract = (self.grid_destination * grid_scale).fract();
+        let pos = (self.grid_current_position * grid_scale - fract).round() + fract.to_vector();
+        PixelRect::<f32>::from_origin_and_size(pos.into(), self.grid_size * grid_scale)
     }
 
     fn get_target_position(&self, grid_rect: &GridRect<f32>) -> GridPos<f32> {
@@ -271,6 +273,28 @@ impl RenderedWindow {
             }
         }
         canvas.restore();
+
+        for (mut matrix, line) in self.iter_border_lines_with_transform(pixel_region, grid_scale) {
+            let line = line.borrow();
+            if let Some((boxchar_picture, position)) = &line.boxchar_picture {
+                let deltax = pixel_region.min.x - position.x;
+                matrix.set_translate_x(deltax);
+                canvas.draw_picture(boxchar_picture, Some(&matrix), None);
+            }
+        }
+        canvas.save();
+        canvas.clip_rect(self.inner_region(pixel_region, grid_scale), None, false);
+        for (mut matrix, line) in
+            self.iter_scrollable_lines_with_transform(pixel_region, grid_scale)
+        {
+            let line = line.borrow();
+            if let Some((boxchar_picture, position)) = &line.boxchar_picture {
+                let deltax = pixel_region.min.x - position.x;
+                matrix.set_translate_x(deltax);
+                canvas.draw_picture(boxchar_picture, Some(&matrix), None);
+            }
+        }
+        canvas.restore();
     }
 
     pub fn has_transparency(&self) -> bool {
@@ -384,6 +408,7 @@ impl RenderedWindow {
                     line_fragments,
                     background_picture: None,
                     foreground_picture: None,
+                    boxchar_picture: None,
                     has_transparency: false,
                     is_valid: false,
                 };
@@ -595,7 +620,14 @@ impl RenderedWindow {
 
         let mut prepare_line = |line: &Rc<RefCell<Line>>| {
             let mut line = line.borrow_mut();
-            if line.is_valid && !force {
+            let position = self.grid_destination * grid_renderer.grid_scale;
+            let boxchar_moved = match line.boxchar_picture {
+                None => false,
+                Some((_, p)) if p == position => false,
+                _ => true,
+            };
+            // This can be optimized, only the boxchars need to be redrawn when the window moves
+            if line.is_valid && !force && !boxchar_moved {
                 return;
             }
 
@@ -629,8 +661,12 @@ impl RenderedWindow {
             let background_picture =
                 custom_background.then_some(recorder.finish_recording_as_picture(None).unwrap());
 
-            let canvas = recorder.begin_recording(grid_rect, None);
-            let mut foreground_drawn = false;
+            let text_canvas = recorder.begin_recording(grid_rect, None);
+            let mut boxchar_recorder = PictureRecorder::new();
+            let boxchar_canvas =
+                boxchar_recorder.begin_recording(grid_rect.with_offset((position.x, 0.0)), None);
+            let mut text_drawn = false;
+            let mut boxchar_drawn = false;
             for line_fragment in &line.line_fragments {
                 let LineFragment {
                     text,
@@ -640,19 +676,28 @@ impl RenderedWindow {
                 } = line_fragment;
                 let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
 
-                foreground_drawn |= grid_renderer.draw_foreground(
-                    canvas,
+                let (frag_text_drawn, frag_box_drawn) = grid_renderer.draw_foreground(
+                    text_canvas,
+                    boxchar_canvas,
                     text,
                     grid_position,
                     i32::try_from(*width).unwrap(),
                     style,
+                    position,
                 );
+                text_drawn |= frag_text_drawn;
+                boxchar_drawn |= frag_box_drawn;
             }
             let foreground_picture =
-                foreground_drawn.then_some(recorder.finish_recording_as_picture(None).unwrap());
+                text_drawn.then_some(recorder.finish_recording_as_picture(None).unwrap());
+            let boxchar_picture = boxchar_drawn.then_some((
+                boxchar_recorder.finish_recording_as_picture(None).unwrap(),
+                position,
+            ));
 
             line.background_picture = background_picture;
             line.foreground_picture = foreground_picture;
+            line.boxchar_picture = boxchar_picture;
             line.has_transparency = has_transparency;
             line.is_valid = true;
         };

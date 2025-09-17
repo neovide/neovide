@@ -16,10 +16,10 @@ use crate::{
     profiling::{tracy_plot, tracy_zone},
     renderer::DrawCommand,
     running_tracker::RunningTracker,
-    settings::Settings,
+    settings::{font::FontSettings, Settings},
     units::Grid,
     window::UserEvent,
-    FontSettings, WindowSize,
+    WindowSize,
 };
 
 enum FocusedState {

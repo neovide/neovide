@@ -1,4 +1,4 @@
-mod font;
+pub mod font;
 mod from_value;
 mod window_size;
 
@@ -24,7 +24,6 @@ pub use window_size::{
 
 mod config;
 pub use config::{Config, HotReloadConfigs};
-pub use font::FontSettings;
 
 pub trait SettingGroup {
     type ChangedEvent: Debug + Clone + Send + Sync + Any;
