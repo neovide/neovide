@@ -221,7 +221,7 @@ impl Renderer {
         let opacity = if window_settings.normal_opacity < 1.0 {
             window_settings.normal_opacity
         } else {
-            window_settings.transparency
+            window_settings.opacity
         };
         let default_background = self.grid_renderer.get_default_background(opacity);
         let grid_scale = self.grid_renderer.grid_scale;
@@ -404,10 +404,10 @@ impl Renderer {
     }
 
     pub fn prepare_lines(&mut self, force: bool) {
-        let transparency = self.settings.get::<WindowSettings>().transparency;
+        let opacity = self.settings.get::<WindowSettings>().opacity;
         self.rendered_windows
             .iter_mut()
-            .for_each(|(_, w)| w.prepare_lines(&mut self.grid_renderer, transparency, force));
+            .for_each(|(_, w)| w.prepare_lines(&mut self.grid_renderer, opacity, force));
     }
 
     fn handle_draw_command(&mut self, draw_command: DrawCommand, result: &mut DrawCommandResult) {
