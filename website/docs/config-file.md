@@ -143,8 +143,6 @@ style = "Bold"
 
 #### Box Drawing
 
-**Unreleased yet.**
-
 The Unicode standard defines several code points that are useful to draw [boxes, diagrams or are
 otherwise decorations][https://en.wikipedia.org/wiki/Box_Drawing]. A font file can include graphical
 representation for several of these code points (glyphs). For example, [Nerd
