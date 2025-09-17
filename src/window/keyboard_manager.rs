@@ -174,17 +174,6 @@ impl KeyboardManager {
     }
 
     fn format_normal_key(&self, key_event: &KeyEvent) -> Option<String> {
-        // On macOS, when alt is held and alt_is_meta is set to true, then send the base key plus
-        // the whole modifier state. Otherwise send the resulting character with "S-" and "M-"
-        // removed.
-        #[cfg(target_os = "macos")]
-        if self.meta_is_pressed {
-            return key_event
-                .key_without_modifiers()
-                .to_text()
-                .map(|text| self.format_key_text(text, false));
-        }
-
         key_event
             .text
             .as_ref()
