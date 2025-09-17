@@ -108,15 +108,13 @@ impl MouseManager {
         let relative_position = (self.window_position - window_details.region.min).to_point();
         (relative_position / *editor_state.grid_scale)
             .floor()
+            .max((0.0, 0.0).into())
             .try_cast()
             .unwrap()
-            .clamp(
-                (0, 0).into(),
-                Point2::new(
-                    window_details.grid_size.width.max(1) - 1,
-                    window_details.grid_size.height.max(1) - 1,
-                ),
-            )
+            .min(Point2::new(
+                window_details.grid_size.width.max(1) - 1,
+                window_details.grid_size.height.max(1) - 1,
+            ))
     }
 
     fn handle_pointer_motion(
