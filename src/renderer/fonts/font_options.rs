@@ -62,8 +62,7 @@ impl CoarseStyle {
 
     /// Iterates through all possible style permutations.
     pub fn permutations() -> impl Iterator<Item = CoarseStyle> {
-        iter::repeat([true, false])
-            .take(2)
+        iter::repeat_n([true, false], 2)
             .multi_cartesian_product()
             .map(|values| CoarseStyle {
                 bold: values[0],
