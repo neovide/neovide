@@ -42,7 +42,7 @@ use crate::{
 #[cfg(windows)]
 use {
     crate::windows_utils::{register_right_click, unregister_right_click},
-    winit::platform::windows::{Color, WindowExtWindows},
+    winit::platform::windows::{BackdropType, Color, WindowExtWindows},
 };
 
 #[cfg(target_os = "macos")]
@@ -731,6 +731,12 @@ impl WinitWindowWrapper {
         );
 
         window.set_blur(window_blurred && opacity < 1.0);
+
+        #[cfg(target_os = "windows")]
+        if window_blurred {
+            window.set_system_backdrop(BackdropType::TransientWindow); // Acrylic blur
+        }
+
         if fullscreen {
             let handle = window.current_monitor();
             window.set_fullscreen(Some(Fullscreen::Borderless(handle)));
