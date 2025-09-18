@@ -149,6 +149,12 @@ jobs:
       - name: Install Cargo Binstall
         uses: cargo-bins/cargo-binstall@main
 
+      # This is needed for building skia from source
+      - name: Setup github long path support (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          git config --system core.longpaths true
+
       - name: Install dependencies (Windows)
         if: matrix.os == 'windows-latest'
         run: |
@@ -190,10 +196,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         env:
           RUSTFLAGS: "-Ctarget-feature=+crt-static" 
-        # The file paths are to long, so we need to vendor the dependencies
         run: |
-          mkdir .cargo
-          cargo vendor ../c > .cargo/config.toml
           cargo wix --nocapture --output target/release/neovide.msi --package neovide
 
       - name: Build (macOS)
