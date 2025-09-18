@@ -75,6 +75,7 @@ jobs:
         run: cargo binstall -y cargo-nextest
 
       - uses: Swatinem/rust-cache@v2
+        shared-key: test-and-clippy
         save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: Test
@@ -114,6 +115,7 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         save-if: ${{ github.ref == 'refs/heads/master' }}
+        shared-key: test-and-clippy
 
       - name: Show toolchain info
         run: cargo --version --verbose
