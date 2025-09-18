@@ -75,8 +75,9 @@ jobs:
         run: cargo binstall -y cargo-nextest
 
       - uses: Swatinem/rust-cache@v2
-        shared-key: test-and-clippy
-        save-if: ${{ github.ref == 'refs/heads/master' }}
+        with:
+          shared-key: test-and-clippy
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: Test
         env:
@@ -114,8 +115,9 @@ jobs:
           components: clippy
 
       - uses: Swatinem/rust-cache@v2
-        save-if: ${{ github.ref == 'refs/heads/master' }}
-        shared-key: test-and-clippy
+        with:
+          save-if: ${{ github.ref == 'refs/heads/master' }}
+          shared-key: test-and-clippy
 
       - name: Show toolchain info
         run: cargo --version --verbose
@@ -195,7 +197,8 @@ jobs:
           neovim: true
 
       - uses: Swatinem/rust-cache@v2
-        save-if: ${{ github.ref == 'refs/heads/master' }}
+        with:
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: Build (Windows)
         if: matrix.os == 'windows-latest'
