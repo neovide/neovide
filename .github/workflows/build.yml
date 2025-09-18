@@ -75,6 +75,7 @@ jobs:
         run: cargo binstall -y cargo-nextest
 
       - uses: Swatinem/rust-cache@v2
+        save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: Test
         env:
@@ -112,6 +113,7 @@ jobs:
           components: clippy
 
       - uses: Swatinem/rust-cache@v2
+        save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: Show toolchain info
         run: cargo --version --verbose
@@ -191,6 +193,7 @@ jobs:
           neovim: true
 
       - uses: Swatinem/rust-cache@v2
+        save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - name: Build (Windows)
         if: matrix.os == 'windows-latest'
