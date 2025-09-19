@@ -27,15 +27,17 @@ pub struct WindowSettings {
     pub padding_right: u32,
     pub padding_bottom: u32,
     pub theme: String,
+    pub input_ime: bool,
+    pub show_border: bool,
+    pub cursor_hack: bool,
+    pub has_mouse_grid_detection: bool,
+
     #[cfg(target_os = "macos")]
     pub input_macos_alt_is_meta: bool,
     #[cfg(target_os = "macos")]
     pub input_macos_option_key_is_meta: OptionAsMeta,
     #[cfg(target_os = "macos")]
     pub macos_simple_fullscreen: bool,
-    pub input_ime: bool,
-    pub show_border: bool,
-    pub cursor_hack: bool,
 
     #[cfg(target_os = "windows")]
     pub title_background_color: String,
@@ -73,17 +75,18 @@ impl Default for WindowSettings {
             padding_right: 0,
             padding_bottom: 0,
             theme: "".to_string(),
+            input_ime: true,
+            mouse_move_event: false,
+            observed_lines: None,
+            observed_columns: None,
+            show_border: false,
+            has_mouse_grid_detection: false,
             #[cfg(target_os = "macos")]
             input_macos_alt_is_meta: false,
             #[cfg(target_os = "macos")]
             input_macos_option_key_is_meta: OptionAsMeta::None,
             #[cfg(target_os = "macos")]
             macos_simple_fullscreen: false,
-            input_ime: true,
-            mouse_move_event: false,
-            observed_lines: None,
-            observed_columns: None,
-            show_border: false,
             cursor_hack: true,
 
             #[cfg(target_os = "windows")]

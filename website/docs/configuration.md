@@ -718,6 +718,28 @@ some cases the hack itself is buggy and prevents the cursor from moving to the c
 should. In that case you can try to disable it, especially if you are not using cursor animations
 and the flickering does not bother as much.
 
+#### Autodetect mouse grid
+
+VimScript:
+
+```vim
+let g:neovide_has_mouse_grid_detection = v:false
+```
+
+Lua:
+
+```lua
+vim.g.neovide_has_mouse_grid_detection = true
+```
+
+**Unreleased yet.**
+
+**Requires Neovim 0.12.0.**
+
+Neovim will detect the mouse grid for much better mouse compatibility when enabled. This can be
+enabled starting from Neovim Nightly September 14. 2025, but won't be enabled by default until
+Neovim 0.12.0 is released. The behaviour when trying to enable it for older versions is undefined.
+
 ### Input Settings
 
 #### macOS Option Key is Meta

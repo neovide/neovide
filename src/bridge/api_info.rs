@@ -39,18 +39,16 @@ pub struct ApiVersion {
 }
 
 impl ApiVersion {
+    /// Note, this never consider pre-releses, since there's no way of knowing if a pre-release is new enough.
     #[allow(dead_code)]
     pub fn has_version(&self, major: u64, minor: u64, patch: u64) -> bool {
         let actual_major = self.major;
         let actual_minor = self.minor;
         let actual_patch = self.patch;
-        log::trace!("actual nvim version: {actual_major}.{actual_minor}.{actual_patch}");
-        log::trace!("expect nvim version: {major}.{minor}.{patch}");
-        let ret = actual_major > major
+        actual_major > major
             || (actual_major == major && actual_minor > minor)
-            || (actual_major == major && actual_minor == minor && actual_patch >= patch);
-        log::trace!("has desired nvim version: {ret}");
-        ret
+            || ((actual_major == major && actual_minor == minor && actual_patch >= patch)
+                && !self.prerelease)
     }
 }
 
