@@ -1,7 +1,7 @@
 use std::{
     io::{stdout, IsTerminal},
     process::ExitCode,
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
 
 use anyhow::{Error, Result};
@@ -15,6 +15,7 @@ use crate::windows_attach_to_console;
 
 use crate::{
     bridge::{send_ui, ParallelCommand},
+    clipboard::Clipboard,
     settings::Settings,
     window::{show_error_window, UserEvent},
 };
@@ -70,19 +71,29 @@ pub fn handle_startup_errors(
     err: Error,
     event_loop: EventLoop<UserEvent>,
     settings: Arc<Settings>,
+    clipboard: Arc<Mutex<Clipboard>>,
 ) -> ExitCode {
     // Command line output is always printed to the stdout/stderr
     if let Some(clap_error) = err.downcast_ref::<ClapError>() {
+        // SAFETY: The clipboard must be dropped before the event loop
+        drop(clipboard);
         #[cfg(target_os = "windows")]
         windows_attach_to_console();
         let _ = clap_error.print();
         ExitCode::from(clap_error.exit_code() as u8)
     } else if stdout().is_terminal() {
+        // SAFETY: The clipboard must be dropped before the event loop
+        drop(clipboard);
         // The logger already writes to stderr
         log::error!("{}", &format_and_log_error_message(err));
         ExitCode::from(1)
     } else {
-        show_error_window(&format_and_log_error_message(err), event_loop, settings);
+        show_error_window(
+            &format_and_log_error_message(err),
+            event_loop,
+            settings,
+            clipboard,
+        );
         ExitCode::from(1)
     }
 }
