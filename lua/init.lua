@@ -147,4 +147,14 @@ M.enable_redraw = function()
     pcall(rpcnotify, "neovide.set_redraw", true)
 end
 
+---@param preedit_raw_text string
+---@param cursor_offset? [integer, integer] (start_col, end_col) This values show the cursor begin position and end position. The position is byte-wise indexed.
+M.preedit_handler = function(preedit_raw_text, cursor_offset) end
+
+---@param commit_raw_text string
+---@param commit_formatted_text string It's escaped.
+M.commit_handler = function(commit_raw_text, commit_formatted_text)
+    vim.api.nvim_input(commit_formatted_text)
+end
+
 _G["neovide"] = M
