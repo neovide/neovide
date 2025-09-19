@@ -137,6 +137,16 @@ M.private.dropfile = function(filename, tabs)
     }, {})
 end
 
+M.private.can_set_background = function()
+    local info = vim.api.nvim_get_option_info2("background", {})
+    -- Don't change the background if someone else has set it
+    if info.was_set and info.last_set_chan ~= args.neovide_channel_id then
+        return false
+    else
+        return true
+    end
+end
+
 M.disable_redraw = function()
     -- Wrap inside pcall to avoid errors if Neovide disconnects
     pcall(rpcnotify, "neovide.set_redraw", false)
@@ -146,5 +156,6 @@ M.enable_redraw = function()
     -- Wrap inside pcall to avoid errors if Neovide disconnects
     pcall(rpcnotify, "neovide.set_redraw", true)
 end
+
 
 _G["neovide"] = M

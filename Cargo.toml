@@ -63,6 +63,7 @@ image = { version = "0.25.5", default-features = false, features = ["ico"] }
 itertools = "0.14.0"
 log = "0.4.22"
 lru = "0.16.0"
+mundy = { version = "0.2.0", default-features = false, features = ["tokio", "color-scheme"] }
 neovide-derive = { path = "neovide-derive", version = "0.1.3" }
 notify-debouncer-full = "0.6.0"
 num = "0.4.3"
