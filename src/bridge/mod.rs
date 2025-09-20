@@ -36,6 +36,36 @@ pub use ui_commands::{send_ui, start_ui_command_handler, ParallelCommand, Serial
 
 const NEOVIM_REQUIRED_VERSION: &str = "0.10.0";
 
+macro_rules! nvim_dict {
+    ( $( $key:expr => $value:expr ),* $(,)? ) => {
+        vec![
+            $( (Value::from($key), Value::from($value)) ),*
+        ]
+    };
+}
+pub(crate) use nvim_dict;
+
+/// nvim_command_output is deprecated, so use our own version
+async fn nvim_exec_output(
+    nvim: &Neovim<NeovimWriter>,
+    func: &str,
+) -> Result<String, Box<CallError>> {
+    let result = nvim
+        .exec2(
+            func,
+            nvim_dict! {
+                "output" => true,
+            },
+        )
+        .await?;
+    Ok(result
+        .iter()
+        .find(|(k, _)| k.as_str() == Some("output"))
+        .and_then(|(_, v)| v.as_str())
+        .unwrap_or("")
+        .to_string())
+}
+
 pub struct NeovimRuntime {
     pub runtime: Runtime,
 }
@@ -70,7 +100,7 @@ pub async fn show_error_message(
             Value::String(error_msg_highlight.clone()),
         ]),
     );
-    nvim.echo(prepared_lines, true, vec![]).await
+    nvim.echo(prepared_lines, true, nvim_dict! {}).await
 }
 
 async fn launch(
@@ -85,11 +115,12 @@ async fn launch(
         .context("Could not locate or start neovim process")?;
 
     // Check the neovim version to ensure its high enough
-    match session
-        .neovim
-        .command_output(&format!("echo has('nvim-{NEOVIM_REQUIRED_VERSION}')"))
-        .await
-        .as_deref()
+    match nvim_exec_output(
+        &session.neovim,
+        &format!("echo has('nvim-{NEOVIM_REQUIRED_VERSION}')"),
+    )
+    .await
+    .as_deref()
     {
         Ok("1") => {} // This is just a guard
         _ => {

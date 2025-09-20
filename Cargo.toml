@@ -60,6 +60,7 @@ glamour = { version = "0.18.0", features = ["serde"] }
 glutin = "0.32.3"
 glutin-winit = "0.5.0"
 image = { version = "0.25.5", default-features = false, features = ["ico"] }
+indoc = "2.0.5"
 itertools = "0.14.0"
 log = "0.4.22"
 lru = "0.16.0"
@@ -92,7 +93,6 @@ winit = { version = "=0.30.12", features = ["serde"] }
 xdg = "3.0.0"
 
 [dev-dependencies]
-indoc = "2.0.5"
 scoped-env = "2.1.0"
 serial_test = "3.2.0"
 
