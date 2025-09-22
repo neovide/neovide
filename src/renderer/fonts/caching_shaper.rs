@@ -178,7 +178,9 @@ impl CachingShaper {
         }
         let size = self.current_size();
         let pair = &self.current_font_pair();
-        let font_info = pair.font_info.unwrap();
+        let font_info = pair.font_info.expect(
+            "All fonts should be loaded with shaper and therefore have calculated font info",
+        );
         let metrics = font_info.0.linear_scale(size);
         let advance = font_info.1 * size;
         self.font_info = Some((metrics, advance));
@@ -388,8 +390,12 @@ impl CachingShaper {
                     .map(|desc| desc.family.as_str()),
             );
 
+            let fallback_info = font_pair.font_info.expect(
+                "All fonts should be loaded with shaper and therefore have calculated font info",
+            );
+
             // Scale fallback fonts to have the same width as the primary one
-            let scale = (font_pair.font_info.unwrap().1 * current_size) / self.info().1;
+            let scale = (fallback_info.1 * current_size) / self.info().1;
             let baseline_offset = self.baseline_offset();
 
             let mut shaper = self
@@ -407,7 +413,7 @@ impl CachingShaper {
 
             let mut glyph_data = Vec::new();
 
-            let metrics = &font_pair.font_info.unwrap().0;
+            let metrics = &fallback_info.0;
             // Push the baseline down if there's not enough space above it.
             // This only happens for fallback fonts.
             let y_offset = ((metrics.ascent + metrics.leading / 2.0) * current_size
