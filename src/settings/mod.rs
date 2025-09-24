@@ -117,7 +117,7 @@ impl Settings {
                             self.updaters.read().get(&location).unwrap()(self, value);
                         }
                         Err(error) => {
-                            trace!("Initial value load failed for {}: {}", name, error);
+                            trace!("Initial value load failed for {name}: {error}");
                             let value = self.readers.read().get(&location).unwrap()(self);
                             if let Some(value) = value {
                                 nvim.set_var(&variable_name, value).await.with_context(|| {
@@ -132,7 +132,7 @@ impl Settings {
                         self.updaters.read().get(&location).unwrap()(self, value);
                     }
                     Err(error) => {
-                        trace!("Initial value load failed for {}: {}", name, error);
+                        trace!("Initial value load failed for {name}: {error}");
                     }
                 },
             }
@@ -260,7 +260,10 @@ mod tests {
         settings.set_setting_handlers(location.clone(), noop_update, noop_read);
         let listeners = settings.updaters.read();
         let listener = listeners.get(&location).unwrap();
-        assert_eq!(&(noop_update as UpdateHandlerFunc), listener);
+        assert!(core::ptr::fn_addr_eq(
+            noop_update as UpdateHandlerFunc,
+            *listener
+        ));
     }
 
     #[test]

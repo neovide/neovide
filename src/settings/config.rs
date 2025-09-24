@@ -18,8 +18,8 @@ const CONFIG_FILE: &str = "config.toml";
 
 #[cfg(unix)]
 fn neovide_config_dir() -> PathBuf {
-    let xdg_dirs = xdg::BaseDirectories::with_prefix("neovide").unwrap();
-    xdg_dirs.get_config_home()
+    let xdg_dirs = xdg::BaseDirectories::with_prefix("neovide");
+    xdg_dirs.get_config_home().unwrap()
 }
 
 #[cfg(windows)]
@@ -54,7 +54,6 @@ pub struct Config {
     pub no_multigrid: Option<bool>,
     pub srgb: Option<bool>,
     pub tabs: Option<bool>,
-    pub theme: Option<String>,
     pub mouse_cursor_icon: Option<String>,
     pub title_hidden: Option<bool>,
     pub vsync: Option<bool>,
@@ -112,9 +111,6 @@ impl Config {
         }
         if let Some(neovim_bin) = &self.neovim_bin {
             env::set_var("NEOVIM_BIN", neovim_bin.to_string_lossy().to_string());
-        }
-        if let Some(theme) = &self.theme {
-            env::set_var("NEOVIDE_THEME", theme);
         }
         if let Some(mouse_cursor_icon) = &self.mouse_cursor_icon {
             env::set_var("NEOVIDE_MOUSE_CURSOR_ICON", mouse_cursor_icon);

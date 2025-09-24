@@ -476,7 +476,7 @@ impl CursorRenderer {
                     })
                     .enumerate()
                     .sorted_by_key(|(_, (id, _))| *id)
-                    .map(|(rank, (_, _))| (rank))
+                    .map(|(rank, (_, _))| rank)
                     .collect_array::<4>()
                     .unwrap();
                 for (id, corner) in self.corners.iter_mut().enumerate() {

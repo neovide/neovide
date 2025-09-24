@@ -249,12 +249,7 @@ impl RenderedWindow {
                 pics += 1;
             }
         }
-        log::trace!(
-            "region: {:?}, inner: {:?}, pics: {}",
-            pixel_region,
-            inner_region,
-            pics
-        );
+        log::trace!("region: {pixel_region:?}, inner: {inner_region:?}, pics: {pics}");
         canvas.restore();
     }
 
@@ -641,7 +636,7 @@ impl RenderedWindow {
 
             let line_size = GridSize::new(self.grid_size.width, 1) * grid_scale;
             let grid_rect = Rect::from_wh(line_size.width, line_size.height);
-            let canvas = recorder.begin_recording(grid_rect, None);
+            let canvas = recorder.begin_recording(grid_rect, false);
 
             let mut has_transparency = false;
             let mut custom_background = false;
@@ -667,10 +662,10 @@ impl RenderedWindow {
             let background_picture =
                 custom_background.then_some(recorder.finish_recording_as_picture(None).unwrap());
 
-            let text_canvas = recorder.begin_recording(grid_rect, None);
+            let text_canvas = recorder.begin_recording(grid_rect, false);
             let mut boxchar_recorder = PictureRecorder::new();
             let boxchar_canvas =
-                boxchar_recorder.begin_recording(grid_rect.with_offset((position.x, 0.0)), None);
+                boxchar_recorder.begin_recording(grid_rect.with_offset((position.x, 0.0)), false);
             let mut text_drawn = false;
             let mut boxchar_drawn = false;
             for line_fragment in &line.line_fragments {

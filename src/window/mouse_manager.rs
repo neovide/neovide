@@ -122,9 +122,6 @@ impl MouseManager {
         let window_size = editor_state.window.inner_size();
         let window_size = PixelSize::new(window_size.width as f32, window_size.height as f32);
         let relative_window_rect = PixelRect::from_size(window_size);
-        if !relative_window_rect.contains(&position) {
-            return;
-        }
 
         self.window_position = position;
 
@@ -136,6 +133,10 @@ impl MouseManager {
                 .iter()
                 .find(|details| details.id == drag_details.draw_details.id)
         } else {
+            if !relative_window_rect.contains(&position) {
+                return;
+            }
+
             self.get_window_details_under_mouse(editor_state)
         };
 
@@ -391,7 +392,7 @@ impl MouseManager {
                     (position.x as f32, position.y as f32).into(),
                     &editor_state,
                 );
-                if self.mouse_hidden {
+                if self.mouse_hidden && window.has_focus() {
                     window.set_cursor_visible(true);
                     self.mouse_hidden = false;
                 }
@@ -427,7 +428,10 @@ impl MouseManager {
             } => {
                 if key_event.state == ElementState::Pressed {
                     let window_settings = self.settings.get::<WindowSettings>();
-                    if window_settings.hide_mouse_when_typing && !self.mouse_hidden {
+                    if window_settings.hide_mouse_when_typing
+                        && !self.mouse_hidden
+                        && window.has_focus()
+                    {
                         window.set_cursor_visible(false);
                         self.mouse_hidden = true;
                     }

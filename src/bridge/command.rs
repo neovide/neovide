@@ -47,7 +47,7 @@ fn create_platform_command(
             shell.to_str().unwrap(),
             "-c",
         ]);
-        result.arg(format!("{} {}", command, args));
+        result.arg(format!("{command} {args}"));
         result
     }
 }
@@ -60,7 +60,7 @@ fn create_platform_command(command: &str, args: &Vec<String>, settings: &Setting
         result.args(["$SHELL", "-l", "-c"]);
         let args =
             shlex::try_join(args.iter().map(|s| s.as_ref())).expect("Failed to join arguments");
-        result.arg(format!("{} {}", command, args));
+        result.arg(format!("{command} {args}"));
         result
     } else {
         // There's no need to go through the shell on Windows when not using WSL
