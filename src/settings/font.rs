@@ -130,7 +130,7 @@ impl From<FontSettings> for FontOptions {
                 .edging
                 .map(|edging| FontEdging::parse(&edging).unwrap_or_default())
                 .unwrap_or_default(),
-            underline_offset: points_to_pixels(value.underline_offset.unwrap_or_default()),
+            underline_offset: value.underline_offset.map(points_to_pixels),
         }
     }
 }

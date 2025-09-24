@@ -209,8 +209,8 @@ impl CachingShaper {
 
     pub fn underline_offset(&mut self) -> f32 {
         let metrics = self.metrics();
-        if self.options.underline_offset != 0. {
-            -self.options.underline_offset
+        if self.options.underline_offset.is_some() {
+            -self.options.underline_offset.unwrap()
         } else if metrics.underline_offset != 0. {
             metrics.underline_offset
         } else {
