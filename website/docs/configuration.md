@@ -1234,7 +1234,3 @@ Only for the `railgun` vfx mode.
 
 Sets the velocity rotation speed of particles. The higher, the less particles actually move and look
 more "nervous", the lower, the more it looks like a collapsing sine wave.
-
-<!--
-  vim: textwidth=100
--->
