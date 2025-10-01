@@ -134,7 +134,7 @@ impl Default for RendererSettings {
 // window) are sorted as larger than the ones that should be handled later
 // So the order of the variants here matters so that the derive implementation can get
 // the order in the binary heap correct
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub enum DrawCommand {
     UpdateCursor(Cursor),
     FontChanged(String),
