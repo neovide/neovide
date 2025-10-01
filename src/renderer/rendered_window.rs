@@ -13,7 +13,7 @@ use crate::{
     utils::RingBuffer,
 };
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub struct LineFragment {
     pub text: String,
     pub window_left: u64,
@@ -21,13 +21,13 @@ pub struct LineFragment {
     pub style: Option<Arc<Style>>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub struct ViewportMargins {
     pub top: u64,
     pub bottom: u64,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub enum WindowDrawCommand {
     Position {
         grid_position: (f64, f64),
@@ -63,7 +63,6 @@ pub enum WindowDrawCommand {
     SortOrder(SortOrder),
 }
 
-#[derive(Clone)]
 struct Line {
     line_fragments: Vec<LineFragment>,
     background_picture: Option<Picture>,
