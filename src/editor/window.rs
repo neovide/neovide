@@ -213,8 +213,7 @@ impl Window {
 
         let line_fragment = LineFragment {
             text: text_range,
-            window_left: start as u64,
-            width: width as u64,
+            cells: start as u32..(start + width) as u32,
             style: style.clone(),
         };
 
