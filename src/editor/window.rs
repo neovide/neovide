@@ -6,7 +6,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::{
     bridge::GridLineCell,
     editor::{grid::CharacterGrid, style::Style, AnchorInfo, DrawCommand, DrawCommandBatcher},
-    renderer::{box_drawing, LineFragment, WindowDrawCommand},
+    renderer::{box_drawing, Line, LineFragment, WindowDrawCommand},
     units::{GridRect, GridSize},
 };
 
@@ -225,13 +225,10 @@ impl Window {
             current_start = next_start;
             line_fragments.push(line_fragment);
         }
-        self.send_command(
-            batcher,
-            WindowDrawCommand::DrawLine {
-                row,
-                line_fragments,
-            },
-        );
+        let line = Line {
+            fragments: line_fragments,
+        };
+        self.send_command(batcher, WindowDrawCommand::DrawLine { row, line });
     }
 
     pub fn draw_grid_line(

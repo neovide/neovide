@@ -58,7 +58,9 @@ use crate::profiling::GpuCtx;
 use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
-pub use rendered_window::{LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails};
+pub use rendered_window::{
+    Line, LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails,
+};
 
 pub use vsync::VSync;
 
