@@ -643,17 +643,8 @@ impl RenderedWindow {
             let mut custom_background = false;
 
             for line_fragment in line.line.fragments.iter() {
-                let LineFragment {
-                    cells,
-                    style,
-                    ..
-                } = line_fragment;
-                let background_info = grid_renderer.draw_background(
-                    canvas,
-                    cells,
-                    style,
-                    opacity,
-                );
+                let LineFragment { cells, style, .. } = line_fragment;
+                let background_info = grid_renderer.draw_background(canvas, cells, style, opacity);
                 custom_background |= background_info.custom_color;
                 has_transparency |= background_info.transparent;
             }
@@ -667,11 +658,7 @@ impl RenderedWindow {
             let mut text_drawn = false;
             let mut boxchar_drawn = false;
             for line_fragment in &line.line.fragments {
-                let LineFragment {
-                    text,
-                    cells,
-                    style,
-                } = line_fragment;
+                let LineFragment { text, cells, style } = line_fragment;
                 let text: Range<usize> = text.start as usize..text.end as usize;
 
                 let (frag_text_drawn, frag_box_drawn) = grid_renderer.draw_foreground(

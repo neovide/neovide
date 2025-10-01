@@ -1,7 +1,4 @@
-use std::{
-    sync::Arc,
-    ops::Range,
-};
+use std::{ops::Range, sync::Arc};
 
 use log::trace;
 use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Path, HSV};
@@ -222,32 +219,12 @@ impl GridRenderer {
         ) {
             return (text_drawn, true);
         } else if !text.is_empty() {
-            let mut paint = Paint::default();
-            paint.set_anti_alias(false);
-            paint.set_blend_mode(BlendMode::SrcOver);
             text_canvas.save();
 
             // We don't want to clip text in the x position, only the y so we add a buffer of 1
             // character on either side of the region so that we clip vertically but not horizontally.
             let wider_cells = cells.start.saturating_sub(1)..cells.end + 1;
             let clip_region = self.compute_text_region(&wider_cells);
-
-            if self.settings.get::<RendererSettings>().debug_renderer {
-                let random_hsv: HSV = (rand::random::<f32>() * 360.0, 1.0, 1.0).into();
-                let random_color = random_hsv.to_color(255);
-                paint.set_color(random_color);
-            } else {
-                paint.set_color(style.foreground(&self.default_style.colors).to_color());
-            }
-            paint.set_anti_alias(false);
-            if self.settings.get::<RendererSettings>().debug_renderer {
-                let random_hsv: HSV = (rand::random::<f32>() * 360.0, 1.0, 1.0).into();
-                let random_color = random_hsv.to_color(255);
-                paint.set_color(random_color);
-            } else {
-                paint.set_color(style.foreground(&self.default_style.colors).to_color());
-            }
-            paint.set_anti_alias(false);
             text_canvas.clip_rect(to_skia_rect(&clip_region), None, Some(false));
 
             let mut paint = Paint::default();
@@ -261,7 +238,6 @@ impl GridRenderer {
             } else {
                 paint.set_color(style.foreground(&self.default_style.colors).to_color());
             }
-            paint.set_anti_alias(false);
             // There's a lot of overhead for empty blobs in Skia, for some reason they never hit the
             // cache, so trim all the spaces
             let trimmed = text.trim_start();
