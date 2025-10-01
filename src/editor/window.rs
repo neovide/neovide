@@ -253,17 +253,7 @@ impl Window {
                 );
             }
 
-            // Due to the limitations of the current rendering strategy, some underlines get
-            // clipped by the line below. To mitigate that, we redraw the adjacent lines whenever
-            // an individual line is redrawn. Unfortunately, some clipping still happens.
-            // TODO: figure out how to solve this
-            if row < self.grid.height - 1 {
-                self.redraw_line(batcher, row + 1);
-            }
             self.redraw_line(batcher, row);
-            if row > 0 {
-                self.redraw_line(batcher, row - 1);
-            }
         } else {
             warn!("Draw command out of bounds");
         }
