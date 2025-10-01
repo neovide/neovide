@@ -206,6 +206,7 @@ listed above.</p>
 <li><code>width</code>: optional,</li>
 <li><code>hinting</code>: optional,</li>
 <li><code>edging</code>: optional,</li>
+<li><code>underline_offset</code>: optional</li>
 </ul>
 <p>Settings <code>size</code>, <code>width</code>, <code>hinting</code> and <code>edging</code> can be found in
 <a href="configuration.html">Configuration</a>.</p>
@@ -243,6 +244,15 @@ string is a font feature.
 <li>Font feature is a string with format <code>+&lt;feature&gt;</code>, <code>-&lt;feature&gt;</code> or <code>&lt;feature&gt;=&lt;value&gt;</code>,
 e.g. <code>+ss01</code>, <code>-calt</code>, <code>ss02=2</code>. <code>+&lt;feature&gt;</code> is a shorthand for <code>&lt;feature&gt;=1</code>,
 <code>-&lt;feature&gt;</code> is a shorthand for <code>&lt;feature&gt;=0</code>.</li>
+</ul>
+</li>
+<li><code>underline_offset</code> is a float that defines the offset between the character baseline and the
+underline.
+<ul>
+<li>If not specified, it will be decided automatically, either if the font contains the required
+metrics, or <code>-1.0</code> by default.</li>
+<li>Positive underline offset values will move the underline below the baseline, while negative
+values move it above.</li>
 </ul>
 </li>
 </ul>
