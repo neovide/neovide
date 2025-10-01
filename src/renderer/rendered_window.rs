@@ -14,6 +14,11 @@ use crate::{
 };
 
 #[derive(Debug)]
+pub struct Line {
+    pub fragments: Vec<LineFragment>,
+}
+
+#[derive(Debug)]
 pub struct LineFragment {
     pub text: String,
     pub window_left: u64,
@@ -37,7 +42,7 @@ pub enum WindowDrawCommand {
     },
     DrawLine {
         row: usize,
-        line_fragments: Vec<LineFragment>,
+        line: Line,
     },
     Scroll {
         top: u64,
@@ -64,7 +69,7 @@ pub enum WindowDrawCommand {
 }
 
 struct RenderedLine {
-    line_fragments: Vec<LineFragment>,
+    line: Line,
     background_picture: Option<Picture>,
     foreground_picture: Option<Picture>,
     boxchar_picture: Option<(Picture, PixelPos<f32>)>,
@@ -398,14 +403,11 @@ impl RenderedWindow {
                     self.grid_destination = grid_position;
                 }
             }
-            WindowDrawCommand::DrawLine {
-                row,
-                line_fragments,
-            } => {
+            WindowDrawCommand::DrawLine { row, line } => {
                 tracy_zone!("draw_line_cmd", 0);
 
                 let line = RenderedLine {
-                    line_fragments,
+                    line,
                     background_picture: None,
                     foreground_picture: None,
                     boxchar_picture: None,
@@ -640,7 +642,7 @@ impl RenderedWindow {
             let mut has_transparency = false;
             let mut custom_background = false;
 
-            for line_fragment in line.line_fragments.iter() {
+            for line_fragment in line.line.fragments.iter() {
                 let LineFragment {
                     window_left,
                     width,
@@ -667,7 +669,7 @@ impl RenderedWindow {
                 boxchar_recorder.begin_recording(grid_rect.with_offset((position.x, 0.0)), false);
             let mut text_drawn = false;
             let mut boxchar_drawn = false;
-            for line_fragment in &line.line_fragments {
+            for line_fragment in &line.line.fragments {
                 let LineFragment {
                     text,
                     window_left,
