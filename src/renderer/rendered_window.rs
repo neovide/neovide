@@ -22,8 +22,7 @@ pub struct Line {
 #[derive(Debug)]
 pub struct LineFragment {
     pub text: Range<u32>,
-    pub window_left: u64,
-    pub width: u64,
+    pub cells: Range<u32>,
     pub style: Option<Arc<Style>>,
 }
 
@@ -645,16 +644,13 @@ impl RenderedWindow {
 
             for line_fragment in line.line.fragments.iter() {
                 let LineFragment {
-                    window_left,
-                    width,
+                    cells,
                     style,
                     ..
                 } = line_fragment;
-                let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
                 let background_info = grid_renderer.draw_background(
                     canvas,
-                    grid_position,
-                    i32::try_from(*width).unwrap(),
+                    cells,
                     style,
                     opacity,
                 );
@@ -673,19 +669,16 @@ impl RenderedWindow {
             for line_fragment in &line.line.fragments {
                 let LineFragment {
                     text,
-                    window_left,
-                    width,
+                    cells,
                     style,
                 } = line_fragment;
                 let text: Range<usize> = text.start as usize..text.end as usize;
-                let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
 
                 let (frag_text_drawn, frag_box_drawn) = grid_renderer.draw_foreground(
                     text_canvas,
                     boxchar_canvas,
                     &line.line.text[text],
-                    grid_position,
-                    i32::try_from(*width).unwrap(),
+                    cells,
                     style,
                     position,
                 );
