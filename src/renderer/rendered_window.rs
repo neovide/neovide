@@ -63,7 +63,7 @@ pub enum WindowDrawCommand {
     SortOrder(SortOrder),
 }
 
-struct Line {
+struct RenderedLine {
     line_fragments: Vec<LineFragment>,
     background_picture: Option<Picture>,
     foreground_picture: Option<Picture>,
@@ -81,8 +81,8 @@ pub struct RenderedWindow {
 
     pub grid_size: GridSize<u32>,
 
-    scrollback_lines: RingBuffer<Option<Rc<RefCell<Line>>>>,
-    actual_lines: RingBuffer<Option<Rc<RefCell<Line>>>>,
+    scrollback_lines: RingBuffer<Option<Rc<RefCell<RenderedLine>>>>,
+    actual_lines: RingBuffer<Option<Rc<RefCell<RenderedLine>>>>,
     scroll_delta: isize,
     pub viewport_margins: ViewportMargins,
 
@@ -404,7 +404,7 @@ impl RenderedWindow {
             } => {
                 tracy_zone!("draw_line_cmd", 0);
 
-                let line = Line {
+                let line = RenderedLine {
                     line_fragments,
                     background_picture: None,
                     foreground_picture: None,
@@ -527,7 +527,7 @@ impl RenderedWindow {
         self.scroll_delta = 0;
     }
 
-    fn iter_border_lines(&self) -> impl Iterator<Item = (isize, &Rc<RefCell<Line>>)> {
+    fn iter_border_lines(&self) -> impl Iterator<Item = (isize, &Rc<RefCell<RenderedLine>>)> {
         let top_border_indices = 0..self.viewport_margins.top as isize;
         let actual_line_count = self.actual_lines.len() as isize;
         let bottom_border_indices =
@@ -540,7 +540,7 @@ impl RenderedWindow {
 
     // Iterates over the scrollable lines (excluding the viewport margins). Includes the index for
     // the given line being scrolled
-    fn iter_scrollable_lines(&self) -> impl Iterator<Item = (isize, &Rc<RefCell<Line>>)> {
+    fn iter_scrollable_lines(&self) -> impl Iterator<Item = (isize, &Rc<RefCell<RenderedLine>>)> {
         let scroll_offset_lines = self.scroll_animation.position.floor();
         let scroll_offset_lines = scroll_offset_lines as isize;
         let inner_size = self.actual_lines.len() as isize
@@ -564,7 +564,7 @@ impl RenderedWindow {
         &self,
         pixel_region: PixelRect<f32>,
         grid_scale: GridScale,
-    ) -> impl Iterator<Item = (Matrix, &Rc<RefCell<Line>>)> {
+    ) -> impl Iterator<Item = (Matrix, &Rc<RefCell<RenderedLine>>)> {
         let scroll_offset_lines = self.scroll_animation.position.floor();
         let scroll_offset = scroll_offset_lines - self.scroll_animation.position;
         let scroll_offset_pixels = (scroll_offset * grid_scale.height()).round();
@@ -585,7 +585,7 @@ impl RenderedWindow {
         &self,
         pixel_region: PixelRect<f32>,
         grid_scale: GridScale,
-    ) -> impl Iterator<Item = (Matrix, &Rc<RefCell<Line>>)> {
+    ) -> impl Iterator<Item = (Matrix, &Rc<RefCell<RenderedLine>>)> {
         self.iter_border_lines().map(move |(i, line)| {
             let mut matrix = Matrix::new_identity();
             matrix.set_translate((
@@ -618,7 +618,7 @@ impl RenderedWindow {
         }
         let grid_scale = grid_renderer.grid_scale;
 
-        let mut prepare_line = |line: &Rc<RefCell<Line>>| {
+        let mut prepare_line = |line: &Rc<RefCell<RenderedLine>>| {
             let mut line = line.borrow_mut();
             let position = self.grid_destination * grid_renderer.grid_scale;
             let boxchar_moved = match line.boxchar_picture {
