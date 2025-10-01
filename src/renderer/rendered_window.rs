@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::{cell::RefCell, ops::Range, rc::Rc, sync::Arc};
 
 use skia_safe::{Canvas, Color, Matrix, Picture, PictureRecorder, Rect};
 
@@ -15,12 +15,13 @@ use crate::{
 
 #[derive(Debug)]
 pub struct Line {
+    pub text: String,
     pub fragments: Vec<LineFragment>,
 }
 
 #[derive(Debug)]
 pub struct LineFragment {
-    pub text: String,
+    pub text: Range<u32>,
     pub window_left: u64,
     pub width: u64,
     pub style: Option<Arc<Style>>,
@@ -676,12 +677,13 @@ impl RenderedWindow {
                     width,
                     style,
                 } = line_fragment;
+                let text: Range<usize> = text.start as usize..text.end as usize;
                 let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
 
                 let (frag_text_drawn, frag_box_drawn) = grid_renderer.draw_foreground(
                     text_canvas,
                     boxchar_canvas,
-                    text,
+                    &line.line.text[text],
                     grid_position,
                     i32::try_from(*width).unwrap(),
                     style,

@@ -162,14 +162,19 @@ impl Window {
 
     // Build a line fragment for the given row starting from current_start up until the next style
     // change or double width character.
-    fn build_line_fragment(&self, row_index: usize, start: usize) -> (usize, LineFragment) {
+    fn build_line_fragment(
+        &self,
+        row_index: usize,
+        start: usize,
+        text: &mut String,
+    ) -> (usize, LineFragment) {
         let row = self.grid.row(row_index).unwrap();
 
         let (_, style) = &row[start];
 
-        let mut text = String::new();
         let mut width = 0;
         let mut last_box_char = None;
+        let mut text_range = text.len() as u32..text.len() as u32;
 
         for (character, possible_end_style) in row.iter().take(self.grid.width).skip(start) {
             // Style doesn't match. Draw what we've got.
@@ -180,10 +185,11 @@ impl Window {
             // Box drawing characters are rendered specially; break up the segment such that
             // repeated box drawing characters are in a segment by themselves
             if box_drawing::is_box_char(character) {
-                if text.is_empty() {
+                if text_range.is_empty() {
                     last_box_char = Some(character)
                 }
-                if (!text.is_empty() && last_box_char.is_none()) || last_box_char != Some(character)
+                if (!text_range.is_empty() && last_box_char.is_none())
+                    || last_box_char != Some(character)
                 {
                     // either we have non-box chars accumulated or this is a different box char
                     // from what we have seen before. Either way, render what we have
@@ -202,10 +208,11 @@ impl Window {
 
             // Add the grid cell to the cells to render.
             text.push_str(character);
+            text_range.end += character.len() as u32;
         }
 
         let line_fragment = LineFragment {
-            text,
+            text: text_range,
             window_left: start as u64,
             width: width as u64,
             style: style.clone(),
@@ -220,12 +227,15 @@ impl Window {
     fn redraw_line(&self, batcher: &mut DrawCommandBatcher, row: usize) {
         let mut current_start = 0;
         let mut line_fragments = Vec::new();
+        let mut text = String::new();
         while current_start < self.grid.width {
-            let (next_start, line_fragment) = self.build_line_fragment(row, current_start);
+            let (next_start, line_fragment) =
+                self.build_line_fragment(row, current_start, &mut text);
             current_start = next_start;
             line_fragments.push(line_fragment);
         }
         let line = Line {
+            text,
             fragments: line_fragments,
         };
         self.send_command(batcher, WindowDrawCommand::DrawLine { row, line });
