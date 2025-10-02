@@ -371,3 +371,269 @@ impl Window {
         self.send_command(batcher, WindowDrawCommand::Close);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::editor::style::{Colors, Style};
+    use skia_safe::{colors, Color4f};
+    use std::sync::Arc;
+
+    fn make_style(color: Color4f) -> Arc<Style> {
+        Arc::new(Style::new(Colors {
+            foreground: Some(color),
+            background: Some(Color4f::new(0.0, 0.0, 0.0, 1.0)),
+            special: Some(Color4f::new(0.0, 0.0, 0.0, 1.0)),
+        }))
+    }
+
+    fn make_window(grid: CharacterGrid) -> Window {
+        Window {
+            grid_id: 1,
+            grid,
+            window_type: WindowType::Editor,
+            anchor_info: None,
+            grid_position: (0.0, 0.0),
+        }
+    }
+
+    macro_rules! window {
+    (
+        [ $( [ $( ($ch:expr, $color:expr) ),* ] ),* ]
+    ) => {{
+            let rows = vec![
+                $(
+                    vec![
+                        $(
+                            ($ch.to_string(), $color.map(|c| make_style(c))),
+                        )*
+                    ],
+                )*
+            ];
+            let height = rows.len();
+            let width = if height > 0 { rows[0].len() } else { 0 };
+            let mut grid = CharacterGrid::new((width, height));
+            for (y, row) in rows.iter().enumerate() {
+                for (x, (ch, style)) in row.iter().enumerate() {
+                    *grid.get_cell_mut(x, y).unwrap() = (ch.clone(), style.clone());
+                }
+            }
+            make_window(grid)
+        }};
+    }
+
+    #[test]
+    fn test_build_line_fragment_macro_basic() {
+        let window = window!([[
+            ("a", Some(colors::RED)),
+            ("b", Some(colors::RED)),
+            ("c", Some(colors::RED))
+        ]]);
+
+        let mut text = String::new();
+        let (next_start, fragment) = window.build_line_fragment(0, 0, &mut text);
+
+        assert_eq!(next_start, 3);
+        assert_eq!(fragment.cells, 0..3);
+        assert_eq!(fragment.text, 0..3);
+        assert_eq!(fragment.style, Some(make_style(colors::RED)));
+        assert_eq!(fragment.words.len(), 1);
+
+        // There should be no more fragments
+        assert_eq!(next_start, window.grid.width);
+    }
+
+    #[test]
+    fn test_build_line_fragment_macro_style_change() {
+        let window = window!([[
+            ("x", Some(colors::RED)),
+            ("y", Some(colors::GREEN)),
+            ("z", Some(colors::GREEN))
+        ]]);
+
+        let mut text = String::new();
+        let (next_start, fragment) = window.build_line_fragment(0, 0, &mut text);
+
+        assert_eq!(next_start, 1);
+        assert_eq!(fragment.cells, 0..1);
+        assert_eq!(fragment.text, 0..1);
+        assert_eq!(fragment.style, Some(make_style(colors::RED)));
+        assert_eq!(fragment.words.len(), 1);
+
+        let (next_start, fragment) = window.build_line_fragment(0, next_start, &mut text);
+        assert_eq!(next_start, 3);
+        assert_eq!(fragment.cells, 1..3);
+        assert_eq!(fragment.text, 1..3);
+        assert_eq!(fragment.style, Some(make_style(colors::GREEN)));
+        assert_eq!(fragment.words.len(), 1);
+
+        // All fragments should be covered
+        assert_eq!(next_start, window.grid.width);
+    }
+
+    #[test]
+    fn test_build_line_fragment_box_chars() {
+        // Use Unicode box drawing char ─ (U+2500)
+        let window = window!([[
+            ("─", Some(colors::BLUE)),
+            ("─", Some(colors::BLUE)),
+            ("│", Some(colors::BLUE))
+        ]]);
+
+        let mut text = String::new();
+        let (next_start, fragment) = window.build_line_fragment(0, 0, &mut text);
+
+        // Should group the two ─ chars together, then break for │
+        assert_eq!(next_start, 2);
+        assert_eq!(fragment.cells, 0..2);
+        assert_eq!(fragment.text, 0..6);
+        assert_eq!(fragment.style, Some(make_style(colors::BLUE)));
+        assert_eq!(fragment.words.len(), 1);
+
+        let (next_start, fragment) = window.build_line_fragment(0, next_start, &mut text);
+        assert_eq!(next_start, 3);
+        assert_eq!(fragment.cells, 2..3);
+        assert_eq!(fragment.text, 6..9);
+        assert_eq!(fragment.style, Some(make_style(colors::BLUE)));
+        assert_eq!(fragment.words.len(), 1);
+
+        assert_eq!(next_start, window.grid.width);
+    }
+
+    #[test]
+    fn test_build_line_fragment_multiple_words_with_spaces() {
+        // "  foo bar  baz"
+        let window = window!([[
+            (" ", Some(colors::GREEN)),
+            (" ", Some(colors::GREEN)),
+            ("f", Some(colors::GREEN)),
+            ("o", Some(colors::GREEN)),
+            ("o", Some(colors::GREEN)),
+            (" ", Some(colors::GREEN)),
+            ("b", Some(colors::GREEN)),
+            ("a", Some(colors::GREEN)),
+            ("r", Some(colors::GREEN)),
+            (" ", Some(colors::GREEN)),
+            (" ", Some(colors::GREEN)),
+            ("b", Some(colors::GREEN)),
+            ("a", Some(colors::GREEN)),
+            ("z", Some(colors::GREEN))
+        ]]);
+
+        let mut text = String::new();
+        let (next_start, fragment) = window.build_line_fragment(0, 0, &mut text);
+
+        assert_eq!(next_start, 14);
+        assert_eq!(fragment.cells, 0..14);
+        assert_eq!(fragment.text, 0..14);
+        assert_eq!(fragment.style, Some(make_style(colors::GREEN)));
+        assert_eq!(text, "  foo bar  baz");
+
+        // There should be three words: "foo", "bar", "baz"
+        assert_eq!(fragment.words.len(), 3);
+
+        // "foo"
+        assert_eq!(fragment.words[0].cell, 2);
+        assert_eq!(fragment.words[0].text, 2);
+        assert_eq!(fragment.words[0].cluster_sizes, vec![1, 1, 1]);
+
+        // "bar"
+        assert_eq!(fragment.words[1].cell, 6);
+        assert_eq!(fragment.words[1].text, 6);
+        assert_eq!(fragment.words[1].cluster_sizes, vec![1, 1, 1]);
+
+        // "baz"
+        assert_eq!(fragment.words[2].cell, 11);
+        assert_eq!(fragment.words[2].text, 11);
+        assert_eq!(fragment.words[2].cluster_sizes, vec![1, 1, 1]);
+
+        assert_eq!(next_start, window.grid.width);
+    }
+
+    #[test]
+    fn test_build_line_fragment_double_width() {
+        // U+4E00 is a common double-width CJK char (一)
+        // Double width: char, then empty string, both with same style
+        let window = window!([[
+            ("一", Some(colors::RED)),
+            ("", Some(colors::RED)),
+            ("c", Some(colors::RED))
+        ]]);
+
+        let mut text = String::new();
+        let (next_start, fragment) = window.build_line_fragment(0, 0, &mut text);
+
+        // The fragment should include all three cells (0..3), text range 0..4 ("一" is 3 bytes, "c" is 1)
+        assert_eq!(next_start, 3);
+        assert_eq!(fragment.cells, 0..3);
+        assert_eq!(fragment.text, 0..4);
+        assert_eq!(fragment.style, Some(make_style(colors::RED)));
+        assert_eq!(fragment.words.len(), 1); // "一c" is a single word
+        assert_eq!(text, "一c");
+
+        assert_eq!(next_start, window.grid.width);
+    }
+
+    #[test]
+    fn test_build_line_fragment_double_width_space_between_words() {
+        // "a", double-width space (U+3000), "", "b"
+        let window = window!([[
+            ("a", Some(colors::RED)),
+            ("　", Some(colors::RED)), // U+3000 IDEOGRAPHIC SPACE
+            ("", Some(colors::RED)),
+            ("b", Some(colors::RED))
+        ]]);
+
+        let mut text = String::new();
+        let (next_start, fragment) = window.build_line_fragment(0, 0, &mut text);
+
+        // The fragment should include all four cells (0..4), text range 0..5 ("a" 1, "　" 3, "b" 1)
+        assert_eq!(next_start, 4);
+        assert_eq!(fragment.cells, 0..4);
+        assert_eq!(fragment.text, 0..5);
+        assert_eq!(fragment.style, Some(make_style(colors::RED)));
+        assert_eq!(text, "a　b");
+
+        // The words should be ["a"] and ["b"], the double-width space and its empty cell are not part of any word
+        assert_eq!(fragment.words.len(), 2);
+        // First word: "a"
+        assert_eq!(fragment.words[0].cell, 0);
+        assert_eq!(fragment.words[0].text, 0);
+        assert_eq!(fragment.words[0].cluster_sizes, vec![1]);
+        // Second word: "b"
+        assert_eq!(fragment.words[1].cell, 3);
+        assert_eq!(fragment.words[1].text, 4);
+        assert_eq!(fragment.words[1].cluster_sizes, vec![1]);
+
+        assert_eq!(next_start, window.grid.width);
+    }
+
+    #[test]
+    fn test_build_line_fragment_double_width_in_middle_of_word() {
+        // "a", "一" (double-width), "", "b"
+        let window = window!([[
+            ("a", Some(colors::RED)),
+            ("一", Some(colors::RED)),
+            ("", Some(colors::RED)),
+            ("b", Some(colors::RED))
+        ]]);
+
+        let mut text = String::new();
+        let (next_start, fragment) = window.build_line_fragment(0, 0, &mut text);
+
+        // The fragment should include all four cells (0..4), text range 0..5 ("a" 1, "一" 3, "b" 1)
+        assert_eq!(next_start, 4);
+        assert_eq!(fragment.cells, 0..4);
+        assert_eq!(fragment.text, 0..5);
+        assert_eq!(fragment.style, Some(make_style(colors::RED)));
+        assert_eq!(text, "a一b");
+
+        // The word should be ["a一b"], with cluster_sizes [1, 3, 0, 1]
+        assert_eq!(fragment.words.len(), 1);
+        assert_eq!(fragment.words[0].cell, 0);
+        assert_eq!(fragment.words[0].text, 0);
+        assert_eq!(fragment.words[0].cluster_sizes, vec![1, 3, 0, 1]);
+
+        assert_eq!(next_start, window.grid.width);
+    }
+}
