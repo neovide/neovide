@@ -1473,7 +1473,6 @@ dependencies = [
  "tokio-util",
  "toml 0.9.5",
  "tracy-client-sys",
- "unicode-segmentation",
  "uzers",
  "windows",
  "windows-registry",

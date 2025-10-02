@@ -12,7 +12,6 @@ use swash::{
     },
     Metrics,
 };
-use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{
     error_msg,
@@ -238,31 +237,26 @@ impl CachingShaper {
 
     fn build_clusters(
         &mut self,
-        text: &str,
+        word: RenderedWord<'_>,
         style: CoarseStyle,
     ) -> Vec<(Vec<CharCluster>, Rc<FontPair>)> {
         let mut cluster = CharCluster::new();
 
         // Enumerate the characters storing the glyph index in the user data so that we can position
         // glyphs according to Neovim's grid rules
-        let mut character_index = 0;
         let mut parser = Parser::new(
             Script::Latin,
-            text.graphemes(true)
-                .enumerate()
-                .flat_map(|(glyph_index, unicode_segment)| {
-                    unicode_segment.chars().map(move |character| {
-                        let token = Token {
-                            ch: character,
-                            offset: character_index as u32,
-                            len: character.len_utf8() as u8,
-                            info: character.into(),
-                            data: glyph_index as u32,
-                        };
-                        character_index += 1;
-                        token
+            word.clusters().flat_map(|(cell_index, cluster)| {
+                cluster
+                    .char_indices()
+                    .map(move |(offset, character)| Token {
+                        ch: character,
+                        offset: offset as u32,
+                        len: character.len_utf8() as u8,
+                        info: character.into(),
+                        data: cell_index as u32,
                     })
-                }),
+            }),
         );
 
         let mut results = Vec::new();
@@ -375,15 +369,16 @@ impl CachingShaper {
         set_font_cache_limit(FONT_CACHE_SIZE);
     }
 
-    pub fn shape(&mut self, text: &str, style: CoarseStyle) -> Vec<TextBlob> {
+    pub fn shape(&mut self, word: RenderedWord<'_>, style: CoarseStyle) -> Vec<TextBlob> {
         let current_size = self.current_size();
         let glyph_width = self.font_base_dimensions().width;
 
         let mut resulting_blobs = Vec::new();
 
+        let text = word.text();
         trace!("Shaping text: {text:?}");
 
-        for (cluster_group, font_pair) in self.build_clusters(text, style) {
+        for (cluster_group, font_pair) in self.build_clusters(word, style) {
             let features = self.get_font_features(
                 font_pair
                     .as_ref()
@@ -438,17 +433,13 @@ impl CachingShaper {
         resulting_blobs
     }
 
-    pub fn shape_cached<'a>(
-        &mut self,
-        word: RenderedWord<'a>,
-        style: CoarseStyle,
-    ) -> &Vec<TextBlob> {
+    pub fn shape_cached(&mut self, word: RenderedWord<'_>, style: CoarseStyle) -> &Vec<TextBlob> {
         tracy_zone!("shape_cached");
         let text = word.text();
         let key = ShapeKey::new(text.to_string(), style);
 
         if !self.blob_cache.contains(&key) {
-            let blobs = self.shape(text, style);
+            let blobs = self.shape(word, style);
             self.blob_cache.put(key.clone(), blobs);
         }
 

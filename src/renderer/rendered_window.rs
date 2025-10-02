@@ -48,6 +48,19 @@ impl<'a> RenderedWord<'a> {
         let size: usize = self.word.cluster_sizes.iter().map(|v| *v as usize).sum();
         &self.text[self.word.text as usize..self.word.text as usize + size]
     }
+
+    pub fn clusters(&self) -> impl Iterator<Item = (usize, &'a str)> + Clone {
+        self.word
+            .cluster_sizes
+            .iter()
+            .enumerate()
+            .filter(|(_, size)| **size > 0)
+            .scan(self.word.text, |current_pos, (cell_nr, size)| {
+                let start = *current_pos;
+                *current_pos += *size as u32;
+                Some((cell_nr, &self.text[start as usize..*current_pos as usize]))
+            })
+    }
 }
 
 #[derive(Debug)]
@@ -686,7 +699,7 @@ impl RenderedWindow {
                     text_canvas,
                     boxchar_canvas,
                     &line.line.text,
-                    &line_fragment,
+                    line_fragment,
                     position,
                 );
                 text_drawn |= frag_text_drawn;
