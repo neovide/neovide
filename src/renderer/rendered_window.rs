@@ -29,8 +29,25 @@ pub struct LineFragment {
 
 #[derive(Debug, Default)]
 pub struct Word {
-    pub text: Range<u32>,
-    pub cells: Range<u32>,
+    pub text: u32,
+    pub cell: u32,
+    pub cluster_sizes: Vec<u8>,
+}
+
+pub struct RenderedWord<'a> {
+    text: &'a str,
+    word: &'a Word,
+}
+
+impl<'a> RenderedWord<'a> {
+    pub fn new(word: &'a Word, text: &'a str) -> Self {
+        Self { text, word }
+    }
+
+    pub fn text(&self) -> &str {
+        let size: usize = self.word.cluster_sizes.iter().map(|v| *v as usize).sum();
+        &self.text[self.word.text as usize..self.word.text as usize + size]
+    }
 }
 
 #[derive(Debug)]

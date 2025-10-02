@@ -197,33 +197,30 @@ impl Window {
 
             width += 1;
 
-            if cluster.is_empty() && !current_word.cells.is_empty() {
-                current_word.cells.end += 1;
-            }
             let is_whitespace = cluster
                 .chars()
                 .next()
                 .is_some_and(|char| char.is_whitespace());
             if is_whitespace {
-                if !current_word.cells.is_empty() {
+                if !current_word.cluster_sizes.is_empty() {
                     // Finish the current word
                     words.push(current_word);
                     current_word = Word::default();
                 }
-            } else if current_word.cells.is_empty() {
+            } else if current_word.cluster_sizes.is_empty() {
                 // Properly initialize a new word
-                current_word.cells = width - 1..width;
-                current_word.text = text.len() as u32..text.len() as u32 + cluster.len() as u32;
+                current_word.cell = width - 1;
+                current_word.cluster_sizes.push(cluster.len() as u8);
+                current_word.text = text.len() as u32;
             } else {
-                current_word.cells.end += 1;
-                current_word.text.end += cluster.len() as u32;
+                current_word.cluster_sizes.push(cluster.len() as u8);
             }
 
             // Add the grid cell to the cells to render.
             text.push_str(cluster);
             text_range.end += cluster.len() as u32;
         }
-        if !current_word.cells.is_empty() {
+        if !current_word.cluster_sizes.is_empty() {
             words.push(current_word);
         }
 
