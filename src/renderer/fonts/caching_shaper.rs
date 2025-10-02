@@ -372,7 +372,7 @@ impl CachingShaper {
         set_font_cache_limit(FONT_CACHE_SIZE);
     }
 
-    pub fn shape(&mut self, text: String, style: CoarseStyle) -> Vec<TextBlob> {
+    pub fn shape(&mut self, text: &str, style: CoarseStyle) -> Vec<TextBlob> {
         let current_size = self.current_size();
         let glyph_width = self.font_base_dimensions().width;
 
@@ -380,7 +380,7 @@ impl CachingShaper {
 
         trace!("Shaping text: {text:?}");
 
-        for (cluster_group, font_pair) in self.build_clusters(&text, style) {
+        for (cluster_group, font_pair) in self.build_clusters(text, style) {
             let features = self.get_font_features(
                 font_pair
                     .as_ref()
@@ -435,9 +435,9 @@ impl CachingShaper {
         resulting_blobs
     }
 
-    pub fn shape_cached(&mut self, text: String, style: CoarseStyle) -> &Vec<TextBlob> {
+    pub fn shape_cached(&mut self, text: &str, style: CoarseStyle) -> &Vec<TextBlob> {
         tracy_zone!("shape_cached");
-        let key = ShapeKey::new(text.clone(), style);
+        let key = ShapeKey::new(text.to_string(), style);
 
         if !self.blob_cache.contains(&key) {
             let blobs = self.shape(text, style);

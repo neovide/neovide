@@ -274,11 +274,7 @@ impl GridRenderer {
                 self.shaper.baseline_offset(),
             );
 
-            for blob in self
-                .shaper
-                .shape_cached(trimmed.to_string(), style.into())
-                .iter()
-            {
+            for blob in self.shaper.shape_cached(trimmed, style.into()).iter() {
                 tracy_zone!("draw_text_blob");
                 text_canvas.draw_text_blob(blob, to_skia_point(pos + adjustment), &paint);
                 text_drawn = true;

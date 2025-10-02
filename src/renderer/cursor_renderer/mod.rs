@@ -393,7 +393,7 @@ impl CursorRenderer {
         );
         if !box_char_drawn {
             let pos = (self.destination.x, self.destination.y + baseline_offset);
-            let blobs = &grid_renderer.shaper.shape_cached(character, coarse_style);
+            let blobs = &grid_renderer.shaper.shape_cached(&character, coarse_style);
             for blob in blobs.iter() {
                 canvas.draw_text_blob(blob, pos, &paint);
             }
