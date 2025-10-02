@@ -375,9 +375,6 @@ impl CachingShaper {
 
         let mut resulting_blobs = Vec::new();
 
-        let text = word.text();
-        trace!("Shaping text: {text:?}");
-
         for (cluster_group, font_pair) in self.build_clusters(word, style) {
             let features = self.get_font_features(
                 font_pair
@@ -439,6 +436,7 @@ impl CachingShaper {
         let key = ShapeKey::new(text.to_string(), style);
 
         if !self.blob_cache.contains(&key) {
+            trace!("Shaping text: {text:?}");
             let blobs = self.shape(word, style);
             self.blob_cache.put(key.clone(), blobs);
         }
