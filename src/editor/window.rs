@@ -197,6 +197,11 @@ impl Window {
 
             width += 1;
 
+            // We can't deal with clusters that are longer than 255 bytes, so replace them with spaces.
+            // This should only happen if Neovim sends corrupted lines, or maybe in some pathological
+            // Unicode combining sequence.
+            let cluster = if cluster.len() > 255 { " " } else { cluster };
+
             if cluster.is_empty() {
                 // For double-width char, the empty cell should be part of the current word as a 0 cluster size
                 // Or ignored when it's part of whitespace
