@@ -197,6 +197,15 @@ impl Window {
 
             width += 1;
 
+            if cluster.is_empty() {
+                // For double-width char, the empty cell should be part of the current word as a 0 cluster size
+                // Or ignored when it's part of whitespace
+                if !current_word.cluster_sizes.is_empty() {
+                    current_word.cluster_sizes.push(0);
+                }
+                continue;
+            }
+
             let is_whitespace = cluster
                 .chars()
                 .next()
