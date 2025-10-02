@@ -59,7 +59,7 @@ use cursor_renderer::CursorRenderer;
 pub use fonts::caching_shaper::CachingShaper;
 pub use grid_renderer::GridRenderer;
 pub use rendered_window::{
-    Line, LineFragment, RenderedWindow, WindowDrawCommand, WindowDrawDetails, Word,
+    Line, LineFragment, RenderedWindow, RenderedWord, WindowDrawCommand, WindowDrawDetails, Word,
 };
 
 pub use vsync::VSync;

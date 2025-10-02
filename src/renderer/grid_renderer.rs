@@ -8,7 +8,7 @@ use crate::{
     profiling::tracy_zone,
     renderer::{
         box_drawing::{self},
-        CachingShaper, LineFragment, RendererSettings,
+        CachingShaper, LineFragment, RenderedWord, RendererSettings,
     },
     settings::*,
     units::{
@@ -245,12 +245,15 @@ impl GridRenderer {
             }
             for word in &fragment.words {
                 let adjustment = PixelVec::new(
-                    word.cells.start as f32 * self.grid_scale.width(),
+                    word.cell as f32 * self.grid_scale.width(),
                     self.shaper.baseline_offset(),
                 );
-                let word_text = &line_text[word.text.start as usize..word.text.end as usize];
 
-                for blob in self.shaper.shape_cached(word_text, style.into()).iter() {
+                for blob in self
+                    .shaper
+                    .shape_cached(RenderedWord::new(word, line_text), style.into())
+                    .iter()
+                {
                     tracy_zone!("draw_text_blob");
                     text_canvas.draw_text_blob(
                         blob,

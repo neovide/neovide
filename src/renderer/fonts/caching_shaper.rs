@@ -17,7 +17,10 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::{
     error_msg,
     profiling::tracy_zone,
-    renderer::fonts::{font_loader::*, font_options::*},
+    renderer::{
+        fonts::{font_loader::*, font_options::*},
+        RenderedWord,
+    },
     units::PixelSize,
 };
 
@@ -435,8 +438,13 @@ impl CachingShaper {
         resulting_blobs
     }
 
-    pub fn shape_cached(&mut self, text: &str, style: CoarseStyle) -> &Vec<TextBlob> {
+    pub fn shape_cached<'a>(
+        &mut self,
+        word: RenderedWord<'a>,
+        style: CoarseStyle,
+    ) -> &Vec<TextBlob> {
         tracy_zone!("shape_cached");
+        let text = word.text();
         let key = ShapeKey::new(text.to_string(), style);
 
         if !self.blob_cache.contains(&key) {
