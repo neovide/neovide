@@ -1,7 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
 use log::warn;
-use unicode_segmentation::UnicodeSegmentation;
 
 use crate::{
     bridge::GridLineCell,
@@ -131,31 +130,25 @@ impl Window {
             None => previous_style.clone(),
         };
 
-        // Compute text.
-        let mut text = cell.text;
+        let text = cell.text;
         if let Some(times) = cell.repeat {
             // Repeats of zero times should be ignored, they are mostly useful for terminal Neovim
             // to distinguish between empty lines and lines ending with spaces.
             if times == 0 {
                 return;
             }
-            text = text.repeat(times as usize);
-        }
 
-        // Insert the contents of the cell into the grid.
-        if text.is_empty() {
-            if let Some(cell) = self.grid.get_cell_mut(*column_pos, row_index) {
-                *cell = (text, style.clone());
-            }
-            *column_pos += 1;
-        } else {
-            for character in text.graphemes(true) {
+            for _ in 0..times.saturating_sub(1) {
                 if let Some(cell) = self.grid.get_cell_mut(*column_pos, row_index) {
-                    *cell = (character.to_string(), style.clone());
+                    *cell = (text.clone(), style.clone());
                 }
                 *column_pos += 1;
             }
+        };
+        if let Some(cell) = self.grid.get_cell_mut(*column_pos, row_index) {
+            *cell = (text, style.clone());
         }
+        *column_pos += 1;
 
         *previous_style = style;
     }
