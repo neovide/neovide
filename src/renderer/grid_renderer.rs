@@ -8,7 +8,7 @@ use crate::{
     profiling::tracy_zone,
     renderer::{
         box_drawing::{self},
-        CachingShaper, RendererSettings,
+        CachingShaper, LineFragment, RendererSettings,
     },
     settings::*,
     units::{
@@ -185,12 +185,17 @@ impl GridRenderer {
         &mut self,
         text_canvas: &Canvas,
         boxchar_canvas: &Canvas,
-        text: &str,
-        cells: &Range<u32>,
-        style: &Option<Arc<Style>>,
+        line_text: &str,
+        fragment: &LineFragment,
         window_position: PixelPos<f32>,
     ) -> (bool, bool) {
         tracy_zone!("draw_foreground");
+
+        let LineFragment {
+            text, cells, style, ..
+        } = fragment;
+
+        let text = &line_text[text.start as usize..text.end as usize];
         let region = self.compute_text_region(cells);
 
         let style = style.as_ref().unwrap_or(&self.default_style);
@@ -238,22 +243,24 @@ impl GridRenderer {
             } else {
                 paint.set_color(style.foreground(&self.default_style.colors).to_color());
             }
-            // There's a lot of overhead for empty blobs in Skia, for some reason they never hit the
-            // cache, so trim all the spaces
-            let trimmed = text.trim_start();
-            let leading_space_bytes = text.len() - trimmed.len();
-            let leading_spaces = text[..leading_space_bytes].chars().count();
-            let trimmed = trimmed.trim_end();
-            let adjustment = PixelVec::new(
-                leading_spaces as f32 * self.grid_scale.width(),
-                self.shaper.baseline_offset(),
-            );
+            for word in &fragment.words {
+                let adjustment = PixelVec::new(
+                    word.cells.start as f32 * self.grid_scale.width(),
+                    self.shaper.baseline_offset(),
+                );
+                let word_text = &line_text[word.text.start as usize..word.text.end as usize];
 
-            for blob in self.shaper.shape_cached(trimmed, style.into()).iter() {
-                tracy_zone!("draw_text_blob");
-                text_canvas.draw_text_blob(blob, to_skia_point(region.min + adjustment), &paint);
-                text_drawn = true;
+                for blob in self.shaper.shape_cached(word_text, style.into()).iter() {
+                    tracy_zone!("draw_text_blob");
+                    text_canvas.draw_text_blob(
+                        blob,
+                        to_skia_point(region.min + adjustment),
+                        &paint,
+                    );
+                    text_drawn = true;
+                }
             }
+
             if style.strikethrough {
                 let line_position = region.center().y;
                 paint.set_color(style.special(&self.default_style.colors).to_color());

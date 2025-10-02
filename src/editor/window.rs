@@ -6,7 +6,7 @@ use unicode_segmentation::UnicodeSegmentation;
 use crate::{
     bridge::GridLineCell,
     editor::{grid::CharacterGrid, style::Style, AnchorInfo, DrawCommand, DrawCommandBatcher},
-    renderer::{box_drawing, Line, LineFragment, WindowDrawCommand},
+    renderer::{box_drawing, Line, LineFragment, WindowDrawCommand, Word},
     units::{GridRect, GridSize},
 };
 
@@ -172,11 +172,13 @@ impl Window {
 
         let (_, style) = &row[start];
 
-        let mut width = 0;
+        let mut width = 0u32;
         let mut last_box_char = None;
         let mut text_range = text.len() as u32..text.len() as u32;
+        let mut words = Vec::new();
+        let mut current_word = Word::default();
 
-        for (character, possible_end_style) in row.iter().take(self.grid.width).skip(start) {
+        for (cluster, possible_end_style) in row.iter().take(self.grid.width).skip(start) {
             // Style doesn't match. Draw what we've got.
             if style != possible_end_style {
                 break;
@@ -184,12 +186,12 @@ impl Window {
 
             // Box drawing characters are rendered specially; break up the segment such that
             // repeated box drawing characters are in a segment by themselves
-            if box_drawing::is_box_char(character) {
+            if box_drawing::is_box_char(cluster) {
                 if text_range.is_empty() {
-                    last_box_char = Some(character)
+                    last_box_char = Some(cluster)
                 }
                 if (!text_range.is_empty() && last_box_char.is_none())
-                    || last_box_char != Some(character)
+                    || last_box_char != Some(cluster)
                 {
                     // either we have non-box chars accumulated or this is a different box char
                     // from what we have seen before. Either way, render what we have
@@ -201,23 +203,45 @@ impl Window {
             }
 
             width += 1;
-            // The previous character is double width, so send this as its own draw command.
-            if character.is_empty() {
-                break;
+
+            if cluster.is_empty() && !current_word.cells.is_empty() {
+                current_word.cells.end += 1;
+            }
+            let is_whitespace = cluster
+                .chars()
+                .next()
+                .is_some_and(|char| char.is_whitespace());
+            if is_whitespace {
+                if !current_word.cells.is_empty() {
+                    // Finish the current word
+                    words.push(current_word);
+                    current_word = Word::default();
+                }
+            } else if current_word.cells.is_empty() {
+                // Properly initialize a new word
+                current_word.cells = width - 1..width;
+                current_word.text = text.len() as u32..text.len() as u32 + cluster.len() as u32;
+            } else {
+                current_word.cells.end += 1;
+                current_word.text.end += cluster.len() as u32;
             }
 
             // Add the grid cell to the cells to render.
-            text.push_str(character);
-            text_range.end += character.len() as u32;
+            text.push_str(cluster);
+            text_range.end += cluster.len() as u32;
+        }
+        if !current_word.cells.is_empty() {
+            words.push(current_word);
         }
 
         let line_fragment = LineFragment {
             text: text_range,
-            cells: start as u32..(start + width) as u32,
+            cells: start as u32..start as u32 + width,
             style: style.clone(),
+            words,
         };
 
-        (start + width, line_fragment)
+        (start + width as usize, line_fragment)
     }
 
     // Redraw line by calling build_line_fragment starting at 0
