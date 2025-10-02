@@ -148,7 +148,6 @@ pub enum DrawCommand {
         grid_id: u64,
         command: WindowDrawCommand,
     },
-    CloseWindow(u64),
 }
 
 pub struct Renderer {
@@ -473,7 +472,6 @@ impl Renderer {
             DrawCommand::UIReady => {
                 result.should_show = true;
             }
-            _ => {}
         }
     }
 

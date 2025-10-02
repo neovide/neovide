@@ -99,7 +99,9 @@ pub enum WindowDrawCommand {
     ViewportMargins {
         top: u64,
         bottom: u64,
+        #[allow(unused)]
         left: u64,
+        #[allow(unused)]
         right: u64,
     },
     SortOrder(SortOrder),
