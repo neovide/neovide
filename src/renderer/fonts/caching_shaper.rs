@@ -1,4 +1,4 @@
-use std::{num::NonZeroUsize, sync::Arc};
+use std::{num::NonZeroUsize, rc::Rc};
 
 use itertools::Itertools;
 use log::{debug, error, info, trace};
@@ -42,10 +42,9 @@ pub struct CachingShaper {
 impl CachingShaper {
     pub fn new(scale_factor: f32) -> CachingShaper {
         let options = FontOptions::default();
-        let font_size = options.size * scale_factor;
         let mut shaper = CachingShaper {
             options,
-            font_loader: FontLoader::new(font_size),
+            font_loader: FontLoader::new(),
             blob_cache: LruCache::new(NonZeroUsize::new(10000).unwrap()),
             shape_context: ShapeContext::new(),
             scale_factor,
@@ -56,16 +55,19 @@ impl CachingShaper {
         shaper
     }
 
-    fn current_font_pair(&mut self) -> Arc<FontPair> {
+    fn current_font_pair(&mut self) -> Rc<FontPair> {
         self.font_loader
-            .get_or_load(&FontKey {
-                font_desc: self.options.primary_font(),
-                hinting: self.options.hinting.clone(),
-                edging: self.options.edging.clone(),
-            })
+            .get_or_load(
+                &FontKey {
+                    font_desc: self.options.primary_font(),
+                    hinting: self.options.hinting.clone(),
+                    edging: self.options.edging.clone(),
+                },
+                Some(&mut self.shape_context),
+            )
             .unwrap_or_else(|| {
                 self.font_loader
-                    .get_or_load(&FontKey::default())
+                    .get_or_load(&FontKey::default(), Some(&mut self.shape_context))
                     .expect("Could not load default font")
             })
     }
@@ -111,7 +113,11 @@ impl CachingShaper {
 
         let failed_fonts = keys
             .iter()
-            .filter(|key| self.font_loader.get_or_load(key).is_none())
+            .filter(|key| {
+                self.font_loader
+                    .get_or_load(key, Some(&mut self.shape_context))
+                    .is_none()
+            })
             .collect_vec();
 
         if !failed_fonts.is_empty() {
@@ -155,7 +161,7 @@ impl CachingShaper {
         self.font_info = None;
         let font_size = self.current_size();
 
-        self.font_loader = FontLoader::new(font_size);
+        self.font_loader = FontLoader::new();
         let (_, font_width) = self.info();
         info!("Reset Font Loader: font_size: {font_size:.2}px, font_width: {font_width:.2}px");
 
@@ -170,25 +176,15 @@ impl CachingShaper {
         if let Some(info) = self.font_info {
             return info;
         }
-
-        let font_pair = self.current_font_pair();
         let size = self.current_size();
-        let mut shaper = self
-            .shape_context
-            .builder(font_pair.swash_font.as_ref())
-            .size(size)
-            .build();
-        shaper.add_str("M");
-        let metrics = shaper.metrics();
-        let mut advance = metrics.average_width;
-        shaper.shape_with(|cluster| {
-            advance = cluster
-                .glyphs
-                .first()
-                .map_or(metrics.average_width, |g| g.advance);
-        });
+        let pair = &self.current_font_pair();
+        let font_info = pair.font_info.expect(
+            "All fonts should be loaded with shaper and therefore have calculated font info",
+        );
+        let metrics = font_info.0.linear_scale(size);
+        let advance = font_info.1 * size;
         self.font_info = Some((metrics, advance));
-        (metrics, advance)
+        self.font_info.unwrap()
     }
 
     fn metrics(&mut self) -> Metrics {
@@ -237,7 +233,7 @@ impl CachingShaper {
         &mut self,
         text: &str,
         style: CoarseStyle,
-    ) -> Vec<(Vec<CharCluster>, Arc<FontPair>)> {
+    ) -> Vec<(Vec<CharCluster>, Rc<FontPair>)> {
         let mut cluster = CharCluster::new();
 
         // Enumerate the characters storing the glyph index in the user data so that we can position
@@ -293,7 +289,10 @@ impl CachingShaper {
             let mut best = None;
             // Search through the configured and default fonts for a match
             for fallback_key in font_fallback_keys.iter() {
-                if let Some(font_pair) = self.font_loader.get_or_load(fallback_key) {
+                if let Some(font_pair) = self
+                    .font_loader
+                    .get_or_load(fallback_key, Some(&mut self.shape_context))
+                {
                     let charmap = font_pair.swash_font.as_ref().charmap();
                     match cluster.map(|ch| charmap.map(ch)) {
                         Status::Complete => {
@@ -324,16 +323,19 @@ impl CachingShaper {
                 results.push((cluster.to_owned(), best.clone()));
             } else {
                 let fallback_character = cluster.chars()[0].ch;
-                if let Some(fallback_font) = self
-                    .font_loader
-                    .load_font_for_character(style, fallback_character)
-                {
+                if let Some(fallback_font) = self.font_loader.load_font_for_character(
+                    style,
+                    fallback_character,
+                    Some(&mut self.shape_context),
+                ) {
                     results.push((cluster.to_owned(), fallback_font));
                 } else {
                     // Last Resort covers all of the unicode space so we will always have a fallback
                     results.push((
                         cluster.to_owned(),
-                        self.font_loader.get_or_load_last_resort().unwrap(),
+                        self.font_loader
+                            .get_or_load_last_resort(Some(&mut self.shape_context))
+                            .unwrap(),
                     ));
                 }
             }
@@ -390,11 +392,19 @@ impl CachingShaper {
                     .map(|desc| desc.family.as_str()),
             );
 
+            let fallback_info = font_pair.font_info.expect(
+                "All fonts should be loaded with shaper and therefore have calculated font info",
+            );
+
+            // Scale fallback fonts to have the same width as the primary one
+            let scale = (fallback_info.1 * current_size) / self.info().1;
+            let baseline_offset = self.baseline_offset();
+
             let mut shaper = self
                 .shape_context
                 .builder(font_pair.swash_font.as_ref())
                 .features(features.iter().map(|(name, value)| (name.as_ref(), *value)))
-                .size(current_size)
+                .size(current_size * scale)
                 .build();
 
             let charmap = font_pair.swash_font.as_ref().charmap();
@@ -405,12 +415,19 @@ impl CachingShaper {
 
             let mut glyph_data = Vec::new();
 
+            let metrics = &fallback_info.0;
+            // Push the baseline down if there's not enough space above it.
+            // This only happens for fallback fonts.
+            let y_offset = ((metrics.ascent + metrics.leading / 2.0) * current_size
+                - baseline_offset)
+                .max(0.0);
+
             shaper.shape_with(|glyph_cluster| {
                 //Align to the grid at the start of each cluster
                 let mut x_offset = glyph_width * glyph_cluster.data as f32;
 
                 for glyph in glyph_cluster.glyphs {
-                    let position = (x_offset + glyph.x, -glyph.y);
+                    let position = (x_offset + glyph.x, -glyph.y + y_offset);
                     glyph_data.push((glyph.id, position));
                     x_offset += glyph.advance;
                 }
@@ -421,8 +438,11 @@ impl CachingShaper {
             }
 
             let mut blob_builder = TextBlobBuilder::new();
-            let (glyphs, positions) =
-                blob_builder.alloc_run_pos(&font_pair.skia_font, glyph_data.len(), None);
+            let (glyphs, positions) = blob_builder.alloc_run_pos(
+                &font_pair.skia_font.with_size(current_size * scale).unwrap(),
+                glyph_data.len(),
+                None,
+            );
             for (i, (glyph_id, glyph_position)) in glyph_data.iter().enumerate() {
                 glyphs[i] = *glyph_id;
                 positions[i] = (*glyph_position).into();
