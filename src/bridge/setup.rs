@@ -4,7 +4,7 @@ use rmpv::Value;
 
 use super::{
     api_info::{parse_api_info, ApiInformation},
-    nvim_dict,
+    nvim_dict, nvim_exec_output,
 };
 use crate::{
     bridge::NeovimWriter,
@@ -20,7 +20,10 @@ pub async fn get_api_information(nvim: &Neovim<NeovimWriter>) -> Result<ApiInfor
         .await
         .context("Error getting API info")?;
 
-    parse_api_info(&api_info).context("Failed to parse Neovim api information")
+    let version = nvim_exec_output(nvim, "version").await?;
+    log::info!("Neovim version: {version:#?}");
+    let version_str = version.lines().next().unwrap_or_default();
+    parse_api_info(&api_info, version_str).context("Failed to parse Neovim api information")
 }
 
 pub async fn setup_neovide_specific_state(
