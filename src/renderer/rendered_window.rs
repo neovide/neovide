@@ -24,6 +24,13 @@ pub struct LineFragment {
     pub text: Range<u32>,
     pub cells: Range<u32>,
     pub style: Option<Arc<Style>>,
+    pub words: Vec<Word>,
+}
+
+#[derive(Debug, Default)]
+pub struct Word {
+    pub text: Range<u32>,
+    pub cells: Range<u32>,
 }
 
 #[derive(Debug)]
@@ -658,15 +665,11 @@ impl RenderedWindow {
             let mut text_drawn = false;
             let mut boxchar_drawn = false;
             for line_fragment in &line.line.fragments {
-                let LineFragment { text, cells, style } = line_fragment;
-                let text: Range<usize> = text.start as usize..text.end as usize;
-
                 let (frag_text_drawn, frag_box_drawn) = grid_renderer.draw_foreground(
                     text_canvas,
                     boxchar_canvas,
-                    &line.line.text[text],
-                    cells,
-                    style,
+                    &line.line.text,
+                    &line_fragment,
                     position,
                 );
                 text_drawn |= frag_text_drawn;
