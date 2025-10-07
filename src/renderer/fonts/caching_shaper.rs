@@ -57,17 +57,18 @@ impl CachingShaper {
     }
 
     fn current_font_pair(&mut self) -> Rc<FontPair> {
-        self.font_loader
-            .get_or_load(&FontKey {
-                font_desc: self.options.primary_font(),
-                hinting: self.options.hinting.clone(),
-                edging: self.options.edging.clone(),
+        self.options
+            .primary_font()
+            .and_then(|font| {
+                self.font_loader.get_or_load(&FontKey {
+                    font_desc: font,
+                    hinting: self.options.hinting.clone(),
+                    edging: self.options.edging.clone(),
+                })
             })
-            .unwrap_or_else(|| {
-                self.font_loader
-                    .get_or_load(&FontKey::default())
-                    .expect("Could not load default font")
-            })
+            // NOTE: Update font options already tries to load the primary font, and won't pass it here if it fails.
+            // So the only way this can happen, is if the default system monospace font can't be loaded
+            .expect("Could not load the system monospace font")
     }
 
     pub fn current_size(&self) -> f32 {
@@ -82,6 +83,9 @@ impl CachingShaper {
     }
 
     pub fn update_font(&mut self, guifont_setting: &str) {
+        if guifont_setting.is_empty() {
+            return;
+        }
         debug!("Updating font: {guifont_setting}");
 
         let options = match FontOptions::parse(guifont_setting) {
@@ -98,11 +102,29 @@ impl CachingShaper {
     pub fn update_font_options(&mut self, options: FontOptions) {
         debug!("Updating font options: {options:?}");
 
+        if let Some(font) = options.primary_font() {
+            let key = FontKey {
+                font_desc: font,
+                hinting: options.hinting.clone(),
+                edging: options.edging.clone(),
+            };
+            if self.font_loader.get_or_load(&key).is_none() {
+                error_msg!(
+                    "Failed to load primary font ({}).\n The font settings have not been updated.",
+                    key.font_desc.family
+                );
+                return;
+            }
+        } else {
+            error_msg!("No primary font specified. The font settings have not been updated.");
+            return;
+        }
+
         let keys = options
             .possible_fonts()
             .iter()
             .map(|desc| FontKey {
-                font_desc: Some(desc.clone()),
+                font_desc: desc.clone(),
                 hinting: options.hinting.clone(),
                 edging: options.edging.clone(),
             })
@@ -274,19 +296,12 @@ impl CachingShaper {
                     .font_list(style)
                     .iter()
                     .map(|font_desc| FontKey {
-                        font_desc: Some(font_desc.clone()),
+                        font_desc: font_desc.clone(),
                         hinting: self.options.hinting.clone(),
                         edging: self.options.edging.clone(),
                     })
                     .unique(),
             );
-
-            // Add default font
-            font_fallback_keys.push(FontKey {
-                font_desc: None,
-                hinting: self.options.hinting.clone(),
-                edging: self.options.edging.clone(),
-            });
 
             // Use the cluster.map function to select a viable font from the fallback list and loaded fonts
 
@@ -389,14 +404,7 @@ impl CachingShaper {
                     .collect::<String>(),
                 font_pair.skia_font.typeface().family_name(),
             );
-            let features = self.get_font_features(
-                font_pair
-                    .as_ref()
-                    .key
-                    .font_desc
-                    .as_ref()
-                    .map(|desc| desc.family.as_str()),
-            );
+            let features = self.get_font_features(&font_pair.key.font_desc.family);
 
             let mut shaper = self
                 .shape_context
@@ -455,20 +463,16 @@ impl CachingShaper {
         self.blob_cache.get(&key).unwrap()
     }
 
-    fn get_font_features(&self, name: Option<&str>) -> Vec<(String, u16)> {
-        if let Some(name) = name {
-            self.options
-                .features
-                .get(name)
-                .map(|features| {
-                    features
-                        .iter()
-                        .map(|feature| (feature.0.clone(), feature.1))
-                        .collect::<Vec<_>>()
-                })
-                .unwrap_or_default()
-        } else {
-            vec![]
-        }
+    fn get_font_features(&self, name: &str) -> Vec<(String, u16)> {
+        self.options
+            .features
+            .get(name)
+            .map(|features| {
+                features
+                    .iter()
+                    .map(|feature| (feature.0.clone(), feature.1))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
     }
 }
