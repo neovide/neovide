@@ -381,6 +381,14 @@ impl CachingShaper {
         trace!("Shaping text: {text:?}");
 
         for (cluster_group, font_pair) in self.build_clusters(&text, style) {
+            log::trace!(
+                "Cluster group: \"{}\" font: {}",
+                cluster_group
+                    .iter()
+                    .flat_map(|g| g.chars().iter().map(|c| c.ch))
+                    .collect::<String>(),
+                font_pair.skia_font.typeface().family_name(),
+            );
             let features = self.get_font_features(
                 font_pair
                     .as_ref()

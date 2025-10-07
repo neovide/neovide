@@ -4,7 +4,7 @@ use std::{
     rc::Rc,
 };
 
-use log::trace;
+use log::info;
 use lru::LruCache;
 use skia_safe::{font::Edging as SkiaEdging, Data, Font, FontHinting as SkiaHinting, FontMgr};
 
@@ -91,12 +91,13 @@ impl FontLoader {
 
     fn load(&mut self, font_key: FontKey) -> Option<FontPair> {
         tracy_zone!("load_font");
-        trace!("Loading font {font_key:?}");
+        info!("Loading font {font_key:?}");
         if let Some(desc) = &font_key.font_desc {
             let (family, style) = desc.as_family_and_font_style();
             let typeface = self.font_mgr.match_family_style(family, style)?;
             FontPair::new(font_key, Font::from_typeface(typeface, self.font_size))
         } else {
+            log::warn!("Loading default font");
             let data = Data::new_copy(DEFAULT_FONT);
             let typeface = self.font_mgr.new_from_data(&data, 0)?;
             FontPair::new(font_key, Font::from_typeface(typeface, self.font_size))
@@ -138,6 +139,11 @@ impl FontLoader {
             font_key.clone(),
             Font::from_typeface(typeface, self.font_size),
         )?);
+        info!(
+            "Load font for character {} {}",
+            character,
+            font_pair.skia_font.typeface().family_name()
+        );
 
         self.cache.put(font_key, font_pair.clone());
 
@@ -145,6 +151,7 @@ impl FontLoader {
     }
 
     pub fn get_or_load_last_resort(&mut self) -> Option<Rc<FontPair>> {
+        log::warn!("Last resort font used");
         if self.last_resort.is_some() {
             self.last_resort.clone()
         } else {
