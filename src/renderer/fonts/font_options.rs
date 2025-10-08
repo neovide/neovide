@@ -11,7 +11,7 @@ use skia_safe::{
 use crate::{editor, error_msg};
 
 const DEFAULT_FONT_SIZE: f32 = 14.0;
-const DEFAULT_FONT: &str = "monospace";
+pub const DEFAULT_FONT: &str = "monospace";
 const FONT_OPTS_SEPARATOR: char = ':';
 const FONT_LIST_SEPARATOR: char = ',';
 const FONT_HINTING_PREFIX: &str = "#h-";

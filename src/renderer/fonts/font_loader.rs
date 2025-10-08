@@ -11,7 +11,7 @@ use skia_safe::{font::Edging as SkiaEdging, Data, Font, FontHinting as SkiaHinti
 use crate::{
     profiling::tracy_zone,
     renderer::fonts::{
-        font_options::{CoarseStyle, FontDescription, FontEdging, FontHinting},
+        font_options::{CoarseStyle, FontDescription, FontEdging, FontHinting, DEFAULT_FONT},
         swash_font::SwashFont,
     },
 };
@@ -116,9 +116,12 @@ impl FontLoader {
         character: char,
     ) -> Option<Rc<FontPair>> {
         let font_style = coarse_style.into();
-        let typeface =
-            self.font_mgr
-                .match_family_style_character("", font_style, &[], character as i32)?;
+        let typeface = self.font_mgr.match_family_style_character(
+            DEFAULT_FONT,
+            font_style,
+            &[],
+            character as i32,
+        )?;
 
         let font_key = FontKey {
             font_desc: FontDescription {
