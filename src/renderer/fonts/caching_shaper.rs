@@ -1,4 +1,4 @@
-use std::{num::NonZeroUsize, sync::Arc};
+use std::{num::NonZeroUsize, rc::Rc};
 
 use itertools::Itertools;
 use log::{debug, error, info, trace};
@@ -56,7 +56,7 @@ impl CachingShaper {
         shaper
     }
 
-    fn current_font_pair(&mut self) -> Arc<FontPair> {
+    fn current_font_pair(&mut self) -> Rc<FontPair> {
         self.font_loader
             .get_or_load(&FontKey {
                 font_desc: self.options.primary_font(),
@@ -237,7 +237,7 @@ impl CachingShaper {
         &mut self,
         text: &str,
         style: CoarseStyle,
-    ) -> Vec<(Vec<CharCluster>, Arc<FontPair>)> {
+    ) -> Vec<(Vec<CharCluster>, Rc<FontPair>)> {
         let mut cluster = CharCluster::new();
 
         // Enumerate the characters storing the glyph index in the user data so that we can position
