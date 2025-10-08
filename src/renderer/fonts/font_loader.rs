@@ -9,7 +9,7 @@ use lru::LruCache;
 use skia_safe::{
     font::Edging as SkiaEdging, Data, Font, FontHinting as SkiaHinting, FontMgr, Typeface,
 };
-use swash::{shape::ShapeContext, Metrics};
+use swash::{shape::ShapeContext, tag_from_str_lossy, Metrics};
 
 use crate::{
     profiling::tracy_zone,
@@ -29,7 +29,15 @@ pub struct FontPair {
 }
 
 fn info_for_font(shape_context: &mut ShapeContext, font: &SwashFont) -> (Metrics, f32) {
-    let mut shaper = shape_context.builder(font.as_ref()).build();
+    // Load half widht variant for metrics if it exists
+    // This makes it possible to use many variable width CJK fonts
+    let hwid_tag = tag_from_str_lossy("hwid");
+    let pwid_tag = tag_from_str_lossy("pwid");
+    let features = [(hwid_tag, 1), (pwid_tag, 0)];
+    let mut shaper = shape_context
+        .builder(font.as_ref())
+        .features(features)
+        .build();
     shaper.add_str("M");
     let metrics = shaper.metrics();
     let mut advance = metrics.average_width;
