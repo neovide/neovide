@@ -417,7 +417,12 @@ impl CachingShaper {
                 "All fonts should be loaded with shaper and therefore have calculated font info",
             );
             // Scale fallback fonts to have the same width as the primary one
-            let scale = self.info().1 / (fallback_info.1 * current_size);
+            // Don't scale emojis
+            let scale = if cluster_group[0].info().is_emoji() {
+                1.0
+            } else {
+                self.info().1 / (fallback_info.1 * current_size)
+            };
             let baseline_offset = self.baseline_offset();
 
             let mut shaper = self
