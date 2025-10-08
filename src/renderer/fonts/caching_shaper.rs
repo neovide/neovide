@@ -423,7 +423,9 @@ impl CachingShaper {
             } else {
                 self.info().1 / (fallback_info.1 * current_size)
             };
+            log::info!("Scale {scale}");
             let baseline_offset = self.baseline_offset();
+            log::info!("Baseline Offset {baseline_offset}");
 
             let mut shaper = self
                 .shape_context
