@@ -22,8 +22,12 @@ use tokio::{
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
-    cmd_line::CmdLineSettings, editor::start_editor, running_tracker::RunningTracker, settings::*,
-    units::GridSize, window::UserEvent,
+    cmd_line::CmdLineSettings,
+    editor::start_editor,
+    running_tracker::RunningTracker,
+    settings::*,
+    units::GridSize,
+    window::{UserEvent, WindowSettings},
 };
 pub use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
@@ -34,7 +38,7 @@ pub use events::*;
 pub use session::NeovimWriter;
 pub use ui_commands::{send_ui, start_ui_command_handler, ParallelCommand, SerialCommand};
 
-const NEOVIM_REQUIRED_VERSION: &str = "0.10.0";
+const NEOVIM_REQUIRED_VERSION: (u64, u64, u64) = (0, 10, 0);
 
 macro_rules! nvim_dict {
     ( $( $key:expr => $value:expr ),* $(,)? ) => {
@@ -114,28 +118,24 @@ async fn launch(
         .await
         .context("Could not locate or start neovim process")?;
 
-    // Check the neovim version to ensure its high enough
-    match nvim_exec_output(
-        &session.neovim,
-        &format!("echo has('nvim-{NEOVIM_REQUIRED_VERSION}')"),
-    )
-    .await
-    .as_deref()
-    {
-        Ok("1") => {} // This is just a guard
-        _ => {
-            bail!("Neovide requires nvim version {NEOVIM_REQUIRED_VERSION} or higher. Download the latest version here https://github.com/neovim/neovim/wiki/Installing-Neovim");
-        }
-    }
-
-    let cmdline_settings = settings.get::<CmdLineSettings>();
-
-    let should_handle_clipboard = cmdline_settings.wsl || cmdline_settings.server.is_some();
     let api_information = get_api_information(&session.neovim).await?;
     info!(
         "Neovide registered to nvim with channel id {}",
         api_information.channel
     );
+
+    let (major, minor, patch) = NEOVIM_REQUIRED_VERSION;
+    if !api_information
+        .version
+        .has_version(major, minor, patch, None)
+    {
+        let found = api_information.version.string;
+        bail!("Neovide requires nvim version {major}.{minor}.{patch} or higher, but {found} was detected. Download the latest version here https://github.com/neovim/neovim/wiki/Installing-Neovim");
+    }
+
+    let cmdline_settings = settings.get::<CmdLineSettings>();
+
+    let should_handle_clipboard = cmdline_settings.wsl || cmdline_settings.server.is_some();
     // This is too verbose to keep enabled all the time
     // log::info!("Api information {:#?}", api_information);
     setup_neovide_specific_state(
@@ -145,6 +145,11 @@ async fn launch(
         &settings,
     )
     .await?;
+    if api_information.version.has_version(0, 12, 0, Some(1264)) {
+        let mut window_settings = settings.get::<WindowSettings>();
+        window_settings.has_mouse_grid_detection = true;
+        settings.set::<WindowSettings>(&window_settings);
+    }
 
     start_ui_command_handler(session.neovim.clone(), settings.clone());
     settings.read_initial_values(&session.neovim).await?;
