@@ -261,7 +261,7 @@ vim.g.neovide_title_background_color = string.format(
 vim.g.neovide_title_text_color = "pink"
 ```
 
-#### Window Blur (Currently macOS only)
+#### Window Blur
 
 VimScript:
 
