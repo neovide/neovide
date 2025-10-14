@@ -22,8 +22,12 @@ use tokio::{
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
-    cmd_line::CmdLineSettings, editor::start_editor, running_tracker::RunningTracker, settings::*,
-    units::GridSize, window::UserEvent,
+    cmd_line::CmdLineSettings,
+    editor::start_editor,
+    running_tracker::RunningTracker,
+    settings::*,
+    units::GridSize,
+    window::{UserEvent, WindowSettings},
 };
 pub use handler::NeovimHandler;
 use session::{NeovimInstance, NeovimSession};
@@ -141,6 +145,11 @@ async fn launch(
         &settings,
     )
     .await?;
+    if api_information.version.has_version(0, 12, 0, Some(1264)) {
+        let mut window_settings = settings.get::<WindowSettings>();
+        window_settings.has_mouse_grid_detection = true;
+        settings.set::<WindowSettings>(&window_settings);
+    }
 
     start_ui_command_handler(session.neovim.clone(), settings.clone());
     settings.read_initial_values(&session.neovim).await?;
