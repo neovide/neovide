@@ -43,7 +43,7 @@ use std::{
     panic::set_hook,
     process::ExitCode,
     sync::Arc,
-    time::{Duration, SystemTime},
+    time::SystemTime,
 };
 
 use anyhow::Result;
@@ -59,20 +59,17 @@ use winit::{error::EventLoopError, event_loop::EventLoopProxy};
 use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
 
 use backtrace::Backtrace;
-use bridge::NeovimRuntime;
 use cmd_line::CmdLineSettings;
 use error_handling::handle_startup_errors;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 use running_tracker::RunningTracker;
-use window::{
-    create_event_loop, determine_window_size, UpdateLoop, UserEvent, WindowSettings, WindowSize,
-};
+use window::{create_event_loop, UpdateLoop, UserEvent, WindowSettings};
 
 pub use channel_utils::*;
 #[cfg(target_os = "windows")]
 pub use windows_utils::*;
 
-use crate::settings::{load_last_window_settings, Config, PersistentWindowSettings, Settings};
+use crate::settings::{Config, Settings};
 
 pub use profiling::startup_profiler;
 
@@ -105,28 +102,17 @@ fn main() -> ExitCode {
     let running_tracker = RunningTracker::new();
     let settings = Arc::new(Settings::new());
 
-    match setup(
-        event_loop.create_proxy(),
-        running_tracker.clone(),
-        settings.clone(),
-    ) {
+    match setup(event_loop.create_proxy(), settings.clone()) {
         Err(err) => handle_startup_errors(err, event_loop, settings.clone()),
-        Ok((window_size, initial_config, runtime)) => {
+        Ok(initial_config) => {
             let mut update_loop = UpdateLoop::new(
-                window_size,
                 initial_config,
                 event_loop.create_proxy(),
                 settings.clone(),
+                running_tracker.clone(),
             );
 
             let result = event_loop.run_app(&mut update_loop);
-
-            // Wait a little bit more and force Nevoim to exit after that.
-            // This should not be required, but Neovim through libuv spawns childprocesses that inherits all the handles
-            // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
-            // read will hang forever, waiting for more data to read.
-            // See https://github.com/neovide/neovide/issues/2182 (which includes links to libuv issues)
-            runtime.runtime.shutdown_timeout(Duration::from_millis(500));
 
             match result {
                 Ok(_) => running_tracker.exit_code(),
@@ -137,11 +123,7 @@ fn main() -> ExitCode {
     }
 }
 
-fn setup(
-    proxy: EventLoopProxy<UserEvent>,
-    running_tracker: RunningTracker,
-    settings: Arc<Settings>,
-) -> Result<(WindowSize, Config, NeovimRuntime)> {
+fn setup(proxy: EventLoopProxy<UserEvent>, settings: Arc<Settings>) -> Result<Config> {
     //  --------------
     // | Architecture |
     //  --------------
@@ -242,22 +224,7 @@ fn setup(
 
     trace!("Neovide version: {}", crate_version!());
 
-    let window_settings = load_last_window_settings().ok();
-    let window_size = determine_window_size(window_settings.as_ref(), &settings);
-    let grid_size = match window_size {
-        WindowSize::Grid(grid_size) => Some(grid_size),
-        // Clippy wrongly suggests to use unwrap or default here
-        #[allow(clippy::manual_unwrap_or_default)]
-        _ => match window_settings {
-            Some(PersistentWindowSettings::Maximized { grid_size, .. }) => grid_size,
-            Some(PersistentWindowSettings::Windowed { grid_size, .. }) => grid_size,
-            _ => None,
-        },
-    };
-
-    let mut runtime = NeovimRuntime::new()?;
-    runtime.launch(proxy, grid_size, running_tracker, settings)?;
-    Ok((window_size, config, runtime))
+    Ok(config)
 }
 
 #[cfg(not(test))]

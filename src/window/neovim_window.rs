@@ -10,7 +10,8 @@ use winit::{
 };
 
 use super::{
-    KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged,
+    determine_window_size, KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings,
+    WindowSettingsChanged,
 };
 
 #[cfg(target_os = "macos")]
@@ -20,14 +21,15 @@ use {
 };
 
 use crate::{
-    bridge::{send_ui, ParallelCommand, SerialCommand},
+    bridge::{send_ui, NeovimRuntime, ParallelCommand, SerialCommand},
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
     renderer::{
         create_skia_renderer, DrawCommand, Renderer, RendererSettingsChanged, SkiaRenderer, VSync,
     },
+    running_tracker::RunningTracker,
     settings::{
-        clamped_grid_size, Config, HotReloadConfigs, Settings, SettingsChanged, DEFAULT_GRID_SIZE,
-        MIN_GRID_SIZE,
+        clamped_grid_size, load_last_window_settings, Config, HotReloadConfigs,
+        PersistentWindowSettings, Settings, SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE,
     },
     units::{GridRect, GridSize, PixelPos, PixelSize},
     window::{create_window, PhysicalSize, ShouldRender, WindowSize},
@@ -95,18 +97,35 @@ pub struct NeovimWindow {
     ime_enabled: bool,
     ime_area: (dpi::PhysicalPosition<u32>, dpi::PhysicalSize<u32>),
     pub vsync: Option<VSync>,
+    settings: Arc<Settings>,
+
     #[cfg(target_os = "macos")]
     pub macos_feature: Option<MacosWindowFeature>,
-
-    settings: Arc<Settings>,
 }
 
 impl NeovimWindow {
     pub fn new(
-        initial_window_size: WindowSize,
         initial_config: Config,
         settings: Arc<Settings>,
+        proxy: EventLoopProxy<UserEvent>,
+        running_tracker: RunningTracker,
+        runtime: &mut NeovimRuntime,
     ) -> Self {
+        let window_settings = load_last_window_settings().ok();
+        let initial_window_size = determine_window_size(window_settings.as_ref(), &settings);
+        let grid_size = match initial_window_size {
+            WindowSize::Grid(grid_size) => Some(grid_size),
+            // Clippy wrongly suggests to use unwrap or default here
+            #[allow(clippy::manual_unwrap_or_default)]
+            _ => match window_settings {
+                Some(PersistentWindowSettings::Maximized { grid_size, .. }) => grid_size,
+                Some(PersistentWindowSettings::Windowed { grid_size, .. }) => grid_size,
+                _ => None,
+            },
+        };
+
+        let _ = runtime.launch(proxy, grid_size, running_tracker, settings.clone());
+
         let saved_inner_size = Default::default();
         let renderer = Renderer::new(1.0, initial_config, settings.clone());
 
@@ -133,9 +152,9 @@ impl NeovimWindow {
             vsync: None,
             ime_enabled: false,
             ime_area: Default::default(),
+            settings,
             #[cfg(target_os = "macos")]
             macos_feature: None,
-            settings,
         }
     }
 

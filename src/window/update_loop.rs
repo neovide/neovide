@@ -11,10 +11,11 @@ use winit::{
 
 use super::{save_window_size, CmdLineSettings, NeovimWindow, UserEvent, WindowSettings};
 use crate::{
+    bridge::NeovimRuntime,
     profiling::{tracy_plot, tracy_zone},
     renderer::DrawCommand,
+    running_tracker::RunningTracker,
     settings::{Config, Settings},
-    WindowSize,
 };
 
 enum FocusedState {
@@ -85,20 +86,19 @@ pub struct UpdateLoop {
     pending_draw_commands: Vec<Vec<DrawCommand>>,
     animation_start: Instant, // When the last animation started (went from idle to animating)
     animation_time: Duration, // How long the current animation has been simulated, will usually be in the future
-
     neovim_window: NeovimWindow,
     create_window_allowed: bool,
     proxy: EventLoopProxy<UserEvent>,
-
     settings: Arc<Settings>,
+    runtime: Option<NeovimRuntime>,
 }
 
 impl UpdateLoop {
     pub fn new(
-        initial_window_size: WindowSize,
         initial_config: Config,
         proxy: EventLoopProxy<UserEvent>,
         settings: Arc<Settings>,
+        running_tracker: RunningTracker,
     ) -> Self {
         let previous_frame_start = Instant::now();
         let last_dt = 0.0;
@@ -113,8 +113,15 @@ impl UpdateLoop {
         let cmd_line_settings = settings.get::<CmdLineSettings>();
         let idle = cmd_line_settings.idle;
 
-        let neovim_window =
-            NeovimWindow::new(initial_window_size, initial_config, settings.clone());
+        let mut runtime = NeovimRuntime::new().expect("Failed to create runtime");
+
+        let neovim_window = NeovimWindow::new(
+            initial_config,
+            settings.clone(),
+            proxy.clone(),
+            running_tracker,
+            &mut runtime,
+        );
 
         Self {
             idle,
@@ -127,12 +134,11 @@ impl UpdateLoop {
             pending_draw_commands,
             animation_start,
             animation_time,
-
             neovim_window,
             create_window_allowed: false,
             proxy,
-
             settings,
+            runtime: Some(runtime),
         }
     }
 
@@ -397,6 +403,14 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
     fn exiting(&mut self, event_loop: &ActiveEventLoop) {
         tracy_zone!("exiting");
         self.neovim_window.exit();
+        // Wait a little bit more and force Nevoim to exit after that.
+        // This should not be required, but Neovim through libuv spawns childprocesses that inherits all the handles
+        // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
+        // read will hang forever, waiting for more data to read.
+        // See https://github.com/neovide/neovide/issues/2182 (which includes links to libuv issues)
+        if let Some(runtime) = self.runtime.take() {
+            runtime.runtime.shutdown_timeout(Duration::from_millis(500));
+        }
         self.schedule_next_event(event_loop);
     }
 }
