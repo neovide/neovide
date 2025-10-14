@@ -882,6 +882,21 @@ particles rotate in accordance to each other, the lower, the more line-wise all 
 <p>Only for the <code>railgun</code> vfx mode.</p>
 <p>Sets the velocity rotation speed of particles. The higher, the less particles actually move and look
 more &quot;nervous&quot;, the lower, the more it looks like a collapsing sine wave.</p>
+<h3 id="automatic-settings-should-be-turned-onoff-for-debug-purposes-only"><a class="header" href="#automatic-settings-should-be-turned-onoff-for-debug-purposes-only">Automatic settings, should be turned on/off for debug purposes only</a></h3>
+<p>Note: These settings will be removed when the features are deemed stable. In most cases they are
+only here because the automatic detection of Neovim nightly versions does not always work.</p>
+<h4 id="autodetect-mouse-grid"><a class="header" href="#autodetect-mouse-grid">Autodetect mouse grid</a></h4>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_has_mouse_grid_detection = v:true
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_has_mouse_grid_detection = true
+</code></pre>
+<p><strong>Unreleased yet.</strong></p>
+<p><strong>Requires Neovim 0.12.0.</strong></p>
+<p>Neovim will detect the mouse grid for much better mouse compatibility when enabled. This is
+automaticaly enabled starting from Neovim Nightly September 20. 2025. You should not try to enable
+it manually for unsupported versions, since the behaviour is undefined.</p>
 
                     </main>
 
