@@ -3,9 +3,7 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 use winit::dpi::{PhysicalPosition, PhysicalSize};
 
-use crate::{
-    settings::Settings, units::GridSize, window::WindowSettings, window::WinitWindowWrapper,
-};
+use crate::{settings::Settings, units::GridSize, window::NeovimWindow, window::WindowSettings};
 
 const SETTINGS_FILE: &str = "neovide-settings.json";
 
@@ -67,7 +65,7 @@ pub fn load_last_window_settings() -> Result<PersistentWindowSettings, String> {
     Ok(loaded_settings)
 }
 
-pub fn save_window_size(window_wrapper: &WinitWindowWrapper, settings: &Settings) {
+pub fn save_window_size(window_wrapper: &NeovimWindow, settings: &Settings) {
     if window_wrapper.skia_renderer.is_none() {
         return;
     }

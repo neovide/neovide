@@ -9,7 +9,7 @@ use winit::{
     event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy},
 };
 
-use super::{save_window_size, CmdLineSettings, UserEvent, WindowSettings, WinitWindowWrapper};
+use super::{save_window_size, CmdLineSettings, NeovimWindow, UserEvent, WindowSettings};
 use crate::{
     profiling::{tracy_plot, tracy_zone},
     renderer::DrawCommand,
@@ -86,7 +86,7 @@ pub struct UpdateLoop {
     animation_start: Instant, // When the last animation started (went from idle to animating)
     animation_time: Duration, // How long the current animation has been simulated, will usually be in the future
 
-    window_wrapper: WinitWindowWrapper,
+    neovim_window: NeovimWindow,
     create_window_allowed: bool,
     proxy: EventLoopProxy<UserEvent>,
 
@@ -113,8 +113,8 @@ impl UpdateLoop {
         let cmd_line_settings = settings.get::<CmdLineSettings>();
         let idle = cmd_line_settings.idle;
 
-        let window_wrapper =
-            WinitWindowWrapper::new(initial_window_size, initial_config, settings.clone());
+        let neovim_window =
+            NeovimWindow::new(initial_window_size, initial_config, settings.clone());
 
         Self {
             idle,
@@ -128,7 +128,7 @@ impl UpdateLoop {
             animation_start,
             animation_time,
 
-            window_wrapper,
+            neovim_window,
             create_window_allowed: false,
             proxy,
 
@@ -171,18 +171,18 @@ impl UpdateLoop {
         #[cfg(feature = "profiling")]
         self.should_render.plot_tracy();
         if self.create_window_allowed {
-            self.window_wrapper
+            self.neovim_window
                 .try_create_window(event_loop, &self.proxy);
         }
         event_loop.set_control_flow(ControlFlow::WaitUntil(self.get_event_deadline()));
     }
 
     fn animate(&mut self) {
-        if self.window_wrapper.skia_renderer.is_none() {
+        if self.neovim_window.skia_renderer.is_none() {
             return;
         }
-        let skia_renderer = self.window_wrapper.skia_renderer.as_ref().unwrap();
-        let vsync = self.window_wrapper.vsync.as_ref().unwrap();
+        let skia_renderer = self.neovim_window.skia_renderer.as_ref().unwrap();
+        let vsync = self.neovim_window.vsync.as_ref().unwrap();
 
         let dt =
             Duration::from_secs_f32(vsync.get_refresh_rate(skia_renderer.window(), &self.settings));
@@ -211,7 +211,7 @@ impl UpdateLoop {
         let num_steps = (dt.as_secs_f64() / MAX_ANIMATION_DT).ceil() as u32;
         let step = dt / num_steps;
         for _ in 0..num_steps {
-            if self.window_wrapper.animate_frame(step.as_secs_f32()) {
+            if self.neovim_window.animate_frame(step.as_secs_f32()) {
                 self.should_render = ShouldRender::Immediately;
             }
         }
@@ -220,7 +220,7 @@ impl UpdateLoop {
     fn render(&mut self) {
         self.pending_render = false;
         tracy_plot!("pending_render", self.pending_render as u8 as f64);
-        self.window_wrapper.draw_frame(self.last_dt);
+        self.neovim_window.draw_frame(self.last_dt);
 
         if let FocusedState::UnfocusedNotDrawn = self.focused {
             self.focused = FocusedState::Unfocused;
@@ -239,7 +239,7 @@ impl UpdateLoop {
         if !self.pending_draw_commands.is_empty() {
             self.pending_draw_commands
                 .drain(..)
-                .for_each(|b| self.window_wrapper.handle_draw_commands(b));
+                .for_each(|b| self.neovim_window.handle_draw_commands(b));
             self.should_render = ShouldRender::Immediately;
         }
     }
@@ -253,11 +253,11 @@ impl UpdateLoop {
     }
 
     fn schedule_render(&mut self, skipped_frame: bool) {
-        if self.window_wrapper.skia_renderer.is_none() {
+        if self.neovim_window.skia_renderer.is_none() {
             return;
         }
-        let skia_renderer = self.window_wrapper.skia_renderer.as_ref().unwrap();
-        let vsync = self.window_wrapper.vsync.as_mut().unwrap();
+        let skia_renderer = self.neovim_window.skia_renderer.as_ref().unwrap();
+        let vsync = self.neovim_window.vsync.as_mut().unwrap();
 
         // There's really no point in trying to render if the frame is skipped
         // (most likely due to the compositor being busy). The animated frame will
@@ -281,7 +281,7 @@ impl UpdateLoop {
             self.pending_render && Instant::now() > (self.animation_start + self.animation_time);
         let should_prepare = !self.pending_render || skipped_frame;
         if !should_prepare {
-            self.window_wrapper
+            self.neovim_window
                 .renderer
                 .grid_renderer
                 .shaper
@@ -289,7 +289,7 @@ impl UpdateLoop {
             return;
         }
 
-        let res = self.window_wrapper.prepare_frame();
+        let res = self.neovim_window.prepare_frame();
         self.should_render.update(res);
 
         let should_animate =
@@ -343,7 +343,7 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
                     FocusedState::UnfocusedNotDrawn
                 };
                 #[cfg(target_os = "macos")]
-                self.window_wrapper
+                self.neovim_window
                     .macos_feature
                     .as_mut()
                     .expect("MacosWindowFeature should already be created here.")
@@ -352,7 +352,7 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
             _ => {}
         }
 
-        if self.window_wrapper.handle_window_event(event) {
+        if self.neovim_window.handle_window_event(event) {
             self.should_render = ShouldRender::Immediately;
         }
         self.schedule_next_event(event_loop);
@@ -362,7 +362,7 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
         tracy_zone!("user_event");
         match event {
             UserEvent::NeovimExited => {
-                save_window_size(&self.window_wrapper, &self.settings);
+                save_window_size(&self.neovim_window, &self.settings);
                 event_loop.exit();
             }
             UserEvent::RedrawRequested => {
@@ -375,7 +375,7 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
                 self.pending_draw_commands.push(batch);
             }
             _ => {
-                self.window_wrapper.handle_user_event(event);
+                self.neovim_window.handle_user_event(event);
                 self.should_render = ShouldRender::Immediately;
             }
         }
@@ -396,7 +396,7 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
 
     fn exiting(&mut self, event_loop: &ActiveEventLoop) {
         tracy_zone!("exiting");
-        self.window_wrapper.exit();
+        self.neovim_window.exit();
         self.schedule_next_event(event_loop);
     }
 }

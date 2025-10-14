@@ -75,7 +75,7 @@ enum UIState {
     Showing, // No pending resizes
 }
 
-pub struct WinitWindowWrapper {
+pub struct NeovimWindow {
     // Don't rearrange this, unless you have a good reason to do so
     // The destruction order has to be correct
     pub skia_renderer: Option<Box<dyn SkiaRenderer>>,
@@ -101,7 +101,7 @@ pub struct WinitWindowWrapper {
     settings: Arc<Settings>,
 }
 
-impl WinitWindowWrapper {
+impl NeovimWindow {
     pub fn new(
         initial_window_size: WindowSize,
         initial_config: Config,
