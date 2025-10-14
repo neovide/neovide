@@ -206,6 +206,20 @@ async fn run(session: NeovimSession, proxy: EventLoopProxy<UserEvent>) {
     proxy.send_event(UserEvent::NeovimExited).ok();
 }
 
+async fn launch_and_run(
+    event_loop_proxy: EventLoopProxy<UserEvent>,
+    handler: NeovimHandler,
+    grid_size: Option<GridSize<u32>>,
+    settings: Arc<Settings>,
+) {
+    match launch(handler, grid_size, settings).await {
+        Ok(session) => run(session, event_loop_proxy).await,
+        Err(err) => {
+            let _ = event_loop_proxy.send_event(UserEvent::LaunchFailure(err));
+        }
+    }
+}
+
 impl NeovimRuntime {
     pub fn new() -> Result<Self, Error> {
         let runtime = Builder::new_multi_thread().enable_all().build()?;
@@ -219,12 +233,13 @@ impl NeovimRuntime {
         grid_size: Option<GridSize<u32>>,
         running_tracker: RunningTracker,
         settings: Arc<Settings>,
-    ) -> Result<()> {
+    ) {
         let handler = start_editor(event_loop_proxy.clone(), running_tracker, settings.clone());
-        let session = self
-            .runtime
-            .block_on(launch(handler, grid_size, settings))?;
-        self.runtime.spawn(run(session, event_loop_proxy));
-        Ok(())
+        self.runtime.spawn(launch_and_run(
+            event_loop_proxy,
+            handler,
+            grid_size,
+            settings,
+        ));
     }
 }

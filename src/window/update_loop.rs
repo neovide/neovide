@@ -11,11 +11,9 @@ use winit::{
 
 use super::{save_window_size, CmdLineSettings, NeovimWindow, UserEvent, WindowSettings};
 use crate::{
-    bridge::NeovimRuntime,
     profiling::{tracy_plot, tracy_zone},
     renderer::DrawCommand,
-    running_tracker::RunningTracker,
-    settings::{Config, Settings},
+    settings::Settings,
 };
 
 enum FocusedState {
@@ -90,15 +88,13 @@ pub struct UpdateLoop {
     create_window_allowed: bool,
     proxy: EventLoopProxy<UserEvent>,
     settings: Arc<Settings>,
-    runtime: Option<NeovimRuntime>,
 }
 
 impl UpdateLoop {
     pub fn new(
-        initial_config: Config,
+        neovim_window: NeovimWindow,
         proxy: EventLoopProxy<UserEvent>,
         settings: Arc<Settings>,
-        running_tracker: RunningTracker,
     ) -> Self {
         let previous_frame_start = Instant::now();
         let last_dt = 0.0;
@@ -112,16 +108,6 @@ impl UpdateLoop {
 
         let cmd_line_settings = settings.get::<CmdLineSettings>();
         let idle = cmd_line_settings.idle;
-
-        let mut runtime = NeovimRuntime::new().expect("Failed to create runtime");
-
-        let neovim_window = NeovimWindow::new(
-            initial_config,
-            settings.clone(),
-            proxy.clone(),
-            running_tracker,
-            &mut runtime,
-        );
 
         Self {
             idle,
@@ -138,7 +124,6 @@ impl UpdateLoop {
             create_window_allowed: false,
             proxy,
             settings,
-            runtime: Some(runtime),
         }
     }
 
@@ -160,7 +145,7 @@ impl UpdateLoop {
         self.previous_frame_start + expected_frame_duration
     }
 
-    fn get_event_deadline(&self) -> Instant {
+    pub fn get_event_deadline(&self) -> Instant {
         // When there's a pending render we don't need to wait for anything else than the render event
         if self.pending_render {
             return self.animation_start + self.animation_time;
@@ -397,20 +382,6 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         tracy_zone!("resumed");
         self.create_window_allowed = true;
-        self.schedule_next_event(event_loop);
-    }
-
-    fn exiting(&mut self, event_loop: &ActiveEventLoop) {
-        tracy_zone!("exiting");
-        self.neovim_window.exit();
-        // Wait a little bit more and force Nevoim to exit after that.
-        // This should not be required, but Neovim through libuv spawns childprocesses that inherits all the handles
-        // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
-        // read will hang forever, waiting for more data to read.
-        // See https://github.com/neovide/neovide/issues/2182 (which includes links to libuv issues)
-        if let Some(runtime) = self.runtime.take() {
-            runtime.runtime.shutdown_timeout(Duration::from_millis(500));
-        }
         self.schedule_next_event(event_loop);
     }
 }

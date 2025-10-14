@@ -14,6 +14,7 @@ extern crate approx;
 #[macro_use]
 extern crate clap;
 
+mod application;
 mod bridge;
 mod channel_utils;
 mod clipboard;
@@ -58,12 +59,12 @@ use winit::{error::EventLoopError, event_loop::EventLoopProxy};
 #[cfg(not(test))]
 use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
 
+use application::NeovideApplication;
 use backtrace::Backtrace;
 use cmd_line::CmdLineSettings;
-use error_handling::handle_startup_errors;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 use running_tracker::RunningTracker;
-use window::{create_event_loop, UpdateLoop, UserEvent, WindowSettings};
+use window::{create_event_loop, UserEvent, WindowSettings};
 
 pub use channel_utils::*;
 #[cfg(target_os = "windows")]
@@ -102,24 +103,20 @@ fn main() -> ExitCode {
     let running_tracker = RunningTracker::new();
     let settings = Arc::new(Settings::new());
 
-    match setup(event_loop.create_proxy(), settings.clone()) {
-        Err(err) => handle_startup_errors(err, event_loop, settings.clone()),
-        Ok(initial_config) => {
-            let mut update_loop = UpdateLoop::new(
-                initial_config,
-                event_loop.create_proxy(),
-                settings.clone(),
-                running_tracker.clone(),
-            );
+    let res = setup(event_loop.create_proxy(), settings.clone());
+    let mut application = NeovideApplication::new(
+        res,
+        event_loop.create_proxy(),
+        settings.clone(),
+        running_tracker.clone(),
+    );
 
-            let result = event_loop.run_app(&mut update_loop);
+    let result = event_loop.run_app(&mut application);
 
-            match result {
-                Ok(_) => running_tracker.exit_code(),
-                Err(EventLoopError::ExitFailure(code)) => ExitCode::from(code as u8),
-                _ => ExitCode::FAILURE,
-            }
-        }
+    match result {
+        Ok(_) => running_tracker.exit_code(),
+        Err(EventLoopError::ExitFailure(code)) => ExitCode::from(code as u8),
+        _ => ExitCode::FAILURE,
     }
 }
 

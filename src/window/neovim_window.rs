@@ -124,7 +124,7 @@ impl NeovimWindow {
             },
         };
 
-        let _ = runtime.launch(proxy, grid_size, running_tracker, settings.clone());
+        runtime.launch(proxy, grid_size, running_tracker, settings.clone());
 
         let saved_inner_size = Default::default();
         let renderer = Renderer::new(1.0, initial_config, settings.clone());
@@ -156,11 +156,6 @@ impl NeovimWindow {
             #[cfg(target_os = "macos")]
             macos_feature: None,
         }
-    }
-
-    pub fn exit(&mut self) {
-        self.vsync = None;
-        self.skia_renderer = None;
     }
 
     pub fn set_fullscreen(&mut self, fullscreen: bool) {

@@ -86,8 +86,9 @@ pub enum WindowCommand {
     UnregisterRightClick,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub enum UserEvent {
+    LaunchFailure(anyhow::Error),
     DrawCommandBatch(Vec<DrawCommand>),
     WindowCommand(WindowCommand),
     SettingsChanged(SettingsChanged),
