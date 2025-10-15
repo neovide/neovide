@@ -122,13 +122,17 @@ impl ApplicationHandler<UserEvent> for NeovideApplication {
 
     fn exiting(&mut self, event_loop: &ActiveEventLoop) {
         tracy_zone!("exiting");
+        // SAFETY: It's important that all rendering resources are cleaned up here before the EventLoop is destroyed
         self.current_window = None;
-        // Wait a little bit more and force Nevoim to exit after that.
-        // This should not be required, but Neovim through libuv spawns childprocesses that inherits all the handles
-        // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
-        // read will hang forever, waiting for more data to read.
-        // See https://github.com/neovide/neovide/issues/2182 (which includes links to libuv issues)
+
+        // SAFETY: It's important that the runtime is cleaned up here, since it might contain references to the clipboard
+        // And that indirectly uses the event loop, so it has to be destroyed before that.
         if let Some(runtime) = self.runtime.take() {
+            // Wait a little bit and force Nevoim to exit after that.
+            // This should not be required, but Neovim through libuv spawns childprocesses that inherits all the handles
+            // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
+            // read will hang forever, waiting for more data to read.
+            // See https://github.com/neovide/neovide/issues/2182 (which includes links to libuv issues)
             runtime.runtime.shutdown_timeout(Duration::from_millis(500));
         }
         self.schedule_next_event(event_loop);
