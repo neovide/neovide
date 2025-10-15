@@ -6,14 +6,10 @@ mod vsync_win_dwm;
 #[cfg(target_os = "windows")]
 mod vsync_win_swap_chain;
 
-use std::sync::Arc;
+use winit::window::Window;
 
-use winit::{event_loop::EventLoopProxy, window::Window};
-
-use crate::{
-    renderer::SkiaRenderer, settings::Settings, window::UserEvent, window::WindowSettings,
-};
-use vsync_timer::VSyncTimer;
+use crate::{settings::Settings, window::WindowSettings};
+pub use vsync_timer::VSyncTimer;
 
 #[cfg(target_os = "windows")]
 pub use vsync_win_dwm::VSyncWinDwm;
@@ -39,19 +35,6 @@ pub enum VSync {
 }
 
 impl VSync {
-    pub fn new(
-        vsync_enabled: bool,
-        renderer: &dyn SkiaRenderer,
-        proxy: EventLoopProxy<UserEvent>,
-        settings: Arc<Settings>,
-    ) -> Self {
-        if vsync_enabled {
-            renderer.create_vsync(proxy)
-        } else {
-            VSync::Timer(VSyncTimer::new(settings))
-        }
-    }
-
     pub fn wait_for_vsync(&mut self) {
         match self {
             VSync::Timer(vsync) => vsync.wait_for_vsync(),
@@ -104,7 +87,7 @@ impl VSync {
         }
     }
 
-    pub fn request_redraw(&mut self, window: &Window) {
+    pub fn request_redraw(&mut self, window: &Window) -> bool {
         match self {
             VSync::WinitThrottling(..) => window.request_redraw(),
             #[cfg(target_os = "windows")]
@@ -114,6 +97,7 @@ impl VSync {
             #[cfg(target_os = "macos")]
             VSync::MacosDisplayLink(vsync) => vsync.request_redraw(),
             _ => {}
-        }
+        };
+        self.uses_winit_throttling()
     }
 }

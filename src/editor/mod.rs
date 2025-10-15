@@ -4,7 +4,11 @@ mod grid;
 mod style;
 mod window;
 
-use std::{collections::HashMap, sync::Arc, thread};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    thread,
+};
 
 use log::{error, trace, warn};
 use tokio::sync::mpsc::unbounded_channel;
@@ -19,9 +23,9 @@ use skia_safe::Color4f;
 
 use crate::{
     bridge::{GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
+    clipboard::Clipboard,
     profiling::{tracy_named_frame, tracy_zone},
     renderer::{DrawCommand, WindowDrawCommand},
-    running_tracker::RunningTracker,
     settings::Settings,
     units::{GridRect, GridSize},
     window::{UserEvent, WindowCommand, WindowSettings},
@@ -695,15 +699,15 @@ impl Editor {
 
 pub fn start_editor(
     event_loop_proxy: EventLoopProxy<UserEvent>,
-    running_tracker: RunningTracker,
     settings: Arc<Settings>,
+    clipboard: Arc<Mutex<Clipboard>>,
 ) -> NeovimHandler {
     let (sender, mut receiver) = unbounded_channel();
     let handler = NeovimHandler::new(
         sender,
         event_loop_proxy.clone(),
-        running_tracker,
         settings.clone(),
+        clipboard,
     );
     thread::spawn(move || {
         let mut editor = Editor::new(event_loop_proxy, settings.clone());

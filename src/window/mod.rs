@@ -1,9 +1,9 @@
 mod error_window;
 mod keyboard_manager;
 mod mouse_manager;
+mod neovim_window;
 mod settings;
 mod update_loop;
-mod window_wrapper;
 
 #[cfg(target_os = "macos")]
 pub mod macos;
@@ -13,8 +13,9 @@ use std::env;
 
 use winit::{
     dpi::{PhysicalSize, Size},
-    event_loop::{ActiveEventLoop, EventLoop},
-    window::{Cursor, Icon, Theme, Window},
+    event::WindowEvent,
+    event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
+    window::{Cursor, Icon, Theme, Window as WinitWindow},
 };
 
 #[cfg(target_os = "macos")]
@@ -50,11 +51,11 @@ use crate::{
     },
     units::GridSize,
 };
-pub use error_window::show_error_window;
+pub use error_window::ErrorWindow;
+pub use neovim_window::NeovimWindow;
 pub use settings::{WindowSettings, WindowSettingsChanged};
 pub use update_loop::ShouldRender;
 pub use update_loop::UpdateLoop;
-pub use window_wrapper::WinitWindowWrapper;
 
 static ICON: &[u8] = include_bytes!("../../assets/neovide.ico");
 
@@ -71,6 +72,26 @@ const MAX_PERSISTENT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
     height: 8192,
 };
 
+pub trait Window {
+    fn try_create_window(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        proxy: &EventLoopProxy<UserEvent>,
+    );
+    fn prepare_no_update(&mut self);
+    fn prepare_frame(&mut self) -> ShouldRender;
+    fn animate_frame(&mut self, dt: f32) -> bool;
+    fn draw_frame(&mut self, dt: f32);
+
+    fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>);
+    fn handle_window_event(&mut self, event: WindowEvent, event_loop: &ActiveEventLoop) -> bool;
+    fn handle_user_event(&mut self, event: UserEvent, settings: &Settings);
+
+    fn valid(&self) -> bool;
+    fn refresh_interval(&self) -> f32;
+    fn request_redraw(&mut self) -> bool;
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum WindowCommand {
     TitleChanged(String),
@@ -86,12 +107,14 @@ pub enum WindowCommand {
     UnregisterRightClick,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub enum UserEvent {
+    LaunchFailure(anyhow::Error),
     DrawCommandBatch(Vec<DrawCommand>),
     WindowCommand(WindowCommand),
     SettingsChanged(SettingsChanged),
     ConfigsChanged(Box<HotReloadConfigs>),
+    SetExitCode(u8),
     #[allow(dead_code)]
     RedrawRequested,
     NeovimExited,
@@ -151,7 +174,7 @@ pub fn create_window(
 
     let mouse_cursor_icon = cmd_line_settings.mouse_cursor_icon;
 
-    let window_attributes = Window::default_attributes()
+    let window_attributes = WinitWindow::default_attributes()
         .with_title(title)
         .with_cursor(Cursor::Icon(mouse_cursor_icon.parse()))
         .with_maximized(maximized)

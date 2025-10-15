@@ -7,7 +7,12 @@ pub mod session;
 mod setup;
 mod ui_commands;
 
-use std::{io::Error, ops::Add, sync::Arc, time::Duration};
+use std::{
+    io::Error,
+    ops::Add,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use anyhow::{bail, Context, Result};
 use itertools::Itertools;
@@ -22,9 +27,9 @@ use tokio::{
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
+    clipboard::Clipboard,
     cmd_line::CmdLineSettings,
     editor::start_editor,
-    running_tracker::RunningTracker,
     settings::*,
     units::GridSize,
     window::{UserEvent, WindowSettings},
@@ -71,7 +76,8 @@ async fn nvim_exec_output(
 }
 
 pub struct NeovimRuntime {
-    pub runtime: Runtime,
+    runtime: Option<Runtime>,
+    clipboard: Arc<Mutex<Clipboard>>,
 }
 
 async fn neovim_instance(settings: &Settings) -> Result<NeovimInstance> {
@@ -206,25 +212,57 @@ async fn run(session: NeovimSession, proxy: EventLoopProxy<UserEvent>) {
     proxy.send_event(UserEvent::NeovimExited).ok();
 }
 
-impl NeovimRuntime {
-    pub fn new() -> Result<Self, Error> {
-        let runtime = Builder::new_multi_thread().enable_all().build()?;
+async fn launch_and_run(
+    event_loop_proxy: EventLoopProxy<UserEvent>,
+    handler: NeovimHandler,
+    grid_size: Option<GridSize<u32>>,
+    settings: Arc<Settings>,
+) {
+    match launch(handler, grid_size, settings).await {
+        Ok(session) => run(session, event_loop_proxy).await,
+        Err(err) => {
+            let _ = event_loop_proxy.send_event(UserEvent::LaunchFailure(err));
+        }
+    }
+}
 
-        Ok(Self { runtime })
+impl NeovimRuntime {
+    pub fn new(clipboard: Arc<Mutex<Clipboard>>) -> Result<Self, Error> {
+        let runtime = Some(Builder::new_multi_thread().enable_all().build()?);
+
+        Ok(Self { runtime, clipboard })
     }
 
     pub fn launch(
         &mut self,
         event_loop_proxy: EventLoopProxy<UserEvent>,
         grid_size: Option<GridSize<u32>>,
-        running_tracker: RunningTracker,
         settings: Arc<Settings>,
-    ) -> Result<()> {
-        let handler = start_editor(event_loop_proxy.clone(), running_tracker, settings.clone());
-        let session = self
-            .runtime
-            .block_on(launch(handler, grid_size, settings))?;
-        self.runtime.spawn(run(session, event_loop_proxy));
-        Ok(())
+    ) {
+        let handler = start_editor(
+            event_loop_proxy.clone(),
+            settings.clone(),
+            self.clipboard.clone(),
+        );
+        self.runtime.as_ref().unwrap().spawn(launch_and_run(
+            event_loop_proxy,
+            handler,
+            grid_size,
+            settings,
+        ));
+    }
+}
+
+impl Drop for NeovimRuntime {
+    fn drop(&mut self) {
+        // Wait a little bit and force Nevoim to exit.
+        // This should not be required, but Neovim through libuv spawns childprocesses that inherits all the handles
+        // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
+        // read will hang forever, waiting for more data to read.
+        // See https://github.com/neovide/neovide/issues/2182 (which includes links to libuv issues)
+        self.runtime
+            .take()
+            .unwrap()
+            .shutdown_timeout(Duration::from_millis(500));
     }
 }

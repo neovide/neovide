@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use skia_safe::{
     canvas::{Canvas, SaveLayerRec},
@@ -12,20 +12,19 @@ use skia_safe::{
 use strum::IntoEnumIterator;
 use strum::{EnumCount, EnumIter};
 use winit::{
-    application::ApplicationHandler,
     dpi::PhysicalSize,
     event::{ElementState, KeyEvent, Modifiers, MouseScrollDelta, WindowEvent},
-    event_loop::{ActiveEventLoop, EventLoop},
+    event_loop::{ActiveEventLoop, EventLoopProxy},
     keyboard::{Key, NamedKey},
-    window::Window,
+    window::Window as WinitWindow,
 };
 
 use crate::{
-    clipboard,
+    clipboard::Clipboard,
     cmd_line::SRGB_DEFAULT,
     renderer::{build_window_config, create_skia_renderer, SkiaRenderer, WindowConfig},
     settings::Settings,
-    window::{load_icon, UserEvent},
+    window::{load_icon, DrawCommand, ShouldRender, UserEvent, Window},
 };
 
 const TEXT_COLOR: Color4f = WHITE;
@@ -35,11 +34,6 @@ const PADDING: f32 = 10.0;
 const MAX_LINES: i32 = 9999;
 const MIN_SIZE: PhysicalSize<u32> = PhysicalSize::new(500, 500);
 const DEFAULT_SIZE: PhysicalSize<u32> = PhysicalSize::new(800, 600);
-
-pub fn show_error_window(message: &str, event_loop: EventLoop<UserEvent>, settings: Arc<Settings>) {
-    let mut error_window = ErrorWindow::new(message, settings);
-    event_loop.run_app(&mut error_window).ok();
-}
 
 #[derive(Debug)]
 enum Scroll {
@@ -63,7 +57,8 @@ struct Paragraphs {
     help_messages: [Paragraph; PossibleScrollDirection::COUNT],
 }
 
-struct State {
+pub struct ErrorWindow {
+    message: String,
     skia_renderer: Box<dyn SkiaRenderer>,
     font_collection: FontCollection,
     size: PhysicalSize<u32>,
@@ -73,45 +68,18 @@ struct State {
     current_position: TextIndex,
     modifiers: Modifiers,
     mouse_scroll_accumulator: f32,
+    clipboard: Arc<Mutex<Clipboard>>,
 }
 
-struct ErrorWindow<'a> {
-    state: Option<State>,
-    message: &'a str,
-    settings: Arc<Settings>,
-}
-
-impl<'a> ErrorWindow<'a> {
-    fn new(message: &'a str, settings: Arc<Settings>) -> Self {
-        Self {
-            state: None,
-            message,
-            settings,
-        }
-    }
-}
-
-impl ApplicationHandler<UserEvent> for ErrorWindow<'_> {
-    fn window_event(
-        &mut self,
+impl ErrorWindow {
+    pub fn new(
+        message: String,
         event_loop: &ActiveEventLoop,
-        _window_id: winit::window::WindowId,
-        event: WindowEvent,
-    ) {
-        let state = self.state.as_mut().unwrap();
-        state.handle_window_event(event, event_loop, self.message);
-    }
-
-    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        if self.state.is_none() {
-            self.state = Some(State::new(self.message, event_loop, self.settings.clone()));
-        }
-    }
-}
-
-impl State {
-    fn new(message: &str, event_loop: &ActiveEventLoop, settings: Arc<Settings>) -> Self {
-        let message = message.trim_end();
+        settings: Arc<Settings>,
+        proxy: EventLoopProxy<UserEvent>,
+        clipboard: Arc<Mutex<Clipboard>>,
+    ) -> Self {
+        let message = message.trim_end().to_string();
 
         let font_manager = FontMgr::new();
         let mut font_collection = FontCollection::new();
@@ -120,17 +88,18 @@ impl State {
         let srgb = SRGB_DEFAULT == "1";
         let vsync = true;
         let window = create_window(event_loop, &settings);
-        let skia_renderer = create_skia_renderer(window, srgb, vsync, settings);
+        let skia_renderer = create_skia_renderer(window, srgb, vsync, settings, proxy);
         skia_renderer.window().set_visible(true);
         let scale_factor = skia_renderer.window().scale_factor();
         let size = skia_renderer.window().inner_size();
-        let paragraphs = create_paragraphs(message, scale_factor as f32, &font_collection);
+        let paragraphs = create_paragraphs(&message, scale_factor as f32, &font_collection);
         let scroll = Scroll::None;
         let current_position = 0;
         let modifiers = Modifiers::default();
         let mouse_scroll_accumulator = 0.0;
 
         Self {
+            message,
             skia_renderer,
             font_collection,
             size,
@@ -140,21 +109,19 @@ impl State {
             current_position,
             modifiers,
             mouse_scroll_accumulator,
+            clipboard,
         }
     }
 
-    fn handle_window_event(
+    fn handle_window_event_impl(
         &mut self,
         event: WindowEvent,
         event_loop: &ActiveEventLoop,
-        message: &str,
-    ) {
+    ) -> bool {
+        let mut should_render = true;
         match event {
             WindowEvent::CloseRequested => {
                 event_loop.exit();
-            }
-            WindowEvent::RedrawRequested => {
-                self.render();
             }
             WindowEvent::Resized(size) => {
                 self.size = size;
@@ -163,14 +130,14 @@ impl State {
             WindowEvent::ScaleFactorChanged { scale_factor, .. } => {
                 self.scale_factor = scale_factor;
                 self.paragraphs =
-                    create_paragraphs(message, scale_factor as f32, &self.font_collection);
+                    create_paragraphs(&self.message, scale_factor as f32, &self.font_collection);
             }
             WindowEvent::KeyboardInput {
                 event,
                 is_synthetic: false,
                 ..
             } => {
-                if self.handle_keyboard_input(event, event_loop, message) {
+                if self.handle_keyboard_input(event, event_loop) {
                     self.skia_renderer.window().request_redraw();
                 }
             }
@@ -192,8 +159,9 @@ impl State {
                 }
             }
             WindowEvent::ModifiersChanged(modifiers) => self.modifiers = modifiers,
-            _ => {}
-        }
+            _ => should_render = false,
+        };
+        should_render
     }
 
     fn render(&mut self) {
@@ -218,12 +186,7 @@ impl State {
         self.skia_renderer.swap_buffers();
     }
 
-    fn handle_keyboard_input(
-        &mut self,
-        event: KeyEvent,
-        event_loop: &ActiveEventLoop,
-        message: &str,
-    ) -> bool {
+    fn handle_keyboard_input(&mut self, event: KeyEvent, event_loop: &ActiveEventLoop) -> bool {
         if event.state != ElementState::Pressed {
             return false;
         }
@@ -257,7 +220,11 @@ impl State {
                         true
                     }
                     "y" => {
-                        let _ = clipboard::set_contents(message.to_string(), "+");
+                        let _ = self
+                            .clipboard
+                            .lock()
+                            .unwrap()
+                            .set_contents(self.message.clone(), "+");
                         true
                     }
                     _ => false,
@@ -492,7 +459,7 @@ fn create_paragraphs(
 fn create_window(event_loop: &ActiveEventLoop, settings: &Settings) -> WindowConfig {
     let icon = load_icon();
 
-    let window_attributes = Window::default_attributes()
+    let window_attributes = WinitWindow::default_attributes()
         .with_title("Neovide")
         .with_window_icon(Some(icon))
         .with_transparent(false)
@@ -502,4 +469,43 @@ fn create_window(event_loop: &ActiveEventLoop, settings: &Settings) -> WindowCon
         .with_min_inner_size(MIN_SIZE);
 
     build_window_config(window_attributes, event_loop, settings)
+}
+
+impl Window for ErrorWindow {
+    fn try_create_window(
+        &mut self,
+        _event_loop: &ActiveEventLoop,
+        _proxy: &EventLoopProxy<UserEvent>,
+    ) {
+    }
+    fn prepare_no_update(&mut self) {}
+    fn prepare_frame(&mut self) -> ShouldRender {
+        ShouldRender::Wait
+    }
+    fn animate_frame(&mut self, _dt: f32) -> bool {
+        false
+    }
+    fn draw_frame(&mut self, _dt: f32) {
+        self.render();
+    }
+
+    fn handle_draw_commands(&mut self, _batch: Vec<DrawCommand>) {}
+
+    fn handle_window_event(&mut self, event: WindowEvent, event_loop: &ActiveEventLoop) -> bool {
+        self.handle_window_event_impl(event, event_loop)
+    }
+
+    fn handle_user_event(&mut self, _event: UserEvent, _settings: &Settings) {}
+
+    fn valid(&self) -> bool {
+        true
+    }
+
+    fn refresh_interval(&self) -> f32 {
+        self.skia_renderer.refresh_interval()
+    }
+
+    fn request_redraw(&mut self) -> bool {
+        self.skia_renderer.request_redraw()
+    }
 }

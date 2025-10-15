@@ -561,7 +561,12 @@ pub trait SkiaRenderer {
     fn swap_buffers(&mut self);
     fn canvas(&mut self) -> &Canvas;
     fn resize(&mut self);
-    fn create_vsync(&self, proxy: EventLoopProxy<UserEvent>) -> VSync;
+
+    fn refresh_interval(&self) -> f32;
+    fn request_redraw(&mut self) -> bool;
+    fn update_vsync(&mut self);
+    fn wait_for_vsync(&mut self);
+
     #[cfg(feature = "gpu_profiling")]
     fn tracy_create_gpu_context(&self, name: &str) -> Box<dyn GpuCtx>;
 }
@@ -571,6 +576,7 @@ pub fn create_skia_renderer(
     srgb: bool,
     vsync: bool,
     settings: Arc<Settings>,
+    #[allow(unused)] proxy: EventLoopProxy<UserEvent>,
 ) -> Box<dyn SkiaRenderer> {
     let renderer: Box<dyn SkiaRenderer> = match &window.config {
         WindowConfigType::OpenGL(..) => Box::new(opengl::OpenGLSkiaRenderer::new(
@@ -578,11 +584,14 @@ pub fn create_skia_renderer(
             srgb,
             vsync,
             settings.clone(),
+            proxy,
         )),
         #[cfg(target_os = "windows")]
-        WindowConfigType::Direct3D => {
-            Box::new(d3d::D3DSkiaRenderer::new(window.window, settings.clone()))
-        }
+        WindowConfigType::Direct3D => Box::new(d3d::D3DSkiaRenderer::new(
+            window.window,
+            settings.clone(),
+            proxy,
+        )),
         #[cfg(target_os = "macos")]
         WindowConfigType::Metal => Box::new(metal::MetalSkiaRenderer::new(
             window.window,

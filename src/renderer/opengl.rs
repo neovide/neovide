@@ -38,7 +38,9 @@ pub use super::vsync::VSyncWinDwm;
 #[cfg(target_os = "macos")]
 pub use super::vsync::VSyncMacosDisplayLink;
 
-use super::{RendererSettings, SkiaRenderer, VSync, WindowConfig, WindowConfigType};
+use super::{
+    vsync::VSyncTimer, RendererSettings, SkiaRenderer, VSync, WindowConfig, WindowConfigType,
+};
 
 use crate::{profiling::tracy_gpu_zone, settings::Settings, window::UserEvent};
 
@@ -55,8 +57,8 @@ pub struct OpenGLSkiaRenderer {
     window_surface: Surface<WindowSurface>,
     config: Config,
     window: Option<Window>,
-
     settings: Arc<Settings>,
+    vsync: VSync,
 }
 
 fn clamp_render_buffer_size(size: &PhysicalSize<u32>) -> PhysicalSize<u32> {
@@ -70,8 +72,41 @@ fn get_proc_address(surface: &Surface<WindowSurface>, addr: &CStr) -> *const c_v
     GlDisplay::get_proc_address(&surface.display(), addr)
 }
 
+fn create_vsync(
+    enabled: bool,
+    settings: Arc<Settings>,
+    #[allow(unused)] proxy: EventLoopProxy<UserEvent>,
+    #[allow(unused)] window: &Window,
+) -> VSync {
+    if !enabled {
+        return VSync::Timer(VSyncTimer::new(settings));
+    }
+    #[cfg(target_os = "linux")]
+    if env::var("WAYLAND_DISPLAY").is_ok() {
+        VSync::WinitThrottling()
+    } else {
+        VSync::Opengl()
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        VSync::WindowsDwm(VSyncWinDwm::new(proxy))
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        VSync::MacosDisplayLink(VSyncMacosDisplayLink::new(window, proxy))
+    }
+}
+
 impl OpenGLSkiaRenderer {
-    pub fn new(window: WindowConfig, srgb: bool, vsync: bool, settings: Arc<Settings>) -> Self {
+    pub fn new(
+        window: WindowConfig,
+        srgb: bool,
+        vsync: bool,
+        settings: Arc<Settings>,
+        proxy: EventLoopProxy<UserEvent>,
+    ) -> Self {
         #[allow(irrefutable_let_patterns)] // This can only be something else than OpenGL on Windows
         let config = if let WindowConfigType::OpenGL(config) = window.config {
             config
@@ -146,6 +181,8 @@ impl OpenGLSkiaRenderer {
             &settings,
         );
 
+        let vsync = create_vsync(vsync, settings.clone(), proxy, &window);
+
         Self {
             window_surface,
             context,
@@ -154,8 +191,8 @@ impl OpenGLSkiaRenderer {
             gr_context,
             fb_info,
             skia_surface,
-
             settings,
+            vsync,
         }
     }
 }
@@ -196,24 +233,22 @@ impl SkiaRenderer for OpenGLSkiaRenderer {
         );
     }
 
-    #[allow(unused_variables)]
-    fn create_vsync(&self, proxy: EventLoopProxy<UserEvent>) -> VSync {
-        #[cfg(target_os = "linux")]
-        if env::var("WAYLAND_DISPLAY").is_ok() {
-            VSync::WinitThrottling()
-        } else {
-            VSync::Opengl()
-        }
+    fn refresh_interval(&self) -> f32 {
+        self.vsync.get_refresh_rate(self.window(), &self.settings)
+    }
 
-        #[cfg(target_os = "windows")]
-        {
-            VSync::WindowsDwm(VSyncWinDwm::new(proxy))
-        }
+    fn request_redraw(&mut self) -> bool {
+        let window = self.window.as_ref().unwrap();
+        self.vsync.request_redraw(window)
+    }
 
-        #[cfg(target_os = "macos")]
-        {
-            VSync::MacosDisplayLink(VSyncMacosDisplayLink::new(self.window(), proxy))
-        }
+    fn update_vsync(&mut self) {
+        let window = self.window.as_ref().unwrap();
+        self.vsync.update(window);
+    }
+
+    fn wait_for_vsync(&mut self) {
+        self.vsync.wait_for_vsync();
     }
 
     #[cfg(feature = "gpu_profiling")]

@@ -10,7 +10,8 @@ use winit::{
 };
 
 use super::{
-    KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings, WindowSettingsChanged,
+    determine_window_size, save_window_size, KeyboardManager, MouseManager, UserEvent,
+    WindowCommand, WindowSettings, WindowSettingsChanged,
 };
 
 #[cfg(target_os = "macos")]
@@ -20,14 +21,14 @@ use {
 };
 
 use crate::{
-    bridge::{send_ui, ParallelCommand, SerialCommand},
+    bridge::{send_ui, NeovimRuntime, ParallelCommand, SerialCommand},
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
     renderer::{
-        create_skia_renderer, DrawCommand, Renderer, RendererSettingsChanged, SkiaRenderer, VSync,
+        create_skia_renderer, DrawCommand, Renderer, RendererSettingsChanged, SkiaRenderer,
     },
     settings::{
-        clamped_grid_size, Config, HotReloadConfigs, Settings, SettingsChanged, DEFAULT_GRID_SIZE,
-        MIN_GRID_SIZE,
+        clamped_grid_size, load_last_window_settings, Config, HotReloadConfigs,
+        PersistentWindowSettings, Settings, SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE,
     },
     units::{GridRect, GridSize, PixelPos, PixelSize},
     window::{create_window, PhysicalSize, ShouldRender, WindowSize},
@@ -75,7 +76,7 @@ enum UIState {
     Showing, // No pending resizes
 }
 
-pub struct WinitWindowWrapper {
+pub struct NeovimWindow {
     // Don't rearrange this, unless you have a good reason to do so
     // The destruction order has to be correct
     pub skia_renderer: Option<Box<dyn SkiaRenderer>>,
@@ -94,19 +95,34 @@ pub struct WinitWindowWrapper {
     is_minimized: bool,
     ime_enabled: bool,
     ime_area: (dpi::PhysicalPosition<u32>, dpi::PhysicalSize<u32>),
-    pub vsync: Option<VSync>,
+    settings: Arc<Settings>,
+
     #[cfg(target_os = "macos")]
     pub macos_feature: Option<MacosWindowFeature>,
-
-    settings: Arc<Settings>,
 }
 
-impl WinitWindowWrapper {
+impl NeovimWindow {
     pub fn new(
-        initial_window_size: WindowSize,
         initial_config: Config,
         settings: Arc<Settings>,
+        proxy: EventLoopProxy<UserEvent>,
+        runtime: &mut NeovimRuntime,
     ) -> Self {
+        let window_settings = load_last_window_settings().ok();
+        let initial_window_size = determine_window_size(window_settings.as_ref(), &settings);
+        let grid_size = match initial_window_size {
+            WindowSize::Grid(grid_size) => Some(grid_size),
+            // Clippy wrongly suggests to use unwrap or default here
+            #[allow(clippy::manual_unwrap_or_default)]
+            _ => match window_settings {
+                Some(PersistentWindowSettings::Maximized { grid_size, .. }) => grid_size,
+                Some(PersistentWindowSettings::Windowed { grid_size, .. }) => grid_size,
+                _ => None,
+            },
+        };
+
+        runtime.launch(proxy.clone(), grid_size, settings.clone());
+
         let saved_inner_size = Default::default();
         let renderer = Renderer::new(1.0, initial_config, settings.clone());
 
@@ -130,18 +146,12 @@ impl WinitWindowWrapper {
             },
             initial_window_size,
             is_minimized: false,
-            vsync: None,
             ime_enabled: false,
             ime_area: Default::default(),
+            settings,
             #[cfg(target_os = "macos")]
             macos_feature: None,
-            settings,
         }
-    }
-
-    pub fn exit(&mut self) {
-        self.vsync = None;
-        self.skia_renderer = None;
     }
 
     pub fn set_fullscreen(&mut self, fullscreen: bool) {
@@ -341,10 +351,9 @@ impl WinitWindowWrapper {
         }
     }
 
-    pub fn handle_window_event(&mut self, event: WindowEvent) -> bool {
+    fn handle_window_event_impl(&mut self, event: WindowEvent) -> bool {
         // The renderer and vsync should always be created when a window event is received
         let skia_renderer = self.skia_renderer.as_mut().unwrap();
-        let vsync = self.vsync.as_mut().unwrap();
 
         self.mouse_manager.handle_event(
             &event,
@@ -382,6 +391,12 @@ impl WinitWindowWrapper {
                 } else {
                     self.handle_focus_lost();
                 }
+
+                #[cfg(target_os = "macos")]
+                self.macos_feature
+                    .as_mut()
+                    .expect("MacosWindowFeature should already be created here.")
+                    .ensure_app_initialized();
             }
             WindowEvent::ThemeChanged(theme) => {
                 tracy_zone!("ThemeChanged");
@@ -396,7 +411,7 @@ impl WinitWindowWrapper {
             }
             WindowEvent::Moved(_) => {
                 tracy_zone!("Moved");
-                vsync.update(skia_renderer.window());
+                self.skia_renderer.as_mut().unwrap().update_vsync();
             }
             WindowEvent::Ime(Ime::Enabled) => {
                 log::info!("Ime enabled");
@@ -415,10 +430,10 @@ impl WinitWindowWrapper {
         self.ui_state >= UIState::FirstFrame && should_render
     }
 
-    pub fn handle_user_event(&mut self, event: UserEvent) {
+    fn handle_user_event_impl(&mut self, event: UserEvent, settings: &Settings) {
         match event {
             UserEvent::DrawCommandBatch(batch) => {
-                self.handle_draw_commands(batch);
+                self.handle_draw_commands_impl(batch);
             }
             UserEvent::WindowCommand(e) => {
                 self.handle_window_command(e);
@@ -432,23 +447,25 @@ impl WinitWindowWrapper {
             UserEvent::ConfigsChanged(config) => {
                 self.handle_config_changed(*config);
             }
+            UserEvent::NeovimExited => {
+                save_window_size(self, settings);
+            }
             _ => {}
         }
     }
 
-    pub fn draw_frame(&mut self, dt: f32) {
+    fn draw_frame_impl(&mut self, dt: f32) {
         tracy_zone!("draw_frame");
         if self.skia_renderer.is_none() {
             return;
         }
         let skia_renderer = self.skia_renderer.as_mut().unwrap();
-        let vsync = self.vsync.as_mut().unwrap();
 
         self.renderer.draw_frame(skia_renderer.canvas(), dt);
         skia_renderer.flush();
         {
             tracy_gpu_zone!("wait for vsync");
-            vsync.wait_for_vsync();
+            skia_renderer.wait_for_vsync();
         }
         skia_renderer.swap_buffers();
         if self.ui_state == UIState::FirstFrame {
@@ -459,7 +476,7 @@ impl WinitWindowWrapper {
         tracy_gpu_collect();
     }
 
-    pub fn animate_frame(&mut self, dt: f32) -> bool {
+    fn animate_frame_impl(&mut self, dt: f32) -> bool {
         tracy_zone!("animate_frame", 0);
 
         let res = self
@@ -471,7 +488,7 @@ impl WinitWindowWrapper {
         res
     }
 
-    pub fn try_create_window(
+    fn try_create_window_impl(
         &mut self,
         event_loop: &ActiveEventLoop,
         proxy: &EventLoopProxy<UserEvent>,
@@ -576,8 +593,13 @@ impl WinitWindowWrapper {
         let cmd_line_settings = self.settings.get::<CmdLineSettings>();
         let srgb = cmd_line_settings.srgb;
         let vsync_enabled = cmd_line_settings.vsync;
-        let skia_renderer =
-            create_skia_renderer(window_config, srgb, vsync_enabled, self.settings.clone());
+        let skia_renderer = create_skia_renderer(
+            window_config,
+            srgb,
+            vsync_enabled,
+            self.settings.clone(),
+            proxy.clone(),
+        );
         let window = skia_renderer.window();
 
         self.saved_inner_size = window.inner_size();
@@ -622,13 +644,6 @@ impl WinitWindowWrapper {
             }
         }
 
-        self.vsync = Some(VSync::new(
-            vsync_enabled,
-            skia_renderer.as_ref(),
-            proxy.clone(),
-            self.settings.clone(),
-        ));
-
         {
             tracy_zone!("request_redraw");
             window.request_redraw();
@@ -642,7 +657,7 @@ impl WinitWindowWrapper {
         self.set_simple_fullscreen(macos_simple_fullscreen);
     }
 
-    pub fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
+    fn handle_draw_commands_impl(&mut self, batch: Vec<DrawCommand>) {
         tracy_zone!("handle_draw_commands");
         let handle_draw_commands_result = self.renderer.handle_draw_commands(batch);
 
@@ -682,7 +697,7 @@ impl WinitWindowWrapper {
         }
     }
 
-    pub fn prepare_frame(&mut self) -> ShouldRender {
+    fn prepare_frame_impl(&mut self) -> ShouldRender {
         tracy_zone!("prepare_frame", 0);
         let mut should_render = ShouldRender::Wait;
 
@@ -901,6 +916,64 @@ impl WinitWindowWrapper {
             if let Some(winit_color) = Self::parse_winit_color(color) {
                 skia_renderer.window().set_title_text_color(winit_color);
             }
+        }
+    }
+}
+
+impl super::Window for NeovimWindow {
+    fn try_create_window(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        proxy: &EventLoopProxy<UserEvent>,
+    ) {
+        self.try_create_window_impl(event_loop, proxy)
+    }
+
+    fn prepare_no_update(&mut self) {
+        self.renderer.grid_renderer.shaper.cleanup_font_cache();
+    }
+
+    fn prepare_frame(&mut self) -> ShouldRender {
+        self.prepare_frame_impl()
+    }
+
+    fn animate_frame(&mut self, dt: f32) -> bool {
+        self.animate_frame_impl(dt)
+    }
+
+    fn draw_frame(&mut self, dt: f32) {
+        self.draw_frame_impl(dt)
+    }
+
+    fn handle_window_event(&mut self, event: WindowEvent, _event_loop: &ActiveEventLoop) -> bool {
+        self.handle_window_event_impl(event)
+    }
+
+    fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
+        self.handle_draw_commands_impl(batch);
+    }
+
+    fn handle_user_event(&mut self, event: UserEvent, settings: &Settings) {
+        self.handle_user_event_impl(event, settings)
+    }
+
+    fn valid(&self) -> bool {
+        self.skia_renderer.is_some()
+    }
+
+    fn refresh_interval(&self) -> f32 {
+        if let Some(skia_renderer) = &self.skia_renderer {
+            skia_renderer.refresh_interval()
+        } else {
+            1.0 / self.settings.get::<WindowSettings>().refresh_rate_idle as f32
+        }
+    }
+
+    fn request_redraw(&mut self) -> bool {
+        if let Some(skia_renderer) = &mut self.skia_renderer {
+            skia_renderer.request_redraw()
+        } else {
+            false
         }
     }
 }

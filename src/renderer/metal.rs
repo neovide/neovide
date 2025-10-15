@@ -17,12 +17,12 @@ use skia_safe::{
     },
     Canvas, ColorSpace, ColorType, PixelGeometry, Surface, SurfaceProps, SurfacePropsFlags,
 };
-use winit::{event_loop::EventLoopProxy, window::Window};
+use winit::window::Window;
 
 use crate::{
     profiling::tracy_gpu_zone,
     renderer::{RendererSettings, SkiaRenderer, VSync},
-    window::{macos::get_ns_window, UserEvent},
+    window::macos::get_ns_window,
 };
 
 use super::Settings;
@@ -83,6 +83,7 @@ pub struct MetalSkiaRenderer {
     context: DirectContext,
     metal_drawable_surface: Option<MetalDrawableSurface>,
     settings: Arc<Settings>,
+    vsync: VSync,
 }
 
 impl MetalSkiaRenderer {
@@ -135,6 +136,8 @@ impl MetalSkiaRenderer {
 
         let context = gpu::direct_contexts::make_metal(&backend, None).unwrap();
 
+        let vsync = VSync::MacosMetal();
+
         MetalSkiaRenderer {
             window,
             _device: device,
@@ -144,6 +147,7 @@ impl MetalSkiaRenderer {
             context,
             metal_drawable_surface: None,
             settings,
+            vsync,
         }
     }
 
@@ -219,7 +223,19 @@ impl SkiaRenderer for MetalSkiaRenderer {
         self.window.request_redraw();
     }
 
-    fn create_vsync(&self, _proxy: EventLoopProxy<UserEvent>) -> VSync {
-        VSync::MacosMetal()
+    fn refresh_interval(&self) -> f32 {
+        self.vsync.get_refresh_rate(&self.window, &self.settings)
+    }
+
+    fn request_redraw(&mut self) -> bool {
+        self.vsync.request_redraw(&self.window)
+    }
+
+    fn update_vsync(&mut self) {
+        self.vsync.update(&self.window);
+    }
+
+    fn wait_for_vsync(&mut self) {
+        self.vsync.wait_for_vsync();
     }
 }
