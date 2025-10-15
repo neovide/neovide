@@ -121,7 +121,7 @@ impl NeovimWindow {
             },
         };
 
-        runtime.launch(proxy, grid_size, settings.clone());
+        runtime.launch(proxy.clone(), grid_size, settings.clone());
 
         let saved_inner_size = Default::default();
         let renderer = Renderer::new(1.0, initial_config, settings.clone());
@@ -485,7 +485,7 @@ impl NeovimWindow {
     fn try_create_window_impl(
         &mut self,
         event_loop: &ActiveEventLoop,
-        _proxy: &EventLoopProxy<UserEvent>,
+        proxy: &EventLoopProxy<UserEvent>,
     ) {
         if self.ui_state != UIState::WaitingForWindowCreate {
             return;
@@ -587,8 +587,13 @@ impl NeovimWindow {
         let cmd_line_settings = self.settings.get::<CmdLineSettings>();
         let srgb = cmd_line_settings.srgb;
         let vsync_enabled = cmd_line_settings.vsync;
-        let skia_renderer =
-            create_skia_renderer(window_config, srgb, vsync_enabled, self.settings.clone());
+        let skia_renderer = create_skia_renderer(
+            window_config,
+            srgb,
+            vsync_enabled,
+            self.settings.clone(),
+            proxy.clone(),
+        );
         let window = skia_renderer.window();
 
         self.saved_inner_size = window.inner_size();

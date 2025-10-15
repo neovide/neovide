@@ -83,6 +83,7 @@ pub struct MetalSkiaRenderer {
     context: DirectContext,
     metal_drawable_surface: Option<MetalDrawableSurface>,
     settings: Arc<Settings>,
+    vsync: VSync,
 }
 
 impl MetalSkiaRenderer {
@@ -135,6 +136,8 @@ impl MetalSkiaRenderer {
 
         let context = gpu::direct_contexts::make_metal(&backend, None).unwrap();
 
+        let vsync = VSync::MacosMetal();
+
         MetalSkiaRenderer {
             window,
             _device: device,
@@ -144,6 +147,7 @@ impl MetalSkiaRenderer {
             context,
             metal_drawable_surface: None,
             settings,
+            vsync,
         }
     }
 
@@ -219,7 +223,21 @@ impl SkiaRenderer for MetalSkiaRenderer {
         self.window.request_redraw();
     }
 
-    fn create_vsync(&self, _proxy: EventLoopProxy<UserEvent>) -> VSync {
-        VSync::MacosMetal()
+    fn refresh_interval(&self) -> f32 {
+        self.vsync.get_refresh_rate(self.window(), &self.settings)
+    }
+
+    fn request_redraw(&mut self) -> bool {
+        let window = self.window.as_ref().unwrap();
+        self.vsync.request_redraw(window)
+    }
+
+    fn update_vsync(&mut self) {
+        let window = self.window.as_ref().unwrap();
+        self.vsync.update(window);
+    }
+
+    fn wait_for_vsync(&mut self) {
+        self.vsync.wait_for_vsync();
     }
 }

@@ -87,7 +87,7 @@ impl VSync {
         }
     }
 
-    pub fn request_redraw(&mut self, window: &Window) {
+    pub fn request_redraw(&mut self, window: &Window) -> bool {
         match self {
             VSync::WinitThrottling(..) => window.request_redraw(),
             #[cfg(target_os = "windows")]
@@ -97,6 +97,7 @@ impl VSync {
             #[cfg(target_os = "macos")]
             VSync::MacosDisplayLink(vsync) => vsync.request_redraw(),
             _ => {}
-        }
+        };
+        self.uses_winit_throttling()
     }
 }

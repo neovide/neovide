@@ -27,7 +27,7 @@ use skia_safe::Canvas;
 
 use winit::{
     event::WindowEvent,
-    event_loop::ActiveEventLoop,
+    event_loop::{ActiveEventLoop, EventLoopProxy},
     window::{Window, WindowAttributes},
 };
 
@@ -39,7 +39,7 @@ use crate::{
     renderer::rendered_layer::{group_windows, FloatingLayer},
     settings::*,
     units::{to_skia_rect, GridRect, GridSize, PixelPos},
-    window::ShouldRender,
+    window::{ShouldRender, UserEvent},
     WindowSettings,
 };
 
@@ -576,6 +576,7 @@ pub fn create_skia_renderer(
     srgb: bool,
     vsync: bool,
     settings: Arc<Settings>,
+    #[allow(unused)] proxy: EventLoopProxy<UserEvent>,
 ) -> Box<dyn SkiaRenderer> {
     let renderer: Box<dyn SkiaRenderer> = match &window.config {
         WindowConfigType::OpenGL(..) => Box::new(opengl::OpenGLSkiaRenderer::new(
@@ -585,9 +586,10 @@ pub fn create_skia_renderer(
             settings.clone(),
         )),
         #[cfg(target_os = "windows")]
-        WindowConfigType::Direct3D => {
-            Box::new(d3d::D3DSkiaRenderer::new(window.window, settings.clone()))
-        }
+        WindowConfigType::Direct3D => Box::new(
+            d3d::D3DSkiaRenderer::new(window.window, settings.clone()),
+            proxy,
+        ),
         #[cfg(target_os = "macos")]
         WindowConfigType::Metal => Box::new(metal::MetalSkiaRenderer::new(
             window.window,

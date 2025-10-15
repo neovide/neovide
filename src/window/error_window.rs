@@ -71,7 +71,12 @@ pub struct ErrorWindow {
 }
 
 impl ErrorWindow {
-    pub fn new(message: String, event_loop: &ActiveEventLoop, settings: Arc<Settings>) -> Self {
+    pub fn new(
+        message: String,
+        event_loop: &ActiveEventLoop,
+        settings: Arc<Settings>,
+        proxy: EventLoopProxy<UserEvent>,
+    ) -> Self {
         let message = message.trim_end().to_string();
 
         let font_manager = FontMgr::new();
@@ -81,7 +86,7 @@ impl ErrorWindow {
         let srgb = SRGB_DEFAULT == "1";
         let vsync = true;
         let window = create_window(event_loop, &settings);
-        let skia_renderer = create_skia_renderer(window, srgb, vsync, settings);
+        let skia_renderer = create_skia_renderer(window, srgb, vsync, settings, proxy);
         skia_renderer.window().set_visible(true);
         let scale_factor = skia_renderer.window().scale_factor();
         let size = skia_renderer.window().inner_size();

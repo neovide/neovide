@@ -106,12 +106,12 @@ pub struct D3DSkiaRenderer {
     _target: IDCompositionTarget,
     _visual: IDCompositionVisual,
     window: Window,
-
     settings: Arc<Settings>,
+    vsync: VSync,
 }
 
 impl D3DSkiaRenderer {
-    pub fn new(window: Window, settings: Arc<Settings>) -> Self {
+    pub fn new(window: Window, settings: Arc<Settings>, proxy: EventLoopProxy<UserEvent>) -> Self {
         tracy_zone!("D3DSkiaRenderer::new");
         #[cfg(feature = "d3d_debug")]
         let dxgi_factory: IDXGIFactory2 = unsafe {
@@ -256,6 +256,8 @@ impl D3DSkiaRenderer {
             DirectContext::new_d3d(&backend_context, None).expect("Failed to create Skia context")
         };
 
+        let vsync = VSync::WindowsSwapChain(VSyncWinSwapChain::new(proxy, swap_chain_waitable));
+
         let mut ret = Self {
             _adapter: adapter,
             #[cfg(feature = "gpu_profiling")]
@@ -277,8 +279,8 @@ impl D3DSkiaRenderer {
             _target: target,
             _visual: visual,
             window,
-
             settings,
+            vsync,
         };
         ret.setup_surfaces();
 
@@ -451,8 +453,22 @@ impl SkiaRenderer for D3DSkiaRenderer {
         self.setup_surfaces();
     }
 
-    fn create_vsync(&self, proxy: EventLoopProxy<UserEvent>) -> VSync {
-        VSync::WindowsSwapChain(VSyncWinSwapChain::new(proxy, self.swap_chain_waitable))
+    fn refresh_interval(&self) -> f32 {
+        self.vsync.get_refresh_rate(self.window(), &self.settings)
+    }
+
+    fn request_redraw(&mut self) -> bool {
+        let window = self.window.as_ref().unwrap();
+        self.vsync.request_redraw(window)
+    }
+
+    fn update_vsync(&mut self) {
+        let window = self.window.as_ref().unwrap();
+        self.vsync.update(window);
+    }
+
+    fn wait_for_vsync(&mut self) {
+        self.vsync.wait_for_vsync();
     }
 
     #[cfg(feature = "gpu_profiling")]

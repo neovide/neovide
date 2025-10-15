@@ -63,6 +63,7 @@ impl NeovideApplication {
                 format_and_log_error_message(err),
                 event_loop,
                 self.settings.clone(),
+                self.proxy.clone(),
             );
             self.current_window = Some(UpdateLoop::new(
                 Box::new(window),

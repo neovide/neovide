@@ -228,12 +228,7 @@ impl SkiaRenderer for OpenGLSkiaRenderer {
 
     fn request_redraw(&mut self) -> bool {
         let window = self.window.as_ref().unwrap();
-        if self.vsync.uses_winit_throttling() {
-            self.vsync.request_redraw(window);
-            true
-        } else {
-            false
-        }
+        self.vsync.request_redraw(window)
     }
 
     fn update_vsync(&mut self) {
