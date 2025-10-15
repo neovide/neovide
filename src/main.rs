@@ -97,14 +97,11 @@ fn main() -> ExitCode {
     env::remove_var("ARGV0");
 
     let event_loop = create_event_loop();
-    clipboard::init(&event_loop);
-
     let settings = Arc::new(Settings::new());
 
     match setup(event_loop.create_proxy(), settings.clone()) {
         Ok(config) => {
-            let mut application =
-                NeovideApplication::new(config, event_loop.create_proxy(), settings.clone());
+            let mut application = NeovideApplication::new(config, &event_loop, settings.clone());
 
             let result = event_loop.run_app(&mut application);
 

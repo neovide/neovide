@@ -1,17 +1,17 @@
 use std::{
     io::{stdout, IsTerminal},
-    sync::Arc,
-    time::Duration,
+    sync::{Arc, Mutex},
 };
 
 use winit::{
     application::ApplicationHandler,
     event::StartCause,
-    event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop, EventLoopProxy},
 };
 
 use crate::{
     bridge::NeovimRuntime,
+    clipboard::Clipboard,
     error_handling::format_and_log_error_message,
     profiling::tracy_zone,
     settings::{Config, Settings},
@@ -19,28 +19,33 @@ use crate::{
 };
 
 pub struct NeovideApplication {
+    pub exit_code: u8,
     initial_config: Option<Config>,
     current_window: Option<UpdateLoop>,
     proxy: EventLoopProxy<UserEvent>,
     settings: Arc<Settings>,
     runtime: Option<NeovimRuntime>,
-    pub exit_code: u8,
+    clipboard: Option<Arc<Mutex<Clipboard>>>,
 }
 
 impl NeovideApplication {
     pub fn new(
         initial_config: Config,
-        proxy: EventLoopProxy<UserEvent>,
+        event_loop: &EventLoop<UserEvent>,
         settings: Arc<Settings>,
     ) -> Self {
-        let runtime = Some(NeovimRuntime::new().expect("Failed to create runtime"));
+        let clipboard = Arc::new(Mutex::new(Clipboard::new(event_loop)));
+        let runtime =
+            Some(NeovimRuntime::new(clipboard.clone()).expect("Failed to create runtime"));
+        let proxy = event_loop.create_proxy();
         Self {
+            exit_code: 0,
             initial_config: Some(initial_config),
             current_window: None,
             proxy,
             settings,
             runtime,
-            exit_code: 0,
+            clipboard: Some(clipboard),
         }
     }
 
@@ -64,6 +69,7 @@ impl NeovideApplication {
                 event_loop,
                 self.settings.clone(),
                 self.proxy.clone(),
+                self.clipboard.as_ref().unwrap().clone(),
             );
             self.current_window = Some(UpdateLoop::new(
                 Box::new(window),
@@ -129,14 +135,9 @@ impl ApplicationHandler<UserEvent> for NeovideApplication {
 
         // SAFETY: It's important that the runtime is cleaned up here, since it might contain references to the clipboard
         // And that indirectly uses the event loop, so it has to be destroyed before that.
-        if let Some(runtime) = self.runtime.take() {
-            // Wait a little bit and force Nevoim to exit after that.
-            // This should not be required, but Neovim through libuv spawns childprocesses that inherits all the handles
-            // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
-            // read will hang forever, waiting for more data to read.
-            // See https://github.com/neovide/neovide/issues/2182 (which includes links to libuv issues)
-            runtime.runtime.shutdown_timeout(Duration::from_millis(500));
-        }
+        self.runtime = None;
+        // SAFETY: It's important that the clipboard, which uses the event loop is deleted here
+        self.clipboard = None;
         self.schedule_next_event(event_loop);
     }
 

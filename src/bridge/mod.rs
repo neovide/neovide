@@ -7,7 +7,12 @@ pub mod session;
 mod setup;
 mod ui_commands;
 
-use std::{io::Error, ops::Add, sync::Arc, time::Duration};
+use std::{
+    io::Error,
+    ops::Add,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use anyhow::{bail, Context, Result};
 use itertools::Itertools;
@@ -22,6 +27,7 @@ use tokio::{
 use winit::event_loop::EventLoopProxy;
 
 use crate::{
+    clipboard::Clipboard,
     cmd_line::CmdLineSettings,
     editor::start_editor,
     settings::*,
@@ -70,7 +76,8 @@ async fn nvim_exec_output(
 }
 
 pub struct NeovimRuntime {
-    pub runtime: Runtime,
+    runtime: Option<Runtime>,
+    clipboard: Arc<Mutex<Clipboard>>,
 }
 
 async fn neovim_instance(settings: &Settings) -> Result<NeovimInstance> {
@@ -220,10 +227,10 @@ async fn launch_and_run(
 }
 
 impl NeovimRuntime {
-    pub fn new() -> Result<Self, Error> {
-        let runtime = Builder::new_multi_thread().enable_all().build()?;
+    pub fn new(clipboard: Arc<Mutex<Clipboard>>) -> Result<Self, Error> {
+        let runtime = Some(Builder::new_multi_thread().enable_all().build()?);
 
-        Ok(Self { runtime })
+        Ok(Self { runtime, clipboard })
     }
 
     pub fn launch(
@@ -232,12 +239,30 @@ impl NeovimRuntime {
         grid_size: Option<GridSize<u32>>,
         settings: Arc<Settings>,
     ) {
-        let handler = start_editor(event_loop_proxy.clone(), settings.clone());
-        self.runtime.spawn(launch_and_run(
+        let handler = start_editor(
+            event_loop_proxy.clone(),
+            settings.clone(),
+            self.clipboard.clone(),
+        );
+        self.runtime.as_ref().unwrap().spawn(launch_and_run(
             event_loop_proxy,
             handler,
             grid_size,
             settings,
         ));
+    }
+}
+
+impl Drop for NeovimRuntime {
+    fn drop(&mut self) {
+        // Wait a little bit and force Nevoim to exit.
+        // This should not be required, but Neovim through libuv spawns childprocesses that inherits all the handles
+        // This means that the stdio and stderr handles are not properly closed, so the nvim-rs
+        // read will hang forever, waiting for more data to read.
+        // See https://github.com/neovide/neovide/issues/2182 (which includes links to libuv issues)
+        self.runtime
+            .take()
+            .unwrap()
+            .shutdown_timeout(Duration::from_millis(500));
     }
 }

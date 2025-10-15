@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use skia_safe::{
     canvas::{Canvas, SaveLayerRec},
@@ -20,7 +20,7 @@ use winit::{
 };
 
 use crate::{
-    clipboard,
+    clipboard::Clipboard,
     cmd_line::SRGB_DEFAULT,
     renderer::{build_window_config, create_skia_renderer, SkiaRenderer, WindowConfig},
     settings::Settings,
@@ -68,6 +68,7 @@ pub struct ErrorWindow {
     current_position: TextIndex,
     modifiers: Modifiers,
     mouse_scroll_accumulator: f32,
+    clipboard: Arc<Mutex<Clipboard>>,
 }
 
 impl ErrorWindow {
@@ -76,6 +77,7 @@ impl ErrorWindow {
         event_loop: &ActiveEventLoop,
         settings: Arc<Settings>,
         proxy: EventLoopProxy<UserEvent>,
+        clipboard: Arc<Mutex<Clipboard>>,
     ) -> Self {
         let message = message.trim_end().to_string();
 
@@ -107,6 +109,7 @@ impl ErrorWindow {
             current_position,
             modifiers,
             mouse_scroll_accumulator,
+            clipboard,
         }
     }
 
@@ -217,7 +220,11 @@ impl ErrorWindow {
                         true
                     }
                     "y" => {
-                        let _ = clipboard::set_contents(self.message.clone(), "+");
+                        let _ = self
+                            .clipboard
+                            .lock()
+                            .unwrap()
+                            .set_contents(self.message.clone(), "+");
                         true
                     }
                     _ => false,
