@@ -14,7 +14,6 @@ use crate::{
     bridge::NeovimRuntime,
     error_handling::format_and_log_error_message,
     profiling::tracy_zone,
-    running_tracker::RunningTracker,
     settings::{Config, Settings},
     window::{ErrorWindow, NeovimWindow, UpdateLoop, UserEvent},
 };
@@ -23,9 +22,9 @@ pub struct NeovideApplication {
     initial_config: Option<Config>,
     current_window: Option<UpdateLoop>,
     proxy: EventLoopProxy<UserEvent>,
-    running_tracker: RunningTracker,
     settings: Arc<Settings>,
     runtime: Option<NeovimRuntime>,
+    pub exit_code: u8,
 }
 
 impl NeovideApplication {
@@ -33,16 +32,15 @@ impl NeovideApplication {
         initial_config: Config,
         proxy: EventLoopProxy<UserEvent>,
         settings: Arc<Settings>,
-        running_tracker: RunningTracker,
     ) -> Self {
         let runtime = Some(NeovimRuntime::new().expect("Failed to create runtime"));
         Self {
             initial_config: Some(initial_config),
             current_window: None,
             proxy,
-            running_tracker,
             settings,
             runtime,
+            exit_code: 0,
         }
     }
 
@@ -55,11 +53,11 @@ impl NeovideApplication {
     }
 
     fn handle_startup_errors(&mut self, err: anyhow::Error, event_loop: &ActiveEventLoop) {
+        self.exit_code = 1;
         if stdout().is_terminal() {
             // The logger already writes to stderr
             log::error!("{}", &format_and_log_error_message(err));
             event_loop.exit();
-            self.running_tracker.quit_with_code(1, "Startup Error");
         } else {
             let window = ErrorWindow::new(
                 format_and_log_error_message(err),
@@ -94,6 +92,9 @@ impl ApplicationHandler<UserEvent> for NeovideApplication {
         match event {
             UserEvent::LaunchFailure(err) => {
                 self.handle_startup_errors(err, event_loop);
+            }
+            UserEvent::SetExitCode(code) => {
+                self.exit_code = code;
             }
             _ => {
                 if let Some(window) = &mut self.current_window {
@@ -146,7 +147,6 @@ impl ApplicationHandler<UserEvent> for NeovideApplication {
                 config,
                 self.settings.clone(),
                 self.proxy.clone(),
-                self.running_tracker.clone(),
                 self.runtime.as_mut().unwrap(),
             );
             self.current_window = Some(UpdateLoop::new(

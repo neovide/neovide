@@ -26,7 +26,6 @@ use crate::{
     renderer::{
         create_skia_renderer, DrawCommand, Renderer, RendererSettingsChanged, SkiaRenderer,
     },
-    running_tracker::RunningTracker,
     settings::{
         clamped_grid_size, load_last_window_settings, Config, HotReloadConfigs,
         PersistentWindowSettings, Settings, SettingsChanged, DEFAULT_GRID_SIZE, MIN_GRID_SIZE,
@@ -107,7 +106,6 @@ impl NeovimWindow {
         initial_config: Config,
         settings: Arc<Settings>,
         proxy: EventLoopProxy<UserEvent>,
-        running_tracker: RunningTracker,
         runtime: &mut NeovimRuntime,
     ) -> Self {
         let window_settings = load_last_window_settings().ok();
@@ -123,7 +121,7 @@ impl NeovimWindow {
             },
         };
 
-        runtime.launch(proxy, grid_size, running_tracker, settings.clone());
+        runtime.launch(proxy, grid_size, settings.clone());
 
         let saved_inner_size = Default::default();
         let renderer = Renderer::new(1.0, initial_config, settings.clone());

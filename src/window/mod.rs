@@ -114,6 +114,7 @@ pub enum UserEvent {
     WindowCommand(WindowCommand),
     SettingsChanged(SettingsChanged),
     ConfigsChanged(Box<HotReloadConfigs>),
+    SetExitCode(u8),
     #[allow(dead_code)]
     RedrawRequested,
     NeovimExited,

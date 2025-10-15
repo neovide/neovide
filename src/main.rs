@@ -25,7 +25,6 @@ mod error_handling;
 mod frame;
 mod profiling;
 mod renderer;
-mod running_tracker;
 mod settings;
 mod units;
 mod utils;
@@ -64,7 +63,6 @@ use application::NeovideApplication;
 use backtrace::Backtrace;
 use cmd_line::CmdLineSettings;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
-use running_tracker::RunningTracker;
 use window::{create_event_loop, UserEvent, WindowSettings};
 
 pub use channel_utils::*;
@@ -101,22 +99,17 @@ fn main() -> ExitCode {
     let event_loop = create_event_loop();
     clipboard::init(&event_loop);
 
-    let running_tracker = RunningTracker::new();
     let settings = Arc::new(Settings::new());
 
     match setup(event_loop.create_proxy(), settings.clone()) {
         Ok(config) => {
-            let mut application = NeovideApplication::new(
-                config,
-                event_loop.create_proxy(),
-                settings.clone(),
-                running_tracker.clone(),
-            );
+            let mut application =
+                NeovideApplication::new(config, event_loop.create_proxy(), settings.clone());
 
             let result = event_loop.run_app(&mut application);
 
             match result {
-                Ok(_) => running_tracker.exit_code(),
+                Ok(_) => ExitCode::from(application.exit_code),
                 Err(EventLoopError::ExitFailure(code)) => ExitCode::from(code as u8),
                 _ => ExitCode::FAILURE,
             }
@@ -175,17 +168,12 @@ fn setup(proxy: EventLoopProxy<UserEvent>, settings: Arc<Settings>) -> Result<Co
     // | Other Components |
     //  ------------------
     //
-    // Neovide also includes some other systems which are globally available via lazy static
-    // instantiations or passed between components.
+    // Neovide also includes some other systems which are passed between components.
     //
     // Settings:
     //   The settings system is live updated from global variables in neovim with the prefix
     //   "neovide". They allow us to configure and manage the functionality of neovide from neovim
     //   init scripts and variables.
-    //
-    // RunningTracker:
-    //   The running tracker responds to quit requests, allowing other systems to trigger a process
-    //   exit.
     //
     //  ------------------
     // | Communication flow |

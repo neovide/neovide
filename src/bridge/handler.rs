@@ -14,7 +14,6 @@ use crate::{
         send_ui, NeovimWriter, ParallelCommand, RedrawEvent,
     },
     error_handling::ResultPanicExplanation,
-    running_tracker::RunningTracker,
     settings::Settings,
     window::{UserEvent, WindowCommand},
     LoggingSender,
@@ -25,7 +24,6 @@ pub struct NeovimHandler {
     // The EventLoopProxy is not sync on all platforms, so wrap it in a mutex
     proxy: Arc<Mutex<EventLoopProxy<UserEvent>>>,
     sender: LoggingSender<RedrawEvent>,
-    running_tracker: RunningTracker,
     #[allow(dead_code)]
     settings: Arc<Settings>,
 }
@@ -34,13 +32,11 @@ impl NeovimHandler {
     pub fn new(
         sender: UnboundedSender<RedrawEvent>,
         proxy: EventLoopProxy<UserEvent>,
-        running_tracker: RunningTracker,
         settings: Arc<Settings>,
     ) -> Self {
         Self {
             proxy: Arc::new(Mutex::new(proxy)),
             sender: LoggingSender::attach(sender, "neovim_handler"),
-            running_tracker,
             settings,
         }
     }
@@ -67,8 +63,12 @@ impl Handler for NeovimHandler {
                 let error_code = arguments[0]
                     .as_i64()
                     .expect("Could not parse error code from neovim");
-                self.running_tracker
-                    .quit_with_code(error_code as u8, "Quit from neovim");
+                log::info!("Neovim normal quit with code {error_code}");
+                let _ = self
+                    .proxy
+                    .lock()
+                    .unwrap()
+                    .send_event(UserEvent::SetExitCode(error_code as u8));
                 Ok(Value::Nil)
             }
             _ => Ok(Value::from("rpcrequest not handled")),

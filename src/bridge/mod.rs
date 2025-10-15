@@ -24,7 +24,6 @@ use winit::event_loop::EventLoopProxy;
 use crate::{
     cmd_line::CmdLineSettings,
     editor::start_editor,
-    running_tracker::RunningTracker,
     settings::*,
     units::GridSize,
     window::{UserEvent, WindowSettings},
@@ -231,10 +230,9 @@ impl NeovimRuntime {
         &mut self,
         event_loop_proxy: EventLoopProxy<UserEvent>,
         grid_size: Option<GridSize<u32>>,
-        running_tracker: RunningTracker,
         settings: Arc<Settings>,
     ) {
-        let handler = start_editor(event_loop_proxy.clone(), running_tracker, settings.clone());
+        let handler = start_editor(event_loop_proxy.clone(), settings.clone());
         self.runtime.spawn(launch_and_run(
             event_loop_proxy,
             handler,
