@@ -391,6 +391,12 @@ impl NeovimWindow {
                 } else {
                     self.handle_focus_lost();
                 }
+
+                #[cfg(target_os = "macos")]
+                self.macos_feature
+                    .as_mut()
+                    .expect("MacosWindowFeature should already be created here.")
+                    .ensure_app_initialized();
             }
             WindowEvent::ThemeChanged(theme) => {
                 tracy_zone!("ThemeChanged");
@@ -442,7 +448,7 @@ impl NeovimWindow {
                 self.handle_config_changed(*config);
             }
             UserEvent::NeovimExited => {
-                save_window_size(&self, settings);
+                save_window_size(self, settings);
             }
             _ => {}
         }

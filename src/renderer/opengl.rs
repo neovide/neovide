@@ -28,7 +28,7 @@ use skia_safe::{
 };
 use winit::{
     dpi::PhysicalSize,
-    event_loop::ActiveEventLoop,
+    event_loop::{ActiveEventLoop, EventLoopProxy},
     window::{Window, WindowAttributes},
 };
 
@@ -42,7 +42,7 @@ use super::{
     vsync::VSyncTimer, RendererSettings, SkiaRenderer, VSync, WindowConfig, WindowConfigType,
 };
 
-use crate::{profiling::tracy_gpu_zone, settings::Settings};
+use crate::{profiling::tracy_gpu_zone, settings::Settings, window::UserEvent};
 
 #[cfg(feature = "gpu_profiling")]
 use crate::profiling::{opengl::create_opengl_gpu_context, GpuCtx};
@@ -72,7 +72,12 @@ fn get_proc_address(surface: &Surface<WindowSurface>, addr: &CStr) -> *const c_v
     GlDisplay::get_proc_address(&surface.display(), addr)
 }
 
-fn create_vsync(enabled: bool, settings: Arc<Settings>) -> VSync {
+fn create_vsync(
+    enabled: bool,
+    settings: Arc<Settings>,
+    #[allow(unused)] proxy: EventLoopProxy<UserEvent>,
+    #[allow(unused)] window: &Window,
+) -> VSync {
     if !enabled {
         return VSync::Timer(VSyncTimer::new(settings));
     }
@@ -95,7 +100,13 @@ fn create_vsync(enabled: bool, settings: Arc<Settings>) -> VSync {
 }
 
 impl OpenGLSkiaRenderer {
-    pub fn new(window: WindowConfig, srgb: bool, vsync: bool, settings: Arc<Settings>) -> Self {
+    pub fn new(
+        window: WindowConfig,
+        srgb: bool,
+        vsync: bool,
+        settings: Arc<Settings>,
+        proxy: EventLoopProxy<UserEvent>,
+    ) -> Self {
         #[allow(irrefutable_let_patterns)] // This can only be something else than OpenGL on Windows
         let config = if let WindowConfigType::OpenGL(config) = window.config {
             config
@@ -170,7 +181,7 @@ impl OpenGLSkiaRenderer {
             &settings,
         );
 
-        let vsync = create_vsync(vsync, settings.clone());
+        let vsync = create_vsync(vsync, settings.clone(), proxy, &window);
 
         Self {
             window_surface,

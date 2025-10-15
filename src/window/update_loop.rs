@@ -317,12 +317,6 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
                 } else {
                     FocusedState::UnfocusedNotDrawn
                 };
-                #[cfg(target_os = "macos")]
-                self.neovim_window
-                    .macos_feature
-                    .as_mut()
-                    .expect("MacosWindowFeature should already be created here.")
-                    .ensure_app_initialized();
             }
             _ => {}
         }

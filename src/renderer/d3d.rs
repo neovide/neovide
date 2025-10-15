@@ -89,7 +89,7 @@ pub struct D3DSkiaRenderer {
     gr_context: DirectContext,
     swap_chain: IDXGISwapChain3,
     swap_chain_desc: DXGI_SWAP_CHAIN_DESC1,
-    swap_chain_waitable: HANDLE,
+    _swap_chain_waitable: HANDLE,
     pub command_queue: ID3D12CommandQueue,
     buffers: Vec<ID3D12Resource>,
     surfaces: Vec<Surface>,
@@ -265,7 +265,7 @@ impl D3DSkiaRenderer {
             command_queue,
             swap_chain,
             swap_chain_desc,
-            swap_chain_waitable,
+            _swap_chain_waitable: swap_chain_waitable,
             gr_context,
             _backend_context: backend_context,
             buffers: Vec::new(),
@@ -454,17 +454,15 @@ impl SkiaRenderer for D3DSkiaRenderer {
     }
 
     fn refresh_interval(&self) -> f32 {
-        self.vsync.get_refresh_rate(self.window(), &self.settings)
+        self.vsync.get_refresh_rate(&self.window, &self.settings)
     }
 
     fn request_redraw(&mut self) -> bool {
-        let window = self.window.as_ref().unwrap();
-        self.vsync.request_redraw(window)
+        self.vsync.request_redraw(&self.window)
     }
 
     fn update_vsync(&mut self) {
-        let window = self.window.as_ref().unwrap();
-        self.vsync.update(window);
+        self.vsync.update(&self.window);
     }
 
     fn wait_for_vsync(&mut self) {

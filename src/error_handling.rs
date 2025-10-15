@@ -2,9 +2,6 @@ use anyhow::{Error, Result};
 use itertools::Itertools;
 use log::error;
 
-#[cfg(target_os = "windows")]
-use crate::windows_attach_to_console;
-
 use crate::bridge::{send_ui, ParallelCommand};
 
 fn show_error(explanation: &str) -> ! {

@@ -584,12 +584,14 @@ pub fn create_skia_renderer(
             srgb,
             vsync,
             settings.clone(),
+            proxy,
         )),
         #[cfg(target_os = "windows")]
-        WindowConfigType::Direct3D => Box::new(
-            d3d::D3DSkiaRenderer::new(window.window, settings.clone()),
+        WindowConfigType::Direct3D => Box::new(d3d::D3DSkiaRenderer::new(
+            window.window,
+            settings.clone(),
             proxy,
-        ),
+        )),
         #[cfg(target_os = "macos")]
         WindowConfigType::Metal => Box::new(metal::MetalSkiaRenderer::new(
             window.window,

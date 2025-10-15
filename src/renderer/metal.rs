@@ -17,12 +17,12 @@ use skia_safe::{
     },
     Canvas, ColorSpace, ColorType, PixelGeometry, Surface, SurfaceProps, SurfacePropsFlags,
 };
-use winit::{event_loop::EventLoopProxy, window::Window};
+use winit::window::Window;
 
 use crate::{
     profiling::tracy_gpu_zone,
     renderer::{RendererSettings, SkiaRenderer, VSync},
-    window::{macos::get_ns_window, UserEvent},
+    window::macos::get_ns_window,
 };
 
 use super::Settings;
@@ -224,17 +224,15 @@ impl SkiaRenderer for MetalSkiaRenderer {
     }
 
     fn refresh_interval(&self) -> f32 {
-        self.vsync.get_refresh_rate(self.window(), &self.settings)
+        self.vsync.get_refresh_rate(&self.window, &self.settings)
     }
 
     fn request_redraw(&mut self) -> bool {
-        let window = self.window.as_ref().unwrap();
-        self.vsync.request_redraw(window)
+        self.vsync.request_redraw(&self.window)
     }
 
     fn update_vsync(&mut self) {
-        let window = self.window.as_ref().unwrap();
-        self.vsync.update(window);
+        self.vsync.update(&self.window);
     }
 
     fn wait_for_vsync(&mut self) {
