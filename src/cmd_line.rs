@@ -190,37 +190,43 @@ impl Default for CmdLineSettings {
 }
 
 pub fn handle_command_line_arguments(args: Vec<String>, settings: &Settings) -> Result<()> {
-    let mut cmdline = CmdLineSettings::try_parse_from(args)?;
+    match CmdLineSettings::try_parse_from(args) {
+        Ok(mut cmdline) => {
+            if cmdline._no_tabs {
+                cmdline.tabs = false;
+            }
 
-    if cmdline._no_tabs {
-        cmdline.tabs = false;
+            if cmdline._no_fork {
+                cmdline.fork = false;
+            }
+
+            if cmdline._no_srgb {
+                cmdline.srgb = false;
+            }
+
+            if cmdline._no_vsync {
+                cmdline.vsync = false;
+            }
+
+            cmdline.neovim_args = cmdline
+                .tabs
+                .then(|| "-p".to_string())
+                .into_iter()
+                .chain(handle_wslpaths(
+                    mem::take(&mut cmdline.files_to_open),
+                    cmdline.wsl,
+                ))
+                .chain(cmdline.neovim_args)
+                .collect();
+
+            settings.set::<CmdLineSettings>(&cmdline);
+            Ok(())
+        }
+        Err(err) => {
+            settings.set::<CmdLineSettings>(&CmdLineSettings::default());
+            Err(err.into())
+        }
     }
-
-    if cmdline._no_fork {
-        cmdline.fork = false;
-    }
-
-    if cmdline._no_srgb {
-        cmdline.srgb = false;
-    }
-
-    if cmdline._no_vsync {
-        cmdline.vsync = false;
-    }
-
-    cmdline.neovim_args = cmdline
-        .tabs
-        .then(|| "-p".to_string())
-        .into_iter()
-        .chain(handle_wslpaths(
-            mem::take(&mut cmdline.files_to_open),
-            cmdline.wsl,
-        ))
-        .chain(cmdline.neovim_args)
-        .collect();
-
-    settings.set::<CmdLineSettings>(&cmdline);
-    Ok(())
 }
 
 #[cfg(test)]
