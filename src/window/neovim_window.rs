@@ -10,8 +10,8 @@ use winit::{
 };
 
 use super::{
-    determine_window_size, KeyboardManager, MouseManager, UserEvent, WindowCommand, WindowSettings,
-    WindowSettingsChanged,
+    determine_window_size, save_window_size, KeyboardManager, MouseManager, UserEvent,
+    WindowCommand, WindowSettings, WindowSettingsChanged,
 };
 
 #[cfg(target_os = "macos")]
@@ -355,7 +355,7 @@ impl NeovimWindow {
         }
     }
 
-    pub fn handle_window_event(&mut self, event: WindowEvent) -> bool {
+    fn handle_window_event_impl(&mut self, event: WindowEvent) -> bool {
         // The renderer and vsync should always be created when a window event is received
         let skia_renderer = self.skia_renderer.as_mut().unwrap();
         let vsync = self.vsync.as_mut().unwrap();
@@ -429,10 +429,10 @@ impl NeovimWindow {
         self.ui_state >= UIState::FirstFrame && should_render
     }
 
-    pub fn handle_user_event(&mut self, event: UserEvent) {
+    fn handle_user_event_impl(&mut self, event: UserEvent, settings: &Settings) {
         match event {
             UserEvent::DrawCommandBatch(batch) => {
-                self.handle_draw_commands(batch);
+                self.handle_draw_commands_impl(batch);
             }
             UserEvent::WindowCommand(e) => {
                 self.handle_window_command(e);
@@ -446,11 +446,14 @@ impl NeovimWindow {
             UserEvent::ConfigsChanged(config) => {
                 self.handle_config_changed(*config);
             }
+            UserEvent::NeovimExited => {
+                save_window_size(&self, settings);
+            }
             _ => {}
         }
     }
 
-    pub fn draw_frame(&mut self, dt: f32) {
+    fn draw_frame_impl(&mut self, dt: f32) {
         tracy_zone!("draw_frame");
         if self.skia_renderer.is_none() {
             return;
@@ -473,7 +476,7 @@ impl NeovimWindow {
         tracy_gpu_collect();
     }
 
-    pub fn animate_frame(&mut self, dt: f32) -> bool {
+    fn animate_frame_impl(&mut self, dt: f32) -> bool {
         tracy_zone!("animate_frame", 0);
 
         let res = self
@@ -485,7 +488,7 @@ impl NeovimWindow {
         res
     }
 
-    pub fn try_create_window(
+    fn try_create_window_impl(
         &mut self,
         event_loop: &ActiveEventLoop,
         proxy: &EventLoopProxy<UserEvent>,
@@ -656,7 +659,7 @@ impl NeovimWindow {
         self.set_simple_fullscreen(macos_simple_fullscreen);
     }
 
-    pub fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
+    fn handle_draw_commands_impl(&mut self, batch: Vec<DrawCommand>) {
         tracy_zone!("handle_draw_commands");
         let handle_draw_commands_result = self.renderer.handle_draw_commands(batch);
 
@@ -696,7 +699,7 @@ impl NeovimWindow {
         }
     }
 
-    pub fn prepare_frame(&mut self) -> ShouldRender {
+    fn prepare_frame_impl(&mut self) -> ShouldRender {
         tracy_zone!("prepare_frame", 0);
         let mut should_render = ShouldRender::Wait;
 
@@ -916,5 +919,68 @@ impl NeovimWindow {
                 skia_renderer.window().set_title_text_color(winit_color);
             }
         }
+    }
+}
+
+impl super::Window for NeovimWindow {
+    fn try_create_window(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        proxy: &EventLoopProxy<UserEvent>,
+    ) {
+        self.try_create_window_impl(event_loop, proxy)
+    }
+
+    fn prepare_no_update(&mut self) {
+        self.renderer.grid_renderer.shaper.cleanup_font_cache();
+    }
+
+    fn prepare_frame(&mut self) -> ShouldRender {
+        self.prepare_frame_impl()
+    }
+
+    fn animate_frame(&mut self, dt: f32) -> bool {
+        self.animate_frame_impl(dt)
+    }
+
+    fn draw_frame(&mut self, dt: f32) {
+        self.draw_frame_impl(dt)
+    }
+
+    fn handle_window_event(&mut self, event: WindowEvent) -> bool {
+        self.handle_window_event_impl(event)
+    }
+
+    fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
+        self.handle_draw_commands_impl(batch);
+    }
+
+    fn handle_user_event(&mut self, event: UserEvent, settings: &Settings) {
+        self.handle_user_event_impl(event, settings)
+    }
+
+    fn valid(&self) -> bool {
+        self.skia_renderer.is_some()
+    }
+
+    fn refresh_interval(&self) -> f32 {
+        if let Some(skia_renderer) = &self.skia_renderer {
+            let vsync = self.vsync.as_ref().unwrap();
+            vsync.get_refresh_rate(skia_renderer.window(), &self.settings)
+        } else {
+            1.0 / self.settings.get::<WindowSettings>().refresh_rate_idle as f32
+        }
+    }
+
+    fn request_redraw(&mut self) -> bool {
+        if let Some(skia_renderer) = &mut self.skia_renderer {
+            let vsync = self.vsync.as_mut().unwrap();
+
+            if vsync.uses_winit_throttling() {
+                vsync.request_redraw(skia_renderer.window());
+                return true;
+            }
+        }
+        false
     }
 }

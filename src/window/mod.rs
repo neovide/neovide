@@ -13,8 +13,9 @@ use std::env;
 
 use winit::{
     dpi::{PhysicalSize, Size},
-    event_loop::{ActiveEventLoop, EventLoop},
-    window::{Cursor, Icon, Theme, Window},
+    event::WindowEvent,
+    event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
+    window::{Cursor, Icon, Theme, Window as WinitWindow},
 };
 
 #[cfg(target_os = "macos")]
@@ -70,6 +71,26 @@ const MAX_PERSISTENT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
     width: 8192,
     height: 8192,
 };
+
+pub trait Window {
+    fn try_create_window(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        proxy: &EventLoopProxy<UserEvent>,
+    );
+    fn prepare_no_update(&mut self);
+    fn prepare_frame(&mut self) -> ShouldRender;
+    fn animate_frame(&mut self, dt: f32) -> bool;
+    fn draw_frame(&mut self, dt: f32);
+
+    fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>);
+    fn handle_window_event(&mut self, event: WindowEvent) -> bool;
+    fn handle_user_event(&mut self, event: UserEvent, settings: &Settings);
+
+    fn valid(&self) -> bool;
+    fn refresh_interval(&self) -> f32;
+    fn request_redraw(&mut self) -> bool;
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum WindowCommand {
@@ -152,7 +173,7 @@ pub fn create_window(
 
     let mouse_cursor_icon = cmd_line_settings.mouse_cursor_icon;
 
-    let window_attributes = Window::default_attributes()
+    let window_attributes = WinitWindow::default_attributes()
         .with_title(title)
         .with_cursor(Cursor::Icon(mouse_cursor_icon.parse()))
         .with_maximized(maximized)

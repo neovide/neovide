@@ -65,11 +65,11 @@ pub fn load_last_window_settings() -> Result<PersistentWindowSettings, String> {
     Ok(loaded_settings)
 }
 
-pub fn save_window_size(window_wrapper: &NeovimWindow, settings: &Settings) {
-    if window_wrapper.skia_renderer.is_none() {
+pub fn save_window_size(neovim_window: &NeovimWindow, settings: &Settings) {
+    if neovim_window.skia_renderer.is_none() {
         return;
     }
-    let window = window_wrapper.skia_renderer.as_ref().unwrap().window();
+    let window = neovim_window.skia_renderer.as_ref().unwrap().window();
     // Don't save the window size when the window is minimized, since the size can be 0
     // Note wayland can't determine this
     if window.is_minimized() == Some(true) {
@@ -77,7 +77,7 @@ pub fn save_window_size(window_wrapper: &NeovimWindow, settings: &Settings) {
     }
     let maximized = window.is_maximized();
     let pixel_size = window.inner_size();
-    let grid_size = window_wrapper.get_grid_size();
+    let grid_size = neovim_window.get_grid_size();
     let position = window.outer_position().ok();
     let window_settings = settings.get::<WindowSettings>();
 

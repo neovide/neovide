@@ -141,7 +141,7 @@ impl ApplicationHandler<UserEvent> for NeovideApplication {
                 self.runtime.as_mut().unwrap(),
             );
             self.current_window = Some(UpdateLoop::new(
-                window,
+                Box::new(window),
                 self.proxy.clone(),
                 self.settings.clone(),
             ));
