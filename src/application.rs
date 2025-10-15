@@ -4,7 +4,6 @@ use std::{
     time::Duration,
 };
 
-use clap::error::Error as ClapError;
 use winit::{
     application::ApplicationHandler,
     event::StartCause,
@@ -55,18 +54,24 @@ impl NeovideApplication {
         }
     }
 
-    fn handle_startup_errors(&self, err: anyhow::Error, event_loop: &ActiveEventLoop) {
-        let exit_code = if stdout().is_terminal() {
+    fn handle_startup_errors(&mut self, err: anyhow::Error, event_loop: &ActiveEventLoop) {
+        if stdout().is_terminal() {
             // The logger already writes to stderr
             log::error!("{}", &format_and_log_error_message(err));
             event_loop.exit();
-            1
+            self.running_tracker.quit_with_code(1, "Startup Error");
         } else {
-            //show_error_window(&format_and_log_error_message(err), event_loop, settings);
-            1
+            let window = ErrorWindow::new(
+                format_and_log_error_message(err),
+                event_loop,
+                self.settings.clone(),
+            );
+            self.current_window = Some(UpdateLoop::new(
+                Box::new(window),
+                self.proxy.clone(),
+                self.settings.clone(),
+            ));
         };
-        self.running_tracker
-            .quit_with_code(exit_code, "Startup Error");
     }
 }
 

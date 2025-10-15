@@ -327,7 +327,7 @@ impl ApplicationHandler<UserEvent> for UpdateLoop {
             _ => {}
         }
 
-        if self.window.handle_window_event(event) {
+        if self.window.handle_window_event(event, event_loop) {
             self.should_render = ShouldRender::Immediately;
         }
         self.schedule_next_event(event_loop);

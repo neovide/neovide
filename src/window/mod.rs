@@ -51,7 +51,7 @@ use crate::{
     },
     units::GridSize,
 };
-pub use error_window::show_error_window;
+pub use error_window::ErrorWindow;
 pub use neovim_window::NeovimWindow;
 pub use settings::{WindowSettings, WindowSettingsChanged};
 pub use update_loop::ShouldRender;
@@ -84,7 +84,7 @@ pub trait Window {
     fn draw_frame(&mut self, dt: f32);
 
     fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>);
-    fn handle_window_event(&mut self, event: WindowEvent) -> bool;
+    fn handle_window_event(&mut self, event: WindowEvent, event_loop: &ActiveEventLoop) -> bool;
     fn handle_user_event(&mut self, event: UserEvent, settings: &Settings);
 
     fn valid(&self) -> bool;

@@ -1,23 +1,11 @@
-use std::{
-    io::{stdout, IsTerminal},
-    process::ExitCode,
-    sync::Arc,
-};
-
 use anyhow::{Error, Result};
-use clap::error::Error as ClapError;
 use itertools::Itertools;
 use log::error;
-use winit::event_loop::EventLoop;
 
 #[cfg(target_os = "windows")]
 use crate::windows_attach_to_console;
 
-use crate::{
-    bridge::{send_ui, ParallelCommand},
-    settings::Settings,
-    window::{show_error_window, UserEvent},
-};
+use crate::bridge::{send_ui, ParallelCommand};
 
 fn show_error(explanation: &str) -> ! {
     error!("{explanation}");
