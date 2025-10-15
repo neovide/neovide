@@ -7,7 +7,7 @@ use std::{
 use clap::error::Error as ClapError;
 use winit::{
     application::ApplicationHandler,
-    event::{StartCause},
+    event::StartCause,
     event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy},
 };
 
@@ -18,11 +18,10 @@ use crate::{
     running_tracker::RunningTracker,
     settings::{Config, Settings},
     window::{NeovimWindow, UpdateLoop, UserEvent},
-    CmdLineSettings,
 };
 
 pub struct NeovideApplication {
-    initial_config: Option<anyhow::Result<Config>>,
+    initial_config: Option<Config>,
     current_window: Option<UpdateLoop>,
     proxy: EventLoopProxy<UserEvent>,
     running_tracker: RunningTracker,
@@ -32,7 +31,7 @@ pub struct NeovideApplication {
 
 impl NeovideApplication {
     pub fn new(
-        initial_config: anyhow::Result<Config>,
+        initial_config: Config,
         proxy: EventLoopProxy<UserEvent>,
         settings: Arc<Settings>,
         running_tracker: RunningTracker,
@@ -57,14 +56,7 @@ impl NeovideApplication {
     }
 
     fn handle_startup_errors(&self, err: anyhow::Error, event_loop: &ActiveEventLoop) {
-        // Command line output is always printed to the stdout/stderr
-        let exit_code = if let Some(clap_error) = err.downcast_ref::<ClapError>() {
-            #[cfg(target_os = "windows")]
-            windows_attach_to_console();
-            let _ = clap_error.print();
-            event_loop.exit();
-            clap_error.exit_code() as u8
-        } else if stdout().is_terminal() {
+        let exit_code = if stdout().is_terminal() {
             // The logger already writes to stderr
             log::error!("{}", &format_and_log_error_message(err));
             event_loop.exit();
@@ -140,25 +132,19 @@ impl ApplicationHandler<UserEvent> for NeovideApplication {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
         if cause == StartCause::Init {
             tracy_zone!("init");
-            match self.initial_config.take().unwrap() {
-                Ok(config) => {
-                    let window = NeovimWindow::new(
-                        config,
-                        self.settings.clone(),
-                        self.proxy.clone(),
-                        self.running_tracker.clone(),
-                        self.runtime.as_mut().unwrap(),
-                    );
-                    self.current_window = Some(UpdateLoop::new(
-                        window,
-                        self.proxy.clone(),
-                        self.settings.clone(),
-                    ));
-                }
-                Err(error) => {
-                    self.handle_startup_errors(error, event_loop);
-                }
-            };
+            let config = self.initial_config.take().unwrap();
+            let window = NeovimWindow::new(
+                config,
+                self.settings.clone(),
+                self.proxy.clone(),
+                self.running_tracker.clone(),
+                self.runtime.as_mut().unwrap(),
+            );
+            self.current_window = Some(UpdateLoop::new(
+                window,
+                self.proxy.clone(),
+                self.settings.clone(),
+            ));
             self.schedule_next_event(event_loop);
         }
     }

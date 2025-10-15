@@ -2,9 +2,9 @@ use std::{iter, mem};
 
 use crate::{dimensions::Dimensions, frame::Frame, settings::*, utils::handle_wslpaths};
 
-use anyhow::Result;
 use clap::{
     builder::{styling, FalseyValueParser, Styles},
+    error::Result,
     ArgAction, Parser,
 };
 use winit::window::CursorIcon;
@@ -224,7 +224,7 @@ pub fn handle_command_line_arguments(args: Vec<String>, settings: &Settings) -> 
         }
         Err(err) => {
             settings.set::<CmdLineSettings>(&CmdLineSettings::default());
-            Err(err.into())
+            Err(err)
         }
     }
 }

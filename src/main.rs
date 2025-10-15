@@ -43,11 +43,12 @@ use std::{
     io::Write,
     panic::set_hook,
     process::ExitCode,
+    result::Result,
     sync::Arc,
     time::SystemTime,
 };
 
-use anyhow::Result;
+use clap::error::Error as ClapError;
 use log::trace;
 use std::env::var;
 use std::panic::PanicHookInfo;
@@ -103,24 +104,33 @@ fn main() -> ExitCode {
     let running_tracker = RunningTracker::new();
     let settings = Arc::new(Settings::new());
 
-    let res = setup(event_loop.create_proxy(), settings.clone());
-    let mut application = NeovideApplication::new(
-        res,
-        event_loop.create_proxy(),
-        settings.clone(),
-        running_tracker.clone(),
-    );
+    match setup(event_loop.create_proxy(), settings.clone()) {
+        Ok(config) => {
+            let mut application = NeovideApplication::new(
+                config,
+                event_loop.create_proxy(),
+                settings.clone(),
+                running_tracker.clone(),
+            );
 
-    let result = event_loop.run_app(&mut application);
+            let result = event_loop.run_app(&mut application);
 
-    match result {
-        Ok(_) => running_tracker.exit_code(),
-        Err(EventLoopError::ExitFailure(code)) => ExitCode::from(code as u8),
-        _ => ExitCode::FAILURE,
+            match result {
+                Ok(_) => running_tracker.exit_code(),
+                Err(EventLoopError::ExitFailure(code)) => ExitCode::from(code as u8),
+                _ => ExitCode::FAILURE,
+            }
+        }
+        Err(err) => {
+            #[cfg(target_os = "windows")]
+            windows_attach_to_console();
+            let _ = err.print();
+            ExitCode::from(err.exit_code() as u8)
+        }
     }
 }
 
-fn setup(proxy: EventLoopProxy<UserEvent>, settings: Arc<Settings>) -> Result<Config> {
+fn setup(proxy: EventLoopProxy<UserEvent>, settings: Arc<Settings>) -> Result<Config, ClapError> {
     //  --------------
     // | Architecture |
     //  --------------
