@@ -27,7 +27,7 @@ use skia_safe::Canvas;
 
 use winit::{
     event::WindowEvent,
-    event_loop::{ActiveEventLoop, EventLoopProxy},
+    event_loop::ActiveEventLoop,
     window::{Window, WindowAttributes},
 };
 
@@ -39,7 +39,7 @@ use crate::{
     renderer::rendered_layer::{group_windows, FloatingLayer},
     settings::*,
     units::{to_skia_rect, GridRect, GridSize, PixelPos},
-    window::{ShouldRender, UserEvent},
+    window::ShouldRender,
     WindowSettings,
 };
 
@@ -561,7 +561,12 @@ pub trait SkiaRenderer {
     fn swap_buffers(&mut self);
     fn canvas(&mut self) -> &Canvas;
     fn resize(&mut self);
-    fn create_vsync(&self, proxy: EventLoopProxy<UserEvent>) -> VSync;
+
+    fn refresh_interval(&self) -> f32;
+    fn request_redraw(&mut self) -> bool;
+    fn update_vsync(&mut self);
+    fn wait_for_vsync(&mut self);
+
     #[cfg(feature = "gpu_profiling")]
     fn tracy_create_gpu_context(&self, name: &str) -> Box<dyn GpuCtx>;
 }

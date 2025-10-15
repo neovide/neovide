@@ -17,7 +17,7 @@ use crate::{
     profiling::tracy_zone,
     running_tracker::RunningTracker,
     settings::{Config, Settings},
-    window::{NeovimWindow, UpdateLoop, UserEvent},
+    window::{ErrorWindow, NeovimWindow, UpdateLoop, UserEvent},
 };
 
 pub struct NeovideApplication {

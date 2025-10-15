@@ -9,7 +9,7 @@ use winit::{
     event_loop::{ActiveEventLoop, ControlFlow, EventLoopProxy},
 };
 
-use super::{save_window_size, CmdLineSettings, NeovimWindow, UserEvent, Window, WindowSettings};
+use super::{CmdLineSettings, UserEvent, Window, WindowSettings};
 use crate::{
     profiling::{tracy_plot, tracy_zone},
     renderer::DrawCommand,

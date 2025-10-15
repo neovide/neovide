@@ -28,7 +28,7 @@ use skia_safe::{
 };
 use winit::{
     dpi::PhysicalSize,
-    event_loop::{ActiveEventLoop, EventLoopProxy},
+    event_loop::ActiveEventLoop,
     window::{Window, WindowAttributes},
 };
 
@@ -38,9 +38,11 @@ pub use super::vsync::VSyncWinDwm;
 #[cfg(target_os = "macos")]
 pub use super::vsync::VSyncMacosDisplayLink;
 
-use super::{RendererSettings, SkiaRenderer, VSync, WindowConfig, WindowConfigType};
+use super::{
+    vsync::VSyncTimer, RendererSettings, SkiaRenderer, VSync, WindowConfig, WindowConfigType,
+};
 
-use crate::{profiling::tracy_gpu_zone, settings::Settings, window::UserEvent};
+use crate::{profiling::tracy_gpu_zone, settings::Settings};
 
 #[cfg(feature = "gpu_profiling")]
 use crate::profiling::{opengl::create_opengl_gpu_context, GpuCtx};
@@ -55,8 +57,8 @@ pub struct OpenGLSkiaRenderer {
     window_surface: Surface<WindowSurface>,
     config: Config,
     window: Option<Window>,
-
     settings: Arc<Settings>,
+    vsync: VSync,
 }
 
 fn clamp_render_buffer_size(size: &PhysicalSize<u32>) -> PhysicalSize<u32> {
@@ -68,6 +70,28 @@ fn clamp_render_buffer_size(size: &PhysicalSize<u32>) -> PhysicalSize<u32> {
 
 fn get_proc_address(surface: &Surface<WindowSurface>, addr: &CStr) -> *const c_void {
     GlDisplay::get_proc_address(&surface.display(), addr)
+}
+
+fn create_vsync(enabled: bool, settings: Arc<Settings>) -> VSync {
+    if !enabled {
+        return VSync::Timer(VSyncTimer::new(settings));
+    }
+    #[cfg(target_os = "linux")]
+    if env::var("WAYLAND_DISPLAY").is_ok() {
+        VSync::WinitThrottling()
+    } else {
+        VSync::Opengl()
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        VSync::WindowsDwm(VSyncWinDwm::new(proxy))
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        VSync::MacosDisplayLink(VSyncMacosDisplayLink::new(window, proxy))
+    }
 }
 
 impl OpenGLSkiaRenderer {
@@ -146,6 +170,8 @@ impl OpenGLSkiaRenderer {
             &settings,
         );
 
+        let vsync = create_vsync(vsync, settings.clone());
+
         Self {
             window_surface,
             context,
@@ -154,8 +180,8 @@ impl OpenGLSkiaRenderer {
             gr_context,
             fb_info,
             skia_surface,
-
             settings,
+            vsync,
         }
     }
 }
@@ -196,24 +222,27 @@ impl SkiaRenderer for OpenGLSkiaRenderer {
         );
     }
 
-    #[allow(unused_variables)]
-    fn create_vsync(&self, proxy: EventLoopProxy<UserEvent>) -> VSync {
-        #[cfg(target_os = "linux")]
-        if env::var("WAYLAND_DISPLAY").is_ok() {
-            VSync::WinitThrottling()
+    fn refresh_interval(&self) -> f32 {
+        self.vsync.get_refresh_rate(self.window(), &self.settings)
+    }
+
+    fn request_redraw(&mut self) -> bool {
+        let window = self.window.as_ref().unwrap();
+        if self.vsync.uses_winit_throttling() {
+            self.vsync.request_redraw(window);
+            true
         } else {
-            VSync::Opengl()
+            false
         }
+    }
 
-        #[cfg(target_os = "windows")]
-        {
-            VSync::WindowsDwm(VSyncWinDwm::new(proxy))
-        }
+    fn update_vsync(&mut self) {
+        let window = self.window.as_ref().unwrap();
+        self.vsync.update(window);
+    }
 
-        #[cfg(target_os = "macos")]
-        {
-            VSync::MacosDisplayLink(VSyncMacosDisplayLink::new(self.window(), proxy))
-        }
+    fn wait_for_vsync(&mut self) {
+        self.vsync.wait_for_vsync();
     }
 
     #[cfg(feature = "gpu_profiling")]

@@ -15,7 +15,7 @@ use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
     event::{ElementState, KeyEvent, Modifiers, MouseScrollDelta, WindowEvent},
-    event_loop::{ActiveEventLoop, EventLoop},
+    event_loop::{ActiveEventLoop, EventLoop, EventLoopProxy},
     keyboard::{Key, NamedKey},
     window::Window,
 };
@@ -25,7 +25,7 @@ use crate::{
     cmd_line::SRGB_DEFAULT,
     renderer::{build_window_config, create_skia_renderer, SkiaRenderer, WindowConfig},
     settings::Settings,
-    window::{load_icon, UserEvent},
+    window::{load_icon, DrawCommand, ShouldRender, UserEvent, Window},
 };
 
 const TEXT_COLOR: Color4f = WHITE;
@@ -38,7 +38,7 @@ const DEFAULT_SIZE: PhysicalSize<u32> = PhysicalSize::new(800, 600);
 
 pub fn show_error_window(message: &str, event_loop: EventLoop<UserEvent>, settings: Arc<Settings>) {
     let mut error_window = ErrorWindow::new(message, settings);
-    event_loop.run_app(&mut error_window).ok();
+    //event_loop.run_app(&mut error_window).ok();
 }
 
 #[derive(Debug)]
@@ -91,26 +91,31 @@ impl<'a> ErrorWindow<'a> {
     }
 }
 
-impl ApplicationHandler<UserEvent> for ErrorWindow<'_> {
-    fn window_event(
-        &mut self,
-        event_loop: &ActiveEventLoop,
-        _window_id: winit::window::WindowId,
-        event: WindowEvent,
-    ) {
-        let state = self.state.as_mut().unwrap();
-        state.handle_window_event(event, event_loop, self.message);
-    }
-
-    fn resumed(&mut self, event_loop: &ActiveEventLoop) {
-        if self.state.is_none() {
-            self.state = Some(State::new(self.message, event_loop, self.settings.clone()));
-        }
-    }
-}
+// impl ApplicationHandler<UserEvent> for ErrorWindow<'_> {
+//     fn window_event(
+//         &mut self,
+//         event_loop: &ActiveEventLoop,
+//         _window_id: winit::window::WindowId,
+//         event: WindowEvent,
+//     ) {
+//         let state = self.state.as_mut().unwrap();
+//         state.handle_window_event(event, event_loop, self.message);
+//     }
+//
+//     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
+//         if self.state.is_none() {
+//             self.state = Some(State::new(self.message, event_loop, self.settings.clone()));
+//         }
+//     }
+// }
 
 impl State {
-    fn new(message: &str, event_loop: &ActiveEventLoop, settings: Arc<Settings>) -> Self {
+    fn new(
+        message: &str,
+        event_loop: &ActiveEventLoop,
+        settings: Arc<Settings>,
+        proxy: EventLoopProxy<UserEvent>,
+    ) -> Self {
         let message = message.trim_end();
 
         let font_manager = FontMgr::new();
@@ -120,7 +125,7 @@ impl State {
         let srgb = SRGB_DEFAULT == "1";
         let vsync = true;
         let window = create_window(event_loop, &settings);
-        let skia_renderer = create_skia_renderer(window, srgb, vsync, settings);
+        let skia_renderer = create_skia_renderer(window, srgb, vsync, settings, proxy);
         skia_renderer.window().set_visible(true);
         let scale_factor = skia_renderer.window().scale_factor();
         let size = skia_renderer.window().inner_size();

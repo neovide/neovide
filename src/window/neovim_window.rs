@@ -24,7 +24,7 @@ use crate::{
     bridge::{send_ui, NeovimRuntime, ParallelCommand, SerialCommand},
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
     renderer::{
-        create_skia_renderer, DrawCommand, Renderer, RendererSettingsChanged, SkiaRenderer, VSync,
+        create_skia_renderer, DrawCommand, Renderer, RendererSettingsChanged, SkiaRenderer,
     },
     running_tracker::RunningTracker,
     settings::{
@@ -96,7 +96,6 @@ pub struct NeovimWindow {
     is_minimized: bool,
     ime_enabled: bool,
     ime_area: (dpi::PhysicalPosition<u32>, dpi::PhysicalSize<u32>),
-    pub vsync: Option<VSync>,
     settings: Arc<Settings>,
 
     #[cfg(target_os = "macos")]
@@ -149,7 +148,6 @@ impl NeovimWindow {
             },
             initial_window_size,
             is_minimized: false,
-            vsync: None,
             ime_enabled: false,
             ime_area: Default::default(),
             settings,
@@ -358,7 +356,6 @@ impl NeovimWindow {
     fn handle_window_event_impl(&mut self, event: WindowEvent) -> bool {
         // The renderer and vsync should always be created when a window event is received
         let skia_renderer = self.skia_renderer.as_mut().unwrap();
-        let vsync = self.vsync.as_mut().unwrap();
 
         self.mouse_manager.handle_event(
             &event,
@@ -410,7 +407,7 @@ impl NeovimWindow {
             }
             WindowEvent::Moved(_) => {
                 tracy_zone!("Moved");
-                vsync.update(skia_renderer.window());
+                self.skia_renderer.as_mut().unwrap().update_vsync();
             }
             WindowEvent::Ime(Ime::Enabled) => {
                 log::info!("Ime enabled");
@@ -459,13 +456,12 @@ impl NeovimWindow {
             return;
         }
         let skia_renderer = self.skia_renderer.as_mut().unwrap();
-        let vsync = self.vsync.as_mut().unwrap();
 
         self.renderer.draw_frame(skia_renderer.canvas(), dt);
         skia_renderer.flush();
         {
             tracy_gpu_zone!("wait for vsync");
-            vsync.wait_for_vsync();
+            skia_renderer.wait_for_vsync();
         }
         skia_renderer.swap_buffers();
         if self.ui_state == UIState::FirstFrame {
@@ -491,7 +487,7 @@ impl NeovimWindow {
     fn try_create_window_impl(
         &mut self,
         event_loop: &ActiveEventLoop,
-        proxy: &EventLoopProxy<UserEvent>,
+        _proxy: &EventLoopProxy<UserEvent>,
     ) {
         if self.ui_state != UIState::WaitingForWindowCreate {
             return;
@@ -638,13 +634,6 @@ impl NeovimWindow {
                 window.set_title_text_color(winit_color);
             }
         }
-
-        self.vsync = Some(VSync::new(
-            vsync_enabled,
-            skia_renderer.as_ref(),
-            proxy.clone(),
-            self.settings.clone(),
-        ));
 
         {
             tracy_zone!("request_redraw");
@@ -947,7 +936,7 @@ impl super::Window for NeovimWindow {
         self.draw_frame_impl(dt)
     }
 
-    fn handle_window_event(&mut self, event: WindowEvent) -> bool {
+    fn handle_window_event(&mut self, event: WindowEvent, _event_loop: &ActiveEventLoop) -> bool {
         self.handle_window_event_impl(event)
     }
 
@@ -965,8 +954,7 @@ impl super::Window for NeovimWindow {
 
     fn refresh_interval(&self) -> f32 {
         if let Some(skia_renderer) = &self.skia_renderer {
-            let vsync = self.vsync.as_ref().unwrap();
-            vsync.get_refresh_rate(skia_renderer.window(), &self.settings)
+            skia_renderer.refresh_interval()
         } else {
             1.0 / self.settings.get::<WindowSettings>().refresh_rate_idle as f32
         }
@@ -974,13 +962,9 @@ impl super::Window for NeovimWindow {
 
     fn request_redraw(&mut self) -> bool {
         if let Some(skia_renderer) = &mut self.skia_renderer {
-            let vsync = self.vsync.as_mut().unwrap();
-
-            if vsync.uses_winit_throttling() {
-                vsync.request_redraw(skia_renderer.window());
-                return true;
-            }
+            skia_renderer.request_redraw()
+        } else {
+            false
         }
-        false
     }
 }
