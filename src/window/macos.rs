@@ -256,12 +256,17 @@ impl MacosWindowFeature {
         unsafe {
             // Setting the background color to `NSColor::windowBackgroundColor()`
             // makes the background opaque and draws a grey border around the window
-            let ns_background = match opaque && show_border {
-                true => NSColor::windowBackgroundColor(),
-                false => NSColor::clearColor(),
+            let ns_background = if opaque && show_border {
+                NSColor::windowBackgroundColor()
+            } else if !opaque {
+                // Use white with very low alpha to make borders rendering properly
+                NSColor::whiteColor().colorWithAlphaComponent(0.001)
+            } else {
+                NSColor::clearColor()
             };
             self.ns_window.setBackgroundColor(Some(&ns_background));
-            self.ns_window.setHasShadow(opaque);
+            // Shadow visibility must always match border visibility
+            self.ns_window.setHasShadow(show_border);
             // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
             self.ns_window.setOpaque(opaque && show_border);
             self.ns_window.invalidateShadow();
