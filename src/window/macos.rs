@@ -265,8 +265,8 @@ impl MacosWindowFeature {
                 NSColor::clearColor()
             };
             self.ns_window.setBackgroundColor(Some(&ns_background));
-            // Shadow visibility must always match border visibility
-            self.ns_window.setHasShadow(show_border);
+            // Show shadow if window is opaque OR has border decoration
+            self.ns_window.setHasShadow(opaque || show_border);
             // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
             self.ns_window.setOpaque(opaque && show_border);
             self.ns_window.invalidateShadow();
