@@ -432,6 +432,9 @@ impl WinitWindowWrapper {
             UserEvent::ConfigsChanged(config) => {
                 self.handle_config_changed(*config);
             }
+            UserEvent::ShowProgressBar { percent, .. } => {
+                self.renderer.progress_bar.start(percent);
+            }
             _ => {}
         }
     }

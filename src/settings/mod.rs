@@ -189,6 +189,7 @@ pub enum SettingsChanged {
     Window(crate::window::WindowSettingsChanged),
     Cursor(crate::renderer::cursor_renderer::CursorSettingsChanged),
     Renderer(crate::renderer::RendererSettingsChanged),
+    ProgressBar(crate::renderer::progress_bar::ProgressBarSettingsChanged),
     #[cfg(test)]
     Test(tests::TestSettingsChanged),
 }

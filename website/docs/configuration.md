@@ -447,6 +447,34 @@ When scrolling more than one screen at a time, only this many lines at the end o
 will be animated. Set it to 0 to snap to the final position without any animation, or to something
 big like 9999 to always scroll the whole screen, much like Neovide <= 0.10.4 did.
 
+#### Progress Bar
+
+VimScript:
+
+```vim
+let g:neovide_progress_bar_enabled = v:true
+let g:neovide_progress_bar_height = 5.0
+let g:neovide_progress_bar_animation_speed = 200.0
+let g:neovide_progress_bar_hide_delay = 0.2
+```
+
+Lua:
+
+```lua
+vim.g.neovide_progress_bar_enabled = true
+vim.g.neovide_progress_bar_height = 5.0
+vim.g.neovide_progress_bar_animation_speed = 200.0
+vim.g.neovide_progress_bar_hide_delay = 0.2
+```
+
+**Unreleased yet.**
+
+- `g:neovide_progress_bar_enabled` sets whether the progress bar is enabled.
+- `g:neovide_progress_bar_height` sets the height of the progress bar in pixels.
+- `g:neovide_progress_bar_animation_speed` sets the speed of the progress bar animation.
+- `g:neovide_progress_bar_hide_delay` sets the delay in seconds before the progress bar is
+  hidden after reaching 100%.
+
 #### Hiding the mouse when typing
 
 VimScript:

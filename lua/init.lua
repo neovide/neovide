@@ -166,4 +166,25 @@ vim.api.nvim_create_user_command("NeovideConfig", function()
     end
 end, {})
 
+local function progress_bar(data)
+    -- Wrap inside pcall to avoid errors if Neovide disconnects.
+    pcall(rpcnotify, "neovide.progress_bar", data)
+end
+
+pcall(vim.api.nvim_create_autocmd, 'Progress', {
+    group = vim.api.nvim_create_augroup('NeovideProgressBar', { clear = true }),
+    desc = 'Forward progress events to Neovide',
+    callback = function(ev)
+        if ev.data and ev.data.status == 'running' then
+            progress_bar({
+                percent = ev.data.percent or 0,
+                title = ev.data.title or "",
+                message = ev.data.message or "",
+            })
+        else
+            progress_bar({ percent = 100 })
+        end
+    end,
+})
+
 _G["neovide"] = M

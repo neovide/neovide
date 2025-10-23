@@ -5,6 +5,7 @@ pub mod fonts;
 pub mod grid_renderer;
 pub mod opengl;
 pub mod profiler;
+pub mod progress_bar;
 mod rendered_layer;
 mod rendered_window;
 mod vsync;
@@ -23,6 +24,7 @@ use std::{
 
 use itertools::Itertools;
 use log::error;
+use progress_bar::{ProgressBar, ProgressBarSettings};
 use skia_safe::Canvas;
 
 use winit::{
@@ -153,6 +155,8 @@ pub struct Renderer {
     pub grid_renderer: GridRenderer,
     current_mode: EditorMode,
 
+    pub progress_bar: ProgressBar,
+
     rendered_windows: HashMap<u64, RenderedWindow>,
     pub window_regions: Vec<WindowDrawDetails>,
 
@@ -186,6 +190,8 @@ impl Renderer {
 
         let profiler = profiler::Profiler::new(12.0, settings.clone());
 
+        let progress_bar = ProgressBar::new();
+
         Renderer {
             rendered_windows,
             cursor_renderer,
@@ -193,6 +199,7 @@ impl Renderer {
             current_mode,
             window_regions,
             profiler,
+            progress_bar,
             os_scale_factor,
             user_scale_factor,
             settings,
@@ -327,7 +334,17 @@ impl Renderer {
 
         self.profiler.draw(root_canvas, dt);
 
+        let grid_size = self.get_grid_size();
+
         root_canvas.restore();
+
+        let progress_bar_settings = self.settings.get::<ProgressBarSettings>();
+        self.progress_bar.draw(
+            &progress_bar_settings,
+            root_canvas,
+            &self.grid_renderer,
+            grid_size,
+        );
 
         #[cfg(feature = "profiling")]
         plot_skia_cache();
@@ -367,6 +384,10 @@ impl Renderer {
         animating |= self
             .cursor_renderer
             .animate(&self.current_mode, &self.grid_renderer, dt);
+
+        let progress_bar_settings = self.settings.get::<ProgressBarSettings>();
+        self.progress_bar.animate(&progress_bar_settings, dt);
+        animating |= self.progress_bar.is_animating();
 
         animating
     }

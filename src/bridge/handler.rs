@@ -11,7 +11,7 @@ use crate::{
     bridge::{
         clipboard::{get_clipboard_contents, set_clipboard_contents},
         events::parse_redraw_event,
-        send_ui, NeovimWriter, ParallelCommand, RedrawEvent,
+        parse_progress_bar_event, send_ui, NeovimWriter, ParallelCommand, RedrawEvent,
     },
     error_handling::ResultPanicExplanation,
     running_tracker::RunningTracker,
@@ -133,6 +133,18 @@ impl Handler for NeovimHandler {
                     let value = value.as_bool().unwrap_or(true);
                     let _ = self.sender.send(RedrawEvent::NeovideSetRedraw(value));
                 }
+            }
+            "neovide.progress_bar" => {
+                parse_progress_bar_event(arguments.first())
+                    .map(|event| {
+                        let _ = self.proxy.lock().unwrap().send_event(event);
+                    })
+                    .unwrap_or_else(|| {
+                        log::info!(
+                            "Failed to parse neovide.progress_bar event data: {:?}",
+                            arguments
+                        );
+                    });
             }
             _ => {}
         }
