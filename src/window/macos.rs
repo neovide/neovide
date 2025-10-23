@@ -236,16 +236,22 @@ impl MacosWindowFeature {
         let [red, green, blue, alpha] = color.to_array();
         unsafe {
             let opaque = alpha >= 1.0;
-            let ns_background = NSColor::colorWithSRGBRed_green_blue_alpha(
-                red.into(),
-                green.into(),
-                blue.into(),
-                alpha.into(),
-            );
+            let ns_background = if opaque && show_border {
+                NSColor::colorWithSRGBRed_green_blue_alpha(
+                    red.into(),
+                    green.into(),
+                    blue.into(),
+                    alpha.into(),
+                )
+            } else if !opaque {
+                // Use white with very low alpha to make borders rendering properly
+                NSColor::whiteColor().colorWithAlphaComponent(0.001)
+            } else {
+                NSColor::clearColor()
+            };
             self.ns_window.setBackgroundColor(Some(&ns_background));
-            // If the shadow is enabled and the background color is not transparent, the window will have a grey border
-            // Workaround: Disable shadow when `show_border` is false
-            self.ns_window.setHasShadow(opaque && show_border);
+            // Show shadow if window is opaque OR has border decoration
+            self.ns_window.setHasShadow(opaque || show_border);
             // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
             self.ns_window.setOpaque(opaque && show_border);
             self.ns_window.invalidateShadow();
@@ -256,12 +262,17 @@ impl MacosWindowFeature {
         unsafe {
             // Setting the background color to `NSColor::windowBackgroundColor()`
             // makes the background opaque and draws a grey border around the window
-            let ns_background = match opaque && show_border {
-                true => NSColor::windowBackgroundColor(),
-                false => NSColor::clearColor(),
+            let ns_background = if opaque && show_border {
+                NSColor::windowBackgroundColor()
+            } else if !opaque {
+                // Use white with very low alpha to make borders rendering properly
+                NSColor::whiteColor().colorWithAlphaComponent(0.001)
+            } else {
+                NSColor::clearColor()
             };
             self.ns_window.setBackgroundColor(Some(&ns_background));
-            self.ns_window.setHasShadow(opaque);
+            // Show shadow if window is opaque OR has border decoration
+            self.ns_window.setHasShadow(opaque || show_border);
             // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
             self.ns_window.setOpaque(opaque && show_border);
             self.ns_window.invalidateShadow();
