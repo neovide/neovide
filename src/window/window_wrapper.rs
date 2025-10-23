@@ -490,6 +490,7 @@ impl WinitWindowWrapper {
             input_ime,
             theme,
             opacity,
+            normal_opacity,
             window_blurred,
             fullscreen,
             #[cfg(target_os = "macos")]
@@ -588,7 +589,7 @@ impl WinitWindowWrapper {
             self.renderer.grid_renderer.grid_scale
         );
 
-        window.set_blur(window_blurred && opacity < 1.0);
+        window.set_blur(window_blurred && opacity.min(normal_opacity) < 1.0);
 
         #[cfg(target_os = "windows")]
         if window_blurred {
