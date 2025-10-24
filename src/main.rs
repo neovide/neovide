@@ -31,8 +31,6 @@ mod units;
 mod utils;
 mod window;
 
-
-
 #[macro_use]
 extern crate derive_new;
 

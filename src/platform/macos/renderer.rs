@@ -1,7 +1,4 @@
-use winit::{
-    event_loop::ActiveEventLoop,
-    window::WindowAttributes,
-};
+use winit::{event_loop::ActiveEventLoop, window::WindowAttributes};
 
 use crate::{
     cmd_line::CmdLineSettings,

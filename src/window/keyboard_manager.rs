@@ -5,24 +5,22 @@ use crate::{
     settings::Settings,
 };
 
-#[allow(unused_imports)]
-use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
-use winit::{
-    event::{ElementState, Ime, KeyEvent, Modifiers, WindowEvent},
-    keyboard::{Key, KeyCode, KeyLocation, NamedKey, PhysicalKey, ModifiersKeyState},
-};
+use crate::profiling::tracy_named_frame;
 #[cfg(target_os = "macos")]
 use crate::{
     platform::macos::keyboard,
     window::settings::{OptionAsMeta, WindowSettings},
 };
-use crate::profiling::tracy_named_frame;
+#[allow(unused_imports)]
+use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
+use winit::{
+    event::{ElementState, Ime, KeyEvent, Modifiers, WindowEvent},
+    keyboard::{Key, KeyCode, KeyLocation, ModifiersKeyState, NamedKey, PhysicalKey},
+};
 
 fn is_ascii_alphabetic_char(text: &str) -> bool {
     text.len() == 1 && text.chars().next().unwrap().is_ascii_alphabetic()
 }
-
-
 
 pub struct KeyboardManager {
     modifiers: Modifiers,
@@ -306,10 +304,8 @@ fn get_special_key(key_event: &KeyEvent) -> Option<&str> {
     }
 }
 
-
 //
 
 //
 
 //
-

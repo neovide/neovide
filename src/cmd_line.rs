@@ -8,7 +8,6 @@ use clap::{
     ArgAction, Parser,
 };
 
-
 #[cfg(target_os = "windows")]
 pub const SRGB_DEFAULT: &str = "1";
 #[cfg(not(target_os = "windows"))]
@@ -173,8 +172,6 @@ pub enum MouseCursorIcon {
     Arrow,
     IBeam,
 }
-
-
 
 impl Default for CmdLineSettings {
     fn default() -> Self {

@@ -1,7 +1,7 @@
-pub mod settings;
-pub mod keyboard;
 pub mod editor;
+pub mod keyboard;
 pub mod renderer;
+pub mod settings;
 pub mod vsync;
 pub mod window;
 

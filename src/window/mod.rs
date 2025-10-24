@@ -8,8 +8,6 @@ mod window_wrapper;
 #[cfg(target_os = "macos")]
 use crate::platform::macos;
 
-
-
 #[cfg(target_os = "linux")]
 use std::env;
 
@@ -18,8 +16,6 @@ use winit::{
     event_loop::{ActiveEventLoop, EventLoop},
     window::{Icon, Theme},
 };
-
-
 
 #[cfg(target_os = "linux")]
 use winit::platform::{
@@ -31,21 +27,16 @@ use winit::platform::{
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowAttributesExtWindows;
 
-
-
-
-
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
 use mouse_manager::MouseManager;
-
 
 use crate::{
     cmd_line::{CmdLineSettings, GeometryArgs},
     renderer::{DrawCommand, WindowConfig},
     settings::{
-        clamped_grid_size, save_window_size, HotReloadConfigs,
-        PersistentWindowSettings, Settings, SettingsChanged,
+        clamped_grid_size, save_window_size, HotReloadConfigs, PersistentWindowSettings, Settings,
+        SettingsChanged,
     },
     units::GridSize,
 };
@@ -176,16 +167,14 @@ pub fn create_window(
 
         #[cfg(target_os = "linux")]
         let window_attributes = {
-            let window_attributes =
-                if let Some(token) = EventLoopExtStartupNotify::read_token_from_env(event_loop) {
-                    startup_notify::reset_activation_token_env();
-                    WindowAttributesExtStartupNotify::with_activation_token(
-                        window_attributes,
-                        token,
-                    )
-                } else {
-                    window_attributes
-                };
+            let window_attributes = if let Some(token) =
+                EventLoopExtStartupNotify::read_token_from_env(event_loop)
+            {
+                startup_notify::reset_activation_token_env();
+                WindowAttributesExtStartupNotify::with_activation_token(window_attributes, token)
+            } else {
+                window_attributes
+            };
 
             if env::var("WAYLAND_DISPLAY").is_ok() {
                 let app_id = &cmd_line_settings.wayland_app_id;

@@ -14,7 +14,6 @@ use winit::event_loop::EventLoopProxy;
 #[cfg(target_os = "macos")]
 use crate::platform::macos::editor::window_theme_for_background;
 
-
 use crate::{
     bridge::{GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
     profiling::{tracy_named_frame, tracy_zone},
@@ -712,5 +711,3 @@ pub fn start_editor(
     });
     handler
 }
-
-

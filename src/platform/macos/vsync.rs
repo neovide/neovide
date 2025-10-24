@@ -10,7 +10,7 @@ use crate::window::UserEvent;
 
 use std::{ffi::c_void, marker::PhantomPinned, pin::Pin, ptr::NonNull};
 
-use crate::{profiling::tracy_zone, platform::macos::get_ns_window};
+use crate::{platform::macos::get_ns_window, profiling::tracy_zone};
 
 use objc2_core_foundation::CFRetained;
 use objc2_core_graphics::CGDirectDisplayID;

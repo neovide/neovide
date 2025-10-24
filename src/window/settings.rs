@@ -1,10 +1,10 @@
 use crate::error_msg;
 use crate::settings::*;
 
-#[cfg(target_os = "windows")]
-pub use crate::platform::windows::settings::*;
 #[cfg(target_os = "macos")]
 pub use crate::platform::macos::settings::*;
+#[cfg(target_os = "windows")]
+pub use crate::platform::windows::settings::*;
 
 #[derive(Clone, SettingGroup, PartialEq)]
 pub struct WindowSettings {
@@ -40,7 +40,6 @@ pub struct WindowSettings {
     pub input_macos_option_key_is_meta: OptionAsMeta,
     #[cfg(target_os = "macos")]
     pub macos_simple_fullscreen: bool,
-
 
     #[option = "mousemoveevent"]
     pub mouse_move_event: bool,
@@ -85,7 +84,6 @@ impl Default for WindowSettings {
             #[cfg(target_os = "macos")]
             macos_simple_fullscreen: false,
 
-
             // Neovim options
             mouse_move_event: false,
             observed_columns: None,
@@ -93,6 +91,3 @@ impl Default for WindowSettings {
         }
     }
 }
-
-
-
