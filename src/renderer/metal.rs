@@ -22,7 +22,8 @@ use winit::{event_loop::EventLoopProxy, window::Window};
 use crate::{
     profiling::tracy_gpu_zone,
     renderer::{RendererSettings, SkiaRenderer, VSync},
-    window::{macos::get_ns_window, UserEvent},
+    platform::macos::get_ns_window,
+    window::UserEvent,
 };
 
 use super::Settings;

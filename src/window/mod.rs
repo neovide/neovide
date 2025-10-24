@@ -6,7 +6,10 @@ mod update_loop;
 mod window_wrapper;
 
 #[cfg(target_os = "macos")]
-pub mod macos;
+use crate::platform::macos;
+#[cfg(target_os = "macos")]
+use crate::platform::macos::register_file_handler;
+
 
 #[cfg(target_os = "linux")]
 use std::env;
@@ -33,8 +36,7 @@ use winit::platform::windows::WindowAttributesExtWindows;
 #[cfg(target_os = "macos")]
 use winit::platform::macos::EventLoopBuilderExtMacOS;
 
-#[cfg(target_os = "macos")]
-use macos::register_file_handler;
+
 
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
