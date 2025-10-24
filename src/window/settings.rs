@@ -1,6 +1,8 @@
 use crate::error_msg;
 use crate::settings::*;
 
+#[cfg(target_os = "windows")]
+pub use crate::platform::windows::settings::*;
 #[cfg(target_os = "macos")]
 pub use crate::platform::macos::settings::*;
 
@@ -39,10 +41,6 @@ pub struct WindowSettings {
     #[cfg(target_os = "macos")]
     pub macos_simple_fullscreen: bool,
 
-    #[cfg(target_os = "windows")]
-    pub title_background_color: String,
-    #[cfg(target_os = "windows")]
-    pub title_text_color: String,
 
     #[option = "mousemoveevent"]
     pub mouse_move_event: bool,
@@ -87,10 +85,6 @@ impl Default for WindowSettings {
             #[cfg(target_os = "macos")]
             macos_simple_fullscreen: false,
 
-            #[cfg(target_os = "windows")]
-            title_background_color: "".to_string(),
-            #[cfg(target_os = "windows")]
-            title_text_color: "".to_string(),
 
             // Neovim options
             mouse_move_event: false,
