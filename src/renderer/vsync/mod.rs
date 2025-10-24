@@ -1,5 +1,3 @@
-#[cfg(target_os = "macos")]
-mod vsync_macos_display_link;
 mod vsync_timer;
 #[cfg(target_os = "windows")]
 mod vsync_win_dwm;
@@ -21,7 +19,7 @@ pub use vsync_win_dwm::VSyncWinDwm;
 pub use vsync_win_swap_chain::VSyncWinSwapChain;
 
 #[cfg(target_os = "macos")]
-pub use vsync_macos_display_link::VSyncMacosDisplayLink;
+pub use crate::platform::macos::vsync::VSyncMacosDisplayLink;
 
 #[allow(dead_code)]
 pub enum VSync {
