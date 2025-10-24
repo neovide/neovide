@@ -33,7 +33,6 @@ members = ["neovide-derive"]
 
 [features]
 default = []
-embed-fonts = []
 profiling = ["dep:tracy-client-sys"]
 gpu_profiling = ["profiling"]
 # Corresponds to https://github.com/nagisa/rust_tracy_client/blob/main/FEATURES.mkd

@@ -1,17 +1,17 @@
 use std::collections::VecDeque;
-use std::{rc::Rc, sync::Arc};
+use std::sync::Arc;
 
 use crate::{
     profiling::tracy_zone,
     renderer::{animation_utils::lerp, fonts::font_loader::*, RendererSettings},
     settings::Settings,
 };
-use skia_safe::{Canvas, Color, Paint, Point, Rect, Size};
+use skia_safe::{Canvas, Color, Font, Paint, Point, Rect, Size};
 
 const FRAMETIMES_COUNT: usize = 48;
 
 pub struct Profiler {
-    pub font: Rc<FontPair>,
+    pub font: Font,
     pub position: Point,
     pub size: Size,
     pub frametimes: VecDeque<f32>,
@@ -22,8 +22,13 @@ pub struct Profiler {
 impl Profiler {
     pub fn new(font_size: f32, settings: Arc<Settings>) -> Self {
         let font_key = FontKey::default();
-        let mut font_loader = FontLoader::new(font_size);
-        let font = font_loader.get_or_load(&font_key).unwrap();
+        let mut font_loader = FontLoader::new();
+        let font = font_loader
+            .get_or_load(&font_key, None)
+            .unwrap()
+            .skia_font
+            .with_size(font_size)
+            .unwrap();
         Self {
             font,
             position: Point::new(32.0, 32.0),
@@ -55,11 +60,11 @@ impl Profiler {
         let color = Color::from_argb(255, 0, 255, 0);
         paint.set_color(color);
         let mut text_position = self.position;
-        text_position.y += self.font.skia_font.size();
+        text_position.y += self.font.size();
         root_canvas.draw_str(
             format!("{:.0}FPS", 1.0 / dt.max(f32::EPSILON)),
             text_position,
-            &self.font.skia_font,
+            &self.font,
             &paint,
         );
 
@@ -120,19 +125,19 @@ impl Profiler {
         root_canvas.draw_str(
             format!("min: {min_ft:.1}ms"),
             (rect.left, rect.bottom),
-            &self.font.skia_font,
+            &self.font,
             &paint,
         );
         root_canvas.draw_str(
             format!("avg: {avg:.1}ms"),
             (rect.left, rect.bottom - graph_height * 0.5),
-            &self.font.skia_font,
+            &self.font,
             &paint,
         );
         root_canvas.draw_str(
             format!("max: {max_ft:.1}ms"),
             (rect.left, rect.bottom - graph_height),
-            &self.font.skia_font,
+            &self.font,
             &paint,
         );
     }
