@@ -32,10 +32,10 @@ use winit::{
     window::{Window, WindowAttributes},
 };
 
-#[cfg(target_os = "linux")]
-use crate::platform::linux;
 #[cfg(target_os = "windows")]
 pub use super::vsync::VSyncWinDwm;
+#[cfg(target_os = "linux")]
+use crate::platform::linux;
 
 #[cfg(target_os = "macos")]
 pub use super::vsync::VSyncMacosDisplayLink;

@@ -1,6 +1,6 @@
-use std::error::Error;
 use copypasta::{ClipboardContext, ClipboardProvider};
 use parking_lot::Mutex;
+use std::error::Error;
 use std::sync::OnceLock;
 use winit::event_loop::EventLoop;
 

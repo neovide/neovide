@@ -9,7 +9,7 @@ mod window_wrapper;
 use crate::platform::macos;
 
 #[cfg(target_os = "linux")]
-use std::env;
+use crate::platform::linux;
 
 use winit::{
     dpi::{PhysicalSize, Size},
@@ -17,30 +17,14 @@ use winit::{
     window::{Icon, Theme},
 };
 
-
-
-#[cfg(not(target_os = "macos"))]
-use winit::window::Window;
-
-#[cfg(target_os = "windows")]
-use winit::platform::windows::WindowAttributesExtWindows;
-
-#[cfg(target_os = "linux")]
-use winit::platform::{
-    startup_notify::{self, EventLoopExtStartupNotify, WindowAttributesExtStartupNotify},
-    wayland::WindowAttributesExtWayland,
-    x11::WindowAttributesExtX11,
-};
-
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowAttributesExtWindows;
 
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowAttributesExtWindows;
 
-
-
-
+#[cfg(target_os = "windows")]
+use winit::platform::windows::WindowAttributesExtWindows;
 
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
@@ -55,9 +39,6 @@ use crate::{
     },
     units::GridSize,
 };
-
-#[cfg(not(target_os = "macos"))]
-use crate::{renderer::build_window_config, settings::load_last_window_settings};
 
 #[cfg(target_os = "macos")]
 pub use error_window::show_error_window;
@@ -152,68 +133,7 @@ pub fn create_window(
     return crate::platform::windows::window::create_window(event_loop, maximized, title, settings);
 
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    {
-        let icon = load_icon();
-
-        let cmd_line_settings = settings.get::<CmdLineSettings>();
-
-        let window_settings = load_last_window_settings().ok();
-
-        let previous_position = match window_settings {
-            Some(PersistentWindowSettings::Windowed { position, .. }) => Some(position),
-            _ => None,
-        };
-
-        let mouse_cursor_icon = cmd_line_settings.mouse_cursor_icon;
-
-        let window_attributes = Window::default_attributes()
-            .with_title(title)
-            .with_cursor(winit::window::Cursor::Icon(
-                mouse_cursor_icon.to_string().parse().unwrap(),
-            ))
-            .with_maximized(maximized)
-            .with_transparent(true)
-            .with_visible(false);
-
-        #[cfg(target_family = "unix")]
-        let window_attributes = window_attributes.with_window_icon(Some(icon));
-
-        let frame_decoration = cmd_line_settings.frame;
-
-        // There is only two options for windows & linux, no need to match more options.
-        let mut window_attributes =
-            window_attributes.with_decorations(frame_decoration == crate::frame::Frame::Full);
-
-        if let Some(previous_position) = previous_position {
-            window_attributes = window_attributes.with_position(previous_position);
-        }
-
-        #[cfg(target_os = "linux")]
-        let window_attributes = {
-            let window_attributes = if let Some(token) =
-                EventLoopExtStartupNotify::read_token_from_env(event_loop)
-            {
-                startup_notify::reset_activation_token_env();
-                WindowAttributesExtStartupNotify::with_activation_token(window_attributes, token)
-            } else {
-                window_attributes
-            };
-
-            if env::var("WAYLAND_DISPLAY").is_ok() {
-                let app_id = &cmd_line_settings.wayland_app_id;
-                WindowAttributesExtWayland::with_name(window_attributes, app_id.clone(), "neovide")
-            } else {
-                let class = &cmd_line_settings.x11_wm_class;
-                let instance = &cmd_line_settings.x11_wm_class_instance;
-                WindowAttributesExtX11::with_name(window_attributes, class, instance)
-            }
-        };
-
-        #[allow(clippy::let_and_return)]
-        let window_config = build_window_config(window_attributes, event_loop, settings);
-
-        window_config
-    }
+    return linux::window::create_window(event_loop, maximized, title, settings);
 }
 
 #[derive(Clone, Debug)]

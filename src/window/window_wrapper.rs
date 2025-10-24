@@ -16,10 +16,10 @@ use super::{
 #[cfg(target_os = "macos")]
 use crate::window::settings::OptionAsMeta;
 #[cfg(target_os = "macos")]
-use {
-    winit::platform::macos::{self, WindowExtMacOS},
-};
+use winit::platform::macos::{self, WindowExtMacOS};
 
+#[cfg(target_os = "windows")]
+use crate::platform::windows;
 use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
@@ -34,8 +34,6 @@ use crate::{
     window::{create_window, PhysicalSize, ShouldRender, WindowSize},
     CmdLineSettings,
 };
-#[cfg(target_os = "windows")]
-use crate::platform::windows;
 #[cfg(windows)]
 use {
     crate::windows_utils::{register_right_click, unregister_right_click},
@@ -855,6 +853,4 @@ impl WinitWindowWrapper {
         self.renderer.handle_os_scale_factor_change(scale_factor);
         skia_renderer.resize();
     }
-
-
 }

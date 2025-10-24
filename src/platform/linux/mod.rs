@@ -1,7 +1,8 @@
-pub mod clipboard;
 pub mod bridge;
+pub mod clipboard;
 pub mod opengl;
 pub mod vsync;
+pub mod window;
 use std::env;
 
 pub fn main() {

@@ -3,6 +3,7 @@
 // the test name.
 #![cfg_attr(test, allow(non_snake_case))]
 #![allow(unknown_lints)]
+
 #[macro_use]
 extern crate neovide_derive;
 
@@ -13,6 +14,9 @@ extern crate approx;
 
 #[macro_use]
 extern crate clap;
+
+#[macro_use]
+extern crate derive_new;
 
 mod bridge;
 mod channel_utils;
@@ -30,9 +34,6 @@ mod settings;
 mod units;
 mod utils;
 mod window;
-
-#[macro_use]
-extern crate derive_new;
 
 use std::{
     env::{self, args},

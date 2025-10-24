@@ -15,15 +15,15 @@ use crate::platform::windows;
 #[cfg(target_os = "windows")]
 use crate::windows_attach_to_console;
 
-use crate::{
-    bridge::{send_ui, ParallelCommand},
-    settings::Settings,
-    window::{UserEvent},
-};
 #[cfg(not(target_os = "macos"))]
 use crate::window::error_window::show_error_window;
 #[cfg(target_os = "macos")]
 use crate::window::show_error_window;
+use crate::{
+    bridge::{send_ui, ParallelCommand},
+    settings::Settings,
+    window::UserEvent,
+};
 
 fn show_error(explanation: &str) -> ! {
     error!("{explanation}");

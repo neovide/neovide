@@ -3,8 +3,8 @@ pub mod error_handling;
 pub mod profiling;
 pub mod renderer;
 pub mod settings;
-pub mod window;
 pub mod utils;
+pub mod window;
 pub mod window_wrapper;
 
 use windows::Win32::{
