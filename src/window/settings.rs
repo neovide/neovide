@@ -1,8 +1,8 @@
-#[cfg(target_os = "macos")]
-use {log::error, rmpv::Value};
-
 use crate::error_msg;
 use crate::settings::*;
+
+#[cfg(target_os = "macos")]
+pub use crate::platform::macos::settings::*;
 
 #[derive(Clone, SettingGroup, PartialEq)]
 pub struct WindowSettings {
@@ -96,47 +96,6 @@ impl Default for WindowSettings {
             mouse_move_event: false,
             observed_columns: None,
             observed_lines: None,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg(target_os = "macos")]
-pub enum OptionAsMeta {
-    OnlyLeft,
-    OnlyRight,
-    Both,
-    None,
-}
-
-#[cfg(target_os = "macos")]
-impl ParseFromValue for OptionAsMeta {
-    fn parse_from_value(&mut self, value: Value) {
-        if value.is_str() {
-            *self = match value.as_str().unwrap() {
-                "only_left" => OptionAsMeta::OnlyLeft,
-                "only_right" => OptionAsMeta::OnlyRight,
-                "both" => OptionAsMeta::Both,
-                "none" => OptionAsMeta::None,
-                value => {
-                    error!("Setting OptionAsMeta expected one of `only_left`, `only_right`, `both`, or `none`, but received {value:?}");
-                    return;
-                }
-            };
-        } else {
-            error!("Setting OptionAsMeta expected string, but received {value:?}");
-        }
-    }
-}
-
-#[cfg(target_os = "macos")]
-impl From<OptionAsMeta> for Value {
-    fn from(meta: OptionAsMeta) -> Self {
-        match meta {
-            OptionAsMeta::OnlyLeft => Value::from("only_left"),
-            OptionAsMeta::OnlyRight => Value::from("only_right"),
-            OptionAsMeta::Both => Value::from("both"),
-            OptionAsMeta::None => Value::from("none"),
         }
     }
 }

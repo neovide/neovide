@@ -1,3 +1,5 @@
+pub mod settings;
+
 use std::sync::Arc;
 use std::{os::raw::c_void, str};
 
