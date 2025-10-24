@@ -32,6 +32,8 @@ use winit::{
     window::{Window, WindowAttributes},
 };
 
+#[cfg(target_os = "linux")]
+use crate::platform::linux;
 #[cfg(target_os = "windows")]
 pub use super::vsync::VSyncWinDwm;
 
@@ -199,11 +201,7 @@ impl SkiaRenderer for OpenGLSkiaRenderer {
     #[allow(unused_variables)]
     fn create_vsync(&self, proxy: EventLoopProxy<UserEvent>) -> VSync {
         #[cfg(target_os = "linux")]
-        if env::var("WAYLAND_DISPLAY").is_ok() {
-            VSync::WinitThrottling()
-        } else {
-            VSync::Opengl()
-        }
+        return linux::opengl::create_vsync(proxy);
 
         #[cfg(target_os = "windows")]
         {
