@@ -7,7 +7,7 @@ use clap::{
     builder::{styling, FalseyValueParser, Styles},
     ArgAction, Parser,
 };
-use winit::window::CursorIcon;
+
 
 #[cfg(target_os = "windows")]
 pub const SRGB_DEFAULT: &str = "1";
@@ -174,14 +174,7 @@ pub enum MouseCursorIcon {
     IBeam,
 }
 
-impl MouseCursorIcon {
-    pub fn parse(&self) -> CursorIcon {
-        match self {
-            MouseCursorIcon::Arrow => CursorIcon::Default,
-            MouseCursorIcon::IBeam => CursorIcon::Text,
-        }
-    }
-}
+
 
 impl Default for CmdLineSettings {
     fn default() -> Self {

@@ -3,6 +3,7 @@ pub mod keyboard;
 pub mod editor;
 pub mod renderer;
 pub mod vsync;
+pub mod window;
 
 use std::sync::Arc;
 use std::{os::raw::c_void, str};
