@@ -5,19 +5,18 @@ use crate::{
     settings::Settings,
 };
 
+use crate::profiling::tracy_named_frame;
+#[cfg(target_os = "macos")]
+use crate::{
+    platform::macos::keyboard,
+    window::settings::{OptionAsMeta, WindowSettings},
+};
 #[allow(unused_imports)]
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use winit::{
     event::{ElementState, Ime, KeyEvent, Modifiers, WindowEvent},
     keyboard::{Key, KeyCode, KeyLocation, NamedKey, PhysicalKey},
 };
-#[cfg(target_os = "macos")]
-use {
-    crate::{window::settings::OptionAsMeta, window::WindowSettings},
-    winit::keyboard::ModifiersKeyState,
-};
-
-use crate::profiling::tracy_named_frame;
 
 fn is_ascii_alphabetic_char(text: &str) -> bool {
     text.len() == 1 && text.chars().next().unwrap().is_ascii_alphabetic()
@@ -75,10 +74,12 @@ impl KeyboardManager {
                     self.meta_is_pressed = match ws.input_macos_option_key_is_meta {
                         OptionAsMeta::Both => self.modifiers.state().alt_key(),
                         OptionAsMeta::OnlyLeft => {
-                            self.modifiers.lalt_state() == ModifiersKeyState::Pressed
+                            self.modifiers.lalt_state()
+                                == winit::keyboard::ModifiersKeyState::Pressed
                         }
                         OptionAsMeta::OnlyRight => {
-                            self.modifiers.ralt_state() == ModifiersKeyState::Pressed
+                            self.modifiers.ralt_state()
+                                == winit::keyboard::ModifiersKeyState::Pressed
                         }
                         OptionAsMeta::None => false,
                     };
@@ -209,33 +210,40 @@ impl KeyboardManager {
         }
     }
 
+    // Shift should always be sent together with special keys (Enter, Space, F keys and so on).
+    // And as a special case together with CTRL and standard a-z characters.
+    // In all other cases the resulting character is enough.
+    // Note that, in Neovim <C-a> and <C-A> are the same, but <C-S-A> is different.
+    // Actually, <C-S-a> is the same as <C-S-A>, since Neovim converts all shifted
+    // lowercase alphas to uppercase internally in its mappings.
+    // Also note that mappings that do not include CTRL work differently, they are always
+    // normalized in combination with ascii alphas. For example <M-S-a> is normalized to
+    // uppercase without shift, or <M-A> .
+    // But in combination with other characters, such as <M-S-$> they are not,
+    // so we don't want to send shift when that's the case.
     pub fn format_modifier_string(&self, text: &str, is_special: bool) -> String {
-        // Shift should always be sent together with special keys (Enter, Space, F keys and so on).
-        // And as a special case together with CTRL and standard a-z characters.
-        // In all other cases the resulting character is enough.
-        // Note that, in Neovim <C-a> and <C-A> are the same, but <C-S-A> is different.
-        // Actually, <C-S-a> is the same as <C-S-A>, since Neovim converts all shifted
-        // lowercase alphas to uppercase internally in its mappings.
-        // Also note that mappings that do not include CTRL work differently, they are always
-        // normalized in combination with ascii alphas. For example <M-S-a> is normalized to
-        // uppercase without shift, or <M-A> .
-        // But in combination with other characters, such as <M-S-$> they are not,
-        // so we don't want to send shift when that's the case.
-        let state = self.modifiers.state();
-        let include_shift = is_special || (state.control_key() && is_ascii_alphabetic_char(text));
-
         #[cfg(target_os = "macos")]
-        let have_meta = self.meta_is_pressed || is_special && state.alt_key(); // e.g. non-meta 'option' with <F1> yeilds <M-F1>
+        return keyboard::format_modifier_string(
+            &self.modifiers,
+            self.meta_is_pressed,
+            text,
+            is_special,
+        );
 
         #[cfg(not(target_os = "macos"))]
-        let have_meta = self.meta_is_pressed;
+        {
+            let state = self.modifiers.state();
+            let include_shift =
+                is_special || (state.control_key() && is_ascii_alphabetic_char(text));
+            let have_meta = self.meta_is_pressed;
 
-        let mut ret = String::new();
-        (state.shift_key() && include_shift).then(|| ret += "S-");
-        state.control_key().then(|| ret += "C-");
-        (have_meta).then(|| ret += "M-");
-        state.super_key().then(|| ret += "D-");
-        ret
+            let mut ret = String::new();
+            (state.shift_key() && include_shift).then(|| ret += "S-");
+            state.control_key().then(|| ret += "C-");
+            (have_meta).then(|| ret += "M-");
+            state.super_key().then(|| ret += "D-");
+            ret
+        }
     }
 }
 

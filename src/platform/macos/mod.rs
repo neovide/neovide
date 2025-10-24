@@ -1,3 +1,4 @@
+pub mod keyboard;
 pub mod settings;
 
 use std::sync::Arc;
