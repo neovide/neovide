@@ -11,6 +11,7 @@ use skia_safe::{
 use crate::{editor, error_msg};
 
 const DEFAULT_FONT_SIZE: f32 = 14.0;
+pub const DEFAULT_FONT: &str = "monospace";
 const FONT_OPTS_SEPARATOR: char = ':';
 const FONT_LIST_SEPARATOR: char = ',';
 const FONT_HINTING_PREFIX: &str = "#h-";
@@ -24,10 +25,19 @@ const INVALID_SIZE_ERR: &str = "Invalid size";
 const INVALID_WIDTH_ERR: &str = "Invalid width";
 
 /// Description of the normal font.
-#[derive(Clone, Debug, Deserialize, PartialEq, Hash, Eq, Default)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Hash, Eq)]
 pub struct FontDescription {
     pub family: String,
     pub style: Option<String>,
+}
+
+impl Default for FontDescription {
+    fn default() -> Self {
+        Self {
+            family: DEFAULT_FONT.to_string(),
+            style: None,
+        }
+    }
 }
 
 /// Description of the italic and bold fonts.
@@ -252,7 +262,7 @@ impl FontOptions {
 impl Default for FontOptions {
     fn default() -> Self {
         FontOptions {
-            normal: Vec::new(),
+            normal: vec![FontDescription::default()],
             italic: None,
             bold: None,
             bold_italic: None,
