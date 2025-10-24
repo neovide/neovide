@@ -41,7 +41,7 @@ define_class!(
     impl TitlebarClickHandler {
         #[unsafe(method(mouseDown:))]
         fn mouse_down(&self, event: &NSEvent) {
-            if unsafe {event.clickCount()} == 2 {
+            if event.clickCount() == 2 {
                 self.window().unwrap().zoom(Some(self));
             }
         }
@@ -115,7 +115,7 @@ impl MacosWindowFeature {
 
         let frame = settings.get::<CmdLineSettings>().frame;
         let titlebar_click_handler: Option<Retained<TitlebarClickHandler>> = match frame {
-            Frame::Transparent => unsafe {
+            Frame::Transparent => {
                 let titlebar_click_handler = TitlebarClickHandler::new(mtm);
 
                 // Add the titlebar_click_handler into the view of window.
@@ -140,7 +140,7 @@ impl MacosWindowFeature {
                     Self::titlebar_height_in_pixel(system_titlebar_height, window.scale_factor());
 
                 Some(titlebar_click_handler)
-            },
+            }
             _ => None,
         };
 
@@ -167,7 +167,7 @@ impl MacosWindowFeature {
     fn system_titlebar_height(mtm: MainThreadMarker) -> f64 {
         // Do a test to calculate this.
         let mock_content_rect = NSRect::new(NSPoint::new(100., 100.), NSSize::new(100., 100.));
-        let frame_rect = unsafe {
+        let frame_rect = {
             NSWindow::frameRectForContentRect_styleMask(
                 mock_content_rect,
                 NSWindowStyleMask::Titled,
@@ -234,49 +234,45 @@ impl MacosWindowFeature {
             self.display_deprecation_warning();
         }
         let [red, green, blue, alpha] = color.to_array();
-        unsafe {
-            let opaque = alpha >= 1.0;
-            let ns_background = if opaque && show_border {
-                NSColor::colorWithSRGBRed_green_blue_alpha(
-                    red.into(),
-                    green.into(),
-                    blue.into(),
-                    alpha.into(),
-                )
-            } else if !opaque {
-                // Use white with very low alpha to make borders rendering properly
-                NSColor::whiteColor().colorWithAlphaComponent(0.001)
-            } else {
-                NSColor::clearColor()
-            };
-            self.ns_window.setBackgroundColor(Some(&ns_background));
-            // Show shadow if window is opaque OR has border decoration
-            self.ns_window.setHasShadow(opaque || show_border);
-            // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
-            self.ns_window.setOpaque(opaque && show_border);
-            self.ns_window.invalidateShadow();
-        }
+        let opaque = alpha >= 1.0;
+        let ns_background = if opaque && show_border {
+            NSColor::colorWithSRGBRed_green_blue_alpha(
+                red.into(),
+                green.into(),
+                blue.into(),
+                alpha.into(),
+            )
+        } else if !opaque {
+            // Use white with very low alpha to make borders rendering properly
+            NSColor::whiteColor().colorWithAlphaComponent(0.001)
+        } else {
+            NSColor::clearColor()
+        };
+        self.ns_window.setBackgroundColor(Some(&ns_background));
+        // Show shadow if window is opaque OR has border decoration
+        self.ns_window.setHasShadow(opaque || show_border);
+        // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
+        self.ns_window.setOpaque(opaque && show_border);
+        self.ns_window.invalidateShadow();
     }
 
     fn update_ns_background(&self, opaque: bool, show_border: bool) {
-        unsafe {
-            // Setting the background color to `NSColor::windowBackgroundColor()`
-            // makes the background opaque and draws a grey border around the window
-            let ns_background = if opaque && show_border {
-                NSColor::windowBackgroundColor()
-            } else if !opaque {
-                // Use white with very low alpha to make borders rendering properly
-                NSColor::whiteColor().colorWithAlphaComponent(0.001)
-            } else {
-                NSColor::clearColor()
-            };
-            self.ns_window.setBackgroundColor(Some(&ns_background));
-            // Show shadow if window is opaque OR has border decoration
-            self.ns_window.setHasShadow(opaque || show_border);
-            // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
-            self.ns_window.setOpaque(opaque && show_border);
-            self.ns_window.invalidateShadow();
-        }
+        // Setting the background color to `NSColor::windowBackgroundColor()`
+        // makes the background opaque and draws a grey border around the window
+        let ns_background = if opaque && show_border {
+            NSColor::windowBackgroundColor()
+        } else if !opaque {
+            // Use white with very low alpha to make borders rendering properly
+            NSColor::whiteColor().colorWithAlphaComponent(0.001)
+        } else {
+            NSColor::clearColor()
+        };
+        self.ns_window.setBackgroundColor(Some(&ns_background));
+        // Show shadow if window is opaque OR has border decoration
+        self.ns_window.setHasShadow(opaque || show_border);
+        // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
+        self.ns_window.setOpaque(opaque && show_border);
+        self.ns_window.invalidateShadow();
     }
 
     /// Update background color, opacity, shadow and blur of a window.
@@ -428,21 +424,19 @@ impl Menu {
 
         let main_menu = NSMenu::new(mtm);
 
-        unsafe {
-            let app_menu = self.add_app_menu(mtm);
-            let app_menu_item = NSMenuItem::new(mtm);
-            app_menu_item.setSubmenu(Some(&app_menu));
-            if let Some(services_menu) = app_menu.itemWithTitle(ns_string!("Services")) {
-                app.setServicesMenu(services_menu.submenu().as_deref());
-            }
-            main_menu.addItem(&app_menu_item);
-
-            let win_menu = self.add_window_menu(mtm);
-            let win_menu_item = NSMenuItem::new(mtm);
-            win_menu_item.setSubmenu(Some(&win_menu));
-            main_menu.addItem(&win_menu_item);
-            app.setWindowsMenu(Some(&win_menu));
+        let app_menu = self.add_app_menu(mtm);
+        let app_menu_item = NSMenuItem::new(mtm);
+        app_menu_item.setSubmenu(Some(&app_menu));
+        if let Some(services_menu) = app_menu.itemWithTitle(ns_string!("Services")) {
+            app.setServicesMenu(services_menu.submenu().as_deref());
         }
+        main_menu.addItem(&app_menu_item);
+
+        let win_menu = self.add_window_menu(mtm);
+        let win_menu_item = NSMenuItem::new(mtm);
+        win_menu_item.setSubmenu(Some(&win_menu));
+        main_menu.addItem(&win_menu_item);
+        app.setWindowsMenu(Some(&win_menu));
         app.setMainMenu(Some(&main_menu));
     }
 
