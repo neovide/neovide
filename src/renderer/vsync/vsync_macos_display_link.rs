@@ -156,10 +156,8 @@ impl VSyncMacosDisplayLink {
 
     fn stop_display_link(&mut self) {
         if let Some((display_link, _)) = self.display_link.as_ref() {
-            unsafe {
-                #[allow(deprecated)]
-                CVDisplayLinkStop(display_link.as_ref());
-            }
+            #[allow(deprecated)]
+            CVDisplayLinkStop(display_link.as_ref());
         }
     }
 

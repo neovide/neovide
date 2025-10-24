@@ -104,8 +104,7 @@ impl MouseManager {
             editor_state
                 .window_regions
                 .iter()
-                .filter(|details| details.region.contains(&position))
-                .next_back()
+                .rfind(|details| details.region.contains(&position))
         }
     }
 
