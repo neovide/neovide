@@ -1,3 +1,4 @@
+pub mod editor;
 pub mod settings;
 
 use std::sync::Arc;
