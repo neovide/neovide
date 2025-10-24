@@ -1,4 +1,4 @@
-mod error_window;
+pub mod error_window;
 mod keyboard_manager;
 mod mouse_manager;
 mod settings;
@@ -17,6 +17,14 @@ use winit::{
     window::{Icon, Theme},
 };
 
+
+
+#[cfg(not(target_os = "macos"))]
+use winit::window::Window;
+
+#[cfg(target_os = "windows")]
+use winit::platform::windows::WindowAttributesExtWindows;
+
 #[cfg(target_os = "linux")]
 use winit::platform::{
     startup_notify::{self, EventLoopExtStartupNotify, WindowAttributesExtStartupNotify},
@@ -26,6 +34,13 @@ use winit::platform::{
 
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowAttributesExtWindows;
+
+#[cfg(target_os = "windows")]
+use winit::platform::windows::WindowAttributesExtWindows;
+
+
+
+
 
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
@@ -40,7 +55,13 @@ use crate::{
     },
     units::GridSize,
 };
+
+#[cfg(not(target_os = "macos"))]
+use crate::{renderer::build_window_config, settings::load_last_window_settings};
+
+#[cfg(target_os = "macos")]
 pub use error_window::show_error_window;
+
 pub use settings::{WindowSettings, WindowSettingsChanged};
 pub use update_loop::ShouldRender;
 pub use update_loop::UpdateLoop;
@@ -113,7 +134,7 @@ pub fn create_event_loop() -> EventLoop<UserEvent> {
 
     #[cfg(not(target_os = "macos"))]
     {
-        let builder = EventLoop::with_user_event();
+        let mut builder = EventLoop::with_user_event();
         builder.build().expect("Failed to create winit event loop")
     }
 }
@@ -147,7 +168,9 @@ pub fn create_window(
 
         let window_attributes = Window::default_attributes()
             .with_title(title)
-            .with_cursor(Cursor::Icon(mouse_cursor_icon.parse()))
+            .with_cursor(winit::window::Cursor::Icon(
+                mouse_cursor_icon.to_string().parse().unwrap(),
+            ))
             .with_maximized(maximized)
             .with_transparent(true)
             .with_visible(false);

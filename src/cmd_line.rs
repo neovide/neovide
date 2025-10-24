@@ -1,4 +1,4 @@
-use std::{iter, mem};
+use std::{fmt, iter, mem};
 
 use crate::{dimensions::Dimensions, frame::Frame, settings::*, utils::handle_wslpaths};
 
@@ -171,6 +171,15 @@ pub struct GeometryArgs {
 pub enum MouseCursorIcon {
     Arrow,
     IBeam,
+}
+
+impl fmt::Display for MouseCursorIcon {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            MouseCursorIcon::Arrow => write!(f, "arrow"),
+            MouseCursorIcon::IBeam => write!(f, "ibeam"),
+        }
+    }
 }
 
 impl Default for CmdLineSettings {

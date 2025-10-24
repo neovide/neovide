@@ -5,17 +5,16 @@ use crate::{
     settings::Settings,
 };
 
+#[cfg(target_os = "macos")]
+use crate::platform::macos::keyboard;
 use crate::profiling::tracy_named_frame;
 #[cfg(target_os = "macos")]
-use crate::{
-    platform::macos::keyboard,
-    window::settings::{OptionAsMeta, WindowSettings},
-};
+use crate::window::settings::{OptionAsMeta, WindowSettings};
 #[allow(unused_imports)]
 use winit::platform::modifier_supplement::KeyEventExtModifierSupplement;
 use winit::{
     event::{ElementState, Ime, KeyEvent, Modifiers, WindowEvent},
-    keyboard::{Key, KeyCode, KeyLocation, ModifiersKeyState, NamedKey, PhysicalKey},
+    keyboard::{Key, KeyCode, KeyLocation, NamedKey, PhysicalKey},
 };
 
 fn is_ascii_alphabetic_char(text: &str) -> bool {
@@ -74,10 +73,12 @@ impl KeyboardManager {
                     self.meta_is_pressed = match ws.input_macos_option_key_is_meta {
                         OptionAsMeta::Both => self.modifiers.state().alt_key(),
                         OptionAsMeta::OnlyLeft => {
-                            self.modifiers.lalt_state() == ModifiersKeyState::Pressed
+                            self.modifiers.lalt_state()
+                                == winit::keyboard::ModifiersKeyState::Pressed
                         }
                         OptionAsMeta::OnlyRight => {
-                            self.modifiers.ralt_state() == ModifiersKeyState::Pressed
+                            self.modifiers.ralt_state()
+                                == winit::keyboard::ModifiersKeyState::Pressed
                         }
                         OptionAsMeta::None => false,
                     };
