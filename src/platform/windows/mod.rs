@@ -5,6 +5,7 @@ pub mod renderer;
 pub mod settings;
 pub mod window;
 pub mod utils;
+pub mod window_wrapper;
 
 use windows::Win32::{
     System::Console::{AttachConsole, ATTACH_PARENT_PROCESS},

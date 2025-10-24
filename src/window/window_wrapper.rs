@@ -14,8 +14,9 @@ use super::{
 };
 
 #[cfg(target_os = "macos")]
+use crate::window::settings::OptionAsMeta;
+#[cfg(target_os = "macos")]
 use {
-    crate::{error_msg, window::settings},
     winit::platform::macos::{self, WindowExtMacOS},
 };
 
@@ -33,6 +34,8 @@ use crate::{
     window::{create_window, PhysicalSize, ShouldRender, WindowSize},
     CmdLineSettings,
 };
+#[cfg(target_os = "windows")]
+use crate::platform::windows;
 #[cfg(windows)]
 use {
     crate::windows_utils::{register_right_click, unregister_right_click},
@@ -157,12 +160,12 @@ impl WinitWindowWrapper {
     }
 
     #[cfg(target_os = "macos")]
-    pub fn set_macos_option_as_meta(&mut self, option: settings::OptionAsMeta) {
+    pub fn set_macos_option_as_meta(&mut self, option: OptionAsMeta) {
         let winit_option = match option {
-            settings::OptionAsMeta::OnlyLeft => macos::OptionAsAlt::OnlyLeft,
-            settings::OptionAsMeta::OnlyRight => macos::OptionAsAlt::OnlyRight,
-            settings::OptionAsMeta::Both => macos::OptionAsAlt::Both,
-            settings::OptionAsMeta::None => macos::OptionAsAlt::None,
+            OptionAsMeta::OnlyLeft => macos::OptionAsAlt::OnlyLeft,
+            OptionAsMeta::OnlyRight => macos::OptionAsAlt::OnlyRight,
+            OptionAsMeta::Both => macos::OptionAsAlt::Both,
+            OptionAsMeta::None => macos::OptionAsAlt::None,
         };
 
         if let Some(skia_renderer) = &self.skia_renderer {
@@ -215,10 +218,6 @@ impl WinitWindowWrapper {
             WindowCommand::ThemeChanged(new_theme) => {
                 self.handle_theme_changed(new_theme);
             }
-            #[cfg(windows)]
-            WindowCommand::RegisterRightClick => register_right_click(),
-            #[cfg(windows)]
-            WindowCommand::UnregisterRightClick => unregister_right_click(),
         }
     }
 
@@ -258,32 +257,12 @@ impl WinitWindowWrapper {
                 self.renderer.prepare_lines(true);
             }
             #[cfg(target_os = "windows")]
-            WindowSettingsChanged::TitleBackgroundColor(color) => {
-                self.handle_title_background_color(&color);
-            }
-            #[cfg(target_os = "windows")]
-            WindowSettingsChanged::TitleTextColor(color) => {
-                self.handle_title_text_color(&color);
-            }
+            _ => windows::window_wrapper::WinitWindowWrapper::handle_window_settings_changed(
+                self,
+                changed_setting,
+            ),
 
-            #[cfg(target_os = "macos")]
-            WindowSettingsChanged::InputMacosOptionKeyIsMeta(option) => {
-                self.set_macos_option_as_meta(option);
-            }
-            #[cfg(target_os = "macos")]
-            WindowSettingsChanged::InputMacosAltIsMeta(enabled) => {
-                if enabled {
-                    error_msg!(concat!(
-                        "neovide_input_macos_alt_is_meta has now been removed. ",
-                        "Use neovide_input_macos_option_key_is_meta instead. ",
-                        "Please check https://neovide.dev/configuration.html#macos-option-key-is-meta for more information.",
-                    ));
-                }
-            }
-            #[cfg(target_os = "macos")]
-            WindowSettingsChanged::MacosSimpleFullscreen(fullscreen) => {
-                self.set_simple_fullscreen(fullscreen);
-            }
+            #[cfg(not(target_os = "windows"))]
             _ => {}
         };
         #[cfg(target_os = "macos")]
@@ -592,8 +571,10 @@ impl WinitWindowWrapper {
         window.set_blur(window_blurred && opacity.min(normal_opacity) < 1.0);
 
         #[cfg(target_os = "windows")]
-        if window_blurred {
-            window.set_system_backdrop(BackdropType::TransientWindow); // Acrylic blur
+        {
+            if window_blurred {
+                window.set_system_backdrop(BackdropType::TransientWindow); // Acrylic blur
+            }
         }
 
         if fullscreen {
@@ -875,33 +856,5 @@ impl WinitWindowWrapper {
         skia_renderer.resize();
     }
 
-    #[cfg(windows)]
-    fn parse_winit_color(color: &str) -> Option<Color> {
-        match csscolorparser::parse(color) {
-            Ok(color) => {
-                let color = color.to_rgba8();
-                Some(Color::from_rgb(color[0], color[1], color[2]))
-            }
-            _ => None,
-        }
-    }
 
-    #[cfg(windows)]
-    fn handle_title_background_color(&self, color: &str) {
-        if let Some(skia_renderer) = &self.skia_renderer {
-            let winit_color = Self::parse_winit_color(color);
-            skia_renderer
-                .window()
-                .set_title_background_color(winit_color);
-        }
-    }
-
-    #[cfg(windows)]
-    fn handle_title_text_color(&self, color: &str) {
-        if let Some(skia_renderer) = &self.skia_renderer {
-            if let Some(winit_color) = Self::parse_winit_color(color) {
-                skia_renderer.window().set_title_text_color(winit_color);
-            }
-        }
-    }
 }
