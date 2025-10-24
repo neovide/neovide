@@ -1,8 +1,4 @@
 mod vsync_timer;
-#[cfg(target_os = "windows")]
-mod vsync_win_dwm;
-#[cfg(target_os = "windows")]
-mod vsync_win_swap_chain;
 
 use std::sync::Arc;
 
@@ -26,10 +22,6 @@ pub enum VSync {
     Opengl(),
     WinitThrottling(),
     Timer(VSyncTimer),
-    #[cfg(target_os = "windows")]
-    WindowsDwm(VSyncWinDwm),
-    #[cfg(target_os = "windows")]
-    WindowsSwapChain(VSyncWinSwapChain),
     #[cfg(target_os = "macos")]
     MacosDisplayLink(VSyncMacosDisplayLink),
     #[cfg(target_os = "macos")]
@@ -53,21 +45,11 @@ impl VSync {
     pub fn wait_for_vsync(&mut self) {
         match self {
             VSync::Timer(vsync) => vsync.wait_for_vsync(),
-            #[cfg(target_os = "windows")]
-            VSync::WindowsDwm(vsync) => vsync.wait_for_vsync(),
-            #[cfg(target_os = "windows")]
-            VSync::WindowsSwapChain(vsync) => vsync.wait_for_vsync(),
             _ => {}
         }
     }
 
     pub fn uses_winit_throttling(&self) -> bool {
-        #[cfg(target_os = "windows")]
-        return matches!(
-            self,
-            VSync::WinitThrottling() | VSync::WindowsDwm(..) | VSync::WindowsSwapChain(..)
-        );
-
         #[cfg(target_os = "macos")]
         return matches!(self, VSync::WinitThrottling());
 
@@ -101,10 +83,6 @@ impl VSync {
     pub fn request_redraw(&mut self, window: &Window) {
         match self {
             VSync::WinitThrottling(..) => window.request_redraw(),
-            #[cfg(target_os = "windows")]
-            VSync::WindowsDwm(vsync) => vsync.request_redraw(),
-            #[cfg(target_os = "windows")]
-            VSync::WindowsSwapChain(vsync) => vsync.request_redraw(),
             _ => {}
         }
     }

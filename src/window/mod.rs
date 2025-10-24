@@ -79,10 +79,6 @@ pub enum WindowCommand {
     Minimize,
     #[allow(dead_code)] // Theme change is only used on macOS right now
     ThemeChanged(Option<Theme>),
-    #[cfg(windows)]
-    RegisterRightClick,
-    #[cfg(windows)]
-    UnregisterRightClick,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -140,7 +136,10 @@ pub fn create_window(
     #[cfg(target_os = "macos")]
     return macos::window::create_window(event_loop, maximized, title, settings);
 
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
+    return crate::platform::windows::window::create_window(event_loop, maximized, title, settings);
+
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     {
         let icon = load_icon();
 
@@ -164,18 +163,6 @@ pub fn create_window(
 
         #[cfg(target_family = "unix")]
         let window_attributes = window_attributes.with_window_icon(Some(icon));
-
-        #[cfg(target_os = "windows")]
-        let window_attributes = window_attributes
-            .with_window_icon(Some(icon.clone()))
-            .with_taskbar_icon(Some(icon));
-
-        #[cfg(target_os = "windows")]
-        let window_attributes = if !cmd_line_settings.opengl {
-            WindowAttributesExtWindows::with_no_redirection_bitmap(window_attributes, true)
-        } else {
-            window_attributes
-        };
 
         let frame_decoration = cmd_line_settings.frame;
 
