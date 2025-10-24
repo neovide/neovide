@@ -10,6 +10,8 @@ mod rendered_window;
 mod vsync;
 
 #[cfg(target_os = "windows")]
+use crate::platform::windows;
+#[cfg(target_os = "windows")]
 pub mod d3d;
 
 #[cfg(target_os = "macos")]
@@ -531,14 +533,7 @@ pub fn build_window_config(
     event_loop: &ActiveEventLoop,
     settings: &Settings,
 ) -> WindowConfig {
-    let cmd_line_settings = settings.get::<CmdLineSettings>();
-    if cmd_line_settings.opengl {
-        opengl::build_window(window_attributes, event_loop)
-    } else {
-        let window = event_loop.create_window(window_attributes).unwrap();
-        let config = WindowConfigType::Direct3D;
-        WindowConfig { window, config }
-    }
+    windows::renderer::build_window_config(window_attributes, event_loop, settings)
 }
 
 #[cfg(not(any(target_os = "windows", target_os = "macos")))]

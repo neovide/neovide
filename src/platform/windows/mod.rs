@@ -1,4 +1,8 @@
+pub mod bridge;
+pub mod renderer;
 pub mod settings;
+pub mod vsync;
+pub mod window;
 
 use windows::Win32::{
     System::Console::{AttachConsole, ATTACH_PARENT_PROCESS},
