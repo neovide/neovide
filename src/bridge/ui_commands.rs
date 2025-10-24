@@ -23,6 +23,14 @@ use crate::{
 #[derive(Clone, Debug, AsRefStr)]
 pub enum SerialCommand {
     Keyboard(String),
+    KeyboardImeCommit {
+        formatted: String,
+        raw: String,
+    },
+    KeyboardImePreedit {
+        raw: String,
+        cursor_offset: Option<(usize, usize)>,
+    },
     MouseButton {
         button: String,
         action: String,
@@ -58,6 +66,39 @@ impl SerialCommand {
                     .await
                     .map(|_| ())
                     .context("Input failed")
+            }
+            SerialCommand::KeyboardImeCommit { formatted, raw } => {
+                // Notified ime commit event, the text is guaranteed not to be None.
+                trace!("IME Input Sent: {}", &formatted);
+                nvim.call(
+                    "nvim_exec_lua_lua",
+                    call_args![
+                        "neovide.commit_handler(...)",
+                        vec![Value::from(raw), Value::from(formatted)],
+                    ],
+                )
+                .await
+                .map(|_| ())
+                .context("IME Commit failed")
+            }
+            SerialCommand::KeyboardImePreedit { raw, cursor_offset } => {
+                trace!("IME Input Preedit");
+
+                let (start_col, end_col) = cursor_offset
+                    .map_or((Value::Nil, Value::Nil), |(start_col, end_col)| {
+                        (Value::from(start_col), Value::from(end_col))
+                    });
+
+                nvim.call(
+                    "nvim_exec_lua_fast",
+                    call_args![
+                        "neovide.preedit_handler(...)",
+                        vec![Value::from(raw), start_col, end_col],
+                    ],
+                )
+                .await
+                .map(|_| ())
+                .context("IME Preedit failed")
             }
             SerialCommand::MouseButton {
                 button,
