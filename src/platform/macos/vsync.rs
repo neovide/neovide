@@ -68,7 +68,6 @@ unsafe extern "C-unwind" fn display_link_callback(
     kCVReturnSuccess
 }
 pub struct VSyncMacosDisplayLink {
-    redraw_requested: Arc<AtomicBool>,
     // CGDirectDisplayID is used to save the display id of the display link.
     display_link: Option<(CFRetained<CVDisplayLink>, CGDirectDisplayID)>,
     // The context must be pinned since it is passed as a pointer to callback. If it moves, the pointer will be dangling.
@@ -86,7 +85,6 @@ impl VSyncMacosDisplayLink {
         });
 
         let mut vsync = Self {
-            redraw_requested,
             display_link: None,
             context,
         };
@@ -158,20 +156,6 @@ impl VSyncMacosDisplayLink {
         if let Some((display_link, _)) = self.display_link.as_ref() {
             #[allow(deprecated)]
             CVDisplayLinkStop(display_link.as_ref());
-        }
-    }
-
-    pub fn wait_for_vsync(&mut self) {}
-
-    pub fn request_redraw(&mut self) {
-        self.redraw_requested.store(true, Ordering::Relaxed);
-    }
-
-    pub fn update(&mut self, window: &Window) {
-        let new_display = get_display_id_of_window(window);
-        if new_display != self.display_link.as_ref().map(|d| d.1) {
-            trace!("Window moved to a new screen, try to re-create the display link.");
-            self.create_and_start_display_link(window);
         }
     }
 }
