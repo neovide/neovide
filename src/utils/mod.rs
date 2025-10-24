@@ -1,9 +1,13 @@
+#[cfg(target_os = "windows")]
+use crate::platform::windows;
 mod ring_buffer;
 #[cfg(test)]
 mod test;
 
 #[cfg(target_os = "windows")]
-use wslpath_rs::windows_to_wsl;
+pub fn handle_wslpaths(paths: Vec<String>, wsl: bool) -> Vec<String> {
+    windows::utils::handle_wslpaths(paths, wsl)
+}
 
 pub use ring_buffer::*;
 
