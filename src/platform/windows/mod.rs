@@ -2,6 +2,7 @@ pub mod settings;
 pub mod renderer;
 pub mod window;
 pub mod bridge;
+pub mod error_handling;
 
 use windows::Win32::{
     System::Console::{AttachConsole, ATTACH_PARENT_PROCESS},

@@ -11,6 +11,8 @@ use log::error;
 use winit::event_loop::EventLoop;
 
 #[cfg(target_os = "windows")]
+use crate::platform::windows;
+#[cfg(target_os = "windows")]
 use crate::windows_attach_to_console;
 
 use crate::{
@@ -71,18 +73,22 @@ pub fn handle_startup_errors(
     event_loop: EventLoop<UserEvent>,
     settings: Arc<Settings>,
 ) -> ExitCode {
-    // Command line output is always printed to the stdout/stderr
-    if let Some(clap_error) = err.downcast_ref::<ClapError>() {
-        #[cfg(target_os = "windows")]
-        windows_attach_to_console();
-        let _ = clap_error.print();
-        ExitCode::from(clap_error.exit_code() as u8)
-    } else if stdout().is_terminal() {
-        // The logger already writes to stderr
-        log::error!("{}", &format_and_log_error_message(err));
-        ExitCode::from(1)
-    } else {
-        show_error_window(&format_and_log_error_message(err), event_loop, settings);
-        ExitCode::from(1)
+    #[cfg(target_os = "windows")]
+    return windows::error_handling::handle_startup_errors(err, event_loop, settings);
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        // Command line output is always printed to the stdout/stderr
+        if let Some(clap_error) = err.downcast_ref::<ClapError>() {
+            let _ = clap_error.print();
+            ExitCode::from(clap_error.exit_code() as u8)
+        } else if stdout().is_terminal() {
+            // The logger already writes to stderr
+            log::error!("{}", &format_and_log_error_message(err));
+            ExitCode::from(1)
+        } else {
+            show_error_window(&format_and_log_error_message(err), event_loop, settings);
+            ExitCode::from(1)
+        }
     }
 }
