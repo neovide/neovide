@@ -2,6 +2,8 @@ use tokio::process::Command as TokioCommand;
 
 use crate::{cmd_line::CmdLineSettings, settings::*};
 
+#[cfg(target_os = "linux")]
+use crate::platform::linux;
 #[cfg(target_os = "windows")]
 use crate::platform::windows;
 
@@ -63,13 +65,6 @@ fn create_platform_command(command: &str, args: &Vec<String>, settings: &Setting
 
 // Creates a shell command if needed on this platform
 #[cfg(target_os = "linux")]
-fn create_platform_command(
-    command: &str,
-    args: &Vec<String>,
-    _settings: &Settings,
-) -> TokioCommand {
-    // On Linux we can just launch directly
-    let mut result = TokioCommand::new(command);
-    result.args(args);
-    result
+fn create_platform_command(command: &str, args: &Vec<String>, settings: &Settings) -> TokioCommand {
+    linux::bridge::create_platform_command(command, args, settings)
 }

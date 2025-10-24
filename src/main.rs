@@ -60,6 +60,8 @@ use backtrace::Backtrace;
 use bridge::NeovimRuntime;
 use cmd_line::CmdLineSettings;
 use error_handling::handle_startup_errors;
+#[cfg(target_os = "linux")]
+use platform::linux;
 #[cfg(target_os = "windows")]
 use platform::windows::windows_fix_dpi;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
@@ -93,9 +95,8 @@ fn main() -> ExitCode {
         windows_fix_dpi();
     }
 
-    // This variable is set by the AppImage runtime and causes problems for child processes
     #[cfg(target_os = "linux")]
-    env::remove_var("ARGV0");
+    linux::main();
 
     let event_loop = create_event_loop();
     clipboard::init(&event_loop);
