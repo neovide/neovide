@@ -1,3 +1,5 @@
+#[cfg(target_os = "linux")]
+use crate::platform::linux;
 mod vsync_timer;
 
 use std::sync::Arc;
@@ -54,7 +56,7 @@ impl VSync {
         return matches!(self, VSync::WinitThrottling());
 
         #[cfg(target_os = "linux")]
-        return matches!(self, VSync::WinitThrottling());
+        return linux::vsync::uses_winit_throttling(self);
     }
 
     pub fn update(&mut self, #[allow(unused_variables)] window: &Window) {
