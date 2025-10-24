@@ -12,10 +12,8 @@ use tokio::sync::mpsc::unbounded_channel;
 use winit::event_loop::EventLoopProxy;
 
 #[cfg(target_os = "macos")]
-use winit::window::Theme;
+use crate::platform::macos::editor::window_theme_for_background;
 
-#[cfg(target_os = "macos")]
-use skia_safe::Color4f;
 
 use crate::{
     bridge::{GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
@@ -715,20 +713,4 @@ pub fn start_editor(
     handler
 }
 
-/// Based on formula in https://graphicdesign.stackexchange.com/questions/62368/automatically-select-a-foreground-color-based-on-a-background-color
-/// Check if the color is light or dark
-#[cfg(target_os = "macos")]
-fn is_light_color(color: &Color4f) -> bool {
-    0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b > 0.5
-}
 
-/// Get the proper dark/light theme for a background_color.
-#[cfg(target_os = "macos")]
-fn window_theme_for_background(background_color: Option<Color4f>) -> Option<Theme> {
-    background_color?;
-
-    match background_color.unwrap() {
-        color if is_light_color(&color) => Some(Theme::Light),
-        _ => Some(Theme::Dark),
-    }
-}
