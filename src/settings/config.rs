@@ -14,19 +14,15 @@ use std::path::{Path, PathBuf};
 
 use super::font::FontSettings;
 
+#[cfg(windows)]
+use crate::platform::windows::settings::neovide_config_dir;
+
 const CONFIG_FILE: &str = "config.toml";
 
 #[cfg(unix)]
 fn neovide_config_dir() -> PathBuf {
     let xdg_dirs = xdg::BaseDirectories::with_prefix("neovide");
     xdg_dirs.get_config_home().unwrap()
-}
-
-#[cfg(windows)]
-fn neovide_config_dir() -> PathBuf {
-    let mut path = dirs::config_dir().unwrap();
-    path.push("neovide");
-    path
 }
 
 pub fn config_path() -> PathBuf {

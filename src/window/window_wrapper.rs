@@ -19,6 +19,14 @@ use {
     winit::platform::macos::{self, WindowExtMacOS},
 };
 
+#[cfg(target_os = "windows")]
+use {
+    crate::platform::windows::{register_right_click, unregister_right_click},
+    winit::platform::windows::BackdropType,
+    winit::platform::windows::Color,
+    winit::platform::windows::WindowExtWindows,
+};
+
 use crate::{
     bridge::{send_ui, ParallelCommand, SerialCommand},
     profiling::{tracy_frame, tracy_gpu_collect, tracy_gpu_zone, tracy_plot, tracy_zone},
@@ -32,11 +40,6 @@ use crate::{
     units::{GridRect, GridSize, PixelPos, PixelSize},
     window::{create_window, PhysicalSize, ShouldRender, WindowSize},
     CmdLineSettings,
-};
-#[cfg(windows)]
-use {
-    crate::windows_utils::{register_right_click, unregister_right_click},
-    winit::platform::windows::{BackdropType, Color, WindowExtWindows},
 };
 
 #[cfg(target_os = "macos")]

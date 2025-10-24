@@ -189,6 +189,8 @@ pub enum SettingsChanged {
     Window(crate::window::WindowSettingsChanged),
     Cursor(crate::renderer::cursor_renderer::CursorSettingsChanged),
     Renderer(crate::renderer::RendererSettingsChanged),
+    #[cfg(target_os = "windows")]
+    Windows(crate::platform::windows::settings::WindowsSettingsChanged),
     #[cfg(test)]
     Test(tests::TestSettingsChanged),
 }

@@ -11,7 +11,7 @@ use log::error;
 use winit::event_loop::EventLoop;
 
 #[cfg(target_os = "windows")]
-use crate::windows_attach_to_console;
+use crate::platform::windows::windows_attach_to_console;
 
 use crate::{
     bridge::{send_ui, ParallelCommand},
