@@ -1,6 +1,7 @@
 pub mod settings;
 pub mod keyboard;
 pub mod editor;
+pub mod renderer;
 
 use std::sync::Arc;
 use std::{os::raw::c_void, str};
