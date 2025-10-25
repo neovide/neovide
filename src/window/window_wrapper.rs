@@ -14,9 +14,7 @@ use super::{
 };
 
 #[cfg(target_os = "macos")]
-use crate::window::settings::OptionAsMeta;
-#[cfg(target_os = "macos")]
-use winit::platform::macos::{self, WindowExtMacOS};
+use crate::platform::macos::window_wrapper::WinitWindowWrapperExt;
 
 #[cfg(target_os = "windows")]
 use crate::platform::windows;
@@ -39,9 +37,6 @@ use {
     crate::windows_utils::{register_right_click, unregister_right_click},
     winit::platform::windows::{BackdropType, Color, WindowExtWindows},
 };
-
-#[cfg(target_os = "macos")]
-use super::macos::MacosWindowFeature;
 
 const GRID_TOLERANCE: f32 = 1e-3;
 
@@ -97,9 +92,9 @@ pub struct WinitWindowWrapper {
     ime_area: (dpi::PhysicalPosition<u32>, dpi::PhysicalSize<u32>),
     pub vsync: Option<VSync>,
     #[cfg(target_os = "macos")]
-    pub macos_feature: Option<MacosWindowFeature>,
+    pub macos_feature: Option<crate::platform::macos::MacosWindowFeature>,
 
-    settings: Arc<Settings>,
+    pub settings: Arc<Settings>,
 }
 
 impl WinitWindowWrapper {
@@ -136,6 +131,7 @@ impl WinitWindowWrapper {
             ime_area: Default::default(),
             #[cfg(target_os = "macos")]
             macos_feature: None,
+
             settings,
         }
     }
@@ -154,31 +150,6 @@ impl WinitWindowWrapper {
             } else {
                 window.set_fullscreen(None);
             }
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    pub fn set_macos_option_as_meta(&mut self, option: OptionAsMeta) {
-        let winit_option = match option {
-            OptionAsMeta::OnlyLeft => macos::OptionAsAlt::OnlyLeft,
-            OptionAsMeta::OnlyRight => macos::OptionAsAlt::OnlyRight,
-            OptionAsMeta::Both => macos::OptionAsAlt::Both,
-            OptionAsMeta::None => macos::OptionAsAlt::None,
-        };
-
-        if let Some(skia_renderer) = &self.skia_renderer {
-            let window = skia_renderer.window();
-            if winit_option != window.option_as_alt() {
-                window.set_option_as_alt(winit_option);
-            }
-        }
-    }
-
-    #[cfg(target_os = "macos")]
-    pub fn set_simple_fullscreen(&mut self, fullscreen: bool) {
-        if let Some(skia_renderer) = &self.skia_renderer {
-            let window = skia_renderer.window();
-            window.set_simple_fullscreen(fullscreen);
         }
     }
 
@@ -264,9 +235,7 @@ impl WinitWindowWrapper {
             _ => {}
         };
         #[cfg(target_os = "macos")]
-        if let Some(macos_feature) = &self.macos_feature {
-            macos_feature.handle_settings_changed(changed_setting);
-        }
+        self.handle_settings_changed_macos(changed_setting);
     }
 
     fn handle_render_settings_changed(&mut self, changed_setting: RendererSettingsChanged) {
@@ -345,7 +314,7 @@ impl WinitWindowWrapper {
             WindowEvent::Resized { .. } => {
                 skia_renderer.resize();
                 #[cfg(target_os = "macos")]
-                self.macos_feature.as_mut().unwrap().handle_size_changed();
+                self.handle_size_changed_macos();
             }
             WindowEvent::DroppedFile(path) => {
                 tracy_zone!("DroppedFile");
@@ -470,10 +439,6 @@ impl WinitWindowWrapper {
             normal_opacity,
             window_blurred,
             fullscreen,
-            #[cfg(target_os = "macos")]
-            input_macos_option_key_is_meta,
-            #[cfg(target_os = "macos")]
-            macos_simple_fullscreen,
 
             #[cfg(target_os = "windows")]
             title_background_color,
@@ -486,12 +451,7 @@ impl WinitWindowWrapper {
 
         // It's important that this is created before the window is resized, since it can change the padding and affect the size
         #[cfg(target_os = "macos")]
-        {
-            self.macos_feature = Some(MacosWindowFeature::from_winit_window(
-                window,
-                self.settings.clone(),
-            ));
-        }
+        self.init_macos(window);
 
         let scale_factor = window.scale_factor();
         self.renderer.handle_os_scale_factor_change(scale_factor);
@@ -616,10 +576,6 @@ impl WinitWindowWrapper {
 
         self.ui_state = UIState::FirstFrame;
         self.skia_renderer = Some(skia_renderer);
-        #[cfg(target_os = "macos")]
-        self.set_macos_option_as_meta(input_macos_option_key_is_meta);
-        #[cfg(target_os = "macos")]
-        self.set_simple_fullscreen(macos_simple_fullscreen);
     }
 
     pub fn handle_draw_commands(&mut self, batch: Vec<DrawCommand>) {
@@ -642,20 +598,15 @@ impl WinitWindowWrapper {
 
     fn calculate_window_padding(&self) -> WindowPadding {
         let window_settings = self.settings.get::<WindowSettings>();
-        #[cfg(not(target_os = "macos"))]
-        let window_padding_top = window_settings.padding_top;
-
+        #[cfg_attr(not(target_os = "macos"), allow(unused_mut))]
+        let mut padding_top = window_settings.padding_top;
         #[cfg(target_os = "macos")]
-        let window_padding_top = {
-            let mut padding_top = window_settings.padding_top;
-            if let Some(macos_feature) = &self.macos_feature {
-                padding_top += macos_feature.extra_titlebar_height_in_pixels();
-            }
-            padding_top
-        };
+        {
+            padding_top += self.extra_titlebar_height_in_pixels_macos();
+        }
 
         WindowPadding {
-            top: window_padding_top,
+            top: padding_top,
             left: window_settings.padding_left,
             right: window_settings.padding_right,
             bottom: window_settings.padding_bottom,
@@ -844,13 +795,9 @@ impl WinitWindowWrapper {
         if self.skia_renderer.is_none() {
             return;
         }
-        let skia_renderer = self.skia_renderer.as_mut().unwrap();
         #[cfg(target_os = "macos")]
-        self.macos_feature
-            .as_mut()
-            .unwrap()
-            .handle_scale_factor_update(scale_factor);
+        self.handle_scale_factor_update_macos(scale_factor);
         self.renderer.handle_os_scale_factor_change(scale_factor);
-        skia_renderer.resize();
+        self.skia_renderer.as_mut().unwrap().resize();
     }
 }

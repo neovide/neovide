@@ -4,6 +4,7 @@ pub mod renderer;
 pub mod settings;
 pub mod vsync;
 pub mod window;
+pub mod window_wrapper;
 
 use std::sync::Arc;
 use std::{os::raw::c_void, str};

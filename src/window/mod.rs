@@ -1,7 +1,7 @@
 pub mod error_window;
 mod keyboard_manager;
 mod mouse_manager;
-mod settings;
+pub mod settings;
 mod update_loop;
 mod window_wrapper;
 
@@ -16,9 +16,6 @@ use winit::{
     event_loop::{ActiveEventLoop, EventLoop},
     window::{Icon, Theme},
 };
-
-#[cfg(target_os = "windows")]
-use winit::platform::windows::WindowAttributesExtWindows;
 
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowAttributesExtWindows;
