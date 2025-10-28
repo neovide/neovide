@@ -56,12 +56,13 @@ use winit::{error::EventLoopError, event_loop::EventLoopProxy};
 #[cfg(not(test))]
 use flexi_logger::{Cleanup, Criterion, Duplicate, FileSpec, Logger, Naming};
 
+#[cfg(target_os = "windows")]
+use platform::windows::windows_fix_dpi;
+
 use backtrace::Backtrace;
 use bridge::NeovimRuntime;
 use cmd_line::CmdLineSettings;
 use error_handling::handle_startup_errors;
-#[cfg(target_os = "windows")]
-use platform::windows::windows_fix_dpi;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 use running_tracker::RunningTracker;
 use window::{

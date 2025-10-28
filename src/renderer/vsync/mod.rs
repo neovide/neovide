@@ -1,8 +1,4 @@
 mod vsync_timer;
-#[cfg(target_os = "windows")]
-mod vsync_win_dwm;
-#[cfg(target_os = "windows")]
-mod vsync_win_swap_chain;
 
 use std::sync::Arc;
 
@@ -14,9 +10,9 @@ use crate::{
 use vsync_timer::VSyncTimer;
 
 #[cfg(target_os = "windows")]
-pub use vsync_win_dwm::VSyncWinDwm;
-#[cfg(target_os = "windows")]
-pub use vsync_win_swap_chain::VSyncWinSwapChain;
+pub use crate::platform::windows::vsync::{
+    vsync_win_dwm::VSyncWinDwm, vsync_win_swap_chain::VSyncWinSwapChain,
+};
 
 #[cfg(target_os = "macos")]
 pub use crate::platform::macos::vsync::VSyncMacosDisplayLink;
