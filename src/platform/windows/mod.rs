@@ -2,6 +2,7 @@ pub mod bridge;
 pub mod profiling;
 pub mod renderer;
 pub mod settings;
+pub mod utils;
 pub mod vsync;
 pub mod window;
 
