@@ -26,10 +26,10 @@ use crate::{
 };
 use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame};
 
-use super::{WindowSettings, WindowSettingsChanged};
+use crate::window::{WindowSettings, WindowSettingsChanged};
 
 static NEOVIDE_ICON_PATH: &[u8] =
-    include_bytes!("../../extra/osx/Neovide.app/Contents/Resources/Neovide.icns");
+    include_bytes!("../../../extra/osx/Neovide.app/Contents/Resources/Neovide.icns");
 
 define_class!(
     // A view to simulate the double-click-to-zoom effect for `--frame transparency`.
