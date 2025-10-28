@@ -7,8 +7,6 @@ mod window_wrapper;
 
 #[cfg(target_os = "macos")]
 use crate::platform::macos;
-#[cfg(target_os = "macos")]
-use crate::platform::macos::register_file_handler;
 
 #[cfg(target_os = "linux")]
 use std::env;
@@ -16,11 +14,8 @@ use std::env;
 use winit::{
     dpi::{PhysicalSize, Size},
     event_loop::{ActiveEventLoop, EventLoop},
-    window::{Cursor, Icon, Theme, Window},
+    window::{Icon, Theme},
 };
-
-#[cfg(target_os = "macos")]
-use winit::platform::macos::WindowAttributesExtMacOS;
 
 #[cfg(target_os = "linux")]
 use winit::platform::{
@@ -32,20 +27,16 @@ use winit::platform::{
 #[cfg(target_os = "windows")]
 use winit::platform::windows::WindowAttributesExtWindows;
 
-#[cfg(target_os = "macos")]
-use winit::platform::macos::EventLoopBuilderExtMacOS;
-
 use image::{load_from_memory, GenericImageView, Pixel};
 use keyboard_manager::KeyboardManager;
 use mouse_manager::MouseManager;
 
 use crate::{
     cmd_line::{CmdLineSettings, GeometryArgs},
-    frame::Frame,
-    renderer::{build_window_config, DrawCommand, WindowConfig},
+    renderer::{DrawCommand, WindowConfig},
     settings::{
-        clamped_grid_size, load_last_window_settings, save_window_size, HotReloadConfigs,
-        PersistentWindowSettings, Settings, SettingsChanged,
+        clamped_grid_size, save_window_size, HotReloadConfigs, PersistentWindowSettings, Settings,
+        SettingsChanged,
     },
     units::GridSize,
 };
@@ -121,14 +112,14 @@ impl From<HotReloadConfigs> for UserEvent {
 }
 
 pub fn create_event_loop() -> EventLoop<UserEvent> {
-    let mut builder = EventLoop::with_user_event();
     #[cfg(target_os = "macos")]
-    builder.with_default_menu(false);
-    let event_loop = builder.build().expect("Failed to create winit event loop");
-    #[cfg(target_os = "macos")]
-    register_file_handler();
-    #[allow(clippy::let_and_return)]
-    event_loop
+    return macos::window::create_event_loop();
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let mut builder = EventLoop::with_user_event();
+        builder.build().expect("Failed to create winit event loop")
+    }
 }
 
 pub fn create_window(
@@ -137,101 +128,86 @@ pub fn create_window(
     title: &str,
     settings: &Settings,
 ) -> WindowConfig {
-    let icon = load_icon();
-
-    let cmd_line_settings = settings.get::<CmdLineSettings>();
-
-    let window_settings = load_last_window_settings().ok();
-
-    let previous_position = match window_settings {
-        Some(PersistentWindowSettings::Windowed { position, .. }) => Some(position),
-        _ => None,
-    };
-
-    let mouse_cursor_icon = cmd_line_settings.mouse_cursor_icon;
-
-    let window_attributes = Window::default_attributes()
-        .with_title(title)
-        .with_cursor(Cursor::Icon(mouse_cursor_icon.parse()))
-        .with_maximized(maximized)
-        .with_transparent(true)
-        .with_visible(false);
-
-    #[cfg(target_family = "unix")]
-    let window_attributes = window_attributes.with_window_icon(Some(icon));
-
-    #[cfg(target_os = "windows")]
-    let window_attributes = window_attributes
-        .with_window_icon(Some(icon.clone()))
-        .with_taskbar_icon(Some(icon));
-
-    #[cfg(target_os = "windows")]
-    let window_attributes = if !cmd_line_settings.opengl {
-        WindowAttributesExtWindows::with_no_redirection_bitmap(window_attributes, true)
-    } else {
-        window_attributes
-    };
-
-    let frame_decoration = cmd_line_settings.frame;
-
     #[cfg(target_os = "macos")]
-    let title_hidden = cmd_line_settings.title_hidden;
+    return macos::window::create_window(event_loop, maximized, title, settings);
 
-    // There is only two options for windows & linux, no need to match more options.
     #[cfg(not(target_os = "macos"))]
-    let mut window_attributes = window_attributes.with_decorations(frame_decoration == Frame::Full);
+    {
+        use winit::window::{Cursor, Window};
 
-    #[cfg(target_os = "macos")]
-    let mut window_attributes = match frame_decoration {
-        Frame::Full => window_attributes,
-        Frame::None => window_attributes.with_decorations(false),
-        Frame::Buttonless => window_attributes
-            .with_title_hidden(title_hidden)
-            .with_titlebar_buttons_hidden(true)
-            .with_titlebar_transparent(true)
-            .with_fullsize_content_view(true),
-        Frame::Transparent => window_attributes
-            .with_title_hidden(title_hidden)
-            .with_titlebar_transparent(true)
-            .with_fullsize_content_view(true),
-    };
+        use crate::{renderer::build_window_config, settings::load_last_window_settings};
 
-    if let Some(previous_position) = previous_position {
-        window_attributes = window_attributes.with_position(previous_position);
-    }
+        let icon = load_icon();
 
-    #[cfg(target_os = "linux")]
-    let window_attributes = {
-        let window_attributes =
-            if let Some(token) = EventLoopExtStartupNotify::read_token_from_env(event_loop) {
+        let cmd_line_settings = settings.get::<CmdLineSettings>();
+
+        let window_settings = load_last_window_settings().ok();
+
+        let previous_position = match window_settings {
+            Some(PersistentWindowSettings::Windowed { position, .. }) => Some(position),
+            _ => None,
+        };
+
+        let mouse_cursor_icon = cmd_line_settings.mouse_cursor_icon;
+
+        let window_attributes = Window::default_attributes()
+            .with_title(title)
+            .with_cursor(Cursor::Icon(mouse_cursor_icon.parse()))
+            .with_maximized(maximized)
+            .with_transparent(true)
+            .with_visible(false);
+
+        #[cfg(target_family = "unix")]
+        let window_attributes = window_attributes.with_window_icon(Some(icon));
+
+        #[cfg(target_os = "windows")]
+        let window_attributes = window_attributes
+            .with_window_icon(Some(icon.clone()))
+            .with_taskbar_icon(Some(icon));
+
+        #[cfg(target_os = "windows")]
+        let window_attributes = if !cmd_line_settings.opengl {
+            WindowAttributesExtWindows::with_no_redirection_bitmap(window_attributes, true)
+        } else {
+            window_attributes
+        };
+
+        let frame_decoration = cmd_line_settings.frame;
+
+        // There is only two options for windows & linux, no need to match more options.
+        let mut window_attributes =
+            window_attributes.with_decorations(frame_decoration == crate::frame::Frame::Full);
+
+        if let Some(previous_position) = previous_position {
+            window_attributes = window_attributes.with_position(previous_position);
+        }
+
+        #[cfg(target_os = "linux")]
+        let window_attributes = {
+            let window_attributes = if let Some(token) =
+                EventLoopExtStartupNotify::read_token_from_env(event_loop)
+            {
                 startup_notify::reset_activation_token_env();
                 WindowAttributesExtStartupNotify::with_activation_token(window_attributes, token)
             } else {
                 window_attributes
             };
 
-        if env::var("WAYLAND_DISPLAY").is_ok() {
-            let app_id = &cmd_line_settings.wayland_app_id;
-            WindowAttributesExtWayland::with_name(window_attributes, app_id.clone(), "neovide")
-        } else {
-            let class = &cmd_line_settings.x11_wm_class;
-            let instance = &cmd_line_settings.x11_wm_class_instance;
-            WindowAttributesExtX11::with_name(window_attributes, class, instance)
-        }
-    };
+            if env::var("WAYLAND_DISPLAY").is_ok() {
+                let app_id = &cmd_line_settings.wayland_app_id;
+                WindowAttributesExtWayland::with_name(window_attributes, app_id.clone(), "neovide")
+            } else {
+                let class = &cmd_line_settings.x11_wm_class;
+                let instance = &cmd_line_settings.x11_wm_class_instance;
+                WindowAttributesExtX11::with_name(window_attributes, class, instance)
+            }
+        };
 
-    #[cfg(target_os = "macos")]
-    let window_attributes = window_attributes.with_accepts_first_mouse(false);
+        #[allow(clippy::let_and_return)]
+        let window_config = build_window_config(window_attributes, event_loop, settings);
 
-    #[allow(clippy::let_and_return)]
-    let window_config = build_window_config(window_attributes, event_loop, settings);
-
-    #[cfg(target_os = "macos")]
-    if let Some(previous_position) = previous_position {
-        window_config.window.set_outer_position(previous_position);
+        window_config
     }
-
-    window_config
 }
 
 #[derive(Clone, Debug)]
