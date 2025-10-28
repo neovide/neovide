@@ -1,3 +1,5 @@
+pub mod settings;
+
 use windows::Win32::{
     System::Console::{AttachConsole, ATTACH_PARENT_PROCESS},
     UI::HiDpi::{SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2},

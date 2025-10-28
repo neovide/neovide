@@ -31,9 +31,6 @@ mod units;
 mod utils;
 mod window;
 
-#[cfg(target_os = "windows")]
-mod windows_utils;
-
 #[macro_use]
 extern crate derive_new;
 
@@ -63,6 +60,8 @@ use backtrace::Backtrace;
 use bridge::NeovimRuntime;
 use cmd_line::CmdLineSettings;
 use error_handling::handle_startup_errors;
+#[cfg(target_os = "windows")]
+use platform::windows::windows_fix_dpi;
 use renderer::{cursor_renderer::CursorSettings, RendererSettings};
 use running_tracker::RunningTracker;
 use window::{
@@ -70,8 +69,6 @@ use window::{
 };
 
 pub use channel_utils::*;
-#[cfg(target_os = "windows")]
-pub use windows_utils::*;
 
 use crate::settings::{load_last_window_settings, Config, PersistentWindowSettings, Settings};
 
@@ -215,6 +212,8 @@ fn setup(
     settings.register::<WindowSettings>();
     settings.register::<RendererSettings>();
     settings.register::<CursorSettings>();
+    #[cfg(target_os = "windows")]
+    settings.register::<crate::platform::windows::settings::WindowsSettings>();
 
     let config = Config::init();
     Config::watch_config_file(config.clone(), proxy.clone());
