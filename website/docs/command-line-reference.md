@@ -160,6 +160,16 @@ to its generalistic purpose.
 
 This sets the window title to be hidden on macOS.
 
+### Application Icon
+
+```sh
+--icon <path>
+```
+
+**Unreleased yet.**
+
+This sets a custom application icon.
+
 ### sRGB
 
 ```sh

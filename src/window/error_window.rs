@@ -22,7 +22,7 @@ use winit::{
 
 use crate::{
     clipboard,
-    cmd_line::SRGB_DEFAULT,
+    cmd_line::{CmdLineSettings, SRGB_DEFAULT},
     renderer::{build_window_config, create_skia_renderer, SkiaRenderer, WindowConfig},
     settings::Settings,
     window::{load_icon, UserEvent},
@@ -490,7 +490,8 @@ fn create_paragraphs(
 }
 
 fn create_window(event_loop: &ActiveEventLoop, settings: &Settings) -> WindowConfig {
-    let icon = load_icon();
+    let cmd_line_settings = settings.get::<CmdLineSettings>();
+    let icon = load_icon(cmd_line_settings.icon.as_ref());
 
     let window_attributes = Window::default_attributes()
         .with_title("Neovide")
