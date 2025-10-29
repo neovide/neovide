@@ -392,7 +392,15 @@ mod tests {
         }))
     }
 
-    fn make_window(grid: CharacterGrid) -> Window {
+    fn make_window<const WIDTH: usize, const HEIGHT: usize>(
+        rows: [[(&str, Option<Color4f>); WIDTH]; HEIGHT],
+    ) -> Window {
+        let mut grid = CharacterGrid::new((WIDTH, HEIGHT));
+        for (y, row) in rows.iter().enumerate() {
+            for (x, (ch, color)) in row.iter().enumerate() {
+                *grid.get_cell_mut(x, y).unwrap() = (ch.to_string(), color.map(make_style));
+            }
+        }
         Window {
             grid_id: 1,
             grid,
@@ -402,37 +410,12 @@ mod tests {
         }
     }
 
-    macro_rules! window {
-    (
-        [ $( [ $( ($ch:expr, $color:expr) ),* ] ),* ]
-    ) => {{
-            let rows = vec![
-                $(
-                    vec![
-                        $(
-                            ($ch.to_string(), $color.map(|c| make_style(c))),
-                        )*
-                    ],
-                )*
-            ];
-            let height = rows.len();
-            let width = if height > 0 { rows[0].len() } else { 0 };
-            let mut grid = CharacterGrid::new((width, height));
-            for (y, row) in rows.iter().enumerate() {
-                for (x, (ch, style)) in row.iter().enumerate() {
-                    *grid.get_cell_mut(x, y).unwrap() = (ch.clone(), style.clone());
-                }
-            }
-            make_window(grid)
-        }};
-    }
-
     #[test]
     fn test_build_line_fragment_macro_basic() {
-        let window = window!([[
+        let window = make_window([[
             ("a", Some(colors::RED)),
             ("b", Some(colors::RED)),
-            ("c", Some(colors::RED))
+            ("c", Some(colors::RED)),
         ]]);
 
         let mut text = String::new();
@@ -450,10 +433,10 @@ mod tests {
 
     #[test]
     fn test_build_line_fragment_macro_style_change() {
-        let window = window!([[
+        let window = make_window([[
             ("x", Some(colors::RED)),
             ("y", Some(colors::GREEN)),
-            ("z", Some(colors::GREEN))
+            ("z", Some(colors::GREEN)),
         ]]);
 
         let mut text = String::new();
@@ -479,10 +462,10 @@ mod tests {
     #[test]
     fn test_build_line_fragment_box_chars() {
         // Use Unicode box drawing char ─ (U+2500)
-        let window = window!([[
+        let window = make_window([[
             ("─", Some(colors::BLUE)),
             ("─", Some(colors::BLUE)),
-            ("│", Some(colors::BLUE))
+            ("│", Some(colors::BLUE)),
         ]]);
 
         let mut text = String::new();
@@ -508,7 +491,7 @@ mod tests {
     #[test]
     fn test_build_line_fragment_multiple_words_with_spaces() {
         // "  foo bar  baz"
-        let window = window!([[
+        let window = make_window([[
             (" ", Some(colors::GREEN)),
             (" ", Some(colors::GREEN)),
             ("f", Some(colors::GREEN)),
@@ -522,7 +505,7 @@ mod tests {
             (" ", Some(colors::GREEN)),
             ("b", Some(colors::GREEN)),
             ("a", Some(colors::GREEN)),
-            ("z", Some(colors::GREEN))
+            ("z", Some(colors::GREEN)),
         ]]);
 
         let mut text = String::new();
@@ -559,10 +542,10 @@ mod tests {
     fn test_build_line_fragment_double_width() {
         // U+4E00 is a common double-width CJK char (一)
         // Double width: char, then empty string, both with same style
-        let window = window!([[
+        let window = make_window([[
             ("一", Some(colors::RED)),
             ("", Some(colors::RED)),
-            ("c", Some(colors::RED))
+            ("c", Some(colors::RED)),
         ]]);
 
         let mut text = String::new();
@@ -582,11 +565,11 @@ mod tests {
     #[test]
     fn test_build_line_fragment_double_width_space_between_words() {
         // "a", double-width space (U+3000), "", "b"
-        let window = window!([[
+        let window = make_window([[
             ("a", Some(colors::RED)),
             ("　", Some(colors::RED)), // U+3000 IDEOGRAPHIC SPACE
             ("", Some(colors::RED)),
-            ("b", Some(colors::RED))
+            ("b", Some(colors::RED)),
         ]]);
 
         let mut text = String::new();
@@ -616,11 +599,11 @@ mod tests {
     #[test]
     fn test_build_line_fragment_double_width_in_middle_of_word() {
         // "a", "一" (double-width), "", "b"
-        let window = window!([[
+        let window = make_window([[
             ("a", Some(colors::RED)),
             ("一", Some(colors::RED)),
             ("", Some(colors::RED)),
-            ("b", Some(colors::RED))
+            ("b", Some(colors::RED)),
         ]]);
 
         let mut text = String::new();
