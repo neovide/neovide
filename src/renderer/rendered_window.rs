@@ -1,67 +1,17 @@
-use std::{cell::RefCell, ops::Range, rc::Rc, sync::Arc};
+use std::{cell::RefCell, rc::Rc};
 
 use skia_safe::{Canvas, Color, Matrix, Picture, PictureRecorder, Rect};
 
 use crate::{
     bridge::WindowAnchor,
     cmd_line::CmdLineSettings,
-    editor::{AnchorInfo, SortOrder, Style, WindowType},
+    editor::{AnchorInfo, Line, LineFragment, SortOrder, WindowType},
     profiling::{tracy_plot, tracy_zone},
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
     settings::Settings,
     units::{to_skia_rect, GridPos, GridRect, GridScale, GridSize, PixelPos, PixelRect, PixelVec},
     utils::RingBuffer,
 };
-
-#[derive(Debug)]
-pub struct Line {
-    pub text: String,
-    pub fragments: Vec<LineFragment>,
-}
-
-#[derive(Debug)]
-pub struct LineFragment {
-    pub text: Range<u32>,
-    pub cells: Range<u32>,
-    pub style: Option<Arc<Style>>,
-    pub words: Vec<Word>,
-}
-
-#[derive(Debug, Default)]
-pub struct Word {
-    pub text: u32,
-    pub cell: u32,
-    pub cluster_sizes: Vec<u8>,
-}
-
-pub struct RenderedWord<'a> {
-    text: &'a str,
-    word: &'a Word,
-}
-
-impl<'a> RenderedWord<'a> {
-    pub fn new(word: &'a Word, text: &'a str) -> Self {
-        Self { text, word }
-    }
-
-    pub fn text(&self) -> &str {
-        let size: usize = self.word.cluster_sizes.iter().map(|v| *v as usize).sum();
-        &self.text[self.word.text as usize..self.word.text as usize + size]
-    }
-
-    pub fn clusters(&self) -> impl Iterator<Item = (usize, &'a str)> + Clone {
-        self.word
-            .cluster_sizes
-            .iter()
-            .enumerate()
-            .filter(|(_, size)| **size > 0)
-            .scan(self.word.text, |current_pos, (cell_nr, size)| {
-                let start = *current_pos;
-                *current_pos += *size as u32;
-                Some((cell_nr, &self.text[start as usize..*current_pos as usize]))
-            })
-    }
-}
 
 #[derive(Debug)]
 pub struct ViewportMargins {
@@ -681,7 +631,7 @@ impl RenderedWindow {
             let mut has_transparency = false;
             let mut custom_background = false;
 
-            for line_fragment in line.line.fragments.iter() {
+            for line_fragment in line.line.fragments() {
                 let LineFragment { cells, style, .. } = line_fragment;
                 let background_info = grid_renderer.draw_background(canvas, cells, style, opacity);
                 custom_background |= background_info.custom_color;
@@ -696,12 +646,11 @@ impl RenderedWindow {
                 boxchar_recorder.begin_recording(grid_rect.with_offset((position.x, 0.0)), false);
             let mut text_drawn = false;
             let mut boxchar_drawn = false;
-            for line_fragment in &line.line.fragments {
+            for line_fragment in line.line.fragments() {
                 let (frag_text_drawn, frag_box_drawn) = grid_renderer.draw_foreground(
                     text_canvas,
                     boxchar_canvas,
-                    &line.line.text,
-                    line_fragment,
+                    &line_fragment,
                     position,
                 );
                 text_drawn |= frag_text_drawn;

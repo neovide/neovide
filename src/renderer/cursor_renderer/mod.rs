@@ -10,9 +10,9 @@ use winit::event::WindowEvent;
 
 use crate::{
     bridge::EditorMode,
-    editor::{Cursor, CursorShape},
+    editor::{Cursor, CursorShape, Word},
     profiling::{tracy_plot, tracy_zone},
-    renderer::{animation_utils::*, GridRenderer, RenderedWindow, RenderedWord, Word},
+    renderer::{animation_utils::*, GridRenderer, RenderedWindow},
     settings::{ParseFromValue, Settings},
     units::{
         to_skia_point, GridPos, GridScale, GridSize, PixelPos, PixelRect, PixelSize, PixelVec,
@@ -380,11 +380,6 @@ impl CursorRenderer {
         let baseline_offset = grid_renderer.shaper.baseline_offset();
         let style = &self.cursor.grid_cell.1;
         let coarse_style = style.as_ref().map(|style| style.into()).unwrap_or_default();
-        let word = Word {
-            text: 0,
-            cell: 0,
-            cluster_sizes: vec![character.len() as u8],
-        };
 
         let box_char_drawn = grid_renderer.box_char_renderer.draw_glyph(
             &character,
@@ -398,9 +393,10 @@ impl CursorRenderer {
         );
         if !box_char_drawn {
             let pos = (self.destination.x, self.destination.y + baseline_offset);
-            let blobs = &grid_renderer
-                .shaper
-                .shape_cached(RenderedWord::new(&word, &character), coarse_style);
+            let blobs = &grid_renderer.shaper.shape_cached(
+                Word::new(&character, &[character.len() as u8]),
+                coarse_style,
+            );
             for blob in blobs.iter() {
                 canvas.draw_text_blob(blob, pos, &paint);
             }

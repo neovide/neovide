@@ -1,11 +1,11 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, ops::Range, sync::Arc};
 
 use log::warn;
 
 use crate::{
     bridge::GridLineCell,
     editor::{grid::CharacterGrid, style::Style, AnchorInfo, DrawCommand, DrawCommandBatcher},
-    renderer::{box_drawing, Line, LineFragment, WindowDrawCommand, Word},
+    renderer::{box_drawing, WindowDrawCommand},
     units::{GridRect, GridSize},
 };
 
@@ -13,6 +13,95 @@ use crate::{
 pub enum WindowType {
     Editor,
     Message { scrolled: bool },
+}
+
+#[derive(Debug)]
+pub struct Line {
+    pub text: String,
+    fragments: Vec<LineFragmentData>,
+}
+
+#[derive(Debug)]
+pub struct LineFragmentData {
+    text_range: Range<u32>,
+    style: Option<Arc<Style>>,
+    cells: Range<u32>,
+    words: Vec<WordData>,
+}
+
+#[derive(Debug, Default)]
+pub struct WordData {
+    text_offset: u32,
+    cell: u32,
+    cluster_sizes: Vec<u8>,
+}
+
+pub struct LineFragment<'a> {
+    pub style: &'a Option<Arc<Style>>,
+    pub text: &'a str,
+    pub cells: &'a Range<u32>,
+
+    data: &'a LineFragmentData,
+}
+
+pub struct Word<'a> {
+    pub text: &'a str,
+    pub cell: u32,
+
+    cluster_sizes: &'a [u8],
+}
+
+impl Line {
+    pub fn fragments(&self) -> impl Iterator<Item = LineFragment<'_>> {
+        self.fragments.iter().map(|fragment| {
+            let range = fragment.text_range.start as usize..fragment.text_range.end as usize;
+            LineFragment {
+                style: &fragment.style,
+                text: &self.text[range],
+                cells: &fragment.cells,
+                data: fragment,
+            }
+        })
+    }
+}
+
+impl LineFragment<'_> {
+    pub fn words(&self) -> impl Iterator<Item = Word<'_>> {
+        self.data.words.iter().map(|word| {
+            let size: usize = word.cluster_sizes.iter().map(|v| *v as usize).sum();
+            let cluster_sizes = &word.cluster_sizes;
+            let start = word.text_offset as usize;
+            let end = start + size;
+            let text = &self.text[start..end];
+            Word {
+                text,
+                cell: word.cell,
+                cluster_sizes,
+            }
+        })
+    }
+}
+
+impl<'a> Word<'a> {
+    pub fn new(text: &'a str, cluster_sizes: &'a [u8]) -> Self {
+        Self {
+            text,
+            cell: 0,
+            cluster_sizes,
+        }
+    }
+
+    pub fn grapheme_clusters(&self) -> impl Iterator<Item = (usize, &'a str)> + Clone {
+        self.cluster_sizes
+            .iter()
+            .enumerate()
+            .filter(|(_, size)| **size > 0)
+            .scan(0, |current_pos, (cell_nr, size)| {
+                let start = *current_pos;
+                *current_pos += *size as u32;
+                Some((cell_nr, &self.text[start as usize..*current_pos as usize]))
+            })
+    }
 }
 
 pub struct Window {
@@ -160,7 +249,7 @@ impl Window {
         row_index: usize,
         start: usize,
         text: &mut String,
-    ) -> (usize, LineFragment) {
+    ) -> (usize, LineFragmentData) {
         let row = self.grid.row(row_index).unwrap();
 
         let (_, style) = &row[start];
@@ -169,7 +258,7 @@ impl Window {
         let mut last_box_char = None;
         let mut text_range = text.len() as u32..text.len() as u32;
         let mut words = Vec::new();
-        let mut current_word = Word::default();
+        let mut current_word = WordData::default();
 
         for (cluster, possible_end_style) in row.iter().take(self.grid.width).skip(start) {
             // Style doesn't match. Draw what we've got.
@@ -219,13 +308,13 @@ impl Window {
                 if !current_word.cluster_sizes.is_empty() {
                     // Finish the current word
                     words.push(current_word);
-                    current_word = Word::default();
+                    current_word = WordData::default();
                 }
             } else if current_word.cluster_sizes.is_empty() {
                 // Properly initialize a new word
                 current_word.cell = width - 1;
                 current_word.cluster_sizes.push(cluster.len() as u8);
-                current_word.text = text.len() as u32;
+                current_word.text_offset = text.len() as u32 - text_range.start;
             } else {
                 current_word.cluster_sizes.push(cluster.len() as u8);
             }
@@ -238,8 +327,8 @@ impl Window {
             words.push(current_word);
         }
 
-        let line_fragment = LineFragment {
-            text: text_range,
+        let line_fragment = LineFragmentData {
+            text_range,
             cells: start as u32..start as u32 + width,
             style: style.clone(),
             words,
@@ -423,7 +512,7 @@ mod tests {
 
         assert_eq!(next_start, 3);
         assert_eq!(fragment.cells, 0..3);
-        assert_eq!(fragment.text, 0..3);
+        assert_eq!(fragment.text_range, 0..3);
         assert_eq!(fragment.style, Some(make_style(colors::RED)));
         assert_eq!(fragment.words.len(), 1);
 
@@ -444,14 +533,14 @@ mod tests {
 
         assert_eq!(next_start, 1);
         assert_eq!(fragment.cells, 0..1);
-        assert_eq!(fragment.text, 0..1);
+        assert_eq!(fragment.text_range, 0..1);
         assert_eq!(fragment.style, Some(make_style(colors::RED)));
         assert_eq!(fragment.words.len(), 1);
 
         let (next_start, fragment) = window.build_line_fragment(0, next_start, &mut text);
         assert_eq!(next_start, 3);
         assert_eq!(fragment.cells, 1..3);
-        assert_eq!(fragment.text, 1..3);
+        assert_eq!(fragment.text_range, 1..3);
         assert_eq!(fragment.style, Some(make_style(colors::GREEN)));
         assert_eq!(fragment.words.len(), 1);
 
@@ -474,14 +563,14 @@ mod tests {
         // Should group the two ─ chars together, then break for │
         assert_eq!(next_start, 2);
         assert_eq!(fragment.cells, 0..2);
-        assert_eq!(fragment.text, 0..6);
+        assert_eq!(fragment.text_range, 0..6);
         assert_eq!(fragment.style, Some(make_style(colors::BLUE)));
         assert_eq!(fragment.words.len(), 1);
 
         let (next_start, fragment) = window.build_line_fragment(0, next_start, &mut text);
         assert_eq!(next_start, 3);
         assert_eq!(fragment.cells, 2..3);
-        assert_eq!(fragment.text, 6..9);
+        assert_eq!(fragment.text_range, 6..9);
         assert_eq!(fragment.style, Some(make_style(colors::BLUE)));
         assert_eq!(fragment.words.len(), 1);
 
@@ -513,7 +602,7 @@ mod tests {
 
         assert_eq!(next_start, 14);
         assert_eq!(fragment.cells, 0..14);
-        assert_eq!(fragment.text, 0..14);
+        assert_eq!(fragment.text_range, 0..14);
         assert_eq!(fragment.style, Some(make_style(colors::GREEN)));
         assert_eq!(text, "  foo bar  baz");
 
@@ -522,17 +611,17 @@ mod tests {
 
         // "foo"
         assert_eq!(fragment.words[0].cell, 2);
-        assert_eq!(fragment.words[0].text, 2);
+        assert_eq!(fragment.words[0].text_offset, 2);
         assert_eq!(fragment.words[0].cluster_sizes, vec![1, 1, 1]);
 
         // "bar"
         assert_eq!(fragment.words[1].cell, 6);
-        assert_eq!(fragment.words[1].text, 6);
+        assert_eq!(fragment.words[1].text_offset, 6);
         assert_eq!(fragment.words[1].cluster_sizes, vec![1, 1, 1]);
 
         // "baz"
         assert_eq!(fragment.words[2].cell, 11);
-        assert_eq!(fragment.words[2].text, 11);
+        assert_eq!(fragment.words[2].text_offset, 11);
         assert_eq!(fragment.words[2].cluster_sizes, vec![1, 1, 1]);
 
         assert_eq!(next_start, window.grid.width);
@@ -554,7 +643,7 @@ mod tests {
         // The fragment should include all three cells (0..3), text range 0..4 ("一" is 3 bytes, "c" is 1)
         assert_eq!(next_start, 3);
         assert_eq!(fragment.cells, 0..3);
-        assert_eq!(fragment.text, 0..4);
+        assert_eq!(fragment.text_range, 0..4);
         assert_eq!(fragment.style, Some(make_style(colors::RED)));
         assert_eq!(fragment.words.len(), 1); // "一c" is a single word
         assert_eq!(text, "一c");
@@ -578,7 +667,7 @@ mod tests {
         // The fragment should include all four cells (0..4), text range 0..5 ("a" 1, "　" 3, "b" 1)
         assert_eq!(next_start, 4);
         assert_eq!(fragment.cells, 0..4);
-        assert_eq!(fragment.text, 0..5);
+        assert_eq!(fragment.text_range, 0..5);
         assert_eq!(fragment.style, Some(make_style(colors::RED)));
         assert_eq!(text, "a　b");
 
@@ -586,11 +675,11 @@ mod tests {
         assert_eq!(fragment.words.len(), 2);
         // First word: "a"
         assert_eq!(fragment.words[0].cell, 0);
-        assert_eq!(fragment.words[0].text, 0);
+        assert_eq!(fragment.words[0].text_offset, 0);
         assert_eq!(fragment.words[0].cluster_sizes, vec![1]);
         // Second word: "b"
         assert_eq!(fragment.words[1].cell, 3);
-        assert_eq!(fragment.words[1].text, 4);
+        assert_eq!(fragment.words[1].text_offset, 4);
         assert_eq!(fragment.words[1].cluster_sizes, vec![1]);
 
         assert_eq!(next_start, window.grid.width);
@@ -612,14 +701,14 @@ mod tests {
         // The fragment should include all four cells (0..4), text range 0..5 ("a" 1, "一" 3, "b" 1)
         assert_eq!(next_start, 4);
         assert_eq!(fragment.cells, 0..4);
-        assert_eq!(fragment.text, 0..5);
+        assert_eq!(fragment.text_range, 0..5);
         assert_eq!(fragment.style, Some(make_style(colors::RED)));
         assert_eq!(text, "a一b");
 
         // The word should be ["a一b"], with cluster_sizes [1, 3, 0, 1]
         assert_eq!(fragment.words.len(), 1);
         assert_eq!(fragment.words[0].cell, 0);
-        assert_eq!(fragment.words[0].text, 0);
+        assert_eq!(fragment.words[0].text_offset, 0);
         assert_eq!(fragment.words[0].cluster_sizes, vec![1, 3, 0, 1]);
 
         assert_eq!(next_start, window.grid.width);

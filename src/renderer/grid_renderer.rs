@@ -4,11 +4,11 @@ use log::trace;
 use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Path, HSV};
 
 use crate::{
-    editor::{Colors, Style, UnderlineStyle},
+    editor::{Colors, LineFragment, Style, UnderlineStyle},
     profiling::tracy_zone,
     renderer::{
         box_drawing::{self},
-        CachingShaper, LineFragment, RenderedWord, RendererSettings,
+        CachingShaper, RendererSettings,
     },
     settings::*,
     units::{
@@ -180,12 +180,10 @@ impl GridRenderer {
 
     /// Draws some foreground text.
     /// Returns true if any text was actually drawn.
-    #[allow(clippy::too_many_arguments)]
     pub fn draw_foreground(
         &mut self,
         text_canvas: &Canvas,
         boxchar_canvas: &Canvas,
-        line_text: &str,
         fragment: &LineFragment,
         window_position: PixelPos<f32>,
     ) -> (bool, bool) {
@@ -195,7 +193,6 @@ impl GridRenderer {
             text, cells, style, ..
         } = fragment;
 
-        let text = &line_text[text.start as usize..text.end as usize];
         let region = self.compute_text_region(cells);
 
         let style = style.as_ref().unwrap_or(&self.default_style);
@@ -243,17 +240,13 @@ impl GridRenderer {
             } else {
                 paint.set_color(style.foreground(&self.default_style.colors).to_color());
             }
-            for word in &fragment.words {
+            for word in fragment.words() {
                 let adjustment = PixelVec::new(
                     word.cell as f32 * self.grid_scale.width(),
                     self.shaper.baseline_offset(),
                 );
 
-                for blob in self
-                    .shaper
-                    .shape_cached(RenderedWord::new(word, line_text), style.into())
-                    .iter()
-                {
+                for blob in self.shaper.shape_cached(word, style.into()).iter() {
                     tracy_zone!("draw_text_blob");
                     text_canvas.draw_text_blob(
                         blob,
