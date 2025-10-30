@@ -168,7 +168,7 @@ This sets the window title to be hidden on macOS.
 
 **Unreleased yet.**
 
-This sets a custom application icon.
+This sets a custom application icon. A default icon is bundled with Neovide.
 
 ### sRGB
 

@@ -33,6 +33,7 @@ backtraces_path = "/path/to/neovide_backtraces.log" # see below for the default 
 fork = false
 frame = "full"
 idle = true
+icon = "/full/path/to/neovide.ico" # Example path. Default icon is bundled. Use .icns on macOS.
 maximized = false
 mouse-cursor-icon = "arrow"
 neovim-bin = "/usr/bin/nvim" # in reality found dynamically on $PATH if unset
