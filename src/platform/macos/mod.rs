@@ -30,7 +30,7 @@ use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame};
 
 use crate::window::{WindowSettings, WindowSettingsChanged};
 
-static NEOVIDE_ICON_PATH: &[u8] =
+static DEFAULT_NEOVIDE_ICON_BYTES: &[u8] =
     include_bytes!("../../../extra/osx/Neovide.app/Contents/Resources/Neovide.icns");
 
 define_class!(
@@ -75,18 +75,25 @@ pub fn get_ns_window(window: &Window) -> Retained<NSWindow> {
     }
 }
 
-fn load_neovide_icon() -> Option<Retained<NSImage>> {
+fn load_icon_from_custom_path(icon_path: &str) -> Option<Retained<NSImage>> {
+    let path = NSString::from_str(icon_path);
+    NSImage::initWithContentsOfFile(NSImage::alloc(), &path)
+}
+
+fn load_icon_from_default_bytes() -> Option<Retained<NSImage>> {
     unsafe {
         let data = NSData::dataWithBytes_length(
-            NEOVIDE_ICON_PATH.as_ptr() as *mut c_void,
-            NEOVIDE_ICON_PATH.len(),
+            DEFAULT_NEOVIDE_ICON_BYTES.as_ptr() as *mut c_void,
+            DEFAULT_NEOVIDE_ICON_BYTES.len(),
         );
-
-        let icon_image: Option<Retained<NSImage>> =
-            NSImage::initWithData(NSImage::alloc(), data.as_ref());
-
-        icon_image
+        NSImage::initWithData(NSImage::alloc(), data.as_ref())
     }
+}
+
+fn load_neovide_icon(custom_icon_path: Option<&String>) -> Option<Retained<NSImage>> {
+    custom_icon_path
+        .and_then(|path| load_icon_from_custom_path(path))
+        .or_else(load_icon_from_default_bytes)
 }
 
 #[derive(Debug)]
@@ -327,7 +334,7 @@ impl MacosWindowFeature {
             app.activateIgnoringOtherApps(true);
 
             // Make sure the icon is loaded when launched from terminal
-            let icon = load_neovide_icon();
+            let icon = load_neovide_icon(self.settings.get::<CmdLineSettings>().icon.as_ref());
             let icon_ref: Option<&NSImage> = icon.as_ref().map(|img| img.as_ref());
             unsafe { app.setApplicationIconImage(icon_ref) }
         }
