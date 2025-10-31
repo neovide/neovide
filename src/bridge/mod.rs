@@ -113,7 +113,6 @@ async fn launch(
     settings: Arc<Settings>,
 ) -> Result<NeovimSession> {
     let neovim_instance = neovim_instance(settings.as_ref()).await?;
-
     #[allow(unused_mut)]
     let mut session = NeovimSession::new(neovim_instance, handler)
         .await
@@ -136,16 +135,10 @@ async fn launch(
 
     let cmdline_settings = settings.get::<CmdLineSettings>();
 
-    let should_handle_clipboard = cmdline_settings.wsl || cmdline_settings.server.is_some();
+    let remote = cmdline_settings.wsl || cmdline_settings.server.is_some();
     // This is too verbose to keep enabled all the time
     // log::info!("Api information {:#?}", api_information);
-    setup_neovide_specific_state(
-        &session.neovim,
-        should_handle_clipboard,
-        &api_information,
-        &settings,
-    )
-    .await?;
+    setup_neovide_specific_state(&session.neovim, remote, &api_information, &settings).await?;
     if api_information.version.has_version(0, 12, 0, Some(1264)) {
         let mut window_settings = settings.get::<WindowSettings>();
         window_settings.has_mouse_grid_detection = true;
