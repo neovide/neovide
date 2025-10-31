@@ -42,10 +42,9 @@ pub struct CachingShaper {
 impl CachingShaper {
     pub fn new(scale_factor: f32) -> CachingShaper {
         let options = FontOptions::default();
-        let font_size = options.size * scale_factor;
         let mut shaper = CachingShaper {
             options,
-            font_loader: FontLoader::new(font_size),
+            font_loader: FontLoader::new(),
             blob_cache: LruCache::new(NonZeroUsize::new(10000).unwrap()),
             shape_context: ShapeContext::new(),
             scale_factor,
@@ -57,17 +56,21 @@ impl CachingShaper {
     }
 
     fn current_font_pair(&mut self) -> Rc<FontPair> {
-        self.font_loader
-            .get_or_load(&FontKey {
-                font_desc: self.options.primary_font(),
-                hinting: self.options.hinting.clone(),
-                edging: self.options.edging.clone(),
+        self.options
+            .primary_font()
+            .and_then(|font| {
+                self.font_loader.get_or_load(
+                    &FontKey {
+                        font_desc: font,
+                        hinting: self.options.hinting.clone(),
+                        edging: self.options.edging.clone(),
+                    },
+                    Some(&mut self.shape_context),
+                )
             })
-            .unwrap_or_else(|| {
-                self.font_loader
-                    .get_or_load(&FontKey::default())
-                    .expect("Could not load default font")
-            })
+            // NOTE: Update font options already tries to load the primary font, and won't pass it here if it fails.
+            // So the only way this can happen, is if the default system monospace font can't be loaded
+            .expect("Could not load the system monospace font")
     }
 
     pub fn current_size(&self) -> f32 {
@@ -82,6 +85,9 @@ impl CachingShaper {
     }
 
     pub fn update_font(&mut self, guifont_setting: &str) {
+        if guifont_setting.is_empty() {
+            return;
+        }
         debug!("Updating font: {guifont_setting}");
 
         let options = match FontOptions::parse(guifont_setting) {
@@ -98,11 +104,33 @@ impl CachingShaper {
     pub fn update_font_options(&mut self, options: FontOptions) {
         debug!("Updating font options: {options:?}");
 
+        if let Some(font) = options.primary_font() {
+            let key = FontKey {
+                font_desc: font,
+                hinting: options.hinting.clone(),
+                edging: options.edging.clone(),
+            };
+            if self
+                .font_loader
+                .get_or_load(&key, Some(&mut self.shape_context))
+                .is_none()
+            {
+                error_msg!(
+                    "Failed to load primary font ({}).\n The font settings have not been updated.",
+                    key.font_desc.family
+                );
+                return;
+            }
+        } else {
+            error_msg!("No primary font specified. The font settings have not been updated.");
+            return;
+        }
+
         let keys = options
             .possible_fonts()
             .iter()
             .map(|desc| FontKey {
-                font_desc: Some(desc.clone()),
+                font_desc: desc.clone(),
                 hinting: options.hinting.clone(),
                 edging: options.edging.clone(),
             })
@@ -111,7 +139,11 @@ impl CachingShaper {
 
         let failed_fonts = keys
             .iter()
-            .filter(|key| self.font_loader.get_or_load(key).is_none())
+            .filter(|key| {
+                self.font_loader
+                    .get_or_load(key, Some(&mut self.shape_context))
+                    .is_none()
+            })
             .collect_vec();
 
         if !failed_fonts.is_empty() {
@@ -155,7 +187,7 @@ impl CachingShaper {
         self.font_info = None;
         let font_size = self.current_size();
 
-        self.font_loader = FontLoader::new(font_size);
+        self.font_loader = FontLoader::new();
         let (_, font_width) = self.info();
         info!("Reset Font Loader: font_size: {font_size:.2}px, font_width: {font_width:.2}px");
 
@@ -171,24 +203,15 @@ impl CachingShaper {
             return info;
         }
 
-        let font_pair = self.current_font_pair();
         let size = self.current_size();
-        let mut shaper = self
-            .shape_context
-            .builder(font_pair.swash_font.as_ref())
-            .size(size)
-            .build();
-        shaper.add_str("M");
-        let metrics = shaper.metrics();
-        let mut advance = metrics.average_width;
-        shaper.shape_with(|cluster| {
-            advance = cluster
-                .glyphs
-                .first()
-                .map_or(metrics.average_width, |g| g.advance);
-        });
+        let pair = &self.current_font_pair();
+        let font_info = pair.font_info.expect(
+            "All fonts should be loaded with shaper and therefore have calculated font info",
+        );
+        let metrics = font_info.0.linear_scale(size);
+        let advance = font_info.1 * size;
         self.font_info = Some((metrics, advance));
-        (metrics, advance)
+        self.font_info.unwrap()
     }
 
     fn metrics(&mut self) -> Metrics {
@@ -274,26 +297,22 @@ impl CachingShaper {
                     .font_list(style)
                     .iter()
                     .map(|font_desc| FontKey {
-                        font_desc: Some(font_desc.clone()),
+                        font_desc: font_desc.clone(),
                         hinting: self.options.hinting.clone(),
                         edging: self.options.edging.clone(),
                     })
                     .unique(),
             );
 
-            // Add default font
-            font_fallback_keys.push(FontKey {
-                font_desc: None,
-                hinting: self.options.hinting.clone(),
-                edging: self.options.edging.clone(),
-            });
-
             // Use the cluster.map function to select a viable font from the fallback list and loaded fonts
 
             let mut best = None;
             // Search through the configured and default fonts for a match
             for fallback_key in font_fallback_keys.iter() {
-                if let Some(font_pair) = self.font_loader.get_or_load(fallback_key) {
+                if let Some(font_pair) = self
+                    .font_loader
+                    .get_or_load(fallback_key, Some(&mut self.shape_context))
+                {
                     let charmap = font_pair.swash_font.as_ref().charmap();
                     match cluster.map(|ch| charmap.map(ch)) {
                         Status::Complete => {
@@ -324,16 +343,19 @@ impl CachingShaper {
                 results.push((cluster.to_owned(), best.clone()));
             } else {
                 let fallback_character = cluster.chars()[0].ch;
-                if let Some(fallback_font) = self
-                    .font_loader
-                    .load_font_for_character(style, fallback_character)
-                {
+                if let Some(fallback_font) = self.font_loader.load_font_for_character(
+                    style,
+                    fallback_character,
+                    Some(&mut self.shape_context),
+                ) {
                     results.push((cluster.to_owned(), fallback_font));
                 } else {
                     // Last Resort covers all of the unicode space so we will always have a fallback
                     results.push((
                         cluster.to_owned(),
-                        self.font_loader.get_or_load_last_resort().unwrap(),
+                        self.font_loader
+                            .get_or_load_last_resort(Some(&mut self.shape_context))
+                            .unwrap(),
                     ));
                 }
             }
@@ -381,20 +403,35 @@ impl CachingShaper {
         trace!("Shaping text: {text:?}");
 
         for (cluster_group, font_pair) in self.build_clusters(&text, style) {
-            let features = self.get_font_features(
-                font_pair
-                    .as_ref()
-                    .key
-                    .font_desc
-                    .as_ref()
-                    .map(|desc| desc.family.as_str()),
+            log::trace!(
+                "Cluster group: \"{}\" font: {}",
+                cluster_group
+                    .iter()
+                    .flat_map(|g| g.chars().iter().map(|c| c.ch))
+                    .collect::<String>(),
+                font_pair.skia_font.typeface().family_name(),
             );
+            let features = self.get_font_features(&font_pair.key.font_desc.family);
+
+            let fallback_info = font_pair.font_info.expect(
+                "All fonts should be loaded with shaper and therefore have calculated font info",
+            );
+            // Scale fallback fonts to have the same width as the primary one
+            // Don't scale emojis
+            let scale = if cluster_group[0].info().is_emoji() {
+                1.0
+            } else {
+                self.info().1 / (fallback_info.1 * current_size)
+            };
+            log::info!("Scale {scale}");
+            let baseline_offset = self.baseline_offset();
+            log::info!("Baseline Offset {baseline_offset}");
 
             let mut shaper = self
                 .shape_context
                 .builder(font_pair.swash_font.as_ref())
                 .features(features.iter().map(|(name, value)| (name.as_ref(), *value)))
-                .size(current_size)
+                .size(current_size * scale)
                 .build();
 
             let charmap = font_pair.swash_font.as_ref().charmap();
@@ -405,12 +442,19 @@ impl CachingShaper {
 
             let mut glyph_data = Vec::new();
 
+            let metrics = &fallback_info.0;
+            // Push the baseline down if there's not enough space above it.
+            // This only happens for fallback fonts.
+            let y_offset = ((metrics.ascent + metrics.leading / 2.0) * current_size
+                - baseline_offset)
+                .max(0.0);
+
             shaper.shape_with(|glyph_cluster| {
                 //Align to the grid at the start of each cluster
                 let mut x_offset = glyph_width * glyph_cluster.data as f32;
 
                 for glyph in glyph_cluster.glyphs {
-                    let position = (x_offset + glyph.x, -glyph.y);
+                    let position = (x_offset + glyph.x, -glyph.y + y_offset);
                     glyph_data.push((glyph.id, position));
                     x_offset += glyph.advance;
                 }
@@ -421,8 +465,11 @@ impl CachingShaper {
             }
 
             let mut blob_builder = TextBlobBuilder::new();
-            let (glyphs, positions) =
-                blob_builder.alloc_run_pos(&font_pair.skia_font, glyph_data.len(), None);
+            let (glyphs, positions) = blob_builder.alloc_run_pos(
+                &font_pair.skia_font.with_size(current_size * scale).unwrap(),
+                glyph_data.len(),
+                None,
+            );
             for (i, (glyph_id, glyph_position)) in glyph_data.iter().enumerate() {
                 glyphs[i] = *glyph_id;
                 positions[i] = (*glyph_position).into();
@@ -447,20 +494,16 @@ impl CachingShaper {
         self.blob_cache.get(&key).unwrap()
     }
 
-    fn get_font_features(&self, name: Option<&str>) -> Vec<(String, u16)> {
-        if let Some(name) = name {
-            self.options
-                .features
-                .get(name)
-                .map(|features| {
-                    features
-                        .iter()
-                        .map(|feature| (feature.0.clone(), feature.1))
-                        .collect::<Vec<_>>()
-                })
-                .unwrap_or_default()
-        } else {
-            vec![]
-        }
+    fn get_font_features(&self, name: &str) -> Vec<(String, u16)> {
+        self.options
+            .features
+            .get(name)
+            .map(|features| {
+                features
+                    .iter()
+                    .map(|feature| (feature.0.clone(), feature.1))
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
     }
 }
