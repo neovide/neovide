@@ -1,6 +1,7 @@
 ---@class Args
 ---@field neovide_channel_id integer
 ---@field neovide_version string
+---@field config_path string
 ---@field register_clipboard boolean
 ---@field register_right_click boolean
 ---@field enable_focus_command boolean
@@ -146,5 +147,9 @@ M.enable_redraw = function()
     -- Wrap inside pcall to avoid errors if Neovide disconnects
     pcall(rpcnotify, "neovide.set_redraw", true)
 end
+
+vim.api.nvim_create_user_command("NeovideConfig", function()
+    vim.cmd('edit ' .. vim.fn.fnameescape(args.config_path))
+end, {})
 
 _G["neovide"] = M
