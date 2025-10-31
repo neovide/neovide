@@ -4,19 +4,18 @@ use std::{
     rc::Rc,
 };
 
-use log::trace;
+use log::info;
 use lru::LruCache;
 use skia_safe::{font::Edging as SkiaEdging, Data, Font, FontHinting as SkiaHinting, FontMgr};
 
 use crate::{
     profiling::tracy_zone,
     renderer::fonts::{
-        font_options::{CoarseStyle, FontDescription, FontEdging, FontHinting},
+        font_options::{CoarseStyle, FontDescription, FontEdging, FontHinting, DEFAULT_FONT},
         swash_font::SwashFont,
     },
 };
 
-static DEFAULT_FONT: &[u8] = include_bytes!("../../../assets/fonts/FiraCodeNerdFont-Regular.ttf");
 static LAST_RESORT_FONT: &[u8] = include_bytes!("../../../assets/fonts/LastResort-Regular.ttf");
 
 pub struct FontPair {
@@ -57,7 +56,7 @@ impl PartialEq for FontPair {
 pub struct FontKey {
     // TODO(smolck): Could make these private and add constructor method(s)?
     // Would theoretically make things safer I guess, but not sure . . .
-    pub font_desc: Option<FontDescription>,
+    pub font_desc: FontDescription,
     pub hinting: FontHinting,
     pub edging: FontEdging,
 }
@@ -91,16 +90,12 @@ impl FontLoader {
 
     fn load(&mut self, font_key: FontKey) -> Option<FontPair> {
         tracy_zone!("load_font");
-        trace!("Loading font {font_key:?}");
-        if let Some(desc) = &font_key.font_desc {
-            let (family, style) = desc.as_family_and_font_style();
-            let typeface = self.font_mgr.match_family_style(family, style)?;
-            FontPair::new(font_key, Font::from_typeface(typeface, self.font_size))
-        } else {
-            let data = Data::new_copy(DEFAULT_FONT);
-            let typeface = self.font_mgr.new_from_data(&data, 0)?;
-            FontPair::new(font_key, Font::from_typeface(typeface, self.font_size))
-        }
+        info!("Loading font {font_key:?}");
+        let desc = &font_key.font_desc;
+        let (family, style) = desc.as_family_and_font_style();
+        let typeface = self.font_mgr.match_family_style(family, style)?;
+        info!("Actually loaded font {:?}", typeface.family_name());
+        FontPair::new(font_key, Font::from_typeface(typeface, self.font_size))
     }
 
     pub fn get_or_load(&mut self, font_key: &FontKey) -> Option<Rc<FontPair>> {
@@ -121,15 +116,18 @@ impl FontLoader {
         character: char,
     ) -> Option<Rc<FontPair>> {
         let font_style = coarse_style.into();
-        let typeface =
-            self.font_mgr
-                .match_family_style_character("", font_style, &[], character as i32)?;
+        let typeface = self.font_mgr.match_family_style_character(
+            DEFAULT_FONT,
+            font_style,
+            &[],
+            character as i32,
+        )?;
 
         let font_key = FontKey {
-            font_desc: Some(FontDescription {
+            font_desc: FontDescription {
                 family: typeface.family_name(),
                 style: coarse_style.name().map(str::to_string),
-            }),
+            },
             hinting: FontHinting::default(),
             edging: FontEdging::default(),
         };
@@ -138,6 +136,11 @@ impl FontLoader {
             font_key.clone(),
             Font::from_typeface(typeface, self.font_size),
         )?);
+        info!(
+            "Load font for character {} {}",
+            character,
+            font_pair.skia_font.typeface().family_name()
+        );
 
         self.cache.put(font_key, font_pair.clone());
 
@@ -145,6 +148,7 @@ impl FontLoader {
     }
 
     pub fn get_or_load_last_resort(&mut self) -> Option<Rc<FontPair>> {
+        log::warn!("Last resort font used");
         if self.last_resort.is_some() {
             self.last_resort.clone()
         } else {
