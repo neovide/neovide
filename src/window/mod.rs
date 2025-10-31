@@ -72,7 +72,7 @@ const MAX_PERSISTENT_WINDOW_SIZE: PhysicalSize<u32> = PhysicalSize {
     height: 8192,
 };
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub enum WindowCommand {
     TitleChanged(String),
     SetMouseEnabled(bool),
@@ -87,7 +87,7 @@ pub enum WindowCommand {
     UnregisterRightClick,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub enum UserEvent {
     DrawCommandBatch(Vec<DrawCommand>),
     WindowCommand(WindowCommand),

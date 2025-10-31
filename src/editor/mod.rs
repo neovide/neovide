@@ -385,8 +385,6 @@ impl Editor {
     fn close_window(&mut self, grid: u64) {
         if let Some(window) = self.windows.remove(&grid) {
             window.close(&mut self.draw_command_batcher);
-            self.draw_command_batcher
-                .queue(DrawCommand::CloseWindow(grid));
         }
     }
 
