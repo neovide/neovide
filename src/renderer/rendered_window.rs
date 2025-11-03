@@ -487,7 +487,10 @@ impl RenderedWindow {
         if scroll_delta != 0 {
             let mut scroll_offset = self.scroll_animation.position;
 
-            let max_delta = self.scrollback_lines.len().saturating_sub(self.grid_size.height as usize);
+            let max_delta = self
+                .scrollback_lines
+                .len()
+                .saturating_sub(self.grid_size.height as usize);
             log::trace!(
                 "Scroll offset {scroll_offset}, delta {scroll_delta}, max_delta {max_delta}"
             );
