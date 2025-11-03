@@ -59,6 +59,7 @@ pub struct Config {
     pub vsync: Option<bool>,
     pub wsl: Option<bool>,
     pub backtraces_path: Option<PathBuf>,
+    pub icon: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -120,6 +121,9 @@ impl Config {
         }
         if let Some(tabs) = &self.tabs {
             env::set_var("NEOVIDE_TABS", tabs.to_string());
+        }
+        if let Some(icon) = &self.icon {
+            env::set_var("NEOVIDE_ICON", icon);
         }
     }
 
