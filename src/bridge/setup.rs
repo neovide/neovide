@@ -1,11 +1,14 @@
 use anyhow::{Context, Result};
-use nvim_rs::Neovim;
+use nvim_rs::{call_args, rpc::IntoVal, Neovim};
 use rmpv::Value;
 
-use super::api_info::{parse_api_info, ApiInformation};
+use super::{
+    api_info::{parse_api_info, ApiInformation},
+    nvim_dict, nvim_exec_output,
+};
 use crate::{
     bridge::NeovimWriter,
-    settings::{SettingLocation, Settings},
+    settings::{config::config_path, SettingLocation, Settings},
 };
 
 const INIT_LUA: &str = include_str!("../../lua/init.lua");
@@ -17,49 +20,43 @@ pub async fn get_api_information(nvim: &Neovim<NeovimWriter>) -> Result<ApiInfor
         .await
         .context("Error getting API info")?;
 
-    parse_api_info(&api_info).context("Failed to parse Neovim api information")
+    let version = nvim_exec_output(nvim, "version").await?;
+    log::info!("Neovim version: {version:#?}");
+    let version_str = version.lines().next().unwrap_or_default();
+    parse_api_info(&api_info, version_str).context("Failed to parse Neovim api information")
 }
 
 pub async fn setup_neovide_specific_state(
     nvim: &Neovim<NeovimWriter>,
-    should_handle_clipboard: bool,
+    remote: bool,
     api_information: &ApiInformation,
     settings: &Settings,
 ) -> Result<()> {
     // Set variable indicating to user config that neovide is being used.
-    nvim.set_var("neovide", Value::Boolean(true))
+    nvim.set_var("neovide", Value::from(true))
         .await
         .context("Could not communicate with neovim process")?;
 
-    nvim.command("runtime! ginit.vim")
+    nvim.exec2("runtime! ginit.vim", nvim_dict!())
         .await
         .context("Error encountered in ginit.vim ")?;
 
     // Set details about the neovide version.
     nvim.set_client_info(
         "neovide",
-        vec![
-            (
-                Value::from("major"),
-                Value::from(env!("CARGO_PKG_VERSION_MAJOR")),
-            ),
-            (
-                Value::from("minor"),
-                Value::from(env!("CARGO_PKG_VERSION_MINOR")),
-            ),
-            (
-                Value::from("patch"),
-                Value::from(env!("CARGO_PKG_VERSION_PATCH")),
-            ),
-        ],
+        nvim_dict! {
+            "major" =>env!("CARGO_PKG_VERSION_MAJOR"),
+            "minor" =>env!("CARGO_PKG_VERSION_MINOR"),
+            "patch" =>env!("CARGO_PKG_VERSION_PATCH")
+        },
         "ui",
-        vec![],
-        vec![],
+        nvim_dict! {},
+        nvim_dict! {},
     )
     .await
     .context("Error setting client info")?;
 
-    let register_clipboard = should_handle_clipboard;
+    let register_clipboard = remote;
     let register_right_click = cfg!(target_os = "windows");
 
     let setting_locations = settings.setting_locations();
@@ -78,33 +75,21 @@ pub async fn setup_neovide_specific_state(
         })
         .collect::<Vec<_>>();
 
-    let args = Value::from(vec![
-        (
-            Value::from("neovide_channel_id"),
-            Value::from(api_information.channel),
-        ),
-        (
-            Value::from("neovide_version"),
-            Value::from(crate_version!()),
-        ),
-        (
-            Value::from("register_clipboard"),
-            Value::from(register_clipboard),
-        ),
-        (
-            Value::from("register_right_click"),
-            Value::from(register_right_click),
-        ),
-        (
-            Value::from("global_variable_settings"),
-            Value::from(global_variable_settings),
-        ),
-        (Value::from("option_settings"), Value::from(option_settings)),
-    ]);
-
-    nvim.execute_lua(INIT_LUA, vec![args])
-        .await
-        .context("Error when running Neovide init.lua")?;
+    nvim.exec_lua(
+        INIT_LUA,
+        call_args![nvim_dict! {
+            "neovide_channel_id" => api_information.channel,
+            "neovide_version" => crate_version!(),
+            "config_path" => config_path().to_string_lossy().into_owned(),
+            "register_clipboard" => register_clipboard,
+            "register_right_click" => register_right_click,
+            "remote" => remote,
+            "global_variable_settings" => global_variable_settings,
+            "option_settings" => option_settings,
+        }],
+    )
+    .await
+    .context("Error when running Neovide init.lua")?;
 
     Ok(())
 }

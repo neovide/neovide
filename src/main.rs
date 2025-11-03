@@ -22,6 +22,7 @@ mod dimensions;
 mod editor;
 mod error_handling;
 mod frame;
+mod platform;
 mod profiling;
 mod renderer;
 mod running_tracker;
@@ -358,8 +359,8 @@ fn log_panic_to_file(panic_info: &PanicHookInfo, backtrace: &Backtrace, path: &O
     };
 
     match file.write_all(log_msg.as_bytes()) {
-        Ok(()) => eprintln!("\nBacktrace saved to {:?}!", file_path),
-        Err(e) => eprintln!("Failed writing panic to {:?}: {e}", file_path),
+        Ok(()) => eprintln!("\nBacktrace saved to {file_path:?}!"),
+        Err(e) => eprintln!("Failed writing panic to {file_path:?}: {e}"),
     }
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "neovide-derive"
-version = "0.1.2"
+version = "0.1.4"
 edition = "2021"
 license = "MIT"
 description = "Derive macros for the Neovide gui"
@@ -15,4 +15,4 @@ proc-macro = true
 [dependencies]
 syn = "2.0"
 quote = "1.0"
-convert_case = "0.7.0"
+convert_case = "0.8.0"

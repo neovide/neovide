@@ -84,6 +84,7 @@ impl WindowAnchor {
             WindowAnchor::NorthEast => (grid_left - width as f64, grid_top),
             WindowAnchor::SouthWest => (grid_left, grid_top - height as f64),
             WindowAnchor::SouthEast => (grid_left - width as f64, grid_top - height as f64),
+            WindowAnchor::Absolute => (grid_left, grid_top),
         }
     }
 }
@@ -289,21 +290,30 @@ impl Editor {
                 anchor_column: anchor_left,
                 anchor_row: anchor_top,
                 z_index,
+                comp_index,
+                screen_row,
+                screen_col,
                 ..
             } => {
                 tracy_zone!("EditorWindowFloatPosition");
-                self.composition_order += 1;
-                self.set_window_float_position(
-                    grid,
-                    anchor_grid,
-                    anchor,
+                let anchor_type = if comp_index.is_some() {
+                    WindowAnchor::Absolute
+                } else {
+                    self.composition_order += 1;
+                    anchor
+                };
+                let sort_order = SortOrder {
+                    z_index,
+                    composition_order: comp_index.unwrap_or(self.composition_order),
+                };
+                let anchor = AnchorInfo {
+                    anchor_grid_id: anchor_grid,
+                    anchor_type,
                     anchor_left,
                     anchor_top,
-                    SortOrder {
-                        z_index,
-                        composition_order: self.composition_order,
-                    },
-                )
+                    sort_order,
+                };
+                self.set_window_float_position(grid, anchor, screen_col, screen_row)
             }
             RedrawEvent::WindowHide { grid } => {
                 tracy_zone!("EditorWindowHide");
@@ -321,10 +331,12 @@ impl Editor {
                 grid,
                 row,
                 scrolled,
+                z_index,
+                comp_index,
                 ..
             } => {
                 tracy_zone!("EditorMessageSetPosition");
-                self.set_message_position(grid, row, scrolled)
+                self.set_message_position(grid, row, scrolled, z_index, comp_index)
             }
             RedrawEvent::WindowViewport {
                 grid,
@@ -373,8 +385,6 @@ impl Editor {
     fn close_window(&mut self, grid: u64) {
         if let Some(window) = self.windows.remove(&grid) {
             window.close(&mut self.draw_command_batcher);
-            self.draw_command_batcher
-                .queue(DrawCommand::CloseWindow(grid));
         }
     }
 
@@ -382,19 +392,9 @@ impl Editor {
         if let Some(window) = self.windows.get_mut(&grid) {
             window.resize(&mut self.draw_command_batcher, (width, height));
             if let Some(anchor_info) = &window.anchor_info {
-                let anchor_grid_id = anchor_info.anchor_grid_id;
-                let anchor_type = anchor_info.anchor_type.clone();
-                let anchor_left = anchor_info.anchor_left;
-                let anchor_top = anchor_info.anchor_top;
-                let sort_order = anchor_info.sort_order.clone();
-                self.set_window_float_position(
-                    grid,
-                    anchor_grid_id,
-                    anchor_type,
-                    anchor_left,
-                    anchor_top,
-                    sort_order,
-                )
+                let anchor_info = anchor_info.clone();
+
+                self.set_window_float_position(grid, anchor_info, None, None)
             }
         } else {
             let window = Window::new(
@@ -441,52 +441,64 @@ impl Editor {
     fn set_window_float_position(
         &mut self,
         grid: u64,
-        anchor_grid: u64,
-        anchor_type: WindowAnchor,
-        anchor_left: f64,
-        anchor_top: f64,
-        sort_order: SortOrder,
+        anchor: AnchorInfo,
+        screen_col: Option<u64>,
+        screen_row: Option<u64>,
     ) {
-        if anchor_grid == grid {
+        if anchor.anchor_grid_id == grid {
             warn!("NeoVim requested a window to float relative to itself. This is not supported.");
             return;
         }
 
-        let parent_position = self.get_window_top_left(anchor_grid);
+        let parent_position = self.get_window_top_left(anchor.anchor_grid_id);
         if let Some(window) = self.windows.get_mut(&grid) {
             let width = window.get_width();
             let height = window.get_height();
-            let (mut modified_left, mut modified_top) =
-                anchor_type.modified_top_left(anchor_left, anchor_top, width, height);
-
-            if let Some((parent_left, parent_top)) = parent_position {
-                modified_left += parent_left;
-                modified_top += parent_top;
-            }
-
-            // Only update the sort order if it's the first position request (no anchor_info), or
-            // the z_index changes
-            let sort_order = if let Some(anchor_info) = &window.anchor_info {
-                if sort_order.z_index == anchor_info.sort_order.z_index {
-                    anchor_info.sort_order.clone()
+            let neovim_composed = anchor.anchor_type == WindowAnchor::Absolute;
+            let (left, top, sort_order) =
+                if neovim_composed {
+                    // NOTE: screen_col is None when the window is just resized
+                    if let (Some(screen_col), Some(screen_row)) = (screen_col, screen_row) {
+                        (
+                            screen_col as f64,
+                            screen_row as f64,
+                            anchor.sort_order.clone(),
+                        )
+                    } else {
+                        let (left, top) = window.get_grid_position();
+                        (left, top, anchor.sort_order.clone())
+                    }
                 } else {
-                    sort_order
-                }
-            } else {
-                sort_order
-            };
+                    let (mut modified_left, mut modified_top) = anchor
+                        .anchor_type
+                        .modified_top_left(anchor.anchor_left, anchor.anchor_top, width, height);
+
+                    if let Some((parent_left, parent_top)) = parent_position {
+                        modified_left += parent_left;
+                        modified_top += parent_top;
+                    }
+
+                    // Only update the sort order if it's the first position request (no anchor_info), or
+                    // the z_index changes
+                    let sort_order = if let Some(old_anchor) = &window.anchor_info {
+                        if anchor.sort_order.z_index == old_anchor.sort_order.z_index {
+                            old_anchor.sort_order.clone()
+                        } else {
+                            anchor.sort_order.clone()
+                        }
+                    } else {
+                        anchor.sort_order.clone()
+                    };
+                    (modified_left, modified_top, sort_order)
+                };
+            let mut anchor = anchor;
+            anchor.sort_order = sort_order;
 
             window.position(
                 &mut self.draw_command_batcher,
-                Some(AnchorInfo {
-                    anchor_grid_id: anchor_grid,
-                    anchor_type,
-                    anchor_left,
-                    anchor_top,
-                    sort_order,
-                }),
+                Some(anchor),
                 (width, height),
-                (modified_left, modified_top),
+                (left, top),
             );
             window.show(&mut self.draw_command_batcher);
         } else {
@@ -494,8 +506,21 @@ impl Editor {
         }
     }
 
-    fn set_message_position(&mut self, grid: u64, grid_top: u64, scrolled: bool) {
-        let z_index = MSG_ZINDEX;
+    fn set_message_position(
+        &mut self,
+        grid: u64,
+        grid_top: u64,
+        scrolled: bool,
+        z_index: Option<u64>,
+        comp_index: Option<u64>,
+    ) {
+        // HACK: workaround https://github.com/neovide/neovide/issues/3150 by ignoring grid id 0.
+        // The real grid id should always be something else. But Neovim 0.11.3 sends an extra
+        // msg_set_pos with grid id 0.
+        if grid == 0 {
+            return;
+        }
+        let z_index = z_index.unwrap_or(MSG_ZINDEX); // From the Neovim source code
         let parent_width = self
             .windows
             .get(&1)
@@ -509,7 +534,7 @@ impl Editor {
             anchor_top: grid_top as f64,
             sort_order: SortOrder {
                 z_index,
-                composition_order: self.composition_order,
+                composition_order: comp_index.unwrap_or(self.composition_order),
             },
         };
 
@@ -540,6 +565,10 @@ impl Editor {
         let window_anchor_info = &window.anchor_info;
 
         match window_anchor_info {
+            Some(AnchorInfo {
+                anchor_type: WindowAnchor::Absolute,
+                ..
+            }) => Some(window.get_grid_position()),
             Some(anchor_info) => {
                 let (parent_anchor_left, parent_anchor_top) =
                     self.get_window_top_left(anchor_info.anchor_grid_id)?;
@@ -596,10 +625,7 @@ impl Editor {
 
                 if !intentional && !already_there && !using_cmdline {
                     trace!(
-                        "Cursor unexpectedly sent to message buffer {} ({}, {})",
-                        grid,
-                        grid_left,
-                        grid_top
+                        "Cursor unexpectedly sent to message buffer {grid} ({grid_left}, {grid_top})"
                     );
                     return;
                 }

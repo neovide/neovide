@@ -1,10 +1,10 @@
-use std::sync::Arc;
+use std::{ops::Range, sync::Arc};
 
 use log::trace;
 use skia_safe::{colors, dash_path_effect, BlendMode, Canvas, Color, Paint, Path, HSV};
 
 use crate::{
-    editor::{Colors, Style, UnderlineStyle},
+    editor::{Colors, LineFragment, Style, UnderlineStyle},
     profiling::tracy_zone,
     renderer::{
         box_drawing::{self},
@@ -105,9 +105,10 @@ impl GridRenderer {
         trace!("Updated font dimensions: {:?}", self.grid_scale);
     }
 
-    fn compute_text_region(&self, grid_position: GridPos<i32>, num_cells: i32) -> PixelRect<f32> {
+    fn compute_text_region(&self, cells: &Range<u32>) -> PixelRect<f32> {
+        let grid_position = GridPos::new(cells.start, 0);
         let pos = grid_position * self.grid_scale;
-        let size = GridSize::new(num_cells, 1) * self.grid_scale;
+        let size = GridSize::new(cells.len() as i32, 1) * self.grid_scale;
         PixelRect::from_origin_and_size(pos, size)
     }
 
@@ -126,8 +127,7 @@ impl GridRenderer {
     pub fn draw_background(
         &mut self,
         canvas: &Canvas,
-        grid_position: GridPos<i32>,
-        cell_width: i32,
+        cells: &Range<u32>,
         style: &Option<Arc<Style>>,
         opacity: f32,
     ) -> BackgroundInfo {
@@ -139,8 +139,7 @@ impl GridRenderer {
                 transparent: self.default_style.blend > 0 || opacity < 1.0,
             };
         }
-
-        let region = self.compute_text_region(grid_position, cell_width);
+        let region = self.compute_text_region(cells);
         let style = style.as_ref().unwrap_or(&self.default_style);
         let style_background = style.background(&self.default_style.colors).to_color();
 
@@ -181,21 +180,20 @@ impl GridRenderer {
 
     /// Draws some foreground text.
     /// Returns true if any text was actually drawn.
-    #[allow(clippy::too_many_arguments)]
     pub fn draw_foreground(
         &mut self,
         text_canvas: &Canvas,
         boxchar_canvas: &Canvas,
-        text: &str,
-        grid_position: GridPos<i32>,
-        fragment_width: i32,
-        style: &Option<Arc<Style>>,
+        fragment: &LineFragment,
         window_position: PixelPos<f32>,
     ) -> (bool, bool) {
         tracy_zone!("draw_foreground");
-        let pos = grid_position * self.grid_scale;
-        let fragment_size = GridSize::new(fragment_width, 1) * self.grid_scale;
-        let width = fragment_size.width;
+
+        let LineFragment {
+            text, cells, style, ..
+        } = fragment;
+
+        let region = self.compute_text_region(cells);
 
         let style = style.as_ref().unwrap_or(&self.default_style);
         let mut text_drawn = false;
@@ -203,12 +201,12 @@ impl GridRenderer {
         if let Some(underline_style) = style.underline {
             let stroke_size = self.shaper.stroke_size();
             // Measure the underline offset from the baseline position snapped to a whole pixel
-            let baseline_position = (pos.y + self.shaper.baseline_offset()).round();
+            let baseline_position = self.shaper.baseline_offset().round();
             // The underline should be at least 1 pixel below the baseline
             let underline_position =
                 baseline_position - self.shaper.underline_offset().min(-1.).round();
-            let p1 = PixelPos::new(pos.x, underline_position);
-            let p2 = PixelPos::new(pos.x + width, underline_position);
+            let p1 = PixelPos::new(region.min.x, underline_position);
+            let p2 = PixelPos::new(region.max.x, underline_position);
 
             self.draw_underline(text_canvas, style, underline_style, stroke_size, p1, p2);
             text_drawn = true;
@@ -217,39 +215,19 @@ impl GridRenderer {
         if self.box_char_renderer.draw_glyph(
             text,
             boxchar_canvas,
-            PixelRect::from_origin_and_size(pos, fragment_size),
+            region,
             style.foreground(&self.default_style.colors).to_color(),
             window_position,
         ) {
             return (text_drawn, true);
         } else if !text.is_empty() {
-            let mut paint = Paint::default();
-            paint.set_anti_alias(false);
-            paint.set_blend_mode(BlendMode::SrcOver);
             text_canvas.save();
 
             // We don't want to clip text in the x position, only the y so we add a buffer of 1
             // character on either side of the region so that we clip vertically but not horizontally.
-            let clip_position = (grid_position.x.saturating_sub(1), grid_position.y).into();
-            let region = self.compute_text_region(clip_position, fragment_width + 2);
-
-            if self.settings.get::<RendererSettings>().debug_renderer {
-                let random_hsv: HSV = (rand::random::<f32>() * 360.0, 1.0, 1.0).into();
-                let random_color = random_hsv.to_color(255);
-                paint.set_color(random_color);
-            } else {
-                paint.set_color(style.foreground(&self.default_style.colors).to_color());
-            }
-            paint.set_anti_alias(false);
-            if self.settings.get::<RendererSettings>().debug_renderer {
-                let random_hsv: HSV = (rand::random::<f32>() * 360.0, 1.0, 1.0).into();
-                let random_color = random_hsv.to_color(255);
-                paint.set_color(random_color);
-            } else {
-                paint.set_color(style.foreground(&self.default_style.colors).to_color());
-            }
-            paint.set_anti_alias(false);
-            text_canvas.clip_rect(to_skia_rect(&region), None, Some(false));
+            let wider_cells = cells.start.saturating_sub(1)..cells.end + 1;
+            let clip_region = self.compute_text_region(&wider_cells);
+            text_canvas.clip_rect(to_skia_rect(&clip_region), None, Some(false));
 
             let mut paint = Paint::default();
             paint.set_anti_alias(false);
@@ -262,33 +240,29 @@ impl GridRenderer {
             } else {
                 paint.set_color(style.foreground(&self.default_style.colors).to_color());
             }
-            paint.set_anti_alias(false);
-            // There's a lot of overhead for empty blobs in Skia, for some reason they never hit the
-            // cache, so trim all the spaces
-            let trimmed = text.trim_start();
-            let leading_space_bytes = text.len() - trimmed.len();
-            let leading_spaces = text[..leading_space_bytes].chars().count();
-            let trimmed = trimmed.trim_end();
-            let adjustment = PixelVec::new(
-                leading_spaces as f32 * self.grid_scale.width(),
-                self.shaper.baseline_offset(),
-            );
+            for word in fragment.words() {
+                let adjustment = PixelVec::new(
+                    word.cell as f32 * self.grid_scale.width(),
+                    self.shaper.baseline_offset(),
+                );
 
-            for blob in self
-                .shaper
-                .shape_cached(trimmed.to_string(), style.into())
-                .iter()
-            {
-                tracy_zone!("draw_text_blob");
-                text_canvas.draw_text_blob(blob, to_skia_point(pos + adjustment), &paint);
-                text_drawn = true;
+                for blob in self.shaper.shape_cached(word, style.into()).iter() {
+                    tracy_zone!("draw_text_blob");
+                    text_canvas.draw_text_blob(
+                        blob,
+                        to_skia_point(region.min + adjustment),
+                        &paint,
+                    );
+                    text_drawn = true;
+                }
             }
+
             if style.strikethrough {
                 let line_position = region.center().y;
                 paint.set_color(style.special(&self.default_style.colors).to_color());
                 text_canvas.draw_line(
-                    (pos.x, line_position),
-                    (pos.x + width, line_position),
+                    (region.min.x, line_position),
+                    (region.max.x, line_position),
                     &paint,
                 );
                 text_drawn = true;

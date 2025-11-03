@@ -657,7 +657,7 @@ Lua:
 vim.g.neovide_macos_simple_fullscreen = true
 ```
 
-**Unreleased yet.**
+**Available since 0.15.1.**
 
 Setting `neovide_macos_simple_fullscreen` will hide the dock and menu bar for MacOS.
 
@@ -1235,6 +1235,29 @@ Only for the `railgun` vfx mode.
 Sets the velocity rotation speed of particles. The higher, the less particles actually move and look
 more "nervous", the lower, the more it looks like a collapsing sine wave.
 
-<!--
-  vim: textwidth=100
--->
+### Automatic settings, should be turned on/off for debug purposes only
+
+Note: These settings will be removed when the features are deemed stable. In most cases they are
+only here because the automatic detection of Neovim nightly versions does not always work.
+
+#### Autodetect mouse grid
+
+VimScript:
+
+```vim
+let g:neovide_has_mouse_grid_detection = v:true
+```
+
+Lua:
+
+```lua
+vim.g.neovide_has_mouse_grid_detection = true
+```
+
+**Unreleased yet.**
+
+**Requires Neovim 0.12.0.**
+
+Neovim will detect the mouse grid for much better mouse compatibility when enabled. This is
+automaticaly enabled starting from Neovim Nightly September 20. 2025. You should not try to enable
+it manually for unsupported versions, since the behaviour is undefined.

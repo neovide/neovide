@@ -21,7 +21,7 @@
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>CFBundleShortVersionString</key>
-  <string>0.15.0</string>
+  <string>0.15.2</string>
   <key>CFBundleVersion</key>
   <string>20230908.235224</string>
   <key>LSMinimumSystemVersion</key>
@@ -29,7 +29,7 @@
   <key>LSApplicationCategoryType</key>
   <string>public.app-category.productivity</string>
   <key>NSHumanReadableCopyright</key>
-  <string>Copyright (c) Neovide Contributors 2023. All rights reserved.</string>
+  <string>Copyright (c) Neovide Contributors 2025. All rights reserved.</string>
   <key>LSRequiresCarbon</key>
   <true/>
   <key>NSHighResolutionCapable</key>
@@ -1049,6 +1049,26 @@
       </array>
       <key>CFBundleTypeName</key>
       <string>Verilog HDL Header Source File</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+    </dict>
+    <dict>
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>go</string>
+      </array>
+      <key>CFBundleTypeName</key>
+      <string>Go Source File</string>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+    </dict>
+    <dict>
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>rs</string>
+      </array>
+      <key>CFBundleTypeName</key>
+      <string>Rust Source File</string>
       <key>CFBundleTypeRole</key>
       <string>Editor</string>
     </dict>
@@ -2429,6 +2449,40 @@
         <key>public.filename-extension</key>
         <array>
           <string>vh</string>
+        </array>
+      </dict>
+    </dict>
+    <dict>
+      <key>UTTypeConformsTo</key>
+      <array>
+        <string>public.plain-text</string>
+      </array>
+      <key>UTTypeDescription</key>
+      <string>Go Source File</string>
+      <key>UTTypeIdentifier</key>
+      <string>org.golang.go-script</string>
+      <key>UTTypeTagSpecification</key>
+      <dict>
+        <key>public.filename-extension</key>
+        <array>
+          <string>go</string>
+        </array>
+      </dict>
+    </dict>
+    <dict>
+      <key>UTTypeConformsTo</key>
+      <array>
+        <string>public.plain-text</string>
+      </array>
+      <key>UTTypeDescription</key>
+      <string>Rust Source File</string>
+      <key>UTTypeIdentifier</key>
+      <string>org.rust-lang.rust-script</string>
+      <key>UTTypeTagSpecification</key>
+      <dict>
+        <key>public.filename-extension</key>
+        <array>
+          <string>rs</string>
         </array>
       </dict>
     </dict>
