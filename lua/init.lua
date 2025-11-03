@@ -1,8 +1,10 @@
 ---@class Args
 ---@field neovide_channel_id integer
 ---@field neovide_version string
+---@field config_path string
 ---@field register_clipboard boolean
 ---@field register_right_click boolean
+---@field remote boolean
 ---@field enable_focus_command boolean
 ---@field global_variable_settings string[]
 ---@field option_settings string[]
@@ -146,5 +148,22 @@ M.enable_redraw = function()
     -- Wrap inside pcall to avoid errors if Neovide disconnects
     pcall(rpcnotify, "neovide.set_redraw", true)
 end
+
+vim.api.nvim_create_user_command("NeovideConfig", function()
+    if args.remote then
+        if vim.fn.filereadable(args.config_path) ~= 0 then
+            vim.notify(
+                "Neovide is running as a remote server. So the config file may not be on this machine.\n"
+                .. "Open it manually if you intend to edit the file anyway.\n"
+                .. "Config file location: "
+                .. args.config_path,
+                vim.log.levels.WARN,
+                { title = "Neovide" }
+            )
+        end
+    else
+        vim.cmd('edit ' .. vim.fn.fnameescape(args.config_path))
+    end
+end, {})
 
 _G["neovide"] = M

@@ -8,7 +8,7 @@ use super::{
 };
 use crate::{
     bridge::NeovimWriter,
-    settings::{SettingLocation, Settings},
+    settings::{config::config_path, SettingLocation, Settings},
 };
 
 const INIT_LUA: &str = include_str!("../../lua/init.lua");
@@ -28,7 +28,7 @@ pub async fn get_api_information(nvim: &Neovim<NeovimWriter>) -> Result<ApiInfor
 
 pub async fn setup_neovide_specific_state(
     nvim: &Neovim<NeovimWriter>,
-    should_handle_clipboard: bool,
+    remote: bool,
     api_information: &ApiInformation,
     settings: &Settings,
 ) -> Result<()> {
@@ -56,7 +56,7 @@ pub async fn setup_neovide_specific_state(
     .await
     .context("Error setting client info")?;
 
-    let register_clipboard = should_handle_clipboard;
+    let register_clipboard = remote;
     let register_right_click = cfg!(target_os = "windows");
 
     let setting_locations = settings.setting_locations();
@@ -80,8 +80,10 @@ pub async fn setup_neovide_specific_state(
         call_args![nvim_dict! {
             "neovide_channel_id" => api_information.channel,
             "neovide_version" => crate_version!(),
+            "config_path" => config_path().to_string_lossy().into_owned(),
             "register_clipboard" => register_clipboard,
             "register_right_click" => register_right_click,
+            "remote" => remote,
             "global_variable_settings" => global_variable_settings,
             "option_settings" => option_settings,
         }],
