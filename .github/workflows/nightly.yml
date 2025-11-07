@@ -1,0 +1,222 @@
+name: Nightly Release
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+
+jobs:
+  create_release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Delete old release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete nightly --yes || true
+          git push origin :nightly || true
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: nightly
+          release_name: Nightly
+          body: |
+            This is a pre-release build of Neovide.
+
+            **Note:** This release is not guaranteed to be stable.
+          draft: true
+          prerelease: true
+
+  build_and_upload:
+    name: Build and Upload
+    needs: create_release
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+
+      - name: Install Cargo Binstall
+        uses: cargo-bins/cargo-binstall@main
+
+      - name: Setup github long path support (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          git config --system core.longpaths true
+
+      - name: Install dependencies (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          if ! which cargo-wix; then cargo binstall -y cargo-wix; fi
+
+      - name: Setup Ninja
+        if: matrix.os == 'windows-latest'
+        uses: seanmiddleditch/gha-setup-ninja@v6
+
+      - name: Install dependencies (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          curl -L -o create-dmg.tar.gz https://github.com/create-dmg/create-dmg/archive/refs/tags/v1.2.2.tar.gz
+          tar -xzf create-dmg.tar.gz
+          cd create-dmg-1.2.2
+          sudo make install
+          cd ..
+          rustup target add x86_64-apple-darwin
+          rustup target add aarch64-apple-darwin
+
+      - name: Install dependencies (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get -qq install -y \
+            curl gnupg ca-certificates git gcc-multilib g++-multilib cmake \
+            libssl-dev pkg-config libfreetype6-dev libasound2-dev \
+            libexpat1-dev libxcb-composite0-dev libbz2-dev freeglut3-dev \
+            libxi-dev libfuse2 appstream
+
+      - name: Install neovim
+        uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build (Windows)
+        if: matrix.os == 'windows-latest'
+        env:
+          RUSTFLAGS: "-Ctarget-feature=+crt-static"
+        run: |
+          cargo wix --nocapture --output target/release/neovide.msi --package neovide
+
+      - name: Build (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          # x86
+          cargo build --locked --release --target=x86_64-apple-darwin
+          # arch
+          cargo build --locked --release --target=aarch64-apple-darwin
+
+      - name: Build (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        run: cargo build --locked --release
+
+      - name: create Neovide.app (macOS only)
+        if: matrix.os == 'macos-latest'
+        run: |
+          # create the .app only, fix the arguments later
+          GENERATE_BUNDLE_APP=true GENERATE_DMG=false ./macos-builder/run aarch64-apple-darwin
+          GENERATE_BUNDLE_APP=true GENERATE_DMG=false ./macos-builder/run x86_64-apple-darwin
+
+      - name: Prepare Artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          echo "ARTIFACT_NAME=neovide-windows-x86_64.msi" >> $GITHUB_ENV
+          echo "ARTIFACT_PATH=target/release/neovide.msi" >> $GITHUB_ENV
+
+      - name: Prepare Artifacts (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          cd $GITHUB_WORKSPACE
+          # create .dmg for x86_64-apple-darwin
+          GENERATE_BUNDLE_APP=false GENERATE_DMG=true ./macos-builder/run x86_64-apple-darwin
+
+          # create .dmg for aarch64-apple-darwin
+          GENERATE_BUNDLE_APP=false GENERATE_DMG=true ./macos-builder/run aarch64-apple-darwin
+
+          echo "ARTIFACT_NAME=neovide-macos-x86_64.dmg" >> $GITHUB_ENV
+          echo "ARTIFACT_PATH=target/x86_64-apple-darwin/release/bundle/osx/Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME_ARM=neovide-macos-aarch64.dmg" >> $GITHUB_ENV
+          echo "ARTIFACT_PATH_ARM=target/aarch64-apple-darwin/release/bundle/osx/Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV
+
+      - name: Prepare Artifacts (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          cd target/release
+          strip neovide
+          tar czvf neovide-linux-x86_64.tar.gz neovide
+          curl -Lo linuxdeploy https://github.com/linuxdeploy/linuxdeploy/releases/latest/download/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy
+          curl -Lo linuxdeploy-plugin-appimage https://github.com/linuxdeploy/linuxdeploy-plugin-appimage/releases/latest/download/linuxdeploy-plugin-appimage-x86_64.AppImage
+          chmod +x linuxdeploy-plugin-appimage
+          export LDAI_OUTPUT=neovide.AppImage
+          export LDAI_UPDATE_INFORMATION="gh-releases-zsync|neovide|neovide|latest|neovide.AppImage.zsync"
+          ./linuxdeploy \
+            --executable=neovide \
+            --desktop-file=../../assets/neovide.desktop \
+            --appdir=AppDir \
+            --icon-file=../../assets/neovide.svg \
+            --output=appimage
+          echo "ARTIFACT_NAME=neovide-linux-x86_64.tar.gz" >> $GITHUB_ENV
+          echo "ARTIFACT_PATH=target/release/neovide-linux-x86_64.tar.gz" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME_APPIMAGE=neovide-linux-x86_64.AppImage" >> $GITHUB_ENV
+          echo "ARTIFACT_PATH_APPIMAGE=target/release/neovide.AppImage" >> $GITHUB_ENV
+
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ${{ env.ARTIFACT_PATH }}
+          asset_name: ${{ env.ARTIFACT_NAME }}
+          asset_content_type: application/octet-stream
+
+      - if: env.ARTIFACT_NAME_ARM
+        name: Upload Release Asset (macOS ARM)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ${{ env.ARTIFACT_PATH_ARM }}
+          asset_name: ${{ env.ARTIFACT_NAME_ARM }}
+          asset_content_type: application/octet-stream
+
+      - if: env.ARTIFACT_NAME_APPIMAGE
+        name: Upload Release Asset (Linux AppImage)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ${{ env.ARTIFACT_PATH_APPIMAGE }}
+          asset_name: ${{ env.ARTIFACT_NAME_APPIMAGE }}
+          asset_content_type: application/octet-stream
+
+  publish_release:
+    name: Publish Release
+    needs: build_and_upload
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish Release
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { data: release } = await github.rest.repos.getReleaseByTag({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag: 'nightly'
+            });
+            await github.rest.repos.updateRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: release.id,
+              draft: false
+            });
