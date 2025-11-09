@@ -96,6 +96,9 @@ pub enum UserEvent {
     #[allow(dead_code)]
     RedrawRequested,
     NeovimExited,
+    ShowProgressBar {
+        percent: f32,
+    },
 }
 
 impl From<Vec<DrawCommand>> for UserEvent {

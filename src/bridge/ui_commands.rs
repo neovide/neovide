@@ -225,7 +225,6 @@ impl ParallelCommand {
             ParallelCommand::DisplayAvailableFonts(fonts) => display_available_fonts(nvim, fonts)
                 .await
                 .context("DisplayAvailableFonts failed"),
-
             ParallelCommand::ShowError { lines } => {
                 // nvim.err_write(&message).await.ok();
                 // NOTE: https://github.com/neovim/neovim/issues/5067

@@ -9,7 +9,10 @@ use rmpv::Value;
 use skia_safe::Color4f;
 use strum::AsRefStr;
 
-use crate::editor::{Colors, CursorMode, CursorShape, Style, UnderlineStyle};
+use crate::{
+    editor::{Colors, CursorMode, CursorShape, Style, UnderlineStyle},
+    window::UserEvent,
+};
 
 #[derive(Clone, Debug)]
 pub enum ParseError {
@@ -1062,4 +1065,15 @@ pub fn parse_redraw_event(event_value: Value) -> Result<Vec<RedrawEvent>> {
     }
 
     Ok(parsed_events)
+}
+
+pub fn parse_progress_bar_event(value: Option<&Value>) -> Option<UserEvent> {
+    let map = value.filter(|v| matches!(v, Value::Map(_)))?.as_map()?;
+    let percent = map
+        .iter()
+        .find(|(key, _)| key.as_str() == Some("percent"))
+        .and_then(|(_, value)| value.as_f64())
+        .unwrap_or(0.0) as f32;
+
+    Some(UserEvent::ShowProgressBar { percent })
 }
