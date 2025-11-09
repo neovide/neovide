@@ -747,6 +747,27 @@ encouraged in order to tune it to your liking.</p>
 <p>When scrolling more than one screen at a time, only this many lines at the end of the scroll action
 will be animated. Set it to 0 to snap to the final position without any animation, or to something
 big like 9999 to always scroll the whole screen, much like Neovide &lt;= 0.10.4 did.</p>
+<h4 id="progress-bar"><a class="header" href="#progress-bar">Progress Bar</a></h4>
+<p>VimScript:</p>
+<pre><code class="language-vim">let g:neovide_progress_bar_enabled = v:true
+let g:neovide_progress_bar_height = 5.0
+let g:neovide_progress_bar_animation_speed = 200.0
+let g:neovide_progress_bar_hide_delay = 0.2
+</code></pre>
+<p>Lua:</p>
+<pre><code class="language-lua">vim.g.neovide_progress_bar_enabled = true
+vim.g.neovide_progress_bar_height = 5.0
+vim.g.neovide_progress_bar_animation_speed = 200.0
+vim.g.neovide_progress_bar_hide_delay = 0.2
+</code></pre>
+<p><strong>Unreleased yet.</strong></p>
+<ul>
+<li><code>g:neovide_progress_bar_enabled</code> sets whether the progress bar is enabled.</li>
+<li><code>g:neovide_progress_bar_height</code> sets the height of the progress bar in pixels.</li>
+<li><code>g:neovide_progress_bar_animation_speed</code> sets the speed of the progress bar animation.</li>
+<li><code>g:neovide_progress_bar_hide_delay</code> sets the delay in seconds before the progress bar is
+hidden after reaching 100%.</li>
+</ul>
 <h4 id="hiding-the-mouse-when-typing"><a class="header" href="#hiding-the-mouse-when-typing">Hiding the mouse when typing</a></h4>
 <p>VimScript:</p>
 <pre><code class="language-vim">let g:neovide_hide_mouse_when_typing = v:false
