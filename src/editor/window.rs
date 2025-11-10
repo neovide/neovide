@@ -385,6 +385,48 @@ impl Window {
         }
     }
 
+    pub fn draw_centered_text_line(
+        &mut self,
+        batcher: &mut DrawCommandBatcher,
+        row: usize,
+        text: &str,
+    ) {
+        if row >= self.grid.height {
+            return;
+        }
+
+        for column in 0..self.grid.width {
+            if let Some(cell) = self.grid.get_cell_mut(column, row) {
+                *cell = (" ".to_string(), None);
+            }
+        }
+
+        if text.is_empty() {
+            self.redraw_line(batcher, row);
+            return;
+        }
+
+        let text_width = text.chars().count();
+        let start_column = if text_width >= self.grid.width {
+            0
+        } else {
+            (self.grid.width - text_width) / 2
+        };
+
+        for (offset, ch) in text.chars().enumerate() {
+            let column = start_column + offset;
+            if column >= self.grid.width {
+                break;
+            }
+
+            if let Some(cell) = self.grid.get_cell_mut(column, row) {
+                *cell = (ch.to_string(), None);
+            }
+        }
+
+        self.redraw_line(batcher, row);
+    }
+
     pub fn scroll_region(
         &mut self,
         batcher: &mut DrawCommandBatcher,

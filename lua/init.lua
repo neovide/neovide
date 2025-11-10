@@ -171,6 +171,93 @@ local function progress_bar(data)
     pcall(rpcnotify, "neovide.progress_bar", data)
 end
 
+local function buffer_is_empty(bufnr)
+    if vim.api.nvim_buf_line_count(bufnr) ~= 1 then
+        return false
+    end
+    local first_line = vim.api.nvim_buf_get_lines(bufnr, 0, 1, true)[1]
+    return first_line == nil or first_line == ""
+end
+
+local function current_window_is_only_normal()
+    local current = vim.api.nvim_get_current_win()
+    local found
+    for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+        local config = vim.api.nvim_win_get_config(win)
+        if config.relative == "" then
+            if found ~= nil then
+                return false
+            end
+            found = win
+        end
+    end
+    return found ~= nil and found == current
+end
+
+local function shortmess_allows_intro()
+    return not string.find(vim.o.shortmess or "", "I", 1, true)
+end
+
+local function should_show_intro_banner()
+    local current_buffer = vim.api.nvim_get_current_buf()
+    local buffer_name = vim.api.nvim_buf_get_name(current_buffer)
+    local current_window = vim.api.nvim_get_current_win()
+
+    return buffer_is_empty(current_buffer)
+        and buffer_name == ""
+        and current_buffer == 1
+        and current_window == 1000
+        and current_window_is_only_normal()
+        and shortmess_allows_intro()
+end
+
+local intro_banner_state
+
+local function notify_intro_state()
+    local allowed = false
+    local ok, result = pcall(should_show_intro_banner)
+    if ok then
+        allowed = result
+    end
+
+    if intro_banner_state ~= allowed then
+        intro_banner_state = allowed
+        pcall(rpcnotify, "neovide.intro_banner_allowed", allowed)
+    end
+end
+
+local function schedule_intro_state_check()
+    vim.schedule(notify_intro_state)
+end
+
+local intro_group = vim.api.nvim_create_augroup("NeovideIntroBanner", { clear = true })
+
+vim.api.nvim_create_autocmd({
+    "VimEnter",
+    "BufEnter",
+    "BufFilePost",
+    "BufNewFile",
+    "BufReadPost",
+    "TextChanged",
+    "TextChangedI",
+    "WinEnter",
+    "WinNew",
+    "WinClosed",
+    "TabEnter",
+    "TabClosed",
+}, {
+    group = intro_group,
+    callback = schedule_intro_state_check,
+})
+
+vim.api.nvim_create_autocmd("OptionSet", {
+    group = intro_group,
+    pattern = "shortmess",
+    callback = schedule_intro_state_check,
+})
+
+notify_intro_state()
+
 pcall(vim.api.nvim_create_autocmd, 'Progress', {
     group = vim.api.nvim_create_augroup('NeovideProgressBar', { clear = true }),
     desc = 'Forward progress events to Neovide',

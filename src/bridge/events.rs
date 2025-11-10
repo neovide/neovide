@@ -419,6 +419,7 @@ pub enum RedrawEvent {
     },
     Suspend,
     NeovideSetRedraw(bool),
+    NeovideIntroBannerAllowed(bool),
 }
 
 fn unpack_color(packed_color: u64) -> Color4f {
