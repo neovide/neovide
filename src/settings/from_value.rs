@@ -42,6 +42,16 @@ impl ParseFromValue for u32 {
     }
 }
 
+impl ParseFromValue for i64 {
+    fn parse_from_value(&mut self, value: Value) {
+        if value.is_i64() {
+            *self = value.as_i64().unwrap();
+        } else {
+            error!("Setting expected an i64, but received {:?}", value);
+        }
+    }
+}
+
 impl ParseFromValue for i32 {
     fn parse_from_value(&mut self, value: Value) {
         if value.is_i64() {
