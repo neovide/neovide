@@ -207,8 +207,11 @@ jobs:
       - name: Prepare Artifacts (Windows)
         if: matrix.os == 'windows-latest'
         run: |
+          pwsh -Command 'Compress-Archive -Path "$env:GITHUB_WORKSPACE/target/release/neovide.exe" -DestinationPath "$env:GITHUB_WORKSPACE/target/release/neovide-windows-x86_64.zip" -Force'
           echo "ARTIFACT_NAME=neovide.msi" >> $GITHUB_ENV
           echo "ARTIFACT_PATH=target/release/neovide.msi" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME_WINDOWS_ZIP=neovide-windows-x86_64.zip" >> $GITHUB_ENV
+          echo "ARTIFACT_PATH_WINDOWS_ZIP=target/release/neovide-windows-x86_64.zip" >> $GITHUB_ENV
 
       - name: Prepare Artifacts (macOS)
         if: matrix.os == 'macos-latest'
@@ -220,10 +223,18 @@ jobs:
           # create .dmg for aarch64-apple-darwin
           GENERATE_BUNDLE_APP=false GENERATE_DMG=true ./macos-builder/run aarch64-apple-darwin
 
+          # archive the raw binaries
+          tar czvf target/x86_64-apple-darwin/release/neovide-macos-x86_64.tar.gz -C target/x86_64-apple-darwin/release neovide
+          tar czvf target/aarch64-apple-darwin/release/neovide-macos-aarch64.tar.gz -C target/aarch64-apple-darwin/release neovide
+
           echo "ARTIFACT_NAME=Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
           echo "ARTIFACT_PATH=target/x86_64-apple-darwin/release/bundle/osx/Neovide-x86_64-apple-darwin.dmg" >> $GITHUB_ENV
           echo "ARTIFACT_NAME_ARM=Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV
           echo "ARTIFACT_PATH_ARM=target/aarch64-apple-darwin/release/bundle/osx/Neovide-aarch64-apple-darwin.dmg" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME_MACOS_TAR_X86=neovide-macos-x86_64.tar.gz" >> $GITHUB_ENV
+          echo "ARTIFACT_PATH_MACOS_TAR_X86=target/x86_64-apple-darwin/release/neovide-macos-x86_64.tar.gz" >> $GITHUB_ENV
+          echo "ARTIFACT_NAME_MACOS_TAR_ARM=neovide-macos-aarch64.tar.gz" >> $GITHUB_ENV
+          echo "ARTIFACT_PATH_MACOS_TAR_ARM=target/aarch64-apple-darwin/release/neovide-macos-aarch64.tar.gz" >> $GITHUB_ENV
 
       - name: Prepare Artifacts (Linux)
         if: matrix.os == 'ubuntu-22.04'
@@ -269,6 +280,28 @@ jobs:
           asset_name: ${{ env.ARTIFACT_NAME_ARM }}
           asset_content_type: application/octet-stream
 
+      - if: env.ARTIFACT_NAME_MACOS_TAR_X86
+        name: Upload Release Asset (macOS x86 tarball)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ${{ env.ARTIFACT_PATH_MACOS_TAR_X86 }}
+          asset_name: ${{ env.ARTIFACT_NAME_MACOS_TAR_X86 }}
+          asset_content_type: application/octet-stream
+
+      - if: env.ARTIFACT_NAME_MACOS_TAR_ARM
+        name: Upload Release Asset (macOS ARM tarball)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ${{ env.ARTIFACT_PATH_MACOS_TAR_ARM }}
+          asset_name: ${{ env.ARTIFACT_NAME_MACOS_TAR_ARM }}
+          asset_content_type: application/octet-stream
+
       - if: env.ARTIFACT_NAME_APPIMAGE
         name: Upload Release Asset (Linux AppImage)
         uses: actions/upload-release-asset@v1
@@ -278,6 +311,17 @@ jobs:
           upload_url: ${{ needs.create_release.outputs.upload_url }}
           asset_path: ${{ env.ARTIFACT_PATH_APPIMAGE }}
           asset_name: ${{ env.ARTIFACT_NAME_APPIMAGE }}
+          asset_content_type: application/octet-stream
+
+      - if: env.ARTIFACT_NAME_WINDOWS_ZIP
+        name: Upload Release Asset (Windows Zip)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create_release.outputs.upload_url }}
+          asset_path: ${{ env.ARTIFACT_PATH_WINDOWS_ZIP }}
+          asset_name: ${{ env.ARTIFACT_NAME_WINDOWS_ZIP }}
           asset_content_type: application/octet-stream
 
   publish_release:
