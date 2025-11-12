@@ -10,7 +10,11 @@ pub fn create_nvim_command(settings: &Settings) -> TokioCommand {
     let mut args = Vec::new();
     args.push("--embed".to_string());
     args.extend(settings.get::<CmdLineSettings>().neovim_args);
-    create_platform_command(&bin, &args, settings)
+    let mut cmd = create_platform_command(&bin, &args, settings);
+    if let Some(dir) = settings.get::<CmdLineSettings>().chdir {
+        cmd.current_dir(dir);
+    }
+    cmd
 }
 
 // Creates a shell command if needed on this platform
