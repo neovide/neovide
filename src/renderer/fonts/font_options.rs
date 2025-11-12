@@ -109,6 +109,7 @@ pub struct FontOptions {
     pub width: f32,
     pub hinting: FontHinting,
     pub edging: FontEdging,
+    pub underline_offset: Option<f32>,
 }
 
 impl FontFeature {
@@ -122,11 +123,11 @@ impl FontFeature {
             if let Ok(value) = value {
                 Ok(FontFeature(name.to_string(), value))
             } else {
-                warn!("Wrong feature format: {}", feature);
+                warn!("Wrong feature format: {feature}");
                 Err(feature)
             }
         } else {
-            warn!("Wrong feature format: {}", feature);
+            warn!("Wrong feature format: {feature}");
             Err(feature)
         }
     }
@@ -260,6 +261,7 @@ impl Default for FontOptions {
             width: 0.0,
             hinting: FontHinting::default(),
             edging: FontEdging::default(),
+            underline_offset: None,
         }
     }
 }

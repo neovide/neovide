@@ -1,8 +1,10 @@
 ---@class Args
 ---@field neovide_channel_id integer
 ---@field neovide_version string
+---@field config_path string
 ---@field register_clipboard boolean
 ---@field register_right_click boolean
+---@field remote boolean
 ---@field enable_focus_command boolean
 ---@field global_variable_settings string[]
 ---@field option_settings string[]
@@ -136,5 +138,53 @@ M.private.dropfile = function(filename, tabs)
         mods = tabs and { tab = #vim.api.nvim_list_tabpages() } or {},
     }, {})
 end
+
+M.disable_redraw = function()
+    -- Wrap inside pcall to avoid errors if Neovide disconnects
+    pcall(rpcnotify, "neovide.set_redraw", false)
+end
+
+M.enable_redraw = function()
+    -- Wrap inside pcall to avoid errors if Neovide disconnects
+    pcall(rpcnotify, "neovide.set_redraw", true)
+end
+
+vim.api.nvim_create_user_command("NeovideConfig", function()
+    if args.remote then
+        if vim.fn.filereadable(args.config_path) ~= 0 then
+            vim.notify(
+                "Neovide is running as a remote server. So the config file may not be on this machine.\n"
+                .. "Open it manually if you intend to edit the file anyway.\n"
+                .. "Config file location: "
+                .. args.config_path,
+                vim.log.levels.WARN,
+                { title = "Neovide" }
+            )
+        end
+    else
+        vim.cmd('edit ' .. vim.fn.fnameescape(args.config_path))
+    end
+end, {})
+
+local function progress_bar(data)
+    -- Wrap inside pcall to avoid errors if Neovide disconnects.
+    pcall(rpcnotify, "neovide.progress_bar", data)
+end
+
+pcall(vim.api.nvim_create_autocmd, 'Progress', {
+    group = vim.api.nvim_create_augroup('NeovideProgressBar', { clear = true }),
+    desc = 'Forward progress events to Neovide',
+    callback = function(ev)
+        if ev.data and ev.data.status == 'running' then
+            progress_bar({
+                percent = ev.data.percent or 0,
+                title = ev.data.title or "",
+                message = ev.data.message or "",
+            })
+        else
+            progress_bar({ percent = 100 })
+        end
+    end,
+})
 
 _G["neovide"] = M

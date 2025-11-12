@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::sync::Arc;
+use std::{rc::Rc, sync::Arc};
 
 use crate::{
     profiling::tracy_zone,
@@ -11,7 +11,7 @@ use skia_safe::{Canvas, Color, Paint, Point, Rect, Size};
 const FRAMETIMES_COUNT: usize = 48;
 
 pub struct Profiler {
-    pub font: Arc<FontPair>,
+    pub font: Rc<FontPair>,
     pub position: Point,
     pub size: Size,
     pub frametimes: VecDeque<f32>,

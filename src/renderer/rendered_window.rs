@@ -1,10 +1,11 @@
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::{cell::RefCell, rc::Rc};
 
 use skia_safe::{Canvas, Color, Matrix, Picture, PictureRecorder, Rect};
 
 use crate::{
+    bridge::WindowAnchor,
     cmd_line::CmdLineSettings,
-    editor::{AnchorInfo, SortOrder, Style, WindowType},
+    editor::{AnchorInfo, Line, LineFragment, SortOrder, WindowType},
     profiling::{tracy_plot, tracy_zone},
     renderer::{animation_utils::*, GridRenderer, RendererSettings},
     settings::Settings,
@@ -12,21 +13,13 @@ use crate::{
     utils::RingBuffer,
 };
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct LineFragment {
-    pub text: String,
-    pub window_left: u64,
-    pub width: u64,
-    pub style: Option<Arc<Style>>,
-}
-
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub struct ViewportMargins {
     pub top: u64,
     pub bottom: u64,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Debug)]
 pub enum WindowDrawCommand {
     Position {
         grid_position: (f64, f64),
@@ -36,7 +29,7 @@ pub enum WindowDrawCommand {
     },
     DrawLine {
         row: usize,
-        line_fragments: Vec<LineFragment>,
+        line: Line,
     },
     Scroll {
         top: u64,
@@ -56,15 +49,16 @@ pub enum WindowDrawCommand {
     ViewportMargins {
         top: u64,
         bottom: u64,
+        #[allow(unused)]
         left: u64,
+        #[allow(unused)]
         right: u64,
     },
     SortOrder(SortOrder),
 }
 
-#[derive(Clone)]
-struct Line {
-    line_fragments: Vec<LineFragment>,
+struct RenderedLine {
+    line: Line,
     background_picture: Option<Picture>,
     foreground_picture: Option<Picture>,
     boxchar_picture: Option<(Picture, PixelPos<f32>)>,
@@ -81,8 +75,8 @@ pub struct RenderedWindow {
 
     pub grid_size: GridSize<u32>,
 
-    scrollback_lines: RingBuffer<Option<Rc<RefCell<Line>>>>,
-    actual_lines: RingBuffer<Option<Rc<RefCell<Line>>>>,
+    scrollback_lines: RingBuffer<Option<Rc<RefCell<RenderedLine>>>>,
+    actual_lines: RingBuffer<Option<Rc<RefCell<RenderedLine>>>>,
     scroll_delta: isize,
     pub viewport_margins: ViewportMargins,
 
@@ -149,31 +143,36 @@ impl RenderedWindow {
     fn get_target_position(&self, grid_rect: &GridRect<f32>) -> GridPos<f32> {
         let destination = self.grid_destination + grid_rect.min.to_vector();
 
-        if self.anchor_info.is_none() {
-            return destination;
-        }
+        match self.anchor_info {
+            None => destination,
+            Some(AnchorInfo {
+                anchor_type: WindowAnchor::Absolute,
+                ..
+            }) => destination,
+            _ => {
+                let mut grid_size: GridSize<f32> = self.grid_size.try_cast().unwrap();
 
-        let mut grid_size: GridSize<f32> = self.grid_size.try_cast().unwrap();
+                if matches!(self.window_type, WindowType::Message { .. }) {
+                    // The message grid size is always the full window size, so use the relative position to
+                    // calculate the actual grid size
+                    grid_size.height -= self.grid_destination.y;
+                }
+                // If a floating window is partially outside the grid, then move it in from the right, but
+                // ensure that the left edge is always visible.
+                let x = destination
+                    .x
+                    .min(grid_rect.max.x - grid_size.width)
+                    .max(grid_rect.min.x);
 
-        if matches!(self.window_type, WindowType::Message { .. }) {
-            // The message grid size is always the full window size, so use the relative position to
-            // calculate the actual grid size
-            grid_size.height -= self.grid_destination.y;
+                // For messages the last line is most important, (it shows press enter), so let the position go negative
+                // Otherwise ensure that the window start row is within the screen
+                let mut y = destination.y.min(grid_rect.max.y - grid_size.height);
+                if !matches!(self.window_type, WindowType::Message { .. }) {
+                    y = y.max(grid_rect.min.y)
+                }
+                GridPos::<f32>::new(x, y)
+            }
         }
-        // If a floating window is partially outside the grid, then move it in from the right, but
-        // ensure that the left edge is always visible.
-        let x = destination
-            .x
-            .min(grid_rect.max.x - grid_size.width)
-            .max(grid_rect.min.x);
-
-        // For messages the last line is most important, (it shows press enter), so let the position go negative
-        // Otherwise ensure that the window start row is within the screen
-        let mut y = destination.y.min(grid_rect.max.y - grid_size.height);
-        if !matches!(self.window_type, WindowType::Message { .. }) {
-            y = y.max(grid_rect.min.y)
-        }
-        GridPos::<f32>::new(x, y)
     }
 
     /// Returns `true` if the window has been animated in this step.
@@ -243,12 +242,7 @@ impl RenderedWindow {
                 pics += 1;
             }
         }
-        log::trace!(
-            "region: {:?}, inner: {:?}, pics: {}",
-            pixel_region,
-            inner_region,
-            pics
-        );
+        log::trace!("region: {pixel_region:?}, inner: {inner_region:?}, pics: {pics}");
         canvas.restore();
     }
 
@@ -398,14 +392,11 @@ impl RenderedWindow {
                     self.grid_destination = grid_position;
                 }
             }
-            WindowDrawCommand::DrawLine {
-                row,
-                line_fragments,
-            } => {
+            WindowDrawCommand::DrawLine { row, line } => {
                 tracy_zone!("draw_line_cmd", 0);
 
-                let line = Line {
-                    line_fragments,
+                let line = RenderedLine {
+                    line,
                     background_picture: None,
                     foreground_picture: None,
                     boxchar_picture: None,
@@ -496,7 +487,10 @@ impl RenderedWindow {
         if scroll_delta != 0 {
             let mut scroll_offset = self.scroll_animation.position;
 
-            let max_delta = self.scrollback_lines.len() - self.grid_size.height as usize;
+            let max_delta = self
+                .scrollback_lines
+                .len()
+                .saturating_sub(self.grid_size.height as usize);
             log::trace!(
                 "Scroll offset {scroll_offset}, delta {scroll_delta}, max_delta {max_delta}"
             );
@@ -527,7 +521,7 @@ impl RenderedWindow {
         self.scroll_delta = 0;
     }
 
-    fn iter_border_lines(&self) -> impl Iterator<Item = (isize, &Rc<RefCell<Line>>)> {
+    fn iter_border_lines(&self) -> impl Iterator<Item = (isize, &Rc<RefCell<RenderedLine>>)> {
         let top_border_indices = 0..self.viewport_margins.top as isize;
         let actual_line_count = self.actual_lines.len() as isize;
         let bottom_border_indices =
@@ -540,7 +534,7 @@ impl RenderedWindow {
 
     // Iterates over the scrollable lines (excluding the viewport margins). Includes the index for
     // the given line being scrolled
-    fn iter_scrollable_lines(&self) -> impl Iterator<Item = (isize, &Rc<RefCell<Line>>)> {
+    fn iter_scrollable_lines(&self) -> impl Iterator<Item = (isize, &Rc<RefCell<RenderedLine>>)> {
         let scroll_offset_lines = self.scroll_animation.position.floor();
         let scroll_offset_lines = scroll_offset_lines as isize;
         let inner_size = self.actual_lines.len() as isize
@@ -564,7 +558,7 @@ impl RenderedWindow {
         &self,
         pixel_region: PixelRect<f32>,
         grid_scale: GridScale,
-    ) -> impl Iterator<Item = (Matrix, &Rc<RefCell<Line>>)> {
+    ) -> impl Iterator<Item = (Matrix, &Rc<RefCell<RenderedLine>>)> {
         let scroll_offset_lines = self.scroll_animation.position.floor();
         let scroll_offset = scroll_offset_lines - self.scroll_animation.position;
         let scroll_offset_pixels = (scroll_offset * grid_scale.height()).round();
@@ -585,7 +579,7 @@ impl RenderedWindow {
         &self,
         pixel_region: PixelRect<f32>,
         grid_scale: GridScale,
-    ) -> impl Iterator<Item = (Matrix, &Rc<RefCell<Line>>)> {
+    ) -> impl Iterator<Item = (Matrix, &Rc<RefCell<RenderedLine>>)> {
         self.iter_border_lines().map(move |(i, line)| {
             let mut matrix = Matrix::new_identity();
             matrix.set_translate((
@@ -618,7 +612,7 @@ impl RenderedWindow {
         }
         let grid_scale = grid_renderer.grid_scale;
 
-        let mut prepare_line = |line: &Rc<RefCell<Line>>| {
+        let mut prepare_line = |line: &Rc<RefCell<RenderedLine>>| {
             let mut line = line.borrow_mut();
             let position = self.grid_destination * grid_renderer.grid_scale;
             let boxchar_moved = match line.boxchar_picture {
@@ -635,54 +629,31 @@ impl RenderedWindow {
 
             let line_size = GridSize::new(self.grid_size.width, 1) * grid_scale;
             let grid_rect = Rect::from_wh(line_size.width, line_size.height);
-            let canvas = recorder.begin_recording(grid_rect, None);
+            let canvas = recorder.begin_recording(grid_rect, false);
 
             let mut has_transparency = false;
             let mut custom_background = false;
 
-            for line_fragment in line.line_fragments.iter() {
-                let LineFragment {
-                    window_left,
-                    width,
-                    style,
-                    ..
-                } = line_fragment;
-                let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
-                let background_info = grid_renderer.draw_background(
-                    canvas,
-                    grid_position,
-                    i32::try_from(*width).unwrap(),
-                    style,
-                    opacity,
-                );
+            for line_fragment in line.line.fragments() {
+                let LineFragment { cells, style, .. } = line_fragment;
+                let background_info = grid_renderer.draw_background(canvas, cells, style, opacity);
                 custom_background |= background_info.custom_color;
                 has_transparency |= background_info.transparent;
             }
             let background_picture =
                 custom_background.then_some(recorder.finish_recording_as_picture(None).unwrap());
 
-            let text_canvas = recorder.begin_recording(grid_rect, None);
+            let text_canvas = recorder.begin_recording(grid_rect, false);
             let mut boxchar_recorder = PictureRecorder::new();
             let boxchar_canvas =
-                boxchar_recorder.begin_recording(grid_rect.with_offset((position.x, 0.0)), None);
+                boxchar_recorder.begin_recording(grid_rect.with_offset((position.x, 0.0)), false);
             let mut text_drawn = false;
             let mut boxchar_drawn = false;
-            for line_fragment in &line.line_fragments {
-                let LineFragment {
-                    text,
-                    window_left,
-                    width,
-                    style,
-                } = line_fragment;
-                let grid_position = (i32::try_from(*window_left).unwrap(), 0).into();
-
+            for line_fragment in line.line.fragments() {
                 let (frag_text_drawn, frag_box_drawn) = grid_renderer.draw_foreground(
                     text_canvas,
                     boxchar_canvas,
-                    text,
-                    grid_position,
-                    i32::try_from(*width).unwrap(),
-                    style,
+                    &line_fragment,
                     position,
                 );
                 text_drawn |= frag_text_drawn;

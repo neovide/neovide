@@ -22,6 +22,7 @@ mod dimensions;
 mod editor;
 mod error_handling;
 mod frame;
+mod platform;
 mod profiling;
 mod renderer;
 mod running_tracker;
@@ -62,7 +63,9 @@ use backtrace::Backtrace;
 use bridge::NeovimRuntime;
 use cmd_line::CmdLineSettings;
 use error_handling::handle_startup_errors;
-use renderer::{cursor_renderer::CursorSettings, RendererSettings};
+use renderer::{
+    cursor_renderer::CursorSettings, progress_bar::ProgressBarSettings, RendererSettings,
+};
 use running_tracker::RunningTracker;
 use window::{
     create_event_loop, determine_window_size, UpdateLoop, UserEvent, WindowSettings, WindowSize,
@@ -214,6 +217,7 @@ fn setup(
     settings.register::<WindowSettings>();
     settings.register::<RendererSettings>();
     settings.register::<CursorSettings>();
+    settings.register::<ProgressBarSettings>();
 
     let config = Config::init();
     Config::watch_config_file(config.clone(), proxy.clone());
@@ -358,8 +362,8 @@ fn log_panic_to_file(panic_info: &PanicHookInfo, backtrace: &Backtrace, path: &O
     };
 
     match file.write_all(log_msg.as_bytes()) {
-        Ok(()) => eprintln!("\nBacktrace saved to {:?}!", file_path),
-        Err(e) => eprintln!("Failed writing panic to {:?}: {e}", file_path),
+        Ok(()) => eprintln!("\nBacktrace saved to {file_path:?}!"),
+        Err(e) => eprintln!("Failed writing panic to {file_path:?}: {e}"),
     }
 }
 

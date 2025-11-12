@@ -17,7 +17,7 @@ use crate::{
     bridge::{send_ui, SerialCommand},
     renderer::{Renderer, WindowDrawDetails},
     settings::Settings,
-    units::{GridPos, GridScale, GridVec, PixelPos, PixelRect, PixelSize, PixelVec},
+    units::{GridPos, GridScale, GridSize, GridVec, PixelPos, PixelRect, PixelSize, PixelVec},
     window::keyboard_manager::KeyboardManager,
     window::WindowSettings,
 };
@@ -41,6 +41,7 @@ struct DragDetails {
 struct EditorState<'a> {
     grid_scale: &'a GridScale,
     window_regions: &'a Vec<WindowDrawDetails>,
+    full_region: WindowDrawDetails,
     window: &'a Window,
     keyboard_manager: &'a KeyboardManager,
 }
@@ -91,14 +92,20 @@ impl MouseManager {
         editor_state: &'b EditorState<'b>,
     ) -> Option<&'b WindowDrawDetails> {
         let position = self.window_position;
-
-        // the rendered window regions are sorted by draw order, so the earlier windows in the
-        // list are drawn under the later ones
-        editor_state
-            .window_regions
-            .iter()
-            .filter(|details| details.region.contains(&position))
-            .next_back()
+        if self
+            .settings
+            .get::<WindowSettings>()
+            .has_mouse_grid_detection
+        {
+            Some(&editor_state.full_region)
+        } else {
+            // the rendered window regions are sorted by draw order, so the earlier windows in the
+            // list are drawn under the later ones
+            editor_state
+                .window_regions
+                .iter()
+                .rfind(|details| details.region.contains(&position))
+        }
     }
 
     fn get_relative_position(
@@ -122,20 +129,29 @@ impl MouseManager {
         let window_size = editor_state.window.inner_size();
         let window_size = PixelSize::new(window_size.width as f32, window_size.height as f32);
         let relative_window_rect = PixelRect::from_size(window_size);
-        if !relative_window_rect.contains(&position) {
-            return;
-        }
 
         self.window_position = position;
 
         // If dragging, the relevant window (the one which we send all commands to) is the one
         // which the mouse drag started on. Otherwise its the top rendered window
         let window_details = if let Some(drag_details) = &self.drag_details {
-            editor_state
-                .window_regions
-                .iter()
-                .find(|details| details.id == drag_details.draw_details.id)
+            if self
+                .settings
+                .get::<WindowSettings>()
+                .has_mouse_grid_detection
+            {
+                Some(&editor_state.full_region)
+            } else {
+                editor_state
+                    .window_regions
+                    .iter()
+                    .find(|details| details.id == drag_details.draw_details.id)
+            }
         } else {
+            if !relative_window_rect.contains(&position) {
+                return;
+            }
+
             self.get_window_details_under_mouse(editor_state)
         };
 
@@ -379,9 +395,21 @@ impl MouseManager {
         renderer: &Renderer,
         window: &Window,
     ) {
+        let full_region = WindowDrawDetails {
+            id: 0,
+            region: renderer
+                .window_regions
+                .first()
+                .map_or(PixelRect::ZERO, |v| v.region),
+            grid_size: renderer
+                .window_regions
+                .first()
+                .map_or(GridSize::ZERO, |v| v.grid_size),
+        };
         let editor_state = EditorState {
             grid_scale: &renderer.grid_renderer.grid_scale,
             window_regions: &renderer.window_regions,
+            full_region,
             window,
             keyboard_manager,
         };
@@ -391,7 +419,7 @@ impl MouseManager {
                     (position.x as f32, position.y as f32).into(),
                     &editor_state,
                 );
-                if self.mouse_hidden {
+                if self.mouse_hidden && window.has_focus() {
                     window.set_cursor_visible(true);
                     self.mouse_hidden = false;
                 }
@@ -427,7 +455,10 @@ impl MouseManager {
             } => {
                 if key_event.state == ElementState::Pressed {
                     let window_settings = self.settings.get::<WindowSettings>();
-                    if window_settings.hide_mouse_when_typing && !self.mouse_hidden {
+                    if window_settings.hide_mouse_when_typing
+                        && !self.mouse_hidden
+                        && window.has_focus()
+                    {
                         window.set_cursor_visible(false);
                         self.mouse_hidden = true;
                     }

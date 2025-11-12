@@ -31,7 +31,7 @@ fn unregister_rightclick() -> Result<()> {
 fn register_rightclick_directory() -> Result<()> {
     let neovide_path = get_neovide_path();
     let neovide_description = "Open with Neovide";
-    let neovide_command = format!("{} \"%V\"", neovide_path);
+    let neovide_command = format!("{neovide_path} \"%V\"");
 
     let key = CURRENT_USER.create(REGISTRY_PATH_DIRECTORY)?;
     key.set_string("", neovide_description)?;
@@ -46,7 +46,7 @@ fn register_rightclick_directory() -> Result<()> {
 fn register_rightclick_file() -> Result<()> {
     let neovide_path = get_neovide_path();
     let neovide_description = "Open with Neovide";
-    let neovide_command = format!("{} \"%1\"", neovide_path);
+    let neovide_command = format!("{neovide_path} \"%1\"");
 
     let key = CURRENT_USER.create(REGISTRY_PATH_FOLDER)?;
     key.set_string("", neovide_description)?;

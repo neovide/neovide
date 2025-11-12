@@ -18,3 +18,10 @@ window containing Neovide to the front and activate it. This
 is useful for tools like neovim_remote which can manipulate
 neovim remotely or if long running tasks would like to
 activate the Neovide window after finishing.
+
+## Open Config File (Unreleased yet)
+
+Running the `NeovideConfig` command will open your Neovide
+configuration file for editing. This provides a simple and
+discoverable way to access your settings without needing to
+know the platform-specific path to the file.

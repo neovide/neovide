@@ -1,15 +1,15 @@
 use std::sync::{Arc, OnceLock};
 
-use log::trace;
-
 use anyhow::{Context, Result};
+use indoc::indoc;
+use log::trace;
 use nvim_rs::{call_args, error::CallError, rpc::model::IntoVal, Neovim, Value};
 use strum::AsRefStr;
 use tokio::sync::mpsc::unbounded_channel;
 
 use super::{show_error_message, Settings};
 use crate::{
-    bridge::NeovimWriter,
+    bridge::{nvim_dict, NeovimWriter},
     cmd_line::CmdLineSettings,
     profiling::{tracy_dynamic_zone, tracy_fiber_enter, tracy_fiber_leave},
     utils::handle_wslpaths,
@@ -53,7 +53,7 @@ impl SerialCommand {
         log::trace!("In Serial Command");
         let result = match self {
             SerialCommand::Keyboard(input_command) => {
-                trace!("Keyboard Input Sent: {}", input_command);
+                trace!("Keyboard Input Sent: {input_command}");
                 nvim.input(&input_command)
                     .await
                     .map(|_| ())
@@ -111,7 +111,7 @@ impl SerialCommand {
         };
 
         if let Err(error) = result {
-            log::error!("{:?}", error);
+            log::error!("{error:?}");
         }
     }
 }
@@ -155,20 +155,23 @@ async fn display_available_fonts(
     ].into_iter().map(|text| text.to_owned()).collect();
     content.extend(fonts);
 
-    nvim.command("split").await?;
-    nvim.command("noswapfile hide enew").await?;
-    nvim.command("setlocal buftype=nofile").await?;
-    nvim.command("setlocal bufhidden=hide").await?;
-    nvim.command("\"setlocal nobuflisted").await?;
-    nvim.command("\"lcd ~").await?;
-    nvim.command("file scratch").await?;
+    nvim.exec2(
+        indoc! {"
+            split
+            noswapfile hide enew
+            setlocal buftype=nofile
+            setlocal bufhidden=hide
+            file scratch
+            nnoremap <buffer> <CR> <cmd>lua vim.opt.guifont=vim.fn.getline('.')<CR>,
+        "},
+        nvim_dict! {},
+    )
+    .await?;
     let _ = nvim
         .call(
             "nvim_buf_set_lines",
             call_args![0i64, 0i64, -1i64, false, content],
         )
-        .await?;
-    nvim.command("nnoremap <buffer> <CR> <cmd>lua vim.opt.guifont=vim.fn.getline('.')<CR>")
         .await?;
     Ok(())
 }
@@ -186,9 +189,7 @@ impl ParallelCommand {
                 let _ = nvim
                     .exec_lua(
                         include_str!("../../lua/exit_handler.lua"),
-                        vec![Value::Boolean(
-                            settings.get::<CmdLineSettings>().server.is_some(),
-                        )],
+                        call_args![settings.get::<CmdLineSettings>().server.is_some()],
                     )
                     .await;
                 Ok(())
@@ -205,26 +206,25 @@ impl ParallelCommand {
             }
             ParallelCommand::FileDrop(path) => nvim
                 .exec_lua(
-                    &format!(
-                        "neovide.private.dropfile([[{}]], {})",
-                        handle_wslpaths(vec![path], settings.get::<CmdLineSettings>().wsl, false)
+                    "neovide.private.dropfile(...)",
+                    call_args![
+                        handle_wslpaths(vec![path], settings.get::<CmdLineSettings>().wsl)
                             .first()
-                            .unwrap(),
+                            .unwrap()
+                            .to_string(),
                         settings.get::<CmdLineSettings>().tabs
-                    ),
-                    Vec::new(),
+                    ],
                 )
                 .await
                 .map(|_| ()) // We don't care about the result
                 .context("FileDrop failed"),
             ParallelCommand::SetBackground(background) => nvim
-                .command(format!("set background={background}").as_str())
+                .set_option_value("background", Value::from(background), nvim_dict! {})
                 .await
                 .context("SetBackground failed"),
             ParallelCommand::DisplayAvailableFonts(fonts) => display_available_fonts(nvim, fonts)
                 .await
                 .context("DisplayAvailableFonts failed"),
-
             ParallelCommand::ShowError { lines } => {
                 // nvim.err_write(&message).await.ok();
                 // NOTE: https://github.com/neovim/neovim/issues/5067
@@ -237,7 +237,7 @@ impl ParallelCommand {
         };
 
         if let Err(error) = result {
-            log::error!("{:?}", error);
+            log::error!("{error:?}");
         }
     }
 }

@@ -141,6 +141,10 @@ pub struct CmdLineSettings {
     )]
     pub x11_wm_class_instance: String,
 
+    /// The custom icon to use for the app.
+    #[arg(long, env = "NEOVIDE_ICON")]
+    pub icon: Option<String>,
+
     #[command(flatten)]
     pub geometry: GeometryArgs,
 
@@ -215,7 +219,6 @@ pub fn handle_command_line_arguments(args: Vec<String>, settings: &Settings) -> 
         .chain(handle_wslpaths(
             mem::take(&mut cmdline.files_to_open),
             cmdline.wsl,
-            true,
         ))
         .chain(cmdline.neovim_args)
         .collect();
@@ -282,9 +285,9 @@ mod tests {
         assert_eq!(
             settings.get::<CmdLineSettings>().neovim_args,
             vec![
-                "'/mnt/c/Users/MyUser/foo.txt'",
-                "'/mnt/c/bar.md'",
-                "'/mnt/c/Program Files (x86)/Some Application/Settings.ini'"
+                "/mnt/c/Users/MyUser/foo.txt",
+                "/mnt/c/bar.md",
+                "/mnt/c/Program Files (x86)/Some Application/Settings.ini"
             ]
         );
     }
