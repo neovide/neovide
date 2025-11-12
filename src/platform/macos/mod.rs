@@ -1,11 +1,13 @@
+pub mod settings;
+
 use std::sync::Arc;
 use std::{os::raw::c_void, str};
 
 use objc2::{
-    declare_class, msg_send, msg_send_id, mutability,
-    rc::{autoreleasepool, Retained},
+    define_class, msg_send,
+    rc::Retained,
     runtime::{AnyClass, AnyObject, ClassBuilder},
-    sel, ClassType, DeclaredClass,
+    sel, AnyThread, MainThreadOnly,
 };
 use objc2_app_kit::{
     NSApplication, NSAutoresizingMaskOptions, NSColor, NSEvent, NSEventModifierFlags, NSImage,
@@ -26,32 +28,21 @@ use crate::{
 };
 use crate::{cmd_line::CmdLineSettings, error_msg, frame::Frame};
 
-use super::{WindowSettings, WindowSettingsChanged};
+use crate::window::{WindowSettings, WindowSettingsChanged};
 
-static NEOVIDE_ICON_PATH: &[u8] =
-    include_bytes!("../../extra/osx/Neovide.app/Contents/Resources/Neovide.icns");
+static DEFAULT_NEOVIDE_ICON_BYTES: &[u8] =
+    include_bytes!("../../../extra/osx/Neovide.app/Contents/Resources/Neovide.icns");
 
-#[derive(Clone)]
-struct TitlebarClickHandlerIvars {}
-
-declare_class!(
+define_class!(
     // A view to simulate the double-click-to-zoom effect for `--frame transparency`.
     #[derive(Debug)]
+    #[unsafe(super = NSView)]
+    #[thread_kind = MainThreadOnly]
     struct TitlebarClickHandler;
 
-    unsafe impl ClassType for TitlebarClickHandler {
-        type Super = NSView;
-        type Mutability = mutability::MainThreadOnly;
-        const NAME: &'static str = "TitlebarClickHandler";
-    }
-
-    impl DeclaredClass for TitlebarClickHandler {
-        type Ivars = TitlebarClickHandlerIvars;
-    }
-
-    unsafe impl TitlebarClickHandler {
-        #[method(mouseDown:)]
-        unsafe fn mouse_down(&self, event: &NSEvent) {
+    impl TitlebarClickHandler {
+        #[unsafe(method(mouseDown:))]
+        fn mouse_down(&self, event: &NSEvent) {
             if event.clickCount() == 2 {
                 self.window().unwrap().zoom(Some(self));
             }
@@ -60,8 +51,8 @@ declare_class!(
 );
 
 impl TitlebarClickHandler {
-    fn new(mtm: MainThreadMarker) -> Retained<TitlebarClickHandler> {
-        unsafe { msg_send_id![mtm.alloc(), init] }
+    fn new(mtm: MainThreadMarker) -> Retained<Self> {
+        unsafe { msg_send![Self::alloc(mtm), init] }
     }
 }
 
@@ -84,18 +75,25 @@ pub fn get_ns_window(window: &Window) -> Retained<NSWindow> {
     }
 }
 
-pub fn load_neovide_icon() -> Option<Retained<NSImage>> {
+fn load_icon_from_custom_path(icon_path: &str) -> Option<Retained<NSImage>> {
+    let path = NSString::from_str(icon_path);
+    NSImage::initWithContentsOfFile(NSImage::alloc(), &path)
+}
+
+fn load_icon_from_default_bytes() -> Option<Retained<NSImage>> {
     unsafe {
         let data = NSData::dataWithBytes_length(
-            NEOVIDE_ICON_PATH.as_ptr() as *mut c_void,
-            NEOVIDE_ICON_PATH.len(),
+            DEFAULT_NEOVIDE_ICON_BYTES.as_ptr() as *mut c_void,
+            DEFAULT_NEOVIDE_ICON_BYTES.len(),
         );
-
-        let icon_image: Option<Retained<NSImage>> =
-            NSImage::initWithData(NSImage::alloc(), data.as_ref());
-
-        icon_image
+        NSImage::initWithData(NSImage::alloc(), data.as_ref())
     }
+}
+
+fn load_neovide_icon(custom_icon_path: Option<&String>) -> Option<Retained<NSImage>> {
+    custom_icon_path
+        .and_then(|path| load_icon_from_custom_path(path))
+        .or_else(load_icon_from_default_bytes)
 }
 
 #[derive(Debug)]
@@ -126,7 +124,7 @@ impl MacosWindowFeature {
 
         let frame = settings.get::<CmdLineSettings>().frame;
         let titlebar_click_handler: Option<Retained<TitlebarClickHandler>> = match frame {
-            Frame::Transparent => unsafe {
+            Frame::Transparent => {
                 let titlebar_click_handler = TitlebarClickHandler::new(mtm);
 
                 // Add the titlebar_click_handler into the view of window.
@@ -142,8 +140,8 @@ impl MacosWindowFeature {
 
                 // Setup auto layout for titlebar_click_handler.
                 titlebar_click_handler.setAutoresizingMask(
-                    NSAutoresizingMaskOptions::NSViewWidthSizable
-                        | NSAutoresizingMaskOptions::NSViewMinYMargin,
+                    NSAutoresizingMaskOptions::ViewWidthSizable
+                        | NSAutoresizingMaskOptions::ViewMinYMargin,
                 );
                 titlebar_click_handler.setTranslatesAutoresizingMaskIntoConstraints(true);
 
@@ -151,7 +149,7 @@ impl MacosWindowFeature {
                     Self::titlebar_height_in_pixel(system_titlebar_height, window.scale_factor());
 
                 Some(titlebar_click_handler)
-            },
+            }
             _ => None,
         };
 
@@ -178,7 +176,7 @@ impl MacosWindowFeature {
     fn system_titlebar_height(mtm: MainThreadMarker) -> f64 {
         // Do a test to calculate this.
         let mock_content_rect = NSRect::new(NSPoint::new(100., 100.), NSSize::new(100., 100.));
-        let frame_rect = unsafe {
+        let frame_rect = {
             NSWindow::frameRectForContentRect_styleMask(
                 mock_content_rect,
                 NSWindowStyleMask::Titled,
@@ -245,38 +243,45 @@ impl MacosWindowFeature {
             self.display_deprecation_warning();
         }
         let [red, green, blue, alpha] = color.to_array();
-        unsafe {
-            let opaque = alpha >= 1.0;
-            let ns_background = NSColor::colorWithSRGBRed_green_blue_alpha(
+        let opaque = alpha >= 1.0;
+        let ns_background = if opaque && show_border {
+            NSColor::colorWithSRGBRed_green_blue_alpha(
                 red.into(),
                 green.into(),
                 blue.into(),
                 alpha.into(),
-            );
-            self.ns_window.setBackgroundColor(Some(&ns_background));
-            // If the shadow is enabled and the background color is not transparent, the window will have a grey border
-            // Workaround: Disable shadow when `show_border` is false
-            self.ns_window.setHasShadow(opaque && show_border);
-            // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
-            self.ns_window.setOpaque(opaque && show_border);
-            self.ns_window.invalidateShadow();
-        }
+            )
+        } else if !opaque {
+            // Use white with very low alpha to make borders rendering properly
+            NSColor::whiteColor().colorWithAlphaComponent(0.001)
+        } else {
+            NSColor::clearColor()
+        };
+        self.ns_window.setBackgroundColor(Some(&ns_background));
+        // Show shadow if window is opaque OR has border decoration
+        self.ns_window.setHasShadow(opaque || show_border);
+        // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
+        self.ns_window.setOpaque(opaque && show_border);
+        self.ns_window.invalidateShadow();
     }
 
     fn update_ns_background(&self, opaque: bool, show_border: bool) {
-        unsafe {
-            // Setting the background color to `NSColor::windowBackgroundColor()`
-            // makes the background opaque and draws a grey border around the window
-            let ns_background = match opaque && show_border {
-                true => NSColor::windowBackgroundColor(),
-                false => NSColor::clearColor(),
-            };
-            self.ns_window.setBackgroundColor(Some(&ns_background));
-            self.ns_window.setHasShadow(opaque);
-            // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
-            self.ns_window.setOpaque(opaque && show_border);
-            self.ns_window.invalidateShadow();
-        }
+        // Setting the background color to `NSColor::windowBackgroundColor()`
+        // makes the background opaque and draws a grey border around the window
+        let ns_background = if opaque && show_border {
+            NSColor::windowBackgroundColor()
+        } else if !opaque {
+            // Use white with very low alpha to make borders rendering properly
+            NSColor::whiteColor().colorWithAlphaComponent(0.001)
+        } else {
+            NSColor::clearColor()
+        };
+        self.ns_window.setBackgroundColor(Some(&ns_background));
+        // Show shadow if window is opaque OR has border decoration
+        self.ns_window.setHasShadow(opaque || show_border);
+        // Setting the window to opaque upon creation shows a permanent subtle grey border on the top edge of the window
+        self.ns_window.setOpaque(opaque && show_border);
+        self.ns_window.invalidateShadow();
     }
 
     /// Update background color, opacity, shadow and blur of a window.
@@ -329,41 +334,30 @@ impl MacosWindowFeature {
             app.activateIgnoringOtherApps(true);
 
             // Make sure the icon is loaded when launched from terminal
-            let icon = load_neovide_icon();
+            let icon = load_neovide_icon(self.settings.get::<CmdLineSettings>().icon.as_ref());
             let icon_ref: Option<&NSImage> = icon.as_ref().map(|img| img.as_ref());
             unsafe { app.setApplicationIconImage(icon_ref) }
         }
     }
 }
 
-#[derive(Clone)]
-struct QuitHandlerIvars {}
-
-declare_class!(
+define_class!(
     #[derive(Debug)]
+    #[unsafe(super = NSObject)]
+    #[thread_kind = MainThreadOnly]
     struct QuitHandler;
 
-    unsafe impl ClassType for QuitHandler {
-        type Super = NSObject;
-        type Mutability = mutability::MainThreadOnly;
-        const NAME: &'static str = "QuitHandler";
-    }
-
-    impl DeclaredClass for QuitHandler {
-        type Ivars = QuitHandlerIvars;
-    }
-
-    unsafe impl QuitHandler {
-        #[method(quit:)]
-        unsafe fn quit(&self, _event: &NSEvent) {
+    impl QuitHandler {
+        #[unsafe(method(quit:))]
+        fn quit(&self, _event: &NSEvent) {
             send_ui(SerialCommand::Keyboard("<D-q>".into()));
         }
     }
 );
 
 impl QuitHandler {
-    fn new(mtm: MainThreadMarker) -> Retained<QuitHandler> {
-        unsafe { msg_send_id![mtm.alloc(), init] }
+    fn new(mtm: MainThreadMarker) -> Retained<Self> {
+        unsafe { msg_send![Self::alloc(mtm), init] }
     }
 }
 
@@ -410,8 +404,7 @@ impl Menu {
             hide_others_item.setTitle(ns_string!("Hide Others"));
             hide_others_item.setKeyEquivalent(ns_string!("h"));
             hide_others_item.setKeyEquivalentModifierMask(
-                NSEventModifierFlags::NSEventModifierFlagOption
-                    | NSEventModifierFlags::NSEventModifierFlagCommand,
+                NSEventModifierFlags::Option | NSEventModifierFlags::Command,
             );
             hide_others_item.setAction(Some(sel!(hideOtherApplications:)));
             app_menu.addItem(&hide_others_item);
@@ -440,21 +433,19 @@ impl Menu {
 
         let main_menu = NSMenu::new(mtm);
 
-        unsafe {
-            let app_menu = self.add_app_menu(mtm);
-            let app_menu_item = NSMenuItem::new(mtm);
-            app_menu_item.setSubmenu(Some(&app_menu));
-            if let Some(services_menu) = app_menu.itemWithTitle(ns_string!("Services")) {
-                app.setServicesMenu(services_menu.submenu().as_deref());
-            }
-            main_menu.addItem(&app_menu_item);
-
-            let win_menu = self.add_window_menu(mtm);
-            let win_menu_item = NSMenuItem::new(mtm);
-            win_menu_item.setSubmenu(Some(&win_menu));
-            main_menu.addItem(&win_menu_item);
-            app.setWindowsMenu(Some(&win_menu));
+        let app_menu = self.add_app_menu(mtm);
+        let app_menu_item = NSMenuItem::new(mtm);
+        app_menu_item.setSubmenu(Some(&app_menu));
+        if let Some(services_menu) = app_menu.itemWithTitle(ns_string!("Services")) {
+            app.setServicesMenu(services_menu.submenu().as_deref());
         }
+        main_menu.addItem(&app_menu_item);
+
+        let win_menu = self.add_window_menu(mtm);
+        let win_menu_item = NSMenuItem::new(mtm);
+        win_menu_item.setSubmenu(Some(&win_menu));
+        main_menu.addItem(&win_menu_item);
+        app.setWindowsMenu(Some(&win_menu));
         app.setMainMenu(Some(&main_menu));
     }
 
@@ -468,8 +459,7 @@ impl Menu {
             full_screen_item.setKeyEquivalent(ns_string!("f"));
             full_screen_item.setAction(Some(sel!(toggleFullScreen:)));
             full_screen_item.setKeyEquivalentModifierMask(
-                NSEventModifierFlags::NSEventModifierFlagControl
-                    | NSEventModifierFlags::NSEventModifierFlagCommand,
+                NSEventModifierFlags::Control | NSEventModifierFlags::Command,
             );
             menu.addItem(&full_screen_item);
 
@@ -484,18 +474,17 @@ impl Menu {
 }
 
 pub fn register_file_handler() {
-    unsafe extern "C" fn handle_open_files(
+    // See signature at
+    // https://developer.apple.com/documentation/appkit/nsapplicationdelegate/application(_:openfiles:)?language=objc
+    unsafe extern "C-unwind" fn handle_open_files(
         _this: &mut AnyObject,
         _sel: objc2::runtime::Sel,
         _sender: &objc2::runtime::AnyObject,
-        files: &mut NSArray<NSString>,
+        filenames: &NSArray<NSString>,
     ) {
-        autoreleasepool(|pool| {
-            for file in files.iter() {
-                let path = file.as_str(pool).to_owned();
-                send_ui(ParallelCommand::FileDrop(path));
-            }
-        });
+        for filename in filenames.iter() {
+            send_ui(ParallelCommand::FileDrop(filename.to_string()));
+        }
     }
 
     let mtm = MainThreadMarker::new().expect("File handler must be registered on main thread.");
@@ -505,28 +494,29 @@ pub fn register_file_handler() {
         let delegate = app.delegate().unwrap();
 
         // Find out class of the NSApplicationDelegate
-        let class: &AnyClass = msg_send![&delegate, class];
+        let class: &AnyClass = AnyObject::class(delegate.as_ref());
 
         // register subclass of whatever was in delegate
-        let mut my_class = ClassBuilder::new("NeovideApplicationDelegate", class).unwrap();
+        let mut my_class = ClassBuilder::new(c"NeovideApplicationDelegate", class).unwrap();
         my_class.add_method(
             sel!(application:openFiles:),
-            handle_open_files as unsafe extern "C" fn(_, _, _, _) -> _,
+            handle_open_files as unsafe extern "C-unwind" fn(_, _, _, _) -> _,
         );
         let class = my_class.register();
 
         // this should be safe as:
         //  * our class is a subclass
         //  * no new ivars
-        //  * overriden methods are compatible with old (we implement protocol method)
-        let delegate_obj = Retained::cast::<AnyObject>(delegate);
-        AnyObject::set_class(&delegate_obj, class);
+        //  * overridden methods are compatible with old (we implement protocol method)
+        AnyObject::set_class(delegate.as_ref(), class);
+    }
 
-        // Prevent AppKit from interpreting our command line.
-        let key = NSString::from_str("NSTreatUnknownArgumentsAsOpen");
-        let keys = vec![key.as_ref()];
-        let objects = vec![Retained::cast::<AnyObject>(NSString::from_str("NO"))];
-        let dict = NSDictionary::from_vec(&keys, objects);
-        NSUserDefaults::standardUserDefaults().registerDefaults(dict.as_ref());
+    // Prevent AppKit from interpreting our command line.
+    let keys = &[ns_string!("NSTreatUnknownArgumentsAsOpen")];
+    // API requires `AnyObject[]` not `NSString[]`.
+    let objects = &[ns_string!("NO") as &AnyObject];
+    let dict = NSDictionary::from_slices(keys, objects);
+    unsafe {
+        NSUserDefaults::standardUserDefaults().registerDefaults(&dict);
     }
 }

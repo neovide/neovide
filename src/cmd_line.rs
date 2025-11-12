@@ -141,6 +141,10 @@ pub struct CmdLineSettings {
     )]
     pub x11_wm_class_instance: String,
 
+    /// The custom icon to use for the app.
+    #[arg(long, env = "NEOVIDE_ICON")]
+    pub icon: Option<String>,
+
     #[command(flatten)]
     pub geometry: GeometryArgs,
 
