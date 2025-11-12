@@ -488,8 +488,12 @@ impl WinitWindowWrapper {
 
     #[cfg(not(target_os = "macos"))]
     pub fn apply_blur(&mut self, blur: bool, _radius: Option<i64>) {
-        let WindowSettings { transparency, .. } = self.settings.get::<WindowSettings>();
-        let transparent = transparency < 1.0;
+        let WindowSettings {
+            opacity,
+            normal_opacity,
+            ..
+        } = self.settings.get::<WindowSettings>();
+        let transparent = opacity.min(normal_opacity) < 1.0;
 
         if let Some(skia_renderer) = &self.skia_renderer {
             skia_renderer.window().set_blur(blur && transparent);
