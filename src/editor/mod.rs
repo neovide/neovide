@@ -1,6 +1,7 @@
 mod cursor;
 mod draw_command_batcher;
 mod grid;
+mod intro;
 mod style;
 mod window;
 
@@ -18,7 +19,7 @@ use winit::window::Theme;
 use skia_safe::Color4f;
 
 use crate::{
-    bridge::{GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
+    bridge::{GridLineCell, GuiOption, NeovimHandler, RedrawEvent, WindowAnchor},
     profiling::{tracy_named_frame, tracy_zone},
     renderer::{DrawCommand, WindowDrawCommand},
     running_tracker::RunningTracker,
@@ -34,6 +35,8 @@ pub use cursor::{Cursor, CursorMode, CursorShape};
 pub use draw_command_batcher::DrawCommandBatcher;
 pub use style::{Colors, Style, UnderlineStyle};
 pub use window::*;
+
+use intro::{IntroMessageExtender, IntroProcessing};
 
 const MODE_CMDLINE: u64 = 4;
 pub const MSG_ZINDEX: u64 = 200; // See the documenation for nvim_open_win
@@ -101,6 +104,7 @@ pub struct Editor {
     #[allow(dead_code)]
     settings: Arc<Settings>,
     composition_order: u64,
+    intro_message_extender: IntroMessageExtender,
 }
 
 impl Editor {
@@ -116,6 +120,7 @@ impl Editor {
             settings,
             event_loop_proxy,
             composition_order: 0,
+            intro_message_extender: IntroMessageExtender::new(),
         }
     }
 
@@ -231,17 +236,8 @@ impl Editor {
             } => {
                 tracy_zone!("EditorGridLine");
                 self.set_ui_ready();
-                let defined_styles = &self.defined_styles;
-                let window = self.windows.get_mut(&grid);
-                if let Some(window) = window {
-                    window.draw_grid_line(
-                        &mut self.draw_command_batcher,
-                        row,
-                        column_start,
-                        cells,
-                        defined_styles,
-                    );
-                }
+                self.draw_grid_line(grid, row, column_start, &cells);
+                self.handle_intro_banner_for_line(grid, row, &cells);
             }
             RedrawEvent::Clear { grid } => {
                 tracy_zone!("EditorClear");
@@ -249,9 +245,11 @@ impl Editor {
                 if let Some(window) = window {
                     window.clear(&mut self.draw_command_batcher);
                 }
+                self.intro_message_extender.reset(grid);
             }
             RedrawEvent::Destroy { grid } => {
                 tracy_zone!("EditorDestroy");
+                self.intro_message_extender.reset(grid);
                 self.close_window(grid)
             }
             RedrawEvent::Scroll {
@@ -378,6 +376,13 @@ impl Editor {
             RedrawEvent::NeovideSetRedraw(enable) => self
                 .draw_command_batcher
                 .set_enabled(enable, &self.event_loop_proxy),
+            RedrawEvent::NeovideIntroBannerAllowed(allowed) => {
+                self.intro_message_extender.set_sponsor_allowed(
+                    allowed,
+                    &mut self.windows,
+                    &mut self.draw_command_batcher,
+                );
+            }
             _ => {}
         };
     }
@@ -636,6 +641,64 @@ impl Editor {
         self.cursor.grid_position = (grid_left, grid_top);
     }
 
+    fn draw_grid_line(&mut self, grid: u64, row: u64, column_start: u64, cells: &[GridLineCell]) {
+        if let Some(window) = self.windows.get_mut(&grid) {
+            window.draw_grid_line(
+                &mut self.draw_command_batcher,
+                row,
+                column_start,
+                cells.to_vec(),
+                &self.defined_styles,
+            );
+        }
+    }
+
+    fn handle_intro_banner_for_line(&mut self, grid: u64, row: u64, cells: &[GridLineCell]) {
+        if !self.intro_message_extender.sponsor_allowed() {
+            return;
+        }
+
+        match self.intro_message_extender.preprocess_line(grid, cells) {
+            IntroProcessing::Skip => return,
+            IntroProcessing::ClearBanner => {
+                self.intro_message_extender.maybe_hide_banner(
+                    grid,
+                    &mut self.windows,
+                    &mut self.draw_command_batcher,
+                );
+                return;
+            }
+            IntroProcessing::Process => {}
+        }
+
+        let line_text = grid_line_cells_to_text(cells);
+        let sponsor_banner_row = self
+            .intro_message_extender
+            .banner_injection_row(grid, row, &line_text);
+
+        self.maybe_inject_intro_banner(grid, sponsor_banner_row);
+        if sponsor_banner_row.is_none() {
+            self.intro_message_extender.maybe_hide_banner(
+                grid,
+                &mut self.windows,
+                &mut self.draw_command_batcher,
+            );
+        }
+    }
+
+    fn maybe_inject_intro_banner(&mut self, grid: u64, banner_row: Option<u64>) {
+        if let Some(start_row) = banner_row {
+            if let Some(window) = self.windows.get_mut(&grid) {
+                self.intro_message_extender.inject_banner(
+                    grid,
+                    window,
+                    start_row,
+                    &mut self.draw_command_batcher,
+                );
+            }
+        }
+    }
+
     fn send_cursor_info(&mut self) {
         tracy_zone!("send_cursor_info");
         let (grid_left, grid_top) = self.cursor.grid_position;
@@ -691,6 +754,16 @@ impl Editor {
     }
 }
 
+fn grid_line_cells_to_text(cells: &[GridLineCell]) -> String {
+    let mut text = String::new();
+    for cell in cells {
+        let repeat = cell.repeat.unwrap_or(1);
+        for _ in 0..repeat {
+            text.push_str(&cell.text);
+        }
+    }
+    text
+}
 pub fn start_editor(
     event_loop_proxy: EventLoopProxy<UserEvent>,
     running_tracker: RunningTracker,

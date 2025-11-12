@@ -134,6 +134,15 @@ impl Handler for NeovimHandler {
                     let _ = self.sender.send(RedrawEvent::NeovideSetRedraw(value));
                 }
             }
+            "neovide.intro_banner_allowed" => {
+                if let Some(value) = arguments.first() {
+                    if let Some(allowed) = value.as_bool() {
+                        let _ = self
+                            .sender
+                            .send(RedrawEvent::NeovideIntroBannerAllowed(allowed));
+                    }
+                }
+            }
             "neovide.progress_bar" => {
                 parse_progress_bar_event(arguments.first())
                     .map(|event| {
